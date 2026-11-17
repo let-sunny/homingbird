@@ -58,7 +58,9 @@ describe('draftFromMessage', () => {
   })
 
   it('refuses an email address nobody has', async () => {
-    const { result, calls } = await drafting({ message: { ...text('hi'), metadata: { to: 'nobody@example.com' } } })
+    const { result, calls } = await drafting({
+      message: { ...text('hi'), metadata: { to: 'nobody@example.com' } },
+    })
     expect(result).toMatchObject({
       _tag: 'Err',
       error: { code: RPC_CODE.invalidParams, message: 'No member has the email address nobody@example.com.' },
@@ -78,7 +80,9 @@ describe('draftFromMessage', () => {
     const { calls } = await drafting({
       message: { ...text('yes'), contextId: CONVERSATION_ID, metadata: { inReplyTo: DRAFT.id, to: BEN.id } },
     })
-    expect(calls).toEqual([{ name: 'drafts.create', request: { body: { body: 'yes', inReplyTo: DRAFT.id } } }])
+    expect(calls).toEqual([
+      { name: 'drafts.create', request: { body: { body: 'yes', inReplyTo: DRAFT.id } } },
+    ])
   })
 
   it('drafts into the conversation named by contextId', async () => {
@@ -88,8 +92,33 @@ describe('draftFromMessage', () => {
     ])
   })
 
+  it('drafts a question to the topic named in metadata, preferring it over a recipient', async () => {
+    const { result, calls } = await drafting({
+      message: { ...text('Who knows the billing export?'), metadata: { topic: 'billing', to: BEN.id } },
+    })
+    expect(result).toEqual({ _tag: 'Ok', value: DRAFT })
+    expect(calls).toEqual([
+      {
+        name: 'drafts.create',
+        request: { body: { body: 'Who knows the billing export?', topic: 'billing' } },
+      },
+    ])
+  })
+
+  it.each([['Billing'], [''], [7], ['has space']])(
+    'refuses a topic that is not a slug: %j',
+    async (topic) => {
+      const { result, calls } = await drafting({ message: { ...text('hi'), metadata: { topic } } })
+      expect(result).toMatchObject({ _tag: 'Err', error: { code: RPC_CODE.invalidParams } })
+      expect((result as any).error.message).toMatch(/topic slug/)
+      expect(calls).toEqual([])
+    },
+  )
+
   it('ignores a contextId that is not a conversation id', async () => {
-    const { calls } = await drafting({ message: { ...text('yes'), contextId: 'ctx-1', metadata: { to: BEN.id } } })
+    const { calls } = await drafting({
+      message: { ...text('yes'), contextId: 'ctx-1', metadata: { to: BEN.id } },
+    })
     expect(calls[0]!.request.body).toEqual({ body: 'yes', to: [BEN.id] })
   })
 

@@ -6,14 +6,22 @@ const card = agentCard('https://hb.example.com', '1.2.3') as any
 describe('agentCard', () => {
   it('advertises the JSON-RPC interface at /a2a for the supported protocol version', () => {
     expect(card.supportedInterfaces).toEqual([
-      { url: 'https://hb.example.com/a2a', protocolBinding: 'JSONRPC', protocolVersion: A2A_PROTOCOL_VERSION },
+      {
+        url: 'https://hb.example.com/a2a',
+        protocolBinding: 'JSONRPC',
+        protocolVersion: A2A_PROTOCOL_VERSION,
+      },
     ])
     expect(card.version).toBe('1.2.3')
     expect(card.name).toBe('Homingbird')
   })
 
   it('claims no capability the gateway refuses', () => {
-    expect(card.capabilities).toEqual({ streaming: false, pushNotifications: false, extendedAgentCard: false })
+    expect(card.capabilities).toEqual({
+      streaming: false,
+      pushNotifications: false,
+      extendedAgentCard: false,
+    })
     expect(card.defaultInputModes).toEqual(['text/plain'])
     expect(card.defaultOutputModes).toEqual(['text/plain'])
   })
@@ -23,6 +31,14 @@ describe('agentCard', () => {
     expect(card.skills).toHaveLength(1)
     expect(card.skills[0].description).toMatch(/input-required until the member approves/)
     expect(card.skills[0].examples[0]).toContain('june@example.com')
+  })
+
+  it('tells a remote agent how to name a colleague, a topic or a note to reply to', () => {
+    const { description } = card.skills[0]
+    expect(description).toContain('metadata.to')
+    expect(description).toContain('metadata.topic')
+    expect(description).toContain('general when unsure')
+    expect(description).toContain('metadata.inReplyTo')
   })
 
   it('points every OAuth scheme at this server and offers only the notes scope', () => {

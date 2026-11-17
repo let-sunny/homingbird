@@ -1,4 +1,21 @@
-import type { ConversationId, DraftRequest, NoteId } from '@homingbird/protocol'
+import type { ConversationId, CredentialId, DraftRequest, NoteId } from '@homingbird/protocol'
+
+export type DraftDestination =
+  | { readonly conversationId: ConversationId }
+  | { readonly inReplyTo: NoteId }
+  | { readonly topic: string }
+
+export interface AgentAsk {
+  readonly destination: DraftDestination
+  readonly instruction: string
+  readonly agentId: CredentialId | null
+}
+
+export const requestBody = (ask: AgentAsk) => ({
+  ...ask.destination,
+  ...(ask.instruction.trim() !== '' && { instruction: ask.instruction.trim() }),
+  ...(ask.agentId !== null && { agentId: ask.agentId }),
+})
 
 export const waitingRequests = (
   requests: ReadonlyArray<DraftRequest>,

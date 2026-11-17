@@ -39,11 +39,10 @@ export const taskViewOf = (note: Note, context: ViewContext): T.Task<TaskView, A
       artifacts: [],
     })
   const someoneReplied = note.receipts.some((receipt) => receipt.repliedAt !== null)
-  const everyoneReplied = someoneReplied && note.receipts.every((receipt) => receipt.repliedAt !== null)
   return T.map(
-    (replies: ReadonlyArray<Reply>): TaskView => ({
+    ({ replies, answered }: Answers): TaskView => ({
       ...base,
-      phase: everyoneReplied ? 'completed' : 'working',
+      phase: answered ? 'completed' : 'working',
       statusText: `Approved and sent. ${describeStatus(summarize(note.receipts))}.`,
       updatedAt: Math.max(note.updatedAt, ...note.receipts.map((receipt) => receipt.repliedAt ?? 0)),
       artifacts: replies.map(({ reply, authorName, authorEmail }) => ({
@@ -59,7 +58,12 @@ export const taskViewOf = (note: Note, context: ViewContext): T.Task<TaskView, A
         }),
       })),
     }),
-  )(someoneReplied ? repliesTo(note, context.api) : T.succeed([]))
+  )(someoneReplied ? answersTo(note, context.api) : T.succeed(UNANSWERED))
+}
+
+interface Answers {
+  readonly replies: ReadonlyArray<Reply>
+  readonly answered: boolean
 }
 
 interface Reply {
@@ -70,8 +74,11 @@ interface Reply {
 
 const REPLY_SEARCH_WINDOW = '200'
 
-const repliesTo = (note: Note, api: MemberApi): T.Task<ReadonlyArray<Reply>, ApiError> =>
+const UNANSWERED: Answers = { replies: [], answered: false }
+
+const answersTo = (note: Note, api: MemberApi): T.Task<Answers, ApiError> =>
   T.gen(function* () {
+    const conversation = yield* api['conversations.get']({ params: { id: note.conversationId } })
     const { notes } = yield* api['conversations.notes']({
       params: { id: note.conversationId },
       query: { limit: REPLY_SEARCH_WINDOW },
@@ -80,11 +87,15 @@ const repliesTo = (note: Note, api: MemberApi): T.Task<ReadonlyArray<Reply>, Api
     const members = new Map<MemberId, { name: string; email: string }>(
       entries.map((entry) => [entry.member.id, entry.member]),
     )
-    return notes
+    const replies = notes
       .filter((candidate) => candidate.inReplyTo === note.id && candidate.status === 'sent')
       .map((reply) => ({
         reply,
         authorName: members.get(reply.authorId)?.name ?? 'Unknown member',
         authorEmail: members.get(reply.authorId)?.email ?? 'unknown',
       }))
+    return { replies, answered: conversation.kind === 'topic' || isRepliedByEveryone(note) }
   })
+
+const isRepliedByEveryone = (note: Note): boolean =>
+  note.receipts.every((receipt) => receipt.repliedAt !== null)

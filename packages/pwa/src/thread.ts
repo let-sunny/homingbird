@@ -1,5 +1,6 @@
 import type {
   Conversation,
+  ConversationId,
   DirectoryEntry,
   DraftRequest,
   Member,
@@ -56,6 +57,17 @@ export const withReceipts = (
   receipts: ReadonlyArray<Receipt>,
 ): Note[] => notes.map((note) => (note.id === id ? { ...note, receipts } : note))
 
+export const withoutMovedQuestion = <Thread extends { readonly notes: ReadonlyArray<Note> }>(
+  threads: ReadonlyMap<ConversationId, Thread>,
+  from: ConversationId,
+  questionId: NoteId,
+): ReadonlyMap<ConversationId, Thread> => {
+  const thread = threads.get(from)
+  if (thread === undefined) return threads
+  const notes = thread.notes.filter((note) => note.id !== questionId && note.inReplyTo !== questionId)
+  return new Map(threads).set(from, { ...thread, notes })
+}
+
 export interface PresenceChange {
   readonly memberId: MemberId
   readonly humanOnline: boolean
@@ -98,10 +110,40 @@ export const conversationTitle = (
   viewerId: MemberId,
   unknownName: string,
 ): string =>
+  (conversation.kind === 'topic' && conversation.title !== null ? `#${conversation.title}` : null) ??
   conversation.title ??
   otherParticipants(conversation, viewerId)
     .map((memberId) => members.get(memberId)?.name ?? unknownName)
     .join(', ')
+
+export const showsAuthors = (conversation: Conversation | undefined): boolean =>
+  conversation !== undefined && conversation.kind !== 'dm'
+
+export const answeredBy = (note: Note): MemberId[] =>
+  note.receipts.filter((receipt) => receipt.state === 'replied').map((receipt) => receipt.memberId)
+
+export const isOpenQuestion = (note: Note, notes: ReadonlyArray<Note>): boolean =>
+  note.status === 'sent' &&
+  note.inReplyTo === null &&
+  answeredBy(note).length === 0 &&
+  !notes.some((other) => other.status === 'sent' && other.inReplyTo === note.id)
+
+export interface ReadProgress {
+  readonly read: number
+  readonly of: number
+  readonly drafting: number
+}
+
+export const readProgress = (receipts: ReadonlyArray<Receipt>): ReadProgress => ({
+  read: receipts.filter((receipt) => receipt.readAt !== null).length,
+  of: receipts.length,
+  drafting: receipts.filter((receipt) => receipt.state === 'drafting').length,
+})
+
+export const alternativesLeftAfterSending = (
+  item: Extract<ThreadItem, { type: 'drafts' }>,
+  sentId: NoteId,
+): Note[] => (item.inReplyTo === null ? item.drafts.filter((draft) => draft.id !== sentId) : [])
 
 export const excerpt = (text: string, length = 80): string => {
   const singleLine = text.replace(/\s+/g, ' ').trim()

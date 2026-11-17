@@ -84,6 +84,15 @@ export const emptyWithPip = (
   ...actions: ReadonlyArray<Child>
 ): HTMLElement => h('div', { class: 'empty' }, pip(state, scale), h('p', {}, text), ...actions)
 
+export const topicChips = (slugs: ReadonlyArray<string>): HTMLElement =>
+  h(
+    'ul',
+    { class: 'topic-chips' },
+    slugs.map((slug) =>
+      h('li', {}, h('a', { class: 'topic-chip', href: `#/t/${encodeURIComponent(slug)}` }, `#${slug}`)),
+    ),
+  )
+
 export const wordmark = (name: string): string => (name === 'Homingbird' ? 'homingbird' : name)
 
 const TIME = new Intl.DateTimeFormat('en', { hour: 'numeric', minute: '2-digit' })

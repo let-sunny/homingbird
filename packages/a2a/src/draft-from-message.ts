@@ -1,5 +1,13 @@
 import { type Result, Task as T, err, ok } from '@homingbird/kernel'
-import { type ApiError, ConversationId, MemberId, type Note, NoteBody, NoteId } from '@homingbird/protocol'
+import {
+  type ApiError,
+  ConversationId,
+  MemberId,
+  type Note,
+  NoteBody,
+  NoteId,
+  TopicSlug,
+} from '@homingbird/protocol'
 import { A2A_CODE } from './errors.ts'
 import { RpcFailure, invalidParams } from './json-rpc.ts'
 import type { MemberApi } from './member-api.ts'
@@ -21,10 +29,18 @@ export const draftFromMessage = (
     const conversationId = ConversationId.decode(message.contextId)
     if (conversationId._tag === 'Ok')
       return yield* api['drafts.create']({ body: { body, conversationId: conversationId.value } })
+    if (metadata.topic !== undefined) {
+      const topic = TopicSlug.decode(metadata.topic)
+      if (topic._tag === 'Err')
+        return yield* T.fail(
+          invalidParams('message.metadata.topic must be a topic slug from topics.list, such as general.'),
+        )
+      return yield* api['drafts.create']({ body: { body, topic: topic.value } })
+    }
     if (typeof metadata.to !== 'string')
       return yield* T.fail(
         invalidParams(
-          'Name the recipient: set message.metadata.to to a member id or email address, message.metadata.inReplyTo to a note id, or message.contextId to a conversation id.',
+          'Name the recipient: set message.metadata.to to a member id or email address, message.metadata.topic to a topic slug, message.metadata.inReplyTo to a note id, or message.contextId to a conversation id.',
         ),
       )
     const recipient = yield* recipientNamed(metadata.to, api)

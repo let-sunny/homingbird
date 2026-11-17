@@ -24,7 +24,9 @@ const gateway = (stubs: Stubs = HAPPY) => {
   return { call, calls: fake.calls, context }
 }
 
-const MESSAGE = { message: { messageId: 'm1', role: 'ROLE_USER', parts: [{ text: 'hi' }], metadata: { to: BEN.id } } }
+const MESSAGE = {
+  message: { messageId: 'm1', role: 'ROLE_USER', parts: [{ text: 'hi' }], metadata: { to: BEN.id } },
+}
 
 const CURRENT_METHODS = ['SendMessage', 'GetTask', 'CancelTask'] as const
 const LEGACY_METHODS = ['message/send', 'tasks/get', 'tasks/cancel'] as const
@@ -54,7 +56,7 @@ describe('handleA2aMessage', () => {
   ])('answers %s with the current state of the note', async (method, state) => {
     const { call, calls } = gateway({ 'notes.get': () => SENT })
     const answer = await call(method, { id: SENT.id })
-    expect((answer.result.status ?? answer.result.task?.status).state).toBe(state)
+    expect((answer.result.status ?? answer.result.task.status).state).toBe(state)
     expect(calls).toEqual([{ name: 'notes.get', request: { params: { id: SENT.id } } }])
   })
 
@@ -72,13 +74,16 @@ describe('handleA2aMessage', () => {
     },
   )
 
-  it.each(['CancelTask', 'tasks/cancel'])('%s can never cancel: discarding is a person’s decision', async (method) => {
-    const { call, calls } = gateway()
-    const answer = await call(method, { id: DRAFT.id })
-    expect(answer.error.code).toBe(A2A_CODE.taskNotCancelable)
-    expect(answer.error.message).toMatch(/Only the member's human can discard/)
-    expect(calls.map((one) => one.name)).toEqual(['notes.get'])
-  })
+  it.each(['CancelTask', 'tasks/cancel'])(
+    '%s can never cancel: discarding is a person’s decision',
+    async (method) => {
+      const { call, calls } = gateway()
+      const answer = await call(method, { id: DRAFT.id })
+      expect(answer.error.code).toBe(A2A_CODE.taskNotCancelable)
+      expect(answer.error.message).toMatch(/Only the member's human can discard/)
+      expect(calls.map((one) => one.name)).toEqual(['notes.get'])
+    },
+  )
 
   it.each([
     'SendStreamingMessage',
@@ -135,7 +140,9 @@ describe('handleA2aMessage', () => {
 
   it('answers nothing to a notification', async () => {
     const { context } = gateway()
-    expect(await T.runPromise(handleA2aMessage({ jsonrpc: '2.0', method: 'GetTask', params: {} }, context))).toBeNull()
+    expect(
+      await T.runPromise(handleA2aMessage({ jsonrpc: '2.0', method: 'GetTask', params: {} }, context)),
+    ).toBeNull()
   })
 
   it('reports a refusal by the server as a JSON-RPC error with its message', async () => {

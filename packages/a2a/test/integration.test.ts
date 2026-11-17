@@ -27,8 +27,12 @@ afterEach(() => server.close())
 
 let nextId = 1
 const a2a = async (agent: Agent, method: string, params: unknown) =>
-  (await server.request('POST', '/a2a', { token: agent.token, body: { jsonrpc: '2.0', id: nextId++, method, params } }))
-    .json
+  (
+    await server.request('POST', '/a2a', {
+      token: agent.token,
+      body: { jsonrpc: '2.0', id: nextId++, method, params },
+    })
+  ).json
 
 const say = (text: string, metadata: Record<string, unknown>, extra: Record<string, unknown> = {}) => ({
   message: { messageId: `m${nextId}`, role: 'ROLE_USER', parts: [{ text }], metadata, ...extra },
@@ -77,7 +81,11 @@ describe('the A2A gateway on a running server', () => {
     await ana.api('POST', `/drafts/${taskId}/send`, {})
     expect((await a2a(anaAgent, 'GetTask', { id: taskId })).result.status.state).toBe('TASK_STATE_WORKING')
 
-    const reply = await a2a(benAgent, 'SendMessage', say('Yes, after the nightly export.', { inReplyTo: taskId }))
+    const reply = await a2a(
+      benAgent,
+      'SendMessage',
+      say('Yes, after the nightly export.', { inReplyTo: taskId }),
+    )
     expect(reply.result.task.status.state).toBe('TASK_STATE_INPUT_REQUIRED')
     const drafting = await a2a(anaAgent, 'GetTask', { id: taskId })
     expect(drafting.result.status.state).toBe('TASK_STATE_WORKING')
@@ -90,15 +98,21 @@ describe('the A2A gateway on a running server', () => {
     expect(done.result.status.state).toBe('TASK_STATE_COMPLETED')
     expect(done.result.artifacts).toHaveLength(1)
     const artifact: string = done.result.artifacts[0].parts[0].text
-    expect(artifact.startsWith(`<${WRAPPER_TAG} id="${reply.result.task.id}" from="Ben &lt;ben@example.com&gt;"`)).toBe(
-      true,
-    )
+    expect(
+      artifact.startsWith(`<${WRAPPER_TAG} id="${reply.result.task.id}" from="Ben &lt;ben@example.com&gt;"`),
+    ).toBe(true)
     expect(artifact).toContain('Yes, after the nightly export.')
   })
 
   it('speaks the 0.3 dialect to callers that use its method names', async () => {
     const sent = await a2a(anaAgent, 'message/send', {
-      message: { kind: 'message', messageId: 'm', role: 'user', parts: [{ kind: 'text', text: 'hello' }], metadata: { to: ben.me.member.id } },
+      message: {
+        kind: 'message',
+        messageId: 'm',
+        role: 'user',
+        parts: [{ kind: 'text', text: 'hello' }],
+        metadata: { to: ben.me.member.id },
+      },
     })
     expect(sent.result).toMatchObject({ kind: 'task', status: { state: 'input-required' } })
     const fetched = await a2a(anaAgent, 'tasks/get', { id: sent.result.id })
@@ -154,7 +168,10 @@ describe('the A2A gateway on a running server', () => {
     expect(await noteStatus(ana, taskId)).toBe('draft')
     expect((await ben.api('GET', '/inbox')).json.items).toEqual([])
     expect((await ben.api('GET', '/events/poll?after=0')).json.events).toEqual([])
-    const direct = await server.request('POST', `/api/v1/drafts/${taskId}/send`, { token: anaAgent.token, body: {} })
+    const direct = await server.request('POST', `/api/v1/drafts/${taskId}/send`, {
+      token: anaAgent.token,
+      body: {},
+    })
     expect(direct.status).toBe(403)
   })
 

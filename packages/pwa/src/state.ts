@@ -10,6 +10,7 @@ import type {
   MemberId,
   Note,
   ServerInfo,
+  Topic,
 } from '@homingbird/protocol'
 import { derived, signal } from '@homingbird/ui'
 import { type Route, parseRoute } from './routes.ts'
@@ -45,6 +46,7 @@ export const announcement = signal('')
 export const sendingIn = signal<ReadonlySet<ConversationId>>(new Set())
 export const draftRequests = signal<ReadonlyArray<DraftRequest>>([])
 export const agentCredentials = signal<ReadonlyArray<Credential>>([])
+export const topics = signal<ReadonlyArray<Topic>>([])
 export const replyTargets = signal<ReadonlyMap<ConversationId, string | null>>(new Map())
 
 export const members = derived(

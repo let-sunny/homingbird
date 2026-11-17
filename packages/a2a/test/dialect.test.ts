@@ -92,7 +92,9 @@ describe('both dialects', () => {
           phase: fc.constantFrom(...PHASES),
           statusText: fc.string(),
           updatedAt: fc.integer({ min: 0, max: 4_000_000_000_000 }),
-          artifacts: fc.array(fc.record({ id: fc.string(), name: fc.string(), text: fc.string() }), { maxLength: 3 }),
+          artifacts: fc.array(fc.record({ id: fc.string(), name: fc.string(), text: fc.string() }), {
+            maxLength: 3,
+          }),
           metadata: fc.constant({}),
         }),
         (generated) => {

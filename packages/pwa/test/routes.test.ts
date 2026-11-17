@@ -7,6 +7,8 @@ const segment = fc.string({ minLength: 1, maxLength: 24 })
 const routes: fc.Arbitrary<Route> = fc.oneof(
   fc.constant<Route>({ name: 'home' }),
   fc.constant<Route>({ name: 'people' }),
+  fc.constant<Route>({ name: 'topics' }),
+  segment.map((slug): Route => ({ name: 'topic', slug })),
   fc.constant<Route>({ name: 'profile' }),
   fc.constant<Route>({ name: 'credentials' }),
   segment.map((id): Route => ({ name: 'conversation', id })),
@@ -14,7 +16,7 @@ const routes: fc.Arbitrary<Route> = fc.oneof(
   fc.option(segment, { nil: null }).map((code): Route => ({ name: 'device', code })),
   fc.string({ maxLength: 40 }).map((query): Route => ({ name: 'search', query })),
   fc
-    .constantFrom<AdminSection>('settings', 'members', 'audit')
+    .constantFrom<AdminSection>('settings', 'members', 'topics', 'audit')
     .map((section): Route => ({ name: 'admin', section })),
   fc
     .option(fc.string({ maxLength: 60 }), { nil: null })
@@ -41,6 +43,10 @@ describe('routes', () => {
     ['#/admin/nonsense', { name: 'admin', section: 'settings' }],
     ['#/search?q=billing', { name: 'search', query: 'billing' }],
     ['#/search', { name: 'search', query: '' }],
+    ['#/topics', { name: 'topics' }],
+    ['#/t/billing', { name: 'topic', slug: 'billing' }],
+    ['#/t', { name: 'unknown' }],
+    ['#/admin/topics', { name: 'admin', section: 'topics' }],
     ['#/c', { name: 'unknown' }],
     ['#/consent', { name: 'unknown' }],
     ['#/nowhere', { name: 'unknown' }],

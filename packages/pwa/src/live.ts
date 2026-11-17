@@ -12,7 +12,7 @@ import {
 import { upsertRequest } from './draft-requests.ts'
 import { announcement, directory, draftRequests, members, route, signedIn, threads } from './state.ts'
 import { strings } from './strings.ts'
-import { withPresence, withReceipts } from './thread.ts'
+import { withPresence, withReceipts, withoutMovedQuestion } from './thread.ts'
 
 export const applyEvent = (event: StreamEvent): void => {
   const body = event.body
@@ -32,6 +32,10 @@ export const applyEvent = (event: StreamEvent): void => {
               notes: withReceipts(thread.notes, body.noteId, body.receipts),
             })
       })
+      break
+    case 'note.moved':
+      threads.update((all) => withoutMovedQuestion(all, body.fromConversationId, body.noteId))
+      launch(loadConversations)
       break
     case 'draft.saved':
       rememberNote(body.note)

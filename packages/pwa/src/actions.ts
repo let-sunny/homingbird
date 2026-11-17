@@ -11,8 +11,9 @@ import type {
   Note,
   NoteId,
   Settings,
+  Topic,
 } from '@homingbird/protocol'
-import { upsertRequest } from './draft-requests.ts'
+import { type AgentAsk, requestBody, upsertRequest } from './draft-requests.ts'
 import { applyEvent } from './live.ts'
 import { hrefFor } from './routes.ts'
 import {
@@ -31,6 +32,7 @@ import {
   session,
   signedIn,
   threads,
+  topics,
 } from './state.ts'
 import { strings } from './strings.ts'
 import { noteAwaitingReply, upsertNote, withoutNote } from './thread.ts'
@@ -66,6 +68,7 @@ export const loadWorkspace: Action = T.gen(function* () {
   directory.set(people.entries)
   contacts.set(ties.contacts)
   yield* loadAgents
+  yield* loadTopics('')
 })
 
 export const loadAgents: Action = T.gen(function* () {
@@ -76,23 +79,11 @@ export const loadAgents: Action = T.gen(function* () {
   )
 })
 
-export interface AgentAsk {
-  readonly conversationId: ConversationId
-  readonly inReplyTo: NoteId | null
-  readonly instruction: string
-  readonly agentId: CredentialId | null
-}
-
-export const askAgent = (ask: AgentAsk): Action =>
-  T.map((request: DraftRequest) => draftRequests.update((all) => upsertRequest(all, request)))(
-    api['draftRequests.create']({
-      body: {
-        ...(ask.inReplyTo === null ? { conversationId: ask.conversationId } : { inReplyTo: ask.inReplyTo }),
-        ...(ask.instruction !== '' && { instruction: ask.instruction }),
-        ...(ask.agentId !== null && { agentId: ask.agentId }),
-      },
-    }),
-  )
+export const askAgent = (ask: AgentAsk): Action<DraftRequest> =>
+  T.map((request: DraftRequest) => {
+    draftRequests.update((all) => upsertRequest(all, request))
+    return request
+  })(api['draftRequests.create']({ body: requestBody(ask) }))
 
 export const withdrawRequest = (request: DraftRequest): Action =>
   T.map((cancelled: DraftRequest) => draftRequests.update((all) => upsertRequest(all, cancelled)))(
@@ -147,7 +138,11 @@ const deliverNote = (conversationId: ConversationId, body: string): Action =>
     yield* loadConversations
   })
 
-export const approveDraft = (draft: Note, editedBody?: string): Action =>
+export const approveDraft = (
+  draft: Note,
+  editedBody?: string,
+  alternatives: ReadonlyArray<Note> = [],
+): Action =>
   T.gen(function* () {
     rememberNote(
       yield* api['drafts.send']({
@@ -155,6 +150,8 @@ export const approveDraft = (draft: Note, editedBody?: string): Action =>
         body: editedBody === undefined ? {} : { body: editedBody },
       }),
     )
+    for (const alternative of alternatives)
+      yield* T.result(api['drafts.discard']({ params: { id: alternative.id } }))
     yield* loadThread(draft.conversationId)
     yield* loadConversations
   })
@@ -168,6 +165,58 @@ export const discardDraft = (draft: Note): Action =>
     forgetNote(draft.conversationId, draft.id)
     yield* loadConversations
   })
+
+export const loadTopics = (query: string): Action<ReadonlyArray<Topic>> =>
+  T.map((listed: { topics: ReadonlyArray<Topic> }) => {
+    if (query === '') topics.set(listed.topics)
+    return listed.topics
+  })(api['topics.list']({ query: query === '' ? {} : { q: query } }))
+
+export const createTopic = (slug: string, description: string): Action<Topic> =>
+  T.gen(function* () {
+    const created = yield* api['topics.create']({ body: { slug, description } })
+    yield* afterTopicChange
+    return created
+  })
+
+export const setHelping = (slug: string, helping: boolean): Action =>
+  T.gen(function* () {
+    yield* (helping ? api['topics.help'] : api['topics.leave'])({ params: { slug } })
+    yield* afterTopicChange
+  })
+
+export const askTopic = (slug: string, body: string): Action<ConversationId> =>
+  T.gen(function* () {
+    const draft = yield* api['drafts.create']({ body: { body, topic: slug } })
+    yield* api['drafts.send']({ params: { id: draft.id }, body: {} })
+    yield* loadConversations
+    return draft.conversationId
+  })
+
+export const moveQuestion = (note: Note, slug: string): Action =>
+  T.gen(function* () {
+    yield* api['notes.move']({ params: { id: note.id }, body: { topic: slug } })
+    forgetNote(note.conversationId, note.id)
+    yield* afterTopicChange
+  })
+
+export const readdressDraft = (draft: Note, slug: string): Action =>
+  T.gen(function* () {
+    const moved = yield* api['drafts.create']({ body: { body: draft.body, topic: slug } })
+    yield* api['drafts.discard']({ params: { id: draft.id } })
+    forgetNote(draft.conversationId, draft.id)
+    yield* loadConversations
+    location.hash = hrefFor({ name: 'conversation', id: moved.conversationId })
+  })
+
+export const reviseTopic = (slug: string, changes: { slug?: string; description?: string }): Action =>
+  T.flatMap(() => afterTopicChange)(api['admin.topics.update']({ params: { slug }, body: changes }))
+
+export const mergeTopic = (slug: string, into: string): Action =>
+  T.flatMap(() => afterTopicChange)(api['admin.topics.merge']({ params: { slug }, body: { into } }))
+
+export const removeTopic = (slug: string): Action =>
+  T.flatMap(() => afterTopicChange)(api['admin.topics.remove']({ params: { slug } }))
 
 export const markRead = (note: Note): Action =>
   T.map(rememberNote)(api['notes.read']({ params: { id: note.id } }))
@@ -224,7 +273,8 @@ export const replyTargetIn = (conversationId: ConversationId): NoteId | null => 
   if (chosen !== undefined) return chosen as NoteId | null
   const me = signedIn()
   const notes = threads.get().get(conversationId)?.notes ?? []
-  return me === null ? null : (noteAwaitingReply(notes, me.member.id)?.id ?? null)
+  const kind = conversations.get().find((conversation) => conversation.id === conversationId)?.kind
+  return me === null || kind === 'topic' ? null : (noteAwaitingReply(notes, me.member.id)?.id ?? null)
 }
 
 export const rememberNote = (note: Note): void =>
@@ -243,6 +293,10 @@ export const forgetNote = (conversationId: ConversationId, id: NoteId): void =>
       ? all
       : new Map(all).set(conversationId, { ...thread, notes: withoutNote(thread.notes, id) })
   })
+
+const afterTopicChange: Action = T.gen(function* () {
+  yield* T.all([loadTopics(''), loadConversations, loadPeople])
+})
 
 const loadBranding: T.Task<Branding> = T.catchAll(() => T.succeed(branding.get()))(
   T.tryPromise(

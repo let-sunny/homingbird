@@ -1,4 +1,12 @@
-import { Conflict, Forbidden, Invalid, NotFound, RateLimited, Unauthorized, Unavailable } from '@homingbird/protocol'
+import {
+  Conflict,
+  Forbidden,
+  Invalid,
+  NotFound,
+  RateLimited,
+  Unauthorized,
+  Unavailable,
+} from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import { A2A_CODE, rpcFailureOf } from '../src/errors.ts'
 import { RPC_CODE, RpcFailure } from '../src/json-rpc.ts'

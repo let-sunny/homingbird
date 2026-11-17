@@ -2,6 +2,8 @@ export type Route =
   | { readonly name: 'home' }
   | { readonly name: 'conversation'; readonly id: string }
   | { readonly name: 'people' }
+  | { readonly name: 'topics' }
+  | { readonly name: 'topic'; readonly slug: string }
   | { readonly name: 'search'; readonly query: string }
   | { readonly name: 'profile' }
   | { readonly name: 'credentials' }
@@ -11,7 +13,7 @@ export type Route =
   | { readonly name: 'signed-out'; readonly reason: string | null }
   | { readonly name: 'unknown' }
 
-export type AdminSection = 'settings' | 'members' | 'audit'
+export type AdminSection = 'settings' | 'members' | 'topics' | 'audit'
 
 export const parseRoute = (hash: string): Route => {
   const [path = '', search = ''] = hash.replace(/^#\/?/, '').split('?')
@@ -23,6 +25,8 @@ export const parseRoute = (hash: string): Route => {
   if (head === '') return { name: 'home' }
   if (head === 'c' && second !== undefined) return { name: 'conversation', id: second }
   if (head === 'people') return { name: 'people' }
+  if (head === 'topics') return { name: 'topics' }
+  if (head === 't' && second !== undefined) return { name: 'topic', slug: second }
   if (head === 'search') return { name: 'search', query: parameters.get('q') ?? '' }
   if (head === 'me') return { name: 'profile' }
   if (head === 'credentials') return { name: 'credentials' }
@@ -42,6 +46,10 @@ export const hrefFor = (route: Route): string => {
       return `#/c/${encodeURIComponent(route.id)}`
     case 'people':
       return '#/people'
+    case 'topics':
+      return '#/topics'
+    case 'topic':
+      return `#/t/${encodeURIComponent(route.slug)}`
     case 'search':
       return `#/search?${new URLSearchParams({ q: route.query }).toString()}`
     case 'profile':
@@ -64,7 +72,7 @@ export const hrefFor = (route: Route): string => {
 export const signInHref = (hash: string): string =>
   `/auth/login?${new URLSearchParams({ return_to: `/${hash.startsWith('#/signed-out') ? '' : hash}` }).toString()}`
 
-const ADMIN_SECTIONS: ReadonlyArray<AdminSection> = ['settings', 'members', 'audit']
+const ADMIN_SECTIONS: ReadonlyArray<AdminSection> = ['settings', 'members', 'topics', 'audit']
 
 const isAdminSection = (value: string | undefined): value is AdminSection =>
   ADMIN_SECTIONS.includes(value as AdminSection)
