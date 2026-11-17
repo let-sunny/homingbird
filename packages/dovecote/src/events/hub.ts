@@ -9,7 +9,10 @@ export interface Hub {
     signal: AbortSignal,
   ) => Subscription<StreamEvent>
   readonly presenceOf: (memberId: MemberId) => Presence
+  readonly flushPresence: () => void
 }
+
+export const PRESENCE_FLUSH_INTERVAL_MS = 1_000
 
 export const makeHub = (now: () => number): Hub => {
   const channels = new Map<MemberId, Channel>()
@@ -19,17 +22,20 @@ export const makeHub = (now: () => number): Hub => {
     return { humanOnline: (connections?.human ?? 0) > 0, agentOnline: (connections?.agent ?? 0) > 0 }
   }
 
-  const announce = (memberId: MemberId): void => {
-    const event: StreamEvent = {
-      seq: 0,
-      at: now(),
-      body: { type: 'presence', memberId, ...presenceOf(memberId) },
-    }
+  const changed = new Set<MemberId>()
+  const announce = (memberId: MemberId): void => void changed.add(memberId)
+
+  const flushPresence = (): void => {
+    if (changed.size === 0) return
+    const members = [...changed].map((memberId) => ({ memberId, ...presenceOf(memberId) }))
+    changed.clear()
+    const event: StreamEvent = { seq: 0, at: now(), body: { type: 'presence', members } }
     for (const channel of channels.values()) channel.pubsub.publish(event)
   }
 
   return {
     presenceOf,
+    flushPresence,
     publish: (memberId, event) => channels.get(memberId)?.pubsub.publish(event),
     subscribe: (memberId, shownAs, signal) => {
       const channel = channels.get(memberId) ?? {

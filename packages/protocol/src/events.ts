@@ -8,7 +8,9 @@ export const EventBody = S.variants('type', {
   'draft.saved': { note: Note },
   'draft.discarded': { noteId: NoteId, conversationId: ConversationId },
   'contact.changed': { memberId: MemberId },
-  presence: { memberId: MemberId, humanOnline: S.boolean, agentOnline: S.boolean },
+  presence: {
+    members: S.array(S.struct({ memberId: MemberId, humanOnline: S.boolean, agentOnline: S.boolean })),
+  },
   resync: {},
 })
 export type EventBody = S.Infer<typeof EventBody>

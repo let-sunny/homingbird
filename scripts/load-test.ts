@@ -221,8 +221,9 @@ async function runServer(): Promise<void> {
   })
   if (config._tag === 'Err') throw new Error(config.error.join('; '))
   const database = await openDatabase(databaseUrl)
-  const { env } = buildRuntime({ config: config.value, database, log: () => {} })
+  const { env, background } = buildRuntime({ config: config.value, database, log: () => {} })
   await T.runPromise(migrate, env)
+  T.runFork(background, env)
   const seats: Seat[] = []
   for (let index = 0; index < members; index++) {
     const email = `member${index}@example.com`

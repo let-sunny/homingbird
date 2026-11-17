@@ -6,7 +6,7 @@ import { type AuditRecord, deleteAuditBefore } from './domain/audit.ts'
 import { readSettings } from './domain/settings.ts'
 import type { AppEnv } from './environment.ts'
 import { deleteEventsBefore } from './events/events.ts'
-import { makeHub } from './events/hub.ts'
+import { PRESENCE_FLUSH_INTERVAL_MS, makeHub } from './events/hub.ts'
 import { makeRateLimiter } from './http/rate-limiter.ts'
 import { makePushNotifier } from './push/notifier.ts'
 import { cryptoRandom } from './random.ts'
@@ -45,7 +45,7 @@ export const buildRuntime = (parts: RuntimeParts): Runtime => {
     pushSink: push.consider,
     log,
   }
-  return { env, background: T.race([housekeeping, forwarder.run, push.run]) }
+  return { env, background: T.race([housekeeping, presenceBroadcast, forwarder.run, push.run]) }
 }
 
 export const housekeeping: T.Task<never, never, AppEnv> = T.forever(60 * 60_000)(
@@ -58,6 +58,10 @@ export const housekeeping: T.Task<never, never, AppEnv> = T.forever(60 * 60_000)
     if (settings.auditRetentionDays !== null)
       yield* deleteAuditBefore(now - settings.auditRetentionDays * DAY_MS)
   }),
+)
+
+export const presenceBroadcast: T.Task<never, never, AppEnv> = T.forever(PRESENCE_FLUSH_INTERVAL_MS)(
+  T.map((env: AppEnv) => env.hub.flushPresence())(T.ask<AppEnv>()),
 )
 
 const DAY_MS = 24 * 60 * 60_000
