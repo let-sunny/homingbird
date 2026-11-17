@@ -40,6 +40,7 @@ export const threadView = (life: Lifetime, me: Me, id: ConversationId): HTMLElem
       return thread.notes.length === 0 && emptyWithPip('waving', 4, strings.emptyThread)
     }),
     list,
+    h('p', { class: 'newer-below', 'aria-hidden': 'true' }, `↓ ${strings.newerBelow}`),
   )
   return h('section', { class: 'thread' }, threadHead(life, me, id), scroller, composer(life, me, id))
 }

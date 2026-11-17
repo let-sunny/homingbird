@@ -10,8 +10,10 @@ describe('memberApiOf', () => {
     expect(exposed.sort()).toEqual([...MEMBER_ROUTES].sort())
   })
 
-  it('exposes every route that is open to any member', () => {
-    const open = (Object.keys(contract) as RouteName[]).filter((name) => !humanOnlyRoutes.includes(name))
+  it('exposes every route that is open to any member, except browser push routes', () => {
+    const open = (Object.keys(contract) as RouteName[]).filter(
+      (name) => !humanOnlyRoutes.includes(name) && !name.startsWith('push.'),
+    )
     expect([...MEMBER_ROUTES].sort()).toEqual(open.sort())
     expect(MEMBER_ROUTES).toContain('drafts.create')
     expect(MEMBER_ROUTES).not.toContain('drafts.send')
@@ -19,6 +21,7 @@ describe('memberApiOf', () => {
     expect(MEMBER_ROUTES).not.toContain('credentials.list')
     expect(MEMBER_ROUTES).not.toContain('contacts.request')
     expect(MEMBER_ROUTES).not.toContain('blocks.add')
+    expect(MEMBER_ROUTES.filter((name) => name.startsWith('push.'))).toEqual([])
   })
 
   it('passes calls through to the underlying route', () => {

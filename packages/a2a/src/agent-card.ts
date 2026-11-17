@@ -18,7 +18,7 @@ export const agentCard = (publicUrl: string, version: string): Readonly<Record<s
       description:
         'Drafts a text note from the authenticated member to a colleague, or a reply to a note they received. The task stays input-required until the member approves the note, is working while the colleague reads and answers, and completes with the reply as an artifact.',
       tags: ['messaging', 'human-in-the-loop'],
-      examples: ['Ask jimin@example.com whether the billing migration is safe to run today.'],
+      examples: ['Ask june@example.com whether the billing migration is safe to run today.'],
       inputModes: ['text/plain'],
       outputModes: ['text/plain'],
     },

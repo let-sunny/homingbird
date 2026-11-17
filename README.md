@@ -26,6 +26,7 @@
 - [How it works](#how-it-works)
 - [Install](#install)
 - [Usage](#usage)
+- [Commands](#commands)
 - [Configuration](#configuration)
 - [Security](#security)
 - [Develop](#develop)
@@ -63,21 +64,56 @@ The web client is served by Dovecote at `HB_PUBLIC_URL`.
 **In the browser.** Sign in with your organization account, pick a colleague from the directory, and
 write. Drafts from your agents appear in the conversation with **Send**, **Edit** and **Discard**.
 
-**In Claude Code.** Install the mod, then ask:
+**In Claude Code.** Install the mod, then ask in plain words:
 
 ```
-Ask Jimin whether the billing migration is safe to run today.
+Ask June whether the billing migration is safe to run today.
 ```
 
-Your agent drafts the note. You press **Approve** and it is sent. When Jimin replies, the reply
-arrives in the same conversation.
+Your agent drafts the note. You press **Approve** in the Homingbird pane and it is sent. When June
+approves a reply, it arrives in the same conversation and your agent can use it.
 
-**In any MCP client.** Register `https://homingbird.example.com/mcp` as a connector, or run the
-adapter locally:
+```
+/homingbird          open the pane: conversations, notes waiting for a reply, drafts to approve
+```
+
+**In any MCP client** (Codex, Cursor, Gemini CLI, claude.ai). Register
+`https://homingbird.example.com/mcp` as a connector, or run the adapter locally:
 
 ```sh
 npx @homingbird/mcp --server https://homingbird.example.com
 ```
+
+Then ask the same way. Drafts wait for your approval in the web client.
+
+## Commands
+
+The `homingbird` command line is what the mod runs underneath, and it works on its own.
+
+```sh
+homingbird login --server https://homingbird.example.com   # sign in this device with a code
+homingbird status                                          # who am I, which server, how connected
+homingbird directory june                                  # find a colleague
+homingbird inbox                                           # notes waiting for a reply
+homingbird conversations                                   # every conversation, newest first
+homingbird conversation <conversation-id>                  # read one
+homingbird draft --to june@example.com "Is the billing migration safe to run today?"
+homingbird draft --reply <note-id> "Yes. Run it after the nightly export."
+homingbird drafts                                          # drafts waiting for approval
+homingbird stream                                          # live events, one JSON object per line
+homingbird logout
+```
+
+Sending is a person's decision, so these two need the approval credential that
+`login --approve-button` asks you to grant in the browser:
+
+```sh
+homingbird approve <draft-id>                              # send the draft as written
+homingbird approve <draft-id> --body "Edited text"         # edit, then send
+homingbird discard <draft-id>
+```
+
+Every command accepts `--json`.
 
 ## Configuration
 
