@@ -1,10 +1,10 @@
 import { Task as T, type TestClock, makeTestClock } from '@homingbird/kernel'
+import type { Fetch } from '../src/auth/identity-provider.ts'
 import { type Config, loadConfig } from '../src/config.ts'
 import type { AppEnv } from '../src/environment.ts'
 import { handleRequest } from '../src/http/app.ts'
 import { SAME_SITE_HEADER, SESSION_COOKIE } from '../src/http/authenticate.ts'
 import type { HttpResponse } from '../src/http/exchange.ts'
-import type { Fetch } from '../src/auth/identity-provider.ts'
 import { type Runtime, buildRuntime } from '../src/runtime.ts'
 import { type Database, type Row, all } from '../src/sql/database.ts'
 import { openDatabase } from '../src/sql/open.ts'
@@ -57,7 +57,10 @@ export const connectAgent = async (
   options: { readonly name?: string; readonly approveButton?: boolean } = {},
 ): Promise<Agent> => {
   const started = await server.request('POST', '/oauth/device_authorization', {
-    form: { client_name: options.name ?? 'Test agent', scope: options.approveButton ? 'notes approve' : 'notes' },
+    form: {
+      client_name: options.name ?? 'Test agent',
+      scope: options.approveButton ? 'notes approve' : 'notes',
+    },
   })
   await owner.api('POST', `/device/${started.json.user_code}`, {
     approve: true,
@@ -65,7 +68,10 @@ export const connectAgent = async (
     allowApproval: options.approveButton === true,
   })
   const tokens = await server.request('POST', '/oauth/token', {
-    form: { grant_type: 'urn:ietf:params:oauth:grant-type:device_code', device_code: started.json.device_code },
+    form: {
+      grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+      device_code: started.json.device_code,
+    },
   })
   const token: string = tokens.json.access_token
   return {
@@ -92,7 +98,6 @@ export const testConfig = (overrides: Readonly<Record<string, string>> = {}): Co
 const NETWORK_ROUND_TRIPS_MS = 60
 
 const patient = (clock: TestClock): TestClock => {
-  if (TEST_DATABASE_URL === null) return clock
   const settle = () => new Promise<void>((resolve) => setTimeout(resolve, NETWORK_ROUND_TRIPS_MS))
   return {
     ...clock,
@@ -107,9 +112,9 @@ const patient = (clock: TestClock): TestClock => {
 
 export const TEST_DATABASE_URL = process.env.HB_TEST_DATABASE_URL ?? null
 
-export const openTestDatabase = async (): Promise<Database> => {
-  if (TEST_DATABASE_URL === null) return openSqlite(':memory:')
-  const database = await openDatabase(TEST_DATABASE_URL)
+export const openTestDatabase = async (url: string | null = TEST_DATABASE_URL): Promise<Database> => {
+  if (url === null) return openSqlite(':memory:')
+  const database = await openDatabase(url)
   for (const table of tableNames()) await database.run(raw(`DROP TABLE IF EXISTS ${table}`))
   return database
 }
@@ -125,10 +130,11 @@ export const everyStoredValue = async (server: TestServer): Promise<string> => {
 
 export const startTestServer = async (
   overrides: Readonly<Record<string, string>> = {},
-  parts: { readonly fetch?: Fetch } = {},
+  parts: { readonly fetch?: Fetch; readonly databaseUrl?: string } = {},
 ): Promise<TestServer> => {
   const clock = makeTestClock(1_700_000_000_000)
-  const database = await openTestDatabase()
+  const databaseUrl = parts.databaseUrl ?? TEST_DATABASE_URL
+  const database = await openTestDatabase(databaseUrl)
   const logged: string[] = []
   const { env, background } = buildRuntime({
     config: testConfig(overrides),
@@ -185,7 +191,15 @@ export const startTestServer = async (
     return { cookie, token, api, me: (await api('GET', '/me')).json }
   }
 
-  return { env, clock: patient(clock), background, logged, request, signIn, close: () => database.close() }
+  return {
+    env,
+    clock: databaseUrl === null ? clock : patient(clock),
+    background,
+    logged,
+    request,
+    signIn,
+    close: () => database.close(),
+  }
 }
 
 const parseOrNull = (text: string): unknown => {
