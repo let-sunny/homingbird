@@ -6,6 +6,7 @@ import type {
   Conversation,
   ConversationId,
   CredentialId,
+  DraftRequest,
   MemberId,
   Note,
   NoteId,
