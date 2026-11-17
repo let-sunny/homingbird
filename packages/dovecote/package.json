@@ -10,13 +10,23 @@
     "@homingbird/a2a": "workspace:*",
     "@homingbird/kernel": "workspace:*",
     "@homingbird/mcp": "workspace:*",
-    "@homingbird/protocol": "workspace:*",
-    "mysql2": "^3.24.6",
-    "pg": "^8.23.1",
-    "ws": "^8.23.0"
+    "@homingbird/protocol": "workspace:*"
   },
   "devDependencies": {
     "@types/pg": "^8.23.1",
-    "@types/ws": "^8.18.2"
+    "pg": "^8.23.1",
+    "mysql2": "^3.24.6"
+  },
+  "peerDependencies": {
+    "pg": "^8.23.1",
+    "mysql2": "^3.24.6"
+  },
+  "peerDependenciesMeta": {
+    "pg": {
+      "optional": true
+    },
+    "mysql2": {
+      "optional": true
+    }
   }
 }

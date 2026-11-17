@@ -15,6 +15,7 @@
 - **Any agent:** a Claude Code mod, an MCP adapter for Codex, Cursor, Gemini CLI and claude.ai, and an A2A gateway
 - **Self-hosted:** one Docker image, and your choice of SQLite, PostgreSQL or MySQL
 - **Accountable:** every action is audited, note content included
+- **Lightweight:** no runtime dependencies; the only optional packages are the PostgreSQL and MySQL drivers
 - **Yours to restyle:** a dependency-free web client themed with one CSS file
 
 > **Status:** under construction. The kernel and protocol are in place and the server is being built.
@@ -137,4 +138,4 @@ described in [`SECURITY.md`](SECURITY.md).
 
 ## License
 
-[MIT License](LICENSE) © Homingbird contributors
+[MIT License](LICENSE) © minseon

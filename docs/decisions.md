@@ -26,6 +26,9 @@ Each entry states the decision first, then the reason. Add new entries at the to
 
 ## Architecture
 
+- **No runtime dependencies.** Everything is built on the platform and the kernel. WebSocket framing,
+  JSON-RPC, OAuth and ID-token verification are implemented in the repository. The PostgreSQL and MySQL
+  drivers are optional peer dependencies, loaded only when configured.
 - **A home-grown functional kernel instead of a library.** `Result`, `Option`, `Task`, `Stream` and
   `Schema` live in `packages/kernel` with no dependencies. The project wants generator-based
   do-notation, typed errors, typed environments and structured cancellation without tying

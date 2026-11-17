@@ -38,6 +38,7 @@ The rules below are binding. Details and examples live in `.claude/rules/`.
 
 - @.claude/rules/code-style.md
 - @.claude/rules/functional-core.md
+- @.claude/rules/dependencies.md
 - @.claude/rules/testing.md
 - @.claude/rules/security.md
 - @.claude/rules/web-client.md
