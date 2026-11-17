@@ -30,14 +30,16 @@ export const localAdapterOf = (session: LocalSession): LocalAdapter => ({
     {
       name: 'status',
       title: 'Homingbird sign-in status',
-      description: 'Says whether this agent is signed out, waiting for approval in the browser, or signed in and as whom.',
+      description:
+        'Says whether this agent is signed out, waiting for approval in the browser, or signed in and as whom.',
       readOnly: true,
       run: session.status,
     },
     {
       name: 'logout',
       title: 'Sign out of Homingbird',
-      description: 'Signs this agent out: revokes its credential on the server and removes it from this device.',
+      description:
+        'Signs this agent out: revokes its credential on the server and removes it from this device.',
       readOnly: false,
       run: session.logout,
     },

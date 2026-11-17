@@ -4,10 +4,12 @@ import { Conflict, type ConsentRequest, type DeviceRequest, NotFound } from '@ho
 import { recordAudit } from '../domain/audit.ts'
 import { type Issued, issueCredential, refreshCredential, revokeByToken } from '../domain/credentials.ts'
 import type { AppEnv, Caller } from '../environment.ts'
-import type { RequestEnv } from '../events/events.ts'
+import { type RequestEnv, transact } from '../events/events.ts'
 import { normalizeUserCode } from '../random.ts'
 import { first, run } from '../sql/database.ts'
 import { insertInto, sql } from '../sql/query.ts'
+import { isClientMetadataUrl } from './client-metadata.ts'
+import { isAllowedRedirectUri, matchingRedirectUri } from './redirect-policy.ts'
 import {
   type AuthRequest,
   advanceAuthRequest,
@@ -56,14 +58,19 @@ export interface RegisteredClient {
 export const registerClient = (
   name: string,
   redirectUris: ReadonlyArray<string>,
-): T.Task<RegisteredClient, OAuthError, AppEnv> =>
+): T.Task<RegisteredClient, OAuthError, RequestEnv> =>
   T.gen(function* () {
-    const env = yield* T.ask<AppEnv>()
-    if (redirectUris.length === 0 || redirectUris.length > 10 || !redirectUris.every(isAcceptableRedirectUri))
+    const env = yield* T.ask<RequestEnv>()
+    const { redirectHosts } = env.config.oauth
+    if (
+      redirectUris.length === 0 ||
+      redirectUris.length > MAX_REDIRECT_URIS ||
+      !redirectUris.every((uri) => isAllowedRedirectUri(uri, redirectHosts))
+    )
       return yield* T.fail(
         OAuthError({
           code: 'invalid_redirect_uri',
-          description: 'redirect_uris must be https, loopback http, or an app scheme',
+          description: 'redirect_uris must be loopback http, an app scheme, or https on a host this server allows',
         }),
       )
     const client: RegisteredClient = {
@@ -79,6 +86,12 @@ export const registerClient = (
         created_at: env.clock.now(),
       }),
     )
+    yield* recordAudit({
+      caller: null,
+      action: 'oauth.client.registered',
+      target: client.client_id,
+      detail: { clientName: client.client_name, redirectHosts: redirectHostsOf(client.redirect_uris) },
+    })
     return client
   })
 
@@ -91,15 +104,27 @@ export interface AuthorizationParameters {
   readonly state?: string
 }
 
-export const beginAuthorization = (
+export interface CheckedAuthorization {
+  readonly client: RegisteredClient
+  readonly redirectUri: string
+  readonly codeChallenge: string
+  readonly state: string | null
+}
+
+export const requireAuthorization = (
   parameters: AuthorizationParameters,
-): T.Task<{ readonly consentId: string }, OAuthError, AppEnv> =>
+): T.Task<CheckedAuthorization, OAuthError, AppEnv> =>
   T.gen(function* () {
-    const client = yield* clientById(parameters.client_id ?? '')
-    const redirectUri = parameters.redirect_uri ?? ''
-    if (!client.redirect_uris.includes(redirectUri))
+    const env = yield* T.ask<AppEnv>()
+    const client = yield* requireClient(parameters.client_id ?? '')
+    const redirectUri = matchingRedirectUri(client.redirect_uris, parameters.redirect_uri ?? '')
+    if (redirectUri === null)
       return yield* T.fail(
         OAuthError({ code: 'invalid_redirect_uri', description: 'redirect_uri is not registered' }),
+      )
+    if (!client.configured && !isAllowedRedirectUri(redirectUri, env.config.oauth.redirectHosts))
+      return yield* T.fail(
+        OAuthError({ code: 'invalid_redirect_uri', description: 'redirect_uri is not allowed on this server' }),
       )
     if (parameters.response_type !== 'code')
       return yield* T.fail(OAuthError({ code: 'invalid_request', description: 'response_type must be code' }))
@@ -108,20 +133,31 @@ export const beginAuthorization = (
       !/^[A-Za-z0-9_-]{43}$/.test(parameters.code_challenge ?? '')
     )
       return yield* T.fail(OAuthError({ code: 'invalid_request', description: 'PKCE with S256 is required' }))
-    const opened = yield* openAuthRequest<AuthorizeDetail>({
+    return {
+      client: { client_id: client.client_id, client_name: client.client_name, redirect_uris: client.redirect_uris },
+      redirectUri,
+      codeChallenge: parameters.code_challenge!,
+      state: parameters.state ?? null,
+    }
+  })
+
+export const openConsent = (
+  checked: CheckedAuthorization,
+): T.Task<{ readonly consentId: string }, never, AppEnv> =>
+  T.map((opened: AuthRequest<AuthorizeDetail>) => ({ consentId: opened.id }))(
+    openAuthRequest<AuthorizeDetail>({
       kind: 'authorize',
       lifetimeMs: CONSENT_LIFETIME_MS,
       detail: {
-        clientId: client.client_id,
-        clientName: client.client_name,
-        redirectUri,
-        codeChallenge: parameters.code_challenge!,
-        state: parameters.state ?? null,
+        clientId: checked.client.client_id,
+        clientName: checked.client.client_name,
+        redirectUri: checked.redirectUri,
+        codeChallenge: checked.codeChallenge,
+        state: checked.state,
         credentialName: null,
       },
-    })
-    return { consentId: opened.id }
-  })
+    }),
+  )
 
 export const describeConsent = (id: string): T.Task<ConsentRequest, NotFound, AppEnv> =>
   T.gen(function* () {
@@ -348,14 +384,6 @@ export const exchangeDeviceCode = (deviceCode: string): T.Task<TokenResponse, OA
     }
   })
 
-export const isAcceptableRedirectUri = (uri: string): boolean => {
-  if (!URL.canParse(uri) || uri.includes('#')) return false
-  const { protocol, hostname } = new URL(uri)
-  if (protocol === 'https:') return true
-  if (protocol === 'http:') return ['localhost', '127.0.0.1', '[::1]'].includes(hostname)
-  return !FORBIDDEN_REDIRECT_SCHEMES.has(protocol)
-}
-
 interface AuthorizeDetail {
   readonly clientId: string
   readonly clientName: string
@@ -372,13 +400,20 @@ interface DeviceDetail {
   readonly credentialName: string | null
 }
 
-const FORBIDDEN_REDIRECT_SCHEMES = new Set(['javascript:', 'data:', 'file:', 'vbscript:', 'blob:', 'about:'])
-
 const CONSENT_LIFETIME_MS = 10 * 60_000
+const MAX_REDIRECT_URIS = 10
 const DAY_MS = 24 * 60 * 60_000
 
-const clientById = (id: string): T.Task<RegisteredClient, OAuthError, AppEnv> =>
+interface KnownClient extends RegisteredClient {
+  readonly configured: boolean
+}
+
+const requireClient = (id: string): T.Task<KnownClient, OAuthError, AppEnv> =>
   T.gen(function* () {
+    const env = yield* T.ask<AppEnv>()
+    const configured = env.config.oauth.clients.find((client) => client.client_id === id)
+    if (configured !== undefined) return { ...configured, configured: true }
+    if (isClientMetadataUrl(id)) return { ...(yield* clientFromMetadataDocument(id)), configured: false }
     const row = yield* first<{ id: string; name: string; redirect_uris: string }>(
       sql`SELECT * FROM oauth_clients WHERE id = ${id}`,
     )
@@ -388,7 +423,34 @@ const clientById = (id: string): T.Task<RegisteredClient, OAuthError, AppEnv> =>
       client_id: row.id,
       client_name: row.name,
       redirect_uris: JSON.parse(row.redirect_uris) as string[],
+      configured: false,
     }
+  })
+
+const clientFromMetadataDocument = (clientId: string): T.Task<RegisteredClient, OAuthError, AppEnv> =>
+  T.gen(function* () {
+    const env = yield* T.ask<AppEnv>()
+    const resolved = yield* T.result(env.clientMetadata.resolve(clientId))
+    if (resolved._tag === 'Err') {
+      env.log(`oauth: refused a client metadata document (${resolved.error.reason})`)
+      return yield* T.fail(
+        OAuthError({
+          code: 'invalid_client',
+          description: `The client metadata document was refused: ${resolved.error.reason}.`,
+        }),
+      )
+    }
+    const { client, fetched } = resolved.value
+    if (fetched)
+      yield* transact(
+        recordAudit({
+          caller: null,
+          action: 'oauth.client.resolved',
+          target: client.client_id,
+          detail: { clientName: client.client_name, redirectHosts: redirectHostsOf(client.redirect_uris) },
+        }),
+      )
+    return client
   })
 
 const pendingConsent = (id: string): T.Task<AuthRequest<AuthorizeDetail>, NotFound, AppEnv> =>
@@ -418,6 +480,8 @@ const tokenResponse = (issued: Issued, now: number, scope: string): TokenRespons
 })
 
 const challengeOf = (verifier: string): string => createHash('sha256').update(verifier).digest('base64url')
+
+const redirectHostsOf = (uris: ReadonlyArray<string>): string[] => [...new Set(uris.map(hostOf))]
 
 const hostOf = (uri: string): string => {
   const url = new URL(uri)

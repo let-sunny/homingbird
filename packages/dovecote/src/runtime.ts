@@ -1,4 +1,5 @@
 import { type Clock, Iter, Schedule, Task as T, makeQueue, pipe, systemClock } from '@homingbird/kernel'
+import { makeClientMetadataDocuments } from './auth/client-metadata.ts'
 import { type Fetch, developmentProvider, openIdConnectProvider } from './auth/identity-provider.ts'
 import { deleteExpiredAuthRequests } from './auth/requests.ts'
 import type { Config } from './config.ts'
@@ -41,6 +42,7 @@ export const buildRuntime = (parts: RuntimeParts): Runtime => {
     identityProvider: parts.config.identity.devLogin
       ? developmentProvider(parts.config.publicUrl)
       : openIdConnectProvider(parts.config.identity, fetch, clock.now),
+    clientMetadata: makeClientMetadataDocuments(fetch),
     auditSink: forwarder.accept,
     pushSink: push.consider,
     log,

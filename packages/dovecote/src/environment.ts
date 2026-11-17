@@ -1,5 +1,6 @@
 import type { HasClock } from '@homingbird/kernel'
 import type { CredentialId, CredentialKind, Member, MemberId, StreamEvent } from '@homingbird/protocol'
+import type { ClientMetadataDocuments } from './auth/client-metadata.ts'
 import type { IdentityProvider } from './auth/identity-provider.ts'
 import type { Config } from './config.ts'
 import type { AuditRecord } from './domain/audit.ts'
@@ -13,6 +14,7 @@ export interface AppEnv extends HasSql, HasClock {
   readonly random: Random
   readonly hub: Hub
   readonly identityProvider: IdentityProvider
+  readonly clientMetadata: ClientMetadataDocuments
   readonly rateLimiter: RateLimiter
   readonly auditSink: (record: AuditRecord) => void
   readonly pushSink: (memberId: MemberId, event: StreamEvent) => void

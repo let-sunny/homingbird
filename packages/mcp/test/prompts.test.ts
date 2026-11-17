@@ -52,14 +52,18 @@ describe('getPrompt', () => {
     expect(value.messages[0].content.text).toContain('draft_note')
   })
 
-  it.each([[undefined], [{}], [{ who: 'June' }], [{ who: 'June', what: '  ' }], [{ who: 7, what: 'x' }], [['June', 'x']]])(
-    'refuses ask with arguments %j as invalid params, naming what is missing',
-    async (given) => {
-      const result = await get('ask', given)
-      expect(result).toMatchObject({ _tag: 'Err', error: { code: RPC_CODE.invalidParams } })
-      expect(result.error.message).toMatch(/^Missing required arguments: (who, )?what$|who, what$/)
-    },
-  )
+  it.each([
+    [undefined, 'who, what'],
+    [{}, 'who, what'],
+    [{ who: 'June' }, 'what'],
+    [{ who: 'June', what: '  ' }, 'what'],
+    [{ who: 7, what: 'x' }, 'who'],
+    [['June', 'x'], 'who, what'],
+  ])('refuses ask with arguments %j as invalid params, naming what is missing', async (given, missing) => {
+    const result = await get('ask', given)
+    expect(result).toMatchObject({ _tag: 'Err', error: { code: RPC_CODE.invalidParams } })
+    expect(result.error.message).toBe(`Missing required arguments: ${missing}`)
+  })
 
   it('refuses an unknown prompt as invalid params', async () => {
     for (const name of ['approve', undefined, 7])

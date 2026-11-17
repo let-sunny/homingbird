@@ -1,18 +1,20 @@
-import { Task as T } from '@homingbird/kernel'
+import { type Result, Task as T } from '@homingbird/kernel'
 import {
   AGENT_SCOPE,
   APPROVAL_SCOPE,
   type OAuthError,
-  beginAuthorization,
   beginDeviceAuthorization,
   exchangeAuthorizationCode,
   exchangeDeviceCode,
   exchangeRefreshToken,
   OAuthError as oauthError,
+  openConsent,
   registerClient,
+  requireAuthorization,
   revokeToken,
 } from '../auth/oauth.ts'
-import type { AppEnv } from '../environment.ts'
+import { authenticate } from '../domain/credentials.ts'
+import { type AppEnv, type Caller, isHuman } from '../environment.ts'
 import { transact } from '../events/events.ts'
 import {
   type HttpRequest,
@@ -24,6 +26,7 @@ import {
   redirect,
   text,
 } from './exchange.ts'
+import { sessionToken } from './authenticate.ts'
 import { LIMITS, type Limit } from './rate-limiter.ts'
 
 export const handleOAuthRequest = (request: HttpRequest): T.Task<HttpResponse, never, AppEnv> =>
@@ -31,7 +34,7 @@ export const handleOAuthRequest = (request: HttpRequest): T.Task<HttpResponse, n
     const env = yield* T.ask<AppEnv>()
     const route = `${request.method} ${request.path}`
     if (route === 'GET /.well-known/oauth-authorization-server')
-      return json(200, serverMetadata(env.config.publicUrl))
+      return json(200, serverMetadata(env.config.publicUrl, env.config.oauth.clientMetadataHosts.length > 0))
     if (request.method === 'GET' && request.path.startsWith('/.well-known/oauth-protected-resource'))
       return json(200, resourceMetadata(env.config.publicUrl))
     if (route === 'GET /oauth/authorize') return yield* authorize(request)
@@ -46,7 +49,7 @@ export const handleOAuthRequest = (request: HttpRequest): T.Task<HttpResponse, n
 export const resourceMetadataUrl = (publicUrl: string): string =>
   `${publicUrl}/.well-known/oauth-protected-resource`
 
-const serverMetadata = (publicUrl: string) => ({
+const serverMetadata = (publicUrl: string, acceptsMetadataDocuments: boolean) => ({
   issuer: publicUrl,
   authorization_endpoint: `${publicUrl}/oauth/authorize`,
   token_endpoint: `${publicUrl}/oauth/token`,
@@ -59,6 +62,7 @@ const serverMetadata = (publicUrl: string) => ({
   token_endpoint_auth_methods_supported: ['none'],
   scopes_supported: [AGENT_SCOPE, APPROVAL_SCOPE],
   authorization_response_iss_parameter_supported: true,
+  client_id_metadata_document_supported: acceptsMetadataDocuments,
 })
 
 const resourceMetadata = (publicUrl: string) => ({
@@ -69,10 +73,14 @@ const resourceMetadata = (publicUrl: string) => ({
 })
 
 const authorize = (request: HttpRequest): T.Task<HttpResponse, never, AppEnv> =>
-  T.fold(
-    (error: OAuthError) => text(400, `${error.code}: ${error.description}`),
-    (begun: { consentId: string }) => redirect(`/#/consent/${begun.consentId}`),
-  )(beginAuthorization(Object.fromEntries(request.query)))
+  T.gen(function* () {
+    const checked = yield* T.result(requireAuthorization(Object.fromEntries(request.query)))
+    if (checked._tag === 'Err') return text(400, `${checked.error.code}: ${checked.error.description}`)
+    if (!(yield* isSignedIn(request))) return redirect(signInComingBackTo(request))
+    return yield* T.map((opened: { consentId: string }) => redirect(`/#/consent/${opened.consentId}`))(
+      openConsent(checked.value),
+    )
+  })
 
 const register = (request: HttpRequest): T.Task<HttpResponse, never, AppEnv> => {
   const body = parseJson(request.body)
@@ -91,7 +99,7 @@ const register = (request: HttpRequest): T.Task<HttpResponse, never, AppEnv> => 
       token_endpoint_auth_method: 'none',
       grant_types: ['authorization_code', 'refresh_token'],
     }),
-  )(registerClient(typeof name === 'string' ? name : '', redirectUris))
+  )(transact(registerClient(typeof name === 'string' ? name : '', redirectUris)))
 }
 
 const token = (request: HttpRequest): T.Task<HttpResponse, never, AppEnv> => {
@@ -127,6 +135,17 @@ const limited = (
       ? response
       : T.succeed(json(429, { error: 'slow_down', error_description: 'Too many requests.' })),
   )(T.ask<AppEnv>())
+
+const isSignedIn = (request: HttpRequest): T.Task<boolean, never, AppEnv> => {
+  const token = sessionToken(request)
+  if (token === null) return T.succeed(false)
+  return T.map((caller: Result.Result<Caller, unknown>) => caller._tag === 'Ok' && isHuman(caller.value))(
+    T.result(authenticate(token)),
+  )
+}
+
+const signInComingBackTo = (request: HttpRequest): string =>
+  `/auth/login?${new URLSearchParams({ return_to: `${request.path}?${request.query.toString()}` }).toString()}`
 
 const failure = (error: OAuthError): HttpResponse =>
   json(error.code === 'invalid_client' ? 401 : 400, {

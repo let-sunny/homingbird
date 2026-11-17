@@ -15,13 +15,15 @@ let ben: Session
 let anaAgent: Agent
 let benAgent: Agent
 
-beforeEach(async () => {
-  server = await startTestServer()
+const startWith = async (overrides: Readonly<Record<string, string>> = {}) => {
+  server = await startTestServer(overrides)
   ana = await server.signIn('ana@example.com', 'Ana')
   ben = await server.signIn('ben@example.com', 'Ben')
   anaAgent = await connectAgent(server, ana, { name: 'Ana A2A agent' })
   benAgent = await connectAgent(server, ben, { name: 'Ben A2A agent' })
-})
+}
+
+beforeEach(() => startWith())
 
 afterEach(() => server.close())
 
@@ -105,6 +107,8 @@ describe('the A2A gateway on a running server', () => {
   })
 
   it('asks a topic room and completes when one helper’s reply is approved', async () => {
+    await server.close()
+    await startWith({ HB_TOPICS: 'general' })
     await server.signIn('june@example.com', 'June')
     const sent = await a2a(anaAgent, 'SendMessage', say('Who owns the nightly export?', { topic: 'general' }))
     const taskId: string = sent.result.task.id
@@ -125,7 +129,7 @@ describe('the A2A gateway on a running server', () => {
   it('refuses a topic that does not exist, without drafting anything', async () => {
     const refused = await a2a(anaAgent, 'SendMessage', say('anyone?', { topic: 'no-such-topic' }))
     expect(refused.error).toBeDefined()
-    expect((await ana.api('GET', '/drafts')).json.items ?? (await ana.api('GET', '/drafts')).json).toEqual([])
+    expect((await ana.api('GET', '/drafts')).json.drafts).toEqual([])
   })
 
   it('speaks the 0.3 dialect to callers that use its method names', async () => {

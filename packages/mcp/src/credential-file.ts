@@ -20,7 +20,8 @@ export const storeCredential = (
   path: string,
   serverUrl: string,
   credential: StoredCredential,
-): T.Task<void> => T.flatMap((all: Stored) => writeAll(path, { ...all, [serverUrl]: credential }))(readAll(path))
+): T.Task<void> =>
+  T.flatMap((all: Stored) => writeAll(path, { ...all, [serverUrl]: credential }))(readAll(path))
 
 export const removeCredential = (path: string, serverUrl: string): T.Task<void> =>
   T.flatMap((all: Stored) => {

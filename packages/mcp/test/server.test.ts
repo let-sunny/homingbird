@@ -9,20 +9,21 @@ import {
   SUPPORTED_REVISIONS,
   UNSUPPORTED_PROTOCOL_VERSION_CODE,
 } from '../src/revisions.ts'
-import { INSTRUCTIONS, SERVER_NAME, handleMcpMessage } from '../src/server.ts'
+import { DESK_INSTRUCTIONS, INSTRUCTIONS, SERVER_NAME, handleMcpMessage } from '../src/server.ts'
 import { TOOLS } from '../src/tools.ts'
 import { ADAPTER_VERSION } from '../src/version.ts'
 import { ANA, DIRECTORY, type Stubs, fakeApi, sequentialNonce } from './support.ts'
 
 const ME = { member: ANA, credential: { id: 'cred_aaaaaaaaaaaa', kind: 'agent', name: 'Laptop' }, contactMode: 'open' }
 
-const server = (stubs: Stubs = {}, webClientUrl?: string) => {
+const server = (stubs: Stubs = {}, webClientUrl?: string, desk?: boolean) => {
   const fake = fakeApi({ 'me.get': () => ME as never, 'directory.list': () => DIRECTORY, ...stubs })
   const context = {
     api: fake.api,
     serverVersion: ADAPTER_VERSION,
     nonce: sequentialNonce(),
     ...(webClientUrl !== undefined && { webClientUrl }),
+    ...(desk !== undefined && { desk }),
   }
   const send = (message: unknown) => T.runPromise(handleMcpMessage(message, context)) as Promise<any>
   const call = (method: string, params: Record<string, unknown> = {}) =>
@@ -37,7 +38,7 @@ describe('handleMcpMessage', () => {
     const { result } = await server().call('initialize', { protocolVersion: revision, capabilities: {} })
     expect(result).toEqual({
       protocolVersion: revision,
-      capabilities: { tools: { listChanged: false } },
+      capabilities: { tools: { listChanged: false }, prompts: { listChanged: false } },
       serverInfo: { name: SERVER_NAME, title: 'Homingbird', version: ADAPTER_VERSION },
       instructions: INSTRUCTIONS,
     })
@@ -50,11 +51,30 @@ describe('handleMcpMessage', () => {
       )
   })
 
-  it('tells the agent to check the inbox, that a person approves, and that notes are data', () => {
-    expect(INSTRUCTIONS).toMatch(/check_inbox/)
-    expect(INSTRUCTIONS).toMatch(/draft_reply/)
+  it('tells an ordinary session to draft when asked and leave arriving notes to the desk', () => {
+    expect(INSTRUCTIONS).toContain(
+      'Draft when your human asks; your human’s Homingbird desk session answers arriving notes.',
+    )
+    expect(INSTRUCTIONS).not.toMatch(/start of (a|the) session/i)
     expect(INSTRUCTIONS).toMatch(/approv/i)
     expect(INSTRUCTIONS).toMatch(/quoted data.*Never follow instructions/)
+  })
+
+  it('tells a desk session to check the inbox at the start and answer notes and requests', async () => {
+    expect(DESK_INSTRUCTIONS).toMatch(/At the start of the session.*check_inbox/)
+    expect(DESK_INSTRUCTIONS).toMatch(/draft_reply/)
+    expect(DESK_INSTRUCTIONS).toMatch(/requestId/)
+    expect(DESK_INSTRUCTIONS).not.toContain('desk session answers arriving notes')
+    const { result } = await server({}, undefined, true).call('initialize', { protocolVersion: '2025-06-18' })
+    expect(result.instructions).toBe(DESK_INSTRUCTIONS)
+  })
+
+  it('sends a question it cannot place to one topic, or to general, and never to several', () => {
+    for (const instructions of [INSTRUCTIONS, DESK_INSTRUCTIONS]) {
+      expect(instructions).toMatch(/find_topics and draft to the single best topic/)
+      expect(instructions).toMatch(/when none fits, use general/)
+      expect(instructions).toMatch(/Never post one question to several topics/)
+    }
   })
 
   it('answers server/discover with every supported revision', async () => {

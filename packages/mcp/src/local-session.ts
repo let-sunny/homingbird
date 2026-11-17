@@ -25,8 +25,12 @@ export interface LocalSessionOptions {
   readonly clock: Clock
   readonly fetch?: Fetch
   readonly openInBrowser?: OpenInBrowser
-  readonly onOnline?: T.Task<void>
-  readonly onEvent?: (event: StreamEvent) => T.Task<void>
+  readonly listener?: SessionListener
+}
+
+export interface SessionListener {
+  readonly online: T.Task<void>
+  readonly received: (event: StreamEvent) => T.Task<void>
 }
 
 export interface LocalSession {
@@ -44,7 +48,12 @@ export const SIGN_IN_FIRST = 'Not signed in to Homingbird. Call the login tool f
 export const makeLocalSession = (options: LocalSessionOptions): LocalSession => {
   const { serverUrl, credentialPath, scope, clock } = options
   const fetching = options.fetch !== undefined ? { fetch: options.fetch } : {}
-  const flow: DeviceFlowOptions = { serverUrl, clientName: options.clientName, wantsApproval: false, ...fetching }
+  const flow: DeviceFlowOptions = {
+    serverUrl,
+    clientName: options.clientName,
+    wantsApproval: false,
+    ...fetching,
+  }
   const timed = <A, E>(task: T.Task<A, E, { clock: Clock }>): T.Task<A, E> =>
     T.provide({ clock })(task) as unknown as T.Task<A, E>
 
@@ -53,18 +62,24 @@ export const makeLocalSession = (options: LocalSessionOptions): LocalSession => 
   let approval: T.Fiber<void, never> | null = null
   let online: T.Fiber<void, never> | null = null
 
-  const stop = (fiber: T.Fiber<void, never> | null): T.Task<void> => (fiber === null ? T.unit : fiber.interrupt)
+  const stop = (fiber: T.Fiber<void, never> | null): T.Task<void> =>
+    fiber === null ? T.unit : fiber.interrupt
 
   const signedIn = (accepted: string): T.Task<void> =>
     T.gen(function* () {
       token = accepted
       state = { kind: 'signed_in' }
       yield* stop(online)
+      const listener = options.listener
+      if (listener === undefined) return
       online = yield* scope.fork(
         T.promise(async (signal) => {
-          await T.run(options.onOnline ?? T.unit, undefined, signal)
-          for await (const event of eventStream({ serverUrl, token: () => token, clock, ...fetching }, signal))
-            await T.run(options.onEvent?.(event) ?? T.unit, undefined, signal)
+          await T.run(listener.online, undefined, signal)
+          for await (const event of eventStream(
+            { serverUrl, token: () => token, clock, ...fetching },
+            signal,
+          ))
+            await T.run(listener.received(event), undefined, signal)
         }),
       )
     })
@@ -126,11 +141,14 @@ export const makeLocalSession = (options: LocalSessionOptions): LocalSession => 
     status: T.gen(function* () {
       if (state.kind === 'pending') return waitingText(state)
       if (state.kind === 'signed_out')
-        return [`Not signed in to ${serverUrl}.`, state.note, 'Call login to sign in.'].filter(Boolean).join(' ')
+        return [`Not signed in to ${serverUrl}.`, state.note, 'Call login to sign in.']
+          .filter(Boolean)
+          .join(' ')
       const me = yield* T.result(httpApi({ serverUrl, token: () => token, ...fetching })['me.get']({}))
       if (me._tag === 'Ok')
         return `Signed in to ${serverUrl} as ${me.value.member.name} <${me.value.member.email}>, with the credential "${me.value.credential.name}".`
-      if (me.error._tag !== 'Unauthorized') return `Signed in to ${serverUrl}, but it cannot be reached right now.`
+      if (me.error._tag !== 'Unauthorized')
+        return `Signed in to ${serverUrl}, but it cannot be reached right now.`
       yield* signedOut('The stored credential is no longer accepted.')
       yield* removeCredential(credentialPath, serverUrl)
       return `Not signed in to ${serverUrl}. The stored credential is no longer accepted. Call login to sign in.`

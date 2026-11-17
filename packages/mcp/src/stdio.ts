@@ -34,7 +34,8 @@ const exit = await T.run(
 )
 
 if (exit._tag === 'Err') {
-  const reason = exit.error._tag === 'Fail' ? exit.error.error.message : 'homingbird-mcp stopped unexpectedly.'
+  const reason =
+    exit.error._tag === 'Fail' ? exit.error.error.message : 'homingbird-mcp stopped unexpectedly.'
   process.stderr.write(`${reason}\n`)
   process.exit(exit.error._tag === 'Fail' ? 2 : 1)
 }

@@ -1,11 +1,9 @@
 import { systemClock } from '@homingbird/kernel'
 import {
+  type Conversation,
   type ConversationId,
-  type CredentialId,
-  DRAFT_INSTRUCTION_MAX,
   type Me,
   type Note,
-  type NoteId,
   describeStatus,
   summarize,
 } from '@homingbird/protocol'
@@ -18,7 +16,10 @@ import {
   loadOlderNotes,
   loadPeople,
   loadThread,
+  loadTopics,
   markRead,
+  moveQuestion,
+  readdressDraft,
   replyTargetIn,
   saveDraft,
   sendNote,
@@ -27,7 +28,6 @@ import {
 import { waitingRequests } from '../draft-requests.ts'
 import { hrefFor } from '../routes.ts'
 import {
-  agentCredentials,
   conversations,
   directory,
   draftRequests,
@@ -35,23 +35,33 @@ import {
   replyTargets,
   sendingIn,
   threads,
+  topics,
 } from '../state.ts'
 import { strings } from '../strings.ts'
 import {
   type ThreadItem,
+  alternativesLeftAfterSending,
+  answeredBy,
   conversationTitle,
   excerpt,
+  isOpenQuestion,
   isUnreadBy,
   otherParticipants,
+  readProgress,
+  showsAuthors,
   threadItems,
 } from '../thread.ts'
+import { topicLabel, topicOfRoom } from '../topics.ts'
+import { agentAsk } from './agent-ask.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
-import { avatar, backLink, button, emptyWithPip, presenceBadges, timeLabel } from './parts.ts'
+import { avatar, backLink, button, emptyWithPip, field, presenceBadges, timeLabel } from './parts.ts'
 import { type PipState, pip } from './pip.ts'
+import { helpToggle } from './topics.ts'
 
 export const threadView = (life: Lifetime, me: Me, id: ConversationId): HTMLElement => {
   launch(loadThread(id))
   launch(loadPeople)
+  launch(loadTopics(''))
   const scroller = h('div', { class: 'thread-scroll', tabindex: '0' })
   const list = h('ol', { class: 'notes', 'aria-live': 'polite', 'aria-relevant': 'additions' })
   const follow = followNewNotes(life, scroller)
@@ -60,11 +70,12 @@ export const threadView = (life: Lifetime, me: Me, id: ConversationId): HTMLElem
   keyedRegion(
     life,
     list,
-    [threads, members, replyTargets, draftRequests],
+    [threads, members, replyTargets, draftRequests, topics, conversations],
     () => threadItems(notesIn(id), draftRequests.get()),
     {
       key: (item) => item.key,
-      signature: (item) => JSON.stringify([item, namesIn(item), replyTargetIn(id)]),
+      signature: (item) =>
+        JSON.stringify([item, namesIn(item), replyTargetIn(id), roomOf(id), topicOfRoom(topics.get(), id)]),
       render: (item) => seen.watch(item.type === 'note' ? noteItem(item.note, me, id) : draftsItem(item, id)),
     },
   )
@@ -89,6 +100,9 @@ const notesIn = (id: ConversationId): ReadonlyArray<Note> => threads.get().get(i
 const noteById = (conversationId: ConversationId, noteId: string | null): Note | null =>
   notesIn(conversationId).find((note) => note.id === noteId) ?? null
 
+const roomOf = (id: ConversationId): Conversation | undefined =>
+  conversations.get().find((candidate) => candidate.id === id)
+
 const nameOf = (memberId: string): string =>
   members.get().get(memberId as never)?.name ?? strings.formerMember
 
@@ -98,11 +112,12 @@ const namesIn = (item: ThreadItem): string[] =>
 const threadHead = (life: Lifetime, me: Me, id: ConversationId): HTMLElement =>
   region(
     life,
-    [conversations, members, directory],
+    [conversations, members, directory, topics],
     () => {
-      const conversation = conversations.get().find((candidate) => candidate.id === id)
+      const conversation = roomOf(id)
       if (conversation === undefined) return [backLink(), h('h1', {}, strings.loading)]
       const title = conversationTitle(conversation, members.get(), me.member.id, strings.formerMember)
+      if (conversation.kind === 'topic') return topicHead(conversation, title)
       const others = otherParticipants(conversation, me.member.id)
       const entry = directory.get().find((candidate) => candidate.member.id === others[0])
       return [
@@ -122,47 +137,137 @@ const threadHead = (life: Lifetime, me: Me, id: ConversationId): HTMLElement =>
     { class: 'thread-head' },
   )
 
+const topicHead = (conversation: Conversation, title: string): Child => {
+  const topic = topicOfRoom(topics.get(), conversation.id)
+  return [
+    backLink(),
+    h('span', { class: 'avatar is-topic', 'aria-hidden': 'true' }, '#'),
+    h(
+      'div',
+      { class: 'thread-who' },
+      h('h1', {}, title),
+      topic !== null &&
+        h(
+          'p',
+          { class: 'thread-profile' },
+          `${strings.helpers(topic.helperCount)} · ${topic.description}`,
+        ),
+    ),
+    topic !== null && helpToggle(topic),
+  ]
+}
+
 const noteItem = (note: Note, me: Me, conversationId: ConversationId): HTMLElement => {
   const mine = note.authorId === me.member.id
   const quoted = noteById(conversationId, note.inReplyTo)
-  const isGroup = (conversations.get().find((c) => c.id === conversationId)?.participantIds.length ?? 2) > 2
+  const room = roomOf(conversationId)
+  const inRoom = showsAuthors(room)
+  const isTopicQuestion = room?.kind === 'topic' && note.inReplyTo === null
+  const answerers = isTopicQuestion ? answeredBy(note) : []
   return h(
     'li',
     {
       class: `note ${mine ? 'is-mine' : 'is-theirs'}`,
       data: { noteId: note.id, unread: String(isUnreadBy(note, me.member.id)) },
     },
-    !mine && isGroup && h('span', { class: 'note-author' }, nameOf(note.authorId)),
+    inRoom && h('span', { class: 'note-author' }, mine ? strings.you : nameOf(note.authorId)),
     h(
       'div',
       { class: 'bubble' },
       quoted !== null && h('blockquote', { class: 'quote' }, excerpt(quoted.body)),
       h('p', { class: 'note-body' }, linkedText(note.body)),
     ),
+    answerers.length > 0 &&
+      h(
+        'p',
+        { class: 'answered-by' },
+        pip('approved', 1),
+        strings.answeredBy(answerers.map(nameOf).join(', ')),
+      ),
     h(
       'div',
       { class: 'note-meta' },
       originBadge(note),
       note.sentAt !== null && timeLabel(note.sentAt),
       mine && pip(statusPip(note), 1),
-      h('span', { class: 'note-status' }, describeStatus(summarize(note.receipts))),
+      mine && h('span', { class: 'note-status' }, inRoom ? roomStatus(note) : dmStatus(note)),
       !mine &&
         button(
           strings.reply,
           () => replyTargets.update((targets) => new Map(targets).set(conversationId, note.id)),
-          {
-            class: 'link',
-          },
+          { class: 'link' },
         ),
       !mine &&
         button(
           strings.askAgentToReply,
-          () => launch(askAgent({ conversationId, inReplyTo: note.id, instruction: '', agentId: null })),
+          () =>
+            launch(askAgent({ destination: { inReplyTo: note.id }, instruction: '', agentId: null })),
           { class: 'link ask-reply' },
+        ),
+      isTopicQuestion &&
+        isOpenQuestion(note, notesIn(conversationId)) &&
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'link move-question',
+            ...opensDialog(strings.moveTitle, () => moveForm(note, conversationId)),
+          },
+          strings.moveToTopic,
         ),
     ),
   )
 }
+
+const dmStatus = (note: Note): string => describeStatus(summarize(note.receipts))
+
+const roomStatus = (note: Note): string => {
+  const progress = readProgress(note.receipts)
+  return [
+    strings.readBy(progress.read, progress.of),
+    progress.drafting > 0 && strings.drafting(progress.drafting),
+  ]
+    .filter((part) => part !== false)
+    .join(', ')
+}
+
+const moveForm = (note: Note, conversationId: ConversationId): Child => {
+  const here = topicOfRoom(topics.get(), conversationId)
+  const choice = topicSelect(here?.slug ?? null)
+  return h(
+    'form',
+    {
+      class: 'dialog-body',
+      on: {
+        submit: (event) => {
+          event.preventDefault()
+          launch(moveQuestion(note, choice.value), closeDialog)
+        },
+      },
+    },
+    h('p', {}, strings.moveIntro),
+    h('blockquote', { class: 'quote' }, excerpt(note.body, 140)),
+    field(strings.topicSelectLabel, choice),
+    h(
+      'div',
+      { class: 'dialog-actions' },
+      h('button', { type: 'button', ...closesDialog }, strings.cancel),
+      h('button', { type: 'submit', class: 'primary' }, strings.move),
+    ),
+  )
+}
+
+const topicSelect = (excluded: string | null): HTMLSelectElement =>
+  h(
+    'select',
+    { name: 'topic', required: true },
+    topics
+      .get()
+      .filter((topic) => topic.slug !== excluded)
+      .map((topic) =>
+        h('option', { value: topic.slug }, `${topicLabel(topic.slug)} · ${strings.helpers(topic.helperCount)}`),
+      ),
+  )
 
 const statusPip = (note: Note): PipState => {
   const summary = summarize(note.receipts)
@@ -177,6 +282,8 @@ const draftsItem = (
   conversationId: ConversationId,
 ): HTMLElement => {
   const target = noteById(conversationId, item.inReplyTo)
+  const topic = roomOf(conversationId)?.kind === 'topic' ? topicOfRoom(topics.get(), conversationId) : null
+  const question = topic !== null && item.inReplyTo === null
   return h(
     'li',
     { class: 'pending' },
@@ -191,12 +298,26 @@ const draftsItem = (
         target === null ? strings.newNoteDraft : `${strings.draftReplyTo} “${excerpt(target.body, 60)}”`,
       ),
     ),
+    question &&
+      h(
+        'p',
+        { class: 'goes-to' },
+        h('span', {}, strings.goesTo(topicLabel(topic.slug), topic.helperCount)),
+      ),
     item.drafts.length > 1 && h('p', { class: 'pending-choose' }, strings.chooseOne(item.drafts.length)),
-    h('div', { class: 'alternatives' }, item.drafts.map(draftCard)),
+    h(
+      'div',
+      { class: 'alternatives' },
+      item.drafts.map((draft) => draftCard(draft, item, question ? topic.slug : null)),
+    ),
   )
 }
 
-const draftCard = (draft: Note): HTMLElement =>
+const draftCard = (
+  draft: Note,
+  item: Extract<ThreadItem, { type: 'drafts' }>,
+  topicSlug: string | null,
+): HTMLElement =>
   h(
     'article',
     { class: 'draft', data: { draftId: draft.id } },
@@ -205,17 +326,55 @@ const draftCard = (draft: Note): HTMLElement =>
     h(
       'div',
       { class: 'draft-actions' },
-      button(strings.send, () => launch(approveDraft(draft)), { class: 'primary' }),
+      button(
+        strings.send,
+        () => launch(approveDraft(draft, undefined, alternativesLeftAfterSending(item, draft.id))),
+        { class: 'primary' },
+      ),
       h(
         'button',
-        { type: 'button', ...opensDialog(strings.editDraftTitle, () => draftEditor(draft)) },
+        { type: 'button', ...opensDialog(strings.editDraftTitle, () => draftEditor(draft, item)) },
         strings.edit,
       ),
+      topicSlug !== null &&
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'change-topic',
+            ...opensDialog(strings.changeTopic, () => readdressForm(draft, topicSlug)),
+          },
+          strings.changeTopic,
+        ),
       button(strings.discard, () => launch(discardDraft(draft)), { class: 'danger' }),
     ),
   )
 
-const draftEditor = (draft: Note): Child => {
+const readdressForm = (draft: Note, currentSlug: string): Child => {
+  const choice = topicSelect(currentSlug)
+  return h(
+    'form',
+    {
+      class: 'dialog-body',
+      on: {
+        submit: (event) => {
+          event.preventDefault()
+          launch(readdressDraft(draft, choice.value), closeDialog)
+        },
+      },
+    },
+    h('blockquote', { class: 'quote' }, excerpt(draft.body, 140)),
+    field(strings.changeTopicLabel, choice),
+    h(
+      'div',
+      { class: 'dialog-actions' },
+      h('button', { type: 'button', ...closesDialog }, strings.cancel),
+      h('button', { type: 'submit', class: 'primary' }, strings.changeTopic),
+    ),
+  )
+}
+
+const draftEditor = (draft: Note, item: Extract<ThreadItem, { type: 'drafts' }>): Child => {
   const text = h('textarea', {
     name: 'body',
     rows: '6',
@@ -230,7 +389,10 @@ const draftEditor = (draft: Note): Child => {
       on: {
         submit: (event) => {
           event.preventDefault()
-          launch(approveDraft(draft, text.value), closeDialog)
+          launch(
+            approveDraft(draft, text.value, alternativesLeftAfterSending(item, draft.id)),
+            closeDialog,
+          )
         },
       },
     },
@@ -290,55 +452,11 @@ const composer = (life: Lifetime, me: Me, id: ConversationId): HTMLElement => {
       h('button', { type: 'submit', class: 'primary send' }, strings.send),
     ),
     h('small', { class: 'composer-hint' }, strings.composerHint),
-    agentAsk(life, id),
+    agentAsk(life, () => {
+      const inReplyTo = replyTargetIn(id)
+      return inReplyTo === null ? { conversationId: id } : { inReplyTo }
+    }),
   )
-}
-
-const agentAsk = (life: Lifetime, id: ConversationId): HTMLElement => {
-  const instruction = h('input', {
-    name: 'instruction',
-    maxlength: String(DRAFT_INSTRUCTION_MAX),
-    placeholder: strings.agentInstructionPlaceholder,
-    'aria-label': strings.agentInstructionLabel,
-  })
-  const picker = region(life, [agentCredentials], () => {
-    const agents = agentCredentials.get()
-    return (
-      agents.length > 1 &&
-      h(
-        'select',
-        { name: 'agent', 'aria-label': strings.agentPickerLabel },
-        h('option', { value: '' }, strings.anyAgent),
-        agents.map((agent) => h('option', { value: agent.id }, agent.name)),
-      )
-    )
-  })
-  const details = h('details', { class: 'ask-agent' })
-  const ask = (): void => {
-    const chosen = picker.querySelector('select')?.value ?? ''
-    launch(
-      askAgent({
-        conversationId: id,
-        inReplyTo: replyTargetIn(id) as NoteId | null,
-        instruction: instruction.value.trim(),
-        agentId: chosen === '' ? null : (chosen as CredentialId),
-      }),
-      () => {
-        instruction.value = ''
-        details.open = false
-      },
-    )
-  }
-  instruction.addEventListener('keydown', (event) => {
-    if (event.key !== 'Enter' || event.isComposing) return
-    event.preventDefault()
-    ask()
-  })
-  details.append(
-    h('summary', {}, strings.letAgentWrite),
-    h('div', { class: 'ask-agent-row' }, instruction, picker, button(strings.askAgent, ask)),
-  )
-  return details
 }
 
 const waitingChips = (me: Me, id: ConversationId): Child => {

@@ -10,7 +10,6 @@
     "node": ">=22.18"
   },
   "scripts": {
-    "prepare": "git config core.hooksPath .githooks || true",
     "typecheck": "tsc -p tsconfig.json && pnpm -r --if-present run typecheck",
     "lint": "biome check . && tsx scripts/check-style.ts",
     "format": "biome check --write .",

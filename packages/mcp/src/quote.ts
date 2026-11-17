@@ -33,10 +33,15 @@ export const quoteNote = (note: Note, quoting: Quoting): string => {
 export const quoteNotes = (notes: ReadonlyArray<Note>, quoting: Quoting): string =>
   notes.map((note) => quoteNote(note, quoting)).join('\n\n')
 
-export const quotingFor = (api: Pick<MemberApi, 'directory.list'>, nonce: () => string): T.Task<Quoting, ApiError> =>
+export const quotingFor = (
+  api: Pick<MemberApi, 'directory.list'>,
+  nonce: () => string,
+): T.Task<Quoting, ApiError> =>
   T.map(({ entries }: { entries: ReadonlyArray<{ readonly member: Member }> }) => ({
     nonce,
-    authors: new Map<MemberId, Pick<Member, 'name' | 'email'>>(entries.map((entry) => [entry.member.id, entry.member])),
+    authors: new Map<MemberId, Pick<Member, 'name' | 'email'>>(
+      entries.map((entry) => [entry.member.id, entry.member]),
+    ),
   }))(api['directory.list']({ query: {} }))
 
 const stateOf = (note: Note): string => {

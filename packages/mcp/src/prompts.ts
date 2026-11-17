@@ -5,7 +5,11 @@ export interface Prompt {
   readonly name: string
   readonly title: string
   readonly description: string
-  readonly arguments: ReadonlyArray<{ readonly name: string; readonly description: string; readonly required: boolean }>
+  readonly arguments: ReadonlyArray<{
+    readonly name: string
+    readonly description: string
+    readonly required: boolean
+  }>
   readonly text: (given: Readonly<Record<string, string>>) => string
 }
 
@@ -63,7 +67,12 @@ export const PROMPTS: ReadonlyArray<Prompt> = [
 export const promptDefinitions = (
   prompts: ReadonlyArray<Prompt> = PROMPTS,
 ): ReadonlyArray<Readonly<Record<string, unknown>>> =>
-  prompts.map(({ name, title, description, arguments: expected }) => ({ name, title, description, arguments: expected }))
+  prompts.map(({ name, title, description, arguments: expected }) => ({
+    name,
+    title,
+    description,
+    arguments: expected,
+  }))
 
 export const getPrompt = (
   prompts: ReadonlyArray<Prompt>,
@@ -82,8 +91,9 @@ export const getPrompt = (
   })
 }
 
-const SHOW_THE_LINK = 'call open_homingbird and show me the link it returns, so I can approve in the web client.'
-const NOTHING_IS_SENT = 'Do not say anything was sent: a note is only sent when I approve it.'
+const SHOW_THE_LINK =
+  'call open_homingbird and show me the link it returns, so I can approve in the web client.'
+const NOTHING_IS_SENT = 'Do not say anything was sent: nothing leaves until I give my approval in the web client.'
 
 const stringsIn = (given: unknown): Record<string, string> =>
   typeof given === 'object' && given !== null && !Array.isArray(given)

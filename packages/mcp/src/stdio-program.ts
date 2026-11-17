@@ -6,6 +6,7 @@ import { makeLocalSession } from './local-session.ts'
 import { localAdapterOf, noticingRefusals } from './local-tools.ts'
 import { type McpContext, toolContextOf } from './server.ts'
 import { runStdioSession } from './stdio-session.ts'
+import { announcedRequests } from './triggers.ts'
 
 export interface StdioProgram {
   readonly arguments: ReadonlyArray<string>
@@ -25,11 +26,13 @@ export const ProgramFailed = tagged('ProgramFailed')<{ readonly message: string 
 export type ProgramFailed = ReturnType<typeof ProgramFailed>
 
 export const USAGE = [
-  'Usage: homingbird-mcp --server <url> [--name <client name>] [--channel]',
+  'Usage: homingbird-mcp --server <url> [--name <client name>] [--channel] [--desk]',
   '',
   '  --server   The address of your Homingbird server. Also read from HOMINGBIRD_SERVER.',
   '  --name     How this agent appears in your credential list.',
   '  --channel  Push arriving notes into a Claude Code session started with --channels.',
+  '  --desk     Make this your desk session: it holds the event stream, checks the inbox at',
+  '             the start and answers what arrives. Implies --channel. Keep only one desk.',
   '',
   'Signing in happens from the MCP client: ask your agent to log in.',
 ].join('\n')
@@ -45,6 +48,7 @@ export const runStdioProgram = (program: StdioProgram): T.Task<void, ProgramFail
         : {}
     yield* T.scoped((scope) =>
       T.gen(function* () {
+        const announced = announcedRequests()
         const channel = options.isChannel ? makeChannel(() => toolContextOf(context), program.write) : null
         const session = makeLocalSession({
           serverUrl: options.serverUrl,
@@ -54,7 +58,7 @@ export const runStdioProgram = (program: StdioProgram): T.Task<void, ProgramFail
           clock,
           ...fetching,
           ...opening,
-          ...(channel !== null && { onOnline: channel.online, onEvent: channel.received }),
+          ...(channel !== null && { listener: { online: channel.online, received: channel.received } }),
         })
         const context: McpContext = {
           api: noticingRefusals(
@@ -65,9 +69,15 @@ export const runStdioProgram = (program: StdioProgram): T.Task<void, ProgramFail
           nonce: program.nonce,
           webClientUrl: options.serverUrl,
           local: localAdapterOf(session),
+          desk: options.isDesk,
+          announced,
           ...opening,
           ...(channel !== null && {
-            channel: { opened: T.suspend(() => (session.state().kind === 'signed_in' ? channel.opened : channel.armed)) },
+            channel: {
+              opened: T.suspend(() =>
+                session.state().kind === 'signed_in' ? channel.opened : channel.armed,
+              ),
+            },
           }),
         }
         yield* session.restore
@@ -80,6 +90,7 @@ interface Options {
   readonly serverUrl: string
   readonly clientName: string
   readonly isChannel: boolean
+  readonly isDesk: boolean
 }
 
 const optionsFrom = (program: StdioProgram) => {
@@ -92,7 +103,8 @@ const optionsFrom = (program: StdioProgram) => {
     ? ok<Options>({
         serverUrl: serverUrl.replace(/\/+$/, ''),
         clientName: flag('--name') ?? `MCP agent on ${program.hostName}`,
-        isChannel: program.arguments.includes('--channel'),
+        isChannel: program.arguments.includes('--channel') || program.arguments.includes('--desk'),
+        isDesk: program.arguments.includes('--desk'),
       })
     : err(ProgramFailed({ message: USAGE }))
 }

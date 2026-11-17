@@ -10,7 +10,7 @@ describe('webClientLink', () => {
 
   it('deep-links to a conversation', () => {
     expect(webClientLink('https://hb.example.com/', ConversationId.of('conv00000000'))).toBe(
-      'https://hb.example.com/#/c/conv00000000',
+      'https://hb.example.com/#/c/conv_conv00000000',
     )
   })
 })

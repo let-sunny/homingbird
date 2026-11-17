@@ -85,7 +85,7 @@ export const completeSignIn = (
 export const callbackUrl = (publicUrl: string): string => `${publicUrl}/auth/callback`
 
 export const localPath = (returnTo: string | undefined): string =>
-  returnTo !== undefined && /^\/(?![/\\])/.test(returnTo) ? returnTo : '/'
+  returnTo !== undefined && /^\/(?![/\\])[^\\\s\p{Cc}]*$/u.test(returnTo) ? returnTo : '/'
 
 export const describeBrowser = (userAgent: string): string => {
   const browser = BROWSERS.find(([pattern]) => pattern.test(userAgent))?.[1] ?? 'Browser'

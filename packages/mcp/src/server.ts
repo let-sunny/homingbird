@@ -3,9 +3,9 @@ import type { Api } from '@homingbird/protocol'
 import type { OpenInBrowser } from './browser-opener.ts'
 import { CHANNEL_CAPABILITY, CHANNEL_INSTRUCTIONS } from './channel.ts'
 import { type RpcCall, RpcFailure, methodNotFound, serveJsonRpc } from './json-rpc.ts'
-import { PROMPTS, getPrompt, promptDefinitions } from './prompts.ts'
 import type { LocalAdapter } from './local-tools.ts'
 import { memberApiOf } from './member-api.ts'
+import { PROMPTS, getPrompt, promptDefinitions } from './prompts.ts'
 import {
   SERVER_INFO_META_KEY,
   SUPPORTED_REVISIONS,
@@ -14,8 +14,8 @@ import {
   handshakeRevisionFor,
   isStateless,
 } from './revisions.ts'
-import type { AnnouncedRequests } from './triggers.ts'
 import { APPROVAL_RULE, type ToolContext, type ToolResult, callTool, toolDefinitions } from './tools.ts'
+import type { AnnouncedRequests } from './triggers.ts'
 
 export interface McpContext {
   readonly api: Api

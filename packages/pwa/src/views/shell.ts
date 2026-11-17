@@ -2,9 +2,20 @@ import type { Conversation, Me } from '@homingbird/protocol'
 import { type Lifetime, h, region } from '@homingbird/ui'
 import { launch, signOut } from '../actions.ts'
 import { type Route, hrefFor } from '../routes.ts'
-import { type Connection, branding, connection, conversations, directory, members, route } from '../state.ts'
+import {
+  type Connection,
+  agentCredentials,
+  branding,
+  connection,
+  conversations,
+  directory,
+  members,
+  route,
+  session,
+} from '../state.ts'
 import { strings } from '../strings.ts'
 import { conversationTitle, excerpt, otherParticipants } from '../thread.ts'
+import { peopleConversations, topicRooms } from '../topics.ts'
 import { avatar, emptyWithPip, presenceBadges, timeLabel, wordmark } from './parts.ts'
 import { type PipState, pip } from './pip.ts'
 
@@ -52,6 +63,7 @@ const titleBar = (life: Lifetime, me: Me): HTMLElement =>
           { class: 'tabs', 'aria-label': strings.sections },
           tab(strings.navNotes, { name: 'home' }, ['home', 'conversation']),
           tab(strings.navPeople, { name: 'people' }, ['people']),
+          tab(strings.topics, { name: 'topics' }, ['topics', 'topic']),
           tab(strings.navSearch, { name: 'search', query: '' }, ['search']),
         ),
       { class: 'tabs-host' },
@@ -109,9 +121,13 @@ const sidebar = (life: Lifetime, me: Me): HTMLElement =>
   h(
     'aside',
     { class: 'sidebar', 'aria-label': strings.conversations },
+    region(life, [agentCredentials, session], () => agentCredentials.get().length === 0 && onboarding(), {
+      class: 'onboarding-host',
+    }),
     h('h2', { class: 'sidebar-title' }, strings.conversations),
-    region(life, [conversations, members, directory, route], () =>
-      conversations.get().length === 0
+    region(life, [conversations, members, directory, route], () => {
+      const people = peopleConversations(conversations.get())
+      return people.length === 0
         ? emptyWithPip(
             'waving',
             3,
@@ -121,8 +137,38 @@ const sidebar = (life: Lifetime, me: Me): HTMLElement =>
         : h(
             'ul',
             { class: 'conversation-list' },
-            conversations.get().map((conversation) => conversationRow(conversation, me)),
-          ),
+            people.map((conversation) => conversationRow(conversation, me)),
+          )
+    }),
+    h(
+      'div',
+      { class: 'sidebar-section-head' },
+      h('h2', { class: 'sidebar-title' }, strings.topics),
+      h('a', { class: 'browse-topics', href: hrefFor({ name: 'topics' }) }, strings.browseTopics),
+    ),
+    region(life, [conversations, route], () => {
+      const rooms = topicRooms(conversations.get())
+      return rooms.length === 0
+        ? h('p', { class: 'sidebar-empty' }, strings.noTopicRooms)
+        : h(
+            'ul',
+            { class: 'conversation-list topic-rooms' },
+            rooms.map((conversation) => conversationRow(conversation, me)),
+          )
+    }),
+  )
+
+const onboarding = (): HTMLElement =>
+  h(
+    'div',
+    { class: 'onboarding', role: 'note' },
+    pip('sign-in', 2),
+    h(
+      'div',
+      { class: 'onboarding-text' },
+      h('strong', {}, strings.onboardingTitle),
+      h('p', {}, strings.onboardingHint),
+      h('a', { class: 'button primary', href: hrefFor({ name: 'device', code: null }) }, strings.connectAgent),
     ),
   )
 
@@ -142,7 +188,9 @@ const conversationRow = (conversation: Conversation, me: Me): HTMLElement => {
         href: hrefFor({ name: 'conversation', id: conversation.id }),
         'aria-current': isOpen && 'page',
       },
-      avatar(title),
+      conversation.kind === 'topic'
+        ? h('span', { class: 'avatar is-topic', 'aria-hidden': 'true' }, '#')
+        : avatar(title),
       h(
         'span',
         { class: 'conversation-main' },

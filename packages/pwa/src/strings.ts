@@ -80,6 +80,7 @@ export const strings = {
   changeTopic: 'Change topic',
   changeTopicLabel: 'Send this draft to another topic',
   moveToTopic: 'Move to topic…',
+  topicSelectLabel: 'Topic',
   moveTitle: 'Move this question',
   moveIntro: 'The question leaves this room and goes to the helpers of the topic you pick.',
   move: 'Move',
