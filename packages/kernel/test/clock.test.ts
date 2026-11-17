@@ -77,7 +77,8 @@ describe('TestClock', () => {
   it('wakes sleepers in time order, ties in registration order, at their own time', async () => {
     const clock = makeTestClock()
     const log: Array<[string, number]> = []
-    const sleeper = (name: string, ms: number) => clock.sleep(ms, live).then(() => log.push([name, clock.now()]))
+    const sleeper = (name: string, ms: number) =>
+      clock.sleep(ms, live).then(() => log.push([name, clock.now()]))
     void sleeper('late', 30)
     void sleeper('tie-1', 20)
     void sleeper('early', 10)

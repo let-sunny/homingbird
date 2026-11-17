@@ -2,9 +2,10 @@ import fc from 'fast-check'
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import { Result as R, err, isErr, isOk, ok, pipe } from '../src/index.ts'
 
-const arbResult = fc.oneof(fc.integer().map((n) => ok(n)), fc.string().map((e) => err(e))) as fc.Arbitrary<
-  R.Result<number, string>
->
+const arbResult = fc.oneof(
+  fc.integer().map((n) => ok(n)),
+  fc.string().map((e) => err(e)),
+) as fc.Arbitrary<R.Result<number, string>>
 const f = (n: number): R.Result<number, string> => (n % 2 === 0 ? ok(n + 1) : err(`odd ${n}`))
 const g = (n: number): R.Result<number, string> => (n % 3 === 0 ? ok(n * 2) : err(`not3 ${n}`))
 
@@ -31,7 +32,12 @@ describe('Result', () => {
       fc.property(fc.integer(), arbResult, (a, m) => {
         expect(pipe(ok(a), R.flatMap(f))).toEqual(f(a))
         expect(pipe(m, R.flatMap(ok))).toEqual(m)
-        expect(pipe(m, R.flatMap(f), R.flatMap(g))).toEqual(pipe(m, R.flatMap((x) => pipe(f(x), R.flatMap(g)))))
+        expect(pipe(m, R.flatMap(f), R.flatMap(g))).toEqual(
+          pipe(
+            m,
+            R.flatMap((x) => pipe(f(x), R.flatMap(g))),
+          ),
+        )
       }),
     )
   })
@@ -39,23 +45,74 @@ describe('Result', () => {
   it('functor laws', () => {
     fc.assert(
       fc.property(arbResult, (m) => {
-        expect(pipe(m, R.map((x) => x))).toEqual(m)
-        expect(pipe(m, R.map((x) => x + 1), R.map((x) => x * 2))).toEqual(pipe(m, R.map((x) => (x + 1) * 2)))
+        expect(
+          pipe(
+            m,
+            R.map((x) => x),
+          ),
+        ).toEqual(m)
+        expect(
+          pipe(
+            m,
+            R.map((x) => x + 1),
+            R.map((x) => x * 2),
+          ),
+        ).toEqual(
+          pipe(
+            m,
+            R.map((x) => (x + 1) * 2),
+          ),
+        )
       }),
     )
   })
 
   it('map and mapError touch only their side', () => {
-    expect(pipe(ok(1), R.map((n) => n + 1))).toEqual(ok(2))
-    expect(pipe(err('e') as R.Result<number, string>, R.map((n) => n + 1))).toEqual(err('e'))
-    expect(pipe(err('e'), R.mapError((e) => e.length))).toEqual(err(1))
-    expect(pipe(ok(1) as R.Result<number, string>, R.mapError((e) => e.length))).toEqual(ok(1))
+    expect(
+      pipe(
+        ok(1),
+        R.map((n) => n + 1),
+      ),
+    ).toEqual(ok(2))
+    expect(
+      pipe(
+        err('e') as R.Result<number, string>,
+        R.map((n) => n + 1),
+      ),
+    ).toEqual(err('e'))
+    expect(
+      pipe(
+        err('e'),
+        R.mapError((e) => e.length),
+      ),
+    ).toEqual(err(1))
+    expect(
+      pipe(
+        ok(1) as R.Result<number, string>,
+        R.mapError((e) => e.length),
+      ),
+    ).toEqual(ok(1))
   })
 
   it('orElse recovers only errors', () => {
-    expect(pipe(err('e') as R.Result<number, string>, R.orElse((e) => ok(e.length)))).toEqual(ok(1))
-    expect(pipe(err('e') as R.Result<number, string>, R.orElse((e) => err(e.length)))).toEqual(err(1))
-    expect(pipe(ok(5) as R.Result<number, string>, R.orElse(() => ok(0)))).toEqual(ok(5))
+    expect(
+      pipe(
+        err('e') as R.Result<number, string>,
+        R.orElse((e) => ok(e.length)),
+      ),
+    ).toEqual(ok(1))
+    expect(
+      pipe(
+        err('e') as R.Result<number, string>,
+        R.orElse((e) => err(e.length)),
+      ),
+    ).toEqual(err(1))
+    expect(
+      pipe(
+        ok(5) as R.Result<number, string>,
+        R.orElse(() => ok(0)),
+      ),
+    ).toEqual(ok(5))
   })
 
   it('fold and getOrElse', () => {
@@ -65,8 +122,18 @@ describe('Result', () => {
     )
     expect(show(ok(1))).toBe('A:1')
     expect(show(err('x'))).toBe('E:x')
-    expect(pipe(ok(1) as R.Result<number, string>, R.getOrElse((e) => e.length))).toBe(1)
-    expect(pipe(err('abc') as R.Result<number, string>, R.getOrElse((e) => e.length))).toBe(3)
+    expect(
+      pipe(
+        ok(1) as R.Result<number, string>,
+        R.getOrElse((e) => e.length),
+      ),
+    ).toBe(1)
+    expect(
+      pipe(
+        err('abc') as R.Result<number, string>,
+        R.getOrElse((e) => e.length),
+      ),
+    ).toBe(3)
   })
 
   it('unwrap returns the value or throws the error', () => {
@@ -168,7 +235,11 @@ describe('Result', () => {
         return { a, b }
       })
       expectTypeOf(out).toEqualTypeOf<R.Result<{ a: number; b: string }, 'a' | 'b'>>()
-      expectTypeOf(R.gen(function* () { return 1 })).toEqualTypeOf<R.Result<number, never>>()
+      expectTypeOf(
+        R.gen(function* () {
+          return 1
+        }),
+      ).toEqualTypeOf<R.Result<number, never>>()
     })
   })
 

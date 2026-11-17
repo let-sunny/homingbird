@@ -431,6 +431,7 @@
 
 .composer {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--hb-space-1);
   padding: var(--hb-space-3) var(--hb-space-4);
   border-block-start: var(--hb-border);

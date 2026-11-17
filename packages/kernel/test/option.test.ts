@@ -29,7 +29,12 @@ describe('Option', () => {
       fc.property(fc.integer(), arbOption, (a, m) => {
         expect(pipe(some(a), O.flatMap(f))).toEqual(f(a))
         expect(pipe(m, O.flatMap(some))).toEqual(m)
-        expect(pipe(m, O.flatMap(f), O.flatMap(g))).toEqual(pipe(m, O.flatMap((x) => pipe(f(x), O.flatMap(g)))))
+        expect(pipe(m, O.flatMap(f), O.flatMap(g))).toEqual(
+          pipe(
+            m,
+            O.flatMap((x) => pipe(f(x), O.flatMap(g))),
+          ),
+        )
       }),
     )
   })
@@ -37,24 +42,85 @@ describe('Option', () => {
   it('functor laws', () => {
     fc.assert(
       fc.property(arbOption, (m) => {
-        expect(pipe(m, O.map((x) => x))).toEqual(m)
-        expect(pipe(m, O.map((x) => x + 1), O.map((x) => x * 2))).toEqual(pipe(m, O.map((x) => (x + 1) * 2)))
+        expect(
+          pipe(
+            m,
+            O.map((x) => x),
+          ),
+        ).toEqual(m)
+        expect(
+          pipe(
+            m,
+            O.map((x) => x + 1),
+            O.map((x) => x * 2),
+          ),
+        ).toEqual(
+          pipe(
+            m,
+            O.map((x) => (x + 1) * 2),
+          ),
+        )
       }),
     )
   })
 
   it('map, filter, getOrElse, toNullable, toResult', () => {
-    expect(pipe(some(1), O.map((n) => n + 1))).toEqual(some(2))
-    expect(pipe(none as O.Option<number>, O.map((n) => n + 1))).toBe(none)
-    expect(pipe(some(2), O.filter((n) => n > 1))).toEqual(some(2))
-    expect(pipe(some(1), O.filter((n) => n > 1))).toBe(none)
-    expect(pipe(none as O.Option<number>, O.filter(() => true))).toBe(none)
-    expect(pipe(some(1), O.getOrElse(() => 'd'))).toBe(1)
-    expect(pipe(none as O.Option<number>, O.getOrElse(() => 'd'))).toBe('d')
+    expect(
+      pipe(
+        some(1),
+        O.map((n) => n + 1),
+      ),
+    ).toEqual(some(2))
+    expect(
+      pipe(
+        none as O.Option<number>,
+        O.map((n) => n + 1),
+      ),
+    ).toBe(none)
+    expect(
+      pipe(
+        some(2),
+        O.filter((n) => n > 1),
+      ),
+    ).toEqual(some(2))
+    expect(
+      pipe(
+        some(1),
+        O.filter((n) => n > 1),
+      ),
+    ).toBe(none)
+    expect(
+      pipe(
+        none as O.Option<number>,
+        O.filter(() => true),
+      ),
+    ).toBe(none)
+    expect(
+      pipe(
+        some(1),
+        O.getOrElse(() => 'd'),
+      ),
+    ).toBe(1)
+    expect(
+      pipe(
+        none as O.Option<number>,
+        O.getOrElse(() => 'd'),
+      ),
+    ).toBe('d')
     expect(O.toNullable(some(1))).toBe(1)
     expect(O.toNullable(none)).toBeNull()
-    expect(pipe(some(1), O.toResult(() => 'e'))).toEqual(ok(1))
-    expect(pipe(none, O.toResult(() => 'e'))).toEqual(err('e'))
+    expect(
+      pipe(
+        some(1),
+        O.toResult(() => 'e'),
+      ),
+    ).toEqual(ok(1))
+    expect(
+      pipe(
+        none,
+        O.toResult(() => 'e'),
+      ),
+    ).toEqual(err('e'))
   })
 
   describe('gen', () => {

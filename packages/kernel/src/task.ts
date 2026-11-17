@@ -1,6 +1,5 @@
 import type { Clock as ClockService, HasClock } from './clock.ts'
-import { type ByTag, type Tagged, tagged } from './data.ts'
-import type { UnionToIntersection } from './fn.ts'
+import { type Tagged, tagged } from './data.ts'
 import { type Result, err, isOk, ok } from './result.ts'
 
 export interface Fail<out E> extends Tagged<'Fail'> {
@@ -53,7 +52,11 @@ export type ValueOf<T> = T extends Task<infer A, any, any> ? A : never
 
 export type ErrorOf<T> = T extends Task<any, infer E, any> ? E : never
 
-export type EnvOf<T> = UnionToIntersection<T extends Task<any, any, infer R> ? R : never>
+export type EnvOf<T> = (T extends Task<any, any, infer R> ? (env: R) => void : never) extends (
+  env: infer All,
+) => void
+  ? All
+  : never
 
 export const make = <A, E = never, R = unknown>(
   run: (env: R, signal: AbortSignal) => Promise<Exit<A, E>> | Exit<A, E>,
@@ -217,16 +220,13 @@ export const catchAll =
     })
 
 export const catchTag =
-  <E, T extends E extends Tagged<infer K> ? K : never, B, E2, R2>(
-    tag: T,
-    f: (e: ByTag<E, T>) => Task<B, E2, R2>,
-  ) =>
-  <A, R>(task: Task<A, E, R>): Task<A | B, Exclude<E, { readonly _tag: T }> | E2, R & R2> =>
-    make<A | B, Exclude<E, { readonly _tag: T }> | E2, R & R2>(async (env, signal) => {
+  <K extends string, Caught extends Tagged<K>, B, E2, R2>(tag: K, f: (e: Caught) => Task<B, E2, R2>) =>
+  <A, E, R>(task: Task<A, E, R>): Task<A | B, Exclude<E, { readonly _tag: K }> | E2, R & R2> =>
+    make<A | B, Exclude<E, { readonly _tag: K }> | E2, R & R2>(async (env, signal) => {
       const exit = await task.run(env, signal)
       if (!isOk(exit) && exit.error._tag === 'Fail' && (exit.error.error as Tagged<string>)?._tag === tag)
-        return f(exit.error.error as ByTag<E, T>).run(env, signal)
-      return exit as Exit<A, Exclude<E, { readonly _tag: T }>>
+        return f(exit.error.error as unknown as Caught).run(env, signal)
+      return exit as Exit<A, Exclude<E, { readonly _tag: K }>>
     })
 
 export const tapError =

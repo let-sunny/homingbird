@@ -27,7 +27,13 @@ describe('Iter', () => {
   it('map matches Array.map, index included', () => {
     fc.assert(
       fc.property(arr, (xs) => {
-        expect(pipe(xs, I.map((x, i) => x * 2 + i), I.toArray)).toEqual(xs.map((x, i) => x * 2 + i))
+        expect(
+          pipe(
+            xs,
+            I.map((x, i) => x * 2 + i),
+            I.toArray,
+          ),
+        ).toEqual(xs.map((x, i) => x * 2 + i))
       }),
     )
   })
@@ -35,7 +41,13 @@ describe('Iter', () => {
   it('filter matches Array.filter', () => {
     fc.assert(
       fc.property(arr, (xs) => {
-        expect(pipe(xs, I.filter((x) => x % 2 === 0), I.toArray)).toEqual(xs.filter((x) => x % 2 === 0))
+        expect(
+          pipe(
+            xs,
+            I.filter((x) => x % 2 === 0),
+            I.toArray,
+          ),
+        ).toEqual(xs.filter((x) => x % 2 === 0))
       }),
     )
   })
@@ -43,7 +55,13 @@ describe('Iter', () => {
   it('flatMap matches Array.flatMap', () => {
     fc.assert(
       fc.property(arr, (xs) => {
-        expect(pipe(xs, I.flatMap((x) => [x, -x]), I.toArray)).toEqual(xs.flatMap((x) => [x, -x]))
+        expect(
+          pipe(
+            xs,
+            I.flatMap((x) => [x, -x]),
+            I.toArray,
+          ),
+        ).toEqual(xs.flatMap((x) => [x, -x]))
       }),
     )
   })
@@ -73,7 +91,13 @@ describe('Iter', () => {
     fc.assert(
       fc.property(arr, (xs) => {
         const cut = xs.findIndex((x) => x < 0)
-        expect(pipe(xs, I.takeWhile((x) => x >= 0), I.toArray)).toEqual(cut === -1 ? xs : xs.slice(0, cut))
+        expect(
+          pipe(
+            xs,
+            I.takeWhile((x) => x >= 0),
+            I.toArray,
+          ),
+        ).toEqual(cut === -1 ? xs : xs.slice(0, cut))
       }),
     )
   })
@@ -82,7 +106,13 @@ describe('Iter', () => {
     fc.assert(
       fc.property(arr, (xs) => {
         let sum = 10
-        expect(pipe(xs, I.scan(10, (s, x) => s + x), I.toArray)).toEqual(xs.map((x) => (sum += x)))
+        expect(
+          pipe(
+            xs,
+            I.scan(10, (s, x) => s + x),
+            I.toArray,
+          ),
+        ).toEqual(xs.map((x) => (sum += x)))
       }),
     )
   })
@@ -97,7 +127,10 @@ describe('Iter', () => {
         for (const c of chunks) expect(c.length).toBeGreaterThan(0)
       }),
     )
-    expect(pipe([1, 2, 3, 4], I.chunk(2), I.toArray)).toEqual([[1, 2], [3, 4]])
+    expect(pipe([1, 2, 3, 4], I.chunk(2), I.toArray)).toEqual([
+      [1, 2],
+      [3, 4],
+    ])
     expect(pipe([1], I.chunk(1), I.toArray)).toEqual([[1]])
   })
 
@@ -174,14 +207,25 @@ describe('Iter', () => {
   })
 
   it('iterate and repeat are infinite and lazy', () => {
-    expect(pipe(I.iterate(1, (n) => n * 2), I.take(5), I.toArray)).toEqual([1, 2, 4, 8, 16])
+    expect(
+      pipe(
+        I.iterate(1, (n) => n * 2),
+        I.take(5),
+        I.toArray,
+      ),
+    ).toEqual([1, 2, 4, 8, 16])
     expect(pipe(I.repeat('x'), I.take(3), I.toArray)).toEqual(['x', 'x', 'x'])
   })
 
   it('reduce and count', () => {
     fc.assert(
       fc.property(arr, (xs) => {
-        expect(pipe(xs, I.reduce(1, (s, x) => s + x))).toBe(xs.reduce((s, x) => s + x, 1))
+        expect(
+          pipe(
+            xs,
+            I.reduce(1, (s, x) => s + x),
+          ),
+        ).toBe(xs.reduce((s, x) => s + x, 1))
         expect(I.count(xs)).toBe(xs.length)
       }),
     )
@@ -201,15 +245,28 @@ describe('Iter', () => {
 
   it('some and every short-circuit', () => {
     const a = tracked([1, 2, 3])
-    expect(pipe(a.iterable, I.some((x) => x === 1))).toBe(true)
+    expect(
+      pipe(
+        a.iterable,
+        I.some((x) => x === 1),
+      ),
+    ).toBe(true)
     expect(a.state.pulled).toBe(1)
     const b = tracked([1, 2, 3])
-    expect(pipe(b.iterable, I.every((x) => x !== 1))).toBe(false)
+    expect(
+      pipe(
+        b.iterable,
+        I.every((x) => x !== 1),
+      ),
+    ).toBe(false)
     expect(b.state.pulled).toBe(1)
   })
 
   it('groupBy keeps insertion order within groups', () => {
-    const groups = pipe([1, 2, 3, 4, 5], I.groupBy((x) => (x % 2 === 0 ? 'even' : 'odd')))
+    const groups = pipe(
+      [1, 2, 3, 4, 5],
+      I.groupBy((x) => (x % 2 === 0 ? 'even' : 'odd')),
+    )
     expect([...groups.entries()]).toEqual([
       ['odd', [1, 3, 5]],
       ['even', [2, 4]],
