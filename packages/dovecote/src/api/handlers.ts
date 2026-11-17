@@ -41,6 +41,8 @@ import {
 import { readSettings, writeSettings } from '../domain/settings.ts'
 import type { Caller } from '../environment.ts'
 import { type RequestEnv, waitForEvents } from '../events/events.ts'
+import { removeOwnPushSubscription, savePushSubscription } from '../push/subscriptions.ts'
+import { vapidKeys } from '../push/vapid.ts'
 import { SERVER_VERSION } from '../version.ts'
 
 export type CallerOf<N extends RouteName> = Contract[N]['access'] extends 'public' ? null : Caller
@@ -163,6 +165,11 @@ export const handlers: Handlers = {
   'device.decide': ({ params, body }, caller) => T.as({})(decideDeviceRequest(caller, params.userCode, body)),
   'consent.get': ({ params }) => describeConsent(params.id),
   'consent.decide': ({ params, body }, caller) => decideConsent(caller, params.id, body),
+
+  'push.key': () => T.map((keys: { publicKey: string }) => ({ publicKey: keys.publicKey }))(vapidKeys),
+  'push.subscribe': ({ body }, caller) => T.as({})(savePushSubscription(caller.member.id, body)),
+  'push.unsubscribe': ({ body }, caller) =>
+    T.as({})(removeOwnPushSubscription(caller.member.id, body.endpoint)),
 
   'events.poll': ({ query }, caller) =>
     waitForEvents(

@@ -216,7 +216,23 @@ const INITIAL: ReadonlyArray<Table> = [
   },
 ]
 
-const MIGRATIONS: ReadonlyArray<ReadonlyArray<Table>> = [INITIAL]
+const PUSH_SUBSCRIPTIONS: ReadonlyArray<Table> = [
+  {
+    name: 'push_subscriptions',
+    columns: {
+      endpoint_hash: string,
+      member_id: id,
+      endpoint: text,
+      p256dh: string,
+      auth: string,
+      created_at: integer,
+    },
+    primaryKey: ['endpoint_hash'],
+    indexes: [{ columns: ['member_id'] }],
+  },
+]
+
+const MIGRATIONS: ReadonlyArray<ReadonlyArray<Table>> = [INITIAL, PUSH_SUBSCRIPTIONS]
 
 const statementsFor = (target: Dialect, table: Table): string[] =>
   target === 'mysql'

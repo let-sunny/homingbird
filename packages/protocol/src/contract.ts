@@ -29,6 +29,15 @@ import {
 } from './model.ts'
 import { type RequestOf, type ResponseOf, type Route, route } from './route.ts'
 
+export const PushSubscription = S.struct({
+  endpoint: S.string({ minLength: 1, maxLength: 2000, pattern: /^https:\/\// }),
+  keys: S.struct({
+    p256dh: S.string({ pattern: /^[A-Za-z0-9_-]{80,100}$/ }),
+    auth: S.string({ pattern: /^[A-Za-z0-9_-]{16,32}$/ }),
+  }),
+})
+export type PushSubscription = S.Infer<typeof PushSubscription>
+
 export const contract = {
   'server.info': route({ method: 'GET', path: '/info', access: 'public', response: ServerInfo }),
   'me.get': route({ method: 'GET', path: '/me', access: 'member', response: Me }),
@@ -199,6 +208,26 @@ export const contract = {
     response: S.struct({ redirectTo: S.string() }),
   }),
 
+  'push.key': route({
+    method: 'GET',
+    path: '/push/key',
+    access: 'member',
+    response: S.struct({ publicKey: S.string() }),
+  }),
+  'push.subscribe': route({
+    method: 'POST',
+    path: '/push/subscriptions',
+    access: 'human',
+    body: PushSubscription,
+    response: Empty,
+  }),
+  'push.unsubscribe': route({
+    method: 'POST',
+    path: '/push/subscriptions/remove',
+    access: 'human',
+    body: S.struct({ endpoint: S.string({ minLength: 1, maxLength: 2000 }) }),
+    response: Empty,
+  }),
   'events.poll': route({
     method: 'GET',
     path: '/events/poll',

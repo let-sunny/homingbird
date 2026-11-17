@@ -2,10 +2,11 @@ import type { Conversation, Me } from '@homingbird/protocol'
 import { type Lifetime, h, region } from '@homingbird/ui'
 import { launch, signOut } from '../actions.ts'
 import { type Route, hrefFor } from '../routes.ts'
-import { branding, connection, conversations, directory, members, route } from '../state.ts'
+import { type Connection, branding, connection, conversations, directory, members, route } from '../state.ts'
 import { strings } from '../strings.ts'
 import { conversationTitle, excerpt, otherParticipants } from '../thread.ts'
-import { avatar, empty, presenceBadges, timeLabel } from './parts.ts'
+import { avatar, emptyWithPip, presenceBadges, timeLabel, wordmark } from './parts.ts'
+import { type PipState, pip } from './pip.ts'
 
 export const shell = (life: Lifetime, me: Me, stage: HTMLElement): HTMLElement => {
   const app = h('div', { class: 'app' }, titleBar(life, me), sidebar(life, me), stage)
@@ -19,6 +20,13 @@ export const shell = (life: Lifetime, me: Me, stage: HTMLElement): HTMLElement =
 
 const USER_MENU_ID = 'user-menu'
 
+const CONNECTION_PIP: Readonly<Record<Connection, PipState>> = {
+  connecting: 'connecting',
+  live: 'idle',
+  polling: 'idle',
+  offline: 'disconnected',
+}
+
 const titleBar = (life: Lifetime, me: Me): HTMLElement =>
   h(
     'header',
@@ -26,8 +34,8 @@ const titleBar = (life: Lifetime, me: Me): HTMLElement =>
     h(
       'a',
       { class: 'brand', href: '#/' },
-      h('img', { src: branding.get().logo ?? '/icons/logo.svg', alt: '', width: '28', height: '28' }),
-      h('span', {}, branding.get().name),
+      h('img', { class: 'mark', src: branding.get().logo ?? '/icons/mark.svg', alt: '', width: '32', height: '32' }),
+      h('span', { class: 'wordmark' }, wordmark(branding.get().name)),
     ),
     region(
       life,
@@ -43,7 +51,12 @@ const titleBar = (life: Lifetime, me: Me): HTMLElement =>
       { class: 'tabs-host' },
     ),
     region(life, [connection], () =>
-      h('span', { class: `connection is-${connection.get()}`, role: 'status' }, strings.connection[connection.get()]),
+      h(
+        'span',
+        { class: `connection is-${connection.get()}`, role: 'status' },
+        pip(CONNECTION_PIP[connection.get()], 1),
+        h('span', {}, strings.connection[connection.get()]),
+      ),
     ),
     h(
       'button',
@@ -89,7 +102,7 @@ const sidebar = (life: Lifetime, me: Me): HTMLElement =>
     h('h2', { class: 'sidebar-title' }, strings.conversations),
     region(life, [conversations, members, directory, route], () =>
       conversations.get().length === 0
-        ? empty(strings.noConversations, h('a', { class: 'button', href: '#/people' }, strings.findPeople))
+        ? emptyWithPip('waving', 3, strings.noConversations, h('a', { class: 'button', href: '#/people' }, strings.findPeople))
         : h('ul', { class: 'conversation-list' }, conversations.get().map((conversation) => conversationRow(conversation, me))),
     ),
   )
@@ -130,6 +143,7 @@ const conversationRow = (conversation: Conversation, me: Me): HTMLElement => {
         'span',
         { class: 'conversation-side' },
         conversation.lastNote?.sentAt != null && timeLabel(conversation.lastNote.sentAt),
+        conversation.unreadCount > 0 && pip('new-note', 1),
         conversation.unreadCount > 0 &&
           h('span', { class: 'count unread', 'aria-label': strings.unread(conversation.unreadCount) }, conversation.unreadCount),
         conversation.draftCount > 0 &&

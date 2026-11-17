@@ -2,6 +2,7 @@ import { systemClock } from '@homingbird/kernel'
 import type { Presence } from '@homingbird/protocol'
 import { type Child, type Properties, h } from '@homingbird/ui'
 import { strings } from '../strings.ts'
+import { type PipScale, type PipState, pip } from './pip.ts'
 
 export const page = (title: string, ...children: ReadonlyArray<Child>): HTMLElement =>
   h(
@@ -68,6 +69,15 @@ export const avatar = (name: string): HTMLElement => h('span', { class: 'avatar'
 
 export const empty = (text: string, ...actions: ReadonlyArray<Child>): HTMLElement =>
   h('div', { class: 'empty' }, h('p', {}, text), ...actions)
+
+export const emptyWithPip = (
+  state: PipState,
+  scale: PipScale,
+  text: string,
+  ...actions: ReadonlyArray<Child>
+): HTMLElement => h('div', { class: 'empty' }, pip(state, scale), h('p', {}, text), ...actions)
+
+export const wordmark = (name: string): string => (name === 'Homingbird' ? 'homingbird' : name)
 
 const TIME = new Intl.DateTimeFormat('en', { hour: 'numeric', minute: '2-digit' })
 const DAY = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' })

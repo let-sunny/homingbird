@@ -6,7 +6,7 @@ import { hrefFor } from '../routes.ts'
 import { conversations, members } from '../state.ts'
 import { strings } from '../strings.ts'
 import { conversationTitle, excerpt } from '../thread.ts'
-import { empty, field, page, timeLabel } from './parts.ts'
+import { emptyWithPip, field, page, timeLabel } from './parts.ts'
 
 export const searchView = (life: Lifetime, me: Me, initialQuery: string): HTMLElement => {
   const results = signal<ReadonlyArray<Note> | null>(null)
@@ -36,8 +36,8 @@ export const searchView = (life: Lifetime, me: Me, initialQuery: string): HTMLEl
     ),
     region(life, [results, members], () => {
       const found = results.get()
-      if (found === null) return empty(strings.searchPrompt)
-      if (found.length === 0) return empty(strings.searchEmpty)
+      if (found === null) return emptyWithPip('searching', 4, strings.searchPrompt)
+      if (found.length === 0) return emptyWithPip('searching', 4, strings.searchEmpty)
       return h('ul', { class: 'results' }, found.map((note) => resultRow(note, me)))
     }),
   )

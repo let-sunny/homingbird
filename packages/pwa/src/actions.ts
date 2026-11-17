@@ -12,6 +12,7 @@ import {
   directory,
   notice,
   replyTargets,
+  sendingIn,
   serverInfo,
   session,
   signedIn,
@@ -83,7 +84,13 @@ export const loadOlderNotes = (id: ConversationId): Action =>
   })
 
 export const sendNote = (conversationId: ConversationId, body: string): Action =>
+  T.ensuring(T.sync(() => sendingIn.update((sending) => new Set([...sending].filter((id) => id !== conversationId)))))(
+    deliverNote(conversationId, body),
+  )
+
+const deliverNote = (conversationId: ConversationId, body: string): Action =>
   T.gen(function* () {
+    sendingIn.update((sending) => new Set(sending).add(conversationId))
     const inReplyTo = replyTargetIn(conversationId)
     const draft = yield* api['drafts.create']({
       body: { body, conversationId, ...(inReplyTo !== null && { inReplyTo }) },

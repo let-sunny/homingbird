@@ -11,11 +11,12 @@ import {
   saveDraft,
   sendNote,
 } from '../actions.ts'
-import { conversations, directory, members, replyTargets, threads } from '../state.ts'
+import { conversations, directory, members, replyTargets, sendingIn, threads } from '../state.ts'
 import { strings } from '../strings.ts'
 import { type ThreadItem, conversationTitle, excerpt, isUnreadBy, otherParticipants, threadItems } from '../thread.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
-import { avatar, backLink, button, empty, presenceBadges, timeLabel } from './parts.ts'
+import { avatar, backLink, button, emptyWithPip, presenceBadges, timeLabel } from './parts.ts'
+import { type PipState, pip } from './pip.ts'
 
 export const threadView = (life: Lifetime, me: Me, id: ConversationId): HTMLElement => {
   launch(loadThread(id))
@@ -36,7 +37,7 @@ export const threadView = (life: Lifetime, me: Me, id: ConversationId): HTMLElem
       const thread = threads.get().get(id)
       if (thread === undefined) return h('p', { class: 'loading' }, strings.loading)
       if (thread.hasMore) return button(strings.loadOlder, () => launch(loadOlderNotes(id)), { class: 'load-older' })
-      return thread.notes.length === 0 && empty(strings.emptyThread)
+      return thread.notes.length === 0 && emptyWithPip('waving', 4, strings.emptyThread)
     }),
     list,
   )
@@ -100,6 +101,7 @@ const noteItem = (note: Note, me: Me, conversationId: ConversationId): HTMLEleme
       { class: 'note-meta' },
       originBadge(note),
       note.sentAt !== null && timeLabel(note.sentAt),
+      mine && pip(statusPip(note), 1),
       h('span', { class: 'note-status' }, describeStatus(summarize(note.receipts))),
       !mine &&
         button(strings.reply, () => replyTargets.update((targets) => new Map(targets).set(conversationId, note.id)), {
@@ -107,6 +109,11 @@ const noteItem = (note: Note, me: Me, conversationId: ConversationId): HTMLEleme
         }),
     ),
   )
+}
+
+const statusPip = (note: Note): PipState => {
+  const summary = summarize(note.receipts)
+  return summary.drafting > 0 ? 'drafting' : summary.read > 0 || summary.replied > 0 ? 'read' : 'delivered'
 }
 
 const originBadge = (note: Note): HTMLElement =>
@@ -120,6 +127,7 @@ const draftsItem = (item: Extract<ThreadItem, { type: 'drafts' }>, conversationI
     h(
       'div',
       { class: 'pending-head' },
+      pip('awaiting-approval', 2),
       h('strong', {}, strings.waitingForApproval),
       h('span', {}, target === null ? strings.newNoteDraft : `${strings.draftReplyTo} “${excerpt(target.body, 60)}”`),
     ),
@@ -199,7 +207,11 @@ const composer = (life: Lifetime, me: Me, id: ConversationId): HTMLElement => {
         },
       },
     },
-    region(life, [threads, replyTargets, directory, conversations], () => [replyChip(id), cannotMessageNotice(me, id)]),
+    region(life, [threads, replyTargets, directory, conversations, sendingIn], () => [
+      sendingIn.get().has(id) && h('p', { class: 'sending', role: 'status' }, pip('sending', 2), strings.sending),
+      replyChip(id),
+      cannotMessageNotice(me, id),
+    ]),
     h('div', { class: 'composer-row' }, text, h('button', { type: 'submit', class: 'primary send' }, strings.send)),
     h('small', { class: 'composer-hint' }, strings.composerHint),
   )
@@ -226,7 +238,11 @@ const cannotMessageNotice = (me: Me, id: ConversationId): Child => {
   if (conversation === undefined || conversation.kind !== 'dm') return null
   const other = otherParticipants(conversation, me.member.id)[0]
   const entry = directory.get().find((candidate) => candidate.member.id === other)
-  return entry !== undefined && !entry.canMessage && h('p', { class: 'composer-blocked', role: 'note' }, strings.cannotMessage)
+  return (
+    entry !== undefined &&
+    !entry.canMessage &&
+    h('p', { class: 'composer-blocked', role: 'note' }, pip('blocked', 2), strings.cannotMessage)
+  )
 }
 
 const NEAR_BOTTOM_PX = 120

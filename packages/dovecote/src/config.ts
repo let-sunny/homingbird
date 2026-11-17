@@ -1,5 +1,6 @@
 import { Result, Schema as S } from '@homingbird/kernel'
 import type { ContactMode } from '@homingbird/protocol'
+import { DEFAULT_PUSH_HOSTS } from './push/default-hosts.ts'
 
 export interface Config {
   readonly publicUrl: string
@@ -21,6 +22,7 @@ export interface Config {
   }
   readonly adminEmails: ReadonlyArray<string>
   readonly trustProxy: boolean
+  readonly pushHosts: ReadonlyArray<string>
   readonly sessionDays: number
   readonly audit: { readonly toStdout: boolean; readonly webhookUrl: string | null }
   readonly agentCredentialDays: number
@@ -62,6 +64,7 @@ export const loadConfig = (
     },
     adminEmails: commaList(v.HB_ADMIN_EMAILS),
     trustProxy: v.HB_TRUST_PROXY === '1',
+    pushHosts: v.HB_PUSH_HOSTS ? commaList(v.HB_PUSH_HOSTS) : DEFAULT_PUSH_HOSTS,
     sessionDays: Number(v.HB_SESSION_DAYS ?? '30'),
     audit: { toStdout: v.HB_AUDIT_STDOUT === '1', webhookUrl: v.HB_AUDIT_WEBHOOK_URL ?? null },
     agentCredentialDays: Number(v.HB_AGENT_CREDENTIAL_DAYS ?? '90'),
@@ -84,6 +87,7 @@ const Variables = S.struct({
   HB_ALLOWED_DOMAINS: S.optional(S.string()),
   HB_ADMIN_EMAILS: S.optional(S.string()),
   HB_TRUST_PROXY: S.optional(S.literal('0', '1')),
+  HB_PUSH_HOSTS: S.optional(S.string()),
   HB_CONTACT_MODE: S.optional(S.literal('open', 'contacts')),
   HB_AUDIT_RETENTION_DAYS: S.optional(positiveInteger),
   HB_SESSION_DAYS: S.optional(positiveInteger),

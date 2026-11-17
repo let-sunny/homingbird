@@ -10,7 +10,7 @@ import { profileView, credentialsView } from './views/account.ts'
 import { adminView } from './views/admin.ts'
 import { consentView, deviceView } from './views/connect.ts'
 import { dialogHost } from './views/dialog.ts'
-import { empty } from './views/parts.ts'
+import { emptyWithPip } from './views/parts.ts'
 import { peopleView } from './views/people.ts'
 import { searchView } from './views/search.ts'
 import { shell } from './views/shell.ts'
@@ -53,7 +53,12 @@ const start = (root: HTMLElement): void => {
 const stageFor = (life: Lifetime, me: Me, current: Route): Child => {
   switch (current.name) {
     case 'home':
-      return empty(strings.pickConversation, h('a', { class: 'button primary', href: '#/people' }, strings.findPeople))
+      return emptyWithPip(
+        'waving',
+        6,
+        strings.pickConversation,
+        h('a', { class: 'button primary', href: '#/people' }, strings.findPeople),
+      )
     case 'conversation':
       return threadView(life, me, current.id as ConversationId)
     case 'people':
@@ -61,7 +66,7 @@ const stageFor = (life: Lifetime, me: Me, current: Route): Child => {
     case 'search':
       return searchView(life, me, current.query)
     case 'profile':
-      return profileView(me)
+      return profileView(life, me)
     case 'credentials':
       return credentialsView(life)
     case 'device':
@@ -76,7 +81,7 @@ const stageFor = (life: Lifetime, me: Me, current: Route): Child => {
   }
 }
 
-const notFound = (): Child => empty(strings.notFound, h('a', { class: 'button', href: '#/' }, strings.backHome))
+const notFound = (): Child => emptyWithPip('failed', 4, strings.notFound, h('a', { class: 'button', href: '#/' }, strings.backHome))
 
 const refusalIn = (current: Route): string | null => (current.name === 'signed-out' ? current.reason : null)
 

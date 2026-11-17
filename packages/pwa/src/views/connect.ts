@@ -5,6 +5,7 @@ import { api, launch } from '../actions.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 import { button, field, page } from './parts.ts'
+import { pip } from './pip.ts'
 
 export const deviceView = (life: Lifetime, code: string | null): HTMLElement => {
   const stage = signal<DeviceStage>({ step: code === null ? 'ask' : 'loading' })
@@ -65,6 +66,7 @@ const codeForm = (): HTMLElement => {
         },
       },
     },
+    pip('sign-in', 4),
     h('p', {}, strings.deviceIntro),
     field(strings.deviceCodeLabel, code),
     h('button', { type: 'submit', class: 'primary' }, strings.deviceContinue),
@@ -93,6 +95,7 @@ const deviceDecision = (request: DeviceRequest, finish: (message: string) => voi
         },
       },
     },
+    pip('sign-in', 4),
     h('p', { class: 'ask' }, strings.deviceAsks(request.client)),
     h('p', { class: 'code-shown' }, request.userCode),
     h('p', {}, strings.deviceAgentGrant),
@@ -130,6 +133,7 @@ const consentDecision = (request: ConsentRequest): HTMLElement => {
         },
       },
     },
+    pip('sign-in', 4),
     h('p', { class: 'ask' }, strings.consentAsks(request.client)),
     h('p', {}, strings.deviceAgentGrant),
     h('p', {}, strings.consentReturnsTo(request.redirectHost)),

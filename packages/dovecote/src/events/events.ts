@@ -21,7 +21,10 @@ export const transact = <A, E>(task: T.Task<A, E, RequestEnv>): T.Task<A, E, App
     const outbox: Delivery[] = []
     const audited: AuditRecord[] = []
     const value = yield* T.provide({ outbox, audited })(inTransaction(task)) as T.Task<A, E, AppEnv>
-    for (const delivery of outbox) env.hub.publish(delivery.memberId, delivery.event)
+    for (const delivery of outbox) {
+      env.hub.publish(delivery.memberId, delivery.event)
+      env.pushSink(delivery.memberId, delivery.event)
+    }
     for (const record of audited) env.auditSink(record)
     return value
   })

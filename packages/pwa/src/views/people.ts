@@ -12,7 +12,8 @@ import {
 } from '../actions.ts'
 import { directory } from '../state.ts'
 import { strings } from '../strings.ts'
-import { avatar, button, empty, field, page, presenceBadges } from './parts.ts'
+import { avatar, button, emptyWithPip, field, page, presenceBadges } from './parts.ts'
+import { type PipState, pip } from './pip.ts'
 
 export const peopleView = (life: Lifetime, me: Me): HTMLElement => {
   launch(loadPeople)
@@ -29,7 +30,7 @@ export const peopleView = (life: Lifetime, me: Me): HTMLElement => {
     region(life, [directory, query], () => {
       const matching = directory.get().filter((entry) => matches(entry, query.get()))
       return matching.length === 0
-        ? empty(strings.noPeople)
+        ? emptyWithPip('searching', 4, strings.noPeople)
         : h('ul', { class: 'people' }, matching.sort(agentsFirst).map(personCard))
     }),
   )
@@ -45,7 +46,7 @@ const personCard = (entry: DirectoryEntry): HTMLElement =>
   h(
     'li',
     { class: 'person', data: { memberId: entry.member.id } },
-    avatar(entry.member.name),
+    h('div', { class: 'person-face' }, avatar(entry.member.name), pip(personPip(entry), 2)),
     h(
       'div',
       { class: 'person-main' },
@@ -67,6 +68,13 @@ const personCard = (entry: DirectoryEntry): HTMLElement =>
     ),
     h('div', { class: 'person-actions' }, actionsFor(entry)),
   )
+
+const personPip = (entry: DirectoryEntry): PipState =>
+  entry.relation === 'blocked'
+    ? 'blocked'
+    : entry.presence.agentOnline || entry.presence.humanOnline
+      ? 'idle'
+      : 'offline'
 
 const actionsFor = (entry: DirectoryEntry): Child => {
   const id = entry.member.id

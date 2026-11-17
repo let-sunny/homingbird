@@ -40,6 +40,7 @@ export const contacts = signal<ReadonlyArray<Contact>>([])
 export const connection = signal<Connection>('connecting')
 export const notice = signal<Notice | null>(null)
 export const announcement = signal('')
+export const sendingIn = signal<ReadonlySet<ConversationId>>(new Set())
 export const replyTargets = signal<ReadonlyMap<ConversationId, string | null>>(new Map())
 
 export const members = derived(

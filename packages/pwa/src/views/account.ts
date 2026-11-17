@@ -3,12 +3,13 @@ import type { Credential, Me } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, region, signal } from '@homingbird/ui'
 import { api, launch, renameCredential, revokeCredential, updateProfile } from '../actions.ts'
 import { APPEARANCES, type Appearance, applyAppearance, currentAppearance } from '../appearance.ts'
+import { pushIsAvailable, pushIsOn, turnPushOff, turnPushOn } from '../push.ts'
 import { notice } from '../state.ts'
 import { strings } from '../strings.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
 import { button, dateTimeLabel, field, page } from './parts.ts'
 
-export const profileView = (me: Me): HTMLElement => {
+export const profileView = (life: Lifetime, me: Me): HTMLElement => {
   const name = h('input', { name: 'name', required: true, maxlength: '200', value: me.member.name })
   const profile = h('textarea', { name: 'profile', rows: '3', maxlength: '500' })
   profile.value = me.member.profile
@@ -51,6 +52,31 @@ export const profileView = (me: Me): HTMLElement => {
         ),
       ),
     ),
+    notificationsToggle(life),
+  )
+}
+
+const notificationsToggle = (life: Lifetime): HTMLElement => {
+  const isOn = signal(false)
+  if (!pushIsAvailable())
+    return h('fieldset', { class: 'appearance' }, h('legend', {}, strings.notifications), h('p', {}, strings.notificationsUnavailable))
+  launch(T.map((on: boolean) => isOn.set(on))(pushIsOn))
+  const toggle = (wanted: boolean): void =>
+    launch(
+      T.map((on: boolean) => {
+        isOn.set(on)
+        if (wanted && !on) notice.set({ kind: 'error', text: strings.notificationsRefused })
+      })(wanted ? turnPushOn : turnPushOff),
+    )
+  return h(
+    'fieldset',
+    { class: 'appearance' },
+    h('legend', {}, strings.notifications),
+    region(life, [isOn], () => {
+      const box = h('input', { type: 'checkbox', name: 'notifications', checked: isOn.get() })
+      box.addEventListener('change', () => toggle(box.checked))
+      return h('label', { class: 'choice' }, box, h('span', {}, strings.notifications, h('small', {}, strings.notificationsHint)))
+    }),
   )
 }
 

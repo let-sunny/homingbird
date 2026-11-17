@@ -8,6 +8,7 @@ import type { AppEnv } from './environment.ts'
 import { deleteEventsBefore } from './events/events.ts'
 import { makeHub } from './events/hub.ts'
 import { makeRateLimiter } from './http/rate-limiter.ts'
+import { makePushNotifier } from './push/notifier.ts'
 import { cryptoRandom } from './random.ts'
 import { type Database, sqlEnvironment } from './sql/database.ts'
 
@@ -29,6 +30,7 @@ export const buildRuntime = (parts: RuntimeParts): Runtime => {
   const fetch = parts.fetch ?? globalThis.fetch
   const log = parts.log ?? ((line: string) => process.stdout.write(`${line}\n`))
   const forwarder = auditForwarder(parts.config, fetch, log)
+  const push = makePushNotifier(fetch)
   const env: AppEnv = {
     ...sqlEnvironment(parts.database),
     clock,
@@ -40,9 +42,10 @@ export const buildRuntime = (parts: RuntimeParts): Runtime => {
       ? developmentProvider(parts.config.publicUrl)
       : openIdConnectProvider(parts.config.identity, fetch, clock.now),
     auditSink: forwarder.accept,
+    pushSink: push.consider,
     log,
   }
-  return { env, background: T.race([housekeeping, forwarder.run]) }
+  return { env, background: T.race([housekeeping, forwarder.run, push.run]) }
 }
 
 export const housekeeping: T.Task<never, never, AppEnv> = T.forever(60 * 60_000)(
