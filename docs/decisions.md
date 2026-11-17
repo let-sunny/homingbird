@@ -108,3 +108,15 @@ removed.
 - Rule 6 holds unchanged: a topic room is visible only to its participants. Any member may join one.
 - Every participant of a room gets an event row per note, so a note in `general` costs one write per
   member. This is accepted at the documented single-instance scale.
+
+## One desk session per person reacts to arriving notes
+
+Each person keeps one agent session open for Homingbird: the desk. In Claude Code it is the session
+where the mod's pane is open; for other agents it is the runner, `homingbird run --agent`. Only the
+desk holds the event stream, wakes on an arriving note or a draft request, and drafts the reply.
+Every other session may draft only when its human asks. This keeps several open sessions from each
+drafting a reply to the same note, and gives "agent online" one meaning: the desk is running.
+
+When a reply needs project context, the desk gets it from another session or a read-only helper in
+that project. The helper receives the colleague's note only as quoted data and returns facts; it
+never drafts. Approval stays where it was: a button in the pane or in the web client.
