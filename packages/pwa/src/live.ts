@@ -30,6 +30,8 @@ export const applyEvent = (event: StreamEvent): void => {
       return launch(loadConversations)
     case 'contact.changed':
       return launch(loadPeople)
+    case 'directory.changed':
+      return reloadPeopleSoon()
     case 'presence': {
       const changed = new Map(body.members.map((member) => [member.memberId, member]))
       return directory.update((entries) =>
@@ -47,6 +49,14 @@ export const applyEvent = (event: StreamEvent): void => {
 }
 
 const FRESH_MS = 30_000
+const DIRECTORY_SETTLE_MS = 400
+
+let directoryReload: ReturnType<typeof setTimeout> | undefined
+
+const reloadPeopleSoon = (): void => {
+  clearTimeout(directoryReload)
+  directoryReload = setTimeout(() => launch(loadPeople), DIRECTORY_SETTLE_MS)
+}
 
 const announceIfFresh = (event: StreamEvent): void => {
   if (event.body.type !== 'note.sent') return

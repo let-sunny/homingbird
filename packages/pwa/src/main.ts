@@ -3,7 +3,7 @@ import { type Child, type Lifetime, h, lifetime, region, replaceChildren } from 
 import { boot, launch } from './actions.ts'
 import { applyAppearance, currentAppearance } from './appearance.ts'
 import { supportInvokerCommands } from './invokers.ts'
-import { type Route, parseRoute } from './routes.ts'
+import { type Route, parseRoute, signInHref } from './routes.ts'
 import { announcement, branding, notice, route, serverInfo, session } from './state.ts'
 import { strings } from './strings.ts'
 import { profileView, credentialsView } from './views/account.ts'
@@ -38,6 +38,7 @@ const start = (root: HTMLElement): void => {
     appLife.end()
     const me = session.get()
     if (me === 'loading') return replaceChildren(root, h('p', { class: 'loading boot' }, strings.loading))
+    if (me === null && arrivedToConnect(route.get())) return location.replace(signInHref(location.hash))
     if (me === null) return replaceChildren(root, signInView(refusalIn(route.get())))
     drawStage(me)
     appLife.add(route.subscribe(() => drawStage(me)))
@@ -80,6 +81,8 @@ const stageFor = (life: Lifetime, me: Me, current: Route): Child => {
       return notFound()
   }
 }
+
+const arrivedToConnect = (current: Route): boolean => current.name === 'device' || current.name === 'consent'
 
 const notFound = (): Child => emptyWithPip('failed', 4, strings.notFound, h('a', { class: 'button', href: '#/' }, strings.backHome))
 

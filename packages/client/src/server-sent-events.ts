@@ -12,7 +12,7 @@ export const parseServerSentEvents = async function* (
   for await (const chunk of chunks) {
     buffered += chunk
     const lines = buffered.split(/\r\n|\r|\n/)
-    buffered = lines.pop() ?? ''
+    buffered = lines.pop()!
     for (const line of lines) {
       if (line !== '') {
         pending = withField(pending, line)

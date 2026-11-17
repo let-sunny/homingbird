@@ -10,14 +10,17 @@
     "node": ">=22.18"
   },
   "scripts": {
+    "prepare": "git config core.hooksPath .githooks || true",
     "typecheck": "tsc -p tsconfig.json && pnpm -r --if-present run typecheck",
+    "lint": "biome check . && tsx scripts/check-style.ts",
+    "format": "biome check --write .",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:mutation": "stryker run",
-    "lint": "biome check .",
-    "format": "biome check --write .",
-    "build": "pnpm -r --if-present run build",
-    "dev": "pnpm --filter @homingbird/dovecote run dev"
+    "build": "pnpm -r --if-present run build && tsx packages/dovecote/build.ts",
+    "dev": "pnpm --filter @homingbird/pwa run build && HB_PUBLIC_URL=http://localhost:8080 HB_DEV_LOGIN=1 HB_ALLOWED_DOMAINS=example.com HB_WEB_DIR=packages/pwa/dist tsx packages/dovecote/src/main.ts",
+    "start": "node packages/dovecote/dist/dovecote.mjs",
+    "load-test": "tsx scripts/load-test.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

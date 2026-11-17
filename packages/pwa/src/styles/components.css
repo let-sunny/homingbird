@@ -745,6 +745,12 @@
   font-size: var(--hb-text-small);
 }
 
+.outcome {
+  display: grid;
+  gap: var(--hb-space-3);
+  justify-items: start;
+}
+
 .audit .kind {
   margin-inline-start: var(--hb-space-2);
 }

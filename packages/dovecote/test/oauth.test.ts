@@ -210,6 +210,15 @@ describe('authorization code with PKCE', () => {
     expect((await server.request('POST', '/oauth/revoke', { form: {} })).status).toBe(200)
   })
 
+  it('accepts token requests as JSON as well as form fields', async () => {
+    const asJson = await server.request('POST', '/oauth/token', { body: { grant_type: 'password', scope: 7 } })
+    expect(asJson.json.error).toBe('unsupported_grant_type')
+    const notAnObject = await server.request('POST', '/oauth/token', { body: 'text' })
+    expect(notAnObject.json.error).toBe('unsupported_grant_type')
+    const empty = await server.request('POST', '/oauth/token', { headers: { 'content-type': 'application/json' } })
+    expect(empty.json.error).toBe('unsupported_grant_type')
+  })
+
   it('refuses an unknown grant type and an unknown path', async () => {
     expect((await token({ grant_type: 'password' })).json.error).toBe('unsupported_grant_type')
     expect((await server.request('GET', '/oauth/nothing')).status).toBe(404)

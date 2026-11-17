@@ -1,6 +1,8 @@
-import { type Fetch, eventStream, httpApi } from '@homingbird/client'
+import { type Fetch, httpApi } from '@homingbird/client'
 import { type HasClock, Task as T, err, ok, tagged } from '@homingbird/kernel'
-import { agentToken } from './agent-sign-in.ts'
+import { type Launch, browserOpener } from './browser-opener.ts'
+import { makeLocalSession } from './local-session.ts'
+import { localAdapterOf, noticingRefusals } from './local-tools.ts'
 import { runStdioSession } from './stdio-session.ts'
 
 export interface StdioProgram {
@@ -11,9 +13,10 @@ export interface StdioProgram {
   readonly version: string
   readonly input: AsyncIterable<string | Uint8Array>
   readonly write: (line: string) => void
-  readonly announce: (line: string) => void
   readonly nonce: () => string
   readonly fetch?: Fetch
+  readonly launch?: Launch
+  readonly platform?: string
 }
 
 export const ProgramFailed = tagged('ProgramFailed')<{ readonly message: string }>()
@@ -24,39 +27,44 @@ export const USAGE = [
   '',
   '  --server  The address of your Homingbird server. Also read from HOMINGBIRD_SERVER.',
   '  --name    How this agent appears in your credential list.',
+  '',
+  'Signing in happens from the MCP client: ask your agent to log in.',
 ].join('\n')
 
 export const runStdioProgram = (program: StdioProgram): T.Task<void, ProgramFailed, HasClock> =>
   T.gen(function* () {
     const options = yield* T.fromResult(optionsFrom(program))
     const clock = yield* T.Clock
-    const fetch = program.fetch !== undefined ? { fetch: program.fetch } : {}
-    const token = yield* T.mapError((failed: { readonly message: string }) =>
-      ProgramFailed({ message: `Could not sign in: ${failed.message}` }),
-    )(
-      agentToken({
-        serverUrl: options.serverUrl,
-        clientName: options.clientName,
-        credentialPath: program.credentialPath,
-        announce: program.announce,
-        ...fetch,
-      }),
-    )
-    const connection = { serverUrl: options.serverUrl, token: () => token, ...fetch }
-    const staysOnline = T.promise(async (signal) => {
-      for await (const _ of eventStream({ ...connection, clock }, signal)) continue
-    })
+    const fetching = program.fetch !== undefined ? { fetch: program.fetch } : {}
+    const opening =
+      program.launch !== undefined
+        ? { openInBrowser: browserOpener(program.launch, program.platform ?? 'linux', options.serverUrl) }
+        : {}
     yield* T.scoped((scope) =>
       T.gen(function* () {
-        yield* scope.fork(staysOnline)
+        const session = makeLocalSession({
+          serverUrl: options.serverUrl,
+          clientName: options.clientName,
+          credentialPath: program.credentialPath,
+          scope,
+          clock,
+          ...fetching,
+          ...opening,
+        })
+        yield* session.restore
         yield* runStdioSession({
           input: program.input,
           write: program.write,
           context: {
-            api: httpApi(connection),
+            api: noticingRefusals(
+              httpApi({ serverUrl: options.serverUrl, token: session.token, ...fetching }),
+              session,
+            ),
             serverVersion: program.version,
             nonce: program.nonce,
             webClientUrl: options.serverUrl,
+            local: localAdapterOf(session),
+            ...opening,
           },
         })
       }),

@@ -6,7 +6,11 @@
       "**/coverage",
       "**/reports",
       "**/.stryker-tmp",
-      "**/node_modules"
+      "**/node_modules",
+      "packages/mod/.claude-plugin/types",
+      "**/*.css",
+      "assets",
+      "deploy"
     ]
   },
   "formatter": {

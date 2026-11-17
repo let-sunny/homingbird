@@ -22,7 +22,7 @@ export const deviceView = (life: Lifetime, code: string | null): HTMLElement => 
       const current = stage.get()
       if (current.step === 'ask') return codeForm()
       if (current.step === 'loading') return h('p', { class: 'loading' }, strings.loading)
-      if (current.step === 'done') return h('p', { class: 'banner', role: 'status' }, current.message)
+      if (current.step === 'done') return outcome(current.message)
       return deviceDecision(current.request, (message) => stage.set({ step: 'done', message }))
     }),
   )
@@ -30,12 +30,19 @@ export const deviceView = (life: Lifetime, code: string | null): HTMLElement => 
 
 export const consentView = (life: Lifetime, id: string): HTMLElement => {
   const request = signal<ConsentRequest | null>(null)
+  const decided = signal<string | null>(null)
   launch(T.map((loaded: ConsentRequest) => request.set(loaded))(api['consent.get']({ params: { id } })))
   return page(
     strings.consentTitle,
-    region(life, [request], () => {
+    region(life, [request, decided], () => {
       const loaded = request.get()
-      return loaded === null ? h('p', { class: 'loading' }, strings.loading) : consentDecision(loaded)
+      const message = decided.get()
+      if (message !== null) return outcome(message)
+      return loaded === null
+        ? h('p', { class: 'loading' }, strings.loading)
+        : consentDecision(loaded, (approved) =>
+            decided.set(approved ? strings.consentApproved(loaded.redirectHost) : strings.consentDenied(loaded.redirectHost)),
+          )
     }),
   )
 }
@@ -111,11 +118,25 @@ const deviceDecision = (request: DeviceRequest, finish: (message: string) => voi
   )
 }
 
-const consentDecision = (request: ConsentRequest): HTMLElement => {
+const RETURN_DELAY_MS = 1500
+
+const outcome = (message: string): HTMLElement =>
+  h(
+    'div',
+    { class: 'outcome', role: 'status' },
+    pip(message === strings.deviceDenied ? 'discarded' : 'approved', 4),
+    h('p', { class: 'banner' }, message),
+    h('a', { class: 'button primary', href: hrefFor({ name: 'home' }) }, strings.openHomingbird),
+  )
+
+const consentDecision = (request: ConsentRequest, finish: (approved: boolean) => void): HTMLElement => {
   const name = h('input', { name: 'name', required: true, maxlength: '200', value: request.client })
   const decide = (approve: boolean): void =>
     launch(
-      T.map((decided: { redirectTo: string }) => location.assign(decided.redirectTo))(
+      T.map((decided: { redirectTo: string }) => {
+        finish(approve)
+        setTimeout(() => location.assign(decided.redirectTo), RETURN_DELAY_MS)
+      })(
         api['consent.decide']({
           params: { id: request.id },
           body: { approve, name: name.value.trim() || request.client },

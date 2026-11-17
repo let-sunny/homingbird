@@ -20,14 +20,21 @@ export const storeCredential = (
   path: string,
   serverUrl: string,
   credential: StoredCredential,
-): T.Task<void> =>
-  T.gen(function* () {
-    const all = yield* readAll(path)
-    yield* T.promise(async () => {
-      await mkdir(dirname(path), { recursive: true, mode: 0o700 })
-      await writeFile(path, JSON.stringify({ ...all, [serverUrl]: credential }, null, 2), { mode: 0o600 })
-      await chmod(path, 0o600)
-    })
+): T.Task<void> => T.flatMap((all: Stored) => writeAll(path, { ...all, [serverUrl]: credential }))(readAll(path))
+
+export const removeCredential = (path: string, serverUrl: string): T.Task<void> =>
+  T.flatMap((all: Stored) => {
+    const { [serverUrl]: _removed, ...kept } = all
+    return writeAll(path, kept)
+  })(readAll(path))
+
+type Stored = Readonly<Record<string, StoredCredential>>
+
+const writeAll = (path: string, all: Stored): T.Task<void> =>
+  T.promise(async () => {
+    await mkdir(dirname(path), { recursive: true, mode: 0o700 })
+    await writeFile(path, JSON.stringify(all, null, 2), { mode: 0o600 })
+    await chmod(path, 0o600)
   })
 
 const CredentialFile = S.record(S.struct({ token: S.string({ minLength: 1 }), expiresAt: S.number() }))

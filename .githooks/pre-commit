@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+[ -z "$staged" ] && exit 0
+
+npx biome check --staged --no-errors-on-unmatched
+
+sources=$(printf '%s\n' "$staged" | grep -E '^packages/[^/]+/src/.*\.ts$' || true)
+[ -z "$sources" ] || npx tsx scripts/check-style.ts $sources

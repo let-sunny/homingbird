@@ -4,7 +4,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { housekeeping, presenceBroadcast } from '../src/runtime.ts'
 import { type Session, type TestServer, connectAgent, everyStoredValue, startTestServer, storedRows } from './harness.ts'
 
-const DAY = 24 * 60 * 60_000
+const HOUR = 60 * 60_000
+const DAY = 24 * HOUR
 const TOKEN_SHAPED = /hb[har]_[A-Za-z0-9_-]{20,}/
 
 let server: TestServer
@@ -156,10 +157,12 @@ describe('housekeeping', () => {
     expect((await storedRows(server, 'events')).length).toBeGreaterThan(0)
     expect((await storedRows(server, 'audit_log')).length).toBeGreaterThan(0)
     await server.clock.advance(8 * DAY)
+    await server.clock.advance(HOUR)
     expect(await storedRows(server, 'events')).toEqual([])
     expect(await storedRows(server, 'auth_requests')).toEqual([])
     expect((await storedRows(server, 'audit_log')).length).toBeGreaterThan(0)
     await server.clock.advance(23 * DAY)
+    await server.clock.advance(HOUR)
     expect(await storedRows(server, 'audit_log')).toEqual([])
     await running.interrupt()
   })

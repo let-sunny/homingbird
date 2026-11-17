@@ -78,13 +78,13 @@ describe('over a real socket', () => {
   it('serves the JSON API and the health check', async () => {
     expect(await (await fetch(`${origin}/healthz`)).json()).toEqual({ status: 'ok' })
     const me = await fetch(`${origin}/api/v1/me`, { headers: { authorization: `Bearer ${benAgent.token}` } })
-    expect((await me.json()).member.email).toBe('ben@example.com')
+    expect(((await me.json()) as any).member.email).toBe('ben@example.com')
     const created = await fetch(`${origin}/api/v1/drafts`, {
       method: 'POST',
       headers: { authorization: `Bearer ${benAgent.token}`, 'content-type': 'application/json' },
       body: JSON.stringify({ to: [ana.me.member.id], body: 'over the wire' }),
     })
-    expect((await created.json()).body).toBe('over the wire')
+    expect(((await created.json()) as any).body).toBe('over the wire')
     const invalid = await fetch(`${origin}/api/v1/drafts`, {
       method: 'POST',
       headers: { authorization: `Bearer ${benAgent.token}`, 'content-type': 'application/json' },

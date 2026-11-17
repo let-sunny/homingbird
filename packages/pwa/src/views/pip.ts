@@ -16,6 +16,8 @@ export type PipState =
   | 'blocked'
   | 'searching'
   | 'sign-in'
+  | 'approved'
+  | 'discarded'
 
 export type PipScale = 1 | 2 | 3 | 4 | 6
 

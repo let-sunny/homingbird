@@ -43,6 +43,19 @@ describe('contacts mode', () => {
     expect(await canDraftTo(ben, ana)).toBe(true)
   })
 
+  it('lists contacts with their state from each side', async () => {
+    const { ana, ben } = await people({ HB_CONTACT_MODE: 'contacts' })
+    await ana.api('POST', '/contacts', { memberId: ben.me.member.id })
+    expect((await ana.api('GET', '/contacts')).json).toEqual({
+      contacts: [{ memberId: ben.me.member.id, state: 'request_sent', since: server.clock.now() }],
+      blocked: [],
+    })
+    expect((await ben.api('GET', '/contacts')).json.contacts[0]).toMatchObject({
+      memberId: ana.me.member.id,
+      state: 'request_received',
+    })
+  })
+
   it('treats a request in the other direction as acceptance', async () => {
     const { ana, ben } = await people({ HB_CONTACT_MODE: 'contacts' })
     await ana.api('POST', '/contacts', { memberId: ben.me.member.id })

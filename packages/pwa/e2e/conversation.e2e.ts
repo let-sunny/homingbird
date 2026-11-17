@@ -24,7 +24,7 @@ const scenario = async (): Promise<void> => {
   await mkdir(screenshots, { recursive: true })
   let dovecote = await startDovecote(port, databasePath)
   const browser = await chromium.launch()
-  const capture = screenshotCounter()
+  const { capture, nextPath } = screenshotCounter()
   const signIn = signInWith(browser, base)
 
   try {
@@ -74,6 +74,11 @@ const scenario = async (): Promise<void> => {
         .count(),
       0,
     )
+
+    const pat = await signIn('pat@example.com', 'Pat')
+    await ana.page.waitForSelector('.person:has-text("pat@example.com")')
+    await capture(ana.page, 'new-member-appears-in-an-open-directory')
+    await pat.context.close()
 
     await api(ana, 'PUT', '/admin/settings', {
       allowedDomains: ['example.com'],
@@ -139,7 +144,7 @@ const scenario = async (): Promise<void> => {
       inReplyTo: waiting,
       body: 'Looks safe, but wait for the export job first.',
     })
-    await june.page.waitForFunction(pendingDrafts(2))
+    await june.page.waitForFunction(pendingDraftsAre, 2)
     await capture(june.page, 'several-alternative-drafts')
 
     await june.page.locator('.draft').first().getByRole('button', { name: 'Edit' }).click()
@@ -152,7 +157,7 @@ const scenario = async (): Promise<void> => {
 
     await june.page.click('dialog[open] button[type=submit]')
     await ana.page.waitForSelector('.note-status:has-text("Replied")')
-    await june.page.waitForFunction(pendingDrafts(0))
+    await june.page.waitForFunction(pendingDraftsAre, 0)
     await capture(ana.page, 'replied-seen-by-sender')
     await capture(june.page, 'replied-seen-by-recipient-alternatives-discarded')
 
@@ -162,17 +167,17 @@ const scenario = async (): Promise<void> => {
       body: 'Thanks. I will run it at 2am and report back.',
     })
     await anaAgent.call('POST', '/drafts', { to: [ids.June], body: 'A draft that will be thrown away.' })
-    await ana.page.waitForFunction(pendingDrafts(2))
+    await ana.page.waitForFunction(pendingDraftsAre, 2)
     await capture(ana.page, 'drafts-before-discarding')
     await ana.page
       .locator('.draft', { hasText: 'thrown away' })
       .getByRole('button', { name: 'Discard' })
       .click()
-    await ana.page.waitForFunction(pendingDrafts(1))
+    await ana.page.waitForFunction(pendingDraftsAre, 1)
     await capture(ana.page, 'after-discarding')
 
     await ana.page.locator('.draft', { hasText: 'report back' }).getByRole('button', { name: 'Send' }).click()
-    await ana.page.waitForFunction(pendingDrafts(0))
+    await ana.page.waitForFunction(pendingDraftsAre, 0)
     await ana.page.waitForSelector('.origin.is-agent')
     await capture(ana.page, 'origin-badges-human-edited-and-agent')
     assert.equal((await api(ana, 'GET', `/notes/${follow.id}`)).status, 'sent')
@@ -223,18 +228,46 @@ const scenario = async (): Promise<void> => {
     await ana.page.goto(`${base}/#/device/${plainDevice.user_code}`)
     await ana.page.waitForSelector('text=Codex on build box')
     await capture(ana.page, 'device-approval-without-approve-button')
+    await ana.page.getByRole('button', { name: 'Deny' }).click()
+    await ana.page.waitForSelector('text=Denied. Nothing was connected.')
+    await capture(ana.page, 'device-denied')
+
     const buttonDevice = await startDeviceFlow(base, 'Homingbird mod', 'notes approve')
     await ana.page.goto(`${base}/#/device/${buttonDevice.user_code}`)
     await ana.page.waitForSelector('input[type=checkbox]')
     await capture(ana.page, 'device-approval-with-approve-button-checkbox')
     await ana.page.getByRole('button', { name: 'Approve' }).click()
-    await ana.page.waitForSelector('text=Connected')
-    await capture(ana.page, 'device-approved')
+    await ana.page.waitForSelector('text=Connected. You can close this tab.')
+    await capture(ana.page, 'device-approved-success-state')
+
+    const firstDevice = await startDeviceFlow(base, 'Cursor on a new laptop', 'notes')
+    const newcomer = await browser.newContext({ deviceScaleFactor: 2, viewport: VIEWPORT, colorScheme: 'light' })
+    const rae = await newcomer.newPage()
+    await rae.goto(`${base}/#/device/${firstDevice.user_code}`)
+    await rae.waitForSelector('input[name=email]')
+    await capture(rae, 'device-link-while-signed-out-goes-straight-to-sign-in')
+    await rae.fill('input[name=email]', 'rae@example.com')
+    await rae.fill('input[name=name]', 'Rae')
+    await rae.click('button')
+    await rae.waitForSelector('text=Cursor on a new laptop')
+    assert.equal(await rae.locator('.code-shown').innerText(), firstDevice.user_code)
+    await capture(rae, 'new-member-back-on-the-device-page-after-sign-in')
+    await rae.getByRole('button', { name: 'Approve' }).click()
+    await rae.waitForSelector('text=Connected. You can close this tab.')
+    await capture(rae, 'new-member-device-connected')
+    await newcomer.close()
 
     const consentUrl = await startAuthorization(base, 'Example MCP client')
+    await ana.page.route('https://client.example/**', (route: any) =>
+      route.fulfill({ contentType: 'text/html', body: '<title>client</title><p>Back at the client application.</p>' }),
+    )
     await ana.page.goto(consentUrl)
     await ana.page.waitForSelector('text=Example MCP client')
     await capture(ana.page, 'oauth-consent')
+    await ana.page.getByRole('button', { name: 'Approve' }).click()
+    await ana.page.waitForSelector('text=Connected. Returning you to client.example')
+    await ana.page.screenshot({ path: await nextPath('oauth-consent-success-state') })
+    await ana.page.waitForURL(/client\.example\/callback\?code=/)
 
     for (const section of ['settings', 'members', 'audit']) {
       await ana.page.goto(`${base}/#/admin/${section}`)
@@ -429,18 +462,25 @@ const startAuthorization = async (base: string, clientName: string): Promise<str
   }).toString()}`
 }
 
-const pendingDrafts = (count: number): string =>
-  `document.querySelectorAll('.pending .draft').length === ${count}`
+const pendingDraftsAre = (count: number): boolean =>
+  (globalThis as any).document.querySelectorAll('.pending .draft').length === count
 
 const overflowsSideways = (page: any): Promise<boolean> =>
-  page.evaluate('document.documentElement.scrollWidth > document.documentElement.clientWidth + 1')
+  page.evaluate(() => {
+    const root = (globalThis as any).document.documentElement
+    return root.scrollWidth > root.clientWidth + 1
+  })
 
 const screenshotCounter = () => {
   let taken = 0
-  return async (page: any, name: string): Promise<void> => {
-    taken += 1
-    await page.waitForTimeout(350)
-    await page.screenshot({ path: join(screenshots, `${String(taken).padStart(2, '0')}-${name}.png`) })
+  const nextPath = async (name: string): Promise<string> =>
+    join(screenshots, `${String(++taken).padStart(2, '0')}-${name}.png`)
+  return {
+    nextPath,
+    capture: async (page: any, name: string): Promise<void> => {
+      await page.waitForTimeout(350)
+      await page.screenshot({ path: await nextPath(name) })
+    },
   }
 }
 

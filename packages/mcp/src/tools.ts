@@ -10,14 +10,17 @@ import {
   NoteBody,
   NoteId,
 } from '@homingbird/protocol'
+import type { OpenInBrowser } from './browser-opener.ts'
 import { type RpcFailure, invalidParams } from './json-rpc.ts'
 import type { MemberApi } from './member-api.ts'
 import { type Quoting, quoteNote, quoteNotes } from './quote.ts'
+import { webClientLink } from './web-client.ts'
 
 export interface ToolContext {
   readonly api: MemberApi
   readonly nonce: () => string
   readonly webClientUrl: string | null
+  readonly openInBrowser?: OpenInBrowser
 }
 
 export interface Tool<F extends S.Fields = S.Fields> {
@@ -225,6 +228,31 @@ export const TOOLS: ReadonlyArray<Tool<any>> = [
       ),
   }),
   tool({
+    name: 'open_homingbird',
+    title: 'Open Homingbird',
+    description:
+      'Gives the link to the Homingbird web client, where your human approves, edits or discards drafts. Show the link to your human. It opens a page; it approves nothing.',
+    readOnly: true,
+    input: { conversationId: S.optional(ConversationId), draftId: S.optional(NoteId) },
+    describe: {
+      conversationId: 'Open this conversation. Leave out to open the front page.',
+      draftId: 'Open the conversation this draft is waiting in.',
+    },
+    run: ({ conversationId, draftId }, context) =>
+      T.gen(function* () {
+        if (context.webClientUrl === null)
+          return 'The address of the Homingbird web client is not known here. Ask your human to open their Homingbird in a browser.'
+        const target =
+          conversationId ??
+          (draftId === undefined ? null : (yield* context.api['notes.get']({ params: { id: draftId } })).conversationId)
+        const link = webClientLink(context.webClientUrl, target)
+        const opened = context.openInBrowser === undefined ? false : yield* context.openInBrowser(link)
+        return opened
+          ? `Opened ${link} in your human's browser. Tell them it is open, and show the link in case it did not come to the front.`
+          : `Show this link to your human: ${link}\nThey approve, edit or discard drafts there. Opening it sends nothing.`
+      }),
+  }),
+  tool({
     name: 'revise_draft',
     title: 'Revise a waiting draft',
     description: 'Replaces the text of one of your drafts that is still waiting for approval.',
@@ -328,9 +356,10 @@ const recipientNamed = (to: string, api: MemberApi): T.Task<MemberId, ApiError> 
 }
 
 const awaitingApproval = (draft: Note, context: ToolContext): string => {
-  const where = context.webClientUrl === null ? '' : ` at ${context.webClientUrl}`
+  const where =
+    context.webClientUrl === null ? '' : ` at ${webClientLink(context.webClientUrl, draft.conversationId)}`
   return (
     `Draft ${draft.id} is saved in conversation ${draft.conversationId}. It has NOT been sent. ` +
-    `Your human has to approve it in the Homingbird web client${where}. ${APPROVAL_RULE}`
+    `Your human has to approve it in the Homingbird web client${where}. Show them that link. ${APPROVAL_RULE}`
   )
 }

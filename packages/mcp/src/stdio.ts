@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { spawn } from 'node:child_process'
 import { randomInt } from 'node:crypto'
 import { homedir, hostname } from 'node:os'
 import { Task as T, systemClock } from '@homingbird/kernel'
@@ -17,7 +18,16 @@ const exit = await T.run(
     version: ADAPTER_VERSION,
     input: process.stdin,
     write: (line) => process.stdout.write(line),
-    announce: (line) => process.stderr.write(`${line}\n`),
+    platform: process.platform,
+    launch: (argv) =>
+      new Promise<void>((resolve, reject) => {
+        const child = spawn(argv[0]!, argv.slice(1), { stdio: 'ignore', detached: true, shell: false })
+        child.once('error', reject)
+        child.once('spawn', () => {
+          child.unref()
+          resolve()
+        })
+      }),
     nonce: () => Array.from({ length: 20 }, () => NONCE_ALPHABET[randomInt(NONCE_ALPHABET.length)]).join(''),
   }),
   { clock: systemClock },
