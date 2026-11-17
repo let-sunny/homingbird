@@ -1,0 +1,19 @@
+{
+  "name": "@homingbird/kernel",
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./src/testing.ts"
+  },
+  "dependencies": {},
+  "peerDependencies": {
+    "fast-check": "^3.23.2"
+  },
+  "peerDependenciesMeta": {
+    "fast-check": {
+      "optional": true
+    }
+  }
+}
