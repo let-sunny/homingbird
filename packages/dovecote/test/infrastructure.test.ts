@@ -6,7 +6,16 @@ import { loadConfig } from '../src/config.ts'
 import { LIMITS, makeRateLimiter } from '../src/http/rate-limiter.ts'
 import { cryptoRandom, hashSecret, normalizeUserCode } from '../src/random.ts'
 import { openDatabase } from '../src/sql/open.ts'
-import { containsIgnoringCase, insertIgnoringConflict, insertInto, join as joinQueries, list, numberedPlaceholders, raw, sql } from '../src/sql/query.ts'
+import {
+  containsIgnoringCase,
+  insertIgnoringConflict,
+  insertInto,
+  join as joinQueries,
+  list,
+  numberedPlaceholders,
+  raw,
+  sql,
+} from '../src/sql/query.ts'
 import { schemaStatements } from '../src/sql/schema.ts'
 import { type TestServer, startTestServer } from './harness.ts'
 
@@ -68,7 +77,11 @@ describe('configuration', () => {
         webDirectory: '/web',
         themeDirectory: '/theme',
         identity: { issuer: 'https://idp.example.com', label: 'Okta' },
-        initial: { allowedDomains: ['example.com', 'partner.org'], contactMode: 'contacts', auditRetentionDays: 365 },
+        initial: {
+          allowedDomains: ['example.com', 'partner.org'],
+          contactMode: 'contacts',
+          auditRetentionDays: 365,
+        },
         adminEmails: ['root@example.com'],
         trustProxy: true,
         pushHosts: ['push.example.com'],
@@ -94,12 +107,15 @@ describe('configuration', () => {
     expect((config as unknown as { error: string[] }).error.join('\n')).toMatch(problem)
   })
 
-  it.each(['http://localhost:8080', 'http://127.0.0.1', 'http://[::1]:3000/'])('allows development login on %s', (url) => {
-    expect(loadConfig({ HB_PUBLIC_URL: url, HB_DEV_LOGIN: '1' })).toMatchObject({
-      _tag: 'Ok',
-      value: { identity: { devLogin: true, label: 'development login' } },
-    })
-  })
+  it.each(['http://localhost:8080', 'http://127.0.0.1', 'http://[::1]:3000/'])(
+    'allows development login on %s',
+    (url) => {
+      expect(loadConfig({ HB_PUBLIC_URL: url, HB_DEV_LOGIN: '1' })).toMatchObject({
+        _tag: 'Ok',
+        value: { identity: { devLogin: true, label: 'development login' } },
+      })
+    },
+  )
 })
 
 describe('the rate limiter', () => {
@@ -148,15 +164,25 @@ describe('query building', () => {
       text: 'SELECT * FROM t WHERE a = ? AND b = ? AND c IN (?, ?)',
       params: [1, 2, 3, 4],
     })
-    expect(joinQueries([raw('x'), sql`y = ${1}`], ' AND ')).toMatchObject({ text: 'x AND y = ?', params: [1] })
+    expect(joinQueries([raw('x'), sql`y = ${1}`], ' AND ')).toMatchObject({
+      text: 'x AND y = ?',
+      params: [1],
+    })
     expect(() => list([])).toThrow(RangeError)
   })
 
   it('builds inserts for each dialect', () => {
-    expect(insertInto('t', { a: 1, b: 'x' })).toMatchObject({ text: 'INSERT INTO t (a, b) VALUES (?, ?)', params: [1, 'x'] })
+    expect(insertInto('t', { a: 1, b: 'x' })).toMatchObject({
+      text: 'INSERT INTO t (a, b) VALUES (?, ?)',
+      params: [1, 'x'],
+    })
     expect(insertIgnoringConflict('mysql', 't', { a: 1 }).text).toBe('INSERT IGNORE INTO t (a) VALUES (?)')
-    expect(insertIgnoringConflict('postgres', 't', { a: 1 }).text).toBe('INSERT INTO t (a) VALUES (?) ON CONFLICT DO NOTHING')
-    expect(insertIgnoringConflict('sqlite', 't', { a: 1 }).text).toBe('INSERT INTO t (a) VALUES (?) ON CONFLICT DO NOTHING')
+    expect(insertIgnoringConflict('postgres', 't', { a: 1 }).text).toBe(
+      'INSERT INTO t (a) VALUES (?) ON CONFLICT DO NOTHING',
+    )
+    expect(insertIgnoringConflict('sqlite', 't', { a: 1 }).text).toBe(
+      'INSERT INTO t (a) VALUES (?) ON CONFLICT DO NOTHING',
+    )
   })
 
   it('escapes wildcards in searches and numbers placeholders for PostgreSQL', () => {
@@ -221,7 +247,9 @@ describe('static files and branding', () => {
     expect(script.headers['content-security-policy']).toContain("script-src 'self'")
     expect(script.headers['content-security-policy']).toContain("frame-ancestors 'none'")
     expect((await server.request('GET', '/assets/pip.png')).headers['content-type']).toBe('image/png')
-    expect((await server.request('GET', '/data.bin')).headers['content-type']).toBe('application/octet-stream')
+    expect((await server.request('GET', '/data.bin')).headers['content-type']).toBe(
+      'application/octet-stream',
+    )
     for (const path of ['/', '/index.html', '/c/conv_1', '/missing.js']) {
       const shell = await server.request('GET', path)
       expect([path, shell.status, shell.headers['cache-control']]).toEqual([path, 200, 'no-cache'])
@@ -229,20 +257,25 @@ describe('static files and branding', () => {
     }
   })
 
-  it.each(['/../secret.txt', '/..%2f..%2fetc%2fpasswd', '/%2e%2e/%2e%2e/etc/passwd', '/assets/../../secret.txt', '/%E0%A4%A'])(
-    'never leaves the web directory for %s',
-    async (path) => {
-      await withFiles()
-      const response = await server.request('GET', path)
-      const body = String(Buffer.from(response.raw.body as Uint8Array))
-      expect(body).not.toContain('do not serve')
-      expect(body).not.toContain('root:')
-    },
-  )
+  it.each([
+    '/../secret.txt',
+    '/..%2f..%2fetc%2fpasswd',
+    '/%2e%2e/%2e%2e/etc/passwd',
+    '/assets/../../secret.txt',
+    '/%E0%A4%A',
+  ])('never leaves the web directory for %s', async (path) => {
+    await withFiles()
+    const response = await server.request('GET', path)
+    const body = String(Buffer.from(response.raw.body as Uint8Array))
+    expect(body).not.toContain('do not serve')
+    expect(body).not.toContain('root:')
+  })
 
   it('serves an empty theme and default branding until the organization provides its own', async () => {
     const { theme } = await withFiles()
-    expect(String(Buffer.from((await server.request('GET', '/theme.css')).raw.body as Uint8Array))).toContain('no organization theme')
+    expect(String(Buffer.from((await server.request('GET', '/theme.css')).raw.body as Uint8Array))).toContain(
+      'no organization theme',
+    )
     expect((await server.request('GET', '/branding.json')).json).toEqual({ name: 'Homingbird', logo: null })
     writeFileSync(join(theme, 'theme.css'), ':root { --pip-blue: red }')
     writeFileSync(join(theme, 'branding.json'), '{"name":"Acme Notes"}')

@@ -30,7 +30,9 @@ export const makeFakeIssuer = (issuer = 'https://accounts.google.com'): FakeIssu
     const signature = sign(
       'sha256',
       Buffer.from(`${header}.${payload}`),
-      algorithm === 'ES256' ? { key: keys.ES256.privateKey, dsaEncoding: 'ieee-p1363' } : keys.RS256.privateKey,
+      algorithm === 'ES256'
+        ? { key: keys.ES256.privateKey, dsaEncoding: 'ieee-p1363' }
+        : keys.RS256.privateKey,
     )
     if (options.tamper) signature[0] = signature[0]! ^ 0xff
     return `${header}.${payload}.${signature.toString('base64url')}`
@@ -55,7 +57,10 @@ export const makeFakeIssuer = (issuer = 'https://accounts.google.com'): FakeIssu
         })
       if (url === `${issuer}/keys`)
         return Response.json({
-          keys: (['RS256', 'ES256'] as const).map((kid) => ({ ...keys[kid].publicKey.export({ format: 'jwk' }), kid })),
+          keys: (['RS256', 'ES256'] as const).map((kid) => ({
+            ...keys[kid].publicKey.export({ format: 'jwk' }),
+            kid,
+          })),
         })
       if (url === `${issuer}/token`) {
         const form = new URLSearchParams(String(init?.body))

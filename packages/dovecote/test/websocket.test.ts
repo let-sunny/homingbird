@@ -25,7 +25,9 @@ describe('frames', () => {
   })
 
   it('decodes the masked "Hello" of RFC 6455 section 5.7', () => {
-    const decoded = decodeClientFrames(Buffer.from([0x81, 0x85, 0x37, 0xfa, 0x21, 0x3d, 0x7f, 0x9f, 0x4d, 0x51, 0x58]))
+    const decoded = decodeClientFrames(
+      Buffer.from([0x81, 0x85, 0x37, 0xfa, 0x21, 0x3d, 0x7f, 0x9f, 0x4d, 0x51, 0x58]),
+    )
     expect(decoded.violation).toBe(false)
     expect(decoded.remainder.length).toBe(0)
     expect(decoded.frames).toEqual([{ opcode: OPCODE.text, payload: Buffer.from('Hello') }])
@@ -33,18 +35,29 @@ describe('frames', () => {
 
   it('uses the 16-bit and 64-bit length forms at their boundaries', () => {
     expect(encodeFrame(OPCODE.text, Buffer.alloc(125)).subarray(0, 2)).toEqual(Buffer.from([0x81, 125]))
-    expect(encodeFrame(OPCODE.text, Buffer.alloc(126)).subarray(0, 4)).toEqual(Buffer.from([0x81, 126, 0, 126]))
-    expect(encodeFrame(OPCODE.text, Buffer.alloc(65_535)).subarray(0, 4)).toEqual(Buffer.from([0x81, 126, 0xff, 0xff]))
+    expect(encodeFrame(OPCODE.text, Buffer.alloc(126)).subarray(0, 4)).toEqual(
+      Buffer.from([0x81, 126, 0, 126]),
+    )
+    expect(encodeFrame(OPCODE.text, Buffer.alloc(65_535)).subarray(0, 4)).toEqual(
+      Buffer.from([0x81, 126, 0xff, 0xff]),
+    )
     expect(encodeFrame(OPCODE.text, Buffer.alloc(65_536)).subarray(0, 10)).toEqual(
       Buffer.from([0x81, 127, 0, 0, 0, 0, 0, 1, 0, 0]),
     )
   })
 
   it('treats an unmasked client frame and an oversized one as protocol violations', () => {
-    expect(decodeClientFrames(Buffer.from([0x81, 0x05, 0x48, 0x65, 0x6c, 0x6c, 0x6f]))).toMatchObject({ violation: true, frames: [] })
+    expect(decodeClientFrames(Buffer.from([0x81, 0x05, 0x48, 0x65, 0x6c, 0x6c, 0x6f]))).toMatchObject({
+      violation: true,
+      frames: [],
+    })
     const huge = maskedFrame(OPCODE.text, Buffer.alloc(64 * 1024 + 1))
     expect(decodeClientFrames(huge).violation).toBe(true)
-    const hugest = Buffer.concat([Buffer.from([0x81, 0xff]), Buffer.from([0, 0, 0, 1, 0, 0, 0, 0]), Buffer.alloc(4)])
+    const hugest = Buffer.concat([
+      Buffer.from([0x81, 0xff]),
+      Buffer.from([0, 0, 0, 1, 0, 0, 0, 0]),
+      Buffer.alloc(4),
+    ])
     expect(decodeClientFrames(hugest).violation).toBe(true)
   })
 
@@ -57,7 +70,11 @@ describe('frames', () => {
         (bytes, opcode, mask) => {
           const payload = Buffer.from(bytes)
           const decoded = decodeClientFrames(maskedFrame(opcode, payload, Buffer.from(mask)))
-          expect(decoded).toEqual({ frames: [{ opcode, payload }], remainder: Buffer.alloc(0), violation: false })
+          expect(decoded).toEqual({
+            frames: [{ opcode, payload }],
+            remainder: Buffer.alloc(0),
+            violation: false,
+          })
         },
       ),
       { numRuns: 60 },
@@ -76,7 +93,9 @@ describe('frames', () => {
           let offset = 0
           for (let index = 0; offset < stream.length; index++) {
             const size = cuts[index % cuts.length]!
-            const decoded = decodeClientFrames(Buffer.concat([unread, stream.subarray(offset, offset + size)]))
+            const decoded = decodeClientFrames(
+              Buffer.concat([unread, stream.subarray(offset, offset + size)]),
+            )
             expect(decoded.violation).toBe(false)
             received.push(...decoded.frames.map((frame) => frame.payload))
             unread = decoded.remainder

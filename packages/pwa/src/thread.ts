@@ -1,12 +1,14 @@
 import type {
   Conversation,
   DirectoryEntry,
+  DraftRequest,
   Member,
   MemberId,
   Note,
   NoteId,
   Receipt,
 } from '@homingbird/protocol'
+import { requestAnsweredBy } from './draft-requests.ts'
 
 export type ThreadItem =
   | { readonly type: 'note'; readonly key: string; readonly note: Note }
@@ -17,10 +19,16 @@ export type ThreadItem =
       readonly drafts: ReadonlyArray<Note>
     }
 
-export const threadItems = (notes: ReadonlyArray<Note>): ThreadItem[] => {
+export const threadItems = (
+  notes: ReadonlyArray<Note>,
+  requests: ReadonlyArray<DraftRequest> = [],
+): ThreadItem[] => {
   const sent = notes.filter((note) => note.status === 'sent').sort(bySentTime)
   const drafts = notes.filter((note) => note.status === 'draft').sort(byCreatedTime)
-  const groups = Map.groupBy(drafts, (draft) => draft.inReplyTo ?? draft.id)
+  const groups = Map.groupBy(
+    drafts,
+    (draft) => requestAnsweredBy(requests, draft.id)?.id ?? draft.inReplyTo ?? draft.id,
+  )
   return [
     ...sent.map((note): ThreadItem => ({ type: 'note', key: note.id, note })),
     ...[...groups].map(

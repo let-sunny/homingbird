@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 import { loadConfig } from '../packages/dovecote/src/config.ts'
 import { issueCredential } from '../packages/dovecote/src/domain/credentials.ts'
+import { seedTopics } from '../packages/dovecote/src/domain/topics.ts'
 import { signInMember } from '../packages/dovecote/src/domain/members.ts'
 import { startServer } from '../packages/dovecote/src/http/node-server.ts'
 import { buildRuntime } from '../packages/dovecote/src/runtime.ts'
@@ -223,6 +224,7 @@ async function runServer(): Promise<void> {
   const database = await openDatabase(databaseUrl)
   const { env, background } = buildRuntime({ config: config.value, database, log: () => {} })
   await T.runPromise(migrate, env)
+  await T.runPromise(seedTopics, env)
   T.runFork(background, env)
   const seats: Seat[] = []
   for (let index = 0; index < members; index++) {

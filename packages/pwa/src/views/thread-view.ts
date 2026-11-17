@@ -1,7 +1,18 @@
-import { type ConversationId, type Me, type Note, describeStatus, summarize } from '@homingbird/protocol'
+import { systemClock } from '@homingbird/kernel'
+import {
+  type ConversationId,
+  type CredentialId,
+  DRAFT_INSTRUCTION_MAX,
+  type Me,
+  type Note,
+  type NoteId,
+  describeStatus,
+  summarize,
+} from '@homingbird/protocol'
 import { type Child, type Lifetime, h, keyedRegion, linkedText, region } from '@homingbird/ui'
 import {
   approveDraft,
+  askAgent,
   discardDraft,
   launch,
   loadOlderNotes,
@@ -11,8 +22,20 @@ import {
   replyTargetIn,
   saveDraft,
   sendNote,
+  withdrawRequest,
 } from '../actions.ts'
-import { conversations, directory, members, replyTargets, sendingIn, threads } from '../state.ts'
+import { waitingRequests } from '../draft-requests.ts'
+import { hrefFor } from '../routes.ts'
+import {
+  agentCredentials,
+  conversations,
+  directory,
+  draftRequests,
+  members,
+  replyTargets,
+  sendingIn,
+  threads,
+} from '../state.ts'
 import { strings } from '../strings.ts'
 import {
   type ThreadItem,
@@ -34,11 +57,17 @@ export const threadView = (life: Lifetime, me: Me, id: ConversationId): HTMLElem
   const follow = followNewNotes(life, scroller)
   const seen = markReadWhenSeen(life, scroller, me, id)
 
-  keyedRegion(life, list, [threads, members, replyTargets], () => threadItems(notesIn(id)), {
-    key: (item) => item.key,
-    signature: (item) => JSON.stringify([item, namesIn(item), replyTargetIn(id)]),
-    render: (item) => seen.watch(item.type === 'note' ? noteItem(item.note, me, id) : draftsItem(item, id)),
-  })
+  keyedRegion(
+    life,
+    list,
+    [threads, members, replyTargets, draftRequests],
+    () => threadItems(notesIn(id), draftRequests.get()),
+    {
+      key: (item) => item.key,
+      signature: (item) => JSON.stringify([item, namesIn(item), replyTargetIn(id)]),
+      render: (item) => seen.watch(item.type === 'note' ? noteItem(item.note, me, id) : draftsItem(item, id)),
+    },
+  )
   life.add(threads.subscribe(follow.afterDraw))
 
   scroller.append(
@@ -124,6 +153,12 @@ const noteItem = (note: Note, me: Me, conversationId: ConversationId): HTMLEleme
           {
             class: 'link',
           },
+        ),
+      !mine &&
+        button(
+          strings.askAgentToReply,
+          () => launch(askAgent({ conversationId, inReplyTo: note.id, instruction: '', agentId: null })),
+          { class: 'link ask-reply' },
         ),
     ),
   )
@@ -241,9 +276,10 @@ const composer = (life: Lifetime, me: Me, id: ConversationId): HTMLElement => {
         },
       },
     },
-    region(life, [threads, replyTargets, directory, conversations, sendingIn], () => [
+    region(life, [threads, replyTargets, directory, conversations, sendingIn, draftRequests], () => [
       sendingIn.get().has(id) &&
         h('p', { class: 'sending', role: 'status' }, pip('sending', 2), strings.sending),
+      waitingChips(me, id),
       replyChip(id),
       cannotMessageNotice(me, id),
     ]),
@@ -254,7 +290,86 @@ const composer = (life: Lifetime, me: Me, id: ConversationId): HTMLElement => {
       h('button', { type: 'submit', class: 'primary send' }, strings.send),
     ),
     h('small', { class: 'composer-hint' }, strings.composerHint),
+    agentAsk(life, id),
   )
+}
+
+const agentAsk = (life: Lifetime, id: ConversationId): HTMLElement => {
+  const instruction = h('input', {
+    name: 'instruction',
+    maxlength: String(DRAFT_INSTRUCTION_MAX),
+    placeholder: strings.agentInstructionPlaceholder,
+    'aria-label': strings.agentInstructionLabel,
+  })
+  const picker = region(life, [agentCredentials], () => {
+    const agents = agentCredentials.get()
+    return (
+      agents.length > 1 &&
+      h(
+        'select',
+        { name: 'agent', 'aria-label': strings.agentPickerLabel },
+        h('option', { value: '' }, strings.anyAgent),
+        agents.map((agent) => h('option', { value: agent.id }, agent.name)),
+      )
+    )
+  })
+  const details = h('details', { class: 'ask-agent' })
+  const ask = (): void => {
+    const chosen = picker.querySelector('select')?.value ?? ''
+    launch(
+      askAgent({
+        conversationId: id,
+        inReplyTo: replyTargetIn(id) as NoteId | null,
+        instruction: instruction.value.trim(),
+        agentId: chosen === '' ? null : (chosen as CredentialId),
+      }),
+      () => {
+        instruction.value = ''
+        details.open = false
+      },
+    )
+  }
+  instruction.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' || event.isComposing) return
+    event.preventDefault()
+    ask()
+  })
+  details.append(
+    h('summary', {}, strings.letAgentWrite),
+    h('div', { class: 'ask-agent-row' }, instruction, picker, button(strings.askAgent, ask)),
+  )
+  return details
+}
+
+const waitingChips = (me: Me, id: ConversationId): Child => {
+  const waiting = waitingRequests(draftRequests.get(), id, systemClock.now())
+  if (waiting.length === 0) return null
+  const mine = directory.get().find((entry) => entry.member.id === me.member.id)
+  return [
+    waiting.map((request) =>
+      h(
+        'p',
+        { class: 'asked-chip', role: 'status', data: { requestId: request.id } },
+        pip('drafting', 2),
+        h(
+          'span',
+          {},
+          request.instruction === ''
+            ? strings.askedAgent
+            : `${strings.askedAgent} “${excerpt(request.instruction, 60)}”`,
+        ),
+        button(strings.withdraw, () => launch(withdrawRequest(request)), { class: 'link' }),
+      ),
+    ),
+    mine?.presence.agentOnline === false &&
+      h(
+        'p',
+        { class: 'no-agent', role: 'note' },
+        pip('offline', 2),
+        h('span', {}, strings.noAgentOnline),
+        h('a', { href: hrefFor({ name: 'device', code: null }) }, strings.menuConnectDevice),
+      ),
+  ]
 }
 
 const replyChip = (id: ConversationId): Child => {

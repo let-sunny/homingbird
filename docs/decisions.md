@@ -88,3 +88,23 @@ are `human` routes. The request is announced only to the requester's own clients
 so every connected agent may answer with `drafts.create` and `requestId`, and the person picks among
 the drafts. A request stops waiting when it is withdrawn, after 24 hours, or, for the agents that have
 not answered yet, once one of its drafts has been sent. It never reaches another member.
+
+## A topic is a room; helping with a topic is the profile tag
+
+A topic has a slug, a one-line description and one persistent conversation of kind `topic`. "What my
+agent can help with" is the set of topics a member helps with, so there is one concept instead of
+tags plus rooms. Any person may create a topic; administrators rename, merge and remove them, and
+`HB_TOPICS` seeds them. `general` always exists, every new member helps there, and it cannot be
+removed.
+
+- A question drafted to a topic goes to exactly one room. A question that spans topics goes to the
+  best one, and an unclear one goes to `general`; posting to several rooms would split the answers.
+- The asking agent chooses the topic from `topics.list`; the server does no matching and runs no
+  model. The person sees the destination when approving.
+- A question is delivered (receipts, inbox, reply drafting) to the topic's helpers. Asking makes the
+  asker a participant who can read the room without becoming a helper. A reply is delivered to the
+  asker only, and a question with a sent reply leaves the other helpers' inboxes.
+- A person in the room may move an unanswered question to another topic. It leaves the old room.
+- Rule 6 holds unchanged: a topic room is visible only to its participants. Any member may join one.
+- Every participant of a room gets an event row per note, so a note in `general` costs one write per
+  member. This is accepted at the documented single-instance scale.

@@ -39,7 +39,7 @@ const sentFromAnaToBen = async (body = 'A sent note') => {
 }
 
 const pathOf = (name: RouteName, id: string): string =>
-  fillPath(contract[name].path, { id, memberId: id, userCode: id })
+  fillPath(contract[name].path, { id, memberId: id, userCode: id, slug: 'general' })
 
 const stateOf = (dump: string): string =>
   dump
@@ -78,7 +78,11 @@ describe('Rule 1: only a human credential can approve a note', () => {
     const draft = await draftFromAnaToBen()
     for (const name of Object.keys(contract) as RouteName[]) {
       const route = contract[name]
-      await anaAgent.api(route.method, pathOf(name, draft.id), route.body ? { body: 'changed by agent' } : undefined)
+      await anaAgent.api(
+        route.method,
+        pathOf(name, draft.id),
+        route.body ? { body: 'changed by agent' } : undefined,
+      )
     }
     expect((await ana.api('GET', `/notes/${draft.id}`)).json.status).toBe('draft')
   })
@@ -192,7 +196,14 @@ describe('Rule 5: credentials are stored hashed and never logged', () => {
     const draft = await draftFromAnaToBen()
     await ana.api('POST', `/drafts/${draft.id}/send`, {})
     const stored = await everyStoredValue(server)
-    for (const token of [ana.token, ben.token, cy.token, anaAgent.token, anaAgent.approvalToken!, benAgent.token])
+    for (const token of [
+      ana.token,
+      ben.token,
+      cy.token,
+      anaAgent.token,
+      anaAgent.approvalToken!,
+      benAgent.token,
+    ])
       expect(stored.includes(token)).toBe(false)
     expect(stored).not.toMatch(/hb[har]_[A-Za-z0-9_-]{20,}/)
   })
@@ -220,7 +231,9 @@ describe('Rule 6: a member sees only conversations they participate in', () => {
 
   it('does not let an outsider draft into, or reply inside, a conversation', async () => {
     const note = await sentFromAnaToBen()
-    expect((await cy.api('POST', '/drafts', { conversationId: note.conversationId, body: 'hi' })).status).toBe(404)
+    expect(
+      (await cy.api('POST', '/drafts', { conversationId: note.conversationId, body: 'hi' })).status,
+    ).toBe(404)
     expect((await cy.api('POST', '/drafts', { inReplyTo: note.id, body: 'hi' })).status).toBe(404)
   })
 

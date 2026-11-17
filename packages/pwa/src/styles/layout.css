@@ -66,25 +66,6 @@
   .connection > span:last-child {
     display: none;
   }
-
-  .titlebar {
-    gap: var(--hb-space-2);
-    padding-inline: var(--hb-space-2);
-  }
-
-  .tab {
-    padding-inline: var(--hb-space-2);
-  }
-
-  .titlebar .brand {
-    padding-inline: 0;
-  }
-
-  .titlebar .connection {
-    padding: 0;
-    border: 0;
-    background: none;
-  }
 }
 
 .thread {

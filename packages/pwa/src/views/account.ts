@@ -70,8 +70,6 @@ const notificationsToggle = (life: Lifetime): HTMLElement => {
     launch(
       T.map((on: boolean) => {
         isOn.set(on)
-        for (const box of document.querySelectorAll<HTMLInputElement>('input[name=notifications]'))
-          box.checked = on
         if (wanted && !on) notice.set({ kind: 'error', text: strings.notificationsRefused })
       })(wanted ? turnPushOn : turnPushOff),
     )
@@ -81,7 +79,11 @@ const notificationsToggle = (life: Lifetime): HTMLElement => {
     h('legend', {}, strings.notifications),
     region(life, [isOn], () => {
       const box = h('input', { type: 'checkbox', name: 'notifications', checked: isOn.get() })
-      box.addEventListener('change', () => toggle(box.checked))
+      box.addEventListener('change', () => {
+        const wanted = box.checked
+        box.checked = isOn.get()
+        toggle(wanted)
+      })
       return h(
         'label',
         { class: 'choice' },

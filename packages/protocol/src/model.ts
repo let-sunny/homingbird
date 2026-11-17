@@ -27,6 +27,20 @@ export const Member = S.struct({
 })
 export type Member = S.Infer<typeof Member>
 
+export const TopicSlug = S.string({ pattern: /^[a-z0-9][a-z0-9-]{0,39}$/, maxLength: 40 })
+export const TOPIC_DESCRIPTION_MAX = 200
+export const GENERAL_TOPIC = 'general'
+
+export const Topic = S.struct({
+  slug: TopicSlug,
+  description: S.string({ maxLength: TOPIC_DESCRIPTION_MAX }),
+  conversationId: ConversationId,
+  helperCount: S.int({ min: 0 }),
+  helping: S.boolean,
+  createdAt: Timestamp,
+})
+export type Topic = S.Infer<typeof Topic>
+
 export const Relation = S.literal('self', 'contact', 'request_sent', 'request_received', 'blocked', 'none')
 export type Relation = S.Infer<typeof Relation>
 
@@ -39,6 +53,7 @@ export const DirectoryEntry = S.struct({
   lastSeenAt: S.nullable(Timestamp),
   relation: Relation,
   canMessage: S.boolean,
+  topics: S.array(TopicSlug),
 })
 export type DirectoryEntry = S.Infer<typeof DirectoryEntry>
 
@@ -95,14 +110,14 @@ export const DraftRequest = S.struct({
 })
 export type DraftRequest = S.Infer<typeof DraftRequest>
 
-export const ConversationKind = S.literal('dm', 'group')
+export const ConversationKind = S.literal('dm', 'group', 'topic')
 export type ConversationKind = S.Infer<typeof ConversationKind>
 
 export const Conversation = S.struct({
   id: ConversationId,
   kind: ConversationKind,
   title: S.nullable(S.string({ maxLength: 200 })),
-  participantIds: S.array(MemberId, { minItems: 2 }),
+  participantIds: S.array(MemberId, { minItems: 1 }),
   createdAt: Timestamp,
   lastActivityAt: Timestamp,
   lastNote: S.nullable(Note),

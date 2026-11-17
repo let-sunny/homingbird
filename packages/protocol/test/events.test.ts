@@ -14,6 +14,7 @@ import {
 const types: EventType[] = [
   'note.sent',
   'note.status',
+  'note.moved',
   'draft.saved',
   'draft.discarded',
   'draft.requested',

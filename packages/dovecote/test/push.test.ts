@@ -2,10 +2,17 @@ import { createDecipheriv, createECDH, createPublicKey, hkdfSync, verify } from 
 import { Task as T } from '@homingbird/kernel'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { DEFAULT_PUSH_HOSTS } from '../src/push/default-hosts.ts'
-import { encryptPushPayload, MAX_PLAINTEXT_BYTES } from '../src/push/payload-encryption.ts'
+import { MAX_PLAINTEXT_BYTES, encryptPushPayload } from '../src/push/payload-encryption.ts'
 import { isKnownPushService } from '../src/push/subscriptions.ts'
 import { generateVapidKeys, vapidAuthorization } from '../src/push/vapid.ts'
-import { type Agent, type Session, type TestServer, connectAgent, startTestServer, storedRows } from './harness.ts'
+import {
+  type Agent,
+  type Session,
+  type TestServer,
+  connectAgent,
+  startTestServer,
+  storedRows,
+} from './harness.ts'
 
 interface Delivery {
   readonly url: string
@@ -35,7 +42,9 @@ const decrypt = (body: Buffer, receiver: ReturnType<typeof subscriber>): string 
   const shared = receiver.keys.computeSecret(senderPublicKey)
   const info = Buffer.concat([Buffer.from('WebPush: info\0'), receiver.keys.getPublicKey(), senderPublicKey])
   const inputKey = Buffer.from(hkdfSync('sha256', shared, receiver.auth, info, 32))
-  const key = Buffer.from(hkdfSync('sha256', inputKey, salt, Buffer.from('Content-Encoding: aes128gcm\0'), 16))
+  const key = Buffer.from(
+    hkdfSync('sha256', inputKey, salt, Buffer.from('Content-Encoding: aes128gcm\0'), 16),
+  )
   const nonce = Buffer.from(hkdfSync('sha256', inputKey, salt, Buffer.from('Content-Encoding: nonce\0'), 12))
   const decipher = createDecipheriv('aes-128-gcm', key, nonce)
   decipher.setAuthTag(sealed.subarray(sealed.length - 16))
@@ -46,7 +55,11 @@ const decrypt = (body: Buffer, receiver: ReturnType<typeof subscriber>): string 
 describe('VAPID', () => {
   it('signs a token the push service can verify with the public key', () => {
     const keys = generateVapidKeys()
-    const header = vapidAuthorization(keys, { audience: 'https://fcm.googleapis.com', subject: 'https://hb.example.com', expiresAtSeconds: 1234 })
+    const header = vapidAuthorization(keys, {
+      audience: 'https://fcm.googleapis.com',
+      subject: 'https://hb.example.com',
+      expiresAtSeconds: 1234,
+    })
     const [, token, publicKey] = /^vapid t=([^,]+), k=(.+)$/.exec(header)!
     expect(publicKey).toBe(keys.publicKey)
     const [head, payload, signature] = token!.split('.')
@@ -59,9 +72,19 @@ describe('VAPID', () => {
     const point = Buffer.from(keys.publicKey, 'base64url')
     const key = createPublicKey({
       format: 'jwk',
-      key: { kty: 'EC', crv: 'P-256', x: point.subarray(1, 33).toString('base64url'), y: point.subarray(33).toString('base64url') },
+      key: {
+        kty: 'EC',
+        crv: 'P-256',
+        x: point.subarray(1, 33).toString('base64url'),
+        y: point.subarray(33).toString('base64url'),
+      },
     })
-    const verified = verify('sha256', Buffer.from(`${head}.${payload}`), { key, dsaEncoding: 'ieee-p1363' }, Buffer.from(signature!, 'base64url'))
+    const verified = verify(
+      'sha256',
+      Buffer.from(`${head}.${payload}`),
+      { key, dsaEncoding: 'ieee-p1363' },
+      Buffer.from(signature!, 'base64url'),
+    )
     expect(verified).toBe(true)
   })
 })
@@ -77,7 +100,9 @@ describe('payload encryption', () => {
       senderPrivateKey: sender.getPrivateKey(),
       salt: Buffer.alloc(16, 7),
     }
-    expect(() => encryptPushPayload({ ...input, plaintext: Buffer.alloc(MAX_PLAINTEXT_BYTES + 1) })).toThrow(RangeError)
+    expect(() => encryptPushPayload({ ...input, plaintext: Buffer.alloc(MAX_PLAINTEXT_BYTES + 1) })).toThrow(
+      RangeError,
+    )
     const body = encryptPushPayload({ ...input, plaintext: Buffer.from('fits') })
     expect(decrypt(body, receiver)).toBe('fits')
   })
@@ -116,7 +141,11 @@ describe('push notifications', () => {
     deliveries = []
     status = 201
     const fetch = (async (url: string, init?: RequestInit) => {
-      deliveries.push({ url, headers: init?.headers as Record<string, string>, body: Buffer.from(init?.body as Uint8Array) })
+      deliveries.push({
+        url,
+        headers: init?.headers as Record<string, string>,
+        body: Buffer.from(init?.body as Uint8Array),
+      })
       return new Response('', { status })
     }) as never
     server = await startTestServer({}, { fetch })
@@ -148,9 +177,22 @@ describe('push notifications', () => {
   })
 
   it('refuses a subscription whose endpoint is not a known push service', async () => {
-    for (const endpoint of ['https://attacker.example/hook', 'https://169.254.169.254/', 'http://fcm.googleapis.com/x'])
-      expect((await ana.api('POST', '/push/subscriptions', benDevice.subscription(endpoint))).status).toBe(400)
-    expect((await ana.api('POST', '/push/subscriptions', { endpoint: ENDPOINT, keys: { p256dh: 'short', auth: 'x' } })).status).toBe(400)
+    for (const endpoint of [
+      'https://attacker.example/hook',
+      'https://169.254.169.254/',
+      'http://fcm.googleapis.com/x',
+    ])
+      expect((await ana.api('POST', '/push/subscriptions', benDevice.subscription(endpoint))).status).toBe(
+        400,
+      )
+    expect(
+      (
+        await ana.api('POST', '/push/subscriptions', {
+          endpoint: ENDPOINT,
+          keys: { p256dh: 'short', auth: 'x' },
+        })
+      ).status,
+    ).toBe(400)
   })
 
   it('pushes an encrypted preview of a new note to the recipient, and nothing to the author', async () => {
@@ -158,7 +200,11 @@ describe('push notifications', () => {
     expect(deliveries).toHaveLength(1)
     const [delivery] = deliveries
     expect(delivery!.url).toBe(ENDPOINT)
-    expect(delivery!.headers).toMatchObject({ 'content-encoding': 'aes128gcm', ttl: '86400', urgency: 'normal' })
+    expect(delivery!.headers).toMatchObject({
+      'content-encoding': 'aes128gcm',
+      ttl: '86400',
+      urgency: 'normal',
+    })
     expect(delivery!.headers.authorization).toMatch(/^vapid t=[\w-]+\.[\w-]+\.[\w-]+, k=[\w-]+$/)
     expect(delivery!.body.toString('latin1')).not.toContain('migration')
     expect(JSON.parse(decrypt(delivery!.body, benDevice))).toEqual({

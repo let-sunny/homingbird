@@ -11,15 +11,18 @@ import type {
   NoteId,
   Settings,
 } from '@homingbird/protocol'
+import { upsertRequest } from './draft-requests.ts'
 import { applyEvent } from './live.ts'
 import { hrefFor } from './routes.ts'
 import {
   type Branding,
+  agentCredentials,
   branding,
   connection,
   contacts,
   conversations,
   directory,
+  draftRequests,
   notice,
   replyTargets,
   sendingIn,
@@ -61,7 +64,39 @@ export const loadWorkspace: Action = T.gen(function* () {
   conversations.set(listed.conversations)
   directory.set(people.entries)
   contacts.set(ties.contacts)
+  yield* loadAgents
 })
+
+export const loadAgents: Action = T.gen(function* () {
+  const [asked, issued] = yield* T.all([api['draftRequests.list']({}), api['credentials.list']({})])
+  draftRequests.set(asked.requests)
+  agentCredentials.set(
+    issued.credentials.filter((credential) => credential.kind === 'agent' && credential.revokedAt === null),
+  )
+})
+
+export interface AgentAsk {
+  readonly conversationId: ConversationId
+  readonly inReplyTo: NoteId | null
+  readonly instruction: string
+  readonly agentId: CredentialId | null
+}
+
+export const askAgent = (ask: AgentAsk): Action =>
+  T.map((request: DraftRequest) => draftRequests.update((all) => upsertRequest(all, request)))(
+    api['draftRequests.create']({
+      body: {
+        ...(ask.inReplyTo === null ? { conversationId: ask.conversationId } : { inReplyTo: ask.inReplyTo }),
+        ...(ask.instruction !== '' && { instruction: ask.instruction }),
+        ...(ask.agentId !== null && { agentId: ask.agentId }),
+      },
+    }),
+  )
+
+export const withdrawRequest = (request: DraftRequest): Action =>
+  T.map((cancelled: DraftRequest) => draftRequests.update((all) => upsertRequest(all, cancelled)))(
+    api['draftRequests.cancel']({ params: { id: request.id } }),
+  )
 
 export const loadConversations: Action = T.map((listed: { conversations: ReadonlyArray<Conversation> }) =>
   conversations.set(listed.conversations),

@@ -37,6 +37,8 @@ describe('wire model', () => {
         'Relation',
         'Role',
         'Settings',
+        'Topic',
+        'TopicSlug',
       ].sort(),
     )
   })
@@ -96,11 +98,9 @@ describe('wire model', () => {
     expect(model.Settings.is({ ...settings, contactMode: 'closed' })).toBe(false)
   })
 
-  it('needs at least two participants in a conversation', () => {
+  it('needs at least one participant in a conversation', () => {
     const conversation = fc.sample(arbitrary(model.Conversation, refinements), 1)[0]!
-    expect(
-      model.Conversation.is({ ...conversation, participantIds: conversation.participantIds.slice(0, 1) }),
-    ).toBe(false)
+    expect(model.Conversation.is({ ...conversation, participantIds: [] })).toBe(false)
   })
 
   it('only knows the two credential kinds', () => {

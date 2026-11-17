@@ -50,22 +50,32 @@ describe('direct conversations', () => {
     const toCy = (await ana.api('POST', '/drafts', { to: [cy.me.member.id], body: 'to cy' })).json
     await ana.api('POST', `/drafts/${toCy.id}/send`, {})
     const list = (await ana.api('GET', '/conversations')).json.conversations
-    expect(list.map((conversation: any) => conversation.id)).toEqual([toCy.conversationId, toBen.conversationId])
+    expect(list.map((conversation: any) => conversation.id)).toEqual([
+      toCy.conversationId,
+      toBen.conversationId,
+    ])
   })
 })
 
 describe('group conversations', () => {
   it('creates a group that every participant sees at once and can draft into', async () => {
     const group = (
-      await ana.api('POST', '/conversations', { participantIds: [ben.me.member.id, cy.me.member.id], title: 'Launch' })
+      await ana.api('POST', '/conversations', {
+        participantIds: [ben.me.member.id, cy.me.member.id],
+        title: 'Launch',
+      })
     ).json
     expect(group).toMatchObject({ kind: 'group', title: 'Launch', lastNote: null })
     expect(group.participantIds).toHaveLength(3)
-    expect((await cy.api('GET', '/conversations')).json.conversations.map((c: any) => c.id)).toEqual([group.id])
+    expect((await cy.api('GET', '/conversations')).json.conversations.map((c: any) => c.id)).toEqual([
+      group.id,
+    ])
 
     const draft = (await ben.api('POST', '/drafts', { conversationId: group.id, body: 'to everyone' })).json
     const sent = (await ben.api('POST', `/drafts/${draft.id}/send`, {})).json
-    expect(sent.receipts.map((receipt: any) => receipt.memberId).sort()).toEqual([ana.me.member.id, cy.me.member.id].sort())
+    expect(sent.receipts.map((receipt: any) => receipt.memberId).sort()).toEqual(
+      [ana.me.member.id, cy.me.member.id].sort(),
+    )
     await ana.api('POST', `/notes/${sent.id}/read`)
     const forCy = (await cy.api('GET', `/notes/${sent.id}`)).json.receipts
     expect(forCy.filter((receipt: any) => receipt.state === 'read')).toHaveLength(1)
@@ -75,14 +85,18 @@ describe('group conversations', () => {
   it('turns a group of two into the direct conversation and refuses a group of one', async () => {
     const direct = (await ana.api('POST', '/conversations', { participantIds: [ben.me.member.id] })).json
     expect(direct.kind).toBe('dm')
-    const again = (await ben.api('POST', '/conversations', { participantIds: [ana.me.member.id, ben.me.member.id] })).json
+    const again = (
+      await ben.api('POST', '/conversations', { participantIds: [ana.me.member.id, ben.me.member.id] })
+    ).json
     expect(again.id).toBe(direct.id)
     expect((await ana.api('POST', '/conversations', { participantIds: [ana.me.member.id] })).status).toBe(400)
   })
 
   it('refuses a group that includes someone the creator may not message', async () => {
     await cy.api('PUT', `/blocks/${ana.me.member.id}`)
-    const refused = await ana.api('POST', '/conversations', { participantIds: [ben.me.member.id, cy.me.member.id] })
+    const refused = await ana.api('POST', '/conversations', {
+      participantIds: [ben.me.member.id, cy.me.member.id],
+    })
     expect(refused.status).toBe(403)
   })
 })

@@ -32,7 +32,12 @@ const sendNote = async (body: string) => {
 }
 
 const upgrade = (headers: Record<string, string>, path = '/api/v1/events/ws?after=0') =>
-  new Promise<{ head: string; frames: () => Buffer[]; socket: ReturnType<typeof connect>; closed: Promise<void> }>((resolve) => {
+  new Promise<{
+    head: string
+    frames: () => Buffer[]
+    socket: ReturnType<typeof connect>
+    closed: Promise<void>
+  }>((resolve) => {
     const socket = connect(listening.port, '127.0.0.1')
     let received = Buffer.alloc(0)
     let head: string | null = null
@@ -48,7 +53,9 @@ const upgrade = (headers: Record<string, string>, path = '/api/v1/events/ws?afte
       }
     })
     socket.write(
-      `GET ${path} HTTP/1.1\r\nHost: test\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Version: 13\r\n${Object.entries(headers)
+      `GET ${path} HTTP/1.1\r\nHost: test\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Version: 13\r\n${Object.entries(
+        headers,
+      )
         .map(([name, value]) => `${name}: ${value}\r\n`)
         .join('')}\r\n`,
     )
@@ -60,7 +67,12 @@ const serverFrames = (bytes: Buffer): Buffer[] => {
   while (offset + 2 <= bytes.length) {
     const short = bytes[offset + 1]! & 0x7f
     const lengthBytes = short === 126 ? 2 : short === 127 ? 8 : 0
-    const length = short === 126 ? bytes.readUInt16BE(offset + 2) : short === 127 ? Number(bytes.readBigUInt64BE(offset + 2)) : short
+    const length =
+      short === 126
+        ? bytes.readUInt16BE(offset + 2)
+        : short === 127
+          ? Number(bytes.readBigUInt64BE(offset + 2))
+          : short
     const start = offset + 2 + lengthBytes
     if (start + length > bytes.length) break
     frames.push(Buffer.concat([Buffer.from([bytes[offset]! & 0x0f]), bytes.subarray(start, start + length)]))
@@ -122,18 +134,26 @@ describe('over a real socket', () => {
 
   it('upgrades to a WebSocket, delivers events as text frames, answers pings and closes cleanly', async () => {
     await sendNote('first')
-    const ws = await upgrade({ authorization: `Bearer ${benAgent.token}`, 'sec-websocket-key': 'dGhlIHNhbXBsZSBub25jZQ==' })
+    const ws = await upgrade({
+      authorization: `Bearer ${benAgent.token}`,
+      'sec-websocket-key': 'dGhlIHNhbXBsZSBub25jZQ==',
+    })
     expect(ws.head).toContain('101 Switching Protocols')
     expect(ws.head).toContain('Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=')
     await until(() => ws.frames().length >= 1)
     const [replayed] = ws.frames()
     expect(replayed![0]).toBe(OPCODE.text)
-    expect(JSON.parse(replayed!.subarray(1).toString())).toMatchObject({ seq: 1, body: { type: 'note.sent' } })
+    expect(JSON.parse(replayed!.subarray(1).toString())).toMatchObject({
+      seq: 1,
+      body: { type: 'note.sent' },
+    })
 
     await sendNote('second')
     await until(() => ws.frames().length >= 2)
     ws.socket.write(maskedFrame(OPCODE.ping, Buffer.from('hi')))
-    await until(() => ws.frames().some((frame) => frame[0] === OPCODE.pong && frame.subarray(1).toString() === 'hi'))
+    await until(() =>
+      ws.frames().some((frame) => frame[0] === OPCODE.pong && frame.subarray(1).toString() === 'hi'),
+    )
     ws.socket.write(maskedFrame(OPCODE.close, Buffer.alloc(0)))
     await ws.closed
     await until(() => !server.env.hub.presenceOf(ben.me.member.id).agentOnline)
@@ -148,11 +168,16 @@ describe('over a real socket', () => {
     expect(foreign.head).toContain('401')
     expect((await upgrade(key)).head).toContain('401')
     expect((await upgrade({ authorization: `Bearer ${benAgent.token}` })).head).toContain('401')
-    expect((await upgrade({ authorization: `Bearer ${benAgent.token}`, ...key }, '/api/v1/elsewhere')).head).toContain('401')
+    expect(
+      (await upgrade({ authorization: `Bearer ${benAgent.token}`, ...key }, '/api/v1/elsewhere')).head,
+    ).toContain('401')
   })
 
   it('drops a client that sends an unmasked frame', async () => {
-    const ws = await upgrade({ authorization: `Bearer ${benAgent.token}`, 'sec-websocket-key': 'dGhlIHNhbXBsZSBub25jZQ==' })
+    const ws = await upgrade({
+      authorization: `Bearer ${benAgent.token}`,
+      'sec-websocket-key': 'dGhlIHNhbXBsZSBub25jZQ==',
+    })
     ws.socket.write(encodeFrame(OPCODE.text, Buffer.from('unmasked')))
     await ws.closed
     expect(decodeClientFrames(encodeFrame(OPCODE.text, Buffer.from('unmasked'))).violation).toBe(true)
@@ -162,7 +187,10 @@ describe('over a real socket', () => {
     const start = (address: string) =>
       fetch(`${origin}/oauth/device_authorization`, {
         method: 'POST',
-        headers: { 'content-type': 'application/x-www-form-urlencoded', 'x-forwarded-for': `${address}, 10.0.0.1` },
+        headers: {
+          'content-type': 'application/x-www-form-urlencoded',
+          'x-forwarded-for': `${address}, 10.0.0.1`,
+        },
         body: 'client_name=x',
       })
     for (let attempt = 0; attempt < 30; attempt++) expect((await start('203.0.113.7')).status).toBe(200)
@@ -174,7 +202,9 @@ describe('over a real socket', () => {
     await server.close()
     const response = await fetch(`${origin}/api/v1/info`)
     expect(response.status).toBe(500)
-    expect(await response.json()).toEqual({ error: { code: 'Unavailable', message: 'The server hit an unexpected error.' } })
+    expect(await response.json()).toEqual({
+      error: { code: 'Unavailable', message: 'The server hit an unexpected error.' },
+    })
     expect(server.logged.some((line) => line.startsWith('request failed: GET /api/v1/info'))).toBe(true)
     server = await startTestServer()
   })

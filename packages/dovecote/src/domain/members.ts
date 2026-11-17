@@ -15,20 +15,27 @@ import { all, first, run } from '../sql/database.ts'
 import { containsIgnoringCase, insertInto, list, sql } from '../sql/query.ts'
 import { type Ties, tiesOf } from './contacts.ts'
 import { readSettings } from './settings.ts'
+import { joinGeneralTopic, topicsHelpedBy } from './topics.ts'
 
 export const directoryFor = (
   viewerId: MemberId,
   search: string | undefined,
+  topic?: string,
 ): T.Task<DirectoryEntry[], never, AppEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
     const settings = yield* readSettings
     const ties = yield* tiesOf(viewerId)
+    const matching = search
+      ? sql`AND (${containsIgnoringCase('name', search)} OR ${containsIgnoringCase('email', search)} OR ${containsIgnoringCase('profile', search)})`
+      : sql``
+    const helping = topic
+      ? sql`AND id IN (SELECT h.member_id FROM topic_helpers h JOIN topics t ON t.conversation_id = h.conversation_id WHERE t.slug = ${topic})`
+      : sql``
     const rows = yield* all<MemberRow>(
-      search
-        ? sql`SELECT * FROM members WHERE status = 'active' AND (${containsIgnoringCase('name', search)} OR ${containsIgnoringCase('email', search)} OR ${containsIgnoringCase('profile', search)}) ORDER BY name LIMIT ${DIRECTORY_LIMIT}`
-        : sql`SELECT * FROM members WHERE status = 'active' ORDER BY name LIMIT ${DIRECTORY_LIMIT}`,
+      sql`SELECT * FROM members WHERE status = 'active' ${matching} ${helping} ORDER BY name LIMIT ${DIRECTORY_LIMIT}`,
     )
+    const topics = yield* topicsHelpedBy(rows.map((row) => row.id))
     return rows.map((row) => {
       const member = toMember(row)
       return {
@@ -37,6 +44,7 @@ export const directoryFor = (
         lastSeenAt: row.last_seen_at,
         relation: relation(relationFacts(viewerId, member.id, ties)),
         canMessage: canMessage(messagingFacts(settings.contactMode, viewerId, member, ties)),
+        topics: topics.get(member.id) ?? [],
       }
     })
   })
@@ -103,6 +111,7 @@ export const signInMember = (identity: Identity): T.Task<Member, never, AppEnv> 
         last_seen_at: null,
       }),
     )
+    yield* joinGeneralTopic(member.id)
     return member
   })
 

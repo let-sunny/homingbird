@@ -2,7 +2,9 @@ import type {
   Contact,
   Conversation,
   ConversationId,
+  Credential,
   DirectoryEntry,
+  DraftRequest,
   Me,
   Member,
   MemberId,
@@ -41,6 +43,8 @@ export const connection = signal<Connection>('connecting')
 export const notice = signal<Notice | null>(null)
 export const announcement = signal('')
 export const sendingIn = signal<ReadonlySet<ConversationId>>(new Set())
+export const draftRequests = signal<ReadonlyArray<DraftRequest>>([])
+export const agentCredentials = signal<ReadonlyArray<Credential>>([])
 export const replyTargets = signal<ReadonlyMap<ConversationId, string | null>>(new Map())
 
 export const members = derived(

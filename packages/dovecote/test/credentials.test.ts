@@ -20,7 +20,9 @@ describe('credentials', () => {
     await connectAgent(server, ana, { name: 'Laptop agent', approveButton: true })
     const { credentials } = (await ana.api('GET', '/credentials')).json
     expect(
-      credentials.map((c: any) => [c.kind, c.name, c.client, c.current, c.revokedAt]).sort((a: any, b: any) => a[1].localeCompare(b[1])),
+      credentials
+        .map((c: any) => [c.kind, c.name, c.client, c.current, c.revokedAt])
+        .sort((a: any, b: any) => a[1].localeCompare(b[1])),
     ).toEqual([
       ['human', 'Browser', 'Web', true, null],
       ['agent', 'Laptop agent', 'Laptop agent', false, null],
@@ -57,7 +59,9 @@ describe('credentials', () => {
   it('refuses a malformed or unknown bearer token', async () => {
     expect((await server.request('GET', '/api/v1/me', { token: 'hba_notarealtoken' })).status).toBe(401)
     expect((await server.request('GET', '/api/v1/me')).status).toBe(401)
-    expect((await server.request('GET', '/api/v1/me', { headers: { authorization: 'Basic abc' } })).status).toBe(401)
+    expect(
+      (await server.request('GET', '/api/v1/me', { headers: { authorization: 'Basic abc' } })).status,
+    ).toBe(401)
   })
 
   it('updates last use at most once a minute', async () => {
@@ -87,9 +91,17 @@ describe('cookie sessions', () => {
     const body = { profile: 'x' }
     const bare = await server.request('PATCH', path, { headers: { cookie: ana.cookie }, body })
     expect(bare.status).toBe(403)
-    const foreign = await server.request('PATCH', path, { cookie: ana.cookie, headers: { origin: 'https://evil.example' }, body })
+    const foreign = await server.request('PATCH', path, {
+      cookie: ana.cookie,
+      headers: { origin: 'https://evil.example' },
+      body,
+    })
     expect(foreign.status).toBe(403)
-    const own = await server.request('PATCH', path, { cookie: ana.cookie, headers: { origin: 'http://localhost:8080' }, body })
+    const own = await server.request('PATCH', path, {
+      cookie: ana.cookie,
+      headers: { origin: 'http://localhost:8080' },
+      body,
+    })
     expect(own.status).toBe(200)
     expect((await server.request('GET', path, { headers: { cookie: ana.cookie } })).status).toBe(200)
   })
@@ -119,27 +131,45 @@ describe('administration', () => {
   })
 
   it('promotes a member, and stops admins from changing themselves', async () => {
-    expect((await ana.api('PATCH', `/admin/members/${ben.me.member.id}`, { role: 'admin' })).json.role).toBe('admin')
+    expect((await ana.api('PATCH', `/admin/members/${ben.me.member.id}`, { role: 'admin' })).json.role).toBe(
+      'admin',
+    )
     expect((await ben.api('GET', '/admin/settings')).status).toBe(200)
-    expect((await ana.api('PATCH', `/admin/members/${ana.me.member.id}`, { role: 'member' })).status).toBe(409)
+    expect((await ana.api('PATCH', `/admin/members/${ana.me.member.id}`, { role: 'member' })).status).toBe(
+      409,
+    )
     expect((await ana.api('PATCH', '/admin/members/mem_doesnotexist00', { role: 'admin' })).status).toBe(404)
   })
 
   it('changes allowed domains and contact mode at run time', async () => {
     const initial = (await ana.api('GET', '/admin/settings')).json
-    expect(initial).toEqual({ allowedDomains: ['example.com'], contactMode: 'open', auditRetentionDays: null })
-    const next = { allowedDomains: ['example.com', 'partner.org'], contactMode: 'contacts', auditRetentionDays: 30 }
+    expect(initial).toEqual({
+      allowedDomains: ['example.com'],
+      contactMode: 'open',
+      auditRetentionDays: null,
+    })
+    const next = {
+      allowedDomains: ['example.com', 'partner.org'],
+      contactMode: 'contacts',
+      auditRetentionDays: 30,
+    }
     expect((await ana.api('PUT', '/admin/settings', next)).json).toEqual(next)
     expect((await ben.api('GET', '/me')).json.contactMode).toBe('contacts')
-    expect((await server.request('GET', '/api/v1/info')).json).toMatchObject({ name: 'dovecote', contactMode: 'contacts' })
+    expect((await server.request('GET', '/api/v1/info')).json).toMatchObject({
+      name: 'dovecote',
+      contactMode: 'contacts',
+    })
     expect((await server.signIn('dee@partner.org')).me.member.email).toBe('dee@partner.org')
-    expect((await ana.api('PUT', '/admin/settings', { ...next, allowedDomains: ['Not A Domain'] })).status).toBe(400)
+    expect(
+      (await ana.api('PUT', '/admin/settings', { ...next, allowedDomains: ['Not A Domain'] })).status,
+    ).toBe(400)
   })
 })
 
 describe('profile and directory', () => {
   it('lets a person edit their name and what their agent can help with, and search finds it', async () => {
-    const updated = (await ben.api('PATCH', '/me', { name: 'Benjamin', profile: 'Billing and invoices' })).json
+    const updated = (await ben.api('PATCH', '/me', { name: 'Benjamin', profile: 'Billing and invoices' }))
+      .json
     expect(updated).toMatchObject({ name: 'Benjamin', profile: 'Billing and invoices' })
     const found = (await ana.api('GET', '/directory?q=INVOICE')).json.entries
     expect(found.map((entry: any) => entry.member.name)).toEqual(['Benjamin'])
@@ -150,10 +180,14 @@ describe('profile and directory', () => {
   it('reports people and agents online separately, once the change is announced', async () => {
     const agent = await connectAgent(server, ben)
     const presenceOf = async () =>
-      (await ana.api('GET', '/directory')).json.entries.find((e: any) => e.member.id === ben.me.member.id).presence
+      (await ana.api('GET', '/directory')).json.entries.find((e: any) => e.member.id === ben.me.member.id)
+        .presence
     expect(await presenceOf()).toEqual({ humanOnline: false, agentOnline: false })
     const hangUp = new AbortController()
-    const stream = await server.request('GET', '/api/v1/events/stream', { token: agent.token, signal: hangUp.signal })
+    const stream = await server.request('GET', '/api/v1/events/stream', {
+      token: agent.token,
+      signal: hangUp.signal,
+    })
     expect(stream.status).toBe(200)
     expect(await presenceOf()).toEqual({ humanOnline: false, agentOnline: true })
     hangUp.abort()

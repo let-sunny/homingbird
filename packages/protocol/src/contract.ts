@@ -28,6 +28,9 @@ import {
   PROFILE_MAX,
   Role,
   Settings,
+  TOPIC_DESCRIPTION_MAX,
+  Topic,
+  TopicSlug,
 } from './model.ts'
 import { type RequestOf, type ResponseOf, type Route, route } from './route.ts'
 
@@ -39,6 +42,8 @@ export const PushSubscription = S.struct({
   }),
 })
 export type PushSubscription = S.Infer<typeof PushSubscription>
+
+const TopicDescription = S.string({ minLength: 1, maxLength: TOPIC_DESCRIPTION_MAX })
 
 export const contract = {
   'server.info': route({ method: 'GET', path: '/info', access: 'public', response: ServerInfo }),
@@ -58,8 +63,29 @@ export const contract = {
     method: 'GET',
     path: '/directory',
     access: 'member',
-    query: { q: S.optional(S.string({ maxLength: 200 })) },
+    query: { q: S.optional(S.string({ maxLength: 200 })), topic: S.optional(TopicSlug) },
     response: S.struct({ entries: S.array(DirectoryEntry) }),
+  }),
+  'topics.list': route({
+    method: 'GET',
+    path: '/topics',
+    access: 'member',
+    query: { q: S.optional(S.string({ maxLength: 200 })) },
+    response: S.struct({ topics: S.array(Topic) }),
+  }),
+  'topics.create': route({
+    method: 'POST',
+    path: '/topics',
+    access: 'human',
+    body: S.struct({ slug: TopicSlug, description: TopicDescription }),
+    response: Topic,
+  }),
+  'topics.help': route({ method: 'PUT', path: '/topics/:slug/helpers/me', access: 'human', response: Topic }),
+  'topics.leave': route({
+    method: 'DELETE',
+    path: '/topics/:slug/helpers/me',
+    access: 'human',
+    response: Topic,
   }),
   'contacts.list': route({
     method: 'GET',
@@ -120,6 +146,13 @@ export const contract = {
   }),
   'notes.get': route({ method: 'GET', path: '/notes/:id', access: 'member', response: Note }),
   'notes.read': route({ method: 'POST', path: '/notes/:id/read', access: 'human', response: Note }),
+  'notes.move': route({
+    method: 'POST',
+    path: '/notes/:id/move',
+    access: 'human',
+    body: S.struct({ topic: TopicSlug }),
+    response: Note,
+  }),
   'notes.pickup': route({ method: 'POST', path: '/notes/:id/pickup', access: 'member', response: Note }),
   'inbox.list': route({
     method: 'GET',
@@ -150,6 +183,7 @@ export const contract = {
       body: NoteBody,
       conversationId: S.optional(ConversationId),
       to: S.optional(Recipients),
+      topic: S.optional(TopicSlug),
       inReplyTo: S.optional(NoteId),
       requestId: S.optional(DraftRequestId),
     }),
@@ -184,6 +218,7 @@ export const contract = {
     body: S.struct({
       conversationId: S.optional(ConversationId),
       to: S.optional(Recipients),
+      topic: S.optional(TopicSlug),
       inReplyTo: S.optional(NoteId),
       instruction: S.optional(S.string({ maxLength: DRAFT_INSTRUCTION_MAX })),
       agentId: S.optional(CredentialId),
@@ -290,6 +325,26 @@ export const contract = {
     access: 'admin',
     body: S.struct({ status: S.optional(MemberStatus), role: S.optional(Role) }),
     response: Member,
+  }),
+  'admin.topics.update': route({
+    method: 'PATCH',
+    path: '/admin/topics/:slug',
+    access: 'admin',
+    body: S.struct({ slug: S.optional(TopicSlug), description: S.optional(TopicDescription) }),
+    response: Topic,
+  }),
+  'admin.topics.remove': route({
+    method: 'DELETE',
+    path: '/admin/topics/:slug',
+    access: 'admin',
+    response: Empty,
+  }),
+  'admin.topics.merge': route({
+    method: 'POST',
+    path: '/admin/topics/:slug/merge',
+    access: 'admin',
+    body: S.struct({ into: TopicSlug }),
+    response: Topic,
   }),
   'admin.audit.list': route({
     method: 'GET',

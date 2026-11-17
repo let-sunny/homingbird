@@ -205,7 +205,7 @@ const scenario = async (): Promise<void> => {
     await toggle.scrollIntoViewIfNeeded()
     await capture(ana.page, 'notification-toggle')
     if ((await toggle.count()) === 1) {
-      await toggle.check().catch(() => undefined)
+      await toggle.click()
       await ana.page.waitForTimeout(1500)
       await capture(ana.page, 'notification-toggle-after-turning-on')
       await ana.page

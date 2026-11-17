@@ -1,6 +1,7 @@
 import type {
   Conversation,
   DirectoryEntry,
+  DraftRequest,
   Member,
   MemberId,
   Note,
@@ -73,6 +74,22 @@ describe('threadItems', () => {
     expect(groups.map((group) => group.drafts.map((d) => d.id))).toEqual([['fresh'], ['d1', 'd2']])
     expect(groups[0]!.inReplyTo).toBeNull()
     expect(groups[1]!.inReplyTo).toBe('q')
+  })
+
+  it('groups drafts that answer one request as alternatives even without a note to reply to', () => {
+    const asked = {
+      id: 'dreq_1',
+      conversationId: 'conv_000000000000',
+      inReplyTo: null,
+      instruction: '',
+      agentId: null,
+      createdAt: 1,
+      expiresAt: 9,
+      cancelledAt: null,
+      draftIds: ['d1', 'd2'],
+    } as unknown as DraftRequest
+    const groups = threadItems([draft('d1'), draft('d2'), draft('d3')], [asked])
+    expect(groups.map((group) => group.key)).toEqual(['drafts:dreq_1', 'drafts:d3'])
   })
 
   it('never shows a discarded note', () => {

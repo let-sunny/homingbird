@@ -47,7 +47,14 @@ const codeFor = async (clientId: string) => {
 }
 
 const exchange = (clientId: string, code: string, overrides: Record<string, string> = {}) =>
-  token({ grant_type: 'authorization_code', code, code_verifier: VERIFIER, client_id: clientId, redirect_uri: REDIRECT, ...overrides })
+  token({
+    grant_type: 'authorization_code',
+    code,
+    code_verifier: VERIFIER,
+    client_id: clientId,
+    redirect_uri: REDIRECT,
+    ...overrides,
+  })
 
 describe('discovery', () => {
   it('describes the authorization server and the protected resource', async () => {
@@ -70,8 +77,14 @@ describe('discovery', () => {
     const preflight = await server.request('OPTIONS', '/oauth/token')
     expect(preflight.status).toBe(204)
     expect(preflight.headers['access-control-allow-origin']).toBe('*')
-    expect((await server.request('GET', '/.well-known/oauth-authorization-server')).headers['access-control-allow-origin']).toBe('*')
-    expect((await server.request('GET', '/api/v1/info')).headers['access-control-allow-origin']).toBeUndefined()
+    expect(
+      (await server.request('GET', '/.well-known/oauth-authorization-server')).headers[
+        'access-control-allow-origin'
+      ],
+    ).toBe('*')
+    expect(
+      (await server.request('GET', '/api/v1/info')).headers['access-control-allow-origin'],
+    ).toBeUndefined()
   })
 
   it('challenges an unauthenticated MCP call with the resource metadata location', async () => {
@@ -133,8 +146,12 @@ describe('authorization code with PKCE', () => {
     const started = await authorize(clientId)
     expect(started.status).toBe(302)
     const consentId = consentIdOf(started)
-    expect((await ana.api('GET', `/consent/${consentId}`)).json).toMatchObject({ client: 'Connector', redirectHost: 'client.example' })
-    const decided = (await ana.api('POST', `/consent/${consentId}`, { approve: true, name: 'My connector' })).json
+    expect((await ana.api('GET', `/consent/${consentId}`)).json).toMatchObject({
+      client: 'Connector',
+      redirectHost: 'client.example',
+    })
+    const decided = (await ana.api('POST', `/consent/${consentId}`, { approve: true, name: 'My connector' }))
+      .json
     const redirect = new URL(decided.redirectTo)
     expect(redirect.origin + redirect.pathname).toBe(REDIRECT)
     expect(redirect.searchParams.get('state')).toBe('xyz')
@@ -172,7 +189,11 @@ describe('authorization code with PKCE', () => {
 
   it('uses a code once, and only with the right verifier, client and redirect', async () => {
     const { client_id: clientId } = (await register()).json
-    for (const wrong of [{ code_verifier: 'w'.repeat(64) }, { client_id: 'client_other' }, { redirect_uri: 'https://client.example/x' }]) {
+    for (const wrong of [
+      { code_verifier: 'w'.repeat(64) },
+      { client_id: 'client_other' },
+      { redirect_uri: 'https://client.example/x' },
+    ]) {
       const refused = await exchange(clientId, await codeFor(clientId), wrong)
       expect([wrong, refused.status, refused.json.error]).toEqual([wrong, 400, 'invalid_grant'])
     }
@@ -197,25 +218,37 @@ describe('authorization code with PKCE', () => {
     const second = (await token({ grant_type: 'refresh_token', refresh_token: first.refresh_token })).json
     expect(second.access_token).not.toBe(first.access_token)
     expect((await server.request('GET', '/api/v1/me', { token: second.access_token })).status).toBe(200)
-    expect((await token({ grant_type: 'refresh_token', refresh_token: first.refresh_token })).json.error).toBe('invalid_grant')
-    expect((await token({ grant_type: 'refresh_token', refresh_token: second.refresh_token })).status).toBe(200)
+    expect(
+      (await token({ grant_type: 'refresh_token', refresh_token: first.refresh_token })).json.error,
+    ).toBe('invalid_grant')
+    expect((await token({ grant_type: 'refresh_token', refresh_token: second.refresh_token })).status).toBe(
+      200,
+    )
   })
 
   it('revokes by access or refresh token', async () => {
     const { client_id: clientId } = (await register()).json
     const tokens = (await exchange(clientId, await codeFor(clientId))).json
-    expect((await server.request('POST', '/oauth/revoke', { form: { token: tokens.refresh_token } })).status).toBe(200)
+    expect(
+      (await server.request('POST', '/oauth/revoke', { form: { token: tokens.refresh_token } })).status,
+    ).toBe(200)
     expect((await server.request('GET', '/api/v1/me', { token: tokens.access_token })).status).toBe(401)
-    expect((await token({ grant_type: 'refresh_token', refresh_token: tokens.refresh_token })).json.error).toBe('invalid_grant')
+    expect(
+      (await token({ grant_type: 'refresh_token', refresh_token: tokens.refresh_token })).json.error,
+    ).toBe('invalid_grant')
     expect((await server.request('POST', '/oauth/revoke', { form: {} })).status).toBe(200)
   })
 
   it('accepts token requests as JSON as well as form fields', async () => {
-    const asJson = await server.request('POST', '/oauth/token', { body: { grant_type: 'password', scope: 7 } })
+    const asJson = await server.request('POST', '/oauth/token', {
+      body: { grant_type: 'password', scope: 7 },
+    })
     expect(asJson.json.error).toBe('unsupported_grant_type')
     const notAnObject = await server.request('POST', '/oauth/token', { body: 'text' })
     expect(notAnObject.json.error).toBe('unsupported_grant_type')
-    const empty = await server.request('POST', '/oauth/token', { headers: { 'content-type': 'application/json' } })
+    const empty = await server.request('POST', '/oauth/token', {
+      headers: { 'content-type': 'application/json' },
+    })
     expect(empty.json.error).toBe('unsupported_grant_type')
   })
 
@@ -241,7 +274,10 @@ describe('device authorization', () => {
     })
     expect((await poll(started.device_code)).json.error).toBe('authorization_pending')
     const typed = started.user_code.toLowerCase().replace('-', ' ')
-    expect((await ana.api('GET', `/device/${encodeURIComponent(typed)}`)).json).toMatchObject({ client: 'Terminal', wantsApproval: false })
+    expect((await ana.api('GET', `/device/${encodeURIComponent(typed)}`)).json).toMatchObject({
+      client: 'Terminal',
+      wantsApproval: false,
+    })
     await ana.api('POST', `/device/${started.user_code}`, { approve: true, name: 'My laptop' })
     const tokens = (await poll(started.device_code)).json
     expect(tokens.access_token).toMatch(/^hba_/)

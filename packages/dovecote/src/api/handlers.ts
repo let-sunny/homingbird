@@ -13,6 +13,7 @@ import {
   type RequestOf,
   type ResponseOf,
   type RouteName,
+  type Topic,
 } from '@homingbird/protocol'
 import { decideConsent, decideDeviceRequest, describeConsent, describeDeviceRequest } from '../auth/oauth.ts'
 import { listAudit } from '../domain/audit.ts'
@@ -38,6 +39,7 @@ import {
   discardDraft,
   draftsOf,
   markRead,
+  moveToTopic,
   notesAwaitingReply,
   notesInConversation,
   pickUp,
@@ -47,6 +49,15 @@ import {
   visibleNote,
 } from '../domain/notes.ts'
 import { readSettings, writeSettings } from '../domain/settings.ts'
+import {
+  createTopic,
+  listTopics,
+  mergeTopic,
+  removeTopic,
+  reviseTopic,
+  startHelping,
+  stopHelping,
+} from '../domain/topics.ts'
 import type { Caller } from '../environment.ts'
 import { type RequestEnv, announceDirectoryChange, waitForEvents } from '../events/events.ts'
 import { removeOwnPushSubscription, savePushSubscription } from '../push/subscriptions.ts'
@@ -85,7 +96,19 @@ export const handlers: Handlers = {
 
   'directory.list': ({ query }, caller) =>
     T.map((entries: Awaited<ResponseOf<Contract['directory.list']>>['entries']) => ({ entries }))(
-      directoryFor(caller.member.id, query.q),
+      directoryFor(caller.member.id, query.q, query.topic),
+    ),
+  'topics.list': ({ query }, caller) =>
+    T.map((topics: Topic[]) => ({ topics }))(listTopics(caller.member.id, query.q)),
+  'topics.create': ({ body }, caller) =>
+    T.tap((_: Topic) => announceDirectoryChange(caller.member.id))(createTopic(caller.member.id, body)),
+  'topics.help': ({ params }, caller) =>
+    T.tap((_: Topic) => announceDirectoryChange(caller.member.id))(
+      startHelping(caller.member.id, params.slug),
+    ),
+  'topics.leave': ({ params }, caller) =>
+    T.tap((_: Topic) => announceDirectoryChange(caller.member.id))(
+      stopHelping(caller.member.id, params.slug),
     ),
   'contacts.list': (_, caller) => listContacts(caller.member.id),
   'contacts.request': ({ body }, caller) => requestContact(caller.member.id, body.memberId),
@@ -133,6 +156,8 @@ export const handlers: Handlers = {
     T.flatMap((id: NoteId) => visibleNote(caller.member.id, id))(identifier(NoteId, params.id)),
   'notes.read': ({ params }, caller) =>
     T.flatMap((id: NoteId) => markRead(caller, id))(identifier(NoteId, params.id)),
+  'notes.move': ({ params, body }, caller) =>
+    T.flatMap((id: NoteId) => moveToTopic(caller, id, body.topic))(identifier(NoteId, params.id)),
   'notes.pickup': ({ params }, caller) =>
     T.flatMap((id: NoteId) => pickUp(caller, id))(identifier(NoteId, params.id)),
   'inbox.list': ({ query }, caller) =>
@@ -208,6 +233,9 @@ export const handlers: Handlers = {
     T.flatMap((id: MemberId) =>
       T.tap((_: Member) => announceDirectoryChange(id))(administerMember(caller.member.id, id, body)),
     )(identifier(MemberId, params.id)),
+  'admin.topics.update': ({ params, body }, caller) => reviseTopic(caller.member.id, params.slug, body),
+  'admin.topics.remove': ({ params }) => T.as({})(removeTopic(params.slug)),
+  'admin.topics.merge': ({ params, body }, caller) => mergeTopic(caller.member.id, params.slug, body.into),
   'admin.audit.list': ({ query }) =>
     listAudit({
       before: query.before === undefined ? null : Number(query.before),

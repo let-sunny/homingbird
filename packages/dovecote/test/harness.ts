@@ -1,6 +1,7 @@
 import { Task as T, type TestClock, makeTestClock } from '@homingbird/kernel'
 import type { Fetch } from '../src/auth/identity-provider.ts'
 import { type Config, loadConfig } from '../src/config.ts'
+import { seedTopics } from '../src/domain/topics.ts'
 import type { AppEnv } from '../src/environment.ts'
 import { handleRequest } from '../src/http/app.ts'
 import { SAME_SITE_HEADER, SESSION_COOKIE } from '../src/http/authenticate.ts'
@@ -144,6 +145,7 @@ export const startTestServer = async (
     ...(parts.fetch !== undefined && { fetch: parts.fetch }),
   })
   await T.runPromise(migrate, env)
+  if (overrides.HB_TOPICS !== undefined) await T.runPromise(seedTopics, env)
 
   const request: TestServer['request'] = async (method, url, options = {}) => {
     const parsed = new URL(url, PUBLIC_URL)

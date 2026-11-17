@@ -2,7 +2,14 @@ import { Task as T } from '@homingbird/kernel'
 import { type RouteName, contract } from '@homingbird/protocol'
 import { afterEach, describe, expect, it } from 'vitest'
 import { housekeeping, presenceBroadcast } from '../src/runtime.ts'
-import { type Session, type TestServer, connectAgent, everyStoredValue, startTestServer, storedRows } from './harness.ts'
+import {
+  type Session,
+  type TestServer,
+  connectAgent,
+  everyStoredValue,
+  startTestServer,
+  storedRows,
+} from './harness.ts'
 
 const HOUR = 60 * 60_000
 const DAY = 24 * HOUR
@@ -16,7 +23,8 @@ const scenario = async (overrides: Record<string, string> = {}, fetch?: typeof g
   const ana = await server.signIn('ana@example.com', 'Ana')
   const ben = await server.signIn('ben@example.com', 'Ben')
   const anaAgent = await connectAgent(server, ana, { name: 'Ana agent', approveButton: true })
-  const draft = (await anaAgent.api('POST', '/drafts', { to: [ben.me.member.id], body: 'audited question' })).json
+  const draft = (await anaAgent.api('POST', '/drafts', { to: [ben.me.member.id], body: 'audited question' }))
+    .json
   await anaAgent.api('PATCH', `/drafts/${draft.id}`, { body: 'audited question v2' })
   const sent = (await ana.api('POST', `/drafts/${draft.id}/send`, { body: 'audited question final' })).json
   await ben.api('POST', `/notes/${sent.id}/read`)
@@ -29,7 +37,8 @@ const scenario = async (overrides: Record<string, string> = {}, fetch?: typeof g
   return { ana, ben, anaAgent, sent, reply }
 }
 
-const entries = async (session: Session, query = '') => (await session.api('GET', `/admin/audit${query}`)).json
+const entries = async (session: Session, query = '') =>
+  (await session.api('GET', `/admin/audit${query}`)).json
 
 describe('the audit log', () => {
   it('records every state-changing action with who did it and the note content', async () => {
@@ -57,10 +66,17 @@ describe('the audit log', () => {
       actorId: ana.me.member.id,
       credentialKind: 'human',
       target: sent.id,
-      detail: { request: { body: 'audited question final' }, note: { status: 'sent', body: 'audited question final' } },
+      detail: {
+        request: { body: 'audited question final' },
+        note: { status: 'sent', body: 'audited question final' },
+      },
     })
     const discarding = log.find((entry: any) => entry.action === 'drafts.discard')
-    expect(discarding).toMatchObject({ actorId: ben.me.member.id, target: reply.id, detail: { note: { body: 'audited reply' } } })
+    expect(discarding).toMatchObject({
+      actorId: ben.me.member.id,
+      target: reply.id,
+      detail: { note: { body: 'audited reply' } },
+    })
     const denied = log.find((entry: any) => entry.action === 'denied:drafts.send')
     expect(denied).toMatchObject({ actorId: ana.me.member.id, credentialKind: 'agent' })
   })
@@ -69,7 +85,8 @@ describe('the audit log', () => {
     const { ana } = await scenario()
     const before = (await storedRows(server, 'audit_log')).length
     for (const name of Object.keys(contract) as RouteName[])
-      if (contract[name].method === 'GET' && !contract[name].path.includes(':')) await ana.api('GET', contract[name].path)
+      if (contract[name].method === 'GET' && !contract[name].path.includes(':'))
+        await ana.api('GET', contract[name].path)
     expect((await storedRows(server, 'audit_log')).length).toBe(before)
   })
 
@@ -112,7 +129,10 @@ describe('audit forwarding', () => {
     await scenario({ HB_AUDIT_STDOUT: '1' })
     const lines = server.logged.filter((line) => line.startsWith('{')).map((line) => JSON.parse(line))
     expect(lines.length).toBe((await storedRows(server, 'audit_log')).length)
-    expect(lines.find((line) => line.action === 'drafts.send')).toMatchObject({ type: 'audit', detail: { note: { body: 'audited question final' } } })
+    expect(lines.find((line) => line.action === 'drafts.send')).toMatchObject({
+      type: 'audit',
+      detail: { note: { body: 'audited question final' } },
+    })
     await server.close()
     await scenario()
     expect(server.logged.filter((line) => line.startsWith('{'))).toEqual([])
@@ -142,7 +162,9 @@ describe('audit forwarding', () => {
     const admin = await server.signIn('ana@example.com')
     await admin.api('PATCH', '/me', { profile: 'again' })
     await server.clock.advance(10 * 60_000)
-    expect(server.logged.some((line) => /audit webhook: dropped \d+ entries \(status 500\)/.test(line))).toBe(true)
+    expect(server.logged.some((line) => /audit webhook: dropped \d+ entries \(status 500\)/.test(line))).toBe(
+      true,
+    )
     await running.interrupt()
   })
 })
@@ -150,7 +172,11 @@ describe('audit forwarding', () => {
 describe('housekeeping', () => {
   it('trims old events, expired sign-in attempts and audit entries past retention', async () => {
     const { ana } = await scenario()
-    await ana.api('PUT', '/admin/settings', { allowedDomains: ['example.com'], contactMode: 'open', auditRetentionDays: 30 })
+    await ana.api('PUT', '/admin/settings', {
+      allowedDomains: ['example.com'],
+      contactMode: 'open',
+      auditRetentionDays: 30,
+    })
     await server.request('GET', '/auth/login')
     const running = T.runFork(housekeeping, server.env)
     await server.clock.flush()
@@ -178,7 +204,10 @@ describe('housekeeping', () => {
   it('broadcasts presence once a second', async () => {
     const { ana, anaAgent } = await scenario()
     const hangUp = new AbortController()
-    const stream = await server.request('GET', '/api/v1/events/stream', { cookie: ana.cookie, signal: hangUp.signal })
+    const stream = await server.request('GET', '/api/v1/events/stream', {
+      cookie: ana.cookie,
+      signal: hangUp.signal,
+    })
     const iterator = (stream.raw.body as AsyncIterable<string>)[Symbol.asyncIterator]()
     await server.request('GET', '/api/v1/events/stream', { token: anaAgent.token, signal: hangUp.signal })
     const next = iterator.next()

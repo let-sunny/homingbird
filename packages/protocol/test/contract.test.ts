@@ -72,6 +72,12 @@ describe('contract', () => {
     expect([...humanOnlyRoutes].sort()).toEqual(
       [
         'me.update',
+        'topics.create',
+        'topics.help',
+        'topics.leave',
+        'admin.topics.update',
+        'admin.topics.remove',
+        'admin.topics.merge',
         'contacts.list',
         'contacts.request',
         'contacts.accept',
@@ -80,6 +86,7 @@ describe('contract', () => {
         'blocks.remove',
         'conversations.create',
         'notes.read',
+        'notes.move',
         'drafts.send',
         'drafts.discard',
         'draftRequests.create',
@@ -108,6 +115,7 @@ describe('contract', () => {
       [
         'me.get',
         'directory.list',
+        'topics.list',
         'conversations.list',
         'conversations.get',
         'conversations.notes',

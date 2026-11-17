@@ -20,6 +20,8 @@ exports[`schema > generates stable DDL for mysql 1`] = `
   "CREATE TABLE IF NOT EXISTS push_subscriptions (endpoint_hash VARCHAR(400) NOT NULL, member_id VARCHAR(64) NOT NULL, endpoint MEDIUMTEXT NOT NULL, p256dh VARCHAR(400) NOT NULL, auth VARCHAR(400) NOT NULL, created_at BIGINT NOT NULL, PRIMARY KEY (endpoint_hash), INDEX push_subscriptions_member_id_idx (member_id))",
   "CREATE TABLE IF NOT EXISTS draft_requests (id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, conversation_id VARCHAR(64) NOT NULL, in_reply_to VARCHAR(64), instruction MEDIUMTEXT NOT NULL, agent_id VARCHAR(64), created_at BIGINT NOT NULL, expires_at BIGINT NOT NULL, cancelled_at BIGINT, PRIMARY KEY (id), INDEX draft_requests_member_id_expires_at_idx (member_id, expires_at))",
   "CREATE TABLE IF NOT EXISTS draft_request_answers (request_id VARCHAR(64) NOT NULL, note_id VARCHAR(64) NOT NULL, credential_id VARCHAR(64) NOT NULL, PRIMARY KEY (request_id, note_id))",
+  "CREATE TABLE IF NOT EXISTS topics (slug VARCHAR(64) NOT NULL, description VARCHAR(400) NOT NULL, conversation_id VARCHAR(64) NOT NULL, created_by VARCHAR(64), created_at BIGINT NOT NULL, PRIMARY KEY (slug), UNIQUE INDEX topics_conversation_id_idx (conversation_id))",
+  "CREATE TABLE IF NOT EXISTS topic_helpers (conversation_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, PRIMARY KEY (conversation_id, member_id), INDEX topic_helpers_member_id_idx (member_id))",
 ]
 `;
 
@@ -64,6 +66,10 @@ exports[`schema > generates stable DDL for postgres 1`] = `
   "CREATE TABLE IF NOT EXISTS draft_requests (id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, conversation_id VARCHAR(64) NOT NULL, in_reply_to VARCHAR(64), instruction TEXT NOT NULL, agent_id VARCHAR(64), created_at BIGINT NOT NULL, expires_at BIGINT NOT NULL, cancelled_at BIGINT, PRIMARY KEY (id))",
   "CREATE INDEX IF NOT EXISTS draft_requests_member_id_expires_at_idx ON draft_requests (member_id, expires_at)",
   "CREATE TABLE IF NOT EXISTS draft_request_answers (request_id VARCHAR(64) NOT NULL, note_id VARCHAR(64) NOT NULL, credential_id VARCHAR(64) NOT NULL, PRIMARY KEY (request_id, note_id))",
+  "CREATE TABLE IF NOT EXISTS topics (slug VARCHAR(64) NOT NULL, description VARCHAR(400) NOT NULL, conversation_id VARCHAR(64) NOT NULL, created_by VARCHAR(64), created_at BIGINT NOT NULL, PRIMARY KEY (slug))",
+  "CREATE UNIQUE INDEX IF NOT EXISTS topics_conversation_id_idx ON topics (conversation_id)",
+  "CREATE TABLE IF NOT EXISTS topic_helpers (conversation_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, PRIMARY KEY (conversation_id, member_id))",
+  "CREATE INDEX IF NOT EXISTS topic_helpers_member_id_idx ON topic_helpers (member_id)",
 ]
 `;
 
@@ -108,5 +114,9 @@ exports[`schema > generates stable DDL for sqlite 1`] = `
   "CREATE TABLE IF NOT EXISTS draft_requests (id TEXT NOT NULL, member_id TEXT NOT NULL, conversation_id TEXT NOT NULL, in_reply_to TEXT, instruction TEXT NOT NULL, agent_id TEXT, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, cancelled_at INTEGER, PRIMARY KEY (id))",
   "CREATE INDEX IF NOT EXISTS draft_requests_member_id_expires_at_idx ON draft_requests (member_id, expires_at)",
   "CREATE TABLE IF NOT EXISTS draft_request_answers (request_id TEXT NOT NULL, note_id TEXT NOT NULL, credential_id TEXT NOT NULL, PRIMARY KEY (request_id, note_id))",
+  "CREATE TABLE IF NOT EXISTS topics (slug TEXT NOT NULL, description TEXT NOT NULL, conversation_id TEXT NOT NULL, created_by TEXT, created_at INTEGER NOT NULL, PRIMARY KEY (slug))",
+  "CREATE UNIQUE INDEX IF NOT EXISTS topics_conversation_id_idx ON topics (conversation_id)",
+  "CREATE TABLE IF NOT EXISTS topic_helpers (conversation_id TEXT NOT NULL, member_id TEXT NOT NULL, PRIMARY KEY (conversation_id, member_id))",
+  "CREATE INDEX IF NOT EXISTS topic_helpers_member_id_idx ON topic_helpers (member_id)",
 ]
 `;

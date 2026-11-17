@@ -12,7 +12,9 @@ const people = async (overrides: Record<string, string> = {}) => {
 }
 
 const entryFor = async (viewer: Session, other: Session) =>
-  (await viewer.api('GET', '/directory')).json.entries.find((entry: any) => entry.member.id === other.me.member.id)
+  (await viewer.api('GET', '/directory')).json.entries.find(
+    (entry: any) => entry.member.id === other.me.member.id,
+  )
 
 const canDraftTo = async (author: Session, recipient: Session) =>
   (await author.api('POST', '/drafts', { to: [recipient.me.member.id], body: 'hi' })).status === 200
@@ -32,7 +34,9 @@ describe('contacts mode', () => {
     expect(await entryFor(ana, ben)).toMatchObject({ relation: 'none', canMessage: false })
     expect(await canDraftTo(ana, ben)).toBe(false)
 
-    expect((await ana.api('POST', '/contacts', { memberId: ben.me.member.id })).json.state).toBe('request_sent')
+    expect((await ana.api('POST', '/contacts', { memberId: ben.me.member.id })).json.state).toBe(
+      'request_sent',
+    )
     expect(await entryFor(ana, ben)).toMatchObject({ relation: 'request_sent', canMessage: false })
     expect(await entryFor(ben, ana)).toMatchObject({ relation: 'request_received', canMessage: false })
     expect((await ana.api('POST', `/contacts/${ben.me.member.id}/accept`)).status).toBe(404)
@@ -118,7 +122,10 @@ describe('contact events', () => {
     await ana.api('POST', '/contacts', { memberId: ben.me.member.id })
     await ben.api('POST', `/contacts/${ana.me.member.id}/accept`)
     const typesFor = async (viewer: Session) =>
-      (await viewer.api('GET', '/events/poll?after=0')).json.events.map((event: any) => [event.body.type, event.body.memberId])
+      (await viewer.api('GET', '/events/poll?after=0')).json.events.map((event: any) => [
+        event.body.type,
+        event.body.memberId,
+      ])
     expect(await typesFor(ana)).toEqual([
       ['contact.changed', ben.me.member.id],
       ['contact.changed', ben.me.member.id],

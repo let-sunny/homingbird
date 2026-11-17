@@ -3,7 +3,14 @@ import { HEARTBEAT_SECONDS } from '@homingbird/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { deleteEventsBefore, eventsAfter, liveEvents } from '../src/events/events.ts'
 import { makeHub } from '../src/events/hub.ts'
-import { type Agent, type Session, type TestServer, connectAgent, startTestServer, storedRows } from './harness.ts'
+import {
+  type Agent,
+  type Session,
+  type TestServer,
+  connectAgent,
+  startTestServer,
+  storedRows,
+} from './harness.ts'
 
 let server: TestServer
 let ana: Session
@@ -105,7 +112,10 @@ describe('the event stream', () => {
   it('replays what was missed, then delivers live events as server-sent frames', async () => {
     await sendNote('before')
     const hangUp = new AbortController()
-    const stream = await server.request('GET', '/api/v1/events/stream?after=0', { token: benAgent.token, signal: hangUp.signal })
+    const stream = await server.request('GET', '/api/v1/events/stream?after=0', {
+      token: benAgent.token,
+      signal: hangUp.signal,
+    })
     expect(stream.headers['content-type']).toBe('text/event-stream; charset=utf-8')
     const pending = frames(stream, 2)
     await server.clock.flush()
@@ -119,7 +129,10 @@ describe('the event stream', () => {
   it('starts from now without a cursor and honours Last-Event-ID', async () => {
     await sendNote('old')
     const hangUp = new AbortController()
-    const fresh = await server.request('GET', '/api/v1/events/stream', { token: benAgent.token, signal: hangUp.signal })
+    const fresh = await server.request('GET', '/api/v1/events/stream', {
+      token: benAgent.token,
+      signal: hangUp.signal,
+    })
     const resumed = await server.request('GET', '/api/v1/events/stream', {
       token: benAgent.token,
       signal: hangUp.signal,
@@ -136,7 +149,10 @@ describe('the event stream', () => {
 
   it('sends a keep-alive comment on the heartbeat', async () => {
     const hangUp = new AbortController()
-    const stream = await server.request('GET', '/api/v1/events/stream', { token: benAgent.token, signal: hangUp.signal })
+    const stream = await server.request('GET', '/api/v1/events/stream', {
+      token: benAgent.token,
+      signal: hangUp.signal,
+    })
     const pending = frames(stream, 1)
     await server.clock.advance(HEARTBEAT_SECONDS * 1000)
     expect(await pending).toEqual([': keep-alive\n\n'])
@@ -145,7 +161,10 @@ describe('the event stream', () => {
 
   it('ends the stream at the next heartbeat after the credential is revoked', async () => {
     const hangUp = new AbortController()
-    const stream = await server.request('GET', '/api/v1/events/stream', { token: benAgent.token, signal: hangUp.signal })
+    const stream = await server.request('GET', '/api/v1/events/stream', {
+      token: benAgent.token,
+      signal: hangUp.signal,
+    })
     const pending = frames(stream, 5)
     const id = (await benAgent.api('GET', '/me')).json.credential.id
     await ben.api('DELETE', `/credentials/${id}`)
@@ -183,7 +202,8 @@ describe('presence', () => {
     const watcher = new AbortController()
     const seen: unknown[] = []
     const watching = (async () => {
-      for await (const event of hub.subscribe('mem_watcher000000' as never, 'hidden', watcher.signal)) seen.push(event.body)
+      for await (const event of hub.subscribe('mem_watcher000000' as never, 'hidden', watcher.signal))
+        seen.push(event.body)
     })()
     return { hub, watcher, seen, watching }
   }
@@ -201,7 +221,9 @@ describe('presence', () => {
     hub.flushPresence()
     watcher.abort()
     await watching
-    expect(seen).toEqual([{ type: 'presence', members: [{ memberId: member, humanOnline: false, agentOnline: true }] }])
+    expect(seen).toEqual([
+      { type: 'presence', members: [{ memberId: member, humanOnline: false, agentOnline: true }] },
+    ])
   })
 
   it('counts connections per kind and hides hidden ones', () => {
@@ -240,7 +262,8 @@ describe('presence', () => {
     const hub = makeHub(() => 0)
     const slow = new AbortController()
     const subscription = hub.subscribe(member, 'agent', slow.signal)
-    for (let index = 0; index < 3000; index++) hub.publish(member, { seq: index + 1, at: 0, body: { type: 'resync' } })
+    for (let index = 0; index < 3000; index++)
+      hub.publish(member, { seq: index + 1, at: 0, body: { type: 'resync' } })
     expect(subscription.overflowed()).toBe(true)
     const drained: number[] = []
     for await (const event of subscription) drained.push(event.seq)
@@ -284,7 +307,9 @@ describe('directory changes', () => {
     const env = { ...server.env, pushSink: (...delivery: unknown[]) => pushed.push(delivery) }
     const before = (await storedRows(server, 'events')).length
     const { hangUp, iterator } = await listen(benAgent.token)
-    expect((await ana.api('PATCH', `/admin/members/${ana.me.member.id}`, { role: 'member' })).status).toBe(409)
+    expect((await ana.api('PATCH', `/admin/members/${ana.me.member.id}`, { role: 'member' })).status).toBe(
+      409,
+    )
     expect((await ana.api('PATCH', '/me', { profile: 'x'.repeat(501) })).status).toBe(400)
     await ana.api('PATCH', '/me', { profile: 'ok' })
     const frame = (await iterator.next()).value as string

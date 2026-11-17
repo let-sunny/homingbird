@@ -25,20 +25,31 @@ const send = async (author: Session, to: Session, body: string) => {
 
 describe('drafting', () => {
   it('records who wrote a draft: an agent by name, or the person', async () => {
-    const byAgent = (await anaAgent.api('POST', '/drafts', { to: [ben.me.member.id], body: 'from agent' })).json
+    const byAgent = (await anaAgent.api('POST', '/drafts', { to: [ben.me.member.id], body: 'from agent' }))
+      .json
     const byPerson = (await ana.api('POST', '/drafts', { to: [ben.me.member.id], body: 'from person' })).json
-    expect(byAgent).toMatchObject({ status: 'draft', origin: 'agent', agentName: 'Ana agent', sentAt: null, receipts: [] })
+    expect(byAgent).toMatchObject({
+      status: 'draft',
+      origin: 'agent',
+      agentName: 'Ana agent',
+      sentAt: null,
+      receipts: [],
+    })
     expect(byPerson).toMatchObject({ status: 'draft', origin: 'human', agentName: null })
     expect(byAgent.conversationId).toBe(byPerson.conversationId)
   })
 
   it('needs exactly one way to address a draft', async () => {
     expect((await ana.api('POST', '/drafts', { body: 'to nobody' })).status).toBe(400)
-    expect((await ana.api('POST', '/drafts', { to: [ben.me.member.id, ana.me.member.id], body: 'two' })).status).toBe(400)
+    expect(
+      (await ana.api('POST', '/drafts', { to: [ben.me.member.id, ana.me.member.id], body: 'two' })).status,
+    ).toBe(400)
     expect((await ana.api('POST', '/drafts', { to: [ana.me.member.id], body: 'myself' })).status).toBe(403)
     expect((await ana.api('POST', '/drafts', { to: ['mem_doesnotexist00'], body: 'ghost' })).status).toBe(404)
     expect((await ana.api('POST', '/drafts', { to: [ben.me.member.id], body: '   ' })).status).toBe(400)
-    expect((await ana.api('POST', '/drafts', { to: [ben.me.member.id], body: 'x'.repeat(16_001) })).status).toBe(400)
+    expect(
+      (await ana.api('POST', '/drafts', { to: [ben.me.member.id], body: 'x'.repeat(16_001) })).status,
+    ).toBe(400)
   })
 
   it('refuses to reply to a draft or to a note the author cannot see', async () => {
@@ -49,21 +60,33 @@ describe('drafting', () => {
 
   it('lets the author and the author’s agents edit a draft and tracks mixed authorship', async () => {
     const draft = (await anaAgent.api('POST', '/drafts', { to: [ben.me.member.id], body: 'v1' })).json
-    expect((await anaAgent.api('PATCH', `/drafts/${draft.id}`, { body: 'v2' })).json).toMatchObject({ body: 'v2', origin: 'agent' })
+    expect((await anaAgent.api('PATCH', `/drafts/${draft.id}`, { body: 'v2' })).json).toMatchObject({
+      body: 'v2',
+      origin: 'agent',
+    })
     expect((await ana.api('PATCH', `/drafts/${draft.id}`, { body: 'v2' })).json.origin).toBe('agent')
-    expect((await ana.api('PATCH', `/drafts/${draft.id}`, { body: 'v3' })).json).toMatchObject({ body: 'v3', origin: 'human_edited' })
+    expect((await ana.api('PATCH', `/drafts/${draft.id}`, { body: 'v3' })).json).toMatchObject({
+      body: 'v3',
+      origin: 'human_edited',
+    })
     expect((await ben.api('PATCH', `/drafts/${draft.id}`, { body: 'hijack' })).status).toBe(404)
     const own = (await ana.api('POST', '/drafts', { to: [ben.me.member.id], body: 'mine' })).json
-    expect((await anaAgent.api('PATCH', `/drafts/${own.id}`, { body: 'touched' })).json.origin).toBe('human_edited')
+    expect((await anaAgent.api('PATCH', `/drafts/${own.id}`, { body: 'touched' })).json.origin).toBe(
+      'human_edited',
+    )
   })
 
   it('caps the number of drafts waiting for approval', async () => {
     for (let index = 0; index < 200; index++) {
       if (index % 100 === 0) await server.clock.advance(60_000)
-      expect((await ana.api('POST', '/drafts', { to: [ben.me.member.id], body: `draft ${index}` })).status).toBe(200)
+      expect(
+        (await ana.api('POST', '/drafts', { to: [ben.me.member.id], body: `draft ${index}` })).status,
+      ).toBe(200)
     }
     await server.clock.advance(60_000)
-    expect((await ana.api('POST', '/drafts', { to: [ben.me.member.id], body: 'one too many' })).status).toBe(409)
+    expect((await ana.api('POST', '/drafts', { to: [ben.me.member.id], body: 'one too many' })).status).toBe(
+      409,
+    )
   })
 })
 
@@ -76,7 +99,14 @@ describe('approval', () => {
     expect(sent).toMatchObject({ status: 'sent', origin: 'agent', body: 'hello' })
     expect(sent.sentAt).toBeGreaterThan(sent.createdAt)
     expect(sent.receipts).toEqual([
-      { memberId: ben.me.member.id, state: 'delivered', deliveredAt: sent.sentAt, readAt: null, draftingAt: null, repliedAt: null },
+      {
+        memberId: ben.me.member.id,
+        state: 'delivered',
+        deliveredAt: sent.sentAt,
+        readAt: null,
+        draftingAt: null,
+        repliedAt: null,
+      },
     ])
     expect((await ana.api('POST', `/drafts/${draft.id}/send`, {})).status).toBe(409)
     expect((await ana.api('POST', `/drafts/${draft.id}/discard`)).status).toBe(409)
@@ -84,11 +114,14 @@ describe('approval', () => {
   })
 
   it('marks a note the person rewrote before sending as human edited', async () => {
-    const draft = (await anaAgent.api('POST', '/drafts', { to: [ben.me.member.id], body: 'agent words' })).json
+    const draft = (await anaAgent.api('POST', '/drafts', { to: [ben.me.member.id], body: 'agent words' }))
+      .json
     const sent = (await ana.api('POST', `/drafts/${draft.id}/send`, { body: 'my words' })).json
     expect(sent).toMatchObject({ body: 'my words', origin: 'human_edited', agentName: 'Ana agent' })
     const unchanged = (await anaAgent.api('POST', '/drafts', { to: [ben.me.member.id], body: 'same' })).json
-    expect((await ana.api('POST', `/drafts/${unchanged.id}/send`, { body: 'same' })).json.origin).toBe('agent')
+    expect((await ana.api('POST', `/drafts/${unchanged.id}/send`, { body: 'same' })).json.origin).toBe(
+      'agent',
+    )
   })
 
   it('discards a draft for good', async () => {
@@ -109,7 +142,8 @@ describe('approval', () => {
 describe('receipts', () => {
   it('walks delivered, read, drafting and replied, identically for every participant', async () => {
     const note = await send(ana, ben, 'question')
-    const seenBy = async (viewer: Session | Agent) => (await viewer.api('GET', `/notes/${note.id}`)).json.receipts
+    const seenBy = async (viewer: Session | Agent) =>
+      (await viewer.api('GET', `/notes/${note.id}`)).json.receipts
     const everyoneSees = async (state: string) => {
       const views = [await seenBy(ana), await seenBy(ben), await seenBy(anaAgent), await seenBy(benAgent)]
       for (const view of views) expect(view).toEqual(views[0])
@@ -206,7 +240,9 @@ describe('reading', () => {
     const latest = (await ben.api('GET', `/conversations/${conversationId}/notes?limit=2`)).json
     expect(latest.notes.map((note: any) => note.body)).toEqual(['two', 'three', 'pending'])
     expect(latest.hasMore).toBe(true)
-    const older = (await ben.api('GET', `/conversations/${conversationId}/notes?limit=2&before=${latest.notes[0].sentAt}`)).json
+    const older = (
+      await ben.api('GET', `/conversations/${conversationId}/notes?limit=2&before=${latest.notes[0].sentAt}`)
+    ).json
     expect(older.notes.map((note: any) => note.body)).toEqual(['one'])
     expect(older.hasMore).toBe(false)
   })

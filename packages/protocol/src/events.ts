@@ -5,6 +5,7 @@ import { DraftRequest, Note, Receipt } from './model.ts'
 export const EventBody = S.variants('type', {
   'note.sent': { note: Note },
   'note.status': { noteId: NoteId, conversationId: ConversationId, receipts: S.array(Receipt) },
+  'note.moved': { noteId: NoteId, fromConversationId: ConversationId, toConversationId: ConversationId },
   'draft.saved': { note: Note },
   'draft.discarded': { noteId: NoteId, conversationId: ConversationId },
   'draft.requested': { request: DraftRequest },

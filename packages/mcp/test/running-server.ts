@@ -13,39 +13,44 @@ export interface RunningServer {
   readonly fetch: ReturnType<typeof fetchThrough>
   readonly recorded: RecordedCall[]
   readonly credentialPath: string
-  readonly announced: string[]
-  readonly until: (condition: () => boolean) => Promise<void>
-  readonly approveAnnouncedCode: (decision?: { approve: boolean }) => Promise<void>
+  readonly launched: string[][]
+  readonly launch: (argv: ReadonlyArray<string>) => Promise<void>
+  readonly until: (condition: () => boolean | Promise<boolean>) => Promise<void>
+  readonly decide: (text: string, decision?: { approve: boolean }) => Promise<void>
+  readonly agentOnline: () => Promise<boolean>
 }
+
+export const CODE = /[A-Z]{4}-[A-Z]{4}/
 
 export const startRunningServer = async (): Promise<RunningServer> => {
   const server = await startTestServer()
   const owner = await server.signIn('ana@example.com', 'Ana')
   const recorded: RecordedCall[] = []
-  const announced: string[] = []
-  const until = async (condition: () => boolean): Promise<void> => {
-    for (let turn = 0; turn < 400 && !condition(); turn++) await new Promise((resolve) => setTimeout(resolve, 5))
-    if (!condition()) throw new Error('the awaited condition never came true')
+  const launched: string[][] = []
+  const until: RunningServer['until'] = async (condition) => {
+    for (let turn = 0; turn < 400; turn++) {
+      if (await condition()) return
+      await new Promise((resolve) => setTimeout(resolve, 5))
+    }
+    throw new Error('the awaited condition never came true')
   }
-  const approved = new Set<string>()
-  const pendingCode = (): string | undefined =>
-    announced.flatMap((line) => line.match(CODE) ?? []).find((code) => !approved.has(code))
   return {
     server,
     owner,
     recorded,
-    announced,
+    launched,
     until,
+    launch: async (argv) => void launched.push([...argv]),
     fetch: fetchThrough(server, recorded),
     credentialPath: join(await mkdtemp(join(tmpdir(), 'homingbird-mcp-')), 'mcp-credentials.json'),
-    approveAnnouncedCode: async (decision = { approve: true }) => {
-      await until(() => pendingCode() !== undefined)
-      const code = pendingCode()!
-      approved.add(code)
+    decide: async (text, decision = { approve: true }) => {
+      const code = CODE.exec(text)?.[0]
+      if (code === undefined) throw new Error(`no user code in: ${text}`)
       await owner.api('POST', `/device/${code}`, { ...decision, name: 'Cursor on laptop' })
       await server.clock.advance(5_000)
     },
+    agentOnline: async () =>
+      (await owner.api('GET', '/directory')).json.entries.find((entry: any) => entry.relation === 'self')
+        .presence.agentOnline,
   }
 }
-
-const CODE = /[A-Z]{4}-[A-Z]{4}/

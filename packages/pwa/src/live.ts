@@ -9,7 +9,8 @@ import {
   loadWorkspace,
   rememberNote,
 } from './actions.ts'
-import { announcement, directory, members, route, signedIn, threads } from './state.ts'
+import { upsertRequest } from './draft-requests.ts'
+import { announcement, directory, draftRequests, members, route, signedIn, threads } from './state.ts'
 import { strings } from './strings.ts'
 import { withPresence, withReceipts } from './thread.ts'
 
@@ -39,6 +40,10 @@ export const applyEvent = (event: StreamEvent): void => {
     case 'draft.discarded':
       forgetNote(body.conversationId, body.noteId)
       launch(loadConversations)
+      break
+    case 'draft.requested':
+    case 'draft.request.changed':
+      draftRequests.update((all) => upsertRequest(all, body.request))
       break
     case 'contact.changed':
       launch(loadPeople)

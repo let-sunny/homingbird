@@ -22,7 +22,7 @@ export const listConversations = (viewerId: MemberId): T.Task<Conversation[], ne
     const rows = yield* all<ConversationRow>(sql`
       SELECT c.* FROM conversations c
       JOIN participants p ON p.conversation_id = c.id AND p.member_id = ${viewerId}
-      WHERE c.kind = 'group'
+      WHERE c.kind <> 'dm'
          OR EXISTS (SELECT 1 FROM notes n WHERE n.conversation_id = c.id
                     AND (n.status = 'sent' OR (n.status = 'draft' AND n.author_id = ${viewerId})))
       ORDER BY c.last_activity_at DESC LIMIT ${CONVERSATION_LIMIT}`)

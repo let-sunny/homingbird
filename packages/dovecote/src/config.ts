@@ -1,5 +1,5 @@
 import { Result, Schema as S } from '@homingbird/kernel'
-import type { ContactMode } from '@homingbird/protocol'
+import { type ContactMode, GENERAL_TOPIC } from '@homingbird/protocol'
 import { DEFAULT_PUSH_HOSTS } from './push/default-hosts.ts'
 
 export interface Config {
@@ -21,6 +21,7 @@ export interface Config {
     readonly auditRetentionDays: number | null
   }
   readonly adminEmails: ReadonlyArray<string>
+  readonly topics: ReadonlyArray<{ readonly slug: string; readonly description: string }>
   readonly trustProxy: boolean
   readonly pushHosts: ReadonlyArray<string>
   readonly sessionDays: number
@@ -66,6 +67,7 @@ export const loadConfig = (
       auditRetentionDays: v.HB_AUDIT_RETENTION_DAYS ? Number(v.HB_AUDIT_RETENTION_DAYS) : null,
     },
     adminEmails: commaList(v.HB_ADMIN_EMAILS),
+    topics: seedTopicsOf(v.HB_TOPICS),
     trustProxy: v.HB_TRUST_PROXY === '1',
     pushHosts: v.HB_PUSH_HOSTS ? commaList(v.HB_PUSH_HOSTS) : DEFAULT_PUSH_HOSTS,
     sessionDays: Number(v.HB_SESSION_DAYS ?? '30'),
@@ -73,6 +75,9 @@ export const loadConfig = (
     agentCredentialDays: Number(v.HB_AGENT_CREDENTIAL_DAYS ?? '90'),
   })
 }
+
+const TOPIC_LIST =
+  /^\s*[a-z0-9][a-z0-9-]{0,39}(:[^,]{0,200})?(\s*,\s*[a-z0-9][a-z0-9-]{0,39}(:[^,]{0,200})?)*\s*$/
 
 const positiveInteger = S.string({ pattern: /^[1-9][0-9]{0,5}$/ })
 
@@ -89,6 +94,7 @@ const Variables = S.struct({
   HB_DEV_LOGIN: S.optional(S.literal('0', '1')),
   HB_ALLOWED_DOMAINS: S.optional(S.string()),
   HB_ADMIN_EMAILS: S.optional(S.string()),
+  HB_TOPICS: S.optional(S.string({ pattern: TOPIC_LIST })),
   HB_TRUST_PROXY: S.optional(S.literal('0', '1')),
   HB_PUSH_HOSTS: S.optional(S.string()),
   HB_CONTACT_MODE: S.optional(S.literal('open', 'contacts')),
@@ -103,6 +109,20 @@ const withoutBlanks = (environment: Readonly<Record<string, string | undefined>>
   Object.fromEntries(
     Object.entries(environment).filter((entry): entry is [string, string] => (entry[1] ?? '') !== ''),
   )
+
+const seedTopicsOf = (value: string | undefined): Config['topics'] => {
+  const named = (value ?? '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item) => item !== '')
+    .map((item) => {
+      const [slug = '', ...description] = item.split(':')
+      return { slug, description: description.join(':').trim() || slug }
+    })
+  return named.some((topic) => topic.slug === GENERAL_TOPIC)
+    ? named
+    : [{ slug: GENERAL_TOPIC, description: 'Anything that has no better place. Everyone is here.' }, ...named]
+}
 
 const commaList = (value: string | undefined): string[] =>
   (value ?? '')

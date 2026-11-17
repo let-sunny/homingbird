@@ -45,7 +45,10 @@ const claimsFor = (issuer: FakeIssuer, nonce: string, overrides: Record<string, 
 })
 
 const attempt = async (issuer: FakeIssuer, returnTo?: string) => {
-  const started = await server.request('GET', `/auth/login${returnTo ? `?return_to=${encodeURIComponent(returnTo)}` : ''}`)
+  const started = await server.request(
+    'GET',
+    `/auth/login${returnTo ? `?return_to=${encodeURIComponent(returnTo)}` : ''}`,
+  )
   const authorization = new URL(started.headers.location!)
   const state = authorization.searchParams.get('state')!
   const code = Buffer.from(authorization.searchParams.get('nonce')!).toString('base64url')
@@ -81,19 +84,24 @@ describe('signing in through an OpenID Connect provider', () => {
     expect(authorization.searchParams.get('code_challenge')).toMatch(/^[A-Za-z0-9_-]{43}$/)
   })
 
-  it.each(['RS256', 'ES256'] as const)('accepts a valid %s ID token and starts a session', async (algorithm) => {
-    const issuer = makeFakeIssuer()
-    await withIssuer(issuer)
-    issuer.nextToken = ({ nonce }) => issuer.signToken(claimsFor(issuer, nonce), { algorithm })
-    const { finished } = await attempt(issuer, '/#/c/conv_1')
-    expect(finished.status).toBe(302)
-    expect(finished.headers.location).toBe('/#/c/conv_1')
-    const cookie = finished.headers['set-cookie']!
-    expect(cookie).toMatch(new RegExp(`^${SESSION_COOKIE}=hbh_[A-Za-z0-9_-]+; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000$`))
-    const me = await server.request('GET', '/api/v1/me', { headers: { cookie: cookie.split(';')[0]! } })
-    expect(me.json.member).toMatchObject({ email: 'ana@example.com', name: 'Ana', role: 'admin' })
-    expect(me.json.credential).toMatchObject({ kind: 'human', name: 'Chrome on macOS' })
-  })
+  it.each(['RS256', 'ES256'] as const)(
+    'accepts a valid %s ID token and starts a session',
+    async (algorithm) => {
+      const issuer = makeFakeIssuer()
+      await withIssuer(issuer)
+      issuer.nextToken = ({ nonce }) => issuer.signToken(claimsFor(issuer, nonce), { algorithm })
+      const { finished } = await attempt(issuer, '/#/c/conv_1')
+      expect(finished.status).toBe(302)
+      expect(finished.headers.location).toBe('/#/c/conv_1')
+      const cookie = finished.headers['set-cookie']!
+      expect(cookie).toMatch(
+        new RegExp(`^${SESSION_COOKIE}=hbh_[A-Za-z0-9_-]+; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000$`),
+      )
+      const me = await server.request('GET', '/api/v1/me', { headers: { cookie: cookie.split(';')[0]! } })
+      expect(me.json.member).toMatchObject({ email: 'ana@example.com', name: 'Ana', role: 'admin' })
+      expect(me.json.credential).toMatchObject({ kind: 'human', name: 'Chrome on macOS' })
+    },
+  )
 
   it.each([
     ['a tampered signature', {}, { tamper: true }, /signature/],
@@ -104,7 +112,12 @@ describe('signing in through an OpenID Connect provider', () => {
     ['an expired token', { exp: 1 }, {}, /expired/],
     ['no subject', { sub: '' }, {}, /subject/],
     ['an unverified email', { email_verified: false }, {}, /not been verified/],
-    ['a domain that is not allowed', { email: 'ana@other.org', hd: 'other.org' }, {}, /other\.org are not allowed/],
+    [
+      'a domain that is not allowed',
+      { email: 'ana@other.org', hd: 'other.org' },
+      {},
+      /other\.org are not allowed/,
+    ],
     ['a personal account using an allowed address', { hd: undefined }, {}, /organization account/],
   ])('refuses %s', async (_, claims, signing, reason) => {
     const issuer = makeFakeIssuer()
@@ -128,7 +141,8 @@ describe('signing in through an OpenID Connect provider', () => {
   it('does not require a hosted domain from a provider that is not Google', async () => {
     const issuer = makeFakeIssuer('https://login.example-idp.com')
     await withIssuer(issuer)
-    issuer.nextToken = ({ nonce }) => issuer.signToken(claimsFor(issuer, nonce, { hd: undefined, aud: [CLIENT_ID, 'other'] }))
+    issuer.nextToken = ({ nonce }) =>
+      issuer.signToken(claimsFor(issuer, nonce, { hd: undefined, aud: [CLIENT_ID, 'other'] }))
     expect((await attempt(issuer)).finished.headers['set-cookie']).toBeDefined()
   })
 
@@ -141,7 +155,10 @@ describe('signing in through an OpenID Connect provider', () => {
     expect(refusalOf(replay)).toMatch(/expired/)
     const started = await server.request('GET', '/auth/login')
     await server.clock.advance(10 * 60_000)
-    const late = await server.request('GET', `/auth/callback?state=${new URL(started.headers.location!).searchParams.get('state')}&code=x`)
+    const late = await server.request(
+      'GET',
+      `/auth/callback?state=${new URL(started.headers.location!).searchParams.get('state')}&code=x`,
+    )
     expect(refusalOf(late)).toMatch(/expired/)
     expect(refusalOf(await server.request('GET', '/auth/callback'))).toMatch(/expired/)
   })
@@ -187,7 +204,9 @@ describe('development login', () => {
     const form = await server.request('GET', '/auth/dev?state="><script>')
     expect(form.status).toBe(200)
     expect(String(form.raw.body)).not.toContain('"><script>')
-    const state = new URL((await server.request('GET', '/auth/login')).headers.location!).searchParams.get('state')!
+    const state = new URL((await server.request('GET', '/auth/login')).headers.location!).searchParams.get(
+      'state',
+    )!
     const submitted = await server.request('POST', '/auth/dev', { form: { state, email: '', name: 'x' } })
     expect(refusalOf(await server.request('GET', submitted.headers.location!))).toMatch(/not filled in/)
     expect((await server.request('GET', '/auth/unknown')).status).toBe(404)

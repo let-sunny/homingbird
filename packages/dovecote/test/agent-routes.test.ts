@@ -15,7 +15,8 @@ beforeEach(async () => {
 
 afterEach(() => server.close())
 
-const rpc = (path: string, body: unknown, token = anaAgent.token) => server.request('POST', path, { token, body })
+const rpc = (path: string, body: unknown, token = anaAgent.token) =>
+  server.request('POST', path, { token, body })
 
 describe('the MCP endpoint', () => {
   it('answers JSON-RPC for a bearer credential and acts as that member', async () => {
@@ -45,13 +46,19 @@ describe('the MCP endpoint', () => {
     })
     expect(drafted.json.error).toBeUndefined()
     const drafts = (await ana.api('GET', '/drafts')).json.drafts
-    expect(drafts.map((draft: any) => [draft.body, draft.status, draft.origin])).toEqual([['via MCP', 'draft', 'agent']])
+    expect(drafts.map((draft: any) => [draft.body, draft.status, draft.origin])).toEqual([
+      ['via MCP', 'draft', 'agent'],
+    ])
     expect((await ben.api('GET', '/inbox')).json.items).toEqual([])
   })
 
   it('refuses a missing credential, a body that is not JSON, and other methods', async () => {
     expect((await server.request('POST', '/mcp', { body: {} })).status).toBe(401)
-    const broken = await server.request('POST', '/mcp', { token: anaAgent.token, headers: { 'content-type': 'application/json' }, form: {} })
+    const broken = await server.request('POST', '/mcp', {
+      token: anaAgent.token,
+      headers: { 'content-type': 'application/json' },
+      form: {},
+    })
     expect(broken.status).toBe(200)
     const invalid = await server.request('POST', '/mcp', {
       headers: { authorization: `Bearer ${anaAgent.token}`, 'content-type': 'application/json' },
