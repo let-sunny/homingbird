@@ -415,7 +415,14 @@
 }
 
 .draft button {
+  border-color: var(--hb-ink);
+  background: #ffffff;
   color: var(--hb-ink);
+  box-shadow: 2px 2px 0 var(--hb-ink);
+}
+
+.draft button.primary {
+  background: var(--hb-color-action);
 }
 
 .draft button.danger {

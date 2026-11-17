@@ -38,8 +38,8 @@ export const taskViewOf = (note: Note, context: ViewContext): T.Task<TaskView, A
       updatedAt: note.updatedAt,
       artifacts: [],
     })
-  const everyoneReplied = note.receipts.every((receipt) => receipt.repliedAt !== null)
   const someoneReplied = note.receipts.some((receipt) => receipt.repliedAt !== null)
+  const everyoneReplied = someoneReplied && note.receipts.every((receipt) => receipt.repliedAt !== null)
   return T.map(
     (replies: ReadonlyArray<Reply>): TaskView => ({
       ...base,

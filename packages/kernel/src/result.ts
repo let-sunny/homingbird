@@ -1,12 +1,5 @@
 import type { Tagged } from './data.ts'
 
-const proto = {
-  *[Symbol.iterator](this: Result<unknown, unknown>): Generator<unknown, unknown> {
-    if (this._tag === 'Ok') return this.value
-    return (yield this) as never
-  },
-}
-
 export interface Ok<out A> extends Tagged<'Ok'> {
   readonly value: A
   [Symbol.iterator](): Generator<never, A>
@@ -20,13 +13,15 @@ export type Result<A, E = never> = Ok<A> | Err<E>
 export type ValueOf<R> = R extends Ok<infer A> ? A : never
 export type ErrorOf<R> = R extends Err<infer E> ? E : never
 
-export const ok = <A>(value: A): Ok<A> => Object.assign(Object.create(proto), { _tag: 'Ok', value })
-export const err = <E>(error: E): Err<E> => Object.assign(Object.create(proto), { _tag: 'Err', error })
+export const ok = <A>(value: A): Ok<A> => unwrappable({ _tag: 'Ok', value }) as Ok<A>
+export const err = <E>(error: E): Err<E> => unwrappable({ _tag: 'Err', error }) as Err<E>
 
 export const isOk = <A, E>(r: Result<A, E>): r is Ok<A> => r._tag === 'Ok'
 export const isErr = <A, E>(r: Result<A, E>): r is Err<E> => r._tag === 'Err'
 export const isResult = (u: unknown): u is Result<unknown, unknown> =>
-  typeof u === 'object' && u !== null && Object.getPrototypeOf(u) === proto
+  typeof u === 'object' &&
+  u !== null &&
+  (u as Partial<Iterable<unknown>>)[Symbol.iterator] === yieldSelfUnlessOk
 
 export const map =
   <A, B>(f: (a: A) => B) =>
@@ -98,4 +93,13 @@ export const gen = <Y extends Err<unknown>, A>(f: () => Generator<Y, A, never>):
   if (step.done) return ok(step.value)
   it.return(undefined as never)
   return step.value as Err<ErrorOf<Y>>
+}
+
+function unwrappable<T extends object>(fields: T): T {
+  return Object.defineProperty(fields, Symbol.iterator, { value: yieldSelfUnlessOk })
+}
+
+function* yieldSelfUnlessOk(this: Result<unknown, unknown>): Generator<unknown, unknown> {
+  if (this._tag === 'Ok') return this.value
+  return yield this
 }

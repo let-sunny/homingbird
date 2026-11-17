@@ -51,8 +51,8 @@
   --hb-color-danger: var(--hb-alert);
   --hb-color-bubble-mine: #c9d6ec;
   --hb-color-bubble-theirs: #ffffff;
-  --hb-color-titlebar: var(--hb-pip-blue);
-  --hb-color-on-titlebar: var(--hb-ink);
+  --hb-color-titlebar: var(--hb-night);
+  --hb-color-on-titlebar: var(--hb-mist);
   --hb-color-backdrop: rgb(27 35 51 / 0.55);
 
   --hb-font-body: "Inter", system-ui, sans-serif;
@@ -100,8 +100,8 @@
     --hb-color-line: light-dark(var(--hb-ink), var(--hb-pip-blue));
     --hb-color-bubble-mine: light-dark(#c9d6ec, #3b5380);
     --hb-color-bubble-theirs: light-dark(#ffffff, #2b3d5e);
-    --hb-color-titlebar: light-dark(var(--hb-pip-blue), #1a2740);
-    --hb-color-on-titlebar: light-dark(var(--hb-ink), var(--hb-mist));
+    --hb-color-titlebar: light-dark(var(--hb-night), #1a2740);
+    --hb-color-on-titlebar: var(--hb-mist);
     --hb-color-backdrop: light-dark(rgb(27 35 51 / 0.55), rgb(0 0 0 / 0.65));
   }
 }

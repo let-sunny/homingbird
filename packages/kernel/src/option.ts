@@ -1,13 +1,6 @@
 import type { Tagged } from './data.ts'
 import { type Result, err, ok } from './result.ts'
 
-const proto = {
-  *[Symbol.iterator](this: Option<unknown>): Generator<unknown, unknown> {
-    if (this._tag === 'Some') return this.value
-    return (yield this) as never
-  },
-}
-
 export interface Some<out A> extends Tagged<'Some'> {
   readonly value: A
   [Symbol.iterator](): Generator<never, A>
@@ -17,8 +10,8 @@ export interface None extends Tagged<'None'> {
 }
 export type Option<A> = Some<A> | None
 
-export const some = <A>(value: A): Some<A> => Object.assign(Object.create(proto), { _tag: 'Some', value })
-export const none: None = Object.assign(Object.create(proto), { _tag: 'None' })
+export const some = <A>(value: A): Some<A> => unwrappable({ _tag: 'Some', value }) as Some<A>
+export const none: None = unwrappable({ _tag: 'None' }) as None
 
 export const isSome = <A>(o: Option<A>): o is Some<A> => o._tag === 'Some'
 export const isNone = <A>(o: Option<A>): o is None => o._tag === 'None'
@@ -59,4 +52,13 @@ export const gen = <A>(f: () => Generator<None, A, never>): Option<A> => {
   if (step.done) return some(step.value)
   it.return(undefined as never)
   return none
+}
+
+function unwrappable<T extends object>(fields: T): T {
+  return Object.defineProperty(fields, Symbol.iterator, { value: yieldSelfUnlessSome })
+}
+
+function* yieldSelfUnlessSome(this: Option<unknown>): Generator<unknown, unknown> {
+  if (this._tag === 'Some') return this.value
+  return yield this
 }

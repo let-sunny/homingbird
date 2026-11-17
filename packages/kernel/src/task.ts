@@ -55,25 +55,10 @@ export type ErrorOf<T> = T extends Task<any, infer E, any> ? E : never
 
 export type EnvOf<T> = UnionToIntersection<T extends Task<any, any, infer R> ? R : never>
 
-class TaskImpl<A, E, R> {
-  readonly run: (env: R, signal: AbortSignal) => Promise<Exit<A, E>>
-  constructor(run: (env: R, signal: AbortSignal) => Promise<Exit<A, E>>) {
-    this.run = run
-  }
-  *[Symbol.iterator](): Generator<Task<A, E, R>, A, any> {
-    return (yield this as unknown as Task<A, E, R>) as A
-  }
-  pipe(...fns: ReadonlyArray<(x: any) => any>): unknown {
-    let acc: unknown = this
-    for (const f of fns) acc = f(acc)
-    return acc
-  }
-}
-
 export const make = <A, E = never, R = unknown>(
   run: (env: R, signal: AbortSignal) => Promise<Exit<A, E>> | Exit<A, E>,
 ): Task<A, E, R> =>
-  new TaskImpl<A, E, R>(async (env, signal) => {
+  taskOf<A, E, R>(async (env, signal) => {
     if (signal.aborted) return INTERRUPTED
     try {
       return await run(env, signal)
@@ -82,7 +67,8 @@ export const make = <A, E = never, R = unknown>(
     }
   }) as unknown as Task<A, E, R>
 
-export const isTask = (u: unknown): u is Task<unknown, unknown, unknown> => u instanceof TaskImpl
+export const isTask = (u: unknown): u is Task<unknown, unknown, unknown> =>
+  typeof u === 'object' && u !== null && (u as Partial<Iterable<unknown>>)[Symbol.iterator] === unwrapTask
 
 export const succeed = <A>(value: A): Task<A> => make(() => ok(value))
 
@@ -302,7 +288,7 @@ export const uninterruptible = <A, E, R>(task: Task<A, E, R>): Task<A, E, R> =>
 export const ensuring =
   <R2>(finalizer: Task<unknown, never, R2>) =>
   <A, E, R>(task: Task<A, E, R>): Task<A, E, R & R2> =>
-    new TaskImpl<A, E, R & R2>(async (env, signal) => {
+    taskOf<A, E, R & R2>(async (env, signal) => {
       const out = await task.run(env, signal)
       const cleanup = await finalizer.run(env, NEVER_ABORTED)
       return isOk(cleanup) ? out : (cleanup as Exit<never, never>)
@@ -313,7 +299,7 @@ export const bracket = <A, E, R, B, E2, R2, R3>(
   use: (resource: A) => Task<B, E2, R2>,
   release: (resource: A, exit: Exit<B, E2>) => Task<unknown, never, R3>,
 ): Task<B, E | E2, R & R2 & R3> =>
-  new TaskImpl<B, E | E2, R & R2 & R3>(async (env, signal) => {
+  taskOf<B, E | E2, R & R2 & R3>(async (env, signal) => {
     if (signal.aborted) return INTERRUPTED
     const acquired = await acquire.run(env, NEVER_ABORTED)
     if (!isOk(acquired)) return acquired
@@ -405,7 +391,7 @@ export interface Scope {
 }
 
 export const scoped = <A, E, R>(body: (scope: Scope) => Task<A, E, R>): Task<A, E, R> =>
-  new TaskImpl<A, E, R>(async (env, signal) => {
+  taskOf<A, E, R>(async (env, signal) => {
     if (signal.aborted) return INTERRUPTED
     const { controller, dispose } = linked(signal)
     const fibers = new Set<Promise<unknown>>()
@@ -576,3 +562,17 @@ const worst = <E>(causes: ReadonlyArray<Cause<E>>): Cause<E> =>
 type AllValues<T> = { -readonly [K in keyof T]: ValueOf<T[K]> }
 
 type RunArgs<R> = unknown extends R ? [env?: R, signal?: AbortSignal] : [env: R, signal?: AbortSignal]
+
+function taskOf<A, E, R>(run: (env: R, signal: AbortSignal) => Promise<Exit<A, E>>): Task<A, E, R> {
+  return { run, [Symbol.iterator]: unwrapTask, pipe: pipeTask } as unknown as Task<A, E, R>
+}
+
+function* unwrapTask(this: Task<unknown, unknown, unknown>): Generator<unknown, unknown, unknown> {
+  return yield this
+}
+
+function pipeTask(this: unknown, ...fns: ReadonlyArray<(x: any) => any>): unknown {
+  let acc: unknown = this
+  for (const f of fns) acc = f(acc)
+  return acc
+}

@@ -93,7 +93,7 @@ export const sendDraft = (
     yield* requireMayMessageIn(authorId, draft.conversation_id)
     const body = replacementBody ?? draft.body
     const origin = originAfterEdit(draft.origin, true, body !== draft.body)
-    const now = env.clock.now()
+    const now = yield* nextSendTime(draft.conversation_id, env.clock.now())
     const sent = yield* run(
       sql`UPDATE notes SET status = 'sent', body = ${body}, origin = ${origin}, sent_at = ${now}, updated_at = ${now} WHERE id = ${id} AND status = 'draft'`,
     )
@@ -282,6 +282,11 @@ const ownDraft = (authorId: MemberId, id: NoteId): T.Task<NoteRow, NotFound | Co
       return yield* T.fail(Conflict({ message: 'This draft was already sent or discarded.' }))
     return row
   })
+
+const nextSendTime = (conversationId: ConversationId, clockTime: number): T.Task<number, never, RequestEnv> =>
+  T.map((latest: { sent_at: number | null } | null) => Math.max(clockTime, Number(latest?.sent_at ?? 0) + 1))(
+    first(sql`SELECT MAX(sent_at) AS sent_at FROM notes WHERE conversation_id = ${conversationId} AND status = 'sent'`),
+  )
 
 const settleReply = (authorId: MemberId, repliedTo: NoteId, now: number): T.Task<void, never, RequestEnv> =>
   T.gen(function* () {

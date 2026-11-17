@@ -41,21 +41,6 @@ export interface Optional<out A> {
 
 export type Infer<S> = S extends Schema<infer A> ? A : S extends Optional<infer A> ? A | undefined : never
 
-const make = <A>(
-  ast: Ast,
-  at: (input: unknown, path: Path) => Result<A, ReadonlyArray<Issue>>,
-): Schema<A> => ({
-  ast,
-  at,
-  decode: (input) => at(input, []),
-  is: (input): input is A => isOk(at(input, [])),
-})
-
-const issue = (path: Path, message: string): Result<never, ReadonlyArray<Issue>> => err([{ path, message }])
-
-const describe = (input: unknown): string =>
-  input === null ? 'null' : Array.isArray(input) ? 'array' : typeof input
-
 export interface StringOptions {
   readonly minLength?: number
   readonly maxLength?: number
@@ -88,23 +73,6 @@ export interface NumberOptions {
   readonly min?: number
   readonly max?: number
 }
-
-const numeric =
-  (integer: boolean) =>
-  (options: NumberOptions = {}): Schema<number> => {
-    const { min, max } = options
-    return make(
-      { type: 'number', integer, ...(min !== undefined && { min }), ...(max !== undefined && { max }) },
-      (input, path) => {
-        if (typeof input !== 'number' || !Number.isFinite(input))
-          return issue(path, `expected ${integer ? 'integer' : 'number'}, got ${describe(input)}`)
-        if (integer && !Number.isInteger(input)) return issue(path, 'expected integer, got fraction')
-        if (min !== undefined && input < min) return issue(path, `expected at least ${min}`)
-        if (max !== undefined && input > max) return issue(path, `expected at most ${max}`)
-        return ok(input)
-      },
-    )
-  }
 
 export const number = numeric(false)
 
@@ -154,9 +122,6 @@ export const array = <A>(items: Schema<A>, options: ArrayOptions = {}): Schema<R
   )
 }
 
-const isPlainObject = (input: unknown): input is Record<string, unknown> =>
-  typeof input === 'object' && input !== null && !Array.isArray(input)
-
 export const record = <A>(values: Schema<A>): Schema<Readonly<Record<string, A>>> =>
   make({ type: 'record', values: values.ast }, (input, path) => {
     if (!isPlainObject(input)) return issue(path, `expected object, got ${describe(input)}`)
@@ -178,8 +143,6 @@ export type InferFields<F> = Simplify<
     readonly [K in OptionalKeys<F>]?: F[K] extends Optional<infer A> ? A : never
   }
 >
-
-const isOptional = (field: Schema<any> | Optional<any>): field is Optional<any> => 'optional' in field
 
 export interface StructSchema<F extends Fields> extends Schema<InferFields<F>> {
   readonly fields: F
@@ -316,3 +279,40 @@ export const toJsonSchema = (ast: Ast): JsonSchema => {
 type Path = ReadonlyArray<string | number>
 
 type OptionalKeys<F> = { [K in keyof F]: F[K] extends Optional<any> ? K : never }[keyof F]
+
+function numeric(integer: boolean) {
+  return (options: NumberOptions = {}): Schema<number> => {
+    const { min, max } = options
+    return make(
+      { type: 'number', integer, ...(min !== undefined && { min }), ...(max !== undefined && { max }) },
+      (input, path) => {
+        if (typeof input !== 'number' || !Number.isFinite(input))
+          return issue(path, `expected ${integer ? 'integer' : 'number'}, got ${describe(input)}`)
+        if (integer && !Number.isInteger(input)) return issue(path, 'expected integer, got fraction')
+        if (min !== undefined && input < min) return issue(path, `expected at least ${min}`)
+        if (max !== undefined && input > max) return issue(path, `expected at most ${max}`)
+        return ok(input)
+      },
+    )
+  }
+}
+
+function make<A>(ast: Ast, at: (input: unknown, path: Path) => Result<A, ReadonlyArray<Issue>>): Schema<A> {
+  return { ast, at, decode: (input) => at(input, []), is: (input): input is A => isOk(at(input, [])) }
+}
+
+function issue(path: Path, message: string): Result<never, ReadonlyArray<Issue>> {
+  return err([{ path, message }])
+}
+
+function describe(input: unknown): string {
+  return input === null ? 'null' : Array.isArray(input) ? 'array' : typeof input
+}
+
+function isPlainObject(input: unknown): input is Record<string, unknown> {
+  return typeof input === 'object' && input !== null && !Array.isArray(input)
+}
+
+function isOptional(field: Schema<any> | Optional<any>): field is Optional<any> {
+  return 'optional' in field
+}
