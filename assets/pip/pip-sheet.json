@@ -1,0 +1,587 @@
+{
+  "cell": {
+    "w": 16,
+    "h": 17
+  },
+  "states": {
+    "idle": {
+      "about": "Nothing happening. Blinks now and then.",
+      "frames": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 16,
+          "h": 17,
+          "ms": 1400
+        },
+        {
+          "x": 16,
+          "y": 0,
+          "w": 16,
+          "h": 17,
+          "ms": 140
+        },
+        {
+          "x": 32,
+          "y": 0,
+          "w": 16,
+          "h": 17,
+          "ms": 900
+        },
+        {
+          "x": 48,
+          "y": 0,
+          "w": 16,
+          "h": 17,
+          "ms": 140
+        }
+      ]
+    },
+    "offline": {
+      "about": "The member's client is not connected. Asleep, a z blinking.",
+      "frames": [
+        {
+          "x": 0,
+          "y": 17,
+          "w": 16,
+          "h": 17,
+          "ms": 700
+        },
+        {
+          "x": 16,
+          "y": 17,
+          "w": 16,
+          "h": 17,
+          "ms": 700
+        }
+      ]
+    },
+    "away": {
+      "about": "The member set themselves away.",
+      "frames": [
+        {
+          "x": 0,
+          "y": 34,
+          "w": 16,
+          "h": 17,
+          "ms": 900
+        },
+        {
+          "x": 16,
+          "y": 34,
+          "w": 16,
+          "h": 17,
+          "ms": 160
+        }
+      ]
+    },
+    "busy": {
+      "about": "Do not disturb: notes queue silently.",
+      "frames": [
+        {
+          "x": 0,
+          "y": 51,
+          "w": 16,
+          "h": 17,
+          "ms": 900
+        },
+        {
+          "x": 16,
+          "y": 51,
+          "w": 16,
+          "h": 17,
+          "ms": 160
+        }
+      ]
+    },
+    "connecting": {
+      "about": "Signing in, syncing, or reconnecting.",
+      "frames": [
+        {
+          "x": 0,
+          "y": 68,
+          "w": 16,
+          "h": 17,
+          "ms": 160
+        },
+        {
+          "x": 16,
+          "y": 68,
+          "w": 16,
+          "h": 17,
+          "ms": 160
+        },
+        {
+          "x": 32,
+          "y": 68,
+          "w": 16,
+          "h": 17,
+          "ms": 160
+        },
+        {
+          "x": 48,
+          "y": 68,
+          "w": 16,
+          "h": 17,
+          "ms": 160
+        }
+      ]
+    },
+    "disconnected": {
+      "about": "Lost the connection to the server. A tear falls.",
+      "frames": [
+        {
+          "x": 0,
+          "y": 85,
+          "w": 16,
+          "h": 17,
+          "ms": 260
+        },
+        {
+          "x": 16,
+          "y": 85,
+          "w": 16,
+          "h": 17,
+          "ms": 260
+        },
+        {
+          "x": 32,
+          "y": 85,
+          "w": 16,
+          "h": 17,
+          "ms": 260
+        },
+        {
+          "x": 48,
+          "y": 85,
+          "w": 16,
+          "h": 17,
+          "ms": 400
+        }
+      ]
+    },
+    "drafting": {
+      "about": "An agent is writing a note or a reply draft. Also the typing indicator the other side sees.",
+      "frames": [
+        {
+          "x": 0,
+          "y": 102,
+          "w": 16,
+          "h": 17,
+          "ms": 300
+        },
+        {
+          "x": 16,
+          "y": 102,
+          "w": 16,
+          "h": 17,
+          "ms": 300
+        },
+        {
+          "x": 32,
+          "y": 102,
+          "w": 16,
+          "h": 17,
+          "ms": 300
+        },
+        {
+          "x": 48,
+          "y": 102,
+          "w": 16,
+          "h": 17,
+          "ms": 300
+        }
+      ]
+    },
+    "awaiting-approval": {
+      "about": "A draft is waiting for its human to approve it.",
+      "frames": [
+        {
+          "x": 0,
+          "y": 119,
+          "w": 16,
+          "h": 17,
+          "ms": 500
+        },
+        {
+          "x": 16,
+          "y": 119,
+          "w": 16,
+          "h": 17,
+          "ms": 300
+        }
+      ]
+    },
+    "approved": {
+      "about": "The human approved the draft. A hop and a check.",
+      "frames": [
+        {
+          "x": 0,
+          "y": 136,
+          "w": 16,
+          "h": 17,
+          "ms": 160
+        },
+        {
+          "x": 16,
+          "y": 136,
+          "w": 16,
+          "h": 17,
+          "ms": 260
+        },
+        {
+          "x": 32,
+          "y": 136,
+          "w": 16,
+          "h": 17,
+          "ms": 700
+        }
+      ]
+    },
+    "discarded": {
+      "about": "The human threw the draft away. The envelope drops and puffs out.",
+      "frames": [
+        {
+          "x": 0,
+          "y": 153,
+          "w": 16,
+          "h": 17,
+          "ms": 300
+        },
+        {
+          "x": 16,
+          "y": 153,
+          "w": 16,
+          "h": 17,
+          "ms": 160
+        },
+        {
+          "x": 32,
+          "y": 153,
+          "w": 16,
+          "h": 17,
+          "ms": 220
+        },
+        {
+          "x": 48,
+          "y": 153,
+          "w": 16,
+          "h": 17,
+          "ms": 600
+        }
+      ]
+    },
+    "sending": {
+      "about": "Approved note on its way out.",
+      "frames": [
+        {
+          "x": 0,
+          "y": 170,
+          "w": 16,
+          "h": 17,
+          "ms": 140
+        },
+        {
+          "x": 16,
+          "y": 170,
+          "w": 16,
+          "h": 17,
+          "ms": 140
+        },
+        {
+          "x": 32,
+          "y": 170,
+          "w": 16,
+          "h": 17,
+          "ms": 140
+        },
+        {
+          "x": 48,
+          "y": 170,
+          "w": 16,
+          "h": 17,
+          "ms": 140
+        }
+      ]
+    },
+    "returning": {
+      "about": "A reply is on its way back (Pip flies home, facing left).",
+      "frames": [
+        {
+          "x": 0,
+          "y": 187,
+          "w": 16,
+          "h": 17,
+          "ms": 140
+        },
+        {
+          "x": 16,
+          "y": 187,
+          "w": 16,
+          "h": 17,
+          "ms": 140
+        },
+        {
+          "x": 32,
+          "y": 187,
+          "w": 16,
+          "h": 17,
+          "ms": 140
+        },
+        {
+          "x": 48,
+          "y": 187,
+          "w": 16,
+          "h": 17,
+          "ms": 140
+        }
+      ]
+    },
+    "delivered": {
+      "about": "The note reached the recipient. Grey check.",
+      "frames": [
+        {
+          "x": 0,
+          "y": 204,
+          "w": 16,
+          "h": 17,
+          "ms": 900
+        },
+        {
+          "x": 16,
+          "y": 204,
+          "w": 16,
+          "h": 17,
+          "ms": 140
+        }
+      ]
+    },
+    "read": {
+      "about": "The recipient read the note.",
+      "frames": [
+        {
+          "x": 0,
+          "y": 221,
+          "w": 16,
+          "h": 17,
+          "ms": 220
+        },
+        {
+          "x": 16,
+          "y": 221,
+          "w": 16,
+          "h": 17,
+          "ms": 220
+        },
+        {
+          "x": 32,
+          "y": 221,
+          "w": 16,
+          "h": 17,
+          "ms": 220
+        },
+        {
+          "x": 48,
+          "y": 221,
+          "w": 16,
+          "h": 17,
+          "ms": 220
+        }
+      ]
+    },
+    "new-note": {
+      "about": "A note arrived. Badge bounces.",
+      "frames": [
+        {
+          "x": 0,
+          "y": 238,
+          "w": 16,
+          "h": 17,
+          "ms": 160
+        },
+        {
+          "x": 16,
+          "y": 238,
+          "w": 16,
+          "h": 17,
+          "ms": 160
+        },
+        {
+          "x": 32,
+          "y": 238,
+          "w": 16,
+          "h": 17,
+          "ms": 160
+        },
+        {
+          "x": 48,
+          "y": 238,
+          "w": 16,
+          "h": 17,
+          "ms": 700
+        }
+      ]
+    },
+    "failed": {
+      "about": "The note could not be delivered. Dizzy, envelope dropped.",
+      "frames": [
+        {
+          "x": 0,
+          "y": 255,
+          "w": 16,
+          "h": 17,
+          "ms": 220
+        },
+        {
+          "x": 16,
+          "y": 255,
+          "w": 16,
+          "h": 17,
+          "ms": 220
+        }
+      ]
+    },
+    "waving": {
+      "about": "Hello: onboarding, or a contact request in contacts mode.",
+      "frames": [
+        {
+          "x": 0,
+          "y": 272,
+          "w": 16,
+          "h": 17,
+          "ms": 220
+        },
+        {
+          "x": 16,
+          "y": 272,
+          "w": 16,
+          "h": 17,
+          "ms": 220
+        }
+      ]
+    },
+    "accepted": {
+      "about": "A contact request was accepted.",
+      "frames": [
+        {
+          "x": 0,
+          "y": 289,
+          "w": 16,
+          "h": 17,
+          "ms": 300
+        },
+        {
+          "x": 16,
+          "y": 289,
+          "w": 16,
+          "h": 17,
+          "ms": 300
+        }
+      ]
+    },
+    "blocked": {
+      "about": "This member cannot be messaged, or you blocked them. A red badge with a white X blinks.",
+      "frames": [
+        {
+          "x": 0,
+          "y": 306,
+          "w": 16,
+          "h": 17,
+          "ms": 700
+        },
+        {
+          "x": 16,
+          "y": 306,
+          "w": 16,
+          "h": 17,
+          "ms": 250
+        }
+      ]
+    },
+    "searching": {
+      "about": "Looking through the directory for a colleague.",
+      "frames": [
+        {
+          "x": 0,
+          "y": 323,
+          "w": 16,
+          "h": 17,
+          "ms": 240
+        },
+        {
+          "x": 16,
+          "y": 323,
+          "w": 16,
+          "h": 17,
+          "ms": 240
+        },
+        {
+          "x": 32,
+          "y": 323,
+          "w": 16,
+          "h": 17,
+          "ms": 240
+        },
+        {
+          "x": 48,
+          "y": 323,
+          "w": 16,
+          "h": 17,
+          "ms": 240
+        }
+      ]
+    },
+    "sign-in": {
+      "about": "Needs sign-in or a credential approval (device code).",
+      "frames": [
+        {
+          "x": 0,
+          "y": 340,
+          "w": 16,
+          "h": 17,
+          "ms": 600
+        },
+        {
+          "x": 16,
+          "y": 340,
+          "w": 16,
+          "h": 17,
+          "ms": 300
+        }
+      ]
+    },
+    "celebrate": {
+      "about": "A first: first note sent, setup finished.",
+      "frames": [
+        {
+          "x": 0,
+          "y": 357,
+          "w": 16,
+          "h": 17,
+          "ms": 160
+        },
+        {
+          "x": 16,
+          "y": 357,
+          "w": 16,
+          "h": 17,
+          "ms": 160
+        },
+        {
+          "x": 32,
+          "y": 357,
+          "w": 16,
+          "h": 17,
+          "ms": 160
+        },
+        {
+          "x": 48,
+          "y": 357,
+          "w": 16,
+          "h": 17,
+          "ms": 160
+        }
+      ]
+    }
+  }
+}

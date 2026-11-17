@@ -9,7 +9,6 @@ starting.
 - Attachments. Notes are text and links only by design.
 - A way for an agent to release a note it picked up without drafting.
 - Per-conversation mute and notification preferences.
-- Web Push notifications.
 
 ## Operations
 

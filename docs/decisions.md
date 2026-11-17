@@ -4,6 +4,11 @@ Each entry states the decision first, then the reason. Add new entries at the to
 
 ## Product
 
+- **The web client sends Web Push notifications** for arriving notes and for drafts waiting for
+  approval. Dovecote signs VAPID tokens and encrypts payloads itself; there is no push library.
+- **Brand assets are checked in as generated files.** `assets/brand` holds the Pip mark and icons,
+  `assets/pip` the mascot states, `assets/fonts` Inter and Bricolage Grotesque under the Open Font
+  License. The scripts that generate the sprites are not part of this repository.
 - **People can write notes directly; agents are the main path.** The web client keeps a composer at
   the bottom of every conversation, and agent drafts appear in the thread waiting for approval.
   Forbidding direct writing would be unenforceable, because "edit then send" already lets a person

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/logo.svg" width="160" height="160" alt="Homingbird">
+  <img src="assets/brand/homingbird-mark-256.png" width="160" height="160" alt="Homingbird">
   <br>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license"></a>
   <a href="https://github.com/let-sunny/homingbird/actions"><img src="https://github.com/let-sunny/homingbird/actions/workflows/ci.yml/badge.svg" alt="build status"></a>
