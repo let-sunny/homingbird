@@ -53,8 +53,10 @@ export const numberedPlaceholders = (text: string): string => {
 
 const QUERY = Symbol('Query')
 
-const query = (text: string, params: ReadonlyArray<unknown>): Query => ({ [QUERY]: true, text, params }) as Query
+const query = (text: string, params: ReadonlyArray<unknown>): Query =>
+  ({ [QUERY]: true, text, params }) as Query
 
-const isQuery = (value: unknown): value is Query => typeof value === 'object' && value !== null && QUERY in value
+const isQuery = (value: unknown): value is Query =>
+  typeof value === 'object' && value !== null && QUERY in value
 
 const toFragment = (value: unknown): Query => (isQuery(value) ? value : query('?', [value]))

@@ -16,7 +16,10 @@ import { containsIgnoringCase, insertInto, list, sql } from '../sql/query.ts'
 import { type Ties, tiesOf } from './contacts.ts'
 import { readSettings } from './settings.ts'
 
-export const directoryFor = (viewerId: MemberId, search: string | undefined): T.Task<DirectoryEntry[], never, AppEnv> =>
+export const directoryFor = (
+  viewerId: MemberId,
+  search: string | undefined,
+): T.Task<DirectoryEntry[], never, AppEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
     const settings = yield* readSettings
@@ -51,9 +54,9 @@ export const membersByIds = (ids: ReadonlyArray<MemberId>): T.Task<Map<MemberId,
     return new Map(rows.map((row) => [row.id, toMember(row)]))
   })
 
-export const allMembers: T.Task<Member[], never, AppEnv> = T.map((rows: ReadonlyArray<MemberRow>) => rows.map(toMember))(
-  all<MemberRow>(sql`SELECT * FROM members ORDER BY name`),
-)
+export const allMembers: T.Task<Member[], never, AppEnv> = T.map((rows: ReadonlyArray<MemberRow>) =>
+  rows.map(toMember),
+)(all<MemberRow>(sql`SELECT * FROM members ORDER BY name`))
 
 export interface Identity {
   readonly subject: string
@@ -69,7 +72,9 @@ export const signInMember = (identity: Identity): T.Task<Member, never, AppEnv> 
       sql`SELECT * FROM members WHERE subject = ${identity.subject} OR email = ${email}`,
     )
     if (existing !== null) {
-      yield* run(sql`UPDATE members SET subject = ${identity.subject}, email = ${email} WHERE id = ${existing.id}`)
+      yield* run(
+        sql`UPDATE members SET subject = ${identity.subject}, email = ${email} WHERE id = ${existing.id}`,
+      )
       return toMember({ ...existing, email })
     }
     const isFirstMember = (yield* first(sql`SELECT id FROM members LIMIT 1`)) === null
@@ -104,8 +109,10 @@ export const updateOwnProfile = (
   changes: { readonly name?: string; readonly profile?: string },
 ): T.Task<Member, NotFound, AppEnv> =>
   T.gen(function* () {
-    if (changes.name !== undefined) yield* run(sql`UPDATE members SET name = ${changes.name} WHERE id = ${id}`)
-    if (changes.profile !== undefined) yield* run(sql`UPDATE members SET profile = ${changes.profile} WHERE id = ${id}`)
+    if (changes.name !== undefined)
+      yield* run(sql`UPDATE members SET name = ${changes.name} WHERE id = ${id}`)
+    if (changes.profile !== undefined)
+      yield* run(sql`UPDATE members SET profile = ${changes.profile} WHERE id = ${id}`)
     return yield* memberById(id)
   })
 
@@ -117,11 +124,16 @@ export const administerMember = (
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
     yield* memberById(id)
-    if (id === actorId) return yield* T.fail(Conflict({ message: 'Admins cannot change their own status or role.' }))
-    if (changes.role !== undefined) yield* run(sql`UPDATE members SET role = ${changes.role} WHERE id = ${id}`)
-    if (changes.status !== undefined) yield* run(sql`UPDATE members SET status = ${changes.status} WHERE id = ${id}`)
+    if (id === actorId)
+      return yield* T.fail(Conflict({ message: 'Admins cannot change their own status or role.' }))
+    if (changes.role !== undefined)
+      yield* run(sql`UPDATE members SET role = ${changes.role} WHERE id = ${id}`)
+    if (changes.status !== undefined)
+      yield* run(sql`UPDATE members SET status = ${changes.status} WHERE id = ${id}`)
     if (changes.status === 'deactivated')
-      yield* run(sql`UPDATE credentials SET revoked_at = ${env.clock.now()} WHERE member_id = ${id} AND revoked_at IS NULL`)
+      yield* run(
+        sql`UPDATE credentials SET revoked_at = ${env.clock.now()} WHERE member_id = ${id} AND revoked_at IS NULL`,
+      )
     return yield* memberById(id)
   })
 

@@ -25,8 +25,6 @@ import {
 import { membersByIds } from './members.ts'
 import { type NoteRow, hydrateNotes } from './note-rows.ts'
 
-type NoteFailure = NotFound | Forbidden | Conflict | Invalid
-
 export interface DraftTarget {
   readonly body: string
   readonly conversationId?: ConversationId
@@ -63,7 +61,11 @@ export const createDraft = (caller: Caller, target: DraftTarget): T.Task<Note, N
     return draft
   })
 
-export const updateDraft = (caller: Caller, id: NoteId, body: string): T.Task<Note, NoteFailure, RequestEnv> =>
+export const updateDraft = (
+  caller: Caller,
+  id: NoteId,
+  body: string,
+): T.Task<Note, NoteFailure, RequestEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
     const draft = yield* ownDraft(caller.member.id, id)
@@ -184,7 +186,10 @@ export const draftsOf = (authorId: MemberId): T.Task<Note[], never, RequestEnv> 
     return yield* hydrateNotes(rows)
   })
 
-export const notesAwaitingReply = (caller: Caller, onlyFresh: boolean): T.Task<InboxItem[], never, RequestEnv> =>
+export const notesAwaitingReply = (
+  caller: Caller,
+  onlyFresh: boolean,
+): T.Task<InboxItem[], never, RequestEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
     const viewerId = caller.member.id
@@ -201,12 +206,17 @@ export const notesAwaitingReply = (caller: Caller, onlyFresh: boolean): T.Task<I
     for (const note of notes) {
       const conversation = yield* T.result(conversationFor(viewerId, note.conversationId))
       const author = authors.get(note.authorId)
-      if (conversation._tag === 'Ok' && author !== undefined) items.push({ note, author, conversation: conversation.value })
+      if (conversation._tag === 'Ok' && author !== undefined)
+        items.push({ note, author, conversation: conversation.value })
     }
     return items
   })
 
-export const searchNotes = (viewerId: MemberId, needle: string, limit: number): T.Task<Note[], never, RequestEnv> =>
+export const searchNotes = (
+  viewerId: MemberId,
+  needle: string,
+  limit: number,
+): T.Task<Note[], never, RequestEnv> =>
   T.gen(function* () {
     const rows = yield* all<NoteRow>(sql`
       SELECT n.* FROM notes n
@@ -216,6 +226,8 @@ export const searchNotes = (viewerId: MemberId, needle: string, limit: number): 
       ORDER BY n.created_at DESC LIMIT ${limit}`)
     return yield* hydrateNotes(rows)
   })
+
+type NoteFailure = NotFound | Forbidden | Conflict | Invalid
 
 const MAX_OPEN_DRAFTS = 200
 const INBOX_LIMIT = 50
@@ -228,10 +240,12 @@ const resolveConversation = (
   T.gen(function* () {
     if (target.inReplyTo !== undefined) {
       const original = yield* visibleNote(authorId, target.inReplyTo)
-      if (original.status !== 'sent') return yield* T.fail(Invalid({ message: 'You can only reply to a sent note.' }))
+      if (original.status !== 'sent')
+        return yield* T.fail(Invalid({ message: 'You can only reply to a sent note.' }))
       return original.conversationId
     }
-    if (target.conversationId !== undefined) return (yield* participatedConversation(authorId, target.conversationId)).id
+    if (target.conversationId !== undefined)
+      return (yield* participatedConversation(authorId, target.conversationId)).id
     if (target.to === undefined) return yield* T.fail(Invalid({ message: 'Say who the note is for.' }))
     if (target.to.length > 1)
       return yield* T.fail(Invalid({ message: 'Create a group conversation first, then draft into it.' }))
@@ -255,14 +269,17 @@ const requireRoomForAnotherDraft = (authorId: MemberId): T.Task<void, Conflict, 
       sql`SELECT COUNT(*) AS total FROM notes WHERE author_id = ${authorId} AND status = 'draft'`,
     )
     if (Number(open?.total ?? 0) >= MAX_OPEN_DRAFTS)
-      return yield* T.fail(Conflict({ message: 'Too many drafts are waiting for approval. Send or discard some first.' }))
+      return yield* T.fail(
+        Conflict({ message: 'Too many drafts are waiting for approval. Send or discard some first.' }),
+      )
   })
 
 const ownDraft = (authorId: MemberId, id: NoteId): T.Task<NoteRow, NotFound | Conflict, RequestEnv> =>
   T.gen(function* () {
     const row = yield* first<NoteRow>(sql`SELECT * FROM notes WHERE id = ${id} AND author_id = ${authorId}`)
     if (row === null) return yield* T.fail(NotFound({ message: 'No such draft.' }))
-    if (row.status !== 'draft') return yield* T.fail(Conflict({ message: 'This draft was already sent or discarded.' }))
+    if (row.status !== 'draft')
+      return yield* T.fail(Conflict({ message: 'This draft was already sent or discarded.' }))
     return row
   })
 
@@ -283,7 +300,11 @@ const discard = (draft: NoteRow): T.Task<void, never, RequestEnv> =>
     yield* run(
       sql`UPDATE notes SET status = 'discarded', updated_at = ${env.clock.now()} WHERE id = ${draft.id} AND status = 'draft'`,
     )
-    yield* emit([draft.author_id], { type: 'draft.discarded', noteId: draft.id, conversationId: draft.conversation_id })
+    yield* emit([draft.author_id], {
+      type: 'draft.discarded',
+      noteId: draft.id,
+      conversationId: draft.conversation_id,
+    })
   })
 
 const announceStatus = (id: NoteId): T.Task<void, never, RequestEnv> =>
@@ -306,4 +327,10 @@ const noteById = (id: NoteId): T.Task<Note, never, RequestEnv> =>
   })
 
 const originAfterEdit = (origin: Origin, editorIsHuman: boolean, bodyChanged: boolean): Origin =>
-  !bodyChanged ? origin : origin === 'agent' && editorIsHuman ? 'human_edited' : origin === 'human' && !editorIsHuman ? 'human_edited' : origin
+  !bodyChanged
+    ? origin
+    : origin === 'agent' && editorIsHuman
+      ? 'human_edited'
+      : origin === 'human' && !editorIsHuman
+        ? 'human_edited'
+        : origin

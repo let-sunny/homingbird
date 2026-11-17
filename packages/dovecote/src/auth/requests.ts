@@ -27,7 +27,9 @@ export interface NewAuthRequest<Detail> {
   readonly userCode?: string
 }
 
-export const openAuthRequest = <Detail>(request: NewAuthRequest<Detail>): T.Task<AuthRequest<Detail>, never, AppEnv> =>
+export const openAuthRequest = <Detail>(
+  request: NewAuthRequest<Detail>,
+): T.Task<AuthRequest<Detail>, never, AppEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
     const now = env.clock.now()
@@ -60,7 +62,9 @@ export const authRequestById = <Detail>(kind: AuthRequestKind, id: string) =>
   liveRequest<Detail>(sql`SELECT * FROM auth_requests WHERE kind = ${kind} AND id = ${id}`)
 
 export const authRequestBySecret = <Detail>(kind: AuthRequestKind, secret: string) =>
-  liveRequest<Detail>(sql`SELECT * FROM auth_requests WHERE kind = ${kind} AND secret_hash = ${hashSecret(secret)}`)
+  liveRequest<Detail>(
+    sql`SELECT * FROM auth_requests WHERE kind = ${kind} AND secret_hash = ${hashSecret(secret)}`,
+  )
 
 export const authRequestByUserCode = <Detail>(userCode: string) =>
   liveRequest<Detail>(sql`SELECT * FROM auth_requests WHERE kind = 'device' AND user_code = ${userCode}`)
@@ -101,7 +105,9 @@ interface AuthRequestRow {
   readonly expires_at: number
 }
 
-const liveRequest = <Detail>(query: Parameters<typeof first>[0]): T.Task<AuthRequest<Detail> | null, never, AppEnv> =>
+const liveRequest = <Detail>(
+  query: Parameters<typeof first>[0],
+): T.Task<AuthRequest<Detail> | null, never, AppEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
     const row = yield* first<AuthRequestRow>(query)

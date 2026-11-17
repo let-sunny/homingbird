@@ -1,14 +1,12 @@
-/**
- * Note and receipt state, as pure functions. The server stores timestamps; every client derives
- * the same state from them, which is what makes status identical for all participants.
- */
 import { Result, tagged } from '@homingbird/kernel'
 import type { NoteStatus, Receipt, ReceiptState } from './model.ts'
 
-export const IllegalTransition = tagged('IllegalTransition')<{ readonly from: NoteStatus; readonly to: NoteStatus }>()
+export const IllegalTransition = tagged('IllegalTransition')<{
+  readonly from: NoteStatus
+  readonly to: NoteStatus
+}>()
 export type IllegalTransition = ReturnType<typeof IllegalTransition>
 
-/** `draft -> sent` and `draft -> discarded` are the only moves. Sent and discarded are final. */
 export const NOTE_TRANSITIONS: Readonly<Record<NoteStatus, ReadonlyArray<NoteStatus>>> = {
   draft: ['sent', 'discarded'],
   sent: [],
@@ -24,7 +22,6 @@ export interface ReceiptTimes {
   readonly repliedAt: number | null
 }
 
-/** The furthest stage a recipient has reached: `delivered -> read -> drafting -> replied`. */
 export const receiptState = (times: ReceiptTimes): ReceiptState =>
   times.repliedAt !== null
     ? 'replied'
@@ -38,14 +35,11 @@ export const RECEIPT_ORDER: ReadonlyArray<ReceiptState> = ['delivered', 'read', 
 
 export interface StatusSummary {
   readonly recipients: number
-  /** Recipients whose human has opened the note. */
   readonly read: number
-  /** Recipients with a reply draft in progress and no reply sent yet. */
   readonly drafting: number
   readonly replied: number
 }
 
-/** Counts behind lines such as "read by 2 of 3". */
 export const summarize = (receipts: ReadonlyArray<Receipt>): StatusSummary => ({
   recipients: receipts.length,
   read: receipts.filter((r) => r.readAt !== null).length,
@@ -53,7 +47,6 @@ export const summarize = (receipts: ReadonlyArray<Receipt>): StatusSummary => ({
   replied: receipts.filter((r) => r.repliedAt !== null).length,
 })
 
-/** The one-line status every participant sees for a sent note. */
 export const describeStatus = (summary: StatusSummary): string => {
   const { recipients, read, drafting, replied } = summary
   if (recipients === 0) return 'Sent'

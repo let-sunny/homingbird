@@ -23,7 +23,8 @@ export const handleEventStreamRequest = (request: HttpRequest): T.Task<HttpRespo
     T.gen(function* () {
       const caller = yield* callerOf(request)
       const token = tokenOf(request)
-      if (caller === null || token === null) return yield* T.fail(Unauthorized({ message: 'Sign in to continue.' }))
+      if (caller === null || token === null)
+        return yield* T.fail(Unauthorized({ message: 'Sign in to continue.' }))
       const feed = yield* memberFeed(caller, token, resumePoint(request), request.disconnected)
       return Stream.map(toServerSentFrame)(feed)
     }),

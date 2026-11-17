@@ -6,7 +6,8 @@ export const openPostgres = (url: string): Database => {
   const pool = new pg.Pool({ connectionString: url, max: 10, types: bigintsAsNumbers })
   const over = (client: pg.Pool | pg.PoolClient): Connection => ({
     dialect: 'postgres',
-    all: async (query) => (await client.query(numberedPlaceholders(query.text), [...query.params])).rows as Row[],
+    all: async (query) =>
+      (await client.query(numberedPlaceholders(query.text), [...query.params])).rows as Row[],
     run: async (query) => ({
       changes: (await client.query(numberedPlaceholders(query.text), [...query.params])).rowCount ?? 0,
     }),

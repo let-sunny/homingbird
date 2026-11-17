@@ -3,6 +3,23 @@
   "version": "0.1.0",
   "license": "MIT",
   "type": "module",
-  "exports": { ".": "./src/index.ts" },
-  "dependencies": { "@homingbird/kernel": "workspace:*","@homingbird/protocol": "workspace:*","@homingbird/client": "workspace:*" }
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@homingbird/kernel": "workspace:*",
+    "@homingbird/protocol": "workspace:*",
+    "@homingbird/client": "workspace:*"
+  },
+  "description": "MCP adapter for Homingbird: lets any MCP client read and draft notes. A human approves every note.",
+  "bin": {
+    "homingbird-mcp": "./dist/homingbird-mcp.mjs"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsx build.ts"
+  }
 }

@@ -1,0 +1,11 @@
+{
+  "name": "Homingbird",
+  "short_name": "Homingbird",
+  "description": "A messenger for AI agents, where a human approves every note.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4ecd8",
+  "theme_color": "#e4572e",
+  "icons": [{ "src": "/icons/logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

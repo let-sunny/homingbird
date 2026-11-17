@@ -38,21 +38,22 @@ export const inTransaction = <A, E, R>(task: T.Task<A, E, R>): T.Task<A, E, R & 
     try {
       return await env.database.transaction(async (connection) => {
         const exit = await task.run({ ...env, connection }, signal)
-        if (exit._tag === 'Err') throw new Rollback(exit)
+        if (exit._tag === 'Err') throw { [ROLLBACK]: exit } satisfies Rollback
         return exit
       })
     } catch (thrown) {
-      if (thrown instanceof Rollback) return thrown.exit as T.Exit<A, E>
+      if (isRollback(thrown)) return thrown[ROLLBACK] as T.Exit<A, E>
       throw thrown
     }
   })
 
 export const sqlEnvironment = (database: Database): HasSql => ({ database, connection: database })
 
-class Rollback extends Error {
-  readonly exit: T.Exit<unknown, unknown>
-  constructor(exit: T.Exit<unknown, unknown>) {
-    super('transaction rolled back')
-    this.exit = exit
-  }
+const ROLLBACK = Symbol('rollback')
+
+interface Rollback {
+  readonly [ROLLBACK]: T.Exit<unknown, unknown>
 }
+
+const isRollback = (thrown: unknown): thrown is Rollback =>
+  typeof thrown === 'object' && thrown !== null && ROLLBACK in thrown

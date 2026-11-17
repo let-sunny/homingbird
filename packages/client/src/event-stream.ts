@@ -20,11 +20,12 @@ export const eventStream = (
   async *[Symbol.asyncIterator]() {
     let cursor = options.after ?? null
     let failedStreams = 0
-    const backoff = Schedule.exponential(500, 2, 30_000)
+    let backoff = reconnectDelays()
     while (!signal.aborted) {
       const transport: Transport = failedStreams >= FAILED_STREAMS_BEFORE_POLLING ? 'poll' : 'sse'
       options.onTransport?.(transport)
       let delivered = false
+      let failed = false
       try {
         const source =
           transport === 'sse' ? streamOnce(options, cursor, signal) : pollOnce(options, cursor ?? 0, signal)
@@ -34,14 +35,17 @@ export const eventStream = (
           yield event
         }
       } catch {
-        if (transport === 'sse' && !delivered) failedStreams += 1
+        failed = true
       }
-      if (delivered) failedStreams = transport === 'sse' ? 0 : failedStreams
       if (signal.aborted) return
-      if (transport === 'sse' || !delivered) await options.clock.sleep(backoff.next().value, signal)
+      if (delivered) backoff = reconnectDelays()
+      if (transport === 'sse') failedStreams = delivered ? 0 : failed ? failedStreams + 1 : failedStreams
+      if (failed || transport === 'sse') await options.clock.sleep(backoff.next().value, signal)
     }
   },
 })
+
+const reconnectDelays = () => Schedule.exponential(500, 2, 30_000)
 
 const streamOnce = async function* (
   options: EventStreamOptions,

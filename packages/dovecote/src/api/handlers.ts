@@ -14,7 +14,14 @@ import {
 } from '@homingbird/protocol'
 import { decideConsent, decideDeviceRequest, describeConsent, describeDeviceRequest } from '../auth/oauth.ts'
 import { listAudit } from '../domain/audit.ts'
-import { acceptContact, block, listContacts, removeContact, requestContact, unblock } from '../domain/contacts.ts'
+import {
+  acceptContact,
+  block,
+  listContacts,
+  removeContact,
+  requestContact,
+  unblock,
+} from '../domain/contacts.ts'
 import { conversationFor, createGroupConversation, listConversations } from '../domain/conversations.ts'
 import { listCredentials, renameCredential, revokeCredential } from '../domain/credentials.ts'
 import { administerMember, allMembers, directoryFor, updateOwnProfile } from '../domain/members.ts'
@@ -72,22 +79,38 @@ export const handlers: Handlers = {
   'contacts.list': (_, caller) => listContacts(caller.member.id),
   'contacts.request': ({ body }, caller) => requestContact(caller.member.id, body.memberId),
   'contacts.accept': ({ params }, caller) =>
-    T.flatMap((memberId: MemberId) => acceptContact(caller.member.id, memberId))(identifier(MemberId, params.memberId)),
+    T.flatMap((memberId: MemberId) => acceptContact(caller.member.id, memberId))(
+      identifier(MemberId, params.memberId),
+    ),
   'contacts.remove': ({ params }, caller) =>
-    T.as({})(T.flatMap((memberId: MemberId) => removeContact(caller.member.id, memberId))(identifier(MemberId, params.memberId))),
+    T.as({})(
+      T.flatMap((memberId: MemberId) => removeContact(caller.member.id, memberId))(
+        identifier(MemberId, params.memberId),
+      ),
+    ),
   'blocks.add': ({ params }, caller) =>
-    T.as({})(T.flatMap((memberId: MemberId) => block(caller.member.id, memberId))(identifier(MemberId, params.memberId))),
+    T.as({})(
+      T.flatMap((memberId: MemberId) => block(caller.member.id, memberId))(
+        identifier(MemberId, params.memberId),
+      ),
+    ),
   'blocks.remove': ({ params }, caller) =>
-    T.as({})(T.flatMap((memberId: MemberId) => unblock(caller.member.id, memberId))(identifier(MemberId, params.memberId))),
+    T.as({})(
+      T.flatMap((memberId: MemberId) => unblock(caller.member.id, memberId))(
+        identifier(MemberId, params.memberId),
+      ),
+    ),
 
   'conversations.list': (_, caller) =>
-    T.map((conversations: Awaited<ResponseOf<Contract['conversations.list']>>['conversations']) => ({ conversations }))(
-      listConversations(caller.member.id),
-    ),
+    T.map((conversations: Awaited<ResponseOf<Contract['conversations.list']>>['conversations']) => ({
+      conversations,
+    }))(listConversations(caller.member.id)),
   'conversations.create': ({ body }, caller) =>
     createGroupConversation(caller.member.id, body.participantIds, body.title),
   'conversations.get': ({ params }, caller) =>
-    T.flatMap((id: ConversationId) => conversationFor(caller.member.id, id))(identifier(ConversationId, params.id)),
+    T.flatMap((id: ConversationId) => conversationFor(caller.member.id, id))(
+      identifier(ConversationId, params.id),
+    ),
   'conversations.notes': ({ params, query }, caller) =>
     T.flatMap((id: ConversationId) =>
       notesInConversation(caller.member.id, id, {
@@ -97,8 +120,10 @@ export const handlers: Handlers = {
     )(identifier(ConversationId, params.id)),
   'notes.get': ({ params }, caller) =>
     T.flatMap((id: NoteId) => visibleNote(caller.member.id, id))(identifier(NoteId, params.id)),
-  'notes.read': ({ params }, caller) => T.flatMap((id: NoteId) => markRead(caller, id))(identifier(NoteId, params.id)),
-  'notes.pickup': ({ params }, caller) => T.flatMap((id: NoteId) => pickUp(caller, id))(identifier(NoteId, params.id)),
+  'notes.read': ({ params }, caller) =>
+    T.flatMap((id: NoteId) => markRead(caller, id))(identifier(NoteId, params.id)),
+  'notes.pickup': ({ params }, caller) =>
+    T.flatMap((id: NoteId) => pickUp(caller, id))(identifier(NoteId, params.id)),
   'inbox.list': ({ query }, caller) =>
     T.map((items: Awaited<ResponseOf<Contract['inbox.list']>>['items']) => ({ items }))(
       notesAwaitingReply(caller, query.fresh === '1'),
@@ -109,7 +134,9 @@ export const handlers: Handlers = {
     ),
 
   'drafts.list': (_, caller) =>
-    T.map((drafts: Awaited<ResponseOf<Contract['drafts.list']>>['drafts']) => ({ drafts }))(draftsOf(caller.member.id)),
+    T.map((drafts: Awaited<ResponseOf<Contract['drafts.list']>>['drafts']) => ({ drafts }))(
+      draftsOf(caller.member.id),
+    ),
   'drafts.create': ({ body }, caller) => createDraft(caller, body),
   'drafts.update': ({ params, body }, caller) =>
     T.flatMap((id: NoteId) => updateDraft(caller, id, body.body))(identifier(NoteId, params.id)),
@@ -119,15 +146,19 @@ export const handlers: Handlers = {
     T.flatMap((id: NoteId) => discardDraft(caller, id))(identifier(NoteId, params.id)),
 
   'credentials.list': (_, caller) =>
-    T.map((credentials: Awaited<ResponseOf<Contract['credentials.list']>>['credentials']) => ({ credentials }))(
-      listCredentials(caller.member.id, caller.credential.id),
-    ),
+    T.map((credentials: Awaited<ResponseOf<Contract['credentials.list']>>['credentials']) => ({
+      credentials,
+    }))(listCredentials(caller.member.id, caller.credential.id)),
   'credentials.rename': ({ params, body }, caller) =>
     T.flatMap((id: CredentialId) => renameCredential(caller.member.id, caller.credential.id, id, body.name))(
       identifier(CredentialId, params.id),
     ),
   'credentials.revoke': ({ params }, caller) =>
-    T.as({})(T.flatMap((id: CredentialId) => revokeCredential(caller.member.id, id))(identifier(CredentialId, params.id))),
+    T.as({})(
+      T.flatMap((id: CredentialId) => revokeCredential(caller.member.id, id))(
+        identifier(CredentialId, params.id),
+      ),
+    ),
   'device.get': ({ params }) => describeDeviceRequest(params.userCode),
   'device.decide': ({ params, body }, caller) => T.as({})(decideDeviceRequest(caller, params.userCode, body)),
   'consent.get': ({ params }) => describeConsent(params.id),
@@ -143,9 +174,13 @@ export const handlers: Handlers = {
   'admin.settings.get': () => readSettings,
   'admin.settings.put': ({ body }) => writeSettings(body),
   'admin.members.list': () =>
-    T.map((members: Awaited<ResponseOf<Contract['admin.members.list']>>['members']) => ({ members }))(allMembers),
+    T.map((members: Awaited<ResponseOf<Contract['admin.members.list']>>['members']) => ({ members }))(
+      allMembers,
+    ),
   'admin.members.update': ({ params, body }, caller) =>
-    T.flatMap((id: MemberId) => administerMember(caller.member.id, id, body))(identifier(MemberId, params.id)),
+    T.flatMap((id: MemberId) => administerMember(caller.member.id, id, body))(
+      identifier(MemberId, params.id),
+    ),
   'admin.audit.list': ({ query }) =>
     listAudit({
       before: query.before === undefined ? null : Number(query.before),
@@ -162,9 +197,15 @@ const pageSize = (limit: string | undefined): number =>
   Math.max(1, Math.min(MAX_PAGE_SIZE, limit === undefined ? DEFAULT_PAGE_SIZE : Number(limit)))
 
 const identifier = <Id>(
-  schema: { readonly decode: (input: unknown) => { readonly _tag: 'Ok'; readonly value: Id } | { readonly _tag: 'Err' } },
+  schema: {
+    readonly decode: (
+      input: unknown,
+    ) => { readonly _tag: 'Ok'; readonly value: Id } | { readonly _tag: 'Err' }
+  },
   raw: string,
 ): T.Task<Id, Invalid> => {
   const decoded = schema.decode(raw)
-  return decoded._tag === 'Ok' ? T.succeed(decoded.value) : T.fail(Invalid({ message: 'That identifier is not valid.' }))
+  return decoded._tag === 'Ok'
+    ? T.succeed(decoded.value)
+    : T.fail(Invalid({ message: 'That identifier is not valid.' }))
 }

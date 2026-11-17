@@ -14,13 +14,17 @@ export const callerOf = (request: HttpRequest): T.Task<Caller | null, Unauthoriz
     const session = sessionToken(request)
     if (session === null) return null
     if (isStateChanging(request.method) && !(yield* cameFromOurOwnPage(request)))
-      return yield* T.fail(Forbidden({ message: 'This request did not come from the Homingbird web client.' }))
+      return yield* T.fail(
+        Forbidden({ message: 'This request did not come from the Homingbird web client.' }),
+      )
     return yield* authenticate(session)
   })
 
 export const bearerCallerOf = (request: HttpRequest): T.Task<Caller, Unauthorized, AppEnv> => {
   const bearer = bearerToken(request)
-  return bearer === null ? T.fail(Unauthorized({ message: 'A bearer token is required.' })) : authenticate(bearer)
+  return bearer === null
+    ? T.fail(Unauthorized({ message: 'A bearer token is required.' }))
+    : authenticate(bearer)
 }
 
 export const sessionToken = (request: HttpRequest): string | null => cookies(request)[SESSION_COOKIE] ?? null

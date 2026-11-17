@@ -2,7 +2,12 @@ import mysql from 'mysql2/promise'
 import type { Connection, Database, Row } from './database.ts'
 
 export const openMysql = (url: string): Database => {
-  const pool = mysql.createPool({ uri: url, connectionLimit: 10, charset: 'utf8mb4', supportBigNumbers: true })
+  const pool = mysql.createPool({
+    uri: url,
+    connectionLimit: 10,
+    charset: 'utf8mb4',
+    supportBigNumbers: true,
+  })
   const over = (client: mysql.Pool | mysql.PoolConnection): Connection => ({
     dialect: 'mysql',
     all: async (query) => (await client.query(query.text, [...query.params]))[0] as Row[],

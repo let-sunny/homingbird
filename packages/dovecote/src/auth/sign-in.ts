@@ -44,7 +44,9 @@ export const completeSignIn = (
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
     const request = yield* authRequestById<SignInDetail>('sign_in', parameters.state ?? '')
-    const consumed = request !== null && (yield* advanceAuthRequest(request.id, { status: 'consumed', expectedStatus: 'pending' }))
+    const consumed =
+      request !== null &&
+      (yield* advanceAuthRequest(request.id, { status: 'consumed', expectedStatus: 'pending' }))
     if (request === null || !consumed || !parameters.code)
       return yield* T.fail(SignInRefused({ message: 'This sign-in attempt expired. Please start again.' }))
     const identity = yield* T.mapError(refuse)(
@@ -58,7 +60,9 @@ export const completeSignIn = (
     yield* requireAllowed(identity)
     const member = yield* signInMember(identity)
     if (member.status !== 'active')
-      return yield* T.fail(SignInRefused({ message: 'Your account has been deactivated by an administrator.' }))
+      return yield* T.fail(
+        SignInRefused({ message: 'Your account has been deactivated by an administrator.' }),
+      )
     const issued = yield* issueCredential({
       memberId: member.id,
       kind: 'human',
@@ -68,7 +72,12 @@ export const completeSignIn = (
       refreshable: false,
     })
     const caller = { member, credential: { id: issued.credentialId, kind: 'human' as const, name: 'Web' } }
-    yield* recordAudit({ caller, action: 'session.signed_in', target: member.id, detail: { email: member.email } })
+    yield* recordAudit({
+      caller,
+      action: 'session.signed_in',
+      target: member.id,
+      detail: { email: member.email },
+    })
     return { token: issued.token, expiresAt: issued.tokenExpiresAt, returnTo: request.detail.returnTo }
   })
 
@@ -107,7 +116,8 @@ const PLATFORMS: ReadonlyArray<readonly [RegExp, string]> = [
   [/Linux/, 'Linux'],
 ]
 
-const refuse = (error: { readonly message: string }): SignInRefused => SignInRefused({ message: error.message })
+const refuse = (error: { readonly message: string }): SignInRefused =>
+  SignInRefused({ message: error.message })
 
 const requireAllowed = (identity: VerifiedIdentity): T.Task<void, SignInRefused, AppEnv> =>
   T.gen(function* () {
@@ -115,9 +125,15 @@ const requireAllowed = (identity: VerifiedIdentity): T.Task<void, SignInRefused,
     const settings = yield* readSettings
     const domain = identity.email.toLowerCase().split('@').at(-1) ?? ''
     if (!identity.emailVerified)
-      return yield* T.fail(SignInRefused({ message: 'Your email address has not been verified by the identity provider.' }))
+      return yield* T.fail(
+        SignInRefused({ message: 'Your email address has not been verified by the identity provider.' }),
+      )
     if (!isAllowedEmail(settings, identity.email))
-      return yield* T.fail(SignInRefused({ message: `Accounts from ${domain || 'this domain'} are not allowed here.` }))
+      return yield* T.fail(
+        SignInRefused({ message: `Accounts from ${domain || 'this domain'} are not allowed here.` }),
+      )
     if (env.identityProvider.requiresHostedDomain && identity.hostedDomain !== domain)
-      return yield* T.fail(SignInRefused({ message: 'Sign in with your organization account, not a personal one.' }))
+      return yield* T.fail(
+        SignInRefused({ message: 'Sign in with your organization account, not a personal one.' }),
+      )
   })

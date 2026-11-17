@@ -27,7 +27,10 @@ export type OAuthErrorCode =
   | 'access_denied'
   | 'expired_token'
 
-export const OAuthError = tagged('OAuthError')<{ readonly code: OAuthErrorCode; readonly description: string }>()
+export const OAuthError = tagged('OAuthError')<{
+  readonly code: OAuthErrorCode
+  readonly description: string
+}>()
 export type OAuthError = ReturnType<typeof OAuthError>
 
 export interface TokenResponse {
@@ -44,8 +47,6 @@ export const APPROVAL_SCOPE = 'approve'
 export const DEVICE_CODE_LIFETIME_SECONDS = 600
 export const DEVICE_POLL_INTERVAL_SECONDS = 5
 
-// -- Dynamic client registration ------------------------------------------------------------------
-
 export interface RegisteredClient {
   readonly client_id: string
   readonly client_name: string
@@ -60,7 +61,10 @@ export const registerClient = (
     const env = yield* T.ask<AppEnv>()
     if (redirectUris.length === 0 || redirectUris.length > 10 || !redirectUris.every(isAcceptableRedirectUri))
       return yield* T.fail(
-        OAuthError({ code: 'invalid_redirect_uri', description: 'redirect_uris must be https, loopback http, or an app scheme' }),
+        OAuthError({
+          code: 'invalid_redirect_uri',
+          description: 'redirect_uris must be https, loopback http, or an app scheme',
+        }),
       )
     const client: RegisteredClient = {
       client_id: `client_${env.random.identifier()}`,
@@ -78,8 +82,6 @@ export const registerClient = (
     return client
   })
 
-// -- Authorization code with PKCE -----------------------------------------------------------------
-
 export interface AuthorizationParameters {
   readonly response_type?: string
   readonly client_id?: string
@@ -96,10 +98,15 @@ export const beginAuthorization = (
     const client = yield* clientById(parameters.client_id ?? '')
     const redirectUri = parameters.redirect_uri ?? ''
     if (!client.redirect_uris.includes(redirectUri))
-      return yield* T.fail(OAuthError({ code: 'invalid_redirect_uri', description: 'redirect_uri is not registered' }))
+      return yield* T.fail(
+        OAuthError({ code: 'invalid_redirect_uri', description: 'redirect_uri is not registered' }),
+      )
     if (parameters.response_type !== 'code')
       return yield* T.fail(OAuthError({ code: 'invalid_request', description: 'response_type must be code' }))
-    if (parameters.code_challenge_method !== 'S256' || !/^[A-Za-z0-9_-]{43}$/.test(parameters.code_challenge ?? ''))
+    if (
+      parameters.code_challenge_method !== 'S256' ||
+      !/^[A-Za-z0-9_-]{43}$/.test(parameters.code_challenge ?? '')
+    )
       return yield* T.fail(OAuthError({ code: 'invalid_request', description: 'PKCE with S256 is required' }))
     const opened = yield* openAuthRequest<AuthorizeDetail>({
       kind: 'authorize',
@@ -150,7 +157,12 @@ export const decideConsent = (
       detail: { ...request.detail, credentialName: decision.name ?? clientName },
     })
     if (!advanced) return yield* T.fail(Conflict({ message: 'This request was already decided.' }))
-    yield* recordAudit({ caller, action: 'oauth.consent.approved', target: request.detail.clientId, detail: { clientName } })
+    yield* recordAudit({
+      caller,
+      action: 'oauth.consent.approved',
+      target: request.detail.clientId,
+      detail: { clientName },
+    })
     return { redirectTo: redirectWith(redirectUri, { code, state, iss: env.config.publicUrl }) }
   })
 
@@ -161,11 +173,16 @@ export interface CodeExchange {
   readonly redirect_uri?: string
 }
 
-export const exchangeAuthorizationCode = (exchange: CodeExchange): T.Task<TokenResponse, OAuthError, RequestEnv> =>
+export const exchangeAuthorizationCode = (
+  exchange: CodeExchange,
+): T.Task<TokenResponse, OAuthError, RequestEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
     const request = yield* authRequestBySecret<AuthorizeDetail>('authorize', exchange.code ?? '')
-    const invalid = OAuthError({ code: 'invalid_grant', description: 'The authorization code is invalid or expired.' })
+    const invalid = OAuthError({
+      code: 'invalid_grant',
+      description: 'The authorization code is invalid or expired.',
+    })
     if (request === null || request.memberId === null) return yield* T.fail(invalid)
     const matches =
       request.detail.clientId === exchange.client_id &&
@@ -185,7 +202,12 @@ export const exchangeAuthorizationCode = (exchange: CodeExchange): T.Task<TokenR
       caller: null,
       action: 'credential.issued',
       target: issued.credentialId,
-      detail: { memberId: request.memberId, kind: 'agent', client: request.detail.clientName, grant: 'authorization_code' },
+      detail: {
+        memberId: request.memberId,
+        kind: 'agent',
+        client: request.detail.clientName,
+        grant: 'authorization_code',
+      },
     })
     return tokenResponse(issued, env.clock.now(), AGENT_SCOPE)
   })
@@ -200,8 +222,6 @@ export const exchangeRefreshToken = (refreshToken: string): T.Task<TokenResponse
   })
 
 export const revokeToken = revokeByToken
-
-// -- Device authorization -------------------------------------------------------------------------
 
 export interface DeviceAuthorization {
   readonly device_code: string
@@ -282,17 +302,28 @@ export const exchangeDeviceCode = (deviceCode: string): T.Task<TokenResponse, OA
     const env = yield* T.ask<RequestEnv>()
     const request = yield* authRequestBySecret<DeviceDetail>('device', deviceCode)
     if (request === null)
-      return yield* T.fail(OAuthError({ code: 'expired_token', description: 'The device code is unknown or expired.' }))
+      return yield* T.fail(
+        OAuthError({ code: 'expired_token', description: 'The device code is unknown or expired.' }),
+      )
     if (request.status === 'pending')
-      return yield* T.fail(OAuthError({ code: 'authorization_pending', description: 'Waiting for approval.' }))
+      return yield* T.fail(
+        OAuthError({ code: 'authorization_pending', description: 'Waiting for approval.' }),
+      )
     if (request.status === 'denied')
       return yield* T.fail(OAuthError({ code: 'access_denied', description: 'The request was denied.' }))
     const consumed = yield* advanceAuthRequest(request.id, { status: 'consumed', expectedStatus: 'approved' })
     if (!consumed || request.memberId === null)
-      return yield* T.fail(OAuthError({ code: 'invalid_grant', description: 'The device code was already used.' }))
+      return yield* T.fail(
+        OAuthError({ code: 'invalid_grant', description: 'The device code was already used.' }),
+      )
     const name = request.detail.credentialName ?? request.detail.client
     const lifetimeMs = env.config.agentCredentialDays * DAY_MS
-    const shared = { memberId: request.memberId, client: request.detail.client, lifetimeMs, refreshable: false }
+    const shared = {
+      memberId: request.memberId,
+      client: request.detail.client,
+      lifetimeMs,
+      refreshable: false,
+    }
     const agent = yield* issueCredential({ ...shared, kind: 'agent', name })
     const approver = request.detail.allowApproval
       ? yield* issueCredential({ ...shared, kind: 'human', name: `${name} (approve button)` })
@@ -311,10 +342,19 @@ export const exchangeDeviceCode = (deviceCode: string): T.Task<TokenResponse, OA
           },
         })
     const scope = approver === null ? AGENT_SCOPE : `${AGENT_SCOPE} ${APPROVAL_SCOPE}`
-    return { ...tokenResponse(agent, env.clock.now(), scope), ...(approver && { approval_token: approver.token }) }
+    return {
+      ...tokenResponse(agent, env.clock.now(), scope),
+      ...(approver && { approval_token: approver.token }),
+    }
   })
 
-// -- Internals ------------------------------------------------------------------------------------
+export const isAcceptableRedirectUri = (uri: string): boolean => {
+  if (!URL.canParse(uri) || uri.includes('#')) return false
+  const { protocol, hostname } = new URL(uri)
+  if (protocol === 'https:') return true
+  if (protocol === 'http:') return ['localhost', '127.0.0.1', '[::1]'].includes(hostname)
+  return !FORBIDDEN_REDIRECT_SCHEMES.has(protocol)
+}
 
 interface AuthorizeDetail {
   readonly clientId: string
@@ -332,6 +372,8 @@ interface DeviceDetail {
   readonly credentialName: string | null
 }
 
+const FORBIDDEN_REDIRECT_SCHEMES = new Set(['javascript:', 'data:', 'file:', 'vbscript:', 'blob:', 'about:'])
+
 const CONSENT_LIFETIME_MS = 10 * 60_000
 const DAY_MS = 24 * 60 * 60_000
 
@@ -340,15 +382,22 @@ const clientById = (id: string): T.Task<RegisteredClient, OAuthError, AppEnv> =>
     const row = yield* first<{ id: string; name: string; redirect_uris: string }>(
       sql`SELECT * FROM oauth_clients WHERE id = ${id}`,
     )
-    if (row === null) return yield* T.fail(OAuthError({ code: 'invalid_client', description: 'Unknown client_id.' }))
-    return { client_id: row.id, client_name: row.name, redirect_uris: JSON.parse(row.redirect_uris) as string[] }
+    if (row === null)
+      return yield* T.fail(OAuthError({ code: 'invalid_client', description: 'Unknown client_id.' }))
+    return {
+      client_id: row.id,
+      client_name: row.name,
+      redirect_uris: JSON.parse(row.redirect_uris) as string[],
+    }
   })
 
 const pendingConsent = (id: string): T.Task<AuthRequest<AuthorizeDetail>, NotFound, AppEnv> =>
   T.gen(function* () {
     const request = yield* authRequestById<AuthorizeDetail>('authorize', id)
     if (request === null || request.status !== 'pending')
-      return yield* T.fail(NotFound({ message: 'This authorization request is unknown, expired or already decided.' }))
+      return yield* T.fail(
+        NotFound({ message: 'This authorization request is unknown, expired or already decided.' }),
+      )
     return request
   })
 
@@ -370,16 +419,6 @@ const tokenResponse = (issued: Issued, now: number, scope: string): TokenRespons
 
 const challengeOf = (verifier: string): string => createHash('sha256').update(verifier).digest('base64url')
 
-const FORBIDDEN_REDIRECT_SCHEMES = new Set(['javascript:', 'data:', 'file:', 'vbscript:', 'blob:', 'about:'])
-
-export const isAcceptableRedirectUri = (uri: string): boolean => {
-  if (!URL.canParse(uri) || uri.includes('#')) return false
-  const { protocol, hostname } = new URL(uri)
-  if (protocol === 'https:') return true
-  if (protocol === 'http:') return ['localhost', '127.0.0.1', '[::1]'].includes(hostname)
-  return !FORBIDDEN_REDIRECT_SCHEMES.has(protocol)
-}
-
 const hostOf = (uri: string): string => {
   const url = new URL(uri)
   return url.host || url.protocol
@@ -387,6 +426,7 @@ const hostOf = (uri: string): string => {
 
 const redirectWith = (uri: string, parameters: Readonly<Record<string, string | null>>): string => {
   const url = new URL(uri)
-  for (const [name, value] of Object.entries(parameters)) if (value !== null) url.searchParams.set(name, value)
+  for (const [name, value] of Object.entries(parameters))
+    if (value !== null) url.searchParams.set(name, value)
   return url.toString()
 }

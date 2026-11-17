@@ -1,8 +1,18 @@
 {
   "name": "@homingbird/cli",
   "version": "0.1.0",
+  "description": "The homingbird command line: sign in, read, draft, and stream notes.",
   "license": "MIT",
   "type": "module",
+  "bin": { "homingbird": "./dist/homingbird.js" },
   "exports": { ".": "./src/index.ts" },
-  "dependencies": { "@homingbird/kernel": "workspace:*","@homingbird/protocol": "workspace:*","@homingbird/client": "workspace:*" }
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsx build.ts"
+  },
+  "dependencies": {
+    "@homingbird/client": "workspace:*",
+    "@homingbird/kernel": "workspace:*",
+    "@homingbird/protocol": "workspace:*"
+  }
 }

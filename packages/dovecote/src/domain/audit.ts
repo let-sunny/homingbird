@@ -47,7 +47,9 @@ export interface AuditFilter {
   readonly action?: string
 }
 
-export const listAudit = (filter: AuditFilter): T.Task<{ entries: AuditEntry[]; hasMore: boolean }, never, AppEnv> =>
+export const listAudit = (
+  filter: AuditFilter,
+): T.Task<{ entries: AuditEntry[]; hasMore: boolean }, never, AppEnv> =>
   T.gen(function* () {
     const byActor = filter.actorId === undefined ? sql`` : sql`AND actor_id = ${filter.actorId}`
     const byAction = filter.action === undefined ? sql`` : sql`AND action = ${filter.action}`

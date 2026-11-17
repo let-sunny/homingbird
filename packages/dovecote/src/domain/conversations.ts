@@ -29,7 +29,10 @@ export const listConversations = (viewerId: MemberId): T.Task<Conversation[], ne
     return yield* T.forEach(rows, (row) => describeConversation(viewerId, row))
   })
 
-export const conversationFor = (viewerId: MemberId, id: ConversationId): T.Task<Conversation, NotFound, AppEnv> =>
+export const conversationFor = (
+  viewerId: MemberId,
+  id: ConversationId,
+): T.Task<Conversation, NotFound, AppEnv> =>
   T.gen(function* () {
     const row = yield* participatedConversation(viewerId, id)
     return yield* describeConversation(viewerId, row)
@@ -59,10 +62,14 @@ export const directConversationWith = (
   T.gen(function* () {
     yield* requireMayMessage(viewerId, [otherId])
     const pairKey = [viewerId, otherId].sort().join(':')
-    const existing = yield* first<ConversationRow>(sql`SELECT * FROM conversations WHERE pair_key = ${pairKey}`)
+    const existing = yield* first<ConversationRow>(
+      sql`SELECT * FROM conversations WHERE pair_key = ${pairKey}`,
+    )
     if (existing !== null) return existing
     const created = yield* insertConversation('dm', null, pairKey, [viewerId, otherId])
-    return (yield* first<ConversationRow>(sql`SELECT * FROM conversations WHERE pair_key = ${pairKey}`)) ?? created
+    return (
+      (yield* first<ConversationRow>(sql`SELECT * FROM conversations WHERE pair_key = ${pairKey}`)) ?? created
+    )
   })
 
 export const createGroupConversation = (
@@ -72,7 +79,8 @@ export const createGroupConversation = (
 ): T.Task<Conversation, Forbidden | NotFound | Invalid, AppEnv> =>
   T.gen(function* () {
     const others = [...new Set(otherIds)].filter((id) => id !== viewerId)
-    if (others.length === 0) return yield* T.fail(Invalid({ message: 'A conversation needs someone else in it.' }))
+    if (others.length === 0)
+      return yield* T.fail(Invalid({ message: 'A conversation needs someone else in it.' }))
     if (others.length === 1)
       return yield* describeConversation(viewerId, yield* directConversationWith(viewerId, others[0]!))
     yield* requireMayMessage(viewerId, others)
@@ -106,7 +114,10 @@ export interface ConversationRow {
 
 const CONVERSATION_LIMIT = 200
 
-const describeConversation = (viewerId: MemberId, row: ConversationRow): T.Task<Conversation, never, AppEnv> =>
+const describeConversation = (
+  viewerId: MemberId,
+  row: ConversationRow,
+): T.Task<Conversation, never, AppEnv> =>
   T.gen(function* () {
     const participantIds = yield* participantsOf(row.id)
     const lastRow = yield* first<NoteRow>(
@@ -148,7 +159,9 @@ const insertConversation = (
       created_at: now,
       last_activity_at: now,
     }
-    const inserted = yield* run(insertIgnoringConflict(yield* dialect, 'conversations', { ...row, pair_key: pairKey }))
+    const inserted = yield* run(
+      insertIgnoringConflict(yield* dialect, 'conversations', { ...row, pair_key: pairKey }),
+    )
     if (inserted === 0) return row
     for (const memberId of participantIds)
       yield* run(insertInto('participants', { conversation_id: row.id, member_id: memberId }))

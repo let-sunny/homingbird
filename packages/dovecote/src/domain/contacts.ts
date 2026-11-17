@@ -1,5 +1,12 @@
 import { Task as T } from '@homingbird/kernel'
-import { Conflict, type Contact, type ContactState, Forbidden, type MemberId, NotFound } from '@homingbird/protocol'
+import {
+  Conflict,
+  type Contact,
+  type ContactState,
+  Forbidden,
+  type MemberId,
+  NotFound,
+} from '@homingbird/protocol'
 import type { AppEnv } from '../environment.ts'
 import { type RequestEnv, emit } from '../events/events.ts'
 import { all, dialect, first, run } from '../sql/database.ts'
@@ -24,8 +31,12 @@ export const tiesOf = (viewerId: MemberId): T.Task<Ties, never, AppEnv> =>
     return {
       contacts: new Map(contactRows.map((row) => [otherOf(row), stateFor(viewerId, row)])),
       since: new Map(contactRows.map((row) => [otherOf(row), row.created_at])),
-      blockedByViewer: new Set(blockRows.filter((row) => row.blocker_id === viewerId).map((row) => row.blocked_id)),
-      blockingViewer: new Set(blockRows.filter((row) => row.blocked_id === viewerId).map((row) => row.blocker_id)),
+      blockedByViewer: new Set(
+        blockRows.filter((row) => row.blocker_id === viewerId).map((row) => row.blocked_id),
+      ),
+      blockingViewer: new Set(
+        blockRows.filter((row) => row.blocked_id === viewerId).map((row) => row.blocker_id),
+      ),
     }
   })
 
@@ -33,7 +44,11 @@ export const listContacts = (
   viewerId: MemberId,
 ): T.Task<{ contacts: Contact[]; blocked: MemberId[] }, never, AppEnv> =>
   T.map((ties: Ties) => ({
-    contacts: [...ties.contacts].map(([memberId, state]) => ({ memberId, state, since: ties.since.get(memberId)! })),
+    contacts: [...ties.contacts].map(([memberId, state]) => ({
+      memberId,
+      state,
+      since: ties.since.get(memberId)!,
+    })),
     blocked: [...ties.blockedByViewer],
   }))(tiesOf(viewerId))
 
@@ -43,9 +58,11 @@ export const requestContact = (
 ): T.Task<Contact, NotFound | Forbidden | Conflict, RequestEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
-    if (otherId === viewerId) return yield* T.fail(Conflict({ message: 'You cannot add yourself as a contact.' }))
+    if (otherId === viewerId)
+      return yield* T.fail(Conflict({ message: 'You cannot add yourself as a contact.' }))
     const other = yield* first<{ status: string }>(sql`SELECT status FROM members WHERE id = ${otherId}`)
-    if (other === null || other.status !== 'active') return yield* T.fail(NotFound({ message: 'No such member.' }))
+    if (other === null || other.status !== 'active')
+      return yield* T.fail(NotFound({ message: 'No such member.' }))
     const ties = yield* tiesOf(viewerId)
     if (ties.blockedByViewer.has(otherId) || ties.blockingViewer.has(otherId))
       return yield* T.fail(Forbidden({ message: 'You cannot send a contact request to this member.' }))
@@ -54,7 +71,15 @@ export const requestContact = (
     if (existing !== undefined) return { memberId: otherId, state: existing, since: ties.since.get(otherId)! }
     const [low, high] = ordered(viewerId, otherId)
     const now = env.clock.now()
-    yield* run(insertInto('contacts', { low_id: low, high_id: high, requested_by: viewerId, status: 'pending', created_at: now }))
+    yield* run(
+      insertInto('contacts', {
+        low_id: low,
+        high_id: high,
+        requested_by: viewerId,
+        status: 'pending',
+        created_at: now,
+      }),
+    )
     yield* emit([viewerId], { type: 'contact.changed', memberId: otherId })
     yield* emit([otherId], { type: 'contact.changed', memberId: viewerId })
     return { memberId: otherId, state: 'request_sent', since: now }
@@ -66,7 +91,9 @@ export const acceptContact = (viewerId: MemberId, otherId: MemberId): T.Task<Con
     const changed = yield* run(
       sql`UPDATE contacts SET status = 'accepted' WHERE low_id = ${low} AND high_id = ${high} AND requested_by = ${otherId}`,
     )
-    const row = yield* first<ContactRow>(sql`SELECT * FROM contacts WHERE low_id = ${low} AND high_id = ${high}`)
+    const row = yield* first<ContactRow>(
+      sql`SELECT * FROM contacts WHERE low_id = ${low} AND high_id = ${high}`,
+    )
     if (row === null || row.status !== 'accepted')
       return yield* T.fail(NotFound({ message: 'There is no contact request from this member.' }))
     if (changed > 0) {

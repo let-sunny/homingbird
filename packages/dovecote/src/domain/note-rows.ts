@@ -43,13 +43,19 @@ export const hydrateNotes = (rows: ReadonlyArray<NoteRow>): T.Task<Note[], never
       sql`SELECT in_reply_to, author_id, MIN(created_at) AS started_at FROM notes
           WHERE status = 'draft' AND in_reply_to IN ${list(sentIds)} GROUP BY in_reply_to, author_id`,
     )
-    const draftStartedAt = new Map(replyDrafts.map((row) => [`${row.in_reply_to}:${row.author_id}`, Number(row.started_at)]))
+    const draftStartedAt = new Map(
+      replyDrafts.map((row) => [`${row.in_reply_to}:${row.author_id}`, Number(row.started_at)]),
+    )
     const receiptsByNote = Map.groupBy(receiptRows, (row) => row.note_id)
     return rows.map((row) =>
       toNote(
         row,
         (receiptsByNote.get(row.id) ?? []).map((receipt) =>
-          toReceipt(receipt, draftStartedAt.get(`${receipt.note_id}:${receipt.member_id}`) ?? null, env.clock.now()),
+          toReceipt(
+            receipt,
+            draftStartedAt.get(`${receipt.note_id}:${receipt.member_id}`) ?? null,
+            env.clock.now(),
+          ),
         ),
       ),
     )

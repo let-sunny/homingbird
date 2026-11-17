@@ -50,7 +50,7 @@ const serve = async (
   const body = await readBody(incoming)
   if (body === null) return void outgoing.writeHead(413).end()
   const exit = await T.run(
-    handleRequest(toRequest(incoming, body, connection.signal)),
+    handleRequest(toRequest(incoming, body, connection.signal, env.config.trustProxy)),
     env,
     connection.signal,
   )
@@ -70,7 +70,7 @@ const serveWebSocket = async (
   open: Set<AbortController>,
 ): Promise<void> => {
   const connection = new AbortController()
-  const request = toRequest(incoming, '', connection.signal)
+  const request = toRequest(incoming, '', connection.signal, env.config.trustProxy)
   const clientKey = request.headers['sec-websocket-key']
   const fromOurOrigin =
     request.headers.origin === undefined || request.headers.origin === new URL(env.config.publicUrl).origin
@@ -114,7 +114,12 @@ const serveWebSocket = async (
   if (!socket.destroyed) socket.end(encodeFrame(OPCODE.close, Buffer.alloc(0)))
 }
 
-const toRequest = (incoming: IncomingMessage, body: string, disconnected: AbortSignal): HttpRequest => {
+const toRequest = (
+  incoming: IncomingMessage,
+  body: string,
+  disconnected: AbortSignal,
+  trustProxy: boolean,
+): HttpRequest => {
   const url = new URL(incoming.url ?? '/', 'http://dovecote.invalid')
   return {
     method: incoming.method ?? 'GET',
@@ -127,9 +132,18 @@ const toRequest = (incoming: IncomingMessage, body: string, disconnected: AbortS
       ]),
     ),
     body,
-    remoteAddress: incoming.socket.remoteAddress ?? 'unknown',
+    remoteAddress: remoteAddressOf(incoming, trustProxy),
     disconnected,
   }
+}
+
+const remoteAddressOf = (incoming: IncomingMessage, trustProxy: boolean): string => {
+  const forwarded = trustProxy
+    ? String(incoming.headers['x-forwarded-for'] ?? '')
+        .split(',')[0]
+        ?.trim()
+    : ''
+  return forwarded || (incoming.socket.remoteAddress ?? 'unknown')
 }
 
 const readBody = async (incoming: IncomingMessage): Promise<string | null> => {

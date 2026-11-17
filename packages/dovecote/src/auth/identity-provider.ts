@@ -35,7 +35,11 @@ export type IdentityError = ReturnType<typeof IdentityError>
 
 export type Fetch = (url: string, init?: RequestInit) => Promise<Response>
 
-export const openIdConnectProvider = (identity: Config['identity'], fetch: Fetch, now: () => number): IdentityProvider => {
+export const openIdConnectProvider = (
+  identity: Config['identity'],
+  fetch: Fetch,
+  now: () => number,
+): IdentityProvider => {
   let discovered: Discovery | null = null
   const discover: T.Task<Discovery, IdentityError> = T.suspend(() =>
     discovered !== null
@@ -78,7 +82,10 @@ export const openIdConnectProvider = (identity: Config['identity'], fetch: Fetch
             code_verifier: request.codeVerifier,
           }).toString(),
         })
-        const keys = yield* fetchJson<{ keys: ReadonlyArray<JsonWebKey & { kid?: string }> }>(fetch, discovery.jwks_uri)
+        const keys = yield* fetchJson<{ keys: ReadonlyArray<JsonWebKey & { kid?: string }> }>(
+          fetch,
+          discovery.jwks_uri,
+        )
         const claims = yield* T.fromResult(
           verifyIdToken(tokens.id_token ?? '', keys.keys, {
             issuer: discovery.issuer,
@@ -105,9 +112,18 @@ export const developmentProvider = (publicUrl: string): IdentityProvider => ({
   identify: (request) =>
     T.attempt(
       () => {
-        const { email, name } = JSON.parse(Buffer.from(request.code, 'base64url').toString('utf8')) as Record<string, string>
+        const { email, name } = JSON.parse(Buffer.from(request.code, 'base64url').toString('utf8')) as Record<
+          string,
+          string
+        >
         if (!email || !/^[^@\s]+@[^@\s]+$/.test(email)) throw new Error('missing email')
-        return { subject: `dev|${email.toLowerCase()}`, email, emailVerified: true, name: name || email, hostedDomain: null }
+        return {
+          subject: `dev|${email.toLowerCase()}`,
+          email,
+          emailVerified: true,
+          name: name || email,
+          hostedDomain: null,
+        }
       },
       () => IdentityError({ message: 'The development login form was not filled in correctly.' }),
     ),
@@ -128,10 +144,14 @@ export const verifyIdToken = (
   Result.attempt(() => {
     const [headerPart, payloadPart, signaturePart] = token.split('.')
     if (!headerPart || !payloadPart || !signaturePart) throw new Error('The ID token is malformed.')
-    const header = JSON.parse(Buffer.from(headerPart, 'base64url').toString('utf8')) as { alg?: string; kid?: string }
+    const header = JSON.parse(Buffer.from(headerPart, 'base64url').toString('utf8')) as {
+      alg?: string
+      kid?: string
+    }
     const algorithm = SIGNATURE_ALGORITHMS[header.alg ?? '']
     if (algorithm === undefined) throw new Error('The ID token uses an unsupported signature algorithm.')
-    const key = keys.find((candidate) => candidate.kid === header.kid) ?? (keys.length === 1 ? keys[0] : undefined)
+    const key =
+      keys.find((candidate) => candidate.kid === header.kid) ?? (keys.length === 1 ? keys[0] : undefined)
     if (key === undefined) throw new Error('The ID token was signed with an unknown key.')
     const signed = verify(
       algorithm.digest,
@@ -140,10 +160,14 @@ export const verifyIdToken = (
       Buffer.from(signaturePart, 'base64url'),
     )
     if (!signed) throw new Error('The ID token signature is invalid.')
-    const claims = JSON.parse(Buffer.from(payloadPart, 'base64url').toString('utf8')) as Record<string, unknown>
+    const claims = JSON.parse(Buffer.from(payloadPart, 'base64url').toString('utf8')) as Record<
+      string,
+      unknown
+    >
     const audiences = Array.isArray(claims.aud) ? claims.aud : [claims.aud]
     if (claims.iss !== expected.issuer) throw new Error('The ID token came from an unexpected issuer.')
-    if (!audiences.includes(expected.audience)) throw new Error('The ID token was issued for another application.')
+    if (!audiences.includes(expected.audience))
+      throw new Error('The ID token was issued for another application.')
     if (claims.nonce !== expected.nonce) throw new Error('The ID token does not belong to this sign-in.')
     if (typeof claims.exp !== 'number' || claims.exp + CLOCK_SKEW_SECONDS < expected.nowSeconds)
       throw new Error('The ID token has expired.')
@@ -151,7 +175,8 @@ export const verifyIdToken = (
     return claims as Record<string, unknown> & { sub: string }
   }, toIdentityError)
 
-const toIdentityError = (cause: unknown): IdentityError => IdentityError({ message: (cause as Error).message })
+const toIdentityError = (cause: unknown): IdentityError =>
+  IdentityError({ message: (cause as Error).message })
 
 const GOOGLE_ISSUER = 'https://accounts.google.com'
 const CLOCK_SKEW_SECONDS = 60
@@ -175,5 +200,6 @@ const fetchJson = <A>(fetch: Fetch, url: string, init?: RequestInit): T.Task<A, 
       if (!response.ok) throw new Error(`${new URL(url).host} answered ${response.status}`)
       return (await response.json()) as A
     },
-    (cause) => IdentityError({ message: `The identity provider could not be reached: ${(cause as Error).message}` }),
+    (cause) =>
+      IdentityError({ message: `The identity provider could not be reached: ${(cause as Error).message}` }),
   )

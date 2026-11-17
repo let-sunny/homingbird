@@ -65,14 +65,21 @@ export const authenticate = (token: string): T.Task<Caller, Unauthorized, AppEnv
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
     const now = env.clock.now()
-    const row = yield* first<CredentialRow & MemberRow & { credential_id: CredentialId; credential_name: string }>(sql`
+    const row = yield* first<
+      CredentialRow & MemberRow & { credential_id: CredentialId; credential_name: string }
+    >(sql`
       SELECT m.*, c.id AS credential_id, c.name AS credential_name, c.kind, c.token_expires_at, c.expires_at,
              c.revoked_at, c.last_used_at
       FROM credentials c JOIN members m ON m.id = c.member_id
       WHERE c.token_hash = ${hashSecret(token)}`)
     const usable =
-      row !== null && row.revoked_at === null && row.expires_at > now && row.token_expires_at > now && row.status === 'active'
-    if (!usable) return yield* T.fail(Unauthorized({ message: 'This credential is missing, expired or revoked.' }))
+      row !== null &&
+      row.revoked_at === null &&
+      row.expires_at > now &&
+      row.token_expires_at > now &&
+      row.status === 'active'
+    if (!usable)
+      return yield* T.fail(Unauthorized({ message: 'This credential is missing, expired or revoked.' }))
     if (row.last_used_at === null || now - row.last_used_at > LAST_USED_RESOLUTION_MS)
       yield* run(sql`UPDATE credentials SET last_used_at = ${now} WHERE id = ${row.credential_id}`)
     return {
@@ -102,9 +109,14 @@ export const refreshCredential = (refreshToken: string): T.Task<Issued, Unauthor
     return issued
   })
 
-export const listCredentials = (memberId: MemberId, currentId: CredentialId): T.Task<Credential[], never, AppEnv> =>
+export const listCredentials = (
+  memberId: MemberId,
+  currentId: CredentialId,
+): T.Task<Credential[], never, AppEnv> =>
   T.map((rows: ReadonlyArray<CredentialRow>) => rows.map((row) => toCredential(row, currentId)))(
-    all<CredentialRow>(sql`SELECT * FROM credentials WHERE member_id = ${memberId} ORDER BY created_at DESC LIMIT 200`),
+    all<CredentialRow>(
+      sql`SELECT * FROM credentials WHERE member_id = ${memberId} ORDER BY created_at DESC LIMIT 200`,
+    ),
   )
 
 export const renameCredential = (
@@ -115,8 +127,12 @@ export const renameCredential = (
 ): T.Task<Credential, NotFound, AppEnv> =>
   T.gen(function* () {
     yield* run(sql`UPDATE credentials SET name = ${name} WHERE id = ${id} AND member_id = ${memberId}`)
-    const row = yield* first<CredentialRow>(sql`SELECT * FROM credentials WHERE id = ${id} AND member_id = ${memberId}`)
-    return row === null ? yield* T.fail(NotFound({ message: 'No such credential.' })) : toCredential(row, currentId)
+    const row = yield* first<CredentialRow>(
+      sql`SELECT * FROM credentials WHERE id = ${id} AND member_id = ${memberId}`,
+    )
+    return row === null
+      ? yield* T.fail(NotFound({ message: 'No such credential.' }))
+      : toCredential(row, currentId)
   })
 
 export const revokeCredential = (memberId: MemberId, id: CredentialId): T.Task<void, NotFound, AppEnv> =>
@@ -124,7 +140,9 @@ export const revokeCredential = (memberId: MemberId, id: CredentialId): T.Task<v
     const env = yield* T.ask<AppEnv>()
     const row = yield* first(sql`SELECT id FROM credentials WHERE id = ${id} AND member_id = ${memberId}`)
     if (row === null) return yield* T.fail(NotFound({ message: 'No such credential.' }))
-    yield* run(sql`UPDATE credentials SET revoked_at = ${env.clock.now()} WHERE id = ${id} AND revoked_at IS NULL`)
+    yield* run(
+      sql`UPDATE credentials SET revoked_at = ${env.clock.now()} WHERE id = ${id} AND revoked_at IS NULL`,
+    )
   })
 
 export const revokeByToken = (token: string): T.Task<void, never, AppEnv> =>

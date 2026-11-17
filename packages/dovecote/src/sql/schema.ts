@@ -5,13 +5,16 @@ import { raw, sql } from './query.ts'
 export const migrate: T.Task<void, never, HasSql> = T.gen(function* () {
   const target = yield* dialect
   yield* run(raw(createTable(target, VERSION_TABLE)))
-  const applied = new Set((yield* all<{ version: number }>(sql`SELECT version FROM schema_versions`)).map((r) => r.version))
+  const applied = new Set(
+    (yield* all<{ version: number }>(sql`SELECT version FROM schema_versions`)).map((r) => r.version),
+  )
   for (const [index, tables] of MIGRATIONS.entries()) {
     const version = index + 1
     if (applied.has(version)) continue
     yield* inTransaction(
       T.gen(function* () {
-        for (const statement of tables.flatMap((table) => statementsFor(target, table))) yield* run(raw(statement))
+        for (const statement of tables.flatMap((table) => statementsFor(target, table)))
+          yield* run(raw(statement))
         yield* run(sql`INSERT INTO schema_versions (version) VALUES (${version})`)
       }),
     )
@@ -40,7 +43,11 @@ const text: Column = { type: 'text' }
 const integer: Column = { type: 'integer' }
 const optionalInteger: Column = { type: 'integer', nullable: true }
 
-const VERSION_TABLE: Table = { name: 'schema_versions', columns: { version: integer }, primaryKey: ['version'] }
+const VERSION_TABLE: Table = {
+  name: 'schema_versions',
+  columns: { version: integer },
+  primaryKey: ['version'],
+}
 
 const INITIAL: ReadonlyArray<Table> = [
   {
@@ -58,7 +65,10 @@ const INITIAL: ReadonlyArray<Table> = [
       last_seen_at: optionalInteger,
     },
     primaryKey: ['id'],
-    indexes: [{ columns: ['email'], unique: true }, { columns: ['subject'], unique: true }],
+    indexes: [
+      { columns: ['email'], unique: true },
+      { columns: ['subject'], unique: true },
+    ],
   },
   { name: 'settings', columns: { name: string, value: text }, primaryKey: ['name'] },
   {
@@ -78,7 +88,11 @@ const INITIAL: ReadonlyArray<Table> = [
       revoked_at: optionalInteger,
     },
     primaryKey: ['id'],
-    indexes: [{ columns: ['token_hash'], unique: true }, { columns: ['refresh_hash'] }, { columns: ['member_id'] }],
+    indexes: [
+      { columns: ['token_hash'], unique: true },
+      { columns: ['refresh_hash'] },
+      { columns: ['member_id'] },
+    ],
   },
   {
     name: 'oauth_clients',
@@ -210,13 +224,16 @@ const statementsFor = (target: Dialect, table: Table): string[] =>
     : [createTable(target, table), ...(table.indexes ?? []).map((index) => createIndex(table, index))]
 
 const createTable = (target: Dialect, table: Table): string => {
-  const columns = Object.entries(table.columns).map(([name, column]) => columnDefinition(target, table, name, column))
+  const columns = Object.entries(table.columns).map(([name, column]) =>
+    columnDefinition(target, table, name, column),
+  )
   const serialKey = Object.values(table.columns).some((column) => column.type === 'serial')
   const primaryKey = serialKey ? [] : [`PRIMARY KEY (${table.primaryKey.join(', ')})`]
   const inlineIndexes =
     target === 'mysql'
       ? (table.indexes ?? []).map(
-          (index) => `${index.unique ? 'UNIQUE ' : ''}INDEX ${indexName(table, index.columns)} (${index.columns.join(', ')})`,
+          (index) =>
+            `${index.unique ? 'UNIQUE ' : ''}INDEX ${indexName(table, index.columns)} (${index.columns.join(', ')})`,
         )
       : []
   return `CREATE TABLE IF NOT EXISTS ${table.name} (${[...columns, ...primaryKey, ...inlineIndexes].join(', ')})`
@@ -225,7 +242,8 @@ const createTable = (target: Dialect, table: Table): string => {
 const createIndex = (table: Table, index: NonNullable<Table['indexes']>[number]): string =>
   `CREATE ${index.unique ? 'UNIQUE ' : ''}INDEX IF NOT EXISTS ${indexName(table, index.columns)} ON ${table.name} (${index.columns.join(', ')})`
 
-const indexName = (table: Table, columns: ReadonlyArray<string>): string => `${table.name}_${columns.join('_')}_idx`
+const indexName = (table: Table, columns: ReadonlyArray<string>): string =>
+  `${table.name}_${columns.join('_')}_idx`
 
 const columnDefinition = (target: Dialect, _table: Table, name: string, column: Column): string =>
   column.type === 'serial'

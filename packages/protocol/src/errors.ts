@@ -1,7 +1,3 @@
-/**
- * The failures an API call can report. Each is a tagged value on the server, a JSON body on the
- * wire, and the same tagged value again in the client.
- */
 import { Schema as S, tagged } from '@homingbird/kernel'
 
 export const Unauthorized = tagged('Unauthorized')<{ readonly message: string }>()
@@ -35,18 +31,27 @@ export const HTTP_STATUS: Readonly<Record<ApiErrorTag, number>> = {
 
 export const ErrorBody = S.struct({
   error: S.struct({
-    code: S.literal('Unauthorized', 'Forbidden', 'NotFound', 'Invalid', 'Conflict', 'RateLimited', 'Unavailable'),
+    code: S.literal(
+      'Unauthorized',
+      'Forbidden',
+      'NotFound',
+      'Invalid',
+      'Conflict',
+      'RateLimited',
+      'Unavailable',
+    ),
     message: S.string(),
   }),
 })
 export type ErrorBody = S.Infer<typeof ErrorBody>
 
-export const toErrorBody = (error: ApiError): ErrorBody => ({ error: { code: error._tag, message: error.message } })
+export const toErrorBody = (error: ApiError): ErrorBody => ({
+  error: { code: error._tag, message: error.message },
+})
 
 export const fromErrorBody = (body: ErrorBody): ApiError =>
   ({ _tag: body.error.code, message: body.error.message }) as ApiError
 
-/** The error for an HTTP status whose body was not an ErrorBody. */
 export const fromStatus = (status: number, message: string): ApiError => {
   const tag = (Object.entries(HTTP_STATUS).find(([, s]) => s === status)?.[0] ?? 'Unavailable') as ApiErrorTag
   return { _tag: tag, message } as ApiError

@@ -47,7 +47,8 @@ const signOut = (request: HttpRequest): T.Task<HttpResponse, never, AppEnv> =>
     if (token === null || request.headers[SAME_SITE_HEADER] !== '1') return noContent()
     const caller = yield* T.result(authenticate(token))
     yield* revokeByToken(token)
-    if (caller._tag === 'Ok') yield* transact(recordAudit({ caller: caller.value, action: 'session.signed_out' }))
+    if (caller._tag === 'Ok')
+      yield* transact(recordAudit({ caller: caller.value, action: 'session.signed_out' }))
     return noContent({ 'set-cookie': sessionCookie('', 0, env.config.publicUrl) })
   })
 

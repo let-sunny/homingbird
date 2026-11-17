@@ -32,11 +32,18 @@ export const emit = (recipients: Iterable<MemberId>, body: EventBody): T.Task<vo
     const at = env.clock.now()
     for (const memberId of new Set(recipients)) {
       yield* run(sql`UPDATE members SET event_seq = event_seq + 1 WHERE id = ${memberId}`)
-      const row = yield* first<{ event_seq: number }>(sql`SELECT event_seq FROM members WHERE id = ${memberId}`)
+      const row = yield* first<{ event_seq: number }>(
+        sql`SELECT event_seq FROM members WHERE id = ${memberId}`,
+      )
       if (row === null) continue
       const event: StreamEvent = { seq: row.event_seq, at, body }
       yield* run(
-        insertInto('events', { member_id: memberId, seq: event.seq, created_at: at, body: JSON.stringify(body) }),
+        insertInto('events', {
+          member_id: memberId,
+          seq: event.seq,
+          created_at: at,
+          body: JSON.stringify(body),
+        }),
       )
       env.outbox.push({ memberId, event })
     }
@@ -49,7 +56,9 @@ export const eventsAfter = (
 ): T.Task<{ readonly events: StreamEvent[]; readonly cursor: number }, never, AppEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
-    const member = yield* first<{ event_seq: number }>(sql`SELECT event_seq FROM members WHERE id = ${memberId}`)
+    const member = yield* first<{ event_seq: number }>(
+      sql`SELECT event_seq FROM members WHERE id = ${memberId}`,
+    )
     const latest = member?.event_seq ?? 0
     if (after >= latest) return { events: [], cursor: latest }
     const rows = yield* all<EventRow>(

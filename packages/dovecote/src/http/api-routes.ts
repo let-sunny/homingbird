@@ -24,7 +24,8 @@ export const handleApiRequest = (request: HttpRequest): T.Task<HttpResponse, nev
       const matched = routeFor(request)
       if (matched === null) return yield* T.fail(NotFound({ message: 'No such API route.' }))
       const body = parseJson(request.body)
-      if (body === INVALID_JSON) return yield* T.fail(Invalid({ message: 'The request body is not valid JSON.' }))
+      if (body === INVALID_JSON)
+        return yield* T.fail(Invalid({ message: 'The request body is not valid JSON.' }))
       const caller = yield* callerOf(request)
       yield* requireWithinLimits(matched.name, caller)
       return yield* invokeRaw(
@@ -49,7 +50,9 @@ export const routeFor = (
 
 const requireWithinLimits = (name: RouteName, caller: Caller | null): T.Task<void, RateLimited, AppEnv> =>
   T.flatMap((env: AppEnv) =>
-    name === 'drafts.create' && caller !== null && !env.rateLimiter.allow(`draft:${caller.credential.id}`, LIMITS.drafting)
+    name === 'drafts.create' &&
+    caller !== null &&
+    !env.rateLimiter.allow(`draft:${caller.credential.id}`, LIMITS.drafting)
       ? T.fail(RateLimited({ message: 'Too many drafts in a short time. Try again in a minute.' }))
       : T.unit,
   )(T.ask<AppEnv>())

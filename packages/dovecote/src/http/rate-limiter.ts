@@ -25,7 +25,7 @@ export const makeRateLimiter = (now: () => number): RateLimiter => {
 }
 
 export const LIMITS = {
-  signIn: { max: 30, windowMs: 60_000 },
+  signIn: { max: 300, windowMs: 60_000 },
   token: { max: 120, windowMs: 60_000 },
   registration: { max: 20, windowMs: 3_600_000 },
   deviceStart: { max: 30, windowMs: 3_600_000 },
@@ -36,5 +36,6 @@ const MAX_TRACKED_KEYS = 50_000
 const LONGEST_WINDOW_MS = 3_600_000
 
 const forgetExpired = (windows: Map<string, { startedAt: number }>, current: number): void => {
-  for (const [key, window] of windows) if (current - window.startedAt >= LONGEST_WINDOW_MS) windows.delete(key)
+  for (const [key, window] of windows)
+    if (current - window.startedAt >= LONGEST_WINDOW_MS) windows.delete(key)
 }

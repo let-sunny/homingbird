@@ -3,7 +3,11 @@ import type { CredentialKind, MemberId, Presence, StreamEvent } from '@homingbir
 
 export interface Hub {
   readonly publish: (memberId: MemberId, event: StreamEvent) => void
-  readonly subscribe: (memberId: MemberId, shownAs: CredentialKind | 'hidden', signal: AbortSignal) => Subscription<StreamEvent>
+  readonly subscribe: (
+    memberId: MemberId,
+    shownAs: CredentialKind | 'hidden',
+    signal: AbortSignal,
+  ) => Subscription<StreamEvent>
   readonly presenceOf: (memberId: MemberId) => Presence
 }
 
@@ -16,7 +20,11 @@ export const makeHub = (now: () => number): Hub => {
   }
 
   const announce = (memberId: MemberId): void => {
-    const event: StreamEvent = { seq: 0, at: now(), body: { type: 'presence', memberId, ...presenceOf(memberId) } }
+    const event: StreamEvent = {
+      seq: 0,
+      at: now(),
+      body: { type: 'presence', memberId, ...presenceOf(memberId) },
+    }
     for (const channel of channels.values()) channel.pubsub.publish(event)
   }
 
@@ -24,7 +32,10 @@ export const makeHub = (now: () => number): Hub => {
     presenceOf,
     publish: (memberId, event) => channels.get(memberId)?.pubsub.publish(event),
     subscribe: (memberId, shownAs, signal) => {
-      const channel = channels.get(memberId) ?? { pubsub: makePubSub<StreamEvent>(), connections: { human: 0, agent: 0, hidden: 0 } }
+      const channel = channels.get(memberId) ?? {
+        pubsub: makePubSub<StreamEvent>(),
+        connections: { human: 0, agent: 0, hidden: 0 },
+      }
       channels.set(memberId, channel)
       if (channel.connections[shownAs]++ === 0 && shownAs !== 'hidden') announce(memberId)
       const subscription = channel.pubsub.subscribe({ signal, capacity: SUBSCRIBER_BUFFER })
