@@ -13,8 +13,12 @@ const routes: fc.Arbitrary<Route> = fc.oneof(
   segment.map((id): Route => ({ name: 'consent', id })),
   fc.option(segment, { nil: null }).map((code): Route => ({ name: 'device', code })),
   fc.string({ maxLength: 40 }).map((query): Route => ({ name: 'search', query })),
-  fc.constantFrom<AdminSection>('settings', 'members', 'audit').map((section): Route => ({ name: 'admin', section })),
-  fc.option(fc.string({ maxLength: 60 }), { nil: null }).map((reason): Route => ({ name: 'signed-out', reason })),
+  fc
+    .constantFrom<AdminSection>('settings', 'members', 'audit')
+    .map((section): Route => ({ name: 'admin', section })),
+  fc
+    .option(fc.string({ maxLength: 60 }), { nil: null })
+    .map((reason): Route => ({ name: 'signed-out', reason })),
 )
 
 describe('routes', () => {

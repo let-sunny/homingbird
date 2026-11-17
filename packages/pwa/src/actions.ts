@@ -1,7 +1,16 @@
 import { eventStream, httpApi } from '@homingbird/client'
 import { type HasClock, Stream, Task as T, systemClock } from '@homingbird/kernel'
 import { STREAM_PATHS } from '@homingbird/protocol'
-import type { ApiError, Conversation, ConversationId, CredentialId, MemberId, Note, NoteId, Settings } from '@homingbird/protocol'
+import type {
+  ApiError,
+  Conversation,
+  ConversationId,
+  CredentialId,
+  MemberId,
+  Note,
+  NoteId,
+  Settings,
+} from '@homingbird/protocol'
 import { applyEvent } from './live.ts'
 import { hrefFor } from './routes.ts'
 import {
@@ -85,9 +94,9 @@ export const loadOlderNotes = (id: ConversationId): Action =>
   })
 
 export const sendNote = (conversationId: ConversationId, body: string): Action =>
-  T.ensuring(T.sync(() => sendingIn.update((sending) => new Set([...sending].filter((id) => id !== conversationId)))))(
-    deliverNote(conversationId, body),
-  )
+  T.ensuring(
+    T.sync(() => sendingIn.update((sending) => new Set([...sending].filter((id) => id !== conversationId)))),
+  )(deliverNote(conversationId, body))
 
 const deliverNote = (conversationId: ConversationId, body: string): Action =>
   T.gen(function* () {
@@ -123,11 +132,14 @@ export const discardDraft = (draft: Note): Action =>
     yield* loadConversations
   })
 
-export const markRead = (note: Note): Action => T.map(rememberNote)(api['notes.read']({ params: { id: note.id } }))
+export const markRead = (note: Note): Action =>
+  T.map(rememberNote)(api['notes.read']({ params: { id: note.id } }))
 
 export const openConversationWith = (memberId: MemberId): Action =>
   T.map((conversation: Conversation) => {
-    conversations.update((list) => (list.some((c) => c.id === conversation.id) ? list : [conversation, ...list]))
+    conversations.update((list) =>
+      list.some((c) => c.id === conversation.id) ? list : [conversation, ...list],
+    )
     location.hash = hrefFor({ name: 'conversation', id: conversation.id })
   })(api['conversations.create']({ body: { participantIds: [memberId] } }))
 
@@ -157,9 +169,11 @@ export const updateProfile = (name: string, profile: string): Action =>
 export const renameCredential = (id: CredentialId, name: string): Action =>
   T.asUnit(api['credentials.rename']({ params: { id }, body: { name } }))
 
-export const revokeCredential = (id: CredentialId): Action => T.asUnit(api['credentials.revoke']({ params: { id } }))
+export const revokeCredential = (id: CredentialId): Action =>
+  T.asUnit(api['credentials.revoke']({ params: { id } }))
 
-export const saveSettings = (settings: Settings): Action => T.asUnit(api['admin.settings.put']({ body: settings }))
+export const saveSettings = (settings: Settings): Action =>
+  T.asUnit(api['admin.settings.put']({ body: settings }))
 
 export const signOut: Action = T.map(() => location.assign('/'))(
   T.tryPromise(
@@ -180,14 +194,17 @@ export const rememberNote = (note: Note): void =>
   threads.update((all) => {
     const thread = all.get(note.conversationId)
     if (thread === undefined) return all
-    const notes = note.status === 'discarded' ? withoutNote(thread.notes, note.id) : upsertNote(thread.notes, note)
+    const notes =
+      note.status === 'discarded' ? withoutNote(thread.notes, note.id) : upsertNote(thread.notes, note)
     return new Map(all).set(note.conversationId, { ...thread, notes })
   })
 
 export const forgetNote = (conversationId: ConversationId, id: NoteId): void =>
   threads.update((all) => {
     const thread = all.get(conversationId)
-    return thread === undefined ? all : new Map(all).set(conversationId, { ...thread, notes: withoutNote(thread.notes, id) })
+    return thread === undefined
+      ? all
+      : new Map(all).set(conversationId, { ...thread, notes: withoutNote(thread.notes, id) })
   })
 
 const loadBranding: T.Task<Branding> = T.catchAll(() => T.succeed(branding.get()))(
@@ -223,7 +240,9 @@ const followEvents = (): void => {
   )
   globalThis.addEventListener('offline', () => connection.set('offline'))
   globalThis.addEventListener('online', () => connection.set('connecting'))
-  T.runFork(Stream.forEach((event: Parameters<typeof applyEvent>[0]) => T.sync(() => applyEvent(event)))(events))
+  T.runFork(
+    Stream.forEach((event: Parameters<typeof applyEvent>[0]) => T.sync(() => applyEvent(event)))(events),
+  )
 }
 
 const reportFailure = (error: ApiError): void => {

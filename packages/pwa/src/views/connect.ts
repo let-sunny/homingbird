@@ -41,7 +41,11 @@ export const consentView = (life: Lifetime, id: string): HTMLElement => {
       return loaded === null
         ? h('p', { class: 'loading' }, strings.loading)
         : consentDecision(loaded, (approved) =>
-            decided.set(approved ? strings.consentApproved(loaded.redirectHost) : strings.consentDenied(loaded.redirectHost)),
+            decided.set(
+              approved
+                ? strings.consentApproved(loaded.redirectHost)
+                : strings.consentDenied(loaded.redirectHost),
+            ),
           )
     }),
   )

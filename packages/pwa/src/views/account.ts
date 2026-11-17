@@ -59,13 +59,19 @@ export const profileView = (life: Lifetime, me: Me): HTMLElement => {
 const notificationsToggle = (life: Lifetime): HTMLElement => {
   const isOn = signal(false)
   if (!pushIsAvailable())
-    return h('fieldset', { class: 'appearance' }, h('legend', {}, strings.notifications), h('p', {}, strings.notificationsUnavailable))
+    return h(
+      'fieldset',
+      { class: 'appearance' },
+      h('legend', {}, strings.notifications),
+      h('p', {}, strings.notificationsUnavailable),
+    )
   launch(T.map((on: boolean) => isOn.set(on))(pushIsOn))
   const toggle = (wanted: boolean): void =>
     launch(
       T.map((on: boolean) => {
         isOn.set(on)
-        for (const box of document.querySelectorAll<HTMLInputElement>('input[name=notifications]')) box.checked = on
+        for (const box of document.querySelectorAll<HTMLInputElement>('input[name=notifications]'))
+          box.checked = on
         if (wanted && !on) notice.set({ kind: 'error', text: strings.notificationsRefused })
       })(wanted ? turnPushOn : turnPushOff),
     )
@@ -76,7 +82,12 @@ const notificationsToggle = (life: Lifetime): HTMLElement => {
     region(life, [isOn], () => {
       const box = h('input', { type: 'checkbox', name: 'notifications', checked: isOn.get() })
       box.addEventListener('change', () => toggle(box.checked))
-      return h('label', { class: 'choice' }, box, h('span', {}, strings.notificationsToggle, h('small', {}, strings.notificationsHint)))
+      return h(
+        'label',
+        { class: 'choice' },
+        box,
+        h('span', {}, strings.notificationsToggle, h('small', {}, strings.notificationsHint)),
+      )
     }),
   )
 }
@@ -84,7 +95,11 @@ const notificationsToggle = (life: Lifetime): HTMLElement => {
 export const credentialsView = (life: Lifetime): HTMLElement => {
   const credentials = signal<ReadonlyArray<Credential> | null>(null)
   const reload = (): void =>
-    launch(T.map((listed: { credentials: ReadonlyArray<Credential> }) => credentials.set(listed.credentials))(api['credentials.list']({})))
+    launch(
+      T.map((listed: { credentials: ReadonlyArray<Credential> }) => credentials.set(listed.credentials))(
+        api['credentials.list']({}),
+      ),
+    )
   reload()
   return page(
     strings.credentialsTitle,
@@ -94,7 +109,11 @@ export const credentialsView = (life: Lifetime): HTMLElement => {
       const listed = credentials.get()
       return listed === null
         ? h('p', { class: 'loading' }, strings.loading)
-        : h('ul', { class: 'credentials' }, listed.map((credential) => credentialRow(credential, reload)))
+        : h(
+            'ul',
+            { class: 'credentials' },
+            listed.map((credential) => credentialRow(credential, reload)),
+          )
     }),
   )
 }
@@ -108,7 +127,10 @@ const APPEARANCE_LABELS: Readonly<Record<Appearance, string>> = {
 const credentialRow = (credential: Credential, reload: () => void): HTMLElement =>
   h(
     'li',
-    { class: `credential ${credential.revokedAt === null ? '' : 'is-revoked'}`, data: { credentialId: credential.id } },
+    {
+      class: `credential ${credential.revokedAt === null ? '' : 'is-revoked'}`,
+      data: { credentialId: credential.id },
+    },
     h(
       'div',
       { class: 'credential-main' },
@@ -132,10 +154,18 @@ const credentialRow = (credential: Credential, reload: () => void): HTMLElement 
       h(
         'div',
         { class: 'credential-actions' },
-        h('button', { type: 'button', ...opensDialog(strings.renameTitle, () => renameForm(credential, reload)) }, strings.rename),
         h(
           'button',
-          { type: 'button', class: 'danger', ...opensDialog(strings.revokeTitle, () => revokeForm(credential, reload)) },
+          { type: 'button', ...opensDialog(strings.renameTitle, () => renameForm(credential, reload)) },
+          strings.rename,
+        ),
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'danger',
+            ...opensDialog(strings.revokeTitle, () => revokeForm(credential, reload)),
+          },
           strings.revoke,
         ),
       ),

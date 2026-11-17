@@ -14,10 +14,18 @@ export const adminView = (life: Lifetime, me: Me, section: AdminSection): HTMLEl
       'nav',
       { class: 'subtabs' },
       SECTIONS.map(([name, label]) =>
-        h('a', { href: hrefFor({ name: 'admin', section: name }), 'aria-current': name === section && 'page' }, label),
+        h(
+          'a',
+          { href: hrefFor({ name: 'admin', section: name }), 'aria-current': name === section && 'page' },
+          label,
+        ),
       ),
     ),
-    section === 'settings' ? settingsSection(life) : section === 'members' ? membersSection(life, me) : auditSection(life),
+    section === 'settings'
+      ? settingsSection(life)
+      : section === 'members'
+        ? membersSection(life, me)
+        : auditSection(life),
   )
 
 const SECTIONS: ReadonlyArray<readonly [AdminSection, string]> = [
@@ -42,7 +50,11 @@ const settingsForm = (settings: Settings): HTMLElement => {
     'select',
     { name: 'contactMode' },
     h('option', { value: 'open', selected: settings.contactMode === 'open' }, strings.contactModeOpen),
-    h('option', { value: 'contacts', selected: settings.contactMode === 'contacts' }, strings.contactModeContacts),
+    h(
+      'option',
+      { value: 'contacts', selected: settings.contactMode === 'contacts' },
+      strings.contactModeContacts,
+    ),
   )
   const retention = h('input', {
     name: 'retention',
@@ -82,7 +94,11 @@ const settingsForm = (settings: Settings): HTMLElement => {
 const membersSection = (life: Lifetime, me: Me): HTMLElement => {
   const members = signal<ReadonlyArray<Member> | null>(null)
   const reload = (): void =>
-    launch(T.map((listed: { members: ReadonlyArray<Member> }) => members.set(listed.members))(api['admin.members.list']({})))
+    launch(
+      T.map((listed: { members: ReadonlyArray<Member> }) => members.set(listed.members))(
+        api['admin.members.list']({}),
+      ),
+    )
   const change = (member: Member, body: { status?: Member['status']; role?: Member['role'] }): void =>
     launch(api['admin.members.update']({ params: { id: member.id }, body }), reload)
   reload()
@@ -112,7 +128,9 @@ const membersSection = (life: Lifetime, me: Me): HTMLElement => {
                 ? button(strings.makeMember, () => change(member, { role: 'member' }))
                 : button(strings.makeAdmin, () => change(member, { role: 'admin' })),
               member.status === 'active'
-                ? button(strings.deactivate, () => change(member, { status: 'deactivated' }), { class: 'danger' })
+                ? button(strings.deactivate, () => change(member, { status: 'deactivated' }), {
+                    class: 'danger',
+                  })
                 : button(strings.reactivate, () => change(member, { status: 'active' })),
             ),
         ),
@@ -122,7 +140,10 @@ const membersSection = (life: Lifetime, me: Me): HTMLElement => {
 }
 
 const auditSection = (life: Lifetime): HTMLElement => {
-  const log = signal<{ readonly entries: ReadonlyArray<AuditEntry>; readonly hasMore: boolean }>({ entries: [], hasMore: true })
+  const log = signal<{ readonly entries: ReadonlyArray<AuditEntry>; readonly hasMore: boolean }>({
+    entries: [],
+    hasMore: true,
+  })
   const loadMore = (): void => {
     const oldest = log.get().entries.at(-1)?.id
     launch(
@@ -145,9 +166,13 @@ const auditSection = (life: Lifetime): HTMLElement => {
           h(
             'tr',
             {},
-            [strings.auditWhen, strings.auditWho, strings.auditAction, strings.auditTarget, strings.auditDetail].map((heading) =>
-              h('th', { scope: 'col' }, heading),
-            ),
+            [
+              strings.auditWhen,
+              strings.auditWho,
+              strings.auditAction,
+              strings.auditTarget,
+              strings.auditDetail,
+            ].map((heading) => h('th', { scope: 'col' }, heading)),
           ),
         ),
         h('tbody', {}, log.get().entries.map(auditRow)),
@@ -165,10 +190,22 @@ const auditRow = (entry: AuditEntry): Child =>
     h(
       'td',
       {},
-      entry.actorId === null ? strings.auditSystem : (knownMembers.get().get(entry.actorId)?.name ?? entry.actorId),
-      entry.credentialKind !== null && h('span', { class: `kind is-${entry.credentialKind}` }, strings.credentialKind[entry.credentialKind]),
+      entry.actorId === null
+        ? strings.auditSystem
+        : (knownMembers.get().get(entry.actorId)?.name ?? entry.actorId),
+      entry.credentialKind !== null &&
+        h('span', { class: `kind is-${entry.credentialKind}` }, strings.credentialKind[entry.credentialKind]),
     ),
     h('td', {}, h('code', {}, entry.action)),
     h('td', {}, entry.target ?? ''),
-    h('td', {}, h('details', {}, h('summary', {}, strings.auditDetail), h('pre', {}, JSON.stringify(entry.detail, null, 2)))),
+    h(
+      'td',
+      {},
+      h(
+        'details',
+        {},
+        h('summary', {}, strings.auditDetail),
+        h('pre', {}, JSON.stringify(entry.detail, null, 2)),
+      ),
+    ),
   )

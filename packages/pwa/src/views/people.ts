@@ -37,10 +37,13 @@ export const peopleView = (life: Lifetime, me: Me): HTMLElement => {
 }
 
 const matches = (entry: DirectoryEntry, query: string): boolean =>
-  [entry.member.name, entry.member.email, entry.member.profile].some((text) => text.toLowerCase().includes(query))
+  [entry.member.name, entry.member.email, entry.member.profile].some((text) =>
+    text.toLowerCase().includes(query),
+  )
 
 const agentsFirst = (a: DirectoryEntry, b: DirectoryEntry): number =>
-  Number(b.presence.agentOnline) - Number(a.presence.agentOnline) || a.member.name.localeCompare(b.member.name)
+  Number(b.presence.agentOnline) - Number(a.presence.agentOnline) ||
+  a.member.name.localeCompare(b.member.name)
 
 const personCard = (entry: DirectoryEntry): HTMLElement =>
   h(
@@ -83,7 +86,8 @@ const actionsFor = (entry: DirectoryEntry): Child => {
   return [
     entry.canMessage && button(strings.message, () => launch(openConversationWith(id)), { class: 'primary' }),
     entry.relation === 'none' && button(strings.addContact, () => launch(requestContact(id))),
-    entry.relation === 'request_received' && button(strings.acceptContact, () => launch(acceptContact(id)), { class: 'primary' }),
+    entry.relation === 'request_received' &&
+      button(strings.acceptContact, () => launch(acceptContact(id)), { class: 'primary' }),
     entry.relation === 'request_received' && button(strings.declineRequest, () => launch(removeContact(id))),
     entry.relation === 'request_sent' && button(strings.cancelRequest, () => launch(removeContact(id))),
     entry.relation === 'contact' && button(strings.removeContact, () => launch(removeContact(id))),

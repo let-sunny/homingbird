@@ -5,14 +5,23 @@ import {
   discardDraft,
   launch,
   loadOlderNotes,
+  loadPeople,
   loadThread,
   markRead,
   replyTargetIn,
   saveDraft,
-  sendNote, loadPeople } from '../actions.ts'
+  sendNote,
+} from '../actions.ts'
 import { conversations, directory, members, replyTargets, sendingIn, threads } from '../state.ts'
 import { strings } from '../strings.ts'
-import { type ThreadItem, conversationTitle, excerpt, isUnreadBy, otherParticipants, threadItems } from '../thread.ts'
+import {
+  type ThreadItem,
+  conversationTitle,
+  excerpt,
+  isUnreadBy,
+  otherParticipants,
+  threadItems,
+} from '../thread.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
 import { avatar, backLink, button, emptyWithPip, presenceBadges, timeLabel } from './parts.ts'
 import { type PipState, pip } from './pip.ts'
@@ -36,7 +45,8 @@ export const threadView = (life: Lifetime, me: Me, id: ConversationId): HTMLElem
     region(life, [threads], () => {
       const thread = threads.get().get(id)
       if (thread === undefined) return h('p', { class: 'loading' }, strings.loading)
-      if (thread.hasMore) return button(strings.loadOlder, () => launch(loadOlderNotes(id)), { class: 'load-older' })
+      if (thread.hasMore)
+        return button(strings.loadOlder, () => launch(loadOlderNotes(id)), { class: 'load-older' })
       return thread.notes.length === 0 && emptyWithPip('waving', 4, strings.emptyThread)
     }),
     list,
@@ -50,7 +60,8 @@ const notesIn = (id: ConversationId): ReadonlyArray<Note> => threads.get().get(i
 const noteById = (conversationId: ConversationId, noteId: string | null): Note | null =>
   notesIn(conversationId).find((note) => note.id === noteId) ?? null
 
-const nameOf = (memberId: string): string => members.get().get(memberId as never)?.name ?? strings.formerMember
+const nameOf = (memberId: string): string =>
+  members.get().get(memberId as never)?.name ?? strings.formerMember
 
 const namesIn = (item: ThreadItem): string[] =>
   item.type === 'note' ? [nameOf(item.note.authorId)] : item.drafts.map((draft) => nameOf(draft.authorId))
@@ -72,7 +83,9 @@ const threadHead = (life: Lifetime, me: Me, id: ConversationId): HTMLElement =>
           'div',
           { class: 'thread-who' },
           h('h1', {}, title),
-          conversation.kind === 'dm' && entry !== undefined && h('p', { class: 'thread-profile' }, entry.member.profile),
+          conversation.kind === 'dm' &&
+            entry !== undefined &&
+            h('p', { class: 'thread-profile' }, entry.member.profile),
         ),
         conversation.kind === 'dm' && entry !== undefined && presenceBadges(entry.presence, true),
       ]
@@ -105,9 +118,13 @@ const noteItem = (note: Note, me: Me, conversationId: ConversationId): HTMLEleme
       mine && pip(statusPip(note), 1),
       h('span', { class: 'note-status' }, describeStatus(summarize(note.receipts))),
       !mine &&
-        button(strings.reply, () => replyTargets.update((targets) => new Map(targets).set(conversationId, note.id)), {
-          class: 'link',
-        }),
+        button(
+          strings.reply,
+          () => replyTargets.update((targets) => new Map(targets).set(conversationId, note.id)),
+          {
+            class: 'link',
+          },
+        ),
     ),
   )
 }
@@ -120,7 +137,10 @@ const statusPip = (note: Note): PipState => {
 const originBadge = (note: Note): HTMLElement =>
   h('span', { class: `origin is-${note.origin}` }, strings.origin[note.origin](note.agentName))
 
-const draftsItem = (item: Extract<ThreadItem, { type: 'drafts' }>, conversationId: ConversationId): HTMLElement => {
+const draftsItem = (
+  item: Extract<ThreadItem, { type: 'drafts' }>,
+  conversationId: ConversationId,
+): HTMLElement => {
   const target = noteById(conversationId, item.inReplyTo)
   return h(
     'li',
@@ -130,7 +150,11 @@ const draftsItem = (item: Extract<ThreadItem, { type: 'drafts' }>, conversationI
       { class: 'pending-head' },
       pip('awaiting-approval', 2),
       h('strong', {}, strings.waitingForApproval),
-      h('span', {}, target === null ? strings.newNoteDraft : `${strings.draftReplyTo} “${excerpt(target.body, 60)}”`),
+      h(
+        'span',
+        {},
+        target === null ? strings.newNoteDraft : `${strings.draftReplyTo} “${excerpt(target.body, 60)}”`,
+      ),
     ),
     item.drafts.length > 1 && h('p', { class: 'pending-choose' }, strings.chooseOne(item.drafts.length)),
     h('div', { class: 'alternatives' }, item.drafts.map(draftCard)),
@@ -147,13 +171,22 @@ const draftCard = (draft: Note): HTMLElement =>
       'div',
       { class: 'draft-actions' },
       button(strings.send, () => launch(approveDraft(draft)), { class: 'primary' }),
-      h('button', { type: 'button', ...opensDialog(strings.editDraftTitle, () => draftEditor(draft)) }, strings.edit),
+      h(
+        'button',
+        { type: 'button', ...opensDialog(strings.editDraftTitle, () => draftEditor(draft)) },
+        strings.edit,
+      ),
       button(strings.discard, () => launch(discardDraft(draft)), { class: 'danger' }),
     ),
   )
 
 const draftEditor = (draft: Note): Child => {
-  const text = h('textarea', { name: 'body', rows: '6', required: true, 'aria-label': strings.editDraftLabel })
+  const text = h('textarea', {
+    name: 'body',
+    rows: '6',
+    required: true,
+    'aria-label': strings.editDraftLabel,
+  })
   text.value = draft.body
   return h(
     'form',
@@ -209,11 +242,17 @@ const composer = (life: Lifetime, me: Me, id: ConversationId): HTMLElement => {
       },
     },
     region(life, [threads, replyTargets, directory, conversations, sendingIn], () => [
-      sendingIn.get().has(id) && h('p', { class: 'sending', role: 'status' }, pip('sending', 2), strings.sending),
+      sendingIn.get().has(id) &&
+        h('p', { class: 'sending', role: 'status' }, pip('sending', 2), strings.sending),
       replyChip(id),
       cannotMessageNotice(me, id),
     ]),
-    h('div', { class: 'composer-row' }, text, h('button', { type: 'submit', class: 'primary send' }, strings.send)),
+    h(
+      'div',
+      { class: 'composer-row' },
+      text,
+      h('button', { type: 'submit', class: 'primary send' }, strings.send),
+    ),
     h('small', { class: 'composer-hint' }, strings.composerHint),
   )
 }

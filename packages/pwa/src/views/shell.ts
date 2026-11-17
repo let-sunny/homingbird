@@ -34,7 +34,13 @@ const titleBar = (life: Lifetime, me: Me): HTMLElement =>
     h(
       'a',
       { class: 'brand', href: '#/' },
-      h('img', { class: 'mark', src: branding.get().logo ?? '/icons/mark.svg', alt: '', width: '32', height: '32' }),
+      h('img', {
+        class: 'mark',
+        src: branding.get().logo ?? '/icons/mark.svg',
+        alt: '',
+        width: '32',
+        height: '32',
+      }),
       h('span', { class: 'wordmark' }, wordmark(branding.get().name)),
     ),
     region(
@@ -81,7 +87,11 @@ const userMenu = (me: Me): HTMLElement =>
     menuLink(strings.menuCredentials, { name: 'credentials' }),
     menuLink(strings.menuConnectDevice, { name: 'device', code: null }),
     me.member.role === 'admin' && menuLink(strings.menuAdmin, { name: 'admin', section: 'settings' }),
-    h('button', { type: 'button', class: 'menu-item', on: { click: () => launch(signOut) } }, strings.menuSignOut),
+    h(
+      'button',
+      { type: 'button', class: 'menu-item', on: { click: () => launch(signOut) } },
+      strings.menuSignOut,
+    ),
   )
 
 const menuLink = (label: string, target: Route): HTMLElement =>
@@ -102,8 +112,17 @@ const sidebar = (life: Lifetime, me: Me): HTMLElement =>
     h('h2', { class: 'sidebar-title' }, strings.conversations),
     region(life, [conversations, members, directory, route], () =>
       conversations.get().length === 0
-        ? emptyWithPip('waving', 3, strings.noConversations, h('a', { class: 'button', href: '#/people' }, strings.findPeople))
-        : h('ul', { class: 'conversation-list' }, conversations.get().map((conversation) => conversationRow(conversation, me))),
+        ? emptyWithPip(
+            'waving',
+            3,
+            strings.noConversations,
+            h('a', { class: 'button', href: '#/people' }, strings.findPeople),
+          )
+        : h(
+            'ul',
+            { class: 'conversation-list' },
+            conversations.get().map((conversation) => conversationRow(conversation, me)),
+          ),
     ),
   )
 
@@ -149,7 +168,11 @@ const conversationRow = (conversation: Conversation, me: Me): HTMLElement => {
         conversation.lastNote?.sentAt != null && timeLabel(conversation.lastNote.sentAt),
         conversation.unreadCount > 0 && pip('new-note', 1),
         conversation.unreadCount > 0 &&
-          h('span', { class: 'count unread', 'aria-label': strings.unread(conversation.unreadCount) }, conversation.unreadCount),
+          h(
+            'span',
+            { class: 'count unread', 'aria-label': strings.unread(conversation.unreadCount) },
+            conversation.unreadCount,
+          ),
         conversation.draftCount > 0 &&
           h(
             'span',

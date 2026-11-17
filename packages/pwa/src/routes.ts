@@ -15,7 +15,10 @@ export type AdminSection = 'settings' | 'members' | 'audit'
 
 export const parseRoute = (hash: string): Route => {
   const [path = '', search = ''] = hash.replace(/^#\/?/, '').split('?')
-  const [head = '', second] = path.split('/').filter((segment) => segment !== '').map(decodeSegment)
+  const [head = '', second] = path
+    .split('/')
+    .filter((segment) => segment !== '')
+    .map(decodeSegment)
   const parameters = new URLSearchParams(search)
   if (head === '') return { name: 'home' }
   if (head === 'c' && second !== undefined) return { name: 'conversation', id: second }
@@ -52,7 +55,9 @@ export const hrefFor = (route: Route): string => {
     case 'admin':
       return `#/admin/${route.section}`
     case 'signed-out':
-      return route.reason === null ? '#/signed-out' : `#/signed-out?${new URLSearchParams({ reason: route.reason }).toString()}`
+      return route.reason === null
+        ? '#/signed-out'
+        : `#/signed-out?${new URLSearchParams({ reason: route.reason }).toString()}`
   }
 }
 

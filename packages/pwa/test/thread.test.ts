@@ -87,17 +87,23 @@ describe('note reducers', () => {
   })
 
   it('replaces the receipts of one note only', () => {
-    const updated = withReceipts([note('a'), note('b')], 'b' as NoteId, [receipt(june, { readAt: 2, state: 'read' })])
+    const updated = withReceipts([note('a'), note('b')], 'b' as NoteId, [
+      receipt(june, { readAt: 2, state: 'read' }),
+    ])
     expect(updated.map((n) => n.receipts.length)).toEqual([0, 1])
   })
 
   it('is idempotent when the same note arrives twice', () => {
     fc.assert(
-      fc.property(fc.array(fc.string({ minLength: 1, maxLength: 4 }), { maxLength: 8 }), fc.string({ minLength: 1 }), (ids, id) => {
-        const notes = [...new Set(ids)].map((each) => note(each))
-        const once = upsertNote(notes, note(id))
-        expect(upsertNote(once, note(id))).toEqual(once)
-      }),
+      fc.property(
+        fc.array(fc.string({ minLength: 1, maxLength: 4 }), { maxLength: 8 }),
+        fc.string({ minLength: 1 }),
+        (ids, id) => {
+          const notes = [...new Set(ids)].map((each) => note(each))
+          const once = upsertNote(notes, note(id))
+          expect(upsertNote(once, note(id))).toEqual(once)
+        },
+      ),
     )
   })
 })
@@ -165,10 +171,16 @@ describe('excerpt', () => {
 
 describe('status lines', () => {
   it('reads the same for the sender and every recipient because it is derived from receipts alone', () => {
-    const receipts = [receipt(june, { readAt: 2, state: 'read' }), receipt(cy), receipt(ana, { repliedAt: 3, state: 'replied', readAt: 2 })]
+    const receipts = [
+      receipt(june, { readAt: 2, state: 'read' }),
+      receipt(cy),
+      receipt(ana, { repliedAt: 3, state: 'replied', readAt: 2 }),
+    ]
     expect(describeStatus(summarize(receipts))).toBe('Replied by 1 of 3, read by 2 of 3')
     expect(describeStatus(summarize([receipt(june)]))).toBe('Delivered')
-    expect(describeStatus(summarize([receipt(june, { draftingAt: 2, state: 'drafting' })]))).toBe('Drafting reply')
+    expect(describeStatus(summarize([receipt(june, { draftingAt: 2, state: 'drafting' })]))).toBe(
+      'Drafting reply',
+    )
     expect(describeStatus(summarize([]))).toBe('Sent')
   })
 })

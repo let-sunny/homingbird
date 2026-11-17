@@ -34,7 +34,12 @@ const brandFiles: ReadonlyArray<readonly [string, string]> = [
 ]
 
 await Promise.all([
-  build({ ...shared, entryPoints: [join(source, 'main.ts')], outfile: join(output, 'app.js'), format: 'esm' }),
+  build({
+    ...shared,
+    entryPoints: [join(source, 'main.ts')],
+    outfile: join(output, 'app.js'),
+    format: 'esm',
+  }),
   build({
     ...shared,
     entryPoints: [join(source, 'service-worker.ts')],
@@ -43,7 +48,11 @@ await Promise.all([
     define: { BUILD_ID: JSON.stringify(buildId) },
   }),
   build({ ...styles, entryPoints: [join(source, 'styles', 'app.css')], outfile: join(output, 'app.css') }),
-  build({ ...styles, entryPoints: [join(source, 'styles', 'dev-login.css')], outfile: join(output, 'dev-login.css') }),
+  build({
+    ...styles,
+    entryPoints: [join(source, 'styles', 'dev-login.css')],
+    outfile: join(output, 'dev-login.css'),
+  }),
   writeFile(join(output, 'pip.css'), pipStylesheet(pipSheet, '/pip/pip-sheet.png')),
   ...brandFiles.map(([from, to]) => cp(join(assets, from), join(output, to))),
   cp(join(here, 'public'), output, { recursive: true }),

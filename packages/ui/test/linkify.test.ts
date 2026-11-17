@@ -30,11 +30,15 @@ describe('textSegments', () => {
   })
 
   it('keeps balanced brackets inside the link', () => {
-    expect([...textSegments('https://example.com/a_(b)')]).toEqual([{ type: 'link', value: 'https://example.com/a_(b)' }])
+    expect([...textSegments('https://example.com/a_(b)')]).toEqual([
+      { type: 'link', value: 'https://example.com/a_(b)' },
+    ])
   })
 
   it('never links other schemes', () => {
-    const segments = [...textSegments('javascript:alert(1) data:text/html,x ftp://files.test mailto:a@b.test')]
+    const segments = [
+      ...textSegments('javascript:alert(1) data:text/html,x ftp://files.test mailto:a@b.test'),
+    ]
     expect(segments.every((segment) => segment.type === 'text')).toBe(true)
   })
 

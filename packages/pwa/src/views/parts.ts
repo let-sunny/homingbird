@@ -22,7 +22,13 @@ export const button = (
 ): HTMLButtonElement => h('button', { type: 'button', ...properties, on: { click: onClick } }, label)
 
 export const field = (label: string, control: HTMLElement, hint?: string): HTMLElement =>
-  h('label', { class: 'field' }, h('span', { class: 'field-label' }, label), control, hint && h('small', {}, hint))
+  h(
+    'label',
+    { class: 'field' },
+    h('span', { class: 'field-label' }, label),
+    control,
+    hint && h('small', {}, hint),
+  )
 
 export const presenceBadges = (presence: Presence, detailed = false): HTMLElement =>
   h(
@@ -65,7 +71,8 @@ export const initials = (name: string): string =>
     .map((word) => word[0]!.toUpperCase())
     .join('')
 
-export const avatar = (name: string): HTMLElement => h('span', { class: 'avatar', 'aria-hidden': 'true' }, initials(name))
+export const avatar = (name: string): HTMLElement =>
+  h('span', { class: 'avatar', 'aria-hidden': 'true' }, initials(name))
 
 export const empty = (text: string, ...actions: ReadonlyArray<Child>): HTMLElement =>
   h('div', { class: 'empty' }, h('p', {}, text), ...actions)

@@ -6,7 +6,7 @@ import { supportInvokerCommands } from './invokers.ts'
 import { type Route, parseRoute, signInHref } from './routes.ts'
 import { announcement, branding, notice, route, serverInfo, session } from './state.ts'
 import { strings } from './strings.ts'
-import { profileView, credentialsView } from './views/account.ts'
+import { credentialsView, profileView } from './views/account.ts'
 import { adminView } from './views/admin.ts'
 import { consentView, deviceView } from './views/connect.ts'
 import { dialogHost } from './views/dialog.ts'
@@ -84,7 +84,8 @@ const stageFor = (life: Lifetime, me: Me, current: Route): Child => {
 
 const arrivedToConnect = (current: Route): boolean => current.name === 'device' || current.name === 'consent'
 
-const notFound = (): Child => emptyWithPip('failed', 4, strings.notFound, h('a', { class: 'button', href: '#/' }, strings.backHome))
+const notFound = (): Child =>
+  emptyWithPip('failed', 4, strings.notFound, h('a', { class: 'button', href: '#/' }, strings.backHome))
 
 const refusalIn = (current: Route): string | null => (current.name === 'signed-out' ? current.reason : null)
 
@@ -109,7 +110,16 @@ const toast = (life: Lifetime): HTMLElement => {
           'div',
           { class: `toast is-${current.kind}`, role: current.kind === 'error' ? 'alert' : 'status' },
           h('span', {}, current.text),
-          h('button', { type: 'button', class: 'icon', 'aria-label': strings.close, on: { click: () => notice.set(null) } }, '✕'),
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'icon',
+              'aria-label': strings.close,
+              on: { click: () => notice.set(null) },
+            },
+            '✕',
+          ),
         )
       )
     },
@@ -127,7 +137,8 @@ const inTransition = (change: () => void): void => {
 }
 
 const registerServiceWorker = (): void => {
-  if ('serviceWorker' in navigator) void navigator.serviceWorker.register('/service-worker.js').catch(() => {})
+  if ('serviceWorker' in navigator)
+    void navigator.serviceWorker.register('/service-worker.js').catch(() => {})
 }
 
 start(document.getElementById('app') as HTMLElement)

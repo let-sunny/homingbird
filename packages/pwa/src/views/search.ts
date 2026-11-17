@@ -12,9 +12,18 @@ export const searchView = (life: Lifetime, me: Me, initialQuery: string): HTMLEl
   const results = signal<ReadonlyArray<Note> | null>(null)
   const run = (query: string): void => {
     if (query === '') return results.set(null)
-    launch(T.map((found: { notes: ReadonlyArray<Note> }) => results.set(found.notes))(api['search.notes']({ query: { q: query } })))
+    launch(
+      T.map((found: { notes: ReadonlyArray<Note> }) => results.set(found.notes))(
+        api['search.notes']({ query: { q: query } }),
+      ),
+    )
   }
-  const input = h('input', { type: 'search', name: 'q', placeholder: strings.searchPlaceholder, value: initialQuery })
+  const input = h('input', {
+    type: 'search',
+    name: 'q',
+    placeholder: strings.searchPlaceholder,
+    value: initialQuery,
+  })
   run(initialQuery)
   return page(
     strings.search,
@@ -38,7 +47,11 @@ export const searchView = (life: Lifetime, me: Me, initialQuery: string): HTMLEl
       const found = results.get()
       if (found === null) return emptyWithPip('searching', 4, strings.searchPrompt)
       if (found.length === 0) return emptyWithPip('searching', 4, strings.searchEmpty)
-      return h('ul', { class: 'results' }, found.map((note) => resultRow(note, me)))
+      return h(
+        'ul',
+        { class: 'results' },
+        found.map((note) => resultRow(note, me)),
+      )
     }),
   )
 }
@@ -46,7 +59,9 @@ export const searchView = (life: Lifetime, me: Me, initialQuery: string): HTMLEl
 const resultRow = (note: Note, me: Me): HTMLElement => {
   const conversation = conversations.get().find((candidate) => candidate.id === note.conversationId)
   const title =
-    conversation === undefined ? '' : conversationTitle(conversation, members.get(), me.member.id, strings.formerMember)
+    conversation === undefined
+      ? ''
+      : conversationTitle(conversation, members.get(), me.member.id, strings.formerMember)
   return h(
     'li',
     {},

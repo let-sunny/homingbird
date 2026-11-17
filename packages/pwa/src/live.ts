@@ -1,8 +1,16 @@
 import { systemClock } from '@homingbird/kernel'
 import type { StreamEvent } from '@homingbird/protocol'
-import { forgetNote, launch, loadConversations, loadPeople, loadThread, loadWorkspace, rememberNote } from './actions.ts'
-import { strings } from './strings.ts'
+import {
+  forgetNote,
+  launch,
+  loadConversations,
+  loadPeople,
+  loadThread,
+  loadWorkspace,
+  rememberNote,
+} from './actions.ts'
 import { announcement, directory, members, route, signedIn, threads } from './state.ts'
+import { strings } from './strings.ts'
 import { withReceipts } from './thread.ts'
 
 export const applyEvent = (event: StreamEvent): void => {

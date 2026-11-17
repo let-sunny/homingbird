@@ -2,8 +2,25 @@ const worker = globalThis as unknown as ServiceWorkerGlobalScope
 declare const BUILD_ID: string
 
 const CACHE = `homingbird-shell-${BUILD_ID}`
-const SHELL = ['/', '/app.js', '/app.css', '/pip.css', '/pip/pip-sheet.png', '/icons/mark.svg', '/manifest.webmanifest']
-const NEVER_CACHED = ['/api/', '/auth/', '/oauth/', '/mcp', '/a2a', '/.well-known/', '/theme.css', '/branding.json']
+const SHELL = [
+  '/',
+  '/app.js',
+  '/app.css',
+  '/pip.css',
+  '/pip/pip-sheet.png',
+  '/icons/mark.svg',
+  '/manifest.webmanifest',
+]
+const NEVER_CACHED = [
+  '/api/',
+  '/auth/',
+  '/oauth/',
+  '/mcp',
+  '/a2a',
+  '/.well-known/',
+  '/theme.css',
+  '/branding.json',
+]
 
 worker.addEventListener('install', (event) => {
   event.waitUntil(
@@ -48,7 +65,9 @@ worker.addEventListener('notificationclick', (event) => {
   event.waitUntil(
     worker.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
       const open = windows.find((client) => client.url.startsWith(worker.location.origin))
-      return open === undefined ? worker.clients.openWindow(url) : open.navigate(url).then((client) => client?.focus())
+      return open === undefined
+        ? worker.clients.openWindow(url)
+        : open.navigate(url).then((client) => client?.focus())
     }),
   )
 })

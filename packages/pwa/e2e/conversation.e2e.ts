@@ -208,7 +208,10 @@ const scenario = async (): Promise<void> => {
       await toggle.check().catch(() => undefined)
       await ana.page.waitForTimeout(1500)
       await capture(ana.page, 'notification-toggle-after-turning-on')
-      await ana.page.locator('.toast button').click().catch(() => undefined)
+      await ana.page
+        .locator('.toast button')
+        .click()
+        .catch(() => undefined)
     }
 
     await ana.page.goto(`${base}/#/credentials`)
@@ -241,7 +244,11 @@ const scenario = async (): Promise<void> => {
     await capture(ana.page, 'device-approved-success-state')
 
     const firstDevice = await startDeviceFlow(base, 'Cursor on a new laptop', 'notes')
-    const newcomer = await browser.newContext({ deviceScaleFactor: 2, viewport: VIEWPORT, colorScheme: 'light' })
+    const newcomer = await browser.newContext({
+      deviceScaleFactor: 2,
+      viewport: VIEWPORT,
+      colorScheme: 'light',
+    })
     const rae = await newcomer.newPage()
     await rae.goto(`${base}/#/device/${firstDevice.user_code}`)
     await rae.waitForSelector('input[name=email]')
@@ -259,7 +266,10 @@ const scenario = async (): Promise<void> => {
 
     const consentUrl = await startAuthorization(base, 'Example MCP client')
     await ana.page.route('https://client.example/**', (route: any) =>
-      route.fulfill({ contentType: 'text/html', body: '<title>client</title><p>Back at the client application.</p>' }),
+      route.fulfill({
+        contentType: 'text/html',
+        body: '<title>client</title><p>Back at the client application.</p>',
+      }),
     )
     await ana.page.goto(consentUrl)
     await ana.page.waitForSelector('text=Example MCP client')

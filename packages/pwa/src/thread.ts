@@ -31,15 +31,21 @@ export const upsertNote = (notes: ReadonlyArray<Note>, note: Note): Note[] =>
     ? notes.map((existing) => (existing.id === note.id ? note : existing))
     : [...notes, note]
 
-export const withoutNote = (notes: ReadonlyArray<Note>, id: NoteId): Note[] => notes.filter((note) => note.id !== id)
+export const withoutNote = (notes: ReadonlyArray<Note>, id: NoteId): Note[] =>
+  notes.filter((note) => note.id !== id)
 
-export const withReceipts = (notes: ReadonlyArray<Note>, id: NoteId, receipts: ReadonlyArray<Receipt>): Note[] =>
-  notes.map((note) => (note.id === id ? { ...note, receipts } : note))
+export const withReceipts = (
+  notes: ReadonlyArray<Note>,
+  id: NoteId,
+  receipts: ReadonlyArray<Receipt>,
+): Note[] => notes.map((note) => (note.id === id ? { ...note, receipts } : note))
 
 export const noteAwaitingReply = (notes: ReadonlyArray<Note>, viewerId: MemberId): Note | null =>
   notes
     .filter((note) => note.status === 'sent' && note.authorId !== viewerId)
-    .filter((note) => note.receipts.some((receipt) => receipt.memberId === viewerId && receipt.repliedAt === null))
+    .filter((note) =>
+      note.receipts.some((receipt) => receipt.memberId === viewerId && receipt.repliedAt === null),
+    )
     .sort(bySentTime)
     .at(-1) ?? null
 

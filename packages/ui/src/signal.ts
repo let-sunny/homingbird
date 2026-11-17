@@ -50,9 +50,14 @@ export const derived = <const Sources extends ReadonlyArray<ReadableSignal<any>>
   }
 }
 
-export const onAnyChange = (sources: ReadonlyArray<ReadableSignal<unknown>>, react: () => void): Unsubscribe => {
+export const onAnyChange = (
+  sources: ReadonlyArray<ReadableSignal<unknown>>,
+  react: () => void,
+): Unsubscribe => {
   const unsubscribes = sources.map((source) => source.subscribe(react))
   return () => unsubscribes.forEach((unsubscribe) => unsubscribe())
 }
 
-type ValuesOf<Sources> = { -readonly [K in keyof Sources]: Sources[K] extends ReadableSignal<infer A> ? A : never }
+type ValuesOf<Sources> = {
+  -readonly [K in keyof Sources]: Sources[K] extends ReadableSignal<infer A> ? A : never
+}

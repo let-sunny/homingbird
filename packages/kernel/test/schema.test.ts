@@ -194,6 +194,62 @@ describe('static types', () => {
   })
 })
 
+describe('descriptions', () => {
+  it('records exactly the constraints that were given', () => {
+    expect(S.string().ast).toEqual({ type: 'string' })
+    expect(S.string({ minLength: 0 }).ast).toEqual({ type: 'string', minLength: 0 })
+    expect(S.string({ maxLength: 0 }).ast).toEqual({ type: 'string', maxLength: 0 })
+    expect(S.string({ minLength: 1, maxLength: 2, pattern: /^a$/ }).ast).toEqual({
+      type: 'string',
+      minLength: 1,
+      maxLength: 2,
+      pattern: '^a$',
+    })
+    expect(S.number().ast).toEqual({ type: 'number', integer: false })
+    expect(S.int({ min: 0 }).ast).toEqual({ type: 'number', integer: true, min: 0 })
+    expect(S.int({ max: 0 }).ast).toEqual({ type: 'number', integer: true, max: 0 })
+    expect(S.array(S.boolean).ast).toEqual({ type: 'array', items: { type: 'boolean' } })
+    expect(S.array(S.boolean, { minItems: 0 }).ast).toEqual({
+      type: 'array',
+      items: { type: 'boolean' },
+      minItems: 0,
+    })
+    expect(S.array(S.boolean, { maxItems: 0 }).ast).toEqual({
+      type: 'array',
+      items: { type: 'boolean' },
+      maxItems: 0,
+    })
+    expect(S.union(S.boolean, S.int()).ast).toEqual({
+      type: 'union',
+      members: [{ type: 'boolean' }, { type: 'number', integer: true }],
+    })
+    expect(Even.ast).toEqual({ type: 'refined', name: 'even', inner: { type: 'number', integer: true } })
+  })
+
+  it('applies a bound of zero like any other bound', () => {
+    expect(S.string({ maxLength: 0 }).is('a')).toBe(false)
+    expect(S.string({ minLength: 0 }).is('')).toBe(true)
+    expect(S.array(S.int(), { maxItems: 0 }).is([1])).toBe(false)
+    expect(S.array(S.int(), { minItems: 2 }).is([1, 2])).toBe(true)
+    expect(S.int({ min: 0 }).is(-1)).toBe(false)
+    expect(S.int({ max: 0 }).is(1)).toBe(false)
+    expect(S.toJsonSchema(S.string({ minLength: 0, maxLength: 0 }).ast)).toEqual({
+      type: 'string',
+      minLength: 0,
+      maxLength: 0,
+    })
+    expect(S.toJsonSchema(S.int({ min: 0, max: 0 }).ast)).toEqual({ type: 'integer', minimum: 0, maximum: 0 })
+    expect(S.toJsonSchema(S.array(S.int(), { minItems: 0, maxItems: 0 }).ast)).toEqual({
+      type: 'array',
+      items: { type: 'integer' },
+      minItems: 0,
+      maxItems: 0,
+    })
+    expect(S.toJsonSchema(S.string().ast)).toEqual({ type: 'string' })
+    expect(S.toJsonSchema(S.array(S.int()).ast)).toEqual({ type: 'array', items: { type: 'integer' } })
+  })
+})
+
 describe('derivations', () => {
   it('formatIssues joins paths and messages', () => {
     expect(S.formatIssues([])).toBe('')

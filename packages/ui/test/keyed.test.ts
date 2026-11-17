@@ -8,7 +8,9 @@ describe('keyedOperations', () => {
   })
 
   it('appends a new key without touching the others', () => {
-    expect([...keyedOperations(['a', 'b'], ['a', 'b', 'c'])]).toEqual([{ type: 'place', key: 'c', before: null }])
+    expect([...keyedOperations(['a', 'b'], ['a', 'b', 'c'])]).toEqual([
+      { type: 'place', key: 'c', before: null },
+    ])
   })
 
   it('removes keys that are gone', () => {
@@ -16,7 +18,9 @@ describe('keyedOperations', () => {
   })
 
   it('places a key before its new neighbour', () => {
-    expect([...keyedOperations(['a', 'b'], ['x', 'a', 'b'])]).toEqual([{ type: 'place', key: 'x', before: 'a' }])
+    expect([...keyedOperations(['a', 'b'], ['x', 'a', 'b'])]).toEqual([
+      { type: 'place', key: 'x', before: 'a' },
+    ])
   })
 
   it('transforms any list of unique keys into any other', () => {

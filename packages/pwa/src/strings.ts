@@ -50,11 +50,13 @@ export const strings = {
   emptyThread: 'No notes here yet. Say hello.',
   origin: {
     agent: (agentName: string | null) => `Agent${agentName === null ? '' : ` · ${agentName}`}`,
-    human_edited: (agentName: string | null) => `Agent${agentName === null ? '' : ` · ${agentName}`}, edited by a person`,
+    human_edited: (agentName: string | null) =>
+      `Agent${agentName === null ? '' : ` · ${agentName}`}, edited by a person`,
     human: () => 'Written by a person',
   } satisfies Record<Origin, (agentName: string | null) => string>,
   waitingForApproval: 'Waiting for your approval',
-  chooseOne: (count: number) => `${count} drafts answer the same note. Send one and the others are discarded.`,
+  chooseOne: (count: number) =>
+    `${count} drafts answer the same note. Send one and the others are discarded.`,
   draftReplyTo: 'Draft reply to',
   newNoteDraft: 'Draft note',
   edit: 'Edit',
@@ -128,7 +130,8 @@ export const strings = {
   deviceCodePlaceholder: 'ABCD-EFGH',
   deviceContinue: 'Continue',
   deviceAsks: (client: string) => `${client} wants to connect to your Homingbird account.`,
-  deviceAgentGrant: 'It will be able to read your notes and write drafts for you to approve. It cannot send anything.',
+  deviceAgentGrant:
+    'It will be able to read your notes and write drafts for you to approve. It cannot send anything.',
   deviceNameLabel: 'Name this device',
   deviceApprovalLabel: 'Also allow its Approve button to send notes when I press it',
   deviceApprovalHint: 'Only grant this to a device you control. The button acts as you.',
@@ -136,7 +139,8 @@ export const strings = {
   deny: 'Deny',
   deviceApproved: 'Connected. You can close this tab.',
   openHomingbird: 'Open Homingbird',
-  consentApproved: (host: string) => `Connected. Returning you to ${host}. You can close this tab afterwards.`,
+  consentApproved: (host: string) =>
+    `Connected. Returning you to ${host}. You can close this tab afterwards.`,
   consentDenied: (host: string) => `Denied. Nothing was connected. Returning you to ${host}.`,
   deviceDenied: 'Denied. Nothing was connected.',
   consentTitle: 'Connect an application',
