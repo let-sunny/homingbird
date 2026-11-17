@@ -44,7 +44,8 @@ describe('Deferred', () => {
 
 describe('Semaphore', () => {
   it('refuses a permit count that is not a positive integer', () => {
-    for (const permits of [0, -1, 1.5, Number.NaN]) expect(() => makeSemaphore(permits)).toThrow(RangeError)
+    for (const permits of [0, -1, 1.5, Number.NaN])
+      expect(() => makeSemaphore(permits)).toThrow(new RangeError('permits must be a positive integer'))
   })
 
   it('never lets more tasks hold a permit than it has', async () => {
@@ -110,7 +111,7 @@ describe('Semaphore', () => {
 
 describe('Queue', () => {
   it('refuses a capacity below one', () => {
-    expect(() => makeQueue(0)).toThrow(RangeError)
+    expect(() => makeQueue(0)).toThrow(new RangeError('capacity must be at least 1'))
   })
 
   it('is first-in first-out for any interleaving of offers and takes', async () => {

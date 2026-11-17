@@ -114,6 +114,7 @@ export const merge = <A>(...sources: ReadonlyArray<Stream<A>>): Stream<A> => ({
   },
 })
 
+// The source is asked to close but never awaited: a pull that never settles must not hold the consumer.
 export const untilAborted =
   (signal: AbortSignal) =>
   <A>(source: Stream<A>): Stream<A> => ({

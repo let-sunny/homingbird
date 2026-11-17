@@ -356,6 +356,11 @@ describe('sequencing', () => {
     ).toEqual(died('d'))
   })
 
+  it('catchTag leaves a failure that carries no tag alone', async () => {
+    const untagged = T.fail(null) as T.Task<number, NotFound | null>
+    expect(await T.run(T.catchTag('NotFound', () => T.succeed(0))(untagged))).toEqual(failed(null))
+  })
+
   it('tapError observes a failure and keeps it', async () => {
     const seen: string[] = []
     const observe = T.tapError((e: string) => T.sync(() => seen.push(e)))

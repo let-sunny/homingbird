@@ -184,6 +184,8 @@ export interface PubSub<A> {
   readonly subscriberCount: () => number
 }
 
+// Publishing never blocks. A subscriber whose buffer fills is closed and flagged as overflowed; it is
+// expected to resubscribe and catch up from durable state.
 export const makePubSub = <A>(): PubSub<A> => {
   const queues = new Set<{ queue: Queue<A>; overflow: () => void }>()
   return {
