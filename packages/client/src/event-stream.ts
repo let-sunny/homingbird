@@ -41,9 +41,12 @@ export const eventStream = (
       if (delivered) backoff = reconnectDelays()
       if (transport === 'sse') failedStreams = delivered ? 0 : failed ? failedStreams + 1 : failedStreams
       if (failed || transport === 'sse') await options.clock.sleep(backoff.next().value, signal)
+      else if (!delivered) await options.clock.sleep(EMPTY_POLL_PAUSE_MS, signal)
     }
   },
 })
+
+const EMPTY_POLL_PAUSE_MS = 1_000
 
 const reconnectDelays = () => Schedule.exponential(500, 2, 30_000)
 

@@ -123,13 +123,15 @@ describe('eventStream', () => {
     expect(calls[3]!.url).toBe('https://hb.test/api/v1/events/poll?after=0&wait=25')
     expect(events.map((e) => e.seq)).toEqual([1, 2])
     expect(calls[4]!.url).toBe('https://hb.test/api/v1/events/poll?after=2&wait=25')
+    expect(calls).toHaveLength(5)
+    await clock.advance(1_000)
     expect(calls[5]!.url).toBe('https://hb.test/api/v1/events/poll?after=2&wait=25')
     expect(transports.slice(0, 5)).toEqual(['sse', 'sse', 'sse', 'poll', 'poll'])
     stop.abort()
     await done
   })
 
-  it('waits before polling again only after a failed poll', async () => {
+  it('backs off after a failed poll', async () => {
     const { fetch, calls } = scripted([
       refused,
       refused,
