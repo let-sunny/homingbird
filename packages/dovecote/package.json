@@ -3,6 +3,20 @@
   "version": "0.1.0",
   "license": "MIT",
   "type": "module",
-  "exports": { ".": "./src/index.ts" },
-  "dependencies": { "@homingbird/kernel": "workspace:*","@homingbird/protocol": "workspace:*","@homingbird/mcp": "workspace:*","@homingbird/a2a": "workspace:*" }
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@homingbird/a2a": "workspace:*",
+    "@homingbird/kernel": "workspace:*",
+    "@homingbird/mcp": "workspace:*",
+    "@homingbird/protocol": "workspace:*",
+    "mysql2": "^3.24.6",
+    "pg": "^8.23.1",
+    "ws": "^8.23.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1",
+    "@types/ws": "^8.18.2"
+  }
 }

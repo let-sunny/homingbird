@@ -6,7 +6,7 @@
  * aborts; that is how a pipeline is torn down from the outside.
  */
 import type { Clock } from './clock.ts'
-import { isOk } from './result.ts'
+import { err, isOk, ok } from './result.ts'
 import * as T from './task.ts'
 
 export type Stream<A> = AsyncIterable<A>
@@ -184,5 +184,5 @@ export const forEach =
         const exit = await f(a).run(env, signal)
         if (!isOk(exit)) return exit as T.Exit<never, E>
       }
-      return signal.aborted ? T.run(T.interrupt) : T.run(T.unit)
+      return signal.aborted ? err(T.interruptCause) : ok(undefined)
     })

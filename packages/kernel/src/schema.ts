@@ -165,13 +165,13 @@ const isPlainObject = (input: unknown): input is Record<string, unknown> =>
 export const record = <A>(values: Schema<A>): Schema<Readonly<Record<string, A>>> =>
   make({ type: 'record', values: values.ast }, (input, path) => {
     if (!isPlainObject(input)) return issue(path, `expected object, got ${describe(input)}`)
-    const out: Record<string, A> = {}
+    const out: Array<[string, A]> = []
     const issues: Issue[] = []
     for (const [key, value] of Object.entries(input)) {
       const decoded = values.at(value, [...path, key])
-      isOk(decoded) ? (out[key] = decoded.value) : issues.push(...decoded.error)
+      isOk(decoded) ? out.push([key, decoded.value]) : issues.push(...decoded.error)
     }
-    return issues.length > 0 ? err(issues) : ok(out)
+    return issues.length > 0 ? err(issues) : ok(Object.fromEntries(out))
   })
 
 /** Marks a struct field as optional. An absent or `undefined` field is omitted from the output. */
@@ -209,7 +209,7 @@ export const struct = <F extends Fields>(fields: F): StructSchema<F> => {
       const out: Record<string, unknown> = {}
       const issues: Issue[] = []
       for (const entry of entries) {
-        const value = input[entry.key]
+        const value = Object.hasOwn(input, entry.key) ? input[entry.key] : undefined
         if (value === undefined) {
           if (!entry.optional) issues.push({ path: [...path, entry.key], message: 'is required' })
           continue
@@ -232,9 +232,7 @@ export const union = <const M extends ReadonlyArray<Schema<any>>>(...members: M)
       if (isOk(decoded)) return decoded
       issues.push(...decoded.error)
     }
-    return err(
-      issues.length > 0 ? issues : [{ path, message: 'no union member to match' }],
-    )
+    return err(issues.length > 0 ? issues : [{ path, message: 'no union member to match' }])
   })
 
 export const nullable = <A>(schema: Schema<A>): Schema<A | null> => union(schema, literal(null))
@@ -257,7 +255,7 @@ export const variants = <Key extends string, const V extends Readonly<Record<str
   ) as Record<string, Schema<any>>
   return make({ type: 'union', members: names.map((name) => schemas[name]!.ast) }, (input, path) => {
     if (!isPlainObject(input)) return issue(path, `expected object, got ${describe(input)}`)
-    const tag = input[key]
+    const tag = Object.hasOwn(input, key) ? input[key] : undefined
     if (typeof tag !== 'string' || !Object.hasOwn(schemas, tag))
       return issue([...path, key], `expected ${names.map((n) => JSON.stringify(n)).join(' | ')}`)
     return schemas[tag]!.at(input, path)

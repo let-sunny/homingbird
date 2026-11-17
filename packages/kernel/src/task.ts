@@ -568,7 +568,7 @@ export const scoped = <A, E, R>(body: (scope: Scope) => Task<A, E, R>): Task<A, 
     }
     controller.abort()
     dispose()
-    await Promise.all(fibers)
+    while (fibers.size > 0) await Promise.all(fibers)
     for (const finalizer of finalizers.reverse()) {
       const cleanup = await finalizer.run(env, NEVER_ABORTED)
       if (!isOk(cleanup) && isOk(out)) out = cleanup as Exit<never, never>

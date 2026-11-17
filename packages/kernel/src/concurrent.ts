@@ -2,9 +2,9 @@
  * Coordination primitives. Every wait is a Task, so every wait can be interrupted, and an
  * interrupted waiter leaves no trace behind.
  */
-import { type Tagged, tagged } from './data.ts'
+import { tagged } from './data.ts'
 import { type Option, none, some } from './option.ts'
-import { err, ok } from './result.ts'
+import { err, isOk, ok } from './result.ts'
 import * as T from './task.ts'
 
 // ---------------------------------------------------------------------------------------------
@@ -70,18 +70,20 @@ export const makeSemaphore = (permits: number): Semaphore => {
       }
     })
   })
-  const release = T.sync(() => {
+  const release = (): void => {
     const next = waiters.shift()
     if (next) next()
     else free++
-  })
+  }
   return {
-    withPermit: (task) =>
-      T.bracket(
-        acquire,
-        () => task,
-        () => release,
-      ),
+    withPermit: <A, E, R>(task: T.Task<A, E, R>) =>
+      T.make<A, E, R>(async (env, signal) => {
+        const acquired = await acquire.run(undefined, signal)
+        if (!isOk(acquired)) return acquired
+        const out = await task.run(env, signal)
+        release()
+        return out
+      }),
     available: () => free,
   }
 }
@@ -268,5 +270,3 @@ export const makePubSub = <A>(): PubSub<A> => {
     subscriberCount: () => queues.size,
   }
 }
-
-export type { Tagged }

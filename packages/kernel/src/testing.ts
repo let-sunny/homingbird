@@ -9,7 +9,7 @@ export type RefinementArbitraries = Readonly<Record<string, fc.Arbitrary<unknown
 
 /**
  * A generator of values the schema accepts. Refinements cannot be derived from a predicate, so
- * supply a generator per refinement name; an unknown refinement falls back to filtering.
+ * supply a generator per refinement name; without one, values of the inner schema are filtered.
  */
 export const arbitrary = <A>(schema: Schema<A>, refinements: RefinementArbitraries = {}): fc.Arbitrary<A> => {
   const go = (ast: Ast): fc.Arbitrary<unknown> => {
@@ -61,9 +61,8 @@ export const arbitrary = <A>(schema: Schema<A>, refinements: RefinementArbitrari
       case 'union':
         return fc.oneof(...ast.members.map(go))
       case 'refined':
-        return refinements[ast.name] ?? go(ast.inner).filter((value) => schema.is(value) || !isTopLevel(ast))
+        return refinements[ast.name] ?? go(ast.inner)
     }
   }
-  const isTopLevel = (ast: Ast): boolean => ast === schema.ast
   return go(schema.ast).filter((value) => schema.is(value)) as fc.Arbitrary<A>
 }
