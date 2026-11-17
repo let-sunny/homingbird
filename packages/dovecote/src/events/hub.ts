@@ -10,6 +10,7 @@ export interface Hub {
   ) => Subscription<StreamEvent>
   readonly presenceOf: (memberId: MemberId) => Presence
   readonly flushPresence: () => void
+  readonly broadcast: (event: StreamEvent) => void
 }
 
 export const PRESENCE_FLUSH_INTERVAL_MS = 1_000
@@ -36,6 +37,9 @@ export const makeHub = (now: () => number): Hub => {
   return {
     presenceOf,
     flushPresence,
+    broadcast: (event) => {
+      for (const channel of channels.values()) channel.pubsub.publish(event)
+    },
     publish: (memberId, event) => channels.get(memberId)?.pubsub.publish(event),
     subscribe: (memberId, shownAs, signal) => {
       const channel = channels.get(memberId) ?? {

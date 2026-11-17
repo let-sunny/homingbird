@@ -16,6 +16,17 @@
       "title": "Server URL",
       "description": "Your organization's Homingbird server, used by the Connect button.",
       "default": ""
+    },
+    "autoDraft": {
+      "type": "string",
+      "title": "Reply drafts",
+      "description": "How a reply is drafted when a note arrives. turn: your agent takes a turn in this session and may use its tools. quiet: it drafts in the background from what the session already knows. off: nothing is drafted until you ask.",
+      "options": [
+        "turn",
+        "quiet",
+        "off"
+      ],
+      "default": "turn"
     }
   },
   "author": {

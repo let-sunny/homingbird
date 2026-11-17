@@ -139,7 +139,7 @@ const scenario = async (): Promise<void> => {
       inReplyTo: waiting,
       body: 'Looks safe, but wait for the export job first.',
     })
-    await june.page.waitForFunction(() => document.querySelectorAll('.pending .draft').length === 2)
+    await june.page.waitForFunction(pendingDrafts(2))
     await capture(june.page, 'several-alternative-drafts')
 
     await june.page.locator('.draft').first().getByRole('button', { name: 'Edit' }).click()
@@ -152,7 +152,7 @@ const scenario = async (): Promise<void> => {
 
     await june.page.click('dialog[open] button[type=submit]')
     await ana.page.waitForSelector('.note-status:has-text("Replied")')
-    await june.page.waitForFunction(() => document.querySelectorAll('.pending .draft').length === 0)
+    await june.page.waitForFunction(pendingDrafts(0))
     await capture(ana.page, 'replied-seen-by-sender')
     await capture(june.page, 'replied-seen-by-recipient-alternatives-discarded')
 
@@ -162,23 +162,23 @@ const scenario = async (): Promise<void> => {
       body: 'Thanks. I will run it at 2am and report back.',
     })
     await anaAgent.call('POST', '/drafts', { to: [ids.June], body: 'A draft that will be thrown away.' })
-    await ana.page.waitForFunction(() => document.querySelectorAll('.pending .draft').length === 2)
+    await ana.page.waitForFunction(pendingDrafts(2))
     await capture(ana.page, 'drafts-before-discarding')
     await ana.page
       .locator('.draft', { hasText: 'thrown away' })
       .getByRole('button', { name: 'Discard' })
       .click()
-    await ana.page.waitForFunction(() => document.querySelectorAll('.pending .draft').length === 1)
+    await ana.page.waitForFunction(pendingDrafts(1))
     await capture(ana.page, 'after-discarding')
 
     await ana.page.locator('.draft', { hasText: 'report back' }).getByRole('button', { name: 'Send' }).click()
-    await ana.page.waitForFunction(() => document.querySelectorAll('.pending .draft').length === 0)
+    await ana.page.waitForFunction(pendingDrafts(0))
     await ana.page.waitForSelector('.origin.is-agent')
     await capture(ana.page, 'origin-badges-human-edited-and-agent')
     assert.equal((await api(ana, 'GET', `/notes/${follow.id}`)).status, 'sent')
     const origins = await ana.page
       .locator('.origin')
-      .evaluateAll((nodes: Element[]) => nodes.map((node) => node.className))
+      .evaluateAll((nodes: ReadonlyArray<{ className: string }>) => nodes.map((node) => node.className))
     for (const origin of ['is-human', 'is-human_edited', 'is-agent'])
       assert.ok(
         origins.some((name: string) => name.split(' ').includes(origin)),
@@ -203,6 +203,7 @@ const scenario = async (): Promise<void> => {
       await toggle.check().catch(() => undefined)
       await ana.page.waitForTimeout(1500)
       await capture(ana.page, 'notification-toggle-after-turning-on')
+      await ana.page.locator('.toast button').click().catch(() => undefined)
     }
 
     await ana.page.goto(`${base}/#/credentials`)
@@ -428,8 +429,11 @@ const startAuthorization = async (base: string, clientName: string): Promise<str
   }).toString()}`
 }
 
+const pendingDrafts = (count: number): string =>
+  `document.querySelectorAll('.pending .draft').length === ${count}`
+
 const overflowsSideways = (page: any): Promise<boolean> =>
-  page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1)
+  page.evaluate('document.documentElement.scrollWidth > document.documentElement.clientWidth + 1')
 
 const screenshotCounter = () => {
   let taken = 0

@@ -5,7 +5,7 @@ import { issueCredential } from '../domain/credentials.ts'
 import { signInMember } from '../domain/members.ts'
 import { isAllowedEmail, readSettings } from '../domain/settings.ts'
 import type { AppEnv } from '../environment.ts'
-import type { RequestEnv } from '../events/events.ts'
+import { type RequestEnv, announceDirectoryChange } from '../events/events.ts'
 import type { VerifiedIdentity } from './identity-provider.ts'
 import { advanceAuthRequest, authRequestById, openAuthRequest } from './requests.ts'
 
@@ -59,6 +59,7 @@ export const completeSignIn = (
     )
     yield* requireAllowed(identity)
     const member = yield* signInMember(identity)
+    yield* announceDirectoryChange(member.id)
     if (member.status !== 'active')
       return yield* T.fail(
         SignInRefused({ message: 'Your account has been deactivated by an administrator.' }),

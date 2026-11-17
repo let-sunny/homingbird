@@ -745,6 +745,10 @@
   font-size: var(--hb-text-small);
 }
 
+.audit .kind {
+  margin-inline-start: var(--hb-space-2);
+}
+
 .audit th,
 .audit td {
   padding: var(--hb-space-2);

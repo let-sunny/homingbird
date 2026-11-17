@@ -46,6 +46,7 @@ export const strings = {
   stopReplying: 'Do not reply to this note',
   reply: 'Reply',
   loadOlder: 'Load older notes',
+  noNotesYet: 'No notes yet',
   emptyThread: 'No notes here yet. Say hello.',
   origin: {
     agent: (agentName: string | null) => `Agent${agentName === null ? '' : ` · ${agentName}`}`,

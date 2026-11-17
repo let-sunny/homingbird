@@ -9,8 +9,7 @@ import {
   markRead,
   replyTargetIn,
   saveDraft,
-  sendNote,
-} from '../actions.ts'
+  sendNote, loadPeople } from '../actions.ts'
 import { conversations, directory, members, replyTargets, sendingIn, threads } from '../state.ts'
 import { strings } from '../strings.ts'
 import { type ThreadItem, conversationTitle, excerpt, isUnreadBy, otherParticipants, threadItems } from '../thread.ts'
@@ -20,6 +19,7 @@ import { type PipState, pip } from './pip.ts'
 
 export const threadView = (life: Lifetime, me: Me, id: ConversationId): HTMLElement => {
   launch(loadThread(id))
+  launch(loadPeople)
   const scroller = h('div', { class: 'thread-scroll', tabindex: '0' })
   const list = h('ol', { class: 'notes', 'aria-live': 'polite', 'aria-relevant': 'additions' })
   const follow = followNewNotes(life, scroller)

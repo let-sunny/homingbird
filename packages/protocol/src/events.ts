@@ -11,6 +11,7 @@ export const EventBody = S.variants('type', {
   presence: {
     members: S.array(S.struct({ memberId: MemberId, humanOnline: S.boolean, agentOnline: S.boolean })),
   },
+  'directory.changed': { memberId: MemberId },
   resync: {},
 })
 export type EventBody = S.Infer<typeof EventBody>
@@ -23,7 +24,9 @@ export const StreamEvent = S.struct({
 })
 export type StreamEvent = S.Infer<typeof StreamEvent>
 
-export const isDurable = (type: EventType): boolean => type !== 'presence' && type !== 'resync'
+const EPHEMERAL: ReadonlyArray<EventType> = ['presence', 'directory.changed', 'resync']
+
+export const isDurable = (type: EventType): boolean => !EPHEMERAL.includes(type)
 
 export const STREAM_PATHS = {
   sse: '/api/v1/events/stream',

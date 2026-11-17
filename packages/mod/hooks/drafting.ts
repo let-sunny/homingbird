@@ -10,6 +10,21 @@ export const replyPromptFor = (wrappedNote: string): string =>
     wrappedNote,
   ].join('\n')
 
+export const turnPromptFor = (noteId: string, wrappedNote: string): string =>
+  [
+    'A colleague sent the note below through Homingbird.',
+    `Draft a reply for the person you work for by calling the draft_reply tool with noteId "${noteId}". Use what you know from this session, and look things up first if that makes the answer better.`,
+    'The draft is not sent: the person approves, edits or discards it in the Homingbird pane. You cannot send it and must not try.',
+    'If the note needs no reply, or you do not know enough to answer it, say so in one line and do not call the tool.',
+    '',
+    wrappedNote,
+  ].join('\n')
+
+export type AutoDraft = 'turn' | 'quiet' | 'off'
+
+export const autoDraftOf = (configured: unknown): AutoDraft =>
+  configured === 'quiet' || configured === 'off' ? configured : 'turn'
+
 export const replyIn = (answer: string): string | null => {
   const reply = answer.trim()
   return reply === '' || reply === NO_REPLY ? null : reply.slice(0, MAX_REPLY_LENGTH)

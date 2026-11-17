@@ -3,7 +3,7 @@ import type { EngineInterface, PluginOptions, Register } from 'claude-code'
 
 import type { HomingbirdOverview } from '../types'
 import { commandOf, lastJsonLine, run, runJson } from './command-line'
-import { replyIn, replyPromptFor } from './drafting'
+import { autoDraftOf, replyIn, replyPromptFor, turnPromptFor } from './drafting'
 import { forbiddenReason } from './guard'
 import { PANE, renderPane } from './pane'
 import { NOTE_TOOLS, wireNameOf } from './tools'
@@ -36,7 +36,8 @@ export const register: Register = (on, options) => {
     const tool = NOTE_TOOLS.find((one) => wireNameOf(one) === String(e.tool))
     if (tool === undefined) return next(e)
     const ran = await run($, options, tool.argumentsFor(e as unknown as Record<string, unknown>))
-    void refresh($, context)
+    const latest = await refresh($, context)
+    if (ran.kind === 'ok' && tool.spec.name.startsWith('draft_') && latest !== null) $.ui.toast(DRAFT_WAITING)
     return ran.kind === 'ok'
       ? { result: ran.text }
       : { result: ran.kind === 'signed-out' ? SIGNED_OUT : ran.message, isError: true }
@@ -120,18 +121,20 @@ const arrived = async ($: Engine, context: Context, line: string): Promise<void>
 }
 
 const draftReply = async ($: Engine, context: Context, noteId: string, wrappedNote: string): Promise<void> => {
-  if (context.handled.has(noteId)) return
+  const mode = autoDraftOf(context.options.autoDraft)
+  if (mode === 'off' || context.handled.has(noteId)) return
   context.handled.add(noteId)
   await run($, context.options, ['pickup', noteId])
-  const reply = replyIn(await suggestReply($, context, replyPromptFor(wrappedNote)))
+  if (mode === 'turn') return void (await $.prompt.submit({ text: turnPromptFor(noteId, wrappedNote) }))
+  const reply = replyIn(await suggestReply($, replyPromptFor(wrappedNote)))
   if (reply === null) return
   const drafted = await run($, context.options, ['draft', '--reply', noteId, '--', reply])
   if (drafted.kind !== 'ok') return
   await refresh($, context)
-  $.ui.toast('Homingbird: a reply draft is waiting for your approval.')
+  $.ui.toast(DRAFT_WAITING)
 }
 
-const suggestReply = async ($: Engine, context: Context, prompt: string): Promise<string> => {
+const suggestReply = async ($: Engine, prompt: string): Promise<string> => {
   const forked = await $.model.fork({ prompt })
   if (forked.isAnswered) return forked.text
   if (forked.reason !== 'nothing-to-fork') return ''
@@ -171,6 +174,7 @@ const decide = async ($: Engine, context: Context, args: ReadonlyArray<string>):
 }
 
 const POLL_MS = 30_000
+const DRAFT_WAITING = 'Homingbird: a reply draft is waiting for your approval.'
 const SIGNED_OUT = 'Homingbird is not connected. Ask the person to press Connect in the Homingbird pane.'
 const NO_APPROVE_BUTTON = 'This device has no approve button. Approve in the Homingbird web client.'
 

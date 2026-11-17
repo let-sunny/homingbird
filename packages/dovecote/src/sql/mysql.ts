@@ -20,6 +20,7 @@ export const openMysql = (url: string): Database => {
     transaction: async (body) => {
       const client = await pool.getConnection()
       try {
+        await client.query('SET TRANSACTION ISOLATION LEVEL READ COMMITTED')
         await client.beginTransaction()
         const result = await body(over(client))
         await client.commit()

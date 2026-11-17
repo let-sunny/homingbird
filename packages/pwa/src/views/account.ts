@@ -65,6 +65,7 @@ const notificationsToggle = (life: Lifetime): HTMLElement => {
     launch(
       T.map((on: boolean) => {
         isOn.set(on)
+        for (const box of document.querySelectorAll<HTMLInputElement>('input[name=notifications]')) box.checked = on
         if (wanted && !on) notice.set({ kind: 'error', text: strings.notificationsRefused })
       })(wanted ? turnPushOn : turnPushOff),
     )

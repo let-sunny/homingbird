@@ -3,6 +3,7 @@ import type { EngineInterface, RenderElement, ResolveInput } from 'claude-code'
 
 import type { HomingbirdConnection, HomingbirdDraft, HomingbirdOverview } from '../types'
 import { bodyOf } from './drafting'
+import { PIP_COLUMNS, PIP_PNG, PIP_ROWS } from './pip'
 
 export const PANE = 'homingbird'
 
@@ -11,6 +12,8 @@ const connection = atom({ plugin: 'homingbird', key: 'connection' } as const, 's
 const signIn = atom({ plugin: 'homingbird', key: 'signIn' } as const, null)
 const editing = atom({ plugin: 'homingbird', key: 'editing' } as const, null)
 const problem = atom({ plugin: 'homingbird', key: 'problem' } as const, null)
+
+type PipImage = (props: { key: string; source: { png: string }; columns: number; rows: number; alt: string }) => RenderElement
 
 export interface PaneActions {
   readonly defaultServer: string
@@ -24,13 +27,18 @@ export async function renderPane(
   e: ResolveInput,
   actions: PaneActions,
 ): Promise<RenderElement> {
-  const { Box, Text } = $.ui.resolve(e)
+  const { Box, Text, Image } = $.ui.resolve(e) as ReturnType<typeof $.ui.resolve> & { Image?: PipImage }
   const state = await read($, connection)
   const latest = await read($, overview)
   const trouble = await read($, problem)
   return (
     <Box flexDirection="column" gap={1}>
-      <Text bold>Homingbird · {CONNECTION_LABELS[state]}</Text>
+      <Box flexDirection="row" gap={1}>
+        {Image !== undefined && (
+          <Image key="pip" source={{ png: PIP_PNG }} columns={PIP_COLUMNS} rows={PIP_ROWS} alt=" " />
+        )}
+        <Text bold>Homingbird · {CONNECTION_LABELS[state]}</Text>
+      </Box>
       {trouble !== null && <Text color="warning">{trouble}</Text>}
       {latest === null ? await signInRows($, e, actions) : await overviewRows($, e, latest, actions)}
     </Box>

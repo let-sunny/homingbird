@@ -39,6 +39,9 @@ export const loadConfig = (
   const problems = [
     !devLogin && !v.HB_OIDC_CLIENT_ID ? 'HB_OIDC_CLIENT_ID: is required unless HB_DEV_LOGIN=1' : null,
     !devLogin && !v.HB_OIDC_CLIENT_SECRET ? 'HB_OIDC_CLIENT_SECRET: is required unless HB_DEV_LOGIN=1' : null,
+    !devLogin && commaList(v.HB_ADMIN_EMAILS).length === 0
+      ? 'HB_ADMIN_EMAILS: name at least one administrator; nobody becomes one implicitly'
+      : null,
     devLogin && !isLoopback(v.HB_PUBLIC_URL)
       ? 'HB_DEV_LOGIN: only allowed when HB_PUBLIC_URL is a loopback address'
       : null,

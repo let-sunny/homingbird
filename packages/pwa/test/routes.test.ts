@@ -1,6 +1,6 @@
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { type Route, hrefFor, parseRoute, signInHref } from '../src/routes.ts'
+import { type AdminSection, type Route, hrefFor, parseRoute, signInHref } from '../src/routes.ts'
 
 const segment = fc.string({ minLength: 1, maxLength: 24 })
 
@@ -13,7 +13,7 @@ const routes: fc.Arbitrary<Route> = fc.oneof(
   segment.map((id): Route => ({ name: 'consent', id })),
   fc.option(segment, { nil: null }).map((code): Route => ({ name: 'device', code })),
   fc.string({ maxLength: 40 }).map((query): Route => ({ name: 'search', query })),
-  fc.constantFrom('settings', 'members', 'audit').map((section): Route => ({ name: 'admin', section })),
+  fc.constantFrom<AdminSection>('settings', 'members', 'audit').map((section): Route => ({ name: 'admin', section })),
   fc.option(fc.string({ maxLength: 60 }), { nil: null }).map((reason): Route => ({ name: 'signed-out', reason })),
 )
 

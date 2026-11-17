@@ -89,6 +89,22 @@ export const testConfig = (overrides: Readonly<Record<string, string>> = {}): Co
   return loaded.value
 }
 
+const NETWORK_ROUND_TRIPS_MS = 60
+
+const patient = (clock: TestClock): TestClock => {
+  if (TEST_DATABASE_URL === null) return clock
+  const settle = () => new Promise<void>((resolve) => setTimeout(resolve, NETWORK_ROUND_TRIPS_MS))
+  return {
+    ...clock,
+    flush: settle,
+    advance: async (ms) => {
+      await settle()
+      await clock.advance(ms)
+      await settle()
+    },
+  }
+}
+
 export const TEST_DATABASE_URL = process.env.HB_TEST_DATABASE_URL ?? null
 
 export const openTestDatabase = async (): Promise<Database> => {
@@ -169,7 +185,7 @@ export const startTestServer = async (
     return { cookie, token, api, me: (await api('GET', '/me')).json }
   }
 
-  return { env, clock, background, logged, request, signIn, close: () => database.close() }
+  return { env, clock: patient(clock), background, logged, request, signIn, close: () => database.close() }
 }
 
 const parseOrNull = (text: string): unknown => {

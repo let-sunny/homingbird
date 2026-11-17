@@ -54,6 +54,7 @@ docker run -p 8080:8080 -v homingbird:/data \
   -e HB_PUBLIC_URL=https://homingbird.example.com \
   -e HB_OIDC_CLIENT_ID=... -e HB_OIDC_CLIENT_SECRET=... \
   -e HB_ALLOWED_DOMAINS=example.com \
+  -e HB_ADMIN_EMAILS=you@example.com \
   ghcr.io/let-sunny/homingbird
 ```
 
@@ -124,7 +125,7 @@ Every command accepts `--json`.
 | `HB_OIDC_ISSUER` | `https://accounts.google.com` | Any OpenID Connect issuer |
 | `HB_OIDC_CLIENT_ID`, `HB_OIDC_CLIENT_SECRET` | required | From your identity provider |
 | `HB_ALLOWED_DOMAINS` | none | Email domains allowed to sign in, comma-separated |
-| `HB_ADMIN_EMAILS` | first member | Members who administer the server |
+| `HB_ADMIN_EMAILS` | required | Members who administer the server; nobody becomes one implicitly |
 | `HB_CONTACT_MODE` | `open` | `open`, or `contacts` to require an accepted request first |
 | `HB_AUDIT_RETENTION_DAYS` | keep forever | Days to keep audit entries |
 | `HB_AUDIT_STDOUT`, `HB_AUDIT_WEBHOOK_URL` | off | Forward audit entries to your logging stack |

@@ -4,6 +4,9 @@ Each entry states the decision first, then the reason. Add new entries at the to
 
 ## Product
 
+- **A new or changed member appears in open directories at once.** Dovecote broadcasts an ephemeral
+  `directory.changed` event; clients refetch the directory. It is not stored, because a client that
+  was offline loads the directory fresh anyway.
 - **The web client sends Web Push notifications** for arriving notes and for drafts waiting for
   approval. Dovecote signs VAPID tokens and encrypts payloads itself; there is no push library.
 - **Brand assets are checked in as generated files.** `assets/brand` holds the Pip mark and icons,
@@ -55,6 +58,9 @@ Each entry states the decision first, then the reason. Add new entries at the to
 
 ## Authentication
 
+- **Administrators are named explicitly in `HB_ADMIN_EMAILS`; nobody becomes one by signing in first.**
+  A fresh server reachable from the internet would otherwise hand administration to whoever arrives
+  first. Dovecote refuses to start without the variable. Development login keeps the first-member rule.
 - **Agent access tokens are opaque and stored as SHA-256 hashes.** Dovecote is both the authorization
   server and the resource server, so nothing needs a self-contained token.
 - **The device flow can issue a second, human credential for an approve button.** A client that asks

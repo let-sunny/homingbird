@@ -5,8 +5,10 @@ import type { AppEnv } from '../environment.ts'
 import { all, first, inTransaction, run } from '../sql/database.ts'
 import { insertInto, sql } from '../sql/query.ts'
 
+export const EVERYONE = Symbol('everyone')
+
 export interface Delivery {
-  readonly memberId: MemberId
+  readonly memberId: MemberId | typeof EVERYONE
   readonly event: StreamEvent
 }
 
@@ -22,6 +24,10 @@ export const transact = <A, E>(task: T.Task<A, E, RequestEnv>): T.Task<A, E, App
     const audited: AuditRecord[] = []
     const value = yield* T.provide({ outbox, audited })(inTransaction(task)) as T.Task<A, E, AppEnv>
     for (const delivery of outbox) {
+      if (delivery.memberId === EVERYONE) {
+        env.hub.broadcast(delivery.event)
+        continue
+      }
       env.hub.publish(delivery.memberId, delivery.event)
       env.pushSink(delivery.memberId, delivery.event)
     }
@@ -51,6 +57,14 @@ export const emit = (recipients: Iterable<MemberId>, body: EventBody): T.Task<vo
       env.outbox.push({ memberId, event })
     }
   })
+
+export const announceDirectoryChange = (memberId: MemberId): T.Task<void, never, RequestEnv> =>
+  T.map((env: RequestEnv) => {
+    env.outbox.push({
+      memberId: EVERYONE,
+      event: { seq: 0, at: env.clock.now(), body: { type: 'directory.changed', memberId } },
+    })
+  })(T.ask<RequestEnv>())
 
 export const eventsAfter = (
   memberId: MemberId,

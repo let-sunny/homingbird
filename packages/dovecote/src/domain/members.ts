@@ -72,18 +72,20 @@ export const signInMember = (identity: Identity): T.Task<Member, never, AppEnv> 
       sql`SELECT * FROM members WHERE subject = ${identity.subject} OR email = ${email}`,
     )
     if (existing !== null) {
+      const role = env.config.adminEmails.includes(email) ? 'admin' : existing.role
       yield* run(
-        sql`UPDATE members SET subject = ${identity.subject}, email = ${email} WHERE id = ${existing.id}`,
+        sql`UPDATE members SET subject = ${identity.subject}, email = ${email}, role = ${role} WHERE id = ${existing.id}`,
       )
-      return toMember({ ...existing, email })
+      return toMember({ ...existing, email, role })
     }
-    const isFirstMember = (yield* first(sql`SELECT id FROM members LIMIT 1`)) === null
+    const isFirstDevelopmentMember =
+      env.config.identity.devLogin && (yield* first(sql`SELECT id FROM members LIMIT 1`)) === null
     const member: Member = {
       id: MemberId.of(env.random.identifier()),
       email,
       name: identity.name.slice(0, 200) || email,
       profile: '',
-      role: isFirstMember || env.config.adminEmails.includes(email) ? 'admin' : 'member',
+      role: isFirstDevelopmentMember || env.config.adminEmails.includes(email) ? 'admin' : 'member',
       status: 'active',
       createdAt: env.clock.now(),
     }

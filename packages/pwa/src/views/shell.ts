@@ -136,7 +136,11 @@ const conversationRow = (conversation: Conversation, me: Me): HTMLElement => {
         h(
           'span',
           { class: 'conversation-preview' },
-          conversation.lastNote === null ? strings.draftsWaiting(conversation.draftCount) : excerpt(conversation.lastNote.body, 60),
+          conversation.lastNote !== null
+            ? excerpt(conversation.lastNote.body, 60)
+            : conversation.draftCount > 0
+              ? strings.draftsWaiting(conversation.draftCount)
+              : strings.noNotesYet,
         ),
       ),
       h(

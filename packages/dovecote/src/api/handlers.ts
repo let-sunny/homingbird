@@ -5,6 +5,7 @@ import {
   ConversationId,
   CredentialId,
   Invalid,
+  type Member,
   MemberId,
   NoteId,
   POLL_WAIT_MAX_SECONDS,
@@ -40,7 +41,7 @@ import {
 } from '../domain/notes.ts'
 import { readSettings, writeSettings } from '../domain/settings.ts'
 import type { Caller } from '../environment.ts'
-import { type RequestEnv, waitForEvents } from '../events/events.ts'
+import { type RequestEnv, announceDirectoryChange, waitForEvents } from '../events/events.ts'
 import { removeOwnPushSubscription, savePushSubscription } from '../push/subscriptions.ts'
 import { vapidKeys } from '../push/vapid.ts'
 import { SERVER_VERSION } from '../version.ts'
@@ -72,7 +73,8 @@ export const handlers: Handlers = {
       credential: caller.credential,
       contactMode: settings.contactMode,
     }))(readSettings),
-  'me.update': ({ body }, caller) => updateOwnProfile(caller.member.id, body),
+  'me.update': ({ body }, caller) =>
+    T.tap((_: Member) => announceDirectoryChange(caller.member.id))(updateOwnProfile(caller.member.id, body)),
 
   'directory.list': ({ query }, caller) =>
     T.map((entries: Awaited<ResponseOf<Contract['directory.list']>>['entries']) => ({ entries }))(
@@ -185,9 +187,9 @@ export const handlers: Handlers = {
       allMembers,
     ),
   'admin.members.update': ({ params, body }, caller) =>
-    T.flatMap((id: MemberId) => administerMember(caller.member.id, id, body))(
-      identifier(MemberId, params.id),
-    ),
+    T.flatMap((id: MemberId) =>
+      T.tap((_: Member) => announceDirectoryChange(id))(administerMember(caller.member.id, id, body)),
+    )(identifier(MemberId, params.id)),
   'admin.audit.list': ({ query }) =>
     listAudit({
       before: query.before === undefined ? null : Number(query.before),
