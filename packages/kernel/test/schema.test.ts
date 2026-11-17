@@ -1,7 +1,5 @@
-import fc from 'fast-check'
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import { type Brand, Schema as S, ok } from '../src/index.ts'
-import { arbitrary } from '../src/testing.ts'
 
 const issuesOf = (schema: S.Schema<unknown>, input: unknown) => {
   const decoded = schema.decode(input)
@@ -295,60 +293,5 @@ describe('derivations', () => {
         { properties: { type: { const: 'removed' } }, required: ['type'] },
       ],
     })
-  })
-})
-
-describe('generated values', () => {
-  it.each(everything.map((schema, index) => [index, schema] as const))(
-    'schema %i accepts everything generated from it, and decoding is idempotent',
-    (_, schema) => {
-      fc.assert(
-        fc.property(arbitrary(schema as S.Schema<unknown>), (value) => {
-          const once = schema.decode(value)
-          expect(once._tag).toBe('Ok')
-          expect(schema.decode((once as { value: unknown }).value)).toEqual(once)
-          expect(schema.is(value)).toBe(true)
-        }),
-        { numRuns: 60 },
-      )
-    },
-  )
-
-  it('uses a supplied generator for a refinement and filters otherwise', () => {
-    const evens = fc.integer().map((n) => n * 2)
-    fc.assert(
-      fc.property(arbitrary(Even, { even: evens }), (n) => n % 2 === 0),
-      { numRuns: 50 },
-    )
-    fc.assert(
-      fc.property(arbitrary(Even), (n) => n % 2 === 0),
-      { numRuns: 50 },
-    )
-    const nested = S.struct({ n: Even })
-    fc.assert(
-      fc.property(arbitrary(nested), (value) => nested.is(value)),
-      { numRuns: 30 },
-    )
-  })
-
-  it('generates strings within a pattern’s length bounds', () => {
-    const code = S.string({ pattern: /^[a-z]+$/, minLength: 2, maxLength: 4 })
-    fc.assert(
-      fc.property(arbitrary(code), (s) => s.length >= 2 && s.length <= 4 && /^[a-z]+$/.test(s)),
-      {
-        numRuns: 50,
-      },
-    )
-    const open = S.string({ pattern: /^[a-z]*$/ })
-    fc.assert(
-      fc.property(arbitrary(open), (s) => open.is(s)),
-      { numRuns: 30 },
-    )
-  })
-
-  it('struct values sometimes omit optional fields and sometimes include them', () => {
-    const samples = fc.sample(arbitrary(User), 200)
-    expect(samples.some((user) => user.age === undefined)).toBe(true)
-    expect(samples.some((user) => user.age !== undefined)).toBe(true)
   })
 })

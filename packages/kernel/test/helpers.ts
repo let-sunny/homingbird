@@ -4,10 +4,8 @@ export const failed = <E>(error: E) => err(T.failCause(error))
 export const died = (defect: unknown) => err(T.dieCause(defect))
 export const interrupted = err(T.interruptCause)
 
-/** Lets every already-scheduled continuation run. */
 export const flush = (): Promise<void> => new Promise((resolve) => setImmediate(resolve))
 
-/** Whether a promise has settled, observed after letting pending continuations run. */
 export const isSettled = async (promise: Promise<unknown>): Promise<boolean> => {
   let settled = false
   void promise.then(() => {
@@ -24,7 +22,6 @@ export interface Probe<A> {
   readonly task: T.Task<A, never, HasClock>
 }
 
-/** A task that sleeps `ms` and records whether it started, finished and ran its `finally`. */
 export const probe = <A = void>(ms: number, value?: A, cleanupMs = 0): Probe<A> => {
   const self: Probe<A> = {
     started: 0,
@@ -50,7 +47,6 @@ export const setup = (start = 0): { clock: TestClock; env: { clock: Clock } } =>
   return { clock, env: { clock } }
 }
 
-/** Counts the abort listeners currently attached to a signal. */
 export const trackListeners = (signal: AbortSignal): (() => number) => {
   let count = 0
   const add = signal.addEventListener.bind(signal)

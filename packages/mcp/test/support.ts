@@ -115,6 +115,7 @@ export const entryOf = (member: Member, overrides: Partial<DirectoryEntry> = {})
   lastSeenAt: null,
   relation: 'none',
   canMessage: true,
+  topics: ['general'],
   ...overrides,
 })
 

@@ -2,7 +2,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import ts from 'typescript'
 
-const ENFORCED_PACKAGES = ['kernel', 'protocol', 'dovecote', 'client']
+const ENFORCED_PACKAGES = ['kernel', 'protocol', 'dovecote', 'client', 'a2a']
 
 const ADAPTER_FILES = [
   'packages/kernel/src/clock.ts',
@@ -69,6 +69,30 @@ export const checkSource = (file: string, text: string): Violation[] => {
     ...(isAdapter(file) ? [] : bannedCalls(source, at)),
     ...(mayDeclareClasses(file) ? [] : classesIn(source, at)),
   ]
+}
+
+export const checkPackageNames = (manifests: ReadonlyArray<{ file: string; name: unknown }>): Violation[] =>
+  manifests
+    .filter(({ name }) => typeof name === 'string' && VENDOR_TRADEMARKS.test(name))
+    .map(({ file, name }) => ({
+      file,
+      line: 1,
+      message: `package name ${String(name)} contains a vendor trademark`,
+    }))
+
+export const missingTestFiles = (
+  sources: ReadonlyArray<string>,
+  exists: (path: string) => boolean,
+): string[] => sources.filter((file) => !ENTRY_FILES.test(file) && !testFilesFor(file).some(exists))
+
+const VENDOR_TRADEMARKS = /claude|anthropic/i
+
+const testFilesFor = (file: string): string[] => {
+  const match = /^(packages\/[^/]+)\/src\/(.+)\.ts$/.exec(file)
+  if (match === null) return []
+  const [, packageRoot, inside] = match
+  const base = inside!.split('/').pop()!
+  return [`${packageRoot}/test/${inside}.test.ts`, `${packageRoot}/test/${base}.test.ts`]
 }
 
 const repositoryRoot = join(import.meta.dirname, '..')
@@ -206,23 +230,40 @@ const isRunDirectly = process.argv[1] !== undefined && import.meta.filename === 
 if (isRunDirectly) {
   const surveyOnly = process.argv.includes('--survey')
   const requested = process.argv.slice(2).filter((argument) => !argument.startsWith('--'))
-  const packages = surveyOnly
-    ? readdirSync(join(repositoryRoot, 'packages')).filter((name) =>
-        existsSync(join(repositoryRoot, 'packages', name, 'src')),
-      )
-    : ENFORCED_PACKAGES
+  const allPackages = readdirSync(join(repositoryRoot, 'packages')).filter((name) =>
+    existsSync(join(repositoryRoot, 'packages', name, 'src')),
+  )
+  const packages = surveyOnly ? allPackages : ENFORCED_PACKAGES
+  const toRepositoryPath = (path: string): string =>
+    relative(repositoryRoot, join(process.cwd(), relative(process.cwd(), path)))
+      .split(sep)
+      .join('/')
   const files =
     requested.length > 0
       ? requested.filter((file) => packages.some((name) => file.includes(`packages/${name}/src/`)))
       : packages.flatMap((name) => sourceFilesOf(join(repositoryRoot, 'packages', name, 'src')))
-  const violations = files.flatMap((path) => {
-    const file = relative(repositoryRoot, join(process.cwd(), relative(process.cwd(), path)))
-      .split(sep)
-      .join('/')
-    return checkSource(file, readFileSync(path, 'utf8'))
-  })
+  const manifests = [
+    'package.json',
+    ...readdirSync(join(repositoryRoot, 'packages')).map((name) => `packages/${name}/package.json`),
+  ]
+    .filter((file) => existsSync(join(repositoryRoot, file)))
+    .map((file) => ({ file, name: JSON.parse(readFileSync(join(repositoryRoot, file), 'utf8')).name }))
+  const violations = [
+    ...files.flatMap((path) => checkSource(toRepositoryPath(path), readFileSync(path, 'utf8'))),
+    ...checkPackageNames(manifests),
+  ]
   for (const violation of violations)
     process.stdout.write(`${violation.file}:${violation.line}  ${violation.message}\n`)
+  const untested = missingTestFiles(
+    allPackages
+      .flatMap((name) => sourceFilesOf(join(repositoryRoot, 'packages', name, 'src')))
+      .map(toRepositoryPath),
+    (path) => existsSync(join(repositoryRoot, path)),
+  )
+  if (requested.length === 0 && untested.length > 0) {
+    for (const file of untested) process.stdout.write(`warning  ${file} has no test file of the same name\n`)
+    process.stdout.write(`${untested.length} source file(s) without a test file of the same name.\n`)
+  }
   if (violations.length > 0 && !surveyOnly) {
     process.stdout.write(`\n${violations.length} style violation(s). See .claude/rules/code-style.md\n`)
     process.exit(1)

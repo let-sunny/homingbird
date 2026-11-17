@@ -5,7 +5,6 @@ import { Iter as I, pipe } from '../src/index.ts'
 const arr = fc.array(fc.integer({ min: -50, max: 50 }), { maxLength: 30 })
 const small = fc.integer({ min: -3, max: 35 })
 
-/** An iterable that records how many items were pulled and whether it was closed. */
 const tracked = <A>(items: ReadonlyArray<A>) => {
   const state = { pulled: 0, closed: false }
   const iterable: Iterable<A> = {
