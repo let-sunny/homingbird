@@ -2,9 +2,11 @@ export interface Clock {
   readonly now: () => number
   readonly sleep: (ms: number, signal: AbortSignal) => Promise<void>
 }
+
 export interface HasClock {
   readonly clock: Clock
 }
+
 export const systemClock: Clock = {
   now: () => Date.now(),
   sleep: (ms, signal) =>
@@ -19,11 +21,13 @@ export const systemClock: Clock = {
       signal.addEventListener('abort', done, { once: true })
     }),
 }
+
 export interface TestClock extends Clock {
   readonly advance: (ms: number) => Promise<void>
   readonly pending: () => number
   readonly flush: () => Promise<void>
 }
+
 export const makeTestClock = (start = 0): TestClock => {
   let now = start
   let order = 0

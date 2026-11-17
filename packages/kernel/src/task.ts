@@ -2,19 +2,29 @@ import type { Clock as ClockService, HasClock } from './clock.ts'
 import { type ByTag, type Tagged, tagged } from './data.ts'
 import type { UnionToIntersection } from './fn.ts'
 import { type Result, err, isOk, ok } from './result.ts'
+
 export interface Fail<out E> extends Tagged<'Fail'> {
   readonly error: E
 }
+
 export interface Interrupt extends Tagged<'Interrupt'> {}
+
 export interface Die extends Tagged<'Die'> {
   readonly defect: unknown
 }
+
 export type Cause<E> = Fail<E> | Interrupt | Die
+
 export type Exit<A, E> = Result<A, Cause<E>>
+
 export const failCause = <E>(error: E): Cause<E> => ({ _tag: 'Fail', error })
+
 export const interruptCause: Cause<never> = { _tag: 'Interrupt' }
+
 export const dieCause = (defect: unknown): Cause<never> => ({ _tag: 'Die', defect })
+
 export const NEVER_ABORTED: AbortSignal = new AbortController().signal
+
 export class TaskError<E> extends Error {
   override readonly cause: Cause<E>
   constructor(cause: Cause<E>) {
@@ -29,6 +39,7 @@ export class TaskError<E> extends Error {
     this.cause = cause
   }
 }
+
 export interface Task<out A, out E = never, in R = unknown> {
   readonly run: (env: R, signal: AbortSignal) => Promise<Exit<A, E>>
   [Symbol.iterator](): Generator<Task<A, E, R>, A, any>
@@ -37,9 +48,13 @@ export interface Task<out A, out E = never, in R = unknown> {
   pipe<B, C, D>(f: (self: Task<A, E, R>) => B, g: (b: B) => C, h: (c: C) => D): D
   pipe<B, C, D, F>(f: (self: Task<A, E, R>) => B, g: (b: B) => C, h: (c: C) => D, i: (d: D) => F): F
 }
+
 export type ValueOf<T> = T extends Task<infer A, any, any> ? A : never
+
 export type ErrorOf<T> = T extends Task<any, infer E, any> ? E : never
+
 export type EnvOf<T> = UnionToIntersection<T extends Task<any, any, infer R> ? R : never>
+
 class TaskImpl<A, E, R> {
   readonly run: (env: R, signal: AbortSignal) => Promise<Exit<A, E>>
   constructor(run: (env: R, signal: AbortSignal) => Promise<Exit<A, E>>) {
@@ -54,6 +69,7 @@ class TaskImpl<A, E, R> {
     return acc
   }
 }
+
 export const make = <A, E = never, R = unknown>(
   run: (env: R, signal: AbortSignal) => Promise<Exit<A, E>> | Exit<A, E>,
 ): Task<A, E, R> =>
@@ -65,16 +81,26 @@ export const make = <A, E = never, R = unknown>(
       return err(dieCause(defect))
     }
   }) as unknown as Task<A, E, R>
+
 export const isTask = (u: unknown): u is Task<unknown, unknown, unknown> => u instanceof TaskImpl
+
 export const succeed = <A>(value: A): Task<A> => make(() => ok(value))
+
 export const fail = <E>(error: E): Task<never, E> => make(() => err(failCause(error)))
+
 export const die = (defect: unknown): Task<never> => make(() => err(dieCause(defect)))
+
 export const interrupt: Task<never> = make(() => INTERRUPTED)
+
 export const unit: Task<void> = succeed(undefined)
+
 export const fromExit = <A, E>(exit: Exit<A, E>): Task<A, E> => make(() => exit)
+
 export const fromResult = <A, E>(result: Result<A, E>): Task<A, E> =>
   make(() => (isOk(result) ? result : err(failCause(result.error))))
+
 export const sync = <A>(f: () => A): Task<A> => make(() => ok(f()))
+
 export const attempt = <A, E>(f: () => A, onThrow: (cause: unknown) => E): Task<A, E> =>
   make(() => {
     try {
@@ -83,8 +109,10 @@ export const attempt = <A, E>(f: () => A, onThrow: (cause: unknown) => E): Task<
       return err(failCause(onThrow(cause)))
     }
   })
+
 export const suspend = <A, E, R>(f: () => Task<A, E, R>): Task<A, E, R> =>
   make((env, signal) => f().run(env, signal))
+
 export const promise = <A>(f: (signal: AbortSignal) => Promise<A>): Task<A> =>
   make((_, signal) =>
     abortable(
@@ -92,6 +120,7 @@ export const promise = <A>(f: (signal: AbortSignal) => Promise<A>): Task<A> =>
       signal,
     ),
   )
+
 export const tryPromise = <A, E>(
   f: (signal: AbortSignal) => Promise<A>,
   onReject: (cause: unknown) => E,
@@ -107,6 +136,7 @@ export const tryPromise = <A, E>(
       signal,
     ),
   )
+
 export const async = <A, E = never>(
   register: (resume: (exit: Exit<A, E>) => void) => () => void,
 ): Task<A, E> =>
@@ -129,12 +159,16 @@ export const async = <A, E = never>(
         if (!settled) signal.addEventListener('abort', onAbort, { once: true })
       }),
   )
+
 export const never: Task<never> = async(() => () => {})
+
 export const ask = <R>(): Task<R, never, R> => make((env) => ok(env))
+
 export interface ServiceTag<K extends string, S> extends Task<S, never, { readonly [P in K]: S }> {
   readonly key: K
   readonly of: (service: S) => { readonly [P in K]: S }
 }
+
 export const service =
   <S>() =>
   <K extends string>(key: K): ServiceTag<K, S> =>
@@ -142,10 +176,12 @@ export const service =
       make<S, never, { readonly [P in K]: S }>((env) => ok(env[key])),
       { key, of: (svc: S) => ({ [key]: svc }) as { readonly [P in K]: S } },
     )
+
 export const provide =
   <P extends object>(provided: P) =>
   <A, E, R>(task: Task<A, E, R>): Task<A, E, Omit<R, keyof P>> =>
     make((env, signal) => task.run({ ...(env as object), ...provided } as unknown as R, signal))
+
 export const map =
   <A, B>(f: (a: A) => B) =>
   <E, R>(task: Task<A, E, R>): Task<B, E, R> =>
@@ -153,11 +189,14 @@ export const map =
       const exit = await task.run(env, signal)
       return isOk(exit) ? ok(f(exit.value)) : exit
     })
+
 export const as =
   <B>(value: B) =>
   <A, E, R>(task: Task<A, E, R>): Task<B, E, R> =>
     map(() => value)(task)
+
 export const asUnit = <A, E, R>(task: Task<A, E, R>): Task<void, E, R> => map(() => undefined)(task)
+
 export const flatMap =
   <A, B, E2, R2>(f: (a: A) => Task<B, E2, R2>) =>
   <E, R>(task: Task<A, E, R>): Task<B, E | E2, R & R2> =>
@@ -165,10 +204,12 @@ export const flatMap =
       const exit = await task.run(env, signal)
       return isOk(exit) ? f(exit.value).run(env, signal) : exit
     })
+
 export const tap =
   <A, E2, R2>(f: (a: A) => Task<unknown, E2, R2>) =>
   <E, R>(task: Task<A, E, R>): Task<A, E | E2, R & R2> =>
     flatMap((a: A) => map(() => a)(f(a)))(task)
+
 export const mapError =
   <E, E2>(f: (e: E) => E2) =>
   <A, R>(task: Task<A, E, R>): Task<A, E2, R> =>
@@ -178,6 +219,7 @@ export const mapError =
         ? err(failCause(f(exit.error.error)))
         : (exit as Exit<A, never>)
     })
+
 export const catchAll =
   <E, B, E2, R2>(f: (e: E) => Task<B, E2, R2>) =>
   <A, R>(task: Task<A, E, R>): Task<A | B, E2, R & R2> =>
@@ -187,6 +229,7 @@ export const catchAll =
         ? f(exit.error.error).run(env, signal)
         : (exit as Exit<A, never>)
     })
+
 export const catchTag =
   <E, T extends E extends Tagged<infer K> ? K : never, B, E2, R2>(
     tag: T,
@@ -199,30 +242,36 @@ export const catchTag =
         return f(exit.error.error as ByTag<E, T>).run(env, signal)
       return exit as Exit<A, Exclude<E, { readonly _tag: T }>>
     })
+
 export const tapError =
   <E, E2, R2>(f: (e: E) => Task<unknown, E2, R2>) =>
   <A, R>(task: Task<A, E, R>): Task<A, E | E2, R & R2> =>
     catchAll((e: E) => flatMap(() => fail(e))(f(e)))(task)
+
 export const result = <A, E, R>(task: Task<A, E, R>): Task<Result<A, E>, never, R> =>
   make<Result<A, E>, never, R>(async (env, signal) => {
     const exit = await task.run(env, signal)
     if (isOk(exit)) return ok(ok(exit.value))
     return exit.error._tag === 'Fail' ? ok(err(exit.error.error)) : (exit as Exit<never, never>)
   })
+
 export const exit = <A, E, R>(task: Task<A, E, R>): Task<Exit<A, E>, never, R> =>
   make(async (env, signal) => {
     const out = await task.run(env, signal)
     return signal.aborted ? INTERRUPTED : ok(out)
   })
+
 export const orDie = <A, E, R>(task: Task<A, E, R>): Task<A, never, R> =>
   make(async (env, signal) => {
     const out = await task.run(env, signal)
     return !isOk(out) && out.error._tag === 'Fail' ? err(dieCause(out.error.error)) : (out as Exit<A, never>)
   })
+
 export const fold =
   <A, E, B, C>(onFail: (e: E) => B, onOk: (a: A) => C) =>
   <R>(task: Task<A, E, R>): Task<B | C, never, R> =>
     map((r: Result<A, E>) => (isOk(r) ? onOk(r.value) : onFail(r.error)))(result(task))
+
 export const gen = <Y extends Task<any, any, any>, A>(
   f: () => Generator<Y, A, any>,
 ): Task<A, ErrorOf<Y>, EnvOf<Y>> =>
@@ -246,8 +295,10 @@ export const gen = <Y extends Task<any, any, any>, A>(
     }
     return ok(step.value)
   })
+
 export const uninterruptible = <A, E, R>(task: Task<A, E, R>): Task<A, E, R> =>
   make((env) => task.run(env, NEVER_ABORTED))
+
 export const ensuring =
   <R2>(finalizer: Task<unknown, never, R2>) =>
   <A, E, R>(task: Task<A, E, R>): Task<A, E, R & R2> =>
@@ -256,6 +307,7 @@ export const ensuring =
       const cleanup = await finalizer.run(env, NEVER_ABORTED)
       return isOk(cleanup) ? out : (cleanup as Exit<never, never>)
     }) as unknown as Task<A, E, R & R2>
+
 export const bracket = <A, E, R, B, E2, R2, R3>(
   acquire: Task<A, E, R>,
   use: (resource: A) => Task<B, E2, R2>,
@@ -269,9 +321,11 @@ export const bracket = <A, E, R, B, E2, R2, R3>(
     const released = await release(acquired.value, out).run(env, NEVER_ABORTED)
     return isOk(released) ? out : (released as Exit<never, never>)
   }) as unknown as Task<B, E | E2, R & R2 & R3>
+
 export interface ConcurrencyOptions {
   readonly concurrency?: number
 }
+
 export const all = <const T extends ReadonlyArray<Task<any, any, any>>>(
   tasks: T,
   options: ConcurrencyOptions = {},
@@ -298,6 +352,7 @@ export const all = <const T extends ReadonlyArray<Task<any, any, any>>>(
     if (signal.aborted) return INTERRUPTED
     return causes.length > 0 ? err(worst(causes)) : ok(values as AllValues<T>)
   })
+
 export const struct = <const T extends Readonly<Record<string, Task<any, any, any>>>>(
   tasks: T,
   options: ConcurrencyOptions = {},
@@ -312,6 +367,7 @@ export const struct = <const T extends Readonly<Record<string, Task<any, any, an
     ),
   ) as never
 }
+
 export const forEach = <X, A, E, R>(
   items: Iterable<X>,
   f: (item: X, index: number) => Task<A, E, R>,
@@ -336,15 +392,18 @@ export const race = <const T extends ReadonlyArray<Task<any, any, any>>>(
     dispose()
     return signal.aborted ? INTERRUPTED : winner!
   })
+
 export interface Fiber<A, E> {
   readonly exit: Promise<Exit<A, E>>
   readonly join: Task<A, E>
   readonly interrupt: Task<void>
 }
+
 export interface Scope {
   readonly fork: <A, E, R>(task: Task<A, E, R>) => Task<Fiber<A, E>, never, R>
   readonly addFinalizer: (finalizer: Task<unknown, never, unknown>) => Task<void>
 }
+
 export const scoped = <A, E, R>(body: (scope: Scope) => Task<A, E, R>): Task<A, E, R> =>
   new TaskImpl<A, E, R>(async (env, signal) => {
     if (signal.aborted) return INTERRUPTED
@@ -390,15 +449,21 @@ export const scoped = <A, E, R>(body: (scope: Scope) => Task<A, E, R>): Task<A, 
     }
     return out
   }) as unknown as Task<A, E, R>
+
 export const Clock: ServiceTag<'clock', ClockService> = service<ClockService>()('clock')
+
 export const now: Task<number, never, HasClock> = map((clock: ClockService) => clock.now())(Clock)
+
 export const sleep = (ms: number): Task<void, never, HasClock> =>
   make(async (env, signal) => {
     await env.clock.sleep(ms, signal)
     return signal.aborted ? INTERRUPTED : ok(undefined)
   })
+
 export const TimeoutError = tagged('TimeoutError')<{ readonly ms: number }>()
+
 export type TimeoutError = ReturnType<typeof TimeoutError>
+
 export const timeout =
   (ms: number) =>
   <A, E, R>(task: Task<A, E, R>): Task<A, E | TimeoutError, R & HasClock> =>
@@ -407,10 +472,12 @@ export const timeout =
       E | TimeoutError,
       R & HasClock
     >
+
 export interface RetryOptions<E> {
   readonly schedule: () => Iterable<number>
   readonly while?: (error: E) => boolean
 }
+
 export const retry =
   <E>(options: RetryOptions<E>) =>
   <A, R>(task: Task<A, E, R>): Task<A, E, R & HasClock> =>
@@ -430,6 +497,7 @@ export const retry =
         delays.return?.()
       }
     })
+
 export const forever =
   (ms: number) =>
   <E, R>(task: Task<unknown, E, R>): Task<never, E, R & HasClock> =>
@@ -441,17 +509,21 @@ export const forever =
         if (signal.aborted) return INTERRUPTED
       }
     })
+
 export const run = <A, E, R>(task: Task<A, E, R>, ...[env, signal]: RunArgs<R>): Promise<Exit<A, E>> =>
   task.run(env as R, signal ?? NEVER_ABORTED)
+
 export const runPromise = async <A, E, R>(task: Task<A, E, R>, ...args: RunArgs<R>): Promise<A> => {
   const out = await run(task, ...args)
   if (isOk(out)) return out.value
   throw new TaskError(out.error)
 }
+
 export interface RunningTask<A, E> {
   readonly exit: Promise<Exit<A, E>>
   readonly interrupt: () => Promise<Exit<A, E>>
 }
+
 export const runFork = <A, E, R>(task: Task<A, E, R>, ...[env, signal]: RunArgs<R>): RunningTask<A, E> => {
   const { controller, dispose } = linked(signal ?? NEVER_ABORTED)
   const running = task.run(env as R, controller.signal).finally(dispose)

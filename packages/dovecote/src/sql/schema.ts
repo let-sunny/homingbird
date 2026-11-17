@@ -21,6 +21,11 @@ export const migrate: T.Task<void, never, HasSql> = T.gen(function* () {
   }
 })
 
+export const schemaStatements = (target: Dialect): string[] =>
+  [VERSION_TABLE, ...MIGRATIONS.flat()].flatMap((table) => statementsFor(target, table))
+
+export const tableNames = (): string[] => [VERSION_TABLE, ...MIGRATIONS.flat()].map((table) => table.name)
+
 type ColumnType = 'id' | 'string' | 'text' | 'integer' | 'serial'
 
 interface Column {

@@ -4,13 +4,19 @@ import type { AppEnv } from '../src/environment.ts'
 import { handleRequest } from '../src/http/app.ts'
 import { SAME_SITE_HEADER, SESSION_COOKIE } from '../src/http/authenticate.ts'
 import type { HttpResponse } from '../src/http/exchange.ts'
-import { buildRuntime } from '../src/runtime.ts'
-import { migrate } from '../src/sql/schema.ts'
+import type { Fetch } from '../src/auth/identity-provider.ts'
+import { type Runtime, buildRuntime } from '../src/runtime.ts'
+import { type Database, type Row, all } from '../src/sql/database.ts'
+import { openDatabase } from '../src/sql/open.ts'
+import { raw } from '../src/sql/query.ts'
+import { migrate, tableNames } from '../src/sql/schema.ts'
 import { openSqlite } from '../src/sql/sqlite.ts'
 
 export interface TestServer {
   readonly env: AppEnv
   readonly clock: TestClock
+  readonly background: Runtime['background']
+  readonly logged: string[]
   readonly request: (method: string, url: string, options?: RequestOptions) => Promise<TestResponse>
   readonly signIn: (email: string, name?: string) => Promise<Session>
   readonly close: () => Promise<void>
@@ -83,10 +89,38 @@ export const testConfig = (overrides: Readonly<Record<string, string>> = {}): Co
   return loaded.value
 }
 
-export const startTestServer = async (overrides: Readonly<Record<string, string>> = {}): Promise<TestServer> => {
+export const TEST_DATABASE_URL = process.env.HB_TEST_DATABASE_URL ?? null
+
+export const openTestDatabase = async (): Promise<Database> => {
+  if (TEST_DATABASE_URL === null) return openSqlite(':memory:')
+  const database = await openDatabase(TEST_DATABASE_URL)
+  for (const table of tableNames()) await database.run(raw(`DROP TABLE IF EXISTS ${table}`))
+  return database
+}
+
+export const storedRows = async (server: TestServer, table: string): Promise<ReadonlyArray<Row>> =>
+  T.runPromise(all(raw(`SELECT * FROM ${table}`)), server.env)
+
+export const everyStoredValue = async (server: TestServer): Promise<string> => {
+  const dump: string[] = []
+  for (const table of tableNames()) dump.push(`${table}: ${JSON.stringify(await storedRows(server, table))}`)
+  return dump.join('\n')
+}
+
+export const startTestServer = async (
+  overrides: Readonly<Record<string, string>> = {},
+  parts: { readonly fetch?: Fetch } = {},
+): Promise<TestServer> => {
   const clock = makeTestClock(1_700_000_000_000)
-  const database = openSqlite(':memory:')
-  const { env } = buildRuntime({ config: testConfig(overrides), database, clock, log: () => {} })
+  const database = await openTestDatabase()
+  const logged: string[] = []
+  const { env, background } = buildRuntime({
+    config: testConfig(overrides),
+    database,
+    clock,
+    log: (line) => logged.push(line),
+    ...(parts.fetch !== undefined && { fetch: parts.fetch }),
+  })
   await T.runPromise(migrate, env)
 
   const request: TestServer['request'] = async (method, url, options = {}) => {
@@ -135,7 +169,7 @@ export const startTestServer = async (overrides: Readonly<Record<string, string>
     return { cookie, token, api, me: (await api('GET', '/me')).json }
   }
 
-  return { env, clock, request, signIn, close: () => database.close() }
+  return { env, clock, background, logged, request, signIn, close: () => database.close() }
 }
 
 const parseOrNull = (text: string): unknown => {

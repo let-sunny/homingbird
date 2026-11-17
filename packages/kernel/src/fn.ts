@@ -1,17 +1,24 @@
 export type Simplify<T> = { [K in keyof T]: T[K] } & {}
+
 export type UnionToIntersection<U> = (U extends unknown ? (u: U) => void : never) extends (i: infer I) => void
   ? I
   : never
+
 export type Brand<T, Tag extends string> = T & { readonly [brand]: Tag }
+
 export const identity = <A>(a: A): A => a
+
 export const constant =
   <A>(a: A) =>
   (): A =>
     a
+
 export const noop = (): void => {}
+
 export const absurd = (value: never): never => {
   throw new Error(`Unreachable: ${JSON.stringify(value)}`)
 }
+
 export function pipe<A>(a: A): A
 export function pipe<A, B>(a: A, ab: Fn<A, B>): B
 export function pipe<A, B, C>(a: A, ab: Fn<A, B>, bc: Fn<B, C>): C
@@ -49,6 +56,7 @@ export function pipe(a: unknown, ...fns: ReadonlyArray<Fn<any, any>>): unknown {
   for (const f of fns) acc = f(acc)
   return acc
 }
+
 export function flow<A, B>(ab: Fn<A, B>): Fn<A, B>
 export function flow<A, B, C>(ab: Fn<A, B>, bc: Fn<B, C>): Fn<A, C>
 export function flow<A, B, C, D>(ab: Fn<A, B>, bc: Fn<B, C>, cd: Fn<C, D>): Fn<A, D>

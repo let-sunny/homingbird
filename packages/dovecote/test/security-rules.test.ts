@@ -1,9 +1,14 @@
-import { Task as T } from '@homingbird/kernel'
 import { type RouteName, contract, fillPath, humanOnlyRoutes } from '@homingbird/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { all } from '../src/sql/database.ts'
-import { raw } from '../src/sql/query.ts'
-import { type Agent, type Session, type TestServer, connectAgent, startTestServer } from './harness.ts'
+import {
+  type Agent,
+  type Session,
+  type TestServer,
+  connectAgent,
+  everyStoredValue,
+  startTestServer,
+  storedRows,
+} from './harness.ts'
 
 let server: TestServer
 let ana: Session
@@ -36,25 +41,10 @@ const sentFromAnaToBen = async (body = 'A sent note') => {
 const pathOf = (name: RouteName, id: string): string =>
   fillPath(contract[name].path, { id, memberId: id, userCode: id })
 
-const tables = async (): Promise<string[]> =>
-  (
-    await T.runPromise(
-      all<{ name: string }>(raw("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")),
-      server.env,
-    )
-  ).map((row) => row.name)
-
-const everyStoredValue = async (): Promise<string> => {
-  const dump: string[] = []
-  for (const table of await tables())
-    dump.push(JSON.stringify(await T.runPromise(all(raw(`SELECT * FROM ${table}`)), server.env)))
-  return dump.join('\n')
-}
-
 const stateOf = (dump: string): string =>
   dump
     .split('\n')
-    .filter((line) => !line.includes('"action":'))
+    .filter((line) => !line.startsWith('audit_log:'))
     .join('\n')
     .replace(/"last_used_at":(\d+|null)/g, '')
 
@@ -74,14 +64,14 @@ describe('Rule 1: only a human credential can approve a note', () => {
 
   it('refuses an agent credential on every human-only route in the contract, changing nothing', async () => {
     const draft = await draftFromAnaToBen()
-    const before = await everyStoredValue()
+    const before = await everyStoredValue(server)
     for (const name of humanOnlyRoutes) {
       const route = contract[name]
       const target = name.startsWith('drafts.') || name.startsWith('notes.') ? draft.id : ben.me.member.id
       const response = await anaAgent.api(route.method, pathOf(name, target), route.body ? {} : undefined)
       expect([name, response.status]).toEqual([name, 403])
     }
-    expect(stateOf(await everyStoredValue())).toBe(stateOf(before))
+    expect(stateOf(await everyStoredValue(server))).toBe(stateOf(before))
   })
 
   it('leaves no route by which an agent moves a note out of draft', async () => {
@@ -145,10 +135,7 @@ describe('Rule 2: drafts are invisible to recipients', () => {
     await ana.api('POST', `/drafts/${draft.id}/discard`)
     const events = (await ben.api('GET', '/events/poll?after=0')).json.events
     expect(events).toEqual([])
-    const stored = await T.runPromise(
-      all<{ body: string }>(raw(`SELECT body FROM events WHERE member_id = '${ben.me.member.id}'`)),
-      server.env,
-    )
+    const stored = (await storedRows(server, 'events')).filter((row) => row.member_id === ben.me.member.id)
     expect(JSON.stringify(stored)).not.toContain('secret')
   })
 
@@ -204,7 +191,7 @@ describe('Rule 5: credentials are stored hashed and never logged', () => {
   it('keeps no issued token anywhere in the database or the audit log', async () => {
     const draft = await draftFromAnaToBen()
     await ana.api('POST', `/drafts/${draft.id}/send`, {})
-    const stored = await everyStoredValue()
+    const stored = await everyStoredValue(server)
     for (const token of [ana.token, ben.token, cy.token, anaAgent.token, anaAgent.approvalToken!, benAgent.token])
       expect(stored.includes(token)).toBe(false)
     expect(stored).not.toMatch(/hb[har]_[A-Za-z0-9_-]{20,}/)
