@@ -1,8 +1,8 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import ts from 'typescript'
 
-const CHECKED_PACKAGES = ['protocol', 'dovecote', 'client']
+const ENFORCED_PACKAGES = ['kernel', 'protocol', 'dovecote', 'client']
 
 const ADAPTER_FILES = [
   'packages/kernel/src/clock.ts',
@@ -13,7 +13,11 @@ const ADAPTER_FILES = [
   'packages/dovecote/src/sql/sqlite.ts',
   'packages/dovecote/src/sql/postgres.ts',
   'packages/dovecote/src/sql/mysql.ts',
-  'scripts/load-test.ts',
+  'packages/cli/src/main.ts',
+  'packages/cli/src/node-environment.ts',
+  'packages/mcp/src/stdio.ts',
+  'packages/pwa/src/main.ts',
+  'packages/pwa/src/service-worker.ts',
 ]
 
 const ENTRY_FILES = /(^|\/)(index|main|bin)\.ts$|\/bin\//
@@ -200,11 +204,17 @@ const mayDeclareClasses = (file: string): boolean =>
 const isRunDirectly = process.argv[1] !== undefined && import.meta.filename === process.argv[1]
 
 if (isRunDirectly) {
-  const requested = process.argv.slice(2)
+  const surveyOnly = process.argv.includes('--survey')
+  const requested = process.argv.slice(2).filter((argument) => !argument.startsWith('--'))
+  const packages = surveyOnly
+    ? readdirSync(join(repositoryRoot, 'packages')).filter((name) =>
+        existsSync(join(repositoryRoot, 'packages', name, 'src')),
+      )
+    : ENFORCED_PACKAGES
   const files =
     requested.length > 0
-      ? requested.filter((file) => CHECKED_PACKAGES.some((name) => file.includes(`packages/${name}/src/`)))
-      : CHECKED_PACKAGES.flatMap((name) => sourceFilesOf(join(repositoryRoot, 'packages', name, 'src')))
+      ? requested.filter((file) => packages.some((name) => file.includes(`packages/${name}/src/`)))
+      : packages.flatMap((name) => sourceFilesOf(join(repositoryRoot, 'packages', name, 'src')))
   const violations = files.flatMap((path) => {
     const file = relative(repositoryRoot, join(process.cwd(), relative(process.cwd(), path)))
       .split(sep)
@@ -213,7 +223,7 @@ if (isRunDirectly) {
   })
   for (const violation of violations)
     process.stdout.write(`${violation.file}:${violation.line}  ${violation.message}\n`)
-  if (violations.length > 0) {
+  if (violations.length > 0 && !surveyOnly) {
     process.stdout.write(`\n${violations.length} style violation(s). See .claude/rules/code-style.md\n`)
     process.exit(1)
   }

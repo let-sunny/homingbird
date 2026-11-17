@@ -3,7 +3,6 @@ import { readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
-import { Task as T } from '../packages/kernel/src/index.ts'
 import { loadConfig } from '../packages/dovecote/src/config.ts'
 import { issueCredential } from '../packages/dovecote/src/domain/credentials.ts'
 import { signInMember } from '../packages/dovecote/src/domain/members.ts'
@@ -11,6 +10,7 @@ import { startServer } from '../packages/dovecote/src/http/node-server.ts'
 import { buildRuntime } from '../packages/dovecote/src/runtime.ts'
 import { openDatabase } from '../packages/dovecote/src/sql/open.ts'
 import { migrate } from '../packages/dovecote/src/sql/schema.ts'
+import { Task as T } from '../packages/kernel/src/index.ts'
 
 const { values: options } = parseArgs({
   options: {
@@ -253,4 +253,3 @@ async function runServer(): Promise<void> {
   await startServer(env, port)
   process.stdout.write('ready\n')
 }
-

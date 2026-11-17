@@ -73,10 +73,11 @@ interface Seen {
   readonly forks: string[]
   readonly toasts: string[]
   readonly statuses: Array<string | undefined>
+  readonly opened: { count: number }
 }
 
 const engineBeneath = (on: On, world: World): Seen => {
-  const seen: Seen = { commands: [], prompts: [], forks: [], toasts: [], statuses: [] }
+  const seen: Seen = { commands: [], prompts: [], forks: [], toasts: [], statuses: [], opened: { count: 0 } }
   on('process.run', (_, e) => {
     const args = e.argv.slice(3)
     seen.commands.push([...args])
@@ -99,7 +100,10 @@ const engineBeneath = (on: On, world: World): Seen => {
   })
   on('command.register', () => ({ value: { command: 'homingbird' } }))
   on('tool.register', (_, e) => ({ value: { tool: `mcp__homingbird__${e.name}` } }))
-  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.open', () => {
+    seen.opened.count += 1
+    return { value: { isPlaced: true } }
+  })
   on('ui.toast', (_, e) => {
     seen.toasts.push(String((e as { text?: unknown }).text ?? e))
     return { value: undefined }
@@ -123,10 +127,13 @@ const engineBeneath = (on: On, world: World): Seen => {
 
 const START = { cwd: '/', surface: 'terminal', isInteractive: true } as const
 
+const backgroundWorkSettles = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 40))
+
 test('the approve button is what approves a draft, on every surface', async ($, on) => {
   mock.clock(on)
   const seen = engineBeneath(on, { overview: OVERVIEW })
   await $.session.start(START)
+  await backgroundWorkSettles()
   expect(seen.commands.some((args) => args[0] === 'approve')).toBe(false)
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ ...PANE, surface })
@@ -144,6 +151,7 @@ test('the discard button discards, and editing sends the edited text', async ($,
   mock.clock(on)
   const seen = engineBeneath(on, { overview: OVERVIEW })
   await $.session.start(START)
+  await backgroundWorkSettles()
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   await ui.press({ key: `discard:${DRAFT.id}` })
   expect(seen.commands.filter((args) => args[0] === 'discard')).toEqual([['discard', DRAFT.id, '--json']])
@@ -159,6 +167,7 @@ test('without the approve button the pane offers no way to send', async ($, on) 
   mock.clock(on)
   const seen = engineBeneath(on, { overview: { ...OVERVIEW, hasApproveButton: false } })
   await $.session.start(START)
+  await backgroundWorkSettles()
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   expect(await ui.find({ type: 'Button' })).toBeUndefined()
   expect(await ui.find({ type: 'Text', text: /web client/ })).toBeDefined()
@@ -171,6 +180,7 @@ test('the pane shows who is connected, drafts, waiting notes and conversations',
   const awaiting = [{ noteId: NOTE_ID, from: { name: 'Ana', email: 'ana@example.com' }, wrapped: WRAPPED }]
   const seen = engineBeneath(on, { overview: { ...OVERVIEW, awaiting } })
   await $.session.start(START)
+  await backgroundWorkSettles()
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ ...PANE, surface })
     expect(await ui.find({ type: 'Text', text: /Ben on https:\/\/homingbird\.example\.com/ })).toBeDefined()
@@ -186,6 +196,7 @@ test('a signed-out session shows Connect and nothing else', async ($, on) => {
   mock.clock(on)
   const seen = engineBeneath(on, { overview: { signedIn: false } })
   await $.session.start(START)
+  await backgroundWorkSettles()
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   expect(await ui.find({ type: 'Text', text: /not connected/ })).toBeDefined()
   expect(await ui.find({ type: 'Input' })).toBeDefined()
@@ -206,6 +217,7 @@ test('no registered tool can approve, discard, change contacts or read credentia
   mock.clock(on)
   const seen = engineBeneath(on, { overview: OVERVIEW })
   await $.session.start(START)
+  await backgroundWorkSettles()
   expect(NOTE_TOOLS.map((tool) => tool.spec.name)).toEqual([
     'find_people',
     'check_inbox',
@@ -256,6 +268,7 @@ test('the guard denies credential reads and approve or discard invocations', asy
     return { result: {} }
   })
   await $.session.start(START)
+  await backgroundWorkSettles()
   const refused = [
     await $.tool.call({ tool: 'Bash', command: `homingbird approve ${DRAFT.id}` }),
     await $.tool.call({ tool: 'Bash', command: `npx -y @homingbird/cli --json discard ${DRAFT.id}` }),
@@ -264,7 +277,7 @@ test('the guard denies credential reads and approve or discard invocations', asy
     await $.tool.call({ tool: 'Bash', command: 'cat "$XDG_CONFIG_HOME/homingbird/agent-credential.json"' }),
     await $.tool.call({ tool: 'Read', file_path: '/home/me/.config/homingbird/agent-credential.json' }),
   ]
-  for (const result of refused) expect(result.isError).toBe(true)
+  for (const result of refused) expect(JSON.stringify(result)).toMatch(/homingbird: (the credential files|only a person)/)
   expect(reached).toBe(0)
   await $.tool.call({ tool: 'Bash', command: 'git commit -m "homingbird: approve flow"' })
   await $.tool.call({ tool: 'Bash', command: 'homingbird inbox' })
@@ -279,6 +292,7 @@ test('an arriving note becomes a wrapped prompt, and the reply the model drafts 
   mock.clock(on)
   const seen = engineBeneath(on, { overview: OVERVIEW, streamLines: [ARRIVAL] })
   await $.session.start(START)
+  await backgroundWorkSettles()
   expect(seen.commands).toContainEqual(['stream', '--json'])
   expect(seen.commands).toContainEqual(['pickup', NOTE_ID])
   expect(seen.prompts).toEqual([turnPromptFor(NOTE_ID, WRAPPED)])
@@ -302,6 +316,7 @@ test('a note already waiting at start is prompted for once, not again when the s
   const awaiting = [{ noteId: NOTE_ID, from: { name: 'Ana', email: 'ana@example.com' }, wrapped: WRAPPED }]
   const seen = engineBeneath(on, { overview: { ...OVERVIEW, awaiting }, streamLines: [ARRIVAL, ARRIVAL] })
   await $.session.start(START)
+  await backgroundWorkSettles()
   expect(seen.prompts.length).toBe(1)
   expect(seen.commands.filter((args) => args[0] === 'pickup')).toEqual([['pickup', NOTE_ID]])
 })
@@ -317,6 +332,7 @@ test(
       forkAnswer: ' It is safe after 6pm. ',
     })
     await $.session.start(START)
+  await backgroundWorkSettles()
     expect(seen.prompts).toEqual([])
     expect(seen.forks).toEqual([replyPromptFor(WRAPPED)])
     expect(seen.commands).toContainEqual(['draft', '--reply', NOTE_ID, '--', 'It is safe after 6pm.'])
@@ -331,6 +347,7 @@ test(
     mock.clock(on)
     const seen = engineBeneath(on, { overview: OVERVIEW, streamLines: [ARRIVAL], forkAnswer: 'NO_REPLY' })
     await $.session.start(START)
+  await backgroundWorkSettles()
     expect(seen.forks.length).toBe(1)
     expect(seen.commands.some((args) => args[0] === 'draft')).toBe(false)
   },
@@ -343,6 +360,7 @@ test(
     mock.clock(on)
     const seen = engineBeneath(on, { overview: OVERVIEW, streamLines: [ARRIVAL] })
     await $.session.start(START)
+  await backgroundWorkSettles()
     expect(seen.commands).toContainEqual(['stream', '--json'])
     expect(seen.prompts).toEqual([])
     expect(seen.forks).toEqual([])
@@ -354,6 +372,7 @@ test('a tool reports a refusal as an error, and a signed-out session as needing 
   mock.clock(on)
   engineBeneath(on, { overview: OVERVIEW, exitCodes: { inbox: 1, drafts: 3 } })
   await $.session.start(START)
+  await backgroundWorkSettles()
   const refused = await $.tool.run({ tool: 'mcp__homingbird__check_inbox' } as never)
   expect(refused.isError).toBe(true)
   const signedOut = await $.tool.run({ tool: 'mcp__homingbird__list_drafts' } as never)
@@ -362,16 +381,13 @@ test('a tool reports a refusal as an error, and a signed-out session as needing 
 
 test('the slash command opens the pane', async ($, on) => {
   mock.clock(on)
-  engineBeneath(on, { overview: OVERVIEW })
-  let opened = 0
-  on('ui.open', () => {
-    opened += 1
-    return { value: { isPlaced: true } }
-  })
+  const seen = engineBeneath(on, { overview: OVERVIEW })
   await $.session.start(START)
-  const before = opened
+  await backgroundWorkSettles()
+  const before = seen.opened.count
   const ran = await $.command.run({ command: 'homingbird', args: '' } as never)
-  expect(opened).toBe(before + 1)
+  await backgroundWorkSettles()
+  expect(seen.opened.count).toBe(before + 1)
   expect(JSON.stringify(ran)).toContain('Homingbird pane opened.')
 })
 
