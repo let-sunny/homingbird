@@ -39,6 +39,37 @@ export interface Session {
   readonly me: any
 }
 
+export interface Agent {
+  readonly token: string
+  readonly approvalToken: string | null
+  readonly api: (method: string, path: string, body?: unknown) => Promise<TestResponse>
+}
+
+export const connectAgent = async (
+  server: TestServer,
+  owner: Session,
+  options: { readonly name?: string; readonly approveButton?: boolean } = {},
+): Promise<Agent> => {
+  const started = await server.request('POST', '/oauth/device_authorization', {
+    form: { client_name: options.name ?? 'Test agent', scope: options.approveButton ? 'notes approve' : 'notes' },
+  })
+  await owner.api('POST', `/device/${started.json.user_code}`, {
+    approve: true,
+    name: options.name ?? 'Test agent',
+    allowApproval: options.approveButton === true,
+  })
+  const tokens = await server.request('POST', '/oauth/token', {
+    form: { grant_type: 'urn:ietf:params:oauth:grant-type:device_code', device_code: started.json.device_code },
+  })
+  const token: string = tokens.json.access_token
+  return {
+    token,
+    approvalToken: tokens.json.approval_token ?? null,
+    api: (method, path, body) =>
+      server.request(method, `/api/v1${path}`, { token, ...(body !== undefined && { body }) }),
+  }
+}
+
 export const PUBLIC_URL = 'http://localhost:8080'
 
 export const testConfig = (overrides: Readonly<Record<string, string>> = {}): Config => {
