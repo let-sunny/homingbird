@@ -8,9 +8,8 @@ const noteBody = fc.string({ minLength: 1, maxLength: 200 }).filter((s) => s.tri
 const refinements = { 'note-body': noteBody }
 
 const schemas = Object.entries(model).filter(
-  (entry): entry is [string, S.Schema<unknown>] =>
-    typeof entry[1] === 'object' && entry[1] !== null && 'decode' in entry[1] && 'ast' in entry[1],
-)
+  (entry) => typeof entry[1] === 'object' && entry[1] !== null && 'decode' in entry[1] && 'ast' in entry[1],
+) as unknown as Array<[string, S.Schema<unknown>]>
 
 describe('wire model', () => {
   it('exports the schemas the product needs', () => {

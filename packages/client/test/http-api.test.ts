@@ -150,7 +150,7 @@ describe('httpApi', () => {
 })
 
 describe('authorizationHeaders', () => {
-  it.each([
+  it.each<[Parameters<typeof authorizationHeaders>[0], Record<string, string>]>([
     [{}, {}],
     [{ token: () => null }, {}],
     [{ token: () => 't' }, { authorization: 'Bearer t' }],

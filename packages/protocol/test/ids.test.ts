@@ -1,3 +1,4 @@
+import type { Schema } from '@homingbird/kernel'
 import { arbitrary } from '@homingbird/kernel/testing'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
@@ -27,7 +28,7 @@ describe('ids', () => {
   )
 
   it('accepts every generated id and decodes it unchanged', () => {
-    for (const schema of Object.values(ids))
+    for (const schema of Object.values(ids) as ReadonlyArray<Schema.Schema<string>>)
       fc.assert(
         fc.property(arbitrary(schema), (id) => {
           expect(schema.decode(id)).toMatchObject({ _tag: 'Ok', value: id })

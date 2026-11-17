@@ -33,7 +33,10 @@ const scripted = (answers: ReadonlyArray<() => Response | Promise<Response>>) =>
   const fetch: Fetch = async (url, init) => {
     calls.push({ url, headers: (init?.headers ?? {}) as Record<string, string> })
     const answer = answers[calls.length - 1]
-    if (answer === undefined) return new Promise<Response>(() => {})
+    if (answer === undefined)
+      return new Promise<Response>((_, reject) =>
+        init?.signal?.addEventListener('abort', () => reject(new Error('aborted')), { once: true }),
+      )
     return answer()
   }
   return { fetch, calls }
@@ -157,7 +160,7 @@ describe('eventStream', () => {
     expect(calls).toHaveLength(3)
     await clock.advance(500)
     expect(calls).toHaveLength(4)
-    await clock.advance(500)
+    await clock.advance(1_000)
     expect(calls).toHaveLength(5)
     stop.abort()
     await done

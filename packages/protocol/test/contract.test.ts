@@ -82,6 +82,8 @@ describe('contract', () => {
         'device.decide',
         'consent.get',
         'consent.decide',
+        'push.subscribe',
+        'push.unsubscribe',
         'admin.settings.get',
         'admin.settings.put',
         'admin.members.list',
@@ -107,6 +109,7 @@ describe('contract', () => {
         'drafts.list',
         'drafts.create',
         'drafts.update',
+        'push.key',
         'events.poll',
       ].sort(),
     )

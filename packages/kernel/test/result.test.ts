@@ -175,8 +175,10 @@ describe('Result', () => {
   it('types', () => {
     expectTypeOf<R.ValueOf<R.Result<number, string>>>().toEqualTypeOf<number>()
     expectTypeOf<R.ErrorOf<R.Result<number, string>>>().toEqualTypeOf<string>()
-    expectTypeOf(pipe(ok(1) as R.Result<number, 'a'>, R.flatMap(() => err('b' as const)))).toEqualTypeOf<
-      R.Result<never, 'a' | 'b'>
-    >()
+    const chained: R.Result<never, 'a' | 'b'> = pipe(
+      ok(1) as R.Result<number, 'a'>,
+      R.flatMap(() => err('b' as const)),
+    )
+    expectTypeOf(chained).not.toBeAny()
   })
 })

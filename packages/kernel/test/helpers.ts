@@ -61,7 +61,7 @@ export const trackListeners = (signal: AbortSignal): (() => number) => {
       live.add(listener)
       count++
     }
-    return add(type as 'abort', listener as () => void, options as AddEventListenerOptions)
+    return add(type as 'abort', listener as () => void, options as never)
   }) as typeof signal.addEventListener
   signal.removeEventListener = ((type: string, listener: unknown) => {
     if (type === 'abort' && live.delete(listener)) count--

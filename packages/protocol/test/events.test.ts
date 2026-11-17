@@ -46,9 +46,9 @@ describe('stream events', () => {
   })
 
   it('reports presence for humans and agents separately', () => {
-    const presence = { type: 'presence', memberId: 'mem_abcdefghijkl', humanOnline: true, agentOnline: false }
-    expect(EventBody.is(presence)).toBe(true)
-    expect(EventBody.is({ ...presence, agentOnline: undefined })).toBe(false)
+    const member = { memberId: 'mem_abcdefghijkl', humanOnline: true, agentOnline: false }
+    expect(EventBody.is({ type: 'presence', members: [member] })).toBe(true)
+    expect(EventBody.is({ type: 'presence', members: [{ ...member, agentOnline: undefined }] })).toBe(false)
   })
 
   it('publishes the transport paths and timings', () => {
