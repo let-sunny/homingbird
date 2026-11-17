@@ -22,7 +22,10 @@ export const h = <Tag extends keyof HTMLElementTagNameMap>(
 
 export const append = (parent: Node, children: Child): void => {
   if (children === null || children === undefined || children === false) return
-  if (Array.isArray(children)) return children.forEach((child) => append(parent, child))
+  if (Array.isArray(children)) {
+    for (const child of children) append(parent, child)
+    return
+  }
   parent.appendChild(children instanceof Node ? children : document.createTextNode(String(children)))
 }
 

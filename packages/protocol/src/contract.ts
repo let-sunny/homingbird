@@ -12,13 +12,15 @@ import {
 } from './contract-schemas.ts'
 import type { ApiError } from './errors.ts'
 import { StreamEvent } from './events.ts'
-import { ConversationId, MemberId, NoteId } from './ids.ts'
+import { ConversationId, CredentialId, DraftRequestId, MemberId, NoteId } from './ids.ts'
 import {
   AuditEntry,
   Contact,
   Conversation,
   Credential,
+  DRAFT_INSTRUCTION_MAX,
   DirectoryEntry,
+  DraftRequest,
   Member,
   MemberStatus,
   Note,
@@ -149,6 +151,7 @@ export const contract = {
       conversationId: S.optional(ConversationId),
       to: S.optional(Recipients),
       inReplyTo: S.optional(NoteId),
+      requestId: S.optional(DraftRequestId),
     }),
     response: Note,
   }),
@@ -167,6 +170,32 @@ export const contract = {
     response: Note,
   }),
   'drafts.discard': route({ method: 'POST', path: '/drafts/:id/discard', access: 'human', response: Note }),
+
+  'draftRequests.list': route({
+    method: 'GET',
+    path: '/draft-requests',
+    access: 'member',
+    response: S.struct({ requests: S.array(DraftRequest) }),
+  }),
+  'draftRequests.create': route({
+    method: 'POST',
+    path: '/draft-requests',
+    access: 'human',
+    body: S.struct({
+      conversationId: S.optional(ConversationId),
+      to: S.optional(Recipients),
+      inReplyTo: S.optional(NoteId),
+      instruction: S.optional(S.string({ maxLength: DRAFT_INSTRUCTION_MAX })),
+      agentId: S.optional(CredentialId),
+    }),
+    response: DraftRequest,
+  }),
+  'draftRequests.cancel': route({
+    method: 'POST',
+    path: '/draft-requests/:id/cancel',
+    access: 'human',
+    response: DraftRequest,
+  }),
 
   'credentials.list': route({
     method: 'GET',

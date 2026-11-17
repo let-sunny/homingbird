@@ -2,9 +2,9 @@ import type { Schema } from '@homingbird/kernel'
 import { arbitrary } from '@homingbird/kernel/testing'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { ConversationId, CredentialId, MemberId, NoteId, Timestamp } from '../src/ids.ts'
+import { ConversationId, CredentialId, DraftRequestId, MemberId, NoteId, Timestamp } from '../src/ids.ts'
 
-const ids = { mem: MemberId, conv: ConversationId, note: NoteId, cred: CredentialId }
+const ids = { mem: MemberId, conv: ConversationId, note: NoteId, cred: CredentialId, dreq: DraftRequestId }
 
 describe('ids', () => {
   it.each(Object.entries(ids))('builds a %s id that its own schema accepts', (prefix, schema) => {
@@ -20,12 +20,18 @@ describe('ids', () => {
         expect(other.is(schema.of('abcdefghijkl0'))).toBe(prefix === otherPrefix)
   })
 
-  it.each(['mem_', 'mem_short', 'mem_UPPERCASE1234', 'mem_abcdefghijkl!', ' mem_abcdefghijkl', 'mem_abcdefghijkl\n', 42, null])(
-    'refuses the malformed id %j',
-    (input) => {
-      expect(MemberId.is(input)).toBe(false)
-    },
-  )
+  it.each([
+    'mem_',
+    'mem_short',
+    'mem_UPPERCASE1234',
+    'mem_abcdefghijkl!',
+    ' mem_abcdefghijkl',
+    'mem_abcdefghijkl\n',
+    42,
+    null,
+  ])('refuses the malformed id %j', (input) => {
+    expect(MemberId.is(input)).toBe(false)
+  })
 
   it('accepts every generated id and decodes it unchanged', () => {
     for (const schema of Object.values(ids) as ReadonlyArray<Schema.Schema<string>>)

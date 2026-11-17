@@ -11,7 +11,7 @@ import {
 } from './actions.ts'
 import { announcement, directory, members, route, signedIn, threads } from './state.ts'
 import { strings } from './strings.ts'
-import { withReceipts } from './thread.ts'
+import { withPresence, withReceipts } from './thread.ts'
 
 export const applyEvent = (event: StreamEvent): void => {
   const body = event.body
@@ -19,9 +19,10 @@ export const applyEvent = (event: StreamEvent): void => {
     case 'note.sent':
       rememberNote(body.note)
       announceIfFresh(event)
-      return launch(loadConversations)
+      launch(loadConversations)
+      break
     case 'note.status':
-      return threads.update((all) => {
+      threads.update((all) => {
         const thread = all.get(body.conversationId)
         return thread === undefined
           ? all
@@ -30,29 +31,27 @@ export const applyEvent = (event: StreamEvent): void => {
               notes: withReceipts(thread.notes, body.noteId, body.receipts),
             })
       })
+      break
     case 'draft.saved':
       rememberNote(body.note)
-      return launch(loadConversations)
+      launch(loadConversations)
+      break
     case 'draft.discarded':
       forgetNote(body.conversationId, body.noteId)
-      return launch(loadConversations)
+      launch(loadConversations)
+      break
     case 'contact.changed':
-      return launch(loadPeople)
+      launch(loadPeople)
+      break
     case 'directory.changed':
-      return reloadPeopleSoon()
-    case 'presence': {
-      const changed = new Map(body.members.map((member) => [member.memberId, member]))
-      return directory.update((entries) =>
-        entries.map((entry) => {
-          const presence = changed.get(entry.member.id)
-          return presence === undefined
-            ? entry
-            : { ...entry, presence: { humanOnline: presence.humanOnline, agentOnline: presence.agentOnline } }
-        }),
-      )
-    }
+      reloadPeopleSoon()
+      break
+    case 'presence':
+      directory.update((entries) => withPresence(entries, body.members))
+      break
     case 'resync':
-      return reloadEverything()
+      reloadEverything()
+      break
   }
 }
 

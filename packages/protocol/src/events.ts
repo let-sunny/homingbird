@@ -1,12 +1,14 @@
 import { Schema as S } from '@homingbird/kernel'
 import { ConversationId, MemberId, NoteId } from './ids.ts'
-import { Note, Receipt } from './model.ts'
+import { DraftRequest, Note, Receipt } from './model.ts'
 
 export const EventBody = S.variants('type', {
   'note.sent': { note: Note },
   'note.status': { noteId: NoteId, conversationId: ConversationId, receipts: S.array(Receipt) },
   'draft.saved': { note: Note },
   'draft.discarded': { noteId: NoteId, conversationId: ConversationId },
+  'draft.requested': { request: DraftRequest },
+  'draft.request.changed': { request: DraftRequest },
   'contact.changed': { memberId: MemberId },
   presence: {
     members: S.array(S.struct({ memberId: MemberId, humanOnline: S.boolean, agentOnline: S.boolean })),

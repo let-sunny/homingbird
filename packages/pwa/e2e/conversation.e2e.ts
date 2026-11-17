@@ -447,7 +447,7 @@ const holdEventStream = (base: string, token: string): AbortController => {
     signal: held.signal,
   })
     .then(async (response) => {
-      for await (const _ of response.body as unknown as AsyncIterable<Uint8Array>) continue
+      await response.body?.pipeTo(new WritableStream())
     })
     .catch(() => undefined)
   return held

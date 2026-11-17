@@ -416,7 +416,7 @@
 
 .draft button {
   border-color: var(--hb-ink);
-  background: #ffffff;
+  background: var(--hb-color-on-pending-surface);
   color: var(--hb-ink);
   box-shadow: 2px 2px 0 var(--hb-ink);
 }
@@ -426,7 +426,7 @@
 }
 
 .draft button.danger {
-  color: #a5221f;
+  color: var(--hb-color-on-pending-danger);
 }
 
 .composer {
@@ -905,7 +905,7 @@
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background: repeating-linear-gradient(to bottom, transparent 0 2px, #000 2px 3px);
+  background: repeating-linear-gradient(to bottom, transparent 0 2px, var(--hb-color-scanline) 2px 3px);
   opacity: 0;
   opacity: if(style(--hb-scanlines: on): 0.07; else: 0);
 }

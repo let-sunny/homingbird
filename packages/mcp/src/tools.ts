@@ -14,6 +14,7 @@ import type { OpenInBrowser } from './browser-opener.ts'
 import { type RpcFailure, invalidParams } from './json-rpc.ts'
 import type { MemberApi } from './member-api.ts'
 import { type Quoting, quoteNote, quoteNotes } from './quote.ts'
+import { type Trigger, freshTriggers } from './triggers.ts'
 import { webClientLink } from './web-client.ts'
 
 export interface ToolContext {
@@ -37,6 +38,9 @@ export interface ToolResult {
   readonly content: ReadonlyArray<{ readonly type: 'text'; readonly text: string }>
   readonly isError?: true
 }
+
+const WAIT_MAX_SECONDS = 50
+const WAIT_DEFAULT_SECONDS = 25
 
 export const TOOLS: ReadonlyArray<Tool<any>> = [
   tool({
@@ -134,6 +138,26 @@ export const TOOLS: ReadonlyArray<Tool<any>> = [
             { nonce: context.nonce, authors },
           ),
         ].join('\n\n')
+      }),
+  }),
+  tool({
+    name: 'wait_for_notes',
+    title: 'Wait for notes',
+    description:
+      'Waits until a colleague sends a note, then returns the new notes and marks them as being drafted. Returns empty-handed after the wait; call it again to keep watching. Use it only when nothing else wakes you for new notes.',
+    readOnly: false,
+    input: { waitSeconds: S.optional(S.int({ min: 1, max: WAIT_MAX_SECONDS })) },
+    describe: { waitSeconds: `How long to wait, up to ${WAIT_MAX_SECONDS} seconds. Defaults to ${WAIT_DEFAULT_SECONDS}.` },
+    run: ({ waitSeconds }, context) =>
+      T.gen(function* () {
+        const waiting = yield* freshTriggers(context)
+        if (waiting.length > 0) return arrived(waiting)
+        const { cursor } = yield* context.api['events.poll']({ query: {} })
+        yield* context.api['events.poll']({
+          query: { after: String(cursor), wait: String(waitSeconds ?? WAIT_DEFAULT_SECONDS) },
+        })
+        const since = yield* freshTriggers(context)
+        return since.length > 0 ? arrived(since) : 'No new notes yet. Call wait_for_notes again to keep watching.'
       }),
   }),
   tool({
@@ -354,6 +378,12 @@ const recipientNamed = (to: string, api: MemberApi): T.Task<MemberId, ApiError> 
       : T.succeed(match.member.id)
   })(api['directory.list']({ query: { q: to } }))
 }
+
+const arrived = (triggers: ReadonlyArray<Trigger>): string =>
+  [
+    `${triggers.length} new item(s) arrived. ${APPROVAL_RULE} When you have drafted, call wait_for_notes again.`,
+    ...triggers.map((trigger) => trigger.text),
+  ].join('\n\n')
 
 const awaitingApproval = (draft: Note, context: ToolContext): string => {
   const where =

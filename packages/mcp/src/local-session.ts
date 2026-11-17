@@ -8,6 +8,7 @@ import {
   httpApi,
 } from '@homingbird/client'
 import { type Clock, Task as T } from '@homingbird/kernel'
+import type { StreamEvent } from '@homingbird/protocol'
 import type { OpenInBrowser } from './browser-opener.ts'
 import { readCredential, removeCredential, storeCredential } from './credential-file.ts'
 
@@ -24,6 +25,8 @@ export interface LocalSessionOptions {
   readonly clock: Clock
   readonly fetch?: Fetch
   readonly openInBrowser?: OpenInBrowser
+  readonly onOnline?: T.Task<void>
+  readonly onEvent?: (event: StreamEvent) => T.Task<void>
 }
 
 export interface LocalSession {
@@ -59,7 +62,9 @@ export const makeLocalSession = (options: LocalSessionOptions): LocalSession => 
       yield* stop(online)
       online = yield* scope.fork(
         T.promise(async (signal) => {
-          for await (const _ of eventStream({ serverUrl, token: () => token, clock, ...fetching }, signal)) continue
+          await T.run(options.onOnline ?? T.unit, undefined, signal)
+          for await (const event of eventStream({ serverUrl, token: () => token, clock, ...fetching }, signal))
+            await T.run(options.onEvent?.(event) ?? T.unit, undefined, signal)
         }),
       )
     })

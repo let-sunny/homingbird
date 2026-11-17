@@ -1,6 +1,7 @@
 import { Task as T } from '@homingbird/kernel'
 import type { ApiError } from '@homingbird/protocol'
 import { type Action, api } from './actions.ts'
+import { strings } from './strings.ts'
 
 export const pushIsAvailable = (): boolean =>
   'serviceWorker' in navigator && 'PushManager' in globalThis && 'Notification' in globalThis
@@ -45,8 +46,5 @@ function currentSubscription(): Action<PushSubscription | null> {
 }
 
 function browser<A>(work: () => Promise<A>): T.Task<A, ApiError> {
-  return T.tryPromise(
-    work,
-    (): ApiError => ({ _tag: 'Unavailable', message: 'This browser refused the notification request.' }),
-  )
+  return T.tryPromise(work, (): ApiError => ({ _tag: 'Unavailable', message: strings.notificationsRefused }))
 }

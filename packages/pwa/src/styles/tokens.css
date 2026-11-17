@@ -47,6 +47,9 @@
   --hb-color-on-action: var(--hb-ink);
   --hb-color-pending: var(--hb-envelope);
   --hb-color-on-pending: var(--hb-ink);
+  --hb-color-on-pending-surface: #ffffff;
+  --hb-color-on-pending-danger: #a5221f;
+  --hb-color-scanline: #000000;
   --hb-color-success: var(--hb-sparkle);
   --hb-color-danger: var(--hb-alert);
   --hb-color-bubble-mine: #c9d6ec;

@@ -237,7 +237,31 @@ const PUSH_SUBSCRIPTIONS: ReadonlyArray<Table> = [
   },
 ]
 
-const MIGRATIONS: ReadonlyArray<ReadonlyArray<Table>> = [INITIAL, PUSH_SUBSCRIPTIONS]
+const DRAFT_REQUESTS: ReadonlyArray<Table> = [
+  {
+    name: 'draft_requests',
+    columns: {
+      id,
+      member_id: id,
+      conversation_id: id,
+      in_reply_to: optionalId,
+      instruction: text,
+      agent_id: optionalId,
+      created_at: integer,
+      expires_at: integer,
+      cancelled_at: optionalInteger,
+    },
+    primaryKey: ['id'],
+    indexes: [{ columns: ['member_id', 'expires_at'] }],
+  },
+  {
+    name: 'draft_request_answers',
+    columns: { request_id: id, note_id: id, credential_id: id },
+    primaryKey: ['request_id', 'note_id'],
+  },
+]
+
+const MIGRATIONS: ReadonlyArray<ReadonlyArray<Table>> = [INITIAL, PUSH_SUBSCRIPTIONS, DRAFT_REQUESTS]
 
 const statementsFor = (target: Dialect, table: Table): string[] =>
   target === 'mysql'

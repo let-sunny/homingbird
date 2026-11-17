@@ -118,10 +118,14 @@ describe('wrapNote', () => {
 
   it('leaves an ordinary body untouched', () => {
     fc.assert(
-      fc.property(fc.string().filter((s) => !s.includes('<')), nonce, (body, n) => {
-        fc.pre(!body.includes(n))
-        expect(neutralizeBody(body, n)).toBe(body)
-      }),
+      fc.property(
+        fc.string().filter((s) => !s.includes('<')),
+        nonce,
+        (body, n) => {
+          fc.pre(!body.includes(n))
+          expect(neutralizeBody(body, n)).toBe(body)
+        },
+      ),
     )
   })
 })

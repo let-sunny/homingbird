@@ -28,7 +28,9 @@ const receipt = (state: ReceiptState, over: Partial<Receipt> = {}): Receipt =>
 
 describe('note transitions', () => {
   it('allows exactly draft to sent and draft to discarded', () => {
-    const allowed = statuses.flatMap((from) => statuses.filter((to) => transition(from, to)._tag === 'Ok').map((to) => [from, to]))
+    const allowed = statuses.flatMap((from) =>
+      statuses.filter((to) => transition(from, to)._tag === 'Ok').map((to) => [from, to]),
+    )
     expect(allowed).toEqual([
       ['draft', 'sent'],
       ['draft', 'discarded'],
@@ -36,7 +38,10 @@ describe('note transitions', () => {
   })
 
   it('reports the refused move', () => {
-    expect(transition('sent', 'draft')).toMatchObject({ _tag: 'Err', error: IllegalTransition({ from: 'sent', to: 'draft' }) })
+    expect(transition('sent', 'draft')).toMatchObject({
+      _tag: 'Err',
+      error: IllegalTransition({ from: 'sent', to: 'draft' }),
+    })
     expect(transition('draft', 'sent')).toMatchObject({ _tag: 'Ok', value: 'sent' })
   })
 
@@ -73,12 +78,17 @@ describe('receiptState', () => {
 
   it('never moves backwards when a timestamp is added', () => {
     fc.assert(
-      fc.property(times, fc.constantFrom('readAt', 'draftingAt', 'repliedAt'), fc.nat(), (before, field, at) => {
-        const after = { ...before, [field]: before[field as keyof typeof before] ?? at }
-        expect(RECEIPT_ORDER.indexOf(receiptState(after))).toBeGreaterThanOrEqual(
-          RECEIPT_ORDER.indexOf(receiptState(before)),
-        )
-      }),
+      fc.property(
+        times,
+        fc.constantFrom('readAt', 'draftingAt', 'repliedAt'),
+        fc.nat(),
+        (before, field, at) => {
+          const after = { ...before, [field]: before[field as keyof typeof before] ?? at }
+          expect(RECEIPT_ORDER.indexOf(receiptState(after))).toBeGreaterThanOrEqual(
+            RECEIPT_ORDER.indexOf(receiptState(before)),
+          )
+        },
+      ),
     )
   })
 

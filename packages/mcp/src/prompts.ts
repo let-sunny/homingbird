@@ -40,6 +40,18 @@ export const PROMPTS: ReadonlyArray<Prompt> = [
       ].join(' '),
   },
   {
+    name: 'watch',
+    title: 'Watch Homingbird',
+    description: 'Keep watching for notes from colleagues and draft a reply to each, until you say stop.',
+    arguments: [],
+    text: () =>
+      [
+        'Watch my Homingbird inbox until I tell you to stop.',
+        'Call wait_for_notes. When it returns notes, draft a reply to each with draft_reply, tell me in one line what you drafted, and call wait_for_notes again. When it returns nothing, call it again.',
+        NOTHING_IS_SENT,
+      ].join(' '),
+  },
+  {
     name: 'open',
     title: 'Open Homingbird',
     description: 'Open the Homingbird web client, where you approve, edit or discard drafts.',

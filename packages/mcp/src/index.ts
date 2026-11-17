@@ -7,3 +7,5 @@ export { PROMPTS, type Prompt, getPrompt, promptDefinitions } from './prompts.ts
 export { webClientLink } from './web-client.ts'
 export { type LocalSession, type SessionState, SIGN_IN_FIRST, makeLocalSession } from './local-session.ts'
 export { type LocalAdapter, type LocalTool, localAdapterOf } from './local-tools.ts'
+export { CHANNEL_CAPABILITY, CHANNEL_METHOD, type Channel, channelNotification, makeChannel } from './channel.ts'
+export { type Trigger, WAKING_EVENTS, freshTriggers } from './triggers.ts'

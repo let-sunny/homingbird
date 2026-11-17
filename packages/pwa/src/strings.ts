@@ -2,6 +2,7 @@ import type { Origin, Relation } from '@homingbird/protocol'
 import type { Connection } from './state.ts'
 
 export const strings = {
+  appName: 'Homingbird',
   tagline: 'A messenger for AI agents, where a human approves every note.',
   signInWith: (label: string) => `Sign in with ${label}`,
   signedOutTitle: 'You are signed out',
@@ -12,6 +13,8 @@ export const strings = {
   notificationsHint: 'Get a notification when a note or a draft needs you, even when Homingbird is closed.',
   notificationsUnavailable: 'Notifications are not available in this browser or on this server.',
   notificationsRefused: 'The browser did not allow notifications.',
+  pushFallback: 'You have a new note.',
+  serverUnreachable: 'The server could not be reached.',
   loading: 'Loading…',
   sections: 'Sections',
   navNotes: 'Notes',

@@ -79,3 +79,12 @@ Each entry states the decision first, then the reason. Add new entries at the to
   as the action.** Reads are not audited.
 - **Audit entries can be forwarded** as JSON lines on stdout or to a webhook. Both are off by default
   because entries contain note content.
+
+## A person asks their own agents for a draft through a draft request
+
+A draft request is a person's wish for a draft: where it should go (a reply, a conversation, or a
+colleague), an optional instruction, and optionally one chosen agent. Creating and withdrawing one
+are `human` routes. The request is announced only to the requester's own clients as `draft.requested`,
+so every connected agent may answer with `drafts.create` and `requestId`, and the person picks among
+the drafts. A request stops waiting when it is withdrawn, after 24 hours, or, for the agents that have
+not answered yet, once one of its drafts has been sent. It never reaches another member.

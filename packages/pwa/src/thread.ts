@@ -1,4 +1,12 @@
-import type { Conversation, Member, MemberId, Note, NoteId, Receipt } from '@homingbird/protocol'
+import type {
+  Conversation,
+  DirectoryEntry,
+  Member,
+  MemberId,
+  Note,
+  NoteId,
+  Receipt,
+} from '@homingbird/protocol'
 
 export type ThreadItem =
   | { readonly type: 'note'; readonly key: string; readonly note: Note }
@@ -39,6 +47,25 @@ export const withReceipts = (
   id: NoteId,
   receipts: ReadonlyArray<Receipt>,
 ): Note[] => notes.map((note) => (note.id === id ? { ...note, receipts } : note))
+
+export interface PresenceChange {
+  readonly memberId: MemberId
+  readonly humanOnline: boolean
+  readonly agentOnline: boolean
+}
+
+export const withPresence = (
+  entries: ReadonlyArray<DirectoryEntry>,
+  changes: ReadonlyArray<PresenceChange>,
+): DirectoryEntry[] => {
+  const changed = new Map(changes.map((change) => [change.memberId, change]))
+  return entries.map((entry) => {
+    const presence = changed.get(entry.member.id)
+    return presence === undefined
+      ? entry
+      : { ...entry, presence: { humanOnline: presence.humanOnline, agentOnline: presence.agentOnline } }
+  })
+}
 
 export const noteAwaitingReply = (notes: ReadonlyArray<Note>, viewerId: MemberId): Note | null =>
   notes

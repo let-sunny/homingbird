@@ -1,4 +1,12 @@
-import type { Conversation, Member, MemberId, Note, NoteId, Receipt } from '@homingbird/protocol'
+import type {
+  Conversation,
+  DirectoryEntry,
+  Member,
+  MemberId,
+  Note,
+  NoteId,
+  Receipt,
+} from '@homingbird/protocol'
 import { describeStatus, summarize } from '@homingbird/protocol'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
@@ -10,6 +18,7 @@ import {
   otherParticipants,
   threadItems,
   upsertNote,
+  withPresence,
   withReceipts,
   withoutNote,
 } from '../src/thread.ts'
@@ -105,6 +114,31 @@ describe('note reducers', () => {
         },
       ),
     )
+  })
+})
+
+describe('presence', () => {
+  const entry = (memberId: MemberId): DirectoryEntry =>
+    ({ member: { id: memberId }, presence: { humanOnline: false, agentOnline: false } }) as DirectoryEntry
+
+  it('applies a batch of presence changes and leaves everyone else as they were', () => {
+    const updated = withPresence(
+      [entry(ana), entry(june), entry(cy)],
+      [
+        { memberId: june, humanOnline: true, agentOnline: false },
+        { memberId: cy, humanOnline: false, agentOnline: true },
+      ],
+    )
+    expect(updated.map((each) => each.presence)).toEqual([
+      { humanOnline: false, agentOnline: false },
+      { humanOnline: true, agentOnline: false },
+      { humanOnline: false, agentOnline: true },
+    ])
+  })
+
+  it('ignores a change for someone who is not in the directory', () => {
+    const entries = [entry(ana)]
+    expect(withPresence(entries, [{ memberId: june, humanOnline: true, agentOnline: true }])).toEqual(entries)
   })
 })
 

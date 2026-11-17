@@ -1,7 +1,15 @@
 import { Schema as S } from '@homingbird/kernel'
 import fc from 'fast-check'
 import { describe, expect, expectTypeOf, it } from 'vitest'
-import { API_PREFIX, type PathParams, type RequestOf, type ResponseOf, fillPath, matchPath, route } from '../src/route.ts'
+import {
+  API_PREFIX,
+  type PathParams,
+  type RequestOf,
+  type ResponseOf,
+  fillPath,
+  matchPath,
+  route,
+} from '../src/route.ts'
 
 const segment = fc.string({ minLength: 1, maxLength: 12 })
 
@@ -37,7 +45,10 @@ describe('route', () => {
       body: S.struct({ n: S.int() }),
       response: S.struct({ ok: S.boolean }),
     })
-    expectTypeOf<PathParams<'/a/:one/b/:two'>>().toMatchTypeOf<{ readonly one: string; readonly two: string }>()
+    expectTypeOf<PathParams<'/a/:one/b/:two'>>().toMatchTypeOf<{
+      readonly one: string
+      readonly two: string
+    }>()
     expectTypeOf<PathParams<'/plain'>>().toEqualTypeOf<{}>()
     expectTypeOf<RequestOf<typeof declared>>().toEqualTypeOf<{
       readonly params: { readonly one: string; readonly two: string }

@@ -12,6 +12,9 @@ export type NoteId = S.Infer<typeof NoteId>
 export const CredentialId = prefixedId<'CredentialId'>('cred')
 export type CredentialId = S.Infer<typeof CredentialId>
 
+export const DraftRequestId = prefixedId<'DraftRequestId'>('dreq')
+export type DraftRequestId = S.Infer<typeof DraftRequestId>
+
 export const Timestamp = S.int({ min: 0 })
 export type Timestamp = number
 

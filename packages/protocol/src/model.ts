@@ -1,5 +1,5 @@
 import { Schema as S } from '@homingbird/kernel'
-import { ConversationId, CredentialId, MemberId, NoteId, Timestamp } from './ids.ts'
+import { ConversationId, CredentialId, DraftRequestId, MemberId, NoteId, Timestamp } from './ids.ts'
 
 export const NOTE_BODY_MAX = 16_000
 export const NoteBody = S.refine<string>(
@@ -79,6 +79,21 @@ export const Note = S.struct({
   receipts: S.array(Receipt),
 })
 export type Note = S.Infer<typeof Note>
+
+export const DRAFT_INSTRUCTION_MAX = 2000
+
+export const DraftRequest = S.struct({
+  id: DraftRequestId,
+  conversationId: ConversationId,
+  inReplyTo: S.nullable(NoteId),
+  instruction: S.string({ maxLength: DRAFT_INSTRUCTION_MAX }),
+  agentId: S.nullable(CredentialId),
+  createdAt: Timestamp,
+  expiresAt: Timestamp,
+  cancelledAt: S.nullable(Timestamp),
+  draftIds: S.array(NoteId),
+})
+export type DraftRequest = S.Infer<typeof DraftRequest>
 
 export const ConversationKind = S.literal('dm', 'group')
 export type ConversationKind = S.Infer<typeof ConversationKind>

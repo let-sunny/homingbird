@@ -1,6 +1,7 @@
 import { Task as T } from '@homingbird/kernel'
 import type { Api } from '@homingbird/protocol'
 import type { OpenInBrowser } from './browser-opener.ts'
+import { CHANNEL_CAPABILITY, CHANNEL_INSTRUCTIONS } from './channel.ts'
 import { type RpcCall, RpcFailure, methodNotFound, serveJsonRpc } from './json-rpc.ts'
 import { PROMPTS, getPrompt, promptDefinitions } from './prompts.ts'
 import type { LocalAdapter } from './local-tools.ts'
@@ -22,6 +23,7 @@ export interface McpContext {
   readonly webClientUrl?: string
   readonly openInBrowser?: OpenInBrowser
   readonly local?: LocalAdapter
+  readonly channel?: { readonly opened: T.Task<void> }
 }
 
 export const handleMcpMessage = (message: unknown, context: McpContext): T.Task<unknown | null> =>
@@ -42,7 +44,14 @@ export const LOCAL_INSTRUCTIONS =
   'If a tool says you are not signed in, call login: it opens the browser for your human, and status tells you when it is done.'
 
 const instructionsFor = (context: McpContext): string =>
-  context.local === undefined ? INSTRUCTIONS : `${INSTRUCTIONS} ${LOCAL_INSTRUCTIONS}`
+  [
+    INSTRUCTIONS,
+    ...(context.local === undefined ? [] : [LOCAL_INSTRUCTIONS]),
+    ...(context.channel === undefined ? [] : [CHANNEL_INSTRUCTIONS]),
+  ].join(' ')
+
+const capabilitiesFor = (context: McpContext) =>
+  context.channel === undefined ? CAPABILITIES : { ...CAPABILITIES, experimental: CHANNEL_CAPABILITY }
 
 const answer = (call: RpcCall, context: McpContext): T.Task<unknown, RpcFailure> => {
   const revision = claimedRevision(call.params)
@@ -74,18 +83,18 @@ const METHODS: Readonly<Record<string, Method>> = {
   initialize: (params, context, serverInfo) =>
     T.succeed({
       protocolVersion: handshakeRevisionFor(params.protocolVersion),
-      capabilities: CAPABILITIES,
+      capabilities: capabilitiesFor(context),
       serverInfo,
       instructions: instructionsFor(context),
     }),
   'server/discover': (_, context) =>
     T.succeed({
       supportedVersions: SUPPORTED_REVISIONS,
-      capabilities: CAPABILITIES,
+      capabilities: capabilitiesFor(context),
       instructions: instructionsFor(context),
     }),
   ping: () => T.succeed({}),
-  'notifications/initialized': () => T.succeed({}),
+  'notifications/initialized': (_, context) => T.as({})(context.channel?.opened ?? T.unit),
   'notifications/cancelled': () => T.succeed({}),
   'tools/list': (_, context) =>
     T.succeed({ tools: [...(context.local?.tools ?? []).map(localDefinition), ...toolDefinitions()] }),
@@ -117,7 +126,7 @@ const localDefinition = (tool: LocalAdapter['tools'][number]) => ({
   annotations: { readOnlyHint: tool.readOnly, destructiveHint: false, openWorldHint: false },
 })
 
-const toolContextOf = (context: McpContext): ToolContext => ({
+export const toolContextOf = (context: McpContext): ToolContext => ({
   api: memberApiOf(context.api),
   nonce: context.nonce,
   webClientUrl: context.webClientUrl ?? null,

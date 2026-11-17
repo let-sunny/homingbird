@@ -4,6 +4,7 @@ import {
   type Contract,
   ConversationId,
   CredentialId,
+  DraftRequestId,
   Invalid,
   type Member,
   MemberId,
@@ -25,6 +26,12 @@ import {
 } from '../domain/contacts.ts'
 import { conversationFor, createGroupConversation, listConversations } from '../domain/conversations.ts'
 import { listCredentials, renameCredential, revokeCredential } from '../domain/credentials.ts'
+import {
+  answerDraftRequest,
+  cancelDraftRequest,
+  openDraftRequests,
+  requestDraft,
+} from '../domain/draft-requests.ts'
 import { administerMember, allMembers, directoryFor, updateOwnProfile } from '../domain/members.ts'
 import {
   createDraft,
@@ -141,13 +148,24 @@ export const handlers: Handlers = {
     T.map((drafts: Awaited<ResponseOf<Contract['drafts.list']>>['drafts']) => ({ drafts }))(
       draftsOf(caller.member.id),
     ),
-  'drafts.create': ({ body }, caller) => createDraft(caller, body),
+  'drafts.create': ({ body: { requestId, ...target } }, caller) =>
+    requestId === undefined
+      ? createDraft(caller, target)
+      : answerDraftRequest(caller, requestId, target.body),
   'drafts.update': ({ params, body }, caller) =>
     T.flatMap((id: NoteId) => updateDraft(caller, id, body.body))(identifier(NoteId, params.id)),
   'drafts.send': ({ params, body }, caller) =>
     T.flatMap((id: NoteId) => sendDraft(caller, id, body.body))(identifier(NoteId, params.id)),
   'drafts.discard': ({ params }, caller) =>
     T.flatMap((id: NoteId) => discardDraft(caller, id))(identifier(NoteId, params.id)),
+
+  'draftRequests.list': (_, caller) =>
+    T.map((requests: Awaited<ResponseOf<Contract['draftRequests.list']>>['requests']) => ({ requests }))(
+      openDraftRequests(caller),
+    ),
+  'draftRequests.create': ({ body }, caller) => requestDraft(caller, body),
+  'draftRequests.cancel': ({ params }, caller) =>
+    T.flatMap((id: DraftRequestId) => cancelDraftRequest(caller, id))(identifier(DraftRequestId, params.id)),
 
   'credentials.list': (_, caller) =>
     T.map((credentials: Awaited<ResponseOf<Contract['credentials.list']>>['credentials']) => ({

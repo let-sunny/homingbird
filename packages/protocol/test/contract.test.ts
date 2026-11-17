@@ -18,17 +18,22 @@ describe('contract', () => {
   it('has no two routes with the same method that match the same path', () => {
     for (const [name, route] of routes) {
       const concrete = fillPath(route.path, Object.fromEntries(parametersOf(route.path).map((p) => [p, 'x'])))
-      const matching = routes.filter(([, other]) => other.method === route.method && matchPath(other.path, concrete))
+      const matching = routes.filter(
+        ([, other]) => other.method === route.method && matchPath(other.path, concrete),
+      )
       expect(matching.map(([other]) => other)).toEqual([name])
     }
   })
 
   it.each(routes)('%s matches its own filled path', (_, route) => {
     fc.assert(
-      fc.property(fc.array(fc.string({ minLength: 1, maxLength: 8 }), { minLength: 3, maxLength: 3 }), (values) => {
-        const params = Object.fromEntries(parametersOf(route.path).map((p, index) => [p, values[index]!]))
-        expect(matchPath(route.path, fillPath(route.path, params))).toEqual(params)
-      }),
+      fc.property(
+        fc.array(fc.string({ minLength: 1, maxLength: 8 }), { minLength: 3, maxLength: 3 }),
+        (values) => {
+          const params = Object.fromEntries(parametersOf(route.path).map((p, index) => [p, values[index]!]))
+          expect(matchPath(route.path, fillPath(route.path, params))).toEqual(params)
+        },
+      ),
       { numRuns: 20 },
     )
   })
@@ -42,14 +47,17 @@ describe('contract', () => {
     )
   })
 
-  it.each(routes.filter(([, route]) => route.body !== undefined))('%s has a body schema that accepts its own generated values', (_, route) => {
-    fc.assert(
-      fc.property(arbitrary(route.body as S.Schema<unknown>, refinements), (value) => {
-        expect((route.body as S.Schema<unknown>).decode(JSON.parse(JSON.stringify(value)))._tag).toBe('Ok')
-      }),
-      { numRuns: 15 },
-    )
-  })
+  it.each(routes.filter(([, route]) => route.body !== undefined))(
+    '%s has a body schema that accepts its own generated values',
+    (_, route) => {
+      fc.assert(
+        fc.property(arbitrary(route.body as S.Schema<unknown>, refinements), (value) => {
+          expect((route.body as S.Schema<unknown>).decode(JSON.parse(JSON.stringify(value)))._tag).toBe('Ok')
+        }),
+        { numRuns: 15 },
+      )
+    },
+  )
 
   it('only reads with GET and never gives a GET a body', () => {
     for (const [, route] of routes) if (route.method === 'GET') expect(route.body).toBeUndefined()
@@ -57,8 +65,7 @@ describe('contract', () => {
 
   it('declares query fields as strings, because that is what a URL carries', () => {
     for (const [, route] of routes)
-      if (route.query !== undefined)
-        expect(Schema.struct(route.query).decode({}).constructor).toBeDefined()
+      if (route.query !== undefined) expect(Schema.struct(route.query).decode({}).constructor).toBeDefined()
   })
 
   it('reserves approval, contacts, blocks, credentials and administration for people', () => {
@@ -75,6 +82,8 @@ describe('contract', () => {
         'notes.read',
         'drafts.send',
         'drafts.discard',
+        'draftRequests.create',
+        'draftRequests.cancel',
         'credentials.list',
         'credentials.rename',
         'credentials.revoke',
@@ -109,6 +118,7 @@ describe('contract', () => {
         'drafts.list',
         'drafts.create',
         'drafts.update',
+        'draftRequests.list',
         'push.key',
         'events.poll',
       ].sort(),
@@ -145,13 +155,16 @@ describe('shared contract schemas', () => {
     expect(shared.Recipients.is(Array.from({ length: 51 }, () => id))).toBe(false)
   })
 
-  it.each(['InboxItem', 'DeviceRequest', 'ConsentRequest', 'ServerInfo', 'Me'] as const)('%s accepts its generated values', (name) => {
-    const schema = shared[name] as S.Schema<unknown>
-    fc.assert(
-      fc.property(arbitrary(schema, refinements), (value) => {
-        expect(schema.is(JSON.parse(JSON.stringify(value)))).toBe(true)
-      }),
-      { numRuns: 20 },
-    )
-  })
+  it.each(['InboxItem', 'DeviceRequest', 'ConsentRequest', 'ServerInfo', 'Me'] as const)(
+    '%s accepts its generated values',
+    (name) => {
+      const schema = shared[name] as S.Schema<unknown>
+      fc.assert(
+        fc.property(arbitrary(schema, refinements), (value) => {
+          expect(schema.is(JSON.parse(JSON.stringify(value)))).toBe(true)
+        }),
+        { numRuns: 20 },
+      )
+    },
+  )
 })

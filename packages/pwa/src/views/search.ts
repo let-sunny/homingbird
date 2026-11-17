@@ -11,7 +11,10 @@ import { emptyWithPip, field, page, timeLabel } from './parts.ts'
 export const searchView = (life: Lifetime, me: Me, initialQuery: string): HTMLElement => {
   const results = signal<ReadonlyArray<Note> | null>(null)
   const run = (query: string): void => {
-    if (query === '') return results.set(null)
+    if (query === '') {
+      results.set(null)
+      return
+    }
     launch(
       T.map((found: { notes: ReadonlyArray<Note> }) => results.set(found.notes))(
         api['search.notes']({ query: { q: query } }),

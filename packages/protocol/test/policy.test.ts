@@ -10,7 +10,13 @@ const facts: fc.Arbitrary<MessagingFacts> = fc.record({
   contact: fc.boolean(),
 })
 
-const open: MessagingFacts = { mode: 'open', isSelf: false, recipientStatus: 'active', blocked: false, contact: false }
+const open: MessagingFacts = {
+  mode: 'open',
+  isSelf: false,
+  recipientStatus: 'active',
+  blocked: false,
+  contact: false,
+}
 
 describe('canMessage', () => {
   it('lets anyone message anyone active in open mode', () => {
@@ -83,6 +89,7 @@ describe('allows', () => {
 
   it('never grants an agent credential human or admin access, even for an admin member', () => {
     for (const role of ['member', 'admin'] as const)
-      for (const access of ['human', 'admin'] as const) expect(allows(access, { kind: 'agent', role })).toBe(false)
+      for (const access of ['human', 'admin'] as const)
+        expect(allows(access, { kind: 'agent', role })).toBe(false)
   })
 })

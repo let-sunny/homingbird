@@ -36,7 +36,12 @@ const answer = (path: string, message: unknown, caller: Caller, env: AppEnv): T.
   const api = localApi(caller, env)
   const nonce = env.random.identifier
   return path === '/mcp'
-    ? handleMcpMessage(message, { api, serverVersion: SERVER_VERSION, nonce, webClientUrl: env.config.publicUrl })
+    ? handleMcpMessage(message, {
+        api,
+        serverVersion: SERVER_VERSION,
+        nonce,
+        webClientUrl: env.config.publicUrl,
+      })
     : handleA2aMessage(message, { api, publicUrl: env.config.publicUrl, nonce })
 }
 

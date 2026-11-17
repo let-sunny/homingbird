@@ -37,9 +37,18 @@ const start = (root: HTMLElement): void => {
   const draw = (): void => {
     appLife.end()
     const me = session.get()
-    if (me === 'loading') return replaceChildren(root, h('p', { class: 'loading boot' }, strings.loading))
-    if (me === null && arrivedToConnect(route.get())) return location.replace(signInHref(location.hash))
-    if (me === null) return replaceChildren(root, signInView(refusalIn(route.get())))
+    if (me === 'loading') {
+      replaceChildren(root, h('p', { class: 'loading boot' }, strings.loading))
+      return
+    }
+    if (me === null && arrivedToConnect(route.get())) {
+      location.replace(signInHref(location.hash))
+      return
+    }
+    if (me === null) {
+      replaceChildren(root, signInView(refusalIn(route.get())))
+      return
+    }
     drawStage(me)
     appLife.add(route.subscribe(() => drawStage(me)))
     replaceChildren(root, shell(appLife, me, stage), dialogHost(), toast(appLife), liveAnnouncer(appLife))
@@ -132,8 +141,8 @@ const liveAnnouncer = (life: Lifetime): HTMLElement =>
 
 const inTransition = (change: () => void): void => {
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches
-  if (reducedMotion || !('startViewTransition' in document)) return change()
-  document.startViewTransition(change)
+  if (reducedMotion || !('startViewTransition' in document)) change()
+  else document.startViewTransition(change)
 }
 
 const registerServiceWorker = (): void => {

@@ -1,3 +1,5 @@
+import { strings } from './strings.ts'
+
 const worker = globalThis as unknown as ServiceWorkerGlobalScope
 declare const BUILD_ID: string
 
@@ -73,7 +75,7 @@ worker.addEventListener('notificationclick', (event) => {
 })
 
 const pushPayload = (data: PushMessageData | null): { title: string; body: string; url: string } => {
-  const fallback = { title: 'Homingbird', body: 'You have a new note.', url: '/' }
+  const fallback = { title: strings.appName, body: strings.pushFallback, url: '/' }
   try {
     const parsed = data?.json() as Partial<typeof fallback> | undefined
     return {

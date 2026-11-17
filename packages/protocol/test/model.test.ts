@@ -24,6 +24,7 @@ describe('wire model', () => {
         'Credential',
         'CredentialKind',
         'DirectoryEntry',
+        'DraftRequest',
         'Member',
         'MemberStatus',
         'Note',
@@ -75,9 +76,12 @@ describe('wire model', () => {
     )
   })
 
-  it.each(['', '   ', '\n\t', 'x'.repeat(model.NOTE_BODY_MAX + 1), 42, null])('refuses the note body %j', (body) => {
-    expect(model.NoteBody.is(body)).toBe(false)
-  })
+  it.each(['', '   ', '\n\t', 'x'.repeat(model.NOTE_BODY_MAX + 1), 42, null])(
+    'refuses the note body %j',
+    (body) => {
+      expect(model.NoteBody.is(body)).toBe(false)
+    },
+  )
 
   it('accepts a note body up to the limit', () => {
     expect(model.NoteBody.is('hello https://example.com')).toBe(true)
@@ -94,7 +98,9 @@ describe('wire model', () => {
 
   it('needs at least two participants in a conversation', () => {
     const conversation = fc.sample(arbitrary(model.Conversation, refinements), 1)[0]!
-    expect(model.Conversation.is({ ...conversation, participantIds: conversation.participantIds.slice(0, 1) })).toBe(false)
+    expect(
+      model.Conversation.is({ ...conversation, participantIds: conversation.participantIds.slice(0, 1) }),
+    ).toBe(false)
   })
 
   it('only knows the two credential kinds', () => {

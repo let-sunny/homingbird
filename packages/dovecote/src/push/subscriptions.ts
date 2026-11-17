@@ -34,7 +34,10 @@ export const savePushSubscription = (
 export const removePushSubscription = (endpoint: string): T.Task<void, never, AppEnv> =>
   T.asUnit(run(sql`DELETE FROM push_subscriptions WHERE endpoint_hash = ${hashSecret(endpoint)}`))
 
-export const removeOwnPushSubscription = (memberId: MemberId, endpoint: string): T.Task<void, never, AppEnv> =>
+export const removeOwnPushSubscription = (
+  memberId: MemberId,
+  endpoint: string,
+): T.Task<void, never, AppEnv> =>
   T.asUnit(
     run(
       sql`DELETE FROM push_subscriptions WHERE endpoint_hash = ${hashSecret(endpoint)} AND member_id = ${memberId}`,

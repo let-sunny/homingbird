@@ -16,6 +16,8 @@ const types: EventType[] = [
   'note.status',
   'draft.saved',
   'draft.discarded',
+  'draft.requested',
+  'draft.request.changed',
   'contact.changed',
   'presence',
   'directory.changed',

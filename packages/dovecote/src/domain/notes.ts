@@ -25,19 +25,21 @@ import {
 import { membersByIds } from './members.ts'
 import { type NoteRow, hydrateNotes } from './note-rows.ts'
 
-export interface DraftTarget {
-  readonly body: string
+export interface DraftDestination {
   readonly conversationId?: ConversationId
   readonly to?: ReadonlyArray<MemberId>
   readonly inReplyTo?: NoteId
+}
+
+export interface DraftTarget extends DraftDestination {
+  readonly body: string
 }
 
 export const createDraft = (caller: Caller, target: DraftTarget): T.Task<Note, NoteFailure, RequestEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
     const authorId = caller.member.id
-    const conversationId = yield* resolveConversation(authorId, target)
-    yield* requireMayMessageIn(authorId, conversationId)
+    const conversationId = yield* conversationForDraft(authorId, target)
     yield* requireRoomForAnotherDraft(authorId)
     const now = env.clock.now()
     const row: NoteRow = {
@@ -227,7 +229,17 @@ export const searchNotes = (
     return yield* hydrateNotes(rows)
   })
 
-type NoteFailure = NotFound | Forbidden | Conflict | Invalid
+export const conversationForDraft = (
+  authorId: MemberId,
+  destination: DraftDestination,
+): T.Task<ConversationId, NoteFailure, RequestEnv> =>
+  T.gen(function* () {
+    const conversationId = yield* resolveConversation(authorId, destination)
+    yield* requireMayMessageIn(authorId, conversationId)
+    return conversationId
+  })
+
+export type NoteFailure = NotFound | Forbidden | Conflict | Invalid
 
 const MAX_OPEN_DRAFTS = 200
 const INBOX_LIMIT = 50
@@ -235,7 +247,7 @@ const INBOX_WINDOW_MS = 30 * 24 * 60 * 60_000
 
 const resolveConversation = (
   authorId: MemberId,
-  target: DraftTarget,
+  target: DraftDestination,
 ): T.Task<ConversationId, NoteFailure, RequestEnv> =>
   T.gen(function* () {
     if (target.inReplyTo !== undefined) {
@@ -285,7 +297,9 @@ const ownDraft = (authorId: MemberId, id: NoteId): T.Task<NoteRow, NotFound | Co
 
 const nextSendTime = (conversationId: ConversationId, clockTime: number): T.Task<number, never, RequestEnv> =>
   T.map((latest: { sent_at: number | null } | null) => Math.max(clockTime, Number(latest?.sent_at ?? 0) + 1))(
-    first(sql`SELECT MAX(sent_at) AS sent_at FROM notes WHERE conversation_id = ${conversationId} AND status = 'sent'`),
+    first(
+      sql`SELECT MAX(sent_at) AS sent_at FROM notes WHERE conversation_id = ${conversationId} AND status = 'sent'`,
+    ),
   )
 
 const settleReply = (authorId: MemberId, repliedTo: NoteId, now: number): T.Task<void, never, RequestEnv> =>

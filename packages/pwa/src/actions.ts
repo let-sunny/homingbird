@@ -28,6 +28,7 @@ import {
   signedIn,
   threads,
 } from './state.ts'
+import { strings } from './strings.ts'
 import { noteAwaitingReply, upsertNote, withoutNote } from './thread.ts'
 
 export type Action<A = void> = T.Task<A, ApiError, HasClock>
@@ -178,7 +179,7 @@ export const saveSettings = (settings: Settings): Action =>
 export const signOut: Action = T.map(() => location.assign('/'))(
   T.tryPromise(
     (signal) => fetch('/auth/logout', { method: 'POST', headers: { 'x-homingbird-request': '1' }, signal }),
-    (): ApiError => ({ _tag: 'Unavailable', message: 'The server could not be reached.' }),
+    (): ApiError => ({ _tag: 'Unavailable', message: strings.serverUnreachable }),
   ),
 )
 
@@ -246,8 +247,8 @@ const followEvents = (): void => {
 }
 
 const reportFailure = (error: ApiError): void => {
-  if (error._tag === 'Unauthorized') return session.set(null)
-  notice.set({ kind: 'error', text: error.message })
+  if (error._tag === 'Unauthorized') session.set(null)
+  else notice.set({ kind: 'error', text: error.message })
 }
 
 const withoutKey = <K, V>(map: ReadonlyMap<K, V>, key: K): ReadonlyMap<K, V> => {
