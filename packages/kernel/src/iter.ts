@@ -134,7 +134,11 @@ export function* range(start = 0, end = Number.POSITIVE_INFINITY, step = 1): Gen
 }
 
 export function* iterate<A>(seed: A, f: (a: A) => A): Generator<A, never> {
-  for (let a = seed; ; a = f(a)) yield a
+  let current = seed
+  for (;;) {
+    yield current
+    current = f(current)
+  }
 }
 
 export function* repeat<A>(a: A): Generator<A, never> {

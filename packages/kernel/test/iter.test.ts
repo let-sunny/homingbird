@@ -287,4 +287,16 @@ describe('Iter', () => {
     expect(I.toArray(mapped)).toEqual([1, 2, 3])
     expect(calls).toBe(6)
   })
+
+  it('endless generators stop cleanly when their consumer stops', () => {
+    for (const source of [I.iterate(1, (n) => n * 2), I.repeat(1), I.range()]) {
+      const seen: number[] = []
+      for (const item of source) {
+        seen.push(item)
+        if (seen.length === 2) break
+      }
+      expect(seen).toHaveLength(2)
+      expect(source.next().done).toBe(true)
+    }
+  })
 })

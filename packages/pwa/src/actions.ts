@@ -1,5 +1,6 @@
 import { eventStream, httpApi } from '@homingbird/client'
 import { type HasClock, Stream, Task as T, systemClock } from '@homingbird/kernel'
+import { STREAM_PATHS } from '@homingbird/protocol'
 import type { ApiError, Conversation, ConversationId, CredentialId, MemberId, Note, NoteId, Settings } from '@homingbird/protocol'
 import { applyEvent } from './live.ts'
 import { hrefFor } from './routes.ts'
@@ -199,13 +200,24 @@ const loadBranding: T.Task<Branding> = T.catchAll(() => T.succeed(branding.get()
   ),
 )
 
+const reportingConnection = async (url: string, init?: RequestInit): Promise<Response> => {
+  try {
+    const response = await fetch(url, init)
+    connection.set(!response.ok ? 'offline' : url.includes(STREAM_PATHS.poll) ? 'polling' : 'live')
+    return response
+  } catch (error) {
+    if (init?.signal?.aborted !== true) connection.set('offline')
+    throw error
+  }
+}
+
 const followEvents = (): void => {
   const events = eventStream(
     {
       serverUrl: location.origin,
       sendsCookies: true,
       clock: systemClock,
-      onTransport: (transport) => connection.set(transport === 'sse' ? 'live' : 'polling'),
+      fetch: reportingConnection,
     },
     new AbortController().signal,
   )

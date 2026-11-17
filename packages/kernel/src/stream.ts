@@ -16,10 +16,11 @@ export const empty: Stream<never> = fromIterable([])
 
 export const interval = (clock: Clock, ms: number, signal: AbortSignal): Stream<number> => ({
   async *[Symbol.asyncIterator]() {
-    for (let i = 0; ; i++) {
+    let tick = 0
+    for (;;) {
       await clock.sleep(ms, signal)
       if (signal.aborted) return
-      yield i
+      yield tick++
     }
   },
 })

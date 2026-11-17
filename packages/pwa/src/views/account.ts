@@ -75,7 +75,7 @@ const notificationsToggle = (life: Lifetime): HTMLElement => {
     region(life, [isOn], () => {
       const box = h('input', { type: 'checkbox', name: 'notifications', checked: isOn.get() })
       box.addEventListener('change', () => toggle(box.checked))
-      return h('label', { class: 'choice' }, box, h('span', {}, strings.notifications, h('small', {}, strings.notificationsHint)))
+      return h('label', { class: 'choice' }, box, h('span', {}, strings.notificationsToggle, h('small', {}, strings.notificationsHint)))
     }),
   )
 }

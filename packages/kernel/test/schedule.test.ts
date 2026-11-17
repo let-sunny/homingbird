@@ -58,4 +58,16 @@ describe('Schedule', () => {
   it('jittered ends when the schedule ends', () => {
     expect(I.toArray(Schedule.jittered(() => 0.5)([1, 2]))).toEqual([1, 2])
   })
+
+  it('every endless schedule stops cleanly when its consumer stops', () => {
+    for (const schedule of [Schedule.spaced(1), Schedule.exponential(1), Schedule.fibonacci(1)]) {
+      const seen: number[] = []
+      for (const delay of schedule) {
+        seen.push(delay)
+        if (seen.length === 3) break
+      }
+      expect(seen).toHaveLength(3)
+      expect(schedule.next().done).toBe(true)
+    }
+  })
 })

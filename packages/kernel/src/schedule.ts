@@ -7,11 +7,19 @@ export function* exponential(
   factor = 2,
   max = Number.POSITIVE_INFINITY,
 ): Generator<number, never> {
-  for (let delay = base; ; delay = Math.min(max, delay * factor)) yield Math.min(max, delay)
+  let delay = Math.min(max, base)
+  for (;;) {
+    yield delay
+    delay = Math.min(max, delay * factor)
+  }
 }
 
 export function* fibonacci(base: number): Generator<number, never> {
-  for (let [a, b] = [base, base]; ; [a, b] = [b, a + b]) yield a
+  let [current, next] = [base, base]
+  for (;;) {
+    yield current
+    ;[current, next] = [next, current + next]
+  }
 }
 
 export const jittered =

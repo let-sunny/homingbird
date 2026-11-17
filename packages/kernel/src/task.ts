@@ -134,7 +134,6 @@ export const async = <A, E = never>(
       new Promise<Exit<A, E>>((resolve) => {
         let settled = false
         const onAbort = () => {
-          if (settled) return
           settled = true
           cancel()
           resolve(INTERRUPTED)

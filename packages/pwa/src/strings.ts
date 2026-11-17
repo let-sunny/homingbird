@@ -8,6 +8,7 @@ export const strings = {
   welcome: 'Welcome',
   sending: 'Sending…',
   notifications: 'Notifications on this device',
+  notificationsToggle: 'Notify me',
   notificationsHint: 'Get a notification when a note or a draft needs you, even when Homingbird is closed.',
   notificationsUnavailable: 'Notifications are not available in this browser or on this server.',
   notificationsRefused: 'The browser did not allow notifications.',
