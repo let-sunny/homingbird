@@ -1,4 +1,4 @@
-import { type HasClock, Result, Task as T, type TimeoutError, pipe, tagged } from '@homingbird/kernel'
+import { type HasClock, Result, Task as T, pipe, tagged } from '@homingbird/kernel'
 import type { Config } from '../config.ts'
 import type { Fetch } from './identity-provider.ts'
 import type { RegisteredClient } from './oauth.ts'

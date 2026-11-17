@@ -104,6 +104,30 @@ describe('the A2A gateway on a running server', () => {
     expect(artifact).toContain('Yes, after the nightly export.')
   })
 
+  it('asks a topic room and completes when one helper’s reply is approved', async () => {
+    await server.signIn('june@example.com', 'June')
+    const sent = await a2a(anaAgent, 'SendMessage', say('Who owns the nightly export?', { topic: 'general' }))
+    const taskId: string = sent.result.task.id
+    expect(sent.result.task.status.state).toBe('TASK_STATE_INPUT_REQUIRED')
+    const room = (await ana.api('GET', `/conversations/${sent.result.task.contextId}`)).json
+    expect(room.kind).toBe('topic')
+    await ana.api('POST', `/drafts/${taskId}/send`, {})
+    expect((await a2a(anaAgent, 'GetTask', { id: taskId })).result.status.state).toBe('TASK_STATE_WORKING')
+
+    const reply = await a2a(benAgent, 'SendMessage', say('I do. It runs at 02:00.', { inReplyTo: taskId }))
+    await ben.api('POST', `/drafts/${reply.result.task.id}/send`, {})
+    const done = await a2a(anaAgent, 'GetTask', { id: taskId })
+    expect(done.result.status.state).toBe('TASK_STATE_COMPLETED')
+    expect(done.result.artifacts).toHaveLength(1)
+    expect(done.result.artifacts[0].parts[0].text.startsWith(`<${WRAPPER_TAG} `)).toBe(true)
+  })
+
+  it('refuses a topic that does not exist, without drafting anything', async () => {
+    const refused = await a2a(anaAgent, 'SendMessage', say('anyone?', { topic: 'no-such-topic' }))
+    expect(refused.error).toBeDefined()
+    expect((await ana.api('GET', '/drafts')).json.items ?? (await ana.api('GET', '/drafts')).json).toEqual([])
+  })
+
   it('speaks the 0.3 dialect to callers that use its method names', async () => {
     const sent = await a2a(anaAgent, 'message/send', {
       message: {

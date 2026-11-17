@@ -41,9 +41,9 @@ export type Action<A = void> = T.Task<A, ApiError, HasClock>
 
 export const api = httpApi({ serverUrl: globalThis.location?.origin ?? '', sendsCookies: true })
 
-export const launch = (action: Action<unknown>, then?: () => void): void =>
+export const launch = <A>(action: Action<A>, then?: (value: A) => void): void =>
   void T.run(action, { clock: systemClock }).then((exit) => {
-    if (exit._tag === 'Ok') return then?.()
+    if (exit._tag === 'Ok') return then?.(exit.value)
     if (exit.error._tag === 'Fail') return reportFailure(exit.error.error)
     if (exit.error._tag === 'Die') notice.set({ kind: 'error', text: String(exit.error.defect) })
   })

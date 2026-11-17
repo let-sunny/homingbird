@@ -1,7 +1,9 @@
 import { systemClock } from '@homingbird/kernel'
 import type { Presence } from '@homingbird/protocol'
 import { type Child, type Properties, h } from '@homingbird/ui'
+import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
+import { topicLabel } from '../topics.ts'
 import { type PipScale, type PipState, pip } from './pip.ts'
 
 export const page = (title: string, ...children: ReadonlyArray<Child>): HTMLElement =>
@@ -89,7 +91,7 @@ export const topicChips = (slugs: ReadonlyArray<string>): HTMLElement =>
     'ul',
     { class: 'topic-chips' },
     slugs.map((slug) =>
-      h('li', {}, h('a', { class: 'topic-chip', href: `#/t/${encodeURIComponent(slug)}` }, `#${slug}`)),
+      h('li', {}, h('a', { class: 'topic-chip', href: hrefFor({ name: 'topic', slug }) }, topicLabel(slug))),
     ),
   )
 

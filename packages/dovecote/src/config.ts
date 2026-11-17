@@ -1,5 +1,9 @@
 import { Result, Schema as S } from '@homingbird/kernel'
 import { type ContactMode, GENERAL_TOPIC } from '@homingbird/protocol'
+import { isFetchableHostName } from './auth/client-metadata.ts'
+import { parseConfiguredClients } from './auth/configured-clients.ts'
+import { DEFAULT_CLIENT_METADATA_HOSTS, DEFAULT_REDIRECT_HOSTS } from './auth/default-oauth-hosts.ts'
+import type { RegisteredClient } from './auth/oauth.ts'
 import { DEFAULT_PUSH_HOSTS } from './push/default-hosts.ts'
 
 export interface Config {
@@ -27,6 +31,11 @@ export interface Config {
   readonly sessionDays: number
   readonly audit: { readonly toStdout: boolean; readonly webhookUrl: string | null }
   readonly agentCredentialDays: number
+  readonly oauth: {
+    readonly redirectHosts: ReadonlyArray<string>
+    readonly clientMetadataHosts: ReadonlyArray<string>
+    readonly clients: ReadonlyArray<RegisteredClient>
+  }
 }
 
 export const loadConfig = (
@@ -37,6 +46,9 @@ export const loadConfig = (
     return Result.err(decoded.error.map((issue) => `${issue.path.join('.')}: ${issue.message}`))
   const v = decoded.value
   const devLogin = v.HB_DEV_LOGIN === '1'
+  const redirectHosts = hostListOf(v.HB_OAUTH_REDIRECT_HOSTS, DEFAULT_REDIRECT_HOSTS)
+  const clientMetadataHosts = hostListOf(v.HB_OAUTH_CLIENT_METADATA_HOSTS, DEFAULT_CLIENT_METADATA_HOSTS)
+  const clients = parseConfiguredClients(v.HB_OAUTH_CLIENTS)
   const problems = [
     !devLogin && !v.HB_OIDC_CLIENT_ID ? 'HB_OIDC_CLIENT_ID: is required unless HB_DEV_LOGIN=1' : null,
     !devLogin && !v.HB_OIDC_CLIENT_SECRET ? 'HB_OIDC_CLIENT_SECRET: is required unless HB_DEV_LOGIN=1' : null,
@@ -46,8 +58,18 @@ export const loadConfig = (
     devLogin && !isLoopback(v.HB_PUBLIC_URL)
       ? 'HB_DEV_LOGIN: only allowed when HB_PUBLIC_URL is a loopback address'
       : null,
+    ...redirectHosts
+      .filter((host) => !HOST_NAME.test(host))
+      .map((host) => `HB_OAUTH_REDIRECT_HOSTS: "${host}" is not a host name`),
+    ...clientMetadataHosts
+      .filter((host) => !isFetchableHostName(host))
+      .map(
+        (host) =>
+          `HB_OAUTH_CLIENT_METADATA_HOSTS: "${host}" must be a public host name, not an address or loopback`,
+      ),
+    ...(clients._tag === 'Err' ? clients.error : []),
   ].filter((problem): problem is string => problem !== null)
-  if (problems.length > 0) return Result.err(problems)
+  if (problems.length > 0 || clients._tag === 'Err') return Result.err(problems)
   return Result.ok({
     publicUrl: v.HB_PUBLIC_URL.replace(/\/+$/, ''),
     port: Number(v.HB_PORT ?? '8080'),
@@ -73,6 +95,7 @@ export const loadConfig = (
     sessionDays: Number(v.HB_SESSION_DAYS ?? '30'),
     audit: { toStdout: v.HB_AUDIT_STDOUT === '1', webhookUrl: v.HB_AUDIT_WEBHOOK_URL ?? null },
     agentCredentialDays: Number(v.HB_AGENT_CREDENTIAL_DAYS ?? '90'),
+    oauth: { redirectHosts, clientMetadataHosts, clients: clients.value },
   })
 }
 
@@ -103,7 +126,12 @@ const Variables = S.struct({
   HB_AUDIT_STDOUT: S.optional(S.literal('0', '1')),
   HB_AUDIT_WEBHOOK_URL: S.optional(S.string({ pattern: /^https?:\/\// })),
   HB_AGENT_CREDENTIAL_DAYS: S.optional(positiveInteger),
+  HB_OAUTH_REDIRECT_HOSTS: S.optional(S.string()),
+  HB_OAUTH_CLIENT_METADATA_HOSTS: S.optional(S.string()),
+  HB_OAUTH_CLIENTS: S.optional(S.string()),
 })
+
+const HOST_NAME = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/
 
 const withoutBlanks = (environment: Readonly<Record<string, string | undefined>>): Record<string, string> =>
   Object.fromEntries(
@@ -129,6 +157,9 @@ const commaList = (value: string | undefined): string[] =>
     .split(',')
     .map((item) => item.trim().toLowerCase())
     .filter((item) => item !== '')
+
+const hostListOf = (value: string | undefined, defaults: ReadonlyArray<string>): ReadonlyArray<string> =>
+  value === undefined ? defaults : value.trim().toLowerCase() === 'none' ? [] : commaList(value)
 
 const isLoopback = (url: string): boolean =>
   /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?(\/|$)/.test(url)
