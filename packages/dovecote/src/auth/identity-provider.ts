@@ -1,4 +1,4 @@
-import { createPublicKey, verify } from 'node:crypto'
+import { type JsonWebKey, createPublicKey, verify } from 'node:crypto'
 import { Result, Task as T, tagged } from '@homingbird/kernel'
 import type { Config } from '../config.ts'
 

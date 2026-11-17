@@ -49,9 +49,9 @@ export interface Route<
 }
 
 const route = <
-  M extends Method,
-  P extends string,
-  A extends Access,
+  const M extends Method,
+  const P extends string,
+  const A extends Access,
   R extends S.Schema<any>,
   Q extends S.Fields | undefined = undefined,
   B extends S.Schema<any> | undefined = undefined,
