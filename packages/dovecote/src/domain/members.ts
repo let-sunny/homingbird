@@ -12,7 +12,7 @@ import {
 } from '@homingbird/protocol'
 import type { AppEnv } from '../environment.ts'
 import { all, first, run } from '../sql/database.ts'
-import { insertInto, likePattern, list, sql } from '../sql/query.ts'
+import { containsIgnoringCase, insertInto, list, sql } from '../sql/query.ts'
 import { type Ties, tiesOf } from './contacts.ts'
 import { readSettings } from './settings.ts'
 
@@ -23,7 +23,7 @@ export const directoryFor = (viewerId: MemberId, search: string | undefined): T.
     const ties = yield* tiesOf(viewerId)
     const rows = yield* all<MemberRow>(
       search
-        ? sql`SELECT * FROM members WHERE status = 'active' AND (LOWER(name) LIKE ${likePattern(search)} OR LOWER(email) LIKE ${likePattern(search)} OR LOWER(profile) LIKE ${likePattern(search)}) ORDER BY name LIMIT ${DIRECTORY_LIMIT}`
+        ? sql`SELECT * FROM members WHERE status = 'active' AND (${containsIgnoringCase('name', search)} OR ${containsIgnoringCase('email', search)} OR ${containsIgnoringCase('profile', search)}) ORDER BY name LIMIT ${DIRECTORY_LIMIT}`
         : sql`SELECT * FROM members WHERE status = 'active' ORDER BY name LIMIT ${DIRECTORY_LIMIT}`,
     )
     return rows.map((row) => {

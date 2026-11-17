@@ -21,6 +21,7 @@ export interface Config {
   }
   readonly adminEmails: ReadonlyArray<string>
   readonly sessionDays: number
+  readonly audit: { readonly toStdout: boolean; readonly webhookUrl: string | null }
   readonly agentCredentialDays: number
 }
 
@@ -57,6 +58,7 @@ export const loadConfig = (
     },
     adminEmails: commaList(v.HB_ADMIN_EMAILS),
     sessionDays: Number(v.HB_SESSION_DAYS ?? '30'),
+    audit: { toStdout: v.HB_AUDIT_STDOUT === '1', webhookUrl: v.HB_AUDIT_WEBHOOK_URL ?? null },
     agentCredentialDays: Number(v.HB_AGENT_CREDENTIAL_DAYS ?? '90'),
   })
 }
@@ -79,6 +81,8 @@ const Variables = S.struct({
   HB_CONTACT_MODE: S.optional(S.literal('open', 'contacts')),
   HB_AUDIT_RETENTION_DAYS: S.optional(positiveInteger),
   HB_SESSION_DAYS: S.optional(positiveInteger),
+  HB_AUDIT_STDOUT: S.optional(S.literal('0', '1')),
+  HB_AUDIT_WEBHOOK_URL: S.optional(S.string({ pattern: /^https?:\/\// })),
   HB_AGENT_CREDENTIAL_DAYS: S.optional(positiveInteger),
 })
 

@@ -6,7 +6,8 @@
  * `access` column is the first line of the security rules: `human` routes refuse agent
  * credentials before any handler runs.
  */
-import { Schema as S, type Simplify } from '@homingbird/kernel'
+import { Schema as S, type Simplify, type Task } from '@homingbird/kernel'
+import type { ApiError } from './errors.ts'
 import { StreamEvent } from './events.ts'
 import { ConversationId, CredentialId, MemberId, NoteId } from './ids.ts'
 import {
@@ -37,10 +38,11 @@ export interface Route<
   Q extends S.Fields | undefined = S.Fields | undefined,
   B extends S.Schema<any> | undefined = S.Schema<any> | undefined,
   R extends S.Schema<any> = S.Schema<any>,
+  A extends Access = Access,
 > {
   readonly method: M
   readonly path: P
-  readonly access: Access
+  readonly access: A
   readonly query: Q
   readonly body: B
   readonly response: R
@@ -49,17 +51,18 @@ export interface Route<
 const route = <
   M extends Method,
   P extends string,
+  A extends Access,
   R extends S.Schema<any>,
   Q extends S.Fields | undefined = undefined,
   B extends S.Schema<any> | undefined = undefined,
 >(def: {
   method: M
   path: P
-  access: Access
+  access: A
   response: R
   query?: Q
   body?: B
-}): Route<M, P, Q, B, R> => ({
+}): Route<M, P, Q, B, R, A> => ({
   method: def.method,
   path: def.path,
   access: def.access,
@@ -323,6 +326,11 @@ export const contract = {
 
 export type Contract = typeof contract
 export type RouteName = keyof Contract
+
+/** Every route as a function. Implemented over HTTP by the client and in-process by the server. */
+export type Api = {
+  readonly [N in RouteName]: (request: RequestOf<Contract[N]>) => Task.Task<ResponseOf<Contract[N]>, ApiError>
+}
 
 /** Route names an agent credential can never call. Derived, for tests and documentation. */
 export const humanOnlyRoutes = (Object.keys(contract) as RouteName[]).filter(

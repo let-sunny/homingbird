@@ -1,0 +1,32 @@
+# Functional core
+
+Homingbird is written against its own kernel (`packages/kernel`). There is no other effect, validation
+or utility library, and none may be added.
+
+## Effects are values
+
+- Anything asynchronous, fallible or environment-dependent is a `Task<A, E, R>`. Do not write
+  `async` functions outside the kernel and the outermost adapters (HTTP server, database drivers).
+- Sequence with generators: `Task.gen(function* () { const x = yield* step })`.
+- Expected failures are tagged values in `E`, created with `tagged('Name')`. Never `throw` for an
+  expected failure; a throw is a defect.
+- Services come from the environment `R`. Never call `Date.now()`, `setTimeout`, `Math.random()`,
+  `crypto.random*` or `fetch` directly; use the clock, random and fetch services so tests control them.
+
+## Async control
+
+- Every wait must be interruptible. Use `Task.sleep`, `Task.timeout`, `Task.race`, `Task.scoped`.
+- Nothing may outlive its scope: background work is forked inside `Task.scoped`.
+- Cleanup goes in a generator `finally` block or `Task.bracket`.
+- Streams are `AsyncIterable`. A source that can wait forever takes an `AbortSignal`.
+
+## Data
+
+- Data is immutable and plain. No classes outside the kernel.
+- Every type that crosses a boundary is declared once as a `Schema`; derive the static type with
+  `Schema.Infer`, never write it twice.
+- Prefer deriving over declaring: routes, clients, handlers and tool definitions come from the
+  contract in `packages/protocol/src/contract.ts` through mapped and conditional types.
+- Iterate lazily with `Iter` and generators; reach for arrays only at the edges.
+- `any` is allowed only in generic constraints. `as` needs a narrower type on its right than its left,
+  or a kernel-level justification.

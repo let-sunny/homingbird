@@ -43,7 +43,8 @@ export const insertIgnoringConflict = (
     : query(`${insert.text} ON CONFLICT DO NOTHING`, insert.params)
 }
 
-export const likePattern = (needle: string): string => `%${needle.toLowerCase().replace(/[\\%_]/g, '\\$&')}%`
+export const containsIgnoringCase = (column: string, needle: string): Query =>
+  query(`LOWER(${column}) LIKE ? ESCAPE '!'`, [`%${needle.toLowerCase().replace(/[!%_]/g, '!$&')}%`])
 
 export const numberedPlaceholders = (text: string): string => {
   let index = 0

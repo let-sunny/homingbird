@@ -1,5 +1,6 @@
 import { type Stream, Task as T } from '@homingbird/kernel'
 import type { CredentialKind, EventBody, MemberId, StreamEvent } from '@homingbird/protocol'
+import type { AuditRecord } from '../domain/audit.ts'
 import type { AppEnv } from '../environment.ts'
 import { all, first, inTransaction, run } from '../sql/database.ts'
 import { insertInto, sql } from '../sql/query.ts'
@@ -11,14 +12,17 @@ export interface Delivery {
 
 export interface RequestEnv extends AppEnv {
   readonly outbox: Delivery[]
+  readonly audited: AuditRecord[]
 }
 
 export const transact = <A, E>(task: T.Task<A, E, RequestEnv>): T.Task<A, E, AppEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
     const outbox: Delivery[] = []
-    const value = yield* T.provide({ outbox })(inTransaction(task)) as T.Task<A, E, AppEnv>
+    const audited: AuditRecord[] = []
+    const value = yield* T.provide({ outbox, audited })(inTransaction(task)) as T.Task<A, E, AppEnv>
     for (const delivery of outbox) env.hub.publish(delivery.memberId, delivery.event)
+    for (const record of audited) env.auditSink(record)
     return value
   })
 
