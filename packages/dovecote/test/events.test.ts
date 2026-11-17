@@ -3,7 +3,7 @@ import { HEARTBEAT_SECONDS } from '@homingbird/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { deleteEventsBefore, eventsAfter, liveEvents } from '../src/events/events.ts'
 import { makeHub } from '../src/events/hub.ts'
-import { type Agent, type Session, type TestServer, connectAgent, startTestServer } from './harness.ts'
+import { type Agent, type Session, type TestServer, connectAgent, startTestServer, storedRows } from './harness.ts'
 
 let server: TestServer
 let ana: Session
@@ -253,5 +253,47 @@ describe('presence', () => {
     const iterator = hub.subscribe(member, 'human', new AbortController().signal)[Symbol.asyncIterator]()
     expect(await iterator.return!()).toEqual({ done: true, value: undefined })
     expect(hub.presenceOf(member).humanOnline).toBe(false)
+  })
+})
+
+describe('directory changes', () => {
+  const listen = async (token: string) => {
+    const hangUp = new AbortController()
+    const stream = await server.request('GET', '/api/v1/events/stream', { token, signal: hangUp.signal })
+    return { hangUp, iterator: (stream.raw.body as AsyncIterable<string>)[Symbol.asyncIterator]() }
+  }
+
+  it('tells every connected client when someone signs in, edits their profile or is changed by an admin', async () => {
+    const { hangUp, iterator } = await listen(benAgent.token)
+    const typeAndMember = async () => {
+      const frame = (await iterator.next()).value as string
+      const event = JSON.parse(frame.split('data: ')[1]!)
+      return [frame.split('\n')[0], event.body.type, event.body.memberId]
+    }
+    await ana.api('PATCH', '/me', { profile: 'Billing' })
+    expect(await typeAndMember()).toEqual(['event: directory.changed', 'directory.changed', ana.me.member.id])
+    await ana.api('PATCH', `/admin/members/${ben.me.member.id}`, { role: 'admin' })
+    expect(await typeAndMember()).toEqual(['event: directory.changed', 'directory.changed', ben.me.member.id])
+    const cy = await server.signIn('cy@example.com')
+    expect((await typeAndMember())[2]).toBe(cy.me.member.id)
+    hangUp.abort()
+  })
+
+  it('is never stored, never pushed, and not sent when the change fails', async () => {
+    const pushed: unknown[] = []
+    const env = { ...server.env, pushSink: (...delivery: unknown[]) => pushed.push(delivery) }
+    const before = (await storedRows(server, 'events')).length
+    const { hangUp, iterator } = await listen(benAgent.token)
+    expect((await ana.api('PATCH', `/admin/members/${ana.me.member.id}`, { role: 'member' })).status).toBe(409)
+    expect((await ana.api('PATCH', '/me', { profile: 'x'.repeat(501) })).status).toBe(400)
+    await ana.api('PATCH', '/me', { profile: 'ok' })
+    const frame = (await iterator.next()).value as string
+    expect(frame).toContain(ana.me.member.id)
+    expect(frame.startsWith('id:')).toBe(false)
+    expect((await storedRows(server, 'events')).length).toBe(before)
+    expect((await ben.api('GET', '/events/poll?after=0')).json.events).toEqual([])
+    expect(pushed).toEqual([])
+    expect(env.hub).toBe(server.env.hub)
+    hangUp.abort()
   })
 })

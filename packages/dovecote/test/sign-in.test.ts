@@ -1,6 +1,9 @@
+import { Task as T } from '@homingbird/kernel'
 import { afterEach, describe, expect, it } from 'vitest'
 import { describeBrowser, localPath } from '../src/auth/sign-in.ts'
 import { SESSION_COOKIE } from '../src/http/authenticate.ts'
+import { run } from '../src/sql/database.ts'
+import { sql } from '../src/sql/query.ts'
 import { type FakeIssuer, makeFakeIssuer } from './fake-identity-issuer.ts'
 import { type TestServer, startTestServer } from './harness.ts'
 
@@ -20,6 +23,7 @@ const withIssuer = async (issuer: FakeIssuer, overrides: Record<string, string> 
       HB_OIDC_ISSUER: issuer.issuer,
       HB_OIDC_CLIENT_ID: CLIENT_ID,
       HB_OIDC_CLIENT_SECRET: 'secret',
+      HB_ADMIN_EMAILS: 'ana@example.com',
       ...overrides,
     },
     { fetch: issuer.fetch },
@@ -49,6 +53,12 @@ const attempt = async (issuer: FakeIssuer, returnTo?: string) => {
     headers: { 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/130.0 Safari/537.36' },
   })
   return { authorization, state, code, finished }
+}
+
+const signInAs = async (issuer: FakeIssuer, email: string, sub: string) => {
+  issuer.nextToken = ({ nonce }) => issuer.signToken(claimsFor(issuer, nonce, { email, sub, name: email }))
+  const cookie = (await attempt(issuer)).finished.headers['set-cookie']!.split(';')[0]!
+  return (await server.request('GET', '/api/v1/me', { headers: { cookie } })).json.member
 }
 
 const refusalOf = (finished: { headers: Readonly<Record<string, string>> }): string =>
@@ -144,24 +154,34 @@ describe('signing in through an OpenID Connect provider', () => {
     expect(refusalOf(started)).toMatch(/could not be reached/)
   })
 
-  it('keeps the same member across sign-ins and makes configured emails admins', async () => {
+  it('keeps the same member across sign-ins, by subject or by email', async () => {
+    const issuer = makeFakeIssuer()
+    await withIssuer(issuer)
+    const first = await signInAs(issuer, 'ben@example.com', 's-ben')
+    expect((await signInAs(issuer, 'ben@example.com', 's-ben')).id).toBe(first.id)
+    expect((await signInAs(issuer, 'ben.renamed@example.com', 's-ben')).id).toBe(first.id)
+    expect((await signInAs(issuer, 'ben.renamed@example.com', 's-ben-reissued')).id).toBe(first.id)
+  })
+
+  it('makes nobody an administrator implicitly: only the listed emails, at creation or on a later sign-in', async () => {
     const issuer = makeFakeIssuer()
     await withIssuer(issuer, { HB_ADMIN_EMAILS: 'Cy@Example.com' })
-    const signInAs = async (email: string, sub: string) => {
-      issuer.nextToken = ({ nonce }) => issuer.signToken(claimsFor(issuer, nonce, { email, sub, name: email }))
-      const cookie = (await attempt(issuer)).finished.headers['set-cookie']!.split(';')[0]!
-      return (await server.request('GET', '/api/v1/me', { headers: { cookie } })).json.member
-    }
-    const first = await signInAs('ana@example.com', 's-ana')
-    const second = await signInAs('ben@example.com', 's-ben')
-    const third = await signInAs('cy@example.com', 's-cy')
-    expect([first.role, second.role, third.role]).toEqual(['admin', 'member', 'admin'])
-    expect((await signInAs('ana@example.com', 's-ana')).id).toBe(first.id)
-    expect((await signInAs('ana.renamed@example.com', 's-ana')).id).toBe(first.id)
+    const first = await signInAs(issuer, 'ana@example.com', 's-ana')
+    const listed = await signInAs(issuer, 'cy@example.com', 's-cy')
+    expect([first.role, listed.role]).toEqual(['member', 'admin'])
+    await T.runPromise(run(sql`UPDATE members SET role = 'member' WHERE id = ${listed.id}`), server.env)
+    expect((await signInAs(issuer, 'cy@example.com', 's-cy')).role).toBe('admin')
+    expect((await signInAs(issuer, 'ana@example.com', 's-ana')).role).toBe('member')
   })
 })
 
 describe('development login', () => {
+  it('makes the first member an administrator, since nobody else could be', async () => {
+    server = await startTestServer()
+    expect((await server.signIn('first@example.com')).me.member.role).toBe('admin')
+    expect((await server.signIn('second@example.com')).me.member.role).toBe('member')
+  })
+
   it('is served only when enabled, and refuses a form without an email', async () => {
     server = await startTestServer()
     const form = await server.request('GET', '/auth/dev?state="><script>')

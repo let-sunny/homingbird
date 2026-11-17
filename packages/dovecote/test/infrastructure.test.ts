@@ -11,7 +11,12 @@ import { schemaStatements } from '../src/sql/schema.ts'
 import { type TestServer, startTestServer } from './harness.ts'
 
 describe('configuration', () => {
-  const minimal = { HB_PUBLIC_URL: 'https://hb.example.com/', HB_OIDC_CLIENT_ID: 'id', HB_OIDC_CLIENT_SECRET: 'secret' }
+  const minimal = {
+    HB_PUBLIC_URL: 'https://hb.example.com/',
+    HB_OIDC_CLIENT_ID: 'id',
+    HB_OIDC_CLIENT_SECRET: 'secret',
+    HB_ADMIN_EMAILS: 'root@example.com',
+  }
 
   it('fills in defaults', () => {
     const config = loadConfig(minimal)
@@ -25,7 +30,7 @@ describe('configuration', () => {
         themeDirectory: null,
         identity: { issuer: 'https://accounts.google.com', label: 'Google', devLogin: false },
         initial: { allowedDomains: [], contactMode: 'open', auditRetentionDays: null },
-        adminEmails: [],
+        adminEmails: ['root@example.com'],
         trustProxy: false,
         sessionDays: 30,
         agentCredentialDays: 90,
@@ -78,6 +83,7 @@ describe('configuration', () => {
     [{}, /HB_PUBLIC_URL/],
     [{ HB_PUBLIC_URL: 'hb.example.com' }, /HB_PUBLIC_URL/],
     [{ HB_PUBLIC_URL: 'https://hb.example.com' }, /HB_OIDC_CLIENT_ID.*HB_OIDC_CLIENT_SECRET/s],
+    [{ ...minimal, HB_ADMIN_EMAILS: ' , ' }, /HB_ADMIN_EMAILS: name at least one administrator/],
     [{ ...minimal, HB_PORT: 'eighty' }, /HB_PORT/],
     [{ ...minimal, HB_DATABASE_URL: 'oracle://x' }, /HB_DATABASE_URL/],
     [{ ...minimal, HB_CONTACT_MODE: 'everyone' }, /HB_CONTACT_MODE/],
@@ -85,7 +91,7 @@ describe('configuration', () => {
   ])('refuses %j', (environment, problem) => {
     const config = loadConfig(environment)
     expect(config._tag).toBe('Err')
-    expect((config as { error: string[] }).error.join('\n')).toMatch(problem)
+    expect((config as unknown as { error: string[] }).error.join('\n')).toMatch(problem)
   })
 
   it.each(['http://localhost:8080', 'http://127.0.0.1', 'http://[::1]:3000/'])('allows development login on %s', (url) => {

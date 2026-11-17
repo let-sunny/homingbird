@@ -18,6 +18,7 @@ const types: EventType[] = [
   'draft.discarded',
   'contact.changed',
   'presence',
+  'directory.changed',
   'resync',
 ]
 
@@ -37,7 +38,7 @@ describe('stream events', () => {
   })
 
   it('treats presence and resync as ephemeral and everything else as durable', () => {
-    expect(types.filter((type) => !isDurable(type))).toEqual(['presence', 'resync'])
+    expect(types.filter((type) => !isDurable(type))).toEqual(['presence', 'directory.changed', 'resync'])
   })
 
   it('refuses an unknown event type and reports the discriminator', () => {

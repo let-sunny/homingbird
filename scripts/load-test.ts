@@ -179,7 +179,7 @@ async function watch(response: Response, arrivals: Map<string, (at: number) => v
 }
 
 async function drain(response: Response): Promise<void> {
-  for await (const _ of response.body as unknown as AsyncIterable<Uint8Array>) continue
+  for await (const chunk of response.body as unknown as AsyncIterable<Uint8Array>) void chunk
 }
 
 async function call(token: string, method: string, path: string, body?: unknown): Promise<{ id: string }> {
