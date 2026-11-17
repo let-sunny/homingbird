@@ -1,10 +1,3 @@
-/**
- * Combinators over AsyncIterable. Each one is an async generator: demand-driven, and closing the
- * consumer closes the source.
- *
- * Sources that can wait indefinitely (subscriptions, timers) take an AbortSignal and end when it
- * aborts; that is how a pipeline is torn down from the outside.
- */
 import type { Clock } from './clock.ts'
 import { err, isOk, ok } from './result.ts'
 import * as T from './task.ts'
@@ -21,7 +14,6 @@ export const of = <A>(...items: A[]): Stream<A> => fromIterable(items)
 
 export const empty: Stream<never> = fromIterable([])
 
-/** Emits `0, 1, 2, ...` every `ms` until the signal aborts. */
 export const interval = (clock: Clock, ms: number, signal: AbortSignal): Stream<number> => ({
   async *[Symbol.asyncIterator]() {
     for (let i = 0; ; i++) {
@@ -101,10 +93,6 @@ export const concat =
     },
   })
 
-/**
- * Interleaves streams as their items arrive. Ends when every source has ended; closing the merged
- * stream closes every source.
- */
 export const merge = <A>(...sources: ReadonlyArray<Stream<A>>): Stream<A> => ({
   async *[Symbol.asyncIterator]() {
     const iterators = sources.map((s) => s[Symbol.asyncIterator]())
@@ -125,10 +113,6 @@ export const merge = <A>(...sources: ReadonlyArray<Stream<A>>): Stream<A> => ({
   },
 })
 
-/**
- * Ends the stream as soon as the signal aborts, even while a pull is outstanding. The source is
- * asked to close but is not awaited.
- */
 export const untilAborted =
   (signal: AbortSignal) =>
   <A>(source: Stream<A>): Stream<A> => ({
@@ -167,7 +151,6 @@ export const untilAborted =
     },
   })
 
-/** Collects a finite stream. */
 export const toArray = <A>(source: Stream<A>): T.Task<A[]> =>
   T.promise(async (signal) => {
     const out: A[] = []
@@ -175,7 +158,6 @@ export const toArray = <A>(source: Stream<A>): T.Task<A[]> =>
     return out
   })
 
-/** Runs a task for every item, one at a time. Interrupting the task closes the stream. */
 export const forEach =
   <A, E, R>(f: (a: A) => T.Task<unknown, E, R>) =>
   (source: Stream<A>): T.Task<void, E, R> =>

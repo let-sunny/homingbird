@@ -1,7 +1,3 @@
-/**
- * Result: a computation that either produced a value or failed with a typed error.
- * Results are iterable so that `yield*` unwraps them inside `Result.gen`.
- */
 import type { Tagged } from './data.ts'
 
 const proto = {
@@ -62,7 +58,6 @@ export const getOrElse =
   <A>(r: Result<A, E>): A | B =>
     r._tag === 'Ok' ? r.value : f(r.error)
 
-/** Unwraps or throws the error. For tests and program edges only. */
 export const unwrap = <A, E>(r: Result<A, E>): A => {
   if (r._tag === 'Ok') return r.value
   throw r.error instanceof Error ? r.error : new Error(`unwrap on Err: ${JSON.stringify(r.error)}`)
@@ -73,7 +68,6 @@ export const fromNullable =
   <A>(a: A): Result<NonNullable<A>, E> =>
     a === null || a === undefined ? err(onNull()) : ok(a as NonNullable<A>)
 
-/** Runs `f`, turning a throw into a typed error. */
 export const attempt = <A, E>(f: () => A, onThrow: (cause: unknown) => E): Result<A, E> => {
   try {
     return ok(f())
@@ -82,7 +76,6 @@ export const attempt = <A, E>(f: () => A, onThrow: (cause: unknown) => E): Resul
   }
 }
 
-/** All values, or the first error. */
 export const all = <A, E>(results: Iterable<Result<A, E>>): Result<A[], E> => {
   const out: A[] = []
   for (const r of results) {
@@ -92,7 +85,6 @@ export const all = <A, E>(results: Iterable<Result<A, E>>): Result<A[], E> => {
   return ok(out)
 }
 
-/** Every value and every error, without short-circuiting. */
 export const partition = <A, E>(results: Iterable<Result<A, E>>): { oks: A[]; errs: E[] } => {
   const oks: A[] = []
   const errs: E[] = []
@@ -100,16 +92,6 @@ export const partition = <A, E>(results: Iterable<Result<A, E>>): { oks: A[]; er
   return { oks, errs }
 }
 
-/**
- * Do-notation. `yield*` a Result to get its value; the first Err ends the block.
- * `finally` blocks in the generator still run.
- *
- *     const total = Result.gen(function* () {
- *       const a = yield* parse(x)
- *       const b = yield* parse(y)
- *       return a + b
- *     })
- */
 export const gen = <Y extends Err<unknown>, A>(f: () => Generator<Y, A, never>): Result<A, ErrorOf<Y>> => {
   const it = f()
   const step = it.next()

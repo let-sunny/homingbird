@@ -30,14 +30,17 @@ export const applyEvent = (event: StreamEvent): void => {
       return launch(loadConversations)
     case 'contact.changed':
       return launch(loadPeople)
-    case 'presence':
+    case 'presence': {
+      const changed = new Map(body.members.map((member) => [member.memberId, member]))
       return directory.update((entries) =>
-        entries.map((entry) =>
-          entry.member.id === body.memberId
-            ? { ...entry, presence: { humanOnline: body.humanOnline, agentOnline: body.agentOnline } }
-            : entry,
-        ),
+        entries.map((entry) => {
+          const presence = changed.get(entry.member.id)
+          return presence === undefined
+            ? entry
+            : { ...entry, presence: { humanOnline: presence.humanOnline, agentOnline: presence.agentOnline } }
+        }),
       )
+    }
     case 'resync':
       return reloadEverything()
   }

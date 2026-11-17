@@ -1,20 +1,10 @@
-/**
- * Coordination primitives. Every wait is a Task, so every wait can be interrupted, and an
- * interrupted waiter leaves no trace behind.
- */
 import { tagged } from './data.ts'
 import { type Option, none, some } from './option.ts'
 import { err, isOk, ok } from './result.ts'
 import * as T from './task.ts'
 
-// ---------------------------------------------------------------------------------------------
-// Deferred
-// ---------------------------------------------------------------------------------------------
-
 export interface Deferred<A> {
-  /** Waits for the value. */
   readonly wait: T.Task<A>
-  /** Completes the deferred. Returns false if it was already complete. */
   readonly resolve: (value: A) => boolean
   readonly isDone: () => boolean
 }
@@ -43,12 +33,7 @@ export const makeDeferred = <A>(): Deferred<A> => {
   }
 }
 
-// ---------------------------------------------------------------------------------------------
-// Semaphore
-// ---------------------------------------------------------------------------------------------
-
 export interface Semaphore {
-  /** Runs the task while holding a permit. The permit is released whatever the outcome. */
   readonly withPermit: <A, E, R>(task: T.Task<A, E, R>) => T.Task<A, E, R>
   readonly available: () => number
 }
@@ -88,30 +73,20 @@ export const makeSemaphore = (permits: number): Semaphore => {
   }
 }
 
-/** A semaphore with one permit. */
 export const makeMutex = (): Semaphore => makeSemaphore(1)
-
-// ---------------------------------------------------------------------------------------------
-// Queue
-// ---------------------------------------------------------------------------------------------
 
 export const QueueClosed = tagged('QueueClosed')()
 export type QueueClosed = ReturnType<typeof QueueClosed>
 
 export interface Queue<A> extends AsyncIterable<A> {
-  /** Adds an item, waiting while the queue is full. Fails once the queue is closed. */
   readonly offer: (item: A) => T.Task<void, QueueClosed>
-  /** Adds an item if there is room. Returns false when full or closed. */
   readonly tryOffer: (item: A) => boolean
-  /** Removes the oldest item, waiting while the queue is empty. Fails once closed and drained. */
   readonly take: T.Task<A, QueueClosed>
-  /** Stops accepting items. Items already queued can still be taken. */
   readonly close: () => void
   readonly size: () => number
   readonly isClosed: () => boolean
 }
 
-/** A bounded FIFO queue with backpressure. */
 export const makeQueue = <A>(capacity = Number.POSITIVE_INFINITY): Queue<A> => {
   if (capacity < 1) throw new RangeError('capacity must be at least 1')
   const items: A[] = []
@@ -193,36 +168,22 @@ export const makeQueue = <A>(capacity = Number.POSITIVE_INFINITY): Queue<A> => {
   }
 }
 
-// ---------------------------------------------------------------------------------------------
-// PubSub
-// ---------------------------------------------------------------------------------------------
-
 export interface Subscription<A> extends AsyncIterable<A> {
-  /** Ends the subscription; its iterator completes after delivering what is already buffered. */
   readonly close: () => void
-  /** True when the subscriber fell behind and lost messages. */
   readonly overflowed: () => boolean
 }
 
 export interface SubscribeOptions {
-  /** Messages buffered for a slow subscriber before it is cut off. Defaults to 1024. */
   readonly capacity?: number
-  /** Closes the subscription when this signal aborts. */
   readonly signal?: AbortSignal
 }
 
 export interface PubSub<A> {
-  /** Delivers to every current subscriber. Never blocks; a subscriber that overflows is closed. */
   readonly publish: (message: A) => void
   readonly subscribe: (options?: SubscribeOptions) => Subscription<A>
   readonly subscriberCount: () => number
 }
 
-/**
- * Fan-out to independent subscribers. A slow subscriber cannot stall the publisher or its peers:
- * when its buffer is full it is closed and flagged as overflowed, and is expected to resubscribe
- * and catch up from durable state.
- */
 export const makePubSub = <A>(): PubSub<A> => {
   const queues = new Set<{ queue: Queue<A>; overflow: () => void }>()
   return {

@@ -1,34 +1,17 @@
-/**
- * Function plumbing and the type-level helpers the rest of the kernel leans on.
- */
-
-/** Collapses an intersection of object types into one readable object type. */
 export type Simplify<T> = { [K in keyof T]: T[K] } & {}
-
-/** Turns `A | B` into `A & B`. `never` becomes `unknown`, the empty requirement. */
 export type UnionToIntersection<U> = (U extends unknown ? (u: U) => void : never) extends (i: infer I) => void
   ? I
   : never
-
-declare const brand: unique symbol
-/** A nominal type: structurally `T`, but only assignable from values blessed with the same tag. */
 export type Brand<T, Tag extends string> = T & { readonly [brand]: Tag }
-
 export const identity = <A>(a: A): A => a
 export const constant =
   <A>(a: A) =>
   (): A =>
     a
 export const noop = (): void => {}
-
-/** Unreachable code marker; exhaustiveness checks end here. */
 export const absurd = (value: never): never => {
   throw new Error(`Unreachable: ${JSON.stringify(value)}`)
 }
-
-type Fn<A, B> = (a: A) => B
-
-/** Pipes a value through unary functions, left to right. */
 export function pipe<A>(a: A): A
 export function pipe<A, B>(a: A, ab: Fn<A, B>): B
 export function pipe<A, B, C>(a: A, ab: Fn<A, B>, bc: Fn<B, C>): C
@@ -66,8 +49,6 @@ export function pipe(a: unknown, ...fns: ReadonlyArray<Fn<any, any>>): unknown {
   for (const f of fns) acc = f(acc)
   return acc
 }
-
-/** Composes unary functions, left to right. */
 export function flow<A, B>(ab: Fn<A, B>): Fn<A, B>
 export function flow<A, B, C>(ab: Fn<A, B>, bc: Fn<B, C>): Fn<A, C>
 export function flow<A, B, C, D>(ab: Fn<A, B>, bc: Fn<B, C>, cd: Fn<C, D>): Fn<A, D>
@@ -79,3 +60,7 @@ export function flow(...fns: ReadonlyArray<Fn<any, any>>): Fn<unknown, unknown> 
     return acc
   }
 }
+
+declare const brand: unique symbol
+
+type Fn<A, B> = (a: A) => B

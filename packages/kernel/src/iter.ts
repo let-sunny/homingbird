@@ -1,8 +1,3 @@
-/**
- * Lazy, pull-based combinators over synchronous iterables. Every combinator is a generator:
- * nothing runs until the consumer pulls, and stopping early stops the source.
- */
-
 export const map =
   <A, B>(f: (a: A, index: number) => B) =>
   (source: Iterable<A>): Iterable<B> => ({
@@ -64,7 +59,6 @@ export const takeWhile =
     },
   })
 
-/** Running fold: yields every intermediate state, not the seed. */
 export const scan =
   <A, S>(seed: S, f: (state: S, a: A) => S) =>
   (source: Iterable<A>): Iterable<S> => ({
@@ -108,7 +102,8 @@ export const zip =
     },
   })
 
-export const enumerate = <A>(source: Iterable<A>): Iterable<[number, A]> => map((a: A, i) => [i, a] as [number, A])(source)
+export const enumerate = <A>(source: Iterable<A>): Iterable<[number, A]> =>
+  map((a: A, i) => [i, a] as [number, A])(source)
 
 export const concat =
   <B>(...others: ReadonlyArray<Iterable<B>>) =>
@@ -133,13 +128,11 @@ export const dedupeBy =
     },
   })
 
-/** `start, start + step, ...` up to but excluding `end`. Infinite when `end` is omitted. */
 export function* range(start = 0, end = Number.POSITIVE_INFINITY, step = 1): Generator<number, void> {
   if (step === 0) throw new RangeError('range step must not be 0')
   for (let i = start; step > 0 ? i < end : i > end; i += step) yield i
 }
 
-/** `seed, f(seed), f(f(seed)), ...` forever. */
 export function* iterate<A>(seed: A, f: (a: A) => A): Generator<A, never> {
   for (let a = seed; ; a = f(a)) yield a
 }

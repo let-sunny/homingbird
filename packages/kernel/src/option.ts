@@ -1,6 +1,3 @@
-/**
- * Option: a value that may be absent. Iterable, so `yield*` unwraps it inside `Option.gen`.
- */
 import type { Tagged } from './data.ts'
 import { type Result, err, ok } from './result.ts'
 
@@ -56,7 +53,6 @@ export const toResult =
   <A>(o: Option<A>): Result<A, E> =>
     o._tag === 'Some' ? ok(o.value) : err(onNone())
 
-/** Do-notation: the first None ends the block. */
 export const gen = <A>(f: () => Generator<None, A, never>): Option<A> => {
   const it = f()
   const step = it.next()

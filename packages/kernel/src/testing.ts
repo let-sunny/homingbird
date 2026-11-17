@@ -1,16 +1,8 @@
-/**
- * Test support: derives fast-check generators from schemas, so every schema gets property tests
- * for free. Import from `@homingbird/kernel/testing`; requires `fast-check`.
- */
 import fc from 'fast-check'
 import type { Ast, Schema } from './schema.ts'
 
 export type RefinementArbitraries = Readonly<Record<string, fc.Arbitrary<unknown>>>
 
-/**
- * A generator of values the schema accepts. Refinements cannot be derived from a predicate, so
- * supply a generator per refinement name; without one, values of the inner schema are filtered.
- */
 export const arbitrary = <A>(schema: Schema<A>, refinements: RefinementArbitraries = {}): fc.Arbitrary<A> => {
   const go = (ast: Ast): fc.Arbitrary<unknown> => {
     switch (ast.type) {
@@ -18,7 +10,10 @@ export const arbitrary = <A>(schema: Schema<A>, refinements: RefinementArbitrari
         return ast.pattern !== undefined
           ? fc
               .stringMatching(new RegExp(ast.pattern))
-              .filter((s) => s.length >= (ast.minLength ?? 0) && s.length <= (ast.maxLength ?? Number.POSITIVE_INFINITY))
+              .filter(
+                (s) =>
+                  s.length >= (ast.minLength ?? 0) && s.length <= (ast.maxLength ?? Number.POSITIVE_INFINITY),
+              )
           : fc.string({
               minLength: ast.minLength ?? 0,
               ...(ast.maxLength !== undefined && { maxLength: ast.maxLength }),
