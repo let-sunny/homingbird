@@ -1,0 +1,188 @@
+name: Release
+
+# Every push to main runs this. While changesets are pending, the first job opens or updates the
+# "Version Packages" pull request. Merging that pull request leaves no changesets and a version that is
+# not yet released, so the later jobs check, publish @homingbird/cli, @homingbird/mcp and
+# @homingbird/mod to npm with provenance, tag v<version>, create the GitHub release, and push
+# ghcr.io/let-sunny/homingbird. CONTRIBUTING.md#releasing has the setup.
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  PUBLISHED_PACKAGES: cli mcp mod
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      pending: ${{ steps.changesets.outputs.has-changesets }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - id: changesets
+        uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
+        with:
+          version-script: pnpm version-packages
+          commit-message: Version Packages
+          pr-title: Version Packages
+          create-github-releases: false
+          push-git-tags: false
+
+  plan:
+    needs: version
+    if: needs.version.outputs.pending == 'false'
+    runs-on: ubuntu-latest
+    outputs:
+      release: ${{ steps.plan.outputs.release }}
+      version: ${{ steps.plan.outputs.version }}
+      tag: ${{ steps.plan.outputs.tag }}
+      prerelease: ${{ steps.plan.outputs.prerelease }}
+      dist_tag: ${{ steps.plan.outputs.dist_tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+      - id: plan
+        run: node scripts/release-version.ts plan
+      - run: node scripts/release-version.ts check
+
+  npm:
+    needs: plan
+    if: needs.plan.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      VERSION: ${{ needs.plan.outputs.version }}
+      DIST_TAG: ${{ needs.plan.outputs.dist_tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      # Trusted publishing (OIDC) needs npm 11.5.1 or newer; Node 22 ships npm 10.
+      - run: npm install --global npm@^11.5.1
+      - run: pnpm install --frozen-lockfile
+      # A pull request opened with GITHUB_TOKEN starts no CI of its own, so the checks run here.
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm build
+      - name: Pack
+        run: |
+          mkdir release
+          for package in $PUBLISHED_PACKAGES; do
+            (cd "packages/$package" && pnpm pack --pack-destination ../../release)
+          done
+          ls -l release
+      - name: Install the tarballs outside the workspace and run them
+        run: |
+          trial="$(mktemp -d)"
+          cp release/*.tgz "$trial/"
+          cd "$trial"
+          npm init --yes > /dev/null
+          npm install --no-audit --no-fund "./homingbird-cli-$VERSION.tgz" "./homingbird-mcp-$VERSION.tgz"
+          npx --no-install homingbird --help
+          npx --no-install homingbird status --json
+          npx --no-install homingbird-mcp --help 2>&1 | grep -q '^Usage: homingbird-mcp'
+          tar -xzf "homingbird-mod-$VERSION.tgz"
+          test -f package/.claude-plugin/plugin.json
+          grep -q "\"version\": \"$VERSION\"" package/.claude-plugin/plugin.json
+          node --no-warnings package/cli/homingbird.mjs --help
+      - name: Publish to npm
+        run: |
+          for package in $PUBLISHED_PACKAGES; do
+            if npm view "@homingbird/$package@$VERSION" version > /dev/null 2>&1; then
+              echo "@homingbird/$package@$VERSION is already on npm"
+              continue
+            fi
+            npm publish "./release/homingbird-$package-$VERSION.tgz" --provenance --access public --tag "$DIST_TAG"
+          done
+
+  github-release:
+    needs: [plan, npm]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.plan.outputs.version }}
+      TAG: ${{ needs.plan.outputs.tag }}
+      PRERELEASE: ${{ needs.plan.outputs.prerelease }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+      - name: Tag the commit and create the release from its changelog section
+        run: |
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "The release $TAG exists already"
+            exit 0
+          fi
+          node scripts/release-version.ts notes "$VERSION" > notes.md
+          flags=(--title "$TAG" --target "$GITHUB_SHA")
+          if [ -s notes.md ]; then flags+=(--notes-file notes.md); else flags+=(--generate-notes); fi
+          if [ "$PRERELEASE" = "true" ]; then flags+=(--prerelease); else flags+=(--latest); fi
+          gh release create "$TAG" "${flags[@]}"
+
+  image:
+    needs: [plan, npm]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
+        with:
+          images: ghcr.io/let-sunny/homingbird
+          flavor: latest=false
+          tags: |
+            type=semver,pattern={{version}},value=${{ needs.plan.outputs.tag }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.plan.outputs.tag }}
+            type=semver,pattern={{major}},value=${{ needs.plan.outputs.tag }},enable=${{ !startsWith(needs.plan.outputs.tag, 'v0.') }}
+            type=raw,value=latest,enable=${{ needs.plan.outputs.prerelease == 'false' }}
+          labels: |
+            org.opencontainers.image.title=Homingbird
+            org.opencontainers.image.description=Dovecote, the Homingbird relay server, with its web client
+            org.opencontainers.image.licenses=MIT
+            org.opencontainers.image.version=${{ needs.plan.outputs.version }}
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

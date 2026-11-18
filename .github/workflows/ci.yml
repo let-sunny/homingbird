@@ -1,0 +1,148 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: check on Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test:coverage
+      - run: pnpm build
+
+  database:
+    name: dovecote on ${{ matrix.database }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - database: postgres
+            image: postgres:16
+            port: 5432
+            url: postgres://homingbird:homingbird@localhost:5432/homingbird
+            url_variable: HB_TEST_POSTGRES_URL
+            health: --health-cmd "pg_isready -U homingbird" --health-interval 5s --health-timeout 3s --health-retries 20
+          - database: mysql
+            image: mysql:8
+            port: 3306
+            url: mysql://homingbird:homingbird@localhost:3306/homingbird
+            url_variable: HB_TEST_MYSQL_URL
+            health: --health-cmd "mysqladmin ping -h 127.0.0.1 -u homingbird -phomingbird" --health-interval 5s --health-timeout 3s --health-retries 30
+    services:
+      database:
+        image: ${{ matrix.image }}
+        env:
+          POSTGRES_USER: homingbird
+          POSTGRES_PASSWORD: homingbird
+          POSTGRES_DB: homingbird
+          MYSQL_USER: homingbird
+          MYSQL_PASSWORD: homingbird
+          MYSQL_DATABASE: homingbird
+          MYSQL_RANDOM_ROOT_PASSWORD: "yes"
+        ports:
+          - ${{ matrix.port }}:${{ matrix.port }}
+        options: ${{ matrix.health }}
+    env:
+      HB_TEST_DATABASE_URL: ${{ matrix.url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Every test drops and recreates the tables of the one shared database, so files must run one at a time.
+      - run: ${{ matrix.url_variable }}=${{ matrix.url }} npx vitest run packages/dovecote/ --no-file-parallelism
+
+  changeset:
+    name: changeset present
+    if: github.event_name == 'pull_request' && github.head_ref != 'changeset-release/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Fails when a package changed and no changeset says so; `pnpm changeset --empty` says "no release".
+      - run: pnpm changeset status --since=origin/main
+
+  commits:
+    name: commit messages
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+      - env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: git log --no-merges --format='%B%x00' "$BASE_SHA..HEAD" | node scripts/check-commit-message.ts -
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - run: docker build -t homingbird:ci .
+      - name: Start the image and wait for it to report healthy
+        run: |
+          docker run -d --name dovecote -p 8080:8080 \
+            -e HB_PUBLIC_URL=http://localhost:8080 -e HB_DEV_LOGIN=1 -e HB_ALLOWED_DOMAINS=example.com homingbird:ci
+          for attempt in $(seq 1 30); do
+            curl -fs http://localhost:8080/healthz && exit 0
+            sleep 1
+          done
+          docker logs dovecote
+          exit 1
+
+  terraform:
+    name: terraform ${{ matrix.setup }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        setup: [gcp, aws]
+    defaults:
+      run:
+        working-directory: deploy/terraform/${{ matrix.setup }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
+        with:
+          terraform_wrapper: false
+      - run: terraform fmt -check -recursive
+      - run: terraform init -backend=false -input=false
+      - run: terraform validate
