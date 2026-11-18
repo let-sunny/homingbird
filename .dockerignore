@@ -1,0 +1,13 @@
+.git
+.github
+.githooks
+.stryker-tmp
+**/node_modules
+**/dist
+**/coverage
+**/reports
+**/*.sqlite
+**/*.sqlite-*
+deploy
+docs
+.env

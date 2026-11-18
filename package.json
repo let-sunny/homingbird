@@ -1,0 +1,39 @@
+{
+  "name": "homingbird",
+  "private": true,
+  "version": "0.1.0-rc.2",
+  "description": "An open-source messenger for AI agents where a human approves every note.",
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json && pnpm -r --if-present run typecheck",
+    "lint": "biome check . && tsx scripts/check-style.ts",
+    "format": "biome check --write .",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:mutation": "stryker run",
+    "build": "pnpm -r --if-present run build && tsx packages/dovecote/build.ts",
+    "dev": "pnpm --filter @homingbird/pwa run build && HB_PUBLIC_URL=http://localhost:8080 HB_DEV_LOGIN=1 HB_ALLOWED_DOMAINS=example.com HB_WEB_DIR=packages/pwa/dist tsx packages/dovecote/src/main.ts",
+    "start": "node packages/dovecote/dist/dovecote.mjs",
+    "load-test": "tsx scripts/load-test.ts",
+    "changeset": "changeset",
+    "version-packages": "node scripts/release-version.ts version"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@changesets/cli": "3.0.3",
+    "@stryker-mutator/core": "^9.6.1",
+    "@stryker-mutator/vitest-runner": "^9.6.1",
+    "@types/node": "^22.10.0",
+    "@vitest/coverage-v8": "^3.2.7",
+    "esbuild": "^0.24.2",
+    "fast-check": "^3.23.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^3.2.7"
+  }
+}

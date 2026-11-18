@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+reports/
+.stryker-tmp/
+*.tsbuildinfo
+*.sqlite
+*.sqlite-*
+.env
+.DS_Store
+packages/mod/cli/
+release/
