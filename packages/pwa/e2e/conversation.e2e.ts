@@ -700,6 +700,7 @@ const startDovecote = async (port: number, databasePath: string) => {
     HB_PORT: String(port),
     HB_DEV_LOGIN: '1',
     HB_ALLOWED_DOMAINS: 'example.com',
+    HB_OAUTH_REDIRECT_HOSTS: 'client.example',
     HB_DATABASE_URL: `sqlite:${databasePath}`,
     HB_WEB_DIR: join(here, '..', 'dist'),
   })
