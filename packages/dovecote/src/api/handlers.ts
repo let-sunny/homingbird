@@ -178,7 +178,7 @@ export const handlers: Handlers = {
       ? createDraft(caller, target)
       : answerDraftRequest(caller, requestId, target.body),
   'drafts.update': ({ params, body }, caller) =>
-    T.flatMap((id: NoteId) => updateDraft(caller, id, body.body))(identifier(NoteId, params.id)),
+    T.flatMap((id: NoteId) => updateDraft(caller, id, body))(identifier(NoteId, params.id)),
   'drafts.send': ({ params, body }, caller) =>
     T.flatMap((id: NoteId) => sendDraft(caller, id, body.body))(identifier(NoteId, params.id)),
   'drafts.discard': ({ params }, caller) =>

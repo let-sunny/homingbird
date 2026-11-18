@@ -134,6 +134,18 @@ describe('contract', () => {
     expect(names.filter((name) => contract[name].access === 'public')).toEqual(['server.info'])
   })
 
+  it('changes a draft only when given a new body, a new topic, or both', () => {
+    const change = contract['drafts.update'].body
+    expect(change.decode({ body: 'New text' })._tag).toBe('Ok')
+    expect(change.decode({ topic: 'design' })._tag).toBe('Ok')
+    expect(change.decode({ body: 'New text', topic: 'design' })._tag).toBe('Ok')
+    expect(change.decode({})).toMatchObject({
+      _tag: 'Err',
+      error: [{ message: 'Give a new body, a new topic, or both.' }],
+    })
+    expect(change.decode({ topic: 'Not a slug' })._tag).toBe('Err')
+  })
+
   it('types the API as one function per route', () => {
     expectTypeOf<keyof Api>().toEqualTypeOf<RouteName>()
     expectTypeOf<Parameters<Api['drafts.send']>[0]>().toEqualTypeOf<{

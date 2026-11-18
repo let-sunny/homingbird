@@ -37,6 +37,11 @@ export interface DraftTarget extends DraftDestination {
   readonly body: string
 }
 
+export interface DraftChange {
+  readonly body?: string
+  readonly topic?: string
+}
+
 export const createDraft = (caller: Caller, target: DraftTarget): T.Task<Note, NoteFailure, RequestEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
@@ -68,14 +73,17 @@ export const createDraft = (caller: Caller, target: DraftTarget): T.Task<Note, N
 export const updateDraft = (
   caller: Caller,
   id: NoteId,
-  body: string,
+  change: DraftChange,
 ): T.Task<Note, NoteFailure, RequestEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
     const draft = yield* ownDraft(caller.member.id, id)
+    const body = change.body ?? draft.body
+    const conversationId =
+      change.topic === undefined ? draft.conversation_id : yield* readdressedRoom(draft, change.topic)
     const origin = originAfterEdit(draft.origin, isHuman(caller), body !== draft.body)
     yield* run(
-      sql`UPDATE notes SET body = ${body}, origin = ${origin}, updated_at = ${env.clock.now()} WHERE id = ${id} AND status = 'draft'`,
+      sql`UPDATE notes SET body = ${body}, conversation_id = ${conversationId}, origin = ${origin}, updated_at = ${env.clock.now()} WHERE id = ${id} AND status = 'draft'`,
     )
     const updated = yield* noteById(id)
     yield* emit([caller.member.id], { type: 'draft.saved', note: updated })
@@ -340,6 +348,16 @@ const recipientsOf = (
       return others.filter((memberId) => memberId === answered.author_id)
     const helpers = new Set(yield* helpersOf(draft.conversation_id))
     return others.filter((memberId) => helpers.has(memberId))
+  })
+
+const readdressedRoom = (draft: NoteRow, topic: string): T.Task<ConversationId, NoteFailure, RequestEnv> =>
+  T.gen(function* () {
+    const room = yield* first<{ kind: string }>(
+      sql`SELECT kind FROM conversations WHERE id = ${draft.conversation_id}`,
+    )
+    if (room?.kind !== 'topic' || draft.in_reply_to !== null)
+      return yield* T.fail(Conflict({ message: 'Only a question drafted to a topic can move to another topic.' }))
+    return yield* topicRoomFor(draft.author_id, topic)
   })
 
 const requireRoomForAnotherDraft = (authorId: MemberId): T.Task<void, Conflict, RequestEnv> =>
