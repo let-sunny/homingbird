@@ -1,6 +1,6 @@
 import { Schema as S } from '@homingbird/kernel'
 import { ConversationId, MemberId, NoteId } from './ids.ts'
-import { DraftRequest, Note, Receipt } from './model.ts'
+import { DraftRequest, Note, Receipt, Topic, TopicSlug } from './model.ts'
 
 export const EventBody = S.variants('type', {
   'note.sent': { note: Note },
@@ -15,6 +15,8 @@ export const EventBody = S.variants('type', {
     members: S.array(S.struct({ memberId: MemberId, humanOnline: S.boolean, agentOnline: S.boolean })),
   },
   'directory.changed': { memberId: MemberId },
+  'topic.changed': { topic: Topic },
+  'topic.left': { slug: TopicSlug, conversationId: ConversationId },
   resync: {},
 })
 export type EventBody = S.Infer<typeof EventBody>

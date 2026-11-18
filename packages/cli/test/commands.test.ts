@@ -39,12 +39,21 @@ const DRAFT = noteOf({
 
 const READING: Stubs = {
   'me.get': () => ME,
+  'server.info': () => INFO,
   'directory.list': () => DIRECTORY,
   'conversations.list': () => ({ conversations: [conversationOf({ unreadCount: 2, draftCount: 1 })] }),
   'conversations.notes': () => ({ notes: [QUESTION, DRAFT], hasMore: false }),
   'inbox.list': () => ({ items: [{ note: QUESTION, author: BEN, conversation: conversationOf() }] }),
   'drafts.list': () => ({ drafts: [DRAFT] }),
 }
+
+const INFO = {
+  name: 'dovecote',
+  version: '1.0.0',
+  contactMode: 'open',
+  signInWith: 'Development login',
+  approveButton: true,
+} as const
 
 const everythingPrinted = (w: ReturnType<typeof world>): string => [...w.lines, ...w.problems].join('\n')
 
@@ -80,22 +89,39 @@ describe('status', () => {
         'Signed in as:   Ana <ana@example.com>',
         'Credential:     Laptop (agent)',
         'Approve button: granted on this device',
+        'Language:       follows the browser',
         'Transport:      server-sent events, falling back to long-poll',
       ].join('\n'),
     )
-    expect(w.calls).toMatchObject([{ route: 'me.get', authorization: `Bearer ${AGENT_TOKEN}` }])
+    expect(w.calls).toMatchObject([
+      { route: 'me.get', authorization: `Bearer ${AGENT_TOKEN}` },
+      { route: 'server.info' },
+    ])
   })
 
-  it('reports the same as JSON, and never prints a token', async () => {
-    const w = world({ stubs: READING, signedIn: 'agent' })
+  it('reports the same as JSON, with the organization’s approve button setting and the member’s language, and never prints a token', async () => {
+    const w = world({
+      stubs: { ...READING, 'me.get': () => ({ ...(ME as object), locale: 'ko' }) as never },
+      signedIn: 'agent',
+    })
     await w.run('status', '--json')
     expect(w.json()).toMatchObject({
       signedIn: true,
       server: SERVER,
+      approveButton: true,
       hasApproveButton: false,
+      locale: 'ko',
       member: { name: 'Ana' },
     })
     expect(everythingPrinted(w)).not.toContain(AGENT_TOKEN)
+  })
+
+  it('says when the organization has turned the approve button off, even on a device that has one', async () => {
+    const w = world({ stubs: { ...READING, 'server.info': () => ({ ...INFO, approveButton: false }) } })
+    await w.run('status')
+    expect(w.lines[0]).toContain('Approve button: the organization has turned the approve button off')
+    await w.run('status', '--json')
+    expect(w.json()).toMatchObject({ approveButton: false, hasApproveButton: true, locale: null })
   })
 
   it('says not signed in without calling the server', async () => {

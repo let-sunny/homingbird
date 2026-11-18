@@ -88,6 +88,11 @@ const scenario = async (): Promise<void> => {
     const blocked = await ana.page.locator('.character-part:has(input:disabled) .character-blocked').count()
     assert.ok(blocked > 0, 'parts that would break a rule are disabled with a reason')
     await ana.page.locator('.character-part:has(input:disabled)').first().scrollIntoViewIfNeeded()
+    const previewBox = await ana.page.locator('.character-review .character-ground').first().boundingBox()
+    assert.ok(
+      previewBox !== null && previewBox.y >= 0 && previewBox.y < 800,
+      'the preview stays in view while choosing parts further down',
+    )
     await capture(ana.page, 'editor-disables-parts-that-break-a-rule-with-the-reason')
     await ana.page.click('button[name="surprise"]')
     await ana.page.waitForSelector('.character-passes')

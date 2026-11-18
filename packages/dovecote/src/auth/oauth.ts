@@ -376,7 +376,12 @@ export const exchangeDeviceCode = (deviceCode: string): T.Task<TokenResponse, OA
     const agent = yield* issueCredential({ ...shared, kind: 'agent', name })
     const approver =
       env.config.approveButton && request.detail.allowApproval
-        ? yield* issueCredential({ ...shared, kind: 'human', name: `${name} (approve button)` })
+        ? yield* issueCredential({
+            ...shared,
+            kind: 'human',
+            name: `${name} (approve button)`,
+            approveButton: true,
+          })
         : null
     for (const issued of [agent, approver])
       if (issued !== null)

@@ -99,7 +99,7 @@ const helpedTopics = (life: Lifetime, me: Me): HTMLElement => {
     { class: 'appearance my-topics' },
     h('legend', {}, strings.profileAgent),
     region(life, [topics, directory], () => {
-      const helped = topics.get().filter((topic) => topic.helping)
+      const helped = topics.get().filter((topic) => topic.answering)
       const fromDirectory = directory.get().find((entry) => entry.member.id === me.member.id)?.topics ?? []
       const slugs = helped.length > 0 ? helped.map((topic) => topic.slug) : fromDirectory
       return slugs.length === 0 ? h('p', {}, strings.noTopicsHelped) : topicChips(slugs)

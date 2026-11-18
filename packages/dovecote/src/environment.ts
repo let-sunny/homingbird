@@ -27,6 +27,7 @@ export interface Caller {
     readonly id: CredentialId
     readonly kind: CredentialKind
     readonly name: string
+    readonly approveButton?: true
   }
 }
 

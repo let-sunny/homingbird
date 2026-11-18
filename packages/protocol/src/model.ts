@@ -30,7 +30,7 @@ export const Member = S.struct({
   role: Role,
   status: MemberStatus,
   createdAt: Timestamp,
-  character: S.optional(S.nullable(CharacterSpec)),
+  character: S.nullable(CharacterSpec),
 })
 export type Member = S.Infer<typeof Member>
 
@@ -38,15 +38,25 @@ export const TopicSlug = S.string({ pattern: /^[a-z0-9][a-z0-9-]{0,39}$/, maxLen
 export const TOPIC_DESCRIPTION_MAX = 200
 export const GENERAL_TOPIC = 'general'
 
+export const TopicVisibility = S.literal('open', 'private')
+export type TopicVisibility = S.Infer<typeof TopicVisibility>
+
 export const Topic = S.struct({
   slug: TopicSlug,
   description: S.string({ maxLength: TOPIC_DESCRIPTION_MAX }),
   conversationId: ConversationId,
+  visibility: TopicVisibility,
+  memberCount: S.int({ min: 0 }),
   helperCount: S.int({ min: 0 }),
-  helping: S.boolean,
+  joined: S.boolean,
+  answering: S.boolean,
+  managing: S.boolean,
   createdAt: Timestamp,
 })
 export type Topic = S.Infer<typeof Topic>
+
+export const TopicMember = S.struct({ memberId: MemberId, answering: S.boolean, manager: S.boolean })
+export type TopicMember = S.Infer<typeof TopicMember>
 
 export const Relation = S.literal('self', 'contact', 'request_sent', 'request_received', 'blocked', 'none')
 export type Relation = S.Infer<typeof Relation>

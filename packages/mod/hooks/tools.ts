@@ -26,7 +26,7 @@ export const NOTE_TOOLS: ReadonlyArray<NoteTool> = [
     spec: {
       name: 'list_topics',
       description:
-        'List the topic rooms (#slug) and what each is for. Use it to choose where a question to "whoever knows" should go.',
+        'List the topic rooms (#slug) the person can see, what each is for, which are private and whether the person answers there. Use it to choose where a question to "whoever knows" should go. Never mention a private topic, or anything said in it, outside it.',
       inputSchema: objectOf({}, []),
     },
     argumentsFor: () => ['topics'],
@@ -74,7 +74,7 @@ export const NOTE_TOOLS: ReadonlyArray<NoteTool> = [
   {
     spec: {
       name: 'draft_to_topic',
-      description: `Draft a question to a topic room, for whoever helps with that topic. Pick exactly one topic from list_topics; use "general" when none fits. ${APPROVAL_NOTICE}`,
+      description: `Draft a question to a topic room, for whoever answers in that topic. Pick exactly one topic from list_topics; use "general" when none fits. A private topic works only when the person is a member. ${APPROVAL_NOTICE}`,
       inputSchema: objectOf(
         {
           topic: { type: 'string', description: 'The topic slug, without the #.' },

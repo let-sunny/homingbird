@@ -99,7 +99,7 @@ test('when the organization turned the approve button off, the pane never approv
     expect(await ui.find({ type: 'Link' })).toBeDefined()
     await ui.unmount()
   }
-  expect(seen.fetched).toContain('https://homingbird.example.com/api/v1/info')
+  expect(seen.commands).toContainEqual(['status', '--json'])
   expect(seen.commands.some((args) => args[0] === 'approve' || args[0] === 'discard')).toBe(false)
   seen.release()
 })
@@ -205,10 +205,10 @@ test('the pane speaks Korean when the environment is set to Korean', async ($, o
   seen.release()
 })
 
-test('the language the member picked wins over the environment', async ($, on) => {
-  const member = { ...OVERVIEW.member, locale: 'ko' }
+test('the language the member picked, read from the command line status, wins over the environment', async ($, on) => {
   const seen = engineBeneath(on, {
-    overview: { ...OVERVIEW, member },
+    overview: OVERVIEW,
+    locale: 'ko',
     holdsStream: true,
     environment: { LANG: 'en_US.UTF-8' },
   })

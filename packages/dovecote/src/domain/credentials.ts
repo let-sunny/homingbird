@@ -20,6 +20,7 @@ export interface IssueRequest {
   readonly client: string
   readonly lifetimeMs: number
   readonly refreshable: boolean
+  readonly approveButton?: true
 }
 
 export interface Issued {
@@ -56,6 +57,7 @@ export const issueCredential = (request: IssueRequest): T.Task<Issued, never, Ap
         created_at: now,
         last_used_at: null,
         revoked_at: null,
+        purpose: request.approveButton ? APPROVE_BUTTON : null,
       }),
     )
     return issued
@@ -66,10 +68,11 @@ export const authenticate = (token: string): T.Task<Caller, Unauthorized, AppEnv
     const env = yield* T.ask<AppEnv>()
     const now = env.clock.now()
     const row = yield* first<
-      CredentialRow & MemberRow & { credential_id: CredentialId; credential_name: string }
+      CredentialRow &
+        MemberRow & { credential_id: CredentialId; credential_name: string; purpose: string | null }
     >(sql`
       SELECT m.*, c.id AS credential_id, c.name AS credential_name, c.kind, c.token_expires_at, c.expires_at,
-             c.revoked_at, c.last_used_at
+             c.revoked_at, c.last_used_at, c.purpose
       FROM credentials c JOIN members m ON m.id = c.member_id
       WHERE c.token_hash = ${hashSecret(token)}`)
     const usable =
@@ -84,7 +87,12 @@ export const authenticate = (token: string): T.Task<Caller, Unauthorized, AppEnv
       yield* run(sql`UPDATE credentials SET last_used_at = ${now} WHERE id = ${row.credential_id}`)
     return {
       member: toMember(row),
-      credential: { id: row.credential_id, kind: row.kind, name: row.credential_name },
+      credential: {
+        id: row.credential_id,
+        kind: row.kind,
+        name: row.credential_name,
+        ...(row.purpose === APPROVE_BUTTON && { approveButton: true }),
+      },
     }
   })
 
@@ -156,6 +164,7 @@ export const revokeByToken = (token: string): T.Task<void, never, AppEnv> =>
 
 const TOKEN_PREFIX: Readonly<Record<CredentialKind, string>> = { human: 'hbh_', agent: 'hba_' }
 const REFRESH_PREFIX = 'hbr_'
+const APPROVE_BUTTON = 'approve_button'
 const LAST_USED_RESOLUTION_MS = 60_000
 
 interface CredentialRow {

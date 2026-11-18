@@ -37,6 +37,7 @@ describe('agentCard', () => {
     const { description } = card.skills[0]
     expect(description).toContain('metadata.to')
     expect(description).toContain('metadata.topic')
+    expect(description).toContain('a private topic only when the member belongs to it')
     expect(description).toContain('general when unsure')
     expect(description).toContain('metadata.inReplyTo')
   })

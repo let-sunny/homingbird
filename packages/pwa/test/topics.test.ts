@@ -2,8 +2,9 @@ import type { Conversation, ConversationId, Topic } from '@homingbird/protocol'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import {
+  answeringFirst,
   canRename,
-  helpingFirst,
+  isPrivate,
   isValidSlug,
   peopleConversations,
   similarTopics,
@@ -12,14 +13,20 @@ import {
   topicNamed,
   topicOfRoom,
   topicRooms,
+  withTopic,
+  withoutRoom,
 } from '../src/topics.ts'
 
 const topic = (slug: string, fields: Partial<Topic> = {}): Topic => ({
   slug,
   description: `About ${slug}`,
   conversationId: `conv_${slug}` as ConversationId,
+  visibility: 'open',
+  memberCount: 1,
   helperCount: 1,
-  helping: false,
+  joined: false,
+  answering: false,
+  managing: false,
   createdAt: 1,
   ...fields,
 })
@@ -115,11 +122,55 @@ describe('canRename', () => {
   })
 })
 
-describe('helpingFirst', () => {
-  it('lists the topics I help with first, then general, then by name', () => {
-    const sorted = [topic('zeta'), topic('general'), topic('alpha'), topic('mid', { helping: true })].sort(
-      helpingFirst,
-    )
-    expect(sorted.map((each) => each.slug)).toEqual(['mid', 'general', 'alpha', 'zeta'])
+describe('answeringFirst', () => {
+  it('lists the topics I answer in first, then the ones I am in, then general, then by name', () => {
+    const sorted = [
+      topic('zeta'),
+      topic('general'),
+      topic('alpha'),
+      topic('joined', { joined: true }),
+      topic('mid', { joined: true, answering: true }),
+    ].sort(answeringFirst)
+    expect(sorted.map((each) => each.slug)).toEqual(['mid', 'joined', 'general', 'alpha', 'zeta'])
+  })
+})
+
+describe('private topics in the list', () => {
+  it('tells a private topic from an open one', () => {
+    expect(isPrivate(topic('payroll', { visibility: 'private' }))).toBe(true)
+    expect(isPrivate(topic('billing'))).toBe(false)
+  })
+
+  it('replaces a changed topic in place, or adds a new one in name order', () => {
+    const listed = [topic('billing'), topic('general')]
+    expect(withTopic(listed, topic('billing', { joined: true })).map((each) => each.joined)).toEqual([
+      true,
+      false,
+    ])
+    expect(withTopic(listed, topic('deploys')).map((each) => each.slug)).toEqual([
+      'billing',
+      'deploys',
+      'general',
+    ])
+  })
+
+  it('drops a private room I left, and keeps an open one or one I still manage as an administrator', () => {
+    const listed = [
+      topic('billing', { joined: true, answering: true }),
+      topic('payroll', { visibility: 'private', joined: true, managing: true }),
+    ]
+    expect(withoutRoom(listed, 'conv_payroll' as ConversationId, false).map((each) => each.slug)).toEqual([
+      'billing',
+    ])
+    expect(withoutRoom(listed, 'conv_billing' as ConversationId, false)[0]).toMatchObject({
+      slug: 'billing',
+      joined: false,
+      answering: false,
+    })
+    expect(withoutRoom(listed, 'conv_payroll' as ConversationId, true)[1]).toMatchObject({
+      slug: 'payroll',
+      joined: false,
+      managing: true,
+    })
   })
 })

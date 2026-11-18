@@ -17,27 +17,29 @@ import { all, first, run } from '../sql/database.ts'
 import { containsIgnoringCase, insertInto, list, sql } from '../sql/query.ts'
 import { type Ties, tiesOf } from './contacts.ts'
 import { readSettings } from './settings.ts'
-import { joinGeneralTopic, topicsHelpedBy } from './topics.ts'
+import { helpersOfTopicSeenBy, joinGeneralTopic, topicsHelpedBy } from './topics.ts'
 
 export const directoryFor = (
-  viewerId: MemberId,
+  viewer: Pick<Member, 'id' | 'role'>,
   search: string | undefined,
   topic?: string,
 ): T.Task<DirectoryEntry[], never, AppEnv> =>
   T.gen(function* () {
+    const viewerId = viewer.id
     const env = yield* T.ask<AppEnv>()
     const settings = yield* readSettings
     const ties = yield* tiesOf(viewerId)
     const matching = search
       ? sql`AND (${containsIgnoringCase('name', search)} OR ${containsIgnoringCase('email', search)} OR ${containsIgnoringCase('profile', search)})`
       : sql``
-    const helping = topic
-      ? sql`AND id IN (SELECT h.member_id FROM topic_helpers h JOIN topics t ON t.conversation_id = h.conversation_id WHERE t.slug = ${topic})`
-      : sql``
+    const helping = topic ? sql`AND id IN (${helpersOfTopicSeenBy(viewerId, topic)})` : sql``
     const rows = yield* all<MemberRow>(
       sql`SELECT * FROM members WHERE status = 'active' ${matching} ${helping} ORDER BY name LIMIT ${DIRECTORY_LIMIT}`,
     )
-    const topics = yield* topicsHelpedBy(rows.map((row) => row.id))
+    const topics = yield* topicsHelpedBy(
+      viewer,
+      rows.map((row) => row.id),
+    )
     return rows.map((row) => {
       const member = toMember(row)
       return {

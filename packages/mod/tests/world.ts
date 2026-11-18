@@ -19,6 +19,7 @@ export interface World {
   readonly sessionId?: string
   readonly environment?: Readonly<Record<string, string>>
   readonly approveButton?: boolean
+  readonly locale?: string
 }
 
 export interface Seen {
@@ -257,6 +258,12 @@ const USAGE = {
 const stdoutFor = (args: ReadonlyArray<string>, world: World): string => {
   if (args[0] === 'overview') return JSON.stringify(world.overview)
   if (args[0] === 'requests') return JSON.stringify(world.requests ?? {})
+  if (args[0] === 'status')
+    return JSON.stringify({
+      signedIn: true,
+      locale: world.locale ?? null,
+      approveButton: world.approveButton ?? true,
+    })
   return JSON.stringify({ ok: true })
 }
 

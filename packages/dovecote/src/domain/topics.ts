@@ -2,76 +2,152 @@ import { Task as T } from '@homingbird/kernel'
 import {
   Conflict,
   ConversationId,
+  Forbidden,
   GENERAL_TOPIC,
   type MemberId,
-  NotFound,
+  type NotFound,
   type Topic,
+  type TopicVisibility,
 } from '@homingbird/protocol'
 import type { AppEnv } from '../environment.ts'
-import { all, dialect, first, run } from '../sql/database.ts'
-import { containsIgnoringCase, insertIgnoringConflict, insertInto, list, sql } from '../sql/query.ts'
+import type { RequestEnv } from '../events/events.ts'
+import { all, run } from '../sql/database.ts'
+import { containsIgnoringCase, insertInto, list, sql } from '../sql/query.ts'
+import {
+  type TopicRow,
+  type Viewer,
+  depart,
+  describeTopic,
+  enter,
+  existingTopic,
+  isMemberOf,
+  makeManager,
+  membersOf,
+  noSuchTopic,
+  requireManagerRemains,
+  startAnswering,
+  tellAboutTopic,
+  topicOfRoom,
+  topicRow,
+  visibilityOf,
+  visibleTopic,
+} from './topic-rows.ts'
 
-export const listTopics = (viewerId: MemberId, search: string | undefined): T.Task<Topic[], never, AppEnv> =>
+export const listTopics = (viewer: Viewer, search: string | undefined): T.Task<Topic[], never, AppEnv> =>
   T.gen(function* () {
+    const matching = search
+      ? sql`AND (${containsIgnoringCase('t.slug', search)} OR ${containsIgnoringCase('t.description', search)})`
+      : sql``
     const rows = yield* all<TopicRow>(
-      search
-        ? sql`SELECT * FROM topics WHERE ${containsIgnoringCase('slug', search)} OR ${containsIgnoringCase('description', search)} ORDER BY slug`
-        : sql`SELECT * FROM topics ORDER BY slug`,
+      sql`SELECT t.* FROM topics t WHERE ${visibleTo(viewer)} ${matching} ORDER BY t.slug`,
     )
-    return yield* T.forEach(rows, (row) => describe(viewerId, row))
+    return yield* T.forEach(rows, (row) => describeTopic(viewer, row))
   })
+
+export const topicNamed = (viewer: Viewer, slug: string): T.Task<Topic, NotFound, AppEnv> =>
+  T.flatMap((row: TopicRow) => describeTopic(viewer, row))(visibleTopic(viewer, slug))
 
 export const createTopic = (
-  creatorId: MemberId,
-  topic: { readonly slug: string; readonly description: string },
-): T.Task<Topic, Conflict | NotFound, AppEnv> =>
+  creator: Viewer,
+  topic: { readonly slug: string; readonly description: string; readonly visibility?: TopicVisibility },
+): T.Task<Topic, Conflict, RequestEnv> =>
   T.gen(function* () {
-    if ((yield* topicRow(topic.slug)) !== null)
-      return yield* T.fail(Conflict({ message: `The topic ${topic.slug} already exists.` }))
-    yield* openRoom(topic, creatorId)
-    return yield* startHelping(creatorId, topic.slug)
+    if ((yield* topicRow(topic.slug)) !== null) return yield* T.fail(nameNotAvailable)
+    const row = yield* openRoom({ ...topic, visibility: topic.visibility ?? 'open' }, creator.id)
+    yield* enter(row.conversation_id, creator.id)
+    yield* startAnswering(row.conversation_id, creator.id)
+    yield* makeManager(row.conversation_id, creator.id)
+    yield* tellAboutTopic(row, [creator.id])
+    return yield* describeTopic(creator, row)
   })
 
-export const startHelping = (memberId: MemberId, slug: string): T.Task<Topic, NotFound, AppEnv> =>
+export const joinTopic = (
+  viewer: Viewer,
+  slug: string,
+  answering: boolean,
+): T.Task<Topic, NotFound | Forbidden, RequestEnv> =>
   T.gen(function* () {
-    const row = yield* existingTopic(slug)
-    yield* enter(row.conversation_id, memberId)
-    yield* run(
-      insertIgnoringConflict(yield* dialect, 'topic_helpers', {
-        conversation_id: row.conversation_id,
-        member_id: memberId,
-      }),
-    )
-    return yield* describe(memberId, row)
+    const row = yield* visibleTopic(viewer, slug)
+    const isMember = yield* isMemberOf(row.conversation_id, viewer.id)
+    if (!isMember && visibilityOf(row) === 'private')
+      return yield* T.fail(Forbidden({ message: 'Only a manager of this private topic can add members.' }))
+    yield* enter(row.conversation_id, viewer.id)
+    if (answering) yield* startAnswering(row.conversation_id, viewer.id)
+    yield* tellAboutTopic(row, [viewer.id])
+    return yield* describeTopic(viewer, row)
   })
 
-export const stopHelping = (memberId: MemberId, slug: string): T.Task<Topic, NotFound, AppEnv> =>
+export const leaveTopic = (viewer: Viewer, slug: string): T.Task<Topic, NotFound | Conflict, RequestEnv> =>
   T.gen(function* () {
-    const row = yield* existingTopic(slug)
-    yield* run(
-      sql`DELETE FROM topic_helpers WHERE conversation_id = ${row.conversation_id} AND member_id = ${memberId}`,
-    )
-    yield* run(
-      sql`DELETE FROM participants WHERE conversation_id = ${row.conversation_id} AND member_id = ${memberId}`,
-    )
-    return yield* describe(memberId, row)
+    const row = yield* visibleTopic(viewer, slug)
+    if (yield* isMemberOf(row.conversation_id, viewer.id)) {
+      yield* requireManagerRemains(row, { leaving: viewer.id })
+      yield* depart(row, viewer.id)
+    }
+    return yield* describeTopic(viewer, row)
+  })
+
+export const setAnswering = (
+  viewer: Viewer,
+  slug: string,
+  answering: boolean,
+): T.Task<Topic, NotFound | Conflict, RequestEnv> =>
+  T.gen(function* () {
+    const row = yield* visibleTopic(viewer, slug)
+    if (!(yield* isMemberOf(row.conversation_id, viewer.id)))
+      return yield* T.fail(Conflict({ message: 'Join the topic before answering questions in it.' }))
+    if (answering) yield* startAnswering(row.conversation_id, viewer.id)
+    else
+      yield* run(
+        sql`DELETE FROM topic_helpers WHERE conversation_id = ${row.conversation_id} AND member_id = ${viewer.id}`,
+      )
+    yield* tellAboutTopic(row, [viewer.id])
+    return yield* describeTopic(viewer, row)
   })
 
 export const topicRoomFor = (askerId: MemberId, slug: string): T.Task<ConversationId, NotFound, AppEnv> =>
   T.gen(function* () {
     const row = yield* existingTopic(slug)
+    const isMember = yield* isMemberOf(row.conversation_id, askerId)
+    if (isMember) return row.conversation_id
+    if (visibilityOf(row) === 'private') return yield* T.fail(noSuchTopic(slug))
     yield* enter(row.conversation_id, askerId)
     return row.conversation_id
   })
 
-export const helpersOf = (conversationId: ConversationId): T.Task<MemberId[], never, AppEnv> =>
-  T.map((rows: ReadonlyArray<{ member_id: MemberId }>) => rows.map((row) => row.member_id))(
-    all(sql`
-      SELECT h.member_id FROM topic_helpers h JOIN members m ON m.id = h.member_id
-      WHERE h.conversation_id = ${conversationId} AND m.status = 'active' ORDER BY h.member_id`),
-  )
+export const roomForMovedQuestion = (
+  moverId: MemberId,
+  askerId: MemberId,
+  from: ConversationId,
+  slug: string,
+): T.Task<ConversationId, NotFound | Conflict, AppEnv> =>
+  T.gen(function* () {
+    const destination = yield* existingTopic(slug)
+    const origin = yield* topicOfRoom(from)
+    const isPrivate = visibilityOf(destination) === 'private'
+    if (isPrivate && !(yield* isMemberOf(destination.conversation_id, moverId)))
+      return yield* T.fail(noSuchTopic(slug))
+    if (origin !== null && visibilityOf(origin) === 'private' && destination.conversation_id !== from) {
+      const sameMembers =
+        isPrivate &&
+        sameSet(yield* membersOf(origin.conversation_id), yield* membersOf(destination.conversation_id))
+      if (!sameMembers)
+        return yield* T.fail(
+          Conflict({
+            message:
+              'A question in a private topic can move only to another private topic with the same members.',
+          }),
+        )
+    }
+    if (isPrivate && !(yield* isMemberOf(destination.conversation_id, askerId)))
+      return yield* T.fail(
+        Conflict({ message: 'The person who asked is not a member of that private topic.' }),
+      )
+    return yield* topicRoomFor(askerId, slug)
+  })
 
 export const topicsHelpedBy = (
+  viewer: Viewer,
   memberIds: ReadonlyArray<MemberId>,
 ): T.Task<Map<MemberId, string[]>, never, AppEnv> =>
   T.gen(function* () {
@@ -79,120 +155,54 @@ export const topicsHelpedBy = (
     if (memberIds.length === 0) return helped
     const rows = yield* all<{ member_id: MemberId; slug: string }>(sql`
       SELECT h.member_id, t.slug FROM topic_helpers h JOIN topics t ON t.conversation_id = h.conversation_id
-      WHERE h.member_id IN ${list([...new Set(memberIds)])} ORDER BY t.slug`)
+      WHERE h.member_id IN ${list([...new Set(memberIds)])} AND ${sharedWith(viewer.id)} ORDER BY t.slug`)
     for (const row of rows) helped.set(row.member_id, [...(helped.get(row.member_id) ?? []), row.slug])
     return helped
   })
 
-export const reviseTopic = (
-  viewerId: MemberId,
-  slug: string,
-  changes: { readonly slug?: string; readonly description?: string },
-): T.Task<Topic, NotFound | Conflict, AppEnv> =>
-  T.gen(function* () {
-    const row = yield* existingTopic(slug)
-    const renamed = changes.slug ?? slug
-    if (renamed !== slug) {
-      yield* requireNotGeneral(slug)
-      if ((yield* topicRow(renamed)) !== null)
-        return yield* T.fail(Conflict({ message: `The topic ${renamed} already exists.` }))
-    }
-    yield* run(
-      sql`UPDATE topics SET slug = ${renamed}, description = ${changes.description ?? row.description} WHERE slug = ${slug}`,
-    )
-    yield* run(sql`UPDATE conversations SET title = ${renamed} WHERE id = ${row.conversation_id}`)
-    return yield* describe(viewerId, yield* existingTopic(renamed))
-  })
-
-export const removeTopic = (slug: string): T.Task<void, NotFound | Conflict, AppEnv> =>
-  T.gen(function* () {
-    yield* requireNotGeneral(slug)
-    const row = yield* existingTopic(slug)
-    yield* run(sql`DELETE FROM topic_helpers WHERE conversation_id = ${row.conversation_id}`)
-    yield* run(sql`DELETE FROM topics WHERE slug = ${slug}`)
-    yield* run(
-      sql`UPDATE conversations SET kind = 'group', title = ${archivedTitle(slug)} WHERE id = ${row.conversation_id}`,
-    )
-  })
-
-export const mergeTopic = (
-  viewerId: MemberId,
-  slug: string,
-  intoSlug: string,
-): T.Task<Topic, NotFound | Conflict, AppEnv> =>
-  T.gen(function* () {
-    if (slug === intoSlug)
-      return yield* T.fail(Conflict({ message: 'A topic cannot be merged into itself.' }))
-    const from = yield* existingTopic(slug)
-    const into = yield* existingTopic(intoSlug)
-    const target = yield* dialect
-    for (const table of ['participants', 'topic_helpers'] as const) {
-      const moving = yield* all<{ member_id: MemberId }>(
-        table === 'participants'
-          ? sql`SELECT member_id FROM participants WHERE conversation_id = ${from.conversation_id}`
-          : sql`SELECT member_id FROM topic_helpers WHERE conversation_id = ${from.conversation_id}`,
-      )
-      for (const { member_id } of moving)
-        yield* run(
-          insertIgnoringConflict(target, table, { conversation_id: into.conversation_id, member_id }),
-        )
-    }
-    yield* removeTopic(slug)
-    return yield* describe(viewerId, into)
-  })
+export const helpersOfTopicSeenBy = (viewerId: MemberId, slug: string): ReturnType<typeof sql> =>
+  sql`SELECT h.member_id FROM topic_helpers h JOIN topics t ON t.conversation_id = h.conversation_id WHERE t.slug = ${slug} AND ${sharedWith(viewerId)}`
 
 export const seedTopics: T.Task<void, never, AppEnv> = T.gen(function* () {
   const env = yield* T.ask<AppEnv>()
   for (const topic of env.config.topics) {
     if ((yield* topicRow(topic.slug)) !== null) continue
-    yield* openRoom(topic, null)
+    const row = yield* openRoom({ ...topic, visibility: 'open' }, null)
     if (topic.slug !== GENERAL_TOPIC) continue
     const members = yield* all<{ id: MemberId }>(sql`SELECT id FROM members WHERE status = 'active'`)
-    for (const member of members) yield* T.orDie(startHelping(member.id, GENERAL_TOPIC))
+    for (const member of members) yield* joinAndAnswer(row, member.id)
   }
 })
 
 export const joinGeneralTopic = (memberId: MemberId): T.Task<void, never, AppEnv> =>
   T.gen(function* () {
-    if ((yield* topicRow(GENERAL_TOPIC)) !== null) yield* T.orDie(startHelping(memberId, GENERAL_TOPIC))
+    const general = yield* topicRow(GENERAL_TOPIC)
+    if (general !== null) yield* joinAndAnswer(general, memberId)
   })
 
-interface TopicRow {
-  readonly slug: string
-  readonly description: string
-  readonly conversation_id: ConversationId
-  readonly created_at: number
-}
+const nameNotAvailable = Conflict({ message: 'That name is not available.' })
 
-const archivedTitle = (slug: string): string => `${slug} (archived)`
+const visibleTo = (viewer: Viewer): ReturnType<typeof sql> =>
+  viewer.role === 'admin' ? sql`1 = 1` : sharedWith(viewer.id)
 
-const topicRow = (slug: string): T.Task<TopicRow | null, never, AppEnv> =>
-  first<TopicRow>(sql`SELECT * FROM topics WHERE slug = ${slug}`)
+const sharedWith = (
+  viewerId: MemberId,
+): ReturnType<typeof sql> => sql`(t.visibility IS NULL OR t.visibility <> 'private'
+  OR EXISTS (SELECT 1 FROM participants v WHERE v.conversation_id = t.conversation_id AND v.member_id = ${viewerId}))`
 
-const existingTopic = (slug: string): T.Task<TopicRow, NotFound, AppEnv> =>
-  T.flatMap((row: TopicRow | null) =>
-    row === null ? T.fail(NotFound({ message: `No such topic: ${slug}.` })) : T.succeed(row),
-  )(topicRow(slug))
-
-const requireNotGeneral = (slug: string): T.Task<void, Conflict> =>
-  slug === GENERAL_TOPIC
-    ? T.fail(Conflict({ message: 'The general topic cannot be renamed, merged away or removed.' }))
-    : T.succeed(undefined)
-
-const enter = (conversationId: ConversationId, memberId: MemberId): T.Task<void, never, AppEnv> =>
+const joinAndAnswer = (row: TopicRow, memberId: MemberId): T.Task<void, never, AppEnv> =>
   T.gen(function* () {
-    yield* run(
-      insertIgnoringConflict(yield* dialect, 'participants', {
-        conversation_id: conversationId,
-        member_id: memberId,
-      }),
-    )
+    yield* enter(row.conversation_id, memberId)
+    yield* startAnswering(row.conversation_id, memberId)
   })
+
+const sameSet = (a: ReadonlyArray<MemberId>, b: ReadonlyArray<MemberId>): boolean =>
+  a.length === b.length && a.every((id) => b.includes(id))
 
 const openRoom = (
-  topic: { readonly slug: string; readonly description: string },
+  topic: { readonly slug: string; readonly description: string; readonly visibility: TopicVisibility },
   createdBy: MemberId | null,
-): T.Task<void, never, AppEnv> =>
+): T.Task<TopicRow, never, AppEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
     const now = env.clock.now()
@@ -207,26 +217,13 @@ const openRoom = (
         pair_key: null,
       }),
     )
-    yield* run(
-      insertInto('topics', {
-        slug: topic.slug,
-        description: topic.description,
-        conversation_id: conversationId,
-        created_by: createdBy,
-        created_at: now,
-      }),
-    )
-  })
-
-const describe = (viewerId: MemberId, row: TopicRow): T.Task<Topic, never, AppEnv> =>
-  T.gen(function* () {
-    const helpers = yield* helpersOf(row.conversation_id)
-    return {
-      slug: row.slug,
-      description: row.description,
-      conversationId: row.conversation_id,
-      helperCount: helpers.length,
-      helping: helpers.includes(viewerId),
-      createdAt: Number(row.created_at),
+    const row: TopicRow = {
+      slug: topic.slug,
+      description: topic.description,
+      conversation_id: conversationId,
+      visibility: topic.visibility,
+      created_at: now,
     }
+    yield* run(insertInto('topics', { ...row, created_by: createdBy }))
+    return row
   })

@@ -271,14 +271,14 @@ const scenario = async (): Promise<void> => {
     await june.page.goto(`${base}/#/topics`)
     await june.page
       .locator('.topic-card[data-slug="billing"]')
-      .getByRole('button', { name: 'Help', exact: true })
+      .getByRole('button', { name: 'Join and answer', exact: true })
       .click()
     await june.page.waitForSelector('.topic-card.is-helping[data-slug="billing"]')
     await june.page.fill('input[name=q]', 'refund')
     await june.page.waitForFunction(
       () => (globalThis as any).document.querySelectorAll('.topic-card').length === 1,
     )
-    await capture(june.page, 'searching-topics-and-helping-with-one')
+    await capture(june.page, 'searching-topics-and-answering-in-one')
 
     await ana.page.goto(`${base}/#/people`)
     await ana.page.waitForSelector('.person:has-text("june@example.com") .topic-chip:has-text("#billing")')

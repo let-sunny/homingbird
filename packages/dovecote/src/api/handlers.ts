@@ -56,15 +56,16 @@ import {
   visibleNote,
 } from '../domain/notes.ts'
 import { readSettings, writeSettings } from '../domain/settings.ts'
+import { mergeTopic, removeTopic, reviseTopic } from '../domain/topic-administration.ts'
 import {
-  createTopic,
-  listTopics,
-  mergeTopic,
-  removeTopic,
-  reviseTopic,
-  startHelping,
-  stopHelping,
-} from '../domain/topics.ts'
+  addTopicMember,
+  grantManager,
+  removeTopicMember,
+  revokeManager,
+  setVisibility,
+  topicMembers,
+} from '../domain/topic-membership.ts'
+import { createTopic, joinTopic, leaveTopic, listTopics, setAnswering, topicNamed } from '../domain/topics.ts'
 import type { Caller } from '../environment.ts'
 import { type RequestEnv, announceDirectoryChange, waitForEvents } from '../events/events.ts'
 import { removeOwnPushSubscription, savePushSubscription } from '../push/subscriptions.ts'
@@ -113,19 +114,41 @@ export const handlers: Handlers = {
 
   'directory.list': ({ query }, caller) =>
     T.map((entries: Awaited<ResponseOf<Contract['directory.list']>>['entries']) => ({ entries }))(
-      directoryFor(caller.member.id, query.q, query.topic),
+      directoryFor(caller.member, query.q, query.topic),
     ),
   'topics.list': ({ query }, caller) =>
-    T.map((topics: Topic[]) => ({ topics }))(listTopics(caller.member.id, query.q)),
-  'topics.create': ({ body }, caller) =>
-    T.tap((_: Topic) => announceDirectoryChange(caller.member.id))(createTopic(caller.member.id, body)),
-  'topics.help': ({ params }, caller) =>
-    T.tap((_: Topic) => announceDirectoryChange(caller.member.id))(
-      startHelping(caller.member.id, params.slug),
-    ),
+    T.map((topics: Topic[]) => ({ topics }))(listTopics(caller.member, query.q)),
+  'topics.get': ({ params }, caller) => topicNamed(caller.member, params.slug),
+  'topics.create': ({ body }, caller) => announcingTopic(caller.member.id, createTopic(caller.member, body)),
+  'topics.join': ({ params, body }, caller) =>
+    announcingTopic(caller.member.id, joinTopic(caller.member, params.slug, body.answering === true)),
   'topics.leave': ({ params }, caller) =>
-    T.tap((_: Topic) => announceDirectoryChange(caller.member.id))(
-      stopHelping(caller.member.id, params.slug),
+    announcingTopic(caller.member.id, leaveTopic(caller.member, params.slug)),
+  'topics.answering.on': ({ params }, caller) =>
+    announcingTopic(caller.member.id, setAnswering(caller.member, params.slug, true)),
+  'topics.answering.off': ({ params }, caller) =>
+    announcingTopic(caller.member.id, setAnswering(caller.member, params.slug, false)),
+  'topics.visibility.set': ({ params, body }, caller) =>
+    announcingTopic(caller.member.id, setVisibility(caller.member, params.slug, body.visibility)),
+  'topics.members.list': ({ params }, caller) =>
+    T.map((members: Awaited<ResponseOf<Contract['topics.members.list']>>['members']) => ({ members }))(
+      topicMembers(caller.member, params.slug),
+    ),
+  'topics.members.add': ({ params }, caller) =>
+    T.flatMap((memberId: MemberId) =>
+      announcingTopic(memberId, addTopicMember(caller.member, params.slug, memberId)),
+    )(identifier(MemberId, params.memberId)),
+  'topics.members.remove': ({ params }, caller) =>
+    T.flatMap((memberId: MemberId) =>
+      announcingTopic(memberId, removeTopicMember(caller.member, params.slug, memberId)),
+    )(identifier(MemberId, params.memberId)),
+  'topics.managers.add': ({ params }, caller) =>
+    T.flatMap((memberId: MemberId) => grantManager(caller.member, params.slug, memberId))(
+      identifier(MemberId, params.memberId),
+    ),
+  'topics.managers.remove': ({ params }, caller) =>
+    T.flatMap((memberId: MemberId) => revokeManager(caller.member, params.slug, memberId))(
+      identifier(MemberId, params.memberId),
     ),
   'contacts.list': (_, caller) => listContacts(caller.member.id),
   'contacts.request': ({ body }, caller) => requestContact(caller.member.id, body.memberId),
@@ -256,13 +279,13 @@ export const handlers: Handlers = {
     ),
   'admin.topics.update': ({ params, body }, caller) =>
     T.tap((_: Topic) => announceDirectoryChange(caller.member.id))(
-      reviseTopic(caller.member.id, params.slug, body),
+      reviseTopic(caller.member, params.slug, body),
     ),
   'admin.topics.remove': ({ params }, caller) =>
     T.as({})(T.tap(() => announceDirectoryChange(caller.member.id))(removeTopic(params.slug))),
   'admin.topics.merge': ({ params, body }, caller) =>
     T.tap((_: Topic) => announceDirectoryChange(caller.member.id))(
-      mergeTopic(caller.member.id, params.slug, body.into),
+      mergeTopic(caller.member, params.slug, body.into),
     ),
   'admin.audit.list': ({ query }) =>
     listAudit({
@@ -272,6 +295,11 @@ export const handlers: Handlers = {
       ...(query.action !== undefined && { action: query.action }),
     }),
 }
+
+const announcingTopic = <E>(
+  memberId: MemberId,
+  change: T.Task<Topic, E, RequestEnv>,
+): T.Task<Topic, E, RequestEnv> => T.tap((_: Topic) => announceDirectoryChange(memberId))(change)
 
 const DEFAULT_PAGE_SIZE = 50
 const MAX_PAGE_SIZE = 200

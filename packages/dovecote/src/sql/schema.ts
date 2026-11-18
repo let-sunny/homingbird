@@ -47,7 +47,11 @@ interface AddedColumn {
   readonly column: Column & { readonly nullable: true }
 }
 
-type Step = Table | AddedColumn
+interface Backfill {
+  readonly backfill: string
+}
+
+type Step = Table | AddedColumn | Backfill
 
 const id: Column = { type: 'id' }
 const optionalId: Column = { type: 'id', nullable: true }
@@ -299,6 +303,26 @@ const LANGUAGE: ReadonlyArray<Step> = [
 
 const CHARACTERS: ReadonlyArray<Step> = [{ addTo: 'members', name: 'character_spec', column: optionalText }]
 
+const TOPIC_ACCESS: ReadonlyArray<Step> = [
+  { addTo: 'topics', name: 'visibility', column: optionalString },
+  {
+    name: 'topic_managers',
+    columns: { conversation_id: id, member_id: id },
+    primaryKey: ['conversation_id', 'member_id'],
+    indexes: [{ columns: ['member_id'] }],
+  },
+  { backfill: "UPDATE topics SET visibility = 'open'" },
+  {
+    backfill:
+      'INSERT INTO topic_managers (conversation_id, member_id) SELECT t.conversation_id, t.created_by FROM topics t JOIN participants p ON p.conversation_id = t.conversation_id AND p.member_id = t.created_by',
+  },
+]
+
+const APPROVE_BUTTON_MARK: ReadonlyArray<Step> = [
+  { addTo: 'credentials', name: 'purpose', column: optionalString },
+  { backfill: "UPDATE credentials SET purpose = 'approve_button' WHERE kind = 'human' AND client <> 'Web'" },
+]
+
 const MIGRATIONS: ReadonlyArray<ReadonlyArray<Step>> = [
   INITIAL,
   PUSH_SUBSCRIPTIONS,
@@ -306,11 +330,14 @@ const MIGRATIONS: ReadonlyArray<ReadonlyArray<Step>> = [
   TOPICS,
   LANGUAGE,
   CHARACTERS,
+  TOPIC_ACCESS,
+  APPROVE_BUTTON_MARK,
 ]
 
 const isTable = (step: Step): step is Table => 'columns' in step
 
 const statementsFor = (target: Dialect, step: Step): string[] => {
+  if ('backfill' in step) return [step.backfill]
   if (!isTable(step)) return [addColumn(target, step)]
   return target === 'mysql'
     ? [createTable(target, step)]

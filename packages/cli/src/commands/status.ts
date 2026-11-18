@@ -10,13 +10,17 @@ export const status: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function* () {
   const agent = yield* readCredential('agent')
   const hasApproveButton = (yield* readCredential('approval')) !== null
   if (agent === null) return outcome({ signedIn: false }, 'Not signed in.')
-  const me = yield* calling(apiFor(env, agent)['me.get']({}))
+  const api = apiFor(env, agent)
+  const me = yield* calling(api['me.get']({}))
+  const info = yield* calling(api['server.info']({}))
   return outcome(
     {
       signedIn: true,
       server: agent.serverUrl,
       member: me.member,
       credential: me.credential,
+      locale: me.locale ?? null,
+      approveButton: info.approveButton,
       hasApproveButton,
       transport: TRANSPORT,
     },
@@ -24,10 +28,16 @@ export const status: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function* () {
       `Server:         ${agent.serverUrl}`,
       `Signed in as:   ${me.member.name} <${me.member.email}>`,
       `Credential:     ${me.credential.name} (${me.credential.kind})`,
-      `Approve button: ${hasApproveButton ? 'granted on this device' : 'not on this device'}`,
+      `Approve button: ${approveButtonState(info.approveButton, hasApproveButton)}`,
+      `Language:       ${me.locale ?? 'follows the browser'}`,
       `Transport:      ${TRANSPORT}`,
     ].join('\n'),
   )
 })
+
+const approveButtonState = (allowed: boolean, onThisDevice: boolean): string =>
+  !allowed ? APPROVE_BUTTON_OFF : onThisDevice ? 'granted on this device' : 'not on this device'
+
+const APPROVE_BUTTON_OFF = 'the organization has turned the approve button off'
 
 const TRANSPORT = 'server-sent events, falling back to long-poll'

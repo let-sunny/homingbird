@@ -1,5 +1,5 @@
 import { Task as T } from '@homingbird/kernel'
-import { Forbidden, NotFound, type RouteName, humanOnlyRoutes } from '@homingbird/protocol'
+import { Forbidden, NotFound, type RouteName, contract, humanOnlyRoutes } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import { A2A_CODE } from '../src/errors.ts'
 import { handleA2aMessage } from '../src/gateway.ts'
@@ -161,6 +161,31 @@ describe('handleA2aMessage', () => {
     const reached = new Set(calls.map((one) => one.name))
     expect([...reached].filter((name) => humanOnlyRoutes.includes(name as RouteName))).toEqual([])
     expect([...reached].sort()).toEqual(['drafts.update', 'notes.get'])
+  })
+
+  it('has no action that joins, leaves or answers a topic, or changes its members, managers or visibility', async () => {
+    const { call, calls } = gateway()
+    const membership = (Object.keys(contract) as RouteName[]).filter(
+      (name) => name.startsWith('topics.') && humanOnlyRoutes.includes(name),
+    )
+    expect(membership).toHaveLength(10)
+    for (const method of [
+      ...CURRENT_METHODS,
+      ...LEGACY_METHODS,
+      'topics.join',
+      'topics/join',
+      'JoinTopic',
+      'topics.members.add',
+      'topics.visibility.set',
+    ])
+      await call(method, {
+        ...MESSAGE,
+        slug: 'payroll',
+        memberId: 'mem_abcdefghijkl',
+        visibility: 'open',
+        message: { ...MESSAGE.message, metadata: { topic: 'payroll', join: true, answering: true } },
+      })
+    expect(calls.map((one) => one.name).filter((name) => membership.includes(name as RouteName))).toEqual([])
   })
 
   it('is not handed the human-only routes at all', async () => {

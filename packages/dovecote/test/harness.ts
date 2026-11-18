@@ -19,6 +19,7 @@ export interface TestServer {
   readonly background: Runtime['background']
   readonly logged: string[]
   readonly request: (method: string, url: string, options?: RequestOptions) => Promise<TestResponse>
+  readonly requestWithSettings: (overrides: Readonly<Record<string, string>>) => TestServer['request']
   readonly signIn: (email: string, name?: string) => Promise<Session>
   readonly close: () => Promise<void>
 }
@@ -147,37 +148,40 @@ export const startTestServer = async (
   })
   await T.runPromise(overrides.HB_TOPICS === undefined ? migrate : prepareDatabase, env)
 
-  const request: TestServer['request'] = async (method, url, options = {}) => {
-    const parsed = new URL(url, PUBLIC_URL)
-    const body =
-      options.form !== undefined
-        ? new URLSearchParams(options.form).toString()
-        : options.body === undefined
-          ? ''
-          : JSON.stringify(options.body)
-    const exit = await T.run(
-      handleRequest({
-        method,
-        path: parsed.pathname,
-        query: parsed.searchParams,
-        headers: {
-          ...(options.form !== undefined && { 'content-type': 'application/x-www-form-urlencoded' }),
-          ...(options.body !== undefined && { 'content-type': 'application/json' }),
-          ...(options.token !== undefined && { authorization: `Bearer ${options.token}` }),
-          ...(options.cookie !== undefined && { cookie: options.cookie, [SAME_SITE_HEADER]: '1' }),
-          ...options.headers,
-        },
-        body,
-        remoteAddress: '127.0.0.1',
-        disconnected: options.signal ?? new AbortController().signal,
-      }),
-      env,
-    )
-    if (exit._tag === 'Err') throw new Error(`request died: ${JSON.stringify(exit.error)}`)
-    const raw = exit.value
-    const text = typeof raw.body === 'string' ? raw.body : ''
-    return { status: raw.status, headers: raw.headers, json: parseOrNull(text), raw }
-  }
+  const requestWith =
+    (serving: AppEnv): TestServer['request'] =>
+    async (method, url, options = {}) => {
+      const parsed = new URL(url, PUBLIC_URL)
+      const body =
+        options.form !== undefined
+          ? new URLSearchParams(options.form).toString()
+          : options.body === undefined
+            ? ''
+            : JSON.stringify(options.body)
+      const exit = await T.run(
+        handleRequest({
+          method,
+          path: parsed.pathname,
+          query: parsed.searchParams,
+          headers: {
+            ...(options.form !== undefined && { 'content-type': 'application/x-www-form-urlencoded' }),
+            ...(options.body !== undefined && { 'content-type': 'application/json' }),
+            ...(options.token !== undefined && { authorization: `Bearer ${options.token}` }),
+            ...(options.cookie !== undefined && { cookie: options.cookie, [SAME_SITE_HEADER]: '1' }),
+            ...options.headers,
+          },
+          body,
+          remoteAddress: '127.0.0.1',
+          disconnected: options.signal ?? new AbortController().signal,
+        }),
+        serving,
+      )
+      if (exit._tag === 'Err') throw new Error(`request died: ${JSON.stringify(exit.error)}`)
+      const raw = exit.value
+      const text = typeof raw.body === 'string' ? raw.body : ''
+      return { status: raw.status, headers: raw.headers, json: parseOrNull(text), raw }
+    }
+  const request = requestWith(env)
 
   const signIn: TestServer['signIn'] = async (email, name = email.split('@')[0]!) => {
     const started = await request('GET', '/auth/login')
@@ -199,6 +203,8 @@ export const startTestServer = async (
     background,
     logged,
     request,
+    requestWithSettings: (changed) =>
+      requestWith({ ...env, config: testConfig({ ...overrides, ...changed }) }),
     signIn,
     close: () => database.close(),
   }

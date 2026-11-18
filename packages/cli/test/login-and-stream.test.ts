@@ -164,6 +164,49 @@ describe('login', () => {
     expect(w.files.has(APPROVAL_FILE)).toBe(false)
   })
 
+  it('says the organization has turned the approve button off when the server refuses to grant one', async () => {
+    const w = world({
+      signedIn: 'none',
+      stubs: {
+        'me.get': () => ME,
+        'server.info': () =>
+          ({
+            name: 'dovecote',
+            version: '1.0.0',
+            contactMode: 'open',
+            signInWith: 'Development login',
+            approveButton: false,
+          }) as never,
+      },
+      other: deviceServer([() => json(200, { access_token: NEW_AGENT, expires_in: 3600 })]),
+    })
+    const running = w.run('login', '--server', SERVER, '--approve-button', '--json')
+    await w.clock.advance(5_000)
+    expect(await running).toBe(0)
+    expect(w.json()).toMatchObject({ step: 'signed_in', hasApproveButton: false, approveButton: false })
+    const plain = world({
+      signedIn: 'none',
+      stubs: {
+        'me.get': () => ME,
+        'server.info': () =>
+          ({
+            name: 'dovecote',
+            version: '1.0.0',
+            contactMode: 'open',
+            signInWith: 'Development login',
+            approveButton: false,
+          }) as never,
+      },
+      other: deviceServer([() => json(200, { access_token: NEW_AGENT, expires_in: 3600 })]),
+    })
+    const again = plain.run('login', '--server', SERVER, '--approve-button')
+    await plain.clock.advance(5_000)
+    expect(await again).toBe(0)
+    expect(plain.lines.at(-1)).toContain(
+      'The organization has turned the approve button off; approve notes in the web client.',
+    )
+  })
+
   it('fails when the request is denied, expires, or the server is unreachable, storing nothing', async () => {
     const denied = world({
       signedIn: 'none',

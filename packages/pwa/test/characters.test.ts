@@ -38,7 +38,6 @@ const OTTER = {
 describe('characterOf', () => {
   it('draws a member with no saved character, or an unknown member, as the pigeon', () => {
     expect(characterOf({ character: null })).toBe(PIGEON)
-    expect(characterOf({})).toBe(PIGEON)
     expect(characterOf(undefined)).toBe(PIGEON)
     expect(PIGEON.id).toBe('pigeon')
     expect(characterOf({ character: OTTER })).toBe(OTTER)

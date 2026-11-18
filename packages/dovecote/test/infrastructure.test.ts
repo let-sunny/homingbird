@@ -19,7 +19,7 @@ import {
   sql,
 } from '../src/sql/query.ts'
 import { migrate, schemaStatements } from '../src/sql/schema.ts'
-import { type TestServer, startTestServer, storedRows } from './harness.ts'
+import { type TestServer, connectAgent, startTestServer, storedRows } from './harness.ts'
 
 describe('configuration', () => {
   const minimal = {
@@ -268,6 +268,8 @@ describe('schema', () => {
         `ALTER TABLE members ADD COLUMN locale ${dialect === 'sqlite' ? 'TEXT' : 'VARCHAR(400)'}`,
         `ALTER TABLE push_subscriptions ADD COLUMN locale ${dialect === 'sqlite' ? 'TEXT' : 'VARCHAR(400)'}`,
         `ALTER TABLE members ADD COLUMN character_spec ${{ sqlite: 'TEXT', postgres: 'TEXT', mysql: 'MEDIUMTEXT' }[dialect]}`,
+        `ALTER TABLE topics ADD COLUMN visibility ${dialect === 'sqlite' ? 'TEXT' : 'VARCHAR(400)'}`,
+        `ALTER TABLE credentials ADD COLUMN purpose ${dialect === 'sqlite' ? 'TEXT' : 'VARCHAR(400)'}`,
       ])
     },
   )
@@ -307,6 +309,42 @@ describe('schema', () => {
       const [member] = await storedRows(server, 'members')
       expect(member).toMatchObject({ id: ana.me.member.id, name: 'Ana', character_spec: null })
       expect((await ana.api('GET', '/me')).json.member.character).toBeNull()
+    } finally {
+      await server.close()
+    }
+  })
+
+  it('opens every existing topic, makes its creator its manager and marks approve buttons, keeping their rows', async () => {
+    const server = await startTestServer()
+    try {
+      const ana = await server.signIn('ana@example.com', 'Ana')
+      const ben = await server.signIn('ben@example.com', 'Ben')
+      await ben.api('POST', '/topics', { slug: 'deploys', description: 'Release process' })
+      await connectAgent(server, ana, { approveButton: true })
+      for (const statement of [
+        'DROP TABLE topic_managers',
+        'ALTER TABLE topics DROP COLUMN visibility',
+        'ALTER TABLE credentials DROP COLUMN purpose',
+        'DELETE FROM schema_versions WHERE version >= 7',
+      ])
+        await T.runPromise(run(raw(statement)), server.env)
+      await T.runPromise(migrate, server.env)
+      expect((await storedRows(server, 'topics')).map((row) => [row.slug, row.visibility])).toEqual([
+        ['deploys', 'open'],
+      ])
+      expect((await storedRows(server, 'topic_managers')).map((row) => row.member_id)).toEqual([
+        ben.me.member.id,
+      ])
+      const purposes = (await storedRows(server, 'credentials')).map((row) => [
+        row.kind,
+        row.client,
+        row.purpose,
+      ])
+      expect(purposes.filter(([, , purpose]) => purpose === 'approve_button')).toEqual([
+        ['human', 'Test agent', 'approve_button'],
+      ])
+      expect(purposes.filter(([kind, client]) => kind === 'human' && client === 'Web')).toHaveLength(2)
+      expect((await ben.api('GET', '/topics/deploys')).json).toMatchObject({ managing: true, joined: true })
     } finally {
       await server.close()
     }

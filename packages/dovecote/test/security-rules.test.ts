@@ -125,6 +125,36 @@ describe('Rule 1: only a human credential can approve a note', () => {
     }
   })
 
+  it('refuses an approve button issued while the setting was on once the organization turns it off', async () => {
+    const draft = await draftFromAnaToBen()
+    const settingOff = server.requestWithSettings({ HB_APPROVE_BUTTON: 'off' })
+    const viaButton = (method: string, path: string, body?: unknown) =>
+      settingOff(method, `/api/v1${path}`, {
+        token: anaAgent.approvalToken!,
+        ...(body !== undefined && { body }),
+      })
+    const refused = await viaButton('POST', `/drafts/${draft.id}/send`, {})
+    expect(refused.status).toBe(403)
+    expect(refused.json.error.message).toBe('The organization has turned the approve button off.')
+    expect((await viaButton('POST', `/drafts/${draft.id}/discard`)).status).toBe(403)
+    expect((await viaButton('PUT', '/topics/general/membership', {})).status).toBe(403)
+    expect((await ana.api('GET', `/notes/${draft.id}`)).json.status).toBe('draft')
+    const browser = await settingOff('POST', `/api/v1/drafts/${draft.id}/send`, {
+      cookie: ana.cookie,
+      body: {},
+    })
+    expect(browser.json.status).toBe('sent')
+    const denied = (await storedRows(server, 'audit_log')).filter(
+      (row) => row.action === 'denied:drafts.send',
+    )
+    expect(denied).toHaveLength(1)
+  })
+
+  it('marks the approve button credential apart from browser sessions', async () => {
+    const humans = (await storedRows(server, 'credentials')).filter((row) => row.kind === 'human')
+    expect(humans.map((row) => row.purpose).sort()).toEqual(['approve_button', null, null, null])
+  })
+
   it('does not let one person approve another person’s draft', async () => {
     const draft = await draftFromAnaToBen()
     expect((await ben.api('POST', `/drafts/${draft.id}/send`, {})).status).toBe(404)
@@ -198,9 +228,9 @@ describe('Rule 3: no model-facing credential can approve, change contacts, or re
       expect([path, (await anaAgent.api(method, path, body)).status]).toEqual([path, 403])
   })
 
-  it('marks every approving, contact, block, credential and admin route as human-only in the contract', () => {
+  it('marks every approving, contact, block, topic membership, credential and admin route as human-only in the contract', () => {
     const mustBeGuarded = (Object.keys(contract) as RouteName[]).filter((name) =>
-      /^(drafts\.(send|discard)|contacts\.|blocks\.|credentials\.|device\.|consent\.|admin\.|push\.(un)?subscribe|me\.update|notes\.read|conversations\.create)/.test(
+      /^(drafts\.(send|discard)|contacts\.|blocks\.|credentials\.|device\.|consent\.|admin\.|push\.(un)?subscribe|me\.update|notes\.read|conversations\.create|topics\.(create|join|leave|answering\.|visibility\.|members\.(add|remove)|managers\.))/.test(
         name,
       ),
     )
@@ -398,6 +428,166 @@ describe('Rule 6: a member sees only conversations they participate in', () => {
     await sentFromAnaToBen()
     expect((await cy.api('GET', '/events/poll?after=0')).json.events).toEqual([])
     expect((await ben.api('GET', '/events/poll?after=0')).json.events.length).toBeGreaterThan(0)
+  })
+
+  describe('a private topic', () => {
+    const NAME = 'payroll'
+    const ABOUT = 'Salaries and bonuses 4d2c'
+    const QUESTION = 'When do bonuses land? 8b1f'
+    let dee: Session
+    let room: string
+    let question: { id: string }
+
+    beforeEach(async () => {
+      dee = await server.signIn('dee@example.com', 'Dee')
+      await ana.api('POST', '/topics', { slug: 'lobby', description: 'Anything else' })
+      room = (await ben.api('POST', '/topics', { slug: NAME, description: ABOUT, visibility: 'private' }))
+        .json.conversationId
+      await ben.api('PUT', `/topics/${NAME}/members/${dee.me.member.id}`)
+      const draft = (await dee.api('POST', '/drafts', { topic: NAME, body: QUESTION })).json
+      question = (await dee.api('POST', `/drafts/${draft.id}/send`, {})).json
+    })
+
+    const leaks = (text: string): string[] =>
+      [NAME, ABOUT, QUESTION, room, question.id].filter((secret) => text.includes(secret))
+
+    const surfacesOf = async (viewer: Session | Agent) => {
+      const reads: Array<readonly [string, string]> = [
+        ['GET', '/topics'],
+        ['GET', `/topics?q=${NAME}`],
+        ['GET', '/topics?q=bonuses'],
+        ['GET', '/directory'],
+        ['GET', `/directory?topic=${NAME}`],
+        ['GET', '/conversations'],
+        ['GET', '/inbox'],
+        ['GET', '/search?q=bonuses'],
+        ['GET', '/drafts'],
+        ['GET', '/events/poll?after=0'],
+      ]
+      const answers: Array<readonly [string, number, string]> = []
+      for (const [method, path] of reads) {
+        const answer = await viewer.api(method, path)
+        answers.push([path, answer.status, JSON.stringify(answer.json)])
+      }
+      return answers
+    }
+
+    it('hides its name, description, room and notes from a person who is not a member, and from their agent', async () => {
+      const cyAgent = await connectAgent(server, cy, { name: 'Cy agent' })
+      for (const outsider of [cy, cyAgent]) {
+        for (const [path, status, text] of await surfacesOf(outsider))
+          expect([path, status, leaks(text)]).toEqual([path, 200, []])
+        const unknown = await outsider.api('GET', '/topics/nowhere')
+        const hidden = await outsider.api('GET', `/topics/${NAME}`)
+        expect([hidden.status, hidden.json.error.message]).toEqual([
+          unknown.status,
+          unknown.json.error.message.replace('nowhere', NAME),
+        ])
+        expect((await outsider.api('GET', `/topics/${NAME}/members`)).status).toBe(404)
+        expect((await outsider.api('GET', `/conversations/${room}`)).status).toBe(404)
+        expect((await outsider.api('GET', `/conversations/${room}/notes`)).status).toBe(404)
+        expect((await outsider.api('GET', `/notes/${question.id}`)).status).toBe(404)
+        expect((await outsider.api('POST', `/notes/${question.id}/pickup`)).status).toBe(404)
+        const drafted = await outsider.api('POST', '/drafts', { topic: NAME, body: 'Let me in' })
+        expect([drafted.status, drafted.json.error.message]).toEqual([404, `No such topic: ${NAME}.`])
+        expect((await outsider.api('POST', '/drafts', { conversationId: room, body: 'hi' })).status).toBe(404)
+      }
+      const own = (await cy.api('POST', '/drafts', { topic: 'lobby', body: 'Where does this go?' })).json
+      expect((await cy.api('PATCH', `/drafts/${own.id}`, { topic: NAME })).status).toBe(404)
+      expect((await cy.api('POST', '/draft-requests', { topic: NAME, instruction: 'Ask' })).status).toBe(404)
+      expect((await cy.api('PUT', `/topics/${NAME}/membership`, { answering: true })).status).toBe(404)
+      expect((await cy.api('PUT', `/topics/${NAME}/answering`)).status).toBe(404)
+      const sent = (await cy.api('POST', `/drafts/${own.id}/send`, {})).json
+      expect((await cy.api('POST', `/notes/${sent.id}/move`, { topic: NAME })).status).toBe(404)
+      expect((await cy.api('POST', '/topics', { slug: NAME, description: 'mine' })).json.error.message).toBe(
+        'That name is not available.',
+      )
+      const stored = (await storedRows(server, 'events')).filter((row) => row.member_id === cy.me.member.id)
+      expect(leaks(JSON.stringify(stored))).toEqual([])
+    })
+
+    it('hides it from the model-facing tools of a non-member’s agent, and refuses to draft there', async () => {
+      const cyAgent = await connectAgent(server, cy, { name: 'Cy agent' })
+      const call = async (name: string, args: Readonly<Record<string, unknown>> = {}) =>
+        JSON.stringify(
+          (
+            await server.request('POST', '/mcp', {
+              token: cyAgent.token,
+              body: { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } },
+            })
+          ).json,
+        )
+      for (const [name, args] of [
+        ['find_topics', {}],
+        ['find_topics', { query: NAME }],
+        ['find_people', {}],
+        ['find_people', { topic: NAME }],
+        ['list_conversations', {}],
+        ['search_notes', { query: 'bonuses' }],
+        ['check_inbox', {}],
+      ] as const)
+        expect([name, leaks(await call(name, args))]).toEqual([name, []])
+      expect(await call('draft_note', { topic: NAME, body: 'Let me in' })).toContain(
+        `No such topic: ${NAME}.`,
+      )
+      const a2a = await server.request('POST', '/a2a', {
+        token: cyAgent.token,
+        body: {
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'message/send',
+          params: {
+            message: {
+              kind: 'message',
+              messageId: 'm1',
+              role: 'user',
+              parts: [{ kind: 'text', text: 'Let me in' }],
+              metadata: { topic: NAME },
+            },
+          },
+        },
+      })
+      expect(a2a.json.error).toBeDefined()
+      expect(leaks(JSON.stringify(a2a.json).replace(`No such topic: ${NAME}.`, ''))).toEqual([])
+    })
+
+    it('shows it, and a member’s chip for it, to its members only', async () => {
+      const chipsSeenBy = async (viewer: Session) =>
+        (await viewer.api('GET', '/directory')).json.entries.find(
+          (entry: any) => entry.member.id === ben.me.member.id,
+        ).topics
+      await ben.api('PUT', '/topics/lobby/membership', { answering: true })
+      expect(await chipsSeenBy(dee)).toEqual(['lobby', NAME])
+      expect(await chipsSeenBy(cy)).toEqual(['lobby'])
+      expect(
+        (await dee.api('GET', `/directory?topic=${NAME}`)).json.entries.map((e: any) => e.member.name),
+      ).toEqual(['Ben'])
+      expect((await dee.api('GET', `/topics/${NAME}`)).json).toMatchObject({
+        visibility: 'private',
+        joined: true,
+        answering: false,
+        managing: false,
+        memberCount: 2,
+        helperCount: 1,
+      })
+      expect((await dee.api('GET', `/conversations/${room}/notes`)).json.notes[0].body).toBe(QUESTION)
+    })
+
+    it('drops the room for a removed member at once, with an event that carries no content', async () => {
+      const cursor = (await dee.api('GET', '/events/poll')).json.cursor
+      await ben.api('DELETE', `/topics/${NAME}/members/${dee.me.member.id}`)
+      const events = (await dee.api('GET', `/events/poll?after=${cursor}`)).json.events.map(
+        (e: any) => e.body,
+      )
+      expect(events).toEqual([{ type: 'topic.left', slug: NAME, conversationId: room }])
+      for (const [path, status, text] of (await surfacesOf(dee)).filter(
+        ([path]) => !path.startsWith('/events'),
+      ))
+        expect([path, status, leaks(text)]).toEqual([path, 200, []])
+      expect((await dee.api('GET', `/topics/${NAME}`)).status).toBe(404)
+      expect((await dee.api('GET', `/conversations/${room}/notes`)).status).toBe(404)
+      expect((await dee.api('GET', `/notes/${question.id}`)).status).toBe(404)
+    })
   })
 })
 

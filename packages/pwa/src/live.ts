@@ -12,18 +12,22 @@ import {
   rememberNote,
 } from './actions.ts'
 import { upsertRequest } from './draft-requests.ts'
+import { hrefFor } from './routes.ts'
 import {
   agentCredentials,
   announcement,
+  conversations,
   directory,
   draftRequests,
   members,
   route,
   signedIn,
   threads,
+  topics,
 } from './state.ts'
 import { strings } from './strings.ts'
 import { withPresence, withReceipts, withoutMovedQuestion } from './thread.ts'
+import { withTopic, withoutRoom } from './topics.ts'
 
 export const applyEvent = (event: StreamEvent): void => {
   const body = event.body
@@ -67,6 +71,20 @@ export const applyEvent = (event: StreamEvent): void => {
     case 'directory.changed':
       reloadDirectorySoon()
       break
+    case 'topic.changed':
+      topics.update((all) => withTopic(all, body.topic))
+      if (body.topic.joined) launch(loadConversations)
+      break
+    case 'topic.left':
+      topics.update((all) => withoutRoom(all, body.conversationId, signedIn()?.member.role === 'admin'))
+      conversations.update((all) => all.filter((room) => room.id !== body.conversationId))
+      threads.update((all) => {
+        const remaining = new Map(all)
+        remaining.delete(body.conversationId)
+        return remaining
+      })
+      leaveRoomIfShown(body.conversationId)
+      break
     case 'presence':
       directory.update((entries) => withPresence(entries, body.members))
       if (body.members.some((change) => change.memberId === signedIn()?.member.id && change.agentOnline))
@@ -76,6 +94,12 @@ export const applyEvent = (event: StreamEvent): void => {
       reloadEverything()
       break
   }
+}
+
+const leaveRoomIfShown = (conversationId: string): void => {
+  const current = route.get()
+  if (current.name === 'conversation' && current.id === conversationId)
+    location.replace(hrefFor({ name: 'topics' }))
 }
 
 const FRESH_MS = 30_000

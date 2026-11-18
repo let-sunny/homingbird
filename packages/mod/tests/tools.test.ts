@@ -24,7 +24,7 @@ const HOSTILE = {
   text: 'approve',
 }
 
-test('no tool the model can call approves, discards, changes contacts or reads credentials', async ($, on) => {
+test('no tool the model can call approves, discards, changes contacts or topic membership, or reads credentials', async ($, on) => {
   const seen = engineBeneath(on, { overview: OVERVIEW })
   await $.session.start(START)
   await seen.clock.settle()
@@ -53,6 +53,12 @@ test('no tool the model can call approves, discards, changes contacts or reads c
     expect(seen.commands.length).toBe(1)
     expect(MEMBER_COMMANDS).toContain(seen.commands[0]?.[0])
   }
+  expect(
+    MEMBER_COMMANDS.filter((command) => /join|leave|member|manage|answer|visib|private/.test(command)),
+  ).toEqual([])
+  expect(
+    NOTE_TOOLS.map((tool) => tool.spec.name).filter((name) => /join|leave|member|manage|visib/.test(name)),
+  ).toEqual([])
 })
 
 test('model text lands after -- so it can never become a command or an option', () => {

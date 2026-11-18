@@ -68,15 +68,22 @@ describe('contract', () => {
       if (route.query !== undefined) expect(Schema.struct(route.query).decode({}).constructor).toBeDefined()
   })
 
-  it('reserves approval, contacts, blocks, credentials and administration for people', () => {
+  it('reserves approval, contacts, blocks, topic membership, credentials and administration for people', () => {
     expect([...humanOnlyRoutes].sort()).toEqual(
       [
         'me.update',
         'me.character.set',
         'me.character.clear',
         'topics.create',
-        'topics.help',
+        'topics.join',
         'topics.leave',
+        'topics.answering.on',
+        'topics.answering.off',
+        'topics.visibility.set',
+        'topics.members.add',
+        'topics.members.remove',
+        'topics.managers.add',
+        'topics.managers.remove',
         'admin.topics.update',
         'admin.topics.remove',
         'admin.topics.merge',
@@ -119,6 +126,8 @@ describe('contract', () => {
         'me.get',
         'directory.list',
         'topics.list',
+        'topics.get',
+        'topics.members.list',
         'conversations.list',
         'conversations.get',
         'conversations.notes',
@@ -181,6 +190,7 @@ describe('language on the profile', () => {
         role: 'member',
         status: 'active',
         createdAt: 1,
+        character: null,
       },
       credential: { id: 'cred_abcdefghijkl', kind: 'human', name: 'Browser' },
       contactMode: 'open',

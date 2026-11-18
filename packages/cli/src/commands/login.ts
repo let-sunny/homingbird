@@ -1,5 +1,6 @@
 import { type DeviceFlowFailed, awaitDeviceTokens, beginDeviceFlow } from '@homingbird/client'
-import { Task as T } from '@homingbird/kernel'
+import { type Result, Task as T } from '@homingbird/kernel'
+import type { Api, ServerInfo } from '@homingbird/protocol'
 import type { Invocation } from '../arguments.ts'
 import { removeCredential, writeCredential } from '../credentials.ts'
 import type { CliEnv } from '../environment.ts'
@@ -44,16 +45,32 @@ export const login = (
     yield* writeCredential('agent', agent)
     if (tokens.approval_token === undefined) yield* removeCredential('approval')
     else yield* writeCredential('approval', { serverUrl: invocation.server, token: tokens.approval_token })
-    const me = yield* calling(apiFor(env, agent)['me.get']({}))
+    const api = apiFor(env, agent)
+    const me = yield* calling(api['me.get']({}))
     const hasApproveButton = tokens.approval_token !== undefined
+    const missing = invocation.approveButton && !hasApproveButton
+    const turnedOff = missing && (yield* approveButtonTurnedOff(api))
     return outcome(
-      { step: 'signed_in', server: invocation.server, member: me.member, hasApproveButton },
+      {
+        step: 'signed_in',
+        server: invocation.server,
+        member: me.member,
+        hasApproveButton,
+        ...(missing && { approveButton: !turnedOff }),
+      },
       `Signed in to ${invocation.server} as ${me.member.name} <${me.member.email}>.${
-        invocation.approveButton && !hasApproveButton
-          ? '\nThe approve button was not granted; approve notes in the web client.'
-          : ''
+        turnedOff
+          ? '\nThe organization has turned the approve button off; approve notes in the web client.'
+          : missing
+            ? '\nThe approve button was not granted; approve notes in the web client.'
+            : ''
       }`,
     )
   })
+
+const approveButtonTurnedOff = (api: Api): T.Task<boolean> =>
+  T.map((info: Result.Result<ServerInfo, unknown>) => info._tag === 'Ok' && !info.value.approveButton)(
+    T.result(api['server.info']({})),
+  )
 
 const toFailure = (failure: DeviceFlowFailed): CliFailure => failed(failure.message)

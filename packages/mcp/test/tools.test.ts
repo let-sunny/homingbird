@@ -42,8 +42,12 @@ const BILLING: Topic = {
   slug: 'billing',
   description: 'Invoices, refunds and the billing service',
   conversationId: ConversationId.of('topicbilling'),
+  visibility: 'open',
+  memberCount: 4,
   helperCount: 3,
-  helping: false,
+  joined: false,
+  answering: false,
+  managing: false,
   createdAt: 1,
 }
 
@@ -119,11 +123,37 @@ describe('the tool table', () => {
     expect(Object.keys(SAMPLE_ARGUMENTS).sort()).toEqual(TOOLS.map((tool) => tool.name).sort())
   })
 
-  it('offers no tool that approves, sends, discards, changes contacts or touches credentials', () => {
+  it('offers no tool that approves, sends, discards, changes contacts or topic membership, or touches credentials', () => {
     const names = TOOLS.map((tool) => tool.name).join(' ')
     expect(names).not.toMatch(
-      /send|approve|discard|contact|block|credential|revoke|admin|join|leave|help|cancel|request/,
+      /send|approve|discard|contact|block|credential|revoke|admin|join|leave|help|cancel|request|member|manage|visib|answer/,
     )
+  })
+
+  it('reaches no route that changes topic membership, answering, managers or visibility, whatever it is asked', async () => {
+    const membership = humanOnlyRoutes.filter((route) => route.startsWith('topics.'))
+    expect(membership.sort()).toEqual(
+      [
+        'topics.answering.off',
+        'topics.answering.on',
+        'topics.create',
+        'topics.join',
+        'topics.leave',
+        'topics.managers.add',
+        'topics.managers.remove',
+        'topics.members.add',
+        'topics.members.remove',
+        'topics.visibility.set',
+      ].sort(),
+    )
+    for (const tool of TOOLS) {
+      const { calls } = await call(
+        tool.name,
+        { ...(SAMPLE_ARGUMENTS[tool.name] as object), topic: 'payroll' },
+        HAPPY,
+      )
+      expect(calls.map((each) => each.name).filter((route) => membership.includes(route))).toEqual([])
+    }
   })
 
   it.each(NOTE_TOOL_NAMES)('%s reaches only routes open to an agent credential', async (name) => {
@@ -322,12 +352,34 @@ describe('find_topics', () => {
       {
         topic: 'billing',
         about: BILLING.description,
+        visibility: 'open',
+        members: 4,
         helpers: 3,
-        youHelp: false,
+        yourHumanIsIn: false,
+        yourHumanAnswers: false,
         conversationId: BILLING.conversationId,
       },
     ])
     expect(calls).toEqual([{ name: 'topics.list', request: { query: { q: 'bill' } } }])
+  })
+
+  it('marks a private topic, says whether the human answers there, and warns never to mention it outside', async () => {
+    const payroll: Topic = {
+      ...BILLING,
+      slug: 'payroll',
+      visibility: 'private',
+      joined: true,
+      answering: true,
+    }
+    const { text } = await call('find_topics', {}, { ...HAPPY, 'topics.list': () => ({ topics: [payroll] }) })
+    const [notice, row] = text.split('\n')
+    expect(notice).toContain('A private topic is seen only by its members')
+    expect(JSON.parse(row!)).toMatchObject({
+      topic: 'payroll',
+      visibility: 'private',
+      yourHumanIsIn: true,
+      yourHumanAnswers: true,
+    })
   })
 
   it('lists every topic without a query, and points to general when nothing matches', async () => {

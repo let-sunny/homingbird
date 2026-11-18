@@ -140,7 +140,7 @@ describe('characters on the wire', () => {
     expect(JSON.stringify(largest).length).toBeLessThan(CHARACTER_BYTES_MAX / 2)
   })
 
-  it('shows a member with no saved character as the pigeon by sending null, and accepts older servers that send nothing', () => {
+  it('shows a member with no saved character as the pigeon by sending null, and requires the field', () => {
     const member = {
       id: 'mem_abcdefghijkl',
       email: 'ana@example.com',
@@ -150,7 +150,7 @@ describe('characters on the wire', () => {
       status: 'active',
       createdAt: 1,
     }
-    expect(Member.is(member)).toBe(true)
+    expect(Member.is(member)).toBe(false)
     expect(Member.is({ ...member, character: null })).toBe(true)
     expect(Member.is({ ...member, character: OTTER })).toBe(true)
     expect(Member.is({ ...member, character: { ...OTTER, version: 2 } })).toBe(false)

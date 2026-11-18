@@ -60,6 +60,7 @@ export const ANA: Member = {
   role: 'admin',
   status: 'active',
   createdAt: 1,
+  character: null,
 }
 
 export const BEN: Member = {

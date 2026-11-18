@@ -1,6 +1,14 @@
+import fc from 'fast-check'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { loadConfig } from '../src/config.ts'
-import { type Agent, type Session, type TestServer, connectAgent, startTestServer } from './harness.ts'
+import {
+  type Agent,
+  type Session,
+  type TestServer,
+  connectAgent,
+  startTestServer,
+  storedRows,
+} from './harness.ts'
 
 let server: TestServer
 let ana: Session
@@ -36,7 +44,7 @@ const inboxOf = async (agent: Agent) =>
 describe('topics', () => {
   it('starts with the seeded topics, and everyone helps in general', async () => {
     expect(
-      (await topics(ana)).map((topic) => [topic.slug, topic.description, topic.helperCount, topic.helping]),
+      (await topics(ana)).map((topic) => [topic.slug, topic.description, topic.helperCount, topic.answering]),
     ).toEqual([
       ['billing', 'Invoices and payments', 0, false],
       ['general', 'Anything that has no better place. Everyone is here.', 3, true],
@@ -44,18 +52,27 @@ describe('topics', () => {
     expect((await topics(anaAgent, '?q=invoice')).map((topic) => topic.slug)).toEqual(['billing'])
   })
 
-  it('lets any person create a topic and become its first helper', async () => {
-    const created = await ana.api('POST', '/topics', { slug: 'deploys', description: 'Release process' })
-    expect(created.json).toMatchObject({ slug: 'deploys', helperCount: 1, helping: true })
-    expect((await ana.api('POST', '/topics', { slug: 'deploys', description: 'again' })).status).toBe(409)
+  it('lets any person create a topic and become its first member, manager and helper', async () => {
+    const created = await ben.api('POST', '/topics', { slug: 'deploys', description: 'Release process' })
+    expect(created.json).toMatchObject({
+      slug: 'deploys',
+      visibility: 'open',
+      memberCount: 1,
+      helperCount: 1,
+      joined: true,
+      answering: true,
+      managing: true,
+    })
+    const again = await ana.api('POST', '/topics', { slug: 'deploys', description: 'again' })
+    expect([again.status, again.json.error.message]).toEqual([409, 'That name is not available.'])
     expect((await ana.api('POST', '/topics', { slug: 'Not A Slug', description: 'x' })).status).toBe(400)
     expect((await anaAgent.api('POST', '/topics', { slug: 'by-agent', description: 'x' })).status).toBe(403)
-    const room = (await ana.api('GET', `/conversations/${created.json.conversationId}`)).json
-    expect(room).toMatchObject({ kind: 'topic', title: 'deploys', participantIds: [ana.me.member.id] })
+    const room = (await ben.api('GET', `/conversations/${created.json.conversationId}`)).json
+    expect(room).toMatchObject({ kind: 'topic', title: 'deploys', participantIds: [ben.me.member.id] })
   })
 
   it('shows on a profile which topics a member helps with, and filters the directory by topic', async () => {
-    await ben.api('PUT', '/topics/billing/helpers/me')
+    await ben.api('PUT', '/topics/billing/membership', { answering: true })
     const entries = (await ana.api('GET', '/directory')).json.entries
     expect(Object.fromEntries(entries.map((entry: any) => [entry.member.name, entry.topics]))).toEqual({
       Ana: ['general'],
@@ -64,17 +81,17 @@ describe('topics', () => {
     })
     const helpers = (await anaAgent.api('GET', '/directory?topic=billing')).json.entries
     expect(helpers.map((entry: any) => entry.member.name)).toEqual(['Ben'])
-    await ben.api('DELETE', '/topics/billing/helpers/me')
+    await ben.api('DELETE', '/topics/billing/membership')
     expect((await ana.api('GET', '/directory?topic=billing')).json.entries).toEqual([])
-    expect((await ben.api('PUT', '/topics/nowhere/helpers/me')).status).toBe(404)
-    expect((await benAgent.api('PUT', '/topics/billing/helpers/me')).status).toBe(403)
+    expect((await ben.api('PUT', '/topics/nowhere/membership', { answering: true })).status).toBe(404)
+    expect((await benAgent.api('PUT', '/topics/billing/membership', { answering: true })).status).toBe(403)
   })
 })
 
 describe('asking a topic', () => {
   beforeEach(async () => {
-    await ben.api('PUT', '/topics/billing/helpers/me')
-    await cy.api('PUT', '/topics/billing/helpers/me')
+    await ben.api('PUT', '/topics/billing/membership', { answering: true })
+    await cy.api('PUT', '/topics/billing/membership', { answering: true })
   })
 
   it('delivers the question to every helper and lets the asker follow the room', async () => {
@@ -89,7 +106,7 @@ describe('asking a topic', () => {
     expect(await inboxOf(cyAgent)).toEqual(['Who owns refunds?'])
     expect((await ana.api('GET', `/conversations/${note.conversationId}`)).json.kind).toBe('topic')
     expect((await topics(ana)).find((topic) => topic.slug === 'billing')).toMatchObject({
-      helping: false,
+      answering: false,
       helperCount: 2,
     })
   })
@@ -138,58 +155,9 @@ describe('asking a topic', () => {
   })
 })
 
-describe('tidying topics', () => {
-  it('is reserved for administrators', async () => {
-    expect((await ben.api('PATCH', '/admin/topics/billing', { description: 'mine now' })).status).toBe(403)
-    expect((await ben.api('DELETE', '/admin/topics/billing')).status).toBe(403)
-    expect((await ben.api('POST', '/admin/topics/billing/merge', { into: 'general' })).status).toBe(403)
-  })
-
-  it('renames a topic together with its room', async () => {
-    const renamed = (
-      await ana.api('PATCH', '/admin/topics/billing', { slug: 'payments', description: 'Money in and out' })
-    ).json
-    expect(renamed).toMatchObject({ slug: 'payments', description: 'Money in and out' })
-    await ben.api('PUT', '/topics/payments/helpers/me')
-    expect((await ben.api('GET', `/conversations/${renamed.conversationId}`)).json.title).toBe('payments')
-    expect((await ana.api('PATCH', '/admin/topics/payments', { slug: 'general' })).status).toBe(409)
-    expect((await ana.api('PATCH', '/admin/topics/general', { slug: 'lobby' })).status).toBe(409)
-    expect(
-      (await ana.api('PATCH', '/admin/topics/general', { description: 'Start here' })).json.description,
-    ).toBe('Start here')
-    expect((await ana.api('PATCH', '/admin/topics/nowhere', { description: 'x' })).status).toBe(404)
-  })
-
-  it('merges one topic into another, keeping the helpers and the old room’s notes', async () => {
-    await ana.api('POST', '/topics', { slug: 'invoices', description: 'Duplicate of billing' })
-    await ben.api('PUT', '/topics/invoices/helpers/me')
-    const old = await ask(cy, 'invoices', 'Old question')
-    const merged = (await ana.api('POST', '/admin/topics/invoices/merge', { into: 'billing' })).json
-    expect(merged).toMatchObject({ slug: 'billing', helperCount: 2, helping: true })
-    expect((await topics(ana)).map((topic) => topic.slug)).toEqual(['billing', 'general'])
-    expect((await ben.api('GET', `/conversations/${old.conversationId}`)).json).toMatchObject({
-      kind: 'group',
-      title: 'invoices (archived)',
-    })
-    expect((await ana.api('POST', '/admin/topics/billing/merge', { into: 'billing' })).status).toBe(409)
-    expect((await ana.api('POST', '/admin/topics/general/merge', { into: 'billing' })).status).toBe(409)
-  })
-
-  it('removes a topic but never the general one, and marks its old room as archived', async () => {
-    const billing = await ben.api('PUT', '/topics/billing/helpers/me')
-    expect((await ana.api('DELETE', '/admin/topics/billing')).status).toBe(200)
-    expect((await ben.api('GET', `/conversations/${billing.json.conversationId}`)).json).toMatchObject({
-      kind: 'group',
-      title: 'billing (archived)',
-    })
-    expect((await ana.api('DELETE', '/admin/topics/billing')).status).toBe(404)
-    expect((await ana.api('DELETE', '/admin/topics/general')).status).toBe(409)
-  })
-})
-
 describe('moving a question to a better topic', () => {
   beforeEach(async () => {
-    await ben.api('PUT', '/topics/billing/helpers/me')
+    await ben.api('PUT', '/topics/billing/membership', { answering: true })
   })
 
   it('takes it from the helpers of the old topic and gives it to the helpers of the new one', async () => {
@@ -248,7 +216,7 @@ describe('moving a question to a better topic', () => {
   it('moves only an unanswered question, only between topics, and only by a person in the room', async () => {
     const question = await ask(ana, 'general', 'Who owns refunds?')
     const outsider = await server.signIn('dee@example.com', 'Dee')
-    await outsider.api('DELETE', '/topics/general/helpers/me')
+    await outsider.api('DELETE', '/topics/general/membership')
     expect((await outsider.api('POST', `/notes/${question.id}/move`, { topic: 'billing' })).status).toBe(404)
     expect((await cyAgent.api('POST', `/notes/${question.id}/move`, { topic: 'billing' })).status).toBe(403)
     expect((await cy.api('POST', `/notes/${question.id}/move`, { topic: 'general' })).status).toBe(409)
@@ -265,7 +233,7 @@ describe('moving a question to a better topic', () => {
 
 describe('re-addressing a draft question', () => {
   beforeEach(async () => {
-    await ben.api('PUT', '/topics/billing/helpers/me')
+    await ben.api('PUT', '/topics/billing/membership', { answering: true })
   })
 
   it('moves an agent’s draft to another topic room, keeping its id, origin and agent name', async () => {
@@ -361,5 +329,83 @@ describe('seed topics', () => {
 
   it('refuse a name that could not be a topic', () => {
     expect(topicsFor('Not A Slug')).toEqual([expect.stringContaining('HB_TOPICS')])
+  })
+})
+
+describe('joining a topic and answering in it', () => {
+  const billing = async (who: Session) => (await who.api('GET', '/topics/billing')).json
+
+  it('joins a room without answering, so its questions reach only the people who answer there', async () => {
+    const joined = (await ben.api('PUT', '/topics/billing/membership', {})).json
+    expect(joined).toMatchObject({ joined: true, answering: false, memberCount: 1, helperCount: 0 })
+    await cy.api('PUT', '/topics/billing/membership', { answering: true })
+    const question = await ask(ana, 'billing', 'Who owns refunds?')
+    expect(question.receipts.map((receipt: any) => receipt.memberId)).toEqual([cy.me.member.id])
+    expect(await inboxOf(benAgent)).toEqual([])
+    expect(
+      (await ben.api('GET', `/conversations/${question.conversationId}/notes`)).json.notes.map(
+        (note: any) => note.body,
+      ),
+    ).toEqual(['Who owns refunds?'])
+  })
+
+  it('turns answering on and off without leaving the room, and leaving turns it off', async () => {
+    await ben.api('PUT', '/topics/billing/membership', {})
+    expect((await ben.api('PUT', '/topics/billing/answering')).json).toMatchObject({ answering: true })
+    expect((await ben.api('DELETE', '/topics/billing/answering')).json).toMatchObject({
+      joined: true,
+      answering: false,
+    })
+    await ben.api('PUT', '/topics/billing/answering')
+    expect((await ben.api('DELETE', '/topics/billing/membership')).json).toMatchObject({
+      joined: false,
+      answering: false,
+    })
+    expect((await billing(ana)).helperCount).toBe(0)
+    expect((await benAgent.api('PUT', '/topics/billing/answering')).status).toBe(403)
+  })
+
+  it('answers only for someone in the room', async () => {
+    const refused = await ben.api('PUT', '/topics/billing/answering')
+    expect([refused.status, refused.json.error.message]).toEqual([
+      409,
+      'Join the topic before answering questions in it.',
+    ])
+    expect((await billing(ben)).answering).toBe(false)
+  })
+
+  it('lets a person stop answering in general, or leave it, like any other topic', async () => {
+    expect((await ben.api('DELETE', '/topics/general/answering')).json).toMatchObject({
+      joined: true,
+      answering: false,
+    })
+    const question = await ask(ana, 'general', 'Anyone know the wifi password?')
+    expect(question.receipts.map((receipt: any) => receipt.memberId)).toEqual([cy.me.member.id])
+    expect((await cy.api('DELETE', '/topics/general/membership')).json.joined).toBe(false)
+    expect((await cy.api('GET', `/conversations/${question.conversationId}`)).status).toBe(404)
+  })
+
+  it('lists on a profile exactly the topics where answering is on', async () => {
+    await ben.api('PUT', '/topics/billing/membership', {})
+    const chips = async () =>
+      (await cy.api('GET', '/directory')).json.entries.find((entry: any) => entry.member.name === 'Ben')
+        .topics
+    expect(await chips()).toEqual(['general'])
+    await ben.api('PUT', '/topics/billing/answering')
+    expect(await chips()).toEqual(['billing', 'general'])
+  })
+
+  it('discards the waiting drafts of a person who leaves the room', async () => {
+    await ben.api('PUT', '/topics/billing/membership', {})
+    const draft = (await benAgent.api('POST', '/drafts', { topic: 'billing', body: 'Half a thought' })).json
+    const cursor = (await ben.api('GET', '/events/poll')).json.cursor
+    await ben.api('DELETE', '/topics/billing/membership')
+    expect((await ben.api('GET', '/drafts')).json.drafts).toEqual([])
+    expect(
+      (await ben.api('GET', `/events/poll?after=${cursor}`)).json.events.map((event: any) => event.body),
+    ).toEqual([
+      { type: 'draft.discarded', noteId: draft.id, conversationId: draft.conversationId },
+      { type: 'topic.left', slug: 'billing', conversationId: draft.conversationId },
+    ])
   })
 })

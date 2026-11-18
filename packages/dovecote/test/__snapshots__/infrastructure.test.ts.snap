@@ -25,6 +25,12 @@ exports[`schema > generates stable DDL for mysql 1`] = `
   "ALTER TABLE members ADD COLUMN locale VARCHAR(400)",
   "ALTER TABLE push_subscriptions ADD COLUMN locale VARCHAR(400)",
   "ALTER TABLE members ADD COLUMN character_spec MEDIUMTEXT",
+  "ALTER TABLE topics ADD COLUMN visibility VARCHAR(400)",
+  "CREATE TABLE IF NOT EXISTS topic_managers (conversation_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, PRIMARY KEY (conversation_id, member_id), INDEX topic_managers_member_id_idx (member_id))",
+  "UPDATE topics SET visibility = 'open'",
+  "INSERT INTO topic_managers (conversation_id, member_id) SELECT t.conversation_id, t.created_by FROM topics t JOIN participants p ON p.conversation_id = t.conversation_id AND p.member_id = t.created_by",
+  "ALTER TABLE credentials ADD COLUMN purpose VARCHAR(400)",
+  "UPDATE credentials SET purpose = 'approve_button' WHERE kind = 'human' AND client <> 'Web'",
 ]
 `;
 
@@ -76,6 +82,13 @@ exports[`schema > generates stable DDL for postgres 1`] = `
   "ALTER TABLE members ADD COLUMN locale VARCHAR(400)",
   "ALTER TABLE push_subscriptions ADD COLUMN locale VARCHAR(400)",
   "ALTER TABLE members ADD COLUMN character_spec TEXT",
+  "ALTER TABLE topics ADD COLUMN visibility VARCHAR(400)",
+  "CREATE TABLE IF NOT EXISTS topic_managers (conversation_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, PRIMARY KEY (conversation_id, member_id))",
+  "CREATE INDEX IF NOT EXISTS topic_managers_member_id_idx ON topic_managers (member_id)",
+  "UPDATE topics SET visibility = 'open'",
+  "INSERT INTO topic_managers (conversation_id, member_id) SELECT t.conversation_id, t.created_by FROM topics t JOIN participants p ON p.conversation_id = t.conversation_id AND p.member_id = t.created_by",
+  "ALTER TABLE credentials ADD COLUMN purpose VARCHAR(400)",
+  "UPDATE credentials SET purpose = 'approve_button' WHERE kind = 'human' AND client <> 'Web'",
 ]
 `;
 
@@ -127,5 +140,12 @@ exports[`schema > generates stable DDL for sqlite 1`] = `
   "ALTER TABLE members ADD COLUMN locale TEXT",
   "ALTER TABLE push_subscriptions ADD COLUMN locale TEXT",
   "ALTER TABLE members ADD COLUMN character_spec TEXT",
+  "ALTER TABLE topics ADD COLUMN visibility TEXT",
+  "CREATE TABLE IF NOT EXISTS topic_managers (conversation_id TEXT NOT NULL, member_id TEXT NOT NULL, PRIMARY KEY (conversation_id, member_id))",
+  "CREATE INDEX IF NOT EXISTS topic_managers_member_id_idx ON topic_managers (member_id)",
+  "UPDATE topics SET visibility = 'open'",
+  "INSERT INTO topic_managers (conversation_id, member_id) SELECT t.conversation_id, t.created_by FROM topics t JOIN participants p ON p.conversation_id = t.conversation_id AND p.member_id = t.created_by",
+  "ALTER TABLE credentials ADD COLUMN purpose TEXT",
+  "UPDATE credentials SET purpose = 'approve_button' WHERE kind = 'human' AND client <> 'Web'",
 ]
 `;

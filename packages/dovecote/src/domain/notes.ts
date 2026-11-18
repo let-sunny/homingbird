@@ -15,6 +15,7 @@ import { type Caller, isHuman } from '../environment.ts'
 import { type RequestEnv, emit } from '../events/events.ts'
 import { all, dialect, first, run } from '../sql/database.ts'
 import { containsIgnoringCase, insertIgnoringConflict, insertInto, sql } from '../sql/query.ts'
+import { abandonDraft } from './abandoned-drafts.ts'
 import {
   conversationFor,
   directConversationWith,
@@ -24,7 +25,8 @@ import {
 } from './conversations.ts'
 import { membersByIds } from './members.ts'
 import { type NoteRow, hydrateNotes } from './note-rows.ts'
-import { helpersOf, topicRoomFor } from './topics.ts'
+import { helpersOf } from './topic-rows.ts'
+import { roomForMovedQuestion, topicRoomFor } from './topics.ts'
 
 export interface DraftDestination {
   readonly conversationId?: ConversationId
@@ -124,7 +126,7 @@ export const discardDraft = (caller: Caller, id: NoteId): T.Task<Note, NoteFailu
   T.gen(function* () {
     if (!isHuman(caller)) return yield* T.fail(Forbidden({ message: 'Only a person can discard a draft.' }))
     const draft = yield* ownDraft(caller.member.id, id)
-    yield* discard(draft)
+    yield* abandonDraft(draft)
     if (draft.in_reply_to !== null) yield* announceStatus(draft.in_reply_to)
     return yield* noteById(id)
   })
@@ -144,7 +146,7 @@ export const moveToTopic = (
     const answered = yield* first(sql`SELECT id FROM notes WHERE in_reply_to = ${id} AND status = 'sent'`)
     if (answered !== null)
       return yield* T.fail(Conflict({ message: 'This question already has an answer here.' }))
-    const to = yield* topicRoomFor(note.authorId, topic)
+    const to = yield* roomForMovedQuestion(caller.member.id, note.authorId, from.id, topic)
     if (to === from.id) return yield* T.fail(Conflict({ message: 'The question is already in that topic.' }))
     const leftBehind = yield* participantsOf(from.id)
     const arrivingAt = yield* participantsOf(to)
@@ -400,7 +402,7 @@ const settleReply = (authorId: MemberId, repliedTo: NoteId, now: number): T.Task
     const alternatives = yield* all<NoteRow>(
       sql`SELECT * FROM notes WHERE in_reply_to = ${repliedTo} AND author_id = ${authorId} AND status = 'draft'`,
     )
-    for (const alternative of alternatives) yield* discard(alternative)
+    for (const alternative of alternatives) yield* abandonDraft(alternative)
   })
 
 const settleWaitingReplies = (
@@ -413,23 +415,10 @@ const settleWaitingReplies = (
       sql`SELECT * FROM notes WHERE in_reply_to = ${questionId} AND status = 'draft' ORDER BY id`,
     )
     const moving = waiting.filter((reply) => arrivingAt.includes(reply.author_id))
-    for (const reply of waiting) if (!moving.includes(reply)) yield* discard(reply)
+    for (const reply of waiting) if (!moving.includes(reply)) yield* abandonDraft(reply)
     for (const reply of moving)
       yield* run(sql`UPDATE notes SET conversation_id = ${to} WHERE id = ${reply.id}`)
     return moving
-  })
-
-const discard = (draft: NoteRow): T.Task<void, never, RequestEnv> =>
-  T.gen(function* () {
-    const env = yield* T.ask<RequestEnv>()
-    yield* run(
-      sql`UPDATE notes SET status = 'discarded', updated_at = ${env.clock.now()} WHERE id = ${draft.id} AND status = 'draft'`,
-    )
-    yield* emit([draft.author_id], {
-      type: 'draft.discarded',
-      noteId: draft.id,
-      conversationId: draft.conversation_id,
-    })
   })
 
 const announceStatus = (id: NoteId): T.Task<void, never, RequestEnv> =>

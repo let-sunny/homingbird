@@ -35,6 +35,14 @@ const EVERYTHING: Stubs = {
     }) as never,
   'directory.list': () => DIRECTORY,
   'topics.list': () => ({ topics: [] }),
+  'server.info': () =>
+    ({
+      name: 'dovecote',
+      version: '1.0.0',
+      contactMode: 'open',
+      signInWith: 'Development login',
+      approveButton: true,
+    }) as never,
   'conversations.list': () => ({ conversations: [conversationOf()] }),
   'conversations.notes': () => ({ notes: [QUESTION, DRAFT], hasMore: false }),
   'inbox.list': () => ({ items: [{ note: QUESTION, author: BEN, conversation: conversationOf() }] }),
@@ -78,8 +86,20 @@ describe('security rule 3 in the command line', () => {
     },
   )
 
-  it('has no command that changes contacts, blocks, topic membership or draft requests, or lists credentials', () => {
+  it('has no command that changes contacts, blocks, topic membership, answering, managers or visibility, or draft requests, or lists credentials', () => {
     for (const command of [
+      'answer',
+      'answering',
+      'members',
+      'member',
+      'add-member',
+      'remove-member',
+      'manager',
+      'managers',
+      'visibility',
+      'private',
+      'topic',
+      'create-topic',
       'send',
       'contacts',
       'contact',

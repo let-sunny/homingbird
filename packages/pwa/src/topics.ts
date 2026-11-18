@@ -38,10 +38,31 @@ export const peopleConversations = (conversations: ReadonlyArray<Conversation>):
 
 export const canRename = (slug: string): boolean => slug !== GENERAL_TOPIC
 
-export const helpingFirst = (a: Topic, b: Topic): number =>
-  Number(b.helping) - Number(a.helping) ||
+export const answeringFirst = (a: Topic, b: Topic): number =>
+  Number(b.answering) - Number(a.answering) ||
+  Number(b.joined) - Number(a.joined) ||
   Number(b.slug === GENERAL_TOPIC) - Number(a.slug === GENERAL_TOPIC) ||
   a.slug.localeCompare(b.slug)
+
+export const isPrivate = (topic: Topic): boolean => topic.visibility === 'private'
+
+export const withTopic = (topics: ReadonlyArray<Topic>, changed: Topic): Topic[] =>
+  topics.some((topic) => topic.slug === changed.slug)
+    ? topics.map((topic) => (topic.slug === changed.slug ? changed : topic))
+    : [...topics, changed].sort((a, b) => a.slug.localeCompare(b.slug))
+
+export const withoutRoom = (
+  topics: ReadonlyArray<Topic>,
+  conversationId: ConversationId,
+  viewerIsAdmin: boolean,
+): Topic[] =>
+  topics.flatMap((topic) =>
+    topic.conversationId !== conversationId
+      ? [topic]
+      : isPrivate(topic) && !viewerIsAdmin
+        ? []
+        : [{ ...topic, joined: false, answering: false, managing: viewerIsAdmin }],
+  )
 
 const SLUG_MAX = 40
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{0,39}$/

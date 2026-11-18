@@ -39,7 +39,9 @@ describe('wire model', () => {
         'Role',
         'Settings',
         'Topic',
+        'TopicMember',
         'TopicSlug',
+        'TopicVisibility',
       ].sort(),
     )
   })
@@ -115,5 +117,18 @@ describe('wire model', () => {
     expect(model.Locale.is('ko')).toBe(true)
     expect(model.Locale.is('ko-KR')).toBe(false)
     expect(model.Locale.is('fr')).toBe(false)
+  })
+
+  it('requires a character on every member, null for the pigeon', () => {
+    const member = fc.sample(arbitrary(model.Member, refinements), 1)[0]!
+    const { character: _, ...withoutCharacter } = member
+    expect(model.Member.is({ ...member, character: null })).toBe(true)
+    expect(model.Member.is(withoutCharacter)).toBe(false)
+  })
+
+  it('knows a topic as open or private only', () => {
+    expect(model.TopicVisibility.is('open')).toBe(true)
+    expect(model.TopicVisibility.is('private')).toBe(true)
+    expect(model.TopicVisibility.is('secret')).toBe(false)
   })
 })

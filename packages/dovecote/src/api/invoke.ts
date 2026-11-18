@@ -74,6 +74,22 @@ export const recordDenied = (name: RouteName, caller: Caller | null): T.Task<voi
 const requireAccess = (
   name: RouteName,
   caller: Caller | null,
+): T.Task<void, Unauthorized | Forbidden, AppEnv> =>
+  T.gen(function* () {
+    const env = yield* T.ask<AppEnv>()
+    yield* requireAllowed(name, caller)
+    const needsPerson = contract[name].access === 'human' || contract[name].access === 'admin'
+    if (needsPerson && caller?.credential.approveButton === true && !env.config.approveButton) {
+      yield* recordDenied(name, caller)
+      return yield* T.fail(Forbidden({ message: APPROVE_BUTTON_OFF }))
+    }
+  })
+
+const APPROVE_BUTTON_OFF = 'The organization has turned the approve button off.'
+
+const requireAllowed = (
+  name: RouteName,
+  caller: Caller | null,
 ): T.Task<void, Unauthorized | Forbidden, AppEnv> => {
   const access = contract[name].access
   const facts = caller === null ? null : { kind: caller.credential.kind, role: caller.member.role }

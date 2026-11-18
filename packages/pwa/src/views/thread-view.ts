@@ -1,5 +1,12 @@
 import { systemClock } from '@homingbird/kernel'
-import { type Conversation, type ConversationId, type Me, type Note, summarize } from '@homingbird/protocol'
+import {
+  type Conversation,
+  type ConversationId,
+  type Me,
+  type Note,
+  type Topic,
+  summarize,
+} from '@homingbird/protocol'
 import { type Child, type Lifetime, h, keyedRegion, linkedText, region } from '@homingbird/ui'
 import {
   approveDraft,
@@ -45,13 +52,13 @@ import {
   statusOf,
   threadItems,
 } from '../thread.ts'
-import { topicLabel, topicOfRoom } from '../topics.ts'
+import { isPrivate, topicLabel, topicNamed, topicOfRoom } from '../topics.ts'
 import { agentAsk } from './agent-ask.ts'
 import { groupAvatar, memberAvatar } from './character-avatar.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
 import { backLink, button, emptyWithPip, field, presenceBadges, timeLabel } from './parts.ts'
 import { type PipState, pip } from './pip.ts'
-import { helpToggle } from './topics.ts'
+import { privateMark, roomControls } from './topic-membership.ts'
 
 export const threadView = (life: Lifetime, me: Me, id: ConversationId): HTMLElement => {
   launch(loadThread(id))
@@ -143,15 +150,15 @@ const topicHead = (conversation: Conversation, title: string): Child => {
     h(
       'div',
       { class: 'thread-who' },
-      h('h1', {}, title),
+      h('h1', {}, title, topic !== null && privateMark(topic)),
       topic !== null &&
         h(
           'p',
           { class: 'thread-profile' },
-          `${strings.helpers({ count: topic.helperCount })} · ${topic.description}`,
+          `${strings.memberCount({ count: topic.memberCount })} · ${strings.helpers({ count: topic.helperCount })} · ${topic.description}`,
         ),
     ),
-    topic !== null && helpToggle(topic),
+    topic !== null && roomControls(topic),
   ]
 }
 
@@ -229,7 +236,7 @@ const roomStatus = (note: Note): string => {
 
 const moveForm = (note: Note, conversationId: ConversationId): Child => {
   const here = topicOfRoom(topics.get(), conversationId)
-  const choice = topicSelect(here?.slug ?? null)
+  const choice = topicSelect(here, here)
   return h(
     'form',
     {
@@ -253,13 +260,13 @@ const moveForm = (note: Note, conversationId: ConversationId): Child => {
   )
 }
 
-const topicSelect = (excluded: string | null): HTMLSelectElement =>
+const topicSelect = (here: Topic | null, movingFrom: Topic | null): HTMLSelectElement =>
   h(
     'select',
     { name: 'topic', required: true },
     topics
       .get()
-      .filter((topic) => topic.slug !== excluded)
+      .filter((topic) => topic.slug !== here?.slug && mayMoveBetween(movingFrom, topic))
       .map((topic) =>
         h(
           'option',
@@ -268,6 +275,9 @@ const topicSelect = (excluded: string | null): HTMLSelectElement =>
         ),
       ),
   )
+
+const mayMoveBetween = (here: Topic | null, there: Topic): boolean =>
+  here !== null && isPrivate(here) ? isPrivate(there) && there.joined : !isPrivate(there) || there.joined
 
 const statusPip = (note: Note): PipState => {
   const summary = summarize(note.receipts)
@@ -357,7 +367,7 @@ const draftCard = (
   )
 
 const readdressForm = (draft: Note, currentSlug: string): Child => {
-  const choice = topicSelect(currentSlug)
+  const choice = topicSelect(topicNamed(topics.get(), currentSlug), null)
   return h(
     'form',
     {

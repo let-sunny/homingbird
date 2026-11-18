@@ -437,9 +437,9 @@ describe('directory changes', () => {
     const changed = ['directory.changed', ana.me.member.id]
     await ana.api('POST', '/topics', { slug: 'billing', description: 'Invoices' })
     expect(await typeAndMember()).toEqual(changed)
-    await ana.api('DELETE', '/topics/billing/helpers/me')
+    await ana.api('DELETE', '/topics/billing/membership')
     expect(await typeAndMember()).toEqual(changed)
-    await ana.api('PUT', '/topics/billing/helpers/me')
+    await ana.api('PUT', '/topics/billing/membership', { answering: true })
     expect(await typeAndMember()).toEqual(changed)
     await ana.api('PATCH', '/admin/topics/billing', { slug: 'payments' })
     expect(await typeAndMember()).toEqual(changed)

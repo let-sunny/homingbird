@@ -246,7 +246,8 @@ test('a request leaves the pane once its draft is saved', async ($, on) => {
 
 test('the status line, toasts and notifications speak the person’s language', async ($, on) => {
   const seen = engineBeneath(on, {
-    overview: { ...OVERVIEW, member: { ...OVERVIEW.member, locale: 'ko' } },
+    overview: OVERVIEW,
+    locale: 'ko',
     streamLines: [ARRIVAL],
   })
   await $.session.start(START)
@@ -254,4 +255,5 @@ test('the status line, toasts and notifications speak the person’s language', 
   expect(seen.statuses).toContain('Homingbird 전용 세션 · 승인을 기다리는 초안 1개')
   expect(seen.notifications).toContain('Ana 님이 보낸 노트가 도착했어요. 답장 초안을 쓰고 있어요.')
   expect(seen.toasts).toContain('Homingbird: Ana 님이 보낸 노트가 도착했어요. 답장 초안을 쓰고 있어요.')
+  expect(seen.commands.filter((args) => args[0] === 'status')).toEqual([['status', '--json']])
 })

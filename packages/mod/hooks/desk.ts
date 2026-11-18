@@ -13,6 +13,7 @@ export interface Desk {
   readonly wrappedNotes: Map<string, string>
   readonly helpers: Map<string, string>
   readonly approveButtonAllowed: Map<string, boolean>
+  readonly localeOn: Map<string, string | null>
   stream: AsyncGenerator<unknown, unknown> | null
   heartbeat: { readonly cancel: () => void } | null
   lastSequence: number | null
@@ -23,6 +24,7 @@ export const makeDesk = (options: PluginOptions): Desk => ({
   handled: new Set(),
   wrappedNotes: new Map(),
   approveButtonAllowed: new Map(),
+  localeOn: new Map(),
   helpers: new Map(),
   stream: null,
   heartbeat: null,
@@ -74,6 +76,8 @@ export async function beginSignIn($: Engine, desk: Desk, server: string): Promis
     await update($, problem, () => failed)
   }
   await update($, signIn, () => null)
+  desk.localeOn.delete(server)
+  desk.approveButtonAllowed.delete(server)
   if ((await refresh($, desk)) !== null) await claimDesk($, desk)
 }
 
@@ -92,10 +96,7 @@ export async function refresh($: Engine, desk: Desk): Promise<HomingbirdOverview
   if (ran.kind === 'unavailable') return settle($, ran.message, true)
   if (ran.kind !== 'ok' && ran.kind !== 'signed-out') return settle($, ran.message, false)
   const listed = ran.kind === 'ok' ? overviewIn(ran.value) : null
-  const latest =
-    listed === null
-      ? null
-      : { ...listed, approveButtonAllowed: await approveButtonAllowedOn($, desk, listed.server) }
+  const latest = listed === null ? null : { ...listed, ...(await statusOn($, desk, listed.server)) }
   await update($, overview, () => latest)
   await update($, problem, () => null)
   if (latest === null) await update($, connection, () => 'signed-out')
@@ -131,6 +132,27 @@ type Engine = EngineInterface
 
 async function said($: Engine): Promise<PaneText> {
   return textFor($, await read($, overview))
+}
+
+async function statusOn(
+  $: Engine,
+  desk: Desk,
+  server: string,
+): Promise<{ locale: string | null; approveButtonAllowed: boolean }> {
+  if (!desk.localeOn.has(server)) {
+    const ran = await runJson($, desk.options, ['status'])
+    const status = (ran.kind === 'ok' ? ran.value : null) as {
+      locale?: unknown
+      approveButton?: unknown
+    } | null
+    desk.localeOn.set(server, typeof status?.locale === 'string' ? status.locale : null)
+    if (typeof status?.approveButton === 'boolean')
+      desk.approveButtonAllowed.set(server, status.approveButton)
+  }
+  return {
+    locale: desk.localeOn.get(server) ?? null,
+    approveButtonAllowed: await approveButtonAllowedOn($, desk, server),
+  }
 }
 
 async function approveButtonAllowedOn($: Engine, desk: Desk, server: string): Promise<boolean> {
@@ -356,13 +378,13 @@ const hasDrafts = (value: unknown): boolean => {
 
 const overviewIn = (value: unknown): HomingbirdOverview | null => {
   const data = value as
-    | (Partial<HomingbirdOverview> & { signedIn?: boolean; member?: { name?: string; locale?: unknown } })
+    | (Partial<HomingbirdOverview> & { signedIn?: boolean; member?: { name?: string } })
     | null
   if (data === null || data.signedIn !== true) return null
   return {
     server: String(data.server ?? ''),
     memberName: String(data.member?.name ?? ''),
-    locale: typeof data.member?.locale === 'string' ? data.member.locale : null,
+    locale: null,
     hasApproveButton: data.hasApproveButton === true,
     conversations: data.conversations ?? [],
     awaiting: data.awaiting ?? [],

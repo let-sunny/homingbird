@@ -15,6 +15,8 @@ import type {
   NoteId,
   Settings,
   Topic,
+  TopicMember,
+  TopicVisibility,
 } from '@homingbird/protocol'
 import { type AgentAsk, requestBody, upsertRequest } from './draft-requests.ts'
 import { preferredLanguage } from './languages.ts'
@@ -177,18 +179,41 @@ export const loadTopics = (query: string): Action<ReadonlyArray<Topic>> =>
     return listed.topics
   })(api['topics.list']({ query: query === '' ? {} : { q: query } }))
 
-export const createTopic = (slug: string, description: string): Action<Topic> =>
+export const createTopic = (slug: string, description: string, visibility: TopicVisibility): Action<Topic> =>
   T.gen(function* () {
-    const created = yield* api['topics.create']({ body: { slug, description } })
+    const created = yield* api['topics.create']({ body: { slug, description, visibility } })
     yield* afterTopicChange
     return created
   })
 
-export const setHelping = (slug: string, helping: boolean): Action =>
-  T.gen(function* () {
-    yield* (helping ? api['topics.help'] : api['topics.leave'])({ params: { slug } })
-    yield* afterTopicChange
-  })
+export const joinTopic = (slug: string, answering: boolean): Action =>
+  T.flatMap(() => afterTopicChange)(api['topics.join']({ params: { slug }, body: { answering } }))
+
+export const leaveTopic = (slug: string): Action =>
+  T.flatMap(() => afterTopicChange)(api['topics.leave']({ params: { slug } }))
+
+export const setAnswering = (slug: string, answering: boolean): Action =>
+  T.flatMap(() => afterTopicChange)(
+    (answering ? api['topics.answering.on'] : api['topics.answering.off'])({ params: { slug } }),
+  )
+
+export const loadTopicMembers = (slug: string): Action<ReadonlyArray<TopicMember>> =>
+  T.map((listed: { members: ReadonlyArray<TopicMember> }) => listed.members)(
+    api['topics.members.list']({ params: { slug } }),
+  )
+
+export const setTopicMember = (slug: string, memberId: MemberId, isMember: boolean): Action =>
+  T.flatMap(() => afterTopicChange)(
+    (isMember ? api['topics.members.add'] : api['topics.members.remove'])({ params: { slug, memberId } }),
+  )
+
+export const setTopicManager = (slug: string, memberId: MemberId, isManager: boolean): Action =>
+  T.flatMap(() => afterTopicChange)(
+    (isManager ? api['topics.managers.add'] : api['topics.managers.remove'])({ params: { slug, memberId } }),
+  )
+
+export const setTopicVisibility = (slug: string, visibility: TopicVisibility): Action =>
+  T.flatMap(() => afterTopicChange)(api['topics.visibility.set']({ params: { slug }, body: { visibility } }))
 
 export const askTopic = (slug: string, body: string): Action<ConversationId> =>
   T.gen(function* () {
