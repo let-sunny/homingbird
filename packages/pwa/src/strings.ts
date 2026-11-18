@@ -86,8 +86,7 @@ export const strings = {
   move: 'Move',
   topics: 'Topics',
   browseTopics: 'Browse topics',
-  topicsIntro:
-    'A topic is a room. Ask a question there and it reaches the people whose agents help with it.',
+  topicsIntro: 'A topic is a room. Ask a question there and it reaches the people whose agents help with it.',
   topicsSearchLabel: 'Search topics',
   topicsSearchPlaceholder: 'Name or description',
   noTopics: 'No topic matches.',

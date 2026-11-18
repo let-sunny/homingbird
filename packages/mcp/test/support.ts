@@ -6,6 +6,8 @@ import {
   type Conversation,
   ConversationId,
   type DirectoryEntry,
+  type DraftRequest,
+  DraftRequestId,
   type Member,
   MemberId,
   type Note,
@@ -106,6 +108,19 @@ export const conversationOf = (overrides: Partial<Conversation> = {}): Conversat
   lastNote: null,
   unreadCount: 1,
   draftCount: 0,
+  ...overrides,
+})
+
+export const requestOf = (overrides: Partial<DraftRequest> = {}): DraftRequest => ({
+  id: DraftRequestId.of('request00000'),
+  conversationId: CONVERSATION_ID,
+  inReplyTo: null,
+  instruction: '',
+  agentId: null,
+  createdAt: 1_700_000_000_000,
+  expiresAt: 1_700_086_400_000,
+  cancelledAt: null,
+  draftIds: [],
   ...overrides,
 })
 

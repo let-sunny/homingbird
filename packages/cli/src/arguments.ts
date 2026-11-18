@@ -5,13 +5,25 @@ export type DraftTarget =
   | { readonly kind: 'to'; readonly recipient: string }
   | { readonly kind: 'reply'; readonly noteId: string }
   | { readonly kind: 'conversation'; readonly conversationId: string }
+  | { readonly kind: 'topic'; readonly slug: string }
+  | { readonly kind: 'request'; readonly requestId: string }
 
 export type Invocation =
   | { readonly command: 'help' }
-  | { readonly command: 'login'; readonly server: string; readonly name: string | null; readonly approveButton: boolean }
+  | {
+      readonly command: 'login'
+      readonly server: string
+      readonly name: string | null
+      readonly approveButton: boolean
+      readonly openBrowser: boolean
+    }
   | { readonly command: 'logout' }
   | { readonly command: 'status' }
-  | { readonly command: 'directory'; readonly query: string | null }
+  | { readonly command: 'directory'; readonly query: string | null; readonly topic: string | null }
+  | { readonly command: 'topics'; readonly query: string | null }
+  | { readonly command: 'requests' }
+  | { readonly command: 'open'; readonly conversationId: string | null }
+  | { readonly command: 'run'; readonly agent: string; readonly timeoutSeconds: number }
   | { readonly command: 'inbox'; readonly fresh: boolean }
   | { readonly command: 'conversations' }
   | { readonly command: 'conversation'; readonly id: string }
@@ -34,25 +46,29 @@ export const parseArguments = (argv: ReadonlyArray<string>): Result.Result<Parse
     const [command, ...rest] = positionals
     const json = switches.has('json')
     if (command === undefined || switches.has('help')) return { invocation: { command: 'help' }, json }
-    const build = BUILDERS[command]
-    if (build === undefined) return yield* usage(`Unknown command "${command}".`)
-    return { invocation: yield* build({ rest, values, switches }), json }
+    if (!Object.hasOwn(BUILDERS, command)) return yield* usage(`Unknown command "${command}".`)
+    return { invocation: yield* BUILDERS[command]!({ rest, values, switches }), json }
   })
 
 export const USAGE = `Usage: homingbird <command> [options]
 
-  login --server <url> [--name <device name>] [--approve-button]
+  login --server <url> [--name <device name>] [--approve-button] [--no-browser]
   logout
   status
-  directory [query]
+  open [conversationId]                        open the web client, where drafts are approved
+  directory [query] [--topic <slug>]
+  topics [query]
   inbox [--fresh]
+  requests                                     drafts your person asked this agent for
   conversations
   conversation <id>
-  draft (--to <email-or-id> | --reply <noteId> | --conversation <id>) <text>
+  draft (--to <email-or-id> | --reply <noteId> | --conversation <id> | --topic <slug> | --request <id>) <text>
   drafts
   overview
   pickup <noteId>
   stream [--after <sequence>]
+  run --agent "<command>" [--timeout <seconds>]
+                                               answer arriving notes and requests with a headless agent
   approve <draftId> [--body <edited text>]     person only
   discard <draftId>                            person only
 
@@ -64,8 +80,22 @@ interface Tokens {
   readonly switches: ReadonlySet<string>
 }
 
-const VALUE_FLAGS = new Set(['server', 'name', 'to', 'reply', 'conversation', 'body', 'after'])
-const SWITCH_FLAGS = new Set(['json', 'approve-button', 'fresh', 'help'])
+const VALUE_FLAGS = new Set([
+  'server',
+  'name',
+  'to',
+  'reply',
+  'conversation',
+  'topic',
+  'request',
+  'body',
+  'after',
+  'agent',
+  'timeout',
+])
+const SWITCH_FLAGS = new Set(['json', 'approve-button', 'no-browser', 'fresh', 'help'])
+
+const RUN_TIMEOUT_DEFAULT_SECONDS = 300
 
 const usage = (message: string): Result.Err<CliFailure> =>
   Result.err(CliFailure({ message: `${message}\n\n${USAGE}`, exitCode: EXIT.usage }))
@@ -104,11 +134,15 @@ const draftTarget = (values: ReadonlyMap<string, string>): Result.Result<DraftTa
     ...(values.has('conversation')
       ? [{ kind: 'conversation' as const, conversationId: values.get('conversation')! }]
       : []),
+    ...(values.has('topic') ? [{ kind: 'topic' as const, slug: values.get('topic')! }] : []),
+    ...(values.has('request') ? [{ kind: 'request' as const, requestId: values.get('request')! }] : []),
   ]
   return targets.length === 1
     ? Result.ok(targets[0]!)
-    : usage('A draft needs exactly one of --to, --reply or --conversation.')
+    : usage('A draft needs exactly one of --to, --reply, --conversation, --topic or --request.')
 }
+
+const joined = (rest: ReadonlyArray<string>): string | null => (rest.length > 0 ? rest.join(' ') : null)
 
 const required = (rest: ReadonlyArray<string>, what: string): Result.Result<string, CliFailure> =>
   rest[0] === undefined ? usage(`Missing ${what}.`) : Result.ok(rest[0])
@@ -122,11 +156,28 @@ const BUILDERS: Readonly<Record<string, (tokens: Tokens) => Result.Result<Invoca
           server: values.get('server')!.replace(/\/+$/, ''),
           name: values.get('name') ?? null,
           approveButton: switches.has('approve-button'),
+          openBrowser: !switches.has('no-browser'),
         })
       : usage('login needs --server <url>.'),
   logout: () => Result.ok({ command: 'logout' }),
   status: () => Result.ok({ command: 'status' }),
-  directory: ({ rest }) => Result.ok({ command: 'directory', query: rest.length > 0 ? rest.join(' ') : null }),
+  directory: ({ rest, values }) =>
+    Result.ok({ command: 'directory', query: joined(rest), topic: values.get('topic') ?? null }),
+  topics: ({ rest }) => Result.ok({ command: 'topics', query: joined(rest) }),
+  requests: () => Result.ok({ command: 'requests' }),
+  open: ({ rest }) => Result.ok({ command: 'open', conversationId: rest[0] ?? null }),
+  run: ({ values }) => {
+    const agent = values.get('agent')?.trim() ?? ''
+    if (agent === '') return usage('run needs --agent "<command>", such as --agent "claude -p".')
+    const timeout = values.get('timeout')
+    if (timeout !== undefined && !/^[1-9][0-9]{0,4}$/.test(timeout))
+      return usage('--timeout needs a number of seconds.')
+    return Result.ok({
+      command: 'run',
+      agent,
+      timeoutSeconds: timeout === undefined ? RUN_TIMEOUT_DEFAULT_SECONDS : Number(timeout),
+    })
+  },
   inbox: ({ switches }) => Result.ok({ command: 'inbox', fresh: switches.has('fresh') }),
   conversations: () => Result.ok({ command: 'conversations' }),
   conversation: ({ rest }) => Result.map((id: string) => ({ command: 'conversation' as const, id }))(required(rest, 'the conversation id')),

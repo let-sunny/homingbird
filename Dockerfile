@@ -1,5 +1,6 @@
 # syntax=docker/dockerfile:1
 
+# Node 22.18 or newer: node:sqlite needs no flag there, and the test suite runs on 22.
 FROM node:22-slim AS build
 WORKDIR /repo
 RUN corepack enable
@@ -7,11 +8,11 @@ COPY . .
 RUN pnpm install --frozen-lockfile
 RUN pnpm build
 
-FROM node:22-slim AS drivers
+FROM node:22-alpine AS drivers
 WORKDIR /drivers
-RUN npm install --omit=dev --no-audit --no-fund pg@8 mysql2@3
+RUN npm install --omit=dev --no-audit --no-fund --no-package-lock pg@8.23.1 mysql2@3.24.6
 
-FROM node:22-slim
+FROM node:22-alpine
 ENV NODE_ENV=production \
     NODE_OPTIONS=--disable-warning=ExperimentalWarning \
     HB_PORT=8080 \

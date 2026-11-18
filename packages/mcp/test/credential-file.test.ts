@@ -16,7 +16,9 @@ const CREDENTIAL = { token: 'hba_test-token', expiresAt: 1_800_000_000_000 }
 
 describe('credentialFilePath', () => {
   it('uses XDG_CONFIG_HOME when it is set, and ~/.config otherwise', () => {
-    expect(credentialFilePath({ XDG_CONFIG_HOME: '/xdg' }, '/home/june')).toBe('/xdg/homingbird/mcp-credentials.json')
+    expect(credentialFilePath({ XDG_CONFIG_HOME: '/xdg' }, '/home/june')).toBe(
+      '/xdg/homingbird/mcp-credentials.json',
+    )
     expect(credentialFilePath({}, '/home/june')).toBe('/home/june/.config/homingbird/mcp-credentials.json')
     expect(credentialFilePath({ XDG_CONFIG_HOME: '' }, '/home/june')).toBe(
       '/home/june/.config/homingbird/mcp-credentials.json',
@@ -38,7 +40,9 @@ describe('the credential file', () => {
 
   it('keeps one credential per server', async () => {
     await T.runPromise(storeCredential(path, SERVER, CREDENTIAL))
-    await T.runPromise(storeCredential(path, 'https://other.example.com', { ...CREDENTIAL, token: 'hba_other' }))
+    await T.runPromise(
+      storeCredential(path, 'https://other.example.com', { ...CREDENTIAL, token: 'hba_other' }),
+    )
     await T.runPromise(storeCredential(path, SERVER, { ...CREDENTIAL, token: 'hba_renewed' }))
     expect((await T.runPromise(readCredential(path, SERVER)))?.token).toBe('hba_renewed')
     expect((await T.runPromise(readCredential(path, 'https://other.example.com')))?.token).toBe('hba_other')
@@ -52,12 +56,14 @@ describe('the credential file', () => {
     expect((await stat(path)).mode & 0o777).toBe(0o600)
   })
 
-  it.each(['not json', '[]', '{"https://hb.example.com":{"token":""}}', '{"https://hb.example.com":{"token":7,"expiresAt":1}}'])(
-    'treats an unreadable file as empty: %s',
-    async (content) => {
-      await T.runPromise(storeCredential(path, 'https://seed.example.com', CREDENTIAL))
-      await writeFile(path, content)
-      expect(await T.runPromise(readCredential(path, SERVER))).toBeNull()
-    },
-  )
+  it.each([
+    'not json',
+    '[]',
+    '{"https://hb.example.com":{"token":""}}',
+    '{"https://hb.example.com":{"token":7,"expiresAt":1}}',
+  ])('treats an unreadable file as empty: %s', async (content) => {
+    await T.runPromise(storeCredential(path, 'https://seed.example.com', CREDENTIAL))
+    await writeFile(path, content)
+    expect(await T.runPromise(readCredential(path, SERVER))).toBeNull()
+  })
 })

@@ -1,13 +1,14 @@
 import { Task as T } from '@homingbird/kernel'
 import type { Credential, Me } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, region, signal } from '@homingbird/ui'
-import { api, launch, renameCredential, revokeCredential, updateProfile } from '../actions.ts'
+import { api, launch, loadTopics, renameCredential, revokeCredential, updateProfile } from '../actions.ts'
 import { APPEARANCES, type Appearance, applyAppearance, currentAppearance } from '../appearance.ts'
 import { pushIsAvailable, pushIsOn, turnPushOff, turnPushOn } from '../push.ts'
-import { notice } from '../state.ts'
+import { hrefFor } from '../routes.ts'
+import { directory, notice, topics } from '../state.ts'
 import { strings } from '../strings.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
-import { button, dateTimeLabel, field, page } from './parts.ts'
+import { button, dateTimeLabel, field, page, topicChips } from './parts.ts'
 
 export const profileView = (life: Lifetime, me: Me): HTMLElement => {
   const name = h('input', { name: 'name', required: true, maxlength: '200', value: me.member.name })
@@ -30,7 +31,7 @@ export const profileView = (life: Lifetime, me: Me): HTMLElement => {
       },
       h('p', { class: 'form-who' }, me.member.email),
       field(strings.profileName, name),
-      field(strings.profileAgent, profile, strings.profileAgentHint),
+      field(strings.profileAbout, profile, strings.profileAgentHint),
       h('button', { type: 'submit', class: 'primary' }, strings.save),
     ),
     h(
@@ -52,7 +53,24 @@ export const profileView = (life: Lifetime, me: Me): HTMLElement => {
         ),
       ),
     ),
+    helpedTopics(life, me),
     notificationsToggle(life),
+  )
+}
+
+const helpedTopics = (life: Lifetime, me: Me): HTMLElement => {
+  launch(loadTopics(''))
+  return h(
+    'fieldset',
+    { class: 'appearance my-topics' },
+    h('legend', {}, strings.profileAgent),
+    region(life, [topics, directory], () => {
+      const helped = topics.get().filter((topic) => topic.helping)
+      const fromDirectory = directory.get().find((entry) => entry.member.id === me.member.id)?.topics ?? []
+      const slugs = helped.length > 0 ? helped.map((topic) => topic.slug) : fromDirectory
+      return slugs.length === 0 ? h('p', {}, strings.noTopicsHelped) : topicChips(slugs)
+    }),
+    h('a', { class: 'button', href: hrefFor({ name: 'topics' }) }, strings.browseTopics),
   )
 }
 

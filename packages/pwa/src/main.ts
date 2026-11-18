@@ -16,6 +16,7 @@ import { searchView } from './views/search.ts'
 import { shell } from './views/shell.ts'
 import { signInView } from './views/sign-in.ts'
 import { threadView } from './views/thread-view.ts'
+import { topicView, topicsView } from './views/topics.ts'
 
 const start = (root: HTMLElement): void => {
   applyAppearance(currentAppearance())
@@ -49,9 +50,16 @@ const start = (root: HTMLElement): void => {
       replaceChildren(root, signInView(refusalIn(route.get())))
       return
     }
+    const focused = arrivedToConnect(route.get())
     drawStage(me)
-    appLife.add(route.subscribe(() => drawStage(me)))
-    replaceChildren(root, shell(appLife, me, stage), dialogHost(), toast(appLife), liveAnnouncer(appLife))
+    appLife.add(route.subscribe(() => (arrivedToConnect(route.get()) === focused ? drawStage(me) : draw())))
+    replaceChildren(
+      root,
+      focused ? stage : shell(appLife, me, stage),
+      dialogHost(),
+      toast(appLife),
+      liveAnnouncer(appLife),
+    )
   }
   session.subscribe(draw)
   serverInfo.subscribe(draw)
@@ -73,6 +81,10 @@ const stageFor = (life: Lifetime, me: Me, current: Route): Child => {
       return threadView(life, me, current.id as ConversationId)
     case 'people':
       return peopleView(life, me)
+    case 'topics':
+      return topicsView(life)
+    case 'topic':
+      return topicView(life, current.slug)
     case 'search':
       return searchView(life, me, current.query)
     case 'profile':

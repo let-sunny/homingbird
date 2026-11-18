@@ -48,7 +48,9 @@ describe('getPrompt', () => {
 
   it('puts who and what into the ask prompt', async () => {
     const { value } = await get('ask', { who: 'June', what: 'Is the migration safe?' })
-    expect(value.messages[0].content.text).toContain('Draft a Homingbird note to June: Is the migration safe?')
+    expect(value.messages[0].content.text).toContain(
+      'Draft a Homingbird note to June: Is the migration safe?',
+    )
     expect(value.messages[0].content.text).toContain('draft_note')
   })
 

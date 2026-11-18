@@ -1,7 +1,7 @@
 import type { ConversationId, DraftRequest, NoteId } from '@homingbird/protocol'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { requestAnsweredBy, upsertRequest, waitingRequests } from '../src/draft-requests.ts'
+import { requestAnsweredBy, requestBody, upsertRequest, waitingRequests } from '../src/draft-requests.ts'
 
 const here = 'conv_here00000000' as ConversationId
 const elsewhere = 'conv_elsewhere000' as ConversationId
@@ -60,5 +60,23 @@ describe('requestAnsweredBy', () => {
     const requests = [request('a', { draftIds: ['note_1' as NoteId, 'note_2' as NoteId] })]
     expect(requestAnsweredBy(requests, 'note_2' as NoteId)?.id).toBe('a')
     expect(requestAnsweredBy(requests, 'note_9' as NoteId)).toBeNull()
+  })
+})
+
+describe('requestBody', () => {
+  it('sends only the destination when there is no instruction and no chosen agent', () => {
+    expect(requestBody({ destination: { topic: 'billing' }, instruction: '  ', agentId: null })).toEqual({
+      topic: 'billing',
+    })
+  })
+
+  it('adds a trimmed instruction and the chosen agent', () => {
+    expect(
+      requestBody({
+        destination: { inReplyTo: 'note_1' as NoteId },
+        instruction: ' say yes ',
+        agentId: 'cred_1' as never,
+      }),
+    ).toEqual({ inReplyTo: 'note_1', instruction: 'say yes', agentId: 'cred_1' })
   })
 })

@@ -70,7 +70,8 @@ export const registerClient = (
       return yield* T.fail(
         OAuthError({
           code: 'invalid_redirect_uri',
-          description: 'redirect_uris must be loopback http, an app scheme, or https on a host this server allows',
+          description:
+            'redirect_uris must be loopback http, an app scheme, or https on a host this server allows',
         }),
       )
     const client: RegisteredClient = {
@@ -124,7 +125,10 @@ export const requireAuthorization = (
       )
     if (!client.configured && !isAllowedRedirectUri(redirectUri, env.config.oauth.redirectHosts))
       return yield* T.fail(
-        OAuthError({ code: 'invalid_redirect_uri', description: 'redirect_uri is not allowed on this server' }),
+        OAuthError({
+          code: 'invalid_redirect_uri',
+          description: 'redirect_uri is not allowed on this server',
+        }),
       )
     if (parameters.response_type !== 'code')
       return yield* T.fail(OAuthError({ code: 'invalid_request', description: 'response_type must be code' }))
@@ -134,7 +138,11 @@ export const requireAuthorization = (
     )
       return yield* T.fail(OAuthError({ code: 'invalid_request', description: 'PKCE with S256 is required' }))
     return {
-      client: { client_id: client.client_id, client_name: client.client_name, redirect_uris: client.redirect_uris },
+      client: {
+        client_id: client.client_id,
+        client_name: client.client_name,
+        redirect_uris: client.redirect_uris,
+      },
       redirectUri,
       codeChallenge: parameters.code_challenge!,
       state: parameters.state ?? null,

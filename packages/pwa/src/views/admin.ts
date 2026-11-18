@@ -1,10 +1,19 @@
 import { Task as T } from '@homingbird/kernel'
-import type { AuditEntry, Me, Member, Settings } from '@homingbird/protocol'
+import {
+  type AuditEntry,
+  type Me,
+  type Member,
+  type Settings,
+  TOPIC_DESCRIPTION_MAX,
+  type Topic,
+} from '@homingbird/protocol'
 import { type Child, type Lifetime, h, region, signal } from '@homingbird/ui'
-import { api, launch, saveSettings } from '../actions.ts'
+import { api, launch, loadTopics, mergeTopic, removeTopic, reviseTopic, saveSettings } from '../actions.ts'
 import { type AdminSection, hrefFor } from '../routes.ts'
-import { members as knownMembers, notice } from '../state.ts'
+import { members as knownMembers, notice, topics } from '../state.ts'
 import { strings } from '../strings.ts'
+import { canRename, slugFrom, topicLabel } from '../topics.ts'
+import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
 import { button, dateTimeLabel, field, page } from './parts.ts'
 
 export const adminView = (life: Lifetime, me: Me, section: AdminSection): HTMLElement =>
@@ -25,12 +34,15 @@ export const adminView = (life: Lifetime, me: Me, section: AdminSection): HTMLEl
       ? settingsSection(life)
       : section === 'members'
         ? membersSection(life, me)
-        : auditSection(life),
+        : section === 'topics'
+          ? topicsSection(life)
+          : auditSection(life),
   )
 
 const SECTIONS: ReadonlyArray<readonly [AdminSection, string]> = [
   ['settings', strings.adminSettings],
   ['members', strings.adminMembers],
+  ['topics', strings.adminTopics],
   ['audit', strings.adminAudit],
 ]
 
@@ -138,6 +150,159 @@ const membersSection = (life: Lifetime, me: Me): HTMLElement => {
     )
   })
 }
+
+const topicsSection = (life: Lifetime): HTMLElement => {
+  launch(loadTopics(''))
+  return region(life, [topics], () =>
+    h(
+      'ul',
+      { class: 'members admin-topics' },
+      topics.get().map((topic) =>
+        h(
+          'li',
+          { class: 'member', data: { slug: topic.slug } },
+          h(
+            'div',
+            { class: 'member-main' },
+            h('strong', {}, topicLabel(topic.slug)),
+            h('span', {}, topic.description),
+            h('span', { class: 'topic-meta' }, strings.helpers(topic.helperCount)),
+            !canRename(topic.slug) && h('small', {}, strings.generalIsFixed),
+          ),
+          h(
+            'div',
+            { class: 'member-actions' },
+            h(
+              'button',
+              {
+                type: 'button',
+                ...opensDialog(strings.editTopicTitle(topicLabel(topic.slug)), () => editTopicForm(topic)),
+              },
+              strings.editTopic,
+            ),
+            canRename(topic.slug) &&
+              h(
+                'button',
+                {
+                  type: 'button',
+                  ...opensDialog(strings.mergeTopicTitle(topicLabel(topic.slug)), () => mergeForm(topic)),
+                },
+                strings.mergeTopic,
+              ),
+            canRename(topic.slug) &&
+              h(
+                'button',
+                {
+                  type: 'button',
+                  class: 'danger',
+                  ...opensDialog(strings.removeTopicTitle(topicLabel(topic.slug)), () => removeForm(topic)),
+                },
+                strings.removeTopic,
+              ),
+          ),
+        ),
+      ),
+    ),
+  )
+}
+
+const editTopicForm = (topic: Topic): Child => {
+  const slug = h('input', {
+    name: 'slug',
+    required: true,
+    maxlength: '40',
+    value: topic.slug,
+    disabled: !canRename(topic.slug),
+    on: {
+      input: () => {
+        const normalized = slugFrom(slug.value)
+        if (normalized !== slug.value) slug.value = normalized
+      },
+    },
+  })
+  const description = h('input', {
+    name: 'description',
+    required: true,
+    maxlength: String(TOPIC_DESCRIPTION_MAX),
+    value: topic.description,
+  })
+  return h(
+    'form',
+    {
+      class: 'dialog-body',
+      on: {
+        submit: (event) => {
+          event.preventDefault()
+          const renamed = slugFrom(slug.value).replace(/-+$/, '')
+          launch(
+            reviseTopic(topic.slug, {
+              ...(canRename(topic.slug) && renamed !== topic.slug && { slug: renamed }),
+              description: description.value.trim(),
+            }),
+            closeDialog,
+          )
+        },
+      },
+    },
+    field(
+      strings.topicSlugLabel,
+      slug,
+      canRename(topic.slug) ? strings.topicSlugHint : strings.generalIsFixed,
+    ),
+    field(strings.topicDescriptionLabel, description),
+    dialogActions(strings.save, 'primary'),
+  )
+}
+
+const mergeForm = (topic: Topic): Child => {
+  const into = h(
+    'select',
+    { name: 'into', required: true },
+    topics
+      .get()
+      .filter((other) => other.slug !== topic.slug)
+      .map((other) => h('option', { value: other.slug }, topicLabel(other.slug))),
+  )
+  return h(
+    'form',
+    {
+      class: 'dialog-body',
+      on: {
+        submit: (event) => {
+          event.preventDefault()
+          launch(mergeTopic(topic.slug, into.value), closeDialog)
+        },
+      },
+    },
+    h('p', {}, strings.mergeIntro),
+    field(strings.mergeInto, into),
+    dialogActions(strings.mergeInto, 'primary'),
+  )
+}
+
+const removeForm = (topic: Topic): Child =>
+  h(
+    'form',
+    {
+      class: 'dialog-body',
+      on: {
+        submit: (event) => {
+          event.preventDefault()
+          launch(removeTopic(topic.slug), closeDialog)
+        },
+      },
+    },
+    h('p', {}, strings.removeTopicBody),
+    dialogActions(strings.removeTopic, 'danger'),
+  )
+
+const dialogActions = (label: string, kind: 'primary' | 'danger'): HTMLElement =>
+  h(
+    'div',
+    { class: 'dialog-actions' },
+    h('button', { type: 'button', ...closesDialog }, strings.cancel),
+    h('button', { type: 'submit', class: kind }, label),
+  )
 
 const auditSection = (life: Lifetime): HTMLElement => {
   const log = signal<{ readonly entries: ReadonlyArray<AuditEntry>; readonly hasMore: boolean }>({

@@ -3,8 +3,9 @@ import type { ConsentRequest, DeviceRequest } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, region, signal } from '@homingbird/ui'
 import { api, launch } from '../actions.ts'
 import { hrefFor } from '../routes.ts'
+import { branding } from '../state.ts'
 import { strings } from '../strings.ts'
-import { button, field, page } from './parts.ts'
+import { button, field, wordmark } from './parts.ts'
 import { pip } from './pip.ts'
 
 export const deviceView = (life: Lifetime, code: string | null): HTMLElement => {
@@ -16,36 +17,43 @@ export const deviceView = (life: Lifetime, code: string | null): HTMLElement => 
       ),
     )
   if (code !== null) lookUp(code)
-  return page(
+  return connectWindow(
     strings.deviceTitle,
     region(life, [stage], () => {
       const current = stage.get()
       if (current.step === 'ask') return codeForm()
       if (current.step === 'loading') return h('p', { class: 'loading' }, strings.loading)
-      if (current.step === 'done') return outcome(current.message)
-      return deviceDecision(current.request, (message) => stage.set({ step: 'done', message }))
+      if (current.step === 'done') return outcome(current.approved, current.message)
+      return deviceDecision(current.request, (approved) =>
+        stage.set({
+          step: 'done',
+          approved,
+          message: approved ? strings.deviceApproved : strings.deviceDenied,
+        }),
+      )
     }),
   )
 }
 
 export const consentView = (life: Lifetime, id: string): HTMLElement => {
   const request = signal<ConsentRequest | null>(null)
-  const decided = signal<string | null>(null)
+  const decided = signal<{ readonly approved: boolean; readonly message: string } | null>(null)
   launch(T.map((loaded: ConsentRequest) => request.set(loaded))(api['consent.get']({ params: { id } })))
-  return page(
+  return connectWindow(
     strings.consentTitle,
     region(life, [request, decided], () => {
       const loaded = request.get()
-      const message = decided.get()
-      if (message !== null) return outcome(message)
+      const outcomeOf = decided.get()
+      if (outcomeOf !== null) return outcome(outcomeOf.approved, outcomeOf.message)
       return loaded === null
         ? h('p', { class: 'loading' }, strings.loading)
         : consentDecision(loaded, (approved) =>
-            decided.set(
-              approved
+            decided.set({
+              approved,
+              message: approved
                 ? strings.consentApproved(loaded.redirectHost)
                 : strings.consentDenied(loaded.redirectHost),
-            ),
+            }),
           )
     }),
   )
@@ -55,7 +63,7 @@ type DeviceStage =
   | { readonly step: 'ask' }
   | { readonly step: 'loading' }
   | { readonly step: 'decide'; readonly request: DeviceRequest }
-  | { readonly step: 'done'; readonly message: string }
+  | { readonly step: 'done'; readonly approved: boolean; readonly message: string }
 
 const codeForm = (): HTMLElement => {
   const code = h('input', {
@@ -84,7 +92,7 @@ const codeForm = (): HTMLElement => {
   )
 }
 
-const deviceDecision = (request: DeviceRequest, finish: (message: string) => void): HTMLElement => {
+const deviceDecision = (request: DeviceRequest, finish: (approved: boolean) => void): HTMLElement => {
   const name = h('input', { name: 'name', required: true, maxlength: '200', value: request.client })
   const allowApproval = h('input', { type: 'checkbox', name: 'allowApproval' })
   const decide = (approve: boolean): void =>
@@ -93,7 +101,7 @@ const deviceDecision = (request: DeviceRequest, finish: (message: string) => voi
         params: { userCode: request.userCode },
         body: { approve, name: name.value.trim() || request.client, allowApproval: allowApproval.checked },
       }),
-      () => finish(approve ? strings.deviceApproved : strings.deviceDenied),
+      () => finish(approve),
     )
   return h(
     'form',
@@ -124,13 +132,42 @@ const deviceDecision = (request: DeviceRequest, finish: (message: string) => voi
 
 const RETURN_DELAY_MS = 1500
 
-const outcome = (message: string): HTMLElement =>
+const outcome = (approved: boolean, message: string): HTMLElement =>
   h(
     'div',
-    { class: 'outcome', role: 'status' },
-    pip(message === strings.deviceDenied ? 'discarded' : 'approved', 4),
-    h('p', { class: 'banner' }, message),
-    h('a', { class: 'button primary', href: hrefFor({ name: 'home' }) }, strings.openHomingbird),
+    { class: `outcome ${approved ? 'is-approved' : 'is-denied'}`, role: 'status' },
+    pip(approved ? 'approved' : 'discarded', 6),
+    h('h1', {}, approved ? strings.connectedTitle : strings.deniedTitle),
+    h('p', { class: 'outcome-message' }, message),
+    h('a', { class: 'button', href: hrefFor({ name: 'home' }) }, strings.openHomingbird),
+  )
+
+const connectWindow = (title: string, content: Child): HTMLElement =>
+  h(
+    'div',
+    { class: 'sign-in connect' },
+    h(
+      'div',
+      { class: 'window connect-window' },
+      h('div', { class: 'window-title' }, title),
+      h(
+        'div',
+        { class: 'connect-body' },
+        h(
+          'p',
+          { class: 'connect-brand' },
+          h('img', {
+            class: 'mark',
+            src: branding.get().logo ?? '/icons/mark.svg',
+            alt: '',
+            width: '32',
+            height: '32',
+          }),
+          h('span', { class: 'wordmark' }, wordmark(branding.get().name)),
+        ),
+        content,
+      ),
+    ),
   )
 
 const consentDecision = (request: ConsentRequest, finish: (approved: boolean) => void): HTMLElement => {

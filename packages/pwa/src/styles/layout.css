@@ -145,3 +145,8 @@
   block-size: 100%;
   padding: var(--hb-space-4);
 }
+
+#app > .stage {
+  block-size: 100%;
+  container: app / inline-size;
+}

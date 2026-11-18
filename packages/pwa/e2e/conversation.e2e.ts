@@ -7,6 +7,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Task as T } from '@homingbird/kernel'
 import { loadConfig } from '../../dovecote/src/config.ts'
+import { seedTopics } from '../../dovecote/src/domain/topics.ts'
 import { startServer } from '../../dovecote/src/http/node-server.ts'
 import { buildRuntime } from '../../dovecote/src/runtime.ts'
 import { openDatabase } from '../../dovecote/src/sql/open.ts'
@@ -40,7 +41,8 @@ const scenario = async (): Promise<void> => {
 
     const ana = await signIn('ana@example.com', 'Ana')
     await ana.page.waitForSelector('text=No conversations yet')
-    await capture(ana.page, 'empty-home')
+    await ana.page.waitForSelector('.onboarding:has-text("Keep one agent session open for Homingbird")')
+    await capture(ana.page, 'empty-home-with-desk-session-hint')
 
     // -- Directory -------------------------------------------------------------------------------
     const june = await signIn('june@example.com', 'June')
@@ -161,6 +163,46 @@ const scenario = async (): Promise<void> => {
     await capture(ana.page, 'replied-seen-by-sender')
     await capture(june.page, 'replied-seen-by-recipient-alternatives-discarded')
 
+    // -- Draft requests --------------------------------------------------------------------------
+    await june.page
+      .locator('.note.is-theirs')
+      .first()
+      .getByRole('button', { name: 'Ask my agent to draft a reply' })
+      .click()
+    await june.page.waitForSelector('.asked-chip')
+    await june.page.waitForSelector('.no-agent:has-text("desk session is running")')
+    await capture(june.page, 'draft-request-waiting-while-the-desk-session-is-offline')
+    await june.page.locator('.asked-chip').getByRole('button', { name: 'Withdraw' }).click()
+    await june.page.waitForSelector('.asked-chip', { state: 'detached' })
+
+    await june.page.click('.ask-agent summary')
+    await june.page.fill('.ask-agent input[name=instruction]', 'Tell Ana the export finishes at 1:40am')
+    assert.equal(await june.page.locator('.ask-agent select[name=agent] option').count(), 3)
+    await capture(june.page, 'let-my-agent-write-it-with-instruction-and-agent-picker')
+    await june.page.locator('.ask-agent').getByRole('button', { name: 'Ask my agent' }).click()
+    await june.page.waitForSelector('.asked-chip:has-text("export finishes")')
+    const asked = (await laptop.call('GET', '/draft-requests')).requests.find(
+      (request: { cancelledAt: number | null }) => request.cancelledAt === null,
+    )
+    assert.equal(asked.instruction, 'Tell Ana the export finishes at 1:40am')
+    await laptop.call('POST', '/drafts', {
+      requestId: asked.id,
+      body: 'The nightly export finishes at 1:40am, so 2am is safe.',
+    })
+    await cursor.call('POST', '/drafts', { requestId: asked.id, body: 'Export ends 1:40am. Go at 2.' })
+    await june.page.waitForFunction(pendingDraftsAre, 2)
+    await june.page.waitForSelector('.asked-chip', { state: 'detached' })
+    await june.page.waitForSelector('.pending-choose:has-text("2 alternatives")')
+    await capture(june.page, 'draft-request-answered-by-two-agents-as-alternatives')
+    await june.page
+      .locator('.draft', { hasText: '1:40am, so 2am' })
+      .getByRole('button', { name: 'Send' })
+      .click()
+    await june.page.waitForFunction(pendingDraftsAre, 0)
+    await june.page.waitForSelector('.note-body:has-text("1:40am, so 2am")')
+    await capture(june.page, 'draft-request-one-alternative-sent-the-other-discarded')
+    assert.equal((await api(june, 'GET', '/drafts')).drafts.length, 0)
+
     const anaAgent = await connectAgent(base, ana, 'Ana laptop agent', true)
     const follow = await anaAgent.call('POST', '/drafts', {
       to: [ids.June],
@@ -189,6 +231,102 @@ const scenario = async (): Promise<void> => {
         origins.some((name: string) => name.split(' ').includes(origin)),
         `missing origin badge ${origin}`,
       )
+
+    // -- Topic rooms -----------------------------------------------------------------------------
+    await ana.page.goto(`${base}/#/topics`)
+    await ana.page.waitForSelector('.topic-card[data-slug="general"]')
+    await capture(ana.page, 'browse-topics')
+    await ana.page.fill('.create-topic input[name=slug]', 'General')
+    await ana.page.waitForSelector('.topic-exists:has-text("#general already exists")')
+    assert.equal(await ana.page.locator('.create-topic button[type=submit]').isDisabled(), true)
+    await capture(ana.page, 'create-topic-refuses-a-duplicate')
+    await ana.page.fill('.create-topic input[name=slug]', 'Billing')
+    await ana.page.fill(
+      '.create-topic input[name=description]',
+      'Invoices, refunds and the payments database.',
+    )
+    await ana.page.click('.create-topic button[type=submit]')
+    await ana.page.waitForSelector('.thread-head h1:has-text("#billing")')
+    await ana.page.waitForSelector('.topic-rooms a:has-text("#billing")')
+    await capture(ana.page, 'new-topic-room-in-the-sidebar')
+
+    await june.page.goto(`${base}/#/topics`)
+    await june.page.locator('.topic-card[data-slug="billing"]').getByRole('button', { name: 'Help' }).click()
+    await june.page.waitForSelector('.topic-card.is-helping[data-slug="billing"]')
+    await june.page.fill('input[name=q]', 'refund')
+    await june.page.waitForFunction(
+      () => (globalThis as any).document.querySelectorAll('.topic-card').length === 1,
+    )
+    await capture(june.page, 'searching-topics-and-helping-with-one')
+
+    await ana.page.goto(`${base}/#/people`)
+    await ana.page.waitForSelector('.person:has-text("june@example.com") .topic-chip:has-text("#billing")')
+    await capture(ana.page, 'directory-shows-topic-chips')
+    await june.page.goto(`${base}/#/me`)
+    await june.page.waitForSelector('.my-topics .topic-chip:has-text("#billing")')
+    await june.page.locator('.my-topics').scrollIntoViewIfNeeded()
+    await capture(june.page, 'profile-my-agent-can-help-with')
+
+    const asker = await signIn('lee@example.com', 'Lee')
+    await asker.page.goto(`${base}/#/topics`)
+    await asker.page.locator('.topic-card[data-slug="billing"]').getByRole('link', { name: 'Ask' }).click()
+    await asker.page.waitForSelector('.ask-topic textarea')
+    await asker.page.fill('.ask-topic textarea', 'Who can explain the refund rule for annual plans?')
+    await capture(asker.page, 'asking-a-topic')
+    await asker.page.click('.ask-topic button[type=submit]')
+    await asker.page.waitForSelector('.thread-head h1:has-text("#billing")')
+    await asker.page.waitForSelector('.note-status:has-text("Read by 0 of 2")')
+    await capture(asker.page, 'question-in-a-topic-room-read-by-0-of-2')
+
+    const billingRoom = (await api(june, 'GET', '/topics')).topics.find(
+      (topic: { slug: string }) => topic.slug === 'billing',
+    ).conversationId as string
+    await june.page.goto(`${base}/#/c/${billingRoom}`)
+    await june.page.waitForSelector('.note-author:has-text("Lee")')
+    await june.page.waitForSelector('.move-question')
+    await capture(june.page, 'helper-sees-the-question-with-its-author')
+    await june.page
+      .locator('.note', { hasText: 'refund rule' })
+      .getByRole('button', { name: 'Reply' })
+      .click()
+    await june.page.fill('.composer textarea', 'Annual plans are refunded pro rata for the unused months.')
+    await june.page.click('.composer button[type=submit]')
+    await asker.page.waitForSelector('.answered-by:has-text("Answered by June")')
+    await capture(asker.page, 'question-answered-by-a-helper')
+
+    await sendThroughApi(asker, { topic: 'billing', body: 'Where do I find the release calendar?' })
+    await june.page.waitForSelector('.note:has-text("release calendar") .move-question')
+    assert.equal(
+      await june.page.locator('.note', { hasText: 'refund rule' }).locator('.move-question').count(),
+      0,
+    )
+    await june.page.locator('.note', { hasText: 'release calendar' }).locator('.move-question').click()
+    await june.page.waitForSelector('dialog[open] select[name=topic]')
+    await june.page.selectOption('dialog[open] select[name=topic]', 'general')
+    await capture(june.page, 'move-question-to-another-topic')
+    await june.page.click('dialog[open] button[type=submit]')
+    await june.page.waitForSelector('.note:has-text("release calendar")', { state: 'detached' })
+    await capture(june.page, 'question-moved-out-of-the-room')
+    await asker.context.close()
+
+    await anaAgent.call('POST', '/drafts', {
+      topic: 'general',
+      body: 'Does anyone know when the payments database maintenance window is?',
+    })
+    const generalRoom = (await api(ana, 'GET', '/topics')).topics.find(
+      (topic: { slug: string }) => topic.slug === 'general',
+    ).conversationId as string
+    await ana.page.goto(`${base}/#/c/${generalRoom}`)
+    await ana.page.waitForSelector('.goes-to:has-text("Goes to #general")')
+    await capture(ana.page, 'draft-to-a-topic-shows-where-it-goes')
+    await ana.page.locator('.draft').getByRole('button', { name: 'Change topic' }).click()
+    await ana.page.selectOption('dialog[open] select[name=topic]', 'billing')
+    await ana.page.click('dialog[open] button[type=submit]')
+    await ana.page.waitForSelector('.goes-to:has-text("Goes to #billing · 2 helpers")')
+    await capture(ana.page, 'draft-readdressed-to-another-topic')
+    await ana.page.locator('.draft').getByRole('button', { name: 'Send' }).click()
+    await ana.page.waitForFunction(pendingDraftsAre, 0)
+    await ana.page.waitForSelector('.note-body:has-text("maintenance window")')
 
     // -- Other screens ---------------------------------------------------------------------------
     await ana.page.goto(`${base}/#/search?q=billing`)
@@ -279,6 +417,49 @@ const scenario = async (): Promise<void> => {
     await ana.page.screenshot({ path: await nextPath('oauth-consent-success-state') })
     await ana.page.waitForURL(/client\.example\/callback\?code=/)
 
+    const signedOutConsent = await startAuthorization(base, 'Another MCP client')
+    const stranger = await browser.newContext({
+      deviceScaleFactor: 2,
+      viewport: VIEWPORT,
+      colorScheme: 'light',
+    })
+    await stranger.route('https://client.example/**', (route: any) =>
+      route.fulfill({ contentType: 'text/html', body: '<title>client</title><p>Back at the client.</p>' }),
+    )
+    const sam = await stranger.newPage()
+    await sam.goto(signedOutConsent)
+    await sam.waitForSelector('input[name=email]')
+    await sam.fill('input[name=email]', 'sam@example.com')
+    await sam.fill('input[name=name]', 'Sam')
+    await sam.click('button')
+    await sam.waitForSelector('text=Another MCP client')
+    await capture(sam, 'oauth-consent-after-signing-in-on-the-way')
+    await sam.getByRole('button', { name: 'Approve' }).click()
+    await sam.waitForSelector('.outcome.is-approved')
+    await sam.screenshot({ path: await nextPath('oauth-consent-connected') })
+    await sam.waitForURL(/client\.example\/callback\?code=/)
+    await stranger.close()
+
+    await api(ana, 'POST', '/topics', { slug: 'invoices', description: 'Sending and chasing invoices.' })
+    await ana.page.goto(`${base}/#/admin/topics`)
+    await ana.page.waitForSelector('.admin-topics [data-slug="invoices"]')
+    assert.equal(
+      await ana.page.locator('[data-slug="general"]').getByRole('button', { name: 'Remove' }).count(),
+      0,
+    )
+    await capture(ana.page, 'admin-topics')
+    await ana.page.locator('[data-slug="billing"]').getByRole('button', { name: 'Edit' }).click()
+    await ana.page.fill('dialog[open] input[name=slug]', 'payments')
+    await capture(ana.page, 'admin-renaming-a-topic')
+    await ana.page.click('dialog[open] button[type=submit]')
+    await ana.page.waitForSelector('.admin-topics [data-slug="payments"]')
+    await ana.page.locator('[data-slug="invoices"]').getByRole('button', { name: 'Merge…' }).click()
+    await ana.page.selectOption('dialog[open] select[name=into]', 'payments')
+    await capture(ana.page, 'admin-merging-a-topic')
+    await ana.page.click('dialog[open] button[type=submit]')
+    await ana.page.waitForSelector('.admin-topics [data-slug="invoices"]', { state: 'detached' })
+    await capture(ana.page, 'admin-topics-after-rename-and-merge')
+
     for (const section of ['settings', 'members', 'audit']) {
       await ana.page.goto(`${base}/#/admin/${section}`)
       await ana.page.waitForSelector(
@@ -297,7 +478,8 @@ const scenario = async (): Promise<void> => {
     await sendThroughApi(june, { conversationId: group.id, body: 'I will watch the export job.' })
     await ana.page.goto(`${base}/#/c/${group.id}`)
     await ana.page.waitForSelector('.note-author')
-    await capture(ana.page, 'group-conversation')
+    await ana.page.waitForSelector('.note-status:has-text("Read by 0 of 2")')
+    await capture(ana.page, 'group-conversation-with-authors-and-read-counts')
 
     // -- Connection lost and restored ------------------------------------------------------------
     await dovecote.stop()
@@ -321,6 +503,9 @@ const scenario = async (): Promise<void> => {
       ['credentials', '/#/credentials'],
       ['admin-settings', '/#/admin/settings'],
       ['group-conversation', `/#/c/${group.id}`],
+      ['topics', '/#/topics'],
+      ['topic-room', `/#/c/${billingRoom}`],
+      ['admin-topics', '/#/admin/topics'],
     ]
     await ana.page.emulateMedia({ colorScheme: 'dark' })
     for (const [name, path] of mainScreens) {
@@ -516,6 +701,7 @@ const startDovecote = async (port: number, databasePath: string) => {
   const database = await openDatabase(config.value.databaseUrl)
   const { env, background } = buildRuntime({ config: config.value, database, log: () => {} })
   await T.runPromise(migrate, env)
+  await T.runPromise(seedTopics, env)
   const work = T.runFork(background, env)
   const server = await startServer(env, port)
   let stopped = false

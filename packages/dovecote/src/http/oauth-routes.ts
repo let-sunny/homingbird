@@ -16,6 +16,7 @@ import {
 import { authenticate } from '../domain/credentials.ts'
 import { type AppEnv, type Caller, isHuman } from '../environment.ts'
 import { transact } from '../events/events.ts'
+import { sessionToken } from './authenticate.ts'
 import {
   type HttpRequest,
   type HttpResponse,
@@ -26,7 +27,6 @@ import {
   redirect,
   text,
 } from './exchange.ts'
-import { sessionToken } from './authenticate.ts'
 import { LIMITS, type Limit } from './rate-limiter.ts'
 
 export const handleOAuthRequest = (request: HttpRequest): T.Task<HttpResponse, never, AppEnv> =>

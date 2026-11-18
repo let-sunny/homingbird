@@ -1,6 +1,5 @@
 import { createHash } from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { isAcceptableRedirectUri } from '../src/auth/oauth.ts'
 import { type Session, type TestServer, startTestServer } from './harness.ts'
 
 const REDIRECT = 'https://client.example/callback'
@@ -12,7 +11,7 @@ let server: TestServer
 let ana: Session
 
 beforeEach(async () => {
-  server = await startTestServer()
+  server = await startTestServer({ HB_OAUTH_REDIRECT_HOSTS: 'client.example' })
   ana = await server.signIn('ana@example.com', 'Ana')
 })
 
@@ -21,19 +20,19 @@ afterEach(() => server.close())
 const register = async (body: unknown = { client_name: 'Connector', redirect_uris: [REDIRECT] }) =>
   server.request('POST', '/oauth/register', { body })
 
+const authorizePath = (clientId: string, overrides: Record<string, string> = {}) =>
+  `/oauth/authorize?${new URLSearchParams({
+    response_type: 'code',
+    client_id: clientId,
+    redirect_uri: REDIRECT,
+    code_challenge: CHALLENGE,
+    code_challenge_method: 'S256',
+    state: 'xyz',
+    ...overrides,
+  })}`
+
 const authorize = (clientId: string, overrides: Record<string, string> = {}) =>
-  server.request(
-    'GET',
-    `/oauth/authorize?${new URLSearchParams({
-      response_type: 'code',
-      client_id: clientId,
-      redirect_uri: REDIRECT,
-      code_challenge: CHALLENGE,
-      code_challenge_method: 'S256',
-      state: 'xyz',
-      ...overrides,
-    })}`,
-  )
+  server.request('GET', authorizePath(clientId, overrides), { cookie: ana.cookie })
 
 const consentIdOf = (response: { headers: Readonly<Record<string, string>> }) =>
   response.headers.location!.split('/#/consent/')[1]!
@@ -114,8 +113,13 @@ describe('dynamic client registration', () => {
     [{ client_name: 'x' }],
     [{ client_name: 'x', redirect_uris: ['http://attacker.example/cb'] }],
     [{ client_name: 'x', redirect_uris: ['javascript:alert(1)'] }],
-    [{ client_name: 'x', redirect_uris: ['https://ok.example/cb#fragment'] }],
-    [{ client_name: 'x', redirect_uris: Array.from({ length: 11 }, (_, i) => `https://ok.example/${i}`) }],
+    [{ client_name: 'x', redirect_uris: ['https://client.example/cb#fragment'] }],
+    [
+      {
+        client_name: 'x',
+        redirect_uris: Array.from({ length: 11 }, (_, i) => `https://client.example/${i}`),
+      },
+    ],
     ['not an object'],
   ])('refuses %j', async (body) => {
     expect((await register(body)).status).toBe(400)
@@ -124,19 +128,6 @@ describe('dynamic client registration', () => {
   it('refuses a body that is not JSON', async () => {
     const refused = await server.request('POST', '/oauth/register', { form: { client_name: 'x' } })
     expect(refused.status).toBe(400)
-  })
-
-  it.each([
-    ['https://app.example/cb', true],
-    ['http://localhost:7777/cb', true],
-    ['http://127.0.0.1/cb', true],
-    ['cursor://anysphere.cursor/oauth', true],
-    ['http://example.com/cb', false],
-    ['data:text/html,x', false],
-    ['file:///etc/passwd', false],
-    ['not a url', false],
-  ])('judges redirect URI %s as acceptable: %s', (uri, acceptable) => {
-    expect(isAcceptableRedirectUri(uri)).toBe(acceptable)
   })
 })
 

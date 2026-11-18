@@ -230,7 +230,15 @@ describe('sign-in helpers', () => {
     ['/#/c/1', '/#/c/1'],
     ['//evil.example', '/'],
     ['/\\evil.example', '/'],
+    ['/\t/evil.example', '/'],
+    ['/\n/evil.example', '/'],
+    ['/ok\r\nset-cookie: x', '/'],
+    ['/a\\b', '/'],
     ['https://evil.example', '/'],
+    [
+      '/oauth/authorize?client_id=https%3A%2F%2Fclaude.ai%2Fx&state=a%20b',
+      '/oauth/authorize?client_id=https%3A%2F%2Fclaude.ai%2Fx&state=a%20b',
+    ],
     [undefined, '/'],
   ])('keeps return path %s inside the site as %s', (input, expected) => {
     expect(localPath(input)).toBe(expected)

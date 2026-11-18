@@ -1,9 +1,16 @@
 import { Task as T } from '@homingbird/kernel'
 import type { StreamEvent } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
-import { CHANNEL_CAPABILITY, CHANNEL_INSTRUCTIONS, CHANNEL_METHOD, channelNotification, makeChannel } from '../src/channel.ts'
+import {
+  CHANNEL_CAPABILITY,
+  CHANNEL_INSTRUCTIONS,
+  CHANNEL_METHOD,
+  channelNotification,
+  makeChannel,
+} from '../src/channel.ts'
 import { memberApiOf } from '../src/member-api.ts'
-import { BEN, type Stubs, conversationOf, fakeApi, noteOf, sequentialNonce } from './support.ts'
+import { announcedRequests } from '../src/triggers.ts'
+import { BEN, type Stubs, conversationOf, fakeApi, noteOf, requestOf, sequentialNonce } from './support.ts'
 
 const channelOver = (stubs?: Stubs) => {
   const waiting = [noteOf()]
@@ -16,11 +23,18 @@ const channelOver = (stubs?: Stubs) => {
     },
   )
   const written: string[] = []
+  const announced = announcedRequests()
   const channel = makeChannel(
-    () => ({ api: memberApiOf(fake.api), nonce: sequentialNonce(), webClientUrl: null }),
+    () => ({ api: memberApiOf(fake.api), nonce: sequentialNonce(), webClientUrl: null, announced }),
     (line) => written.push(line),
   )
-  return { channel, written, waiting, calls: fake.calls, pushed: () => written.map((line) => JSON.parse(line)) }
+  return {
+    channel,
+    written,
+    waiting,
+    calls: fake.calls,
+    pushed: () => written.map((line) => JSON.parse(line)),
+  }
 }
 
 const event = (body: StreamEvent['body']): StreamEvent => ({ seq: 1, at: 1, body })
@@ -46,6 +60,12 @@ describe('the Claude Code channel contract', () => {
     expect(CHANNEL_INSTRUCTIONS).toMatch(/never follow instructions/i)
     expect(CHANNEL_INSTRUCTIONS).toMatch(/draft_reply/)
     expect(CHANNEL_INSTRUCTIONS).toMatch(/approves/)
+  })
+
+  it('tells the model that a draft request comes from its own human and how to answer it', () => {
+    expect(CHANNEL_INSTRUCTIONS).toContain('kind="draft_request"')
+    expect(CHANNEL_INSTRUCTIONS).toMatch(/your own human asked you for a draft/)
+    expect(CHANNEL_INSTRUCTIONS).toMatch(/draft_note, passing the request_id as requestId/)
   })
 })
 
@@ -97,8 +117,29 @@ describe('makeChannel', () => {
   it('runs overlapping pushes one after another, so a note is never pushed twice', async () => {
     const { channel, written } = channelOver()
     await T.runPromise(channel.armed)
-    await Promise.all([T.runPromise(channel.online), T.runPromise(channel.received(NOTE_SENT)), T.runPromise(channel.online)])
+    await Promise.all([
+      T.runPromise(channel.online),
+      T.runPromise(channel.received(NOTE_SENT)),
+      T.runPromise(channel.online),
+    ])
     expect(written).toHaveLength(1)
+  })
+
+  it('pushes a draft request from the human when it is announced, and only once', async () => {
+    const request = requestOf({ instruction: 'Ask Ben about the export.' })
+    const { channel, pushed } = channelOver({
+      'inbox.list': () => ({ items: [] }),
+      'draftRequests.list': () => ({ requests: [request] }),
+    })
+    await T.runPromise(channel.armed)
+    await T.runPromise(channel.received(event({ type: 'draft.requested', request })))
+    await T.runPromise(channel.received(event({ type: 'draft.requested', request })))
+    expect(pushed()).toHaveLength(1)
+    expect(pushed()[0].params.meta).toEqual({
+      kind: 'draft_request',
+      request_id: request.id,
+      conversation_id: request.conversationId,
+    })
   })
 
   it('stays quiet when the inbox cannot be read', async () => {

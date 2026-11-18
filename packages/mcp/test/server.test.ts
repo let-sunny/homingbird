@@ -14,7 +14,11 @@ import { TOOLS } from '../src/tools.ts'
 import { ADAPTER_VERSION } from '../src/version.ts'
 import { ANA, DIRECTORY, type Stubs, fakeApi, sequentialNonce } from './support.ts'
 
-const ME = { member: ANA, credential: { id: 'cred_aaaaaaaaaaaa', kind: 'agent', name: 'Laptop' }, contactMode: 'open' }
+const ME = {
+  member: ANA,
+  credential: { id: 'cred_aaaaaaaaaaaa', kind: 'agent', name: 'Laptop' },
+  contactMode: 'open',
+}
 
 const server = (stubs: Stubs = {}, webClientUrl?: string, desk?: boolean) => {
   const fake = fakeApi({ 'me.get': () => ME as never, 'directory.list': () => DIRECTORY, ...stubs })
@@ -31,18 +35,23 @@ const server = (stubs: Stubs = {}, webClientUrl?: string, desk?: boolean) => {
   return { send, call, calls: fake.calls }
 }
 
-const stateless = (revision = STATELESS_REVISIONS[0]) => ({ _meta: { [PROTOCOL_VERSION_META_KEY]: revision } })
+const stateless = (revision = STATELESS_REVISIONS[0]) => ({
+  _meta: { [PROTOCOL_VERSION_META_KEY]: revision },
+})
 
 describe('handleMcpMessage', () => {
-  it.each(HANDSHAKE_REVISIONS)('agrees to protocol revision %s when the client asks for it', async (revision) => {
-    const { result } = await server().call('initialize', { protocolVersion: revision, capabilities: {} })
-    expect(result).toEqual({
-      protocolVersion: revision,
-      capabilities: { tools: { listChanged: false }, prompts: { listChanged: false } },
-      serverInfo: { name: SERVER_NAME, title: 'Homingbird', version: ADAPTER_VERSION },
-      instructions: INSTRUCTIONS,
-    })
-  })
+  it.each(HANDSHAKE_REVISIONS)(
+    'agrees to protocol revision %s when the client asks for it',
+    async (revision) => {
+      const { result } = await server().call('initialize', { protocolVersion: revision, capabilities: {} })
+      expect(result).toEqual({
+        protocolVersion: revision,
+        capabilities: { tools: { listChanged: false }, prompts: { listChanged: false } },
+        serverInfo: { name: SERVER_NAME, title: 'Homingbird', version: ADAPTER_VERSION },
+        instructions: INSTRUCTIONS,
+      })
+    },
+  )
 
   it('offers its newest handshake revision when the client asks for one it does not know', async () => {
     for (const protocolVersion of ['1999-01-01', undefined, 7])
@@ -109,7 +118,9 @@ describe('handleMcpMessage', () => {
   it('answers nothing to the initialized and cancelled notifications', async () => {
     const { send } = server()
     expect(await send({ jsonrpc: '2.0', method: 'notifications/initialized' })).toBeNull()
-    expect(await send({ jsonrpc: '2.0', method: 'notifications/cancelled', params: { requestId: 1 } })).toBeNull()
+    expect(
+      await send({ jsonrpc: '2.0', method: 'notifications/cancelled', params: { requestId: 1 } }),
+    ).toBeNull()
   })
 
   it('lists every tool with a name, a description and an input schema', async () => {
@@ -174,6 +185,8 @@ describe('handleMcpMessage', () => {
     for (const tool of TOOLS) await call('tools/call', { name: tool.name, arguments: hostile })
     for (const name of ['approve', 'send_note', 'discard_draft', 'drafts.send'])
       expect((await call('tools/call', { name, arguments: hostile })).error).toBeDefined()
-    expect(calls.map((one) => one.name).filter((name) => humanOnlyRoutes.includes(name as RouteName))).toEqual([])
+    expect(
+      calls.map((one) => one.name).filter((name) => humanOnlyRoutes.includes(name as RouteName)),
+    ).toEqual([])
   })
 })

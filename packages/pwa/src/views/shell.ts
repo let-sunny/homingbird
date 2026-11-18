@@ -168,7 +168,11 @@ const onboarding = (): HTMLElement =>
       { class: 'onboarding-text' },
       h('strong', {}, strings.onboardingTitle),
       h('p', {}, strings.onboardingHint),
-      h('a', { class: 'button primary', href: hrefFor({ name: 'device', code: null }) }, strings.connectAgent),
+      h(
+        'a',
+        { class: 'button primary', href: hrefFor({ name: 'device', code: null }) },
+        strings.connectAgent,
+      ),
     ),
   )
 

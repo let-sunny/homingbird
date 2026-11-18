@@ -48,7 +48,10 @@ describe('linesOf', () => {
   it('yields the same lines however the input is cut into chunks', async () => {
     await fc.assert(
       fc.asyncProperty(
-        fc.array(fc.stringMatching(/^[ -~]{1,20}$/).filter((line) => line.trim() !== ''), { maxLength: 6 }),
+        fc.array(
+          fc.stringMatching(/^[ -~]{1,20}$/).filter((line) => line.trim() !== ''),
+          { maxLength: 6 },
+        ),
         fc.array(fc.nat(200), { maxLength: 8 }),
         async (lines, cuts) => {
           const whole = lines.map((line) => `${line}\n`).join('')

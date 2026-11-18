@@ -1,6 +1,6 @@
 import { type CredentialId, DRAFT_INSTRUCTION_MAX, type DraftRequest } from '@homingbird/protocol'
 import { type Lifetime, h, region } from '@homingbird/ui'
-import { askAgent, launch } from '../actions.ts'
+import { askAgent, launch, loadAgents } from '../actions.ts'
 import type { DraftDestination } from '../draft-requests.ts'
 import { agentCredentials } from '../state.ts'
 import { strings } from '../strings.ts'
@@ -18,7 +18,10 @@ export const agentAsk = (
     'aria-label': strings.agentInstructionLabel,
   })
   const picker = region(life, [agentCredentials], () => agentPicker(), { class: 'agent-picker' })
-  const details = h('details', { class: 'ask-agent' })
+  const details = h('details', {
+    class: 'ask-agent',
+    on: { toggle: () => details.open && launch(loadAgents) },
+  })
   const ask = (): void => {
     const chosen = picker.querySelector('select')?.value ?? ''
     launch(

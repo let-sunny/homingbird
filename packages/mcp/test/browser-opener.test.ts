@@ -15,7 +15,11 @@ describe('openerCommand', () => {
   it('uses the opener of each platform, with the address as one argument', () => {
     expect(openerCommand('darwin', `${SERVER}/#/c/1`)).toEqual(['open', `${SERVER}/#/c/1`])
     expect(openerCommand('linux', `${SERVER}/`)).toEqual(['xdg-open', `${SERVER}/`])
-    expect(openerCommand('win32', `${SERVER}/`)).toEqual(['rundll32', 'url.dll,FileProtocolHandler', `${SERVER}/`])
+    expect(openerCommand('win32', `${SERVER}/`)).toEqual([
+      'rundll32',
+      'url.dll,FileProtocolHandler',
+      `${SERVER}/`,
+    ])
   })
 })
 
@@ -65,15 +69,18 @@ describe('browserOpener', () => {
 
   it('never launches anything but the opener with one address on the server, whatever it is asked to open', async () => {
     await fc.assert(
-      fc.asyncProperty(fc.oneof(fc.string(), fc.webUrl(), fc.constant(`${SERVER}/#/c/x; rm -rf ~`)), async (url) => {
-        const { open, launched } = opening()
-        await open(url)
-        for (const argv of launched) {
-          expect(argv).toHaveLength(2)
-          expect(argv[0]).toBe('xdg-open')
-          expect(new URL(argv[1]!).origin).toBe(SERVER)
-        }
-      }),
+      fc.asyncProperty(
+        fc.oneof(fc.string(), fc.webUrl(), fc.constant(`${SERVER}/#/c/x; rm -rf ~`)),
+        async (url) => {
+          const { open, launched } = opening()
+          await open(url)
+          for (const argv of launched) {
+            expect(argv).toHaveLength(2)
+            expect(argv[0]).toBe('xdg-open')
+            expect(new URL(argv[1]!).origin).toBe(SERVER)
+          }
+        },
+      ),
     )
   })
 })

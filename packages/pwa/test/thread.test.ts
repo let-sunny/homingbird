@@ -12,15 +12,21 @@ import { describeStatus, summarize } from '@homingbird/protocol'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import {
+  alternativesLeftAfterSending,
+  answeredBy,
   conversationTitle,
   excerpt,
+  isOpenQuestion,
   isUnreadBy,
   noteAwaitingReply,
   otherParticipants,
+  readProgress,
+  showsAuthors,
   threadItems,
   upsertNote,
   withPresence,
   withReceipts,
+  withoutMovedQuestion,
   withoutNote,
 } from '../src/thread.ts'
 
@@ -203,6 +209,70 @@ describe('conversation titles', () => {
     const group = conversation({ kind: 'group', participantIds: [ana, june, cy] })
     expect(conversationTitle(group, members, ana, 'Former member')).toBe('June, Former member')
     expect(conversationTitle({ ...group, title: 'Billing' }, members, ana, 'x')).toBe('Billing')
+  })
+
+  it('shows a topic room as a hashtag, even with a single participant', () => {
+    const room = conversation({ kind: 'topic', title: 'billing', participantIds: [ana] })
+    expect(conversationTitle(room, members, ana, 'x')).toBe('#billing')
+  })
+})
+
+describe('rooms', () => {
+  it('names the author on each note in groups and topics, not in direct conversations', () => {
+    expect(showsAuthors(undefined)).toBe(false)
+    expect(showsAuthors({ kind: 'dm' } as Conversation)).toBe(false)
+    expect(showsAuthors({ kind: 'group' } as Conversation)).toBe(true)
+    expect(showsAuthors({ kind: 'topic' } as Conversation)).toBe(true)
+  })
+
+  it('counts readers out of all recipients', () => {
+    expect(readProgress([receipt(june, { readAt: 2, state: 'read' }), receipt(cy), receipt(ana)])).toEqual({
+      read: 1,
+      of: 3,
+      drafting: 0,
+    })
+    expect(readProgress([receipt(june, { draftingAt: 2, state: 'drafting' })]).drafting).toBe(1)
+  })
+
+  it('names who answered a question from replied receipts', () => {
+    const question = note('q', {
+      receipts: [
+        receipt(june, { repliedAt: 3, state: 'replied' }),
+        receipt(cy, { readAt: 2, state: 'read' }),
+      ],
+    })
+    expect(answeredBy(question)).toEqual([june])
+  })
+
+  it('treats a sent question without a reply as open, and nothing else', () => {
+    const question = note('q')
+    expect(isOpenQuestion(question, [question])).toBe(true)
+    expect(isOpenQuestion(question, [question, note('r', { inReplyTo: 'q' as NoteId })])).toBe(false)
+    expect(isOpenQuestion(question, [question, draft('d', { inReplyTo: 'q' as NoteId })])).toBe(true)
+    expect(isOpenQuestion(note('r', { inReplyTo: 'x' as NoteId }), [])).toBe(false)
+    expect(isOpenQuestion(draft('d'), [])).toBe(false)
+    expect(
+      isOpenQuestion(note('q', { receipts: [receipt(june, { repliedAt: 3, state: 'replied' })] }), []),
+    ).toBe(false)
+  })
+
+  it('removes a moved question and its replies from the room it left', () => {
+    const from = 'conv_from' as never
+    const kept = note('kept')
+    const threads = new Map([
+      [from, { notes: [note('q'), note('r', { inReplyTo: 'q' as NoteId }), kept], hasMore: false }],
+    ])
+    expect(withoutMovedQuestion(threads, from, 'q' as NoteId).get(from)?.notes).toEqual([kept])
+    expect(withoutMovedQuestion(threads, 'conv_other' as never, 'q' as NoteId)).toBe(threads)
+  })
+})
+
+describe('alternativesLeftAfterSending', () => {
+  it('discards the other answers to a request for a new note, but leaves replies to the server', () => {
+    const fresh = { type: 'drafts', key: 'k', inReplyTo: null, drafts: [draft('a'), draft('b')] } as const
+    expect(alternativesLeftAfterSending(fresh, 'a' as NoteId).map((each) => each.id)).toEqual(['b'])
+    const replies = { ...fresh, inReplyTo: 'q' as NoteId }
+    expect(alternativesLeftAfterSending(replies, 'a' as NoteId)).toEqual([])
   })
 })
 

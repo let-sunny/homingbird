@@ -12,7 +12,7 @@ import {
 } from '../actions.ts'
 import { directory } from '../state.ts'
 import { strings } from '../strings.ts'
-import { avatar, button, emptyWithPip, field, page, presenceBadges } from './parts.ts'
+import { avatar, button, emptyWithPip, field, page, presenceBadges, topicChips } from './parts.ts'
 import { type PipState, pip } from './pip.ts'
 
 export const peopleView = (life: Lifetime, me: Me): HTMLElement => {
@@ -37,7 +37,7 @@ export const peopleView = (life: Lifetime, me: Me): HTMLElement => {
 }
 
 const matches = (entry: DirectoryEntry, query: string): boolean =>
-  [entry.member.name, entry.member.email, entry.member.profile].some((text) =>
+  [entry.member.name, entry.member.email, entry.member.profile, ...entry.topics].some((text) =>
     text.toLowerCase().includes(query),
   )
 
@@ -62,6 +62,7 @@ const personCard = (entry: DirectoryEntry): HTMLElement =>
       ),
       h('span', { class: 'person-email' }, entry.member.email),
       presenceBadges(entry.presence, true),
+      entry.topics.length > 0 && topicChips(entry.topics),
       h(
         'details',
         { class: 'person-profile', open: entry.member.profile !== '' },

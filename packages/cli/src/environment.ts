@@ -10,6 +10,17 @@ export interface CliEnv extends HasClock {
   readonly hostName: string
   readonly nonce: () => string
   readonly stopped: AbortSignal
+  readonly launcher: Launcher
+}
+
+export interface Launcher {
+  readonly openInBrowser: (url: string) => Promise<boolean>
+  readonly runAgent: (command: string, prompt: string, signal: AbortSignal) => Promise<AgentRun>
+}
+
+export interface AgentRun {
+  readonly exitCode: number | null
+  readonly output: string
 }
 
 export interface Files {

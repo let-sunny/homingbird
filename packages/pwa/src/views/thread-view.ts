@@ -147,11 +147,7 @@ const topicHead = (conversation: Conversation, title: string): Child => {
       { class: 'thread-who' },
       h('h1', {}, title),
       topic !== null &&
-        h(
-          'p',
-          { class: 'thread-profile' },
-          `${strings.helpers(topic.helperCount)} · ${topic.description}`,
-        ),
+        h('p', { class: 'thread-profile' }, `${strings.helpers(topic.helperCount)} · ${topic.description}`),
     ),
     topic !== null && helpToggle(topic),
   ]
@@ -200,8 +196,7 @@ const noteItem = (note: Note, me: Me, conversationId: ConversationId): HTMLEleme
       !mine &&
         button(
           strings.askAgentToReply,
-          () =>
-            launch(askAgent({ destination: { inReplyTo: note.id }, instruction: '', agentId: null })),
+          () => launch(askAgent({ destination: { inReplyTo: note.id }, instruction: '', agentId: null })),
           { class: 'link ask-reply' },
         ),
       isTopicQuestion &&
@@ -265,7 +260,11 @@ const topicSelect = (excluded: string | null): HTMLSelectElement =>
       .get()
       .filter((topic) => topic.slug !== excluded)
       .map((topic) =>
-        h('option', { value: topic.slug }, `${topicLabel(topic.slug)} · ${strings.helpers(topic.helperCount)}`),
+        h(
+          'option',
+          { value: topic.slug },
+          `${topicLabel(topic.slug)} · ${strings.helpers(topic.helperCount)}`,
+        ),
       ),
   )
 
@@ -299,11 +298,7 @@ const draftsItem = (
       ),
     ),
     question &&
-      h(
-        'p',
-        { class: 'goes-to' },
-        h('span', {}, strings.goesTo(topicLabel(topic.slug), topic.helperCount)),
-      ),
+      h('p', { class: 'goes-to' }, h('span', {}, strings.goesTo(topicLabel(topic.slug), topic.helperCount))),
     item.drafts.length > 1 && h('p', { class: 'pending-choose' }, strings.chooseOne(item.drafts.length)),
     h(
       'div',
@@ -389,10 +384,7 @@ const draftEditor = (draft: Note, item: Extract<ThreadItem, { type: 'drafts' }>)
       on: {
         submit: (event) => {
           event.preventDefault()
-          launch(
-            approveDraft(draft, text.value, alternativesLeftAfterSending(item, draft.id)),
-            closeDialog,
-          )
+          launch(approveDraft(draft, text.value, alternativesLeftAfterSending(item, draft.id)), closeDialog)
         },
       },
     },

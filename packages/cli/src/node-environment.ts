@@ -4,6 +4,7 @@ import { homedir, hostname } from 'node:os'
 import { dirname } from 'node:path'
 import { systemClock } from '@homingbird/kernel'
 import { type CliEnv, type Files, PRIVATE_DIRECTORY_MODE, PRIVATE_FILE_MODE } from './environment.ts'
+import { nodeLauncher } from './node-launcher.ts'
 
 export const nodeEnvironment = (stopped: AbortSignal): CliEnv => ({
   clock: systemClock,
@@ -18,6 +19,7 @@ export const nodeEnvironment = (stopped: AbortSignal): CliEnv => ({
   hostName: hostname(),
   nonce: () => randomBytes(16).toString('hex'),
   stopped,
+  launcher: nodeLauncher(process.platform),
 })
 
 const nodeFiles: Files = {

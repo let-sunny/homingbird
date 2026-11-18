@@ -44,6 +44,11 @@ describe('configuration', () => {
         sessionDays: 30,
         agentCredentialDays: 90,
         audit: { toStdout: false, webhookUrl: null },
+        oauth: {
+          redirectHosts: ['claude.ai', 'claude.com'],
+          clientMetadataHosts: ['claude.ai', 'claude.com'],
+          clients: [],
+        },
       },
     })
   })
@@ -67,6 +72,9 @@ describe('configuration', () => {
       HB_AUDIT_WEBHOOK_URL: 'https://siem.example.com/in',
       HB_TRUST_PROXY: '1',
       HB_PUSH_HOSTS: 'push.example.com',
+      HB_OAUTH_REDIRECT_HOSTS: 'claude.ai, Agent.Example',
+      HB_OAUTH_CLIENT_METADATA_HOSTS: 'none',
+      HB_OAUTH_CLIENTS: 'tool|Tool|https://tool.example/cb',
       HB_DEV_LOGIN: '',
     })
     expect(config).toMatchObject({
@@ -88,6 +96,11 @@ describe('configuration', () => {
         sessionDays: 7,
         agentCredentialDays: 14,
         audit: { toStdout: true, webhookUrl: 'https://siem.example.com/in' },
+        oauth: {
+          redirectHosts: ['claude.ai', 'agent.example'],
+          clientMetadataHosts: [],
+          clients: [{ client_id: 'tool', client_name: 'Tool', redirect_uris: ['https://tool.example/cb'] }],
+        },
       },
     })
   })
@@ -101,10 +114,41 @@ describe('configuration', () => {
     [{ ...minimal, HB_DATABASE_URL: 'oracle://x' }, /HB_DATABASE_URL/],
     [{ ...minimal, HB_CONTACT_MODE: 'everyone' }, /HB_CONTACT_MODE/],
     [{ HB_PUBLIC_URL: 'https://hb.example.com', HB_DEV_LOGIN: '1' }, /loopback/],
+    [
+      { ...minimal, HB_OAUTH_REDIRECT_HOSTS: 'https://claude.ai' },
+      /HB_OAUTH_REDIRECT_HOSTS: "https:\/\/claude.ai" is not a host name/,
+    ],
+    [
+      { ...minimal, HB_OAUTH_CLIENT_METADATA_HOSTS: 'claude.ai, 127.0.0.1' },
+      /HB_OAUTH_CLIENT_METADATA_HOSTS: "127.0.0.1" must be a public host name/,
+    ],
+    [{ ...minimal, HB_OAUTH_CLIENT_METADATA_HOSTS: 'localhost' }, /"localhost" must be a public host name/],
+    [
+      { ...minimal, HB_OAUTH_CLIENTS: 'tool|Tool|http://tool.example/cb' },
+      /HB_OAUTH_CLIENTS: client 1 \("tool"\) has redirect URI/,
+    ],
   ])('refuses %j', (environment, problem) => {
     const config = loadConfig(environment)
     expect(config._tag).toBe('Err')
     expect((config as unknown as { error: string[] }).error.join('\n')).toMatch(problem)
+  })
+
+  it('reports every OAuth client problem at once, alongside the other problems', () => {
+    const config = loadConfig({
+      ...minimal,
+      HB_ADMIN_EMAILS: '',
+      HB_OAUTH_REDIRECT_HOSTS: 'a b',
+      HB_OAUTH_CLIENTS: 'a||https://a.example/cb,client_b|B|https://b.example/cb',
+    })
+    expect(config).toMatchObject({
+      _tag: 'Err',
+      error: [
+        'HB_ADMIN_EMAILS: name at least one administrator; nobody becomes one implicitly',
+        'HB_OAUTH_REDIRECT_HOSTS: "a b" is not a host name',
+        'HB_OAUTH_CLIENTS: client 1 ("a") needs a name of 1 to 200 characters',
+        'HB_OAUTH_CLIENTS: client 2 ("client_b") may not start with "client_", which registration uses',
+      ],
+    })
   })
 
   it.each(['http://localhost:8080', 'http://127.0.0.1', 'http://[::1]:3000/'])(

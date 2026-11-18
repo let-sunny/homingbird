@@ -1,0 +1,332 @@
+import { read, update } from 'claude-code'
+import type { EngineInterface, PluginOptions } from 'claude-code'
+
+import type { HomingbirdDraftRequest, HomingbirdOverview } from '../types'
+import { commandOf, lastJsonLine, run, runJson } from './command-line'
+import { autoDraftOf, notePromptFor, replyIn, replyPromptFor, requestPromptFor } from './drafting'
+import { PANE, paneTitleFor } from './pane'
+import { connection, desk as deskRole, editing, overview, problem, requests, signIn } from './state'
+
+export interface Desk {
+  readonly options: PluginOptions
+  readonly handled: Set<string>
+  readonly wrappedNotes: Map<string, string>
+  stream: AsyncGenerator<unknown, unknown> | null
+  heartbeat: { readonly cancel: () => void } | null
+  lastSequence: number | null
+}
+
+export const makeDesk = (options: PluginOptions): Desk => ({
+  options,
+  handled: new Set(),
+  wrappedNotes: new Map(),
+  stream: null,
+  heartbeat: null,
+  lastSequence: null,
+})
+
+export const openDesk = async ($: Engine, desk: Desk): Promise<void> => {
+  await update($, problem, () => null)
+  const latest = await refresh($, desk)
+  if (latest !== null) return claimDesk($, desk)
+  const server = String(desk.options.server ?? '').trim()
+  if ((await read($, connection)) === 'signed-out' && server !== '') void beginSignIn($, desk, server)
+}
+
+export const resumeDesk = async ($: Engine, desk: Desk): Promise<void> => {
+  if (!(await holdsDesk($))) return
+  void $.ui.open({ id: PANE, title: 'Homingbird' })
+  if ((await refresh($, desk)) !== null) await claimDesk($, desk)
+}
+
+export const claimDesk = async ($: Engine, desk: Desk): Promise<void> => {
+  await $.store.set(DESK_KEY, { sessionId: await $.session.id(), claimedAt: await $.clock.now() })
+  await update($, deskRole, () => 'desk')
+  desk.heartbeat?.cancel()
+  desk.heartbeat = $.clock.every(HEARTBEAT_MS, () => void checkIn($, desk))
+  void follow($, desk)
+  await catchUp($, desk)
+}
+
+export const beginSignIn = async ($: Engine, desk: Desk, server: string): Promise<void> => {
+  await update($, problem, () => null)
+  try {
+    for await (const line of linesOf($.process.spawn({ argv: loginArgv(desk, server) }))) {
+      const step = lastJsonLine(line) as {
+        step?: unknown
+        verificationUri?: unknown
+        userCode?: unknown
+      } | null
+      if (step?.step !== 'awaiting_approval' || typeof step.verificationUri !== 'string') continue
+      const pending = { verificationUri: step.verificationUri, userCode: String(step.userCode ?? '') }
+      await update($, signIn, () => pending)
+      void openInBrowser($, pending.verificationUri)
+    }
+  } catch (cause) {
+    await update(
+      $,
+      problem,
+      () => `Could not sign in: ${cause instanceof Error ? cause.message : String(cause)}`,
+    )
+  }
+  await update($, signIn, () => null)
+  if ((await refresh($, desk)) !== null) await claimDesk($, desk)
+}
+
+export const decide = async ($: Engine, desk: Desk, args: ReadonlyArray<string>): Promise<void> => {
+  const ran = await runJson($, desk.options, args)
+  await update($, editing, () => null)
+  if (ran.kind === 'signed-out') await update($, problem, () => NO_APPROVE_BUTTON)
+  else if (ran.kind !== 'ok') await update($, problem, () => ran.message)
+  await refresh($, desk)
+}
+
+export const refresh = async ($: Engine, desk: Desk): Promise<HomingbirdOverview | null> => {
+  const ran = await runJson($, desk.options, ['overview'])
+  if (ran.kind === 'unavailable') return settle($, ran.message, true)
+  if (ran.kind !== 'ok' && ran.kind !== 'signed-out') return settle($, ran.message, false)
+  const latest = ran.kind === 'ok' ? overviewIn(ran.value) : null
+  await update($, overview, () => latest)
+  await update($, problem, () => null)
+  if (latest === null) await update($, connection, () => 'signed-out')
+  else if ((await read($, connection)) === 'signed-out' || (await read($, connection)) === 'unavailable')
+    await update($, connection, () => (desk.stream === null ? 'reconnecting' : 'live'))
+  await showCounts($, latest)
+  return latest
+}
+
+export const wrappedNoteFor = async ($: Engine, desk: Desk, noteId: string): Promise<string | null> => {
+  const known = desk.wrappedNotes.get(noteId)
+  if (known !== undefined) return known
+  const latest = await refresh($, desk)
+  return latest?.awaiting.find((waiting) => waiting.noteId === noteId)?.wrapped ?? null
+}
+
+export const DESK_KEY = 'desk'
+
+type Engine = EngineInterface
+
+const holdsDesk = async ($: Engine): Promise<boolean> => {
+  const claim = (await $.store.get(DESK_KEY)) as { sessionId?: unknown } | undefined
+  return claim?.sessionId === (await $.session.id())
+}
+
+const checkIn = async ($: Engine, desk: Desk): Promise<void> => {
+  if (!(await holdsDesk($))) return standDown($, desk)
+  await refresh($, desk)
+  if (desk.stream === null) void follow($, desk)
+}
+
+const standDown = async ($: Engine, desk: Desk): Promise<void> => {
+  desk.heartbeat?.cancel()
+  desk.heartbeat = null
+  const stream = desk.stream
+  desk.stream = null
+  await stream?.return(undefined)
+  await update($, deskRole, () => 'moved')
+  await update($, connection, () => 'idle')
+  $.ui.status(undefined)
+}
+
+const follow = async ($: Engine, desk: Desk): Promise<void> => {
+  if (desk.stream !== null) return
+  const after = desk.lastSequence === null ? [] : ['--after', String(desk.lastSequence)]
+  const stream = $.process.spawn({ argv: [...commandOf(desk.options), 'stream', '--json', ...after] })
+  desk.stream = stream
+  await update($, connection, () => 'live')
+  try {
+    for await (const line of linesOf(stream)) await arrived($, desk, line)
+  } catch {
+    await update($, problem, () => 'The live stream stopped. Reconnecting in half a minute.')
+  }
+  if (desk.stream !== stream) return
+  desk.stream = null
+  if ((await read($, deskRole)) === 'desk') await update($, connection, () => 'reconnecting')
+}
+
+const arrived = async ($: Engine, desk: Desk, line: string): Promise<void> => {
+  const parsed = lastJsonLine(line) as StreamLine | null
+  const event = parsed?.event
+  if (typeof event?.seq === 'number') desk.lastSequence = event.seq
+  const body = event?.body
+  if (
+    body?.type === 'note.sent' &&
+    typeof parsed?.wrapped === 'string' &&
+    typeof body.note?.id === 'string'
+  ) {
+    desk.wrappedNotes.set(body.note.id, parsed.wrapped)
+    notifyPerson($, `A note from ${authorIn(parsed.wrapped)} arrived. Drafting a reply.`)
+    await refresh($, desk)
+    return draftReply($, desk, body.note.id, parsed.wrapped)
+  }
+  if (body?.type === 'draft.requested' && body.request !== undefined) {
+    const request = requestIn(body.request)
+    if (request !== null) await answerRequest($, desk, request)
+    return
+  }
+  const latest = await refresh($, desk)
+  if (
+    body?.type === 'draft.saved' &&
+    latest !== null &&
+    latest.drafts.some((draft) => draft.id === body.note?.id)
+  )
+    notifyPerson($, 'A draft is ready for your approval in the Homingbird pane.')
+  if (body?.type === 'resync') await catchUp($, desk)
+}
+
+const catchUp = async ($: Engine, desk: Desk): Promise<void> => {
+  const latest = await read($, overview)
+  for (const waiting of latest?.awaiting ?? []) {
+    if (latest?.drafts.some((draft) => draft.inReplyTo === waiting.noteId)) continue
+    desk.wrappedNotes.set(waiting.noteId, waiting.wrapped)
+    await draftReply($, desk, waiting.noteId, waiting.wrapped)
+  }
+  const ran = await runJson($, desk.options, ['requests'])
+  const listed = ran.kind === 'ok' ? (ran.value as { requests?: unknown } | null)?.requests : []
+  const open = (Array.isArray(listed) ? listed : []).flatMap((one) => {
+    const request = requestIn(one)
+    return request === null || hasDrafts(one) ? [] : [request]
+  })
+  await update($, requests, () => open)
+  for (const request of open) await answerRequest($, desk, request)
+}
+
+const draftReply = async ($: Engine, desk: Desk, noteId: string, wrappedNote: string): Promise<void> => {
+  const mode = autoDraftOf(desk.options.autoDraft)
+  if (mode === 'off' || desk.handled.has(noteId)) return
+  desk.handled.add(noteId)
+  await run($, desk.options, ['pickup', noteId])
+  if (mode === 'turn') return void (await $.prompt.submit({ text: notePromptFor(noteId, wrappedNote) }))
+  const reply = replyIn(await suggestReply($, replyPromptFor(wrappedNote)))
+  if (reply === null) return
+  const drafted = await run($, desk.options, ['draft', '--reply', noteId, '--', reply])
+  if (drafted.kind === 'ok') await refresh($, desk)
+}
+
+const answerRequest = async ($: Engine, desk: Desk, request: HomingbirdDraftRequest): Promise<void> => {
+  await update($, requests, (open) => [...open.filter((one) => one.id !== request.id), request])
+  if (autoDraftOf(desk.options.autoDraft) === 'off' || desk.handled.has(request.id)) return
+  desk.handled.add(request.id)
+  notifyPerson($, 'Drafting what you asked for.')
+  await $.prompt.submit({ text: requestPromptFor(request) })
+}
+
+const suggestReply = async ($: Engine, prompt: string): Promise<string> => {
+  const forked = await $.model.fork({ prompt })
+  if (forked.isAnswered) return forked.text
+  if (forked.reason !== 'nothing-to-fork') return ''
+  const fresh = await $.model.complete({ model: await $.session.model(), prompt })
+  return fresh.isAnswered ? fresh.text : ''
+}
+
+const notifyPerson = ($: Engine, text: string): void => {
+  $.ui.toast(`Homingbird: ${text}`)
+  void $.ui.notify(text, { title: 'Homingbird' }).catch(() => undefined)
+}
+
+const showCounts = async ($: Engine, latest: HomingbirdOverview | null): Promise<void> => {
+  const waiting = latest?.drafts.length ?? 0
+  const isDesk = (await read($, deskRole)) === 'desk'
+  $.ui.status(isDesk ? `Homingbird desk${waiting > 0 ? ` · ${waitingLabel(waiting)}` : ''}` : undefined)
+  const isOpen = (await $.ui.panes()).some((pane) => pane.id === PANE)
+  if (isOpen) await $.ui.open({ id: PANE, title: paneTitleFor(waiting) })
+}
+
+const settle = async (
+  $: Engine,
+  state: 'unavailable' | Desk['options'][string] | string,
+  message: string,
+) => {
+  if (state === 'unavailable') await update($, connection, () => 'unavailable')
+  await update($, problem, () => message)
+  return null
+}
+
+const openInBrowser = async ($: Engine, url: string): Promise<void> => {
+  const { platform, isHosted } = await $.session.info()
+  const argv = isHosted === true ? null : BROWSER_OPENERS[platform ?? 'unknown']
+  if (argv === null || argv === undefined) return
+  await $.process.run([...argv, url], { timeoutMs: 10_000 }).catch(() => undefined)
+}
+
+const loginArgv = (desk: Desk, server: string): string[] => [
+  ...commandOf(desk.options),
+  'login',
+  '--server',
+  server,
+  '--approve-button',
+  '--json',
+]
+
+async function* linesOf(stream: AsyncIterable<{ stream: string; text: string }>): AsyncGenerator<string> {
+  let unread = ''
+  for await (const chunk of stream) {
+    if (chunk.stream !== 'stdout') continue
+    const lines = (unread + chunk.text).split('\n')
+    unread = lines.pop() ?? ''
+    yield* lines
+  }
+}
+
+interface StreamLine {
+  readonly event?: {
+    readonly seq?: unknown
+    readonly body?: {
+      readonly type?: string
+      readonly note?: { readonly id?: unknown }
+      readonly request?: unknown
+    }
+  }
+  readonly wrapped?: unknown
+}
+
+const requestIn = (value: unknown): HomingbirdDraftRequest | null => {
+  const request = value as Partial<Record<keyof HomingbirdDraftRequest, unknown>> | null
+  if (typeof request?.id !== 'string' || typeof request.conversationId !== 'string') return null
+  return {
+    id: request.id,
+    conversationId: request.conversationId,
+    inReplyTo: typeof request.inReplyTo === 'string' ? request.inReplyTo : null,
+    instruction: typeof request.instruction === 'string' ? request.instruction : '',
+  }
+}
+
+const hasDrafts = (value: unknown): boolean => {
+  const draftIds = (value as { draftIds?: unknown } | null)?.draftIds
+  return Array.isArray(draftIds) && draftIds.length > 0
+}
+
+const overviewIn = (value: unknown): HomingbirdOverview | null => {
+  const data = value as
+    | (Partial<HomingbirdOverview> & { signedIn?: boolean; member?: { name?: string } })
+    | null
+  if (data === null || data.signedIn !== true) return null
+  return {
+    server: String(data.server ?? ''),
+    memberName: String(data.member?.name ?? ''),
+    hasApproveButton: data.hasApproveButton === true,
+    conversations: data.conversations ?? [],
+    awaiting: data.awaiting ?? [],
+    drafts: data.drafts ?? [],
+  }
+}
+
+const authorIn = (wrappedNote: string): string => {
+  const from = /^<colleague-note [^>]*from="([^"&]*)/.exec(wrappedNote)?.[1]?.trim()
+  return from === undefined || from === '' ? 'a colleague' : from
+}
+
+const waitingLabel = (count: number): string =>
+  `${count} ${count === 1 ? 'draft' : 'drafts'} waiting for approval`
+
+const HEARTBEAT_MS = 30_000
+
+const NO_APPROVE_BUTTON = 'This device has no approve button. Approve in the Homingbird web client.'
+
+const BROWSER_OPENERS: Readonly<Record<string, ReadonlyArray<string> | null>> = {
+  macos: ['open'],
+  linux: ['xdg-open'],
+  wsl: ['wslview'],
+  windows: ['rundll32', 'url.dll,FileProtocolHandler'],
+  unknown: null,
+}

@@ -105,7 +105,9 @@ const documentText = (
         throw refused('the document redirects too many times')
       },
       (cause) =>
-        ClientMetadataRefused.is(cause) ? cause : ClientMetadataRefused({ reason: 'the document could not be fetched' }),
+        ClientMetadataRefused.is(cause)
+          ? cause
+          : ClientMetadataRefused({ reason: 'the document could not be fetched' }),
     ),
     T.timeout(FETCH_TIMEOUT_MS),
     T.mapError((error: ClientMetadataRefused | T.TimeoutError) =>
