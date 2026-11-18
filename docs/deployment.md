@@ -32,6 +32,9 @@ move up one size for the large row.
 - [Configuration](#configuration)
 - [Ready-made setups](#ready-made-setups)
 
+**Experimental parts.** Experimental: tested automatically, not yet used in a real deployment. This applies to the A2A gateway (`/a2a`), the Terraform configurations
+for GCP and AWS, and MySQL support.
+
 ## Measurements
 
 These numbers come from `pnpm load-test` on SQLite, on one noisy shared machine. Treat them as rough.
@@ -52,9 +55,9 @@ What follows from that, and has **not** been measured:
   second vCPU still helps, because garbage collection, TLS and the database driver run beside the main
   thread.
 - Memory grows with open streams, not with members: 10,000 open streams need about 2 GB.
-- The measurements were direct conversations. **A note in a topic room writes one event row per
-  participant of that room**, because every participant gets an event per note. A topic that 1,000
-  people joined costs 1,000 writes per note. Dovecote puts nobody in a topic by itself, so a room is as
+- The measurements were direct conversations. **A note in a channel room writes one event row per
+  participant of that room**, because every participant gets an event per note. A channel that 1,000
+  people joined costs 1,000 writes per note. Dovecote puts nobody in a channel by itself, so a room is as
   large as the people who joined it.
 
 ## One instance only
@@ -79,13 +82,14 @@ Horizontal scaling (shared fan-out through the database or a broker) is on the
 | --- | --- | --- |
 | SQLite (default) | One VM or one Docker host with a persistent disk | `sqlite:/data/dovecote.sqlite` |
 | PostgreSQL | Cloud Run, Fargate, or anywhere the container's disk is not persistent | `postgres://user:password@host:5432/homingbird` |
-| MySQL 8 | Your organization already runs MySQL | `mysql://user:password@host:3306/homingbird` |
+| MySQL 8 (experimental) | Your organization already runs MySQL | `mysql://user:password@host:3306/homingbird` |
 
 - SQLite is built into Node (`node:sqlite`), needs no driver and is the fastest option on one machine.
   Keep the file on a local or block disk, never on a network file system.
 - The container image includes the `pg` and `mysql2` drivers. Running from source, install the one you
   need: they are optional peer dependencies of `@homingbird/dovecote`.
 - The whole server test suite runs against PostgreSQL 16 and MySQL 8 in CI.
+- MySQL support: Experimental: tested automatically, not yet used in a real deployment.
 
 ### Upgrading
 
@@ -161,8 +165,8 @@ heartbeat and the events with it.
 administrator opens **Administration**, **Members** in the web client and presses **Deactivate**
 (the API route `admin.members.update` with `status: deactivated`). At once:
 
-- every credential of that member is revoked: browser sessions, agent credentials and any
-  approve-button credential. Their next request is refused, and an open event stream ends at its
+- every credential of that member is revoked: browser sessions and agent credentials. Their next
+  request is refused, and an open event stream ends at its
   next heartbeat, within 20 seconds;
 - they disappear from the directory, and nobody can address a new note to them;
 - signing in again is refused, even while their company account still works.
@@ -179,8 +183,8 @@ Limits:
 - Nothing syncs with the identity provider. There is no SCIM ([roadmap](roadmap.md#operations)), so
   deactivation is a manual step in your offboarding.
 - Blocking the company account alone stops new sign-ins, but credentials already issued keep working
-  until they expire: a browser session after `HB_SESSION_DAYS` (30 days by default), an agent or
-  approve-button credential after `HB_AGENT_CREDENTIAL_DAYS` (90 days by default). Refreshing an
+  until they expire: a browser session after `HB_SESSION_DAYS` (30 days by default), an agent
+  credential after `HB_AGENT_CREDENTIAL_DAYS` (90 days by default). Refreshing an
   agent's token does not extend that.
 
 ## Audit log forwarding
@@ -197,11 +201,11 @@ note content. Administrators read the log in the web client. To keep it elsewher
 Both forwards are off by default because the entries contain note content. Point them only at systems
 cleared for it.
 
-**Private topics are private from other members, not from the organization.** A private topic is
+**Private channels are private from other members, not from the organization.** A private channel is
 hidden from everyone outside it in the web client, the API and every agent tool, but the audit log
-records the content of its notes like any other, administrators can manage every topic, and anyone
+records the content of its notes like any other, administrators can manage every channel, and anyone
 who can read the database or the forwarded entries can read it. Tell your members so; the user guide
-says it too. Every change to a topic's members, managers and visibility is audited as well.
+says it too. Every change to a channel's members, managers and visibility is audited as well.
 
 ## Answering flow
 
@@ -255,13 +259,12 @@ The agent command runs with the permissions of the OS user that runs the runner,
   The agent command can read every file that user can read, including the runner's agent credential
   (`$XDG_CONFIG_HOME/homingbird` or `~/.config/homingbird`). With it, an agent can read that person's
   conversations and draft, never send: Dovecote refuses agent credentials on every approving route.
-- **Never sign that user in with `--approve-button`.** The runner refuses to start, and stops before the
-  next agent run, while an approve-button credential is stored in that user's Homingbird directory or in
-  `~/.config/homingbird`. Approval happens in the web client.
+- Nothing a runner signs in with can approve: a device sign-in issues an agent credential only, and
+  approval happens in the web client, where the person signs in themself.
 - **Never run it as the user that runs Dovecote**, which can read the database and `HB_*` secrets. The
   runner removes `HOMINGBIRD_*` and `HB_*` variables from the agent command's environment, but files are
   another matter.
-- The runner holds an event stream, so the person shows as **agent online** while it runs.
+- The runner holds an event stream, so the person's agent shows as **awake** while it runs.
 
 ## Configuration
 
@@ -271,17 +274,16 @@ Every variable Dovecote reads. Blank values count as unset.
 | --- | --- | --- |
 | `HB_PUBLIC_URL` | required | The URL people and agents use, such as `https://homingbird.example.com` |
 | `HB_PORT` | `8080` | Port to listen on |
-| `HB_DATABASE_URL` | `sqlite:./data/dovecote.sqlite`; `sqlite:/data/dovecote.sqlite` in the image | `sqlite:`, `postgres:`, `postgresql:` or `mysql:` |
-| `HB_OIDC_ISSUER` | `https://accounts.google.com` | Any OpenID Connect issuer |
+| `HB_DATABASE_URL` | `sqlite:./data/dovecote.sqlite`; `sqlite:/data/dovecote.sqlite` in the image | `sqlite:`, `postgres:`, `postgresql:` or `mysql:` (MySQL is experimental: tested automatically, not yet used in a real deployment) |
+| `HB_OIDC_ISSUER` | `https://accounts.google.com` | Any OpenID Connect issuer. Its discovery document must name exactly this issuer, and its endpoints must be public https hosts; otherwise sign-in is unavailable and says why |
 | `HB_OIDC_CLIENT_ID`, `HB_OIDC_CLIENT_SECRET` | required | From your identity provider. The redirect URI is `<HB_PUBLIC_URL>/auth/callback` |
 | `HB_OIDC_LABEL` | `Google` | Name on the sign-in button, at most 40 characters |
-| `HB_ADMIN_EMAILS` | required | Administrators, comma-separated. Nobody becomes one implicitly |
+| `HB_ADMIN_EMAILS` | required | Administrators, comma-separated. Nobody becomes one implicitly, except with `HB_DEV_LOGIN=1`: there it is optional, and while it is unset the first member to sign in becomes an administrator (the startup warning says so) |
 | `HB_ALLOWED_DOMAINS` | none | Email domains allowed to sign in, comma-separated. A starting value: administrators change it in the web client |
 | `HB_CONTACT_MODE` | `open` | `open`, or `contacts` to require an accepted request before messaging. A starting value, like the one above |
-| `HB_TOPICS` | none | Topics created on start, `slug` or `slug: description`, comma-separated. Exactly these are created, once, and nobody is joined to them |
+| `HB_CHANNELS` | none | Channels created on start, `slug` or `slug: description`, comma-separated. Exactly these are created, once, and nobody is joined to them |
 | `HB_SESSION_DAYS` | `30` | Days a sign-in lasts before the identity provider is asked again |
 | `HB_AGENT_CREDENTIAL_DAYS` | `90` | Days an agent credential lasts |
-| `HB_APPROVE_BUTTON` | `off` | `on` lets a person grant an approve button to the Claude Code mod. Off, the device flow never issues an approval credential and everyone approves in the web client. Turning it on stores an approval credential on each person's computer, where their agent runs as the same user and is held back only by the mod's pattern guard, so a malicious note could trick the agent into sending a draft without the person. Approval in the web client is enforced by the server. Credentials granted while it was on stay valid until revoked under **Devices and agents** |
 | `HB_TRUST_PROXY` | `0` | Number of proxies in front that append to `X-Forwarded-For`; see [above](#behind-a-load-balancer) |
 | `HB_AUDIT_STDOUT` | `0` | `1` prints audit entries as JSON lines |
 | `HB_AUDIT_WEBHOOK_URL` | none | Posts audit entries to this URL |
@@ -292,12 +294,30 @@ Every variable Dovecote reads. Blank values count as unset.
 | `HB_OAUTH_CLIENTS` | none | Preregistered clients, `id\|Name\|redirect;redirect`, comma-separated |
 | `HB_WEB_DIR` | `/app/web` in the image | Directory of the web client to serve |
 | `HB_THEME_DIR` | none | A directory with `theme.css`, `branding.json`, and the fonts and images they use, served under `/theme/` ([guide](guide.md#bring-your-own-web-client)) |
-| `HB_DEV_LOGIN` | `0` | `1` lets anyone sign in as anyone without an identity provider. Refused unless `HB_PUBLIC_URL` is a loopback address |
+| `HB_DEV_LOGIN` | `0` | `1` lets anyone sign in as anyone without an identity provider. Refused unless `HB_PUBLIC_URL` is a loopback address. With `HB_ALLOWED_DOMAINS` unset it accepts any address |
+
+### Trying it on one computer
+
+Development login needs no identity provider and lets anyone who reaches the server sign in as anyone,
+so bind it to `127.0.0.1`:
+
+```sh
+docker run -p 127.0.0.1:8080:8080 -v homingbird-try:/data \
+  -e HB_PUBLIC_URL=http://localhost:8080 -e HB_DEV_LOGIN=1 \
+  ghcr.io/let-sunny/homingbird
+```
+
+With `HB_ALLOWED_DOMAINS` unset, development login accepts any address and the server prints a warning
+when it starts; set it to limit sign-in to some domains even here.
+With `HB_ADMIN_EMAILS` unset, the first member to sign in becomes an administrator, and the warning says
+so too. This happens only with development login; a production server refuses to start without
+`HB_ADMIN_EMAILS`.
 
 ## Ready-made setups
 
 - **Docker Compose:** `docker-compose.yml` at the repository root runs Dovecote on SQLite in a volume,
   with an optional `postgres` profile.
+- **Terraform for GCP and AWS:** Experimental: tested automatically, not yet used in a real deployment.
 - **Google Cloud:** [`deploy/terraform/gcp`](../deploy/terraform/gcp/README.md): Cloud Run with one
   instance, Cloud SQL for PostgreSQL, and an HTTPS load balancer. It sets `HB_TRUST_PROXY=2`, because
   that load balancer appends the client address and then its own.

@@ -35,7 +35,7 @@ PostgreSQL and MySQL.
 | `client` | Typed API client and event stream, derived from the contract. |
 | `ui`, `pwa` | Dependency-free web client. |
 | `cli`, `mcp`, `a2a` | Command line, MCP adapter, A2A gateway. |
-| `mod` | The Claude Code mod: the desk pane and its approve button. |
+| `mod` | The Claude Code mod: the desk pane, which links each draft to the web client for approval. |
 
 ## Rules
 

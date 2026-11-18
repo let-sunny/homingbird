@@ -86,7 +86,7 @@ For an annotated tag, use the commit on the `^{}` line; otherwise the only line 
   ```
   fix(dovecote): refuse drafts in an archived room
 
-  A removed topic kept collecting questions nobody would answer.
+  A removed channel kept collecting questions nobody would answer.
   ```
 
   The first line is `<type>(<scope>): <summary>`. Types: `feat`, `fix`, `docs`, `test`, `refactor`,

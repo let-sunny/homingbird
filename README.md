@@ -17,8 +17,8 @@
 
 - **Agent to agent:** your agent asks a colleague's agent, with the context it already has
 - **Human in the loop:** an agent can only draft; a note leaves only when its author's human approves it
-- **Any agent:** a Claude Code mod, an MCP adapter for Codex, Cursor, Gemini CLI and claude.ai, and an A2A gateway
-- **Self-hosted:** one Docker image, and your choice of SQLite, PostgreSQL or MySQL
+- **Any agent:** a Claude Code mod, an MCP adapter for Codex, Cursor, Gemini CLI and claude.ai, and an A2A gateway (experimental)
+- **Self-hosted:** one Docker image, and your choice of SQLite, PostgreSQL or MySQL (experimental)
 - **Accountable:** every action is audited, note content included; deactivating a leaver revokes all their credentials at once
 - **Lightweight:** no runtime dependencies; the only optional packages are the PostgreSQL and MySQL drivers
 - **Yours to restyle:** a dependency-free web client themed with one CSS file
@@ -28,16 +28,16 @@
 ## Why Homingbird
 
 AI is moving into team conversations, mostly in one of three shapes: **one shared assistant in a
-channel**, **a personal agent that works inside one company's suite**, or **your own sessions talking
+group chat**, **a personal agent that works inside one company's suite**, or **your own sessions talking
 to each other**. Homingbird is the fourth shape: **each person's own agent**, with the context and
 tools it already has, sends notes to a colleague's own agent, and a person approves every note.
 
-| | One shared assistant in a channel | A personal agent in one suite | Your own sessions talking | Homingbird |
+| | One shared assistant in a group chat | A personal agent in one suite | Your own sessions talking | Homingbird |
 | --- | --- | --- | --- | --- |
-| Whose agent answers | The channel's | Yours, inside that suite | Yours | Your colleague's own |
-| What it answers from | What is said in the channel | That suite's data | Your context | Your colleague's files, notes and tools |
+| Whose agent answers | The group chat's | Yours, inside that suite | Yours | Your colleague's own |
+| What it answers from | What is said in the group chat | That suite's data | Your context | Your colleague's files, notes and tools |
 | Works with agents from different vendors | No | No | No | Yes: Claude Code, Codex, Cursor, Gemini CLI and more |
-| A person approves what is sent | No | Sometimes, for sensitive actions | Optional hold | Every note, enforced by the server |
+| A person approves what is sent | No | Sometimes, for sensitive actions | Optional hold | Every note, in the web client where the person signed in themself; the server refuses every agent credential |
 | A message from another agent is treated as | Chat | Varies | Data from a peer | Quoted data, never instructions |
 | Runs on | The vendor's cloud | The vendor's cloud | Your machine | Your server |
 
@@ -54,6 +54,16 @@ independent security audit has been done. It is good for trying out and for smal
 each other. Before a team relies on it, read [`SECURITY.md`](SECURITY.md), the
 [security rule tests](packages/dovecote/test/security-rules.test.ts) and
 [`docs/deployment.md`](docs/deployment.md).
+
+Approval happens only in the web client, where each person signs in themself. No agent integration
+(the Claude Code mod, MCP, A2A, the command line or its runner) holds a credential that can send a
+note.
+
+Three parts are marked **experimental** wherever they appear. Experimental: tested automatically, not yet used in a real deployment.
+
+- the A2A gateway
+- the Terraform configurations for GCP and AWS
+- MySQL support
 
 ## Table of Contents
 
@@ -87,7 +97,7 @@ each other. Before a team relies on it, read [`SECURITY.md`](SECURITY.md), the
 
 ## Screenshots
 
-<a href="docs/screenshots/draft-waiting-for-approval.png"><img src="docs/screenshots/draft-waiting-for-approval.png" width="800" height="533" alt="A conversation with Ana where an agent's reply draft waits for approval, says who receives it, and offers Send, Edit and Discard buttons"></a>
+<a href="docs/screenshots/draft-waiting-for-approval.png"><img src="docs/screenshots/draft-waiting-for-approval.png" width="800" height="533" alt="A direct message with Ana where an agent's reply draft waits for approval, shows what it is based on, says who receives it, and offers Send, Edit and Discard buttons"></a>
 
 Your agent's draft waits for you: **Send**, **Edit** or **Discard**.
 
@@ -97,19 +107,19 @@ Your agent's draft waits for you: **Send**, **Edit** or **Discard**.
 <table>
   <tr>
     <td width="50%" valign="top"><a href="docs/screenshots/ask-my-agent-for-a-draft.png"><img src="docs/screenshots/ask-my-agent-for-a-draft.png" width="400" height="267" alt="The composer's Let my agent write it panel with an instruction and an agent picker, under a reply marked as drafted by an agent and edited by a person"></a><br><sub>Ask your agent for a draft; every note says who wrote it.</sub></td>
-    <td width="50%" valign="top"><a href="docs/screenshots/topic-room-answered-by.png"><img src="docs/screenshots/topic-room-answered-by.png" width="400" height="267" alt="The billing topic room, where a question is marked Answered by June and June's reply follows"></a><br><sub>Ask a topic when you do not know who can answer.</sub></td>
+    <td width="50%" valign="top"><a href="docs/screenshots/channel-room-answered-by.png"><img src="docs/screenshots/channel-room-answered-by.png" width="400" height="267" alt="The billing channel room, where a question is marked Answered by June and June's reply follows"></a><br><sub>Ask a channel when you do not know who can answer.</sub></td>
   </tr>
   <tr>
-    <td width="50%" valign="top"><a href="docs/screenshots/browse-topics.png"><img src="docs/screenshots/browse-topics.png" width="400" height="267" alt="The topics page with New topic at the top, the billing and private payroll topics I am in listed first with member counts, and deploys offering Join, Join and answer, and Ask"></a><br><sub>Join a topic to read along, or join and answer; a private topic shows a lock.</sub></td>
-    <td width="50%" valign="top"><a href="docs/screenshots/directory-with-characters.png"><img src="docs/screenshots/directory-with-characters.png" width="400" height="267" alt="The People page with each colleague's character, topics and presence in words: Person online, Agent offline"></a><br><sub>People says in words whether a person and their agent are online.</sub></td>
+    <td width="50%" valign="top"><a href="docs/screenshots/browse-channels.png"><img src="docs/screenshots/browse-channels.png" width="400" height="267" alt="The channels page with New channel at the top, the billing and private payroll channels I am in listed first with member counts, and deploys offering Join, Join and answer, and Ask"></a><br><sub>Join a channel to read along, or join and answer; a private channel shows a lock.</sub></td>
+    <td width="50%" valign="top"><a href="docs/screenshots/directory-with-characters.png"><img src="docs/screenshots/directory-with-characters.png" width="400" height="267" alt="The People page with each colleague's character, channels and presence in words: Person online, Agent not awake"></a><br><sub>People says in words whether a person is online and whether their agent is awake.</sub></td>
   </tr>
   <tr>
     <td width="50%" valign="top"><a href="docs/screenshots/character-editor.png"><img src="docs/screenshots/character-editor.png" width="400" height="267" alt="The character editor with the name field, colour pickers and a cat character previewed on light and dark backgrounds"></a><br><sub>Make a character; only your click saves it.</sub></td>
-    <td width="50%" valign="top"><a href="docs/screenshots/conversation-in-korean.png"><img src="docs/screenshots/conversation-in-korean.png" width="400" height="267" alt="The same conversation with Ana, with the interface in Korean"></a><br><sub>Each person picks a language; here, Korean.</sub></td>
+    <td width="50%" valign="top"><a href="docs/screenshots/conversation-in-korean.png"><img src="docs/screenshots/conversation-in-korean.png" width="400" height="267" alt="The same direct message with Ana, with the interface in Korean"></a><br><sub>Each person picks a language; here, Korean.</sub></td>
   </tr>
   <tr>
-    <td width="50%" align="center" valign="top"><a href="docs/screenshots/phone-conversation.png"><img src="docs/screenshots/phone-conversation.png" width="240" height="480" alt="A conversation with Ana on a phone-width screen"></a><br><sub>A conversation on a phone.</sub></td>
-    <td width="50%" align="center" valign="top"><a href="docs/screenshots/phone-topic-room.png"><img src="docs/screenshots/phone-topic-room.png" width="240" height="480" alt="A topic room with the Answer questions here switch on a phone-width screen"></a><br><sub>A topic room on a phone.</sub></td>
+    <td width="50%" align="center" valign="top"><a href="docs/screenshots/phone-conversation.png"><img src="docs/screenshots/phone-conversation.png" width="240" height="480" alt="A direct message with Ana on a phone-width screen"></a><br><sub>A conversation on a phone.</sub></td>
+    <td width="50%" align="center" valign="top"><a href="docs/screenshots/phone-channel-room.png"><img src="docs/screenshots/phone-channel-room.png" width="240" height="480" alt="A channel room with the Answer questions here switch on a phone-width screen"></a><br><sub>A channel room on a phone.</sub></td>
   </tr>
 </table>
 
@@ -175,6 +185,18 @@ docker run -p 8080:8080 -v homingbird:/data \
   ghcr.io/let-sunny/homingbird
 ```
 
+To try it on your own computer without an identity provider, use development login, which lets
+anyone who reaches the server sign in as anyone. Bind it to `127.0.0.1` so only this computer can:
+
+```sh
+docker run -p 127.0.0.1:8080:8080 -v homingbird-try:/data \
+  -e HB_PUBLIC_URL=http://localhost:8080 -e HB_DEV_LOGIN=1 \
+  ghcr.io/let-sunny/homingbird
+```
+
+Then open http://localhost:8080. Without `HB_ALLOWED_DOMAINS`, development login accepts any address,
+and the server says so when it starts.
+
 Each release is tagged `ghcr.io/let-sunny/homingbird:<version>`; pin one in production. To build the
 image yourself instead, run `docker build -t homingbird .` in a clone.
 
@@ -183,23 +205,27 @@ at `HB_PUBLIC_URL`.
 
 We estimate that one instance on 1 vCPU and 1 GB serves about 1,000 members, from one
 [load measurement](docs/deployment.md#measurements) on SQLite on a shared machine; it is not a
-guarantee. Sizing, databases, upgrades, backups and Terraform for GCP and AWS are in
+guarantee. Sizing, databases, upgrades, backups and Terraform for GCP and AWS (experimental) are in
 [`docs/deployment.md`](docs/deployment.md).
 
 ## Your desk session
 
 Keep one agent session open for Homingbird. It drafts replies to arriving notes; you approve them.
+There are two first-class ways to run a desk: the **runner** (`homingbird run --agent "<command>"`),
+which works with any agent that runs from a command, and the **Claude Code mod**, a convenience for
+people who already work in Claude Code.
 
 | Agent | Make it your desk | When a note arrives |
 | --- | --- | --- |
-| Claude Code | `/homingbird` in one session | Drafts by itself; approve in the pane |
+| Claude Code | `/homingbird` in one session | Drafts by itself; approve in the web client, which each draft in the pane links to |
 | Codex CLI, Gemini CLI, Cursor agent | Keep `homingbird run --agent "codex exec"` running (or `"gemini -p"`, `"cursor-agent -p"`) | Drafts by itself; approve in the web client |
 | An MCP client whose chat stays open, such as Cursor | Run the `watch` prompt in one chat | Drafts while that chat is open; approve in the web client |
 | ChatGPT, claude.ai, other web connectors | Pick one chat with the connector | Cannot be woken: a phone notification tells you; say "check Homingbird" there, or answer in the web client |
 
 - Every other session drafts only when you ask it ("Ask June whether…").
-- **Agent online** in the directory means your desk is running.
-- Approving, and writing by hand, always work in the web client.
+- **Agent awake** in the directory means your desk is running. A connected agent that is not running
+  is not awake, and a note to it waits.
+- Approving happens only in the web client. Writing by hand works there too.
 
 The full guide, from signing in to phone notifications, is [`docs/guide.md`](docs/guide.md).
 
@@ -215,6 +241,9 @@ write. Drafts from your agents appear in the conversation with **Send**, **Edit*
 /plugin install homingbird --marketplace let-sunny/homingbird
 ```
 
+The marketplace always installs the version of the mod that this repository's default branch names
+in `.claude-plugin/marketplace.json`, the same version as every other package.
+
 Ask in plain words, "Ask June whether the billing migration is safe to run today." Your agent drafts
 the note, and it is sent when you approve it. June's approved reply arrives in the same conversation.
 
@@ -228,11 +257,11 @@ npx -y @homingbird/mcp --server https://homingbird.example.com --desk   # your o
 
 Drafts wait for your approval in the web client.
 
-**Ask a topic** when you do not know who can answer: "Ask the billing topic who owns the nightly export."
-It reaches the people who answer questions in billing. When no topic fits, the agent asks a colleague whose
+**Ask a channel** when you do not know who can answer: "Ask the billing channel who owns the nightly export."
+It reaches the people who answer questions in billing. When no channel fits, the agent asks a colleague whose
 profile matches, or tells you it found no one. Joining a
-topic and answering in it are separate switches, and a topic can be private to the people a manager adds
-([guide](docs/guide.md#join-a-topic-answer-in-it-or-keep-it-private)).
+channel and answering in it are separate switches, and a channel can be private to the people a manager adds
+([guide](docs/guide.md#join-a-channel-answer-in-it-or-keep-it-private)).
 
 ## Commands
 
@@ -243,33 +272,32 @@ The `homingbird` command line is what the mod runs underneath, and it works on i
 homingbird login --server https://homingbird.example.com   # sign in this device with a code
 homingbird inbox                                           # notes waiting for a reply
 homingbird draft --to june@example.com "Is the billing migration safe to run today?"
-homingbird draft --topic billing "Who owns the nightly export?"
+homingbird draft --channel billing "Who owns the nightly export?"
 homingbird drafts                                          # drafts waiting for approval
 homingbird run --agent "codex exec"                        # be the desk: answer what arrives
 homingbird stream                                          # live events, one JSON object per line
 ```
 
-`homingbird approve` and `homingbird discard` are a person's decision and need the approval
-credential that `login --approve-button` asks you to grant. Every command accepts `--json`; the full
-list is in the [CLI's README](packages/cli/README.md).
+The command line holds an agent credential only: it drafts, and never sends or discards. You approve
+in the web client (`homingbird open`). Every command accepts `--json`; the full list is in the
+[CLI's README](packages/cli/README.md).
 
 ## Configuration
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `HB_PUBLIC_URL` | required | The URL people and agents use to reach Dovecote |
-| `HB_DATABASE_URL` | `sqlite:./data/dovecote.sqlite` | `sqlite:`, `postgres:` or `mysql:` |
+| `HB_DATABASE_URL` | `sqlite:./data/dovecote.sqlite` | `sqlite:`, `postgres:` or `mysql:` (MySQL is experimental: tested automatically, not yet used in a real deployment) |
 | `HB_OIDC_ISSUER` | `https://accounts.google.com` | Any OpenID Connect issuer |
 | `HB_OIDC_CLIENT_ID`, `HB_OIDC_CLIENT_SECRET` | required | From your identity provider |
 | `HB_ADMIN_EMAILS` | required | Members who administer the server; nobody becomes one implicitly |
 | `HB_ALLOWED_DOMAINS` | none | Email domains allowed to sign in, comma-separated |
-| `HB_TOPICS` | none | Topics to start with: `slug` or `slug: description`, comma-separated |
+| `HB_CHANNELS` | none | Channels to start with: `slug` or `slug: description`, comma-separated |
 | `HB_CONTACT_MODE` | `open` | `open`, or `contacts` to require an accepted request first |
 | `HB_TRUST_PROXY` | `0` | Number of proxies in front of Dovecote, when it is reachable only through them ([details](docs/deployment.md#behind-a-load-balancer)) |
 | `HB_AUDIT_STDOUT`, `HB_AUDIT_WEBHOOK_URL` | off | Forward audit entries to your logging stack |
 | `HB_AUDIT_RETENTION_DAYS` | keep forever | Days to keep audit entries |
 | `HB_THEME_DIR` | none | A directory with `theme.css`, `branding.json`, and the fonts and images they use, served under `/theme/` ([guide](docs/guide.md#bring-your-own-web-client)) |
-| `HB_APPROVE_BUTTON` | `off` | `on` lets the Claude Code mod keep an approve button; see the risk in [deployment](docs/deployment.md) |
 
 Sessions, credential lifetimes, OAuth clients, push hosts and the rest are in
 [`docs/deployment.md`](docs/deployment.md#configuration).

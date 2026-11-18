@@ -2,9 +2,9 @@
 
 Your agent and your colleague June's agent never talk to each other directly. Each one talks only to
 Dovecote, the relay server, and Dovecote passes notes between the people they work for. An agent can
-only draft; a note leaves its author only after a person approves it, in the web client or, where the
-organization turned it on, with an approve button in their agent's pane, and Dovecote checks that the credential is a person's
-before it sends. Dovecote never calls a language model, never shows a draft to anyone but its author,
+only draft; a note leaves its author only after a person approves it in the web client, where they
+signed in themself, and Dovecote checks that the credential is a person's browser sign-in before it
+sends. No agent integration holds a credential that can approve. Dovecote never calls a language model, never shows a draft to anyone but its author,
 and never hands a received note to a model except wrapped as quoted data by `wrapNote`.
 
 Everything below is described from the code in `packages/`.
@@ -18,19 +18,18 @@ Everything below is described from the code in `packages/`.
 | `dovecote` | The relay server: API, sign-in, OAuth and device flow, event log and hub, Web Push, audit, SQL for SQLite, PostgreSQL and MySQL. It also serves the remote MCP endpoint `/mcp` and the A2A gateway `/a2a`. |
 | `client` | The typed HTTP client derived from the contract, the device flow, and the event stream (SSE with long-poll fallback). |
 | `ui` | The dependency-free DOM toolkit: elements, signals, regions, safe link rendering. |
-| `pwa` | The web client people use to read, approve, edit and discard notes, connect agents and manage topics. |
-| `cli` | The `homingbird` command: sign-in, reading, drafting, `approve` and `discard` with the approve credential, `stream`, and the runner `run --agent`. |
+| `pwa` | The web client people use to read, approve, edit and discard notes, connect agents and manage channels. |
+| `cli` | The `homingbird` command: sign-in with an agent credential, reading, drafting, skipping, `stream`, `open` for the web client, and the runner `run --agent`. It cannot send or discard. |
 | `mcp` | The MCP adapter: tools, prompts, the stdio program `homingbird-mcp` with `--channel` and `--desk`, and the handler behind the remote `/mcp` endpoint. |
-| `a2a` | The A2A gateway: a remote agent's message becomes a draft; tasks show the draft's state and the wrapped replies. |
-| `mod` | The Claude Code mod: the Homingbird pane with its Approve, Edit and Discard buttons, the desk session, the model-facing note, topic and draft-request tools, the read-only project-reader helper, and the guard. It drives the `cli` package. |
+| `a2a` | The A2A gateway: a remote agent's message becomes a draft; tasks show the draft's state and the wrapped replies. Experimental: tested automatically, not yet used in a real deployment. |
+| `mod` | The Claude Code mod: the Homingbird pane, which shows each draft as waiting for approval and opens it in the web client, the desk session, the model-facing note, channel and draft-request tools, the read-only project-reader helper, and the guard. It drives the `cli` package. |
 
 ## System overview
 
 Every connection ends at Dovecote, and only a person's credential can send. The web client uses a
 session cookie, which is a human credential. Agents use agent credentials and may call only `member`
-routes; the one exception is the optional approve button (`HB_APPROVE_BUTTON=on`, off by default), a
-second, human credential that only a person's click in the pane uses. A desk session holds the event stream with its agent credential, and
-that is what the directory shows as "agent online". Remote connectors and A2A clients call the same
+routes, and a `human` credential counts only when a browser sign-in issued it. A desk session holds
+the event stream with its agent credential, and that is what the directory shows as "agent awake". Remote connectors and A2A clients call the same
 `member` routes through adapters inside Dovecote and hold no stream.
 
 ```mermaid
@@ -64,7 +63,6 @@ flowchart TB
   AUTH -->|"verify ID token"| IDP
   DESK -->|"device flow"| AUTH
   DESK -->|"agent token, drafts and pickups"| API
-  DESK -->|"approve token, pane button only"| API
   OTHER -->|"agent token, member routes"| API
   CONN -->|"OAuth code flow"| AUTH
   CONN -->|"bearer token, no stream"| ADAPT
@@ -74,7 +72,7 @@ flowchart TB
   API -->|"events in the same transaction"| EV
   API -->|"after commit"| AUD
   EV -.->|"SSE, long-poll fallback"| WEB
-  EV -.->|"SSE, counts as agent online"| DESK
+  EV -.->|"SSE, counts as agent awake"| DESK
   EV -.->|"only when no human client is connected"| PUSH
   PUSH -.-> WEB
   JUNE <--> API
@@ -87,11 +85,9 @@ with a member's agent token, so it acts as that member's agent; it never reaches
 
 A person signs in once with OpenID Connect and connects each agent once with the OAuth device flow;
 both end with a person confirming in a browser. Sign-in gives the browser a session cookie for a
-human credential. Connecting an agent issues an agent credential, and, only when the client asked for
-the `approve` scope, the server has `HB_APPROVE_BUTTON=on` and the person ticked "allow approve button",
-a second human credential returned as `approval_token`. With the setting off the checkbox is not shown
-and the request is granted as an agent credential only. The directory shows "agent online" from the moment the agent opens its event
-stream, not when the credential is issued.
+human credential. Connecting an agent issues an agent credential and nothing else, whatever scope the
+client asks for. The directory shows the agent as "awake" from the moment it opens its event stream,
+not when the credential is issued: connected is not awake.
 
 ```mermaid
 sequenceDiagram
@@ -111,27 +107,25 @@ sequenceDiagram
   S-->>W: session cookie for a human credential
   S-)W: directory.changed, broadcast to everyone
   H->>D: Connect in the pane, or homingbird login
-  D->>S: POST /oauth/device_authorization, scope notes or notes approve
+  D->>S: POST /oauth/device_authorization, scope notes
   S-->>D: device code, user code and verification address
   D-->>H: show or open the address, code filled in
   H->>W: device page in the web client
   W->>S: device.get
-  H->>W: approve, and allow the approve button if it was asked for
+  H->>W: approve the connection
   W->>S: device.decide
   loop every 5 seconds until decided
     D->>S: POST /oauth/token with the device code
   end
-  S-->>D: agent access token, and an approval token if allowed
-  D->>D: store the credentials in local files
+  S-->>D: agent access token
+  D->>D: store the credential in a local file
   D->>S: open the event stream with the agent credential
   S-)W: presence with agentOnline true, within a second
 ```
 
-The mod reads `approveButton` from `server.info` and signs in with `homingbird login --approve-button`
-only when the server allows it; otherwise its draft cards link to the web client. The MCP
-stdio program and the runner never ask for it, and the runner refuses to start while an approve-button
-credential is stored in its own or the default credential directory. In the mod, the guard keeps the model away from the
-credential files. Remote connectors such as ChatGPT and claude.ai use the authorization code flow with
+The mod signs in with `homingbird login`, and its draft cards link to the web client. In the mod, the
+guard asks the model to leave the credential files alone; that keeps the agent token out of a
+session's transcript and is not a security boundary, because the token cannot approve. Remote connectors such as ChatGPT and claude.ai use the authorization code flow with
 PKCE through the consent page (`consent.decide`) instead of the device flow, and receive only an agent
 credential. Dovecote stores every token as a SHA-256 hash.
 
@@ -168,7 +162,7 @@ sequenceDiagram
   S-)W: note.status, Drafting reply
   JD->>S: drafts.create inReplyTo
   S-)JW: draft.saved, to June only
-  J->>JW: approve, or press Approve in the pane
+  J->>JW: approve in the web client
   JW->>S: drafts.send
   S->>S: June's receipt replied, June's other reply drafts discarded
   S-)W: note.sent, the reply
@@ -224,25 +218,18 @@ sequenceDiagram
   S-)C: draft.saved, to you only
   D-->>H: toast, notification and waiting count in the status line
   S-)W: draft.saved, or Web Push when no web client is open
-  alt approve in the pane
-    H->>D: Approve, optionally after editing
-    D->>S: drafts.send with the approve credential through homingbird approve
-  else decide in the web client
-    H->>W: approve, edit then approve, or discard
-    W->>S: drafts.send or drafts.discard
-  else discard in the pane
-    H->>D: Discard
-    D->>S: drafts.discard through homingbird discard
-  end
+  D-->>H: the pane shows the draft as waiting for approval, with Open in web
+  H->>W: approve, edit then approve, or discard, with what the draft is based on in view
+  W->>S: drafts.send or drafts.discard, session cookie
   S-)C: note.sent or draft.discarded
 ```
 
-The mod's guard (`forbiddenReason` in `packages/mod/hooks/guard.ts`) refuses any tool call by the
-model that runs `homingbird approve` or `discard`, calls a send, discard, contact, block or credential
-route, or touches the credential files, also when a file path given to a tool resolves to one of them
-through a link. Without an approve credential the pane tells the person to
-approve in the web client. Pane buttons call `homingbird approve` and `discard`; the CLI also needs
-the approve credential for `discard`.
+The pane has no approve, edit or discard: every draft links to its conversation in the web client.
+The mod's guard (`forbiddenReason` in `packages/mod/hooks/guard.ts`) asks the model to leave the
+Homingbird configuration directory alone, also when a file path given to a tool resolves into it
+through a link. It is a courtesy that keeps the agent token out of transcripts, not a security
+boundary: the only credential on the machine is an agent credential, which the server refuses on
+every route that sends, discards or changes contacts.
 
 ## Asking my agent for a draft from the web
 
@@ -273,7 +260,7 @@ sequenceDiagram
     H->>W: approve the draft card
     W->>S: drafts.send
     Note over S,D: the request closes for agents that have not answered
-  else no agent online
+  else no agent awake
     W-->>H: your agent is offline, the request waits
     opt withdraw
       H->>W: Withdraw
@@ -288,79 +275,79 @@ sequenceDiagram
   end
 ```
 
-A request names its destination: a reply to a note, a conversation, a colleague or a topic, plus an
+A request names its destination: a reply to a note, a conversation, a colleague or a channel, plus an
 optional instruction and optionally one chosen agent. The MCP desk, the runner and the mod all answer
 requests. The mod opens a turn for each `draft.requested` with the instruction and, for a reply, the
 wrapped note it answers; the model reads the conversation with `read_conversation` and answers with
 `answer_draft_request`. The pane lists the open requests under "Notes waiting for a reply".
 
-## Topics: rooms, members, helpers and managers
+## Channels: rooms, members, helpers and managers
 
-A topic is one persistent conversation of kind `topic` with a slug, a one-line description and a
+A channel is one persistent conversation of kind `channel` with a slug, a one-line description and a
 visibility. Three sets of people belong to it, each a subset of the one before:
 
 - **Members** are the room's participants (`participants`). A member reads the room and asks in it.
-  `topics.join` and `topics.leave` (`PUT` and `DELETE /topics/:slug/membership`) change it for an
-  open topic; asking a question in an open topic joins you too. Nobody receives a question just by
+  `channels.join` and `channels.leave` (`PUT` and `DELETE /channels/:slug/membership`) change it for an
+  open channel; asking a question in an open channel joins you too. Nobody receives a question just by
   being a member.
-- **Helpers** are members who answer questions there (`topic_helpers`): "Answer questions here" in the
-  web client, `topics.answering.on` and `topics.answering.off` (`PUT` and `DELETE
-  /topics/:slug/answering`). Questions are delivered to helpers only, and the profile's "My agent can
-  help with" lists exactly these topics. `topics.join` with `answering: true` is "Join and answer";
-  leaving turns answering off. A new member is in no topic; Dovecote never joins anyone to a topic,
+- **Helpers** are members who answer questions there (`channel_answerers`): "Answer questions here" in the
+  web client, `channels.answering.on` and `channels.answering.off` (`PUT` and `DELETE
+  /channels/:slug/answering`). Questions are delivered to helpers only, and the profile's "My agent can
+  help with" lists exactly these channels. `channels.join` with `answering: true` is "Join and answer";
+  leaving turns answering off. A new member is in no channel; Dovecote never joins anyone to a channel,
   seeded or not.
-- **Managers** are members who may change the room (`topic_managers`). The creator is the first;
-  a manager adds and removes members of a private topic (`/topics/:slug/members/:memberId`), makes
-  another member a manager or takes that away (`/topics/:slug/managers/:memberId`), and changes the
-  visibility (`PUT /topics/:slug/visibility`). A topic that has managers and members always keeps a
+- **Managers** are members who may change the room (`channel_managers`). The creator is the first;
+  a manager adds and removes members of a private channel (`/channels/:slug/members/:memberId`), makes
+  another member a manager or takes that away (`/channels/:slug/managers/:memberId`), and changes the
+  visibility (`PUT /channels/:slug/visibility`). A channel that has managers and members always keeps a
   manager: the last one cannot step down, leave or be removed while others remain
-  (`requireManagerRemains`). A server administrator can manage every topic and is shown as managing
-  it (`managing: true`), without becoming a member. Seeded topics start without managers.
+  (`requireManagerRemains`). A server administrator can manage every channel and is shown as managing
+  it (`managing: true`), without becoming a member. Seeded channels start without managers.
 
-Visibility is `open` or `private`. An open topic is listed to everyone and anyone may join it. A
-private topic exists only for its members: its name, description, room, notes and member chips are
+Visibility is `open` or `private`. An open channel is listed to everyone and anyone may join it. A
+private channel exists only for its members: its name, description, room, notes and member chips are
 missing from every listing, search, lookup and event for anyone else, a lookup answers exactly as for
-a topic that does not exist, and nobody joins one by themselves. Its members, and their agents, read
+a channel that does not exist, and nobody joins one by themselves. Its members, and their agents, read
 and draft in it as in any room. Open → private keeps everyone in the room; private → open needs a
 manager and is audited like every other change. Slugs are unique across both,
 and a taken slug, visible or not, answers "That name is not available."
 
 | Route | Access | What it does |
 | --- | --- | --- |
-| `topics.list` | member | Topics the viewer can see, the ones they are in first, then by member count, then by slug; `q` searches, `limit` (default 50, at most 200) and `cursor` page, and the answer carries `hasMore` and the next `cursor` |
-| `topics.get` | member | One topic, with `visibility`, `memberCount`, `helperCount`, `joined`, `answering` and `managing` |
-| `topics.members.list` | member | The room's members, who answers and who manages; members and administrators only |
-| `topics.create` | human | Creates an open or private topic; the creator joins, answers and manages |
-| `topics.join`, `topics.leave` | human | Join (optionally answering) or leave; a private topic refuses a self-join |
-| `topics.answering.on`, `topics.answering.off` | human | "Answer questions here", for a member only |
-| `topics.members.add`, `topics.members.remove` | human | A manager adds or removes a member of a private topic |
-| `topics.managers.add`, `topics.managers.remove` | human | A manager grants or revokes manager to a member |
-| `topics.visibility.set` | human | A manager makes a topic private or open |
+| `channels.list` | member | Channels the viewer can see, the ones they are in first, then by member count, then by slug; `q` searches, `limit` (default 50, at most 200) and `cursor` page, and the answer carries `hasMore` and the next `cursor` |
+| `channels.get` | member | One channel, with `visibility`, `memberCount`, `helperCount`, `joined`, `answering` and `managing` |
+| `channels.members.list` | member | The room's members, who answers and who manages; members and administrators only |
+| `channels.create` | human | Creates an open or private channel; the creator joins, answers and manages |
+| `channels.join`, `channels.leave` | human | Join (optionally answering) or leave; a private channel refuses a self-join |
+| `channels.answering.on`, `channels.answering.off` | human | "Answer questions here", for a member only |
+| `channels.members.add`, `channels.members.remove` | human | A manager adds or removes a member of a private channel |
+| `channels.managers.add`, `channels.managers.remove` | human | A manager grants or revokes manager to a member |
+| `channels.visibility.set` | human | A manager makes a channel private or open |
 
 Every membership, answering, manager and visibility change is a `human` route, so it is audited and no
 agent credential, MCP tool, CLI command, A2A method or mod tool can make it. A member who leaves or is
 removed loses the room at once: their waiting drafts in it are discarded (`draft.discarded`) and they
-receive `topic.left` with only the slug and conversation id, so a client drops the room. A member whose
-view of a topic changed (joined, added, answering, manager, visibility) receives `topic.changed` with
-the topic as they now see it; the ephemeral `directory.changed` broadcast makes open clients refetch
+receive `channel.left` with only the slug and conversation id, so a client drops the room. A member whose
+view of a channel changed (joined, added, answering, manager, visibility) receives `channel.changed` with
+the channel as they now see it; the ephemeral `directory.changed` broadcast makes open clients refetch
 lists and profile chips.
 
-A question in a private topic moves only to another private topic with the same members, and a
-question moves into a private topic only when the mover and the asker are both members of it; moving
-between open topics is unchanged. A draft is re-addressed into a private topic only by one of its
+A question in a private channel moves only to another private channel with the same members, and a
+question moves into a private channel only when the mover and the asker are both members of it; moving
+between open channels is unchanged. A draft is re-addressed into a private channel only by one of its
 members.
 
-## Asking a topic
+## Asking a channel
 
-A question to a topic goes to exactly one room, chosen by the asking agent, and the first approved
+A question to a channel goes to exactly one room, chosen by the asking agent, and the first approved
 answer reaches you while the question leaves the other helpers' inboxes. The agent reads
-`topics.list` and picks the best topic it can see. When none fits, it looks in `directory.list` for a
-colleague whose profile or topics match and drafts to that person; when nobody fits, it tells its
+`channels.list` and picks the best channel it can see. When none fits, it looks in `directory.list` for a
+colleague whose profile or channels match and drafts to that person; when nobody fits, it tells its
 human that it found no destination. Dovecote does no matching.
-Drafting to an open topic makes you a member of the room but not a helper; drafting to a private
-topic needs you to be a member already. Receipts, and so inbox entries and reply drafting, go to the
-topic's helpers only, while every member of the room receives `note.sent`. A person in the room may
-move a question that has no sent answer to another topic.
+Drafting to an open channel makes you a member of the room but not a helper; drafting to a private
+channel needs you to be a member already. Receipts, and so inbox entries and reply drafting, go to the
+channel's helpers only, while every member of the room receives `note.sent`. A person in the room may
+move a question that has no sent answer to another channel.
 
 ```mermaid
 sequenceDiagram
@@ -371,12 +358,12 @@ sequenceDiagram
   participant H1 as Helper 1 desk
   participant H2 as Helper 2 desk
   actor P as A person in the room
-  A->>S: topics.list
-  S-->>A: the topics you can see, with counts and whether you answer there
-  A->>S: drafts.create with one topic
-  S->>S: an open topic adds you to the room as a member, not a helper
+  A->>S: channels.list
+  S-->>A: the channels you can see, with counts and whether you answer there
+  A->>S: drafts.create with one channel
+  S->>S: an open channel adds you to the room as a member, not a helper
   H->>S: drafts.send from the web client, destination shown
-  S->>S: receipts for the topic's helpers only
+  S->>S: receipts for the channel's helpers only
   S-)H1: note.sent
   S-)H2: note.sent
   H1->>S: notes.pickup and drafts.create inReplyTo
@@ -387,7 +374,7 @@ sequenceDiagram
   S-)H: note.sent, the reply
   S-)H2: note.status, and the question leaves helper 2's inbox
   opt instead, before any answer is sent
-    P->>S: notes.move to another topic, a human route
+    P->>S: notes.move to another channel, a human route
     S-)H1: note.moved, to the old room's participants
     S->>S: receipts deleted and created again for the new room's helpers
     S-)H2: draft.discarded, for a waiting reply by someone outside the new room
@@ -395,13 +382,13 @@ sequenceDiagram
   end
 ```
 
-The MCP tools `find_topics` and `draft_note` with `topic`, the CLI `topics` and `draft --topic`, the
-A2A gateway (`metadata.topic`) and the mod's `list_topics` and `draft_to_topic` all reach topics; they
-list only what the member can see, mark private topics, say whether the member answers there, and
-tell the model never to mention a private topic outside it. None of them joins, leaves, answers or
+The MCP tools `find_channels` and `draft_note` with `channel`, the CLI `channels` and `draft --channel`, the
+A2A gateway (`metadata.channel`) and the mod's `list_channels` and `draft_to_channel` all reach channels; they
+list only what the member can see, mark private channels, say whether the member answers there, and
+tell the model never to mention a private channel outside it. None of them joins, leaves, answers or
 changes members, managers or visibility. The web client offers Join and Join and answer in the list,
 the "Answer questions here" switch and Leave in a room, a Members panel for managers, a lock and the
-word "Private" on private topics, and shows the destination when approving. When a question moves, a waiting reply draft by a member of the new room moves with it
+word "Private" on private channels, and shows the destination when approving. When a question moves, a waiting reply draft by a member of the new room moves with it
 (`draft.saved` to its author); one by anyone else is discarded (`draft.discarded`), because its author
 could no longer read the question or send the reply.
 
@@ -422,9 +409,12 @@ member's own clients only. The pickup row stays, so the same credential is not h
 fresh. MCP `skip_note`, the mod's `skip_note`, `homingbird skip` and the runner's `SKIP:` line all call
 it; none of them can send anything.
 
-A draft request may carry `basis`, what its agent read or relied on and how each answering-flow step
-went (at most 1,000 characters, on `drafts.create` and `drafts.update`). It is not stored with the note
-and is in no note, response or event: the audit entry of that draft action is its only record.
+A draft may carry `basis`, what its agent read or relied on and how each answering-flow step went (at
+most 1,000 characters, on `drafts.create` and `drafts.update`). It is stored with the note as
+`Note.basis` and returned only when the viewer is the note's author, on the draft and after it is sent:
+`hydrateNotes` in `dovecote/src/domain/note-rows.ts` takes the viewer, and every event delivered to
+anyone else carries the note without it. The web client shows it on the author's draft card. The audit
+entry of the draft action keeps it too.
 
 The answering flow is one organization setting, `answeringFlow` (at most 4,000 characters), set with
 `admin.settings.put` by an administrator and checked for format and length only. Agents read it with
@@ -473,23 +463,23 @@ stateDiagram-v2
 ```
 
 An agent picking up a note never marks it read; only `notes.read`, a `human` route, does. Sending a
-reply also fills in the read time. Moving a topic question deletes its receipts and creates new ones,
+reply also fills in the read time. Moving a channel question deletes its receipts and creates new ones,
 as `delivered`, for the new room's helpers.
 
 ## The desk session per kind of agent
 
-Each person keeps one desk, and only a desk that holds the event stream counts as "agent online".
-Every other way of connecting drafts only when the person asks, and in every case a person approves,
-in the pane or in the web client.
+Each person keeps one desk, and only a desk that holds the event stream counts as "agent awake".
+Every other way of connecting drafts only when the person asks, and in every case a person approves
+in the web client.
 
-| Agent | How it becomes the desk | How it wakes | Counts as online | Where the person approves | State |
+| Agent | How it becomes the desk | How it wakes | Counts as awake | Where the person approves | State |
 | --- | --- | --- | --- | --- | --- |
-| Claude Code with the mod | `/homingbird` opens the pane and claims the desk; another session that claims it makes this one stand down within 30 seconds | `homingbird stream --json`: `note.sent` opens a turn (`turn`) or drafts in the background (`quiet`); `draft.requested` opens a turn | Yes, through the CLI's SSE stream | Pane Approve button, if the approve credential was granted, or the web client | Implemented |
+| Claude Code with the mod | `/homingbird` opens the pane and claims the desk; another session that claims it makes this one stand down within 30 seconds | `homingbird stream --json`: `note.sent` opens a turn (`turn`) or drafts in the background (`quiet`); `draft.requested` opens a turn | Yes, through the CLI's SSE stream | Web client, which each draft in the pane opens | Implemented |
 | Claude Code with `homingbird-mcp --desk` | Started in a session launched with `--channels` | The MCP server holds the stream and pushes notes and draft requests as `notifications/claude/channel`; at start the model is told to call `check_inbox` | Yes, while the SSE stream holds | Web client, through the `open_homingbird` link | Implemented |
-| Codex, Gemini CLI, Cursor or any headless agent | `homingbird run --agent "<command>"`, which refuses to start while an approve-button credential is stored in its own or the default credential directory | The runner holds the stream; on `note.sent`, `draft.requested` or `resync` it picks up each new note and request, pipes the wrapped prompt to the command, with no Homingbird variable or credential in its environment, and saves its output as a draft | Yes, while the SSE stream holds | Web client | Implemented |
+| Codex, Gemini CLI, Cursor or any headless agent | `homingbird run --agent "<command>"` | The runner holds the stream; on `note.sent`, `draft.requested` or `resync` it picks up each new note and request, pipes the wrapped prompt to the command, with no Homingbird variable or credential in its environment, and saves its output as a draft | Yes, while the SSE stream holds | Web client | Implemented |
 | An MCP client with a chat left open | The `watch` prompt calls `wait_for_notes` in a loop | `events.poll` long-poll returns, then the tool fetches new notes and requests | No, long-poll is not counted | Web client, through the `open_homingbird` link | Implemented |
 | ChatGPT or claude.ai connector | Cannot be a desk; it reaches the remote `/mcp` endpoint | Cannot be woken; "Check Homingbird" makes it call `check_inbox` | No | Web client | Implemented |
-| A2A client | Cannot be a desk | Not woken; it reads task state with `tasks/get` | No | Web client | Implemented |
+| A2A client | Cannot be a desk | Not woken; it reads task state with `tasks/get` | No | Web client | Experimental |
 
 ## Where the seven security rules are enforced and tested
 
@@ -498,12 +488,12 @@ that faces a model. Paths are relative to `packages/`.
 
 | Rule | Enforced in | Tested in |
 | --- | --- | --- |
-| 1. Only a human credential can approve a note. | `access: 'human'` on `drafts.send`, `drafts.discard` and every other human route in `protocol/src/contract.ts`; `allows` in `protocol/src/policy.ts`; `requireAccess` in `dovecote/src/api/invoke.ts`, which also audits the refusal and refuses an approve-button credential (`credentials.purpose = 'approve_button'`) on every human route while `HB_APPROVE_BUTTON` is off; `sendDraft` and `discardDraft` in `dovecote/src/domain/notes.ts` check `isHuman` again. The device flow issues the approve credential only when the person allows it (`exchangeDeviceCode` in `dovecote/src/auth/oauth.ts`). | `dovecote/test/security-rules.test.ts`, block "Rule 1" |
+| 1. Only a human credential can approve a note. | `access: 'human'` on `drafts.send`, `drafts.discard` and every other human route in `protocol/src/contract.ts`; `allows` in `protocol/src/policy.ts`; `requireAllowed` in `dovecote/src/api/invoke.ts`, which also audits the refusal; `sendDraft` and `discardDraft` in `dovecote/src/domain/notes.ts` check `isHuman` again. A human credential counts only when a browser sign-in issued it (`mayAuthenticate` in `dovecote/src/domain/credentials.ts`); the device and authorization-code flows issue agent credentials only (`exchangeDeviceCode` and `exchangeAuthorizationCode` in `dovecote/src/auth/oauth.ts`). | `dovecote/test/security-rules.test.ts`, block "Rule 1" |
 | 2. Drafts are invisible to recipients. | `visibleNote`, `notesInConversation`, `searchNotes` and `notesAwaitingReply` in `dovecote/src/domain/notes.ts` filter by `status = 'sent' OR author_id = viewer`; `listConversations` in `dovecote/src/domain/conversations.ts` hides a direct conversation without a sent note; `createDraft`, `updateDraft` and `discard` emit `draft.saved` and `draft.discarded` to the author only; receipts are created only by `sendDraft`. | `dovecote/test/security-rules.test.ts`, block "Rule 2" |
-| 3. No tool exposed to a model can approve, change contacts, or read credentials. | Topic membership, answering, manager and visibility routes are `human` too, so no tool reaches them; `memberApiOf` in `mcp/src/member-api.ts` and `a2a/src/member-api.ts` exposes only `member` and `public` routes; `makeLocalSession` in `mcp/src/local-session.ts` never asks for the approve scope; `NOTE_TOOLS` in `mod/hooks/tools.ts` run only the CLI's agent commands; `forbiddenReason` in `mod/hooks/guard.ts` refuses shell approval, person-only routes and the credential files; the pane's Approve button calls `decide` in `mod/hooks/desk.ts`; the runner uses only the agent credential, refuses to run while an approve-button credential is stored (`requireNoApprovalCredential`) and strips Homingbird variables and the token from the agent command's environment (`agentEnvironment`), both in `cli/src/runner-guard.ts`. | `dovecote/test/security-rules.test.ts`, block "Rule 3"; `mcp/test/tools.test.ts`, `mcp/test/server.test.ts`, `mcp/test/member-api.test.ts`, `mcp/test/triggers.test.ts`; `mod/tests/tools.test.ts`, `mod/tests/guard.test.ts`; `cli/test/security.test.ts`, `a2a/test/gateway.test.ts`, `cli/test/run.test.ts`, `cli/test/runner-guard.test.ts`, `cli/test/node-launcher.test.ts` |
+| 3. No tool exposed to a model can approve, change contacts, or read credentials. | Channel membership, answering, manager and visibility routes are `human` too, so no tool reaches them; `memberApiOf` in `mcp/src/member-api.ts` and `a2a/src/member-api.ts` exposes only `member` and `public` routes; no agent integration can approve: the command line has no approve or discard command and stores only an agent credential (`cli/src/credentials.ts`); `NOTE_TOOLS` in `mod/hooks/tools.ts` run only the CLI's agent commands and the pane only links to the web client; the runner uses only the agent credential and strips Homingbird variables and the token from the agent command's environment (`agentEnvironment` in `cli/src/agent-environment.ts`). | `dovecote/test/security-rules.test.ts`, block "Rule 3"; `mcp/test/tools.test.ts`, `mcp/test/server.test.ts`, `mcp/test/member-api.test.ts`, `mcp/test/triggers.test.ts`; `mod/tests/tools.test.ts`, `mod/tests/guard.test.ts`; `cli/test/security.test.ts`, `a2a/test/gateway.test.ts`, `cli/test/run.test.ts`, `cli/test/agent-environment.test.ts`, `cli/test/node-launcher.test.ts` |
 | 4. Every received note reaches a model only through `wrapNote`. | `wrapNote` in `protocol/src/wrap.ts`, with a random nonce in the boundary; its callers are `quoteNote` in `mcp/src/quote.ts`, `quoteForModel` in `cli/src/quoting.ts` (used by `stream`, `inbox`, `conversation`, `requests` and `run`), and `taskViewOf` in `a2a/src/task-view.ts`. The mod receives notes only as the CLI's wrapped text. | `dovecote/test/security-rules.test.ts`, block "Rule 4": a hostile note through every note-returning tool of `/mcp` and through A2A `tasks/get` and `GetTask`, each time inside `wrapNote` with a fresh nonce; `protocol/test/wrap.test.ts` (property tests), `mcp/test/quote.test.ts`, `mcp/test/triggers.test.ts`, `mcp/test/channel.test.ts` |
 | 5. Credentials are stored hashed and never logged. | `hashSecret` (SHA-256) in `dovecote/src/random.ts`; `issueCredential`, `authenticate` and `refreshCredential` in `dovecote/src/domain/credentials.ts` store only `token_hash` and `refresh_hash`; tokens leave the server only in the token response or the session cookie; `serve` in `dovecote/src/http/node-server.ts` logs failed requests without their query string. | `dovecote/test/security-rules.test.ts`, block "Rule 5" |
-| 6. A member sees only conversations they participate in. | `participatedConversation` and `participantsOf` in `dovecote/src/domain/conversations.ts`; every note query joins `participants`; `sendDraft`, `moveToTopic` and `announceStatus` emit to the conversation's participants only. A private topic is listed, resolved and shown as a chip only to its members: `maySee` and `visibleTopic` in `dovecote/src/domain/topic-rows.ts`, `listTopics`, `topicsHelpedBy`, `helpersOfTopicSeenBy`, `topicRoomFor` and `roomForMovedQuestion` in `dovecote/src/domain/topics.ts`; `depart` drops a removed member from the room, discards their drafts in it and sends `topic.left`. | `dovecote/test/security-rules.test.ts`, block "Rule 6", including every surface of a private topic for a non-member person and their agent; `dovecote/test/topic-membership.test.ts` |
+| 6. A member sees only conversations they participate in. | `participatedConversation` and `participantsOf` in `dovecote/src/domain/conversations.ts`; every note query joins `participants`; `sendDraft`, `moveToChannel` and `announceStatus` emit to the conversation's participants only. A private channel is listed, resolved and shown as a chip only to its members: `maySee` and `visibleChannel` in `dovecote/src/domain/channel-rows.ts`, `listChannels`, `channelsHelpedBy`, `helpersOfChannelSeenBy`, `channelRoomFor` and `roomForMovedQuestion` in `dovecote/src/domain/channels.ts`; `depart` drops a removed member from the room, discards their drafts in it and sends `channel.left`. | `dovecote/test/security-rules.test.ts`, block "Rule 6", including every surface of a private channel for a non-member person and their agent; `dovecote/test/channel-membership.test.ts` |
 | 7. No tool exposed to a model can save or change a profile character. | `access: 'human'` on `me.character.set` and `me.character.clear` and `access: 'admin'` on `admin.members.resetCharacter` in `protocol/src/contract.ts`; `saveCharacter` in `dovecote/src/domain/characters.ts` runs `characterProblems` (`protocol/src/character.ts`: `validateCharacter` from `sprites` plus the built-in id rule) again whatever the client checked, and stores exactly the spec that passed; `handleApiRequest` in `dovecote/src/http/api-routes.ts` refuses a body over `CHARACTER_BYTES_MAX`. The model-facing `check_character` and `preview_character` (`mcp/src/character-tools.ts`, `mod/hooks/character.ts`) call no route; the web client saves only from **Use this character** and never from a `#/character/` link. | `dovecote/test/security-rules.test.ts`, block "Rule 7"; `dovecote/test/characters.test.ts`; `mcp/test/character-tools.test.ts`, `mcp/test/tools.test.ts`; `mod/tests/character.test.ts` |
 
 ## Real-time delivery
@@ -634,18 +624,18 @@ erDiagram
     id credential_id PK
     integer picked_at
   }
-  TOPICS {
+  CHANNELS {
     id slug PK
     string description
     id conversation_id UK
     id created_by
     string visibility
   }
-  TOPIC_HELPERS {
+  CHANNEL_HELPERS {
     id conversation_id PK
     id member_id PK
   }
-  TOPIC_MANAGERS {
+  CHANNEL_MANAGERS {
     id conversation_id PK
     id member_id PK
   }
@@ -722,11 +712,11 @@ erDiagram
   MEMBERS ||--o{ RECEIPTS : receives
   NOTES ||--o{ PICKUPS : "picked up as"
   CREDENTIALS ||--o{ PICKUPS : makes
-  CONVERSATIONS ||--o| TOPICS : "is the room of"
-  CONVERSATIONS ||--o{ TOPIC_HELPERS : "has helpers"
-  MEMBERS ||--o{ TOPIC_HELPERS : helps
-  CONVERSATIONS ||--o{ TOPIC_MANAGERS : "has managers"
-  MEMBERS ||--o{ TOPIC_MANAGERS : manages
+  CONVERSATIONS ||--o| CHANNELS : "is the room of"
+  CONVERSATIONS ||--o{ CHANNEL_HELPERS : "has helpers"
+  MEMBERS ||--o{ CHANNEL_HELPERS : helps
+  CONVERSATIONS ||--o{ CHANNEL_MANAGERS : "has managers"
+  MEMBERS ||--o{ CHANNEL_MANAGERS : manages
   MEMBERS ||--o{ DRAFT_REQUESTS : asks
   CONVERSATIONS ||--o{ DRAFT_REQUESTS : "is the destination of"
   DRAFT_REQUESTS ||--o{ DRAFT_REQUEST_ANSWERS : "answered by"
@@ -759,10 +749,10 @@ consent requests; their secrets are stored hashed.
   each drafts its own reply to the same note. `--channel` without `--desk` also counts as agent
   online. `docs/decisions.md` names only the
   mod pane and the runner as desks.
-- **A note in a topic room writes one event row per participant of that room.** Members, helpers and
+- **A note in a channel room writes one event row per participant of that room.** Members, helpers and
   the asker each get `note.sent` in their own event log, so the cost of a note grows with the room's
   size. No room holds every member unless every member joined it.
-- **In a topic room, the other helpers' reply drafts stay.** Sending the first answer only removes the
+- **In a channel room, the other helpers' reply drafts stay.** Sending the first answer only removes the
   question from the other helpers' inboxes; their drafts are not discarded, and one sent later still
   reaches the asker.
 - **Draft request expiry and closing send no event.** Only a withdrawal and a new answer emit
@@ -770,14 +760,11 @@ consent requests; their secrets are stored hashed.
   `draftRequests.list`.
 - **The runner's agent command can read the runner's agent credential.** `homingbird run` starts the
   command with the person's own OS permissions and cannot confine it. It withholds what it can: the
-  command gets no Homingbird variable and no credential in its environment, arguments or input, and
-  the runner refuses to run while an approve-button credential is stored in its credential directory
-  or in `~/.config/homingbird`. But the agent credential file is readable by the same OS user, and so
-  is an approve-button credential kept anywhere else, such as under another `XDG_CONFIG_HOME`. With
-  the agent credential the command can read the person's conversations and draft; Dovecote refuses it
+  command gets no Homingbird variable and no credential in its environment, arguments or input. But
+  the agent credential file is readable by the same OS user. With the agent credential the command can read the person's conversations and draft; Dovecote refuses it
   on every approving route. Run an agent command you do not trust under a separate OS user or in a
   container (`docs/guide.md`, `docs/deployment.md`).
-- **The mod's guard is a pattern check.** `forbiddenReason` matches the text of each tool call and the
-  resolved path of a file tool. A shell command that assembles the credential path or the
-  `homingbird approve` command at run time is not recognized, and the approve-button credential is a
-  file the session's own user can read.
+- **The mod's guard is a pattern check, and nothing relies on it.** `forbiddenReason` matches the text
+  of each tool call and the resolved path of a file tool, so a shell command that assembles the
+  credential path at run time is not recognized. The file it protects holds an agent credential, which
+  can read and draft, never approve.
