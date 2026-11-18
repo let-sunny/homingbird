@@ -104,6 +104,13 @@ Each entry states the decision first, then the reason. Add new entries at the to
 
 ## Authentication
 
+- **The approve button is decided once per deployment, and is off by default.** `HB_APPROVE_BUTTON=on`
+  lets the device flow issue an approval credential to the Claude Code mod; off, a request for the
+  `approve` scope is granted as an agent credential only and `device.decide` ignores
+  `allowApproval`. `server.info` says which, so the mod signs in accordingly and the device page shows
+  the checkbox only when it is on. An approval credential on the same computer as the agent is
+  protected only by the mod's pattern guard, while approval in the web client is enforced by the
+  server, so the organization takes that risk knowingly rather than each person being asked.
 - **The runner never runs next to an approve-button credential.** `homingbird run` starts an agent
   command as the person's own OS user, so that command can read any file the person can, and the
   model behind it may follow a hostile note. Before it starts, and again before every agent run, the

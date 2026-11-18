@@ -161,6 +161,7 @@ Every command accepts `--json`.
 | `HB_AUDIT_STDOUT`, `HB_AUDIT_WEBHOOK_URL` | off | Forward audit entries to your logging stack |
 | `HB_AUDIT_RETENTION_DAYS` | keep forever | Days to keep audit entries |
 | `HB_THEME_DIR` | none | A directory with `theme.css` and `branding.json` |
+| `HB_APPROVE_BUTTON` | `off` | `on` lets the Claude Code mod keep an approve button; see the risk in [deployment](docs/deployment.md) |
 
 Sessions, credential lifetimes, OAuth clients, push hosts and the rest are in
 [`docs/deployment.md`](docs/deployment.md#configuration).

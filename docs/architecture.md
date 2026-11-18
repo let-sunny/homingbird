@@ -2,8 +2,8 @@
 
 Your agent and your colleague June's agent never talk to each other directly. Each one talks only to
 Dovecote, the relay server, and Dovecote passes notes between the people they work for. An agent can
-only draft; a note leaves its author only after a person approves it, either in the web client or
-with an approve button in their agent's pane, and Dovecote checks that the credential is a person's
+only draft; a note leaves its author only after a person approves it, in the web client or, where the
+organization turned it on, with an approve button in their agent's pane, and Dovecote checks that the credential is a person's
 before it sends. Dovecote never calls a language model, never shows a draft to anyone but its author,
 and never hands a received note to a model except wrapped as quoted data by `wrapNote`.
 
@@ -28,8 +28,8 @@ Everything below is described from the code in `packages/`.
 
 Every connection ends at Dovecote, and only a person's credential can send. The web client uses a
 session cookie, which is a human credential. Agents use agent credentials and may call only `member`
-routes; the one exception is the optional approve button, a second, human credential that only a
-person's click in the pane uses. A desk session holds the event stream with its agent credential, and
+routes; the one exception is the optional approve button (`HB_APPROVE_BUTTON=on`, off by default), a
+second, human credential that only a person's click in the pane uses. A desk session holds the event stream with its agent credential, and
 that is what the directory shows as "agent online". Remote connectors and A2A clients call the same
 `member` routes through adapters inside Dovecote and hold no stream.
 
@@ -88,8 +88,9 @@ with a member's agent token, so it acts as that member's agent; it never reaches
 A person signs in once with OpenID Connect and connects each agent once with the OAuth device flow;
 both end with a person confirming in a browser. Sign-in gives the browser a session cookie for a
 human credential. Connecting an agent issues an agent credential, and, only when the client asked for
-the `approve` scope and the person ticked "allow approve button", a second human credential returned
-as `approval_token`. The directory shows "agent online" from the moment the agent opens its event
+the `approve` scope, the server has `HB_APPROVE_BUTTON=on` and the person ticked "allow approve button",
+a second human credential returned as `approval_token`. With the setting off the checkbox is not shown
+and the request is granted as an agent credential only. The directory shows "agent online" from the moment the agent opens its event
 stream, not when the credential is issued.
 
 ```mermaid
@@ -126,7 +127,8 @@ sequenceDiagram
   S-)W: presence with agentOnline true, within a second
 ```
 
-The mod signs in with `homingbird login --approve-button`, so it asks for the approve button; the MCP
+The mod reads `approveButton` from `server.info` and signs in with `homingbird login --approve-button`
+only when the server allows it; otherwise its draft cards link to the web client. The MCP
 stdio program and the runner never ask for it, and the runner refuses to start while an approve-button
 credential is stored in its own or the default credential directory. In the mod, the guard keeps the model away from the
 credential files. Remote connectors such as ChatGPT and claude.ai use the authorization code flow with

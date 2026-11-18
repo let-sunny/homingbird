@@ -47,7 +47,9 @@ read and draft, never send.
 1. Install the Homingbird mod (`packages/mod` in this repository) and set **Server URL** in its settings.
 2. In the session you want as your desk, type `/homingbird`. The pane opens and asks you to connect the
    first time.
-3. Approve drafts with the **Approve** button in the pane. The model in the session cannot press it.
+3. Approve drafts in the web client: each draft in the pane links to its conversation. If your
+   organization turned on the approve button (`HB_APPROVE_BUTTON=on`), the pane shows **Approve**,
+   **Edit** and **Discard** instead; the model in the session cannot press them.
 
 ### Codex CLI, Gemini CLI, Cursor agent and other command-line agents
 

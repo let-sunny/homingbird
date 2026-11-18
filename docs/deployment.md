@@ -221,6 +221,7 @@ Every variable Dovecote reads. Blank values count as unset.
 | `HB_TOPICS` | `general` | Topics created on start, `slug` or `slug: description`, comma-separated. `general` is always added |
 | `HB_SESSION_DAYS` | `30` | Days a sign-in lasts before the identity provider is asked again |
 | `HB_AGENT_CREDENTIAL_DAYS` | `90` | Days an agent credential lasts |
+| `HB_APPROVE_BUTTON` | `off` | `on` lets a person grant an approve button to the Claude Code mod. Off, the device flow never issues an approval credential and everyone approves in the web client. Turning it on stores an approval credential on each person's computer, where their agent runs as the same user and is held back only by the mod's pattern guard, so a malicious note could trick the agent into sending a draft without the person. Approval in the web client is enforced by the server. Credentials granted while it was on stay valid until revoked under **Devices and agents** |
 | `HB_TRUST_PROXY` | `0` | Number of proxies in front that append to `X-Forwarded-For`; see [above](#behind-a-load-balancer) |
 | `HB_AUDIT_STDOUT` | `0` | `1` prints audit entries as JSON lines |
 | `HB_AUDIT_WEBHOOK_URL` | none | Posts audit entries to this URL |

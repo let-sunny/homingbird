@@ -25,7 +25,7 @@ const scenario = async (): Promise<void> => {
     await rm(directory, { recursive: true, force: true })
     await mkdir(directory, { recursive: true })
   }
-  let dovecote = await startDovecote(port, databasePath)
+  let dovecote = await startDovecote(port, databasePath, 'on')
   const browser = await chromium.launch()
   const { capture, nextPath } = screenshotCounter(screenshots)
   const korean = screenshotCounter(koreanScreenshots)
@@ -500,7 +500,7 @@ const scenario = async (): Promise<void> => {
       timeout: 20_000,
     })
     await capture(ana.page, 'connection-lost')
-    dovecote = await startDovecote(port, databasePath)
+    dovecote = await startDovecote(port, databasePath, 'on')
     await ana.page.waitForSelector('.connection:has-text("Live")', { timeout: 60_000 })
     await capture(ana.page, 'connection-restored')
 
@@ -579,11 +579,33 @@ const scenario = async (): Promise<void> => {
     await ana.page.setViewportSize(VIEWPORT)
     await ana.page.goto(`${base}/#/c/${group.id}`)
     await ana.page.waitForSelector('.note-status:has-text("명 읽음")')
+    const koreanButtonDevice = await startDeviceFlow(base, 'Homingbird mod', 'notes approve')
+    await ana.page.goto(`${base}/#/device/${koreanButtonDevice.user_code}`)
+    await ana.page.waitForSelector('input[name=allowApproval]')
+    assert.equal(await ana.page.locator('input[name=allowApproval]').isChecked(), false)
+    await korean.capture(ana.page, 'device-approve-button-allowed-by-the-server')
     await ana.page.goto(`${base}/#/me`)
     await ana.page.locator('.language input[value=""]').check()
     await ana.page.waitForSelector('html[lang="en"]')
     await ana.page.waitForSelector('h1:has-text("Your profile")')
     assert.equal((await api(ana, 'GET', '/me')).locale, undefined)
+
+    // -- Approve button turned off by the organization --------------------------------------------
+    await dovecote.stop()
+    dovecote = await startDovecote(port, databasePath, 'off')
+    const offDevice = await startDeviceFlow(base, 'Homingbird mod', 'notes approve')
+    await ana.page.goto(`${base}/#/device/${offDevice.user_code}`)
+    await ana.page.waitForSelector('text=Homingbird mod wants to connect')
+    assert.equal(await ana.page.locator('input[name=allowApproval]').count(), 0)
+    await capture(ana.page, 'device-approval-with-the-approve-button-turned-off')
+    await api(ana, 'PATCH', '/me', { locale: 'ko' })
+    await ana.page.reload()
+    await ana.page.waitForSelector('text=Homingbird 계정에 연결하려고 해요')
+    assert.equal(await ana.page.locator('input[name=allowApproval]').count(), 0)
+    await korean.capture(ana.page, 'device-approve-button-turned-off-by-the-server')
+    await ana.page.getByRole('button', { name: '승인' }).click()
+    await ana.page.waitForSelector('.outcome.is-approved')
+    await api(ana, 'PATCH', '/me', { locale: null })
 
     const koreanVisitor = await newPage(browser, base, 'ko-KR')
     await koreanVisitor.page.waitForSelector('html[lang="ko"]')
@@ -804,7 +826,7 @@ const freePort = (): Promise<number> =>
     })
   })
 
-const startDovecote = async (port: number, databasePath: string) => {
+const startDovecote = async (port: number, databasePath: string, approveButton: 'on' | 'off') => {
   const config = loadConfig({
     HB_PUBLIC_URL: `http://localhost:${port}`,
     HB_PORT: String(port),
@@ -812,6 +834,7 @@ const startDovecote = async (port: number, databasePath: string) => {
     HB_ALLOWED_DOMAINS: 'example.com',
     HB_OAUTH_REDIRECT_HOSTS: 'client.example',
     HB_DATABASE_URL: `sqlite:${databasePath}`,
+    HB_APPROVE_BUTTON: approveButton,
     HB_WEB_DIR: join(here, '..', 'dist'),
   })
   if (config._tag === 'Err') throw new Error(config.error.join('; '))
