@@ -110,7 +110,9 @@ export const removeTopic = (slug: string): T.Task<void, NotFound | Conflict, App
     const row = yield* existingTopic(slug)
     yield* run(sql`DELETE FROM topic_helpers WHERE conversation_id = ${row.conversation_id}`)
     yield* run(sql`DELETE FROM topics WHERE slug = ${slug}`)
-    yield* run(sql`UPDATE conversations SET kind = 'group' WHERE id = ${row.conversation_id}`)
+    yield* run(
+      sql`UPDATE conversations SET kind = 'group', title = ${archivedTitle(slug)} WHERE id = ${row.conversation_id}`,
+    )
   })
 
 export const mergeTopic = (
@@ -161,6 +163,8 @@ interface TopicRow {
   readonly conversation_id: ConversationId
   readonly created_at: number
 }
+
+const archivedTitle = (slug: string): string => `${slug} (archived)`
 
 const topicRow = (slug: string): T.Task<TopicRow | null, never, AppEnv> =>
   first<TopicRow>(sql`SELECT * FROM topics WHERE slug = ${slug}`)

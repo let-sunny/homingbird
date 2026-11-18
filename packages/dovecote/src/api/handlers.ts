@@ -233,9 +233,16 @@ export const handlers: Handlers = {
     T.flatMap((id: MemberId) =>
       T.tap((_: Member) => announceDirectoryChange(id))(administerMember(caller.member.id, id, body)),
     )(identifier(MemberId, params.id)),
-  'admin.topics.update': ({ params, body }, caller) => reviseTopic(caller.member.id, params.slug, body),
-  'admin.topics.remove': ({ params }) => T.as({})(removeTopic(params.slug)),
-  'admin.topics.merge': ({ params, body }, caller) => mergeTopic(caller.member.id, params.slug, body.into),
+  'admin.topics.update': ({ params, body }, caller) =>
+    T.tap((_: Topic) => announceDirectoryChange(caller.member.id))(
+      reviseTopic(caller.member.id, params.slug, body),
+    ),
+  'admin.topics.remove': ({ params }, caller) =>
+    T.as({})(T.tap(() => announceDirectoryChange(caller.member.id))(removeTopic(params.slug))),
+  'admin.topics.merge': ({ params, body }, caller) =>
+    T.tap((_: Topic) => announceDirectoryChange(caller.member.id))(
+      mergeTopic(caller.member.id, params.slug, body.into),
+    ),
   'admin.audit.list': ({ query }) =>
     listAudit({
       before: query.before === undefined ? null : Number(query.before),

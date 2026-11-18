@@ -51,6 +51,19 @@ export const upsertNote = (notes: ReadonlyArray<Note>, note: Note): Note[] =>
 export const withoutNote = (notes: ReadonlyArray<Note>, id: NoteId): Note[] =>
   notes.filter((note) => note.id !== id)
 
+export const withNoteFiled = <Thread extends { readonly notes: ReadonlyArray<Note> }>(
+  threads: ReadonlyMap<ConversationId, Thread>,
+  note: Note,
+): ReadonlyMap<ConversationId, Thread> =>
+  new Map(
+    [...threads].map(([conversationId, thread]): [ConversationId, Thread] => {
+      const belongsHere = conversationId === note.conversationId && note.status !== 'discarded'
+      if (belongsHere) return [conversationId, { ...thread, notes: upsertNote(thread.notes, note) }]
+      if (!thread.notes.some((existing) => existing.id === note.id)) return [conversationId, thread]
+      return [conversationId, { ...thread, notes: withoutNote(thread.notes, note.id) }]
+    }),
+  )
+
 export const withReceipts = (
   notes: ReadonlyArray<Note>,
   id: NoteId,

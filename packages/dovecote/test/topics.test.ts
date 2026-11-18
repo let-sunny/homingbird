@@ -169,14 +169,19 @@ describe('tidying topics', () => {
     expect((await topics(ana)).map((topic) => topic.slug)).toEqual(['billing', 'general'])
     expect((await ben.api('GET', `/conversations/${old.conversationId}`)).json).toMatchObject({
       kind: 'group',
-      title: 'invoices',
+      title: 'invoices (archived)',
     })
     expect((await ana.api('POST', '/admin/topics/billing/merge', { into: 'billing' })).status).toBe(409)
     expect((await ana.api('POST', '/admin/topics/general/merge', { into: 'billing' })).status).toBe(409)
   })
 
-  it('removes a topic but never the general one', async () => {
+  it('removes a topic but never the general one, and marks its old room as archived', async () => {
+    const billing = await ben.api('PUT', '/topics/billing/helpers/me')
     expect((await ana.api('DELETE', '/admin/topics/billing')).status).toBe(200)
+    expect((await ben.api('GET', `/conversations/${billing.json.conversationId}`)).json).toMatchObject({
+      kind: 'group',
+      title: 'billing (archived)',
+    })
     expect((await ana.api('DELETE', '/admin/topics/billing')).status).toBe(404)
     expect((await ana.api('DELETE', '/admin/topics/general')).status).toBe(409)
   })
@@ -230,6 +235,78 @@ describe('moving a question to a better topic', () => {
     const direct = (await ana.api('POST', '/drafts', { to: [ben.me.member.id], body: 'direct' })).json
     await ana.api('POST', `/drafts/${direct.id}/send`, {})
     expect((await ben.api('POST', `/notes/${direct.id}/move`, { topic: 'billing' })).status).toBe(409)
+  })
+})
+
+describe('re-addressing a draft question', () => {
+  beforeEach(async () => {
+    await ben.api('PUT', '/topics/billing/helpers/me')
+  })
+
+  it('moves an agent’s draft to another topic room, keeping its id, origin and agent name', async () => {
+    const draft = (await anaAgent.api('POST', '/drafts', { topic: 'general', body: 'Who owns refunds?' })).json
+    const cursor = (await ana.api('GET', '/events/poll')).json.cursor
+    const moved = (await ana.api('PATCH', `/drafts/${draft.id}`, { topic: 'billing' })).json
+    const billing = (await topics(ana)).find((topic) => topic.slug === 'billing')
+    expect(moved).toMatchObject({
+      id: draft.id,
+      conversationId: billing.conversationId,
+      status: 'draft',
+      body: 'Who owns refunds?',
+      origin: 'agent',
+      agentName: 'Ana agent',
+    })
+    expect((await ana.api('GET', `/conversations/${billing.conversationId}`)).json.participantIds).toContain(
+      ana.me.member.id,
+    )
+    expect(
+      (await ana.api('GET', `/events/poll?after=${cursor}`)).json.events.map((event: any) => event.body),
+    ).toEqual([{ type: 'draft.saved', note: moved }])
+    const sent = (await ana.api('POST', `/drafts/${draft.id}/send`, {})).json
+    expect(sent.receipts.map((receipt: any) => receipt.memberId)).toEqual([ben.me.member.id])
+    expect(await inboxOf(cyAgent)).toEqual([])
+  })
+
+  it('changes the text and the topic in one step, and marks a person’s change to the text', async () => {
+    const draft = (await anaAgent.api('POST', '/drafts', { topic: 'general', body: 'Refunds?' })).json
+    const moved = (
+      await ana.api('PATCH', `/drafts/${draft.id}`, { topic: 'billing', body: 'Who owns refunds?' })
+    ).json
+    expect(moved).toMatchObject({ body: 'Who owns refunds?', origin: 'human_edited', agentName: 'Ana agent' })
+  })
+
+  it('lets the drafting agent re-address its own draft, which the person still sees before approving', async () => {
+    const draft = (await anaAgent.api('POST', '/drafts', { topic: 'general', body: 'Who owns refunds?' })).json
+    const moved = (await anaAgent.api('PATCH', `/drafts/${draft.id}`, { topic: 'billing' })).json
+    expect(moved).toMatchObject({ id: draft.id, status: 'draft', origin: 'agent' })
+    expect((await ana.api('GET', '/drafts')).json.drafts.map((each: any) => each.conversationId)).toEqual([
+      moved.conversationId,
+    ])
+  })
+
+  it('keeps a draft request answer linked to its request', async () => {
+    const request = (await ana.api('POST', '/draft-requests', { topic: 'general', instruction: 'Ask' })).json
+    const draft = (
+      await anaAgent.api('POST', '/drafts', { requestId: request.id, body: 'Who owns refunds?' })
+    ).json
+    await ana.api('PATCH', `/drafts/${draft.id}`, { topic: 'billing' })
+    const requests = (await ana.api('GET', '/draft-requests')).json.requests
+    expect(requests.find((each: any) => each.id === request.id)?.draftIds).toEqual([draft.id])
+  })
+
+  it('re-addresses only an unsent question drafted to a topic, and only to a topic that exists', async () => {
+    const question = await ask(cy, 'general', 'Who owns refunds?')
+    const reply = (await ana.api('POST', '/drafts', { inReplyTo: question.id, body: 'Ben does.' })).json
+    expect((await ana.api('PATCH', `/drafts/${reply.id}`, { topic: 'billing' })).status).toBe(409)
+    const direct = (await ana.api('POST', '/drafts', { to: [ben.me.member.id], body: 'direct' })).json
+    expect((await ana.api('PATCH', `/drafts/${direct.id}`, { topic: 'billing' })).status).toBe(409)
+    const draft = (await ana.api('POST', '/drafts', { topic: 'general', body: 'Who owns refunds?' })).json
+    expect((await ana.api('PATCH', `/drafts/${draft.id}`, { topic: 'nowhere' })).status).toBe(404)
+    expect((await ana.api('PATCH', `/drafts/${draft.id}`, {})).status).toBe(400)
+    expect((await ben.api('PATCH', `/drafts/${draft.id}`, { topic: 'billing' })).status).toBe(404)
+    await ana.api('POST', `/drafts/${draft.id}/send`, {})
+    expect((await ana.api('PATCH', `/drafts/${draft.id}`, { topic: 'billing' })).status).toBe(409)
+    expect((await ana.api('PATCH', `/notes/${question.id}`, { topic: 'billing' })).status).toBe(404)
   })
 })
 

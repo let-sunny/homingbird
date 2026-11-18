@@ -35,7 +35,7 @@ import {
   topics,
 } from './state.ts'
 import { strings } from './strings.ts'
-import { noteAwaitingReply, upsertNote, withoutNote } from './thread.ts'
+import { noteAwaitingReply, withNoteFiled, withoutNote } from './thread.ts'
 
 export type Action<A = void> = T.Task<A, ApiError, HasClock>
 
@@ -202,9 +202,8 @@ export const moveQuestion = (note: Note, slug: string): Action =>
 
 export const readdressDraft = (draft: Note, slug: string): Action =>
   T.gen(function* () {
-    const moved = yield* api['drafts.create']({ body: { body: draft.body, topic: slug } })
-    yield* api['drafts.discard']({ params: { id: draft.id } })
-    forgetNote(draft.conversationId, draft.id)
+    const moved = yield* api['drafts.update']({ params: { id: draft.id }, body: { topic: slug } })
+    rememberNote(moved)
     yield* loadConversations
     location.hash = hrefFor({ name: 'conversation', id: moved.conversationId })
   })
@@ -277,14 +276,7 @@ export const replyTargetIn = (conversationId: ConversationId): NoteId | null => 
   return me === null || kind === 'topic' ? null : (noteAwaitingReply(notes, me.member.id)?.id ?? null)
 }
 
-export const rememberNote = (note: Note): void =>
-  threads.update((all) => {
-    const thread = all.get(note.conversationId)
-    if (thread === undefined) return all
-    const notes =
-      note.status === 'discarded' ? withoutNote(thread.notes, note.id) : upsertNote(thread.notes, note)
-    return new Map(all).set(note.conversationId, { ...thread, notes })
-  })
+export const rememberNote = (note: Note): void => threads.update((all) => withNoteFiled(all, note))
 
 export const forgetNote = (conversationId: ConversationId, id: NoteId): void =>
   threads.update((all) => {

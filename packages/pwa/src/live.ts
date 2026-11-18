@@ -1,4 +1,4 @@
-import { systemClock } from '@homingbird/kernel'
+import { Task as T, systemClock } from '@homingbird/kernel'
 import type { StreamEvent } from '@homingbird/protocol'
 import {
   forgetNote,
@@ -7,6 +7,7 @@ import {
   loadConversations,
   loadPeople,
   loadThread,
+  loadTopics,
   loadWorkspace,
   rememberNote,
 } from './actions.ts'
@@ -64,7 +65,7 @@ export const applyEvent = (event: StreamEvent): void => {
       launch(loadPeople)
       break
     case 'directory.changed':
-      reloadPeopleSoon()
+      reloadDirectorySoon()
       break
     case 'presence':
       directory.update((entries) => withPresence(entries, body.members))
@@ -82,9 +83,12 @@ const DIRECTORY_SETTLE_MS = 400
 
 let directoryReload: ReturnType<typeof setTimeout> | undefined
 
-const reloadPeopleSoon = (): void => {
+const reloadDirectorySoon = (): void => {
   clearTimeout(directoryReload)
-  directoryReload = setTimeout(() => launch(loadPeople), DIRECTORY_SETTLE_MS)
+  directoryReload = setTimeout(
+    () => launch(T.all([loadPeople, loadTopics(''), loadConversations])),
+    DIRECTORY_SETTLE_MS,
+  )
 }
 
 const announceIfFresh = (event: StreamEvent): void => {

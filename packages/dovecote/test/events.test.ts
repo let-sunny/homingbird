@@ -302,6 +302,30 @@ describe('directory changes', () => {
     hangUp.abort()
   })
 
+  it('tells every connected client when someone helps with or leaves a topic, or an admin tidies topics', async () => {
+    const { hangUp, iterator } = await listen(benAgent.token)
+    const typeAndMember = async () => {
+      const event = JSON.parse(((await iterator.next()).value as string).split('data: ')[1]!)
+      return [event.body.type, event.body.memberId]
+    }
+    const changed = ['directory.changed', ana.me.member.id]
+    await ana.api('POST', '/topics', { slug: 'billing', description: 'Invoices' })
+    expect(await typeAndMember()).toEqual(changed)
+    await ana.api('DELETE', '/topics/billing/helpers/me')
+    expect(await typeAndMember()).toEqual(changed)
+    await ana.api('PUT', '/topics/billing/helpers/me')
+    expect(await typeAndMember()).toEqual(changed)
+    await ana.api('PATCH', '/admin/topics/billing', { slug: 'payments' })
+    expect(await typeAndMember()).toEqual(changed)
+    await ana.api('POST', '/topics', { slug: 'invoices', description: 'Duplicate' })
+    expect(await typeAndMember()).toEqual(changed)
+    await ana.api('POST', '/admin/topics/invoices/merge', { into: 'payments' })
+    expect(await typeAndMember()).toEqual(changed)
+    await ana.api('DELETE', '/admin/topics/payments')
+    expect(await typeAndMember()).toEqual(changed)
+    hangUp.abort()
+  })
+
   it('is never stored, never pushed, and not sent when the change fails', async () => {
     const pushed: unknown[] = []
     const env = { ...server.env, pushSink: (...delivery: unknown[]) => pushed.push(delivery) }

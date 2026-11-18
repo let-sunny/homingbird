@@ -1,5 +1,6 @@
 import type {
   Conversation,
+  ConversationId,
   DirectoryEntry,
   DraftRequest,
   Member,
@@ -25,6 +26,7 @@ import {
   threadItems,
   upsertNote,
   withPresence,
+  withNoteFiled,
   withReceipts,
   withoutMovedQuestion,
   withoutNote,
@@ -116,6 +118,26 @@ describe('note reducers', () => {
 
   it('removes a note by id and leaves the rest', () => {
     expect(withoutNote([note('a'), note('b')], 'a' as NoteId).map((n) => n.id)).toEqual(['b'])
+  })
+
+  it('files a note under its conversation and takes it out of the one it left', () => {
+    const general = 'conv_general0000' as ConversationId
+    const billing = 'conv_billing0000' as ConversationId
+    const unrelated = 'conv_unrelated00' as ConversationId
+    const before = draft('d', { conversationId: general })
+    const untouched = { notes: [note('x', { conversationId: unrelated })] }
+    const threads = new Map([
+      [general, { notes: [note('q', { conversationId: general }), before] }],
+      [billing, { notes: [] as Note[] }],
+      [unrelated, untouched],
+    ])
+    const moved = { ...before, conversationId: billing }
+    const filed = withNoteFiled(threads, moved)
+    expect(filed.get(general)?.notes.map((each) => each.id)).toEqual(['q'])
+    expect(filed.get(billing)?.notes).toEqual([moved])
+    expect(filed.get(unrelated)).toBe(untouched)
+    expect(withNoteFiled(filed, { ...moved, status: 'discarded' }).get(billing)?.notes).toEqual([])
+    expect(withNoteFiled(new Map(), moved).size).toBe(0)
   })
 
   it('replaces the receipts of one note only', () => {
@@ -214,6 +236,11 @@ describe('conversation titles', () => {
   it('shows a topic room as a hashtag, even with a single participant', () => {
     const room = conversation({ kind: 'topic', title: 'billing', participantIds: [ana] })
     expect(conversationTitle(room, members, ana, 'x')).toBe('#billing')
+  })
+
+  it('shows the old room of a removed or merged topic by its archived title, without a hashtag', () => {
+    const archived = conversation({ kind: 'group', title: 'billing (archived)', participantIds: [ana, june] })
+    expect(conversationTitle(archived, members, ana, 'x')).toBe('billing (archived)')
   })
 })
 
