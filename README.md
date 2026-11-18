@@ -156,7 +156,7 @@ Every command accepts `--json`.
 | `HB_ALLOWED_DOMAINS` | none | Email domains allowed to sign in, comma-separated |
 | `HB_TOPICS` | `general` | Topics to start with: `slug` or `slug: description`, comma-separated |
 | `HB_CONTACT_MODE` | `open` | `open`, or `contacts` to require an accepted request first |
-| `HB_TRUST_PROXY` | `0` | `1` when Dovecote is reachable only through a load balancer |
+| `HB_TRUST_PROXY` | `0` | Number of proxies in front of Dovecote, when it is reachable only through them; the client address is read that many entries from the right of `X-Forwarded-For` |
 | `HB_AUDIT_STDOUT`, `HB_AUDIT_WEBHOOK_URL` | off | Forward audit entries to your logging stack |
 | `HB_AUDIT_RETENTION_DAYS` | keep forever | Days to keep audit entries |
 | `HB_THEME_DIR` | none | A directory with `theme.css` and `branding.json` |

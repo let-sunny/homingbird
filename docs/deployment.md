@@ -85,11 +85,21 @@ Horizontal scaling (shared fan-out through the database or a broker) is on the
 
 ## Behind a load balancer
 
-Set **`HB_TRUST_PROXY=1`** when, and only when, Dovecote is reachable only through a proxy. Dovecote
-then takes the client address from the first entry of `X-Forwarded-For` for rate limiting and the audit
-log. Google's and Amazon's load balancers append to a header the client sent, so that first entry is
-whatever the client claims; until Dovecote reads the entry its own proxy added, treat the recorded
-address as a hint, not as evidence. Never set it on a server the internet can reach directly.
+Set **`HB_TRUST_PROXY`** to the number of proxies in front of Dovecote, and only when Dovecote is
+reachable only through them. Dovecote then takes the client address for rate limiting and the audit
+log from `X-Forwarded-For`, counting that many entries from the right: each proxy appends the address
+it saw, so the entries to the left of the ones your proxies added are whatever the client sent and are
+ignored. `0`, the default, uses the connection's own address. Never set it on a server the internet
+can reach directly.
+
+| In front of Dovecote | `HB_TRUST_PROXY` |
+| --- | --- |
+| Nothing, or a TCP load balancer that does not add the header | `0` |
+| One proxy that appends the client address (AWS Application Load Balancer, nginx with `$proxy_add_x_forwarded_for`, Caddy) | `1` |
+| Google Cloud's external Application Load Balancer, which appends the client address and then its own | `2` |
+| A CDN in front of one of the above | add one for the CDN |
+
+If unsure, log the header once from a known address and count the entries after it.
 
 Set `HB_PUBLIC_URL` to the address people use, with `https`. Dovecote builds OAuth, MCP and cookie
 settings from it.
@@ -192,7 +202,7 @@ Every variable Dovecote reads. Blank values count as unset.
 | `HB_TOPICS` | `general` | Topics created on start, `slug` or `slug: description`, comma-separated. `general` is always added |
 | `HB_SESSION_DAYS` | `30` | Days a sign-in lasts before the identity provider is asked again |
 | `HB_AGENT_CREDENTIAL_DAYS` | `90` | Days an agent credential lasts |
-| `HB_TRUST_PROXY` | `0` | `1` behind a load balancer; see [above](#behind-a-load-balancer) |
+| `HB_TRUST_PROXY` | `0` | Number of proxies in front that append to `X-Forwarded-For`; see [above](#behind-a-load-balancer) |
 | `HB_AUDIT_STDOUT` | `0` | `1` prints audit entries as JSON lines |
 | `HB_AUDIT_WEBHOOK_URL` | none | Posts audit entries to this URL |
 | `HB_AUDIT_RETENTION_DAYS` | keep forever | Days to keep audit entries. A starting value, like `HB_ALLOWED_DOMAINS` |

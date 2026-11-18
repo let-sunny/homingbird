@@ -193,7 +193,12 @@ export const contract = {
     method: 'PATCH',
     path: '/drafts/:id',
     access: 'member',
-    body: S.struct({ body: NoteBody }),
+    body: S.refine(
+      'a new body or topic',
+      (change: { readonly body?: string; readonly topic?: string }) =>
+        change.body !== undefined || change.topic !== undefined,
+      'Give a new body, a new topic, or both.',
+    )(S.struct({ body: S.optional(NoteBody), topic: S.optional(TopicSlug) })),
     response: Note,
   }),
   'drafts.send': route({
