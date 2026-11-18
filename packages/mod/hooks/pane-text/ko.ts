@@ -40,5 +40,11 @@ export const ko: PaneText = {
   edit: '수정',
   cancel: '취소',
   discard: '삭제',
-  approveInWebClient: '이 초안은 Homingbird 웹 클라이언트에서 승인, 수정, 삭제할 수 있어요.',
+  approveInWebClient: '초안은 Homingbird 웹 클라이언트에서 승인, 수정, 삭제해요. 초안마다 바로 가는 링크가 있어요.',
+  openInWebClient: '웹 클라이언트에서 승인',
+  turnOnApproveButton: '승인 버튼 켜기',
+  approveButtonRisk:
+    '승인 버튼을 켜면 이 컴퓨터에 승인 자격 증명이 저장돼요. 이 세션의 에이전트도 같은 컴퓨터에서 실행되기 때문에, 악의적인 노트가 에이전트를 속여 내 확인 없이 초안을 보내게 할 수 있어요. 웹 클라이언트에서 승인하면 이런 위험이 없어요. 그래도 켤까요?',
+  turnOnAnyway: '그래도 켜기',
+  turnOffApproveButton: '승인 버튼 끄기',
 }

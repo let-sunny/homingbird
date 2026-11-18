@@ -51,10 +51,15 @@ export async function claimDesk($: Engine, desk: Desk): Promise<void> {
   await catchUp($, desk)
 }
 
-export async function beginSignIn($: Engine, desk: Desk, server: string): Promise<void> {
+export async function beginSignIn(
+  $: Engine,
+  desk: Desk,
+  server: string,
+  withApproveButton = false,
+): Promise<void> {
   await update($, problem, () => null)
   try {
-    for await (const line of linesOf($.process.spawn({ argv: loginArgv(desk, server) }))) {
+    for await (const line of linesOf($.process.spawn({ argv: loginArgv(desk, server, withApproveButton) }))) {
       const step = lastJsonLine(line) as {
         step?: unknown
         verificationUri?: unknown
@@ -73,6 +78,18 @@ export async function beginSignIn($: Engine, desk: Desk, server: string): Promis
   }
   await update($, signIn, () => null)
   if ((await refresh($, desk)) !== null) await claimDesk($, desk)
+}
+
+export async function switchApproveButton(
+  $: Engine,
+  desk: Desk,
+  server: string,
+  wanted: boolean,
+): Promise<void> {
+  const signedOut = await runJson($, desk.options, ['logout'])
+  if (signedOut.kind !== 'ok' && signedOut.kind !== 'signed-out') return void (await update($, problem, () => signedOut.message))
+  await update($, overview, () => null)
+  await beginSignIn($, desk, server, wanted)
 }
 
 export async function decide($: Engine, desk: Desk, args: ReadonlyArray<string>): Promise<void> {
@@ -257,12 +274,12 @@ async function settle($: Engine, message: string, isUnavailable: boolean): Promi
   return null
 }
 
-const loginArgv = (desk: Desk, server: string): string[] => [
+const loginArgv = (desk: Desk, server: string, withApproveButton: boolean): string[] => [
   ...commandOf(desk.options),
   'login',
   '--server',
   server,
-  '--approve-button',
+  ...(withApproveButton ? ['--approve-button'] : []),
   '--json',
 ]
 

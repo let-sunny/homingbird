@@ -50,6 +50,11 @@ export interface PaneText {
   readonly cancel: string
   readonly discard: string
   readonly approveInWebClient: string
+  readonly openInWebClient: string
+  readonly turnOnApproveButton: string
+  readonly approveButtonRisk: string
+  readonly turnOnAnyway: string
+  readonly turnOffApproveButton: string
 }
 
 const PANE_TEXT: Readonly<Record<PaneLanguage, PaneText>> = { en, ko }
