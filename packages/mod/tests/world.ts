@@ -18,7 +18,6 @@ export interface World {
   readonly links?: Readonly<Record<string, string>>
   readonly sessionId?: string
   readonly environment?: Readonly<Record<string, string>>
-  readonly approveButton?: boolean
   readonly locale?: string
   readonly node?: string | null
   readonly server?: 'homingbird' | 'other' | 'unreachable'
@@ -28,6 +27,8 @@ export interface World {
 export interface Seen {
   readonly clock: MockClock
   readonly commands: string[][]
+  /** The server each command named with --server, '' when it named none, in the order run. */
+  readonly servers: string[]
   readonly prompts: string[]
   readonly forks: string[]
   readonly toasts: string[]
@@ -50,6 +51,7 @@ export const engineBeneath = (on: On, world: World): Seen => {
   const seen: Seen = {
     clock: mock.clock(on),
     commands: [],
+    servers: [],
     prompts: [],
     forks: [],
     toasts: [],
@@ -69,7 +71,7 @@ export const engineBeneath = (on: On, world: World): Seen => {
     if (world.server === 'unreachable') throw new Error('getaddrinfo ENOTFOUND')
     if (world.server === 'other')
       return { value: { status: 200, ok: true, headers: {}, text: '<!doctype html><title>Wiki</title>' } }
-    const info = { name: 'dovecote', version: '1', approveButton: world.approveButton ?? true }
+    const info = { name: 'dovecote', version: '1' }
     return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify(info) } }
   })
   on('store.get', (_, e) => ({ value: seen.store.get(e.key) }))
@@ -84,7 +86,7 @@ export const engineBeneath = (on: On, world: World): Seen => {
       if (world.node === null) throw new Error(`spawn ${e.argv[0]} ENOENT`)
       return { value: processResult(0, `${world.node ?? 'v22.12.0'}\n`) }
     }
-    const args = e.argv.slice(COMMAND_WORDS)
+    const args = withoutServer(e.argv.slice(COMMAND_WORDS), seen.servers)
     seen.commands.push([...args])
     if (args[0] === 'requests') requestLists += 1
     if (args[0] === 'requests' && requestLists > 1 && world.requestsAnsweredAfterFirstList === true)
@@ -94,7 +96,7 @@ export const engineBeneath = (on: On, world: World): Seen => {
     return { value: processResult(exitCode, stdoutFor(args, world)) }
   })
   on('process.spawn', async function* (_, e) {
-    const args = e.argv.slice(COMMAND_WORDS)
+    const args = withoutServer(e.argv.slice(COMMAND_WORDS), seen.servers)
     seen.commands.push([...args])
     if (args[0] === 'stream' && world.streamDelayMs !== undefined) await seen.clock.sleep(world.streamDelayMs)
     const lines = args[0] === 'login' ? (world.loginLines ?? []) : (world.streamLines ?? [])
@@ -200,13 +202,19 @@ export const OVERVIEW = {
   signedIn: true,
   server: 'https://homingbird.example.com',
   member: { id: 'mem_mmmmmmmmmmmmmmmm', name: 'Ben', email: 'ben@example.com' },
-  hasApproveButton: true,
   conversations: [
-    { id: 'conv_cccccccccccccccc', with: 'Ana, Ben', kind: 'dm', title: null, unreadCount: 2, draftCount: 1 },
+    {
+      id: 'conv_cccccccccccccccc',
+      with: 'Ana, Ben',
+      kind: 'direct',
+      title: null,
+      unreadCount: 2,
+      draftCount: 1,
+    },
     {
       id: 'conv_tttttttttttttttt',
       with: 'Ana, Ben, Cy',
-      kind: 'topic',
+      kind: 'channel',
       title: 'payments',
       unreadCount: 0,
       draftCount: 0,
@@ -276,12 +284,7 @@ const USAGE = {
 const stdoutFor = (args: ReadonlyArray<string>, world: World): string => {
   if (args[0] === 'overview') return JSON.stringify(world.overview)
   if (args[0] === 'requests') return JSON.stringify(world.requests ?? {})
-  if (args[0] === 'status')
-    return JSON.stringify({
-      signedIn: true,
-      locale: world.locale ?? null,
-      approveButton: world.approveButton ?? true,
-    })
+  if (args[0] === 'status') return JSON.stringify({ signedIn: true, locale: world.locale ?? null })
   return JSON.stringify({ ok: true })
 }
 
@@ -292,3 +295,12 @@ const processResult = (exitCode: number, stdout: string) => ({
   isStdoutTruncated: false,
   isStderrTruncated: false,
 })
+
+const withoutServer = (args: ReadonlyArray<string>, servers: string[]): string[] => {
+  if (args[0] !== '--server') {
+    servers.push('')
+    return [...args]
+  }
+  servers.push(args[1] ?? '')
+  return args.slice(2)
+}

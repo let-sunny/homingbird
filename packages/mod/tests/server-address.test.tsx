@@ -40,13 +40,7 @@ test('an address typed into the pane is checked, saved and signed in to', async 
   await seen.clock.settle()
   expect(seen.fetched).toContain('https://homingbird.example.com/api/v1/info')
   expect(seen.settings).toEqual([{ key: 'homingbird.server', value: 'https://homingbird.example.com' }])
-  expect(seen.commands).toContainEqual([
-    'login',
-    '--server',
-    'https://homingbird.example.com',
-    '--approve-button',
-    '--json',
-  ])
+  expect(seen.commands).toContainEqual(['login', '--server', 'https://homingbird.example.com', '--json'])
   expect(await ui.find({ type: 'Text', text: /Code ABCD-EFGH/ })).toBeDefined()
   seen.release()
   await ui.unmount()
@@ -114,7 +108,7 @@ test('the first-run words exist in Korean too', () => {
   const ko = paneTextIn('ko')
   expect(ko.serverHeading).toBe('Homingbird 서버 주소를 입력하세요')
   expect(ko.serverRefused('unreachable', 'https://x.example')).toContain('Homingbird 서버를 찾지 못했어요')
-  expect(ko.changeServer).toContain('/plugin configure homingbird@homingbird')
+  expect(ko.changeServer).toContain('/plugin의 Homingbird 설정')
 })
 
 test('the server comes from the saved login first, then the plugin option, then HOMINGBIRD_SERVER', async ($, on) => {

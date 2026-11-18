@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, PluginOptions } from 'claude-code'
 
 import type { HomingbirdDraftRequest, HomingbirdOverview } from '../types'
-import { commandOf, lastJsonLine, run, runJson } from './command-line'
+import { commandOf, lastJsonLine, run, runJson, serverArguments } from './command-line'
 import { autoDraftOf, notePromptFor, replyIn, replyPromptFor, requestPromptFor } from './drafting'
 import { PANE, paneTitleFor } from './pane'
 import { type PaneText, textFor } from './pane-text'
@@ -15,11 +15,11 @@ export interface Desk {
   readonly handled: Set<string>
   readonly wrappedNotes: Map<string, string>
   readonly helpers: Map<string, string>
-  readonly approveButtonAllowed: Map<string, boolean>
   readonly localeOn: Map<string, string | null>
   stream: AsyncGenerator<unknown, unknown> | null
   heartbeat: { readonly cancel: () => void } | null
   lastSequence: number | null
+  hostTooOld: boolean
 }
 
 export const makeDesk = (options: PluginOptions): Desk => ({
@@ -28,19 +28,27 @@ export const makeDesk = (options: PluginOptions): Desk => ({
   answeringFlow: '',
   handled: new Set(),
   wrappedNotes: new Map(),
-  approveButtonAllowed: new Map(),
   localeOn: new Map(),
   helpers: new Map(),
   stream: null,
   heartbeat: null,
   lastSequence: null,
+  hostTooOld: false,
 })
 
 export async function openDesk($: Engine, desk: Desk): Promise<void> {
   await update($, problem, () => null)
+  desk.server = await serverFor($, desk)
   const latest = await refresh($, desk)
   if (latest !== null) return claimDesk($, desk)
-  desk.server = await serverFor($, desk)
+}
+
+/** Signs this session out of the server it is bound to, and only that one. */
+export async function signOut($: Engine, desk: Desk): Promise<void> {
+  endStream(desk)
+  await run($, desk, ['logout'])
+  await refresh($, desk)
+  await update($, problem, () => null)
 }
 
 /** Takes a server address the person typed: checked first, then saved and signed in to. */
@@ -72,13 +80,13 @@ export async function claimDesk($: Engine, desk: Desk): Promise<void> {
   await showCounts($, await read($, overview))
   desk.heartbeat?.cancel()
   desk.heartbeat = $.clock.every(HEARTBEAT_MS, () => inBackground(checkIn($, desk)))
+  endStream(desk)
   inBackground(follow($, desk))
   await catchUp($, desk)
 }
 
 export async function beginSignIn($: Engine, desk: Desk, server: string): Promise<void> {
   await update($, problem, () => null)
-  const withApproveButton = await approveButtonAllowedOn($, desk, server)
   const command = await commandOf($, desk.options)
   if (command.kind === 'no-node') {
     const missing = (await said($)).noNode(command.olderVersion)
@@ -88,7 +96,7 @@ export async function beginSignIn($: Engine, desk: Desk, server: string): Promis
   }
   const errors: string[] = []
   try {
-    const argv = loginArgv(command.argv, server, withApproveButton)
+    const argv = [...command.argv, 'login', '--server', server, '--json']
     for await (const line of linesOf($.process.spawn({ argv }), errors)) {
       const step = lastJsonLine(line) as {
         step?: unknown
@@ -105,7 +113,6 @@ export async function beginSignIn($: Engine, desk: Desk, server: string): Promis
   }
   await update($, signIn, () => null)
   desk.localeOn.delete(server)
-  desk.approveButtonAllowed.delete(server)
   if ((await refresh($, desk)) !== null) return claimDesk($, desk)
   const ended = signInEndingIn(errors.join(''))
   if (ended !== null) {
@@ -120,34 +127,31 @@ export async function beginSignIn($: Engine, desk: Desk, server: string): Promis
   }
 }
 
-/** The server this desk uses: the one it is signed in to, else the configured one, else HOMINGBIRD_SERVER. */
+/**
+ * The one server this session is bound to: the configured or typed address, else HOMINGBIRD_SERVER,
+ * else the server it found itself signed in to. Every command it runs names this server.
+ */
 export async function serverFor($: Engine, desk: Desk): Promise<string> {
-  const signedInTo = await knownServer($)
-  if (signedInTo !== '') return signedInTo
   if (desk.server !== '') return desk.server
-  return ((await $.env.get('HOMINGBIRD_SERVER')) ?? '').trim().replace(/\/+$/, '')
-}
-
-export async function decide($: Engine, desk: Desk, args: ReadonlyArray<string>): Promise<void> {
-  const ran = await runJson($, desk.options, args)
-  await update($, editing, () => null)
-  if (ran.kind === 'signed-out') {
-    const noButton = (await said($)).noApproveButton
-    await update($, problem, () => noButton)
-  } else if (ran.kind !== 'ok') await update($, problem, () => ran.message)
-  await refresh($, desk)
+  const fromEnvironment = ((await $.env.get('HOMINGBIRD_SERVER')) ?? '').trim().replace(/\/+$/, '')
+  if (fromEnvironment !== '') return fromEnvironment
+  return knownServer($)
 }
 
 export async function refresh($: Engine, desk: Desk): Promise<HomingbirdOverview | null> {
-  const ran = await runJson($, desk.options, ['overview'])
+  const ran = await runJson($, desk, ['overview'])
   if (ran.kind === 'no-node') return settle($, (await said($)).noNode(ran.olderVersion), true)
   if (ran.kind === 'unavailable') return settle($, ran.message, true)
   if (ran.kind !== 'ok' && ran.kind !== 'signed-out') return settle($, ran.message, false)
   const listed = ran.kind === 'ok' ? overviewIn(ran.value) : null
   desk.answeringFlow = answeringFlowIn(ran.kind === 'ok' ? ran.value : null)
-  const latest = listed === null ? null : { ...listed, ...(await statusOn($, desk, listed.server)) }
+  const latest = listed === null ? null : { ...listed, locale: await localeOn($, desk, listed.server) }
+  if (latest !== null && desk.server === '') desk.server = latest.server
+  const before = await read($, overview)
   await update($, overview, () => latest)
   await update($, problem, () => null)
+  if (before !== null && !isSameIdentity(before, latest) && (await read($, deskRole)) === 'desk')
+    await stopDesk($, desk, (await said($)).deskStopped(before, latest))
   if (latest === null) await update($, connection, () => 'signed-out')
   else if ((await read($, connection)) === 'signed-out' || (await read($, connection)) === 'unavailable')
     await update($, connection, () => (desk.stream === null ? 'reconnecting' : 'live'))
@@ -183,39 +187,13 @@ async function said($: Engine): Promise<PaneText> {
   return textFor($, await read($, overview))
 }
 
-async function statusOn(
-  $: Engine,
-  desk: Desk,
-  server: string,
-): Promise<{ locale: string | null; approveButtonAllowed: boolean }> {
+async function localeOn($: Engine, desk: Desk, server: string): Promise<string | null> {
   if (!desk.localeOn.has(server)) {
-    const ran = await runJson($, desk.options, ['status'])
-    const status = (ran.kind === 'ok' ? ran.value : null) as {
-      locale?: unknown
-      approveButton?: unknown
-    } | null
+    const ran = await runJson($, desk, ['status'])
+    const status = (ran.kind === 'ok' ? ran.value : null) as { locale?: unknown } | null
     desk.localeOn.set(server, typeof status?.locale === 'string' ? status.locale : null)
-    if (typeof status?.approveButton === 'boolean')
-      desk.approveButtonAllowed.set(server, status.approveButton)
   }
-  return {
-    locale: desk.localeOn.get(server) ?? null,
-    approveButtonAllowed: await approveButtonAllowedOn($, desk, server),
-  }
-}
-
-async function approveButtonAllowedOn($: Engine, desk: Desk, server: string): Promise<boolean> {
-  const known = desk.approveButtonAllowed.get(server)
-  if (known !== undefined) return known
-  const allowed = await $.http
-    .fetch(`${server.replace(/\/+$/, '')}/api/v1/info`)
-    .then(
-      (response) =>
-        response.ok && (JSON.parse(response.text) as { approveButton?: unknown }).approveButton === true,
-    )
-    .catch(() => false)
-  desk.approveButtonAllowed.set(server, allowed)
-  return allowed
+  return desk.localeOn.get(server) ?? null
 }
 
 async function holdsDesk($: Engine): Promise<boolean> {
@@ -225,26 +203,47 @@ async function holdsDesk($: Engine): Promise<boolean> {
 
 async function checkIn($: Engine, desk: Desk): Promise<void> {
   if (!(await holdsDesk($))) return standDown($, desk)
-  await refresh($, desk)
-  if (desk.stream === null) inBackground(follow($, desk))
+  const latest = await refresh($, desk)
+  if (latest !== null && desk.stream === null && (await read($, deskRole)) === 'desk')
+    inBackground(follow($, desk))
 }
+
+async function stopDesk($: Engine, desk: Desk, reason: string): Promise<void> {
+  desk.heartbeat?.cancel()
+  desk.heartbeat = null
+  endStream(desk)
+  await update($, deskRole, () => 'not-desk')
+  await update($, connection, () => 'idle')
+  await update($, problem, () => reason)
+  $.ui.status(undefined)
+}
+
+const isSameIdentity = (before: HomingbirdOverview, after: HomingbirdOverview | null): boolean =>
+  after !== null && after.server === before.server && after.memberName === before.memberName
 
 async function standDown($: Engine, desk: Desk): Promise<void> {
   desk.heartbeat?.cancel()
   desk.heartbeat = null
-  const stream = desk.stream
-  desk.stream = null
-  if (stream !== null) inBackground(stream.return(undefined))
+  endStream(desk)
   await update($, deskRole, () => 'moved')
   await update($, connection, () => 'idle')
   $.ui.status(undefined)
+}
+
+/** Ends the live stream, which may still hold a credential that was signed out. */
+function endStream(desk: Desk): void {
+  const stream = desk.stream
+  desk.stream = null
+  if (stream !== null) inBackground(stream.return(undefined))
 }
 
 async function follow($: Engine, desk: Desk): Promise<void> {
   const command = await commandOf($, desk.options)
   if (desk.stream !== null || command.kind === 'no-node') return
   const after = desk.lastSequence === null ? [] : ['--after', String(desk.lastSequence)]
-  const stream = $.process.spawn({ argv: [...command.argv, 'stream', '--json', ...after] })
+  const stream = $.process.spawn({
+    argv: [...command.argv, ...serverArguments(desk.server), 'stream', '--json', ...after],
+  })
   desk.stream = stream
   await update($, connection, () => 'live')
   try {
@@ -313,7 +312,7 @@ async function catchUp($: Engine, desk: Desk): Promise<void> {
 }
 
 async function openRequests($: Engine, desk: Desk): Promise<HomingbirdDraftRequest[]> {
-  const ran = await runJson($, desk.options, ['requests'])
+  const ran = await runJson($, desk, ['requests'])
   const listed = ran.kind === 'ok' ? (ran.value as { requests?: unknown } | null)?.requests : []
   return (Array.isArray(listed) ? listed : []).flatMap((one) => {
     const request = requestIn(one)
@@ -325,15 +324,15 @@ async function draftReply($: Engine, desk: Desk, noteId: string, wrappedNote: st
   const mode = autoDraftOf(desk.options.autoDraft)
   if (mode === 'off' || desk.handled.has(noteId)) return
   desk.handled.add(noteId)
-  await run($, desk.options, ['pickup', noteId])
+  await run($, desk, ['pickup', noteId])
   if (mode === 'turn')
     return void (await $.prompt.submit({ text: notePromptFor(noteId, wrappedNote, desk.answeringFlow) }))
   const reply = replyIn(await suggestReply($, replyPromptFor(wrappedNote, desk.answeringFlow)))
   if (reply === null) {
-    await run($, desk.options, ['skip', '--', noteId, QUIET_SKIP])
+    await run($, desk, ['skip', '--', noteId, QUIET_SKIP])
     return void (await refresh($, desk))
   }
-  const drafted = await run($, desk.options, ['draft', '--reply', noteId, '--', reply])
+  const drafted = await run($, desk, ['draft', '--reply', noteId, '--', reply])
   if (drafted.kind === 'ok') await refresh($, desk)
 }
 
@@ -371,17 +370,6 @@ async function settle($: Engine, message: string, isUnavailable: boolean): Promi
   if (isUnavailable) await update($, connection, () => 'unavailable')
   await update($, problem, () => message)
   return null
-}
-
-function loginArgv(command: ReadonlyArray<string>, server: string, withApproveButton: boolean): string[] {
-  return [
-    ...command,
-    'login',
-    '--server',
-    server,
-    ...(withApproveButton ? ['--approve-button'] : []),
-    '--json',
-  ]
 }
 
 async function* linesOf(
@@ -436,7 +424,6 @@ const overviewIn = (value: unknown): HomingbirdOverview | null => {
     server: String(data.server ?? ''),
     memberName: String(data.member?.name ?? ''),
     locale: null,
-    hasApproveButton: data.hasApproveButton === true,
     conversations: data.conversations ?? [],
     awaiting: data.awaiting ?? [],
     drafts: data.drafts ?? [],
@@ -466,9 +453,8 @@ const QUIET_SKIP =
 
 const connection = atom({ plugin: 'homingbird', key: 'connection' } as const, 'idle')
 const deskRole = atom({ plugin: 'homingbird', key: 'desk' } as const, 'not-desk')
-const editing = atom({ plugin: 'homingbird', key: 'editing' } as const, null)
 const checking = atom({ plugin: 'homingbird', key: 'checkingServer' } as const, false)
-const overview = atom({ plugin: 'homingbird', key: 'overview' } as const, null, { shape: 'overview-2' })
+const overview = atom({ plugin: 'homingbird', key: 'overview' } as const, null, { shape: 'overview-3' })
 const problem = atom({ plugin: 'homingbird', key: 'problem' } as const, null)
 const requests = atom({ plugin: 'homingbird', key: 'requests' } as const, [], { shape: 'requests-2' })
 const signIn = atom({ plugin: 'homingbird', key: 'signIn' } as const, null)

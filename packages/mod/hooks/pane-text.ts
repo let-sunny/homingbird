@@ -51,13 +51,8 @@ export interface PaneText {
   readonly reply: string
   readonly newNoteBy: (agent: string) => string
   readonly replyBy: (agent: string) => string
-  readonly editThenSend: string
-  readonly send: string
-  readonly approve: string
-  readonly edit: string
-  readonly cancel: string
-  readonly discard: string
   readonly approveInWebClient: string
+  readonly awaitingYourApproval: string
   readonly openInWebClient: string
   readonly deskStatus: (waiting: number) => string
   readonly toast: (text: string) => string
@@ -66,7 +61,6 @@ export interface PaneText {
   readonly draftReadyNotice: string
   readonly draftingRequest: string
   readonly streamStopped: string
-  readonly noApproveButton: string
   readonly couldNotSignIn: (reason: string) => string
   readonly noNode: (olderVersion: string | null) => string
   readonly serverHeading: string
@@ -79,6 +73,12 @@ export interface PaneText {
   readonly serverUsuallySet: string
   readonly signInTo: (host: string) => string
   readonly openWeb: string
+  readonly signOut: string
+  readonly deskStopped: (
+    before: Pick<HomingbirdOverview, 'memberName' | 'server'>,
+    after: Pick<HomingbirdOverview, 'memberName' | 'server'> | null,
+  ) => string
+  readonly hostTooOld: string
   readonly waitingForApproval: string
   readonly signInDenied: string
   readonly signInExpired: string

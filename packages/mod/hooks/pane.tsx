@@ -1,4 +1,4 @@
-import { atom, read, update } from 'claude-code'
+import { atom, read } from 'claude-code'
 import type { EngineInterface, RenderElement, ResolveInput } from 'claude-code'
 
 import type {
@@ -35,6 +35,7 @@ export async function renderPane(
           <Text dimColor>{text.connection[state]}</Text>
         </Box>
       </Box>
+      {actions.isHostTooOld() && <Text color="warning">{text.hostTooOld}</Text>}
       {role === 'desk' && <Text color="warning">{text.keepOpen}</Text>}
       {role === 'moved' && movedRows($, e, text, actions)}
       {trouble !== null && <Text color="error">{trouble}</Text>}
@@ -50,8 +51,9 @@ export interface PaneActions {
   readonly signIn: (server: string) => void
   readonly useServer: (typed: string) => void
   readonly becomeDesk: () => Promise<void>
-  readonly approve: (draftId: string, editedBody: string | null) => Promise<void>
-  readonly discard: (draftId: string) => Promise<void>
+  readonly signOut: () => void
+  /** True when this Claude Code is too old for the tools and the desk; the pane still works. */
+  readonly isHostTooOld: () => boolean
 }
 
 export const paneTitleFor = (waiting: number): string =>
@@ -172,20 +174,20 @@ async function overviewRows(
   open: ReadonlyArray<HomingbirdDraftRequest>,
   actions: PaneActions,
 ): Promise<RenderElement> {
-  const { Box, Text, Link } = $.ui.resolve(e)
-  const edited = await read($, editing)
+  const { Box, Text, Link, Button } = $.ui.resolve(e)
   const drafted = new Set(latest.drafts.map((draft) => draft.inReplyTo))
   return (
     <Box flexDirection="column" gap={1}>
       <Box flexDirection="row" gap={1}>
         <Text dimColor>{text.memberOn(latest.memberName, latest.server)}</Text>
         <Link href={latest.server}>{text.openWeb}</Link>
+        <Button key="sign-out" label={text.signOut} onPress={() => actions.signOut()} />
       </Box>
       <Box flexDirection="column">
         <Text bold>{text.draftsWaiting}</Text>
-        {!hasApproveButton(latest) && <Text dimColor>{text.approveInWebClient}</Text>}
+        <Text dimColor>{text.approveInWebClient}</Text>
         {latest.drafts.length === 0 && <Text dimColor>{text.none}</Text>}
-        {latest.drafts.map((draft) => draftRow($, e, text, latest, draft, edited === draft.id, actions))}
+        {latest.drafts.map((draft) => draftRow($, e, text, latest, draft))}
       </Box>
       <Box flexDirection="column">
         <Text bold>{text.notesWaiting}</Text>
@@ -231,55 +233,19 @@ function draftRow(
   text: PaneText,
   latest: HomingbirdOverview,
   draft: HomingbirdDraft,
-  isEditing: boolean,
-  actions: PaneActions,
 ): RenderElement {
-  const { Box, Text, Button, Input, Link } = $.ui.resolve(e)
+  const { Box, Text, Link } = $.ui.resolve(e)
   return (
     <Box key={`draft:${draft.id}`} flexDirection="column" borderStyle="round" paddingX={1}>
       <Text dimColor>{draftHeading(text, draft)}</Text>
-      {isEditing ? (
-        <Input
-          key={`edit:${draft.id}`}
-          label={text.editThenSend}
-          value={draft.body}
-          rows={4}
-          submitLabel={text.send}
-          onSubmit={(body) => void actions.approve(draft.id, body)}
-        />
-      ) : (
-        <Text>{draft.body}</Text>
-      )}
-      {hasApproveButton(latest) ? (
-        <Box flexDirection="row" gap={1}>
-          {!isEditing && (
-            <Button
-              key={`approve:${draft.id}`}
-              label={text.approve}
-              variant="primary"
-              onPress={() => void actions.approve(draft.id, null)}
-            />
-          )}
-          <Button
-            key={`edit-toggle:${draft.id}`}
-            label={isEditing ? text.cancel : text.edit}
-            onPress={() => void update($, editing, () => (isEditing ? null : draft.id))}
-          />
-          <Button
-            key={`discard:${draft.id}`}
-            label={text.discard}
-            onPress={() => void actions.discard(draft.id)}
-          />
-        </Box>
-      ) : (
+      <Text>{draft.body}</Text>
+      <Box flexDirection="row" gap={1}>
+        <Text color="warning">{text.awaitingYourApproval}</Text>
         <Link href={conversationUrl(latest.server, draft.conversationId)}>{text.openInWebClient}</Link>
-      )}
+      </Box>
     </Box>
   )
 }
-
-const hasApproveButton = (latest: HomingbirdOverview): boolean =>
-  latest.hasApproveButton && latest.approveButtonAllowed === true
 
 const hostOf = (server: string): string => server.replace(/^https?:\/\//, '').replace(/\/.*$/, '')
 
@@ -292,7 +258,7 @@ const draftHeading = (text: PaneText, draft: HomingbirdDraft): string => {
 }
 
 const conversationName = (conversation: HomingbirdConversation): string => {
-  if (conversation.kind !== 'topic') return conversation.with
+  if (conversation.kind !== 'channel') return conversation.with
   const name = conversation.title ?? conversation.with
   return name.startsWith('#') ? name : `#${name}`
 }
@@ -301,9 +267,8 @@ const firstLine = (text: string): string => text.split('\n')[0] ?? ''
 
 const connection = atom({ plugin: 'homingbird', key: 'connection' } as const, 'idle')
 const desk = atom({ plugin: 'homingbird', key: 'desk' } as const, 'not-desk')
-const editing = atom({ plugin: 'homingbird', key: 'editing' } as const, null)
 const checkingServer = atom({ plugin: 'homingbird', key: 'checkingServer' } as const, false)
-const overview = atom({ plugin: 'homingbird', key: 'overview' } as const, null, { shape: 'overview-2' })
+const overview = atom({ plugin: 'homingbird', key: 'overview' } as const, null, { shape: 'overview-3' })
 const problem = atom({ plugin: 'homingbird', key: 'problem' } as const, null)
 const requests = atom({ plugin: 'homingbird', key: 'requests' } as const, [], { shape: 'requests-2' })
 const signIn = atom({ plugin: 'homingbird', key: 'signIn' } as const, null)

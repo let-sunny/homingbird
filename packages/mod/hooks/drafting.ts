@@ -4,7 +4,7 @@ export const notePromptFor = (noteId: string, wrappedNote: string, answeringFlow
   [
     'A colleague sent the note below through Homingbird. This session is the Homingbird desk of the person you work for.',
     `End this note in one of two ways. Draft a reply by calling the draft_reply tool with noteId "${noteId}": when you cannot answer yet, a holding reply such as "I need to check the release plan and will get back to you" is a good draft. Or, when no reply from the person fits at all, call the skip_note tool with noteId "${noteId}" and the reason, which only the person sees.`,
-    'Pass basis to draft_reply with what you read or relied on. It is recorded in the audit log for the organization’s administrators; nobody sees it in a conversation.',
+    'Pass basis to draft_reply with what you read or relied on. Your person sees it on the draft before approving it, and it is recorded in the audit log for the organization’s administrators; the colleague never sees it.',
     KNOWLEDGE_SOURCES,
     LINKED_MATERIAL,
     PROJECT_CONTEXT,
@@ -126,7 +126,7 @@ const PROJECT_CONTEXT = [
 ].join('\n')
 
 const DRAFT_IS_NOT_SENT =
-  'The draft is not sent: the person approves, edits or discards it with the buttons in the Homingbird pane. You cannot send it and must not try.'
+  'The draft is not sent: the person approves, edits or discards it in the Homingbird web client. You cannot send it and must not try.'
 
 const PROJECT_DIRECTORY_LABEL = 'Project directory: '
 

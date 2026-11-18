@@ -19,15 +19,19 @@ export type Ran =
   | { readonly kind: 'unavailable'; readonly message: string }
   | { readonly kind: 'no-node'; readonly olderVersion: string | null; readonly message: string }
 
-export async function run(
-  $: BundleFinder,
-  options: PluginOptions,
-  args: ReadonlyArray<string>,
-): Promise<Ran> {
+/** What a command runs for: the mod's options, and the one server this session is bound to, if known. */
+export interface CliTarget {
+  readonly options: PluginOptions
+  readonly server: string
+}
+
+export async function run($: BundleFinder, target: CliTarget, args: ReadonlyArray<string>): Promise<Ran> {
   try {
-    const command = await commandOf($, options)
+    const command = await commandOf($, target.options)
     if (command.kind === 'no-node') return { ...command, message: noNodeMessage(command.olderVersion) }
-    const result = await $.process.run([...command.argv, ...args], { timeoutMs: RUN_TIMEOUT_MS })
+    const result = await $.process.run([...command.argv, ...serverArguments(target.server), ...args], {
+      timeoutMs: RUN_TIMEOUT_MS,
+    })
     if (result.exitCode === 0) return { kind: 'ok', value: null, text: result.stdout.trim() }
     if (result.exitCode === EXIT_SIGNED_OUT) return { kind: 'signed-out' }
     if (result.exitCode === EXIT_USAGE) return { kind: 'unsupported', message: messageIn(result.stderr) }
@@ -37,12 +41,8 @@ export async function run(
   }
 }
 
-export async function runJson(
-  $: BundleFinder,
-  options: PluginOptions,
-  args: ReadonlyArray<string>,
-): Promise<Ran> {
-  const ran = await run($, options, [...args, '--json'])
+export async function runJson($: BundleFinder, target: CliTarget, args: ReadonlyArray<string>): Promise<Ran> {
+  const ran = await run($, target, [...args, '--json'])
   return ran.kind === 'ok' ? { ...ran, value: lastJsonLine(ran.text) } : ran
 }
 
@@ -54,6 +54,9 @@ export function commandOf($: BundleFinder, options: PluginOptions): Promise<Comm
   RESOLVED.set(options, resolving)
   return resolving
 }
+
+/** The arguments that bind a command to one server, so it never uses another server's credential. */
+export const serverArguments = (server: string): string[] => (server === '' ? [] : ['--server', server])
 
 export const MINIMUM_NODE_MAJOR = 22
 
@@ -70,7 +73,8 @@ export const DEFAULT_COMMAND = 'npx -y @homingbird/cli'
 
 export const BUNDLED_CLI = 'cli/homingbird.mjs'
 
-export const CONFIGURE_COMMAND = '/plugin configure homingbird@homingbird'
+/** Where the mod's settings are; the host does not tell a mod its marketplace, so no plugin id is named. */
+export const CONFIGURE_COMMAND = 'the Homingbird plugin settings (/plugin)'
 
 const RUN_TIMEOUT_MS = 60_000
 const VERSION_TIMEOUT_MS = 10_000
@@ -163,8 +167,8 @@ const isNodePath = (word: string): boolean => /(^|[\\/])node(\.exe)?$/.test(word
 
 const noNodeMessage = (olderVersion: string | null): string =>
   olderVersion === null
-    ? `Node ${MINIMUM_NODE_MAJOR} or newer was not found, so the homingbird command cannot run. Start Claude Code from a shell where node -v works, or set the mod's Homingbird command to the full path of node with ${CONFIGURE_COMMAND}.`
-    : `Node ${olderVersion} is too old; the homingbird command needs Node ${MINIMUM_NODE_MAJOR} or newer. Start Claude Code from a shell where node -v shows ${MINIMUM_NODE_MAJOR} or newer, or set the mod's Homingbird command to the full path of a newer node with ${CONFIGURE_COMMAND}.`
+    ? `Node ${MINIMUM_NODE_MAJOR} or newer was not found, so the homingbird command cannot run. Start Claude Code from a shell where node -v works, or set the mod's Homingbird command to the full path of node in ${CONFIGURE_COMMAND}.`
+    : `Node ${olderVersion} is too old; the homingbird command needs Node ${MINIMUM_NODE_MAJOR} or newer. Start Claude Code from a shell where node -v shows ${MINIMUM_NODE_MAJOR} or newer, or set the mod's Homingbird command to the full path of a newer node in ${CONFIGURE_COMMAND}.`
 const EXIT_USAGE = 2
 const EXIT_SIGNED_OUT = 3
 

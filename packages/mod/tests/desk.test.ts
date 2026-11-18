@@ -42,7 +42,7 @@ test('/homingbird makes a signed-in session the desk and holds the stream', asyn
 })
 
 test(
-  'with a configured server the pane offers Sign in to its host and Open web; signing in asks for the approve button, then becomes the desk',
+  'with a configured server the pane offers Sign in to its host and Open web; signing in asks for an agent credential, then becomes the desk',
   { options: { server: 'https://homingbird.example.com' } },
   async ($, on) => {
     const awaiting = JSON.stringify({
@@ -67,13 +67,7 @@ test(
     await ui.press({ key: 'sign-in' })
     await seen.clock.settle()
     await ui.unmount()
-    expect(seen.commands).toContainEqual([
-      'login',
-      '--server',
-      'https://homingbird.example.com',
-      '--approve-button',
-      '--json',
-    ])
+    expect(seen.commands).toContainEqual(['login', '--server', 'https://homingbird.example.com', '--json'])
     expect(seen.commands).toContainEqual(['stream', '--json'])
     expect(seen.store.get('desk')).toEqual({ sessionId: DESK_SESSION, claimedAt: 0 })
     seen.release()
@@ -155,7 +149,7 @@ test('a saved draft notifies the person that it waits for approval', async ($, o
   })
   await $.session.start(START)
   await openDesk($, seen)
-  expect(seen.notifications).toContain('A draft is ready for your approval in the Homingbird pane.')
+  expect(seen.notifications).toContain('A draft is ready for your approval in the Homingbird web client.')
 })
 
 test('the desk catches up on waiting notes and open requests, skipping notes that have a draft', async ($, on) => {
@@ -324,4 +318,97 @@ test('with no answering flow the prompts carry none', async ($, on) => {
   await $.session.start(START)
   await openDesk($, seen)
   expect(seen.prompts.join('\n')).not.toContain('answering flow')
+})
+
+test(
+  'signing out and in again in one session ends the old stream and starts a live one for the new credential',
+  { options: { server: 'https://homingbird.example.com' } },
+  async ($, on) => {
+    const world = {
+      overview: OVERVIEW as unknown,
+      holdsStream: true,
+      loginLines: [
+        JSON.stringify({ step: 'awaiting_approval', verificationUri: 'https://x/', userCode: 'A' }),
+      ],
+      signedInAfterLogin: OVERVIEW,
+    }
+    const seen = engineBeneath(on, world)
+    await $.session.start(START)
+    await openDesk($, seen)
+    expect(seen.commands.filter((args) => args[0] === 'stream')).toHaveLength(1)
+    world.overview = { signedIn: false }
+    await seen.clock.advance(30_000)
+    const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+    await ui.press({ key: 'sign-in' })
+    await seen.clock.settle()
+    await ui.unmount()
+    expect(seen.commands.filter((args) => args[0] === 'stream')).toHaveLength(2)
+    const after = await $.ui.mount({ ...PANE, surface: 'terminal' })
+    expect(await after.find({ type: 'Text', text: /desk · live/ })).toBeDefined()
+    await after.unmount()
+    seen.release()
+  },
+)
+
+test(
+  'every command names the one server this session is bound to, so another server’s credential is never used',
+  { options: { server: 'https://homingbird.example.com' } },
+  async ($, on) => {
+    const seen = engineBeneath(on, { overview: OVERVIEW, holdsStream: true })
+    await $.session.start(START)
+    await openDesk($, seen)
+    expect(seen.commands.length).toBeGreaterThan(2)
+    expect(new Set(seen.servers)).toEqual(new Set(['https://homingbird.example.com']))
+    seen.release()
+  },
+)
+
+test(
+  'reproduction: after signing out in the pane it offers Sign in to its own server, never another identity',
+  { options: { server: 'https://homingbird.example.com' } },
+  async ($, on) => {
+    const world = { overview: OVERVIEW as unknown, holdsStream: true }
+    const seen = engineBeneath(on, world)
+    await $.session.start(START)
+    await openDesk($, seen)
+    const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+    world.overview = { signedIn: false }
+    await ui.press({ key: 'sign-out' })
+    await seen.clock.settle()
+    await ui.unmount()
+    expect(seen.commands).toContainEqual(['logout'])
+    expect(seen.servers.at(seen.commands.findIndex((args) => args[0] === 'logout'))).toBe(
+      'https://homingbird.example.com',
+    )
+    const after = await $.ui.mount({ ...PANE, surface: 'terminal' })
+    expect((await after.find({ key: 'sign-in' }))?.props?.label).toBe('Sign in to homingbird.example.com')
+    expect(await after.find({ type: 'Text', text: /Ben on/ })).toBeUndefined()
+    await after.unmount()
+    seen.release()
+  },
+)
+
+test('when the account or server the pane shows changes, the desk stops and says so', async ($, on) => {
+  const world = { overview: OVERVIEW as unknown, holdsStream: true }
+  const seen = engineBeneath(on, world)
+  await $.session.start(START)
+  await openDesk($, seen)
+  const streams = seen.commands.filter((args) => args[0] === 'stream').length
+  world.overview = {
+    ...OVERVIEW,
+    member: { id: 'mem_aaaaaaaaaaaaaaaa', name: 'Ana', email: 'ana@example.com' },
+  }
+  await seen.clock.advance(30_000)
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(
+    await ui.find({
+      type: 'Text',
+      text: /now shows Ana on https:\/\/homingbird\.example\.com instead of Ben/,
+    }),
+  ).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Keep this session open/ })).toBeUndefined()
+  await ui.unmount()
+  await seen.clock.advance(120_000)
+  expect(seen.commands.filter((args) => args[0] === 'stream').length).toBe(streams)
+  seen.release()
 })

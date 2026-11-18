@@ -1,7 +1,7 @@
 export type HomingbirdConversation = {
   id: string
   with: string
-  kind?: 'dm' | 'group' | 'topic'
+  kind?: 'direct' | 'group' | 'channel'
   title?: string | null
   unreadCount: number
   draftCount: number
@@ -33,8 +33,6 @@ export type HomingbirdOverview = {
   server: string
   memberName: string
   locale?: string | null
-  approveButtonAllowed?: boolean
-  hasApproveButton: boolean
   conversations: HomingbirdConversation[]
   awaiting: HomingbirdAwaiting[]
   drafts: HomingbirdDraft[]
@@ -60,7 +58,6 @@ declare module 'claude-code' {
       connection: HomingbirdConnection
       desk: HomingbirdDesk
       signIn: HomingbirdSignIn | null
-      editing: string | null
       problem: string | null
       checkingServer: boolean
     }

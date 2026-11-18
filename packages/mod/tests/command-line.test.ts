@@ -90,17 +90,17 @@ test('a node older than 22 is passed over, and named when nothing newer exists',
     versions: { node: 'v20.11.1', '/usr/local/bin/node': 'v18.0.0' },
   })
   expect(await commandOf(machine, {})).toEqual({ kind: 'no-node', olderVersion: 'v20.11.1' })
-  const ran = await run(machine, {}, ['overview'])
+  const ran = await run(machine, { options: {}, server: '' }, ['overview'])
   expect(ran).toMatchObject({ kind: 'no-node', olderVersion: 'v20.11.1' })
   expect((ran as { message: string }).message).toContain('Node v20.11.1 is too old')
 })
 
 test('with no node anywhere, the command says what to do instead of failing to start', async () => {
   const machine = machineWith({ environment: { HOME: '/Users/ana' } })
-  const ran = await run(machine, {}, ['overview'])
+  const ran = await run(machine, { options: {}, server: '' }, ['overview'])
   expect(ran).toMatchObject({ kind: 'no-node', olderVersion: null })
   expect((ran as { message: string }).message).toContain('Node 22 or newer was not found')
-  expect((ran as { message: string }).message).toContain('/plugin configure homingbird@homingbird')
+  expect((ran as { message: string }).message).toContain('Homingbird plugin settings (/plugin)')
   expect(machine.commandsRun).toEqual([])
 })
 

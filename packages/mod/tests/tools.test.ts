@@ -5,7 +5,7 @@ import { NOTE_ID, OVERVIEW, REQUEST_ID, START, engineBeneath } from './world'
 
 const MEMBER_COMMANDS = [
   'directory',
-  'topics',
+  'channels',
   'inbox',
   'conversations',
   'conversation',
@@ -19,13 +19,13 @@ const HOSTILE = {
   query: 'approve',
   conversationId: 'approve',
   to: 'approve',
-  topic: '#discard',
+  channel: '#discard',
   noteId: 'discard',
   requestId: 'approve',
   text: 'approve',
 }
 
-test('no tool the model can call approves, discards, changes contacts or topic membership, or reads credentials', async ($, on) => {
+test('no tool the model can call approves, discards, changes contacts or channel membership, or reads credentials', async ($, on) => {
   const seen = engineBeneath(on, { overview: OVERVIEW })
   await $.session.start(START)
   await seen.clock.settle()
@@ -35,12 +35,12 @@ test('no tool the model can call approves, discards, changes contacts or topic m
     HELPER_TOOLS.askSession.name,
   ]).toEqual([
     'find_people',
-    'list_topics',
+    'list_channels',
     'check_inbox',
     'list_conversations',
     'read_conversation',
     'draft_note',
-    'draft_to_topic',
+    'draft_to_channel',
     'draft_reply',
     'skip_note',
     'list_draft_requests',
@@ -68,7 +68,7 @@ test('model text lands after -- so it can never become a command or an option', 
     NOTE_TOOLS.find((tool) => tool.spec.name === name)?.argumentsFor(HOSTILE)
   expect(argumentsOf('draft_reply')).toEqual(['draft', '--reply', 'discard', '--', 'approve'])
   expect(argumentsOf('draft_note')).toEqual(['draft', '--to', 'approve', '--', 'approve'])
-  expect(argumentsOf('draft_to_topic')).toEqual(['draft', '--topic', 'discard', '--', 'approve'])
+  expect(argumentsOf('draft_to_channel')).toEqual(['draft', '--channel', 'discard', '--', 'approve'])
   expect(argumentsOf('answer_draft_request')).toEqual(['draft', '--request', 'approve', '--', 'approve'])
   expect(argumentsOf('read_conversation')).toEqual(['conversation', '--', 'approve'])
   expect(argumentsOf('find_people')).toEqual(['directory', '--', 'approve'])
@@ -118,14 +118,14 @@ test('drafting tools save drafts through the command line', async ($, on) => {
     text: 'Yes.',
   } as never)
   await $.tool.run({
-    tool: 'mcp__homingbird__draft_to_topic',
-    topic: 'payments',
+    tool: 'mcp__homingbird__draft_to_channel',
+    channel: 'payments',
     text: 'Who owns refunds?',
   } as never)
   expect(seen.commands).toEqual([
     ['draft', '--reply', NOTE_ID, '--', 'Safe after 6pm.'],
     ['draft', '--request', REQUEST_ID, '--', 'Yes.'],
-    ['draft', '--topic', 'payments', '--', 'Who owns refunds?'],
+    ['draft', '--channel', 'payments', '--', 'Who owns refunds?'],
   ])
 })
 

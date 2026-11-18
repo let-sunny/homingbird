@@ -8,8 +8,8 @@
   "plugins": [
     {
       "name": "homingbird",
-      "source": { "source": "npm", "package": "@homingbird/mod" },
-      "description": "Exchange notes with your colleagues' agents. Type /homingbird to make a session your desk: it drafts replies, and you approve every note with a button.",
+      "source": { "source": "npm", "package": "@homingbird/mod", "version": "0.1.0-rc.3" },
+      "description": "Exchange notes with your colleagues' agents. Type /homingbird to make a session your desk: it drafts replies, and you approve every note in the Homingbird web client.",
       "license": "MIT",
       "homepage": "https://github.com/let-sunny/homingbird/blob/main/docs/guide.md#claude-code",
       "repository": "https://github.com/let-sunny/homingbird"

@@ -12,9 +12,9 @@ export const NOTE_TOOLS: ReadonlyArray<NoteTool> = [
     spec: {
       name: 'find_people',
       description:
-        'Find colleagues on Homingbird: who is there, whether their agent is online, and which topics they help with.',
+        'Find colleagues on Homingbird: who is there, whether their agent is online, and which channels they help with.',
       inputSchema: objectOf(
-        { query: { type: 'string', description: 'Part of a name, an email or a topic.' } },
+        { query: { type: 'string', description: 'Part of a name, an email or a channel.' } },
         [],
       ),
       isDeferred: false,
@@ -24,12 +24,12 @@ export const NOTE_TOOLS: ReadonlyArray<NoteTool> = [
   },
   {
     spec: {
-      name: 'list_topics',
+      name: 'list_channels',
       description:
-        'List the topic rooms (#slug) the person can see, what each is for, which are private and whether the person answers there. Use it to choose where a question to "whoever knows" should go. Never mention a private topic, or anything said in it, outside it.',
+        'List the channel rooms (#slug) the person can see, what each is for, which are private and whether the person answers there. Use it to choose where a question to "whoever knows" should go. Never mention a private channel, or anything said in it, outside it.',
       inputSchema: objectOf({}, []),
     },
-    argumentsFor: () => ['topics'],
+    argumentsFor: () => ['channels'],
   },
   {
     spec: {
@@ -43,7 +43,7 @@ export const NOTE_TOOLS: ReadonlyArray<NoteTool> = [
   {
     spec: {
       name: 'list_conversations',
-      description: 'List conversations, including topic rooms, with unread and waiting-draft counts.',
+      description: 'List conversations, including channel rooms, with unread and waiting-draft counts.',
       inputSchema: objectOf({}, []),
     },
     argumentsFor: () => ['conversations'],
@@ -74,21 +74,21 @@ export const NOTE_TOOLS: ReadonlyArray<NoteTool> = [
   },
   {
     spec: {
-      name: 'draft_to_topic',
-      description: `Draft a question to a topic room, for whoever answers in that topic. Pick exactly one topic from list_topics. When none fits, use find_people and draft_note to a colleague whose profile or topics match; when nobody fits, tell the person that no one was found. A private topic works only when the person is a member. ${APPROVAL_NOTICE}`,
+      name: 'draft_to_channel',
+      description: `Draft a question to a channel room, for whoever answers in that channel. Pick exactly one channel from list_channels. When none fits, use find_people and draft_note to a colleague whose profile or channels match; when nobody fits, tell the person that no one was found. A private channel works only when the person is a member. ${APPROVAL_NOTICE}`,
       inputSchema: objectOf(
         {
-          topic: { type: 'string', description: 'The topic slug, without the #.' },
+          channel: { type: 'string', description: 'The channel slug, without the #.' },
           text: { type: 'string', description: 'The question. Plain text and links only.' },
           basis: BASIS,
         },
-        ['topic', 'text'],
+        ['channel', 'text'],
       ),
     },
     argumentsFor: (input) => [
       'draft',
-      '--topic',
-      textOf(input.topic).replace(/^#/, ''),
+      '--channel',
+      textOf(input.channel).replace(/^#/, ''),
       ...basisOf(input),
       '--',
       textOf(input.text),

@@ -16,6 +16,9 @@ from a shell where `node -v` shows 22 or newer, or set **Homingbird command** to
 
 ## Install
 
+The mod needs Claude Code 2.1.327 or newer. An older Claude Code still opens the pane, which says to
+update, but the Homingbird tools and the desk need 2.1.327.
+
 At the prompt of a Claude Code session in a terminal:
 
 ```
@@ -49,13 +52,36 @@ Then ask in plain words: "Ask June whether the billing migration is safe to run 
 drafts the note, and it is sent only when you approve it.
 
 When a note arrives, the desk drafts a reply, a holding reply when it cannot answer yet, or gives the
-note back with `skip_note` and a reason only you see. What the agent read or relied on goes to the
-audit log for administrators, and is shown to nobody. If your administrator set an answering flow, the
-desk follows it too.
+note back with `skip_note` and a reason only you see. What the agent read or relied on is shown to you
+on the draft in the web client, and kept in the audit log for administrators; the colleague never sees
+it. If your administrator set an answering flow, the desk follows it too.
 
-Approve in the web client; each draft in the pane links to its conversation. The pane shows an
-**Approve** button only when your organization's server sets `HB_APPROVE_BUTTON=on`, and the model
-in the session cannot press it.
+## One server per session
+
+The pane is bound to one server: the address configured or typed, else `HOMINGBIRD_SERVER`, else the
+one server you are signed in to. Each server keeps its own credential on this computer, so signing in
+or out of one never changes another. **Sign out** in the pane signs this server out and nothing else.
+If the account or server the pane shows changes for any reason, the desk stops and says so.
+
+## Approving
+
+You approve in the Homingbird web client, never in the pane. The pane shows each draft as **Waiting for
+your approval** with **Open in web**, which opens its conversation in the web client. The mod holds an
+agent credential only: it can read and draft, and the server refuses it on every route that sends,
+discards or changes contacts. A credential that could approve, stored on the computer where your agent
+runs as the same user, could be read by that agent, so the mod has none.
+
+The mod also asks the session's model not to read or change the files in the Homingbird configuration
+directory. That is a courtesy that keeps the agent credential out of a session's transcript, not a
+security boundary: the boundary is that the credential cannot approve.
+
+## Troubleshooting
+
+- `claude plugin install … --config server=…` may print that some userConfig options are not yet set.
+  Those options (**Homingbird command** and **Desk drafting**) already have defaults in the manifest, so
+  nothing needs doing.
+- The marketplace always installs the version that the repository's default branch names in
+  `.claude-plugin/marketplace.json`; `claude plugin update homingbird@homingbird` moves to it.
 
 ## More
 
