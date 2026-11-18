@@ -67,20 +67,24 @@ describe('parseServerSentEvents', () => {
     const serialize = (m: { id: string | null; event: string; data: string[] }): string =>
       `${m.id === null ? '' : `id: ${m.id}\n`}event: ${m.event}\n${m.data.map((d) => `data: ${d}\n`).join('')}\n`
     await fc.assert(
-      fc.asyncProperty(fc.array(message, { maxLength: 6 }), fc.array(fc.nat(40), { maxLength: 30 }), async (messages, cuts) => {
-        const whole = messages.map(serialize).join(': ping\n\n')
-        const chunks: string[] = []
-        let rest = whole
-        for (const cut of cuts) {
-          chunks.push(rest.slice(0, cut))
-          rest = rest.slice(cut)
-        }
-        chunks.push(rest)
-        expect(await collect(chunks)).toEqual(await collect([whole]))
-        expect(await collect([whole])).toEqual(
-          messages.map((m) => ({ id: m.id, event: m.event, data: m.data.join('\n') })),
-        )
-      }),
+      fc.asyncProperty(
+        fc.array(message, { maxLength: 6 }),
+        fc.array(fc.nat(40), { maxLength: 30 }),
+        async (messages, cuts) => {
+          const whole = messages.map(serialize).join(': ping\n\n')
+          const chunks: string[] = []
+          let rest = whole
+          for (const cut of cuts) {
+            chunks.push(rest.slice(0, cut))
+            rest = rest.slice(cut)
+          }
+          chunks.push(rest)
+          expect(await collect(chunks)).toEqual(await collect([whole]))
+          expect(await collect([whole])).toEqual(
+            messages.map((m) => ({ id: m.id, event: m.event, data: m.data.join('\n') })),
+          )
+        },
+      ),
     )
   })
 })

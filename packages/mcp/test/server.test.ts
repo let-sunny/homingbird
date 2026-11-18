@@ -9,7 +9,13 @@ import {
   SUPPORTED_REVISIONS,
   UNSUPPORTED_PROTOCOL_VERSION_CODE,
 } from '../src/revisions.ts'
-import { DESK_INSTRUCTIONS, INSTRUCTIONS, SERVER_NAME, handleMcpMessage } from '../src/server.ts'
+import {
+  DESK_INSTRUCTIONS,
+  INSTRUCTIONS,
+  SERVER_NAME,
+  handleMcpMessage,
+  toolContextOf,
+} from '../src/server.ts'
 import { TOOLS } from '../src/tools.ts'
 import { ADAPTER_VERSION } from '../src/version.ts'
 import { ANA, DIRECTORY, type Stubs, fakeApi, sequentialNonce } from './support.ts'
@@ -76,6 +82,23 @@ describe('handleMcpMessage', () => {
     expect(DESK_INSTRUCTIONS).not.toContain('desk session answers arriving notes')
     const { result } = await server({}, undefined, true).call('initialize', { protocolVersion: '2025-06-18' })
     expect(result.instructions).toBe(DESK_INSTRUCTIONS)
+  })
+
+  it('lets only a desk or channel session pick notes up, never a session that merely looks', () => {
+    const base = { api: fakeApi({}).api, serverVersion: ADAPTER_VERSION, nonce: sequentialNonce() }
+    expect(toolContextOf(base).desk).toBeUndefined()
+    expect(toolContextOf({ ...base, desk: false }).desk).toBeUndefined()
+    expect(toolContextOf({ ...base, desk: true }).desk).toBe(true)
+    expect(toolContextOf({ ...base, channel: { opened: T.unit } }).desk).toBe(true)
+  })
+
+  it('lists waiting notes without picking them up in an ordinary session', async () => {
+    const { call, calls } = server({
+      'inbox.list': () => ({ items: [] }),
+      'draftRequests.list': () => ({ requests: [] }),
+    })
+    await call('tools/call', { name: 'check_inbox', arguments: {} })
+    expect(calls.map((each) => [each.name, each.request])).toContainEqual(['inbox.list', { query: {} }])
   })
 
   it('sends a question it cannot place to one topic, or to general, and never to several', () => {

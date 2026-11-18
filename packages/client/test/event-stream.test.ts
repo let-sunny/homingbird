@@ -10,7 +10,8 @@ const presence = (seq: number): StreamEvent => ({
   body: { type: 'contact.changed', memberId: 'mem_abcdefghijkl' as never },
 })
 
-const frame = (event: StreamEvent): string => `id: ${event.seq}\nevent: ${event.body.type}\ndata: ${JSON.stringify(event)}\n\n`
+const frame = (event: StreamEvent): string =>
+  `id: ${event.seq}\nevent: ${event.body.type}\ndata: ${JSON.stringify(event)}\n\n`
 
 const streamOf = (...chunks: string[]): Response =>
   new Response(
@@ -49,7 +50,14 @@ const listen = (fetch: Fetch, extra: { after?: number } = {}) => {
   const transports: Transport[] = []
   const done = (async () => {
     const stream = eventStream(
-      { serverUrl: 'https://hb.test/', fetch, clock, token: () => 'hba_t', onTransport: (t) => transports.push(t), ...extra },
+      {
+        serverUrl: 'https://hb.test/',
+        fetch,
+        clock,
+        token: () => 'hba_t',
+        onTransport: (t) => transports.push(t),
+        ...extra,
+      },
       stop.signal,
     )
     for await (const event of stream) events.push(event)
@@ -204,7 +212,11 @@ describe('eventStream', () => {
     const { done } = (() => {
       const clock = makeTestClock()
       const stream = eventStream({ serverUrl: 'https://hb.test', fetch, clock }, stop.signal)
-      return { done: (async () => { for await (const _ of stream) throw new Error('unexpected event') })() }
+      return {
+        done: (async () => {
+          for await (const _ of stream) throw new Error('unexpected event')
+        })(),
+      }
     })()
     await done
     expect(calls).toHaveLength(0)
@@ -219,7 +231,10 @@ describe('eventStream', () => {
     const clock = makeTestClock()
     const stop = new AbortController()
     const stream = eventStream({ serverUrl: '', fetch, clock, sendsCookies: true }, stop.signal)
-    const done = (async () => { for await (const _ of stream) {} })()
+    const done = (async () => {
+      for await (const _ of stream) {
+      }
+    })()
     await clock.advance(3_500)
     expect(seen[0]!.credentials).toBe('same-origin')
     expect(seen[3]!.credentials).toBe('same-origin')
@@ -235,7 +250,10 @@ describe('eventStream', () => {
       const clock = makeTestClock()
       const stop = new AbortController()
       const stream = eventStream({ serverUrl: 'https://hb.test', clock }, stop.signal)
-      const done = (async () => { for await (const _ of stream) {} })()
+      const done = (async () => {
+        for await (const _ of stream) {
+        }
+      })()
       await clock.flush()
       expect(calls).toHaveLength(1)
       stop.abort()

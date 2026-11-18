@@ -136,6 +136,7 @@ export const toolContextOf = (context: McpContext): ToolContext => ({
   webClientUrl: context.webClientUrl ?? null,
   ...(context.openInBrowser !== undefined && { openInBrowser: context.openInBrowser }),
   ...(context.announced !== undefined && { announced: context.announced }),
+  ...((context.desk === true || context.channel !== undefined) && { desk: true }),
 })
 
 function instructionsWith(role: string): string {

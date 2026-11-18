@@ -18,7 +18,13 @@ import type { OpenInBrowser } from './browser-opener.ts'
 import { type RpcFailure, invalidParams } from './json-rpc.ts'
 import type { MemberApi } from './member-api.ts'
 import { type Quoting, quoteNote, quoteNotes, quotingFor as quotingOf } from './quote.ts'
-import { type AnnouncedRequests, type Trigger, freshTriggers } from './triggers.ts'
+import {
+  type AnnouncedRequests,
+  type Trigger,
+  freshTriggers,
+  waitingNoteIds,
+  waitingTriggers,
+} from './triggers.ts'
 import { webClientLink } from './web-client.ts'
 
 export interface ToolContext {
@@ -27,6 +33,7 @@ export interface ToolContext {
   readonly webClientUrl: string | null
   readonly openInBrowser?: OpenInBrowser
   readonly announced?: AnnouncedRequests
+  readonly desk?: boolean
 }
 
 export interface Tool<F extends S.Fields = S.Fields> {
@@ -153,26 +160,28 @@ export const TOOLS: ReadonlyArray<Tool<any>> = [
     name: 'check_inbox',
     title: 'Check the inbox',
     description:
-      'Returns notes from colleagues that are waiting for a reply and that you have not handled yet, marking them as being drafted, and the drafts your own human asked you for. Draft a reply to each note with draft_reply, and answer each request with draft_note and its requestId.',
+      'Returns notes from colleagues that are waiting for a reply, saying which ones an agent is already drafting, and the drafts your own human asked you for. In the desk session it returns only what this session has not handled yet and marks those notes as being drafted. Draft a reply to a note with draft_reply, and answer a request with draft_note and its requestId.',
     readOnly: false,
     input: {},
     describe: {},
     run: (_, context) =>
       T.map((triggers: ReadonlyArray<Trigger>) => {
-        if (triggers.length === 0) return 'No new notes or draft requests are waiting.'
+        if (triggers.length === 0)
+          return context.desk === true
+            ? 'No new notes or draft requests are waiting.'
+            : 'No notes or draft requests are waiting.'
         const notes = triggers.filter((trigger) => trigger.kind === 'note').length
         return [
-          `${notes} note(s) are waiting for a reply and ${triggers.length - notes} draft request(s) came from your human. ` +
-            `For each note, call draft_reply with its note id; for each request, call draft_note with its requestId. ${APPROVAL_RULE}`,
+          `${notes} note(s) are waiting for a reply and ${triggers.length - notes} draft request(s) came from your human. ${context.desk === true ? DESK_INBOX_ADVICE : ASKED_INBOX_ADVICE} ${APPROVAL_RULE}`,
           ...triggers.map((trigger) => trigger.text),
         ].join('\n\n')
-      })(freshTriggers(context)),
+      })(context.desk === true ? freshTriggers(context) : waitingTriggers(context)),
   }),
   tool({
     name: 'wait_for_notes',
     title: 'Wait for notes',
     description:
-      'Waits until a colleague sends a note or your human asks you for a draft, then returns what arrived and marks notes as being drafted. Returns empty-handed after the wait; call it again to keep watching. Use it only when nothing else wakes you for new notes.',
+      'Waits until a colleague sends a note or your human asks you for a draft, then returns what arrived. In the desk session it also returns what is already waiting and marks notes as being drafted. Returns empty-handed after the wait; call it again to keep watching. Use it only when nothing else wakes you for new notes.',
     readOnly: false,
     input: { waitSeconds: S.optional(S.int({ min: 1, max: WAIT_MAX_SECONDS })) },
     describe: {
@@ -180,13 +189,15 @@ export const TOOLS: ReadonlyArray<Tool<any>> = [
     },
     run: ({ waitSeconds }, context) =>
       T.gen(function* () {
-        const waiting = yield* freshTriggers(context)
+        const desk = context.desk === true
+        const waiting = desk ? yield* freshTriggers(context) : []
         if (waiting.length > 0) return arrived(waiting)
+        const known = desk ? new Set<NoteId>() : yield* waitingNoteIds(context)
         const { cursor } = yield* context.api['events.poll']({ query: {} })
         yield* context.api['events.poll']({
           query: { after: String(cursor), wait: String(waitSeconds ?? WAIT_DEFAULT_SECONDS) },
         })
-        const since = yield* freshTriggers(context)
+        const since = desk ? yield* freshTriggers(context) : yield* waitingTriggers(context, known)
         return since.length > 0
           ? arrived(since)
           : 'No new notes or draft requests yet. Call wait_for_notes again to keep watching.'
@@ -447,3 +458,8 @@ const awaitingApproval = (draft: Note, context: ToolContext): string => {
     `Your human has to approve it in the Homingbird web client${where}. Show them that link. ${APPROVAL_RULE}`
   )
 }
+
+const DESK_INBOX_ADVICE =
+  'For each note, call draft_reply with its note id; for each request, call draft_note with its requestId.'
+const ASKED_INBOX_ADVICE =
+  'Your human’s desk session answers arriving notes; draft here what your human asks for, a reply with draft_reply and a request with draft_note and its requestId.'

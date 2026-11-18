@@ -33,7 +33,9 @@ describe('beginDeviceFlow', () => {
   it('asks for the notes scope by default', async () => {
     const { fetch, calls } = scripted([[200, authorization]])
     expect(await T.run(beginDeviceFlow(options(fetch)))).toMatchObject({ _tag: 'Ok', value: authorization })
-    expect(calls).toEqual([{ url: 'https://hb.test/oauth/device_authorization', body: 'client_name=Laptop&scope=notes' }])
+    expect(calls).toEqual([
+      { url: 'https://hb.test/oauth/device_authorization', body: 'client_name=Laptop&scope=notes' },
+    ])
   })
 
   it('asks for the approve scope when the client has an approve button', async () => {

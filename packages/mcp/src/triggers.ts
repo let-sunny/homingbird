@@ -143,4 +143,3 @@ const quotedOriginal = (
       return quoteNote(note, yield* quotingFor(context.api, context.nonce))
     }),
   )
-

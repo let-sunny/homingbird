@@ -2,14 +2,23 @@ import { Task as T } from '@homingbird/kernel'
 import { NoteId, type RouteName, Unavailable, WRAPPER_TAG, humanOnlyRoutes } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import { memberApiOf } from '../src/member-api.ts'
-import { type AnnouncedRequests, WAKING_EVENTS, announcedRequests, freshTriggers } from '../src/triggers.ts'
 import {
+  type AnnouncedRequests,
+  WAKING_EVENTS,
+  announcedRequests,
+  freshTriggers,
+  waitingNoteIds,
+  waitingTriggers,
+} from '../src/triggers.ts'
+import {
+  ANA,
   BEN,
   DIRECTORY,
   type Stubs,
   conversationOf,
   fakeApi,
   noteOf,
+  receiptOf,
   requestOf,
   sequentialNonce,
   textOutsideWrappers,
@@ -88,6 +97,46 @@ describe('freshTriggers', () => {
     expect(WAKING_EVENTS).toContain('draft.requested')
     expect(WAKING_EVENTS).toContain('resync')
     expect(WAKING_EVENTS).not.toContain('presence')
+  })
+})
+
+describe('waitingTriggers', () => {
+  const waiting = async (stubs: Stubs, except?: ReadonlySet<NoteId>) => {
+    const fake = fakeApi({
+      'draftRequests.list': () => ({ requests: [] }),
+      'me.get': () => ({ member: ANA }) as never,
+      ...stubs,
+    })
+    const context = { api: memberApiOf(fake.api), nonce: sequentialNonce() }
+    const exit = await T.run(T.result(waitingTriggers(context, except)))
+    if (exit._tag === 'Err') throw new Error('waitingTriggers died')
+    return { result: exit.value as any, calls: fake.calls }
+  }
+
+  it('lists every waiting note, already handled or not, and picks none up', async () => {
+    const handled = noteOf({ receipts: [receiptOf({ state: 'drafting' })] })
+    const { result, calls } = await waiting(inboxOf(handled, SECOND))
+    expect(calls.map((call) => [call.name, call.request])).toEqual([
+      ['inbox.list', { query: {} }],
+      ['me.get', {}],
+      ['draftRequests.list', {}],
+    ])
+    expect(result.value.map((trigger: any) => trigger.meta.note_id)).toEqual([handled.id, SECOND.id])
+    expect(result.value[0].text).toContain('already drafting a reply to this note')
+    expect(result.value[1].text).toContain('No agent is drafting a reply to this note yet.')
+    expect(textOutsideWrappers(result.value[1].text)).not.toContain(SECOND.body)
+  })
+
+  it('leaves out the notes it is told were already known', async () => {
+    const { result } = await waiting(inboxOf(noteOf(), SECOND), new Set([noteOf().id]))
+    expect(result.value.map((trigger: any) => trigger.meta.note_id)).toEqual([SECOND.id])
+  })
+
+  it('collects the ids of the notes waiting now, without picking them up', async () => {
+    const fake = fakeApi(inboxOf(noteOf(), SECOND))
+    const ids = await T.runPromise(waitingNoteIds({ api: memberApiOf(fake.api), nonce: sequentialNonce() }))
+    expect([...ids]).toEqual([noteOf().id, SECOND.id])
+    expect(fake.calls.map((call) => call.name)).toEqual(['inbox.list'])
   })
 })
 

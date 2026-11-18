@@ -24,6 +24,7 @@ import {
   conversationOf,
   fakeApi,
   noteOf,
+  receiptOf,
   requestOf,
   sequentialNonce,
   textOutsideWrappers,
@@ -91,9 +92,10 @@ const call = async (
   input: unknown,
   stubs: Stubs = HAPPY,
   webClientUrl: string | null = null,
+  desk = false,
 ) => {
   const fake = fakeApi(stubs)
-  const context = { api: memberApiOf(fake.api), nonce: sequentialNonce(), webClientUrl }
+  const context = { api: memberApiOf(fake.api), nonce: sequentialNonce(), webClientUrl, desk }
   const exit = await T.run(callTool(name, input, context))
   if (exit._tag === 'Err') throw exit.error
   return { result: exit.value, text: exit.value.content[0]!.text, calls: fake.calls }
@@ -124,9 +126,11 @@ describe('the tool table', () => {
   it('reaches, across every tool, exactly the routes it is meant to', async () => {
     const reached = new Set<RouteName>()
     for (const tool of TOOLS)
-      for (const each of (await call(tool.name, SAMPLE_ARGUMENTS[tool.name], HAPPY, 'https://hb.example.com'))
-        .calls)
-        reached.add(each.name)
+      for (const desk of [false, true])
+        for (const each of (
+          await call(tool.name, SAMPLE_ARGUMENTS[tool.name], HAPPY, 'https://hb.example.com', desk)
+        ).calls)
+          reached.add(each.name)
     expect([...reached].sort()).toEqual([
       'conversations.list',
       'conversations.notes',
@@ -135,6 +139,7 @@ describe('the tool table', () => {
       'drafts.create',
       'drafts.list',
       'drafts.update',
+      'events.poll',
       'inbox.list',
       'me.get',
       'notes.get',
@@ -392,9 +397,55 @@ describe('read_conversation', () => {
   })
 })
 
+describe('wait_for_notes', () => {
+  const arriving = (afterWait: ReadonlyArray<ReturnType<typeof noteOf>>) => {
+    let polls = 0
+    return {
+      ...HAPPY,
+      'events.poll': () => {
+        polls++
+        return { events: [], cursor: 7 }
+      },
+      'inbox.list': () => ({
+        items: (polls < 2 ? [noteOf()] : afterWait).map((note) => ({
+          note,
+          author: BEN,
+          conversation: conversationOf(),
+        })),
+      }),
+    }
+  }
+  const later = noteOf({ id: NoteId.of('note00000002'), body: 'Also, the export?' })
+
+  it('in the desk session, returns what is already waiting at once and picks it up', async () => {
+    const { text, calls } = await call('wait_for_notes', { waitSeconds: 1 }, HAPPY, null, true)
+    expect(text).toContain('1 new item(s) arrived.')
+    expect(calls.map((each) => each.name)).toEqual(['inbox.list', 'notes.pickup', 'draftRequests.list'])
+  })
+
+  it('in any other session, waits and returns only notes that arrived meanwhile, without picking up', async () => {
+    const { text, calls } = await call('wait_for_notes', { waitSeconds: 1 }, arriving([noteOf(), later]))
+    expect(text).toContain('1 new item(s) arrived.')
+    expect(text).toContain(later.id)
+    expect(text).not.toContain(`id="${noteOf().id}"`)
+    expect(calls.map((each) => each.name)).not.toContain('notes.pickup')
+    expect(calls.filter((each) => each.name === 'events.poll').map((each) => each.request)).toEqual([
+      { query: {} },
+      { query: { after: '7', wait: '1' } },
+    ])
+  })
+
+  it('in any other session, comes back empty-handed when nothing new arrived', async () => {
+    const { text } = await call('wait_for_notes', {}, arriving([noteOf()]))
+    expect(text).toBe('No new notes or draft requests yet. Call wait_for_notes again to keep watching.')
+  })
+})
+
 describe('check_inbox', () => {
-  it('asks only for notes this agent has not handled and picks each one up', async () => {
-    const { text, calls } = await call('check_inbox', {})
+  const deskCall = (stubs: Stubs = HAPPY) => call('check_inbox', {}, stubs, null, true)
+
+  it('in the desk session, asks only for notes this agent has not handled and picks each one up', async () => {
+    const { text, calls } = await deskCall()
     expect(calls.map((each) => [each.name, each.request])).toEqual([
       ['inbox.list', { query: { fresh: '1' } }],
       ['notes.pickup', { params: { id: noteOf().id } }],
@@ -406,9 +457,51 @@ describe('check_inbox', () => {
     expect(text).toContain('from="Ben &lt;ben@example.com&gt;"')
   })
 
-  it('says so when nothing is waiting, and picks nothing up', async () => {
-    const { text, calls } = await call('check_inbox', {}, { ...HAPPY, 'inbox.list': () => ({ items: [] }) })
+  it('in the desk session, says so when nothing new is waiting, and picks nothing up', async () => {
+    const { text, calls } = await deskCall({ ...HAPPY, 'inbox.list': () => ({ items: [] }) })
     expect(text).toBe('No new notes or draft requests are waiting.')
+    expect(calls.map((each) => each.name)).toEqual(['inbox.list', 'draftRequests.list'])
+  })
+
+  it('in any other session, lists every waiting note without picking one up', async () => {
+    const { text, calls } = await call('check_inbox', {})
+    expect(calls.map((each) => [each.name, each.request])).toEqual([
+      ['inbox.list', { query: {} }],
+      ['me.get', {}],
+      ['draftRequests.list', {}],
+    ])
+    expect(text).toContain('1 note(s) are waiting for a reply')
+    expect(text).toContain('desk session answers arriving notes')
+    expect(text).toContain('No agent is drafting a reply to this note yet.')
+    expect(text).toContain(`draft_reply, noteId ${noteOf().id}`)
+    expect(text).toContain('from="Ben &lt;ben@example.com&gt;"')
+  })
+
+  it('in any other session, says which notes an agent is already drafting a reply to', async () => {
+    const handled = noteOf({ receipts: [receiptOf({ state: 'drafting', draftingAt: 1_700_000_000_001 })] })
+    const elsewhere = noteOf({
+      id: NoteId.of('note00000002'),
+      receipts: [receiptOf(), receiptOf({ memberId: BEN.id, state: 'drafting' })],
+    })
+    const { text } = await call(
+      'check_inbox',
+      {},
+      {
+        ...HAPPY,
+        'inbox.list': () => ({
+          items: [handled, elsewhere].map((note) => ({ note, author: BEN, conversation: conversationOf() })),
+        }),
+      },
+    )
+    const [aboutHandled, aboutElsewhere] = text.split(`id="${elsewhere.id}"`)
+    expect(aboutHandled).toContain('already drafting a reply to this note')
+    expect(aboutHandled).not.toContain('No agent is drafting')
+    expect(aboutElsewhere).toContain('No agent is drafting a reply to this note yet.')
+  })
+
+  it('in any other session, says so when nothing is waiting, without asking who it is', async () => {
+    const { text, calls } = await call('check_inbox', {}, { ...HAPPY, 'inbox.list': () => ({ items: [] }) })
+    expect(text).toBe('No notes or draft requests are waiting.')
     expect(calls.map((each) => each.name)).toEqual(['inbox.list', 'draftRequests.list'])
   })
 

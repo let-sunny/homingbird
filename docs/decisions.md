@@ -5,7 +5,9 @@ Each entry states the decision first, then the reason. Add new entries at the to
 ## Product
 
 - **A new or changed member appears in open directories at once.** Dovecote broadcasts an ephemeral
-  `directory.changed` event; clients refetch the directory. It is not stored, because a client that
+  `directory.changed` event, also when someone starts or stops helping with a topic and when an
+  administrator renames, merges or removes one; clients refetch the directory, the topics and the
+  conversation list. It is not stored, because a client that
   was offline loads the directory fresh anyway.
 - **The web client sends Web Push notifications** for arriving notes and for drafts waiting for
   approval. Dovecote signs VAPID tokens and encrypts payloads itself; there is no push library.
@@ -53,6 +55,13 @@ Each entry states the decision first, then the reason. Add new entries at the to
   to resync.
 - **Real-time fan-out is in-process.** One Dovecote process serves a deployment. Multi-node fan-out is
   on the roadmap.
+- **`HB_TRUST_PROXY` counts trusted proxies, and the client address is read from the right of
+  `X-Forwarded-For`.** Load balancers append to whatever header the client sent, so only the entries
+  the operator's own proxies added can be trusted; the leftmost one is the client's claim. A hop count
+  serves one proxy (`1`), Google Cloud's load balancer (`2`, it appends the client and itself) and a
+  CDN in front of either, without parsing proxy-specific headers.
+- **Startup is one task, `prepareDatabase`: migrate, then seed topics.** Every embedded server gets
+  `general` the same way `main.ts` does.
 - **Source runs as TypeScript; deliverables are bundles.** Packages export their `.ts` sources to each
   other. `esbuild` produces the server, CLI and web bundles.
 
@@ -116,6 +125,14 @@ removed.
   asker a participant who can read the room without becoming a helper. A reply is delivered to the
   asker only, and a question with a sent reply leaves the other helpers' inboxes.
 - A person in the room may move an unanswered question to another topic. It leaves the old room.
+- A draft question is re-addressed in place: `drafts.update` takes an optional `topic` and moves the
+  draft to that room, keeping its id, origin, agent name and draft-request link. Only a draft addressed
+  to a topic room that is not a reply can move. The route stays `member`, so the drafting agent may
+  re-address its own draft: a draft goes nowhere until a person approves it, and the approval screen
+  shows the destination. Creating a new draft and discarding the old one would have recorded a
+  person as the author of an agent's text.
+- Removing or merging a topic keeps its room as a group titled `<slug> (archived)`, so its notes stay
+  readable and nobody mistakes it for a live topic.
 - Rule 6 holds unchanged: a topic room is visible only to its participants. Any member may join one.
 - Every participant of a room gets an event row per note, so a note in `general` costs one write per
   member. This is accepted at the documented single-instance scale.
@@ -125,7 +142,10 @@ removed.
 Each person keeps one agent session open for Homingbird: the desk. In Claude Code it is the session
 where the mod's pane is open; for other agents it is the runner, `homingbird run --agent`. Only the
 desk holds the event stream, wakes on an arriving note or a draft request, and drafts the reply.
-Every other session may draft only when its human asks. This keeps several open sessions from each
+Every other session may draft only when its human asks, and only the desk picks notes up: in any
+other session `check_inbox` lists the waiting notes, says which ones an agent is already drafting, and
+leaves their status alone, so "drafting reply" tells the sender that the desk is on it. Drafting a
+reply still moves the status from any session. This keeps several open sessions from each
 drafting a reply to the same note, and gives "agent online" one meaning: the desk is running.
 
 When a reply needs project context, the desk gets it from another session or a read-only helper in

@@ -356,7 +356,9 @@ const readdressedRoom = (draft: NoteRow, topic: string): T.Task<ConversationId, 
       sql`SELECT kind FROM conversations WHERE id = ${draft.conversation_id}`,
     )
     if (room?.kind !== 'topic' || draft.in_reply_to !== null)
-      return yield* T.fail(Conflict({ message: 'Only a question drafted to a topic can move to another topic.' }))
+      return yield* T.fail(
+        Conflict({ message: 'Only a question drafted to a topic can move to another topic.' }),
+      )
     return yield* topicRoomFor(draft.author_id, topic)
   })
 

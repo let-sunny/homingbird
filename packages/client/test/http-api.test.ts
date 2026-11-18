@@ -33,29 +33,34 @@ const invoke = (api: ReturnType<typeof httpApi>, name: RouteName, request: unkno
 const routes = (Object.keys(contract) as RouteName[]).map((name) => [name, contract[name] as Route] as const)
 
 describe('httpApi', () => {
-  it.each(routes)('%s sends the declared method, path and body, and decodes the response', async (name, route) => {
-    const response = sample(route.response)
-    const { fetch, calls } = answering(200, response)
-    const api = httpApi({ serverUrl: 'https://hb.example.com/', fetch, token: () => 'hba_token' })
-    const params = parametersOf(route.path)
-    const body = route.body === undefined ? undefined : sample(route.body)
-    const exit = await invoke(api, name, { params, ...(body !== undefined && { body }) })
+  it.each(routes)(
+    '%s sends the declared method, path and body, and decodes the response',
+    async (name, route) => {
+      const response = sample(route.response)
+      const { fetch, calls } = answering(200, response)
+      const api = httpApi({ serverUrl: 'https://hb.example.com/', fetch, token: () => 'hba_token' })
+      const params = parametersOf(route.path)
+      const body = route.body === undefined ? undefined : sample(route.body)
+      const exit = await invoke(api, name, { params, ...(body !== undefined && { body }) })
 
-    expect(exit).toMatchObject({ _tag: 'Ok' })
-    expect(calls).toHaveLength(1)
-    expect(calls[0]!.url).toBe(`https://hb.example.com/api/v1${fillPath(route.path, params)}`)
-    expect(calls[0]!.init.method).toBe(route.method)
-    expect((calls[0]!.init.headers as Record<string, string>).authorization).toBe('Bearer hba_token')
-    expect(calls[0]!.init.body).toBe(body === undefined ? undefined : JSON.stringify(body))
-    expect((calls[0]!.init.headers as Record<string, string>)['content-type']).toBe(
-      body === undefined ? undefined : 'application/json',
-    )
-  })
+      expect(exit).toMatchObject({ _tag: 'Ok' })
+      expect(calls).toHaveLength(1)
+      expect(calls[0]!.url).toBe(`https://hb.example.com/api/v1${fillPath(route.path, params)}`)
+      expect(calls[0]!.init.method).toBe(route.method)
+      expect((calls[0]!.init.headers as Record<string, string>).authorization).toBe('Bearer hba_token')
+      expect(calls[0]!.init.body).toBe(body === undefined ? undefined : JSON.stringify(body))
+      expect((calls[0]!.init.headers as Record<string, string>)['content-type']).toBe(
+        body === undefined ? undefined : 'application/json',
+      )
+    },
+  )
 
   it('works when called without a request for a route that needs none', async () => {
     const { fetch, calls } = answering(200, sample(contract['conversations.list'].response))
     const api = httpApi({ serverUrl: 'https://hb.example.com', fetch })
-    expect(await T.run((api['conversations.list'] as () => T.Task<unknown, unknown>)())).toMatchObject({ _tag: 'Ok' })
+    expect(await T.run((api['conversations.list'] as () => T.Task<unknown, unknown>)())).toMatchObject({
+      _tag: 'Ok',
+    })
     expect(calls[0]!.init.headers).toEqual({})
   })
 
@@ -94,7 +99,10 @@ describe('httpApi', () => {
   it('falls back to the status when the error body is not ours', async () => {
     const { fetch } = answering(404, { message: 'nginx' })
     const exit = await T.run(httpApi({ serverUrl: 'https://x.test', fetch })['conversations.list']({}))
-    expect(exit).toMatchObject({ _tag: 'Err', error: { error: { _tag: 'NotFound', message: 'The server answered 404.' } } })
+    expect(exit).toMatchObject({
+      _tag: 'Err',
+      error: { error: { _tag: 'NotFound', message: 'The server answered 404.' } },
+    })
   })
 
   it('reports a body that is not JSON', async () => {
@@ -129,7 +137,11 @@ describe('httpApi', () => {
         seen?.addEventListener('abort', () => reject(new Error('aborted')))
       })
     const stop = new AbortController()
-    const running = T.run(httpApi({ serverUrl: 'https://x.test', fetch })['conversations.list']({}), undefined, stop.signal)
+    const running = T.run(
+      httpApi({ serverUrl: 'https://x.test', fetch })['conversations.list']({}),
+      undefined,
+      stop.signal,
+    )
     await new Promise((resolve) => setImmediate(resolve))
     stop.abort()
     expect(await running).toMatchObject({ _tag: 'Err', error: { _tag: 'Interrupt' } })
@@ -155,7 +167,10 @@ describe('authorizationHeaders', () => {
     [{ token: () => null }, {}],
     [{ token: () => 't' }, { authorization: 'Bearer t' }],
     [{ sendsCookies: true }, { [SAME_SITE_HEADER]: '1' }],
-    [{ token: () => 't', sendsCookies: true }, { authorization: 'Bearer t', [SAME_SITE_HEADER]: '1' }],
+    [
+      { token: () => 't', sendsCookies: true },
+      { authorization: 'Bearer t', [SAME_SITE_HEADER]: '1' },
+    ],
   ])('builds headers for %j', (options, expected) => {
     expect(authorizationHeaders(options)).toEqual(expected)
   })

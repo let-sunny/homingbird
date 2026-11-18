@@ -244,7 +244,8 @@ describe('re-addressing a draft question', () => {
   })
 
   it('moves an agent’s draft to another topic room, keeping its id, origin and agent name', async () => {
-    const draft = (await anaAgent.api('POST', '/drafts', { topic: 'general', body: 'Who owns refunds?' })).json
+    const draft = (await anaAgent.api('POST', '/drafts', { topic: 'general', body: 'Who owns refunds?' }))
+      .json
     const cursor = (await ana.api('GET', '/events/poll')).json.cursor
     const moved = (await ana.api('PATCH', `/drafts/${draft.id}`, { topic: 'billing' })).json
     const billing = (await topics(ana)).find((topic) => topic.slug === 'billing')
@@ -276,7 +277,8 @@ describe('re-addressing a draft question', () => {
   })
 
   it('lets the drafting agent re-address its own draft, which the person still sees before approving', async () => {
-    const draft = (await anaAgent.api('POST', '/drafts', { topic: 'general', body: 'Who owns refunds?' })).json
+    const draft = (await anaAgent.api('POST', '/drafts', { topic: 'general', body: 'Who owns refunds?' }))
+      .json
     const moved = (await anaAgent.api('PATCH', `/drafts/${draft.id}`, { topic: 'billing' })).json
     expect(moved).toMatchObject({ id: draft.id, status: 'draft', origin: 'agent' })
     expect((await ana.api('GET', '/drafts')).json.drafts.map((each: any) => each.conversationId)).toEqual([

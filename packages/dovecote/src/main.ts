@@ -1,8 +1,8 @@
 import { Task as T } from '@homingbird/kernel'
 import { loadConfig } from './config.ts'
 import { startServer } from './http/node-server.ts'
-import { buildRuntime } from './runtime.ts'
 import { prepareDatabase } from './prepare-database.ts'
+import { buildRuntime } from './runtime.ts'
 import { openDatabase } from './sql/open.ts'
 import { SERVER_VERSION } from './version.ts'
 
