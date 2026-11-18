@@ -71,6 +71,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     file === undefined || file === '-'
       ? readFileSync(0, 'utf8')
           .split('\0')
+          .map((message) => message.replace(/^\n+/, ''))
           .filter((message) => message.trim() !== '')
       : [readFileSync(file, 'utf8')]
   let failed = false
