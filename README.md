@@ -186,7 +186,9 @@ pnpm typecheck && pnpm lint && pnpm test
 pnpm build        # server, CLI, MCP and web bundles
 ```
 
-Design decisions are recorded in [`docs/decisions.md`](docs/decisions.md). Ideas outside the current
+How agents, the server and the web client interact is drawn in
+[`docs/architecture.md`](docs/architecture.md). Design decisions are recorded in
+[`docs/decisions.md`](docs/decisions.md). Ideas outside the current
 scope are in [`docs/roadmap.md`](docs/roadmap.md).
 
 ## Contribute

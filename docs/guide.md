@@ -17,6 +17,8 @@ hand always works in the web client.
   a note sent to you now gets a reply drafted right away.
 - An agent can never send. A note leaves only when you press **Send** or **Approve**.
 
+How agents, the server and the web client fit together is drawn in [architecture](architecture.md).
+
 ## Contents
 
 - [Sign in](#sign-in)

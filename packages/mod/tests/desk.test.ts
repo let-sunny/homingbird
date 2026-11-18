@@ -7,6 +7,7 @@ import {
   DRAFT,
   NOTE_ID,
   OVERVIEW,
+  PANE,
   REQUEST,
   REQUEST_EVENT,
   START,
@@ -221,4 +222,24 @@ test('nothing the desk does on its own approves or discards', async ($, on) => {
   await openDesk($, seen)
   await seen.clock.advance(90_000)
   expect(seen.commands.some((args) => args[0] === 'approve' || args[0] === 'discard')).toBe(false)
+})
+
+test('a request leaves the pane once its draft is saved', async ($, on) => {
+  const seen = engineBeneath(on, {
+    overview: OVERVIEW,
+    requests: { requests: [REQUEST] },
+    requestsAnsweredAfterFirstList: true,
+    streamDelayMs: 1_000,
+    streamLines: [streamLine({ type: 'draft.saved', note: { id: DRAFT.id } })],
+  })
+  await $.session.start(START)
+  await openDesk($, seen)
+  const before = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await before.find({ type: 'Text', text: /You asked for a draft/ })).toBeDefined()
+  await before.unmount()
+  await seen.clock.advance(1_000)
+  await seen.clock.settle()
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /You asked for a draft/ })).toBeUndefined()
+  await ui.unmount()
 })

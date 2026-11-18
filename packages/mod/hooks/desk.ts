@@ -183,6 +183,10 @@ async function arrived($: Engine, desk: Desk, line: string): Promise<void> {
   )
     notifyPerson($, 'A draft is ready for your approval in the Homingbird pane.')
   if (body?.type === 'resync') await catchUp($, desk)
+  else if (body?.type === 'draft.saved' || body?.type === 'draft.request.changed') {
+    const open = await openRequests($, desk)
+    await update($, requests, () => open)
+  }
 }
 
 async function catchUp($: Engine, desk: Desk): Promise<void> {

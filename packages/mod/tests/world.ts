@@ -4,6 +4,8 @@ import { type MockClock, mock } from 'claude-code/testing'
 export interface World {
   overview: unknown
   readonly requests?: unknown
+  readonly requestsAnsweredAfterFirstList?: boolean
+  readonly streamDelayMs?: number
   readonly streamLines?: ReadonlyArray<string>
   readonly holdsStream?: boolean
   readonly holdsLogin?: boolean
@@ -57,9 +59,13 @@ export const engineBeneath = (on: On, world: World): Seen => {
     return { value: undefined }
   })
   let paneIsOpen = false
+  let requestLists = 0
   on('process.run', (_, e) => {
     const args = e.argv.slice(COMMAND_WORDS)
     seen.commands.push([...args])
+    if (args[0] === 'requests') requestLists += 1
+    if (args[0] === 'requests' && requestLists > 1 && world.requestsAnsweredAfterFirstList === true)
+      return { value: processResult(0, JSON.stringify({ requests: [] })) }
     const exitCode =
       world.exitCodes?.[args[0] ?? ''] ?? (args[0] === 'requests' && world.requests === undefined ? 2 : 0)
     return { value: processResult(exitCode, stdoutFor(args, world)) }
@@ -67,6 +73,7 @@ export const engineBeneath = (on: On, world: World): Seen => {
   on('process.spawn', async function* (_, e) {
     const args = e.argv.slice(COMMAND_WORDS)
     seen.commands.push([...args])
+    if (args[0] === 'stream' && world.streamDelayMs !== undefined) await seen.clock.sleep(world.streamDelayMs)
     const lines = args[0] === 'login' ? (world.loginLines ?? []) : (world.streamLines ?? [])
     for (const line of lines) yield { stream: 'stdout' as const, text: `${line}\n` }
     if (args[0] === 'login' && world.signedInAfterLogin !== undefined)
