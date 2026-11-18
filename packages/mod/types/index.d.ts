@@ -32,6 +32,7 @@ export type HomingbirdDraftRequest = {
 export type HomingbirdOverview = {
   server: string
   memberName: string
+  locale?: string | null
   hasApproveButton: boolean
   conversations: HomingbirdConversation[]
   awaiting: HomingbirdAwaiting[]

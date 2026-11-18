@@ -17,6 +17,7 @@ export interface World {
   readonly directories?: ReadonlyArray<string>
   readonly links?: Readonly<Record<string, string>>
   readonly sessionId?: string
+  readonly environment?: Readonly<Record<string, string>>
 }
 
 export interface Seen {
@@ -53,6 +54,7 @@ export const engineBeneath = (on: On, world: World): Seen => {
     store: new Map(Object.entries(world.store ?? {})),
     release: () => release(),
   }
+  mock.env(on, world.environment ?? {})
   on('store.get', (_, e) => ({ value: seen.store.get(e.key) }))
   on('store.set', (_, e) => {
     seen.store.set(e.key, JSON.parse(JSON.stringify(e.value)))

@@ -307,12 +307,13 @@ const hasDrafts = (value: unknown): boolean => {
 
 const overviewIn = (value: unknown): HomingbirdOverview | null => {
   const data = value as
-    | (Partial<HomingbirdOverview> & { signedIn?: boolean; member?: { name?: string } })
+    | (Partial<HomingbirdOverview> & { signedIn?: boolean; member?: { name?: string; locale?: unknown } })
     | null
   if (data === null || data.signedIn !== true) return null
   return {
     server: String(data.server ?? ''),
     memberName: String(data.member?.name ?? ''),
+    locale: typeof data.member?.locale === 'string' ? data.member.locale : null,
     hasApproveButton: data.hasApproveButton === true,
     conversations: data.conversations ?? [],
     awaiting: data.awaiting ?? [],

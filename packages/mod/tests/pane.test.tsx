@@ -1,6 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
-import { KEEP_OPEN, paneTitleFor } from '../hooks/pane'
+import { paneTitleFor } from '../hooks/pane'
+import { paneLanguageFrom, paneTextIn } from '../hooks/pane-text'
 import { DRAFT, NOTE_ID, OVERVIEW, PANE, START, WRAPPED, engineBeneath, openDesk } from './world'
 
 test('the desk pane says to keep the session open and lists drafts, waiting notes and rooms', async ($, on) => {
@@ -10,7 +11,7 @@ test('the desk pane says to keep the session open and lists drafts, waiting note
   await openDesk($, seen)
   for (const surface of ['terminal', 'desktop', 'vscode', 'mobile'] as const) {
     const ui = await $.ui.mount({ ...PANE, surface })
-    expect((await ui.find({ type: 'Text', text: /Keep this session/ }))?.text).toBe(KEEP_OPEN)
+    expect((await ui.find({ type: 'Text', text: /Keep this session/ }))?.text).toBe(paneTextIn('en').keepOpen)
     expect(await ui.find({ type: 'Text', text: /Ben on https:\/\/homingbird\.example\.com/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /Reply drafted by Laptop/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /Ana: Is the migration safe\?/ })).toBeDefined()
@@ -136,4 +137,53 @@ test('a desk another session took over offers to take it back', async ($, on) =>
 test('the pane title carries the number of drafts waiting', () => {
   expect(paneTitleFor(0)).toBe('Homingbird')
   expect(paneTitleFor(3)).toBe('Homingbird (3)')
+})
+
+test('the pane speaks Korean when the environment is set to Korean', async ($, on) => {
+  const seen = engineBeneath(on, {
+    overview: OVERVIEW,
+    holdsStream: true,
+    environment: { LANG: 'ko_KR.UTF-8' },
+  })
+  await $.session.start(START)
+  await openDesk($, seen)
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await $.ui.mount({ ...PANE, surface })
+    expect(await ui.find({ type: 'Text', text: /전용 세션으로 열어 두세요/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /승인을 기다리는 초안/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /Laptop이\(가\) 쓴 답장 초안/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /Ana, Ben · 읽지 않음 2/ })).toBeDefined()
+    expect((await ui.find({ key: `approve:${DRAFT.id}` }))?.props?.label).toBe('승인')
+    await ui.unmount()
+  }
+  seen.release()
+})
+
+test('the language the member picked wins over the environment', async ($, on) => {
+  const member = { ...OVERVIEW.member, locale: 'ko' }
+  const seen = engineBeneath(on, {
+    overview: { ...OVERVIEW, member },
+    holdsStream: true,
+    environment: { LANG: 'en_US.UTF-8' },
+  })
+  await $.session.start(START)
+  await openDesk($, seen)
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /승인을 기다리는 초안/ })).toBeDefined()
+  await ui.unmount()
+  seen.release()
+})
+
+test('the pane language follows the member, then LC_ALL, LC_MESSAGES and LANG, then English', () => {
+  expect(paneLanguageFrom('ko', ['en_US.UTF-8'])).toBe('ko')
+  expect(paneLanguageFrom(null, [undefined, 'ko_KR.UTF-8', 'en_US.UTF-8'])).toBe('ko')
+  expect(paneLanguageFrom(null, ['', undefined, 'ko'])).toBe('ko')
+  expect(paneLanguageFrom('fr', ['C.UTF-8'])).toBe('en')
+  expect(paneLanguageFrom(undefined, [])).toBe('en')
+})
+
+test('both languages have every pane string', () => {
+  expect(Object.keys(paneTextIn('ko')).sort()).toEqual(Object.keys(paneTextIn('en')).sort())
+  expect(paneTextIn('ko').approve).toBe('승인')
+  expect(paneTextIn('ko').send).toBe('보내기')
 })

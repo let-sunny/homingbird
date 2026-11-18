@@ -756,8 +756,9 @@ const clippedText = (page: any): Promise<string[]> =>
       const words = node.textContent.trim().split(/\s+/)
       if (node.parentElement?.closest('.visually-hidden, [hidden], dialog:not([open]), .note-body, .quote'))
         continue
+      if (node.parentElement?.checkVisibility() !== true) continue
       for (const word of words) {
-        if (word.length < 2) continue
+        if (word.length < 2 || !/[\uac00-\ud7a3]/.test(word)) continue
         const start = node.textContent.indexOf(word)
         const range = document.createRange()
         range.setStart(node, start)

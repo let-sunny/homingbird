@@ -9,6 +9,7 @@ import type {
   HomingbirdOverview,
 } from '../types'
 import { bodyOf } from './drafting'
+import { type PaneText, paneLanguageFrom, paneTextIn } from './pane-text'
 import { PIP, PIP_COLUMNS, PIP_PIXELS, PIP_ROWS, type PipState } from './pip'
 
 export async function renderPane(
@@ -23,20 +24,23 @@ export async function renderPane(
   const trouble = await read($, problem)
   const pending = await read($, signIn)
   const open = await read($, requests)
+  const text = await paneTextFor($, latest)
   const waiting = latest?.drafts.length ?? 0
   return (
     <Box flexDirection="column" gap={1}>
       <Box flexDirection="row" gap={1}>
         {pip($, e, pipStateFor(state, latest, pending !== null))}
         <Box flexDirection="column">
-          <Text bold>Homingbird{waiting > 0 ? ` · ${waiting} waiting` : ''}</Text>
-          <Text dimColor>{CONNECTION_LABELS[state]}</Text>
+          <Text bold>Homingbird{waiting > 0 ? ` · ${text.waiting(waiting)}` : ''}</Text>
+          <Text dimColor>{text.connection[state]}</Text>
         </Box>
       </Box>
-      {role === 'desk' && <Text color="warning">{KEEP_OPEN}</Text>}
-      {role === 'moved' && movedRows($, e, actions)}
+      {role === 'desk' && <Text color="warning">{text.keepOpen}</Text>}
+      {role === 'moved' && movedRows($, e, text, actions)}
       {trouble !== null && <Text color="error">{trouble}</Text>}
-      {latest === null ? await signInRows($, e, actions) : await overviewRows($, e, latest, open, actions)}
+      {latest === null
+        ? await signInRows($, e, text, actions)
+        : await overviewRows($, e, text, latest, open, actions)}
     </Box>
   )
 }
@@ -54,15 +58,9 @@ export const paneTitleFor = (waiting: number): string =>
 
 export const PANE = 'homingbird'
 
-export const KEEP_OPEN = 'Keep this session open for Homingbird.'
-
-const CONNECTION_LABELS: Readonly<Record<HomingbirdConnection, string>> = {
-  idle: 'not the desk',
-  starting: 'starting',
-  live: 'desk · live',
-  reconnecting: 'desk · reconnecting',
-  'signed-out': 'not signed in',
-  unavailable: 'command line not found',
+async function paneTextFor($: EngineInterface, latest: HomingbirdOverview | null): Promise<PaneText> {
+  const environment = [await $.env.get('LC_ALL'), await $.env.get('LC_MESSAGES'), await $.env.get('LANG')]
+  return paneTextIn(paneLanguageFrom(latest?.locale, environment))
 }
 
 function pip($: EngineInterface, e: ResolveInput, state: PipState): RenderElement | null {
@@ -89,44 +87,47 @@ const pipStateFor = (
   return 'idle'
 }
 
-function movedRows($: EngineInterface, e: ResolveInput, actions: PaneActions): RenderElement {
+function movedRows($: EngineInterface, e: ResolveInput, text: PaneText, actions: PaneActions): RenderElement {
   const { Box, Text, Button } = $.ui.resolve(e)
   return (
     <Box flexDirection="column">
-      <Text>Another session is your Homingbird desk now. This one no longer reacts to notes.</Text>
-      <Button key="become-desk" label="Make this the desk" onPress={() => void actions.becomeDesk()} />
+      <Text>{text.moved}</Text>
+      <Button key="become-desk" label={text.becomeDesk} onPress={() => void actions.becomeDesk()} />
     </Box>
   )
 }
 
-async function signInRows($: EngineInterface, e: ResolveInput, actions: PaneActions): Promise<RenderElement> {
+async function signInRows(
+  $: EngineInterface,
+  e: ResolveInput,
+  text: PaneText,
+  actions: PaneActions,
+): Promise<RenderElement> {
   const { Box, Text, Button, Input, Link } = $.ui.resolve(e)
   const pending = await read($, signIn)
   if (pending !== null)
     return (
       <Box flexDirection="column">
-        <Text>Confirm the sign-in in your browser. If it did not open:</Text>
-        <Link href={pending.verificationUri}>Open the sign-in page</Link>
-        <Text dimColor>
-          Code {pending.userCode}. Keep "approve button" ticked to approve notes from this pane.
-        </Text>
+        <Text>{text.confirmSignIn}</Text>
+        <Link href={pending.verificationUri}>{text.openSignInPage}</Link>
+        <Text dimColor>{text.signInCode(pending.userCode)}</Text>
       </Box>
     )
   return (
     <Box flexDirection="column">
-      <Text>Sign in to your organization's Homingbird server to make this session your desk.</Text>
+      <Text>{text.signInPrompt}</Text>
       {actions.defaultServer === '' ? (
         <Input
           key="server"
-          label="Server URL"
+          label={text.serverUrl}
           placeholder="https://homingbird.example.com"
-          submitLabel="Sign in"
+          submitLabel={text.signIn}
           onSubmit={(server) => actions.signIn(server.trim())}
         />
       ) : (
         <Button
           key="sign-in"
-          label="Sign in"
+          label={text.signIn}
           variant="primary"
           onPress={() => actions.signIn(actions.defaultServer)}
         />
@@ -138,6 +139,7 @@ async function signInRows($: EngineInterface, e: ResolveInput, actions: PaneActi
 async function overviewRows(
   $: EngineInterface,
   e: ResolveInput,
+  text: PaneText,
   latest: HomingbirdOverview,
   open: ReadonlyArray<HomingbirdDraftRequest>,
   actions: PaneActions,
@@ -147,43 +149,43 @@ async function overviewRows(
   const drafted = new Set(latest.drafts.map((draft) => draft.inReplyTo))
   return (
     <Box flexDirection="column" gap={1}>
-      <Text dimColor>
-        {latest.memberName} on {latest.server}
-      </Text>
+      <Text dimColor>{text.memberOn(latest.memberName, latest.server)}</Text>
       <Box flexDirection="column">
-        <Text bold>Drafts waiting for your approval</Text>
-        {latest.drafts.length === 0 && <Text dimColor>None.</Text>}
+        <Text bold>{text.draftsWaiting}</Text>
+        {latest.drafts.length === 0 && <Text dimColor>{text.none}</Text>}
         {latest.drafts.map((draft) =>
-          draftRow($, e, draft, latest.hasApproveButton, edited === draft.id, actions),
+          draftRow($, e, text, draft, latest.hasApproveButton, edited === draft.id, actions),
         )}
       </Box>
       <Box flexDirection="column">
-        <Text bold>Notes waiting for a reply</Text>
-        {latest.awaiting.length === 0 && open.length === 0 && <Text dimColor>None.</Text>}
+        <Text bold>{text.notesWaiting}</Text>
+        {latest.awaiting.length === 0 && open.length === 0 && <Text dimColor>{text.none}</Text>}
         {latest.awaiting.map((waiting) => (
           <Box key={`waiting:${waiting.noteId}`}>
             <Text wrap="truncate-end">
               {waiting.from.name}: {firstLine(bodyOf(waiting.wrapped))}
-              <Text dimColor>{drafted.has(waiting.noteId) ? ' · draft ready' : ' · drafting'}</Text>
+              <Text dimColor> · {drafted.has(waiting.noteId) ? text.draftReady : text.drafting}</Text>
             </Text>
           </Box>
         ))}
         {open.map((request) => (
           <Box key={`request:${request.id}`}>
             <Text wrap="truncate-end" dimColor>
-              You asked for a draft{request.instruction === '' ? '' : `: ${firstLine(request.instruction)}`}
+              {request.instruction === ''
+                ? text.askedForDraft
+                : text.askedForDraftWith(firstLine(request.instruction))}
             </Text>
           </Box>
         ))}
       </Box>
       <Box flexDirection="column">
-        <Text bold>Conversations</Text>
-        {latest.conversations.length === 0 && <Text dimColor>None yet.</Text>}
+        <Text bold>{text.conversations}</Text>
+        {latest.conversations.length === 0 && <Text dimColor>{text.noneYet}</Text>}
         {latest.conversations.map((conversation) => (
           <Box key={`conversation:${conversation.id}`}>
             <Text wrap="truncate-end">
               {conversationName(conversation)}
-              {conversation.unreadCount > 0 ? ` · ${conversation.unreadCount} unread` : ''}
+              {conversation.unreadCount > 0 ? ` · ${text.unread(conversation.unreadCount)}` : ''}
             </Text>
           </Box>
         ))}
@@ -195,6 +197,7 @@ async function overviewRows(
 function draftRow(
   $: EngineInterface,
   e: ResolveInput,
+  text: PaneText,
   draft: HomingbirdDraft,
   hasApproveButton: boolean,
   isEditing: boolean,
@@ -203,17 +206,14 @@ function draftRow(
   const { Box, Text, Button, Input } = $.ui.resolve(e)
   return (
     <Box key={`draft:${draft.id}`} flexDirection="column" borderStyle="round" paddingX={1}>
-      <Text dimColor>
-        {draft.inReplyTo === null ? 'New note' : 'Reply'}
-        {draft.agentName === null ? '' : ` drafted by ${draft.agentName}`}
-      </Text>
+      <Text dimColor>{draftHeading(text, draft)}</Text>
       {isEditing ? (
         <Input
           key={`edit:${draft.id}`}
-          label="Edit, then send"
+          label={text.editThenSend}
           value={draft.body}
           rows={4}
-          submitLabel="Send"
+          submitLabel={text.send}
           onSubmit={(body) => void actions.approve(draft.id, body)}
         />
       ) : (
@@ -224,27 +224,32 @@ function draftRow(
           {!isEditing && (
             <Button
               key={`approve:${draft.id}`}
-              label="Approve"
+              label={text.approve}
               variant="primary"
               onPress={() => void actions.approve(draft.id, null)}
             />
           )}
           <Button
             key={`edit-toggle:${draft.id}`}
-            label={isEditing ? 'Cancel' : 'Edit'}
+            label={isEditing ? text.cancel : text.edit}
             onPress={() => void update($, editing, () => (isEditing ? null : draft.id))}
           />
           <Button
             key={`discard:${draft.id}`}
-            label="Discard"
+            label={text.discard}
             onPress={() => void actions.discard(draft.id)}
           />
         </Box>
       ) : (
-        <Text dimColor>Approve, edit or discard this draft in the Homingbird web client.</Text>
+        <Text dimColor>{text.approveInWebClient}</Text>
       )}
     </Box>
   )
+}
+
+const draftHeading = (text: PaneText, draft: HomingbirdDraft): string => {
+  if (draft.agentName === null) return draft.inReplyTo === null ? text.newNote : text.reply
+  return draft.inReplyTo === null ? text.newNoteBy(draft.agentName) : text.replyBy(draft.agentName)
 }
 
 const conversationName = (conversation: HomingbirdConversation): string => {
