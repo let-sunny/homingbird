@@ -2,6 +2,7 @@ import { PRESETS, composeCharacter, presetById, randomCharacter } from '@homingb
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import {
+  BUILT_IN_CHARACTERS,
   CHARACTER_BYTES_MAX,
   CharacterSpec,
   builtInCharacterOf,
@@ -108,6 +109,13 @@ describe('isSameCharacter', () => {
   it('never calls something that is not a character the same', () => {
     expect(isSameCharacter(undefined, undefined)).toBe(false)
     expect(isSameCharacter({ ...cat, version: 2 }, { ...cat, version: 2 })).toBe(false)
+  })
+})
+
+describe('BUILT_IN_CHARACTERS', () => {
+  it('offers the 24 built-in characters, the pigeon first', () => {
+    expect(BUILT_IN_CHARACTERS).toHaveLength(24)
+    expect(BUILT_IN_CHARACTERS[0]).toEqual(pigeon)
   })
 })
 

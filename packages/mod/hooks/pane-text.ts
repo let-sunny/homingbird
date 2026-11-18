@@ -1,4 +1,6 @@
-import type { HomingbirdConnection } from '../types'
+import type { EngineInterface } from 'claude-code'
+
+import type { HomingbirdConnection, HomingbirdOverview } from '../types'
 import { en } from './pane-text/en'
 import { ko } from './pane-text/ko'
 
@@ -14,6 +16,12 @@ export const paneLanguageFrom = (
   const setting = environment.find((value) => value !== undefined && value !== '')
   const primary = setting?.split(/[-_.@]/)[0]?.toLowerCase()
   return isPaneLanguage(primary) ? primary : 'en'
+}
+
+/** The person's language for the pane, the status line, toasts and notifications. */
+export async function textFor($: EngineInterface, latest: HomingbirdOverview | null): Promise<PaneText> {
+  const environment = [await $.env.get('LC_ALL'), await $.env.get('LC_MESSAGES'), await $.env.get('LANG')]
+  return paneTextIn(paneLanguageFrom(latest?.locale, environment))
 }
 
 export interface PaneText {
@@ -51,6 +59,16 @@ export interface PaneText {
   readonly discard: string
   readonly approveInWebClient: string
   readonly openInWebClient: string
+  readonly deskStatus: (waiting: number) => string
+  readonly toast: (text: string) => string
+  readonly noteArrived: (author: string) => string
+  readonly aColleague: string
+  readonly draftReadyNotice: string
+  readonly draftingRequest: string
+  readonly streamStopped: string
+  readonly noApproveButton: string
+  readonly couldNotSignIn: (reason: string) => string
+  readonly characterStarted: string
 }
 
 const PANE_TEXT: Readonly<Record<PaneLanguage, PaneText>> = { en, ko }

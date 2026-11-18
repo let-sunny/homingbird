@@ -243,3 +243,15 @@ test('a request leaves the pane once its draft is saved', async ($, on) => {
   expect(await ui.find({ type: 'Text', text: /You asked for a draft/ })).toBeUndefined()
   await ui.unmount()
 })
+
+test('the status line, toasts and notifications speak the person’s language', async ($, on) => {
+  const seen = engineBeneath(on, {
+    overview: { ...OVERVIEW, member: { ...OVERVIEW.member, locale: 'ko' } },
+    streamLines: [ARRIVAL],
+  })
+  await $.session.start(START)
+  await openDesk($, seen)
+  expect(seen.statuses).toContain('Homingbird 전용 세션 · 승인을 기다리는 초안 1개')
+  expect(seen.notifications).toContain('Ana 님이 보낸 노트가 도착했어요. 답장 초안을 쓰고 있어요.')
+  expect(seen.toasts).toContain('Homingbird: Ana 님이 보낸 노트가 도착했어요. 답장 초안을 쓰고 있어요.')
+})

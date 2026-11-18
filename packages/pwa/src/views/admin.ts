@@ -8,11 +8,21 @@ import {
   type Topic,
 } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, region, signal } from '@homingbird/ui'
-import { api, launch, loadTopics, mergeTopic, removeTopic, reviseTopic, saveSettings } from '../actions.ts'
+import {
+  api,
+  launch,
+  loadTopics,
+  mergeTopic,
+  removeTopic,
+  resetMemberCharacter,
+  reviseTopic,
+  saveSettings,
+} from '../actions.ts'
 import { type AdminSection, hrefFor } from '../routes.ts'
 import { members as knownMembers, notice, topics } from '../state.ts'
 import { strings } from '../strings.ts'
 import { canRename, slugFrom, topicLabel } from '../topics.ts'
+import { memberAvatar } from './character-avatar.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
 import { button, dateTimeLabel, field, page } from './parts.ts'
 
@@ -124,6 +134,7 @@ const membersSection = (life: Lifetime, me: Me): HTMLElement => {
         h(
           'li',
           { class: `member is-${member.status}`, data: { memberId: member.id } },
+          memberAvatar(member),
           h(
             'div',
             { class: 'member-main' },
@@ -144,6 +155,16 @@ const membersSection = (life: Lifetime, me: Me): HTMLElement => {
                     class: 'danger',
                   })
                 : button(strings.reactivate, () => change(member, { status: 'active' })),
+              member.character != null &&
+                button(strings.character.resetMember, () =>
+                  launch(resetMemberCharacter(member.id), () => {
+                    notice.set({
+                      kind: 'info',
+                      text: strings.character.resetMemberDone({ name: member.name }),
+                    })
+                    reload()
+                  }),
+                ),
             ),
         ),
       ),

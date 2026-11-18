@@ -407,3 +407,82 @@ const stringsIn = (value: unknown): string[] =>
     : typeof value === 'object' && value !== null
       ? Object.values(value).flatMap(stringsIn)
       : []
+
+describe('Rule 7: no tool exposed to a model can save or change a profile character', () => {
+  const OTTER = {
+    version: 1,
+    base: 'bubble-16',
+    id: 'my-otter',
+    name: 'Otter',
+    palette: { B: '#8A6A52', D: '#6E523F', O: '#E7D3BF', F: '#6E523F' },
+    marks: [[15, 6, 1, 1, '#2E2018']],
+  }
+  const CHARACTER_ROUTES: ReadonlyArray<RouteName> = [
+    'me.character.set',
+    'me.character.clear',
+    'admin.members.resetCharacter',
+  ]
+  const charactersOf = async () =>
+    (await storedRows(server, 'members')).map((row) => [row.id, row.character_spec])
+
+  it('marks every route that saves or changes a character as one only a person or an administrator may call', () => {
+    const changing = (Object.keys(contract) as RouteName[]).filter((name) => /character/i.test(name))
+    expect(changing.sort()).toEqual([...CHARACTER_ROUTES].sort())
+    for (const name of changing) expect(humanOnlyRoutes).toContain(name)
+  })
+
+  it('refuses an agent credential on every character route, even with the approve button, changing nothing', async () => {
+    await ana.api('PUT', '/me/character', OTTER)
+    const before = await charactersOf()
+    for (const name of CHARACTER_ROUTES) {
+      const route = contract[name]
+      const path = fillPath(route.path, { id: ana.me.member.id })
+      expect([
+        name,
+        (await anaAgent.api(route.method, path, { ...OTTER, id: 'agent-otter' })).status,
+      ]).toEqual([name, 403])
+    }
+    expect(await charactersOf()).toEqual(before)
+  })
+
+  it('offers MCP tools that check and preview a character, and none of them saves one', async () => {
+    const before = await charactersOf()
+    const listed = await server.request('POST', '/mcp', {
+      token: benAgent.token,
+      body: { jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} },
+    })
+    const names = listed.json.result.tools.map((each: { name: string }) => each.name)
+    expect(names).toEqual(expect.arrayContaining(['check_character', 'preview_character']))
+    for (const name of names.filter((each: string) => each !== 'wait_for_notes')) {
+      const answer = await server.request('POST', '/mcp', {
+        token: benAgent.token,
+        body: {
+          jsonrpc: '2.0',
+          id: 2,
+          method: 'tools/call',
+          params: { name, arguments: { character: OTTER, body: 'save my character', query: 'otter' } },
+        },
+      })
+      expect(answer.status).toBe(200)
+    }
+    const preview = await server.request('POST', '/mcp', {
+      token: benAgent.token,
+      body: {
+        jsonrpc: '2.0',
+        id: 3,
+        method: 'tools/call',
+        params: { name: 'preview_character', arguments: { character: OTTER } },
+      },
+    })
+    expect(preview.json.result.content[0].text).toContain('/#/character/')
+    expect(await charactersOf()).toEqual(before)
+  })
+
+  it('validates a character again on the server, whatever the client checked', async () => {
+    const refused = await ana.api('PUT', '/me/character', { ...OTTER, marks: [[13, 2, 1, 1, '#2E2018']] })
+    expect(refused.status).toBe(400)
+    expect(refused.json.error.message).toMatch(/^This character cannot be used: /)
+    expect((await ana.api('PUT', '/me/character', { ...OTTER, id: 'owl' })).status).toBe(400)
+    expect((await ana.api('GET', '/me')).json.member.character).toBeNull()
+  })
+})

@@ -12,10 +12,7 @@ import { run } from '../sql/database.ts'
 import { sql } from '../sql/query.ts'
 import { memberById } from './members.ts'
 
-/**
- * Saves the profile character a person chose. The rules are checked here again, whatever the client
- * checked, and the stored JSON is exactly the spec that passed them.
- */
+/** Saves a person's character, checking the rules again whatever the client checked; stores what passed. */
 export const saveCharacter = (
   id: MemberId,
   spec: CharacterSpec,

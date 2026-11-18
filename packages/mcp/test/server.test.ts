@@ -10,6 +10,7 @@ import {
   UNSUPPORTED_PROTOCOL_VERSION_CODE,
 } from '../src/revisions.ts'
 import {
+  CHARACTER_INSTRUCTIONS,
   DESK_INSTRUCTIONS,
   INSTRUCTIONS,
   SERVER_NAME,
@@ -106,6 +107,13 @@ describe('handleMcpMessage', () => {
       expect(instructions).toMatch(/find_topics and draft to the single best topic/)
       expect(instructions).toMatch(/when none fits, use general/)
       expect(instructions).toMatch(/Never post one question to several topics/)
+    }
+  })
+
+  it('tells every session how to help with a character, and that only the person saves it', () => {
+    for (const instructions of [INSTRUCTIONS, DESK_INSTRUCTIONS]) {
+      expect(instructions).toContain(CHARACTER_INSTRUCTIONS)
+      expect(instructions).toMatch(/check_character.*preview_character.*Only they can save it/)
     }
   })
 

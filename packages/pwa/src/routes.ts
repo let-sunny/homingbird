@@ -1,3 +1,5 @@
+import { CHARACTER_ROUTE } from '@homingbird/protocol'
+
 export type Route =
   | { readonly name: 'home' }
   | { readonly name: 'conversation'; readonly id: string }
@@ -6,6 +8,7 @@ export type Route =
   | { readonly name: 'topic'; readonly slug: string }
   | { readonly name: 'search'; readonly query: string }
   | { readonly name: 'profile' }
+  | { readonly name: 'character'; readonly draft: string | null; readonly from: string | null }
   | { readonly name: 'credentials' }
   | { readonly name: 'device'; readonly code: string | null }
   | { readonly name: 'consent'; readonly id: string }
@@ -29,6 +32,8 @@ export const parseRoute = (hash: string): Route => {
   if (head === 't' && second !== undefined) return { name: 'topic', slug: second }
   if (head === 'search') return { name: 'search', query: parameters.get('q') ?? '' }
   if (head === 'me') return { name: 'profile' }
+  if (head === CHARACTER_ROUTE)
+    return { name: 'character', draft: second ?? null, from: parameters.get('from') }
   if (head === 'credentials') return { name: 'credentials' }
   if (head === 'device') return { name: 'device', code: second ?? null }
   if (head === 'consent' && second !== undefined) return { name: 'consent', id: second }
@@ -54,6 +59,12 @@ export const hrefFor = (route: Route): string => {
       return `#/search?${new URLSearchParams({ q: route.query }).toString()}`
     case 'profile':
       return '#/me'
+    case 'character':
+      return route.draft !== null
+        ? `#/${CHARACTER_ROUTE}/${encodeURIComponent(route.draft)}`
+        : route.from !== null
+          ? `#/${CHARACTER_ROUTE}?${new URLSearchParams({ from: route.from }).toString()}`
+          : `#/${CHARACTER_ROUTE}`
     case 'credentials':
       return '#/credentials'
     case 'device':

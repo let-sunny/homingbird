@@ -43,4 +43,16 @@ export const ko: PaneText = {
   approveInWebClient:
     '초안은 Homingbird 웹 클라이언트에서 승인, 수정, 삭제해요. 초안마다 바로 가는 링크가 있어요.',
   openInWebClient: '웹 클라이언트에서 승인',
+  deskStatus: (waiting) =>
+    waiting === 0 ? 'Homingbird 전용 세션' : `Homingbird 전용 세션 · 승인을 기다리는 초안 ${waiting}개`,
+  toast: (text) => `Homingbird: ${text}`,
+  noteArrived: (author) => `${author} 님이 보낸 노트가 도착했어요. 답장 초안을 쓰고 있어요.`,
+  aColleague: '동료',
+  draftReadyNotice: 'Homingbird 창에서 승인할 초안이 준비됐어요.',
+  draftingRequest: '요청한 초안을 쓰고 있어요.',
+  streamStopped: '실시간 연결이 끊겼어요. 30초 뒤에 다시 연결해요.',
+  noApproveButton: '이 기기에는 승인 버튼이 없어요. Homingbird 웹 클라이언트에서 승인해 주세요.',
+  couldNotSignIn: (reason) => `로그인하지 못했어요: ${reason}`,
+  characterStarted:
+    '캐릭터 만들기를 시작했어요. 에이전트가 초안을 만들고 확인한 뒤 편집기 링크를 줘요. 저장은 "이 캐릭터 쓰기"를 눌러야만 돼요.',
 }

@@ -15,6 +15,7 @@ import {
   TopicSlug,
 } from '@homingbird/protocol'
 import type { OpenInBrowser } from './browser-opener.ts'
+import { CHARACTER_TOOLS } from './character-tools.ts'
 import { type RpcFailure, invalidParams } from './json-rpc.ts'
 import type { MemberApi } from './member-api.ts'
 import { type Quoting, quoteNote, quoteNotes, quotingFor as quotingOf } from './quote.ts'
@@ -345,6 +346,7 @@ export const TOOLS: ReadonlyArray<Tool<any>> = [
         context.api['drafts.update']({ params: { id: draftId }, body: { body } }),
       ),
   }),
+  ...CHARACTER_TOOLS,
 ]
 
 export const toolDefinitions = (): ReadonlyArray<Readonly<Record<string, unknown>>> =>

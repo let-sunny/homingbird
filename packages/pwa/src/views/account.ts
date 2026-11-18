@@ -16,6 +16,7 @@ import { pushIsAvailable, pushIsOn, turnPushOff, turnPushOn } from '../push.ts'
 import { hrefFor } from '../routes.ts'
 import { directory, notice, topics } from '../state.ts'
 import { strings } from '../strings.ts'
+import { myCharacterSection } from './character.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
 import { button, dateTimeLabel, field, page, topicChips } from './parts.ts'
 
@@ -43,6 +44,7 @@ export const profileView = (life: Lifetime, me: Me): HTMLElement => {
       field(strings.profileAbout, profile, strings.profileAgentHint),
       h('button', { type: 'submit', class: 'primary' }, strings.save),
     ),
+    myCharacterSection(life, me),
     h(
       'fieldset',
       { class: 'appearance' },

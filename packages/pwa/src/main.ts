@@ -9,6 +9,7 @@ import { announcement, branding, notice, route, serverInfo, session } from './st
 import { strings, useLanguage } from './strings.ts'
 import { credentialsView, profileView } from './views/account.ts'
 import { adminView } from './views/admin.ts'
+import { characterEditorView } from './views/character.ts'
 import { consentView, deviceView } from './views/connect.ts'
 import { dialogHost } from './views/dialog.ts'
 import { emptyWithPip } from './views/parts.ts'
@@ -91,6 +92,8 @@ const stageFor = (life: Lifetime, me: Me, current: Route): Child => {
       return searchView(life, me, current.query)
     case 'profile':
       return profileView(life, me)
+    case 'character':
+      return characterEditorView(life, me, current.draft, current.from)
     case 'credentials':
       return credentialsView(life)
     case 'device':

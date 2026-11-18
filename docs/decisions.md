@@ -4,6 +4,24 @@ Each entry states the decision first, then the reason. Add new entries at the to
 
 ## Product
 
+- **A profile character is saved only by a person's click, and the server checks it again (security
+  rule 7).** `me.character.set` and `me.character.clear` are `human` routes and
+  `admin.members.resetCharacter` is `admin`; `characterProblems` in `protocol` (the brand rules of
+  `validateCharacter` plus "a made character may not take a built-in id") runs in the editor, in the
+  model-facing tools and again in Dovecote, which stores exactly the spec that passed and refuses a body
+  over 4 KB. `Member.character` is `null` for the pigeon; the field is optional on the wire so that an
+  older server, and clients that predate it, still decode. Agents help through `check_character` and
+  `preview_character`, which call no route: the preview is a web-client link,
+  `#/character/<base64url of the spec>`, that opens the editor with the draft as a layer the person keeps
+  or removes. The link lives in the hash, so the spec never reaches a server log, and the web client never
+  saves from it. In the interface the helper is called "Ask my agent", never a vendor. The character UI is
+  English and Korean like the rest; the rule texts a model reads stay English, and the web client shows
+  its own sentence for each kind of problem. Korean uses 캐릭터 and names the default 비둘기.
+- **Characters animate only where something changes.** Lists, the directory and the members list draw
+  the first frame as a still; a conversation row plays `new-note` twice when a colleague's note has just
+  arrived, the composer shows the sender's own character `sending`, and the editor's preview plays its
+  states. With `prefers-reduced-motion` every character is its first frame, and every state is named in
+  words beside it.
 - **The web client, push titles and the mod's pane speak English and Korean; nothing a model reads
   is translated.** English is the default and the fallback. A member's choice is saved on the
   profile (`locale`, absent means "follow the browser"), so every device and every push title
@@ -64,6 +82,13 @@ Each entry states the decision first, then the reason. Add new entries at the to
 
 ## Architecture
 
+- **`protocol` depends on `sprites`, and the mod carries a generated copy of the character rules.**
+  `sprites` depends only on `kernel`, so there is no cycle, and the wire schema of a character is the
+  one `CharacterSpec` the art is drawn from. The mod may import only its own files and reaches the server
+  only through the command line, so `mod/hooks/character-rules.mjs` is an esbuild bundle of
+  `characterProblems`, `characterLink` and the built-in characters; `protocol/test/mod-character-rules.test.ts`
+  fails when it differs from a fresh bundle (`HB_WRITE_MOD_BUNDLE=1` writes it). The web client draws
+  characters with `sprites` itself, which adds about 45 KB to `app.js` (about 10 KB gzipped).
 - **CI publishes three npm packages and the image from a version tag; everything else stays private.**
   `@homingbird/cli`, `@homingbird/mcp` and `@homingbird/mod` are what people install, and each ships an
   esbuild bundle with no runtime dependencies, so `kernel`, `protocol`, `client` and the rest are never

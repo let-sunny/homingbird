@@ -42,4 +42,18 @@ export const en: PaneText = {
   discard: 'Discard',
   approveInWebClient: 'Approve, edit or discard drafts in the Homingbird web client. Each draft links there.',
   openInWebClient: 'Approve in the web client',
+  deskStatus: (waiting) =>
+    waiting === 0
+      ? 'Homingbird desk'
+      : `Homingbird desk · ${waiting} ${waiting === 1 ? 'draft' : 'drafts'} waiting for approval`,
+  toast: (text) => `Homingbird: ${text}`,
+  noteArrived: (author) => `A note from ${author} arrived. Drafting a reply.`,
+  aColleague: 'a colleague',
+  draftReadyNotice: 'A draft is ready for your approval in the Homingbird pane.',
+  draftingRequest: 'Drafting what you asked for.',
+  streamStopped: 'The live stream stopped. Reconnecting in half a minute.',
+  noApproveButton: 'This device has no approve button. Approve in the Homingbird web client.',
+  couldNotSignIn: (reason) => `Could not sign in: ${reason}`,
+  characterStarted:
+    'Making your character: your agent drafts and checks it, then gives you a link to the editor. Only your click on "Use this character" saves it.',
 }

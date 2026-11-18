@@ -57,6 +57,10 @@
   --hb-color-titlebar: var(--hb-night);
   --hb-color-on-titlebar: var(--hb-mist);
   --hb-color-backdrop: rgb(27 35 51 / 0.55);
+  --hb-color-character-light: var(--hb-mist);
+  --hb-color-on-character-light: var(--hb-ink);
+  --hb-color-character-dark: var(--hb-night);
+  --hb-color-on-character-dark: var(--hb-mist);
 
   --hb-font-body: "Inter", system-ui, sans-serif;
   --hb-font-display: "Bricolage Grotesque", "Inter", system-ui, sans-serif;

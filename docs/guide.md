@@ -28,6 +28,7 @@ How agents, the server and the web client fit together is drawn in [architecture
 - [Ask your agent for a draft from the web](#ask-your-agent-for-a-draft-from-the-web)
 - [Approve, edit or discard](#approve-edit-or-discard)
 - [Turn on phone notifications](#turn-on-phone-notifications)
+- [Your character](#your-character)
 
 ## Sign in
 
@@ -190,3 +191,20 @@ You can also write a note yourself in the composer at the bottom of any conversa
 
 You are notified when a note arrives and when a draft waits for your approval, even while Homingbird is
 closed.
+
+## Your character
+
+Colleagues see you as a small pixel character next to your name. Until you choose one you are the
+pigeon.
+
+- Open the menu, **Profile**, and find **My character**. Pick one of the 24 built-in characters; the
+  preview shows it on a light and a dark background. **Use this character** saves it.
+- **Make my own** opens the editor: colors, feet, and one part per slot. Parts that would break a rule
+  are greyed out with the reason. **Surprise me** makes a random character that passes every rule.
+- **Ask my agent:** in an agent session, ask it to make your Homingbird character (the `character`
+  prompt over MCP, or `/homingbird character` with the Claude Code mod). It drafts and checks the
+  character and gives you a link that opens it in the editor, its markings as a layer you can keep or
+  remove. Opening the link saves nothing.
+
+Only your own click on **Use this character** saves a character; no agent can. An administrator can
+reset anyone's character to the pigeon.

@@ -11,9 +11,9 @@ const get = async (name: unknown, given?: unknown) => {
 }
 
 describe('promptDefinitions', () => {
-  it('lists inbox, ask, watch and open with a title, a description and their arguments', () => {
+  it('lists inbox, ask, watch, character and open with a title, a description and their arguments', () => {
     const listed = promptDefinitions() as any[]
-    expect(listed.map((prompt) => prompt.name)).toEqual(['inbox', 'ask', 'watch', 'open'])
+    expect(listed.map((prompt) => prompt.name)).toEqual(['inbox', 'ask', 'watch', 'character', 'open'])
     for (const prompt of listed) {
       expect(Object.keys(prompt).sort()).toEqual(['arguments', 'description', 'name', 'title'])
       expect(prompt.description.length).toBeGreaterThan(10)
@@ -44,6 +44,30 @@ describe('getPrompt', () => {
       for (const mentioned of text.match(/\b[a-z]+_[a-z_]+\b/g) ?? []) expect(names).toContain(mentioned)
       expect(text).not.toMatch(/\b(approve it|send it|discard)\b/)
     }
+  })
+
+  it('makes a character the way the make-character skill does: ask, start from a built-in, check, link', async () => {
+    const text = (await get('character')).value.messages[0].content.text as string
+    const order = [
+      'ask me',
+      'closest built-in character',
+      'check_character',
+      'preview_character',
+      '"Use this character"',
+    ]
+    const positions = order.map((phrase) => text.indexOf(phrase))
+    expect(positions.every((position) => position >= 0)).toBe(true)
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions)
+    expect(text).toContain('no tool can')
+    expect(text).toContain('mouth zone (x 11-15, y 8-11)')
+    expect(text.match(/^\{"version":1,"base":"bubble-16","id":"[a-z-]+"/gm)).toHaveLength(24)
+  })
+
+  it('starts the character conversation from the person’s idea when they give one', async () => {
+    const text = (await get('character', { idea: ' a sleepy otter ' })).value.messages[0].content.text
+    expect(text).toContain('I have this in mind: a sleepy otter.')
+    expect(text).not.toContain('First ask me')
+    expect((await get('character', { idea: '  ' })).value.messages[0].content.text).toContain('First ask me')
   })
 
   it('puts who and what into the ask prompt', async () => {

@@ -3,11 +3,13 @@ import { type HasClock, Stream, Task as T, systemClock } from '@homingbird/kerne
 import { STREAM_PATHS } from '@homingbird/protocol'
 import type {
   ApiError,
+  CharacterSpec,
   Conversation,
   ConversationId,
   CredentialId,
   DraftRequest,
   Locale,
+  Member,
   MemberId,
   Note,
   NoteId,
@@ -252,6 +254,22 @@ export const updateProfile = (name: string, profile: string): Action =>
     const me = signedIn()
     if (me !== null) session.set({ ...me, member })
     yield* loadPeople
+  })
+
+export const useCharacter = (spec: CharacterSpec | null): Action =>
+  T.gen(function* () {
+    const member =
+      spec === null ? yield* api['me.character.clear']({}) : yield* api['me.character.set']({ body: spec })
+    const me = signedIn()
+    if (me !== null) session.set({ ...me, member })
+    yield* loadPeople
+  })
+
+export const resetMemberCharacter = (memberId: MemberId): Action<Member> =>
+  T.gen(function* () {
+    const member = yield* api['admin.members.resetCharacter']({ params: { id: memberId } })
+    yield* loadPeople
+    return member
   })
 
 export const chooseLanguage = (chosen: Locale | null): Action =>

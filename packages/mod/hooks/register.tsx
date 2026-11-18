@@ -1,7 +1,19 @@
 import type { EngineInterface, Register } from 'claude-code'
 
+import { CHARACTER_TOOLS, characterPromptFor, checkCharacter, previewCharacter } from './character'
 import { run } from './command-line'
-import { beginSignIn, claimDesk, decide, inBackground, makeDesk, openDesk, refresh, resumeDesk } from './desk'
+import {
+  beginSignIn,
+  claimDesk,
+  decide,
+  inBackground,
+  knownServer,
+  makeDesk,
+  openDesk,
+  personText,
+  refresh,
+  resumeDesk,
+} from './desk'
 import { directoryIn } from './drafting'
 import { forbiddenReason } from './guard'
 import { PROJECT_READER, READER_TYPE, askProject, askSession, deliverHelperFacts } from './helpers'
@@ -12,8 +24,14 @@ export const register: Register = (on, options) => {
   const desk = makeDesk(options)
 
   on('session.start', async ($, e, next) => {
-    await $.command.register({ name: 'homingbird', description: 'Make this session your Homingbird desk' })
+    await $.command.register({
+      name: 'homingbird',
+      description:
+        'Make this session your Homingbird desk; /homingbird character makes your profile character',
+    })
     for (const tool of NOTE_TOOLS) await $.tool.register(tool.spec)
+    await $.tool.register(CHARACTER_TOOLS.check)
+    await $.tool.register(CHARACTER_TOOLS.preview)
     await $.tool.register(HELPER_TOOLS.askProject)
     await $.tool.register(HELPER_TOOLS.askSession)
     await $.agent.register(PROJECT_READER)
@@ -22,7 +40,14 @@ export const register: Register = (on, options) => {
     return started
   })
 
-  on('command.run', { command: 'homingbird' }, async ($) => {
+  on('command.run', { command: 'homingbird' }, async ($, e) => {
+    const [word = '', ...rest] = e.args.trim().split(/\s+/)
+    if (word === 'character') {
+      const started = (await personText($)).characterStarted
+      const prompt = characterPromptFor(rest.join(' ').trim())
+      $.clock.after(0, () => inBackground($.prompt.submit({ text: prompt })))
+      return { text: started }
+    }
     const opened = await $.ui.open({ id: PANE, title: 'Homingbird', focus: true })
     inBackground(openDesk($, desk))
     return { text: opened.isPlaced ? OPENED : `${OPENED} ${opened.reason}` }
@@ -53,6 +78,11 @@ export const register: Register = (on, options) => {
     const input = e as unknown as Readonly<Record<string, unknown>>
     if (e.tool === wireNameOf(HELPER_TOOLS.askProject.name)) return askProject($, input, desk)
     if (e.tool === wireNameOf(HELPER_TOOLS.askSession.name)) return askSession($, input, desk)
+    if (e.tool === wireNameOf(CHARACTER_TOOLS.check.name)) return { result: checkCharacter(input) }
+    if (e.tool === wireNameOf(CHARACTER_TOOLS.preview.name)) {
+      const server = (await knownServer($)) || String(options.server ?? '').trim()
+      return { result: previewCharacter(input, server) }
+    }
     const tool = NOTE_TOOLS.find((one) => wireNameOf(one.spec.name) === String(e.tool))
     if (tool === undefined)
       return { result: `homingbird: there is no tool ${String(e.tool)}.`, isError: true }

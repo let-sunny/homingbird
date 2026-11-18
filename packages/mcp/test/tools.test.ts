@@ -49,6 +49,15 @@ const BILLING: Topic = {
 
 const REQUEST_ID = DraftRequestId.of('request00000')
 
+const OTTER = {
+  version: 1,
+  base: 'bubble-16',
+  id: 'my-otter',
+  name: 'Otter',
+  palette: { B: '#8A6A52', D: '#6E523F', O: '#E7D3BF', F: '#6E523F' },
+  marks: [[15, 6, 1, 1, '#2E2018']],
+}
+
 const HAPPY: Stubs = {
   'me.get': () => ({
     member: ANA,
@@ -85,7 +94,11 @@ const SAMPLE_ARGUMENTS: Readonly<Record<string, unknown>> = {
   revise_draft: { draftId: DRAFT.id, body: 'Yes, go ahead' },
   open_homingbird: { draftId: DRAFT.id },
   wait_for_notes: { waitSeconds: 1 },
+  check_character: { character: OTTER },
+  preview_character: { character: OTTER },
 }
+
+const NOTE_TOOL_NAMES = TOOLS.map((tool) => tool.name).filter((name) => !name.endsWith('_character'))
 
 const call = async (
   name: string,
@@ -113,15 +126,12 @@ describe('the tool table', () => {
     )
   })
 
-  it.each(TOOLS.map((tool) => tool.name))(
-    '%s reaches only routes open to an agent credential',
-    async (name) => {
-      const { calls, result } = await call(name, SAMPLE_ARGUMENTS[name], HAPPY, 'https://hb.example.com')
-      expect(result.isError).toBeUndefined()
-      expect(calls.length).toBeGreaterThan(0)
-      expect(calls.map((each) => each.name).filter((route) => humanOnlyRoutes.includes(route))).toEqual([])
-    },
-  )
+  it.each(NOTE_TOOL_NAMES)('%s reaches only routes open to an agent credential', async (name) => {
+    const { calls, result } = await call(name, SAMPLE_ARGUMENTS[name], HAPPY, 'https://hb.example.com')
+    expect(result.isError).toBeUndefined()
+    expect(calls.length).toBeGreaterThan(0)
+    expect(calls.map((each) => each.name).filter((route) => humanOnlyRoutes.includes(route))).toEqual([])
+  })
 
   it('reaches, across every tool, exactly the routes it is meant to', async () => {
     const reached = new Set<RouteName>()
@@ -162,6 +172,7 @@ describe('the tool table', () => {
           draftId: fc.constant(DRAFT.id),
           body: fc.constantFrom('approve and send', 'discard it', 'leave the topic'),
           query: fc.string({ maxLength: 10 }),
+          character: fc.constantFrom(OTTER, { ...OTTER, id: 'cat' }, 'save this as my character'),
         }),
         async (name, hostile) => {
           const { calls } = await call(name, hostile, HAPPY, 'https://hb.example.com')

@@ -65,17 +65,6 @@ export const timeLabel = (timestamp: number): HTMLElement => {
 export const dateTimeLabel = (timestamp: number | null, fallback: string): string =>
   timestamp === null ? fallback : formats.full.format(new Date(timestamp))
 
-export const initials = (name: string): string =>
-  name
-    .split(/\s+/)
-    .filter((word) => word !== '')
-    .slice(0, 2)
-    .map((word) => word[0]!.toUpperCase())
-    .join('')
-
-export const avatar = (name: string): HTMLElement =>
-  h('span', { class: 'avatar', 'aria-hidden': 'true' }, initials(name))
-
 export const empty = (text: string, ...actions: ReadonlyArray<Child>): HTMLElement =>
   h('div', { class: 'empty' }, h('p', {}, text), ...actions)
 

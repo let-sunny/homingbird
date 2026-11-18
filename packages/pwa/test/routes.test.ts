@@ -11,6 +11,9 @@ const routes: fc.Arbitrary<Route> = fc.oneof(
   segment.map((slug): Route => ({ name: 'topic', slug })),
   fc.constant<Route>({ name: 'profile' }),
   fc.constant<Route>({ name: 'credentials' }),
+  fc.constant<Route>({ name: 'character', draft: null, from: null }),
+  segment.map((draft): Route => ({ name: 'character', draft, from: null })),
+  segment.map((from): Route => ({ name: 'character', draft: null, from })),
   segment.map((id): Route => ({ name: 'conversation', id })),
   segment.map((id): Route => ({ name: 'consent', id })),
   fc.option(segment, { nil: null }).map((code): Route => ({ name: 'device', code })),
@@ -51,6 +54,9 @@ describe('routes', () => {
     ['#/consent', { name: 'unknown' }],
     ['#/nowhere', { name: 'unknown' }],
     ['#/c/%E0%A4%A', { name: 'conversation', id: '%E0%A4%A' }],
+    ['#/character', { name: 'character', draft: null, from: null }],
+    ['#/character?from=cat', { name: 'character', draft: null, from: 'cat' }],
+    ['#/character/eyJ2ZXJzaW9uIjoxfQ', { name: 'character', draft: 'eyJ2ZXJzaW9uIjoxfQ', from: null }],
   ])('reads %j', (hash, expected) => {
     expect(parseRoute(hash)).toEqual(expected)
   })

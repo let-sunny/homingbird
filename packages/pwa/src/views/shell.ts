@@ -1,6 +1,8 @@
-import type { Conversation, Me } from '@homingbird/protocol'
+import { systemClock } from '@homingbird/kernel'
+import type { Conversation, Me, MemberId } from '@homingbird/protocol'
 import { type Lifetime, h, region } from '@homingbird/ui'
 import { launch, signOut } from '../actions.ts'
+import { arrivalTracker } from '../arrivals.ts'
 import { type Route, hrefFor } from '../routes.ts'
 import {
   type Connection,
@@ -16,7 +18,8 @@ import {
 import { strings } from '../strings.ts'
 import { conversationTitle, excerpt, otherParticipants } from '../thread.ts'
 import { peopleConversations, topicRooms } from '../topics.ts'
-import { avatar, emptyWithPip, presenceBadges, timeLabel, wordmark } from './parts.ts'
+import { groupAvatar, memberAvatar } from './character-avatar.ts'
+import { emptyWithPip, presenceBadges, timeLabel, wordmark } from './parts.ts'
 import { type PipState, pip } from './pip.ts'
 
 export const shell = (life: Lifetime, me: Me, stage: HTMLElement): HTMLElement => {
@@ -79,7 +82,7 @@ const titleBar = (life: Lifetime, me: Me): HTMLElement =>
     h(
       'button',
       { type: 'button', class: 'user-button', popovertarget: USER_MENU_ID, 'aria-label': strings.menu },
-      avatar(me.member.name),
+      memberAvatar(me.member, { labelled: false }),
     ),
   )
 
@@ -176,6 +179,22 @@ const onboarding = (): HTMLElement =>
     ),
   )
 
+const justArrived = arrivalTracker(systemClock.now())
+
+const conversationFace = (
+  conversation: Conversation,
+  others: ReadonlyArray<MemberId>,
+  arrived: boolean,
+): HTMLElement => {
+  const people = others.map((id) => members.get().get(id))
+  if (conversation.kind !== 'dm' && people.length > 1) return groupAvatar(people)
+  const author = arrived ? members.get().get(conversation.lastNote!.authorId) : undefined
+  return memberAvatar(author ?? people[0], {
+    labelled: false,
+    ...(arrived && { state: 'new-note', motion: 'once' }),
+  })
+}
+
 const conversationRow = (conversation: Conversation, me: Me): HTMLElement => {
   const title = conversationTitle(conversation, members.get(), me.member.id, strings.formerMember)
   const current = route.get()
@@ -194,7 +213,7 @@ const conversationRow = (conversation: Conversation, me: Me): HTMLElement => {
       },
       conversation.kind === 'topic'
         ? h('span', { class: 'avatar is-topic', 'aria-hidden': 'true' }, '#')
-        : avatar(title),
+        : conversationFace(conversation, others, justArrived(conversation, me.member.id)),
       h(
         'span',
         { class: 'conversation-main' },

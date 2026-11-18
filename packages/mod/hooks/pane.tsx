@@ -9,7 +9,7 @@ import type {
   HomingbirdOverview,
 } from '../types'
 import { bodyOf } from './drafting'
-import { type PaneText, paneLanguageFrom, paneTextIn } from './pane-text'
+import { type PaneText, textFor } from './pane-text'
 import { PIP, PIP_COLUMNS, PIP_PIXELS, PIP_ROWS, type PipState } from './pip'
 
 export async function renderPane(
@@ -58,9 +58,8 @@ export const paneTitleFor = (waiting: number): string =>
 
 export const PANE = 'homingbird'
 
-async function paneTextFor($: EngineInterface, latest: HomingbirdOverview | null): Promise<PaneText> {
-  const environment = [await $.env.get('LC_ALL'), await $.env.get('LC_MESSAGES'), await $.env.get('LANG')]
-  return paneTextIn(paneLanguageFrom(latest?.locale, environment))
+function paneTextFor($: EngineInterface, latest: HomingbirdOverview | null): Promise<PaneText> {
+  return textFor($, latest)
 }
 
 function pip($: EngineInterface, e: ResolveInput, state: PipState): RenderElement | null {

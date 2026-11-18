@@ -1,10 +1,8 @@
 import { CharacterSpec, PRESETS, validateCharacter } from '@homingbird/sprites'
 
 /**
- * Everything Dovecote refuses in a profile character, in words a person or a model can act on: the brand
- * rules of `validateCharacter`, plus a made character that takes a built-in character's id. Clients and
- * model-facing tools call it for feedback; the server calls it again before it saves, and never trusts a
- * client's check.
+ * Everything Dovecote refuses in a profile character: the brand rules, plus a made character that takes a
+ * built-in character's id. Clients and tools call it for feedback; the server calls it again before saving.
  */
 export const characterProblems = (input: unknown): string[] => {
   const problems = validateCharacter(input)
@@ -18,10 +16,10 @@ export const characterProblems = (input: unknown): string[] => {
 
 export { CharacterSpec }
 
-/** A character travels as JSON well under this; anything larger is refused before it is read. */
+export const BUILT_IN_CHARACTERS: ReadonlyArray<CharacterSpec> = PRESETS
+
 export const CHARACTER_BYTES_MAX = 4096
 
-/** The built-in character a spec is, unchanged, or undefined for a character someone made. */
 export const builtInCharacterOf = (spec: CharacterSpec): CharacterSpec | undefined =>
   PRESETS.find((preset) => isSameCharacter(spec, preset))
 

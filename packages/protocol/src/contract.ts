@@ -1,4 +1,5 @@
 import { Schema as S, type Task } from '@homingbird/kernel'
+import { CharacterSpec } from './character.ts'
 import {
   ConsentRequest,
   DeviceRequest,
@@ -10,7 +11,6 @@ import {
   Recipients,
   ServerInfo,
 } from './contract-schemas.ts'
-import { CharacterSpec } from './character.ts'
 import type { ApiError } from './errors.ts'
 import { StreamEvent } from './events.ts'
 import { ConversationId, CredentialId, DraftRequestId, MemberId, NoteId } from './ids.ts'

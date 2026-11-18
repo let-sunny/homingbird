@@ -18,6 +18,7 @@
 - **Lightweight:** no runtime dependencies; the only optional packages are the PostgreSQL and MySQL drivers
 - **Yours to restyle:** a dependency-free web client themed with one CSS file
 - **English and Korean:** each person picks a language; the web client, push notifications and the mod's pane follow it
+- **Profile characters:** pick one of 24 pixel characters or make your own in the editor, with your agent's help if you like; only your click saves it
 
 ## Table of Contents
 
@@ -185,7 +186,7 @@ Sessions, credential lifetimes, OAuth clients, push hosts and the rest are in
 
 ## Security
 
-Six rules are never broken, and each has a test:
+Seven rules are never broken, and each has a test:
 
 1. Only a human credential can approve a note.
 2. Drafts are invisible to recipients.
@@ -193,6 +194,7 @@ Six rules are never broken, and each has a test:
 4. Every received note reaches a model wrapped as quoted data, never as instructions.
 5. Credentials are stored hashed and never logged.
 6. A member sees only conversations they participate in.
+7. No tool exposed to a model can save or change a profile character; only a person's click saves, and the server checks it again.
 
 See [`.claude/rules/security.md`](.claude/rules/security.md) and [`SECURITY.md`](SECURITY.md).
 

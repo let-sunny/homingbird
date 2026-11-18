@@ -9,6 +9,7 @@
       "**/node_modules",
       "packages/mod/.claude-plugin/types",
       "packages/mod/cli",
+      "packages/mod/hooks/character-rules.mjs",
       "**/*.css",
       "assets",
       "deploy"

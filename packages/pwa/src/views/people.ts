@@ -12,8 +12,9 @@ import {
 } from '../actions.ts'
 import { directory } from '../state.ts'
 import { strings } from '../strings.ts'
-import { avatar, button, emptyWithPip, field, page, presenceBadges, topicChips } from './parts.ts'
-import { type PipState, pip } from './pip.ts'
+import { memberAvatar } from './character-avatar.ts'
+import { button, emptyWithPip, field, page, presenceBadges, topicChips } from './parts.ts'
+import type { PipState } from './pip.ts'
 
 export const peopleView = (life: Lifetime, me: Me): HTMLElement => {
   launch(loadPeople)
@@ -49,7 +50,7 @@ const personCard = (entry: DirectoryEntry): HTMLElement =>
   h(
     'li',
     { class: 'person', data: { memberId: entry.member.id } },
-    h('div', { class: 'person-face' }, avatar(entry.member.name), pip(personPip(entry), 2)),
+    h('div', { class: 'person-face' }, memberAvatar(entry.member, { scale: 3, state: personPip(entry) })),
     h(
       'div',
       { class: 'person-main' },

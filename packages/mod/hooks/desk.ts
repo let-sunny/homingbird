@@ -5,6 +5,7 @@ import type { HomingbirdDraftRequest, HomingbirdOverview } from '../types'
 import { commandOf, lastJsonLine, run, runJson } from './command-line'
 import { autoDraftOf, notePromptFor, replyIn, replyPromptFor, requestPromptFor } from './drafting'
 import { PANE, paneTitleFor } from './pane'
+import { type PaneText, textFor } from './pane-text'
 
 export interface Desk {
   readonly options: PluginOptions
@@ -69,11 +70,8 @@ export async function beginSignIn($: Engine, desk: Desk, server: string): Promis
       await update($, signIn, () => pending)
     }
   } catch (cause) {
-    await update(
-      $,
-      problem,
-      () => `Could not sign in: ${cause instanceof Error ? cause.message : String(cause)}`,
-    )
+    const failed = (await said($)).couldNotSignIn(cause instanceof Error ? cause.message : String(cause))
+    await update($, problem, () => failed)
   }
   await update($, signIn, () => null)
   if ((await refresh($, desk)) !== null) await claimDesk($, desk)
@@ -82,8 +80,10 @@ export async function beginSignIn($: Engine, desk: Desk, server: string): Promis
 export async function decide($: Engine, desk: Desk, args: ReadonlyArray<string>): Promise<void> {
   const ran = await runJson($, desk.options, args)
   await update($, editing, () => null)
-  if (ran.kind === 'signed-out') await update($, problem, () => NO_APPROVE_BUTTON)
-  else if (ran.kind !== 'ok') await update($, problem, () => ran.message)
+  if (ran.kind === 'signed-out') {
+    const noButton = (await said($)).noApproveButton
+    await update($, problem, () => noButton)
+  } else if (ran.kind !== 'ok') await update($, problem, () => ran.message)
   await refresh($, desk)
 }
 
@@ -112,6 +112,15 @@ export async function wrappedNoteFor($: Engine, desk: Desk, noteId: string): Pro
   return latest?.awaiting.find((waiting) => waiting.noteId === noteId)?.wrapped ?? null
 }
 
+/** The server this session is signed in to, as the pane last saw it; empty when it is not known. */
+export async function knownServer($: Engine): Promise<string> {
+  return (await read($, overview))?.server ?? ''
+}
+
+export async function personText($: Engine): Promise<PaneText> {
+  return said($)
+}
+
 export const inBackground = (work: Promise<unknown>): void => {
   work.catch(() => undefined)
 }
@@ -119,6 +128,10 @@ export const inBackground = (work: Promise<unknown>): void => {
 export const DESK_KEY = 'desk'
 
 type Engine = EngineInterface
+
+async function said($: Engine): Promise<PaneText> {
+  return textFor($, await read($, overview))
+}
 
 async function approveButtonAllowedOn($: Engine, desk: Desk, server: string): Promise<boolean> {
   const known = desk.approveButtonAllowed.get(server)
@@ -169,7 +182,8 @@ async function follow($: Engine, desk: Desk): Promise<void> {
       await arrived($, desk, line)
     }
   } catch {
-    await update($, problem, () => 'The live stream stopped. Reconnecting in half a minute.')
+    const stopped = (await said($)).streamStopped
+    await update($, problem, () => stopped)
   }
   if (desk.stream !== stream) return
   desk.stream = null
@@ -187,7 +201,8 @@ async function arrived($: Engine, desk: Desk, line: string): Promise<void> {
     typeof body.note?.id === 'string'
   ) {
     desk.wrappedNotes.set(body.note.id, parsed.wrapped)
-    notifyPerson($, `A note from ${authorIn(parsed.wrapped)} arrived. Drafting a reply.`)
+    const text = await said($)
+    notifyPerson($, text, text.noteArrived(authorIn(parsed.wrapped) ?? text.aColleague))
     await refresh($, desk)
     return draftReply($, desk, body.note.id, parsed.wrapped)
   }
@@ -203,8 +218,10 @@ async function arrived($: Engine, desk: Desk, line: string): Promise<void> {
     body?.type === 'draft.saved' &&
     latest !== null &&
     latest.drafts.some((draft) => draft.id === body.note?.id)
-  )
-    notifyPerson($, 'A draft is ready for your approval in the Homingbird pane.')
+  ) {
+    const text = await said($)
+    notifyPerson($, text, text.draftReadyNotice)
+  }
   if (body?.type === 'resync') await catchUp($, desk)
   else if (body?.type === 'draft.saved' || body?.type === 'draft.request.changed') {
     const open = await openRequests($, desk)
@@ -249,7 +266,8 @@ async function answerRequest($: Engine, desk: Desk, request: HomingbirdDraftRequ
   await update($, requests, (open) => [...open.filter((one) => one.id !== request.id), request])
   if (autoDraftOf(desk.options.autoDraft) === 'off' || desk.handled.has(request.id)) return
   desk.handled.add(request.id)
-  notifyPerson($, 'Drafting what you asked for.')
+  const text = await said($)
+  notifyPerson($, text, text.draftingRequest)
   await $.prompt.submit({ text: requestPromptFor(request) })
 }
 
@@ -261,15 +279,15 @@ async function suggestReply($: Engine, prompt: string): Promise<string> {
   return fresh.isAnswered ? fresh.text : ''
 }
 
-function notifyPerson($: Engine, text: string): void {
-  $.ui.toast(`Homingbird: ${text}`)
+function notifyPerson($: Engine, words: PaneText, text: string): void {
+  $.ui.toast(words.toast(text))
   inBackground($.ui.notify(text, { title: 'Homingbird' }))
 }
 
 async function showCounts($: Engine, latest: HomingbirdOverview | null): Promise<void> {
   const waiting = latest?.drafts.length ?? 0
   const isDesk = (await read($, deskRole)) === 'desk'
-  $.ui.status(isDesk ? `Homingbird desk${waiting > 0 ? ` · ${waitingLabel(waiting)}` : ''}` : undefined)
+  $.ui.status(isDesk ? (await textFor($, latest)).deskStatus(waiting) : undefined)
   const isOpen = (await $.ui.panes()).some((pane) => pane.id === PANE)
   if (isOpen) await $.ui.open({ id: PANE, title: paneTitleFor(waiting) })
 }
@@ -352,17 +370,12 @@ const overviewIn = (value: unknown): HomingbirdOverview | null => {
   }
 }
 
-const authorIn = (wrappedNote: string): string => {
+const authorIn = (wrappedNote: string): string | null => {
   const from = /^<colleague-note [^>]*from="([^"&]*)/.exec(wrappedNote)?.[1]?.trim()
-  return from === undefined || from === '' ? 'a colleague' : from
+  return from === undefined || from === '' ? null : from
 }
 
-const waitingLabel = (count: number): string =>
-  `${count} ${count === 1 ? 'draft' : 'drafts'} waiting for approval`
-
 const HEARTBEAT_MS = 30_000
-
-const NO_APPROVE_BUTTON = 'This device has no approve button. Approve in the Homingbird web client.'
 
 const connection = atom({ plugin: 'homingbird', key: 'connection' } as const, 'idle')
 const deskRole = atom({ plugin: 'homingbird', key: 'desk' } as const, 'not-desk')

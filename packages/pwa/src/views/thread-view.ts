@@ -47,8 +47,9 @@ import {
 } from '../thread.ts'
 import { topicLabel, topicOfRoom } from '../topics.ts'
 import { agentAsk } from './agent-ask.ts'
+import { groupAvatar, memberAvatar } from './character-avatar.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
-import { avatar, backLink, button, emptyWithPip, field, presenceBadges, timeLabel } from './parts.ts'
+import { backLink, button, emptyWithPip, field, presenceBadges, timeLabel } from './parts.ts'
 import { type PipState, pip } from './pip.ts'
 import { helpToggle } from './topics.ts'
 
@@ -116,9 +117,10 @@ const threadHead = (life: Lifetime, me: Me, id: ConversationId): HTMLElement =>
       if (conversation.kind === 'topic') return topicHead(conversation, title)
       const others = otherParticipants(conversation, me.member.id)
       const entry = directory.get().find((candidate) => candidate.member.id === others[0])
+      const people = others.map((other) => members.get().get(other))
       return [
         backLink(),
-        avatar(title),
+        conversation.kind !== 'dm' && people.length > 1 ? groupAvatar(people) : memberAvatar(people[0]),
         h(
           'div',
           { class: 'thread-who' },
@@ -441,7 +443,12 @@ const composer = (life: Lifetime, me: Me, id: ConversationId): HTMLElement => {
     },
     region(life, [threads, replyTargets, directory, conversations, sendingIn, draftRequests], () => [
       sendingIn.get().has(id) &&
-        h('p', { class: 'sending', role: 'status' }, pip('sending', 2), strings.sending),
+        h(
+          'p',
+          { class: 'sending', role: 'status' },
+          memberAvatar(me.member, { state: 'sending', motion: 'loop', labelled: false }),
+          strings.sending,
+        ),
       waitingChips(me, id),
       replyChip(id),
       cannotMessageNotice(me, id),
