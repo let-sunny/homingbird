@@ -40,8 +40,15 @@ export const stream = (
     })
   })
 
-export const toLine = (event: StreamEvent, viewerId: MemberId, authors: Authors, nonce: () => string): StreamLine =>
-  isReceivedNote(event, viewerId) ? { event, wrapped: quoteForModel(event.body.note, authors, nonce()) } : { event }
+export const toLine = (
+  event: StreamEvent,
+  viewerId: MemberId,
+  authors: Authors,
+  nonce: () => string,
+): StreamLine =>
+  isReceivedNote(event, viewerId)
+    ? { event, wrapped: quoteForModel(event.body.note, authors, nonce()) }
+    : { event }
 
 type NoteSent = StreamEvent & { readonly body: Extract<StreamEvent['body'], { type: 'note.sent' }> }
 

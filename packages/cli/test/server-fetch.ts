@@ -10,7 +10,8 @@ export interface RecordedCall {
   readonly body: string
 }
 
-export const fetchThrough = (server: TestServer, recorded: RecordedCall[] = []): Fetch =>
+export const fetchThrough =
+  (server: TestServer, recorded: RecordedCall[] = []): Fetch =>
   async (url, init = {}) => {
     const method = init.method ?? 'GET'
     const headers = Object.fromEntries(new Headers(init.headers).entries())
@@ -25,8 +26,14 @@ export const fetchThrough = (server: TestServer, recorded: RecordedCall[] = []):
     })
     const raw = answer.raw.body
     if (typeof raw === 'string' || raw instanceof Uint8Array)
-      return new Response(answer.status === 204 ? null : raw, { status: answer.status, headers: answer.headers })
-    return new Response(streamOf(raw, init.signal ?? null), { status: answer.status, headers: answer.headers })
+      return new Response(answer.status === 204 ? null : raw, {
+        status: answer.status,
+        headers: answer.headers,
+      })
+    return new Response(streamOf(raw, init.signal ?? null), {
+      status: answer.status,
+      headers: answer.headers,
+    })
   }
 
 const streamOf = (chunks: AsyncIterable<string>, signal: AbortSignal | null): ReadableStream<Uint8Array> => {

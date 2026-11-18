@@ -25,4 +25,6 @@ export const showThread = (
   authors: Authors,
   nonce: () => string,
 ): string =>
-  notes.map((note) => (note.authorId === viewerId ? showOwnNote(note) : quoteForModel(note, authors, nonce()))).join('\n\n')
+  notes
+    .map((note) => (note.authorId === viewerId ? showOwnNote(note) : quoteForModel(note, authors, nonce())))
+    .join('\n\n')

@@ -12,7 +12,7 @@ import {
 import type { Stubs } from '../../mcp/test/support.ts'
 import { runCli } from '../src/cli.ts'
 import { CREDENTIAL_FILES } from '../src/credentials.ts'
-import type { CliEnv } from '../src/environment.ts'
+import type { AgentRun, CliEnv } from '../src/environment.ts'
 
 export * from '../../mcp/test/support.ts'
 
@@ -44,6 +44,8 @@ export interface World {
   readonly clock: ReturnType<typeof makeTestClock>
   readonly run: (...argv: string[]) => Promise<number>
   readonly json: () => any
+  readonly opened: string[]
+  readonly agentRuns: Array<{ readonly command: string; readonly prompt: string }>
 }
 
 export interface WorldOptions {
@@ -53,6 +55,8 @@ export interface WorldOptions {
   readonly clock?: Clock & ReturnType<typeof makeTestClock>
   readonly signedIn?: 'agent' | 'both' | 'none'
   readonly variables?: Readonly<Record<string, string | undefined>>
+  readonly browser?: (url: string) => boolean | Promise<boolean>
+  readonly agent?: (prompt: string, signal: AbortSignal) => AgentRun | Promise<AgentRun>
 }
 
 export const world = (options: WorldOptions = {}): World => {
@@ -65,8 +69,11 @@ export const world = (options: WorldOptions = {}): World => {
   const clock = options.clock ?? makeTestClock(1_700_000_000_000)
   const signedIn = options.signedIn ?? 'both'
   if (signedIn !== 'none') files.set(AGENT_FILE, JSON.stringify({ serverUrl: SERVER, token: AGENT_TOKEN }))
-  if (signedIn === 'both') files.set(APPROVAL_FILE, JSON.stringify({ serverUrl: SERVER, token: APPROVAL_TOKEN }))
+  if (signedIn === 'both')
+    files.set(APPROVAL_FILE, JSON.stringify({ serverUrl: SERVER, token: APPROVAL_TOKEN }))
   let nonces = 0
+  const opened: string[] = []
+  const agentRuns: World['agentRuns'] = []
   const env: CliEnv = {
     clock,
     fetch: options.fetch ?? stubbedFetch(options.stubs ?? {}, calls, options.other),
@@ -84,8 +91,20 @@ export const world = (options: WorldOptions = {}): World => {
     hostName: 'laptop',
     nonce: () => `nonce${String(nonces++).padStart(15, '0')}`,
     stopped: stop.signal,
+    launcher: {
+      openInBrowser: async (url) => {
+        opened.push(url)
+        return (await options.browser?.(url)) ?? false
+      },
+      runAgent: async (command, prompt, signal) => {
+        agentRuns.push({ command, prompt })
+        return (await options.agent?.(prompt, signal)) ?? { exitCode: 0, output: 'Drafted reply.' }
+      },
+    },
   }
   return {
+    opened,
+    agentRuns,
     env,
     lines,
     problems,
@@ -119,7 +138,8 @@ export const stubbedFetch =
     calls.push(call)
     if (matched === null) return (await other?.(call)) ?? new Response('{}', { status: 404 })
     const stub = stubs[matched.name] as ((request: unknown) => unknown) | undefined
-    if (stub === undefined) return json(503, toErrorBody({ _tag: 'Unavailable', message: `not stubbed: ${matched.name}` }))
+    if (stub === undefined)
+      return json(503, toErrorBody({ _tag: 'Unavailable', message: `not stubbed: ${matched.name}` }))
     const answer = stub({
       params: matched.params,
       query: Object.fromEntries(searchParams),
@@ -128,7 +148,10 @@ export const stubbedFetch =
     return isApiError(answer) ? json(HTTP_STATUS[answer._tag], toErrorBody(answer)) : json(200, answer)
   }
 
-const routeOf = (method: string, path: string): { name: RouteName; params: Record<string, string> } | null => {
+const routeOf = (
+  method: string,
+  path: string,
+): { name: RouteName; params: Record<string, string> } | null => {
   for (const name of Object.keys(contract) as RouteName[]) {
     if (contract[name].method !== method) continue
     const params = matchPath(`${API_PREFIX}${contract[name].path}`, path)
@@ -141,5 +164,7 @@ const json = (status: number, value: unknown): Response =>
   new Response(JSON.stringify(value), { status, headers: { 'content-type': 'application/json' } })
 
 const isApiError = (value: unknown): value is ApiError =>
-  typeof value === 'object' && value !== null && typeof (value as { _tag?: unknown })._tag === 'string' &&
+  typeof value === 'object' &&
+  value !== null &&
+  typeof (value as { _tag?: unknown })._tag === 'string' &&
   (value as { _tag: string })._tag in HTTP_STATUS

@@ -34,7 +34,10 @@ export const requireCredential = (role: CredentialRole): T.Task<StoredCredential
       : T.fail(CliFailure({ message: MISSING_MESSAGE[role], exitCode: EXIT.signedOut })),
   )(readCredential(role))
 
-export const writeCredential = (role: CredentialRole, credential: StoredCredential): T.Task<void, never, CliEnv> =>
+export const writeCredential = (
+  role: CredentialRole,
+  credential: StoredCredential,
+): T.Task<void, never, CliEnv> =>
   T.flatMap((env: CliEnv) =>
     T.promise(() => env.files.writePrivate(pathOf(env, role), `${JSON.stringify(credential, null, 2)}\n`)),
   )(T.ask<CliEnv>())

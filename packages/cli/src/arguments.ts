@@ -102,7 +102,10 @@ const usage = (message: string): Result.Err<CliFailure> =>
 
 const tokenize = (
   argv: ReadonlyArray<string>,
-): Result.Result<{ positionals: string[]; values: Map<string, string>; switches: Set<string> }, CliFailure> => {
+): Result.Result<
+  { positionals: string[]; values: Map<string, string>; switches: Set<string> },
+  CliFailure
+> => {
   const positionals: string[] = []
   const values = new Map<string, string>()
   const switches = new Set<string>()
@@ -180,7 +183,10 @@ const BUILDERS: Readonly<Record<string, (tokens: Tokens) => Result.Result<Invoca
   },
   inbox: ({ switches }) => Result.ok({ command: 'inbox', fresh: switches.has('fresh') }),
   conversations: () => Result.ok({ command: 'conversations' }),
-  conversation: ({ rest }) => Result.map((id: string) => ({ command: 'conversation' as const, id }))(required(rest, 'the conversation id')),
+  conversation: ({ rest }) =>
+    Result.map((id: string) => ({ command: 'conversation' as const, id }))(
+      required(rest, 'the conversation id'),
+    ),
   draft: ({ rest, values }) =>
     Result.gen(function* () {
       const target = yield* draftTarget(values)
@@ -190,15 +196,21 @@ const BUILDERS: Readonly<Record<string, (tokens: Tokens) => Result.Result<Invoca
     }),
   drafts: () => Result.ok({ command: 'drafts' }),
   overview: () => Result.ok({ command: 'overview' }),
-  pickup: ({ rest }) => Result.map((noteId: string) => ({ command: 'pickup' as const, noteId }))(required(rest, 'the note id')),
+  pickup: ({ rest }) =>
+    Result.map((noteId: string) => ({ command: 'pickup' as const, noteId }))(required(rest, 'the note id')),
   stream: ({ values }) => {
     const after = values.get('after')
     if (after !== undefined && !/^[0-9]{1,15}$/.test(after)) return usage('--after needs a sequence number.')
     return Result.ok({ command: 'stream', after: after === undefined ? null : Number(after) })
   },
   approve: ({ rest, values }) =>
-    Result.map((draftId: string) => ({ command: 'approve' as const, draftId, body: values.get('body') ?? null }))(
+    Result.map((draftId: string) => ({
+      command: 'approve' as const,
+      draftId,
+      body: values.get('body') ?? null,
+    }))(required(rest, 'the draft id')),
+  discard: ({ rest }) =>
+    Result.map((draftId: string) => ({ command: 'discard' as const, draftId }))(
       required(rest, 'the draft id'),
     ),
-  discard: ({ rest }) => Result.map((draftId: string) => ({ command: 'discard' as const, draftId }))(required(rest, 'the draft id')),
 }

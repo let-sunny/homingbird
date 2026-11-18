@@ -6,6 +6,7 @@ import type { CliEnv } from '../environment.ts'
 import { type CliFailure, failed } from '../failure.ts'
 import { type Outcome, outcome } from '../outcome.ts'
 import { apiFor, calling } from '../session.ts'
+import { openOnServer } from '../web-client.ts'
 
 type Login = Extract<Invocation, { command: 'login' }>
 
@@ -22,15 +23,20 @@ export const login = (
       fetch: env.fetch,
     }
     const authorization = yield* T.mapError(toFailure)(beginDeviceFlow(options))
+    const link = authorization.verification_uri_complete
+    const opened = invocation.openBrowser ? yield* openOnServer(link, invocation.server) : false
     announce(
       outcome(
         {
           step: 'awaiting_approval',
-          verificationUri: authorization.verification_uri_complete,
+          verificationUri: link,
           userCode: authorization.user_code,
           expiresInSeconds: authorization.expires_in,
+          browserOpened: opened,
         },
-        `Open ${authorization.verification_uri_complete}\nand confirm the code ${authorization.user_code}`,
+        opened
+          ? `Opened ${link} in your browser.\nThe code ${authorization.user_code} is filled in there: confirm it to finish.`
+          : `Open ${link}\nand confirm the code ${authorization.user_code}`,
       ),
     )
     const tokens = yield* T.mapError(toFailure)(awaitDeviceTokens(options, authorization))
@@ -43,7 +49,9 @@ export const login = (
     return outcome(
       { step: 'signed_in', server: invocation.server, member: me.member, hasApproveButton },
       `Signed in to ${invocation.server} as ${me.member.name} <${me.member.email}>.${
-        invocation.approveButton && !hasApproveButton ? '\nThe approve button was not granted; approve notes in the web client.' : ''
+        invocation.approveButton && !hasApproveButton
+          ? '\nThe approve button was not granted; approve notes in the web client.'
+          : ''
       }`,
     )
   })

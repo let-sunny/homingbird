@@ -39,8 +39,7 @@ export const run = (
     report(
       outcome(
         { step: 'online', member: { id: member.id, name: member.name, email: member.email }, agent },
-        `Answering notes and draft requests for ${member.name} with: ${agent}\n` +
-          'Every draft waits for approval in the web client. Press Ctrl-C to stop.',
+        `Answering notes and draft requests for ${member.name} with: ${agent}\nEvery draft waits for approval in the web client. Press Ctrl-C to stop.`,
       ),
     )
     yield* answerWaiting(runner)
@@ -89,7 +88,7 @@ const isWaking = (event: StreamEvent, viewerId: MemberId): boolean =>
 
 const answerWaiting = (runner: Runner): T.Task<void, CliFailure, CliEnv> =>
   T.gen(function* () {
-    const outcome = yield* T.result(
+    const looked = yield* T.result(
       T.gen(function* () {
         const { items } = yield* calling(runner.session.api['inbox.list']({ query: { fresh: '1' } }))
         for (const item of items) yield* answerNote(runner, item)
@@ -100,9 +99,9 @@ const answerWaiting = (runner: Runner): T.Task<void, CliFailure, CliEnv> =>
         }
       }),
     )
-    if (outcome._tag === 'Ok') return
-    if (outcome.error.exitCode === EXIT.signedOut) return yield* T.fail(outcome.error)
-    yield* warn(`Could not look for work just now: ${outcome.error.message}`)
+    if (looked._tag === 'Ok') return
+    if (looked.error.exitCode === EXIT.signedOut) return yield* T.fail(looked.error)
+    yield* warn(`Could not look for work just now: ${looked.error.message}`)
   })
 
 const answerNote = (runner: Runner, item: InboxItem): T.Task<void, CliFailure, CliEnv> =>

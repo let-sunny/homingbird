@@ -1,12 +1,16 @@
 import { Task as T } from '@homingbird/kernel'
 import { type Invocation, type Parsed, USAGE, parseArguments } from './arguments.ts'
 import { approve, discard, draft, drafts, pickUp } from './commands/drafting.ts'
-import { overview } from './commands/overview.ts'
 import { login } from './commands/login.ts'
 import { logout } from './commands/logout.ts'
+import { open } from './commands/open.ts'
+import { overview } from './commands/overview.ts'
 import { conversation, conversations, directory, inbox } from './commands/reading.ts'
+import { requests } from './commands/requests.ts'
+import { run } from './commands/run.ts'
 import { status } from './commands/status.ts'
 import { stream } from './commands/stream.ts'
+import { topics } from './commands/topics.ts'
 import type { CliEnv } from './environment.ts'
 import type { CliFailure } from './failure.ts'
 import { type Outcome, outcome } from './outcome.ts'
@@ -23,7 +27,10 @@ export const runCli = (argv: ReadonlyArray<string>): T.Task<number, never, CliEn
     return 0
   })
 
-const execute = (parsed: Parsed, print: (step: Outcome) => void): T.Task<Outcome | null, CliFailure, CliEnv> => {
+const execute = (
+  parsed: Parsed,
+  print: (step: Outcome) => void,
+): T.Task<Outcome | null, CliFailure, CliEnv> => {
   const invocation: Invocation = parsed.invocation
   switch (invocation.command) {
     case 'help':
@@ -35,7 +42,15 @@ const execute = (parsed: Parsed, print: (step: Outcome) => void): T.Task<Outcome
     case 'status':
       return status
     case 'directory':
-      return directory(invocation.query)
+      return directory(invocation.query, invocation.topic)
+    case 'topics':
+      return topics(invocation.query)
+    case 'requests':
+      return requests
+    case 'open':
+      return open(invocation.conversationId)
+    case 'run':
+      return T.as(null)(run(invocation.agent, invocation.timeoutSeconds, print))
     case 'inbox':
       return inbox(invocation.fresh)
     case 'conversations':

@@ -3,6 +3,7 @@ import type { StreamEvent } from '@homingbird/protocol'
 import {
   forgetNote,
   launch,
+  loadAgents,
   loadConversations,
   loadPeople,
   loadThread,
@@ -10,7 +11,16 @@ import {
   rememberNote,
 } from './actions.ts'
 import { upsertRequest } from './draft-requests.ts'
-import { announcement, directory, draftRequests, members, route, signedIn, threads } from './state.ts'
+import {
+  agentCredentials,
+  announcement,
+  directory,
+  draftRequests,
+  members,
+  route,
+  signedIn,
+  threads,
+} from './state.ts'
 import { strings } from './strings.ts'
 import { withPresence, withReceipts, withoutMovedQuestion } from './thread.ts'
 
@@ -39,6 +49,7 @@ export const applyEvent = (event: StreamEvent): void => {
       break
     case 'draft.saved':
       rememberNote(body.note)
+      if (body.note.origin !== 'human') refreshAgentsIfNoneKnown()
       launch(loadConversations)
       break
     case 'draft.discarded':
@@ -57,6 +68,8 @@ export const applyEvent = (event: StreamEvent): void => {
       break
     case 'presence':
       directory.update((entries) => withPresence(entries, body.members))
+      if (body.members.some((change) => change.memberId === signedIn()?.member.id && change.agentOnline))
+        refreshAgentsIfNoneKnown()
       break
     case 'resync':
       reloadEverything()
@@ -81,6 +94,10 @@ const announceIfFresh = (event: StreamEvent): void => {
   const isFresh = systemClock.now() - (note.sentAt ?? 0) < FRESH_MS
   if (isMine || !isFresh) return
   announcement.set(strings.incomingNote(members.get().get(note.authorId)?.name ?? strings.formerMember))
+}
+
+const refreshAgentsIfNoneKnown = (): void => {
+  if (agentCredentials.get().length === 0) launch(loadAgents)
 }
 
 const reloadEverything = (): void => {

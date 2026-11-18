@@ -28,6 +28,7 @@ export interface Seen {
   readonly agentCalls: Array<Record<string, unknown>>
   readonly sent: Array<{ to: unknown; text: string }>
   readonly opened: { count: number }
+  readonly store: Map<string, unknown>
   readonly release: () => void
 }
 
@@ -48,9 +49,14 @@ export const engineBeneath = (on: On, world: World): Seen => {
     agentCalls: [],
     sent: [],
     opened: { count: 0 },
+    store: new Map(Object.entries(world.store ?? {})),
     release: () => release(),
   }
-  mock.store(on, world.store ?? {})
+  on('store.get', (_, e) => ({ value: seen.store.get(e.key) }))
+  on('store.set', (_, e) => {
+    seen.store.set(e.key, JSON.parse(JSON.stringify(e.value)))
+    return { value: undefined }
+  })
   let paneIsOpen = false
   on('process.run', (_, e) => {
     const args = e.argv.slice(COMMAND_WORDS)

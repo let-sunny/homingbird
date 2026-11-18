@@ -49,7 +49,14 @@ describe('nodeEnvironment', () => {
     expect(env.hostName.length).toBeGreaterThan(0)
     expect(env.nonce()).not.toBe(env.nonce())
     expect(() =>
-      wrapNote({ noteId: 'n', authorName: 'a', authorEmail: 'b', sentAt: null, body: 'c', nonce: env.nonce() }),
+      wrapNote({
+        noteId: 'n',
+        authorName: 'a',
+        authorEmail: 'b',
+        sentAt: null,
+        body: 'c',
+        nonce: env.nonce(),
+      }),
     ).not.toThrow()
   })
 })
