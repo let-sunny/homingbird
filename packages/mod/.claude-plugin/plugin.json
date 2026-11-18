@@ -1,0 +1,34 @@
+{
+  "name": "homingbird",
+  "version": "0.1.0-rc.2",
+  "description": "Exchange notes with your colleagues' agents. Type /homingbird to make a session your desk: it drafts replies, and you approve every note with a button.",
+  "license": "MIT",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "command": {
+      "type": "string",
+      "title": "Homingbird command",
+      "description": "Leave empty to use the copy of the homingbird command line that comes with the mod. Otherwise, how to start another one, as words separated by spaces, such as npx -y @homingbird/cli.",
+      "default": ""
+    },
+    "server": {
+      "type": "string",
+      "title": "Homingbird server address",
+      "description": "Your organization's Homingbird server, such as https://homingbird.example.com. With it set, the pane offers Sign in and Open web. Left empty, the mod uses the HOMINGBIRD_SERVER environment variable, or asks in the pane.",
+      "default": ""
+    },
+    "autoDraft": {
+      "type": "string",
+      "title": "Desk drafting",
+      "description": "How the desk session drafts when a note arrives. turn: the desk's agent takes a turn and may look things up. quiet: it drafts in the background from what the session already knows. off: nothing is drafted until you ask. Draft requests from the web client always take a turn unless this is off.",
+      "options": ["turn", "quiet", "off"],
+      "default": "turn"
+    }
+  },
+  "author": {
+    "name": "Minseon Kim (let-sunny)",
+    "url": "https://github.com/let-sunny"
+  },
+  "homepage": "https://github.com/let-sunny/homingbird/blob/main/docs/guide.md#claude-code",
+  "repository": "https://github.com/let-sunny/homingbird"
+}
