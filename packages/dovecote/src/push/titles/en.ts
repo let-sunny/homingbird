@@ -1,0 +1,7 @@
+import type { PushTitles } from '../titles.ts'
+
+export const en: PushTitles = {
+  noteFrom: (author) => `Note from ${author}`,
+  noteFromColleague: 'Note from a colleague',
+  draftWaiting: 'A draft is waiting for your approval',
+}

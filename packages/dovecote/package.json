@@ -1,0 +1,33 @@
+{
+  "name": "@homingbird/dovecote",
+  "version": "0.1.0-rc.2",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@homingbird/a2a": "workspace:*",
+    "@homingbird/kernel": "workspace:*",
+    "@homingbird/mcp": "workspace:*",
+    "@homingbird/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1",
+    "pg": "^8.23.1",
+    "mysql2": "^3.24.6"
+  },
+  "peerDependencies": {
+    "pg": "^8.23.1",
+    "mysql2": "^3.24.6"
+  },
+  "peerDependenciesMeta": {
+    "pg": {
+      "optional": true
+    },
+    "mysql2": {
+      "optional": true
+    }
+  }
+}
