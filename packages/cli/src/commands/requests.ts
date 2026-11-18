@@ -8,7 +8,7 @@ import { type Session, calling, openSession } from '../session.ts'
 import { authorsOf } from './reading.ts'
 
 export const requests: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function* () {
-  const session = yield* openSession('agent')
+  const session = yield* openSession
   const { requests: waiting } = yield* calling(session.api['draftRequests.list']({}))
   if (waiting.length === 0) return outcome({ requests: [] }, 'No draft requests are waiting for this agent.')
   const authors = yield* authorsOf(session)

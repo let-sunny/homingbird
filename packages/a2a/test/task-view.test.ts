@@ -9,16 +9,16 @@ import { taskViewOf } from '../src/task-view.ts'
 import {
   ANA,
   BEN,
+  CHANNEL_CONVERSATION_ID,
   DIRECTORY,
   JUNE,
   type Stubs,
-  TOPIC_CONVERSATION_ID,
+  channelConversationOf,
   conversationOf,
   fakeApi,
   noteOf,
   receiptOf,
   sequentialNonce,
-  topicConversationOf,
 } from './support.ts'
 
 const viewing = async (note: Note, stubs: Stubs = {}) => {
@@ -104,6 +104,7 @@ describe('taskViewOf', () => {
           reply({ id: NoteId.of('other0000000'), inReplyTo: null, body: 'unrelated' }),
         ],
         hasMore: false,
+        notices: [],
       }),
       'directory.list': () => DIRECTORY,
     })
@@ -135,7 +136,11 @@ describe('taskViewOf', () => {
     })
     const { view: shown } = await view(partly, {
       'conversations.get': () => conversationOf({ kind: 'group' }),
-      'conversations.notes': () => ({ notes: [reply({ inReplyTo: partly.id })], hasMore: false }),
+      'conversations.notes': () => ({
+        notes: [reply({ inReplyTo: partly.id })],
+        hasMore: false,
+        notices: [],
+      }),
       'directory.list': () => DIRECTORY,
     })
     expect(shown.phase).toBe('working')
@@ -145,32 +150,35 @@ describe('taskViewOf', () => {
   it('names an author who left the directory as unknown', async () => {
     const { view: shown } = await view(REPLIED, {
       'conversations.get': () => conversationOf(),
-      'conversations.notes': () => ({ notes: [reply()], hasMore: false }),
+      'conversations.notes': () => ({ notes: [reply()], hasMore: false, notices: [] }),
       'directory.list': () => ({ entries: [] }),
     })
     expect(shown.artifacts[0]!.name).toBe('Reply from Unknown member')
     expect(shown.artifacts[0]!.text).toContain('from="Unknown member &lt;unknown&gt;"')
   })
 
-  it('completes a question to a topic once one helper replied, though the other helpers never will', async () => {
+  it('completes a question to a channel once one helper replied, though the other helpers never will', async () => {
     const question = noteOf({
       authorId: ANA.id,
-      conversationId: TOPIC_CONVERSATION_ID,
+      conversationId: CHANNEL_CONVERSATION_ID,
       receipts: [
         receiptOf({ memberId: BEN.id }),
         receiptOf({ memberId: JUNE.id, state: 'replied', repliedAt: 70 }),
       ],
     })
     const { view: shown } = await view(question, {
-      'conversations.get': () => topicConversationOf(),
+      'conversations.get': () => channelConversationOf(),
       'conversations.notes': () => ({
-        notes: [reply({ authorId: JUNE.id, inReplyTo: question.id, conversationId: TOPIC_CONVERSATION_ID })],
+        notes: [
+          reply({ authorId: JUNE.id, inReplyTo: question.id, conversationId: CHANNEL_CONVERSATION_ID }),
+        ],
         hasMore: false,
+        notices: [],
       }),
       'directory.list': () => DIRECTORY,
     })
     expect(shown.phase).toBe('completed')
-    expect(shown.contextId).toBe(TOPIC_CONVERSATION_ID)
+    expect(shown.contextId).toBe(CHANNEL_CONVERSATION_ID)
     expect(shown.artifacts).toHaveLength(1)
     expect(shown.artifacts[0]!.name).toBe('Reply from June')
     expect(shown.artifacts[0]!.text).toMatch(new RegExp(`^<${WRAPPER_TAG} `))
@@ -194,7 +202,7 @@ describe('taskViewOf', () => {
       if (note.status === 'discarded') return 'canceled'
       const replied = note.receipts.filter((receipt) => receipt.repliedAt !== null)
       if (replied.length === 0) return 'working'
-      return kind === 'topic' || replied.length === note.receipts.length ? 'completed' : 'working'
+      return kind === 'channel' || replied.length === note.receipts.length ? 'completed' : 'working'
     }
     await fc.assert(
       fc.asyncProperty(
@@ -207,6 +215,7 @@ describe('taskViewOf', () => {
             'conversations.notes': () => ({
               notes: [reply({ inReplyTo: note.id, body: replyBody })],
               hasMore: false,
+              notices: [],
             }),
             'directory.list': () => DIRECTORY,
           })

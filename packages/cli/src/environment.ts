@@ -11,6 +11,8 @@ export interface CliEnv extends HasClock {
   readonly nonce: () => string
   readonly stopped: AbortSignal
   readonly launcher: Launcher
+  /** The server this command was told to use, with --server or HOMINGBIRD_SERVER. */
+  readonly server: string | null
 }
 
 export interface Launcher {
@@ -33,6 +35,8 @@ export interface Files {
   readonly exists: (path: string) => Promise<boolean>
   readonly writePrivate: (path: string, content: string) => Promise<void>
   readonly remove: (path: string) => Promise<void>
+  /** The names of the files directly in a directory; none when it does not exist. */
+  readonly list: (directory: string) => Promise<string[]>
 }
 
 export interface Output {

@@ -163,27 +163,27 @@ describe('handleA2aMessage', () => {
     expect([...reached].sort()).toEqual(['drafts.update', 'notes.get'])
   })
 
-  it('has no action that joins, leaves or answers a topic, or changes its members, managers or visibility', async () => {
+  it('has no action that joins, leaves or answers a channel, or changes its members, managers or visibility', async () => {
     const { call, calls } = gateway()
     const membership = (Object.keys(contract) as RouteName[]).filter(
-      (name) => name.startsWith('topics.') && humanOnlyRoutes.includes(name),
+      (name) => name.startsWith('channels.') && humanOnlyRoutes.includes(name),
     )
     expect(membership).toHaveLength(10)
     for (const method of [
       ...CURRENT_METHODS,
       ...LEGACY_METHODS,
-      'topics.join',
-      'topics/join',
-      'JoinTopic',
-      'topics.members.add',
-      'topics.visibility.set',
+      'channels.join',
+      'channels/join',
+      'JoinChannel',
+      'channels.members.add',
+      'channels.visibility.set',
     ])
       await call(method, {
         ...MESSAGE,
         slug: 'payroll',
         memberId: 'mem_abcdefghijkl',
         visibility: 'open',
-        message: { ...MESSAGE.message, metadata: { topic: 'payroll', join: true, answering: true } },
+        message: { ...MESSAGE.message, metadata: { channel: 'payroll', join: true, answering: true } },
       })
     expect(calls.map((one) => one.name).filter((name) => membership.includes(name as RouteName))).toEqual([])
   })

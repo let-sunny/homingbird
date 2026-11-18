@@ -1,4 +1,4 @@
-import { ConversationId, DraftRequestId, NoteId, type Topic, WRAPPER_TAG } from '@homingbird/protocol'
+import { type Channel, ConversationId, DraftRequestId, NoteId, WRAPPER_TAG } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import { EXIT, SIGNED_OUT_MESSAGE } from '../src/failure.ts'
 import {
@@ -15,10 +15,10 @@ import {
   world,
 } from './support.ts'
 
-const BILLING: Topic = {
+const BILLING: Channel = {
   slug: 'billing',
   description: 'Invoices and refunds',
-  conversationId: ConversationId.of('topicbilling'),
+  conversationId: ConversationId.of('channelbilling'),
   visibility: 'open',
   memberCount: 3,
   helperCount: 2,
@@ -28,7 +28,7 @@ const BILLING: Topic = {
   createdAt: 1,
 }
 
-const LOBBY: Topic = {
+const LOBBY: Channel = {
   ...BILLING,
   slug: 'lobby',
   description: 'Anything else',
@@ -37,7 +37,7 @@ const LOBBY: Topic = {
   answering: false,
 }
 
-const PAYROLL: Topic = {
+const PAYROLL: Channel = {
   ...BILLING,
   slug: 'payroll',
   description: 'Salaries',
@@ -57,61 +57,63 @@ const DRAFT = noteOf({
   receipts: [],
 })
 
-describe('topics', () => {
-  it('lists each topic with its helpers and the member’s place in it, and says to ask exactly one', async () => {
+describe('channels', () => {
+  it('lists each channel with its helpers and the member’s place in it, and says to ask exactly one', async () => {
     let query: unknown
     const w = world({
       stubs: {
-        'topics.list': (request) => {
+        'channels.list': (request) => {
           query = request.query
-          return { topics: [BILLING, LOBBY], hasMore: false, cursor: null }
+          return { channels: [BILLING, LOBBY], hasMore: false, cursor: null }
         },
       },
     })
-    expect(await w.run('topics', 'bill')).toBe(0)
+    expect(await w.run('channels', 'bill')).toBe(0)
     expect(query).toEqual({ q: 'bill' })
     expect(w.lines[0]).toBe(
       [
         '#billing — Invoices and refunds (2 answering; you answer here)',
         '#lobby — Anything else (9 answering; you are in the room, not answering)',
         '',
-        'Ask one topic: homingbird draft --topic <slug> "<question>". When none fits, run homingbird directory and ask a colleague whose profile or topics match; when nobody fits, say that no one was found.',
+        'Ask one channel: homingbird draft --channel <slug> "<question>". When none fits, run homingbird directory and ask a colleague whose profile or channels match; when nobody fits, say that no one was found.',
       ].join('\n'),
     )
-    await w.run('topics', '--json')
-    expect(w.json()).toEqual({ topics: [BILLING, LOBBY], hasMore: false, cursor: null })
+    await w.run('channels', '--json')
+    expect(w.json()).toEqual({ channels: [BILLING, LOBBY], hasMore: false, cursor: null })
   })
 
-  it('marks a private topic and says never to mention it outside', async () => {
-    const w = world({ stubs: { 'topics.list': () => ({ topics: [PAYROLL], hasMore: false, cursor: null }) } })
-    expect(await w.run('topics')).toBe(0)
+  it('marks a private channel and says never to mention it outside', async () => {
+    const w = world({
+      stubs: { 'channels.list': () => ({ channels: [PAYROLL], hasMore: false, cursor: null }) },
+    })
+    expect(await w.run('channels')).toBe(0)
     expect(w.lines[0]!.split('\n')).toEqual([
       '#payroll (private) — Salaries (2 answering; you are not in the room)',
       '',
-      'Ask one topic: homingbird draft --topic <slug> "<question>". When none fits, run homingbird directory and ask a colleague whose profile or topics match; when nobody fits, say that no one was found.',
-      'A private topic is seen only by its members, and only they can ask there: never mention one, or anything said in it, outside it.',
+      'Ask one channel: homingbird draft --channel <slug> "<question>". When none fits, run homingbird directory and ask a colleague whose profile or channels match; when nobody fits, say that no one was found.',
+      'A private channel is seen only by its members, and only they can ask there: never mention one, or anything said in it, outside it.',
     ])
   })
 
-  it('says when more topics exist and how to search them', async () => {
+  it('says when more channels exist and how to search them', async () => {
     const w = world({
-      stubs: { 'topics.list': () => ({ topics: [BILLING], hasMore: true, cursor: '50' }) },
+      stubs: { 'channels.list': () => ({ channels: [BILLING], hasMore: true, cursor: '50' }) },
     })
-    await w.run('topics')
+    await w.run('channels')
     expect(w.lines[0]!.split('\n')[1]).toBe(
-      'More topics exist; these are the ones you are in, then the fullest. Search with homingbird topics <word>.',
+      'More channels exist; these are the ones you are in, then the fullest. Search with homingbird channels <word>.',
     )
   })
 
   it('points to the directory, and to telling the person, when nothing matches', async () => {
-    const w = world({ stubs: { 'topics.list': () => ({ topics: [], hasMore: false, cursor: null }) } })
-    await w.run('topics', 'zzz')
+    const w = world({ stubs: { 'channels.list': () => ({ channels: [], hasMore: false, cursor: null }) } })
+    await w.run('channels', 'zzz')
     expect(w.lines).toEqual([
-      'No topic matches. Run homingbird directory and ask a colleague whose profile or topics match; when nobody fits, say that no one was found.',
+      'No channel matches. Run homingbird directory and ask a colleague whose profile or channels match; when nobody fits, say that no one was found.',
     ])
   })
 
-  it('lists the helpers of one topic in the directory, refusing a name that is not a topic', async () => {
+  it('lists the helpers of one channel in the directory, refusing a name that is not a channel', async () => {
     let query: unknown
     const w = world({
       stubs: {
@@ -121,18 +123,18 @@ describe('topics', () => {
         },
       },
     })
-    expect(await w.run('directory', '--topic', 'billing')).toBe(0)
-    expect(query).toEqual({ topic: 'billing' })
-    expect(await w.run('directory', '--topic', 'Billing Team')).toBe(EXIT.failed)
-    expect(w.problems[0]).toMatch(/is not a topic name/)
+    expect(await w.run('directory', '--channel', 'billing')).toBe(0)
+    expect(query).toEqual({ channel: 'billing' })
+    expect(await w.run('directory', '--channel', 'Billing Team')).toBe(EXIT.failed)
+    expect(w.problems[0]).toMatch(/is not a channel name/)
   })
 
-  it('shows a topic room by its name in the conversation list', async () => {
+  it('shows a channel room by its name in the conversation list', async () => {
     const w = world({
       stubs: {
         'directory.list': () => DIRECTORY,
         'conversations.list': () => ({
-          conversations: [conversationOf({ id: BILLING.conversationId, kind: 'topic', title: 'billing' })],
+          conversations: [conversationOf({ id: BILLING.conversationId, kind: 'channel', title: 'billing' })],
         }),
       },
     })
@@ -141,7 +143,7 @@ describe('topics', () => {
   })
 })
 
-describe('draft to a topic or for a request', () => {
+describe('draft to a channel or for a request', () => {
   const drafting = (stubs: Stubs = {}) => {
     const bodies: unknown[] = []
     const w = world({
@@ -156,10 +158,10 @@ describe('draft to a topic or for a request', () => {
     return { w, bodies }
   }
 
-  it('drafts a question into one topic room', async () => {
+  it('drafts a question into one channel room', async () => {
     const { w, bodies } = drafting()
-    expect(await w.run('draft', '--topic', 'billing', 'Who', 'owns', 'refunds?')).toBe(0)
-    expect(bodies).toEqual([{ body: 'Who owns refunds?', topic: 'billing' }])
+    expect(await w.run('draft', '--channel', 'billing', 'Who', 'owns', 'refunds?')).toBe(0)
+    expect(bodies).toEqual([{ body: 'Who owns refunds?', channel: 'billing' }])
     expect(w.lines).toEqual([
       `Draft ${DRAFT.id} is waiting for a person to approve it. It has not been sent.`,
     ])
@@ -174,7 +176,7 @@ describe('draft to a topic or for a request', () => {
   })
 
   it.each([
-    [['--topic', 'Not A Topic'], /is not a topic name/],
+    [['--channel', 'Not A Channel'], /is not a channel name/],
     [['--request', 'nope'], /^That is not a draft request id/],
   ])('refuses %j before drafting anything', async (target, message) => {
     const { w, bodies } = drafting()

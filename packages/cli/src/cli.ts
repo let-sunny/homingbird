@@ -1,6 +1,7 @@
 import { Task as T } from '@homingbird/kernel'
 import { type Invocation, type Parsed, USAGE, parseArguments } from './arguments.ts'
-import { approve, discard, draft, drafts, pickUp, skip } from './commands/drafting.ts'
+import { channels } from './commands/channels.ts'
+import { draft, drafts, pickUp, skip } from './commands/drafting.ts'
 import { login } from './commands/login.ts'
 import { logout } from './commands/logout.ts'
 import { open } from './commands/open.ts'
@@ -10,7 +11,6 @@ import { requests } from './commands/requests.ts'
 import { run } from './commands/run.ts'
 import { status } from './commands/status.ts'
 import { stream } from './commands/stream.ts'
-import { topics } from './commands/topics.ts'
 import type { CliEnv } from './environment.ts'
 import type { CliFailure } from './failure.ts'
 import { type Outcome, outcome } from './outcome.ts'
@@ -21,7 +21,9 @@ export const runCli = (argv: ReadonlyArray<string>): T.Task<number, never, CliEn
     const parsed = parseArguments(argv)
     if (parsed._tag === 'Err') return report(env, parsed.error, argv.includes('--json'))
     const print = printer(env, parsed.value.json)
-    const result = yield* T.result(execute(parsed.value, print))
+    const server =
+      parsed.value.server ?? (env.variables.HOMINGBIRD_SERVER?.trim().replace(/\/+$/, '') || null)
+    const result = yield* T.result(T.provide({ ...env, server })(execute(parsed.value, print)))
     if (result._tag === 'Err') return report(env, result.error, parsed.value.json)
     if (result.value !== null) print(result.value)
     return 0
@@ -42,9 +44,9 @@ const execute = (
     case 'status':
       return status
     case 'directory':
-      return directory(invocation.query, invocation.topic)
-    case 'topics':
-      return topics(invocation.query)
+      return directory(invocation.query, invocation.channel)
+    case 'channels':
+      return channels(invocation.query)
     case 'requests':
       return requests
     case 'open':
@@ -67,10 +69,6 @@ const execute = (
       return pickUp(invocation.noteId)
     case 'skip':
       return skip(invocation.noteId, invocation.reason)
-    case 'approve':
-      return approve(invocation.draftId, invocation.body)
-    case 'discard':
-      return discard(invocation.draftId)
     case 'stream':
       return T.as(null)(
         stream(invocation.after, (line) =>

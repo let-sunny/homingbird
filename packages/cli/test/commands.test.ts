@@ -6,8 +6,6 @@ import {
   AGENT_FILE,
   AGENT_TOKEN,
   ANA,
-  APPROVAL_FILE,
-  APPROVAL_TOKEN,
   BEN,
   CONVERSATION_ID,
   DIRECTORY,
@@ -42,7 +40,7 @@ const READING: Stubs = {
   'server.info': () => INFO,
   'directory.list': () => DIRECTORY,
   'conversations.list': () => ({ conversations: [conversationOf({ unreadCount: 2, draftCount: 1 })] }),
-  'conversations.notes': () => ({ notes: [QUESTION, DRAFT], hasMore: false }),
+  'conversations.notes': () => ({ notes: [QUESTION, DRAFT], hasMore: false, notices: [] }),
   'inbox.list': () => ({ items: [{ note: QUESTION, author: BEN, conversation: conversationOf() }] }),
   'drafts.list': () => ({ drafts: [DRAFT] }),
 }
@@ -52,7 +50,6 @@ const INFO = {
   version: '1.0.0',
   contactMode: 'open',
   signInWith: 'Development login',
-  approveButton: true,
 } as const
 
 const everythingPrinted = (w: ReturnType<typeof world>): string => [...w.lines, ...w.problems].join('\n')
@@ -80,7 +77,7 @@ describe('help', () => {
 })
 
 describe('status', () => {
-  it('says who is signed in, where, and whether this device has the approve button', async () => {
+  it('says who is signed in, where, with which credential and in which language', async () => {
     const w = world({ stubs: READING })
     expect(await w.run('status')).toBe(0)
     expect(w.lines[0]).toBe(
@@ -88,18 +85,14 @@ describe('status', () => {
         `Server:         ${SERVER}`,
         'Signed in as:   Ana <ana@example.com>',
         'Credential:     Laptop (agent)',
-        'Approve button: granted on this device',
         'Language:       follows the browser',
         'Transport:      server-sent events, falling back to long-poll',
       ].join('\n'),
     )
-    expect(w.calls).toMatchObject([
-      { route: 'me.get', authorization: `Bearer ${AGENT_TOKEN}` },
-      { route: 'server.info' },
-    ])
+    expect(w.calls).toMatchObject([{ route: 'me.get', authorization: `Bearer ${AGENT_TOKEN}` }])
   })
 
-  it('reports the same as JSON, with the organization’s approve button setting and the member’s language, and never prints a token', async () => {
+  it('reports the same as JSON, with the member’s language, and never prints a token', async () => {
     const w = world({
       stubs: { ...READING, 'me.get': () => ({ ...(ME as object), locale: 'ko' }) as never },
       signedIn: 'agent',
@@ -108,20 +101,10 @@ describe('status', () => {
     expect(w.json()).toMatchObject({
       signedIn: true,
       server: SERVER,
-      approveButton: true,
-      hasApproveButton: false,
       locale: 'ko',
       member: { name: 'Ana' },
     })
     expect(everythingPrinted(w)).not.toContain(AGENT_TOKEN)
-  })
-
-  it('says when the organization has turned the approve button off, even on a device that has one', async () => {
-    const w = world({ stubs: { ...READING, 'server.info': () => ({ ...INFO, approveButton: false }) } })
-    await w.run('status')
-    expect(w.lines[0]).toContain('Approve button: the organization has turned the approve button off')
-    await w.run('status', '--json')
-    expect(w.json()).toMatchObject({ approveButton: false, hasApproveButton: true, locale: null })
   })
 
   it('says not signed in without calling the server', async () => {
@@ -129,7 +112,7 @@ describe('status', () => {
     expect(await w.run('status')).toBe(0)
     expect(w.lines).toEqual(['Not signed in.'])
     await w.run('status', '--json')
-    expect(w.json()).toEqual({ signedIn: false })
+    expect(w.json()).toEqual({ signedIn: false, servers: [] })
     expect(w.calls).toEqual([])
   })
 
@@ -145,7 +128,7 @@ describe('status', () => {
   it('finds its credentials under XDG_CONFIG_HOME when that is set', async () => {
     const w = world({ stubs: READING, signedIn: 'none', variables: { XDG_CONFIG_HOME: '/xdg' } })
     w.files.set(
-      '/xdg/homingbird/agent-credential.json',
+      `/xdg/homingbird/agents/${encodeURIComponent(SERVER)}.json`,
       JSON.stringify({ serverUrl: SERVER, token: AGENT_TOKEN }),
     )
     await w.run('status', '--json')
@@ -168,11 +151,11 @@ describe('directory', () => {
         `Ana <ana@example.com> [${ANA.id}]`,
         '  agent online, person offline, this is you',
         '  helps with: Billing and migrations',
-        '  topics: #billing',
+        '  channels: #billing',
         `Ben <ben@example.com> [${BEN.id}]`,
         '  agent online, person offline, can be messaged',
         '  helps with: Billing and migrations',
-        '  topics: #billing',
+        '  channels: #billing',
       ].join('\n'),
     )
     expect(w.calls[0]).toMatchObject({ route: 'directory.list', path: '/api/v1/directory' })
@@ -181,7 +164,7 @@ describe('directory', () => {
   it('passes a query, and shows blocked or offline people as such', async () => {
     const blocked = entryOf(
       { ...BEN, profile: '' },
-      { canMessage: false, presence: { humanOnline: true, agentOnline: false }, topics: [] },
+      { canMessage: false, presence: { humanOnline: true, agentOnline: false }, channels: [] },
     )
     let query: unknown
     const w = world({
@@ -282,7 +265,7 @@ describe('conversations', () => {
     expect(stranger.lines[0]).toContain('Ana, Unknown member')
     const none = world({ stubs: { ...READING, 'conversations.list': () => ({ conversations: [] }) } })
     await none.run('conversations')
-    expect(none.lines).toEqual(['No conversations yet.'])
+    expect(none.lines).toEqual(['No direct messages or channels yet.'])
   })
 })
 
@@ -311,7 +294,7 @@ describe('conversation', () => {
       receipts: [receiptOf({ memberId: BEN.id, state: 'read', readAt: 2 })],
     })
     const w = world({
-      stubs: { ...READING, 'conversations.notes': () => ({ notes: [own], hasMore: false }) },
+      stubs: { ...READING, 'conversations.notes': () => ({ notes: [own], hasMore: false, notices: [] }) },
     })
     await w.run('conversation', CONVERSATION_ID)
     expect(w.lines[0]).toBe(`[${own.id}] you, sent:\n${own.body}\n(Read)`)
@@ -323,7 +306,7 @@ describe('conversation', () => {
     expect(bad.problems).toEqual(['That is not a conversation id.'])
     expect(bad.calls).toEqual([])
     const empty = world({
-      stubs: { ...READING, 'conversations.notes': () => ({ notes: [], hasMore: false }) },
+      stubs: { ...READING, 'conversations.notes': () => ({ notes: [], hasMore: false, notices: [] }) },
     })
     await empty.run('conversation', CONVERSATION_ID)
     expect(empty.lines).toEqual(['This conversation has no notes yet.'])
@@ -455,70 +438,16 @@ describe('drafts and pickup', () => {
   })
 })
 
-describe('approve and discard', () => {
-  const SENT = { ...DRAFT, status: 'sent' as const, sentAt: 5, receipts: [receiptOf({ memberId: BEN.id })] }
-  const DISCARDED = { ...DRAFT, status: 'discarded' as const }
-  const deciding = (signedIn: 'both' | 'agent' | 'none' = 'both') =>
-    world({ signedIn, stubs: { 'drafts.send': () => SENT, 'drafts.discard': () => DISCARDED } })
-
-  it('sends with the approval credential, never the agent one', async () => {
-    const w = deciding()
-    expect(await w.run('approve', DRAFT.id)).toBe(0)
-    expect(w.lines).toEqual([`Sent ${DRAFT.id}.`])
-    expect(w.calls).toEqual([
-      {
-        method: 'POST',
-        path: `/api/v1/drafts/${DRAFT.id}/send`,
-        route: 'drafts.send',
-        authorization: `Bearer ${APPROVAL_TOKEN}`,
-        body: '{}',
-      },
-    ])
-  })
-
-  it('sends the edited text when one is given', async () => {
-    const w = deciding()
-    await w.run('approve', DRAFT.id, '--body', 'Edited text', '--json')
-    expect(JSON.parse(w.calls[0]!.body)).toEqual({ body: 'Edited text' })
-    expect(w.json().note).toMatchObject({ id: DRAFT.id, status: 'sent' })
-  })
-
-  it('discards with the approval credential', async () => {
-    const w = deciding()
-    await w.run('discard', DRAFT.id)
-    expect(w.lines).toEqual([`Discarded ${DRAFT.id}.`])
-    expect(w.calls[0]).toMatchObject({ route: 'drafts.discard', authorization: `Bearer ${APPROVAL_TOKEN}` })
-  })
-
+describe('approving', () => {
   it.each(['approve', 'discard'])(
-    '%s refuses without the approval credential, and calls nothing',
+    'has no %s command: approval happens only in the web client',
     async (command) => {
-      for (const signedIn of ['agent', 'none'] as const) {
-        const w = deciding(signedIn)
-        expect(await w.run(command, DRAFT.id)).toBe(EXIT.signedOut)
-        expect(w.problems[0]).toMatch(/This device has no approve button/)
-        expect(w.calls).toEqual([])
-      }
+      const w = world()
+      expect(await w.run(command, DRAFT.id)).toBe(EXIT.usage)
+      expect(w.problems[0]).toMatch(new RegExp(`Unknown command "${command}"`))
+      expect(w.calls).toEqual([])
     },
   )
-
-  it.each(['approve', 'discard'])('%s refuses an id that is not a draft id', async (command) => {
-    const w = deciding()
-    expect(await w.run(command, 'nope')).toBe(EXIT.failed)
-    expect(w.calls).toEqual([])
-  })
-
-  it('reports a server refusal, such as an agent credential placed in the approval file', async () => {
-    const w = world({
-      stubs: {
-        'drafts.send': () =>
-          Forbidden({ message: 'Only a person can do this; agent credentials are refused.' }),
-      },
-    })
-    w.files.set(APPROVAL_FILE, JSON.stringify({ serverUrl: SERVER, token: AGENT_TOKEN }))
-    expect(await w.run('approve', DRAFT.id)).toBe(EXIT.failed)
-    expect(w.problems).toEqual(['Only a person can do this; agent credentials are refused.'])
-  })
 })
 
 describe('overview', () => {
@@ -530,8 +459,8 @@ describe('overview', () => {
       signedIn: true,
       server: SERVER,
       member: { id: ANA.id, name: 'Ana', email: 'ana@example.com' },
-      hasApproveButton: true,
     })
+    expect(overview).not.toHaveProperty('hasApproveButton')
     expect(overview.conversations).toHaveLength(1)
     expect(overview.awaiting[0].wrapped).toContain(`<${WRAPPER_TAG}`)
     expect(overview.drafts[0]).toMatchObject({ id: DRAFT.id, body: 'Yes, after six.' })
@@ -542,10 +471,8 @@ describe('overview', () => {
     const w = world({ stubs: READING, signedIn: 'agent' })
     await w.run('overview')
     expect(w.lines[0]).toMatch(
-      /^Signed in as Ana on https:\/\/hb\.example\.com\n\nConversations\n.*\n\nWaiting for a reply\n[\s\S]*\n\nDrafts waiting for approval\n/,
+      /^Signed in as Ana on https:\/\/hb\.example\.com\n\nDirect messages and channels\n.*\n\nWaiting for a reply\n[\s\S]*\n\nDrafts waiting for approval\n/,
     )
-    await w.run('overview', '--json')
-    expect(w.json().hasApproveButton).toBe(false)
   })
 
   it('says not signed in without calling the server', async () => {
@@ -559,17 +486,16 @@ describe('overview', () => {
 })
 
 describe('logout', () => {
-  it('revokes both credentials on the server and removes both files', async () => {
+  it('revokes the agent credential on the server and removes its file', async () => {
     const w = world({ other: () => new Response('{}', { status: 200 }) })
     expect(await w.run('logout')).toBe(0)
-    expect(w.lines).toEqual(['Signed out. The credentials on this device were revoked and removed.'])
+    expect(w.lines).toEqual([
+      `Signed out of ${SERVER}. Its credential on this device was revoked and removed.`,
+    ])
     expect(w.files.size).toBe(0)
     expect(
       w.calls.map((call) => [call.method, call.path, new URLSearchParams(call.body).get('token')]),
-    ).toEqual([
-      ['POST', '/oauth/revoke', AGENT_TOKEN],
-      ['POST', '/oauth/revoke', APPROVAL_TOKEN],
-    ])
+    ).toEqual([['POST', '/oauth/revoke', AGENT_TOKEN]])
     expect(everythingPrinted(w)).not.toMatch(/hb[ah]_/)
   })
 
@@ -580,7 +506,7 @@ describe('logout', () => {
       },
     })
     expect(await w.run('logout', '--json')).toBe(0)
-    expect(w.json()).toEqual({ signedOut: true })
+    expect(w.json()).toEqual({ signedOut: true, server: SERVER })
     expect(w.files.size).toBe(0)
   })
 

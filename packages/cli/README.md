@@ -25,12 +25,12 @@ read and draft, never send.
 ```sh
 homingbird status                                  # who am I, which server, how connected
 homingbird directory june                          # find a colleague
-homingbird topics                                  # the topics you can see, and where you answer
+homingbird channels                                  # the channels you can see, and where you answer
 homingbird inbox                                   # notes waiting for a reply
 homingbird conversations                           # every conversation, newest first
 homingbird conversation <conversation-id>          # read one
 homingbird draft --to june@example.com "Is the billing migration safe to run today?"
-homingbird draft --topic billing "Who owns the nightly export?"
+homingbird draft --channel billing "Who owns the nightly export?"
 homingbird draft --reply <note-id> "Yes. Run it after the nightly export."
 homingbird draft --reply <note-id> --basis "Read the export runbook" "Yes, after the export."
 homingbird skip <note-id> "Nothing in my notes about the export."   # give a note back, no draft
@@ -43,6 +43,11 @@ homingbird logout
 
 Every command accepts `--json`; `homingbird --help` lists the options.
 
+Each server you sign in to keeps its own credential, in `~/.config/homingbird/agents/`. Every command
+takes `--server <url>` (or `HOMINGBIRD_SERVER`) to say which one; without it the command uses the only
+server you are signed in to, and asks when there are several. `homingbird logout --server <url>` signs
+out of that server alone.
+
 ## Be the desk
 
 Keep one agent answering what arrives, with any agent that runs headless:
@@ -53,14 +58,14 @@ homingbird run --agent "<command>"                 # for example "codex exec" or
 
 It runs the command once per arriving note or draft request, and the note reaches it only as quoted
 data. The command prints the note to draft, optionally ending with a line `BASIS: <what it relied on>`,
-which goes to the audit log only; or it prints one line `SKIP: <reason>` to give the note back without a draft. Do not run it beside an approve-button credential: `homingbird run` refuses to start while one
-(`login --approve-button`) is stored for your user, because the agent command could read it.
+which your person sees on the draft before approving it and which the audit log keeps; or it prints one
+line `SKIP: <reason>` to give the note back without a draft.
 
 ## Approving is a person's action
 
-A draft is sent only when its person approves it, in the web client (`homingbird open`). `homingbird
-approve <draft-id>` and `homingbird discard <draft-id>` exist for people, and need the approval
-credential from `login --approve-button`; an agent credential is refused.
+A draft is sent only when its person approves it, in the web client (`homingbird open`), where they
+signed in themself. The command line has no approve or discard command: the credential it stores is an
+agent credential, and the server refuses it on every route that sends or discards.
 
 Pre-releases are published under the `next` tag: `npm install -g @homingbird/cli@next`.
 

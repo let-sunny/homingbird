@@ -52,7 +52,6 @@ export const makeLocalSession = (options: LocalSessionOptions): LocalSession => 
   const flow: DeviceFlowOptions = {
     serverUrl,
     clientName: options.clientName,
-    wantsApproval: false,
     ...fetching,
   }
   const timed = <A, E>(task: T.Task<A, E, { clock: Clock }>): T.Task<A, E> =>

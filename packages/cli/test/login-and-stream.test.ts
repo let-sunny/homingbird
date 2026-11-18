@@ -7,10 +7,10 @@ import { EXIT } from '../src/failure.ts'
 import {
   AGENT_FILE,
   ANA,
-  APPROVAL_FILE,
   BEN,
   type Call,
   DIRECTORY,
+  HOME,
   INTERRUPTED,
   SERVER,
   entryOf,
@@ -34,7 +34,6 @@ const AUTHORIZATION = {
 }
 
 const NEW_AGENT = 'hba_new-agent-token-0123456789abcdef'
-const NEW_APPROVAL = 'hbh_new-approval-token-0123456789ab'
 
 const json = (status: number, value: unknown) => new Response(JSON.stringify(value), { status })
 
@@ -56,18 +55,20 @@ describe('login', () => {
       stubs: { 'me.get': () => ME },
       other: deviceServer([pending, () => json(200, { access_token: NEW_AGENT, expires_in: 3600 })]),
     })
+    const legacy = `${HOME}/.config/homingbird/agent-credential.json`
+    w.files.set(legacy, JSON.stringify({ serverUrl: 'https://elsewhere.example', token: 'hba_old' }))
     const running = w.run('login', '--server', `${SERVER}/`)
     await w.clock.advance(5_000)
     expect(w.lines).toEqual([`Open ${SERVER}/#/device/BCDF-GHJK\nand confirm the code BCDF-GHJK`])
-    expect(w.files.size).toBe(0)
+    expect(w.files.has(AGENT_FILE)).toBe(false)
     await w.clock.advance(5_000)
     expect(await running).toBe(0)
     expect(w.lines.at(-1)).toBe(
       `Signed in to ${SERVER} as Ana <ana@example.com>.\nKeep one desk session: one Claude Code session with the mod, one homingbird-mcp --desk, or one homingbird run answers arriving notes; other sessions draft only what you ask.`,
     )
     expect(JSON.parse(w.files.get(AGENT_FILE)!)).toEqual({ serverUrl: SERVER, token: NEW_AGENT })
+    expect(w.files.has(legacy)).toBe(false)
     expect(w.privateWrites).toEqual([AGENT_FILE])
-    expect(w.files.has(APPROVAL_FILE)).toBe(false)
     expect([...w.lines, ...w.problems].join('\n')).not.toContain(NEW_AGENT)
     const started = w.calls.find((call) => call.path === '/oauth/device_authorization')!
     expect(Object.fromEntries(new URLSearchParams(started.body))).toEqual({
@@ -123,21 +124,19 @@ describe('login', () => {
     expect(elsewhere.lines[0]).toMatch(/^Open https:\/\/evil\.example/)
   })
 
-  it('asks for the approve button only with --approve-button, and stores that credential in its own file', async () => {
+  it('asks for the notes scope only, under the given name, and stores one credential', async () => {
     const w = world({
       signedIn: 'none',
       stubs: { 'me.get': () => ME },
-      other: deviceServer([
-        () => json(200, { access_token: NEW_AGENT, approval_token: NEW_APPROVAL, expires_in: 3600 }),
-      ]),
+      other: deviceServer([() => json(200, { access_token: NEW_AGENT, expires_in: 3600 })]),
     })
-    const running = w.run('login', '--server', SERVER, '--name', 'Work laptop', '--approve-button', '--json')
+    const running = w.run('login', '--server', SERVER, '--name', 'Work laptop', '--json')
     await w.clock.advance(5_000)
     expect(await running).toBe(0)
     const started = w.calls.find((call) => call.path === '/oauth/device_authorization')!
     expect(Object.fromEntries(new URLSearchParams(started.body))).toEqual({
       client_name: 'Work laptop',
-      scope: 'notes approve',
+      scope: 'notes',
     })
     expect(JSON.parse(w.lines[0]!)).toEqual({
       step: 'awaiting_approval',
@@ -146,67 +145,13 @@ describe('login', () => {
       expiresInSeconds: 600,
       browserOpened: false,
     })
-    expect(w.json()).toMatchObject({ step: 'signed_in', server: SERVER, hasApproveButton: true })
-    expect(JSON.parse(w.files.get(AGENT_FILE)!).token).toBe(NEW_AGENT)
-    expect(JSON.parse(w.files.get(APPROVAL_FILE)!).token).toBe(NEW_APPROVAL)
-    expect(w.privateWrites).toEqual([AGENT_FILE, APPROVAL_FILE])
+    expect(w.json()).toMatchObject({
+      step: 'signed_in',
+      server: SERVER,
+      member: { email: 'ana@example.com' },
+    })
+    expect(w.privateWrites).toEqual([AGENT_FILE])
     expect(w.lines.join('\n')).not.toMatch(/hb[ah]_new/)
-  })
-
-  it('says so when the approve button was asked for but not granted, and drops an old approval credential', async () => {
-    const w = world({
-      signedIn: 'both',
-      stubs: { 'me.get': () => ME },
-      other: deviceServer([() => json(200, { access_token: NEW_AGENT, expires_in: 3600 })]),
-    })
-    const running = w.run('login', '--server', SERVER, '--approve-button')
-    await w.clock.advance(5_000)
-    expect(await running).toBe(0)
-    expect(w.lines.at(-1)).toContain('The approve button was not granted; approve notes in the web client.')
-    expect(w.files.has(APPROVAL_FILE)).toBe(false)
-  })
-
-  it('says the organization has turned the approve button off when the server refuses to grant one', async () => {
-    const w = world({
-      signedIn: 'none',
-      stubs: {
-        'me.get': () => ME,
-        'server.info': () =>
-          ({
-            name: 'dovecote',
-            version: '1.0.0',
-            contactMode: 'open',
-            signInWith: 'Development login',
-            approveButton: false,
-          }) as never,
-      },
-      other: deviceServer([() => json(200, { access_token: NEW_AGENT, expires_in: 3600 })]),
-    })
-    const running = w.run('login', '--server', SERVER, '--approve-button', '--json')
-    await w.clock.advance(5_000)
-    expect(await running).toBe(0)
-    expect(w.json()).toMatchObject({ step: 'signed_in', hasApproveButton: false, approveButton: false })
-    const plain = world({
-      signedIn: 'none',
-      stubs: {
-        'me.get': () => ME,
-        'server.info': () =>
-          ({
-            name: 'dovecote',
-            version: '1.0.0',
-            contactMode: 'open',
-            signInWith: 'Development login',
-            approveButton: false,
-          }) as never,
-      },
-      other: deviceServer([() => json(200, { access_token: NEW_AGENT, expires_in: 3600 })]),
-    })
-    const again = plain.run('login', '--server', SERVER, '--approve-button')
-    await plain.clock.advance(5_000)
-    expect(await again).toBe(0)
-    expect(plain.lines.at(-1)).toContain(
-      'The organization has turned the approve button off; approve notes in the web client.',
-    )
   })
 
   it('fails when the request is denied, expires, or the server is unreachable, storing nothing', async () => {

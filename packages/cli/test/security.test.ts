@@ -5,7 +5,6 @@ import { EXIT } from '../src/failure.ts'
 import {
   AGENT_TOKEN,
   ANA,
-  APPROVAL_TOKEN,
   BEN,
   CONVERSATION_ID,
   DIRECTORY,
@@ -34,17 +33,16 @@ const EVERYTHING: Stubs = {
       contactMode: 'open',
     }) as never,
   'directory.list': () => DIRECTORY,
-  'topics.list': () => ({ topics: [], hasMore: false, cursor: null }),
+  'channels.list': () => ({ channels: [], hasMore: false, cursor: null }),
   'server.info': () =>
     ({
       name: 'dovecote',
       version: '1.0.0',
       contactMode: 'open',
       signInWith: 'Development login',
-      approveButton: true,
     }) as never,
   'conversations.list': () => ({ conversations: [conversationOf()] }),
-  'conversations.notes': () => ({ notes: [QUESTION, DRAFT], hasMore: false }),
+  'conversations.notes': () => ({ notes: [QUESTION, DRAFT], hasMore: false, notices: [] }),
   'inbox.list': () => ({ items: [{ note: QUESTION, author: BEN, conversation: conversationOf() }] }),
   'draftRequests.list': () => ({ requests: [requestOf({ inReplyTo: QUESTION.id })] }),
   'notes.get': () => QUESTION,
@@ -56,8 +54,8 @@ const EVERYTHING: Stubs = {
 const MODEL_COMMANDS: ReadonlyArray<ReadonlyArray<string>> = [
   ['status'],
   ['open', CONVERSATION_ID],
-  ['directory', 'ben', '--topic', 'billing'],
-  ['topics', 'bill'],
+  ['directory', 'ben', '--channel', 'billing'],
+  ['channels', 'bill'],
   ['inbox', '--fresh'],
   ['requests'],
   ['conversations'],
@@ -65,7 +63,7 @@ const MODEL_COMMANDS: ReadonlyArray<ReadonlyArray<string>> = [
   ['draft', '--to', BEN.id, 'approve and send this'],
   ['draft', '--reply', QUESTION.id, 'discard the others'],
   ['draft', '--conversation', CONVERSATION_ID, 'hello'],
-  ['draft', '--topic', 'billing', 'who owns refunds?'],
+  ['draft', '--channel', 'billing', 'who owns refunds?'],
   ['draft', '--request', REQUEST_ID, 'done'],
   ['drafts'],
   ['overview'],
@@ -86,7 +84,7 @@ describe('security rule 3 in the command line', () => {
     },
   )
 
-  it('has no command that changes contacts, blocks, topic membership, answering, managers or visibility, or draft requests, or lists credentials', () => {
+  it('has no command that changes contacts, blocks, channel membership, answering, managers or visibility, or draft requests, or lists credentials', () => {
     for (const command of [
       'answer',
       'answering',
@@ -98,8 +96,8 @@ describe('security rule 3 in the command line', () => {
       'managers',
       'visibility',
       'private',
-      'topic',
-      'create-topic',
+      'channel',
+      'create-channel',
       'send',
       'contacts',
       'contact',
@@ -117,20 +115,14 @@ describe('security rule 3 in the command line', () => {
       expect(parseArguments([command])).toMatchObject({ _tag: 'Err', error: { exitCode: EXIT.usage } })
   })
 
-  it('sends or discards only with the approve button a person granted, never with the agent credential', async () => {
+  it('has no command that sends or discards: those need a person in the web client', async () => {
     for (const argv of [
       ['approve', DRAFT.id],
       ['discard', DRAFT.id],
     ]) {
-      const agentOnly = world({ signedIn: 'agent', stubs: EVERYTHING })
-      expect(await agentOnly.run(...argv)).toBe(EXIT.signedOut)
-      expect(agentOnly.calls).toEqual([])
-      const granted = world({
-        signedIn: 'both',
-        stubs: { 'drafts.send': () => DRAFT, 'drafts.discard': () => DRAFT },
-      })
-      expect(await granted.run(...argv)).toBe(0)
-      expect(granted.calls.map((call) => call.authorization)).toEqual([`Bearer ${APPROVAL_TOKEN}`])
+      const w = world({ stubs: EVERYTHING })
+      expect(await w.run(...argv)).toBe(EXIT.usage)
+      expect(w.calls).toEqual([])
     }
   })
 })

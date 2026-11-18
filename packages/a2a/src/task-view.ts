@@ -94,7 +94,7 @@ const answersTo = (note: Note, api: MemberApi): T.Task<Answers, ApiError> =>
         authorName: members.get(reply.authorId)?.name ?? 'Unknown member',
         authorEmail: members.get(reply.authorId)?.email ?? 'unknown',
       }))
-    return { replies, answered: conversation.kind === 'topic' || isRepliedByEveryone(note) }
+    return { replies, answered: conversation.kind === 'channel' || isRepliedByEveryone(note) }
   })
 
 const isRepliedByEveryone = (note: Note): boolean =>

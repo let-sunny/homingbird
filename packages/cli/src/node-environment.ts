@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { access, chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { access, chmod, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { homedir, hostname } from 'node:os'
 import { dirname } from 'node:path'
 import { systemClock } from '@homingbird/kernel'
@@ -20,6 +20,7 @@ export const nodeEnvironment = (stopped: AbortSignal): CliEnv => ({
   nonce: () => randomBytes(16).toString('hex'),
   stopped,
   launcher: nodeLauncher(process.platform),
+  server: null,
 })
 
 const nodeFiles: Files = {
@@ -42,4 +43,5 @@ const nodeFiles: Files = {
     await chmod(path, PRIVATE_FILE_MODE)
   },
   remove: (path) => rm(path, { force: true }),
+  list: (directory) => readdir(directory).catch(() => []),
 }

@@ -1,18 +1,20 @@
 import { Task as T } from '@homingbird/kernel'
-import { type CredentialRole, readCredential, removeCredential } from '../credentials.ts'
+import { readCredential, removeCredential } from '../credentials.ts'
 import type { CliEnv } from '../environment.ts'
+import type { CliFailure } from '../failure.ts'
 import { type Outcome, outcome } from '../outcome.ts'
 
-export const logout: T.Task<Outcome, never, CliEnv> = T.gen(function* () {
-  for (const role of ROLES) {
-    const credential = yield* readCredential(role)
-    if (credential !== null) yield* revokeOnServer(credential.serverUrl, credential.token)
-    yield* removeCredential(role)
-  }
-  return outcome({ signedOut: true }, 'Signed out. The credentials on this device were revoked and removed.')
+/** Signs out of one server only: the one named, or the only one signed in to. */
+export const logout: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function* () {
+  const credential = yield* readCredential
+  if (credential === null) return outcome({ signedOut: true }, 'Not signed in; nothing to sign out of.')
+  yield* revokeOnServer(credential.serverUrl, credential.token)
+  yield* removeCredential(credential.serverUrl)
+  return outcome(
+    { signedOut: true, server: credential.serverUrl },
+    `Signed out of ${credential.serverUrl}. Its credential on this device was revoked and removed.`,
+  )
 })
-
-const ROLES: ReadonlyArray<CredentialRole> = ['agent', 'approval']
 
 const revokeOnServer = (serverUrl: string, token: string): T.Task<void, never, CliEnv> =>
   T.flatMap((env: CliEnv) =>

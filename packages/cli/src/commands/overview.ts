@@ -9,18 +9,21 @@ import { drafts } from './drafting.ts'
 import { conversations, inbox } from './reading.ts'
 
 export const overview: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function* () {
-  if ((yield* readCredential('agent')) === null) return outcome({ signedIn: false }, 'Not signed in.')
-  const { api, credential } = yield* openSession('agent')
+  const env = yield* T.ask<CliEnv>()
+  if ((yield* readCredential) === null)
+    return outcome(
+      { signedIn: false, ...(env.server !== null && { server: env.server }) },
+      env.server === null ? 'Not signed in.' : `Not signed in to ${env.server}.`,
+    )
+  const { api, credential } = yield* openSession
   const me = yield* calling(api['me.get']({}))
   const parts = yield* T.struct({ conversations, awaiting: inbox(false), drafts })
-  const hasApproveButton = (yield* readCredential('approval')) !== null
   const answeringFlow = yield* answeringFlowFor(api)
   return outcome(
     {
       signedIn: true,
       server: credential.serverUrl,
       member: { id: me.member.id, name: me.member.name, email: me.member.email },
-      hasApproveButton,
       ...(parts.conversations.json as object),
       awaiting: (parts.awaiting.json as { items: unknown }).items,
       ...(parts.drafts.json as object),
@@ -29,7 +32,7 @@ export const overview: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function* () 
     [
       `Signed in as ${me.member.name} on ${credential.serverUrl}`,
       '',
-      'Conversations',
+      'Direct messages and channels',
       parts.conversations.text,
       '',
       'Waiting for a reply',

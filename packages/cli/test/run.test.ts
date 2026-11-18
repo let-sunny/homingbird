@@ -9,8 +9,6 @@ import {
   AGENT_FILE,
   AGENT_TOKEN,
   ANA,
-  APPROVAL_FILE,
-  APPROVAL_TOKEN,
   BEN,
   type Call,
   DIRECTORY,
@@ -67,7 +65,6 @@ const runner = (
     readonly agent?: (prompt: string, signal: AbortSignal) => AgentRun | Promise<AgentRun>
     readonly argv?: ReadonlyArray<string>
     readonly variables?: Readonly<Record<string, string | undefined>>
-    readonly signedIn?: 'agent' | 'both'
   } = {},
 ): Runner => {
   const created: unknown[] = []
@@ -101,7 +98,6 @@ const runner = (
         : undefined,
     ...(options.agent !== undefined && { agent: options.agent }),
     ...(options.variables !== undefined && { variables: options.variables }),
-    signedIn: options.signedIn ?? 'agent',
   })
   const exit = w.run('run', '--agent', 'claude -p', ...(options.argv ?? []))
   return {
@@ -385,44 +381,6 @@ describe('reading what the agent command printed', () => {
 })
 
 describe('homingbird run keeps every Homingbird credential away from the agent command', () => {
-  it('refuses to start while an approve-button credential is stored, and never reads it', async () => {
-    const r = runner({ signedIn: 'both' })
-    expect(await r.exit).toBe(EXIT.unsafe)
-    expect(r.w.problems[0]).toContain(`an approve-button credential is stored at ${APPROVAL_FILE}`)
-    expect(r.w.problems[0]).toContain('separate OS user or in a container')
-    expect(r.w.problems[0]).not.toContain(APPROVAL_TOKEN)
-    expect(r.w.calls).toEqual([])
-    expect(r.w.agentRuns).toEqual([])
-    expect(r.w.reads).not.toContain(APPROVAL_FILE)
-  })
-
-  it('also refuses when its own login lives elsewhere but the default one holds an approve button', async () => {
-    const elsewhere = '/srv/runner/homingbird'
-    const separate = world({ signedIn: 'agent', variables: { XDG_CONFIG_HOME: '/srv/runner' } })
-    separate.files.set(`${elsewhere}/agent-credential.json`, separate.files.get(AGENT_FILE)!)
-    separate.files.delete(AGENT_FILE)
-    separate.files.set(APPROVAL_FILE, JSON.stringify({ serverUrl: SERVER, token: APPROVAL_TOKEN }))
-    expect(await separate.run('run', '--agent', 'claude -p')).toBe(EXIT.unsafe)
-    expect(separate.problems[0]).toContain(APPROVAL_FILE)
-
-    const own = world({ signedIn: 'none', variables: { XDG_CONFIG_HOME: '/srv/runner' } })
-    own.files.set(`${elsewhere}/approval-credential.json`, '{}')
-    expect(await own.run('run', '--agent', 'claude -p')).toBe(EXIT.unsafe)
-    expect(own.problems[0]).toContain(`${elsewhere}/approval-credential.json`)
-  })
-
-  it('stops before starting the agent command when an approve-button credential appears while it runs', async () => {
-    let inbox: unknown = { items: [] }
-    const r = runner({ stubs: { 'inbox.list': () => inbox as never } })
-    await settle(() => r.w.calls.some((call) => call.path === '/api/v1/events/stream'))
-    r.w.files.set(APPROVAL_FILE, JSON.stringify({ serverUrl: SERVER, token: APPROVAL_TOKEN }))
-    inbox = waitingQuestion
-    r.push({ type: 'note.sent', note: QUESTION })
-    expect(await r.exit).toBe(EXIT.unsafe)
-    expect(r.w.agentRuns).toEqual([])
-    expect(r.created).toEqual([])
-  })
-
   it('gives the agent command an environment without Homingbird variables or the credential', async () => {
     const r = runner({
       stubs: { 'inbox.list': once(waitingQuestion, { items: [] }) },

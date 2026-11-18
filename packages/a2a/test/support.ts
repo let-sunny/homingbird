@@ -78,7 +78,7 @@ export const JUNE: Member = {
 }
 
 export const CONVERSATION_ID = ConversationId.of('conv00000000')
-export const TOPIC_CONVERSATION_ID = ConversationId.of('topic0000000')
+export const CHANNEL_CONVERSATION_ID = ConversationId.of('channel0000000')
 
 export const noteOf = (overrides: Partial<Note> = {}): Note => ({
   id: NoteId.of('note00000000'),
@@ -108,7 +108,7 @@ export const receiptOf = (overrides: Partial<Receipt> = {}): Receipt => ({
 
 export const conversationOf = (overrides: Partial<Conversation> = {}): Conversation => ({
   id: CONVERSATION_ID,
-  kind: 'dm',
+  kind: 'direct',
   title: null,
   participantIds: [ANA.id, BEN.id],
   createdAt: 1,
@@ -120,10 +120,10 @@ export const conversationOf = (overrides: Partial<Conversation> = {}): Conversat
   ...overrides,
 })
 
-export const topicConversationOf = (overrides: Partial<Conversation> = {}): Conversation =>
+export const channelConversationOf = (overrides: Partial<Conversation> = {}): Conversation =>
   conversationOf({
-    id: TOPIC_CONVERSATION_ID,
-    kind: 'topic',
+    id: CHANNEL_CONVERSATION_ID,
+    kind: 'channel',
     title: 'billing',
     participantIds: [ANA.id, BEN.id, JUNE.id],
     ...overrides,
@@ -135,7 +135,7 @@ export const entryOf = (member: Member, overrides: Partial<DirectoryEntry> = {})
   lastSeenAt: null,
   relation: 'none',
   canMessage: true,
-  topics: [],
+  channels: [],
   ...overrides,
 })
 
@@ -143,7 +143,7 @@ export const DIRECTORY = {
   entries: [
     entryOf(ANA, { relation: 'self', canMessage: false }),
     entryOf(BEN),
-    entryOf(JUNE, { topics: ['billing'] }),
+    entryOf(JUNE, { channels: ['billing'] }),
   ],
 }
 

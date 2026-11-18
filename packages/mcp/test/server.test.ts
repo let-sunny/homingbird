@@ -103,14 +103,14 @@ describe('handleMcpMessage', () => {
     expect(calls.map((each) => [each.name, each.request])).toContainEqual(['inbox.list', { query: {} }])
   })
 
-  it('sends a question it cannot place to one topic, else to a matching colleague, else back to the human, and never to several', () => {
+  it('sends a question it cannot place to one channel, else to a matching colleague, else back to the human, and never to several', () => {
     for (const instructions of [INSTRUCTIONS, DESK_INSTRUCTIONS]) {
-      expect(instructions).toMatch(/find_topics and draft to the single best topic your human can see/)
+      expect(instructions).toMatch(/find_channels and draft to the single best channel your human can see/)
       expect(instructions).toMatch(
-        /When none fits, call find_people and draft to a colleague whose profile or topics match/,
+        /When none fits, call find_people and draft to a colleague whose profile or channels match/,
       )
       expect(instructions).toMatch(/When nobody fits, tell your human that you found no one to ask/)
-      expect(instructions).toMatch(/Never post one question to several topics/)
+      expect(instructions).toMatch(/Never post one question to several channels/)
     }
   })
 

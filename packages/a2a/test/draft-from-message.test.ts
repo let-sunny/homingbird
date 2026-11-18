@@ -92,25 +92,25 @@ describe('draftFromMessage', () => {
     ])
   })
 
-  it('drafts a question to the topic named in metadata, preferring it over a recipient', async () => {
+  it('drafts a question to the channel named in metadata, preferring it over a recipient', async () => {
     const { result, calls } = await drafting({
-      message: { ...text('Who knows the billing export?'), metadata: { topic: 'billing', to: BEN.id } },
+      message: { ...text('Who knows the billing export?'), metadata: { channel: 'billing', to: BEN.id } },
     })
     expect(result).toEqual({ _tag: 'Ok', value: DRAFT })
     expect(calls).toEqual([
       {
         name: 'drafts.create',
-        request: { body: { body: 'Who knows the billing export?', topic: 'billing' } },
+        request: { body: { body: 'Who knows the billing export?', channel: 'billing' } },
       },
     ])
   })
 
   it.each([['Billing'], [''], [7], ['has space']])(
-    'refuses a topic that is not a slug: %j',
-    async (topic) => {
-      const { result, calls } = await drafting({ message: { ...text('hi'), metadata: { topic } } })
+    'refuses a channel that is not a slug: %j',
+    async (channel) => {
+      const { result, calls } = await drafting({ message: { ...text('hi'), metadata: { channel } } })
       expect(result).toMatchObject({ _tag: 'Err', error: { code: RPC_CODE.invalidParams } })
-      expect((result as any).error.message).toMatch(/topic slug/)
+      expect((result as any).error.message).toMatch(/channel slug/)
       expect(calls).toEqual([])
     },
   )

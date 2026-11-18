@@ -1,8 +1,7 @@
 import { type DeviceFlowFailed, awaitDeviceTokens, beginDeviceFlow } from '@homingbird/client'
-import { type Result, Task as T } from '@homingbird/kernel'
-import type { Api, ServerInfo } from '@homingbird/protocol'
+import { Task as T } from '@homingbird/kernel'
 import type { Invocation } from '../arguments.ts'
-import { removeCredential, writeCredential } from '../credentials.ts'
+import { writeCredential } from '../credentials.ts'
 import type { CliEnv } from '../environment.ts'
 import { type CliFailure, failed } from '../failure.ts'
 import { type Outcome, outcome } from '../outcome.ts'
@@ -20,7 +19,6 @@ export const login = (
     const options = {
       serverUrl: invocation.server,
       clientName: invocation.name ?? `Homingbird CLI on ${env.hostName}`,
-      wantsApproval: invocation.approveButton,
       fetch: env.fetch,
     }
     const authorization = yield* T.mapError(toFailure)(beginDeviceFlow(options))
@@ -42,36 +40,13 @@ export const login = (
     )
     const tokens = yield* T.mapError(toFailure)(awaitDeviceTokens(options, authorization))
     const agent = { serverUrl: invocation.server, token: tokens.access_token }
-    yield* writeCredential('agent', agent)
-    if (tokens.approval_token === undefined) yield* removeCredential('approval')
-    else yield* writeCredential('approval', { serverUrl: invocation.server, token: tokens.approval_token })
-    const api = apiFor(env, agent)
-    const me = yield* calling(api['me.get']({}))
-    const hasApproveButton = tokens.approval_token !== undefined
-    const missing = invocation.approveButton && !hasApproveButton
-    const turnedOff = missing && (yield* approveButtonTurnedOff(api))
+    yield* writeCredential(agent)
+    const me = yield* calling(apiFor(env, agent)['me.get']({}))
     return outcome(
-      {
-        step: 'signed_in',
-        server: invocation.server,
-        member: me.member,
-        hasApproveButton,
-        ...(missing && { approveButton: !turnedOff }),
-      },
-      `Signed in to ${invocation.server} as ${me.member.name} <${me.member.email}>.${
-        turnedOff
-          ? '\nThe organization has turned the approve button off; approve notes in the web client.'
-          : missing
-            ? '\nThe approve button was not granted; approve notes in the web client.'
-            : ''
-      }\n${ONE_DESK}`,
+      { step: 'signed_in', server: invocation.server, member: me.member },
+      `Signed in to ${invocation.server} as ${me.member.name} <${me.member.email}>.\n${ONE_DESK}`,
     )
   })
-
-const approveButtonTurnedOff = (api: Api): T.Task<boolean> =>
-  T.map((info: Result.Result<ServerInfo, unknown>) => info._tag === 'Ok' && !info.value.approveButton)(
-    T.result(api['server.info']({})),
-  )
 
 const toFailure = (failure: DeviceFlowFailed): CliFailure => failed(failure.message)
 

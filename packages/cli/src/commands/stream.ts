@@ -18,7 +18,7 @@ export const stream = (
 ): T.Task<void, CliFailure, CliEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<CliEnv>()
-    const session = yield* openSession('agent')
+    const session = yield* openSession
     const me = yield* calling(session.api['me.get']({}))
     let authors = yield* authorsOf(session)
     const events = eventStream(

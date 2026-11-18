@@ -3,7 +3,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type Session, type TestServer, startTestServer } from '../../dovecote/test/harness.ts'
 import { EXIT } from '../src/failure.ts'
 import { SERVER_URL, fetchThrough } from './server-fetch.ts'
-import { AGENT_FILE, APPROVAL_FILE, INTERRUPTED, type World, world } from './support.ts'
+import { INTERRUPTED, type World, agentFileFor, world } from './support.ts'
+
+const AGENT_FILE = agentFileFor(SERVER_URL)
 
 let server: TestServer
 let ana: Session
@@ -25,45 +27,23 @@ const settle = async (condition: () => boolean): Promise<void> => {
   if (!condition()) throw new Error('the awaited condition never came true')
 }
 
-const signIn = async (
-  cli: World,
-  owner: Session,
-  options: { readonly approveButton: boolean; readonly grant?: boolean } = { approveButton: false },
-): Promise<number> => {
-  const running = cli.run(
-    'login',
-    '--server',
-    SERVER_URL,
-    '--name',
-    'Laptop',
-    ...(options.approveButton ? ['--approve-button'] : []),
-    '--json',
-  )
+const signIn = async (cli: World, owner: Session): Promise<number> => {
+  const running = cli.run('login', '--server', SERVER_URL, '--name', 'Laptop', '--json')
   await settle(() => cli.lines.length > 0)
   const { userCode } = JSON.parse(cli.lines[0]!)
-  await owner.api('POST', `/device/${userCode}`, {
-    approve: true,
-    name: 'Laptop',
-    allowApproval: options.grant ?? options.approveButton,
-  })
+  await owner.api('POST', `/device/${userCode}`, { approve: true, name: 'Laptop' })
   await server.clock.advance(5_000)
   return running
 }
 
 const tokensIn = (cli: World): string[] =>
-  [AGENT_FILE, APPROVAL_FILE].flatMap((path) =>
-    cli.files.has(path) ? [JSON.parse(cli.files.get(path)!).token] : [],
-  )
+  cli.files.has(AGENT_FILE) ? [JSON.parse(cli.files.get(AGENT_FILE)!).token] : []
 
 describe('the homingbird command against a running server', () => {
   it('signs in with the device flow and can then say who it is', async () => {
     const cli = device()
     expect(await signIn(cli, ana)).toBe(0)
-    expect(cli.json()).toMatchObject({
-      step: 'signed_in',
-      hasApproveButton: false,
-      member: { email: 'ana@example.com' },
-    })
+    expect(cli.json()).toMatchObject({ step: 'signed_in', member: { email: 'ana@example.com' } })
     expect(cli.privateWrites).toEqual([AGENT_FILE])
     await cli.run('status', '--json')
     expect(cli.json()).toMatchObject({ signedIn: true, credential: { kind: 'agent', name: 'Laptop' } })
@@ -71,12 +51,12 @@ describe('the homingbird command against a running server', () => {
     for (const token of tokensIn(cli)) expect(printed).not.toContain(token)
   })
 
-  it('carries a question and its answer between two people’s devices, each approving their own note', async () => {
+  it('carries a question and its answer between two people’s devices, each person approving in the web client', async () => {
     const anaCli = device()
     const benCli = device()
-    await signIn(anaCli, ana, { approveButton: true })
-    await signIn(benCli, ben, { approveButton: true })
-    expect(anaCli.privateWrites).toEqual([AGENT_FILE, APPROVAL_FILE])
+    await signIn(anaCli, ana)
+    await signIn(benCli, ben)
+    expect(anaCli.privateWrites).toEqual([AGENT_FILE])
 
     await anaCli.run('directory', 'ben', '--json')
     expect(anaCli.json().entries[0]).toMatchObject({ member: { email: 'ben@example.com' }, canMessage: true })
@@ -86,7 +66,7 @@ describe('the homingbird command against a running server', () => {
     await benCli.run('inbox', '--json')
     expect(benCli.json().items).toEqual([])
 
-    expect(await anaCli.run('approve', draftId)).toBe(0)
+    expect((await ana.api('POST', `/drafts/${draftId}/send`, {})).json.status).toBe('sent')
     await benCli.run('inbox', '--json')
     const [waiting] = benCli.json().items
     expect(waiting.wrapped).toContain(`<${WRAPPER_TAG} id="${draftId}" from="Ana &lt;ana@example.com&gt;"`)
@@ -98,7 +78,7 @@ describe('the homingbird command against a running server', () => {
     expect(anaCli.json().notes).toHaveLength(1)
     expect(anaCli.json().notes[0].status).toBe('Drafting reply')
 
-    await benCli.run('approve', replyId, '--body', 'Yes. Run it after the nightly export.')
+    await ben.api('POST', `/drafts/${replyId}/send`, { body: 'Yes. Run it after the nightly export.' })
     await anaCli.run('conversation', waiting.conversationId)
     expect(anaCli.lines.at(-1)).toContain('Yes. Run it after the nightly export.')
     expect(anaCli.lines.at(-1)).toContain('(Replied)')
@@ -108,36 +88,20 @@ describe('the homingbird command against a running server', () => {
     ).toBe('human')
   })
 
-  it('cannot approve or discard on a device that was not granted the approve button', async () => {
-    const cli = device()
-    await signIn(cli, ana, { approveButton: true, grant: false })
-    expect(cli.json().hasApproveButton).toBe(false)
-    await cli.run('draft', '--to', 'ben@example.com', 'hello', '--json')
-    const draftId: string = cli.json().draft.id
-    expect(await cli.run('approve', draftId)).toBe(EXIT.signedOut)
-    expect(await cli.run('discard', draftId)).toBe(EXIT.signedOut)
-    expect((await ana.api('GET', `/notes/${draftId}`)).json.status).toBe('draft')
-  })
-
-  it('is refused by the server when the agent credential is used to approve', async () => {
+  it('cannot approve or discard: there is no such command, and the stored credential is refused', async () => {
     const cli = device()
     await signIn(cli, ana)
     await cli.run('draft', '--to', 'ben@example.com', 'hello', '--json')
     const draftId: string = cli.json().draft.id
-    cli.files.set(APPROVAL_FILE, cli.files.get(AGENT_FILE)!)
-    expect(await cli.run('approve', draftId)).toBe(EXIT.failed)
-    expect(cli.problems.at(-1)).toMatch(/Only a person can do this/)
+    expect(await cli.run('approve', draftId)).toBe(EXIT.usage)
+    expect(await cli.run('discard', draftId)).toBe(EXIT.usage)
+    const [token] = tokensIn(cli)
+    for (const action of ['send', 'discard'])
+      expect(
+        (await server.request('POST', `/api/v1/drafts/${draftId}/${action}`, { token: token!, body: {} }))
+          .status,
+      ).toBe(403)
     expect((await ana.api('GET', `/notes/${draftId}`)).json.status).toBe('draft')
-  })
-
-  it('discards a draft with the approve button', async () => {
-    const cli = device()
-    await signIn(cli, ana, { approveButton: true })
-    await cli.run('draft', '--to', 'ben@example.com', 'never mind', '--json')
-    const draftId: string = cli.json().draft.id
-    expect(await cli.run('discard', draftId)).toBe(0)
-    await cli.run('drafts')
-    expect(cli.lines.at(-1)).toBe('No drafts are waiting for approval.')
   })
 
   it('streams a note the moment it is sent, wrapped, and shows the member as having an agent online', async () => {
@@ -165,16 +129,11 @@ describe('the homingbird command against a running server', () => {
 
   it('gathers an overview and signs out, revoking its credentials on the server', async () => {
     const cli = device()
-    await signIn(cli, ana, { approveButton: true })
+    await signIn(cli, ana)
     await cli.run('overview', '--json')
-    expect(cli.json()).toMatchObject({
-      signedIn: true,
-      hasApproveButton: true,
-      conversations: [],
-      drafts: [],
-    })
+    expect(cli.json()).toMatchObject({ signedIn: true, conversations: [], drafts: [] })
     const tokens = tokensIn(cli)
-    expect(tokens).toHaveLength(2)
+    expect(tokens).toHaveLength(1)
     expect(await cli.run('logout')).toBe(0)
     expect(cli.files.size).toBe(0)
     for (const token of tokens)

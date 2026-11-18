@@ -5,7 +5,7 @@ export type DraftTarget =
   | { readonly kind: 'to'; readonly recipient: string }
   | { readonly kind: 'reply'; readonly noteId: string }
   | { readonly kind: 'conversation'; readonly conversationId: string }
-  | { readonly kind: 'topic'; readonly slug: string }
+  | { readonly kind: 'channel'; readonly slug: string }
   | { readonly kind: 'request'; readonly requestId: string }
 
 export type Invocation =
@@ -14,13 +14,12 @@ export type Invocation =
       readonly command: 'login'
       readonly server: string
       readonly name: string | null
-      readonly approveButton: boolean
       readonly openBrowser: boolean
     }
   | { readonly command: 'logout' }
   | { readonly command: 'status' }
-  | { readonly command: 'directory'; readonly query: string | null; readonly topic: string | null }
-  | { readonly command: 'topics'; readonly query: string | null }
+  | { readonly command: 'directory'; readonly query: string | null; readonly channel: string | null }
+  | { readonly command: 'channels'; readonly query: string | null }
   | { readonly command: 'requests' }
   | { readonly command: 'open'; readonly conversationId: string | null }
   | { readonly command: 'run'; readonly agent: string; readonly timeoutSeconds: number }
@@ -38,12 +37,11 @@ export type Invocation =
   | { readonly command: 'pickup'; readonly noteId: string }
   | { readonly command: 'skip'; readonly noteId: string; readonly reason: string | null }
   | { readonly command: 'stream'; readonly after: number | null }
-  | { readonly command: 'approve'; readonly draftId: string; readonly body: string | null }
-  | { readonly command: 'discard'; readonly draftId: string }
 
 export interface Parsed {
   readonly invocation: Invocation
   readonly json: boolean
+  readonly server: string | null
 }
 
 export const parseArguments = (argv: ReadonlyArray<string>): Result.Result<Parsed, CliFailure> =>
@@ -51,24 +49,26 @@ export const parseArguments = (argv: ReadonlyArray<string>): Result.Result<Parse
     const { positionals, values, switches } = yield* tokenize(argv)
     const [command, ...rest] = positionals
     const json = switches.has('json')
-    if (command === undefined || switches.has('help')) return { invocation: { command: 'help' }, json }
+    const server = values.get('server')?.replace(/\/+$/, '') || null
+    if (command === undefined || switches.has('help'))
+      return { invocation: { command: 'help' }, json, server }
     if (!Object.hasOwn(BUILDERS, command)) return yield* usage(`Unknown command "${command}".`)
-    return { invocation: yield* BUILDERS[command]!({ rest, values, switches }), json }
+    return { invocation: yield* BUILDERS[command]!({ rest, values, switches }), json, server }
   })
 
 export const USAGE = `Usage: homingbird <command> [options]
 
-  login --server <url> [--name <device name>] [--approve-button] [--no-browser]
+  login --server <url> [--name <device name>] [--no-browser]
   logout
   status
   open [conversationId]                        open the web client, where drafts are approved
-  directory [query] [--topic <slug>]
-  topics [query]
+  directory [query] [--channel <slug>]
+  channels [query]
   inbox [--fresh]
   requests                                     drafts your person asked this agent for
   conversations
   conversation <id>
-  draft (--to <email-or-id> | --reply <noteId> | --conversation <id> | --topic <slug> | --request <id>)
+  draft (--to <email-or-id> | --reply <noteId> | --conversation <id> | --channel <slug> | --request <id>)
         [--basis "<what the draft relies on>"] <text>
   drafts
   overview
@@ -77,10 +77,9 @@ export const USAGE = `Usage: homingbird <command> [options]
   stream [--after <sequence>]
   run --agent "<command>" [--timeout <seconds>]
                                                answer arriving notes and requests with a headless agent
-  approve <draftId> [--body <edited text>]     person only
-  discard <draftId>                            person only
 
-Every command accepts --json.`
+Every command accepts --json, and --server <url> to say which server's credential to use (also
+read from HOMINGBIRD_SERVER). Without one, the command uses the only server you are signed in to.`
 
 interface Tokens {
   readonly rest: ReadonlyArray<string>
@@ -94,15 +93,14 @@ const VALUE_FLAGS = new Set([
   'to',
   'reply',
   'conversation',
-  'topic',
+  'channel',
   'request',
-  'body',
   'after',
   'agent',
   'timeout',
   'basis',
 ])
-const SWITCH_FLAGS = new Set(['json', 'approve-button', 'no-browser', 'fresh', 'help'])
+const SWITCH_FLAGS = new Set(['json', 'no-browser', 'fresh', 'help'])
 
 const RUN_TIMEOUT_DEFAULT_SECONDS = 300
 
@@ -146,12 +144,12 @@ const draftTarget = (values: ReadonlyMap<string, string>): Result.Result<DraftTa
     ...(values.has('conversation')
       ? [{ kind: 'conversation' as const, conversationId: values.get('conversation')! }]
       : []),
-    ...(values.has('topic') ? [{ kind: 'topic' as const, slug: values.get('topic')! }] : []),
+    ...(values.has('channel') ? [{ kind: 'channel' as const, slug: values.get('channel')! }] : []),
     ...(values.has('request') ? [{ kind: 'request' as const, requestId: values.get('request')! }] : []),
   ]
   return targets.length === 1
     ? Result.ok(targets[0]!)
-    : usage('A draft needs exactly one of --to, --reply, --conversation, --topic or --request.')
+    : usage('A draft needs exactly one of --to, --reply, --conversation, --channel or --request.')
 }
 
 const joined = (rest: ReadonlyArray<string>): string | null => (rest.length > 0 ? rest.join(' ') : null)
@@ -167,15 +165,14 @@ const BUILDERS: Readonly<Record<string, (tokens: Tokens) => Result.Result<Invoca
           command: 'login',
           server: values.get('server')!.replace(/\/+$/, ''),
           name: values.get('name') ?? null,
-          approveButton: switches.has('approve-button'),
           openBrowser: !switches.has('no-browser'),
         })
       : usage('login needs --server <url>.'),
   logout: () => Result.ok({ command: 'logout' }),
   status: () => Result.ok({ command: 'status' }),
   directory: ({ rest, values }) =>
-    Result.ok({ command: 'directory', query: joined(rest), topic: values.get('topic') ?? null }),
-  topics: ({ rest }) => Result.ok({ command: 'topics', query: joined(rest) }),
+    Result.ok({ command: 'directory', query: joined(rest), channel: values.get('channel') ?? null }),
+  channels: ({ rest }) => Result.ok({ command: 'channels', query: joined(rest) }),
   requests: () => Result.ok({ command: 'requests' }),
   open: ({ rest }) => Result.ok({ command: 'open', conversationId: rest[0] ?? null }),
   run: ({ values }) => {
@@ -216,14 +213,4 @@ const BUILDERS: Readonly<Record<string, (tokens: Tokens) => Result.Result<Invoca
     if (after !== undefined && !/^[0-9]{1,15}$/.test(after)) return usage('--after needs a sequence number.')
     return Result.ok({ command: 'stream', after: after === undefined ? null : Number(after) })
   },
-  approve: ({ rest, values }) =>
-    Result.map((draftId: string) => ({
-      command: 'approve' as const,
-      draftId,
-      body: values.get('body') ?? null,
-    }))(required(rest, 'the draft id')),
-  discard: ({ rest }) =>
-    Result.map((draftId: string) => ({ command: 'discard' as const, draftId }))(
-      required(rest, 'the draft id'),
-    ),
 }

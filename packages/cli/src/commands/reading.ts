@@ -1,9 +1,9 @@
 import { Task as T } from '@homingbird/kernel'
 import {
+  ChannelSlug,
   type Conversation,
   ConversationId,
   type MemberId,
-  TopicSlug,
   describeStatus,
   summarize,
 } from '@homingbird/protocol'
@@ -13,14 +13,17 @@ import { type Outcome, outcome } from '../outcome.ts'
 import { type Authors, quoteForModel, showThread } from '../quoting.ts'
 import { type Session, calling, openSession } from '../session.ts'
 
-export const directory = (query: string | null, topic: string | null): T.Task<Outcome, CliFailure, CliEnv> =>
+export const directory = (
+  query: string | null,
+  channel: string | null,
+): T.Task<Outcome, CliFailure, CliEnv> =>
   T.gen(function* () {
-    const { api } = yield* openSession('agent')
+    const { api } = yield* openSession
     const { entries } = yield* calling(
       api['directory.list']({
         query: {
           ...(query !== null && { q: query }),
-          ...(topic !== null && { topic: yield* topicSlug(topic) }),
+          ...(channel !== null && { channel: yield* channelSlug(channel) }),
         },
       }),
     )
@@ -38,9 +41,9 @@ export const directory = (query: string | null, topic: string | null): T.Task<Ou
                   : 'cannot be messaged'
             }`,
             ...(entry.member.profile === '' ? [] : [`  helps with: ${entry.member.profile}`]),
-            ...(entry.topics.length === 0
+            ...(entry.channels.length === 0
               ? []
-              : [`  topics: ${entry.topics.map((slug) => `#${slug}`).join(', ')}`]),
+              : [`  channels: ${entry.channels.map((slug) => `#${slug}`).join(', ')}`]),
           ].join('\n'),
         )
         .join('\n') || 'Nobody matches.',
@@ -50,7 +53,7 @@ export const directory = (query: string | null, topic: string | null): T.Task<Ou
 export const inbox = (fresh: boolean): T.Task<Outcome, CliFailure, CliEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<CliEnv>()
-    const { api } = yield* openSession('agent')
+    const { api } = yield* openSession
     const { items } = yield* calling(api['inbox.list']({ query: fresh ? { fresh: '1' } : {} }))
     const quoted = items.map((item) => ({
       noteId: item.note.id,
@@ -68,7 +71,7 @@ export const inbox = (fresh: boolean): T.Task<Outcome, CliFailure, CliEnv> =>
   })
 
 export const conversations: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function* () {
-  const session = yield* openSession('agent')
+  const session = yield* openSession
   const { conversations: list } = yield* calling(session.api['conversations.list']({}))
   const authors = yield* authorsOf(session)
   const summaries = list.map((conversation) => ({
@@ -82,14 +85,14 @@ export const conversations: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function
     { conversations: summaries },
     summaries
       .map((one) => `[${one.id}] ${one.with} — ${one.unreadCount} unread, ${one.draftCount} drafts waiting`)
-      .join('\n') || 'No conversations yet.',
+      .join('\n') || 'No direct messages or channels yet.',
   )
 })
 
 export const conversation = (rawId: string): T.Task<Outcome, CliFailure, CliEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<CliEnv>()
-    const session = yield* openSession('agent')
+    const session = yield* openSession
     const id = ConversationId.decode(rawId)
     if (id._tag === 'Err') return yield* T.fail(failed('That is not a conversation id.'))
     const me = yield* calling(session.api['me.get']({}))
@@ -116,11 +119,11 @@ export const authorsOf = (session: Session): T.Task<Authors, CliFailure> =>
       new Map(listed.entries.map((entry) => [entry.member.id, entry.member])),
   )(calling(session.api['directory.list']({ query: {} })))
 
-export const topicSlug = (raw: string): T.Task<string, CliFailure> =>
-  TopicSlug.decode(raw)._tag === 'Ok'
+export const channelSlug = (raw: string): T.Task<string, CliFailure> =>
+  ChannelSlug.decode(raw)._tag === 'Ok'
     ? T.succeed(raw)
-    : T.fail(failed(`"${raw}" is not a topic name. Run \`homingbird topics\` to see them.`))
+    : T.fail(failed(`"${raw}" is not a channel name. Run \`homingbird channels\` to see them.`))
 
 const namesIn = (conversation: Conversation, authors: Authors): string =>
-  (conversation.kind === 'topic' ? `#${conversation.title ?? conversation.id}` : conversation.title) ??
+  (conversation.kind === 'channel' ? `#${conversation.title ?? conversation.id}` : conversation.title) ??
   conversation.participantIds.map((memberId) => authors.get(memberId)?.name ?? 'Unknown member').join(', ')

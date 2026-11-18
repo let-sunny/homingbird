@@ -101,7 +101,7 @@ export const receiptOf = (overrides: Partial<Receipt> = {}): Receipt => ({
 
 export const conversationOf = (overrides: Partial<Conversation> = {}): Conversation => ({
   id: CONVERSATION_ID,
-  kind: 'dm',
+  kind: 'direct',
   title: null,
   participantIds: [ANA.id, BEN.id],
   createdAt: 1,
@@ -132,7 +132,7 @@ export const entryOf = (member: Member, overrides: Partial<DirectoryEntry> = {})
   lastSeenAt: null,
   relation: 'none',
   canMessage: true,
-  topics: ['billing'],
+  channels: ['billing'],
   ...overrides,
 })
 

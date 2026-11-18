@@ -11,17 +11,17 @@ import {
 } from '@homingbird/protocol'
 import type { Stubs } from '../../mcp/test/support.ts'
 import { runCli } from '../src/cli.ts'
-import { CREDENTIAL_FILES } from '../src/credentials.ts'
+import { AGENTS_DIRECTORY, serverKey } from '../src/credentials.ts'
 import type { AgentRun, CliEnv } from '../src/environment.ts'
 
 export * from '../../mcp/test/support.ts'
 
 export const SERVER = 'https://hb.example.com'
 export const AGENT_TOKEN = 'hba_agent-token-0123456789abcdefghij'
-export const APPROVAL_TOKEN = 'hbh_approval-token-0123456789abcdefg'
 export const HOME = '/home/june'
-export const AGENT_FILE = `${HOME}/.config/homingbird/${CREDENTIAL_FILES.agent}`
-export const APPROVAL_FILE = `${HOME}/.config/homingbird/${CREDENTIAL_FILES.approval}`
+export const agentFileFor = (serverUrl: string): string =>
+  `${HOME}/.config/homingbird/${AGENTS_DIRECTORY}/${encodeURIComponent(serverKey(serverUrl))}.json`
+export const AGENT_FILE = agentFileFor(SERVER)
 
 export const INTERRUPTED = -1
 
@@ -58,7 +58,7 @@ export interface WorldOptions {
   readonly other?: (call: Call) => Response | Promise<Response> | undefined
   readonly fetch?: Fetch
   readonly clock?: Clock & ReturnType<typeof makeTestClock>
-  readonly signedIn?: 'agent' | 'both' | 'none'
+  readonly signedIn?: 'agent' | 'none'
   readonly variables?: Readonly<Record<string, string | undefined>>
   readonly browser?: (url: string) => boolean | Promise<boolean>
   readonly agent?: (prompt: string, signal: AbortSignal) => AgentRun | Promise<AgentRun>
@@ -72,10 +72,8 @@ export const world = (options: WorldOptions = {}): World => {
   const calls: Call[] = []
   const stop = new AbortController()
   const clock = options.clock ?? makeTestClock(1_700_000_000_000)
-  const signedIn = options.signedIn ?? 'both'
-  if (signedIn !== 'none') files.set(AGENT_FILE, JSON.stringify({ serverUrl: SERVER, token: AGENT_TOKEN }))
-  if (signedIn === 'both')
-    files.set(APPROVAL_FILE, JSON.stringify({ serverUrl: SERVER, token: APPROVAL_TOKEN }))
+  if ((options.signedIn ?? 'agent') === 'agent')
+    files.set(AGENT_FILE, JSON.stringify({ serverUrl: SERVER, token: AGENT_TOKEN }))
   let nonces = 0
   const opened: string[] = []
   const agentRuns: World['agentRuns'] = []
@@ -94,6 +92,12 @@ export const world = (options: WorldOptions = {}): World => {
         files.set(path, content)
       },
       remove: async (path) => void files.delete(path),
+      list: async (directory) =>
+        [...files.keys()]
+          .filter(
+            (path) => path.startsWith(`${directory}/`) && !path.slice(directory.length + 1).includes('/'),
+          )
+          .map((path) => path.slice(directory.length + 1)),
     },
     output: { line: (text) => lines.push(text), problem: (text) => problems.push(text) },
     variables: options.variables ?? {},
@@ -101,6 +105,7 @@ export const world = (options: WorldOptions = {}): World => {
     hostName: 'laptop',
     nonce: () => `nonce${String(nonces++).padStart(15, '0')}`,
     stopped: stop.signal,
+    server: null,
     launcher: {
       openInBrowser: async (url) => {
         opened.push(url)

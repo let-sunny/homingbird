@@ -33,11 +33,11 @@ describe('agentCard', () => {
     expect(card.skills[0].examples[0]).toContain('june@example.com')
   })
 
-  it('tells a remote agent how to name a colleague, a topic or a note to reply to', () => {
+  it('tells a remote agent how to name a colleague, a channel or a note to reply to', () => {
     const { description } = card.skills[0]
     expect(description).toContain('metadata.to')
-    expect(description).toContain('metadata.topic')
-    expect(description).toContain('a private topic only when the member belongs to it')
+    expect(description).toContain('metadata.channel')
+    expect(description).toContain('a private channel only when the member belongs to it')
     expect(description).toContain('never several for one question')
     expect(description).toContain('when nobody fits, tell the member that no destination was found')
     expect(description).toContain('metadata.inReplyTo')

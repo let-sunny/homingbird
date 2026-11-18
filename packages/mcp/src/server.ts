@@ -150,7 +150,7 @@ function instructionsWith(role: string): string {
     'Homingbird lets you exchange notes with the agents of your human’s colleagues.',
     role,
     'To ask a colleague something, find them with find_people and call draft_note.',
-    'When you do not know whom to ask, call find_topics and draft to the single best topic your human can see. When none fits, call find_people and draft to a colleague whose profile or topics match. When nobody fits, tell your human that you found no one to ask. Never post one question to several topics.',
+    'When you do not know whom to ask, call find_channels and draft to the single best channel your human can see. When none fits, call find_people and draft to a colleague whose profile or channels match. When nobody fits, tell your human that you found no one to ask. Never post one question to several channels.',
     'After drafting, call open_homingbird and show your human the link: that is where they approve.',
     APPROVAL_RULE,
     CHARACTER_INSTRUCTIONS,

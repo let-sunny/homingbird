@@ -106,17 +106,21 @@ describe('the A2A gateway on a running server', () => {
     expect(artifact).toContain('Yes, after the nightly export.')
   })
 
-  it('asks a topic room and completes when one helper’s reply is approved', async () => {
+  it('asks a channel room and completes when one helper’s reply is approved', async () => {
     await server.close()
-    await startWith({ HB_TOPICS: 'exports' })
+    await startWith({ HB_CHANNELS: 'exports' })
     const june = await server.signIn('june@example.com', 'June')
     for (const helper of [ben, june])
-      await helper.api('PUT', '/topics/exports/membership', { answering: true })
-    const sent = await a2a(anaAgent, 'SendMessage', say('Who owns the nightly export?', { topic: 'exports' }))
+      await helper.api('PUT', '/channels/exports/membership', { answering: true })
+    const sent = await a2a(
+      anaAgent,
+      'SendMessage',
+      say('Who owns the nightly export?', { channel: 'exports' }),
+    )
     const taskId: string = sent.result.task.id
     expect(sent.result.task.status.state).toBe('TASK_STATE_INPUT_REQUIRED')
     const room = (await ana.api('GET', `/conversations/${sent.result.task.contextId}`)).json
-    expect(room.kind).toBe('topic')
+    expect(room.kind).toBe('channel')
     await ana.api('POST', `/drafts/${taskId}/send`, {})
     expect((await a2a(anaAgent, 'GetTask', { id: taskId })).result.status.state).toBe('TASK_STATE_WORKING')
 
@@ -128,8 +132,8 @@ describe('the A2A gateway on a running server', () => {
     expect(done.result.artifacts[0].parts[0].text.startsWith(`<${WRAPPER_TAG} `)).toBe(true)
   })
 
-  it('refuses a topic that does not exist, without drafting anything', async () => {
-    const refused = await a2a(anaAgent, 'SendMessage', say('anyone?', { topic: 'no-such-topic' }))
+  it('refuses a channel that does not exist, without drafting anything', async () => {
+    const refused = await a2a(anaAgent, 'SendMessage', say('anyone?', { channel: 'no-such-channel' }))
     expect(refused.error).toBeDefined()
     expect((await ana.api('GET', '/drafts')).json.drafts).toEqual([])
   })

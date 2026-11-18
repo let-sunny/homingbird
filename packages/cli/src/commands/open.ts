@@ -8,7 +8,7 @@ import { openOnServer, webClientLink } from '../web-client.ts'
 
 export const open = (rawId: string | null): T.Task<Outcome, CliFailure, CliEnv> =>
   T.gen(function* () {
-    const credential = yield* requireCredential('agent')
+    const credential = yield* requireCredential
     const conversationId = rawId === null ? null : ConversationId.decode(rawId)
     if (conversationId !== null && conversationId._tag === 'Err')
       return yield* T.fail(failed('That is not a conversation id.'))

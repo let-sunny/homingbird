@@ -6,7 +6,7 @@ import { type CliFailure, failed } from '../failure.ts'
 import { type Outcome, outcome } from '../outcome.ts'
 import { showOwnNote } from '../quoting.ts'
 import { type Session, calling, openSession } from '../session.ts'
-import { topicSlug } from './reading.ts'
+import { channelSlug } from './reading.ts'
 
 export const draft = (
   target: DraftTarget,
@@ -14,7 +14,7 @@ export const draft = (
   basis: string | null,
 ): T.Task<Outcome, CliFailure, CliEnv> =>
   T.gen(function* () {
-    const session = yield* openSession('agent')
+    const session = yield* openSession
     const address = yield* addressOf(session, target)
     const created = yield* calling(
       session.api['drafts.create']({ body: { body: text, ...address, ...(basis !== null && { basis }) } }),
@@ -26,7 +26,7 @@ export const draft = (
   })
 
 export const drafts: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function* () {
-  const { api } = yield* openSession('agent')
+  const { api } = yield* openSession
   const { drafts: waiting } = yield* calling(api['drafts.list']({}))
   return outcome(
     { drafts: waiting.map(summaryOf) },
@@ -36,7 +36,7 @@ export const drafts: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function* () {
 
 export const pickUp = (rawId: string): T.Task<Outcome, CliFailure, CliEnv> =>
   T.gen(function* () {
-    const { api } = yield* openSession('agent')
+    const { api } = yield* openSession
     const id = yield* draftId(rawId)
     yield* calling(api['notes.pickup']({ params: { id } }))
     return outcome({ pickedUp: id }, `Picked up ${id}; colleagues now see "drafting reply".`)
@@ -44,29 +44,13 @@ export const pickUp = (rawId: string): T.Task<Outcome, CliFailure, CliEnv> =>
 
 export const skip = (rawId: string, reason: string | null): T.Task<Outcome, CliFailure, CliEnv> =>
   T.gen(function* () {
-    const { api } = yield* openSession('agent')
+    const { api } = yield* openSession
     const id = yield* noteId(rawId)
     yield* calling(api['notes.release']({ params: { id }, body: reason === null ? {} : { reason } }))
     return outcome(
       { released: id, reason },
       `Gave ${id} back without a draft; colleagues no longer see "drafting reply". Your person sees the reason.`,
     )
-  })
-
-export const approve = (rawId: string, body: string | null): T.Task<Outcome, CliFailure, CliEnv> =>
-  T.gen(function* () {
-    const { api } = yield* openSession('approval')
-    const id = yield* draftId(rawId)
-    const sent = yield* calling(api['drafts.send']({ params: { id }, body: body === null ? {} : { body } }))
-    return outcome({ note: summaryOf(sent) }, `Sent ${sent.id}.`)
-  })
-
-export const discard = (rawId: string): T.Task<Outcome, CliFailure, CliEnv> =>
-  T.gen(function* () {
-    const { api } = yield* openSession('approval')
-    const id = yield* draftId(rawId)
-    const discarded = yield* calling(api['drafts.discard']({ params: { id } }))
-    return outcome({ note: summaryOf(discarded) }, `Discarded ${discarded.id}.`)
   })
 
 const summaryOf = (note: Note) => ({
@@ -96,12 +80,12 @@ const addressOf = (
   | { to: MemberId[] }
   | { inReplyTo: NoteId }
   | { conversationId: ConversationId }
-  | { topic: string }
+  | { channel: string }
   | { requestId: DraftRequestId },
   CliFailure
 > => {
   if (target.kind === 'reply') return T.map((inReplyTo: NoteId) => ({ inReplyTo }))(draftId(target.noteId))
-  if (target.kind === 'topic') return T.map((topic: string) => ({ topic }))(topicSlug(target.slug))
+  if (target.kind === 'channel') return T.map((channel: string) => ({ channel }))(channelSlug(target.slug))
   if (target.kind === 'request') {
     const decoded = DraftRequestId.decode(target.requestId)
     return decoded._tag === 'Ok'
