@@ -70,7 +70,10 @@ worker.addEventListener('notificationclick', (event) => {
       const open = windows.find((client) => client.url.startsWith(worker.location.origin))
       return open === undefined
         ? worker.clients.openWindow(url)
-        : open.navigate(url).then((client) => client?.focus())
+        : open
+            .navigate(url)
+            .then((client) => client?.focus() ?? open.focus())
+            .catch(() => worker.clients.openWindow(url))
     }),
   )
 })

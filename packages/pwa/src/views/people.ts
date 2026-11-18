@@ -4,26 +4,26 @@ import {
   acceptContact,
   blockMember,
   launch,
+  loadChannels,
   loadPeople,
-  loadTopics,
   openConversationWith,
   removeContact,
   requestContact,
   unblockMember,
 } from '../actions.ts'
+import { channelLabel, chipsForPerson } from '../channels.ts'
 import { shownRelation } from '../relations.ts'
-import { directory, topics } from '../state.ts'
+import { channels, directory } from '../state.ts'
 import { strings } from '../strings.ts'
-import { chipsForPerson, topicLabel } from '../topics.ts'
 import { memberAvatar } from './character-avatar.ts'
-import { button, emptyWithPip, field, page, presenceBadges, topicChips } from './parts.ts'
+import { button, channelChips, emptyWithPip, field, page, presenceBadges } from './parts.ts'
 import type { PipState } from './pip.ts'
 
 export const peopleView = (life: Lifetime, me: Me): HTMLElement => {
   launch(loadPeople)
-  launch(loadTopics(''))
+  launch(loadChannels(''))
   const query = signal('')
-  const topicFilter = signal('')
+  const channelFilter = signal('')
   const search = h('input', {
     type: 'search',
     placeholder: strings.peopleSearchPlaceholder,
@@ -36,13 +36,13 @@ export const peopleView = (life: Lifetime, me: Me): HTMLElement => {
       'div',
       { class: 'people-filters' },
       field(strings.peopleSearchLabel, search),
-      region(life, [topics], () => topicFilterField(topicFilter), { class: 'topic-filter-host' }),
+      region(life, [channels], () => channelFilterField(channelFilter), { class: 'channel-filter-host' }),
     ),
-    region(life, [directory, query, topicFilter, topics], () => {
+    region(life, [directory, query, channelFilter, channels], () => {
       const matching = directory
         .get()
         .filter((entry) => matches(entry, query.get()))
-        .filter((entry) => topicFilter.get() === '' || entry.topics.includes(topicFilter.get()))
+        .filter((entry) => channelFilter.get() === '' || entry.channels.includes(channelFilter.get()))
       return matching.length === 0
         ? emptyWithPip('searching', 4, strings.noPeople)
         : h(
@@ -54,22 +54,26 @@ export const peopleView = (life: Lifetime, me: Me): HTMLElement => {
   )
 }
 
-const topicFilterField = (chosen: Signal<string>): Child => {
-  const known = topics.get()
+const channelFilterField = (chosen: Signal<string>): Child => {
+  const known = channels.get()
   if (known.length === 0) return null
   const select = h(
     'select',
-    { name: 'topic', on: { change: () => chosen.set(select.value) } },
-    h('option', { value: '' }, strings.anyTopic),
-    known.map((topic) =>
-      h('option', { value: topic.slug, selected: chosen.get() === topic.slug }, topicLabel(topic.slug)),
+    { name: 'channel', on: { change: () => chosen.set(select.value) } },
+    h('option', { value: '' }, strings.anyChannel),
+    known.map((channel) =>
+      h(
+        'option',
+        { value: channel.slug, selected: chosen.get() === channel.slug },
+        channelLabel(channel.slug),
+      ),
     ),
   )
-  return field(strings.peopleTopicFilter, select)
+  return field(strings.peopleChannelFilter, select)
 }
 
 const matches = (entry: DirectoryEntry, query: string): boolean =>
-  [entry.member.name, entry.member.email, entry.member.profile, ...entry.topics].some((text) =>
+  [entry.member.name, entry.member.email, entry.member.profile, ...entry.channels].some((text) =>
     text.toLowerCase().includes(query),
   )
 
@@ -98,7 +102,7 @@ const personCard = (entry: DirectoryEntry, mode: ContactMode): HTMLElement => {
         ),
         h('span', { class: 'person-email', title: entry.member.email }, entry.member.email),
         presenceBadges(entry.presence, true),
-        entry.topics.length > 0 && personTopics(entry.topics),
+        entry.channels.length > 0 && personChannels(entry.channels),
         h(
           'details',
           { class: 'person-profile', open: entry.member.profile !== '' },
@@ -111,24 +115,24 @@ const personCard = (entry: DirectoryEntry, mode: ContactMode): HTMLElement => {
   )
 }
 
-const personTopics = (theirs: ReadonlyArray<string>): HTMLElement => {
+const personChannels = (theirs: ReadonlyArray<string>): HTMLElement => {
   const mine = new Set(
-    topics
+    channels
       .get()
-      .filter((topic) => topic.joined)
-      .map((topic) => topic.slug),
+      .filter((channel) => channel.joined)
+      .map((channel) => channel.slug),
   )
   const { first, rest } = chipsForPerson(theirs, mine)
   return h(
     'div',
-    { class: 'person-topics' },
-    topicChips(first),
+    { class: 'person-channels' },
+    channelChips(first),
     rest.length > 0 &&
       h(
         'details',
-        { class: 'more-topics' },
-        h('summary', {}, strings.moreTopics({ count: rest.length })),
-        topicChips(rest),
+        { class: 'more-channels' },
+        h('summary', {}, strings.moreChannels({ count: rest.length })),
+        channelChips(rest),
       ),
   )
 }

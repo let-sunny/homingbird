@@ -3,6 +3,9 @@ import { type HasClock, Stream, Task as T, systemClock } from '@homingbird/kerne
 import { STREAM_PATHS } from '@homingbird/protocol'
 import type {
   ApiError,
+  Channel,
+  ChannelMember,
+  ChannelVisibility,
   CharacterSpec,
   Conversation,
   ConversationId,
@@ -13,10 +16,8 @@ import type {
   MemberId,
   Note,
   NoteId,
+  Notice as NoteNotice,
   Settings,
-  Topic,
-  TopicMember,
-  TopicVisibility,
 } from '@homingbird/protocol'
 import { type AgentAsk, requestBody, upsertRequest } from './draft-requests.ts'
 import { preferredLanguage } from './languages.ts'
@@ -26,7 +27,10 @@ import { hrefFor } from './routes.ts'
 import {
   type Branding,
   agentCredentials,
+  archiveDiscards,
   branding,
+  channels,
+  channelsLoaded,
   connection,
   contacts,
   conversations,
@@ -41,8 +45,6 @@ import {
   session,
   signedIn,
   threads,
-  topics,
-  topicsLoaded,
 } from './state.ts'
 import { strings, useLanguage } from './strings.ts'
 import { noteAwaitingReply, withNoteFiled, withoutNote } from './thread.ts'
@@ -67,7 +69,31 @@ export const boot: Action = T.gen(function* () {
   session.set(me.value)
   yield* loadWorkspace
   followEvents()
+  reportVisibility()
 })
+
+/**
+ * Tells the server whether a person can see this page, so a minimised window or a background tab
+ * still gets a push notification. A visible report is renewed while the page stays visible.
+ */
+const reportVisibility = (): void => {
+  const page = crypto.randomUUID()
+  const report = (): Action =>
+    T.asUnit(
+      T.catchAll(() => T.unit)(
+        api['presence.visibility']({ body: { page, visible: document.visibilityState === 'visible' } }),
+      ),
+    )
+  document.addEventListener('visibilitychange', () => launch(report()))
+  T.runFork(
+    T.forever(VISIBLE_RENEWAL_MS)(
+      T.suspend(() => (document.visibilityState === 'visible' ? report() : T.unit)),
+    ),
+    { clock: systemClock },
+  )
+}
+
+const VISIBLE_RENEWAL_MS = 60_000
 
 export const loadWorkspace: Action = T.gen(function* () {
   const [listed, people, ties] = yield* T.all([
@@ -80,7 +106,7 @@ export const loadWorkspace: Action = T.gen(function* () {
   directory.set(people.entries)
   contacts.set(ties.contacts)
   yield* loadAgents
-  yield* loadTopics('')
+  yield* loadChannels('')
 })
 
 export const loadAgents: Action = T.gen(function* () {
@@ -97,6 +123,27 @@ export const askAgent = (ask: AgentAsk): Action<DraftRequest> =>
     if ('inReplyTo' in ask.destination) forgetRelease(ask.destination.inReplyTo)
     return request
   })(api['draftRequests.create']({ body: requestBody(ask) }))
+
+/** Keeps what the server remembered for this person, so a reload shows the same as the live event did. */
+export const rememberNotices = (id: ConversationId, notices: ReadonlyArray<NoteNotice>): void => {
+  releases.update((all) => {
+    const kept = new Map(all)
+    for (const notice of notices)
+      if (notice.kind === 'released')
+        kept.set(notice.noteId, { reason: notice.reason, agentName: notice.agentName })
+    return kept
+  })
+  archiveDiscards.update((all) =>
+    new Map(all).set(
+      id,
+      notices.flatMap((notice) =>
+        notice.kind === 'channel_archived' && notice.channel !== null
+          ? [{ noteId: notice.noteId, channel: notice.channel }]
+          : [],
+      ),
+    ),
+  )
+}
 
 export const forgetRelease = (noteId: NoteId): void =>
   releases.update((all) => {
@@ -130,6 +177,7 @@ export const loadThread = (id: ConversationId): Action =>
     ])
     conversations.update((list) => (list.some((c) => c.id === id) ? list : [conversation, ...list]))
     threads.update((all) => new Map(all).set(id, { notes: page.notes, hasMore: page.hasMore }))
+    rememberNotices(id, page.notices)
   })
 
 export const loadOlderNotes = (id: ConversationId): Action =>
@@ -188,71 +236,79 @@ export const discardDraft = (draft: Note): Action =>
     yield* loadConversations
   })
 
-export const loadTopics = (query: string): Action<ReadonlyArray<Topic>> =>
-  T.map((listed: TopicPage) => {
+export const loadChannels = (query: string): Action<ReadonlyArray<Channel>> =>
+  T.map((listed: ChannelPage) => {
     if (query === '') {
-      topics.set(listed.topics)
-      topicsLoaded.set(true)
+      channels.set(listed.channels)
+      channelsLoaded.set(true)
     }
-    return listed.topics
-  })(api['topics.list']({ query: { limit: String(KNOWN_TOPICS), ...(query !== '' && { q: query }) } }))
+    return listed.channels
+  })(api['channels.list']({ query: { limit: String(KNOWN_CHANNELS), ...(query !== '' && { q: query }) } }))
 
-export const TOPIC_PAGE = 20
+export const CHANNEL_PAGE = 20
 
-export interface TopicPage {
-  readonly topics: ReadonlyArray<Topic>
+export interface ChannelPage {
+  readonly channels: ReadonlyArray<Channel>
   readonly hasMore: boolean
   readonly cursor: string | null
 }
 
-export const loadTopicPage = (query: string, cursor: string | null): Action<TopicPage> =>
-  api['topics.list']({
+export const loadChannelPage = (query: string, cursor: string | null): Action<ChannelPage> =>
+  api['channels.list']({
     query: {
-      limit: String(TOPIC_PAGE),
+      limit: String(CHANNEL_PAGE),
       ...(query !== '' && { q: query }),
       ...(cursor !== null && { cursor }),
     },
   })
 
-export const createTopic = (slug: string, description: string, visibility: TopicVisibility): Action<Topic> =>
+export const createChannel = (
+  slug: string,
+  description: string,
+  visibility: ChannelVisibility,
+): Action<Channel> =>
   T.gen(function* () {
-    const created = yield* api['topics.create']({ body: { slug, description, visibility } })
-    yield* afterTopicChange
+    const created = yield* api['channels.create']({ body: { slug, description, visibility } })
+    yield* afterChannelChange
     return created
   })
 
-export const joinTopic = (slug: string, answering: boolean): Action =>
-  T.flatMap(() => afterTopicChange)(api['topics.join']({ params: { slug }, body: { answering } }))
+export const joinChannel = (slug: string, answering: boolean): Action =>
+  T.flatMap(() => afterChannelChange)(api['channels.join']({ params: { slug }, body: { answering } }))
 
-export const leaveTopic = (slug: string): Action =>
-  T.flatMap(() => afterTopicChange)(api['topics.leave']({ params: { slug } }))
+export const leaveChannel = (slug: string): Action =>
+  T.flatMap(() => afterChannelChange)(api['channels.leave']({ params: { slug } }))
 
 export const setAnswering = (slug: string, answering: boolean): Action =>
-  T.flatMap(() => afterTopicChange)(
-    (answering ? api['topics.answering.on'] : api['topics.answering.off'])({ params: { slug } }),
+  T.flatMap(() => afterChannelChange)(
+    (answering ? api['channels.answering.on'] : api['channels.answering.off'])({ params: { slug } }),
   )
 
-export const loadTopicMembers = (slug: string): Action<ReadonlyArray<TopicMember>> =>
-  T.map((listed: { members: ReadonlyArray<TopicMember> }) => listed.members)(
-    api['topics.members.list']({ params: { slug } }),
+export const loadChannelMembers = (slug: string): Action<ReadonlyArray<ChannelMember>> =>
+  T.map((listed: { members: ReadonlyArray<ChannelMember> }) => listed.members)(
+    api['channels.members.list']({ params: { slug } }),
   )
 
-export const setTopicMember = (slug: string, memberId: MemberId, isMember: boolean): Action =>
-  T.flatMap(() => afterTopicChange)(
-    (isMember ? api['topics.members.add'] : api['topics.members.remove'])({ params: { slug, memberId } }),
+export const setChannelMember = (slug: string, memberId: MemberId, isMember: boolean): Action =>
+  T.flatMap(() => afterChannelChange)(
+    (isMember ? api['channels.members.add'] : api['channels.members.remove'])({ params: { slug, memberId } }),
   )
 
-export const setTopicManager = (slug: string, memberId: MemberId, isManager: boolean): Action =>
-  T.flatMap(() => afterTopicChange)(
-    (isManager ? api['topics.managers.add'] : api['topics.managers.remove'])({ params: { slug, memberId } }),
+export const setChannelManager = (slug: string, memberId: MemberId, isManager: boolean): Action =>
+  T.flatMap(() => afterChannelChange)(
+    (isManager ? api['channels.managers.add'] : api['channels.managers.remove'])({
+      params: { slug, memberId },
+    }),
   )
 
-export const setTopicVisibility = (slug: string, visibility: TopicVisibility): Action =>
-  T.flatMap(() => afterTopicChange)(api['topics.visibility.set']({ params: { slug }, body: { visibility } }))
+export const setChannelVisibility = (slug: string, visibility: ChannelVisibility): Action =>
+  T.flatMap(() => afterChannelChange)(
+    api['channels.visibility.set']({ params: { slug }, body: { visibility } }),
+  )
 
-export const askTopic = (slug: string, body: string): Action<ConversationId> =>
+export const askChannel = (slug: string, body: string): Action<ConversationId> =>
   T.gen(function* () {
-    const draft = yield* api['drafts.create']({ body: { body, topic: slug } })
+    const draft = yield* api['drafts.create']({ body: { body, channel: slug } })
     yield* api['drafts.send']({ params: { id: draft.id }, body: {} })
     yield* loadConversations
     return draft.conversationId
@@ -260,38 +316,40 @@ export const askTopic = (slug: string, body: string): Action<ConversationId> =>
 
 export const moveQuestion = (note: Note, slug: string): Action =>
   T.gen(function* () {
-    yield* api['notes.move']({ params: { id: note.id }, body: { topic: slug } })
+    yield* api['notes.move']({ params: { id: note.id }, body: { channel: slug } })
     forgetNote(note.conversationId, note.id)
-    yield* afterTopicChange
+    yield* afterChannelChange
   })
 
-export const createTopicThen = (
-  topic: { readonly slug: string; readonly description: string },
+export const createChannelThen = (
+  channel: { readonly slug: string; readonly description: string },
   next: (slug: string) => Action,
-): Action<{ readonly created: Topic; readonly failure: ApiError | null }> =>
+): Action<{ readonly created: Channel; readonly failure: ApiError | null }> =>
   T.gen(function* () {
-    const created = yield* api['topics.create']({ body: { ...topic, visibility: 'open' } })
+    const created = yield* api['channels.create']({ body: { ...channel, visibility: 'open' } })
     const outcome = yield* T.result(next(created.slug))
-    yield* afterTopicChange
+    yield* afterChannelChange
     return { created, failure: outcome._tag === 'Ok' ? null : outcome.error }
   })
 
 export const readdressDraft = (draft: Note, slug: string): Action =>
   T.gen(function* () {
-    const moved = yield* api['drafts.update']({ params: { id: draft.id }, body: { topic: slug } })
+    const moved = yield* api['drafts.update']({ params: { id: draft.id }, body: { channel: slug } })
     rememberNote(moved)
     yield* loadConversations
     location.hash = hrefFor({ name: 'conversation', id: moved.conversationId })
   })
 
-export const reviseTopic = (slug: string, changes: { slug?: string; description?: string }): Action =>
-  T.flatMap(() => afterTopicChange)(api['admin.topics.update']({ params: { slug }, body: changes }))
+export const reviseChannel = (slug: string, changes: { slug?: string; description?: string }): Action =>
+  T.flatMap(() => afterChannelChange)(api['admin.channels.update']({ params: { slug }, body: changes }))
 
-export const mergeTopic = (slug: string, into: string): Action =>
-  T.flatMap(() => afterTopicChange)(api['admin.topics.merge']({ params: { slug }, body: { into } }))
-
-export const removeTopic = (slug: string): Action =>
-  T.flatMap(() => afterTopicChange)(api['admin.topics.remove']({ params: { slug } }))
+export const archiveChannel = (slug: string, moveMembersTo: string | null): Action =>
+  T.flatMap(() => afterChannelChange)(
+    api['admin.channels.archive']({
+      params: { slug },
+      body: moveMembersTo === null ? {} : { moveMembersTo },
+    }),
+  )
 
 export const markRead = (note: Note): Action =>
   T.map(rememberNote)(api['notes.read']({ params: { id: note.id } }))
@@ -377,7 +435,7 @@ export const replyTargetIn = (conversationId: ConversationId): NoteId | null => 
   const me = signedIn()
   const notes = threads.get().get(conversationId)?.notes ?? []
   const kind = conversations.get().find((conversation) => conversation.id === conversationId)?.kind
-  return me === null || kind === 'topic' ? null : (noteAwaitingReply(notes, me.member.id)?.id ?? null)
+  return me === null || kind === 'channel' ? null : (noteAwaitingReply(notes, me.member.id)?.id ?? null)
 }
 
 export const rememberNote = (note: Note): void => threads.update((all) => withNoteFiled(all, note))
@@ -390,10 +448,10 @@ export const forgetNote = (conversationId: ConversationId, id: NoteId): void =>
       : new Map(all).set(conversationId, { ...thread, notes: withoutNote(thread.notes, id) })
   })
 
-const KNOWN_TOPICS = 200
+const KNOWN_CHANNELS = 200
 
-const afterTopicChange: Action = T.gen(function* () {
-  yield* T.all([loadTopics(''), loadConversations, loadPeople])
+const afterChannelChange: Action = T.gen(function* () {
+  yield* T.all([loadChannels(''), loadConversations, loadPeople])
 })
 
 const loadBranding: T.Task<Branding> = T.catchAll(() => T.succeed(branding.get()))(

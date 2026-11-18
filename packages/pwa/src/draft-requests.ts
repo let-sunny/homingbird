@@ -3,7 +3,7 @@ import type { ConversationId, CredentialId, DraftRequest, NoteId } from '@homing
 export type DraftDestination =
   | { readonly conversationId: ConversationId }
   | { readonly inReplyTo: NoteId }
-  | { readonly topic: string }
+  | { readonly channel: string }
 
 export interface AgentAsk {
   readonly destination: DraftDestination

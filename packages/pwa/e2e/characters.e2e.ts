@@ -43,7 +43,7 @@ const scenario = async (): Promise<void> => {
   const databasePath = join(tmpdir(), `homingbird-e2e-characters-${port}.sqlite`)
   await rm(screenshots, { recursive: true, force: true })
   await mkdir(screenshots, { recursive: true })
-  const dovecote = await startDovecote(port, databasePath, 'on')
+  const dovecote = await startDovecote(port, databasePath)
   const browser = await chromium.launch()
   const { capture } = screenshotCounter(screenshots)
   const signIn = signInWith(browser, base)
@@ -111,7 +111,7 @@ const scenario = async (): Promise<void> => {
     assert.match(saved.id, /^my-/)
 
     // -- Ask my agent: the agent checks and previews; the link opens a draft that only a click saves --
-    const agent = await connectAgent(base, ana, 'Ana laptop agent', false)
+    const agent = await connectAgent(base, ana, 'Ana laptop agent')
     const preview = await mcpTool(base, agent.token, 'preview_character', { character: OTTER })
     const link = /Show this link to your human: (\S+)/.exec(preview)![1]!
     assert.ok(link.startsWith(`${base}/#/character/`), preview)

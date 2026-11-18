@@ -68,13 +68,8 @@
     display: inline-flex;
   }
 
-  .titlebar .wordmark,
-  .connection-label {
+  .titlebar .wordmark {
     display: none;
-  }
-
-  .connection[data-noticeable="true"] .connection-label {
-    display: inline;
   }
 }
 
@@ -88,8 +83,22 @@
 .thread {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
   block-size: 100%;
+}
+
+.newer-below {
+  justify-self: center;
+  margin-block: var(--hb-space-1);
+  padding: 0 var(--hb-space-3);
+  border: var(--hb-border);
+  background: var(--hb-color-action);
+  color: var(--hb-color-on-action);
+  font: 700 var(--hb-text-small) var(--hb-font-mono);
+}
+
+.newer-below[hidden] {
+  display: none;
 }
 
 .thread-scroll {

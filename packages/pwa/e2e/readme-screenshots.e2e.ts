@@ -29,7 +29,7 @@ const scenario = async (): Promise<void> => {
   await mkdir(output, { recursive: true })
   const port = await freePort()
   const base = `http://localhost:${port}`
-  const dovecote = await startDovecote(port, join(tmpdir(), `homingbird-readme-${port}.sqlite`), 'on')
+  const dovecote = await startDovecote(port, join(tmpdir(), `homingbird-readme-${port}.sqlite`))
   const browser = await chromium.launch()
   const wideAs = async (locale: string, email: string, name: string): Promise<Person> => {
     const person = await newPage(browser, base, locale, { viewport: WIDE, deviceScaleFactor: WIDE_SCALE })
@@ -55,8 +55,8 @@ const scenario = async (): Promise<void> => {
     await api(june, 'PUT', '/me/character', character('cat'))
     await api(ben, 'PUT', '/me/character', character('fox'))
 
-    const laptop = await connectAgent(base, june, 'June laptop agent', false)
-    await connectAgent(base, june, 'June desk', false)
+    const laptop = await connectAgent(base, june, 'June laptop agent')
+    await connectAgent(base, june, 'June desk')
     const direct = await api(ana, 'POST', '/conversations', { participantIds: [ids.June] })
     await sendThroughApi(ana, {
       conversationId: direct.id,
@@ -87,24 +87,27 @@ const scenario = async (): Promise<void> => {
     await june.page.waitForSelector('.ask-agent select[name=agent]')
     await shot(june, 'ask-my-agent-for-a-draft')
 
-    await api(ana, 'POST', '/topics', {
+    await api(ana, 'POST', '/channels', {
       slug: 'billing',
       description: 'Invoices, refunds and the payments database.',
     })
-    await api(ana, 'POST', '/topics', {
+    await api(ana, 'POST', '/channels', {
       slug: 'deploys',
       description: 'Release trains, rollbacks and the deploy queue.',
     })
-    await api(ana, 'POST', '/topics', {
+    await api(ana, 'POST', '/channels', {
       slug: 'payroll',
       description: 'Salaries and pay slips. Only the people a manager adds.',
       visibility: 'private',
     })
-    await api(june, 'PUT', '/topics/billing/membership', { answering: true })
-    await api(ben, 'PUT', '/topics/billing/membership', {})
-    await api(ana, 'PUT', `/topics/payroll/members/${ids.Ben}`).catch(() => undefined)
-    await sendThroughApi(ben, { topic: 'billing', body: 'Who can explain the refund rule for annual plans?' })
-    const billing = (await api(ben, 'GET', '/topics/billing')).conversationId as string
+    await api(june, 'PUT', '/channels/billing/membership', { answering: true })
+    await api(ben, 'PUT', '/channels/billing/membership', {})
+    await api(ana, 'PUT', `/channels/payroll/members/${ids.Ben}`).catch(() => undefined)
+    await sendThroughApi(ben, {
+      channel: 'billing',
+      body: 'Who can explain the refund rule for annual plans?',
+    })
+    const billing = (await api(ben, 'GET', '/channels/billing')).conversationId as string
     const asked = (await api(june, 'GET', `/conversations/${billing}/notes`)).notes.find(
       (note: { body: string }) => note.body.startsWith('Who can explain'),
     )
@@ -115,11 +118,11 @@ const scenario = async (): Promise<void> => {
     })
     await ben.page.goto(`${base}/#/c/${billing}`)
     await ben.page.waitForSelector('.answered-by')
-    await shot(ben, 'topic-room-answered-by')
+    await shot(ben, 'channel-room-answered-by')
 
-    await ben.page.goto(`${base}/#/topics`)
-    await ben.page.waitForSelector('.topic-card[data-slug="payroll"]')
-    await shot(ben, 'browse-topics')
+    await ben.page.goto(`${base}/#/channels`)
+    await ben.page.waitForSelector('.channel-card[data-slug="payroll"]')
+    await shot(ben, 'browse-channels')
 
     await ben.page.goto(`${base}/#/people`)
     await ben.page.waitForSelector('.person canvas[data-character="cat"]')
@@ -144,7 +147,7 @@ const scenario = async (): Promise<void> => {
     await shot(phone, 'phone-conversation')
     await phone.page.goto(`${base}/#/c/${billing}`)
     await phone.page.waitForSelector('.answering-toggle')
-    await shot(phone, 'phone-topic-room')
+    await shot(phone, 'phone-channel-room')
     await phone.context.close()
   } finally {
     await browser.close()

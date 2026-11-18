@@ -1,6 +1,6 @@
-export type TourStepId = 'notes' | 'connect' | 'topics' | 'profile'
+export type TourStepId = 'notes' | 'connect' | 'channels' | 'profile'
 
-export const TOUR_STEPS: ReadonlyArray<TourStepId> = ['notes', 'connect', 'topics', 'profile']
+export const TOUR_STEPS: ReadonlyArray<TourStepId> = ['notes', 'connect', 'channels', 'profile']
 
 export interface TourStorage {
   readonly getItem: (key: string) => string | null

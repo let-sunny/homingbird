@@ -97,38 +97,6 @@
   }
 }
 
-@supports (container-type: scroll-state) {
-  .thread-scroll {
-    container-type: scroll-state;
-  }
-
-  .newer-below {
-    position: sticky;
-    inset-block-end: 0;
-    display: none;
-    justify-self: center;
-    inline-size: fit-content;
-    margin-inline: auto;
-    padding: 0 var(--hb-space-3);
-    border: var(--hb-border);
-    background: var(--hb-color-action);
-    color: var(--hb-color-on-action);
-    font: 700 var(--hb-text-small) var(--hb-font-mono);
-  }
-
-  @container scroll-state(scrollable: bottom) {
-    .newer-below {
-      display: block;
-    }
-  }
-}
-
-@supports not (container-type: scroll-state) {
-  .newer-below {
-    display: none;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -133,7 +133,7 @@ export const conversationTitle = (
 ): string => {
   const archived = isArchived(conversation)
   const title = archived ? (conversation.title?.replace(ARCHIVED_SUFFIX, '') ?? null) : conversation.title
-  if (title !== null) return conversation.kind === 'topic' || archived ? `#${title}` : title
+  if (title !== null) return conversation.kind === 'channel' || archived ? `#${title}` : title
   return otherParticipants(conversation, viewerId)
     .map((memberId) => members.get(memberId)?.name ?? unknownName)
     .join(', ')
@@ -144,7 +144,7 @@ export const isArchived = (conversation: Conversation | undefined): boolean =>
 
 export type Destination =
   | { readonly kind: 'people'; readonly memberIds: ReadonlyArray<MemberId> }
-  | { readonly kind: 'topic'; readonly memberIds: ReadonlyArray<MemberId> }
+  | { readonly kind: 'channel'; readonly memberIds: ReadonlyArray<MemberId> }
 
 export const draftDestination = (
   conversation: Conversation,
@@ -153,9 +153,9 @@ export const draftDestination = (
   viewerId: MemberId,
 ): Destination => {
   const question = notes.find((note) => note.id === draft.inReplyTo)
-  if (conversation.kind !== 'topic')
+  if (conversation.kind !== 'channel')
     return { kind: 'people', memberIds: otherParticipants(conversation, viewerId) }
-  if (question === undefined) return { kind: 'topic', memberIds: [] }
+  if (question === undefined) return { kind: 'channel', memberIds: [] }
   return { kind: 'people', memberIds: question.authorId === viewerId ? [] : [question.authorId] }
 }
 
@@ -165,7 +165,7 @@ export const myNoteState = (status: SingleStatus): MyNoteState =>
   status === 'replied' ? 'returning' : status === 'sent' ? 'delivered' : status
 
 export const showsAuthors = (conversation: Conversation | undefined): boolean =>
-  conversation !== undefined && conversation.kind !== 'dm'
+  conversation !== undefined && conversation.kind !== 'direct'
 
 export const answeredBy = (note: Note): MemberId[] =>
   note.receipts.filter((receipt) => receipt.state === 'replied').map((receipt) => receipt.memberId)

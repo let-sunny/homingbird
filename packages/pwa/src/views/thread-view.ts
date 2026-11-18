@@ -1,11 +1,11 @@
 import { systemClock } from '@homingbird/kernel'
 import {
+  type Channel,
   type Conversation,
   type ConversationId,
   type Me,
   type MemberId,
   type Note,
-  type Topic,
   summarize,
 } from '@homingbird/protocol'
 import type { StateName } from '@homingbird/sprites'
@@ -15,22 +15,27 @@ import {
   askAgent,
   discardDraft,
   launch,
+  loadChannels,
   loadOlderNotes,
   loadPeople,
   loadThread,
-  loadTopics,
   markRead,
   replyTargetIn,
   saveDraft,
   sendNote,
   withdrawRequest,
 } from '../actions.ts'
+import { channelLabel, channelOfRoom } from '../channels.ts'
 import { characterOf } from '../characters.ts'
+import { type DraftBasis, draftBasisOf } from '../draft-basis.ts'
 import { waitingRequests } from '../draft-requests.ts'
 import { MISSING, orMissing } from '../missing.ts'
+import { changedItems, showsNewerBelow, unseenAfterDraw } from '../newer-below.ts'
 import { hrefFor } from '../routes.ts'
 import { spriteOwner } from '../sprite-owner.ts'
 import {
+  archiveDiscards,
+  channels,
   conversations,
   directory,
   draftRequests,
@@ -40,7 +45,6 @@ import {
   replyTargets,
   sendingIn,
   threads,
-  topics,
 } from '../state.ts'
 import { listOf, strings } from '../strings.ts'
 import {
@@ -60,46 +64,58 @@ import {
   statusOf,
   threadItems,
 } from '../thread.ts'
-import { topicLabel, topicOfRoom } from '../topics.ts'
 import { agentAsk } from './agent-ask.ts'
+import { privateMark, roomControls, rosters } from './channel-membership.ts'
+import { moveForm, readdressForm } from './channel-picker.ts'
 import { groupAvatar, memberAvatar } from './character-avatar.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
 import {
   archivedMark,
   backLink,
   button,
+  channelCounts,
   emptyWithPip,
   presenceBadges,
   timeLabel,
-  topicCounts,
 } from './parts.ts'
 import { pip } from './pip.ts'
-import { privateMark, roomControls, rosters } from './topic-membership.ts'
-import { moveForm, readdressForm } from './topic-picker.ts'
 
 export const threadView = (life: Lifetime, me: Me, id: ConversationId): HTMLElement => {
   const missing = signal(false)
   launch(orMissing(loadThread(id)), (found) => missing.set(found === MISSING))
   launch(loadPeople)
-  launch(loadTopics(''))
+  launch(loadChannels(''))
   const scroller = h('div', { class: 'thread-scroll', tabindex: '0' })
   const list = h('ol', { class: 'notes', 'aria-live': 'polite', 'aria-relevant': 'additions' })
-  const follow = followNewNotes(life, scroller)
+  const newerBelow = h(
+    'button',
+    { type: 'button', class: 'newer-below', hidden: true },
+    `↓ ${strings.newerBelow}`,
+  )
+  const signatureOf = (item: ThreadItem): string =>
+    JSON.stringify([item, peopleIn(item, me), roomState(id), replyTargetIn(id)])
+  const follow = followNewNotes(life, scroller, newerBelow, () =>
+    threadItems(notesIn(id), draftRequests.get()).map((item) => [item.key, signatureOf(item)] as const),
+  )
   const seen = markReadWhenSeen(life, scroller, me, id)
 
   keyedRegion(
     life,
     list,
-    [threads, members, replyTargets, draftRequests, topics, conversations, releases],
+    [threads, members, replyTargets, draftRequests, channels, conversations, releases],
     () => threadItems(notesIn(id), draftRequests.get()),
     {
       key: (item) => item.key,
-      signature: (item) => JSON.stringify([item, peopleIn(item, me), roomState(id), replyTargetIn(id)]),
-      render: (item) => seen.watch(item.type === 'note' ? noteItem(item, me, id) : draftsItem(item, me, id)),
+      signature: signatureOf,
+      render: (item) =>
+        follow.track(
+          item.key,
+          seen.watch(item.type === 'note' ? noteItem(item, me, id) : draftsItem(item, me, id)),
+        ),
     },
   )
   life.add(threads.subscribe(follow.afterDraw))
-  life.add(topics.subscribe(follow.afterDraw))
+  life.add(channels.subscribe(follow.afterDraw))
   life.add(members.subscribe(follow.afterDraw))
 
   scroller.append(
@@ -108,16 +124,33 @@ export const threadView = (life: Lifetime, me: Me, id: ConversationId): HTMLElem
       if (thread === undefined) return h('p', { class: 'loading' }, strings.loading)
       if (thread.hasMore)
         return button(strings.loadOlder, () => launch(loadOlderNotes(id)), { class: 'load-older' })
-      return thread.notes.length === 0 && emptyWithPip('waving', 4, strings.emptyThread)
+      return (
+        thread.notes.length === 0 &&
+        emptyWithPip(
+          'waving',
+          4,
+          roomOf(id)?.kind === 'channel' ? strings.channelRoomEmpty : strings.emptyThread,
+        )
+      )
     }),
     list,
-    h('p', { class: 'newer-below', 'aria-hidden': 'true' }, `↓ ${strings.newerBelow}`),
+    region(life, [archiveDiscards], () =>
+      (archiveDiscards.get().get(id) ?? []).map((discard) =>
+        h(
+          'p',
+          { class: 'released archive-discard', role: 'status', data: { noteId: discard.noteId } },
+          pip('discarded', 1),
+          h('span', {}, strings.draftDiscardedByArchive({ channel: channelLabel(discard.channel) })),
+        ),
+      ),
+    ),
   )
   const thread = h(
     'section',
     { class: 'thread' },
     threadHead(life, me, id),
     scroller,
+    newerBelow,
     region(
       life,
       [conversations],
@@ -163,8 +196,8 @@ const peopleIn = (item: ThreadItem, me: Me): unknown[] => {
 
 const roomState = (id: ConversationId): unknown[] => {
   const room = roomOf(id)
-  const topic = topicOfRoom(topics.get(), id)
-  return [room?.kind, room?.archivedAt ?? null, topic, [...releases.get()]]
+  const channel = channelOfRoom(channels.get(), id)
+  return [room?.kind, room?.archivedAt ?? null, channel, [...releases.get()]]
 }
 
 const spriteOf = (memberId: MemberId, state: StateName): HTMLElement =>
@@ -176,18 +209,18 @@ const spriteOf = (memberId: MemberId, state: StateName): HTMLElement =>
 const threadHead = (life: Lifetime, me: Me, id: ConversationId): HTMLElement =>
   region(
     life,
-    [conversations, members, directory, topics, rosters],
+    [conversations, members, directory, channels, rosters],
     () => {
       const conversation = roomOf(id)
       if (conversation === undefined) return [backLink(), h('h1', {}, strings.loading)]
       const title = conversationTitle(conversation, members.get(), me.member.id, strings.formerMember)
-      if (conversation.kind === 'topic' || isArchived(conversation)) return topicHead(conversation, title)
+      if (conversation.kind === 'channel' || isArchived(conversation)) return channelHead(conversation, title)
       const others = otherParticipants(conversation, me.member.id)
       const entry = directory.get().find((candidate) => candidate.member.id === others[0])
       const people = others.map((other) => memberOf(other))
       return [
         backLink(),
-        conversation.kind !== 'dm' && people.length > 1
+        conversation.kind !== 'direct' && people.length > 1
           ? groupAvatar(people)
           : memberAvatar(
               memberOf(
@@ -203,35 +236,35 @@ const threadHead = (life: Lifetime, me: Me, id: ConversationId): HTMLElement =>
           'div',
           { class: 'thread-who' },
           h('h1', {}, title),
-          conversation.kind === 'dm' &&
+          conversation.kind === 'direct' &&
             entry !== undefined &&
             h('p', { class: 'thread-profile' }, entry.member.profile),
         ),
-        conversation.kind === 'dm' && entry !== undefined && presenceBadges(entry.presence, true),
+        conversation.kind === 'direct' && entry !== undefined && presenceBadges(entry.presence, true),
       ]
     },
     { class: 'thread-head' },
   )
 
-const topicHead = (conversation: Conversation, title: string): Child => {
+const channelHead = (conversation: Conversation, title: string): Child => {
   const archived = isArchived(conversation)
-  const topic = archived ? null : topicOfRoom(topics.get(), conversation.id)
+  const channel = archived ? null : channelOfRoom(channels.get(), conversation.id)
   return [
     backLink(),
-    h('span', { class: 'avatar is-topic', 'aria-hidden': 'true' }, '#'),
+    h('span', { class: 'avatar is-channel', 'aria-hidden': 'true' }, '#'),
     h(
       'div',
       { class: 'thread-who' },
-      h('h1', {}, title, topic !== null && privateMark(topic), archived && archivedMark()),
-      topic !== null &&
+      h('h1', {}, title, channel !== null && privateMark(channel), archived && archivedMark()),
+      channel !== null &&
         h(
           'div',
-          { class: 'thread-profile topic-head-meta' },
-          topicCounts(topic),
-          h('span', { class: 'topic-head-description' }, topic.description),
+          { class: 'thread-profile channel-head-meta' },
+          channelCounts(channel),
+          h('span', { class: 'channel-head-description' }, channel.description),
         ),
     ),
-    topic !== null && roomControls(topic),
+    channel !== null && roomControls(channel),
   ]
 }
 
@@ -246,8 +279,8 @@ const noteItem = (
   const room = roomOf(conversationId)
   const archived = isArchived(room)
   const inRoom = showsAuthors(room)
-  const isTopicQuestion = room?.kind === 'topic' && note.inReplyTo === null
-  const answerers = isTopicQuestion ? answeredBy(note) : []
+  const isChannelQuestion = room?.kind === 'channel' && note.inReplyTo === null
+  const answerers = isChannelQuestion ? answeredBy(note) : []
   const status = statusOf(summarize(note.receipts))
   return h(
     'li',
@@ -274,6 +307,7 @@ const noteItem = (
         quoted !== null && h('blockquote', { class: 'quote' }, excerpt(quoted.body)),
         h('p', { class: 'note-body' }, linkedText(note.body)),
       ),
+      mine && sentNoteBasis(draftBasisOf(note)),
       answerers.length > 0 &&
         h(
           'p',
@@ -308,7 +342,7 @@ const noteItem = (
             () => launch(askAgent({ destination: { inReplyTo: note.id }, instruction: '', agentId: null })),
             { class: 'link ask-reply' },
           ),
-        isTopicQuestion &&
+        isChannelQuestion &&
           !archived &&
           isOpenQuestion(note, notesIn(conversationId)) &&
           h(
@@ -318,7 +352,7 @@ const noteItem = (
               class: 'link move-question',
               ...opensDialog(strings.moveTitle, (life) => moveForm(life, note, conversationId)),
             },
-            strings.moveToTopic,
+            strings.moveToChannel,
           ),
       ),
     ),
@@ -374,8 +408,8 @@ const draftsItem = (
   const target = noteById(conversationId, item.inReplyTo)
   const room = roomOf(conversationId)
   const archived = isArchived(room)
-  const topic = room?.kind === 'topic' ? topicOfRoom(topics.get(), conversationId) : null
-  const question = topic !== null && item.inReplyTo === null
+  const channel = room?.kind === 'channel' ? channelOfRoom(channels.get(), conversationId) : null
+  const question = channel !== null && item.inReplyTo === null
   return h(
     'li',
     { class: 'pending' },
@@ -396,7 +430,7 @@ const draftsItem = (
     h(
       'div',
       { class: 'alternatives' },
-      item.drafts.map((draft) => draftCard(draft, item, me, room, archived, question ? topic : null)),
+      item.drafts.map((draft) => draftCard(draft, item, me, room, archived, question ? channel : null)),
     ),
   )
 }
@@ -407,14 +441,15 @@ const draftCard = (
   me: Me,
   room: Conversation | undefined,
   archived: boolean,
-  topic: Topic | null,
+  channel: Channel | null,
 ): HTMLElement =>
   h(
     'article',
     { class: 'draft', data: { draftId: draft.id } },
     originBadge(draft),
     h('p', { class: 'note-body' }, linkedText(draft.body)),
-    !archived && room !== undefined && destinationLine(draft, me, room, topic),
+    draftBasisBlock(draftBasisOf(draft)),
+    !archived && room !== undefined && destinationLine(draft, me, room, channel),
     !archived &&
       h(
         'div',
@@ -434,29 +469,52 @@ const draftCard = (
           { type: 'button', ...opensDialog(strings.editDraftTitle, () => draftEditor(draft, item)) },
           strings.edit,
         ),
-        topic !== null &&
+        channel !== null &&
           h(
             'button',
             {
               type: 'button',
-              class: 'change-topic',
-              ...opensDialog(strings.changeTopic, (life) => readdressForm(life, draft, topic.slug)),
+              class: 'change-channel',
+              ...opensDialog(strings.changeChannel, (life) => readdressForm(life, draft, channel.slug)),
             },
-            strings.changeTopic,
+            strings.changeChannel,
           ),
         button(strings.discard, () => launch(discardDraft(draft), undefined, 'draft'), { class: 'danger' }),
       ),
   )
 
-const destinationLine = (draft: Note, me: Me, room: Conversation, topic: Topic | null): HTMLElement => {
+const draftBasisBlock = (basis: DraftBasis | null): HTMLElement | null =>
+  basis === null
+    ? null
+    : h(
+        'section',
+        { class: 'draft-basis', 'aria-label': strings.draftBasisTitle },
+        h('h3', {}, strings.draftBasisTitle),
+        ...basisLines(basis),
+      )
+
+const sentNoteBasis = (basis: DraftBasis | null): HTMLElement | null =>
+  basis === null || basis.kind === 'none'
+    ? null
+    : h('details', { class: 'note-basis' }, h('summary', {}, strings.draftBasisTitle), ...basisLines(basis))
+
+const basisLines = (basis: DraftBasis): HTMLElement[] =>
+  basis.kind === 'none'
+    ? [h('p', { class: 'basis-missing' }, strings.draftBasisMissing)]
+    : basis.lines.map((line) => h('p', {}, linkedText(line)))
+
+const destinationLine = (draft: Note, me: Me, room: Conversation, channel: Channel | null): HTMLElement => {
   const destination = draftDestination(room, draft, notesIn(room.id), me.member.id)
   const names = listOf(destination.memberIds.map(nameOf))
   return h(
     'p',
     { class: 'draft-destination' },
-    topic !== null
-      ? [h('span', {}, strings.sendsToTopic({ topic: topicLabel(topic.slug) })), topicCounts(topic)]
-      : room.kind === 'topic'
+    channel !== null
+      ? [
+          h('span', {}, strings.sendsToChannel({ channel: channelLabel(channel.slug) })),
+          channelCounts(channel),
+        ]
+      : room.kind === 'channel'
         ? strings.sendsToInRoom({ names, room: conversationTitle(room, members.get(), me.member.id, '') })
         : strings.sendsTo({ names }),
   )
@@ -655,7 +713,7 @@ const cannotMessageNotice = (me: Me, id: ConversationId): Child =>
 
 const mayMessageIn = (me: Me, id: ConversationId): boolean => {
   const conversation = roomOf(id)
-  if (conversation === undefined || conversation.kind !== 'dm') return true
+  if (conversation === undefined || conversation.kind !== 'direct') return true
   const other = otherParticipants(conversation, me.member.id)[0]
   const entry = directory.get().find((candidate) => candidate.member.id === other)
   return entry === undefined || entry.canMessage
@@ -663,16 +721,65 @@ const mayMessageIn = (me: Me, id: ConversationId): boolean => {
 
 const NEAR_BOTTOM_PX = 120
 
-const followNewNotes = (life: Lifetime, scroller: HTMLElement) => {
+/**
+ * Keeps the view at the bottom while the person is there, and otherwise points at what arrived or
+ * changed below that they have not seen; unread notes below count on opening.
+ */
+const followNewNotes = (
+  life: Lifetime,
+  scroller: HTMLElement,
+  indicator: HTMLButtonElement,
+  signatures: () => ReadonlyArray<readonly [string, string]>,
+) => {
   let pinned = true
+  let drawn = new Map<string, string>()
+  let unseen = new Set<string>()
+  const elements = new Map<string, HTMLElement>()
+  const inView = new Set<string>()
+  const keyOf = (element: Element): string => (element as HTMLElement).dataset.itemKey ?? ''
+  const update = (): void => {
+    const order = [...elements.keys()]
+    indicator.hidden = !showsNewerBelow({ order, unseen, inView, atBottom: pinned })
+  }
+  const observer = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries)
+        if (entry.isIntersecting) {
+          inView.add(keyOf(entry.target))
+          unseen.delete(keyOf(entry.target))
+        } else inView.delete(keyOf(entry.target))
+      update()
+    },
+    { root: scroller, threshold: 0.6 },
+  )
   const onScroll = (): void => {
     pinned = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < NEAR_BOTTOM_PX
+    if (pinned) unseen = new Set()
+    update()
   }
   scroller.addEventListener('scroll', onScroll, { passive: true })
-  life.add(() => scroller.removeEventListener('scroll', onScroll))
+  indicator.addEventListener('click', () => scroller.scrollTo({ top: scroller.scrollHeight }))
+  life.add(() => {
+    scroller.removeEventListener('scroll', onScroll)
+    observer.disconnect()
+  })
   return {
+    track: (key: string, element: HTMLElement): HTMLElement => {
+      element.dataset.itemKey = key
+      const known = elements.get(key)
+      if (known !== undefined) observer.unobserve(known)
+      elements.set(key, element)
+      if (drawn.size === 0 && element.dataset.unread === 'true') unseen.add(key)
+      observer.observe(element)
+      return element
+    },
     afterDraw: (): void => {
+      const now = new Map(signatures())
+      for (const key of [...elements.keys()]) if (!now.has(key)) elements.delete(key)
+      if (drawn.size > 0) unseen = unseenAfterDraw(unseen, changedItems(drawn, now), pinned)
+      drawn = now
       if (pinned) requestAnimationFrame(() => scroller.scrollTo({ top: scroller.scrollHeight }))
+      update()
     },
   }
 }
@@ -681,6 +788,7 @@ const markReadWhenSeen = (life: Lifetime, scroller: HTMLElement, me: Me, id: Con
   const reported = new Set<string>()
   const inView = new Set<Element>()
   let waitingForThePerson = openedForThePerson.get() === id
+  if (waitingForThePerson) scroller.dataset.reading = 'waiting-for-the-person'
   const report = (element: Element): void => {
     const note = noteById(id, (element as HTMLElement).dataset.noteId ?? null)
     if (note === null || reported.has(note.id) || !isUnreadBy(note, me.member.id)) return
@@ -697,9 +805,10 @@ const markReadWhenSeen = (life: Lifetime, scroller: HTMLElement, me: Me, id: Con
     },
     { root: scroller, threshold: 0.6 },
   )
-  const personActed = (): void => {
-    if (!waitingForThePerson) return
+  const personActed = (event: Event): void => {
+    if (!waitingForThePerson || !event.isTrusted) return
     waitingForThePerson = false
+    delete scroller.dataset.reading
     openedForThePerson.set(null)
     for (const element of inView) report(element)
   }
@@ -707,7 +816,6 @@ const markReadWhenSeen = (life: Lifetime, scroller: HTMLElement, me: Me, id: Con
   life.add(() => {
     observer.disconnect()
     for (const kind of PERSON_ACTIONS) document.removeEventListener(kind, personActed)
-    if (openedForThePerson.get() === id) openedForThePerson.set(null)
   })
   return {
     watch: (element: HTMLElement): HTMLElement => {

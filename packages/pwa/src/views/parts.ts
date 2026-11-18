@@ -1,10 +1,10 @@
 import { systemClock } from '@homingbird/kernel'
-import type { Presence, Topic } from '@homingbird/protocol'
+import type { Channel, Presence } from '@homingbird/protocol'
 import { type Child, type Properties, h } from '@homingbird/ui'
+import { channelLabel } from '../channels.ts'
 import { presenceShown } from '../presence.ts'
 import { hrefFor } from '../routes.ts'
 import { formats, strings } from '../strings.ts'
-import { topicLabel } from '../topics.ts'
 import { type PipScale, type PipState, pip } from './pip.ts'
 
 export const page = (title: string, ...children: ReadonlyArray<Child>): HTMLElement =>
@@ -84,23 +84,27 @@ export const emptyWithPip = (
   ...actions: ReadonlyArray<Child>
 ): HTMLElement => h('div', { class: 'empty' }, pip(state, scale), h('p', {}, text), ...actions)
 
-export const topicChips = (slugs: ReadonlyArray<string>): HTMLElement =>
+export const channelChips = (slugs: ReadonlyArray<string>): HTMLElement =>
   h(
     'ul',
-    { class: 'topic-chips' },
+    { class: 'channel-chips' },
     slugs.map((slug) =>
-      h('li', {}, h('a', { class: 'topic-chip', href: hrefFor({ name: 'topic', slug }) }, topicLabel(slug))),
+      h(
+        'li',
+        {},
+        h('a', { class: 'channel-chip', href: hrefFor({ name: 'channel', slug }) }, channelLabel(slug)),
+      ),
     ),
   )
 
 export const wordmark = (name: string): string => (name === 'Homingbird' ? 'homingbird' : name)
 
-export const topicCounts = (topic: Pick<Topic, 'memberCount' | 'helperCount'>): HTMLElement =>
+export const channelCounts = (channel: Pick<Channel, 'memberCount' | 'helperCount'>): HTMLElement =>
   h(
     'span',
-    { class: 'topic-counts' },
-    h('span', {}, strings.memberCount({ count: topic.memberCount })),
-    h('span', {}, strings.answerCount({ count: topic.helperCount })),
+    { class: 'channel-counts' },
+    h('span', {}, strings.memberCount({ count: channel.memberCount })),
+    h('span', {}, strings.answerCount({ count: channel.helperCount })),
   )
 
 export const archivedMark = (): HTMLElement => h('span', { class: 'archived-mark' }, strings.archived)

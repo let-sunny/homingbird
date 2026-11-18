@@ -1,6 +1,6 @@
 import type { Lifetime } from '@homingbird/ui'
 import { h, region } from '@homingbird/ui'
-import { mostRecentConversation } from '../home.ts'
+import { mayRestoreConversation, mostRecentConversation } from '../home.ts'
 import { hrefFor } from '../routes.ts'
 import { conversations, conversationsLoaded, openedForThePerson } from '../state.ts'
 import { strings } from '../strings.ts'
@@ -15,7 +15,8 @@ export const homeView = (life: Lifetime): HTMLElement => {
     return emptyWithPip('waving', 6, strings.pickConversation)
   })
   const openMostRecent = (): void => {
-    if (!conversationsLoaded.get() || !sitsBesideTheList(host)) return
+    if (!conversationsLoaded.get() || !sitsBesideTheList(host) || !mayRestoreConversation(location.hash))
+      return
     const recent = mostRecentConversation(conversations.get())
     if (recent === null) return
     openedForThePerson.set(recent.id)
@@ -36,7 +37,7 @@ export const startingPoints = (): HTMLElement =>
     h(
       'ul',
       {},
-      start(hrefFor({ name: 'topics' }), strings.start.askTopic, strings.start.askTopicHint),
+      start(hrefFor({ name: 'channels' }), strings.start.askChannel, strings.start.askChannelHint),
       start(hrefFor({ name: 'people' }), strings.start.findPerson, strings.start.findPersonHint),
       start(hrefFor({ name: 'connect' }), strings.start.connect, strings.start.connectHint),
     ),

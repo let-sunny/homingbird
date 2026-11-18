@@ -30,7 +30,7 @@ describe('refusalText', () => {
   })
 
   it('shows the server’s own words for a conflict the client cannot name', () => {
-    const message = 'Make a member of this topic its manager before making it private.'
+    const message = 'Make a member of this channel its manager before making it private.'
     expect(refusalText(conflict(message))).toBe(message)
     expect(refusalText(conflict(message), 'move')).toBe(message)
   })
@@ -41,7 +41,7 @@ describe('refusalText', () => {
       strings.refusals.lastManager,
     )
     expect(refusalText(conflict('x'), 'visibility')).toBe(strings.refusals.needsManagerInRoom)
-    expect(refusalText(conflict('That name is not available.'), 'topic-name')).toBe(
+    expect(refusalText(conflict('That name is not available.'), 'channel-name')).toBe(
       strings.refusals.nameTaken,
     )
     expect(refusalText(conflict('x'), 'request')).toBe(strings.refusals.requestNotWaiting)
@@ -49,7 +49,7 @@ describe('refusalText', () => {
 
   it('recognises an archived room whatever was attempted', () => {
     const archived = conflict(
-      'This conversation is archived: it can be read, but nothing more can be written in it.',
+      'No reply is possible: this channel was archived. It can still be read, but nothing more can be written in it, here or in the web client.',
     )
     expect(refusalText(archived, 'draft')).toBe(strings.refusals.roomArchived)
     expect(refusalText(archived)).toBe(strings.refusals.roomArchived)

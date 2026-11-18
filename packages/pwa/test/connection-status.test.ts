@@ -14,6 +14,7 @@ describe('connectionShown', () => {
       label: 'Connected',
       description: 'Connected',
       noticeable: false,
+      whenShort: 'hidden',
     })
   })
 
@@ -31,7 +32,15 @@ describe('connectionShown', () => {
       label: 'Offline',
       description: 'Offline: new notes will appear when you are back online.',
       noticeable: true,
+      whenShort: 'label',
     })
+  })
+
+  it('hides a bare mark where the header is short of room, but always words connecting and offline', () => {
+    expect(connectionShown('live', english).whenShort).toBe('hidden')
+    expect(connectionShown('polling', english).whenShort).toBe('hidden')
+    expect(connectionShown('connecting', english).whenShort).toBe('label')
+    expect(connectionShown('offline', korean)).toMatchObject({ whenShort: 'label', label: '오프라인' })
   })
 
   it('speaks Korean', () => {

@@ -4,10 +4,10 @@ import { presenceShown } from '../src/presence.ts'
 import { strings } from '../src/strings.ts'
 
 describe('presenceShown', () => {
-  it('reads "Person online · Agent offline" in words where the agent’s status is in words', () => {
+  it('reads "Person online · Agent not awake" in words where the agent’s status is in words', () => {
     const shown = presenceShown({ humanOnline: true, agentOnline: false }, true)
     expect([shown.person.words, shown.agent.words]).toEqual([strings.humanOnline, strings.agentOffline])
-    expect([shown.person.words, shown.agent.words]).toEqual(['Person online', 'Agent offline'])
+    expect([shown.person.words, shown.agent.words]).toEqual(['Person online', 'Agent not awake'])
   })
 
   it('keeps narrow rows to the person’s dot, labelled for screen readers, and the agent only when online', () => {

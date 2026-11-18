@@ -5,31 +5,33 @@ import {
   forgetRelease,
   launch,
   loadAgents,
+  loadChannels,
   loadConversations,
   loadPeople,
   loadThread,
-  loadTopics,
   loadWorkspace,
   rememberNote,
 } from './actions.ts'
+import { channelLabel, withChannel, withoutRoom } from './channels.ts'
 import { upsertRequest } from './draft-requests.ts'
 import { hrefFor } from './routes.ts'
 import {
   agentCredentials,
   announcement,
+  archiveDiscards,
+  channels,
   conversations,
   directory,
   draftRequests,
   members,
+  notice,
   releases,
   route,
   signedIn,
   threads,
-  topics,
 } from './state.ts'
 import { strings } from './strings.ts'
 import { withPresence, withReceipts, withoutMovedQuestion } from './thread.ts'
-import { withTopic, withoutRoom } from './topics.ts'
 
 export const applyEvent = (event: StreamEvent): void => {
   const body = event.body
@@ -62,6 +64,19 @@ export const applyEvent = (event: StreamEvent): void => {
       break
     case 'draft.discarded':
       forgetNote(body.conversationId, body.noteId)
+      if (body.because === 'channel_archived' && body.channel !== undefined) {
+        const channel = body.channel
+        archiveDiscards.update((all) =>
+          new Map(all).set(body.conversationId, [
+            ...(all.get(body.conversationId) ?? []).filter((one) => one.noteId !== body.noteId),
+            { noteId: body.noteId, channel },
+          ]),
+        )
+        notice.set({
+          kind: 'info',
+          text: strings.draftDiscardedByArchive({ channel: channelLabel(channel) }),
+        })
+      }
       launch(loadConversations)
       break
     case 'note.released':
@@ -80,12 +95,12 @@ export const applyEvent = (event: StreamEvent): void => {
     case 'directory.changed':
       reloadDirectorySoon()
       break
-    case 'topic.changed':
-      topics.update((all) => withTopic(all, body.topic))
-      if (body.topic.joined) launch(loadConversations)
+    case 'channel.changed':
+      channels.update((all) => withChannel(all, body.channel))
+      if (body.channel.joined) launch(loadConversations)
       break
-    case 'topic.left':
-      topics.update((all) => withoutRoom(all, body.conversationId, signedIn()?.member.role === 'admin'))
+    case 'channel.left':
+      channels.update((all) => withoutRoom(all, body.conversationId, signedIn()?.member.role === 'admin'))
       conversations.update((all) => all.filter((room) => room.id !== body.conversationId))
       threads.update((all) => {
         const remaining = new Map(all)
@@ -108,7 +123,7 @@ export const applyEvent = (event: StreamEvent): void => {
 const leaveRoomIfShown = (conversationId: string): void => {
   const current = route.get()
   if (current.name === 'conversation' && current.id === conversationId)
-    location.replace(hrefFor({ name: 'topics' }))
+    location.replace(hrefFor({ name: 'channels' }))
 }
 
 const FRESH_MS = 30_000
@@ -119,7 +134,7 @@ let directoryReload: ReturnType<typeof setTimeout> | undefined
 const reloadDirectorySoon = (): void => {
   clearTimeout(directoryReload)
   directoryReload = setTimeout(
-    () => launch(T.all([loadPeople, loadTopics(''), loadConversations])),
+    () => launch(T.all([loadPeople, loadChannels(''), loadConversations])),
     DIRECTORY_SETTLE_MS,
   )
 }

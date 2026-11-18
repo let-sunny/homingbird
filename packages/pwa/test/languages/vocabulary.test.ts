@@ -16,6 +16,10 @@ const INTERNAL_TERMS: ReadonlyArray<{ readonly term: RegExp; readonly instead: s
   { term: /(?<!연결 )코드/, instead: '연결 코드 (a bare 코드 reads as a product name)' },
   { term: /\breceipts?\b/i, instead: 'Delivered, Read, Replied' },
   { term: /(?<!화면 |다크 |라이트 )모드/, instead: 'Homingbird 플러그인 (모드 reads as “mode”)' },
+  { term: /\btopics?\b/i, instead: 'channel' },
+  { term: /주제/, instead: '채널' },
+  { term: /\bconversations?\b/i, instead: 'direct message, or channel' },
+  { term: /대화/, instead: 'DM, 또는 채널' },
 ]
 
 const EXCEPTIONS: Readonly<Record<string, string>> = {}

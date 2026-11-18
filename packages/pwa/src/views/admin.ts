@@ -1,32 +1,31 @@
 import { Task as T } from '@homingbird/kernel'
 import {
   type AuditEntry,
+  CHANNEL_DESCRIPTION_MAX,
+  type Channel,
   type Me,
   type Member,
   type Settings,
-  TOPIC_DESCRIPTION_MAX,
-  type Topic,
 } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, region, signal } from '@homingbird/ui'
 import {
   api,
+  archiveChannel,
   launch,
-  loadTopics,
-  mergeTopic,
-  removeTopic,
+  loadChannels,
   resetMemberCharacter,
-  reviseTopic,
+  reviseChannel,
   saveSettings,
 } from '../actions.ts'
 import { flowLength, flowToSave, mayInsertExample } from '../answering-flow.ts'
+import { channelLabel, slugFrom } from '../channels.ts'
 import { type AdminSection, hrefFor } from '../routes.ts'
-import { members as knownMembers, notice, topics } from '../state.ts'
+import { channels, members as knownMembers, notice } from '../state.ts'
 import { strings } from '../strings.ts'
-import { slugFrom, topicLabel } from '../topics.ts'
+import { privateMark } from './channel-membership.ts'
 import { memberAvatar } from './character-avatar.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
-import { button, dateTimeLabel, field, page, topicCounts, youMark } from './parts.ts'
-import { privateMark } from './topic-membership.ts'
+import { button, channelCounts, dateTimeLabel, field, page, youMark } from './parts.ts'
 
 export const adminView = (life: Lifetime, me: Me, section: AdminSection): HTMLElement =>
   page(
@@ -46,15 +45,15 @@ export const adminView = (life: Lifetime, me: Me, section: AdminSection): HTMLEl
       ? settingsSection(life)
       : section === 'members'
         ? membersSection(life, me)
-        : section === 'topics'
-          ? topicsSection(life)
+        : section === 'channels'
+          ? channelsSection(life)
           : auditSection(life),
   )
 
 const sections = (): ReadonlyArray<readonly [AdminSection, string]> => [
   ['settings', strings.adminSettings],
   ['members', strings.adminMembers],
-  ['topics', strings.adminTopics],
+  ['channels', strings.adminChannels],
   ['audit', strings.adminAudit],
 ]
 
@@ -242,22 +241,22 @@ const membersSection = (life: Lifetime, me: Me): HTMLElement => {
   })
 }
 
-const topicsSection = (life: Lifetime): HTMLElement => {
-  launch(loadTopics(''))
-  return region(life, [topics], () =>
+const channelsSection = (life: Lifetime): HTMLElement => {
+  launch(loadChannels(''))
+  return region(life, [channels], () =>
     h(
       'ul',
-      { class: 'members admin-topics' },
-      topics.get().map((topic) =>
+      { class: 'members admin-channels' },
+      channels.get().map((channel) =>
         h(
           'li',
-          { class: 'member', data: { slug: topic.slug } },
+          { class: 'member', data: { slug: channel.slug } },
           h(
             'div',
             { class: 'member-main' },
-            h('strong', {}, topicLabel(topic.slug), privateMark(topic)),
-            h('span', {}, topic.description),
-            h('span', { class: 'topic-meta' }, topicCounts(topic)),
+            h('strong', {}, channelLabel(channel.slug), privateMark(channel)),
+            h('span', {}, channel.description),
+            h('span', { class: 'channel-meta' }, channelCounts(channel)),
           ),
           h(
             'div',
@@ -266,32 +265,22 @@ const topicsSection = (life: Lifetime): HTMLElement => {
               'button',
               {
                 type: 'button',
-                ...opensDialog(strings.editTopicTitle({ topic: topicLabel(topic.slug) }), () =>
-                  editTopicForm(topic),
+                ...opensDialog(strings.editChannelTitle({ channel: channelLabel(channel.slug) }), () =>
+                  editChannelForm(channel),
                 ),
               },
-              strings.editTopic,
-            ),
-            h(
-              'button',
-              {
-                type: 'button',
-                ...opensDialog(strings.mergeTopicTitle({ topic: topicLabel(topic.slug) }), () =>
-                  mergeForm(topic),
-                ),
-              },
-              strings.mergeTopic,
+              strings.editChannel,
             ),
             h(
               'button',
               {
                 type: 'button',
                 class: 'danger',
-                ...opensDialog(strings.removeTopicTitle({ topic: topicLabel(topic.slug) }), () =>
-                  removeForm(topic),
+                ...opensDialog(strings.archiveChannelTitle({ channel: channelLabel(channel.slug) }), () =>
+                  archiveForm(channel),
                 ),
               },
-              strings.removeTopic,
+              strings.archiveChannel,
             ),
           ),
         ),
@@ -300,12 +289,12 @@ const topicsSection = (life: Lifetime): HTMLElement => {
   )
 }
 
-const editTopicForm = (topic: Topic): Child => {
+const editChannelForm = (channel: Channel): Child => {
   const slug = h('input', {
     name: 'slug',
     required: true,
     maxlength: '40',
-    value: topic.slug,
+    value: channel.slug,
     on: {
       input: () => {
         const normalized = slugFrom(slug.value)
@@ -316,8 +305,8 @@ const editTopicForm = (topic: Topic): Child => {
   const description = h('input', {
     name: 'description',
     required: true,
-    maxlength: String(TOPIC_DESCRIPTION_MAX),
-    value: topic.description,
+    maxlength: String(CHANNEL_DESCRIPTION_MAX),
+    value: channel.description,
   })
   return h(
     'form',
@@ -328,8 +317,8 @@ const editTopicForm = (topic: Topic): Child => {
           event.preventDefault()
           const renamed = slugFrom(slug.value).replace(/-+$/, '')
           launch(
-            reviseTopic(topic.slug, {
-              ...(renamed !== topic.slug && { slug: renamed }),
+            reviseChannel(channel.slug, {
+              ...(renamed !== channel.slug && { slug: renamed }),
               description: description.value.trim(),
             }),
             closeDialog,
@@ -337,28 +326,23 @@ const editTopicForm = (topic: Topic): Child => {
         },
       },
     },
-    field(strings.topicSlugLabel, slug, strings.topicSlugHint),
-    field(strings.topicDescriptionLabel, description),
+    field(strings.channelSlugLabel, slug, strings.channelSlugHint),
+    field(strings.channelDescriptionLabel, description),
     dialogActions(strings.save, 'primary'),
   )
 }
 
-const mergeForm = (topic: Topic): Child => {
-  if (!topics.get().some((other) => other.slug !== topic.slug))
-    return h(
-      'div',
-      { class: 'dialog-body' },
-      h('p', {}, strings.nothingToMergeInto),
-      h('div', { class: 'dialog-actions' }, h('button', { type: 'button', ...closesDialog }, strings.close)),
-    )
+const archiveForm = (channel: Channel): Child => {
+  const others = channels.get().filter((other) => other.slug !== channel.slug)
+  const moving = h('input', { type: 'checkbox', name: 'moveMembers' })
   const into = h(
     'select',
-    { name: 'into', required: true },
-    topics
-      .get()
-      .filter((other) => other.slug !== topic.slug)
-      .map((other) => h('option', { value: other.slug }, topicLabel(other.slug))),
+    { name: 'moveMembersTo', disabled: true },
+    others.map((other) => h('option', { value: other.slug }, channelLabel(other.slug))),
   )
+  moving.addEventListener('change', () => {
+    into.disabled = !moving.checked
+  })
   return h(
     'form',
     {
@@ -366,31 +350,29 @@ const mergeForm = (topic: Topic): Child => {
       on: {
         submit: (event) => {
           event.preventDefault()
-          launch(mergeTopic(topic.slug, into.value), closeDialog)
+          launch(archiveChannel(channel.slug, moving.checked ? into.value : null), closeDialog)
         },
       },
     },
-    h('p', {}, strings.mergeIntro),
-    field(strings.mergeInto, into),
-    dialogActions(strings.mergeInto, 'primary'),
+    h(
+      'ul',
+      { class: 'archive-effects' },
+      h('li', {}, strings.archiveLeavesList),
+      h('li', {}, strings.archiveRoomReadOnly),
+      h('li', {}, strings.archiveNotesStay),
+      h('li', {}, strings.archiveDraftsDiscarded),
+      others.length > 0 && h('li', {}, strings.archiveMembersMove),
+    ),
+    others.length > 0 &&
+      h(
+        'fieldset',
+        { class: 'archive-move' },
+        h('label', { class: 'choice' }, moving, h('span', {}, strings.moveMembersTo)),
+        field(strings.moveMembersInto, into),
+      ),
+    dialogActions(strings.archiveChannel, 'danger'),
   )
 }
-
-const removeForm = (topic: Topic): Child =>
-  h(
-    'form',
-    {
-      class: 'dialog-body',
-      on: {
-        submit: (event) => {
-          event.preventDefault()
-          launch(removeTopic(topic.slug), closeDialog)
-        },
-      },
-    },
-    h('p', {}, strings.removeTopicBody),
-    dialogActions(strings.removeTopic, 'danger'),
-  )
 
 const dialogActions = (label: string, kind: 'primary' | 'danger'): HTMLElement =>
   h(

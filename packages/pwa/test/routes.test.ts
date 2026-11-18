@@ -1,14 +1,21 @@
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { type AdminSection, type Route, hrefFor, parseRoute, signInHref } from '../src/routes.ts'
+import {
+  type AdminSection,
+  type Route,
+  currentHashFor,
+  hrefFor,
+  parseRoute,
+  signInHref,
+} from '../src/routes.ts'
 
 const segment = fc.string({ minLength: 1, maxLength: 24 })
 
 const routes: fc.Arbitrary<Route> = fc.oneof(
   fc.constant<Route>({ name: 'home' }),
   fc.constant<Route>({ name: 'people' }),
-  fc.constant<Route>({ name: 'topics' }),
-  segment.map((slug): Route => ({ name: 'topic', slug })),
+  fc.constant<Route>({ name: 'channels' }),
+  segment.map((slug): Route => ({ name: 'channel', slug })),
   fc.constant<Route>({ name: 'profile' }),
   fc.constant<Route>({ name: 'credentials' }),
   fc.constant<Route>({ name: 'character', draft: null, from: null }),
@@ -19,7 +26,7 @@ const routes: fc.Arbitrary<Route> = fc.oneof(
   fc.option(segment, { nil: null }).map((code): Route => ({ name: 'device', code })),
   fc.string({ maxLength: 40 }).map((query): Route => ({ name: 'search', query })),
   fc
-    .constantFrom<AdminSection>('settings', 'members', 'topics', 'audit')
+    .constantFrom<AdminSection>('settings', 'members', 'channels', 'audit')
     .map((section): Route => ({ name: 'admin', section })),
   fc
     .option(fc.string({ maxLength: 60 }), { nil: null })
@@ -46,10 +53,12 @@ describe('routes', () => {
     ['#/admin/nonsense', { name: 'admin', section: 'settings' }],
     ['#/search?q=billing', { name: 'search', query: 'billing' }],
     ['#/search', { name: 'search', query: '' }],
-    ['#/topics', { name: 'topics' }],
-    ['#/t/billing', { name: 'topic', slug: 'billing' }],
+    ['#/channels', { name: 'channels' }],
+    ['#/channel/billing', { name: 'channel', slug: 'billing' }],
+    ['#/channel', { name: 'unknown' }],
+    ['#/t/billing', { name: 'channel', slug: 'billing' }],
     ['#/t', { name: 'unknown' }],
-    ['#/admin/topics', { name: 'admin', section: 'topics' }],
+    ['#/admin/channels', { name: 'admin', section: 'channels' }],
     ['#/c', { name: 'unknown' }],
     ['#/consent', { name: 'unknown' }],
     ['#/nowhere', { name: 'unknown' }],
@@ -59,6 +68,14 @@ describe('routes', () => {
     ['#/character/eyJ2ZXJzaW9uIjoxfQ', { name: 'character', draft: 'eyJ2ZXJzaW9uIjoxfQ', from: null }],
   ])('reads %j', (hash, expected) => {
     expect(parseRoute(hash)).toEqual(expected)
+  })
+
+  it('replaces an old channel address with the current one and leaves current addresses alone', () => {
+    expect(currentHashFor('#/t/billing')).toBe('#/channel/billing')
+    expect(currentHashFor('#/t/caf%C3%A9')).toBe('#/channel/caf%C3%A9')
+    expect(hrefFor({ name: 'channel', slug: 'billing' })).toBe('#/channel/billing')
+    for (const hash of ['#/channel/billing', '#/t', '#/c/conv_1', '#/', ''])
+      expect(currentHashFor(hash)).toBeNull()
   })
 
   it('sends an unknown route home', () => {

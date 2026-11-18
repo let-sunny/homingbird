@@ -3,12 +3,14 @@ import type { Conversation, Me, MemberId } from '@homingbird/protocol'
 import { type Lifetime, h, region } from '@homingbird/ui'
 import { launch, signOut } from '../actions.ts'
 import { arrivalTracker } from '../arrivals.ts'
+import { archivedRooms, channelOfRoom, channelRooms, peopleConversations } from '../channels.ts'
 import { connectionShown } from '../connection-status.ts'
 import { type Route, hrefFor } from '../routes.ts'
 import { spriteOwner } from '../sprite-owner.ts'
 import {
   agentCredentials,
   branding,
+  channels,
   connection,
   conversations,
   conversationsLoaded,
@@ -16,14 +18,12 @@ import {
   members,
   route,
   session,
-  topics,
 } from '../state.ts'
 import { strings } from '../strings.ts'
 import { conversationTitle, excerpt, otherParticipants } from '../thread.ts'
-import { archivedRooms, peopleConversations, topicOfRoom, topicRooms } from '../topics.ts'
 import { groupAvatar, memberAvatar } from './character-avatar.ts'
 import { startingPoints } from './home.ts'
-import { archivedMark, emptyWithPip, presenceBadges, timeLabel, topicCounts, wordmark } from './parts.ts'
+import { archivedMark, channelCounts, emptyWithPip, presenceBadges, timeLabel, wordmark } from './parts.ts'
 import { pip } from './pip.ts'
 
 export const shell = (life: Lifetime, me: Me, stage: HTMLElement): HTMLElement => {
@@ -74,7 +74,7 @@ const titleBar = (life: Lifetime, me: Me): HTMLElement =>
           { class: 'tabs', 'aria-label': strings.sections },
           tab(strings.navNotes, { name: 'home' }, ['home', 'conversation']),
           tab(strings.navPeople, { name: 'people' }, ['people']),
-          tab(strings.topics, { name: 'topics' }, ['topics', 'topic'], 'topics'),
+          tab(strings.channels, { name: 'channels' }, ['channels', 'channel'], 'channels'),
           tab(strings.navSearch, { name: 'search', query: '' }, ['search']),
         ),
       { class: 'tabs-host' },
@@ -88,7 +88,7 @@ const titleBar = (life: Lifetime, me: Me): HTMLElement =>
           role: 'status',
           title: shown.description,
           'aria-label': shown.description,
-          data: { noticeable: String(shown.noticeable) },
+          data: { noticeable: String(shown.noticeable), whenShort: shown.whenShort },
         },
         h('span', { class: 'connection-mark', 'aria-hidden': 'true' }),
         h('span', { class: 'connection-label', 'aria-hidden': 'true' }, shown.label),
@@ -164,7 +164,7 @@ const sidebar = (life: Lifetime, me: Me): HTMLElement =>
     region(life, [agentCredentials, session], () => agentCredentials.get().length === 0 && onboarding(), {
       class: 'onboarding-host',
     }),
-    h('h2', { class: 'sidebar-title' }, strings.conversations),
+    h('h2', { class: 'sidebar-title', data: { tour: 'notes' } }, strings.conversations),
     region(
       life,
       [conversations, members, directory, route, conversationsLoaded],
@@ -184,26 +184,26 @@ const sidebar = (life: Lifetime, me: Me): HTMLElement =>
               people.map((conversation) => conversationRow(conversation, me)),
             )
       },
-      { class: 'conversations-host', data: { tour: 'notes' } },
+      { class: 'conversations-host' },
     ),
     h(
       'div',
       { class: 'sidebar-section-head' },
-      h('h2', { class: 'sidebar-title' }, strings.topics),
-      h('a', { class: 'browse-topics', href: hrefFor({ name: 'topics' }) }, strings.browseTopics),
+      h('h2', { class: 'sidebar-title' }, strings.channels),
+      h('a', { class: 'browse-channels', href: hrefFor({ name: 'channels' }) }, strings.browseChannels),
     ),
-    region(life, [conversations, route, topics], () => {
-      const rooms = topicRooms(conversations.get())
+    region(life, [conversations, route, channels], () => {
+      const rooms = channelRooms(conversations.get())
       return rooms.length === 0
         ? emptyWithPip(
             'searching',
             3,
-            strings.noTopicRooms,
-            h('a', { class: 'button', href: hrefFor({ name: 'topics' }) }, strings.browseTopics),
+            strings.noChannelRooms,
+            h('a', { class: 'button', href: hrefFor({ name: 'channels' }) }, strings.browseChannels),
           )
         : h(
             'ul',
-            { class: 'conversation-list topic-rooms' },
+            { class: 'conversation-list channel-rooms' },
             rooms.map((conversation) => conversationRow(conversation, me)),
           )
     }),
@@ -257,7 +257,7 @@ const conversationFace = (
   arrived: boolean,
 ): HTMLElement => {
   const people = others.map((id) => members.get().get(id))
-  if (conversation.kind !== 'dm' && people.length > 1) return groupAvatar(people)
+  if (conversation.kind !== 'direct' && people.length > 1) return groupAvatar(people)
   const owner = spriteOwner({
     kind: 'conversation',
     viewerId: me.member.id,
@@ -277,7 +277,7 @@ const conversationRow = (conversation: Conversation, me: Me): HTMLElement => {
   const others = otherParticipants(conversation, me.member.id)
   const presence = directory.get().find((entry) => entry.member.id === others[0])?.presence
   const archived = conversation.archivedAt !== null
-  const topic = conversation.kind === 'topic' ? topicOfRoom(topics.get(), conversation.id) : null
+  const channel = conversation.kind === 'channel' ? channelOfRoom(channels.get(), conversation.id) : null
   return h(
     'li',
     {},
@@ -288,8 +288,8 @@ const conversationRow = (conversation: Conversation, me: Me): HTMLElement => {
         href: hrefFor({ name: 'conversation', id: conversation.id }),
         'aria-current': isOpen && 'page',
       },
-      conversation.kind === 'topic' || archived
-        ? h('span', { class: 'avatar is-topic', 'aria-hidden': 'true' }, '#')
+      conversation.kind === 'channel' || archived
+        ? h('span', { class: 'avatar is-channel', 'aria-hidden': 'true' }, '#')
         : conversationFace(conversation, me, others, justArrived(conversation, me.member.id)),
       h(
         'span',
@@ -298,10 +298,10 @@ const conversationRow = (conversation: Conversation, me: Me): HTMLElement => {
           'span',
           { class: 'conversation-name' },
           title,
-          conversation.kind === 'dm' && presence !== undefined && presenceBadges(presence),
+          conversation.kind === 'direct' && presence !== undefined && presenceBadges(presence),
           archived && archivedMark(),
         ),
-        topic !== null && h('span', { class: 'conversation-counts' }, topicCounts(topic)),
+        channel !== null && h('span', { class: 'conversation-counts' }, channelCounts(channel)),
         h(
           'span',
           { class: 'conversation-preview' },

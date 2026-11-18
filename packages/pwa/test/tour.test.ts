@@ -23,8 +23,8 @@ const broken = (): TourStorage => {
 }
 
 describe('the tour', () => {
-  it('walks four steps: notes, connecting an agent, topics, the profile', () => {
-    expect(TOUR_STEPS).toEqual(['notes', 'connect', 'topics', 'profile'])
+  it('walks four steps: notes, connecting an agent, channels, the profile', () => {
+    expect(TOUR_STEPS).toEqual(['notes', 'connect', 'channels', 'profile'])
   })
 
   it('is shown once, then remembered on this device, and forgotten when asked again', () => {
@@ -44,7 +44,7 @@ describe('the tour', () => {
 
   it('starts only on the home view, never over a deep link, and never twice', () => {
     expect(mayStartTour('home', false, false)).toBe(true)
-    for (const route of ['conversation', 'device', 'character', 'topic'])
+    for (const route of ['conversation', 'device', 'character', 'channel'])
       expect(mayStartTour(route, false, false)).toBe(false)
     expect(mayStartTour('home', true, false)).toBe(false)
     expect(mayStartTour('home', false, true)).toBe(false)

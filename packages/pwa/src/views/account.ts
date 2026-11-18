@@ -5,21 +5,22 @@ import {
   api,
   chooseLanguage,
   launch,
-  loadTopics,
+  loadChannels,
   renameCredential,
   revokeCredential,
   updateProfile,
 } from '../actions.ts'
 import { APPEARANCES, type Appearance, applyAppearance, currentAppearance } from '../appearance.ts'
 import { languageChoices } from '../languages.ts'
+import { type PushResult, pushResultLines } from '../push-results.ts'
 import { pushIsAvailable, pushIsOn, turnPushOff, turnPushOn } from '../push.ts'
 import { hrefFor } from '../routes.ts'
-import { directory, notice, topics } from '../state.ts'
+import { channels, directory, notice } from '../state.ts'
 import { strings } from '../strings.ts'
 import { myCharacterSection } from './character.ts'
 import { deskRecommendation } from './connect.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
-import { button, dateTimeLabel, field, page, topicChips } from './parts.ts'
+import { button, channelChips, dateTimeLabel, field, page } from './parts.ts'
 import { startTour } from './tour.ts'
 
 export const profileView = (life: Lifetime, me: Me): HTMLElement => {
@@ -73,7 +74,7 @@ export const profileView = (life: Lifetime, me: Me): HTMLElement => {
       h('legend', {}, strings.tour.legend),
       button(strings.tour.showAgain, () => startTour(), { class: 'show-tour' }),
     ),
-    helpedTopics(life, me),
+    helpedChannels(life, me),
     notificationsToggle(life),
   )
 }
@@ -100,19 +101,19 @@ export const languagePicker = (me: Me): HTMLElement =>
     h('small', {}, strings.languageHint),
   )
 
-const helpedTopics = (life: Lifetime, me: Me): HTMLElement => {
-  launch(loadTopics(''))
+const helpedChannels = (life: Lifetime, me: Me): HTMLElement => {
+  launch(loadChannels(''))
   return h(
     'fieldset',
-    { class: 'appearance my-topics' },
+    { class: 'appearance my-channels' },
     h('legend', {}, strings.profileAgent),
-    region(life, [topics, directory], () => {
-      const helped = topics.get().filter((topic) => topic.answering)
-      const fromDirectory = directory.get().find((entry) => entry.member.id === me.member.id)?.topics ?? []
-      const slugs = helped.length > 0 ? helped.map((topic) => topic.slug) : fromDirectory
-      return slugs.length === 0 ? h('p', {}, strings.noTopicsHelped) : topicChips(slugs)
+    region(life, [channels, directory], () => {
+      const helped = channels.get().filter((channel) => channel.answering)
+      const fromDirectory = directory.get().find((entry) => entry.member.id === me.member.id)?.channels ?? []
+      const slugs = helped.length > 0 ? helped.map((channel) => channel.slug) : fromDirectory
+      return slugs.length === 0 ? h('p', {}, strings.noChannelsHelped) : channelChips(slugs)
     }),
-    h('a', { class: 'button', href: hrefFor({ name: 'topics' }) }, strings.browseTopics),
+    h('a', { class: 'button', href: hrefFor({ name: 'channels' }) }, strings.browseChannels),
   )
 }
 
@@ -125,13 +126,26 @@ const notificationsToggle = (life: Lifetime): HTMLElement => {
       h('legend', {}, strings.notifications),
       h('p', {}, strings.notificationsUnavailable),
     )
+  const isBusy = signal(false)
+  const tested = signal<ReadonlyArray<string>>([])
   launch(T.map((on: boolean) => isOn.set(on))(pushIsOn))
-  const toggle = (wanted: boolean): void =>
+  const toggle = (wanted: boolean): void => {
+    if (isBusy.get()) return
+    isBusy.set(true)
     launch(
-      T.map((on: boolean) => {
-        isOn.set(on)
-        if (wanted && !on) notice.set({ kind: 'error', text: strings.notificationsRefused })
-      })(wanted ? turnPushOn : turnPushOff),
+      T.ensuring(T.sync(() => isBusy.set(false)))(
+        T.map((on: boolean) => {
+          isOn.set(on)
+          if (wanted && !on) notice.set({ kind: 'error', text: strings.notificationsRefused })
+        })(wanted ? turnPushOn : turnPushOff),
+      ),
+    )
+  }
+  const sendTest = (): void =>
+    launch(
+      T.map((answer: { results: ReadonlyArray<PushResult> }) => tested.set(pushResultLines(answer.results)))(
+        api['push.test']({ body: {} }),
+      ),
     )
   return h(
     'fieldset',
@@ -144,6 +158,7 @@ const notificationsToggle = (life: Lifetime): HTMLElement => {
         box.checked = isOn.get()
         toggle(wanted)
       })
+      box.disabled = isBusy.get()
       return h(
         'label',
         { class: 'choice' },
@@ -151,6 +166,15 @@ const notificationsToggle = (life: Lifetime): HTMLElement => {
         h('span', {}, strings.notificationsToggle, h('small', {}, strings.notificationsHint)),
       )
     }),
+    region(life, [isOn, tested], () => [
+      isOn.get() && button(strings.sendTestPush, sendTest, { class: 'send-test-push' }),
+      tested.get().length > 0 &&
+        h(
+          'ul',
+          { class: 'push-test-results', role: 'status' },
+          tested.get().map((line) => h('li', {}, line)),
+        ),
+    ]),
   )
 }
 

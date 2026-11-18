@@ -65,8 +65,8 @@ describe('requestAnsweredBy', () => {
 
 describe('requestBody', () => {
   it('sends only the destination when there is no instruction and no chosen agent', () => {
-    expect(requestBody({ destination: { topic: 'billing' }, instruction: '  ', agentId: null })).toEqual({
-      topic: 'billing',
+    expect(requestBody({ destination: { channel: 'billing' }, instruction: '  ', agentId: null })).toEqual({
+      channel: 'billing',
     })
   })
 

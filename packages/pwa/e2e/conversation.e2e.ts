@@ -27,9 +27,10 @@ import {
 const here = dirname(fileURLToPath(import.meta.url))
 const screenshots = process.env.HB_E2E_SCREENSHOTS ?? join(here, 'screenshots')
 const koreanScreenshots = process.env.HB_E2E_SCREENSHOTS_KO ?? join(here, 'screenshots-ko')
+const webFeedback = process.env.HB_E2E_WEB_FEEDBACK ?? join(here, 'screenshots-feedback')
 const { chromium } = createRequire(import.meta.url)('playwright')
 
-const SEEDED_TOPICS = 'releases: The release calendar and maintenance windows'
+const SEEDED_CHANNELS = 'releases: The release calendar and maintenance windows'
 
 const scenario = async (): Promise<void> => {
   const port = await freePort()
@@ -39,7 +40,7 @@ const scenario = async (): Promise<void> => {
     await rm(directory, { recursive: true, force: true })
     await mkdir(directory, { recursive: true })
   }
-  let dovecote = await startDovecote(port, databasePath, 'on', SEEDED_TOPICS)
+  let dovecote = await startDovecote(port, databasePath, SEEDED_CHANNELS)
   const browser = await chromium.launch()
   const { capture, nextPath } = screenshotCounter(screenshots)
   const korean = screenshotCounter(koreanScreenshots)
@@ -57,7 +58,7 @@ const scenario = async (): Promise<void> => {
     await visitor.context.close()
 
     const ana = await signIn('ana@example.com', 'Ana')
-    await ana.page.waitForSelector('text=No conversations yet')
+    await ana.page.waitForSelector('text=No direct messages yet')
     await ana.page.waitForSelector('.onboarding:has-text("Keep one agent session open for Homingbird")')
     await capture(ana.page, 'empty-home-with-desk-session-hint')
 
@@ -68,7 +69,7 @@ const scenario = async (): Promise<void> => {
     const mo = await signIn('mo@example.com', 'Mo')
     const nia = await signIn('nia@example.com', 'Nia')
     await api(kai, 'PATCH', '/me', { profile: 'Billing, invoices and the payments database.' })
-    const kaiAgent = await connectAgent(base, kai, 'Kai laptop agent', false)
+    const kaiAgent = await connectAgent(base, kai, 'Kai laptop agent')
     const kaiStream = holdEventStream(base, kaiAgent.token)
     const ids = Object.fromEntries(
       await Promise.all(
@@ -145,8 +146,8 @@ const scenario = async (): Promise<void> => {
     await capture(ana.page, 'read-seen-by-sender')
 
     // -- Agent drafts and approval ---------------------------------------------------------------
-    const laptop = await connectAgent(base, june, 'June laptop agent', false)
-    const cursor = await connectAgent(base, june, 'Cursor', false)
+    const laptop = await connectAgent(base, june, 'June laptop agent')
+    const cursor = await connectAgent(base, june, 'Cursor')
     const waiting = (await laptop.call('GET', '/inbox')).items[0].note.id as string
     await laptop.call('POST', `/notes/${waiting}/pickup`)
     await ana.page.waitForSelector('.note-status:has-text("Drafting reply")')
@@ -220,14 +221,37 @@ const scenario = async (): Promise<void> => {
     await capture(june.page, 'draft-request-one-alternative-sent-the-other-discarded')
     assert.equal((await api(june, 'GET', '/drafts')).drafts.length, 0)
 
-    const anaAgent = await connectAgent(base, ana, 'Ana laptop agent', true)
+    const anaAgent = await connectAgent(base, ana, 'Ana laptop agent')
     const follow = await anaAgent.call('POST', '/drafts', {
       to: [ids.June],
       body: 'Thanks. I will run it at 2am and report back.',
+      basis:
+        'Read the release runbook at https://wiki.example.com/runbook\nChecked for confidential material: passed, by reading',
     })
     await anaAgent.call('POST', '/drafts', { to: [ids.June], body: 'A draft that will be thrown away.' })
     await ana.page.waitForFunction(pendingDraftsAre, 2)
     await capture(ana.page, 'drafts-before-discarding')
+    const basisDraft = ana.page.locator('.draft', { hasText: 'report back' })
+    await basisDraft.locator('.draft-basis h3:has-text("What this draft is based on")').waitFor()
+    assert.match(await basisDraft.locator('.draft-basis').innerText(), /Read the release runbook/)
+    assert.match(
+      await basisDraft.locator('.draft-basis').innerText(),
+      /Checked for confidential material: passed/,
+    )
+    assert.equal(
+      await basisDraft.locator('.draft-basis a[href="https://wiki.example.com/runbook"]').getAttribute('rel'),
+      'noopener noreferrer',
+    )
+    await ana.page
+      .locator('.draft', { hasText: 'thrown away' })
+      .locator('.basis-missing:has-text("Your agent gave no basis for this draft.")')
+      .waitFor()
+    await mkdir(webFeedback, { recursive: true })
+    for (const scheme of ['light', 'dark'] as const) {
+      await ana.page.emulateMedia({ colorScheme: scheme })
+      await ana.page.screenshot({ path: join(webFeedback, `draft-basis-${scheme}.png`) })
+    }
+    await ana.page.emulateMedia({ colorScheme: 'light' })
     await ana.page
       .locator('.draft', { hasText: 'thrown away' })
       .getByRole('button', { name: 'Discard' })
@@ -243,6 +267,12 @@ const scenario = async (): Promise<void> => {
     await ana.page.waitForSelector('.origin.is-agent')
     await capture(ana.page, 'origin-badges-human-edited-and-agent')
     assert.equal((await api(ana, 'GET', `/notes/${follow.id}`)).status, 'sent')
+    assert.match((await api(ana, 'GET', `/notes/${follow.id}`)).basis, /release runbook/)
+    assert.equal('basis' in (await api(june, 'GET', `/notes/${follow.id}`)), false)
+    await june.page.goto(`${base}/#/c/${follow.conversationId}`)
+    await june.page.waitForSelector('.note-body:has-text("report back")')
+    assert.equal(await june.page.locator('text=release runbook').count(), 0)
+    assert.equal(await june.page.locator('.note-basis, .draft-basis').count(), 0)
     const origins = await ana.page
       .locator('.origin')
       .evaluateAll((nodes: ReadonlyArray<{ className: string }>) => nodes.map((node) => node.className))
@@ -252,61 +282,61 @@ const scenario = async (): Promise<void> => {
         `missing origin badge ${origin}`,
       )
 
-    // -- Topic rooms -----------------------------------------------------------------------------
-    await ana.page.goto(`${base}/#/topics`)
-    await ana.page.waitForSelector('.topic-card[data-slug="releases"]:not(.is-helping)')
-    await ana.page.waitForSelector('.sidebar .empty:has-text("You are in no topic yet")')
-    await ana.page.waitForSelector('.sidebar .empty a.button:has-text("Browse topics")')
-    assert.equal(await ana.page.locator('.topic-rooms').count(), 0)
-    await capture(ana.page, 'browse-topics-before-joining-any')
-    await ana.page.click('.topics-intro button.new-topic')
-    await ana.page.fill('.create-topic input[name=slug]', 'Releases')
-    await ana.page.waitForSelector('.topic-exists:has-text("#releases already exists")')
-    assert.equal(await ana.page.locator('.create-topic button[type=submit]').isDisabled(), true)
-    await capture(ana.page, 'create-topic-refuses-a-duplicate')
-    await ana.page.fill('.create-topic input[name=slug]', 'Billing')
+    // -- Channel rooms -----------------------------------------------------------------------------
+    await ana.page.goto(`${base}/#/channels`)
+    await ana.page.waitForSelector('.channel-card[data-slug="releases"]:not(.is-helping)')
+    await ana.page.waitForSelector('.sidebar .empty:has-text("You are in no channel yet")')
+    await ana.page.waitForSelector('.sidebar .empty a.button:has-text("Browse channels")')
+    assert.equal(await ana.page.locator('.channel-rooms').count(), 0)
+    await capture(ana.page, 'browse-channels-before-joining-any')
+    await ana.page.click('.channels-intro button.new-channel')
+    await ana.page.fill('.create-channel input[name=slug]', 'Releases')
+    await ana.page.waitForSelector('.channel-exists:has-text("#releases already exists")')
+    assert.equal(await ana.page.locator('.create-channel button[type=submit]').isDisabled(), true)
+    await capture(ana.page, 'create-channel-refuses-a-duplicate')
+    await ana.page.fill('.create-channel input[name=slug]', 'Billing')
     await ana.page.fill(
-      '.create-topic input[name=description]',
+      '.create-channel input[name=description]',
       'Invoices, refunds and the payments database.',
     )
-    await ana.page.click('.create-topic button[type=submit]')
+    await ana.page.click('.create-channel button[type=submit]')
     await ana.page.waitForSelector('.thread-head h1:has-text("#billing")')
-    await ana.page.waitForSelector('.topic-rooms a:has-text("#billing")')
-    await capture(ana.page, 'new-topic-room-in-the-sidebar')
+    await ana.page.waitForSelector('.channel-rooms a:has-text("#billing")')
+    await capture(ana.page, 'new-channel-room-in-the-sidebar')
 
-    await june.page.goto(`${base}/#/topics`)
+    await june.page.goto(`${base}/#/channels`)
     await june.page
-      .locator('.topic-card[data-slug="billing"]')
+      .locator('.channel-card[data-slug="billing"]')
       .getByRole('button', { name: 'Join and answer', exact: true })
       .click()
-    await june.page.waitForSelector('.topic-card.is-helping[data-slug="billing"]')
+    await june.page.waitForSelector('.channel-card.is-helping[data-slug="billing"]')
     await june.page.fill('input[name=q]', 'refund')
     await june.page.waitForFunction(
-      () => (globalThis as any).document.querySelectorAll('.topic-card').length === 1,
+      () => (globalThis as any).document.querySelectorAll('.channel-card').length === 1,
     )
-    await capture(june.page, 'searching-topics-and-answering-in-one')
+    await capture(june.page, 'searching-channels-and-answering-in-one')
 
     await ana.page.goto(`${base}/#/people`)
-    await ana.page.waitForSelector('.person:has-text("june@example.com") .topic-chip:has-text("#billing")')
-    await capture(ana.page, 'directory-shows-topic-chips')
+    await ana.page.waitForSelector('.person:has-text("june@example.com") .channel-chip:has-text("#billing")')
+    await capture(ana.page, 'directory-shows-channel-chips')
     await june.page.goto(`${base}/#/me`)
-    await june.page.waitForSelector('.my-topics .topic-chip:has-text("#billing")')
-    await june.page.locator('.my-topics').scrollIntoViewIfNeeded()
+    await june.page.waitForSelector('.my-channels .channel-chip:has-text("#billing")')
+    await june.page.locator('.my-channels').scrollIntoViewIfNeeded()
     await capture(june.page, 'profile-my-agent-can-help-with')
 
     const asker = await signIn('lee@example.com', 'Lee')
-    await asker.page.goto(`${base}/#/topics`)
-    await asker.page.locator('.topic-card[data-slug="billing"]').getByRole('link', { name: 'Ask' }).click()
-    await asker.page.waitForSelector('.ask-topic textarea')
-    await asker.page.fill('.ask-topic textarea', 'Who can explain the refund rule for annual plans?')
-    await capture(asker.page, 'asking-a-topic')
-    await asker.page.click('.ask-topic button[type=submit]')
+    await asker.page.goto(`${base}/#/channels`)
+    await asker.page.locator('.channel-card[data-slug="billing"]').getByRole('link', { name: 'Ask' }).click()
+    await asker.page.waitForSelector('.ask-channel textarea')
+    await asker.page.fill('.ask-channel textarea', 'Who can explain the refund rule for annual plans?')
+    await capture(asker.page, 'asking-a-channel')
+    await asker.page.click('.ask-channel button[type=submit]')
     await asker.page.waitForSelector('.thread-head h1:has-text("#billing")')
     await asker.page.waitForSelector('.note-status:has-text("Read by 0 of 2")')
-    await capture(asker.page, 'question-in-a-topic-room-read-by-0-of-2')
+    await capture(asker.page, 'question-in-a-channel-room-read-by-0-of-2')
 
-    const billingRoom = (await api(june, 'GET', '/topics')).topics.find(
-      (topic: { slug: string }) => topic.slug === 'billing',
+    const billingRoom = (await api(june, 'GET', '/channels')).channels.find(
+      (channel: { slug: string }) => channel.slug === 'billing',
     ).conversationId as string
     await june.page.goto(`${base}/#/c/${billingRoom}`)
     await june.page.waitForSelector('.note-author:has-text("Lee")')
@@ -321,7 +351,7 @@ const scenario = async (): Promise<void> => {
     await asker.page.waitForSelector('.answered-by:has-text("Answered by June")')
     await capture(asker.page, 'question-answered-by-a-helper')
 
-    await sendThroughApi(asker, { topic: 'billing', body: 'Where do I find the release calendar?' })
+    await sendThroughApi(asker, { channel: 'billing', body: 'Where do I find the release calendar?' })
     await june.page.waitForSelector('.note:has-text("release calendar") .move-question')
     assert.equal(
       await june.page.locator('.note', { hasText: 'refund rule' }).locator('.move-question').count(),
@@ -329,23 +359,23 @@ const scenario = async (): Promise<void> => {
     )
     await june.page.locator('.note', { hasText: 'release calendar' }).locator('.move-question').click()
     await june.page.check('dialog[open] input[name=destination][value=releases]')
-    await capture(june.page, 'move-question-to-another-topic')
+    await capture(june.page, 'move-question-to-another-channel')
     await june.page.click('dialog[open] button[type=submit]')
     await june.page.waitForSelector('.note:has-text("release calendar")', { state: 'detached' })
     await capture(june.page, 'question-moved-out-of-the-room')
     await asker.context.close()
 
     await anaAgent.call('POST', '/drafts', {
-      topic: 'releases',
+      channel: 'releases',
       body: 'Does anyone know when the payments database maintenance window is?',
     })
-    const releasesRoom = (await api(ana, 'GET', '/topics')).topics.find(
-      (topic: { slug: string }) => topic.slug === 'releases',
+    const releasesRoom = (await api(ana, 'GET', '/channels')).channels.find(
+      (channel: { slug: string }) => channel.slug === 'releases',
     ).conversationId as string
     await ana.page.goto(`${base}/#/c/${releasesRoom}`)
     await ana.page.waitForSelector('.draft-destination:has-text("Send posts it in #releases")')
-    await capture(ana.page, 'draft-to-a-topic-shows-where-it-goes')
-    await ana.page.locator('.draft').getByRole('button', { name: 'Change topic' }).click()
+    await capture(ana.page, 'draft-to-a-channel-shows-where-it-goes')
+    await ana.page.locator('.draft').getByRole('button', { name: 'Change channel' }).click()
     await ana.page.check('dialog[open] input[name=destination][value=billing]')
     await ana.page.click('dialog[open] button[type=submit]')
     await ana.page.waitForSelector(
@@ -354,7 +384,7 @@ const scenario = async (): Promise<void> => {
     await ana.page.waitForSelector('.draft .origin.is-agent')
     assert.equal(await ana.page.locator('.draft .origin.is-human').count(), 0)
     assert.equal((await api(ana, 'GET', '/drafts')).drafts.length, 1)
-    await capture(ana.page, 'draft-readdressed-to-another-topic')
+    await capture(ana.page, 'draft-readdressed-to-another-channel')
     await ana.page.locator('.draft').getByRole('button', { name: 'Send', exact: true }).click()
     await ana.page.waitForFunction(pendingDraftsAre, 0)
     await ana.page.waitForSelector('.note-body:has-text("maintenance window")')
@@ -387,7 +417,7 @@ const scenario = async (): Promise<void> => {
     await ana.page.waitForSelector('.credential')
     await capture(ana.page, 'credentials-list')
     await ana.page
-      .locator('.credential', { hasText: 'Ana laptop agent (approve button)' })
+      .locator('.credential', { hasText: 'Ana laptop agent' })
       .getByRole('button', { name: 'Revoke' })
       .click()
     await ana.page.waitForSelector('dialog[open]')
@@ -399,15 +429,17 @@ const scenario = async (): Promise<void> => {
     const plainDevice = await startDeviceFlow(base, 'Codex on build box', 'notes')
     await ana.page.goto(`${base}/#/device/${plainDevice.user_code}`)
     await ana.page.waitForSelector('text=Codex on build box')
-    await capture(ana.page, 'device-approval-without-approve-button')
+    await capture(ana.page, 'device-approval')
     await ana.page.getByRole('button', { name: 'Deny' }).click()
     await ana.page.waitForSelector('text=You denied the request.')
     await capture(ana.page, 'device-denied')
 
-    const buttonDevice = await startDeviceFlow(base, 'Homingbird mod', 'notes approve')
-    await ana.page.goto(`${base}/#/device/${buttonDevice.user_code}`)
-    await ana.page.waitForSelector('input[type=checkbox]')
-    await capture(ana.page, 'device-approval-with-approve-button-checkbox')
+    const modDevice = await startDeviceFlow(base, 'Homingbird mod', 'notes approve')
+    await ana.page.goto(`${base}/#/device/${modDevice.user_code}`)
+    await ana.page.waitForSelector('text=Homingbird mod wants to connect')
+    assert.equal(await ana.page.locator('input[type=checkbox]').count(), 0)
+    assert.equal(await ana.page.locator('text=/approve button/i').count(), 0)
+    await capture(ana.page, 'device-approval-for-the-mod-grants-drafting-only')
     await ana.page.getByRole('button', { name: 'Approve' }).click()
     await ana.page.waitForSelector('text=The device is connected to your account. You can close this tab.')
     await capture(ana.page, 'device-approved-success-state')
@@ -481,30 +513,34 @@ const scenario = async (): Promise<void> => {
     await ana.page.reload()
     await ana.page.waitForSelector('.tabs a:has-text("노트")')
     await ana.page.waitForSelector('.thread-head')
-    await korean.capture(ana.page, 'wide-thread-before-any-topic-is-merged')
+    await korean.capture(ana.page, 'wide-thread-before-any-channel-is-archived')
     await api(ana, 'PATCH', '/me', { locale: null })
     await ana.page.goto(`${base}/#/`)
     await ana.page.reload()
     await ana.page.waitForSelector('.tabs a:has-text("Notes")')
-    await api(ana, 'POST', '/topics', { slug: 'invoices', description: 'Sending and chasing invoices.' })
-    await ana.page.goto(`${base}/#/admin/topics`)
-    await ana.page.waitForSelector('.admin-topics [data-slug="invoices"]')
+    await api(ana, 'POST', '/channels', { slug: 'invoices', description: 'Sending and chasing invoices.' })
+    await ana.page.goto(`${base}/#/admin/channels`)
+    await ana.page.waitForSelector('.admin-channels [data-slug="invoices"]')
     assert.equal(
-      await ana.page.locator('[data-slug="releases"]').getByRole('button', { name: 'Remove' }).count(),
+      await ana.page
+        .locator('[data-slug="releases"]')
+        .getByRole('button', { name: 'Archive channel' })
+        .count(),
       1,
     )
-    await capture(ana.page, 'admin-topics')
+    await capture(ana.page, 'admin-channels')
     await ana.page.locator('[data-slug="billing"]').getByRole('button', { name: 'Edit' }).click()
     await ana.page.fill('dialog[open] input[name=slug]', 'payments')
-    await capture(ana.page, 'admin-renaming-a-topic')
+    await capture(ana.page, 'admin-renaming-a-channel')
     await ana.page.click('dialog[open] button[type=submit]')
-    await ana.page.waitForSelector('.admin-topics [data-slug="payments"]')
-    await ana.page.locator('[data-slug="invoices"]').getByRole('button', { name: 'Merge…' }).click()
-    await ana.page.selectOption('dialog[open] select[name=into]', 'payments')
-    await capture(ana.page, 'admin-merging-a-topic')
+    await ana.page.waitForSelector('.admin-channels [data-slug="payments"]')
+    await ana.page.locator('[data-slug="invoices"]').getByRole('button', { name: 'Archive channel' }).click()
+    await ana.page.check('dialog[open] input[name=moveMembers]')
+    await ana.page.selectOption('dialog[open] select[name=moveMembersTo]', 'payments')
+    await capture(ana.page, 'admin-archiving-a-channel-and-moving-its-members')
     await ana.page.click('dialog[open] button[type=submit]')
-    await ana.page.waitForSelector('.admin-topics [data-slug="invoices"]', { state: 'detached' })
-    await capture(ana.page, 'admin-topics-after-rename-and-merge')
+    await ana.page.waitForSelector('.admin-channels [data-slug="invoices"]', { state: 'detached' })
+    await capture(ana.page, 'admin-channels-after-rename-and-archive')
 
     for (const section of ['settings', 'members', 'audit']) {
       await ana.page.goto(`${base}/#/admin/${section}`)
@@ -533,7 +569,7 @@ const scenario = async (): Promise<void> => {
       timeout: 20_000,
     })
     await capture(ana.page, 'connection-lost')
-    dovecote = await startDovecote(port, databasePath, 'on', SEEDED_TOPICS)
+    dovecote = await startDovecote(port, databasePath, SEEDED_CHANNELS)
     await ana.page.waitForSelector('.connection.is-connected:has-text("Connected")', { timeout: 60_000 })
     await capture(ana.page, 'connection-restored')
 
@@ -549,9 +585,9 @@ const scenario = async (): Promise<void> => {
       ['credentials', '/#/credentials'],
       ['admin-settings', '/#/admin/settings'],
       ['group-conversation', `/#/c/${group.id}`],
-      ['topics', '/#/topics'],
-      ['topic-room', `/#/c/${billingRoom}`],
-      ['admin-topics', '/#/admin/topics'],
+      ['channels', '/#/channels'],
+      ['channel-room', `/#/c/${billingRoom}`],
+      ['admin-channels', '/#/admin/channels'],
     ]
     await ana.page.emulateMedia({ colorScheme: 'dark' })
     for (const [name, path] of mainScreens) {
@@ -612,30 +648,20 @@ const scenario = async (): Promise<void> => {
     await ana.page.setViewportSize(VIEWPORT)
     await ana.page.goto(`${base}/#/c/${group.id}`)
     await ana.page.waitForSelector('.note-status:has-text("명 읽음")')
-    const koreanButtonDevice = await startDeviceFlow(base, 'Homingbird mod', 'notes approve')
-    await ana.page.goto(`${base}/#/device/${koreanButtonDevice.user_code}`)
-    await ana.page.waitForSelector('input[name=allowApproval]')
-    assert.equal(await ana.page.locator('input[name=allowApproval]').isChecked(), false)
-    await korean.capture(ana.page, 'device-approve-button-allowed-by-the-server')
     await ana.page.goto(`${base}/#/me`)
     await ana.page.locator('.language input[value=""]').check()
     await ana.page.waitForSelector('html[lang="en"]')
     await ana.page.waitForSelector('h1:has-text("Your profile")')
     assert.equal((await api(ana, 'GET', '/me')).locale, undefined)
 
-    // -- Approve button turned off by the organization --------------------------------------------
-    await dovecote.stop()
-    dovecote = await startDovecote(port, databasePath, 'off', SEEDED_TOPICS)
-    const offDevice = await startDeviceFlow(base, 'Homingbird mod', 'notes approve')
-    await ana.page.goto(`${base}/#/device/${offDevice.user_code}`)
-    await ana.page.waitForSelector('text=Homingbird mod wants to connect')
-    assert.equal(await ana.page.locator('input[name=allowApproval]').count(), 0)
-    await capture(ana.page, 'device-approval-with-the-approve-button-turned-off')
+    // -- A device in Korean: drafting only, no approval --------------------------------------------
+    const koreanDevice = await startDeviceFlow(base, 'Homingbird mod', 'notes approve')
+    await ana.page.goto(`${base}/#/device/${koreanDevice.user_code}`)
     await api(ana, 'PATCH', '/me', { locale: 'ko' })
     await ana.page.reload()
     await ana.page.waitForSelector('text=Homingbird 계정에 연결하려고 해요')
-    assert.equal(await ana.page.locator('input[name=allowApproval]').count(), 0)
-    await korean.capture(ana.page, 'device-approve-button-turned-off-by-the-server')
+    assert.equal(await ana.page.locator('input[type=checkbox]').count(), 0)
+    await korean.capture(ana.page, 'device-approval-grants-drafting-only')
     await ana.page.getByRole('button', { name: '승인' }).click()
     await ana.page.waitForSelector('.outcome.is-approved')
     await api(ana, 'PATCH', '/me', { locale: null })

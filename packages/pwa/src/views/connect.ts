@@ -142,12 +142,11 @@ const codeForm = (): HTMLElement => {
 
 const deviceDecision = (request: DeviceRequest, finish: (approved: boolean) => void): HTMLElement => {
   const name = h('input', { name: 'name', required: true, maxlength: '200', value: request.client })
-  const allowApproval = h('input', { type: 'checkbox', name: 'allowApproval' })
   const decide = (approve: boolean): void =>
     launch(
       api['device.decide']({
         params: { userCode: request.userCode },
-        body: { approve, name: name.value.trim() || request.client, allowApproval: allowApproval.checked },
+        body: { approve, name: name.value.trim() || request.client },
       }),
       () => finish(approve),
     )
@@ -166,13 +165,6 @@ const deviceDecision = (request: DeviceRequest, finish: (approved: boolean) => v
     h('p', { class: 'code-shown' }, request.userCode),
     h('p', {}, strings.deviceAgentGrant),
     field(strings.deviceNameLabel, name),
-    request.wantsApproval &&
-      h(
-        'label',
-        { class: 'choice grant' },
-        allowApproval,
-        h('span', {}, strings.deviceApprovalLabel, h('small', {}, strings.deviceApprovalHint)),
-      ),
     decisionButtons(() => decide(false)),
   )
 }

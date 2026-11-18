@@ -1,4 +1,5 @@
 import type {
+  Channel,
   Contact,
   Conversation,
   ConversationId,
@@ -11,7 +12,6 @@ import type {
   Note,
   NoteId,
   ServerInfo,
-  Topic,
 } from '@homingbird/protocol'
 import { derived, signal } from '@homingbird/ui'
 import { type Route, parseRoute } from './routes.ts'
@@ -34,6 +34,11 @@ export interface Release {
   readonly agentName: string | null
 }
 
+export interface ArchiveDiscard {
+  readonly noteId: NoteId
+  readonly channel: string
+}
+
 export interface Branding {
   readonly name: string
   readonly logo: string | null
@@ -54,10 +59,11 @@ export const announcement = signal('')
 export const sendingIn = signal<ReadonlySet<ConversationId>>(new Set())
 export const draftRequests = signal<ReadonlyArray<DraftRequest>>([])
 export const agentCredentials = signal<ReadonlyArray<Credential>>([])
-export const topics = signal<ReadonlyArray<Topic>>([])
-export const topicsLoaded = signal(false)
+export const channels = signal<ReadonlyArray<Channel>>([])
+export const channelsLoaded = signal(false)
 export const replyTargets = signal<ReadonlyMap<ConversationId, string | null>>(new Map())
 export const releases = signal<ReadonlyMap<NoteId, Release>>(new Map())
+export const archiveDiscards = signal<ReadonlyMap<ConversationId, ReadonlyArray<ArchiveDiscard>>>(new Map())
 export const openedForThePerson = signal<ConversationId | null>(null)
 
 export const members = derived(

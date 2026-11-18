@@ -4,11 +4,12 @@ import { boot, browserLanguages, launch } from './actions.ts'
 import { applyAppearance, currentAppearance } from './appearance.ts'
 import { supportInvokerCommands } from './invokers.ts'
 import { preferredLanguage } from './languages.ts'
-import { type Route, arrivedToConnect, parseRoute, signInHref } from './routes.ts'
+import { type Route, arrivedToConnect, currentHashFor, parseRoute, signInHref } from './routes.ts'
 import { announcement, branding, notice, route, serverInfo, session } from './state.ts'
 import { strings, useLanguage } from './strings.ts'
 import { credentialsView, profileView } from './views/account.ts'
 import { adminView } from './views/admin.ts'
+import { channelView, channelsView } from './views/channels.ts'
 import { characterEditorView } from './views/character.ts'
 import { connectAgentView, consentView, deviceView } from './views/connect.ts'
 import { dialogHost } from './views/dialog.ts'
@@ -19,14 +20,17 @@ import { searchView } from './views/search.ts'
 import { shell } from './views/shell.ts'
 import { signInView } from './views/sign-in.ts'
 import { threadView } from './views/thread-view.ts'
-import { topicView, topicsView } from './views/topics.ts'
 import { startTourOnHome } from './views/tour.ts'
 
 const start = (root: HTMLElement): void => {
   useLanguage(preferredLanguage(undefined, browserLanguages()))
   applyAppearance(currentAppearance())
   supportInvokerCommands(document)
-  addEventListener('hashchange', () => inTransition(() => route.set(parseRoute(location.hash))))
+  replaceOldAddress()
+  addEventListener('hashchange', () => {
+    if (replaceOldAddress()) return
+    inTransition(() => route.set(parseRoute(location.hash)))
+  })
   branding.subscribe((current) => {
     document.title = current.name
   })
@@ -88,10 +92,10 @@ const stageFor = (life: Lifetime, me: Me, current: Route): Child => {
       return threadView(life, me, current.id as ConversationId)
     case 'people':
       return peopleView(life, me)
-    case 'topics':
-      return topicsView(life)
-    case 'topic':
-      return topicView(life, current.slug)
+    case 'channels':
+      return channelsView(life)
+    case 'channel':
+      return channelView(life, current.slug)
     case 'search':
       return searchView(life, me, current.query)
     case 'profile':
@@ -116,6 +120,13 @@ const stageFor = (life: Lifetime, me: Me, current: Route): Child => {
 
 const notFound = (): Child =>
   emptyWithPip('failed', 4, strings.notFound, h('a', { class: 'button', href: '#/' }, strings.backHome))
+
+const replaceOldAddress = (): boolean => {
+  const current = currentHashFor(location.hash)
+  if (current === null) return false
+  location.replace(current)
+  return true
+}
 
 const refusalIn = (current: Route): string | null => (current.name === 'signed-out' ? current.reason : null)
 

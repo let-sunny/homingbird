@@ -479,6 +479,37 @@
   box-shadow: var(--hb-shadow);
 }
 
+.draft-basis,
+.note-basis {
+  display: grid;
+  gap: var(--hb-space-1);
+  justify-self: stretch;
+  padding: var(--hb-space-2);
+  border-inline-start: var(--hb-pixel) solid currentColor;
+  font-size: var(--hb-text-small);
+}
+
+.draft-basis h3,
+.note-basis summary {
+  margin: 0;
+  font-size: var(--hb-text-small);
+  font-weight: 600;
+}
+
+.draft-basis p,
+.note-basis p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.note-basis {
+  color: var(--hb-color-muted);
+}
+
+.basis-missing {
+  font-style: italic;
+}
+
 .draft-actions,
 .dialog-actions,
 .form-actions,
@@ -624,12 +655,6 @@
   display: grid;
 }
 
-.grant {
-  padding: var(--hb-space-3);
-  border: var(--hb-pixel) dashed var(--hb-color-line);
-  background: var(--hb-color-pending-wash);
-}
-
 .person {
   container: person / inline-size;
   border: var(--hb-border);
@@ -740,12 +765,12 @@
   gap: var(--hb-space-3);
 }
 
-.topic-filter-host:empty {
+.channel-filter-host:empty {
   display: none;
 }
 
 @container stage (min-width: 36rem) {
-  .people-filters:has(.topic-filter-host:not(:empty)) {
+  .people-filters:has(.channel-filter-host:not(:empty)) {
     grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   }
 }
@@ -1092,6 +1117,29 @@
     padding-inline: 0;
   }
 
+  .connection-label {
+    display: none;
+  }
+
+  .connection[data-when-short="label"] .connection-label {
+    display: inline;
+    white-space: nowrap;
+  }
+
+  .connection[data-when-short="hidden"] {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .titlebar:has(.connection[data-when-short="label"]) .tab {
+    padding-inline: var(--hb-space-1);
+  }
 }
 
 .onboarding {
@@ -1122,24 +1170,24 @@
   padding-inline-end: var(--hb-space-3);
 }
 
-.browse-topics {
+.browse-channels {
   font-weight: 600;
   font-size: var(--hb-text-small);
 }
 
-.avatar.is-topic {
+.avatar.is-channel {
   background: var(--hb-color-pending);
   color: var(--hb-color-on-pending);
   font-size: var(--hb-text-title);
 }
 
-.topic-chips {
+.channel-chips {
   display: flex;
   flex-wrap: wrap;
   gap: var(--hb-space-1);
 }
 
-.topic-chip {
+.channel-chip {
   display: inline-block;
   padding: 0 var(--hb-space-2);
   border: var(--hb-border-thin);
@@ -1150,17 +1198,17 @@
   overflow-wrap: anywhere;
 }
 
-.topic-chip:hover {
+.channel-chip:hover {
   background: var(--hb-color-accent);
   color: var(--hb-color-on-accent);
 }
 
-.topic-list {
+.channel-list {
   display: grid;
   gap: var(--hb-space-3);
 }
 
-.topic-card {
+.channel-card {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1171,28 +1219,28 @@
   background: var(--hb-color-surface);
 }
 
-.topic-card.is-helping {
+.channel-card.is-helping {
   box-shadow: var(--hb-shadow-live);
 }
 
-.topic-main {
+.channel-main {
   display: grid;
   gap: var(--hb-space-1);
   flex: 1 1 16rem;
   min-inline-size: 0;
 }
 
-.topic-name a {
+.channel-name a {
   text-decoration: none;
   font-family: var(--hb-font-mono);
   overflow-wrap: anywhere;
 }
 
-.topic-description {
+.channel-description {
   overflow-wrap: anywhere;
 }
 
-.topic-meta {
+.channel-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1201,7 +1249,7 @@
   font-size: var(--hb-text-small);
 }
 
-.topic-actions {
+.channel-actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--hb-space-2);
@@ -1216,20 +1264,20 @@
   background: var(--hb-color-sunken);
 }
 
-.create-topic {
+.create-channel {
   padding: var(--hb-space-4);
   border: var(--hb-pixel) dashed var(--hb-color-line);
 }
 
-.topic-check {
+.channel-check {
   inline-size: 100%;
 }
 
-.topic-check:empty {
+.channel-check:empty {
   display: none;
 }
 
-.topic-exists {
+.channel-exists {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1241,11 +1289,11 @@
   font-size: var(--hb-text-small);
 }
 
-.topic-exists span {
+.channel-exists span {
   flex: 1 1 12rem;
 }
 
-.topic-similar {
+.channel-similar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1254,15 +1302,15 @@
   font-size: var(--hb-text-small);
 }
 
-.ask-topic {
+.ask-channel {
   max-inline-size: 40rem;
 }
 
-.ask-topic textarea {
+.ask-channel textarea {
   inline-size: 100%;
 }
 
-.my-topics {
+.my-channels {
   justify-items: start;
 }
 
@@ -1306,11 +1354,11 @@
   border-block-end: 0;
 }
 
-.topic-card.is-private {
+.channel-card.is-private {
   border-style: dashed;
 }
 
-.topic-name {
+.channel-name {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1491,7 +1539,7 @@
   min-inline-size: min(34rem, 100%);
 }
 
-.topic-members {
+.channel-members {
   display: grid;
   gap: var(--hb-space-2);
   margin: 0;
@@ -1499,7 +1547,7 @@
   list-style: none;
 }
 
-.topic-member {
+.channel-member {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1509,25 +1557,25 @@
   background: var(--hb-color-surface);
 }
 
-.topic-member-name {
+.channel-member-name {
   flex: 1 1 8rem;
   min-inline-size: 0;
   font-weight: 600;
   overflow-wrap: anywhere;
 }
 
-.topic-member-name .is-you {
+.channel-member-name .is-you {
   margin-inline-start: var(--hb-space-2);
   color: var(--hb-color-muted);
   font-weight: 400;
 }
 
-.topic-member-actions {
+.channel-member-actions {
   margin-inline-start: auto;
 }
 
-.topic-member-roles,
-.topic-member-actions {
+.channel-member-roles,
+.channel-member-actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--hb-space-2);
@@ -1917,25 +1965,25 @@
   translate: none;
 }
 
-.topic-counts {
+.channel-counts {
   display: inline-flex;
   flex-wrap: wrap;
   gap: 0 var(--hb-space-1);
 }
 
-.topic-counts > span:not(:last-child)::after {
+.channel-counts > span:not(:last-child)::after {
   content: "·";
   margin-inline-start: var(--hb-space-1);
 }
 
-.topic-head-meta {
+.channel-head-meta {
   display: flex;
   flex-wrap: wrap;
   gap: 0 var(--hb-space-2);
   white-space: normal;
 }
 
-.topic-head-meta > .topic-counts::after {
+.channel-head-meta > .channel-counts::after {
   content: "·";
   margin-inline-start: var(--hb-space-1);
 }
@@ -2002,7 +2050,7 @@
   font-size: var(--hb-text-small);
 }
 
-.topics-intro {
+.channels-intro {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -2010,7 +2058,7 @@
   gap: var(--hb-space-3);
 }
 
-.topics-intro p {
+.channels-intro p {
   flex: 1 1 20rem;
 }
 
@@ -2025,7 +2073,7 @@
   gap: var(--hb-space-2);
 }
 
-.topic-options {
+.channel-options {
   display: grid;
   gap: var(--hb-space-2);
   margin: 0;
@@ -2033,31 +2081,31 @@
   border: var(--hb-border-thin);
 }
 
-.topic-option {
+.channel-option {
   display: flex;
   align-items: start;
   gap: var(--hb-space-2);
 }
 
-.topic-option-text {
+.channel-option-text {
   display: grid;
 }
 
-.topic-option-text strong {
+.channel-option-text strong {
   font-family: var(--hb-font-mono);
 }
 
-.topic-option-meta {
+.channel-option-meta {
   color: var(--hb-color-muted);
   font-size: var(--hb-text-small);
 }
 
-.new-topic-fields {
+.new-channel-fields {
   display: grid;
   gap: var(--hb-space-3);
 }
 
-.new-topic-fields:empty {
+.new-channel-fields:empty {
   display: none;
 }
 
@@ -2089,7 +2137,7 @@ button:disabled {
   font-weight: 400;
 }
 
-.topic-member.is-self {
+.channel-member.is-self {
   border-width: var(--hb-border-width);
 }
 
@@ -2177,9 +2225,11 @@ button:disabled {
 
 .tour {
   position: fixed;
-  inset: auto var(--hb-space-4) var(--hb-space-4) auto;
+  inset: auto 0 var(--hb-space-4);
   inline-size: min(22rem, calc(100% - 2 * var(--hb-space-4)));
-  margin: 0;
+  max-block-size: calc(100% - 2 * var(--hb-space-4));
+  overflow: auto;
+  margin: 0 auto;
   padding: var(--hb-space-3);
   display: grid;
   gap: var(--hb-space-2);
@@ -2197,22 +2247,50 @@ button:disabled {
 @supports (anchor-name: --a) {
   .tour.is-anchored {
     inset: auto;
-    margin: var(--hb-space-3);
+    margin: var(--hb-space-2);
     position-anchor: --hb-tour-target;
     position-area: block-end span-inline-end;
-    position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline, --hb-tour-docked;
+    position-try-fallbacks: --hb-tour-below, --hb-tour-above;
     position-visibility: always;
+    max-block-size: min(30rem, 70dvh);
   }
 
   .tour.is-anchored[data-placement="beside"] {
     position-area: inline-end span-block-end;
-    position-try-fallbacks: --hb-tour-docked;
   }
 
-  @position-try --hb-tour-docked {
+  .titlebar {
+    anchor-name: --hb-tour-header;
+  }
+
+  /* A control in the header gets its callout under the header, never over it. */
+  .tour.is-anchored.is-in-header {
     position-area: none;
-    inset: auto var(--hb-space-4) var(--hb-space-4) auto;
+    inset-block-start: calc(anchor(--hb-tour-header bottom) + var(--hb-space-2));
+    inset-inline-end: anchor(--hb-tour-target end);
     margin: 0;
+    position-try-fallbacks: flip-inline, --hb-tour-under-header;
+  }
+
+  @position-try --hb-tour-under-header {
+    inset-block-start: calc(anchor(--hb-tour-header bottom) + var(--hb-space-2));
+    inset-inline: auto var(--hb-space-4);
+    margin: 0;
+  }
+
+  /* Where there is no room beside or under the control's own column, as on a phone: full width, below. */
+  @position-try --hb-tour-below {
+    position-area: block-end span-all;
+    justify-self: stretch;
+    inline-size: auto;
+    margin: var(--hb-space-2) var(--hb-space-4) 0;
+  }
+
+  @position-try --hb-tour-above {
+    position-area: block-start span-all;
+    justify-self: stretch;
+    inline-size: auto;
+    margin: 0 var(--hb-space-4) var(--hb-space-2);
   }
 }
 
@@ -2248,6 +2326,10 @@ button:disabled {
 .tour-target {
   outline: var(--hb-tour-outline);
   outline-offset: var(--hb-pixel);
+}
+
+.titlebar .tour-target {
+  outline-offset: calc(-3 * var(--hb-pixel));
 }
 
 .starting-points {
@@ -2356,18 +2438,18 @@ textarea:disabled {
   font-weight: 700;
 }
 
-.person-topics {
+.person-channels {
   display: grid;
   gap: var(--hb-space-1);
   justify-items: start;
 }
 
-.more-topics {
+.more-channels {
   display: grid;
   gap: var(--hb-space-1);
 }
 
-.more-topics summary {
+.more-channels summary {
   color: var(--hb-color-muted);
   font-size: var(--hb-text-small);
   font-weight: 700;

@@ -87,13 +87,9 @@ export const form = (fields: Record<string, string>) => ({
 export const startDeviceFlow = async (base: string, clientName: string, scope: string): Promise<any> =>
   (await fetch(`${base}/oauth/device_authorization`, form({ client_name: clientName, scope }))).json()
 
-export const connectAgent = async (base: string, owner: Person, name: string, approveButton: boolean) => {
-  const started = await startDeviceFlow(base, name, approveButton ? 'notes approve' : 'notes')
-  await api(owner, 'POST', `/device/${started.user_code}`, {
-    approve: true,
-    name,
-    allowApproval: approveButton,
-  })
+export const connectAgent = async (base: string, owner: Person, name: string) => {
+  const started = await startDeviceFlow(base, name, 'notes')
+  await api(owner, 'POST', `/device/${started.user_code}`, { approve: true, name })
   const tokens = (await (
     await fetch(
       `${base}/oauth/token`,
@@ -227,8 +223,7 @@ export const freePort = (): Promise<number> =>
 export const startDovecote = async (
   port: number,
   databasePath: string,
-  approveButton: 'on' | 'off',
-  topics = '',
+  channels = '',
   themeDirectory?: string,
 ) => {
   const config = loadConfig({
@@ -238,8 +233,7 @@ export const startDovecote = async (
     HB_ALLOWED_DOMAINS: 'example.com',
     HB_OAUTH_REDIRECT_HOSTS: 'client.example',
     HB_DATABASE_URL: `sqlite:${databasePath}`,
-    HB_APPROVE_BUTTON: approveButton,
-    HB_TOPICS: topics,
+    HB_CHANNELS: channels,
     HB_WEB_DIR: join(here, '..', 'dist'),
     ...(themeDirectory !== undefined && { HB_THEME_DIR: themeDirectory }),
   })
@@ -335,14 +329,14 @@ export const KEY_CONTROLS: ReadonlyArray<{
   readonly kind: 'text' | 'large-text' | 'boundary'
 }> = [
   {
-    selector: 'body p, body small, .field-label, .note-body, .topic-meta span, .thread-profile',
+    selector: 'body p, body small, .field-label, .note-body, .channel-meta span, .thread-profile',
     kind: 'text',
   },
   {
     selector: 'button, .button, .tab, .switch-label, .switch-state, .kind, .origin, .relation',
     kind: 'text',
   },
-  { selector: '.agent-light, .human-state, .topic-chip, .private-mark, .archived-mark', kind: 'text' },
+  { selector: '.agent-light, .human-state, .channel-chip, .private-mark, .archived-mark', kind: 'text' },
   { selector: 'h1, h2, .sidebar-title', kind: 'large-text' },
   {
     selector: 'button:not(.link):not(.icon):not(.switch), .button, input, select, textarea',

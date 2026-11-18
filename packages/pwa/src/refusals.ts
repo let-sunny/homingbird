@@ -4,7 +4,7 @@ import { errorText, strings } from './strings.ts'
 export type Attempt =
   | 'device'
   | 'draft'
-  | 'topic-name'
+  | 'channel-name'
   | 'managers'
   | 'visibility'
   | 'move'
@@ -25,7 +25,7 @@ const CODE_REFUSALS: ReadonlySet<ApiError['_tag']> = new Set(['NotFound', 'Confl
 const CONFLICTS: Readonly<Record<Attempt, () => string | null>> = {
   device: () => null,
   draft: () => strings.refusals.draftHandled,
-  'topic-name': () => strings.refusals.nameTaken,
+  'channel-name': () => strings.refusals.nameTaken,
   managers: () => strings.refusals.lastManager,
   visibility: () => strings.refusals.needsManagerInRoom,
   move: () => null,

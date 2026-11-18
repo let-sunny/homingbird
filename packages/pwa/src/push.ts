@@ -1,6 +1,7 @@
 import { Task as T } from '@homingbird/kernel'
 import type { ApiError } from '@homingbird/protocol'
 import { type Action, api } from './actions.ts'
+import { isSameKey } from './push-results.ts'
 import { locale, strings } from './strings.ts'
 
 export const pushIsAvailable = (): boolean =>
@@ -14,10 +15,20 @@ export const turnPushOn: Action<boolean> = T.gen(function* () {
   const permission = yield* browser(() => Notification.requestPermission())
   if (permission !== 'granted') return false
   const { publicKey } = yield* api['push.key']({})
+  const serverKey = bytesOf(publicKey)
   const registration = yield* browser(() => navigator.serviceWorker.ready)
-  const subscription = yield* browser(() =>
-    registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: bytesOf(publicKey) }),
-  )
+  const existing = yield* browser(() => registration.pushManager.getSubscription())
+  const reusable = existing !== null && isSameKey(existing.options.applicationServerKey, serverKey)
+  if (existing !== null && !reusable) {
+    yield* api['push.unsubscribe']({ body: { endpoint: existing.endpoint } })
+    yield* browser(() => existing.unsubscribe())
+  }
+  const subscription =
+    reusable && existing !== null
+      ? existing
+      : yield* browser(() =>
+          registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: serverKey }),
+        )
   const { endpoint = '', keys } = subscription.toJSON()
   yield* api['push.subscribe']({
     body: { endpoint, keys: { p256dh: keys?.p256dh ?? '', auth: keys?.auth ?? '' }, locale },

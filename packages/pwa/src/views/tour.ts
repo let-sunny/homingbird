@@ -78,11 +78,14 @@ const tourCallout = (): Running => {
     release()
     const id = TOUR_STEPS[step]!
     target = visibleTarget(id)
+    target?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
     target?.classList.add('tour-target')
     target?.style.setProperty('anchor-name', '--hb-tour-target')
-    callout.classList.toggle('is-anchored', target !== null)
+    const isAnchored = target !== null && anchorsAreSupported()
+    callout.classList.toggle('is-anchored', isAnchored)
+    callout.classList.toggle('is-in-header', target?.closest('.titlebar') !== null && target !== null)
     callout.dataset.placement = PLACEMENT[id]
-    replaceChildren(callout, stepContent(id, step, target !== null, finish, move))
+    replaceChildren(callout, stepContent(id, step, isAnchored, finish, move))
     if (!callout.matches(':popover-open')) callout.showPopover?.()
     if (moveFocus) callout.querySelector<HTMLElement>('.tour-next')?.focus()
   }
@@ -99,9 +102,12 @@ const tourCallout = (): Running => {
 const PLACEMENT: Readonly<Record<TourStepId, 'beside' | 'below'>> = {
   notes: 'beside',
   connect: 'below',
-  topics: 'below',
+  channels: 'below',
   profile: 'below',
 }
+
+/** Without anchor positioning the callout cannot sit beside its control, so it names it in words. */
+const anchorsAreSupported = (): boolean => globalThis.CSS?.supports?.('anchor-name: --a') === true
 
 const visibleTarget = (id: TourStepId): HTMLElement | null => {
   const found = document.querySelector<HTMLElement>(`[data-tour="${id}"]`)
@@ -165,7 +171,11 @@ const STEP_TEXT: Readonly<
     body: strings.tour.connectBody,
     place: strings.connectAgent,
   }),
-  topics: () => ({ title: strings.tour.topicsTitle, body: strings.tour.topicsBody, place: strings.topics }),
+  channels: () => ({
+    title: strings.tour.channelsTitle,
+    body: strings.tour.channelsBody,
+    place: strings.channels,
+  }),
   profile: () => ({
     title: strings.tour.profileTitle,
     body: strings.tour.profileBody,

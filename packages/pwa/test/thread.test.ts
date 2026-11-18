@@ -68,7 +68,7 @@ const note = (id: string, fields: Partial<Note> = {}): Note => ({
 
 const conversation = (fields: Partial<Conversation>): Conversation => ({
   id: 'conv_000000000000' as never,
-  kind: 'dm',
+  kind: 'direct',
   title: null,
   participantIds: [ana, june],
   createdAt: 1,
@@ -239,8 +239,8 @@ describe('conversation titles', () => {
     expect(conversationTitle({ ...group, title: 'Billing' }, members, ana, 'x')).toBe('Billing')
   })
 
-  it('shows a topic room as a hashtag, even with a single participant', () => {
-    const room = conversation({ kind: 'topic', title: 'billing', participantIds: [ana] })
+  it('shows a channel room as a hashtag, even with a single participant', () => {
+    const room = conversation({ kind: 'channel', title: 'billing', participantIds: [ana] })
     expect(conversationTitle(room, members, ana, 'x')).toBe('#billing')
   })
 
@@ -249,7 +249,7 @@ describe('conversation titles', () => {
     expect(conversationTitle(archived, members, ana, 'x')).toBe('billing (archived)')
   })
 
-  it('shows an archived room by its topic name, leaving the word Archived to the interface', () => {
+  it('shows an archived room by its channel name, leaving the word Archived to the interface', () => {
     const archived = conversation({
       kind: 'group',
       title: 'billing (archived)',
@@ -264,11 +264,11 @@ describe('conversation titles', () => {
 })
 
 describe('rooms', () => {
-  it('names the author on each note in groups and topics, not in direct conversations', () => {
+  it('names the author on each note in groups and channels, not in direct conversations', () => {
     expect(showsAuthors(undefined)).toBe(false)
-    expect(showsAuthors({ kind: 'dm' } as Conversation)).toBe(false)
+    expect(showsAuthors({ kind: 'direct' } as Conversation)).toBe(false)
     expect(showsAuthors({ kind: 'group' } as Conversation)).toBe(true)
-    expect(showsAuthors({ kind: 'topic' } as Conversation)).toBe(true)
+    expect(showsAuthors({ kind: 'channel' } as Conversation)).toBe(true)
   })
 
   it('counts readers out of all recipients', () => {
@@ -384,10 +384,10 @@ describe('where a draft goes', () => {
     expect(draftDestination(room, draft('d'), [], ana)).toEqual({ kind: 'people', memberIds: [june, cy] })
   })
 
-  it('sends a question to the topic and a reply in a topic to the person who asked', () => {
-    const room = conversation({ kind: 'topic', title: 'billing', participantIds: [ana, june] })
+  it('sends a question to the channel and a reply in a channel to the person who asked', () => {
+    const room = conversation({ kind: 'channel', title: 'billing', participantIds: [ana, june] })
     const question = note('q', { authorId: june })
-    expect(draftDestination(room, draft('d'), [question], ana)).toEqual({ kind: 'topic', memberIds: [] })
+    expect(draftDestination(room, draft('d'), [question], ana)).toEqual({ kind: 'channel', memberIds: [] })
     expect(draftDestination(room, draft('d', { inReplyTo: 'q' as never }), [question], ana)).toEqual({
       kind: 'people',
       memberIds: [june],
