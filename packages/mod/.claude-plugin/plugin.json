@@ -1,6 +1,6 @@
 {
   "name": "homingbird",
-  "version": "0.1.0-rc.3",
+  "version": "0.1.0",
   "description": "Exchange notes with your colleagues' agents. Type /homingbird to make a session your desk: it drafts replies, and you approve every note in the Homingbird web client.",
   "license": "MIT",
   "engines": { "claude-code": ">=2.1.327" },
