@@ -1,8 +1,17 @@
 import { Task as T } from '@homingbird/kernel'
 import type { Credential, Me } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, region, signal } from '@homingbird/ui'
-import { api, launch, loadTopics, renameCredential, revokeCredential, updateProfile } from '../actions.ts'
+import {
+  api,
+  chooseLanguage,
+  launch,
+  loadTopics,
+  renameCredential,
+  revokeCredential,
+  updateProfile,
+} from '../actions.ts'
 import { APPEARANCES, type Appearance, applyAppearance, currentAppearance } from '../appearance.ts'
+import { languageChoices } from '../languages.ts'
 import { pushIsAvailable, pushIsOn, turnPushOff, turnPushOn } from '../push.ts'
 import { hrefFor } from '../routes.ts'
 import { directory, notice, topics } from '../state.ts'
@@ -49,14 +58,37 @@ export const profileView = (life: Lifetime, me: Me): HTMLElement => {
             checked: currentAppearance() === appearance,
             on: { change: () => applyAppearance(appearance) },
           }),
-          APPEARANCE_LABELS[appearance],
+          appearanceLabels()[appearance],
         ),
       ),
     ),
+    languagePicker(me),
     helpedTopics(life, me),
     notificationsToggle(life),
   )
 }
+
+export const languagePicker = (me: Me): HTMLElement =>
+  h(
+    'fieldset',
+    { class: 'appearance language' },
+    h('legend', {}, strings.language),
+    languageChoices(strings.languageAuto).map((choice) =>
+      h(
+        'label',
+        { class: 'choice', lang: choice.lang ?? undefined },
+        h('input', {
+          type: 'radio',
+          name: 'language',
+          value: choice.value ?? '',
+          checked: (me.locale ?? null) === choice.value,
+          on: { change: () => launch(chooseLanguage(choice.value)) },
+        }),
+        choice.label,
+      ),
+    ),
+    h('small', {}, strings.languageHint),
+  )
 
 const helpedTopics = (life: Lifetime, me: Me): HTMLElement => {
   launch(loadTopics(''))
@@ -138,11 +170,11 @@ export const credentialsView = (life: Lifetime): HTMLElement => {
   )
 }
 
-const APPEARANCE_LABELS: Readonly<Record<Appearance, string>> = {
+const appearanceLabels = (): Readonly<Record<Appearance, string>> => ({
   auto: strings.appearanceAuto,
   light: strings.appearanceLight,
   dark: strings.appearanceDark,
-}
+})
 
 const credentialRow = (credential: Credential, reload: () => void): HTMLElement =>
   h(
@@ -223,7 +255,7 @@ const revokeForm = (credential: Credential, reload: () => void): Child =>
   h(
     'div',
     { class: 'dialog-body' },
-    h('p', {}, strings.revokeBody(credential.name)),
+    h('p', {}, strings.revokeBody({ name: credential.name })),
     h(
       'div',
       { class: 'dialog-actions' },

@@ -91,7 +91,7 @@ const topicCard = (topic: Topic): HTMLElement =>
       h(
         'p',
         { class: 'topic-meta' },
-        h('span', {}, strings.helpers(topic.helperCount)),
+        h('span', {}, strings.helpers({ count: topic.helperCount })),
         topic.helping && h('span', { class: 'kind is-helping' }, strings.helpingHere),
       ),
     ),
@@ -179,7 +179,7 @@ const createForm = (life: Lifetime): HTMLElement => {
             'p',
             { class: 'topic-exists', role: 'status' },
             pip('blocked', 2),
-            h('span', {}, strings.topicExists(topicLabel(exact.slug))),
+            h('span', {}, strings.topicExists({ topic: topicLabel(exact.slug) })),
             h('a', { href: hrefFor({ name: 'topic', slug: exact.slug }) }, strings.openRoom),
           )
         return (
@@ -213,10 +213,15 @@ const askPage = (life: Lifetime, topic: Topic): Child => {
       location.hash = hrefFor({ name: 'conversation', id: conversationId })
     })
   return page(
-    strings.askTopicTitle(topicLabel(topic.slug)),
+    strings.askTopicTitle({ topic: topicLabel(topic.slug) }),
     h('p', { class: 'topic-description' }, topic.description),
-    h('p', { class: 'topic-meta' }, h('span', {}, strings.helpers(topic.helperCount)), helpToggle(topic)),
-    h('p', {}, strings.askTopicIntro(topic.helperCount)),
+    h(
+      'p',
+      { class: 'topic-meta' },
+      h('span', {}, strings.helpers({ count: topic.helperCount })),
+      helpToggle(topic),
+    ),
+    h('p', {}, strings.askTopicIntro({ count: topic.helperCount })),
     h(
       'form',
       {

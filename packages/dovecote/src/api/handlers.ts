@@ -33,7 +33,13 @@ import {
   openDraftRequests,
   requestDraft,
 } from '../domain/draft-requests.ts'
-import { administerMember, allMembers, directoryFor, updateOwnProfile } from '../domain/members.ts'
+import {
+  administerMember,
+  allMembers,
+  chosenLocaleOf,
+  directoryFor,
+  updateOwnProfile,
+} from '../domain/members.ts'
 import {
   createDraft,
   discardDraft,
@@ -86,11 +92,16 @@ export const handlers: Handlers = {
       }
     }),
   'me.get': (_, caller) =>
-    T.map((settings: { contactMode: 'open' | 'contacts' }) => ({
-      member: caller.member,
-      credential: caller.credential,
-      contactMode: settings.contactMode,
-    }))(readSettings),
+    T.gen(function* () {
+      const settings = yield* readSettings
+      const locale = yield* chosenLocaleOf(caller.member.id)
+      return {
+        member: caller.member,
+        credential: caller.credential,
+        contactMode: settings.contactMode,
+        ...(locale !== null && { locale }),
+      }
+    }),
   'me.update': ({ body }, caller) =>
     T.tap((_: Member) => announceDirectoryChange(caller.member.id))(updateOwnProfile(caller.member.id, body)),
 

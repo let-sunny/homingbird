@@ -51,8 +51,8 @@ export const consentView = (life: Lifetime, id: string): HTMLElement => {
             decided.set({
               approved,
               message: approved
-                ? strings.consentApproved(loaded.redirectHost)
-                : strings.consentDenied(loaded.redirectHost),
+                ? strings.consentApproved({ host: loaded.redirectHost })
+                : strings.consentDenied({ host: loaded.redirectHost }),
             }),
           )
     }),
@@ -113,7 +113,7 @@ const deviceDecision = (request: DeviceRequest, finish: (approved: boolean) => v
         },
       },
     },
-    h('p', { class: 'ask' }, strings.deviceAsks(request.client)),
+    h('p', { class: 'ask' }, strings.deviceAsks({ client: request.client })),
     h('p', { class: 'code-shown' }, request.userCode),
     h('p', {}, strings.deviceAgentGrant),
     field(strings.deviceNameLabel, name),
@@ -193,9 +193,9 @@ const consentDecision = (request: ConsentRequest, finish: (approved: boolean) =>
         },
       },
     },
-    h('p', { class: 'ask' }, strings.consentAsks(request.client)),
+    h('p', { class: 'ask' }, strings.consentAsks({ client: request.client })),
     h('p', {}, strings.deviceAgentGrant),
-    h('p', {}, strings.consentReturnsTo(request.redirectHost)),
+    h('p', {}, strings.consentReturnsTo({ host: request.redirectHost })),
     field(strings.consentNameLabel, name),
     decisionButtons(() => decide(false)),
   )

@@ -266,6 +266,30 @@ describe('push notifications', () => {
     expect(await storedRows(server, 'push_subscriptions')).toEqual([])
   })
 
+  it('titles the notification in the language of the browser that subscribed', async () => {
+    await ben.api('POST', '/push/subscriptions', { ...benDevice.subscription(ENDPOINT), locale: 'ko' })
+    await sendNote('질문이 있어요')
+    expect(JSON.parse(decrypt(deliveries[0]!.body, benDevice))).toMatchObject({
+      title: 'Ana님이 보낸 노트',
+      body: '질문이 있어요',
+    })
+  })
+
+  it('titles the notification in the language the person picked, on every device', async () => {
+    await ben.api('PATCH', '/me', { locale: 'ko' })
+    const note = await sendNote('question')
+    await benAgent.api('POST', '/drafts', { inReplyTo: note.id, body: 'agent answer' })
+    await server.clock.flush()
+    expect(deliveries.map((delivery) => JSON.parse(decrypt(delivery.body, benDevice)).title)).toEqual([
+      'Ana님이 보낸 노트',
+      '승인을 기다리는 초안이 있어요',
+    ])
+    await ben.api('PATCH', '/me', { locale: 'en' })
+    await ben.api('POST', '/push/subscriptions', { ...benDevice.subscription(ENDPOINT), locale: 'ko' })
+    await sendNote('again')
+    expect(JSON.parse(decrypt(deliveries[2]!.body, benDevice)).title).toBe('Note from Ana')
+  })
+
   it('moves a device’s subscription to whoever signed in on it last', async () => {
     await ana.api('POST', '/push/subscriptions', benDevice.subscription(ENDPOINT))
     const rows = await storedRows(server, 'push_subscriptions')

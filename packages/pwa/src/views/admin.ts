@@ -22,7 +22,7 @@ export const adminView = (life: Lifetime, me: Me, section: AdminSection): HTMLEl
     h(
       'nav',
       { class: 'subtabs' },
-      SECTIONS.map(([name, label]) =>
+      sections().map(([name, label]) =>
         h(
           'a',
           { href: hrefFor({ name: 'admin', section: name }), 'aria-current': name === section && 'page' },
@@ -39,7 +39,7 @@ export const adminView = (life: Lifetime, me: Me, section: AdminSection): HTMLEl
           : auditSection(life),
   )
 
-const SECTIONS: ReadonlyArray<readonly [AdminSection, string]> = [
+const sections = (): ReadonlyArray<readonly [AdminSection, string]> => [
   ['settings', strings.adminSettings],
   ['members', strings.adminMembers],
   ['topics', strings.adminTopics],
@@ -166,7 +166,7 @@ const topicsSection = (life: Lifetime): HTMLElement => {
             { class: 'member-main' },
             h('strong', {}, topicLabel(topic.slug)),
             h('span', {}, topic.description),
-            h('span', { class: 'topic-meta' }, strings.helpers(topic.helperCount)),
+            h('span', { class: 'topic-meta' }, strings.helpers({ count: topic.helperCount })),
             !canRename(topic.slug) && h('small', {}, strings.generalIsFixed),
           ),
           h(
@@ -176,7 +176,9 @@ const topicsSection = (life: Lifetime): HTMLElement => {
               'button',
               {
                 type: 'button',
-                ...opensDialog(strings.editTopicTitle(topicLabel(topic.slug)), () => editTopicForm(topic)),
+                ...opensDialog(strings.editTopicTitle({ topic: topicLabel(topic.slug) }), () =>
+                  editTopicForm(topic),
+                ),
               },
               strings.editTopic,
             ),
@@ -185,7 +187,9 @@ const topicsSection = (life: Lifetime): HTMLElement => {
                 'button',
                 {
                   type: 'button',
-                  ...opensDialog(strings.mergeTopicTitle(topicLabel(topic.slug)), () => mergeForm(topic)),
+                  ...opensDialog(strings.mergeTopicTitle({ topic: topicLabel(topic.slug) }), () =>
+                    mergeForm(topic),
+                  ),
                 },
                 strings.mergeTopic,
               ),
@@ -195,7 +199,9 @@ const topicsSection = (life: Lifetime): HTMLElement => {
                 {
                   type: 'button',
                   class: 'danger',
-                  ...opensDialog(strings.removeTopicTitle(topicLabel(topic.slug)), () => removeForm(topic)),
+                  ...opensDialog(strings.removeTopicTitle({ topic: topicLabel(topic.slug) }), () =>
+                    removeForm(topic),
+                  ),
                 },
                 strings.removeTopic,
               ),

@@ -8,12 +8,12 @@ export const migrate: T.Task<void, never, HasSql> = T.gen(function* () {
   const applied = new Set(
     (yield* all<{ version: number }>(sql`SELECT version FROM schema_versions`)).map((r) => r.version),
   )
-  for (const [index, tables] of MIGRATIONS.entries()) {
+  for (const [index, steps] of MIGRATIONS.entries()) {
     const version = index + 1
     if (applied.has(version)) continue
     yield* inTransaction(
       T.gen(function* () {
-        for (const statement of tables.flatMap((table) => statementsFor(target, table)))
+        for (const statement of steps.flatMap((step) => statementsFor(target, step)))
           yield* run(raw(statement))
         yield* run(sql`INSERT INTO schema_versions (version) VALUES (${version})`)
       }),
@@ -22,9 +22,10 @@ export const migrate: T.Task<void, never, HasSql> = T.gen(function* () {
 })
 
 export const schemaStatements = (target: Dialect): string[] =>
-  [VERSION_TABLE, ...MIGRATIONS.flat()].flatMap((table) => statementsFor(target, table))
+  [VERSION_TABLE, ...MIGRATIONS.flat()].flatMap((step) => statementsFor(target, step))
 
-export const tableNames = (): string[] => [VERSION_TABLE, ...MIGRATIONS.flat()].map((table) => table.name)
+export const tableNames = (): string[] =>
+  [VERSION_TABLE, ...MIGRATIONS.flat()].filter(isTable).map((table) => table.name)
 
 type ColumnType = 'id' | 'string' | 'text' | 'integer' | 'serial'
 
@@ -40,10 +41,18 @@ interface Table {
   readonly indexes?: ReadonlyArray<{ readonly columns: ReadonlyArray<string>; readonly unique?: true }>
 }
 
+interface AddedColumn {
+  readonly addTo: string
+  readonly name: string
+  readonly column: Column & { readonly nullable: true }
+}
+
+type Step = Table | AddedColumn
+
 const id: Column = { type: 'id' }
 const optionalId: Column = { type: 'id', nullable: true }
 const string: Column = { type: 'string' }
-const optionalString: Column = { type: 'string', nullable: true }
+const optionalString = { type: 'string', nullable: true } as const satisfies Column
 const text: Column = { type: 'text' }
 const integer: Column = { type: 'integer' }
 const optionalInteger: Column = { type: 'integer', nullable: true }
@@ -282,16 +291,34 @@ const TOPICS: ReadonlyArray<Table> = [
   },
 ]
 
-const MIGRATIONS: ReadonlyArray<ReadonlyArray<Table>> = [INITIAL, PUSH_SUBSCRIPTIONS, DRAFT_REQUESTS, TOPICS]
+const LANGUAGE: ReadonlyArray<Step> = [
+  { addTo: 'members', name: 'locale', column: optionalString },
+  { addTo: 'push_subscriptions', name: 'locale', column: optionalString },
+]
 
-const statementsFor = (target: Dialect, table: Table): string[] =>
-  target === 'mysql'
-    ? [createTable(target, table)]
-    : [createTable(target, table), ...(table.indexes ?? []).map((index) => createIndex(table, index))]
+const MIGRATIONS: ReadonlyArray<ReadonlyArray<Step>> = [
+  INITIAL,
+  PUSH_SUBSCRIPTIONS,
+  DRAFT_REQUESTS,
+  TOPICS,
+  LANGUAGE,
+]
+
+const isTable = (step: Step): step is Table => 'columns' in step
+
+const statementsFor = (target: Dialect, step: Step): string[] => {
+  if (!isTable(step)) return [addColumn(target, step)]
+  return target === 'mysql'
+    ? [createTable(target, step)]
+    : [createTable(target, step), ...(step.indexes ?? []).map((index) => createIndex(step, index))]
+}
+
+const addColumn = (target: Dialect, added: AddedColumn): string =>
+  `ALTER TABLE ${added.addTo} ADD COLUMN ${columnDefinition(target, added.name, added.column)}`
 
 const createTable = (target: Dialect, table: Table): string => {
   const columns = Object.entries(table.columns).map(([name, column]) =>
-    columnDefinition(target, table, name, column),
+    columnDefinition(target, name, column),
   )
   const serialKey = Object.values(table.columns).some((column) => column.type === 'serial')
   const primaryKey = serialKey ? [] : [`PRIMARY KEY (${table.primaryKey.join(', ')})`]
@@ -311,7 +338,7 @@ const createIndex = (table: Table, index: NonNullable<Table['indexes']>[number])
 const indexName = (table: Table, columns: ReadonlyArray<string>): string =>
   `${table.name}_${columns.join('_')}_idx`
 
-const columnDefinition = (target: Dialect, _table: Table, name: string, column: Column): string =>
+const columnDefinition = (target: Dialect, name: string, column: Column): string =>
   column.type === 'serial'
     ? `${name} ${SERIAL[target]}`
     : `${name} ${COLUMN_TYPES[target][column.type]}${column.nullable ? '' : ' NOT NULL'}`

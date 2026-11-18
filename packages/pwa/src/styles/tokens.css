@@ -85,6 +85,13 @@
   color-scheme: light dark;
 }
 
+:root:lang(ko) {
+  --hb-font-body: "Inter", "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
+  --hb-font-display: "Bricolage Grotesque", "Inter", "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR",
+    "Malgun Gothic", system-ui, sans-serif;
+  --hb-tracking-display: 0;
+}
+
 :root[data-appearance="light"] {
   color-scheme: light;
 }

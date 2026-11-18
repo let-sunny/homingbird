@@ -14,17 +14,21 @@ import { openDatabase } from '../../dovecote/src/sql/open.ts'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const screenshots = process.env.HB_E2E_SCREENSHOTS ?? join(here, 'screenshots')
+const koreanScreenshots = process.env.HB_E2E_SCREENSHOTS_KO ?? join(here, 'screenshots-ko')
 const { chromium } = createRequire(import.meta.url)('playwright')
 
 const scenario = async (): Promise<void> => {
   const port = await freePort()
   const base = `http://localhost:${port}`
   const databasePath = join(tmpdir(), `homingbird-e2e-${port}.sqlite`)
-  await rm(screenshots, { recursive: true, force: true })
-  await mkdir(screenshots, { recursive: true })
+  for (const directory of [screenshots, koreanScreenshots]) {
+    await rm(directory, { recursive: true, force: true })
+    await mkdir(directory, { recursive: true })
+  }
   let dovecote = await startDovecote(port, databasePath)
   const browser = await chromium.launch()
-  const { capture, nextPath } = screenshotCounter()
+  const { capture, nextPath } = screenshotCounter(screenshots)
+  const korean = screenshotCounter(koreanScreenshots)
   const signIn = signInWith(browser, base)
 
   try {
@@ -537,6 +541,56 @@ const scenario = async (): Promise<void> => {
       )
       await capture(ana.page, `narrow-${name}`)
     }
+
+    // -- Korean ----------------------------------------------------------------------------------
+    await ana.page.setViewportSize(VIEWPORT)
+    await ana.page.goto(`${base}/#/me`)
+    await ana.page.waitForSelector('.language input[name=language]')
+    assert.equal(await ana.page.getAttribute('html', 'lang'), 'en')
+    await ana.page.locator('.language input[value="ko"]').check()
+    await ana.page.waitForSelector('html[lang="ko"]')
+    await ana.page.waitForSelector('.tabs a:has-text("노트")')
+    await ana.page.waitForSelector('h1:has-text("내 프로필")')
+    assert.equal((await api(ana, 'GET', '/me')).locale, 'ko')
+    assert.equal(await ana.page.locator('.language input[value="ko"]').isChecked(), true)
+    await korean.capture(ana.page, 'profile-language-picker')
+    await ana.page.reload()
+    await ana.page.waitForSelector('.tabs a:has-text("노트")')
+
+    const koreanScreens: ReadonlyArray<readonly [string, string]> = [
+      ['home', '/#/'],
+      ...mainScreens,
+      ['search', '/#/search?q=migration'],
+      ['device', '/#/device'],
+      ['admin-members', '/#/admin/members'],
+      ['admin-audit', '/#/admin/audit'],
+    ]
+    for (const width of [VIEWPORT.width, 390]) {
+      await ana.page.setViewportSize({ width, height: width === 390 ? 780 : VIEWPORT.height })
+      for (const [name, path] of koreanScreens) {
+        await ana.page.goto(`${base}${path}`)
+        await ana.page.waitForTimeout(700)
+        const label = `${width === 390 ? 'narrow' : 'wide'}-${name}`
+        assert.equal(await overflowsSideways(ana.page), false, `${label} overflows sideways in Korean`)
+        assert.deepEqual(await clippedText(ana.page), [], `${label} clips Korean text`)
+        await korean.capture(ana.page, label)
+      }
+    }
+    await ana.page.setViewportSize(VIEWPORT)
+    await ana.page.goto(`${base}/#/c/${group.id}`)
+    await ana.page.waitForSelector('.note-status:has-text("명 읽음")')
+    await ana.page.goto(`${base}/#/me`)
+    await ana.page.locator('.language input[value=""]').check()
+    await ana.page.waitForSelector('html[lang="en"]')
+    await ana.page.waitForSelector('h1:has-text("Your profile")')
+    assert.equal((await api(ana, 'GET', '/me')).locale, undefined)
+
+    const koreanVisitor = await newPage(browser, base, 'ko-KR')
+    await koreanVisitor.page.waitForSelector('html[lang="ko"]')
+    await koreanVisitor.page.waitForSelector('a[href^="/auth/login"]:has-text("로그인")')
+    assert.deepEqual(await clippedText(koreanVisitor.page), [], 'the Korean sign-in page clips text')
+    await korean.capture(koreanVisitor.page, 'sign-in-follows-the-browser')
+    await koreanVisitor.context.close()
     kaiStream.abort()
   } finally {
     await browser.close()
@@ -553,8 +607,13 @@ interface Person {
 
 const VIEWPORT = { width: 1200, height: 800 }
 
-const newPage = async (browser: any, base: string): Promise<Person> => {
-  const context = await browser.newContext({ deviceScaleFactor: 2, viewport: VIEWPORT, colorScheme: 'light' })
+const newPage = async (browser: any, base: string, locale = 'en-US'): Promise<Person> => {
+  const context = await browser.newContext({
+    deviceScaleFactor: 2,
+    viewport: VIEWPORT,
+    colorScheme: 'light',
+    locale,
+  })
   const page = await context.newPage()
   page.on('pageerror', (error: Error) => {
     throw new Error(`page error: ${error.message}`)
@@ -675,10 +734,45 @@ const overflowsSideways = (page: any): Promise<boolean> =>
     return root.scrollWidth > root.clientWidth + 1
   })
 
-const screenshotCounter = () => {
+const clippedText = (page: any): Promise<string[]> =>
+  page.evaluate(() => {
+    const { document, getComputedStyle } = globalThis as any
+    const clipped: string[] = []
+    for (const element of document.querySelectorAll('body *')) {
+      if (element.closest('.visually-hidden, [hidden], dialog:not([open])')) continue
+      const style = getComputedStyle(element)
+      const hidesOverflow = style.overflowX !== 'visible' || style.overflowY !== 'visible'
+      if (!hidesOverflow || style.textOverflow === 'ellipsis' || element.matches('textarea, input, select, pre, .table-scroll, .thread-scroll, .notes, nav, ul, ol, .sidebar, .stage, .page-body, .page, main, .app, .viewport, #app, aside, section, dialog, .window-body, .connect-body'))
+        continue
+      const hasText = [...element.childNodes].some(
+        (node: any) => node.nodeType === 3 && node.textContent.trim() !== '',
+      )
+      if (!hasText) continue
+      if (element.scrollWidth > element.clientWidth + 1 || element.scrollHeight > element.clientHeight + 1)
+        clipped.push(`${element.tagName.toLowerCase()}.${[...element.classList].join('.')}: ${element.textContent.trim().slice(0, 40)}`)
+    }
+    const walker = document.createTreeWalker(document.body, 4)
+    for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+      const words = node.textContent.trim().split(/\s+/)
+      if (node.parentElement?.closest('.visually-hidden, [hidden], dialog:not([open]), .note-body, .quote'))
+        continue
+      for (const word of words) {
+        if (word.length < 2) continue
+        const start = node.textContent.indexOf(word)
+        const range = document.createRange()
+        range.setStart(node, start)
+        range.setEnd(node, start + word.length)
+        const lines = new Set([...range.getClientRects()].filter((rect: any) => rect.width > 0).map((rect: any) => Math.round(rect.top)))
+        if (lines.size > 1) clipped.push(`word broken across lines: ${word}`)
+      }
+    }
+    return clipped
+  })
+
+const screenshotCounter = (directory: string) => {
   let taken = 0
   const nextPath = async (name: string): Promise<string> =>
-    join(screenshots, `${String(++taken).padStart(2, '0')}-${name}.png`)
+    join(directory, `${String(++taken).padStart(2, '0')}-${name}.png`)
   return {
     nextPath,
     capture: async (page: any, name: string): Promise<void> => {

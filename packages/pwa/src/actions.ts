@@ -7,6 +7,7 @@ import type {
   ConversationId,
   CredentialId,
   DraftRequest,
+  Locale,
   MemberId,
   Note,
   NoteId,
@@ -14,6 +15,7 @@ import type {
   Topic,
 } from '@homingbird/protocol'
 import { type AgentAsk, requestBody, upsertRequest } from './draft-requests.ts'
+import { preferredLanguage } from './languages.ts'
 import { applyEvent } from './live.ts'
 import { hrefFor } from './routes.ts'
 import {
@@ -34,7 +36,7 @@ import {
   threads,
   topics,
 } from './state.ts'
-import { strings } from './strings.ts'
+import { errorText, strings, useLanguage } from './strings.ts'
 import { noteAwaitingReply, withNoteFiled, withoutNote } from './thread.ts'
 
 export type Action<A = void> = T.Task<A, ApiError, HasClock>
@@ -53,6 +55,7 @@ export const boot: Action = T.gen(function* () {
   serverInfo.set(yield* api['server.info']({}))
   const me = yield* T.result(api['me.get']({}))
   if (me._tag === 'Err') return session.set(null)
+  useLanguage(preferredLanguage(me.value.locale, browserLanguages()))
   session.set(me.value)
   yield* loadWorkspace
   followEvents()
@@ -251,6 +254,18 @@ export const updateProfile = (name: string, profile: string): Action =>
     yield* loadPeople
   })
 
+export const chooseLanguage = (chosen: Locale | null): Action =>
+  T.gen(function* () {
+    const member = yield* api['me.update']({ body: { locale: chosen } })
+    const me = signedIn()
+    useLanguage(preferredLanguage(chosen ?? undefined, browserLanguages()))
+    if (me === null) return
+    const { locale: _previous, ...rest } = me
+    session.set({ ...rest, member, ...(chosen !== null && { locale: chosen }) })
+  })
+
+export const browserLanguages = (): ReadonlyArray<string> => globalThis.navigator?.languages ?? []
+
 export const renameCredential = (id: CredentialId, name: string): Action =>
   T.asUnit(api['credentials.rename']({ params: { id }, body: { name } }))
 
@@ -330,7 +345,7 @@ const followEvents = (): void => {
 
 const reportFailure = (error: ApiError): void => {
   if (error._tag === 'Unauthorized') session.set(null)
-  else notice.set({ kind: 'error', text: error.message })
+  else notice.set({ kind: 'error', text: errorText(error) })
 }
 
 const withoutKey = <K, V>(map: ReadonlyMap<K, V>, key: K): ReadonlyMap<K, V> => {

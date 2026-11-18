@@ -1,7 +1,7 @@
 import { Task as T } from '@homingbird/kernel'
 import type { ApiError } from '@homingbird/protocol'
 import { type Action, api } from './actions.ts'
-import { strings } from './strings.ts'
+import { locale, strings } from './strings.ts'
 
 export const pushIsAvailable = (): boolean =>
   'serviceWorker' in navigator && 'PushManager' in globalThis && 'Notification' in globalThis
@@ -20,7 +20,7 @@ export const turnPushOn: Action<boolean> = T.gen(function* () {
   )
   const { endpoint = '', keys } = subscription.toJSON()
   yield* api['push.subscribe']({
-    body: { endpoint, keys: { p256dh: keys?.p256dh ?? '', auth: keys?.auth ?? '' } },
+    body: { endpoint, keys: { p256dh: keys?.p256dh ?? '', auth: keys?.auth ?? '' }, locale },
   })
   return true
 })

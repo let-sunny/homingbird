@@ -2,7 +2,7 @@ import { systemClock } from '@homingbird/kernel'
 import type { Presence } from '@homingbird/protocol'
 import { type Child, type Properties, h } from '@homingbird/ui'
 import { hrefFor } from '../routes.ts'
-import { strings } from '../strings.ts'
+import { formats, strings } from '../strings.ts'
 import { topicLabel } from '../topics.ts'
 import { type PipScale, type PipState, pip } from './pip.ts'
 
@@ -57,13 +57,13 @@ export const timeLabel = (timestamp: number): HTMLElement => {
   const sameDay = new Date(systemClock.now()).toDateString() === date.toDateString()
   return h(
     'time',
-    { datetime: date.toISOString(), title: FULL.format(date) },
-    (sameDay ? TIME : DAY).format(date),
+    { datetime: date.toISOString(), title: formats.full.format(date) },
+    (sameDay ? formats.time : formats.day).format(date),
   )
 }
 
 export const dateTimeLabel = (timestamp: number | null, fallback: string): string =>
-  timestamp === null ? fallback : FULL.format(new Date(timestamp))
+  timestamp === null ? fallback : formats.full.format(new Date(timestamp))
 
 export const initials = (name: string): string =>
   name
@@ -96,7 +96,3 @@ export const topicChips = (slugs: ReadonlyArray<string>): HTMLElement =>
   )
 
 export const wordmark = (name: string): string => (name === 'Homingbird' ? 'homingbird' : name)
-
-const TIME = new Intl.DateTimeFormat('en', { hour: 'numeric', minute: '2-digit' })
-const DAY = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' })
-const FULL = new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'short' })

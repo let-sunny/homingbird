@@ -1,10 +1,12 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { Task as T } from '@homingbird/kernel'
 import { afterEach, describe, expect, it } from 'vitest'
 import { loadConfig } from '../src/config.ts'
 import { LIMITS, makeRateLimiter } from '../src/http/rate-limiter.ts'
 import { cryptoRandom, hashSecret, normalizeUserCode } from '../src/random.ts'
+import { run } from '../src/sql/database.ts'
 import { openDatabase } from '../src/sql/open.ts'
 import {
   containsIgnoringCase,
@@ -16,8 +18,8 @@ import {
   raw,
   sql,
 } from '../src/sql/query.ts'
-import { schemaStatements } from '../src/sql/schema.ts'
-import { type TestServer, startTestServer } from './harness.ts'
+import { migrate, schemaStatements } from '../src/sql/schema.ts'
+import { type TestServer, startTestServer, storedRows } from './harness.ts'
 
 describe('configuration', () => {
   const minimal = {
@@ -244,6 +246,37 @@ describe('query building', () => {
 describe('schema', () => {
   it.each(['sqlite', 'postgres', 'mysql'] as const)('generates stable DDL for %s', (dialect) => {
     expect(schemaStatements(dialect)).toMatchSnapshot()
+  })
+
+  it.each(['sqlite', 'postgres', 'mysql'] as const)(
+    'adds a column to an existing table as a nullable column in %s',
+    (dialect) => {
+      expect(schemaStatements(dialect).filter((statement) => statement.startsWith('ALTER'))).toEqual([
+        `ALTER TABLE members ADD COLUMN locale ${dialect === 'sqlite' ? 'TEXT' : 'VARCHAR(400)'}`,
+        `ALTER TABLE push_subscriptions ADD COLUMN locale ${dialect === 'sqlite' ? 'TEXT' : 'VARCHAR(400)'}`,
+      ])
+    },
+  )
+
+  it('adds the language columns to a database migrated before they existed, keeping its rows', async () => {
+    const server = await startTestServer()
+    try {
+      const ana = await server.signIn('ana@example.com', 'Ana')
+      for (const statement of [
+        'ALTER TABLE members DROP COLUMN locale',
+        'ALTER TABLE push_subscriptions DROP COLUMN locale',
+        'DELETE FROM schema_versions WHERE version = 5',
+      ])
+        await T.runPromise(run(raw(statement)), server.env)
+      expect(Object.keys((await storedRows(server, 'members'))[0]!)).not.toContain('locale')
+      await T.runPromise(migrate, server.env)
+      const [member] = await storedRows(server, 'members')
+      expect(member).toMatchObject({ id: ana.me.member.id, name: 'Ana', locale: null })
+      expect((await ana.api('PATCH', '/me', { locale: 'ko' })).status).toBe(200)
+      expect((await ana.api('GET', '/me')).json.locale).toBe('ko')
+    } finally {
+      await server.close()
+    }
   })
 
   it('refuses a database URL it does not understand', async () => {

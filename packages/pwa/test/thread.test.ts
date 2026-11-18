@@ -23,6 +23,7 @@ import {
   otherParticipants,
   readProgress,
   showsAuthors,
+  statusOf,
   threadItems,
   upsertNote,
   withNoteFiled,
@@ -330,5 +331,12 @@ describe('status lines', () => {
       'Drafting reply',
     )
     expect(describeStatus(summarize([]))).toBe('Sent')
+  })
+  it('names the single-recipient status the web client translates', () => {
+    expect(statusOf(summarize([]))).toBe('sent')
+    expect(statusOf(summarize([receipt(june)]))).toBe('delivered')
+    expect(statusOf(summarize([receipt(june, { readAt: 2, state: 'read' })]))).toBe('read')
+    expect(statusOf(summarize([receipt(june, { draftingAt: 2, state: 'drafting' })]))).toBe('drafting')
+    expect(statusOf(summarize([receipt(june, { repliedAt: 3, readAt: 2, state: 'replied' })]))).toBe('replied')
   })
 })

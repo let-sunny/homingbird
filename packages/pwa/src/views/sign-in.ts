@@ -23,7 +23,7 @@ export const signInView = (refusal: string | null): HTMLElement =>
         h(
           'a',
           { class: 'button primary', href: signInHref(location.hash) },
-          strings.signInWith(serverInfo.get()?.signInWith ?? '…'),
+          strings.signInWith({ provider: serverInfo.get()?.signInWith ?? '…' }),
         ),
       ),
     ),

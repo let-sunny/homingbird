@@ -22,6 +22,8 @@ exports[`schema > generates stable DDL for mysql 1`] = `
   "CREATE TABLE IF NOT EXISTS draft_request_answers (request_id VARCHAR(64) NOT NULL, note_id VARCHAR(64) NOT NULL, credential_id VARCHAR(64) NOT NULL, PRIMARY KEY (request_id, note_id))",
   "CREATE TABLE IF NOT EXISTS topics (slug VARCHAR(64) NOT NULL, description VARCHAR(400) NOT NULL, conversation_id VARCHAR(64) NOT NULL, created_by VARCHAR(64), created_at BIGINT NOT NULL, PRIMARY KEY (slug), UNIQUE INDEX topics_conversation_id_idx (conversation_id))",
   "CREATE TABLE IF NOT EXISTS topic_helpers (conversation_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, PRIMARY KEY (conversation_id, member_id), INDEX topic_helpers_member_id_idx (member_id))",
+  "ALTER TABLE members ADD COLUMN locale VARCHAR(400)",
+  "ALTER TABLE push_subscriptions ADD COLUMN locale VARCHAR(400)",
 ]
 `;
 
@@ -70,6 +72,8 @@ exports[`schema > generates stable DDL for postgres 1`] = `
   "CREATE UNIQUE INDEX IF NOT EXISTS topics_conversation_id_idx ON topics (conversation_id)",
   "CREATE TABLE IF NOT EXISTS topic_helpers (conversation_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, PRIMARY KEY (conversation_id, member_id))",
   "CREATE INDEX IF NOT EXISTS topic_helpers_member_id_idx ON topic_helpers (member_id)",
+  "ALTER TABLE members ADD COLUMN locale VARCHAR(400)",
+  "ALTER TABLE push_subscriptions ADD COLUMN locale VARCHAR(400)",
 ]
 `;
 
@@ -118,5 +122,7 @@ exports[`schema > generates stable DDL for sqlite 1`] = `
   "CREATE UNIQUE INDEX IF NOT EXISTS topics_conversation_id_idx ON topics (conversation_id)",
   "CREATE TABLE IF NOT EXISTS topic_helpers (conversation_id TEXT NOT NULL, member_id TEXT NOT NULL, PRIMARY KEY (conversation_id, member_id))",
   "CREATE INDEX IF NOT EXISTS topic_helpers_member_id_idx ON topic_helpers (member_id)",
+  "ALTER TABLE members ADD COLUMN locale TEXT",
+  "ALTER TABLE push_subscriptions ADD COLUMN locale TEXT",
 ]
 `;

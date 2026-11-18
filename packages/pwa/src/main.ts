@@ -1,11 +1,12 @@
 import type { ConversationId, Me } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, lifetime, region, replaceChildren } from '@homingbird/ui'
-import { boot, launch } from './actions.ts'
+import { boot, browserLanguages, launch } from './actions.ts'
 import { applyAppearance, currentAppearance } from './appearance.ts'
 import { supportInvokerCommands } from './invokers.ts'
+import { preferredLanguage } from './languages.ts'
 import { type Route, parseRoute, signInHref } from './routes.ts'
 import { announcement, branding, notice, route, serverInfo, session } from './state.ts'
-import { strings } from './strings.ts'
+import { strings, useLanguage } from './strings.ts'
 import { credentialsView, profileView } from './views/account.ts'
 import { adminView } from './views/admin.ts'
 import { consentView, deviceView } from './views/connect.ts'
@@ -19,6 +20,7 @@ import { threadView } from './views/thread-view.ts'
 import { topicView, topicsView } from './views/topics.ts'
 
 const start = (root: HTMLElement): void => {
+  useLanguage(preferredLanguage(undefined, browserLanguages()))
   applyAppearance(currentAppearance())
   supportInvokerCommands(document)
   addEventListener('hashchange', () => inTransition(() => route.set(parseRoute(location.hash))))

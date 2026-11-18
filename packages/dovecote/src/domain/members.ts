@@ -2,6 +2,7 @@ import { Task as T } from '@homingbird/kernel'
 import {
   Conflict,
   type DirectoryEntry,
+  Locale,
   type Member,
   MemberId,
   type MemberStatus,
@@ -117,15 +118,22 @@ export const signInMember = (identity: Identity): T.Task<Member, never, AppEnv> 
 
 export const updateOwnProfile = (
   id: MemberId,
-  changes: { readonly name?: string; readonly profile?: string },
+  changes: { readonly name?: string; readonly profile?: string; readonly locale?: Locale | null },
 ): T.Task<Member, NotFound, AppEnv> =>
   T.gen(function* () {
     if (changes.name !== undefined)
       yield* run(sql`UPDATE members SET name = ${changes.name} WHERE id = ${id}`)
     if (changes.profile !== undefined)
       yield* run(sql`UPDATE members SET profile = ${changes.profile} WHERE id = ${id}`)
+    if (changes.locale !== undefined)
+      yield* run(sql`UPDATE members SET locale = ${changes.locale} WHERE id = ${id}`)
     return yield* memberById(id)
   })
+
+export const chosenLocaleOf = (id: MemberId): T.Task<Locale | null, never, AppEnv> =>
+  T.map((row: { locale: unknown } | null) => (Locale.is(row?.locale) ? row.locale : null))(
+    first<{ locale: unknown }>(sql`SELECT locale FROM members WHERE id = ${id}`),
+  )
 
 export const administerMember = (
   actorId: MemberId,

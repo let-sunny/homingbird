@@ -8,6 +8,7 @@ import type {
   Note,
   NoteId,
   Receipt,
+  StatusSummary,
 } from '@homingbird/protocol'
 import { requestAnsweredBy } from './draft-requests.ts'
 
@@ -152,6 +153,15 @@ export const readProgress = (receipts: ReadonlyArray<Receipt>): ReadProgress => 
   of: receipts.length,
   drafting: receipts.filter((receipt) => receipt.state === 'drafting').length,
 })
+
+export type SingleStatus = 'sent' | 'delivered' | 'read' | 'drafting' | 'replied'
+
+export const statusOf = (summary: StatusSummary): SingleStatus => {
+  if (summary.recipients === 0) return 'sent'
+  if (summary.replied > 0) return 'replied'
+  if (summary.drafting > 0) return 'drafting'
+  return summary.read > 0 ? 'read' : 'delivered'
+}
 
 export const alternativesLeftAfterSending = (
   item: Extract<ThreadItem, { type: 'drafts' }>,

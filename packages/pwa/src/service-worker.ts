@@ -1,4 +1,5 @@
-import { strings } from './strings.ts'
+import { preferredLanguage } from './languages.ts'
+import { strings, useLanguage } from './strings.ts'
 
 const worker = globalThis as unknown as ServiceWorkerGlobalScope
 declare const BUILD_ID: string
@@ -75,6 +76,7 @@ worker.addEventListener('notificationclick', (event) => {
 })
 
 const pushPayload = (data: PushMessageData | null): { title: string; body: string; url: string } => {
+  useLanguage(preferredLanguage(undefined, worker.navigator.languages))
   const fallback = { title: strings.appName, body: strings.pushFallback, url: '/' }
   try {
     const parsed = data?.json() as Partial<typeof fallback> | undefined

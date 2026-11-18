@@ -1,5 +1,5 @@
 import { Task as T } from '@homingbird/kernel'
-import { Invalid, type MemberId } from '@homingbird/protocol'
+import { Invalid, Locale, type MemberId } from '@homingbird/protocol'
 import type { AppEnv } from '../environment.ts'
 import { hashSecret } from '../random.ts'
 import { all, dialect, run } from '../sql/database.ts'
@@ -8,6 +8,7 @@ import { insertIgnoringConflict, sql } from '../sql/query.ts'
 export interface PushSubscription {
   readonly endpoint: string
   readonly keys: { readonly p256dh: string; readonly auth: string }
+  readonly locale?: Locale
 }
 
 export const savePushSubscription = (
@@ -26,6 +27,7 @@ export const savePushSubscription = (
         endpoint: subscription.endpoint,
         p256dh: subscription.keys.p256dh,
         auth: subscription.keys.auth,
+        locale: subscription.locale ?? null,
         created_at: env.clock.now(),
       }),
     )
@@ -45,9 +47,17 @@ export const removeOwnPushSubscription = (
   )
 
 export const pushSubscriptionsOf = (memberId: MemberId): T.Task<PushSubscription[], never, AppEnv> =>
-  T.map((rows: ReadonlyArray<{ endpoint: string; p256dh: string; auth: string }>) =>
-    rows.map((row) => ({ endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth } })),
-  )(all(sql`SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE member_id = ${memberId} LIMIT 20`))
+  T.map((rows: ReadonlyArray<SubscriptionRow>) =>
+    rows.map((row) => ({
+      endpoint: row.endpoint,
+      keys: { p256dh: row.p256dh, auth: row.auth },
+      ...(Locale.is(row.locale) && { locale: row.locale }),
+    })),
+  )(
+    all<SubscriptionRow>(
+      sql`SELECT endpoint, p256dh, auth, locale FROM push_subscriptions WHERE member_id = ${memberId} LIMIT 20`,
+    ),
+  )
 
 export const isKnownPushService = (endpoint: string, allowedHosts: ReadonlyArray<string>): boolean => {
   if (!URL.canParse(endpoint)) return false
@@ -55,4 +65,11 @@ export const isKnownPushService = (endpoint: string, allowedHosts: ReadonlyArray
   return (
     protocol === 'https:' && allowedHosts.some((host) => hostname === host || hostname.endsWith(`.${host}`))
   )
+}
+
+interface SubscriptionRow {
+  readonly endpoint: string
+  readonly p256dh: string
+  readonly auth: string
+  readonly locale: string | null
 }

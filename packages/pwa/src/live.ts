@@ -97,7 +97,9 @@ const announceIfFresh = (event: StreamEvent): void => {
   const isMine = note.authorId === signedIn()?.member.id
   const isFresh = systemClock.now() - (note.sentAt ?? 0) < FRESH_MS
   if (isMine || !isFresh) return
-  announcement.set(strings.incomingNote(members.get().get(note.authorId)?.name ?? strings.formerMember))
+  announcement.set(
+    strings.incomingNote({ name: members.get().get(note.authorId)?.name ?? strings.formerMember }),
+  )
 }
 
 const refreshAgentsIfNoneKnown = (): void => {

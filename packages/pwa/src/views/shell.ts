@@ -210,7 +210,7 @@ const conversationRow = (conversation: Conversation, me: Me): HTMLElement => {
           conversation.lastNote !== null
             ? excerpt(conversation.lastNote.body, 60)
             : conversation.draftCount > 0
-              ? strings.draftsWaiting(conversation.draftCount)
+              ? strings.draftsWaiting({ count: conversation.draftCount })
               : strings.noNotesYet,
         ),
       ),
@@ -222,13 +222,16 @@ const conversationRow = (conversation: Conversation, me: Me): HTMLElement => {
         conversation.unreadCount > 0 &&
           h(
             'span',
-            { class: 'count unread', 'aria-label': strings.unread(conversation.unreadCount) },
+            { class: 'count unread', 'aria-label': strings.unread({ count: conversation.unreadCount }) },
             conversation.unreadCount,
           ),
         conversation.draftCount > 0 &&
           h(
             'span',
-            { class: 'count drafts', 'aria-label': strings.draftsWaiting(conversation.draftCount) },
+            {
+              class: 'count drafts',
+              'aria-label': strings.draftsWaiting({ count: conversation.draftCount }),
+            },
             `✎${conversation.draftCount}`,
           ),
       ),

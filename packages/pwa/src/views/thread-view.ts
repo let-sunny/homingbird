@@ -1,12 +1,5 @@
 import { systemClock } from '@homingbird/kernel'
-import {
-  type Conversation,
-  type ConversationId,
-  type Me,
-  type Note,
-  describeStatus,
-  summarize,
-} from '@homingbird/protocol'
+import { type Conversation, type ConversationId, type Me, type Note, summarize } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, keyedRegion, linkedText, region } from '@homingbird/ui'
 import {
   approveDraft,
@@ -37,7 +30,7 @@ import {
   threads,
   topics,
 } from '../state.ts'
-import { strings } from '../strings.ts'
+import { listOf, strings } from '../strings.ts'
 import {
   type ThreadItem,
   alternativesLeftAfterSending,
@@ -49,6 +42,7 @@ import {
   otherParticipants,
   readProgress,
   showsAuthors,
+  statusOf,
   threadItems,
 } from '../thread.ts'
 import { topicLabel, topicOfRoom } from '../topics.ts'
@@ -149,7 +143,11 @@ const topicHead = (conversation: Conversation, title: string): Child => {
       { class: 'thread-who' },
       h('h1', {}, title),
       topic !== null &&
-        h('p', { class: 'thread-profile' }, `${strings.helpers(topic.helperCount)} · ${topic.description}`),
+        h(
+          'p',
+          { class: 'thread-profile' },
+          `${strings.helpers({ count: topic.helperCount })} · ${topic.description}`,
+        ),
     ),
     topic !== null && helpToggle(topic),
   ]
@@ -180,7 +178,7 @@ const noteItem = (note: Note, me: Me, conversationId: ConversationId): HTMLEleme
         'p',
         { class: 'answered-by' },
         pip('approved', 1),
-        strings.answeredBy(answerers.map(nameOf).join(', ')),
+        strings.answeredBy({ names: listOf(answerers.map(nameOf)) }),
       ),
     h(
       'div',
@@ -216,16 +214,15 @@ const noteItem = (note: Note, me: Me, conversationId: ConversationId): HTMLEleme
   )
 }
 
-const dmStatus = (note: Note): string => describeStatus(summarize(note.receipts))
+const dmStatus = (note: Note): string => {
+  const summary = summarize(note.receipts)
+  if (summary.recipients > 1) return roomStatus(note)
+  return strings.status[statusOf(summary)]
+}
 
 const roomStatus = (note: Note): string => {
-  const progress = readProgress(note.receipts)
-  return [
-    strings.readBy(progress.read, progress.of),
-    progress.drafting > 0 && strings.drafting(progress.drafting),
-  ]
-    .filter((part) => part !== false)
-    .join(', ')
+  const { read, of, drafting } = readProgress(note.receipts)
+  return drafting > 0 ? strings.readByWhileDrafting({ read, of, drafting }) : strings.readBy({ read, of })
 }
 
 const moveForm = (note: Note, conversationId: ConversationId): Child => {
@@ -265,7 +262,7 @@ const topicSelect = (excluded: string | null): HTMLSelectElement =>
         h(
           'option',
           { value: topic.slug },
-          `${topicLabel(topic.slug)} · ${strings.helpers(topic.helperCount)}`,
+          `${topicLabel(topic.slug)} · ${strings.helpers({ count: topic.helperCount })}`,
         ),
       ),
   )
@@ -276,7 +273,12 @@ const statusPip = (note: Note): PipState => {
 }
 
 const originBadge = (note: Note): HTMLElement =>
-  h('span', { class: `origin is-${note.origin}` }, strings.origin[note.origin](note.agentName))
+  h('span', { class: `origin is-${note.origin}` }, originText(note))
+
+const originText = (note: Note): string =>
+  note.origin === 'human' || note.agentName === null
+    ? strings.origin[note.origin]
+    : strings.originNamed[note.origin]({ agent: note.agentName })
 
 const draftsItem = (
   item: Extract<ThreadItem, { type: 'drafts' }>,
@@ -296,12 +298,17 @@ const draftsItem = (
       h(
         'span',
         {},
-        target === null ? strings.newNoteDraft : `${strings.draftReplyTo} “${excerpt(target.body, 60)}”`,
+        target === null ? strings.newNoteDraft : strings.draftReplyTo({ excerpt: excerpt(target.body, 60) }),
       ),
     ),
     question &&
-      h('p', { class: 'goes-to' }, h('span', {}, strings.goesTo(topicLabel(topic.slug), topic.helperCount))),
-    item.drafts.length > 1 && h('p', { class: 'pending-choose' }, strings.chooseOne(item.drafts.length)),
+      h(
+        'p',
+        { class: 'goes-to' },
+        h('span', {}, strings.goesTo({ topic: topicLabel(topic.slug), count: topic.helperCount })),
+      ),
+    item.drafts.length > 1 &&
+      h('p', { class: 'pending-choose' }, strings.chooseOne({ count: item.drafts.length })),
     h(
       'div',
       { class: 'alternatives' },
@@ -468,7 +475,7 @@ const waitingChips = (me: Me, id: ConversationId): Child => {
           {},
           request.instruction === ''
             ? strings.askedAgent
-            : `${strings.askedAgent} “${excerpt(request.instruction, 60)}”`,
+            : strings.askedAgentFor({ instruction: excerpt(request.instruction, 60) }),
         ),
         button(strings.withdraw, () => launch(withdrawRequest(request)), { class: 'link' }),
       ),
@@ -491,7 +498,7 @@ const replyChip = (id: ConversationId): Child => {
     h(
       'p',
       { class: 'reply-chip' },
-      h('span', {}, `${strings.replyingTo} “${excerpt(target.body, 60)}”`),
+      h('span', {}, strings.replyingTo({ excerpt: excerpt(target.body, 60) })),
       button('✕', () => replyTargets.update((targets) => new Map(targets).set(id, null)), {
         class: 'icon',
         'aria-label': strings.stopReplying,

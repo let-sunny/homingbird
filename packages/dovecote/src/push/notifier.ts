@@ -1,16 +1,23 @@
 import { randomBytes } from 'node:crypto'
 import { createECDH } from 'node:crypto'
 import { type Clock, Task as T, makeQueue } from '@homingbird/kernel'
-import type { MemberId, StreamEvent } from '@homingbird/protocol'
+import type { Locale, MemberId, StreamEvent } from '@homingbird/protocol'
 import type { Fetch } from '../auth/identity-provider.ts'
-import { membersByIds } from '../domain/members.ts'
+import { chosenLocaleOf, membersByIds } from '../domain/members.ts'
 import type { AppEnv } from '../environment.ts'
 import { encryptPushPayload } from './payload-encryption.ts'
 import { type PushSubscription, pushSubscriptionsOf, removePushSubscription } from './subscriptions.ts'
+import { type PushTitles, pushTitlesIn } from './titles.ts'
 import { type VapidKeys, vapidAuthorization, vapidKeys } from './vapid.ts'
 
 export interface PushMessage {
   readonly title: string
+  readonly body: string
+  readonly url: string
+}
+
+export interface PushNotice {
+  readonly about: { readonly kind: 'note'; readonly author: string | null } | { readonly kind: 'draft' }
   readonly body: string
   readonly url: string
 }
@@ -30,17 +37,17 @@ export const makePushNotifier = (fetch: Fetch): PushNotifier => {
     run: T.gen(function* () {
       for (;;) {
         const { memberId, event } = yield* T.orDie(pending.take)
-        const message = yield* pushMessageFor(memberId, event)
-        if (message !== null) yield* deliverToMember(fetch, memberId, message)
+        const notice = yield* pushNoticeFor(memberId, event)
+        if (notice !== null) yield* deliverToMember(fetch, memberId, notice)
       }
     }) as T.Task<never, never, AppEnv>,
   }
 }
 
-export const pushMessageFor = (
+export const pushNoticeFor = (
   memberId: MemberId,
   event: StreamEvent,
-): T.Task<PushMessage | null, never, AppEnv> =>
+): T.Task<PushNotice | null, never, AppEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
     if (env.hub.presenceOf(memberId).humanOnline) return null
@@ -48,7 +55,7 @@ export const pushMessageFor = (
     if (body.type === 'note.sent' && body.note.authorId !== memberId) {
       const author = (yield* membersByIds([body.note.authorId])).get(body.note.authorId)
       return {
-        title: `Note from ${author?.name ?? 'a colleague'}`,
+        about: { kind: 'note', author: author?.name ?? null },
         body: preview(body.note.body),
         url: `/#/c/${body.note.conversationId}`,
       }
@@ -59,7 +66,7 @@ export const pushMessageFor = (
       body.note.createdAt === body.note.updatedAt
     if (isNewAgentDraft)
       return {
-        title: 'A draft is waiting for your approval',
+        about: { kind: 'draft' },
         body: preview(body.note.body),
         url: `/#/c/${body.note.conversationId}`,
       }
@@ -69,12 +76,14 @@ export const pushMessageFor = (
 export const deliverToMember = (
   fetch: Fetch,
   memberId: MemberId,
-  message: PushMessage,
+  notice: PushNotice,
 ): T.Task<void, never, AppEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
     const keys = yield* vapidKeys
+    const chosen = yield* chosenLocaleOf(memberId)
     for (const subscription of yield* pushSubscriptionsOf(memberId)) {
+      const message = messageIn(chosen ?? subscription.locale ?? null, notice)
       const status = yield* send(fetch, env.clock, env.config.publicUrl, keys, subscription, message)
       if (status === 404 || status === 410) yield* removePushSubscription(subscription.endpoint)
     }
@@ -85,6 +94,17 @@ const PREVIEW_LENGTH = 140
 const TIME_TO_LIVE_SECONDS = 24 * 60 * 60
 const AUTHORIZATION_LIFETIME_SECONDS = 12 * 60 * 60
 const REQUEST_TIMEOUT_MS = 10_000
+
+const messageIn = (locale: Locale | null, notice: PushNotice): PushMessage => ({
+  title: titleOf(pushTitlesIn(locale), notice.about),
+  body: notice.body,
+  url: notice.url,
+})
+
+const titleOf = (titles: PushTitles, about: PushNotice['about']): string => {
+  if (about.kind === 'draft') return titles.draftWaiting
+  return about.author === null ? titles.noteFromColleague : titles.noteFrom(about.author)
+}
 
 const preview = (text: string): string =>
   text.length <= PREVIEW_LENGTH ? text : `${text.slice(0, PREVIEW_LENGTH - 1).trimEnd()}…`

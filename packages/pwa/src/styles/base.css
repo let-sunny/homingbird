@@ -14,6 +14,11 @@ body {
   interpolate-size: allow-keywords;
 }
 
+:lang(ko) {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
 body {
   background: var(--hb-color-page);
   color: var(--hb-color-text);
