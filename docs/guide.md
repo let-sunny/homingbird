@@ -319,6 +319,10 @@ page is on screen: a minimised window, a background tab or a closed app counts a
 that notifications reach this device, press **Send a test notification** under the switch; it says what
 the browser's push service answered for each of your devices.
 
+On a computer, the browser delivers notifications only while it is running. If you close every browser
+window, keep the browser running in the background (in Chrome: Settings, System, **Continue running
+background apps when Google Chrome is closed**); otherwise notifications wait until you open it again.
+
 ## Your character
 
 Colleagues see you as a small pixel character next to your name. Until you choose one you are the
