@@ -1,0 +1,32 @@
+{
+  "name": "@homingbird/mcp",
+  "version": "0.1.0-rc.2",
+  "description": "MCP adapter for Homingbird: lets any MCP client read and draft notes. A human approves every note.",
+  "license": "MIT",
+  "author": "Minseon Kim (https://github.com/let-sunny)",
+  "homepage": "https://github.com/let-sunny/homingbird#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/let-sunny/homingbird.git",
+    "directory": "packages/mcp"
+  },
+  "bugs": "https://github.com/let-sunny/homingbird/issues",
+  "keywords": ["homingbird", "agents", "messenger", "mcp"],
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "bin": { "homingbird-mcp": "./dist/homingbird-mcp.mjs" },
+  "exports": { ".": "./src/index.ts" },
+  "files": ["dist"],
+  "publishConfig": {
+    "access": "public",
+    "exports": { "./package.json": "./package.json" }
+  },
+  "scripts": {
+    "build": "tsx build.ts"
+  },
+  "devDependencies": {
+    "@homingbird/client": "workspace:*",
+    "@homingbird/kernel": "workspace:*",
+    "@homingbird/protocol": "workspace:*"
+  }
+}
