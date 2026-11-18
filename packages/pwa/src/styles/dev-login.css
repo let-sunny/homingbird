@@ -1,0 +1,61 @@
+@import "./tokens.css";
+
+body {
+  display: grid;
+  place-items: center;
+  min-block-size: 100dvh;
+  margin: 0;
+  background: var(--hb-color-page);
+  color: var(--hb-color-text);
+  font: var(--hb-text-body) / 1.45 var(--hb-font-body);
+}
+
+form {
+  display: grid;
+  gap: var(--hb-space-4);
+  inline-size: min(24rem, calc(100% - 2rem));
+  padding: var(--hb-space-6);
+  border: var(--hb-border);
+  background: var(--hb-color-surface);
+  box-shadow: var(--hb-shadow-raised);
+}
+
+h1 {
+  margin: 0;
+  font: 800 1.5rem var(--hb-font-display);
+  letter-spacing: var(--hb-tracking-display);
+}
+
+p {
+  margin: 0;
+  padding: var(--hb-space-2);
+  border: var(--hb-border);
+  background: var(--hb-color-pending);
+  color: var(--hb-color-on-pending);
+  font-size: var(--hb-text-small);
+}
+
+label {
+  display: grid;
+  gap: var(--hb-space-1);
+  font-weight: 600;
+  font-size: var(--hb-text-small);
+}
+
+input {
+  padding: var(--hb-space-2);
+  border: var(--hb-border);
+  background: var(--hb-color-surface);
+  color: inherit;
+  font: inherit;
+}
+
+button {
+  padding: var(--hb-space-2) var(--hb-space-3);
+  border: var(--hb-border);
+  background: var(--hb-color-action);
+  color: var(--hb-color-on-action);
+  box-shadow: var(--hb-shadow-pressed);
+  font: 700 var(--hb-text-body) var(--hb-font-body);
+  cursor: pointer;
+}

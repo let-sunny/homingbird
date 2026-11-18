@@ -1,0 +1,159 @@
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter-latin-wght-normal.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2190-2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter-latin-ext-wght-normal.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113,
+    U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("/fonts/bricolage-grotesque-latin-wght-normal.woff2") format("woff2");
+  font-weight: 200 800;
+  font-display: swap;
+}
+
+:root {
+  --hb-pip-blue: #8da4cb;
+  --hb-wing: #6d86b0;
+  --hb-ink: #1b2333;
+  --hb-beak: #f4a259;
+  --hb-night: #22324e;
+  --hb-mist: #f2f5fa;
+  --hb-envelope: #ffd879;
+  --hb-sparkle: #3fbfa6;
+  --hb-alert: #f25f5c;
+
+  --hb-color-page: var(--hb-mist);
+  --hb-color-surface: #ffffff;
+  --hb-color-sunken: #e3e9f3;
+  --hb-color-text: var(--hb-ink);
+  --hb-color-muted: #55617a;
+  --hb-color-line: var(--hb-ink);
+  --hb-color-accent: var(--hb-pip-blue);
+  --hb-color-accent-pressed: var(--hb-wing);
+  --hb-color-on-accent: var(--hb-ink);
+  --hb-color-action: var(--hb-beak);
+  --hb-color-on-action: var(--hb-ink);
+  --hb-color-pending: var(--hb-envelope);
+  --hb-color-on-pending: var(--hb-ink);
+  --hb-color-on-pending-surface: #ffffff;
+  --hb-color-on-pending-danger: #a5221f;
+  --hb-color-scanline: #000000;
+  --hb-color-on-success: var(--hb-ink);
+  --hb-color-on-danger: var(--hb-ink);
+  --hb-color-hover: color-mix(in srgb, var(--hb-color-accent) 30%, transparent);
+  --hb-color-divider: color-mix(in srgb, var(--hb-color-line) 25%, transparent);
+  --hb-color-pending-wash: color-mix(in srgb, var(--hb-color-pending) 35%, var(--hb-color-surface));
+  --hb-color-switch-off: var(--hb-color-surface);
+  --hb-color-switch-off-edge: var(--hb-color-muted);
+  --hb-color-switch-on: var(--hb-color-success);
+  --hb-color-switch-thumb-on: var(--hb-color-on-success);
+  --hb-color-stripe: color-mix(in srgb, var(--hb-color-line) 14%, transparent);
+  --hb-color-success: var(--hb-sparkle);
+  --hb-color-danger: var(--hb-alert);
+  --hb-color-danger-text: #b42318;
+  --hb-color-bubble-mine: #c9d6ec;
+  --hb-color-bubble-theirs: #ffffff;
+  --hb-color-titlebar: var(--hb-night);
+  --hb-color-on-titlebar: var(--hb-mist);
+  --hb-color-backdrop: rgb(27 35 51 / 0.55);
+  --hb-color-character-light: var(--hb-mist);
+  --hb-color-on-character-light: var(--hb-ink);
+  --hb-color-character-dark: var(--hb-night);
+  --hb-color-on-character-dark: var(--hb-mist);
+
+  --hb-font-body: "Inter", system-ui, sans-serif;
+  --hb-font-display: "Bricolage Grotesque", "Inter", system-ui, sans-serif;
+  --hb-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --hb-text-tiny: 0.6875rem;
+  --hb-text-small: 0.8125rem;
+  --hb-text-body: 0.9375rem;
+  --hb-text-title: 1.125rem;
+  --hb-tracking-display: -0.02em;
+
+  --hb-pixel: 2px;
+  --hb-border-hairline: 1px;
+  --hb-border-rule: 4px;
+  --hb-border-width: var(--hb-pixel);
+  --hb-border: var(--hb-border-width) solid var(--hb-color-line);
+  --hb-focus-ring: 3px solid var(--hb-color-action);
+  --hb-tour-outline: 3px dashed var(--hb-color-action);
+  --hb-border-thin: var(--hb-border-hairline) solid var(--hb-color-line);
+  --hb-border-divider: var(--hb-border-hairline) solid var(--hb-color-divider);
+  --hb-border-quote: var(--hb-border-rule) solid var(--hb-color-accent-pressed);
+  --hb-radius: 0px;
+  --hb-radius-round: 50%;
+
+  --hb-shadow: 4px 4px 0 var(--hb-color-line);
+  --hb-shadow-raised: 8px 8px 0 var(--hb-color-line);
+  --hb-shadow-hover: 3px 3px 0 var(--hb-color-line);
+  --hb-shadow-pressed: 1px 1px 0 var(--hb-color-line);
+  --hb-shadow-mine: -4px 4px 0 var(--hb-color-line);
+  --hb-shadow-live: 4px 4px 0 var(--hb-color-success);
+  --hb-shadow-on-pending: 2px 2px 0 var(--hb-color-on-pending);
+  --hb-shadow-current: inset 4px 0 0 var(--hb-color-action);
+  --hb-shadow-under: 0 4px 0 var(--hb-color-line);
+
+  --hb-texture-titlebar: repeating-linear-gradient(to bottom, transparent 0 3px, var(--hb-color-stripe) 3px 5px);
+  --hb-texture-scanlines: repeating-linear-gradient(
+    to bottom,
+    transparent 0 2px,
+    var(--hb-color-scanline) 2px 3px
+  );
+  --hb-space-1: 0.25rem;
+  --hb-space-2: 0.5rem;
+  --hb-space-3: 0.75rem;
+  --hb-space-4: 1rem;
+  --hb-space-6: 1.5rem;
+
+  --hb-duration-fast: 120ms;
+  --hb-duration-slow: 280ms;
+  --hb-duration-blink: 1.2s;
+  --hb-ease-pixel: steps(4, end);
+  --hb-scanlines: off;
+
+  color-scheme: light dark;
+}
+
+:root:lang(ko) {
+  --hb-font-body: "Inter", "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
+  --hb-font-display: "Bricolage Grotesque", "Inter", "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR",
+    "Malgun Gothic", system-ui, sans-serif;
+  --hb-tracking-display: 0;
+}
+
+:root[data-appearance="light"] {
+  color-scheme: light;
+}
+
+:root[data-appearance="dark"] {
+  color-scheme: dark;
+}
+
+@supports (color: light-dark(#000, #fff)) {
+  :root {
+    --hb-color-page: light-dark(var(--hb-mist), #141c2c);
+    --hb-color-surface: light-dark(#ffffff, var(--hb-night));
+    --hb-color-sunken: light-dark(#e3e9f3, #1a2740);
+    --hb-color-text: light-dark(var(--hb-ink), var(--hb-mist));
+    --hb-color-muted: light-dark(#55617a, #a9b7d1);
+    --hb-color-danger-text: light-dark(#b42318, #ff9a97);
+    --hb-color-line: light-dark(var(--hb-ink), var(--hb-pip-blue));
+    --hb-color-bubble-mine: light-dark(#c9d6ec, #3b5380);
+    --hb-color-bubble-theirs: light-dark(#ffffff, #2b3d5e);
+    --hb-color-titlebar: light-dark(var(--hb-night), #1a2740);
+    --hb-color-on-titlebar: var(--hb-mist);
+    --hb-color-backdrop: light-dark(rgb(27 35 51 / 0.55), rgb(0 0 0 / 0.65));
+  }
+}

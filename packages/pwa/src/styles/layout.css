@@ -1,0 +1,147 @@
+.viewport {
+  block-size: 100%;
+  container: app / inline-size;
+}
+
+.app {
+  display: grid;
+  grid-template:
+    "title title" auto
+    "notice notice" auto
+    "side stage" minmax(0, 1fr) / minmax(16rem, 21rem) minmax(0, 1fr);
+  block-size: 100%;
+}
+
+.connection-notice-host {
+  grid-area: notice;
+}
+
+.titlebar {
+  grid-area: title;
+  min-inline-size: 0;
+}
+
+.tabs-host {
+  min-inline-size: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.sidebar {
+  grid-area: side;
+  overflow-y: auto;
+  border-inline-end: var(--hb-border);
+  background: var(--hb-color-sunken);
+}
+
+.stage {
+  grid-area: stage;
+  min-block-size: 0;
+  overflow-y: auto;
+  container: stage / inline-size;
+}
+
+.back {
+  display: none;
+}
+
+@container app (max-width: 46rem) {
+  .app {
+    grid-template:
+      "title" auto
+      "notice" auto
+      "main" minmax(0, 1fr) / minmax(0, 1fr);
+  }
+
+  .sidebar,
+  .stage {
+    grid-area: main;
+    border-inline-end: 0;
+  }
+
+  .app[data-pane="list"] .stage,
+  .app[data-pane="stage"] .sidebar {
+    display: none;
+  }
+
+  .back {
+    display: inline-flex;
+  }
+
+  .titlebar .wordmark,
+  .connection-label {
+    display: none;
+  }
+
+  .connection[data-noticeable="true"] .connection-label {
+    display: inline;
+  }
+}
+
+.thread-host {
+  display: grid;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  block-size: 100%;
+  min-block-size: 0;
+}
+
+.thread {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  block-size: 100%;
+}
+
+.thread-scroll {
+  overflow-y: auto;
+  padding: var(--hb-space-4);
+  scroll-behavior: smooth;
+}
+
+.page {
+  max-inline-size: 52rem;
+  margin-inline: auto;
+  padding: var(--hb-space-4);
+}
+
+.page-head {
+  display: flex;
+  align-items: center;
+  gap: var(--hb-space-3);
+  margin-block-end: var(--hb-space-4);
+}
+
+.page-body {
+  display: grid;
+  gap: var(--hb-space-4);
+}
+
+.people {
+  display: grid;
+  gap: var(--hb-space-4);
+  grid-template-columns: repeat(auto-fill, minmax(min(20rem, 100%), 1fr));
+}
+
+@container stage (max-width: 30rem) {
+  .credential,
+  .member {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .bubble {
+    max-inline-size: 88cqi;
+  }
+}
+
+.sign-in {
+  display: grid;
+  place-items: center;
+  block-size: 100%;
+  padding: var(--hb-space-4);
+}
+
+#app > .stage {
+  block-size: 100%;
+  container: app / inline-size;
+}

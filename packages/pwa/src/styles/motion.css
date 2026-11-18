@@ -1,0 +1,140 @@
+@keyframes blink {
+  50% {
+    opacity: 0.2;
+  }
+}
+
+@keyframes head-shadow {
+  to {
+    box-shadow: var(--hb-shadow-under);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .note,
+  .pending,
+  .toast {
+    transition:
+      opacity var(--hb-duration-slow) var(--hb-ease-pixel),
+      translate var(--hb-duration-slow) var(--hb-ease-pixel);
+
+    @starting-style {
+      opacity: 0;
+      translate: 0 12px;
+    }
+  }
+
+  .dialog,
+  .menu {
+    opacity: 0;
+    translate: 0 -8px;
+    transition:
+      opacity var(--hb-duration-fast) var(--hb-ease-pixel),
+      translate var(--hb-duration-fast) var(--hb-ease-pixel),
+      overlay var(--hb-duration-fast) allow-discrete,
+      display var(--hb-duration-fast) allow-discrete;
+  }
+
+  .dialog[open],
+  .menu:popover-open {
+    opacity: 1;
+    translate: 0 0;
+
+    @starting-style {
+      opacity: 0;
+      translate: 0 -8px;
+    }
+  }
+
+  .dialog::backdrop {
+    opacity: 0;
+    transition:
+      opacity var(--hb-duration-fast) linear,
+      overlay var(--hb-duration-fast) allow-discrete,
+      display var(--hb-duration-fast) allow-discrete;
+  }
+
+  .dialog[open]::backdrop {
+    opacity: 1;
+
+    @starting-style {
+      opacity: 0;
+    }
+  }
+
+  details::details-content {
+    block-size: 0;
+    overflow: clip;
+    transition:
+      block-size var(--hb-duration-slow) var(--hb-ease-pixel),
+      content-visibility var(--hb-duration-slow) allow-discrete;
+  }
+
+  details[open]::details-content {
+    block-size: auto;
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: var(--hb-duration-slow);
+    animation-timing-function: var(--hb-ease-pixel);
+  }
+
+  @supports (animation-timeline: scroll()) {
+    .thread {
+      timeline-scope: --thread;
+    }
+
+    .thread-scroll {
+      scroll-timeline: --thread block;
+    }
+
+    .thread-head {
+      animation: head-shadow linear both;
+      animation-timeline: --thread;
+      animation-range: 0 3rem;
+    }
+  }
+}
+
+@supports (container-type: scroll-state) {
+  .thread-scroll {
+    container-type: scroll-state;
+  }
+
+  .newer-below {
+    position: sticky;
+    inset-block-end: 0;
+    display: none;
+    justify-self: center;
+    inline-size: fit-content;
+    margin-inline: auto;
+    padding: 0 var(--hb-space-3);
+    border: var(--hb-border);
+    background: var(--hb-color-action);
+    color: var(--hb-color-on-action);
+    font: 700 var(--hb-text-small) var(--hb-font-mono);
+  }
+
+  @container scroll-state(scrollable: bottom) {
+    .newer-below {
+      display: block;
+    }
+  }
+}
+
+@supports not (container-type: scroll-state) {
+  .newer-below {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
