@@ -1,9 +1,9 @@
 # Dovecote on AWS
 
 **This configuration has never been validated, planned or applied, and was not run through
-`terraform fmt`.** It was written by hand in an environment that could reach neither the Terraform
-registry nor a Terraform binary. Treat it as a starting point: run `terraform init`, `terraform validate` and
-`terraform plan` and read the plan before applying anything.
+`terraform fmt`.** It was written by hand in an environment that could not reach the Terraform registry
+and was not allowed to run a Terraform binary. Treat it as a starting point: run `terraform fmt`,
+`terraform init`, `terraform validate` and `terraform plan`, and read the plan before applying anything.
 
 It creates one ECS Fargate service running exactly one Dovecote task behind an Application Load
 Balancer, an RDS for PostgreSQL database, and two Secrets Manager secrets (the OpenID Connect client
@@ -21,8 +21,13 @@ terraform apply \
   -var oidc_client_id=... \
   -var oidc_client_secret=... \
   -var 'allowed_domains=["example.com"]' \
-  -var 'admin_emails=["june@example.com"]'
+  -var 'admin_emails=["june@example.com"]' \
+  -var 'topics=["billing: Invoices and the nightly export", "deploys"]'
 ```
+
+Every variable Dovecote reads is either a variable here (`topics`, `contact_mode`, `audit_webhook_url`,
+`audit_retention_days`) or can be passed through `extra_environment`, for example
+`-var 'extra_environment={HB_SESSION_DAYS="14"}'`. See [docs/deployment.md](../../../docs/deployment.md#configuration).
 
 ## What it decides for you
 

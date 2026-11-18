@@ -20,6 +20,21 @@ provider "google" {
 locals {
   database_name = "homingbird"
   database_user = "homingbird"
+  public_url    = "https://${var.domain}"
+
+  environment = { for name, value in merge({
+    HB_PUBLIC_URL           = local.public_url
+    HB_OIDC_ISSUER          = var.oidc_issuer
+    HB_OIDC_CLIENT_ID       = var.oidc_client_id
+    HB_ALLOWED_DOMAINS      = join(",", var.allowed_domains)
+    HB_ADMIN_EMAILS         = join(",", var.admin_emails)
+    HB_TOPICS               = join(",", var.topics)
+    HB_CONTACT_MODE         = var.contact_mode
+    HB_AUDIT_WEBHOOK_URL    = var.audit_webhook_url
+    HB_AUDIT_RETENTION_DAYS = var.audit_retention_days == null ? "" : tostring(var.audit_retention_days)
+    HB_TRUST_PROXY          = "1"
+    HB_AUDIT_STDOUT         = "1"
+  }, var.extra_environment) : name => value if value != "" }
 }
 
 resource "google_project_service" "required" {
@@ -27,6 +42,7 @@ resource "google_project_service" "required" {
     "run.googleapis.com",
     "sqladmin.googleapis.com",
     "secretmanager.googleapis.com",
+    "compute.googleapis.com",
   ])
   service            = each.value
   disable_on_destroy = false
@@ -123,7 +139,7 @@ resource "google_project_iam_member" "cloud_sql_client" {
 resource "google_cloud_run_v2_service" "dovecote" {
   name                = var.name
   location            = var.region
-  ingress             = "INGRESS_TRAFFIC_ALL"
+  ingress             = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
   deletion_protection = var.deletion_protection
 
   depends_on = [
@@ -177,33 +193,12 @@ resource "google_cloud_run_v2_service" "dovecote" {
         mount_path = "/cloudsql"
       }
 
-      env {
-        name  = "HB_PUBLIC_URL"
-        value = var.public_url
-      }
-      env {
-        name  = "HB_OIDC_ISSUER"
-        value = var.oidc_issuer
-      }
-      env {
-        name  = "HB_OIDC_CLIENT_ID"
-        value = var.oidc_client_id
-      }
-      env {
-        name  = "HB_ALLOWED_DOMAINS"
-        value = join(",", var.allowed_domains)
-      }
-      env {
-        name  = "HB_ADMIN_EMAILS"
-        value = join(",", var.admin_emails)
-      }
-      env {
-        name  = "HB_TRUST_PROXY"
-        value = "1"
-      }
-      env {
-        name  = "HB_AUDIT_STDOUT"
-        value = "1"
+      dynamic "env" {
+        for_each = local.environment
+        content {
+          name  = env.key
+          value = env.value
+        }
       }
       env {
         name = "HB_OIDC_CLIENT_SECRET"
@@ -248,4 +243,55 @@ resource "google_cloud_run_v2_service_iam_member" "public" {
   location = google_cloud_run_v2_service.dovecote.location
   role     = "roles/run.invoker"
   member   = "allUsers"
+}
+
+resource "google_compute_region_network_endpoint_group" "dovecote" {
+  name                  = "${var.name}-neg"
+  region                = var.region
+  network_endpoint_type = "SERVERLESS"
+
+  cloud_run {
+    service = google_cloud_run_v2_service.dovecote.name
+  }
+}
+
+resource "google_compute_backend_service" "dovecote" {
+  name                  = "${var.name}-backend"
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+  protocol              = "HTTPS"
+
+  backend {
+    group = google_compute_region_network_endpoint_group.dovecote.id
+  }
+}
+
+resource "google_compute_url_map" "dovecote" {
+  name            = "${var.name}-urls"
+  default_service = google_compute_backend_service.dovecote.id
+}
+
+resource "google_compute_managed_ssl_certificate" "dovecote" {
+  name = "${var.name}-certificate"
+
+  managed {
+    domains = [var.domain]
+  }
+}
+
+resource "google_compute_target_https_proxy" "dovecote" {
+  name             = "${var.name}-https"
+  url_map          = google_compute_url_map.dovecote.id
+  ssl_certificates = [google_compute_managed_ssl_certificate.dovecote.id]
+}
+
+resource "google_compute_global_address" "dovecote" {
+  name = "${var.name}-address"
+}
+
+resource "google_compute_global_forwarding_rule" "dovecote" {
+  name                  = "${var.name}-https"
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+  target                = google_compute_target_https_proxy.dovecote.id
+  ip_address            = google_compute_global_address.dovecote.id
+  port_range            = "443"
 }

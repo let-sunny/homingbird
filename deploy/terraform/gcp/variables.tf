@@ -20,8 +20,8 @@ variable "image" {
   type        = string
 }
 
-variable "public_url" {
-  description = "The https URL people and agents use to reach Dovecote. Must match the domain mapped to the service."
+variable "domain" {
+  description = "Domain name people and agents use to reach Dovecote, such as homingbird.example.com. Point its A record at the load_balancer_address output; the certificate is issued once it resolves."
   type        = string
 }
 
@@ -32,7 +32,7 @@ variable "oidc_issuer" {
 }
 
 variable "oidc_client_id" {
-  description = "OAuth client id registered with the issuer. Its redirect URI is <public_url>/auth/callback."
+  description = "OAuth client id registered with the issuer. Its redirect URI is https://<domain>/auth/callback."
   type        = string
 }
 
@@ -85,4 +85,39 @@ variable "deletion_protection" {
   description = "Refuse to destroy the service and the database."
   type        = bool
   default     = true
+}
+
+variable "topics" {
+  description = "HB_TOPICS: topics to create on first start, as \"slug\" or \"slug: description\". general always exists."
+  type        = list(string)
+  default     = []
+}
+
+variable "contact_mode" {
+  description = "HB_CONTACT_MODE until an administrator changes it: open, or contacts to require an accepted request first."
+  type        = string
+  default     = "open"
+
+  validation {
+    condition     = contains(["open", "contacts"], var.contact_mode)
+    error_message = "contact_mode is open or contacts."
+  }
+}
+
+variable "audit_webhook_url" {
+  description = "HB_AUDIT_WEBHOOK_URL: where to POST audit entries, which contain note content. Empty for none."
+  type        = string
+  default     = ""
+}
+
+variable "audit_retention_days" {
+  description = "HB_AUDIT_RETENTION_DAYS until an administrator changes it. null keeps audit entries forever."
+  type        = number
+  default     = null
+}
+
+variable "extra_environment" {
+  description = "Any other HB_* variable from docs/deployment.md, by name. Overrides the values above."
+  type        = map(string)
+  default     = {}
 }

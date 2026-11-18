@@ -155,12 +155,16 @@ const createForm = (life: Lifetime): HTMLElement => {
       },
     },
     h('h2', {}, strings.createTopicTitle),
-    region(life, [topics], () =>
-      h(
-        'datalist',
-        { id: SLUG_LIST_ID },
-        topics.get().map((topic) => h('option', { value: topic.slug }, topic.description)),
-      ),
+    region(
+      life,
+      [topics],
+      () =>
+        h(
+          'datalist',
+          { id: SLUG_LIST_ID },
+          topics.get().map((topic) => h('option', { value: topic.slug }, topic.description)),
+        ),
+      { class: 'datalist-host' },
     ),
     field(strings.topicSlugLabel, slug, strings.topicSlugHint),
     region(
@@ -211,6 +215,7 @@ const askPage = (life: Lifetime, topic: Topic): Child => {
   return page(
     strings.askTopicTitle(topicLabel(topic.slug)),
     h('p', { class: 'topic-description' }, topic.description),
+    h('p', { class: 'topic-meta' }, h('span', {}, strings.helpers(topic.helperCount)), helpToggle(topic)),
     h('p', {}, strings.askTopicIntro(topic.helperCount)),
     h(
       'form',
@@ -232,7 +237,6 @@ const askPage = (life: Lifetime, topic: Topic): Child => {
         (request) => enterRoom(request.conversationId),
       ),
     ),
-    h('div', { class: 'form-actions' }, helpToggle(topic)),
   )
 }
 

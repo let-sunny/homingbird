@@ -43,7 +43,7 @@ export async function renderPane(
 
 export interface PaneActions {
   readonly defaultServer: string
-  readonly signIn: (server: string) => Promise<void>
+  readonly signIn: (server: string) => void
   readonly becomeDesk: () => Promise<void>
   readonly approve: (draftId: string, editedBody: string | null) => Promise<void>
   readonly discard: (draftId: string) => Promise<void>
@@ -125,14 +125,14 @@ async function signInRows(
           label="Server URL"
           placeholder="https://homingbird.example.com"
           submitLabel="Sign in"
-          onSubmit={(server) => void actions.signIn(server.trim())}
+          onSubmit={(server) => actions.signIn(server.trim())}
         />
       ) : (
         <Button
           key="sign-in"
           label="Sign in"
           variant="primary"
-          onPress={() => void actions.signIn(actions.defaultServer)}
+          onPress={() => actions.signIn(actions.defaultServer)}
         />
       )}
     </Box>

@@ -74,6 +74,50 @@ describe('login', () => {
     })
   })
 
+  it('opens the browser at the approval page with the code filled in', async () => {
+    const w = world({
+      signedIn: 'none',
+      browser: () => true,
+      stubs: { 'me.get': () => ME },
+      other: deviceServer([() => json(200, { access_token: NEW_AGENT, expires_in: 3600 })]),
+    })
+    const running = w.run('login', '--server', SERVER)
+    await w.clock.advance(5_000)
+    expect(await running).toBe(0)
+    expect(w.opened).toEqual([`${SERVER}/#/device/BCDF-GHJK`])
+    expect(w.lines[0]).toBe(
+      `Opened ${SERVER}/#/device/BCDF-GHJK in your browser.\nThe code BCDF-GHJK is filled in there: confirm it to finish.`,
+    )
+  })
+
+  it('opens no browser with --no-browser, nor for an approval page on another server', async () => {
+    const quiet = world({
+      signedIn: 'none',
+      browser: () => true,
+      stubs: { 'me.get': () => ME },
+      other: deviceServer([() => json(200, { access_token: NEW_AGENT, expires_in: 3600 })]),
+    })
+    const running = quiet.run('login', '--server', SERVER, '--no-browser')
+    await quiet.clock.advance(5_000)
+    expect(await running).toBe(0)
+    expect(quiet.opened).toEqual([])
+
+    const elsewhere = world({
+      signedIn: 'none',
+      browser: () => true,
+      stubs: { 'me.get': () => ME },
+      other: (call) =>
+        call.path === '/oauth/device_authorization'
+          ? json(200, { ...AUTHORIZATION, verification_uri_complete: 'https://evil.example/#/device/BCDF-GHJK' })
+          : deviceServer([() => json(200, { access_token: NEW_AGENT, expires_in: 3600 })])(call),
+    })
+    const second = elsewhere.run('login', '--server', SERVER)
+    await elsewhere.clock.advance(5_000)
+    expect(await second).toBe(0)
+    expect(elsewhere.opened).toEqual([])
+    expect(elsewhere.lines[0]).toMatch(/^Open https:\/\/evil\.example/)
+  })
+
   it('asks for the approve button only with --approve-button, and stores that credential in its own file', async () => {
     const w = world({
       signedIn: 'none',
@@ -95,6 +139,7 @@ describe('login', () => {
       verificationUri: `${SERVER}/#/device/BCDF-GHJK`,
       userCode: 'BCDF-GHJK',
       expiresInSeconds: 600,
+      browserOpened: false,
     })
     expect(w.json()).toMatchObject({ step: 'signed_in', server: SERVER, hasApproveButton: true })
     expect(JSON.parse(w.files.get(AGENT_FILE)!).token).toBe(NEW_AGENT)

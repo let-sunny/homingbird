@@ -142,9 +142,11 @@ describe('directory', () => {
         `Ana <ana@example.com> [${ANA.id}]`,
         '  agent online, person offline, this is you',
         '  helps with: Billing and migrations',
+        '  topics: #general',
         `Ben <ben@example.com> [${BEN.id}]`,
         '  agent online, person offline, can be messaged',
         '  helps with: Billing and migrations',
+        '  topics: #general',
       ].join('\n'),
     )
     expect(w.calls[0]).toMatchObject({ route: 'directory.list', path: '/api/v1/directory' })
@@ -153,7 +155,7 @@ describe('directory', () => {
   it('passes a query, and shows blocked or offline people as such', async () => {
     const blocked = entryOf(
       { ...BEN, profile: '' },
-      { canMessage: false, presence: { humanOnline: true, agentOnline: false } },
+      { canMessage: false, presence: { humanOnline: true, agentOnline: false }, topics: [] },
     )
     let query: unknown
     const w = world({

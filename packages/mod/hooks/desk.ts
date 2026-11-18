@@ -10,6 +10,7 @@ export interface Desk {
   readonly options: PluginOptions
   readonly handled: Set<string>
   readonly wrappedNotes: Map<string, string>
+  readonly helpers: Map<string, string>
   stream: AsyncGenerator<unknown, unknown> | null
   heartbeat: { readonly cancel: () => void } | null
   lastSequence: number | null
@@ -19,6 +20,7 @@ export const makeDesk = (options: PluginOptions): Desk => ({
   options,
   handled: new Set(),
   wrappedNotes: new Map(),
+  helpers: new Map(),
   stream: null,
   heartbeat: null,
   lastSequence: null,
@@ -29,21 +31,22 @@ export async function openDesk($: Engine, desk: Desk): Promise<void> {
   const latest = await refresh($, desk)
   if (latest !== null) return claimDesk($, desk)
   const server = String(desk.options.server ?? '').trim()
-  if ((await read($, connection)) === 'signed-out' && server !== '') void beginSignIn($, desk, server)
+  if ((await read($, connection)) === 'signed-out' && server !== '') inBackground(beginSignIn($, desk, server))
 }
 
 export async function resumeDesk($: Engine, desk: Desk): Promise<void> {
   if (!(await holdsDesk($))) return
-  void $.ui.open({ id: PANE, title: 'Homingbird' })
+  inBackground($.ui.open({ id: PANE, title: 'Homingbird' }))
   if ((await refresh($, desk)) !== null) await claimDesk($, desk)
 }
 
 export async function claimDesk($: Engine, desk: Desk): Promise<void> {
   await $.store.set(DESK_KEY, { sessionId: await $.session.id(), claimedAt: await $.clock.now() })
   await update($, deskRole, () => 'desk')
+  await showCounts($, await read($, overview))
   desk.heartbeat?.cancel()
-  desk.heartbeat = $.clock.every(HEARTBEAT_MS, () => void checkIn($, desk))
-  void follow($, desk)
+  desk.heartbeat = $.clock.every(HEARTBEAT_MS, () => inBackground(checkIn($, desk)))
+  inBackground(follow($, desk))
   await catchUp($, desk)
 }
 
@@ -59,7 +62,7 @@ export async function beginSignIn($: Engine, desk: Desk, server: string): Promis
       if (step?.step !== 'awaiting_approval' || typeof step.verificationUri !== 'string') continue
       const pending = { verificationUri: step.verificationUri, userCode: String(step.userCode ?? '') }
       await update($, signIn, () => pending)
-      void openInBrowser($, pending.verificationUri)
+      inBackground(openInBrowser($, pending.verificationUri))
     }
   } catch (cause) {
     await update(
@@ -101,6 +104,10 @@ export async function wrappedNoteFor($: Engine, desk: Desk, noteId: string): Pro
   return latest?.awaiting.find((waiting) => waiting.noteId === noteId)?.wrapped ?? null
 }
 
+export const inBackground = (work: Promise<unknown>): void => {
+  work.catch(() => undefined)
+}
+
 export const DESK_KEY = 'desk'
 
 type Engine = EngineInterface
@@ -113,7 +120,7 @@ async function holdsDesk($: Engine): Promise<boolean> {
 async function checkIn($: Engine, desk: Desk): Promise<void> {
   if (!(await holdsDesk($))) return standDown($, desk)
   await refresh($, desk)
-  if (desk.stream === null) void follow($, desk)
+  if (desk.stream === null) inBackground(follow($, desk))
 }
 
 async function standDown($: Engine, desk: Desk): Promise<void> {
@@ -121,7 +128,7 @@ async function standDown($: Engine, desk: Desk): Promise<void> {
   desk.heartbeat = null
   const stream = desk.stream
   desk.stream = null
-  void stream?.return(undefined).catch(() => undefined)
+  if (stream !== null) inBackground(stream.return(undefined))
   await update($, deskRole, () => 'moved')
   await update($, connection, () => 'idle')
   $.ui.status(undefined)
@@ -223,7 +230,7 @@ async function suggestReply($: Engine, prompt: string): Promise<string> {
 
 function notifyPerson($: Engine, text: string): void {
   $.ui.toast(`Homingbird: ${text}`)
-  void $.ui.notify(text, { title: 'Homingbird' }).catch(() => undefined)
+  inBackground($.ui.notify(text, { title: 'Homingbird' }))
 }
 
 async function showCounts($: Engine, latest: HomingbirdOverview | null): Promise<void> {

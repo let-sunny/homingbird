@@ -148,3 +148,6 @@ const API_ERROR_TAGS = new Set([
 
 const isApiError = (value: unknown): value is ApiError =>
   typeof value === 'object' && value !== null && API_ERROR_TAGS.has((value as { _tag?: string })._tag ?? '')
+
+export const textOutsideWrappers = (text: string): string =>
+  text.replace(/<colleague-note [\s\S]*?\n<\/colleague-note>/g, '')

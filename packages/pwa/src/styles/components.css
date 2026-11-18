@@ -1223,3 +1223,38 @@
     padding: var(--hb-space-4);
   }
 }
+
+.datalist-host {
+  display: contents;
+}
+
+.conversation-side {
+  grid-auto-flow: column;
+  grid-template-rows: auto auto;
+  justify-content: end;
+  align-items: center;
+}
+
+.conversation-side > time {
+  grid-row: 1;
+  grid-column: 1 / span 3;
+  justify-self: end;
+}
+
+.conversation-side > :not(time) {
+  grid-row: 2;
+}
+
+@container app (max-width: 28rem) {
+  .titlebar {
+    gap: var(--hb-space-1);
+  }
+
+  .tabs {
+    gap: 2px;
+  }
+
+  .tab {
+    padding-inline: var(--hb-space-1);
+  }
+}

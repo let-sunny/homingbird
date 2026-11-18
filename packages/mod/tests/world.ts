@@ -6,6 +6,7 @@ export interface World {
   readonly requests?: unknown
   readonly streamLines?: ReadonlyArray<string>
   readonly holdsStream?: boolean
+  readonly holdsLogin?: boolean
   readonly loginLines?: ReadonlyArray<string>
   readonly signedInAfterLogin?: unknown
   readonly forkAnswer?: string
@@ -25,7 +26,6 @@ export interface Seen {
   readonly notifications: string[]
   readonly statuses: Array<string | undefined>
   readonly titles: string[]
-  readonly agentCalls: Array<Record<string, unknown>>
   readonly sent: Array<{ to: unknown; text: string }>
   readonly opened: { count: number }
   readonly store: Map<string, unknown>
@@ -46,7 +46,6 @@ export const engineBeneath = (on: On, world: World): Seen => {
     notifications: [],
     statuses: [],
     titles: [],
-    agentCalls: [],
     sent: [],
     opened: { count: 0 },
     store: new Map(Object.entries(world.store ?? {})),
@@ -73,6 +72,7 @@ export const engineBeneath = (on: On, world: World): Seen => {
     if (args[0] === 'login' && world.signedInAfterLogin !== undefined)
       world.overview = world.signedInAfterLogin
     if (args[0] === 'stream' && world.holdsStream === true) await released
+    if (args[0] === 'login' && world.holdsLogin === true) await released
     return { value: { code: 0, signal: null } }
   })
   on('command.register', () => ({ value: { command: 'homingbird' } }))
@@ -123,10 +123,6 @@ export const engineBeneath = (on: On, world: World): Seen => {
         realPath,
       },
     }
-  })
-  on('tool.call', { tool: 'Agent' }, (_, e) => {
-    seen.agentCalls.push({ ...e })
-    return { result: { text: 'The migration runs in migrations/0042.sql and locks no table.' } } as never
   })
   on('prompt.submit', (_, e) => {
     seen.prompts.push(e.text)

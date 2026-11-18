@@ -21,6 +21,20 @@ locals {
   database_user = "homingbird"
   container     = "dovecote"
   port          = 8080
+
+  environment = { for name, value in merge({
+    HB_PUBLIC_URL           = var.public_url
+    HB_OIDC_ISSUER          = var.oidc_issuer
+    HB_OIDC_CLIENT_ID       = var.oidc_client_id
+    HB_ALLOWED_DOMAINS      = join(",", var.allowed_domains)
+    HB_ADMIN_EMAILS         = join(",", var.admin_emails)
+    HB_TOPICS               = join(",", var.topics)
+    HB_CONTACT_MODE         = var.contact_mode
+    HB_AUDIT_WEBHOOK_URL    = var.audit_webhook_url
+    HB_AUDIT_RETENTION_DAYS = var.audit_retention_days == null ? "" : tostring(var.audit_retention_days)
+    HB_TRUST_PROXY          = "1"
+    HB_AUDIT_STDOUT         = "1"
+  }, var.extra_environment) : name => value if value != "" }
 }
 
 resource "aws_security_group" "load_balancer" {
@@ -240,15 +254,7 @@ resource "aws_ecs_task_definition" "dovecote" {
       portMappings = [
         { containerPort = local.port, protocol = "tcp" },
       ]
-      environment = [
-        { name = "HB_PUBLIC_URL", value = var.public_url },
-        { name = "HB_OIDC_ISSUER", value = var.oidc_issuer },
-        { name = "HB_OIDC_CLIENT_ID", value = var.oidc_client_id },
-        { name = "HB_ALLOWED_DOMAINS", value = join(",", var.allowed_domains) },
-        { name = "HB_ADMIN_EMAILS", value = join(",", var.admin_emails) },
-        { name = "HB_TRUST_PROXY", value = "1" },
-        { name = "HB_AUDIT_STDOUT", value = "1" },
-      ]
+      environment = [for name, value in local.environment : { name = name, value = value }]
       secrets = [
         { name = "HB_DATABASE_URL", valueFrom = aws_secretsmanager_secret.database_url.arn },
         { name = "HB_OIDC_CLIENT_SECRET", valueFrom = aws_secretsmanager_secret.oidc_client_secret.arn },

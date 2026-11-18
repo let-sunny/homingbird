@@ -80,6 +80,8 @@ export const threadView = (life: Lifetime, me: Me, id: ConversationId): HTMLElem
     },
   )
   life.add(threads.subscribe(follow.afterDraw))
+  life.add(topics.subscribe(follow.afterDraw))
+  life.add(members.subscribe(follow.afterDraw))
 
   scroller.append(
     region(life, [threads], () => {

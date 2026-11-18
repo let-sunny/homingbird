@@ -1,7 +1,7 @@
 import type { EngineInterface } from 'claude-code'
 
 import { type Desk, wrappedNoteFor } from './desk'
-import { helperMessageFor, helperPromptFor } from './drafting'
+import { helperFactsFor, helperMessageFor, helperPromptFor } from './drafting'
 import { textOf } from './tools'
 
 export const PROJECT_READER = {
@@ -36,16 +36,29 @@ export async function askProject(
   )
   if (kind !== 'dir') return { result: `${directory} is not a directory on this computer.`, isError: true }
   const wrappedNote = textOf(input.noteId) === '' ? null : await wrappedNoteFor($, desk, textOf(input.noteId))
-  const answered = await $.tool.call({
-    tool: 'Agent',
-    subagent_type: READER_TYPE,
+  const spawned = await $.agent.spawn({
+    subagentType: READER_TYPE,
     description: 'Look up project facts',
     prompt: helperPromptFor(directory, question, wrappedNote),
-    run_in_background: false,
+    cwd: directory,
   })
-  if (answered.deny !== undefined)
-    return { result: `The helper could not start: ${answered.deny}`, isError: true }
-  return { result: answered.text ?? '' }
+  if (spawned.deny !== undefined) return { result: `The helper could not start: ${spawned.deny}`, isError: true }
+  if (spawned.agentId !== undefined) desk.helpers.set(spawned.agentId, directory)
+  return {
+    result: `A read-only helper is looking in ${directory}. Its facts arrive as a new message when it finishes; draft once you have them.`,
+  }
+}
+
+export async function deliverHelperFacts(
+  $: EngineInterface,
+  desk: Desk,
+  agentId: string | undefined,
+  answer: string,
+): Promise<void> {
+  const directory = agentId === undefined ? undefined : desk.helpers.get(agentId)
+  if (agentId === undefined || directory === undefined) return
+  desk.helpers.delete(agentId)
+  await $.prompt.submit({ text: helperFactsFor(directory, answer) })
 }
 
 export async function askSession(

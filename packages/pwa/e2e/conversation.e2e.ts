@@ -376,7 +376,7 @@ const scenario = async (): Promise<void> => {
     await ana.page.waitForSelector('text=Codex on build box')
     await capture(ana.page, 'device-approval-without-approve-button')
     await ana.page.getByRole('button', { name: 'Deny' }).click()
-    await ana.page.waitForSelector('text=Denied. Nothing was connected.')
+    await ana.page.waitForSelector('text=You denied the request.')
     await capture(ana.page, 'device-denied')
 
     const buttonDevice = await startDeviceFlow(base, 'Homingbird mod', 'notes approve')
@@ -384,7 +384,7 @@ const scenario = async (): Promise<void> => {
     await ana.page.waitForSelector('input[type=checkbox]')
     await capture(ana.page, 'device-approval-with-approve-button-checkbox')
     await ana.page.getByRole('button', { name: 'Approve' }).click()
-    await ana.page.waitForSelector('text=Connected. You can close this tab.')
+    await ana.page.waitForSelector('text=The device is connected to your account. You can close this tab.')
     await capture(ana.page, 'device-approved-success-state')
 
     const firstDevice = await startDeviceFlow(base, 'Cursor on a new laptop', 'notes')
@@ -404,7 +404,7 @@ const scenario = async (): Promise<void> => {
     assert.equal(await rae.locator('.code-shown').innerText(), firstDevice.user_code)
     await capture(rae, 'new-member-back-on-the-device-page-after-sign-in')
     await rae.getByRole('button', { name: 'Approve' }).click()
-    await rae.waitForSelector('text=Connected. You can close this tab.')
+    await rae.waitForSelector('text=The device is connected to your account. You can close this tab.')
     await capture(rae, 'new-member-device-connected')
     await newcomer.close()
 
@@ -419,7 +419,7 @@ const scenario = async (): Promise<void> => {
     await ana.page.waitForSelector('text=Example MCP client')
     await capture(ana.page, 'oauth-consent')
     await ana.page.getByRole('button', { name: 'Approve' }).click()
-    await ana.page.waitForSelector('text=Connected. Returning you to client.example')
+    await ana.page.waitForSelector('text=Returning you to client.example')
     await ana.page.screenshot({ path: await nextPath('oauth-consent-success-state') })
     await ana.page.waitForURL(/client\.example\/callback\?code=/)
 
@@ -446,6 +446,7 @@ const scenario = async (): Promise<void> => {
     await sam.waitForURL(/client\.example\/callback\?code=/)
     await stranger.close()
 
+    await ana.page.goto(`${base}/#/`)
     await api(ana, 'POST', '/topics', { slug: 'invoices', description: 'Sending and chasing invoices.' })
     await ana.page.goto(`${base}/#/admin/topics`)
     await ana.page.waitForSelector('.admin-topics [data-slug="invoices"]')

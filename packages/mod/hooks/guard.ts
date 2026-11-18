@@ -17,7 +17,7 @@ const CREDENTIAL_PATTERNS: ReadonlyArray<RegExp> = [
 ]
 
 const PERSON_ONLY_COMMAND =
-  /homingbird(?:\.js|\.ts|[\\/]cli|[\\/]src[\\/]main\.ts)?["']?\s+(?:--?[\w-]+(?:[= ]\S+)?\s+)*["']?(?:approve|discard)\b/
+  /(?:homingbird(?:\.[cm]?[jt]s|[\\/]cli)?|cli[\\/](?:src[\\/]main|dist[\\/]\w+)\.[cm]?[jt]s)["']?\s+(?:--?[\w-]+(?:[= ]\S+)?\s+)*["']?(?:approve|discard)\b/
 
 const PERSON_ONLY_ROUTE = /\/api\/v1\/(?:drafts\/[^\s/"']+\/(?:send|discard)|contacts|blocks|credentials)\b/
 

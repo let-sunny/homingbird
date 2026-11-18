@@ -1,6 +1,11 @@
-output "service_url" {
-  description = "The run.app URL of the service. Map your own domain to it and use that as public_url."
-  value       = google_cloud_run_v2_service.dovecote.uri
+output "load_balancer_address" {
+  description = "Point the A record of the domain here."
+  value       = google_compute_global_address.dovecote.address
+}
+
+output "public_url" {
+  description = "HB_PUBLIC_URL as configured."
+  value       = local.public_url
 }
 
 output "service_account" {
@@ -15,5 +20,5 @@ output "database_connection_name" {
 
 output "oidc_redirect_uri" {
   description = "Register this redirect URI with the identity provider."
-  value       = "${var.public_url}/auth/callback"
+  value       = "${local.public_url}/auth/callback"
 }

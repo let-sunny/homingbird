@@ -5,15 +5,15 @@ import {
   beginSignIn,
   claimDesk,
   decide,
+  inBackground,
   makeDesk,
   openDesk,
   refresh,
   resumeDesk,
-  wrappedNoteFor,
 } from './desk'
 import { directoryIn } from './drafting'
 import { forbiddenReason } from './guard'
-import { PROJECT_READER, READER_TYPE, askProject, askSession } from './helpers'
+import { PROJECT_READER, READER_TYPE, askProject, askSession, deliverHelperFacts } from './helpers'
 import { PANE, renderPane } from './pane'
 import { HELPER_TOOLS, NOTE_TOOLS, TOOL_PREFIX, wireNameOf } from './tools'
 
@@ -27,13 +27,13 @@ export const register: Register = (on, options) => {
     await $.tool.register(HELPER_TOOLS.askSession)
     await $.agent.register(PROJECT_READER)
     const started = await next(e)
-    void resumeDesk($, desk)
+    inBackground(resumeDesk($, desk))
     return started
   })
 
   on('command.run', { command: 'homingbird' }, async ($) => {
     const opened = await $.ui.open({ id: PANE, title: 'Homingbird', focus: true })
-    void openDesk($, desk)
+    inBackground(openDesk($, desk))
     return { text: opened.isPlaced ? OPENED : `${OPENED} ${opened.reason}` }
   })
 
@@ -53,6 +53,11 @@ export const register: Register = (on, options) => {
     next.called ? next(e) : { deny: 'homingbird: the project helper could not start.' },
   )
 
+  on('turn.complete', async ($, e, next) => {
+    if (e.agentId !== undefined) inBackground(deliverHelperFacts($, desk, e.agentId, e.answer))
+    return next(e)
+  })
+
   on('tool.run', { tool: /^mcp__homingbird__/ }, async ($, e) => {
     const input = e as unknown as Readonly<Record<string, unknown>>
     if (e.tool === wireNameOf(HELPER_TOOLS.askProject.name)) return askProject($, input, desk)
@@ -68,7 +73,7 @@ export const register: Register = (on, options) => {
   on('ui.render', { component: 'Pane', requestId: PANE }, ($, e) =>
     renderPane($, e, {
       defaultServer: String(options.server ?? '').trim(),
-      signIn: (server) => beginSignIn($, desk, server),
+      signIn: (server) => inBackground(beginSignIn($, desk, server)),
       becomeDesk: async () => {
         if ((await refresh($, desk)) !== null) await claimDesk($, desk)
       },
