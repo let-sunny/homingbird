@@ -42,9 +42,4 @@ export const en: PaneText = {
   discard: 'Discard',
   approveInWebClient: 'Approve, edit or discard drafts in the Homingbird web client. Each draft links there.',
   openInWebClient: 'Approve in the web client',
-  turnOnApproveButton: 'Turn on the approve button',
-  approveButtonRisk:
-    'The approve button stores an approval credential on this computer. The agent in this session runs on the same computer, so a malicious note could trick it into sending a draft without you. Approving in the web client has no such risk. Turn it on anyway?',
-  turnOnAnyway: 'Turn it on anyway',
-  turnOffApproveButton: 'Turn off the approve button',
 }

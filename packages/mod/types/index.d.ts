@@ -33,6 +33,7 @@ export type HomingbirdOverview = {
   server: string
   memberName: string
   locale?: string | null
+  approveButtonAllowed?: boolean
   hasApproveButton: boolean
   conversations: HomingbirdConversation[]
   awaiting: HomingbirdAwaiting[]
@@ -60,7 +61,6 @@ declare module 'claude-code' {
       desk: HomingbirdDesk
       signIn: HomingbirdSignIn | null
       editing: string | null
-      approveButtonPrompt: boolean
       problem: string | null
     }
   }

@@ -11,6 +11,7 @@ export interface Desk {
   readonly handled: Set<string>
   readonly wrappedNotes: Map<string, string>
   readonly helpers: Map<string, string>
+  readonly approveButtonAllowed: Map<string, boolean>
   stream: AsyncGenerator<unknown, unknown> | null
   heartbeat: { readonly cancel: () => void } | null
   lastSequence: number | null
@@ -20,6 +21,7 @@ export const makeDesk = (options: PluginOptions): Desk => ({
   options,
   handled: new Set(),
   wrappedNotes: new Map(),
+  approveButtonAllowed: new Map(),
   helpers: new Map(),
   stream: null,
   heartbeat: null,
@@ -51,13 +53,9 @@ export async function claimDesk($: Engine, desk: Desk): Promise<void> {
   await catchUp($, desk)
 }
 
-export async function beginSignIn(
-  $: Engine,
-  desk: Desk,
-  server: string,
-  withApproveButton = false,
-): Promise<void> {
+export async function beginSignIn($: Engine, desk: Desk, server: string): Promise<void> {
   await update($, problem, () => null)
+  const withApproveButton = await approveButtonAllowedOn($, desk, server)
   try {
     for await (const line of linesOf($.process.spawn({ argv: loginArgv(desk, server, withApproveButton) }))) {
       const step = lastJsonLine(line) as {
@@ -80,18 +78,6 @@ export async function beginSignIn(
   if ((await refresh($, desk)) !== null) await claimDesk($, desk)
 }
 
-export async function switchApproveButton(
-  $: Engine,
-  desk: Desk,
-  server: string,
-  wanted: boolean,
-): Promise<void> {
-  const signedOut = await runJson($, desk.options, ['logout'])
-  if (signedOut.kind !== 'ok' && signedOut.kind !== 'signed-out') return void (await update($, problem, () => signedOut.message))
-  await update($, overview, () => null)
-  await beginSignIn($, desk, server, wanted)
-}
-
 export async function decide($: Engine, desk: Desk, args: ReadonlyArray<string>): Promise<void> {
   const ran = await runJson($, desk.options, args)
   await update($, editing, () => null)
@@ -104,7 +90,11 @@ export async function refresh($: Engine, desk: Desk): Promise<HomingbirdOverview
   const ran = await runJson($, desk.options, ['overview'])
   if (ran.kind === 'unavailable') return settle($, ran.message, true)
   if (ran.kind !== 'ok' && ran.kind !== 'signed-out') return settle($, ran.message, false)
-  const latest = ran.kind === 'ok' ? overviewIn(ran.value) : null
+  const listed = ran.kind === 'ok' ? overviewIn(ran.value) : null
+  const latest =
+    listed === null
+      ? null
+      : { ...listed, approveButtonAllowed: await approveButtonAllowedOn($, desk, listed.server) }
   await update($, overview, () => latest)
   await update($, problem, () => null)
   if (latest === null) await update($, connection, () => 'signed-out')
@@ -128,6 +118,20 @@ export const inBackground = (work: Promise<unknown>): void => {
 export const DESK_KEY = 'desk'
 
 type Engine = EngineInterface
+
+async function approveButtonAllowedOn($: Engine, desk: Desk, server: string): Promise<boolean> {
+  const known = desk.approveButtonAllowed.get(server)
+  if (known !== undefined) return known
+  const allowed = await $.http
+    .fetch(`${server.replace(/\/+$/, '')}/api/v1/info`)
+    .then(
+      (response) =>
+        response.ok && (JSON.parse(response.text) as { approveButton?: unknown }).approveButton === true,
+    )
+    .catch(() => false)
+  desk.approveButtonAllowed.set(server, allowed)
+  return allowed
+}
 
 async function holdsDesk($: Engine): Promise<boolean> {
   const claim = (await $.store.get(DESK_KEY)) as { sessionId?: unknown } | undefined

@@ -51,7 +51,6 @@ export interface PaneActions {
   readonly becomeDesk: () => Promise<void>
   readonly approve: (draftId: string, editedBody: string | null) => Promise<void>
   readonly discard: (draftId: string) => Promise<void>
-  readonly switchApproveButton: (server: string, wanted: boolean) => void
 }
 
 export const paneTitleFor = (waiting: number): string =>
@@ -153,11 +152,9 @@ async function overviewRows(
       <Text dimColor>{text.memberOn(latest.memberName, latest.server)}</Text>
       <Box flexDirection="column">
         <Text bold>{text.draftsWaiting}</Text>
-        {!latest.hasApproveButton && <Text dimColor>{text.approveInWebClient}</Text>}
+        {!hasApproveButton(latest) && <Text dimColor>{text.approveInWebClient}</Text>}
         {latest.drafts.length === 0 && <Text dimColor>{text.none}</Text>}
-        {latest.drafts.map((draft) =>
-          draftRow($, e, text, latest, draft, edited === draft.id, actions),
-        )}
+        {latest.drafts.map((draft) => draftRow($, e, text, latest, draft, edited === draft.id, actions))}
       </Box>
       <Box flexDirection="column">
         <Text bold>{text.notesWaiting}</Text>
@@ -192,7 +189,6 @@ async function overviewRows(
           </Box>
         ))}
       </Box>
-      {await approveButtonRows($, e, text, latest, actions)}
     </Box>
   )
 }
@@ -222,7 +218,7 @@ function draftRow(
       ) : (
         <Text>{draft.body}</Text>
       )}
-      {latest.hasApproveButton ? (
+      {hasApproveButton(latest) ? (
         <Box flexDirection="row" gap={1}>
           {!isEditing && (
             <Button
@@ -250,52 +246,8 @@ function draftRow(
   )
 }
 
-async function approveButtonRows(
-  $: EngineInterface,
-  e: ResolveInput,
-  text: PaneText,
-  latest: HomingbirdOverview,
-  actions: PaneActions,
-): Promise<RenderElement> {
-  const { Box, Text, Button } = $.ui.resolve(e)
-  if (latest.hasApproveButton)
-    return (
-      <Button
-        key="approve-button-off"
-        label={text.turnOffApproveButton}
-        onPress={() => actions.switchApproveButton(latest.server, false)}
-      />
-    )
-  if (!(await read($, approveButtonPrompt)))
-    return (
-      <Button
-        key="approve-button-on"
-        label={text.turnOnApproveButton}
-        onPress={() => void update($, approveButtonPrompt, () => true)}
-      />
-    )
-  return (
-    <Box flexDirection="column" borderStyle="round" paddingX={1}>
-      <Text color="warning">{text.approveButtonRisk}</Text>
-      <Box flexDirection="row" gap={1}>
-        <Button
-          key="approve-button-confirm"
-          label={text.turnOnAnyway}
-          onPress={() => {
-            void update($, approveButtonPrompt, () => false)
-            actions.switchApproveButton(latest.server, true)
-          }}
-        />
-        <Button
-          key="approve-button-cancel"
-          label={text.cancel}
-          variant="primary"
-          onPress={() => void update($, approveButtonPrompt, () => false)}
-        />
-      </Box>
-    </Box>
-  )
-}
+const hasApproveButton = (latest: HomingbirdOverview): boolean =>
+  latest.hasApproveButton && latest.approveButtonAllowed === true
 
 const conversationUrl = (server: string, conversationId: string): string =>
   `${server.replace(/\/+$/, '')}/#/c/${encodeURIComponent(conversationId)}`
@@ -316,7 +268,6 @@ const firstLine = (text: string): string => text.split('\n')[0] ?? ''
 const connection = atom({ plugin: 'homingbird', key: 'connection' } as const, 'idle')
 const desk = atom({ plugin: 'homingbird', key: 'desk' } as const, 'not-desk')
 const editing = atom({ plugin: 'homingbird', key: 'editing' } as const, null)
-const approveButtonPrompt = atom({ plugin: 'homingbird', key: 'approveButtonPrompt' } as const, false)
 const overview = atom({ plugin: 'homingbird', key: 'overview' } as const, null, { shape: 'overview-2' })
 const problem = atom({ plugin: 'homingbird', key: 'problem' } as const, null)
 const requests = atom({ plugin: 'homingbird', key: 'requests' } as const, [], { shape: 'requests-2' })

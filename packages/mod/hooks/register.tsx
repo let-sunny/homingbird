@@ -1,17 +1,7 @@
 import type { EngineInterface, Register } from 'claude-code'
 
 import { run } from './command-line'
-import {
-  beginSignIn,
-  claimDesk,
-  decide,
-  inBackground,
-  makeDesk,
-  openDesk,
-  refresh,
-  resumeDesk,
-  switchApproveButton,
-} from './desk'
+import { beginSignIn, claimDesk, decide, inBackground, makeDesk, openDesk, refresh, resumeDesk } from './desk'
 import { directoryIn } from './drafting'
 import { forbiddenReason } from './guard'
 import { PROJECT_READER, READER_TYPE, askProject, askSession, deliverHelperFacts } from './helpers'
@@ -85,7 +75,6 @@ export const register: Register = (on, options) => {
           editedBody === null ? ['approve', draftId] : ['approve', draftId, '--body', editedBody],
         ),
       discard: (draftId) => decide($, desk, ['discard', draftId]),
-      switchApproveButton: (server, wanted) => inBackground(switchApproveButton($, desk, server, wanted)),
     }),
   )
 }
