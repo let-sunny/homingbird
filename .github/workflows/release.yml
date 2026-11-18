@@ -1,7 +1,7 @@
 name: Release
 
-# Every push to main runs this. While changesets are pending, the first job opens or updates the
-# "Version Packages" pull request. Merging that pull request leaves no changesets and a version that is
+# Every push to main runs this. While changesets are pending, the first job versions the packages on
+# the branch changeset-release/main and opens or updates the "Version Packages" pull request with gh. Merging that pull request leaves no changesets and a version that is
 # not yet released, so the later jobs check, publish @homingbird/cli, @homingbird/mcp and
 # @homingbird/mod to npm with provenance, tag v<version>, create the GitHub release, and push
 # ghcr.io/let-sunny/homingbird. CONTRIBUTING.md#releasing has the setup.
@@ -27,23 +27,44 @@ jobs:
       contents: write
       pull-requests: write
     outputs:
-      pending: ${{ steps.changesets.outputs.has-changesets }}
+      pending: ${{ steps.pending.outputs.pending }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION_BRANCH: changeset-release/main
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 22
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - id: changesets
-        uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
-        with:
-          version-script: pnpm version-packages
-          commit-message: Version Packages
-          pr-title: Version Packages
-          create-github-releases: false
-          push-git-tags: false
+      - id: pending
+        run: node scripts/release-version.ts pending
+      - if: steps.pending.outputs.pending == 'true'
+        run: pnpm install --frozen-lockfile
+      - name: Version the packages on the release branch
+        if: steps.pending.outputs.pending == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch --force-create "$VERSION_BRANCH"
+          pnpm version-packages
+          git add --all
+          git commit --message "Version Packages"
+          git push --force origin "$VERSION_BRANCH"
+      - name: Open or update the Version Packages pull request
+        if: steps.pending.outputs.pending == 'true'
+        run: |
+          node scripts/release-version.ts pull-request "$RUNNER_TEMP/version-pr.md"
+          title="$(grep '^title=' "$GITHUB_OUTPUT" | tail -1 | cut -d= -f2-)"
+          number="$(gh pr list --head "$VERSION_BRANCH" --base main --state open --json number --jq '.[0].number // empty')"
+          if [ -z "$number" ]; then
+            gh pr create --head "$VERSION_BRANCH" --base main --title "$title" --body-file "$RUNNER_TEMP/version-pr.md"
+          else
+            gh pr edit "$number" --title "$title" --body-file "$RUNNER_TEMP/version-pr.md"
+          fi
 
   plan:
     needs: version

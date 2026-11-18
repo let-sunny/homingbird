@@ -2,10 +2,12 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
+  hasPendingChangesets,
   pendingSummaries,
   releaseNotes,
   releasePlan,
   syncedFiles,
+  versionPullRequest,
   versionsIn,
   withRelease,
 } from '../release-version.ts'
@@ -131,5 +133,29 @@ describe('the root changelog', () => {
       '## [Unreleased]\n\nThe first release.\n\n## [0.1.0-rc.3] - 2026-11-20\n\n### Changes\n\n- Skip with a reason.\n\n## [0.1.0-rc.2]',
     )
     expect(releaseNotes(after, '0.1.0-rc.3')).toBe('### Changes\n\n- Skip with a reason.')
+  })
+})
+
+describe('the Version Packages pull request', () => {
+  it('is wanted only while a changeset waits in .changeset', () => {
+    expect(hasPendingChangesets(['README.md', 'config.json', 'pre.json'])).toBe(false)
+    expect(hasPendingChangesets(['README.md', 'config.json', 'brave-cats.md'])).toBe(true)
+  })
+
+  it('names the version, says what merging does, and carries the changelog section', () => {
+    const { title, body } = versionPullRequest('0.1.0', null, '### Changes\n\n- Skip with a reason.')
+    expect(title).toBe('Version Packages')
+    expect(body).toContain('Merging this pull request releases **0.1.0**')
+    expect(body).toContain('tags v0.1.0')
+    expect(body.endsWith('## 0.1.0\n\n### Changes\n\n- Skip with a reason.')).toBe(true)
+    expect(body).not.toContain('pre mode')
+  })
+
+  it('marks a pre-release in the title and says how to leave pre mode', () => {
+    const { title, body } = versionPullRequest('0.1.0-rc.3', 'rc', '')
+    expect(title).toBe('Version Packages (rc)')
+    expect(body).toContain('main is in pre mode (`rc`)')
+    expect(body).toContain('pnpm changeset pre exit')
+    expect(body.endsWith('## 0.1.0-rc.3\n\n_No changelog entry._')).toBe(true)
   })
 })

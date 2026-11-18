@@ -121,9 +121,11 @@ CI fails a pull request that changes a package without a changeset.
 
 ### Releasing
 
-On every push to `main`, `.github/workflows/release.yml` opens or updates the pull request
-"Version Packages", which sets the next version everywhere and moves the changesets into
-[`CHANGELOG.md`](CHANGELOG.md), below the `Unreleased` notes. **Merging that pull request releases:**
+On every push to `main` with changesets waiting, `.github/workflows/release.yml` runs
+`pnpm version-packages` on the branch `changeset-release/main`, force-pushes it, and opens or updates
+the pull request "Version Packages" with `gh`. The pull request sets the next version everywhere and
+moves the changesets into [`CHANGELOG.md`](CHANGELOG.md); its body is that version's changelog
+section. **Merging that pull request releases:**
 the workflow runs typecheck, lint and tests, builds, publishes the three packages to npm with
 provenance (dist-tag `latest`, or `next` for a pre-release), creates the tag `v<version>` and the GitHub
 release with that version's changelog section, and pushes `ghcr.io/let-sunny/homingbird:<version>`

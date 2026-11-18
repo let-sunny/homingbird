@@ -55,6 +55,27 @@ export const pendingSummaries = (changesets: ReadonlyArray<string>): string[] =>
     .map((text) => text.replace(/^---\n(?:[\s\S]*?\n)?---\n?/, '').trim())
     .filter((summary) => summary !== '')
 
+export const hasPendingChangesets = (fileNames: ReadonlyArray<string>): boolean =>
+  fileNames.some((name) => name.endsWith('.md') && name !== 'README.md')
+
+export const versionPullRequest = (
+  version: string,
+  preTag: string | null,
+  notes: string,
+): { readonly title: string; readonly body: string } => ({
+  title: preTag === null ? 'Version Packages' : `Version Packages (${preTag})`,
+  body: [
+    `Merging this pull request releases **${version}**: the release workflow checks, publishes @homingbird/cli, @homingbird/mcp and @homingbird/mod to npm, tags v${version}, creates the GitHub release and pushes the image. Every push to main with new changesets updates it.`,
+    ...(preTag === null
+      ? []
+      : [
+          `main is in pre mode (\`${preTag}\`), so this is a pre-release. Run \`pnpm changeset pre exit\` on main to leave it.`,
+        ]),
+    `## ${version}`,
+    notes === '' ? '_No changelog entry._' : notes,
+  ].join('\n\n'),
+})
+
 export const syncedFiles = (
   version: string,
   read: (file: string) => string,
@@ -198,15 +219,41 @@ const checkVersions = (): void => {
   process.exit(1)
 }
 
+const pendingOnGitHub = (): void => {
+  const pending = hasPendingChangesets(readdirSync(join(root, '.changeset')))
+  writeFileSync(process.env.GITHUB_OUTPUT ?? '/dev/stdout', `pending=${pending}\n`, { flag: 'a' })
+}
+
+const pullRequestOnGitHub = (bodyFile: string): void => {
+  const version = JSON.parse(read('packages/cli/package.json')).version as string
+  const preTag = (() => {
+    try {
+      const pre = JSON.parse(read('.changeset/pre.json')) as { mode?: string; tag?: string }
+      return pre.mode === 'pre' && typeof pre.tag === 'string' ? pre.tag : null
+    } catch {
+      return null
+    }
+  })()
+  const { title, body } = versionPullRequest(version, preTag, releaseNotes(read('CHANGELOG.md'), version))
+  writeFileSync(bodyFile, body)
+  writeFileSync(process.env.GITHUB_OUTPUT ?? '/dev/stdout', `title=${title}\nversion=${version}\n`, {
+    flag: 'a',
+  })
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const [command, argument] = process.argv.slice(2)
   if (command === 'version') versionAfterChangesets()
+  else if (command === 'pending') pendingOnGitHub()
+  else if (command === 'pull-request' && argument !== undefined) pullRequestOnGitHub(argument)
   else if (command === 'plan') planOnGitHub()
   else if (command === 'check') checkVersions()
   else if (command === 'notes' && argument !== undefined)
     process.stdout.write(releaseNotes(read('CHANGELOG.md'), argument))
   else {
-    process.stderr.write('Usage: node scripts/release-version.ts version | plan | check | notes <version>\n')
+    process.stderr.write(
+      'Usage: node scripts/release-version.ts version | pending | pull-request <body file> | plan | check | notes <version>\n',
+    )
     process.exit(2)
   }
 }

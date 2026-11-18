@@ -110,8 +110,11 @@ Each entry states the decision first, then the reason. Add new entries at the to
   versioned but never published. `scripts/release-version.ts` runs after `changeset version` to set
   the version where Changesets does not (the root `package.json`, the mod's `plugin.json`, the two
   version constants) and to write the one root `CHANGELOG.md` from the changesets, since Changesets
-  only writes per-package files; it uses no GitHub-token changelog plugin. Pre-releases use
-  Changesets' pre mode. Commit types do not decide versions.
+  only writes per-package files; it uses no GitHub-token changelog plugin. The release workflow
+  versions on `changeset-release/main` and opens the pull request with `gh` itself, because
+  `changesets/action` reads a `CHANGELOG.md` in every released package, private ones included, to
+  write its pull-request body. Pre-releases use Changesets' pre mode. Commit types do not decide
+  versions.
 - **The mod ships its own copy of the command line, and its marketplace entry is the npm package.**
   `@homingbird/mod` holds the plugin files plus `cli/homingbird.mjs`, and the mod runs that file with
   `node` unless **Homingbird command** names another. The copy always matches the mod's version and
