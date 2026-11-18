@@ -28,7 +28,7 @@ locals {
     HB_OIDC_CLIENT_ID       = var.oidc_client_id
     HB_ALLOWED_DOMAINS      = join(",", var.allowed_domains)
     HB_ADMIN_EMAILS         = join(",", var.admin_emails)
-    HB_CHANNELS               = join(",", var.channels)
+    HB_CHANNELS             = join(",", var.channels)
     HB_CONTACT_MODE         = var.contact_mode
     HB_AUDIT_WEBHOOK_URL    = var.audit_webhook_url
     HB_AUDIT_RETENTION_DAYS = var.audit_retention_days == null ? "" : tostring(var.audit_retention_days)
