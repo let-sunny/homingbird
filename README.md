@@ -211,4 +211,6 @@ described in [`SECURITY.md`](SECURITY.md).
 
 ## License
 
-[MIT License](LICENSE) © minseon
+Code: [MIT License](LICENSE) © minseon. The Homingbird name, logo and Pip the pigeon stay with the
+project; see [TRADEMARKS.md](TRADEMARKS.md). The built-in profile characters are
+[CC BY 4.0](assets/characters/LICENSE.md).
