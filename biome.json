@@ -8,6 +8,7 @@
       "**/.stryker-tmp",
       "**/node_modules",
       "packages/mod/.claude-plugin/types",
+      "packages/mod/cli",
       "**/*.css",
       "assets",
       "deploy"

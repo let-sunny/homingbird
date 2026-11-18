@@ -10,6 +10,7 @@ import {
   Recipients,
   ServerInfo,
 } from './contract-schemas.ts'
+import { CharacterSpec } from './character.ts'
 import type { ApiError } from './errors.ts'
 import { StreamEvent } from './events.ts'
 import { ConversationId, CredentialId, DraftRequestId, MemberId, NoteId } from './ids.ts'
@@ -61,6 +62,14 @@ export const contract = {
     }),
     response: Member,
   }),
+  'me.character.set': route({
+    method: 'PUT',
+    path: '/me/character',
+    access: 'human',
+    body: CharacterSpec,
+    response: Member,
+  }),
+  'me.character.clear': route({ method: 'DELETE', path: '/me/character', access: 'human', response: Member }),
 
   'directory.list': route({
     method: 'GET',
@@ -332,6 +341,12 @@ export const contract = {
     path: '/admin/members/:id',
     access: 'admin',
     body: S.struct({ status: S.optional(MemberStatus), role: S.optional(Role) }),
+    response: Member,
+  }),
+  'admin.members.resetCharacter': route({
+    method: 'DELETE',
+    path: '/admin/members/:id/character',
+    access: 'admin',
     response: Member,
   }),
   'admin.topics.update': route({

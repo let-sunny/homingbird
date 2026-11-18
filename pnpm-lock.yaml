@@ -49,7 +49,7 @@ importers:
         version: link:../protocol
 
   packages/cli:
-    dependencies:
+    devDependencies:
       '@homingbird/client':
         specifier: workspace:*
         version: link:../client
@@ -101,7 +101,7 @@ importers:
         version: 3.23.2
 
   packages/mcp:
-    dependencies:
+    devDependencies:
       '@homingbird/client':
         specifier: workspace:*
         version: link:../client
@@ -112,11 +112,20 @@ importers:
         specifier: workspace:*
         version: link:../protocol
 
+  packages/mod:
+    devDependencies:
+      '@homingbird/cli':
+        specifier: workspace:*
+        version: link:../cli
+
   packages/protocol:
     dependencies:
       '@homingbird/kernel':
         specifier: workspace:*
         version: link:../kernel
+      '@homingbird/sprites':
+        specifier: workspace:*
+        version: link:../sprites
 
   packages/pwa:
     dependencies:
@@ -129,6 +138,9 @@ importers:
       '@homingbird/protocol':
         specifier: workspace:*
         version: link:../protocol
+      '@homingbird/sprites':
+        specifier: workspace:*
+        version: link:../sprites
       '@homingbird/ui':
         specifier: workspace:*
         version: link:../ui

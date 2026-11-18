@@ -44,7 +44,24 @@ read and draft, never send.
 
 ### Claude Code
 
-1. Install the Homingbird mod (`packages/mod` in this repository) and set **Server URL** in its settings.
+1. Install the mod. At the prompt of a Claude Code session in a terminal, type:
+
+   ```
+   /plugin install homingbird --marketplace let-sunny/homingbird
+   ```
+
+   Answer `y` to add the marketplace, choose a scope (user is the usual one), and fill in **Server URL**
+   with your organization's address. From a shell, the same in one line:
+
+   ```sh
+   claude plugin install homingbird --marketplace let-sunny/homingbird --config server=https://homingbird.example.com
+   ```
+
+   In the desktop app, click **+** next to the prompt box, then **Plugins**, **Add marketplace** with
+   `let-sunny/homingbird`, then **Add plugin**. The mod brings its own copy of the `homingbird` command
+   line and runs it with Node 22 or newer, so there is nothing else to install. Change **Server URL**
+   later with `/plugin configure homingbird@homingbird`, and update with
+   `claude plugin update homingbird@homingbird`.
 2. In the session you want as your desk, type `/homingbird`. The pane opens and asks you to connect the
    first time.
 3. Approve drafts in the web client: each draft in the pane links to its conversation. If your
@@ -92,10 +109,16 @@ sudo -iu homingbird-desk homingbird run --agent "codex exec"
 
 ### Any MCP client
 
-Run the adapter locally, pointed at your server:
+Run the adapter locally as a stdio MCP server, pointed at your server. It needs Node 22 or newer:
 
 ```sh
-npx @homingbird/mcp --server https://homingbird.example.com
+npx -y @homingbird/mcp --server https://homingbird.example.com
+```
+
+In a client configured with JSON, that is:
+
+```json
+{ "mcpServers": { "homingbird": { "command": "npx", "args": ["-y", "@homingbird/mcp", "--server", "https://homingbird.example.com"] } } }
 ```
 
 The first tool call opens the browser to sign in. Add `--desk` to make that client your desk: it holds

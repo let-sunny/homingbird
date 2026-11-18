@@ -1,6 +1,11 @@
 import type { EngineInterface, PluginOptions } from 'claude-code'
 
-export type Engine = Pick<EngineInterface, 'process'>
+export type Engine = Pick<EngineInterface, 'process' | 'plugin' | 'fs'>
+
+export type BundleFinder = {
+  readonly plugin: Pick<EngineInterface['plugin'], 'root'>
+  readonly fs: Pick<EngineInterface['fs'], 'stat'>
+}
 
 export type Ran =
   | { readonly kind: 'ok'; readonly value: unknown; readonly text: string }
@@ -11,7 +16,8 @@ export type Ran =
 
 export async function run($: Engine, options: PluginOptions, args: ReadonlyArray<string>): Promise<Ran> {
   try {
-    const result = await $.process.run([...commandOf(options), ...args], { timeoutMs: RUN_TIMEOUT_MS })
+    const command = await commandOf($, options)
+    const result = await $.process.run([...command, ...args], { timeoutMs: RUN_TIMEOUT_MS })
     if (result.exitCode === 0) return { kind: 'ok', value: null, text: result.stdout.trim() }
     if (result.exitCode === EXIT_SIGNED_OUT) return { kind: 'signed-out' }
     if (result.exitCode === EXIT_USAGE) return { kind: 'unsupported', message: messageIn(result.stderr) }
@@ -26,12 +32,12 @@ export async function runJson($: Engine, options: PluginOptions, args: ReadonlyA
   return ran.kind === 'ok' ? { ...ran, value: lastJsonLine(ran.text) } : ran
 }
 
-export const commandOf = (options: PluginOptions): string[] => {
-  const words = String(options.command ?? '')
-    .trim()
-    .split(/\s+/)
-    .filter((word) => word !== '')
-  return words.length > 0 ? words : DEFAULT_COMMAND.split(' ')
+export async function commandOf($: BundleFinder, options: PluginOptions): Promise<string[]> {
+  const configured = configuredCommandOf(options)
+  if (configured.length > 0) return configured
+  const bundled = `${$.plugin.root}/${BUNDLED_CLI}`
+  // messageIn shows the first line of stderr, so a Node warning there would hide the command's own error.
+  return (await isFile($, bundled)) ? ['node', '--no-warnings', bundled] : DEFAULT_COMMAND.split(' ')
 }
 
 export const lastJsonLine = (text: string): unknown => {
@@ -45,6 +51,8 @@ export const lastJsonLine = (text: string): unknown => {
 
 export const DEFAULT_COMMAND = 'npx -y @homingbird/cli'
 
+export const BUNDLED_CLI = 'cli/homingbird.mjs'
+
 const RUN_TIMEOUT_MS = 60_000
 const EXIT_USAGE = 2
 const EXIT_SIGNED_OUT = 3
@@ -56,6 +64,20 @@ const messageIn = (stderr: string): string => {
   return typeof message === 'string'
     ? message.split('\n')[0]!
     : stderr.trim().split('\n')[0] || 'The homingbird command failed.'
+}
+
+const configuredCommandOf = (options: PluginOptions): string[] =>
+  String(options.command ?? '')
+    .trim()
+    .split(/\s+/)
+    .filter((word) => word !== '')
+
+async function isFile($: BundleFinder, path: string): Promise<boolean> {
+  try {
+    return (await $.fs.stat(path)).kind === 'file'
+  } catch {
+    return false
+  }
 }
 
 const describe = (cause: unknown): string => (cause instanceof Error ? cause.message : String(cause))

@@ -8,8 +8,8 @@
     "command": {
       "type": "string",
       "title": "Homingbird command",
-      "description": "How to start the homingbird command line, as words separated by spaces.",
-      "default": "npx -y @homingbird/cli"
+      "description": "Leave empty to use the copy of the homingbird command line that comes with the mod. Otherwise, how to start another one, as words separated by spaces, such as npx -y @homingbird/cli.",
+      "default": ""
     },
     "server": {
       "type": "string",
@@ -28,5 +28,6 @@
   "author": {
     "name": "minseon"
   },
+  "homepage": "https://github.com/let-sunny/homingbird/blob/main/docs/guide.md#claude-code",
   "repository": "https://github.com/let-sunny/homingbird"
 }

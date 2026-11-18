@@ -1,0 +1,25 @@
+{
+  "name": "@homingbird/mod",
+  "version": "0.1.0",
+  "description": "The Homingbird mod for Claude Code: a desk pane where you approve every note. Install it with /plugin install homingbird --marketplace let-sunny/homingbird.",
+  "license": "MIT",
+  "author": "minseon",
+  "homepage": "https://github.com/let-sunny/homingbird#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/let-sunny/homingbird.git",
+    "directory": "packages/mod"
+  },
+  "bugs": "https://github.com/let-sunny/homingbird/issues",
+  "type": "module",
+  "files": [".claude-plugin/plugin.json", ".claude-plugin/icon.png", "hooks", "types", "cli"],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsx build.ts"
+  },
+  "devDependencies": {
+    "@homingbird/cli": "workspace:*"
+  }
+}

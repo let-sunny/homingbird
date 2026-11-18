@@ -8,3 +8,5 @@ reports/
 *.sqlite-*
 .env
 .DS_Store
+packages/mod/cli/
+release/

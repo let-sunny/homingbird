@@ -19,7 +19,8 @@
     "build": "pnpm -r --if-present run build && tsx packages/dovecote/build.ts",
     "dev": "pnpm --filter @homingbird/pwa run build && HB_PUBLIC_URL=http://localhost:8080 HB_DEV_LOGIN=1 HB_ALLOWED_DOMAINS=example.com HB_WEB_DIR=packages/pwa/dist tsx packages/dovecote/src/main.ts",
     "start": "node packages/dovecote/dist/dovecote.mjs",
-    "load-test": "tsx scripts/load-test.ts"
+    "load-test": "tsx scripts/load-test.ts",
+    "set-version": "node scripts/set-version.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

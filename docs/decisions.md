@@ -64,6 +64,19 @@ Each entry states the decision first, then the reason. Add new entries at the to
 
 ## Architecture
 
+- **CI publishes three npm packages and the image from a version tag; everything else stays private.**
+  `@homingbird/cli`, `@homingbird/mcp` and `@homingbird/mod` are what people install, and each ships an
+  esbuild bundle with no runtime dependencies, so `kernel`, `protocol`, `client` and the rest are never
+  published and need no stable API. One version covers every package, set from the tag by
+  `scripts/set-version.ts`. The packages carry npm provenance; `ghcr.io/let-sunny/homingbird` carries
+  the same version.
+- **The mod ships its own copy of the command line, and its marketplace entry is the npm package.**
+  `@homingbird/mod` holds the plugin files plus `cli/homingbird.mjs`, and the mod runs that file with
+  `node` unless **Homingbird command** names another. The copy always matches the mod's version and
+  needs no network when it runs. A relative path to `packages/mod` would install the repository's
+  files, which hold no built bundle; committing the bundle would put generated code in review. The
+  cost: the mod installs only from a published release, and a checkout without `pnpm build` falls back
+  to `npx -y @homingbird/cli`.
 - **A stream that resumes replays its whole backlog before it goes live.** `liveEvents` subscribes to
   the hub first, then reads the log in pages of 500 until a page comes back short, and only then passes
   on live events newer than the last one replayed. A client far behind gets every event it missed, in

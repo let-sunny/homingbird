@@ -4,5 +4,5 @@
   "license": "MIT",
   "type": "module",
   "exports": { ".": "./src/index.ts" },
-  "dependencies": { "@homingbird/kernel": "workspace:*" }
+  "dependencies": { "@homingbird/kernel": "workspace:*", "@homingbird/sprites": "workspace:*" }
 }

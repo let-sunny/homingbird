@@ -1,5 +1,6 @@
 export * from './ids.ts'
 export * from './model.ts'
+export * from './character.ts'
 export * from './status.ts'
 export * from './policy.ts'
 export * from './wrap.ts'

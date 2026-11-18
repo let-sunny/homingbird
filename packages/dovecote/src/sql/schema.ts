@@ -54,6 +54,7 @@ const optionalId: Column = { type: 'id', nullable: true }
 const string: Column = { type: 'string' }
 const optionalString = { type: 'string', nullable: true } as const satisfies Column
 const text: Column = { type: 'text' }
+const optionalText = { type: 'text', nullable: true } as const satisfies Column
 const integer: Column = { type: 'integer' }
 const optionalInteger: Column = { type: 'integer', nullable: true }
 
@@ -296,12 +297,15 @@ const LANGUAGE: ReadonlyArray<Step> = [
   { addTo: 'push_subscriptions', name: 'locale', column: optionalString },
 ]
 
+const CHARACTERS: ReadonlyArray<Step> = [{ addTo: 'members', name: 'character_spec', column: optionalText }]
+
 const MIGRATIONS: ReadonlyArray<ReadonlyArray<Step>> = [
   INITIAL,
   PUSH_SUBSCRIPTIONS,
   DRAFT_REQUESTS,
   TOPICS,
   LANGUAGE,
+  CHARACTERS,
 ]
 
 const isTable = (step: Step): step is Table => 'columns' in step

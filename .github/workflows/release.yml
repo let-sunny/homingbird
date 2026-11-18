@@ -1,0 +1,130 @@
+name: Release
+
+# A tag such as v0.2.0 publishes that version: @homingbird/cli, @homingbird/mcp and @homingbird/mod
+# to npm with provenance, and ghcr.io/let-sunny/homingbird. CONTRIBUTING.md#releasing has the setup.
+
+on:
+  push:
+    tags: ["v*"]
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  PUBLISHED_PACKAGES: cli mcp mod
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: node scripts/set-version.ts "$GITHUB_REF_NAME"
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+
+  npm:
+    needs: check
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      # Trusted publishing (OIDC) needs npm 11.5.1 or newer; Node 22 ships npm 10.
+      - run: npm install --global npm@^11.5.1
+      - run: pnpm install --frozen-lockfile
+      - run: node scripts/set-version.ts "$GITHUB_REF_NAME"
+      - run: pnpm build
+      - name: Pack
+        run: |
+          mkdir release
+          for package in $PUBLISHED_PACKAGES; do
+            (cd "packages/$package" && pnpm pack --pack-destination ../../release)
+          done
+          ls -l release
+      - name: Install the tarballs outside the workspace and run them
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          trial="$(mktemp -d)"
+          cp release/*.tgz "$trial/"
+          cd "$trial"
+          npm init --yes > /dev/null
+          npm install --no-audit --no-fund "./homingbird-cli-$version.tgz" "./homingbird-mcp-$version.tgz"
+          npx --no-install homingbird --help
+          npx --no-install homingbird status --json
+          npx --no-install homingbird-mcp --help 2>&1 | grep -q '^Usage: homingbird-mcp'
+          tar -xzf "homingbird-mod-$version.tgz"
+          test -f package/.claude-plugin/plugin.json
+          grep -q "\"version\": \"$version\"" package/.claude-plugin/plugin.json
+          node --no-warnings package/cli/homingbird.mjs --help
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          case "$version" in *-*) tag=next ;; *) tag=latest ;; esac
+          for package in $PUBLISHED_PACKAGES; do
+            if npm view "@homingbird/$package@$version" version > /dev/null 2>&1; then
+              echo "@homingbird/$package@$version is already on npm"
+              continue
+            fi
+            npm publish "./release/homingbird-$package-$version.tgz" --provenance --access public --tag "$tag"
+          done
+
+  image:
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Stamp the version into the sources the image is built from
+        run: node scripts/set-version.ts "$GITHUB_REF_NAME"
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/let-sunny/homingbird
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}},enable=${{ !startsWith(github.ref_name, 'v0.') }}
+          labels: |
+            org.opencontainers.image.title=Homingbird
+            org.opencontainers.image.description=Dovecote, the Homingbird relay server, with its web client
+            org.opencontainers.image.licenses=MIT
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

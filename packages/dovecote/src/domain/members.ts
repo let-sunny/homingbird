@@ -1,5 +1,6 @@
 import { Task as T } from '@homingbird/kernel'
 import {
+  CharacterSpec,
   Conflict,
   type DirectoryEntry,
   Locale,
@@ -97,6 +98,7 @@ export const signInMember = (identity: Identity): T.Task<Member, never, AppEnv> 
       role: isFirstDevelopmentMember || env.config.adminEmails.includes(email) ? 'admin' : 'member',
       status: 'active',
       createdAt: env.clock.now(),
+      character: null,
     }
     yield* run(
       insertInto('members', {
@@ -179,6 +181,7 @@ export interface MemberRow {
   readonly status: MemberStatus
   readonly created_at: number
   readonly last_seen_at: number | null
+  readonly character_spec: string | null
 }
 
 export const toMember = (row: MemberRow): Member => ({
@@ -189,7 +192,14 @@ export const toMember = (row: MemberRow): Member => ({
   role: row.role,
   status: row.status,
   createdAt: row.created_at,
+  character: characterIn(row.character_spec),
 })
+
+const characterIn = (stored: string | null): CharacterSpec | null => {
+  if (stored === null) return null
+  const decoded = CharacterSpec.decode(JSON.parse(stored))
+  return decoded._tag === 'Ok' ? decoded.value : null
+}
 
 const DIRECTORY_LIMIT = 500
 

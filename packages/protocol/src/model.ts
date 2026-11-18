@@ -1,4 +1,5 @@
 import { Schema as S } from '@homingbird/kernel'
+import { CharacterSpec } from './character.ts'
 import { ConversationId, CredentialId, DraftRequestId, MemberId, NoteId, Timestamp } from './ids.ts'
 
 export const NOTE_BODY_MAX = 16_000
@@ -29,6 +30,7 @@ export const Member = S.struct({
   role: Role,
   status: MemberStatus,
   createdAt: Timestamp,
+  character: S.optional(S.nullable(CharacterSpec)),
 })
 export type Member = S.Infer<typeof Member>
 

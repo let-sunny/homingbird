@@ -2,6 +2,7 @@ import { Task as T } from '@homingbird/kernel'
 import {
   API_PREFIX,
   type ApiError,
+  CHARACTER_BYTES_MAX,
   Invalid,
   NotFound,
   RateLimited,
@@ -23,6 +24,9 @@ export const handleApiRequest = (request: HttpRequest): T.Task<HttpResponse, nev
     T.gen(function* () {
       const matched = routeFor(request)
       if (matched === null) return yield* T.fail(NotFound({ message: 'No such API route.' }))
+      const limit = BODY_LIMITS[matched.name]
+      if (limit !== undefined && new TextEncoder().encode(request.body).length > limit)
+        return yield* T.fail(Invalid({ message: `The request body is larger than ${limit} bytes.` }))
       const body = parseJson(request.body)
       if (body === INVALID_JSON)
         return yield* T.fail(Invalid({ message: 'The request body is not valid JSON.' }))
@@ -47,6 +51,8 @@ export const routeFor = (
   }
   return null
 }
+
+const BODY_LIMITS: Partial<Record<RouteName, number>> = { 'me.character.set': CHARACTER_BYTES_MAX }
 
 const requireWithinLimits = (name: RouteName, caller: Caller | null): T.Task<void, RateLimited, AppEnv> =>
   T.flatMap((env: AppEnv) =>

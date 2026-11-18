@@ -72,6 +72,8 @@ describe('contract', () => {
     expect([...humanOnlyRoutes].sort()).toEqual(
       [
         'me.update',
+        'me.character.set',
+        'me.character.clear',
         'topics.create',
         'topics.help',
         'topics.leave',
@@ -104,6 +106,7 @@ describe('contract', () => {
         'admin.settings.put',
         'admin.members.list',
         'admin.members.update',
+        'admin.members.resetCharacter',
         'admin.audit.list',
       ].sort(),
     )

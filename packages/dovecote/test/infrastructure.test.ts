@@ -267,6 +267,7 @@ describe('schema', () => {
       expect(schemaStatements(dialect).filter((statement) => statement.startsWith('ALTER'))).toEqual([
         `ALTER TABLE members ADD COLUMN locale ${dialect === 'sqlite' ? 'TEXT' : 'VARCHAR(400)'}`,
         `ALTER TABLE push_subscriptions ADD COLUMN locale ${dialect === 'sqlite' ? 'TEXT' : 'VARCHAR(400)'}`,
+        `ALTER TABLE members ADD COLUMN character_spec ${{ sqlite: 'TEXT', postgres: 'TEXT', mysql: 'MEDIUMTEXT' }[dialect]}`,
       ])
     },
   )
@@ -287,6 +288,25 @@ describe('schema', () => {
       expect(member).toMatchObject({ id: ana.me.member.id, name: 'Ana', locale: null })
       expect((await ana.api('PATCH', '/me', { locale: 'ko' })).status).toBe(200)
       expect((await ana.api('GET', '/me')).json.locale).toBe('ko')
+    } finally {
+      await server.close()
+    }
+  })
+
+  it('adds the character column to a database migrated before it existed, showing everyone as the pigeon', async () => {
+    const server = await startTestServer()
+    try {
+      const ana = await server.signIn('ana@example.com', 'Ana')
+      for (const statement of [
+        'ALTER TABLE members DROP COLUMN character_spec',
+        'DELETE FROM schema_versions WHERE version = 6',
+      ])
+        await T.runPromise(run(raw(statement)), server.env)
+      expect(Object.keys((await storedRows(server, 'members'))[0]!)).not.toContain('character_spec')
+      await T.runPromise(migrate, server.env)
+      const [member] = await storedRows(server, 'members')
+      expect(member).toMatchObject({ id: ana.me.member.id, name: 'Ana', character_spec: null })
+      expect((await ana.api('GET', '/me')).json.member.character).toBeNull()
     } finally {
       await server.close()
     }

@@ -57,7 +57,8 @@ export async function beginSignIn($: Engine, desk: Desk, server: string): Promis
   await update($, problem, () => null)
   const withApproveButton = await approveButtonAllowedOn($, desk, server)
   try {
-    for await (const line of linesOf($.process.spawn({ argv: loginArgv(desk, server, withApproveButton) }))) {
+    const argv = await loginArgv($, desk, server, withApproveButton)
+    for await (const line of linesOf($.process.spawn({ argv }))) {
       const step = lastJsonLine(line) as {
         step?: unknown
         verificationUri?: unknown
@@ -156,9 +157,10 @@ async function standDown($: Engine, desk: Desk): Promise<void> {
 }
 
 async function follow($: Engine, desk: Desk): Promise<void> {
+  const command = await commandOf($, desk.options)
   if (desk.stream !== null) return
   const after = desk.lastSequence === null ? [] : ['--after', String(desk.lastSequence)]
-  const stream = $.process.spawn({ argv: [...commandOf(desk.options), 'stream', '--json', ...after] })
+  const stream = $.process.spawn({ argv: [...command, 'stream', '--json', ...after] })
   desk.stream = stream
   await update($, connection, () => 'live')
   try {
@@ -278,14 +280,22 @@ async function settle($: Engine, message: string, isUnavailable: boolean): Promi
   return null
 }
 
-const loginArgv = (desk: Desk, server: string, withApproveButton: boolean): string[] => [
-  ...commandOf(desk.options),
-  'login',
-  '--server',
-  server,
-  ...(withApproveButton ? ['--approve-button'] : []),
-  '--json',
-]
+async function loginArgv(
+  $: Engine,
+  desk: Desk,
+  server: string,
+  withApproveButton: boolean,
+): Promise<string[]> {
+  const command = await commandOf($, desk.options)
+  return [
+    ...command,
+    'login',
+    '--server',
+    server,
+    ...(withApproveButton ? ['--approve-button'] : []),
+    '--json',
+  ]
+}
 
 async function* linesOf(stream: AsyncIterable<{ stream: string; text: string }>): AsyncGenerator<string> {
   let unread = ''

@@ -17,6 +17,7 @@ import {
 } from '@homingbird/protocol'
 import { decideConsent, decideDeviceRequest, describeConsent, describeDeviceRequest } from '../auth/oauth.ts'
 import { listAudit } from '../domain/audit.ts'
+import { clearCharacter, saveCharacter } from '../domain/characters.ts'
 import {
   acceptContact,
   block,
@@ -105,6 +106,10 @@ export const handlers: Handlers = {
     }),
   'me.update': ({ body }, caller) =>
     T.tap((_: Member) => announceDirectoryChange(caller.member.id))(updateOwnProfile(caller.member.id, body)),
+  'me.character.set': ({ body }, caller) =>
+    T.tap((_: Member) => announceDirectoryChange(caller.member.id))(saveCharacter(caller.member.id, body)),
+  'me.character.clear': (_, caller) =>
+    T.tap((_: Member) => announceDirectoryChange(caller.member.id))(clearCharacter(caller.member.id)),
 
   'directory.list': ({ query }, caller) =>
     T.map((entries: Awaited<ResponseOf<Contract['directory.list']>>['entries']) => ({ entries }))(
@@ -245,6 +250,10 @@ export const handlers: Handlers = {
     T.flatMap((id: MemberId) =>
       T.tap((_: Member) => announceDirectoryChange(id))(administerMember(caller.member.id, id, body)),
     )(identifier(MemberId, params.id)),
+  'admin.members.resetCharacter': ({ params }) =>
+    T.flatMap((id: MemberId) => T.tap((_: Member) => announceDirectoryChange(id))(clearCharacter(id)))(
+      identifier(MemberId, params.id),
+    ),
   'admin.topics.update': ({ params, body }, caller) =>
     T.tap((_: Topic) => announceDirectoryChange(caller.member.id))(
       reviseTopic(caller.member.id, params.slug, body),

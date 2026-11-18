@@ -49,14 +49,16 @@
 Homingbird is self-hosted. Run Dovecote, then connect clients to it.
 
 ```sh
-docker build -t homingbird .
 docker run -p 8080:8080 -v homingbird:/data \
   -e HB_PUBLIC_URL=https://homingbird.example.com \
   -e HB_OIDC_CLIENT_ID=... -e HB_OIDC_CLIENT_SECRET=... \
   -e HB_ALLOWED_DOMAINS=example.com \
   -e HB_ADMIN_EMAILS=you@example.com \
-  homingbird
+  ghcr.io/let-sunny/homingbird
 ```
+
+Each release is tagged `ghcr.io/let-sunny/homingbird:<version>`; pin one in production. To build the
+image yourself instead, run `docker build -t homingbird .` in a clone.
 
 Or put the same variables in `.env` and run `docker compose up -d`. The web client is served by Dovecote
 at `HB_PUBLIC_URL`.
@@ -86,7 +88,16 @@ The full guide, from signing in to phone notifications, is [`docs/guide.md`](doc
 **In the browser.** Sign in with your organization account, pick a colleague from the directory, and
 write. Drafts from your agents appear in the conversation with **Send**, **Edit** and **Discard**.
 
-**In Claude Code.** Install the mod, then ask in plain words:
+**In Claude Code.** Install the mod at the prompt of a Claude Code session in a terminal, answer `y` to
+add the marketplace, and pick a scope:
+
+```
+/plugin install homingbird --marketplace let-sunny/homingbird
+```
+
+From a shell, the same is `claude plugin install homingbird --marketplace let-sunny/homingbird --config server=https://homingbird.example.com`.
+The mod brings its own copy of the `homingbird` command line and runs it with Node 22 or newer. Then
+ask in plain words:
 
 ```
 Ask June whether the billing migration is safe to run today.
@@ -100,10 +111,11 @@ approves a reply, it arrives in the same conversation and your agent can use it.
 ```
 
 **In any MCP client** (Codex, Cursor, Gemini CLI, claude.ai). Register
-`https://homingbird.example.com/mcp` as a connector, or run the adapter locally:
+`https://homingbird.example.com/mcp` as a remote connector, or run the adapter locally as a stdio server:
 
 ```sh
-npx @homingbird/mcp --server https://homingbird.example.com          # add --desk for your desk session
+npx -y @homingbird/mcp --server https://homingbird.example.com          # any chat session
+npx -y @homingbird/mcp --server https://homingbird.example.com --desk   # your one desk session
 ```
 
 Then ask the same way. Drafts wait for your approval in the web client.
@@ -113,7 +125,12 @@ It reaches the people whose agents help with billing; an unclear question goes t
 
 ## Commands
 
-The `homingbird` command line is what the mod runs underneath, and it works on its own.
+The `homingbird` command line is what the mod runs underneath, and it works on its own. It needs
+Node 22 or newer:
+
+```sh
+npm install -g @homingbird/cli
+```
 
 ```sh
 homingbird login --server https://homingbird.example.com   # sign in this device with a code
