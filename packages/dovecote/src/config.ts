@@ -26,7 +26,7 @@ export interface Config {
   }
   readonly adminEmails: ReadonlyArray<string>
   readonly topics: ReadonlyArray<{ readonly slug: string; readonly description: string }>
-  readonly trustProxy: boolean
+  readonly trustedProxies: number
   readonly pushHosts: ReadonlyArray<string>
   readonly sessionDays: number
   readonly audit: { readonly toStdout: boolean; readonly webhookUrl: string | null }
@@ -90,7 +90,7 @@ export const loadConfig = (
     },
     adminEmails: commaList(v.HB_ADMIN_EMAILS),
     topics: seedTopicsOf(v.HB_TOPICS),
-    trustProxy: v.HB_TRUST_PROXY === '1',
+    trustedProxies: Number(v.HB_TRUST_PROXY ?? '0'),
     pushHosts: v.HB_PUSH_HOSTS ? commaList(v.HB_PUSH_HOSTS) : DEFAULT_PUSH_HOSTS,
     sessionDays: Number(v.HB_SESSION_DAYS ?? '30'),
     audit: { toStdout: v.HB_AUDIT_STDOUT === '1', webhookUrl: v.HB_AUDIT_WEBHOOK_URL ?? null },
@@ -118,7 +118,7 @@ const Variables = S.struct({
   HB_ALLOWED_DOMAINS: S.optional(S.string()),
   HB_ADMIN_EMAILS: S.optional(S.string()),
   HB_TOPICS: S.optional(S.string({ pattern: TOPIC_LIST })),
-  HB_TRUST_PROXY: S.optional(S.literal('0', '1')),
+  HB_TRUST_PROXY: S.optional(S.string({ pattern: /^[0-9]$/ })),
   HB_PUSH_HOSTS: S.optional(S.string()),
   HB_CONTACT_MODE: S.optional(S.literal('open', 'contacts')),
   HB_AUDIT_RETENTION_DAYS: S.optional(positiveInteger),

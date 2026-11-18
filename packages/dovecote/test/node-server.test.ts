@@ -183,19 +183,20 @@ describe('over a real socket', () => {
     expect(decodeClientFrames(encodeFrame(OPCODE.text, Buffer.from('unmasked'))).violation).toBe(true)
   })
 
-  it('rate-limits by the forwarded address when it trusts the proxy', async () => {
-    const start = (address: string) =>
+  it('rate-limits by the address the trusted proxy appended, whatever the client put before it', async () => {
+    const start = (forged: string, address: string) =>
       fetch(`${origin}/oauth/device_authorization`, {
         method: 'POST',
         headers: {
           'content-type': 'application/x-www-form-urlencoded',
-          'x-forwarded-for': `${address}, 10.0.0.1`,
+          'x-forwarded-for': `${forged}, ${address}`,
         },
         body: 'client_name=x',
       })
-    for (let attempt = 0; attempt < 30; attempt++) expect((await start('203.0.113.7')).status).toBe(200)
-    expect((await start('203.0.113.7')).status).toBe(429)
-    expect((await start('203.0.113.8')).status).toBe(200)
+    for (let attempt = 0; attempt < 30; attempt++)
+      expect((await start(`198.51.100.${attempt}`, '203.0.113.7')).status).toBe(200)
+    expect((await start('198.51.100.99', '203.0.113.7')).status).toBe(429)
+    expect((await start('203.0.113.7', '203.0.113.8')).status).toBe(200)
   })
 
   it('answers 500 without leaking details when a handler dies', async () => {

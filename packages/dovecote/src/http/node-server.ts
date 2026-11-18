@@ -7,6 +7,7 @@ import { handleRequest } from './app.ts'
 import { callerOf } from './authenticate.ts'
 import { HEARTBEAT, memberFeed, resumePoint, tokenOf } from './event-routes.ts'
 import type { HttpRequest, HttpResponse } from './exchange.ts'
+import { clientAddressOf } from './forwarded-address.ts'
 import { OPCODE, decodeClientFrames, encodeFrame, encodeText, handshakeResponse } from './websocket.ts'
 
 export interface RunningServer {
@@ -50,7 +51,7 @@ const serve = async (
   const body = await readBody(incoming)
   if (body === null) return void outgoing.writeHead(413).end()
   const exit = await T.run(
-    handleRequest(toRequest(incoming, body, connection.signal, env.config.trustProxy)),
+    handleRequest(toRequest(incoming, body, connection.signal, env.config.trustedProxies)),
     env,
     connection.signal,
   )
@@ -70,7 +71,7 @@ const serveWebSocket = async (
   open: Set<AbortController>,
 ): Promise<void> => {
   const connection = new AbortController()
-  const request = toRequest(incoming, '', connection.signal, env.config.trustProxy)
+  const request = toRequest(incoming, '', connection.signal, env.config.trustedProxies)
   const clientKey = request.headers['sec-websocket-key']
   const fromOurOrigin =
     request.headers.origin === undefined || request.headers.origin === new URL(env.config.publicUrl).origin
@@ -118,7 +119,7 @@ const toRequest = (
   incoming: IncomingMessage,
   body: string,
   disconnected: AbortSignal,
-  trustProxy: boolean,
+  trustedProxies: number,
 ): HttpRequest => {
   const url = new URL(incoming.url ?? '/', 'http://dovecote.invalid')
   return {
@@ -132,18 +133,13 @@ const toRequest = (
       ]),
     ),
     body,
-    remoteAddress: remoteAddressOf(incoming, trustProxy),
+    remoteAddress: clientAddressOf(
+      String(incoming.headers['x-forwarded-for'] ?? ''),
+      incoming.socket.remoteAddress,
+      trustedProxies,
+    ),
     disconnected,
   }
-}
-
-const remoteAddressOf = (incoming: IncomingMessage, trustProxy: boolean): string => {
-  const forwarded = trustProxy
-    ? String(incoming.headers['x-forwarded-for'] ?? '')
-        .split(',')[0]
-        ?.trim()
-    : ''
-  return forwarded || (incoming.socket.remoteAddress ?? 'unknown')
 }
 
 const readBody = async (incoming: IncomingMessage): Promise<string | null> => {
