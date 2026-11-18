@@ -88,7 +88,7 @@ Each entry states the decision first, then the reason. Add new entries at the to
   only through the command line, so `mod/hooks/character-rules.mjs` is an esbuild bundle of
   `characterProblems`, `characterLink` and the built-in characters; `protocol/test/mod-character-rules.test.ts`
   fails when it differs from a fresh bundle (`HB_WRITE_MOD_BUNDLE=1` writes it). The web client draws
-  characters with `sprites` itself, which adds about 45 KB to `app.js` (about 10 KB gzipped).
+  characters with `sprites` itself, which adds about 45 KB to `app.js` (about 16 KB gzipped).
 - **CI publishes three npm packages and the image from a version tag; everything else stays private.**
   `@homingbird/cli`, `@homingbird/mcp` and `@homingbird/mod` are what people install, and each ships an
   esbuild bundle with no runtime dependencies, so `kernel`, `protocol`, `client` and the rest are never
