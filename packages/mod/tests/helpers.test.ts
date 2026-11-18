@@ -5,13 +5,25 @@ import { READER_TYPE } from '../hooks/helpers'
 import { ARRIVAL, NOTE_ID, OVERVIEW, START, WRAPPED, engineBeneath, openDesk } from './world'
 
 test('ask_project starts the read-only helper in the project, with the note as quoted data', async ($, on) => {
-  const seen = engineBeneath(on, { overview: OVERVIEW, streamLines: [ARRIVAL], directories: ['/work/billing'] })
+  const seen = engineBeneath(on, {
+    overview: OVERVIEW,
+    streamLines: [ARRIVAL],
+    directories: ['/work/billing'],
+  })
   const spawned: Array<{ cwd: string | undefined; prompt: string }> = []
   on('agent.spawn', (_, e) => {
     spawned.push({ cwd: e.cwd, prompt: e.prompt })
     return { model: 'a-model', agentId: 'helper-1' }
   })
   on('turn.complete', (_, e) => ({ text: e.answer }))
+  on('agent.list', () => ({
+    value: spawned.map((_, index) => ({
+      id: 'helper-1',
+      description: HELPER_DESCRIPTION,
+      type: READER_TYPE,
+      index,
+    })) as never,
+  }))
   await $.session.start(START)
   await openDesk($, seen)
   const answered = await $.tool.run({
@@ -29,10 +41,24 @@ test('ask_project starts the read-only helper in the project, with the note as q
   ])
   expect(spawned[0]?.prompt.endsWith(WRAPPED)).toBe(true)
   const promptsBefore = seen.prompts.length
-  await $.turn.complete({ answer: FACTS, agentId: 'helper-1', durationMs: 1, isAborted: false, turnId: 't', reason: 'end_turn' } as never)
+  await $.turn.complete({
+    answer: FACTS,
+    agentId: 'helper-1',
+    durationMs: 1,
+    isAborted: false,
+    turnId: 't',
+    reason: 'end_turn',
+  } as never)
   await seen.clock.settle()
   expect(seen.prompts.slice(promptsBefore)).toEqual([helperFactsFor('/work/billing', FACTS)])
-  await $.turn.complete({ answer: FACTS, agentId: 'someone-else', durationMs: 1, isAborted: false, turnId: 't', reason: 'end_turn' } as never)
+  await $.turn.complete({
+    answer: FACTS,
+    agentId: 'someone-else',
+    durationMs: 1,
+    isAborted: false,
+    turnId: 't',
+    reason: 'end_turn',
+  } as never)
   await seen.clock.settle()
   expect(seen.prompts.length).toBe(promptsBefore + 1)
 })
@@ -85,4 +111,5 @@ test('ask_session sends the question with the note as quoted data', async ($, on
   expect(seen.sent[0]?.text).toContain('Facts only')
 })
 
+const HELPER_DESCRIPTION = 'Homingbird helper 1: facts from /work/billing'
 const FACTS = 'The migration runs in migrations/0042.sql and locks no table.'

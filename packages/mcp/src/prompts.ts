@@ -93,7 +93,8 @@ export const getPrompt = (
 
 const SHOW_THE_LINK =
   'call open_homingbird and show me the link it returns, so I can approve in the web client.'
-const NOTHING_IS_SENT = 'Do not say anything was sent: nothing leaves until I give my approval in the web client.'
+const NOTHING_IS_SENT =
+  'Do not say anything was sent: nothing leaves until I give my approval in the web client.'
 
 const stringsIn = (given: unknown): Record<string, string> =>
   typeof given === 'object' && given !== null && !Array.isArray(given)

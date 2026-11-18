@@ -18,13 +18,11 @@
 - **Lightweight:** no runtime dependencies; the only optional packages are the PostgreSQL and MySQL drivers
 - **Yours to restyle:** a dependency-free web client themed with one CSS file
 
-> **Status:** under construction. The kernel and protocol are in place and the server is being built.
-> Nothing here is ready to deploy yet.
-
 ## Table of Contents
 
 - [How it works](#how-it-works)
 - [Install](#install)
+- [Your desk session](#your-desk-session)
 - [Usage](#usage)
 - [Commands](#commands)
 - [Configuration](#configuration)
@@ -50,15 +48,37 @@
 Homingbird is self-hosted. Run Dovecote, then connect clients to it.
 
 ```sh
+docker build -t homingbird .
 docker run -p 8080:8080 -v homingbird:/data \
   -e HB_PUBLIC_URL=https://homingbird.example.com \
   -e HB_OIDC_CLIENT_ID=... -e HB_OIDC_CLIENT_SECRET=... \
   -e HB_ALLOWED_DOMAINS=example.com \
   -e HB_ADMIN_EMAILS=you@example.com \
-  ghcr.io/let-sunny/homingbird
+  homingbird
 ```
 
-The web client is served by Dovecote at `HB_PUBLIC_URL`.
+Or put the same variables in `.env` and run `docker compose up -d`. The web client is served by Dovecote
+at `HB_PUBLIC_URL`.
+
+One instance on 1 vCPU and 1 GB serves about 1,000 members. Sizing, databases, load balancers, backups
+and Terraform for GCP and AWS are in [`docs/deployment.md`](docs/deployment.md).
+
+## Your desk session
+
+Keep one agent session open for Homingbird. It drafts replies to arriving notes; you approve them.
+
+| Agent | Make it your desk | When a note arrives |
+| --- | --- | --- |
+| Claude Code | `/homingbird` in one session | Drafts by itself; approve in the pane |
+| Codex CLI, Gemini CLI, Cursor agent | Keep `homingbird run --agent "codex exec"` running (or `"gemini -p"`, `"cursor-agent -p"`) | Drafts by itself; approve in the web client |
+| An MCP client whose chat stays open, such as Cursor | Run the `watch` prompt in one chat | Drafts while that chat is open; approve in the web client |
+| ChatGPT, claude.ai, other web connectors | Pick one chat with the connector | Cannot be woken: a phone notification tells you; say "check Homingbird" there, or answer in the web client |
+
+- Every other session drafts only when you ask it ("Ask June whether…").
+- **Agent online** in the directory means your desk is running.
+- Approving, and writing by hand, always work in the web client.
+
+The full guide, from signing in to phone notifications, is [`docs/guide.md`](docs/guide.md).
 
 ## Usage
 
@@ -82,10 +102,13 @@ approves a reply, it arrives in the same conversation and your agent can use it.
 `https://homingbird.example.com/mcp` as a connector, or run the adapter locally:
 
 ```sh
-npx @homingbird/mcp --server https://homingbird.example.com
+npx @homingbird/mcp --server https://homingbird.example.com          # add --desk for your desk session
 ```
 
 Then ask the same way. Drafts wait for your approval in the web client.
+
+**Ask a topic** when you do not know who can answer: "Ask the billing topic who owns the nightly export."
+It reaches the people whose agents help with billing; an unclear question goes to `general`.
 
 ## Commands
 
@@ -95,13 +118,18 @@ The `homingbird` command line is what the mod runs underneath, and it works on i
 homingbird login --server https://homingbird.example.com   # sign in this device with a code
 homingbird status                                          # who am I, which server, how connected
 homingbird directory june                                  # find a colleague
+homingbird topics                                          # topics, and who helps with each
 homingbird inbox                                           # notes waiting for a reply
 homingbird conversations                                   # every conversation, newest first
 homingbird conversation <conversation-id>                  # read one
 homingbird draft --to june@example.com "Is the billing migration safe to run today?"
+homingbird draft --topic billing "Who owns the nightly export?"
 homingbird draft --reply <note-id> "Yes. Run it after the nightly export."
 homingbird drafts                                          # drafts waiting for approval
+homingbird requests                                        # drafts your person asked an agent for
+homingbird run --agent "codex exec"                        # be the desk: answer what arrives
 homingbird stream                                          # live events, one JSON object per line
+homingbird open                                            # open the web client
 homingbird logout
 ```
 
@@ -124,16 +152,17 @@ Every command accepts `--json`.
 | `HB_DATABASE_URL` | `sqlite:./data/dovecote.sqlite` | `sqlite:`, `postgres:` or `mysql:` |
 | `HB_OIDC_ISSUER` | `https://accounts.google.com` | Any OpenID Connect issuer |
 | `HB_OIDC_CLIENT_ID`, `HB_OIDC_CLIENT_SECRET` | required | From your identity provider |
-| `HB_ALLOWED_DOMAINS` | none | Email domains allowed to sign in, comma-separated |
 | `HB_ADMIN_EMAILS` | required | Members who administer the server; nobody becomes one implicitly |
+| `HB_ALLOWED_DOMAINS` | none | Email domains allowed to sign in, comma-separated |
 | `HB_TOPICS` | `general` | Topics to start with: `slug` or `slug: description`, comma-separated |
 | `HB_CONTACT_MODE` | `open` | `open`, or `contacts` to require an accepted request first |
-| `HB_AUDIT_RETENTION_DAYS` | keep forever | Days to keep audit entries |
+| `HB_TRUST_PROXY` | `0` | `1` when Dovecote is reachable only through a load balancer |
 | `HB_AUDIT_STDOUT`, `HB_AUDIT_WEBHOOK_URL` | off | Forward audit entries to your logging stack |
+| `HB_AUDIT_RETENTION_DAYS` | keep forever | Days to keep audit entries |
 | `HB_THEME_DIR` | none | A directory with `theme.css` and `branding.json` |
-| `HB_OAUTH_REDIRECT_HOSTS` | `claude.ai,claude.com` | Hosts an OAuth client may redirect to over https, comma-separated, exact names; replaces the default, `none` for no host. Loopback `http://127.0.0.1`, `http://localhost` (any port) and app schemes are always accepted |
-| `HB_OAUTH_CLIENT_METADATA_HOSTS` | `claude.ai,claude.com` | Hosts whose https `client_id` URLs are fetched as client metadata documents, comma-separated host names; `none` turns the documents off |
-| `HB_OAUTH_CLIENTS` | none | Pre-registered public clients for agents without registration or metadata documents: `id\|Name\|https://host/callback;https://host/other`, comma-separated between clients |
+
+Sessions, credential lifetimes, OAuth clients, push hosts and the rest are in
+[`docs/deployment.md`](docs/deployment.md#configuration).
 
 ## Security
 
@@ -154,6 +183,7 @@ See [`.claude/rules/security.md`](.claude/rules/security.md) and [`SECURITY.md`]
 pnpm install
 pnpm dev          # Dovecote with a development login on http://localhost:8080
 pnpm typecheck && pnpm lint && pnpm test
+pnpm build        # server, CLI, MCP and web bundles
 ```
 
 Design decisions are recorded in [`docs/decisions.md`](docs/decisions.md). Ideas outside the current

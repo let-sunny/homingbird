@@ -31,7 +31,8 @@ export async function openDesk($: Engine, desk: Desk): Promise<void> {
   const latest = await refresh($, desk)
   if (latest !== null) return claimDesk($, desk)
   const server = String(desk.options.server ?? '').trim()
-  if ((await read($, connection)) === 'signed-out' && server !== '') inBackground(beginSignIn($, desk, server))
+  if ((await read($, connection)) === 'signed-out' && server !== '')
+    inBackground(beginSignIn($, desk, server))
 }
 
 export async function resumeDesk($: Engine, desk: Desk): Promise<void> {
@@ -62,7 +63,6 @@ export async function beginSignIn($: Engine, desk: Desk, server: string): Promis
       if (step?.step !== 'awaiting_approval' || typeof step.verificationUri !== 'string') continue
       const pending = { verificationUri: step.verificationUri, userCode: String(step.userCode ?? '') }
       await update($, signIn, () => pending)
-      inBackground(openInBrowser($, pending.verificationUri))
     }
   } catch (cause) {
     await update(
@@ -169,7 +169,9 @@ async function arrived($: Engine, desk: Desk, line: string): Promise<void> {
     return draftReply($, desk, body.note.id, parsed.wrapped)
   }
   if (body?.type === 'draft.requested' && body.request !== undefined) {
-    const request = requestIn(body.request)
+    const announced = requestIn(body.request)
+    const listed = announced === null ? [] : await openRequests($, desk)
+    const request = listed.find((one) => one.id === announced?.id) ?? announced
     if (request !== null) await answerRequest($, desk, request)
     return
   }
@@ -190,14 +192,18 @@ async function catchUp($: Engine, desk: Desk): Promise<void> {
     desk.wrappedNotes.set(waiting.noteId, waiting.wrapped)
     await draftReply($, desk, waiting.noteId, waiting.wrapped)
   }
+  const open = await openRequests($, desk)
+  await update($, requests, () => open)
+  for (const request of open) await answerRequest($, desk, request)
+}
+
+async function openRequests($: Engine, desk: Desk): Promise<HomingbirdDraftRequest[]> {
   const ran = await runJson($, desk.options, ['requests'])
   const listed = ran.kind === 'ok' ? (ran.value as { requests?: unknown } | null)?.requests : []
-  const open = (Array.isArray(listed) ? listed : []).flatMap((one) => {
+  return (Array.isArray(listed) ? listed : []).flatMap((one) => {
     const request = requestIn(one)
     return request === null || hasDrafts(one) ? [] : [request]
   })
-  await update($, requests, () => open)
-  for (const request of open) await answerRequest($, desk, request)
 }
 
 async function draftReply($: Engine, desk: Desk, noteId: string, wrappedNote: string): Promise<void> {
@@ -247,13 +253,6 @@ async function settle($: Engine, message: string, isUnavailable: boolean): Promi
   return null
 }
 
-async function openInBrowser($: Engine, url: string): Promise<void> {
-  const { platform, isHosted } = await $.session.info()
-  const argv = isHosted === true ? null : BROWSER_OPENERS[platform ?? 'unknown']
-  if (argv === null || argv === undefined) return
-  await $.process.run([...argv, url], { timeoutMs: 10_000 }).catch(() => undefined)
-}
-
 const loginArgv = (desk: Desk, server: string): string[] => [
   ...commandOf(desk.options),
   'login',
@@ -293,6 +292,7 @@ const requestIn = (value: unknown): HomingbirdDraftRequest | null => {
     conversationId: request.conversationId,
     inReplyTo: typeof request.inReplyTo === 'string' ? request.inReplyTo : null,
     instruction: typeof request.instruction === 'string' ? request.instruction : '',
+    answers: typeof request.answers === 'string' ? request.answers : null,
   }
 }
 
@@ -328,18 +328,10 @@ const HEARTBEAT_MS = 30_000
 
 const NO_APPROVE_BUTTON = 'This device has no approve button. Approve in the Homingbird web client.'
 
-const BROWSER_OPENERS: Readonly<Record<string, ReadonlyArray<string> | null>> = {
-  macos: ['open'],
-  linux: ['xdg-open'],
-  wsl: ['wslview'],
-  windows: ['rundll32', 'url.dll,FileProtocolHandler'],
-  unknown: null,
-}
-
 const connection = atom({ plugin: 'homingbird', key: 'connection' } as const, 'idle')
 const deskRole = atom({ plugin: 'homingbird', key: 'desk' } as const, 'not-desk')
 const editing = atom({ plugin: 'homingbird', key: 'editing' } as const, null)
 const overview = atom({ plugin: 'homingbird', key: 'overview' } as const, null, { shape: 'overview-2' })
 const problem = atom({ plugin: 'homingbird', key: 'problem' } as const, null)
-const requests = atom({ plugin: 'homingbird', key: 'requests' } as const, [], { shape: 'requests-1' })
+const requests = atom({ plugin: 'homingbird', key: 'requests' } as const, [], { shape: 'requests-2' })
 const signIn = atom({ plugin: 'homingbird', key: 'signIn' } as const, null)

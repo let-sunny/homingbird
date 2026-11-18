@@ -1,4 +1,4 @@
-export { INSTRUCTIONS, type McpContext, SERVER_NAME, handleMcpMessage } from './server.ts'
+export { DESK_INSTRUCTIONS, INSTRUCTIONS, type McpContext, SERVER_NAME, handleMcpMessage } from './server.ts'
 export { type MemberApi, MEMBER_ROUTES, type MemberRouteName, memberApiOf } from './member-api.ts'
 export { HANDSHAKE_REVISIONS, STATELESS_REVISIONS, SUPPORTED_REVISIONS } from './revisions.ts'
 export { TOOLS, type Tool, type ToolContext, type ToolResult, toolDefinitions } from './tools.ts'
@@ -14,4 +14,10 @@ export {
   channelNotification,
   makeChannel,
 } from './channel.ts'
-export { type Trigger, WAKING_EVENTS, freshTriggers } from './triggers.ts'
+export {
+  type AnnouncedRequests,
+  type Trigger,
+  WAKING_EVENTS,
+  announcedRequests,
+  freshTriggers,
+} from './triggers.ts'

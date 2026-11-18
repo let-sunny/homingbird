@@ -12,14 +12,18 @@ Anything not in the product brief goes to the roadmap instead of being built.
 pnpm install
 pnpm typecheck        # tsc over every package
 pnpm lint             # biome + scripts/check-style.ts
-pnpm format           # biome --write
+pnpm format           # biome check --write
 pnpm test             # vitest, all packages
 pnpm test:coverage    # fails under the thresholds in vitest.config.ts
-pnpm test:mutation    # stryker, kernel and protocol
+pnpm test:mutation    # stryker, kernel and protocol; fails under a score of 90
 pnpm dev              # Dovecote with development login on http://localhost:8080
+pnpm build            # server, CLI, MCP and web bundles
+pnpm load-test        # rough throughput numbers for docs/deployment.md
 ```
 
-Run `pnpm typecheck && pnpm lint && pnpm test` before every commit. CI runs the same three.
+Run `pnpm typecheck && pnpm lint && pnpm test` before every commit; `git config core.hooksPath .githooks`
+makes git run the first two for you. CI runs all three with coverage, and the Dovecote suite again on
+PostgreSQL and MySQL.
 
 ## Packages
 
@@ -31,6 +35,7 @@ Run `pnpm typecheck && pnpm lint && pnpm test` before every commit. CI runs the 
 | `client` | Typed API client and event stream, derived from the contract. |
 | `ui`, `pwa` | Dependency-free web client. |
 | `cli`, `mcp`, `a2a` | Command line, MCP adapter, A2A gateway. |
+| `mod` | The Claude Code mod: the desk pane and its approve button. |
 
 ## Rules
 

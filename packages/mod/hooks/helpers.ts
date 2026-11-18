@@ -36,14 +36,16 @@ export async function askProject(
   )
   if (kind !== 'dir') return { result: `${directory} is not a directory on this computer.`, isError: true }
   const wrappedNote = textOf(input.noteId) === '' ? null : await wrappedNoteFor($, desk, textOf(input.noteId))
+  const description = `Homingbird helper ${desk.helpers.size + 1}: facts from ${directory}`
   const spawned = await $.agent.spawn({
     subagentType: READER_TYPE,
-    description: 'Look up project facts',
+    description,
     prompt: helperPromptFor(directory, question, wrappedNote),
     cwd: directory,
   })
-  if (spawned.deny !== undefined) return { result: `The helper could not start: ${spawned.deny}`, isError: true }
-  if (spawned.agentId !== undefined) desk.helpers.set(spawned.agentId, directory)
+  if (spawned.deny !== undefined)
+    return { result: `The helper could not start: ${spawned.deny}`, isError: true }
+  desk.helpers.set(spawned.agentId ?? description, directory)
   return {
     result: `A read-only helper is looking in ${directory}. Its facts arrive as a new message when it finishes; draft once you have them.`,
   }
@@ -55,9 +57,11 @@ export async function deliverHelperFacts(
   agentId: string | undefined,
   answer: string,
 ): Promise<void> {
-  const directory = agentId === undefined ? undefined : desk.helpers.get(agentId)
-  if (agentId === undefined || directory === undefined) return
-  desk.helpers.delete(agentId)
+  if (agentId === undefined || desk.helpers.size === 0) return
+  const key = desk.helpers.has(agentId) ? agentId : await descriptionOf($, agentId)
+  const directory = key === undefined ? undefined : desk.helpers.get(key)
+  if (key === undefined || directory === undefined) return
+  desk.helpers.delete(key)
   await $.prompt.submit({ text: helperFactsFor(directory, answer) })
 }
 
@@ -78,6 +82,11 @@ export async function askSession(
   return sent.isDelivered
     ? { result: `Asked ${to}. Its answer arrives as a message to this session; draft once it has.` }
     : { result: `Could not reach ${to}: ${sent.reason}`, isError: true }
+}
+
+async function descriptionOf($: EngineInterface, agentId: string): Promise<string | undefined> {
+  const agents = await $.agent.list()
+  return agents.find((agent) => agent.id === agentId)?.description
 }
 
 export const READER_TYPE = 'homingbird:project-reader'

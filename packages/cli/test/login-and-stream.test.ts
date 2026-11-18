@@ -108,7 +108,10 @@ describe('login', () => {
       stubs: { 'me.get': () => ME },
       other: (call) =>
         call.path === '/oauth/device_authorization'
-          ? json(200, { ...AUTHORIZATION, verification_uri_complete: 'https://evil.example/#/device/BCDF-GHJK' })
+          ? json(200, {
+              ...AUTHORIZATION,
+              verification_uri_complete: 'https://evil.example/#/device/BCDF-GHJK',
+            })
           : deviceServer([() => json(200, { access_token: NEW_AGENT, expires_in: 3600 })])(call),
     })
     const second = elsewhere.run('login', '--server', SERVER)

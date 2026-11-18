@@ -99,11 +99,7 @@ function movedRows($: EngineInterface, e: ResolveInput, actions: PaneActions): R
   )
 }
 
-async function signInRows(
-  $: EngineInterface,
-  e: ResolveInput,
-  actions: PaneActions,
-): Promise<RenderElement> {
+async function signInRows($: EngineInterface, e: ResolveInput, actions: PaneActions): Promise<RenderElement> {
   const { Box, Text, Button, Input, Link } = $.ui.resolve(e)
   const pending = await read($, signIn)
   if (pending !== null)
@@ -165,25 +161,31 @@ async function overviewRows(
         <Text bold>Notes waiting for a reply</Text>
         {latest.awaiting.length === 0 && open.length === 0 && <Text dimColor>None.</Text>}
         {latest.awaiting.map((waiting) => (
-          <Text wrap="truncate-end">
-            {waiting.from.name}: {firstLine(bodyOf(waiting.wrapped))}
-            <Text dimColor>{drafted.has(waiting.noteId) ? ' · draft ready' : ' · drafting'}</Text>
-          </Text>
+          <Box key={`waiting:${waiting.noteId}`}>
+            <Text wrap="truncate-end">
+              {waiting.from.name}: {firstLine(bodyOf(waiting.wrapped))}
+              <Text dimColor>{drafted.has(waiting.noteId) ? ' · draft ready' : ' · drafting'}</Text>
+            </Text>
+          </Box>
         ))}
         {open.map((request) => (
-          <Text wrap="truncate-end" dimColor>
-            You asked for a draft{request.instruction === '' ? '' : `: ${firstLine(request.instruction)}`}
-          </Text>
+          <Box key={`request:${request.id}`}>
+            <Text wrap="truncate-end" dimColor>
+              You asked for a draft{request.instruction === '' ? '' : `: ${firstLine(request.instruction)}`}
+            </Text>
+          </Box>
         ))}
       </Box>
       <Box flexDirection="column">
         <Text bold>Conversations</Text>
         {latest.conversations.length === 0 && <Text dimColor>None yet.</Text>}
         {latest.conversations.map((conversation) => (
-          <Text wrap="truncate-end">
-            {conversationName(conversation)}
-            {conversation.unreadCount > 0 ? ` · ${conversation.unreadCount} unread` : ''}
-          </Text>
+          <Box key={`conversation:${conversation.id}`}>
+            <Text wrap="truncate-end">
+              {conversationName(conversation)}
+              {conversation.unreadCount > 0 ? ` · ${conversation.unreadCount} unread` : ''}
+            </Text>
+          </Box>
         ))}
       </Box>
     </Box>
@@ -245,8 +247,11 @@ function draftRow(
   )
 }
 
-const conversationName = (conversation: HomingbirdConversation): string =>
-  conversation.kind === 'topic' ? `#${conversation.title ?? conversation.with}` : conversation.with
+const conversationName = (conversation: HomingbirdConversation): string => {
+  if (conversation.kind !== 'topic') return conversation.with
+  const name = conversation.title ?? conversation.with
+  return name.startsWith('#') ? name : `#${name}`
+}
 
 const firstLine = (text: string): string => text.split('\n')[0] ?? ''
 
@@ -255,5 +260,5 @@ const desk = atom({ plugin: 'homingbird', key: 'desk' } as const, 'not-desk')
 const editing = atom({ plugin: 'homingbird', key: 'editing' } as const, null)
 const overview = atom({ plugin: 'homingbird', key: 'overview' } as const, null, { shape: 'overview-2' })
 const problem = atom({ plugin: 'homingbird', key: 'problem' } as const, null)
-const requests = atom({ plugin: 'homingbird', key: 'requests' } as const, [], { shape: 'requests-1' })
+const requests = atom({ plugin: 'homingbird', key: 'requests' } as const, [], { shape: 'requests-2' })
 const signIn = atom({ plugin: 'homingbird', key: 'signIn' } as const, null)

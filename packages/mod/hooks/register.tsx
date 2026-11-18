@@ -1,16 +1,7 @@
 import type { EngineInterface, Register } from 'claude-code'
 
 import { run } from './command-line'
-import {
-  beginSignIn,
-  claimDesk,
-  decide,
-  inBackground,
-  makeDesk,
-  openDesk,
-  refresh,
-  resumeDesk,
-} from './desk'
+import { beginSignIn, claimDesk, decide, inBackground, makeDesk, openDesk, refresh, resumeDesk } from './desk'
 import { directoryIn } from './drafting'
 import { forbiddenReason } from './guard'
 import { PROJECT_READER, READER_TYPE, askProject, askSession, deliverHelperFacts } from './helpers'
@@ -88,10 +79,7 @@ export const register: Register = (on, options) => {
   )
 }
 
-async function resolvedPathReason(
-  $: EngineInterface,
-  e: { readonly tool: unknown },
-): Promise<string | null> {
+async function resolvedPathReason($: EngineInterface, e: { readonly tool: unknown }): Promise<string | null> {
   if (String(e.tool).startsWith(TOOL_PREFIX)) return null
   const path = (e as { file_path?: unknown; path?: unknown }).file_path ?? (e as { path?: unknown }).path
   if (typeof path !== 'string' || path === '') return null

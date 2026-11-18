@@ -185,7 +185,18 @@ export const REQUEST = {
   conversationId: 'conv_cccccccccccccccc',
   inReplyTo: NOTE_ID,
   instruction: 'Say yes, but only after 6pm.',
+  answers: WRAPPED as string | null,
+}
+
+export const REQUEST_EVENT = {
+  id: REQUEST_ID,
+  conversationId: REQUEST.conversationId,
+  inReplyTo: NOTE_ID,
+  instruction: REQUEST.instruction,
   agentId: null,
+  createdAt: 1,
+  expiresAt: 2,
+  cancelledAt: null,
   draftIds: [] as string[],
 }
 

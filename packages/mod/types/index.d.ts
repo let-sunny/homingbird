@@ -26,6 +26,7 @@ export type HomingbirdDraftRequest = {
   conversationId: string
   inReplyTo: string | null
   instruction: string
+  answers: string | null
 }
 
 export type HomingbirdOverview = {

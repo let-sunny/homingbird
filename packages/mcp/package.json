@@ -15,10 +15,7 @@
   "bin": {
     "homingbird-mcp": "./dist/homingbird-mcp.mjs"
   },
-  "files": [
-    "dist",
-    "README.md"
-  ],
+  "files": ["dist", "README.md"],
   "scripts": {
     "build": "tsx build.ts"
   }

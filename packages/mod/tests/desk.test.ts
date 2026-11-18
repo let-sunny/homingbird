@@ -8,6 +8,7 @@ import {
   NOTE_ID,
   OVERVIEW,
   REQUEST,
+  REQUEST_EVENT,
   START,
   WRAPPED,
   engineBeneath,
@@ -114,15 +115,27 @@ test('the stream repeating a note does not prompt twice', async ($, on) => {
   expect(seen.commands.filter((args) => args[0] === 'pickup')).toEqual([['pickup', NOTE_ID]])
 })
 
-test('a draft request from the web client wakes the desk with the request', async ($, on) => {
+test('a draft request from the web client wakes the desk with the request and the note it answers', async ($, on) => {
   const seen = engineBeneath(on, {
     overview: OVERVIEW,
-    streamLines: [streamLine({ type: 'draft.requested', request: REQUEST })],
+    requests: { requests: [REQUEST] },
+    streamLines: [streamLine({ type: 'draft.requested', request: REQUEST_EVENT })],
   })
   await $.session.start(START)
   await openDesk($, seen)
   expect(seen.prompts).toEqual([requestPromptFor(REQUEST)])
+  expect(seen.prompts[0]?.endsWith(WRAPPED)).toBe(true)
   expect(seen.notifications).toContain('Drafting what you asked for.')
+})
+
+test('a draft request still wakes the desk when the command line cannot list requests', async ($, on) => {
+  const seen = engineBeneath(on, {
+    overview: OVERVIEW,
+    streamLines: [streamLine({ type: 'draft.requested', request: REQUEST_EVENT })],
+  })
+  await $.session.start(START)
+  await openDesk($, seen)
+  expect(seen.prompts).toEqual([requestPromptFor({ ...REQUEST, answers: null })])
 })
 
 test('a saved draft notifies the person that it waits for approval', async ($, on) => {
@@ -144,7 +157,9 @@ test('the desk catches up on waiting notes and open requests, skipping notes tha
   }
   const seen = engineBeneath(on, {
     overview: { ...OVERVIEW, awaiting: [answered, fresh] },
-    requests: { requests: [REQUEST, { ...REQUEST, id: 'dreq_ssssssssssssssss', draftIds: [DRAFT.id] }] },
+    requests: {
+      requests: [REQUEST, { ...REQUEST_EVENT, id: 'dreq_ssssssssssssssss', draftIds: [DRAFT.id] }],
+    },
     holdsStream: true,
   })
   await $.session.start(START)
@@ -199,7 +214,7 @@ test('nothing the desk does on its own approves or discards', async ($, on) => {
       ...OVERVIEW,
       awaiting: [{ noteId: NOTE_ID, from: { name: 'Ana', email: 'a@x' }, wrapped: WRAPPED }],
     },
-    streamLines: [ARRIVAL, streamLine({ type: 'draft.requested', request: REQUEST })],
+    streamLines: [ARRIVAL, streamLine({ type: 'draft.requested', request: REQUEST_EVENT })],
     requests: { requests: [REQUEST] },
   })
   await $.session.start(START)

@@ -40,7 +40,10 @@ test("a draft request prompt quotes the person's instruction and names the reque
   expect(prompt).toContain(`requestId "${REQUEST.id}"`)
   expect(prompt).toContain(JSON.stringify(REQUEST.instruction))
   expect(prompt).toContain(`as a reply to note "${REQUEST.inReplyTo}"`)
-  expect(requestPromptFor({ ...REQUEST, instruction: ' ', inReplyTo: null })).toContain('no instruction')
+  expect(requestPromptFor({ ...REQUEST, instruction: ' ', inReplyTo: null, answers: null })).toContain(
+    'no instruction',
+  )
+  expect(prompt.endsWith(REQUEST.answers ?? '')).toBe(true)
 })
 
 test('the helper prompt names its directory on the first line, and nothing else does', () => {

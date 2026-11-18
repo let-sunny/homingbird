@@ -23,6 +23,7 @@ export const requestPromptFor = (request: HomingbirdDraftRequest): string =>
     `Then call the answer_draft_request tool with requestId "${request.id}".`,
     PROJECT_CONTEXT,
     DRAFT_IS_NOT_SENT,
+    ...(request.answers === null ? [] : ['', 'The note it answers:', request.answers]),
   ].join('\n')
 
 export const replyPromptFor = (wrappedNote: string): string =>

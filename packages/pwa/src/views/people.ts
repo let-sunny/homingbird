@@ -66,7 +66,7 @@ const personCard = (entry: DirectoryEntry): HTMLElement =>
       h(
         'details',
         { class: 'person-profile', open: entry.member.profile !== '' },
-        h('summary', {}, strings.profileAgent),
+        h('summary', {}, strings.profileAbout),
         h('p', {}, entry.member.profile || strings.noProfile),
       ),
     ),

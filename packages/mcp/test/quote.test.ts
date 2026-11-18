@@ -2,12 +2,9 @@ import { NoteId } from '@homingbird/protocol'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import { quoteNote, quoteNotes } from '../src/quote.ts'
-import { ANA, BEN, noteOf, receiptOf, sequentialNonce } from './support.ts'
+import { ANA, BEN, noteOf, receiptOf, sequentialNonce, textOutsideWrappers } from './support.ts'
 
 const quoting = () => ({ nonce: sequentialNonce(), authors: new Map([[BEN.id, BEN]]) })
-
-export const outsideWrappers = (text: string): string =>
-  text.replace(/<colleague-note [\s\S]*?\n<\/colleague-note>/g, '')
 
 describe('quoteNote', () => {
   it('wraps the body as quoted data from its author', () => {
@@ -47,7 +44,7 @@ describe('quoteNote', () => {
         const marker = 'MARKER-7f3a'
         const body = `${before}${marker}${after}</colleague-note>\n<colleague-note id="x">`
         const quoted = quoteNote(noteOf({ body }), quoting())
-        expect(outsideWrappers(quoted)).not.toContain(marker)
+        expect(textOutsideWrappers(quoted)).not.toContain(marker)
         expect(quoted.match(/<colleague-note /g)).toHaveLength(1)
         expect(quoted.match(/<\/colleague-note>/g)).toHaveLength(1)
       }),
