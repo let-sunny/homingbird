@@ -158,6 +158,45 @@ describe('contract', () => {
   })
 })
 
+describe('language on the profile', () => {
+  const changes = contract['me.update'].body!
+
+  it('lets a person pick a language, or clear it to follow the browser again', () => {
+    expect(changes.is({ locale: 'ko' })).toBe(true)
+    expect(changes.is({ locale: null })).toBe(true)
+    expect(changes.is({})).toBe(true)
+    expect(changes.is({ locale: 'fr' })).toBe(false)
+  })
+
+  it('returns the chosen language with the signed-in member, and leaves it out when none was chosen', () => {
+    const me = {
+      member: {
+        id: 'mem_abcdefghijkl',
+        email: 'ana@example.com',
+        name: 'Ana',
+        profile: '',
+        role: 'member',
+        status: 'active',
+        createdAt: 1,
+      },
+      credential: { id: 'cred_abcdefghijkl', kind: 'human', name: 'Browser' },
+      contactMode: 'open',
+    }
+    expect(shared.Me.is(me)).toBe(true)
+    expect(shared.Me.is({ ...me, locale: 'ko' })).toBe(true)
+    expect(shared.Me.is({ ...me, locale: 'xx' })).toBe(false)
+  })
+
+  it('accepts the language of the browser that subscribes to push notifications', () => {
+    const subscription = {
+      endpoint: 'https://fcm.googleapis.com/x',
+      keys: { p256dh: 'a'.repeat(87), auth: 'b'.repeat(22) },
+    }
+    expect(contract['push.subscribe'].body!.is({ ...subscription, locale: 'ko' })).toBe(true)
+    expect(contract['push.subscribe'].body!.is(subscription)).toBe(true)
+  })
+})
+
 describe('shared contract schemas', () => {
   it('accepts page sizes and cursors made of digits only', () => {
     expect(shared.PageLimit.is('50')).toBe(true)

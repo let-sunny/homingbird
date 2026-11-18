@@ -16,6 +16,11 @@ export type Role = S.Infer<typeof Role>
 export const MemberStatus = S.literal('active', 'deactivated')
 export type MemberStatus = S.Infer<typeof MemberStatus>
 
+export const LOCALES = ['en', 'ko'] as const
+export const Locale = S.literal(...LOCALES)
+export type Locale = S.Infer<typeof Locale>
+export const DEFAULT_LOCALE: Locale = 'en'
+
 export const Member = S.struct({
   id: MemberId,
   email: S.string({ maxLength: 320 }),

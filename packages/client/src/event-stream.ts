@@ -28,7 +28,11 @@ export const eventStream = (
       let failed = false
       try {
         const source =
-          transport === 'sse' ? streamOnce(options, cursor, signal) : pollOnce(options, cursor ?? 0, signal)
+          transport === 'sse'
+            ? streamOnce(options, cursor, signal)
+            : pollOnce(options, cursor ?? 0, signal, (resumeAt) => {
+                cursor = resumeAt
+              })
         for await (const event of source) {
           delivered = true
           if (event.seq > 0) cursor = event.seq
@@ -75,6 +79,7 @@ const pollOnce = async function* (
   options: EventStreamOptions,
   cursor: number,
   signal: AbortSignal,
+  resumeAt: (cursor: number) => void,
 ): AsyncGenerator<StreamEvent> {
   const response = await fetchOf(options)(
     `${base(options)}${STREAM_PATHS.poll}?after=${cursor}&wait=${POLL_WAIT_MAX_SECONDS}`,
@@ -85,11 +90,13 @@ const pollOnce = async function* (
     },
   )
   if (!response.ok) throw new Error(`poll refused with status ${response.status}`)
-  const payload = (await response.json()) as { events?: ReadonlyArray<unknown> }
+  const payload = (await response.json()) as { events?: ReadonlyArray<unknown>; cursor?: unknown }
   for (const raw of payload.events ?? []) {
     const event = StreamEvent.decode(raw)
     if (event._tag === 'Ok') yield event.value
   }
+  const next = payload.cursor
+  if (typeof next === 'number' && Number.isSafeInteger(next) && next >= 0) resumeAt(next)
 }
 
 const decodedChunks = async function* (body: ReadableStream<Uint8Array>): AsyncGenerator<string> {

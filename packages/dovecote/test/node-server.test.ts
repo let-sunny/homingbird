@@ -1,5 +1,7 @@
 import { connect } from 'node:net'
+import { Task as T } from '@homingbird/kernel'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { REPLAY_LIMIT, emit, transact } from '../src/events/events.ts'
 import { type RunningServer, startServer } from '../src/http/node-server.ts'
 import { OPCODE, decodeClientFrames, encodeFrame } from '../src/http/websocket.ts'
 import { type Agent, type Session, type TestServer, connectAgent, startTestServer } from './harness.ts'
@@ -86,6 +88,26 @@ const until = async (condition: () => boolean): Promise<void> => {
   expect(condition()).toBe(true)
 }
 
+const backlog = async (count: number): Promise<number> => {
+  const from = (await ben.api('GET', '/events/poll?after=999999999')).json.cursor
+  await T.runPromise(
+    transact(
+      T.gen(function* () {
+        for (let index = 0; index < count; index++)
+          yield* emit([ben.me.member.id], { type: 'contact.changed', memberId: ana.me.member.id })
+      }),
+    ),
+    server.env,
+  )
+  return from
+}
+
+const eventually = async (condition: () => boolean): Promise<void> => {
+  for (let attempt = 0; attempt < 1_000 && !condition(); attempt++)
+    await new Promise((r) => setTimeout(r, 5))
+  expect(condition()).toBe(true)
+}
+
 describe('over a real socket', () => {
   it('serves the JSON API and the health check', async () => {
     expect(await (await fetch(`${origin}/healthz`)).json()).toEqual({ status: 'ok' })
@@ -157,6 +179,32 @@ describe('over a real socket', () => {
     ws.socket.write(maskedFrame(OPCODE.close, Buffer.alloc(0)))
     await ws.closed
     await until(() => !server.env.hub.presenceOf(ben.me.member.id).agentOnline)
+  })
+
+  it.each([
+    ['exactly the replay limit', REPLAY_LIMIT],
+    ['one over the replay limit', REPLAY_LIMIT + 1],
+    ['far over the replay limit', REPLAY_LIMIT * 3 + 7],
+  ])('replays a backlog of %s over a WebSocket before the live events', async (_, count) => {
+    const from = await backlog(count)
+    const ws = await upgrade(
+      { authorization: `Bearer ${benAgent.token}`, 'sec-websocket-key': 'dGhlIHNhbXBsZSBub25jZQ==' },
+      `/api/v1/events/ws?after=${from}`,
+    )
+    const events = () =>
+      ws
+        .frames()
+        .filter((frame) => frame[0] === OPCODE.text)
+        .map((frame) => JSON.parse(frame.subarray(1).toString()))
+    await eventually(() => events().length >= count)
+    await sendNote('live')
+    await eventually(() => events().length >= count + 1)
+    expect(events().map((event) => event.seq)).toEqual(
+      Array.from({ length: count + 1 }, (_, index) => from + index + 1),
+    )
+    expect(events().at(-1).body.type).toBe('note.sent')
+    ws.socket.write(maskedFrame(OPCODE.close, Buffer.alloc(0)))
+    await ws.closed
   })
 
   it('accepts a browser session cookie from its own origin only', async () => {

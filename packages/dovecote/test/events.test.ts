@@ -1,7 +1,14 @@
 import { Task as T } from '@homingbird/kernel'
 import { HEARTBEAT_SECONDS } from '@homingbird/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { deleteEventsBefore, eventsAfter, liveEvents } from '../src/events/events.ts'
+import {
+  REPLAY_LIMIT,
+  deleteEventsBefore,
+  emit,
+  eventsAfter,
+  liveEvents,
+  transact,
+} from '../src/events/events.ts'
 import { makeHub } from '../src/events/hub.ts'
 import {
   type Agent,
@@ -42,6 +49,32 @@ const frames = async (response: { raw: { body: unknown } }, count: number): Prom
   return collected
 }
 
+const latestSequence = async (): Promise<number> =>
+  (await ben.api('GET', '/events/poll?after=999999999')).json.cursor
+
+const backlog = async (count: number): Promise<number> => {
+  const from = await latestSequence()
+  await T.runPromise(
+    transact(
+      T.gen(function* () {
+        for (let index = 0; index < count; index++)
+          yield* emit([ben.me.member.id], { type: 'contact.changed', memberId: ana.me.member.id })
+      }),
+    ),
+    server.env,
+  )
+  return from
+}
+
+const counting = (from: number, count: number): number[] =>
+  Array.from({ length: count }, (_, index) => from + index + 1)
+
+const BACKLOGS: ReadonlyArray<readonly [string, number]> = [
+  ['exactly the replay limit', REPLAY_LIMIT],
+  ['one over the replay limit', REPLAY_LIMIT + 1],
+  ['far over the replay limit', REPLAY_LIMIT * 3 + 7],
+]
+
 describe('the durable event log', () => {
   it('numbers each member’s events from one and resumes after a cursor', async () => {
     await sendNote('one')
@@ -79,6 +112,22 @@ describe('the durable event log', () => {
 })
 
 describe('long-polling', () => {
+  it.each(BACKLOGS)('pages a backlog of %s to the end without skipping an event', async (_, count) => {
+    const from = await backlog(count)
+    const seen: number[] = []
+    let cursor = from
+    for (let page = 0; page < 10; page++) {
+      const answer = (await ben.api('GET', `/events/poll?after=${cursor}`)).json
+      if (answer.events.length === 0) break
+      expect(answer.events.length).toBeLessThanOrEqual(REPLAY_LIMIT)
+      seen.push(...answer.events.map((event: any) => event.seq))
+      cursor = answer.cursor
+    }
+    expect(seen).toEqual(counting(from, count))
+    expect(cursor).toBe(from + count)
+  })
+
+
   it('holds the request until an event arrives', async () => {
     let answered = false
     const waiting = ben.api('GET', '/events/poll?after=0&wait=25').then((response) => {
@@ -176,6 +225,89 @@ describe('the event stream', () => {
 
   it('refuses a stream without a credential', async () => {
     expect((await server.request('GET', '/api/v1/events/stream')).status).toBe(401)
+  })
+
+  it.each(BACKLOGS)(
+    'replays a backlog of %s in full before the live events',
+    async (_, count) => {
+      const from = await backlog(count)
+      const hangUp = new AbortController()
+      const stream = await server.request('GET', `/api/v1/events/stream?after=${from}`, {
+        token: benAgent.token,
+        signal: hangUp.signal,
+      })
+      const pending = frames(stream, count + 1)
+      await server.clock.flush()
+      await sendNote('live')
+      const received = await pending
+      expect(received.map((frame) => Number(/^id: (\d+)/.exec(frame)?.[1]))).toEqual(
+        counting(from, count + 1),
+      )
+      expect(received.at(-1)).toContain('"live"')
+      expect(received.some((frame) => frame.includes('event: resync'))).toBe(false)
+      hangUp.abort()
+    },
+  )
+
+  it('delivers events published while the backlog is replayed exactly once, in order', async () => {
+    const from = await backlog(REPLAY_LIMIT * 2 + 3)
+    const hangUp = new AbortController()
+    const live = await T.runPromise(liveEvents(ben.me.member.id, 'agent', from, hangUp.signal), server.env)
+    const iterator = live[Symbol.asyncIterator]()
+    const seen: number[] = []
+    const read = async (count: number) => {
+      for (let index = 0; index < count; index++) seen.push((await iterator.next()).value!.seq)
+    }
+    await read(10)
+    await backlog(4)
+    await read(REPLAY_LIMIT)
+    await backlog(2)
+    await read(REPLAY_LIMIT * 2 + 3 + 4 + 2 - 10 - REPLAY_LIMIT)
+    await backlog(1)
+    await read(1)
+    expect(seen).toEqual(counting(from, REPLAY_LIMIT * 2 + 3 + 4 + 2 + 1))
+    hangUp.abort()
+    expect((await iterator.next()).done).toBe(true)
+  })
+
+  it('tells the client to resync when events are trimmed in the middle of a replay', async () => {
+    const from = await backlog(REPLAY_LIMIT * 2)
+    const hangUp = new AbortController()
+    const live = await T.runPromise(liveEvents(ben.me.member.id, 'agent', from, hangUp.signal), server.env)
+    const iterator = live[Symbol.asyncIterator]()
+    const seen: number[] = []
+    for (let index = 0; index < REPLAY_LIMIT; index++) seen.push((await iterator.next()).value!.seq)
+    await T.runPromise(deleteEventsBefore(server.clock.now() + 1), server.env)
+    const told = (await iterator.next()).value!
+    expect(told.body.type).toBe('resync')
+    await backlog(1)
+    expect((await iterator.next()).value!.seq).toBe(from + REPLAY_LIMIT * 2 + 1)
+    expect(seen).toEqual(counting(from, REPLAY_LIMIT))
+    hangUp.abort()
+  })
+
+  it('ends instead of going live when it is interrupted between two pages', async () => {
+    const from = await backlog(REPLAY_LIMIT + 1)
+    const hangUp = new AbortController()
+    const live = await T.runPromise(liveEvents(ben.me.member.id, 'agent', from, hangUp.signal), server.env)
+    const iterator = live[Symbol.asyncIterator]()
+    for (let index = 0; index < REPLAY_LIMIT; index++) await iterator.next()
+    hangUp.abort()
+    expect(await iterator.next()).toEqual({ done: true, value: undefined })
+    expect(server.env.hub.presenceOf(ben.me.member.id).agentOnline).toBe(false)
+  })
+
+  it('stops counting the client online when it stops reading in the middle of a replay', async () => {
+    const from = await backlog(3)
+    const live = await T.runPromise(
+      liveEvents(ben.me.member.id, 'agent', from, new AbortController().signal),
+      server.env,
+    )
+    const iterator = live[Symbol.asyncIterator]()
+    await iterator.next()
+    expect(server.env.hub.presenceOf(ben.me.member.id).agentOnline).toBe(true)
+    await iterator.return!(undefined)
+    expect(server.env.hub.presenceOf(ben.me.member.id).agentOnline).toBe(false)
   })
 
   it('skips live events that the replay already covered', async () => {

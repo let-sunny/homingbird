@@ -25,6 +25,7 @@ describe('wire model', () => {
         'CredentialKind',
         'DirectoryEntry',
         'DraftRequest',
+        'Locale',
         'Member',
         'MemberStatus',
         'Note',
@@ -107,5 +108,12 @@ describe('wire model', () => {
     expect(model.CredentialKind.is('human')).toBe(true)
     expect(model.CredentialKind.is('agent')).toBe(true)
     expect(model.CredentialKind.is('admin')).toBe(false)
+  })
+  it('offers English first, as the default, and Korean', () => {
+    expect(model.LOCALES).toEqual(['en', 'ko'])
+    expect(model.DEFAULT_LOCALE).toBe('en')
+    expect(model.Locale.is('ko')).toBe(true)
+    expect(model.Locale.is('ko-KR')).toBe(false)
+    expect(model.Locale.is('fr')).toBe(false)
   })
 })

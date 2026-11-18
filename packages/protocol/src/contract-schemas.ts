@@ -1,6 +1,6 @@
 import { Schema as S } from '@homingbird/kernel'
 import { CredentialId, MemberId } from './ids.ts'
-import { ContactMode, Conversation, CredentialKind, Member, Note } from './model.ts'
+import { ContactMode, Conversation, CredentialKind, Locale, Member, Note } from './model.ts'
 
 export const Empty = S.struct({})
 export const Digits = S.string({ pattern: /^[0-9]{1,15}$/ })
@@ -39,5 +39,6 @@ export const Me = S.struct({
   member: Member,
   credential: S.struct({ id: CredentialId, kind: CredentialKind, name: S.string() }),
   contactMode: ContactMode,
+  locale: S.optional(Locale),
 })
 export type Me = S.Infer<typeof Me>

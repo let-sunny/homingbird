@@ -96,15 +96,28 @@ export const liveEvents = (
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
     const subscription = env.hub.subscribe(memberId, kind, signal)
-    const replay = after === null ? { events: [], cursor: 0 } : yield* eventsAfter(memberId, after)
+    const firstPage = after === null ? null : yield* eventsAfter(memberId, after)
     return {
       async *[Symbol.asyncIterator]() {
-        yield* replay.events
-        for await (const event of subscription) {
-          if (event.seq !== 0 && event.seq <= replay.cursor) continue
-          yield event
+        try {
+          let cursor = 0
+          let page = firstPage
+          while (page !== null) {
+            yield* page.events
+            cursor = page.cursor
+            if (page.events.length < REPLAY_LIMIT) break
+            const next = await T.run(eventsAfter(memberId, cursor), env, signal)
+            if (next._tag === 'Err') return
+            page = next.value
+          }
+          for await (const event of subscription) {
+            if (event.seq !== 0 && event.seq <= cursor) continue
+            yield event
+          }
+          if (subscription.overflowed()) yield resync(env.clock.now())
+        } finally {
+          subscription.close()
         }
-        if (subscription.overflowed()) yield resync(env.clock.now())
       },
     }
   })
@@ -132,10 +145,10 @@ export const waitForEvents = (
     )
   })
 
+export const REPLAY_LIMIT = 500
+
 export const deleteEventsBefore = (cutoff: number): T.Task<number, never, AppEnv> =>
   run(sql`DELETE FROM events WHERE created_at < ${cutoff}`)
-
-const REPLAY_LIMIT = 500
 
 interface EventRow {
   readonly seq: number

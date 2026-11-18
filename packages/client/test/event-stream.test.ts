@@ -161,6 +161,29 @@ describe('eventStream', () => {
     await done
   })
 
+  it('resumes a long-poll from the cursor the server answers, so a resync is delivered once', async () => {
+    const resync: StreamEvent = { seq: 0, at: 1, body: { type: 'resync' } }
+    const { fetch, calls } = scripted([
+      refused,
+      refused,
+      refused,
+      () => new Response(JSON.stringify({ events: [resync], cursor: 40 }), { status: 200 }),
+      () => new Response(JSON.stringify({ events: [], cursor: -1 }), { status: 200 }),
+      () => new Response(JSON.stringify({ events: [], cursor: 'soon' }), { status: 200 }),
+    ])
+    const { clock, events, stop, done } = listen(fetch)
+    await clock.advance(500 + 1_000 + 2_000)
+    expect(events).toEqual([resync])
+    expect(calls[4]!.url).toBe('https://hb.test/api/v1/events/poll?after=40&wait=25')
+    await clock.advance(1_000)
+    expect(calls[5]!.url).toBe('https://hb.test/api/v1/events/poll?after=40&wait=25')
+    await clock.advance(1_000)
+    expect(calls[6]!.url).toBe('https://hb.test/api/v1/events/poll?after=40&wait=25')
+    expect(events).toEqual([resync])
+    stop.abort()
+    await done
+  })
+
   it('starts the backoff over once a stream has delivered again', async () => {
     const { fetch, calls } = scripted([refused, refused, () => streamOf(frame(presence(1))), refused])
     const { clock, stop, done } = listen(fetch)

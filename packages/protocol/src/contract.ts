@@ -21,6 +21,7 @@ import {
   DRAFT_INSTRUCTION_MAX,
   DirectoryEntry,
   DraftRequest,
+  Locale,
   Member,
   MemberStatus,
   Note,
@@ -40,6 +41,7 @@ export const PushSubscription = S.struct({
     p256dh: S.string({ pattern: /^[A-Za-z0-9_-]{80,100}$/ }),
     auth: S.string({ pattern: /^[A-Za-z0-9_-]{16,32}$/ }),
   }),
+  locale: S.optional(Locale),
 })
 export type PushSubscription = S.Infer<typeof PushSubscription>
 
@@ -55,6 +57,7 @@ export const contract = {
     body: S.struct({
       name: S.optional(S.string({ minLength: 1, maxLength: 200 })),
       profile: S.optional(S.string({ maxLength: PROFILE_MAX })),
+      locale: S.optional(S.nullable(Locale)),
     }),
     response: Member,
   }),
