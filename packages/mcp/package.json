@@ -1,6 +1,6 @@
 {
   "name": "@homingbird/mcp",
-  "version": "0.1.0-rc.2",
+  "version": "0.1.0-rc.3",
   "description": "MCP adapter for Homingbird: lets any MCP client read and draft notes. A human approves every note.",
   "license": "MIT",
   "author": "Minseon Kim (https://github.com/let-sunny)",

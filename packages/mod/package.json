@@ -1,6 +1,6 @@
 {
   "name": "@homingbird/mod",
-  "version": "0.1.0-rc.2",
+  "version": "0.1.0-rc.3",
   "description": "The Homingbird mod for Claude Code: a desk pane where you approve every note. Install it with /plugin install homingbird --marketplace let-sunny/homingbird.",
   "license": "MIT",
   "author": "Minseon Kim (https://github.com/let-sunny)",

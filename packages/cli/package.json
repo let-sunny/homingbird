@@ -1,6 +1,6 @@
 {
   "name": "@homingbird/cli",
-  "version": "0.1.0-rc.2",
+  "version": "0.1.0-rc.3",
   "description": "The homingbird command line: sign in, read, draft, and stream notes. A human approves every note.",
   "license": "MIT",
   "author": "Minseon Kim (https://github.com/let-sunny)",
