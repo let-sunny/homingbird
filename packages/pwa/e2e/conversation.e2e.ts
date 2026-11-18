@@ -218,7 +218,10 @@ const scenario = async (): Promise<void> => {
     await ana.page.waitForFunction(pendingDraftsAre, 1)
     await capture(ana.page, 'after-discarding')
 
-    await ana.page.locator('.draft', { hasText: 'report back' }).getByRole('button', { name: 'Send' }).click()
+    await ana.page
+      .locator('.draft', { hasText: 'report back' })
+      .getByRole('button', { name: 'Send', exact: true })
+      .click()
     await ana.page.waitForFunction(pendingDraftsAre, 0)
     await ana.page.waitForSelector('.origin.is-agent')
     await capture(ana.page, 'origin-badges-human-edited-and-agent')
@@ -251,7 +254,10 @@ const scenario = async (): Promise<void> => {
     await capture(ana.page, 'new-topic-room-in-the-sidebar')
 
     await june.page.goto(`${base}/#/topics`)
-    await june.page.locator('.topic-card[data-slug="billing"]').getByRole('button', { name: 'Help' }).click()
+    await june.page
+      .locator('.topic-card[data-slug="billing"]')
+      .getByRole('button', { name: 'Help', exact: true })
+      .click()
     await june.page.waitForSelector('.topic-card.is-helping[data-slug="billing"]')
     await june.page.fill('input[name=q]', 'refund')
     await june.page.waitForFunction(
@@ -287,7 +293,7 @@ const scenario = async (): Promise<void> => {
     await capture(june.page, 'helper-sees-the-question-with-its-author')
     await june.page
       .locator('.note', { hasText: 'refund rule' })
-      .getByRole('button', { name: 'Reply' })
+      .getByRole('button', { name: 'Reply', exact: true })
       .click()
     await june.page.fill('.composer textarea', 'Annual plans are refunded pro rata for the unused months.')
     await june.page.click('.composer button[type=submit]')
@@ -324,7 +330,7 @@ const scenario = async (): Promise<void> => {
     await ana.page.click('dialog[open] button[type=submit]')
     await ana.page.waitForSelector('.goes-to:has-text("Goes to #billing · 2 helpers")')
     await capture(ana.page, 'draft-readdressed-to-another-topic')
-    await ana.page.locator('.draft').getByRole('button', { name: 'Send' }).click()
+    await ana.page.locator('.draft').getByRole('button', { name: 'Send', exact: true }).click()
     await ana.page.waitForFunction(pendingDraftsAre, 0)
     await ana.page.waitForSelector('.note-body:has-text("maintenance window")')
 

@@ -1,11 +1,10 @@
-import { read, update } from 'claude-code'
+import { atom, read, update } from 'claude-code'
 import type { EngineInterface, PluginOptions } from 'claude-code'
 
 import type { HomingbirdDraftRequest, HomingbirdOverview } from '../types'
 import { commandOf, lastJsonLine, run, runJson } from './command-line'
 import { autoDraftOf, notePromptFor, replyIn, replyPromptFor, requestPromptFor } from './drafting'
 import { PANE, paneTitleFor } from './pane'
-import { connection, desk as deskRole, editing, overview, problem, requests, signIn } from './state'
 
 export interface Desk {
   readonly options: PluginOptions
@@ -25,7 +24,7 @@ export const makeDesk = (options: PluginOptions): Desk => ({
   lastSequence: null,
 })
 
-export const openDesk = async ($: Engine, desk: Desk): Promise<void> => {
+export async function openDesk($: Engine, desk: Desk): Promise<void> {
   await update($, problem, () => null)
   const latest = await refresh($, desk)
   if (latest !== null) return claimDesk($, desk)
@@ -33,13 +32,13 @@ export const openDesk = async ($: Engine, desk: Desk): Promise<void> => {
   if ((await read($, connection)) === 'signed-out' && server !== '') void beginSignIn($, desk, server)
 }
 
-export const resumeDesk = async ($: Engine, desk: Desk): Promise<void> => {
+export async function resumeDesk($: Engine, desk: Desk): Promise<void> {
   if (!(await holdsDesk($))) return
   void $.ui.open({ id: PANE, title: 'Homingbird' })
   if ((await refresh($, desk)) !== null) await claimDesk($, desk)
 }
 
-export const claimDesk = async ($: Engine, desk: Desk): Promise<void> => {
+export async function claimDesk($: Engine, desk: Desk): Promise<void> {
   await $.store.set(DESK_KEY, { sessionId: await $.session.id(), claimedAt: await $.clock.now() })
   await update($, deskRole, () => 'desk')
   desk.heartbeat?.cancel()
@@ -48,7 +47,7 @@ export const claimDesk = async ($: Engine, desk: Desk): Promise<void> => {
   await catchUp($, desk)
 }
 
-export const beginSignIn = async ($: Engine, desk: Desk, server: string): Promise<void> => {
+export async function beginSignIn($: Engine, desk: Desk, server: string): Promise<void> {
   await update($, problem, () => null)
   try {
     for await (const line of linesOf($.process.spawn({ argv: loginArgv(desk, server) }))) {
@@ -73,7 +72,7 @@ export const beginSignIn = async ($: Engine, desk: Desk, server: string): Promis
   if ((await refresh($, desk)) !== null) await claimDesk($, desk)
 }
 
-export const decide = async ($: Engine, desk: Desk, args: ReadonlyArray<string>): Promise<void> => {
+export async function decide($: Engine, desk: Desk, args: ReadonlyArray<string>): Promise<void> {
   const ran = await runJson($, desk.options, args)
   await update($, editing, () => null)
   if (ran.kind === 'signed-out') await update($, problem, () => NO_APPROVE_BUTTON)
@@ -81,7 +80,7 @@ export const decide = async ($: Engine, desk: Desk, args: ReadonlyArray<string>)
   await refresh($, desk)
 }
 
-export const refresh = async ($: Engine, desk: Desk): Promise<HomingbirdOverview | null> => {
+export async function refresh($: Engine, desk: Desk): Promise<HomingbirdOverview | null> {
   const ran = await runJson($, desk.options, ['overview'])
   if (ran.kind === 'unavailable') return settle($, ran.message, true)
   if (ran.kind !== 'ok' && ran.kind !== 'signed-out') return settle($, ran.message, false)
@@ -95,7 +94,7 @@ export const refresh = async ($: Engine, desk: Desk): Promise<HomingbirdOverview
   return latest
 }
 
-export const wrappedNoteFor = async ($: Engine, desk: Desk, noteId: string): Promise<string | null> => {
+export async function wrappedNoteFor($: Engine, desk: Desk, noteId: string): Promise<string | null> {
   const known = desk.wrappedNotes.get(noteId)
   if (known !== undefined) return known
   const latest = await refresh($, desk)
@@ -106,36 +105,39 @@ export const DESK_KEY = 'desk'
 
 type Engine = EngineInterface
 
-const holdsDesk = async ($: Engine): Promise<boolean> => {
+async function holdsDesk($: Engine): Promise<boolean> {
   const claim = (await $.store.get(DESK_KEY)) as { sessionId?: unknown } | undefined
   return claim?.sessionId === (await $.session.id())
 }
 
-const checkIn = async ($: Engine, desk: Desk): Promise<void> => {
+async function checkIn($: Engine, desk: Desk): Promise<void> {
   if (!(await holdsDesk($))) return standDown($, desk)
   await refresh($, desk)
   if (desk.stream === null) void follow($, desk)
 }
 
-const standDown = async ($: Engine, desk: Desk): Promise<void> => {
+async function standDown($: Engine, desk: Desk): Promise<void> {
   desk.heartbeat?.cancel()
   desk.heartbeat = null
   const stream = desk.stream
   desk.stream = null
-  await stream?.return(undefined)
+  void stream?.return(undefined).catch(() => undefined)
   await update($, deskRole, () => 'moved')
   await update($, connection, () => 'idle')
   $.ui.status(undefined)
 }
 
-const follow = async ($: Engine, desk: Desk): Promise<void> => {
+async function follow($: Engine, desk: Desk): Promise<void> {
   if (desk.stream !== null) return
   const after = desk.lastSequence === null ? [] : ['--after', String(desk.lastSequence)]
   const stream = $.process.spawn({ argv: [...commandOf(desk.options), 'stream', '--json', ...after] })
   desk.stream = stream
   await update($, connection, () => 'live')
   try {
-    for await (const line of linesOf(stream)) await arrived($, desk, line)
+    for await (const line of linesOf(stream)) {
+      if (desk.stream !== stream) break
+      await arrived($, desk, line)
+    }
   } catch {
     await update($, problem, () => 'The live stream stopped. Reconnecting in half a minute.')
   }
@@ -144,7 +146,7 @@ const follow = async ($: Engine, desk: Desk): Promise<void> => {
   if ((await read($, deskRole)) === 'desk') await update($, connection, () => 'reconnecting')
 }
 
-const arrived = async ($: Engine, desk: Desk, line: string): Promise<void> => {
+async function arrived($: Engine, desk: Desk, line: string): Promise<void> {
   const parsed = lastJsonLine(line) as StreamLine | null
   const event = parsed?.event
   if (typeof event?.seq === 'number') desk.lastSequence = event.seq
@@ -174,7 +176,7 @@ const arrived = async ($: Engine, desk: Desk, line: string): Promise<void> => {
   if (body?.type === 'resync') await catchUp($, desk)
 }
 
-const catchUp = async ($: Engine, desk: Desk): Promise<void> => {
+async function catchUp($: Engine, desk: Desk): Promise<void> {
   const latest = await read($, overview)
   for (const waiting of latest?.awaiting ?? []) {
     if (latest?.drafts.some((draft) => draft.inReplyTo === waiting.noteId)) continue
@@ -191,7 +193,7 @@ const catchUp = async ($: Engine, desk: Desk): Promise<void> => {
   for (const request of open) await answerRequest($, desk, request)
 }
 
-const draftReply = async ($: Engine, desk: Desk, noteId: string, wrappedNote: string): Promise<void> => {
+async function draftReply($: Engine, desk: Desk, noteId: string, wrappedNote: string): Promise<void> {
   const mode = autoDraftOf(desk.options.autoDraft)
   if (mode === 'off' || desk.handled.has(noteId)) return
   desk.handled.add(noteId)
@@ -203,7 +205,7 @@ const draftReply = async ($: Engine, desk: Desk, noteId: string, wrappedNote: st
   if (drafted.kind === 'ok') await refresh($, desk)
 }
 
-const answerRequest = async ($: Engine, desk: Desk, request: HomingbirdDraftRequest): Promise<void> => {
+async function answerRequest($: Engine, desk: Desk, request: HomingbirdDraftRequest): Promise<void> {
   await update($, requests, (open) => [...open.filter((one) => one.id !== request.id), request])
   if (autoDraftOf(desk.options.autoDraft) === 'off' || desk.handled.has(request.id)) return
   desk.handled.add(request.id)
@@ -211,7 +213,7 @@ const answerRequest = async ($: Engine, desk: Desk, request: HomingbirdDraftRequ
   await $.prompt.submit({ text: requestPromptFor(request) })
 }
 
-const suggestReply = async ($: Engine, prompt: string): Promise<string> => {
+async function suggestReply($: Engine, prompt: string): Promise<string> {
   const forked = await $.model.fork({ prompt })
   if (forked.isAnswered) return forked.text
   if (forked.reason !== 'nothing-to-fork') return ''
@@ -219,12 +221,12 @@ const suggestReply = async ($: Engine, prompt: string): Promise<string> => {
   return fresh.isAnswered ? fresh.text : ''
 }
 
-const notifyPerson = ($: Engine, text: string): void => {
+function notifyPerson($: Engine, text: string): void {
   $.ui.toast(`Homingbird: ${text}`)
   void $.ui.notify(text, { title: 'Homingbird' }).catch(() => undefined)
 }
 
-const showCounts = async ($: Engine, latest: HomingbirdOverview | null): Promise<void> => {
+async function showCounts($: Engine, latest: HomingbirdOverview | null): Promise<void> {
   const waiting = latest?.drafts.length ?? 0
   const isDesk = (await read($, deskRole)) === 'desk'
   $.ui.status(isDesk ? `Homingbird desk${waiting > 0 ? ` · ${waitingLabel(waiting)}` : ''}` : undefined)
@@ -232,17 +234,13 @@ const showCounts = async ($: Engine, latest: HomingbirdOverview | null): Promise
   if (isOpen) await $.ui.open({ id: PANE, title: paneTitleFor(waiting) })
 }
 
-const settle = async (
-  $: Engine,
-  state: 'unavailable' | Desk['options'][string] | string,
-  message: string,
-) => {
-  if (state === 'unavailable') await update($, connection, () => 'unavailable')
+async function settle($: Engine, message: string, isUnavailable: boolean): Promise<null> {
+  if (isUnavailable) await update($, connection, () => 'unavailable')
   await update($, problem, () => message)
   return null
 }
 
-const openInBrowser = async ($: Engine, url: string): Promise<void> => {
+async function openInBrowser($: Engine, url: string): Promise<void> {
   const { platform, isHosted } = await $.session.info()
   const argv = isHosted === true ? null : BROWSER_OPENERS[platform ?? 'unknown']
   if (argv === null || argv === undefined) return
@@ -330,3 +328,11 @@ const BROWSER_OPENERS: Readonly<Record<string, ReadonlyArray<string> | null>> = 
   windows: ['rundll32', 'url.dll,FileProtocolHandler'],
   unknown: null,
 }
+
+const connection = atom({ plugin: 'homingbird', key: 'connection' } as const, 'idle')
+const deskRole = atom({ plugin: 'homingbird', key: 'desk' } as const, 'not-desk')
+const editing = atom({ plugin: 'homingbird', key: 'editing' } as const, null)
+const overview = atom({ plugin: 'homingbird', key: 'overview' } as const, null, { shape: 'overview-2' })
+const problem = atom({ plugin: 'homingbird', key: 'problem' } as const, null)
+const requests = atom({ plugin: 'homingbird', key: 'requests' } as const, [], { shape: 'requests-1' })
+const signIn = atom({ plugin: 'homingbird', key: 'signIn' } as const, null)

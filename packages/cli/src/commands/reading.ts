@@ -1,15 +1,26 @@
 import { Task as T } from '@homingbird/kernel'
-import { type Conversation, ConversationId, type MemberId, describeStatus, summarize } from '@homingbird/protocol'
+import {
+  type Conversation,
+  ConversationId,
+  type MemberId,
+  TopicSlug,
+  describeStatus,
+  summarize,
+} from '@homingbird/protocol'
 import type { CliEnv } from '../environment.ts'
 import { type CliFailure, failed } from '../failure.ts'
 import { type Outcome, outcome } from '../outcome.ts'
 import { type Authors, quoteForModel, showThread } from '../quoting.ts'
 import { type Session, calling, openSession } from '../session.ts'
 
-export const directory = (query: string | null): T.Task<Outcome, CliFailure, CliEnv> =>
+export const directory = (query: string | null, topic: string | null): T.Task<Outcome, CliFailure, CliEnv> =>
   T.gen(function* () {
     const { api } = yield* openSession('agent')
-    const { entries } = yield* calling(api['directory.list']({ query: query === null ? {} : { q: query } }))
+    const { entries } = yield* calling(
+      api['directory.list']({
+        query: { ...(query !== null && { q: query }), ...(topic !== null && { topic: yield* topicSlug(topic) }) },
+      }),
+    )
     return outcome(
       { entries },
       entries
@@ -20,6 +31,7 @@ export const directory = (query: string | null): T.Task<Outcome, CliFailure, Cli
               entry.relation === 'self' ? 'this is you' : entry.canMessage ? 'can be messaged' : 'cannot be messaged'
             }`,
             ...(entry.member.profile === '' ? [] : [`  helps with: ${entry.member.profile}`]),
+            ...(entry.topics.length === 0 ? [] : [`  topics: ${entry.topics.map((slug) => `#${slug}`).join(', ')}`]),
           ].join('\n'),
         )
         .join('\n') || 'Nobody matches.',
@@ -89,6 +101,11 @@ export const authorsOf = (session: Session): T.Task<Authors, CliFailure> =>
     new Map(listed.entries.map((entry) => [entry.member.id, entry.member])),
   )(calling(session.api['directory.list']({ query: {} })))
 
+export const topicSlug = (raw: string): T.Task<string, CliFailure> =>
+  TopicSlug.decode(raw)._tag === 'Ok'
+    ? T.succeed(raw)
+    : T.fail(failed(`"${raw}" is not a topic name. Run \`homingbird topics\` to see them.`))
+
 const namesIn = (conversation: Conversation, authors: Authors): string =>
-  conversation.title ??
+  (conversation.kind === 'topic' ? `#${conversation.title ?? conversation.id}` : conversation.title) ??
   conversation.participantIds.map((memberId) => authors.get(memberId)?.name ?? 'Unknown member').join(', ')

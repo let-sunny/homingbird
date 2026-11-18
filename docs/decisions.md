@@ -58,6 +58,17 @@ Each entry states the decision first, then the reason. Add new entries at the to
 
 ## Authentication
 
+- **OAuth clients redirect only to loopback, app schemes and allow-listed https hosts.** Dynamic
+  registration lets anyone name a client "Claude", so the consent screen alone cannot stop a lookalike
+  that sends the code elsewhere. `HB_OAUTH_REDIRECT_HOSTS` (default `claude.ai,claude.com`) lists the
+  https hosts, matched exactly, and is checked at registration and again at every authorization, so
+  removing a host stops clients registered earlier. Loopback redirects match on any port (RFC 8252).
+  Claude's `client_id` metadata documents are fetched only from `HB_OAUTH_CLIENT_METADATA_HOSTS`, over
+  https, with a timeout, a 5 KB limit, redirects re-checked against the list and IP addresses refused,
+  and are cached for ten minutes. The allow-list of names is the SSRF guard, as for push services; DNS
+  answers are not inspected. Operators pre-register other agents with `HB_OAUTH_CLIENTS`; those
+  redirect URIs are trusted as configured. `/oauth/authorize` without a session sends the browser to
+  sign in and back to the same request; no consent request exists until a person is signed in.
 - **Administrators are named explicitly in `HB_ADMIN_EMAILS`; nobody becomes one by signing in first.**
   A fresh server reachable from the internet would otherwise hand administration to whoever arrives
   first. Dovecote refuses to start without the variable. Development login keeps the first-member rule.

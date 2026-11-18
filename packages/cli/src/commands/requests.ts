@@ -1,0 +1,54 @@
+import { Task as T } from '@homingbird/kernel'
+import type { DraftRequest } from '@homingbird/protocol'
+import type { CliEnv } from '../environment.ts'
+import type { CliFailure } from '../failure.ts'
+import { type Outcome, outcome } from '../outcome.ts'
+import { type Authors, quoteForModel } from '../quoting.ts'
+import { type Session, calling, openSession } from '../session.ts'
+import { authorsOf } from './reading.ts'
+
+export const requests: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function* () {
+  const session = yield* openSession('agent')
+  const { requests: waiting } = yield* calling(session.api['draftRequests.list']({}))
+  if (waiting.length === 0) return outcome({ requests: [] }, 'No draft requests are waiting for this agent.')
+  const authors = yield* authorsOf(session)
+  const shown = yield* T.forEach(waiting, (request) =>
+    T.map((answers: string | null) => ({
+      id: request.id,
+      conversationId: request.conversationId,
+      inReplyTo: request.inReplyTo,
+      instruction: request.instruction,
+      expiresAt: request.expiresAt,
+      answers,
+    }))(originalOf(session, request, authors)),
+  )
+  return outcome(
+    { requests: shown },
+    shown
+      .map((request) =>
+        [
+          `[${request.id}] for conversation ${request.conversationId}`,
+          request.instruction.trim() === ''
+            ? '  no instruction'
+            : `  instruction: ${request.instruction.trim()}`,
+          `  answer with: homingbird draft --request ${request.id} "<text>"`,
+          ...(request.answers === null ? [] : [request.answers]),
+        ].join('\n'),
+      )
+      .join('\n\n'),
+  )
+})
+
+export const originalOf = (
+  session: Session,
+  request: DraftRequest,
+  authors: Authors,
+): T.Task<string | null, never, CliEnv> =>
+  T.gen(function* () {
+    if (request.inReplyTo === null) return null
+    const env = yield* T.ask<CliEnv>()
+    const note = yield* T.result(session.api['notes.get']({ params: { id: request.inReplyTo } }))
+    return note._tag === 'Ok'
+      ? quoteForModel(note.value, authors, env.nonce())
+      : `(The note ${request.inReplyTo} could not be loaded.)`
+  })

@@ -1,11 +1,12 @@
 import { Task as T } from '@homingbird/kernel'
-import { ConversationId, MemberId, type Note, NoteId } from '@homingbird/protocol'
+import { ConversationId, DraftRequestId, MemberId, type Note, NoteId } from '@homingbird/protocol'
 import type { DraftTarget } from '../arguments.ts'
 import type { CliEnv } from '../environment.ts'
 import { type CliFailure, failed } from '../failure.ts'
 import { type Outcome, outcome } from '../outcome.ts'
 import { showOwnNote } from '../quoting.ts'
 import { type Session, calling, openSession } from '../session.ts'
+import { topicSlug } from './reading.ts'
 
 export const draft = (target: DraftTarget, text: string): T.Task<Outcome, CliFailure, CliEnv> =>
   T.gen(function* () {
@@ -69,8 +70,22 @@ const draftId = (rawId: string): T.Task<NoteId, CliFailure> => {
 const addressOf = (
   session: Session,
   target: DraftTarget,
-): T.Task<{ to: MemberId[] } | { inReplyTo: NoteId } | { conversationId: ConversationId }, CliFailure> => {
+): T.Task<
+  | { to: MemberId[] }
+  | { inReplyTo: NoteId }
+  | { conversationId: ConversationId }
+  | { topic: string }
+  | { requestId: DraftRequestId },
+  CliFailure
+> => {
   if (target.kind === 'reply') return T.map((inReplyTo: NoteId) => ({ inReplyTo }))(draftId(target.noteId))
+  if (target.kind === 'topic') return T.map((topic: string) => ({ topic }))(topicSlug(target.slug))
+  if (target.kind === 'request') {
+    const decoded = DraftRequestId.decode(target.requestId)
+    return decoded._tag === 'Ok'
+      ? T.succeed({ requestId: decoded.value })
+      : T.fail(failed('That is not a draft request id. Run `homingbird requests` to see them.'))
+  }
   if (target.kind === 'conversation') {
     const decoded = ConversationId.decode(target.conversationId)
     return decoded._tag === 'Ok'

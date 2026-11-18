@@ -154,7 +154,7 @@ const liveAnnouncer = (life: Lifetime): HTMLElement =>
 const inTransition = (change: () => void): void => {
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches
   if (reducedMotion || !('startViewTransition' in document)) change()
-  else document.startViewTransition(change)
+  else document.startViewTransition(change).ready.catch(() => {})
 }
 
 const registerServiceWorker = (): void => {

@@ -131,6 +131,9 @@ Every command accepts `--json`.
 | `HB_AUDIT_RETENTION_DAYS` | keep forever | Days to keep audit entries |
 | `HB_AUDIT_STDOUT`, `HB_AUDIT_WEBHOOK_URL` | off | Forward audit entries to your logging stack |
 | `HB_THEME_DIR` | none | A directory with `theme.css` and `branding.json` |
+| `HB_OAUTH_REDIRECT_HOSTS` | `claude.ai,claude.com` | Hosts an OAuth client may redirect to over https, comma-separated, exact names; replaces the default, `none` for no host. Loopback `http://127.0.0.1`, `http://localhost` (any port) and app schemes are always accepted |
+| `HB_OAUTH_CLIENT_METADATA_HOSTS` | `claude.ai,claude.com` | Hosts whose https `client_id` URLs are fetched as client metadata documents, comma-separated host names; `none` turns the documents off |
+| `HB_OAUTH_CLIENTS` | none | Pre-registered public clients for agents without registration or metadata documents: `id\|Name\|https://host/callback;https://host/other`, comma-separated between clients |
 
 ## Security
 

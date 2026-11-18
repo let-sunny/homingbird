@@ -1,5 +1,6 @@
 import type { EngineInterface } from 'claude-code'
 
+import { type Desk, wrappedNoteFor } from './desk'
 import { helperMessageFor, helperPromptFor } from './drafting'
 import { textOf } from './tools'
 
@@ -19,11 +20,11 @@ export const PROJECT_READER = {
 
 export type ToolAnswer = { readonly result: string; readonly isError?: true }
 
-export const askProject = async (
+export async function askProject(
   $: EngineInterface,
   input: Readonly<Record<string, unknown>>,
-  wrappedNoteFor: (noteId: string) => Promise<string | null>,
-): Promise<ToolAnswer> => {
+  desk: Desk,
+): Promise<ToolAnswer> {
   const directory = textOf(input.directory).trim()
   const question = textOf(input.question).trim()
   if (!isAbsolute(directory))
@@ -34,7 +35,7 @@ export const askProject = async (
     () => 'missing',
   )
   if (kind !== 'dir') return { result: `${directory} is not a directory on this computer.`, isError: true }
-  const wrappedNote = textOf(input.noteId) === '' ? null : await wrappedNoteFor(textOf(input.noteId))
+  const wrappedNote = textOf(input.noteId) === '' ? null : await wrappedNoteFor($, desk, textOf(input.noteId))
   const answered = await $.tool.call({
     tool: 'Agent',
     subagent_type: READER_TYPE,
@@ -47,16 +48,16 @@ export const askProject = async (
   return { result: answered.text ?? '' }
 }
 
-export const askSession = async (
+export async function askSession(
   $: EngineInterface,
   input: Readonly<Record<string, unknown>>,
-  wrappedNoteFor: (noteId: string) => Promise<string | null>,
-): Promise<ToolAnswer> => {
+  desk: Desk,
+): Promise<ToolAnswer> {
   const to = textOf(input.to).trim()
   const question = textOf(input.question).trim()
   if (to === '' || question === '')
     return { result: 'ask_session needs a session and a question.', isError: true }
-  const wrappedNote = textOf(input.noteId) === '' ? null : await wrappedNoteFor(textOf(input.noteId))
+  const wrappedNote = textOf(input.noteId) === '' ? null : await wrappedNoteFor($, desk, textOf(input.noteId))
   const sent = await $.session.send({
     to: SESSION_ID.test(to) ? { sessionId: to } : to,
     text: helperMessageFor(question, wrappedNote),
