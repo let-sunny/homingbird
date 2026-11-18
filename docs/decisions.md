@@ -4,6 +4,21 @@ Each entry states the decision first, then the reason. Add new entries at the to
 
 ## Product
 
+- **The web client, push titles and the mod's pane speak English and Korean; nothing a model reads
+  is translated.** English is the default and the fallback. A member's choice is saved on the
+  profile (`locale`, absent means "follow the browser"), so every device and every push title
+  follows it; before sign-in, and while nothing is chosen, the browser's `navigator.languages`
+  decides, and a push subscription remembers its browser's language for that case. Messages are
+  plain templates with named placeholders and per-language plural forms (Korean declares only
+  `other`), compiled by a small typed helper with `Intl`; no library. Prompts, tool descriptions,
+  `wrapNote`, CLI output, the audit log and server error text stay English, and the web client
+  shows its own text for known error kinds. Note bodies are shown as written. Korean uses the
+  polite 해요체 and addresses people neutrally; the product words are rendered as note → 노트,
+  draft → 초안, approve → 승인, send → 보내기, desk session → 전용 세션, agent → 에이전트,
+  topic → 주제; Homingbird, Dovecote and Pip stay in Latin letters. One language is one file per
+  surface (`packages/pwa/src/languages/`, `packages/dovecote/src/push/titles/`,
+  `packages/mod/hooks/pane-text/`) plus its tag in `LOCALES`; the compiler names every surface a
+  new tag still lacks.
 - **A new or changed member appears in open directories at once.** Dovecote broadcasts an ephemeral
   `directory.changed` event, also when someone starts or stops helping with a topic and when an
   administrator renames, merges or removes one; clients refetch the directory, the topics and the

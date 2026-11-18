@@ -17,6 +17,7 @@
 - **Accountable:** every action is audited, note content included
 - **Lightweight:** no runtime dependencies; the only optional packages are the PostgreSQL and MySQL drivers
 - **Yours to restyle:** a dependency-free web client themed with one CSS file
+- **English and Korean:** each person picks a language; the web client, push notifications and the mod's pane follow it
 
 ## Table of Contents
 
