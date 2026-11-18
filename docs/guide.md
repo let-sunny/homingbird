@@ -25,18 +25,20 @@ How agents, the server and the web client fit together is drawn in [architecture
 - [Connect an agent](#connect-an-agent)
 - [Ask a person](#ask-a-person)
 - [Ask a topic](#ask-a-topic)
+- [Join a topic, answer in it, or keep it private](#join-a-topic-answer-in-it-or-keep-it-private)
 - [Ask your agent for a draft from the web](#ask-your-agent-for-a-draft-from-the-web)
 - [Approve, edit or discard](#approve-edit-or-discard)
 - [Turn on phone notifications](#turn-on-phone-notifications)
 - [Your character](#your-character)
+- [Bring your own web client](#bring-your-own-web-client)
 
 ## Sign in
 
 1. Open your organization's Homingbird address, for example `https://homingbird.example.com`.
 2. Press **Sign in with Google** (or the name of your organization's identity provider) and sign in with
    your work account.
-3. Under **What my agent can help with**, pick the topics you know about. You help in `general` from the
-   start.
+3. Under **Topics**, press **Join and answer** on the topics you know about. **What my agent can help
+   with** on your profile lists them. You answer in `general` from the start.
 
 ## Connect an agent
 
@@ -151,17 +153,45 @@ From the command line: `homingbird draft --to june@example.com "Is the billing m
 ## Ask a topic
 
 When you do not know who can answer, ask a topic. A topic is a room; the question reaches the people
-whose agents help with that topic.
+who answer questions there, and their agents draft the replies.
 
 ```
 Ask the billing topic who owns the nightly export.
 ```
 
 - The agent picks one topic from the list (`homingbird topics`). When none fits, it uses `general`.
+- Asking in an open topic puts you in its room, so you can follow the answers. A private topic takes
+  questions only from its members.
 - You see the topic when you approve, and can change it there.
 - The first approved reply answers the question; the others who help there stop seeing it in their inbox.
 
 From the command line: `homingbird draft --topic billing "Who owns the nightly export?"`.
+
+## Join a topic, answer in it, or keep it private
+
+Being in a topic and answering in it are separate.
+
+- **Join** puts you in the room: you read it and can ask there. No questions are sent to you.
+- **Answer questions here**, the switch at the top of a room, sends you the questions asked there,
+  and your desk drafts the replies for you to approve. Turn it off and you stay in the room.
+  **Join and answer** in the topic list does both at once.
+- **Leave** takes you out of the room and turns answering off. Your waiting drafts in it are discarded.
+- Everyone is in `general` and answers there from the start; you may turn that off or leave.
+
+A topic is **open** or **private**. Anyone can find, read and join an open topic. A private topic,
+marked with a lock and the word **Private**, is seen only by its members: nobody else finds it in the
+list, in search or on your profile, and nobody can join it by themselves. When you create a topic,
+choose **Private** to make one; you become its first manager.
+
+Managers open **Members** in the room to add people from the directory, remove them, make another
+member a manager or take that away, and switch the topic between open and private. A topic with
+members always keeps a manager, so the last manager names another before leaving. Someone you remove
+loses the room at once. Making a private topic open lets everyone read every question asked in it so
+far; the confirmation says so.
+
+**Private means hidden from other members, not from your organization.** Your server administrator
+can manage every topic, and the audit log they keep records the content of every note, private topics
+included. Write in a private topic what you would write in a work channel your administrator can read.
 
 ## Ask your agent for a draft from the web
 
@@ -208,3 +238,24 @@ pigeon.
 
 Only your own click on **Use this character** saves a character; no agent can. An administrator can
 reset anyone's character to the pigeon.
+
+## Bring your own web client
+
+Dovecote serves the web client from `HB_WEB_DIR` and an organization's look from `HB_THEME_DIR`.
+
+- **`HB_THEME_DIR` is for theming only.** It holds `theme.css`, served at `/theme.css` after the
+  client's own styles, and `branding.json` (`name` and `logo`), served at `/branding.json`. Override
+  the custom properties of the client's `tokens.css` there; nothing else is needed or read.
+- **`HB_WEB_DIR` serves a web client you built yourself.** Point it at the directory with your
+  `index.html` and assets; Dovecote serves the files in it and answers every other path outside
+  `/api`, `/auth`, `/oauth` and the other server routes with `index.html`. Build the client against
+  the API contract in `packages/protocol` (`contract.ts`, `model.ts`, `events.ts`) with the typed
+  client and event stream in `packages/client`. Dovecote's content security policy allows scripts,
+  styles and connections from its own origin only, so ship every asset in that directory.
+- **The server enforces every security rule; rendering is yours.** Approval stays with a person,
+  drafts stay hidden, and private topics stay private whatever the client does. Showing note bodies
+  as text, never as HTML, with only `http:` and `https:` links, is the client's duty, because a note is
+  whatever a colleague, or a colleague's agent, wrote.
+- **[TRADEMARKS.md](../TRADEMARKS.md) applies** when you distribute a changed client: give it your own
+  name and mark.
+

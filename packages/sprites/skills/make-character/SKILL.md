@@ -22,6 +22,12 @@ Homingbird. You draft; they decide. You never save a character yourself.
 5. Ask what to change. Repeat 3-5. When they are happy, tell them to press
    **Use this character** in Homingbird. Only that button saves it.
 
+Inside the product you use the tools instead of the `homingbird-sprites` command line: the
+Homingbird MCP server and the Claude Code mod both offer `check_character`, which runs the same
+rules as step 3, and `preview_character`, which returns a link that opens your draft in the
+person's character editor, its markings as a layer they keep or remove. Neither saves anything; the
+command line is for working on the sprites package itself.
+
 ## CharacterSpec
 
 ```json

@@ -4,13 +4,17 @@ Each entry states the decision first, then the reason. Add new entries at the to
 
 ## Product
 
+- **Presence is shown in words wherever there is room, and by shape as well as colour where there is
+  not.** Directory rows and the thread header read "Person online · Agent offline"; the narrow
+  conversation rows keep a dot that is a filled square when the person is online and an outlined
+  circle when away, labelled for screen readers. A coloured dot alone was easy to miss and broke the
+  rule that status is never conveyed by colour alone.
 - **A profile character is saved only by a person's click, and the server checks it again (security
   rule 7).** `me.character.set` and `me.character.clear` are `human` routes and
   `admin.members.resetCharacter` is `admin`; `characterProblems` in `protocol` (the brand rules of
   `validateCharacter` plus "a made character may not take a built-in id") runs in the editor, in the
   model-facing tools and again in Dovecote, which stores exactly the spec that passed and refuses a body
-  over 4 KB. `Member.character` is `null` for the pigeon; the field is optional on the wire so that an
-  older server, and clients that predate it, still decode. Agents help through `check_character` and
+  over 4 KB. `Member.character` is `null` for the pigeon and always present on the wire. Agents help through `check_character` and
   `preview_character`, which call no route: the preview is a web-client link,
   `#/character/<base64url of the spec>`, that opens the editor with the draft as a layer the person keeps
   or removes. The link lives in the hash, so the spec never reaches a server log, and the web client never
@@ -142,6 +146,15 @@ Each entry states the decision first, then the reason. Add new entries at the to
 
 ## Authentication
 
+- **Turning the approve button off also stops the approve buttons issued while it was on.** An
+  approve-button credential is marked (`credentials.purpose = 'approve_button'`; migration 8 marks
+  every existing human credential whose client is not the web client), and while `HB_APPROVE_BUTTON`
+  is off Dovecote refuses it on every `human` and `admin` route with "The organization has turned the
+  approve button off." and audits the refusal. Revoking every such credential instead would make
+  switching the setting back on a chore for everyone; refusing them keeps the decision with the
+  setting. `homingbird login --approve-button` says that the organization has turned the button off,
+  and `homingbird status --json` reports `approveButton` (the setting) next to `hasApproveButton`
+  (this device) and the member's `locale`, which the mod uses for its pane.
 - **The approve button is decided once per deployment, and is off by default.** `HB_APPROVE_BUTTON=on`
   lets the device flow issue an approval credential to the Claude Code mod; off, a request for the
   `approve` scope is granted as an agent credential only and `device.decide` ignores
@@ -230,9 +243,46 @@ removed.
   person as the author of an agent's text.
 - Removing or merging a topic keeps its room as a group titled `<slug> (archived)`, so its notes stay
   readable and nobody mistakes it for a live topic.
-- Rule 6 holds unchanged: a topic room is visible only to its participants. Any member may join one.
+- Rule 6 holds unchanged: a topic room is visible only to its participants. Any member may join an
+  open one; a private one is joined only through a manager.
 - Every participant of a room gets an event row per note, so a note in `general` costs one write per
   member. This is accepted at the documented single-instance scale.
+
+## Being in a topic, answering in it and managing it are three things; a topic is open or private
+
+Membership used to be one switch, "Help", that both put you in the room and sent you its questions,
+while "Leave" undid both. People could not tell them apart and could not keep a room to a team.
+
+- **Join and Leave are about being in the room**: reading it and asking in it. Nobody is sent a
+  question for being a member. Asking in an open topic still joins you, because an open room is
+  readable by anyone who joins anyway; drafting to a private topic needs you to be a member already.
+- **"Answer questions here" is a switch only a member has.** On, you are a helper: questions reach you
+  and your agent drafts the replies. Off, you stay in the room. Leaving turns it off. The list offers
+  "Join" and "Join and answer". "My agent can help with" lists exactly the topics with answering on.
+  On the wire the viewer's flags are `joined`, `answering` and `managing`; the old `helping` is gone,
+  and "helper" means a member who answers.
+- **A topic is `open` or `private`.** Private hides a topic from everyone outside it, everywhere: the
+  list, search, the directory's chips and `?topic=`, conversations, lookup by slug or room id, events,
+  and every tool, command and gateway. A lookup answers exactly as for a topic that does not exist,
+  and a taken slug, hidden or not, answers "That name is not available.", so a name probe learns no
+  more than that. Any person may create one. Private means hidden from other members, not from the
+  organization: administrators can manage every topic and the audit log still holds note content.
+- **Managers change a room; the creator is the first.** A manager adds and removes members of a
+  private topic, grants and revokes manager, and changes the visibility; nobody joins a private topic
+  by themselves, not even an administrator, who adds people as a manager would. A topic with members
+  keeps a manager: the last one cannot step down, leave or be removed until another exists. Seeded
+  topics have no manager until an administrator names one, and a topic needs a manager in the room
+  before it can become private. `general` stays open.
+- **Open → private keeps everyone in the room; private → open is allowed and audited.** Every
+  membership, answering, manager and visibility change is a `human` route, so it is audited and never
+  reachable by a model.
+- **A private room keeps its questions.** A question in a private topic moves only to another
+  private topic with the same members; one moves into a private topic only when the mover and the
+  asker are members. A removed member's waiting drafts in the room are discarded and the room drops
+  from their clients at once through `topic.left`, which carries only the slug and room id.
+- **The web client shows "Private" with a lock, never colour alone.** Korean uses 비공개 and 공개 for
+  the visibility, 참여하기 and 나가기 for join and leave, 여기서 질문에 답하기 for the switch, and
+  운영자 for a topic manager, because 관리자 already means a server administrator.
 
 ## One desk session per person reacts to arriving notes
 

@@ -108,7 +108,8 @@ Two ways in, one result:
   Options that would break a rule with what is already picked are disabled, with the reason.
   **Surprise me** makes a random character that passes every rule; the seed comes from the random
   service, so the same seed gives the same character.
-- **Ask Claude**, where a model is available. Claude drafts a `CharacterSpec` from
+- **Ask my agent**, where an agent is connected; the product never names a vendor here. The agent
+  drafts a `CharacterSpec` from
   `packages/sprites/skills/make-character/SKILL.md`, checks it with the same rules, and the draft opens
   in the editor with its markings as a separate layer.
 

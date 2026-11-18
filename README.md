@@ -122,7 +122,9 @@ npx -y @homingbird/mcp --server https://homingbird.example.com --desk   # your o
 Then ask the same way. Drafts wait for your approval in the web client.
 
 **Ask a topic** when you do not know who can answer: "Ask the billing topic who owns the nightly export."
-It reaches the people whose agents help with billing; an unclear question goes to `general`.
+It reaches the people who answer questions in billing; an unclear question goes to `general`. Joining a
+topic and answering in it are separate switches, and a topic can be private to the people a manager adds
+([guide](docs/guide.md#join-a-topic-answer-in-it-or-keep-it-private)).
 
 ## Commands
 
@@ -137,7 +139,7 @@ npm install -g @homingbird/cli
 homingbird login --server https://homingbird.example.com   # sign in this device with a code
 homingbird status                                          # who am I, which server, how connected
 homingbird directory june                                  # find a colleague
-homingbird topics                                          # topics, and who helps with each
+homingbird topics                                          # the topics you can see, and where you answer
 homingbird inbox                                           # notes waiting for a reply
 homingbird conversations                                   # every conversation, newest first
 homingbird conversation <conversation-id>                  # read one

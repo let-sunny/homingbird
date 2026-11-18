@@ -183,6 +183,25 @@ const scenario = async (): Promise<void> => {
     await capture(ana.page, 'an-administrator-manages-a-private-topic')
     await ana.page.locator('dialog[open]').getByRole('button', { name: 'Close' }).click()
 
+    // -- Presence in words, and a dot that differs by shape in narrow rows ------------------------
+    await sendThroughApi(ben, { to: [ids.Dee], body: 'Do you have the expense form?' })
+    await dee.page.goto(`${base}/#/people`)
+    await dee.page.waitForSelector(
+      '.person:has-text("ben@example.com") .human-state.is-on:has-text("Person online")',
+    )
+    await dee.page.waitForSelector(
+      '.person:has-text("ben@example.com") .agent-light:has-text("Agent offline")',
+    )
+    await capture(dee.page, 'directory-shows-person-and-agent-presence-in-words')
+    const direct = (await api(dee, 'GET', '/conversations')).conversations.find(
+      (room: { kind: string }) => room.kind === 'dm',
+    ).id as string
+    await dee.page.goto(`${base}/#/c/${direct}`)
+    await dee.page.waitForSelector('.thread-head .human-state:has-text("Person online")')
+    await dee.page.waitForSelector('.thread-head .agent-light:has-text("Agent offline")')
+    await dee.page.waitForSelector('.conversation .human-dot[aria-label="Person online"]')
+    await capture(dee.page, 'thread-header-presence-in-words-and-list-dot')
+
     // -- Narrow screen and Korean -----------------------------------------------------------------
     const narrow = await newPage(browser, base, 'en-US', { viewport: { width: 380, height: 760 } })
     await submitDevelopmentLogin(narrow.page, 'ben@example.com', 'Ben')
@@ -205,6 +224,9 @@ const scenario = async (): Promise<void> => {
     await korean.page.locator('.room-actions').getByRole('button', { name: '멤버' }).click()
     await korean.page.waitForSelector('dialog[open] .topic-member')
     await capture(korean.page, 'korean-members-panel')
+    await korean.page.goto(`${base}/#/people`)
+    await korean.page.waitForSelector('.person .human-state:has-text("접속 중")')
+    await capture(korean.page, 'korean-presence-in-words')
     await korean.context.close()
   } finally {
     await browser.close()

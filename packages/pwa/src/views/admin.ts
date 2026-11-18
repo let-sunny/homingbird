@@ -25,6 +25,7 @@ import { canRename, slugFrom, topicLabel } from '../topics.ts'
 import { memberAvatar } from './character-avatar.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
 import { button, dateTimeLabel, field, page } from './parts.ts'
+import { privateMark } from './topic-membership.ts'
 
 export const adminView = (life: Lifetime, me: Me, section: AdminSection): HTMLElement =>
   page(
@@ -185,7 +186,7 @@ const topicsSection = (life: Lifetime): HTMLElement => {
           h(
             'div',
             { class: 'member-main' },
-            h('strong', {}, topicLabel(topic.slug)),
+            h('strong', {}, topicLabel(topic.slug), privateMark(topic)),
             h('span', {}, topic.description),
             h('span', { class: 'topic-meta' }, strings.helpers({ count: topic.helperCount })),
             !canRename(topic.slug) && h('small', {}, strings.generalIsFixed),

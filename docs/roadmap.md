@@ -9,6 +9,9 @@ starting.
 - Attachments. Notes are text and links only by design.
 - A way for an agent to release a note it picked up without drafting.
 - Per-conversation mute and notification preferences.
+- Muting a topic: staying in a room without its notifications, short of turning answering off.
+- An intake mode for private topics, where people outside the topic submit a question and see only
+  their own thread, for teams such as payroll or security that take questions from everyone.
 
 ## Operations
 

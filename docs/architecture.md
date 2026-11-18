@@ -294,15 +294,70 @@ requests. The mod opens a turn for each `draft.requested` with the instruction a
 wrapped note it answers; the model reads the conversation with `read_conversation` and answers with
 `answer_draft_request`. The pane lists the open requests under "Notes waiting for a reply".
 
+## Topics: rooms, members, helpers and managers
+
+A topic is one persistent conversation of kind `topic` with a slug, a one-line description and a
+visibility. Three sets of people belong to it, each a subset of the one before:
+
+- **Members** are the room's participants (`participants`). A member reads the room and asks in it.
+  `topics.join` and `topics.leave` (`PUT` and `DELETE /topics/:slug/membership`) change it for an
+  open topic; asking a question in an open topic joins you too. Nobody receives a question just by
+  being a member.
+- **Helpers** are members who answer questions there (`topic_helpers`): "Answer questions here" in the
+  web client, `topics.answering.on` and `topics.answering.off` (`PUT` and `DELETE
+  /topics/:slug/answering`). Questions are delivered to helpers only, and the profile's "My agent can
+  help with" lists exactly these topics. `topics.join` with `answering: true` is "Join and answer";
+  leaving turns answering off. Every member is in `general` and answers there by default, and may
+  turn it off or leave.
+- **Managers** are members who may change the room (`topic_managers`). The creator is the first;
+  a manager adds and removes members of a private topic (`/topics/:slug/members/:memberId`), makes
+  another member a manager or takes that away (`/topics/:slug/managers/:memberId`), and changes the
+  visibility (`PUT /topics/:slug/visibility`). A topic that has managers and members always keeps a
+  manager: the last one cannot step down, leave or be removed while others remain
+  (`requireManagerRemains`). A server administrator can manage every topic and is shown as managing
+  it (`managing: true`), without becoming a member. Seeded topics start without managers.
+
+Visibility is `open` or `private`. An open topic is listed to everyone and anyone may join it. A
+private topic exists only for its members: its name, description, room, notes and member chips are
+missing from every listing, search, lookup and event for anyone else, a lookup answers exactly as for
+a topic that does not exist, and nobody joins one by themselves. Its members, and their agents, read
+and draft in it as in any room. Open → private keeps everyone in the room; private → open needs a
+manager and is audited like every other change. `general` stays open. Slugs are unique across both,
+and a taken slug, visible or not, answers "That name is not available."
+
+| Route | Access | What it does |
+| --- | --- | --- |
+| `topics.list`, `topics.get` | member | Topics the viewer can see, with `visibility`, `memberCount`, `helperCount`, `joined`, `answering` and `managing` |
+| `topics.members.list` | member | The room's members, who answers and who manages; members and administrators only |
+| `topics.create` | human | Creates an open or private topic; the creator joins, answers and manages |
+| `topics.join`, `topics.leave` | human | Join (optionally answering) or leave; a private topic refuses a self-join |
+| `topics.answering.on`, `topics.answering.off` | human | "Answer questions here", for a member only |
+| `topics.members.add`, `topics.members.remove` | human | A manager adds or removes a member of a private topic |
+| `topics.managers.add`, `topics.managers.remove` | human | A manager grants or revokes manager to a member |
+| `topics.visibility.set` | human | A manager makes a topic private or open |
+
+Every membership, answering, manager and visibility change is a `human` route, so it is audited and no
+agent credential, MCP tool, CLI command, A2A method or mod tool can make it. A member who leaves or is
+removed loses the room at once: their waiting drafts in it are discarded (`draft.discarded`) and they
+receive `topic.left` with only the slug and conversation id, so a client drops the room. A member whose
+view of a topic changed (joined, added, answering, manager, visibility) receives `topic.changed` with
+the topic as they now see it; the ephemeral `directory.changed` broadcast makes open clients refetch
+lists and profile chips.
+
+A question in a private topic moves only to another private topic with the same members, and a
+question moves into a private topic only when the mover and the asker are both members of it; moving
+between open topics is unchanged. A draft is re-addressed into a private topic only by one of its
+members.
+
 ## Asking a topic
 
 A question to a topic goes to exactly one room, chosen by the asking agent, and the first approved
 answer reaches you while the question leaves the other helpers' inboxes. The agent reads
 `topics.list` and picks the best topic, or `general` when none fits; Dovecote does no matching.
-Drafting to a topic makes you a participant of the room but not a helper. Receipts, and so inbox
-entries and reply drafting, go to the topic's helpers only, while every participant of the room
-receives `note.sent`. A person in the room may move a question that has no sent answer to another
-topic.
+Drafting to an open topic makes you a member of the room but not a helper; drafting to a private
+topic needs you to be a member already. Receipts, and so inbox entries and reply drafting, go to the
+topic's helpers only, while every member of the room receives `note.sent`. A person in the room may
+move a question that has no sent answer to another topic.
 
 ```mermaid
 sequenceDiagram
@@ -314,9 +369,9 @@ sequenceDiagram
   participant H2 as Helper 2 desk
   actor P as A person in the room
   A->>S: topics.list
-  S-->>A: slug, description and helper count per topic
+  S-->>A: the topics you can see, with counts and whether you answer there
   A->>S: drafts.create with one topic, or general
-  S->>S: add you to the room as a participant, not a helper
+  S->>S: an open topic adds you to the room as a member, not a helper
   H->>S: drafts.send from the web client, destination shown
   S->>S: receipts for the topic's helpers only
   S-)H1: note.sent
@@ -338,9 +393,12 @@ sequenceDiagram
 ```
 
 The MCP tools `find_topics` and `draft_note` with `topic`, the CLI `topics` and `draft --topic`, the
-A2A gateway (`metadata.topic`) and the mod's `list_topics` and `draft_to_topic` all reach topics. The
-web client lists topics, lets people help in one or leave it, and shows the destination when
-approving. When a question moves, a waiting reply draft by a member of the new room moves with it
+A2A gateway (`metadata.topic`) and the mod's `list_topics` and `draft_to_topic` all reach topics; they
+list only what the member can see, mark private topics, say whether the member answers there, and
+tell the model never to mention a private topic outside it. None of them joins, leaves, answers or
+changes members, managers or visibility. The web client offers Join and Join and answer in the list,
+the "Answer questions here" switch and Leave in a room, a Members panel for managers, a lock and the
+word "Private" on private topics, and shows the destination when approving. When a question moves, a waiting reply draft by a member of the new room moves with it
 (`draft.saved` to its author); one by anyone else is discarded (`draft.discarded`), because its author
 could no longer read the question or send the reply.
 
@@ -414,12 +472,12 @@ that faces a model. Paths are relative to `packages/`.
 
 | Rule | Enforced in | Tested in |
 | --- | --- | --- |
-| 1. Only a human credential can approve a note. | `access: 'human'` on `drafts.send`, `drafts.discard` and every other human route in `protocol/src/contract.ts`; `allows` in `protocol/src/policy.ts`; `requireAccess` in `dovecote/src/api/invoke.ts`, which also audits the refusal; `sendDraft` and `discardDraft` in `dovecote/src/domain/notes.ts` check `isHuman` again. The device flow issues the approve credential only when the person allows it (`exchangeDeviceCode` in `dovecote/src/auth/oauth.ts`). | `dovecote/test/security-rules.test.ts`, block "Rule 1" |
+| 1. Only a human credential can approve a note. | `access: 'human'` on `drafts.send`, `drafts.discard` and every other human route in `protocol/src/contract.ts`; `allows` in `protocol/src/policy.ts`; `requireAccess` in `dovecote/src/api/invoke.ts`, which also audits the refusal and refuses an approve-button credential (`credentials.purpose = 'approve_button'`) on every human route while `HB_APPROVE_BUTTON` is off; `sendDraft` and `discardDraft` in `dovecote/src/domain/notes.ts` check `isHuman` again. The device flow issues the approve credential only when the person allows it (`exchangeDeviceCode` in `dovecote/src/auth/oauth.ts`). | `dovecote/test/security-rules.test.ts`, block "Rule 1" |
 | 2. Drafts are invisible to recipients. | `visibleNote`, `notesInConversation`, `searchNotes` and `notesAwaitingReply` in `dovecote/src/domain/notes.ts` filter by `status = 'sent' OR author_id = viewer`; `listConversations` in `dovecote/src/domain/conversations.ts` hides a direct conversation without a sent note; `createDraft`, `updateDraft` and `discard` emit `draft.saved` and `draft.discarded` to the author only; receipts are created only by `sendDraft`. | `dovecote/test/security-rules.test.ts`, block "Rule 2" |
-| 3. No tool exposed to a model can approve, change contacts, or read credentials. | `memberApiOf` in `mcp/src/member-api.ts` and `a2a/src/member-api.ts` exposes only `member` and `public` routes; `makeLocalSession` in `mcp/src/local-session.ts` never asks for the approve scope; `NOTE_TOOLS` in `mod/hooks/tools.ts` run only the CLI's agent commands; `forbiddenReason` in `mod/hooks/guard.ts` refuses shell approval, person-only routes and the credential files; the pane's Approve button calls `decide` in `mod/hooks/desk.ts`; the runner uses only the agent credential, refuses to run while an approve-button credential is stored (`requireNoApprovalCredential`) and strips Homingbird variables and the token from the agent command's environment (`agentEnvironment`), both in `cli/src/runner-guard.ts`. | `dovecote/test/security-rules.test.ts`, block "Rule 3"; `mcp/test/tools.test.ts`, `mcp/test/server.test.ts`, `mcp/test/member-api.test.ts`, `mcp/test/triggers.test.ts`; `mod/tests/tools.test.ts`, `mod/tests/guard.test.ts`; `cli/test/run.test.ts`, `cli/test/runner-guard.test.ts`, `cli/test/node-launcher.test.ts` |
+| 3. No tool exposed to a model can approve, change contacts, or read credentials. | Topic membership, answering, manager and visibility routes are `human` too, so no tool reaches them; `memberApiOf` in `mcp/src/member-api.ts` and `a2a/src/member-api.ts` exposes only `member` and `public` routes; `makeLocalSession` in `mcp/src/local-session.ts` never asks for the approve scope; `NOTE_TOOLS` in `mod/hooks/tools.ts` run only the CLI's agent commands; `forbiddenReason` in `mod/hooks/guard.ts` refuses shell approval, person-only routes and the credential files; the pane's Approve button calls `decide` in `mod/hooks/desk.ts`; the runner uses only the agent credential, refuses to run while an approve-button credential is stored (`requireNoApprovalCredential`) and strips Homingbird variables and the token from the agent command's environment (`agentEnvironment`), both in `cli/src/runner-guard.ts`. | `dovecote/test/security-rules.test.ts`, block "Rule 3"; `mcp/test/tools.test.ts`, `mcp/test/server.test.ts`, `mcp/test/member-api.test.ts`, `mcp/test/triggers.test.ts`; `mod/tests/tools.test.ts`, `mod/tests/guard.test.ts`; `cli/test/security.test.ts`, `a2a/test/gateway.test.ts`, `cli/test/run.test.ts`, `cli/test/runner-guard.test.ts`, `cli/test/node-launcher.test.ts` |
 | 4. Every received note reaches a model only through `wrapNote`. | `wrapNote` in `protocol/src/wrap.ts`, with a random nonce in the boundary; its callers are `quoteNote` in `mcp/src/quote.ts`, `quoteForModel` in `cli/src/quoting.ts` (used by `stream`, `inbox`, `conversation`, `requests` and `run`), and `taskViewOf` in `a2a/src/task-view.ts`. The mod receives notes only as the CLI's wrapped text. | `dovecote/test/security-rules.test.ts`, block "Rule 4": a hostile note through every note-returning tool of `/mcp` and through A2A `tasks/get` and `GetTask`, each time inside `wrapNote` with a fresh nonce; `protocol/test/wrap.test.ts` (property tests), `mcp/test/quote.test.ts`, `mcp/test/triggers.test.ts`, `mcp/test/channel.test.ts` |
 | 5. Credentials are stored hashed and never logged. | `hashSecret` (SHA-256) in `dovecote/src/random.ts`; `issueCredential`, `authenticate` and `refreshCredential` in `dovecote/src/domain/credentials.ts` store only `token_hash` and `refresh_hash`; tokens leave the server only in the token response or the session cookie; `serve` in `dovecote/src/http/node-server.ts` logs failed requests without their query string. | `dovecote/test/security-rules.test.ts`, block "Rule 5" |
-| 6. A member sees only conversations they participate in. | `participatedConversation` and `participantsOf` in `dovecote/src/domain/conversations.ts`; every note query joins `participants`; `sendDraft`, `moveToTopic` and `announceStatus` emit to the conversation's participants only. | `dovecote/test/security-rules.test.ts`, block "Rule 6" |
+| 6. A member sees only conversations they participate in. | `participatedConversation` and `participantsOf` in `dovecote/src/domain/conversations.ts`; every note query joins `participants`; `sendDraft`, `moveToTopic` and `announceStatus` emit to the conversation's participants only. A private topic is listed, resolved and shown as a chip only to its members: `maySee` and `visibleTopic` in `dovecote/src/domain/topic-rows.ts`, `listTopics`, `topicsHelpedBy`, `helpersOfTopicSeenBy`, `topicRoomFor` and `roomForMovedQuestion` in `dovecote/src/domain/topics.ts`; `depart` drops a removed member from the room, discards their drafts in it and sends `topic.left`. | `dovecote/test/security-rules.test.ts`, block "Rule 6", including every surface of a private topic for a non-member person and their agent; `dovecote/test/topic-membership.test.ts` |
 | 7. No tool exposed to a model can save or change a profile character. | `access: 'human'` on `me.character.set` and `me.character.clear` and `access: 'admin'` on `admin.members.resetCharacter` in `protocol/src/contract.ts`; `saveCharacter` in `dovecote/src/domain/characters.ts` runs `characterProblems` (`protocol/src/character.ts`: `validateCharacter` from `sprites` plus the built-in id rule) again whatever the client checked, and stores exactly the spec that passed; `handleApiRequest` in `dovecote/src/http/api-routes.ts` refuses a body over `CHARACTER_BYTES_MAX`. The model-facing `check_character` and `preview_character` (`mcp/src/character-tools.ts`, `mod/hooks/character.ts`) call no route; the web client saves only from **Use this character** and never from a `#/character/` link. | `dovecote/test/security-rules.test.ts`, block "Rule 7"; `dovecote/test/characters.test.ts`; `mcp/test/character-tools.test.ts`, `mcp/test/tools.test.ts`; `mod/tests/character.test.ts` |
 
 ## Real-time delivery
@@ -512,6 +570,7 @@ erDiagram
     integer token_expires_at
     integer expires_at
     integer revoked_at
+    string purpose
   }
   CONVERSATIONS {
     id id PK
@@ -554,8 +613,13 @@ erDiagram
     string description
     id conversation_id UK
     id created_by
+    string visibility
   }
   TOPIC_HELPERS {
+    id conversation_id PK
+    id member_id PK
+  }
+  TOPIC_MANAGERS {
     id conversation_id PK
     id member_id PK
   }
@@ -635,6 +699,8 @@ erDiagram
   CONVERSATIONS ||--o| TOPICS : "is the room of"
   CONVERSATIONS ||--o{ TOPIC_HELPERS : "has helpers"
   MEMBERS ||--o{ TOPIC_HELPERS : helps
+  CONVERSATIONS ||--o{ TOPIC_MANAGERS : "has managers"
+  MEMBERS ||--o{ TOPIC_MANAGERS : manages
   MEMBERS ||--o{ DRAFT_REQUESTS : asks
   CONVERSATIONS ||--o{ DRAFT_REQUESTS : "is the destination of"
   DRAFT_REQUESTS ||--o{ DRAFT_REQUEST_ANSWERS : "answered by"

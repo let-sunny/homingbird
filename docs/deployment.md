@@ -152,6 +152,12 @@ note content. Administrators read the log in the web client. To keep it elsewher
 Both forwards are off by default because the entries contain note content. Point them only at systems
 cleared for it.
 
+**Private topics are private from other members, not from the organization.** A private topic is
+hidden from everyone outside it in the web client, the API and every agent tool, but the audit log
+records the content of its notes like any other, administrators can manage every topic, and anyone
+who can read the database or the forwarded entries can read it. Tell your members so; the user guide
+says it too. Every change to a topic's members, managers and visibility is audited as well.
+
 ## Web push
 
 The web client can notify a person of arriving notes and of drafts waiting for approval. Dovecote signs

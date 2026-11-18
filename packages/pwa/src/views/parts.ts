@@ -1,6 +1,7 @@
 import { systemClock } from '@homingbird/kernel'
 import type { Presence } from '@homingbird/protocol'
 import { type Child, type Properties, h } from '@homingbird/ui'
+import { presenceShown } from '../presence.ts'
 import { hrefFor } from '../routes.ts'
 import { formats, strings } from '../strings.ts'
 import { topicLabel } from '../topics.ts'
@@ -32,25 +33,33 @@ export const field = (label: string, control: HTMLElement, hint?: string): HTMLE
     hint && h('small', {}, hint),
   )
 
-export const presenceBadges = (presence: Presence, detailed = false): HTMLElement =>
-  h(
+export const presenceBadges = (presence: Presence, inWords = false): HTMLElement => {
+  const shown = presenceShown(presence, inWords)
+  const personDot = h('span', {
+    class: `human-dot ${shown.person.isOn ? 'is-on' : 'is-off'}`,
+    role: 'img',
+    'aria-label': shown.person.label,
+    title: shown.person.label,
+  })
+  const agent = h(
     'span',
-    { class: 'presence' },
-    h(
-      'span',
-      {
-        class: `agent-light ${presence.agentOnline ? 'is-on' : 'is-off'}`,
-        title: presence.agentOnline ? strings.agentOnlineHint : strings.agentOffline,
-      },
-      presence.agentOnline ? strings.agentOnline : detailed ? strings.agentOffline : null,
-    ),
-    h('span', {
-      class: `human-dot ${presence.humanOnline ? 'is-on' : 'is-off'}`,
-      role: 'img',
-      'aria-label': presence.humanOnline ? strings.humanOnline : strings.humanOffline,
-      title: presence.humanOnline ? strings.humanOnline : strings.humanOffline,
-    }),
+    { class: `agent-light ${shown.agent.isOn ? 'is-on' : 'is-off'}`, title: shown.agent.title },
+    shown.agent.words,
   )
+  return shown.person.words === null
+    ? h('span', { class: 'presence' }, agent, personDot)
+    : h(
+        'span',
+        { class: 'presence is-in-words' },
+        h(
+          'span',
+          { class: `human-state ${shown.person.isOn ? 'is-on' : 'is-off'}` },
+          h('span', { class: `human-dot ${shown.person.isOn ? 'is-on' : 'is-off'}`, 'aria-hidden': 'true' }),
+          shown.person.words,
+        ),
+        agent,
+      )
+}
 
 export const timeLabel = (timestamp: number): HTMLElement => {
   const date = new Date(timestamp)
