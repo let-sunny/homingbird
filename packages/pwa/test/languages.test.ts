@@ -37,9 +37,12 @@ describe('languages', () => {
     expect(LANGUAGES.en).toBe(en)
   })
 
-  it.each(LOCALES)('%s has exactly the English keys, with the same placeholders in each message', (locale) => {
-    expect(shapeOf(LANGUAGES[locale])).toEqual(shapeOf(en))
-  })
+  it.each(LOCALES)(
+    '%s has exactly the English keys, with the same placeholders in each message',
+    (locale) => {
+      expect(shapeOf(LANGUAGES[locale])).toEqual(shapeOf(en))
+    },
+  )
 
   it.each(LOCALES)('%s declares only plural forms its own rules can choose, always with other', (locale) => {
     const forms = new Intl.PluralRules(locale).resolvedOptions().pluralCategories
@@ -57,7 +60,11 @@ describe('languages', () => {
         : Object.entries(entry as Record<string, unknown>).flatMap(([key, value]) =>
             flat(value, path === '' ? key : `${path}.${key}`),
           )
-    const englishEmpty = new Set(flat(en).filter(([, text]) => text === '').map(([path]) => path))
+    const englishEmpty = new Set(
+      flat(en)
+        .filter(([, text]) => text === '')
+        .map(([path]) => path),
+    )
     for (const [path, text] of flat(LANGUAGES[locale]))
       if (!englishEmpty.has(path) && !path.startsWith('errors.')) expect(text, path).not.toBe('')
     expect(Object.keys(english).length).toBeGreaterThan(200)

@@ -742,14 +742,22 @@ const clippedText = (page: any): Promise<string[]> =>
       if (element.closest('.visually-hidden, [hidden], dialog:not([open])')) continue
       const style = getComputedStyle(element)
       const hidesOverflow = style.overflowX !== 'visible' || style.overflowY !== 'visible'
-      if (!hidesOverflow || style.textOverflow === 'ellipsis' || element.matches('textarea, input, select, pre, .table-scroll, .thread-scroll, .notes, nav, ul, ol, .sidebar, .stage, .page-body, .page, main, .app, .viewport, #app, aside, section, dialog, .window-body, .connect-body'))
+      if (
+        !hidesOverflow ||
+        style.textOverflow === 'ellipsis' ||
+        element.matches(
+          'textarea, input, select, pre, .table-scroll, .thread-scroll, .notes, nav, ul, ol, .sidebar, .stage, .page-body, .page, main, .app, .viewport, #app, aside, section, dialog, .window-body, .connect-body',
+        )
+      )
         continue
       const hasText = [...element.childNodes].some(
         (node: any) => node.nodeType === 3 && node.textContent.trim() !== '',
       )
       if (!hasText) continue
       if (element.scrollWidth > element.clientWidth + 1 || element.scrollHeight > element.clientHeight + 1)
-        clipped.push(`${element.tagName.toLowerCase()}.${[...element.classList].join('.')}: ${element.textContent.trim().slice(0, 40)}`)
+        clipped.push(
+          `${element.tagName.toLowerCase()}.${[...element.classList].join('.')}: ${element.textContent.trim().slice(0, 40)}`,
+        )
     }
     const walker = document.createTreeWalker(document.body, 4)
     for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
@@ -763,7 +771,11 @@ const clippedText = (page: any): Promise<string[]> =>
         const range = document.createRange()
         range.setStart(node, start)
         range.setEnd(node, start + word.length)
-        const lines = new Set([...range.getClientRects()].filter((rect: any) => rect.width > 0).map((rect: any) => Math.round(rect.top)))
+        const lines = new Set(
+          [...range.getClientRects()]
+            .filter((rect: any) => rect.width > 0)
+            .map((rect: any) => Math.round(rect.top)),
+        )
         if (lines.size > 1) clipped.push(`word broken across lines: ${word}`)
       }
     }

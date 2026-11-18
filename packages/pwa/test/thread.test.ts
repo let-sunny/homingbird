@@ -337,6 +337,8 @@ describe('status lines', () => {
     expect(statusOf(summarize([receipt(june)]))).toBe('delivered')
     expect(statusOf(summarize([receipt(june, { readAt: 2, state: 'read' })]))).toBe('read')
     expect(statusOf(summarize([receipt(june, { draftingAt: 2, state: 'drafting' })]))).toBe('drafting')
-    expect(statusOf(summarize([receipt(june, { repliedAt: 3, readAt: 2, state: 'replied' })]))).toBe('replied')
+    expect(statusOf(summarize([receipt(june, { repliedAt: 3, readAt: 2, state: 'replied' })]))).toBe(
+      'replied',
+    )
   })
 })
