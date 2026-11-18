@@ -1,0 +1,54 @@
+# SQLite in a volume:     docker compose up -d
+# PostgreSQL instead:     HB_DATABASE_URL=postgres://homingbird:homingbird@postgres:5432/homingbird docker compose --profile postgres up -d
+# Put HB_PUBLIC_URL, HB_OIDC_CLIENT_ID, HB_OIDC_CLIENT_SECRET, HB_ALLOWED_DOMAINS and HB_ADMIN_EMAILS in .env.
+
+services:
+  dovecote:
+    build: .
+    image: ghcr.io/let-sunny/homingbird
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      HB_PUBLIC_URL: ${HB_PUBLIC_URL:?set HB_PUBLIC_URL}
+      HB_DATABASE_URL: ${HB_DATABASE_URL:-sqlite:/data/dovecote.sqlite}
+      HB_OIDC_ISSUER: ${HB_OIDC_ISSUER:-https://accounts.google.com}
+      HB_OIDC_CLIENT_ID: ${HB_OIDC_CLIENT_ID:-}
+      HB_OIDC_CLIENT_SECRET: ${HB_OIDC_CLIENT_SECRET:-}
+      HB_OIDC_LABEL: ${HB_OIDC_LABEL:-}
+      HB_ALLOWED_DOMAINS: ${HB_ALLOWED_DOMAINS:-}
+      HB_ADMIN_EMAILS: ${HB_ADMIN_EMAILS:-}
+      HB_TOPICS: ${HB_TOPICS:-}
+      HB_CONTACT_MODE: ${HB_CONTACT_MODE:-open}
+      HB_TRUST_PROXY: ${HB_TRUST_PROXY:-0}
+      HB_AUDIT_STDOUT: ${HB_AUDIT_STDOUT:-0}
+      HB_AUDIT_WEBHOOK_URL: ${HB_AUDIT_WEBHOOK_URL:-}
+      HB_AUDIT_RETENTION_DAYS: ${HB_AUDIT_RETENTION_DAYS:-}
+      HB_THEME_DIR: ${HB_THEME_DIR:-}
+      HB_DEV_LOGIN: ${HB_DEV_LOGIN:-0}
+    volumes:
+      - dovecote-data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: false
+
+  postgres:
+    image: postgres:16
+    profiles: [postgres]
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: homingbird
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-homingbird}
+      POSTGRES_DB: homingbird
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U homingbird"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  dovecote-data:
+  postgres-data:
