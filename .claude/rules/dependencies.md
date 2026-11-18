@@ -9,7 +9,7 @@ pays, so the default answer to "should we add a package" is no.
 - **The only exception is a database driver.** `pg` and `mysql2` are optional peer dependencies of
   `dovecote`, loaded only when `HB_DATABASE_URL` names that database. SQLite uses `node:sqlite`.
 - **Development dependencies are a short, fixed list:** TypeScript, Biome, Vitest, fast-check,
-  Stryker, esbuild, tsx, Changesets. Adding one needs an entry in `docs/decisions.md` that says what it replaces.
+  Stryker, esbuild, tsx. Adding one needs an entry in `docs/decisions.md` that says what it replaces.
 - If the platform lacks something, write the smallest version that serves this project in the
   package that needs it, with tests. Protocols we implement ourselves (WebSocket framing, JSON-RPC,
   OAuth, OpenID Connect verification) are covered by tests against the specification's examples.

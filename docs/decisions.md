@@ -111,18 +111,21 @@ Each entry states the decision first, then the reason. Add new entries at the to
   esbuild bundle with no runtime dependencies, so `kernel`, `protocol`, `client` and the rest are never
   published and need no stable API. The packages carry npm provenance; `ghcr.io/let-sunny/homingbird`
   carries the same version.
-- **Changesets decides versions, through a "Version Packages" pull request.** `@changesets/cli`, a
-  development dependency, replaces hand-made tags and `scripts/set-version.ts` as the way a release
-  starts. Each change brings a changeset; merging the pull request the release workflow keeps open
-  releases. Every package is in one `fixed` group, so all share one version, and private ones are
-  versioned but never published. `scripts/release-version.ts` runs after `changeset version` to set
-  the version where Changesets does not (the root `package.json`, the mod's `plugin.json`, the two
-  version constants) and to write the one root `CHANGELOG.md` from the changesets, since Changesets
-  only writes per-package files; it uses no GitHub-token changelog plugin. The release workflow
-  versions on `changeset-release/main` and opens the pull request with `gh` itself, because
-  `changesets/action` reads a `CHANGELOG.md` in every released package, private ones included, to
-  write its pull-request body. Pre-releases use Changesets' pre mode. Commit types do not decide
-  versions.
+- **Commit messages decide versions and release notes, through a "Version Packages" pull request.**
+  Every commit is checked as a Conventional Commit, locally and in CI, so the messages are one source
+  of truth that a second file per change, a changeset, only repeated and could contradict. This
+  replaces Changesets. `scripts/release-version.ts` reads the commits since the last `v*` tag reachable from
+  `main`, skipping merges and "Version Packages" commits (`conventional-commit.ts`), computes the next
+  version (`next-version.ts`: before 1.0 a breaking change bumps the minor and a `feat`, `fix` or
+  `perf` the patch; from 1.0 major, minor and patch as usual; only `chore`, `docs`, `test`, `ci`,
+  `build` and `refactor` release nothing), and writes it to every package, the root, the mod's
+  `plugin.json`, the marketplace pin and the two version constants, so all share one version. It
+  writes the notes (`release-notes.ts`: breaking changes, added, fixed, performance, each entry the
+  summary and the first body paragraph) as a section of the one root `CHANGELOG.md`. The release
+  workflow rebuilds `release/main` from `main` and opens the pull request with `gh`; a person may edit
+  the section on that branch, and the published release takes its notes from the merged
+  `CHANGELOG.md`, never regenerated. Pre-releases are a committed setting, `"pre"` in `release.json`,
+  instead of a tool's mode.
 - **The mod ships its own copy of the command line, and its marketplace entry is the npm package.**
   `@homingbird/mod` holds the plugin files plus `cli/homingbird.mjs`, and the mod runs that file with
   `node` unless **Homingbird command** names another. The copy always matches the mod's version and

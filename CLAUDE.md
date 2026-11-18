@@ -57,4 +57,6 @@ The rules below are binding. Details and examples live in `.claude/rules/`.
   name or `deploy`, `release`, `repo`; summary imperative, lower-case, no period, at most 72
   characters; `!` or a `BREAKING CHANGE:` footer for a breaking change. The body says why the change
   was made: that is where history lives, not in comments. `.githooks/commit-msg` checks it.
-- Every change to a package comes with a changeset (`pnpm changeset`); commit types decide no version.
+- Commit types decide the version and the release notes: `feat`, `fix` and `perf` and breaking changes
+  are released, and their summary and first body paragraph become the release notes. Write those two
+  for the people who use Homingbird.

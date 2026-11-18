@@ -98,7 +98,8 @@ For an annotated tag, use the commit on the `^{}` line; otherwise the only line 
   bot's "Version Packages" commits are exempt.
 - `git config core.hooksPath .githooks` checks each message as you commit
   (`scripts/check-commit-message.ts`), and CI checks every commit of a pull request.
-- Commit types do not decide versions: changesets do.
+- Commit types decide versions and release notes: see [Releasing](#releasing). Write the summary and
+  the first paragraph of the body of a `feat`, `fix` or `perf` commit for the people who use Homingbird.
 - Explanations belong in the commit message, not in code comments.
 - Record a new design decision in `docs/decisions.md` in the same pull request.
 
@@ -106,26 +107,38 @@ For an annotated tag, use the commit on the `^{}` line; otherwise the only line 
 
 `@homingbird/cli`, `@homingbird/mcp`, `@homingbird/mod` and the image `ghcr.io/let-sunny/homingbird`
 are published; every other package is `private` and never published. All packages share one version,
-decided by [Changesets](https://github.com/changesets/changesets).
+decided by the commit messages.
 
 ### With each change
 
-Add a changeset in the same pull request:
+Nothing beyond the commit message. The commits since the last `v*` tag decide the next version:
 
-```sh
-pnpm changeset          # pick patch, minor or major, and write a sentence or two for users
-pnpm changeset --empty  # a change that needs no release, such as a docs fix
-```
+| Commits since the last release | Before 1.0 | From 1.0 |
+| --- | --- | --- |
+| A breaking change (`!` or a `BREAKING CHANGE:` footer) | minor | major |
+| A `feat` | patch | minor |
+| A `fix` or `perf` | patch | patch |
+| Only `chore`, `docs`, `test`, `ci`, `build`, `refactor` | no release | no release |
 
-CI fails a pull request that changes a package without a changeset.
+The release notes are made from the same commits, grouped under "Breaking changes", "Added", "Fixed"
+and "Performance". Each entry is the summary, with its scope in front, and the first paragraph of the
+body; a breaking change adds its `BREAKING CHANGE:` text. Write those for the people who use
+Homingbird. Merge commits and the "Version Packages" commits are skipped.
+
+`pnpm release:preview` prints the version and notes the next release would have;
+`pnpm release:preview <ref>` counts from another commit or tag.
 
 ### Releasing
 
-On every push to `main` with changesets waiting, `.github/workflows/release.yml` runs
-`pnpm version-packages` on the branch `changeset-release/main`, force-pushes it, and opens or updates
-the pull request "Version Packages" with `gh`. The pull request sets the next version everywhere and
-moves the changesets into [`CHANGELOG.md`](CHANGELOG.md); its body is that version's changelog
-section. **Merging that pull request releases:**
+On every push to `main`, `.github/workflows/release.yml` works out the next version. When there is
+one, it rebuilds the branch `release/main` from `main`, runs `node scripts/release-version.ts prepare`
+there (the version everywhere, and a new `## [<version>] - <date>` section in
+[`CHANGELOG.md`](CHANGELOG.md)), force-pushes it, and opens or updates the pull request "Version
+Packages" with `gh`; its body is that section. To change the notes, edit the section in `CHANGELOG.md`
+on `release/main` before merging: the release takes its notes from the merged `CHANGELOG.md`. A later
+push to `main` rebuilds the branch and drops such an edit, so edit just before merging.
+
+**Merging that pull request releases:**
 the workflow runs typecheck, lint and tests, builds, publishes the three packages to npm with
 provenance (dist-tag `latest`, or `next` for a pre-release), creates the tag `v<version>` and the GitHub
 release with that version's changelog section, and pushes `ghcr.io/let-sunny/homingbird:<version>`
@@ -137,13 +150,15 @@ release job therefore runs the checks itself before it publishes.
 
 ### Pre-releases
 
-```sh
-pnpm changeset pre enter rc   # commit and push: the next Version Packages PR makes 0.1.0-rc.3
-pnpm changeset pre exit       # commit and push: the next one makes 0.1.0
-```
+`release.json` at the root holds one setting, `"pre"`:
 
-Without pre mode, the next version follows from the changesets: from `0.1.0-rc.2` a patch changeset
-makes `0.1.0`.
+- `{ "pre": "rc" }`: the next release is a pre-release. From `0.1.0`, a `fix` makes `0.1.1-rc.1`;
+  while the latest tag is a `-rc` version, each release with commits for users counts up (`-rc.2`,
+  `-rc.3`) and keeps its version.
+- `{ "pre": null }`: final versions. From `0.1.1-rc.3`, the next release is `0.1.1`, whatever the
+  commits since.
+
+Commit the change to `main` like any other.
 
 ### Repository settings
 
