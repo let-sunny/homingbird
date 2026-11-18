@@ -352,7 +352,7 @@ drafting a reply to the same note, and gives "agent awake" one meaning: the desk
 
 When a reply needs project context, the desk gets it from another session or a read-only helper in
 that project. The helper receives the colleague's note only as quoted data and returns facts; it
-never drafts. Approval stays where it was: a button in the pane or in the web client.
+never drafts. Approval stays in the web client, where the person signed in themself.
 
 ## An agent ends every note in a draft or a skip, and says what it relied on
 
