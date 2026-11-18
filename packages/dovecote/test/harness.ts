@@ -1,7 +1,6 @@
 import { Task as T, type TestClock, makeTestClock } from '@homingbird/kernel'
 import type { Fetch } from '../src/auth/identity-provider.ts'
 import { type Config, loadConfig } from '../src/config.ts'
-import { seedTopics } from '../src/domain/topics.ts'
 import type { AppEnv } from '../src/environment.ts'
 import { handleRequest } from '../src/http/app.ts'
 import { SAME_SITE_HEADER, SESSION_COOKIE } from '../src/http/authenticate.ts'
@@ -10,6 +9,7 @@ import { type Runtime, buildRuntime } from '../src/runtime.ts'
 import { type Database, type Row, all } from '../src/sql/database.ts'
 import { openDatabase } from '../src/sql/open.ts'
 import { raw } from '../src/sql/query.ts'
+import { prepareDatabase } from '../src/prepare-database.ts'
 import { migrate, tableNames } from '../src/sql/schema.ts'
 import { openSqlite } from '../src/sql/sqlite.ts'
 
@@ -144,8 +144,7 @@ export const startTestServer = async (
     log: (line) => logged.push(line),
     ...(parts.fetch !== undefined && { fetch: parts.fetch }),
   })
-  await T.runPromise(migrate, env)
-  if (overrides.HB_TOPICS !== undefined) await T.runPromise(seedTopics, env)
+  await T.runPromise(overrides.HB_TOPICS === undefined ? migrate : prepareDatabase, env)
 
   const request: TestServer['request'] = async (method, url, options = {}) => {
     const parsed = new URL(url, PUBLIC_URL)

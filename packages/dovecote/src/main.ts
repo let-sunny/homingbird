@@ -1,10 +1,9 @@
 import { Task as T } from '@homingbird/kernel'
 import { loadConfig } from './config.ts'
-import { seedTopics } from './domain/topics.ts'
 import { startServer } from './http/node-server.ts'
 import { buildRuntime } from './runtime.ts'
+import { prepareDatabase } from './prepare-database.ts'
 import { openDatabase } from './sql/open.ts'
-import { migrate } from './sql/schema.ts'
 import { SERVER_VERSION } from './version.ts'
 
 const config = loadConfig(process.env)
@@ -17,8 +16,7 @@ if (config._tag === 'Err') {
 
 const database = await openDatabase(config.value.databaseUrl)
 const { env, background } = buildRuntime({ config: config.value, database })
-await T.runPromise(migrate, env)
-await T.runPromise(seedTopics, env)
+await T.runPromise(prepareDatabase, env)
 
 const backgroundWork = T.runFork(background, env)
 const server = await startServer(env, config.value.port)

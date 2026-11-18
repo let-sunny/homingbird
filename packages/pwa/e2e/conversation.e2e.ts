@@ -7,11 +7,10 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Task as T } from '@homingbird/kernel'
 import { loadConfig } from '../../dovecote/src/config.ts'
-import { seedTopics } from '../../dovecote/src/domain/topics.ts'
 import { startServer } from '../../dovecote/src/http/node-server.ts'
+import { prepareDatabase } from '../../dovecote/src/prepare-database.ts'
 import { buildRuntime } from '../../dovecote/src/runtime.ts'
 import { openDatabase } from '../../dovecote/src/sql/open.ts'
-import { migrate } from '../../dovecote/src/sql/schema.ts'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const screenshots = process.env.HB_E2E_SCREENSHOTS ?? join(here, 'screenshots')
@@ -708,8 +707,7 @@ const startDovecote = async (port: number, databasePath: string) => {
   if (config._tag === 'Err') throw new Error(config.error.join('; '))
   const database = await openDatabase(config.value.databaseUrl)
   const { env, background } = buildRuntime({ config: config.value, database, log: () => {} })
-  await T.runPromise(migrate, env)
-  await T.runPromise(seedTopics, env)
+  await T.runPromise(prepareDatabase, env)
   const work = T.runFork(background, env)
   const server = await startServer(env, port)
   let stopped = false
