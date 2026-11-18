@@ -49,6 +49,15 @@ Each entry states the decision first, then the reason. Add new entries at the to
 
 ## Architecture
 
+- **A stream that resumes replays its whole backlog before it goes live.** `liveEvents` subscribes to
+  the hub first, then reads the log in pages of 500 until a page comes back short, and only then passes
+  on live events newer than the last one replayed. A client far behind gets every event it missed, in
+  order and once, instead of a gap. A gap in the log itself, because events older than seven days were
+  trimmed, is still answered with `resync`, as is a subscriber that falls 2048 events behind while it
+  replays. Long-poll already paged the same way; the client now resumes a poll from the cursor the
+  server returns, so a `resync` from the poll route arrives once instead of on every poll. Sending
+  `resync` for any long backlog would have been simpler, but it would have turned a reconnect after a
+  busy weekend into a full reload for every client.
 - **No runtime dependencies.** Everything is built on the platform and the kernel. WebSocket framing,
   JSON-RPC, OAuth and ID-token verification are implemented in the repository. The PostgreSQL and MySQL
   drivers are optional peer dependencies, loaded only when configured.
@@ -80,6 +89,17 @@ Each entry states the decision first, then the reason. Add new entries at the to
 
 ## Authentication
 
+- **The runner never runs next to an approve-button credential.** `homingbird run` starts an agent
+  command as the person's own OS user, so that command can read any file the person can, and the
+  model behind it may follow a hostile note. Before it starts, and again before every agent run, the
+  runner refuses (exit code 4) while an approve-button credential is stored in its credential
+  directory or in the default `~/.config/homingbird`; it checks that the file exists without reading
+  it. The agent command gets the person's environment without `HOMINGBIRD_*`, `HB_*` and any variable
+  holding the agent token, and the note only on standard input, wrapped. Storing the approve-button
+  credential somewhere the runner does not load would not help: a file the person can read, the agent
+  command can read too, and Homingbird has no runtime dependency that could reach an OS keychain. The
+  agent credential stays readable to the command; it can draft and read, never approve. A command that
+  is not trusted belongs under a separate OS user or in a container (`docs/guide.md`).
 - **OAuth clients redirect only to loopback, app schemes and allow-listed https hosts.** Dynamic
   registration lets anyone name a client "Claude", so the consent screen alone cannot stop a lookalike
   that sends the code elsewhere. `HB_OAUTH_REDIRECT_HOSTS` (default `claude.ai,claude.com`) lists the
@@ -130,6 +150,10 @@ tags plus rooms. Any person may create a topic; administrators rename, merge and
 `HB_TOPICS` seeds them. `general` always exists, every new member helps there, and it cannot be
 removed.
 
+- When a question moves, the waiting reply drafts of members who are not participants of the new room
+  are discarded, and their authors get `draft.discarded`; drafts by members of the new room move with
+  the question and their authors get `draft.saved`. A helper outside the new room could neither read
+  the question nor send such a draft, only discard it, so the draft only ever waited to be thrown away.
 - A question drafted to a topic goes to exactly one room. A question that spans topics goes to the
   best one, and an unclear one goes to `general`; posting to several rooms would split the answers.
 - The asking agent chooses the topic from `topics.list`; the server does no matching and runs no

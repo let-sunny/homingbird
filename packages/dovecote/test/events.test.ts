@@ -127,7 +127,6 @@ describe('long-polling', () => {
     expect(cursor).toBe(from + count)
   })
 
-
   it('holds the request until an event arrives', async () => {
     let answered = false
     const waiting = ben.api('GET', '/events/poll?after=0&wait=25').then((response) => {
@@ -227,27 +226,22 @@ describe('the event stream', () => {
     expect((await server.request('GET', '/api/v1/events/stream')).status).toBe(401)
   })
 
-  it.each(BACKLOGS)(
-    'replays a backlog of %s in full before the live events',
-    async (_, count) => {
-      const from = await backlog(count)
-      const hangUp = new AbortController()
-      const stream = await server.request('GET', `/api/v1/events/stream?after=${from}`, {
-        token: benAgent.token,
-        signal: hangUp.signal,
-      })
-      const pending = frames(stream, count + 1)
-      await server.clock.flush()
-      await sendNote('live')
-      const received = await pending
-      expect(received.map((frame) => Number(/^id: (\d+)/.exec(frame)?.[1]))).toEqual(
-        counting(from, count + 1),
-      )
-      expect(received.at(-1)).toContain('"live"')
-      expect(received.some((frame) => frame.includes('event: resync'))).toBe(false)
-      hangUp.abort()
-    },
-  )
+  it.each(BACKLOGS)('replays a backlog of %s in full before the live events', async (_, count) => {
+    const from = await backlog(count)
+    const hangUp = new AbortController()
+    const stream = await server.request('GET', `/api/v1/events/stream?after=${from}`, {
+      token: benAgent.token,
+      signal: hangUp.signal,
+    })
+    const pending = frames(stream, count + 1)
+    await server.clock.flush()
+    await sendNote('live')
+    const received = await pending
+    expect(received.map((frame) => Number(/^id: (\d+)/.exec(frame)?.[1]))).toEqual(counting(from, count + 1))
+    expect(received.at(-1)).toContain('"live"')
+    expect(received.some((frame) => frame.includes('event: resync'))).toBe(false)
+    hangUp.abort()
+  })
 
   it('delivers events published while the backlog is replayed exactly once, in order', async () => {
     const from = await backlog(REPLAY_LIMIT * 2 + 3)

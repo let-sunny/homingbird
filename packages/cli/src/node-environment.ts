@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { access, chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { homedir, hostname } from 'node:os'
 import { dirname } from 'node:path'
 import { systemClock } from '@homingbird/kernel'
@@ -30,6 +30,11 @@ const nodeFiles: Files = {
       return null
     }
   },
+  exists: (path) =>
+    access(path).then(
+      () => true,
+      () => false,
+    ),
   writePrivate: async (path, content) => {
     await mkdir(dirname(path), { recursive: true, mode: PRIVATE_DIRECTORY_MODE })
     await chmod(dirname(path), PRIVATE_DIRECTORY_MODE)

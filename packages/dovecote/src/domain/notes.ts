@@ -147,8 +147,9 @@ export const moveToTopic = (
     const to = yield* topicRoomFor(note.authorId, topic)
     if (to === from.id) return yield* T.fail(Conflict({ message: 'The question is already in that topic.' }))
     const leftBehind = yield* participantsOf(from.id)
+    const arrivingAt = yield* participantsOf(to)
     const now = yield* nextSendTime(to, env.clock.now())
-    yield* run(sql`UPDATE notes SET conversation_id = ${to} WHERE in_reply_to = ${id}`)
+    const movedReplies = yield* settleWaitingReplies(id, to, arrivingAt)
     yield* run(
       sql`UPDATE notes SET conversation_id = ${to}, sent_at = ${now}, updated_at = ${now} WHERE id = ${id}`,
     )
@@ -164,7 +165,9 @@ export const moveToTopic = (
       fromConversationId: from.id,
       toConversationId: to,
     })
-    yield* emit(yield* participantsOf(to), { type: 'note.sent', note: moved })
+    yield* emit(arrivingAt, { type: 'note.sent', note: moved })
+    for (const reply of movedReplies)
+      yield* emit([reply.author_id], { type: 'draft.saved', note: yield* noteById(reply.id) })
     return moved
   })
 
@@ -398,6 +401,22 @@ const settleReply = (authorId: MemberId, repliedTo: NoteId, now: number): T.Task
       sql`SELECT * FROM notes WHERE in_reply_to = ${repliedTo} AND author_id = ${authorId} AND status = 'draft'`,
     )
     for (const alternative of alternatives) yield* discard(alternative)
+  })
+
+const settleWaitingReplies = (
+  questionId: NoteId,
+  to: ConversationId,
+  arrivingAt: ReadonlyArray<MemberId>,
+): T.Task<NoteRow[], never, RequestEnv> =>
+  T.gen(function* () {
+    const waiting = yield* all<NoteRow>(
+      sql`SELECT * FROM notes WHERE in_reply_to = ${questionId} AND status = 'draft' ORDER BY id`,
+    )
+    const moving = waiting.filter((reply) => arrivingAt.includes(reply.author_id))
+    for (const reply of waiting) if (!moving.includes(reply)) yield* discard(reply)
+    for (const reply of moving)
+      yield* run(sql`UPDATE notes SET conversation_id = ${to} WHERE id = ${reply.id}`)
+    return moving
   })
 
 const discard = (draft: NoteRow): T.Task<void, never, RequestEnv> =>

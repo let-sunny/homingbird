@@ -36,7 +36,13 @@ Every variable Dovecote reads is either a variable here (`topics`, `contact_mode
 - **Request timeout of 3600 seconds**, the most Cloud Run allows. A stream is cut after an hour and the
   client reconnects from its last sequence number without losing events. A serverless backend ignores
   the load balancer's own backend timeout; the Cloud Run timeout is the one that applies.
-- **`HB_TRUST_PROXY=1`**, because the service is reachable only through the load balancer.
+- **`HB_TRUST_PROXY=2`**, because the service is reachable only through the load balancer and that load
+  balancer appends two entries to `X-Forwarded-For`: the client address it saw, then its own address.
+  Dovecote counts trusted entries from the right, so `2` picks the client address and ignores whatever
+  the client put in the header itself. With `1` every request would appear to come from the load
+  balancer, so rate limiting would lump all clients together and the audit log would record Google's
+  address. Add one if you put a CDN or another proxy in front. See
+  [docs/deployment.md](../../../docs/deployment.md#behind-a-load-balancer).
 - **`HB_AUDIT_STDOUT=1`**, so the audit trail reaches Cloud Logging.
 
 ## What it leaves to you
@@ -52,5 +58,8 @@ Every variable Dovecote reads is either a variable here (`topics`, `contact_mode
 
 - The database URL names the Cloud SQL Unix socket as `?host=/cloudsql/<connection name>`. The `pg`
   driver documents that form, but Dovecote has not been run against Cloud SQL this way.
+- The count of `2` follows Google's documentation of the external Application Load Balancer. After the
+  first deployment, log `X-Forwarded-For` once from a known address and check that the client address is
+  the second entry from the right.
 - Provider `hashicorp/google` is pinned to `~> 6.0`; argument names were written from memory of that
   version's documentation.

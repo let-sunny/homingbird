@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { AGENT_OUTPUT_MAX_BYTES, type Spawn, nodeLauncher, openerCommand } from '../src/node-launcher.ts'
 
 const NODE = JSON.stringify(process.execPath)
+const PATH_ONLY = { PATH: process.env.PATH ?? '' }
 
 const fakeOpener = (outcome: 'spawn' | 'error') => {
   const started: Array<{ command: string; args: ReadonlyArray<string>; shell: unknown }> = []
@@ -52,21 +53,56 @@ describe('nodeLauncher', () => {
   it('runs the agent command with the prompt on stdin and returns what it printed', async () => {
     const launcher = nodeLauncher(process.platform)
     const echo = `${NODE} -e "process.stdin.pipe(process.stdout)"`
-    expect(await launcher.runAgent(echo, 'Draft a reply.\nThanks', new AbortController().signal)).toEqual({
+    expect(
+      await launcher.runAgent(echo, 'Draft a reply.\nThanks', PATH_ONLY, new AbortController().signal),
+    ).toEqual({
       exitCode: 0,
       output: 'Draft a reply.\nThanks',
     })
-    expect(await launcher.runAgent(`${NODE} -e "process.exit(3)"`, '', new AbortController().signal)).toEqual(
-      {
-        exitCode: 3,
-        output: '',
-      },
+    expect(
+      await launcher.runAgent(`${NODE} -e "process.exit(3)"`, '', PATH_ONLY, new AbortController().signal),
+    ).toEqual({
+      exitCode: 3,
+      output: '',
+    })
+  })
+
+  it('starts the agent command with exactly the environment it is given, and nothing on its command line', async () => {
+    const started: Array<{ command: string; args: ReadonlyArray<string>; env: unknown }> = []
+    const start: Spawn = (command, args, options) => {
+      started.push({ command, args, env: options.env })
+      const stdout = new EventEmitter()
+      const child = Object.assign(new EventEmitter(), {
+        stdout,
+        stdin: {
+          on: () => {},
+          end: () => {
+            stdout.emit('data', Buffer.from('ok'))
+            queueMicrotask(() => child.emit('close', 0))
+          },
+        },
+      })
+      return child as unknown as ChildProcess
+    }
+    const handed = { PATH: '/usr/bin', LANG: 'C' }
+    const ran = await nodeLauncher('linux', start).runAgent(
+      'codex exec',
+      'Draft.',
+      handed,
+      new AbortController().signal,
     )
+    expect(ran).toEqual({ exitCode: 0, output: 'ok' })
+    expect(started).toEqual([{ command: 'codex exec', args: [], env: handed }])
   })
 
   it('keeps at most a bounded amount of output', async () => {
     const flood = `${NODE} -e "process.stdout.write('x'.repeat(${AGENT_OUTPUT_MAX_BYTES * 2}))"`
-    const { output } = await nodeLauncher(process.platform).runAgent(flood, '', new AbortController().signal)
+    const { output } = await nodeLauncher(process.platform).runAgent(
+      flood,
+      '',
+      PATH_ONLY,
+      new AbortController().signal,
+    )
     expect(output.length).toBeLessThanOrEqual(AGENT_OUTPUT_MAX_BYTES)
   })
 
@@ -75,6 +111,7 @@ describe('nodeLauncher', () => {
     const running = nodeLauncher(process.platform).runAgent(
       `${NODE} -e "setInterval(() => {}, 1000)"`,
       '',
+      PATH_ONLY,
       stopping.signal,
     )
     stopping.abort()

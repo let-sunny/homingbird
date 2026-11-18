@@ -24,6 +24,7 @@ move up one size for the large row.
 - [Audit log forwarding](#audit-log-forwarding)
 - [Web push](#web-push)
 - [Connecting claude.ai](#connecting-claudeai)
+- [Running the desk runner on a server](#running-the-desk-runner-on-a-server)
 - [Configuration](#configuration)
 - [Ready-made setups](#ready-made-setups)
 
@@ -184,6 +185,24 @@ custom connector.
 A client that cannot use metadata documents or dynamic registration can be registered up front with
 `HB_OAUTH_CLIENTS`.
 
+## Running the desk runner on a server
+
+`homingbird run --agent "<command>"` can run next to Dovecote or on any machine that reaches it, so a
+team can keep desks for headless agents (Codex CLI, Gemini CLI, Cursor agent) running without a laptop.
+The agent command runs with the permissions of the OS user that runs the runner, so:
+
+- **Give each runner its own OS user or container**, with only that person's `homingbird login` in it.
+  The agent command can read every file that user can read, including the runner's agent credential
+  (`$XDG_CONFIG_HOME/homingbird` or `~/.config/homingbird`). With it, an agent can read that person's
+  conversations and draft, never send: Dovecote refuses agent credentials on every approving route.
+- **Never sign that user in with `--approve-button`.** The runner refuses to start, and stops before the
+  next agent run, while an approve-button credential is stored in that user's Homingbird directory or in
+  `~/.config/homingbird`. Approval happens in the web client.
+- **Never run it as the user that runs Dovecote**, which can read the database and `HB_*` secrets. The
+  runner removes `HOMINGBIRD_*` and `HB_*` variables from the agent command's environment, but files are
+  another matter.
+- The runner holds an event stream, so the person shows as **agent online** while it runs.
+
 ## Configuration
 
 Every variable Dovecote reads. Blank values count as unset.
@@ -219,8 +238,10 @@ Every variable Dovecote reads. Blank values count as unset.
 - **Docker Compose:** `docker-compose.yml` at the repository root runs Dovecote on SQLite in a volume,
   with an optional `postgres` profile.
 - **Google Cloud:** [`deploy/terraform/gcp`](../deploy/terraform/gcp/README.md): Cloud Run with one
-  instance, Cloud SQL for PostgreSQL, and an HTTPS load balancer.
+  instance, Cloud SQL for PostgreSQL, and an HTTPS load balancer. It sets `HB_TRUST_PROXY=2`, because
+  that load balancer appends the client address and then its own.
 - **AWS:** [`deploy/terraform/aws`](../deploy/terraform/aws/README.md): ECS Fargate with one task, RDS for
-  PostgreSQL, and an Application Load Balancer.
+  PostgreSQL, and an Application Load Balancer. It sets `HB_TRUST_PROXY=1`, because that load balancer
+  appends only the client address.
 
 Neither Terraform setup has been validated or applied; each README says what to check.

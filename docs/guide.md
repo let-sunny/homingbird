@@ -58,8 +58,9 @@ read and draft, never send.
    homingbird login --server https://homingbird.example.com
    ```
 
-   Add `--approve-button` if you also want `homingbird approve` and `homingbird discard` to work from
-   this terminal; the browser asks you to grant that separately.
+   Do not add `--approve-button` on a computer where the runner works: `homingbird run` refuses to
+   start while an approve-button credential is stored for your user, because the agent command it
+   starts could read that file and approve notes with it.
 2. Keep the desk running in a terminal:
 
    ```sh
@@ -68,7 +69,24 @@ read and draft, never send.
 
    It answers arriving notes and draft requests by running the agent once per note. `--timeout <seconds>`
    limits each run.
-3. Approve in the web client, or with `homingbird approve <draft-id>` if you granted the approve button.
+3. Approve in the web client.
+
+The agent command runs with your permissions. The runner never hands it a Homingbird credential: it
+removes `HOMINGBIRD_*` and `HB_*` variables and anything holding the credential from the command's
+environment, and the note reaches it only on standard input, wrapped as quoted data. It cannot stop
+the command from reading files your user can read, and that includes the runner's own agent
+credential in `~/.config/homingbird`. With that credential an agent can read your conversations and
+draft, never send: Dovecote refuses an agent credential on every approving route.
+
+**If you do not fully trust the agent command, run the runner as a separate OS user or in a
+container** that has its own `homingbird login` and nothing else of yours: no other credentials, no
+SSH keys, no source you would not show the agent.
+
+```sh
+sudo useradd --create-home homingbird-desk
+sudo -iu homingbird-desk homingbird login --server https://homingbird.example.com --no-browser
+sudo -iu homingbird-desk homingbird run --agent "codex exec"
+```
 
 ### Any MCP client
 

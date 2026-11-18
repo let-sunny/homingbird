@@ -103,8 +103,7 @@ const backlog = async (count: number): Promise<number> => {
 }
 
 const eventually = async (condition: () => boolean): Promise<void> => {
-  for (let attempt = 0; attempt < 1_000 && !condition(); attempt++)
-    await new Promise((r) => setTimeout(r, 5))
+  for (let attempt = 0; attempt < 1_000 && !condition(); attempt++) await new Promise((r) => setTimeout(r, 5))
   expect(condition()).toBe(true)
 }
 

@@ -14,6 +14,7 @@ import type { AgentRun, CliEnv } from '../environment.ts'
 import { type CliFailure, EXIT, failed } from '../failure.ts'
 import { type Outcome, outcome } from '../outcome.ts'
 import { quoteForModel } from '../quoting.ts'
+import { agentEnvironment, requireNoApprovalCredential } from '../runner-guard.ts'
 import { type Session, calling, openSession } from '../session.ts'
 import { authorsOf } from './reading.ts'
 import { originalOf } from './requests.ts'
@@ -25,6 +26,7 @@ export const run = (
 ): T.Task<void, CliFailure, CliEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<CliEnv>()
+    yield* requireNoApprovalCredential
     const session = yield* openSession('agent')
     const { member } = yield* calling(session.api['me.get']({}))
     const { cursor } = yield* calling(session.api['events.poll']({ query: {} }))
@@ -80,6 +82,8 @@ interface Runner {
   readonly tried: Set<DraftRequestId>
 }
 
+const STOPPING: ReadonlyArray<number> = [EXIT.signedOut, EXIT.unsafe]
+
 const WAKING: ReadonlyArray<StreamEvent['body']['type']> = ['note.sent', 'draft.requested', 'resync']
 
 const isWaking = (event: StreamEvent, viewerId: MemberId): boolean =>
@@ -100,7 +104,7 @@ const answerWaiting = (runner: Runner): T.Task<void, CliFailure, CliEnv> =>
       }),
     )
     if (looked._tag === 'Ok') return
-    if (looked.error.exitCode === EXIT.signedOut) return yield* T.fail(looked.error)
+    if (STOPPING.includes(looked.error.exitCode)) return yield* T.fail(looked.error)
     yield* warn(`Could not look for work just now: ${looked.error.message}`)
   })
 
@@ -129,13 +133,15 @@ const answerRequest = (runner: Runner, request: DraftRequest): T.Task<void, CliF
     runner.report(drafted(draft, { requestId: request.id }, `for the draft request ${request.id}`))
   })
 
-const draftedBy = (runner: Runner, prompt: string, what: string): T.Task<string | null, never, CliEnv> =>
+const draftedBy = (runner: Runner, prompt: string, what: string): T.Task<string | null, CliFailure, CliEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<CliEnv>()
+    yield* requireNoApprovalCredential
+    const environment = agentEnvironment(env.variables, [runner.session.credential.token])
     const finished = yield* T.result(
       T.timeout(runner.timeoutMs)(
         T.tryPromise(
-          (signal: AbortSignal) => env.launcher.runAgent(runner.agent, prompt, signal),
+          (signal: AbortSignal) => env.launcher.runAgent(runner.agent, prompt, environment, signal),
           (cause) => failed(cause instanceof Error ? cause.message : String(cause)),
         ),
       ),

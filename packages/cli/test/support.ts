@@ -45,7 +45,12 @@ export interface World {
   readonly run: (...argv: string[]) => Promise<number>
   readonly json: () => any
   readonly opened: string[]
-  readonly agentRuns: Array<{ readonly command: string; readonly prompt: string }>
+  readonly agentRuns: Array<{
+    readonly command: string
+    readonly prompt: string
+    readonly environment: Readonly<Record<string, string>>
+  }>
+  readonly reads: string[]
 }
 
 export interface WorldOptions {
@@ -74,11 +79,16 @@ export const world = (options: WorldOptions = {}): World => {
   let nonces = 0
   const opened: string[] = []
   const agentRuns: World['agentRuns'] = []
+  const reads: string[] = []
   const env: CliEnv = {
     clock,
     fetch: options.fetch ?? stubbedFetch(options.stubs ?? {}, calls, options.other),
     files: {
-      read: async (path) => files.get(path) ?? null,
+      read: async (path) => {
+        reads.push(path)
+        return files.get(path) ?? null
+      },
+      exists: async (path) => files.has(path),
       writePrivate: async (path, content) => {
         privateWrites.push(path)
         files.set(path, content)
@@ -96,8 +106,8 @@ export const world = (options: WorldOptions = {}): World => {
         opened.push(url)
         return (await options.browser?.(url)) ?? false
       },
-      runAgent: async (command, prompt, signal) => {
-        agentRuns.push({ command, prompt })
+      runAgent: async (command, prompt, environment, signal) => {
+        agentRuns.push({ command, prompt, environment })
         return (await options.agent?.(prompt, signal)) ?? { exitCode: 0, output: 'Drafted reply.' }
       },
     },
@@ -105,6 +115,7 @@ export const world = (options: WorldOptions = {}): World => {
   return {
     opened,
     agentRuns,
+    reads,
     env,
     lines,
     problems,

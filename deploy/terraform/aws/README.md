@@ -38,7 +38,9 @@ Every variable Dovecote reads is either a variable here (`topics`, `contact_mode
   short outage, after which clients reconnect and resume from their last sequence number.
 - **Load balancer idle timeout of 3600 seconds.** Dovecote sends a heartbeat every 20 seconds, so the
   default of 60 would also hold; the higher value leaves room for a proxy in front that buffers them.
-- **`HB_TRUST_PROXY=1`**, because the task is reachable only through the load balancer.
+- **`HB_TRUST_PROXY=1`**, because the task is reachable only through the load balancer, and the
+  Application Load Balancer appends one entry, the client address it saw, to `X-Forwarded-For`. See
+  [docs/deployment.md](../../../docs/deployment.md#behind-a-load-balancer).
 - **`HB_AUDIT_STDOUT=1`**, so the audit trail reaches CloudWatch Logs.
 
 ## What it leaves to you

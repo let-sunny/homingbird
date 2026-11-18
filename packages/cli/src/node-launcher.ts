@@ -16,9 +16,14 @@ export const nodeLauncher = (platform: string, start: Spawn = spawn): Launcher =
       })
     })
   },
-  runAgent: (command, prompt, signal) =>
+  runAgent: (command, prompt, environment, signal) =>
     new Promise<AgentRun>((resolve, reject) => {
-      const child = start(command, [], { stdio: ['pipe', 'pipe', 'inherit'], shell: true, signal })
+      const child = start(command, [], {
+        stdio: ['pipe', 'pipe', 'inherit'],
+        shell: true,
+        env: { ...environment },
+        signal,
+      })
       const chunks: Buffer[] = []
       let size = 0
       child.stdout?.on('data', (chunk: Buffer) => {

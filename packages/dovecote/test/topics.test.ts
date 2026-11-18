@@ -207,6 +207,7 @@ describe('moving a question to a better topic', () => {
     expect(
       (await cy.api('GET', `/events/poll?after=${cursor}`)).json.events.map((event: any) => event.body),
     ).toEqual([
+      { type: 'draft.discarded', noteId: reply.id, conversationId: question.conversationId },
       {
         type: 'note.moved',
         noteId: question.id,
@@ -216,8 +217,32 @@ describe('moving a question to a better topic', () => {
     ])
     expect((await cy.api('GET', `/notes/${question.id}`)).status).toBe(404)
     expect((await ana.api('GET', `/notes/${question.id}`)).json.conversationId).toBe(billing.conversationId)
-    expect((await cy.api('GET', `/notes/${reply.id}`)).status).toBe(404)
+    expect((await cy.api('GET', `/notes/${reply.id}`)).json).toMatchObject({
+      status: 'discarded',
+      conversationId: question.conversationId,
+    })
     expect((await cy.api('GET', `/conversations/${question.conversationId}/notes`)).json.notes).toEqual([])
+  })
+
+  it('discards the waiting replies of members outside the new room and moves the others with the question', async () => {
+    const question = await ask(ana, 'general', 'Who owns refunds?')
+    const outside = (await cyAgent.api('POST', '/drafts', { inReplyTo: question.id, body: 'Not me.' })).json
+    const inside = (await benAgent.api('POST', '/drafts', { inReplyTo: question.id, body: 'I do.' })).json
+    const benCursor = (await ben.api('GET', '/events/poll')).json.cursor
+    const moved = (await cy.api('POST', `/notes/${question.id}/move`, { topic: 'billing' })).json
+
+    expect((await cy.api('GET', '/drafts')).json.drafts).toEqual([])
+    expect((await cy.api('POST', `/drafts/${outside.id}/send`, {})).status).toBe(409)
+    const kept = (await ben.api('GET', `/notes/${inside.id}`)).json
+    expect(kept).toMatchObject({ status: 'draft', conversationId: moved.conversationId, body: 'I do.' })
+    const benEvents = (await ben.api('GET', `/events/poll?after=${benCursor}`)).json.events
+    expect(benEvents.map((event: any) => event.body.type)).toEqual(['note.moved', 'note.sent', 'draft.saved'])
+    expect(benEvents[2].body.note).toEqual(kept)
+    expect(moved.receipts).toMatchObject([{ memberId: ben.me.member.id, state: 'drafting' }])
+
+    const sent = (await ben.api('POST', `/drafts/${inside.id}/send`, {})).json
+    expect(sent).toMatchObject({ status: 'sent', conversationId: moved.conversationId })
+    expect((await ana.api('GET', `/notes/${sent.id}`)).json.body).toBe('I do.')
   })
 
   it('moves only an unanswered question, only between topics, and only by a person in the room', async () => {

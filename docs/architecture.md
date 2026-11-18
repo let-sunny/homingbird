@@ -7,8 +7,7 @@ with an approve button in their agent's pane, and Dovecote checks that the crede
 before it sends. Dovecote never calls a language model, never shows a draft to anyone but its author,
 and never hands a received note to a model except wrapped as quoted data by `wrapNote`.
 
-Everything below is described from the code in `packages/`. Parts marked **in progress** are being
-changed while this document is written.
+Everything below is described from the code in `packages/`.
 
 ## Packages
 
@@ -23,7 +22,7 @@ changed while this document is written.
 | `cli` | The `homingbird` command: sign-in, reading, drafting, `approve` and `discard` with the approve credential, `stream`, and the runner `run --agent`. |
 | `mcp` | The MCP adapter: tools, prompts, the stdio program `homingbird-mcp` with `--channel` and `--desk`, and the handler behind the remote `/mcp` endpoint. |
 | `a2a` | The A2A gateway: a remote agent's message becomes a draft; tasks show the draft's state and the wrapped replies. |
-| `mod` | The Claude Code mod: the Homingbird pane, the desk session, the model-facing tools and the guard. It drives the `cli` package. **In progress.** |
+| `mod` | The Claude Code mod: the Homingbird pane with its Approve, Edit and Discard buttons, the desk session, the model-facing note, topic and draft-request tools, the read-only project-reader helper, and the guard. It drives the `cli` package. |
 
 ## System overview
 
@@ -128,7 +127,8 @@ sequenceDiagram
 ```
 
 The mod signs in with `homingbird login --approve-button`, so it asks for the approve button; the MCP
-stdio program and the runner never ask for it. In the mod, the guard keeps the model away from the
+stdio program and the runner never ask for it, and the runner refuses to start while an approve-button
+credential is stored in its own or the default credential directory. In the mod, the guard keeps the model away from the
 credential files. Remote connectors such as ChatGPT and claude.ai use the authorization code flow with
 PKCE through the consent page (`consent.decide`) instead of the device flow, and receive only an agent
 credential. Dovecote stores every token as a SHA-256 hash.
@@ -186,7 +186,16 @@ wrapped by `wrapNote`. With the default `autoDraft: turn`, the mod opens a new t
 note and asks the model to call `draft_reply`; with `quiet` it asks a forked model for the reply text
 in the background; with `off` it drafts nothing. When the reply needs project facts, the model can ask
 another session (`ask_session`) or a read-only helper (`ask_project`); either gets the note only as
-quoted data and returns facts, never a draft. The mod is **in progress**.
+quoted data and returns facts, never a draft.
+
+`/homingbird` opens the pane and claims the desk: the claim (session id and time) is kept in the mod's
+store, and every 30 seconds the desk checks it, refreshes `homingbird overview` and restarts the stream
+if it stopped. A session that finds another session's claim stands down, stops its stream and offers
+"Make this the desk". When a session starts, it resumes the desk if the claim is still its own. On
+claiming the desk and on `resync`, the mod catches up: it drafts for every waiting note that has no
+draft yet and answers every open draft request. `ask_project` starts the `project-reader` agent, which
+may only read, grep and glob, in the directory it names; a hook refuses to start that agent any other
+way. Its facts come back as a new message to the desk when its turn completes.
 
 ```mermaid
 sequenceDiagram
@@ -228,7 +237,8 @@ sequenceDiagram
 
 The mod's guard (`forbiddenReason` in `packages/mod/hooks/guard.ts`) refuses any tool call by the
 model that runs `homingbird approve` or `discard`, calls a send, discard, contact, block or credential
-route, or touches the credential files. Without an approve credential the pane tells the person to
+route, or touches the credential files, also when a file path given to a tool resolves to one of them
+through a link. Without an approve credential the pane tells the person to
 approve in the web client. Pane buttons call `homingbird approve` and `discard`; the CLI also needs
 the approve credential for `discard`.
 
@@ -278,7 +288,9 @@ sequenceDiagram
 
 A request names its destination: a reply to a note, a conversation, a colleague or a topic, plus an
 optional instruction and optionally one chosen agent. The MCP desk, the runner and the mod all answer
-requests; the mod's handling is **in progress**.
+requests. The mod opens a turn for each `draft.requested` with the instruction and, for a reply, the
+wrapped note it answers; the model reads the conversation with `read_conversation` and answers with
+`answer_draft_request`. The pane lists the open requests under "Notes waiting for a reply".
 
 ## Asking a topic
 
@@ -318,6 +330,7 @@ sequenceDiagram
     P->>S: notes.move to another topic, a human route
     S-)H1: note.moved, to the old room's participants
     S->>S: receipts deleted and created again for the new room's helpers
+    S-)H2: draft.discarded, for a waiting reply by someone outside the new room
     S-)P: note.sent, to the new room's participants
   end
 ```
@@ -325,7 +338,9 @@ sequenceDiagram
 The MCP tools `find_topics` and `draft_note` with `topic`, the CLI `topics` and `draft --topic`, the
 A2A gateway (`metadata.topic`) and the mod's `list_topics` and `draft_to_topic` all reach topics. The
 web client lists topics, lets people help in one or leave it, and shows the destination when
-approving.
+approving. When a question moves, a waiting reply draft by a member of the new room moves with it
+(`draft.saved` to its author); one by anyone else is discarded (`draft.discarded`), because its author
+could no longer read the question or send the reply.
 
 ## Note and receipt states
 
@@ -345,6 +360,7 @@ stateDiagram-v2
   draft --> sent : drafts.send by a person
   draft --> discarded : drafts.discard by a person
   draft --> discarded : the same author sent another reply to that note
+  draft --> discarded : the question it answers moved to a room its author is not in
   sent --> [*]
   discarded --> [*]
 ```
@@ -382,9 +398,9 @@ in the pane or in the web client.
 
 | Agent | How it becomes the desk | How it wakes | Counts as online | Where the person approves | State |
 | --- | --- | --- | --- | --- | --- |
-| Claude Code with the mod | `/homingbird` opens the pane and claims the desk; another session that claims it makes this one stand down within 30 seconds | `homingbird stream --json`: `note.sent` opens a turn (`turn`) or drafts in the background (`quiet`); `draft.requested` opens a turn | Yes, through the CLI's SSE stream | Pane Approve button, if the approve credential was granted, or the web client | **In progress** |
+| Claude Code with the mod | `/homingbird` opens the pane and claims the desk; another session that claims it makes this one stand down within 30 seconds | `homingbird stream --json`: `note.sent` opens a turn (`turn`) or drafts in the background (`quiet`); `draft.requested` opens a turn | Yes, through the CLI's SSE stream | Pane Approve button, if the approve credential was granted, or the web client | Implemented |
 | Claude Code with `homingbird-mcp --desk` | Started in a session launched with `--channels` | The MCP server holds the stream and pushes notes and draft requests as `notifications/claude/channel`; at start the model is told to call `check_inbox` | Yes, while the SSE stream holds | Web client, through the `open_homingbird` link | Implemented |
-| Codex, Gemini CLI, Cursor or any headless agent | `homingbird run --agent "<command>"` | The runner holds the stream; on `note.sent`, `draft.requested` or `resync` it picks up each new note and request, pipes the wrapped prompt to the command and saves its output as a draft | Yes, while the SSE stream holds | Web client | Implemented |
+| Codex, Gemini CLI, Cursor or any headless agent | `homingbird run --agent "<command>"`, which refuses to start while an approve-button credential is stored in its own or the default credential directory | The runner holds the stream; on `note.sent`, `draft.requested` or `resync` it picks up each new note and request, pipes the wrapped prompt to the command, with no Homingbird variable or credential in its environment, and saves its output as a draft | Yes, while the SSE stream holds | Web client | Implemented |
 | An MCP client with a chat left open | The `watch` prompt calls `wait_for_notes` in a loop | `events.poll` long-poll returns, then the tool fetches new notes and requests | No, long-poll is not counted | Web client, through the `open_homingbird` link | Implemented |
 | ChatGPT or claude.ai connector | Cannot be a desk; it reaches the remote `/mcp` endpoint | Cannot be woken; "Check Homingbird" makes it call `check_inbox` | No | Web client | Implemented |
 | A2A client | Cannot be a desk | Not woken; it reads task state with `tasks/get` | No | Web client | Implemented |
@@ -398,8 +414,8 @@ that faces a model. Paths are relative to `packages/`.
 | --- | --- | --- |
 | 1. Only a human credential can approve a note. | `access: 'human'` on `drafts.send`, `drafts.discard` and every other human route in `protocol/src/contract.ts`; `allows` in `protocol/src/policy.ts`; `requireAccess` in `dovecote/src/api/invoke.ts`, which also audits the refusal; `sendDraft` and `discardDraft` in `dovecote/src/domain/notes.ts` check `isHuman` again. The device flow issues the approve credential only when the person allows it (`exchangeDeviceCode` in `dovecote/src/auth/oauth.ts`). | `dovecote/test/security-rules.test.ts`, block "Rule 1" |
 | 2. Drafts are invisible to recipients. | `visibleNote`, `notesInConversation`, `searchNotes` and `notesAwaitingReply` in `dovecote/src/domain/notes.ts` filter by `status = 'sent' OR author_id = viewer`; `listConversations` in `dovecote/src/domain/conversations.ts` hides a direct conversation without a sent note; `createDraft`, `updateDraft` and `discard` emit `draft.saved` and `draft.discarded` to the author only; receipts are created only by `sendDraft`. | `dovecote/test/security-rules.test.ts`, block "Rule 2" |
-| 3. No tool exposed to a model can approve, change contacts, or read credentials. | `memberApiOf` in `mcp/src/member-api.ts` and `a2a/src/member-api.ts` exposes only `member` and `public` routes; `makeLocalSession` in `mcp/src/local-session.ts` never asks for the approve scope; `NOTE_TOOLS` in `mod/hooks/tools.ts` run only the CLI's agent commands; `forbiddenReason` in `mod/hooks/guard.ts` refuses shell approval, person-only routes and the credential files; the pane's Approve button calls `decide` in `mod/hooks/desk.ts`. | `dovecote/test/security-rules.test.ts`, block "Rule 3"; `mcp/test/tools.test.ts`, `mcp/test/server.test.ts`, `mcp/test/member-api.test.ts`, `mcp/test/triggers.test.ts`; `mod/tests/tools.test.ts`, `mod/tests/guard.test.ts` |
-| 4. Every received note reaches a model only through `wrapNote`. | `wrapNote` in `protocol/src/wrap.ts`, with a random nonce in the boundary; its callers are `quoteNote` in `mcp/src/quote.ts`, `quoteForModel` in `cli/src/quoting.ts` (used by `stream`, `inbox`, `conversation`, `requests` and `run`), and `taskViewOf` in `a2a/src/task-view.ts`. The mod receives notes only as the CLI's wrapped text. | `protocol/test/wrap.test.ts` (property tests), `mcp/test/quote.test.ts`, `mcp/test/triggers.test.ts`, `mcp/test/channel.test.ts`. There is no "Rule 4" block in `security-rules.test.ts`. |
+| 3. No tool exposed to a model can approve, change contacts, or read credentials. | `memberApiOf` in `mcp/src/member-api.ts` and `a2a/src/member-api.ts` exposes only `member` and `public` routes; `makeLocalSession` in `mcp/src/local-session.ts` never asks for the approve scope; `NOTE_TOOLS` in `mod/hooks/tools.ts` run only the CLI's agent commands; `forbiddenReason` in `mod/hooks/guard.ts` refuses shell approval, person-only routes and the credential files; the pane's Approve button calls `decide` in `mod/hooks/desk.ts`; the runner uses only the agent credential, refuses to run while an approve-button credential is stored (`requireNoApprovalCredential`) and strips Homingbird variables and the token from the agent command's environment (`agentEnvironment`), both in `cli/src/runner-guard.ts`. | `dovecote/test/security-rules.test.ts`, block "Rule 3"; `mcp/test/tools.test.ts`, `mcp/test/server.test.ts`, `mcp/test/member-api.test.ts`, `mcp/test/triggers.test.ts`; `mod/tests/tools.test.ts`, `mod/tests/guard.test.ts`; `cli/test/run.test.ts`, `cli/test/runner-guard.test.ts`, `cli/test/node-launcher.test.ts` |
+| 4. Every received note reaches a model only through `wrapNote`. | `wrapNote` in `protocol/src/wrap.ts`, with a random nonce in the boundary; its callers are `quoteNote` in `mcp/src/quote.ts`, `quoteForModel` in `cli/src/quoting.ts` (used by `stream`, `inbox`, `conversation`, `requests` and `run`), and `taskViewOf` in `a2a/src/task-view.ts`. The mod receives notes only as the CLI's wrapped text. | `dovecote/test/security-rules.test.ts`, block "Rule 4": a hostile note through every note-returning tool of `/mcp` and through A2A `tasks/get` and `GetTask`, each time inside `wrapNote` with a fresh nonce; `protocol/test/wrap.test.ts` (property tests), `mcp/test/quote.test.ts`, `mcp/test/triggers.test.ts`, `mcp/test/channel.test.ts` |
 | 5. Credentials are stored hashed and never logged. | `hashSecret` (SHA-256) in `dovecote/src/random.ts`; `issueCredential`, `authenticate` and `refreshCredential` in `dovecote/src/domain/credentials.ts` store only `token_hash` and `refresh_hash`; tokens leave the server only in the token response or the session cookie; `serve` in `dovecote/src/http/node-server.ts` logs failed requests without their query string. | `dovecote/test/security-rules.test.ts`, block "Rule 5" |
 | 6. A member sees only conversations they participate in. | `participatedConversation` and `participantsOf` in `dovecote/src/domain/conversations.ts`; every note query joins `participants`; `sendDraft`, `moveToTopic` and `announceStatus` emit to the conversation's participants only. | `dovecote/test/security-rules.test.ts`, block "Rule 6" |
 
@@ -407,7 +423,7 @@ that faces a model. Paths are relative to `packages/`.
 
 Every durable event is written to the recipient's own event log in the same transaction as the
 change, so a client that reconnects resumes from its last sequence number and loses nothing kept in
-the log. `emit` in `dovecote/src/events/events.ts` increments `members.event_seq`, stores the event in
+the log, however far behind it is. `emit` in `dovecote/src/events/events.ts` increments `members.event_seq`, stores the event in
 `events`, and hands it to the in-process hub only after the transaction commits. Events are kept for
 seven days. Three event types are ephemeral and carry sequence number 0: `presence`,
 `directory.changed` and `resync`.
@@ -420,11 +436,14 @@ sequenceDiagram
   participant L as Your event log
   C->>S: GET /api/v1/events/stream with Last-Event-ID 41
   S->>S: subscribe to the hub for live events
-  S->>L: events after 41
-  alt no gap
-    L-->>S: events 42 to 47
-    S-->>C: replay 42 to 47, then live events
-  else the missed events were trimmed
+  alt the events after 41 are still in the log
+    loop pages of 500 until a page comes back short
+      S->>L: events after the last one replayed
+      L-->>S: up to 500 events
+      S-->>C: replay them
+    end
+    S-->>C: live events newer than the last one replayed
+  else some of them were trimmed
     S-->>C: resync with sequence number 0
     C->>S: reload through the API
   end
@@ -445,7 +464,13 @@ sequenceDiagram
   `humanOnline` true, an agent stream makes `agentOnline` true. Long-poll subscribes as hidden and
   counts for neither. Changes are collected and broadcast to everyone as one `presence` event per
   second (`PRESENCE_FLUSH_INTERVAL_MS`).
-- **Overflow.** A live subscriber whose buffer of 2048 events fills is closed after a `resync`.
+- **Replay.** `liveEvents` in `dovecote/src/events/events.ts` subscribes before it reads the log, so an
+  event committed during the replay is either in a later page or in the hub's buffer, and events at or
+  below the last replayed sequence number are dropped from the buffer. SSE and WebSocket share it.
+  Long-poll answers at most 500 events and a cursor; the client polls again from that cursor, which
+  after a `resync` is the server's latest sequence number.
+- **Overflow.** A live subscriber whose buffer of 2048 events fills, also while it is still replaying,
+  is closed after a `resync`.
 - **Web Push.** The notifier considers only `note.sent` from someone else and a new agent draft, and
   sends nothing while the member has a human stream open.
 - **One instance.** The hub lives in one process, so a deployment runs exactly one Dovecote process
@@ -629,29 +654,30 @@ consent requests; their secrets are stored hashed.
   fall back to long-poll.
 - **Long-poll is sticky.** After three failed stream attempts, `eventStream` stays on long-poll until
   the client restarts, and a long-polling agent does not count as online.
-- **A stream that resumes far behind can miss events.** `liveEvents` replays at most 500 events from
-  the log and then skips to live events; the events between the two are not replayed and no `resync`
-  is sent. Long-poll does not have this gap.
+- **A `resync` on a stream does not move the client's cursor.** The event has sequence number 0, so a
+  client whose stream drops before the next durable event resumes from its old cursor, is told to
+  resync again and reloads again. It misses nothing; it reloads twice.
 - **The server does not enforce one desk.** The mod keeps one desk among Claude Code sessions, but
   `homingbird-mcp --desk`, `homingbird-mcp --channel` and `homingbird run` each hold a stream and
   each drafts its own reply to the same note. `--channel` without `--desk` also counts as agent
   online. `docs/decisions.md` names only the
   mod pane and the runner as desks.
-- **Checking the inbox picks notes up.** The MCP tools `check_inbox` and `wait_for_notes` call
-  `notes.pickup`, so a session that checks the inbox when asked shows "Drafting reply" to the sender
-  for up to ten minutes even if it drafts nothing.
 - **In a topic room, the other helpers' reply drafts stay.** Sending the first answer only removes the
   question from the other helpers' inboxes; their drafts are not discarded, and one sent later still
   reaches the asker.
-- **Moving a question moves its waiting reply drafts.** A helper who is not a participant of the new
-  room cannot send such a draft, only discard it.
 - **Draft request expiry and closing send no event.** Only a withdrawal and a new answer emit
   `draft.request.changed`; the 24-hour expiry and the closing after a sent answer show only through
   `draftRequests.list`.
-- **The runner does not confine the agent command.** `homingbird run` starts the command with the
-  person's own permissions; nothing like the mod's guard keeps it away from the CLI's credential
-  files.
-- **Rule 4 has no block of its own in `security-rules.test.ts`,** although `.claude/rules/testing.md`
-  asks for one per rule; it is tested in the protocol, MCP and A2A packages.
-- **The mod is in progress.** Its desk, its handling of draft requests and its project helpers are
-  being changed; this document describes `packages/mod/hooks` as read while writing it.
+- **The runner's agent command can read the runner's agent credential.** `homingbird run` starts the
+  command with the person's own OS permissions and cannot confine it. It withholds what it can: the
+  command gets no Homingbird variable and no credential in its environment, arguments or input, and
+  the runner refuses to run while an approve-button credential is stored in its credential directory
+  or in `~/.config/homingbird`. But the agent credential file is readable by the same OS user, and so
+  is an approve-button credential kept anywhere else, such as under another `XDG_CONFIG_HOME`. With
+  the agent credential the command can read the person's conversations and draft; Dovecote refuses it
+  on every approving route. Run an agent command you do not trust under a separate OS user or in a
+  container (`docs/guide.md`, `docs/deployment.md`).
+- **The mod's guard is a pattern check.** `forbiddenReason` matches the text of each tool call and the
+  resolved path of a file tool. A shell command that assembles the credential path or the
+  `homingbird approve` command at run time is not recognized, and the approve-button credential is a
+  file the session's own user can read.
