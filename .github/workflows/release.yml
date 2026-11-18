@@ -1,10 +1,12 @@
 name: Release
 
-# Every push to main runs this. While changesets are pending, the first job versions the packages on
-# the branch changeset-release/main and opens or updates the "Version Packages" pull request with gh. Merging that pull request leaves no changesets and a version that is
-# not yet released, so the later jobs check, publish @homingbird/cli, @homingbird/mcp and
-# @homingbird/mod to npm with provenance, tag v<version>, create the GitHub release, and push
-# ghcr.io/let-sunny/homingbird. CONTRIBUTING.md#releasing has the setup.
+# Every push to main runs this. When the version in package.json is not released yet (the "Version
+# Packages" pull request was just merged), the publish jobs check, publish @homingbird/cli,
+# @homingbird/mcp and @homingbird/mod to npm with provenance, tag v<version>, create the GitHub release
+# from that version's CHANGELOG.md section, and push ghcr.io/let-sunny/homingbird. Otherwise, when the
+# Conventional Commits since the last v* tag hold a feat, fix, perf or breaking change, the version job
+# rebuilds the branch release/main from main with the next version and its CHANGELOG.md section, and
+# opens or updates the "Version Packages" pull request with gh. CONTRIBUTING.md#releasing has the setup.
 
 on:
   push:
@@ -21,41 +23,57 @@ env:
   PUBLISHED_PACKAGES: cli mcp mod
 
 jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      release: ${{ steps.plan.outputs.release }}
+      version: ${{ steps.plan.outputs.version }}
+      tag: ${{ steps.plan.outputs.tag }}
+      prerelease: ${{ steps.plan.outputs.prerelease }}
+      dist_tag: ${{ steps.plan.outputs.dist_tag }}
+      next: ${{ steps.next.outputs.next }}
+    steps:
+      # The whole history and its tags: the next version counts the commits since the last v* tag.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+      - id: plan
+        run: node scripts/release-version.ts plan
+      - run: node scripts/release-version.ts check
+      - id: next
+        if: steps.plan.outputs.release == 'false'
+        run: node scripts/release-version.ts next
+
   version:
+    needs: plan
+    if: needs.plan.outputs.release == 'false' && needs.plan.outputs.next != ''
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
-    outputs:
-      pending: ${{ steps.pending.outputs.pending }}
     env:
       GH_TOKEN: ${{ github.token }}
-      VERSION_BRANCH: changeset-release/main
+      VERSION_BRANCH: release/main
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
-      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 22
-          cache: pnpm
-      - id: pending
-        run: node scripts/release-version.ts pending
-      - if: steps.pending.outputs.pending == 'true'
-        run: pnpm install --frozen-lockfile
       - name: Version the packages on the release branch
-        if: steps.pending.outputs.pending == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch --force-create "$VERSION_BRANCH"
-          pnpm version-packages
+          node scripts/release-version.ts prepare
           git add --all
           git commit --message "Version Packages"
           git push --force origin "$VERSION_BRANCH"
       - name: Open or update the Version Packages pull request
-        if: steps.pending.outputs.pending == 'true'
         run: |
           node scripts/release-version.ts pull-request "$RUNNER_TEMP/version-pr.md"
           title="$(grep '^title=' "$GITHUB_OUTPUT" | tail -1 | cut -d= -f2-)"
@@ -65,25 +83,6 @@ jobs:
           else
             gh pr edit "$number" --title "$title" --body-file "$RUNNER_TEMP/version-pr.md"
           fi
-
-  plan:
-    needs: version
-    if: needs.version.outputs.pending == 'false'
-    runs-on: ubuntu-latest
-    outputs:
-      release: ${{ steps.plan.outputs.release }}
-      version: ${{ steps.plan.outputs.version }}
-      tag: ${{ steps.plan.outputs.tag }}
-      prerelease: ${{ steps.plan.outputs.prerelease }}
-      dist_tag: ${{ steps.plan.outputs.dist_tag }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
-        with:
-          node-version: 22
-      - id: plan
-        run: node scripts/release-version.ts plan
-      - run: node scripts/release-version.ts check
 
   npm:
     needs: plan

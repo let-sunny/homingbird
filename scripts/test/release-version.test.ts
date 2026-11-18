@@ -2,8 +2,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
-  hasPendingChangesets,
-  pendingSummaries,
+  preReleaseOf,
   releaseNotes,
   releasePlan,
   syncedFiles,
@@ -41,18 +40,20 @@ describe('the version of every package', () => {
     expect(new Set(versions.values()).size).toBe(1)
   })
 
-  it('is set in the root, the mod manifest, the marketplace entry and both version constants by one sync', () => {
+  it('is set in every package, the root, the mod manifest, the marketplace entry and both version constants by one sync', () => {
     const marketplace = (version: string) =>
       `{\n  "name": "homingbird",\n  "plugins": [\n    {\n      "name": "homingbird",\n      "source": { "source": "npm", "package": "@homingbird/mod", "version": "${version}" }\n    }\n  ]\n}\n`
     const files: Record<string, string> = {
+      'packages/cli/package.json': '{\n  "name": "@homingbird/cli",\n  "version": "0.1.0-rc.2"\n}\n',
       'package.json': '{\n  "name": "homingbird",\n  "version": "0.1.0-rc.2",\n  "private": true\n}\n',
       'packages/mod/.claude-plugin/plugin.json': '{\n  "name": "homingbird",\n  "version": "0.1.0-rc.2"\n}\n',
       '.claude-plugin/marketplace.json': marketplace('0.1.0-rc.2'),
       'packages/mcp/src/version.ts': "export const ADAPTER_VERSION = '0.1.0-rc.2'\n",
       'packages/dovecote/src/version.ts': "export const SERVER_VERSION = '0.1.0-rc.2'\n",
     }
-    const synced = syncedFiles('0.1.0', (file) => files[file]!)
+    const synced = syncedFiles('0.1.0', (file) => files[file]!, ['cli'])
     expect(Object.fromEntries(synced.map(({ file, text }) => [file, text]))).toEqual({
+      'packages/cli/package.json': '{\n  "name": "@homingbird/cli",\n  "version": "0.1.0"\n}\n',
       'package.json': '{\n  "name": "homingbird",\n  "version": "0.1.0",\n  "private": true\n}\n',
       'packages/mod/.claude-plugin/plugin.json': '{\n  "name": "homingbird",\n  "version": "0.1.0"\n}\n',
       '.claude-plugin/marketplace.json': marketplace('0.1.0'),
@@ -93,26 +94,26 @@ describe('deciding whether to publish', () => {
 describe('the root changelog', () => {
   const HEAD = '# Changelog\n\nEvery release, newest first.\n\n'
 
-  it('turns the Unreleased section into the release, keeping what it says and adding the changesets', () => {
+  it('turns the Unreleased section into the release, keeping what it says and adding the notes', () => {
     const before = `${HEAD}## [Unreleased]\n\nThe first release.\n\n### Known limits\n\n- One process.\n\n[Unreleased]: https://example.com\n`
-    expect(withRelease(before, '0.1.0', '2026-11-20', ['- Removed the general channel.'])).toBe(
-      `${HEAD}## [0.1.0] - 2026-11-20\n\nThe first release.\n\n### Known limits\n\n- One process.\n\n### Changes\n\n- Removed the general channel.\n\n[0.1.0]: https://github.com/let-sunny/homingbird/releases/tag/v0.1.0\n`,
+    expect(withRelease(before, '0.1.0', '2026-11-20', '### Fixed\n\n- keep the cursor')).toBe(
+      `${HEAD}## [0.1.0] - 2026-11-20\n\nThe first release.\n\n### Known limits\n\n- One process.\n\n### Fixed\n\n- keep the cursor\n\n[0.1.0]: https://github.com/let-sunny/homingbird/releases/tag/v0.1.0\n`,
     )
   })
 
   it('adds a new release above the earlier ones, with its link above theirs', () => {
     const before = `${HEAD}## [0.1.0] - 2026-11-20\n\nFirst.\n\n[0.1.0]: https://github.com/let-sunny/homingbird/releases/tag/v0.1.0\n`
-    const after = withRelease(before, '0.1.1', '2026-12-01', ['- Fixed sign-in.', '- Faster search.'])
+    const after = withRelease(before, '0.1.1', '2026-12-01', '### Fixed\n\n- sign in again')
     expect(after).toBe(
-      `${HEAD}## [0.1.1] - 2026-12-01\n\n### Changes\n\n- Fixed sign-in.\n\n- Faster search.\n\n## [0.1.0] - 2026-11-20\n\nFirst.\n\n[0.1.1]: https://github.com/let-sunny/homingbird/releases/tag/v0.1.1\n[0.1.0]: https://github.com/let-sunny/homingbird/releases/tag/v0.1.0\n`,
+      `${HEAD}## [0.1.1] - 2026-12-01\n\n### Fixed\n\n- sign in again\n\n## [0.1.0] - 2026-11-20\n\nFirst.\n\n[0.1.1]: https://github.com/let-sunny/homingbird/releases/tag/v0.1.1\n[0.1.0]: https://github.com/let-sunny/homingbird/releases/tag/v0.1.0\n`,
     )
   })
 
-  it('handles a changelog with no release and no links yet, and a release with no changesets', () => {
-    expect(withRelease(HEAD, '0.1.0', '2026-11-20', [])).toBe(
+  it('handles a changelog with no release and no links yet, and a release with no notes', () => {
+    expect(withRelease(HEAD, '0.1.0', '2026-11-20', '')).toBe(
       `${HEAD.trimEnd()}\n\n## [0.1.0] - 2026-11-20\n\n[0.1.0]: https://github.com/let-sunny/homingbird/releases/tag/v0.1.0\n`,
     )
-    expect(withRelease(`${HEAD}## [Unreleased]\n\nNotes.`, '0.2.0', '2027-01-01', [])).toContain(
+    expect(withRelease(`${HEAD}## [Unreleased]\n\nNotes.`, '0.2.0', '2027-01-01', '')).toContain(
       '## [0.2.0] - 2027-01-01\n\nNotes.',
     )
   })
@@ -125,53 +126,52 @@ describe('the root changelog', () => {
     expect(releaseNotes(`${HEAD}## [0.3.0] - 2027-01-01\n\nLast.`, '0.3.0')).toBe('Last.')
   })
 
-  it('takes each changeset’s text without its header, and drops empty ones', () => {
-    expect(
-      pendingSummaries([
-        '---\n"@homingbird/cli": patch\n---\n\n- Removed the general channel.\n',
-        '---\n"@homingbird/cli": patch\n---\n\nSkip with a reason.\n',
-        '---\n---\n',
-      ]),
-    ).toEqual(['- Removed the general channel.', 'Skip with a reason.'])
-  })
-
   it('puts the first pre-release above the link references', () => {
     const before = `${HEAD}## [Unreleased]\n\nNotes.\n\n[0.0.9]: https://x\n`
-    expect(withRelease(before, '0.1.0-rc.1', '2026-11-20', ['- One.'])).toBe(
-      `${HEAD}## [Unreleased]\n\nNotes.\n\n## [0.1.0-rc.1] - 2026-11-20\n\n### Changes\n\n- One.\n\n[0.1.0-rc.1]: https://github.com/let-sunny/homingbird/releases/tag/v0.1.0-rc.1\n[0.0.9]: https://x\n`,
+    expect(withRelease(before, '0.1.0-rc.1', '2026-11-20', '### Added\n\n- one')).toBe(
+      `${HEAD}## [Unreleased]\n\nNotes.\n\n## [0.1.0-rc.1] - 2026-11-20\n\n### Added\n\n- one\n\n[0.1.0-rc.1]: https://github.com/let-sunny/homingbird/releases/tag/v0.1.0-rc.1\n[0.0.9]: https://x\n`,
     )
   })
 
   it('puts a pre-release below the Unreleased section, which waits for the final version', () => {
     const before = `${HEAD}## [Unreleased]\n\nThe first release.\n\n## [0.1.0-rc.2] - 2026-11-10\n\nOld.\n`
-    const after = withRelease(before, '0.1.0-rc.3', '2026-11-20', ['- Skip with a reason.'])
+    const after = withRelease(before, '0.1.0-rc.3', '2026-11-20', '### Added\n\n- skip with a reason')
     expect(after).toContain(
-      '## [Unreleased]\n\nThe first release.\n\n## [0.1.0-rc.3] - 2026-11-20\n\n### Changes\n\n- Skip with a reason.\n\n## [0.1.0-rc.2]',
+      '## [Unreleased]\n\nThe first release.\n\n## [0.1.0-rc.3] - 2026-11-20\n\n### Added\n\n- skip with a reason\n\n## [0.1.0-rc.2]',
     )
-    expect(releaseNotes(after, '0.1.0-rc.3')).toBe('### Changes\n\n- Skip with a reason.')
+    expect(releaseNotes(after, '0.1.0-rc.3')).toBe('### Added\n\n- skip with a reason')
   })
 })
 
 describe('the Version Packages pull request', () => {
-  it('is wanted only while a changeset waits in .changeset', () => {
-    expect(hasPendingChangesets(['README.md', 'config.json', 'pre.json'])).toBe(false)
-    expect(hasPendingChangesets(['README.md', 'config.json', 'brave-cats.md'])).toBe(true)
-  })
-
   it('names the version, says what merging does, and carries the changelog section', () => {
-    const { title, body } = versionPullRequest('0.1.0', null, '### Changes\n\n- Skip with a reason.')
+    const { title, body } = versionPullRequest('0.1.0', null, '### Added\n\n- skip with a reason')
     expect(title).toBe('Version Packages')
     expect(body).toContain('Merging this pull request releases **0.1.0**')
     expect(body).toContain('tags v0.1.0')
-    expect(body.endsWith('## 0.1.0\n\n### Changes\n\n- Skip with a reason.')).toBe(true)
-    expect(body).not.toContain('pre mode')
+    expect(body).toContain('Edit the section in `CHANGELOG.md` on this branch')
+    expect(body.endsWith('## 0.1.0\n\n### Added\n\n- skip with a reason')).toBe(true)
+    expect(body).not.toContain('pre-release')
   })
 
-  it('marks a pre-release in the title and says how to leave pre mode', () => {
+  it('marks a pre-release in the title and says how to release the final version', () => {
     const { title, body } = versionPullRequest('0.1.0-rc.3', 'rc', '')
     expect(title).toBe('Version Packages (rc)')
-    expect(body).toContain('main is in pre mode (`rc`)')
-    expect(body).toContain('pnpm changeset pre exit')
+    expect(body).toContain('`release.json` sets `pre` to `rc`')
+    expect(body).toContain('Set it to `null` on main')
     expect(body.endsWith('## 0.1.0-rc.3\n\n_No changelog entry._')).toBe(true)
+  })
+})
+
+describe('release.json', () => {
+  it('names a pre-release identifier or none', () => {
+    expect(preReleaseOf('{ "pre": "rc" }')).toBe('rc')
+    expect(preReleaseOf('{ "pre": null }')).toBeNull()
+    expect(preReleaseOf('{}')).toBeNull()
+    expect(() => preReleaseOf('{ "pre": "RC 1" }')).toThrow('release.json: "pre" must be null')
+  })
+
+  it('is committed without a pre-release, so main releases final versions', () => {
+    expect(preReleaseOf(read('release.json'))).toBeNull()
   })
 })

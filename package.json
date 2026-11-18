@@ -20,12 +20,10 @@
     "dev": "pnpm --filter @homingbird/pwa run build && HB_PUBLIC_URL=http://localhost:8080 HB_DEV_LOGIN=1 HB_ALLOWED_DOMAINS=example.com HB_WEB_DIR=packages/pwa/dist tsx packages/dovecote/src/main.ts",
     "start": "node packages/dovecote/dist/dovecote.mjs",
     "load-test": "tsx scripts/load-test.ts",
-    "changeset": "changeset",
-    "version-packages": "node scripts/release-version.ts version"
+    "release:preview": "node scripts/release-version.ts preview"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
-    "@changesets/cli": "3.0.3",
     "@stryker-mutator/core": "^9.6.1",
     "@stryker-mutator/vitest-runner": "^9.6.1",
     "@types/node": "^22.10.0",

@@ -2,6 +2,9 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { type ConventionalCommit, parseCommit } from './conventional-commit.ts'
+import { nextVersion } from './next-version.ts'
+import { renderNotes } from './release-notes.ts'
 
 export interface ReleasePlan {
   readonly version: string
@@ -26,14 +29,9 @@ export const releasePlan = (facts: {
   }
 }
 
-export const withRelease = (
-  changelog: string,
-  version: string,
-  date: string,
-  summaries: ReadonlyArray<string>,
-): string => {
+export const withRelease = (changelog: string, version: string, date: string, notes: string): string => {
   const heading = `## [${version}] - ${date}`
-  const changes = summaries.length === 0 ? '' : `### Changes\n\n${summaries.join('\n\n')}\n\n`
+  const changes = notes === '' ? '' : `${notes}\n\n`
   const unreleased = version.includes('-') ? -1 : changelog.indexOf(UNRELEASED)
   const released =
     unreleased >= 0
@@ -50,37 +48,46 @@ export const releaseNotes = (changelog: string, version: string): string => {
   return (end < 0 ? body : body.slice(0, end)).trim()
 }
 
-export const pendingSummaries = (changesets: ReadonlyArray<string>): string[] =>
-  changesets
-    .map((text) => text.replace(/^---\n(?:[\s\S]*?\n)?---\n?/, '').trim())
-    .filter((summary) => summary !== '')
-
-export const hasPendingChangesets = (fileNames: ReadonlyArray<string>): boolean =>
-  fileNames.some((name) => name.endsWith('.md') && name !== 'README.md')
-
 export const versionPullRequest = (
   version: string,
-  preTag: string | null,
+  pre: string | null,
   notes: string,
 ): { readonly title: string; readonly body: string } => ({
-  title: preTag === null ? 'Version Packages' : `Version Packages (${preTag})`,
+  title: pre === null ? 'Version Packages' : `Version Packages (${pre})`,
   body: [
-    `Merging this pull request releases **${version}**: the release workflow checks, publishes @homingbird/cli, @homingbird/mcp and @homingbird/mod to npm, tags v${version}, creates the GitHub release and pushes the image. Every push to main with new changesets updates it.`,
-    ...(preTag === null
+    `Merging this pull request releases **${version}**: the release workflow checks, publishes @homingbird/cli, @homingbird/mcp and @homingbird/mod to npm, tags v${version}, creates the GitHub release and pushes the image. Every push to main with commits for users updates it.`,
+    'The version and these notes come from the Conventional Commit messages since the last release. Edit the section in `CHANGELOG.md` on this branch before merging to change the release notes; the release takes them from there. A later push to main rebuilds this branch.',
+    ...(pre === null
       ? []
       : [
-          `main is in pre mode (\`${preTag}\`), so this is a pre-release. Run \`pnpm changeset pre exit\` on main to leave it.`,
+          `\`release.json\` sets \`pre\` to \`${pre}\`, so this is a pre-release. Set it to \`null\` on main to release the final version.`,
         ]),
     `## ${version}`,
     notes === '' ? '_No changelog entry._' : notes,
   ].join('\n\n'),
 })
 
+/** The `pre` setting of `release.json`: a pre-release identifier such as "rc", or null for final versions. */
+export const preReleaseOf = (releaseJson: string): string | null => {
+  const { pre } = JSON.parse(releaseJson) as { pre?: unknown }
+  if (pre === null || pre === undefined) return null
+  if (typeof pre === 'string' && /^[a-z]+$/.test(pre)) return pre
+  throw new Error('release.json: "pre" must be null or lower-case letters such as "rc".')
+}
+
 export const syncedFiles = (
   version: string,
   read: (file: string) => string,
+  packages: ReadonlyArray<string> = [],
 ): ReadonlyArray<{ readonly file: string; readonly text: string }> =>
-  VERSION_HOLDERS.map(({ file, pattern, replacement }) => {
+  [
+    ...packages.map((name) => ({
+      file: `packages/${name}/package.json`,
+      pattern: JSON_VERSION,
+      replacement: (next: string) => `$1"${next}"`,
+    })),
+    ...VERSION_HOLDERS,
+  ].map(({ file, pattern, replacement }) => {
     const text = read(file)
     if (!pattern.test(text)) throw new Error(`${file} has no version to set.`)
     return { file, text: text.replace(pattern, replacement(version)) }
@@ -166,33 +173,55 @@ const workspacePackages = (): string[] =>
     }
   })
 
-const versionAfterChangesets = (): void => {
-  const inPreMode = (() => {
-    try {
-      return (JSON.parse(read('.changeset/pre.json')) as { mode?: string }).mode === 'pre'
-    } catch {
-      return false
-    }
-  })()
-  const changesetsIn = (folder: string): string[] => {
-    try {
-      return readdirSync(join(root, folder))
-        .filter((name) => name.endsWith('.md') && name !== 'README.md')
-        .map((name) => read(`${folder}/${name}`))
-    } catch {
-      return []
-    }
+const preRelease = (): string | null => preReleaseOf(read('release.json'))
+const git = (...args: string[]): string => execFileSync('git', args, { cwd: root }).toString()
+const output = (lines: string): void =>
+  writeFileSync(process.env.GITHUB_OUTPUT ?? '/dev/stdout', `${lines}\n`, { flag: 'a' })
+
+const latestTag = (): string | null => {
+  try {
+    return git('describe', '--tags', '--abbrev=0', '--match', 'v[0-9]*', 'HEAD').trim()
+  } catch {
+    return null
   }
-  const summaries = pendingSummaries([
-    ...(inPreMode ? [] : changesetsIn('.changeset/pre')),
-    ...changesetsIn('.changeset'),
-  ])
-  execFileSync('pnpm', ['exec', 'changeset', 'version'], { cwd: root, stdio: 'inherit' })
-  const version = JSON.parse(read('packages/cli/package.json')).version as string
-  for (const { file, text } of syncedFiles(version, read)) writeFileSync(join(root, file), text)
+}
+
+const commitsSince = (ref: string | null): ConventionalCommit[] =>
+  git('log', '--no-merges', '--format=%B%x00', ...(ref === null ? ['HEAD'] : [`${ref}..HEAD`]))
+    .split('\0')
+    .map((message) => parseCommit(message.trim()))
+    .filter((commit): commit is ConventionalCommit => commit !== null)
+    .reverse()
+
+const nextRelease = (since: string | null): { readonly version: string | null; readonly notes: string } => {
+  const current = JSON.parse(
+    since === null ? read('package.json') : git('show', `${since}:package.json`),
+  ).version
+  const commits = commitsSince(since)
+  return { version: nextVersion(current, commits, preRelease()), notes: renderNotes(commits) }
+}
+
+const nextOnGitHub = (): void => output(`next=${nextRelease(latestTag()).version ?? ''}`)
+
+const prepareRelease = (): void => {
+  const { version, notes } = nextRelease(latestTag())
+  if (version === null) {
+    process.stderr.write('No commit since the last release is for users; nothing to release.\n')
+    process.exit(1)
+  }
+  for (const { file, text } of syncedFiles(version, read, workspacePackages()))
+    writeFileSync(join(root, file), text)
   const date = new Date().toISOString().slice(0, 10)
-  writeFileSync(join(root, 'CHANGELOG.md'), withRelease(read('CHANGELOG.md'), version, date, summaries))
+  writeFileSync(join(root, 'CHANGELOG.md'), withRelease(read('CHANGELOG.md'), version, date, notes))
   process.stdout.write(`Version ${version}.\n`)
+}
+
+const preview = (since: string | undefined): void => {
+  const from = since ?? latestTag()
+  const { version, notes } = nextRelease(from)
+  process.stdout.write(
+    `Since ${from ?? 'the first commit'} (pre: ${preRelease() ?? 'null'}): ${version === null ? 'no release' : version}\n\n${notes}\n`,
+  )
 }
 
 const planOnGitHub = (): void => {
@@ -213,8 +242,11 @@ const planOnGitHub = (): void => {
     }
   })()
   const plan = releasePlan({ version, tagExists, published })
-  const lines = Object.entries({ ...plan, dist_tag: plan.distTag }).map(([key, value]) => `${key}=${value}`)
-  writeFileSync(process.env.GITHUB_OUTPUT ?? '/dev/stdout', `${lines.join('\n')}\n`, { flag: 'a' })
+  output(
+    Object.entries({ ...plan, dist_tag: plan.distTag })
+      .map(([key, value]) => `${key}=${value}`)
+      .join('\n'),
+  )
 }
 
 const checkVersions = (): void => {
@@ -225,32 +257,19 @@ const checkVersions = (): void => {
   process.exit(1)
 }
 
-const pendingOnGitHub = (): void => {
-  const pending = hasPendingChangesets(readdirSync(join(root, '.changeset')))
-  writeFileSync(process.env.GITHUB_OUTPUT ?? '/dev/stdout', `pending=${pending}\n`, { flag: 'a' })
-}
-
 const pullRequestOnGitHub = (bodyFile: string): void => {
   const version = JSON.parse(read('packages/cli/package.json')).version as string
-  const preTag = (() => {
-    try {
-      const pre = JSON.parse(read('.changeset/pre.json')) as { mode?: string; tag?: string }
-      return pre.mode === 'pre' && typeof pre.tag === 'string' ? pre.tag : null
-    } catch {
-      return null
-    }
-  })()
-  const { title, body } = versionPullRequest(version, preTag, releaseNotes(read('CHANGELOG.md'), version))
+  const pre = version.includes('-') ? preRelease() : null
+  const { title, body } = versionPullRequest(version, pre, releaseNotes(read('CHANGELOG.md'), version))
   writeFileSync(bodyFile, body)
-  writeFileSync(process.env.GITHUB_OUTPUT ?? '/dev/stdout', `title=${title}\nversion=${version}\n`, {
-    flag: 'a',
-  })
+  output(`title=${title}\nversion=${version}`)
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const [command, argument] = process.argv.slice(2)
-  if (command === 'version') versionAfterChangesets()
-  else if (command === 'pending') pendingOnGitHub()
+  if (command === 'next') nextOnGitHub()
+  else if (command === 'prepare') prepareRelease()
+  else if (command === 'preview') preview(argument)
   else if (command === 'pull-request' && argument !== undefined) pullRequestOnGitHub(argument)
   else if (command === 'plan') planOnGitHub()
   else if (command === 'check') checkVersions()
@@ -258,7 +277,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     process.stdout.write(releaseNotes(read('CHANGELOG.md'), argument))
   else {
     process.stderr.write(
-      'Usage: node scripts/release-version.ts version | pending | pull-request <body file> | plan | check | notes <version>\n',
+      'Usage: node scripts/release-version.ts next | prepare | preview [<since ref>] | pull-request <body file> | plan | check | notes <version>\n',
     )
     process.exit(2)
   }
