@@ -1,5 +1,7 @@
 # Dovecote on AWS
 
+**Experimental: tested automatically, not yet used in a real deployment.**
+
 **This configuration passes `terraform fmt` and `terraform validate` in CI; it has never been planned
 or applied against a real project.** Treat it as a starting point: run `terraform init` and
 `terraform plan`, and read the plan before applying anything.
@@ -21,10 +23,10 @@ terraform apply \
   -var oidc_client_secret=... \
   -var 'allowed_domains=["example.com"]' \
   -var 'admin_emails=["june@example.com"]' \
-  -var 'topics=["billing: Invoices and the nightly export", "deploys"]'
+  -var 'channels=["billing: Invoices and the nightly export", "deploys"]'
 ```
 
-Every variable Dovecote reads is either a variable here (`topics`, `contact_mode`, `audit_webhook_url`,
+Every variable Dovecote reads is either a variable here (`channels`, `contact_mode`, `audit_webhook_url`,
 `audit_retention_days`) or can be passed through `extra_environment`, for example
 `-var 'extra_environment={HB_SESSION_DAYS="14"}'`. See [docs/deployment.md](../../../docs/deployment.md#configuration).
 

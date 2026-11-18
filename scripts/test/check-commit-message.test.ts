@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { HEADER, problemsWith } from '../check-commit-message.ts'
 
-const WHY = '\n\nThe archived room accepted drafts, so a removed topic still collected questions.'
+const WHY = '\n\nThe archived room accepted drafts, so a removed channel still collected questions.'
 
 describe('a commit message', () => {
   it('passes with a type, an optional scope, a lower-case summary and a body that says why', () => {
@@ -57,7 +57,7 @@ describe('a commit message', () => {
   })
 
   it('leaves merge, revert and release-bot commits alone', () => {
-    expect(problemsWith('Merge pull request #12 from let-sunny/topic')).toEqual([])
+    expect(problemsWith('Merge pull request #12 from let-sunny/channel')).toEqual([])
     expect(problemsWith('Version Packages')).toEqual([])
     expect(problemsWith('Revert "fix: refuse it"')).toEqual([])
     expect(problemsWith('')).toHaveLength(1)

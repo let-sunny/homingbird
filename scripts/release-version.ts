@@ -101,6 +101,7 @@ const UNRELEASED = '## [Unreleased]'
 const VERSION_IN = /(?:"version":\s*"|_VERSION = ')([^"']+)/
 const JSON_VERSION = /^(\s*"version":\s*)"[^"]*"/m
 const CONSTANT_VERSION = /^(export const \w+_VERSION = )'[^']*'/m
+const MARKETPLACE_VERSION = /("package":\s*"@homingbird\/mod",\s*"version":\s*)"[^"]*"/
 const RELEASES = 'https://github.com/let-sunny/homingbird/releases/tag'
 
 const VERSION_HOLDERS: ReadonlyArray<{
@@ -112,6 +113,11 @@ const VERSION_HOLDERS: ReadonlyArray<{
   {
     file: 'packages/mod/.claude-plugin/plugin.json',
     pattern: JSON_VERSION,
+    replacement: (version) => `$1"${version}"`,
+  },
+  {
+    file: '.claude-plugin/marketplace.json',
+    pattern: MARKETPLACE_VERSION,
     replacement: (version) => `$1"${version}"`,
   },
   {

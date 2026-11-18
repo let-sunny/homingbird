@@ -114,8 +114,8 @@ variable "deletion_protection" {
   default     = true
 }
 
-variable "topics" {
-  description = "HB_TOPICS: topics to create on first start, as \"slug\" or \"slug: description\"."
+variable "channels" {
+  description = "HB_CHANNELS: channels to create on first start, as \"slug\" or \"slug: description\"."
   type        = list(string)
   default     = []
 }
