@@ -133,6 +133,12 @@ importers:
         specifier: workspace:*
         version: link:../ui
 
+  packages/sprites:
+    dependencies:
+      '@homingbird/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+
   packages/ui:
     dependencies:
       '@homingbird/kernel':

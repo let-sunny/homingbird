@@ -1,0 +1,725 @@
+[
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "pigeon",
+      "name": "Pigeon",
+      "palette": {},
+      "noFeet": false,
+      "marks": []
+    },
+    "errors": []
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "cat",
+      "name": "Cat",
+      "palette": {
+        "B": "#F2B46E",
+        "D": "#D88F45",
+        "O": "#FAD9AE",
+        "F": "#D88F45"
+      },
+      "noFeet": false,
+      "marks": [
+        [5, 0, 1, 2, "B"],
+        [6, 1, 1, 1, "B"],
+        [10, 0, 1, 2, "B"],
+        [9, 1, 1, 1, "B"],
+        [6, 3, 1, 1, "#D88F45"],
+        [8, 3, 1, 2, "#D88F45"],
+        [15, 6, 1, 1, "#E97C8B"]
+      ]
+    },
+    "errors": []
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "dog",
+      "name": "Dog",
+      "palette": {
+        "B": "#D9B48A",
+        "D": "#B08760",
+        "O": "#F2E0C8",
+        "F": "#B08760"
+      },
+      "noFeet": false,
+      "marks": [[6, 2, 3, 1, "#8A6542"], [7, 3, 2, 3, "#8A6542"], [15, 6, 1, 1, "#3A2A20"]]
+    },
+    "errors": []
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "rabbit",
+      "name": "Rabbit",
+      "palette": {
+        "B": "#E6D8CB",
+        "D": "#C9B5A2",
+        "O": "#E6D8CB",
+        "F": "#C9B5A2"
+      },
+      "noFeet": false,
+      "marks": [
+        [6, 0, 1, 2, "B"],
+        [8, 0, 1, 2, "B"],
+        [6, 1, 1, 1, "#F0AEB9"],
+        [8, 1, 1, 1, "#F0AEB9"],
+        [15, 6, 1, 1, "#E98A9A"]
+      ]
+    },
+    "errors": []
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "bear",
+      "name": "Bear",
+      "palette": {
+        "B": "#A07A55",
+        "D": "#7F5D3F",
+        "O": "#D9BC9C",
+        "F": "#7F5D3F"
+      },
+      "noFeet": false,
+      "marks": [[4, 1, 2, 2, "B"], [10, 1, 2, 2, "B"], [15, 6, 1, 1, "#2E2018"]]
+    },
+    "errors": []
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "fox",
+      "name": "Fox",
+      "palette": {
+        "B": "#F08B3C",
+        "D": "#CF6B22",
+        "O": "#FFF3E6",
+        "F": "#4A3428"
+      },
+      "noFeet": false,
+      "marks": [
+        [5, 0, 1, 2, "B"],
+        [6, 1, 1, 1, "B"],
+        [10, 0, 1, 2, "B"],
+        [9, 1, 1, 1, "B"],
+        [5, 0, 1, 1, "#4A3428"],
+        [10, 0, 1, 1, "#4A3428"],
+        [0, 14, 1, 1, "#FFF3E6"],
+        [15, 6, 1, 1, "#2E2018"]
+      ]
+    },
+    "errors": []
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "penguin",
+      "name": "Penguin",
+      "palette": {
+        "B": "#34415A",
+        "D": "#1E2638"
+      },
+      "noFeet": false,
+      "marks": [[10, 4, 3, 4, "#F4F6FA"], [4, 8, 7, 4, "#F4F6FA"]]
+    },
+    "errors": []
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "duck",
+      "name": "Duck",
+      "palette": {
+        "B": "#F2BE2C",
+        "D": "#D9A21A",
+        "O": "#F27C2E",
+        "F": "#F27C2E"
+      },
+      "noFeet": false,
+      "marks": [[8, 1, 1, 1, "#D9A21A"], [9, 0, 1, 2, "#D9A21A"], [15, 7, 1, 1, "O"]]
+    },
+    "errors": []
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "frog",
+      "name": "Frog",
+      "palette": {
+        "B": "#8DCB78",
+        "D": "#6CAE58",
+        "O": "#8DCB78",
+        "F": "#6CAE58"
+      },
+      "noFeet": false,
+      "marks": [[9, 1, 3, 2, "B"]]
+    },
+    "errors": []
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "owl",
+      "name": "Owl",
+      "palette": {
+        "B": "#A98B6C",
+        "D": "#866A4F",
+        "O": "#F2C14E",
+        "F": "#F2C14E"
+      },
+      "noFeet": false,
+      "marks": [
+        [5, 0, 1, 1, "#866A4F"],
+        [5, 1, 2, 1, "#866A4F"],
+        [10, 0, 1, 1, "#866A4F"],
+        [9, 1, 2, 1, "#866A4F"],
+        [10, 4, 3, 4, "#EBDCC4"],
+        [4, 11, 1, 1, "#866A4F"],
+        [7, 11, 1, 1, "#866A4F"],
+        [10, 11, 1, 1, "#866A4F"]
+      ]
+    },
+    "errors": []
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "panda",
+      "name": "Panda",
+      "palette": {
+        "B": "#DADAD5",
+        "D": "#2B2B2E",
+        "O": "#DADAD5",
+        "F": "#2B2B2E",
+        "K": "#FFFFFF"
+      },
+      "noFeet": false,
+      "marks": [
+        [4, 1, 2, 2, "#2B2B2E"],
+        [10, 1, 2, 2, "#2B2B2E"],
+        [10, 4, 3, 4, "#2B2B2E"],
+        [15, 6, 1, 1, "#2B2B2E"]
+      ]
+    },
+    "errors": []
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "hamster",
+      "name": "Hamster",
+      "palette": {
+        "B": "#E9AE73",
+        "D": "#CF8E52",
+        "O": "#FFF1E0",
+        "F": "#E8A3A8"
+      },
+      "noFeet": false,
+      "marks": [
+        [5, 1, 2, 1, "B"],
+        [9, 1, 2, 1, "B"],
+        [5, 1, 1, 1, "#E8A3A8"],
+        [10, 1, 1, 1, "#E8A3A8"],
+        [15, 6, 1, 1, "#E98A9A"]
+      ]
+    },
+    "errors": []
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "goldfish",
+      "name": "Goldfish",
+      "palette": {
+        "B": "#F7893B",
+        "D": "#E06A1E",
+        "O": "#FFB27A"
+      },
+      "noFeet": true,
+      "marks": [
+        [6, 1, 3, 1, "#E06A1E"],
+        [0, 12, 2, 1, "#FFB27A"],
+        [0, 13, 3, 1, "#FFB27A"],
+        [0, 14, 2, 1, "#FFB27A"],
+        [6, 13, 3, 1, "#E06A1E"]
+      ]
+    },
+    "errors": []
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "pufferfish",
+      "name": "Pufferfish",
+      "palette": {
+        "B": "#D9B26A",
+        "D": "#BF934B",
+        "O": "#D9B26A"
+      },
+      "noFeet": true,
+      "marks": [
+        [5, 1, 1, 1, "#B88A2A"],
+        [8, 1, 1, 1, "#B88A2A"],
+        [11, 2, 1, 1, "#B88A2A"],
+        [1, 4, 1, 1, "#B88A2A"],
+        [0, 7, 1, 1, "#B88A2A"],
+        [0, 10, 1, 1, "#B88A2A"],
+        [13, 12, 1, 1, "#B88A2A"],
+        [7, 13, 1, 1, "#B88A2A"]
+      ]
+    },
+    "errors": []
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "octopus",
+      "name": "Octopus",
+      "palette": {
+        "B": "#B26DC2",
+        "D": "#9454A6",
+        "O": "#B26DC2"
+      },
+      "noFeet": true,
+      "marks": [
+        [4, 13, 1, 2, "B"],
+        [6, 13, 1, 1, "B"],
+        [8, 13, 1, 2, "B"],
+        [10, 13, 1, 1, "B"],
+        [12, 13, 1, 1, "B"],
+        [6, 3, 1, 1, "#D7A6E2"],
+        [8, 4, 1, 1, "#D7A6E2"]
+      ]
+    },
+    "errors": []
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "whale",
+      "name": "Whale",
+      "palette": {
+        "B": "#4F7FC4",
+        "D": "#3D66A6",
+        "O": "#4F7FC4"
+      },
+      "noFeet": true,
+      "marks": [
+        [3, 12, 9, 1, "#CFE0F5"],
+        [7, 0, 1, 2, "#8FD3F4"],
+        [6, 0, 1, 1, "#8FD3F4"],
+        [8, 0, 1, 1, "#8FD3F4"],
+        [0, 12, 1, 1, "B"]
+      ]
+    },
+    "errors": []
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "turtle",
+      "name": "Turtle",
+      "palette": {
+        "B": "#9ACD8A",
+        "D": "#4E7A3E",
+        "O": "#9ACD8A",
+        "F": "#7FB06E"
+      },
+      "noFeet": false,
+      "marks": [
+        [5, 2, 4, 1, "#4E7A3E"],
+        [3, 3, 7, 1, "#4E7A3E"],
+        [2, 4, 8, 6, "#4E7A3E"],
+        [3, 10, 6, 1, "#4E7A3E"],
+        [4, 5, 2, 2, "#6B9A55"],
+        [7, 4, 2, 2, "#6B9A55"],
+        [6, 7, 2, 2, "#6B9A55"]
+      ]
+    },
+    "errors": []
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "hedgehog",
+      "name": "Hedgehog",
+      "palette": {
+        "B": "#D7AE84",
+        "D": "#6E5440",
+        "O": "#D7AE84",
+        "F": "#6E5440"
+      },
+      "noFeet": false,
+      "marks": [
+        [5, 2, 4, 1, "#6E5440"],
+        [2, 3, 7, 1, "#6E5440"],
+        [1, 4, 7, 7, "#6E5440"],
+        [4, 1, 1, 1, "#6E5440"],
+        [7, 1, 1, 1, "#6E5440"],
+        [2, 2, 1, 1, "#6E5440"],
+        [0, 5, 1, 1, "#6E5440"],
+        [0, 8, 1, 1, "#6E5440"],
+        [15, 6, 1, 1, "#2E2018"]
+      ]
+    },
+    "errors": []
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "pig",
+      "name": "Pig",
+      "palette": {
+        "B": "#F6B3BF",
+        "D": "#E78E9E",
+        "O": "#F08FA2",
+        "F": "#E78E9E"
+      },
+      "noFeet": false,
+      "marks": [[5, 1, 2, 1, "B"], [5, 0, 1, 1, "B"], [10, 1, 1, 1, "B"], [15, 6, 1, 1, "#C25E72"]]
+    },
+    "errors": []
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "sheep",
+      "name": "Sheep",
+      "palette": {
+        "B": "#DCD3C4",
+        "D": "#C7BCA9",
+        "O": "#3B3532",
+        "F": "#3B3532",
+        "K": "#FFFFFF"
+      },
+      "noFeet": false,
+      "marks": [[5, 1, 1, 1, "B"], [7, 1, 1, 1, "B"], [9, 1, 1, 1, "B"], [10, 4, 4, 4, "#3B3532"]]
+    },
+    "errors": []
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "ladybug",
+      "name": "Ladybug",
+      "palette": {
+        "B": "#C8302C",
+        "D": "#2A2A2A",
+        "O": "#2A2A2A",
+        "F": "#2A2A2A",
+        "K": "#FFFFFF"
+      },
+      "noFeet": false,
+      "marks": [
+        [10, 3, 3, 1, "#2A2A2A"],
+        [10, 4, 4, 4, "#2A2A2A"],
+        [4, 4, 2, 2, "#2A2A2A"],
+        [7, 3, 1, 1, "#2A2A2A"],
+        [7, 6, 1, 1, "#2A2A2A"],
+        [3, 11, 2, 1, "#2A2A2A"],
+        [11, 1, 1, 2, "#2A2A2A"]
+      ]
+    },
+    "errors": []
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "bee",
+      "name": "Bee",
+      "palette": {
+        "B": "#F5B820",
+        "D": "#DCEFFF",
+        "O": "#2A2A2A",
+        "F": "#2A2A2A"
+      },
+      "noFeet": false,
+      "marks": [
+        [4, 3, 1, 9, "#2A2A2A"],
+        [7, 2, 1, 11, "#2A2A2A"],
+        [0, 14, 1, 1, "#2A2A2A"],
+        [11, 1, 1, 2, "#2A2A2A"]
+      ]
+    },
+    "errors": []
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "robot",
+      "name": "Robot",
+      "palette": {
+        "B": "#B8C2CF",
+        "D": "#8D99A8",
+        "O": "#8D99A8",
+        "F": "#5F6B7A",
+        "K": "#2BB39A"
+      },
+      "noFeet": false,
+      "marks": [
+        [8, 0, 1, 2, "#5F6B7A"],
+        [8, 0, 1, 1, "#F25F5C"],
+        [10, 4, 3, 4, "#2E3A4D"],
+        [3, 6, 1, 1, "#5F6B7A"],
+        [3, 11, 1, 1, "#5F6B7A"]
+      ]
+    },
+    "errors": []
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "dinosaur",
+      "name": "Dinosaur",
+      "palette": {
+        "B": "#7CC58A",
+        "D": "#5DA86C",
+        "O": "#7CC58A",
+        "F": "#5DA86C"
+      },
+      "noFeet": false,
+      "marks": [
+        [6, 1, 1, 1, "#F4A259"],
+        [8, 1, 1, 1, "#F4A259"],
+        [3, 2, 1, 1, "#F4A259"],
+        [1, 4, 1, 1, "#F4A259"],
+        [0, 6, 1, 1, "#F4A259"],
+        [0, 9, 1, 1, "#F4A259"]
+      ]
+    },
+    "errors": []
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "sunny-otter",
+      "name": "Otter",
+      "palette": {
+        "B": "#8A6A52",
+        "D": "#6E523F",
+        "O": "#E7D3BF",
+        "F": "#6E523F"
+      },
+      "noFeet": false,
+      "marks": [[5, 1, 1, 1, "B"], [10, 1, 1, 1, "B"], [15, 6, 1, 1, "#2E2018"]]
+    },
+    "errors": []
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "x",
+      "name": "Claude bird",
+      "palette": {
+        "B": "#FFD879"
+      },
+      "marks": [[13, 1, 1, 1, "#000000"], [12, 9, 2, 1, "#FFFFFF"]]
+    },
+    "errors": [
+      "id: 2-32 chars of a-z, 0-9 and \"-\"",
+      "name: may not contain Claude, Anthropic, Homingbird or Pip",
+      "marks may not go in the top-right corner outside the body (x 12-15, y 0-4): status icons appear there",
+      "marks may not go below the beak (x 11-15, y 8-11): characters have no mouths",
+      "palette.B #FFD879 is too close to the envelope color #FFD879; it would vanish on the body"
+    ]
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "ghosty",
+      "name": "Ghost",
+      "palette": {
+        "B": "#F4F6FA"
+      },
+      "marks": []
+    },
+    "errors": ["too faint on Mist #F2F5FA: only 7/44 outline cells stand out"]
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "copycat",
+      "name": "Copy",
+      "palette": {},
+      "marks": []
+    },
+    "errors": ["palette: B, D and O all match Pip; Pip is the brand, make it your own"]
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "inky",
+      "name": "Inky",
+      "palette": {
+        "B": "#2A2A2A",
+        "K": "#1B2333"
+      },
+      "marks": []
+    },
+    "errors": [
+      "eye #1B2333 needs 3.0:1 contrast with #2A2A2A behind it at (10, 4)",
+      "too faint on Night #22324E: only 7/44 outline cells stand out"
+    ]
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "spiky",
+      "name": "Spiky",
+      "palette": {
+        "B": "#7CC58A"
+      },
+      "marks": [[0, 0, 1, 1, "#000000"], [15, 15, 1, 1, "#000000"]]
+    },
+    "errors": [
+      "marks outside the body must touch the outline or sit in the ears/tail/under zones: [(0, 0), (15, 15)]"
+    ]
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "tenta",
+      "name": "Tenta",
+      "palette": {
+        "B": "#7CC58A"
+      },
+      "noFeet": false,
+      "marks": [[4, 13, 1, 2, "B"]]
+    },
+    "errors": [
+      "marks under the body need \"noFeet\": true (they would clash with the feet)",
+      "marks outside the body must touch the outline or sit in the ears/tail/under zones: [(4, 14)]"
+    ]
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "rainbow",
+      "name": "Rainbow",
+      "palette": {
+        "B": "#7CC58A"
+      },
+      "marks": [
+        [2, 5, 1, 1, "#111111"],
+        [2, 5, 1, 1, "#222222"],
+        [2, 5, 1, 1, "#333333"],
+        [2, 5, 1, 1, "#444444"],
+        [2, 5, 1, 1, "#555555"],
+        [2, 5, 1, 1, "#666666"],
+        [2, 5, 1, 1, "#777777"]
+      ]
+    },
+    "errors": []
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "bad-mark",
+      "name": "Bad",
+      "palette": {
+        "B": "#7CC58A"
+      },
+      "marks": [[1, 1, 1, 1, "red"], [0, 0, 20, 1, "#000000"], [1.5, 2, 1, 1, "#000000"]]
+    },
+    "errors": [
+      "marks[0]: color must be #RRGGBB or one of B, D, O, F, K",
+      "marks[1]: must sit inside the 16x16 grid",
+      "marks[2]: must be [x, y, w, h, color] with whole numbers"
+    ]
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "bad-pal",
+      "name": "Bad",
+      "palette": {
+        "Q": "#000000",
+        "B": "blue"
+      },
+      "marks": []
+    },
+    "errors": ["palette: unknown key 'Q' (allowed: B, D, O, F, K)", "palette.B: must be #RRGGBB"]
+  },
+  {
+    "spec": {
+      "version": 2,
+      "base": "other",
+      "id": "A",
+      "name": "",
+      "palette": {},
+      "marks": []
+    },
+    "errors": [
+      "version must be 1 and base must be \"bubble-16\"",
+      "id: 2-32 chars of a-z, 0-9 and \"-\"",
+      "name: 1-20 characters",
+      "palette: B, D and O all match Pip; Pip is the brand, make it your own"
+    ]
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "big",
+      "name": "Big",
+      "palette": {
+        "B": "#7CC58A"
+      },
+      "marks": [[1, 4, 12, 8, "#5DA86C"]]
+    },
+    "errors": [
+      "marks cover 96 cells; the limit is 80",
+      "marks may not go below the beak (x 11-15, y 8-11): characters have no mouths"
+    ]
+  },
+  {
+    "spec": {
+      "version": 1,
+      "base": "bubble-16",
+      "id": "outside",
+      "name": "Out",
+      "palette": {
+        "B": "#7CC58A"
+      },
+      "marks": [[2, 0, 10, 2, "#5DA86C"]]
+    },
+    "errors": ["20 mark cells sit outside the body; the limit is 16"]
+  }
+]
