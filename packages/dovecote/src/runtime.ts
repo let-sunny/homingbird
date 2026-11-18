@@ -1,6 +1,7 @@
 import { type Clock, Iter, Schedule, Task as T, makeQueue, pipe, systemClock } from '@homingbird/kernel'
 import { makeClientMetadataDocuments } from './auth/client-metadata.ts'
 import { type Fetch, developmentProvider, openIdConnectProvider } from './auth/identity-provider.ts'
+import { isLoopbackHost } from './auth/redirect-policy.ts'
 import { deleteExpiredAuthRequests } from './auth/requests.ts'
 import type { Config } from './config.ts'
 import { type AuditRecord, deleteAuditBefore } from './domain/audit.ts'
@@ -9,7 +10,7 @@ import type { AppEnv } from './environment.ts'
 import { deleteEventsBefore } from './events/events.ts'
 import { PRESENCE_FLUSH_INTERVAL_MS, makeHub } from './events/hub.ts'
 import { makeRateLimiter } from './http/rate-limiter.ts'
-import { makePushNotifier } from './push/notifier.ts'
+import { makePushNotifier, sendTestPush } from './push/notifier.ts'
 import { cryptoRandom } from './random.ts'
 import { type Database, sqlEnvironment } from './sql/database.ts'
 import { makeWorkTally } from './work-tally.ts'
@@ -43,10 +44,16 @@ export const buildRuntime = (parts: RuntimeParts): Runtime => {
     rateLimiter: makeRateLimiter(clock.now),
     identityProvider: parts.config.identity.devLogin
       ? developmentProvider(parts.config.publicUrl)
-      : openIdConnectProvider(parts.config.identity, fetch, clock.now),
+      : openIdConnectProvider(parts.config.identity, {
+          fetch,
+          now: clock.now,
+          log,
+          allowsLoopback: isLoopbackHost(new URL(parts.config.publicUrl).hostname),
+        }),
     clientMetadata: makeClientMetadataDocuments(fetch),
     auditSink: forwarder.accept,
     pushSink: push.consider,
+    pushTest: (memberId) => sendTestPush(fetch, memberId),
     log,
   }
   return {

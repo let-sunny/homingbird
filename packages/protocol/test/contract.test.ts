@@ -68,25 +68,24 @@ describe('contract', () => {
       if (route.query !== undefined) expect(Schema.struct(route.query).decode({}).constructor).toBeDefined()
   })
 
-  it('reserves approval, contacts, blocks, topic membership, credentials and administration for people', () => {
+  it('reserves approval, contacts, blocks, channel membership, credentials and administration for people', () => {
     expect([...humanOnlyRoutes].sort()).toEqual(
       [
         'me.update',
         'me.character.set',
         'me.character.clear',
-        'topics.create',
-        'topics.join',
-        'topics.leave',
-        'topics.answering.on',
-        'topics.answering.off',
-        'topics.visibility.set',
-        'topics.members.add',
-        'topics.members.remove',
-        'topics.managers.add',
-        'topics.managers.remove',
-        'admin.topics.update',
-        'admin.topics.remove',
-        'admin.topics.merge',
+        'channels.create',
+        'channels.join',
+        'channels.leave',
+        'channels.answering.on',
+        'channels.answering.off',
+        'channels.visibility.set',
+        'channels.members.add',
+        'channels.members.remove',
+        'channels.managers.add',
+        'channels.managers.remove',
+        'admin.channels.update',
+        'admin.channels.archive',
         'contacts.list',
         'contacts.request',
         'contacts.accept',
@@ -98,6 +97,8 @@ describe('contract', () => {
         'notes.move',
         'drafts.send',
         'drafts.discard',
+        'presence.visibility',
+        'push.test',
         'draftRequests.create',
         'draftRequests.cancel',
         'credentials.list',
@@ -125,9 +126,9 @@ describe('contract', () => {
       [
         'me.get',
         'directory.list',
-        'topics.list',
-        'topics.get',
-        'topics.members.list',
+        'channels.list',
+        'channels.get',
+        'channels.members.list',
         'conversations.list',
         'conversations.get',
         'conversations.notes',
@@ -148,18 +149,18 @@ describe('contract', () => {
     expect(names.filter((name) => contract[name].access === 'public')).toEqual(['server.info'])
   })
 
-  it('changes a draft only when given a new body, a new topic, a new basis, or several', () => {
+  it('changes a draft only when given a new body, a new channel, a new basis, or several', () => {
     const change = contract['drafts.update'].body
     expect(change.decode({ body: 'New text' })._tag).toBe('Ok')
-    expect(change.decode({ topic: 'design' })._tag).toBe('Ok')
+    expect(change.decode({ channel: 'design' })._tag).toBe('Ok')
     expect(change.decode({ basis: 'Read the runbook' })._tag).toBe('Ok')
-    expect(change.decode({ body: 'New text', topic: 'design' })._tag).toBe('Ok')
+    expect(change.decode({ body: 'New text', channel: 'design' })._tag).toBe('Ok')
     expect(change.decode({})).toMatchObject({
       _tag: 'Err',
-      error: [{ message: 'Give a new body, a new topic, a new basis, or several.' }],
+      error: [{ message: 'Give a new body, a new channel, a new basis, or several.' }],
     })
     expect(change.decode({ basis: 'x'.repeat(1001) })._tag).toBe('Err')
-    expect(change.decode({ topic: 'Not a slug' })._tag).toBe('Err')
+    expect(change.decode({ channel: 'Not a slug' })._tag).toBe('Err')
   })
 
   it('releases a note with an optional reason of at most 500 characters', () => {
@@ -169,12 +170,12 @@ describe('contract', () => {
     expect(release.decode({ reason: 'x'.repeat(501) })._tag).toBe('Err')
   })
 
-  it('pages topics with a limit and a cursor, and says whether more exist', () => {
-    const { query, response } = contract['topics.list']
+  it('pages channels with a limit and a cursor, and says whether more exist', () => {
+    const { query, response } = contract['channels.list']
     expect(Object.keys(query).sort()).toEqual(['cursor', 'limit', 'q'])
-    expect(response.decode({ topics: [], hasMore: false, cursor: null })._tag).toBe('Ok')
-    expect(response.decode({ topics: [], hasMore: true, cursor: '50' })._tag).toBe('Ok')
-    expect(response.decode({ topics: [] })._tag).toBe('Err')
+    expect(response.decode({ channels: [], hasMore: false, cursor: null })._tag).toBe('Ok')
+    expect(response.decode({ channels: [], hasMore: true, cursor: '50' })._tag).toBe('Ok')
+    expect(response.decode({ channels: [] })._tag).toBe('Err')
   })
 
   it('types the API as one function per route', () => {

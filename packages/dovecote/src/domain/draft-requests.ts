@@ -16,6 +16,7 @@ import { type RequestEnv, emit } from '../events/events.ts'
 import { all, first, run } from '../sql/database.ts'
 import { insertInto, list, sql } from '../sql/query.ts'
 import { type DraftDestination, type NoteFailure, conversationForDraft, createDraft } from './notes.ts'
+import { forgetNotice } from './notices.ts'
 
 export interface DraftWish extends DraftDestination {
   readonly instruction?: string
@@ -47,6 +48,7 @@ export const requestDraft = (
       cancelled_at: null,
     }
     yield* run(insertInto('draft_requests', { ...row }))
+    if (row.in_reply_to !== null) yield* forgetNotice(memberId, row.in_reply_to)
     const request = yield* requestById(row.id)
     yield* emit([memberId], { type: 'draft.requested', request })
     return request
@@ -55,27 +57,27 @@ export const requestDraft = (
 export const answerDraftRequest = (
   caller: Caller,
   id: DraftRequestId,
-  body: string,
+  draft: { readonly body: string; readonly basis?: string },
 ): T.Task<Note, NoteFailure, RequestEnv> =>
   T.gen(function* () {
     const row = yield* waitingRequest(caller.member.id, id)
     if (row.agent_id !== null && !isHuman(caller) && row.agent_id !== caller.credential.id)
       return yield* T.fail(Conflict({ message: 'This request was addressed to another agent.' }))
-    const draft = yield* createDraft(
+    const created = yield* createDraft(
       caller,
       row.in_reply_to === null
-        ? { body, conversationId: row.conversation_id }
-        : { body, inReplyTo: row.in_reply_to },
+        ? { ...draft, conversationId: row.conversation_id }
+        : { ...draft, inReplyTo: row.in_reply_to },
     )
     yield* run(
       insertInto('draft_request_answers', {
         request_id: id,
-        note_id: draft.id,
+        note_id: created.id,
         credential_id: caller.credential.id,
       }),
     )
     yield* announceChange(caller.member.id, id)
-    return draft
+    return created
   })
 
 export const cancelDraftRequest = (

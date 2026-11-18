@@ -2,6 +2,7 @@ import { createDecipheriv, createECDH, createPublicKey, hkdfSync, verify } from 
 import { Task as T } from '@homingbird/kernel'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { DEFAULT_PUSH_HOSTS } from '../src/push/default-hosts.ts'
+import { vapidSubject } from '../src/push/notifier.ts'
 import { MAX_PLAINTEXT_BYTES, encryptPushPayload } from '../src/push/payload-encryption.ts'
 import { isKnownPushService } from '../src/push/subscriptions.ts'
 import { generateVapidKeys, vapidAuthorization } from '../src/push/vapid.ts'
@@ -238,14 +239,81 @@ describe('push notifications', () => {
     expect(deliveries).toHaveLength(1)
   })
 
-  it('stays quiet while the person has the web client open', async () => {
+  it('stays quiet only while a page of the person’s reports that it is visible', async () => {
     const hangUp = new AbortController()
     await server.request('GET', '/api/v1/events/stream', { cookie: ben.cookie, signal: hangUp.signal })
-    await sendNote('you are looking at it')
-    expect(deliveries).toEqual([])
-    hangUp.abort()
-    await sendNote('now you are not')
+    await sendNote('the page is open but minimised')
     expect(deliveries).toHaveLength(1)
+    await ben.api('POST', '/presence/visibility', { page: 'page-0001', visible: true })
+    await sendNote('you are looking at it')
+    expect(deliveries).toHaveLength(1)
+    await ben.api('POST', '/presence/visibility', { page: 'page-0002', visible: false })
+    await sendNote('another tab went to the background, this one is still visible')
+    expect(deliveries).toHaveLength(1)
+    await ben.api('POST', '/presence/visibility', { page: 'page-0001', visible: false })
+    await sendNote('now nothing is visible')
+    expect(deliveries).toHaveLength(2)
+    await ben.api('POST', '/presence/visibility', { page: 'page-0001', visible: true })
+    await server.clock.advance(90_000)
+    await sendNote('a visible report expires unless renewed')
+    expect(deliveries).toHaveLength(3)
+    hangUp.abort()
+    expect(
+      (await benAgent.api('POST', '/presence/visibility', { page: 'page-0003', visible: true })).status,
+    ).toBe(403)
+    expect(
+      (await storedRows(server, 'audit_log')).filter((row) => row.action === 'presence.visibility'),
+    ).toEqual([])
+  })
+
+  it('logs every push attempt with the member, the push service host and its answer, and nothing secret', async () => {
+    status = 410
+    await sendNote('a note')
+    const line = server.logged.find((each) => each.startsWith('push:'))
+    expect(line).toBe(
+      `push: member ${ben.me.member.id} via fcm.googleapis.com answered 410; subscription removed`,
+    )
+    expect(line).not.toContain(ENDPOINT)
+  })
+
+  it('sends a test notification to the person’s own devices only, and says how each went', async () => {
+    const tested = await ben.api('POST', '/push/test', {})
+    expect(tested.json).toEqual({
+      results: [{ endpointHost: 'fcm.googleapis.com', status: 201, removed: false }],
+    })
+    expect(JSON.parse(decrypt(deliveries[0]!.body, benDevice))).toEqual({
+      title: 'Homingbird test notification',
+      body: 'Notifications reach this device.',
+      url: '/#/me',
+    })
+    expect((await ana.api('POST', '/push/test', {})).json).toEqual({ results: [] })
+    expect((await benAgent.api('POST', '/push/test', {})).status).toBe(403)
+    status = 403
+    expect((await ben.api('POST', '/push/test', {})).json.results[0]).toMatchObject({
+      status: 403,
+      removed: false,
+    })
+  })
+
+  it('names a VAPID subject push services accept: the https address, else an administrator’s mailto', () => {
+    expect(vapidSubject({ publicUrl: 'https://hb.example.com', adminEmails: ['root@example.com'] })).toBe(
+      'https://hb.example.com',
+    )
+    expect(vapidSubject({ publicUrl: 'http://localhost:8080', adminEmails: ['root@example.com'] })).toBe(
+      'mailto:root@example.com',
+    )
+    expect(vapidSubject({ publicUrl: 'http://localhost:8080', adminEmails: [] })).toBe(
+      'mailto:dovecote@localhost',
+    )
+  })
+
+  it('signs each push with a subject the push service accepts, for no longer than a day', async () => {
+    await sendNote('signed')
+    const token = /^vapid t=([^,]+),/.exec(deliveries[0]!.headers.authorization!)![1]!
+    const claims = JSON.parse(Buffer.from(token.split('.')[1]!, 'base64url').toString())
+    expect(claims.aud).toBe('https://fcm.googleapis.com')
+    expect(claims.sub).toMatch(/^(mailto:|https:\/\/)/)
+    expect(claims.exp - Math.floor(server.clock.now() / 1000)).toBeLessThanOrEqual(24 * 60 * 60)
   })
 
   it('forgets a subscription the push service reports as gone, and keeps it on other failures', async () => {

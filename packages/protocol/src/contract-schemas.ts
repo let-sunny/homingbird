@@ -14,7 +14,6 @@ export type InboxItem = S.Infer<typeof InboxItem>
 export const DeviceRequest = S.struct({
   userCode: S.string(),
   client: S.string(),
-  wantsApproval: S.boolean,
   expiresAt: S.int({ min: 0 }),
 })
 export type DeviceRequest = S.Infer<typeof DeviceRequest>
@@ -32,7 +31,6 @@ export const ServerInfo = S.struct({
   version: S.string(),
   contactMode: ContactMode,
   signInWith: S.string(),
-  approveButton: S.boolean,
 })
 export type ServerInfo = S.Infer<typeof ServerInfo>
 

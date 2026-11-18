@@ -18,7 +18,10 @@ export interface PushMessage {
 }
 
 export interface PushNotice {
-  readonly about: { readonly kind: 'note'; readonly author: string | null } | { readonly kind: 'draft' }
+  readonly about:
+    | { readonly kind: 'note'; readonly author: string | null }
+    | { readonly kind: 'draft' }
+    | { readonly kind: 'test'; readonly title: string }
   readonly body: string
   readonly url: string
 }
@@ -42,7 +45,7 @@ export const makePushNotifier = (fetch: Fetch): PushNotifier => {
         const { memberId, event } = yield* T.orDie(pending.take)
         try {
           const notice = yield* pushNoticeFor(memberId, event)
-          if (notice !== null) yield* deliverToMember(fetch, memberId, notice)
+          if (notice !== null) yield* T.asUnit(deliverToMember(fetch, memberId, notice))
         } finally {
           work.finished()
         }
@@ -58,7 +61,7 @@ export const pushNoticeFor = (
 ): T.Task<PushNotice | null, never, AppEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
-    if (env.hub.presenceOf(memberId).humanOnline) return null
+    if (env.hub.isLooking(memberId)) return null
     const body = event.body
     if (body.type === 'note.sent' && body.note.authorId !== memberId) {
       const author = (yield* membersByIds([body.note.authorId])).get(body.note.authorId)
@@ -81,21 +84,56 @@ export const pushNoticeFor = (
     return null
   })
 
+/** What one push attempt came to: the push service's host and answer, 0 when it was not reached. */
+export interface PushOutcome {
+  readonly endpointHost: string
+  readonly status: number
+  readonly removed: boolean
+}
+
 export const deliverToMember = (
   fetch: Fetch,
   memberId: MemberId,
   notice: PushNotice,
-): T.Task<void, never, AppEnv> =>
+): T.Task<PushOutcome[], never, AppEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
     const keys = yield* vapidKeys
     const chosen = yield* chosenLocaleOf(memberId)
+    const outcomes: PushOutcome[] = []
     for (const subscription of yield* pushSubscriptionsOf(memberId)) {
       const message = messageIn(chosen ?? subscription.locale ?? null, notice)
-      const status = yield* send(fetch, env.clock, env.config.publicUrl, keys, subscription, message)
-      if (status === 404 || status === 410) yield* removePushSubscription(subscription.endpoint)
+      const status = yield* send(fetch, env.clock, vapidSubject(env.config), keys, subscription, message)
+      const removed = status === 404 || status === 410
+      if (removed) yield* removePushSubscription(subscription.endpoint)
+      const outcome = { endpointHost: new URL(subscription.endpoint).host, status, removed }
+      env.log(
+        `push: member ${memberId} via ${outcome.endpointHost} answered ${status === 0 ? 'nothing (unreachable or timed out)' : status}${removed ? '; subscription removed' : ''}`,
+      )
+      outcomes.push(outcome)
     }
+    return outcomes
   })
+
+/** Sends a test notification to the person's own subscriptions only, and says how each went. */
+export const sendTestPush = (fetch: Fetch, memberId: MemberId): T.Task<PushOutcome[], never, AppEnv> =>
+  T.gen(function* () {
+    const titles = pushTitlesIn(yield* chosenLocaleOf(memberId))
+    return yield* deliverToMember(fetch, memberId, {
+      about: { kind: 'test', title: titles.test },
+      body: titles.testBody,
+      url: '/#/me',
+    })
+  })
+
+/**
+ * The VAPID subject must be an https URL or a mailto: address (RFC 8292); push services refuse
+ * anything else, so a server on plain http names an administrator's address instead.
+ */
+export const vapidSubject = (config: Pick<AppEnv['config'], 'publicUrl' | 'adminEmails'>): string =>
+  config.publicUrl.startsWith('https://')
+    ? config.publicUrl
+    : `mailto:${config.adminEmails[0] ?? `dovecote@${new URL(config.publicUrl).hostname}`}`
 
 const PENDING_LIMIT = 10_000
 const PREVIEW_LENGTH = 140
@@ -111,6 +149,7 @@ const messageIn = (locale: Locale | null, notice: PushNotice): PushMessage => ({
 
 const titleOf = (titles: PushTitles, about: PushNotice['about']): string => {
   if (about.kind === 'draft') return titles.draftWaiting
+  if (about.kind === 'test') return about.title
   return about.author === null ? titles.noteFromColleague : titles.noteFrom(about.author)
 }
 
@@ -120,7 +159,7 @@ const preview = (text: string): string =>
 const send = (
   fetch: Fetch,
   clock: Clock,
-  publicUrl: string,
+  subject: string,
   keys: VapidKeys,
   subscription: PushSubscription,
   message: PushMessage,
@@ -136,7 +175,7 @@ const send = (
   })
   const authorization = vapidAuthorization(keys, {
     audience: new URL(subscription.endpoint).origin,
-    subject: publicUrl,
+    subject,
     expiresAtSeconds: Math.floor(clock.now() / 1000) + AUTHORIZATION_LIFETIME_SECONDS,
   })
   return T.catchAll(() => T.succeed(0))(

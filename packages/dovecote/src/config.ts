@@ -25,13 +25,12 @@ export interface Config {
     readonly auditRetentionDays: number | null
   }
   readonly adminEmails: ReadonlyArray<string>
-  readonly topics: ReadonlyArray<{ readonly slug: string; readonly description: string }>
+  readonly channels: ReadonlyArray<{ readonly slug: string; readonly description: string }>
   readonly trustedProxies: number
   readonly pushHosts: ReadonlyArray<string>
   readonly sessionDays: number
   readonly audit: { readonly toStdout: boolean; readonly webhookUrl: string | null }
   readonly agentCredentialDays: number
-  readonly approveButton: boolean
   readonly oauth: {
     readonly redirectHosts: ReadonlyArray<string>
     readonly clientMetadataHosts: ReadonlyArray<string>
@@ -51,6 +50,9 @@ export const loadConfig = (
   const clientMetadataHosts = hostListOf(v.HB_OAUTH_CLIENT_METADATA_HOSTS, DEFAULT_CLIENT_METADATA_HOSTS)
   const clients = parseConfiguredClients(v.HB_OAUTH_CLIENTS)
   const problems = [
+    environment.HB_TOPICS !== undefined
+      ? 'HB_TOPICS: was renamed to HB_CHANNELS; set HB_CHANNELS instead and remove HB_TOPICS'
+      : null,
     !devLogin && !v.HB_OIDC_CLIENT_ID ? 'HB_OIDC_CLIENT_ID: is required unless HB_DEV_LOGIN=1' : null,
     !devLogin && !v.HB_OIDC_CLIENT_SECRET ? 'HB_OIDC_CLIENT_SECRET: is required unless HB_DEV_LOGIN=1' : null,
     !devLogin && commaList(v.HB_ADMIN_EMAILS).length === 0
@@ -90,18 +92,17 @@ export const loadConfig = (
       auditRetentionDays: v.HB_AUDIT_RETENTION_DAYS ? Number(v.HB_AUDIT_RETENTION_DAYS) : null,
     },
     adminEmails: commaList(v.HB_ADMIN_EMAILS),
-    topics: seedTopicsOf(v.HB_TOPICS),
+    channels: seedChannelsOf(v.HB_CHANNELS),
     trustedProxies: Number(v.HB_TRUST_PROXY ?? '0'),
     pushHosts: v.HB_PUSH_HOSTS ? commaList(v.HB_PUSH_HOSTS) : DEFAULT_PUSH_HOSTS,
     sessionDays: Number(v.HB_SESSION_DAYS ?? '30'),
     audit: { toStdout: v.HB_AUDIT_STDOUT === '1', webhookUrl: v.HB_AUDIT_WEBHOOK_URL ?? null },
     agentCredentialDays: Number(v.HB_AGENT_CREDENTIAL_DAYS ?? '90'),
-    approveButton: v.HB_APPROVE_BUTTON === 'on',
     oauth: { redirectHosts, clientMetadataHosts, clients: clients.value },
   })
 }
 
-const TOPIC_LIST =
+const CHANNEL_LIST =
   /^\s*[a-z0-9][a-z0-9-]{0,39}(:[^,]{0,200})?(\s*,\s*[a-z0-9][a-z0-9-]{0,39}(:[^,]{0,200})?)*\s*$/
 
 const positiveInteger = S.string({ pattern: /^[1-9][0-9]{0,5}$/ })
@@ -119,7 +120,7 @@ const Variables = S.struct({
   HB_DEV_LOGIN: S.optional(S.literal('0', '1')),
   HB_ALLOWED_DOMAINS: S.optional(S.string()),
   HB_ADMIN_EMAILS: S.optional(S.string()),
-  HB_TOPICS: S.optional(S.string({ pattern: TOPIC_LIST })),
+  HB_CHANNELS: S.optional(S.string({ pattern: CHANNEL_LIST })),
   HB_TRUST_PROXY: S.optional(S.string({ pattern: /^[0-9]$/ })),
   HB_PUSH_HOSTS: S.optional(S.string()),
   HB_CONTACT_MODE: S.optional(S.literal('open', 'contacts')),
@@ -128,7 +129,6 @@ const Variables = S.struct({
   HB_AUDIT_STDOUT: S.optional(S.literal('0', '1')),
   HB_AUDIT_WEBHOOK_URL: S.optional(S.string({ pattern: /^https?:\/\// })),
   HB_AGENT_CREDENTIAL_DAYS: S.optional(positiveInteger),
-  HB_APPROVE_BUTTON: S.optional(S.literal('on', 'off')),
   HB_OAUTH_REDIRECT_HOSTS: S.optional(S.string()),
   HB_OAUTH_CLIENT_METADATA_HOSTS: S.optional(S.string()),
   HB_OAUTH_CLIENTS: S.optional(S.string()),
@@ -141,7 +141,7 @@ const withoutBlanks = (environment: Readonly<Record<string, string | undefined>>
     Object.entries(environment).filter((entry): entry is [string, string] => (entry[1] ?? '') !== ''),
   )
 
-const seedTopicsOf = (value: string | undefined): Config['topics'] =>
+const seedChannelsOf = (value: string | undefined): Config['channels'] =>
   (value ?? '')
     .split(',')
     .map((item) => item.trim())

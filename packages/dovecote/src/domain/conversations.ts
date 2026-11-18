@@ -22,7 +22,7 @@ export const listConversations = (viewerId: MemberId): T.Task<Conversation[], ne
     const rows = yield* all<ConversationRow>(sql`
       SELECT c.* FROM conversations c
       JOIN participants p ON p.conversation_id = c.id AND p.member_id = ${viewerId}
-      WHERE c.kind <> 'dm'
+      WHERE c.kind <> 'direct'
          OR EXISTS (SELECT 1 FROM notes n WHERE n.conversation_id = c.id
                     AND (n.status = 'sent' OR (n.status = 'draft' AND n.author_id = ${viewerId})))
       ORDER BY c.last_activity_at DESC LIMIT ${CONVERSATION_LIMIT}`)
@@ -66,7 +66,7 @@ export const directConversationWith = (
       sql`SELECT * FROM conversations WHERE pair_key = ${pairKey}`,
     )
     if (existing !== null) return existing
-    const created = yield* insertConversation('dm', null, pairKey, [viewerId, otherId])
+    const created = yield* insertConversation('direct', null, pairKey, [viewerId, otherId])
     return (
       (yield* first<ConversationRow>(sql`SELECT * FROM conversations WHERE pair_key = ${pairKey}`)) ?? created
     )
@@ -124,7 +124,7 @@ const describeConversation = (
     const lastRow = yield* first<NoteRow>(
       sql`SELECT * FROM notes WHERE conversation_id = ${row.id} AND status = 'sent' ORDER BY sent_at DESC, id DESC LIMIT 1`,
     )
-    const [lastNote] = yield* hydrateNotes(lastRow === null ? [] : [lastRow])
+    const [lastNote] = yield* hydrateNotes(lastRow === null ? [] : [lastRow], null)
     const unread = yield* first<{ total: number }>(sql`
       SELECT COUNT(*) AS total FROM receipts r JOIN notes n ON n.id = r.note_id
       WHERE n.conversation_id = ${row.id} AND r.member_id = ${viewerId} AND r.read_at IS NULL AND r.replied_at IS NULL`)

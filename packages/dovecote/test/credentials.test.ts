@@ -17,7 +17,7 @@ afterEach(() => server.close())
 
 describe('credentials', () => {
   it('lists each device with its kind, name, client and expiry, marking the current one', async () => {
-    await connectAgent(server, ana, { name: 'Laptop agent', approveButton: true })
+    await connectAgent(server, ana, { name: 'Laptop agent' })
     const { credentials } = (await ana.api('GET', '/credentials')).json
     expect(
       credentials
@@ -26,7 +26,6 @@ describe('credentials', () => {
     ).toEqual([
       ['human', 'Browser', 'Web', true, null],
       ['agent', 'Laptop agent', 'Laptop agent', false, null],
-      ['human', 'Laptop agent (approve button)', 'Laptop agent', false, null],
     ])
     for (const credential of credentials) expect(credential.expiresAt).toBeGreaterThan(credential.createdAt)
     expect((await ben.api('GET', '/credentials')).json.credentials).toHaveLength(1)
@@ -212,7 +211,7 @@ describe('administration', () => {
   it('lets only an administrator set the answering flow, never an agent, and audits the change', async () => {
     const base = (await ana.api('GET', '/admin/settings')).json
     const flow = '1. Answer in two sentences.'
-    const anaAgent = await connectAgent(server, ana, { approveButton: true })
+    const anaAgent = await connectAgent(server, ana)
     expect((await ben.api('PUT', '/admin/settings', { ...base, answeringFlow: flow })).status).toBe(403)
     expect((await anaAgent.api('PUT', '/admin/settings', { ...base, answeringFlow: flow })).status).toBe(403)
     expect((await ben.api('GET', '/answering-flow')).json.flow).toBeNull()

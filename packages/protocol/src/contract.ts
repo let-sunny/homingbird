@@ -17,6 +17,11 @@ import { ConversationId, CredentialId, DraftRequestId, MemberId, NoteId } from '
 import {
   AnsweringFlowSetting,
   AuditEntry,
+  CHANNEL_DESCRIPTION_MAX,
+  Channel,
+  ChannelMember,
+  ChannelSlug,
+  ChannelVisibility,
   Contact,
   Conversation,
   Credential,
@@ -29,15 +34,11 @@ import {
   Note,
   NoteBasis,
   NoteBody,
+  Notice,
   PROFILE_MAX,
   RELEASE_REASON_MAX,
   Role,
   Settings,
-  TOPIC_DESCRIPTION_MAX,
-  Topic,
-  TopicMember,
-  TopicSlug,
-  TopicVisibility,
 } from './model.ts'
 import { type RequestOf, type ResponseOf, type Route, route } from './route.ts'
 
@@ -51,7 +52,7 @@ export const PushSubscription = S.struct({
 })
 export type PushSubscription = S.Infer<typeof PushSubscription>
 
-const TopicDescription = S.string({ minLength: 1, maxLength: TOPIC_DESCRIPTION_MAX })
+const ChannelDescription = S.string({ minLength: 1, maxLength: CHANNEL_DESCRIPTION_MAX })
 
 export const contract = {
   'server.info': route({ method: 'GET', path: '/info', access: 'public', response: ServerInfo }),
@@ -80,93 +81,93 @@ export const contract = {
     method: 'GET',
     path: '/directory',
     access: 'member',
-    query: { q: S.optional(S.string({ maxLength: 200 })), topic: S.optional(TopicSlug) },
+    query: { q: S.optional(S.string({ maxLength: 200 })), channel: S.optional(ChannelSlug) },
     response: S.struct({ entries: S.array(DirectoryEntry) }),
   }),
-  'topics.list': route({
+  'channels.list': route({
     method: 'GET',
-    path: '/topics',
+    path: '/channels',
     access: 'member',
     query: {
       q: S.optional(S.string({ maxLength: 200 })),
       limit: S.optional(PageLimit),
       cursor: S.optional(Digits),
     },
-    response: S.struct({ topics: S.array(Topic), hasMore: S.boolean, cursor: S.nullable(Digits) }),
+    response: S.struct({ channels: S.array(Channel), hasMore: S.boolean, cursor: S.nullable(Digits) }),
   }),
-  'topics.get': route({ method: 'GET', path: '/topics/:slug', access: 'member', response: Topic }),
-  'topics.create': route({
+  'channels.get': route({ method: 'GET', path: '/channels/:slug', access: 'member', response: Channel }),
+  'channels.create': route({
     method: 'POST',
-    path: '/topics',
+    path: '/channels',
     access: 'human',
     body: S.struct({
-      slug: TopicSlug,
-      description: TopicDescription,
-      visibility: S.optional(TopicVisibility),
+      slug: ChannelSlug,
+      description: ChannelDescription,
+      visibility: S.optional(ChannelVisibility),
     }),
-    response: Topic,
+    response: Channel,
   }),
-  'topics.join': route({
+  'channels.join': route({
     method: 'PUT',
-    path: '/topics/:slug/membership',
+    path: '/channels/:slug/membership',
     access: 'human',
     body: S.struct({ answering: S.optional(S.boolean) }),
-    response: Topic,
+    response: Channel,
   }),
-  'topics.leave': route({
+  'channels.leave': route({
     method: 'DELETE',
-    path: '/topics/:slug/membership',
+    path: '/channels/:slug/membership',
     access: 'human',
-    response: Topic,
+    response: Channel,
   }),
-  'topics.answering.on': route({
+  'channels.answering.on': route({
     method: 'PUT',
-    path: '/topics/:slug/answering',
+    path: '/channels/:slug/answering',
     access: 'human',
-    response: Topic,
+    response: Channel,
   }),
-  'topics.answering.off': route({
+  'channels.answering.off': route({
     method: 'DELETE',
-    path: '/topics/:slug/answering',
+    path: '/channels/:slug/answering',
     access: 'human',
-    response: Topic,
+    response: Channel,
   }),
-  'topics.visibility.set': route({
+  'channels.visibility.set': route({
     method: 'PUT',
-    path: '/topics/:slug/visibility',
+    path: '/channels/:slug/visibility',
     access: 'human',
-    body: S.struct({ visibility: TopicVisibility }),
-    response: Topic,
+    body: S.struct({ visibility: ChannelVisibility }),
+    response: Channel,
   }),
-  'topics.members.list': route({
+  'channels.members.list': route({
     method: 'GET',
-    path: '/topics/:slug/members',
+    path: '/channels/:slug/members',
     access: 'member',
-    response: S.struct({ members: S.array(TopicMember) }),
+    response: S.struct({ members: S.array(ChannelMember) }),
   }),
-  'topics.members.add': route({
+  'channels.members.add': route({
     method: 'PUT',
-    path: '/topics/:slug/members/:memberId',
+    path: '/channels/:slug/members/:memberId',
     access: 'human',
-    response: Topic,
+    response: Channel,
   }),
-  'topics.members.remove': route({
+  'channels.members.remove': route({
     method: 'DELETE',
-    path: '/topics/:slug/members/:memberId',
+    path: '/channels/:slug/members/:memberId',
     access: 'human',
-    response: Topic,
+    response: Channel,
   }),
-  'topics.managers.add': route({
+  'channels.managers.add': route({
     method: 'PUT',
-    path: '/topics/:slug/managers/:memberId',
+    path: '/channels/:slug/managers/:memberId',
     access: 'human',
-    response: Topic,
+    response: Channel,
   }),
-  'topics.managers.remove': route({
+  'channels.managers.remove': route({
     method: 'DELETE',
-    path: '/topics/:slug/managers/:memberId',
+    path: '/channels/:slug/managers/:memberId',
     access: 'human',
-    response: Topic,
+    response: Channel,
   }),
   'contacts.list': route({
     method: 'GET',
@@ -223,7 +224,7 @@ export const contract = {
     path: '/conversations/:id/notes',
     access: 'member',
     query: { before: S.optional(Digits), limit: S.optional(PageLimit) },
-    response: S.struct({ notes: S.array(Note), hasMore: S.boolean }),
+    response: S.struct({ notes: S.array(Note), hasMore: S.boolean, notices: S.array(Notice) }),
   }),
   'notes.get': route({ method: 'GET', path: '/notes/:id', access: 'member', response: Note }),
   'notes.read': route({ method: 'POST', path: '/notes/:id/read', access: 'human', response: Note }),
@@ -231,7 +232,7 @@ export const contract = {
     method: 'POST',
     path: '/notes/:id/move',
     access: 'human',
-    body: S.struct({ topic: TopicSlug }),
+    body: S.struct({ channel: ChannelSlug }),
     response: Note,
   }),
   'notes.pickup': route({ method: 'POST', path: '/notes/:id/pickup', access: 'member', response: Note }),
@@ -271,7 +272,7 @@ export const contract = {
       body: NoteBody,
       conversationId: S.optional(ConversationId),
       to: S.optional(Recipients),
-      topic: S.optional(TopicSlug),
+      channel: S.optional(ChannelSlug),
       inReplyTo: S.optional(NoteId),
       requestId: S.optional(DraftRequestId),
       basis: S.optional(NoteBasis),
@@ -283,11 +284,17 @@ export const contract = {
     path: '/drafts/:id',
     access: 'member',
     body: S.refine(
-      'a new body or topic',
-      (change: { readonly body?: string; readonly topic?: string; readonly basis?: string }) =>
-        change.body !== undefined || change.topic !== undefined || change.basis !== undefined,
-      'Give a new body, a new topic, a new basis, or several.',
-    )(S.struct({ body: S.optional(NoteBody), topic: S.optional(TopicSlug), basis: S.optional(NoteBasis) })),
+      'a new body or channel',
+      (change: { readonly body?: string; readonly channel?: string; readonly basis?: string }) =>
+        change.body !== undefined || change.channel !== undefined || change.basis !== undefined,
+      'Give a new body, a new channel, a new basis, or several.',
+    )(
+      S.struct({
+        body: S.optional(NoteBody),
+        channel: S.optional(ChannelSlug),
+        basis: S.optional(NoteBasis),
+      }),
+    ),
     response: Note,
   }),
   'drafts.send': route({
@@ -312,7 +319,7 @@ export const contract = {
     body: S.struct({
       conversationId: S.optional(ConversationId),
       to: S.optional(Recipients),
-      topic: S.optional(TopicSlug),
+      channel: S.optional(ChannelSlug),
       inReplyTo: S.optional(NoteId),
       instruction: S.optional(S.string({ maxLength: DRAFT_INSTRUCTION_MAX })),
       agentId: S.optional(CredentialId),
@@ -353,7 +360,6 @@ export const contract = {
     body: S.struct({
       approve: S.boolean,
       name: S.optional(S.string({ minLength: 1, maxLength: 200 })),
-      allowApproval: S.optional(S.boolean),
     }),
     response: Empty,
   }),
@@ -378,6 +384,22 @@ export const contract = {
     access: 'human',
     body: PushSubscription,
     response: Empty,
+  }),
+  'presence.visibility': route({
+    method: 'POST',
+    path: '/presence/visibility',
+    access: 'human',
+    body: S.struct({ page: S.string({ pattern: /^[A-Za-z0-9-]{8,64}$/ }), visible: S.boolean }),
+    response: Empty,
+  }),
+  'push.test': route({
+    method: 'POST',
+    path: '/push/test',
+    access: 'human',
+    body: Empty,
+    response: S.struct({
+      results: S.array(S.struct({ endpointHost: S.string(), status: S.int({ min: 0 }), removed: S.boolean })),
+    }),
   }),
   'push.unsubscribe': route({
     method: 'POST',
@@ -432,25 +454,19 @@ export const contract = {
     access: 'admin',
     response: Member,
   }),
-  'admin.topics.update': route({
+  'admin.channels.update': route({
     method: 'PATCH',
-    path: '/admin/topics/:slug',
+    path: '/admin/channels/:slug',
     access: 'admin',
-    body: S.struct({ slug: S.optional(TopicSlug), description: S.optional(TopicDescription) }),
-    response: Topic,
+    body: S.struct({ slug: S.optional(ChannelSlug), description: S.optional(ChannelDescription) }),
+    response: Channel,
   }),
-  'admin.topics.remove': route({
-    method: 'DELETE',
-    path: '/admin/topics/:slug',
-    access: 'admin',
-    response: Empty,
-  }),
-  'admin.topics.merge': route({
+  'admin.channels.archive': route({
     method: 'POST',
-    path: '/admin/topics/:slug/merge',
+    path: '/admin/channels/:slug/archive',
     access: 'admin',
-    body: S.struct({ into: TopicSlug }),
-    response: Topic,
+    body: S.struct({ moveMembersTo: S.optional(ChannelSlug) }),
+    response: Empty,
   }),
   'admin.audit.list': route({
     method: 'GET',

@@ -5,8 +5,8 @@ These seven rules are never broken. Each has a test; keep it passing and keep it
 1. Only a human credential can approve a note. Agent credentials can draft, read and pick up, never
    approve. The contract marks approval routes `access: 'human'` and the domain function checks again.
 2. Drafts are invisible to recipients: inbox, stream, search, and lookup by id.
-3. No tool exposed to a model can approve, change contacts, or read credentials. In the Claude Code
-   mod, approval happens only through a button a person presses.
+3. No tool exposed to a model can approve, change contacts, or read credentials. No agent integration
+   can approve: approval happens only in a client where the person signed in themself, the web client.
 4. Every received note is passed to a model wrapped as quoted data from a colleague, never as
    instructions. `wrapNote` in `packages/protocol/src/wrap.ts` is the only wrapper; never format a
    note for a model any other way.

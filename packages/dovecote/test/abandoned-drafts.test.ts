@@ -12,17 +12,17 @@ beforeEach(async () => {
   server = await startTestServer()
   ana = await server.signIn('ana@example.com', 'Ana')
   ben = await server.signIn('ben@example.com', 'Ben')
-  await ana.api('POST', '/topics', { slug: 'billing', description: 'Invoices' })
-  await ben.api('PUT', '/topics/billing/membership', {})
+  await ana.api('POST', '/channels', { slug: 'billing', description: 'Invoices' })
+  await ben.api('PUT', '/channels/billing/membership', {})
 })
 
 afterEach(() => server.close())
 
 describe('abandonDraftsIn', () => {
   it('discards one author’s waiting drafts in one room, tells that author, and leaves everything else', async () => {
-    const leaving = (await ben.api('POST', '/drafts', { topic: 'billing', body: 'Half a thought' })).json
+    const leaving = (await ben.api('POST', '/drafts', { channel: 'billing', body: 'Half a thought' })).json
     const elsewhere = (await ben.api('POST', '/drafts', { to: [ana.me.member.id], body: 'Kept' })).json
-    const others = (await ana.api('POST', '/drafts', { topic: 'billing', body: 'Also kept' })).json
+    const others = (await ana.api('POST', '/drafts', { channel: 'billing', body: 'Also kept' })).json
     const outbox: Delivery[] = []
     await T.runPromise(
       T.provide({ outbox, audited: [] })(abandonDraftsIn(leaving.conversationId, ben.me.member.id)),

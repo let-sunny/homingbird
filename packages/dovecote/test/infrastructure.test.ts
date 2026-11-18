@@ -30,16 +30,11 @@ describe('configuration', () => {
     HB_ADMIN_EMAILS: 'root@example.com',
   }
 
-  it('turns the approve button on only when the operator says so', () => {
-    expect(loadConfig({ ...minimal, HB_APPROVE_BUTTON: 'on' })).toMatchObject({
-      _tag: 'Ok',
-      value: { approveButton: true },
+  it('refuses to start with HB_TOPICS, which was renamed to HB_CHANNELS', () => {
+    expect(loadConfig({ ...minimal, HB_TOPICS: 'billing' })).toEqual({
+      _tag: 'Err',
+      error: ['HB_TOPICS: was renamed to HB_CHANNELS; set HB_CHANNELS instead and remove HB_TOPICS'],
     })
-    expect(loadConfig({ ...minimal, HB_APPROVE_BUTTON: 'off' })).toMatchObject({
-      _tag: 'Ok',
-      value: { approveButton: false },
-    })
-    expect(loadConfig({ ...minimal, HB_APPROVE_BUTTON: 'yes' })._tag).toBe('Err')
   })
 
   it('fills in defaults', () => {
@@ -58,7 +53,6 @@ describe('configuration', () => {
         trustedProxies: 0,
         sessionDays: 30,
         agentCredentialDays: 90,
-        approveButton: false,
         audit: { toStdout: false, webhookUrl: null },
         oauth: {
           redirectHosts: ['claude.ai', 'claude.com'],

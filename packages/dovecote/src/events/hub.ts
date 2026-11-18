@@ -11,9 +11,14 @@ export interface Hub {
   readonly presenceOf: (memberId: MemberId) => Presence
   readonly flushPresence: () => void
   readonly broadcast: (event: StreamEvent) => void
+  /** A web page says whether a person can see it now; a report lasts VISIBLE_REPORT_MS unless renewed. */
+  readonly reportVisibility: (memberId: MemberId, page: string, visible: boolean) => void
+  /** Whether a page of this person's is visible now: only then is a push notification not needed. */
+  readonly isLooking: (memberId: MemberId) => boolean
 }
 
 export const PRESENCE_FLUSH_INTERVAL_MS = 1_000
+export const VISIBLE_REPORT_MS = 90_000
 
 export const makeHub = (now: () => number): Hub => {
   const channels = new Map<MemberId, Channel>()
@@ -21,6 +26,16 @@ export const makeHub = (now: () => number): Hub => {
   const presenceOf = (memberId: MemberId): Presence => {
     const connections = channels.get(memberId)?.connections
     return { humanOnline: (connections?.human ?? 0) > 0, agentOnline: (connections?.agent ?? 0) > 0 }
+  }
+
+  const visiblePages = new Map<MemberId, Map<string, number>>()
+
+  const isLooking = (memberId: MemberId): boolean => {
+    const pages = visiblePages.get(memberId)
+    if (pages === undefined) return false
+    for (const [page, until] of pages) if (until <= now()) pages.delete(page)
+    if (pages.size === 0) visiblePages.delete(memberId)
+    return pages.size > 0
   }
 
   const changed = new Set<MemberId>()
@@ -37,6 +52,14 @@ export const makeHub = (now: () => number): Hub => {
   return {
     presenceOf,
     flushPresence,
+    isLooking,
+    reportVisibility: (memberId, page, visible) => {
+      const pages = visiblePages.get(memberId) ?? new Map<string, number>()
+      if (visible) pages.set(page, now() + VISIBLE_REPORT_MS)
+      else pages.delete(page)
+      if (pages.size === 0) visiblePages.delete(memberId)
+      else visiblePages.set(memberId, pages)
+    },
     broadcast: (event) => {
       for (const channel of channels.values()) channel.pubsub.publish(event)
     },

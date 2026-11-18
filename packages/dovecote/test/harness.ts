@@ -50,25 +50,20 @@ export interface Session {
 
 export interface Agent {
   readonly token: string
-  readonly approvalToken: string | null
   readonly api: (method: string, path: string, body?: unknown) => Promise<TestResponse>
 }
 
 export const connectAgent = async (
   server: TestServer,
   owner: Session,
-  options: { readonly name?: string; readonly approveButton?: boolean } = {},
+  options: { readonly name?: string } = {},
 ): Promise<Agent> => {
   const started = await server.request('POST', '/oauth/device_authorization', {
-    form: {
-      client_name: options.name ?? 'Test agent',
-      scope: options.approveButton ? 'notes approve' : 'notes',
-    },
+    form: { client_name: options.name ?? 'Test agent', scope: 'notes' },
   })
   await owner.api('POST', `/device/${started.json.user_code}`, {
     approve: true,
     name: options.name ?? 'Test agent',
-    allowApproval: options.approveButton === true,
   })
   const tokens = await server.request('POST', '/oauth/token', {
     form: {
@@ -79,7 +74,6 @@ export const connectAgent = async (
   const token: string = tokens.json.access_token
   return {
     token,
-    approvalToken: tokens.json.approval_token ?? null,
     api: (method, path, body) =>
       server.request(method, `/api/v1${path}`, { token, ...(body !== undefined && { body }) }),
   }
@@ -92,7 +86,6 @@ export const testConfig = (overrides: Readonly<Record<string, string>> = {}): Co
     HB_PUBLIC_URL: PUBLIC_URL,
     HB_DEV_LOGIN: '1',
     HB_ALLOWED_DOMAINS: 'example.com',
-    HB_APPROVE_BUTTON: 'on',
     ...overrides,
   })
   if (loaded._tag === 'Err') throw new Error(loaded.error.join('; '))
@@ -147,7 +140,7 @@ export const startTestServer = async (
     log: (line) => logged.push(line),
     ...(parts.fetch !== undefined && { fetch: parts.fetch }),
   })
-  await T.runPromise(overrides.HB_TOPICS === undefined ? migrate : prepareDatabase, env)
+  await T.runPromise(overrides.HB_CHANNELS === undefined ? migrate : prepareDatabase, env)
 
   const requestWith =
     (serving: AppEnv): TestServer['request'] =>

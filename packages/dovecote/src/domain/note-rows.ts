@@ -27,15 +27,20 @@ export interface NoteRow {
   readonly created_at: number
   readonly updated_at: number
   readonly sent_at: number | null
+  readonly basis: string | null
 }
 
 export const PICKUP_GRACE_MS = 10 * 60_000
 
-export const hydrateNotes = (rows: ReadonlyArray<NoteRow>): T.Task<Note[], never, AppEnv> =>
+/** Notes as `viewerId` sees them: only the author sees what a draft was based on. */
+export const hydrateNotes = (
+  rows: ReadonlyArray<NoteRow>,
+  viewerId: MemberId | null,
+): T.Task<Note[], never, AppEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
     const sentIds = rows.filter((row) => row.status === 'sent').map((row) => row.id)
-    if (sentIds.length === 0) return rows.map((row) => toNote(row, []))
+    if (sentIds.length === 0) return rows.map((row) => toNote(row, [], viewerId))
     const receiptRows = yield* all<ReceiptRow>(
       sql`SELECT * FROM receipts WHERE note_id IN ${list(sentIds)} ORDER BY member_id`,
     )
@@ -57,6 +62,7 @@ export const hydrateNotes = (rows: ReadonlyArray<NoteRow>): T.Task<Note[], never
             env.clock.now(),
           ),
         ),
+        viewerId,
       ),
     )
   })
@@ -76,7 +82,7 @@ interface ReplyDraftRow {
   readonly started_at: number
 }
 
-const toNote = (row: NoteRow, receipts: ReadonlyArray<Receipt>): Note => ({
+const toNote = (row: NoteRow, receipts: ReadonlyArray<Receipt>, viewerId: MemberId | null): Note => ({
   id: row.id,
   conversationId: row.conversation_id,
   authorId: row.author_id,
@@ -89,6 +95,7 @@ const toNote = (row: NoteRow, receipts: ReadonlyArray<Receipt>): Note => ({
   updatedAt: row.updated_at,
   sentAt: row.sent_at,
   receipts,
+  ...(row.author_id === viewerId && { basis: row.basis }),
 })
 
 const toReceipt = (row: ReceiptRow, replyDraftStartedAt: number | null, now: number): Receipt => {

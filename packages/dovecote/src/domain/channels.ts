@@ -1,48 +1,48 @@
 import { Task as T } from '@homingbird/kernel'
 import {
+  type Channel,
+  type ChannelVisibility,
   Conflict,
   ConversationId,
   Forbidden,
   type MemberId,
   type NotFound,
-  type Topic,
-  type TopicVisibility,
 } from '@homingbird/protocol'
 import type { AppEnv } from '../environment.ts'
 import type { RequestEnv } from '../events/events.ts'
 import { all, run } from '../sql/database.ts'
 import { containsIgnoringCase, insertInto, list, sql } from '../sql/query.ts'
 import {
-  type TopicRow,
+  type ChannelRow,
   type Viewer,
+  channelOfRoom,
+  channelRow,
   depart,
-  describeTopic,
+  describeChannel,
   enter,
-  existingTopic,
+  existingChannel,
   isMemberOf,
   makeManager,
   membersOf,
-  noSuchTopic,
+  noSuchChannel,
   requireManagerRemains,
   startAnswering,
-  tellAboutTopic,
-  topicOfRoom,
-  topicRow,
+  tellAboutChannel,
   visibilityOf,
-  visibleTopic,
-} from './topic-rows.ts'
+  visibleChannel,
+} from './channel-rows.ts'
 
-export const listTopics = (
+export const listChannels = (
   viewer: Viewer,
   page: { readonly search: string | undefined; readonly limit: number; readonly offset: number },
-): T.Task<{ topics: Topic[]; hasMore: boolean; cursor: string | null }, never, AppEnv> =>
+): T.Task<{ channels: Channel[]; hasMore: boolean; cursor: string | null }, never, AppEnv> =>
   T.gen(function* () {
     const { search, limit, offset } = page
     const matching = search
       ? sql`AND (${containsIgnoringCase('t.slug', search)} OR ${containsIgnoringCase('t.description', search)})`
       : sql``
-    const rows = yield* all<TopicRow>(sql`
-      SELECT t.* FROM topics t WHERE ${visibleTo(viewer)} ${matching}
+    const rows = yield* all<ChannelRow>(sql`
+      SELECT t.* FROM channels t WHERE ${visibleTo(viewer)} ${matching}
       ORDER BY
         CASE WHEN EXISTS (SELECT 1 FROM participants j WHERE j.conversation_id = t.conversation_id AND j.member_id = ${viewer.id}) THEN 0 ELSE 1 END,
         (SELECT COUNT(*) FROM participants m WHERE m.conversation_id = t.conversation_id) DESC,
@@ -50,79 +50,82 @@ export const listTopics = (
       LIMIT ${limit + 1} OFFSET ${offset}`)
     const hasMore = rows.length > limit
     return {
-      topics: yield* T.forEach(rows.slice(0, limit), (row) => describeTopic(viewer, row)),
+      channels: yield* T.forEach(rows.slice(0, limit), (row) => describeChannel(viewer, row)),
       hasMore,
       cursor: hasMore ? String(offset + limit) : null,
     }
   })
 
-export const topicNamed = (viewer: Viewer, slug: string): T.Task<Topic, NotFound, AppEnv> =>
-  T.flatMap((row: TopicRow) => describeTopic(viewer, row))(visibleTopic(viewer, slug))
+export const channelNamed = (viewer: Viewer, slug: string): T.Task<Channel, NotFound, AppEnv> =>
+  T.flatMap((row: ChannelRow) => describeChannel(viewer, row))(visibleChannel(viewer, slug))
 
-export const createTopic = (
+export const createChannel = (
   creator: Viewer,
-  topic: { readonly slug: string; readonly description: string; readonly visibility?: TopicVisibility },
-): T.Task<Topic, Conflict, RequestEnv> =>
+  channel: { readonly slug: string; readonly description: string; readonly visibility?: ChannelVisibility },
+): T.Task<Channel, Conflict, RequestEnv> =>
   T.gen(function* () {
-    if ((yield* topicRow(topic.slug)) !== null) return yield* T.fail(nameNotAvailable)
-    const row = yield* openRoom({ ...topic, visibility: topic.visibility ?? 'open' }, creator.id)
+    if ((yield* channelRow(channel.slug)) !== null) return yield* T.fail(nameNotAvailable)
+    const row = yield* openRoom({ ...channel, visibility: channel.visibility ?? 'open' }, creator.id)
     yield* enter(row.conversation_id, creator.id)
     yield* startAnswering(row.conversation_id, creator.id)
     yield* makeManager(row.conversation_id, creator.id)
-    yield* tellAboutTopic(row, [creator.id])
-    return yield* describeTopic(creator, row)
+    yield* tellAboutChannel(row, [creator.id])
+    return yield* describeChannel(creator, row)
   })
 
-export const joinTopic = (
+export const joinChannel = (
   viewer: Viewer,
   slug: string,
   answering: boolean,
-): T.Task<Topic, NotFound | Forbidden, RequestEnv> =>
+): T.Task<Channel, NotFound | Forbidden, RequestEnv> =>
   T.gen(function* () {
-    const row = yield* visibleTopic(viewer, slug)
+    const row = yield* visibleChannel(viewer, slug)
     const isMember = yield* isMemberOf(row.conversation_id, viewer.id)
     if (!isMember && visibilityOf(row) === 'private')
-      return yield* T.fail(Forbidden({ message: 'Only a manager of this private topic can add members.' }))
+      return yield* T.fail(Forbidden({ message: 'Only a manager of this private channel can add members.' }))
     yield* enter(row.conversation_id, viewer.id)
     if (answering) yield* startAnswering(row.conversation_id, viewer.id)
-    yield* tellAboutTopic(row, [viewer.id])
-    return yield* describeTopic(viewer, row)
+    yield* tellAboutChannel(row, [viewer.id])
+    return yield* describeChannel(viewer, row)
   })
 
-export const leaveTopic = (viewer: Viewer, slug: string): T.Task<Topic, NotFound | Conflict, RequestEnv> =>
+export const leaveChannel = (
+  viewer: Viewer,
+  slug: string,
+): T.Task<Channel, NotFound | Conflict, RequestEnv> =>
   T.gen(function* () {
-    const row = yield* visibleTopic(viewer, slug)
+    const row = yield* visibleChannel(viewer, slug)
     if (yield* isMemberOf(row.conversation_id, viewer.id)) {
       yield* requireManagerRemains(row, { leaving: viewer.id })
       yield* depart(row, viewer.id)
     }
-    return yield* describeTopic(viewer, row)
+    return yield* describeChannel(viewer, row)
   })
 
 export const setAnswering = (
   viewer: Viewer,
   slug: string,
   answering: boolean,
-): T.Task<Topic, NotFound | Conflict, RequestEnv> =>
+): T.Task<Channel, NotFound | Conflict, RequestEnv> =>
   T.gen(function* () {
-    const row = yield* visibleTopic(viewer, slug)
+    const row = yield* visibleChannel(viewer, slug)
     if (!(yield* isMemberOf(row.conversation_id, viewer.id)))
-      return yield* T.fail(Conflict({ message: 'Join the topic before answering questions in it.' }))
+      return yield* T.fail(Conflict({ message: 'Join the channel before answering questions in it.' }))
     if (answering) yield* startAnswering(row.conversation_id, viewer.id)
     else
       yield* run(
-        sql`DELETE FROM topic_helpers WHERE conversation_id = ${row.conversation_id} AND member_id = ${viewer.id}`,
+        sql`DELETE FROM channel_answerers WHERE conversation_id = ${row.conversation_id} AND member_id = ${viewer.id}`,
       )
-    yield* tellAboutTopic(row, [viewer.id])
-    return yield* describeTopic(viewer, row)
+    yield* tellAboutChannel(row, [viewer.id])
+    return yield* describeChannel(viewer, row)
   })
 
-export const topicRoomFor = (askerId: MemberId, slug: string): T.Task<ConversationId, NotFound, AppEnv> =>
+export const channelRoomFor = (askerId: MemberId, slug: string): T.Task<ConversationId, NotFound, AppEnv> =>
   T.gen(function* () {
-    const row = yield* existingTopic(slug)
+    const row = yield* existingChannel(slug)
     const isMember = yield* isMemberOf(row.conversation_id, askerId)
     if (isMember) return row.conversation_id
-    if (visibilityOf(row) === 'private') return yield* T.fail(noSuchTopic(slug))
+    if (visibilityOf(row) === 'private') return yield* T.fail(noSuchChannel(slug))
     yield* enter(row.conversation_id, askerId)
     return row.conversation_id
   })
@@ -134,11 +137,11 @@ export const roomForMovedQuestion = (
   slug: string,
 ): T.Task<ConversationId, NotFound | Conflict, AppEnv> =>
   T.gen(function* () {
-    const destination = yield* existingTopic(slug)
-    const origin = yield* topicOfRoom(from)
+    const destination = yield* existingChannel(slug)
+    const origin = yield* channelOfRoom(from)
     const isPrivate = visibilityOf(destination) === 'private'
     if (isPrivate && !(yield* isMemberOf(destination.conversation_id, moverId)))
-      return yield* T.fail(noSuchTopic(slug))
+      return yield* T.fail(noSuchChannel(slug))
     if (origin !== null && visibilityOf(origin) === 'private' && destination.conversation_id !== from) {
       const sameMembers =
         isPrivate &&
@@ -147,18 +150,18 @@ export const roomForMovedQuestion = (
         return yield* T.fail(
           Conflict({
             message:
-              'A question in a private topic can move only to another private topic with the same members.',
+              'A question in a private channel can move only to another private channel with the same members.',
           }),
         )
     }
     if (isPrivate && !(yield* isMemberOf(destination.conversation_id, askerId)))
       return yield* T.fail(
-        Conflict({ message: 'The person who asked is not a member of that private topic.' }),
+        Conflict({ message: 'The person who asked is not a member of that private channel.' }),
       )
-    return yield* topicRoomFor(askerId, slug)
+    return yield* channelRoomFor(askerId, slug)
   })
 
-export const topicsHelpedBy = (
+export const channelsHelpedBy = (
   viewer: Viewer,
   memberIds: ReadonlyArray<MemberId>,
 ): T.Task<Map<MemberId, string[]>, never, AppEnv> =>
@@ -166,20 +169,20 @@ export const topicsHelpedBy = (
     const helped = new Map<MemberId, string[]>()
     if (memberIds.length === 0) return helped
     const rows = yield* all<{ member_id: MemberId; slug: string }>(sql`
-      SELECT h.member_id, t.slug FROM topic_helpers h JOIN topics t ON t.conversation_id = h.conversation_id
+      SELECT h.member_id, t.slug FROM channel_answerers h JOIN channels t ON t.conversation_id = h.conversation_id
       WHERE h.member_id IN ${list([...new Set(memberIds)])} AND ${sharedWith(viewer.id)} ORDER BY t.slug`)
     for (const row of rows) helped.set(row.member_id, [...(helped.get(row.member_id) ?? []), row.slug])
     return helped
   })
 
-export const helpersOfTopicSeenBy = (viewerId: MemberId, slug: string): ReturnType<typeof sql> =>
-  sql`SELECT h.member_id FROM topic_helpers h JOIN topics t ON t.conversation_id = h.conversation_id WHERE t.slug = ${slug} AND ${sharedWith(viewerId)}`
+export const helpersOfChannelSeenBy = (viewerId: MemberId, slug: string): ReturnType<typeof sql> =>
+  sql`SELECT h.member_id FROM channel_answerers h JOIN channels t ON t.conversation_id = h.conversation_id WHERE t.slug = ${slug} AND ${sharedWith(viewerId)}`
 
-export const seedTopics: T.Task<void, never, AppEnv> = T.gen(function* () {
+export const seedChannels: T.Task<void, never, AppEnv> = T.gen(function* () {
   const env = yield* T.ask<AppEnv>()
-  for (const topic of env.config.topics) {
-    if ((yield* topicRow(topic.slug)) !== null) continue
-    yield* openRoom({ ...topic, visibility: 'open' }, null)
+  for (const channel of env.config.channels) {
+    if ((yield* channelRow(channel.slug)) !== null) continue
+    yield* openRoom({ ...channel, visibility: 'open' }, null)
   }
 })
 
@@ -197,9 +200,9 @@ const sameSet = (a: ReadonlyArray<MemberId>, b: ReadonlyArray<MemberId>): boolea
   a.length === b.length && a.every((id) => b.includes(id))
 
 const openRoom = (
-  topic: { readonly slug: string; readonly description: string; readonly visibility: TopicVisibility },
+  channel: { readonly slug: string; readonly description: string; readonly visibility: ChannelVisibility },
   createdBy: MemberId | null,
-): T.Task<TopicRow, never, AppEnv> =>
+): T.Task<ChannelRow, never, AppEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
     const now = env.clock.now()
@@ -207,20 +210,20 @@ const openRoom = (
     yield* run(
       insertInto('conversations', {
         id: conversationId,
-        kind: 'topic',
-        title: topic.slug,
+        kind: 'channel',
+        title: channel.slug,
         created_at: now,
         last_activity_at: now,
         pair_key: null,
       }),
     )
-    const row: TopicRow = {
-      slug: topic.slug,
-      description: topic.description,
+    const row: ChannelRow = {
+      slug: channel.slug,
+      description: channel.description,
       conversation_id: conversationId,
-      visibility: topic.visibility,
+      visibility: channel.visibility,
       created_at: now,
     }
-    yield* run(insertInto('topics', { ...row, created_by: createdBy }))
+    yield* run(insertInto('channels', { ...row, created_by: createdBy }))
     return row
   })

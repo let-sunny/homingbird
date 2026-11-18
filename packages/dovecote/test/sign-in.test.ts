@@ -1,9 +1,10 @@
-import { mkdtempSync } from 'node:fs'
+import { mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Task as T } from '@homingbird/kernel'
 import { afterEach, describe, expect, it } from 'vitest'
 import { describeBrowser, localPath } from '../src/auth/sign-in.ts'
+import { loadConfig } from '../src/config.ts'
 import { SESSION_COOKIE } from '../src/http/authenticate.ts'
 import { run } from '../src/sql/database.ts'
 import { sql } from '../src/sql/query.ts'
@@ -39,6 +40,7 @@ const claimsFor = (issuer: FakeIssuer, nonce: string, overrides: Record<string, 
   aud: CLIENT_ID,
   sub: 'subject-1',
   exp: Math.floor(server.clock.now() / 1000) + 300,
+  iat: Math.floor(server.clock.now() / 1000),
   nonce,
   email: 'ana@example.com',
   email_verified: true,
@@ -113,6 +115,9 @@ describe('signing in through an OpenID Connect provider', () => {
     ['another audience', { aud: 'someone-else' }, {}, /another application/],
     ['a nonce from another sign-in', { nonce: 'stale' }, {}, /does not belong/],
     ['an expired token', { exp: 1 }, {}, /expired/],
+    ['a token without an issue time', { iat: undefined }, {}, /issued in the future/],
+    ['a token issued in the future', { iat: 'later' }, {}, /issued in the future/],
+    ['a token not valid yet', { nbf: 'later' }, {}, /not valid yet/],
     ['no subject', { sub: '' }, {}, /subject/],
     ['an unverified email', { email_verified: false }, {}, /not been verified/],
     [
@@ -125,11 +130,97 @@ describe('signing in through an OpenID Connect provider', () => {
   ])('refuses %s', async (_, claims, signing, reason) => {
     const issuer = makeFakeIssuer()
     await withIssuer(issuer)
-    issuer.nextToken = ({ nonce }) => issuer.signToken(claimsFor(issuer, nonce, claims), signing)
+    const later = Math.floor(server.clock.now() / 1000) + 120
+    const timed = Object.fromEntries(
+      Object.entries(claims).map(([name, value]) => [name, value === 'later' ? later : value]),
+    )
+    issuer.nextToken = ({ nonce }) => issuer.signToken(claimsFor(issuer, nonce, timed), signing)
     const { finished } = await attempt(issuer)
     expect(finished.headers['set-cookie']).toBeUndefined()
     expect(finished.headers.location).toMatch(/^\/#\/signed-out\?reason=/)
     expect(refusalOf(finished)).toMatch(reason)
+  })
+
+  it('accepts issue and not-before times within the clock-skew allowance', async () => {
+    const issuer = makeFakeIssuer()
+    await withIssuer(issuer)
+    const soon = Math.floor(server.clock.now() / 1000) + 50
+    issuer.nextToken = ({ nonce }) => issuer.signToken(claimsFor(issuer, nonce, { iat: soon, nbf: soon }))
+    expect((await attempt(issuer)).finished.headers['set-cookie']).toBeDefined()
+  })
+
+  it('refuses every redirect when fetching discovery, the token and the keys', async () => {
+    const issuer = makeFakeIssuer()
+    await withIssuer(issuer)
+    issuer.nextToken = ({ nonce }) => issuer.signToken(claimsFor(issuer, nonce))
+    await attempt(issuer)
+    expect(issuer.redirectModes).toHaveLength(3)
+    expect(new Set(issuer.redirectModes)).toEqual(new Set(['error']))
+  })
+
+  it.each([
+    ['an issuer other than the configured one', { issuer: 'https://evil.example' }, /names the issuer/],
+    [
+      'a token endpoint that is not https',
+      { token_endpoint: 'http://accounts.google.com/token' },
+      /token_endpoint must be an https URL/,
+    ],
+    [
+      'a token endpoint on a private address',
+      { token_endpoint: 'https://10.0.0.5/token' },
+      /token_endpoint must name a public host/,
+    ],
+    [
+      'keys on a local name',
+      { jwks_uri: 'https://metadata.localhost/keys' },
+      /jwks_uri must name a public host/,
+    ],
+    [
+      'an authorization endpoint that is not a URL',
+      { authorization_endpoint: 42 },
+      /authorization_endpoint is not a URL/,
+    ],
+    [
+      'an endpoint carrying credentials',
+      { token_endpoint: 'https://user:pass@accounts.google.com/token' },
+      /credentials/,
+    ],
+  ])(
+    'makes sign-in unavailable for a discovery document with %s, and sends nothing',
+    async (_, discovery, reason) => {
+      const issuer = makeFakeIssuer()
+      await withIssuer(issuer, { HB_OIDC_ISSUER: `${issuer.issuer}/` })
+      issuer.discovery = discovery
+      const started = await server.request('GET', '/auth/login')
+      expect(refusalOf(started)).toMatch(/Sign-in is unavailable/)
+      expect(refusalOf(started)).toMatch(reason)
+      expect(server.logged.some((line) => reason.test(line))).toBe(true)
+      expect(issuer.requests).toEqual([`${issuer.issuer}/.well-known/openid-configuration`])
+    },
+  )
+
+  it('makes sign-in unavailable when the discovery document redirects', async () => {
+    const issuer = makeFakeIssuer()
+    await withIssuer(issuer)
+    issuer.redirectsDiscovery = true
+    expect(refusalOf(await server.request('GET', '/auth/login'))).toMatch(/could not be reached/)
+    expect(issuer.requests).toHaveLength(1)
+  })
+
+  it('refuses a configured issuer that is not https before fetching anything', async () => {
+    const issuer = makeFakeIssuer('http://idp.example.com')
+    await withIssuer(issuer)
+    expect(refusalOf(await server.request('GET', '/auth/login'))).toMatch(
+      /HB_OIDC_ISSUER must be an https URL/,
+    )
+    expect(issuer.requests).toEqual([])
+  })
+
+  it('allows a loopback provider over http when the server itself runs on loopback', async () => {
+    const issuer = makeFakeIssuer('http://127.0.0.1:9999')
+    await withIssuer(issuer)
+    issuer.nextToken = ({ nonce }) => issuer.signToken(claimsFor(issuer, nonce, { hd: undefined }))
+    expect((await attempt(issuer)).finished.headers['set-cookie']).toBeDefined()
   })
 
   it('refuses a malformed token and an unsupported algorithm', async () => {
@@ -196,6 +287,30 @@ describe('signing in through an OpenID Connect provider', () => {
 })
 
 describe('development login', () => {
+  it('accepts any address when no domain is allowed, and only the allowed domains otherwise', async () => {
+    server = await startTestServer({ HB_ALLOWED_DOMAINS: '' })
+    expect((await server.signIn('anyone@anywhere.test')).me.member.email).toBe('anyone@anywhere.test')
+    await server.close()
+    server = await startTestServer({ HB_ALLOWED_DOMAINS: 'example.com' })
+    await expect(server.signIn('anyone@anywhere.test')).rejects.toThrow(/sign-in refused/)
+  })
+
+  it.each(['README.md', 'docs/deployment.md'])(
+    'starts from the development command in %s, binding to 127.0.0.1, and lets anyone sign in',
+    async (file) => {
+      const text = readFileSync(join(import.meta.dirname, '..', '..', '..', file), 'utf8')
+      const command = /```sh\n(docker run -p 127\.0\.0\.1:[^`]*?HB_DEV_LOGIN=1[^`]*?)```/.exec(text)?.[1]
+      expect(command).toBeDefined()
+      const variables = Object.fromEntries(
+        [...command!.matchAll(/-e (HB_[A-Z_]+)=(\S+)/g)].map((match) => [match[1]!, match[2]!]),
+      )
+      expect(variables).toEqual({ HB_PUBLIC_URL: 'http://localhost:8080', HB_DEV_LOGIN: '1' })
+      expect(loadConfig(variables)).toMatchObject({ _tag: 'Ok', value: { identity: { devLogin: true } } })
+      server = await startTestServer({ ...variables, HB_ALLOWED_DOMAINS: '' })
+      expect((await server.signIn('ana@any.example')).me.member.role).toBe('admin')
+    },
+  )
+
   it('makes the first member an administrator, since nobody else could be', async () => {
     server = await startTestServer()
     expect((await server.signIn('first@example.com')).me.member.role).toBe('admin')

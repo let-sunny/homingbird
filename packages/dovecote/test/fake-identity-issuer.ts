@@ -7,6 +7,9 @@ export interface FakeIssuer {
   readonly issuer: string
   readonly fetch: Fetch
   readonly requests: string[]
+  readonly redirectModes: Array<RequestInit['redirect']>
+  discovery: Readonly<Record<string, unknown>>
+  redirectsDiscovery: boolean
   nextToken: (authorizationRequest: { readonly nonce: string }) => string
   unreachable: boolean
   readonly signToken: (claims: Readonly<Record<string, unknown>>, options?: SignOptions) => string
@@ -40,6 +43,9 @@ export const makeFakeIssuer = (issuer = 'https://accounts.google.com'): FakeIssu
   const fake: FakeIssuer = {
     issuer,
     requests: [],
+    redirectModes: [],
+    discovery: {},
+    redirectsDiscovery: false,
     unreachable: false,
     signToken,
     nextToken: () => {
@@ -47,14 +53,21 @@ export const makeFakeIssuer = (issuer = 'https://accounts.google.com'): FakeIssu
     },
     fetch: async (url, init) => {
       fake.requests.push(url)
+      fake.redirectModes.push(init?.redirect)
       if (fake.unreachable) return new Response('down', { status: 503 })
-      if (url === `${issuer}/.well-known/openid-configuration`)
+      if (url === `${issuer}/.well-known/openid-configuration`) {
+        if (fake.redirectsDiscovery) {
+          if (init?.redirect === 'error') throw new TypeError('fetch failed: unexpected redirect')
+          return new Response(null, { status: 302, headers: { location: 'https://elsewhere.example/' } })
+        }
         return Response.json({
           issuer,
           authorization_endpoint: `${issuer}/authorize`,
           token_endpoint: `${issuer}/token`,
           jwks_uri: `${issuer}/keys`,
+          ...fake.discovery,
         })
+      }
       if (url === `${issuer}/keys`)
         return Response.json({
           keys: (['RS256', 'ES256'] as const).map((kid) => ({

@@ -38,17 +38,17 @@ export const Member = S.struct({
 })
 export type Member = S.Infer<typeof Member>
 
-export const TopicSlug = S.string({ pattern: /^[a-z0-9][a-z0-9-]{0,39}$/, maxLength: 40 })
-export const TOPIC_DESCRIPTION_MAX = 200
+export const ChannelSlug = S.string({ pattern: /^[a-z0-9][a-z0-9-]{0,39}$/, maxLength: 40 })
+export const CHANNEL_DESCRIPTION_MAX = 200
 
-export const TopicVisibility = S.literal('open', 'private')
-export type TopicVisibility = S.Infer<typeof TopicVisibility>
+export const ChannelVisibility = S.literal('open', 'private')
+export type ChannelVisibility = S.Infer<typeof ChannelVisibility>
 
-export const Topic = S.struct({
-  slug: TopicSlug,
-  description: S.string({ maxLength: TOPIC_DESCRIPTION_MAX }),
+export const Channel = S.struct({
+  slug: ChannelSlug,
+  description: S.string({ maxLength: CHANNEL_DESCRIPTION_MAX }),
   conversationId: ConversationId,
-  visibility: TopicVisibility,
+  visibility: ChannelVisibility,
   memberCount: S.int({ min: 0 }),
   helperCount: S.int({ min: 0 }),
   joined: S.boolean,
@@ -56,10 +56,10 @@ export const Topic = S.struct({
   managing: S.boolean,
   createdAt: Timestamp,
 })
-export type Topic = S.Infer<typeof Topic>
+export type Channel = S.Infer<typeof Channel>
 
-export const TopicMember = S.struct({ memberId: MemberId, answering: S.boolean, manager: S.boolean })
-export type TopicMember = S.Infer<typeof TopicMember>
+export const ChannelMember = S.struct({ memberId: MemberId, answering: S.boolean, manager: S.boolean })
+export type ChannelMember = S.Infer<typeof ChannelMember>
 
 export const Relation = S.literal('self', 'contact', 'request_sent', 'request_received', 'blocked', 'none')
 export type Relation = S.Infer<typeof Relation>
@@ -73,7 +73,7 @@ export const DirectoryEntry = S.struct({
   lastSeenAt: S.nullable(Timestamp),
   relation: Relation,
   canMessage: S.boolean,
-  topics: S.array(TopicSlug),
+  channels: S.array(ChannelSlug),
 })
 export type DirectoryEntry = S.Infer<typeof DirectoryEntry>
 
@@ -112,11 +112,27 @@ export const Note = S.struct({
   updatedAt: Timestamp,
   sentAt: S.nullable(Timestamp),
   receipts: S.array(Receipt),
+  basis: S.optional(S.nullable(NoteBasis)),
 })
 export type Note = S.Infer<typeof Note>
 
 export const DRAFT_INSTRUCTION_MAX = 2000
 export const RELEASE_REASON_MAX = 500
+
+export const NoticeKind = S.literal('released', 'channel_archived')
+export type NoticeKind = S.Infer<typeof NoticeKind>
+
+/** Something that happened to one person's note, kept so that it survives a reload; only that person sees it. */
+export const Notice = S.struct({
+  kind: NoticeKind,
+  noteId: NoteId,
+  conversationId: ConversationId,
+  reason: S.nullable(S.string({ maxLength: RELEASE_REASON_MAX })),
+  agentName: S.nullable(S.string({ maxLength: 200 })),
+  channel: S.nullable(ChannelSlug),
+  at: Timestamp,
+})
+export type Notice = S.Infer<typeof Notice>
 
 export const DraftRequest = S.struct({
   id: DraftRequestId,
@@ -131,7 +147,7 @@ export const DraftRequest = S.struct({
 })
 export type DraftRequest = S.Infer<typeof DraftRequest>
 
-export const ConversationKind = S.literal('dm', 'group', 'topic')
+export const ConversationKind = S.literal('direct', 'group', 'channel')
 export type ConversationKind = S.Infer<typeof ConversationKind>
 
 export const Conversation = S.struct({

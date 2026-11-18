@@ -9,6 +9,7 @@ import {
   NotFound,
   type Note,
   NoteId,
+  type Notice,
   type Origin,
 } from '@homingbird/protocol'
 import { type Caller, isHuman } from '../environment.ts'
@@ -16,6 +17,8 @@ import { type RequestEnv, emit } from '../events/events.ts'
 import { all, dialect, first, run } from '../sql/database.ts'
 import { containsIgnoringCase, insertIgnoringConflict, insertInto, sql } from '../sql/query.ts'
 import { abandonDraft } from './abandoned-drafts.ts'
+import { helpersOf } from './channel-rows.ts'
+import { channelRoomFor, roomForMovedQuestion } from './channels.ts'
 import {
   conversationFor,
   directConversationWith,
@@ -25,23 +28,24 @@ import {
 } from './conversations.ts'
 import { membersByIds } from './members.ts'
 import { type NoteRow, hydrateNotes } from './note-rows.ts'
-import { helpersOf } from './topic-rows.ts'
-import { roomForMovedQuestion, topicRoomFor } from './topics.ts'
+import { keepNotice, moveNotices, noticesFor } from './notices.ts'
 
 export interface DraftDestination {
   readonly conversationId?: ConversationId
   readonly to?: ReadonlyArray<MemberId>
-  readonly topic?: string
+  readonly channel?: string
   readonly inReplyTo?: NoteId
 }
 
 export interface DraftTarget extends DraftDestination {
   readonly body: string
+  readonly basis?: string
 }
 
 export interface DraftChange {
   readonly body?: string
-  readonly topic?: string
+  readonly channel?: string
+  readonly basis?: string
 }
 
 export const createDraft = (caller: Caller, target: DraftTarget): T.Task<Note, NoteFailure, RequestEnv> =>
@@ -64,9 +68,10 @@ export const createDraft = (caller: Caller, target: DraftTarget): T.Task<Note, N
       created_at: now,
       updated_at: now,
       sent_at: null,
+      basis: target.basis?.trim() || null,
     }
     yield* run(insertInto('notes', { ...row }))
-    const draft = yield* noteById(row.id)
+    const draft = yield* noteById(row.id, authorId)
     yield* emit([authorId], { type: 'draft.saved', note: draft })
     if (row.in_reply_to !== null) yield* announceStatus(row.in_reply_to)
     return draft
@@ -82,12 +87,13 @@ export const updateDraft = (
     const draft = yield* ownDraft(caller.member.id, id)
     const body = change.body ?? draft.body
     const conversationId =
-      change.topic === undefined ? draft.conversation_id : yield* readdressedRoom(draft, change.topic)
+      change.channel === undefined ? draft.conversation_id : yield* readdressedRoom(draft, change.channel)
     const origin = originAfterEdit(draft.origin, isHuman(caller), body !== draft.body)
+    const basis = change.basis === undefined ? draft.basis : change.basis.trim() || null
     yield* run(
-      sql`UPDATE notes SET body = ${body}, conversation_id = ${conversationId}, origin = ${origin}, updated_at = ${env.clock.now()} WHERE id = ${id} AND status = 'draft'`,
+      sql`UPDATE notes SET body = ${body}, conversation_id = ${conversationId}, origin = ${origin}, basis = ${basis}, updated_at = ${env.clock.now()} WHERE id = ${id} AND status = 'draft'`,
     )
-    const updated = yield* noteById(id)
+    const updated = yield* noteById(id, caller.member.id)
     yield* emit([caller.member.id], { type: 'draft.saved', note: updated })
     return updated
   })
@@ -116,10 +122,9 @@ export const sendDraft = (
       yield* run(insertInto('receipts', { note_id: id, member_id: memberId, delivered_at: now }))
     yield* run(sql`UPDATE conversations SET last_activity_at = ${now} WHERE id = ${draft.conversation_id}`)
     if (draft.in_reply_to !== null) yield* settleReply(authorId, draft.in_reply_to, now)
-    const note = yield* noteById(id)
-    yield* emit(participants, { type: 'note.sent', note })
+    yield* emit(participants, { type: 'note.sent', note: yield* noteById(id, null) })
     if (draft.in_reply_to !== null) yield* announceStatus(draft.in_reply_to)
-    return yield* noteById(id)
+    return yield* noteById(id, authorId)
   })
 
 export const discardDraft = (caller: Caller, id: NoteId): T.Task<Note, NoteFailure, RequestEnv> =>
@@ -128,26 +133,27 @@ export const discardDraft = (caller: Caller, id: NoteId): T.Task<Note, NoteFailu
     const draft = yield* ownDraft(caller.member.id, id)
     yield* abandonDraft(draft)
     if (draft.in_reply_to !== null) yield* announceStatus(draft.in_reply_to)
-    return yield* noteById(id)
+    return yield* noteById(id, caller.member.id)
   })
 
-export const moveToTopic = (
+export const moveToChannel = (
   caller: Caller,
   id: NoteId,
-  topic: string,
+  channel: string,
 ): T.Task<Note, NoteFailure, RequestEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
     if (!isHuman(caller)) return yield* T.fail(Forbidden({ message: 'Only a person can move a note.' }))
     const note = yield* visibleNote(caller.member.id, id)
     const from = yield* participatedConversation(caller.member.id, note.conversationId)
-    if (note.status !== 'sent' || note.inReplyTo !== null || from.kind !== 'topic')
-      return yield* T.fail(Conflict({ message: 'Only a question asked in a topic can be moved.' }))
+    if (note.status !== 'sent' || note.inReplyTo !== null || from.kind !== 'channel')
+      return yield* T.fail(Conflict({ message: 'Only a question asked in a channel can be moved.' }))
     const answered = yield* first(sql`SELECT id FROM notes WHERE in_reply_to = ${id} AND status = 'sent'`)
     if (answered !== null)
       return yield* T.fail(Conflict({ message: 'This question already has an answer here.' }))
-    const to = yield* roomForMovedQuestion(caller.member.id, note.authorId, from.id, topic)
-    if (to === from.id) return yield* T.fail(Conflict({ message: 'The question is already in that topic.' }))
+    const to = yield* roomForMovedQuestion(caller.member.id, note.authorId, from.id, channel)
+    if (to === from.id)
+      return yield* T.fail(Conflict({ message: 'The question is already in that channel.' }))
     const leftBehind = yield* participantsOf(from.id)
     const arrivingAt = yield* participantsOf(to)
     const now = yield* nextSendTime(to, env.clock.now())
@@ -157,10 +163,11 @@ export const moveToTopic = (
     )
     yield* run(sql`DELETE FROM receipts WHERE note_id = ${id}`)
     yield* run(sql`DELETE FROM pickups WHERE note_id = ${id}`)
+    yield* moveNotices(id, to)
     for (const memberId of (yield* helpersOf(to)).filter((helperId) => helperId !== note.authorId))
       yield* run(insertInto('receipts', { note_id: id, member_id: memberId, delivered_at: now }))
     yield* run(sql`UPDATE conversations SET last_activity_at = ${now} WHERE id = ${to}`)
-    const moved = yield* noteById(id)
+    const moved = yield* noteById(id, null)
     yield* emit(leftBehind, {
       type: 'note.moved',
       noteId: id,
@@ -171,9 +178,9 @@ export const moveToTopic = (
     for (const reply of movedReplies)
       yield* emit([reply.author_id], {
         type: 'draft.saved',
-        note: yield* noteById(reply.id),
+        note: yield* noteById(reply.id, reply.author_id),
       })
-    return moved
+    return yield* noteById(id, caller.member.id)
   })
 
 export const markRead = (caller: Caller, id: NoteId): T.Task<Note, NotFound, RequestEnv> =>
@@ -184,7 +191,7 @@ export const markRead = (caller: Caller, id: NoteId): T.Task<Note, NotFound, Req
       sql`UPDATE receipts SET read_at = ${env.clock.now()} WHERE note_id = ${id} AND member_id = ${caller.member.id} AND read_at IS NULL`,
     )
     if (changed > 0) yield* announceStatus(id)
-    return yield* noteById(id)
+    return yield* noteById(id, caller.member.id)
   })
 
 export const pickUp = (caller: Caller, id: NoteId): T.Task<Note, NotFound, RequestEnv> =>
@@ -203,7 +210,7 @@ export const pickUp = (caller: Caller, id: NoteId): T.Task<Note, NotFound, Reque
       }),
     )
     if (changed > 0) yield* announceStatus(id)
-    return yield* noteById(id)
+    return yield* noteById(id, caller.member.id)
   })
 
 export const release = (
@@ -224,6 +231,15 @@ export const release = (
       sql`UPDATE receipts SET drafting_at = NULL WHERE note_id = ${id} AND member_id = ${caller.member.id} AND drafting_at IS NOT NULL`,
     )
     if (changed > 0) yield* announceStatus(id)
+    yield* keepNotice({
+      memberId: caller.member.id,
+      kind: 'released',
+      noteId: id,
+      conversationId: note.conversationId,
+      reason: reason?.trim() || null,
+      agentName: isHuman(caller) ? null : caller.credential.name,
+      channel: null,
+    })
     yield* emit([caller.member.id], {
       type: 'note.released',
       noteId: id,
@@ -231,7 +247,7 @@ export const release = (
       reason: reason?.trim() || null,
       agentName: isHuman(caller) ? null : caller.credential.name,
     })
-    return yield* noteById(id)
+    return yield* noteById(id, caller.member.id)
   })
 
 export const visibleNote = (viewerId: MemberId, id: NoteId): T.Task<Note, NotFound, RequestEnv> =>
@@ -241,14 +257,14 @@ export const visibleNote = (viewerId: MemberId, id: NoteId): T.Task<Note, NotFou
       JOIN participants p ON p.conversation_id = n.conversation_id AND p.member_id = ${viewerId}
       WHERE n.id = ${id} AND (n.status = 'sent' OR n.author_id = ${viewerId})`)
     if (row === null) return yield* T.fail(NotFound({ message: 'No such note.' }))
-    return (yield* hydrateNotes([row]))[0]!
+    return (yield* hydrateNotes([row], viewerId))[0]!
   })
 
 export const notesInConversation = (
   viewerId: MemberId,
   conversationId: ConversationId,
   page: { readonly before: number | null; readonly limit: number },
-): T.Task<{ notes: Note[]; hasMore: boolean }, NotFound, RequestEnv> =>
+): T.Task<{ notes: Note[]; hasMore: boolean; notices: Notice[] }, NotFound, RequestEnv> =>
   T.gen(function* () {
     yield* participatedConversation(viewerId, conversationId)
     const sentRows = yield* all<NoteRow>(sql`
@@ -261,8 +277,9 @@ export const notesInConversation = (
             SELECT * FROM notes WHERE conversation_id = ${conversationId} AND status = 'draft'
             AND author_id = ${viewerId} ORDER BY created_at, id`)
         : []
-    const notes = yield* hydrateNotes([...sentRows.slice(0, page.limit).reverse(), ...ownDrafts])
-    return { notes, hasMore: sentRows.length > page.limit }
+    const notes = yield* hydrateNotes([...sentRows.slice(0, page.limit).reverse(), ...ownDrafts], viewerId)
+    const notices = page.before === null ? yield* noticesFor(viewerId, conversationId) : []
+    return { notes, hasMore: sentRows.length > page.limit, notices }
   })
 
 export const draftsOf = (authorId: MemberId): T.Task<Note[], never, RequestEnv> =>
@@ -270,7 +287,7 @@ export const draftsOf = (authorId: MemberId): T.Task<Note[], never, RequestEnv> 
     const rows = yield* all<NoteRow>(
       sql`SELECT * FROM notes WHERE author_id = ${authorId} AND status = 'draft' ORDER BY created_at, id`,
     )
-    return yield* hydrateNotes(rows)
+    return yield* hydrateNotes(rows, authorId)
   })
 
 export const notesAwaitingReply = (
@@ -288,9 +305,9 @@ export const notesAwaitingReply = (
       WHERE n.status = 'sent' AND r.replied_at IS NULL AND n.sent_at > ${env.clock.now() - INBOX_WINDOW_MS}
       AND NOT EXISTS (
         SELECT 1 FROM notes a JOIN conversations c ON c.id = a.conversation_id
-        WHERE a.in_reply_to = n.id AND a.status = 'sent' AND c.kind = 'topic')
+        WHERE a.in_reply_to = n.id AND a.status = 'sent' AND c.kind = 'channel')
       ${notPickedUp} ORDER BY n.sent_at, n.id LIMIT ${INBOX_LIMIT}`)
-    const notes = yield* hydrateNotes(rows)
+    const notes = yield* hydrateNotes(rows, viewerId)
     const authors = yield* membersByIds(notes.map((note) => note.authorId))
     const items: InboxItem[] = []
     for (const note of notes) {
@@ -314,7 +331,7 @@ export const searchNotes = (
       WHERE (n.status = 'sent' OR (n.status = 'draft' AND n.author_id = ${viewerId}))
       AND ${containsIgnoringCase('n.body', needle)}
       ORDER BY n.created_at DESC LIMIT ${limit}`)
-    return yield* hydrateNotes(rows)
+    return yield* hydrateNotes(rows, viewerId)
   })
 
 export const conversationForDraft = (
@@ -331,7 +348,8 @@ export type NoteFailure = NotFound | Forbidden | Conflict | Invalid
 
 const MAX_OPEN_DRAFTS = 200
 const ARCHIVED = Conflict({
-  message: 'This conversation is archived: it can be read, but nothing more can be written in it.',
+  message:
+    'No reply is possible: this channel was archived. It can still be read, but nothing more can be written in it, here or in the web client.',
 })
 const INBOX_LIMIT = 50
 const INBOX_WINDOW_MS = 30 * 24 * 60 * 60_000
@@ -349,7 +367,7 @@ const resolveConversation = (
     }
     if (target.conversationId !== undefined)
       return (yield* participatedConversation(authorId, target.conversationId)).id
-    if (target.topic !== undefined) return yield* topicRoomFor(authorId, target.topic)
+    if (target.channel !== undefined) return yield* channelRoomFor(authorId, target.channel)
     if (target.to === undefined) return yield* T.fail(Invalid({ message: 'Say who the note is for.' }))
     if (target.to.length > 1)
       return yield* T.fail(Invalid({ message: 'Create a group conversation first, then draft into it.' }))
@@ -363,7 +381,7 @@ const requireMayMessageIn = (
   T.gen(function* () {
     const conversation = yield* participatedConversation(authorId, conversationId)
     if ((conversation.archived_at ?? null) !== null) return yield* T.fail(ARCHIVED)
-    if (conversation.kind !== 'dm') return
+    if (conversation.kind !== 'direct') return
     const others = (yield* participantsOf(conversationId)).filter((memberId) => memberId !== authorId)
     yield* requireMayMessage(authorId, others)
   })
@@ -377,7 +395,7 @@ const recipientsOf = (
     const room = yield* first<{ kind: string }>(
       sql`SELECT kind FROM conversations WHERE id = ${draft.conversation_id}`,
     )
-    if (room?.kind !== 'topic') return others
+    if (room?.kind !== 'channel') return others
     const answered =
       draft.in_reply_to === null
         ? null
@@ -390,16 +408,16 @@ const recipientsOf = (
     return others.filter((memberId) => helpers.has(memberId))
   })
 
-const readdressedRoom = (draft: NoteRow, topic: string): T.Task<ConversationId, NoteFailure, RequestEnv> =>
+const readdressedRoom = (draft: NoteRow, channel: string): T.Task<ConversationId, NoteFailure, RequestEnv> =>
   T.gen(function* () {
     const room = yield* first<{ kind: string }>(
       sql`SELECT kind FROM conversations WHERE id = ${draft.conversation_id}`,
     )
-    if (room?.kind !== 'topic' || draft.in_reply_to !== null)
+    if (room?.kind !== 'channel' || draft.in_reply_to !== null)
       return yield* T.fail(
-        Conflict({ message: 'Only a question drafted to a topic can move to another topic.' }),
+        Conflict({ message: 'Only a question drafted to a channel can move to another channel.' }),
       )
-    return yield* topicRoomFor(draft.author_id, topic)
+    return yield* channelRoomFor(draft.author_id, channel)
   })
 
 const requireRoomForAnotherDraft = (authorId: MemberId): T.Task<void, Conflict, RequestEnv> =>
@@ -456,9 +474,9 @@ const settleWaitingReplies = (
     return moving
   })
 
-const announceStatus = (id: NoteId): T.Task<void, never, RequestEnv> =>
+export const announceStatus = (id: NoteId): T.Task<void, never, RequestEnv> =>
   T.gen(function* () {
-    const note = yield* noteById(id)
+    const note = yield* noteById(id, null)
     if (note.status !== 'sent') return
     const participants = yield* participantsOf(note.conversationId)
     yield* emit(participants, {
@@ -469,10 +487,10 @@ const announceStatus = (id: NoteId): T.Task<void, never, RequestEnv> =>
     })
   })
 
-const noteById = (id: NoteId): T.Task<Note, never, RequestEnv> =>
+const noteById = (id: NoteId, viewerId: MemberId | null): T.Task<Note, never, RequestEnv> =>
   T.gen(function* () {
     const rows = yield* all<NoteRow>(sql`SELECT * FROM notes WHERE id = ${id}`)
-    return (yield* hydrateNotes(rows))[0]!
+    return (yield* hydrateNotes(rows, viewerId))[0]!
   })
 
 const originAfterEdit = (origin: Origin, editorIsHuman: boolean, bodyChanged: boolean): Origin =>

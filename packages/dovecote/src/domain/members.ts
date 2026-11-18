@@ -15,14 +15,14 @@ import {
 import type { AppEnv } from '../environment.ts'
 import { all, first, run } from '../sql/database.ts'
 import { containsIgnoringCase, insertInto, list, sql } from '../sql/query.ts'
+import { channelsHelpedBy, helpersOfChannelSeenBy } from './channels.ts'
 import { type Ties, tiesOf } from './contacts.ts'
 import { readSettings } from './settings.ts'
-import { helpersOfTopicSeenBy, topicsHelpedBy } from './topics.ts'
 
 export const directoryFor = (
   viewer: Pick<Member, 'id' | 'role'>,
   search: string | undefined,
-  topic?: string,
+  channel?: string,
 ): T.Task<DirectoryEntry[], never, AppEnv> =>
   T.gen(function* () {
     const viewerId = viewer.id
@@ -32,11 +32,11 @@ export const directoryFor = (
     const matching = search
       ? sql`AND (${containsIgnoringCase('name', search)} OR ${containsIgnoringCase('email', search)} OR ${containsIgnoringCase('profile', search)})`
       : sql``
-    const helping = topic ? sql`AND id IN (${helpersOfTopicSeenBy(viewerId, topic)})` : sql``
+    const helping = channel ? sql`AND id IN (${helpersOfChannelSeenBy(viewerId, channel)})` : sql``
     const rows = yield* all<MemberRow>(
       sql`SELECT * FROM members WHERE status = 'active' ${matching} ${helping} ORDER BY name LIMIT ${DIRECTORY_LIMIT}`,
     )
-    const topics = yield* topicsHelpedBy(
+    const channels = yield* channelsHelpedBy(
       viewer,
       rows.map((row) => row.id),
     )
@@ -48,7 +48,7 @@ export const directoryFor = (
         lastSeenAt: row.last_seen_at,
         relation: relation(relationFacts(viewerId, member.id, ties)),
         canMessage: canMessage(messagingFacts(settings.contactMode, viewerId, member, ties)),
-        topics: topics.get(member.id) ?? [],
+        channels: channels.get(member.id) ?? [],
       }
     })
   })

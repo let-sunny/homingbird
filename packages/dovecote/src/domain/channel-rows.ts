@@ -1,12 +1,12 @@
 import { Task as T } from '@homingbird/kernel'
 import {
+  type Channel,
+  type ChannelVisibility,
   Conflict,
   type ConversationId,
   type Member,
   type MemberId,
   NotFound,
-  type Topic,
-  type TopicVisibility,
 } from '@homingbird/protocol'
 import type { AppEnv } from '../environment.ts'
 import { type RequestEnv, emit } from '../events/events.ts'
@@ -16,22 +16,22 @@ import { abandonDraftsIn } from './abandoned-drafts.ts'
 
 export type Viewer = Pick<Member, 'id' | 'role'>
 
-export interface TopicRow {
+export interface ChannelRow {
   readonly slug: string
   readonly description: string
   readonly conversation_id: ConversationId
-  readonly visibility: TopicVisibility | null
+  readonly visibility: ChannelVisibility | null
   readonly created_at: number
 }
 
-export const visibleTopic = (viewer: Viewer, slug: string): T.Task<TopicRow, NotFound, AppEnv> =>
+export const visibleChannel = (viewer: Viewer, slug: string): T.Task<ChannelRow, NotFound, AppEnv> =>
   T.gen(function* () {
-    const row = yield* topicRow(slug)
-    if (row === null || !(yield* maySee(viewer, row))) return yield* T.fail(noSuchTopic(slug))
+    const row = yield* channelRow(slug)
+    if (row === null || !(yield* maySee(viewer, row))) return yield* T.fail(noSuchChannel(slug))
     return row
   })
 
-export const describeTopic = (viewer: Viewer, row: TopicRow): T.Task<Topic, never, AppEnv> =>
+export const describeChannel = (viewer: Viewer, row: ChannelRow): T.Task<Channel, never, AppEnv> =>
   T.gen(function* () {
     const members = yield* membersOf(row.conversation_id)
     const helpers = yield* helpersOf(row.conversation_id)
@@ -51,25 +51,25 @@ export const describeTopic = (viewer: Viewer, row: TopicRow): T.Task<Topic, neve
     }
   })
 
-export const maySee = (viewer: Viewer, row: TopicRow): T.Task<boolean, never, AppEnv> =>
+export const maySee = (viewer: Viewer, row: ChannelRow): T.Task<boolean, never, AppEnv> =>
   visibilityOf(row) === 'open' || viewer.role === 'admin'
     ? T.succeed(true)
     : isMemberOf(row.conversation_id, viewer.id)
 
-export const visibilityOf = (row: TopicRow): TopicVisibility => row.visibility ?? 'open'
+export const visibilityOf = (row: ChannelRow): ChannelVisibility => row.visibility ?? 'open'
 
-export const topicRow = (slug: string): T.Task<TopicRow | null, never, AppEnv> =>
-  first<TopicRow>(sql`SELECT * FROM topics WHERE slug = ${slug}`)
+export const channelRow = (slug: string): T.Task<ChannelRow | null, never, AppEnv> =>
+  first<ChannelRow>(sql`SELECT * FROM channels WHERE slug = ${slug}`)
 
-export const topicOfRoom = (conversationId: ConversationId): T.Task<TopicRow | null, never, AppEnv> =>
-  first<TopicRow>(sql`SELECT * FROM topics WHERE conversation_id = ${conversationId}`)
+export const channelOfRoom = (conversationId: ConversationId): T.Task<ChannelRow | null, never, AppEnv> =>
+  first<ChannelRow>(sql`SELECT * FROM channels WHERE conversation_id = ${conversationId}`)
 
-export const existingTopic = (slug: string): T.Task<TopicRow, NotFound, AppEnv> =>
-  T.flatMap((row: TopicRow | null) => (row === null ? T.fail(noSuchTopic(slug)) : T.succeed(row)))(
-    topicRow(slug),
+export const existingChannel = (slug: string): T.Task<ChannelRow, NotFound, AppEnv> =>
+  T.flatMap((row: ChannelRow | null) => (row === null ? T.fail(noSuchChannel(slug)) : T.succeed(row)))(
+    channelRow(slug),
   )
 
-export const noSuchTopic = (slug: string): NotFound => NotFound({ message: `No such topic: ${slug}.` })
+export const noSuchChannel = (slug: string): NotFound => NotFound({ message: `No such channel: ${slug}.` })
 
 export const isMemberOf = (
   conversationId: ConversationId,
@@ -88,12 +88,12 @@ export const membersOf = (conversationId: ConversationId): T.Task<MemberId[], ne
 
 export const helpersOf = (conversationId: ConversationId): T.Task<MemberId[], never, AppEnv> =>
   idsOf(sql`
-    SELECT h.member_id FROM topic_helpers h JOIN members m ON m.id = h.member_id
+    SELECT h.member_id FROM channel_answerers h JOIN members m ON m.id = h.member_id
     WHERE h.conversation_id = ${conversationId} AND m.status = 'active' ORDER BY h.member_id`)
 
 export const managersOf = (conversationId: ConversationId): T.Task<MemberId[], never, AppEnv> =>
   idsOf(sql`
-    SELECT g.member_id FROM topic_managers g
+    SELECT g.member_id FROM channel_managers g
     JOIN participants p ON p.conversation_id = g.conversation_id AND p.member_id = g.member_id
     WHERE g.conversation_id = ${conversationId} ORDER BY g.member_id`)
 
@@ -103,25 +103,25 @@ export const enter = (conversationId: ConversationId, memberId: MemberId): T.Tas
 export const startAnswering = (
   conversationId: ConversationId,
   memberId: MemberId,
-): T.Task<void, never, AppEnv> => addTo('topic_helpers', conversationId, memberId)
+): T.Task<void, never, AppEnv> => addTo('channel_answerers', conversationId, memberId)
 
 export const makeManager = (
   conversationId: ConversationId,
   memberId: MemberId,
-): T.Task<void, never, AppEnv> => addTo('topic_managers', conversationId, memberId)
+): T.Task<void, never, AppEnv> => addTo('channel_managers', conversationId, memberId)
 
-export const depart = (row: TopicRow, memberId: MemberId): T.Task<void, never, RequestEnv> =>
+export const depart = (row: ChannelRow, memberId: MemberId): T.Task<void, never, RequestEnv> =>
   T.gen(function* () {
     const room = row.conversation_id
-    yield* run(sql`DELETE FROM topic_helpers WHERE conversation_id = ${room} AND member_id = ${memberId}`)
-    yield* run(sql`DELETE FROM topic_managers WHERE conversation_id = ${room} AND member_id = ${memberId}`)
+    yield* run(sql`DELETE FROM channel_answerers WHERE conversation_id = ${room} AND member_id = ${memberId}`)
+    yield* run(sql`DELETE FROM channel_managers WHERE conversation_id = ${room} AND member_id = ${memberId}`)
     yield* run(sql`DELETE FROM participants WHERE conversation_id = ${room} AND member_id = ${memberId}`)
     yield* abandonDraftsIn(room, memberId)
-    yield* emit([memberId], { type: 'topic.left', slug: row.slug, conversationId: room })
+    yield* emit([memberId], { type: 'channel.left', slug: row.slug, conversationId: room })
   })
 
 export const requireManagerRemains = (
-  row: TopicRow,
+  row: ChannelRow,
   change: { readonly leaving?: MemberId; readonly steppingDown?: MemberId },
 ): T.Task<void, Conflict, AppEnv> =>
   T.gen(function* () {
@@ -131,24 +131,24 @@ export const requireManagerRemains = (
     const remaining = managers.filter((id) => id !== change.leaving && id !== change.steppingDown)
     if (members.length > 0 && remaining.length === 0)
       return yield* T.fail(
-        Conflict({ message: 'Make another member a manager first: a topic with members keeps a manager.' }),
+        Conflict({ message: 'Make another member a manager first: a channel with members keeps a manager.' }),
       )
   })
 
-export const tellAboutTopic = (
-  row: TopicRow,
+export const tellAboutChannel = (
+  row: ChannelRow,
   recipients: Iterable<MemberId>,
 ): T.Task<void, never, RequestEnv> =>
   T.gen(function* () {
     for (const memberId of new Set(recipients)) {
       const viewer = yield* first<Viewer>(sql`SELECT id, role FROM members WHERE id = ${memberId}`)
       if (viewer === null) continue
-      yield* emit([memberId], { type: 'topic.changed', topic: yield* describeTopic(viewer, row) })
+      yield* emit([memberId], { type: 'channel.changed', channel: yield* describeChannel(viewer, row) })
     }
   })
 
 const addTo = (
-  table: 'participants' | 'topic_helpers' | 'topic_managers',
+  table: 'participants' | 'channel_answerers' | 'channel_managers',
   conversationId: ConversationId,
   memberId: MemberId,
 ): T.Task<void, never, AppEnv> =>

@@ -1,6 +1,7 @@
 import { Task as T } from '@homingbird/kernel'
 import {
   type ApiError,
+  type Channel,
   type Contract,
   ConversationId,
   CredentialId,
@@ -13,10 +14,26 @@ import {
   type RequestOf,
   type ResponseOf,
   type RouteName,
-  type Topic,
 } from '@homingbird/protocol'
 import { decideConsent, decideDeviceRequest, describeConsent, describeDeviceRequest } from '../auth/oauth.ts'
 import { listAudit } from '../domain/audit.ts'
+import { archiveChannel, reviseChannel } from '../domain/channel-administration.ts'
+import {
+  addChannelMember,
+  channelMembers,
+  grantManager,
+  removeChannelMember,
+  revokeManager,
+  setVisibility,
+} from '../domain/channel-membership.ts'
+import {
+  channelNamed,
+  createChannel,
+  joinChannel,
+  leaveChannel,
+  listChannels,
+  setAnswering,
+} from '../domain/channels.ts'
 import { clearCharacter, saveCharacter } from '../domain/characters.ts'
 import {
   acceptContact,
@@ -46,7 +63,7 @@ import {
   discardDraft,
   draftsOf,
   markRead,
-  moveToTopic,
+  moveToChannel,
   notesAwaitingReply,
   notesInConversation,
   pickUp,
@@ -57,16 +74,6 @@ import {
   visibleNote,
 } from '../domain/notes.ts'
 import { readAnsweringFlow, readSettings, writeSettings } from '../domain/settings.ts'
-import { mergeTopic, removeTopic, reviseTopic } from '../domain/topic-administration.ts'
-import {
-  addTopicMember,
-  grantManager,
-  removeTopicMember,
-  revokeManager,
-  setVisibility,
-  topicMembers,
-} from '../domain/topic-membership.ts'
-import { createTopic, joinTopic, leaveTopic, listTopics, setAnswering, topicNamed } from '../domain/topics.ts'
 import type { Caller } from '../environment.ts'
 import { type RequestEnv, announceDirectoryChange, waitForEvents } from '../events/events.ts'
 import { removeOwnPushSubscription, savePushSubscription } from '../push/subscriptions.ts'
@@ -92,7 +99,6 @@ export const handlers: Handlers = {
         version: SERVER_VERSION,
         contactMode: settings.contactMode,
         signInWith: env.config.identity.label,
-        approveButton: env.config.approveButton,
       }
     }),
   'me.get': (_, caller) =>
@@ -115,43 +121,44 @@ export const handlers: Handlers = {
 
   'directory.list': ({ query }, caller) =>
     T.map((entries: Awaited<ResponseOf<Contract['directory.list']>>['entries']) => ({ entries }))(
-      directoryFor(caller.member, query.q, query.topic),
+      directoryFor(caller.member, query.q, query.channel),
     ),
-  'topics.list': ({ query }, caller) =>
-    listTopics(caller.member, {
+  'channels.list': ({ query }, caller) =>
+    listChannels(caller.member, {
       search: query.q,
-      limit: Math.max(1, Math.min(MAX_TOPIC_PAGE, Number(query.limit ?? DEFAULT_TOPIC_PAGE))),
+      limit: Math.max(1, Math.min(MAX_CHANNEL_PAGE, Number(query.limit ?? DEFAULT_CHANNEL_PAGE))),
       offset: Number(query.cursor ?? 0),
     }),
-  'topics.get': ({ params }, caller) => topicNamed(caller.member, params.slug),
-  'topics.create': ({ body }, caller) => announcingTopic(caller.member.id, createTopic(caller.member, body)),
-  'topics.join': ({ params, body }, caller) =>
-    announcingTopic(caller.member.id, joinTopic(caller.member, params.slug, body.answering === true)),
-  'topics.leave': ({ params }, caller) =>
-    announcingTopic(caller.member.id, leaveTopic(caller.member, params.slug)),
-  'topics.answering.on': ({ params }, caller) =>
-    announcingTopic(caller.member.id, setAnswering(caller.member, params.slug, true)),
-  'topics.answering.off': ({ params }, caller) =>
-    announcingTopic(caller.member.id, setAnswering(caller.member, params.slug, false)),
-  'topics.visibility.set': ({ params, body }, caller) =>
-    announcingTopic(caller.member.id, setVisibility(caller.member, params.slug, body.visibility)),
-  'topics.members.list': ({ params }, caller) =>
-    T.map((members: Awaited<ResponseOf<Contract['topics.members.list']>>['members']) => ({ members }))(
-      topicMembers(caller.member, params.slug),
+  'channels.get': ({ params }, caller) => channelNamed(caller.member, params.slug),
+  'channels.create': ({ body }, caller) =>
+    announcingChannel(caller.member.id, createChannel(caller.member, body)),
+  'channels.join': ({ params, body }, caller) =>
+    announcingChannel(caller.member.id, joinChannel(caller.member, params.slug, body.answering === true)),
+  'channels.leave': ({ params }, caller) =>
+    announcingChannel(caller.member.id, leaveChannel(caller.member, params.slug)),
+  'channels.answering.on': ({ params }, caller) =>
+    announcingChannel(caller.member.id, setAnswering(caller.member, params.slug, true)),
+  'channels.answering.off': ({ params }, caller) =>
+    announcingChannel(caller.member.id, setAnswering(caller.member, params.slug, false)),
+  'channels.visibility.set': ({ params, body }, caller) =>
+    announcingChannel(caller.member.id, setVisibility(caller.member, params.slug, body.visibility)),
+  'channels.members.list': ({ params }, caller) =>
+    T.map((members: Awaited<ResponseOf<Contract['channels.members.list']>>['members']) => ({ members }))(
+      channelMembers(caller.member, params.slug),
     ),
-  'topics.members.add': ({ params }, caller) =>
+  'channels.members.add': ({ params }, caller) =>
     T.flatMap((memberId: MemberId) =>
-      announcingTopic(memberId, addTopicMember(caller.member, params.slug, memberId)),
+      announcingChannel(memberId, addChannelMember(caller.member, params.slug, memberId)),
     )(identifier(MemberId, params.memberId)),
-  'topics.members.remove': ({ params }, caller) =>
+  'channels.members.remove': ({ params }, caller) =>
     T.flatMap((memberId: MemberId) =>
-      announcingTopic(memberId, removeTopicMember(caller.member, params.slug, memberId)),
+      announcingChannel(memberId, removeChannelMember(caller.member, params.slug, memberId)),
     )(identifier(MemberId, params.memberId)),
-  'topics.managers.add': ({ params }, caller) =>
+  'channels.managers.add': ({ params }, caller) =>
     T.flatMap((memberId: MemberId) => grantManager(caller.member, params.slug, memberId))(
       identifier(MemberId, params.memberId),
     ),
-  'topics.managers.remove': ({ params }, caller) =>
+  'channels.managers.remove': ({ params }, caller) =>
     T.flatMap((memberId: MemberId) => revokeManager(caller.member, params.slug, memberId))(
       identifier(MemberId, params.memberId),
     ),
@@ -202,7 +209,7 @@ export const handlers: Handlers = {
   'notes.read': ({ params }, caller) =>
     T.flatMap((id: NoteId) => markRead(caller, id))(identifier(NoteId, params.id)),
   'notes.move': ({ params, body }, caller) =>
-    T.flatMap((id: NoteId) => moveToTopic(caller, id, body.topic))(identifier(NoteId, params.id)),
+    T.flatMap((id: NoteId) => moveToChannel(caller, id, body.channel))(identifier(NoteId, params.id)),
   'notes.pickup': ({ params }, caller) =>
     T.flatMap((id: NoteId) => pickUp(caller, id))(identifier(NoteId, params.id)),
   'notes.release': ({ params, body }, caller) =>
@@ -223,7 +230,10 @@ export const handlers: Handlers = {
   'drafts.create': ({ body: { requestId, ...target } }, caller) =>
     requestId === undefined
       ? createDraft(caller, target)
-      : answerDraftRequest(caller, requestId, target.body),
+      : answerDraftRequest(caller, requestId, {
+          body: target.body,
+          ...(target.basis !== undefined && { basis: target.basis }),
+        }),
   'drafts.update': ({ params, body }, caller) =>
     T.flatMap((id: NoteId) => updateDraft(caller, id, body))(identifier(NoteId, params.id)),
   'drafts.send': ({ params, body }, caller) =>
@@ -260,6 +270,16 @@ export const handlers: Handlers = {
 
   'push.key': () => T.map((keys: { publicKey: string }) => ({ publicKey: keys.publicKey }))(vapidKeys),
   'push.subscribe': ({ body }, caller) => T.as({})(savePushSubscription(caller.member.id, body)),
+  'push.test': (_, caller) =>
+    T.gen(function* () {
+      const env = yield* T.ask<RequestEnv>()
+      return { results: [...(yield* env.pushTest(caller.member.id))] }
+    }),
+  'presence.visibility': ({ body }, caller) =>
+    T.map((env: RequestEnv) => {
+      env.hub.reportVisibility(caller.member.id, `${caller.credential.id}:${body.page}`, body.visible)
+      return {}
+    })(T.ask<RequestEnv>()),
   'push.unsubscribe': ({ body }, caller) =>
     T.as({})(removeOwnPushSubscription(caller.member.id, body.endpoint)),
 
@@ -285,15 +305,15 @@ export const handlers: Handlers = {
     T.flatMap((id: MemberId) => T.tap((_: Member) => announceDirectoryChange(id))(clearCharacter(id)))(
       identifier(MemberId, params.id),
     ),
-  'admin.topics.update': ({ params, body }, caller) =>
-    T.tap((_: Topic) => announceDirectoryChange(caller.member.id))(
-      reviseTopic(caller.member, params.slug, body),
+  'admin.channels.update': ({ params, body }, caller) =>
+    T.tap((_: Channel) => announceDirectoryChange(caller.member.id))(
+      reviseChannel(caller.member, params.slug, body),
     ),
-  'admin.topics.remove': ({ params }, caller) =>
-    T.as({})(T.tap(() => announceDirectoryChange(caller.member.id))(removeTopic(params.slug))),
-  'admin.topics.merge': ({ params, body }, caller) =>
-    T.tap((_: Topic) => announceDirectoryChange(caller.member.id))(
-      mergeTopic(caller.member, params.slug, body.into),
+  'admin.channels.archive': ({ params, body }, caller) =>
+    T.as({})(
+      T.tap(() => announceDirectoryChange(caller.member.id))(
+        archiveChannel(params.slug, body.moveMembersTo ?? null),
+      ),
     ),
   'admin.audit.list': ({ query }) =>
     listAudit({
@@ -304,16 +324,16 @@ export const handlers: Handlers = {
     }),
 }
 
-const announcingTopic = <E>(
+const announcingChannel = <E>(
   memberId: MemberId,
-  change: T.Task<Topic, E, RequestEnv>,
-): T.Task<Topic, E, RequestEnv> => T.tap((_: Topic) => announceDirectoryChange(memberId))(change)
+  change: T.Task<Channel, E, RequestEnv>,
+): T.Task<Channel, E, RequestEnv> => T.tap((_: Channel) => announceDirectoryChange(memberId))(change)
 
 const DEFAULT_PAGE_SIZE = 50
 const MAX_PAGE_SIZE = 200
 
-const DEFAULT_TOPIC_PAGE = 50
-const MAX_TOPIC_PAGE = 200
+const DEFAULT_CHANNEL_PAGE = 50
+const MAX_CHANNEL_PAGE = 200
 
 const pageSize = (limit: string | undefined): number =>
   Math.max(1, Math.min(MAX_PAGE_SIZE, limit === undefined ? DEFAULT_PAGE_SIZE : Number(limit)))

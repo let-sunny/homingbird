@@ -117,7 +117,6 @@ const BASELINE: ReadonlyArray<Table> = [
       created_at: integer,
       last_used_at: optionalInteger,
       revoked_at: optionalInteger,
-      purpose: optionalString,
     },
     primaryKey: ['id'],
     indexes: [
@@ -182,6 +181,7 @@ const BASELINE: ReadonlyArray<Table> = [
       created_at: integer,
       updated_at: integer,
       sent_at: optionalInteger,
+      basis: optionalText,
     },
     primaryKey: ['id'],
     indexes: [
@@ -283,7 +283,7 @@ const BASELINE: ReadonlyArray<Table> = [
     primaryKey: ['request_id', 'note_id'],
   },
   {
-    name: 'topics',
+    name: 'channels',
     columns: {
       slug: id,
       description: string,
@@ -296,13 +296,28 @@ const BASELINE: ReadonlyArray<Table> = [
     indexes: [{ columns: ['conversation_id'], unique: true }],
   },
   {
-    name: 'topic_helpers',
+    name: 'notices',
+    columns: {
+      member_id: id,
+      note_id: id,
+      conversation_id: id,
+      kind: string,
+      reason: optionalText,
+      agent_name: optionalString,
+      channel: optionalString,
+      created_at: integer,
+    },
+    primaryKey: ['member_id', 'note_id'],
+    indexes: [{ columns: ['member_id', 'conversation_id'] }],
+  },
+  {
+    name: 'channel_answerers',
     columns: { conversation_id: id, member_id: id },
     primaryKey: ['conversation_id', 'member_id'],
     indexes: [{ columns: ['member_id'] }],
   },
   {
-    name: 'topic_managers',
+    name: 'channel_managers',
     columns: { conversation_id: id, member_id: id },
     primaryKey: ['conversation_id', 'member_id'],
     indexes: [{ columns: ['member_id'] }],

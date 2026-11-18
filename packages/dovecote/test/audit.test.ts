@@ -22,7 +22,7 @@ const scenario = async (overrides: Record<string, string> = {}, fetch?: typeof g
   server = await startTestServer(overrides, fetch ? { fetch: fetch as never } : {})
   const ana = await server.signIn('ana@example.com', 'Ana')
   const ben = await server.signIn('ben@example.com', 'Ben')
-  const anaAgent = await connectAgent(server, ana, { name: 'Ana agent', approveButton: true })
+  const anaAgent = await connectAgent(server, ana, { name: 'Ana agent' })
   const draft = (await anaAgent.api('POST', '/drafts', { to: [ben.me.member.id], body: 'audited question' }))
     .json
   await anaAgent.api('PATCH', `/drafts/${draft.id}`, { body: 'audited question v2' })
@@ -94,7 +94,7 @@ describe('the audit log', () => {
     const { ana, ben, anaAgent } = await scenario({ HB_AUDIT_STDOUT: '1' })
     const stored = await everyStoredValue(server)
     const logged = server.logged.join('\n')
-    for (const token of [ana.token, ben.token, anaAgent.token, anaAgent.approvalToken!]) {
+    for (const token of [ana.token, ben.token, anaAgent.token]) {
       expect(stored.includes(token)).toBe(false)
       expect(logged.includes(token)).toBe(false)
     }

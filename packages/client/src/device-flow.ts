@@ -13,7 +13,6 @@ export interface DeviceAuthorization {
 export interface DeviceTokens {
   readonly access_token: string
   readonly expires_in: number
-  readonly approval_token?: string
 }
 
 export const DeviceFlowFailed = tagged('DeviceFlowFailed')<{
@@ -25,7 +24,6 @@ export type DeviceFlowFailed = ReturnType<typeof DeviceFlowFailed>
 export interface DeviceFlowOptions {
   readonly serverUrl: string
   readonly clientName: string
-  readonly wantsApproval: boolean
   readonly fetch?: Fetch
 }
 
@@ -33,7 +31,7 @@ export const beginDeviceFlow = (options: DeviceFlowOptions): T.Task<DeviceAuthor
   T.map((answer: Answer) => answer.body as unknown as DeviceAuthorization)(
     post(options, '/oauth/device_authorization', {
       client_name: options.clientName,
-      scope: options.wantsApproval ? 'notes approve' : 'notes',
+      scope: 'notes',
     }),
   )
 

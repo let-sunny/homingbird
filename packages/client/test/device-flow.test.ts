@@ -22,26 +22,19 @@ const scripted = (answers: ReadonlyArray<readonly [number, unknown]>) => {
   return { fetch, calls }
 }
 
-const options = (fetch: Fetch, wantsApproval = false) => ({
+const options = (fetch: Fetch) => ({
   serverUrl: 'https://hb.test/',
   clientName: 'Laptop',
-  wantsApproval,
   fetch,
 })
 
 describe('beginDeviceFlow', () => {
-  it('asks for the notes scope by default', async () => {
+  it('asks for the notes scope, the only one a device can have', async () => {
     const { fetch, calls } = scripted([[200, authorization]])
     expect(await T.run(beginDeviceFlow(options(fetch)))).toMatchObject({ _tag: 'Ok', value: authorization })
     expect(calls).toEqual([
       { url: 'https://hb.test/oauth/device_authorization', body: 'client_name=Laptop&scope=notes' },
     ])
-  })
-
-  it('asks for the approve scope when the client has an approve button', async () => {
-    const { fetch, calls } = scripted([[200, authorization]])
-    await T.run(beginDeviceFlow(options(fetch, true)))
-    expect(calls[0]!.body).toBe('client_name=Laptop&scope=notes+approve')
   })
 
   it('reports an unreachable server', async () => {
@@ -59,7 +52,7 @@ describe('beginDeviceFlow', () => {
     const { fetch, calls } = scripted([[200, authorization]])
     globalThis.fetch = fetch as typeof globalThis.fetch
     try {
-      await T.run(beginDeviceFlow({ serverUrl: 'https://hb.test', clientName: 'x', wantsApproval: false }))
+      await T.run(beginDeviceFlow({ serverUrl: 'https://hb.test', clientName: 'x' }))
       expect(calls).toHaveLength(1)
     } finally {
       globalThis.fetch = original
@@ -69,7 +62,7 @@ describe('beginDeviceFlow', () => {
 
 describe('awaitDeviceTokens', () => {
   const pending = [400, { error: 'authorization_pending' }] as const
-  const tokens = { access_token: 'hba_x', expires_in: 3600, approval_token: 'hbh_y' }
+  const tokens = { access_token: 'hba_x', expires_in: 3600 }
 
   it('polls at the given interval until the request is approved', async () => {
     const clock = makeTestClock()

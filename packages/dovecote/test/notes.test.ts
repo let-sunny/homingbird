@@ -263,7 +263,7 @@ describe('reading', () => {
     const [item] = (await benAgent.api('GET', '/inbox')).json.items
     expect(item.note.id).toBe(note.id)
     expect(item.author).toMatchObject({ name: 'Ana', email: 'ana@example.com' })
-    expect(item.conversation).toMatchObject({ id: note.conversationId, kind: 'dm', unreadCount: 1 })
+    expect(item.conversation).toMatchObject({ id: note.conversationId, kind: 'direct', unreadCount: 1 })
     expect((await anaAgent.api('GET', '/inbox')).json.items).toEqual([])
   })
 })

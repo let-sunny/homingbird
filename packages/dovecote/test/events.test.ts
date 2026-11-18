@@ -428,26 +428,26 @@ describe('directory changes', () => {
     hangUp.abort()
   })
 
-  it('tells every connected client when someone helps with or leaves a topic, or an admin tidies topics', async () => {
+  it('tells every connected client when someone helps with or leaves a channel, or an admin tidies channels', async () => {
     const { hangUp, iterator } = await listen(benAgent.token)
     const typeAndMember = async () => {
       const event = JSON.parse(((await iterator.next()).value as string).split('data: ')[1]!)
       return [event.body.type, event.body.memberId]
     }
     const changed = ['directory.changed', ana.me.member.id]
-    await ana.api('POST', '/topics', { slug: 'billing', description: 'Invoices' })
+    await ana.api('POST', '/channels', { slug: 'billing', description: 'Invoices' })
     expect(await typeAndMember()).toEqual(changed)
-    await ana.api('DELETE', '/topics/billing/membership')
+    await ana.api('DELETE', '/channels/billing/membership')
     expect(await typeAndMember()).toEqual(changed)
-    await ana.api('PUT', '/topics/billing/membership', { answering: true })
+    await ana.api('PUT', '/channels/billing/membership', { answering: true })
     expect(await typeAndMember()).toEqual(changed)
-    await ana.api('PATCH', '/admin/topics/billing', { slug: 'payments' })
+    await ana.api('PATCH', '/admin/channels/billing', { slug: 'payments' })
     expect(await typeAndMember()).toEqual(changed)
-    await ana.api('POST', '/topics', { slug: 'invoices', description: 'Duplicate' })
+    await ana.api('POST', '/channels', { slug: 'invoices', description: 'Duplicate' })
     expect(await typeAndMember()).toEqual(changed)
-    await ana.api('POST', '/admin/topics/invoices/merge', { into: 'payments' })
+    await ana.api('POST', '/admin/channels/invoices/archive', { moveMembersTo: 'payments' })
     expect(await typeAndMember()).toEqual(changed)
-    await ana.api('DELETE', '/admin/topics/payments')
+    await ana.api('POST', '/admin/channels/payments/archive', {})
     expect(await typeAndMember()).toEqual(changed)
     hangUp.abort()
   })

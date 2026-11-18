@@ -8,6 +8,8 @@ export interface PushTitles {
   readonly noteFrom: (author: string) => string
   readonly noteFromColleague: string
   readonly draftWaiting: string
+  readonly test: string
+  readonly testBody: string
 }
 
 const PUSH_TITLES: Readonly<Record<Locale, PushTitles>> = { en, ko }

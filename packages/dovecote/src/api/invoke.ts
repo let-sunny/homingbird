@@ -30,7 +30,7 @@ export const invokeRaw = (
 ): T.Task<unknown, ApiError, AppEnv> =>
   T.gen(function* () {
     const route = contract[name]
-    yield* requireAccess(name, caller)
+    yield* requireAllowed(name, caller)
     const query = route.query === undefined ? undefined : yield* decoded(S.struct(route.query), raw.query)
     const body = route.body === undefined ? undefined : yield* decoded(route.body, raw.body ?? {})
     const request = {
@@ -47,7 +47,7 @@ export const invoke = <N extends RouteName>(
   caller: Caller | null,
 ): T.Task<ResponseOf<Contract[N]>, ApiError, AppEnv> =>
   T.gen(function* () {
-    yield* requireAccess(name, caller)
+    yield* requireAllowed(name, caller)
     const handler = handlers[name] as unknown as (
       request: unknown,
       caller: Caller | null,
@@ -70,22 +70,6 @@ export const localApi = (caller: Caller, env: AppEnv): Api =>
 
 export const recordDenied = (name: RouteName, caller: Caller | null): T.Task<void, never, AppEnv> =>
   transact(recordAudit({ caller, action: `denied:${name}` }))
-
-const requireAccess = (
-  name: RouteName,
-  caller: Caller | null,
-): T.Task<void, Unauthorized | Forbidden, AppEnv> =>
-  T.gen(function* () {
-    const env = yield* T.ask<AppEnv>()
-    yield* requireAllowed(name, caller)
-    const needsPerson = contract[name].access === 'human' || contract[name].access === 'admin'
-    if (needsPerson && caller?.credential.approveButton === true && !env.config.approveButton) {
-      yield* recordDenied(name, caller)
-      return yield* T.fail(Forbidden({ message: APPROVE_BUTTON_OFF }))
-    }
-  })
-
-const APPROVE_BUTTON_OFF = 'The organization has turned the approve button off.'
 
 const requireAllowed = (
   name: RouteName,
@@ -111,7 +95,10 @@ const decoded = <A>(schema: S.Schema<A>, input: unknown): T.Task<A, Invalid> => 
 
 const isLongRunning = (name: RouteName): boolean => name === 'events.poll'
 
-const isRecorded = (name: RouteName): boolean => contract[name].method !== 'GET'
+const isRecorded = (name: RouteName): boolean => contract[name].method !== 'GET' && !UNRECORDED.includes(name)
+
+/** Changes nothing anyone keeps: a page saying it is visible is not an action worth an audit entry. */
+const UNRECORDED: ReadonlyArray<RouteName> = ['presence.visibility']
 
 const auditOf = (name: RouteName, request: unknown, response: unknown, caller: Caller | null) => {
   const { params, body } = request as { params?: Readonly<Record<string, string>>; body?: unknown }

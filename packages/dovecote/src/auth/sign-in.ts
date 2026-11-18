@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { Task as T, tagged } from '@homingbird/kernel'
 import { recordAudit } from '../domain/audit.ts'
-import { issueCredential } from '../domain/credentials.ts'
+import { BROWSER_SIGN_IN_CLIENT, issueCredential } from '../domain/credentials.ts'
 import { signInMember } from '../domain/members.ts'
 import { isAllowedEmail, readSettings } from '../domain/settings.ts'
 import type { AppEnv } from '../environment.ts'
@@ -68,11 +68,14 @@ export const completeSignIn = (
       memberId: member.id,
       kind: 'human',
       name: describeBrowser(userAgent),
-      client: 'Web',
+      client: BROWSER_SIGN_IN_CLIENT,
       lifetimeMs: env.config.sessionDays * DAY_MS,
       refreshable: false,
     })
-    const caller = { member, credential: { id: issued.credentialId, kind: 'human' as const, name: 'Web' } }
+    const caller = {
+      member,
+      credential: { id: issued.credentialId, kind: 'human' as const, name: BROWSER_SIGN_IN_CLIENT },
+    }
     yield* recordAudit({
       caller,
       action: 'session.signed_in',
@@ -129,7 +132,8 @@ const requireAllowed = (identity: VerifiedIdentity): T.Task<void, SignInRefused,
       return yield* T.fail(
         SignInRefused({ message: 'Your email address has not been verified by the identity provider.' }),
       )
-    if (!isAllowedEmail(settings, identity.email))
+    const acceptsAnyone = env.config.identity.devLogin && settings.allowedDomains.length === 0
+    if (!acceptsAnyone && !isAllowedEmail(settings, identity.email))
       return yield* T.fail(
         SignInRefused({ message: `Accounts from ${domain || 'this domain'} are not allowed here.` }),
       )

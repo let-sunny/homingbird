@@ -267,63 +267,28 @@ describe('device authorization', () => {
     const typed = started.user_code.toLowerCase().replace('-', ' ')
     expect((await ana.api('GET', `/device/${encodeURIComponent(typed)}`)).json).toMatchObject({
       client: 'Terminal',
-      wantsApproval: false,
     })
     await ana.api('POST', `/device/${started.user_code}`, { approve: true, name: 'My laptop' })
     const tokens = (await poll(started.device_code)).json
     expect(tokens.access_token).toMatch(/^hba_/)
     expect(tokens.refresh_token).toBeUndefined()
-    expect(tokens.approval_token).toBeUndefined()
+    expect(tokens.scope).toBe('notes')
     expect((await poll(started.device_code)).json.error).toBe('invalid_grant')
     expect((await ana.api('POST', `/device/${started.user_code}`, { approve: true })).status).toBe(404)
   })
 
-  it('issues the approval credential only when it was asked for and the person granted it', async () => {
-    const granted = (await start('notes approve')).json
-    expect((await ana.api('GET', `/device/${granted.user_code}`)).json.wantsApproval).toBe(true)
-    await ana.api('POST', `/device/${granted.user_code}`, { approve: true, allowApproval: true })
-    const withButton = (await poll(granted.device_code)).json
-    expect(withButton.approval_token).toMatch(/^hbh_/)
-    expect(withButton.scope).toBe('notes approve')
-
-    const declined = (await start('notes approve')).json
-    await ana.api('POST', `/device/${declined.user_code}`, { approve: true })
-    expect((await poll(declined.device_code)).json.approval_token).toBeUndefined()
-
-    const notAsked = (await start('notes')).json
-    await ana.api('POST', `/device/${notAsked.user_code}`, { approve: true, allowApproval: true })
-    const plain = (await poll(notAsked.device_code)).json
-    expect(plain.approval_token).toBeUndefined()
-    expect(plain.scope).toBe('notes')
+  it('issues an agent credential and nothing else, whatever scope the device asks for', async () => {
+    const asked = (await start('notes approve')).json
+    expect((await ana.api('GET', `/device/${asked.user_code}`)).json).not.toHaveProperty('wantsApproval')
+    await ana.api('POST', `/device/${asked.user_code}`, { approve: true, allowApproval: true })
+    const tokens = (await poll(asked.device_code)).json
+    expect(tokens.access_token).toMatch(/^hba_/)
+    expect(tokens.scope).toBe('notes')
+    expect(Object.keys(tokens).sort()).toEqual(['access_token', 'expires_in', 'scope', 'token_type'])
   })
 
-  it('never issues an approval credential while the organization keeps the approve button off', async () => {
-    const off = await startTestServer({ HB_APPROVE_BUTTON: 'off' })
-    try {
-      const person = await off.signIn('ana@example.com', 'Ana')
-      expect((await off.request('GET', '/api/v1/info')).json.approveButton).toBe(false)
-      const started = (
-        await off.request('POST', '/oauth/device_authorization', {
-          form: { client_name: 'Laptop', scope: 'notes approve' },
-        })
-      ).json
-      expect((await person.api('GET', `/device/${started.user_code}`)).json.wantsApproval).toBe(false)
-      await person.api('POST', `/device/${started.user_code}`, { approve: true, allowApproval: true })
-      const tokens = (
-        await off.request('POST', '/oauth/token', {
-          form: { grant_type: DEVICE_GRANT, device_code: started.device_code },
-        })
-      ).json
-      expect(tokens.access_token).toMatch(/^hba_/)
-      expect(tokens.approval_token).toBeUndefined()
-      expect(tokens.scope).toBe('notes')
-    } finally {
-      await off.close()
-    }
-  })
-
-  it('tells clients whether the approve button is on', async () => {
-    expect((await server.request('GET', '/api/v1/info')).json.approveButton).toBe(true)
+  it('tells clients nothing about an approve button', async () => {
+    expect((await server.request('GET', '/api/v1/info')).json).not.toHaveProperty('approveButton')
   })
 
   it('reports denial and expiry', async () => {

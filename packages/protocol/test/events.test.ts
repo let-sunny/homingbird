@@ -22,8 +22,8 @@ const types: EventType[] = [
   'contact.changed',
   'presence',
   'directory.changed',
-  'topic.changed',
-  'topic.left',
+  'channel.changed',
+  'channel.left',
   'note.released',
   'resync',
 ]

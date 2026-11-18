@@ -1,7 +1,6 @@
 import { type Result, Task as T } from '@homingbird/kernel'
 import {
   AGENT_SCOPE,
-  APPROVAL_SCOPE,
   type OAuthError,
   beginDeviceAuthorization,
   exchangeAuthorizationCode,
@@ -60,7 +59,7 @@ const serverMetadata = (publicUrl: string, acceptsMetadataDocuments: boolean) =>
   grant_types_supported: ['authorization_code', 'refresh_token', DEVICE_GRANT],
   code_challenge_methods_supported: ['S256'],
   token_endpoint_auth_methods_supported: ['none'],
-  scopes_supported: [AGENT_SCOPE, APPROVAL_SCOPE],
+  scopes_supported: [AGENT_SCOPE],
   authorization_response_iss_parameter_supported: true,
   client_id_metadata_document_supported: acceptsMetadataDocuments,
 })
@@ -118,7 +117,7 @@ const token = (request: HttpRequest): T.Task<HttpResponse, never, AppEnv> => {
 const startDevice = (request: HttpRequest): T.Task<HttpResponse, never, AppEnv> => {
   const fields = formFields(request)
   return T.map((authorization: object) => json(200, authorization))(
-    beginDeviceAuthorization(fields.client_name ?? fields.client_id ?? '', fields.scope ?? AGENT_SCOPE),
+    beginDeviceAuthorization(fields.client_name ?? fields.client_id ?? ''),
   )
 }
 

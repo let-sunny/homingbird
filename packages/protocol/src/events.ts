@@ -1,13 +1,18 @@
 import { Schema as S } from '@homingbird/kernel'
 import { ConversationId, MemberId, NoteId } from './ids.ts'
-import { DraftRequest, Note, RELEASE_REASON_MAX, Receipt, Topic, TopicSlug } from './model.ts'
+import { Channel, ChannelSlug, DraftRequest, Note, RELEASE_REASON_MAX, Receipt } from './model.ts'
 
 export const EventBody = S.variants('type', {
   'note.sent': { note: Note },
   'note.status': { noteId: NoteId, conversationId: ConversationId, receipts: S.array(Receipt) },
   'note.moved': { noteId: NoteId, fromConversationId: ConversationId, toConversationId: ConversationId },
   'draft.saved': { note: Note },
-  'draft.discarded': { noteId: NoteId, conversationId: ConversationId },
+  'draft.discarded': {
+    noteId: NoteId,
+    conversationId: ConversationId,
+    because: S.optional(S.literal('channel_archived')),
+    channel: S.optional(ChannelSlug),
+  },
   'note.released': {
     noteId: NoteId,
     conversationId: ConversationId,
@@ -21,8 +26,8 @@ export const EventBody = S.variants('type', {
     members: S.array(S.struct({ memberId: MemberId, humanOnline: S.boolean, agentOnline: S.boolean })),
   },
   'directory.changed': { memberId: MemberId },
-  'topic.changed': { topic: Topic },
-  'topic.left': { slug: TopicSlug, conversationId: ConversationId },
+  'channel.changed': { channel: Channel },
+  'channel.left': { slug: ChannelSlug, conversationId: ConversationId },
   resync: {},
 })
 export type EventBody = S.Infer<typeof EventBody>

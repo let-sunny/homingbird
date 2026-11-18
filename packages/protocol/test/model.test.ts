@@ -33,6 +33,8 @@ describe('wire model', () => {
         'NoteBasis',
         'NoteBody',
         'NoteStatus',
+        'Notice',
+        'NoticeKind',
         'Origin',
         'Presence',
         'Receipt',
@@ -40,10 +42,10 @@ describe('wire model', () => {
         'Relation',
         'Role',
         'Settings',
-        'Topic',
-        'TopicMember',
-        'TopicSlug',
-        'TopicVisibility',
+        'Channel',
+        'ChannelMember',
+        'ChannelSlug',
+        'ChannelVisibility',
       ].sort(),
     )
   })
@@ -68,6 +70,7 @@ describe('wire model', () => {
     expect(Object.keys(model.Note.fields).sort()).toEqual(
       [
         'agentName',
+        'basis',
         'authorId',
         'body',
         'conversationId',
@@ -128,9 +131,9 @@ describe('wire model', () => {
     expect(model.Member.is(withoutCharacter)).toBe(false)
   })
 
-  it('knows a topic as open or private only', () => {
-    expect(model.TopicVisibility.is('open')).toBe(true)
-    expect(model.TopicVisibility.is('private')).toBe(true)
-    expect(model.TopicVisibility.is('secret')).toBe(false)
+  it('knows a channel as open or private only', () => {
+    expect(model.ChannelVisibility.is('open')).toBe(true)
+    expect(model.ChannelVisibility.is('private')).toBe(true)
+    expect(model.ChannelVisibility.is('secret')).toBe(false)
   })
 })

@@ -20,7 +20,6 @@ export interface IssueRequest {
   readonly client: string
   readonly lifetimeMs: number
   readonly refreshable: boolean
-  readonly approveButton?: true
 }
 
 export interface Issued {
@@ -31,6 +30,8 @@ export interface Issued {
 }
 
 export const ACCESS_TOKEN_LIFETIME_MS = 60 * 60_000
+
+export const BROWSER_SIGN_IN_CLIENT = 'Web'
 
 export const issueCredential = (request: IssueRequest): T.Task<Issued, never, AppEnv> =>
   T.gen(function* () {
@@ -57,7 +58,6 @@ export const issueCredential = (request: IssueRequest): T.Task<Issued, never, Ap
         created_at: now,
         last_used_at: null,
         revoked_at: null,
-        purpose: request.approveButton ? APPROVE_BUTTON : null,
       }),
     )
     return issued
@@ -68,11 +68,10 @@ export const authenticate = (token: string): T.Task<Caller, Unauthorized, AppEnv
     const env = yield* T.ask<AppEnv>()
     const now = env.clock.now()
     const row = yield* first<
-      CredentialRow &
-        MemberRow & { credential_id: CredentialId; credential_name: string; purpose: string | null }
+      CredentialRow & MemberRow & { credential_id: CredentialId; credential_name: string }
     >(sql`
-      SELECT m.*, c.id AS credential_id, c.name AS credential_name, c.kind, c.token_expires_at, c.expires_at,
-             c.revoked_at, c.last_used_at, c.purpose
+      SELECT m.*, c.id AS credential_id, c.name AS credential_name, c.kind, c.client, c.token_expires_at, c.expires_at,
+             c.revoked_at, c.last_used_at
       FROM credentials c JOIN members m ON m.id = c.member_id
       WHERE c.token_hash = ${hashSecret(token)}`)
     const usable =
@@ -80,19 +79,15 @@ export const authenticate = (token: string): T.Task<Caller, Unauthorized, AppEnv
       row.revoked_at === null &&
       row.expires_at > now &&
       row.token_expires_at > now &&
-      row.status === 'active'
+      row.status === 'active' &&
+      mayAuthenticate(row)
     if (!usable)
       return yield* T.fail(Unauthorized({ message: 'This credential is missing, expired or revoked.' }))
     if (row.last_used_at === null || now - row.last_used_at > LAST_USED_RESOLUTION_MS)
       yield* run(sql`UPDATE credentials SET last_used_at = ${now} WHERE id = ${row.credential_id}`)
     return {
       member: toMember(row),
-      credential: {
-        id: row.credential_id,
-        kind: row.kind,
-        name: row.credential_name,
-        ...(row.purpose === APPROVE_BUTTON && { approveButton: true }),
-      },
+      credential: { id: row.credential_id, kind: row.kind, name: row.credential_name },
     }
   })
 
@@ -164,7 +159,6 @@ export const revokeByToken = (token: string): T.Task<void, never, AppEnv> =>
 
 const TOKEN_PREFIX: Readonly<Record<CredentialKind, string>> = { human: 'hbh_', agent: 'hba_' }
 const REFRESH_PREFIX = 'hbr_'
-const APPROVE_BUTTON = 'approve_button'
 const LAST_USED_RESOLUTION_MS = 60_000
 
 interface CredentialRow {
@@ -179,6 +173,9 @@ interface CredentialRow {
   readonly last_used_at: number | null
   readonly revoked_at: number | null
 }
+
+const mayAuthenticate = (row: CredentialRow): boolean =>
+  row.kind === 'agent' || row.client === BROWSER_SIGN_IN_CLIENT
 
 const toCredential = (row: CredentialRow, currentId: CredentialId): Credential => ({
   id: row.id,

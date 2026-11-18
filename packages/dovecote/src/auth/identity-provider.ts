@@ -1,6 +1,8 @@
 import { type JsonWebKey, createPublicKey, verify } from 'node:crypto'
 import { Result, Task as T, tagged } from '@homingbird/kernel'
 import type { Config } from '../config.ts'
+import { isFetchableHostName } from './client-metadata.ts'
+import { isLoopbackHost } from './redirect-policy.ts'
 
 export interface VerifiedIdentity {
   readonly subject: string
@@ -35,17 +37,32 @@ export type IdentityError = ReturnType<typeof IdentityError>
 
 export type Fetch = (url: string, init?: RequestInit) => Promise<Response>
 
+export interface ProviderServices {
+  readonly fetch: Fetch
+  readonly now: () => number
+  readonly log: (line: string) => void
+  readonly allowsLoopback: boolean
+}
+
 export const openIdConnectProvider = (
   identity: Config['identity'],
-  fetch: Fetch,
-  now: () => number,
+  services: ProviderServices,
 ): IdentityProvider => {
+  const { fetch, now, allowsLoopback } = services
   let discovered: Discovery | null = null
   const discover: T.Task<Discovery, IdentityError> = T.suspend(() =>
     discovered !== null
       ? T.succeed(discovered)
-      : T.map((document: Discovery) => (discovered = document))(
-          fetchJson<Discovery>(fetch, `${identity.issuer}/.well-known/openid-configuration`),
+      : T.tapError((error: IdentityError) => T.sync(() => services.log(`sign-in: ${error.message}`)))(
+          T.map((document: Discovery) => (discovered = document))(
+            T.flatMap((document: unknown) =>
+              T.fromResult(trustedDiscovery(document, identity.issuer, allowsLoopback)),
+            )(
+              T.flatMap(() =>
+                fetchJson<unknown>(fetch, `${identity.issuer}/.well-known/openid-configuration`),
+              )(T.fromResult(requireEndpoint('HB_OIDC_ISSUER', identity.issuer, allowsLoopback))),
+            ),
+          ),
         ),
   )
 
@@ -171,6 +188,13 @@ export const verifyIdToken = (
     if (claims.nonce !== expected.nonce) throw new Error('The ID token does not belong to this sign-in.')
     if (typeof claims.exp !== 'number' || claims.exp + CLOCK_SKEW_SECONDS < expected.nowSeconds)
       throw new Error('The ID token has expired.')
+    if (typeof claims.iat !== 'number' || claims.iat - CLOCK_SKEW_SECONDS > expected.nowSeconds)
+      throw new Error('The ID token claims to be issued in the future.')
+    if (
+      claims.nbf !== undefined &&
+      (typeof claims.nbf !== 'number' || claims.nbf - CLOCK_SKEW_SECONDS > expected.nowSeconds)
+    )
+      throw new Error('The ID token is not valid yet.')
     if (typeof claims.sub !== 'string' || claims.sub === '') throw new Error('The ID token has no subject.')
     return claims as Record<string, unknown> & { sub: string }
   }, toIdentityError)
@@ -193,10 +217,57 @@ const SIGNATURE_ALGORITHMS: Readonly<Record<string, { digest: string; options: o
   ES256: { digest: 'SHA256', options: { dsaEncoding: 'ieee-p1363' } },
 }
 
+const trustedDiscovery = (
+  document: unknown,
+  issuer: string,
+  allowsLoopback: boolean,
+): Result.Result<Discovery, IdentityError> => {
+  const fields = (typeof document === 'object' && document !== null ? document : {}) as Record<
+    string,
+    unknown
+  >
+  const named = typeof fields.issuer === 'string' ? fields.issuer : ''
+  if (named.replace(/\/+$/, '') !== issuer)
+    return Result.err(
+      unavailable(`the discovery document names the issuer "${named}", not HB_OIDC_ISSUER "${issuer}"`),
+    )
+  for (const name of ENDPOINTS) {
+    const checked = requireEndpoint(name, fields[name], allowsLoopback)
+    if (checked._tag === 'Err') return checked
+  }
+  return Result.ok(fields as unknown as Discovery)
+}
+
+const requireEndpoint = (
+  name: string,
+  value: unknown,
+  allowsLoopback: boolean,
+): Result.Result<void, IdentityError> => {
+  const problem = endpointProblem(value, allowsLoopback)
+  return problem === null ? Result.ok(undefined) : Result.err(unavailable(`${name} ${problem}`))
+}
+
+const endpointProblem = (value: unknown, allowsLoopback: boolean): string | null => {
+  if (typeof value !== 'string' || !URL.canParse(value)) return 'is not a URL'
+  const url = new URL(value)
+  if (url.username !== '' || url.password !== '') return 'must not carry credentials'
+  if (allowsLoopback && isLoopbackHost(url.hostname) && /^https?:$/.test(url.protocol)) return null
+  if (url.protocol !== 'https:') return 'must be an https URL'
+  if (!isFetchableHostName(url.hostname)) return 'must name a public host, not an address or a local name'
+  return null
+}
+
+const unavailable = (problem: string): IdentityError =>
+  IdentityError({
+    message: `Sign-in is unavailable: ${problem}. An administrator needs to check the identity provider settings.`,
+  })
+
+const ENDPOINTS = ['authorization_endpoint', 'token_endpoint', 'jwks_uri'] as const
+
 const fetchJson = <A>(fetch: Fetch, url: string, init?: RequestInit): T.Task<A, IdentityError> =>
   T.tryPromise(
     async (signal) => {
-      const response = await fetch(url, { ...init, signal })
+      const response = await fetch(url, { ...init, redirect: 'error', signal })
       if (!response.ok) throw new Error(`${new URL(url).host} answered ${response.status}`)
       return (await response.json()) as A
     },

@@ -41,11 +41,9 @@ export interface TokenResponse {
   readonly expires_in: number
   readonly scope: string
   readonly refresh_token?: string
-  readonly approval_token?: string
 }
 
 export const AGENT_SCOPE = 'notes'
-export const APPROVAL_SCOPE = 'approve'
 export const DEVICE_CODE_LIFETIME_SECONDS = 600
 export const DEVICE_POLL_INTERVAL_SECONDS = 5
 
@@ -276,10 +274,7 @@ export interface DeviceAuthorization {
   readonly interval: number
 }
 
-export const beginDeviceAuthorization = (
-  clientName: string,
-  scope: string,
-): T.Task<DeviceAuthorization, never, AppEnv> =>
+export const beginDeviceAuthorization = (clientName: string): T.Task<DeviceAuthorization, never, AppEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
     const deviceCode = env.random.secret()
@@ -291,8 +286,6 @@ export const beginDeviceAuthorization = (
       lifetimeMs: DEVICE_CODE_LIFETIME_SECONDS * 1000,
       detail: {
         client: clientName.slice(0, 200) || 'Unnamed device',
-        wantsApproval: env.config.approveButton && scope.split(/\s+/).includes(APPROVAL_SCOPE),
-        allowApproval: false,
         credentialName: null,
       },
     })
@@ -313,7 +306,6 @@ export const describeDeviceRequest = (userCode: string): T.Task<DeviceRequest, N
     return {
       userCode: request.userCode!,
       client: request.detail.client,
-      wantsApproval: request.detail.wantsApproval,
       expiresAt: request.expiresAt,
     }
   })
@@ -321,28 +313,22 @@ export const describeDeviceRequest = (userCode: string): T.Task<DeviceRequest, N
 export const decideDeviceRequest = (
   caller: Caller,
   userCode: string,
-  decision: { readonly approve: boolean; readonly name?: string; readonly allowApproval?: boolean },
+  decision: { readonly approve: boolean; readonly name?: string },
 ): T.Task<void, NotFound | Conflict, RequestEnv> =>
   T.gen(function* () {
-    const env = yield* T.ask<RequestEnv>()
     const request = yield* pendingDevice(userCode)
-    const allowApproval =
-      env.config.approveButton &&
-      decision.approve &&
-      request.detail.wantsApproval &&
-      decision.allowApproval === true
     const advanced = yield* advanceAuthRequest(request.id, {
       status: decision.approve ? 'approved' : 'denied',
       expectedStatus: 'pending',
       memberId: caller.member.id,
-      detail: { ...request.detail, allowApproval, credentialName: decision.name ?? request.detail.client },
+      detail: { ...request.detail, credentialName: decision.name ?? request.detail.client },
     })
     if (!advanced) return yield* T.fail(Conflict({ message: 'This request was already decided.' }))
     yield* recordAudit({
       caller,
       action: decision.approve ? 'device.approved' : 'device.denied',
       target: request.id,
-      detail: { client: request.detail.client, allowApproval },
+      detail: { client: request.detail.client },
     })
   })
 
@@ -365,42 +351,26 @@ export const exchangeDeviceCode = (deviceCode: string): T.Task<TokenResponse, OA
       return yield* T.fail(
         OAuthError({ code: 'invalid_grant', description: 'The device code was already used.' }),
       )
-    const name = request.detail.credentialName ?? request.detail.client
-    const lifetimeMs = env.config.agentCredentialDays * DAY_MS
-    const shared = {
+    const issued = yield* issueCredential({
       memberId: request.memberId,
+      kind: 'agent',
+      name: request.detail.credentialName ?? request.detail.client,
       client: request.detail.client,
-      lifetimeMs,
+      lifetimeMs: env.config.agentCredentialDays * DAY_MS,
       refreshable: false,
-    }
-    const agent = yield* issueCredential({ ...shared, kind: 'agent', name })
-    const approver =
-      env.config.approveButton && request.detail.allowApproval
-        ? yield* issueCredential({
-            ...shared,
-            kind: 'human',
-            name: `${name} (approve button)`,
-            approveButton: true,
-          })
-        : null
-    for (const issued of [agent, approver])
-      if (issued !== null)
-        yield* recordAudit({
-          caller: null,
-          action: 'credential.issued',
-          target: issued.credentialId,
-          detail: {
-            memberId: request.memberId,
-            kind: issued === agent ? 'agent' : 'human',
-            client: request.detail.client,
-            grant: 'device_code',
-          },
-        })
-    const scope = approver === null ? AGENT_SCOPE : `${AGENT_SCOPE} ${APPROVAL_SCOPE}`
-    return {
-      ...tokenResponse(agent, env.clock.now(), scope),
-      ...(approver && { approval_token: approver.token }),
-    }
+    })
+    yield* recordAudit({
+      caller: null,
+      action: 'credential.issued',
+      target: issued.credentialId,
+      detail: {
+        memberId: request.memberId,
+        kind: 'agent',
+        client: request.detail.client,
+        grant: 'device_code',
+      },
+    })
+    return tokenResponse(issued, env.clock.now(), AGENT_SCOPE)
   })
 
 interface AuthorizeDetail {
@@ -414,8 +384,6 @@ interface AuthorizeDetail {
 
 interface DeviceDetail {
   readonly client: string
-  readonly wantsApproval: boolean
-  readonly allowApproval: boolean
   readonly credentialName: string | null
 }
 

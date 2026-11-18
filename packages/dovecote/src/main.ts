@@ -29,7 +29,15 @@ const server = await startServer(env, config.value.port)
 env.log(`Dovecote ${SERVER_VERSION} is listening on port ${server.port}, serving ${config.value.publicUrl}`)
 if (config.value.identity.devLogin)
   env.log(
-    'WARNING: HB_DEV_LOGIN=1. Anyone who can reach this server can sign in as anyone. Never use in production.',
+    `WARNING: HB_DEV_LOGIN=1. Anyone who can reach this server can sign in as anyone. Never use in production.${
+      config.value.initial.allowedDomains.length === 0
+        ? ' HB_ALLOWED_DOMAINS is unset, so development login accepts any address.'
+        : ''
+    }${
+      config.value.adminEmails.length === 0
+        ? ' HB_ADMIN_EMAILS is unset, so the first member to sign in becomes an administrator.'
+        : ''
+    }`,
   )
 
 const shutDown = async (): Promise<void> => {

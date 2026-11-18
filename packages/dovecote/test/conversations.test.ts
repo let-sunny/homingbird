@@ -34,8 +34,8 @@ describe('direct conversations', () => {
     await ana.api('POST', '/drafts', { conversationId: draft.conversationId, body: 'second, waiting' })
     const forAna = (await ana.api('GET', `/conversations/${draft.conversationId}`)).json
     const forBen = (await ben.api('GET', `/conversations/${draft.conversationId}`)).json
-    expect(forAna).toMatchObject({ kind: 'dm', title: null, unreadCount: 0, draftCount: 1 })
-    expect(forBen).toMatchObject({ kind: 'dm', title: null, unreadCount: 1, draftCount: 0 })
+    expect(forAna).toMatchObject({ kind: 'direct', title: null, unreadCount: 0, draftCount: 1 })
+    expect(forBen).toMatchObject({ kind: 'direct', title: null, unreadCount: 1, draftCount: 0 })
     expect(forAna.participantIds.sort()).toEqual([ana.me.member.id, ben.me.member.id].sort())
     expect(forAna.lastNote.body).toBe('hello')
     expect(forBen.lastNote).toEqual(forAna.lastNote)
@@ -84,7 +84,7 @@ describe('group conversations', () => {
 
   it('turns a group of two into the direct conversation and refuses a group of one', async () => {
     const direct = (await ana.api('POST', '/conversations', { participantIds: [ben.me.member.id] })).json
-    expect(direct.kind).toBe('dm')
+    expect(direct.kind).toBe('direct')
     const again = (
       await ben.api('POST', '/conversations', { participantIds: [ana.me.member.id, ben.me.member.id] })
     ).json
