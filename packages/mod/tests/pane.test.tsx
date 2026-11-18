@@ -71,15 +71,61 @@ test('discard discards, and edit sends the edited text', async ($, on) => {
   seen.release()
 })
 
-test('without the approve button the pane offers no way to send', async ($, on) => {
+test('without the approve button the pane offers no way to send, and links each draft to the web client', async ($, on) => {
   const seen = engineBeneath(on, { overview: { ...OVERVIEW, hasApproveButton: false }, holdsStream: true })
   await $.session.start(START)
   await openDesk($, seen)
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await $.ui.mount({ ...PANE, surface })
+    expect(await ui.find({ type: 'Button' })).toBeUndefined()
+    expect(await ui.find({ type: 'Text', text: /web client/ })).toBeDefined()
+    expect((await ui.find({ type: 'Link' }))?.props?.href).toBe(
+      `https://homingbird.example.com/#/c/${DRAFT.conversationId}`,
+    )
+    await ui.unmount()
+  }
+  seen.release()
+})
+
+test('when the organization turned the approve button off, the pane never approves or discards', async ($, on) => {
+  const seen = engineBeneath(on, { overview: OVERVIEW, holdsStream: true, approveButton: false })
+  await $.session.start(START)
+  await openDesk($, seen)
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await $.ui.mount({ ...PANE, surface })
+    expect(await ui.find({ type: 'Button' })).toBeUndefined()
+    expect(await ui.find({ key: `approve:${DRAFT.id}` })).toBeUndefined()
+    expect(await ui.find({ key: `discard:${DRAFT.id}` })).toBeUndefined()
+    expect(await ui.find({ type: 'Link' })).toBeDefined()
+    await ui.unmount()
+  }
+  expect(seen.fetched).toContain('https://homingbird.example.com/api/v1/info')
+  expect(seen.commands.some((args) => args[0] === 'approve' || args[0] === 'discard')).toBe(false)
+  seen.release()
+})
+
+test('when the organization allows the approve button, the pane shows Approve, Edit and Discard', async ($, on) => {
+  const seen = engineBeneath(on, { overview: OVERVIEW, holdsStream: true, approveButton: true })
+  await $.session.start(START)
+  await openDesk($, seen)
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect(await ui.find({ type: 'Button' })).toBeUndefined()
-  expect(await ui.find({ type: 'Text', text: /web client/ })).toBeDefined()
+  expect(await ui.find({ key: `approve:${DRAFT.id}` })).toBeDefined()
+  expect(await ui.find({ key: `edit-toggle:${DRAFT.id}` })).toBeDefined()
+  expect(await ui.find({ key: `discard:${DRAFT.id}` })).toBeDefined()
+  expect(await ui.find({ type: 'Link' })).toBeUndefined()
   await ui.unmount()
   seen.release()
+})
+
+test('signing in asks for no approve button when the organization turned it off', async ($, on) => {
+  const seen = engineBeneath(on, { overview: { signedIn: false }, approveButton: false })
+  await $.session.start(START)
+  await openDesk($, seen)
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.input({ key: 'server', text: 'https://homingbird.example.com' })
+  expect(seen.commands).toContainEqual(['login', '--server', 'https://homingbird.example.com', '--json'])
+  expect(seen.commands.flat()).not.toContain('--approve-button')
+  await ui.unmount()
 })
 
 test('a signed-out person without a configured server is asked for it, then signed in', async ($, on) => {

@@ -89,6 +89,7 @@ export const handlers: Handlers = {
         version: SERVER_VERSION,
         contactMode: settings.contactMode,
         signInWith: env.config.identity.label,
+        approveButton: env.config.approveButton,
       }
     }),
   'me.get': (_, caller) =>

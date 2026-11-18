@@ -29,6 +29,18 @@ describe('configuration', () => {
     HB_ADMIN_EMAILS: 'root@example.com',
   }
 
+  it('turns the approve button on only when the operator says so', () => {
+    expect(loadConfig({ ...minimal, HB_APPROVE_BUTTON: 'on' })).toMatchObject({
+      _tag: 'Ok',
+      value: { approveButton: true },
+    })
+    expect(loadConfig({ ...minimal, HB_APPROVE_BUTTON: 'off' })).toMatchObject({
+      _tag: 'Ok',
+      value: { approveButton: false },
+    })
+    expect(loadConfig({ ...minimal, HB_APPROVE_BUTTON: 'yes' })._tag).toBe('Err')
+  })
+
   it('fills in defaults', () => {
     const config = loadConfig(minimal)
     expect(config).toMatchObject({
@@ -45,6 +57,7 @@ describe('configuration', () => {
         trustedProxies: 0,
         sessionDays: 30,
         agentCredentialDays: 90,
+        approveButton: false,
         audit: { toStdout: false, webhookUrl: null },
         oauth: {
           redirectHosts: ['claude.ai', 'claude.com'],

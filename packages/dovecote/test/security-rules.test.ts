@@ -104,6 +104,27 @@ describe('Rule 1: only a human credential can approve a note', () => {
     expect(benAgent.approvalToken).toBeNull()
   })
 
+  it('issues no approval credential while the approve button is off, and the agent still cannot send', async () => {
+    const off = await startTestServer({ HB_APPROVE_BUTTON: 'off' })
+    try {
+      const anaOff = await off.signIn('ana@example.com', 'Ana')
+      const benOff = await off.signIn('ben@example.com', 'Ben')
+      const agent = await connectAgent(off, anaOff, { approveButton: true })
+      expect(agent.approvalToken).toBeNull()
+      const draft = (await agent.api('POST', '/drafts', { to: [benOff.me.member.id], body: SECRET_BODY }))
+        .json
+      expect((await agent.api('POST', `/drafts/${draft.id}/send`, {})).status).toBe(403)
+      expect((await anaOff.api('GET', `/notes/${draft.id}`)).json.status).toBe('draft')
+      expect((await storedRows(off, 'credentials')).map((row) => row.kind).sort()).toEqual([
+        'agent',
+        'human',
+        'human',
+      ])
+    } finally {
+      await off.close()
+    }
+  })
+
   it('does not let one person approve another person’s draft', async () => {
     const draft = await draftFromAnaToBen()
     expect((await ben.api('POST', `/drafts/${draft.id}/send`, {})).status).toBe(404)

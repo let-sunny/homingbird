@@ -90,6 +90,7 @@ export const testConfig = (overrides: Readonly<Record<string, string>> = {}): Co
     HB_PUBLIC_URL: PUBLIC_URL,
     HB_DEV_LOGIN: '1',
     HB_ALLOWED_DOMAINS: 'example.com',
+    HB_APPROVE_BUTTON: 'on',
     ...overrides,
   })
   if (loaded._tag === 'Err') throw new Error(loaded.error.join('; '))

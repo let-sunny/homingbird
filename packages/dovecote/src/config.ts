@@ -31,6 +31,7 @@ export interface Config {
   readonly sessionDays: number
   readonly audit: { readonly toStdout: boolean; readonly webhookUrl: string | null }
   readonly agentCredentialDays: number
+  readonly approveButton: boolean
   readonly oauth: {
     readonly redirectHosts: ReadonlyArray<string>
     readonly clientMetadataHosts: ReadonlyArray<string>
@@ -95,6 +96,7 @@ export const loadConfig = (
     sessionDays: Number(v.HB_SESSION_DAYS ?? '30'),
     audit: { toStdout: v.HB_AUDIT_STDOUT === '1', webhookUrl: v.HB_AUDIT_WEBHOOK_URL ?? null },
     agentCredentialDays: Number(v.HB_AGENT_CREDENTIAL_DAYS ?? '90'),
+    approveButton: v.HB_APPROVE_BUTTON === 'on',
     oauth: { redirectHosts, clientMetadataHosts, clients: clients.value },
   })
 }
@@ -126,6 +128,7 @@ const Variables = S.struct({
   HB_AUDIT_STDOUT: S.optional(S.literal('0', '1')),
   HB_AUDIT_WEBHOOK_URL: S.optional(S.string({ pattern: /^https?:\/\// })),
   HB_AGENT_CREDENTIAL_DAYS: S.optional(positiveInteger),
+  HB_APPROVE_BUTTON: S.optional(S.literal('on', 'off')),
   HB_OAUTH_REDIRECT_HOSTS: S.optional(S.string()),
   HB_OAUTH_CLIENT_METADATA_HOSTS: S.optional(S.string()),
   HB_OAUTH_CLIENTS: S.optional(S.string()),

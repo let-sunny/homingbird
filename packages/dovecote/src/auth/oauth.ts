@@ -291,7 +291,7 @@ export const beginDeviceAuthorization = (
       lifetimeMs: DEVICE_CODE_LIFETIME_SECONDS * 1000,
       detail: {
         client: clientName.slice(0, 200) || 'Unnamed device',
-        wantsApproval: scope.split(/\s+/).includes(APPROVAL_SCOPE),
+        wantsApproval: env.config.approveButton && scope.split(/\s+/).includes(APPROVAL_SCOPE),
         allowApproval: false,
         credentialName: null,
       },
@@ -324,8 +324,13 @@ export const decideDeviceRequest = (
   decision: { readonly approve: boolean; readonly name?: string; readonly allowApproval?: boolean },
 ): T.Task<void, NotFound | Conflict, RequestEnv> =>
   T.gen(function* () {
+    const env = yield* T.ask<RequestEnv>()
     const request = yield* pendingDevice(userCode)
-    const allowApproval = decision.approve && request.detail.wantsApproval && decision.allowApproval === true
+    const allowApproval =
+      env.config.approveButton &&
+      decision.approve &&
+      request.detail.wantsApproval &&
+      decision.allowApproval === true
     const advanced = yield* advanceAuthRequest(request.id, {
       status: decision.approve ? 'approved' : 'denied',
       expectedStatus: 'pending',
@@ -369,9 +374,10 @@ export const exchangeDeviceCode = (deviceCode: string): T.Task<TokenResponse, OA
       refreshable: false,
     }
     const agent = yield* issueCredential({ ...shared, kind: 'agent', name })
-    const approver = request.detail.allowApproval
-      ? yield* issueCredential({ ...shared, kind: 'human', name: `${name} (approve button)` })
-      : null
+    const approver =
+      env.config.approveButton && request.detail.allowApproval
+        ? yield* issueCredential({ ...shared, kind: 'human', name: `${name} (approve button)` })
+        : null
     for (const issued of [agent, approver])
       if (issued !== null)
         yield* recordAudit({

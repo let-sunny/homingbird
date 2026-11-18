@@ -18,6 +18,7 @@ export interface World {
   readonly links?: Readonly<Record<string, string>>
   readonly sessionId?: string
   readonly environment?: Readonly<Record<string, string>>
+  readonly approveButton?: boolean
 }
 
 export interface Seen {
@@ -29,6 +30,7 @@ export interface Seen {
   readonly notifications: string[]
   readonly statuses: Array<string | undefined>
   readonly titles: string[]
+  readonly fetched: string[]
   readonly sent: Array<{ to: unknown; text: string }>
   readonly opened: { count: number }
   readonly store: Map<string, unknown>
@@ -49,12 +51,18 @@ export const engineBeneath = (on: On, world: World): Seen => {
     notifications: [],
     statuses: [],
     titles: [],
+    fetched: [],
     sent: [],
     opened: { count: 0 },
     store: new Map(Object.entries(world.store ?? {})),
     release: () => release(),
   }
   mock.env(on, world.environment ?? {})
+  on('http.fetch', (_, e) => {
+    seen.fetched.push(e.url)
+    const info = { name: 'dovecote', version: '1', approveButton: world.approveButton ?? true }
+    return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify(info) } }
+  })
   on('store.get', (_, e) => ({ value: seen.store.get(e.key) }))
   on('store.set', (_, e) => {
     seen.store.set(e.key, JSON.parse(JSON.stringify(e.value)))

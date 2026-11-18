@@ -297,6 +297,35 @@ describe('device authorization', () => {
     expect(plain.scope).toBe('notes')
   })
 
+  it('never issues an approval credential while the organization keeps the approve button off', async () => {
+    const off = await startTestServer({ HB_APPROVE_BUTTON: 'off' })
+    try {
+      const person = await off.signIn('ana@example.com', 'Ana')
+      expect((await off.request('GET', '/api/v1/info')).json.approveButton).toBe(false)
+      const started = (
+        await off.request('POST', '/oauth/device_authorization', {
+          form: { client_name: 'Laptop', scope: 'notes approve' },
+        })
+      ).json
+      expect((await person.api('GET', `/device/${started.user_code}`)).json.wantsApproval).toBe(false)
+      await person.api('POST', `/device/${started.user_code}`, { approve: true, allowApproval: true })
+      const tokens = (
+        await off.request('POST', '/oauth/token', {
+          form: { grant_type: DEVICE_GRANT, device_code: started.device_code },
+        })
+      ).json
+      expect(tokens.access_token).toMatch(/^hba_/)
+      expect(tokens.approval_token).toBeUndefined()
+      expect(tokens.scope).toBe('notes')
+    } finally {
+      await off.close()
+    }
+  })
+
+  it('tells clients whether the approve button is on', async () => {
+    expect((await server.request('GET', '/api/v1/info')).json.approveButton).toBe(true)
+  })
+
   it('reports denial and expiry', async () => {
     const denied = (await start()).json
     await ana.api('POST', `/device/${denied.user_code}`, { approve: false })
