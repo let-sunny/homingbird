@@ -13,6 +13,7 @@ export interface Desk {
   readonly options: PluginOptions
   server: string
   answeringFlow: string
+  memberId: string | null
   readonly handled: Set<string>
   readonly wrappedNotes: Map<string, string>
   readonly helpers: Map<string, string>
@@ -27,6 +28,7 @@ export const makeDesk = (options: PluginOptions): Desk => ({
   options,
   server: String(options.server ?? '').trim(),
   answeringFlow: '',
+  memberId: null,
   handled: new Set(),
   wrappedNotes: new Map(),
   localeOn: new Map(),
@@ -146,6 +148,7 @@ export async function refresh($: Engine, desk: Desk): Promise<HomingbirdOverview
   if (ran.kind !== 'ok' && ran.kind !== 'signed-out') return settle($, ran.message, false)
   const listed = ran.kind === 'ok' ? overviewIn(ran.value) : null
   desk.answeringFlow = answeringFlowIn(ran.kind === 'ok' ? ran.value : null)
+  desk.memberId = memberIdIn(ran.kind === 'ok' ? ran.value : null)
   const latest = listed === null ? null : { ...listed, locale: await localeOn($, desk, listed.server) }
   if (latest !== null && desk.server === '') desk.server = latest.server
   const before = await read($, overview)
@@ -277,6 +280,10 @@ async function arrived($: Engine, desk: Desk, line: string): Promise<void> {
     await refresh($, desk)
     return draftReply($, desk, body.note.id, parsed.wrapped)
   }
+  if (body?.type === 'debate.changed') {
+    const taking = Array.isArray(body.participantIds) && body.participantIds.includes(desk.memberId)
+    return taking ? noticeDebates($, desk) : undefined
+  }
   if (body?.type === 'draft.requested' && body.request !== undefined) {
     const announced = requestIn(body.request)
     const listed = announced === null ? [] : await openRequests($, desk)
@@ -297,6 +304,24 @@ async function arrived($: Engine, desk: Desk, line: string): Promise<void> {
   else if (body?.type === 'draft.saved' || body?.type === 'draft.request.changed') {
     const open = await openRequests($, desk)
     await update($, requests, () => open)
+  }
+}
+
+/**
+ * Tells the person once when a debate room waits on their agent. The desk takes no turn itself: the
+ * runner does, and the person follows the room and approves its result in the web client.
+ */
+async function noticeDebates($: Engine, desk: Desk): Promise<void> {
+  const ran = await runJson($, desk, ['debates'])
+  const listed = ran.kind === 'ok' ? (ran.value as { debates?: unknown } | null)?.debates : []
+  for (const one of Array.isArray(listed) ? listed : []) {
+    const ask = one as { id?: unknown; wants?: unknown; turnsTaken?: unknown; resultRound?: unknown }
+    if (typeof ask.id !== 'string' || (ask.wants !== 'turn' && ask.wants !== 'result')) continue
+    const key = `debate:${ask.id}:${ask.wants}:${String(ask.turnsTaken)}:${String(ask.resultRound)}`
+    if (desk.handled.has(key)) continue
+    desk.handled.add(key)
+    const text = await said($)
+    notifyPerson($, text, text.debateWaiting(ask.wants))
   }
 }
 
@@ -400,6 +425,7 @@ interface StreamLine {
       readonly type?: string
       readonly note?: { readonly id?: unknown }
       readonly request?: unknown
+      readonly participantIds?: unknown
     }
   }
   readonly wrapped?: unknown
@@ -446,6 +472,11 @@ async function guidanceFor($: Engine, desk: Desk, conversationId: string | undef
   const ran = await runJson($, desk, ['guidance', conversationId])
   const guidance = ran.kind === 'ok' ? (ran.value as { guidance?: unknown } | null)?.guidance : undefined
   return typeof guidance === 'string' ? guidance : desk.answeringFlow
+}
+
+const memberIdIn = (value: unknown): string | null => {
+  const id = (value as { member?: { id?: unknown } } | null)?.member?.id
+  return typeof id === 'string' ? id : null
 }
 
 const answeringFlowIn = (value: unknown): string => {

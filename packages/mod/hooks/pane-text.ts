@@ -61,6 +61,7 @@ export interface PaneText {
   readonly aColleague: string
   readonly draftReadyNotice: string
   readonly draftingRequest: string
+  readonly debateWaiting: (wants: 'turn' | 'result') => string
   readonly streamStopped: string
   readonly couldNotSignIn: (reason: string) => string
   readonly noNode: (olderVersion: string | null) => string

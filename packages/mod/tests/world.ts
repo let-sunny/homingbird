@@ -25,6 +25,8 @@ export interface World {
   readonly sessionUsage?: { readonly startedAt: number; readonly percent?: number }
   /** What `homingbird guidance <conversationId>` answers, by conversation. */
   readonly guidance?: Readonly<Record<string, string>>
+  /** What `homingbird debates` answers. */
+  readonly debates?: ReadonlyArray<unknown>
 }
 
 export interface Seen {
@@ -314,6 +316,7 @@ const USAGE = {
 const stdoutFor = (args: ReadonlyArray<string>, world: World): string => {
   if (args[0] === 'overview') return JSON.stringify(world.overview)
   if (args[0] === 'requests') return JSON.stringify(world.requests ?? {})
+  if (args[0] === 'debates') return JSON.stringify({ debates: world.debates ?? [] })
   if (args[0] === 'status') return JSON.stringify({ signedIn: true, locale: world.locale ?? null })
   if (args[0] === 'guidance' && world.guidance?.[args[1] ?? ''] !== undefined)
     return JSON.stringify({ guidance: world.guidance[args[1] ?? ''] })

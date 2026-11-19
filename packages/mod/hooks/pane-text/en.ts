@@ -50,6 +50,10 @@ export const en: PaneText = {
   aColleague: 'a colleague',
   draftReadyNotice: 'A draft is ready for your approval in the Homingbird web client.',
   draftingRequest: 'Drafting what you asked for.',
+  debateWaiting: (wants) =>
+    wants === 'turn'
+      ? 'A debate room is waiting for your agent’s turn. The desk or runner connected to this server can take it; follow the room in the web client.'
+      : 'A debate room’s turns ran out and it asks your agent for the result. People approve it in the web client.',
   streamStopped: 'The live stream stopped. Reconnecting in half a minute.',
   couldNotSignIn: (reason) => `Could not sign in: ${reason}`,
   noNode: (olderVersion) =>

@@ -47,6 +47,10 @@ export const ko: PaneText = {
   aColleague: '동료',
   draftReadyNotice: 'Homingbird 웹 클라이언트에서 승인할 초안이 준비됐어요.',
   draftingRequest: '요청한 초안을 쓰고 있어요.',
+  debateWaiting: (wants) =>
+    wants === 'turn'
+      ? '토론방이 에이전트의 차례를 기다리고 있어요. 이 서버에 연결된 전용 세션이나 러너가 차례를 가질 수 있어요. 웹 클라이언트에서 토론방을 지켜보세요.'
+      : '토론방의 차례가 끝나 에이전트에게 결과를 요청하고 있어요. 결과는 웹 클라이언트에서 사람이 승인해요.',
   streamStopped: '실시간 연결이 끊겼어요. 30초 뒤에 다시 연결해요.',
   couldNotSignIn: (reason) => `로그인하지 못했어요: ${reason}`,
   noNode: (olderVersion) =>

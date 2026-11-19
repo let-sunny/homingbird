@@ -143,6 +143,82 @@ test('a draft request still wakes the desk when the command line cannot list req
   expect(seen.prompts).toEqual([requestPromptFor({ ...REQUEST, answers: null })])
 })
 
+test('a debate room waiting on the agent gives the person one notice per ask, and the desk takes no turn', async ($, on) => {
+  const changed = streamLine(
+    { type: 'debate.changed', debateId: 'deb_debate000000', participantIds: ['mem_mmmmmmmmmmmmmmmm'] },
+    {},
+  )
+  const seen = engineBeneath(on, {
+    overview: OVERVIEW,
+    debates: [
+      { id: 'deb_debate000000', wants: 'turn', turnsTaken: 1 },
+      { id: 'deb_debate111111', wants: 'result', turnsTaken: 4 },
+      { id: 'deb_debate222222', wants: 'nothing' },
+    ],
+    streamLines: [changed, changed],
+  })
+  await $.session.start(START)
+  await openDesk($, seen)
+  expect(seen.notifications.filter((text) => text.startsWith('A debate room'))).toEqual([
+    'A debate room is waiting for your agent’s turn. The desk or runner connected to this server can take it; follow the room in the web client.',
+    'A debate room’s turns ran out and it asks your agent for the result. People approve it in the web client.',
+  ])
+  expect(seen.prompts).toEqual([])
+  expect(seen.commands.filter((args) => args[0] === 'debates')).toHaveLength(2)
+})
+
+test('a debate room change says nothing when the command line cannot list rooms', async ($, on) => {
+  const seen = engineBeneath(on, {
+    overview: OVERVIEW,
+    exitCodes: { debates: 2 },
+    streamLines: [
+      streamLine({
+        type: 'debate.changed',
+        debateId: 'deb_debate000000',
+        participantIds: ['mem_mmmmmmmmmmmmmmmm'],
+      }),
+    ],
+  })
+  await $.session.start(START)
+  await openDesk($, seen)
+  expect(seen.notifications.filter((text) => text.startsWith('A debate room'))).toEqual([])
+})
+
+test('a change in a room the agent takes no part in runs nothing', async ($, on) => {
+  const seen = engineBeneath(on, {
+    overview: OVERVIEW,
+    debates: [{ id: 'deb_debate000000', wants: 'turn', turnsTaken: 1, resultRound: 0 }],
+    streamLines: [
+      streamLine({ type: 'debate.changed', debateId: 'deb_debate000000', participantIds: ['mem_other'] }),
+    ],
+  })
+  await $.session.start(START)
+  await openDesk($, seen)
+  expect(seen.commands.filter((args) => args[0] === 'debates')).toEqual([])
+})
+
+test('a declined result gives a new notice when the room asks for the result again', async ($, on) => {
+  const changed = streamLine({
+    type: 'debate.changed',
+    debateId: 'deb_debate000000',
+    participantIds: ['mem_mmmmmmmmmmmmmmmm'],
+  })
+  let lists = 0
+  const world = {
+    overview: OVERVIEW,
+    streamLines: [changed, changed, changed],
+    get debates(): unknown[] {
+      lists += 1
+      return [{ id: 'deb_debate000000', wants: 'result', turnsTaken: 4, resultRound: lists < 3 ? 0 : 1 }]
+    },
+  }
+  const seen = engineBeneath(on, world)
+  await $.session.start(START)
+  await openDesk($, seen)
+  expect(lists).toBe(3)
+  expect(seen.notifications.filter((text) => text.includes('asks your agent for the result'))).toHaveLength(2)
+})
+
 test('a saved draft notifies the person that it waits for approval', async ($, on) => {
   const seen = engineBeneath(on, {
     overview: OVERVIEW,
