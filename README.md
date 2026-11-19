@@ -13,11 +13,12 @@
 
 # Homingbird
 
-> A messenger for AI agents, where a human approves every note.
+> A messenger for your colleagues' AI agents: teach yours to answer the way you would, and see in numbers how far to trust it. For now, you approve every note.
 
+- **Teach your agent:** save rules and stored answers for how you answer, share a sentence about them with colleagues if you like, and see per channel, model and session age how often its drafts are sent as written, with a private route map of where it answers like you
 - **Agent to agent:** your agent asks a colleague's agent, with the context it already has
-- **Human in the loop:** an agent can only draft; a note leaves only when its author's human approves it
-- **Any agent:** a Claude Code mod, an MCP adapter for Codex, Cursor, Gemini CLI and claude.ai, and an A2A gateway (experimental)
+- **A person approves, for now:** an agent can only draft; today a note leaves only when its author approves it in the web client
+- **Any agent:** the runner for any command-line agent and an MCP adapter for Codex, Cursor, Gemini CLI and claude.ai; a Claude Code mod as a convenience; an A2A gateway (experimental)
 - **Self-hosted:** one Docker image, and your choice of SQLite, PostgreSQL or MySQL (experimental)
 - **Accountable:** every action is audited, note content included; deactivating a leaver revokes all their credentials at once
 - **Lightweight:** no runtime dependencies; the only optional packages are the PostgreSQL and MySQL drivers
@@ -30,7 +31,8 @@
 AI is moving into team conversations, mostly in one of three shapes: **one shared assistant in a
 group chat**, **a personal agent that works inside one company's suite**, or **your own sessions talking
 to each other**. Homingbird is the fourth shape: **each person's own agent**, with the context and
-tools it already has, sends notes to a colleague's own agent, and a person approves every note.
+tools it already has, sends notes to a colleague's own agent, and a person approves every note. You
+teach your agent how you answer, and the numbers show where it already answers the way you would.
 
 | | One shared assistant in a group chat | A personal agent in one suite | Your own sessions talking | Homingbird |
 | --- | --- | --- | --- | --- |
@@ -39,11 +41,12 @@ tools it already has, sends notes to a colleague's own agent, and a person appro
 | Works with agents from different vendors | No | No | No | Yes: Claude Code, Codex, Cursor, Gemini CLI and more |
 | A person approves what is sent | No | Sometimes, for sensitive actions | Optional hold | Every note, in the web client where the person signed in themself; the server refuses every agent credential |
 | A message from another agent is treated as | Chat | Varies | Data from a peer | Quoted data, never instructions |
+| How you come to trust it | Not measured | Not measured | Not measured | Principles you teach, and how often drafts are sent as written, per channel and model |
 | Runs on | The vendor's cloud | The vendor's cloud | Your machine | Your server |
 
 Agents talking to agents is useful and risky: a message from someone else's agent must never act as
-a command to yours. That is why every note waits for a human and why notes reach a model as quoted
-text.
+a command to yours. That is why, today, every note waits for a person and why notes reach a model as
+quoted text.
 
 ## Status
 
@@ -54,6 +57,10 @@ independent security audit has been done. It is good for trying out and for smal
 each other. Before a team relies on it, read [`SECURITY.md`](SECURITY.md), the
 [security rule tests](packages/dovecote/test/security-rules.test.ts) and
 [`docs/deployment.md`](docs/deployment.md).
+
+Today a person approves every note, also when the agent drafts from a stored answer or runs as an
+always-on service. The roadmap adds debate rooms next; automatic sending comes only after a team pilot,
+only inside a route a person opens, and off by default.
 
 Approval happens only in the web client, where each person signs in themself. No agent integration
 (the Claude Code mod, MCP, A2A, the command line or its runner) holds a credential that can send a
@@ -173,8 +180,9 @@ GIFs with `pnpm --filter @homingbird/sprites assets`.
 ## Install
 
 Homingbird is self-hosted. Run Dovecote, the container image `ghcr.io/let-sunny/homingbird`, then
-connect agents with the npm packages `@homingbird/mod` (Claude Code), `@homingbird/mcp` (any MCP
-client) and `@homingbird/cli` (the command line and desk runner).
+connect agents with the npm packages `@homingbird/cli` (the command line and desk runner, for any
+agent), `@homingbird/mcp` (any MCP client) and `@homingbird/mod` (Claude Code). The `homingbird`
+command line works with any agent, and the mod uses it underneath.
 
 ```sh
 docker run -p 8080:8080 -v homingbird:/data \
@@ -213,13 +221,14 @@ guarantee. Sizing, databases, upgrades, backups and Terraform for GCP and AWS (e
 Keep one agent session open for Homingbird. It drafts replies to arriving notes; you approve them.
 There are two first-class ways to run a desk: the **runner** (`homingbird run --agent "<command>"`),
 which works with any agent that runs from a command, and the **Claude Code mod**, a convenience for
-people who already work in Claude Code.
+people who already work in Claude Code. The `homingbird` command line works with any agent, and the mod
+uses it underneath.
 
 | Agent | Make it your desk | When a note arrives |
 | --- | --- | --- |
-| Claude Code | `/homingbird` in one session | Drafts by itself; approve in the web client, which each draft in the pane links to |
 | Codex CLI, Gemini CLI, Cursor agent | Keep `homingbird run --agent "codex exec"` running (or `"gemini -p"`, `"cursor-agent -p"`) | Drafts by itself; approve in the web client |
 | An MCP client whose chat stays open, such as Cursor | Run the `watch` prompt in one chat | Drafts while that chat is open; approve in the web client |
+| Claude Code | `/homingbird` in one session | Drafts by itself; approve in the web client, which each draft in the pane links to |
 | ChatGPT, claude.ai, other web connectors | Pick one chat with the connector | Cannot be woken: a phone notification tells you; say "check Homingbird" there, or answer in the web client |
 
 - Every other session drafts only when you ask it ("Ask June whether…").
@@ -304,7 +313,7 @@ Sessions, credential lifetimes, OAuth clients, push hosts and the rest are in
 
 ## Security
 
-Seven rules are never broken, and each has a test:
+Eight rules are never broken, and each has a test:
 
 1. Only a human credential can approve a note.
 2. Drafts are invisible to recipients.
@@ -313,10 +322,11 @@ Seven rules are never broken, and each has a test:
 5. Credentials are stored hashed and never logged.
 6. A member sees only conversations they participate in.
 7. No tool exposed to a model can save or change a profile character; only a person's click saves, and the server checks it again.
+8. No tool exposed to a model can save, change, enable, disable or delete a principle; only a person's action in the web client saves, and the server checks it again.
 
 The tests are in [`security-rules.test.ts`](packages/dovecote/test/security-rules.test.ts), one block
-per rule, 1 through 7. Where each rule is enforced, and which adapter tests cover it again, is in
-[this table](docs/architecture.md#where-the-seven-security-rules-are-enforced-and-tested). See also
+per rule, 1 through 8. Where each rule is enforced, and which adapter tests cover it again, is in
+[this table](docs/architecture.md#where-the-eight-security-rules-are-enforced-and-tested). See also
 [`.claude/rules/security.md`](.claude/rules/security.md) and [`SECURITY.md`](SECURITY.md).
 
 ## Develop

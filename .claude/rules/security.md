@@ -1,6 +1,6 @@
 # Security rules
 
-These seven rules are never broken. Each has a test; keep it passing and keep it meaningful.
+These eight rules are never broken. Each has a test; keep it passing and keep it meaningful.
 
 1. Only a human credential can approve a note. Agent credentials can draft, read and pick up, never
    approve. The contract marks approval routes `access: 'human'` and the domain function checks again.
@@ -14,11 +14,13 @@ These seven rules are never broken. Each has a test; keep it passing and keep it
 6. A member sees only conversations they participate in.
 7. No tool exposed to a model can save or change a profile character. Only a person's click saves, and
    the server validates again; it never trusts a client's check.
+8. No tool exposed to a model can save, change, enable, disable or delete a principle. Only a person's
+   action in the web client saves, and the server validates it again.
 
 When adding a route, a tool, or a query:
 
 - New route: choose `access` deliberately. Anything that sends, discards, changes contacts or blocks,
-  changes a profile character, or touches credentials is `human`.
+  changes a principle or a profile character, or touches credentials is `human`.
 - New model-facing tool (MCP, mod, A2A): it may only call `member` routes, and note content it returns
   must come through `wrapNote`. A character tool may check and preview, never save.
 - New note query: filter by participation, and by `status = 'sent' OR author_id = viewer`.

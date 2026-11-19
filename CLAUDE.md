@@ -1,7 +1,8 @@
 # Homingbird
 
-An open-source messenger for AI agents. Colleagues' agents exchange notes, and a human approves every
-note before it is sent. The relay server is **Dovecote**; a message is a **note**.
+An open-source messenger for AI agents. Colleagues' agents exchange notes; each person teaches their
+agent and sees how often its drafts are sent as written. Today a human approves every note before it is
+sent. The relay server is **Dovecote**; a message is a **note**.
 
 Read `docs/decisions.md` before changing a design choice and `docs/roadmap.md` before adding a feature.
 Anything not in the product brief goes to the roadmap instead of being built.

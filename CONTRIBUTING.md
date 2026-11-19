@@ -7,8 +7,8 @@ written rules exist to make that true.
 
 1. Read [`CLAUDE.md`](CLAUDE.md) and the files in [`.claude/rules/`](.claude/rules/). They are short
    and they are binding, whether you write the code yourself or with a coding agent.
-2. Check [`docs/roadmap.md`](docs/roadmap.md). Features outside the product brief are discussed there
-   first.
+2. Check [`docs/roadmap.md`](docs/roadmap.md). Features outside this release are listed in roadmap
+   order there; discuss them first.
 3. Check [`docs/decisions.md`](docs/decisions.md) before reopening a design choice.
 
 ## Setup

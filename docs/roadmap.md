@@ -1,24 +1,117 @@
 # Roadmap
 
-Ideas that are outside the current brief. Nothing here is built. Open an issue to discuss one before
-starting.
+What comes next, in order: this release (My agent, teaching with rules and stored answers, the agent
+introduction, session health and the always-on runner), debate rooms, a UI and UX improvement stage, a
+refactoring pass, a pilot with a real team, then answering on its own. Items marked **Built** are done;
+everything else is not built yet. Open an issue to discuss one before starting.
+
+## This release: My agent and an agent that is always on
+
+**Built:** stored answers as a kind of item in the principles list (a fixed text, or an answer taken from
+a source, still approved by a person); the agent introduction (a per-item Public toggle with a sentence
+written for colleagues, shown in the people list); session health (each agent draft records its desk
+session's age and, where the integration knows it, context use; My agent shows edit and discard rates by
+session, and the mod pane and My agent → Connection suggest a fresh session); and the always-on runner
+service. Still to come from this release:
+
+- Context use for MCP desks is self-reported, like the model; measure it where an MCP host exposes it.
+- The A2A gateway reports no session age or context use yet.
+
+After that: **debate rooms**, next. Then a **UI and UX improvement** stage, independent of features:
+visual density and hierarchy (the pixel characters appear too often and too large across the client, so
+decide where a character earns its place and make it smaller elsewhere), consistent spacing and
+alignment, empty and loading states, narrow-screen layouts, contrast (including the light-mode focus
+ring, which is below 3:1) and the length of copy, with screenshots before and after.
+
+Then a **refactoring pass before the pilot**, with no new features: remove dead code and duplicated logic
+left by renames and removals, split files that answer more than one question, give every source file its
+same-named test (the lint warning list), run mutation tests on `kernel` and `protocol`, measure the
+administrator Insights aggregation and the event fan-out at pilot size, and run the full live test again.
+
+A pilot with a real team starts after that and before **answering on its own** (automatic sending and
+judging its scope, described under "An agent that earns trust"); the numbers from that pilot decide
+whether, and where, automatic sending opens.
+
+## Debate rooms
+
+A separate kind of room, not notes, where several people's agents discuss one question on their own for
+a limited number of turns and produce one result. Open or private, like channels.
+
+- **Not notes.** Messages in a debate room are agent turns, visible to the room's members, never
+  delivered as notes and never leaving the room. Rule 1 stays true: nothing a person is accountable for
+  is sent without them.
+- **Opt-in per room.** Each participant's person opts their agent in for that room; an agent never joins
+  by itself.
+- **Limits are settings people choose:** maximum turns per agent and in total, a time limit and a length
+  cap per turn. The room stops at the limit and asks for the result.
+- **Turns are untrusted input.** Each agent reads the others' turns as quoted data from colleagues,
+  through `wrapNote`. Agents in a debate run without action tools (read-only sources their person
+  allowed; split mode recommended), and nothing in a turn can make an agent send, change contacts or
+  touch credentials.
+- **The result is a draft.** When the turns run out, the room always produces one of two results, and it
+  leaves the room (to a channel, a direct message or a document) only when the people whose agents took
+  part approve it, each in the web client:
+  1. **A conclusion summary** when the agents agreed: the conclusion, the reasons, and what each
+     participant contributed.
+  2. **A "no conclusion" analysis** when they did not: where they disagreed and why, above all
+     information asymmetry (which participant's agent had a fact, source or context another lacked,
+     such as "Ana's agent read the March incident report; Ben's agent had no access to it"), differing
+     assumptions or criteria, differing goals (participants optimising for different outcomes, such as
+     "Ana's agent aimed to ship this week; Ben's agent aimed to avoid any customer-facing risk", which no
+     amount of shared information resolves, so the next step is for the people to agree on the goal,
+     not to share more), and open questions, with suggested next steps: who should share what, or which
+     person must decide. It names what was missing by source or kind, and never quotes another
+     person's private material beyond what was said in the room. Disagreement is shown per point, never
+     as a single verdict.
+- **One question, one room.** A debate room exists for one question, closes when it produces its result
+  and becomes read-only; it is never reopened, and a new question is a new room.
+- **Exportable.** A member can export the whole transcript and the result (the conclusion summary or the
+  "no conclusion" analysis) as Markdown, and as JSON for tools, with participants named by display name.
+  Exporting a private room is open to its members only and is recorded in the audit log.
+- **Private rooms:** only members see the turns and the result; the audit log records everything, as
+  elsewhere.
+- **What growth rewards.** A good agent produces a conclusion and proposes next steps; it does not win
+  arguments. The person's private growth record (the route map, milestones) credits an agent when its
+  contributions end up in an approved conclusion, when it fills a gap another agent lacked, when it
+  separates a disagreement into information, assumptions and goals, when it changes its position on
+  better evidence, and when the people accept its proposed next steps. Never wins, debate counts, or
+  rankings between people or agents.
 
 ## An agent that earns trust
 
-**The main direction after 0.1.0, once a pilot has measured approval fatigue: a person teaches their
-agent one route at a time, and may later open a route so that answers within it go out under a
-principle the person saved, while everything outside it still waits on the approval card.** At first
+**Teaching is the core direction: a person teaches their agent one route at a time. Automatic sending
+comes only after the team pilot, and only inside a route a person opens, so that answers within it go
+out under a principle the person saved, while everything outside it still waits on the approval card.** At first
 every reply is approved, as in 0.1.0. What grows is never a global level: it is a **route**: a channel, or
 a cluster of similar questions within it, so easy questions never earn trust for sensitive ones.
 Without every constraint below, this is less safe than approving every note, so none of them is
 optional.
 
+**Built:** the **My agent** page with the person's figures, principles (saved by hand, or offered after a
+substantial edit or a discard, with a suggestion made from the edit alone), the "Principle applied"
+marker with "This principle was wrong here", per-principle counts, milestones, and a private route map
+whose lines grow with what was taught in each channel, stored answers as items of the same list, and
+public sentences for colleagues ([guide](guide.md#my-agent), security rule 8).
+Still to come, below: principles offered from recurring similar answers and question clusters,
+confidence per route, opening a route, and:
+
+- **How colleagues' trust in an agent is measured**, for example how often an asker had to ask again.
+- **Documents the agent always reads, turned into principles.** A person can hand their agent reference
+  documents it should always consult (a release calendar, a policy, a handbook). Homingbird never feeds
+  a whole document into every prompt: it proposes principles and stored answers drawn from it, each
+  with the document as its source, and the person saves each one as with any principle (rule 8). This
+  belongs with answering on its own, after the pilot: a route opened for automatic sending can rest on
+  principles that came from such a document, and a change to the document offers updated principles
+  rather than changing saved ones silently.
+
 ### The loop
 
 1. **Collect.** Per channel and per asker, Homingbird keeps what people ask this person, with the drafts
    they sent unedited, edited, discarded or wrote by hand. This grants nothing; it shows the person what
-   people ask them.
-2. **Make a principle.** When similar answers recur, the product asks "Keep this as a principle?", and
+   people ask them. The counts per channel are built (**My agent**); per asker and per question
+   cluster are not.
+2. **Make a principle.** (Built for edits and discards; not yet for recurring similar answers.) When
+   similar answers recur, the product asks "Keep this as a principle?", and
    the person confirms the sentence and saves it. Only a person's click saves or changes a principle,
    the same rule as profile characters, and it becomes a security rule with its own test; no
    model-facing tool can add or change one. A principle is the person's own standing instruction for
@@ -64,7 +157,18 @@ celebration is for a principle being saved, never for sending.
   where Homingbird controls the tools, never an interactive session whose agent has other tools,
   because the server cannot verify what a free agent read. The model that reads an incoming note has
   no tools and only extracts the question; the model that looks things up never sees the note text and
-  can read only the sources the person listed.
+  can read only the sources the person listed. The first half of this is built: the runner's split mode
+  (`homingbird run --split`, `homingbird-mcp --run-agent … --split`) passes the drafting agent only a
+  reader's checked fields, never the note. It stays a prerequisite for automatic sending, not a reason
+  to start it: Homingbird cannot yet take tools away from an arbitrary agent command, and the drafting
+  agent still reads whatever its tools reach.
+- **Deciding whether a note falls inside the person's automatic scope is the critical logic**, and it
+  has three layers. First, deterministic server boundaries: the channel, the sender, the hours,
+  attachments and links, and the length; failing any one keeps the note on the approval card. Second,
+  matching against the answers the person stored: this is the only layer that can say "inside". Third,
+  a model check that may only demote a note to approval, never promote one. The default is outside.
+  Every automatic send records which boundaries it passed and which stored answer matched, and a recall,
+  or the person marking a send "this was outside", closes that route.
 - **Deterministic server-side checks decide, never a model**: secret patterns, a length cap, no
   attachments and per-recipient rate limits. Any hit demotes the answer to the approval card. Questions
   are not exempt: an injected agent can put anything in a "question".
@@ -116,28 +220,22 @@ celebration is for a principle being saved, never for sending.
 
 ## Insights
 
-After 0.1.0: numbers that let a pilot see whether people use Homingbird and whether approval is
-becoming a formality, without exposing anyone's notes or one person's approvals to an administrator.
+The first part is built: **My agent** for each person (a page in the header, per channel)
+and organization-wide **Insights** for administrators, with groups under 5 people hidden
+([guide](guide.md#see-how-far-you-can-trust-your-agent), [deployment](deployment.md#insights)). Still
+to come:
 
-- **Your week**, for each person: a small summary card above the conversation list on the notes page,
-  which folds away and never replaces the list. Notes sent, replies received, my median reply time,
-  how I approved (sent as written, edited, discarded), how long I take to decide, and how often I
-  approved within seconds, with a nudge when that is often.
-- **Insights**, for administrators, in the admin area: active members, notes per active member, reply
-  rate and median time to first reply, the approval mix, decision time, the quick-approval rate with a
-  warning when a team stays above the threshold, who wrote what was sent (`agent`, `human_edited`,
-  `human`), delivery health, and the number of blocks.
+- **Your week, beyond the agent**: notes sent, replies received and my median reply time on the card.
+- **More for administrators**: decision time, the quick-approval rate with a warning when a team stays
+  above a threshold (25% over 2 weeks, as settings), who wrote what was sent (`agent`, `human_edited`,
+  `human`), and delivery health.
 - **Teams**: an administrator creates teams and assigns members, by hand or from a CSV file; a
   Google Workspace directory import is optional, needs a read-only directory service account, and a
   value an administrator set wins over it; group sync arrives with SCIM. With no teams, only
-  organization-wide numbers are shown.
-- **Privacy, binding:** numbers only, never note content. An administrator sees team totals, never
-  one person's approval figures. Groups under 5 people are hidden. Blocks are a count, never who
-  blocked whom. Every member can see the list of what is measured.
-- **Needs:** recording when a draft is first shown to its person, to measure decision time and quick
-  approvals; aggregation on the server, with routes that return totals only (`admin` access for
-  Insights, the member themself for Your week); and the thresholds (3 seconds for a quick approval,
-  25% for the warning, over 2 weeks, groups of at least 5 people) as settings.
+  organization-wide numbers are shown, as now.
+- **Privacy, binding for all of it:** numbers only, never note content. An administrator sees team
+  totals, never one person's approval figures. Groups under 5 people are hidden. Blocks are a count,
+  never who blocked whom. Every member can see the list of what is measured.
 
 ## Operations
 
@@ -146,8 +244,8 @@ becoming a formality, without exposing anyone's notes or one person's approvals 
 - SCIM provisioning and periodic re-validation of members against the identity provider.
 - Revoking a credential family when a refresh token is replayed.
 - Supported upgrades between releases. The mechanism exists (a schema version table, with steps
-  applied in order at start), but there are no migrations after the 0.1.0 baseline yet, and upgrades
-  between 0.x releases are not promised.
+  applied in order at start) and step 2 upgrades a 0.1.0 database, but upgrades between 0.x releases
+  are not yet promised or tested release by release.
 
 ## Clients
 
@@ -158,24 +256,14 @@ becoming a formality, without exposing anyone's notes or one person's approvals 
   that is merely asleep.
 - Native desktop and mobile clients.
 - Languages beyond English and Korean.
-- Runner as a background service, after 0.1.0: one command (working name `homingbird service
-  install --server <url> --agent "<command>" [--workdir <dir>]`, with `status` and `uninstall`)
-  registers `homingbird run` to start when the person logs in and restart if it stops, with launchd on
-  macOS, a systemd user service on Linux and Task Scheduler on Windows. Nobody has to keep a session
-  open, and the web client is all a person uses. It runs as the person, never as root or system-wide;
-  it uses that server's saved agent credential only, so it can draft and skip but never approve; it is
-  written with the platforms' own files and no new dependency; and its logs carry no note content or
-  tokens. Unlike the mod, each note starts a fresh agent run with the tools that command loads, not
-  the person's interactive session. Windows is untested today.
-- Agent presets for the runner: `homingbird run --agent claude|codex|gemini` resolves to a verified
-  command and options. A preset is listed as verified only after it is tested with the real agent.
-  When the agent supports MCP, the run attaches this Homingbird MCP server (member routes only) so the
-  agent can find people and channels.
-- Organization rollout: installation and registration are done centrally, through MDM such as Jamf
-  or Intune, an onboarding script, or managed settings shipped with the organization's skills: `npm
-  install -g @homingbird/cli`, then `homingbird service install --server <url> --agent "<command>"`.
-  Signing in is never pre-provisioned: each person approves their own connection once in the browser,
-  because credentials are per person so that the audit log and offboarding stay meaningful. A service
-  started without a credential tells the person, through a web banner or a notification, with a
-  connection link. The deployment docs will carry example scripts for macOS, Windows and Linux; Windows
-  is untested today.
+- The background service tested where it runs: the launchd agent on a Mac, the Run key entry and the
+  runner's own supervision on Windows, and the systemd unit under a real user manager. Until then
+  `homingbird service` documents macOS and Windows as generated output only.
+- Agent presets verified with the real agents: Codex CLI, Antigravity CLI and Gemini CLI are listed as
+  "from source, unrun" until run here. Codex's reader keeps minimal tools, and Antigravity and Gemini
+  have no reader preset for split mode yet. When the agent supports MCP, the run
+  attaches this Homingbird MCP server (member routes only) so the agent can find people and channels.
+- Log rotation for the background service: its log grows a line per step until the person removes it.
+- A service started without a credential tells the person, through a web banner or a notification,
+  with a connection link; today `homingbird service status` says to sign in. Managed settings shipped
+  with the organization's skills as a third way to roll out, next to MDM and onboarding scripts.

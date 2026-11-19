@@ -5,7 +5,9 @@ Dovecote, the relay server, and Dovecote passes notes between the people they wo
 only draft; a note leaves its author only after a person approves it in the web client, where they
 signed in themself, and Dovecote checks that the credential is a person's browser sign-in before it
 sends. No agent integration holds a credential that can approve. Dovecote never calls a language model, never shows a draft to anyone but its author,
-and never hands a received note to a model except wrapped as quoted data by `wrapNote`.
+and never hands a received note to a model except wrapped as quoted data by `wrapNote`. An agent reads
+its person's principles through one read-only member route and can never change them; only the
+person's own web client saves them.
 
 Everything below is described from the code in `packages/`.
 
@@ -481,7 +483,7 @@ in the web client.
 | ChatGPT or claude.ai connector | Cannot be a desk; it reaches the remote `/mcp` endpoint | Cannot be woken; "Check Homingbird" makes it call `check_inbox` | No | Web client | Implemented |
 | A2A client | Cannot be a desk | Not woken; it reads task state with `tasks/get` | No | Web client | Experimental |
 
-## Where the seven security rules are enforced and tested
+## Where the eight security rules are enforced and tested
 
 Each rule is enforced on the server, and the rules about models are enforced again in every adapter
 that faces a model. Paths are relative to `packages/`.
@@ -495,6 +497,7 @@ that faces a model. Paths are relative to `packages/`.
 | 5. Credentials are stored hashed and never logged. | `hashSecret` (SHA-256) in `dovecote/src/random.ts`; `issueCredential`, `authenticate` and `refreshCredential` in `dovecote/src/domain/credentials.ts` store only `token_hash` and `refresh_hash`; tokens leave the server only in the token response or the session cookie; `serve` in `dovecote/src/http/node-server.ts` logs failed requests without their query string. | `dovecote/test/security-rules.test.ts`, block "Rule 5" |
 | 6. A member sees only conversations they participate in. | `participatedConversation` and `participantsOf` in `dovecote/src/domain/conversations.ts`; every note query joins `participants`; `sendDraft`, `moveToChannel` and `announceStatus` emit to the conversation's participants only. A private channel is listed, resolved and shown as a chip only to its members: `maySee` and `visibleChannel` in `dovecote/src/domain/channel-rows.ts`, `listChannels`, `channelsHelpedBy`, `helpersOfChannelSeenBy`, `channelRoomFor` and `roomForMovedQuestion` in `dovecote/src/domain/channels.ts`; `depart` drops a removed member from the room, discards their drafts in it and sends `channel.left`. | `dovecote/test/security-rules.test.ts`, block "Rule 6", including every surface of a private channel for a non-member person and their agent; `dovecote/test/channel-membership.test.ts` |
 | 7. No tool exposed to a model can save or change a profile character. | `access: 'human'` on `me.character.set` and `me.character.clear` and `access: 'admin'` on `admin.members.resetCharacter` in `protocol/src/contract.ts`; `saveCharacter` in `dovecote/src/domain/characters.ts` runs `characterProblems` (`protocol/src/character.ts`: `validateCharacter` from `sprites` plus the built-in id rule) again whatever the client checked, and stores exactly the spec that passed; `handleApiRequest` in `dovecote/src/http/api-routes.ts` refuses a body over `CHARACTER_BYTES_MAX`. The model-facing `check_character` and `preview_character` (`mcp/src/character-tools.ts`, `mod/hooks/character.ts`) call no route; the web client saves only from **Use this character** and never from a `#/character/` link. | `dovecote/test/security-rules.test.ts`, block "Rule 7"; `dovecote/test/characters.test.ts`; `mcp/test/character-tools.test.ts`, `mcp/test/tools.test.ts`; `mod/tests/character.test.ts` |
+| 8. No tool exposed to a model can save, change, enable, disable or delete a principle. | `access: 'human'` on `principles.list`, `principles.create`, `principles.update`, `principles.reorder`, `principles.delete`, `principles.miss` and `principles.offers.dismiss` in `protocol/src/contract.ts`; the only route an agent reaches is the read-only `principles.drafting` (`member`, own principles only). `createPrinciple` and `updatePrinciple` in `dovecote/src/domain/principles.ts` check kind, length, title, limit (atomically), source, channel participation and the public sentence again (`principleProblem`, `publicTextProblem`), and a principle saved from an offer needs the person's change or confirmation. Stored answers and public sentences go through the same `human` routes; the directory shows only public sentences (`agentIntroductionsOf`). Suggestions (`principle_offers`) come from `editDifference` in `protocol/src/edit-difference.ts`, not from the incoming note (the draft can quote it, hence the person's confirmation), and never reach an instruction block. `isLikelyForbidden` in `protocol/src/principles.ts` leaves out and names a principle worded like a forbidden request; it is a hint, and rules 1 and 3 are the guard. | `dovecote/test/security-rules.test.ts`, block "Rule 8"; `dovecote/test/principles.test.ts`; `protocol/test/principles.test.ts`; `cli/test/run.test.ts` (principles reach the writer only) |
 
 ## Real-time delivery
 

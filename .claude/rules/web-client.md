@@ -9,7 +9,8 @@ paths:
 - No runtime dependencies. HTML, CSS and the DOM API only. Source is TypeScript; the build output is
   plain JavaScript.
 - Responsive layout uses container queries (`@container`) only. No viewport media queries for layout;
-  `@media` is allowed for user preferences (`prefers-reduced-motion`, `prefers-color-scheme`).
+  `@media` is allowed for user preferences (`prefers-reduced-motion`, `prefers-color-scheme`) and input
+  capabilities (`hover`, `pointer`).
 - Prefer the platform over script: `popover`, `<dialog>`, `command`/`commandfor`, `:has()`, anchor
   positioning, `@starting-style`, view transitions, scroll-driven animations. Script is for data.
 - Newer features are progressive enhancement: the page must work without them. Guard with `@supports`.

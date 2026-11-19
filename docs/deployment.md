@@ -26,9 +26,12 @@ move up one size for the large row.
 - [When someone leaves](#when-someone-leaves)
 - [Audit log forwarding](#audit-log-forwarding)
 - [Answering flow](#answering-flow)
+- [Insights](#insights)
+- [Features](#features)
 - [Web push](#web-push)
 - [Connecting claude.ai](#connecting-claudeai)
 - [Running the desk runner on a server](#running-the-desk-runner-on-a-server)
+- [Roll out to an organization](#roll-out-to-an-organization)
 - [Configuration](#configuration)
 - [Ready-made setups](#ready-made-setups)
 
@@ -94,7 +97,8 @@ Horizontal scaling (shared fan-out through the database or a broker) is on the
 ### Upgrading
 
 - Dovecote creates its tables on first start. The 0.1.0 schema is one baseline, recorded as version
-  1; there are no migrations after it yet.
+  1. Step 2 adds the columns and tables for the agent figures and teaching; a 0.1.0 database gets it
+  on its next start and keeps every row.
 - The mechanism for later changes exists: a `schema_versions` table records which schema steps a
   database has, and Dovecote applies the missing ones in order when it starts, each in its own
   transaction. There are no down-migrations.
@@ -212,9 +216,66 @@ says it too. Every change to a channel's members, managers and visibility is aud
 An administrator can set one answering flow for the server: steps every member's desk follows before
 drafting, and checks it runs on each draft before a person sees it. Set it as `answeringFlow` on
 `PUT /api/v1/admin/settings` with an administrator's session, or in the web client's administration
-settings where it offers the field; the change is audited with its text. Write each step by the outcome you want, not by a tool, because members' agents differ
+settings, where the steps are two lists, each step with a switch to turn it off, edited in place and
+put in order; the change is audited with its text. A turned off step is stored with "[off] " in front and
+never reaches an agent. Write each step by the outcome you want, not by a tool, because members' agents differ
 in what they have; the [guide](guide.md#answering-flow) shows the format. The flow is not shown to
 members but reaches each member's agent, so never put confidential material in it.
+
+## Insights
+
+Every member sees their own agent's numbers under **My agent** ([guide](guide.md#see-how-far-you-can-trust-your-agent)):
+how many of its drafts were sent as written, edited or discarded, what it skipped, and how quickly the
+member decided. Administrators see **Insights** in the administration area: people who sent notes,
+notes per person, reply rate and typical time to the first reply, the approval mix, the share of quick
+approvals and of skipped notes, and totals per channel. Insights hold numbers only, never note content
+and never one person's figures:
+
+- A period in which fewer than `HB_INSIGHTS_MINIMUM_GROUP` people (5 by default) sent notes shows no
+  numbers at all, and the block count is shown only as a number, and only once the organization has
+  that many members.
+- A channel, or direct messages together, appears on its own only when at least that many people
+  contributed to it. When the left-out groups together would still be fewer people, the next smallest
+  group is left out too, so the organization's totals minus the shown groups never reveal a small one.
+- The member's own route is for people only: an agent credential cannot read how its person approves.
+
+Principles that members teach their agents ([guide](guide.md#my-agent)) are private to each member and
+never appear in Insights. Like every action and every note, they are recorded in full in the audit log.
+
+Two settings shape the numbers. Both apply to everything already recorded, because Dovecote stores
+times, not verdicts:
+
+- `HB_QUICK_APPROVAL_SECONDS` (default `3`): a draft sent as written within this many seconds of first
+  appearing on its person's screen counts as a quick approval.
+- `HB_INSIGHTS_MINIMUM_GROUP` (default `5`): the smallest group whose numbers are shown. It can be
+  raised, never set below 5.
+
+The figures are computed when the page is opened, from the last 60 days of notes, decisions and skips.
+Teams are not built yet, so only organization-wide numbers are shown.
+
+## Features
+
+An administrator can turn optional features off under **Administration → Settings → Features**. A
+feature that is off disappears from the web client, its routes answer 404 "This feature is turned off in
+this organization.", agents are told nothing about it, and its data is kept for when it is turned on
+again. Every change is audited. `server.info` lists which features are on, so every client adapts.
+
+| Switch | Default | When it is off |
+| --- | --- | --- |
+| `channels` | on | People can no longer create channels; existing channels stay |
+| `draftRequests` | on | People can no longer ask their agent for a draft from the web client |
+| `characters` | on | Everyone shows as the pigeon; nobody can change a character |
+| `webPush` | on | No notifications reach phones or computers |
+| `answeringFlow` | on | Agents draft without the organization's steps |
+| `teaching` | on | Principles are kept but not used, and nobody can add one (the route map goes too) |
+| `agentFigures` | on | People no longer see their agent's figures |
+| `routeMap` | on | My agent shows no route map |
+| `insights` | on | Administrators see no organization-wide numbers |
+| `noteDetails` | on | Notes no longer show the model and program that wrote them |
+
+Notes, drafts, approval, direct messages, sign-in and the audit log are the core and cannot be turned
+off. `HB_FEATURES` seeds the switches at first start, such as `HB_FEATURES="teaching=off,characters=on"`;
+once an administrator saves settings, the saved switches win.
 
 ## Web push
 
@@ -266,6 +327,116 @@ The agent command runs with the permissions of the OS user that runs the runner,
   another matter.
 - The runner holds an event stream, so the person's agent shows as **awake** while it runs.
 
+## Roll out to an organization
+
+Install the command line and register each person's runner centrally, with MDM (Jamf, Intune) or an
+onboarding script, so that people only open the web client. Every script does two things:
+
+1. Install the CLI: `npm install -g @homingbird/cli` (Node 22 or newer must already be installed).
+2. As the person, never as root: `homingbird service install --server <url> --agent <preset or command>`.
+
+**Signing in is never pre-provisioned.** Credentials are per person, so that the audit log says who
+drafted and offboarding revokes one person's access. Do not copy credential files between machines or
+create them centrally. After the script, each person runs `homingbird login --server <url>` once and
+approves the connection in the browser; until then the service runs and waits, and `homingbird service
+status` says `Sign in first: homingbird login --server <url>`. Put that line in your onboarding
+instructions: the service does not yet tell the person through the web client or a notification.
+
+**Tested so far.** The service definitions are generated by tested code, but on macOS and Windows
+neither they nor the scripts below have been run on those systems yet, and on Linux the systemd unit
+is checked with `systemd-analyze verify` but has not been loaded by a real user manager. Try each
+script on one machine before rolling it out. Windows is untested.
+
+The examples use `--agent claude`; `homingbird presets` lists the others, and a full command works
+too. Add `--split` to keep the drafting agent away from a note's wording (see the guide).
+
+### macOS (Jamf or another MDM, run as root)
+
+MDM scripts run as root, and the service must belong to the person, so the script installs the CLI for
+the machine and then registers the service as the user at the console, in their own login session.
+
+```sh
+#!/bin/sh
+set -eu
+SERVER="https://homingbird.example.com"
+AGENT="claude"
+
+npm install -g @homingbird/cli
+
+user=$(stat -f%Su /dev/console)
+if [ "$user" = "root" ] || [ "$user" = "loginwindow" ]; then
+  echo "Nobody is logged in; run this again at the next login." >&2
+  exit 0
+fi
+uid=$(id -u "$user")
+launchctl asuser "$uid" sudo -u "$user" -i \
+  homingbird service install --server "$SERVER" --agent "$AGENT"
+```
+
+The service keeps the `PATH` it was installed with, here that of the person's login shell from
+`sudo -i`. That `PATH` may not hold the agent: tools installed through a version manager or a shell
+profile such as `.zshrc` are often missing from it. When in doubt, pass the agent by its absolute path,
+such as `AGENT="/opt/homebrew/bin/claude -p"`, and check the result with `homingbird service status`
+and the log. The service is a launchd agent in `~/Library/LaunchAgents`, loaded into `gui/<uid>`.
+
+### Windows (Intune, run as the signed-in user)
+
+In Intune, add it as a PowerShell script with **Run this script using the logged on credentials** set
+to **Yes**: the entry belongs to the person and runs with their rights. `service install` refuses to
+run as SYSTEM or a machine account. Untested on a real Windows machine.
+
+```powershell
+$ErrorActionPreference = 'Stop'
+$Server = 'https://homingbird.example.com'
+$Agent = 'claude'
+
+npm install -g @homingbird/cli
+& "$env:APPDATA\npm\homingbird.cmd" service install --server $Server --agent $Agent
+```
+
+`service install` writes a value under the person's own Run key
+(`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`), which Windows starts at their logon, and
+starts the runner at once. The runner supervises itself: it starts again detached and hidden, so a
+console window flashes briefly at logon, keeps one copy per server, retries what fails and writes its
+own log. `service uninstall` deletes the value and asks the runner to stop. The agent command cannot
+contain `"` or `%` on Windows. None of this has been run on Windows yet.
+
+### Linux (onboarding script, or configuration management)
+
+Run by the person, the script is two commands:
+
+```sh
+#!/bin/sh
+set -eu
+SERVER="https://homingbird.example.com"
+AGENT="claude"
+
+npm install -g @homingbird/cli   # or set an npm prefix in the person's home first
+homingbird service install --server "$SERVER" --agent "$AGENT"
+```
+
+From configuration management running as root, install the CLI as above and register the service as
+the person, inside their running login session, which systemd user services need:
+
+```sh
+user="june"
+uid=$(id -u "$user")
+sudo -iu "$user" env XDG_RUNTIME_DIR="/run/user/$uid" \
+  DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" \
+  homingbird service install --server "$SERVER" --agent "$AGENT"
+```
+
+The unit is `~/.config/systemd/user/homingbird-runner-<server>.service`, enabled for
+`default.target`: it starts when the person logs in and stops when they log out.
+
+### What people do afterwards
+
+- `homingbird login --server <url>` once, approving the connection in the browser.
+- `homingbird service status` to see whether it is running and where its log is;
+  `homingbird desk pause` and `homingbird desk resume` to pause their desk on that computer.
+- To offboard, revoke the person's credentials in Dovecote (see [When someone leaves](#when-someone-leaves));
+  their service then waits for a sign-in that never comes. `homingbird service uninstall` removes it.
+
 ## Configuration
 
 Every variable Dovecote reads. Blank values count as unset.
@@ -284,6 +455,9 @@ Every variable Dovecote reads. Blank values count as unset.
 | `HB_CHANNELS` | none | Channels created on start, `slug` or `slug: description`, comma-separated. Exactly these are created, once, and nobody is joined to them |
 | `HB_SESSION_DAYS` | `30` | Days a sign-in lasts before the identity provider is asked again |
 | `HB_AGENT_CREDENTIAL_DAYS` | `90` | Days an agent credential lasts |
+| `HB_FEATURES` | all on | Starting feature switches, `name=on` or `name=off`, comma-separated ([Features](#features)). A starting value, like `HB_ALLOWED_DOMAINS` |
+| `HB_QUICK_APPROVAL_SECONDS` | `3` | A draft sent as written within this many seconds of appearing counts as a quick approval ([Insights](#insights)) |
+| `HB_INSIGHTS_MINIMUM_GROUP` | `5` | The smallest group whose numbers Insights shows; at least 5 ([Insights](#insights)) |
 | `HB_TRUST_PROXY` | `0` | Number of proxies in front that append to `X-Forwarded-For`; see [above](#behind-a-load-balancer) |
 | `HB_AUDIT_STDOUT` | `0` | `1` prints audit entries as JSON lines |
 | `HB_AUDIT_WEBHOOK_URL` | none | Posts audit entries to this URL |

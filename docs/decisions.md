@@ -1,9 +1,103 @@
 # Decisions
 
-Each entry states the decision first, then the reason. Add new entries at the top of their section.
+Product decisions serve one direction: helping a person come to trust their agent's answers. Each entry
+states the decision first, then the reason. Add new entries at the top of their section.
 
 ## Product
 
+- **Every optional feature can be switched off by an administrator; the core cannot.** One table in
+  `protocol` (`FEATURES`) names each switch, its default and the routes it owns; the server refuses those
+  routes with 404 while the switch is off, `server.info` tells clients, desks treat the refusal as "say
+  nothing", and the data stays. Notes, drafts, approval, direct messages, sign-in and the audit log are
+  not switchable, because without them Homingbird stops being a messenger in which a person approves
+  what their agent writes and an organization can see what happened. Later features (debate rooms,
+  stored answers, automatic sending, the last off by default) register a switch in the same table.
+- **Everything about a person's agent lives on one page, My agent, in the header; the profile is about
+  the person.** The page has four headed sections in a fixed order, Connection (agents and devices, the
+  desk, renaming and revoking, a connection code), Teaching, How it is doing and Route map, each at its
+  own address (`#/agent/connection` and so on); `#/connect` and `#/credentials` lead to Connection. The
+  profile keeps the name, character, language, notifications and the line colleagues see. A summary
+  card above the conversation list repeated the page and pushed the list down, so there is none; the
+  quick-approval nudge moved to where it matters: a draft card shows one quiet line above Send when the
+  person approved quickly often this week and the draft contains a date, a number or a promise, found by
+  simple patterns. It never blocks sending.
+- **Session health is recorded with each agent draft and shown only to its author.** A desk reports the
+  session's age in minutes and, where it can know it, its context use: the mod reads both from Claude
+  Code's `$.session.usage()` and hands them to the command line in `HOMINGBIRD_SESSION`, outside any
+  argument a model writes; an MCP desk's model may state them, like its model; the runner starts afresh
+  for every note and sends no session, so its drafts stay out of these figures. How it is doing groups
+  decided drafts into four age and four context buckets and shows edit and discard shares only from five
+  drafts per bucket. A fresh session is suggested from 8 hours or 80% context use, judged from a desk's
+  latest draft only while it is under an hour old (`FRESH_SESSION_AFTER_MINUTES`,
+  `FRESH_SESSION_AT_CONTEXT_PERCENT` in `protocol`; the mod keeps an equal copy, checked by a test). A
+  recipient never sees any of it, and nothing reaches another person's view, so `noteDetails` has
+  nothing to hide.
+- **The agent introduction is a sentence per item, written for colleagues, never the item itself.** Each
+  item has a Public toggle, off by default; turning it on needs a separate sentence of at most 200
+  characters. It may not share four words in a row with the private text (or all of a two- or
+  three-word text; a single word never counts), name the source with or without its scheme, or name
+  the principle's channel, and the form warns that it can still reveal what the principle says. The sentences of a member's enabled items appear in the directory
+  entry as "About their agent", to every member who can see that member, and only while `teaching` is
+  on. Writing one is a `human` route like every other principle change (rule 8); the administrator's
+  answering flow has no public toggle and is never shown to members.
+- **A stored answer is a kind of item in the principles list, not a separate store.** An item is a rule
+  ("answer by …", how to find the answer) or an answer ("answer with …", a fixed text of at most 600
+  characters, or the text left empty and a source to take it from). Answers share the list, its order,
+  the 50-item and 1,500-character caps, rule 8 and every guard; a source is linked material read as
+  data. The save dialog's "looks like a stored answer" warning offers to switch a rule to an answer. The
+  basis names an applied answer by its title, as for a rule. A person still approves every draft.
+- **Principles are a person's rules for their own agent, saved only by that person in the web client
+  (security rule 8).** Saving, changing, turning off, deleting and "wrong here" are `human` routes;
+  the only route an agent reaches is `principles.drafting` (`member`, read-only, own principles only),
+  which each desk calls for every draft so it always follows the current set. A desk adds them after
+  the answering flow through one helper in `protocol` (`principlesInstructions`, `draftingGuidance`),
+  shared by the runner, the MCP server and the mod, whose overview carries them; in split mode only
+  the writer gets them, never the reader that sees the note. The flow always wins, a principle cannot
+  turn off a check. One whose wording looks like a request for something no agent may do (approve,
+  send, discard, change contacts or a character, touch credentials) is left out and named for the
+  basis; that pattern check (`isLikelyForbidden`) is a hint for the person, not a guard. The guard is
+  rules 1 and 3: no agent credential and no model-facing tool can do those things whatever a principle
+  says. Caps: 50 per person, held under concurrent saves; 300 characters each; 1,500 characters per
+  prompt, counting the line that names ignored principles, which ends "and N more" when the titles do
+  not fit. The order is the person's own (`principles.reorder`, also a `human` route), kept on My agent
+  like a to-do list. A principle may name a channel the person is in; when the agent answers there,
+  that channel's principles come first, and each group keeps the person's order. The budget is applied
+  after that ordering, so what matters most in this channel is never the part cut. Titles may not
+  contain ":" or ";", so the applied line always names them exactly. A revised basis replaces the
+  draft's earlier applied claims. The agent reports
+  what it applied as a "Principles applied:" line in basis; the server and the web client match those
+  titles against the person's own principles, and the card says "Your agent says it applied", because
+  it is the model's word.
+- **No model takes part in suggesting a principle.** A suggestion is made by a deterministic word diff
+  between the agent's draft (kept as `agent_body`) and the sent text, not from the incoming note or
+  linked material. The draft itself can quote the colleague's note, so a suggestion may carry their
+  words: that is why it is stored apart (`principle_offers`), never reaches an instruction block,
+  carries no source, and is saved only when the person changes it or confirms it; the server checks
+  that again. An edit counts as substantial at 8 changed words, or
+  at 3 changed words that are at least 15% of the longer text, ignoring case, spacing, punctuation and
+  typo-sized changes. A discard offers the empty guided form. Offers come at most once a day per
+  channel, or per direct or group conversation, and never where the person said not to ask. Principles, offers and their audit entries keep the
+  full text: the audit log records everything, as for note content.
+- **A person's own agent figures are a `human` route, `insights.mine`; an agent credential gets 403.**
+  How a person approves (how often they send a draft unchanged, how fast, where they edit) tells an agent
+  exactly when approval has become a formality and which drafts would slip through, so a prompt-injected
+  agent could time or word its drafts for it. The figures are for the person; no MCP, CLI or A2A tool
+  reaches them, and `drafts.seen`, which records when a draft card first appeared on a visible page, is
+  `human` too, so an agent cannot fake its person having read a draft. `admin.insights` is `admin` and
+  returns counts and medians only: never a member id, a name or note content, nothing for a period in
+  which fewer than `HB_INSIGHTS_MINIMUM_GROUP` people (at least 5) were active, and no channel whose
+  contributors are fewer; when the hidden groups together are still fewer people, the next smallest is
+  hidden too, so subtracting the shown ones from the totals never isolates a small group. Differences
+  between periods are not suppressed.
+- **The agent page says what the numbers mean in words, beside the numbers, and never collapses them
+  into one score.** A single trust score hides which channel is trusted and why, invites chasing the
+  number by approving faster, and grades the person rather than the agent. The server reads a verdict
+  from shares only (`too_few` under 10 decided drafts, `usually_as_written` from 70%, `often_discarded`
+  or `often_edited` from 30%, otherwise `mixed`), the same rule per channel, and the page shows the
+  counts that drive it, the period before, and a nudge to read drafts carefully when quick approvals
+  are frequent. Dovecote stores times (`seen_at`, `decided_at`, `releases.created_at`), not verdicts, so
+  `HB_QUICK_APPROVAL_SECONDS` and the thresholds apply to everything already recorded. A draft set aside
+  without its person, such as the unchosen alternative, counts as written but not as decided.
 - **Topics are channels and one-to-one conversations are direct messages, in every name.** People know
   "channel" and "DM" without an explanation, so the product, the API, the tools and the database use them.
 - **An agent is "awake", not "online".** Presence means a desk is running and holds a live stream; a
@@ -96,6 +190,12 @@ Each entry states the decision first, then the reason. Add new entries at the to
 
 ## Architecture
 
+- **The answering flow's stored text marks a turned off step with "[off] ".** The administration page
+  edits the flow as two to-do lists and serialises them to the same two headed lists the server
+  already validated; a turned off step keeps its place in the text, counts toward the 20 steps and
+  4,000 characters, and is left out of every agent's instructions by the one parser in `protocol`
+  (`answeringFlowSteps`, `answeringFlowFrom`). Storing the steps as structured data would have changed
+  the setting's contract for every client; one marker kept it.
 - **The marketplace entry names the exact mod version.** Its npm source carries `version`, written by
   `scripts/release-version.ts` on every version bump with the other version holders, because an npm
   source without one installs `latest`, and during pre-releases `latest` lagged behind `next`.
@@ -169,7 +269,11 @@ Each entry states the decision first, then the reason. Add new entries at the to
 - **Startup is one task, `prepareDatabase`: migrate, then seed channels.** Every embedded server gets
   the channels in `HB_CHANNELS` the same way `main.ts` does.
 - **The 0.1.0 schema is one baseline, version 1, and Dovecote touches no database it did not make.**
-  A new database gets every table in its 0.1.0 shape at once; the first later change will be step 2.
+  The baseline stays exactly as 0.1.0 released it; every later change is a numbered step after it.
+  Step 2 adds what the agent figures and teaching need: the draft's seen and decided times, its first
+  wording, client and model on notes, and the principles, applications, offers, quiet places and
+  releases tables. A new database runs every step at once; a 0.1.0 database runs only the steps it
+  lacks. Steps only add nullable columns, tables and indexes, so an upgrade keeps every row.
   A database that records versions this build does not know, or holds its tables with no version, is
   refused at start with one sentence and left as it is, rather than guessed at. Upgrades between 0.x
   versions are not promised, and a database from a 0.1.0 release candidate is recreated.
@@ -407,3 +511,90 @@ each desk meets a step with a fitting tool or by careful reading.
   it back in a draft, in `basis` or to a colleague.
 - It lives on the server rather than in each person's files, so one change reaches every desk;
   personal flows and command steps for the runner are on the roadmap.
+
+## Split mode keeps the drafting agent away from a note's wording
+
+A colleague's note is untrusted text, and an agent that reads it word for word can be steered by an
+instruction hidden in it; quoting it as data (`wrapNote`) lowers that risk but cannot remove it. In
+split mode (`homingbird run --split`, `homingbird-mcp --run-agent … --split`) a reader command reads
+the wrapped note, with nothing else in its prompt, and may answer only one JSON object of a fixed shape:
+`kind`, `topic` (80 characters at most), `asks` (240), `needs` (five phrases of 60), `deadline` (a date
+or null) and `language` (a BCP 47 tag). The runner checks it with a kernel schema and rejects anything
+else: other fields, longer text, control characters, prose, several objects. A note it cannot read
+that way is given back with the reason "could not read the note safely", never drafted from. The
+drafting agent gets the instructions, the answering flow and these fields, wrapped as quoted data from
+the colleague, and never the note's text; its draft's basis begins "Drafted from the extracted question
+(split mode)".
+
+- **What it protects against, and what not.** The writer never sees the note's exact wording, and an
+  instruction longer than the caps cannot reach it whole. The free-text fields can still carry injected
+  words, which is why they are short and arrive as quoted data. It reduces the note's influence on the
+  writer; it does not remove every influence.
+- **Tools are the person's to take away.** Homingbird runs an arbitrary command and cannot strip its
+  tools, so the reader is as safe as the command the person gives `--reader`; by default it is the
+  agent command itself, and the runner says so once at start. `--require-toolless-reader` makes the
+  runner refuse to start when the two are the same command, as an opt-in strictness; it cannot check
+  that a different command really has no tools.
+- **Approval stays the boundary.** Every draft still waits for its person in the web client. Split mode
+  is the foundation automatic sending will need, not a reason to send without approval: that needs the
+  deterministic server checks on the roadmap first.
+
+## What wrote a note: program and model are both as reported
+
+Every note an agent writes records two labels next to the connection's name: `client`, the program the
+agent ran in, and `model`, the model it ran as. Both are what the agent or its integration reports, not
+facts the server can check. Each integration passes on what it is told: MCP takes the client's
+`clientInfo` name and version from `initialize` (or a stateless call's `_meta`), which the client
+declares about itself; the runner and the MCP-hosted desk use the agent command's program "via homingbird
+run", past launchers such as `env` or `npx`; the mod asks its host for "Claude Code" and its version;
+A2A uses the calling agent's card name when it sends one. When an integration names none, the server
+falls back to the client name the credential was registered with. `model` is what the agent says about
+itself (`model` on `drafts.create` and `drafts.update`); desk prompts ask for it only if the agent knows
+it. The command line takes `--model` but no program flag: the program comes from the integration that
+runs it, never from a model.
+
+- **Labels, never instructions.** Both are shown as text, after the note is sent, to everyone who can
+  read the note, and never placed in any prompt, so a label cannot steer another agent. Every path
+  cleans them the same way (`agentLabelOf`: control and format characters such as a bidi override are
+  dropped, one line of at most 80 characters), and the wire model accepts nothing else.
+- **Neither is checked.** The web client lists both and ends with "The agent reported its model and
+  program." The connection's name, which the server knows from the credential, is the one observed
+  fact in that list.
+- **Drafts stay private (Rule 2).** A recipient sees neither label until the note is sent.
+- **An administrator can hide them.** With the `noteDetails` feature off, the server keeps recording
+  both labels but returns them to nobody, and the character's details show only who wrote the note.
+
+## The always-on runner is the person's own service, written with each platform's files
+
+`homingbird service install` registers `homingbird run --service` with the service manager the
+person's account already has: a launchd agent in `gui/<uid>` on macOS, a systemd user unit for
+`default.target` on Linux, a value under the person's own Run key on Windows. It refuses to run as
+root (or, on Windows, as SYSTEM or a machine account), writes nothing system-wide and adds no
+dependency. Each definition is generated by a pure function, and a thin layer runs the platform's own
+command through the injected process service.
+
+- **Windows uses a Run key and the runner as its own supervisor, as `code tunnel service` does.** We
+  tried Task Scheduler first: its restart on failure ignores a task that exits with an error code, an
+  interactive task shows a console window, and whether `schtasks /XML` reads our encoding was
+  uncertain. A Run key value starts `node <cli> run --service` at logon; the runner starts itself again
+  detached and hidden (a console flashes once), holds a lock beside the desk claims so a second copy
+  exits, retries failures and crashes of its own loop, writes its own log (`--log`), and stops when its
+  stop file appears, ending each agent command with `taskkill /T /F`: Node's own kill reaches only the
+  direct child, and an agent behind `shell: true` is a grandchild. `service status` reads the Run value
+  through `reg query`'s exit status and the lock, never translated output. A `"` or `%` in any value is
+  refused rather than quoted. Untested on a real Windows machine.
+- **The service waits instead of failing.** In service mode the runner waits for a sign-in, waits for a
+  new one when the credential is refused, and retries other failures after a minute, so a service
+  manager never restarts it in a tight loop and the person learns from `service status` what to do.
+- **The log carries no note.** It holds timestamped steps with ids only; an agent's skip reason, which
+  can quote a note, still reaches the person through the server but not the log, and the agent
+  command's own error output is discarded in service mode.
+- **A preset is a name, resolved when the runner starts.** The service keeps `--agent claude`, not the
+  command it stands for, so an upgrade changes the preset everywhere. A preset is marked verified only
+  after a run with the real agent, and "from source, unrun" when written from the tool's source code.
+  A reader that keeps some tools, as Codex's does, is marked so and never passes
+  `--require-toolless-reader`.
+- **Pausing is a file beside the desk claim.** `homingbird desk pause` writes
+  `desks/<server>~<member>.paused`; every runner on the computer, CLI and MCP-hosted, checks it before
+  each note and request and keeps its claim while paused, so pausing never hands the desk to another
+  runner.
