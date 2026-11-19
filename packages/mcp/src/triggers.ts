@@ -2,6 +2,7 @@ import { Task as T } from '@homingbird/kernel'
 import {
   ANSWERING_FLOW_UNAVAILABLE,
   type ApiError,
+  type ConversationId,
   type DraftRequest,
   type DraftRequestId,
   type EventType,
@@ -9,8 +10,11 @@ import {
   type MemberId,
   type Note,
   type NoteId,
+  PRINCIPLES_UNAVAILABLE,
   answeringFlowFrom,
   answeringFlowInstructions,
+  draftingGuidance,
+  principlesInstructions,
 } from '@homingbird/protocol'
 import { ANSWER_RULE, KNOWLEDGE_RULE } from './answering.ts'
 import type { MemberApi } from './member-api.ts'
@@ -38,9 +42,12 @@ export const freshTriggers = (context: TriggerContext): T.Task<ReadonlyArray<Tri
     const triggers = yield* triggersFrom([notesToPickUp, draftsRequested], context)
     if (triggers.length === 0) return triggers
     const flow = yield* answeringFlowOf(context)
-    return flow === ''
-      ? triggers
-      : triggers.map((trigger) => ({ ...trigger, text: `${trigger.text}\n\n${flow}` }))
+    return yield* T.forEach(triggers, (trigger) =>
+      T.map((principles: string) => {
+        const guidance = draftingGuidance(flow, principles)
+        return guidance === '' ? trigger : { ...trigger, text: `${trigger.text}\n\n${guidance}` }
+      })(principlesOf(context, trigger.meta.conversation_id)),
+    )
   })
 
 export const waitingTriggers = (
@@ -110,12 +117,21 @@ const noteTrigger = ({ note, author }: InboxItem, context: TriggerContext, advic
 })
 
 const answeringFlowOf = (context: TriggerContext): T.Task<string> =>
-  T.catchAll(() => T.succeed(ANSWERING_FLOW_UNAVAILABLE))(
+  T.catchAll((error: ApiError) => T.succeed(error._tag === 'NotFound' ? '' : ANSWERING_FLOW_UNAVAILABLE))(
     T.map(({ flow }: { flow: string | null }) => {
       if (flow === null) return ''
       const read = answeringFlowFrom(flow)
       return read._tag === 'Ok' ? answeringFlowInstructions(read.value) : ANSWERING_FLOW_UNAVAILABLE
     })(context.api['answeringFlow.get']({})),
+  )
+
+const principlesOf = (context: TriggerContext, conversationId: string | undefined): T.Task<string> =>
+  T.catchAll((error: ApiError) => T.succeed(error._tag === 'NotFound' ? '' : PRINCIPLES_UNAVAILABLE))(
+    T.map(principlesInstructions)(
+      context.api['principles.drafting']({
+        query: conversationId === undefined ? {} : { conversationId: conversationId as ConversationId },
+      }),
+    ),
   )
 
 const isBeingDrafted = (note: Note, viewerId: MemberId): boolean =>

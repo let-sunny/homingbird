@@ -1,12 +1,16 @@
 import { Task as T } from '@homingbird/kernel'
 import {
   ANSWERING_FLOW_UNAVAILABLE,
+  Invalid,
+  NotFound,
   NoteId,
+  PRINCIPLES_UNAVAILABLE,
   type RouteName,
   Unavailable,
   WRAPPER_TAG,
   answeringFlowInstructions,
   humanOnlyRoutes,
+  principlesInstructions,
 } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import { KNOWLEDGE_RULE } from '../src/answering.ts'
@@ -36,7 +40,11 @@ import {
 const SECOND = noteOf({ id: NoteId.of('note00000002'), body: 'And the export job?' })
 
 const fresh = async (stubs: Stubs, announced?: AnnouncedRequests) => {
-  const fake = fakeApi({ 'draftRequests.list': () => ({ requests: [] }), ...stubs })
+  const fake = fakeApi({
+    'draftRequests.list': () => ({ requests: [] }),
+    'principles.drafting': () => ({ principles: [], leftOut: 0, ignored: [], ignoredLeftOut: 0 }),
+    ...stubs,
+  })
   const exit = await T.run(
     T.result(
       freshTriggers({
@@ -66,6 +74,8 @@ describe('freshTriggers', () => {
       { name: 'notes.pickup', request: { params: { id: SECOND.id } } },
       { name: 'draftRequests.list', request: {} },
       { name: 'answeringFlow.get', request: {} },
+      { name: 'principles.drafting', request: { query: { conversationId: noteOf().conversationId } } },
+      { name: 'principles.drafting', request: { query: { conversationId: SECOND.conversationId } } },
     ])
     expect(result).toMatchObject({ _tag: 'Ok', value: [{ kind: 'note' }, { kind: 'note' }] })
   })
@@ -188,6 +198,49 @@ describe('draft requests as triggers', () => {
     const [note, request] = (result as any).value
     for (const trigger of [note, request]) expect(trigger.text.endsWith(block)).toBe(true)
     expect(note.text.indexOf(block)).toBeGreaterThan(note.text.indexOf(`</${WRAPPER_TAG}>`))
+  })
+
+  it('adds the person’s principles for the note’s conversation after the answering flow, fetched for each draft', async () => {
+    const principles = {
+      principles: [
+        { kind: 'rule' as const, topic: 'Release dates', rule: 'check RELEASES.md', source: null },
+      ],
+      leftOut: 0,
+      ignored: [],
+      ignoredLeftOut: 0,
+    }
+    const { result } = await fresh({
+      ...inboxOf(noteOf()),
+      'answeringFlow.get': () => ({ flow: '## Before drafting\n1. Look it up.', updatedAt: 1 }),
+      'principles.drafting': () => principles,
+    })
+    const text: string = (result as any).value[0].text
+    expect(text.endsWith(principlesInstructions(principles))).toBe(true)
+    expect(text.indexOf('Look it up.')).toBeLessThan(text.indexOf('Release dates: check RELEASES.md'))
+  })
+
+  it('drafts without principles, and says so, when they cannot be fetched', async () => {
+    const { result } = await fresh({
+      ...inboxOf(noteOf()),
+      'answeringFlow.get': () => ({ flow: null, updatedAt: null }),
+      'principles.drafting': () => Unavailable({ message: 'down' }),
+    })
+    expect((result as any).value[0].text.endsWith(PRINCIPLES_UNAVAILABLE)).toBe(true)
+  })
+
+  it('tells a refusal for the conversation apart from teaching being switched off', async () => {
+    const refused = await fresh({
+      ...inboxOf(noteOf()),
+      'answeringFlow.get': () => ({ flow: null, updatedAt: null }),
+      'principles.drafting': () => Invalid({ message: 'You are not in that conversation.' }),
+    })
+    expect((refused.result as any).value[0].text.endsWith(PRINCIPLES_UNAVAILABLE)).toBe(true)
+    const off = await fresh({
+      ...inboxOf(noteOf()),
+      'answeringFlow.get': () => ({ flow: null, updatedAt: null }),
+      'principles.drafting': () => NotFound({ message: 'This feature is turned off in this organization.' }),
+    })
+    expect((off.result as any).value[0].text).not.toContain('principles')
   })
 
   it('drafts without the answering flow, and says so, when it cannot be fetched', async () => {

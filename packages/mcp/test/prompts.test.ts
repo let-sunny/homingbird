@@ -40,7 +40,7 @@ describe('getPrompt', () => {
   it('names only tools that exist, and none that could send', async () => {
     const names = new Set(TOOLS.map((tool) => tool.name))
     for (const prompt of PROMPTS) {
-      const text = prompt.text({ who: 'June', what: 'x' })
+      const text = String(prompt.text({ who: 'June', what: 'x' }))
       for (const mentioned of text.match(/\b[a-z]+_[a-z_]+\b/g) ?? []) expect(names).toContain(mentioned)
       expect(text).not.toMatch(/\b(approve it|send it|discard)\b/)
     }

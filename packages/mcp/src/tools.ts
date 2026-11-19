@@ -1,9 +1,11 @@
 import { Schema as S, Task as T } from '@homingbird/kernel'
 import {
+  AgentLabel,
   type ApiError,
   type Channel,
   ChannelSlug,
   ConversationId,
+  type DeskSession,
   DraftRequestId,
   Invalid,
   type Member,
@@ -14,8 +16,14 @@ import {
   NoteBody,
   NoteId,
   RELEASE_REASON_MAX,
+  SESSION_AGE_MAX_MINUTES,
 } from '@homingbird/protocol'
-import { BASIS_DESCRIPTION } from './answering.ts'
+import {
+  BASIS_DESCRIPTION,
+  CONTEXT_PERCENT_DESCRIPTION,
+  MODEL_DESCRIPTION,
+  SESSION_MINUTES_DESCRIPTION,
+} from './answering.ts'
 import type { OpenInBrowser } from './browser-opener.ts'
 import { CHARACTER_TOOLS } from './character-tools.ts'
 import { type RpcFailure, invalidParams } from './json-rpc.ts'
@@ -37,6 +45,7 @@ export interface ToolContext {
   readonly openInBrowser?: OpenInBrowser
   readonly announced?: AnnouncedRequests
   readonly desk?: boolean
+  readonly client?: string
 }
 
 export interface Tool<F extends S.Fields = S.Fields> {
@@ -269,8 +278,14 @@ export const TOOLS: ReadonlyArray<Tool<any>> = [
       channel: S.optional(ChannelSlug),
       requestId: S.optional(DraftRequestId),
       basis: S.optional(NoteBasis),
+      model: S.optional(AgentLabel),
+      sessionMinutes: S.optional(S.int({ min: 0, max: SESSION_AGE_MAX_MINUTES })),
+      contextPercent: S.optional(S.int({ min: 0, max: 100 })),
     },
     describe: {
+      model: MODEL_DESCRIPTION,
+      sessionMinutes: SESSION_MINUTES_DESCRIPTION,
+      contextPercent: CONTEXT_PERCENT_DESCRIPTION,
       body: 'The note, as plain text. Links are allowed; attachments are not.',
       basis: BASIS_DESCRIPTION,
       to: 'The recipient: a member id or an email address from find_people.',
@@ -279,8 +294,9 @@ export const TOOLS: ReadonlyArray<Tool<any>> = [
         'One channel room from find_channels, when you do not know whom to ask. Never post one question to several channels. A private channel works only when your human is a member.',
       requestId: 'The draft request from your human that this note answers; the request says where it goes.',
     },
-    run: ({ body, to, conversationId, channel, requestId, basis }, context) =>
+    run: ({ body, to, conversationId, channel, requestId, basis, model, ...session }, context) =>
       T.gen(function* () {
+        const reported = yield* requireSession(session)
         const destinations = [to, conversationId, channel, requestId].filter((each) => each !== undefined)
         if (destinations.length !== 1) return yield* T.fail(Invalid({ message: ONE_DESTINATION }))
         const destination =
@@ -293,7 +309,13 @@ export const TOOLS: ReadonlyArray<Tool<any>> = [
                 : { requestId: requestId! }
         return awaitingApproval(
           yield* context.api['drafts.create']({
-            body: { body, ...destination, ...(basis !== undefined && { basis }) },
+            body: {
+              body,
+              ...destination,
+              ...(basis !== undefined && { basis }),
+              ...labelsOf(context, model),
+              ...reported,
+            },
           }),
           context,
         )
@@ -310,22 +332,32 @@ export const TOOLS: ReadonlyArray<Tool<any>> = [
       body: NoteBody,
       requestId: S.optional(DraftRequestId),
       basis: S.optional(NoteBasis),
+      model: S.optional(AgentLabel),
+      sessionMinutes: S.optional(S.int({ min: 0, max: SESSION_AGE_MAX_MINUTES })),
+      contextPercent: S.optional(S.int({ min: 0, max: 100 })),
     },
     describe: {
+      model: MODEL_DESCRIPTION,
+      sessionMinutes: SESSION_MINUTES_DESCRIPTION,
+      contextPercent: CONTEXT_PERCENT_DESCRIPTION,
       noteId: 'The note being answered.',
       body: 'The reply, as plain text. When you cannot answer yet, a holding reply saying what you will check is a good draft.',
       requestId: 'The draft request from your human that asked for this reply, if there was one.',
       basis: BASIS_DESCRIPTION,
     },
-    run: ({ noteId, body, requestId, basis }, context) =>
-      T.map((draft: Note) => awaitingApproval(draft, context))(
-        context.api['drafts.create']({
+    run: ({ noteId, body, requestId, basis, model, ...session }, context) =>
+      T.gen(function* () {
+        const reported = yield* requireSession(session)
+        const draft = yield* context.api['drafts.create']({
           body: {
             ...(requestId === undefined ? { body, inReplyTo: noteId } : { body, requestId }),
             ...(basis !== undefined && { basis }),
+            ...labelsOf(context, model),
+            ...reported,
           },
-        }),
-      ),
+        })
+        return awaitingApproval(draft, context)
+      }),
   }),
   tool({
     name: 'skip_note',
@@ -519,3 +551,24 @@ const DESK_INBOX_ADVICE =
   'For each note, call draft_reply with its note id; for each request, call draft_note with its requestId.'
 const ASKED_INBOX_ADVICE =
   'Your human’s desk session answers arriving notes; draft here what your human asks for, a reply with draft_reply and a request with draft_note and its requestId.'
+
+const requireSession = (reported: {
+  readonly sessionMinutes?: number | undefined
+  readonly contextPercent?: number | undefined
+}): T.Task<{ session?: DeskSession }, ApiError> => {
+  if (reported.sessionMinutes !== undefined)
+    return T.succeed({
+      session: { ageMinutes: reported.sessionMinutes, contextPercent: reported.contextPercent ?? null },
+    })
+  return reported.contextPercent === undefined
+    ? T.succeed({})
+    : T.fail(Invalid({ message: CONTEXT_WITHOUT_AGE }))
+}
+
+const CONTEXT_WITHOUT_AGE =
+  'contextPercent needs sessionMinutes too: give how long the session has run, or leave both out.'
+
+const labelsOf = (context: ToolContext, model: string | undefined) => ({
+  ...(context.client !== undefined && { client: context.client }),
+  ...(model !== undefined && { model }),
+})

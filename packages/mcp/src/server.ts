@@ -1,4 +1,5 @@
 import { Task as T } from '@homingbird/kernel'
+import { agentLabelOf } from '@homingbird/protocol'
 import type { Api } from '@homingbird/protocol'
 import { ANSWER_RULE, LINKS_RULE } from './answering.ts'
 import type { OpenInBrowser } from './browser-opener.ts'
@@ -8,6 +9,7 @@ import type { LocalAdapter } from './local-tools.ts'
 import { memberApiOf } from './member-api.ts'
 import { PROMPTS, getPrompt, promptDefinitions } from './prompts.ts'
 import {
+  CLIENT_INFO_META_KEY,
   SERVER_INFO_META_KEY,
   SUPPORTED_REVISIONS,
   UNSUPPORTED_PROTOCOL_VERSION_CODE,
@@ -73,6 +75,7 @@ const answer = (call: RpcCall, context: McpContext): T.Task<unknown, RpcFailure>
         data: { supported: SUPPORTED_REVISIONS, requested: revision },
       }),
     )
+  rememberClient(context, call.params)
   const serverInfo = { name: SERVER_NAME, title: 'Homingbird', version: context.serverVersion }
   const method = Object.hasOwn(METHODS, call.method) ? METHODS[call.method] : undefined
   if (method === undefined) return T.fail(methodNotFound(call.method))
@@ -143,7 +146,25 @@ export const toolContextOf = (context: McpContext): ToolContext => ({
   ...(context.openInBrowser !== undefined && { openInBrowser: context.openInBrowser }),
   ...(context.announced !== undefined && { announced: context.announced }),
   ...((context.desk === true || context.channel !== undefined) && { desk: true }),
+  ...(clients.has(context) && { client: clients.get(context)! }),
 })
+
+/** The MCP client's own name and version, from initialize or a stateless call's metadata: a label, never an instruction. */
+export const clientLabelOf = (params: RpcCall['params']): string | null => {
+  const meta = (params as { _meta?: Readonly<Record<string, unknown>> } | undefined)?._meta
+  const info = (params as { clientInfo?: unknown } | undefined)?.clientInfo ?? meta?.[CLIENT_INFO_META_KEY]
+  if (typeof info !== 'object' || info === null) return null
+  const { name, version } = info as { name?: unknown; version?: unknown }
+  if (typeof name !== 'string') return null
+  return agentLabelOf(`${name}${typeof version === 'string' ? ` ${version}` : ''}`)
+}
+
+const clients = new WeakMap<McpContext, string>()
+
+const rememberClient = (context: McpContext, params: RpcCall['params']): void => {
+  const label = clientLabelOf(params)
+  if (label !== null) clients.set(context, label)
+}
 
 function instructionsWith(role: string): string {
   return [

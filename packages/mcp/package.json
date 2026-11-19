@@ -1,7 +1,7 @@
 {
   "name": "@homingbird/mcp",
   "version": "0.1.0",
-  "description": "MCP adapter for Homingbird: lets any MCP client read and draft notes. A human approves every note.",
+  "description": "MCP adapter for Homingbird: any MCP client reads and drafts notes, or runs your desk. You approve every note in the web client.",
   "license": "MIT",
   "author": "Minseon Kim (https://github.com/let-sunny)",
   "homepage": "https://github.com/let-sunny/homingbird#readme",
@@ -25,6 +25,7 @@
     "build": "tsx build.ts"
   },
   "devDependencies": {
+    "@homingbird/cli": "workspace:*",
     "@homingbird/client": "workspace:*",
     "@homingbird/kernel": "workspace:*",
     "@homingbird/protocol": "workspace:*"

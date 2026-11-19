@@ -1,5 +1,6 @@
 import { Task as T } from '@homingbird/kernel'
 import { type Api, type ApiError, type RouteName, contract } from '@homingbird/protocol'
+import { invalidParams } from './json-rpc.ts'
 import { type LocalSession, SIGN_IN_FIRST } from './local-session.ts'
 import type { Prompt } from './prompts.ts'
 
@@ -17,7 +18,7 @@ export interface LocalAdapter {
   readonly blockedBecause: () => string | null
 }
 
-export const localAdapterOf = (session: LocalSession): LocalAdapter => ({
+export const localAdapterOf = (session: LocalSession, desk: DeskSwitch | null = null): LocalAdapter => ({
   tools: [
     {
       name: 'login',
@@ -53,6 +54,19 @@ export const localAdapterOf = (session: LocalSession): LocalAdapter => ({
       text: () =>
         'Call the login tool to sign in to Homingbird. If the browser did not open, show me the link and the code it returned. Then call status and tell me whether I am signed in.',
     },
+    {
+      name: 'desk',
+      title: 'Turn my Homingbird desk on or off',
+      description:
+        'Pauses or resumes the desk this app runs with the agent command from your MCP configuration. It takes no command.',
+      arguments: [{ name: 'state', description: 'on or off', required: true }],
+      text: ({ state = '' }) => {
+        const wanted = state.trim().toLowerCase()
+        if (wanted !== 'on' && wanted !== 'off')
+          return T.fail(invalidParams('The desk prompt takes on or off.'))
+        return desk === null ? T.succeed(NO_DESK_RUNNER) : desk.turn(wanted === 'on')
+      },
+    },
   ],
   blockedBecause: () => {
     const state = session.state()
@@ -62,6 +76,14 @@ export const localAdapterOf = (session: LocalSession): LocalAdapter => ({
       : SIGN_IN_FIRST
   },
 })
+
+/** Pauses and resumes the desk runner configured for this app; it never takes or shows a command. */
+export interface DeskSwitch {
+  readonly turn: (on: boolean) => T.Task<string>
+}
+
+export const NO_DESK_RUNNER =
+  'Tell me in one line: this app runs no Homingbird desk. To run one, I add --run-agent followed by my agent command, such as "claude -p", to the homingbird-mcp entry in my MCP configuration (or set HOMINGBIRD_RUN_AGENT) and restart the app.'
 
 export const noticingRefusals = (api: Api, session: LocalSession): Api =>
   Object.fromEntries(

@@ -189,6 +189,7 @@ describe('the tool table', () => {
       'notes.get',
       'notes.pickup',
       'notes.release',
+      'principles.drafting',
       'search.notes',
     ])
   })
@@ -307,6 +308,45 @@ describe('callTool', () => {
     })
     expect(result.isError).toBe(true)
     expect(text).toBe('Forbidden: You cannot message Ben.')
+  })
+})
+
+describe('the session a draft reports', () => {
+  const REPLY = { noteId: noteOf().id, body: 'Yes' }
+
+  it('passes a stated session age and context use with the draft, and nothing when none is stated', async () => {
+    const stated = await call('draft_reply', {
+      ...REPLY,
+      sessionMinutes: 95,
+      contextPercent: 62,
+    })
+    expect(stated.calls.find((each) => each.name === 'drafts.create')!.request.body.session).toEqual({
+      ageMinutes: 95,
+      contextPercent: 62,
+    })
+    const ageOnly = await call('draft_note', { to: BEN.email, body: 'Hi', sessionMinutes: 5 })
+    expect(ageOnly.calls.find((each) => each.name === 'drafts.create')!.request.body.session).toEqual({
+      ageMinutes: 5,
+      contextPercent: null,
+    })
+    const none = await call('draft_reply', REPLY)
+    expect(none.calls.find((each) => each.name === 'drafts.create')!.request.body).not.toHaveProperty(
+      'session',
+    )
+  })
+
+  it('refuses a context use without the session age, before calling the server', async () => {
+    for (const [name, input] of [
+      ['draft_reply', { ...REPLY, contextPercent: 62 }],
+      ['draft_note', { to: BEN.email, body: 'Hi', contextPercent: 62 }],
+    ] as const) {
+      const { result, text, calls } = await call(name, input)
+      expect(result.isError).toBe(true)
+      expect(text).toBe(
+        'Invalid: contextPercent needs sessionMinutes too: give how long the session has run, or leave both out.',
+      )
+      expect(calls.some((each) => each.name === 'drafts.create')).toBe(false)
+    }
   })
 })
 
@@ -519,6 +559,7 @@ describe('wait_for_notes', () => {
       'notes.pickup',
       'draftRequests.list',
       'answeringFlow.get',
+      'principles.drafting',
     ])
   })
 
@@ -550,6 +591,7 @@ describe('check_inbox', () => {
       ['notes.pickup', { params: { id: noteOf().id } }],
       ['draftRequests.list', {}],
       ['answeringFlow.get', {}],
+      ['principles.drafting', { query: { conversationId: noteOf().conversationId } }],
     ])
     expect(text).toContain('1 note(s) are waiting for a reply and 0 draft request(s) came from your human.')
     expect(text).toContain('call draft_reply with its note id')

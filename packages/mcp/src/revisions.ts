@@ -6,6 +6,7 @@ export const SUPPORTED_REVISIONS: ReadonlyArray<string> = [...STATELESS_REVISION
 
 export const PROTOCOL_VERSION_META_KEY = 'io.modelcontextprotocol/protocolVersion'
 export const SERVER_INFO_META_KEY = 'io.modelcontextprotocol/serverInfo'
+export const CLIENT_INFO_META_KEY = 'io.modelcontextprotocol/clientInfo'
 
 export const UNSUPPORTED_PROTOCOL_VERSION_CODE = -32022
 

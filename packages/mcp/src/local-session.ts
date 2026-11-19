@@ -27,6 +27,14 @@ export interface LocalSessionOptions {
   readonly fetch?: Fetch
   readonly openInBrowser?: OpenInBrowser
   readonly listener?: SessionListener
+  readonly desk?: SessionDesk
+}
+
+/** Told when a credential is accepted or dropped, so a hosted desk runner starts and stops with it. */
+export interface SessionDesk {
+  readonly signedIn: (token: string) => T.Task<void>
+  readonly signedOut: T.Task<void>
+  readonly describe: () => string
 }
 
 export interface SessionListener {
@@ -70,6 +78,7 @@ export const makeLocalSession = (options: LocalSessionOptions): LocalSession => 
       token = accepted
       state = { kind: 'signed_in' }
       yield* stop(online)
+      if (options.desk !== undefined) yield* options.desk.signedIn(accepted)
       const listener = options.listener
       if (listener === undefined) return
       online = yield* scope.fork(
@@ -91,6 +100,7 @@ export const makeLocalSession = (options: LocalSessionOptions): LocalSession => 
       const stopping = online
       online = null
       yield* stop(stopping)
+      if (options.desk !== undefined) yield* options.desk.signedOut
     })
 
   const awaitApproval = (authorization: DeviceAuthorization): T.Task<void> =>
@@ -138,21 +148,25 @@ export const makeLocalSession = (options: LocalSessionOptions): LocalSession => 
         ? `The browser was opened at ${pending.verificationUri} to sign in. The code ${pending.userCode} is already filled in: one click there finishes it. Tell your human, then call status to check. ${ONE_DESK}`
         : `To sign in, show your human this link: ${pending.verificationUri}\nThe code ${pending.userCode} is already filled in: one click there finishes it. Then call status to check. ${ONE_DESK}`
     }),
-    status: T.gen(function* () {
-      if (state.kind === 'pending') return waitingText(state)
-      if (state.kind === 'signed_out')
-        return [`Not signed in to ${serverUrl}.`, state.note, 'Call login to sign in.']
-          .filter(Boolean)
-          .join(' ')
-      const me = yield* T.result(httpApi({ serverUrl, token: () => token, ...fetching })['me.get']({}))
-      if (me._tag === 'Ok')
-        return `Signed in to ${serverUrl} as ${me.value.member.name} <${me.value.member.email}>, with the credential "${me.value.credential.name}". ${ONE_DESK}`
-      if (me.error._tag !== 'Unauthorized')
-        return `Signed in to ${serverUrl}, but it cannot be reached right now.`
-      yield* signedOut('The stored credential is no longer accepted.')
-      yield* removeCredential(credentialPath, serverUrl)
-      return `Not signed in to ${serverUrl}. The stored credential is no longer accepted. Call login to sign in.`
-    }),
+    status: T.map((text: string) =>
+      options.desk === undefined ? text : `${text} ${options.desk.describe()}`,
+    )(
+      T.gen(function* () {
+        if (state.kind === 'pending') return waitingText(state)
+        if (state.kind === 'signed_out')
+          return [`Not signed in to ${serverUrl}.`, state.note, 'Call login to sign in.']
+            .filter(Boolean)
+            .join(' ')
+        const me = yield* T.result(httpApi({ serverUrl, token: () => token, ...fetching })['me.get']({}))
+        if (me._tag === 'Ok')
+          return `Signed in to ${serverUrl} as ${me.value.member.name} <${me.value.member.email}>, with the credential "${me.value.credential.name}". ${ONE_DESK}`
+        if (me.error._tag !== 'Unauthorized')
+          return `Signed in to ${serverUrl}, but it cannot be reached right now.`
+        yield* signedOut('The stored credential is no longer accepted.')
+        yield* removeCredential(credentialPath, serverUrl)
+        return `Not signed in to ${serverUrl}. The stored credential is no longer accepted. Call login to sign in.`
+      }),
+    ),
     logout: T.gen(function* () {
       const revoking = token
       const waiting = approval

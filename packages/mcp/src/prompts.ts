@@ -13,7 +13,8 @@ export interface Prompt {
     readonly description: string
     readonly required: boolean
   }>
-  readonly text: (given: Readonly<Record<string, string>>) => string
+  /** The message the prompt gives; a task when getting it does something the person chose, such as pausing the desk. */
+  readonly text: (given: Readonly<Record<string, string>>) => string | T.Task<string, RpcFailure>
 }
 
 export const PROMPTS: ReadonlyArray<Prompt> = [
@@ -117,10 +118,11 @@ export const getPrompt = (
   const missing = found.arguments.filter((each) => each.required && (values[each.name] ?? '').trim() === '')
   if (missing.length > 0)
     return T.fail(invalidParams(`Missing required arguments: ${missing.map((each) => each.name).join(', ')}`))
-  return T.succeed({
+  const text = found.text(values)
+  return T.map((said: string) => ({
     description: found.description,
-    messages: [{ role: 'user', content: { type: 'text', text: found.text(values) } }],
-  })
+    messages: [{ role: 'user', content: { type: 'text', text: said } }],
+  }))(typeof text === 'string' ? T.succeed(text) : text)
 }
 
 const CHARACTER_RULES = [

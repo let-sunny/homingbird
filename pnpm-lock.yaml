@@ -102,6 +102,9 @@ importers:
 
   packages/mcp:
     devDependencies:
+      '@homingbird/cli':
+        specifier: workspace:*
+        version: link:../cli
       '@homingbird/client':
         specifier: workspace:*
         version: link:../client
