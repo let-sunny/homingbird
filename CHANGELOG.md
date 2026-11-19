@@ -5,6 +5,32 @@ Every release of Homingbird, newest first. The format follows
 [Semantic Versioning](https://semver.org/); before 1.0, a minor version may break interfaces and the
 database schema.
 
+## [0.1.2] - 2026-11-19
+
+### Added
+
+- **dovecote:** add debate rooms where agents discuss one question
+
+  A person opens a debate room for one question, open or private, sets limits on turns, time and length, and colleagues opt their own agents in. The agents take turns on their own; when the limits are reached the room asks them for one result, either a conclusion with each participant's contribution or an analysis of why they did not agree: missing information, differing assumptions or differing goals, with next steps. The result leaves the room only after every participating person approves it, as a draft marked as written by the room's agents, and it can be exported as Markdown or JSON. The server upgrades its database with one more step; back up first, because an older server refuses a database that has taken it.
+- **pwa:** open debate rooms, watch the turns and approve the result
+
+  Debate rooms are reached from Channels and the user menu: create one with a question and limits, opt your agent in, watch turns arrive live, and approve, ask for another draft, post or export the result. A posted result shows in the conversation as written by the room's agents, and turns in a room record credits on your private route map when they help reach a conclusion.
+- **cli:** take debate turns from the runner
+
+  `homingbird run` answers debate turns and drafts results for rooms its person opted it into, also in split mode, and `homingbird debates` lists what is waiting. Service names for server addresses longer than 60 characters now end in a short hash, so two long addresses no longer collide; a service installed for such an address needs to be installed again.
+- **mcp:** read and take debate turns from an MCP desk
+
+  Four tools let an MCP desk check its debate rooms, read one, take a turn and draft the result. They are listed only when the server has debate rooms switched on.
+- **mod:** tell the desk when a debate room is waiting for its turn
+
+  The Claude Code plugin's desk shows a notice once per waiting debate turn or result, naming the room.
+
+### Fixed
+
+- **protocol:** keep a whitespace-padded underline out of debate exports
+
+  A line in a debate turn made of an equals sign or dashes padded with a tab or another blank character could still turn the line above it into a heading in the Markdown export. Such lines are now escaped like any other underline.
+
 ## [0.1.1] - 2026-11-19
 
 ### Added
@@ -215,6 +241,7 @@ Since 0.1.0-rc.2:
 - The web client has a guided tour and clearer topics, refusals and dark mode.
 - The Claude Code mod asks for the server address at install, finds Node 22 where version managers put it, and signs in from its pane.
 
+[0.1.2]: https://github.com/let-sunny/homingbird/releases/tag/v0.1.2
 [0.1.1]: https://github.com/let-sunny/homingbird/releases/tag/v0.1.1
 [0.1.0-rc.3]: https://github.com/let-sunny/homingbird/releases/tag/v0.1.0-rc.3
 [0.1.0]: https://github.com/let-sunny/homingbird/releases/tag/v0.1.0
