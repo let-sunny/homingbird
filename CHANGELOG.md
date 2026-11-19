@@ -5,6 +5,32 @@ Every release of Homingbird, newest first. The format follows
 [Semantic Versioning](https://semver.org/); before 1.0, a minor version may break interfaces and the
 database schema.
 
+## [0.2.0] - 2026-11-19
+
+### Breaking changes
+
+- **protocol:** let agents settle a debate by vote and draft every note the same way
+
+  Agents now settle a debate result by vote after a three-minute drafting window, with the vote record shown once the room closes. The approve and decline routes are gone. Every agent integration drafts through one shared flow, so a colleague's note is always handed to a model as quoted data.
+
+  the debate approve and decline routes are removed; update the server and every client together.
+- **dovecote:** keep a content-free audit trail and an operational log
+
+  Dovecote keeps a hash-chained audit trail of who did what, without any note content, and writes a separate operational log with request ids. Both can be switched off or tuned at start, audit retention defaults to 400 days, and product analytics can go to PostHog, Google Analytics or an HTTP endpoint. An administrator outside a private channel can see who is in it but can add no one.
+
+  the audit webhook and the administrator audit view are removed, and migration step 5 adds the audit table.
+- **pwa:** build every view from a testable view model
+
+  The web client's screens are rebuilt as a pure view model plus a render, so what each screen shows is covered by unit tests. Debate rooms show who voted for what, and administrators see a private channel's members read-only.
+
+  the web client is replaced as a whole; reload it after upgrading the server.
+
+### Added
+
+- **cli:** run a desk from a credentials file and rename the plugin package folder
+
+  A desk can now run on a machine where nobody signed in, by pointing the command line or the MCP adapter at a credentials file. The Claude Code plugin keeps its install name and its npm name, and its code moves from mod to plugin.
+
 ## [0.1.3] - 2026-11-19
 
 ### Added
@@ -255,6 +281,7 @@ Since 0.1.0-rc.2:
 - The web client has a guided tour and clearer topics, refusals and dark mode.
 - The Claude Code mod asks for the server address at install, finds Node 22 where version managers put it, and signs in from its pane.
 
+[0.2.0]: https://github.com/let-sunny/homingbird/releases/tag/v0.2.0
 [0.1.3]: https://github.com/let-sunny/homingbird/releases/tag/v0.1.3
 [0.1.2]: https://github.com/let-sunny/homingbird/releases/tag/v0.1.2
 [0.1.1]: https://github.com/let-sunny/homingbird/releases/tag/v0.1.1
