@@ -2,16 +2,18 @@ import type { ConversationId, Me } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, lifetime, region, replaceChildren } from '@homingbird/ui'
 import { boot, browserLanguages, launch } from './actions.ts'
 import { applyAppearance, currentAppearance } from './appearance.ts'
+import { featureOn } from './features.ts'
 import { supportInvokerCommands } from './invokers.ts'
 import { preferredLanguage } from './languages.ts'
 import { type Route, arrivedToConnect, currentHashFor, parseRoute, signInHref } from './routes.ts'
 import { announcement, branding, notice, route, serverInfo, session } from './state.ts'
 import { strings, useLanguage } from './strings.ts'
-import { credentialsView, profileView } from './views/account.ts'
+import { profileView } from './views/account.ts'
 import { adminView } from './views/admin.ts'
+import { agentTrustView } from './views/agent-trust.ts'
 import { channelView, channelsView } from './views/channels.ts'
 import { characterEditorView } from './views/character.ts'
-import { connectAgentView, consentView, deviceView } from './views/connect.ts'
+import { consentView, deviceView } from './views/connect.ts'
 import { dialogHost } from './views/dialog.ts'
 import { homeView } from './views/home.ts'
 import { emptyWithPip } from './views/parts.ts'
@@ -100,14 +102,12 @@ const stageFor = (life: Lifetime, me: Me, current: Route): Child => {
       return searchView(life, me, current.query)
     case 'profile':
       return profileView(life, me)
+    case 'agent':
+      return agentTrustView(life, me, current.section)
     case 'character':
-      return characterEditorView(life, me, current.draft, current.from)
-    case 'credentials':
-      return credentialsView(life)
-    case 'connect':
-      return connectAgentView(life)
+      return featureOn('characters') ? characterEditorView(life, me, current.draft, current.from) : notFound()
     case 'device':
-      return current.code === null ? connectAgentView(life) : deviceView(life, current.code)
+      return deviceView(life, current.code)
     case 'consent':
       return consentView(life, current.id)
     case 'admin':

@@ -2,6 +2,7 @@ import { eventStream, httpApi } from '@homingbird/client'
 import { type HasClock, Stream, Task as T, systemClock } from '@homingbird/kernel'
 import { STREAM_PATHS } from '@homingbird/protocol'
 import type {
+  AgentReport,
   ApiError,
   Channel,
   ChannelMember,
@@ -14,12 +15,15 @@ import type {
   Locale,
   Member,
   MemberId,
+  MyPrinciples,
   Note,
   NoteId,
   Notice as NoteNotice,
+  PrincipleKind,
   Settings,
 } from '@homingbird/protocol'
 import { type AgentAsk, requestBody, upsertRequest } from './draft-requests.ts'
+import { featureOn } from './features.ts'
 import { preferredLanguage } from './languages.ts'
 import { applyEvent } from './live.ts'
 import { type Attempt, refusalText } from './refusals.ts'
@@ -27,6 +31,7 @@ import { hrefFor } from './routes.ts'
 import {
   type Branding,
   agentCredentials,
+  agentReport,
   archiveDiscards,
   branding,
   channels,
@@ -44,9 +49,11 @@ import {
   serverInfo,
   session,
   signedIn,
+  taught,
   threads,
 } from './state.ts'
 import { strings, useLanguage } from './strings.ts'
+import { changedSince, changesTo, countChange } from './thread-changes.ts'
 import { noteAwaitingReply, withNoteFiled, withoutNote } from './thread.ts'
 
 export type Action<A = void> = T.Task<A, ApiError, HasClock>
@@ -110,12 +117,22 @@ export const loadWorkspace: Action = T.gen(function* () {
 })
 
 export const loadAgents: Action = T.gen(function* () {
-  const [asked, issued] = yield* T.all([api['draftRequests.list']({}), api['credentials.list']({})])
-  draftRequests.set(asked.requests)
+  const [asked, issued] = yield* T.all([openDraftRequests(), api['credentials.list']({})])
+  draftRequests.set(asked)
   agentCredentials.set(
     issued.credentials.filter((credential) => credential.kind === 'agent' && credential.revokedAt === null),
   )
 })
+
+/** The person's open draft requests; none while the organization has them switched off. */
+const openDraftRequests = (): Action<ReadonlyArray<DraftRequest>> =>
+  featureOn('draftRequests')
+    ? T.catchTag('NotFound', () => T.succeed([] as ReadonlyArray<DraftRequest>))(
+        T.map((listed: { requests: ReadonlyArray<DraftRequest> }) => listed.requests)(
+          api['draftRequests.list']({}),
+        ),
+      )
+    : T.succeed([])
 
 export const askAgent = (ask: AgentAsk): Action<DraftRequest> =>
   T.map((request: DraftRequest) => {
@@ -171,14 +188,29 @@ export const loadPeople: Action = T.gen(function* () {
 
 export const loadThread = (id: ConversationId): Action =>
   T.gen(function* () {
-    const [conversation, page] = yield* T.all([
-      api['conversations.get']({ params: { id } }),
-      api['conversations.notes']({ params: { id }, query: {} }),
-    ])
+    const { conversation, page } = yield* currentSnapshot(id)
     conversations.update((list) => (list.some((c) => c.id === id) ? list : [conversation, ...list]))
     threads.update((all) => new Map(all).set(id, { notes: page.notes, hasMore: page.hasMore }))
     rememberNotices(id, page.notices)
   })
+
+/**
+ * A snapshot of a conversation no older than any change already applied to it: when a live event or
+ * the person's own action changes it while the request is on its way, the snapshot is fetched again.
+ */
+const currentSnapshot = (id: ConversationId) =>
+  T.gen(function* () {
+    for (let attempt = 1; ; attempt++) {
+      const before = changesTo(id)
+      const [conversation, page] = yield* T.all([
+        api['conversations.get']({ params: { id } }),
+        api['conversations.notes']({ params: { id }, query: {} }),
+      ])
+      if (!changedSince(id, before) || attempt === SNAPSHOT_ATTEMPTS) return { conversation, page }
+    }
+  })
+
+const SNAPSHOT_ATTEMPTS = 5
 
 export const loadOlderNotes = (id: ConversationId): Action =>
   T.gen(function* () {
@@ -186,9 +218,11 @@ export const loadOlderNotes = (id: ConversationId): Action =>
     const oldest = thread?.notes.find((note) => note.sentAt !== null)?.sentAt
     if (thread === undefined || oldest === undefined || oldest === null) return
     const page = yield* api['conversations.notes']({ params: { id }, query: { before: String(oldest) } })
-    threads.update((all) =>
-      new Map(all).set(id, { notes: [...page.notes, ...thread.notes], hasMore: page.hasMore }),
-    )
+    threads.update((all) => {
+      const latest = all.get(id)?.notes ?? thread.notes
+      const older = page.notes.filter((note) => !latest.some((known) => known.id === note.id))
+      return new Map(all).set(id, { notes: [...older, ...latest], hasMore: page.hasMore })
+    })
   })
 
 export const sendNote = (conversationId: ConversationId, body: string): Action =>
@@ -222,6 +256,8 @@ export const approveDraft = (
     )
     for (const alternative of alternatives)
       yield* T.result(api['drafts.discard']({ params: { id: alternative.id } }))
+    yield* refreshAgentReport
+    yield* refreshPrinciples
     yield* loadThread(draft.conversationId)
     yield* loadConversations
   })
@@ -233,8 +269,86 @@ export const discardDraft = (draft: Note): Action =>
   T.gen(function* () {
     yield* api['drafts.discard']({ params: { id: draft.id } })
     forgetNote(draft.conversationId, draft.id)
+    yield* refreshAgentReport
+    yield* refreshPrinciples
     yield* loadConversations
   })
+
+/** The person's own agent figures; a failure leaves the list as it is and says so on the card. */
+export const refreshAgentReport: Action = T.fold(
+  () => agentReport.set('failed'),
+  (report: AgentReport) => agentReport.set(report),
+)(api['insights.mine']({}))
+
+/** What the person taught their agent: principles, chances to teach, the route map. */
+export const refreshPrinciples: Action = T.fold(
+  () => taught.set('failed'),
+  (loaded: MyPrinciples) => taught.set(loaded),
+)(api['principles.list']({}))
+
+export interface PrincipleInput {
+  readonly kind?: PrincipleKind
+  readonly publicText?: string | null
+  readonly topic: string
+  readonly rule: string
+  readonly source: string | null
+  readonly place: string | null
+  readonly offerId?: string
+  readonly confirmed?: boolean
+}
+
+export const savePrinciple = (input: PrincipleInput): Action =>
+  T.flatMap(() => refreshPrinciples)(api['principles.create']({ body: input }))
+
+export const changePrinciple = (
+  id: string,
+  change: {
+    readonly kind?: PrincipleKind
+    readonly topic?: string
+    readonly rule?: string
+    readonly source?: string | null
+    readonly enabled?: boolean
+    readonly publicText?: string | null
+  },
+): Action => T.flatMap(() => refreshPrinciples)(api['principles.update']({ params: { id }, body: change }))
+
+export const reorderPrinciples = (ids: ReadonlyArray<string>): Action =>
+  T.map((loaded: MyPrinciples) => taught.set(loaded))(
+    api['principles.reorder']({
+      body: { ids: ids as ReadonlyArray<MyPrinciples['principles'][number]['id']> },
+    }),
+  )
+
+export const deletePrinciple = (id: string): Action =>
+  T.flatMap(() => refreshPrinciples)(api['principles.delete']({ params: { id } }))
+
+export const markPrincipleWrong = (id: string, noteId: NoteId): Action =>
+  T.flatMap(() => refreshPrinciples)(api['principles.miss']({ params: { id }, body: { noteId } }))
+
+export const dismissOffer = (id: string, stopAskingHere: boolean): Action =>
+  T.flatMap(() => refreshPrinciples)(
+    api['principles.offers.dismiss']({ params: { id }, body: stopAskingHere ? { stopAskingHere } : {} }),
+  )
+
+/**
+ * Tells the server once per page that a draft card is on a screen the person can see, so the time
+ * from seeing a draft to deciding can be measured. A hidden page waits until it is shown.
+ */
+export const reportDraftSeen = (card: HTMLElement, id: NoteId): void => {
+  if (seenDrafts.has(id)) return
+  const report = (): void => {
+    if (seenDrafts.has(id) || !card.isConnected || document.visibilityState !== 'visible') return
+    seenDrafts.add(id)
+    document.removeEventListener('visibilitychange', report)
+    launch(T.asUnit(T.catchAll(() => T.unit)(api['drafts.seen']({ params: { id } }))))
+  }
+  requestAnimationFrame(() => {
+    report()
+    if (!seenDrafts.has(id) && card.isConnected) document.addEventListener('visibilitychange', report)
+  })
+}
+
+const seenDrafts = new Set<NoteId>()
 
 export const loadChannels = (query: string): Action<ReadonlyArray<Channel>> =>
   T.map((listed: ChannelPage) => {
@@ -438,15 +552,22 @@ export const replyTargetIn = (conversationId: ConversationId): NoteId | null => 
   return me === null || kind === 'channel' ? null : (noteAwaitingReply(notes, me.member.id)?.id ?? null)
 }
 
-export const rememberNote = (note: Note): void => threads.update((all) => withNoteFiled(all, note))
+export const rememberNote = (note: Note): void => {
+  countChange(note.conversationId)
+  for (const [id, thread] of threads.get())
+    if (thread.notes.some((known) => known.id === note.id)) countChange(id)
+  threads.update((all) => withNoteFiled(all, note))
+}
 
-export const forgetNote = (conversationId: ConversationId, id: NoteId): void =>
+export const forgetNote = (conversationId: ConversationId, id: NoteId): void => {
+  countChange(conversationId)
   threads.update((all) => {
     const thread = all.get(conversationId)
     return thread === undefined
       ? all
       : new Map(all).set(conversationId, { ...thread, notes: withoutNote(thread.notes, id) })
   })
+}
 
 const KNOWN_CHANNELS = 200
 

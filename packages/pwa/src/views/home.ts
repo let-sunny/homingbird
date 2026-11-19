@@ -39,7 +39,11 @@ export const startingPoints = (): HTMLElement =>
       {},
       start(hrefFor({ name: 'channels' }), strings.start.askChannel, strings.start.askChannelHint),
       start(hrefFor({ name: 'people' }), strings.start.findPerson, strings.start.findPersonHint),
-      start(hrefFor({ name: 'connect' }), strings.start.connect, strings.start.connectHint),
+      start(
+        hrefFor({ name: 'agent', section: 'connection' }),
+        strings.start.connect,
+        strings.start.connectHint,
+      ),
     ),
     h(
       'button',

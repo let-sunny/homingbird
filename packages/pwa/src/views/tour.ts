@@ -136,7 +136,11 @@ const stepContent = (
     id === 'connect' &&
       h(
         'a',
-        { class: 'button', href: hrefFor({ name: 'connect' }), on: { click: () => finish(true) } },
+        {
+          class: 'button',
+          href: hrefFor({ name: 'agent', section: 'connection' }),
+          on: { click: () => finish(true) },
+        },
         strings.tour.connectAction,
       ),
     h(
@@ -169,7 +173,7 @@ const STEP_TEXT: Readonly<
   connect: () => ({
     title: strings.tour.connectTitle,
     body: strings.tour.connectBody,
-    place: strings.connectAgent,
+    place: strings.navMyAgent,
   }),
   channels: () => ({
     title: strings.tour.channelsTitle,

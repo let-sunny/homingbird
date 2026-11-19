@@ -109,6 +109,17 @@ const personCard = (entry: DirectoryEntry, mode: ContactMode): HTMLElement => {
           h('summary', {}, strings.profileAbout),
           h('p', {}, entry.member.profile || strings.noProfile),
         ),
+        (entry.agentIntroduction ?? []).length > 0 &&
+          h(
+            'section',
+            { class: 'person-agent', 'aria-label': strings.agentIntroduction },
+            h('strong', {}, strings.agentIntroduction),
+            h(
+              'ul',
+              { class: 'agent-introduction' },
+              (entry.agentIntroduction ?? []).map((sentence) => h('li', {}, sentence)),
+            ),
+          ),
       ),
       h('div', { class: 'person-actions' }, actionsFor(entry, relation, mode)),
     ),

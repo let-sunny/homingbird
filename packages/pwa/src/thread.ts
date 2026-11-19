@@ -13,13 +13,25 @@ import type {
 import { requestAnsweredBy } from './draft-requests.ts'
 
 export type ThreadItem =
-  | { readonly type: 'note'; readonly key: string; readonly note: Note; readonly leadsRun: boolean }
+  | {
+      readonly type: 'note'
+      readonly key: string
+      readonly note: Note
+      readonly leadsRun: boolean
+      readonly next: Note | null
+    }
   | {
       readonly type: 'drafts'
       readonly key: string
       readonly inReplyTo: NoteId | null
       readonly drafts: ReadonlyArray<Note>
     }
+
+/**
+ * Consecutive notes by one author, written the same way: by their agent, by their agent and edited by
+ * them, or by them. A run shows the character and its mark once, so the mark must hold for every note.
+ */
+export const isSameRun = (a: Note, b: Note): boolean => a.authorId === b.authorId && a.origin === b.origin
 
 export const threadItems = (
   notes: ReadonlyArray<Note>,
@@ -37,7 +49,8 @@ export const threadItems = (
         type: 'note',
         key: note.id,
         note,
-        leadsRun: index === 0 || sent[index - 1]!.authorId !== note.authorId,
+        leadsRun: index === 0 || !isSameRun(sent[index - 1]!, note),
+        next: index + 1 < sent.length && isSameRun(note, sent[index + 1]!) ? sent[index + 1]! : null,
       }),
     ),
     ...[...groups].map(

@@ -375,6 +375,49 @@ describe('runs of notes', () => {
       true,
       true,
     ])
+    expect(threadItems(notes).map((item) => (item.type === 'note' ? (item.next?.id ?? null) : null))).toEqual(
+      ['n2', null, null, null],
+    )
+  })
+
+  it('starts a new run whenever the same author changes how a note was written', () => {
+    const notes = [
+      note('n1', { authorId: june, sentAt: 1, origin: 'agent' }),
+      note('n2', { authorId: june, sentAt: 2, origin: 'agent' }),
+      note('n3', { authorId: june, sentAt: 3, origin: 'human_edited' }),
+      note('n4', { authorId: june, sentAt: 4, origin: 'human' }),
+    ]
+    expect(threadItems(notes).map((item) => (item.type === 'note' ? item.leadsRun : null))).toEqual([
+      true,
+      false,
+      true,
+      true,
+    ])
+  })
+
+  it('splits any thread into runs that share one author and one way of writing, each led once', () => {
+    const origins = ['agent', 'human_edited', 'human'] as const
+    fc.assert(
+      fc.property(
+        fc.array(fc.tuple(fc.constantFrom(june, ana), fc.constantFrom(...origins)), { maxLength: 30 }),
+        (written) => {
+          const items = threadItems(
+            written.map(([authorId, origin], index) =>
+              note(`n${index}`, { authorId, origin, sentAt: index + 1 }),
+            ),
+          ).filter((item) => item.type === 'note')
+          items.forEach((item, index) => {
+            const previous = items[index - 1]?.note
+            const sameAsPrevious =
+              previous !== undefined &&
+              previous.authorId === item.note.authorId &&
+              previous.origin === item.note.origin
+            expect(item.leadsRun).toBe(!sameAsPrevious)
+            expect(item.next).toBe(items[index + 1]?.leadsRun === false ? items[index + 1]!.note : null)
+          })
+        },
+      ),
+    )
   })
 })
 

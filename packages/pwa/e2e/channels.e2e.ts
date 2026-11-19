@@ -90,12 +90,12 @@ const scenario = async (): Promise<void> => {
     await ben.page.waitForFunction(() => (globalThis as any).location.hash === '#/channels')
     assert.equal((await api(ben, 'GET', '/channels/billing')).joined, false)
 
-    // -- Profile lists exactly the channels where answering is on -----------------------------------
-    await ben.page.goto(`${base}/#/me`)
+    // -- My agent lists exactly the channels where answering is on ----------------------------------
+    await ben.page.goto(`${base}/#/agent/connection`)
     await ben.page.waitForSelector('.my-channels .channel-chip:has-text("#deploys")')
     assert.equal(await ben.page.locator('.my-channels .channel-chip:has-text("#billing")').count(), 0)
     await ben.page.locator('.my-channels').scrollIntoViewIfNeeded()
-    await capture(ben.page, 'profile-lists-only-channels-where-answering-is-on')
+    await capture(ben.page, 'my-agent-lists-only-channels-where-answering-is-on')
 
     // -- Creating a private channel -----------------------------------------------------------------
     await ben.page.goto(`${base}/#/channels`)

@@ -1,5 +1,14 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { errorText, formats, listOf, locale, strings, useLanguage } from '../src/strings.ts'
+import {
+  durationOf,
+  errorText,
+  formats,
+  listOf,
+  locale,
+  percentOf,
+  strings,
+  useLanguage,
+} from '../src/strings.ts'
 
 afterEach(() => useLanguage('en'))
 
@@ -24,6 +33,17 @@ describe('the current language', () => {
     expect(listOf(['Ana', 'Ben', 'Cy'])).toBe('Ana, Ben, and Cy')
     useLanguage('ko')
     expect(listOf(['Ana', 'Ben', 'Cy'])).toBe('Ana, Ben 및 Cy')
+  })
+})
+
+describe('numbers and durations', () => {
+  it('writes a share as a whole percentage and a duration in its largest whole unit', () => {
+    expect(percentOf(0.756)).toBe('76%')
+    expect(durationOf(42_000)).toBe('42 seconds')
+    expect(durationOf(90 * 60_000)).toBe('2 hours')
+    useLanguage('ko')
+    expect(durationOf(3 * 60_000)).toBe('3분')
+    expect(percentOf(0.5)).toBe('50%')
   })
 })
 

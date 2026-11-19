@@ -78,7 +78,7 @@ const scenario = async (): Promise<void> => {
       'Yes. Run it after the nightly export; I checked the lock ordering.',
     )
     await june.page.click('dialog[open] button[type=submit]')
-    await june.page.waitForSelector('.note.is-mine .origin.is-human_edited')
+    await june.page.waitForSelector('.note.is-mine.is-edited')
     await june.page.click('.ask-agent summary')
     await june.page.fill(
       '.ask-agent textarea[name=instruction], .ask-agent input[name=instruction]',

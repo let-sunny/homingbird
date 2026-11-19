@@ -1,4 +1,5 @@
 import type {
+  AgentReport,
   Channel,
   Contact,
   Conversation,
@@ -9,6 +10,7 @@ import type {
   Me,
   Member,
   MemberId,
+  MyPrinciples,
   Note,
   NoteId,
   ServerInfo,
@@ -65,6 +67,8 @@ export const replyTargets = signal<ReadonlyMap<ConversationId, string | null>>(n
 export const releases = signal<ReadonlyMap<NoteId, Release>>(new Map())
 export const archiveDiscards = signal<ReadonlyMap<ConversationId, ReadonlyArray<ArchiveDiscard>>>(new Map())
 export const openedForThePerson = signal<ConversationId | null>(null)
+export const agentReport = signal<AgentReport | 'failed' | null>(null)
+export const taught = signal<MyPrinciples | 'failed' | null>(null)
 
 export const members = derived(
   [directory, session],

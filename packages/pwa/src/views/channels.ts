@@ -20,6 +20,7 @@ import {
   slugFrom,
   withChannel,
 } from '../channels.ts'
+import { featureOn } from '../features.ts'
 import { hrefFor } from '../routes.ts'
 import { channels, channelsLoaded, conversations } from '../state.ts'
 import { strings } from '../strings.ts'
@@ -107,12 +108,18 @@ export const channelsView = (life: Lifetime): HTMLElement => {
   )
 }
 
-export const newChannelButton = (): HTMLElement =>
-  h(
-    'button',
-    { type: 'button', class: 'primary new-channel', ...opensDialog(strings.createChannelTitle, createForm) },
-    strings.newChannel,
-  )
+export const newChannelButton = (): HTMLElement | null =>
+  !featureOn('channels')
+    ? null
+    : h(
+        'button',
+        {
+          type: 'button',
+          class: 'primary new-channel',
+          ...opensDialog(strings.createChannelTitle, createForm),
+        },
+        strings.newChannel,
+      )
 
 export const channelView = (life: Lifetime, slug: string): HTMLElement => {
   launch(loadChannels(''))

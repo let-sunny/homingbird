@@ -16,6 +16,7 @@ import {
   isValidSlug,
   slugFrom,
 } from '../channels.ts'
+import { featureOn } from '../features.ts'
 import { refusalText } from '../refusals.ts'
 import { hrefFor } from '../routes.ts'
 import { channels, notice } from '../state.ts'
@@ -65,7 +66,7 @@ const NEW_CHANNEL = ''
 
 const pickerForm = (life: Lifetime, picker: Picker): HTMLElement => {
   const choices = destinationsFrom(channels.get(), picker.here, picker.movingFrom)
-  const mayCreate = picker.movingFrom === null || !isPrivate(picker.movingFrom)
+  const mayCreate = featureOn('channels') && (picker.movingFrom === null || !isPrivate(picker.movingFrom))
   const chosen = signal<string>(choices[0]?.slug ?? NEW_CHANNEL)
   const slug = h('input', {
     name: 'slug',

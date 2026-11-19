@@ -22,10 +22,11 @@ import {
   renderFrame,
   statesFor,
 } from '@homingbird/sprites'
+import { featureOn } from './features.ts'
 
 /** The character a member is drawn as: the one they saved, or the pigeon. */
 export const characterOf = (member: Pick<Member, 'character'> | undefined): CharacterSpec =>
-  member?.character ?? PIGEON
+  (featureOn('characters') ? member?.character : null) ?? PIGEON
 
 export const PIGEON: CharacterSpec = BUILT_IN_CHARACTERS[0]!
 

@@ -5,52 +5,9 @@ import { api, launch, loadAgents } from '../actions.ts'
 import { hrefFor } from '../routes.ts'
 import { agentCredentials, branding } from '../state.ts'
 import { strings } from '../strings.ts'
+import { codeForm } from './connection.ts'
 import { button, dateTimeLabel, field, page, wordmark } from './parts.ts'
 import { pip } from './pip.ts'
-
-export const connectAgentView = (life: Lifetime): HTMLElement => {
-  launch(loadAgents)
-  return page(
-    strings.connectTitle,
-    deskRecommendation(),
-    h(
-      'section',
-      { class: 'connected-agents' },
-      h('h2', {}, strings.connectedAgentsTitle),
-      region(life, [agentCredentials], () => {
-        const agents = agentCredentials.get()
-        return agents.length === 0
-          ? h('p', { class: 'no-agents' }, strings.noAgentsYet)
-          : h('ul', { class: 'agent-list' }, agents.map(agentRow))
-      }),
-      h('a', { class: 'button', href: hrefFor({ name: 'credentials' }) }, strings.manageAgents),
-    ),
-    h('details', { class: 'have-a-code' }, h('summary', {}, strings.codeFallback), codeForm()),
-    h('p', { class: 'hint not-set-up' }, strings.notSetUp),
-  )
-}
-
-const agentRow = (credential: Credential): HTMLElement =>
-  h(
-    'li',
-    { class: 'agent-row' },
-    h('strong', {}, credential.name),
-    h(
-      'small',
-      {},
-      credential.lastUsedAt === null
-        ? strings.credentialNeverUsed
-        : strings.agentLastUsed({ when: dateTimeLabel(credential.lastUsedAt, '') }),
-    ),
-  )
-
-export const deskRecommendation = (): HTMLElement =>
-  h(
-    'div',
-    { class: 'desk-recommendation', role: 'note' },
-    pip('sign-in', 3),
-    h('div', {}, h('strong', {}, strings.deskTitle), h('p', {}, strings.deskBody)),
-  )
 
 export const deviceView = (life: Lifetime, code: string | null): HTMLElement => {
   const stage = signal<DeviceStage>({ step: code === null ? 'ask' : 'loading' })
@@ -113,32 +70,6 @@ type DeviceStage =
   | { readonly step: 'loading' }
   | { readonly step: 'decide'; readonly request: DeviceRequest }
   | { readonly step: 'done'; readonly approved: boolean; readonly message: string }
-
-const codeForm = (): HTMLElement => {
-  const code = h('input', {
-    name: 'code',
-    required: true,
-    autocomplete: 'off',
-    autocapitalize: 'characters',
-    placeholder: strings.deviceCodePlaceholder,
-    class: 'code-input',
-  })
-  return h(
-    'form',
-    {
-      class: 'form',
-      on: {
-        submit: (event) => {
-          event.preventDefault()
-          location.hash = hrefFor({ name: 'device', code: code.value.trim() })
-        },
-      },
-    },
-    h('p', {}, strings.deviceIntro),
-    field(strings.deviceCodeLabel, code),
-    h('button', { type: 'submit', class: 'primary' }, strings.deviceContinue),
-  )
-}
 
 const deviceDecision = (request: DeviceRequest, finish: (approved: boolean) => void): HTMLElement => {
   const name = h('input', { name: 'name', required: true, maxlength: '200', value: request.client })
@@ -208,7 +139,11 @@ const connectWindow = (title: string, content: Child, backToConnect = false): HT
           'p',
           { class: 'back-links' },
           backToConnect &&
-            h('a', { class: 'back-to-connect', href: hrefFor({ name: 'connect' }) }, strings.backToConnect),
+            h(
+              'a',
+              { class: 'back-to-connect', href: hrefFor({ name: 'agent', section: 'connection' }) },
+              strings.backToConnect,
+            ),
           h('a', { class: 'back-to-app', href: hrefFor({ name: 'home' }) }, strings.backToHomingbird),
         ),
       ),

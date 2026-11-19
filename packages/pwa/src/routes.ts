@@ -8,16 +8,19 @@ export type Route =
   | { readonly name: 'channel'; readonly slug: string }
   | { readonly name: 'search'; readonly query: string }
   | { readonly name: 'profile' }
+  | { readonly name: 'agent'; readonly section: AgentSection | null }
   | { readonly name: 'character'; readonly draft: string | null; readonly from: string | null }
-  | { readonly name: 'credentials' }
-  | { readonly name: 'connect' }
   | { readonly name: 'device'; readonly code: string | null }
   | { readonly name: 'consent'; readonly id: string }
   | { readonly name: 'admin'; readonly section: AdminSection }
   | { readonly name: 'signed-out'; readonly reason: string | null }
   | { readonly name: 'unknown' }
 
-export type AdminSection = 'settings' | 'members' | 'channels' | 'audit'
+export type AgentSection = 'connection' | 'teaching' | 'doing' | 'routes'
+
+export const AGENT_SECTIONS: ReadonlyArray<AgentSection> = ['connection', 'teaching', 'doing', 'routes']
+
+export type AdminSection = 'settings' | 'members' | 'channels' | 'insights' | 'audit'
 
 export const parseRoute = (hash: string): Route => {
   const [path = '', search = ''] = hash.replace(/^#\/?/, '').split('?')
@@ -34,10 +37,10 @@ export const parseRoute = (hash: string): Route => {
     return { name: 'channel', slug: second }
   if (head === 'search') return { name: 'search', query: parameters.get('q') ?? '' }
   if (head === 'me') return { name: 'profile' }
+  if (head === 'agent') return { name: 'agent', section: isAgentSection(second) ? second : null }
+  if (head === 'connect' || head === 'credentials') return { name: 'agent', section: 'connection' }
   if (head === CHARACTER_ROUTE)
     return { name: 'character', draft: second ?? null, from: parameters.get('from') }
-  if (head === 'credentials') return { name: 'credentials' }
-  if (head === 'connect') return { name: 'connect' }
   if (head === 'device') return { name: 'device', code: second ?? null }
   if (head === 'consent' && second !== undefined) return { name: 'consent', id: second }
   if (head === 'admin') return { name: 'admin', section: isAdminSection(second) ? second : 'settings' }
@@ -62,16 +65,14 @@ export const hrefFor = (route: Route): string => {
       return `#/search?${new URLSearchParams({ q: route.query }).toString()}`
     case 'profile':
       return '#/me'
+    case 'agent':
+      return route.section === null ? '#/agent' : `#/agent/${route.section}`
     case 'character':
       return route.draft !== null
         ? `#/${CHARACTER_ROUTE}/${encodeURIComponent(route.draft)}`
         : route.from !== null
           ? `#/${CHARACTER_ROUTE}?${new URLSearchParams({ from: route.from }).toString()}`
           : `#/${CHARACTER_ROUTE}`
-    case 'credentials':
-      return '#/credentials'
-    case 'connect':
-      return '#/connect'
     case 'device':
       return route.code === null ? '#/device' : `#/device/${encodeURIComponent(route.code)}`
     case 'consent':
@@ -87,7 +88,9 @@ export const hrefFor = (route: Route): string => {
 
 /** The address an old link should be replaced with, or null when it is current. */
 export const currentHashFor = (hash: string): string | null =>
-  hash.startsWith(`#/${LEGACY_CHANNEL_HEAD}/`) ? hrefFor(parseRoute(hash)) : null
+  hash.startsWith(`#/${LEGACY_CHANNEL_HEAD}/`) || /^#\/(?:connect|credentials)(?:[/?]|$)/.test(hash)
+    ? hrefFor(parseRoute(hash))
+    : null
 
 export const arrivedToConnect = (current: Route): boolean =>
   (current.name === 'device' && current.code !== null) || current.name === 'consent'
@@ -97,7 +100,10 @@ export const signInHref = (hash: string): string =>
 
 const LEGACY_CHANNEL_HEAD = 't'
 
-const ADMIN_SECTIONS: ReadonlyArray<AdminSection> = ['settings', 'members', 'channels', 'audit']
+const ADMIN_SECTIONS: ReadonlyArray<AdminSection> = ['settings', 'members', 'channels', 'insights', 'audit']
+
+const isAgentSection = (value: string | undefined): value is AgentSection =>
+  AGENT_SECTIONS.includes(value as AgentSection)
 
 const isAdminSection = (value: string | undefined): value is AdminSection =>
   ADMIN_SECTIONS.includes(value as AdminSection)

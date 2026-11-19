@@ -15,6 +15,7 @@ import {
   freePort,
   newPage,
   overflowsSideways,
+  pastTheRightEdge,
   sendThroughApi,
   signInWith,
   startDovecote,
@@ -51,6 +52,7 @@ const scenario = async (): Promise<void> => {
     if (narrowToo) {
       await page.setViewportSize(NARROW)
       assert.equal(await overflowsSideways(page), false, `${name} scrolls sideways when narrow`)
+      assert.deepEqual(await pastTheRightEdge(page), [], `${name} reaches past the right edge when narrow`)
       await shot(page, `${name}-narrow-dark`)
       await page.emulateMedia({ colorScheme: 'light' })
       await shot(page, `${name}-narrow-light`)
@@ -280,7 +282,7 @@ const scenario = async (): Promise<void> => {
     await sendThroughApi(june, { conversationId: direct.id, body: 'It usually ends by eight.' })
     await sendThroughApi(ben, { conversationId: direct.id, body: 'It finished at 7:52.' })
     await ben.page.goto(`${base}/#/c/${direct.id}`)
-    await ben.page.waitForSelector('.note.is-mine .note-status canvas[data-character="fox"]')
+    await ben.page.waitForSelector('.note.is-mine .author-button canvas[data-character="fox"]')
     assert.equal(await ben.page.locator('.note.is-theirs .note-face canvas[data-character="owl"]').count(), 1)
     assert.equal(await ben.page.locator('.note.is-mine .pip').count(), 0, 'Pip never stands for a person')
     await ben.page.waitForSelector('.thread-head canvas[data-character="owl"]')
@@ -393,12 +395,13 @@ const scenario = async (): Promise<void> => {
     await ben.page.goto(`${base}/#/c/${direct.id}`)
     await ben.page.waitForSelector('.draft:has-text("ahead of the usual eight")')
 
-    // -- 11a: from the menu to Connect an agent, and back ---------------------------------------
-    await ben.page.click('.user-button')
-    await ben.page.click('.menu-item:has-text("Connect an agent")')
+    // -- 11a: from the My agent tab to its Connection section, and back --------------------------
+    await ben.page.click('.tab:has-text("My agent")')
+    await ben.page.click('.my-agent-nav a:has-text("Connection")')
+    await ben.page.waitForFunction(() => (globalThis as any).location.hash === '#/agent/connection')
     await ben.page.waitForSelector('.desk-recommendation:has-text("Keep one agent session open")')
-    await ben.page.waitForSelector('.connected-agents .agent-row:has-text("Ben desk")')
-    await ben.page.waitForSelector('.connected-agents a[href="#/credentials"]')
+    await ben.page.waitForSelector('.connected-agents .credential:has-text("Ben desk")')
+    assert.equal(await ben.page.locator('#user-menu .menu-item:has-text("Devices and agents")').count(), 0)
     await ben.page.waitForSelector(
       'details.have-a-code:not([open]) summary:has-text("a connection code instead of a link")',
     )
@@ -424,7 +427,7 @@ const scenario = async (): Promise<void> => {
     await ben.page.fill('.have-a-code input[name=code]', device.user_code)
     await ben.page.click('.have-a-code button[type=submit]')
     await ben.page.waitForSelector('.connect-window .back-to-app:has-text("Back to Homingbird")')
-    await ben.page.waitForSelector('.connect-window .back-to-connect:has-text("Back to Connect an agent")')
+    await ben.page.waitForSelector('.connect-window .back-to-connect:has-text("Back to My agent")')
     await inThemes(ben.page, 'device-approval-offers-a-way-back', false)
     await ben.page.click('.connect-window .back-to-connect')
     await ben.page.waitForSelector('.app .desk-recommendation')
@@ -453,25 +456,64 @@ const scenario = async (): Promise<void> => {
 
     // -- Answering flow: only an administrator sees it, in Settings ------------------------------
     await ana.page.goto(`${base}/#/admin/settings`)
-    const flowBox = ana.page.locator('.answering-flow textarea[name=answeringFlow]')
-    await flowBox.waitFor()
     await ana.page.waitForSelector('.answering-flow .flow-count:has-text("0 of 4,000 characters")')
     await ana.page.click('.answering-flow button.insert-example')
-    assert.match(await flowBox.inputValue(), /^## Before drafting\n1\. Look for an existing answer/)
+    await ana.page.waitForSelector('.answering-flow .todo-row textarea[name=text]')
+    assert.equal(await ana.page.locator('.answering-flow .todo-row').count(), 3)
     assert.equal(await ana.page.locator('.answering-flow button.insert-example').isDisabled(), true)
-    await ana.page.waitForSelector('.answering-flow #example-reason:has-text("Empty the box first")')
+    await ana.page.waitForSelector(
+      '.answering-flow #example-reason:has-text("only while both lists are empty")',
+    )
+    const checks = ana.page.locator('.answering-flow .todo').nth(1)
+    await checks.locator('.todo-add textarea[name=text]').fill('Dates name the weekday and the time zone.')
+    await checks.locator('.todo-add button:has-text("Add a step")').click()
+    await ana.page.waitForSelector(
+      '.answering-flow .todo-row[data-name="Dates name the weekday and the time zone."]',
+    )
+    await checks.locator('.todo-row').nth(1).locator('[role=switch]').click()
+    await ana.page.waitForSelector('.answering-flow .todo-row.is-off')
+    await checks
+      .locator('.todo-row[data-name="Dates name the weekday and the time zone."] .todo-move')
+      .first()
+      .click()
     await inThemes(ana.page, 'admin-answering-flow')
-    await ana.page.click('.form button[type=submit]:has-text("Save")')
+    await ana.page.click('.form > button[type=submit]:has-text("Save")')
     await ana.page.waitForSelector('.toast:has-text("Saved.")')
-    assert.match((await api(ana, 'GET', '/admin/settings')).answeringFlow, /The tone is polite and direct\./)
-    await flowBox.fill('## Somewhere else\n1. Ask the wiki.')
-    await ana.page.click('.form button[type=submit]:has-text("Save")')
-    await ana.page.waitForSelector('.toast.is-error:has-text("knows two headings")')
+    const savedFlow = (await api(ana, 'GET', '/admin/settings')).answeringFlow as string
+    assert.match(savedFlow, /## Check the draft\n1\. Nothing confidential/)
+    assert.match(savedFlow, /\[off\] /)
+    assert.match(savedFlow, /Dates name the weekday and the time zone\./)
+    const tooLong = 'x'.repeat(3990)
+    await checks.locator('.todo-add textarea[name=text]').fill(tooLong)
+    await checks.locator('.todo-add button:has-text("Add a step")').click()
+    await ana.page.waitForSelector('.answering-flow .flow-count.is-over')
+    await ana.page.click('.form > button[type=submit]:has-text("Save")')
+    await ana.page.waitForSelector('.answering-flow .flow-problem:has-text("4000")')
     await shot(ana.page, 'admin-answering-flow-refused-with-the-server-reason')
     await ana.page.click('.toast button')
     await ben.page.goto(`${base}/#/connect`)
     await ben.page.waitForSelector('.desk-recommendation')
     assert.equal(await ben.page.locator('text=answering flow').count(), 0, 'members never see the flow')
+
+    // -- Settings fit a phone in Korean too, with its longer words ----------------------------------
+    const koreanAdmin = await newPage(browser, base, 'ko-KR', { viewport: NARROW })
+    await submitDevelopmentLogin(koreanAdmin.page, 'ana@example.com', 'Ana')
+    await koreanAdmin.page.waitForSelector('.app')
+    await koreanAdmin.page.goto(`${base}/#/admin/settings`)
+    await koreanAdmin.page.waitForSelector('.answering-flow .todo-row')
+    await koreanAdmin.page.waitForSelector('.feature-switches, fieldset:has(.feature-loss)')
+    assert.equal(
+      await overflowsSideways(koreanAdmin.page),
+      false,
+      'Korean settings scroll sideways when narrow',
+    )
+    assert.deepEqual(
+      await pastTheRightEdge(koreanAdmin.page),
+      [],
+      'Korean settings reach past the right edge',
+    )
+    await shot(koreanAdmin.page, 'admin-settings-korean-narrow')
+    await koreanAdmin.context.close()
 
     // -- Tour: once on home, never over a deep link, remembered, reopened, broken storage ------
     const visitor = await newPage(browser, base, 'en-US', { tour: true })
@@ -504,7 +546,7 @@ const scenario = async (): Promise<void> => {
     await inThemes(visitor.page, 'tour-step-1-the-notes-list', false)
     await visitor.page.click('#tour .tour-next')
     await visitor.page.waitForSelector('#tour .tour-progress:has-text("Step 2 of 4")')
-    await visitor.page.waitForSelector('#tour a.button:has-text("Open Connect an agent")')
+    await visitor.page.waitForSelector('#tour a.button:has-text("Open My agent")')
     await shot(visitor.page, 'tour-step-2-connect-your-agent')
     await visitor.page.click('#tour .tour-next')
     await visitor.page.waitForSelector('.tab.tour-target')

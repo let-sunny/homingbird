@@ -31,6 +31,7 @@ import {
   threads,
 } from './state.ts'
 import { strings } from './strings.ts'
+import { countChange } from './thread-changes.ts'
 import { withPresence, withReceipts, withoutMovedQuestion } from './thread.ts'
 
 export const applyEvent = (event: StreamEvent): void => {
@@ -42,6 +43,7 @@ export const applyEvent = (event: StreamEvent): void => {
       launch(loadConversations)
       break
     case 'note.status':
+      countChange(body.conversationId)
       threads.update((all) => {
         const thread = all.get(body.conversationId)
         return thread === undefined
@@ -53,6 +55,8 @@ export const applyEvent = (event: StreamEvent): void => {
       })
       break
     case 'note.moved':
+      countChange(body.fromConversationId)
+      countChange(body.toConversationId)
       threads.update((all) => withoutMovedQuestion(all, body.fromConversationId, body.noteId))
       launch(loadConversations)
       break
@@ -102,6 +106,7 @@ export const applyEvent = (event: StreamEvent): void => {
     case 'channel.left':
       channels.update((all) => withoutRoom(all, body.conversationId, signedIn()?.member.role === 'admin'))
       conversations.update((all) => all.filter((room) => room.id !== body.conversationId))
+      countChange(body.conversationId)
       threads.update((all) => {
         const remaining = new Map(all)
         remaining.delete(body.conversationId)

@@ -150,6 +150,37 @@ export const overflowsSideways = (page: any): Promise<boolean> =>
     return root.scrollWidth > root.clientWidth + 1
   })
 
+/**
+ * Visible elements whose right edge passes the viewport: each as its tag and classes, the innermost
+ * ones only, so the list names the cause rather than everything around it. Content of a container
+ * that scrolls sideways on purpose, such as a wide table, does not count.
+ */
+export const pastTheRightEdge = (page: any): Promise<string[]> =>
+  page.evaluate(() => {
+    const { document, innerWidth, getComputedStyle } = globalThis as any
+    const past: any[] = []
+    for (const element of document.querySelectorAll('body *')) {
+      if (element.closest('[hidden], dialog:not([open]), .visually-hidden, [popover]:not(:popover-open)'))
+        continue
+      const box = element.getBoundingClientRect()
+      if (box.width === 0 || box.height === 0 || box.right <= innerWidth + 1) continue
+      let scrolledOnPurpose = false
+      for (let parent = element.parentElement; parent !== null; parent = parent.parentElement) {
+        const style = getComputedStyle(parent)
+        const sideways = style.overflowX === 'auto' || style.overflowX === 'scroll'
+        const upAndDown = style.overflowY === 'auto' || style.overflowY === 'scroll'
+        if (sideways && !upAndDown) {
+          scrolledOnPurpose = parent.getBoundingClientRect().right <= innerWidth + 1
+          break
+        }
+      }
+      if (!scrolledOnPurpose) past.push(element)
+    }
+    return past
+      .filter((element: any) => !past.some((other: any) => other !== element && element.contains(other)))
+      .map((element: any) => `${element.tagName.toLowerCase()}.${[...element.classList].join('.')}`)
+  })
+
 export const clippedText = (page: any): Promise<string[]> =>
   page.evaluate(() => {
     const { document, getComputedStyle } = globalThis as any

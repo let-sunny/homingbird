@@ -2,6 +2,7 @@ import { type CredentialId, DRAFT_INSTRUCTION_MAX, type DraftRequest } from '@ho
 import { type Lifetime, h, region } from '@homingbird/ui'
 import { askAgent, launch, loadAgents } from '../actions.ts'
 import type { DraftDestination } from '../draft-requests.ts'
+import { featureOn } from '../features.ts'
 import { agentCredentials } from '../state.ts'
 import { strings } from '../strings.ts'
 import { button } from './parts.ts'
@@ -11,6 +12,7 @@ export const agentAsk = (
   destination: () => DraftDestination,
   asked: (request: DraftRequest) => void = () => {},
 ): HTMLDetailsElement => {
+  if (!featureOn('draftRequests')) return h('details', { hidden: true, class: 'ask-agent is-off' })
   const instruction = h('input', {
     name: 'instruction',
     maxlength: String(DRAFT_INSTRUCTION_MAX),

@@ -73,6 +73,7 @@ const titleBar = (life: Lifetime, me: Me): HTMLElement =>
           'nav',
           { class: 'tabs', 'aria-label': strings.sections },
           tab(strings.navNotes, { name: 'home' }, ['home', 'conversation']),
+          tab(strings.navMyAgent, { name: 'agent', section: null }, ['agent'], 'connect'),
           tab(strings.navPeople, { name: 'people' }, ['people']),
           tab(strings.channels, { name: 'channels' }, ['channels', 'channel'], 'channels'),
           tab(strings.navSearch, { name: 'search', query: '' }, ['search']),
@@ -136,8 +137,6 @@ const userMenu = (me: Me): HTMLElement =>
     { id: USER_MENU_ID, popover: 'auto', class: 'menu' },
     h('p', { class: 'menu-who' }, h('strong', {}, me.member.name), h('span', {}, me.member.email)),
     menuLink(strings.menuProfile, { name: 'profile' }),
-    menuLink(strings.menuCredentials, { name: 'credentials' }),
-    menuLink(strings.connectAgent, { name: 'connect' }),
     me.member.role === 'admin' && menuLink(strings.menuAdmin, { name: 'admin', section: 'settings' }),
     h(
       'button',
@@ -242,7 +241,7 @@ const onboarding = (): HTMLElement =>
       h('p', {}, strings.onboardingHint),
       h(
         'a',
-        { class: 'button primary', href: hrefFor({ name: 'connect' }), data: { tour: 'connect' } },
+        { class: 'button primary', href: hrefFor({ name: 'agent', section: 'connection' }) },
         strings.connectAgent,
       ),
     ),

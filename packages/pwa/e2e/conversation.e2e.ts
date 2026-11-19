@@ -134,7 +134,9 @@ const scenario = async (): Promise<void> => {
     await capture(ana.page, 'composing')
 
     await ana.page.click('.composer button[type=submit]')
-    await ana.page.waitForSelector('.note-status:has-text("Delivered")')
+    await ana.page.waitForSelector(
+      '.note.is-mine .state-mark[data-state="delivered"][aria-label="Delivered"]',
+    )
     await capture(ana.page, 'note-sent-delivered')
 
     await june.page.waitForSelector('a[href^="#/c/"]')
@@ -142,7 +144,7 @@ const scenario = async (): Promise<void> => {
 
     await june.page.locator('a[href^="#/c/"]').first().click()
     await june.page.waitForSelector('.note-body')
-    await ana.page.waitForSelector('.note-status:has-text("Read")')
+    await ana.page.waitForSelector('.note.is-mine .state-mark[data-state="read"][aria-label="Read"]')
     await capture(ana.page, 'read-seen-by-sender')
 
     // -- Agent drafts and approval ---------------------------------------------------------------
@@ -150,7 +152,9 @@ const scenario = async (): Promise<void> => {
     const cursor = await connectAgent(base, june, 'Cursor')
     const waiting = (await laptop.call('GET', '/inbox')).items[0].note.id as string
     await laptop.call('POST', `/notes/${waiting}/pickup`)
-    await ana.page.waitForSelector('.note-status:has-text("Drafting reply")')
+    await ana.page.waitForSelector(
+      '.note.is-mine .state-mark[data-state="drafting"][aria-label="Drafting reply"]',
+    )
     await capture(ana.page, 'drafting-reply-status-seen-by-sender')
 
     await laptop.call('POST', '/drafts', {
@@ -176,7 +180,7 @@ const scenario = async (): Promise<void> => {
     await capture(june.page, 'editing-a-draft-before-sending')
 
     await june.page.click('dialog[open] button[type=submit]')
-    await ana.page.waitForSelector('.note-status:has-text("Replied")')
+    await ana.page.waitForSelector('.note.is-mine .state-mark[data-state="replied"][aria-label="Replied"]')
     await june.page.waitForFunction(pendingDraftsAre, 0)
     await capture(ana.page, 'replied-seen-by-sender')
     await capture(june.page, 'replied-seen-by-recipient-alternatives-discarded')
@@ -264,8 +268,8 @@ const scenario = async (): Promise<void> => {
       .getByRole('button', { name: 'Send', exact: true })
       .click()
     await ana.page.waitForFunction(pendingDraftsAre, 0)
-    await ana.page.waitForSelector('.origin.is-agent')
-    await capture(ana.page, 'origin-badges-human-edited-and-agent')
+    await ana.page.waitForSelector('.note.is-agent .author-mark')
+    await capture(ana.page, 'agent-notes-marked-on-the-character')
     assert.equal((await api(ana, 'GET', `/notes/${follow.id}`)).status, 'sent')
     assert.match((await api(ana, 'GET', `/notes/${follow.id}`)).basis, /release runbook/)
     assert.equal('basis' in (await api(june, 'GET', `/notes/${follow.id}`)), false)
@@ -274,13 +278,18 @@ const scenario = async (): Promise<void> => {
     assert.equal(await june.page.locator('text=release runbook').count(), 0)
     assert.equal(await june.page.locator('.note-basis, .draft-basis').count(), 0)
     const origins = await ana.page
-      .locator('.origin')
+      .locator('.notes > .note')
       .evaluateAll((nodes: ReadonlyArray<{ className: string }>) => nodes.map((node) => node.className))
-    for (const origin of ['is-human', 'is-human_edited', 'is-agent'])
+    for (const origin of ['is-person', 'is-edited', 'is-agent'])
       assert.ok(
         origins.some((name: string) => name.split(' ').includes(origin)),
-        `missing origin badge ${origin}`,
+        `missing a note written as ${origin}`,
       )
+    assert.equal(
+      await ana.page.locator('.notes > .note .origin').count(),
+      0,
+      'no text badge under sent notes',
+    )
 
     // -- Channel rooms -----------------------------------------------------------------------------
     await ana.page.goto(`${base}/#/channels`)
@@ -319,10 +328,10 @@ const scenario = async (): Promise<void> => {
     await ana.page.goto(`${base}/#/people`)
     await ana.page.waitForSelector('.person:has-text("june@example.com") .channel-chip:has-text("#billing")')
     await capture(ana.page, 'directory-shows-channel-chips')
-    await june.page.goto(`${base}/#/me`)
+    await june.page.goto(`${base}/#/agent/connection`)
     await june.page.waitForSelector('.my-channels .channel-chip:has-text("#billing")')
     await june.page.locator('.my-channels').scrollIntoViewIfNeeded()
-    await capture(june.page, 'profile-my-agent-can-help-with')
+    await capture(june.page, 'my-agent-can-help-with')
 
     const asker = await signIn('lee@example.com', 'Lee')
     await asker.page.goto(`${base}/#/channels`)
@@ -332,7 +341,7 @@ const scenario = async (): Promise<void> => {
     await capture(asker.page, 'asking-a-channel')
     await asker.page.click('.ask-channel button[type=submit]')
     await asker.page.waitForSelector('.thread-head h1:has-text("#billing")')
-    await asker.page.waitForSelector('.note-status:has-text("Read by 0 of 2")')
+    await asker.page.waitForSelector('.state-mark[aria-label="Read by 0 of 2"]:has-text("0/2")')
     await capture(asker.page, 'question-in-a-channel-room-read-by-0-of-2')
 
     const billingRoom = (await api(june, 'GET', '/channels')).channels.find(
@@ -560,7 +569,7 @@ const scenario = async (): Promise<void> => {
     await sendThroughApi(june, { conversationId: group.id, body: 'I will watch the export job.' })
     await ana.page.goto(`${base}/#/c/${group.id}`)
     await ana.page.waitForSelector('.note-author')
-    await ana.page.waitForSelector('.note-status:has-text("Read by 0 of 2")')
+    await ana.page.waitForSelector('.state-mark[aria-label="Read by 0 of 2"]:has-text("0/2")')
     await capture(ana.page, 'group-conversation-with-authors-and-read-counts')
 
     // -- Connection lost and restored ------------------------------------------------------------
@@ -582,7 +591,7 @@ const scenario = async (): Promise<void> => {
       ['thread', `/${conversationHref}`],
       ['people', '/#/people'],
       ['profile', '/#/me'],
-      ['credentials', '/#/credentials'],
+      ['my-agent', '/#/agent/connection'],
       ['admin-settings', '/#/admin/settings'],
       ['group-conversation', `/#/c/${group.id}`],
       ['channels', '/#/channels'],
@@ -647,7 +656,7 @@ const scenario = async (): Promise<void> => {
     }
     await ana.page.setViewportSize(VIEWPORT)
     await ana.page.goto(`${base}/#/c/${group.id}`)
-    await ana.page.waitForSelector('.note-status:has-text("명 읽음")')
+    await ana.page.waitForSelector('.state-mark[aria-label*="명 읽음"]')
     await ana.page.goto(`${base}/#/me`)
     await ana.page.locator('.language input[value=""]').check()
     await ana.page.waitForSelector('html[lang="en"]')

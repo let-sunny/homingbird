@@ -1,13 +1,18 @@
 import { Task as T } from '@homingbird/kernel'
 import {
+  ANSWERING_FLOW_MAX_CHARACTERS,
+  type ApiError,
   type AuditEntry,
   CHANNEL_DESCRIPTION_MAX,
   type Channel,
+  FEATURE_NAMES,
+  type FlowStep,
   type Me,
   type Member,
   type Settings,
+  featureSwitches,
 } from '@homingbird/protocol'
-import { type Child, type Lifetime, h, region, signal } from '@homingbird/ui'
+import { type Child, type Lifetime, type Signal, h, region, signal } from '@homingbird/ui'
 import {
   api,
   archiveChannel,
@@ -17,15 +22,18 @@ import {
   reviseChannel,
   saveSettings,
 } from '../actions.ts'
-import { flowLength, flowToSave, mayInsertExample } from '../answering-flow.ts'
+import { flowSize, flowToSave, mayInsertExample, moveStep, stepsFrom } from '../answering-flow.ts'
 import { channelLabel, slugFrom } from '../channels.ts'
+import { featureOn } from '../features.ts'
 import { type AdminSection, hrefFor } from '../routes.ts'
 import { channels, members as knownMembers, notice } from '../state.ts'
 import { strings } from '../strings.ts'
 import { privateMark } from './channel-membership.ts'
 import { memberAvatar } from './character-avatar.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
+import { insightsSection } from './insights.ts'
 import { button, channelCounts, dateTimeLabel, field, page, youMark } from './parts.ts'
+import { todoList } from './todo-list.ts'
 
 export const adminView = (life: Lifetime, me: Me, section: AdminSection): HTMLElement =>
   page(
@@ -47,13 +55,16 @@ export const adminView = (life: Lifetime, me: Me, section: AdminSection): HTMLEl
         ? membersSection(life, me)
         : section === 'channels'
           ? channelsSection(life)
-          : auditSection(life),
+          : section === 'insights' && featureOn('insights')
+            ? insightsSection(life)
+            : auditSection(life),
   )
 
 const sections = (): ReadonlyArray<readonly [AdminSection, string]> => [
   ['settings', strings.adminSettings],
   ['members', strings.adminMembers],
   ['channels', strings.adminChannels],
+  ...(featureOn('insights') ? [['insights', strings.adminInsights] as const] : []),
   ['audit', strings.adminAudit],
 ]
 
@@ -62,11 +73,12 @@ const settingsSection = (life: Lifetime): HTMLElement => {
   launch(T.map((loaded: Settings) => settings.set(loaded))(api['admin.settings.get']({})))
   return region(life, [settings], () => {
     const loaded = settings.get()
-    return loaded === null ? h('p', { class: 'loading' }, strings.loading) : settingsForm(loaded)
+    return loaded === null ? h('p', { class: 'loading' }, strings.loading) : settingsForm(life, loaded)
   })
 }
 
-const settingsForm = (settings: Settings): HTMLElement => {
+const settingsForm = (life: Lifetime, settings: Settings): HTMLElement => {
+  const problem = signal<string | null>(null)
   const domains = h('textarea', { name: 'domains', rows: '4' })
   domains.value = settings.allowedDomains.join('\n')
   const mode = h(
@@ -86,7 +98,8 @@ const settingsForm = (settings: Settings): HTMLElement => {
     max: '36500',
     value: settings.auditRetentionDays ?? '',
   })
-  const flow = answeringFlowEditor(settings.answeringFlow ?? null)
+  const flow = answeringFlowEditor(life, settings.answeringFlow ?? null, problem)
+  const features = featureSwitchesEditor(life, settings.features ?? {})
   return h(
     'form',
     {
@@ -94,16 +107,20 @@ const settingsForm = (settings: Settings): HTMLElement => {
       on: {
         submit: (event) => {
           event.preventDefault()
+          problem.set(null)
           launch(
-            saveSettings({
-              allowedDomains: domains.value
-                .split(/[\s,]+/)
-                .map((domain) => domain.trim().toLowerCase())
-                .filter((domain) => domain !== ''),
-              contactMode: mode.value === 'contacts' ? 'contacts' : 'open',
-              auditRetentionDays: retention.value === '' ? null : Number(retention.value),
-              answeringFlow: flowToSave(flow.text.value),
-            }),
+            T.tapError((error: ApiError) => T.sync(() => problem.set(error.message)))(
+              saveSettings({
+                allowedDomains: domains.value
+                  .split(/[\s,]+/)
+                  .map((domain) => domain.trim().toLowerCase())
+                  .filter((domain) => domain !== ''),
+                contactMode: mode.value === 'contacts' ? 'contacts' : 'open',
+                auditRetentionDays: retention.value === '' ? null : Number(retention.value),
+                ...(featureOn('answeringFlow') && { answeringFlow: flow.value() }),
+                features: features.value(),
+              }),
+            ),
             () => notice.set({ kind: 'info', text: strings.saved }),
           )
         },
@@ -112,73 +129,176 @@ const settingsForm = (settings: Settings): HTMLElement => {
     field(strings.allowedDomains, domains, strings.allowedDomainsHint),
     field(strings.contactMode, mode),
     field(strings.auditRetention, retention, strings.auditRetentionHint),
-    flow.section,
+    featureOn('answeringFlow') && flow.section,
+    features.section,
     h('button', { type: 'submit', class: 'primary' }, strings.save),
   )
 }
 
+/** Admin → Settings → Features: one row per optional feature, with a switch and what people lose without it. */
+const featureSwitchesEditor = (
+  life: Lifetime,
+  saved: Readonly<Record<string, boolean>>,
+): { readonly section: HTMLElement; readonly value: () => Record<string, boolean> } => {
+  const switches = signal(featureSwitches(saved))
+  const section = h(
+    'fieldset',
+    { class: 'features' },
+    h('legend', {}, strings.features.title),
+    h('p', {}, strings.features.intro),
+    region(life, [switches], () =>
+      h(
+        'ol',
+        { class: 'todo-list feature-list', 'aria-label': strings.features.title },
+        FEATURE_NAMES.map((name) => {
+          const on = switches.get()[name]
+          return h(
+            'li',
+            { class: `todo-row feature-row${on ? '' : ' is-off'}`, data: { name } },
+            h(
+              'button',
+              {
+                type: 'button',
+                class: 'todo-switch',
+                role: 'switch',
+                'aria-checked': String(on),
+                'aria-label': strings.features.names[name],
+                on: { click: () => switches.update((all) => ({ ...all, [name]: !on })) },
+              },
+              h('span', { class: 'todo-check', 'aria-hidden': 'true' }, on ? '✓' : ''),
+            ),
+            h(
+              'div',
+              { class: 'todo-main' },
+              h('strong', {}, strings.features.names[name]),
+              h('small', { class: 'feature-loss' }, strings.features.whenOff[name]),
+            ),
+          )
+        }),
+      ),
+    ),
+    h('p', { class: 'trust-footnote' }, strings.features.core),
+  )
+  return { section, value: () => ({ ...switches.get() }) }
+}
+
+/** The answering flow as two to-do lists: steps before drafting and checks on the draft, each switchable. */
 const answeringFlowEditor = (
+  life: Lifetime,
   saved: string | null,
-): { readonly section: HTMLElement; readonly text: HTMLTextAreaElement } => {
-  const text = h('textarea', {
-    name: 'answeringFlow',
-    class: 'answering-flow-text',
-    rows: '10',
-    spellcheck: 'false',
-    'aria-describedby': 'answering-flow-format answering-flow-count',
-  })
-  text.value = saved ?? ''
-  const count = h('small', { id: 'answering-flow-count', class: 'flow-count', 'aria-live': 'polite' })
+  problem: Signal<string | null>,
+): { readonly section: HTMLElement; readonly value: () => string | null } => {
+  const steps = signal<ReadonlyArray<FlowStep>>(stepsFrom(saved))
+  const keys = new WeakMap<FlowStep, string>()
+  let next = 0
+  const keyOf = (step: FlowStep): string => {
+    if (!keys.has(step)) keys.set(step, `step-${next++}`)
+    return keys.get(step)!
+  }
+  const stepWith = (key: string): FlowStep | undefined => steps.get().find((step) => keyOf(step) === key)
+  const replace = (key: string, change: Partial<FlowStep>): void =>
+    steps.update((all) => all.map((step) => (keyOf(step) === key ? { ...step, ...change } : step)))
+  const list = (part: FlowStep['part']): HTMLElement => {
+    const mine = steps.get().filter((step) => step.part === part)
+    return todoList({
+      label: part === 'before' ? strings.answeringFlow.beforeTitle : strings.answeringFlow.checksTitle,
+      rows: mine.map((step) => ({
+        key: keyOf(step),
+        name: step.text,
+        enabled: step.enabled,
+        fields: [
+          {
+            name: 'text',
+            label: strings.answeringFlow.stepLabel,
+            value: step.text,
+            maxLength: ANSWERING_FLOW_MAX_CHARACTERS,
+            wide: true,
+          },
+        ],
+      })),
+      toggle: (key, enabled) => replace(key, { enabled }),
+      edit: (key, _, text) => replace(key, { text }),
+      move: (key, to) => {
+        const step = stepWith(key)
+        if (step !== undefined) steps.set(moveStep(steps.get(), step, to))
+      },
+      remove: (key) => steps.update((all) => all.filter((step) => keyOf(step) !== key)),
+      add: {
+        label: strings.answeringFlow.addStep,
+        fields: [
+          {
+            name: 'text',
+            label: strings.answeringFlow.stepLabel,
+            value: '',
+            maxLength: ANSWERING_FLOW_MAX_CHARACTERS,
+            placeholder: strings.answeringFlow.stepPlaceholder,
+            wide: true,
+          },
+        ],
+        submit: (values, done) => {
+          const text = values.text ?? ''
+          if (text === '') return
+          const added: FlowStep = { part, text, enabled: true }
+          steps.set(moveStep([...steps.get(), added], added, Number.POSITIVE_INFINITY))
+          done()
+        },
+      },
+    })
+  }
   const example = h('button', {
     type: 'button',
     class: 'insert-example',
     'aria-describedby': 'example-reason',
   })
   example.textContent = strings.answeringFlow.insertExample
-  const exampleReason = h('small', { id: 'example-reason' }, strings.answeringFlow.exampleNeedsEmpty)
-  const reflect = (): void => {
-    const length = flowLength(text.value)
-    count.textContent = strings.answeringFlow.counter({ used: length.used, max: length.max })
-    count.classList.toggle('is-over', length.over)
-    example.disabled = !mayInsertExample(text.value)
-    exampleReason.hidden = !example.disabled
-  }
-  text.addEventListener('input', reflect)
   example.addEventListener('click', () => {
-    if (!mayInsertExample(text.value)) return
-    text.value = strings.answeringFlow.example
-    reflect()
-    text.focus()
+    if (mayInsertExample(steps.get())) steps.set(stepsFrom(strings.answeringFlow.example))
   })
-  reflect()
-  return {
-    text,
-    section: h(
-      'fieldset',
-      { class: 'answering-flow' },
-      h('legend', {}, strings.answeringFlow.title),
-      h('p', {}, strings.answeringFlow.intro),
-      h(
-        'div',
-        { class: 'flow-warning', role: 'note' },
-        h('p', {}, strings.answeringFlow.warning),
-        h('p', {}, strings.answeringFlow.caution),
-      ),
-      h(
-        'label',
-        { class: 'field' },
-        h('span', { class: 'field-label' }, strings.answeringFlow.label),
-        text,
-        h('small', { id: 'answering-flow-format' }, strings.answeringFlow.format),
-      ),
-      h(
-        'div',
-        { class: 'flow-tools' },
-        count,
-        h('span', { class: 'disabled-control' }, example, exampleReason),
-      ),
+  const section = h(
+    'fieldset',
+    { class: 'answering-flow' },
+    h('legend', {}, strings.answeringFlow.title),
+    h('p', {}, strings.answeringFlow.intro),
+    h(
+      'div',
+      { class: 'flow-warning', role: 'note' },
+      h('p', {}, strings.answeringFlow.warning),
+      h('p', {}, strings.answeringFlow.caution),
     ),
-  }
+    region(life, [steps, problem], () => {
+      const size = flowSize(steps.get())
+      example.disabled = !mayInsertExample(steps.get())
+      return [
+        h('h3', { class: 'flow-list-title' }, strings.answeringFlow.beforeTitle),
+        list('before'),
+        h('h3', { class: 'flow-list-title' }, strings.answeringFlow.checksTitle),
+        list('checks'),
+        problem.get() !== null && h('p', { class: 'flow-problem', role: 'alert' }, problem.get()),
+        h(
+          'div',
+          { class: 'flow-tools' },
+          h(
+            'small',
+            { class: `flow-count${size.over ? ' is-over' : ''}`, 'aria-live': 'polite' },
+            strings.answeringFlow.counter({ used: size.used, max: size.max }),
+            ' · ',
+            strings.answeringFlow.stepsCounter({ steps: size.steps, max: size.maxSteps }),
+          ),
+          h(
+            'span',
+            { class: 'disabled-control' },
+            example,
+            h(
+              'small',
+              { id: 'example-reason', hidden: !example.disabled },
+              strings.answeringFlow.exampleNeedsEmpty,
+            ),
+          ),
+        ),
+      ]
+    }),
+  )
+  return { section, value: () => flowToSave(steps.get()) }
 }
 
 const membersSection = (life: Lifetime, me: Me): HTMLElement => {
@@ -225,6 +345,7 @@ const membersSection = (life: Lifetime, me: Me): HTMLElement => {
                     })
                   : button(strings.reactivate, () => change(member, { status: 'active' })),
                 member.character != null &&
+                  featureOn('characters') &&
                   button(strings.character.resetMember, () =>
                     launch(resetMemberCharacter(member.id), () => {
                       notice.set({

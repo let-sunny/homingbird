@@ -22,6 +22,7 @@ import {
   workbenchFromBuiltIn,
   workbenchFromLink,
 } from '../src/characters.ts'
+import { serverInfo } from '../src/state.ts'
 
 const OTTER = {
   version: 1 as const,
@@ -36,6 +37,18 @@ const OTTER = {
 }
 
 describe('characterOf', () => {
+  it('draws everyone as the pigeon while an administrator has characters turned off, and as their own again after', () => {
+    const info = { name: 'dovecote' as const, version: '0', contactMode: 'open' as const, signInWith: 'x' }
+    try {
+      serverInfo.set({ ...info, features: { characters: false } })
+      expect(characterOf({ character: OTTER })).toBe(PIGEON)
+      serverInfo.set({ ...info, features: { characters: true } })
+      expect(characterOf({ character: OTTER })).toBe(OTTER)
+    } finally {
+      serverInfo.set(null)
+    }
+  })
+
   it('draws a member with no saved character, or an unknown member, as the pigeon', () => {
     expect(characterOf({ character: null })).toBe(PIGEON)
     expect(characterOf(undefined)).toBe(PIGEON)

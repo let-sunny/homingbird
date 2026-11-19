@@ -2,6 +2,7 @@ import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import {
   type AdminSection,
+  type AgentSection,
   type Route,
   currentHashFor,
   hrefFor,
@@ -17,7 +18,9 @@ const routes: fc.Arbitrary<Route> = fc.oneof(
   fc.constant<Route>({ name: 'channels' }),
   segment.map((slug): Route => ({ name: 'channel', slug })),
   fc.constant<Route>({ name: 'profile' }),
-  fc.constant<Route>({ name: 'credentials' }),
+  fc
+    .constantFrom<AgentSection | null>(null, 'connection', 'teaching', 'doing', 'routes')
+    .map((section): Route => ({ name: 'agent', section })),
   fc.constant<Route>({ name: 'character', draft: null, from: null }),
   segment.map((draft): Route => ({ name: 'character', draft, from: null })),
   segment.map((from): Route => ({ name: 'character', draft: null, from })),
@@ -26,7 +29,7 @@ const routes: fc.Arbitrary<Route> = fc.oneof(
   fc.option(segment, { nil: null }).map((code): Route => ({ name: 'device', code })),
   fc.string({ maxLength: 40 }).map((query): Route => ({ name: 'search', query })),
   fc
-    .constantFrom<AdminSection>('settings', 'members', 'channels', 'audit')
+    .constantFrom<AdminSection>('settings', 'members', 'channels', 'insights', 'audit')
     .map((section): Route => ({ name: 'admin', section })),
   fc
     .option(fc.string({ maxLength: 60 }), { nil: null })
@@ -59,6 +62,12 @@ describe('routes', () => {
     ['#/t/billing', { name: 'channel', slug: 'billing' }],
     ['#/t', { name: 'unknown' }],
     ['#/admin/channels', { name: 'admin', section: 'channels' }],
+    ['#/admin/insights', { name: 'admin', section: 'insights' }],
+    ['#/agent', { name: 'agent', section: null }],
+    ['#/agent/teaching', { name: 'agent', section: 'teaching' }],
+    ['#/agent/nonsense', { name: 'agent', section: null }],
+    ['#/connect', { name: 'agent', section: 'connection' }],
+    ['#/credentials', { name: 'agent', section: 'connection' }],
     ['#/c', { name: 'unknown' }],
     ['#/consent', { name: 'unknown' }],
     ['#/nowhere', { name: 'unknown' }],
@@ -74,6 +83,9 @@ describe('routes', () => {
     expect(currentHashFor('#/t/billing')).toBe('#/channel/billing')
     expect(currentHashFor('#/t/caf%C3%A9')).toBe('#/channel/caf%C3%A9')
     expect(hrefFor({ name: 'channel', slug: 'billing' })).toBe('#/channel/billing')
+    expect(currentHashFor('#/connect')).toBe('#/agent/connection')
+    expect(currentHashFor('#/credentials')).toBe('#/agent/connection')
+    expect(currentHashFor('#/connector')).toBeNull()
     for (const hash of ['#/channel/billing', '#/t', '#/c/conv_1', '#/', ''])
       expect(currentHashFor(hash)).toBeNull()
   })
