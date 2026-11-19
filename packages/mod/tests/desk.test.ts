@@ -350,7 +350,7 @@ test('the status line, toasts and notifications speak the person’s language', 
   })
   await $.session.start(START)
   await openDesk($, seen)
-  expect(seen.statuses).toContain('Homingbird 전용 세션 · 승인을 기다리는 초안 1개')
+  expect(seen.statuses).toContain('Homingbird 데스크 · 승인을 기다리는 초안 1개')
   expect(seen.notifications).toContain('Ana 님이 보낸 노트가 도착했어요. 답장 초안을 쓰고 있어요.')
   expect(seen.toasts).toContain('Homingbird: Ana 님이 보낸 노트가 도착했어요. 답장 초안을 쓰고 있어요.')
   expect(seen.commands.filter((args) => args[0] === 'status')).toEqual([['status', '--json']])

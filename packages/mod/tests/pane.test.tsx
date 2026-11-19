@@ -163,7 +163,7 @@ test('the pane speaks Korean when the environment is set to Korean', async ($, o
   await openDesk($, seen)
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ ...PANE, surface })
-    expect(await ui.find({ type: 'Text', text: /전용 세션으로 열어 두세요/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /데스크로 열어 두세요/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /승인을 기다리는 초안/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /Laptop이\(가\) 쓴 답장 초안/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /Ana, Ben · 읽지 않음 2/ })).toBeDefined()
@@ -195,6 +195,14 @@ test('the pane language follows the member, then LC_ALL, LC_MESSAGES and LANG, t
   expect(paneLanguageFrom(null, ['', undefined, 'ko'])).toBe('ko')
   expect(paneLanguageFrom('fr', ['C.UTF-8'])).toBe('en')
   expect(paneLanguageFrom(undefined, [])).toBe('en')
+})
+
+test('the Korean pane calls the desk 데스크, never 전용 세션', () => {
+  const written = Object.values(paneTextIn('ko'))
+    .map((text) => (typeof text === 'function' ? text.toString() : JSON.stringify(text)))
+    .join(' ')
+  expect(written).toContain('데스크')
+  expect(written).not.toContain('전용 세션')
 })
 
 test('both languages have every pane string', () => {

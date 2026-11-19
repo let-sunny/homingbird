@@ -2,23 +2,23 @@ import type { PaneText } from '../pane-text'
 
 export const ko: PaneText = {
   connection: {
-    idle: '전용 세션 아님',
+    idle: '데스크 아님',
     starting: '시작하는 중',
-    live: '전용 세션 · 실시간',
-    reconnecting: '전용 세션 · 다시 연결하는 중',
+    live: '데스크 · 실시간',
+    reconnecting: '데스크 · 다시 연결하는 중',
     'signed-out': '로그인 안 됨',
     unavailable: '명령줄 도구를 찾을 수 없어요',
   },
   waiting: (count) => `${count}개 대기 중`,
-  keepOpen: '이 세션을 Homingbird 전용 세션으로 열어 두세요.',
+  keepOpen: '이 세션을 Homingbird 데스크로 열어 두세요.',
   freshSession:
-    '이 세션은 오래 실행됐거나 컨텍스트를 거의 다 썼어요. 새 세션에서 초안이 더 나을 때가 많아요. 새 세션을 열고 전용 세션으로 지정하세요.',
-  moved: '이제 다른 세션이 Homingbird 전용 세션이에요. 이 세션은 더 이상 노트에 반응하지 않아요.',
-  becomeDesk: '이 세션을 전용 세션으로',
+    '이 세션은 오래 실행됐거나 컨텍스트를 거의 다 썼어요. 새 세션을 열어 데스크로 지정하면 초안이 더 나아질 때가 많아요.',
+  moved: '이제 다른 세션이 Homingbird 데스크예요. 이 세션은 더 이상 노트에 반응하지 않아요.',
+  becomeDesk: '이 세션을 데스크로',
   confirmSignIn: '브라우저에서 로그인을 확인해 주세요. 브라우저가 열리지 않았다면:',
   openSignInPage: '로그인 페이지 열기',
   signInCode: (code) => `코드 ${code}.`,
-  signInPrompt: '조직의 Homingbird 서버에 로그인하면 이 세션이 전용 세션이 돼요.',
+  signInPrompt: '조직의 Homingbird 서버에 로그인하면 이 세션이 데스크가 돼요.',
   serverUrl: '서버 URL',
   signIn: '로그인',
   memberOn: (member, server) => `${member} · ${server}`,
@@ -41,7 +41,7 @@ export const ko: PaneText = {
   awaitingYourApproval: '승인을 기다리고 있어요',
   openInWebClient: '웹에서 열기',
   deskStatus: (waiting) =>
-    waiting === 0 ? 'Homingbird 전용 세션' : `Homingbird 전용 세션 · 승인을 기다리는 초안 ${waiting}개`,
+    waiting === 0 ? 'Homingbird 데스크' : `Homingbird 데스크 · 승인을 기다리는 초안 ${waiting}개`,
   toast: (text) => `Homingbird: ${text}`,
   noteArrived: (author) => `${author} 님이 보낸 노트가 도착했어요. 답장 초안을 쓰고 있어요.`,
   aColleague: '동료',
@@ -49,7 +49,7 @@ export const ko: PaneText = {
   draftingRequest: '요청한 초안을 쓰고 있어요.',
   debateWaiting: (wants) =>
     wants === 'turn'
-      ? '토론방이 에이전트의 차례를 기다리고 있어요. 이 서버에 연결된 전용 세션이나 러너가 차례를 가질 수 있어요. 웹 클라이언트에서 토론방을 지켜보세요.'
+      ? '토론방이 에이전트의 차례를 기다리고 있어요. 이 서버에 연결된 데스크나 러너가 차례를 가질 수 있어요. 웹 클라이언트에서 토론방을 지켜보세요.'
       : '토론방의 차례가 끝나 에이전트에게 결과를 요청하고 있어요. 결과는 웹 클라이언트에서 사람이 승인해요.',
   streamStopped: '실시간 연결이 끊겼어요. 30초 뒤에 다시 연결해요.',
   couldNotSignIn: (reason) => `로그인하지 못했어요: ${reason}`,
@@ -73,10 +73,10 @@ export const ko: PaneText = {
   signOut: '로그아웃',
   deskStopped: (before, after) =>
     after === null
-      ? `${before.server}에서 로그아웃했어요. 전용 세션을 멈췄어요. 다시 로그인하면 이 세션을 전용 세션으로 쓸 수 있어요.`
-      : `이 창의 계정이 바뀌어 전용 세션을 멈췄어요. 이전: ${before.memberName} · ${before.server}, 지금: ${after.memberName} · ${after.server}. 다시 쓰려면 /homingbird를 입력하세요.`,
+      ? `${before.server}에서 로그아웃했어요. 데스크를 멈췄어요. 다시 로그인하면 이 세션을 데스크로 쓸 수 있어요.`
+      : `이 창의 계정이 바뀌어 데스크를 멈췄어요. 이전: ${before.memberName} · ${before.server}, 지금: ${after.memberName} · ${after.server}. 다시 쓰려면 /homingbird를 입력하세요.`,
   hostTooOld:
-    'Homingbird 도구와 전용 세션을 쓰려면 Claude Code를 2.1.327 이상으로 업데이트하세요. 그동안 창은 계속 쓸 수 있어요.',
+    'Homingbird 도구와 데스크를 쓰려면 Claude Code를 2.1.327 이상으로 업데이트하세요. 그동안 창은 계속 쓸 수 있어요.',
   waitingForApproval: '브라우저에서 승인하기를 기다리는 중이에요.',
   signInDenied: '브라우저에서 로그인을 거절했어요. 아무것도 연결되지 않았어요.',
   signInExpired: '승인하기 전에 코드가 만료됐어요. 다시 시작해서 새 코드를 받으세요.',
