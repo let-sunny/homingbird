@@ -115,7 +115,7 @@ importers:
         specifier: workspace:*
         version: link:../protocol
 
-  packages/mod:
+  packages/plugin:
     devDependencies:
       '@homingbird/cli':
         specifier: workspace:*

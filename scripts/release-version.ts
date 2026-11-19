@@ -118,7 +118,7 @@ const VERSION_HOLDERS: ReadonlyArray<{
 }> = [
   { file: 'package.json', pattern: JSON_VERSION, replacement: (version) => `$1"${version}"` },
   {
-    file: 'packages/mod/.claude-plugin/plugin.json',
+    file: 'packages/plugin/.claude-plugin/plugin.json',
     pattern: JSON_VERSION,
     replacement: (version) => `$1"${version}"`,
   },
@@ -126,6 +126,11 @@ const VERSION_HOLDERS: ReadonlyArray<{
     file: '.claude-plugin/marketplace.json',
     pattern: MARKETPLACE_VERSION,
     replacement: (version) => `$1"${version}"`,
+  },
+  {
+    file: 'packages/cli/src/version.ts',
+    pattern: CONSTANT_VERSION,
+    replacement: (version) => `$1'${version}'`,
   },
   {
     file: 'packages/mcp/src/version.ts',

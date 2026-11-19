@@ -33,6 +33,44 @@ jobs:
       - run: pnpm test:coverage
       - run: pnpm build
 
+  desktop:
+    name: cli, mcp and service on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm exec vitest run packages/cli/ packages/mcp/
+      # Installs the real launchd agent or Run key entry for this runner's user, then removes it.
+      - run: pnpm exec tsx scripts/service-smoke.ts 8191
+
+  plugin:
+    name: plugin validate and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      # The validator and the plugin test kit run offline against a mocked host: no API key is needed.
+      - run: npm install --global @anthropic-ai/claude-code@2.1.328
+      - run: pnpm test:plugin
+
   database:
     name: dovecote on ${{ matrix.database }}
     runs-on: ubuntu-latest

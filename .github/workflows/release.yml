@@ -20,6 +20,7 @@ permissions:
   contents: read
 
 env:
+  # npm names under @homingbird/. The plugin lives in packages/plugin and is published as @homingbird/mod.
   PUBLISHED_PACKAGES: cli mcp mod
 
 jobs:
@@ -111,11 +112,15 @@ jobs:
       - run: pnpm lint
       - run: pnpm test
       - run: pnpm build
+      # The validator and the plugin test kit run offline against a mocked host: no API key is needed.
+      - run: npm install --global @anthropic-ai/claude-code@2.1.328
+      - run: pnpm test:plugin
       - name: Pack
         run: |
           mkdir release
           for package in $PUBLISHED_PACKAGES; do
-            (cd "packages/$package" && pnpm pack --pack-destination ../../release)
+            manifest="$(grep -l "\"name\": \"@homingbird/$package\"" packages/*/package.json)"
+            (cd "$(dirname "$manifest")" && pnpm pack --pack-destination ../../release)
           done
           ls -l release
       - name: Install the tarballs outside the workspace and run them

@@ -38,7 +38,7 @@ export const SCOPES = [
   'cli',
   'mcp',
   'a2a',
-  'mod',
+  'plugin',
   'sprites',
   'deploy',
   'release',

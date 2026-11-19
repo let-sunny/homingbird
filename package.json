@@ -15,6 +15,7 @@
     "format": "biome check --write .",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:plugin": "claude plugin validate packages/plugin && claude plugin test packages/plugin",
     "test:mutation": "stryker run",
     "build": "pnpm -r --if-present run build && tsx packages/dovecote/build.ts",
     "dev": "pnpm --filter @homingbird/pwa run build && HB_PUBLIC_URL=http://localhost:8080 HB_DEV_LOGIN=1 HB_ALLOWED_DOMAINS=example.com HB_WEB_DIR=packages/pwa/dist tsx packages/dovecote/src/main.ts",

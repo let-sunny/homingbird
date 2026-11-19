@@ -221,8 +221,8 @@ async function runServer(): Promise<void> {
     HB_DATABASE_URL: databaseUrl,
   })
   if (config._tag === 'Err') throw new Error(config.error.join('; '))
-  const database = await openDatabase(databaseUrl)
-  const { env, background } = buildRuntime({ config: config.value, database, log: () => {} })
+  const database = await T.runPromise(openDatabase(databaseUrl))
+  const { env, background } = buildRuntime({ config: config.value, database, write: () => {} })
   await T.runPromise(migrate, env)
   await T.runPromise(seedChannels, env)
   T.runFork(background, env)
@@ -252,6 +252,6 @@ async function runServer(): Promise<void> {
     })
   }
   writeFileSync(seatsFile, JSON.stringify(seats), { mode: 0o600 })
-  await startServer(env, port)
+  await T.runPromise(startServer(env, port))
   process.stdout.write('ready\n')
 }
