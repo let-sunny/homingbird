@@ -24,12 +24,12 @@ and the tabs form a grid on a phone, every main page has its loading and empty s
 390 px (`e2e/pages.e2e.ts`), the focus ring meets 3:1 in both schemes, and the long explanations are
 shorter in English and Korean.
 
-Then a **refactoring pass before the pilot**, with no new features: remove dead code and duplicated logic
-left by renames and removals, split files that answer more than one question, give every source file its
-same-named test (the lint warning list), run mutation tests on `kernel` and `protocol`, measure the
-administrator Insights aggregation and the event fan-out at pilot size, and run the full live test again.
+The **refactoring pass** is **Built** (0.2.0): dead code and duplicated logic are gone, every source file has
+its same-named test, `kernel` and `protocol` pass mutation tests, and the administrator Insights
+aggregation and the event fan-out were measured at pilot size (every call under 500 ms, see
+`scripts/pilot-measure.ts`). The full live test on macOS and Windows runs again on 0.2.0.
 
-After it come **groups and channel agents**, then **the cloud desk** (a desk woken through a URL a
+Next come **groups and channel agents**, then **the cloud desk** (a desk woken through a URL a
 person registers, below), then **more insights** (per group and per channel agent). A pilot with a
 real team starts after that and before **answering on its own** (automatic sending and
 judging its scope, described under "An agent that earns trust"); the numbers from that pilot decide
