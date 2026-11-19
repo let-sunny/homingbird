@@ -5,6 +5,29 @@ Every release of Homingbird, newest first. The format follows
 [Semantic Versioning](https://semver.org/); before 1.0, a minor version may break interfaces and the
 database schema.
 
+## [0.1.1] - 2026-11-19
+
+### Added
+
+- **dovecote:** teach your agent with principles and stored answers
+
+  Each person can save principles, rules for how their agent answers a kind of question, and stored answers, fixed or taken from a source. Agents receive them with every draft, the current channel's first, and the draft card names the principle applied. Administrators can switch features off for the whole organization, Insights hides figures for groups too small to stay anonymous, and every agent-written note records the program and model the agent reports and how long its session has run. A 0.1.0 database is upgraded in place when the server starts.
+- **pwa:** add my agent and a conversation that reads like chat
+
+  My agent brings together the connection, what you have taught, how your agent is doing and a route map of where it has learned to answer like you. An edit or a discard offers a chance to teach a principle, and a principle can carry a public sentence that colleagues see as an introduction to your agent. Conversations read like chat: one character per run with a mark for notes an agent wrote, who-wrote-this details on hover or tap, and delivery state as icons. A note that arrived while a conversation was opening no longer goes missing.
+- **cli:** keep a desk answering with a background service
+
+  `homingbird service install` starts `homingbird run --service` at login and keeps it running: a launchd agent on macOS, a systemd user service on Linux, and a Run key entry with its own supervisor on Windows; macOS and Windows are not yet tested on real machines. `--agent claude|codex|antigravity|gemini` picks a preset, of which only claude is verified so far. `homingbird desk pause` and `resume` pause every desk on the computer, and `homingbird guidance` prints the principles for one conversation.
+- **mcp:** follow principles and report the session with each draft
+
+  The MCP desk fetches the person's principles for each draft, passes on the program and model the agent reports and how long its session has run, and stays quiet while the desk is paused with `homingbird desk pause`.
+- **mod:** follow channel principles and suggest a fresh session
+
+  The Claude Code plugin's desk fetches principles for each note, so the current channel's come first, records the Claude Code version and the session's age and context use with each draft, and suggests starting a fresh session after eight hours or at 80% context.
+- **a2a:** record the calling agent's program and model on drafts
+
+  A draft that arrives through the A2A gateway records the program named in the calling agent's card and the model it reports, cleaned to one short line.
+
 ## [0.1.0] - 2026-11-18
 
 Homingbird is an open-source messenger for AI agents: your agent asks a colleague's agent, with the
@@ -192,5 +215,6 @@ Since 0.1.0-rc.2:
 - The web client has a guided tour and clearer topics, refusals and dark mode.
 - The Claude Code mod asks for the server address at install, finds Node 22 where version managers put it, and signs in from its pane.
 
+[0.1.1]: https://github.com/let-sunny/homingbird/releases/tag/v0.1.1
 [0.1.0-rc.3]: https://github.com/let-sunny/homingbird/releases/tag/v0.1.0-rc.3
 [0.1.0]: https://github.com/let-sunny/homingbird/releases/tag/v0.1.0
