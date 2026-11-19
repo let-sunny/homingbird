@@ -3,16 +3,20 @@ import {
   type Api,
   type ApiError,
   type Contract,
+  FEATURE_OFF_MESSAGE,
   Forbidden,
   Invalid,
+  NotFound,
   type RequestOf,
   type ResponseOf,
   type RouteName,
   Unauthorized,
   allows,
   contract,
+  featureOfRoute,
 } from '@homingbird/protocol'
 import { recordAudit } from '../domain/audit.ts'
+import { featureIsOn } from '../domain/settings.ts'
 import type { AppEnv, Caller } from '../environment.ts'
 import { type RequestEnv, transact } from '../events/events.ts'
 import { type Handlers, handlers } from './handlers.ts'
@@ -48,6 +52,7 @@ export const invoke = <N extends RouteName>(
 ): T.Task<ResponseOf<Contract[N]>, ApiError, AppEnv> =>
   T.gen(function* () {
     yield* requireAllowed(name, caller)
+    yield* requireFeature(name)
     const handler = handlers[name] as unknown as (
       request: unknown,
       caller: Caller | null,
@@ -86,6 +91,14 @@ const requireAllowed = (
   return T.flatMap(() => T.fail(Forbidden({ message })))(recordDenied(name, caller))
 }
 
+const requireFeature = (name: RouteName): T.Task<void, NotFound, AppEnv> => {
+  const feature = featureOfRoute(name)
+  if (feature === null) return T.unit
+  return T.flatMap((on: boolean) => (on ? T.unit : T.fail(NotFound({ message: FEATURE_OFF_MESSAGE }))))(
+    featureIsOn(feature),
+  )
+}
+
 const decoded = <A>(schema: S.Schema<A>, input: unknown): T.Task<A, Invalid> => {
   const result = schema.decode(input)
   return result._tag === 'Ok'
@@ -97,8 +110,11 @@ const isLongRunning = (name: RouteName): boolean => name === 'events.poll'
 
 const isRecorded = (name: RouteName): boolean => contract[name].method !== 'GET' && !UNRECORDED.includes(name)
 
-/** Changes nothing anyone keeps: a page saying it is visible is not an action worth an audit entry. */
-const UNRECORDED: ReadonlyArray<RouteName> = ['presence.visibility']
+/**
+ * Not worth an audit entry, or not allowed one: a page saying it is visible changes nothing anyone keeps,
+ * and when a person first saw a draft would let the audit log time each person's approvals.
+ */
+const UNRECORDED: ReadonlyArray<RouteName> = ['presence.visibility', 'drafts.seen']
 
 const auditOf = (name: RouteName, request: unknown, response: unknown, caller: Caller | null) => {
   const { params, body } = request as { params?: Readonly<Record<string, string>>; body?: unknown }
@@ -113,9 +129,13 @@ const auditOf = (name: RouteName, request: unknown, response: unknown, caller: C
       ...(params && { params }),
       ...(body !== undefined && { request: body }),
       ...(note && { note }),
+      ...(isPrincipleLike(response) && { principle: response }),
     },
   }
 }
+
+const isPrincipleLike = (value: unknown): value is { topic: string; rule: string } =>
+  typeof value === 'object' && value !== null && 'topic' in value && 'rule' in value && 'counts' in value
 
 const isNoteLike = (value: unknown): value is { id: string; status: string; body: string } =>
   typeof value === 'object' && value !== null && 'body' in value && 'status' in value && 'authorId' in value

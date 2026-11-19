@@ -37,7 +37,7 @@ export const tableNames = (): string[] =>
 
 export type Migration = ReadonlyArray<Step>
 
-export type Step = Table | AddedColumn | Backfill
+export type Step = Table | AddedColumn | AddedIndex | Backfill
 
 type ColumnType = 'id' | 'string' | 'text' | 'integer' | 'serial'
 
@@ -57,6 +57,11 @@ interface AddedColumn {
   readonly addTo: string
   readonly name: string
   readonly column: Column & { readonly nullable: true }
+}
+
+interface AddedIndex {
+  readonly indexOn: string
+  readonly columns: ReadonlyArray<string>
 }
 
 interface Backfill {
@@ -324,7 +329,86 @@ const BASELINE: ReadonlyArray<Table> = [
   },
 ]
 
-const MIGRATIONS: ReadonlyArray<Migration> = [BASELINE]
+const TEACHING_AND_FIGURES: Migration = [
+  { addTo: 'notes', name: 'seen_at', column: optionalInteger },
+  { addTo: 'notes', name: 'decided_at', column: optionalInteger },
+  { addTo: 'notes', name: 'agent_body', column: optionalText },
+  { addTo: 'notes', name: 'agent_client', column: optionalString },
+  { addTo: 'notes', name: 'agent_model', column: optionalString },
+  { addTo: 'notes', name: 'session_minutes', column: optionalInteger },
+  { addTo: 'notes', name: 'context_percent', column: optionalInteger },
+  { indexOn: 'notes', columns: ['status', 'sent_at'] },
+  { indexOn: 'notes', columns: ['decided_at'] },
+  {
+    name: 'principles',
+    columns: {
+      id,
+      member_id: id,
+      kind: string,
+      topic: string,
+      rule: text,
+      source: optionalText,
+      place: optionalString,
+      enabled: integer,
+      origin: string,
+      position: integer,
+      created_at: integer,
+      updated_at: integer,
+      last_applied_at: optionalInteger,
+      public_text: optionalText,
+    },
+    primaryKey: ['id'],
+    indexes: [{ columns: ['member_id'] }],
+  },
+  {
+    name: 'principle_applications',
+    columns: {
+      principle_id: id,
+      note_id: id,
+      member_id: id,
+      created_at: integer,
+      missed_at: optionalInteger,
+    },
+    primaryKey: ['principle_id', 'note_id'],
+    indexes: [{ columns: ['member_id'] }, { columns: ['note_id'] }],
+  },
+  {
+    name: 'principle_offers',
+    columns: {
+      id,
+      member_id: id,
+      note_id: id,
+      conversation_id: id,
+      place: optionalString,
+      kind: string,
+      suggested_change: optionalText,
+      created_at: integer,
+      closed_at: optionalInteger,
+    },
+    primaryKey: ['id'],
+    indexes: [{ columns: ['member_id', 'created_at'] }],
+  },
+  {
+    name: 'principle_quiet_places',
+    columns: { member_id: id, place: string, created_at: integer },
+    primaryKey: ['member_id', 'place'],
+  },
+  {
+    name: 'releases',
+    columns: {
+      note_id: id,
+      credential_id: id,
+      member_id: id,
+      conversation_id: id,
+      reason: optionalText,
+      created_at: integer,
+    },
+    primaryKey: ['note_id', 'credential_id'],
+    indexes: [{ columns: ['member_id', 'created_at'] }, { columns: ['created_at'] }],
+  },
+]
+
+export const MIGRATIONS: ReadonlyArray<Migration> = [BASELINE, TEACHING_AND_FIGURES]
 
 const UNKNOWN_DATABASE =
   'This database was not made by this version of Dovecote, so it is left untouched: start Dovecote with an empty database.'
@@ -332,10 +416,32 @@ const UNKNOWN_DATABASE =
 const applying = (target: Dialect, steps: Migration, version: number): T.Task<void, never, HasSql> =>
   inTransaction(
     T.gen(function* () {
-      for (const statement of steps.flatMap((step) => statementsFor(target, step))) yield* run(raw(statement))
+      for (const step of steps) {
+        if (target === 'mysql' && (yield* isAlreadyApplied(step))) continue
+        for (const statement of statementsFor(target, step)) yield* run(raw(statement))
+      }
       yield* run(sql`INSERT INTO schema_versions (version) VALUES (${version})`)
     }),
   )
+
+/**
+ * MySQL commits each change to a table as it runs it, so a step cut off halfway leaves some of it
+ * applied; running it again skips a column or an index that is already there.
+ */
+const isAlreadyApplied = (step: Step): T.Task<boolean, never, HasSql> => {
+  if ('addTo' in step)
+    return T.map((found: unknown) => found !== null)(
+      first(sql`SELECT column_name FROM information_schema.columns
+        WHERE table_schema = DATABASE() AND table_name = ${step.addTo} AND column_name = ${step.name}`),
+    )
+  if ('indexOn' in step)
+    return T.map((found: unknown) => found !== null)(
+      first(sql`SELECT index_name FROM information_schema.statistics
+        WHERE table_schema = DATABASE() AND table_name = ${step.indexOn}
+        AND index_name = ${`${step.indexOn}_${step.columns.join('_')}_idx`}`),
+    )
+  return T.succeed(false)
+}
 
 const hasTablesOf = (target: Dialect, migrations: ReadonlyArray<Migration>): T.Task<boolean, never, HasSql> =>
   T.gen(function* () {
@@ -352,10 +458,11 @@ const hasTablesOf = (target: Dialect, migrations: ReadonlyArray<Migration>): T.T
     return found !== null
   })
 
-const isTable = (step: Step): step is Table => 'columns' in step
+const isTable = (step: Step): step is Table => 'primaryKey' in step
 
 const statementsFor = (target: Dialect, step: Step): string[] => {
   if ('backfill' in step) return [step.backfill]
+  if ('indexOn' in step) return [addIndex(target, step)]
   if (!isTable(step)) return [addColumn(target, step)]
   return target === 'mysql'
     ? [createTable(target, step)]
@@ -364,6 +471,9 @@ const statementsFor = (target: Dialect, step: Step): string[] => {
 
 const addColumn = (target: Dialect, added: AddedColumn): string =>
   `ALTER TABLE ${added.addTo} ADD COLUMN ${columnDefinition(target, added.name, added.column)}`
+
+const addIndex = (target: Dialect, added: AddedIndex): string =>
+  `CREATE INDEX ${target === 'mysql' ? '' : 'IF NOT EXISTS '}${added.indexOn}_${added.columns.join('_')}_idx ON ${added.indexOn} (${added.columns.join(', ')})`
 
 const createTable = (target: Dialect, table: Table): string => {
   const columns = Object.entries(table.columns).map(([name, column]) =>

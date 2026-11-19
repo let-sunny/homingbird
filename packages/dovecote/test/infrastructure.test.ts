@@ -19,7 +19,7 @@ import {
   raw,
   sql,
 } from '../src/sql/query.ts'
-import { migrate, schemaStatements } from '../src/sql/schema.ts'
+import { MIGRATIONS, migrate, schemaStatements } from '../src/sql/schema.ts'
 import { type TestServer, connectAgent, startTestServer, storedRows } from './harness.ts'
 
 describe('configuration', () => {
@@ -53,6 +53,7 @@ describe('configuration', () => {
         trustedProxies: 0,
         sessionDays: 30,
         agentCredentialDays: 90,
+        insights: { quickApprovalSeconds: 3, minimumGroupSize: 5 },
         audit: { toStdout: false, webhookUrl: null },
         oauth: {
           redirectHosts: ['claude.ai', 'claude.com'],
@@ -78,6 +79,8 @@ describe('configuration', () => {
       HB_AUDIT_RETENTION_DAYS: '365',
       HB_SESSION_DAYS: '7',
       HB_AGENT_CREDENTIAL_DAYS: '14',
+      HB_QUICK_APPROVAL_SECONDS: '5',
+      HB_INSIGHTS_MINIMUM_GROUP: '8',
       HB_AUDIT_STDOUT: '1',
       HB_AUDIT_WEBHOOK_URL: 'https://siem.example.com/in',
       HB_TRUST_PROXY: '2',
@@ -105,6 +108,7 @@ describe('configuration', () => {
         pushHosts: ['push.example.com'],
         sessionDays: 7,
         agentCredentialDays: 14,
+        insights: { quickApprovalSeconds: 5, minimumGroupSize: 8 },
         audit: { toStdout: true, webhookUrl: 'https://siem.example.com/in' },
         oauth: {
           redirectHosts: ['claude.ai', 'agent.example'],
@@ -126,6 +130,8 @@ describe('configuration', () => {
     [{ ...minimal, HB_TRUST_PROXY: 'yes' }, /HB_TRUST_PROXY/],
     [{ ...minimal, HB_TRUST_PROXY: '-1' }, /HB_TRUST_PROXY/],
     [{ ...minimal, HB_TRUST_PROXY: '10' }, /HB_TRUST_PROXY/],
+    [{ ...minimal, HB_QUICK_APPROVAL_SECONDS: '0' }, /HB_QUICK_APPROVAL_SECONDS/],
+    [{ ...minimal, HB_INSIGHTS_MINIMUM_GROUP: '4' }, /HB_INSIGHTS_MINIMUM_GROUP: must be at least 5/],
     [{ HB_PUBLIC_URL: 'https://hb.example.com', HB_DEV_LOGIN: '1' }, /loopback/],
     [
       { ...minimal, HB_OAUTH_REDIRECT_HOSTS: 'https://claude.ai' },
@@ -257,12 +263,31 @@ describe('schema', () => {
   })
 
   it.each(['sqlite', 'postgres', 'mysql'] as const)(
-    'defines the 0.1.0 schema as one baseline, with every table complete and no later step in %s',
+    'keeps the 0.1.0 baseline as it was released and adds everything later in step 2 in %s',
     (dialect) => {
-      const statements = schemaStatements(dialect)
-      expect(statements.filter((statement) => !statement.startsWith('CREATE'))).toEqual([])
-      expect(statements.find((statement) => statement.includes('TABLE IF NOT EXISTS members'))).toContain(
+      const [baseline = [], second = []] = MIGRATIONS
+      const created = schemaStatements(dialect, [baseline])
+      expect(created.filter((statement) => !statement.startsWith('CREATE'))).toEqual([])
+      expect(created.find((statement) => statement.includes('TABLE IF NOT EXISTS members'))).toContain(
         'character_spec',
+      )
+      const notes = created.find((statement) => statement.includes('TABLE IF NOT EXISTS notes ('))
+      for (const column of ['seen_at', 'decided_at', 'agent_body', 'agent_client', 'agent_model'])
+        expect(notes).not.toContain(column)
+      expect(created.some((statement) => statement.includes('principles'))).toBe(false)
+      expect(MIGRATIONS).toHaveLength(2)
+      expect(
+        schemaStatements(dialect, [[], second]).filter((statement) => statement.startsWith('ALTER')),
+      ).toHaveLength(7)
+    },
+  )
+
+  it.each(['sqlite', 'postgres', 'mysql'] as const)(
+    'adds an index to an existing table in a later step in %s',
+    (dialect) => {
+      const added = schemaStatements(dialect, [[], [{ indexOn: 'notes', columns: ['decided_at'] }]])
+      expect(added.at(-1)).toBe(
+        `CREATE INDEX ${dialect === 'mysql' ? '' : 'IF NOT EXISTS '}notes_decided_at_idx ON notes (decided_at)`,
       )
     },
   )

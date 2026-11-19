@@ -1,6 +1,9 @@
+import { readFileSync } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
 import { build } from 'esbuild'
 import { describe, expect, it } from 'vitest'
+import { characterLink } from '../src/character-link.ts'
+import { characterProblems } from '../src/character.ts'
 
 // The Claude Code mod may import only its own files, so it carries the character rules as one generated
 // module. Run with HB_WRITE_MOD_BUNDLE=1 to write it again after changing the rules.
@@ -28,8 +31,13 @@ const characterRulesModule = async (): Promise<string> => {
   return `${HEADER}${built.outputFiles[0]!.text}`
 }
 
+// Under mutation testing the sources are instrumented, so only the behaviour can be compared.
+const INSTRUMENTED = readFileSync(new URL('../src/character.ts', import.meta.url), 'utf8').includes(
+  '@ts-nocheck',
+)
+
 describe('the character rules the mod carries', () => {
-  it('are exactly the protocol’s, bundled', async () => {
+  it.skipIf(INSTRUMENTED)('are exactly the protocol’s, bundled', async () => {
     const fresh = await characterRulesModule()
     if (process.env.HB_WRITE_MOD_BUNDLE === '1') await writeFile(MODULE, fresh)
     expect(await readFile(MODULE, 'utf8')).toBe(fresh)
@@ -38,7 +46,6 @@ describe('the character rules the mod carries', () => {
 
   it('give the same answers as the protocol', async () => {
     const bundled = await import(MODULE)
-    const { characterProblems, characterLink } = await import('../src/index.ts')
     const otter = {
       version: 1,
       base: 'bubble-16',

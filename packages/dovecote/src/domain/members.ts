@@ -17,7 +17,8 @@ import { all, first, run } from '../sql/database.ts'
 import { containsIgnoringCase, insertInto, list, sql } from '../sql/query.ts'
 import { channelsHelpedBy, helpersOfChannelSeenBy } from './channels.ts'
 import { type Ties, tiesOf } from './contacts.ts'
-import { readSettings } from './settings.ts'
+import { agentIntroductionsOf } from './principles.ts'
+import { featureIsOn, readSettings } from './settings.ts'
 
 export const directoryFor = (
   viewer: Pick<Member, 'id' | 'role'>,
@@ -40,8 +41,10 @@ export const directoryFor = (
       viewer,
       rows.map((row) => row.id),
     )
+    const introductions = yield* agentIntroductionsOf(rows.map((row) => row.id))
+    const characters = yield* featureIsOn('characters')
     return rows.map((row) => {
-      const member = toMember(row)
+      const member = characters || row.id === viewerId ? toMember(row) : withoutCharacter(toMember(row))
       return {
         member,
         presence: env.hub.presenceOf(member.id),
@@ -49,6 +52,7 @@ export const directoryFor = (
         relation: relation(relationFacts(viewerId, member.id, ties)),
         canMessage: canMessage(messagingFacts(settings.contactMode, viewerId, member, ties)),
         channels: channels.get(member.id) ?? [],
+        agentIntroduction: introductions.get(member.id) ?? [],
       }
     })
   })
@@ -63,12 +67,15 @@ export const membersByIds = (ids: ReadonlyArray<MemberId>): T.Task<Map<MemberId,
   T.gen(function* () {
     if (ids.length === 0) return new Map()
     const rows = yield* all<MemberRow>(sql`SELECT * FROM members WHERE id IN ${list([...new Set(ids)])}`)
-    return new Map(rows.map((row) => [row.id, toMember(row)]))
+    const characters = yield* featureIsOn('characters')
+    return new Map(rows.map((row) => [row.id, characters ? toMember(row) : withoutCharacter(toMember(row))]))
   })
 
-export const allMembers: T.Task<Member[], never, AppEnv> = T.map((rows: ReadonlyArray<MemberRow>) =>
-  rows.map(toMember),
-)(all<MemberRow>(sql`SELECT * FROM members ORDER BY name`))
+export const allMembers: T.Task<Member[], never, AppEnv> = T.gen(function* () {
+  const rows = yield* all<MemberRow>(sql`SELECT * FROM members ORDER BY name`)
+  const characters = yield* featureIsOn('characters')
+  return rows.map((row) => (characters ? toMember(row) : withoutCharacter(toMember(row))))
+})
 
 export interface Identity {
   readonly subject: string
@@ -184,6 +191,9 @@ export interface MemberRow {
   readonly last_seen_at: number | null
   readonly character_spec: string | null
 }
+
+/** With characters switched off, nobody's character reaches anyone else. */
+const withoutCharacter = (member: Member): Member => ({ ...member, character: null })
 
 export const toMember = (row: MemberRow): Member => ({
   id: row.id,

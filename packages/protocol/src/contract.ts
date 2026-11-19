@@ -14,7 +14,9 @@ import {
 import type { ApiError } from './errors.ts'
 import { StreamEvent } from './events.ts'
 import { ConversationId, CredentialId, DraftRequestId, MemberId, NoteId } from './ids.ts'
+import { AgentReport, OrganizationInsights, PlaceName } from './insights.ts'
 import {
+  AgentLabel,
   AnsweringFlowSetting,
   AuditEntry,
   CHANNEL_DESCRIPTION_MAX,
@@ -36,11 +38,24 @@ import {
   NoteBody,
   Notice,
   PROFILE_MAX,
+  PublicText,
   RELEASE_REASON_MAX,
   Role,
   Settings,
 } from './model.ts'
+import {
+  DraftingPrinciples,
+  MyPrinciples,
+  PRINCIPLES_PER_PERSON,
+  Principle,
+  PrincipleId,
+  PrincipleKind,
+  PrincipleRule,
+  PrincipleSource,
+  PrincipleTopic,
+} from './principles.ts'
 import { type RequestOf, type ResponseOf, type Route, route } from './route.ts'
+import { DeskSession } from './session-health.ts'
 
 export const PushSubscription = S.struct({
   endpoint: S.string({ minLength: 1, maxLength: 2000, pattern: /^https:\/\// }),
@@ -276,6 +291,9 @@ export const contract = {
       inReplyTo: S.optional(NoteId),
       requestId: S.optional(DraftRequestId),
       basis: S.optional(NoteBasis),
+      client: S.optional(AgentLabel),
+      model: S.optional(AgentLabel),
+      session: S.optional(DeskSession),
     }),
     response: Note,
   }),
@@ -285,14 +303,23 @@ export const contract = {
     access: 'member',
     body: S.refine(
       'a new body or channel',
-      (change: { readonly body?: string; readonly channel?: string; readonly basis?: string }) =>
-        change.body !== undefined || change.channel !== undefined || change.basis !== undefined,
-      'Give a new body, a new channel, a new basis, or several.',
+      (change: {
+        readonly body?: string
+        readonly channel?: string
+        readonly basis?: string
+        readonly model?: string
+      }) =>
+        change.body !== undefined ||
+        change.channel !== undefined ||
+        change.basis !== undefined ||
+        change.model !== undefined,
+      'Give a new body, a new channel, a new basis, a model, or several.',
     )(
       S.struct({
         body: S.optional(NoteBody),
         channel: S.optional(ChannelSlug),
         basis: S.optional(NoteBasis),
+        model: S.optional(AgentLabel),
       }),
     ),
     response: Note,
@@ -305,6 +332,75 @@ export const contract = {
     response: Note,
   }),
   'drafts.discard': route({ method: 'POST', path: '/drafts/:id/discard', access: 'human', response: Note }),
+  'drafts.seen': route({ method: 'POST', path: '/drafts/:id/seen', access: 'human', response: Empty }),
+
+  'insights.mine': route({ method: 'GET', path: '/insights/me', access: 'human', response: AgentReport }),
+
+  'principles.list': route({ method: 'GET', path: '/principles', access: 'human', response: MyPrinciples }),
+  'principles.create': route({
+    method: 'POST',
+    path: '/principles',
+    access: 'human',
+    body: S.struct({
+      kind: S.optional(PrincipleKind),
+      topic: PrincipleTopic,
+      rule: PrincipleRule,
+      source: S.optional(S.nullable(PrincipleSource)),
+      place: PlaceName,
+      publicText: S.optional(S.nullable(PublicText)),
+      offerId: S.optional(S.string({ maxLength: 64 })),
+      confirmed: S.optional(S.boolean),
+    }),
+    response: Principle,
+  }),
+  'principles.update': route({
+    method: 'PATCH',
+    path: '/principles/:id',
+    access: 'human',
+    body: S.struct({
+      kind: S.optional(PrincipleKind),
+      topic: S.optional(PrincipleTopic),
+      rule: S.optional(PrincipleRule),
+      source: S.optional(S.nullable(PrincipleSource)),
+      enabled: S.optional(S.boolean),
+      publicText: S.optional(S.nullable(PublicText)),
+    }),
+    response: Principle,
+  }),
+  'principles.reorder': route({
+    method: 'PUT',
+    path: '/principles/order',
+    access: 'human',
+    body: S.struct({ ids: S.array(PrincipleId, { maxItems: PRINCIPLES_PER_PERSON }) }),
+    response: MyPrinciples,
+  }),
+  'principles.delete': route({
+    method: 'DELETE',
+    path: '/principles/:id',
+    access: 'human',
+    response: Principle,
+  }),
+  'principles.miss': route({
+    method: 'POST',
+    path: '/principles/:id/misses',
+    access: 'human',
+    body: S.struct({ noteId: NoteId }),
+    response: Principle,
+  }),
+  'principles.offers.dismiss': route({
+    method: 'POST',
+    path: '/principle-offers/:id/dismiss',
+    access: 'human',
+    body: S.struct({ stopAskingHere: S.optional(S.boolean) }),
+    response: Empty,
+  }),
+  'principles.drafting': route({
+    method: 'GET',
+    path: '/principles/drafting',
+    access: 'member',
+    query: { conversationId: S.optional(ConversationId) },
+    response: DraftingPrinciples,
+  }),
 
   'draftRequests.list': route({
     method: 'GET',
@@ -467,6 +563,12 @@ export const contract = {
     access: 'admin',
     body: S.struct({ moveMembersTo: S.optional(ChannelSlug) }),
     response: Empty,
+  }),
+  'admin.insights': route({
+    method: 'GET',
+    path: '/admin/insights',
+    access: 'admin',
+    response: OrganizationInsights,
   }),
   'admin.audit.list': route({
     method: 'GET',

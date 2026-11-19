@@ -1,3 +1,4 @@
+import { featureSwitches } from '@homingbird/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type Session, type TestServer, connectAgent, startTestServer, storedRows } from './harness.ts'
 
@@ -147,13 +148,18 @@ describe('administration', () => {
       contactMode: 'open',
       auditRetentionDays: null,
       answeringFlow: null,
+      features: featureSwitches({}),
     })
     const next = {
       allowedDomains: ['example.com', 'partner.org'],
       contactMode: 'contacts',
       auditRetentionDays: 30,
     }
-    expect((await ana.api('PUT', '/admin/settings', next)).json).toEqual({ ...next, answeringFlow: null })
+    expect((await ana.api('PUT', '/admin/settings', next)).json).toEqual({
+      ...next,
+      answeringFlow: null,
+      features: featureSwitches({}),
+    })
     expect((await ben.api('GET', '/me')).json.contactMode).toBe('contacts')
     expect((await server.request('GET', '/api/v1/info')).json).toMatchObject({
       name: 'dovecote',

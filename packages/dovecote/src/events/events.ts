@@ -1,6 +1,7 @@
 import { type Stream, Task as T } from '@homingbird/kernel'
 import type { CredentialKind, EventBody, MemberId, StreamEvent } from '@homingbird/protocol'
 import type { AuditRecord } from '../domain/audit.ts'
+import { featureIsOn } from '../domain/settings.ts'
 import type { AppEnv } from '../environment.ts'
 import { all, first, inTransaction, run } from '../sql/database.ts'
 import { insertInto, sql } from '../sql/query.ts'
@@ -23,13 +24,14 @@ export const transact = <A, E>(task: T.Task<A, E, RequestEnv>): T.Task<A, E, App
     const outbox: Delivery[] = []
     const audited: AuditRecord[] = []
     const value = yield* T.provide({ outbox, audited })(inTransaction(task)) as T.Task<A, E, AppEnv>
+    const pushes = outbox.length > 0 && (yield* featureIsOn('webPush'))
     for (const delivery of outbox) {
       if (delivery.memberId === EVERYONE) {
         env.hub.broadcast(delivery.event)
         continue
       }
       env.hub.publish(delivery.memberId, delivery.event)
-      env.pushSink(delivery.memberId, delivery.event)
+      if (pushes) env.pushSink(delivery.memberId, delivery.event)
     }
     for (const record of audited) env.auditSink(record)
     return value

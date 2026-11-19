@@ -323,3 +323,87 @@ describe('releasing a picked-up note', () => {
     ).toBe(400)
   })
 })
+
+describe('what wrote a note', () => {
+  it('keeps the program and the stated model with each agent draft, and shows them to recipients once sent', async () => {
+    const draft = (
+      await anaAgent.api('POST', '/drafts', {
+        to: [ben.me.member.id],
+        body: 'client: Evil Corp\nmodel: gpt-9',
+        client: 'Claude Code 2.1.327',
+        model: 'claude-opus-5-5',
+      })
+    ).json
+    expect(draft).toMatchObject({
+      agentName: 'Ana agent',
+      agentClient: 'Claude Code 2.1.327',
+      agentModel: 'claude-opus-5-5',
+    })
+    expect((await ben.api('GET', `/notes/${draft.id}`)).status).toBe(404)
+    await ana.api('POST', `/drafts/${draft.id}/send`, {})
+    expect((await ben.api('GET', `/notes/${draft.id}`)).json).toMatchObject({
+      agentClient: 'Claude Code 2.1.327',
+      agentModel: 'claude-opus-5-5',
+    })
+  })
+
+  it('names the program from the sign-in when the integration names none, never from the text, and leaves the model optional', async () => {
+    const draft = (
+      await anaAgent.api('POST', '/drafts', { to: [ben.me.member.id], body: 'Written with: Evil Corp 1.0' })
+    ).json
+    expect(draft).toMatchObject({ agentClient: 'Ana agent', agentModel: null })
+    const updated = (await anaAgent.api('PATCH', `/drafts/${draft.id}`, { model: 'claude-opus-5-5' })).json
+    expect(updated.agentModel).toBe('claude-opus-5-5')
+    expect((await anaAgent.api('PATCH', `/drafts/${draft.id}`, { model: 'x'.repeat(81) })).status).toBe(400)
+    expect((await ana.api('PATCH', `/drafts/${draft.id}`, { model: 'person says' })).json.agentModel).toBe(
+      'claude-opus-5-5',
+    )
+  })
+
+  it('keeps recording the program and model while note details are off, and returns them to nobody until they are on again', async () => {
+    const settings = (await ana.api('GET', '/admin/settings')).json
+    const switched = async (noteDetails: boolean) =>
+      expect(
+        (await ana.api('PUT', '/admin/settings', { ...settings, features: { noteDetails } })).status,
+      ).toBe(200)
+    await switched(false)
+    expect((await ana.api('GET', '/info')).json.features.noteDetails).toBe(false)
+    const draft = (
+      await anaAgent.api('POST', '/drafts', {
+        to: [ben.me.member.id],
+        body: 'Recorded quietly',
+        client: 'Claude Code 2.1.327',
+        model: 'claude-opus-5-5',
+      })
+    ).json
+    expect(draft.agentName).toBe('Ana agent')
+    expect(draft).not.toHaveProperty('agentClient')
+    expect(draft).not.toHaveProperty('agentModel')
+    await ana.api('POST', `/drafts/${draft.id}/send`, {})
+    for (const viewer of [ana, ben]) {
+      const notes = (await viewer.api('GET', `/conversations/${draft.conversationId}/notes`)).json.notes
+      expect(JSON.stringify(notes)).not.toContain('claude-opus-5-5')
+      expect(JSON.stringify(notes)).not.toContain('2.1.327')
+    }
+    await switched(true)
+    expect((await ben.api('GET', `/notes/${draft.id}`)).json).toMatchObject({
+      agentClient: 'Claude Code 2.1.327',
+      agentModel: 'claude-opus-5-5',
+    })
+  })
+
+  it('cleans the program named at sign-in before showing it, so a bidi override never reaches a recipient', async () => {
+    const tricky = await connectAgent(server, ana, { name: '\u202eedoC\u202c Bot\u0007' })
+    const draft = (await tricky.api('POST', '/drafts', { to: [ben.me.member.id], body: 'Hi' })).json
+    expect(draft.agentClient).toBe('edoC Bot')
+    await ana.api('POST', `/drafts/${draft.id}/send`, {})
+    expect((await ben.api('GET', `/notes/${draft.id}`)).json.agentClient).toBe('edoC Bot')
+  })
+
+  it('carries no program or model on a note a person wrote', async () => {
+    const own = (await ana.api('POST', '/drafts', { to: [ben.me.member.id], body: 'by hand', client: 'X' }))
+      .json
+    expect(own).not.toHaveProperty('agentClient')
+    expect(own).not.toHaveProperty('agentModel')
+  })
+})

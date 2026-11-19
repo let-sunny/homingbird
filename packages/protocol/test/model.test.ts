@@ -5,7 +5,12 @@ import { describe, expect, it } from 'vitest'
 import * as model from '../src/model.ts'
 
 const noteBody = fc.string({ minLength: 1, maxLength: 200 }).filter((s) => s.trim().length > 0)
-const refinements = { 'note-body': noteBody }
+const refinements = {
+  'note-body': noteBody,
+  'agent-label': fc
+    .string({ minLength: 1, maxLength: 80 })
+    .filter((s) => s.trim() !== '' && !/[\p{Cc}\p{Cf}]/u.test(s)),
+}
 
 const schemas = Object.entries(model).filter(
   (entry) => typeof entry[1] === 'object' && entry[1] !== null && 'decode' in entry[1] && 'ast' in entry[1],
@@ -15,6 +20,7 @@ describe('wire model', () => {
   it('exports the schemas the product needs', () => {
     expect(schemas.map(([name]) => name).sort()).toEqual(
       [
+        'AgentLabel',
         'AnsweringFlowSetting',
         'AuditEntry',
         'Contact',
@@ -37,6 +43,7 @@ describe('wire model', () => {
         'NoticeKind',
         'Origin',
         'Presence',
+        'PublicText',
         'Receipt',
         'ReceiptState',
         'Relation',
@@ -69,6 +76,8 @@ describe('wire model', () => {
   it('has no attachment field anywhere in a note', () => {
     expect(Object.keys(model.Note.fields).sort()).toEqual(
       [
+        'agentClient',
+        'agentModel',
         'agentName',
         'basis',
         'authorId',
@@ -135,5 +144,27 @@ describe('wire model', () => {
     expect(model.ChannelVisibility.is('open')).toBe(true)
     expect(model.ChannelVisibility.is('private')).toBe(true)
     expect(model.ChannelVisibility.is('secret')).toBe(false)
+  })
+})
+
+describe('agentLabelOf', () => {
+  it('drops control and format characters, such as a bidi override, and keeps one short line', () => {
+    expect(model.agentLabelOf('‮edoC edualC‬ 2.1\n')).toBe('edoC edualC 2.1')
+    expect(model.agentLabelOf(`  ${'x'.repeat(90)}`)).toBe('x'.repeat(model.AGENT_LABEL_MAX))
+    expect(model.agentLabelOf(`${'y'.repeat(79)} z`)).toBe('y'.repeat(79))
+  })
+
+  it('gives nothing for a label that is blank, only invisible characters, or not text', () => {
+    for (const value of ['', '   ', '​\u0007', 7, null, undefined, { name: 'x' }])
+      expect(model.agentLabelOf(value)).toBeNull()
+  })
+
+  it('always gives a label the wire model accepts', () => {
+    fc.assert(
+      fc.property(fc.string({ maxLength: 200, unit: 'binary' }), (text) => {
+        const label = model.agentLabelOf(text)
+        if (label !== null) expect(model.AgentLabel.is(label)).toBe(true)
+      }),
+    )
   })
 })

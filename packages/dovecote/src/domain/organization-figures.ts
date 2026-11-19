@@ -1,0 +1,234 @@
+import type {
+  OrganizationFigures,
+  OrganizationInsights,
+  OrganizationLabelTotals,
+  PlaceName,
+  PlaceTotals,
+} from '@homingbird/protocol'
+import {
+  type AgentDraft,
+  type Decisions,
+  PERIOD_DAYS,
+  type Window,
+  byPlace,
+  decidedCount,
+  decisionsOf,
+  isIn,
+  isQuickApproval,
+  labelTotals,
+  median,
+  periodEndingAt,
+} from './trust-figures.ts'
+
+export interface SentNote {
+  readonly id: string
+  readonly authorId: string
+  readonly place: PlaceName
+  readonly sentAt: number
+  readonly inReplyTo: string | null
+}
+
+export interface MemberDraft extends AgentDraft {
+  readonly authorId: string
+}
+
+export interface MemberSkip {
+  readonly memberId: string
+  readonly place: PlaceName
+  readonly at: number
+}
+
+export interface OrganizationActivity {
+  readonly sent: ReadonlyArray<SentNote>
+  readonly drafts: ReadonlyArray<MemberDraft>
+  readonly skips: ReadonlyArray<MemberSkip>
+}
+
+export interface PrivacySettings {
+  readonly quickApprovalSeconds: number
+  readonly minimumGroupSize: number
+}
+
+export const organizationInsightsOf = (
+  activity: OrganizationActivity,
+  people: { readonly members: number; readonly blocks: number },
+  now: number,
+  settings: PrivacySettings,
+): OrganizationInsights => ({
+  generatedAt: now,
+  quickApprovalSeconds: settings.quickApprovalSeconds,
+  minimumGroupSize: settings.minimumGroupSize,
+  blocks: people.members >= settings.minimumGroupSize ? people.blocks : null,
+  periods: PERIOD_DAYS.map((days) => ({
+    days,
+    current: organizationFiguresIn(activity, periodEndingAt(now, days, 0), settings),
+    previous: organizationFiguresIn(activity, periodEndingAt(now, days, 1), settings),
+  })),
+})
+
+/** Totals for one period, or null when fewer people than the minimum were active in it. */
+export const organizationFiguresIn = (
+  activity: OrganizationActivity,
+  window: Window,
+  settings: PrivacySettings,
+): OrganizationFigures | null => {
+  const sent = activity.sent.filter((note) => isIn(window, note.sentAt))
+  const activeMembers = new Set(sent.map((note) => note.authorId)).size
+  if (activeMembers < settings.minimumGroupSize) return null
+  const decided = activity.drafts.filter((draft) => isIn(window, draft.decidedAt) && draft.outcome !== null)
+  const skips = activity.skips.filter((skip) => isIn(window, skip.at))
+  const newNotes = sent.filter((note) => note.inReplyTo === null)
+  const firstReplies = firstRepliesOf(activity.sent)
+  const replyTimes = newNotes.flatMap((note) => {
+    const first = firstReplies.get(note.id)
+    return first === undefined ? [] : [first - note.sentAt]
+  })
+  const groups = groupsByPlace(sent, decided, skips)
+  const { shown, hidden } = placesShown(
+    [...groups.values()].map((group) => ({ place: group.totals.place, people: group.people })),
+    settings.minimumGroupSize,
+  )
+  const decidedBy = new Set(decided.map((draft) => draft.authorId))
+  const draftsShown = decidedBy.size >= settings.minimumGroupSize
+  const decidedPlaces = placesShown(
+    [...Map.groupBy(decided, (draft) => draft.place)].map(([place, drafts]) => ({
+      place,
+      people: new Set(drafts.map((draft) => draft.authorId)),
+    })),
+    settings.minimumGroupSize,
+  ).hidden
+  return {
+    activeMembers,
+    notesSent: sent.length,
+    newNotes: newNotes.length,
+    answered: replyTimes.length,
+    medianFirstReplyMs: median(replyTimes),
+    agentDraftsWritten: activity.drafts.filter((draft) => isIn(window, draft.createdAt)).length,
+    ...(draftsShown ? decisionsOf(decided) : HIDDEN_DECISIONS),
+    quickApprovals: draftsShown
+      ? decided.filter((draft) => isQuickApproval(draft, settings.quickApprovalSeconds)).length
+      : null,
+    skipped: skips.length,
+    ...labelsShown(activity.drafts, window, settings.minimumGroupSize, draftsShown),
+    places: shown
+      .map((place) => groups.get(place)!.totals)
+      .sort(
+        (a, b) => b.notesSent - a.notesSent || decidedCount(b) - decidedCount(a) || byPlace(a.place, b.place),
+      )
+      .map((totals) =>
+        draftsShown && !decidedPlaces.includes(totals.place) ? totals : { ...totals, ...HIDDEN_DECISIONS },
+      ),
+    hiddenPlaces: hidden.length,
+  }
+}
+
+/**
+ * Which groups may be shown: each needs at least `minimum` people, and together the hidden ones must also
+ * reach it, or none may be hidden at all, so that the organization's totals minus the shown groups never
+ * give away a small group's figures.
+ */
+export const placesShown = (
+  groups: ReadonlyArray<{ readonly place: PlaceName; readonly people: ReadonlySet<string> }>,
+  minimum: number,
+): { readonly shown: PlaceName[]; readonly hidden: PlaceName[] } => {
+  const large = groups.filter((group) => group.people.size >= minimum)
+  const hidden = groups.filter((group) => group.people.size < minimum)
+  const shown = [...large].sort((a, b) => b.people.size - a.people.size || byPlace(a.place, b.place))
+  const hiddenPeople = new Set(hidden.flatMap((group) => [...group.people]))
+  while (hiddenPeople.size > 0 && hiddenPeople.size < minimum && shown.length > 0) {
+    const smallest = shown.pop()!
+    hidden.push(smallest)
+    for (const person of smallest.people) hiddenPeople.add(person)
+  }
+  return { shown: shown.map((group) => group.place), hidden: hidden.map((group) => group.place) }
+}
+
+const HIDDEN_DECISIONS = { sentAsWritten: null, sentAfterEdits: null, discarded: null } as const
+
+interface PlaceGroup {
+  readonly totals: PlaceTotals & Decisions
+  readonly people: ReadonlySet<string>
+}
+
+const groupsByPlace = (
+  sent: ReadonlyArray<SentNote>,
+  decided: ReadonlyArray<MemberDraft>,
+  skips: ReadonlyArray<MemberSkip>,
+): Map<PlaceName, PlaceGroup> => {
+  const notesBy = Map.groupBy(sent, (note) => note.place)
+  const draftsBy = Map.groupBy(decided, (draft) => draft.place)
+  const skipsBy = Map.groupBy(skips, (skip) => skip.place)
+  const places = new Set<PlaceName>([...notesBy.keys(), ...draftsBy.keys(), ...skipsBy.keys()])
+  return new Map(
+    [...places].map((place) => {
+      const notes = notesBy.get(place) ?? []
+      const drafts = draftsBy.get(place) ?? []
+      const skipped = skipsBy.get(place) ?? []
+      const people = new Set([
+        ...notes.map((note) => note.authorId),
+        ...drafts.map((draft) => draft.authorId),
+        ...skipped.map((skip) => skip.memberId),
+      ])
+      const totals = { place, notesSent: notes.length, ...decisionsOf(drafts), skipped: skipped.length }
+      return [place, { totals, people }]
+    }),
+  )
+}
+
+const firstRepliesOf = (sent: ReadonlyArray<SentNote>): Map<string, number> => {
+  const authors = new Map(sent.map((note) => [note.id, note.authorId]))
+  const first = new Map<string, number>()
+  for (const reply of sent) {
+    if (reply.inReplyTo === null || authors.get(reply.inReplyTo) === reply.authorId) continue
+    const earliest = first.get(reply.inReplyTo)
+    if (earliest === undefined || reply.sentAt < earliest) first.set(reply.inReplyTo, reply.sentAt)
+  }
+  return first
+}
+
+/**
+ * Programs and models used by at least the minimum people. A shown label's decisions need the minimum
+ * of people who decided its drafts too, with the same rule for what is hidden together, and are never
+ * shown while the organization's own decisions are hidden.
+ */
+const labelsShown = (
+  drafts: ReadonlyArray<MemberDraft>,
+  window: Window,
+  minimum: number,
+  draftsShown: boolean,
+): { byClient: OrganizationLabelTotals[]; byModel: OrganizationLabelTotals[]; hiddenLabels: number } => {
+  const inWindow = drafts.filter(
+    (draft) => isIn(window, draft.createdAt) || (isIn(window, draft.decidedAt) && draft.outcome !== null),
+  )
+  const shownFor = (labelOf: (draft: MemberDraft) => string | null) => {
+    const people = Map.groupBy(inWindow, labelOf)
+    const { shown, hidden } = placesShown(
+      [...people].map(([label, group]) => ({
+        place: label,
+        people: new Set(group.map((draft) => draft.authorId)),
+      })),
+      minimum,
+    )
+    const decided = inWindow.filter((draft) => isIn(window, draft.decidedAt) && draft.outcome !== null)
+    const decisionsHidden = placesShown(
+      [...Map.groupBy(decided, labelOf)].map(([label, group]) => ({
+        place: label,
+        people: new Set(group.map((draft) => draft.authorId)),
+      })),
+      minimum,
+    ).hidden
+    return {
+      totals: labelTotals(inWindow, window, labelOf)
+        .filter((totals) => shown.includes(totals.label))
+        .map((totals) =>
+          draftsShown && !decisionsHidden.includes(totals.label)
+            ? totals
+            : { ...totals, ...HIDDEN_DECISIONS },
+        ),
+      hidden: hidden.length,
+    }
+  }
+  const clients = shownFor((draft) => draft.client ?? null)
+  const models = shownFor((draft) => draft.model ?? null)
+  return { byClient: clients.totals, byModel: models.totals, hiddenLabels: clients.hidden + models.hidden }
+}

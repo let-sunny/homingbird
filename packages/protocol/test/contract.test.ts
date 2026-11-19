@@ -10,7 +10,12 @@ import { type RequestOf, fillPath, matchPath } from '../src/route.ts'
 const names = Object.keys(contract) as RouteName[]
 const routes = names.map((name) => [name, contract[name]] as const)
 const noteBody = fc.string({ minLength: 1, maxLength: 200 }).filter((s) => s.trim().length > 0)
-const refinements = { 'note-body': noteBody }
+const refinements = {
+  'note-body': noteBody,
+  'agent-label': fc
+    .string({ minLength: 1, maxLength: 80 })
+    .filter((s) => s.trim() !== '' && !/[\p{Cc}\p{Cf}]/u.test(s)),
+}
 
 const parametersOf = (path: string): string[] => [...path.matchAll(/:([A-Za-z]+)/g)].map((match) => match[1]!)
 
@@ -97,6 +102,15 @@ describe('contract', () => {
         'notes.move',
         'drafts.send',
         'drafts.discard',
+        'drafts.seen',
+        'insights.mine',
+        'principles.list',
+        'principles.create',
+        'principles.update',
+        'principles.reorder',
+        'principles.delete',
+        'principles.miss',
+        'principles.offers.dismiss',
         'presence.visibility',
         'push.test',
         'draftRequests.create',
@@ -115,6 +129,7 @@ describe('contract', () => {
         'admin.members.list',
         'admin.members.update',
         'admin.members.resetCharacter',
+        'admin.insights',
         'admin.audit.list',
       ].sort(),
     )
@@ -136,6 +151,7 @@ describe('contract', () => {
         'notes.pickup',
         'notes.release',
         'answeringFlow.get',
+        'principles.drafting',
         'inbox.list',
         'search.notes',
         'drafts.list',
@@ -149,15 +165,17 @@ describe('contract', () => {
     expect(names.filter((name) => contract[name].access === 'public')).toEqual(['server.info'])
   })
 
-  it('changes a draft only when given a new body, a new channel, a new basis, or several', () => {
+  it('changes a draft only when given a new body, a new channel, a new basis, a model, or several', () => {
     const change = contract['drafts.update'].body
     expect(change.decode({ body: 'New text' })._tag).toBe('Ok')
     expect(change.decode({ channel: 'design' })._tag).toBe('Ok')
     expect(change.decode({ basis: 'Read the runbook' })._tag).toBe('Ok')
     expect(change.decode({ body: 'New text', channel: 'design' })._tag).toBe('Ok')
+    expect(change.decode({ model: 'claude-opus-5-5' })._tag).toBe('Ok')
+    expect(change.decode({ model: 'bad\u0007model' })._tag).toBe('Err')
     expect(change.decode({})).toMatchObject({
       _tag: 'Err',
-      error: [{ message: 'Give a new body, a new channel, a new basis, or several.' }],
+      error: [{ message: 'Give a new body, a new channel, a new basis, a model, or several.' }],
     })
     expect(change.decode({ basis: 'x'.repeat(1001) })._tag).toBe('Err')
     expect(change.decode({ channel: 'Not a slug' })._tag).toBe('Err')

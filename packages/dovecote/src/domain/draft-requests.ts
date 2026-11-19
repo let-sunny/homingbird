@@ -3,6 +3,7 @@ import {
   Conflict,
   type ConversationId,
   type CredentialId,
+  type DeskSession,
   type DraftRequest,
   DraftRequestId,
   Forbidden,
@@ -57,7 +58,13 @@ export const requestDraft = (
 export const answerDraftRequest = (
   caller: Caller,
   id: DraftRequestId,
-  draft: { readonly body: string; readonly basis?: string },
+  draft: {
+    readonly body: string
+    readonly basis?: string
+    readonly client?: string
+    readonly model?: string
+    readonly session?: DeskSession
+  },
 ): T.Task<Note, NoteFailure, RequestEnv> =>
   T.gen(function* () {
     const row = yield* waitingRequest(caller.member.id, id)

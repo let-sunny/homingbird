@@ -1,5 +1,14 @@
 import { Task as T } from '@homingbird/kernel'
-import { type AnsweringFlowSetting, Invalid, Settings, answeringFlowFrom } from '@homingbird/protocol'
+import {
+  type AnsweringFlowSetting,
+  FEATURE_NAMES,
+  type FeatureName,
+  Invalid,
+  Settings,
+  answeringFlowFrom,
+  featureSwitches,
+  isFeatureOn,
+} from '@homingbird/protocol'
 import type { AppEnv } from '../environment.ts'
 import { first, run } from '../sql/database.ts'
 import { insertInto, sql } from '../sql/query.ts'
@@ -10,12 +19,21 @@ export const readSettings: T.Task<Settings, never, AppEnv> = T.gen(function* () 
   const decoded = row === null ? null : Settings.decode(JSON.parse(row.value))
   const organization = decoded?._tag === 'Ok' ? decoded.value : (env.config.initial as Settings)
   const { flow } = yield* readAnsweringFlow
-  return { ...withoutFlow(organization), answeringFlow: flow }
+  return {
+    ...withoutFlow(organization),
+    answeringFlow: flow,
+    features: featureSwitches(organization.features ?? env.config.initial.features),
+  }
 })
 
 export const writeSettings = (settings: Settings): T.Task<Settings, Invalid, AppEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
+    const unknown = Object.keys(settings.features ?? {}).filter(
+      (name) => !FEATURE_NAMES.includes(name as FeatureName),
+    )
+    if (unknown.length > 0)
+      return yield* T.fail(Invalid({ message: `There is no feature named ${unknown.join(', ')}.` }))
     if (settings.answeringFlow !== undefined) {
       const flow = settings.answeringFlow?.trim() || null
       const checked = flow === null ? null : answeringFlowFrom(flow)
@@ -23,7 +41,11 @@ export const writeSettings = (settings: Settings): T.Task<Settings, Invalid, App
       if (flow !== (yield* readAnsweringFlow).flow)
         yield* store(FLOW_ROW, { flow, updatedAt: env.clock.now() })
     }
-    yield* store(SETTINGS_ROW, withoutFlow(settings))
+    const current = yield* readSettings
+    yield* store(SETTINGS_ROW, {
+      ...withoutFlow(settings),
+      features: featureSwitches({ ...current.features, ...settings.features }),
+    })
     return yield* readSettings
   })
 
@@ -35,6 +57,10 @@ export const readAnsweringFlow: T.Task<AnsweringFlowSetting, never, AppEnv> = T.
     updatedAt: typeof stored?.updatedAt === 'number' ? stored.updatedAt : null,
   }
 })
+
+/** Whether an optional feature is on in this organization. */
+export const featureIsOn = (name: FeatureName): T.Task<boolean, never, AppEnv> =>
+  T.map((settings: Settings) => isFeatureOn(settings.features, name))(readSettings)
 
 export const isAllowedEmail = (settings: Settings, email: string): boolean => {
   const domain = email.toLowerCase().split('@').at(-1) ?? ''

@@ -1,8 +1,9 @@
 import { Task as T } from '@homingbird/kernel'
+import { featureSwitches } from '@homingbird/protocol'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { Database } from '../src/sql/database.ts'
 import { raw } from '../src/sql/query.ts'
-import { type Migration, migrate, migrateThrough } from '../src/sql/schema.ts'
+import { MIGRATIONS, type Migration, migrate, migrateThrough, schemaStatements } from '../src/sql/schema.ts'
 import {
   type Agent,
   type Session,
@@ -148,10 +149,12 @@ describe.each(DIALECTS)('Dovecote on %s', (_, url) => {
       expect((await ana.api('PUT', '/admin/settings', settings)).json).toEqual({
         ...settings,
         answeringFlow: null,
+        features: featureSwitches({}),
       })
       expect((await ana.api('PUT', '/admin/settings', settings)).json).toEqual({
         ...settings,
         answeringFlow: null,
+        features: featureSwitches({}),
       })
       await ana.api('PATCH', `/admin/members/${cy.me.member.id}`, { status: 'deactivated' })
       expect((await cy.api('GET', '/me')).status).toBe(401)
@@ -180,20 +183,17 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
     },
   }
 
-  it.skipIf(url === undefined)(
-    'creates the 0.1.0 schema on an empty database as version 1, once',
-    async () => {
-      const database = await emptyDatabase()
-      try {
-        expect(await migrated(database)).toEqual({ _tag: 'Ok', value: undefined })
-        expect(await migrated(database)).toEqual({ _tag: 'Ok', value: undefined })
-        expect(await versionsOf(database)).toEqual([1])
-        expect(await database.all(raw('SELECT archived_at FROM conversations'))).toEqual([])
-      } finally {
-        await database.close()
-      }
-    },
-  )
+  it.skipIf(url === undefined)('creates every step on an empty database, once', async () => {
+    const database = await emptyDatabase()
+    try {
+      expect(await migrated(database)).toEqual({ _tag: 'Ok', value: undefined })
+      expect(await migrated(database)).toEqual({ _tag: 'Ok', value: undefined })
+      expect(await versionsOf(database)).toEqual([1, 2])
+      expect(await database.all(raw('SELECT archived_at FROM conversations'))).toEqual([])
+    } finally {
+      await database.close()
+    }
+  })
 
   it.skipIf(url === undefined)(
     'refuses a database that records versions this build does not know, and changes nothing in it',
@@ -201,12 +201,73 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
       const database = await emptyDatabase()
       try {
         await migrated(database)
-        for (const version of [2, 3, 4, 5, 6, 7, 8])
+        for (const version of [3, 4, 5, 6, 7, 8])
           await database.run(raw(`INSERT INTO schema_versions (version) VALUES (${version})`))
         await database.run(raw(MEMBER_ROW))
         expect(await migrated(database)).toEqual(REFUSAL)
         expect(await versionsOf(database)).toEqual([1, 2, 3, 4, 5, 6, 7, 8])
         expect((await database.all(raw('SELECT id FROM members'))).map((row) => row.id)).toEqual(['mem_kept'])
+      } finally {
+        await database.close()
+      }
+    },
+  )
+
+  it.skipIf(url === undefined)(
+    'upgrades a 0.1.0 database to step 2, keeping its notes and adding the new columns and tables',
+    async () => {
+      const database = await emptyDatabase()
+      try {
+        const [baseline = []] = MIGRATIONS
+        await migrated(database, [baseline])
+        expect(await versionsOf(database)).toEqual([1])
+        await database.run(raw(MEMBER_ROW))
+        await database.run(raw(CONVERSATION_ROW))
+        await database.run(raw(NOTE_ROW))
+        expect(await migrated(database)).toEqual({ _tag: 'Ok', value: undefined })
+        expect(await versionsOf(database)).toEqual([1, 2])
+        expect(
+          await database.all(
+            raw('SELECT id, body, seen_at, decided_at, agent_body, agent_client, agent_model FROM notes'),
+          ),
+        ).toEqual([
+          {
+            id: 'note_kept',
+            body: 'Kept from 0.1.0',
+            seen_at: null,
+            decided_at: null,
+            agent_body: null,
+            agent_client: null,
+            agent_model: null,
+          },
+        ])
+        for (const table of [
+          'principles',
+          'principle_applications',
+          'principle_offers',
+          'principle_quiet_places',
+          'releases',
+        ])
+          expect(await database.all(raw(`SELECT * FROM ${table}`))).toEqual([])
+      } finally {
+        await database.close()
+      }
+    },
+  )
+
+  it.skipIf(url === undefined || !url.startsWith('mysql'))(
+    'finishes a step that MySQL left half applied, skipping the columns and indexes already there',
+    async () => {
+      const database = await emptyDatabase()
+      try {
+        const [baseline = [], second = []] = MIGRATIONS
+        await migrated(database, [baseline])
+        const half = schemaStatements('mysql', [[], second]).slice(1, 9)
+        expect(half.some((statement) => statement.startsWith('CREATE INDEX'))).toBe(true)
+        for (const statement of half) await database.run(raw(statement))
+        expect(await migrated(database)).toEqual({ _tag: 'Ok', value: undefined })
+        expect(await versionsOf(database)).toEqual([1, 2])
+        expect(await database.all(raw('SELECT agent_body, session_minutes FROM notes'))).toEqual([])
       } finally {
         await database.close()
       }
@@ -263,3 +324,7 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
 
 const MEMBER_ROW =
   "INSERT INTO members (id, email, subject, name, profile, role, status, event_seq, created_at) VALUES ('mem_kept', 'kept@example.com', 'dev:kept', 'Kept', '', 'member', 'active', 0, 1)"
+const CONVERSATION_ROW =
+  "INSERT INTO conversations (id, kind, created_at, last_activity_at) VALUES ('conv_kept', 'direct', 1, 1)"
+const NOTE_ROW =
+  "INSERT INTO notes (id, conversation_id, author_id, status, body, origin, created_at, updated_at, sent_at) VALUES ('note_kept', 'conv_kept', 'mem_kept', 'sent', 'Kept from 0.1.0', 'human', 1, 1, 1)"

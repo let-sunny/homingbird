@@ -90,6 +90,17 @@ describe('the audit log', () => {
     expect((await storedRows(server, 'audit_log')).length).toBe(before)
   })
 
+  it('does not record when a person first saw a draft, so it cannot time anyone’s approvals', async () => {
+    const { ana, anaAgent } = await scenario()
+    const cy = await server.signIn('cy@example.com', 'Cy')
+    const draft = (await anaAgent.api('POST', '/drafts', { to: [cy.me.member.id], body: 'seen once' })).json
+    const before = (await storedRows(server, 'audit_log')).length
+    expect((await ana.api('POST', `/drafts/${draft.id}/seen`)).status).toBe(200)
+    const rows = await storedRows(server, 'audit_log')
+    expect(rows.length).toBe(before)
+    expect(JSON.stringify(rows)).not.toContain('drafts.seen')
+  })
+
   it('never contains a credential, anywhere in the database or the server log', async () => {
     const { ana, ben, anaAgent } = await scenario({ HB_AUDIT_STDOUT: '1' })
     const stored = await everyStoredValue(server)

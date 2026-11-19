@@ -31,6 +31,7 @@ export const ServerInfo = S.struct({
   version: S.string(),
   contactMode: ContactMode,
   signInWith: S.string(),
+  features: S.optional(S.record(S.boolean)),
 })
 export type ServerInfo = S.Infer<typeof ServerInfo>
 

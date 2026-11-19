@@ -24,6 +24,7 @@ import {
 } from './channel-rows.ts'
 import type { NoteRow } from './note-rows.ts'
 import { announceStatus } from './notes.ts'
+import { renamePlace } from './principles.ts'
 
 export const reviseChannel = (
   viewer: Viewer,
@@ -39,6 +40,7 @@ export const reviseChannel = (
       sql`UPDATE channels SET slug = ${renamed}, description = ${changes.description ?? row.description} WHERE slug = ${slug}`,
     )
     yield* run(sql`UPDATE conversations SET title = ${renamed} WHERE id = ${row.conversation_id}`)
+    if (renamed !== slug) yield* renamePlace(slug, renamed)
     return yield* describeChannel(viewer, yield* existingChannel(renamed))
   })
 

@@ -5,14 +5,42 @@ export interface AnsweringFlow {
   readonly checks: ReadonlyArray<string>
 }
 
-export const answeringFlowFrom = (text: string): Result.Result<AnsweringFlow, string> => {
+export const answeringFlowFrom = (text: string): Result.Result<AnsweringFlow, string> =>
+  Result.map((rows: ReadonlyArray<FlowStep>) => ({
+    before: rows.filter((row) => row.part === 'before' && row.enabled).map((row) => row.text),
+    checks: rows.filter((row) => row.part === 'checks' && row.enabled).map((row) => row.text),
+  }))(answeringFlowSteps(text))
+
+/** One step of the flow as the editor shows it: turned off steps are kept, marked, and never reach an agent. */
+export interface FlowStep {
+  readonly part: 'before' | 'checks'
+  readonly text: string
+  readonly enabled: boolean
+}
+
+/** The stored text for a list of steps: two headed lists, a turned off step marked "[off]". */
+export const answeringFlowText = (steps: ReadonlyArray<FlowStep>): string =>
+  (['before', 'checks'] as const)
+    .map((part) => {
+      const items = steps.filter((step) => step.part === part && step.text.trim() !== '')
+      return items.length === 0
+        ? ''
+        : [
+            HEADINGS[part],
+            ...items.map((step, index) => `${index + 1}. ${step.enabled ? '' : OFF_MARK}${step.text.trim()}`),
+          ].join('\n')
+    })
+    .filter((part) => part !== '')
+    .join('\n\n')
+
+export const answeringFlowSteps = (text: string): Result.Result<FlowStep[], string> => {
   if (text.length > ANSWERING_FLOW_MAX_CHARACTERS)
     return Result.err(
       `The answering flow has ${text.length} characters; it may have at most ${ANSWERING_FLOW_MAX_CHARACTERS}. Shorten it.`,
     )
-  const parts: Record<Part, string[]> = { before: [], checks: [] }
+  const steps: { part: Part; text: string }[] = []
   let part: Part = 'before'
-  let current: string[] | null = null
+  let current: { part: Part; text: string } | null = null
   for (const line of text.split(/\r?\n/)) {
     const trimmed = line.trim()
     if (trimmed === '') continue
@@ -26,19 +54,24 @@ export const answeringFlowFrom = (text: string): Result.Result<AnsweringFlow, st
     }
     const item = /^(?:\d+[.)]|[-*+])\s+(.*)$/.exec(trimmed)
     if (item !== null) {
-      current = parts[part]
-      current.push(item[1]!.trim())
+      current = { part, text: item[1]!.trim() }
+      steps.push(current)
       continue
     }
     if (current === null) return Result.err(NOT_A_LIST)
-    current[current.length - 1] = `${current.at(-1)} ${trimmed}`
+    current.text = `${current.text} ${trimmed}`
   }
-  const steps = parts.before.length + parts.checks.length
-  if (steps > ANSWERING_FLOW_MAX_STEPS)
+  if (steps.length > ANSWERING_FLOW_MAX_STEPS)
     return Result.err(
-      `The answering flow has ${steps} steps; it may have at most ${ANSWERING_FLOW_MAX_STEPS}. Merge or remove some.`,
+      `The answering flow has ${steps.length} steps; it may have at most ${ANSWERING_FLOW_MAX_STEPS}. Merge or remove some.`,
     )
-  return Result.ok(parts)
+  return Result.ok(
+    steps.map((step) =>
+      step.text.startsWith(OFF_MARK)
+        ? { part: step.part, text: step.text.slice(OFF_MARK.length).trim(), enabled: false }
+        : { ...step, enabled: true },
+    ),
+  )
 }
 
 export const answeringFlowInstructions = (flow: AnsweringFlow): string => {
@@ -66,6 +99,13 @@ export const ANSWERING_FLOW_UNAVAILABLE =
   'The answering flow the administrator of this Homingbird server set could not be fetched just now. Draft without it, and say so in basis.'
 
 type Part = keyof AnsweringFlow
+
+const OFF_MARK = '[off] '
+
+const HEADINGS: Readonly<Record<Part, string>> = {
+  before: '## Before drafting',
+  checks: '## Check the draft',
+}
 
 const partNamed = (heading: string): Part | null => {
   const name = heading.trim().toLowerCase()

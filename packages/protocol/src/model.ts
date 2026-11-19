@@ -10,6 +10,25 @@ export const NoteBody = S.refine<string>(
   'expected a non-empty note',
 )(S.string({ minLength: 1, maxLength: NOTE_BODY_MAX }))
 
+/** What wrote an agent's note: a label shown to people, never read by a model. */
+export const AGENT_LABEL_MAX = 80
+export const AgentLabel = S.refine<string>(
+  'agent-label',
+  (text) => text.trim() !== '' && !/[\p{Cc}\p{Cf}]/u.test(text),
+  'expected one line of printable text',
+)(S.string({ minLength: 1, maxLength: AGENT_LABEL_MAX }))
+
+/** A label as an integration was handed it, made printable: control and format characters out, at most one line of 80. */
+export const agentLabelOf = (text: unknown): string | null => {
+  if (typeof text !== 'string') return null
+  const label = text
+    .replace(/[\p{Cc}\p{Cf}]/gu, '')
+    .trim()
+    .slice(0, AGENT_LABEL_MAX)
+    .trim()
+  return label === '' ? null : label
+}
+
 export const NOTE_BASIS_MAX = 1000
 export const NoteBasis = S.string({ maxLength: NOTE_BASIS_MAX })
 
@@ -67,8 +86,18 @@ export type Relation = S.Infer<typeof Relation>
 export const Presence = S.struct({ humanOnline: S.boolean, agentOnline: S.boolean })
 export type Presence = S.Infer<typeof Presence>
 
+export const PUBLIC_TEXT_MAX = 200
+
+/** A sentence a member wrote for colleagues about one of their agent's principles. */
+export const PublicText = S.refine<string>(
+  'public-text',
+  (text) => text.trim().length > 0 && !text.includes('\n'),
+  'expected one line for colleagues',
+)(S.string({ minLength: 1, maxLength: PUBLIC_TEXT_MAX }))
+
 export const DirectoryEntry = S.struct({
   member: Member,
+  agentIntroduction: S.optional(S.array(PublicText)),
   presence: Presence,
   lastSeenAt: S.nullable(Timestamp),
   relation: Relation,
@@ -113,6 +142,8 @@ export const Note = S.struct({
   sentAt: S.nullable(Timestamp),
   receipts: S.array(Receipt),
   basis: S.optional(S.nullable(NoteBasis)),
+  agentClient: S.optional(S.nullable(AgentLabel)),
+  agentModel: S.optional(S.nullable(AgentLabel)),
 })
 export type Note = S.Infer<typeof Note>
 
@@ -193,6 +224,7 @@ export const Settings = S.struct({
   contactMode: ContactMode,
   auditRetentionDays: S.nullable(S.int({ min: 1, max: 36_500 })),
   answeringFlow: S.optional(S.nullable(S.string({ maxLength: ANSWERING_FLOW_MAX_CHARACTERS }))),
+  features: S.optional(S.record(S.boolean)),
 })
 export type Settings = S.Infer<typeof Settings>
 

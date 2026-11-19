@@ -13,6 +13,7 @@ import {
 import type { AppEnv } from '../environment.ts'
 import { all } from '../sql/database.ts'
 import { list, sql } from '../sql/query.ts'
+import { featureIsOn } from './settings.ts'
 
 export interface NoteRow {
   readonly id: NoteId
@@ -28,19 +29,30 @@ export interface NoteRow {
   readonly updated_at: number
   readonly sent_at: number | null
   readonly basis: string | null
+  readonly seen_at: number | null
+  readonly decided_at: number | null
+  readonly agent_body: string | null
+  readonly agent_client: string | null
+  readonly agent_model: string | null
+  readonly session_minutes: number | null
+  readonly context_percent: number | null
 }
 
 export const PICKUP_GRACE_MS = 10 * 60_000
 
-/** Notes as `viewerId` sees them: only the author sees what a draft was based on. */
+/**
+ * Notes as `viewerId` sees them: only the author sees what a draft was based on, and what wrote an agent's
+ * note is shown only while the organization keeps note details on; it is recorded either way.
+ */
 export const hydrateNotes = (
   rows: ReadonlyArray<NoteRow>,
   viewerId: MemberId | null,
 ): T.Task<Note[], never, AppEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
+    const details = rows.some((row) => row.agent_name !== null) && (yield* featureIsOn('noteDetails'))
     const sentIds = rows.filter((row) => row.status === 'sent').map((row) => row.id)
-    if (sentIds.length === 0) return rows.map((row) => toNote(row, [], viewerId))
+    if (sentIds.length === 0) return rows.map((row) => toNote(row, [], viewerId, details))
     const receiptRows = yield* all<ReceiptRow>(
       sql`SELECT * FROM receipts WHERE note_id IN ${list(sentIds)} ORDER BY member_id`,
     )
@@ -63,6 +75,7 @@ export const hydrateNotes = (
           ),
         ),
         viewerId,
+        details,
       ),
     )
   })
@@ -82,7 +95,12 @@ interface ReplyDraftRow {
   readonly started_at: number
 }
 
-const toNote = (row: NoteRow, receipts: ReadonlyArray<Receipt>, viewerId: MemberId | null): Note => ({
+const toNote = (
+  row: NoteRow,
+  receipts: ReadonlyArray<Receipt>,
+  viewerId: MemberId | null,
+  details: boolean,
+): Note => ({
   id: row.id,
   conversationId: row.conversation_id,
   authorId: row.author_id,
@@ -96,6 +114,7 @@ const toNote = (row: NoteRow, receipts: ReadonlyArray<Receipt>, viewerId: Member
   sentAt: row.sent_at,
   receipts,
   ...(row.author_id === viewerId && { basis: row.basis }),
+  ...(details && row.agent_name !== null && { agentClient: row.agent_client, agentModel: row.agent_model }),
 })
 
 const toReceipt = (row: ReceiptRow, replyDraftStartedAt: number | null, now: number): Receipt => {

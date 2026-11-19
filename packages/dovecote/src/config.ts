@@ -1,5 +1,5 @@
 import { Result, Schema as S } from '@homingbird/kernel'
-import type { ContactMode } from '@homingbird/protocol'
+import { type ContactMode, featureSwitchesFrom } from '@homingbird/protocol'
 import { isFetchableHostName } from './auth/client-metadata.ts'
 import { parseConfiguredClients } from './auth/configured-clients.ts'
 import { DEFAULT_CLIENT_METADATA_HOSTS, DEFAULT_REDIRECT_HOSTS } from './auth/default-oauth-hosts.ts'
@@ -23,6 +23,7 @@ export interface Config {
     readonly allowedDomains: ReadonlyArray<string>
     readonly contactMode: ContactMode
     readonly auditRetentionDays: number | null
+    readonly features: Readonly<Record<string, boolean>>
   }
   readonly adminEmails: ReadonlyArray<string>
   readonly channels: ReadonlyArray<{ readonly slug: string; readonly description: string }>
@@ -31,6 +32,7 @@ export interface Config {
   readonly sessionDays: number
   readonly audit: { readonly toStdout: boolean; readonly webhookUrl: string | null }
   readonly agentCredentialDays: number
+  readonly insights: { readonly quickApprovalSeconds: number; readonly minimumGroupSize: number }
   readonly oauth: {
     readonly redirectHosts: ReadonlyArray<string>
     readonly clientMetadataHosts: ReadonlyArray<string>
@@ -49,6 +51,7 @@ export const loadConfig = (
   const redirectHosts = hostListOf(v.HB_OAUTH_REDIRECT_HOSTS, DEFAULT_REDIRECT_HOSTS)
   const clientMetadataHosts = hostListOf(v.HB_OAUTH_CLIENT_METADATA_HOSTS, DEFAULT_CLIENT_METADATA_HOSTS)
   const clients = parseConfiguredClients(v.HB_OAUTH_CLIENTS)
+  const features = featureSwitchesFrom(v.HB_FEATURES ?? '')
   const problems = [
     environment.HB_TOPICS !== undefined
       ? 'HB_TOPICS: was renamed to HB_CHANNELS; set HB_CHANNELS instead and remove HB_TOPICS'
@@ -70,6 +73,12 @@ export const loadConfig = (
         (host) =>
           `HB_OAUTH_CLIENT_METADATA_HOSTS: "${host}" must be a public host name, not an address or loopback`,
       ),
+    v.HB_INSIGHTS_MINIMUM_GROUP !== undefined && Number(v.HB_INSIGHTS_MINIMUM_GROUP) < SMALLEST_GROUP_SHOWN
+      ? `HB_INSIGHTS_MINIMUM_GROUP: must be at least ${SMALLEST_GROUP_SHOWN}; smaller groups would show one person's figures`
+      : null,
+    ...features.unknown.map(
+      (item) => `HB_FEATURES: "${item}" is not a feature switch; write name=on or name=off with a known name`,
+    ),
     ...(clients._tag === 'Err' ? clients.error : []),
   ].filter((problem): problem is string => problem !== null)
   if (problems.length > 0 || clients._tag === 'Err') return Result.err(problems)
@@ -90,6 +99,7 @@ export const loadConfig = (
       allowedDomains: commaList(v.HB_ALLOWED_DOMAINS),
       contactMode: v.HB_CONTACT_MODE ?? 'open',
       auditRetentionDays: v.HB_AUDIT_RETENTION_DAYS ? Number(v.HB_AUDIT_RETENTION_DAYS) : null,
+      features: features.switches,
     },
     adminEmails: commaList(v.HB_ADMIN_EMAILS),
     channels: seedChannelsOf(v.HB_CHANNELS),
@@ -98,6 +108,10 @@ export const loadConfig = (
     sessionDays: Number(v.HB_SESSION_DAYS ?? '30'),
     audit: { toStdout: v.HB_AUDIT_STDOUT === '1', webhookUrl: v.HB_AUDIT_WEBHOOK_URL ?? null },
     agentCredentialDays: Number(v.HB_AGENT_CREDENTIAL_DAYS ?? '90'),
+    insights: {
+      quickApprovalSeconds: Number(v.HB_QUICK_APPROVAL_SECONDS ?? '3'),
+      minimumGroupSize: Number(v.HB_INSIGHTS_MINIMUM_GROUP ?? String(SMALLEST_GROUP_SHOWN)),
+    },
     oauth: { redirectHosts, clientMetadataHosts, clients: clients.value },
   })
 }
@@ -106,6 +120,8 @@ const CHANNEL_LIST =
   /^\s*[a-z0-9][a-z0-9-]{0,39}(:[^,]{0,200})?(\s*,\s*[a-z0-9][a-z0-9-]{0,39}(:[^,]{0,200})?)*\s*$/
 
 const positiveInteger = S.string({ pattern: /^[1-9][0-9]{0,5}$/ })
+
+const SMALLEST_GROUP_SHOWN = 5
 
 const Variables = S.struct({
   HB_PUBLIC_URL: S.string({ pattern: /^https?:\/\/[^\s/]+(\/.*)?$/ }),
@@ -129,9 +145,12 @@ const Variables = S.struct({
   HB_AUDIT_STDOUT: S.optional(S.literal('0', '1')),
   HB_AUDIT_WEBHOOK_URL: S.optional(S.string({ pattern: /^https?:\/\// })),
   HB_AGENT_CREDENTIAL_DAYS: S.optional(positiveInteger),
+  HB_QUICK_APPROVAL_SECONDS: S.optional(S.string({ pattern: /^[1-9][0-9]?$/ })),
+  HB_INSIGHTS_MINIMUM_GROUP: S.optional(S.string({ pattern: /^[1-9][0-9]{0,3}$/ })),
   HB_OAUTH_REDIRECT_HOSTS: S.optional(S.string()),
   HB_OAUTH_CLIENT_METADATA_HOSTS: S.optional(S.string()),
   HB_OAUTH_CLIENTS: S.optional(S.string()),
+  HB_FEATURES: S.optional(S.string()),
 })
 
 const HOST_NAME = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/

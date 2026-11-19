@@ -5,6 +5,8 @@ import {
   ANSWERING_FLOW_MAX_STEPS,
   answeringFlowFrom,
   answeringFlowInstructions,
+  answeringFlowSteps,
+  answeringFlowText,
 } from '../src/answering-flow.ts'
 
 const steps = (text: string) => answeringFlowFrom(text)
@@ -143,5 +145,51 @@ describe('the instructions an answering flow adds to a prompt', () => {
     expect(text).toContain('1. Nothing confidential leaves the organization.')
     expect(text).toContain('"Checked for confidential material: passed, by reading"')
     expect(text).toContain('passed, changed the draft, failed or could not run.')
+  })
+})
+
+describe('steps that are turned off', () => {
+  it('keeps a turned off step in the stored text and never passes it on', () => {
+    const steps = [
+      { part: 'before' as const, text: 'Look in the wiki.', enabled: true },
+      { part: 'before' as const, text: 'Ask the runbook.', enabled: false },
+      { part: 'checks' as const, text: 'No secrets leave.', enabled: true },
+    ]
+    const text = answeringFlowText(steps)
+    expect(text).toBe(
+      '## Before drafting\n1. Look in the wiki.\n2. [off] Ask the runbook.\n\n## Check the draft\n1. No secrets leave.',
+    )
+    expect(answeringFlowSteps(text)).toEqual({ _tag: 'Ok', value: steps })
+    expect(answeringFlowFrom(text)).toEqual({
+      _tag: 'Ok',
+      value: { before: ['Look in the wiki.'], checks: ['No secrets leave.'] },
+    })
+  })
+
+  it('round-trips any list of steps through the stored text', () => {
+    const step = fc.record({
+      part: fc.constantFrom('before' as const, 'checks' as const),
+      text: fc.stringMatching(/^[A-Za-z][A-Za-z .]{0,30}[A-Za-z.]$/),
+      enabled: fc.boolean(),
+    })
+    fc.assert(
+      fc.property(fc.array(step, { maxLength: 20 }), (steps) => {
+        const ordered = [
+          ...steps.filter((each) => each.part === 'before'),
+          ...steps.filter((each) => each.part === 'checks'),
+        ]
+        expect(answeringFlowSteps(answeringFlowText(steps))).toEqual({ _tag: 'Ok', value: ordered })
+      }),
+    )
+  })
+
+  it('counts turned off steps toward the limit, and leaves out empty rows', () => {
+    const many = Array.from({ length: 21 }, (_, index) => ({
+      part: 'before' as const,
+      text: `Step ${index}.`,
+      enabled: false,
+    }))
+    expect(answeringFlowSteps(answeringFlowText(many))._tag).toBe('Err')
+    expect(answeringFlowText([{ part: 'checks', text: '  ', enabled: true }])).toBe('')
   })
 })

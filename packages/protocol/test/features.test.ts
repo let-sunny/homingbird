@@ -1,0 +1,55 @@
+import { describe, expect, it } from 'vitest'
+import { contract } from '../src/contract.ts'
+import {
+  FEATURES,
+  FEATURE_NAMES,
+  featureOfRoute,
+  featureSwitches,
+  featureSwitchesFrom,
+  isFeatureOn,
+} from '../src/features.ts'
+
+describe('feature switches', () => {
+  it('fills in every default and drops names it does not know', () => {
+    expect(featureSwitches({ teaching: false, nonsense: false })).toEqual({
+      ...Object.fromEntries(FEATURE_NAMES.map((name) => [name, FEATURES[name].default])),
+      teaching: false,
+    })
+    expect(isFeatureOn(undefined, 'insights')).toBe(true)
+  })
+
+  it('gives each switchable route one feature, and the core none', () => {
+    expect(featureOfRoute('principles.create')).toBe('teaching')
+    expect(featureOfRoute('push.subscribe')).toBe('webPush')
+    for (const core of ['drafts.send', 'drafts.create', 'notes.read', 'me.get', 'admin.audit.list'] as const)
+      expect(featureOfRoute(core)).toBeNull()
+    for (const name of FEATURE_NAMES)
+      for (const route of FEATURES[name].routes) expect(Object.keys(contract)).toContain(route)
+  })
+
+  it('reads the seed from the environment and names what it cannot read', () => {
+    expect(featureSwitchesFrom('teaching=off, characters=on,,')).toEqual({
+      switches: { teaching: false, characters: true },
+      unknown: [],
+    })
+    expect(featureSwitchesFrom('principles=off,teaching=maybe').unknown).toEqual([
+      'principles=off',
+      'teaching=maybe',
+    ])
+  })
+
+  it('reads names and values with spaces around them, and refuses anything but exactly on or off', () => {
+    expect(featureSwitchesFrom('  teaching  =  off  ,insights=on').switches).toEqual({
+      teaching: false,
+      insights: true,
+    })
+    expect(featureSwitchesFrom('teaching=offx,teaching=xon,teaching,=on,teaching=').unknown).toEqual([
+      'teaching=offx',
+      'teaching=xon',
+      'teaching',
+      '=on',
+      'teaching=',
+    ])
+    expect(featureSwitchesFrom('').switches).toEqual({})
+  })
+})

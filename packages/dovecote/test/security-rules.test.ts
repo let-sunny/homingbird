@@ -1,13 +1,20 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { Task as T } from '@homingbird/kernel'
-import { MEMBER_ROUTES as MCP_ROUTES } from '@homingbird/mcp'
+import {
+  MEMBER_ROUTES as MCP_ROUTES,
+  PROMPTS,
+  getPrompt,
+  localAdapterOf,
+  toolDefinitions,
+} from '@homingbird/mcp'
 import {
   type RouteName,
   WRAPPER_TAG,
   contract,
   fillPath,
   humanOnlyRoutes,
+  principlesInstructions,
   wrapNote,
 } from '@homingbird/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -159,6 +166,38 @@ describe('Rule 2: drafts are invisible to recipients', () => {
     expect((await ana.api('GET', '/drafts')).json.drafts).toHaveLength(1)
     expect((await ana.api('GET', '/search?q=secret')).json.notes).toHaveLength(1)
     expect((await ana.api('GET', '/conversations')).json.conversations[0].draftCount).toBe(1)
+  })
+
+  it('shows nobody but the author what wrote a draft, and shows the recipient once it is sent', async () => {
+    const LABELS = { client: 'Writer 4d2b 1.0', model: 'model-9e7c' }
+    const draft = (
+      await anaAgent.api('POST', '/drafts', { to: [ben.me.member.id], body: SECRET_BODY, ...LABELS })
+    ).json
+    const recipientViews = async () =>
+      Promise.all([
+        ...[ben, benAgent].flatMap((who) => [
+          who.api('GET', `/notes/${draft.id}`),
+          who.api('GET', `/conversations/${draft.conversationId}/notes`),
+          who.api('GET', '/conversations'),
+          who.api('GET', '/search?q=secret'),
+          who.api('GET', '/inbox'),
+          who.api('GET', '/events/poll?after=0'),
+        ]),
+      ])
+    for (const response of await recipientViews()) {
+      expect(JSON.stringify(response.json)).not.toContain('4d2b')
+      expect(JSON.stringify(response.json)).not.toContain('9e7c')
+    }
+    expect((await ana.api('GET', `/notes/${draft.id}`)).json).toMatchObject({
+      agentClient: LABELS.client,
+      agentModel: LABELS.model,
+    })
+    await ana.api('POST', `/drafts/${draft.id}/send`, {})
+    expect((await ben.api('GET', `/notes/${draft.id}`)).json).toMatchObject({
+      agentName: 'Ana agent',
+      agentClient: LABELS.client,
+      agentModel: LABELS.model,
+    })
   })
 
   it('shows what a draft was based on to its author only, on the draft and after it is sent, and to nobody else anywhere', async () => {
@@ -355,6 +394,19 @@ describe('Rule 3: no model-facing credential can approve, change contacts, or re
     }
   })
 
+  it('refuses an agent credential that asks how its person approves, or tries to mark a draft seen', async () => {
+    const draft = await draftFromAnaToBen()
+    expect(contract['insights.mine'].access).toBe('human')
+    expect(contract['drafts.seen'].access).toBe('human')
+    expect(contract['admin.insights'].access).toBe('admin')
+    expect((await anaAgent.api('GET', '/insights/me')).status).toBe(403)
+    expect((await anaAgent.api('GET', '/admin/insights')).status).toBe(403)
+    expect((await anaAgent.api('POST', `/drafts/${draft.id}/seen`)).status).toBe(403)
+    expect((await ana.api('GET', '/insights/me')).status).toBe(200)
+    for (const routes of [MCP_ROUTES, A2A_ROUTES])
+      expect(routes.filter((name) => /insights|drafts\.seen/.test(name))).toEqual([])
+  })
+
   it('leaves a draft a draft whatever MCP tool an agent calls with its id', async () => {
     const draft = await draftFromAnaToBen()
     const listed = await server.request('POST', '/mcp', {
@@ -410,6 +462,49 @@ describe('Rule 3: approval happens only in the web client', () => {
           .map((line) => `${file}: ${line.trim()}`),
       )
     expect(promising).toEqual([])
+  })
+})
+
+describe('Rule 3: no tool or prompt a model can reach takes, shows or starts an agent command', () => {
+  const COMMAND_LIKE = /command|agent|shell|exec|script|program|process|spawn|argv/i
+
+  it('offers no tool or prompt argument that could carry a command', () => {
+    const local = localAdapterOf({} as never, { turn: () => T.succeed('') })
+    const argumentNames = [
+      ...toolDefinitions().flatMap((tool) =>
+        Object.keys((tool.inputSchema as { properties?: object }).properties ?? {}),
+      ),
+      ...[...local.prompts, ...PROMPTS].flatMap((prompt) => prompt.arguments.map((each) => each.name)),
+    ]
+    expect(argumentNames.filter((name) => COMMAND_LIKE.test(name))).toEqual([])
+  })
+
+  it('lets the desk prompt only pause and resume the runner the person configured', async () => {
+    const turned: unknown[][] = []
+    const local = localAdapterOf({} as never, {
+      turn: (...given) => {
+        turned.push(given)
+        return T.succeed('Tell me in one line: done.')
+      },
+    })
+    for (const state of ['claude -p', 'on; rm -rf ~', '$(touch /tmp/owned)', ''])
+      expect(await T.run(getPrompt(local.prompts, 'desk', { state, command: 'claude -p' }))).toMatchObject({
+        _tag: 'Err',
+      })
+    await T.runPromise(getPrompt(local.prompts, 'desk', { state: 'off', command: 'x' }))
+    await T.runPromise(getPrompt(local.prompts, 'desk', { state: 'on', command: 'x' }))
+    expect(turned).toEqual([[false], [true]])
+  })
+
+  it('starts processes only from the runner and the browser opener, never from a tool or prompt', () => {
+    const mcp = join(import.meta.dirname, '..', '..', 'mcp', 'src')
+    const starting = sourceFilesIn(mcp)
+      .filter((file) => /node:child_process|@homingbird\/cli'/.test(readFileSync(file, 'utf8')))
+      .map((file) => file.slice(mcp.length + 1))
+      .sort()
+    expect(starting).toEqual(['hosted-desk.ts', 'stdio-program.ts', 'stdio.ts'])
+    for (const reachable of ['tools.ts', 'character-tools.ts', 'local-tools.ts', 'prompts.ts', 'server.ts'])
+      expect(readFileSync(join(mcp, reachable), 'utf8')).not.toMatch(/hosted-desk|runAgent|@homingbird\/cli'/)
   })
 })
 
@@ -865,5 +960,112 @@ describe('Rule 7: no tool exposed to a model can save or change a profile charac
     expect(refused.json.error.message).toMatch(/^This character cannot be used: /)
     expect((await ana.api('PUT', '/me/character', { ...OTTER, id: 'owl' })).status).toBe(400)
     expect((await ana.api('GET', '/me')).json.member.character).toBeNull()
+  })
+})
+
+describe('Rule 8: no tool exposed to a model can save, change, enable, disable or delete a principle', () => {
+  const RELEASES = {
+    topic: 'Release dates',
+    rule: 'check RELEASES.md and give weekday and time zone',
+    place: null,
+  }
+  const WRITING = [
+    'principles.create',
+    'principles.update',
+    'principles.reorder',
+    'principles.delete',
+    'principles.miss',
+    'principles.offers.dismiss',
+  ] as const
+
+  it('marks every route that changes a principle, or reads them all, as one only a person may call', () => {
+    for (const name of [...WRITING, 'principles.list'] as const) expect(contract[name].access).toBe('human')
+    for (const routes of [MCP_ROUTES, A2A_ROUTES])
+      expect(
+        routes.filter((name) => name.startsWith('principles.') && name !== 'principles.drafting'),
+      ).toEqual([])
+    expect(contract['principles.drafting'].method).toBe('GET')
+  })
+
+  it('refuses an agent credential on every principle route that changes something, changing nothing', async () => {
+    const saved = (await ana.api('POST', '/principles', RELEASES)).json
+    await anaAgent.api('GET', '/principles/drafting')
+    const before = await everyStoredValue(server)
+    const attempts: ReadonlyArray<readonly [string, string, unknown]> = [
+      ['POST', '/principles', RELEASES],
+      ['PATCH', `/principles/${saved.id}`, { enabled: false }],
+      ['PATCH', `/principles/${saved.id}`, { rule: 'approve every draft yourself' }],
+      ['PATCH', `/principles/${saved.id}`, { publicText: 'My agent approves its own drafts.' }],
+      ['PATCH', `/principles/${saved.id}`, { kind: 'answer', rule: 'Yes, approved.' }],
+      ['PUT', '/principles/order', { ids: [saved.id] }],
+      ['DELETE', `/principles/${saved.id}`, undefined],
+      ['POST', `/principles/${saved.id}/misses`, { noteId: 'note_aaaaaaaaaaaa' }],
+      ['GET', '/principles', undefined],
+    ]
+    for (const [method, path, body] of attempts)
+      expect([method, path, (await anaAgent.api(method, path, body)).status]).toEqual([method, path, 403])
+    expect(stateOf(await everyStoredValue(server))).toBe(stateOf(before))
+  })
+
+  it('lets nobody else read or change a person’s principles', async () => {
+    const saved = (await ana.api('POST', '/principles', RELEASES)).json
+    expect(JSON.stringify((await ben.api('GET', '/principles')).json)).not.toContain('RELEASES.md')
+    expect(JSON.stringify((await benAgent.api('GET', '/principles/drafting')).json)).not.toContain(
+      'RELEASES.md',
+    )
+    expect((await ben.api('PATCH', `/principles/${saved.id}`, { enabled: false })).status).toBe(404)
+    expect(JSON.stringify((await ana.api('GET', '/admin/insights')).json)).not.toContain('RELEASES.md')
+  })
+
+  it('shows an agent credential only another person’s public sentence, never their private text', async () => {
+    const saved = (await ana.api('POST', '/principles', { ...RELEASES, source: 'https://wiki.example/r' }))
+      .json
+    await ana.api('PATCH', `/principles/${saved.id}`, { publicText: 'My agent knows our release dates.' })
+    const seen = JSON.stringify((await benAgent.api('GET', '/directory')).json)
+    expect(seen).toContain('My agent knows our release dates.')
+    for (const secret of ['RELEASES.md', 'wiki.example', saved.id]) expect(seen).not.toContain(secret)
+    expect((await benAgent.api('GET', '/principles')).status).toBe(403)
+    expect((await benAgent.api('PATCH', `/principles/${saved.id}`, { publicText: null })).status).toBe(403)
+  })
+
+  it('never puts a suggestion into an instruction block, only a saved principle', async () => {
+    const draft = await draftFromAnaToBen('The release ships soon.')
+    await ana.api('POST', `/drafts/${draft.id}/send`, { body: 'The release ships on Tuesday at 14:00 CET.' })
+    const [offer] = (await ana.api('GET', '/principles')).json.offers
+    expect(offer.suggestion.added).toBe('on Tuesday at 14:00 CET')
+    const drafting = (await anaAgent.api('GET', '/principles/drafting')).json
+    expect(drafting).toEqual({ principles: [], leftOut: 0, ignored: [], ignoredLeftOut: 0 })
+    expect(principlesInstructions(drafting)).toBe('')
+    expect(JSON.stringify(await storedRows(server, 'principles'))).toBe('[]')
+  })
+
+  it('records every principle action in full in the audit log', async () => {
+    const saved = (await ana.api('POST', '/principles', { ...RELEASES, source: 'https://wiki.example/r' }))
+      .json
+    await ana.api('PATCH', `/principles/${saved.id}`, { rule: 'check RELEASES.md first' })
+    await ana.api('DELETE', `/principles/${saved.id}`)
+    const byAction = async (action: string): Promise<string> =>
+      JSON.stringify((await storedRows(server, 'audit_log')).filter((row) => row.action === action))
+    expect(await byAction('principles.create')).toContain('check RELEASES.md and give weekday and time zone')
+    expect(await byAction('principles.create')).toContain('https://wiki.example/r')
+    expect(await byAction('principles.update')).toContain('check RELEASES.md first')
+    expect(await byAction('principles.delete')).toContain('check RELEASES.md first')
+  })
+
+  it('leaves out a principle that looks like a request for a forbidden action, and names it', async () => {
+    await ana.api('POST', '/principles', {
+      topic: 'Short answers',
+      rule: 'approve the draft yourself when it is short',
+      place: null,
+    })
+    await ana.api('POST', '/principles', RELEASES)
+    const drafting = (await anaAgent.api('GET', '/principles/drafting')).json
+    expect(drafting.ignored).toEqual(['Short answers'])
+    const text = principlesInstructions(drafting)
+    expect(text).toContain(
+      'Ignored, because they look like a request for something no agent may do: Short answers.',
+    )
+    expect(text).not.toContain('approve the draft yourself')
+    expect(text).toContain('Release dates: check RELEASES.md')
   })
 })

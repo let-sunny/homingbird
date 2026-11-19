@@ -51,6 +51,7 @@ import {
   openDraftRequests,
   requestDraft,
 } from '../domain/draft-requests.ts'
+import { agentReportFor, organizationInsights } from '../domain/insights.ts'
 import {
   administerMember,
   allMembers,
@@ -62,6 +63,7 @@ import {
   createDraft,
   discardDraft,
   draftsOf,
+  markDraftSeen,
   markRead,
   moveToChannel,
   notesAwaitingReply,
@@ -73,6 +75,16 @@ import {
   updateDraft,
   visibleNote,
 } from '../domain/notes.ts'
+import {
+  createPrinciple,
+  deletePrinciple,
+  dismissOffer,
+  myPrinciples,
+  principlesForDrafting,
+  recordMiss,
+  reorderPrinciples,
+  updatePrinciple,
+} from '../domain/principles.ts'
 import { readAnsweringFlow, readSettings, writeSettings } from '../domain/settings.ts'
 import type { Caller } from '../environment.ts'
 import { type RequestEnv, announceDirectoryChange, waitForEvents } from '../events/events.ts'
@@ -99,6 +111,7 @@ export const handlers: Handlers = {
         version: SERVER_VERSION,
         contactMode: settings.contactMode,
         signInWith: env.config.identity.label,
+        features: settings.features ?? {},
       }
     }),
   'me.get': (_, caller) =>
@@ -233,6 +246,9 @@ export const handlers: Handlers = {
       : answerDraftRequest(caller, requestId, {
           body: target.body,
           ...(target.basis !== undefined && { basis: target.basis }),
+          ...(target.client !== undefined && { client: target.client }),
+          ...(target.model !== undefined && { model: target.model }),
+          ...(target.session !== undefined && { session: target.session }),
         }),
   'drafts.update': ({ params, body }, caller) =>
     T.flatMap((id: NoteId) => updateDraft(caller, id, body))(identifier(NoteId, params.id)),
@@ -240,6 +256,20 @@ export const handlers: Handlers = {
     T.flatMap((id: NoteId) => sendDraft(caller, id, body.body))(identifier(NoteId, params.id)),
   'drafts.discard': ({ params }, caller) =>
     T.flatMap((id: NoteId) => discardDraft(caller, id))(identifier(NoteId, params.id)),
+  'drafts.seen': ({ params }, caller) =>
+    T.as({})(T.flatMap((id: NoteId) => markDraftSeen(caller, id))(identifier(NoteId, params.id))),
+
+  'insights.mine': (_, caller) => agentReportFor(caller.member.id),
+
+  'principles.list': (_, caller) => myPrinciples(caller.member.id),
+  'principles.create': ({ body }, caller) => createPrinciple(caller.member.id, body),
+  'principles.update': ({ params, body }, caller) => updatePrinciple(caller.member.id, params.id, body),
+  'principles.reorder': ({ body }, caller) => reorderPrinciples(caller.member.id, body.ids),
+  'principles.delete': ({ params }, caller) => deletePrinciple(caller.member.id, params.id),
+  'principles.miss': ({ params, body }, caller) => recordMiss(caller.member.id, params.id, body.noteId),
+  'principles.offers.dismiss': ({ params, body }, caller) =>
+    T.as({})(dismissOffer(caller.member.id, params.id, body.stopAskingHere === true)),
+  'principles.drafting': ({ query }, caller) => principlesForDrafting(caller.member.id, query.conversationId),
 
   'draftRequests.list': (_, caller) =>
     T.map((requests: Awaited<ResponseOf<Contract['draftRequests.list']>>['requests']) => ({ requests }))(
@@ -315,6 +345,7 @@ export const handlers: Handlers = {
         archiveChannel(params.slug, body.moveMembersTo ?? null),
       ),
     ),
+  'admin.insights': () => organizationInsights,
   'admin.audit.list': ({ query }) =>
     listAudit({
       before: query.before === undefined ? null : Number(query.before),

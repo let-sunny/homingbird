@@ -2,6 +2,7 @@ import { Task as T } from '@homingbird/kernel'
 import {
   Conflict,
   type ConversationId,
+  type DeskSession,
   Forbidden,
   type InboxItem,
   Invalid,
@@ -11,6 +12,7 @@ import {
   NoteId,
   type Notice,
   type Origin,
+  agentLabelOf,
 } from '@homingbird/protocol'
 import { type Caller, isHuman } from '../environment.ts'
 import { type RequestEnv, emit } from '../events/events.ts'
@@ -29,6 +31,7 @@ import {
 import { membersByIds } from './members.ts'
 import { type NoteRow, hydrateNotes } from './note-rows.ts'
 import { keepNotice, moveNotices, noticesFor } from './notices.ts'
+import { offerAfterDecision, recordApplications } from './principles.ts'
 
 export interface DraftDestination {
   readonly conversationId?: ConversationId
@@ -40,12 +43,16 @@ export interface DraftDestination {
 export interface DraftTarget extends DraftDestination {
   readonly body: string
   readonly basis?: string
+  readonly client?: string
+  readonly model?: string
+  readonly session?: DeskSession
 }
 
 export interface DraftChange {
   readonly body?: string
   readonly channel?: string
   readonly basis?: string
+  readonly model?: string
 }
 
 export const createDraft = (caller: Caller, target: DraftTarget): T.Task<Note, NoteFailure, RequestEnv> =>
@@ -69,8 +76,16 @@ export const createDraft = (caller: Caller, target: DraftTarget): T.Task<Note, N
       updated_at: now,
       sent_at: null,
       basis: target.basis?.trim() || null,
+      seen_at: null,
+      decided_at: null,
+      agent_body: isHuman(caller) ? null : target.body,
+      agent_client: isHuman(caller) ? null : (target.client?.trim() ?? (yield* clientOf(caller))),
+      agent_model: isHuman(caller) ? null : (target.model?.trim() ?? null),
+      session_minutes: isHuman(caller) ? null : (target.session?.ageMinutes ?? null),
+      context_percent: isHuman(caller) ? null : (target.session?.contextPercent ?? null),
     }
     yield* run(insertInto('notes', { ...row }))
+    if (!isHuman(caller)) yield* recordApplications(authorId, row.id, row.basis)
     const draft = yield* noteById(row.id, authorId)
     yield* emit([authorId], { type: 'draft.saved', note: draft })
     if (row.in_reply_to !== null) yield* announceStatus(row.in_reply_to)
@@ -90,9 +105,12 @@ export const updateDraft = (
       change.channel === undefined ? draft.conversation_id : yield* readdressedRoom(draft, change.channel)
     const origin = originAfterEdit(draft.origin, isHuman(caller), body !== draft.body)
     const basis = change.basis === undefined ? draft.basis : change.basis.trim() || null
+    const agentBody = isHuman(caller) ? draft.agent_body : body
+    const model = isHuman(caller) || change.model === undefined ? draft.agent_model : change.model.trim()
     yield* run(
-      sql`UPDATE notes SET body = ${body}, conversation_id = ${conversationId}, origin = ${origin}, basis = ${basis}, updated_at = ${env.clock.now()} WHERE id = ${id} AND status = 'draft'`,
+      sql`UPDATE notes SET body = ${body}, conversation_id = ${conversationId}, origin = ${origin}, basis = ${basis}, agent_body = ${agentBody}, agent_model = ${model}, updated_at = ${env.clock.now()} WHERE id = ${id} AND status = 'draft'`,
     )
+    if (!isHuman(caller)) yield* recordApplications(caller.member.id, id, basis)
     const updated = yield* noteById(id, caller.member.id)
     yield* emit([caller.member.id], { type: 'draft.saved', note: updated })
     return updated
@@ -113,15 +131,17 @@ export const sendDraft = (
     yield* requireMayMessageIn(authorId, draft.conversation_id)
     const body = replacementBody ?? draft.body
     const origin = originAfterEdit(draft.origin, true, body !== draft.body)
-    const now = yield* nextSendTime(draft.conversation_id, env.clock.now())
+    const decidedAt = env.clock.now()
+    const now = yield* nextSendTime(draft.conversation_id, decidedAt)
     const sent = yield* run(
-      sql`UPDATE notes SET status = 'sent', body = ${body}, origin = ${origin}, sent_at = ${now}, updated_at = ${now} WHERE id = ${id} AND status = 'draft'`,
+      sql`UPDATE notes SET status = 'sent', body = ${body}, origin = ${origin}, sent_at = ${now}, updated_at = ${now}, decided_at = ${decidedAt} WHERE id = ${id} AND status = 'draft'`,
     )
     if (sent === 0) return yield* T.fail(Conflict({ message: 'This draft was already sent or discarded.' }))
     for (const memberId of recipients)
       yield* run(insertInto('receipts', { note_id: id, member_id: memberId, delivered_at: now }))
     yield* run(sql`UPDATE conversations SET last_activity_at = ${now} WHERE id = ${draft.conversation_id}`)
     if (draft.in_reply_to !== null) yield* settleReply(authorId, draft.in_reply_to, now)
+    if (origin === 'human_edited') yield* offerAfterDecision(draft, body)
     yield* emit(participants, { type: 'note.sent', note: yield* noteById(id, null) })
     if (draft.in_reply_to !== null) yield* announceStatus(draft.in_reply_to)
     return yield* noteById(id, authorId)
@@ -129,11 +149,25 @@ export const sendDraft = (
 
 export const discardDraft = (caller: Caller, id: NoteId): T.Task<Note, NoteFailure, RequestEnv> =>
   T.gen(function* () {
+    const env = yield* T.ask<RequestEnv>()
     if (!isHuman(caller)) return yield* T.fail(Forbidden({ message: 'Only a person can discard a draft.' }))
     const draft = yield* ownDraft(caller.member.id, id)
+    yield* run(sql`UPDATE notes SET decided_at = ${env.clock.now()} WHERE id = ${id} AND status = 'draft'`)
     yield* abandonDraft(draft)
+    yield* offerAfterDecision(draft, null)
     if (draft.in_reply_to !== null) yield* announceStatus(draft.in_reply_to)
     return yield* noteById(id, caller.member.id)
+  })
+
+/** Records when a draft was first shown to its author in a visible page; later calls change nothing. */
+export const markDraftSeen = (caller: Caller, id: NoteId): T.Task<void, NotFound, RequestEnv> =>
+  T.gen(function* () {
+    const env = yield* T.ask<RequestEnv>()
+    const own = yield* first(sql`SELECT id FROM notes WHERE id = ${id} AND author_id = ${caller.member.id}`)
+    if (own === null) return yield* T.fail(NotFound({ message: 'No such draft.' }))
+    yield* run(
+      sql`UPDATE notes SET seen_at = ${env.clock.now()} WHERE id = ${id} AND status = 'draft' AND seen_at IS NULL`,
+    )
   })
 
 export const moveToChannel = (
@@ -231,6 +265,7 @@ export const release = (
       sql`UPDATE receipts SET drafting_at = NULL WHERE note_id = ${id} AND member_id = ${caller.member.id} AND drafting_at IS NOT NULL`,
     )
     if (changed > 0) yield* announceStatus(id)
+    if (!isHuman(caller)) yield* recordSkip(caller, note, reason?.trim() || null)
     yield* keepNotice({
       memberId: caller.member.id,
       kind: 'released',
@@ -353,6 +388,30 @@ const ARCHIVED = Conflict({
 })
 const INBOX_LIMIT = 50
 const INBOX_WINDOW_MS = 30 * 24 * 60 * 60_000
+
+/**
+ * The program a credential signed in from, as its registration named it: a fallback when the
+ * integration names none, cleaned like every other label because the registrant chose the name.
+ */
+const clientOf = (caller: Caller): T.Task<string | null, never, RequestEnv> =>
+  T.map((row: { client: string } | null) => agentLabelOf(row?.client))(
+    first<{ client: string }>(sql`SELECT client FROM credentials WHERE id = ${caller.credential.id}`),
+  )
+
+const recordSkip = (caller: Caller, note: Note, reason: string | null): T.Task<void, never, RequestEnv> =>
+  T.gen(function* () {
+    const env = yield* T.ask<RequestEnv>()
+    yield* run(
+      insertIgnoringConflict(yield* dialect, 'releases', {
+        note_id: note.id,
+        credential_id: caller.credential.id,
+        member_id: caller.member.id,
+        conversation_id: note.conversationId,
+        reason,
+        created_at: env.clock.now(),
+      }),
+    )
+  })
 
 const resolveConversation = (
   authorId: MemberId,
