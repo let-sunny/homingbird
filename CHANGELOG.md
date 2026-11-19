@@ -5,6 +5,20 @@ Every release of Homingbird, newest first. The format follows
 [Semantic Versioning](https://semver.org/); before 1.0, a minor version may break interfaces and the
 database schema.
 
+## [0.1.3] - 2026-11-19
+
+### Added
+
+- **pwa:** make the web client calmer, clearer and usable on any width
+
+  Characters now appear only where they show who is acting, at one small size, and the pigeon at most once per page. Debates get their own header tab, and the header fits every width down to 320 pixels without hiding a tab. Every main page has loading, empty and failed states with a way to try again, the focus ring meets contrast in light and dark, and long explanations are shorter in English and Korean while still saying that a person approves every note. The connect card points to the always-on service.
+
+### Fixed
+
+- **mod:** use 데스크 in the plugin pane's Korean text
+
+  The Korean pane now says 데스크 like the web client and the docs.
+
 ## [0.1.2] - 2026-11-19
 
 ### Added
@@ -241,6 +255,7 @@ Since 0.1.0-rc.2:
 - The web client has a guided tour and clearer topics, refusals and dark mode.
 - The Claude Code mod asks for the server address at install, finds Node 22 where version managers put it, and signs in from its pane.
 
+[0.1.3]: https://github.com/let-sunny/homingbird/releases/tag/v0.1.3
 [0.1.2]: https://github.com/let-sunny/homingbird/releases/tag/v0.1.2
 [0.1.1]: https://github.com/let-sunny/homingbird/releases/tag/v0.1.1
 [0.1.0-rc.3]: https://github.com/let-sunny/homingbird/releases/tag/v0.1.0-rc.3
