@@ -11,6 +11,7 @@ import {
   serviceLockPath,
   serviceSlug,
   serviceStopPath,
+  serviceVariables,
 } from './service-definition.ts'
 
 /** Linux: a systemd user service, started by the person's own service manager when they log in. */
@@ -74,9 +75,9 @@ const unitFile = (paths: ServicePaths, spec: ServiceSpec): string =>
     '',
     '[Service]',
     'Type=simple',
-    `ExecStart=${[...spec.program, ...runnerArguments(spec)].map(commandWord).join(' ')}`,
+    `ExecStart=${[...spec.program, ...runnerArguments(spec, { logFile: paths.logPath })].map(commandWord).join(' ')}`,
     `WorkingDirectory=${specifiers(spec.workdir)}`,
-    ...(spec.path === null ? [] : [`Environment=${quoted(`PATH=${spec.path}`)}`]),
+    ...serviceVariables(spec).map(([name, value]) => `Environment=${quoted(`${name}=${value}`)}`),
     'Restart=always',
     `RestartSec=${RESTART_SECONDS}`,
     `StandardOutput=append:${specifiers(paths.logPath)}`,

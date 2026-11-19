@@ -2,7 +2,14 @@ import { Task as T, makeTestClock } from '@homingbird/kernel'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import { deskClaimPath } from '../src/desk-claim.ts'
-import { type PauseEnv, deskPausePath, isDeskPaused, pauseDesk, resumeDesk } from '../src/desk-pause.ts'
+import {
+  type PauseEnv,
+  deskPausePath,
+  deskStateText,
+  isDeskPaused,
+  pauseDesk,
+  resumeDesk,
+} from '../src/desk-pause.ts'
 
 const pauseWorld = () => {
   const files = new Map<string, string>()
@@ -11,13 +18,15 @@ const pauseWorld = () => {
     variables: {},
     homeDirectory: '/home/ana',
     files: {
-      read: async (path) => files.get(path) ?? null,
-      exists: async (path) => files.has(path),
-      writePrivate: async (path, content) => void files.set(path, content),
-      writeOwnerOnly: async (path, content) => void files.set(path, content),
-      createExclusive: async () => false,
-      remove: async (path) => void files.delete(path),
-      list: async () => [],
+      read: (path) => T.sync(() => files.get(path) ?? null),
+      exists: (path) => T.sync(() => files.has(path)),
+      writePrivate: (path, content) => T.sync(() => void files.set(path, content)),
+      writeOwnerOnly: (path, content) => T.sync(() => void files.set(path, content)),
+      createExclusive: () => T.sync(() => false),
+      remove: (path) => T.sync(() => void files.delete(path)),
+      list: () => T.sync(() => []),
+      mode: () => T.sync(() => null),
+      isWritable: () => T.sync(() => true),
     },
   }
   return { files, run: <A>(task: T.Task<A, never, PauseEnv>) => T.runPromise(task, env) }
@@ -52,5 +61,12 @@ describe('the desk pause flag', () => {
     const w = pauseWorld()
     await w.run(pauseDesk(PATH))
     expect(JSON.parse(w.files.get(PATH)!)).toEqual({ pausedAt: 1_000 })
+  })
+})
+
+describe('deskStateText', () => {
+  it('says the desk is on, or paused on this computer with the command that resumes it', () => {
+    expect(deskStateText(false)).toBe('on')
+    expect(deskStateText(true)).toBe('paused on this computer (homingbird desk resume to answer again)')
   })
 })

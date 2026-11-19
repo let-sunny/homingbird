@@ -11,12 +11,14 @@ describe('agentEnvironment', () => {
           LANG: 'C',
           UNSET: undefined,
           HOMINGBIRD_SERVER: 'https://hb.example.com',
+          HOMINGBIRD_CREDENTIALS_FILE: '/run/secrets/homingbird.json',
+          MOUNTED: '/run/secrets/homingbird.json',
           Homingbird_Anything: 'x',
           HB_DATABASE_URL: 'postgres://secret',
           COPIED: `token=${AGENT_TOKEN}`,
           HBX_KEEP: 'kept',
         },
-        [AGENT_TOKEN, ''],
+        [AGENT_TOKEN, '', '/run/secrets/homingbird.json'],
       ),
     ).toEqual({ PATH: '/usr/bin', LANG: 'C', HBX_KEEP: 'kept' })
   })

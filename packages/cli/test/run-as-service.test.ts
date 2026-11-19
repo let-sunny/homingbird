@@ -1,9 +1,12 @@
+import { Task as T } from '@homingbird/kernel'
 import { describe, expect, it } from 'vitest'
 import { SERVICE_RETRY_MS, SIGN_IN_CHECK_MS, STOP_CHECK_MS } from '../src/commands/run-as-service.ts'
 import { DESK_HEARTBEAT_MS } from '../src/desk-claim.ts'
+import type { Files } from '../src/environment.ts'
 import { EXIT } from '../src/failure.ts'
+import { serviceMissingPath } from '../src/service-definition.ts'
 import { ME, QUESTION, REQUEST, once, runner, settle, waitingQuestion } from './runner-support.ts'
-import { AGENT_FILE, AGENT_TOKEN, SERVER, world } from './support.ts'
+import { AGENT_FILE, AGENT_TOKEN, HOME, SERVER, world } from './support.ts'
 
 describe('homingbird run --service', () => {
   const STAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z /
@@ -21,6 +24,37 @@ describe('homingbird run --service', () => {
     const online = r.w.lines.find((line) => line.includes('Answering notes'))!.split('\n')
     expect(online.length).toBeGreaterThan(1)
     for (const line of online) expect(line).toMatch(STAMP)
+    await r.stop()
+  })
+
+  it('says once that a preset’s program is missing from its PATH, waits for no note, and starts once it is there', async () => {
+    let installed = false
+    const r = runner({
+      argv: ['--service', '--server', SERVER],
+      variables: { PATH: '/usr/local/bin' },
+      runnable: (path) => installed && path === '/usr/local/bin/claude',
+    })
+    await settle(() => r.w.lines.length === 1)
+    expect(r.w.lines[0]).toContain(
+      'The agent command could not be found: "claude" is not on the PATH this runs with; give its absolute path, such as /usr/local/bin/claude, or set PATH. The service looks again every minute.',
+    )
+    expect(r.w.calls).toEqual([])
+    const marker = serviceMissingPath(`${HOME}/.config/homingbird`, SERVER)
+    await settle(() => r.w.files.has(marker))
+    expect(r.w.files.get(marker)).toMatch(/^The agent command could not be found: "claude"/)
+    await r.w.clock.advance(SERVICE_RETRY_MS * 2)
+    expect(r.w.lines).toHaveLength(1)
+    installed = true
+    await r.w.clock.advance(SERVICE_RETRY_MS)
+    await settle(() => r.w.lines.some((line) => line.includes('Answering notes')))
+    expect(r.w.files.has(marker)).toBe(false)
+    await r.stop()
+  })
+
+  it('does not tell the service manager’s log to press Ctrl-C', async () => {
+    const r = runner({ argv: ['--service', '--server', SERVER] })
+    await settle(() => r.w.lines.some((line) => line.includes('Answering notes')))
+    expect(r.w.lines.join('\n')).not.toContain('Ctrl-C')
     await r.stop()
   })
 
@@ -140,13 +174,11 @@ describe('homingbird run --service as its own supervisor', () => {
 
   it('tries again a minute after the runner crashes, not only after a failed request', async () => {
     const r = service()
-    const files = r.w.env.files as { read: (path: string) => Promise<string | null> }
+    const files = r.w.env.files as { read: Files['read'] }
     const read = files.read
     let crashes = 1
-    files.read = async (path) => {
-      if (path.includes('/desks/https') && crashes-- > 0) throw new Error('disk on fire')
-      return read(path)
-    }
+    files.read = (path) =>
+      path.includes('/desks/https') && crashes-- > 0 ? T.die(new Error('disk on fire')) : read(path)
     await settle(() => r.w.lines.some((line) => line.includes('unexpected error')))
     expect(r.w.lines.find((line) => line.includes('unexpected error'))).toContain(
       'The runner stopped on an unexpected error. Trying again in a minute.',
@@ -154,5 +186,58 @@ describe('homingbird run --service as its own supervisor', () => {
     await r.w.clock.advance(SERVICE_RETRY_MS)
     await settle(() => r.w.lines.some((line) => line.includes('Answering notes')))
     await r.stop()
+  })
+
+  describe('with a credentials file', () => {
+    const FILE = '/run/secrets/homingbird.json'
+    const FILE_TOKEN = 'hba_mounted-secret-token-0123456789ab'
+    const argv = ['--service', '--server', SERVER, '--credentials-file', FILE]
+
+    it('waits, saying why once, until the file holds a credential, then answers with it alone', async () => {
+      const r = runner({ argv })
+      await settle(() => r.w.lines.length === 1)
+      expect(r.w.lines[0]).toContain(
+        `The credentials file ${FILE} does not exist. Create it on a computer where you can approve the sign-in: homingbird login --server <url> --credentials-file <path> This service starts answering once it can use the file.`,
+      )
+      await r.w.clock.advance(SIGN_IN_CHECK_MS * 2)
+      expect(r.w.lines).toHaveLength(1)
+      r.w.files.set(FILE, JSON.stringify({ serverUrl: SERVER, token: FILE_TOKEN }))
+      await r.w.clock.advance(SIGN_IN_CHECK_MS)
+      await settle(() => r.w.lines.some((line) => line.includes('Answering notes')))
+      await r.stop()
+      expect(r.w.calls.map((call) => call.authorization).filter((header) => header !== null)).not.toContain(
+        `Bearer ${AGENT_TOKEN}`,
+      )
+      expect(r.w.files.get(FILE)).toBe(JSON.stringify({ serverUrl: SERVER, token: FILE_TOKEN }))
+      expect(r.w.lines.join('\n')).not.toContain(FILE_TOKEN)
+    })
+
+    it('warns in its log, without stopping, when others can read the file', async () => {
+      const r = runner({
+        argv,
+        files: { [FILE]: JSON.stringify({ serverUrl: SERVER, token: FILE_TOKEN }) },
+        modes: { [FILE]: 0o644 },
+      })
+      await settle(() => r.w.lines.some((line) => line.includes('Answering notes')))
+      await r.stop()
+      expect(r.w.problems).toHaveLength(1)
+      expect(r.w.problems[0]).toMatch(/^\d{4}-\d{2}-\d{2}T[0-9:.]+Z Warning: /)
+      expect(r.w.problems[0]).toContain(`can read the credentials file ${FILE} (mode 0644)`)
+    })
+
+    it('waits for a new file when the server refuses the one it holds', async () => {
+      const r = runner({
+        argv,
+        files: { [FILE]: JSON.stringify({ serverUrl: SERVER, token: FILE_TOKEN }) },
+        stubs: { 'me.get': () => ({ _tag: 'Unauthorized', message: 'revoked' }) as never },
+      })
+      await settle(() => r.w.lines.some((line) => line.includes('refused')))
+      expect(r.w.lines.at(-1)).toContain(
+        `The server refused the credential in ${FILE}. Sign in again on your own computer with homingbird login --server ${SERVER} --credentials-file <path>, and replace the file.`,
+      )
+      await r.w.clock.advance(SIGN_IN_CHECK_MS * 3)
+      expect(r.w.calls.filter((call) => call.route === 'me.get')).toHaveLength(1)
+      await r.stop()
+    })
   })
 })

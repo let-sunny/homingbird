@@ -1,10 +1,10 @@
 import { type Result, Task as T, err, ok } from '@homingbird/kernel'
 import {
   type ApiError,
+  type AsRead,
   ChannelSlug,
   ConversationId,
   MemberId,
-  type Note,
   NoteBody,
   NoteId,
   agentLabelOf,
@@ -16,7 +16,7 @@ import type { MemberApi } from './member-api.ts'
 export const draftFromMessage = (
   params: Readonly<Record<string, unknown>>,
   api: MemberApi,
-): T.Task<Note, RpcFailure | ApiError> =>
+): T.Task<AsRead.Note, RpcFailure | ApiError> =>
   T.gen(function* () {
     const message = recordAt(params, 'message')
     if (message === null) return yield* T.fail(invalidParams('params.message is required.'))
@@ -84,7 +84,7 @@ const reviseDraft = (
   body: string,
   api: MemberApi,
   model: string | undefined,
-): T.Task<Note, RpcFailure | ApiError> => {
+): T.Task<AsRead.Note, RpcFailure | ApiError> => {
   const noteId = NoteId.decode(taskId)
   const unknownTask = RpcFailure({ code: A2A_CODE.taskNotFound, message: `Task not found: ${taskId}` })
   if (noteId._tag === 'Err') return T.fail(unknownTask)

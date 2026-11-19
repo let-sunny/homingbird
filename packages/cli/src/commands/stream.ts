@@ -1,14 +1,13 @@
 import { eventStream } from '@homingbird/client'
-import { Task as T } from '@homingbird/kernel'
-import type { MemberId, StreamEvent } from '@homingbird/protocol'
+import { Stream, Task as T } from '@homingbird/kernel'
+import { type AsRead, type Authors, type MemberId, quotedNote } from '@homingbird/protocol'
 import type { CliEnv } from '../environment.ts'
 import type { CliFailure } from '../failure.ts'
-import { type Authors, quoteForModel } from '../quoting.ts'
-import { calling, openSession } from '../session.ts'
+import { calling, openSession, requireReadable } from '../session.ts'
 import { authorsOf } from './reading.ts'
 
 export interface StreamLine {
-  readonly event: StreamEvent
+  readonly event: AsRead.StreamEvent
   readonly wrapped?: string
 }
 
@@ -19,6 +18,7 @@ export const stream = (
   T.gen(function* () {
     const env = yield* T.ask<CliEnv>()
     const session = yield* openSession
+    yield* requireReadable(session.api)
     const me = yield* calling(session.api['me.get']({}))
     let authors = yield* authorsOf(session)
     const events = eventStream(
@@ -28,34 +28,36 @@ export const stream = (
         token: () => session.credential.token,
         clock: env.clock,
         ...(after !== null && { after }),
+        onUnreadable: env.output.problem,
       },
       env.stopped,
     )
-    yield* T.promise(async () => {
-      for await (const event of events) {
+    yield* Stream.forEach((event: AsRead.StreamEvent) =>
+      T.gen(function* () {
         if (isReceivedNote(event, me.member.id) && !authors.has(event.body.note.authorId))
-          authors = await refreshed(authorsOf(session), authors)
+          authors = yield* refreshed(authorsOf(session), authors)
         emit(toLine(event, me.member.id, authors, env.nonce))
-      }
-    })
+      }),
+    )(events)
   })
 
 export const toLine = (
-  event: StreamEvent,
+  event: AsRead.StreamEvent,
   viewerId: MemberId,
   authors: Authors,
   nonce: () => string,
 ): StreamLine =>
   isReceivedNote(event, viewerId)
-    ? { event, wrapped: quoteForModel(event.body.note, authors, nonce()) }
+    ? { event, wrapped: quotedNote(event.body.note, { authors, nonce }) }
     : { event }
 
-type NoteSent = StreamEvent & { readonly body: Extract<StreamEvent['body'], { type: 'note.sent' }> }
+type NoteSent = AsRead.StreamEvent & {
+  readonly body: Extract<AsRead.StreamEvent['body'], { type: 'note.sent' }>
+}
 
-const isReceivedNote = (event: StreamEvent, viewerId: MemberId): event is NoteSent =>
+const isReceivedNote = (event: AsRead.StreamEvent, viewerId: MemberId): event is NoteSent =>
   event.body.type === 'note.sent' && event.body.note.authorId !== viewerId
 
-const refreshed = async (latest: T.Task<Authors, CliFailure>, fallback: Authors): Promise<Authors> => {
-  const exit = await T.run(latest)
-  return exit._tag === 'Ok' ? exit.value : fallback
-}
+/** The directory as it is now; when it cannot be read, the one already known. */
+const refreshed = (latest: T.Task<Authors, CliFailure>, fallback: Authors): T.Task<Authors> =>
+  T.map((exit: T.Exit<Authors, CliFailure>) => (exit._tag === 'Ok' ? exit.value : fallback))(T.exit(latest))

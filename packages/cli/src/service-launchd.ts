@@ -13,6 +13,7 @@ import {
   serviceLockPath,
   serviceSlug,
   serviceStopPath,
+  serviceVariables,
 } from './service-definition.ts'
 
 /** macOS: a launchd agent in the person's own GUI session, loaded when they log in. */
@@ -71,13 +72,13 @@ const propertyList = (paths: ServicePaths, spec: ServiceSpec): string =>
     ...entry('Label', string(paths.name)),
     ...entry('ProgramArguments', [
       '<array>',
-      ...[...spec.program, ...runnerArguments(spec)].map((word) => `  ${string(word)}`),
+      ...[...spec.program, ...runnerArguments(spec, { logFile: paths.logPath })].map(
+        (word) => `  ${string(word)}`,
+      ),
       '</array>',
     ]),
     ...entry('WorkingDirectory', string(spec.workdir)),
-    ...(spec.path === null
-      ? []
-      : entry('EnvironmentVariables', ['<dict>', '  <key>PATH</key>', `  ${string(spec.path)}`, '</dict>'])),
+    ...variables(serviceVariables(spec)),
     ...entry('RunAtLoad', '<true/>'),
     ...entry('KeepAlive', '<true/>'),
     ...entry('ThrottleInterval', `<integer>${THROTTLE_SECONDS}</integer>`),
@@ -88,6 +89,15 @@ const propertyList = (paths: ServicePaths, spec: ServiceSpec): string =>
     '</plist>',
     '',
   ].join('\n')
+
+const variables = (pairs: ReadonlyArray<readonly [string, string]>): string[] =>
+  pairs.length === 0
+    ? []
+    : entry('EnvironmentVariables', [
+        '<dict>',
+        ...pairs.flatMap(([name, value]) => [`  <key>${escapeXml(name)}</key>`, `  ${string(value)}`]),
+        '</dict>',
+      ])
 
 const entry = (key: string, value: string | ReadonlyArray<string>): string[] => [
   `  <key>${key}</key>`,

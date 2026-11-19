@@ -38,10 +38,28 @@ describe('the launchd user agent', () => {
       fc.property(
         fc.string().filter((text) => !/\p{Cc}/u.test(text)),
         (agent) => {
-          expect(programArguments(plist({ ...SPEC, agent })).at(-1)).toBe(agent)
+          const words = programArguments(plist({ ...SPEC, agent }))
+          expect(words[words.indexOf('--agent') + 1]).toBe(agent)
+          expect(words.at(-2)).toBe('--log')
         },
       ),
     )
+  })
+
+  it('sets the credentials file as a variable that reads back unchanged, and not as an argument', () => {
+    fc.assert(
+      fc.property(
+        fc.string({ minLength: 1 }).filter((text) => !/\p{Cc}/u.test(text)),
+        (credentialsFile) => {
+          const file = plist({ ...SPEC, path: null, credentialsFile })
+          const variables = /<key>EnvironmentVariables<\/key>\s*<dict>([\s\S]*?)<\/dict>/.exec(file)![1]!
+          expect(variables).toContain('<key>HOMINGBIRD_CREDENTIALS_FILE</key>')
+          expect(unescapeXml(/<string>(.*?)<\/string>/.exec(variables)![1]!)).toBe(credentialsFile)
+          expect(programArguments(file)).not.toContain(credentialsFile)
+        },
+      ),
+    )
+    expect(plist({ ...SPEC, path: null })).not.toContain('EnvironmentVariables')
   })
 
   it('is loaded into the person’s GUI session, never the system domain', () => {

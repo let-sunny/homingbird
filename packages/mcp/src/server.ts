@@ -1,7 +1,6 @@
 import { Task as T } from '@homingbird/kernel'
-import { agentLabelOf } from '@homingbird/protocol'
+import { ANSWER_RULE, LINKS_RULE, agentLabelOf, isFeatureOffered } from '@homingbird/protocol'
 import type { Api } from '@homingbird/protocol'
-import { ANSWER_RULE, LINKS_RULE } from './answering.ts'
 import type { OpenInBrowser } from './browser-opener.ts'
 import { CHANNEL_CAPABILITY, CHANNEL_INSTRUCTIONS } from './channel.ts'
 import { DEBATE_TOOL_NAMES } from './debate-tools.ts'
@@ -38,23 +37,19 @@ export const handleMcpMessage = (message: unknown, context: McpContext): T.Task<
 
 export const SERVER_NAME = 'homingbird'
 
-export const ASKED_ROLE =
-  'Draft when your human asks; your human’s Homingbird desk session answers arriving notes. When your human asks about messages, call check_inbox.'
-
-export const DESK_ROLE = [
-  'This is your human’s Homingbird desk session: it answers what arrives. At the start of the session, and whenever asked about messages, call check_inbox, then answer each waiting note, and each draft request with draft_note and its requestId, using what you know from the current work.',
-  ANSWER_RULE,
-].join(' ')
-
 export const CHARACTER_INSTRUCTIONS =
   'When your human wants a profile character, ask what they would like, start from the closest built-in character (the character prompt lists them), check your draft with check_character until it passes, and show them the link from preview_character. Only they can save it, by pressing "Use this character" in Homingbird; no tool can.'
 
-export const INSTRUCTIONS = instructionsWith(ASKED_ROLE)
+export const INSTRUCTIONS = instructionsWith(
+  'Draft when your human asks; your human’s Homingbird desk session answers arriving notes. When your human asks about messages, call check_inbox.',
+)
 
-export const DESK_INSTRUCTIONS = instructionsWith(DESK_ROLE)
-
-export const LOCAL_INSTRUCTIONS =
-  'If a tool says you are not signed in, call login: it opens the browser for your human, and status tells you when it is done.'
+export const DESK_INSTRUCTIONS = instructionsWith(
+  [
+    'This is your human’s Homingbird desk session: it answers what arrives. At the start of the session, and whenever asked about messages, call check_inbox, then answer each waiting note, and each draft request with draft_note and its requestId, using what you know from the current work.',
+    ANSWER_RULE,
+  ].join(' '),
+)
 
 const instructionsFor = (context: McpContext): string =>
   [
@@ -138,7 +133,8 @@ const METHODS: Readonly<Record<string, Method>> = {
 const offersDebates = (api: Api): T.Task<boolean> =>
   T.fold(
     () => true,
-    (info: { readonly features?: Readonly<Record<string, boolean>> }) => info.features?.debateRooms === true,
+    (info: { readonly features?: Readonly<Record<string, boolean>> }) =>
+      isFeatureOffered(info, 'debateRooms'),
   )(api['server.info']({}))
 
 const promptsOf = (context: McpContext) => [...(context.local?.prompts ?? []), ...PROMPTS]
@@ -166,7 +162,7 @@ export const toolContextOf = (context: McpContext): ToolContext => ({
 })
 
 /** The MCP client's own name and version, from initialize or a stateless call's metadata: a label, never an instruction. */
-export const clientLabelOf = (params: RpcCall['params']): string | null => {
+const clientLabelOf = (params: RpcCall['params']): string | null => {
   const meta = (params as { _meta?: Readonly<Record<string, unknown>> } | undefined)?._meta
   const info = (params as { clientInfo?: unknown } | undefined)?.clientInfo ?? meta?.[CLIENT_INFO_META_KEY]
   if (typeof info !== 'object' || info === null) return null
@@ -194,3 +190,6 @@ function instructionsWith(role: string): string {
     LINKS_RULE,
   ].join(' ')
 }
+
+const LOCAL_INSTRUCTIONS =
+  'If a tool says you are not signed in, call login: it opens the browser for your human, and status tells you when it is done.'

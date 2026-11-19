@@ -72,7 +72,11 @@ export const windowsArgument = (word: string): string => `"${word.replace(/(\\+)
 
 const runnerCommand = (logPath: string, spec: ServiceSpec): string[] => [
   ...spec.program,
-  ...runnerArguments(spec, { logFile: logPath, workdir: windowsPath(spec.workdir) }),
+  ...runnerArguments(spec, {
+    logFile: logPath,
+    workdir: windowsPath(spec.workdir),
+    credentialsFile: spec.credentialsFile,
+  }),
 ]
 
 const commandLine = (words: ReadonlyArray<string>): string => words.map(windowsArgument).join(' ')

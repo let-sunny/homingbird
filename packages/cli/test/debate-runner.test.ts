@@ -1,6 +1,6 @@
 import { CredentialId, type Debate, DebateId, NotFound, WRAPPER_TAG, contract } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
-import { DEBATES_OFF_TEXT, debateResultIn } from '../src/debate-runner.ts'
+import { DEBATES_OFF_TEXT } from '../src/debate-runner.ts'
 import { once, runner, settle } from './runner-support.ts'
 import { ANA, BEN, textOutsideWrappers } from './support.ts'
 
@@ -26,10 +26,6 @@ const ROOM: Debate = {
   ],
   turns: [{ position: 1, memberId: BEN.id, agentName: 'Ben agent', body: HOSTILE, at: 2 }],
   result: null,
-  approvals: [
-    { memberId: ANA.id, approvedAt: null },
-    { memberId: BEN.id, approvedAt: null },
-  ],
 }
 
 const RESULT = {
@@ -108,6 +104,33 @@ describe('the runner in a debate room', () => {
     ])
   })
 
+  it('skips an ask a newer server added with a plain notice, and never drafts a result for it', async () => {
+    let drafted = 0
+    let ran = 0
+    const r = runner({
+      stubs: {
+        'debates.waiting': once(
+          { asks: [{ debate: { ...ROOM, status: 'concluding' }, ask: 'vote' as never }] },
+          { asks: [] },
+        ),
+        'debates.result.draft': () => {
+          drafted++
+          return { debate: ROOM } as never
+        },
+      },
+      agent: () => {
+        ran++
+        return { exitCode: 0, output: JSON.stringify(RESULT) }
+      },
+    })
+    await settle(() => r.w.lines.some((line) => line.includes('Skipped debate room')))
+    await r.stop()
+    expect(r.w.lines).toContain(
+      `Skipped debate room ${ROOM.id}: it asks for something this command line does not know. Upgrade the command line to answer it.`,
+    )
+    expect([drafted, ran]).toEqual([0, 0])
+  })
+
   it('says why the server refused a result, and tries an ask only once', async () => {
     let asked = 0
     const r = runner({
@@ -172,6 +195,98 @@ describe('the runner in a debate room', () => {
     await settle(() => r.w.calls.filter((call) => call.route === 'debates.waiting').length >= 2)
     await r.stop()
     expect(r.w.lines.filter((line) => line.includes(DEBATES_OFF_TEXT))).toHaveLength(1)
+  })
+})
+
+describe('the runner voting on drafts', () => {
+  const draft = (by: typeof ANA, conclusion: string) => ({
+    draftedBy: by.id,
+    draftedAt: 3,
+    result: {
+      kind: 'conclusion' as const,
+      conclusion,
+      reasons: ['Tested.'],
+      contributions: [],
+      nextSteps: [],
+    },
+    votes: null,
+  })
+  const BALLOT: Debate = {
+    ...ROOM,
+    status: 'concluding',
+    resultRound: 1,
+    drafts: [draft(ANA, 'Mine.'), draft(BEN, `Ship. ${HOSTILE}`)],
+    votingClosesAt: 9,
+    votedBy: [],
+  }
+
+  it('votes for the draft the agent named, reading every draft inside wrapNote', async () => {
+    const votes: unknown[] = []
+    const r = runner({
+      stubs: {
+        'debates.waiting': once({ asks: [], ballots: [BALLOT] }, { asks: [] }),
+        'debates.result.vote': (request) => {
+          votes.push(request.body)
+          return BALLOT
+        },
+      },
+      agent: () => ({ exitCode: 0, output: ` "${BEN.id}". ` }),
+    })
+    await settle(() => votes.length === 1)
+    await r.stop()
+    expect(votes).toEqual([{ round: 1, draftBy: BEN.id }])
+    const prompt = r.w.agentRuns[0]!.prompt
+    expect(prompt).toContain('Vote for the one draft, not your own')
+    expect(textOutsideWrappers(prompt)).not.toContain('9c1d')
+    expect(r.w.lines.join('\n')).toContain('Voted in the vote on the drafts')
+    for (const call of r.w.calls)
+      if (call.route !== null) expect(contract[call.route].access).not.toMatch(/human|admin/)
+  })
+
+  it('casts no vote for its own draft or anything that is not a choice, and says why a vote was refused', async () => {
+    for (const output of [ANA.id, 'the second one'])
+      await expect(problemsFor({ asks: [], ballots: [BALLOT] } as never, output)).resolves.toEqual([
+        expect.stringMatching(/did not print one of the drafts/),
+      ])
+    const r = runner({
+      stubs: {
+        'debates.waiting': once({ asks: [], ballots: [BALLOT] }, { asks: [] }),
+        'debates.result.vote': () => ({ _tag: 'Conflict', message: 'That round is over.' }) as never,
+      },
+      agent: () => ({ exitCode: 0, output: BEN.id }),
+    })
+    await settle(() => r.w.problems.length === 1)
+    await r.stop()
+    expect(r.w.problems[0]).toMatch(/was refused: That round is over/)
+  })
+
+  it('in split mode lets only the reader see the drafts, and the agent vote from its description', async () => {
+    const votes: unknown[] = []
+    const described = JSON.stringify({
+      ...JSON.parse(EXTRACTED),
+      drafts: [{ draftBy: BEN.id, gist: 'Ships this week, fair to both' }],
+    })
+    const r = runner({
+      argv: ['--split', '--reader', 'reader-cmd'],
+      stubs: {
+        'debates.waiting': once({ asks: [], ballots: [BALLOT] }, { asks: [] }),
+        'debates.result.vote': (request) => {
+          votes.push(request.body)
+          return BALLOT
+        },
+      },
+      agent: (prompt) =>
+        prompt.startsWith('You read one debate room')
+          ? { exitCode: 0, output: described }
+          : { exitCode: 0, output: BEN.id },
+    })
+    await settle(() => votes.length === 1)
+    await r.stop()
+    const [reader, writer] = r.w.agentRuns
+    expect(reader!.prompt).toContain('"drafts"')
+    expect(reader!.prompt).toContain('9c1d')
+    expect(writer!.prompt).not.toContain('9c1d')
+    expect(writer!.prompt).toContain('Ships this week, fair to both')
   })
 })
 
@@ -244,15 +359,10 @@ describe('the runner after a room changed', () => {
   })
 })
 
-describe('reading a drafted result', () => {
-  it('takes one result object and nothing else', () => {
-    expect(debateResultIn(JSON.stringify(RESULT))).toEqual(RESULT)
-    expect(debateResultIn('{"kind":"won"}')).toBeNull()
-    expect(debateResultIn('not json')).toBeNull()
-  })
-})
-
-const problemsFor = async (waiting: { asks: ReadonlyArray<unknown> }, output: string): Promise<string[]> => {
+const problemsFor = async (
+  waiting: { asks: ReadonlyArray<unknown>; ballots?: ReadonlyArray<unknown> },
+  output: string,
+): Promise<string[]> => {
   const r = runner({
     stubs: { 'debates.waiting': once(waiting as never, { asks: [] }) },
     agent: () => ({ exitCode: 0, output }),

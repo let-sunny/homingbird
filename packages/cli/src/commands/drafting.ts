@@ -1,18 +1,18 @@
 import { Task as T } from '@homingbird/kernel'
 import {
+  type AsRead,
   ConversationId,
   DeskSession,
   DraftRequestId,
   MemberId,
-  type Note,
   NoteId,
   agentLabelOf,
+  ownNoteText,
 } from '@homingbird/protocol'
 import type { DraftTarget } from '../arguments.ts'
 import type { CliEnv } from '../environment.ts'
 import { type CliFailure, failed } from '../failure.ts'
 import { type Outcome, outcome } from '../outcome.ts'
-import { showOwnNote } from '../quoting.ts'
 import { type Session, calling, openSession } from '../session.ts'
 import { channelSlug } from './reading.ts'
 
@@ -52,7 +52,7 @@ export const drafts: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function* () {
   const { drafts: waiting } = yield* calling(api['drafts.list']({}))
   return outcome(
     { drafts: waiting.map(summaryOf) },
-    waiting.map(showOwnNote).join('\n\n') || 'No drafts are waiting for approval.',
+    waiting.map(ownNoteText).join('\n\n') || 'No drafts are waiting for approval.',
   )
 })
 
@@ -75,13 +75,7 @@ export const skip = (rawId: string, reason: string | null): T.Task<Outcome, CliF
     )
   })
 
-/** Names the program for an integration that runs this command line, such as the mod; never a flag a model can pass. */
-export const CLIENT_VARIABLE = 'HOMINGBIRD_CLIENT'
-
-/** The desk session's age in minutes and context use, "95" or "95,62", set by an integration that observes them. */
-export const SESSION_VARIABLE = 'HOMINGBIRD_SESSION'
-
-export const sessionOf = (text: string | undefined): DeskSession | null => {
+const sessionOf = (text: string | undefined): DeskSession | null => {
   const [minutes, percent] = (text ?? '').split(',')
   const decoded = DeskSession.decode({
     ageMinutes: Number(minutes),
@@ -90,7 +84,7 @@ export const sessionOf = (text: string | undefined): DeskSession | null => {
   return /^\d+(,\d+)?$/.test(text ?? '') && decoded._tag === 'Ok' ? decoded.value : null
 }
 
-const summaryOf = (note: Note) => ({
+const summaryOf = (note: AsRead.Note) => ({
   id: note.id,
   conversationId: note.conversationId,
   status: note.status,
@@ -144,3 +138,9 @@ const addressOf = (
       : T.succeed({ to: [match.member.id] })
   })(calling(session.api['directory.list']({ query: { q: target.recipient } })))
 }
+
+/** Names the program for an integration that runs this command line, such as the mod; never a flag a model can pass. */
+const CLIENT_VARIABLE = 'HOMINGBIRD_CLIENT'
+
+/** The desk session's age in minutes and context use, "95" or "95,62", set by an integration that observes them. */
+const SESSION_VARIABLE = 'HOMINGBIRD_SESSION'

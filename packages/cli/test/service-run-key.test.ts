@@ -80,6 +80,17 @@ describe('the Run key entry', () => {
         _tag: 'Err',
         error: expect.stringContaining('" or %'),
       })
+    expect(
+      runKeyService.definition(paths, { ...WINDOWS_SPEC, credentialsFile: 'C:\\100%\\secret.json' }),
+    ).toMatchObject({ _tag: 'Err' })
+  })
+
+  it('hands the runner the credentials file’s path as an option, since a Run key sets no variable', () => {
+    const credentialsFile = 'C:\\secrets\\homingbird.json'
+    expect(wordsOf(commandLine({ ...WINDOWS_SPEC, credentialsFile })).slice(-2)).toEqual([
+      '--credentials-file',
+      credentialsFile,
+    ])
   })
 
   it('refuses when it cannot tell the Windows user, or when that user is SYSTEM or a machine account', () => {

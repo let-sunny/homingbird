@@ -40,6 +40,8 @@ export interface ServiceSpec {
   readonly program: ReadonlyArray<string>
   /** The PATH the person installed with, so the service finds the agent command as their shell does. */
   readonly path: string | null
+  /** The file the service reads its agent credential from, as a path: the credential itself stays out. */
+  readonly credentialsFile: string | null
 }
 
 export interface ServicePlace {
@@ -77,8 +79,8 @@ export interface ServiceState {
 }
 
 /**
- * The arguments of `homingbird run` that the service starts. Where the platform cannot redirect output
- * or set a working directory, the runner is given both.
+ * The arguments of `homingbird run` that the service starts. Where the platform cannot redirect output,
+ * set a working directory or set a variable, the runner is given each of them.
  */
 export const runnerArguments = (spec: ServiceSpec, own: RunnerOwnSettings = {}): string[] => [
   'run',
@@ -97,12 +99,23 @@ export const runnerArguments = (spec: ServiceSpec, own: RunnerOwnSettings = {}):
     : []),
   ...(own.logFile === undefined ? [] : ['--log', own.logFile]),
   ...(own.workdir === undefined ? [] : ['--workdir', own.workdir]),
+  ...(own.credentialsFile == null ? [] : ['--credentials-file', own.credentialsFile]),
 ]
 
 export interface RunnerOwnSettings {
   readonly logFile?: string
   readonly workdir?: string
+  readonly credentialsFile?: string | null
 }
+
+/**
+ * The variables the service starts with where the platform can set them. The credentials file goes
+ * here rather than on the command line, which every user of the computer can list.
+ */
+export const serviceVariables = (spec: ServiceSpec): Array<readonly [string, string]> => [
+  ...(spec.path === null ? [] : [['PATH', spec.path] as const]),
+  ...(spec.credentialsFile === null ? [] : [[CREDENTIALS_FILE_VARIABLE, spec.credentialsFile] as const]),
+]
 
 /** The lock the running service holds, beside the desk claims: one runner per server and computer. */
 export const serviceLockPath = (configDirectory: string, server: string): string =>
@@ -111,6 +124,10 @@ export const serviceLockPath = (configDirectory: string, server: string): string
 /** The file that asks the running service to stop. */
 export const serviceStopPath = (configDirectory: string, server: string): string =>
   `${configDirectory}/desks/service-${serviceSlug(server)}.stop`
+
+/** The file the running service writes while it waits for a missing program, for `service status`. */
+export const serviceMissingPath = (configDirectory: string, server: string): string =>
+  `${configDirectory}/desks/service-${serviceSlug(server)}.missing`
 
 /**
  * One server's address, scheme included, as a name that every service manager accepts. A long address
@@ -147,6 +164,7 @@ export const valuesOf = (spec: ServiceSpec): string[] => [
   ...(spec.reader === null ? [] : [spec.reader]),
   ...spec.program,
   ...(spec.path === null ? [] : [spec.path]),
+  ...(spec.credentialsFile === null ? [] : [spec.credentialsFile]),
 ]
 
 export const command = (program: string, ...args: string[]): ServiceCommand => ({
@@ -181,3 +199,5 @@ const shortHash = (text: string): string => {
     hash = Math.imul(hash ^ text.charCodeAt(index), 0x01000193) >>> 0
   return hash.toString(16).padStart(HASH_LENGTH, '0')
 }
+
+const CREDENTIALS_FILE_VARIABLE = 'HOMINGBIRD_CREDENTIALS_FILE'

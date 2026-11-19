@@ -9,12 +9,11 @@ export const browserOpener =
   (url) =>
     isWithin(serverUrl, url)
       ? T.catchAll(() => T.succeed(false))(
-          T.tryPromise(
-            async () => {
-              await launch(openerCommand(platform, url))
-              return true
-            },
-            () => 'not opened' as const,
+          T.as(true)(
+            T.tryPromise(
+              () => launch(openerCommand(platform, url)),
+              () => 'not opened' as const,
+            ),
           ),
         )
       : T.succeed(false)

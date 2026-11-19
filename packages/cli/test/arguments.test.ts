@@ -23,6 +23,10 @@ describe('parseArguments', () => {
     [[], { command: 'help' }],
     [['help'], { command: 'help' }],
     [['status', '--help'], { command: 'help' }],
+    [['--version'], { command: 'version' }],
+    [['-v'], { command: 'version' }],
+    [['version'], { command: 'version' }],
+    [['status', '--version'], { command: 'version' }],
     [['logout'], { command: 'logout' }],
     [['status'], { command: 'status' }],
     [['conversations'], { command: 'conversations' }],
@@ -86,6 +90,17 @@ describe('parseArguments', () => {
         server: 'https://hb.example.com',
         name: null,
         openBrowser: true,
+        force: false,
+      },
+    ],
+    [
+      ['login', '--server', 'https://hb.example.com', '--credentials-file', 'agent.json', '--force'],
+      {
+        command: 'login',
+        server: 'https://hb.example.com',
+        name: null,
+        openBrowser: true,
+        force: true,
       },
     ],
     [
@@ -95,6 +110,7 @@ describe('parseArguments', () => {
         server: 'https://hb.example.com',
         name: 'Laptop',
         openBrowser: false,
+        force: false,
       },
     ],
     [
@@ -276,6 +292,24 @@ describe('parseArguments', () => {
     expect(parseArguments(['draft', '--reply', 'note_1', '--', '--json'])).toMatchObject({
       value: { json: false },
     })
+  })
+
+  it('reads --credentials-file for every command, and --force for login alone', () => {
+    expect(parseArguments(['inbox', '--credentials-file', ' /run/secret.json '])).toMatchObject({
+      value: { credentialsFile: '/run/secret.json', invocation: { command: 'inbox' } },
+    })
+    expect(parseArguments(['status'])).toMatchObject({ value: { credentialsFile: null } })
+    expect(parseArguments(['--version', '--credentials-file', 'a.json'])).toMatchObject({
+      value: { credentialsFile: 'a.json' },
+    })
+    expect(parseArguments(['--credentials-file', 'a.json'])).toMatchObject({
+      value: { credentialsFile: 'a.json', invocation: { command: 'help' } },
+    })
+    expect(parseArguments(['inbox', '--force'])).toMatchObject({
+      _tag: 'Err',
+      error: { message: expect.stringContaining('--force goes with login.') },
+    })
+    expect(parseArguments(['inbox', '--credentials-file'])._tag).toBe('Err')
   })
 
   it('reads --json anywhere before --', () => {

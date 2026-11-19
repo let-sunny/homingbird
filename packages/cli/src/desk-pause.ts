@@ -9,14 +9,18 @@ export type PauseEnv = Pick<CliEnv, 'files' | 'variables' | 'homeDirectory'> & H
  * `homingbird run` and `homingbird-mcp --run-agent` alike, checks it before each note.
  */
 export const isDeskPaused = (path: string): T.Task<boolean, never, PauseEnv> =>
-  T.flatMap((env: PauseEnv) => T.promise(() => env.files.exists(path)))(T.ask<PauseEnv>())
+  T.flatMap((env: PauseEnv) => env.files.exists(path))(T.ask<PauseEnv>())
+
+/** How every status output words the desk's state, after `Desk:`. */
+export const deskStateText = (isPaused: boolean): string =>
+  isPaused ? 'paused on this computer (homingbird desk resume to answer again)' : 'on'
 
 /** Pauses the desk; false when it was paused already. */
 export const pauseDesk = (path: string): T.Task<boolean, never, PauseEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<PauseEnv>()
     if (yield* isDeskPaused(path)) return false
-    yield* T.promise(() => env.files.writePrivate(path, `${JSON.stringify({ pausedAt: env.clock.now() })}\n`))
+    yield* env.files.writePrivate(path, `${JSON.stringify({ pausedAt: env.clock.now() })}\n`)
     return true
   })
 
@@ -25,7 +29,7 @@ export const resumeDesk = (path: string): T.Task<boolean, never, PauseEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<PauseEnv>()
     if (!(yield* isDeskPaused(path))) return false
-    yield* T.promise(() => env.files.remove(path))
+    yield* env.files.remove(path)
     return true
   })
 

@@ -4,7 +4,7 @@ Documentation=https://github.com/let-sunny/homingbird/blob/main/packages/cli/REA
 
 [Service]
 Type=simple
-ExecStart="/usr/bin/node" "/usr/lib/node_modules/@homingbird/cli/dist/homingbird.js" "run" "--service" "--server" "https://hb.example.com" "--agent" "claude"
+ExecStart="/usr/bin/node" "/usr/lib/node_modules/@homingbird/cli/dist/homingbird.js" "run" "--service" "--server" "https://hb.example.com" "--agent" "claude" "--log" "/home/june/.config/homingbird/logs/runner-https-hb-example-com.log"
 WorkingDirectory=/home/june
 Environment="PATH=/home/june/.local/bin:/usr/local/bin:/usr/bin:/bin"
 Restart=always

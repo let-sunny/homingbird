@@ -4,6 +4,7 @@ import {
   AGENT_PRESETS,
   agentCommand,
   defaultReader,
+  isPresetCommand,
   isReaderWithSomeTools,
   presetNamed,
   presetReader,
@@ -18,6 +19,13 @@ describe('agent presets', () => {
     )
     expect(agentCommand('antigravity')).toBe('agy -p --mode default --output-format text')
     expect(agentCommand('gemini')).toBe('gemini -p "" --output-format text --approval-mode default')
+  })
+
+  it('tell a preset’s agent and reader commands from a command of one’s own', () => {
+    for (const preset of AGENT_PRESETS) expect(isPresetCommand(` ${preset.agent} `, 'linux')).toBe(true)
+    expect(isPresetCommand(defaultReader('claude', 'win32'), 'win32')).toBe(true)
+    expect(isPresetCommand('claude -p --verbose', 'linux')).toBe(false)
+    expect(isPresetCommand('./my-agent.sh', 'darwin')).toBe(false)
   })
 
   it('give Claude Code a reader without built-in tools or MCP servers for split mode', () => {
@@ -60,9 +68,9 @@ describe('agent presets', () => {
   it('are verified only when run with the real agent, and otherwise say they come from source', () => {
     expect(AGENT_PRESETS.map((preset) => [preset.name, presetState(preset)])).toEqual([
       ['claude', 'verified with Claude Code 2.1.327'],
-      ['codex', 'from source, unrun'],
-      ['antigravity', 'from source, unrun'],
-      ['gemini', 'from source, unrun'],
+      ['codex', 'not yet tested with the real CLI'],
+      ['antigravity', 'not yet tested with the real CLI'],
+      ['gemini', 'not yet tested with the real CLI'],
     ])
   })
 })

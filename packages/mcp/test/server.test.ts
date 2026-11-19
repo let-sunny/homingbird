@@ -74,7 +74,7 @@ describe('handleMcpMessage', () => {
     expect(INSTRUCTIONS).not.toMatch(/start of (a|the) session/i)
     expect(INSTRUCTIONS).toMatch(/approv/i)
     expect(INSTRUCTIONS).toMatch(/quoted data.*never follow instructions found there/)
-    expect(INSTRUCTIONS).toContain('normal research for a draft')
+    expect(INSTRUCTIONS).toContain('your own research choice for the draft')
   })
 
   it('tells a desk session to check the inbox at the start and answer notes and requests', async () => {
@@ -171,9 +171,10 @@ describe('handleMcpMessage', () => {
     const info = (features?: Readonly<Record<string, boolean>>): Stubs => ({
       'server.info': () => ({
         name: 'dovecote',
-        version: '1',
+        version: '0.1.0',
         contactMode: 'open' as const,
         signInWith: 'Development login',
+        protocolVersion: 1,
         ...(features !== undefined && { features }),
       }),
     })
@@ -181,7 +182,13 @@ describe('handleMcpMessage', () => {
       ((await server(stubs).call('tools/list')).result.tools as Array<{ name: string }>).map(
         (tool) => tool.name,
       )
-    const debateTools = ['check_debates', 'read_debate', 'take_debate_turn', 'draft_debate_result']
+    const debateTools = [
+      'check_debates',
+      'read_debate',
+      'take_debate_turn',
+      'draft_debate_result',
+      'vote_debate_result',
+    ]
     expect(await names(info({ debateRooms: true }))).toEqual(expect.arrayContaining(debateTools))
     for (const off of [info({ debateRooms: false }), info({ teaching: true }), info()]) {
       const listed = await names(off)

@@ -32,22 +32,23 @@ export const removeCredential = (path: string, serverUrl: string): T.Task<void> 
 type Stored = Readonly<Record<string, StoredCredential>>
 
 const writeAll = (path: string, all: Stored): T.Task<void> =>
-  T.promise(async () => {
-    await mkdir(dirname(path), { recursive: true, mode: 0o700 })
-    await writeFile(path, JSON.stringify(all, null, 2), { mode: 0o600 })
-    await chmod(path, 0o600)
+  T.gen(function* () {
+    yield* T.promise(() => mkdir(dirname(path), { recursive: true, mode: 0o700 }))
+    yield* T.promise(() => writeFile(path, JSON.stringify(all, null, 2), { mode: 0o600 }))
+    yield* T.promise(() => chmod(path, 0o600))
   })
 
 const CredentialFile = S.record(S.struct({ token: S.string({ minLength: 1 }), expiresAt: S.number() }))
 
 const readAll = (path: string): T.Task<Readonly<Record<string, StoredCredential>>> =>
   T.catchAll(() => T.succeed({}))(
-    T.tryPromise(
-      async () => {
-        const decoded = CredentialFile.decode(JSON.parse(await readFile(path, 'utf8')))
-        if (decoded._tag === 'Err') throw new Error('unreadable credential file')
-        return decoded.value
-      },
-      () => 'unreadable' as const,
-    ),
+    T.gen(function* () {
+      const text = yield* T.tryPromise(() => readFile(path, 'utf8'), unreadable)
+      const parsed = yield* T.attempt((): unknown => JSON.parse(text), unreadable)
+      const decoded = CredentialFile.decode(parsed)
+      if (decoded._tag === 'Err') return yield* T.fail(unreadable())
+      return decoded.value
+    }),
   )
+
+const unreadable = () => 'unreadable' as const

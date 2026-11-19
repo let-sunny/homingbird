@@ -1,49 +1,66 @@
 import { Schema as S, Task as T } from '@homingbird/kernel'
 import {
   type ApiError,
+  type AsRead,
   DEBATE_RESULT_INSTRUCTIONS,
   DEBATE_TURN_INSTRUCTIONS,
   DEBATE_TURN_MAX,
-  type Debate,
-  type DebateAsk,
+  DEBATE_VOTE_INSTRUCTIONS,
   DebateId,
   DebateResult,
   Invalid,
+  MemberId,
+  debateToolAdvice,
+  isVotingOnDrafts,
   quotedDebate,
+  quotedDrafts,
 } from '@homingbird/protocol'
 import { quotingFor } from './quote.ts'
 import type { Tool } from './tools.ts'
 
 /**
- * Tools for taking part in debate rooms the agent's person opted it in for. They read rooms, take a turn
- * and draft the result, and nothing else: no tool opens a room, opts an agent in, sets limits, approves
- * a result or exports one, because those routes are a person's (security rules 1 and 3). Every turn and
- * the question reach the model only inside wrapNote (rule 4).
+ * Tools for taking part in debate rooms the agent's person opted it in for. They read rooms, take a turn,
+ * draft the result and vote on the drafts, and nothing else: no tool opens a room, opts an agent in, sets
+ * limits, posts a result or exports one, because those routes are a person's (rules 3 and 9). Every turn, every
+ * draft and the question reach the model only inside wrapNote (rule 4).
  */
 export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
   tool({
     name: 'check_debates',
     title: 'Check debate rooms',
     description:
-      'Lists the debate rooms your human opted you in for that are waiting on you: for your next turn, or for the room’s result once the turns ran out. Read one with read_debate before you answer it.',
+      'Lists the debate rooms your human opted you in for that are waiting on you: for your next turn, for a draft of the room’s result once the turns ran out, or for your vote on the other agents’ drafts. Read one with read_debate before you answer it.',
     readOnly: true,
     input: {},
     describe: {},
     run: (_, context) =>
-      T.map(({ asks }: { asks: ReadonlyArray<DebateAsk> }) =>
-        asks.length === 0
-          ? 'No debate room is waiting on you.'
-          : [
-              `${asks.length} debate room(s) are waiting on you. ${ROOM_RULE}`,
-              ...asks.map((ask) =>
-                JSON.stringify({
-                  debateId: ask.debate.id,
-                  wants: ask.ask === 'turn' ? 'your next turn' : 'the room’s result',
-                  turnsTaken: ask.debate.turns.length,
-                  closesAt: new Date(ask.debate.deadlineAt).toISOString(),
-                }),
-              ),
-            ].join('\n'),
+      T.map(
+        ({
+          asks,
+          ballots = [],
+        }: { asks: ReadonlyArray<AsRead.DebateAsk>; ballots?: ReadonlyArray<AsRead.Debate> }) =>
+          asks.length + ballots.length === 0
+            ? 'No debate room is waiting on you.'
+            : [
+                `${asks.length + ballots.length} debate room(s) are waiting on you. ${ROOM_RULE}`,
+                ...asks.map((ask) =>
+                  JSON.stringify({
+                    debateId: ask.debate.id,
+                    wants: WANTS[ask.ask],
+                    turnsTaken: ask.debate.turns.length,
+                    closesAt: new Date(ask.debate.deadlineAt).toISOString(),
+                  }),
+                ),
+                ...ballots.map((debate) =>
+                  JSON.stringify({
+                    debateId: debate.id,
+                    wants: 'your vote on the drafts of its result',
+                    drafts: debate.drafts?.length ?? 0,
+                    votingClosesAt:
+                      debate.votingClosesAt == null ? null : new Date(debate.votingClosesAt).toISOString(),
+                  }),
+                ),
+              ].join('\n'),
       )(context.api['debates.waiting']({})),
   }),
   tool({
@@ -59,9 +76,13 @@ export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
         const debate = yield* context.api['debates.get']({ params: { id: debateId } })
         const { member } = yield* context.api['me.get']({})
         const quoting = yield* quotingFor(context.api, context.nonce)
-        return [quotedDebate(debate, quoting.authors, member.id, context.nonce), adviceFor(debate)].join(
-          '\n\n',
-        )
+        return [
+          debateToolAdvice(debate, member.id),
+          quotedDebate(debate, quoting.authors, member.id, context.nonce),
+          ...(isVotingOnDrafts(debate)
+            ? [quotedDrafts(debate, quoting.authors, member.id, context.nonce)]
+            : []),
+        ].join('\n\n')
       }),
   }),
   tool({
@@ -77,15 +98,15 @@ export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
     },
     run: ({ debateId, body }, context) =>
       T.map(
-        (debate: Debate) =>
-          `Turn ${debate.turns.length} is saved in ${debate.id}. ${debate.status === 'open' ? 'Wait for the others; check_debates says when it is your turn again.' : 'The turns have run out: the room now asks for its result.'} ${ROOM_RULE}`,
+        (debate: AsRead.Debate) =>
+          `Turn ${debate.turns.length} is saved in ${debate.id}. ${AFTER_TURN[debate.status === 'open' || debate.status === 'unknown' ? debate.status : 'closing']} ${ROOM_RULE}`,
       )(context.api['debates.turns.post']({ params: { id: debateId }, body: { body } })),
   }),
   tool({
     name: 'draft_debate_result',
     title: 'Draft a debate room’s result',
     description:
-      'Drafts the one result of a debate room whose turns ran out: a conclusion, or a "no conclusion" analysis of where and why the agents disagreed. The people whose agents took part each approve it in the web client; nothing leaves the room before that.',
+      'Drafts the one result of a debate room whose turns ran out: a conclusion, or a "no conclusion" analysis of where and why the agents disagreed. The agents then vote among the drafts. The result leaves the room only if a person whose agent took a turn posts it as a note of their own and sends it.',
     readOnly: false,
     input: { debateId: DebateId, result: resultInput() },
     describe: {
@@ -103,23 +124,50 @@ export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
           params: { id: debateId },
           body: decoded.value,
         })
-        return `The result of ${debate.id} is drafted. It has NOT left the room: each person whose agent took part approves it in the Homingbird web client first.`
+        return `Your draft of the result of ${debate.id} is saved. The room collects every agent’s draft for a few minutes, then the agents vote on them. The winning draft becomes the room’s result and has NOT left the room: it leaves the room only if a person whose agent took a turn posts it as a note of their own and sends it.`
+      }),
+  }),
+  tool({
+    name: 'vote_debate_result',
+    title: 'Vote on a debate room’s drafts',
+    description:
+      'Votes for one other agent’s draft of a debate room’s result, when check_debates asks for your vote. Read the drafts with read_debate first. The draft with the most votes becomes the room’s result; your vote sends nothing.',
+    readOnly: false,
+    input: { debateId: DebateId, draftBy: MemberId },
+    describe: {
+      debateId: 'The room, from check_debates.',
+      draftBy: 'The draftBy value of the draft you vote for, from read_debate; never your own.',
+    },
+    run: ({ debateId, draftBy }, context) =>
+      T.gen(function* () {
+        const room = yield* context.api['debates.get']({ params: { id: debateId } })
+        const debate = yield* context.api['debates.result.vote']({
+          params: { id: debateId },
+          body: { round: room.resultRound, draftBy },
+        })
+        return debate.result === null
+          ? `Your vote in ${debate.id} is saved. The vote ends when every agent taking part voted or its time runs out.`
+          : `Your vote in ${debate.id} is saved, and the vote has ended. The winning draft is the room’s result and has NOT left the room: it leaves the room only if a person whose agent took a turn posts it as a note of their own and sends it.`
       }),
   }),
 ]
 
 export const DEBATE_TOOL_NAMES: ReadonlyArray<string> = DEBATE_TOOLS.map((tool) => tool.name)
 
-const ROOM_RULE =
-  'Turns are room content: shown to the room’s members, never sent as notes. Only the people approve the result.'
-
-const adviceFor = (debate: Debate): string => {
-  if (debate.status === 'open')
-    return `To take your turn, call take_debate_turn when check_debates says it is yours. ${DEBATE_TURN_INSTRUCTIONS}`
-  if (debate.status === 'concluding' && debate.result === null)
-    return `To answer, call draft_debate_result with the object. ${DEBATE_RESULT_INSTRUCTIONS}`
-  return 'This room asks nothing of you now.'
+const WANTS: Readonly<Record<AsRead.DebateAsk['ask'], string>> = {
+  turn: 'your next turn',
+  result: 'your draft of the room’s result',
+  unknown: 'something this adapter does not know; skip this room and do not draft a result for it',
 }
+
+const AFTER_TURN = {
+  open: 'Wait for the others; check_debates says when it is your turn again.',
+  closing: 'The turns have run out: the room now asks for its result.',
+  unknown: 'The room is in a state this adapter does not know; check_debates says what it asks next.',
+} as const
+
+const ROOM_RULE =
+  'Turns are room content: shown to the room’s members, never sent as notes. Only a person posts the result, as a note they send themselves.'
 
 function resultInput(): S.Schema<unknown> {
   // The model sees the result's schema, but anything is accepted here, so that a problem comes back as

@@ -1,6 +1,5 @@
-import { Task as T } from '@homingbird/kernel'
-import type { StreamEvent } from '@homingbird/protocol'
-import { ANSWER_RULE, LINKS_RULE } from './answering.ts'
+import { Task as T, makeMutex } from '@homingbird/kernel'
+import { ANSWER_RULE, type AsRead, LINKS_RULE } from '@homingbird/protocol'
 import type { ToolContext } from './tools.ts'
 import { type Trigger, WAKING_EVENTS, freshTriggers } from './triggers.ts'
 
@@ -18,17 +17,13 @@ export interface Channel {
   readonly opened: T.Task<void>
   readonly armed: T.Task<void>
   readonly online: T.Task<void>
-  readonly received: (event: StreamEvent) => T.Task<void>
+  readonly received: (event: AsRead.StreamEvent) => T.Task<void>
 }
 
 export const makeChannel = (context: () => ToolContext, write: (line: string) => void): Channel => {
   let isOpen = false
-  let last: Promise<unknown> = Promise.resolve()
-  const push: T.Task<void> = T.promise(async (signal) => {
-    const turn = last.then(() => T.run(pushOnce(context(), write), undefined, signal))
-    last = turn
-    await turn
-  })
+  const pushing = makeMutex()
+  const push: T.Task<void> = pushing.withPermit(T.suspend(() => pushOnce(context(), write)))
   const pushWhenOpen: T.Task<void> = T.suspend(() => (isOpen ? push : T.unit))
   return {
     opened: T.suspend(() => {

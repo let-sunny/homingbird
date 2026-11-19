@@ -1,5 +1,5 @@
 import { Task as T } from '@homingbird/kernel'
-import { type Api, type ApiError, type Note, NoteId } from '@homingbird/protocol'
+import { type Api, type ApiError, type AsRead, NoteId } from '@homingbird/protocol'
 import { CURRENT, type Dialect, LEGACY } from './dialect.ts'
 import { draftFromMessage } from './draft-from-message.ts'
 import { A2A_CODE, rpcFailureOf } from './errors.ts'
@@ -90,7 +90,7 @@ const answer = (call: RpcCall, context: ViewContext): T.Task<unknown, RpcFailure
   )
 }
 
-const taskNote = (id: unknown, api: MemberApi): T.Task<Note, RpcFailure | ApiError> => {
+const taskNote = (id: unknown, api: MemberApi): T.Task<AsRead.Note, RpcFailure | ApiError> => {
   const noteId = NoteId.decode(id)
   const unknownTask = RpcFailure({ code: A2A_CODE.taskNotFound, message: `Task not found: ${String(id)}` })
   return noteId._tag === 'Err'

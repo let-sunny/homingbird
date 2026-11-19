@@ -3,7 +3,10 @@ import { type Clock, Task as T, makeTestClock } from '@homingbird/kernel'
 import {
   API_PREFIX,
   type ApiError,
+  FEATURES,
+  FEATURE_NAMES,
   HTTP_STATUS,
+  PROTOCOL_VERSION,
   type RouteName,
   contract,
   matchPath,
@@ -70,6 +73,19 @@ export interface WorldOptions {
     program: string,
     args: ReadonlyArray<string>,
   ) => ProcessRun | undefined | Promise<ProcessRun | undefined>
+  /** Which paths hold a program this computer can run; every path does when not given. */
+  readonly runnable?: (path: string) => boolean
+  /** Symbolic links: where each path leads. */
+  readonly links?: Readonly<Record<string, string>>
+  readonly program?: ReadonlyArray<string>
+  /** Permission bits of files; 0600 when not given. */
+  readonly modes?: Readonly<Record<string, number>>
+  /** Files this process may read but not change or remove, such as a secret mounted read-only. */
+  readonly readOnly?: ReadonlyArray<string>
+  /** Files that are there but that this process may not read. */
+  readonly unreadable?: ReadonlyArray<string>
+  /** Files there from the start, besides the agent credential. */
+  readonly files?: Readonly<Record<string, string>>
 }
 
 export const world = (options: WorldOptions = {}): World => {
@@ -82,6 +98,7 @@ export const world = (options: WorldOptions = {}): World => {
   const clock = options.clock ?? makeTestClock(1_700_000_000_000)
   if ((options.signedIn ?? 'agent') === 'agent')
     files.set(AGENT_FILE, JSON.stringify({ serverUrl: SERVER, token: AGENT_TOKEN }))
+  for (const [path, content] of Object.entries(options.files ?? {})) files.set(path, content)
   let nonces = 0
   const opened: string[] = []
   const agentRuns: World['agentRuns'] = []
@@ -92,31 +109,40 @@ export const world = (options: WorldOptions = {}): World => {
     clock,
     fetch: options.fetch ?? stubbedFetch(options.stubs ?? {}, calls, options.other),
     files: {
-      read: async (path) => {
-        reads.push(path)
-        return files.get(path) ?? null
-      },
-      exists: async (path) => files.has(path),
-      writePrivate: async (path, content) => {
-        privateWrites.push(path)
-        files.set(path, content)
-      },
-      writeOwnerOnly: async (path, content) => {
-        ownerOnlyWrites.push(path)
-        files.set(path, content)
-      },
-      createExclusive: async (path, content) => {
-        if (files.has(path)) return false
-        files.set(path, content)
-        return true
-      },
-      remove: async (path) => void files.delete(path),
-      list: async (directory) =>
-        [...files.keys()]
-          .filter(
-            (path) => path.startsWith(`${directory}/`) && !path.slice(directory.length + 1).includes('/'),
-          )
-          .map((path) => path.slice(directory.length + 1)),
+      read: (path) =>
+        T.sync(() => {
+          reads.push(path)
+          if (options.unreadable?.includes(path)) return null
+          return files.get(path) ?? null
+        }),
+      exists: (path) => T.sync(() => files.has(path)),
+      writePrivate: (path, content) =>
+        T.sync(() => {
+          privateWrites.push(path)
+          files.set(path, content)
+        }),
+      writeOwnerOnly: (path, content) =>
+        T.sync(() => {
+          ownerOnlyWrites.push(path)
+          files.set(path, content)
+        }),
+      createExclusive: (path, content) =>
+        T.sync(() => {
+          if (files.has(path)) return false
+          files.set(path, content)
+          return true
+        }),
+      remove: (path) => T.sync(() => void files.delete(path)),
+      mode: (path) => T.sync(() => (files.has(path) ? (options.modes?.[path] ?? 0o600) : null)),
+      isWritable: (path) => T.sync(() => files.has(path) && !(options.readOnly ?? []).includes(path)),
+      list: (directory) =>
+        T.sync(() =>
+          [...files.keys()]
+            .filter(
+              (path) => path.startsWith(`${directory}/`) && !path.slice(directory.length + 1).includes('/'),
+            )
+            .map((path) => path.slice(directory.length + 1)),
+        ),
     },
     output: { line: (text) => lines.push(text), problem: (text) => problems.push(text) },
     variables: options.variables ?? {},
@@ -125,9 +151,14 @@ export const world = (options: WorldOptions = {}): World => {
     nonce: () => `nonce${String(nonces++).padStart(15, '0')}`,
     stopped: stop.signal,
     server: null,
+    credentialsFile: null,
     platform: options.platform ?? 'linux',
-    program: ['/usr/bin/node', '/usr/lib/node_modules/@homingbird/cli/dist/homingbird.js'],
+    program: options.program ?? ['/usr/bin/node', '/usr/lib/node_modules/@homingbird/cli/dist/homingbird.js'],
     userId: options.userId === undefined ? 1000 : options.userId,
+    programs: {
+      realPath: async (path) => options.links?.[path] ?? path,
+      isRunnable: async (path) => options.runnable?.(path) ?? true,
+    },
     processes: {
       run: async (program, args) => {
         processRuns.push([program, ...args])
@@ -183,7 +214,9 @@ export const stubbedFetch =
     }
     calls.push(call)
     if (matched === null) return (await other?.(call)) ?? new Response('{}', { status: 404 })
-    const stub = stubs[matched.name] as ((request: unknown) => unknown) | undefined
+    const stub = (stubs[matched.name] ?? (matched.name === 'server.info' ? currentServer : undefined)) as
+      | ((request: unknown) => unknown)
+      | undefined
     if (stub === undefined)
       return json(503, toErrorBody({ _tag: 'Unavailable', message: `not stubbed: ${matched.name}` }))
     const answer = stub({
@@ -214,3 +247,13 @@ const isApiError = (value: unknown): value is ApiError =>
   value !== null &&
   typeof (value as { _tag?: unknown })._tag === 'string' &&
   (value as { _tag: string })._tag in HTTP_STATUS
+
+/** A server of this client's protocol that offers every feature, for a test that does not ask otherwise. */
+const currentServer = () => ({
+  name: 'dovecote',
+  version: '0.1.3',
+  contactMode: 'open',
+  signInWith: 'Development login',
+  features: Object.fromEntries(FEATURE_NAMES.map((name) => [name, FEATURES[name].default])),
+  protocolVersion: PROTOCOL_VERSION,
+})

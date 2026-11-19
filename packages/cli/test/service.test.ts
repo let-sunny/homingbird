@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { AS_THE_PERSON, STEP_RETRY_MS, STOP_POLL_MS } from '../src/commands/service.ts'
 import { DESK_CLAIM_STALE_MS } from '../src/desk-claim.ts'
 import { EXIT } from '../src/failure.ts'
+import { STABLE_PATH_ADVICE } from '../src/program-paths.ts'
 import { AS_THE_PERSON_ON_WINDOWS, RUN_KEY } from '../src/service-run-key.ts'
 import { AGENT_FILE, AGENT_TOKEN, HOME, SERVER, world } from './support.ts'
 
@@ -87,6 +88,84 @@ describe('homingbird service install', () => {
       'launchctl enable',
       'launchctl bootstrap',
     ])
+  })
+
+  it('writes the real paths behind a version manager’s per-shell links into the launchd agent, and warns about them', async () => {
+    const SHELL = '/Users/ana/.local/state/fnm_multishells/4242_1700000000000'
+    const INSTALLED = '/Users/ana/.local/share/fnm/node-versions/v22.12.0/installation'
+    const w = world({
+      platform: 'darwin',
+      userId: 501,
+      variables: { PATH: `${SHELL}/bin:/opt/homebrew/bin:/usr/bin` },
+      program: [`${SHELL}/bin/node`, `${SHELL}/bin/homingbird`],
+      links: {
+        [`${SHELL}/bin`]: `${INSTALLED}/bin`,
+        [`${SHELL}/bin/node`]: `${INSTALLED}/bin/node`,
+        [`${SHELL}/bin/homingbird`]: `${INSTALLED}/lib/node_modules/@homingbird/cli/dist/homingbird.js`,
+        [`${INSTALLED}/bin/claude`]: `${INSTALLED}/lib/node_modules/@anthropic-ai/claude-code/cli.js`,
+      },
+      runnable: (path) => path === `${INSTALLED}/bin/claude`,
+    })
+    expect(await w.run('service', 'install', '--server', SERVER, '--agent', 'claude', '--json')).toBe(0)
+    const plist = w.files.get(PLIST)!
+    expect(plist).not.toContain('fnm_multishells')
+    expect(plist).toContain(`<string>${INSTALLED}/bin/node</string>`)
+    expect(plist).toContain(
+      `<string>${INSTALLED}/lib/node_modules/@homingbird/cli/dist/homingbird.js</string>`,
+    )
+    expect(plist).toContain(`<string>${INSTALLED}/bin:/opt/homebrew/bin:/usr/bin</string>`)
+    const { warnings } = w.json() as { warnings: string[] }
+    expect(warnings).toHaveLength(3)
+    expect(warnings[0]).toBe(
+      `Node ${INSTALLED}/bin/node belongs to fnm, a Node version manager, and breaks when that version is switched or removed. ${STABLE_PATH_ADVICE}`,
+    )
+    expect(warnings[1]).toMatch(/^The homingbird command line .*homingbird\.js belongs to fnm/)
+    expect(warnings[2]).toMatch(/^The agent command’s program .*\/bin\/claude belongs to fnm/)
+  })
+
+  it('installs without a warning when Node, the command line and the agent have stable paths', async () => {
+    const w = world({
+      platform: 'darwin',
+      userId: 501,
+      variables: { PATH: '/opt/homebrew/bin:/usr/bin' },
+      program: [
+        '/opt/homebrew/bin/node',
+        '/opt/homebrew/lib/node_modules/@homingbird/cli/dist/homingbird.js',
+      ],
+    })
+    expect(await w.run('service', 'install', '--server', SERVER, '--agent', 'claude')).toBe(0)
+    expect(w.lines[0]).not.toContain('Warning')
+  })
+
+  it('refuses to install a preset whose program is not on the PATH the service would run with', async () => {
+    const w = world({ variables: { PATH: '/usr/local/bin:/usr/bin' }, runnable: () => false })
+    expect(await w.run('service', 'install', '--server', SERVER, '--agent', 'codex')).toBe(EXIT.failed)
+    expect(w.problems).toEqual([
+      'The agent command could not be found: "codex" is not on the PATH this runs with; give its absolute path, such as /usr/local/bin/codex, or set PATH.',
+    ])
+    expect(w.files.has(UNIT)).toBe(false)
+    expect(w.processRuns).toEqual([])
+  })
+
+  it('writes the real paths into the Windows Run key too, and warns about a version manager there', async () => {
+    const SHELL = 'C:\\Users\\june\\AppData\\Local\\fnm_multishells\\777_1'
+    const REAL = 'C:\\Program Files\\nodejs'
+    const w = world({
+      platform: 'win32',
+      userId: null,
+      variables: { USERNAME: 'june', PATH: `${SHELL};${REAL}`, PATHEXT: '.EXE;.CMD' },
+      program: [`${SHELL}\\node.exe`, `${SHELL}\\node_modules\\@homingbird\\cli\\dist\\homingbird.js`],
+      links: {
+        [`${SHELL}\\node.exe`]: `${REAL}\\node.exe`,
+        [`${SHELL}\\node_modules\\@homingbird\\cli\\dist\\homingbird.js`]: `${REAL}\\node_modules\\@homingbird\\cli\\dist\\homingbird.js`,
+      },
+      runnable: (path) => path === `${REAL}\\claude.cmd`,
+    })
+    expect(await w.run('service', 'install', '--server', SERVER, '--agent', 'claude', '--json')).toBe(0)
+    const added = w.processRuns.find((run) => run[0] === 'reg' && run[1] === 'add')!
+    expect(added.join(' ')).not.toContain('fnm_multishells')
+    expect(added.at(-2)).toContain(`"${REAL}\\node.exe"`)
+    expect((w.json() as { warnings: string[] }).warnings).toEqual([])
   })
 
   it('retries loading the launchd agent while launchd still tears down the one just booted out', async () => {
@@ -180,6 +259,25 @@ describe('homingbird service status', () => {
       'homingbird-runner-https-hb-example-com.service',
       '--property=LoadState,ActiveState,SubState,ExecMainStatus,ExecMainExitTimestamp',
     ])
+  })
+
+  it('says when the running service waits for a missing program, as the service wrote it', async () => {
+    const w = world({ process: () => ({ exitCode: 0, output: SHOWN_RUNNING }) })
+    await w.run('service', 'install', '--server', SERVER, '--agent', 'claude')
+    w.files.set(
+      `${HOME}/.config/homingbird/desks/service-https-hb-example-com.missing`,
+      'The agent command could not be found: "claude" is not on the PATH this runs with; give its absolute path, such as /usr/local/bin/claude, or set PATH.',
+    )
+    expect(await w.run('service', 'status', '--server', SERVER)).toBe(0)
+    expect(w.lines.at(-1)).toContain(
+      'Running:     yes, waiting for a missing program\nWaiting:     The agent command could not be found: "claude" is not on the PATH this runs with; give its absolute path, such as /usr/local/bin/claude, or set PATH.',
+    )
+    await w.run('service', 'status', '--server', SERVER, '--json')
+    expect(w.json()).toMatchObject({
+      running: true,
+      waitingFor:
+        'The agent command could not be found: "claude" is not on the PATH this runs with; give its absolute path, such as /usr/local/bin/claude, or set PATH.',
+    })
   })
 
   it('says to sign in first when there is no credential for the server', async () => {
@@ -354,5 +452,111 @@ describe('the service on Windows', () => {
       expect(w.problems).toEqual([AS_THE_PERSON_ON_WINDOWS])
       expect(w.processRuns).toEqual([])
     }
+  })
+})
+
+describe('homingbird service with a credentials file', () => {
+  const FILE = '/run/secrets/homingbird.json'
+  const FILE_TOKEN = 'hba_mounted-secret-token-0123456789ab'
+  const mounted = { [FILE]: JSON.stringify({ serverUrl: SERVER, token: FILE_TOKEN }) }
+
+  it('names the file in the systemd unit’s environment, never on its command line, and never its content', async () => {
+    const w = world({ signedIn: 'none', files: mounted, variables: { PATH: '/usr/bin' } })
+    expect(
+      await w.run('service', 'install', '--server', SERVER, '--agent', 'claude', '--credentials-file', FILE),
+    ).toBe(0)
+    const unit = w.files.get(UNIT)!
+    expect(unit).toContain(`Environment="HOMINGBIRD_CREDENTIALS_FILE=${FILE}"`)
+    expect(unit).toContain('Environment="PATH=/usr/bin"')
+    expect(unit.split('\n').find((line) => line.startsWith('ExecStart='))).not.toContain(FILE)
+    expect(unit).not.toContain('--credentials-file')
+    expect(unit).not.toContain(FILE_TOKEN)
+    expect(w.lines[0]).toContain(`Credential:  read from ${FILE}`)
+    expect(w.lines[0]).not.toContain('Sign in first')
+    expect(w.files.get(FILE)).toBe(mounted[FILE])
+    expect(w.ownerOnlyWrites).toEqual([UNIT])
+  })
+
+  it('takes the file from HOMINGBIRD_CREDENTIALS_FILE, and the server from the file when none is named', async () => {
+    const w = world({ signedIn: 'none', files: mounted, variables: { HOMINGBIRD_CREDENTIALS_FILE: FILE } })
+    expect(await w.run('service', 'install', '--agent', 'claude', '--json')).toBe(0)
+    expect(w.json()).toMatchObject({ installed: true, server: SERVER, signedIn: true, credentialsFile: FILE })
+    expect(w.files.get(UNIT)).toContain(`Environment="HOMINGBIRD_CREDENTIALS_FILE=${FILE}"`)
+  })
+
+  it('installs before the file is there, and says what the service waits for', async () => {
+    const w = world({ signedIn: 'none' })
+    expect(
+      await w.run('service', 'install', '--server', SERVER, '--agent', 'claude', '--credentials-file', FILE),
+    ).toBe(0)
+    expect(w.lines[0]).toContain(
+      `The credentials file ${FILE} does not exist. Create it on a computer where you can approve the sign-in: homingbird login --server <url> --credentials-file <path>. Until then the service waits.`,
+    )
+    const status = world({ signedIn: 'none', files: { [FILE]: '{}' } })
+    expect(await status.run('service', 'status', '--server', SERVER, '--credentials-file', FILE)).toBe(0)
+    expect(status.lines[0]).toContain(`The credentials file ${FILE} does not hold an agent credential.`)
+    const fine = world({ signedIn: 'none', files: mounted })
+    await fine.run('service', 'status', '--server', SERVER, '--credentials-file', FILE, '--json')
+    expect(fine.json()).toMatchObject({ signedIn: true })
+  })
+
+  it('refuses a relative path, and a missing file when it must name the server', async () => {
+    const w = world({ files: { 'homingbird.json': mounted[FILE] } })
+    expect(
+      await w.run(
+        'service',
+        'install',
+        '--server',
+        SERVER,
+        '--agent',
+        'claude',
+        '--credentials-file',
+        'homingbird.json',
+      ),
+    ).toBe(EXIT.usage)
+    expect(w.problems).toEqual(['--credentials-file needs an absolute path for the service.'])
+    expect(w.processRuns).toEqual([])
+    expect(await w.run('service', 'install', '--agent', 'claude', '--credentials-file', FILE)).toBe(
+      EXIT.signedOut,
+    )
+    expect(w.processRuns).toEqual([])
+  })
+
+  it('puts the file in the launchd agent’s environment', async () => {
+    const w = world({ platform: 'darwin', userId: 501, files: mounted, variables: { PATH: '/usr/bin' } })
+    expect(
+      await w.run('service', 'install', '--server', SERVER, '--agent', 'claude', '--credentials-file', FILE),
+    ).toBe(0)
+    const plist = w.files.get(PLIST)!
+    expect(plist).toContain(
+      [
+        '  <key>EnvironmentVariables</key>',
+        '  <dict>',
+        '    <key>PATH</key>',
+        '    <string>/usr/bin</string>',
+        '    <key>HOMINGBIRD_CREDENTIALS_FILE</key>',
+        `    <string>${FILE}</string>`,
+        '  </dict>',
+      ].join('\n'),
+    )
+    expect(plist).not.toContain('--credentials-file')
+    expect(plist).not.toContain(FILE_TOKEN)
+  })
+
+  it('passes the file to the Windows runner as an option, the only place a Run key can hold it', async () => {
+    const path = 'C:\\secrets\\homingbird.json'
+    const w = world({
+      platform: 'win32',
+      userId: null,
+      variables: { USERNAME: 'june' },
+      files: { [path]: mounted[FILE] },
+    })
+    expect(
+      await w.run('service', 'install', '--server', SERVER, '--agent', 'claude', '--credentials-file', path),
+    ).toBe(0)
+    const [add, start] = w.processRuns
+    expect(add![8]).toContain(`"--credentials-file" "${path}"`)
+    expect(add![8]).not.toContain(FILE_TOKEN)
+    expect(start).toContain(path)
   })
 })

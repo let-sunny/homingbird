@@ -3,7 +3,12 @@ import { Task as T } from '@homingbird/kernel'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { ONE_DESK } from '../src/answering.ts'
 import { CHANNEL_METHOD } from '../src/channel.ts'
-import { SIGN_IN_FIRST } from '../src/local-session.ts'
+import {
+  ANALYTICS_NOTICE,
+  REMOVED_ONLY_HERE,
+  REVOKED_AND_REMOVED,
+  SIGN_IN_FIRST,
+} from '../src/local-session.ts'
 import { DESK_INSTRUCTIONS, INSTRUCTIONS } from '../src/server.ts'
 import { type StdioProgram, USAGE, runStdioProgram } from '../src/stdio-program.ts'
 import { ADAPTER_VERSION } from '../src/version.ts'
@@ -112,6 +117,26 @@ describe('runStdioProgram', () => {
     expect((await exit)._tag).toBe('Ok')
   })
 
+  it('says in its status when the server counts anonymous usage, and that it sends none itself', async () => {
+    const counting = (async (url: string, init?: RequestInit) => {
+      const answer = await running.fetch(url, init)
+      if (!url.endsWith('/api/v1/info')) return answer
+      const info = (await answer.json()) as { features?: Record<string, boolean> }
+      return new Response(JSON.stringify({ ...info, features: { ...info.features, analytics: true } }), {
+        headers: { 'content-type': 'application/json' },
+      })
+    }) as typeof running.fetch
+    const { exit, said, feed } = program({ fetch: counting })
+    const started = await said('login')
+    await running.decide(started)
+    await running.until(async () => (await said('status')).startsWith('Signed in'))
+    expect(await said('status')).toBe(
+      `Signed in to ${SERVER_URL} as Ana <ana@example.com>, with the credential "Cursor on laptop". ${ONE_DESK} ${ANALYTICS_NOTICE}`,
+    )
+    feed.end()
+    expect((await exit)._tag).toBe('Ok')
+  })
+
   it('signs in through the browser with the code filled in, and never shows the credential', async () => {
     const { exit, said, feed, written } = program()
     const started = await said('login')
@@ -189,6 +214,38 @@ describe('runStdioProgram', () => {
     expect(await running.agentOnline()).toBe(false)
   })
 
+  it('refuses every tool in one sentence once signed in to a server whose protocol it cannot read', async () => {
+    const newer = async (url: string, init?: RequestInit) => {
+      const response = await running.fetch(url, init)
+      if (!url.endsWith('/api/v1/info')) return response
+      return Response.json({ ...((await response.json()) as object), protocolVersion: 99 })
+    }
+    const { exit, said, signIn, feed } = program({ fetch: newer })
+    await signIn()
+    expect(await said('whoami')).toBe(
+      'This Homingbird server is newer than this client understands; upgrade the client.',
+    )
+    feed.end()
+    expect((await exit)._tag).toBe('Ok')
+  })
+
+  it('answers initialize at once after a remembered sign-in while the server never answers server.info', async () => {
+    const first = program()
+    await first.signIn()
+    first.feed.end()
+    await first.exit
+    const silent = (url: string, init?: RequestInit) =>
+      url.endsWith('/api/v1/info')
+        ? new Promise<Response>((_, reject) =>
+            init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true }),
+          )
+        : running.fetch(url, init)
+    const { exit, request, feed } = program({ fetch: silent })
+    expect((await request('initialize', { protocolVersion: '2025-06-18' })).result.serverInfo).toBeDefined()
+    feed.end()
+    expect((await exit)._tag).toBe('Ok')
+  })
+
   it('tells drafting tools where the human approves', async () => {
     const ben = await running.server.signIn('ben@example.com', 'Ben')
     const { exit, said, signIn, feed } = program()
@@ -210,9 +267,7 @@ describe('runStdioProgram', () => {
 
     const second = program()
     expect(await second.said('status')).toMatch(/^Signed in to /)
-    expect(await second.said('logout')).toBe(
-      'Signed out of Homingbird. The credential on this device was revoked and removed.',
-    )
+    expect(await second.said('logout')).toBe(REVOKED_AND_REMOVED)
     expect(running.recorded.some((call) => call.path === '/oauth/revoke')).toBe(true)
     expect(await second.said('whoami')).toBe(SIGN_IN_FIRST)
     expect(await second.said('status')).toBe(`Not signed in to ${SERVER_URL}. Call login to sign in.`)
@@ -223,6 +278,23 @@ describe('runStdioProgram', () => {
     expect(await third.said('status')).toMatch(/^Not signed in/)
     third.feed.end()
     await third.exit
+  })
+
+  it('removes the credential at logout when the server cannot be reached, and says to revoke it in the web client', async () => {
+    const first = program()
+    await first.signIn()
+    first.feed.end()
+    await first.exit
+
+    const offline: typeof running.fetch = (input, init) =>
+      String(input).endsWith('/oauth/revoke')
+        ? Promise.reject(new Error('offline'))
+        : running.fetch(input, init)
+    const second = program({ fetch: offline })
+    expect(await second.said('logout')).toBe(REMOVED_ONLY_HERE)
+    expect(await second.said('status')).toBe(`Not signed in to ${SERVER_URL}. Call login to sign in.`)
+    second.feed.end()
+    await second.exit
   })
 
   it('reads the server address from HOMINGBIRD_SERVER and names the agent after the host', async () => {

@@ -70,7 +70,7 @@ export const localAdapterOf = (session: LocalSession, desk: DeskSwitch | null = 
   ],
   blockedBecause: () => {
     const state = session.state()
-    if (state.kind === 'signed_in') return null
+    if (state.kind === 'signed_in') return session.protocolProblem()
     return state.kind === 'pending'
       ? `Not signed in yet: waiting for approval in the browser. Open ${state.verificationUri} and confirm the code ${state.userCode}, then try again.`
       : SIGN_IN_FIRST

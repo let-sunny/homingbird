@@ -7,8 +7,8 @@ describe('homingbird presets', () => {
     expect(await w.run('presets')).toBe(0)
     const text = w.lines[0]!
     expect(text).toContain('claude  Claude Code; verified with Claude Code 2.1.327')
-    expect(text).toContain('codex  Codex CLI; from source, unrun')
-    expect(text).toContain('antigravity  Antigravity CLI (agy); from source, unrun')
+    expect(text).toContain('codex  Codex CLI; not yet tested with the real CLI')
+    expect(text).toContain('antigravity  Antigravity CLI (agy); not yet tested with the real CLI')
     expect(text).toContain('gemini  Gemini CLI, legacy')
     expect(text).toContain("reader:  claude -p --tools '' --strict-mcp-config  (no tools)")
     expect(text).toMatch(/reader: {2}codex exec .* {2}\(minimal tools, not none\)/)
@@ -21,7 +21,7 @@ describe('homingbird presets', () => {
       'antigravity',
       'gemini',
     ])
-    expect(listed[1]).toMatchObject({ readerTools: 'minimal', state: 'from source, unrun' })
+    expect(listed[1]).toMatchObject({ readerTools: 'minimal', state: 'not yet tested with the real CLI' })
     expect(w.calls).toEqual([])
   })
 

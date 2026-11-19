@@ -1,6 +1,6 @@
 import { WRAPPER_TAG } from '@homingbird/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { type Session, type TestServer, startTestServer } from '../../dovecote/test/harness.ts'
+import { type Session, type TestServer, startTestServer, storedRows } from '../../dovecote/test/harness.ts'
 import { EXIT } from '../src/failure.ts'
 import { SERVER_URL, fetchThrough } from './server-fetch.ts'
 import { INTERRUPTED, type World, agentFileFor, world } from './support.ts'
@@ -82,9 +82,9 @@ describe('the homingbird command against a running server', () => {
     await anaCli.run('conversation', waiting.conversationId)
     expect(anaCli.lines.at(-1)).toContain('Yes. Run it after the nightly export.')
     expect(anaCli.lines.at(-1)).toContain('(Replied)')
-    const audit = (await ana.api('GET', '/admin/audit')).json.entries
+    const audit = await storedRows(server, 'audit_events')
     expect(
-      audit.find((entry: any) => entry.action === 'drafts.send' && entry.target === replyId).credentialKind,
+      audit.find((row) => row.event === 'note.approved' && row.target_id === replyId)?.credential_kind,
     ).toBe('human')
   })
 

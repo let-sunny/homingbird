@@ -10,6 +10,7 @@ export const SPEC: ServiceSpec = {
   workdir: '/home/june',
   program: ['/usr/bin/node', '/usr/lib/node_modules/@homingbird/cli/dist/homingbird.js'],
   path: '/home/june/.local/bin:/usr/local/bin:/usr/bin:/bin',
+  credentialsFile: null,
 }
 
 export const SPLIT_SPEC: ServiceSpec = {

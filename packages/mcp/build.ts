@@ -1,10 +1,11 @@
 import { chmod } from 'node:fs/promises'
+import { fileURLToPath } from 'node:url'
 import { build } from 'esbuild'
 
-const OUTPUT = new URL('./dist/homingbird-mcp.mjs', import.meta.url).pathname
+const OUTPUT = fileURLToPath(new URL('./dist/homingbird-mcp.mjs', import.meta.url))
 
 await build({
-  entryPoints: [new URL('./src/stdio.ts', import.meta.url).pathname],
+  entryPoints: [fileURLToPath(new URL('./src/stdio.ts', import.meta.url))],
   outfile: OUTPUT,
   bundle: true,
   platform: 'node',

@@ -1,4 +1,4 @@
-import { Task as T } from '@homingbird/kernel'
+import { Stream, Task as T } from '@homingbird/kernel'
 import { type McpContext, handleMcpMessage } from './server.ts'
 
 export interface StdioSession {
@@ -8,27 +8,33 @@ export interface StdioSession {
 }
 
 export const runStdioSession = (session: StdioSession): T.Task<void> =>
-  T.promise(async (signal) => {
-    for await (const line of linesOf(session.input)) {
-      if (signal.aborted) return
-      const reply = await T.run(answerLine(line, session.context), undefined, signal)
+  Stream.forEach((line: string) =>
+    T.map((reply: T.Exit<unknown | null, never>) => {
       if (reply._tag === 'Ok' && reply.value !== null) session.write(`${JSON.stringify(reply.value)}\n`)
-    }
-  })
+    })(T.exit(answerLine(line, session.context))),
+  )(linesOf(session.input))
 
-export const linesOf = async function* (
-  chunks: AsyncIterable<string | Uint8Array>,
-): AsyncGenerator<string, void> {
-  const decoder = new TextDecoder()
-  let buffered = ''
-  for await (const chunk of chunks) {
-    buffered += typeof chunk === 'string' ? chunk : decoder.decode(chunk, { stream: true })
-    const lines = buffered.split('\n')
-    buffered = lines.pop() as string
-    for (const line of lines) if (line.trim() !== '') yield line
-  }
-  if (buffered.trim() !== '') yield buffered
-}
+/** Splits the input into lines, skipping blank ones; the last line counts even without a line break. */
+export const linesOf = (chunks: Stream.Stream<string | Uint8Array>): Stream.Stream<string> => ({
+  [Symbol.asyncIterator]: () => {
+    const decoder = new TextDecoder()
+    let buffered = ''
+    const complete = Stream.flatMap((chunk: string | Uint8Array) => {
+      buffered += typeof chunk === 'string' ? chunk : decoder.decode(chunk, { stream: true })
+      const lines = buffered.split('\n')
+      buffered = lines.pop() as string
+      return lines.filter(isFilled)
+    })(chunks)
+    const rest = {
+      *[Symbol.iterator]() {
+        if (isFilled(buffered)) yield buffered
+      },
+    }
+    return Stream.concat(Stream.fromIterable(rest))(complete)[Symbol.asyncIterator]()
+  },
+})
+
+const isFilled = (line: string): boolean => line.trim() !== ''
 
 const PARSE_ERROR = { jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } }
 

@@ -60,6 +60,9 @@ export const runner = (
     readonly argv?: ReadonlyArray<string>
     readonly variables?: Readonly<Record<string, string | undefined>>
     readonly signedIn?: 'agent' | 'none'
+    readonly runnable?: (path: string) => boolean
+    readonly files?: Readonly<Record<string, string>>
+    readonly modes?: Readonly<Record<string, number>>
   } = {},
 ): Runner => {
   const created: unknown[] = []
@@ -95,6 +98,9 @@ export const runner = (
     ...(options.agent !== undefined && { agent: options.agent }),
     ...(options.variables !== undefined && { variables: options.variables }),
     ...(options.signedIn !== undefined && { signedIn: options.signedIn }),
+    ...(options.runnable !== undefined && { runnable: options.runnable }),
+    ...(options.files !== undefined && { files: options.files }),
+    ...(options.modes !== undefined && { modes: options.modes }),
   })
   const exit = w.run('run', '--agent', 'claude -p', ...(options.argv ?? []))
   return {

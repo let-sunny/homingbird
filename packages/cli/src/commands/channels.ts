@@ -1,5 +1,5 @@
 import { Task as T } from '@homingbird/kernel'
-import type { Channel } from '@homingbird/protocol'
+import type { AsRead } from '@homingbird/protocol'
 import type { CliEnv } from '../environment.ts'
 import type { CliFailure } from '../failure.ts'
 import { type Outcome, outcome } from '../outcome.ts'
@@ -23,10 +23,10 @@ export const channels = (query: string | null): T.Task<Outcome, CliFailure, CliE
     )
   })
 
-const channelLine = (channel: Channel): string =>
+const channelLine = (channel: AsRead.Channel): string =>
   `#${channel.slug}${channel.visibility === 'private' ? ' (private)' : ''} — ${channel.description} (${channel.helperCount} answering; ${standingOf(channel)})`
 
-const standingOf = (channel: Channel): string =>
+const standingOf = (channel: AsRead.Channel): string =>
   channel.answering
     ? 'you answer here'
     : channel.joined

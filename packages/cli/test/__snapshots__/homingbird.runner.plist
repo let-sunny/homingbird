@@ -14,6 +14,8 @@
     <string>https://hb.example.com</string>
     <string>--agent</string>
     <string>claude</string>
+    <string>--log</string>
+    <string>/Users/june/.config/homingbird/logs/runner-https-hb-example-com.log</string>
   </array>
   <key>WorkingDirectory</key>
   <string>/home/june</string>

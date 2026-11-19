@@ -1,16 +1,26 @@
 import { Task as T } from '@homingbird/kernel'
-import { credentialFor, storedServers } from '../credentials.ts'
+import { agentCommand, defaultReader } from '../agent-presets.ts'
+import { credentialDirectory, credentialFor, readCredentialsFile, storedServers } from '../credentials.ts'
 import { isClaimLive } from '../desk-claim.ts'
 import type { CliEnv, ProcessRun } from '../environment.ts'
 import { CliFailure, EXIT, failed } from '../failure.ts'
 import { type Outcome, outcome } from '../outcome.ts'
-import type { ServiceCommand, ServiceManager, ServicePaths, ServiceSpec } from '../service-definition.ts'
+import { lastingPathOf, resolvedProgram, stablePath, unstablePathWarningFor } from '../program-paths.ts'
+import {
+  type ServiceCommand,
+  type ServiceManager,
+  type ServicePaths,
+  type ServiceSpec,
+  serviceMissingPath,
+} from '../service-definition.ts'
 import { serviceManagerFor, servicePlace } from '../service-managers.ts'
 import { signInFirst } from './run-as-service.ts'
+import { type RunnerSettings, missingCommandOf } from './run.ts'
 
 /**
  * Registers `homingbird run` with this computer's own login mechanism, for the person running this
- * command only, so that it starts when they log in and restarts if it stops.
+ * command only, so that it starts when they log in and restarts if it stops. Given a credentials file,
+ * the service reads its credential from that path.
  */
 export const installService = (options: ServiceOptions): T.Task<Outcome, CliFailure, CliEnv> =>
   T.gen(function* () {
@@ -18,6 +28,10 @@ export const installService = (options: ServiceOptions): T.Task<Outcome, CliFail
     const { manager, paths } = yield* serviceTarget
     if (env.userId === 0) return yield* T.fail(failed(AS_THE_PERSON))
     const workdir = yield* workdirOf(options.workdir)
+    const credentialsFile = env.credentialsFile
+    if (credentialsFile !== null && !isAbsolute(credentialsFile))
+      return yield* T.fail(usage('--credentials-file needs an absolute path for the service.'))
+    const { program, path, warnings } = yield* stableProgram(options)
     const spec: ServiceSpec = {
       server: paths.server,
       agent: options.agent,
@@ -26,18 +40,17 @@ export const installService = (options: ServiceOptions): T.Task<Outcome, CliFail
       reader: options.reader,
       requireToollessReader: options.requireToollessReader,
       workdir,
-      program: env.program,
-      path: env.platform === 'win32' ? null : (env.variables.PATH ?? null),
+      program,
+      path,
+      credentialsFile,
     }
     const definition = manager.definition(paths, spec)
     if (definition._tag === 'Err') return yield* T.fail(usage(definition.error))
-    if (manager.writesFile)
-      yield* T.promise(() => env.files.writeOwnerOnly(paths.definitionPath, definition.value))
-    if (!(yield* T.promise(() => env.files.exists(paths.logPath))))
-      yield* T.promise(() => env.files.writePrivate(paths.logPath, ''))
+    if (manager.writesFile) yield* env.files.writeOwnerOnly(paths.definitionPath, definition.value)
+    if (!(yield* env.files.exists(paths.logPath))) yield* env.files.writePrivate(paths.logPath, '')
     if (manager.stopsThroughRunner) yield* stoppedRunner(paths)
     for (const step of manager.install(paths, definition.value, spec)) yield* ran(step, paths)
-    const signedIn = (yield* credentialFor(paths.server)) !== null
+    const signInProblem = yield* signInProblemOf(paths.server)
     return outcome(
       {
         installed: true,
@@ -46,13 +59,19 @@ export const installService = (options: ServiceOptions): T.Task<Outcome, CliFail
         server: paths.server,
         definition: paths.definitionPath,
         log: paths.logPath,
-        signedIn,
+        signedIn: signInProblem === null,
+        warnings,
+        ...(credentialsFile !== null && { credentialsFile }),
       },
       [
         `Installed ${paths.name} (${manager.kind}): it starts when you log in and restarts if it stops.`,
         `Definition:  ${paths.definitionPath}`,
         `Log:         ${paths.logPath}`,
-        ...(signedIn ? [] : [`${signInFirst(paths.server)}. Until then the service waits.`]),
+        ...(credentialsFile === null ? [] : [`Credential:  read from ${credentialsFile}`]),
+        ...(signInProblem === null
+          ? []
+          : [`${signInProblem.replace(/\.?$/, '.')} Until then the service waits.`]),
+        ...warnings.map((warning) => `Warning: ${warning}`),
       ].join('\n'),
     )
   })
@@ -69,9 +88,10 @@ export interface ServiceOptions {
 export const serviceStatus: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function* () {
   const { manager, paths } = yield* serviceTarget
   const { installed, state } = yield* installedState(manager, paths, true)
-  const signedIn = (yield* credentialFor(paths.server)) !== null
+  const signInProblem = yield* signInProblemOf(paths.server)
   const running = manager.stopsThroughRunner ? yield* isClaimLive(paths.lockPath) : (state?.running ?? false)
   const loaded = state?.loaded ?? false
+  const waitingFor = running ? yield* missingProgramOf(paths) : null
   return outcome(
     {
       service: paths.name,
@@ -81,21 +101,23 @@ export const serviceStatus: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function
       loaded,
       running,
       lastExit: state?.lastExit ?? null,
+      waitingFor,
       definition: paths.definitionPath,
       log: paths.logPath,
-      signedIn,
+      signedIn: signInProblem === null,
     },
     [
       `Service:     ${paths.name} (${manager.kind})`,
       `Installed:   ${installed ? `yes, ${paths.definitionPath}` : 'no'}`,
       ...(installed
         ? [
-            `Running:     ${running ? 'yes' : loaded ? 'no' : 'no, not loaded'}`,
+            `Running:     ${running ? (waitingFor === null ? 'yes' : 'yes, waiting for a missing program') : loaded ? 'no' : 'no, not loaded'}`,
+            ...(waitingFor === null ? [] : [`Waiting:     ${waitingFor}`]),
             ...(manager.stopsThroughRunner ? [] : [`Last exit:   ${state?.lastExit ?? 'none'}`]),
           ]
         : []),
       `Log:         ${paths.logPath}`,
-      ...(signedIn ? [] : [signInFirst(paths.server)]),
+      ...(signInProblem === null ? [] : [signInProblem]),
     ].join('\n'),
   )
 })
@@ -121,7 +143,7 @@ export const uninstallService: T.Task<Outcome, CliFailure, CliEnv> = T.gen(funct
   const { installed } = yield* installedState(manager, paths, false)
   for (const step of manager.stop(paths)) yield* ran(step, paths)
   if (manager.stopsThroughRunner) yield* stoppedRunner(paths)
-  if (manager.writesFile) yield* T.promise(() => env.files.remove(paths.definitionPath))
+  if (manager.writesFile) yield* env.files.remove(paths.definitionPath)
   for (const step of manager.afterRemoval(paths)) yield* ran(step, paths)
   return outcome(
     { uninstalled: installed, service: paths.name, server: paths.server, log: paths.logPath },
@@ -136,7 +158,7 @@ export const AS_THE_PERSON =
 
 export const STEP_RETRY_MS = 1_000
 export const STOP_POLL_MS = 500
-export const STOP_WAIT_MS = 15_000
+const STOP_WAIT_MS = 15_000
 
 const serviceTarget: T.Task<{ manager: ServiceManager; paths: ServicePaths }, CliFailure, CliEnv> = T.gen(
   function* () {
@@ -144,17 +166,30 @@ const serviceTarget: T.Task<{ manager: ServiceManager; paths: ServicePaths }, Cl
     const manager = serviceManagerFor(env.platform)
     if (manager === null)
       return yield* T.fail(failed(`The service runs on macOS, Linux and Windows, not on ${env.platform}.`))
-    const server = env.server ?? (yield* onlyServer)
+    const server =
+      env.server ??
+      (env.credentialsFile === null
+        ? yield* onlyServer
+        : (yield* readCredentialsFile(env.credentialsFile, null)).serverUrl)
     return { manager, paths: manager.place(servicePlace(env), server) }
   },
 )
+
+/** Why the running service waits for its agent's program, as it wrote beside its lock; null when it does not. */
+const missingProgramOf = (paths: ServicePaths): T.Task<string | null, never, CliEnv> =>
+  T.gen(function* () {
+    const env = yield* T.ask<CliEnv>()
+    const server = paths.server
+    const written = yield* env.files.read(serviceMissingPath(credentialDirectory(env), server))
+    return written?.trim() || null
+  })
 
 /** Whether the service is installed, and, when asked or when only it can tell, what the platform says. */
 const installedState = (manager: ServiceManager, paths: ServicePaths, needsState: boolean) =>
   T.gen(function* () {
     const env = yield* T.ask<CliEnv>()
     if (manager.writesFile) {
-      const installed = yield* T.promise(() => env.files.exists(paths.definitionPath))
+      const installed = yield* env.files.exists(paths.definitionPath)
       if (!installed || !needsState) return { installed, state: null }
     }
     const state = manager.stateIn(yield* ran(manager.status(paths), paths))
@@ -168,15 +203,25 @@ const stoppedRunner = (
   T.gen(function* () {
     const env = yield* T.ask<CliEnv>()
     if (!(yield* isClaimLive(paths.lockPath))) return 'not running'
-    yield* T.promise(() => env.files.writePrivate(paths.stopPath, ''))
+    yield* env.files.writePrivate(paths.stopPath, '')
     for (let waited = 0; waited < STOP_WAIT_MS; waited += STOP_POLL_MS) {
       yield* T.sleep(STOP_POLL_MS)
       if (!(yield* isClaimLive(paths.lockPath))) {
-        yield* T.promise(() => env.files.remove(paths.stopPath))
+        yield* env.files.remove(paths.stopPath)
         return 'stopped'
       }
     }
     return 'still running'
+  })
+
+/** What keeps the service from signing in to the server, as a sentence to show; null when nothing does. */
+const signInProblemOf = (server: string): T.Task<string | null, never, CliEnv> =>
+  T.gen(function* () {
+    const env = yield* T.ask<CliEnv>()
+    if (env.credentialsFile === null)
+      return (yield* credentialFor(server)) === null ? signInFirst(server) : null
+    const read = yield* T.result(readCredentialsFile(env.credentialsFile, server))
+    return read._tag === 'Ok' ? null : read.error.message
   })
 
 const onlyServer: T.Task<string, CliFailure, CliEnv> = T.gen(function* () {
@@ -189,12 +234,13 @@ const workdirOf = (workdir: string | null): T.Task<string, CliFailure, CliEnv> =
   T.gen(function* () {
     const env = yield* T.ask<CliEnv>()
     if (workdir === null) return env.homeDirectory
-    if (!/^(\/|[A-Za-z]:[\\/])/.test(workdir))
-      return yield* T.fail(usage('--workdir needs an absolute path.'))
-    if (!(yield* T.promise(() => env.files.exists(workdir))))
+    if (!isAbsolute(workdir)) return yield* T.fail(usage('--workdir needs an absolute path.'))
+    if (!(yield* env.files.exists(workdir)))
       return yield* T.fail(failed(`The working directory ${workdir} does not exist.`))
     return workdir
   })
+
+const isAbsolute = (path: string): boolean => /^(\/|[A-Za-z]:[\\/])/.test(path)
 
 const ran = (step: ServiceCommand, paths: ServicePaths): T.Task<ProcessRun, CliFailure, CliEnv> =>
   T.gen(function* () {
@@ -224,3 +270,45 @@ const attempted = (step: ServiceCommand): T.Task<ProcessRun, never, CliEnv> =>
   })
 
 const usage = (message: string): CliFailure => CliFailure({ message, exitCode: EXIT.usage })
+
+/**
+ * The Node executable, the script and the PATH the service starts with, none of them in a directory a
+ * version manager made for one shell. A preset whose program is missing from that PATH fails the
+ * install; a path that a version manager owns earns a warning.
+ */
+const stableProgram = (
+  options: ServiceOptions,
+): T.Task<{ program: string[]; path: string | null; warnings: string[] }, CliFailure, CliEnv> =>
+  T.gen(function* () {
+    const env = yield* T.ask<CliEnv>()
+    const program = yield* T.forEach(env.program, lastingPathOf)
+    const given = env.variables.PATH
+    const searched = given === undefined ? undefined : yield* stablePath(given, env.platform)
+    const agent = agentCommand(options.agent)
+    const settings: RunnerSettings = {
+      agent,
+      timeoutSeconds: 0,
+      split: options.split
+        ? {
+            reader: options.reader ?? defaultReader(options.agent, env.platform),
+            requireToollessReader: options.requireToollessReader,
+          }
+        : null,
+    }
+    const missing = yield* T.provide({ variables: { ...env.variables, PATH: searched } })(
+      missingCommandOf(settings),
+    )
+    if (missing !== null) return yield* T.fail(failed(missing))
+    const agentProgram = searched === undefined ? null : yield* resolvedProgram(agent, searched)
+    const checked = [
+      ['Node', program[0]],
+      ['The homingbird command line', program[1]],
+      ['The agent command’s program', agentProgram],
+    ] as const
+    const warnings: string[] = []
+    for (const [what, path] of checked) {
+      const warning = path == null ? null : yield* unstablePathWarningFor(what, path)
+      if (warning !== null) warnings.push(warning)
+    }
+    return { program, path: env.platform === 'win32' ? null : (searched ?? null), warnings }
+  })

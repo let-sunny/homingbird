@@ -105,7 +105,7 @@ export const makeHostedDesk = (options: HostedDeskOptions): HostedDesk => {
   const isPausedOnComputer: T.Task<boolean> = T.suspend(() =>
     memberId === null
       ? T.succeed(phase === 'paused_on_computer')
-      : T.promise(() => options.env.files.exists(deskPausePath(options.env, options.serverUrl, memberId!))),
+      : options.env.files.exists(deskPausePath(options.env, options.serverUrl, memberId!)),
   )
 
   return {
@@ -134,8 +134,6 @@ export const makeHostedDesk = (options: HostedDeskOptions): HostedDesk => {
       missingCommand === null ? DESCRIPTIONS[phase] : `${DESCRIPTIONS[phase]} ${missingCommand}`,
   }
 }
-
-export const RESTART_DELAY_MS = 60_000
 
 const NOT_FOUND = 'could not be found:'
 
@@ -182,3 +180,5 @@ const turnedText = (on: boolean, phase: DeskPhase): string =>
   on
     ? `Tell me in one line: ${phase === 'signed_out' ? DESCRIPTIONS.signed_out : 'my Homingbird desk is on again in this app.'}`
     : 'Tell me in one line: my Homingbird desk in this app is paused, and arriving notes wait until I turn it back on.'
+
+const RESTART_DELAY_MS = 60_000

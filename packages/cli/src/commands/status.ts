@@ -1,15 +1,19 @@
 import { Task as T } from '@homingbird/kernel'
 import { credentialFor, readCredential, storedServers } from '../credentials.ts'
-import { deskPausePath, isDeskPaused } from '../desk-pause.ts'
+import { deskPausePath, deskStateText, isDeskPaused } from '../desk-pause.ts'
 import type { CliEnv } from '../environment.ts'
 import type { CliFailure } from '../failure.ts'
 import { type Outcome, outcome } from '../outcome.ts'
-import { apiFor, calling } from '../session.ts'
+import { apiFor, calling, requireReadable } from '../session.ts'
 
-/** Who this device is signed in as: on the server named, on the only one, or on each of several. */
+/**
+ * Who this device is signed in as: on the server named, on the only one, on each of several, or with
+ * the credentials file given.
+ */
 export const status: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function* () {
   const env = yield* T.ask<CliEnv>()
-  const servers = yield* storedServers
+  const file = env.credentialsFile
+  const servers = file === null ? yield* storedServers : []
   if (env.server === null && servers.length > 1) return yield* everyServer(servers)
   const agent = yield* readCredential
   if (agent === null)
@@ -17,7 +21,9 @@ export const status: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function* () {
       { signedIn: false, ...(env.server !== null && { server: env.server }), servers },
       env.server === null ? 'Not signed in.' : `Not signed in to ${env.server}.`,
     )
-  const me = yield* calling(apiFor(env, agent)['me.get']({}))
+  const api = apiFor(env, agent)
+  yield* requireReadable(api)
+  const me = yield* calling(api['me.get']({}))
   const deskPaused = yield* isDeskPaused(deskPausePath(env, agent.serverUrl, me.member.id))
   return outcome(
     {
@@ -29,14 +35,16 @@ export const status: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function* () {
       transport: TRANSPORT,
       deskPaused,
       servers,
+      ...(file !== null && { credentialsFile: file }),
     },
     [
       `Server:         ${agent.serverUrl}`,
+      ...(file === null ? [] : [`Read from:      ${file}`]),
       `Signed in as:   ${me.member.name} <${me.member.email}>`,
       `Credential:     ${me.credential.name} (${me.credential.kind})`,
       `Language:       ${me.locale ?? 'follows the browser'}`,
       `Transport:      ${TRANSPORT}`,
-      `Desk:           ${deskPaused ? 'paused on this computer; `homingbird desk resume` to answer again' : 'not paused'}`,
+      `Desk:           ${deskStateText(deskPaused)}`,
     ].join('\n'),
   )
 })

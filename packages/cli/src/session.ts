@@ -1,4 +1,4 @@
-import { httpApi } from '@homingbird/client'
+import { httpApi, requireReadableServer } from '@homingbird/client'
 import { Task as T } from '@homingbird/kernel'
 import type { Api, ApiError } from '@homingbird/protocol'
 import { type StoredCredential, requireCredential } from './credentials.ts'
@@ -18,5 +18,8 @@ export const openSession: T.Task<Session, CliFailure, CliEnv> = T.gen(function* 
 
 export const apiFor = (env: Pick<CliEnv, 'fetch'>, credential: StoredCredential): Api =>
   httpApi({ serverUrl: credential.serverUrl, fetch: env.fetch, token: () => credential.token })
+
+/** The one protocol check a command makes, when it starts a stream, a desk or reports the status. */
+export const requireReadable = (api: Api): T.Task<void, CliFailure> => calling(requireReadableServer(api))
 
 export const calling = <A>(call: T.Task<A, ApiError>): T.Task<A, CliFailure> => T.mapError(fromApiError)(call)

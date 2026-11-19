@@ -1,6 +1,5 @@
 import { Task as T } from '@homingbird/kernel'
-import { BUILT_IN_CHARACTERS } from '@homingbird/protocol'
-import { ANSWER_RULE } from './answering.ts'
+import { ANSWER_RULE, BUILT_IN_CHARACTERS } from '@homingbird/protocol'
 import { CHARACTER_SAVED_ONLY_BY_A_PERSON } from './character-tools.ts'
 import { type RpcFailure, invalidParams } from './json-rpc.ts'
 

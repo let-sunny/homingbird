@@ -17,17 +17,20 @@ const claimWorld = () => {
     variables: {},
     homeDirectory: '/home/ana',
     files: {
-      read: async (path) => files.get(path) ?? null,
-      exists: async (path) => files.has(path),
-      writePrivate: async (path, content) => void files.set(path, content),
-      writeOwnerOnly: async (path, content) => void files.set(path, content),
-      createExclusive: async (path, content) => {
-        if (files.has(path)) return false
-        files.set(path, content)
-        return true
-      },
-      remove: async (path) => void files.delete(path),
-      list: async () => [],
+      read: (path) => T.sync(() => files.get(path) ?? null),
+      exists: (path) => T.sync(() => files.has(path)),
+      writePrivate: (path, content) => T.sync(() => void files.set(path, content)),
+      writeOwnerOnly: (path, content) => T.sync(() => void files.set(path, content)),
+      createExclusive: (path, content) =>
+        T.sync(() => {
+          if (files.has(path)) return false
+          files.set(path, content)
+          return true
+        }),
+      remove: (path) => T.sync(() => void files.delete(path)),
+      list: () => T.sync(() => []),
+      mode: () => T.sync(() => null),
+      isWritable: () => T.sync(() => true),
     },
   }
   const run = <A>(task: T.Task<A, never, ClaimEnv>) => T.runPromise(task, env)

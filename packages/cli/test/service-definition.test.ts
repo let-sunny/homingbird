@@ -8,6 +8,7 @@ import {
   serviceLockPath,
   serviceSlug,
   serviceStopPath,
+  serviceVariables,
   valuesOf,
 } from '../src/service-definition.ts'
 import { SPEC, SPLIT_SPEC, unescapeXml } from './service-fixtures.ts'
@@ -31,6 +32,11 @@ describe('what every service runs', () => {
       '--workdir',
       'C:\\w',
     ])
+    expect(runnerArguments(SPEC, { credentialsFile: 'C:\\secret.json' }).slice(-2)).toEqual([
+      '--credentials-file',
+      'C:\\secret.json',
+    ])
+    expect(runnerArguments({ ...SPEC, credentialsFile: '/run/secret.json' })).toEqual(runnerArguments(SPEC))
     expect(serviceLockPath('/c', SPEC.server)).toBe('/c/desks/service-https-hb-example-com.lock')
     expect(serviceStopPath('/c', SPEC.server)).toBe('/c/desks/service-https-hb-example-com.stop')
   })
@@ -77,6 +83,16 @@ describe('what every service runs', () => {
     )
     expect(valuesOf(SPLIT_SPEC)).toContain(SPLIT_SPEC.reader)
     expect(valuesOf({ ...SPEC, path: null })).not.toContain(SPEC.path)
+    expect(valuesOf({ ...SPEC, credentialsFile: '/run/secret.json' })).toContain('/run/secret.json')
+    expect(requirePrintable({ ...SPEC, credentialsFile: '/run/secret\n.json' })._tag).toBe('Err')
+  })
+
+  it('names the credentials file, never its content, among the variables the service starts with', () => {
+    expect(serviceVariables(SPEC)).toEqual([['PATH', SPEC.path]])
+    expect(serviceVariables({ ...SPEC, path: null, credentialsFile: '/run/secret.json' })).toEqual([
+      ['HOMINGBIRD_CREDENTIALS_FILE', '/run/secret.json'],
+    ])
+    expect(serviceVariables({ ...SPEC, path: null })).toEqual([])
   })
 
   it('escapes XML so that it reads back unchanged', () => {

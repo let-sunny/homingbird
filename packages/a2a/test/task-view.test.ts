@@ -82,6 +82,16 @@ describe('taskViewOf', () => {
     expect(shown.statusText).toMatch(/discarded.*never sent/i)
   })
 
+  it('shows a note whose status a newer server added as not sent, without reading the conversation', async () => {
+    const { view: shown, calls } = await view({ ...QUESTION, status: 'unknown' as never })
+    expect(shown).toMatchObject({
+      phase: 'input_required',
+      statusText: 'This note has a status this client does not know; treat as not sent.',
+      artifacts: [],
+    })
+    expect(calls).toEqual([])
+  })
+
   it('shows a sent note nobody answered as working, without reading the conversation', async () => {
     const { view: shown, calls } = await view(QUESTION)
     expect(shown).toMatchObject({

@@ -20,6 +20,8 @@
     <string>--reader</string>
     <string>claude -p --tools &apos;&apos; --strict-mcp-config</string>
     <string>--require-toolless-reader</string>
+    <string>--log</string>
+    <string>/Users/june/.config/homingbird/logs/runner-https-hb-example-com.log</string>
   </array>
   <key>WorkingDirectory</key>
   <string>/home/june/work notes</string>

@@ -1,4 +1,5 @@
 import { Task as T } from '@homingbird/kernel'
+import { setAnalytics } from './analytics.ts'
 import { type Invocation, type Parsed, USAGE, parseArguments } from './arguments.ts'
 import { channels } from './commands/channels.ts'
 import { debates } from './commands/debates.ts'
@@ -19,6 +20,7 @@ import { stream } from './commands/stream.ts'
 import type { CliEnv } from './environment.ts'
 import type { CliFailure } from './failure.ts'
 import { type Outcome, outcome } from './outcome.ts'
+import { CLI_VERSION } from './version.ts'
 
 export const runCli = (argv: ReadonlyArray<string>): T.Task<number, never, CliEnv> =>
   T.gen(function* () {
@@ -27,7 +29,9 @@ export const runCli = (argv: ReadonlyArray<string>): T.Task<number, never, CliEn
     if (parsed._tag === 'Err') return report(env, parsed.error, argv.includes('--json'))
     const server =
       parsed.value.server ?? (env.variables.HOMINGBIRD_SERVER?.trim().replace(/\/+$/, '') || null)
-    const commandEnv = { ...env, server, ...(isService(parsed.value) && { output: timestamped(env) }) }
+    const credentialsFile =
+      parsed.value.credentialsFile ?? (env.variables.HOMINGBIRD_CREDENTIALS_FILE?.trim() || null)
+    const commandEnv = { ...env, server, credentialsFile, output: outputFor(env, parsed.value) }
     const print = printer(commandEnv, parsed.value.json)
     const result = yield* T.result(T.provide(commandEnv)(execute(parsed.value, print)))
     if (result._tag === 'Err') return report(commandEnv, result.error, parsed.value.json)
@@ -43,6 +47,8 @@ const execute = (
   switch (invocation.command) {
     case 'help':
       return T.succeed(outcome({ usage: USAGE }, USAGE))
+    case 'version':
+      return T.succeed(outcome({ version: CLI_VERSION }, `homingbird ${CLI_VERSION}`))
     case 'login':
       return login(invocation, print)
     case 'logout':
@@ -61,6 +67,8 @@ const execute = (
       return open(invocation.conversationId)
     case 'run':
       return T.as(null)(invocation.isService ? runAsService(invocation, print) : run(invocation, print))
+    case 'analytics':
+      return T.map(analyticsOutcome)(setAnalytics(invocation.action))
     case 'presets':
       return T.map((env: CliEnv) => presets(env.platform))(T.ask<CliEnv>())
     case 'service':
@@ -107,6 +115,23 @@ const printer =
 
 const isService = (parsed: Parsed): boolean =>
   parsed.invocation.command === 'run' && parsed.invocation.isService === true
+
+/** A service's lines carry their time; `--log-level error` or `warn` keeps only problems. */
+const outputFor = (env: CliEnv, parsed: Parsed): CliEnv['output'] => {
+  const level = parsed.invocation.command === 'run' ? (parsed.invocation.logLevel ?? 'info') : 'info'
+  const output = isService(parsed) ? timestamped(env) : env.output
+  return level === 'error' || level === 'warn' ? { line: () => {}, problem: output.problem } : output
+}
+
+const analyticsOutcome = (state: { readonly enabled: boolean; readonly doNotTrack: boolean }): Outcome =>
+  outcome(
+    state,
+    state.doNotTrack
+      ? 'Anonymous usage counts are off: DO_NOT_TRACK is set.'
+      : state.enabled
+        ? 'Anonymous usage counts are on, when your server asks for them. Turn them off with `homingbird analytics off`.'
+        : 'Anonymous usage counts are off on this computer.',
+  )
 
 /** The background service's log is a file: each line says when it was written. */
 const timestamped = (env: CliEnv): CliEnv['output'] => {

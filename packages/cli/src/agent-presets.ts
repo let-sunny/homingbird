@@ -19,11 +19,17 @@ export const isReaderWithSomeTools = (reader: string): boolean =>
       ['linux', 'win32'].some((platform) => presetReader(preset, platform) === reader.trim()),
   )
 
+/** Whether a command is a preset's agent or reader command, as `--agent <name>` gives it. */
+export const isPresetCommand = (command: string, platform: string): boolean =>
+  AGENT_PRESETS.some(
+    (preset) => preset.agent === command.trim() || presetReader(preset, platform) === command.trim(),
+  )
+
 export const presetNamed = (value: string): AgentPreset | null =>
   AGENT_PRESETS.find((preset) => preset.name === value.trim()) ?? null
 
 export const presetState = (preset: AgentPreset): string =>
-  preset.verifiedWith === null ? 'from source, unrun' : `verified with ${preset.verifiedWith}`
+  preset.verifiedWith === null ? 'not yet tested with the real CLI' : `verified with ${preset.verifiedWith}`
 
 export interface AgentPreset {
   readonly name: string

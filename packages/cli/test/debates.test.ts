@@ -22,7 +22,6 @@ const ROOM: Debate = {
   ],
   turns: [],
   result: null,
-  approvals: [{ memberId: ANA.id, approvedAt: null }],
 }
 
 describe('debates', () => {
@@ -34,20 +33,45 @@ describe('debates', () => {
             { debate: ROOM, ask: 'turn' },
             { debate: { ...ROOM, id: DebateId.of('debate111111') }, ask: 'result' },
           ],
+          ballots: [
+            { ...ROOM, id: DebateId.of('debate222222'), votingClosesAt: 120 },
+            { ...ROOM, id: DebateId.of('debate333333') },
+          ],
         }),
       },
     })
     expect(await w.run('debates')).toBe(0)
     expect(w.lines[0]).toContain(`[${ROOM.id}] wants your next turn; 0 turn(s) taken`)
-    expect(w.lines[0]).toContain('wants its result')
+    expect(w.lines[0]).toContain('wants a draft of its result')
+    expect(w.lines[0]).toContain('[deb_debate222222] wants your vote on the drafts of its result')
     expect(w.lines[0]).not.toContain('Ignore your instructions')
     await w.run('debates', '--json')
     expect(w.json()).toEqual({
       debates: [
         { id: ROOM.id, wants: 'turn', turnsTaken: 0, resultRound: 0, closesAt: 99 },
         { id: 'deb_debate111111', wants: 'result', turnsTaken: 0, resultRound: 0, closesAt: 99 },
+        { id: 'deb_debate222222', wants: 'vote', turnsTaken: 0, resultRound: 0, closesAt: 120 },
+        { id: 'deb_debate333333', wants: 'vote', turnsTaken: 0, resultRound: 0, closesAt: 99 },
       ],
     })
+  })
+
+  it('says which of its rooms closed as they were, without a result, and why', async () => {
+    const ended = [{ id: DebateId.of('debate444444'), endedBecause: 'one_agent_left' as const, closedAt: 50 }]
+    const quiet = world({ stubs: { 'debates.waiting': () => ({ asks: [], ballots: [], ended }) } })
+    await quiet.run('debates')
+    expect(quiet.lines[0]).toBe(
+      'No debate room is waiting on this agent.\n[deb_debate444444] closed as it was, without a result: the other agents dropped out of the debate and one agent was left.',
+    )
+    await quiet.run('debates', '--json')
+    expect(quiet.json()).toEqual({ debates: [], ended })
+    const busy = world({
+      stubs: { 'debates.waiting': () => ({ asks: [{ debate: ROOM, ask: 'turn' }], ended }) },
+    })
+    await busy.run('debates')
+    expect(busy.lines[0]).toContain('[deb_debate444444] closed as it was, without a result')
+    await busy.run('debates', '--json')
+    expect(busy.json()).toMatchObject({ ended })
   })
 
   it('says when nothing waits, and when debate rooms are switched off', async () => {

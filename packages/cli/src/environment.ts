@@ -1,5 +1,5 @@
 import type { Fetch } from '@homingbird/client'
-import type { HasClock } from '@homingbird/kernel'
+import type { HasClock, Task as T } from '@homingbird/kernel'
 
 export interface CliEnv extends HasClock {
   readonly fetch: Fetch
@@ -12,12 +12,15 @@ export interface CliEnv extends HasClock {
   readonly stopped: AbortSignal
   readonly launcher: Launcher
   readonly processes: Processes
+  readonly programs: Programs
   readonly platform: string
   /** How to start this command line again, such as the Node executable and the script. */
   readonly program: ReadonlyArray<string>
   readonly userId: number | null
   /** The server this command was told to use, with --server or HOMINGBIRD_SERVER. */
   readonly server: string | null
+  /** The one file to read the agent credential from, with --credentials-file or HOMINGBIRD_CREDENTIALS_FILE. */
+  readonly credentialsFile: string | null
 }
 
 export interface Launcher {
@@ -35,6 +38,13 @@ export interface Processes {
   readonly run: (program: string, args: ReadonlyArray<string>) => Promise<ProcessRun>
 }
 
+export interface Programs {
+  /** Where a path leads once every symbolic link is followed; null when nothing is there. */
+  readonly realPath: (path: string) => Promise<string | null>
+  /** Whether a file is there that this computer can run. */
+  readonly isRunnable: (path: string) => Promise<boolean>
+}
+
 export interface ProcessRun {
   readonly exitCode: number | null
   readonly output: string
@@ -46,16 +56,20 @@ export interface AgentRun {
 }
 
 export interface Files {
-  readonly read: (path: string) => Promise<string | null>
-  readonly exists: (path: string) => Promise<boolean>
-  readonly writePrivate: (path: string, content: string) => Promise<void>
+  readonly read: (path: string) => T.Task<string | null>
+  readonly exists: (path: string) => T.Task<boolean>
+  readonly writePrivate: (path: string, content: string) => T.Task<void>
   /** Writes a file only its owner can read, in a directory it may share: existing directories keep their mode. */
-  readonly writeOwnerOnly: (path: string, content: string) => Promise<void>
+  readonly writeOwnerOnly: (path: string, content: string) => T.Task<void>
   /** Writes a private file only when none exists; false when one does. */
-  readonly createExclusive: (path: string, content: string) => Promise<boolean>
-  readonly remove: (path: string) => Promise<void>
+  readonly createExclusive: (path: string, content: string) => T.Task<boolean>
+  readonly remove: (path: string) => T.Task<void>
+  /** The permission bits of what is there, following links; null when nothing is. */
+  readonly mode: (path: string) => T.Task<number | null>
+  /** Whether this process may change the file and remove it from its directory. */
+  readonly isWritable: (path: string) => T.Task<boolean>
   /** The names of the files directly in a directory; none when it does not exist. */
-  readonly list: (directory: string) => Promise<string[]>
+  readonly list: (directory: string) => T.Task<string[]>
 }
 
 export interface Output {

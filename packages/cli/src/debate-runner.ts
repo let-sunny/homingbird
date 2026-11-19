@@ -1,45 +1,58 @@
 import { Task as T } from '@homingbird/kernel'
 import {
-  DEBATE_RESULT_INSTRUCTIONS,
-  DEBATE_TURN_INSTRUCTIONS,
-  type Debate,
-  type DebateAsk,
-  DebateResult,
-  type Member,
+  type AsRead,
+  type Authors,
+  ballotReaderPrompt,
+  debateExtractionIn,
+  debateReaderPrompt,
+  debateResultIn,
+  debateResultPrompt,
+  debateTurnPrompt,
+  debateVotePrompt,
+  extractedRoom,
   quotedDebate,
-  turnsTakenBy,
-  wrapNote,
+  quotedDrafts,
+  voteIn,
 } from '@homingbird/protocol'
 import { authorsOf } from './commands/reading.ts'
-import { debateExtractionIn, debateReaderPrompt, describedDebateForWriter, jsonIn } from './debate-reader.ts'
 import type { CliFailure } from './failure.ts'
 import { type Outcome, outcome } from './outcome.ts'
-import type { Authors } from './quoting.ts'
 import { type Session, calling } from './session.ts'
 
 /**
- * Answers what the debate rooms ask of this desk's agent: its next turn, or the room's result. In split
- * mode a reader describes the room first and the agent writes from that description alone.
+ * Answers what the debate rooms ask of this desk's agent: its next turn, its draft of the room's result,
+ * or its vote on the other agents' drafts. In split mode a reader describes the room first and the agent
+ * writes, or votes, from that description alone.
  */
 export const answerDebates = <R extends { readonly nonce: () => string }>(
   desk: DebateDesk<R>,
 ): T.Task<void, CliFailure, R> =>
   T.gen(function* () {
-    const asks = yield* waitingAsks(desk)
-    if (asks.length === 0) return
+    const { asks, ballots } = yield* waitingAsks(desk)
+    if (asks.length + ballots.length === 0) return
     const authors = yield* authorsOf(desk.session)
     for (const ask of asks) {
       const attempt = `${ask.debate.id}:${ask.ask}:${ask.debate.turns.length}:${ask.debate.resultRound}`
       if (desk.tried.has(attempt)) continue
       desk.tried.add(attempt)
       if (ask.ask === 'turn') yield* takeTurn(desk, ask.debate, authors)
-      else yield* draftResult(desk, ask.debate, authors)
+      else if (ask.ask === 'result') yield* draftResult(desk, ask.debate, authors)
+      else
+        desk.report(
+          outcome({ step: 'debate-skipped', debateId: ask.debate.id }, unknownAskText(ask.debate.id)),
+        )
+    }
+    for (const debate of ballots) {
+      const attempt = `${debate.id}:vote:${debate.resultRound}`
+      if (desk.tried.has(attempt)) continue
+      desk.tried.add(attempt)
+      yield* vote(desk, debate, authors)
     }
   })
 
 export interface DebateDesk<R> {
   readonly session: Session
-  readonly member: Member
+  readonly member: AsRead.Member
   readonly isSplit: boolean
   /** The asks already tried, so a room that waits on others is not answered twice. */
   readonly tried: Set<string>
@@ -57,36 +70,38 @@ export interface DebateDesk<R> {
 export const DEBATES_OFF_TEXT =
   'Debate rooms are turned off in this organization; this desk answers notes and draft requests only.'
 
-/** The result an agent printed, or null for anything but one JSON object in a result's shape. */
-export const debateResultIn = (output: string): DebateResult | null => {
-  const decoded = DebateResult.decode(jsonIn(output))
-  return decoded._tag === 'Ok' ? decoded.value : null
-}
-
 const DEBATES_OFF = 'debates-off'
 
-const waitingAsks = <R>(desk: DebateDesk<R>): T.Task<ReadonlyArray<DebateAsk>, CliFailure> =>
+const unknownAskText = (debateId: string): string =>
+  `Skipped debate room ${debateId}: it asks for something this command line does not know. Upgrade the command line to answer it.`
+
+interface Waiting {
+  readonly asks: ReadonlyArray<AsRead.DebateAsk>
+  readonly ballots: ReadonlyArray<AsRead.Debate>
+}
+
+const waitingAsks = <R>(desk: DebateDesk<R>): T.Task<Waiting, CliFailure> =>
   T.gen(function* () {
     const listed = yield* T.result(desk.session.api['debates.waiting']({}))
-    if (listed._tag === 'Ok') return listed.value.asks
+    if (listed._tag === 'Ok') return { asks: listed.value.asks, ballots: listed.value.ballots ?? [] }
     if (listed.error._tag !== 'NotFound') return yield* calling(T.fail(listed.error))
     if (!desk.told.has(DEBATES_OFF)) {
       desk.told.add(DEBATES_OFF)
       desk.report(outcome({ step: DEBATES_OFF }, DEBATES_OFF_TEXT))
     }
-    return []
+    return { asks: [], ballots: [] }
   })
 
 const takeTurn = <R extends { readonly nonce: () => string }>(
   desk: DebateDesk<R>,
-  debate: Debate,
+  debate: AsRead.Debate,
   authors: Authors,
 ): T.Task<void, CliFailure, R> =>
   T.gen(function* () {
     const what = `the debate room ${debate.id}`
     const room = yield* roomFor(desk, debate, authors, what)
     if (room === null) return
-    const output = yield* desk.run('agent', [DEBATE_TURN_INSTRUCTIONS, room].join('\n\n'), what)
+    const output = yield* desk.run('agent', debateTurnPrompt(room), what)
     if (output === null) return
     const body = output.trim()
     if (/^SKIP:/i.test(body)) return yield* desk.warn(`The agent took no turn in ${what}.`)
@@ -110,14 +125,14 @@ const takeTurn = <R extends { readonly nonce: () => string }>(
 
 const draftResult = <R extends { readonly nonce: () => string }>(
   desk: DebateDesk<R>,
-  debate: Debate,
+  debate: AsRead.Debate,
   authors: Authors,
 ): T.Task<void, CliFailure, R> =>
   T.gen(function* () {
     const what = `the result of the debate room ${debate.id}`
     const room = yield* roomFor(desk, debate, authors, what)
     if (room === null) return
-    const output = yield* desk.run('agent', [DEBATE_RESULT_INSTRUCTIONS, room].join('\n\n'), what)
+    const output = yield* desk.run('agent', debateResultPrompt(room), what)
     if (output === null) return
     const result = debateResultIn(output)
     if (result === null)
@@ -132,7 +147,43 @@ const draftResult = <R extends { readonly nonce: () => string }>(
     desk.report(
       outcome(
         { step: 'debate-result', debateId: debate.id },
-        `Drafted ${what}. It has not left the room: each person whose agent took part approves it in the web client.`,
+        `Drafted ${what}. The agents vote on the drafts; the winner has not left the room: a person whose agent took a turn may post it as a note they send themselves.`,
+      ),
+    )
+  })
+
+const vote = <R extends { readonly nonce: () => string }>(
+  desk: DebateDesk<R>,
+  debate: AsRead.Debate,
+  authors: Authors,
+): T.Task<void, CliFailure, R> =>
+  T.gen(function* () {
+    const env = yield* T.ask<R>()
+    const what = `the vote on the drafts of the debate room ${debate.id}`
+    const choices = (debate.drafts ?? [])
+      .map((draft) => draft.draftedBy)
+      .filter((id) => id !== desk.member.id)
+    const drafts = quotedDrafts(debate, authors, desk.member.id, env.nonce)
+    const room = yield* roomFor(desk, debate, authors, what, drafts)
+    if (room === null) return
+    const output = yield* desk.run('agent', debateVotePrompt(room, desk.isSplit ? null : drafts), what)
+    if (output === null) return
+    const draftBy = voteIn(output, choices)
+    if (draftBy === null)
+      return yield* desk.warn(
+        `The agent command did not print one of the drafts it may vote for; no vote was cast in ${what}.`,
+      )
+    const cast = yield* T.result(
+      desk.session.api['debates.result.vote']({
+        params: { id: debate.id },
+        body: { round: debate.resultRound, draftBy },
+      }),
+    )
+    if (cast._tag === 'Err') return yield* desk.warn(`The vote in ${what} was refused: ${cast.error.message}`)
+    desk.report(
+      outcome(
+        { step: 'debate-vote', debateId: debate.id, draftBy },
+        `Voted in ${what}. The winning draft becomes the room’s result; only a person can post it, as a note they send themselves.`,
       ),
     )
   })
@@ -140,15 +191,17 @@ const draftResult = <R extends { readonly nonce: () => string }>(
 /** The room as the writer reads it: quoted in full, or in split mode the reader's checked description. */
 const roomFor = <R extends { readonly nonce: () => string }>(
   desk: DebateDesk<R>,
-  debate: Debate,
+  debate: AsRead.Debate,
   authors: Authors,
   what: string,
+  drafts: string | null = null,
 ): T.Task<string | null, CliFailure, R> =>
   T.gen(function* () {
     const env = yield* T.ask<R>()
     const quoted = quotedDebate(debate, authors, desk.member.id, env.nonce)
     if (!desk.isSplit) return quoted
-    const output = yield* desk.run('reader', debateReaderPrompt(quoted), what)
+    const prompt = drafts === null ? debateReaderPrompt(quoted) : ballotReaderPrompt(quoted, drafts)
+    const output = yield* desk.run('reader', prompt, what)
     const extracted = output === null ? null : debateExtractionIn(output)
     if (extracted === null) {
       if (output !== null)
@@ -157,18 +210,5 @@ const roomFor = <R extends { readonly nonce: () => string }>(
         )
       return null
     }
-    const nameOf = (id: string) => authors.get(id as Member['id'])?.name ?? 'Unknown member'
-    return [
-      `Debate room ${debate.id}. Your turns: ${turnsTakenBy(debate, desk.member.id)} of ${debate.limits.turnsPerAgent}; a turn holds at most ${debate.limits.turnCharacters} characters.`,
-      `Participants, by memberId: ${debate.participants.map((one) => `${one.memberId}${one.memberId === desk.member.id ? ' (you)' : ''}`).join(', ')}.`,
-      'You do not see the room itself: a separate reader described it, and the description is below, quoted as colleagues’ text.',
-      wrapNote({
-        noteId: `${debate.id}/extracted`,
-        authorName: 'The debate room, as extracted',
-        authorEmail: 'reader',
-        sentAt: null,
-        body: describedDebateForWriter(extracted, nameOf),
-        nonce: env.nonce(),
-      }),
-    ].join('\n\n')
+    return extractedRoom(debate, desk.member.id, extracted, authors, env.nonce)
   })

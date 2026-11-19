@@ -5,11 +5,12 @@ import { type LocalSession, SIGN_IN_FIRST, type SessionState } from '../src/loca
 import { localAdapterOf, noticingRefusals } from '../src/local-tools.ts'
 import { fakeApi } from './support.ts'
 
-const sessionIn = (initial: SessionState) => {
+const sessionIn = (initial: SessionState, protocolProblem: string | null = null) => {
   let state = initial
   const session: LocalSession = {
     state: () => state,
     token: () => null,
+    protocolProblem: () => protocolProblem,
     restore: T.unit,
     login: T.succeed('login'),
     status: T.succeed('status'),
@@ -41,6 +42,11 @@ describe('localAdapterOf', () => {
         }),
       ).blockedBecause(),
     ).toContain('confirm the code BCDF-GHJK')
+  })
+
+  it('blocks the other tools with one sentence when the server speaks a protocol it cannot read', () => {
+    const problem = 'This Homingbird server is too old for this client; upgrade the server.'
+    expect(localAdapterOf(sessionIn({ kind: 'signed_in' }, problem)).blockedBecause()).toBe(problem)
   })
 
   it('offers a login prompt that asks for the link only when the browser did not open', () => {

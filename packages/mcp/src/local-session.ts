@@ -6,9 +6,11 @@ import {
   beginDeviceFlow,
   eventStream,
   httpApi,
+  isRevokedOnServer,
+  requireReadableServer,
 } from '@homingbird/client'
-import { type Clock, Task as T } from '@homingbird/kernel'
-import type { StreamEvent } from '@homingbird/protocol'
+import { type Clock, Stream, Task as T } from '@homingbird/kernel'
+import { type AsRead, UPGRADE_SENTENCES, isFeatureOffered } from '@homingbird/protocol'
 import { ONE_DESK } from './answering.ts'
 import type { OpenInBrowser } from './browser-opener.ts'
 import { readCredential, removeCredential, storeCredential } from './credential-file.ts'
@@ -39,12 +41,14 @@ export interface SessionDesk {
 
 export interface SessionListener {
   readonly online: T.Task<void>
-  readonly received: (event: StreamEvent) => T.Task<void>
+  readonly received: (event: AsRead.StreamEvent) => T.Task<void>
 }
 
 export interface LocalSession {
   readonly state: () => SessionState
   readonly token: () => string | null
+  /** Why the server cannot be used, in one sentence: its protocol is one this adapter cannot read. */
+  readonly protocolProblem: () => string | null
   readonly restore: T.Task<void>
   readonly login: T.Task<string>
   readonly status: T.Task<string>
@@ -54,12 +58,17 @@ export interface LocalSession {
 
 export const SIGN_IN_FIRST = 'Not signed in to Homingbird. Call the login tool first.'
 
+/** Said in status when the server counts anonymous usage; this adapter sends none itself. */
+export const ANALYTICS_NOTICE =
+  'This Homingbird server counts anonymous usage from the web client and the command line, never notes, names or email addresses; this MCP adapter sends none. People turn it off with `homingbird analytics off` or DO_NOT_TRACK=1.'
+
 export const makeLocalSession = (options: LocalSessionOptions): LocalSession => {
   const { serverUrl, credentialPath, scope, clock } = options
   const fetching = options.fetch !== undefined ? { fetch: options.fetch } : {}
   const flow: DeviceFlowOptions = {
     serverUrl,
     clientName: options.clientName,
+    clientKind: 'mcp',
     ...fetching,
   }
   const timed = <A, E>(task: T.Task<A, E, { clock: Clock }>): T.Task<A, E> =>
@@ -69,6 +78,8 @@ export const makeLocalSession = (options: LocalSessionOptions): LocalSession => 
   let token: string | null = null
   let approval: T.Fiber<void, never> | null = null
   let online: T.Fiber<void, never> | null = null
+  let checking: T.Fiber<void, never> | null = null
+  let protocolProblem: string | null = null
 
   const stop = (fiber: T.Fiber<void, never> | null): T.Task<void> =>
     fiber === null ? T.unit : fiber.interrupt
@@ -77,26 +88,52 @@ export const makeLocalSession = (options: LocalSessionOptions): LocalSession => 
     T.gen(function* () {
       token = accepted
       state = { kind: 'signed_in' }
+      protocolProblem = null
+      yield* stop(checking)
+      checking = yield* scope.fork(checkProtocol(accepted))
       yield* stop(online)
       if (options.desk !== undefined) yield* options.desk.signedIn(accepted)
       const listener = options.listener
       if (listener === undefined) return
-      online = yield* scope.fork(
-        T.promise(async (signal) => {
-          await T.run(listener.online, undefined, signal)
-          for await (const event of eventStream(
-            { serverUrl, token: () => token, clock, ...fetching },
-            signal,
-          ))
-            await T.run(listener.received(event), undefined, signal)
-        }),
+      online = yield* scope.fork(listening(listener))
+    })
+
+  /** Says the session is online, then hands the listener every event; a listener's defect never ends it. */
+  const listening = (listener: SessionListener): T.Task<void> =>
+    T.gen(function* () {
+      yield* T.exit(listener.online)
+      const stopping = new AbortController()
+      const events = eventStream({ serverUrl, token: () => token, clock, ...fetching }, stopping.signal)
+      yield* T.ensuring(T.sync(() => stopping.abort()))(
+        Stream.forEach((event: AsRead.StreamEvent) => T.exit(listener.received(event)))(events),
       )
+    })
+
+  /**
+   * Asked once beside the session, never before it, so that an MCP client's first request is answered
+   * at once; a server that does not answer in time is not refused.
+   */
+  const checkProtocol = (accepted: string): T.Task<void> =>
+    T.gen(function* () {
+      const checked = yield* T.result(
+        timed(
+          T.timeout(PROTOCOL_CHECK_TIMEOUT_MS)(
+            requireReadableServer(httpApi({ serverUrl, token: () => accepted, ...fetching })),
+          ),
+        ),
+      )
+      const message = checked._tag === 'Err' && 'message' in checked.error ? checked.error.message : null
+      if (token === accepted && isUpgradeSentence(message)) protocolProblem = message
     })
 
   const signedOut = (note: string | null): T.Task<void> =>
     T.gen(function* () {
       token = null
       state = { kind: 'signed_out', note }
+      protocolProblem = null
+      const stoppingCheck = checking
+      checking = null
+      yield* stop(stoppingCheck)
       const stopping = online
       online = null
       yield* stop(stopping)
@@ -121,6 +158,7 @@ export const makeLocalSession = (options: LocalSessionOptions): LocalSession => 
   return {
     state: () => state,
     token: () => token,
+    protocolProblem: () => protocolProblem,
     credentialWasRefused: () => {
       if (state.kind !== 'signed_in') return
       token = null
@@ -158,8 +196,11 @@ export const makeLocalSession = (options: LocalSessionOptions): LocalSession => 
             .filter(Boolean)
             .join(' ')
         const me = yield* T.result(httpApi({ serverUrl, token: () => token, ...fetching })['me.get']({}))
-        if (me._tag === 'Ok')
-          return `Signed in to ${serverUrl} as ${me.value.member.name} <${me.value.member.email}>, with the credential "${me.value.credential.name}". ${ONE_DESK}`
+        if (me._tag === 'Ok') {
+          const info = yield* T.result(httpApi({ serverUrl, ...fetching })['server.info']({}))
+          const counted = info._tag === 'Ok' && isFeatureOffered(info.value, 'analytics')
+          return `Signed in to ${serverUrl} as ${me.value.member.name} <${me.value.member.email}>, with the credential "${me.value.credential.name}". ${ONE_DESK}${counted ? ` ${ANALYTICS_NOTICE}` : ''}`
+        }
         if (me.error._tag !== 'Unauthorized')
           return `Signed in to ${serverUrl}, but it cannot be reached right now.`
         yield* signedOut('The stored credential is no longer accepted.')
@@ -174,25 +215,23 @@ export const makeLocalSession = (options: LocalSessionOptions): LocalSession => 
       yield* stop(waiting)
       yield* signedOut(null)
       yield* removeCredential(credentialPath, serverUrl)
-      if (revoking !== null) yield* revoke(serverUrl, revoking, options.fetch ?? globalThis.fetch)
-      return 'Signed out of Homingbird. The credential on this device was revoked and removed.'
+      if (revoking === null) return 'Signed out of Homingbird. No credential was stored on this device.'
+      return (yield* isRevokedOnServer(options.fetch ?? globalThis.fetch, serverUrl, revoking))
+        ? REVOKED_AND_REMOVED
+        : REMOVED_ONLY_HERE
     }),
   }
 }
 
+export const REVOKED_AND_REMOVED =
+  'Signed out of Homingbird. The server revoked the credential, and it was removed from this device.'
+
+export const REMOVED_ONLY_HERE =
+  "Signed out of Homingbird on this device only: the credential was removed here, but the server did not confirm that it revoked it, so it may still work. Revoke it in the web client's device list."
+
 const EXPIRY_MARGIN_MS = 60_000
 
-const revoke = (serverUrl: string, token: string, fetch: Fetch): T.Task<void> =>
-  T.catchAll(() => T.unit)(
-    T.tryPromise(
-      async (signal) => {
-        await fetch(`${serverUrl}/oauth/revoke`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({ token }).toString(),
-          signal,
-        })
-      },
-      () => 'unreachable' as const,
-    ),
-  )
+const PROTOCOL_CHECK_TIMEOUT_MS = 10_000
+
+const isUpgradeSentence = (message: string | null): message is string =>
+  (Object.values(UPGRADE_SENTENCES) as ReadonlyArray<string | null>).includes(message)

@@ -45,7 +45,7 @@ describe('homingbird desk pause and resume', () => {
     await w.run('desk', 'pause')
     await w.run('status')
     expect(w.lines.at(-1)).toContain(
-      'Desk:           paused on this computer; `homingbird desk resume` to answer again',
+      'Desk:           paused on this computer (homingbird desk resume to answer again)',
     )
     await w.run('status', '--json')
     expect(w.json()).toMatchObject({ deskPaused: true })

@@ -4,7 +4,7 @@ Documentation=https://github.com/let-sunny/homingbird/blob/main/packages/cli/REA
 
 [Service]
 Type=simple
-ExecStart="/usr/bin/node" "/usr/lib/node_modules/@homingbird/cli/dist/homingbird.js" "run" "--service" "--server" "https://hb.example.com" "--agent" "claude -p --model \"opus 5\" 100%%" "--timeout" "120" "--split" "--reader" "claude -p --tools '' --strict-mcp-config" "--require-toolless-reader"
+ExecStart="/usr/bin/node" "/usr/lib/node_modules/@homingbird/cli/dist/homingbird.js" "run" "--service" "--server" "https://hb.example.com" "--agent" "claude -p --model \"opus 5\" 100%%" "--timeout" "120" "--split" "--reader" "claude -p --tools '' --strict-mcp-config" "--require-toolless-reader" "--log" "/home/june/.config/homingbird/logs/runner-https-hb-example-com.log"
 WorkingDirectory=/home/june/work notes
 Environment="PATH=/home/june/.local/bin:/usr/local/bin:/usr/bin:/bin"
 Restart=always

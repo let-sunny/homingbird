@@ -48,7 +48,11 @@ describe('the systemd user service', () => {
         fc.string({ unit: 'grapheme' }).filter((text) => !/\p{Cc}/u.test(text)),
         (agent) => {
           const words = execWords(unit({ ...SPEC, agent }))
-          expect(words.slice(-1)).toEqual([agent])
+          expect(words[words.indexOf('--agent') + 1]).toBe(agent)
+          expect(words.slice(-2)).toEqual([
+            '--log',
+            '/home/june/.config/homingbird/logs/runner-https-hb-example-com.log',
+          ])
         },
       ),
     )
@@ -66,7 +70,25 @@ describe('the systemd user service', () => {
       '--reader',
       SPLIT_SPEC.reader,
       '--require-toolless-reader',
+      '--log',
+      '/home/june/.config/homingbird/logs/runner-https-hb-example-com.log',
     ])
+  })
+
+  it('sets the credentials file as a variable that reads back unchanged, whatever the path holds', () => {
+    fc.assert(
+      fc.property(
+        fc.string({ minLength: 1 }).filter((text) => !/\p{Cc}/u.test(text)),
+        (credentialsFile) => {
+          const line = unit({ ...SPEC, credentialsFile })
+            .split('\n')
+            .find((each) => each.startsWith('Environment="HOMINGBIRD_CREDENTIALS_FILE='))!
+          const value = /^Environment="(.*)"$/.exec(line)![1]!.replace(/\\(.)/g, '$1').replace(/%%/g, '%')
+          expect(value).toBe(`HOMINGBIRD_CREDENTIALS_FILE=${credentialsFile}`)
+          expect(execWords(unit({ ...SPEC, credentialsFile }))).not.toContain(credentialsFile)
+        },
+      ),
+    )
   })
 
   it('refuses a value with a line break, which would end the setting', () => {

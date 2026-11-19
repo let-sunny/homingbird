@@ -13,11 +13,14 @@ export type DraftTarget =
 
 export type Invocation =
   | { readonly command: 'help' }
+  | { readonly command: 'version' }
   | {
       readonly command: 'login'
       readonly server: string
       readonly name: string | null
       readonly openBrowser: boolean
+      /** Replace an existing credentials file. */
+      readonly force: boolean
     }
   | { readonly command: 'logout' }
   | { readonly command: 'status' }
@@ -26,7 +29,12 @@ export type Invocation =
   | { readonly command: 'requests' }
   | { readonly command: 'debates' }
   | { readonly command: 'open'; readonly conversationId: string | null }
-  | ({ readonly command: 'run'; readonly logFile?: string; readonly workdir?: string } & RunnerSettings)
+  | ({
+      readonly command: 'run'
+      readonly logFile?: string
+      readonly logLevel?: LogLevel
+      readonly workdir?: string
+    } & RunnerSettings)
   | { readonly command: 'inbox'; readonly fresh: boolean }
   | { readonly command: 'conversations' }
   | { readonly command: 'conversation'; readonly id: string }
@@ -47,11 +55,16 @@ export type Invocation =
   | { readonly command: 'service'; readonly action: 'status' | 'stop' | 'uninstall' }
   | { readonly command: 'desk'; readonly action: 'pause' | 'resume' }
   | { readonly command: 'presets' }
+  | { readonly command: 'analytics'; readonly action: 'on' | 'off' | 'status' }
+
+/** How much `run` writes: problems only (`error`, `warn`), or every step too (`info`, `debug`). */
+export type LogLevel = 'error' | 'warn' | 'info' | 'debug'
 
 export interface Parsed {
   readonly invocation: Invocation
   readonly json: boolean
   readonly server: string | null
+  readonly credentialsFile: string | null
 }
 
 /** `platform` decides the preset readers, whose quoting differs on Windows. */
@@ -64,17 +77,25 @@ export const parseArguments = (
     const [command, ...rest] = positionals
     const json = switches.has('json')
     const server = values.get('server')?.replace(/\/+$/, '') || null
+    const credentialsFile = values.get('credentials-file')?.trim() || null
+    if (switches.has('version') || argv[0] === '-v')
+      return { invocation: { command: 'version' }, json, server, credentialsFile }
     if (command === undefined || switches.has('help'))
-      return { invocation: { command: 'help' }, json, server }
+      return { invocation: { command: 'help' }, json, server, credentialsFile }
     if (!Object.hasOwn(BUILDERS, command)) return yield* usage(`Unknown command "${command}".`)
-    return { invocation: yield* BUILDERS[command]!({ rest, values, switches, platform }), json, server }
+    if (switches.has('force') && command !== 'login') return yield* usage('--force goes with login.')
+    const invocation = yield* BUILDERS[command]!({ rest, values, switches, platform })
+    return { invocation, json, server, credentialsFile }
   })
 
 export const USAGE = `Usage: homingbird <command> [options]
 
-  login --server <url> [--name <device name>] [--no-browser]
+  login --server <url> [--name <device name>] [--no-browser] [--credentials-file <path> [--force]]
+                                               with --credentials-file, write the agent credential to
+                                               that file instead, for a runner on another machine
   logout
   status
+  version                                      also --version or -v
   open [conversationId]                        open the web client, where drafts are approved
   directory [query] [--channel <slug>]
   channels [query]
@@ -92,7 +113,7 @@ export const USAGE = `Usage: homingbird <command> [options]
   pickup <noteId>
   skip <noteId> [reason]                       give a picked-up note back without drafting
   stream [--after <sequence>]
-  run --agent "<command>" [--timeout <seconds>]
+  run --agent "<command>" [--timeout <seconds>] [--log-level error|warn|info|debug]
       [--split [--reader "<command>"] [--require-toolless-reader]]
                                                answer arriving notes and requests with a headless agent;
                                                with --split, a reader describes each note and the
@@ -105,9 +126,14 @@ export const USAGE = `Usage: homingbird <command> [options]
                                                if it stops
   service status | service stop | service uninstall
   desk pause | desk resume                     pause or resume the runners for you on this computer
+  analytics on | analytics off | analytics status
+                                               anonymous usage counts, sent only to your server and
+                                               only when it asks; DO_NOT_TRACK=1 also turns them off
 
 Every command accepts --json, and --server <url> to say which server's credential to use (also
-read from HOMINGBIRD_SERVER). Without one, the command uses the only server you are signed in to.`
+read from HOMINGBIRD_SERVER). Without one, the command uses the only server you are signed in to.
+--credentials-file <path> (also read from HOMINGBIRD_CREDENTIALS_FILE) reads the credential from that
+file only, and never writes to it.`
 
 interface Tokens {
   readonly rest: ReadonlyArray<string>
@@ -132,6 +158,8 @@ const VALUE_FLAGS = new Set([
   'reader',
   'workdir',
   'log',
+  'log-level',
+  'credentials-file',
 ])
 const SWITCH_FLAGS = new Set([
   'json',
@@ -141,9 +169,13 @@ const SWITCH_FLAGS = new Set([
   'split',
   'require-toolless-reader',
   'service',
+  'version',
+  'force',
 ])
 
 export const RUN_TIMEOUT_DEFAULT_SECONDS = 300
+
+const LOG_LEVELS: ReadonlyArray<LogLevel> = ['error', 'warn', 'info', 'debug']
 
 const usage = (message: string): Result.Err<CliFailure> =>
   Result.err(CliFailure({ message: `${message}\n\n${USAGE}`, exitCode: EXIT.usage }))
@@ -208,6 +240,7 @@ const required = (rest: ReadonlyArray<string>, what: string): Result.Result<stri
 
 const BUILDERS: Readonly<Record<string, (tokens: Tokens) => Result.Result<Invocation, CliFailure>>> = {
   help: () => Result.ok({ command: 'help' }),
+  version: () => Result.ok({ command: 'version' }),
   login: ({ values, switches }) =>
     values.has('server')
       ? Result.ok({
@@ -215,6 +248,7 @@ const BUILDERS: Readonly<Record<string, (tokens: Tokens) => Result.Result<Invoca
           server: values.get('server')!.replace(/\/+$/, ''),
           name: values.get('name') ?? null,
           openBrowser: !switches.has('no-browser'),
+          force: switches.has('force'),
         })
       : usage('login needs --server <url>.'),
   logout: () => Result.ok({ command: 'logout' }),
@@ -234,6 +268,9 @@ const BUILDERS: Readonly<Record<string, (tokens: Tokens) => Result.Result<Invoca
       const isSplit = switches.has('split')
       if (!isSplit && (values.has('reader') || switches.has('require-toolless-reader')))
         return yield* usage('--reader and --require-toolless-reader go with --split.')
+      const logLevel = values.get('log-level')
+      if (logLevel !== undefined && !LOG_LEVELS.includes(logLevel as LogLevel))
+        return yield* usage('--log-level needs error, warn, info or debug.')
       if ((values.has('log') || values.has('workdir')) && !switches.has('service'))
         return yield* usage('--log and --workdir go with --service.')
       const reader = values.get('reader')?.trim() || defaultReader(given, platform)
@@ -244,6 +281,7 @@ const BUILDERS: Readonly<Record<string, (tokens: Tokens) => Result.Result<Invoca
         split: isSplit ? { reader, requireToollessReader: switches.has('require-toolless-reader') } : null,
         ...(switches.has('service') && { isService: true }),
         ...(values.has('log') && { logFile: values.get('log')! }),
+        ...(logLevel !== undefined && { logLevel: logLevel as LogLevel }),
         ...(values.has('workdir') && { workdir: values.get('workdir')! }),
       } as const
     }),
@@ -271,6 +309,12 @@ const BUILDERS: Readonly<Record<string, (tokens: Tokens) => Result.Result<Invoca
         workdir: values.get('workdir')?.trim() || null,
       } as const
     }),
+  analytics: ({ rest }) => {
+    const [action] = rest
+    return action === 'on' || action === 'off' || action === 'status'
+      ? Result.ok({ command: 'analytics', action })
+      : usage('analytics needs on, off or status.')
+  },
   desk: ({ rest }) => {
     const [action] = rest
     return action === 'pause' || action === 'resume'

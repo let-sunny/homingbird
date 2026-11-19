@@ -27,8 +27,6 @@ export interface StdioProgram {
   /** Where the desk runner reports; never standard output, which carries the MCP messages. */
   readonly log?: (line: string) => void
 }
-
-export const ProgramFailed = tagged('ProgramFailed')<{ readonly message: string }>()
 export type ProgramFailed = ReturnType<typeof ProgramFailed>
 
 export const USAGE = [
@@ -161,3 +159,5 @@ const optionsFrom = (program: StdioProgram) => {
       })
     : err(ProgramFailed({ message: USAGE }))
 }
+
+const ProgramFailed = tagged('ProgramFailed')<{ readonly message: string }>()

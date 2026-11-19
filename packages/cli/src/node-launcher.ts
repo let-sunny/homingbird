@@ -74,8 +74,6 @@ export const AGENT_OUTPUT_MAX_BYTES = 1_000_000
 const isWebAddress = (url: string): boolean =>
   URL.canParse(url) && ['http:', 'https:'].includes(new URL(url).protocol)
 
-export const KILL_GRACE_MS = 2_000
-
 /** taskkill ends the command and every process it started, which a kill of the shell alone would leave. */
 export const taskkillCommand = (systemRoot: string, pid: number): [string, string[]] => [
   `${systemRoot}\\System32\\taskkill.exe`,
@@ -100,3 +98,5 @@ const stopProcessGroup = (pid: number | undefined, kill: Kill): void => {
   signalGroup('SIGTERM')
   setTimeout(() => signalGroup('SIGKILL'), KILL_GRACE_MS).unref()
 }
+
+const KILL_GRACE_MS = 2_000

@@ -1,9 +1,8 @@
 import { Task as T, isOk } from '@homingbird/kernel'
-import type { DraftRequest } from '@homingbird/protocol'
+import { type Authors, type DraftRequest, quotedNote } from '@homingbird/protocol'
 import type { CliEnv } from '../environment.ts'
 import type { CliFailure } from '../failure.ts'
 import { type Outcome, outcome } from '../outcome.ts'
-import { type Authors, quoteForModel } from '../quoting.ts'
 import { type Session, calling, openSession } from '../session.ts'
 import { authorsOf } from './reading.ts'
 
@@ -52,7 +51,7 @@ export const originalOf = (
     const env = yield* T.ask<Pick<CliEnv, 'nonce'>>()
     const note = yield* T.result(session.api['notes.get']({ params: { id: request.inReplyTo } }))
     return note._tag === 'Ok'
-      ? quoteForModel(note.value, authors, env.nonce())
+      ? quotedNote(note.value, { authors, nonce: env.nonce })
       : `(The note ${request.inReplyTo} could not be loaded.)`
   })
 

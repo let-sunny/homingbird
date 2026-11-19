@@ -17,11 +17,13 @@ const CREDENTIAL = { token: 'hba_test-token', expiresAt: 1_800_000_000_000 }
 describe('credentialFilePath', () => {
   it('uses XDG_CONFIG_HOME when it is set, and ~/.config otherwise', () => {
     expect(credentialFilePath({ XDG_CONFIG_HOME: '/xdg' }, '/home/june')).toBe(
-      '/xdg/homingbird/mcp-credentials.json',
+      join('/xdg', 'homingbird', 'mcp-credentials.json'),
     )
-    expect(credentialFilePath({}, '/home/june')).toBe('/home/june/.config/homingbird/mcp-credentials.json')
+    expect(credentialFilePath({}, '/home/june')).toBe(
+      join('/home/june', '.config', 'homingbird', 'mcp-credentials.json'),
+    )
     expect(credentialFilePath({ XDG_CONFIG_HOME: '' }, '/home/june')).toBe(
-      '/home/june/.config/homingbird/mcp-credentials.json',
+      join('/home/june', '.config', 'homingbird', 'mcp-credentials.json'),
     )
   })
 })
@@ -31,12 +33,15 @@ describe('the credential file', () => {
     expect(await T.runPromise(readCredential(path, SERVER))).toBeNull()
   })
 
-  it('stores a credential readable only by its owner, in a directory only the owner can enter', async () => {
-    await T.runPromise(storeCredential(path, SERVER, CREDENTIAL))
-    expect(await T.runPromise(readCredential(path, SERVER))).toEqual(CREDENTIAL)
-    expect((await stat(path)).mode & 0o777).toBe(0o600)
-    expect((await stat(join(path, '..'))).mode & 0o777).toBe(0o700)
-  })
+  it.skipIf(process.platform === 'win32')(
+    'stores a credential readable only by its owner, in a directory only the owner can enter',
+    async () => {
+      await T.runPromise(storeCredential(path, SERVER, CREDENTIAL))
+      expect(await T.runPromise(readCredential(path, SERVER))).toEqual(CREDENTIAL)
+      expect((await stat(path)).mode & 0o777).toBe(0o600)
+      expect((await stat(join(path, '..'))).mode & 0o777).toBe(0o700)
+    },
+  )
 
   it('keeps one credential per server', async () => {
     await T.runPromise(storeCredential(path, SERVER, CREDENTIAL))
@@ -49,7 +54,7 @@ describe('the credential file', () => {
     expect(Object.keys(JSON.parse(await readFile(path, 'utf8')))).toHaveLength(2)
   })
 
-  it('tightens the mode of a file that was left readable', async () => {
+  it.skipIf(process.platform === 'win32')('tightens the mode of a file that was left readable', async () => {
     await T.runPromise(storeCredential(path, SERVER, CREDENTIAL))
     await writeFile(path, '{}', { mode: 0o644 })
     await T.runPromise(storeCredential(path, SERVER, CREDENTIAL))

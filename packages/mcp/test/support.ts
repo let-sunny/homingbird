@@ -172,10 +172,6 @@ export const debateOf = (overrides: Partial<Debate> = {}): Debate => ({
     },
   ],
   result: null,
-  approvals: [
-    { memberId: ANA.id, approvedAt: null },
-    { memberId: BEN.id, approvedAt: null },
-  ],
   ...overrides,
 })
 

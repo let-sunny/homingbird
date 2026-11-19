@@ -46,7 +46,8 @@ Every command accepts `--json`; `homingbird --help` lists the options.
 Each server you sign in to keeps its own credential, in `~/.config/homingbird/agents/`. Every command
 takes `--server <url>` (or `HOMINGBIRD_SERVER`) to say which one; without it the command uses the only
 server you are signed in to, and asks when there are several. `homingbird logout --server <url>` signs
-out of that server alone.
+out of that server alone. `--credentials-file <path>` reads the credential from one file instead,
+for a runner on a server; see [Run it on a server](#run-it-on-a-server-from-a-credentials-file).
 
 ## Be the desk
 
@@ -59,7 +60,7 @@ homingbird run --agent "<command>"                 # or any command that runs yo
 
 It runs the command once per arriving note or draft request, and the note reaches it only as quoted
 data. The command prints the note to draft, optionally ending with a line `BASIS: <what it relied on>`,
-which your person sees on the draft before approving it and which the audit log keeps; or it prints one
+which your person sees on the draft before approving it; or it prints one
 line `SKIP: <reason>` to give the note back without a draft.
 
 ### Split mode: the drafting agent never sees the note's wording
@@ -90,13 +91,14 @@ to the drafting agent; it does not change approval.
 | Preset | Runs | Reader for `--split` | Status |
 | --- | --- | --- | --- |
 | `claude` | `claude -p` | `claude -p --tools '' --strict-mcp-config`, no tools (on Windows `--tools ""`, since cmd.exe keeps single quotes) | Verified with Claude Code 2.1.327 on Linux |
-| `codex` | `codex exec --skip-git-repo-check --ephemeral --sandbox workspace-write -` | `codex exec --skip-git-repo-check --ephemeral --ignore-user-config --ignore-rules --sandbox read-only --disable shell_tool --disable unified_exec --disable view_image -c web_search="disabled" -`: minimal tools, not none | From source, unrun |
-| `antigravity` | `agy -p --mode default --output-format text` | none: give `--reader` yourself | From source, unrun |
-| `gemini` | `gemini -p "" --output-format text --approval-mode default` | none: give `--reader` yourself | From source, unrun |
+| `codex` | `codex exec --skip-git-repo-check --ephemeral --sandbox workspace-write -` | `codex exec --skip-git-repo-check --ephemeral --ignore-user-config --ignore-rules --sandbox read-only --disable shell_tool --disable unified_exec --disable view_image -c web_search="disabled" -`: minimal tools, not none | Not yet tested with the real CLI |
+| `antigravity` | `agy -p --mode default --output-format text` | none: give `--reader` yourself | Not yet tested with the real CLI |
+| `gemini` | `gemini -p "" --output-format text --approval-mode default` | none: give `--reader` yourself | Not yet tested with the real CLI |
 
 Each command gets the prompt on standard input and prints the draft on standard output, which is all
-the runner reads. "From source, unrun" means the preset was written from the tool's source code and
-has not been run against the real agent here; `homingbird presets` shows the same state.
+the runner reads. "Not yet tested with the real CLI" means the preset was written from the tool's
+source code and has not been run against the real agent here; `homingbird presets` shows the same
+state.
 
 - **Codex**: in a non-interactive run it prints only its final message on standard output. Its reader
   turns off the shell, code execution, image viewing and web search and runs read-only, but Codex has
@@ -124,9 +126,9 @@ drafts in the web client as always.
 
 | Platform | What it writes | How it is loaded | Tested |
 | --- | --- | --- | --- |
-| macOS | `~/Library/LaunchAgents/homingbird.runner.<server>.plist` | `launchctl bootstrap gui/<your uid>` | Unverified: generated output only |
+| macOS | `~/Library/LaunchAgents/homingbird.runner.<server>.plist` | `launchctl bootstrap gui/<your uid>` | Installed and run on a real Mac for 0.1.3; CI installs and removes it on macOS |
 | Linux | `~/.config/systemd/user/homingbird-runner-<server>.service` | `systemctl --user enable` and `restart` | The unit passes `systemd-analyze verify`; not yet loaded by a real user manager |
-| Windows | a value `Homingbird Runner <server>` under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` | `reg add`; Windows starts it at your logon, and the runner supervises itself | Untested on a real Windows machine: generated output only |
+| Windows | a value `Homingbird Runner <server>` under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` | `reg add`; Windows starts it at your logon, and the runner supervises itself | CI installs and removes the entry on Windows; not yet used on a real Windows machine |
 
 `<server>` is the address with its scheme, such as `https-homingbird-example-com`, so `http://` and
 `https://` of one host are separate services.
@@ -156,8 +158,48 @@ of this has been run on Windows yet.
   time it starts. If that `PATH` may not hold your agent, give the agent by its absolute path, such as
   `--agent "/opt/homebrew/bin/claude -p"`. Run `service install` again after you move Node or change
   the agent; on Windows the agent command cannot contain `"` or `%`.
-- **The log is not rotated yet.** It grows a line per step; remove it when it gets large.
+- **It saves paths that last.** A per-shell directory, such as fnm's `fnm_multishells`, is replaced by
+  where it leads, for Node, the `homingbird` script and each `PATH` directory; every other path is
+  kept as given, so Homebrew's `/opt/homebrew/opt` links and a Nix profile keep following upgrades.
+  When Node, the script or the agent's program lives under a Node version manager (fnm, nvm, Volta,
+  asdf, mise), `service install` warns and suggests a stable path. A preset whose program is not on
+  that `PATH` fails the install; a running service with a missing preset says so in its log and in
+  `service status`, and looks again every minute.
+- **The log rotates at 5 MB**, keeping one backup, `runner-<server>.log.1`. `homingbird run
+  --log-level error` (or `warn`) keeps only problems; `info`, the default, and `debug` keep every step.
+  Run `service install` again to get rotation for a service installed by an earlier version.
 - Each note starts a fresh agent run, with the tools that command loads, not your interactive session.
+
+### Run it on a server, from a credentials file
+
+A server has no browser to approve a sign-in in, so sign in on your own machine and give the runner
+the credential as a file:
+
+```sh
+homingbird login --server https://<server> --credentials-file ./homingbird.json   # on your machine
+homingbird run --agent codex --credentials-file /run/secrets/homingbird.json       # on the server
+homingbird service install --server https://<server> --agent codex \
+                           --credentials-file /run/secrets/homingbird.json
+```
+
+- **`login --credentials-file <path>`** signs in as always, then writes the agent credential to that
+  file instead of `~/.config/homingbird`, readable by you only, and prints where, never the token. It
+  refuses to replace a file that exists unless you pass `--force`.
+- **Every command that uses a credential** takes `--credentials-file <path>`, or
+  `HOMINGBIRD_CREDENTIALS_FILE`, and then reads the credential from that file alone and never writes
+  to it. It stops with a clear message when the file is missing, unreadable, not a credential or for
+  another server than `--server`, and warns when its group or other users can read it.
+- **`service install`** needs an absolute path and writes the path, never the content, into the
+  service: as a variable in the systemd unit and the launchd agent, as an option in the Windows Run key.
+  The service waits while the file cannot be used, and for a new one when the server refuses it.
+- **The agent command never gets the path** in its environment, arguments or input, but it runs as
+  the same user and can read the file, as it can read `~/.config/homingbird`. Prefer the variable to
+  the option where others share the computer: they can list a command line, not its environment.
+- **`logout --credentials-file <path>`** revokes the credential and deletes the file only if this user
+  may; for a read-only file it says so, and you delete the secret where it is stored.
+
+Store the file as a secret, such as in GCP Secret Manager, and mount it read-only for the runner's
+user; see [Running the desk runner on a server](https://github.com/let-sunny/homingbird/blob/main/docs/deployment.md#running-the-desk-runner-on-a-server).
 
 ### Pause your desk
 
@@ -169,7 +211,7 @@ homingbird desk resume --server https://<server>
 Pausing stops every runner on this computer for you on that server, `homingbird run`, the background
 service and `homingbird-mcp --run-agent`, before their next note: one in hand is finished, the rest
 wait. Resuming answers what waited. Both can be run any number of times, and `homingbird status` shows
-`Desk: paused`.
+`Desk: paused on this computer (homingbird desk resume to answer again)`, and `Desk: on` otherwise.
 
 ### Roll out to an organization
 
@@ -177,6 +219,15 @@ Administrators can install the command line and the service centrally, with MDM 
 script; see [Roll out to an organization](https://github.com/let-sunny/homingbird/blob/main/docs/deployment.md#roll-out-to-an-organization).
 Signing in is never pre-provisioned: each person runs `homingbird login` once and approves the
 connection in the browser.
+
+## Anonymous usage counts
+
+When your server asks for them, the command line sends anonymous counts to that server only: that you
+signed in and which agent preset a desk runs, under a random id kept in
+`~/.config/homingbird/analytics.json`, never notes, names or email addresses. It says so once, the
+first time. `homingbird analytics off` stops it on this computer, `homingbird analytics on` starts it
+again, and `DO_NOT_TRACK=1` stops it whatever you chose. If that file cannot be read or written,
+nothing is sent. Your server replaces the random id with its own before passing anything on.
 
 ## Approving is a person's action
 

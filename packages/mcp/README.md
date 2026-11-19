@@ -40,7 +40,7 @@ npx -y @homingbird/mcp --server https://<server> --desk
 
 `--desk` makes this client your desk: the one session that holds the event stream, checks the inbox
 when it starts and answers the notes that arrive: a draft, a holding reply when it cannot answer yet, or
-`skip_note` with a reason only you see. What it relied on (`basis`) is shown to you on the draft in the web client and kept in the audit log; the colleague never sees it. Keep only one desk; every other session drafts only when you ask it.
+`skip_note` with a reason only you see. What it relied on (`basis`) is shown to you on the draft in the web client; the colleague never sees it. Keep only one desk; every other session drafts only when you ask it.
 
 ## Run your desk from your MCP client
 
@@ -65,7 +65,7 @@ or `--desk`, not both.
 - **One desk.** It claims your desk on this computer, as `homingbird run` does. When another one
   holds it, such as a second app with the same configuration or a runner in a terminal, this one waits,
   says so in `status`, and takes over when that one stops. Only runners take part: a desk on another
-  computer, a client started with `--desk`, or the Claude Code mod's pane is not seen, so do not run
+  computer, a client started with `--desk`, or the Claude Code plugin's pane is not seen, so do not run
   one of those as well.
 - **Pausing.** The `desk` prompt with `on` or `off` sets the desk on or off; asking twice changes
   nothing more, and it takes no command. Clients that offer prompts as slash commands show it: in
