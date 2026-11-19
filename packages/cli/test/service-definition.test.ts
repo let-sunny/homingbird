@@ -48,6 +48,20 @@ describe('what every service runs', () => {
     expect(logPathFor('/c', 'https://hb.example.com')).toBe('/c/logs/runner-https-hb-example-com.log')
   })
 
+  it('cuts a long address before trimming its dashes, so the name never ends in one', () => {
+    const slug = serviceSlug('https://aaaaaaaaa.aaaaaaaaaaaa.aa/%F0%90%80%80aaaaaaa%F0%90%80%80')
+    expect(slug).toMatch(/^[a-z0-9](?:[a-z0-9-]{0,58}[a-z0-9])?$/)
+  })
+
+  it('keeps two long addresses that share their first sixty characters apart', () => {
+    const shared = `https://hb.example.com/${'a'.repeat(60)}`
+    const first = serviceSlug(`${shared}/one`)
+    const second = serviceSlug(`${shared}/two`)
+    expect(first).not.toBe(second)
+    for (const slug of [first, second]) expect(slug.length).toBeLessThanOrEqual(60)
+    expect(serviceSlug(`${shared}/one`)).toBe(first)
+  })
+
   it('refuses any value with a control character, and keeps every other spec as it is', () => {
     fc.assert(
       fc.property(

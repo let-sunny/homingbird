@@ -72,6 +72,7 @@ export const runner = (
       'directory.list': () => DIRECTORY,
       'inbox.list': () => ({ items: [] }),
       'draftRequests.list': () => ({ requests: [] }),
+      'debates.waiting': () => ({ asks: [] }),
       'notes.pickup': () => QUESTION,
       'drafts.create': (request) => {
         created.push(request.body)

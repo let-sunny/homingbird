@@ -17,6 +17,7 @@ import {
 import { agentEnvironment } from '../agent-environment.ts'
 import { isReaderWithSomeTools } from '../agent-presets.ts'
 import { answeringFlowFor } from '../answering-flow.ts'
+import { type DebateDesk, answerDebates } from '../debate-runner.ts'
 import {
   DESK_CLAIM_RETRY_MS,
   DESK_HEARTBEAT_MS,
@@ -99,6 +100,7 @@ export const runDesk = (
           timeoutMs: timeoutSeconds * 1000,
           report,
           tried: new Set(),
+          triedDebates: new Set(),
           told: new Set(),
         }),
         keptUntilLost(claim, holder),
@@ -203,17 +205,24 @@ interface Runner {
   readonly timeoutMs: number
   readonly report: (step: Outcome) => void
   readonly tried: Set<DraftRequestId>
+  readonly triedDebates: Set<string>
   /** Notices said once per run, such as draft requests being switched off. */
   readonly told: Set<string>
 }
 
 const STOPPING: ReadonlyArray<number> = [EXIT.signedOut]
 
-const WAKING: ReadonlyArray<StreamEvent['body']['type']> = ['note.sent', 'draft.requested', 'resync']
+const WAKING: ReadonlyArray<StreamEvent['body']['type']> = [
+  'note.sent',
+  'draft.requested',
+  'debate.changed',
+  'resync',
+]
 
 const isWaking = (event: StreamEvent, viewerId: MemberId): boolean =>
   WAKING.includes(event.body.type) &&
-  !(event.body.type === 'note.sent' && event.body.note.authorId === viewerId)
+  !(event.body.type === 'note.sent' && event.body.note.authorId === viewerId) &&
+  !(event.body.type === 'debate.changed' && !event.body.participantIds.includes(viewerId))
 
 const answerWaiting = (runner: Runner): T.Task<void, CliFailure, DeskEnv> =>
   T.gen(function* () {
@@ -242,6 +251,8 @@ const answerEach = (runner: Runner): T.Task<'answered' | 'paused', CliFailure, D
       runner.tried.add(request.id)
       yield* answerRequest(runner, request)
     }
+    if (yield* isDeskPaused(runner.pause)) return 'paused'
+    yield* answerDebates(debateDeskOf(runner))
     return 'answered'
   })
 
@@ -259,6 +270,18 @@ const waitingRequests = (runner: Runner): T.Task<ReadonlyArray<DraftRequest>, Cl
   })
 
 const REQUESTS_OFF = 'draft-requests-off'
+
+const debateDeskOf = (runner: Runner): DebateDesk<DeskEnv> => ({
+  session: runner.session,
+  member: runner.member,
+  isSplit: runner.split !== null,
+  tried: runner.triedDebates,
+  told: runner.told,
+  report: runner.report,
+  run: (role, prompt, what) =>
+    outputOf(runner, role === 'agent' ? runner.agent : runner.split!.reader, role, prompt, what),
+  warn,
+})
 
 const untilResumed = (runner: Runner): T.Task<void, never, DeskEnv> =>
   T.gen(function* () {

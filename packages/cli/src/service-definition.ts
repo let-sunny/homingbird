@@ -112,13 +112,20 @@ export const serviceLockPath = (configDirectory: string, server: string): string
 export const serviceStopPath = (configDirectory: string, server: string): string =>
   `${configDirectory}/desks/service-${serviceSlug(server)}.stop`
 
-/** One server's address, scheme included, as a name that every service manager accepts. */
-export const serviceSlug = (server: string): string =>
-  serverKey(server)
+/**
+ * One server's address, scheme included, as a name that every service manager accepts. A long address
+ * is cut, and a short hash of the whole address keeps two that share a beginning apart.
+ */
+export const serviceSlug = (server: string): string => {
+  const key = serverKey(server)
+  const whole = key
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, SLUG_MAX) || 'server'
+    .replace(/^-+/, '')
+  if (whole.length <= SLUG_MAX) return whole.replace(/-+$/, '') || 'server'
+  const kept = whole.slice(0, SLUG_MAX - HASH_LENGTH - 1).replace(/-+$/, '')
+  return `${kept}-${shortHash(key)}`
+}
 
 export const logPathFor = (configDirectory: string, server: string): string =>
   `${configDirectory}/logs/runner-${serviceSlug(server)}.log`
@@ -165,3 +172,12 @@ export const escapeXml = (text: string): string =>
     .replace(/'/g, '&apos;')
 
 const SLUG_MAX = 60
+const HASH_LENGTH = 8
+
+/** FNV-1a over the address's UTF-16 units: stable everywhere, and enough to tell addresses apart. */
+const shortHash = (text: string): string => {
+  let hash = 0x811c9dc5
+  for (let index = 0; index < text.length; index++)
+    hash = Math.imul(hash ^ text.charCodeAt(index), 0x01000193) >>> 0
+  return hash.toString(16).padStart(HASH_LENGTH, '0')
+}

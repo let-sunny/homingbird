@@ -1,6 +1,7 @@
 import { Task as T } from '@homingbird/kernel'
 import { type Invocation, type Parsed, USAGE, parseArguments } from './arguments.ts'
 import { channels } from './commands/channels.ts'
+import { debates } from './commands/debates.ts'
 import { desk } from './commands/desk.ts'
 import { draft, drafts, pickUp, skip } from './commands/drafting.ts'
 import { login } from './commands/login.ts'
@@ -54,6 +55,8 @@ const execute = (
       return channels(invocation.query)
     case 'requests':
       return requests
+    case 'debates':
+      return debates
     case 'open':
       return open(invocation.conversationId)
     case 'run':

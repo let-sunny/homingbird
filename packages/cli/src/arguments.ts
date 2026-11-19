@@ -24,6 +24,7 @@ export type Invocation =
   | { readonly command: 'directory'; readonly query: string | null; readonly channel: string | null }
   | { readonly command: 'channels'; readonly query: string | null }
   | { readonly command: 'requests' }
+  | { readonly command: 'debates' }
   | { readonly command: 'open'; readonly conversationId: string | null }
   | ({ readonly command: 'run'; readonly logFile?: string; readonly workdir?: string } & RunnerSettings)
   | { readonly command: 'inbox'; readonly fresh: boolean }
@@ -79,6 +80,7 @@ export const USAGE = `Usage: homingbird <command> [options]
   channels [query]
   inbox [--fresh]
   requests                                     drafts your person asked this agent for
+  debates                                      debate rooms waiting on this agent for a turn or a result
   conversations
   conversation <id>
   draft (--to <email-or-id> | --reply <noteId> | --conversation <id> | --channel <slug> | --request <id>)
@@ -221,6 +223,7 @@ const BUILDERS: Readonly<Record<string, (tokens: Tokens) => Result.Result<Invoca
     Result.ok({ command: 'directory', query: joined(rest), channel: values.get('channel') ?? null }),
   channels: ({ rest }) => Result.ok({ command: 'channels', query: joined(rest) }),
   requests: () => Result.ok({ command: 'requests' }),
+  debates: () => Result.ok({ command: 'debates' }),
   open: ({ rest }) => Result.ok({ command: 'open', conversationId: rest[0] ?? null }),
   run: ({ values, switches, platform }) =>
     Result.gen(function* () {
