@@ -1,4 +1,4 @@
-import { ConversationId, DraftRequestId, NoteId, WRAPPER_TAG } from '@homingbird/protocol'
+import { ConversationId, DraftRequestId, NotFound, NoteId, WRAPPER_TAG } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import { EXIT, SIGNED_OUT_MESSAGE } from '../src/failure.ts'
 import {
@@ -66,5 +66,17 @@ describe('requests', () => {
     const none = world({ stubs: { 'draftRequests.list': () => ({ requests: [] }) } })
     await none.run('requests')
     expect(none.lines).toEqual(['No draft requests are waiting for this agent.'])
+  })
+
+  it('says draft requests are turned off in this organization, and does not fail', async () => {
+    const off = world({
+      stubs: {
+        'draftRequests.list': () => NotFound({ message: 'This feature is turned off in this organization.' }),
+      },
+    })
+    expect(await off.run('requests')).toBe(0)
+    expect(off.lines).toEqual([
+      'Draft requests are turned off in this organization; this desk answers arriving notes only.',
+    ])
   })
 })

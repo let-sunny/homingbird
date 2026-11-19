@@ -3,7 +3,20 @@ import type { AgentRun, Launcher } from './environment.ts'
 
 export type Spawn = (command: string, args: ReadonlyArray<string>, options: SpawnOptions) => ChildProcess
 
-export const nodeLauncher = (platform: string, start: Spawn = spawn): Launcher => ({
+export type Kill = (pid: number, signal: NodeJS.Signals) => void
+
+/**
+ * Runs each agent command as the leader of its own process group, so that stopping it also stops what
+ * the shell started: nothing outlives the runner. Windows has no process groups to signal, so there
+ * taskkill ends the command's whole process tree, and no console window opens for it.
+ */
+export const nodeLauncher = (
+  platform: string,
+  start: Spawn = spawn,
+  kill: Kill = (pid, signal) => process.kill(pid, signal),
+  agentErrors: AgentErrors = 'inherit',
+  systemRoot: string = process.env.SystemRoot ?? 'C:\\Windows',
+): Launcher => ({
   openInBrowser: (url) => {
     if (!isWebAddress(url)) return Promise.resolve(false)
     const [command, ...args] = openerCommand(platform, url)
@@ -18,14 +31,23 @@ export const nodeLauncher = (platform: string, start: Spawn = spawn): Launcher =
   },
   runAgent: (command, prompt, environment, signal) =>
     new Promise<AgentRun>((resolve, reject) => {
+      const isWindows = platform === 'win32'
       const child = start(command, [], {
-        stdio: ['pipe', 'pipe', 'inherit'],
+        stdio: ['pipe', 'pipe', agentErrors],
         shell: true,
         env: { ...environment },
-        signal,
+        ...(isWindows ? { windowsHide: true } : { detached: true }),
       })
       const chunks: Buffer[] = []
       let size = 0
+      const stopGroup = (): void => {
+        if (isWindows) stopProcessTree(child.pid, start, systemRoot)
+        else stopProcessGroup(child.pid, kill)
+        reject(new Error('The agent command was stopped.'))
+      }
+      if (signal.aborted) stopGroup()
+      else signal.addEventListener('abort', stopGroup, { once: true })
+      child.once('close', () => signal.removeEventListener('abort', stopGroup))
       child.stdout?.on('data', (chunk: Buffer) => {
         size += chunk.length
         if (size <= AGENT_OUTPUT_MAX_BYTES) chunks.push(chunk)
@@ -36,6 +58,9 @@ export const nodeLauncher = (platform: string, start: Spawn = spawn): Launcher =
       child.stdin?.end(prompt)
     }),
 })
+
+/** Where an agent's own error output goes: the terminal, or nowhere for the service, whose log must hold no note. */
+export type AgentErrors = 'inherit' | 'ignore'
 
 export const openerCommand = (platform: string, url: string): string[] =>
   platform === 'darwin'
@@ -48,3 +73,30 @@ export const AGENT_OUTPUT_MAX_BYTES = 1_000_000
 
 const isWebAddress = (url: string): boolean =>
   URL.canParse(url) && ['http:', 'https:'].includes(new URL(url).protocol)
+
+export const KILL_GRACE_MS = 2_000
+
+/** taskkill ends the command and every process it started, which a kill of the shell alone would leave. */
+export const taskkillCommand = (systemRoot: string, pid: number): [string, string[]] => [
+  `${systemRoot}\\System32\\taskkill.exe`,
+  ['/T', '/F', '/PID', String(pid)],
+]
+
+const stopProcessTree = (pid: number | undefined, start: Spawn, systemRoot: string): void => {
+  if (pid === undefined) return
+  const [program, args] = taskkillCommand(systemRoot, pid)
+  try {
+    start(program, args, { stdio: 'ignore', windowsHide: true, shell: false }).once('error', () => {})
+  } catch {}
+}
+
+const stopProcessGroup = (pid: number | undefined, kill: Kill): void => {
+  if (pid === undefined) return
+  const signalGroup = (signal: NodeJS.Signals): void => {
+    try {
+      kill(-pid, signal)
+    } catch {}
+  }
+  signalGroup('SIGTERM')
+  setTimeout(() => signalGroup('SIGKILL'), KILL_GRACE_MS).unref()
+}

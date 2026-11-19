@@ -1,7 +1,16 @@
 import type { ChildProcess } from 'node:child_process'
 import { EventEmitter } from 'node:events'
+import { mkdtemp, readFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { AGENT_OUTPUT_MAX_BYTES, type Spawn, nodeLauncher, openerCommand } from '../src/node-launcher.ts'
+import {
+  AGENT_OUTPUT_MAX_BYTES,
+  type Spawn,
+  nodeLauncher,
+  openerCommand,
+  taskkillCommand,
+} from '../src/node-launcher.ts'
 
 const NODE = JSON.stringify(process.execPath)
 const PATH_ONLY = { PATH: process.env.PATH ?? '' }
@@ -95,6 +104,59 @@ describe('nodeLauncher', () => {
     expect(started).toEqual([{ command: 'codex exec', args: [], env: handed }])
   })
 
+  it('discards the agent’s own error output for the background service, and passes it on otherwise', async () => {
+    const seen: unknown[] = []
+    const start: Spawn = (_command, _args, options) => {
+      seen.push((options.stdio as unknown[])[2])
+      const child = Object.assign(new EventEmitter(), {
+        stdout: new EventEmitter(),
+        stdin: { on: () => {}, end: () => queueMicrotask(() => child.emit('close', 0)) },
+      })
+      return child as unknown as ChildProcess
+    }
+    await nodeLauncher('linux', start).runAgent('a', '', PATH_ONLY, new AbortController().signal)
+    await nodeLauncher('linux', start, undefined, 'ignore').runAgent(
+      'a',
+      '',
+      PATH_ONLY,
+      new AbortController().signal,
+    )
+    expect(seen).toEqual(['inherit', 'ignore'])
+  })
+
+  it('on Windows, hides the command’s window and ends its whole process tree with taskkill when stopped', async () => {
+    const started: Array<{ command: string; args: ReadonlyArray<string>; options: unknown }> = []
+    const start: Spawn = (command, args, options) => {
+      started.push({ command, args, options })
+      const child = Object.assign(new EventEmitter(), {
+        pid: 4242,
+        stdout: new EventEmitter(),
+        stdin: Object.assign(new EventEmitter(), { end: () => {} }),
+      })
+      return child as unknown as ChildProcess
+    }
+    const stopping = new AbortController()
+    const running = nodeLauncher('win32', start, undefined, 'ignore', 'D:\\Windows').runAgent(
+      'codex exec -',
+      '',
+      PATH_ONLY,
+      stopping.signal,
+    )
+    stopping.abort()
+    await expect(running).rejects.toThrow('The agent command was stopped.')
+    expect(started[0]!.options).toMatchObject({ shell: true, windowsHide: true })
+    expect(started[0]!.options).not.toHaveProperty('detached')
+    expect(started[1]).toMatchObject({
+      command: 'D:\\Windows\\System32\\taskkill.exe',
+      args: ['/T', '/F', '/PID', '4242'],
+      options: { windowsHide: true, shell: false },
+    })
+    expect(taskkillCommand('C:\\Windows', 7)).toEqual([
+      'C:\\Windows\\System32\\taskkill.exe',
+      ['/T', '/F', '/PID', '7'],
+    ])
+  })
+
   it('keeps at most a bounded amount of output', async () => {
     const flood = `${NODE} -e "process.stdout.write('x'.repeat(${AGENT_OUTPUT_MAX_BYTES * 2}))"`
     const { output } = await nodeLauncher(process.platform).runAgent(
@@ -117,4 +179,60 @@ describe('nodeLauncher', () => {
     stopping.abort()
     await expect(running).rejects.toThrow()
   })
+
+  it.skipIf(process.platform === 'win32')(
+    'stops what the command started too, so nothing outlives the runner',
+    async () => {
+      const directory = await mkdtemp(join(tmpdir(), 'homingbird-launcher-'))
+      const pidFile = join(directory, 'pid')
+      const stopping = new AbortController()
+      const running = nodeLauncher(process.platform).runAgent(
+        `sleep 30 & echo $! > ${pidFile}; wait`,
+        '',
+        PATH_ONLY,
+        stopping.signal,
+      )
+      let pid = ''
+      for (let turn = 0; turn < 200 && pid === ''; turn++) {
+        await new Promise((resolve) => setTimeout(resolve, 10))
+        pid = (await readFile(pidFile, 'utf8').catch(() => '')).trim()
+      }
+      expect(isAlive(Number(pid))).toBe(true)
+      stopping.abort()
+      await expect(running).rejects.toThrow('The agent command was stopped.')
+      for (let turn = 0; turn < 200 && isAlive(Number(pid)); turn++)
+        await new Promise((resolve) => setTimeout(resolve, 10))
+      expect(isAlive(Number(pid))).toBe(false)
+    },
+  )
+
+  it('signals the whole group, and falls back to the kill signal for a group that will not stop', async () => {
+    const signals: Array<[number, string]> = []
+    const child = Object.assign(new EventEmitter(), {
+      pid: 4242,
+      stdout: new EventEmitter(),
+      stdin: Object.assign(new EventEmitter(), { end: () => {} }),
+    })
+    const stopping = new AbortController()
+    stopping.abort()
+    const running = nodeLauncher(
+      'linux',
+      () => child as unknown as ChildProcess,
+      (pid, signal) => {
+        signals.push([pid, signal])
+        throw new Error('no such process')
+      },
+    ).runAgent('codex exec', '', PATH_ONLY, stopping.signal)
+    await expect(running).rejects.toThrow('The agent command was stopped.')
+    expect(signals).toEqual([[-4242, 'SIGTERM']])
+  })
 })
+
+const isAlive = (pid: number): boolean => {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch {
+    return false
+  }
+}

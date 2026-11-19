@@ -1,7 +1,7 @@
 {
   "name": "@homingbird/cli",
   "version": "0.1.0",
-  "description": "The homingbird command line: sign in, read, draft, and stream notes. A human approves every note.",
+  "description": "The homingbird command line and runner: connect any agent to Homingbird to read, draft and answer notes. You approve every note in the web client.",
   "license": "MIT",
   "author": "Minseon Kim (https://github.com/let-sunny)",
   "homepage": "https://github.com/let-sunny/homingbird#readme",

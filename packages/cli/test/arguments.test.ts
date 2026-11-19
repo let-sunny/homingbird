@@ -1,7 +1,10 @@
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
+import { presetNamed } from '../src/agent-presets.ts'
 import { type Invocation, USAGE, parseArguments } from '../src/arguments.ts'
 import { EXIT } from '../src/failure.ts'
+
+const CODEX_READER = presetNamed('codex')!.reader!
 
 const parsed = (...argv: string[]): Invocation => {
   const result = parseArguments(argv)
@@ -25,6 +28,7 @@ describe('parseArguments', () => {
     [['conversations'], { command: 'conversations' }],
     [['drafts'], { command: 'drafts' }],
     [['overview'], { command: 'overview' }],
+    [['guidance', 'conv_aaaaaaaaaaaa'], { command: 'guidance', conversationId: 'conv_aaaaaaaaaaaa' }],
     [['directory'], { command: 'directory', query: null, channel: null }],
     [['directory', 'june', 'kim'], { command: 'directory', query: 'june kim', channel: null }],
     [['directory', '--channel', 'billing'], { command: 'directory', query: null, channel: 'billing' }],
@@ -33,10 +37,39 @@ describe('parseArguments', () => {
     [['requests'], { command: 'requests' }],
     [['open'], { command: 'open', conversationId: null }],
     [['open', 'conv_1'], { command: 'open', conversationId: 'conv_1' }],
-    [['run', '--agent', 'claude -p'], { command: 'run', agent: 'claude -p', timeoutSeconds: 300 }],
+    [
+      ['run', '--agent', 'claude -p'],
+      { command: 'run', agent: 'claude -p', timeoutSeconds: 300, split: null },
+    ],
     [
       ['run', '--agent', ' codex exec ', '--timeout', '60'],
-      { command: 'run', agent: 'codex exec', timeoutSeconds: 60 },
+      { command: 'run', agent: 'codex exec', timeoutSeconds: 60, split: null },
+    ],
+    [
+      ['run', '--agent', 'claude -p', '--split'],
+      {
+        command: 'run',
+        agent: 'claude -p',
+        timeoutSeconds: 300,
+        split: { reader: 'claude -p', requireToollessReader: false },
+      },
+    ],
+    [
+      [
+        'run',
+        '--agent',
+        'claude -p',
+        '--split',
+        '--reader',
+        ' claude -p --tools "" ',
+        '--require-toolless-reader',
+      ],
+      {
+        command: 'run',
+        agent: 'claude -p',
+        timeoutSeconds: 300,
+        split: { reader: 'claude -p --tools ""', requireToollessReader: true },
+      },
     ],
     [['inbox'], { command: 'inbox', fresh: false }],
     [['inbox', '--fresh'], { command: 'inbox', fresh: true }],
@@ -71,11 +104,18 @@ describe('parseArguments', () => {
         target: { kind: 'to', recipient: 'june@example.com' },
         text: 'Is it safe?',
         basis: null,
+        model: null,
       },
     ],
     [
       ['draft', '--reply', 'note_1', 'Yes.'],
-      { command: 'draft', target: { kind: 'reply', noteId: 'note_1' }, text: 'Yes.', basis: null },
+      {
+        command: 'draft',
+        target: { kind: 'reply', noteId: 'note_1' },
+        text: 'Yes.',
+        basis: null,
+        model: null,
+      },
     ],
     [
       ['draft', '--conversation', 'conv_1', 'Hello'],
@@ -84,6 +124,7 @@ describe('parseArguments', () => {
         target: { kind: 'conversation', conversationId: 'conv_1' },
         text: 'Hello',
         basis: null,
+        model: null,
       },
     ],
     [
@@ -93,6 +134,7 @@ describe('parseArguments', () => {
         target: { kind: 'channel', slug: 'billing' },
         text: 'Who owns refunds?',
         basis: null,
+        model: null,
       },
     ],
     [
@@ -102,14 +144,125 @@ describe('parseArguments', () => {
         target: { kind: 'reply', noteId: 'note_1' },
         text: 'Yes.',
         basis: 'Read: the runbook',
+        model: null,
+      },
+    ],
+    [
+      ['draft', '--reply', 'note_1', '--model', 'claude-opus-5-5', 'Yes.'],
+      {
+        command: 'draft',
+        target: { kind: 'reply', noteId: 'note_1' },
+        text: 'Yes.',
+        basis: null,
+        model: 'claude-opus-5-5',
       },
     ],
     [
       ['draft', '--request', 'dreq_1', 'Done.'],
-      { command: 'draft', target: { kind: 'request', requestId: 'dreq_1' }, text: 'Done.', basis: null },
+      {
+        command: 'draft',
+        target: { kind: 'request', requestId: 'dreq_1' },
+        text: 'Done.',
+        basis: null,
+        model: null,
+      },
     ],
+    [['run', '--agent', 'claude'], { command: 'run', agent: 'claude -p', timeoutSeconds: 300, split: null }],
+    [
+      ['run', '--agent', 'claude', '--split'],
+      {
+        command: 'run',
+        agent: 'claude -p',
+        timeoutSeconds: 300,
+        split: { reader: "claude -p --tools '' --strict-mcp-config", requireToollessReader: false },
+      },
+    ],
+    [
+      ['run', '--agent', 'codex', '--split', '--service'],
+      {
+        command: 'run',
+        agent: 'codex exec --skip-git-repo-check --ephemeral --sandbox workspace-write -',
+        timeoutSeconds: 300,
+        split: { reader: CODEX_READER, requireToollessReader: false },
+        isService: true,
+      },
+    ],
+    [['presets'], { command: 'presets' }],
+    [
+      ['service', 'install', '--agent', 'claude'],
+      {
+        command: 'service',
+        action: 'install',
+        agent: 'claude',
+        timeoutSeconds: null,
+        split: false,
+        reader: null,
+        requireToollessReader: false,
+        workdir: null,
+      },
+    ],
+    [
+      [
+        'service',
+        'install',
+        '--agent',
+        ' my-agent ',
+        '--timeout',
+        '90',
+        '--split',
+        '--reader',
+        'r',
+        '--require-toolless-reader',
+        '--workdir',
+        '/srv',
+      ],
+      {
+        command: 'service',
+        action: 'install',
+        agent: 'my-agent',
+        timeoutSeconds: 90,
+        split: true,
+        reader: 'r',
+        requireToollessReader: true,
+        workdir: '/srv',
+      },
+    ],
+    [
+      ['run', '--agent', 'claude', '--service', '--log', '/l.log'],
+      {
+        command: 'run',
+        agent: 'claude -p',
+        timeoutSeconds: 300,
+        split: null,
+        isService: true,
+        logFile: '/l.log',
+      },
+    ],
+    [['service', 'status'], { command: 'service', action: 'status' }],
+    [['service', 'stop'], { command: 'service', action: 'stop' }],
+    [
+      ['run', '--agent', 'claude', '--service', '--workdir', 'C:\\work'],
+      {
+        command: 'run',
+        agent: 'claude -p',
+        timeoutSeconds: 300,
+        split: null,
+        isService: true,
+        workdir: 'C:\\work',
+      },
+    ],
+    [['service', 'uninstall'], { command: 'service', action: 'uninstall' }],
+    [['desk', 'pause'], { command: 'desk', action: 'pause' }],
+    [['desk', 'resume'], { command: 'desk', action: 'resume' }],
   ])('reads %j', (argv, invocation) => {
     expect(parsed(...argv)).toEqual(invocation)
+  })
+
+  it('gives the Claude Code preset reader the Windows quoting on Windows', () => {
+    const result = parseArguments(['run', '--agent', 'claude', '--split'], 'win32')
+    expect(result).toMatchObject({
+      value: { invocation: { split: { reader: 'claude -p --tools "" --strict-mcp-config' } } },
+    })
   })
 
   it('takes everything after -- as text, even when it looks like an option', () => {
@@ -118,6 +271,7 @@ describe('parseArguments', () => {
       target: { kind: 'reply', noteId: 'note_1' },
       text: '--json approve --body',
       basis: null,
+      model: null,
     })
     expect(parseArguments(['draft', '--reply', 'note_1', '--', '--json'])).toMatchObject({
       value: { json: false },
@@ -133,6 +287,7 @@ describe('parseArguments', () => {
   it.each<[string[], RegExp]>([
     [['fly'], /Unknown command "fly"/],
     [['status', '--verbose'], /Unknown option --verbose/],
+    [['draft', '--reply', 'note_1', '--client', 'Evil 1.0', 'Yes.'], /Unknown option --client/],
     [['login'], /login needs --server/],
     [['login', '--server'], /--server needs a value/],
     [['conversation'], /Missing the conversation id/],
@@ -147,6 +302,21 @@ describe('parseArguments', () => {
     [['run', '--agent', '  '], /run needs --agent/],
     [['run', '--agent', 'claude -p', '--timeout', 'soon'], /--timeout needs a number of seconds/],
     [['run', '--agent', 'claude -p', '--timeout', '0'], /--timeout needs a number of seconds/],
+    [
+      ['run', '--agent', 'claude -p', '--reader', 'x'],
+      /--reader and --require-toolless-reader go with --split/,
+    ],
+    [['run', '--agent', 'claude -p', '--require-toolless-reader'], /go with --split/],
+    [['service'], /service needs install, status, stop or uninstall/],
+    [['service', 'start'], /service needs install, status, stop or uninstall/],
+    [['run', '--agent', 'claude', '--workdir', '/w'], /--log and --workdir go with --service/],
+    [['service', 'install'], /service install needs --agent/],
+    [['service', 'install', '--agent', 'claude', '--reader', 'r'], /go with --split/],
+    [['service', 'install', '--agent', 'claude', '--require-toolless-reader'], /go with --split/],
+    [['service', 'install', '--agent', 'claude', '--timeout', 'soon'], /--timeout needs a number/],
+    [['run', '--agent', 'claude', '--log', '/l.log'], /--log and --workdir go with --service/],
+    [['desk'], /desk needs pause or resume/],
+    [['desk', 'stop'], /desk needs pause or resume/],
     [['toString'], /Unknown command "toString"/],
     [['constructor'], /Unknown command "constructor"/],
     [['draft', '--to', 'a@b.c'], /needs some text/],

@@ -1,5 +1,6 @@
 import { Task as T } from '@homingbird/kernel'
 import { credentialFor, readCredential, storedServers } from '../credentials.ts'
+import { deskPausePath, isDeskPaused } from '../desk-pause.ts'
 import type { CliEnv } from '../environment.ts'
 import type { CliFailure } from '../failure.ts'
 import { type Outcome, outcome } from '../outcome.ts'
@@ -17,6 +18,7 @@ export const status: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function* () {
       env.server === null ? 'Not signed in.' : `Not signed in to ${env.server}.`,
     )
   const me = yield* calling(apiFor(env, agent)['me.get']({}))
+  const deskPaused = yield* isDeskPaused(deskPausePath(env, agent.serverUrl, me.member.id))
   return outcome(
     {
       signedIn: true,
@@ -25,6 +27,7 @@ export const status: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function* () {
       credential: me.credential,
       locale: me.locale ?? null,
       transport: TRANSPORT,
+      deskPaused,
       servers,
     },
     [
@@ -33,6 +36,7 @@ export const status: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function* () {
       `Credential:     ${me.credential.name} (${me.credential.kind})`,
       `Language:       ${me.locale ?? 'follows the browser'}`,
       `Transport:      ${TRANSPORT}`,
+      `Desk:           ${deskPaused ? 'paused on this computer; `homingbird desk resume` to answer again' : 'not paused'}`,
     ].join('\n'),
   )
 })

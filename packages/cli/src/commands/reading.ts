@@ -28,7 +28,7 @@ export const directory = (
       }),
     )
     return outcome(
-      { entries },
+      { entries: entries.map(({ agentIntroduction: _, ...entry }) => entry) },
       entries
         .map((entry) =>
           [

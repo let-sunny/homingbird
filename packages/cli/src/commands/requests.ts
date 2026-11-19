@@ -1,4 +1,4 @@
-import { Task as T } from '@homingbird/kernel'
+import { Task as T, isOk } from '@homingbird/kernel'
 import type { DraftRequest } from '@homingbird/protocol'
 import type { CliEnv } from '../environment.ts'
 import type { CliFailure } from '../failure.ts'
@@ -9,7 +9,10 @@ import { authorsOf } from './reading.ts'
 
 export const requests: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function* () {
   const session = yield* openSession
-  const { requests: waiting } = yield* calling(session.api['draftRequests.list']({}))
+  const listed = yield* T.result(session.api['draftRequests.list']({}))
+  if (!isOk(listed) && listed.error._tag === 'NotFound')
+    return outcome({ requests: [], turnedOff: true }, REQUESTS_OFF_TEXT)
+  const { requests: waiting } = yield* calling(isOk(listed) ? T.succeed(listed.value) : T.fail(listed.error))
   if (waiting.length === 0) return outcome({ requests: [] }, 'No draft requests are waiting for this agent.')
   const authors = yield* authorsOf(session)
   const shown = yield* T.forEach(waiting, (request) =>
@@ -43,12 +46,15 @@ export const originalOf = (
   session: Session,
   request: DraftRequest,
   authors: Authors,
-): T.Task<string | null, never, CliEnv> =>
+): T.Task<string | null, never, Pick<CliEnv, 'nonce'>> =>
   T.gen(function* () {
     if (request.inReplyTo === null) return null
-    const env = yield* T.ask<CliEnv>()
+    const env = yield* T.ask<Pick<CliEnv, 'nonce'>>()
     const note = yield* T.result(session.api['notes.get']({ params: { id: request.inReplyTo } }))
     return note._tag === 'Ok'
       ? quoteForModel(note.value, authors, env.nonce())
       : `(The note ${request.inReplyTo} could not be loaded.)`
   })
+
+export const REQUESTS_OFF_TEXT =
+  'Draft requests are turned off in this organization; this desk answers arriving notes only.'

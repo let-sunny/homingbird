@@ -64,7 +64,7 @@ describe('login', () => {
     await w.clock.advance(5_000)
     expect(await running).toBe(0)
     expect(w.lines.at(-1)).toBe(
-      `Signed in to ${SERVER} as Ana <ana@example.com>.\nKeep one desk session: one Claude Code session with the mod, one homingbird-mcp --desk, or one homingbird run answers arriving notes; other sessions draft only what you ask.`,
+      `Signed in to ${SERVER} as Ana <ana@example.com>.\nKeep one desk session: one Claude Code session with the mod, one homingbird-mcp --desk or --run-agent, or one homingbird run answers arriving notes; other sessions draft only what you ask.`,
     )
     expect(JSON.parse(w.files.get(AGENT_FILE)!)).toEqual({ serverUrl: SERVER, token: NEW_AGENT })
     expect(w.files.has(legacy)).toBe(false)

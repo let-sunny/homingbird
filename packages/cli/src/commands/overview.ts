@@ -1,8 +1,9 @@
 import { Task as T } from '@homingbird/kernel'
+import { ConversationId } from '@homingbird/protocol'
 import { answeringFlowFor } from '../answering-flow.ts'
 import { readCredential } from '../credentials.ts'
 import type { CliEnv } from '../environment.ts'
-import type { CliFailure } from '../failure.ts'
+import { type CliFailure, failed } from '../failure.ts'
 import { type Outcome, outcome } from '../outcome.ts'
 import { calling, openSession } from '../session.ts'
 import { drafts } from './drafting.ts'
@@ -43,3 +44,13 @@ export const overview: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function* () 
     ].join('\n'),
   )
 })
+
+/** What a desk adds to its instructions for a draft in one conversation: that channel's principles come first. */
+export const guidance = (rawId: string): T.Task<Outcome, CliFailure, CliEnv> =>
+  T.gen(function* () {
+    const conversationId = ConversationId.decode(rawId)
+    if (conversationId._tag === 'Err') return yield* T.fail(failed('That is not a conversation id.'))
+    const { api } = yield* openSession
+    const text = yield* answeringFlowFor(api, conversationId.value)
+    return outcome({ guidance: text }, text === '' ? 'No answering flow or principles apply here.' : text)
+  })

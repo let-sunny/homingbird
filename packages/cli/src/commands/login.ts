@@ -51,4 +51,4 @@ export const login = (
 const toFailure = (failure: DeviceFlowFailed): CliFailure => failed(failure.message)
 
 const ONE_DESK =
-  'Keep one desk session: one Claude Code session with the mod, one homingbird-mcp --desk, or one homingbird run answers arriving notes; other sessions draft only what you ask.'
+  'Keep one desk session: one Claude Code session with the mod, one homingbird-mcp --desk or --run-agent, or one homingbird run answers arriving notes; other sessions draft only what you ask.'

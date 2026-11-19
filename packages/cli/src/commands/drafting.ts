@@ -1,5 +1,13 @@
 import { Task as T } from '@homingbird/kernel'
-import { ConversationId, DraftRequestId, MemberId, type Note, NoteId } from '@homingbird/protocol'
+import {
+  ConversationId,
+  DeskSession,
+  DraftRequestId,
+  MemberId,
+  type Note,
+  NoteId,
+  agentLabelOf,
+} from '@homingbird/protocol'
 import type { DraftTarget } from '../arguments.ts'
 import type { CliEnv } from '../environment.ts'
 import { type CliFailure, failed } from '../failure.ts'
@@ -12,12 +20,26 @@ export const draft = (
   target: DraftTarget,
   text: string,
   basis: string | null,
+  stated: string | null = null,
 ): T.Task<Outcome, CliFailure, CliEnv> =>
   T.gen(function* () {
+    const env = yield* T.ask<CliEnv>()
+    const client = agentLabelOf(env.variables[CLIENT_VARIABLE])
+    const model = agentLabelOf(stated)
+    const reported = sessionOf(env.variables[SESSION_VARIABLE])
     const session = yield* openSession
     const address = yield* addressOf(session, target)
     const created = yield* calling(
-      session.api['drafts.create']({ body: { body: text, ...address, ...(basis !== null && { basis }) } }),
+      session.api['drafts.create']({
+        body: {
+          body: text,
+          ...address,
+          ...(basis !== null && { basis }),
+          ...(client !== null && { client }),
+          ...(model !== null && { model }),
+          ...(reported !== null && { session: reported }),
+        },
+      }),
     )
     return outcome(
       { draft: summaryOf(created) },
@@ -52,6 +74,21 @@ export const skip = (rawId: string, reason: string | null): T.Task<Outcome, CliF
       `Gave ${id} back without a draft; colleagues no longer see "drafting reply". Your person sees the reason.`,
     )
   })
+
+/** Names the program for an integration that runs this command line, such as the mod; never a flag a model can pass. */
+export const CLIENT_VARIABLE = 'HOMINGBIRD_CLIENT'
+
+/** The desk session's age in minutes and context use, "95" or "95,62", set by an integration that observes them. */
+export const SESSION_VARIABLE = 'HOMINGBIRD_SESSION'
+
+export const sessionOf = (text: string | undefined): DeskSession | null => {
+  const [minutes, percent] = (text ?? '').split(',')
+  const decoded = DeskSession.decode({
+    ageMinutes: Number(minutes),
+    contextPercent: percent === undefined ? null : Number(percent),
+  })
+  return /^\d+(,\d+)?$/.test(text ?? '') && decoded._tag === 'Ok' ? decoded.value : null
+}
 
 const summaryOf = (note: Note) => ({
   id: note.id,

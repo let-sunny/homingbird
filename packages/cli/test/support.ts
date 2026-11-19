@@ -12,7 +12,7 @@ import {
 import type { Stubs } from '../../mcp/test/support.ts'
 import { runCli } from '../src/cli.ts'
 import { AGENTS_DIRECTORY, serverKey } from '../src/credentials.ts'
-import type { AgentRun, CliEnv } from '../src/environment.ts'
+import type { AgentRun, CliEnv, ProcessRun } from '../src/environment.ts'
 
 export * from '../../mcp/test/support.ts'
 
@@ -51,6 +51,8 @@ export interface World {
     readonly environment: Readonly<Record<string, string>>
   }>
   readonly reads: string[]
+  readonly processRuns: string[][]
+  readonly ownerOnlyWrites: string[]
 }
 
 export interface WorldOptions {
@@ -62,6 +64,12 @@ export interface WorldOptions {
   readonly variables?: Readonly<Record<string, string | undefined>>
   readonly browser?: (url: string) => boolean | Promise<boolean>
   readonly agent?: (prompt: string, signal: AbortSignal) => AgentRun | Promise<AgentRun>
+  readonly platform?: string
+  readonly userId?: number | null
+  readonly process?: (
+    program: string,
+    args: ReadonlyArray<string>,
+  ) => ProcessRun | undefined | Promise<ProcessRun | undefined>
 }
 
 export const world = (options: WorldOptions = {}): World => {
@@ -78,6 +86,8 @@ export const world = (options: WorldOptions = {}): World => {
   const opened: string[] = []
   const agentRuns: World['agentRuns'] = []
   const reads: string[] = []
+  const processRuns: string[][] = []
+  const ownerOnlyWrites: World['ownerOnlyWrites'] = []
   const env: CliEnv = {
     clock,
     fetch: options.fetch ?? stubbedFetch(options.stubs ?? {}, calls, options.other),
@@ -90,6 +100,15 @@ export const world = (options: WorldOptions = {}): World => {
       writePrivate: async (path, content) => {
         privateWrites.push(path)
         files.set(path, content)
+      },
+      writeOwnerOnly: async (path, content) => {
+        ownerOnlyWrites.push(path)
+        files.set(path, content)
+      },
+      createExclusive: async (path, content) => {
+        if (files.has(path)) return false
+        files.set(path, content)
+        return true
       },
       remove: async (path) => void files.delete(path),
       list: async (directory) =>
@@ -106,6 +125,15 @@ export const world = (options: WorldOptions = {}): World => {
     nonce: () => `nonce${String(nonces++).padStart(15, '0')}`,
     stopped: stop.signal,
     server: null,
+    platform: options.platform ?? 'linux',
+    program: ['/usr/bin/node', '/usr/lib/node_modules/@homingbird/cli/dist/homingbird.js'],
+    userId: options.userId === undefined ? 1000 : options.userId,
+    processes: {
+      run: async (program, args) => {
+        processRuns.push([program, ...args])
+        return (await options.process?.(program, args)) ?? { exitCode: 0, output: '' }
+      },
+    },
     launcher: {
       openInBrowser: async (url) => {
         opened.push(url)
@@ -118,6 +146,8 @@ export const world = (options: WorldOptions = {}): World => {
     },
   }
   return {
+    ownerOnlyWrites,
+    processRuns,
     opened,
     agentRuns,
     reads,

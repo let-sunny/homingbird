@@ -87,6 +87,7 @@ describe('status', () => {
         'Credential:     Laptop (agent)',
         'Language:       follows the browser',
         'Transport:      server-sent events, falling back to long-poll',
+        'Desk:           not paused',
       ].join('\n'),
     )
     expect(w.calls).toMatchObject([{ route: 'me.get', authorization: `Bearer ${AGENT_TOKEN}` }])
@@ -143,6 +144,23 @@ describe('status', () => {
 })
 
 describe('directory', () => {
+  it('leaves colleagues’ public sentences about their agents out of what a model reads', async () => {
+    const w = world({
+      stubs: {
+        ...READING,
+        'directory.list': () => ({
+          entries: DIRECTORY.entries.map((entry) => ({
+            ...entry,
+            agentIntroduction: ['Ask me about releases.'],
+          })),
+        }),
+      },
+    })
+    await w.run('directory', '--json')
+    expect(JSON.stringify(w.json())).not.toContain('Ask me about releases.')
+    expect(w.json().entries[0]).not.toHaveProperty('agentIntroduction')
+  })
+
   it('lists people with agent and person presence, what they help with, and whether they can be messaged', async () => {
     const w = world({ stubs: READING })
     await w.run('directory')
@@ -322,9 +340,10 @@ describe('conversation', () => {
 })
 
 describe('draft', () => {
-  const drafting = (stubs: Stubs = {}) => {
+  const drafting = (stubs: Stubs = {}, variables: Readonly<Record<string, string>> = {}) => {
     const bodies: unknown[] = []
     const w = world({
+      variables,
       stubs: {
         ...READING,
         'drafts.create': (request) => {
@@ -370,6 +389,16 @@ describe('draft', () => {
     const { w, bodies } = drafting()
     await w.run('draft', '--reply', QUESTION.id, '--basis', 'Read the runbook', 'Yes.')
     expect(bodies).toEqual([{ body: 'Yes.', inReplyTo: QUESTION.id, basis: 'Read the runbook' }])
+  })
+
+  it('labels the draft with the program an integration names, and a stated model, made printable', async () => {
+    const { w, bodies } = drafting({}, { HOMINGBIRD_CLIENT: '\u202eClaude Code 2.1.327' })
+    await w.run('draft', '--reply', QUESTION.id, '--model', 'claude-opus-5-5\u0007', 'Yes.')
+    await w.run('draft', '--reply', QUESTION.id, '--model', '\u200b', 'Again.')
+    expect(bodies).toEqual([
+      { body: 'Yes.', inReplyTo: QUESTION.id, client: 'Claude Code 2.1.327', model: 'claude-opus-5-5' },
+      { body: 'Again.', inReplyTo: QUESTION.id, client: 'Claude Code 2.1.327' },
+    ])
   })
 
   it('gives a note back without a draft, with or without a reason', async () => {
@@ -482,6 +511,44 @@ describe('overview', () => {
     await w.run('overview')
     expect(w.lines.at(-1)).toBe('Not signed in.')
     expect(w.calls).toEqual([])
+  })
+})
+
+describe('guidance', () => {
+  const CONVERSATION = 'conv_aaaaaaaaaaaa'
+
+  it('gives the answering flow, then the principles, for one conversation', async () => {
+    const w = world({
+      stubs: {
+        'answeringFlow.get': () => ({ flow: '## Before drafting\n1. Look it up.', updatedAt: 1 }),
+        'principles.drafting': () => ({
+          principles: [
+            { kind: 'rule' as const, topic: 'Release dates', rule: 'check RELEASES.md', source: null },
+          ],
+          leftOut: 0,
+          ignored: [],
+          ignoredLeftOut: 0,
+        }),
+      },
+    })
+    await w.run('guidance', CONVERSATION, '--json')
+    const { guidance } = w.json()
+    expect(guidance.indexOf('Look it up.')).toBeLessThan(
+      guidance.indexOf('- Release dates: check RELEASES.md'),
+    )
+    expect(w.calls.map((call) => call.route)).toContain('principles.drafting')
+  })
+
+  it('says so when nothing applies, and refuses something that is not a conversation id', async () => {
+    const w = world({
+      stubs: {
+        'answeringFlow.get': () => ({ flow: null, updatedAt: null }),
+        'principles.drafting': () => ({ principles: [], leftOut: 0, ignored: [], ignoredLeftOut: 0 }),
+      },
+    })
+    await w.run('guidance', CONVERSATION)
+    expect(w.lines).toEqual(['No answering flow or principles apply here.'])
+    expect(await w.run('guidance', 'nonsense')).not.toBe(0)
   })
 })
 
