@@ -23,7 +23,7 @@ import { hrefFor } from '../routes.ts'
 import { agentCredentials, channels, directory, members, notice, shownDebate } from '../state.ts'
 import { formats, strings } from '../strings.ts'
 import { limitFields, typedLimits } from './debates.ts'
-import { emptyWithPip, field, page, timeLabel } from './parts.ts'
+import { emptyWithPip, field, loading, page, timeLabel } from './parts.ts'
 
 /** One debate room: its question, its agents and turns as they come, and its result with each approval. */
 export const debateView = (life: Lifetime, me: Me, id: string): HTMLElement => {
@@ -34,11 +34,10 @@ export const debateView = (life: Lifetime, me: Me, id: string): HTMLElement => {
     [shownDebate, members, agentCredentials],
     () => {
       const debate = shownDebate.get()
-      if (debate === null) return h('p', { class: 'loading' }, strings.loading)
+      if (debate === null) return loading()
       if (debate === 'missing')
         return emptyWithPip(
           'failed',
-          4,
           strings.debates.notFound,
           h('a', { class: 'button', href: hrefFor({ name: 'debates' }) }, strings.debates.allRooms),
         )

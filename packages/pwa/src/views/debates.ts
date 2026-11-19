@@ -13,7 +13,7 @@ import { hrefFor } from '../routes.ts'
 import { debates, debatesLoaded, directory, notice } from '../state.ts'
 import { strings } from '../strings.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
-import { emptyWithPip, field, page, timeLabel } from './parts.ts'
+import { emptyWithPip, field, loading, page, timeLabel } from './parts.ts'
 
 /** Debate rooms: the rooms the person may see, and a way to open one for a question. */
 export const debatesView = (life: Lifetime, me: Me): HTMLElement => {
@@ -22,8 +22,8 @@ export const debatesView = (life: Lifetime, me: Me): HTMLElement => {
     strings.debates.title,
     h('div', { class: 'debates-intro' }, h('p', {}, strings.debates.intro), newDebateButton(me)),
     region(life, [debates, debatesLoaded], () => {
-      if (!debatesLoaded.get()) return h('p', { class: 'loading' }, strings.loading)
-      if (debates.get().length === 0) return emptyWithPip('searching', 4, strings.debates.empty)
+      if (!debatesLoaded.get()) return loading()
+      if (debates.get().length === 0) return emptyWithPip('searching', strings.debates.empty)
       return h('ul', { class: 'debate-list' }, listedDebates(debates.get()).map(debateCard))
     }),
   )

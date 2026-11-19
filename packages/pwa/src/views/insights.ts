@@ -17,6 +17,7 @@ import {
   skipShare,
 } from '../trust.ts'
 import { labelsTable, periodChoice, placeName } from './agent-trust.ts'
+import { loading } from './parts.ts'
 
 /** Organization-wide numbers for administrators: totals only, never a note, a person or a small group. */
 export const insightsSection = (life: Lifetime): HTMLElement => {
@@ -30,7 +31,7 @@ export const insightsSection = (life: Lifetime): HTMLElement => {
     periodChoice('insights-period', days),
     region(life, [loaded, days], () => {
       const insights = loaded.get()
-      if (insights === null) return h('p', { class: 'loading' }, strings.loading)
+      if (insights === null) return loading()
       const period = insights.periods.find((each) => each.days === days.get()) ?? insights.periods[0]!
       return [
         h(

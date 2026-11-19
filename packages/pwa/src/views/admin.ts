@@ -26,13 +26,23 @@ import { flowSize, flowToSave, mayInsertExample, moveStep, stepsFrom } from '../
 import { channelLabel, slugFrom } from '../channels.ts'
 import { featureOn } from '../features.ts'
 import { type AdminSection, hrefFor } from '../routes.ts'
-import { channels, members as knownMembers, notice } from '../state.ts'
+import { channels, channelsLoaded, members as knownMembers, notice } from '../state.ts'
 import { strings } from '../strings.ts'
 import { privateMark } from './channel-membership.ts'
 import { memberAvatar } from './character-avatar.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
 import { insightsSection } from './insights.ts'
-import { button, channelCounts, dateTimeLabel, field, page, youMark } from './parts.ts'
+import {
+  button,
+  channelCounts,
+  dateTimeLabel,
+  empty,
+  field,
+  loadFailed,
+  loading,
+  page,
+  youMark,
+} from './parts.ts'
 import { todoList } from './todo-list.ts'
 
 export const adminView = (life: Lifetime, me: Me, section: AdminSection): HTMLElement =>
@@ -73,7 +83,7 @@ const settingsSection = (life: Lifetime): HTMLElement => {
   launch(T.map((loaded: Settings) => settings.set(loaded))(api['admin.settings.get']({})))
   return region(life, [settings], () => {
     const loaded = settings.get()
-    return loaded === null ? h('p', { class: 'loading' }, strings.loading) : settingsForm(life, loaded)
+    return loaded === null ? loading() : settingsForm(life, loaded)
   })
 }
 
@@ -314,7 +324,7 @@ const membersSection = (life: Lifetime, me: Me): HTMLElement => {
   reload()
   return region(life, [members], () => {
     const listed = members.get()
-    if (listed === null) return h('p', { class: 'loading' }, strings.loading)
+    if (listed === null) return loading()
     return h(
       'ul',
       { class: 'members' },
@@ -363,9 +373,16 @@ const membersSection = (life: Lifetime, me: Me): HTMLElement => {
 }
 
 const channelsSection = (life: Lifetime): HTMLElement => {
-  launch(loadChannels(''))
-  return region(life, [channels], () =>
-    h(
+  const failed = signal(false)
+  const load = (): void => {
+    failed.set(false)
+    launch(T.tapError((_: ApiError) => T.sync(() => failed.set(true)))(loadChannels('')))
+  }
+  load()
+  return region(life, [channels, channelsLoaded, failed], () => {
+    if (!channelsLoaded.get()) return failed.get() ? loadFailed(load) : loading()
+    if (channels.get().length === 0) return empty(strings.adminNoChannels)
+    return h(
       'ul',
       { class: 'members admin-channels' },
       channels.get().map((channel) =>
@@ -406,8 +423,8 @@ const channelsSection = (life: Lifetime): HTMLElement => {
           ),
         ),
       ),
-    ),
-  )
+    )
+  })
 }
 
 const editChannelForm = (channel: Channel): Child => {
@@ -504,46 +521,61 @@ const dialogActions = (label: string, kind: 'primary' | 'danger'): HTMLElement =
   )
 
 const auditSection = (life: Lifetime): HTMLElement => {
-  const log = signal<{ readonly entries: ReadonlyArray<AuditEntry>; readonly hasMore: boolean }>({
-    entries: [],
-    hasMore: true,
-  })
+  const log = signal<{
+    readonly entries: ReadonlyArray<AuditEntry>
+    readonly hasMore: boolean
+    readonly status: 'loading' | 'loaded' | 'failed'
+  }>({ entries: [], hasMore: true, status: 'loading' })
   const loadMore = (): void => {
     const oldest = log.get().entries.at(-1)?.id
+    log.update((current) => ({ ...current, status: 'loading' }))
     launch(
-      T.map((page: { entries: ReadonlyArray<AuditEntry>; hasMore: boolean }) =>
-        log.update((current) => ({ entries: [...current.entries, ...page.entries], hasMore: page.hasMore })),
-      )(api['admin.audit.list']({ query: oldest === undefined ? {} : { before: String(oldest) } })),
+      T.tapError((_: ApiError) => T.sync(() => log.update((current) => ({ ...current, status: 'failed' }))))(
+        T.map((page: { entries: ReadonlyArray<AuditEntry>; hasMore: boolean }) =>
+          log.update((current) => ({
+            entries: [...current.entries, ...page.entries],
+            hasMore: page.hasMore,
+            status: 'loaded',
+          })),
+        )(api['admin.audit.list']({ query: oldest === undefined ? {} : { before: String(oldest) } })),
+      ),
     )
   }
   loadMore()
-  return region(life, [log, knownMembers], () => [
-    h(
-      'div',
-      { class: 'table-scroll' },
+  return region(life, [log, knownMembers], () => {
+    const { entries, hasMore, status } = log.get()
+    if (entries.length === 0 && status !== 'loaded')
+      return status === 'failed' ? loadFailed(loadMore) : loading()
+    return [
       h(
-        'table',
-        { class: 'audit' },
+        'div',
+        { class: 'table-scroll' },
         h(
-          'thead',
-          {},
+          'table',
+          { class: 'audit' },
           h(
-            'tr',
+            'thead',
             {},
-            [
-              strings.auditWhen,
-              strings.auditWho,
-              strings.auditAction,
-              strings.auditTarget,
-              strings.auditDetail,
-            ].map((heading) => h('th', { scope: 'col' }, heading)),
+            h(
+              'tr',
+              {},
+              [
+                strings.auditWhen,
+                strings.auditWho,
+                strings.auditAction,
+                strings.auditTarget,
+                strings.auditDetail,
+              ].map((heading) => h('th', { scope: 'col' }, heading)),
+            ),
           ),
+          h('tbody', {}, entries.map(auditRow)),
         ),
-        h('tbody', {}, log.get().entries.map(auditRow)),
       ),
-    ),
-    log.get().hasMore && button(strings.loadMore, loadMore, { class: 'load-older' }),
-  ])
+      status === 'failed'
+        ? loadFailed(loadMore)
+        : hasMore && status === 'loaded' && button(strings.loadMore, loadMore, { class: 'load-older' }),
+    ]
+  })
 }
 
 const auditRow = (entry: AuditEntry): Child =>

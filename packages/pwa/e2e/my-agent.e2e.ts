@@ -10,6 +10,7 @@ import {
   api,
   clippedText,
   connectAgent,
+  crowdedFields,
   freePort,
   newPage,
   overflowsSideways,
@@ -300,7 +301,7 @@ const scenario = async (): Promise<void> => {
     })
     await api(ana, 'POST', `/drafts/${longDraft.id}/discard`)
     await ana.page.goto(`${base}/#/agent/connection`)
-    await ana.page.waitForSelector('.fresh-session:has-text("Ana desk has run for a long time")')
+    await ana.page.waitForSelector('.fresh-session:has-text("Ana desk has run for long")')
     await scrollTo(ana.page, '#agent-connection')
     await capture(ana.page, 'connection-suggests-a-fresh-session')
     await ana.page.waitForSelector('#trust-sessions')
@@ -347,18 +348,6 @@ const scenario = async (): Promise<void> => {
     await dovecote.stop()
   }
 }
-
-/** To-do text fields that hide a line, or reach into what follows them: none may. */
-const crowdedFields = (page: any): Promise<string[]> =>
-  page.evaluate(() =>
-    [...(globalThis as any).document.querySelectorAll('textarea.todo-field')].flatMap((field: any) => {
-      const next = field.closest('.todo-main')?.querySelector('.todo-details, .todo-problems:not(:empty)')
-      const hides = field.scrollHeight > field.clientHeight + 1
-      const reaches =
-        next != null && field.getBoundingClientRect().bottom > next.getBoundingClientRect().top + 1
-      return hides || reaches ? [`${field.name}: ${field.value.slice(0, 40)}`] : []
-    }),
-  )
 
 await scenario()
 process.stdout.write(`my agent e2e passed; screenshots in ${screenshots}\n`)

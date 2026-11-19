@@ -19,8 +19,8 @@ describe('Korean', () => {
     expect(ko.newNoteDraft).toBe('노트 초안')
     expect(ko.approve).toBe('승인')
     expect(ko.send).toBe('보내기')
-    expect(ko.noAgentOnline).toContain('전용 세션')
-    expect(texts(ko).join(' ')).not.toMatch(/메시지|드래프트|데스크/)
+    expect(ko.noAgentOnline).toContain('데스크')
+    expect(texts(ko).join(' ')).not.toMatch(/메시지|드래프트|전용 세션/)
   })
 
   it('speaks in one polite style, without formal endings or exclamation marks', () => {

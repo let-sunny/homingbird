@@ -6,8 +6,7 @@ import { hrefFor } from '../routes.ts'
 import { agentReport, channels, directory } from '../state.ts'
 import { strings } from '../strings.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
-import { button, channelChips, dateTimeLabel, field, presenceBadges } from './parts.ts'
-import { pip } from './pip.ts'
+import { button, channelChips, dateTimeLabel, field, loading, presenceBadges } from './parts.ts'
 import { freshSessionSuggestions } from './session-health-view.ts'
 
 /** "Connection": the person's devices and agents, whether the desk is awake, and how to connect one. */
@@ -41,7 +40,7 @@ export const connectionSection = (life: Lifetime, me: Me): HTMLElement => {
       h('p', { class: 'trust-footnote' }, strings.credentialsIntro),
       region(life, [credentials], () => {
         const listed = credentials.get()
-        if (listed === null) return h('p', { class: 'loading' }, strings.loading)
+        if (listed === null) return loading()
         return [
           !listed.some((credential) => credential.kind === 'agent' && credential.revokedAt === null) &&
             h('p', { class: 'no-agents' }, strings.noAgentsYet),
@@ -80,7 +79,6 @@ export const deskRecommendation = (): HTMLElement =>
   h(
     'div',
     { class: 'desk-recommendation', role: 'note' },
-    pip('sign-in', 3),
     h('div', {}, h('strong', {}, strings.deskTitle), h('p', {}, strings.deskBody)),
   )
 

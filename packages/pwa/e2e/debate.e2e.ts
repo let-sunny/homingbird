@@ -47,8 +47,8 @@ const scenario = async (): Promise<void> => {
 
     // -- The list starts empty, and a person opens a private room with its limits -----------------
     await ana.page.goto(`${base}/#/channels`)
-    await ana.page.click('a.debate-rooms-link')
-    await ana.page.waitForSelector('.tab[aria-current="page"]:has-text("Channels")')
+    await ana.page.click('.tab:has-text("Debates")')
+    await ana.page.waitForSelector('.tab[aria-current="page"]:has-text("Debates")')
     await ana.page.waitForSelector('.empty:has-text("No debate rooms yet.")')
     await capture(ana.page, 'no-debate-rooms-yet')
     await ana.page.click('button.new-debate')

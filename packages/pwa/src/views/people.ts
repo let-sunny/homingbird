@@ -1,4 +1,5 @@
-import type { ContactMode, DirectoryEntry, Me } from '@homingbird/protocol'
+import { Task as T } from '@homingbird/kernel'
+import type { ApiError, ContactMode, DirectoryEntry, Me } from '@homingbird/protocol'
 import { type Child, type Lifetime, type Signal, h, region, signal } from '@homingbird/ui'
 import {
   acceptContact,
@@ -13,14 +14,19 @@ import {
 } from '../actions.ts'
 import { channelLabel, chipsForPerson } from '../channels.ts'
 import { shownRelation } from '../relations.ts'
-import { channels, directory } from '../state.ts'
+import { channels, directory, directoryLoaded } from '../state.ts'
 import { strings } from '../strings.ts'
 import { memberAvatar } from './character-avatar.ts'
-import { button, channelChips, emptyWithPip, field, page, presenceBadges } from './parts.ts'
+import { button, channelChips, empty, field, loadFailed, loading, page, presenceBadges } from './parts.ts'
 import type { PipState } from './pip.ts'
 
 export const peopleView = (life: Lifetime, me: Me): HTMLElement => {
-  launch(loadPeople)
+  const failed = signal(false)
+  const load = (): void => {
+    failed.set(false)
+    launch(T.tapError((_: ApiError) => T.sync(() => failed.set(true)))(loadPeople))
+  }
+  load()
   launch(loadChannels(''))
   const query = signal('')
   const channelFilter = signal('')
@@ -38,13 +44,14 @@ export const peopleView = (life: Lifetime, me: Me): HTMLElement => {
       field(strings.peopleSearchLabel, search),
       region(life, [channels], () => channelFilterField(channelFilter), { class: 'channel-filter-host' }),
     ),
-    region(life, [directory, query, channelFilter, channels], () => {
+    region(life, [directory, directoryLoaded, failed, query, channelFilter, channels], () => {
+      if (!directoryLoaded.get()) return failed.get() ? loadFailed(load) : loading()
       const matching = directory
         .get()
         .filter((entry) => matches(entry, query.get()))
         .filter((entry) => channelFilter.get() === '' || entry.channels.includes(channelFilter.get()))
       return matching.length === 0
-        ? emptyWithPip('searching', 4, strings.noPeople)
+        ? empty(strings.noPeople)
         : h(
             'ul',
             { class: 'people' },
@@ -89,7 +96,7 @@ const personCard = (entry: DirectoryEntry, mode: ContactMode): HTMLElement => {
     h(
       'div',
       { class: 'person-card' },
-      h('div', { class: 'person-face' }, memberAvatar(entry.member, { scale: 3, state: personPip(entry) })),
+      h('div', { class: 'person-face' }, memberAvatar(entry.member, { state: personPip(entry) })),
       h(
         'div',
         { class: 'person-main' },

@@ -59,7 +59,7 @@ const scenario = async (): Promise<void> => {
 
     const ana = await signIn('ana@example.com', 'Ana')
     await ana.page.waitForSelector('text=No direct messages yet')
-    await ana.page.waitForSelector('.onboarding:has-text("Keep one agent session open for Homingbird")')
+    await ana.page.waitForSelector('.onboarding:has-text("Keep one agent session open as your desk")')
     await capture(ana.page, 'empty-home-with-desk-session-hint')
 
     // -- Directory -------------------------------------------------------------------------------
@@ -192,7 +192,7 @@ const scenario = async (): Promise<void> => {
       .getByRole('button', { name: 'Ask my agent to draft a reply' })
       .click()
     await june.page.waitForSelector('.asked-chip')
-    await june.page.waitForSelector('.no-agent:has-text("desk session is running")')
+    await june.page.waitForSelector('.no-agent:has-text("desk session or runner is running")')
     await capture(june.page, 'draft-request-waiting-while-the-desk-session-is-offline')
     await june.page.locator('.asked-chip').getByRole('button', { name: 'Withdraw' }).click()
     await june.page.waitForSelector('.asked-chip', { state: 'detached' })
@@ -295,7 +295,7 @@ const scenario = async (): Promise<void> => {
     await ana.page.goto(`${base}/#/channels`)
     await ana.page.waitForSelector('.channel-card[data-slug="releases"]:not(.is-helping)')
     await ana.page.waitForSelector('.sidebar .empty:has-text("You are in no channel yet")')
-    await ana.page.waitForSelector('.sidebar .empty a.button:has-text("Browse channels")')
+    await ana.page.waitForSelector('.sidebar .browse-channels:has-text("Browse channels")')
     assert.equal(await ana.page.locator('.channel-rooms').count(), 0)
     await capture(ana.page, 'browse-channels-before-joining-any')
     await ana.page.click('.channels-intro button.new-channel')

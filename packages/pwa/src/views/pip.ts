@@ -19,7 +19,7 @@ export type PipState =
   | 'approved'
   | 'discarded'
 
-export type PipScale = 1 | 2 | 3 | 4 | 6
+export type PipScale = 2 | 3 | 4
 
 export const pip = (state: PipState, scale: PipScale = 2, label?: string): HTMLElement =>
   h('span', {

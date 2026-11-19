@@ -77,7 +77,7 @@ import {
 import { agentAsk } from './agent-ask.ts'
 import { privateMark, roomControls, rosters } from './channel-membership.ts'
 import { moveForm, readdressForm } from './channel-picker.ts'
-import { groupAvatar, memberAvatar } from './character-avatar.ts'
+import { memberAvatar } from './character-avatar.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
 import {
   archivedMark,
@@ -85,10 +85,10 @@ import {
   button,
   channelCounts,
   emptyWithPip,
+  loading,
   presenceBadges,
   timeLabel,
 } from './parts.ts'
-import { pip } from './pip.ts'
 import { appliedMarkers, chancesIn } from './teaching.ts'
 
 export const threadView = (life: Lifetime, me: Me, id: ConversationId): HTMLElement => {
@@ -153,14 +153,13 @@ export const threadView = (life: Lifetime, me: Me, id: ConversationId): HTMLElem
   scroller.append(
     region(life, [threads], () => {
       const thread = threads.get().get(id)
-      if (thread === undefined) return h('p', { class: 'loading' }, strings.loading)
+      if (thread === undefined) return loading()
       if (thread.hasMore)
         return button(strings.loadOlder, () => launch(loadOlderNotes(id)), { class: 'load-older' })
       return (
         thread.notes.length === 0 &&
         emptyWithPip(
           'waving',
-          4,
           roomOf(id)?.kind === 'channel' ? strings.channelRoomEmpty : strings.emptyThread,
         )
       )
@@ -171,7 +170,6 @@ export const threadView = (life: Lifetime, me: Me, id: ConversationId): HTMLElem
         h(
           'p',
           { class: 'released archive-discard', role: 'status', data: { noteId: discard.noteId } },
-          pip('discarded', 1),
           h('span', {}, strings.draftDiscardedByArchive({ channel: channelLabel(discard.channel) })),
         ),
       ),
@@ -215,7 +213,6 @@ const taughtTitles = (): string => {
 const missingConversation = (): HTMLElement =>
   emptyWithPip(
     'failed',
-    4,
     strings.conversationMissing,
     h('a', { class: 'button', href: hrefFor({ name: 'home' }) }, strings.backHome),
   )
@@ -264,21 +261,8 @@ const threadHead = (life: Lifetime, me: Me, id: ConversationId): HTMLElement =>
       if (conversation.kind === 'channel' || isArchived(conversation)) return channelHead(conversation, title)
       const others = otherParticipants(conversation, me.member.id)
       const entry = directory.get().find((candidate) => candidate.member.id === others[0])
-      const people = others.map((other) => memberOf(other))
       return [
         backLink(),
-        conversation.kind !== 'direct' && people.length > 1
-          ? groupAvatar(people)
-          : memberAvatar(
-              memberOf(
-                spriteOwner({
-                  kind: 'conversation',
-                  viewerId: me.member.id,
-                  participantIds: conversation.participantIds,
-                  arrivedFrom: null,
-                }) as MemberId,
-              ),
-            ),
         h(
           'div',
           { class: 'thread-who' },
@@ -654,7 +638,6 @@ const releaseNotice = (note: Note): Child => {
   return h(
     'p',
     { class: 'released', role: 'status' },
-    pip('discarded', 1),
     h(
       'span',
       {},
@@ -863,12 +846,7 @@ const archivedComposer = (): HTMLElement =>
   h(
     'form',
     { class: 'composer is-disabled', 'aria-disabled': 'true' },
-    h(
-      'p',
-      { class: 'archived-notice', id: ARCHIVED_REASON_ID, role: 'note' },
-      pip('blocked', 2),
-      strings.archivedRoomNotice,
-    ),
+    h('p', { class: 'archived-notice', id: ARCHIVED_REASON_ID, role: 'note' }, strings.archivedRoomNotice),
     h(
       'div',
       { class: 'composer-row' },
@@ -986,7 +964,6 @@ const waitingChips = (me: Me, id: ConversationId): Child => {
       h(
         'p',
         { class: 'no-agent', role: 'note' },
-        pip('offline', 2),
         h('span', {}, strings.noAgentOnline),
         h('a', { href: hrefFor({ name: 'agent', section: 'connection' }) }, strings.connectAgent),
       ),
@@ -1011,12 +988,7 @@ const replyChip = (id: ConversationId): Child => {
 
 const cannotMessageNotice = (me: Me, id: ConversationId): Child =>
   !mayMessageIn(me, id) &&
-  h(
-    'p',
-    { class: 'composer-blocked', id: BLOCKED_REASON_ID, role: 'note' },
-    pip('blocked', 2),
-    strings.cannotMessage,
-  )
+  h('p', { class: 'composer-blocked', id: BLOCKED_REASON_ID, role: 'note' }, strings.cannotMessage)
 
 const mayMessageIn = (me: Me, id: ConversationId): boolean => {
   const conversation = roomOf(id)

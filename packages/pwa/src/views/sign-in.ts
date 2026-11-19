@@ -16,7 +16,7 @@ export const signInView = (refusal: string | null): HTMLElement =>
       h(
         'div',
         { class: 'window-body' },
-        pip(refusal === null ? 'sign-in' : 'failed', 6),
+        pip(refusal === null ? 'sign-in' : 'failed', 4),
         h('h1', { class: 'wordmark' }, wordmark(branding.get().name)),
         h('p', { class: 'tagline' }, strings.tagline),
         refusal !== null && h('p', { class: 'refusal', role: 'alert' }, refusal),

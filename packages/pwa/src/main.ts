@@ -125,7 +125,7 @@ const stageFor = (life: Lifetime, me: Me, current: Route): Child => {
 }
 
 const notFound = (): Child =>
-  emptyWithPip('failed', 4, strings.notFound, h('a', { class: 'button', href: '#/' }, strings.backHome))
+  emptyWithPip('failed', strings.notFound, h('a', { class: 'button', href: '#/' }, strings.backHome))
 
 const replaceOldAddress = (): boolean => {
   const current = currentHashFor(location.hash)
@@ -177,7 +177,11 @@ const toast = (life: Lifetime): HTMLElement => {
 }
 
 const liveAnnouncer = (life: Lifetime): HTMLElement =>
-  region(life, [announcement], () => announcement.get(), { class: 'visually-hidden' })
+  h(
+    'div',
+    { class: 'visually-hidden', role: 'status' },
+    region(life, [announcement], () => announcement.get()),
+  )
 
 const inTransition = (change: () => void): void => {
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches

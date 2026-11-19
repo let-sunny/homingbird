@@ -6,7 +6,7 @@ import { hrefFor } from '../routes.ts'
 import { agentCredentials, branding } from '../state.ts'
 import { strings } from '../strings.ts'
 import { codeForm } from './connection.ts'
-import { button, dateTimeLabel, field, page, wordmark } from './parts.ts'
+import { button, dateTimeLabel, field, loading, page, wordmark } from './parts.ts'
 import { pip } from './pip.ts'
 
 export const deviceView = (life: Lifetime, code: string | null): HTMLElement => {
@@ -27,7 +27,7 @@ export const deviceView = (life: Lifetime, code: string | null): HTMLElement => 
     region(life, [stage], () => {
       const current = stage.get()
       if (current.step === 'ask') return codeForm()
-      if (current.step === 'loading') return h('p', { class: 'loading' }, strings.loading)
+      if (current.step === 'loading') return loading()
       if (current.step === 'done') return outcome(current.approved, current.message)
       return deviceDecision(current.request, (approved) =>
         stage.set({
@@ -52,7 +52,7 @@ export const consentView = (life: Lifetime, id: string): HTMLElement => {
       const outcomeOf = decided.get()
       if (outcomeOf !== null) return outcome(outcomeOf.approved, outcomeOf.message)
       return loaded === null
-        ? h('p', { class: 'loading' }, strings.loading)
+        ? loading()
         : consentDecision(loaded, (approved) =>
             decided.set({
               approved,
@@ -106,7 +106,7 @@ const outcome = (approved: boolean, message: string): HTMLElement =>
   h(
     'div',
     { class: `outcome ${approved ? 'is-approved' : 'is-denied'}`, role: 'status' },
-    pip(approved ? 'approved' : 'discarded', 6),
+    pip(approved ? 'approved' : 'discarded', 4),
     h('h1', {}, approved ? strings.connectedTitle : strings.deniedTitle),
     h('p', { class: 'outcome-message' }, message),
   )

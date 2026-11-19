@@ -228,7 +228,7 @@ const scenario = async (): Promise<void> => {
     assert.deepEqual(await clippedText(korean.page), [])
     await korean.page.locator(`[data-note-id="${first.id}"] .author-button`).focus()
     await korean.page.keyboard.press('Enter')
-    await korean.page.waitForSelector(`${OPEN}:has-text("Ben님의 에이전트가 작성")`)
+    await korean.page.waitForSelector(`${OPEN}:has-text("Ben 님의 에이전트가 작성")`)
     await korean.page.waitForSelector(`${OPEN}:has-text("모델과 프로그램은 에이전트가 알려 준 정보예요.")`)
     await capture(korean.page, 'korean-wide-light')
     await korean.page.keyboard.press('Escape')

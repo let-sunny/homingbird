@@ -41,6 +41,7 @@ import {
   conversations,
   conversationsLoaded,
   directory,
+  directoryLoaded,
   draftRequests,
   notice,
   releases,
@@ -111,6 +112,7 @@ export const loadWorkspace: Action = T.gen(function* () {
   conversations.set(listed.conversations)
   conversationsLoaded.set(true)
   directory.set(people.entries)
+  directoryLoaded.set(true)
   contacts.set(ties.contacts)
   yield* loadAgents
   yield* loadChannels('')
@@ -183,6 +185,7 @@ export const loadConversations: Action = T.map((listed: { conversations: Readonl
 export const loadPeople: Action = T.gen(function* () {
   const [people, ties] = yield* T.all([api['directory.list']({ query: {} }), api['contacts.list']({})])
   directory.set(people.entries)
+  directoryLoaded.set(true)
   contacts.set(ties.contacts)
 })
 

@@ -36,7 +36,7 @@ import { channels, notice, taught } from '../state.ts'
 import { percentOf, strings } from '../strings.ts'
 import { placeName } from './agent-trust.ts'
 import { closeDialog, opensDialog } from './dialog.ts'
-import { button, field } from './parts.ts'
+import { button, field, loading } from './parts.ts'
 import { todoList } from './todo-list.ts'
 
 /** "What I have taught it": the person's principles, chances to teach, and milestones. */
@@ -47,7 +47,7 @@ export const taughtSection = (life: Lifetime): HTMLElement => {
     [taught, channels],
     () => {
       const loaded = taught.get()
-      if (loaded === null) return h('p', { class: 'loading' }, strings.loading)
+      if (loaded === null) return loading()
       if (loaded === 'failed') return h('p', { role: 'alert' }, strings.trust.loadFailed)
       return [
         h('p', { class: 'trust-footnote' }, strings.teach.intro),

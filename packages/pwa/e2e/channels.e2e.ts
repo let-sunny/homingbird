@@ -46,7 +46,7 @@ const scenario = async (): Promise<void> => {
     // -- No channel exists until someone creates one ----------------------------------------------
     await ana.page.goto(`${base}/#/channels`)
     await ana.page.waitForSelector('.empty:has-text("There are no channels yet.")')
-    await ana.page.waitForSelector('.sidebar .empty a.button:has-text("Browse channels")')
+    await ana.page.waitForSelector('.sidebar .browse-channels:has-text("Browse channels")')
     assert.equal(await ana.page.locator('.channel-card').count(), 0)
     await capture(ana.page, 'no-channel-exists-yet')
 

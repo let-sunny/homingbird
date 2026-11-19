@@ -5,7 +5,7 @@ import { channelLabel } from '../channels.ts'
 import { presenceShown } from '../presence.ts'
 import { hrefFor } from '../routes.ts'
 import { formats, strings } from '../strings.ts'
-import { type PipScale, type PipState, pip } from './pip.ts'
+import { type PipState, pip } from './pip.ts'
 
 export const page = (title: string, ...children: ReadonlyArray<Child>): HTMLElement =>
   h(
@@ -74,15 +74,19 @@ export const timeLabel = (timestamp: number): HTMLElement => {
 export const dateTimeLabel = (timestamp: number | null, fallback: string): string =>
   timestamp === null ? fallback : formats.full.format(new Date(timestamp))
 
+/** Shown while a page or a part of one waits for its data. */
+export const loading = (): HTMLElement => h('p', { class: 'loading' }, strings.loading)
+
+/** Shown when a page or a part of one could not load its data, with a way to try again. */
+export const loadFailed = (retry: () => void): HTMLElement =>
+  empty(strings.loadFailed, button(strings.tryAgain, retry))
+
 export const empty = (text: string, ...actions: ReadonlyArray<Child>): HTMLElement =>
   h('div', { class: 'empty' }, h('p', {}, text), ...actions)
 
-export const emptyWithPip = (
-  state: PipState,
-  scale: PipScale,
-  text: string,
-  ...actions: ReadonlyArray<Child>
-): HTMLElement => h('div', { class: 'empty' }, pip(state, scale), h('p', {}, text), ...actions)
+/** A page with nothing in it yet: the one place on a page where Pip appears, always at the same size. */
+export const emptyWithPip = (state: PipState, text: string, ...actions: ReadonlyArray<Child>): HTMLElement =>
+  h('div', { class: 'empty' }, pip(state, EMPTY_PIP_SCALE), h('p', {}, text), ...actions)
 
 export const channelChips = (slugs: ReadonlyArray<string>): HTMLElement =>
   h(
@@ -110,3 +114,5 @@ export const channelCounts = (channel: Pick<Channel, 'memberCount' | 'helperCoun
 export const archivedMark = (): HTMLElement => h('span', { class: 'archived-mark' }, strings.archived)
 
 export const youMark = (): HTMLElement => h('small', { class: 'is-you' }, strings.youMark)
+
+const EMPTY_PIP_SCALE = 3

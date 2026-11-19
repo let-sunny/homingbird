@@ -43,9 +43,19 @@ fieldset {
   padding: 0;
 }
 
+fieldset {
+  min-inline-size: 0;
+}
+
 ul,
 ol {
   list-style: none;
+}
+
+legend {
+  padding-inline: var(--hb-space-2);
+  font-weight: 700;
+  font-size: var(--hb-text-small);
 }
 
 h1,
@@ -147,7 +157,8 @@ input[type="radio"] {
 
 :focus-visible {
   outline: var(--hb-focus-ring);
-  outline-offset: 2px;
+  outline-color: var(--hb-color-focus);
+  outline-offset: var(--hb-pixel);
 }
 
 code,
@@ -170,9 +181,6 @@ small {
   white-space: nowrap;
 }
 
-.pip-x1 {
-  --pip-scale: 1;
-}
 .pip-x2 {
   --pip-scale: 2;
 }
@@ -181,9 +189,6 @@ small {
 }
 .pip-x4 {
   --pip-scale: 4;
-}
-.pip-x6 {
-  --pip-scale: 6;
 }
 
 .wordmark {

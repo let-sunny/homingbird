@@ -72,6 +72,11 @@
   --hb-color-on-character-light: var(--hb-ink);
   --hb-color-character-dark: var(--hb-night);
   --hb-color-on-character-dark: var(--hb-mist);
+  --hb-color-focus: #b45309;
+  --hb-color-focus-on-titlebar: var(--hb-beak);
+  --hb-color-focus-on-pending: var(--hb-ink);
+  --hb-color-tour: #0f766e;
+  --hb-color-tour-on-titlebar: var(--hb-sparkle);
 
   --hb-font-body: "Inter", system-ui, sans-serif;
   --hb-font-display: "Bricolage Grotesque", "Inter", system-ui, sans-serif;
@@ -87,8 +92,8 @@
   --hb-border-rule: 4px;
   --hb-border-width: var(--hb-pixel);
   --hb-border: var(--hb-border-width) solid var(--hb-color-line);
-  --hb-focus-ring: 3px solid var(--hb-color-action);
-  --hb-tour-outline: 3px dashed var(--hb-color-action);
+  --hb-focus-ring: 3px solid var(--hb-color-focus);
+  --hb-tour-outline: 3px dashed var(--hb-color-tour);
   --hb-border-thin: var(--hb-border-hairline) solid var(--hb-color-line);
   --hb-border-divider: var(--hb-border-hairline) solid var(--hb-color-divider);
   --hb-border-quote: var(--hb-border-rule) solid var(--hb-color-accent-pressed);
@@ -155,5 +160,7 @@
     --hb-color-titlebar: light-dark(var(--hb-night), #1a2740);
     --hb-color-on-titlebar: var(--hb-mist);
     --hb-color-backdrop: light-dark(rgb(27 35 51 / 0.55), rgb(0 0 0 / 0.65));
+    --hb-color-focus: light-dark(#b45309, var(--hb-envelope));
+    --hb-color-tour: light-dark(#0f766e, var(--hb-sparkle));
   }
 }

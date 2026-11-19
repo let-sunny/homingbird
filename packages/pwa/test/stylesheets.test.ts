@@ -117,8 +117,24 @@ const resolve = (tokens: ReadonlyMap<string, string>, name: string): string => {
   const value = tokens.get(name)
   if (value === undefined) throw new Error(`${name} is not declared`)
   const reference = /^var\((--hb-[\w-]+)\)$/.exec(value)
-  return reference === null ? value : resolve(tokens, reference[1]!)
+  if (reference !== null) return resolve(tokens, reference[1]!)
+  const mix = /^color-mix\(in srgb, var\((--hb-[\w-]+)\) (\d+)%, var\((--hb-[\w-]+)\)\)$/.exec(value)
+  return mix === null
+    ? value
+    : mixed(resolve(tokens, mix[1]!), Number(mix[2]) / 100, resolve(tokens, mix[3]!))
 }
+
+const mixed = (first: string, share: number, second: string): string =>
+  `#${[1, 3, 5]
+    .map((at) =>
+      Math.round(
+        Number.parseInt(first.slice(at, at + 2), 16) * share +
+          Number.parseInt(second.slice(at, at + 2), 16) * (1 - share),
+      )
+        .toString(16)
+        .padStart(2, '0'),
+    )
+    .join('')}`
 
 const luminance = (hex: string): number => {
   const digits = /^#([0-9a-f]{6})$/i.exec(hex)
@@ -161,6 +177,17 @@ const BOUNDARY_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ['switch-off-edge', 'surface'],
   ['switch-off-edge', 'page'],
   ['switch-thumb-on', 'switch-on'],
+  ['focus', 'page'],
+  ['focus', 'surface'],
+  ['focus', 'sunken'],
+  ['focus', 'bubble-mine'],
+  ['focus', 'pending-wash'],
+  ['focus-on-titlebar', 'titlebar'],
+  ['focus-on-pending', 'pending'],
+  ['tour', 'page'],
+  ['tour', 'surface'],
+  ['tour', 'sunken'],
+  ['tour-on-titlebar', 'titlebar'],
 ]
 
 describe.each(['light', 'dark'] as const)('colour tokens in the %s scheme', (scheme) => {

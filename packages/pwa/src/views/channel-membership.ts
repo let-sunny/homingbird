@@ -14,7 +14,7 @@ import { type Roster, channelLabel, isPrivate, rosterFacts } from '../channels.t
 import { directory, members, signedIn } from '../state.ts'
 import { strings } from '../strings.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
-import { button, youMark } from './parts.ts'
+import { button, loading, youMark } from './parts.ts'
 
 export const rosters = signal<ReadonlyMap<string, Roster>>(new Map())
 
@@ -112,14 +112,14 @@ const rosterOf = (channel: Channel): Roster | null => {
   return cached ?? null
 }
 
-const loading = new Set<string>()
+const rostersLoading = new Set<string>()
 
 const refreshRoster = (channel: Channel): void => {
   const key = `${channel.slug}:${channel.memberCount}`
-  if (loading.has(key)) return
-  loading.add(key)
+  if (rostersLoading.has(key)) return
+  rostersLoading.add(key)
   launch(loadChannelMembers(channel.slug), (found) => {
-    loading.delete(key)
+    rostersLoading.delete(key)
     remember(channel, found)
   })
 }
@@ -172,7 +172,7 @@ const membersPanel = (life: Lifetime, channel: Channel): Child => {
       [listed, members, directory],
       () => {
         const roster = listed.get()
-        if (roster === null) return h('p', { class: 'loading' }, strings.loading)
+        if (roster === null) return loading()
         const facts = rosterFacts(
           { memberCount: roster.length, members: roster },
           signedIn()?.member.id ?? null,

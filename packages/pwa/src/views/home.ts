@@ -4,15 +4,15 @@ import { mayRestoreConversation, mostRecentConversation } from '../home.ts'
 import { hrefFor } from '../routes.ts'
 import { conversations, conversationsLoaded, openedForThePerson } from '../state.ts'
 import { strings } from '../strings.ts'
-import { emptyWithPip } from './parts.ts'
+import { emptyWithPip, loading } from './parts.ts'
 import { pip } from './pip.ts'
 import { startTour } from './tour.ts'
 
 export const homeView = (life: Lifetime): HTMLElement => {
   const host = region(life, [conversations, conversationsLoaded], () => {
-    if (!conversationsLoaded.get()) return h('p', { class: 'loading' }, strings.loading)
+    if (!conversationsLoaded.get()) return loading()
     if (conversations.get().length === 0) return startingPoints()
-    return emptyWithPip('waving', 6, strings.pickConversation)
+    return emptyWithPip('waving', strings.pickConversation)
   })
   const openMostRecent = (): void => {
     if (!conversationsLoaded.get() || !sitsBesideTheList(host) || !mayRestoreConversation(location.hash))
@@ -32,7 +32,7 @@ export const startingPoints = (): HTMLElement =>
   h(
     'section',
     { class: 'starting-points', 'aria-labelledby': 'starting-points-title' },
-    pip('waving', 4),
+    pip('waving', 3),
     h('h2', { id: 'starting-points-title' }, strings.start.title),
     h(
       'ul',

@@ -153,33 +153,38 @@ export const overflowsSideways = (page: any): Promise<boolean> =>
 /**
  * Visible elements whose right edge passes the viewport: each as its tag and classes, the innermost
  * ones only, so the list names the cause rather than everything around it. Content of a container
- * that scrolls sideways on purpose, such as a wide table, does not count.
+ * that scrolls sideways on purpose, a wide table or a code block, does not count; a page or list that
+ * scrolls up and down does not excuse anything.
  */
 export const pastTheRightEdge = (page: any): Promise<string[]> =>
-  page.evaluate(() => {
-    const { document, innerWidth, getComputedStyle } = globalThis as any
+  page.evaluate((SIDEWAYS_ON_PURPOSE: string) => {
+    const { document, innerWidth } = globalThis as any
     const past: any[] = []
     for (const element of document.querySelectorAll('body *')) {
       if (element.closest('[hidden], dialog:not([open]), .visually-hidden, [popover]:not(:popover-open)'))
         continue
       const box = element.getBoundingClientRect()
       if (box.width === 0 || box.height === 0 || box.right <= innerWidth + 1) continue
-      let scrolledOnPurpose = false
-      for (let parent = element.parentElement; parent !== null; parent = parent.parentElement) {
-        const style = getComputedStyle(parent)
-        const sideways = style.overflowX === 'auto' || style.overflowX === 'scroll'
-        const upAndDown = style.overflowY === 'auto' || style.overflowY === 'scroll'
-        if (sideways && !upAndDown) {
-          scrolledOnPurpose = parent.getBoundingClientRect().right <= innerWidth + 1
-          break
-        }
-      }
+      const scroller = element.parentElement?.closest(SIDEWAYS_ON_PURPOSE)
+      const scrolledOnPurpose = scroller != null && scroller.getBoundingClientRect().right <= innerWidth + 1
       if (!scrolledOnPurpose) past.push(element)
     }
     return past
       .filter((element: any) => !past.some((other: any) => other !== element && element.contains(other)))
       .map((element: any) => `${element.tagName.toLowerCase()}.${[...element.classList].join('.')}`)
-  })
+  }, SIDEWAYS_SCROLLERS)
+
+/** To-do text fields that hide a line, or reach into what follows them: none may. */
+export const crowdedFields = (page: any): Promise<string[]> =>
+  page.evaluate(() =>
+    [...(globalThis as any).document.querySelectorAll('textarea.todo-field')].flatMap((field: any) => {
+      const next = field.closest('.todo-main')?.querySelector('.todo-details, .todo-problems:not(:empty)')
+      const hides = field.scrollHeight > field.clientHeight + 1
+      const reaches =
+        next != null && field.getBoundingClientRect().bottom > next.getBoundingClientRect().top + 1
+      return hides || reaches ? [`${field.name}: ${field.value.slice(0, 40)}`] : []
+    }),
+  )
 
 export const clippedText = (page: any): Promise<string[]> =>
   page.evaluate(() => {
@@ -408,6 +413,8 @@ export const themeColorsOutside = (page: any, allowed: ReadonlyArray<string>): P
       return [...found]
     }, allowed),
   )
+
+const SIDEWAYS_SCROLLERS = '.table-scroll, pre'
 
 const withNames = (page: any): Promise<unknown> =>
   page.evaluate('globalThis.__name = globalThis.__name || ((target) => target)')

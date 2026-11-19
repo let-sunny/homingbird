@@ -4,7 +4,7 @@ import { h } from '@homingbird/ui'
 import { builtInIdOf, characterOf, framePixels, frameTimings } from '../characters.ts'
 import { strings } from '../strings.ts'
 
-export type CharacterScale = 1 | 2 | 3 | 4 | 6
+export type CharacterScale = 1 | 2 | 3 | 4
 
 export type Motion = 'still' | 'once' | 'loop'
 

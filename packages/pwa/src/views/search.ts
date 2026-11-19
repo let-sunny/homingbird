@@ -1,23 +1,26 @@
 import { Task as T } from '@homingbird/kernel'
-import type { Me, Note } from '@homingbird/protocol'
+import type { ApiError, Me, Note } from '@homingbird/protocol'
 import { type Lifetime, h, region, signal } from '@homingbird/ui'
 import { api, launch } from '../actions.ts'
 import { hrefFor } from '../routes.ts'
 import { conversations, members } from '../state.ts'
 import { strings } from '../strings.ts'
 import { conversationTitle, excerpt } from '../thread.ts'
-import { emptyWithPip, field, page, timeLabel } from './parts.ts'
+import { empty, emptyWithPip, field, loading, page, timeLabel } from './parts.ts'
 
 export const searchView = (life: Lifetime, me: Me, initialQuery: string): HTMLElement => {
-  const results = signal<ReadonlyArray<Note> | null>(null)
+  const results = signal<ReadonlyArray<Note> | 'searching' | null>(null)
   const run = (query: string): void => {
     if (query === '') {
       results.set(null)
       return
     }
+    results.set('searching')
     launch(
-      T.map((found: { notes: ReadonlyArray<Note> }) => results.set(found.notes))(
-        api['search.notes']({ query: { q: query } }),
+      T.tapError((_: ApiError) => T.sync(() => results.set(null)))(
+        T.map((found: { notes: ReadonlyArray<Note> }) => results.set(found.notes))(
+          api['search.notes']({ query: { q: query } }),
+        ),
       ),
     )
   }
@@ -48,8 +51,9 @@ export const searchView = (life: Lifetime, me: Me, initialQuery: string): HTMLEl
     ),
     region(life, [results, members], () => {
       const found = results.get()
-      if (found === null) return emptyWithPip('searching', 4, strings.searchPrompt)
-      if (found.length === 0) return emptyWithPip('searching', 4, strings.searchEmpty)
+      if (found === null) return emptyWithPip('searching', strings.searchPrompt)
+      if (found === 'searching') return loading()
+      if (found.length === 0) return empty(strings.searchEmpty)
       return h(
         'ul',
         { class: 'results' },

@@ -24,8 +24,7 @@ import { strings } from '../strings.ts'
 import { conversationTitle, excerpt, otherParticipants } from '../thread.ts'
 import { groupAvatar, memberAvatar } from './character-avatar.ts'
 import { startingPoints } from './home.ts'
-import { archivedMark, channelCounts, emptyWithPip, presenceBadges, timeLabel, wordmark } from './parts.ts'
-import { pip } from './pip.ts'
+import { archivedMark, channelCounts, empty, loading, presenceBadges, timeLabel, wordmark } from './parts.ts'
 
 export const shell = (life: Lifetime, me: Me, stage: HTMLElement): HTMLElement => {
   const app = h('div', { class: 'app' }, titleBar(life, me), connectionNotice(life), sidebar(life, me), stage)
@@ -56,7 +55,7 @@ const titleBar = (life: Lifetime, me: Me): HTMLElement =>
     { class: 'titlebar' },
     h(
       'a',
-      { class: 'brand', href: '#/' },
+      { class: 'brand', href: '#/', 'aria-label': branding.get().name },
       h('img', {
         class: 'mark',
         src: branding.get().logo ?? '/icons/mark.svg',
@@ -76,31 +75,32 @@ const titleBar = (life: Lifetime, me: Me): HTMLElement =>
           tab(strings.navNotes, { name: 'home' }, ['home', 'conversation']),
           tab(strings.navMyAgent, { name: 'agent', section: null }, ['agent'], 'connect'),
           tab(strings.navPeople, { name: 'people' }, ['people']),
-          tab(
-            strings.channels,
-            { name: 'channels' },
-            ['channels', 'channel', 'debates', 'debate'],
-            'channels',
-          ),
+          tab(strings.channels, { name: 'channels' }, ['channels', 'channel'], 'channels'),
+          featureOn('debateRooms') && tab(strings.navDebates, { name: 'debates' }, ['debates', 'debate']),
           tab(strings.navSearch, { name: 'search', query: '' }, ['search']),
         ),
       { class: 'tabs-host' },
     ),
-    region(life, [connection], () => {
-      const shown = connectionShown(connection.get(), strings)
-      return h(
-        'span',
-        {
-          class: `connection is-${shown.state}`,
-          role: 'status',
-          title: shown.description,
-          'aria-label': shown.description,
-          data: { noticeable: String(shown.noticeable), whenShort: shown.whenShort },
-        },
-        h('span', { class: 'connection-mark', 'aria-hidden': 'true' }),
-        h('span', { class: 'connection-label', 'aria-hidden': 'true' }, shown.label),
-      )
-    }),
+    region(
+      life,
+      [connection],
+      () => {
+        const shown = connectionShown(connection.get(), strings)
+        return h(
+          'span',
+          {
+            class: `connection is-${shown.state}`,
+            role: 'status',
+            title: shown.description,
+            'aria-label': shown.description,
+            data: { noticeable: String(shown.noticeable), whenShort: shown.whenShort },
+          },
+          h('span', { class: 'connection-mark', 'aria-hidden': 'true' }),
+          h('span', { class: 'connection-label', 'aria-hidden': 'true' }, shown.label),
+        )
+      },
+      { class: 'connection-host' },
+    ),
     region(
       life,
       [members],
@@ -143,7 +143,6 @@ const userMenu = (me: Me): HTMLElement =>
     { id: USER_MENU_ID, popover: 'auto', class: 'menu' },
     h('p', { class: 'menu-who' }, h('strong', {}, me.member.name), h('span', {}, me.member.email)),
     menuLink(strings.menuProfile, { name: 'profile' }),
-    featureOn('debateRooms') && menuLink(strings.debates.title, { name: 'debates' }),
     me.member.role === 'admin' && menuLink(strings.menuAdmin, { name: 'admin', section: 'settings' }),
     h(
       'button',
@@ -176,7 +175,7 @@ const sidebar = (life: Lifetime, me: Me): HTMLElement =>
       [conversations, members, directory, route, conversationsLoaded],
       () => {
         const people = peopleConversations(conversations.get())
-        if (!conversationsLoaded.get()) return h('p', { class: 'loading' }, strings.loading)
+        if (!conversationsLoaded.get()) return loading()
         return people.length === 0
           ? h(
               'div',
@@ -201,12 +200,7 @@ const sidebar = (life: Lifetime, me: Me): HTMLElement =>
     region(life, [conversations, route, channels], () => {
       const rooms = channelRooms(conversations.get())
       return rooms.length === 0
-        ? emptyWithPip(
-            'searching',
-            3,
-            strings.noChannelRooms,
-            h('a', { class: 'button', href: hrefFor({ name: 'channels' }) }, strings.browseChannels),
-          )
+        ? empty(strings.noChannelRooms)
         : h(
             'ul',
             { class: 'conversation-list channel-rooms' },
@@ -240,7 +234,6 @@ const onboarding = (): HTMLElement =>
   h(
     'div',
     { class: 'onboarding', role: 'note' },
-    pip('sign-in', 2),
     h(
       'div',
       { class: 'onboarding-text' },
@@ -322,7 +315,6 @@ const conversationRow = (conversation: Conversation, me: Me): HTMLElement => {
         'span',
         { class: 'conversation-side' },
         conversation.lastNote?.sentAt != null && timeLabel(conversation.lastNote.sentAt),
-        conversation.unreadCount > 0 && pip('new-note', 1),
         conversation.unreadCount > 0 &&
           h(
             'span',

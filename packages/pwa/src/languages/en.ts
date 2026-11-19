@@ -32,12 +32,15 @@ export const en = {
     Unavailable: '',
   } satisfies Record<ApiErrorTag, string>,
   loading: 'Loading…',
+  loadFailed: 'This could not be loaded.',
+  tryAgain: 'Try again',
   sections: 'Sections',
   navNotes: 'Notes',
   navMyAgent: 'My agent',
   newerBelow: 'Newer notes below',
   navPeople: 'People',
   navSearch: 'Search',
+  navDebates: 'Debates',
   menu: 'Menu',
   menuProfile: 'Profile',
   menuAdmin: 'Administration',
@@ -75,14 +78,15 @@ export const en = {
   askedAgentFor: 'Asked your agent: “{instruction}”',
   withdraw: 'Withdraw',
   noAgentOnline:
-    'Your agent is not awake: being connected is not enough. The request waits until your Homingbird desk session is running.',
+    'Your agent is not awake; being connected is not enough. The request waits until your desk session or runner is running.',
   onboardingTitle: 'Connect your agent',
-  onboardingHint: 'Keep one agent session open for Homingbird; it drafts replies and you approve them here.',
+  onboardingHint:
+    'Keep one agent session open as your desk, or set up an always-on runner under My agent → Connection. You approve its drafts here.',
   connectAgent: 'Connect an agent',
   noNotesYet: 'No notes yet',
   emptyThread: 'No notes here yet. Say hello.',
   channelRoomEmpty:
-    'No questions here yet. Ask here and the people who answer in this channel reply; every note is approved by a person first.',
+    'No questions here yet. Ask, and the people who answer in this channel reply. A person approves every note.',
   origin: {
     agent: 'Agent',
     human_edited: 'Agent, edited by a person',
@@ -120,14 +124,13 @@ export const en = {
   channels: 'Channels',
   browseChannels: 'Browse channels',
   channelsIntro:
-    'Ask in a channel and the people who answer in it reply; every note is approved by a person first. Join a channel to read along and ask; turn on answering and its questions reach you and your agent.',
+    'Ask a channel and the people who answer there reply; a person approves every note. Join to read and ask; turn on answering to get its questions.',
   channelsSearchLabel: 'Search channels',
   channelsSearchPlaceholder: 'Name or description',
   noChannels: 'No channel matches.',
-  noChannelsYet:
-    'Ask in a channel and the people who answer in it reply; every note is approved by a person first. There are no channels yet. Start the first one, or ask a person directly.',
+  noChannelsYet: 'There are no channels yet. Start the first one, or ask a person directly.',
   noChannelRooms:
-    'Ask in a channel and the people who answer in it reply; every note is approved by a person first. You are in no channel yet: browse them, join the ones you know about, or start one.',
+    'You are in no channel yet. Browse them to join one or start your own; there too, a person approves every note.',
   join: 'Join',
   joinAndAnswer: 'Join and answer',
   helpingHere: 'You answer here',
@@ -186,6 +189,7 @@ export const en = {
   },
   askChannelPlaceholder: 'Write your question. Text and links only.',
   unknownChannel: 'This channel does not exist.',
+  adminNoChannels: 'No channels yet.',
   draftReplyTo: 'Draft reply to “{excerpt}”',
   newNoteDraft: 'Draft note',
   edit: 'Edit',
@@ -245,8 +249,7 @@ export const en = {
   languageAuto: 'Match browser',
   languageHint: 'Notifications follow this choice on every device.',
   credentialsTitle: 'Devices and agents',
-  credentialsIntro:
-    'Every browser, device and agent you connected is listed here. Revoke one and it stops working at once.',
+  credentialsIntro: 'Every browser, device and agent you connected. A revoked one stops working at once.',
   credentialKind: { human: 'Person', agent: 'Agent' },
   credentialCurrent: 'This session',
   credentialExpires: 'Expires',
@@ -377,9 +380,9 @@ export const en = {
     needsManagerInRoom: 'Make someone in the room a manager before making the channel private.',
     requestNotWaiting: 'This request is no longer waiting.',
   },
-  deskTitle: 'Keep one agent session open for Homingbird: your desk.',
+  deskTitle: 'Keep one agent session open as your desk.',
   deskBody:
-    'It drafts replies to the notes that arrive, and you approve them here. Other sessions draft only when you ask them.',
+    'It drafts replies to arriving notes for you to approve here; other sessions draft only when asked. For a desk that is always on, install the runner: see “Connect an agent” in the user guide.',
   noAgentsYet: 'No agent is connected yet. Once one is, replies are drafted for you as notes arrive.',
   codeFallback: 'Did your agent show you a connection code instead of a link? Enter it here.',
   notSetUp: 'Your agent is not set up yet? Ask your administrator.',
@@ -388,10 +391,10 @@ export const en = {
   answeringFlow: {
     title: 'Answering flow',
     intro:
-      'The steps every member’s agent follows when it drafts an answer: what to look for before drafting, and what the draft must satisfy. Write the outcome you want, not the tool to use. Each member’s agent meets a step with the tools it has, and falls back to careful reading when it has none.',
+      'What every member’s agent checks before drafting an answer, and what the draft must satisfy. Write the outcome, not the tool: an agent without a fitting tool reads carefully instead.',
     warning:
-      'These steps are sent to every member’s agent as instructions. They cannot approve or send anything: a person still approves every note.',
-    caution: 'These steps reach every member’s agent, so do not put confidential material in them.',
+      'Every member’s agent gets these steps as instructions. They cannot approve or send anything: a person still approves every note.',
+    caution: 'Leave out anything confidential.',
     beforeTitle: 'Before drafting',
     checksTitle: 'Check the draft',
     stepLabel: 'Step',
@@ -414,11 +417,11 @@ export const en = {
     notesBody: 'Notes from colleagues’ agents arrive here. Nothing is sent until you approve it.',
     connectTitle: 'Connect your agent',
     connectBody:
-      'Under My agent, connect one agent session and keep it open for Homingbird. It drafts replies; you approve them here.',
+      'Under My agent, connect an agent and keep one session open, or install the always-on runner. It drafts replies; you approve them here.',
     connectAction: 'Open My agent',
     channelsTitle: 'Channels',
     channelsBody:
-      'Ask in a channel and the people who answer in it reply; every note is approved by a person first. Ask a channel when you do not know who can answer, or switch on answering where you can help.',
+      'Ask a channel when you do not know who can answer, or turn on answering where you can help. A person approves every note.',
     profileTitle: 'Your profile',
     profileBody: 'Choose your language and your character here, and start this tour again.',
     lookFor: 'Look for “{place}”.',
@@ -429,7 +432,7 @@ export const en = {
   features: {
     title: 'Features',
     intro:
-      'Turn off what your organization does not use. Its part of the web client disappears, agents are told nothing about it, and its data is kept for when it is turned on again.',
+      'Turn off what your organization does not use. It disappears from the web client, agents hear nothing of it, and its data is kept.',
     core: 'Notes, drafts, approval, direct messages, sign-in and the audit log are always on.',
     names: {
       channels: 'Creating channels',
@@ -498,7 +501,7 @@ export const en = {
     },
     onThisPage: 'On this page',
     intro:
-      'These numbers are about your agent’s drafts, not about you. They show where its drafts already go out the way you would write them, and where they still need you.',
+      'These numbers are about your agent’s drafts, not about you: where they already go out as you would write them, and where they still need you.',
     verdict: {
       too_few: 'Not enough drafts yet to tell',
       usually_as_written: 'Your agent’s drafts are usually sent as written',
@@ -574,7 +577,7 @@ export const en = {
     sessions: {
       title: 'Fresh sessions and long ones',
       intro:
-        'Drafts by how long the desk session had run and how much of its context it had used, over the last {days} days. A long session or a full context often makes drafts worse; a fresh one helps.',
+        'Drafts of the last {days} days by the desk session’s age and context use. Long sessions and full contexts often make drafts worse.',
       byAgeCaption: 'By how long the session had run',
       byContextCaption: 'By how much context the session had used',
       bucketColumn: 'Session',
@@ -596,7 +599,7 @@ export const en = {
         unknown: 'Not reported',
       },
       freshSuggestion:
-        '{name} has run for a long time or used most of its context. Its drafts are often better from a fresh session: start a new one and make it the desk.',
+        '{name} has run for long or used most of its context. Start a fresh session and make it the desk: its drafts are often better.',
     },
     labelColumn: 'Program or model',
     clientUnknown: 'Program not known',
@@ -615,7 +618,7 @@ export const en = {
   },
   teach: {
     intro:
-      'A principle is a rule for how your agent answers a kind of question, such as “Release dates: check the release calendar and give weekday, time and time zone”, or an answer it gives as it is. You still approve every draft.',
+      'A principle tells your agent how to answer a kind of question, such as “Release dates: check the release calendar and give weekday, time and time zone”, or gives it an answer to use as it is. You still approve every draft.',
     add: 'Teach my agent',
     dialogTitle: 'Teach your agent a principle',
     topic: 'When asked about',
@@ -740,7 +743,7 @@ export const en = {
   debates: {
     title: 'Debate rooms',
     intro:
-      'In a debate room a few people’s agents discuss one question on their own, for a limited number of turns, and produce one result: a conclusion, or an explanation of why they did not agree. The result leaves the room only when every person whose agent took part approves it.',
+      'A few people’s agents discuss one question on their own for a limited number of turns and produce one result: a conclusion, or why they disagree. The result leaves the room only when everyone whose agent took part approves it.',
     newRoom: 'New debate room',
     question: 'Question',
     questionPlaceholder: 'Should we ship the billing migration this week?',
@@ -756,7 +759,7 @@ export const en = {
     minutes: 'Time limit in minutes',
     turnCharacters: 'Characters per turn',
     create: 'Open the room',
-    empty: 'No debate rooms yet. Open one for a question your colleagues’ agents could settle together.',
+    empty: 'No debate rooms yet. Open one for a question several agents could settle together.',
     stage: {
       ended: 'Ended without a result',
       gathering: 'Waiting for agents',
@@ -779,7 +782,7 @@ export const en = {
     noParticipants: 'No agent has been opted in yet.',
     optInTitle: 'Opt my agent in',
     optInHint:
-      'Your agent takes turns in this room only, and each turn is shown to the room as written, without your approval; only the result waits for you. It reads the other turns as quoted data from colleagues and never sends anything. Run it without action tools, and run the runner in split mode, so that a separate reader reads the turns.',
+      'Your agent takes turns in this room only. Each turn appears in the room as written, without your approval; only the result waits for you. It reads the other turns as quoted data and sends nothing. Run it without action tools, and the runner in split mode, so that a separate reader reads the turns.',
     chooseAgent: 'Agent',
     optIn: 'Opt in',
     noAgent: 'Connect an agent first, under My agent → Connection.',
@@ -839,7 +842,7 @@ export const en = {
   insights: {
     title: 'Insights',
     intro:
-      'Numbers that show whether people use Homingbird and whether approving is becoming a formality. Numbers only: never what a note says, and never one person’s figures.',
+      'Whether people use Homingbird, and whether approving is becoming a formality. Numbers only: never what a note says, never one person’s figures.',
     noTeams: 'With no teams, only organization-wide numbers are shown.',
     privacy: 'Any group under {minimum} people is left out. Blocks are a count only.',
     tooFew: 'Fewer than {minimum} people sent notes in this period, so no numbers are shown.',
@@ -889,7 +892,7 @@ export const en = {
     findPerson: 'Find a person',
     findPersonHint: 'Write to a colleague; their agent drafts the reply.',
     connect: 'Connect your agent',
-    connectHint: 'Keep one agent session open so replies are drafted for you.',
+    connectHint: 'An open agent session, or the always-on runner, drafts your replies.',
     tour: 'Take the tour',
   },
   character: {
@@ -962,7 +965,7 @@ export const en = {
     startOver: 'Start over',
     askAgent: 'Ask my agent',
     askAgentHint:
-      'Your agent can draft a character with you. In your agent session, ask it to make your Homingbird character. It checks the character and gives you a link that opens it here. Only you can save it.',
+      'In your agent session, ask it to make your Homingbird character. It checks it and gives you a link that opens it here; only you can save it.',
     resetMember: 'Reset character',
     resetMemberDone: '{name} is shown as the pigeon again.',
     slots: {

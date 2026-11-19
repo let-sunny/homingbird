@@ -285,11 +285,10 @@ const scenario = async (): Promise<void> => {
     await ben.page.waitForSelector('.note.is-mine .author-button canvas[data-character="fox"]')
     assert.equal(await ben.page.locator('.note.is-theirs .note-face canvas[data-character="owl"]').count(), 1)
     assert.equal(await ben.page.locator('.note.is-mine .pip').count(), 0, 'Pip never stands for a person')
-    await ben.page.waitForSelector('.thread-head canvas[data-character="owl"]')
+    assert.equal(await ben.page.locator('.thread-head canvas').count(), 0, 'the header names, the notes show')
     await inThemes(ben.page, 'each-note-shows-its-author-character')
     await api(june, 'PUT', '/me/character', FOX)
     await ben.page.waitForSelector('.note.is-theirs .note-face canvas[data-character="fox"]')
-    await ben.page.waitForSelector('.thread-head canvas[data-character="fox"]')
     await ben.page.waitForSelector(`.conversation[href="#/c/${direct.id}"] canvas[data-character="fox"]`)
     await shot(ben.page, 'a-changed-character-shows-without-reload')
 
@@ -756,7 +755,7 @@ const scenario = async (): Promise<void> => {
     await korean.page.waitForSelector('.thread-head .channel-counts:has-text("답변자")')
     await inThemes(korean.page, 'korean-channel-room')
     await korean.page.goto(`${base}/#/connect`)
-    await korean.page.waitForSelector('.desk-recommendation:has-text("전용 에이전트 세션")')
+    await korean.page.waitForSelector('.desk-recommendation:has-text("데스크로 열어 두세요")')
     await korean.page.waitForSelector('.not-set-up:has-text("관리자에게 문의하세요")')
     assert.equal(await korean.page.locator('.stage :text("모드")').count(), 0)
     await inThemes(korean.page, 'korean-connect-an-agent')
@@ -839,8 +838,10 @@ const tourPlacement = (
     if (target === null || !document.querySelector('#tour').classList.contains('is-anchored'))
       return { targetShown: false, gap: 0, namesThePlace, overHeader, width: Math.round(callout.width) }
     const box = target.getBoundingClientRect()
+    // A control in the header gets its callout under the header, so it is measured from there.
+    const below = target.closest('.titlebar')?.getBoundingClientRect().bottom ?? box.bottom
     const across = Math.max(0, box.left - callout.right, callout.left - box.right)
-    const along = Math.max(0, box.top - callout.bottom, callout.top - box.bottom)
+    const along = Math.max(0, box.top - callout.bottom, callout.top - below)
     return {
       targetShown: true,
       gap: Math.round(Math.max(across, along)),

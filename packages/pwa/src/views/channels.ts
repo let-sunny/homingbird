@@ -27,8 +27,7 @@ import { strings } from '../strings.ts'
 import { agentAsk } from './agent-ask.ts'
 import { joinButtons, privateMark, roomControls, rosters } from './channel-membership.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
-import { channelChips, channelCounts, emptyWithPip, field, page } from './parts.ts'
-import { pip } from './pip.ts'
+import { channelChips, channelCounts, empty, emptyWithPip, field, loading, page } from './parts.ts'
 
 export const channelsView = (life: Lifetime): HTMLElement => {
   launch(loadChannels(''))
@@ -78,30 +77,18 @@ export const channelsView = (life: Lifetime): HTMLElement => {
   load('', null)
   return page(
     strings.channels,
-    h(
-      'div',
-      { class: 'channels-intro' },
-      h('p', {}, strings.channelsIntro),
-      newChannelButton(),
-      featureOn('debateRooms') &&
-        h(
-          'a',
-          { class: 'button debate-rooms-link', href: hrefFor({ name: 'debates' }) },
-          strings.debates.title,
-        ),
-    ),
+    h('div', { class: 'channels-intro' }, h('p', {}, strings.channelsIntro), newChannelButton()),
     field(strings.channelsSearchLabel, search),
     region(life, [listed], () => {
       const current = listed.get()
-      if (!current.loaded) return h('p', { class: 'loading' }, strings.loading)
+      if (!current.loaded) return loading()
       if (current.channels.length === 0 && current.query === '')
         return emptyWithPip(
           'searching',
-          4,
           strings.noChannelsYet,
           h('div', { class: 'empty-actions' }, newChannelButton(), peopleLink()),
         )
-      if (current.channels.length === 0) return emptyWithPip('searching', 4, strings.noChannels)
+      if (current.channels.length === 0) return empty(strings.noChannels)
       return [
         h('ul', { class: 'channel-list' }, current.channels.map(channelCard)),
         current.query === '' &&
@@ -151,11 +138,10 @@ export const channelView = (life: Lifetime, slug: string): HTMLElement => {
     { class: 'channel-ask-host' },
     region(life, [channels, channelsLoaded, rosters], () => {
       const channel = channelNamed(channels.get(), slug)
-      if (channel === null && !channelsLoaded.get()) return h('p', { class: 'loading' }, strings.loading)
+      if (channel === null && !channelsLoaded.get()) return loading()
       if (channel === null)
         return emptyWithPip(
           'failed',
-          4,
           strings.unknownChannel,
           h(
             'div',
@@ -280,7 +266,6 @@ const createForm = (life: Lifetime): HTMLElement => {
           return h(
             'p',
             { class: 'channel-exists', role: 'status' },
-            pip('blocked', 2),
             h('span', {}, strings.channelExists({ channel: channelLabel(exact.slug) })),
             h(
               'a',

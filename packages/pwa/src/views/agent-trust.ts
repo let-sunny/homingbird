@@ -18,7 +18,7 @@ import { agentReport } from '../state.ts'
 import { durationOf, formats, percentOf, strings } from '../strings.ts'
 import { PERIODS, compareSentAsWritten, decidedOf, periodOf, shareOf, trendBars } from '../trust.ts'
 import { connectionSection } from './connection.ts'
-import { page } from './parts.ts'
+import { loading, page } from './parts.ts'
 import { routeMapSection } from './route-map-view.ts'
 import { sessionSection } from './session-health-view.ts'
 import { taughtSection } from './teaching.ts'
@@ -98,7 +98,7 @@ const doingNow = (life: Lifetime, days: Signal<number>): HTMLElement =>
     [agentReport, days],
     () => {
       const report = agentReport.get()
-      if (report === null) return h('p', { class: 'loading' }, strings.loading)
+      if (report === null) return loading()
       if (report === 'failed') return h('p', { role: 'alert' }, strings.trust.loadFailed)
       const period = periodOf(report, days.get())
       return [
