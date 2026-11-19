@@ -42,12 +42,12 @@ export const FEATURES = {
       'debates.limits.set',
       'debates.turns.post',
       'debates.result.draft',
-      'debates.result.approve',
-      'debates.result.decline',
+      'debates.result.vote',
       'debates.result.post',
       'debates.export',
     ],
   },
+  analytics: { default: false, routes: ['analytics.track'] },
 } as const satisfies Readonly<
   Record<string, { readonly default: boolean; readonly routes: ReadonlyArray<RouteName> }>
 >

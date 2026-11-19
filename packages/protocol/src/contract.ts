@@ -1,4 +1,5 @@
 import { Schema as S, type Task } from '@homingbird/kernel'
+import { AnalyticsBatch } from './analytics.ts'
 import { CharacterSpec } from './character.ts'
 import {
   ConsentRequest,
@@ -17,13 +18,14 @@ import {
   DEBATE_TURN_MAX,
   Debate,
   DebateAsk,
-  DebateDecision,
+  DebateEnded,
   DebateExport,
   DebateExportFormat,
   DebateLimits,
   DebateQuestion,
   DebateSummary,
   DebateVisibility,
+  DebateVote,
 } from './debates.ts'
 import type { ApiError } from './errors.ts'
 import { StreamEvent } from './events.ts'
@@ -32,7 +34,6 @@ import { AgentReport, OrganizationInsights, PlaceName } from './insights.ts'
 import {
   AgentLabel,
   AnsweringFlowSetting,
-  AuditEntry,
   CHANNEL_DESCRIPTION_MAX,
   Channel,
   ChannelMember,
@@ -68,7 +69,7 @@ import {
   PrincipleSource,
   PrincipleTopic,
 } from './principles.ts'
-import { type RequestOf, type ResponseOf, type Route, route } from './route.ts'
+import { type ReadResponseOf, type RequestOf, type Route, route } from './route.ts'
 import { DeskSession } from './session-health.ts'
 
 export const PushSubscription = S.struct({
@@ -346,11 +347,26 @@ export const contract = {
     response: Note,
   }),
   'drafts.discard': route({ method: 'POST', path: '/drafts/:id/discard', access: 'human', response: Note }),
-  'drafts.seen': route({ method: 'POST', path: '/drafts/:id/seen', access: 'human', response: Empty }),
+  'drafts.seen': route({
+    method: 'POST',
+    path: '/drafts/:id/seen',
+    access: 'human',
+    response: Empty,
+  }),
 
-  'insights.mine': route({ method: 'GET', path: '/insights/me', access: 'human', response: AgentReport }),
+  'insights.mine': route({
+    method: 'GET',
+    path: '/insights/me',
+    access: 'human',
+    response: AgentReport,
+  }),
 
-  'principles.list': route({ method: 'GET', path: '/principles', access: 'human', response: MyPrinciples }),
+  'principles.list': route({
+    method: 'GET',
+    path: '/principles',
+    access: 'human',
+    response: MyPrinciples,
+  }),
   'principles.create': route({
     method: 'POST',
     path: '/principles',
@@ -453,9 +469,20 @@ export const contract = {
     method: 'GET',
     path: '/debate-asks',
     access: 'member',
-    response: S.struct({ asks: S.array(DebateAsk) }),
+    response: S.struct({
+      asks: S.array(DebateAsk),
+      /** Rooms whose drafts of the result this agent is asked to vote on. */
+      ballots: S.optional(S.array(Debate)),
+      /** Rooms of this agent that closed as they were, without a result, in the last day. */
+      ended: S.optional(S.array(DebateEnded)),
+    }),
   }),
-  'debates.get': route({ method: 'GET', path: '/debates/:id', access: 'member', response: Debate }),
+  'debates.get': route({
+    method: 'GET',
+    path: '/debates/:id',
+    access: 'member',
+    response: Debate,
+  }),
   'debates.create': route({
     method: 'POST',
     path: '/debates',
@@ -496,18 +523,11 @@ export const contract = {
     body: DebateResult,
     response: Debate,
   }),
-  'debates.result.approve': route({
+  'debates.result.vote': route({
     method: 'POST',
-    path: '/debates/:id/result/approval',
-    access: 'human',
-    body: DebateDecision,
-    response: Debate,
-  }),
-  'debates.result.decline': route({
-    method: 'POST',
-    path: '/debates/:id/result/decline',
-    access: 'human',
-    body: DebateDecision,
+    path: '/debates/:id/result/vote',
+    access: 'member',
+    body: DebateVote,
     response: Debate,
   }),
   'debates.result.post': route({
@@ -525,7 +545,7 @@ export const contract = {
     method: 'POST',
     path: '/debates/:id/export',
     access: 'human',
-    body: S.struct({ format: DebateExportFormat }),
+    body: S.struct({ format: DebateExportFormat, language: S.optional(Locale) }),
     response: DebateExport,
   }),
 
@@ -588,6 +608,16 @@ export const contract = {
     body: S.struct({ page: S.string({ pattern: /^[A-Za-z0-9-]{8,64}$/ }), visible: S.boolean }),
     response: Empty,
   }),
+  /**
+   * Answers nothing and changes nothing but the credential's last use: a client holding an event stream
+   * sends it every minute, since a held stream alone does not show that its agent is taking part.
+   */
+  'presence.heartbeat': route({
+    method: 'GET',
+    path: '/presence/heartbeat',
+    access: 'member',
+    response: Empty,
+  }),
   'push.test': route({
     method: 'POST',
     path: '/push/test',
@@ -602,6 +632,13 @@ export const contract = {
     path: '/push/subscriptions/remove',
     access: 'human',
     body: S.struct({ endpoint: S.string({ minLength: 1, maxLength: 2000 }) }),
+    response: Empty,
+  }),
+  'analytics.track': route({
+    method: 'POST',
+    path: '/analytics/events',
+    access: 'member',
+    body: AnalyticsBatch,
     response: Empty,
   }),
   'events.poll': route({
@@ -670,25 +707,15 @@ export const contract = {
     access: 'admin',
     response: OrganizationInsights,
   }),
-  'admin.audit.list': route({
-    method: 'GET',
-    path: '/admin/audit',
-    access: 'admin',
-    query: {
-      before: S.optional(Digits),
-      limit: S.optional(PageLimit),
-      actorId: S.optional(MemberId),
-      action: S.optional(S.string({ maxLength: 100 })),
-    },
-    response: S.struct({ entries: S.array(AuditEntry), hasMore: S.boolean }),
-  }),
 } as const satisfies Readonly<Record<string, Route>>
 
 export type Contract = typeof contract
 export type RouteName = keyof Contract
 
 export type Api = {
-  readonly [N in RouteName]: (request: RequestOf<Contract[N]>) => Task.Task<ResponseOf<Contract[N]>, ApiError>
+  readonly [N in RouteName]: (
+    request: RequestOf<Contract[N]>,
+  ) => Task.Task<ReadResponseOf<Contract[N]>, ApiError>
 }
 
 export const humanOnlyRoutes = (Object.keys(contract) as RouteName[]).filter(

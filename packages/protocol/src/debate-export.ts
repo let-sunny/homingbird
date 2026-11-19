@@ -1,41 +1,71 @@
+import { type ExportLabels, exportLabelsIn } from './debate-export-labels.ts'
 import type { DebateResult } from './debate-result.ts'
-import type { Debate } from './debates.ts'
+import type { Debate, DebateVoteRecord } from './debates.ts'
 import type { MemberId } from './ids.ts'
 
 /**
- * The whole room, transcript and result, as Markdown, with participants named by display name. Every
- * text a person or an agent wrote is escaped, so none of it can add a heading, an HTML tag or a link
- * other than a plain http(s) address.
+ * The whole room, transcript and result, as Markdown, with participants named by display name and the
+ * headings in the exporting person's language. Every text a person or an agent wrote is escaped, so none
+ * of it can add a heading, an HTML tag or a link other than a plain http(s) address.
  */
-export const debateMarkdown = (debate: Debate, nameOf: (id: MemberId) => string): string => {
+export const debateMarkdown = (
+  debate: Debate,
+  nameOf: (id: MemberId) => string,
+  labels: ExportLabels = exportLabelsIn(null),
+): string => {
   const name = (id: MemberId) => MARKDOWN.inline(nameOf(id))
+  const ending = debate.endedBecause === null ? '' : ` (${labels.endings[debate.endedBecause]})`
   return [
-    `# Debate room: ${MARKDOWN.inline(debate.question)}`,
+    `# ${labels.title(MARKDOWN.inline(debate.question))}`,
     [
-      `- Visibility: ${debate.visibility}`,
-      `- Status: ${debate.status}${debate.endedBecause === null ? '' : ` (${ENDINGS[debate.endedBecause]})`}`,
-      `- Created: ${isoOf(debate.createdAt)} by ${name(debate.createdBy)}`,
-      `- Limits: ${debate.limits.turnsPerAgent} turns per agent, ${debate.limits.totalTurns} in total, ${debate.limits.minutes} minutes, ${debate.limits.turnCharacters} characters per turn`,
-      `- Participants: ${debate.participants.map((one) => `${name(one.memberId)} (agent: ${MARKDOWN.inline(one.agentName)})`).join(', ') || 'none'}`,
+      `- ${labels.visibility}: ${labels.visibilities[debate.visibility]}`,
+      `- ${labels.status}: ${labels.statuses[debate.status]}${ending}`,
+      `- ${labels.created(isoOf(debate.createdAt), name(debate.createdBy))}`,
+      `- ${labels.limits({
+        perAgent: debate.limits.turnsPerAgent,
+        total: debate.limits.totalTurns,
+        minutes: debate.limits.minutes,
+        characters: debate.limits.turnCharacters,
+      })}`,
+      `- ${labels.participants}: ${debate.participants.map((one) => labels.participantAgent(name(one.memberId), MARKDOWN.inline(one.agentName))).join(labels.listSeparator) || labels.none}`,
     ].join('\n'),
-    '## Turns',
+    `## ${labels.turns}`,
     ...(debate.turns.length === 0
-      ? ['No turns were taken.']
+      ? [labels.noTurns]
       : debate.turns.map(
           (turn) =>
-            `### ${turn.position}. ${name(turn.memberId)}’s agent (${MARKDOWN.inline(turn.agentName)}), ${isoOf(turn.at)}\n\n${MARKDOWN.block(turn.body)}`,
+            `### ${labels.turnHeading(turn.position, name(turn.memberId), MARKDOWN.inline(turn.agentName), isoOf(turn.at))}\n\n${MARKDOWN.block(turn.body)}`,
         )),
     ...(debate.result === null
-      ? ['## Result', 'No result was drafted.']
-      : resultIn(MARKDOWN, debate.result.result, nameOf)),
-    '## Approvals',
-    debate.approvals
-      .map(
-        (one) =>
-          `- ${name(one.memberId)}: ${one.approvedAt === null ? 'not approved' : `approved ${isoOf(one.approvedAt)}`}`,
-      )
-      .join('\n') || 'Nobody has approved.',
+      ? [`## ${labels.result}`, labels.noResult]
+      : resultIn(MARKDOWN, labels, debate.result.result, nameOf)),
+    ...(debate.voteRecord == null
+      ? []
+      : [`## ${labels.vote}`, voteLines(debate.voteRecord, debate, name, labels)]),
   ].join('\n\n')
+}
+
+/** Each agent's vote, then those that dropped out or did not vote in time; or that there was no vote. */
+export const voteLines = (
+  record: DebateVoteRecord,
+  debate: {
+    readonly participants: ReadonlyArray<{ readonly memberId: MemberId }>
+    readonly drafts?: ReadonlyArray<unknown> | undefined
+  },
+  name: (id: MemberId) => string,
+  labels: ExportLabels,
+): string => {
+  if (record.votes.length === 0 && (debate.drafts ?? []).length <= 1) return labels.noVote
+  const voted = record.votes.map((vote) => `- ${labels.votedFor(name(vote.voterId), name(vote.draftBy))}`)
+  const silent = debate.participants
+    .map((one) => one.memberId)
+    .filter((id) => !record.votes.some((vote) => vote.voterId === id))
+    .map((id) =>
+      record.droppedOut.includes(id)
+        ? `- ${labels.droppedOutWithoutVote(name(id))}`
+        : `- ${labels.didNotVote(name(id))}`,
+    )
+  return [...voted, ...silent].join('\n')
 }
 
 export const debateJson = (debate: Debate, nameOf: (id: MemberId) => string): string =>
@@ -58,10 +88,16 @@ export const debateJson = (debate: Debate, nameOf: (id: MemberId) => string): st
         text: turn.body,
       })),
       result: debate.result === null ? null : namedResult(debate.result.result, nameOf),
-      approvals: debate.approvals.map((one) => ({
-        name: nameOf(one.memberId),
-        approvedAt: one.approvedAt === null ? null : isoOf(one.approvedAt),
-      })),
+      vote:
+        debate.voteRecord == null
+          ? null
+          : {
+              votes: debate.voteRecord.votes.map((vote) => ({
+                voter: nameOf(vote.voterId),
+                votedFor: nameOf(vote.draftBy),
+              })),
+              droppedOut: debate.voteRecord.droppedOut.map(nameOf),
+            },
     },
     null,
     2,
@@ -72,7 +108,10 @@ export const debateResultText = (
   result: DebateResult,
   nameOf: (id: MemberId) => string,
 ): string =>
-  [`From the debate room: ${PLAIN.inline(debate.question)}`, ...resultIn(PLAIN, result, nameOf)].join('\n\n')
+  [
+    `From the debate room: ${PLAIN.inline(debate.question)}`,
+    ...resultIn(PLAIN, exportLabelsIn(null), result, nameOf),
+  ].join('\n\n')
 
 export const debateFilename = (debate: Pick<Debate, 'id'>, extension: 'md' | 'json'): string =>
   `debate-${debate.id.slice(debate.id.indexOf('_') + 1)}.${extension}`
@@ -120,55 +159,41 @@ const LINE_BREAKS = /\r\n?|\u2028|\u2029/g
 /** A setext underline or a thematic break: dashes, equals signs or stars and underscores, spaced or not. */
 const RULE_OR_UNDERLINE = /^\s*(?:(?:-\s*)+|(?:=\s*)+|(?:\*\s*){3,}|(?:_\s*){3,})$/
 
-const ENDINGS = {
-  too_few_agents: 'too few agents',
-  no_turns: 'no turns were taken',
-  no_result: 'no result was approved in time',
-} as const
-
-const CATEGORY_NAMES = {
-  information: 'information',
-  assumptions: 'assumptions',
-  goals: 'goals',
-  open_question: 'open question',
-} as const
-
-const CREDIT_NAMES = {
-  gap_filled: 'filled a gap',
-  disagreement_separated: 'separated a disagreement',
-  position_changed: 'changed position on better evidence',
-} as const
-
-const resultIn = (style: Style, result: DebateResult, nameOf: (id: MemberId) => string): string[] => {
+const resultIn = (
+  style: Style,
+  labels: ExportLabels,
+  result: DebateResult,
+  nameOf: (id: MemberId) => string,
+): string[] => {
   const name = (id: MemberId) => style.inline(nameOf(id))
   return [
-    style.heading(2, result.kind === 'conclusion' ? 'Result: conclusion' : 'Result: no conclusion'),
+    style.heading(2, result.kind === 'conclusion' ? labels.conclusion : labels.noConclusion),
     ...(result.kind === 'conclusion'
       ? [
           style.block(result.conclusion),
-          `${style.heading(3, 'Reasons')}\n\n${result.reasons.map((reason) => `- ${style.inline(reason)}`).join('\n')}`,
+          `${style.heading(3, labels.reasons)}\n\n${result.reasons.map((reason) => `- ${style.inline(reason)}`).join('\n')}`,
         ]
       : [
           style.block(result.summary),
-          `${style.heading(3, 'Where they disagreed')}\n\n${result.points
+          `${style.heading(3, labels.disagreements)}\n\n${result.points
             .map(
               (point) =>
-                `- ${style.inline(point.point)} (${CATEGORY_NAMES[point.category]}): ${style.inline(point.explanation)}`,
+                `- ${style.inline(point.point)} (${labels.categories[point.category]}): ${style.inline(point.explanation)}`,
             )
             .join('\n')}`,
         ]),
-    `${style.heading(3, 'Next steps')}\n\n${
+    `${style.heading(3, labels.nextSteps)}\n\n${
       result.nextSteps
         .map(
           (step) =>
-            `- ${style.inline(step.step)} (owner: ${step.owner === null ? 'not named' : name(step.owner)}; proposed by ${name(step.proposedBy)}’s agent)`,
+            `- ${style.inline(step.step)} (${labels.step(step.owner === null ? null : name(step.owner), name(step.proposedBy))})`,
         )
-        .join('\n') || 'None proposed.'
+        .join('\n') || labels.noNextSteps
     }`,
-    `${style.heading(3, 'Contributions')}\n\n${result.contributions
+    `${style.heading(3, labels.contributions)}\n\n${result.contributions
       .map(
         (one) =>
-          `- ${name(one.memberId)}’s agent: ${style.inline(one.summary)}${one.credits.length === 0 ? '' : ` (${one.credits.map((credit) => CREDIT_NAMES[credit]).join(', ')})`}`,
+          `- ${labels.contribution(name(one.memberId))}: ${style.inline(one.summary)}${one.credits.length === 0 ? '' : ` (${one.credits.map((credit) => labels.credits[credit]).join(labels.listSeparator)})`}`,
       )
       .join('\n')}`,
   ]

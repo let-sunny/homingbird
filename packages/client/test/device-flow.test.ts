@@ -37,6 +37,20 @@ describe('beginDeviceFlow', () => {
     ])
   })
 
+  it('says which kind of program asks, when it is told', async () => {
+    const { fetch, calls } = scripted([[200, authorization]])
+    await T.run(beginDeviceFlow({ ...options(fetch), clientKind: 'mcp' }))
+    expect(calls[0]!.body).toBe('client_name=Laptop&client_kind=mcp&scope=notes')
+  })
+
+  it('reports a server whose answer is not JSON as unreachable', async () => {
+    const fetch: Fetch = async () => new Response('<html>', { status: 502 })
+    expect(await T.run(beginDeviceFlow(options(fetch)))).toMatchObject({
+      _tag: 'Err',
+      error: { error: { _tag: 'DeviceFlowFailed', reason: 'unreachable' } },
+    })
+  })
+
   it('reports an unreachable server', async () => {
     const fetch: Fetch = async () => {
       throw new Error('offline')

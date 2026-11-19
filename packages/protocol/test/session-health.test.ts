@@ -1,6 +1,6 @@
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import * as mod from '../../mod/hooks/session-thresholds.ts'
+import * as plugin from '../../plugin/hooks/session-thresholds.ts'
 import {
   CONTEXT_BUCKETS,
   DeskSession,
@@ -20,9 +20,9 @@ describe('needsFreshSession', () => {
     expect(needsFreshSession({ ageMinutes: 0, contextPercent: null })).toBe(false)
   })
 
-  it('uses the same thresholds as the mod pane', () => {
-    expect(mod.FRESH_SESSION_AFTER_MINUTES).toBe(FRESH_SESSION_AFTER_MINUTES)
-    expect(mod.FRESH_SESSION_AT_CONTEXT_PERCENT).toBe(FRESH_SESSION_AT_CONTEXT_PERCENT)
+  it('uses the same thresholds as the plugin pane', () => {
+    expect(plugin.FRESH_SESSION_AFTER_MINUTES).toBe(FRESH_SESSION_AFTER_MINUTES)
+    expect(plugin.FRESH_SESSION_AT_CONTEXT_PERCENT).toBe(FRESH_SESSION_AT_CONTEXT_PERCENT)
   })
 })
 

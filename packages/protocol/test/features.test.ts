@@ -21,7 +21,13 @@ describe('feature switches', () => {
   it('gives each switchable route one feature, and the core none', () => {
     expect(featureOfRoute('principles.create')).toBe('teaching')
     expect(featureOfRoute('push.subscribe')).toBe('webPush')
-    for (const core of ['drafts.send', 'drafts.create', 'notes.read', 'me.get', 'admin.audit.list'] as const)
+    for (const core of [
+      'drafts.send',
+      'drafts.create',
+      'notes.read',
+      'me.get',
+      'admin.settings.put',
+    ] as const)
       expect(featureOfRoute(core)).toBeNull()
     for (const name of FEATURE_NAMES)
       for (const route of FEATURES[name].routes) expect(Object.keys(contract)).toContain(route)

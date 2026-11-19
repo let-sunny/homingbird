@@ -129,6 +129,25 @@ describe('httpApi', () => {
     expect(JSON.stringify(exit)).toContain('conversations')
   })
 
+  it('reads a newer server’s response: an unknown status, a longer list and a missing new field', async () => {
+    const participant = { memberId: 'mem_aaaaaaaaaaaa', agentId: null, agentName: 'Pip', joinedAt: 1 }
+    const room = {
+      ...sample(contract['debates.get'].response),
+      status: 'voting',
+      participants: Array.from({ length: 9 }, () => participant),
+    }
+    const api = (body: unknown) => httpApi({ serverUrl: 'https://x.test', fetch: answering(200, body).fetch })
+    expect(await T.run(api(room)['debates.get']({ params: { id: 'x' } }))).toMatchObject({
+      _tag: 'Ok',
+      value: { status: 'unknown', participants: Array(9).fill(participant) },
+    })
+    const info = { name: 'dovecote', version: '0.1.0', contactMode: 'open', signInWith: 'Google' }
+    expect(await T.run(api(info)['server.info']({}))).toMatchObject({
+      _tag: 'Ok',
+      value: { protocolVersion: 1 },
+    })
+  })
+
   it('passes the abort signal so an interrupted call stops the request', async () => {
     let seen: AbortSignal | undefined
     const fetch: Fetch = (_, init) =>

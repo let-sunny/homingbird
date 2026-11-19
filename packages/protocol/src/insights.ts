@@ -1,15 +1,13 @@
 import { Schema as S } from '@homingbird/kernel'
+import { UNKNOWN } from './compatibility.ts'
 import { Timestamp } from './ids.ts'
 import { RELEASE_REASON_MAX } from './model.ts'
 import { SessionHealth } from './session-health.ts'
 
 /** What the numbers say about one person's agent, in words a client renders; never a single score. */
-export const TrustVerdict = S.literal(
-  'too_few',
-  'usually_as_written',
-  'often_edited',
-  'often_discarded',
-  'mixed',
+export const TrustVerdict = S.tolerant(
+  S.literal('too_few', 'usually_as_written', 'often_edited', 'often_discarded', 'mixed'),
+  UNKNOWN,
 )
 export type TrustVerdict = S.Infer<typeof TrustVerdict>
 
@@ -65,6 +63,8 @@ export const AgentFigures = S.struct({
   quickApprovals: count,
   quickApprovalsFrequent: S.boolean,
   wroteYourself: count,
+  /** Debate results the person sent: counted apart, neither as agent drafts nor as notes they wrote. */
+  debateResultsSent: S.optional(count),
   verdict: TrustVerdict,
   places: S.array(PlaceTrust),
   byClient: S.array(LabelTotals),
@@ -116,6 +116,8 @@ export const OrganizationFigures = S.struct({
   discarded: S.nullable(count),
   quickApprovals: S.nullable(count),
   skipped: count,
+  /** Debate results sent, apart from notes and drafts; null while fewer people than the minimum sent one. */
+  debateResultsSent: S.optional(S.nullable(count)),
   places: S.array(PlaceTotals),
   hiddenPlaces: count,
   byClient: S.array(OrganizationLabelTotals),

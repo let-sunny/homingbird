@@ -1,11 +1,15 @@
 import { Result, tagged } from '@homingbird/kernel'
-import type { NoteStatus, Receipt, ReceiptState } from './model.ts'
+import type * as AsRead from './as-read.ts'
+import type { NoteStatus, ReceiptState } from './model.ts'
 
 export const IllegalTransition = tagged('IllegalTransition')<{
   readonly from: NoteStatus
   readonly to: NoteStatus
 }>()
 export type IllegalTransition = ReturnType<typeof IllegalTransition>
+
+/** How a client describes a note whose status a newer server added: never as sent. */
+export const UNKNOWN_STATUS_TEXT = 'status this client does not know; treat as not sent'
 
 export const NOTE_TRANSITIONS: Readonly<Record<NoteStatus, ReadonlyArray<NoteStatus>>> = {
   draft: ['sent', 'discarded'],
@@ -40,7 +44,7 @@ export interface StatusSummary {
   readonly replied: number
 }
 
-export const summarize = (receipts: ReadonlyArray<Receipt>): StatusSummary => ({
+export const summarize = (receipts: ReadonlyArray<AsRead.Receipt>): StatusSummary => ({
   recipients: receipts.length,
   read: receipts.filter((r) => r.readAt !== null).length,
   drafting: receipts.filter((r) => r.state === 'drafting').length,

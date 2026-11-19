@@ -6,17 +6,10 @@ import * as shared from '../src/contract-schemas.ts'
 import { type Api, type Contract, type RouteName, contract, humanOnlyRoutes } from '../src/contract.ts'
 import type { Note } from '../src/model.ts'
 import { type RequestOf, fillPath, matchPath } from '../src/route.ts'
+import { refinements } from './contract-refinements.ts'
 
 const names = Object.keys(contract) as RouteName[]
 const routes = names.map((name) => [name, contract[name]] as const)
-const noteBody = fc.string({ minLength: 1, maxLength: 200 }).filter((s) => s.trim().length > 0)
-const refinements = {
-  'note-body': noteBody,
-  'agent-label': fc
-    .string({ minLength: 1, maxLength: 80 })
-    .filter((s) => s.trim() !== '' && !/[\p{Cc}\p{Cf}]/u.test(s)),
-}
-
 const parametersOf = (path: string): string[] => [...path.matchAll(/:([A-Za-z]+)/g)].map((match) => match[1]!)
 
 describe('contract', () => {
@@ -118,8 +111,6 @@ describe('contract', () => {
         'debates.create',
         'debates.optIn',
         'debates.limits.set',
-        'debates.result.approve',
-        'debates.result.decline',
         'debates.result.post',
         'debates.export',
         'credentials.list',
@@ -137,7 +128,6 @@ describe('contract', () => {
         'admin.members.update',
         'admin.members.resetCharacter',
         'admin.insights',
-        'admin.audit.list',
       ].sort(),
     )
   })
@@ -170,7 +160,10 @@ describe('contract', () => {
         'debates.get',
         'debates.turns.post',
         'debates.result.draft',
+        'debates.result.vote',
         'push.key',
+        'analytics.track',
+        'presence.heartbeat',
         'events.poll',
       ].sort(),
     )
@@ -258,35 +251,4 @@ describe('language on the profile', () => {
     expect(contract['push.subscribe'].body!.is({ ...subscription, locale: 'ko' })).toBe(true)
     expect(contract['push.subscribe'].body!.is(subscription)).toBe(true)
   })
-})
-
-describe('shared contract schemas', () => {
-  it('accepts page sizes and cursors made of digits only', () => {
-    expect(shared.PageLimit.is('50')).toBe(true)
-    expect(shared.PageLimit.is('5000')).toBe(false)
-    expect(shared.PageLimit.is('-1')).toBe(false)
-    expect(shared.Digits.is('1700000000000')).toBe(true)
-    expect(shared.Digits.is('1e3')).toBe(false)
-    expect(shared.Empty.decode({ extra: 1 })).toMatchObject({ _tag: 'Ok', value: {} })
-  })
-
-  it('needs between one and fifty recipients', () => {
-    const id = 'mem_abcdefghijkl'
-    expect(shared.Recipients.is([])).toBe(false)
-    expect(shared.Recipients.is([id])).toBe(true)
-    expect(shared.Recipients.is(Array.from({ length: 51 }, () => id))).toBe(false)
-  })
-
-  it.each(['InboxItem', 'DeviceRequest', 'ConsentRequest', 'ServerInfo', 'Me'] as const)(
-    '%s accepts its generated values',
-    (name) => {
-      const schema = shared[name] as S.Schema<unknown>
-      fc.assert(
-        fc.property(arbitrary(schema, refinements), (value) => {
-          expect(schema.is(JSON.parse(JSON.stringify(value)))).toBe(true)
-        }),
-        { numRuns: 20 },
-      )
-    },
-  )
 })

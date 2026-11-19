@@ -1,4 +1,5 @@
 import { Schema as S } from '@homingbird/kernel'
+import { UNKNOWN } from './compatibility.ts'
 import { CredentialId, MemberId } from './ids.ts'
 import { ContactMode, Conversation, CredentialKind, Locale, Member, Note } from './model.ts'
 
@@ -27,11 +28,12 @@ export const ConsentRequest = S.struct({
 export type ConsentRequest = S.Infer<typeof ConsentRequest>
 
 export const ServerInfo = S.struct({
-  name: S.literal('dovecote'),
+  name: S.tolerant(S.literal('dovecote'), UNKNOWN),
   version: S.string(),
   contactMode: ContactMode,
   signInWith: S.string(),
   features: S.optional(S.record(S.boolean)),
+  protocolVersion: S.withDefault(S.int({ min: 0 }), 1),
 })
 export type ServerInfo = S.Infer<typeof ServerInfo>
 

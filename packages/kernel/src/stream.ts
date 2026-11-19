@@ -114,6 +114,71 @@ export const merge = <A>(...sources: ReadonlyArray<Stream<A>>): Stream<A> => ({
   },
 })
 
+/** Runs the task when the stream is first read and streams what it gives; a failed task gives nothing. */
+export const fromTask = <A, E, R>(task: T.Task<Stream<A>, E, R>, env: R, signal: AbortSignal): Stream<A> => ({
+  async *[Symbol.asyncIterator]() {
+    const exit = await task.run(env, signal)
+    if (isOk(exit)) yield* exit.value
+  },
+})
+
+/**
+ * A stream written as a task. The task runs when the stream is first read, and each `emit` hands the
+ * reader one element and resumes once the reader asks for the next. The task is interrupted when the
+ * reader stops or the signal aborts, which ends the stream; a failure or defect ends the read with a
+ * TaskError.
+ */
+export const fromEmitter = <A, E, R>(
+  body: (emit: (element: A) => T.Task<void>) => T.Task<unknown, E, R>,
+  env: R,
+  signal: AbortSignal,
+): Stream<A> => ({
+  async *[Symbol.asyncIterator]() {
+    const stop = new AbortController()
+    const onAbort = () => stop.abort()
+    if (signal.aborted) stop.abort()
+    else signal.addEventListener('abort', onAbort, { once: true })
+    let offered = offering<A, E>()
+    const emit = (element: A): T.Task<void> =>
+      T.async<void>((resume) => {
+        offered.resolve({ _tag: 'Element', element, taken: () => resume(ok(undefined)) })
+        return () => {}
+      })
+    const finished = body(emit)
+      .run(env, stop.signal)
+      .then((exit) => offered.resolve({ _tag: 'End', exit }))
+    try {
+      for (;;) {
+        const offer = await offered.promise
+        if (offer._tag === 'End') {
+          if (isOk(offer.exit) || offer.exit.error._tag === 'Interrupt') return
+          throw new T.TaskError(offer.exit.error)
+        }
+        offered = offering()
+        yield offer.element
+        offer.taken()
+      }
+    } finally {
+      signal.removeEventListener('abort', onAbort)
+      stop.abort()
+      await finished
+    }
+  },
+})
+
+/** Calls the finalizer once a stream that was read ends, fails, or its reader stops. */
+export const ensuring =
+  (finalizer: () => void) =>
+  <A>(source: Stream<A>): Stream<A> => ({
+    async *[Symbol.asyncIterator]() {
+      try {
+        yield* source
+      } finally {
+        finalizer()
+      }
+    },
+  })
+
 // The source is asked to close but never awaited: a pull that never settles must not hold the consumer.
 export const untilAborted =
   (signal: AbortSignal) =>
@@ -170,3 +235,18 @@ export const forEach =
       }
       return signal.aborted ? err(T.interruptCause) : ok(undefined)
     })
+
+type Offer<A, E> =
+  | { readonly _tag: 'Element'; readonly element: A; readonly taken: () => void }
+  | { readonly _tag: 'End'; readonly exit: T.Exit<unknown, E> }
+
+const offering = <A, E>(): {
+  readonly promise: Promise<Offer<A, E>>
+  readonly resolve: (offer: Offer<A, E>) => void
+} => {
+  let resolve!: (offer: Offer<A, E>) => void
+  const promise = new Promise<Offer<A, E>>((settle) => {
+    resolve = settle
+  })
+  return { promise, resolve }
+}

@@ -63,10 +63,7 @@ export const roomOf = (overrides: Partial<Debate> = {}): Debate => ({
     draftedBy: ANA,
     draftedAt: Date.UTC(2026, 10, 2, 9, 40),
   },
-  approvals: [
-    { memberId: ANA, approvedAt: Date.UTC(2026, 10, 2, 9, 41) },
-    { memberId: BEN, approvedAt: Date.UTC(2026, 10, 2, 9, 45) },
-  ],
+  voteRecord: { votes: [{ voterId: BEN, draftBy: ANA }], droppedOut: [] },
   ...overrides,
 })
 

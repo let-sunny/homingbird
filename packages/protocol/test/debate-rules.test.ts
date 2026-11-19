@@ -1,17 +1,12 @@
-import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import type { DebateResult } from '../src/debate-result.ts'
 import {
-  type DebateState,
   creditsOf,
-  endingOf,
-  isAtLimit,
+  isTakingPart,
   limitsProblem,
-  mayTakeTurn,
   resultProblem,
   turnProblem,
   turnsTakenBy,
-  whyNoTurn,
 } from '../src/debate-rules.ts'
 import { DEFAULT_DEBATE_LIMITS } from '../src/debates.ts'
 import { MemberId } from '../src/ids.ts'
@@ -20,74 +15,18 @@ const ANA = MemberId.of('ana000000000')
 const BEN = MemberId.of('ben000000000')
 const CY = MemberId.of('cy0000000000')
 const LIMITS = { turnsPerAgent: 2, totalTurns: 4, minutes: 30, turnCharacters: 300 }
-const NOW = 1_000
 
-const stateOf = (speakers: ReadonlyArray<MemberId>, overrides: Partial<DebateState> = {}): DebateState => ({
-  status: 'open',
-  limits: LIMITS,
-  deadlineAt: NOW + 1,
-  participants: [{ memberId: ANA }, { memberId: BEN }],
-  turns: speakers.map((memberId) => ({ memberId })),
-  ...overrides,
-})
-
-describe('whose turn it is', () => {
-  it('lets any participant start, then never the same agent twice in a row', () => {
-    expect(mayTakeTurn(stateOf([]), ANA, NOW)).toBe(true)
-    expect(mayTakeTurn(stateOf([ANA]), ANA, NOW)).toBe(false)
-    expect(whyNoTurn(stateOf([ANA]), ANA, NOW)).toMatch(/no two turns in a row/)
-    expect(mayTakeTurn(stateOf([ANA]), BEN, NOW)).toBe(true)
+describe('an agent in a room', () => {
+  it('counts as taking part unless the server said it dropped out', () => {
+    expect(isTakingPart({})).toBe(true)
+    expect(isTakingPart({ takingPart: true })).toBe(true)
+    expect(isTakingPart({ takingPart: false })).toBe(false)
   })
 
-  it('names why a turn is refused: the room, the agent, a missing second agent, or a used share', () => {
-    expect(whyNoTurn(stateOf([], { status: 'concluding' }), ANA, NOW)).toMatch(/no more turns/)
-    expect(whyNoTurn(stateOf([], { deadlineAt: NOW }), ANA, NOW)).toMatch(/no more turns/)
-    expect(whyNoTurn(stateOf([ANA, BEN, ANA, BEN]), ANA, NOW)).toMatch(/no more turns/)
-    expect(whyNoTurn(stateOf([]), CY, NOW)).toMatch(/not opted in/)
-    expect(whyNoTurn(stateOf([], { participants: [{ memberId: ANA }] }), ANA, NOW)).toMatch(/second agent/)
-    const three = { participants: [{ memberId: ANA }, { memberId: BEN }, { memberId: CY }] }
-    expect(
-      whyNoTurn(stateOf([ANA, BEN, ANA, CY], { ...three, limits: { ...LIMITS, totalTurns: 6 } }), ANA, NOW),
-    ).toMatch(/used all its turns/)
-  })
-
-  it('never lets an agent pass its share, the total or the deadline, whatever the order of turns', () => {
-    const order = fc.array(fc.constantFrom(ANA, BEN, CY), { maxLength: 12 })
-    fc.assert(
-      fc.property(order, fc.integer({ min: 0, max: 2 * NOW }), (speakers, now) => {
-        const state = stateOf(speakers, {
-          participants: [{ memberId: ANA }, { memberId: BEN }, { memberId: CY }],
-        })
-        for (const who of [ANA, BEN, CY])
-          if (mayTakeTurn(state, who, now)) {
-            expect(turnsTakenBy(state, who)).toBeLessThan(LIMITS.turnsPerAgent)
-            expect(speakers.length).toBeLessThan(LIMITS.totalTurns)
-            expect(now).toBeLessThan(state.deadlineAt)
-            expect(speakers.at(-1)).not.toBe(who)
-          }
-      }),
-    )
-  })
-
-  it('is at its limit exactly when time is up, the total is reached, or nobody may speak', () => {
-    fc.assert(
-      fc.property(fc.array(fc.constantFrom(ANA, BEN), { maxLength: 6 }), (speakers) => {
-        const state = stateOf(speakers)
-        const anyoneMay = [ANA, BEN].some((who) => mayTakeTurn(state, who, NOW))
-        expect(isAtLimit(state, NOW)).toBe(!anyoneMay)
-      }),
-    )
-    expect(isAtLimit(stateOf([], { deadlineAt: NOW }), NOW)).toBe(true)
-    expect(isAtLimit(stateOf([], { participants: [{ memberId: ANA }] }), NOW)).toBe(false)
-  })
-})
-
-describe('a room that stops', () => {
-  it('ends without a result with fewer than two agents or no turn, and otherwise asks for one', () => {
-    expect(endingOf(stateOf([], { participants: [{ memberId: ANA }] }))).toBe('too_few_agents')
-    expect(endingOf(stateOf([ANA], { participants: [] }))).toBe('too_few_agents')
-    expect(endingOf(stateOf([]))).toBe('no_turns')
-    expect(endingOf(stateOf([ANA]))).toBeNull()
+  it('counts the turns it took', () => {
+    const turns = [ANA, BEN, ANA].map((memberId) => ({ memberId }))
+    expect(turnsTakenBy({ turns }, ANA)).toBe(2)
+    expect(turnsTakenBy({ turns }, CY)).toBe(0)
   })
 })
 

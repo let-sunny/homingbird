@@ -1,0 +1,74 @@
+import type { Schema as S } from '@homingbird/kernel'
+import type {
+  InboxItem as InboxItemSchema,
+  Me as MeSchema,
+  ServerInfo as ServerInfoSchema,
+} from './contract-schemas.ts'
+import type { DebateResult as DebateResultSchema } from './debate-result.ts'
+import type {
+  DebateAsk as DebateAskSchema,
+  DebateExport as DebateExportSchema,
+  Debate as DebateSchema,
+  DebateStatus as DebateStatusSchema,
+  DebateSummary as DebateSummarySchema,
+} from './debates.ts'
+import type { StreamEvent as StreamEventSchema } from './events.ts'
+import type {
+  AgentFigures as AgentFiguresSchema,
+  AgentPeriod as AgentPeriodSchema,
+  AgentReport as AgentReportSchema,
+} from './insights.ts'
+import type {
+  Channel as ChannelSchema,
+  Contact as ContactSchema,
+  Conversation as ConversationSchema,
+  Credential as CredentialSchema,
+  DirectoryEntry as DirectoryEntrySchema,
+  Member as MemberSchema,
+  Note as NoteSchema,
+  NoteStatus as NoteStatusSchema,
+  Notice as NoticeSchema,
+  Receipt as ReceiptSchema,
+  Settings as SettingsSchema,
+} from './model.ts'
+import type {
+  Achievement as AchievementSchema,
+  DraftingPrinciples as DraftingPrinciplesSchema,
+  MyPrinciples as MyPrinciplesSchema,
+  PrincipleOffer as PrincipleOfferSchema,
+  Principle as PrincipleSchema,
+} from './principles.ts'
+
+/** Responses as a client reads them: an enum value or an event a newer server added reads as "unknown". */
+export type Note = S.Read<typeof NoteSchema>
+export type NoteStatus = S.Read<typeof NoteStatusSchema>
+export type Receipt = S.Read<typeof ReceiptSchema>
+export type Conversation = S.Read<typeof ConversationSchema>
+export type InboxItem = S.Read<typeof InboxItemSchema>
+export type Notice = S.Read<typeof NoticeSchema>
+export type Member = S.Read<typeof MemberSchema>
+export type Me = S.Read<typeof MeSchema>
+export type DirectoryEntry = S.Read<typeof DirectoryEntrySchema>
+export type Contact = S.Read<typeof ContactSchema>
+export type Credential = S.Read<typeof CredentialSchema>
+export type Channel = S.Read<typeof ChannelSchema>
+export type Settings = S.Read<typeof SettingsSchema>
+export type StreamEvent = S.Read<typeof StreamEventSchema>
+export type EventBody = StreamEvent['body']
+/** An event of a kind this client knows: the only ones an event stream passes on. */
+export type KnownEvent = StreamEvent & { readonly body: Exclude<EventBody, { readonly type: 'unknown' }> }
+export type Debate = S.Read<typeof DebateSchema>
+export type DebateStatus = S.Read<typeof DebateStatusSchema>
+export type DebateSummary = S.Read<typeof DebateSummarySchema>
+export type DebateAsk = S.Read<typeof DebateAskSchema>
+export type DebateResult = S.Read<typeof DebateResultSchema>
+export type DebateExport = S.Read<typeof DebateExportSchema>
+export type MyPrinciples = S.Read<typeof MyPrinciplesSchema>
+export type Principle = S.Read<typeof PrincipleSchema>
+export type PrincipleOffer = S.Read<typeof PrincipleOfferSchema>
+export type DraftingPrinciples = S.Read<typeof DraftingPrinciplesSchema>
+export type Achievement = S.Read<typeof AchievementSchema>
+export type AgentReport = S.Read<typeof AgentReportSchema>
+export type AgentPeriod = S.Read<typeof AgentPeriodSchema>
+export type AgentFigures = S.Read<typeof AgentFiguresSchema>
+export type ServerInfo = S.Read<typeof ServerInfoSchema>

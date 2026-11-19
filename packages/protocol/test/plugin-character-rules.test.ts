@@ -5,11 +5,11 @@ import { describe, expect, it } from 'vitest'
 import { characterLink } from '../src/character-link.ts'
 import { characterProblems } from '../src/character.ts'
 
-// The Claude Code mod may import only its own files, so it carries the character rules as one generated
-// module. Run with HB_WRITE_MOD_BUNDLE=1 to write it again after changing the rules.
-const MODULE = new URL('../../mod/hooks/character-rules.mjs', import.meta.url).pathname
+// The Claude Code plugin may import only its own files, so it carries the character rules as one generated
+// module. Run with HB_WRITE_PLUGIN_BUNDLES=1 to write it again after changing the rules.
+const MODULE = new URL('../../plugin/hooks/character-rules.mjs', import.meta.url).pathname
 
-const HEADER = '// Generated from packages/protocol by its mod-character-rules test. Do not edit.\n'
+const HEADER = '// Generated from packages/protocol by its plugin-character-rules test. Do not edit.\n'
 
 const characterRulesModule = async (): Promise<string> => {
   const built = await build({
@@ -36,10 +36,10 @@ const INSTRUMENTED = readFileSync(new URL('../src/character.ts', import.meta.url
   '@ts-nocheck',
 )
 
-describe('the character rules the mod carries', () => {
+describe('the character rules the plugin carries', () => {
   it.skipIf(INSTRUMENTED)('are exactly the protocol’s, bundled', async () => {
     const fresh = await characterRulesModule()
-    if (process.env.HB_WRITE_MOD_BUNDLE === '1') await writeFile(MODULE, fresh)
+    if (process.env.HB_WRITE_PLUGIN_BUNDLES === '1') await writeFile(MODULE, fresh)
     expect(await readFile(MODULE, 'utf8')).toBe(fresh)
     expect(fresh).not.toContain('import(')
   })

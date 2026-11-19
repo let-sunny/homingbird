@@ -69,7 +69,7 @@ const callRoute = (options: HttpApiOptions, route: Route, request: RouteRequest)
       () => fromStatus(response.status, `The server answered ${response.status} without a readable body.`),
     )
     if (!response.ok) return yield* T.fail(errorFrom(response.status, payload))
-    const decoded = route.response.decode(payload)
+    const decoded = route.response.read(payload)
     return decoded._tag === 'Ok'
       ? decoded.value
       : yield* T.fail(

@@ -1,6 +1,7 @@
 import { arbitrary } from '@homingbird/kernel/testing'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
+import { exportLabelsIn } from '../src/debate-export-labels.ts'
 import {
   debateFilename,
   debateJson,
@@ -9,6 +10,7 @@ import {
   escapeMarkdown,
 } from '../src/debate-export.ts'
 import { DebateResult } from '../src/debate-result.ts'
+import type { Locale } from '../src/model.ts'
 import { ANA, BEN, GONE, NO_CONCLUSION, nameOf, roomOf } from './debate-fixtures.ts'
 
 /** The text a Markdown reader acts on: every backslash-escaped mark replaced by an inert letter. */
@@ -55,7 +57,9 @@ describe('exporting a debate room', () => {
     expect(text).toContain('- Decide the date. (owner: not named; proposed by Ben’s agent)')
     expect(text).toContain('- Ana’s agent: Named the March report. (filled a gap)')
     expect(text).toContain('- Ben’s agent: Changed position.\n')
-    expect(text).toContain('- Ben: approved 2026-11-02T09:45:00.000Z')
+    expect(text).toContain(
+      '## Vote\n\n- Ben’s agent voted for Ana’s draft\n- Ana’s agent did not vote in time',
+    )
     expect(text).not.toContain(ANA)
   })
 
@@ -64,7 +68,7 @@ describe('exporting a debate room', () => {
       roomOf({
         status: 'concluding',
         result: NO_CONCLUSION,
-        approvals: [{ memberId: ANA, approvedAt: null }],
+        voteRecord: null,
         turns: [],
         participants: [],
       }),
@@ -76,14 +80,28 @@ describe('exporting a debate room', () => {
     expect(text).toContain('(separated a disagreement)')
     expect(text).toContain('No turns were taken.')
     expect(text).toContain('- Participants: none')
-    expect(text).toContain('- Ana: not approved')
+    expect(text).not.toContain('## Vote')
     const ended = debateMarkdown(
-      roomOf({ status: 'ended', endedBecause: 'no_turns', result: null, approvals: [] }),
+      roomOf({ status: 'ended', endedBecause: 'no_turns', result: null, voteRecord: null }),
       nameOf,
     )
     expect(ended).toContain('- Status: ended (no turns were taken)')
     expect(ended).toContain('## Result\n\nNo result was drafted.')
-    expect(ended).toContain('## Approvals\n\nNobody has approved.')
+    expect(ended).not.toContain('## Vote')
+    const alone = debateMarkdown(roomOf({ voteRecord: { votes: [], droppedOut: [BEN] }, drafts: [] }), nameOf)
+    expect(alone).toContain('## Vote\n\nNo vote was held: the result was the only draft.')
+    expect(debateMarkdown(roomOf({ voteRecord: { votes: [], droppedOut: [] } }), nameOf)).toContain(
+      'No vote was held',
+    )
+    const dropped = debateMarkdown(
+      roomOf({
+        voteRecord: { votes: [{ voterId: ANA, draftBy: BEN }], droppedOut: [BEN] },
+      }),
+      nameOf,
+    )
+    expect(dropped).toContain(
+      '- Ana’s agent voted for Ben’s draft\n- Ben’s agent dropped out of the debate and did not vote',
+    )
   })
 
   it('escapes what people and agents wrote, keeping plain http(s) addresses', () => {
@@ -109,30 +127,65 @@ describe('exporting a debate room', () => {
     expect(quoted).toContain('> Title\n> \\=\n> \\-\t-')
   })
 
-  it('lets no text a person or agent wrote add a heading, an HTML tag or a link but http(s)', () => {
+  it('lets no text a person or agent wrote add a heading, an HTML tag or a link but http(s), in either language', () => {
+    const HEADINGS = {
+      en: /^#{1,3} (?:Debate room: |Turns$|Result|Vote$|Reasons$|Where they disagreed$|Next steps$|Contributions$|\d+\. )/,
+      ko: /^#{1,3} (?:토론방: |차례$|결과|투표$|이유$|의견이 갈린 곳$|다음 단계$|기여$|\d+\. )/,
+    } as const
     fc.assert(
-      fc.property(HOSTILE, HOSTILE, arbitrary(DebateResult), (question, turn, result) => {
-        const text = debateMarkdown(
-          roomOf({
-            question,
-            turns: [{ position: 1, memberId: ANA, agentName: turn, body: turn, at: 1 }],
-            result: { result: { ...result, contributions: [] }, draftedBy: ANA, draftedAt: 2 },
-          }),
-          () => turn,
-        )
-        const plain = unescaped(text)
-        const headings = plain.split('\n').filter((line) => /^(?:> ?)*#/.test(line))
-        for (const heading of headings)
-          expect(heading).toMatch(
-            /^#{1,3} (?:Debate room: |Turns$|Result|Approvals$|Reasons$|Where they disagreed$|Next steps$|Contributions$|\d+\. )/,
+      fc.property(
+        HOSTILE,
+        HOSTILE,
+        arbitrary(DebateResult),
+        fc.constantFrom<Locale>('en', 'ko'),
+        (question, turn, result, language) => {
+          const text = debateMarkdown(
+            roomOf({
+              question,
+              turns: [{ position: 1, memberId: ANA, agentName: turn, body: turn, at: 1 }],
+              result: { result: { ...result, contributions: [] }, draftedBy: ANA, draftedAt: 2 },
+            }),
+            () => turn,
+            exportLabelsIn(language),
           )
-        expect(plain).not.toMatch(/^(?:> ?)*(?:=+|-{2,}) *$/m)
-        expect(plain).not.toMatch(/^(?:> ?)*(?:[-*_] *){3,}$/m)
-        expect(plain).not.toMatch(/[\r\u2028\u2029]/)
-        expect(plain).not.toMatch(/[<[\]`@]/)
-      }),
-      { numRuns: 200 },
+          const plain = unescaped(text)
+          const headings = plain.split('\n').filter((line) => /^(?:> ?)*#/.test(line))
+          for (const heading of headings) expect(heading).toMatch(HEADINGS[language])
+          expect(plain).not.toMatch(/^(?:> ?)*(?:=+|-{2,}) *$/m)
+          expect(plain).not.toMatch(/^(?:> ?)*(?:[-*_] *){3,}$/m)
+          expect(plain).not.toMatch(/[\r\u2028\u2029]/)
+          expect(plain).not.toMatch(/[<[\]`@]/)
+        },
+      ),
+      { numRuns: 300 },
     )
+  })
+
+  it('writes the headings and labels in Korean for a person who reads Korean, escaping the same', () => {
+    const text = debateMarkdown(roomOf({ question: 'Ship *now*?' }), nameOf, exportLabelsIn('ko'))
+    expect(text).toMatch(/^# 토론방: Ship \\\*now\\\*\?/)
+    expect(text).toContain('- 공개 범위: 비공개')
+    expect(text).toContain('- 상태: 닫힘')
+    expect(text).toContain('- 만든 때: 2026-11-02T09:00:00.000Z, 만든 사람: Ana')
+    expect(text).toContain('- 참여자: Ana (에이전트: Laptop), Ben (에이전트: Desk)')
+    expect(text).toContain('### 1. Ana 님의 에이전트 (Laptop), 2026-11-02T09:05:00.000Z')
+    expect(text).toContain('## 결과: 결론')
+    expect(text).toContain('- Share the rollback plan. (담당: Ben; 제안: Ana 님의 에이전트)')
+    expect(text).toContain('- Decide the date. (담당: 정하지 않음; 제안: Ben 님의 에이전트)')
+    expect(text).toContain('- Ana 님의 에이전트: Named the March report. (빠진 정보를 채웠어요)')
+    expect(text).toContain('## 투표\n\n- Ben 님의 에이전트가 Ana 님의 초안에 투표했어요')
+    expect(text).not.toMatch(/Debate room|Turns|Vote/)
+    const ended = debateMarkdown(
+      roomOf({ status: 'ended', endedBecause: 'one_agent_left', result: null, turns: [], voteRecord: null }),
+      nameOf,
+      exportLabelsIn('ko'),
+    )
+    expect(ended).toContain(
+      '- 상태: 결과 없이 끝남 (다른 에이전트들이 토론에서 이탈해 에이전트 하나만 남았어요)',
+    )
+    expect(ended).toContain('차례가 없었어요.')
+    expect(ended).toContain('작성된 결과가 없어요.')
+    expect(ended).not.toContain('## 투표')
   })
 
   it('leaves a colon in an escaped text only where an http(s) address starts', () => {
@@ -175,25 +228,24 @@ describe('exporting a debate room', () => {
       },
     })
     expect(JSON.stringify(parsed)).not.toContain(BEN)
-    const open = JSON.parse(
-      debateJson(
-        roomOf({ closedAt: null, result: null, approvals: [{ memberId: BEN, approvedAt: null }] }),
-        nameOf,
-      ),
-    )
+    const open = JSON.parse(debateJson(roomOf({ closedAt: null, result: null, voteRecord: null }), nameOf))
     expect(open).toMatchObject({
       closedAt: null,
       result: null,
-      approvals: [{ name: 'Ben', approvedAt: null }],
+      vote: null,
+    })
+    expect(JSON.parse(debateJson(roomOf(), nameOf)).vote).toEqual({
+      votes: [{ voter: 'Ben', votedFor: 'Ana' }],
+      droppedOut: [],
     })
   })
 
-  it('writes the result alone as plain text that says where it came from, without the turns or approvals', () => {
+  it('writes the result alone as plain text that says where it came from, without the turns or the vote', () => {
     const room = roomOf({ question: 'Ship *now*?' })
     const text = debateResultText(room, room.result!.result, nameOf)
     expect(text).toMatch(/^From the debate room: Ship \*now\*\?\n\nResult: conclusion\n\nShip on Thursday\./)
     expect(text).not.toContain('The March report')
-    expect(text).not.toMatch(/approved/i)
+    expect(text).not.toMatch(/voted/i)
     expect(text).not.toMatch(/^#|\\/m)
     expect(debateResultText(room, NO_CONCLUSION.result, nameOf)).toContain('Where they disagreed')
   })

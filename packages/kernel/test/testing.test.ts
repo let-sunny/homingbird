@@ -36,6 +36,8 @@ const everything = [
   S.nullable(S.boolean),
   User,
   Event,
+  S.tolerant(S.literal('a', 'b'), 'unknown'),
+  S.struct({ count: S.withDefault(S.int(), 0) }),
 ] as const
 
 describe('generated values', () => {
@@ -84,6 +86,11 @@ describe('generated values', () => {
       fc.property(arbitrary(open), (s) => open.is(s)),
       { numRuns: 30 },
     )
+  })
+
+  it('generates only values a tolerant schema decodes, never its fallback', () => {
+    const status = S.tolerant(S.literal('a'), 'unknown')
+    expect(fc.sample(arbitrary(status), 20).every((value) => value === 'a')).toBe(true)
   })
 
   it('struct values sometimes omit optional fields and sometimes include them', () => {

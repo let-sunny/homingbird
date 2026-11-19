@@ -1,6 +1,7 @@
 import { Schema as S } from '@homingbird/kernel'
 import { ANSWERING_FLOW_MAX_CHARACTERS } from './answering-flow.ts'
 import { CharacterSpec } from './character.ts'
+import { UNKNOWN } from './compatibility.ts'
 import { ConversationId, CredentialId, DebateId, DraftRequestId, MemberId, NoteId, Timestamp } from './ids.ts'
 
 export const NOTE_BODY_MAX = 16_000
@@ -34,14 +35,14 @@ export const NoteBasis = S.string({ maxLength: NOTE_BASIS_MAX })
 
 export const PROFILE_MAX = 500
 
-export const Role = S.literal('member', 'admin')
+export const Role = S.tolerant(S.literal('member', 'admin'), UNKNOWN)
 export type Role = S.Infer<typeof Role>
 
-export const MemberStatus = S.literal('active', 'deactivated')
+export const MemberStatus = S.tolerant(S.literal('active', 'deactivated'), UNKNOWN)
 export type MemberStatus = S.Infer<typeof MemberStatus>
 
 export const LOCALES = ['en', 'ko'] as const
-export const Locale = S.literal(...LOCALES)
+export const Locale = S.tolerant(S.literal(...LOCALES), UNKNOWN)
 export type Locale = S.Infer<typeof Locale>
 export const DEFAULT_LOCALE: Locale = 'en'
 
@@ -53,14 +54,15 @@ export const Member = S.struct({
   role: Role,
   status: MemberStatus,
   createdAt: Timestamp,
-  character: S.nullable(CharacterSpec),
+  character: S.nullable(S.tolerant(CharacterSpec, null)),
 })
 export type Member = S.Infer<typeof Member>
 
-export const ChannelSlug = S.string({ pattern: /^[a-z0-9][a-z0-9-]{0,39}$/, maxLength: 40 })
+/** The length lives in `maxLength`, not the pattern, so that a client reads a longer slug a newer server allows. */
+export const ChannelSlug = S.string({ pattern: /^[a-z0-9][a-z0-9-]*$/, maxLength: 40 })
 export const CHANNEL_DESCRIPTION_MAX = 200
 
-export const ChannelVisibility = S.literal('open', 'private')
+export const ChannelVisibility = S.tolerant(S.literal('open', 'private'), UNKNOWN)
 export type ChannelVisibility = S.Infer<typeof ChannelVisibility>
 
 export const Channel = S.struct({
@@ -80,7 +82,10 @@ export type Channel = S.Infer<typeof Channel>
 export const ChannelMember = S.struct({ memberId: MemberId, answering: S.boolean, manager: S.boolean })
 export type ChannelMember = S.Infer<typeof ChannelMember>
 
-export const Relation = S.literal('self', 'contact', 'request_sent', 'request_received', 'blocked', 'none')
+export const Relation = S.tolerant(
+  S.literal('self', 'contact', 'request_sent', 'request_received', 'blocked', 'none'),
+  UNKNOWN,
+)
 export type Relation = S.Infer<typeof Relation>
 
 export const Presence = S.struct({ humanOnline: S.boolean, agentOnline: S.boolean })
@@ -106,16 +111,16 @@ export const DirectoryEntry = S.struct({
 })
 export type DirectoryEntry = S.Infer<typeof DirectoryEntry>
 
-export const ContactMode = S.literal('open', 'contacts')
+export const ContactMode = S.tolerant(S.literal('open', 'contacts'), UNKNOWN)
 export type ContactMode = S.Infer<typeof ContactMode>
 
-export const NoteStatus = S.literal('draft', 'sent', 'discarded')
+export const NoteStatus = S.tolerant(S.literal('draft', 'sent', 'discarded'), UNKNOWN)
 export type NoteStatus = S.Infer<typeof NoteStatus>
 
-export const Origin = S.literal('agent', 'human_edited', 'human')
+export const Origin = S.tolerant(S.literal('agent', 'human_edited', 'human'), UNKNOWN)
 export type Origin = S.Infer<typeof Origin>
 
-export const ReceiptState = S.literal('delivered', 'read', 'drafting', 'replied')
+export const ReceiptState = S.tolerant(S.literal('delivered', 'read', 'drafting', 'replied'), UNKNOWN)
 export type ReceiptState = S.Infer<typeof ReceiptState>
 
 export const Receipt = S.struct({
@@ -161,7 +166,7 @@ export type Note = S.Infer<typeof Note>
 export const DRAFT_INSTRUCTION_MAX = 2000
 export const RELEASE_REASON_MAX = 500
 
-export const NoticeKind = S.literal('released', 'channel_archived')
+export const NoticeKind = S.tolerant(S.literal('released', 'channel_archived'), UNKNOWN)
 export type NoticeKind = S.Infer<typeof NoticeKind>
 
 /** Something that happened to one person's note, kept so that it survives a reload; only that person sees it. */
@@ -189,7 +194,7 @@ export const DraftRequest = S.struct({
 })
 export type DraftRequest = S.Infer<typeof DraftRequest>
 
-export const ConversationKind = S.literal('direct', 'group', 'channel')
+export const ConversationKind = S.tolerant(S.literal('direct', 'group', 'channel'), UNKNOWN)
 export type ConversationKind = S.Infer<typeof ConversationKind>
 
 export const Conversation = S.struct({
@@ -206,7 +211,7 @@ export const Conversation = S.struct({
 })
 export type Conversation = S.Infer<typeof Conversation>
 
-export const CredentialKind = S.literal('human', 'agent')
+export const CredentialKind = S.tolerant(S.literal('human', 'agent'), UNKNOWN)
 export type CredentialKind = S.Infer<typeof CredentialKind>
 
 export const Credential = S.struct({
@@ -222,7 +227,7 @@ export const Credential = S.struct({
 })
 export type Credential = S.Infer<typeof Credential>
 
-export const ContactState = S.literal('accepted', 'request_sent', 'request_received')
+export const ContactState = S.tolerant(S.literal('accepted', 'request_sent', 'request_received'), UNKNOWN)
 export type ContactState = S.Infer<typeof ContactState>
 
 export const Contact = S.struct({ memberId: MemberId, state: ContactState, since: Timestamp })
@@ -233,7 +238,7 @@ export const Settings = S.struct({
     maxItems: 100,
   }),
   contactMode: ContactMode,
-  auditRetentionDays: S.nullable(S.int({ min: 1, max: 36_500 })),
+  auditRetentionDays: S.optional(S.nullable(S.int({ min: 1, max: 36_500 }))),
   answeringFlow: S.optional(S.nullable(S.string({ maxLength: ANSWERING_FLOW_MAX_CHARACTERS }))),
   features: S.optional(S.record(S.boolean)),
 })
@@ -244,15 +249,3 @@ export const AnsweringFlowSetting = S.struct({
   updatedAt: S.nullable(Timestamp),
 })
 export type AnsweringFlowSetting = S.Infer<typeof AnsweringFlowSetting>
-
-export const AuditEntry = S.struct({
-  id: S.int({ min: 1 }),
-  at: Timestamp,
-  actorId: S.nullable(MemberId),
-  credentialId: S.nullable(CredentialId),
-  credentialKind: S.nullable(CredentialKind),
-  action: S.string({ maxLength: 100 }),
-  target: S.nullable(S.string({ maxLength: 200 })),
-  detail: S.unknown,
-})
-export type AuditEntry = S.Infer<typeof AuditEntry>

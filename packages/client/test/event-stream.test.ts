@@ -1,7 +1,12 @@
 import { makeTestClock } from '@homingbird/kernel'
-import type { StreamEvent } from '@homingbird/protocol'
+import type { AsRead, StreamEvent } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
-import { FAILED_STREAMS_BEFORE_POLLING, type Transport, eventStream } from '../src/event-stream.ts'
+import {
+  FAILED_STREAMS_BEFORE_POLLING,
+  STREAM_HEARTBEAT_MS,
+  type Transport,
+  eventStream,
+} from '../src/event-stream.ts'
 import type { Fetch } from '../src/http-api.ts'
 
 const presence = (seq: number): StreamEvent => ({
@@ -46,8 +51,9 @@ const scripted = (answers: ReadonlyArray<() => Response | Promise<Response>>) =>
 const listen = (fetch: Fetch, extra: { after?: number } = {}) => {
   const clock = makeTestClock()
   const stop = new AbortController()
-  const events: StreamEvent[] = []
+  const events: AsRead.StreamEvent[] = []
   const transports: Transport[] = []
+  const unreadable: string[] = []
   const done = (async () => {
     const stream = eventStream(
       {
@@ -56,16 +62,19 @@ const listen = (fetch: Fetch, extra: { after?: number } = {}) => {
         clock,
         token: () => 'hba_t',
         onTransport: (t) => transports.push(t),
+        onUnreadable: (problem) => unreadable.push(problem),
         ...extra,
       },
       stop.signal,
     )
     for await (const event of stream) events.push(event)
   })()
-  return { clock, stop, events, transports, done }
+  return { clock, stop, events, transports, unreadable, done }
 }
 
 const refused = () => new Response('{}', { status: 500 })
+
+const SKIPPED = 'The server sent an event this client cannot read; it was skipped.'
 
 describe('eventStream', () => {
   it('streams events and resumes from the last sequence number after the stream closes', async () => {
@@ -99,10 +108,10 @@ describe('eventStream', () => {
     await done
   })
 
-  it('does not move the cursor for events that are not durable, and skips malformed data', async () => {
+  it('does not move the cursor for events that are not durable', async () => {
     const ephemeral: StreamEvent = { seq: 0, at: 1, body: { type: 'resync' } }
     const { fetch, calls } = scripted([
-      () => streamOf(frame(presence(5)), frame(ephemeral), 'data: not json\n\n', 'data: {"seq":"x"}\n\n'),
+      () => streamOf(frame(presence(5)), frame(ephemeral)),
       () => streamOf(),
     ])
     const { clock, events, stop, done } = listen(fetch)
@@ -111,6 +120,93 @@ describe('eventStream', () => {
     expect(calls[1]!.headers['last-event-id']).toBe('5')
     stop.abort()
     await done
+  })
+
+  it('skips an event it cannot read, says so, and moves its cursor past it, on a stream and on a poll', async () => {
+    const unreadable = JSON.stringify({ seq: 8, at: 1, body: { type: 'note.sent', note: { id: 7 } } })
+    const { fetch, calls } = scripted([
+      () => streamOf(frame(presence(6)), `id: 8\ndata: ${unreadable}\n\n`, frame(presence(9))),
+      () => streamOf(),
+    ])
+    const listened = listen(fetch)
+    await listened.clock.advance(500)
+    expect(listened.events).toEqual([presence(6), presence(9)])
+    expect(listened.unreadable).toEqual([SKIPPED])
+    expect(calls[1]!.headers['last-event-id']).toBe('9')
+    listened.stop.abort()
+    await listened.done
+    const polled = scripted([
+      refused,
+      refused,
+      refused,
+      () => new Response(`{"events":[${unreadable}]}`, { status: 200 }),
+      () => new Response(JSON.stringify({ events: [] }), { status: 200 }),
+    ])
+    const later = listen(polled.fetch)
+    await later.clock.advance(4_000)
+    expect(later.unreadable).toEqual([SKIPPED])
+    expect(polled.calls[4]!.url).toBe('https://hb.test/api/v1/events/poll?after=8&wait=25')
+    later.stop.abort()
+    await later.done
+  })
+
+  it('skips data that is not an event at all, keeping its cursor where it was', async () => {
+    for (const noise of ['data: not json\n\n', 'data: {"seq":"9"}\n\n', 'data: null\n\n']) {
+      const { fetch, calls } = scripted([
+        () => streamOf(frame(presence(6)), noise, frame(presence(7))),
+        () => streamOf(),
+      ])
+      const listened = listen(fetch)
+      await listened.clock.advance(500)
+      expect(listened.events).toEqual([presence(6), presence(7)])
+      expect(listened.unreadable).toEqual([SKIPPED])
+      expect(calls[1]!.headers['last-event-id']).toBe('7')
+      listened.stop.abort()
+      await listened.done
+    }
+  })
+
+  it('skips an unreadable event quietly when no one listens', async () => {
+    const { fetch } = scripted([() => streamOf('data: not json\n\n', frame(presence(7)))])
+    const stop = new AbortController()
+    const events: unknown[] = []
+    const clock = makeTestClock()
+    const done = (async () => {
+      for await (const event of eventStream({ serverUrl: 'https://hb.test', fetch, clock }, stop.signal))
+        events.push(event)
+    })()
+    await clock.flush()
+    for (let turn = 0; turn < 20 && events.length < 1; turn++) await clock.flush()
+    expect(events).toEqual([presence(7)])
+    stop.abort()
+    await done
+  })
+
+  it('moves the cursor past an event a newer server added and skips it, on a stream and on a poll', async () => {
+    const newer = JSON.stringify({ seq: 7, at: 1, body: { type: 'note.pinned', noteId: 'note_x' } })
+    const { fetch, calls } = scripted([
+      () => streamOf(frame(presence(6)), `id: 7\ndata: ${newer}\n\n`),
+      () => streamOf(),
+    ])
+    const { clock, events, stop, done } = listen(fetch)
+    await clock.advance(500)
+    expect(events).toEqual([presence(6)])
+    expect(calls[1]!.headers['last-event-id']).toBe('7')
+    stop.abort()
+    await done
+    const polled = scripted([
+      refused,
+      refused,
+      refused,
+      () => new Response(`{"events":[${newer}],"cursor":7}`, { status: 200 }),
+      () => new Response(JSON.stringify({ events: [] }), { status: 200 }),
+    ])
+    const later = listen(polled.fetch)
+    await later.clock.advance(4_000)
+    expect(later.events).toEqual([])
+    expect(polled.calls[4]!.url).toBe('https://hb.test/api/v1/events/poll?after=7&wait=25')
+    later.stop.abort()
+    await later.done
   })
 
   it('backs off exponentially while the stream keeps failing, then falls back to long-polling', async () => {
@@ -261,6 +357,83 @@ describe('eventStream', () => {
     await clock.advance(3_500)
     expect(seen[0]!.credentials).toBe('same-origin')
     expect(seen[3]!.credentials).toBe('same-origin')
+    stop.abort()
+    await done
+  })
+
+  it('sends an authenticated heartbeat every minute while the stream is read, through refusals and failures, until it ends', async () => {
+    const heartbeats: Call[] = []
+    const fetch: Fetch = async (url, init) => {
+      if (url.endsWith('/presence/heartbeat')) {
+        heartbeats.push({ url, headers: (init?.headers ?? {}) as Record<string, string> })
+        if (heartbeats.length === 2) throw new Error('offline')
+        return heartbeats.length === 1 ? new Response(null, { status: 404 }) : new Response('{}')
+      }
+      return new Promise<Response>((_, reject) =>
+        init?.signal?.addEventListener('abort', () => reject(new Error('aborted')), { once: true }),
+      )
+    }
+    const { clock, stop, done } = listen(fetch)
+    await clock.advance(STREAM_HEARTBEAT_MS - 1)
+    expect(heartbeats).toHaveLength(0)
+    await clock.advance(1)
+    expect(heartbeats).toEqual([
+      { url: 'https://hb.test/api/v1/presence/heartbeat', headers: { authorization: 'Bearer hba_t' } },
+    ])
+    await clock.advance(STREAM_HEARTBEAT_MS)
+    await clock.advance(STREAM_HEARTBEAT_MS)
+    expect(heartbeats).toHaveLength(3)
+    stop.abort()
+    await done
+    await clock.advance(STREAM_HEARTBEAT_MS)
+    expect(heartbeats).toHaveLength(3)
+    expect(clock.pending()).toBe(0)
+    expect(STREAM_HEARTBEAT_MS).toBe(60_000)
+  })
+
+  it('sends the heartbeat with the session cookie when the client sends cookies', async () => {
+    const seen: Array<{ url: string; init: RequestInit }> = []
+    const fetch: Fetch = async (url, init = {}) => {
+      seen.push({ url, init })
+      if (url.endsWith('/presence/heartbeat')) return new Response('{}')
+      return new Promise<Response>((_, reject) =>
+        init.signal?.addEventListener('abort', () => reject(new Error('aborted')), { once: true }),
+      )
+    }
+    const clock = makeTestClock()
+    const stop = new AbortController()
+    const stream = eventStream({ serverUrl: '', fetch, clock, sendsCookies: true }, stop.signal)
+    const done = (async () => {
+      for await (const _ of stream) {
+      }
+    })()
+    await clock.advance(STREAM_HEARTBEAT_MS)
+    const beat = seen.find((call) => call.url === '/api/v1/presence/heartbeat')
+    expect(beat?.init.credentials).toBe('same-origin')
+    stop.abort()
+    await done
+  })
+
+  it('sends no heartbeat for a web client that turns it off', async () => {
+    const urls: string[] = []
+    const fetch: Fetch = async (url, init) => {
+      urls.push(url)
+      return new Promise<Response>((_, reject) =>
+        init?.signal?.addEventListener('abort', () => reject(new Error('aborted')), { once: true }),
+      )
+    }
+    const clock = makeTestClock()
+    const stop = new AbortController()
+    const stream = eventStream(
+      { serverUrl: '', fetch, clock, sendsCookies: true, heartbeat: false },
+      stop.signal,
+    )
+    const done = (async () => {
+      for await (const _ of stream) {
+      }
+    })()
+    await clock.advance(STREAM_HEARTBEAT_MS * 2)
+    expect(urls.filter((url) => url.includes('heartbeat'))).toEqual([])
     stop.abort()
     await done
   })

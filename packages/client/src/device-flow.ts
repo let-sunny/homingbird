@@ -24,6 +24,8 @@ export type DeviceFlowFailed = ReturnType<typeof DeviceFlowFailed>
 export interface DeviceFlowOptions {
   readonly serverUrl: string
   readonly clientName: string
+  /** Which kind of program asks, recorded by the server instead of the name; older servers ignore it. */
+  readonly clientKind?: 'cli' | 'mcp' | 'plugin'
   readonly fetch?: Fetch
 }
 
@@ -31,6 +33,7 @@ export const beginDeviceFlow = (options: DeviceFlowOptions): T.Task<DeviceAuthor
   T.map((answer: Answer) => answer.body as unknown as DeviceAuthorization)(
     post(options, '/oauth/device_authorization', {
       client_name: options.clientName,
+      ...(options.clientKind !== undefined && { client_kind: options.clientKind }),
       scope: 'notes',
     }),
   )
@@ -69,18 +72,20 @@ const post = (
   path: string,
   fields: Readonly<Record<string, string>>,
 ): T.Task<Answer, DeviceFlowFailed> =>
-  T.tryPromise(
-    async (signal) => {
-      const response = await (options.fetch ?? globalThis.fetch)(
-        `${options.serverUrl.replace(/\/+$/, '')}${path}`,
-        {
+  T.gen(function* () {
+    const response = yield* T.tryPromise(
+      (signal) =>
+        (options.fetch ?? globalThis.fetch)(`${options.serverUrl.replace(/\/+$/, '')}${path}`, {
           method: 'POST',
           headers: { 'content-type': 'application/x-www-form-urlencoded' },
           body: new URLSearchParams(fields).toString(),
           signal,
-        },
-      )
-      return { ok: response.ok, body: (await response.json()) as Record<string, unknown> }
-    },
-    () => DeviceFlowFailed({ reason: 'unreachable', message: 'The Homingbird server could not be reached.' }),
-  )
+        }),
+      unreachable,
+    )
+    const body = yield* T.tryPromise(() => response.json() as Promise<Record<string, unknown>>, unreachable)
+    return { ok: response.ok, body }
+  })
+
+const unreachable = (): DeviceFlowFailed =>
+  DeviceFlowFailed({ reason: 'unreachable', message: 'The Homingbird server could not be reached.' })

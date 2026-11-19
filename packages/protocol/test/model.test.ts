@@ -22,7 +22,6 @@ describe('wire model', () => {
       [
         'AgentLabel',
         'AnsweringFlowSetting',
-        'AuditEntry',
         'Contact',
         'ContactMode',
         'ContactState',
@@ -108,9 +107,10 @@ describe('wire model', () => {
     expect(model.NoteBody.is('x'.repeat(model.NOTE_BODY_MAX))).toBe(true)
   })
 
-  it('keeps audit entries forever unless a retention is set', () => {
+  it('reads settings with or without the retention older web clients still send, and checks the rest', () => {
     const settings = { allowedDomains: ['example.com'], contactMode: 'open', auditRetentionDays: null }
     expect(model.Settings.is(settings)).toBe(true)
+    expect(model.Settings.is({ allowedDomains: [], contactMode: 'open' })).toBe(true)
     expect(model.Settings.is({ ...settings, auditRetentionDays: 0 })).toBe(false)
     expect(model.Settings.is({ ...settings, allowedDomains: ['Example.com'] })).toBe(false)
     expect(model.Settings.is({ ...settings, contactMode: 'closed' })).toBe(false)

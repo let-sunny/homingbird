@@ -3,7 +3,10 @@ import type { Ast, Schema } from './schema.ts'
 
 export type RefinementArbitraries = Readonly<Record<string, fc.Arbitrary<unknown>>>
 
-export const arbitrary = <A>(schema: Schema<A>, refinements: RefinementArbitraries = {}): fc.Arbitrary<A> => {
+export const arbitrary = <A>(
+  schema: Schema<A, any>,
+  refinements: RefinementArbitraries = {},
+): fc.Arbitrary<A> => {
   const go = (ast: Ast): fc.Arbitrary<unknown> => {
     switch (ast.type) {
       case 'string':
@@ -57,6 +60,8 @@ export const arbitrary = <A>(schema: Schema<A>, refinements: RefinementArbitrari
         return fc.oneof(...ast.members.map(go))
       case 'refined':
         return refinements[ast.name] ?? go(ast.inner)
+      case 'tolerant':
+        return go(ast.inner)
     }
   }
   return go(schema.ast).filter((value) => schema.is(value)) as fc.Arbitrary<A>

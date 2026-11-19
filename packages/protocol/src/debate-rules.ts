@@ -1,44 +1,15 @@
 import type { DebateCredit, DebateResult } from './debate-result.ts'
-import type { DebateEnding, DebateLimits, DebateParticipant, DebateStatus, DebateTurn } from './debates.ts'
+import type { DebateLimits, DebateParticipant, DebateTurn } from './debates.ts'
 import type { MemberId } from './ids.ts'
 
-/** Why this participant's agent may not take the next turn now, or null when it may. */
-export const whyNoTurn = (state: DebateState, memberId: MemberId, now: number): string | null => {
-  if (state.status !== 'open' || now >= state.deadlineAt || state.turns.length >= state.limits.totalTurns)
-    return 'This room takes no more turns: it asks for its result.'
-  if (!state.participants.some((participant) => participant.memberId === memberId))
-    return 'This agent was not opted in for this room.'
-  if (state.participants.length < 2) return 'The room waits for a second agent to be opted in.'
-  if (turnsTakenBy(state, memberId) >= state.limits.turnsPerAgent) return 'This agent has used all its turns.'
-  if (state.turns.at(-1)?.memberId === memberId) return 'Another agent speaks next: no two turns in a row.'
-  return null
-}
+/** Taking part unless the server said the agent dropped out: past its grace, or its account deactivated. */
+export const isTakingPart = (participant: Pick<DebateParticipant, 'takingPart'>): boolean =>
+  participant.takingPart !== false
 
-export const mayTakeTurn = (state: DebateState, memberId: MemberId, now: number): boolean =>
-  whyNoTurn(state, memberId, now) === null
-
-export const isAtLimit = (state: DebateState, now: number): boolean =>
-  now >= state.deadlineAt ||
-  state.turns.length >= state.limits.totalTurns ||
-  (state.participants.length >= 2 &&
-    !state.participants.some((participant) => hasTurnLeft(state, participant.memberId)))
-
-/** Why a room that stops now ends without asking for a result, or null when it asks for one. */
-export const endingOf = (state: Pick<DebateState, 'participants' | 'turns'>): DebateEnding | null => {
-  if (state.participants.length < 2) return 'too_few_agents'
-  return state.turns.length === 0 ? 'no_turns' : null
-}
-
-export interface DebateState {
-  readonly status: DebateStatus
-  readonly limits: DebateLimits
-  readonly deadlineAt: number
-  readonly participants: ReadonlyArray<Pick<DebateParticipant, 'memberId'>>
-  readonly turns: ReadonlyArray<Pick<DebateTurn, 'memberId'>>
-}
-
-export const turnsTakenBy = (state: Pick<DebateState, 'turns'>, memberId: MemberId): number =>
-  state.turns.filter((turn) => turn.memberId === memberId).length
+export const turnsTakenBy = (
+  room: { readonly turns: ReadonlyArray<Pick<DebateTurn, 'memberId'>> },
+  memberId: MemberId,
+): number => room.turns.filter((turn) => turn.memberId === memberId).length
 
 export const turnProblem = (body: string, limits: DebateLimits): string | null => {
   if (body.trim() === '') return 'A turn needs some text.'
@@ -87,9 +58,3 @@ export const creditsOf = (
       credits.findIndex((other) => other.memberId === one.memberId && other.credit === one.credit) === index,
   )
 }
-
-const hasTurnLeft = (state: DebateState, memberId: MemberId): boolean =>
-  state.participants.some((participant) => participant.memberId === memberId) &&
-  state.turns.length < state.limits.totalTurns &&
-  turnsTakenBy(state, memberId) < state.limits.turnsPerAgent &&
-  state.turns.at(-1)?.memberId !== memberId

@@ -53,10 +53,14 @@ export type PathParams<P extends string> = P extends `${string}:${infer Param}/$
 export type RequestOf<R extends Route> = Simplify<
   (keyof PathParams<R['path']> extends never ? {} : { readonly params: Simplify<PathParams<R['path']>> }) &
     (R['query'] extends S.Fields ? { readonly query: S.InferFields<R['query']> } : {}) &
-    (R['body'] extends S.Schema<infer B> ? { readonly body: B } : {})
+    (R['body'] extends S.Schema<infer B, any> ? { readonly body: B } : {})
 >
 
+/** What a server sends. */
 export type ResponseOf<R extends Route> = S.Infer<R['response']>
+
+/** What a client reads, every unknown enum value of a newer server included. */
+export type ReadResponseOf<R extends Route> = S.Read<R['response']>
 
 export const fillPath = (path: string, params: Readonly<Record<string, string>>): string =>
   path.replace(/:([A-Za-z]+)/g, (_, key: string) => {

@@ -1,0 +1,121 @@
+import type { AuditDecision, AuditEventName } from './audit-events.ts'
+import type { RouteName } from './contract.ts'
+
+/**
+ * The audit decision of every contract route. Reads and activity keep nothing: the product's own data
+ * already holds activity, under the participation rules, and an audit row per read would time people.
+ */
+export const ROUTE_AUDIT = {
+  'server.info': read(),
+  'me.get': read(),
+  'me.update': { event: 'member.profile_changed', target: 'member' },
+  'me.character.set': { event: 'character.set', target: 'member' },
+  'me.character.clear': { event: 'character.cleared', target: 'member' },
+  'directory.list': read(),
+  'channels.list': read(),
+  'channels.get': read(),
+  'channels.create': { event: 'channel.created', target: 'channel' },
+  'channels.join': { event: 'channel.joined', target: 'channel' },
+  'channels.leave': { event: 'channel.left', target: 'channel' },
+  'channels.answering.on': { event: 'channel.answering_changed', target: 'channel' },
+  'channels.answering.off': { event: 'channel.answering_changed', target: 'channel' },
+  'channels.visibility.set': { event: 'channel.visibility_changed', target: 'channel' },
+  'channels.members.list': read(),
+  'channels.members.add': { event: 'channel.member_added', target: 'channel' },
+  'channels.members.remove': { event: 'channel.member_removed', target: 'channel' },
+  'channels.managers.add': { event: 'channel.manager_added', target: 'channel' },
+  'channels.managers.remove': { event: 'channel.manager_removed', target: 'channel' },
+  'contacts.list': read(),
+  'contacts.request': { event: 'contact.requested', target: 'member' },
+  'contacts.accept': { event: 'contact.accepted', target: 'member' },
+  'contacts.remove': { event: 'contact.removed', target: 'member' },
+  'blocks.add': { event: 'contact.blocked', target: 'member' },
+  'blocks.remove': { event: 'contact.unblocked', target: 'member' },
+  'conversations.list': read(),
+  'conversations.create': activity(),
+  'conversations.get': read(),
+  'conversations.notes': read(),
+  'notes.get': read(),
+  'notes.read': activity(),
+  'notes.move': activity(),
+  'notes.pickup': activity(),
+  'notes.release': activity(),
+  'inbox.list': read(),
+  'search.notes': read(),
+  'drafts.list': read(),
+  'drafts.create': activity(),
+  'drafts.update': activity(),
+  'drafts.send': { event: 'note.approved', target: 'note' },
+  'drafts.discard': { event: 'note.discarded', target: 'note' },
+  'drafts.seen': { none: 'When a person first saw a draft would let the audit trail time their approvals.' },
+  'insights.mine': read(),
+  'principles.list': read(),
+  'principles.create': { event: 'principle.created', target: 'principle' },
+  'principles.update': { event: 'principle.changed', target: 'principle' },
+  'principles.reorder': { event: 'principle.reordered', target: 'none' },
+  'principles.delete': { event: 'principle.deleted', target: 'principle' },
+  'principles.miss': activity(),
+  'principles.offers.dismiss': activity(),
+  'principles.drafting': read(),
+  'draftRequests.list': read(),
+  'draftRequests.create': activity(),
+  'draftRequests.cancel': activity(),
+  'debates.list': read(),
+  'debates.waiting': read(),
+  'debates.get': read(),
+  'debates.create': { event: 'debate.opened', target: 'debate' },
+  'debates.optIn': { event: 'debate.agent_opted_in', target: 'debate' },
+  'debates.limits.set': { event: 'debate.limits_changed', target: 'debate' },
+  'debates.turns.post': activity(),
+  'debates.result.draft': activity(),
+  'debates.result.vote': activity(),
+  'debates.result.post': { event: 'debate.result_posted', target: 'debate' },
+  'debates.export': { event: 'debate.exported', target: 'debate' },
+  'credentials.list': read(),
+  'credentials.rename': { event: 'credential.renamed', target: 'credential' },
+  'credentials.revoke': { event: 'credential.revoked', target: 'credential' },
+  'device.get': read(),
+  'device.decide': { event: 'credential.device_decided', target: 'none' },
+  'consent.get': read(),
+  'consent.decide': { event: 'credential.consent_decided', target: 'auth_request' },
+  'push.key': read(),
+  'push.subscribe': { none: 'A push subscription is delivery plumbing; its endpoint and keys are secrets.' },
+  'presence.visibility': { none: 'A page saying it is visible changes nothing anyone keeps.' },
+  'presence.heartbeat': read(),
+  'push.test': { none: 'A test notification changes nothing.' },
+  'push.unsubscribe': {
+    none: 'A push subscription is delivery plumbing; its endpoint and keys are secrets.',
+  },
+  'events.poll': read(),
+  'analytics.track': {
+    none: 'Product analytics are counted elsewhere, anonymously, and change nothing here.',
+  },
+  'answeringFlow.get': read(),
+  'admin.settings.get': read(),
+  'admin.settings.put': { event: 'organization.settings_changed', target: 'organization' },
+  'admin.members.list': read(),
+  'admin.members.update': { event: 'member.access_changed', target: 'member' },
+  'admin.members.resetCharacter': { event: 'character.reset', target: 'member' },
+  'admin.channels.update': { event: 'channel.renamed', target: 'channel' },
+  'admin.channels.archive': { event: 'channel.archived', target: 'channel' },
+  'admin.insights': read(),
+} as const satisfies { readonly [N in RouteName]: AuditDecision }
+
+/** The routes that record an event, and the event each records. */
+export type AuditedRoute = {
+  [N in RouteName]: (typeof ROUTE_AUDIT)[N] extends { readonly event: string } ? N : never
+}[RouteName]
+
+export type AuditedEventOf<N extends AuditedRoute> = (typeof ROUTE_AUDIT)[N] extends {
+  readonly event: infer E extends AuditEventName
+}
+  ? E
+  : never
+
+function read(): { readonly none: string } {
+  return { none: 'A read changes nothing.' }
+}
+
+function activity(): { readonly none: string } {
+  return { none: 'Activity: the product keeps it in its own data, shown to the people concerned.' }
+}

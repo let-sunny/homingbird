@@ -1,31 +1,39 @@
 import { Schema as S } from '@homingbird/kernel'
+import { UNKNOWN } from './compatibility.ts'
+import { DEBATE_GRACE_MINUTES } from './debate-grace.ts'
 import { DEBATE_PARTICIPANTS_MAX, DebateResult } from './debate-result.ts'
 import { CredentialId, DebateId, MemberId, Timestamp } from './ids.ts'
 
 export const DEBATE_QUESTION_MAX = 500
 export const DebateQuestion = S.string({ minLength: 1, maxLength: DEBATE_QUESTION_MAX })
 
-export const DebateVisibility = S.literal('open', 'private')
+export const DebateVisibility = S.tolerant(S.literal('open', 'private'), UNKNOWN)
 export type DebateVisibility = S.Infer<typeof DebateVisibility>
 
-/** Closed has an approved result; ended has none, because too few agents came or none spoke. */
-export const DebateStatus = S.literal('open', 'concluding', 'closed', 'ended')
+/** Closed has the result the agents settled; ended has none: too few agents came, none spoke or they left. */
+export const DebateStatus = S.tolerant(S.literal('open', 'concluding', 'closed', 'ended'), UNKNOWN)
 export type DebateStatus = S.Infer<typeof DebateStatus>
 
-/** Settings people choose; the room stops at whichever is reached first and asks for the result. */
+/** Chosen at setup; `graceMinutes` is how long an unseen agent still takes part. */
 export const DebateLimits = S.struct({
   turnsPerAgent: S.int({ min: 1, max: 20 }),
   totalTurns: S.int({ min: 2, max: 100 }),
   minutes: S.int({ min: 5, max: 10_080 }),
   turnCharacters: S.int({ min: 200, max: 4000 }),
+  graceMinutes: S.optional(S.tolerant(S.literal(...DEBATE_GRACE_MINUTES), UNKNOWN)),
 })
 export type DebateLimits = S.Infer<typeof DebateLimits>
+
+export type DebateGraceMinutes = (typeof DEBATE_GRACE_MINUTES)[number]
+
+export const DEFAULT_GRACE_MINUTES: DebateGraceMinutes = 5
 
 export const DEFAULT_DEBATE_LIMITS: DebateLimits = {
   turnsPerAgent: 3,
   totalTurns: 9,
   minutes: 60,
   turnCharacters: 1200,
+  graceMinutes: DEFAULT_GRACE_MINUTES,
 }
 
 export const DEBATE_INVITEES_MAX = 50
@@ -37,6 +45,7 @@ export const DebateParticipant = S.struct({
   agentId: S.nullable(CredentialId),
   agentName: S.string({ maxLength: 200 }),
   joinedAt: Timestamp,
+  takingPart: S.optional(S.boolean),
 })
 export type DebateParticipant = S.Infer<typeof DebateParticipant>
 
@@ -50,11 +59,29 @@ export const DebateTurn = S.struct({
 })
 export type DebateTurn = S.Infer<typeof DebateTurn>
 
-export const DebateEnding = S.literal('too_few_agents', 'no_turns', 'no_result')
+export const DebateEnding = S.tolerant(
+  S.literal('too_few_agents', 'no_turns', 'no_result', 'one_agent_left', 'no_agent_left'),
+  UNKNOWN,
+)
 export type DebateEnding = S.Infer<typeof DebateEnding>
 
-export const DebateApproval = S.struct({ memberId: MemberId, approvedAt: S.nullable(Timestamp) })
-export type DebateApproval = S.Infer<typeof DebateApproval>
+/** A started room whose agents dropped out: one left taking part, or none. */
+export type DebateEndingDetail = Extract<DebateEnding, 'one_agent_left' | 'no_agent_left'>
+
+/** Shown once the room closed: who voted for whose draft, and who had dropped out. */
+export const DebateVoteRecord = S.struct({
+  votes: S.array(S.struct({ voterId: MemberId, draftBy: MemberId }), { maxItems: DEBATE_PARTICIPANTS_MAX }),
+  droppedOut: S.array(MemberId, { maxItems: DEBATE_PARTICIPANTS_MAX }),
+})
+export type DebateVoteRecord = S.Infer<typeof DebateVoteRecord>
+
+export const DebateResultDraft = S.struct({
+  draftedBy: MemberId,
+  draftedAt: Timestamp,
+  result: DebateResult,
+  votes: S.nullable(S.int({ min: 0 })),
+})
+export type DebateResultDraft = S.Infer<typeof DebateResultDraft>
 
 export const Debate = S.struct({
   id: DebateId,
@@ -72,9 +99,13 @@ export const Debate = S.struct({
   participants: S.array(DebateParticipant, { maxItems: DEBATE_PARTICIPANTS_MAX }),
   turns: S.array(DebateTurn),
   result: S.nullable(S.struct({ result: DebateResult, draftedBy: MemberId, draftedAt: Timestamp })),
-  /** Counts the drafts people asked to replace, so a desk knows a declined result wants a new one. */
   resultRound: S.int({ min: 0 }),
-  approvals: S.array(DebateApproval, { maxItems: DEBATE_PARTICIPANTS_MAX }),
+  drafts: S.optional(S.array(DebateResultDraft, { maxItems: DEBATE_PARTICIPANTS_MAX })),
+  draftsCloseAt: S.optional(S.nullable(Timestamp)),
+  votingClosesAt: S.optional(S.nullable(Timestamp)),
+  /** Who voted in this round, never for which draft while the vote runs. */
+  votedBy: S.optional(S.array(MemberId, { maxItems: DEBATE_PARTICIPANTS_MAX })),
+  voteRecord: S.optional(S.nullable(DebateVoteRecord)),
 })
 export type Debate = S.Infer<typeof Debate>
 
@@ -93,19 +124,22 @@ export const DebateSummary = S.struct({
 })
 export type DebateSummary = S.Infer<typeof DebateSummary>
 
-export const DebateAsk = S.struct({ debate: Debate, ask: S.literal('turn', 'result') })
+export const DebateAsk = S.struct({ debate: Debate, ask: S.tolerant(S.literal('turn', 'result'), UNKNOWN) })
 export type DebateAsk = S.Infer<typeof DebateAsk>
 
-/** Names the drafted result a person approves or declines, so a decision never lands on a newer draft. */
-export const DebateDecision = S.struct({ draftedAt: Timestamp })
-export type DebateDecision = S.Infer<typeof DebateDecision>
+/** A room that ended without a result, as its agent learns of it: no words of the room, only why. */
+export const DebateEnded = S.struct({ id: DebateId, endedBecause: DebateEnding, closedAt: Timestamp })
+export type DebateEnded = S.Infer<typeof DebateEnded>
+
+export const DebateVote = S.struct({ round: S.int({ min: 0 }), draftBy: MemberId })
+export type DebateVote = S.Infer<typeof DebateVote>
 
 export const DebateExportFormat = S.literal('markdown', 'json')
 export type DebateExportFormat = S.Infer<typeof DebateExportFormat>
 
 export const DebateExport = S.struct({
   filename: S.string({ minLength: 1, maxLength: 100 }),
-  mediaType: S.literal('text/markdown', 'application/json'),
+  mediaType: S.tolerant(S.literal('text/markdown', 'application/json'), UNKNOWN),
   text: S.string(),
 })
 export type DebateExport = S.Infer<typeof DebateExport>
