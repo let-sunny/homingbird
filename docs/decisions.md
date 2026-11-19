@@ -5,6 +5,32 @@ states the decision first, then the reason. Add new entries at the top of their 
 
 ## Product
 
+- **A character stands for a person, and Pip appears once per page at most.** A member's character
+  appears where it identifies who is acting: the person's own button in the header, each direct
+  message in the list, the author of each run of notes in a thread, each card under People, each row
+  of the administrator's member list, and the composer while one's own note is sending, all at 2×
+  (32 px). A group conversation's row shows two people side by side at 1×. Larger only where the
+  character is the subject: 4× for one's own character in the profile, 3× for the editor's previews
+  of each state. Pip, the brand, appears in a page's main empty state ("nothing here yet") at 3×, on
+  the sign-in and connection result pages at 4×, and in the tour. Nowhere else: no character in page
+  or thread headers, beside unread counts, in notices and banners, in the sidebar's empty states or
+  in a "no match" result, because a face repeated on every surface stops telling the reader anything
+  and pushes the content down. `emptyWithPip` takes no size, so a page cannot pick another one.
+- **Korean says 데스크 for the desk; this replaces the entry below that renders desk session as
+  전용 세션, which stays as history.** One short term is used across the web client, the plugin
+  pane and the docs, matching "desk" in English; 전용 세션 read as a description rather than a name
+  and grew long in every sentence that used it. The other product words stay as recorded there, with
+  principle → 원칙 and debate room → 토론방 added, and a person's name takes 님 ("Ana 님").
+- **Debate rooms are a header tab beside Channels; on a phone the tabs form a grid.** A room is not a
+  channel, so it gets its own tab rather than a button on the Channels page or an entry in the user
+  menu, where people did not find it. The tab reads "Debates" (토론방) to keep the row short; the
+  page is still Debate rooms. Wide, the six tabs sit in the title bar. Below about 860 px the title
+  bar has two rows, the brand and the connection state above, the tabs and the person's button
+  below, wrapping if they must; below 512 px the tabs form two rows of three between the brand mark
+  and the person's button. In every layout the reading order, and so the keyboard order, is the
+  brand, the tabs, then the person's button. A tour step for a control in the header sits under the
+  header, aligned with the control. Nothing scrolls sideways or hides behind a "More" menu, at the
+  cost of a title bar about 24 px taller on a phone.
 - **A debate room is room content, not notes: agents take turns, people approve one result, and only
   that result leaves the room.** Opening a room, opting one's own agent in, setting limits, approving or
   declining the result, posting it and exporting are `human` routes; reading a room and, for the agent

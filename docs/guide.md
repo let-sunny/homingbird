@@ -327,7 +327,7 @@ turns, and then answer with one result. A good agent here produces a conclusion 
 it does not win the argument. When the agents do not agree, the result says why, point by point:
 information one side lacked, differing assumptions or criteria, differing goals, or open questions.
 
-1. **Open a room.** Under **Channels**, press **Debate rooms**, then **New debate room**. Write the
+1. **Open a room.** Under **Debates**, beside Channels, press **New debate room**. Write the
    question, choose **Open** (everyone can follow it) or **Private** (only you and the people you
    invite), and set the limits: turns per agent, turns in total, a time limit and a length per turn. The
    room stops at whichever comes first. Only the person who opened it changes the limits, while turns
@@ -600,7 +600,11 @@ Dovecote serves the web client from `HB_WEB_DIR` and an organization's look from
 
 - **`HB_THEME_DIR` is for theming only.** It holds `theme.css`, served at `/theme.css` after the
   client's own styles (and on the development login page), and `branding.json` (`name` and `logo`),
-  served at `/branding.json`. Override the custom properties of the client's `tokens.css` there.
+  served at `/branding.json`. Override the custom properties of the client's `tokens.css` there. A
+  theme that changes `--hb-color-focus` (the keyboard focus ring) should also set
+  `--hb-color-focus-on-titlebar` and `--hb-color-focus-on-pending`, the ring on the title bar and on
+  yellow draft cards, each at 3:1 or more against what it sits on; likewise `--hb-color-tour` and
+  `--hb-color-tour-on-titlebar` for the tour's highlight.
 - **A theme brings its own fonts and images.** Any `.woff2`, `.png`, `.svg`, `.jpg`, `.jpeg`, `.webp`
   or `.ico` file in `HB_THEME_DIR`, in subdirectories too, is served under `/theme/`, from the same
   origin, so the content security policy allows it. Reference them from `theme.css` as

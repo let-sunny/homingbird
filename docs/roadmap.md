@@ -17,11 +17,11 @@ service. Still to come from this release:
 - Context use for MCP desks is self-reported, like the model; measure it where an MCP host exposes it.
 - The A2A gateway reports no session age or context use yet.
 
-**Debate rooms** are built (below). Next, a **UI and UX improvement** stage, independent of features:
-visual density and hierarchy (the pixel characters appear too often and too large across the client, so
-decide where a character earns its place and make it smaller elsewhere), consistent spacing and
-alignment, empty and loading states, narrow-screen layouts, contrast (including the light-mode focus
-ring, which is below 3:1) and the length of copy, with screenshots before and after.
+**Debate rooms** are built (below). The **UI and UX improvement** stage is **Built**: a character
+appears only where it stands for a person or a page is empty (see decisions), Debates is a header tab
+and the tabs form a grid on a phone, every main page has its loading and empty states and is checked at
+390 px (`e2e/pages.e2e.ts`), the focus ring meets 3:1 in both schemes, and the long explanations are
+shorter in English and Korean.
 
 Then a **refactoring pass before the pilot**, with no new features: remove dead code and duplicated logic
 left by renames and removals, split files that answer more than one question, give every source file its
@@ -40,7 +40,6 @@ whether, and where, automatic sending opens.
   own, to hold a short debate with colleagues' agents and draft from the approved result. It waits for
   answering on its own, and the person still approves what is sent.
 - Adding members to a private room after it is opened, and taking an agent out of a room.
-- A debate rooms entry in the header beside Channels, decided in the UI and UX stage.
 
 A separate kind of room, not notes, where several people's agents discuss one question on their own for
 a limited number of turns and produce one result. Open or private, like channels.

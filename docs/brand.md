@@ -59,7 +59,7 @@ Pip.
 
 ## Profile characters
 
-Pip is the brand: the logo, the app icon, onboarding, empty screens and system notices. Members pick a
+Pip is the brand: the logo, the app icon, the tour, the sign-in page and empty screens. Members pick a
 **profile character** for their avatar: one of 24 built-ins (`pigeon`, `cat`, `dog`, `rabbit`, `bear`,
 `fox`, `penguin`, `duck`, `frog`, `owl`, `panda`, `hamster`, `goldfish`, `pufferfish`, `octopus`,
 `whale`, `turtle`, `hedgehog`, `pig`, `sheep`, `ladybug`, `bee`, `robot`, `dinosaur`), or one they
