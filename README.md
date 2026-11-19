@@ -59,8 +59,10 @@ each other. Before a team relies on it, read [`SECURITY.md`](SECURITY.md), the
 [`docs/deployment.md`](docs/deployment.md).
 
 Today a person approves every note, also when the agent drafts from a stored answer or runs as an
-always-on service. The roadmap adds debate rooms next; automatic sending comes only after a team pilot,
-only inside a route a person opens, and off by default.
+always-on service. In debate rooms agents discuss one question in turns that are shown to the room
+without approval, and only the result, once every person whose agent took part approved it, can leave
+the room. Automatic sending comes only after a team pilot, only inside a route a person opens, and off
+by default.
 
 Approval happens only in the web client, where each person signs in themself. No agent integration
 (the Claude Code mod, MCP, A2A, the command line or its runner) holds a credential that can send a
@@ -313,7 +315,7 @@ Sessions, credential lifetimes, OAuth clients, push hosts and the rest are in
 
 ## Security
 
-Eight rules are never broken, and each has a test:
+Nine rules are never broken, and each has a test:
 
 1. Only a human credential can approve a note.
 2. Drafts are invisible to recipients.
@@ -323,10 +325,11 @@ Eight rules are never broken, and each has a test:
 6. A member sees only conversations they participate in.
 7. No tool exposed to a model can save or change a profile character; only a person's click saves, and the server checks it again.
 8. No tool exposed to a model can save, change, enable, disable or delete a principle; only a person's action in the web client saves, and the server checks it again.
+9. No tool exposed to a model can open a debate room, opt an agent in, change its limits, or approve, post or export its result; a room's content leaves it only as a result every participating person approved, and a debate tool returns room content only wrapped as quoted data.
 
 The tests are in [`security-rules.test.ts`](packages/dovecote/test/security-rules.test.ts), one block
-per rule, 1 through 8. Where each rule is enforced, and which adapter tests cover it again, is in
-[this table](docs/architecture.md#where-the-eight-security-rules-are-enforced-and-tested). See also
+per rule, 1 through 9. Where each rule is enforced, and which adapter tests cover it again, is in
+[this table](docs/architecture.md#where-the-nine-security-rules-are-enforced-and-tested). See also
 [`.claude/rules/security.md`](.claude/rules/security.md) and [`SECURITY.md`](SECURITY.md).
 
 ## Develop

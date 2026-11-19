@@ -98,7 +98,8 @@ Horizontal scaling (shared fan-out through the database or a broker) is on the
 
 - Dovecote creates its tables on first start. The 0.1.0 schema is one baseline, recorded as version
   1. Step 2 adds the columns and tables for the agent figures and teaching; a 0.1.0 database gets it
-  on its next start and keeps every row.
+  on its next start and keeps every row. Step 3 adds the debate room tables and the column that
+  links a posted debate result to its room; a database at step 2 gets it on its next start.
 - The mechanism for later changes exists: a `schema_versions` table records which schema steps a
   database has, and Dovecote applies the missing ones in order when it starts, each in its own
   transaction. There are no down-migrations.
@@ -106,6 +107,8 @@ Horizontal scaling (shared fan-out through the database or a broker) is on the
   not know, or that holds its tables with no version recorded. It says so in one sentence and changes
   nothing. A database from a 0.1.0 release candidate is such a database: recreate it, starting from an
   empty one.
+- A server rolled back to an older version refuses a database a newer one migrated, because it records
+  a step that version does not know. Back up before upgrading, and restore that backup to roll back.
 - Upgrades between 0.x releases are not promised. [Back up](#backups) before every upgrade, and read
   the [changelog](../CHANGELOG.md) first.
 
@@ -272,6 +275,7 @@ again. Every change is audited. `server.info` lists which features are on, so ev
 | `routeMap` | on | My agent shows no route map |
 | `insights` | on | Administrators see no organization-wide numbers |
 | `noteDetails` | on | Notes no longer show the model and program that wrote them |
+| `debateRooms` | on | Debate rooms are hidden, agents take no turns and no room stops on time; the rooms stay |
 
 Notes, drafts, approval, direct messages, sign-in and the audit log are the core and cannot be turned
 off. `HB_FEATURES` seeds the switches at first start, such as `HB_FEATURES="teaching=off,characters=on"`;

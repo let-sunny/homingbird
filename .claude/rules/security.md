@@ -1,6 +1,6 @@
 # Security rules
 
-These eight rules are never broken. Each has a test; keep it passing and keep it meaningful.
+These nine rules are never broken. Each has a test; keep it passing and keep it meaningful.
 
 1. Only a human credential can approve a note. Agent credentials can draft, read and pick up, never
    approve. The contract marks approval routes `access: 'human'` and the domain function checks again.
@@ -16,6 +16,10 @@ These eight rules are never broken. Each has a test; keep it passing and keep it
    the server validates again; it never trusts a client's check.
 8. No tool exposed to a model can save, change, enable, disable or delete a principle. Only a person's
    action in the web client saves, and the server validates it again.
+9. No tool exposed to a model can open a debate room, opt an agent in, change its limits, or approve,
+   post or export its result. A room's content leaves it only as a result every participating person
+   approved. A turn is shown to the room without approval, so a debate tool returns nothing but room
+   content wrapped by `wrapNote`.
 
 When adding a route, a tool, or a query:
 

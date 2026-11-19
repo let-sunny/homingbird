@@ -17,7 +17,7 @@ service. Still to come from this release:
 - Context use for MCP desks is self-reported, like the model; measure it where an MCP host exposes it.
 - The A2A gateway reports no session age or context use yet.
 
-After that: **debate rooms**, next. Then a **UI and UX improvement** stage, independent of features:
+**Debate rooms** are built (below). Next, a **UI and UX improvement** stage, independent of features:
 visual density and hierarchy (the pixel characters appear too often and too large across the client, so
 decide where a character earns its place and make it smaller elsewhere), consistent spacing and
 alignment, empty and loading states, narrow-screen layouts, contrast (including the light-mode focus
@@ -33,6 +33,14 @@ judging its scope, described under "An agent that earns trust"); the numbers fro
 whether, and where, automatic sending opens.
 
 ## Debate rooms
+
+**Built** as described below ([guide](guide.md#debate-rooms)). Still to come:
+
+- **A short debate before answering alone.** An option for an agent, before it drafts an answer on its
+  own, to hold a short debate with colleagues' agents and draft from the approved result. It waits for
+  answering on its own, and the person still approves what is sent.
+- Adding members to a private room after it is opened, and taking an agent out of a room.
+- A debate rooms entry in the header beside Channels, decided in the UI and UX stage.
 
 A separate kind of room, not notes, where several people's agents discuss one question on their own for
 a limited number of turns and produce one result. Open or private, like channels.

@@ -483,7 +483,27 @@ in the web client.
 | ChatGPT or claude.ai connector | Cannot be a desk; it reaches the remote `/mcp` endpoint | Cannot be woken; "Check Homingbird" makes it call `check_inbox` | No | Web client | Implemented |
 | A2A client | Cannot be a desk | Not woken; it reads task state with `tasks/get` | No | Web client | Experimental |
 
-## Where the eight security rules are enforced and tested
+## Debate rooms
+
+A debate room (`debates`) holds one question, its limits and, once drafted, its result as JSON.
+`debate_members` lists who may see a private room; `debate_participants` the one agent credential each
+person opted in; `debate_turns` the turns in order; `debate_approvals` each person's approval of the
+current result; `debate_credits` what approved results credited. The routes are `debates.list`,
+`debates.get`, `debates.waiting` (`/debate-asks`), `debates.turns.post` and `debates.result.draft`
+(`member`), and `debates.create`, `debates.optIn`, `debates.limits.set`, `debates.result.approve`,
+`debates.result.decline`, `debates.result.post` and `debates.export` (`human`), all behind the
+`debateRooms` switch. The rules of whose turn it is and when a room stops are pure functions in
+`protocol/src/debate-rules.ts`; Dovecote's `debates.ts`, `debate-turns.ts` and `debate-results.ts`
+apply them under the room's row lock, and `debateDeadlines` in `runtime.ts` concludes rooms whose time
+ran out, or ends without a result a room with fewer than two agents or no turn. The tables are
+migration step 3. Nothing in a room is written to `notes`, `receipts` or an event log: a change is the
+ephemeral `debate.changed` with the room's id and participants, sent to its members (to everyone only
+when an open room opens or ends). Agents read a room through `quotedDebate`
+(`protocol/src/debate-prompts.ts`), which wraps the question and each turn in `wrapNote`; the runner
+(`cli/src/debate-runner.ts`, with a reader in split mode), the MCP tools (`mcp/src/debate-tools.ts`) and
+the mod's notice (`homingbird debates`) are the integrations.
+
+## Where the nine security rules are enforced and tested
 
 Each rule is enforced on the server, and the rules about models are enforced again in every adapter
 that faces a model. Paths are relative to `packages/`.
@@ -493,11 +513,12 @@ that faces a model. Paths are relative to `packages/`.
 | 1. Only a human credential can approve a note. | `access: 'human'` on `drafts.send`, `drafts.discard` and every other human route in `protocol/src/contract.ts`; `allows` in `protocol/src/policy.ts`; `requireAllowed` in `dovecote/src/api/invoke.ts`, which also audits the refusal; `sendDraft` and `discardDraft` in `dovecote/src/domain/notes.ts` check `isHuman` again. A human credential counts only when a browser sign-in issued it (`mayAuthenticate` in `dovecote/src/domain/credentials.ts`); the device and authorization-code flows issue agent credentials only (`exchangeDeviceCode` and `exchangeAuthorizationCode` in `dovecote/src/auth/oauth.ts`). | `dovecote/test/security-rules.test.ts`, block "Rule 1" |
 | 2. Drafts are invisible to recipients. | `visibleNote`, `notesInConversation`, `searchNotes` and `notesAwaitingReply` in `dovecote/src/domain/notes.ts` filter by `status = 'sent' OR author_id = viewer`; `listConversations` in `dovecote/src/domain/conversations.ts` hides a direct conversation without a sent note; `createDraft`, `updateDraft` and `discard` emit `draft.saved` and `draft.discarded` to the author only; receipts are created only by `sendDraft`. | `dovecote/test/security-rules.test.ts`, block "Rule 2" |
 | 3. No tool exposed to a model can approve, change contacts, or read credentials. | Channel membership, answering, manager and visibility routes are `human` too, so no tool reaches them; `memberApiOf` in `mcp/src/member-api.ts` and `a2a/src/member-api.ts` exposes only `member` and `public` routes; no agent integration can approve: the command line has no approve or discard command and stores only an agent credential (`cli/src/credentials.ts`); `NOTE_TOOLS` in `mod/hooks/tools.ts` run only the CLI's agent commands and the pane only links to the web client; the runner uses only the agent credential and strips Homingbird variables and the token from the agent command's environment (`agentEnvironment` in `cli/src/agent-environment.ts`). | `dovecote/test/security-rules.test.ts`, block "Rule 3"; `mcp/test/tools.test.ts`, `mcp/test/server.test.ts`, `mcp/test/member-api.test.ts`, `mcp/test/triggers.test.ts`; `mod/tests/tools.test.ts`, `mod/tests/guard.test.ts`; `cli/test/security.test.ts`, `a2a/test/gateway.test.ts`, `cli/test/run.test.ts`, `cli/test/agent-environment.test.ts`, `cli/test/node-launcher.test.ts` |
-| 4. Every received note reaches a model only through `wrapNote`. | `wrapNote` in `protocol/src/wrap.ts`, with a random nonce in the boundary; its callers are `quoteNote` in `mcp/src/quote.ts`, `quoteForModel` in `cli/src/quoting.ts` (used by `stream`, `inbox`, `conversation`, `requests` and `run`), and `taskViewOf` in `a2a/src/task-view.ts`. The mod receives notes only as the CLI's wrapped text. | `dovecote/test/security-rules.test.ts`, block "Rule 4": a hostile note through every note-returning tool of `/mcp` and through A2A `tasks/get` and `GetTask`, each time inside `wrapNote` with a fresh nonce; `protocol/test/wrap.test.ts` (property tests), `mcp/test/quote.test.ts`, `mcp/test/triggers.test.ts`, `mcp/test/channel.test.ts` |
+| 4. Every received note reaches a model only through `wrapNote`. | `wrapNote` in `protocol/src/wrap.ts`, with a random nonce in the boundary; its callers are `quoteNote` in `mcp/src/quote.ts`, `quoteForModel` in `cli/src/quoting.ts` (used by `stream`, `inbox`, `conversation`, `requests` and `run`), and `taskViewOf` in `a2a/src/task-view.ts`. The mod receives notes only as the CLI's wrapped text. Debate rooms are covered by rule 9. | `dovecote/test/security-rules.test.ts`, block "Rule 4": a hostile note through every note-returning tool of `/mcp` and through A2A `tasks/get` and `GetTask`, each time inside `wrapNote` with a fresh nonce; `protocol/test/wrap.test.ts` (property tests), `mcp/test/quote.test.ts`, `mcp/test/triggers.test.ts`, `mcp/test/channel.test.ts` |
 | 5. Credentials are stored hashed and never logged. | `hashSecret` (SHA-256) in `dovecote/src/random.ts`; `issueCredential`, `authenticate` and `refreshCredential` in `dovecote/src/domain/credentials.ts` store only `token_hash` and `refresh_hash`; tokens leave the server only in the token response or the session cookie; `serve` in `dovecote/src/http/node-server.ts` logs failed requests without their query string. | `dovecote/test/security-rules.test.ts`, block "Rule 5" |
 | 6. A member sees only conversations they participate in. | `participatedConversation` and `participantsOf` in `dovecote/src/domain/conversations.ts`; every note query joins `participants`; `sendDraft`, `moveToChannel` and `announceStatus` emit to the conversation's participants only. A private channel is listed, resolved and shown as a chip only to its members: `maySee` and `visibleChannel` in `dovecote/src/domain/channel-rows.ts`, `listChannels`, `channelsHelpedBy`, `helpersOfChannelSeenBy`, `channelRoomFor` and `roomForMovedQuestion` in `dovecote/src/domain/channels.ts`; `depart` drops a removed member from the room, discards their drafts in it and sends `channel.left`. | `dovecote/test/security-rules.test.ts`, block "Rule 6", including every surface of a private channel for a non-member person and their agent; `dovecote/test/channel-membership.test.ts` |
 | 7. No tool exposed to a model can save or change a profile character. | `access: 'human'` on `me.character.set` and `me.character.clear` and `access: 'admin'` on `admin.members.resetCharacter` in `protocol/src/contract.ts`; `saveCharacter` in `dovecote/src/domain/characters.ts` runs `characterProblems` (`protocol/src/character.ts`: `validateCharacter` from `sprites` plus the built-in id rule) again whatever the client checked, and stores exactly the spec that passed; `handleApiRequest` in `dovecote/src/http/api-routes.ts` refuses a body over `CHARACTER_BYTES_MAX`. The model-facing `check_character` and `preview_character` (`mcp/src/character-tools.ts`, `mod/hooks/character.ts`) call no route; the web client saves only from **Use this character** and never from a `#/character/` link. | `dovecote/test/security-rules.test.ts`, block "Rule 7"; `dovecote/test/characters.test.ts`; `mcp/test/character-tools.test.ts`, `mcp/test/tools.test.ts`; `mod/tests/character.test.ts` |
 | 8. No tool exposed to a model can save, change, enable, disable or delete a principle. | `access: 'human'` on `principles.list`, `principles.create`, `principles.update`, `principles.reorder`, `principles.delete`, `principles.miss` and `principles.offers.dismiss` in `protocol/src/contract.ts`; the only route an agent reaches is the read-only `principles.drafting` (`member`, own principles only). `createPrinciple` and `updatePrinciple` in `dovecote/src/domain/principles.ts` check kind, length, title, limit (atomically), source, channel participation and the public sentence again (`principleProblem`, `publicTextProblem`), and a principle saved from an offer needs the person's change or confirmation. Stored answers and public sentences go through the same `human` routes; the directory shows only public sentences (`agentIntroductionsOf`). Suggestions (`principle_offers`) come from `editDifference` in `protocol/src/edit-difference.ts`, not from the incoming note (the draft can quote it, hence the person's confirmation), and never reach an instruction block. `isLikelyForbidden` in `protocol/src/principles.ts` leaves out and names a principle worded like a forbidden request; it is a hint, and rules 1 and 3 are the guard. | `dovecote/test/security-rules.test.ts`, block "Rule 8"; `dovecote/test/principles.test.ts`; `protocol/test/principles.test.ts`; `cli/test/run.test.ts` (principles reach the writer only) |
+| 9. No tool exposed to a model can open a debate room, opt an agent in, change its limits, or approve, post or export its result; a room's content leaves it only as an approved result, and a debate tool returns room content only wrapped by `wrapNote`. | `access: 'human'` on `debates.create`, `debates.optIn`, `debates.limits.set`, `debates.result.approve`, `debates.result.decline`, `debates.result.post` and `debates.export`; `takeTurn` and `draftResult` in `dovecote/src/domain/debate-turns.ts` and `debate-results.ts` accept only the agent credential its person opted in, and `waitingResult` and `closedDebate` refuse agents and any approval of a draft other than the one the person read; `postResult` takes out only an approved result, as the person's own draft; turns are never written to `notes` or `receipts`. The model-facing tools (`mcp/src/debate-tools.ts`), the runner (`cli/src/debate-runner.ts`) and the mod's notice reach only `member` routes, and every question, turn and name reaches a model through `quotedDebate` (`protocol/src/debate-prompts.ts`), which uses `wrapNote`. A private room is visible to its members only (`visibleDebate` in `dovecote/src/domain/debate-rows.ts`). | `dovecote/test/security-rules.test.ts`, block "Rule 9"; `protocol/test/debate-prompts.test.ts`; `mcp/test/debate-tools.test.ts`; `cli/test/debate-runner.test.ts` |
 
 ## Real-time delivery
 
@@ -704,6 +725,40 @@ erDiagram
     string name PK
     text value
   }
+  DEBATES {
+    id id PK
+    text question
+    string visibility
+    string status
+    id created_by
+    integer deadline_at
+    text result
+  }
+  DEBATE_MEMBERS {
+    id debate_id PK
+    id member_id PK
+  }
+  DEBATE_PARTICIPANTS {
+    id debate_id PK
+    id member_id PK
+    id credential_id
+  }
+  DEBATE_TURNS {
+    id debate_id PK
+    integer position PK
+    id member_id
+    text body
+  }
+  DEBATE_APPROVALS {
+    id debate_id PK
+    id member_id PK
+    integer approved_at
+  }
+  DEBATE_CREDITS {
+    id debate_id PK
+    id member_id PK
+    string kind PK
+  }
 
   MEMBERS ||--o{ CREDENTIALS : holds
   MEMBERS ||--o{ PARTICIPANTS : joins
@@ -730,6 +785,12 @@ erDiagram
   MEMBERS ||--o{ PUSH_SUBSCRIPTIONS : subscribes
   MEMBERS |o--o{ AUDIT_LOG : acts
   MEMBERS |o--o{ AUTH_REQUESTS : decides
+  DEBATES ||--o{ DEBATE_MEMBERS : "seen by"
+  DEBATES ||--o{ DEBATE_PARTICIPANTS : "argued by"
+  CREDENTIALS ||--o{ DEBATE_PARTICIPANTS : "takes turns as"
+  DEBATES ||--o{ DEBATE_TURNS : holds
+  DEBATES ||--o{ DEBATE_APPROVALS : "approved by"
+  DEBATES ||--o{ DEBATE_CREDITS : credits
 ```
 
 The diagram leaves out `created_at` and `last_used_at` on most tables, and the `schema_versions`

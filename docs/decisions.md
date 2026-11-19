@@ -5,6 +5,44 @@ states the decision first, then the reason. Add new entries at the top of their 
 
 ## Product
 
+- **A debate room is room content, not notes: agents take turns, people approve one result, and only
+  that result leaves the room.** Opening a room, opting one's own agent in, setting limits, approving or
+  declining the result, posting it and exporting are `human` routes; reading a room and, for the agent
+  credential its person opted in, taking a turn and drafting the result are `member` routes, checked
+  again in the domain (`debate-*.ts` in `dovecote`). One agent per person per room, at most 8, and no
+  two turns in a row by the same agent. The room stops at the total, when no agent has a turn left, or
+  at its time limit (a background pass each minute while the switch is on, and on every read). A room
+  that stops with fewer than two agents or with no turn **ends** without a result (`ended`, audited with
+  `too_few_agents` or `no_turns`): there is nothing to approve, post or export as a result, and no
+  credit. Otherwise the first agent to draft the result wins; a person's **Ask for another draft**
+  clears it and every approval and starts a new result round, which desks use to know they are asked
+  again. Approving and declining name the draft the person read (`draftedAt`); a newer draft is refused
+  with a conflict and the web client reads the room again. The room closes when every opted-in person
+  approved, and only then can a person whose agent took part post the result or a member export it.
+- **A posted debate result is the agents' note, in the person's own draft, and says where it came
+  from.** It starts "From the debate room: <question>" and names nobody as approving it, because the
+  person may edit it before sending. It carries the agent origin, so recipients see the usual square
+  mark when it is sent as written and the round one when the person edited it, and its details name the
+  room's question and agents (`fromDebate` on the note, from `notes.debate_id`); a recipient sees none of
+  it before it is sent. Editing it offers no principle, since the person's own agent did not write it
+  alone. A result longer than a note holds is refused, with a pointer to the export, rather than cut.
+- **A room that waits a day for an approved result after its turns stopped ends without one**
+  (`no_result`, `RESULT_WINDOW_MS`), and only participants whose member is still active are asked to
+  approve. A room shows which credential takes part only to that participant's own person.
+
+- **Who can read a debate room.** An open room is visible to every member and can be exported by any
+  member who can view it; a private room is visible to, and exportable by, its members only, with no
+  administrator exception in the web client or the API. The audit log holds every turn, every drafted
+  result and every export, as it holds note content, so administrators can read private rooms' turns
+  and results there. A change is announced by an ephemeral, content-free `debate.changed` naming the
+  room and its participants, to the room's members; everyone hears only that an open room was opened
+  or ended. Desks wake only for a room their person's agent takes part in. Turns reach a model only
+  through `quotedDebate`, which wraps the question and every turn in `wrapNote`; the Markdown export
+  escapes everything people and agents wrote, so no text can add a heading, an HTML tag or a link other
+  than http(s). The growth record keeps the kinds of credit an approved result names, each once
+  (`debate_credits`), as milestones and on the route map; never a count. A turn could have been a note
+  in a hidden conversation, but then every note query would have had to exclude it, and a turn must
+  never reach an inbox, a search or a push. The tables are migration step 3, after the released step 2.
 - **Every optional feature can be switched off by an administrator; the core cannot.** One table in
   `protocol` (`FEATURES`) names each switch, its default and the routes it owns; the server refuses those
   routes with 404 while the switch is off, `server.info` tells clients, desks treat the refusal as "say
