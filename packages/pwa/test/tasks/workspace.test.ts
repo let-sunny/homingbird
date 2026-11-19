@@ -1,0 +1,92 @@
+import { describe, expect, it } from 'vitest'
+import {
+  loadAgents,
+  loadBranding,
+  loadConversations,
+  loadKnownChannels,
+  loadPeople,
+  loadWorkspace,
+} from '../../src/tasks/workspace.ts'
+import { fail, testApp } from '../support/app.ts'
+import { BEN, channel, conversation, credential, entry, serverInfo } from '../support/fixtures.ts'
+
+describe('loading the workspace', () => {
+  it('loads conversations, people, contacts, agents and channels, and marks them loaded', async () => {
+    const { run, state, routes } = testApp({
+      'conversations.list': () => ({ conversations: [conversation()] }),
+      'directory.list': () => ({ entries: [entry(BEN, 'Ben')] }),
+      'contacts.list': () => ({ contacts: [] }),
+      'draftRequests.list': () => ({ requests: [] }),
+      'credentials.list': () => ({
+        credentials: [
+          credential('cred_agent'),
+          credential('cred_web', { kind: 'human' }),
+          credential('cred_old', { revokedAt: 1 }),
+        ],
+      }),
+      'channels.list': () => ({ channels: [channel('billing')], hasMore: false, cursor: null }),
+    })
+    await run(loadWorkspace)
+    expect(state.conversationsLoaded.get()).toBe(true)
+    expect(state.directoryLoaded.get()).toBe(true)
+    expect(state.channelsLoaded.get()).toBe(true)
+    expect(state.agentCredentials.get().map((one) => one.id)).toEqual(['cred_agent'])
+    expect([...routes()].sort()).toEqual(
+      [
+        'channels.list',
+        'contacts.list',
+        'conversations.list',
+        'credentials.list',
+        'directory.list',
+        'draftRequests.list',
+      ].sort(),
+    )
+  })
+
+  it('reads no draft requests where they are off or the server lacks them', async () => {
+    const off = testApp({ 'credentials.list': () => ({ credentials: [] }) })
+    off.state.serverInfo.set(serverInfo())
+    await off.run(loadAgents)
+    expect(off.routes()).toEqual(['credentials.list'])
+    const missing = testApp({
+      'draftRequests.list': () => fail({ _tag: 'NotFound', message: 'no' }),
+      'credentials.list': () => ({ credentials: [] }),
+    })
+    await missing.run(loadAgents)
+    expect(missing.state.draftRequests.get()).toEqual([])
+  })
+
+  it('loads conversations, people and known channels on their own', async () => {
+    const { run, state } = testApp({
+      'conversations.list': () => ({ conversations: [] }),
+      'directory.list': () => ({ entries: [] }),
+      'contacts.list': () => ({ contacts: [] }),
+      'channels.list': () => ({ channels: [], hasMore: false, cursor: null }),
+    })
+    await run(loadConversations)
+    await run(loadPeople)
+    await run(loadKnownChannels)
+    expect([
+      state.conversationsLoaded.get(),
+      state.directoryLoaded.get(),
+      state.channelsLoaded.get(),
+    ]).toEqual([true, true, true])
+  })
+})
+
+describe('loadBranding', () => {
+  it('reads the organization’s name and logo, keeping the default for anything missing or broken', async () => {
+    const { app, run, page } = testApp()
+    const answer = (body: unknown) => {
+      Object.assign(page.page, { fetch: () => Promise.resolve(new Response(JSON.stringify(body))) })
+    }
+    answer({ name: 'Acme', logo: '/acme.svg' })
+    expect(await run(loadBranding)).toEqual({ _tag: 'Ok', value: { name: 'Acme', logo: '/acme.svg' } })
+    answer({ name: 3 })
+    expect(await run(loadBranding)).toEqual({ _tag: 'Ok', value: { name: 'Homingbird', logo: null } })
+    Object.assign(page.page, { fetch: () => Promise.resolve(new Response('not json')) })
+    expect(await run(loadBranding)).toEqual({ _tag: 'Ok', value: app.state.branding.get() })
+    Object.assign(page.page, { fetch: () => Promise.reject(new Error('offline')) })
+    expect(await run(loadBranding)).toEqual({ _tag: 'Ok', value: app.state.branding.get() })
+  })
+})

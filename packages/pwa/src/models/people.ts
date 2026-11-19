@@ -1,0 +1,166 @@
+import type { AsRead, MemberId, Presence, Relation } from '@homingbird/protocol'
+import { channelLabel, chipsForPerson } from '../channels.ts'
+import { shownRelation } from '../relations.ts'
+import { strings } from '../strings.ts'
+import type { PipState } from '../views/pip.ts'
+import { type AvatarModel, memberAvatarOf } from './avatar.ts'
+
+/** People: who matches the search and the channel chosen, agents awake first, and what one may do. */
+export const peopleModel = (input: PeopleInput): PeopleModel => ({
+  contactsNotice: input.contactMode === 'contacts' ? strings.contactsModeNotice : null,
+  channelFilter:
+    input.channels.length === 0
+      ? null
+      : [
+          { value: '', label: strings.anyChannel, selected: input.channelFilter === '' },
+          ...input.channels.map((channel) => ({
+            value: channel.slug,
+            label: channelLabel(channel.slug),
+            selected: input.channelFilter === channel.slug,
+          })),
+        ],
+  list: peopleList(input),
+})
+
+export interface PeopleInput {
+  readonly contactMode: AsRead.Settings['contactMode']
+  readonly directory: ReadonlyArray<AsRead.DirectoryEntry>
+  readonly loaded: boolean
+  readonly failed: boolean
+  readonly query: string
+  readonly channelFilter: string
+  readonly channels: ReadonlyArray<AsRead.Channel>
+  readonly charactersOn: boolean
+}
+
+export interface PeopleModel {
+  readonly contactsNotice: string | null
+  readonly channelFilter: ReadonlyArray<{
+    readonly value: string
+    readonly label: string
+    readonly selected: boolean
+  }> | null
+  readonly list:
+    | { readonly kind: 'loading' }
+    | { readonly kind: 'failed' }
+    | { readonly kind: 'empty'; readonly text: string }
+    | { readonly kind: 'people'; readonly people: ReadonlyArray<PersonCard> }
+}
+
+export interface PersonCard {
+  readonly memberId: MemberId
+  readonly avatar: AvatarModel
+  readonly name: string
+  readonly relation: { readonly kind: Relation; readonly text: string } | null
+  readonly email: string
+  readonly presence: Presence
+  readonly channels: {
+    readonly first: ReadonlyArray<string>
+    readonly rest: ReadonlyArray<string>
+    readonly more: string
+  } | null
+  readonly profile: { readonly open: boolean; readonly text: string }
+  readonly agentIntroduction: ReadonlyArray<string>
+  readonly actions: ReadonlyArray<PersonAction>
+}
+
+export type PersonActionKind =
+  | 'unblock'
+  | 'message'
+  | 'request'
+  | 'accept'
+  | 'decline'
+  | 'cancel'
+  | 'remove'
+  | 'block'
+
+export interface PersonAction {
+  readonly kind: PersonActionKind
+  readonly label: string
+  readonly style: 'primary' | 'danger' | null
+  readonly hint: string | null
+}
+
+const peopleList = (input: PeopleInput): PeopleModel['list'] => {
+  if (!input.loaded) return input.failed ? { kind: 'failed' } : { kind: 'loading' }
+  const query = input.query.trim().toLowerCase()
+  const matching = input.directory
+    .filter((entry) => matches(entry, query))
+    .filter((entry) => input.channelFilter === '' || entry.channels.includes(input.channelFilter))
+  if (matching.length === 0) return { kind: 'empty', text: strings.noPeople }
+  const mine = new Set(input.channels.filter((channel) => channel.joined).map((channel) => channel.slug))
+  return {
+    kind: 'people',
+    people: [...matching].sort(agentsFirst).map((entry) => personCard(entry, input, mine)),
+  }
+}
+
+const matches = (entry: AsRead.DirectoryEntry, query: string): boolean =>
+  [entry.member.name, entry.member.email, entry.member.profile, ...entry.channels].some((text) =>
+    text.toLowerCase().includes(query),
+  )
+
+const agentsFirst = (a: AsRead.DirectoryEntry, b: AsRead.DirectoryEntry): number =>
+  Number(b.presence.agentOnline) - Number(a.presence.agentOnline) ||
+  a.member.name.localeCompare(b.member.name)
+
+const personCard = (
+  entry: AsRead.DirectoryEntry,
+  input: PeopleInput,
+  mine: ReadonlySet<string>,
+): PersonCard => {
+  const mode = input.contactMode
+  const relation = shownRelation(entry, mode)
+  const chips = chipsForPerson(entry.channels, mine)
+  return {
+    memberId: entry.member.id,
+    avatar: memberAvatarOf(entry.member, input.charactersOn, { state: personPip(entry) }),
+    name: entry.member.name,
+    relation: strings.relation[relation] === '' ? null : { kind: relation, text: strings.relation[relation] },
+    email: entry.member.email,
+    presence: entry.presence,
+    channels:
+      entry.channels.length === 0
+        ? null
+        : { first: chips.first, rest: chips.rest, more: strings.moreChannels({ count: chips.rest.length }) },
+    profile: { open: entry.member.profile !== '', text: entry.member.profile || strings.noProfile },
+    agentIntroduction: entry.agentIntroduction ?? [],
+    actions: actionsFor(entry, relation, mode),
+  }
+}
+
+const personPip = (entry: AsRead.DirectoryEntry): PipState =>
+  entry.relation === 'blocked'
+    ? 'blocked'
+    : entry.presence.agentOnline || entry.presence.humanOnline
+      ? 'idle'
+      : 'offline'
+
+const actionsFor = (
+  entry: AsRead.DirectoryEntry,
+  relation: Relation,
+  mode: AsRead.Settings['contactMode'],
+): PersonAction[] => {
+  if (relation === 'self') return []
+  if (relation === 'blocked') return [action('unblock', strings.unblock)]
+  const contacts = mode === 'contacts'
+  return [
+    ...(entry.canMessage ? [action('message', strings.message, 'primary')] : []),
+    ...(contacts && relation === 'none'
+      ? [action('request', strings.addContact, null, strings.addContactHint({ name: entry.member.name }))]
+      : []),
+    ...(contacts && relation === 'request_received'
+      ? [action('accept', strings.acceptContact, 'primary'), action('decline', strings.declineRequest)]
+      : []),
+    ...(contacts && relation === 'request_sent' ? [action('cancel', strings.cancelRequest)] : []),
+    ...(contacts && relation === 'contact' ? [action('remove', strings.removeContact)] : []),
+    action('block', strings.block, 'danger'),
+  ]
+}
+
+const action = (
+  kind: PersonActionKind,
+  label: string,
+  style: PersonAction['style'] = null,
+  hint: string | null = null,
+): PersonAction => ({ kind, label, style, hint })

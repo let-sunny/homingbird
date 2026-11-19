@@ -1,4 +1,4 @@
-import type { Conversation, MemberId } from '@homingbird/protocol'
+import type { AsRead, MemberId } from '@homingbird/protocol'
 
 /**
  * Tells which conversation rows just received a note from someone else, so that only those animate. A
@@ -9,7 +9,7 @@ import type { Conversation, MemberId } from '@homingbird/protocol'
 export const arrivalTracker = (
   since: number,
   now: () => number,
-): ((conversation: Conversation, viewerId: MemberId) => boolean) => {
+): ((conversation: AsRead.Conversation, viewerId: MemberId) => boolean) => {
   const lastSeen = new Map<string, string | null>()
   const arrivedAt = new Map<string, number>()
   return (conversation, viewerId) => {

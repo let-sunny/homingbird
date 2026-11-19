@@ -1,57 +1,104 @@
-import type { MyPrinciples } from '@homingbird/protocol'
-import { type Lifetime, h, region } from '@homingbird/ui'
-import { type RouteNode, routeLayout } from '../route-map.ts'
-import { taught } from '../state.ts'
-import { formats, strings } from '../strings.ts'
-import { placeName } from './agent-trust.ts'
+import { type Child, type Lifetime, h, region, svg } from '@homingbird/ui'
+import { type DebateCredits, type RouteMapModel, routeMapModel } from '../models/route-map.ts'
+import type { ViewContext } from './context.ts'
 import { teachButton } from './teaching.ts'
 
 /** "Where it answers like me": the person in the middle, a point per place, lines grown by teaching. */
-export const routeMapSection = (life: Lifetime): HTMLElement =>
+export const routeMapSection = (context: ViewContext, life: Lifetime): HTMLElement =>
   region(
     life,
-    [taught],
-    () => {
-      const loaded = taught.get()
-      if (loaded === null || loaded === 'failed') return null
-      if (loaded.routes.length === 0) return [emptyMap(), debateRoute(loaded)]
-      const nodes = routeLayout(loaded.routes, MAP_SIZE)
-      return [
-        h('p', { class: 'trust-footnote' }, strings.routes.intro),
-        h(
-          'figure',
-          { class: 'route-map' },
-          mapDrawing(nodes),
-          h('figcaption', { class: 'visually-hidden' }, strings.routes.intro),
-        ),
-        h('ul', { class: 'route-legend' }, nodes.map(legendItem)),
-        mapTable(loaded),
-        debateRoute(loaded),
-      ]
+    [context.state.taught],
+    () => renderRouteMap(routeMapModel(context.state.taught.get()), context),
+    {
+      class: 'routes',
     },
-    { class: 'routes' },
   )
 
-const MAP_SIZE = 320
-const SVG = 'http://www.w3.org/2000/svg'
-
-const svg = (
-  tag: string,
-  attributes: Readonly<Record<string, string | number>>,
-  ...children: Element[]
-): SVGElement => {
-  const element = document.createElementNS(SVG, tag)
-  for (const [name, value] of Object.entries(attributes)) element.setAttribute(name, String(value))
-  element.append(...children)
-  return element
+const renderRouteMap = (model: RouteMapModel | null, context: ViewContext): Child => {
+  if (model === null) return null
+  if (model.kind === 'empty')
+    return [
+      h(
+        'div',
+        { class: 'teach-empty' },
+        h('strong', {}, model.title),
+        h('p', {}, model.hint),
+        teachButton(context),
+      ),
+      debateRoute(model.debate),
+    ]
+  return [
+    h('p', { class: 'trust-footnote' }, model.intro),
+    h(
+      'figure',
+      { class: 'route-map' },
+      mapDrawing(model),
+      h('figcaption', { class: 'visually-hidden' }, model.intro),
+    ),
+    h(
+      'ul',
+      { class: 'route-legend' },
+      model.legend.map((item) =>
+        h(
+          'li',
+          { class: 'route-item', data: { place: item.key } },
+          h('strong', {}, item.name),
+          item.counts.map((count) => h('span', {}, count)),
+          item.chances !== null && h('span', { class: 'route-item-chances' }, item.chances),
+        ),
+      ),
+    ),
+    h(
+      'details',
+      { class: 'trend-table route-table' },
+      h('summary', {}, model.table.summary),
+      h(
+        'div',
+        { class: 'table-scroll' },
+        h(
+          'table',
+          { class: 'trust-table' },
+          h(
+            'thead',
+            {},
+            h(
+              'tr',
+              {},
+              model.table.headings.map((heading) => h('th', { scope: 'col' }, heading)),
+            ),
+          ),
+          h(
+            'tbody',
+            {},
+            model.table.rows.map(([place, ...cells]) =>
+              h(
+                'tr',
+                {},
+                h('th', { scope: 'row' }, place),
+                cells.map((cell) => h('td', {}, cell)),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+    debateRoute(model.debate),
+  ]
 }
 
-const mapDrawing = (nodes: ReadonlyArray<RouteNode>): SVGElement => {
-  const centre = MAP_SIZE / 2
+const text = (attributes: Readonly<Record<string, string | number>>, content: string): SVGElement => {
+  const label = svg('text', attributes)
+  label.textContent = content
+  return label
+}
+
+const mapDrawing = (model: Extract<RouteMapModel, { kind: 'map' }>): SVGElement => {
+  const centre = model.size / 2
+  const nodes = model.nodes
   return svg(
     'svg',
     {
-      viewBox: `0 0 ${MAP_SIZE} ${MAP_SIZE}`,
+      viewBox: `0 0 ${model.size} ${model.size}`,
       class: 'route-drawing',
       'aria-hidden': 'true',
       focusable: 'false',
@@ -85,103 +132,32 @@ const mapDrawing = (nodes: ReadonlyArray<RouteNode>): SVGElement => {
     ...nodes.map((node) =>
       svg('circle', { cx: node.x, cy: node.y, r: 9, class: `route-point${node.taught ? ' is-taught' : ''}` }),
     ),
-    ...nodes.map((node) => {
-      const label = svg('text', {
-        x: node.x,
-        y: node.y + (node.y < centre ? -16 : 24),
-        class: 'route-label',
-        'text-anchor': 'middle',
-      })
-      label.textContent = placeName(node.place)
-      return label
-    }),
-    (() => {
-      const you = svg('text', { x: centre, y: centre + 32, class: 'route-label', 'text-anchor': 'middle' })
-      you.textContent = strings.routes.you
-      return you
-    })(),
+    ...nodes.map((node) =>
+      text(
+        {
+          x: node.x,
+          y: node.y + (node.y < centre ? -16 : 24),
+          class: 'route-label',
+          'text-anchor': 'middle',
+        },
+        node.label,
+      ),
+    ),
+    text({ x: centre, y: centre + 32, class: 'route-label', 'text-anchor': 'middle' }, model.you),
   )
 }
 
-const legendItem = (node: RouteNode): HTMLElement =>
-  h(
-    'li',
-    { class: 'route-item', data: { place: node.place ?? 'direct' } },
-    h('strong', {}, placeName(node.place)),
-    h('span', {}, strings.routes.principleCount({ count: node.point.principles })),
-    h('span', {}, strings.routes.heldUpCount({ count: node.point.heldUp })),
-    h('span', {}, strings.routes.draftedCount({ count: node.point.drafted })),
-    node.point.chances > 0 &&
-      h('span', { class: 'route-item-chances' }, strings.routes.chances({ count: node.point.chances })),
-  )
-
-const mapTable = (loaded: MyPrinciples): HTMLElement =>
-  h(
-    'details',
-    { class: 'trend-table route-table' },
-    h('summary', {}, strings.routes.table),
-    h(
-      'div',
-      { class: 'table-scroll' },
-      h(
-        'table',
-        { class: 'trust-table' },
-        h(
-          'thead',
-          {},
-          h(
-            'tr',
-            {},
-            [
-              strings.routes.placeColumn,
-              strings.routes.draftedColumn,
-              strings.routes.principlesColumn,
-              strings.routes.heldUpColumn,
-              strings.routes.chancesColumn,
-            ].map((heading) => h('th', { scope: 'col' }, heading)),
-          ),
-        ),
-        h(
-          'tbody',
-          {},
-          loaded.routes.map((point) =>
-            h(
-              'tr',
-              {},
-              h('th', { scope: 'row' }, placeName(point.place)),
-              ...[point.drafted, point.principles, point.heldUp, point.chances].map((value) =>
-                h('td', {}, formats.decimal.format(value)),
-              ),
-            ),
-          ),
-        ),
-      ),
-    ),
-  )
-
-/** What approved debate results credited the agent for, each kind once: never a count or a ranking. */
-const debateRoute = (loaded: MyPrinciples): HTMLElement | null =>
-  (loaded.debateCredits ?? []).length === 0
+const debateRoute = (credits: DebateCredits | null): HTMLElement | null =>
+  credits === null
     ? null
     : h(
         'section',
         { class: 'route-debates', 'aria-labelledby': 'route-debates' },
-        h('h3', { id: 'route-debates' }, strings.routes.debateRooms),
-        h('p', { class: 'trust-footnote' }, strings.routes.debateIntro),
+        h('h3', { id: 'route-debates' }, credits.title),
+        h('p', { class: 'trust-footnote' }, credits.intro),
         h(
           'ul',
           {},
-          (loaded.debateCredits ?? []).map((credit) =>
-            h('li', { class: 'route-debate-credit' }, strings.teach.achievements[`debate_${credit}`]),
-          ),
+          credits.credits.map((credit) => h('li', { class: 'route-debate-credit' }, credit)),
         ),
       )
-
-const emptyMap = (): HTMLElement =>
-  h(
-    'div',
-    { class: 'teach-empty' },
-    h('strong', {}, strings.teach.empty),
-    h('p', {}, strings.teach.emptyHint),
-    teachButton(),
-  )

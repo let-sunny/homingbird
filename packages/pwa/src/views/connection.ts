@@ -1,77 +1,55 @@
-import { Task as T } from '@homingbird/kernel'
-import type { Credential, Me } from '@homingbird/protocol'
+import type { AsRead } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, region, signal } from '@homingbird/ui'
-import { api, launch, loadAgents, loadChannels, renameCredential, revokeCredential } from '../actions.ts'
+import { type ConnectionModel, type CredentialRow, connectionModel } from '../models/connection.ts'
 import { hrefFor } from '../routes.ts'
-import { agentReport, channels, directory } from '../state.ts'
 import { strings } from '../strings.ts'
+import type { ViewContext } from './context.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
-import { button, channelChips, dateTimeLabel, field, loading, presenceBadges } from './parts.ts'
+import { channelChips, field, loading, presenceBadges } from './parts.ts'
 import { freshSessionSuggestions } from './session-health-view.ts'
 
 /** "Connection": the person's devices and agents, whether the desk is awake, and how to connect one. */
-export const connectionSection = (life: Lifetime, me: Me): HTMLElement => {
-  const credentials = signal<ReadonlyArray<Credential> | null>(null)
+export const connectionSection = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
+  const { state, actions } = context
+  const credentials = signal<ReadonlyArray<AsRead.Credential> | null>(null)
   const reload = (): void => {
-    launch(loadAgents)
-    launch(
-      T.map((listed: { credentials: ReadonlyArray<Credential> }) => credentials.set(listed.credentials))(
-        api['credentials.list']({}),
-      ),
-    )
+    actions.loadAgents()
+    actions.listCredentials({ done: (listed) => credentials.set(listed) })
   }
   reload()
+  actions.loadKnownChannels()
+  const model = (): ConnectionModel =>
+    connectionModel({
+      viewerId: me.member.id,
+      directory: state.directory.get(),
+      credentials: credentials.get(),
+      channels: state.channels.get(),
+    })
   return h(
     'div',
     { class: 'agent-connection' },
     deskRecommendation(),
-    region(life, [agentReport], () => {
-      const report = agentReport.get()
+    region(life, [state.agentReport], () => {
+      const report = state.agentReport.get()
       return report === null || report === 'failed' ? null : freshSessionSuggestions(report.sessions.latest)
     }),
-    region(life, [directory], () => {
-      const presence = directory.get().find((entry) => entry.member.id === me.member.id)?.presence
-      return presence === undefined ? null : h('p', { class: 'desk-state' }, presenceBadges(presence, true))
-    }),
+    region(life, [state.directory], () => renderDeskState(model())),
     h(
       'section',
       { class: 'connected-agents', 'aria-labelledby': 'connected-agents' },
       h('h3', { id: 'connected-agents' }, strings.credentialsTitle),
       h('p', { class: 'trust-footnote' }, strings.credentialsIntro),
-      region(life, [credentials], () => {
-        const listed = credentials.get()
-        if (listed === null) return loading()
-        return [
-          !listed.some((credential) => credential.kind === 'agent' && credential.revokedAt === null) &&
-            h('p', { class: 'no-agents' }, strings.noAgentsYet),
-          h(
-            'ul',
-            { class: 'credentials' },
-            listed.map((credential) => credentialRow(credential, reload)),
-          ),
-        ]
-      }),
+      region(life, [credentials], () => renderCredentials(model(), context, reload)),
     ),
-    helpedChannels(life, me),
-    h('details', { class: 'have-a-code' }, h('summary', {}, strings.codeFallback), codeForm()),
+    h(
+      'fieldset',
+      { class: 'appearance my-channels' },
+      h('legend', {}, strings.profileAgent),
+      region(life, [state.channels, state.directory], () => renderHelped(model())),
+      h('a', { class: 'button', href: hrefFor({ name: 'channels' }) }, strings.browseChannels),
+    ),
+    h('details', { class: 'have-a-code' }, h('summary', {}, strings.codeFallback), codeForm(context)),
     h('p', { class: 'hint not-set-up' }, strings.notSetUp),
-  )
-}
-
-/** The channels where the person's agent answers questions, as colleagues see them. */
-export const helpedChannels = (life: Lifetime, me: Me): HTMLElement => {
-  launch(loadChannels(''))
-  return h(
-    'fieldset',
-    { class: 'appearance my-channels' },
-    h('legend', {}, strings.profileAgent),
-    region(life, [channels, directory], () => {
-      const helped = channels.get().filter((channel) => channel.answering)
-      const fromDirectory = directory.get().find((entry) => entry.member.id === me.member.id)?.channels ?? []
-      const slugs = helped.length > 0 ? helped.map((channel) => channel.slug) : fromDirectory
-      return slugs.length === 0 ? h('p', {}, strings.noChannelsHelped) : channelChips(slugs)
-    }),
-    h('a', { class: 'button', href: hrefFor({ name: 'channels' }) }, strings.browseChannels),
   )
 }
 
@@ -83,7 +61,7 @@ export const deskRecommendation = (): HTMLElement =>
   )
 
 /** The code a device sign-in shows, for an agent that printed one instead of a link. */
-export const codeForm = (): HTMLElement => {
+export const codeForm = (context: Pick<ViewContext, 'page'>): HTMLElement => {
   const code = h('input', {
     name: 'code',
     required: true,
@@ -99,7 +77,7 @@ export const codeForm = (): HTMLElement => {
       on: {
         submit: (event) => {
           event.preventDefault()
-          location.hash = hrefFor({ name: 'device', code: code.value.trim() })
+          context.page.go(hrefFor({ name: 'device', code: code.value.trim() }))
         },
       },
     },
@@ -109,40 +87,53 @@ export const codeForm = (): HTMLElement => {
   )
 }
 
-const credentialRow = (credential: Credential, reload: () => void): HTMLElement =>
+const renderCredentials = (model: ConnectionModel, context: ViewContext, reload: () => void): Child => {
+  if (model.credentials === null) return loading()
+  return [
+    model.credentials.noAgents && h('p', { class: 'no-agents' }, strings.noAgentsYet),
+    h(
+      'ul',
+      { class: 'credentials' },
+      model.credentials.rows.map((row) => credentialRow(row, context, reload)),
+    ),
+  ]
+}
+
+const credentialRow = (row: CredentialRow, context: ViewContext, reload: () => void): HTMLElement =>
   h(
     'li',
-    {
-      class: `credential ${credential.revokedAt === null ? '' : 'is-revoked'}`,
-      data: { credentialId: credential.id },
-    },
+    { class: `credential ${row.revoked ? 'is-revoked' : ''}`, data: { credentialId: row.credential.id } },
     h(
       'div',
       { class: 'credential-main' },
       h(
         'div',
         { class: 'credential-name' },
-        h('strong', {}, credential.name),
-        h('span', { class: `kind is-${credential.kind}` }, strings.credentialKind[credential.kind]),
-        credential.current && h('span', { class: 'kind is-current' }, strings.credentialCurrent),
-        credential.current && youMarkFor(strings.credentialThisBrowser),
-        credential.revokedAt !== null && h('span', { class: 'kind is-revoked' }, strings.credentialRevoked),
+        h('strong', {}, row.credential.name),
+        h('span', { class: `kind is-${row.credential.kind}` }, row.kind),
+        row.marks.map((mark) =>
+          mark.style === 'is-you'
+            ? h('small', { class: 'is-you' }, mark.text)
+            : h('span', { class: `kind ${mark.style}` }, mark.text),
+        ),
       ),
-      h('span', { class: 'credential-client' }, credential.client),
+      h('span', { class: 'credential-client' }, row.credential.client),
       h(
         'dl',
         { class: 'facts' },
-        fact(strings.credentialLastUsed, dateTimeLabel(credential.lastUsedAt, strings.credentialNeverUsed)),
-        fact(strings.credentialExpires, dateTimeLabel(credential.expiresAt, '')),
+        row.facts.map((fact) => [h('dt', {}, fact.term), h('dd', {}, fact.value)]),
       ),
     ),
-    credential.revokedAt === null &&
+    !row.revoked &&
       h(
         'div',
         { class: 'credential-actions' },
         h(
           'button',
-          { type: 'button', ...opensDialog(strings.renameTitle, () => renameForm(credential, reload)) },
+          {
+            type: 'button',
+            ...opensDialog(context, strings.renameTitle, () => renameForm(row.credential, context, reload)),
+          },
           strings.rename,
         ),
         h(
@@ -150,20 +141,14 @@ const credentialRow = (credential: Credential, reload: () => void): HTMLElement 
           {
             type: 'button',
             class: 'danger',
-            ...opensDialog(credential.current ? strings.revokeCurrentTitle : strings.revokeTitle, () =>
-              revokeForm(credential, reload),
-            ),
+            ...opensDialog(context, row.revokeTitle, () => revokeForm(row, context, reload)),
           },
           strings.revoke,
         ),
       ),
   )
 
-const youMarkFor = (text: string): HTMLElement => h('small', { class: 'is-you' }, text)
-
-const fact = (term: string, value: string): Child => [h('dt', {}, term), h('dd', {}, value)]
-
-const renameForm = (credential: Credential, reload: () => void): Child => {
+const renameForm = (credential: AsRead.Credential, context: ViewContext, reload: () => void): Child => {
   const name = h('input', { name: 'name', required: true, maxlength: '200', value: credential.name })
   return h(
     'form',
@@ -172,9 +157,11 @@ const renameForm = (credential: Credential, reload: () => void): Child => {
       on: {
         submit: (event) => {
           event.preventDefault()
-          launch(renameCredential(credential.id, name.value.trim()), () => {
-            closeDialog()
-            reload()
+          context.actions.renameCredential(credential.id, name.value.trim(), {
+            done: () => {
+              closeDialog(context)
+              reload()
+            },
           })
         },
       },
@@ -189,30 +176,38 @@ const renameForm = (credential: Credential, reload: () => void): Child => {
   )
 }
 
-const revokeForm = (credential: Credential, reload: () => void): Child =>
+const revokeForm = (row: CredentialRow, context: ViewContext, reload: () => void): Child =>
   h(
     'div',
     { class: 'dialog-body' },
-    h(
-      'p',
-      {},
-      credential.current
-        ? strings.revokeCurrentBody({ name: credential.name })
-        : strings.revokeBody({ name: credential.name }),
-    ),
+    h('p', {}, row.revokeBody),
     h(
       'div',
       { class: 'dialog-actions' },
       h('button', { type: 'button', ...closesDialog }, strings.cancel),
-      button(
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'danger',
+          on: {
+            click: () =>
+              context.actions.revokeCredential(row.credential.id, {
+                done: () => {
+                  closeDialog(context)
+                  if (row.credential.current) context.page.assign('/')
+                  else reload()
+                },
+              }),
+          },
+        },
         strings.revoke,
-        () =>
-          launch(revokeCredential(credential.id), () => {
-            closeDialog()
-            if (credential.current) location.assign('/')
-            else reload()
-          }),
-        { class: 'danger' },
       ),
     ),
   )
+
+const renderDeskState = (model: ConnectionModel): HTMLElement | null =>
+  model.presence === null ? null : h('p', { class: 'desk-state' }, presenceBadges(model.presence, true))
+
+const renderHelped = (model: ConnectionModel): HTMLElement =>
+  model.helped.length === 0 ? h('p', {}, strings.noChannelsHelped) : channelChips(model.helped)

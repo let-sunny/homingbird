@@ -1,27 +1,38 @@
 import { type Child, type Lifetime, type Properties, h, lifetime, replaceChildren } from '@homingbird/ui'
 import { strings } from '../strings.ts'
+import type { ViewContext } from './context.ts'
 
 export const DIALOG_ID = 'dialog'
 
 export const dialogHost = (): HTMLDialogElement => h('dialog', { id: DIALOG_ID, class: 'dialog' })
 
-export const opensDialog = (title: string, content: (life: Lifetime) => Child): Properties => ({
+export const opensDialog = (
+  context: DialogContext,
+  title: string,
+  content: (life: Lifetime) => Child,
+): Properties => ({
   commandfor: DIALOG_ID,
   command: 'show-modal',
-  on: { click: () => fillDialog(title, content) },
+  on: { click: () => fillDialog(context, title, content) },
 })
 
-export const showDialog = (title: string, content: (life: Lifetime) => Child): void => {
-  fillDialog(title, content)
-  if (!dialogElement().open) dialogElement().showModal()
+export const showDialog = (
+  context: DialogContext,
+  title: string,
+  content: (life: Lifetime) => Child,
+): void => {
+  fillDialog(context, title, content)
+  if (!dialogElement(context).open) dialogElement(context).showModal()
 }
 
 export const closesDialog: Properties = { commandfor: DIALOG_ID, command: 'close' }
 
-export const closeDialog = (): void => dialogElement().close()
+export const closeDialog = (context: DialogContext): void => dialogElement(context).close()
 
-const fillDialog = (title: string, content: (life: Lifetime) => Child): void => {
-  const dialog = dialogElement()
+type DialogContext = Pick<ViewContext, 'document'>
+
+const fillDialog = (context: DialogContext, title: string, content: (life: Lifetime) => Child): void => {
+  const dialog = dialogElement(context)
   const life = lifetime()
   dialog.addEventListener('close', () => life.end(), { once: true })
   replaceChildren(
@@ -36,4 +47,5 @@ const fillDialog = (title: string, content: (life: Lifetime) => Child): void => 
   )
 }
 
-const dialogElement = (): HTMLDialogElement => document.getElementById(DIALOG_ID) as HTMLDialogElement
+const dialogElement = (context: DialogContext): HTMLDialogElement =>
+  context.document.byId(DIALOG_ID) as HTMLDialogElement

@@ -1,122 +1,123 @@
-import { Task as T } from '@homingbird/kernel'
-import type { ApiError, ContactMode, DirectoryEntry, Me } from '@homingbird/protocol'
-import { type Child, type Lifetime, type Signal, h, region, signal } from '@homingbird/ui'
-import {
-  acceptContact,
-  blockMember,
-  launch,
-  loadChannels,
-  loadPeople,
-  openConversationWith,
-  removeContact,
-  requestContact,
-  unblockMember,
-} from '../actions.ts'
-import { channelLabel, chipsForPerson } from '../channels.ts'
-import { shownRelation } from '../relations.ts'
-import { channels, directory, directoryLoaded } from '../state.ts'
+import type { AsRead } from '@homingbird/protocol'
+import { type Lifetime, h, region, signal } from '@homingbird/ui'
+import type { Actions } from '../actions.ts'
+import { featureOn } from '../features.ts'
+import { type PeopleModel, type PersonAction, type PersonCard, peopleModel } from '../models/people.ts'
 import { strings } from '../strings.ts'
-import { memberAvatar } from './character-avatar.ts'
+import { renderAvatar } from './character-avatar.ts'
+import type { ViewContext } from './context.ts'
 import { button, channelChips, empty, field, loadFailed, loading, page, presenceBadges } from './parts.ts'
-import type { PipState } from './pip.ts'
 
-export const peopleView = (life: Lifetime, me: Me): HTMLElement => {
+/** People: everyone in the organization the person may see, and what they may do with each. */
+export const peopleView = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
+  const { state, actions } = context
   const failed = signal(false)
   const load = (): void => {
     failed.set(false)
-    launch(T.tapError((_: ApiError) => T.sync(() => failed.set(true)))(loadPeople))
+    actions.loadPeople({ failed: () => failed.set(true) })
   }
   load()
-  launch(loadChannels(''))
+  actions.loadKnownChannels()
   const query = signal('')
   const channelFilter = signal('')
   const search = h('input', {
     type: 'search',
     placeholder: strings.peopleSearchPlaceholder,
-    on: { input: () => query.set(search.value.trim().toLowerCase()) },
+    on: { input: () => query.set(search.value) },
   })
+  const model = (): PeopleModel =>
+    peopleModel({
+      contactMode: me.contactMode,
+      directory: state.directory.get(),
+      loaded: state.directoryLoaded.get(),
+      failed: failed.get(),
+      query: query.get(),
+      channelFilter: channelFilter.get(),
+      channels: state.channels.get(),
+      charactersOn: featureOn('characters', state.serverInfo.get()),
+    })
+  const shown = model()
   return page(
     strings.people,
-    me.contactMode === 'contacts' && h('p', { class: 'banner' }, strings.contactsModeNotice),
+    shown.contactsNotice !== null && h('p', { class: 'banner' }, shown.contactsNotice),
     h(
       'div',
       { class: 'people-filters' },
       field(strings.peopleSearchLabel, search),
-      region(life, [channels], () => channelFilterField(channelFilter), { class: 'channel-filter-host' }),
-    ),
-    region(life, [directory, directoryLoaded, failed, query, channelFilter, channels], () => {
-      if (!directoryLoaded.get()) return failed.get() ? loadFailed(load) : loading()
-      const matching = directory
-        .get()
-        .filter((entry) => matches(entry, query.get()))
-        .filter((entry) => channelFilter.get() === '' || entry.channels.includes(channelFilter.get()))
-      return matching.length === 0
-        ? empty(strings.noPeople)
-        : h(
-            'ul',
-            { class: 'people' },
-            matching.sort(agentsFirst).map((entry) => personCard(entry, me.contactMode)),
-          )
-    }),
-  )
-}
-
-const channelFilterField = (chosen: Signal<string>): Child => {
-  const known = channels.get()
-  if (known.length === 0) return null
-  const select = h(
-    'select',
-    { name: 'channel', on: { change: () => chosen.set(select.value) } },
-    h('option', { value: '' }, strings.anyChannel),
-    known.map((channel) =>
-      h(
-        'option',
-        { value: channel.slug, selected: chosen.get() === channel.slug },
-        channelLabel(channel.slug),
+      region(
+        life,
+        [state.channels],
+        () => renderChannelFilter(model(), (value) => channelFilter.set(value)),
+        {
+          class: 'channel-filter-host',
+        },
       ),
     ),
+    region(life, [state.directory, state.directoryLoaded, failed, query, channelFilter, state.channels], () =>
+      renderPeople(model(), context, load),
+    ),
   )
-  return field(strings.peopleChannelFilter, select)
 }
 
-const matches = (entry: DirectoryEntry, query: string): boolean =>
-  [entry.member.name, entry.member.email, entry.member.profile, ...entry.channels].some((text) =>
-    text.toLowerCase().includes(query),
-  )
-
-const agentsFirst = (a: DirectoryEntry, b: DirectoryEntry): number =>
-  Number(b.presence.agentOnline) - Number(a.presence.agentOnline) ||
-  a.member.name.localeCompare(b.member.name)
-
-const personCard = (entry: DirectoryEntry, mode: ContactMode): HTMLElement => {
-  const relation = shownRelation(entry, mode)
+const renderPeople = (
+  model: PeopleModel,
+  context: Pick<ViewContext, 'actions' | 'clock' | 'page'>,
+  retry: () => void,
+): HTMLElement => {
+  const list = model.list
+  if (list.kind === 'loading') return loading()
+  if (list.kind === 'failed') return loadFailed(retry)
+  if (list.kind === 'empty') return empty(list.text)
   return h(
+    'ul',
+    { class: 'people' },
+    list.people.map((person) => personCard(person, context)),
+  )
+}
+
+const personCard = (
+  person: PersonCard,
+  context: Pick<ViewContext, 'actions' | 'clock' | 'page'>,
+): HTMLElement =>
+  h(
     'li',
-    { class: 'person', data: { memberId: entry.member.id } },
+    { class: 'person', data: { memberId: person.memberId } },
     h(
       'div',
       { class: 'person-card' },
-      h('div', { class: 'person-face' }, memberAvatar(entry.member, { state: personPip(entry) })),
+      h('div', { class: 'person-face' }, renderAvatar(context, person.avatar)),
       h(
         'div',
         { class: 'person-main' },
         h(
           'div',
           { class: 'person-name' },
-          h('strong', {}, entry.member.name),
-          strings.relation[relation] !== '' &&
-            h('span', { class: `relation is-${relation}` }, strings.relation[relation]),
+          h('strong', {}, person.name),
+          person.relation !== null &&
+            h('span', { class: `relation is-${person.relation.kind}` }, person.relation.text),
         ),
-        h('span', { class: 'person-email', title: entry.member.email }, entry.member.email),
-        presenceBadges(entry.presence, true),
-        entry.channels.length > 0 && personChannels(entry.channels),
+        h('span', { class: 'person-email', title: person.email }, person.email),
+        presenceBadges(person.presence, true),
+        person.channels !== null &&
+          h(
+            'div',
+            { class: 'person-channels' },
+            channelChips(person.channels.first),
+            person.channels.rest.length > 0 &&
+              h(
+                'details',
+                { class: 'more-channels' },
+                h('summary', {}, person.channels.more),
+                channelChips(person.channels.rest),
+              ),
+          ),
         h(
           'details',
-          { class: 'person-profile', open: entry.member.profile !== '' },
+          { class: 'person-profile', open: person.profile.open },
           h('summary', {}, strings.profileAbout),
-          h('p', {}, entry.member.profile || strings.noProfile),
+          h('p', {}, person.profile.text),
         ),
-        (entry.agentIntroduction ?? []).length > 0 &&
+        person.agentIntroduction.length > 0 &&
           h(
             'section',
             { class: 'person-agent', 'aria-label': strings.agentIntroduction },
@@ -124,71 +125,46 @@ const personCard = (entry: DirectoryEntry, mode: ContactMode): HTMLElement => {
             h(
               'ul',
               { class: 'agent-introduction' },
-              (entry.agentIntroduction ?? []).map((sentence) => h('li', {}, sentence)),
+              person.agentIntroduction.map((sentence) => h('li', {}, sentence)),
             ),
           ),
       ),
-      h('div', { class: 'person-actions' }, actionsFor(entry, relation, mode)),
+      h(
+        'div',
+        { class: 'person-actions' },
+        person.actions.map((one) => actionButton(one, person, context.actions)),
+      ),
     ),
   )
+
+const actionButton = (action: PersonAction, person: PersonCard, actions: Actions): HTMLElement => {
+  const control = button(action.label, () => ACTIONS[action.kind](actions, person), {
+    ...(action.style !== null && { class: action.style }),
+  })
+  return action.hint === null
+    ? control
+    : h('span', { class: 'action-with-hint' }, control, h('small', {}, action.hint))
 }
 
-const personChannels = (theirs: ReadonlyArray<string>): HTMLElement => {
-  const mine = new Set(
-    channels
-      .get()
-      .filter((channel) => channel.joined)
-      .map((channel) => channel.slug),
-  )
-  const { first, rest } = chipsForPerson(theirs, mine)
-  return h(
-    'div',
-    { class: 'person-channels' },
-    channelChips(first),
-    rest.length > 0 &&
-      h(
-        'details',
-        { class: 'more-channels' },
-        h('summary', {}, strings.moreChannels({ count: rest.length })),
-        channelChips(rest),
-      ),
-  )
+const ACTIONS: Readonly<Record<PersonAction['kind'], (actions: Actions, person: PersonCard) => void>> = {
+  unblock: (actions, person) => actions.unblockMember(person.memberId),
+  message: (actions, person) => actions.openConversationWith(person.memberId),
+  request: (actions, person) => actions.requestContact(person.memberId),
+  accept: (actions, person) => actions.acceptContact(person.memberId),
+  decline: (actions, person) => actions.removeContact(person.memberId),
+  cancel: (actions, person) => actions.removeContact(person.memberId),
+  remove: (actions, person) => actions.removeContact(person.memberId),
+  block: (actions, person) => actions.blockMember(person.memberId),
 }
 
-const personPip = (entry: DirectoryEntry): PipState =>
-  entry.relation === 'blocked'
-    ? 'blocked'
-    : entry.presence.agentOnline || entry.presence.humanOnline
-      ? 'idle'
-      : 'offline'
-
-const actionsFor = (
-  entry: DirectoryEntry,
-  relation: DirectoryEntry['relation'],
-  mode: ContactMode,
-): Child => {
-  const id = entry.member.id
-  if (relation === 'self') return null
-  if (relation === 'blocked') return button(strings.unblock, () => launch(unblockMember(id)))
-  const contacts = mode === 'contacts'
-  return [
-    entry.canMessage && button(strings.message, () => launch(openConversationWith(id)), { class: 'primary' }),
-    contacts &&
-      relation === 'none' &&
-      h(
-        'span',
-        { class: 'action-with-hint' },
-        button(strings.addContact, () => launch(requestContact(id))),
-        h('small', {}, strings.addContactHint({ name: entry.member.name })),
-      ),
-    contacts &&
-      relation === 'request_received' &&
-      button(strings.acceptContact, () => launch(acceptContact(id)), { class: 'primary' }),
-    contacts &&
-      relation === 'request_received' &&
-      button(strings.declineRequest, () => launch(removeContact(id))),
-    contacts && relation === 'request_sent' && button(strings.cancelRequest, () => launch(removeContact(id))),
-    contacts && relation === 'contact' && button(strings.removeContact, () => launch(removeContact(id))),
-    button(strings.block, () => launch(blockMember(id)), { class: 'danger' }),
-  ]
+const renderChannelFilter = (model: PeopleModel, choose: (slug: string) => void): HTMLElement | null => {
+  if (model.channelFilter === null) return null
+  const select = h(
+    'select',
+    { name: 'channel', on: { change: () => choose(select.value) } },
+    model.channelFilter.map((option) =>
+      h('option', { value: option.value, selected: option.selected }, option.label),
+    ),
+  )
+  return field(strings.peopleChannelFilter, select)
 }

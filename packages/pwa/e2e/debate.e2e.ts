@@ -8,6 +8,7 @@ import {
   api,
   connectAgent,
   freePort,
+  holdEventStream,
   newPage,
   overflowsSideways,
   pastTheRightEdge,
@@ -40,6 +41,7 @@ const scenario = async (): Promise<void> => {
     const cy = await signIn('cy@example.com', 'Cy')
     const anaAgent = await connectAgent(base, ana, 'Ana laptop')
     const benAgent = await connectAgent(base, ben, 'Ben desk')
+    const desks = [holdEventStream(base, anaAgent.token), holdEventStream(base, benAgent.token)]
     const ids = {
       ana: (await api(ana, 'GET', '/me')).member.id as string,
       ben: (await api(ben, 'GET', '/me')).member.id as string,
@@ -100,7 +102,7 @@ const scenario = async (): Promise<void> => {
     await ana.page.waitForSelector('.debate-result:has-text("The turns ran out")')
     await capture(ana.page, 'turns-ran-out-and-the-room-asks-for-its-result')
 
-    // -- An agent drafts the result; each person approves it in the web client ------------------
+    // -- Both agents draft the result, vote on each other's draft, and the winner closes the room
     const drafted = await anaAgent.call('PUT', `/debates/${id}/result`, {
       kind: 'no_conclusion',
       summary: 'The agents did not agree on shipping this week.',
@@ -128,15 +130,35 @@ const scenario = async (): Promise<void> => {
       nextSteps: [{ step: 'Ana and Ben agree on the goal first.', owner: ids.ben, proposedBy: ids.ben }],
     })
     assert.equal(drafted.status, 'concluding')
+    await ben.page.waitForSelector('.debate-collecting')
+    await ben.page.waitForSelector(`.debate-draft[data-member="${ids.ana}"]`)
+    await capture(ben.page, 'first-draft-while-the-room-collects-drafts')
+    const voting = await benAgent.call('PUT', `/debates/${id}/result`, {
+      kind: 'conclusion',
+      conclusion: 'Ship next week, after the rollback is tested again.',
+      reasons: ['The March rollback failed.'],
+      contributions: [
+        { memberId: ids.ana, summary: 'Brought the March incident report.', credits: ['gap_filled'] },
+        { memberId: ids.ben, summary: 'Asked for another test.', credits: [] },
+      ],
+      nextSteps: [],
+    })
+    assert.equal(typeof voting.votingClosesAt, 'number', 'two drafts go to a vote')
+    await ana.page.waitForSelector('.debate-meta .debate-stage:has-text("Agents are voting on the drafts")')
+    await ana.page.waitForSelector('.debate-voting:has-text("0 agents have voted.")')
+    await capture(ana.page, 'two-drafts-put-to-a-vote')
+    const own = await anaAgent.call('POST', `/debates/${id}/result/vote`, { round: 0, draftBy: ids.ana })
+    assert.match(own.error.message, /own draft/)
+    await anaAgent.call('POST', `/debates/${id}/result/vote`, { round: 0, draftBy: ids.ben })
+    const chosen = await benAgent.call('POST', `/debates/${id}/result/vote`, { round: 0, draftBy: ids.ana })
+    assert.equal(chosen.result.draftedBy, ids.ana, 'a tie goes to the earliest draft')
+    await ben.page.waitForSelector(`.debate-draft.is-chosen[data-member="${ids.ana}"]:has-text("1 vote")`)
+    await ben.page.waitForSelector(`.debate-draft[data-member="${ids.ben}"]:has-text("1 vote")`)
     await ben.page.waitForSelector('.debate-point[data-category="goals"]')
-    await ben.page.waitForSelector(`.debate-approvals li.is-waiting[data-member="${ids.ana}"]`)
-    await capture(ben.page, 'no-conclusion-analysis-waiting-for-approval')
-    await ana.page.click('button.approve-result')
-    await ben.page.waitForSelector(`.debate-approvals li.is-approved[data-member="${ids.ana}"]`)
-    await capture(ben.page, 'one-person-approved-the-result')
-    await ben.page.click('button.approve-result')
     await ana.page.waitForSelector('.debate-meta .debate-stage:has-text("Closed")')
-    await capture(ana.page, 'closed-room-with-its-approved-result')
+    await ben.page.waitForSelector(`.debate-vote-record li.is-voted[data-member="${ids.ben}"]`)
+    await capture(ana.page, 'closed-room-with-the-result-the-agents-settled')
+    for (const desk of desks) desk.abort()
 
     // -- Export as Markdown, with display names; post the result as a draft --------------------
     const [download] = await Promise.all([
@@ -155,7 +177,7 @@ const scenario = async (): Promise<void> => {
     await ana.page.selectOption('.debate-post-form select[name="person"]', ids.ben)
     await ana.page.click('.debate-post-form button[type="submit"]')
     await ana.page.waitForSelector('.draft:has-text("From the debate room")')
-    await capture(ana.page, 'approved-result-waiting-as-a-draft')
+    await capture(ana.page, 'settled-result-waiting-as-a-draft')
 
     // -- The growth record credits the agent, never with a count -------------------------------
     await ana.page.goto(`${base}/#/agent/routes`)
@@ -184,6 +206,11 @@ const scenario = async (): Promise<void> => {
     assert.equal(await overflowsSideways(korean.page), false, 'the Korean room scrolls sideways when narrow')
     assert.deepEqual(await pastTheRightEdge(korean.page), [], 'the Korean room reaches past the right edge')
     await capture(korean.page, 'korean-closed-room-narrow')
+    const [koreanDownload] = await Promise.all([
+      korean.page.waitForEvent('download'),
+      korean.page.click('button.export-markdown'),
+    ])
+    assert.match(await readFile(await koreanDownload.path(), 'utf8'), /^# 토론방: /)
     await korean.page.goto(`${base}/#/debates`)
     await korean.page.click('button.new-debate')
     await korean.page.waitForSelector('dialog[open] .create-debate')

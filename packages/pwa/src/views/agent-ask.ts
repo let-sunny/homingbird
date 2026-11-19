@@ -1,44 +1,63 @@
-import { type CredentialId, DRAFT_INSTRUCTION_MAX, type DraftRequest } from '@homingbird/protocol'
+import { DRAFT_INSTRUCTION_MAX, type DraftRequest } from '@homingbird/protocol'
 import { type Lifetime, h, region } from '@homingbird/ui'
-import { askAgent, launch, loadAgents } from '../actions.ts'
 import type { DraftDestination } from '../draft-requests.ts'
 import { featureOn } from '../features.ts'
-import { agentCredentials } from '../state.ts'
+import { agentChoices, chosenAgent } from '../models/agent-ask.ts'
 import { strings } from '../strings.ts'
+import type { ViewContext } from './context.ts'
 import { button } from './parts.ts'
 
+/** "Let my agent write it": asks the person's agent for a draft, with an optional instruction. */
 export const agentAsk = (
+  context: ViewContext,
   life: Lifetime,
   destination: () => DraftDestination,
   asked: (request: DraftRequest) => void = () => {},
 ): HTMLDetailsElement => {
-  if (!featureOn('draftRequests')) return h('details', { hidden: true, class: 'ask-agent is-off' })
+  const { state, actions } = context
+  if (!featureOn('draftRequests', state.serverInfo.get()))
+    return h('details', { hidden: true, class: 'ask-agent is-off' })
   const instruction = h('input', {
     name: 'instruction',
     maxlength: String(DRAFT_INSTRUCTION_MAX),
     placeholder: strings.agentInstructionPlaceholder,
     'aria-label': strings.agentInstructionLabel,
   })
-  const picker = region(life, [agentCredentials], () => agentPicker(), { class: 'agent-picker' })
+  const picker = region(
+    life,
+    [state.agentCredentials],
+    () => {
+      const choices = agentChoices(state.agentCredentials.get())
+      return (
+        choices !== null &&
+        h(
+          'select',
+          { name: 'agent', 'aria-label': strings.agentPickerLabel },
+          choices.map((choice) => h('option', { value: choice.value }, choice.label)),
+        )
+      )
+    },
+    { class: 'agent-picker' },
+  )
   const details = h('details', {
     class: 'ask-agent',
-    on: { toggle: () => details.open && launch(loadAgents) },
+    on: { toggle: () => details.open && actions.loadAgents() },
   })
-  const ask = (): void => {
-    const chosen = picker.querySelector('select')?.value ?? ''
-    launch(
-      askAgent({
+  const ask = (): void =>
+    actions.askAgent(
+      {
         destination: destination(),
         instruction: instruction.value,
-        agentId: chosen === '' ? null : (chosen as CredentialId),
-      }),
-      (request) => {
-        instruction.value = ''
-        details.open = false
-        asked(request)
+        agentId: chosenAgent(picker.querySelector('select')?.value ?? ''),
+      },
+      {
+        done: (request) => {
+          instruction.value = ''
+          details.open = false
+          asked(request)
+        },
       },
     )
-  }
   instruction.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter' || event.isComposing) return
     event.preventDefault()
@@ -49,17 +68,4 @@ export const agentAsk = (
     h('div', { class: 'ask-agent-row' }, instruction, picker, button(strings.askAgent, ask)),
   )
   return details
-}
-
-const agentPicker = (): HTMLSelectElement | false => {
-  const agents = agentCredentials.get()
-  return (
-    agents.length > 1 &&
-    h(
-      'select',
-      { name: 'agent', 'aria-label': strings.agentPickerLabel },
-      h('option', { value: '' }, strings.anyAgent),
-      agents.map((agent) => h('option', { value: agent.id }, agent.name)),
-    )
-  )
 }

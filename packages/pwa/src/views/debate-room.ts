@@ -1,102 +1,157 @@
-import type {
-  Debate,
-  DebateExport,
-  DebateExportFormat,
-  DebateResult,
-  Me,
-  MemberId,
-} from '@homingbird/protocol'
+import type { AsRead, CredentialId, DebateExportFormat } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, linkedText, region } from '@homingbird/ui'
-import { launch } from '../actions.ts'
-import { channelLabel } from '../channels.ts'
-import {
-  approveResult,
-  changeLimits,
-  declineResult,
-  exportDebate,
-  loadDebate,
-  optInAgent,
-  postResult,
-} from '../debate-actions.ts'
-import { debateStage, mayChangeLimits, mayDecide, mayOptIn, takesPart, turnsLeftFor } from '../debates.ts'
+import { type DebateRoomModel, debateRoomModel, resultDestination } from '../models/debate-room.ts'
 import { hrefFor } from '../routes.ts'
-import { agentCredentials, channels, directory, members, notice, shownDebate } from '../state.ts'
-import { formats, strings } from '../strings.ts'
-import { limitFields, typedLimits } from './debates.ts'
-import { emptyWithPip, field, loading, page, timeLabel } from './parts.ts'
+import { locale, strings } from '../strings.ts'
+import type { ViewContext } from './context.ts'
+import { renderResultBody, resultSection, section } from './debate-result.ts'
+import { limitFields, limitsTypedIn } from './debates.ts'
+import { emptyWithPip, field, loading, page, privateMarkOf, timeLabel } from './parts.ts'
 
-/** One debate room: its question, its agents and turns as they come, and its result with each approval. */
-export const debateView = (life: Lifetime, me: Me, id: string): HTMLElement => {
-  shownDebate.set(null)
-  launch(loadDebate(id))
+/** One debate room: its question, its agents and turns as they come, and the result the agents settled. */
+export const debateView = (context: ViewContext, life: Lifetime, me: AsRead.Me, id: string): HTMLElement => {
+  const { state, actions } = context
+  state.shownDebate.set(null)
+  actions.loadDebate(id)
   return region(
     life,
-    [shownDebate, members, agentCredentials],
-    () => {
-      const debate = shownDebate.get()
-      if (debate === null) return loading()
-      if (debate === 'missing')
-        return emptyWithPip(
-          'failed',
-          strings.debates.notFound,
-          h('a', { class: 'button', href: hrefFor({ name: 'debates' }) }, strings.debates.allRooms),
-        )
-      return roomPage(debate, me)
-    },
+    [state.shownDebate, state.members, state.agentCredentials],
+    () =>
+      renderDebateRoom(
+        debateRoomModel({
+          debate: state.shownDebate.get(),
+          viewerId: me.member.id,
+          members: state.members.get(),
+          agents: state.agentCredentials.get(),
+          channels: state.channels.get(),
+          directory: state.directory.get(),
+          now: context.clock.now(),
+        }),
+        context,
+      ),
     { class: 'debate-room-host' },
   )
 }
 
-const roomPage = (debate: Debate, me: Me): HTMLElement => {
-  const stage = debateStage(debate)
+const renderDebateRoom = (model: DebateRoomModel, context: ViewContext): HTMLElement => {
+  if (model.kind === 'loading') return loading()
+  if (model.kind === 'missing')
+    return emptyWithPip(
+      'failed',
+      model.text,
+      h('a', { class: 'button', href: hrefFor({ name: 'debates' }) }, strings.debates.allRooms),
+    )
+  const { debate } = model
   return page(
-    debate.question,
+    model.question,
     h(
       'p',
-      { class: `debate-meta is-${stage}` },
-      h('span', { class: 'debate-stage' }, strings.debates.stage[stage]),
-      debate.visibility === 'private' &&
-        h(
-          'span',
-          { class: 'private-mark' },
-          h('span', { class: 'lock-mark', 'aria-hidden': 'true' }),
-          strings.debates.private,
-        ),
-      debate.status === 'open' &&
-        h('span', {}, strings.debates.closesAt({ time: formats.full.format(new Date(debate.deadlineAt)) })),
+      { class: `debate-meta is-${model.stage}` },
+      h('span', { class: 'debate-stage' }, model.stageText),
+      model.isPrivate && privateMarkOf(strings.debates.private, strings.debates.privateSeenBy),
+      model.isPrivate && h('span', { class: 'hint' }, strings.debates.privateSeenBy),
+      model.closesAt !== null && h('span', {}, model.closesAt),
     ),
-    h(
-      'p',
-      { class: 'debate-limits-summary' },
-      strings.debates.limitsSummary({
-        perAgent: debate.limits.turnsPerAgent,
-        total: debate.limits.totalTurns,
-        minutes: debate.limits.minutes,
-        characters: debate.limits.turnCharacters,
-      }),
+    h('p', { class: 'debate-limits-summary' }, model.limits),
+    h('p', { class: 'debate-grace-summary' }, model.grace),
+    model.mayChangeLimits && limitsForm(context, debate),
+    model.limitsFixed && h('p', { class: 'hint debate-limits-fixed' }, strings.debates.limitsFixed),
+    section(
+      strings.debates.participantsTitle,
+      'debate-participants',
+      model.participants.length === 0
+        ? h('p', {}, strings.debates.noParticipants)
+        : h(
+            'ul',
+            {},
+            model.participants.map((participant) =>
+              h(
+                'li',
+                { data: { member: participant.memberId } },
+                h('span', {}, participant.name),
+                participant.turnsLeft !== null && h('small', {}, participant.turnsLeft),
+                participant.droppedOut !== null &&
+                  h('small', { class: 'debate-dropped-out' }, participant.droppedOut),
+              ),
+            ),
+          ),
     ),
-    mayChangeLimits(debate, me.member.id) && limitsForm(debate),
-    participantsSection(debate),
-    mayOptIn(debate, me.member.id) && optInSection(debate),
-    turnsSection(debate, me),
-    stage === 'ended' &&
+    model.optIn !== null && optInSection(context, debate, model.optIn),
+    section(
+      strings.debates.turnsTitle,
+      'debate-turns',
+      model.turns.kind === 'none'
+        ? h('p', {}, model.turns.text)
+        : h(
+            'ol',
+            { class: 'debate-turn-list', 'aria-live': 'polite' },
+            model.turns.turns.map((turn) =>
+              h(
+                'li',
+                {
+                  class: `debate-turn ${turn.mine ? 'is-mine' : ''}`,
+                  data: { position: String(turn.position) },
+                },
+                h(
+                  'header',
+                  { class: 'debate-turn-head' },
+                  h('strong', {}, turn.author),
+                  timeLabel(turn.time),
+                ),
+                h('p', { class: 'debate-turn-body' }, ...linkedText(turn.body)),
+              ),
+            ),
+          ),
+    ),
+    model.ended !== null && section(strings.debates.resultTitle, 'debate-result', h('p', {}, model.ended)),
+    model.result !== null && resultSection(model.result),
+    model.drafts !== null &&
       section(
-        strings.debates.resultTitle,
-        'debate-result',
-        h('p', {}, strings.debates.ended[debate.endedBecause ?? 'no_turns']),
+        strings.debates.draftsTitle,
+        'debate-drafts',
+        h(
+          'ol',
+          { class: 'debate-draft-list' },
+          model.drafts.map((draft) =>
+            h(
+              'li',
+              { class: `debate-draft ${draft.chosen ? 'is-chosen' : ''}`, data: { member: draft.memberId } },
+              h(
+                'details',
+                { open: draft.chosen },
+                h(
+                  'summary',
+                  { class: 'debate-draft-head' },
+                  h('strong', {}, draft.title),
+                  draft.votes !== null && h('span', { class: 'debate-draft-votes' }, draft.votes),
+                  draft.chosen && h('span', { class: 'debate-draft-chosen' }, strings.debates.chosen),
+                  timeLabel(draft.time),
+                ),
+                draft.chosen && h('p', { class: 'hint' }, strings.debates.chosenHint),
+                ...renderResultBody(draft.body),
+              ),
+            ),
+          ),
+        ),
       ),
-    (stage === 'awaiting-result' || stage === 'awaiting-approval' || stage === 'closed') &&
-      resultSection(debate, me),
-    stage === 'closed' && closedSection(debate, me),
+    model.closed !== null &&
+      section(
+        strings.debates.postTitle,
+        'debate-closed',
+        h('p', { class: 'hint' }, strings.debates.closedHint),
+        h(
+          'div',
+          { class: 'debate-exports' },
+          exportButton(context, debate, 'markdown', strings.debates.exportMarkdown),
+          exportButton(context, debate, 'json', strings.debates.exportJson),
+          h('small', {}, strings.debates.exportAudited),
+        ),
+        model.closed.mayPost && postForm(context, debate, model.closed),
+      ),
   )
 }
 
-const nameOf = (id: MemberId): string => members.get().get(id)?.name ?? strings.formerMember
-
-const section = (title: string, className: string, ...children: ReadonlyArray<Child>): HTMLElement =>
-  h('section', { class: `debate-section ${className}` }, h('h2', {}, title), ...children)
-
-const limitsForm = (debate: Debate): HTMLElement => {
+const limitsForm = (context: ViewContext, debate: AsRead.Debate): HTMLElement => {
   const form: HTMLFormElement = h(
     'form',
     {
@@ -104,9 +159,9 @@ const limitsForm = (debate: Debate): HTMLElement => {
       on: {
         submit: (event) => {
           event.preventDefault()
-          const typed = typedLimits(form)
-          if ('problem' in typed) return notice.set({ kind: 'error', text: typed.problem })
-          launch(changeLimits(debate.id, typed.limits))
+          const typed = limitsTypedIn(form)
+          if ('problem' in typed) return context.state.notice.set({ kind: 'error', text: typed.problem })
+          context.actions.changeLimits(debate.id, typed.limits)
         },
       },
     },
@@ -116,46 +171,17 @@ const limitsForm = (debate: Debate): HTMLElement => {
   return h('details', { class: 'debate-change-limits' }, h('summary', {}, strings.debates.changeLimits), form)
 }
 
-const participantsSection = (debate: Debate): HTMLElement =>
-  section(
-    strings.debates.participantsTitle,
-    'debate-participants',
-    debate.participants.length === 0
-      ? h('p', {}, strings.debates.noParticipants)
-      : h(
-          'ul',
-          {},
-          debate.participants.map((participant) =>
-            h(
-              'li',
-              { data: { member: participant.memberId } },
-              h(
-                'span',
-                {},
-                strings.debates.agentOf({
-                  agent: participant.agentName,
-                  person: nameOf(participant.memberId),
-                }),
-              ),
-              debate.status === 'open' &&
-                h(
-                  'small',
-                  {},
-                  strings.debates.turnsLeft({ count: turnsLeftFor(debate, participant.memberId) }),
-                ),
-            ),
-          ),
-        ),
-  )
-
-const optInSection = (debate: Debate): HTMLElement => {
-  const agents = agentCredentials.get()
-  if (agents.length === 0)
-    return section(strings.debates.optInTitle, 'debate-opt-in', h('p', {}, strings.debates.noAgent))
+const optInSection = (
+  context: ViewContext,
+  debate: AsRead.Debate,
+  optIn: NonNullable<Extract<DebateRoomModel, { kind: 'room' }>['optIn']>,
+): HTMLElement => {
+  if (optIn.kind === 'no-agent')
+    return section(strings.debates.optInTitle, 'debate-opt-in', h('p', {}, optIn.text))
   const choice = h(
     'select',
     { name: 'agent' },
-    agents.map((agent) => h('option', { value: agent.id }, agent.name)),
+    optIn.agents.map((agent) => h('option', { value: agent.value }, agent.label)),
   )
   return section(
     strings.debates.optInTitle,
@@ -168,8 +194,8 @@ const optInSection = (debate: Debate): HTMLElement => {
         on: {
           submit: (event) => {
             event.preventDefault()
-            const agent = agents.find((one) => one.id === choice.value)
-            if (agent !== undefined) launch(optInAgent(debate.id, agent.id))
+            const agent = optIn.agents.find((one) => one.value === choice.value)
+            if (agent !== undefined) context.actions.optInAgent(debate.id, agent.value as CredentialId)
           },
         },
       },
@@ -179,225 +205,35 @@ const optInSection = (debate: Debate): HTMLElement => {
   )
 }
 
-const turnsSection = (debate: Debate, me: Me): HTMLElement =>
-  section(
-    strings.debates.turnsTitle,
-    'debate-turns',
-    debate.turns.length === 0
-      ? h(
-          'p',
-          {},
-          debateStage(debate) === 'gathering' ? strings.debates.waitingForSecond : strings.debates.noTurns,
-        )
-      : h(
-          'ol',
-          { class: 'debate-turn-list', 'aria-live': 'polite' },
-          debate.turns.map((turn) =>
-            h(
-              'li',
-              {
-                class: `debate-turn ${turn.memberId === me.member.id ? 'is-mine' : ''}`,
-                data: { position: String(turn.position) },
-              },
-              h(
-                'header',
-                { class: 'debate-turn-head' },
-                h(
-                  'strong',
-                  {},
-                  strings.debates.agentOf({ agent: turn.agentName, person: nameOf(turn.memberId) }),
-                ),
-                timeLabel(turn.at),
-              ),
-              h('p', { class: 'debate-turn-body' }, ...linkedText(turn.body)),
-            ),
-          ),
-        ),
-  )
-
-const resultSection = (debate: Debate, me: Me): HTMLElement => {
-  if (debate.result === null)
-    return section(strings.debates.resultTitle, 'debate-result', h('p', {}, strings.debates.waitingForResult))
-  return section(
-    strings.debates.resultTitle,
-    'debate-result',
-    h('p', { class: 'hint' }, strings.debates.draftedBy({ person: nameOf(debate.result.draftedBy) })),
-    ...resultBody(debate.result.result),
-    approvals(debate),
-    mayDecide(debate, me.member.id) &&
-      h(
-        'div',
-        { class: 'debate-decide' },
-        h('p', { class: 'hint' }, strings.debates.approvalHint),
-        h(
-          'button',
-          {
-            type: 'button',
-            class: 'primary approve-result',
-            on: { click: () => launch(approveResult(debate.id, debate.result!.draftedAt)) },
-          },
-          strings.debates.approve,
-        ),
-        h(
-          'button',
-          {
-            type: 'button',
-            class: 'decline-result',
-            on: { click: () => launch(declineResult(debate.id, debate.result!.draftedAt)) },
-          },
-          strings.debates.decline,
-        ),
-      ),
-  )
-}
-
-const resultBody = (result: DebateResult): Child[] => [
-  ...(result.kind === 'conclusion'
-    ? [
-        h('h3', {}, strings.debates.conclusion),
-        h('p', { class: 'debate-conclusion' }, result.conclusion),
-        h('h4', {}, strings.debates.reasons),
-        h(
-          'ul',
-          {},
-          result.reasons.map((reason) => h('li', {}, reason)),
-        ),
-      ]
-    : [
-        h('h3', {}, strings.debates.noConclusion),
-        h('p', { class: 'debate-conclusion' }, result.summary),
-        h('h4', {}, strings.debates.disagreements),
-        h(
-          'ul',
-          { class: 'debate-points' },
-          result.points.map((point) =>
-            h(
-              'li',
-              { class: 'debate-point', data: { category: point.category } },
-              h('strong', {}, point.point),
-              h('span', { class: 'debate-category' }, strings.debates.category[point.category]),
-              h('p', {}, point.explanation),
-            ),
-          ),
-        ),
-      ]),
-  h('h4', {}, strings.debates.nextSteps),
-  result.nextSteps.length === 0
-    ? h('p', {}, strings.debates.noNextSteps)
-    : h(
-        'ul',
-        { class: 'debate-next-steps' },
-        result.nextSteps.map((step) =>
-          h(
-            'li',
-            {},
-            h('span', {}, step.step),
-            step.owner !== null && h('small', {}, strings.debates.owner({ person: nameOf(step.owner) })),
-            h('small', {}, strings.debates.proposedBy({ person: nameOf(step.proposedBy) })),
-          ),
-        ),
-      ),
-  h('h4', {}, strings.debates.contributions),
-  h(
-    'ul',
-    { class: 'debate-contributions' },
-    result.contributions.map((contribution) =>
-      h(
-        'li',
-        {},
-        h('strong', {}, nameOf(contribution.memberId)),
-        h('span', {}, contribution.summary),
-        ...contribution.credits.map((credit) =>
-          h('span', { class: 'debate-credit' }, strings.debates.credit[credit]),
-        ),
-      ),
-    ),
-  ),
-]
-
-const approvals = (debate: Debate): HTMLElement =>
-  h(
-    'div',
-    { class: 'debate-approvals' },
-    h('h4', {}, strings.debates.approvalsTitle),
-    h(
-      'ul',
-      {},
-      debate.approvals.map((approval) =>
-        h(
-          'li',
-          {
-            class: approval.approvedAt === null ? 'is-waiting' : 'is-approved',
-            data: { member: approval.memberId },
-          },
-          h('span', { class: 'approval-mark', 'aria-hidden': 'true' }),
-          h('span', {}, nameOf(approval.memberId)),
-          h(
-            'small',
-            {},
-            approval.approvedAt === null
-              ? strings.debates.notApproved
-              : strings.debates.approvedAt({ time: formats.full.format(new Date(approval.approvedAt)) }),
-          ),
-        ),
-      ),
-    ),
-  )
-
-const closedSection = (debate: Debate, me: Me): HTMLElement =>
-  section(
-    strings.debates.postTitle,
-    'debate-closed',
-    h('p', { class: 'hint' }, strings.debates.closedHint),
-    h(
-      'div',
-      { class: 'debate-exports' },
-      exportButton(debate, 'markdown', strings.debates.exportMarkdown),
-      exportButton(debate, 'json', strings.debates.exportJson),
-      h('small', {}, strings.debates.exportAudited),
-    ),
-    takesPart(debate, me.member.id) && postForm(debate, me),
-  )
-
-const exportButton = (debate: Debate, format: DebateExportFormat, label: string): HTMLElement =>
+const exportButton = (
+  context: ViewContext,
+  debate: AsRead.Debate,
+  format: DebateExportFormat,
+  label: string,
+): HTMLElement =>
   h(
     'button',
     {
       type: 'button',
       class: `export-${format}`,
-      on: { click: () => launch(exportDebate(debate.id, format), download) },
+      on: {
+        click: () => context.actions.exportDebate(debate.id, format, locale, { done: context.page.download }),
+      },
     },
     label,
   )
 
-const download = (file: DebateExport): void => {
-  const url = URL.createObjectURL(new Blob([file.text], { type: file.mediaType }))
-  const link = h('a', { href: url, download: file.filename, hidden: true })
-  document.body.append(link)
-  link.click()
-  link.remove()
-  requestAnimationFrame(() => URL.revokeObjectURL(url))
-}
-
-const postForm = (debate: Debate, me: Me): HTMLElement => {
-  const channel = h(
-    'select',
-    { name: 'channel' },
+const postForm = (
+  context: ViewContext,
+  debate: AsRead.Debate,
+  closed: NonNullable<Extract<DebateRoomModel, { kind: 'room' }>['closed']>,
+): HTMLElement => {
+  const choices = (options: ReadonlyArray<{ readonly value: string; readonly label: string }>) => [
     h('option', { value: '' }, strings.debates.choose),
-    channels
-      .get()
-      .filter((one) => one.joined)
-      .map((one) => h('option', { value: one.slug }, channelLabel(one.slug))),
-  )
-  const person = h(
-    'select',
-    { name: 'person' },
-    h('option', { value: '' }, strings.debates.choose),
-    directory
-      .get()
-      .filter((entry) => entry.member.id !== me.member.id && entry.canMessage)
-      .map((entry) => h('option', { value: entry.member.id }, entry.member.name)),
-  )
+    options.map((option) => h('option', { value: option.value }, option.label)),
+  ]
+  const channel = h('select', { name: 'channel' }, choices(closed.channels))
+  const person = h('select', { name: 'person' }, choices(closed.people))
   return h(
     'form',
     {
@@ -405,15 +241,10 @@ const postForm = (debate: Debate, me: Me): HTMLElement => {
       on: {
         submit: (event) => {
           event.preventDefault()
-          const destination =
-            channel.value !== ''
-              ? { channel: channel.value }
-              : person.value !== ''
-                ? { to: person.value as MemberId }
-                : null
+          const destination = resultDestination(channel.value, person.value)
           if (destination === null) return
-          launch(postResult(debate.id, destination), (draft) => {
-            location.hash = hrefFor({ name: 'conversation', id: draft.conversationId })
+          context.actions.postResult(debate.id, destination, {
+            done: (draft) => context.page.go(hrefFor({ name: 'conversation', id: draft.conversationId })),
           })
         },
       },

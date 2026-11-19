@@ -12,6 +12,12 @@ describe('shownRelation', () => {
     expect(shownRelation({ relation: 'blocked' }, 'open')).toBe('blocked')
   })
 
+  it('shows a relation or a contact mode a newer server added as no contact', () => {
+    expect(shownRelation({ relation: 'unknown' }, 'contacts')).toBe('none')
+    expect(shownRelation({ relation: 'unknown' }, 'open')).toBe('none')
+    expect(shownRelation({ relation: 'contact' }, 'unknown')).toBe('contact')
+  })
+
   it('shows every contact state when a request must be accepted first', () => {
     expect(shownRelation({ relation: 'request_received' }, 'contacts')).toBe('request_received')
   })

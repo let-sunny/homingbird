@@ -1,36 +1,40 @@
-import { Task as T } from '@homingbird/kernel'
-import type { ApiError, Me, Note } from '@homingbird/protocol'
+import type { AsRead } from '@homingbird/protocol'
 import { type Lifetime, h, region, signal } from '@homingbird/ui'
-import { api, launch } from '../actions.ts'
+import { type SearchModel, searchModel } from '../models/search.ts'
 import { hrefFor } from '../routes.ts'
-import { conversations, members } from '../state.ts'
 import { strings } from '../strings.ts'
-import { conversationTitle, excerpt } from '../thread.ts'
+import type { ViewContext } from './context.ts'
 import { empty, emptyWithPip, field, loading, page, timeLabel } from './parts.ts'
 
-export const searchView = (life: Lifetime, me: Me, initialQuery: string): HTMLElement => {
-  const results = signal<ReadonlyArray<Note> | 'searching' | null>(null)
+/** Search: a field, and the notes found for what was typed. */
+export const searchView = (
+  context: ViewContext,
+  life: Lifetime,
+  me: AsRead.Me,
+  initialQuery: string,
+): HTMLElement => {
+  const { state, actions } = context
+  const results = signal<ReadonlyArray<AsRead.Note> | 'searching' | null>(null)
   const run = (query: string): void => {
     if (query === '') {
       results.set(null)
       return
     }
     results.set('searching')
-    launch(
-      T.tapError((_: ApiError) => T.sync(() => results.set(null)))(
-        T.map((found: { notes: ReadonlyArray<Note> }) => results.set(found.notes))(
-          api['search.notes']({ query: { q: query } }),
-        ),
-      ),
-    )
+    actions.searchNotes(query, { done: (notes) => results.set(notes), failed: () => results.set(null) })
   }
+  run(initialQuery)
   const input = h('input', {
     type: 'search',
     name: 'q',
     placeholder: strings.searchPlaceholder,
     value: initialQuery,
   })
-  run(initialQuery)
+  const submit = (): void => {
+    const query = input.value.trim()
+    context.page.replaceAddress(hrefFor({ name: 'search', query }))
+    run(query)
+  }
   return page(
     strings.search,
     h(
@@ -41,48 +45,57 @@ export const searchView = (life: Lifetime, me: Me, initialQuery: string): HTMLEl
         on: {
           submit: (event) => {
             event.preventDefault()
-            history.replaceState(null, '', hrefFor({ name: 'search', query: input.value.trim() }))
-            run(input.value.trim())
+            submit()
           },
         },
       },
       field(strings.search, input),
       h('button', { type: 'submit', class: 'primary' }, strings.navSearch),
     ),
-    region(life, [results, members], () => {
-      const found = results.get()
-      if (found === null) return emptyWithPip('searching', strings.searchPrompt)
-      if (found === 'searching') return loading()
-      if (found.length === 0) return empty(strings.searchEmpty)
-      return h(
-        'ul',
-        { class: 'results' },
-        found.map((note) => resultRow(note, me)),
-      )
-    }),
+    region(life, [results, state.members, state.conversations], () =>
+      renderResults(
+        searchModel({
+          results: results.get(),
+          conversations: state.conversations.get(),
+          members: state.members.get(),
+          viewerId: me.member.id,
+          now: context.clock.now(),
+        }),
+      ),
+    ),
   )
 }
 
-const resultRow = (note: Note, me: Me): HTMLElement => {
-  const conversation = conversations.get().find((candidate) => candidate.id === note.conversationId)
-  const title =
-    conversation === undefined
-      ? ''
-      : conversationTitle(conversation, members.get(), me.member.id, strings.formerMember)
-  return h(
-    'li',
-    {},
-    h(
-      'a',
-      { class: 'result', href: hrefFor({ name: 'conversation', id: note.conversationId }) },
-      h(
-        'span',
-        { class: 'result-head' },
-        h('strong', {}, members.get().get(note.authorId)?.name ?? strings.formerMember),
-        title !== '' && h('span', {}, title),
-        timeLabel(note.sentAt ?? note.createdAt),
-      ),
-      h('span', { class: 'note-body' }, excerpt(note.body, 240)),
-    ),
-  )
+const renderResults = (model: SearchModel): HTMLElement => {
+  switch (model.kind) {
+    case 'prompt':
+      return emptyWithPip('searching', model.text)
+    case 'searching':
+      return loading()
+    case 'empty':
+      return empty(model.text)
+    case 'results':
+      return h(
+        'ul',
+        { class: 'results' },
+        model.rows.map((row) =>
+          h(
+            'li',
+            {},
+            h(
+              'a',
+              { class: 'result', href: row.href },
+              h(
+                'span',
+                { class: 'result-head' },
+                h('strong', {}, row.author),
+                row.title !== null && h('span', {}, row.title),
+                timeLabel(row.time),
+              ),
+              h('span', { class: 'note-body' }, row.excerpt),
+            ),
+          ),
+        ),
+      )
+  }
 }

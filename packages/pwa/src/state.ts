@@ -1,29 +1,104 @@
-import type {
-  AgentReport,
-  Channel,
-  Contact,
-  Conversation,
-  ConversationId,
-  Credential,
-  Debate,
-  DebateSummary,
-  DirectoryEntry,
-  DraftRequest,
-  Me,
-  Member,
-  MemberId,
-  MyPrinciples,
-  Note,
-  NoteId,
-  ServerInfo,
-} from '@homingbird/protocol'
-import { derived, signal } from '@homingbird/ui'
+import type { AsRead, ConversationId, DraftRequest, MemberId, NoteId } from '@homingbird/protocol'
+import { type ReadableSignal, type Signal, derived, signal } from '@homingbird/ui'
+import type { Roster } from './channels.ts'
 import { type Route, parseRoute } from './routes.ts'
+import { type ChangeCounter, changeCounter } from './thread-changes.ts'
+
+/** Everything the web client knows, as signals the views redraw from; one per page, made at start. */
+export const createState = (hash: string): AppState => {
+  const session = signal<AsRead.Me | null | 'loading'>('loading')
+  const directory = signal<ReadonlyArray<AsRead.DirectoryEntry>>([])
+  return {
+    session,
+    serverInfo: signal<AsRead.ServerInfo | null>(null),
+    branding: signal<Branding>({ name: 'Homingbird', logo: null }),
+    route: signal<Route>(parseRoute(hash)),
+    conversations: signal<ReadonlyArray<AsRead.Conversation>>([]),
+    conversationsLoaded: signal(false),
+    threads: signal<ReadonlyMap<ConversationId, Thread>>(new Map()),
+    directory,
+    directoryLoaded: signal(false),
+    contacts: signal<ReadonlyArray<AsRead.Contact>>([]),
+    connection: signal<Connection>('connecting'),
+    notice: signal<Notice | null>(null),
+    announcement: signal(''),
+    sendingIn: signal<ReadonlySet<ConversationId>>(new Set()),
+    draftRequests: signal<ReadonlyArray<DraftRequest>>([]),
+    agentCredentials: signal<ReadonlyArray<AsRead.Credential>>([]),
+    channels: signal<ReadonlyArray<AsRead.Channel>>([]),
+    channelsLoaded: signal(false),
+    rosters: signal<ReadonlyMap<string, Roster>>(new Map()),
+    rostersLoading: new Set(),
+    replyTargets: signal<ReadonlyMap<ConversationId, string | null>>(new Map()),
+    releases: signal<ReadonlyMap<NoteId, Release>>(new Map()),
+    archiveDiscards: signal<ReadonlyMap<ConversationId, ReadonlyArray<ArchiveDiscard>>>(new Map()),
+    openedForThePerson: signal<ConversationId | null>(null),
+    agentReport: signal<AsRead.AgentReport | 'failed' | null>(null),
+    taught: signal<AsRead.MyPrinciples | 'failed' | null>(null),
+    debates: signal<ReadonlyArray<AsRead.DebateSummary>>([]),
+    debatesLoaded: signal(false),
+    shownDebate: signal<AsRead.Debate | 'missing' | null>(null),
+    members: derived(
+      [directory, session],
+      (entries, me): ReadonlyMap<MemberId, AsRead.Member> =>
+        new Map([
+          ...(me !== null && me !== 'loading' ? [[me.member.id, me.member] as const] : []),
+          ...entries.map((entry) => [entry.member.id, entry.member] as const),
+        ]),
+    ),
+    changes: changeCounter(),
+    seenDrafts: new Set(),
+  }
+}
+
+/** The person signed in, or null while signed out or still loading. */
+export const signedIn = (state: Pick<AppState, 'session'>): AsRead.Me | null => {
+  const me = state.session.get()
+  return me === 'loading' ? null : me
+}
+
+export interface AppState {
+  readonly session: Signal<AsRead.Me | null | 'loading'>
+  readonly serverInfo: Signal<AsRead.ServerInfo | null>
+  readonly branding: Signal<Branding>
+  readonly route: Signal<Route>
+  readonly conversations: Signal<ReadonlyArray<AsRead.Conversation>>
+  readonly conversationsLoaded: Signal<boolean>
+  readonly threads: Signal<ReadonlyMap<ConversationId, Thread>>
+  readonly directory: Signal<ReadonlyArray<AsRead.DirectoryEntry>>
+  readonly directoryLoaded: Signal<boolean>
+  readonly contacts: Signal<ReadonlyArray<AsRead.Contact>>
+  readonly connection: Signal<Connection>
+  readonly notice: Signal<Notice | null>
+  readonly announcement: Signal<string>
+  readonly sendingIn: Signal<ReadonlySet<ConversationId>>
+  readonly draftRequests: Signal<ReadonlyArray<DraftRequest>>
+  readonly agentCredentials: Signal<ReadonlyArray<AsRead.Credential>>
+  readonly channels: Signal<ReadonlyArray<AsRead.Channel>>
+  readonly channelsLoaded: Signal<boolean>
+  /** The members of the channels the person manages, as last loaded, by slug. */
+  readonly rosters: Signal<ReadonlyMap<string, Roster>>
+  /** Rosters on their way, by slug and member count, so that each is asked for once. */
+  readonly rostersLoading: Set<string>
+  readonly replyTargets: Signal<ReadonlyMap<ConversationId, string | null>>
+  readonly releases: Signal<ReadonlyMap<NoteId, Release>>
+  readonly archiveDiscards: Signal<ReadonlyMap<ConversationId, ReadonlyArray<ArchiveDiscard>>>
+  readonly openedForThePerson: Signal<ConversationId | null>
+  readonly agentReport: Signal<AsRead.AgentReport | 'failed' | null>
+  readonly taught: Signal<AsRead.MyPrinciples | 'failed' | null>
+  readonly debates: Signal<ReadonlyArray<AsRead.DebateSummary>>
+  readonly debatesLoaded: Signal<boolean>
+  readonly shownDebate: Signal<AsRead.Debate | 'missing' | null>
+  readonly members: ReadableSignal<ReadonlyMap<MemberId, AsRead.Member>>
+  readonly changes: ChangeCounter
+  /** Drafts already reported as seen in this page. */
+  readonly seenDrafts: Set<NoteId>
+}
 
 export type Connection = 'connecting' | 'live' | 'polling' | 'offline'
 
 export interface Thread {
-  readonly notes: ReadonlyArray<Note>
+  readonly notes: ReadonlyArray<AsRead.Note>
   readonly hasMore: boolean
 }
 
@@ -46,48 +121,4 @@ export interface ArchiveDiscard {
 export interface Branding {
   readonly name: string
   readonly logo: string | null
-}
-
-export const session = signal<Me | null | 'loading'>('loading')
-export const serverInfo = signal<ServerInfo | null>(null)
-export const branding = signal<Branding>({ name: 'Homingbird', logo: null })
-export const route = signal<Route>(parseRoute(globalThis.location?.hash ?? ''))
-export const conversations = signal<ReadonlyArray<Conversation>>([])
-export const conversationsLoaded = signal(false)
-export const threads = signal<ReadonlyMap<ConversationId, Thread>>(new Map())
-export const directory = signal<ReadonlyArray<DirectoryEntry>>([])
-export const directoryLoaded = signal(false)
-export const contacts = signal<ReadonlyArray<Contact>>([])
-export const connection = signal<Connection>('connecting')
-export const notice = signal<Notice | null>(null)
-export const announcement = signal('')
-export const sendingIn = signal<ReadonlySet<ConversationId>>(new Set())
-export const draftRequests = signal<ReadonlyArray<DraftRequest>>([])
-export const agentCredentials = signal<ReadonlyArray<Credential>>([])
-export const channels = signal<ReadonlyArray<Channel>>([])
-export const channelsLoaded = signal(false)
-export const replyTargets = signal<ReadonlyMap<ConversationId, string | null>>(new Map())
-export const releases = signal<ReadonlyMap<NoteId, Release>>(new Map())
-export const archiveDiscards = signal<ReadonlyMap<ConversationId, ReadonlyArray<ArchiveDiscard>>>(new Map())
-export const openedForThePerson = signal<ConversationId | null>(null)
-export const agentReport = signal<AgentReport | 'failed' | null>(null)
-export const taught = signal<MyPrinciples | 'failed' | null>(null)
-export const debates = signal<ReadonlyArray<DebateSummary>>([])
-export const debatesLoaded = signal(false)
-export const shownDebate = signal<Debate | 'missing' | null>(null)
-
-export const members = derived(
-  [directory, session],
-  (entries, me): ReadonlyMap<MemberId, Member> =>
-    new Map([
-      ...(me !== null && me !== 'loading' ? [[me.member.id, me.member] as const] : []),
-      ...entries.map((entry) => [entry.member.id, entry.member] as const),
-    ]),
-)
-
-export const memberNamed = (id: MemberId): Member | undefined => members.get().get(id)
-
-export const signedIn = (): Me | null => {
-  const me = session.get()
-  return me === 'loading' ? null : me
 }

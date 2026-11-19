@@ -1,4 +1,4 @@
-import type { AgentReport } from '@homingbird/protocol'
+import type { AsRead } from '@homingbird/protocol'
 
 export type CarefulReason = 'date' | 'promise' | 'number'
 
@@ -20,7 +20,7 @@ export const riskyContentOf = (body: string): CarefulReason | null =>
         : null
 
 /** Whether the person's own figures say they approved quickly often in the last 7 days. */
-export const approvesQuicklyOften = (report: AgentReport | 'failed' | null): boolean =>
+export const approvesQuicklyOften = (report: AsRead.AgentReport | 'failed' | null): boolean =>
   report !== null &&
   report !== 'failed' &&
   (report.periods.find((period) => period.days === 7)?.current.quickApprovalsFrequent ?? false)

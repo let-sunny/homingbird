@@ -29,7 +29,7 @@ const routes: fc.Arbitrary<Route> = fc.oneof(
   fc.option(segment, { nil: null }).map((code): Route => ({ name: 'device', code })),
   fc.string({ maxLength: 40 }).map((query): Route => ({ name: 'search', query })),
   fc
-    .constantFrom<AdminSection>('settings', 'members', 'channels', 'insights', 'audit')
+    .constantFrom<AdminSection>('settings', 'members', 'channels', 'insights')
     .map((section): Route => ({ name: 'admin', section })),
   fc
     .option(fc.string({ maxLength: 60 }), { nil: null })

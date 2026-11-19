@@ -1,10 +1,4 @@
-import type {
-  AgentFigures,
-  AgentPeriod,
-  AgentReport,
-  OrganizationFigures,
-  TrustWeek,
-} from '@homingbird/protocol'
+import type { AsRead, OrganizationFigures, TrustWeek } from '@homingbird/protocol'
 
 export type Change = 'up' | 'down' | 'same' | 'new'
 
@@ -15,7 +9,10 @@ export interface ShareComparison {
 }
 
 /** How the sent-as-written share moved against the period before; a change within `tolerance` is "the same". */
-export const compareSentAsWritten = (period: AgentPeriod, tolerance = SAME_WITHIN): ShareComparison => {
+export const compareSentAsWritten = (
+  period: AsRead.AgentPeriod,
+  tolerance = SAME_WITHIN,
+): ShareComparison => {
   const share = sentAsWrittenShare(period.current)
   const before = sentAsWrittenShare(period.previous)
   return { change: changeBetween(share, before, tolerance), share, before }
@@ -42,12 +39,9 @@ export const decidedOf = (figures: {
   readonly discarded: number
 }): number => figures.sentAsWritten + figures.sentAfterEdits + figures.discarded
 
-export const sentAsWrittenShare = (figures: AgentFigures): number | null =>
-  shareOf(figures.sentAsWritten, decidedOf(figures))
-
 export const PERIODS: ReadonlyArray<number> = [7, 30]
 
-export const periodOf = (report: AgentReport, days: number): AgentPeriod =>
+export const periodOf = (report: AsRead.AgentReport, days: number): AsRead.AgentPeriod =>
   report.periods.find((period) => period.days === days) ?? report.periods[0]!
 
 export interface TrendBar {
@@ -91,3 +85,6 @@ const DURATION_UNITS: ReadonlyArray<readonly [DurationUnit, number]> = [
   ['minute', 60_000],
   ['second', 1000],
 ]
+
+const sentAsWrittenShare = (figures: AsRead.AgentFigures): number | null =>
+  shareOf(figures.sentAsWritten, decidedOf(figures))

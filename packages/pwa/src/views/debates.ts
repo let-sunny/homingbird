@@ -1,105 +1,84 @@
-import {
-  DEBATE_QUESTION_MAX,
-  DEFAULT_DEBATE_LIMITS,
-  type DebateLimits,
-  type DebateSummary,
-  type Me,
-} from '@homingbird/protocol'
+import { type AsRead, DEBATE_QUESTION_MAX, DEFAULT_DEBATE_LIMITS, type MemberId } from '@homingbird/protocol'
 import { type Lifetime, h, region } from '@homingbird/ui'
-import { launch } from '../actions.ts'
-import { createDebate, loadDebates } from '../debate-actions.ts'
-import { LIMIT_BOUNDS, limitsFrom, listedDebates, summaryStage } from '../debates.ts'
+import {
+  type DebateListModel,
+  debateListModel,
+  inviteesFor,
+  limitFieldsModel,
+  typedLimits,
+} from '../models/debates.ts'
 import { hrefFor } from '../routes.ts'
-import { debates, debatesLoaded, directory, notice } from '../state.ts'
 import { strings } from '../strings.ts'
+import type { ViewContext } from './context.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
-import { emptyWithPip, field, loading, page, timeLabel } from './parts.ts'
+import { emptyWithPip, field, loading, page, privateMarkOf, timeLabel } from './parts.ts'
 
 /** Debate rooms: the rooms the person may see, and a way to open one for a question. */
-export const debatesView = (life: Lifetime, me: Me): HTMLElement => {
-  launch(loadDebates)
+export const debatesView = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
+  const { state, actions } = context
+  actions.loadDebates()
   return page(
     strings.debates.title,
-    h('div', { class: 'debates-intro' }, h('p', {}, strings.debates.intro), newDebateButton(me)),
-    region(life, [debates, debatesLoaded], () => {
-      if (!debatesLoaded.get()) return loading()
-      if (debates.get().length === 0) return emptyWithPip('searching', strings.debates.empty)
-      return h('ul', { class: 'debate-list' }, listedDebates(debates.get()).map(debateCard))
-    }),
-  )
-}
-
-export const newDebateButton = (me: Me): HTMLElement =>
-  h(
-    'button',
-    {
-      type: 'button',
-      class: 'primary new-debate',
-      ...opensDialog(strings.debates.newRoom, () => createForm(me)),
-    },
-    strings.debates.newRoom,
-  )
-
-/** The four limits as number fields, filled with the given values. */
-export const limitFields = (limits: DebateLimits): HTMLElement =>
-  h(
-    'fieldset',
-    { class: 'debate-limits' },
-    h('legend', {}, strings.debates.limits),
-    ...(Object.keys(LIMIT_BOUNDS) as Array<keyof DebateLimits>).map((name) =>
-      field(
-        strings.debates[name],
-        h('input', {
-          type: 'number',
-          name,
-          inputmode: 'numeric',
-          min: String(LIMIT_BOUNDS[name][0]),
-          max: String(LIMIT_BOUNDS[name][1]),
-          value: String(limits[name]),
-          required: true,
+    h('div', { class: 'debates-intro' }, h('p', {}, strings.debates.intro), newDebateButton(context, me)),
+    region(life, [state.debates, state.debatesLoaded, state.directory], () =>
+      renderDebateList(
+        debateListModel({
+          debates: state.debates.get(),
+          loaded: state.debatesLoaded.get(),
+          directory: state.directory.get(),
+          now: context.clock.now(),
         }),
       ),
     ),
   )
+}
+
+/** The four limits as number fields and the grace as a choice, filled with the given values. */
+export const limitFields = (limits: AsRead.Debate['limits']): HTMLElement => {
+  const model = limitFieldsModel(limits)
+  return h(
+    'fieldset',
+    { class: 'debate-limits' },
+    h('legend', {}, strings.debates.limits),
+    ...model.numbers.map((number) =>
+      field(
+        number.label,
+        h('input', {
+          type: 'number',
+          name: number.name,
+          inputmode: 'numeric',
+          min: String(number.min),
+          max: String(number.max),
+          value: String(number.value),
+          required: true,
+        }),
+      ),
+    ),
+    field(
+      strings.debates.graceMinutes,
+      h(
+        'select',
+        { name: 'graceMinutes' },
+        ...model.grace.map((choice) =>
+          h('option', { value: String(choice.value), selected: choice.selected }, choice.label),
+        ),
+      ),
+    ),
+    h('small', { class: 'hint' }, strings.debates.graceHint),
+  )
+}
 
 /** The limits typed into `limitFields`, or the reason they cannot be used. */
-export const typedLimits = (form: HTMLFormElement) =>
-  limitsFrom(
-    Object.fromEntries(
-      (Object.keys(LIMIT_BOUNDS) as Array<keyof DebateLimits>).map((name) => [
-        name,
-        form.querySelector<HTMLInputElement>(`input[name="${name}"]`)?.value ?? '',
-      ]),
-    ) as Record<keyof DebateLimits, string>,
+export const limitsTypedIn = (form: HTMLFormElement) =>
+  typedLimits(
+    (name) =>
+      form.querySelector<HTMLInputElement | HTMLSelectElement>(
+        name === 'graceMinutes' ? 'select[name="graceMinutes"]' : `input[name="${name}"]`,
+      )?.value ?? '',
   )
 
-const debateCard = (summary: DebateSummary): HTMLElement =>
-  h(
-    'li',
-    { class: `debate-card is-${summaryStage(summary)}`, data: { debate: summary.id } },
-    h(
-      'h2',
-      { class: 'debate-question' },
-      h('a', { href: hrefFor({ name: 'debate', id: summary.id }) }, summary.question),
-    ),
-    h(
-      'p',
-      { class: 'debate-meta' },
-      h('span', { class: 'debate-stage' }, strings.debates.stage[summaryStage(summary)]),
-      summary.visibility === 'private' &&
-        h(
-          'span',
-          { class: 'private-mark' },
-          h('span', { class: 'lock-mark', 'aria-hidden': 'true' }),
-          strings.debates.private,
-        ),
-      h('span', {}, strings.debates.agentCount({ count: summary.participantIds.length })),
-      h('span', {}, strings.debates.turnCount({ count: summary.turnCount })),
-      timeLabel(summary.createdAt),
-    ),
-  )
-
-const createForm = (me: Me): HTMLElement => {
+const createForm = (context: ViewContext, me: AsRead.Me): HTMLElement => {
+  const { state, actions } = context
   const question = h('textarea', {
     name: 'question',
     rows: '3',
@@ -107,7 +86,7 @@ const createForm = (me: Me): HTMLElement => {
     maxlength: String(DEBATE_QUESTION_MAX),
     placeholder: strings.debates.questionPlaceholder,
   })
-  const colleagues = directory.get().filter((entry) => entry.member.id !== me.member.id)
+  const colleagues = inviteesFor(state.directory.get(), me.member.id)
   const form = h(
     'form',
     {
@@ -115,22 +94,24 @@ const createForm = (me: Me): HTMLElement => {
       on: {
         submit: (event) => {
           event.preventDefault()
-          const typed = typedLimits(form)
-          if ('problem' in typed) return notice.set({ kind: 'error', text: typed.problem })
+          const typed = limitsTypedIn(form)
+          if ('problem' in typed) return state.notice.set({ kind: 'error', text: typed.problem })
           const chosen = form.querySelector<HTMLInputElement>('input[name="visibility"]:checked')?.value
           const invited = [...form.querySelectorAll<HTMLInputElement>('input[name="invite"]:checked')].map(
-            (box) => box.value as Me['member']['id'],
+            (box) => box.value as MemberId,
           )
-          launch(
-            createDebate({
+          actions.createDebate(
+            {
               question: question.value.trim(),
               visibility: chosen === 'private' ? 'private' : 'open',
               limits: typed.limits,
               memberIds: invited,
-            }),
-            (created) => {
-              closeDialog()
-              location.hash = hrefFor({ name: 'debate', id: created.id })
+            },
+            {
+              done: (created) => {
+                closeDialog(context)
+                context.page.go(hrefFor({ name: 'debate', id: created.id }))
+              },
             },
           )
         },
@@ -168,12 +149,12 @@ const createForm = (me: Me): HTMLElement => {
         h(
           'div',
           { class: 'debate-invitees' },
-          colleagues.map((entry) =>
+          colleagues.map((colleague) =>
             h(
               'label',
               {},
-              h('input', { type: 'checkbox', name: 'invite', value: entry.member.id }),
-              h('span', {}, entry.member.name),
+              h('input', { type: 'checkbox', name: 'invite', value: colleague.value }),
+              h('span', {}, colleague.label),
             ),
           ),
         ),
@@ -188,3 +169,38 @@ const createForm = (me: Me): HTMLElement => {
   )
   return form
 }
+
+const renderDebateList = (model: DebateListModel): HTMLElement => {
+  if (model.kind === 'loading') return loading()
+  if (model.kind === 'empty') return emptyWithPip('searching', model.text)
+  return h(
+    'ul',
+    { class: 'debate-list' },
+    model.rooms.map((room) =>
+      h(
+        'li',
+        { class: room.className, data: { debate: room.id } },
+        h('h2', { class: 'debate-question' }, h('a', { href: room.href }, room.question)),
+        h(
+          'p',
+          { class: 'debate-meta' },
+          h('span', { class: 'debate-stage' }, room.stage),
+          room.isPrivate && privateMarkOf(strings.debates.private),
+          room.counts.map((count) => h('span', {}, count)),
+          timeLabel(room.time),
+        ),
+      ),
+    ),
+  )
+}
+
+const newDebateButton = (context: ViewContext, me: AsRead.Me): HTMLElement =>
+  h(
+    'button',
+    {
+      type: 'button',
+      class: 'primary new-debate',
+      ...opensDialog(context, strings.debates.newRoom, () => createForm(context, me)),
+    },
+    strings.debates.newRoom,
+  )

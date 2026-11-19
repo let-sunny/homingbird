@@ -1,4 +1,4 @@
-import type { Channel, ChannelMember, Conversation, ConversationId, MemberId } from '@homingbird/protocol'
+import type { AsRead, ChannelMember, ConversationId, MemberId } from '@homingbird/protocol'
 
 export const channelLabel = (slug: string): string => `#${slug}`
 
@@ -14,7 +14,7 @@ export const slugFrom = (typed: string): string =>
 
 export const isValidSlug = (slug: string): boolean => SLUG_PATTERN.test(slug)
 
-export const similarChannels = (channels: ReadonlyArray<Channel>, typed: string): Channel[] => {
+export const similarChannels = (channels: ReadonlyArray<AsRead.Channel>, typed: string): AsRead.Channel[] => {
   const wanted = slugFrom(typed).replace(/-+$/, '')
   if (wanted === '') return []
   return channels
@@ -22,58 +22,63 @@ export const similarChannels = (channels: ReadonlyArray<Channel>, typed: string)
     .sort((a, b) => Number(b.slug === wanted) - Number(a.slug === wanted) || a.slug.localeCompare(b.slug))
 }
 
-export const channelNamed = (channels: ReadonlyArray<Channel>, slug: string): Channel | null =>
+export const channelNamed = (channels: ReadonlyArray<AsRead.Channel>, slug: string): AsRead.Channel | null =>
   channels.find((channel) => channel.slug === slug) ?? null
 
 export const channelOfRoom = (
-  channels: ReadonlyArray<Channel>,
+  channels: ReadonlyArray<AsRead.Channel>,
   conversationId: ConversationId,
-): Channel | null => channels.find((channel) => channel.conversationId === conversationId) ?? null
+): AsRead.Channel | null => channels.find((channel) => channel.conversationId === conversationId) ?? null
 
-export const channelRooms = (conversations: ReadonlyArray<Conversation>): Conversation[] =>
+export const channelRooms = (conversations: ReadonlyArray<AsRead.Conversation>): AsRead.Conversation[] =>
   conversations
     .filter((conversation) => conversation.kind === 'channel' && !isArchivedRoom(conversation))
     .sort(byTitle)
 
-export const archivedRooms = (conversations: ReadonlyArray<Conversation>): Conversation[] =>
+export const archivedRooms = (conversations: ReadonlyArray<AsRead.Conversation>): AsRead.Conversation[] =>
   conversations.filter(isArchivedRoom).sort(byTitle)
 
-export const peopleConversations = (conversations: ReadonlyArray<Conversation>): Conversation[] =>
+export const peopleConversations = (
+  conversations: ReadonlyArray<AsRead.Conversation>,
+): AsRead.Conversation[] =>
   conversations.filter((conversation) => conversation.kind !== 'channel' && !isArchivedRoom(conversation))
 
-export const joinedFirst = (a: Channel, b: Channel): number =>
+export const joinedFirst = (a: AsRead.Channel, b: AsRead.Channel): number =>
   Number(b.joined) - Number(a.joined) || b.memberCount - a.memberCount || a.slug.localeCompare(b.slug)
 
 export const destinationsFrom = (
-  channels: ReadonlyArray<Channel>,
-  here: Channel | null,
-  movingFrom: Channel | null,
-): Channel[] =>
+  channels: ReadonlyArray<AsRead.Channel>,
+  here: AsRead.Channel | null,
+  movingFrom: AsRead.Channel | null,
+): AsRead.Channel[] =>
   channels
     .filter((channel) => channel.slug !== here?.slug && mayMoveBetween(movingFrom, channel))
     .sort(joinedFirst)
 
-export const mayMoveBetween = (from: Channel | null, to: Channel): boolean =>
+export const mayMoveBetween = (from: AsRead.Channel | null, to: AsRead.Channel): boolean =>
   from !== null && isPrivate(from) ? isPrivate(to) && to.joined : !isPrivate(to) || to.joined
 
-export const isPrivate = (channel: Channel): boolean => channel.visibility === 'private'
+export const isPrivate = (channel: AsRead.Channel): boolean => channel.visibility === 'private'
 
-export const withChannel = (channels: ReadonlyArray<Channel>, changed: Channel): Channel[] =>
+export const withChannel = (
+  channels: ReadonlyArray<AsRead.Channel>,
+  changed: AsRead.Channel,
+): AsRead.Channel[] =>
   channels.some((channel) => channel.slug === changed.slug)
     ? channels.map((channel) => (channel.slug === changed.slug ? changed : channel))
     : [...channels, changed].sort((a, b) => a.slug.localeCompare(b.slug))
 
 export const withoutRoom = (
-  channels: ReadonlyArray<Channel>,
+  channels: ReadonlyArray<AsRead.Channel>,
   conversationId: ConversationId,
   viewerIsAdmin: boolean,
-): Channel[] =>
+): AsRead.Channel[] =>
   channels.flatMap((channel) =>
     channel.conversationId !== conversationId
       ? [channel]
       : isPrivate(channel) && !viewerIsAdmin
         ? []
-        : [{ ...channel, joined: false, answering: false, managing: viewerIsAdmin }],
+        : [{ ...channel, joined: false, answering: false, managing: viewerIsAdmin && !isPrivate(channel) }],
   )
 
 export const chipsForPerson = (
@@ -108,9 +113,10 @@ export const rosterFacts = (roster: Roster | null, viewerId: MemberId | null): R
   }
 }
 
-const isArchivedRoom = (conversation: Conversation): boolean => conversation.archivedAt !== null
+const isArchivedRoom = (conversation: AsRead.Conversation): boolean => conversation.archivedAt !== null
 
-const byTitle = (a: Conversation, b: Conversation): number => (a.title ?? '').localeCompare(b.title ?? '')
+const byTitle = (a: AsRead.Conversation, b: AsRead.Conversation): number =>
+  (a.title ?? '').localeCompare(b.title ?? '')
 
 const SLUG_MAX = 40
 const CHIPS_SHOWN = 6

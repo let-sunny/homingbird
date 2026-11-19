@@ -274,19 +274,19 @@ export const startDovecote = async (
     ...(themeDirectory !== undefined && { HB_THEME_DIR: themeDirectory }),
   })
   if (config._tag === 'Err') throw new Error(config.error.join('; '))
-  const database = await openDatabase(config.value.databaseUrl)
-  const { env, background } = buildRuntime({ config: config.value, database, log: () => {} })
+  const database = await T.runPromise(openDatabase(config.value.databaseUrl))
+  const { env, background } = buildRuntime({ config: config.value, database, write: () => {} })
   await T.runPromise(prepareDatabase, env)
   const work = T.runFork(background, env)
-  const server = await startServer(env, port)
+  const server = await T.runPromise(startServer(env, port))
   let stopped = false
   return {
     stop: async (): Promise<void> => {
       if (stopped) return
       stopped = true
-      await server.close()
+      await T.runPromise(server.close)
       await work.interrupt()
-      await database.close()
+      await T.runPromise(database.close)
     },
   }
 }

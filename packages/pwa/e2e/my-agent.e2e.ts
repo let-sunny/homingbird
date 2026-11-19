@@ -224,7 +224,7 @@ const scenario = async (): Promise<void> => {
     )
     await ana.page.waitForSelector('.todo-row[data-name="Release dates"]:has-text("86% sent as written")')
     await ana.page.waitForSelector('.todo-row[data-name="Release dates"]:has-text("Marked wrong once")')
-    await ana.page.waitForSelector('.teach-audit:has-text("audit log records your principles")')
+    await ana.page.waitForSelector('.teach-audit:has-text("audit trail records that you saved")')
     await ana.page.waitForSelector('.milestone:has-text("First principle saved")')
     await ana.page.waitForSelector('.route-item[data-place="releases"]')
     await ana.page.waitForSelector('.route-item[data-place="direct"] .route-item-chances')

@@ -1,91 +1,101 @@
-import { systemClock } from '@homingbird/kernel'
-import type { Conversation, Me, MemberId } from '@homingbird/protocol'
+import type { AsRead } from '@homingbird/protocol'
 import { type Lifetime, h, region } from '@homingbird/ui'
-import { launch, signOut } from '../actions.ts'
-import { arrivalTracker } from '../arrivals.ts'
-import { archivedRooms, channelOfRoom, channelRooms, peopleConversations } from '../channels.ts'
+import { peopleConversations } from '../channels.ts'
 import { connectionShown } from '../connection-status.ts'
 import { featureOn } from '../features.ts'
-import { type Route, hrefFor } from '../routes.ts'
-import { spriteOwner } from '../sprite-owner.ts'
+import { memberAvatarOf } from '../models/avatar.ts'
+import { logoOf, wordmark } from '../models/branding.ts'
 import {
-  agentCredentials,
-  branding,
-  channels,
-  connection,
-  conversations,
-  conversationsLoaded,
-  directory,
-  members,
-  route,
-  session,
-} from '../state.ts'
+  type ConversationRow,
+  type SidebarModel,
+  paneFor,
+  sidebarModel,
+  tabsModel,
+  userMenuModel,
+} from '../models/shell.ts'
+import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
-import { conversationTitle, excerpt, otherParticipants } from '../thread.ts'
-import { groupAvatar, memberAvatar } from './character-avatar.ts'
+import { renderAvatar, renderGroupAvatar } from './character-avatar.ts'
+import type { ViewContext } from './context.ts'
 import { startingPoints } from './home.ts'
-import { archivedMark, channelCounts, empty, loading, presenceBadges, timeLabel, wordmark } from './parts.ts'
+import { archivedMark, channelCounts, empty, loading, presenceBadges, timeLabel } from './parts.ts'
 
-export const shell = (life: Lifetime, me: Me, stage: HTMLElement): HTMLElement => {
-  const app = h('div', { class: 'app' }, titleBar(life, me), connectionNotice(life), sidebar(life, me), stage)
+/** The app around a page: the header with its tabs, the connection, the sidebar and the user menu. */
+export const shell = (
+  context: ViewContext,
+  life: Lifetime,
+  me: AsRead.Me,
+  stage: HTMLElement,
+): HTMLElement => {
+  const { state } = context
+  const app = h(
+    'div',
+    { class: 'app' },
+    titleBar(context, life, me),
+    connectionNotice(context, life),
+    sidebar(context, life, me),
+    stage,
+  )
   const showPane = (): void => {
-    app.dataset.pane = route.get().name === 'home' ? 'list' : 'stage'
+    app.dataset.pane = paneFor(state.route.get())
   }
   showPane()
-  life.add(route.subscribe(showPane))
-  return h('div', { class: 'viewport' }, app, userMenu(me))
+  life.add(state.route.subscribe(showPane))
+  return h('div', { class: 'viewport' }, app, userMenu(context, me))
 }
 
 const USER_MENU_ID = 'user-menu'
 
-const connectionNotice = (life: Lifetime): HTMLElement =>
+const connectionNotice = (context: ViewContext, life: Lifetime): HTMLElement =>
   region(
     life,
-    [connection],
+    [context.state.connection],
     () => {
-      const shown = connectionShown(connection.get(), strings)
+      const shown = connectionShown(context.state.connection.get(), strings)
       return shown.state === 'offline' && h('p', { class: 'connection-notice' }, shown.description)
     },
     { class: 'connection-notice-host' },
   )
 
-const titleBar = (life: Lifetime, me: Me): HTMLElement =>
-  h(
+const titleBar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
+  const { state } = context
+  const branding = state.branding.get()
+  return h(
     'header',
     { class: 'titlebar' },
     h(
       'a',
-      { class: 'brand', href: '#/', 'aria-label': branding.get().name },
-      h('img', {
-        class: 'mark',
-        src: branding.get().logo ?? '/icons/mark.svg',
-        alt: '',
-        width: '32',
-        height: '32',
-      }),
-      h('span', { class: 'wordmark' }, wordmark(branding.get().name)),
+      { class: 'brand', href: '#/', 'aria-label': branding.name },
+      h('img', { class: 'mark', src: logoOf(branding.logo), alt: '', width: '32', height: '32' }),
+      h('span', { class: 'wordmark' }, wordmark(branding.name)),
     ),
     region(
       life,
-      [route],
+      [state.route],
       () =>
         h(
           'nav',
           { class: 'tabs', 'aria-label': strings.sections },
-          tab(strings.navNotes, { name: 'home' }, ['home', 'conversation']),
-          tab(strings.navMyAgent, { name: 'agent', section: null }, ['agent'], 'connect'),
-          tab(strings.navPeople, { name: 'people' }, ['people']),
-          tab(strings.channels, { name: 'channels' }, ['channels', 'channel'], 'channels'),
-          featureOn('debateRooms') && tab(strings.navDebates, { name: 'debates' }, ['debates', 'debate']),
-          tab(strings.navSearch, { name: 'search', query: '' }, ['search']),
+          tabsModel(state.route.get(), state.serverInfo.get()).map((tab) =>
+            h(
+              'a',
+              {
+                href: tab.href,
+                class: 'tab',
+                'aria-current': tab.current && 'page',
+                ...(tab.tour !== null && { data: { tour: tab.tour } }),
+              },
+              tab.label,
+            ),
+          ),
         ),
       { class: 'tabs-host' },
     ),
     region(
       life,
-      [connection],
+      [state.connection],
       () => {
-        const shown = connectionShown(connection.get(), strings)
+        const shown = connectionShown(state.connection.get(), strings)
         return h(
           'span',
           {
@@ -103,7 +113,7 @@ const titleBar = (life: Lifetime, me: Me): HTMLElement =>
     ),
     region(
       life,
-      [members],
+      [state.members],
       () =>
         h(
           'button',
@@ -114,80 +124,89 @@ const titleBar = (life: Lifetime, me: Me): HTMLElement =>
             'aria-label': strings.menu,
             data: { tour: 'profile' },
           },
-          memberAvatar(members.get().get(me.member.id) ?? me.member, { labelled: false }),
+          renderAvatar(
+            context,
+            memberAvatarOf(
+              state.members.get().get(me.member.id) ?? me.member,
+              featureOn('characters', state.serverInfo.get()),
+              {
+                labelled: false,
+              },
+            ),
+          ),
         ),
       { class: 'user-button-host' },
     ),
   )
+}
 
-const tab = (
-  label: string,
-  target: Route,
-  activeFor: ReadonlyArray<Route['name']>,
-  tour?: string,
-): HTMLElement =>
-  h(
-    'a',
-    {
-      href: hrefFor(target),
-      class: 'tab',
-      'aria-current': activeFor.includes(route.get().name) && 'page',
-      ...(tour !== undefined && { data: { tour } }),
-    },
-    label,
-  )
-
-const userMenu = (me: Me): HTMLElement =>
-  h(
+const userMenu = (context: ViewContext, me: AsRead.Me): HTMLElement => {
+  const model = userMenuModel(me)
+  const menu: HTMLElement = h(
     'div',
     { id: USER_MENU_ID, popover: 'auto', class: 'menu' },
-    h('p', { class: 'menu-who' }, h('strong', {}, me.member.name), h('span', {}, me.member.email)),
-    menuLink(strings.menuProfile, { name: 'profile' }),
-    me.member.role === 'admin' && menuLink(strings.menuAdmin, { name: 'admin', section: 'settings' }),
+    h('p', { class: 'menu-who' }, h('strong', {}, model.name), h('span', {}, model.email)),
+    model.links.map((link) =>
+      h('a', { class: 'menu-item', href: link.href, on: { click: () => menu.hidePopover() } }, link.label),
+    ),
     h(
       'button',
-      { type: 'button', class: 'menu-item', on: { click: () => launch(signOut) } },
-      strings.menuSignOut,
+      { type: 'button', class: 'menu-item', on: { click: () => context.actions.signOut() } },
+      model.signOut,
     ),
   )
+  return menu
+}
 
-const menuLink = (label: string, target: Route): HTMLElement =>
-  h(
-    'a',
-    {
-      class: 'menu-item',
-      href: hrefFor(target),
-      on: { click: () => document.getElementById(USER_MENU_ID)?.hidePopover() },
-    },
-    label,
-  )
-
-const sidebar = (life: Lifetime, me: Me): HTMLElement =>
-  h(
+const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
+  const { state } = context
+  const model = (withArrivals = false): SidebarModel => {
+    const conversations = state.conversations.get()
+    return sidebarModel({
+      me,
+      route: state.route.get(),
+      conversations,
+      loaded: state.conversationsLoaded.get(),
+      members: state.members.get(),
+      directory: state.directory.get(),
+      channels: state.channels.get(),
+      agentCount: state.agentCredentials.get().length,
+      charactersOn: featureOn('characters', state.serverInfo.get()),
+      now: context.clock.now(),
+      arrived: new Set(
+        withArrivals
+          ? peopleConversations(conversations)
+              .filter((conversation) => context.justArrived(conversation, me.member.id))
+              .map((conversation) => conversation.id)
+          : [],
+      ),
+    })
+  }
+  return h(
     'aside',
     { class: 'sidebar', 'aria-label': strings.conversations },
-    region(life, [agentCredentials, session], () => agentCredentials.get().length === 0 && onboarding(), {
+    region(life, [state.agentCredentials, state.session], () => model().onboarding && onboarding(), {
       class: 'onboarding-host',
     }),
     h('h2', { class: 'sidebar-title', data: { tour: 'notes' } }, strings.conversations),
     region(
       life,
-      [conversations, members, directory, route, conversationsLoaded],
+      [state.conversations, state.members, state.directory, state.route, state.conversationsLoaded],
       () => {
-        const people = peopleConversations(conversations.get())
-        if (!conversationsLoaded.get()) return loading()
-        return people.length === 0
-          ? h(
-              'div',
-              { class: 'no-conversations' },
-              h('p', { class: 'no-conversations-text' }, strings.noConversations),
-              startingPoints(),
-            )
-          : h(
-              'ul',
-              { class: 'conversation-list' },
-              people.map((conversation) => conversationRow(conversation, me)),
-            )
+        const people = model(true).people
+        if (people.kind === 'loading') return loading()
+        if (people.kind === 'none')
+          return h(
+            'div',
+            { class: 'no-conversations' },
+            h('p', { class: 'no-conversations-text' }, strings.noConversations),
+            startingPoints(context),
+          )
+        return h(
+          'ul',
+          { class: 'conversation-list' },
+          people.rows.map((row) => conversationRow(context, row)),
+        )
       },
       { class: 'conversations-host' },
     ),
@@ -197,37 +216,33 @@ const sidebar = (life: Lifetime, me: Me): HTMLElement =>
       h('h2', { class: 'sidebar-title' }, strings.channels),
       h('a', { class: 'browse-channels', href: hrefFor({ name: 'channels' }) }, strings.browseChannels),
     ),
-    region(life, [conversations, route, channels], () => {
-      const rooms = channelRooms(conversations.get())
+    region(life, [state.conversations, state.route, state.channels], () => {
+      const rooms = model().channelRooms
       return rooms.length === 0
         ? empty(strings.noChannelRooms)
         : h(
             'ul',
             { class: 'conversation-list channel-rooms' },
-            rooms.map((conversation) => conversationRow(conversation, me)),
+            rooms.map((row) => conversationRow(context, row)),
           )
     }),
-    region(life, [conversations, route, members], () => {
-      const archived = archivedRooms(conversations.get())
+    region(life, [state.conversations, state.route, state.members], () => {
+      const archived = model().archived
       return (
-        archived.length > 0 &&
+        archived !== null &&
         h(
           'details',
-          { class: 'archived-rooms', open: archived.some(isOpenRoom) },
-          h('summary', { class: 'sidebar-title' }, strings.archivedGroup({ count: archived.length })),
+          { class: 'archived-rooms', open: archived.open },
+          h('summary', { class: 'sidebar-title' }, archived.title),
           h(
             'ul',
             { class: 'conversation-list' },
-            archived.map((conversation) => conversationRow(conversation, me)),
+            archived.rows.map((row) => conversationRow(context, row)),
           ),
         )
       )
     }),
   )
-
-const isOpenRoom = (conversation: Conversation): boolean => {
-  const current = route.get()
-  return current.name === 'conversation' && current.id === conversation.id
 }
 
 const onboarding = (): HTMLElement =>
@@ -247,90 +262,39 @@ const onboarding = (): HTMLElement =>
     ),
   )
 
-const justArrived = arrivalTracker(systemClock.now(), () => systemClock.now())
-
-const conversationFace = (
-  conversation: Conversation,
-  me: Me,
-  others: ReadonlyArray<MemberId>,
-  arrived: boolean,
-): HTMLElement => {
-  const people = others.map((id) => members.get().get(id))
-  if (conversation.kind !== 'direct' && people.length > 1) return groupAvatar(people)
-  const owner = spriteOwner({
-    kind: 'conversation',
-    viewerId: me.member.id,
-    participantIds: conversation.participantIds,
-    arrivedFrom: arrived ? (conversation.lastNote?.authorId ?? null) : null,
-  }) as MemberId
-  return memberAvatar(members.get().get(owner), {
-    labelled: false,
-    ...(arrived && { state: 'new-note', motion: 'once' }),
-  })
-}
-
-const conversationRow = (conversation: Conversation, me: Me): HTMLElement => {
-  const title = conversationTitle(conversation, members.get(), me.member.id, strings.formerMember)
-  const current = route.get()
-  const isOpen = current.name === 'conversation' && current.id === conversation.id
-  const others = otherParticipants(conversation, me.member.id)
-  const presence = directory.get().find((entry) => entry.member.id === others[0])?.presence
-  const archived = conversation.archivedAt !== null
-  const channel = conversation.kind === 'channel' ? channelOfRoom(channels.get(), conversation.id) : null
-  return h(
+const conversationRow = (context: ViewContext, row: ConversationRow): HTMLElement =>
+  h(
     'li',
     {},
     h(
       'a',
-      {
-        class: 'conversation',
-        href: hrefFor({ name: 'conversation', id: conversation.id }),
-        'aria-current': isOpen && 'page',
-      },
-      conversation.kind === 'channel' || archived
+      { class: 'conversation', href: row.href, 'aria-current': row.current && 'page' },
+      row.face.kind === 'channel'
         ? h('span', { class: 'avatar is-channel', 'aria-hidden': 'true' }, '#')
-        : conversationFace(conversation, me, others, justArrived(conversation, me.member.id)),
+        : row.face.kind === 'group'
+          ? renderGroupAvatar(context, row.face.faces)
+          : renderAvatar(context, row.face.avatar),
       h(
         'span',
         { class: 'conversation-main' },
         h(
           'span',
           { class: 'conversation-name' },
-          title,
-          conversation.kind === 'direct' && presence !== undefined && presenceBadges(presence),
-          archived && archivedMark(),
+          row.title,
+          row.presence !== null && presenceBadges(row.presence),
+          row.archived && archivedMark(),
         ),
-        channel !== null && h('span', { class: 'conversation-counts' }, channelCounts(channel)),
-        h(
-          'span',
-          { class: 'conversation-preview' },
-          conversation.lastNote !== null
-            ? excerpt(conversation.lastNote.body, 60)
-            : conversation.draftCount > 0
-              ? strings.draftsWaiting({ count: conversation.draftCount })
-              : strings.noNotesYet,
-        ),
+        row.channel !== null && h('span', { class: 'conversation-counts' }, channelCounts(row.channel)),
+        h('span', { class: 'conversation-preview' }, row.preview),
       ),
       h(
         'span',
         { class: 'conversation-side' },
-        conversation.lastNote?.sentAt != null && timeLabel(conversation.lastNote.sentAt),
-        conversation.unreadCount > 0 &&
-          h(
-            'span',
-            { class: 'count unread', 'aria-label': strings.unread({ count: conversation.unreadCount }) },
-            conversation.unreadCount,
-          ),
-        conversation.draftCount > 0 &&
-          h(
-            'span',
-            {
-              class: 'count drafts',
-              'aria-label': strings.draftsWaiting({ count: conversation.draftCount }),
-            },
-            `✎${conversation.draftCount}`,
-          ),
+        row.time !== null && timeLabel(row.time),
+        row.unread !== null &&
+          h('span', { class: 'count unread', 'aria-label': row.unread.label }, row.unread.count),
+        row.drafts !== null &&
+          h('span', { class: 'count drafts', 'aria-label': row.drafts.label }, row.drafts.text),
       ),
     ),
   )
-}

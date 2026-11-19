@@ -1,9 +1,8 @@
 import {
   ANSWER_TEXT_MAX,
+  type AsRead,
   PRINCIPLE_TEXT_MAX,
-  type Principle,
   type PrincipleCounts,
-  type PrincipleOffer,
   type PrincipleProblem,
   type PublicTextProblem,
   type SuggestedChange,
@@ -13,13 +12,30 @@ import {
 } from '@homingbird/protocol'
 import { strings } from './strings.ts'
 
-/** The principles a draft's basis says the agent applied, matched by title against the person's own. */
+/** What a draft's basis says was applied, in its order (a channel's first), matched to the person's principles. */
+export const appliedClaims = (
+  basis: string | null | undefined,
+  principles: ReadonlyArray<AsRead.Principle>,
+): AppliedClaim[] => {
+  const claims: AppliedClaim[] = []
+  for (const title of appliedTitlesIn(basis)) {
+    const principle = principles.find((each) => isSameTitle(title, each.topic)) ?? null
+    const named = principle === null ? title : principle.topic
+    if (claims.some((claim) => claim.title === named)) continue
+    claims.push({ title: named, principle })
+  }
+  return claims
+}
+
 export const appliedPrinciples = (
   basis: string | null | undefined,
-  principles: ReadonlyArray<Principle>,
-): Principle[] => {
-  const titles = appliedTitlesIn(basis)
-  return principles.filter((principle) => titles.some((title) => isSameTitle(title, principle.topic)))
+  principles: ReadonlyArray<AsRead.Principle>,
+): AsRead.Principle[] =>
+  appliedClaims(basis, principles).flatMap((claim) => (claim.principle === null ? [] : [claim.principle]))
+
+export interface AppliedClaim {
+  readonly title: string
+  readonly principle: AsRead.Principle | null
 }
 
 /** Counts for a principle, with a share only once it was applied often enough to mean something. */
@@ -40,11 +56,13 @@ export const sourceHost = (source: string): string | null => {
   }
 }
 
-export const offersIn = (offers: ReadonlyArray<PrincipleOffer>, conversationId: string): PrincipleOffer[] =>
-  offers.filter((offer) => offer.conversationId === conversationId)
+export const offersIn = (
+  offers: ReadonlyArray<AsRead.PrincipleOffer>,
+  conversationId: string,
+): AsRead.PrincipleOffer[] => offers.filter((offer) => offer.conversationId === conversationId)
 
 /** A suggestion saved as offered needs the person's explicit confirmation; a changed one is theirs already. */
-export const needsConfirmation = (offer: PrincipleOffer | null, rule: string): boolean =>
+export const needsConfirmation = (offer: AsRead.PrincipleOffer | null, rule: string): boolean =>
   offer?.suggestion != null && isUnchangedSuggestion(offer.suggestion, rule)
 
 /** The suggested rule worded in the person's language, from the phrases the edit changed. */
@@ -66,4 +84,4 @@ export const problemText = (problem: PrincipleProblem | PublicTextProblem | null
         ? strings.teach.problems.rule_too_long({ max: PRINCIPLE_TEXT_MAX })
         : strings.teach.problems[problem]
 
-export const SHARE_FROM = 5
+const SHARE_FROM = 5

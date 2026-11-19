@@ -551,13 +551,11 @@ const scenario = async (): Promise<void> => {
     await ana.page.waitForSelector('.admin-channels [data-slug="invoices"]', { state: 'detached' })
     await capture(ana.page, 'admin-channels-after-rename-and-archive')
 
-    for (const section of ['settings', 'members', 'audit']) {
+    for (const section of ['settings', 'members']) {
       await ana.page.goto(`${base}/#/admin/${section}`)
-      await ana.page.waitForSelector(
-        section === 'settings' ? 'textarea' : section === 'members' ? '.member' : 'table, .audit',
-      )
+      await ana.page.waitForSelector(section === 'settings' ? 'textarea' : '.member')
       await ana.page.waitForTimeout(300)
-      await capture(ana.page, `admin-${section === 'audit' ? 'audit-log' : section}`)
+      await capture(ana.page, `admin-${section}`)
     }
 
     // -- Group conversation ----------------------------------------------------------------------
@@ -641,7 +639,6 @@ const scenario = async (): Promise<void> => {
       ['search', '/#/search?q=migration'],
       ['device', '/#/device'],
       ['admin-members', '/#/admin/members'],
-      ['admin-audit', '/#/admin/audit'],
     ]
     for (const width of [VIEWPORT.width, 390]) {
       await ana.page.setViewportSize({ width, height: width === 390 ? 780 : VIEWPORT.height })

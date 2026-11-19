@@ -1,0 +1,57 @@
+import { DEFAULT_DEBATE_LIMITS } from '@homingbird/protocol'
+import { describe, expect, it } from 'vitest'
+import * as tasks from '../../src/tasks/debates.ts'
+import { fail, testApp } from '../support/app.ts'
+import { debate } from '../support/fixtures.ts'
+
+const ID = 'debate_000000000000' as never
+
+describe('debate room tasks', () => {
+  it('loads the list of rooms and marks it loaded', async () => {
+    const { run, state } = testApp({ 'debates.list': () => ({ debates: [] }) })
+    await run(tasks.loadDebates)
+    expect(state.debatesLoaded.get()).toBe(true)
+  })
+
+  it('shows a room, or shows it as missing when the person may not see it', async () => {
+    const shown = testApp({ 'debates.get': () => debate() })
+    await shown.run(tasks.loadDebate(ID))
+    expect(shown.state.shownDebate.get()).toEqual(debate())
+    const missing = testApp({ 'debates.get': () => fail({ _tag: 'NotFound', message: 'No such room.' }) })
+    await missing.run(tasks.loadDebate(ID))
+    expect(missing.state.shownDebate.get()).toBe('missing')
+  })
+
+  it('opens a room and reloads the list, opts an agent in, changes limits, posts and exports', async () => {
+    const { run, sent, state } = testApp({
+      'debates.create': () => debate(),
+      'debates.list': () => ({ debates: [] }),
+      'debates.optIn': () => debate({ question: 'Opted in' }),
+      'debates.limits.set': () => debate({ question: 'Changed' }),
+      'debates.export': () => ({ filename: 'debate.md', mediaType: 'text/markdown', text: '#' }),
+    })
+    const wish = {
+      question: 'Ship?',
+      visibility: 'open' as const,
+      limits: DEFAULT_DEBATE_LIMITS,
+      memberIds: [],
+    }
+    await run(tasks.createDebate(wish))
+    await run(tasks.optInAgent(ID, 'cred_agent' as never))
+    expect((state.shownDebate.get() as ReturnType<typeof debate>).question).toBe('Opted in')
+    await run(tasks.changeLimits(ID, DEFAULT_DEBATE_LIMITS))
+    await run(tasks.postResult(ID, { channel: 'billing' }))
+    expect(await run(tasks.exportDebate(ID, 'markdown', 'ko'))).toMatchObject({
+      _tag: 'Ok',
+      value: { filename: 'debate.md' },
+    })
+    expect(sent.map((one) => [one.route, one.request])).toEqual([
+      ['debates.create', { body: wish }],
+      ['debates.list', {}],
+      ['debates.optIn', { params: { id: ID }, body: { agentId: 'cred_agent' } }],
+      ['debates.limits.set', { params: { id: ID }, body: DEFAULT_DEBATE_LIMITS }],
+      ['debates.result.post', { params: { id: ID }, body: { channel: 'billing' } }],
+      ['debates.export', { params: { id: ID }, body: { format: 'markdown', language: 'ko' } }],
+    ])
+  })
+})

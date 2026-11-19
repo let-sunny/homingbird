@@ -1,7 +1,7 @@
 import {
+  type AsRead,
   BUILT_IN_CHARACTERS,
   type CharacterSpec,
-  type Member,
   builtInCharacterOf,
   characterProblems,
   decodeCharacter,
@@ -22,11 +22,12 @@ import {
   renderFrame,
   statesFor,
 } from '@homingbird/sprites'
-import { featureOn } from './features.ts'
 
-/** The character a member is drawn as: the one they saved, or the pigeon. */
-export const characterOf = (member: Pick<Member, 'character'> | undefined): CharacterSpec =>
-  (featureOn('characters') ? member?.character : null) ?? PIGEON
+/** The character a member is drawn as: the one they saved while characters are on, or the pigeon. */
+export const characterOf = (
+  member: Pick<AsRead.Member, 'character'> | undefined,
+  charactersOn: boolean,
+): CharacterSpec => (charactersOn ? member?.character : null) ?? PIGEON
 
 export const PIGEON: CharacterSpec = BUILT_IN_CHARACTERS[0]!
 

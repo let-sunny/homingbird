@@ -92,7 +92,9 @@ describe('offers', () => {
 describe('problemText', () => {
   it('words every problem in the person’s language, with the limits filled in', () => {
     expect(problemText(null)).toBeNull()
-    expect(problemText('answer_too_long')).toBe('An answer may have at most 600 characters.')
+    expect(problemText('answer_too_long')).toBe(
+      'An answer may have at most 300 characters, title and answer together. Shorten it, or link the longer text as its source.',
+    )
     expect(problemText('rule_too_long')).toBe(
       'A principle may have at most 300 characters, title and rule together.',
     )

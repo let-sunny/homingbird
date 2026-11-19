@@ -1,17 +1,22 @@
 import { Task as T } from '@homingbird/kernel'
 import type { ApiError } from '@homingbird/protocol'
-import { type Action, api } from './actions.ts'
-import { isSameKey } from './push-results.ts'
+import { type Action, type App, withApp } from './app.ts'
+import { type PushResult, isSameKey, pushResultLines } from './push-results.ts'
 import { locale, strings } from './strings.ts'
-
-export const pushIsAvailable = (): boolean =>
-  'serviceWorker' in navigator && 'PushManager' in globalThis && 'Notification' in globalThis
 
 export const pushIsOn: Action<boolean> = T.suspend(() =>
   T.map((subscription: PushSubscription | null) => subscription !== null)(currentSubscription()),
 )
 
+/** Sends a test notification to each of the person's subscriptions and says how each went. */
+export const testPush: Action<ReadonlyArray<string>> = withApp(({ api }) =>
+  T.map((answer: { results: ReadonlyArray<PushResult> }) => pushResultLines(answer.results))(
+    api['push.test']({ body: {} }),
+  ),
+)
+
 export const turnPushOn: Action<boolean> = T.gen(function* () {
+  const { api } = yield* T.ask<App>()
   const permission = yield* browser(() => Notification.requestPermission())
   if (permission !== 'granted') return false
   const { publicKey } = yield* api['push.key']({})
@@ -37,6 +42,7 @@ export const turnPushOn: Action<boolean> = T.gen(function* () {
 })
 
 export const turnPushOff: Action<boolean> = T.gen(function* () {
+  const { api } = yield* T.ask<App>()
   const subscription = yield* currentSubscription()
   if (subscription === null) return false
   yield* api['push.unsubscribe']({ body: { endpoint: subscription.endpoint } })
@@ -53,7 +59,10 @@ export const bytesOf = (base64url: string): Uint8Array<ArrayBuffer> => {
 }
 
 function currentSubscription(): Action<PushSubscription | null> {
-  return browser(async () => (await navigator.serviceWorker.ready).pushManager.getSubscription())
+  return T.gen(function* () {
+    const registration = yield* browser(() => navigator.serviceWorker.ready)
+    return yield* browser(() => registration.pushManager.getSubscription())
+  })
 }
 
 function browser<A>(work: () => Promise<A>): T.Task<A, ApiError> {

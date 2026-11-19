@@ -1,13 +1,9 @@
 import type {
-  Conversation,
+  AsRead,
   ConversationId,
-  DirectoryEntry,
   DraftRequest,
-  Member,
   MemberId,
-  Note,
   NoteId,
-  Receipt,
   StatusSummary,
 } from '@homingbird/protocol'
 import { requestAnsweredBy } from './draft-requests.ts'
@@ -16,25 +12,19 @@ export type ThreadItem =
   | {
       readonly type: 'note'
       readonly key: string
-      readonly note: Note
+      readonly note: AsRead.Note
       readonly leadsRun: boolean
-      readonly next: Note | null
+      readonly next: AsRead.Note | null
     }
   | {
       readonly type: 'drafts'
       readonly key: string
       readonly inReplyTo: NoteId | null
-      readonly drafts: ReadonlyArray<Note>
+      readonly drafts: ReadonlyArray<AsRead.Note>
     }
 
-/**
- * Consecutive notes by one author, written the same way: by their agent, by their agent and edited by
- * them, or by them. A run shows the character and its mark once, so the mark must hold for every note.
- */
-export const isSameRun = (a: Note, b: Note): boolean => a.authorId === b.authorId && a.origin === b.origin
-
 export const threadItems = (
-  notes: ReadonlyArray<Note>,
+  notes: ReadonlyArray<AsRead.Note>,
   requests: ReadonlyArray<DraftRequest> = [],
 ): ThreadItem[] => {
   const sent = notes.filter((note) => note.status === 'sent').sort(bySentTime)
@@ -64,17 +54,17 @@ export const threadItems = (
   ]
 }
 
-export const upsertNote = (notes: ReadonlyArray<Note>, note: Note): Note[] =>
+export const upsertNote = (notes: ReadonlyArray<AsRead.Note>, note: AsRead.Note): AsRead.Note[] =>
   notes.some((existing) => existing.id === note.id)
     ? notes.map((existing) => (existing.id === note.id ? note : existing))
     : [...notes, note]
 
-export const withoutNote = (notes: ReadonlyArray<Note>, id: NoteId): Note[] =>
+export const withoutNote = (notes: ReadonlyArray<AsRead.Note>, id: NoteId): AsRead.Note[] =>
   notes.filter((note) => note.id !== id)
 
-export const withNoteFiled = <Thread extends { readonly notes: ReadonlyArray<Note> }>(
+export const withNoteFiled = <Thread extends { readonly notes: ReadonlyArray<AsRead.Note> }>(
   threads: ReadonlyMap<ConversationId, Thread>,
-  note: Note,
+  note: AsRead.Note,
 ): ReadonlyMap<ConversationId, Thread> =>
   new Map(
     [...threads].map(([conversationId, thread]): [ConversationId, Thread] => {
@@ -86,12 +76,12 @@ export const withNoteFiled = <Thread extends { readonly notes: ReadonlyArray<Not
   )
 
 export const withReceipts = (
-  notes: ReadonlyArray<Note>,
+  notes: ReadonlyArray<AsRead.Note>,
   id: NoteId,
-  receipts: ReadonlyArray<Receipt>,
-): Note[] => notes.map((note) => (note.id === id ? { ...note, receipts } : note))
+  receipts: ReadonlyArray<AsRead.Receipt>,
+): AsRead.Note[] => notes.map((note) => (note.id === id ? { ...note, receipts } : note))
 
-export const withoutMovedQuestion = <Thread extends { readonly notes: ReadonlyArray<Note> }>(
+export const withoutMovedQuestion = <Thread extends { readonly notes: ReadonlyArray<AsRead.Note> }>(
   threads: ReadonlyMap<ConversationId, Thread>,
   from: ConversationId,
   questionId: NoteId,
@@ -109,9 +99,9 @@ export interface PresenceChange {
 }
 
 export const withPresence = (
-  entries: ReadonlyArray<DirectoryEntry>,
+  entries: ReadonlyArray<AsRead.DirectoryEntry>,
   changes: ReadonlyArray<PresenceChange>,
-): DirectoryEntry[] => {
+): AsRead.DirectoryEntry[] => {
   const changed = new Map(changes.map((change) => [change.memberId, change]))
   return entries.map((entry) => {
     const presence = changed.get(entry.member.id)
@@ -121,7 +111,10 @@ export const withPresence = (
   })
 }
 
-export const noteAwaitingReply = (notes: ReadonlyArray<Note>, viewerId: MemberId): Note | null =>
+export const noteAwaitingReply = (
+  notes: ReadonlyArray<AsRead.Note>,
+  viewerId: MemberId,
+): AsRead.Note | null =>
   notes
     .filter((note) => note.status === 'sent' && note.authorId !== viewerId)
     .filter((note) =>
@@ -130,17 +123,17 @@ export const noteAwaitingReply = (notes: ReadonlyArray<Note>, viewerId: MemberId
     .sort(bySentTime)
     .at(-1) ?? null
 
-export const isUnreadBy = (note: Note, viewerId: MemberId): boolean =>
+export const isUnreadBy = (note: AsRead.Note, viewerId: MemberId): boolean =>
   note.status === 'sent' &&
   note.authorId !== viewerId &&
   note.receipts.some((receipt) => receipt.memberId === viewerId && receipt.readAt === null)
 
-export const otherParticipants = (conversation: Conversation, viewerId: MemberId): MemberId[] =>
+export const otherParticipants = (conversation: AsRead.Conversation, viewerId: MemberId): MemberId[] =>
   conversation.participantIds.filter((memberId) => memberId !== viewerId)
 
 export const conversationTitle = (
-  conversation: Conversation,
-  members: ReadonlyMap<MemberId, Member>,
+  conversation: AsRead.Conversation,
+  members: ReadonlyMap<MemberId, AsRead.Member>,
   viewerId: MemberId,
   unknownName: string,
 ): string => {
@@ -152,7 +145,7 @@ export const conversationTitle = (
     .join(', ')
 }
 
-export const isArchived = (conversation: Conversation | undefined): boolean =>
+export const isArchived = (conversation: AsRead.Conversation | undefined): boolean =>
   conversation !== undefined && conversation.archivedAt !== null
 
 export type Destination =
@@ -160,9 +153,9 @@ export type Destination =
   | { readonly kind: 'channel'; readonly memberIds: ReadonlyArray<MemberId> }
 
 export const draftDestination = (
-  conversation: Conversation,
-  draft: Note,
-  notes: ReadonlyArray<Note>,
+  conversation: AsRead.Conversation,
+  draft: AsRead.Note,
+  notes: ReadonlyArray<AsRead.Note>,
   viewerId: MemberId,
 ): Destination => {
   const question = notes.find((note) => note.id === draft.inReplyTo)
@@ -177,13 +170,13 @@ export type MyNoteState = 'delivered' | 'read' | 'drafting' | 'returning'
 export const myNoteState = (status: SingleStatus): MyNoteState =>
   status === 'replied' ? 'returning' : status === 'sent' ? 'delivered' : status
 
-export const showsAuthors = (conversation: Conversation | undefined): boolean =>
+export const showsAuthors = (conversation: AsRead.Conversation | undefined): boolean =>
   conversation !== undefined && conversation.kind !== 'direct'
 
-export const answeredBy = (note: Note): MemberId[] =>
+export const answeredBy = (note: AsRead.Note): MemberId[] =>
   note.receipts.filter((receipt) => receipt.state === 'replied').map((receipt) => receipt.memberId)
 
-export const isOpenQuestion = (note: Note, notes: ReadonlyArray<Note>): boolean =>
+export const isOpenQuestion = (note: AsRead.Note, notes: ReadonlyArray<AsRead.Note>): boolean =>
   note.status === 'sent' &&
   note.inReplyTo === null &&
   answeredBy(note).length === 0 &&
@@ -195,7 +188,7 @@ export interface ReadProgress {
   readonly drafting: number
 }
 
-export const readProgress = (receipts: ReadonlyArray<Receipt>): ReadProgress => ({
+export const readProgress = (receipts: ReadonlyArray<AsRead.Receipt>): ReadProgress => ({
   read: receipts.filter((receipt) => receipt.readAt !== null).length,
   of: receipts.length,
   drafting: receipts.filter((receipt) => receipt.state === 'drafting').length,
@@ -213,7 +206,7 @@ export const statusOf = (summary: StatusSummary): SingleStatus => {
 export const alternativesLeftAfterSending = (
   item: Extract<ThreadItem, { type: 'drafts' }>,
   sentId: NoteId,
-): Note[] => (item.inReplyTo === null ? item.drafts.filter((draft) => draft.id !== sentId) : [])
+): AsRead.Note[] => (item.inReplyTo === null ? item.drafts.filter((draft) => draft.id !== sentId) : [])
 
 export const excerpt = (text: string, length = 80): string => {
   const singleLine = text.replace(/\s+/g, ' ').trim()
@@ -222,6 +215,15 @@ export const excerpt = (text: string, length = 80): string => {
 
 const ARCHIVED_SUFFIX = / \(archived\)$/
 
-const bySentTime = (a: Note, b: Note): number => (a.sentAt ?? 0) - (b.sentAt ?? 0) || a.id.localeCompare(b.id)
+const bySentTime = (a: AsRead.Note, b: AsRead.Note): number =>
+  (a.sentAt ?? 0) - (b.sentAt ?? 0) || a.id.localeCompare(b.id)
 
-const byCreatedTime = (a: Note, b: Note): number => a.createdAt - b.createdAt || a.id.localeCompare(b.id)
+const byCreatedTime = (a: AsRead.Note, b: AsRead.Note): number =>
+  a.createdAt - b.createdAt || a.id.localeCompare(b.id)
+
+/**
+ * Consecutive notes by one author, written the same way: by their agent, by their agent and edited by
+ * them, or by them. A run shows the character and its mark once, so the mark must hold for every note.
+ */
+const isSameRun = (a: AsRead.Note, b: AsRead.Note): boolean =>
+  a.authorId === b.authorId && a.origin === b.origin

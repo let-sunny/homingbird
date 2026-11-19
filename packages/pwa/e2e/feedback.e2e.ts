@@ -343,11 +343,6 @@ const scenario = async (): Promise<void> => {
     await inThemes(ana.page, 'archive-channel-dialog-says-what-happens', false)
     await dialog.getByRole('button', { name: 'Archive channel' }).click()
     await ana.page.waitForSelector('.admin-channels [data-slug="refunds"]', { state: 'detached' })
-    assert.equal(
-      (await api(ana, 'GET', '/admin/audit?action=admin.channels.archive')).entries[0].detail.request
-        .moveMembersTo,
-      'billing',
-    )
 
     await ben.page.waitForSelector('.thread-head .archived-mark:has-text("Archived")')
     await ben.page.waitForSelector('.archived-notice:has-text("This room is archived.")')

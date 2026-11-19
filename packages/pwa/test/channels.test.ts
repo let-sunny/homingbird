@@ -224,7 +224,7 @@ describe('private channels in the list', () => {
     ])
   })
 
-  it('drops a private room I left, and keeps an open one or one I still manage as an administrator', () => {
+  it('drops a private room I left, keeps an open one, and keeps a private one for an administrator to see but not manage', () => {
     const listed = [
       channel('billing', { joined: true, answering: true }),
       channel('payroll', { visibility: 'private', joined: true, managing: true }),
@@ -240,8 +240,9 @@ describe('private channels in the list', () => {
     expect(withoutRoom(listed, 'conv_payroll' as ConversationId, true)[1]).toMatchObject({
       slug: 'payroll',
       joined: false,
-      managing: true,
+      managing: false,
     })
+    expect(withoutRoom(listed, 'conv_billing' as ConversationId, true)[0]).toMatchObject({ managing: true })
   })
 })
 

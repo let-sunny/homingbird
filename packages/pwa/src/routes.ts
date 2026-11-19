@@ -22,7 +22,7 @@ export type AgentSection = 'connection' | 'teaching' | 'doing' | 'routes'
 
 export const AGENT_SECTIONS: ReadonlyArray<AgentSection> = ['connection', 'teaching', 'doing', 'routes']
 
-export type AdminSection = 'settings' | 'members' | 'channels' | 'insights' | 'audit'
+export type AdminSection = 'settings' | 'members' | 'channels' | 'insights'
 
 export const parseRoute = (hash: string): Route => {
   const [path = '', search = ''] = hash.replace(/^#\/?/, '').split('?')
@@ -108,7 +108,7 @@ export const signInHref = (hash: string): string =>
 
 const LEGACY_CHANNEL_HEAD = 't'
 
-const ADMIN_SECTIONS: ReadonlyArray<AdminSection> = ['settings', 'members', 'channels', 'insights', 'audit']
+const ADMIN_SECTIONS: ReadonlyArray<AdminSection> = ['settings', 'members', 'channels', 'insights']
 
 const isAgentSection = (value: string | undefined): value is AgentSection =>
   AGENT_SECTIONS.includes(value as AgentSection)

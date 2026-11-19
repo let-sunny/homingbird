@@ -1,5 +1,7 @@
 import { h, replaceChildren } from '@homingbird/ui'
-import { hrefFor } from '../routes.ts'
+import type { Page } from '../browser-page.ts'
+import { type TourStepModel, tourStepModel } from '../models/tour.ts'
+import type { PageDocument } from '../page-document.ts'
 import { strings } from '../strings.ts'
 import {
   TOUR_STEPS,
@@ -11,31 +13,46 @@ import {
   rememberTourSeen,
   stepAfter,
 } from '../tour.ts'
+import type { Tour } from './context.ts'
 import { pip } from './pip.ts'
 
-export const startTourOnHome = (routeName: string): void => {
-  if (mayStartTour(routeName, hasSeenTour(storage), running !== null)) startTour()
+/** The first-visit tour on a page: a callout beside each control in turn, remembered once finished. */
+export const createTour = (page: Page, document: PageDocument): Tour => {
+  const storage = (): TourStorage => ({
+    getItem: page.storage.local,
+    setItem: page.storage.setLocal,
+    removeItem: page.storage.removeLocal,
+  })
+  let running: Running | null = null
+  const start = (): void => {
+    forgetTourSeen(storage)
+    running?.finish(false)
+    running = tourCallout(page, document, storage, () => {
+      running = null
+    })
+    running.show(0)
+  }
+  return {
+    start,
+    startOnHome: (routeName) => {
+      if (mayStartTour(routeName, hasSeenTour(storage), running !== null)) start()
+    },
+  }
 }
 
-export const startTour = (): void => {
-  forgetTourSeen(storage)
-  running?.finish(false)
-  running = tourCallout()
-  running.show(0)
-}
-
-export const TOUR_ID = 'tour'
+const TOUR_ID = 'tour'
 
 interface Running {
   readonly show: (step: number) => void
   readonly finish: (remember: boolean) => void
 }
 
-let running: Running | null = null
-
-const storage = (): TourStorage => globalThis.localStorage
-
-const tourCallout = (): Running => {
+const tourCallout = (
+  page: Page,
+  document: PageDocument,
+  storage: () => TourStorage,
+  ended: () => void,
+): Running => {
   const callout = h('div', {
     id: TOUR_ID,
     class: 'tour',
@@ -45,47 +62,48 @@ const tourCallout = (): Running => {
     'aria-labelledby': 'tour-title',
     'aria-describedby': 'tour-body',
   })
-  document.body.append(callout)
+  document.addToBody(callout)
   let target: HTMLElement | null = null
   let current = 0
   const release = (): void => {
     target?.classList.remove('tour-target')
     target?.style.removeProperty('anchor-name')
   }
-  const returnFocusTo = document.activeElement instanceof HTMLElement ? document.activeElement : null
-  const onKey = (event: KeyboardEvent): void => {
-    if (event.key !== 'Escape') return
+  const returnFocusTo = document.focused() as HTMLElement | null
+  const onKey = (event: Event): void => {
+    if ((event as KeyboardEvent).key !== 'Escape') return
     event.preventDefault()
     finish(true)
   }
-  const onResize = (): void => {
-    if (visibleTarget(TOUR_STEPS[current]!) !== target)
-      show(current, callout.contains(document.activeElement))
-  }
+  const stopResizing = page.on('resize', () => {
+    if (visibleTarget(document, TOUR_STEPS[current]!) !== target)
+      show(current, callout.contains(document.focused()))
+  })
   const finish = (remember: boolean): void => {
     if (remember) rememberTourSeen(storage)
-    document.removeEventListener('keydown', onKey)
-    removeEventListener('resize', onResize)
+    stopKeys()
+    stopResizing()
     release()
     const returnTo = returnFocusTo?.isConnected === true ? returnFocusTo : target
     callout.hidePopover?.()
     callout.remove()
-    running = null
+    ended()
     returnTo?.focus?.()
   }
   const show = (step: number, moveFocus = true): void => {
     current = step
     release()
     const id = TOUR_STEPS[step]!
-    target = visibleTarget(id)
+    target = visibleTarget(document, id)
     target?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
     target?.classList.add('tour-target')
     target?.style.setProperty('anchor-name', '--hb-tour-target')
-    const isAnchored = target !== null && anchorsAreSupported()
+    const isAnchored = target !== null && page.supportsAnchors()
+    const model = tourStepModel(step, isAnchored)
     callout.classList.toggle('is-anchored', isAnchored)
     callout.classList.toggle('is-in-header', target?.closest('.titlebar') !== null && target !== null)
-    callout.dataset.placement = PLACEMENT[id]
-    replaceChildren(callout, stepContent(id, step, isAnchored, finish, move))
+    callout.dataset.placement = model.placement
+    replaceChildren(callout, stepContent(model, finish, move))
     if (!callout.matches(':popover-open')) callout.showPopover?.()
     if (moveFocus) callout.querySelector<HTMLElement>('.tour-next')?.focus()
   }
@@ -94,95 +112,40 @@ const tourCallout = (): Running => {
     if (next === null) finish(true)
     else show(next)
   }
-  document.addEventListener('keydown', onKey)
-  addEventListener('resize', onResize)
+  const stopKeys = document.listen('keydown', onKey)
   return { show, finish }
 }
 
-const PLACEMENT: Readonly<Record<TourStepId, 'beside' | 'below'>> = {
-  notes: 'beside',
-  connect: 'below',
-  channels: 'below',
-  profile: 'below',
-}
-
-/** Without anchor positioning the callout cannot sit beside its control, so it names it in words. */
-const anchorsAreSupported = (): boolean => globalThis.CSS?.supports?.('anchor-name: --a') === true
-
-const visibleTarget = (id: TourStepId): HTMLElement | null => {
-  const found = document.querySelector<HTMLElement>(`[data-tour="${id}"]`)
+const visibleTarget = (document: PageDocument, id: TourStepId): HTMLElement | null => {
+  const found = document.find(`[data-tour="${id}"]`)
   return found?.checkVisibility() === true ? found : null
 }
 
 const stepContent = (
-  id: TourStepId,
-  step: number,
-  targetShown: boolean,
+  model: TourStepModel,
   finish: (remember: boolean) => void,
   move: (direction: 1 | -1) => void,
-): ReadonlyArray<HTMLElement | false> => {
-  const text = STEP_TEXT[id]()
-  const last = step === TOUR_STEPS.length - 1
-  return [
+): ReadonlyArray<HTMLElement | false> => [
+  h('div', { class: 'tour-head' }, pip('waving', 2), h('p', { class: 'tour-progress' }, model.progress)),
+  h('h2', { id: 'tour-title' }, model.title),
+  h('p', { id: 'tour-body' }, model.body),
+  model.lookFor !== null && h('p', { class: 'tour-look-for' }, model.lookFor),
+  model.connect !== null &&
     h(
-      'div',
-      { class: 'tour-head' },
-      pip('waving', 2),
-      h('p', { class: 'tour-progress' }, strings.tour.progress({ step: step + 1, total: TOUR_STEPS.length })),
+      'a',
+      { class: 'button', href: model.connect.href, on: { click: () => finish(true) } },
+      model.connect.label,
     ),
-    h('h2', { id: 'tour-title' }, text.title),
-    h('p', { id: 'tour-body' }, text.body),
-    !targetShown && h('p', { class: 'tour-look-for' }, strings.tour.lookFor({ place: text.place })),
-    id === 'connect' &&
-      h(
-        'a',
-        {
-          class: 'button',
-          href: hrefFor({ name: 'agent', section: 'connection' }),
-          on: { click: () => finish(true) },
-        },
-        strings.tour.connectAction,
-      ),
+  h(
+    'div',
+    { class: 'tour-actions' },
     h(
-      'div',
-      { class: 'tour-actions' },
-      h(
-        'button',
-        { type: 'button', class: 'link tour-skip', on: { click: () => finish(true) } },
-        strings.tour.skip,
-      ),
-      step > 0 &&
-        h('button', { type: 'button', class: 'tour-back', on: { click: () => move(-1) } }, strings.tour.back),
-      h(
-        'button',
-        { type: 'button', class: 'primary tour-next', on: { click: () => move(1) } },
-        last ? strings.tour.done : strings.tour.next,
-      ),
+      'button',
+      { type: 'button', class: 'link tour-skip', on: { click: () => finish(true) } },
+      strings.tour.skip,
     ),
-  ]
-}
-
-const STEP_TEXT: Readonly<
-  Record<TourStepId, () => { readonly title: string; readonly body: string; readonly place: string }>
-> = {
-  notes: () => ({
-    title: strings.tour.notesTitle,
-    body: strings.tour.notesBody,
-    place: strings.conversations,
-  }),
-  connect: () => ({
-    title: strings.tour.connectTitle,
-    body: strings.tour.connectBody,
-    place: strings.navMyAgent,
-  }),
-  channels: () => ({
-    title: strings.tour.channelsTitle,
-    body: strings.tour.channelsBody,
-    place: strings.channels,
-  }),
-  profile: () => ({
-    title: strings.tour.profileTitle,
-    body: strings.tour.profileBody,
-    place: strings.tour.menuPlace,
-  }),
-}
+    model.back !== null &&
+      h('button', { type: 'button', class: 'tour-back', on: { click: () => move(-1) } }, model.back),
+    h('button', { type: 'button', class: 'primary tour-next', on: { click: () => move(1) } }, model.next),
+  ),
+]

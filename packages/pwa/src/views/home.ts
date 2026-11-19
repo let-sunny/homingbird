@@ -1,61 +1,73 @@
-import type { Lifetime } from '@homingbird/ui'
-import { h, region } from '@homingbird/ui'
-import { mayRestoreConversation, mostRecentConversation } from '../home.ts'
+import { type Lifetime, h, region } from '@homingbird/ui'
+import {
+  type HomeModel,
+  type StartingPoints,
+  conversationToRestore,
+  homeModel,
+  startingPointsModel,
+} from '../models/home.ts'
 import { hrefFor } from '../routes.ts'
-import { conversations, conversationsLoaded, openedForThePerson } from '../state.ts'
-import { strings } from '../strings.ts'
+import type { ViewContext } from './context.ts'
 import { emptyWithPip, loading } from './parts.ts'
 import { pip } from './pip.ts'
-import { startTour } from './tour.ts'
 
-export const homeView = (life: Lifetime): HTMLElement => {
-  const host = region(life, [conversations, conversationsLoaded], () => {
-    if (!conversationsLoaded.get()) return loading()
-    if (conversations.get().length === 0) return startingPoints()
-    return emptyWithPip('waving', strings.pickConversation)
-  })
+/** Home, which on a wide screen opens the most recent conversation by itself. */
+export const homeView = (context: ViewContext, life: Lifetime): HTMLElement => {
+  const { state, page } = context
+  const host = region(life, [state.conversations, state.conversationsLoaded], () =>
+    renderHome(
+      homeModel({ loaded: state.conversationsLoaded.get(), conversations: state.conversations.get() }),
+      context,
+    ),
+  )
   const openMostRecent = (): void => {
-    if (!conversationsLoaded.get() || !sitsBesideTheList(host) || !mayRestoreConversation(location.hash))
-      return
-    const recent = mostRecentConversation(conversations.get())
+    const recent = conversationToRestore({
+      loaded: state.conversationsLoaded.get(),
+      conversations: state.conversations.get(),
+      besideTheList: sitsBesideTheList(host),
+      hash: page.hash(),
+    })
     if (recent === null) return
-    openedForThePerson.set(recent.id)
-    location.replace(hrefFor({ name: 'conversation', id: recent.id }))
+    state.openedForThePerson.set(recent)
+    page.replace(hrefFor({ name: 'conversation', id: recent }))
   }
-  life.add(conversations.subscribe(() => requestAnimationFrame(openMostRecent)))
-  life.add(conversationsLoaded.subscribe(() => requestAnimationFrame(openMostRecent)))
-  requestAnimationFrame(openMostRecent)
+  life.add(state.conversations.subscribe(() => page.nextFrame(openMostRecent)))
+  life.add(state.conversationsLoaded.subscribe(() => page.nextFrame(openMostRecent)))
+  page.nextFrame(openMostRecent)
   return host
 }
 
-export const startingPoints = (): HTMLElement =>
+/** Where to begin, also shown in the sidebar while there is no conversation yet. */
+export const startingPoints = (context: Pick<ViewContext, 'tour'>): HTMLElement =>
+  renderStartingPoints(startingPointsModel(), context)
+
+const renderStartingPoints = (model: StartingPoints, context: Pick<ViewContext, 'tour'>): HTMLElement =>
   h(
     'section',
     { class: 'starting-points', 'aria-labelledby': 'starting-points-title' },
     pip('waving', 3),
-    h('h2', { id: 'starting-points-title' }, strings.start.title),
+    h('h2', { id: 'starting-points-title' }, model.title),
     h(
       'ul',
       {},
-      start(hrefFor({ name: 'channels' }), strings.start.askChannel, strings.start.askChannelHint),
-      start(hrefFor({ name: 'people' }), strings.start.findPerson, strings.start.findPersonHint),
-      start(
-        hrefFor({ name: 'agent', section: 'connection' }),
-        strings.start.connect,
-        strings.start.connectHint,
+      model.points.map((point) =>
+        h('li', {}, h('a', { class: 'button', href: point.href }, point.label), h('span', {}, point.hint)),
       ),
     ),
     h(
       'button',
-      { type: 'button', class: 'link take-tour', on: { click: () => startTour() } },
-      strings.start.tour,
+      { type: 'button', class: 'link take-tour', on: { click: () => context.tour.start() } },
+      model.tour,
     ),
   )
-
-const start = (href: string, label: string, hint: string): HTMLElement =>
-  h('li', {}, h('a', { class: 'button', href }, label), h('span', {}, hint))
 
 const sitsBesideTheList = (host: HTMLElement): boolean =>
   host.isConnected &&
   host.checkVisibility() &&
-  document.querySelector<HTMLElement>('.sidebar')?.checkVisibility() === true
+  host.ownerDocument.querySelector<HTMLElement>('.sidebar')?.checkVisibility() === true
+
+const renderHome = (model: HomeModel, context: Pick<ViewContext, 'tour'>): HTMLElement => {
+  if (model.kind === 'loading') return loading()
+  if (model.kind === 'start') return renderStartingPoints(model.start, context)
+  return emptyWithPip('waving', model.text)
+}

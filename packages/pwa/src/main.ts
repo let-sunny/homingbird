@@ -1,197 +1,43 @@
-import type { ConversationId, Me } from '@homingbird/protocol'
-import { type Child, type Lifetime, h, lifetime, region, replaceChildren } from '@homingbird/ui'
-import { boot, browserLanguages, launch } from './actions.ts'
+import { httpApi } from '@homingbird/client'
+import { systemClock } from '@homingbird/kernel'
+import { createApp } from './app.ts'
 import { applyAppearance, currentAppearance } from './appearance.ts'
-import { featureOn } from './features.ts'
+import { browserPage } from './browser-page.ts'
 import { supportInvokerCommands } from './invokers.ts'
 import { preferredLanguage } from './languages.ts'
-import { type Route, arrivedToConnect, currentHashFor, parseRoute, signInHref } from './routes.ts'
-import { announcement, branding, notice, route, serverInfo, session } from './state.ts'
-import { strings, useLanguage } from './strings.ts'
-import { profileView } from './views/account.ts'
-import { adminView } from './views/admin.ts'
-import { agentTrustView } from './views/agent-trust.ts'
-import { channelView, channelsView } from './views/channels.ts'
-import { characterEditorView } from './views/character.ts'
-import { consentView, deviceView } from './views/connect.ts'
-import { debateView } from './views/debate-room.ts'
-import { debatesView } from './views/debates.ts'
-import { dialogHost } from './views/dialog.ts'
-import { homeView } from './views/home.ts'
-import { emptyWithPip } from './views/parts.ts'
-import { peopleView } from './views/people.ts'
-import { searchView } from './views/search.ts'
-import { shell } from './views/shell.ts'
-import { signInView } from './views/sign-in.ts'
-import { threadView } from './views/thread-view.ts'
-import { startTourOnHome } from './views/tour.ts'
+import { browserDocument } from './page-document.ts'
+import { createState } from './state.ts'
+import { useLanguage } from './strings.ts'
+import { boot } from './tasks/boot.ts'
+import { loadConversations } from './tasks/workspace.ts'
+import { showApp } from './views/app-shell.ts'
+import { createViewContext } from './views/context.ts'
 
-const start = (root: HTMLElement): void => {
-  useLanguage(preferredLanguage(undefined, browserLanguages()))
-  applyAppearance(currentAppearance())
-  supportInvokerCommands(document)
-  replaceOldAddress()
-  addEventListener('hashchange', () => {
-    if (replaceOldAddress()) return
-    inTransition(() => route.set(parseRoute(location.hash)))
-  })
-  branding.subscribe((current) => {
-    document.title = current.name
-  })
-
-  const appLife = lifetime()
-  let stageLife = lifetime()
-  const stage = h('main', { class: 'stage' })
-  const drawStage = (me: Me): void => {
-    stageLife.end()
-    stageLife = lifetime()
-    replaceChildren(stage, stageFor(stageLife, me, route.get()))
-  }
-
-  const draw = (): void => {
-    appLife.end()
-    const me = session.get()
-    if (me === 'loading') {
-      replaceChildren(root, h('p', { class: 'loading boot' }, strings.loading))
-      return
-    }
-    if (me === null && arrivedToConnect(route.get())) {
-      location.replace(signInHref(location.hash))
-      return
-    }
-    if (me === null) {
-      replaceChildren(root, signInView(refusalIn(route.get())))
-      return
-    }
-    const focused = arrivedToConnect(route.get())
-    drawStage(me)
-    appLife.add(
-      route.subscribe(() => {
-        if (arrivedToConnect(route.get()) === focused) drawStage(me)
-        else draw()
-        if (!focused) requestAnimationFrame(() => startTourOnHome(route.get().name))
-      }),
-    )
-    if (!focused) requestAnimationFrame(() => startTourOnHome(route.get().name))
-    replaceChildren(
-      root,
-      focused ? stage : shell(appLife, me, stage),
-      dialogHost(),
-      toast(appLife),
-      liveAnnouncer(appLife),
-    )
-  }
-  session.subscribe(draw)
-  serverInfo.subscribe(draw)
-  draw()
-  launch(boot)
-  registerServiceWorker()
-}
-
-const stageFor = (life: Lifetime, me: Me, current: Route): Child => {
-  switch (current.name) {
-    case 'home':
-      return homeView(life)
-    case 'conversation':
-      return threadView(life, me, current.id as ConversationId)
-    case 'people':
-      return peopleView(life, me)
-    case 'channels':
-      return channelsView(life)
-    case 'channel':
-      return channelView(life, current.slug)
-    case 'debates':
-      return featureOn('debateRooms') ? debatesView(life, me) : notFound()
-    case 'debate':
-      return featureOn('debateRooms') ? debateView(life, me, current.id) : notFound()
-    case 'search':
-      return searchView(life, me, current.query)
-    case 'profile':
-      return profileView(life, me)
-    case 'agent':
-      return agentTrustView(life, me, current.section)
-    case 'character':
-      return featureOn('characters') ? characterEditorView(life, me, current.draft, current.from) : notFound()
-    case 'device':
-      return deviceView(life, current.code)
-    case 'consent':
-      return consentView(life, current.id)
-    case 'admin':
-      return me.member.role === 'admin' ? adminView(life, me, current.section) : notFound()
-    case 'signed-out':
-    case 'unknown':
-      return notFound()
-  }
-}
-
-const notFound = (): Child =>
-  emptyWithPip('failed', strings.notFound, h('a', { class: 'button', href: '#/' }, strings.backHome))
-
-const replaceOldAddress = (): boolean => {
-  const current = currentHashFor(location.hash)
-  if (current === null) return false
-  location.replace(current)
-  return true
-}
-
-const refusalIn = (current: Route): string | null => (current.name === 'signed-out' ? current.reason : null)
-
-const NOTICE_MS = 6000
-
-const toast = (life: Lifetime): HTMLElement => {
-  let timer: ReturnType<typeof setTimeout> | undefined
-  life.add(
-    notice.subscribe((current) => {
-      clearTimeout(timer)
-      if (current !== null) timer = setTimeout(() => notice.set(null), NOTICE_MS)
-    }),
-  )
-  return region(
-    life,
-    [notice],
-    () => {
-      const current = notice.get()
-      return (
-        current !== null &&
-        h(
-          'div',
-          { class: `toast is-${current.kind}`, role: current.kind === 'error' ? 'alert' : 'status' },
-          h('span', {}, current.text),
-          current.link !== undefined &&
-            h('a', { href: current.link.href, on: { click: () => notice.set(null) } }, current.link.label),
-          h(
-            'button',
-            {
-              type: 'button',
-              class: 'icon',
-              'aria-label': strings.close,
-              on: { click: () => notice.set(null) },
-            },
-            '✕',
-          ),
-        )
-      )
+const page = browserPage(window)
+const app = createApp(
+  {
+    clock: systemClock,
+    api: httpApi({ serverUrl: location.origin, sendsCookies: true }),
+    state: createState(location.hash),
+    page,
+    random: {
+      id: () => crypto.randomUUID(),
+      seed: () => crypto.getRandomValues(new Uint32Array(1))[0]!,
     },
-    { class: 'toast-host' },
-  )
-}
+  },
+  loadConversations,
+)
+const context = createViewContext(
+  app,
+  browserDocument(() => document),
+)
 
-const liveAnnouncer = (life: Lifetime): HTMLElement =>
-  h(
-    'div',
-    { class: 'visually-hidden', role: 'status' },
-    region(life, [announcement], () => announcement.get()),
-  )
-
-const inTransition = (change: () => void): void => {
-  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches
-  if (reducedMotion || !('startViewTransition' in document)) change()
-  else document.startViewTransition(change).ready.catch(() => {})
-}
-
-const registerServiceWorker = (): void => {
-  if ('serviceWorker' in navigator)
-    void navigator.serviceWorker.register('/service-worker.js').catch(() => {})
-}
-
-start(document.getElementById('app') as HTMLElement)
+useLanguage(preferredLanguage(undefined, page.languages()))
+applyAppearance(document.documentElement, page.storage, currentAppearance(page.storage))
+supportInvokerCommands(document)
+app.state.branding.subscribe((current) => {
+  document.title = current.name
+})
+showApp(context, document.getElementById('app') as HTMLElement, app.launch)
+app.launch(boot)
+if ('serviceWorker' in navigator) void navigator.serviceWorker.register('/service-worker.js').catch(() => {})

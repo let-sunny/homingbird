@@ -18,6 +18,7 @@ describe('authorshipOf', () => {
     expect(authorshipOf({ origin: 'agent' })).toBe('agent')
     expect(authorshipOf({ origin: 'human_edited' })).toBe('edited')
     expect(authorshipOf({ origin: 'human' })).toBe('person')
+    expect(authorshipOf({ origin: 'unknown' })).toBe('agent')
   })
 })
 

@@ -1,28 +1,17 @@
-import type { CharacterSpec, Member } from '@homingbird/protocol'
+import type { Clock } from '@homingbird/kernel'
 import type { StateName } from '@homingbird/sprites'
-import { h } from '@homingbird/ui'
-import { builtInIdOf, characterOf, framePixels, frameTimings } from '../characters.ts'
-import { strings } from '../strings.ts'
-
-export type CharacterScale = 1 | 2 | 3 | 4
-
-export type Motion = 'still' | 'once' | 'loop'
-
-export interface AvatarOptions {
-  readonly scale?: CharacterScale
-  readonly state?: StateName
-  readonly motion?: Motion
-  readonly settle?: StateName
-  readonly label?: string | null
-}
+import { h, later } from '@homingbird/ui'
+import type { Page } from '../browser-page.ts'
+import { framePixels, frameTimings } from '../characters.ts'
+import type { AvatarModel } from '../models/avatar.ts'
 
 /**
- * A member's character on a canvas, drawn by `packages/sprites` at a whole-number scale and shown with
+ * A character on a canvas, drawn by `packages/sprites` at a whole-number scale and shown with
  * nearest-neighbour sampling. Still by default: only what changes plays, and never with reduced motion.
  */
-export const characterAvatar = (spec: CharacterSpec, options: AvatarOptions = {}): HTMLCanvasElement => {
-  const { scale = 2, state = 'idle', motion = 'still', settle = 'idle', label = null } = options
-  const density = Math.max(1, Math.round(scale * (globalThis.devicePixelRatio ?? 1)))
+export const renderAvatar = (screen: AvatarScreen, avatar: AvatarModel): HTMLCanvasElement => {
+  const { spec, scale, state, motion, settle, label } = avatar
+  const density = Math.max(1, Math.round(scale * screen.page.pixelRatio()))
   const canvas = h(
     'canvas',
     {
@@ -43,70 +32,44 @@ export const characterAvatar = (spec: CharacterSpec, options: AvatarOptions = {}
       ?.putImageData(new ImageData(new Uint8ClampedArray(pixels.data), pixels.width, pixels.height), 0, 0)
   }
   draw(state, 0)
-  if (motion !== 'still' && !prefersReducedMotion()) play(canvas, spec, state, motion, settle, draw)
+  if (motion !== 'still' && !screen.page.prefersReducedMotion()) play(screen.clock, canvas, avatar, draw)
   return canvas
 }
 
-/** A member's character with a text alternative naming the person and the character. */
-export const memberAvatar = (
-  member: Pick<Member, 'name' | 'character'> | undefined,
-  options: Omit<AvatarOptions, 'label'> & { readonly labelled?: boolean } = {},
-): HTMLCanvasElement => {
-  const spec = characterOf(member)
-  const label =
-    options.labelled === false
-      ? null
-      : strings.character.avatarLabel({
-          person: member?.name ?? strings.formerMember,
-          character: characterName(spec),
-        })
-  return characterAvatar(spec, { ...options, label })
-}
+export const renderGroupAvatar = (screen: AvatarScreen, faces: ReadonlyArray<AvatarModel>): HTMLElement =>
+  h(
+    'span',
+    { class: 'character-group', 'aria-hidden': 'true' },
+    faces.map((face) => renderAvatar(screen, face)),
+  )
 
-/** A built-in character in the reader's language; a made one by the name its maker gave it. */
-export const characterName = (spec: CharacterSpec): string => {
-  const builtIn = builtInIdOf(spec)
-  return builtIn === null
-    ? spec.name
-    : ((strings.character.names as Readonly<Record<string, string>>)[builtIn] ?? spec.name)
+/** What drawing a character needs from its surroundings. */
+export interface AvatarScreen {
+  readonly clock: Clock
+  readonly page: Pick<Page, 'pixelRatio' | 'prefersReducedMotion'>
 }
 
 const play = (
+  clock: Clock,
   canvas: HTMLCanvasElement,
-  spec: CharacterSpec,
-  state: StateName,
-  motion: Exclude<Motion, 'still'>,
-  settle: StateName,
+  avatar: AvatarModel,
   draw: (state: StateName, index: number) => void,
 ): void => {
-  const timings = frameTimings(spec, state)
+  const timings = frameTimings(avatar.spec, avatar.state)
   let index = 0
   let rounds = 0
   const step = (): void => {
     if (!canvas.isConnected) return
     index = (index + 1) % timings.length
     if (index === 0) rounds++
-    if (motion === 'once' && rounds >= ONCE_ROUNDS) {
-      draw(settle, 0)
+    if (avatar.motion === 'once' && rounds >= ONCE_ROUNDS) {
+      draw(avatar.settle, 0)
       return
     }
-    draw(state, index)
-    setTimeout(step, timings[index])
+    draw(avatar.state, index)
+    later(clock, timings[index]!, step)
   }
-  setTimeout(step, timings[0])
+  later(clock, timings[0]!, step)
 }
 
-const prefersReducedMotion = (): boolean =>
-  globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? true
-
 const ONCE_ROUNDS = 2
-
-/** A group conversation: the first two other people side by side, at the smallest scale. */
-export const groupAvatar = (
-  people: ReadonlyArray<Pick<Member, 'name' | 'character'> | undefined>,
-): HTMLElement =>
-  h(
-    'span',
-    { class: 'character-group', 'aria-hidden': 'true' },
-    people.slice(0, 2).map((person) => memberAvatar(person, { scale: 1, labelled: false })),
-  )

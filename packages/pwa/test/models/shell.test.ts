@@ -1,0 +1,174 @@
+import { describe, expect, it } from 'vitest'
+import { type SidebarInput, paneFor, sidebarModel, tabsModel, userMenuModel } from '../../src/models/shell.ts'
+import { timeShown } from '../../src/models/time.ts'
+import { strings } from '../../src/strings.ts'
+import {
+  ANA,
+  BEN,
+  CY,
+  ROOM,
+  channel,
+  conversation,
+  entry,
+  me,
+  member,
+  note,
+  serverInfo,
+} from '../support/fixtures.ts'
+
+describe('tabsModel', () => {
+  it('marks the tab of the page shown, and offers Debates only where it is on', () => {
+    const tabs = tabsModel({ name: 'conversation', id: ROOM }, serverInfo())
+    expect(tabs.map((tab) => tab.label)).toEqual([
+      strings.navNotes,
+      strings.navMyAgent,
+      strings.navPeople,
+      strings.channels,
+      strings.navSearch,
+    ])
+    expect(tabs.filter((tab) => tab.current).map((tab) => tab.label)).toEqual([strings.navNotes])
+    expect(tabs[1]).toEqual({ label: strings.navMyAgent, href: '#/agent', current: false, tour: 'connect' })
+    expect(
+      tabsModel({ name: 'debate', id: 'x' }, serverInfo({ debateRooms: true })).find((tab) => tab.current)
+        ?.label,
+    ).toBe(strings.navDebates)
+  })
+})
+
+describe('userMenuModel', () => {
+  it('offers administration only to an administrator', () => {
+    expect(userMenuModel(me()).links.map((link) => link.href)).toEqual(['#/me'])
+    expect(userMenuModel(me({}, { role: 'admin' }))).toEqual({
+      name: 'Ana',
+      email: 'ana@example.com',
+      links: [
+        { label: strings.menuProfile, href: '#/me' },
+        { label: strings.menuAdmin, href: '#/admin/settings' },
+      ],
+      signOut: strings.menuSignOut,
+    })
+  })
+})
+
+describe('paneFor', () => {
+  it('shows the list on home and the page everywhere else', () => {
+    expect(paneFor({ name: 'home' })).toBe('list')
+    expect(paneFor({ name: 'people' })).toBe('stage')
+  })
+})
+
+describe('sidebarModel', () => {
+  const members = new Map([
+    [ANA, member(ANA, 'Ana')],
+    [BEN, member(BEN, 'Ben')],
+    [CY, member(CY, 'Cy')],
+  ])
+  const input = (fields: Partial<SidebarInput>): SidebarInput => ({
+    me: me(),
+    route: { name: 'home' },
+    conversations: [],
+    loaded: true,
+    members,
+    directory: [],
+    channels: [],
+    agentCount: 1,
+    charactersOn: true,
+    now: 10,
+    arrived: new Set(),
+    ...fields,
+  })
+
+  it('waits for the list, says when there are no conversations, and invites connecting an agent', () => {
+    expect(sidebarModel(input({ loaded: false })).people).toEqual({ kind: 'loading' })
+    expect(sidebarModel(input({ agentCount: 0 }))).toEqual({
+      onboarding: true,
+      people: { kind: 'none' },
+      channelRooms: [],
+      archived: null,
+    })
+  })
+
+  it('shows a direct conversation with the other person, their presence, its last note and its counts', () => {
+    const direct = conversation({
+      lastNote: note('n1', { body: 'Hello there', sentAt: 9 }),
+      unreadCount: 2,
+      draftCount: 1,
+    })
+    const model = sidebarModel(
+      input({
+        conversations: [direct],
+        route: { name: 'conversation', id: ROOM },
+        directory: [entry(BEN, 'Ben', { presence: { humanOnline: true, agentOnline: false } })],
+        arrived: new Set([ROOM]),
+      }),
+    )
+    if (model.people.kind !== 'rows') throw new Error('expected rows')
+    const [row] = model.people.rows
+    expect(row).toMatchObject({
+      id: ROOM,
+      href: `#/c/${ROOM}`,
+      current: true,
+      title: 'Ben',
+      presence: { humanOnline: true, agentOnline: false },
+      archived: false,
+      channel: null,
+      preview: 'Hello there',
+      time: timeShown(9, 10),
+      unread: { count: 2, label: strings.unread({ count: 2 }) },
+      drafts: { text: '✎1', label: strings.draftsWaiting({ count: 1 }) },
+    })
+    expect(row!.face).toMatchObject({
+      kind: 'member',
+      avatar: { state: 'new-note', motion: 'once', label: null },
+    })
+  })
+
+  it('shows a group with two faces, a quiet conversation by its drafts or as empty', () => {
+    const group = conversation({
+      kind: 'group',
+      participantIds: [ANA, BEN, CY],
+      title: 'Team',
+      draftCount: 2,
+    })
+    const quiet = conversation({ id: 'conv_quiet0000000' as never })
+    const model = sidebarModel(input({ conversations: [group, quiet] }))
+    if (model.people.kind !== 'rows') throw new Error('expected rows')
+    const [team, empty] = model.people.rows
+    expect(team!.face.kind).toBe('group')
+    expect(team!.preview).toBe(strings.draftsWaiting({ count: 2 }))
+    expect(team!.presence).toBeNull()
+    expect(empty!.preview).toBe(strings.noNotesYet)
+    expect(empty!.face).toMatchObject({ kind: 'member', avatar: { state: 'idle', motion: 'still' } })
+    expect(empty!.time).toBeNull()
+    const arrived = sidebarModel(input({ conversations: [quiet], arrived: new Set([quiet.id]) }))
+    expect(arrived.people.kind === 'rows' && arrived.people.rows[0]!.face).toMatchObject({
+      avatar: { state: 'new-note' },
+    })
+  })
+
+  it('lists channel rooms with their counts, and archived rooms apart, open when one is shown', () => {
+    const billing = channel('billing')
+    const room = conversation({ id: billing.conversationId, kind: 'channel', title: 'billing' })
+    const old = conversation({
+      id: 'conv_old000000000' as never,
+      kind: 'channel',
+      title: 'old',
+      archivedAt: 5,
+    })
+    const model = sidebarModel(
+      input({
+        conversations: [room, old],
+        channels: [billing],
+        route: { name: 'conversation', id: 'conv_old000000000' },
+      }),
+    )
+    expect(model.channelRooms[0]).toMatchObject({ face: { kind: 'channel' }, channel: billing })
+    expect(model.archived).toMatchObject({ title: strings.archivedGroup({ count: 1 }), open: true })
+    expect(model.archived!.rows[0]).toMatchObject({
+      archived: true,
+      face: { kind: 'channel' },
+      current: true,
+    })
+    expect(sidebarModel(input({ conversations: [old] })).archived!.open).toBe(false)
+  })
+})

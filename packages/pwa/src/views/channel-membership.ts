@@ -1,84 +1,55 @@
-import type { Channel, ChannelMember, MemberId } from '@homingbird/protocol'
+import type { AsRead, ChannelMember, MemberId } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, region, replaceChildren, signal } from '@homingbird/ui'
+import { isPrivate } from '../channels.ts'
 import {
-  joinChannel,
-  launch,
-  leaveChannel,
-  loadChannelMembers,
-  setAnswering,
-  setChannelManager,
-  setChannelMember,
-  setChannelVisibility,
-} from '../actions.ts'
-import { type Roster, channelLabel, isPrivate, rosterFacts } from '../channels.ts'
-import { directory, members, signedIn } from '../state.ts'
+  type Confirmation,
+  type MemberRow,
+  type MembersPanelModel,
+  type RoomControls,
+  answeringModel,
+  membersPanelModel,
+  roomControlsModel,
+  rosterNeed,
+} from '../models/channel-membership.ts'
+import { signedIn } from '../state.ts'
 import { strings } from '../strings.ts'
-import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
-import { button, loading, youMark } from './parts.ts'
+import type { ViewContext } from './context.ts'
+import { closeDialog, opensDialog } from './dialog.ts'
+import { button, dialogActions, disabledWithReason, loading, privateMarkOf, youMark } from './parts.ts'
 
-export const rosters = signal<ReadonlyMap<string, Roster>>(new Map())
-
-export const roomControls = (channel: Channel): HTMLElement => {
-  const facts = rosterFacts(rosterOf(channel), signedIn()?.member.id ?? null)
-  return h(
-    'div',
-    { class: 'room-controls' },
-    channel.joined && answeringToggle(channel),
-    h(
-      'div',
-      { class: 'room-actions' },
-      channel.managing &&
-        h(
-          'button',
-          {
-            type: 'button',
-            class: 'manage-members',
-            ...opensDialog(strings.membersTitle({ channel: channelLabel(channel.slug) }), (life) =>
-              membersPanel(life, channel),
-            ),
-          },
-          strings.manageMembers,
-        ),
-      channel.joined &&
-        (facts.viewerIsLastManager
-          ? disabledWithReason(strings.leaveChannel, strings.lastManagerCannotLeave, 'leave-channel')
-          : h(
-              'button',
-              {
-                type: 'button',
-                class: 'leave-channel',
-                ...opensDialog(strings.leaveChannelTitle({ channel: channelLabel(channel.slug) }), () =>
-                  leaveForm(channel),
-                ),
-              },
-              strings.leaveChannel,
-            )),
+/** A channel's own controls: answering there, managing its members, and leaving it. */
+export const roomControls = (context: ViewContext, channel: AsRead.Channel): HTMLElement => {
+  const { state } = context
+  const need = rosterNeed(channel, state.rosters.get())
+  if (need.stale) refreshRoster(context, channel)
+  return renderRoomControls(
+    roomControlsModel(
+      channel,
+      need.roster,
+      signedIn(state)?.member.id ?? null,
+      signedIn(state)?.member.role === 'admin',
     ),
+    channel,
+    context,
   )
 }
 
-export const privateMark = (channel: Channel): Child =>
-  isPrivate(channel) &&
-  h(
-    'span',
-    { class: 'private-mark' },
-    h('span', { class: 'lock-mark', 'aria-hidden': 'true' }),
-    strings.privateChannel,
-  )
+/** The lock beside a private channel's name. */
+export const privateMark = (channel: AsRead.Channel): Child =>
+  isPrivate(channel) && privateMarkOf(strings.privateChannel)
 
-export const joinButtons = (channel: Channel): HTMLElement =>
+export const joinButtons = (context: ViewContext, channel: AsRead.Channel): HTMLElement =>
   h(
     'span',
     { class: 'join-buttons' },
-    button(strings.join, () => launch(joinChannel(channel.slug, false)), { class: 'join' }),
-    button(strings.joinAndAnswer, () => launch(joinChannel(channel.slug, true)), {
+    button(strings.join, () => context.actions.joinChannel(channel.slug, false), { class: 'join' }),
+    button(strings.joinAndAnswer, () => context.actions.joinChannel(channel.slug, true), {
       class: 'primary join-and-answer',
     }),
   )
 
-export const answeringToggle = (channel: Channel): HTMLElement => {
-  const labelId = `answering-label-${channel.slug}`
-  const hintId = `answering-${channel.slug}`
+export const answeringToggle = (context: ViewContext, channel: AsRead.Channel): HTMLElement => {
+  const model = answeringModel(channel)
   return h(
     'div',
     { class: 'answering-toggle' },
@@ -88,54 +59,28 @@ export const answeringToggle = (channel: Channel): HTMLElement => {
         type: 'button',
         class: 'switch',
         role: 'switch',
-        'aria-checked': String(channel.answering),
-        'aria-labelledby': labelId,
-        'aria-describedby': hintId,
-        on: { click: () => launch(setAnswering(channel.slug, !channel.answering)) },
+        'aria-checked': String(model.checked),
+        'aria-labelledby': model.labelId,
+        'aria-describedby': model.hintId,
+        on: { click: () => context.actions.setAnswering(channel.slug, !channel.answering) },
       },
       h('span', { class: 'switch-track', 'aria-hidden': 'true' }, h('span', { class: 'switch-thumb' })),
-      h('span', { class: 'switch-label', id: labelId }, strings.answerHere),
-      h(
-        'span',
-        { class: 'switch-state', 'aria-hidden': 'true' },
-        channel.answering ? strings.switchOn : strings.switchOff,
-      ),
+      h('span', { class: 'switch-label', id: model.labelId }, strings.answerHere),
+      h('span', { class: 'switch-state', 'aria-hidden': 'true' }, model.state),
     ),
-    h('small', { id: hintId }, strings.answerHereHint),
+    h('small', { id: model.hintId }, strings.answerHereHint),
   )
 }
 
-const rosterOf = (channel: Channel): Roster | null => {
-  if (!channel.managing || !channel.joined) return null
-  const cached = rosters.get().get(channel.slug)
-  if (cached?.memberCount !== channel.memberCount) refreshRoster(channel)
-  return cached ?? null
-}
-
-const rostersLoading = new Set<string>()
-
-const refreshRoster = (channel: Channel): void => {
+const refreshRoster = (context: ViewContext, channel: AsRead.Channel): void => {
   const key = `${channel.slug}:${channel.memberCount}`
-  if (rostersLoading.has(key)) return
-  rostersLoading.add(key)
-  launch(loadChannelMembers(channel.slug), (found) => {
-    rostersLoading.delete(key)
-    remember(channel, found)
-  })
+  const loading = context.state.rostersLoading
+  if (loading.has(key)) return
+  loading.add(key)
+  context.actions.loadChannelMembers(channel.slug, { done: () => loading.delete(key) })
 }
 
-const remember = (channel: Channel, found: ReadonlyArray<ChannelMember>): void =>
-  rosters.update((all) => new Map(all).set(channel.slug, { memberCount: found.length, members: found }))
-
-const disabledWithReason = (label: string, reason: string, kind: string): HTMLElement =>
-  h(
-    'span',
-    { class: 'disabled-control' },
-    h('button', { type: 'button', class: kind, disabled: true, 'aria-describedby': `${kind}-reason` }, label),
-    h('small', { id: `${kind}-reason` }, reason),
-  )
-
-const leaveForm = (channel: Channel): Child =>
+const leaveForm = (context: ViewContext, channel: AsRead.Channel, body: string): Child =>
   h(
     'form',
     {
@@ -143,90 +88,130 @@ const leaveForm = (channel: Channel): Child =>
       on: {
         submit: (event) => {
           event.preventDefault()
-          launch(leaveChannel(channel.slug), closeDialog, 'managers')
+          context.actions.leaveChannel(channel.slug, {
+            done: () => closeDialog(context),
+            attempt: 'managers',
+          })
         },
       },
     },
-    h('p', {}, leaveConsequence(channel)),
+    h('p', {}, body),
     dialogActions(strings.leaveChannel, 'danger'),
   )
 
-const membersPanel = (life: Lifetime, channel: Channel): Child => {
+const membersPanel = (context: ViewContext, life: Lifetime, channel: AsRead.Channel): Child => {
+  const { state, actions } = context
   const listed = signal<ReadonlyArray<ChannelMember> | null>(null)
-  const reload = (): void =>
-    launch(loadChannelMembers(channel.slug), (found) => {
-      listed.set(found)
-      remember(channel, found)
-    })
-  const changing = (change: ReturnType<typeof setChannelMember>): void => launch(change, reload, 'managers')
+  const reload = (): void => actions.loadChannelMembers(channel.slug, { done: (found) => listed.set(found) })
+  const changes = { done: reload, attempt: 'managers' as const }
   reload()
   const host = h('div', { class: 'dialog-body members-panel' })
   const confirm = (content: HTMLElement): void => replaceChildren(host, content)
+  const model = (): MembersPanelModel => {
+    const me = signedIn(state)
+    return membersPanelModel({
+      channel,
+      roster: listed.get(),
+      viewerId: me?.member.id ?? null,
+      viewerIsAdmin: me?.member.role === 'admin',
+      members: state.members.get(),
+      directory: state.directory.get(),
+    })
+  }
+  const panel = {
+    confirm,
+    setManager: (memberId: MemberId, isManager: boolean) =>
+      actions.setChannelManager(channel.slug, memberId, isManager, changes),
+    setMember: (memberId: MemberId, isMember: boolean) =>
+      actions.setChannelMember(channel.slug, memberId, isMember, changes),
+  }
+  const shown = model()
   replaceChildren(
     host,
-    signedIn()?.member.role === 'admin' &&
-      !channel.joined &&
-      h('p', { class: 'hint' }, strings.managedByAdmin),
+    shown.managedByAdmin !== null && h('p', { class: 'hint' }, shown.managedByAdmin),
     region(
       life,
-      [listed, members, directory],
-      () => {
-        const roster = listed.get()
-        if (roster === null) return loading()
-        const facts = rosterFacts(
-          { memberCount: roster.length, members: roster },
-          signedIn()?.member.id ?? null,
-        )
-        return [
-          h(
-            'ul',
-            { class: 'channel-members' },
-            roster.map((member) =>
-              member.memberId === signedIn()?.member.id
-                ? ownRow(channel, member, facts.viewerIsLastManager, confirm)
-                : memberRow(
-                    channel,
-                    member,
-                    facts.lastManagerId === member.memberId && roster.length > 1,
-                    changing,
-                  ),
-            ),
-          ),
-          isPrivate(channel) && addMemberForm(channel, roster, changing),
-          visibilitySwitch(channel, facts.hasManager, confirm),
-        ]
+      [listed, state.members, state.directory],
+      () => renderMembers(model(), context, channel, panel),
+      {
+        class: 'members-host',
       },
-      { class: 'members-host' },
     ),
   )
   return host
 }
 
-const nameOf = (memberId: MemberId): string => members.get().get(memberId)?.name ?? strings.formerMember
+interface Panel {
+  readonly confirm: (content: HTMLElement) => void
+  readonly setManager: (memberId: MemberId, isManager: boolean) => void
+  readonly setMember: (memberId: MemberId, isMember: boolean) => void
+}
 
-const roleMarks = (member: ChannelMember): HTMLElement =>
+const renderMembers = (
+  model: MembersPanelModel,
+  context: ViewContext,
+  channel: AsRead.Channel,
+  panel: Panel,
+): Child => {
+  if (model.rows === null) return loading()
+  const visibility = model.visibility
+  return [
+    h(
+      'ul',
+      { class: 'channel-members' },
+      model.rows.map((row) =>
+        row.kind === 'own' ? ownRow(row, context, channel, panel) : memberRow(row, panel),
+      ),
+    ),
+    model.addMember?.kind === 'nobody' && h('p', { class: 'hint' }, model.addMember.text),
+    model.addMember?.kind === 'choose' && addMemberForm(model.addMember.choices, panel),
+    visibility !== null &&
+      h(
+        'div',
+        { class: 'visibility-switch' },
+        h('p', {}, visibility.current),
+        visibility.change.kind === 'blocked'
+          ? disabledWithReason(visibility.change.label, visibility.change.reason, 'make-private')
+          : button(visibility.change.label, () =>
+              panel.confirm(
+                confirmation('visibility-confirmation', visibility.confirmation, () =>
+                  context.actions.setChannelVisibility(
+                    channel.slug,
+                    isPrivate(channel) ? 'open' : 'private',
+                    {
+                      done: () => closeDialog(context),
+                      attempt: 'visibility',
+                    },
+                  ),
+                ),
+              ),
+            ),
+      ),
+  ]
+}
+
+const roleMarks = (row: MemberRow): HTMLElement =>
   h(
     'span',
     { class: 'channel-member-roles' },
-    member.manager && h('span', { class: 'kind is-manager' }, strings.managerLabel),
-    member.answering && h('span', { class: 'kind is-helping' }, strings.answersLabel),
+    row.roles.map((role) => h('span', { class: role.className }, role.text)),
   )
 
 const ownRow = (
-  channel: Channel,
-  member: ChannelMember,
-  isLastManager: boolean,
-  confirm: (content: HTMLElement) => void,
+  row: Extract<MemberRow, { kind: 'own' }>,
+  context: ViewContext,
+  channel: AsRead.Channel,
+  panel: Panel,
 ): HTMLElement =>
   h(
     'li',
-    { class: 'channel-member is-self', data: { member: member.memberId } },
-    h('span', { class: 'channel-member-name' }, nameOf(member.memberId), youMark()),
-    roleMarks(member),
+    { class: 'channel-member is-self', data: { member: row.memberId } },
+    h('span', { class: 'channel-member-name' }, row.name, youMark()),
+    roleMarks(row),
     h(
       'span',
       { class: 'channel-member-actions' },
-      isLastManager
+      row.blocked !== null
         ? h(
             'span',
             { class: 'disabled-control' },
@@ -244,99 +229,81 @@ const ownRow = (
                 strings.leaveChannel,
               ),
             ),
-            h('small', { id: 'own-row-reason' }, strings.lastManagerOwnRow),
+            h('small', { id: 'own-row-reason' }, row.blocked),
           )
         : [
-            member.manager &&
-              button(strings.stepDown, () => confirm(stepDownConfirmation(channel, member.memberId)), {
-                class: 'step-down',
-              }),
-            button(strings.leaveChannel, () => confirm(leaveConfirmation(channel)), {
-              class: 'danger leave-own',
-            }),
+            row.stepDown !== null &&
+              button(
+                strings.stepDown,
+                () =>
+                  panel.confirm(
+                    confirmation('self-confirmation', row.stepDown!, () =>
+                      context.actions.setChannelManager(channel.slug, row.memberId, false, {
+                        done: () => closeDialog(context),
+                        attempt: 'managers',
+                      }),
+                    ),
+                  ),
+                { class: 'step-down' },
+              ),
+            button(
+              strings.leaveChannel,
+              () =>
+                panel.confirm(
+                  confirmation('self-confirmation', row.leave, () =>
+                    context.actions.leaveChannel(channel.slug, {
+                      done: () => closeDialog(context),
+                      attempt: 'managers',
+                    }),
+                  ),
+                ),
+              { class: 'danger leave-own' },
+            ),
           ],
     ),
   )
 
-const leaveConfirmation = (channel: Channel): HTMLElement =>
-  h(
-    'form',
-    {
-      class: 'self-confirmation',
-      on: {
-        submit: (event) => {
-          event.preventDefault()
-          launch(leaveChannel(channel.slug), closeDialog, 'managers')
-        },
-      },
-    },
-    h('h3', {}, strings.leaveChannelTitle({ channel: channelLabel(channel.slug) })),
-    h('p', {}, leaveConsequence(channel)),
-    dialogActions(strings.leaveChannel, 'danger'),
-  )
-
-const leaveConsequence = (channel: Channel): string =>
-  isPrivate(channel)
-    ? strings.leavePrivateChannelBody({ channel: channelLabel(channel.slug) })
-    : strings.leaveChannelBody
-
-const memberRow = (
-  channel: Channel,
-  member: ChannelMember,
-  keepsTheChannelManaged: boolean,
-  changing: (change: ReturnType<typeof setChannelMember>) => void,
-): HTMLElement =>
+const memberRow = (row: Extract<MemberRow, { kind: 'other' }>, panel: Panel): HTMLElement =>
   h(
     'li',
-    { class: 'channel-member', data: { member: member.memberId } },
-    h('span', { class: 'channel-member-name' }, nameOf(member.memberId)),
-    roleMarks(member),
+    { class: 'channel-member', data: { member: row.memberId } },
+    h('span', { class: 'channel-member-name' }, row.name),
+    roleMarks(row),
     h(
       'span',
       { class: 'channel-member-actions' },
-      !keepsTheChannelManaged &&
-        button(member.manager ? strings.revokeManager : strings.makeManager, () =>
-          changing(setChannelManager(channel.slug, member.memberId, !member.manager)),
-        ),
-      isPrivate(channel) &&
-        !keepsTheChannelManaged &&
-        button(strings.removeMember, () => changing(setChannelMember(channel.slug, member.memberId, false)), {
-          class: 'danger',
-        }),
+      row.manager !== null &&
+        button(row.manager.label, () => panel.setManager(row.memberId, row.manager!.makes)),
+      row.remove !== null &&
+        button(row.remove, () => panel.setMember(row.memberId, false), { class: 'danger' }),
     ),
   )
 
-const stepDownConfirmation = (channel: Channel, me: MemberId): HTMLElement =>
+const confirmation = (className: string, words: Confirmation, confirm: () => void): HTMLElement =>
   h(
     'form',
     {
-      class: 'self-confirmation',
+      class: className,
       on: {
         submit: (event) => {
           event.preventDefault()
-          launch(setChannelManager(channel.slug, me, false), closeDialog, 'managers')
+          confirm()
         },
       },
     },
-    h('h3', {}, strings.stepDownTitle({ channel: channelLabel(channel.slug) })),
-    h('p', {}, strings.stepDownBody({ channel: channelLabel(channel.slug) })),
-    dialogActions(strings.stepDown, 'danger'),
+    h('h3', {}, words.title),
+    h('p', {}, words.body),
+    dialogActions(words.confirm, 'danger'),
   )
 
 const addMemberForm = (
-  channel: Channel,
-  roster: ReadonlyArray<ChannelMember>,
-  changing: (change: ReturnType<typeof setChannelMember>) => void,
+  choices: ReadonlyArray<{ readonly value: MemberId; readonly label: string }>,
+  panel: Panel,
 ): HTMLElement => {
-  const inside = new Set(roster.map((member) => member.memberId))
-  const candidates = directory.get().filter((entry) => !inside.has(entry.member.id))
-  if (candidates.length === 0) return h('p', { class: 'hint' }, strings.nobodyToAdd)
   const choice = h(
     'select',
     { name: 'member', 'aria-label': strings.addMemberLabel },
-    candidates.map((entry) =>
-      h('option', { value: entry.member.id }, `${entry.member.name} · ${entry.member.email}`),
-    ),
+    choices.map((one) => h('option', { value: one.value }, one.label)),
   )
   return h(
     'form',
@@ -345,7 +312,7 @@ const addMemberForm = (
       on: {
         submit: (event) => {
           event.preventDefault()
-          changing(setChannelMember(channel.slug, choice.value as MemberId, true))
+          panel.setMember(choice.value as MemberId, true)
         },
       },
     },
@@ -354,60 +321,39 @@ const addMemberForm = (
   )
 }
 
-const visibilitySwitch = (
-  channel: Channel,
-  hasManager: boolean,
-  confirm: (content: HTMLElement) => void,
+const renderRoomControls = (
+  model: RoomControls,
+  channel: AsRead.Channel,
+  context: ViewContext,
 ): HTMLElement =>
   h(
     'div',
-    { class: 'visibility-switch' },
-    h('p', {}, isPrivate(channel) ? strings.visibilityPrivate : strings.visibilityOpen),
-    isPrivate(channel)
-      ? button(strings.makeOpen, () => confirm(visibilityConfirmation(channel)))
-      : hasManager
-        ? button(strings.makePrivate, () => confirm(visibilityConfirmation(channel)))
-        : disabledWithReason(strings.makePrivate, strings.privateNeedsManager, 'make-private'),
-  )
-
-const visibilityConfirmation = (channel: Channel): HTMLElement => {
-  const label = channelLabel(channel.slug)
-  const toPrivate = !isPrivate(channel)
-  return h(
-    'form',
-    {
-      class: 'visibility-confirmation',
-      on: {
-        submit: (event) => {
-          event.preventDefault()
-          launch(
-            setChannelVisibility(channel.slug, toPrivate ? 'private' : 'open'),
-            closeDialog,
-            'visibility',
-          )
-        },
-      },
-    },
+    { class: 'room-controls' },
+    model.answering !== null && answeringToggle(context, channel),
     h(
-      'h3',
-      {},
-      toPrivate ? strings.makePrivateTitle({ channel: label }) : strings.makeOpenTitle({ channel: label }),
+      'div',
+      { class: 'room-actions' },
+      model.manage !== null &&
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'manage-members',
+            ...opensDialog(context, model.manage, (life) => membersPanel(context, life, channel)),
+          },
+          strings.manageMembers,
+        ),
+      model.leave?.kind === 'blocked' &&
+        disabledWithReason(strings.leaveChannel, model.leave.reason, 'leave-channel'),
+      model.leave?.kind === 'allowed' &&
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'leave-channel',
+            ...opensDialog(context, model.leave.title, () => leaveForm(context, channel, model.leaveBody)),
+          },
+          strings.leaveChannel,
+        ),
     ),
-    h(
-      'p',
-      {},
-      toPrivate
-        ? strings.makePrivateBody({ count: channel.memberCount, channel: label })
-        : strings.makeOpenBody({ channel: label }),
-    ),
-    dialogActions(toPrivate ? strings.confirmMakePrivate : strings.confirmMakeOpen, 'danger'),
-  )
-}
-
-const dialogActions = (label: string, kind: 'primary' | 'danger'): HTMLElement =>
-  h(
-    'div',
-    { class: 'dialog-actions' },
-    h('button', { type: 'button', ...closesDialog }, strings.cancel),
-    h('button', { type: 'submit', class: kind }, label),
   )

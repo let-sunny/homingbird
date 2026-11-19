@@ -1,4 +1,5 @@
 import { type Child, h } from '@homingbird/ui'
+import { editedValue, rowsFor, todoRowModel } from '../models/todo-list.ts'
 import { strings } from '../strings.ts'
 import { button } from './parts.ts'
 
@@ -56,9 +57,10 @@ export const todoList = (list: TodoList): HTMLElement =>
 
 const todoRow = (list: TodoList, row: TodoRow, index: number): HTMLElement => {
   const menuId = `todo-menu-${row.key}`
+  const model = todoRowModel(row.name, row.enabled, index, list.rows.length)
   return h(
     'li',
-    { class: `todo-row${row.enabled ? '' : ' is-off'}`, data: { key: row.key, name: row.name } },
+    { class: model.className, data: { key: row.key, name: row.name } },
     h(
       'button',
       {
@@ -66,10 +68,10 @@ const todoRow = (list: TodoList, row: TodoRow, index: number): HTMLElement => {
         class: 'todo-switch',
         role: 'switch',
         'aria-checked': String(row.enabled),
-        'aria-label': strings.todo.use({ name: row.name }),
+        'aria-label': model.switchLabel,
         on: { click: () => list.toggle(row.key, !row.enabled) },
       },
-      h('span', { class: 'todo-check', 'aria-hidden': 'true' }, row.enabled ? '✓' : ''),
+      h('span', { class: 'todo-check', 'aria-hidden': 'true' }, model.check),
     ),
     h(
       'div',
@@ -92,24 +94,19 @@ const todoRow = (list: TodoList, row: TodoRow, index: number): HTMLElement => {
       'div',
       { class: 'todo-tools' },
       row.aside,
-      button('↑', () => list.move(row.key, index - 1), {
+      button('↑', () => list.move(row.key, model.moveUp.to), {
         class: 'todo-move',
-        'aria-label': strings.todo.moveUp({ name: row.name }),
-        disabled: index === 0,
+        'aria-label': model.moveUp.label,
+        disabled: model.moveUp.disabled,
       }),
-      button('↓', () => list.move(row.key, index + 1), {
+      button('↓', () => list.move(row.key, model.moveDown.to), {
         class: 'todo-move',
-        'aria-label': strings.todo.moveDown({ name: row.name }),
-        disabled: index === list.rows.length - 1,
+        'aria-label': model.moveDown.label,
+        disabled: model.moveDown.disabled,
       }),
       h(
         'button',
-        {
-          type: 'button',
-          class: 'todo-more',
-          popovertarget: menuId,
-          'aria-label': strings.todo.more({ name: row.name }),
-        },
+        { type: 'button', class: 'todo-more', popovertarget: menuId, 'aria-label': model.moreLabel },
         '⋯',
       ),
       h(
@@ -130,23 +127,20 @@ const editableField = (field: TodoField, save: (value: string) => void): HTMLEle
     maxlength: String(field.maxLength),
   }) as HTMLInputElement | HTMLTextAreaElement
   control.value = field.value
-  if (control instanceof HTMLTextAreaElement) growsWithText(control)
+  if (field.wide === true) growsWithText(control)
   const commit = (): void => {
-    const value = control.value.trim()
-    if (value === field.value || value === '') {
-      control.value = field.value
-      return
-    }
-    save(value)
+    const value = editedValue(field.value, control.value)
+    if (value === null) control.value = field.value
+    else save(value)
   }
   control.addEventListener('change', commit)
-  control.addEventListener('keydown', (event: Event) => {
-    if (!(event instanceof KeyboardEvent)) return
-    if (event.key === 'Enter' && !event.shiftKey) {
+  control.addEventListener('keydown', (event) => {
+    const key = event as KeyboardEvent
+    if (key.key === 'Enter' && !key.shiftKey) {
       event.preventDefault()
       control.blur()
     }
-    if (event.key === 'Escape') control.value = field.value
+    if (key.key === 'Escape') control.value = field.value
   })
   return control
 }
@@ -161,7 +155,7 @@ const addRow = (list: TodoList): HTMLElement => {
       maxlength: String(field.maxLength),
     }) as HTMLInputElement | HTMLTextAreaElement
     control.value = field.value
-    if (control instanceof HTMLTextAreaElement) growsWithText(control)
+    if (field.wide === true) growsWithText(control)
     return [field.name, control] as const
   })
   const warnings = h('ul', { class: 'todo-problems', 'aria-live': 'polite' })
@@ -185,8 +179,9 @@ const addRow = (list: TodoList): HTMLElement => {
     })
   }
   for (const [, control] of controls)
-    control.addEventListener('keydown', (event: Event) => {
-      if (event instanceof KeyboardEvent && event.key === 'Enter' && !event.shiftKey) {
+    control.addEventListener('keydown', (event) => {
+      const key = event as KeyboardEvent
+      if (key.key === 'Enter' && !key.shiftKey) {
         event.preventDefault()
         submit()
       }
@@ -206,19 +201,10 @@ const addRow = (list: TodoList): HTMLElement => {
   )
 }
 
-/** Rows for a text without `field-sizing`, so it never hides a line; the stylesheet's sizing wins where supported. */
-export const rowsFor = (text: string): number =>
-  Math.max(
-    2,
-    text.split('\n').reduce((rows, line) => rows + Math.max(1, Math.ceil(line.length / ROW_CHARACTERS)), 0),
-  )
-
-/** Characters a narrow row holds, kept low so the fallback errs towards an empty line rather than a hidden one. */
-const ROW_CHARACTERS = 28
-
-const growsWithText = (control: HTMLTextAreaElement): void => {
-  control.rows = rowsFor(control.value)
-  control.addEventListener('input', () => {
-    control.rows = rowsFor(control.value)
+const growsWithText = (control: HTMLInputElement | HTMLTextAreaElement): void => {
+  const area = control as HTMLTextAreaElement
+  area.rows = rowsFor(area.value)
+  area.addEventListener('input', () => {
+    area.rows = rowsFor(area.value)
   })
 }

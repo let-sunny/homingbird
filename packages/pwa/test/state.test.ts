@@ -1,0 +1,32 @@
+import { describe, expect, it } from 'vitest'
+import { createState, signedIn } from '../src/state.ts'
+import { ANA, BEN, entry, me } from './support/fixtures.ts'
+
+describe('createState', () => {
+  it('starts on the route of the address, loading, with nothing known yet', () => {
+    const state = createState('#/people')
+    expect(state.route.get()).toEqual({ name: 'people' })
+    expect(state.session.get()).toBe('loading')
+    expect(state.conversationsLoaded.get()).toBe(false)
+    expect(state.connection.get()).toBe('connecting')
+  })
+
+  it('knows every member by id, the person signed in among them', () => {
+    const state = createState('')
+    expect(state.members.get().size).toBe(0)
+    state.session.set(me())
+    state.directory.set([entry(BEN, 'Ben')])
+    expect([...state.members.get().keys()]).toEqual([ANA, BEN])
+  })
+})
+
+describe('signedIn', () => {
+  it('is the person signed in, or null while loading or signed out', () => {
+    const state = createState('')
+    expect(signedIn(state)).toBeNull()
+    state.session.set(null)
+    expect(signedIn(state)).toBeNull()
+    state.session.set(me())
+    expect(signedIn(state)?.member.id).toBe(ANA)
+  })
+})

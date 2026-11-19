@@ -20,13 +20,25 @@ export const h = <Tag extends keyof HTMLElementTagNameMap>(
   return element
 }
 
+/** An SVG element with its attributes and children, as `h` builds an HTML one. */
+export const svg = (
+  tag: string,
+  attributes: Readonly<Record<string, string | number>>,
+  ...children: ReadonlyArray<Element>
+): SVGElement => {
+  const element = document.createElementNS(SVG_NAMESPACE, tag)
+  for (const [name, value] of Object.entries(attributes)) element.setAttribute(name, String(value))
+  element.append(...children)
+  return element
+}
+
 export const append = (parent: Node, children: Child): void => {
   if (children === null || children === undefined || children === false) return
-  if (Array.isArray(children)) {
+  if (isChildList(children)) {
     for (const child of children) append(parent, child)
     return
   }
-  parent.appendChild(children instanceof Node ? children : document.createTextNode(String(children)))
+  parent.appendChild(typeof children === 'object' ? children : document.createTextNode(String(children)))
 }
 
 export const replaceChildren = (parent: Element, ...children: ReadonlyArray<Child>): void => {
@@ -42,6 +54,8 @@ export const linkedText = (text: string): Node[] =>
       : h('a', { href: segment.value, rel: 'noopener noreferrer', target: '_blank' }, segment.value),
   )
 
+const isChildList = (children: Child): children is ReadonlyArray<Child> => Array.isArray(children)
+
 const applyProperty = (element: HTMLElement, name: string, value: unknown): void => {
   if (value === null || value === undefined || value === false) return
   if (name === 'class') element.className = String(value)
@@ -53,3 +67,5 @@ const applyProperty = (element: HTMLElement, name: string, value: unknown): void
   else if (name === 'checked' && 'checked' in element) (element as HTMLInputElement).checked = value === true
   else element.setAttribute(name, value === true ? '' : String(value))
 }
+
+const SVG_NAMESPACE = 'http://www.w3.org/2000/svg'

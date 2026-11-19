@@ -1,0 +1,158 @@
+import { Task as T } from '@homingbird/kernel'
+import type { AsRead, ConversationId } from '@homingbird/protocol'
+import { later } from '@homingbird/ui'
+import type { App } from '../app.ts'
+import { channelLabel, withChannel, withoutRoom } from '../channels.ts'
+import { upsertRequest } from '../draft-requests.ts'
+import { hrefFor } from '../routes.ts'
+import { signedIn } from '../state.ts'
+import { strings } from '../strings.ts'
+import { withPresence, withReceipts, withoutMovedQuestion } from '../thread.ts'
+import { loadDebate, loadDebates } from './debates.ts'
+import { forgetNote, forgetRelease, loadThread, rememberNote } from './notes.ts'
+import { loadAgents, loadConversations, loadKnownChannels, loadPeople, loadWorkspace } from './workspace.ts'
+
+/** What each live event changes in the page: the state it updates and what it loads again. */
+export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
+  const { state, launch } = app
+  let cancelDirectoryReload = (): void => {}
+  const reloadDirectorySoon = (): void => {
+    cancelDirectoryReload()
+    cancelDirectoryReload = later(app.clock, DIRECTORY_SETTLE_MS, () =>
+      launch(T.all([loadPeople, loadKnownChannels, loadConversations])),
+    )
+  }
+  const refreshAgentsIfNoneKnown = (): void => {
+    if (state.agentCredentials.get().length === 0) launch(loadAgents)
+  }
+  return (event) => {
+    const body = event.body
+    switch (body.type) {
+      case 'note.sent':
+        rememberNote(state)(body.note)
+        announceIfFresh(app, body.note)
+        launch(loadConversations)
+        break
+      case 'note.status':
+        state.changes.count(body.conversationId)
+        state.threads.update((all) => {
+          const thread = all.get(body.conversationId)
+          return thread === undefined
+            ? all
+            : new Map(all).set(body.conversationId, {
+                ...thread,
+                notes: withReceipts(thread.notes, body.noteId, body.receipts),
+              })
+        })
+        break
+      case 'note.moved':
+        state.changes.count(body.fromConversationId)
+        state.changes.count(body.toConversationId)
+        state.threads.update((all) => withoutMovedQuestion(all, body.fromConversationId, body.noteId))
+        launch(loadConversations)
+        break
+      case 'draft.saved':
+        rememberNote(state)(body.note)
+        if (body.note.inReplyTo !== null) forgetRelease(state, body.note.inReplyTo)
+        if (body.note.origin !== 'human') refreshAgentsIfNoneKnown()
+        launch(loadConversations)
+        break
+      case 'draft.discarded':
+        forgetNote(state, body.conversationId, body.noteId)
+        if (body.because === 'channel_archived' && body.channel !== undefined) {
+          const channel = body.channel
+          state.archiveDiscards.update((all) =>
+            new Map(all).set(body.conversationId, [
+              ...(all.get(body.conversationId) ?? []).filter((one) => one.noteId !== body.noteId),
+              { noteId: body.noteId, channel },
+            ]),
+          )
+          state.notice.set({
+            kind: 'info',
+            text: strings.draftDiscardedByArchive({ channel: channelLabel(channel) }),
+          })
+        }
+        launch(loadConversations)
+        break
+      case 'note.released':
+        state.releases.update((all) =>
+          new Map(all).set(body.noteId, { reason: body.reason, agentName: body.agentName }),
+        )
+        launch(loadThread(body.conversationId))
+        break
+      case 'draft.requested':
+      case 'draft.request.changed':
+        state.draftRequests.update((all) => upsertRequest(all, body.request))
+        break
+      case 'contact.changed':
+        launch(loadPeople)
+        break
+      case 'directory.changed':
+        reloadDirectorySoon()
+        break
+      case 'channel.changed':
+        state.channels.update((all) => withChannel(all, body.channel))
+        if (body.channel.joined) launch(loadConversations)
+        break
+      case 'channel.left':
+        state.channels.update((all) =>
+          withoutRoom(all, body.conversationId, signedIn(state)?.member.role === 'admin'),
+        )
+        state.conversations.update((all) => all.filter((room) => room.id !== body.conversationId))
+        state.changes.count(body.conversationId)
+        state.threads.update((all) => {
+          const remaining = new Map(all)
+          remaining.delete(body.conversationId)
+          return remaining
+        })
+        leaveRoomIfShown(app, body.conversationId)
+        break
+      case 'debate.changed':
+        reloadShownDebate(app, body.debateId)
+        break
+      case 'presence':
+        state.directory.update((entries) => withPresence(entries, body.members))
+        if (
+          body.members.some((change) => change.memberId === signedIn(state)?.member.id && change.agentOnline)
+        )
+          refreshAgentsIfNoneKnown()
+        break
+      case 'resync':
+        reloadEverything(app)
+        break
+    }
+  }
+}
+
+/** Several directory changes in a row are loaded once, after they settle. */
+export const DIRECTORY_SETTLE_MS = 400
+
+const leaveRoomIfShown = (app: App, conversationId: string): void => {
+  const current = app.state.route.get()
+  if (current.name === 'conversation' && current.id === conversationId)
+    app.page.replace(hrefFor({ name: 'channels' }))
+}
+
+const announceIfFresh = (app: App, note: AsRead.Note): void => {
+  const isMine = note.authorId === signedIn(app.state)?.member.id
+  const isFresh = app.clock.now() - (note.sentAt ?? 0) < FRESH_MS
+  if (isMine || !isFresh) return
+  app.state.announcement.set(
+    strings.incomingNote({ name: app.state.members.get().get(note.authorId)?.name ?? strings.formerMember }),
+  )
+}
+
+const reloadShownDebate = (app: App, id: string): void => {
+  const current = app.state.route.get()
+  if (current.name === 'debates') app.launch(loadDebates)
+  if (current.name === 'debate' && current.id === id) app.launch(loadDebate(id))
+}
+
+const reloadEverything = (app: App): void => {
+  app.launch(loadWorkspace)
+  const current = app.state.route.get()
+  if (current.name === 'conversation') app.launch(loadThread(current.id as ConversationId))
+}
+
+/** A note counts as just arrived, and is announced, while it is this fresh. */
+const FRESH_MS = 30_000

@@ -1,0 +1,203 @@
+import type {
+  OrganizationFigures,
+  OrganizationInsights,
+  OrganizationPeriod,
+  PlaceTotals,
+} from '@homingbird/protocol'
+import { durationOf, formats, percentOf, strings } from '../strings.ts'
+import {
+  decidedOf,
+  notesPerActiveMember,
+  quickApprovalShare,
+  replyRate,
+  shareOf,
+  skipShare,
+} from '../trust.ts'
+import { type LabelsTable, labelsTableModel } from './agent-figures.ts'
+import { placeName } from './places.ts'
+
+/** Organization-wide numbers for administrators: totals only, never a note, a person or a small group. */
+export const insightsModel = (insights: OrganizationInsights | null, days: number): InsightsModel => {
+  if (insights === null) return { kind: 'loading' }
+  const period = insights.periods.find((each) => each.days === days) ?? insights.periods[0]!
+  const current = period.current
+  return {
+    kind: 'insights',
+    warnings: [strings.insights.noTeams, strings.insights.privacy({ minimum: insights.minimumGroupSize })],
+    tooFew: current === null ? strings.insights.tooFew({ minimum: insights.minimumGroupSize }) : null,
+    figures:
+      current === null
+        ? null
+        : {
+            table: figuresTable(insights, period, current),
+            places: placesTable(current),
+            byClient: labelsTableModel(
+              'insights-by-client',
+              strings.insights.byClientTitle,
+              current.byClient,
+              strings.trust.clientUnknown,
+            ),
+            byModel: labelsTableModel(
+              'insights-by-model',
+              strings.insights.byModelTitle,
+              current.byModel,
+              strings.trust.modelNotStated,
+            ),
+            hiddenLabels:
+              current.hiddenLabels > 0
+                ? strings.insights.hiddenLabels({ count: current.hiddenLabels })
+                : null,
+          },
+    blocks:
+      insights.blocks === null
+        ? strings.insights.blocksHidden({ minimum: insights.minimumGroupSize })
+        : strings.insights.blocks({ count: insights.blocks }),
+  }
+}
+
+export type InsightsModel =
+  | { readonly kind: 'loading' }
+  | {
+      readonly kind: 'insights'
+      readonly warnings: ReadonlyArray<string>
+      readonly tooFew: string | null
+      readonly figures: {
+        readonly table: InsightsTable
+        readonly places: InsightsPlaces
+        readonly byClient: LabelsTable | null
+        readonly byModel: LabelsTable | null
+        readonly hiddenLabels: string | null
+      } | null
+      readonly blocks: string
+    }
+
+export interface InsightsTable {
+  readonly caption: string
+  readonly headings: readonly [string, string, string]
+  readonly rows: ReadonlyArray<readonly [string, string, string]>
+  readonly footnotes: ReadonlyArray<string>
+}
+
+export interface InsightsPlaces {
+  readonly title: string
+  readonly none: string | null
+  readonly headings: ReadonlyArray<string>
+  readonly rows: ReadonlyArray<ReadonlyArray<string>>
+  readonly hidden: string | null
+}
+
+interface Decided {
+  readonly sentAsWritten: number
+  readonly sentAfterEdits: number
+  readonly discarded: number
+}
+
+const figuresTable = (
+  insights: OrganizationInsights,
+  period: OrganizationPeriod,
+  current: OrganizationFigures,
+): InsightsTable => {
+  const rows = strings.insights.rows
+  const line = (label: string, value: (figures: OrganizationFigures) => string) =>
+    [
+      label,
+      value(current),
+      period.previous === null ? strings.insights.hidden : value(period.previous),
+    ] as const
+  const part = (count: number, total: number): string => {
+    const share = shareOf(count, total)
+    return share === null
+      ? strings.trust.noneYet
+      : strings.insights.partOf({ share: percentOf(share), count, total })
+  }
+  const decision = (figures: OrganizationFigures, count: (shown: Decided) => number): string => {
+    const shown = decisionsShown(figures)
+    return shown === null ? strings.insights.hidden : part(count(shown), decidedOf(shown))
+  }
+  return {
+    caption: strings.insights.caption({ days: period.days }),
+    headings: [
+      strings.trust.what,
+      strings.trust.lastDays({ days: period.days }),
+      strings.trust.before({ days: period.days }),
+    ],
+    rows: [
+      line(rows.activeMembers, (figures) => formats.decimal.format(figures.activeMembers)),
+      line(rows.notesPerMember, (figures) => formats.decimal.format(notesPerActiveMember(figures) ?? 0)),
+      line(rows.replyRate, (figures) =>
+        replyRate(figures) === null ? strings.trust.noneYet : part(figures.answered, figures.newNotes),
+      ),
+      line(rows.medianFirstReply, (figures) =>
+        figures.medianFirstReplyMs === null ? strings.trust.noneYet : durationOf(figures.medianFirstReplyMs),
+      ),
+      line(rows.sentAsWritten, (figures) => decision(figures, (shown) => shown.sentAsWritten)),
+      line(rows.sentAfterEdits, (figures) => decision(figures, (shown) => shown.sentAfterEdits)),
+      line(rows.discarded, (figures) => decision(figures, (shown) => shown.discarded)),
+      line(rows.quickShare, (figures) => {
+        const shown = decisionsShown(figures)
+        if (shown === null || figures.quickApprovals === null) return strings.insights.hidden
+        return quickApprovalShare({ ...shown, quickApprovals: figures.quickApprovals }) === null
+          ? strings.trust.noneYet
+          : part(figures.quickApprovals, shown.sentAsWritten)
+      }),
+      line(rows.skipShare, (figures) =>
+        skipShare(figures) === null
+          ? strings.trust.noneYet
+          : part(figures.skipped, figures.skipped + figures.agentDraftsWritten),
+      ),
+      line(rows.debateResultsSent, (figures) =>
+        figures.debateResultsSent == null
+          ? strings.insights.hidden
+          : formats.decimal.format(figures.debateResultsSent),
+      ),
+    ],
+    footnotes: [
+      strings.insights.debateResultsExplained({ minimum: insights.minimumGroupSize }),
+      strings.insights.quickExplained({ seconds: insights.quickApprovalSeconds }),
+      strings.insights.skipExplained,
+      ...(decisionsShown(current) === null
+        ? [strings.insights.draftsHidden({ minimum: insights.minimumGroupSize })]
+        : []),
+    ],
+  }
+}
+
+const placesTable = (current: OrganizationFigures): InsightsPlaces => ({
+  title: strings.insights.placesTitle,
+  none: current.places.length === 0 ? strings.insights.noPlaces : null,
+  headings: [
+    strings.insights.placeColumn,
+    strings.insights.notesColumn,
+    strings.insights.decidedColumn,
+    strings.insights.asWrittenColumn,
+    strings.insights.skippedColumn,
+  ],
+  rows: current.places.map(placeRow),
+  hidden: current.hiddenPlaces > 0 ? strings.insights.hiddenPlaces({ count: current.hiddenPlaces }) : null,
+})
+
+const placeRow = (place: PlaceTotals): ReadonlyArray<string> => {
+  const shown = decisionsShown(place)
+  const share = shown === null ? null : shareOf(shown.sentAsWritten, decidedOf(shown))
+  return [
+    placeName(place.place),
+    formats.decimal.format(place.notesSent),
+    shown === null ? strings.insights.hidden : formats.decimal.format(decidedOf(shown)),
+    shown === null ? strings.insights.hidden : share === null ? strings.trust.noneYet : percentOf(share),
+    formats.decimal.format(place.skipped),
+  ]
+}
+
+/** A group's draft decisions, or null when too few people decided agent drafts in it to show them. */
+const decisionsShown = (figures: {
+  readonly sentAsWritten: number | null
+  readonly sentAfterEdits: number | null
+  readonly discarded: number | null
+}): Decided | null =>
+  figures.sentAsWritten === null || figures.sentAfterEdits === null || figures.discarded === null
+    ? null
+    : {
+        sentAsWritten: figures.sentAsWritten,
+        sentAfterEdits: figures.sentAfterEdits,
+        discarded: figures.discarded,
+      }

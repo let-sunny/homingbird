@@ -1,0 +1,108 @@
+import { describe, expect, it } from 'vitest'
+import { moveQuestion as move } from '../../src/tasks/channels.ts'
+import * as tasks from '../../src/tasks/channels.ts'
+import { fail, testApp } from '../support/app.ts'
+import { BEN, ROOM, channel, conversation, note } from '../support/fixtures.ts'
+
+const answers = {
+  'channels.list': () => ({ channels: [channel('billing')], hasMore: false, cursor: null }),
+  'conversations.list': () => ({ conversations: [] }),
+  'directory.list': () => ({ entries: [] }),
+  'contacts.list': () => ({ contacts: [] }),
+  'channels.create': () => channel('ops'),
+  'channels.members.list': () => ({ members: [{ memberId: BEN, manager: true, answering: false }] }),
+  'drafts.create': () => note('d1', { conversationId: ROOM }),
+  'drafts.send': () => note('d1'),
+}
+
+describe('channel tasks', () => {
+  it('loads a page of channels for a query and a cursor', async () => {
+    const { run, sent } = testApp(answers)
+    await run(tasks.loadChannelPage('', null))
+    await run(tasks.loadChannelPage('bill', 'next'))
+    expect(sent.map((one) => one.request)).toEqual([
+      { query: { limit: '20' } },
+      { query: { limit: '20', q: 'bill', cursor: 'next' } },
+    ])
+  })
+
+  it('opens a channel and keeps it in the known list after the reload', async () => {
+    const { run, state } = testApp(answers)
+    expect(await run(tasks.createChannel('ops', 'Operations', 'open'))).toEqual({
+      _tag: 'Ok',
+      value: channel('ops'),
+    })
+    expect(state.channels.get().map((one) => one.slug)).toEqual(['billing', 'ops'])
+  })
+
+  it('joins, leaves, answers, manages members and visibility, each reloading the lists', async () => {
+    const { run, routes } = testApp(answers)
+    await run(tasks.joinChannel('billing', true))
+    await run(tasks.leaveChannel('billing'))
+    await run(tasks.setAnswering('billing', true))
+    await run(tasks.setAnswering('billing', false))
+    await run(tasks.setChannelMember('billing', BEN, true))
+    await run(tasks.setChannelMember('billing', BEN, false))
+    await run(tasks.setChannelManager('billing', BEN, true))
+    await run(tasks.setChannelManager('billing', BEN, false))
+    await run(tasks.setChannelVisibility('billing', 'private'))
+    await run(tasks.reviseChannel('billing', { description: 'Money' }))
+    await run(tasks.archiveChannel('billing', null))
+    await run(tasks.archiveChannel('billing', 'ops'))
+    const changes = routes().filter(
+      (route) => !['channels.list', 'conversations.list', 'directory.list', 'contacts.list'].includes(route),
+    )
+    expect(changes).toEqual([
+      'channels.join',
+      'channels.leave',
+      'channels.answering.on',
+      'channels.answering.off',
+      'channels.members.add',
+      'channels.members.remove',
+      'channels.managers.add',
+      'channels.managers.remove',
+      'channels.visibility.set',
+      'admin.channels.update',
+      'admin.channels.archive',
+      'admin.channels.archive',
+    ])
+  })
+
+  it('remembers a managed channel’s roster', async () => {
+    const { run, state } = testApp(answers)
+    await run(tasks.loadChannelMembers('billing'))
+    expect(state.rosters.get().get('billing')).toEqual({
+      memberCount: 1,
+      members: [{ memberId: BEN, manager: true, answering: false }],
+    })
+  })
+
+  it('asks a channel, enters its room, and moves a question', async () => {
+    const { run, page, state } = testApp(answers)
+    expect(await run(tasks.askChannel('billing', 'When?'))).toEqual({ _tag: 'Ok', value: ROOM })
+    await run(tasks.enterRoom(ROOM))
+    expect(page.visited).toEqual([`go #/c/${ROOM}`])
+    state.threads.set(new Map([[ROOM, { notes: [note('q')], hasMore: false }]]))
+    await run(move(note('q'), 'ops'))
+    expect(state.threads.get().get(ROOM)!.notes).toEqual([])
+  })
+
+  it('opens a channel and takes the next step, keeping the channel when the step fails', async () => {
+    const { run } = testApp(answers)
+    const moved = await run(
+      tasks.createChannelThen({ slug: 'ops', description: 'Ops' }, () =>
+        run.length > 0 ? tasks.leaveChannel('ops') : tasks.leaveChannel('ops'),
+      ),
+    )
+    expect(moved).toEqual({ _tag: 'Ok', value: { created: channel('ops'), failure: null } })
+    const failing = testApp({ ...answers, 'notes.move': () => fail({ _tag: 'Forbidden', message: 'no' }) })
+    const outcome = await failing.run(
+      tasks.createChannelThen({ slug: 'ops', description: 'Ops' }, (slug) => move(note('q'), slug)),
+    )
+    expect(outcome).toEqual({
+      _tag: 'Ok',
+      value: { created: channel('ops'), failure: { _tag: 'Forbidden', message: 'no' } },
+    })
+    expect(conversation().id).toBe(ROOM)
+  })
+})

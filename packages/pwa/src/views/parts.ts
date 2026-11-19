@@ -1,12 +1,14 @@
-import { systemClock } from '@homingbird/kernel'
-import type { Channel, Presence } from '@homingbird/protocol'
+import type { Presence } from '@homingbird/protocol'
 import { type Child, type Properties, h } from '@homingbird/ui'
 import { channelLabel } from '../channels.ts'
+import type { TimeShown } from '../models/time.ts'
 import { presenceShown } from '../presence.ts'
 import { hrefFor } from '../routes.ts'
-import { formats, strings } from '../strings.ts'
+import { strings } from '../strings.ts'
+import { closesDialog } from './dialog.ts'
 import { type PipState, pip } from './pip.ts'
 
+/** A page with a back link, its title and its body. */
 export const page = (title: string, ...children: ReadonlyArray<Child>): HTMLElement =>
   h(
     'section',
@@ -61,18 +63,8 @@ export const presenceBadges = (presence: Presence, inWords = false): HTMLElement
       )
 }
 
-export const timeLabel = (timestamp: number): HTMLElement => {
-  const date = new Date(timestamp)
-  const sameDay = new Date(systemClock.now()).toDateString() === date.toDateString()
-  return h(
-    'time',
-    { datetime: date.toISOString(), title: formats.full.format(date) },
-    (sameDay ? formats.time : formats.day).format(date),
-  )
-}
-
-export const dateTimeLabel = (timestamp: number | null, fallback: string): string =>
-  timestamp === null ? fallback : formats.full.format(new Date(timestamp))
+export const timeLabel = (shown: TimeShown): HTMLElement =>
+  h('time', { datetime: shown.datetime, title: shown.title }, shown.text)
 
 /** Shown while a page or a part of one waits for its data. */
 export const loading = (): HTMLElement => h('p', { class: 'loading' }, strings.loading)
@@ -101,9 +93,10 @@ export const channelChips = (slugs: ReadonlyArray<string>): HTMLElement =>
     ),
   )
 
-export const wordmark = (name: string): string => (name === 'Homingbird' ? 'homingbird' : name)
-
-export const channelCounts = (channel: Pick<Channel, 'memberCount' | 'helperCount'>): HTMLElement =>
+export const channelCounts = (channel: {
+  readonly memberCount: number
+  readonly helperCount: number
+}): HTMLElement =>
   h(
     'span',
     { class: 'channel-counts' },
@@ -114,5 +107,31 @@ export const channelCounts = (channel: Pick<Channel, 'memberCount' | 'helperCoun
 export const archivedMark = (): HTMLElement => h('span', { class: 'archived-mark' }, strings.archived)
 
 export const youMark = (): HTMLElement => h('small', { class: 'is-you' }, strings.youMark)
+
+export const privateMarkOf = (text: string, title?: string): HTMLElement =>
+  h(
+    'span',
+    { class: 'private-mark', ...(title !== undefined && { title }) },
+    h('span', { class: 'lock-mark', 'aria-hidden': 'true' }),
+    text,
+  )
+
+/** A button that cannot be used yet, with the reason beside it, read out with the button. */
+export const disabledWithReason = (label: string, reason: string, kind: string): HTMLElement =>
+  h(
+    'span',
+    { class: 'disabled-control' },
+    h('button', { type: 'button', class: kind, disabled: true, 'aria-describedby': `${kind}-reason` }, label),
+    h('small', { id: `${kind}-reason` }, reason),
+  )
+
+/** Cancel, which closes the dialog, beside the dialog's own submit button. */
+export const dialogActions = (label: string, kind: 'primary' | 'danger'): HTMLElement =>
+  h(
+    'div',
+    { class: 'dialog-actions' },
+    h('button', { type: 'button', ...closesDialog }, strings.cancel),
+    h('button', { type: 'submit', class: kind }, label),
+  )
 
 const EMPTY_PIP_SCALE = 3

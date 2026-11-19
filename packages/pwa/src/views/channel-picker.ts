@@ -1,73 +1,82 @@
 import {
   type ApiError,
+  type AsRead,
   CHANNEL_DESCRIPTION_MAX,
-  type Channel,
   type ConversationId,
-  type Note,
 } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, region, signal } from '@homingbird/ui'
-import { type Action, createChannelThen, launch, moveQuestion, readdressDraft } from '../actions.ts'
-import {
-  channelLabel,
-  channelNamed,
-  channelOfRoom,
-  destinationsFrom,
-  isPrivate,
-  isValidSlug,
-  slugFrom,
-} from '../channels.ts'
+import type { Then } from '../app.ts'
+import { channelLabel, channelNamed, channelOfRoom, slugFrom } from '../channels.ts'
 import { featureOn } from '../features.ts'
+import { NEW_CHANNEL, newChannelFrom, pickerModel } from '../models/channel-picker.ts'
 import { refusalText } from '../refusals.ts'
 import { hrefFor } from '../routes.ts'
-import { channels, notice } from '../state.ts'
 import { strings } from '../strings.ts'
-import { excerpt } from '../thread.ts'
+import type { ViewContext } from './context.ts'
 import { closeDialog, closesDialog } from './dialog.ts'
 import { channelCounts, field } from './parts.ts'
 
-export const moveForm = (life: Lifetime, note: Note, conversationId: ConversationId): Child => {
-  const here = channelOfRoom(channels.get(), conversationId)
-  return pickerForm(life, {
+/** Moving a channel question to another channel, an existing one or one made on the way. */
+export const moveForm = (
+  context: ViewContext,
+  life: Lifetime,
+  note: AsRead.Note,
+  conversationId: ConversationId,
+): Child => {
+  const here = channelOfRoom(context.state.channels.get(), conversationId)
+  return pickerForm(context, life, {
     intro: strings.moveIntro,
     quoted: note.body,
     here,
     movingFrom: here,
     submitLabel: strings.move,
-    step: (slug) => moveQuestion(note, slug),
-    attempt: 'move',
-    after: (slug) => announceMove(slug),
+    move: (slug, then) => context.actions.moveQuestion(note, slug, then),
+    createThenMove: (channel, then) => context.actions.createChannelThenMove(channel, note, then),
+    after: (slug) => announceMove(context, slug),
   })
 }
 
-export const readdressForm = (life: Lifetime, draft: Note, currentSlug: string): Child =>
-  pickerForm(life, {
+/** Sending a channel draft to another channel instead. */
+export const readdressForm = (
+  context: ViewContext,
+  life: Lifetime,
+  draft: AsRead.Note,
+  currentSlug: string,
+): Child =>
+  pickerForm(context, life, {
     intro: strings.changeChannelLabel,
     quoted: draft.body,
-    here: channelNamed(channels.get(), currentSlug),
+    here: channelNamed(context.state.channels.get(), currentSlug),
     movingFrom: null,
     submitLabel: strings.changeChannel,
-    step: (slug) => readdressDraft(draft, slug),
-    attempt: 'move',
+    move: (slug, then) => context.actions.readdressDraft(draft, slug, then),
+    createThenMove: (channel, then) => context.actions.createChannelThenReaddress(channel, draft, then),
     after: () => {},
   })
 
 interface Picker {
   readonly intro: string
   readonly quoted: string
-  readonly here: Channel | null
-  readonly movingFrom: Channel | null
+  readonly here: AsRead.Channel | null
+  readonly movingFrom: AsRead.Channel | null
   readonly submitLabel: string
-  readonly step: (slug: string) => Action
-  readonly attempt: 'move'
+  readonly move: (slug: string, then: Then<void>) => void
+  readonly createThenMove: (
+    channel: { readonly slug: string; readonly description: string },
+    then: Then<{ readonly created: AsRead.Channel; readonly failure: ApiError | null }>,
+  ) => void
   readonly after: (slug: string) => void
 }
 
-const NEW_CHANNEL = ''
-
-const pickerForm = (life: Lifetime, picker: Picker): HTMLElement => {
-  const choices = destinationsFrom(channels.get(), picker.here, picker.movingFrom)
-  const mayCreate = featureOn('channels') && (picker.movingFrom === null || !isPrivate(picker.movingFrom))
-  const chosen = signal<string>(choices[0]?.slug ?? NEW_CHANNEL)
+const pickerForm = (context: ViewContext, life: Lifetime, picker: Picker): HTMLElement => {
+  const model = pickerModel({
+    channels: context.state.channels.get(),
+    here: picker.here,
+    movingFrom: picker.movingFrom,
+    quoted: picker.quoted,
+    channelsOn: featureOn('channels', context.state.serverInfo.get()),
+  })
+  const chosen = signal<string>(model.first)
   const slug = h('input', {
     name: 'slug',
     maxlength: '40',
@@ -99,6 +108,25 @@ const pickerForm = (life: Lifetime, picker: Picker): HTMLElement => {
       }),
       h('span', { class: 'channel-option-text' }, h('strong', {}, label), details),
     )
+  const submit = (): void => {
+    const target = chosen.get()
+    if (target !== NEW_CHANNEL) {
+      picker.move(target, {
+        done: () => {
+          closeDialog(context)
+          picker.after(target)
+        },
+        attempt: 'move',
+      })
+      return
+    }
+    const wanted = newChannelFrom(slug.value, description.value)
+    if (wanted === null) return void slug.reportValidity()
+    picker.createThenMove(wanted, {
+      done: (outcome) => afterCreating(context, picker, outcome),
+      attempt: 'channel-name',
+    })
+  }
   return h(
     'form',
     {
@@ -106,38 +134,28 @@ const pickerForm = (life: Lifetime, picker: Picker): HTMLElement => {
       on: {
         submit: (event) => {
           event.preventDefault()
-          const target = chosen.get()
-          if (target !== NEW_CHANNEL)
-            return launch(picker.step(target), () => finish(picker, target), picker.attempt)
-          const wanted = slugFrom(slug.value).replace(/-+$/, '')
-          if (!isValidSlug(wanted) || description.value.trim() === '') return slug.reportValidity()
-          launch(
-            createChannelThen({ slug: wanted, description: description.value.trim() }, picker.step),
-            (outcome) => afterCreating(picker, outcome),
-            'channel-name',
-          )
+          submit()
         },
       },
     },
     h('p', {}, picker.intro),
-    h('blockquote', { class: 'quote' }, excerpt(picker.quoted, 140)),
+    h('blockquote', { class: 'quote' }, model.quote),
     h(
       'fieldset',
       { class: 'channel-options' },
       h('legend', {}, strings.channelSelectLabel),
-      choices.length === 0 &&
-        h('p', { class: 'hint' }, mayCreate ? strings.noOtherChannel : strings.noOtherPrivateChannel),
-      choices.map((channel) =>
+      model.none !== null && h('p', { class: 'hint' }, model.none),
+      model.choices.map((choice) =>
         option(
-          channel.slug,
-          channelLabel(channel.slug),
-          h('span', { class: 'channel-option-meta' }, channelCounts(channel)),
+          choice.value,
+          choice.label,
+          h('span', { class: 'channel-option-meta' }, channelCounts(choice.channel)),
         ),
       ),
-      mayCreate &&
+      model.mayCreate &&
         option(NEW_CHANNEL, strings.newChannelInline, h('small', {}, strings.newChannelInlineHint)),
     ),
-    mayCreate &&
+    model.mayCreate &&
       region(
         life,
         [chosen],
@@ -157,33 +175,29 @@ const pickerForm = (life: Lifetime, picker: Picker): HTMLElement => {
   )
 }
 
-const finish = (picker: Picker, slug: string): void => {
-  closeDialog()
-  picker.after(slug)
-}
-
 const afterCreating = (
+  context: ViewContext,
   picker: Picker,
-  outcome: { readonly created: Channel; readonly failure: ApiError | null },
+  outcome: { readonly created: AsRead.Channel; readonly failure: ApiError | null },
 ): void => {
-  closeDialog()
+  closeDialog(context)
   if (outcome.failure === null) {
     picker.after(outcome.created.slug)
     return
   }
-  notice.set({
+  context.state.notice.set({
     kind: 'error',
     text: strings.createdButNotMoved({
       channel: channelLabel(outcome.created.slug),
-      reason: refusalText(outcome.failure, picker.attempt),
+      reason: refusalText(outcome.failure, 'move'),
     }),
     link: { href: hrefFor({ name: 'channel', slug: outcome.created.slug }), label: strings.openRoom },
   })
 }
 
-const announceMove = (slug: string): void => {
-  const channel = channelNamed(channels.get(), slug)
-  notice.set({
+const announceMove = (context: ViewContext, slug: string): void => {
+  const channel = channelNamed(context.state.channels.get(), slug)
+  context.state.notice.set({
     kind: 'info',
     text: strings.questionMoved({ channel: channelLabel(slug) }),
     ...(channel !== null && {

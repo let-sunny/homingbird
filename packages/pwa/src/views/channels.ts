@@ -1,36 +1,34 @@
-import { Task as T } from '@homingbird/kernel'
-import { CHANNEL_DESCRIPTION_MAX, type Channel, NOTE_BODY_MAX } from '@homingbird/protocol'
+import { CHANNEL_DESCRIPTION_MAX, NOTE_BODY_MAX } from '@homingbird/protocol'
+import type { AsRead } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, region, signal } from '@homingbird/ui'
-import {
-  CHANNEL_PAGE,
-  type ChannelPage,
-  askChannel,
-  createChannel,
-  launch,
-  loadChannelPage,
-  loadChannels,
-  loadConversations,
-} from '../actions.ts'
-import {
-  channelLabel,
-  channelNamed,
-  isPrivate,
-  isValidSlug,
-  similarChannels,
-  slugFrom,
-  withChannel,
-} from '../channels.ts'
+import { channelNamed, slugFrom } from '../channels.ts'
 import { featureOn } from '../features.ts'
+import {
+  type ChannelCard,
+  type ChannelListModel,
+  type ListedChannels,
+  askPageModel,
+  channelListModel,
+  joinedRoom,
+  listAfterChange,
+  nameCheck,
+  slugToCreate,
+  withPage,
+} from '../models/channels.ts'
 import { hrefFor } from '../routes.ts'
-import { channels, channelsLoaded, conversations } from '../state.ts'
+import { signedIn } from '../state.ts'
 import { strings } from '../strings.ts'
+import { CHANNEL_PAGE } from '../tasks/channels.ts'
 import { agentAsk } from './agent-ask.ts'
-import { joinButtons, privateMark, roomControls, rosters } from './channel-membership.ts'
+import { joinButtons, privateMark, roomControls } from './channel-membership.ts'
+import type { ViewContext } from './context.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
 import { channelChips, channelCounts, empty, emptyWithPip, field, loading, page } from './parts.ts'
 
-export const channelsView = (life: Lifetime): HTMLElement => {
-  launch(loadChannels(''))
+/** Channels: every channel the person may see, searchable, a page at a time. */
+export const channelsView = (context: ViewContext, life: Lifetime): HTMLElement => {
+  const { state, actions } = context
+  actions.loadKnownChannels()
   const query = signal('')
   const listed = signal<ListedChannels>({
     query: '',
@@ -40,26 +38,16 @@ export const channelsView = (life: Lifetime): HTMLElement => {
     loaded: false,
   })
   const load = (typed: string, after: ListedChannels | null): void =>
-    launch(loadChannelPage(typed, after?.cursor ?? null), (found: ChannelPage) => {
-      if (query.get() !== typed) return
-      listed.set({
-        query: typed,
-        channels: [...(after?.channels ?? []), ...found.channels],
-        hasMore: found.hasMore,
-        cursor: found.cursor,
-        loaded: true,
-      })
+    actions.loadChannelPage(typed, after?.cursor ?? null, {
+      done: (found) => {
+        if (query.get() === typed) listed.set(withPage(after, typed, found))
+      },
     })
   life.add(
-    channels.subscribe((known) => {
-      const current = listed.get()
-      if (current.channels.length <= CHANNEL_PAGE) return load(query.get(), null)
-      listed.set({
-        ...current,
-        channels: current.channels.map(
-          (shown) => known.find((channel) => channel.slug === shown.slug) ?? shown,
-        ),
-      })
+    state.channels.subscribe((known) => {
+      const next = listAfterChange(listed.get(), known, CHANNEL_PAGE)
+      if (next === 'reload') load(query.get(), null)
+      else listed.set(next)
     }),
   )
   const search = h('input', {
@@ -77,68 +65,33 @@ export const channelsView = (life: Lifetime): HTMLElement => {
   load('', null)
   return page(
     strings.channels,
-    h('div', { class: 'channels-intro' }, h('p', {}, strings.channelsIntro), newChannelButton()),
+    h('div', { class: 'channels-intro' }, h('p', {}, strings.channelsIntro), newChannelButton(context)),
     field(strings.channelsSearchLabel, search),
-    region(life, [listed], () => {
-      const current = listed.get()
-      if (!current.loaded) return loading()
-      if (current.channels.length === 0 && current.query === '')
-        return emptyWithPip(
-          'searching',
-          strings.noChannelsYet,
-          h('div', { class: 'empty-actions' }, newChannelButton(), peopleLink()),
-        )
-      if (current.channels.length === 0) return empty(strings.noChannels)
-      return [
-        h('ul', { class: 'channel-list' }, current.channels.map(channelCard)),
-        current.query === '' &&
-          current.channels.length === 1 &&
-          !current.hasMore &&
-          h('p', { class: 'hint only-one-channel' }, strings.onlyOneChannel),
-        current.hasMore &&
-          h(
-            'button',
-            { type: 'button', class: 'show-more', on: { click: () => load(current.query, current) } },
-            strings.showMoreChannels,
-          ),
-      ]
-    }),
+    region(life, [listed], () =>
+      renderChannelList(channelListModel(listed.get()), context, () =>
+        load(listed.get().query, listed.get()),
+      ),
+    ),
   )
 }
 
-export const newChannelButton = (): HTMLElement | null =>
-  !featureOn('channels')
-    ? null
-    : h(
-        'button',
-        {
-          type: 'button',
-          class: 'primary new-channel',
-          ...opensDialog(strings.createChannelTitle, createForm),
-        },
-        strings.newChannel,
-      )
-
-export const channelView = (life: Lifetime, slug: string): HTMLElement => {
-  launch(loadChannels(''))
-  const roomOf = (): string | null => {
-    const channel = channelNamed(channels.get(), slug)
-    const joined = channel !== null && conversations.get().some((room) => room.id === channel.conversationId)
-    return joined ? channel.conversationId : null
-  }
+/** One channel's page, which opens its room for a member and offers to ask or join otherwise. */
+export const channelView = (context: ViewContext, life: Lifetime, slug: string): HTMLElement => {
+  const { state, actions } = context
+  actions.loadKnownChannels()
   const enterRoomIfJoined = (): void => {
-    const room = roomOf()
-    if (room !== null) location.replace(hrefFor({ name: 'conversation', id: room }))
+    const room = joinedRoom(state.channels.get(), state.conversations.get(), slug)
+    if (room !== null) context.page.replace(hrefFor({ name: 'conversation', id: room }))
   }
-  life.add(channels.subscribe(enterRoomIfJoined))
-  life.add(conversations.subscribe(enterRoomIfJoined))
+  life.add(state.channels.subscribe(enterRoomIfJoined))
+  life.add(state.conversations.subscribe(enterRoomIfJoined))
   queueMicrotask(enterRoomIfJoined)
   return h(
     'div',
     { class: 'channel-ask-host' },
-    region(life, [channels, channelsLoaded, rosters], () => {
-      const channel = channelNamed(channels.get(), slug)
-      if (channel === null && !channelsLoaded.get()) return loading()
+    region(life, [state.channels, state.channelsLoaded, state.rosters], () => {
+      const channel = channelNamed(state.channels.get(), slug)
+      if (channel === null && !state.channelsLoaded.get()) return loading()
       if (channel === null)
         return emptyWithPip(
           'failed',
@@ -147,67 +100,40 @@ export const channelView = (life: Lifetime, slug: string): HTMLElement => {
             'div',
             { class: 'empty-actions' },
             h('a', { class: 'button', href: hrefFor({ name: 'channels' }) }, strings.browseChannels),
-            newChannelButton(),
+            newChannelButton(context),
           ),
         )
-      return askPage(life, channel)
+      return askPage(context, life, channel)
     }),
   )
 }
 
-interface ListedChannels {
-  readonly query: string
-  readonly channels: ReadonlyArray<Channel>
-  readonly hasMore: boolean
-  readonly cursor: string | null
-  readonly loaded: boolean
-}
-
-const peopleLink = (): HTMLElement =>
-  h('a', { class: 'button', href: hrefFor({ name: 'people' }) }, strings.askAPersonInstead)
-
-const channelCard = (channel: Channel): HTMLElement =>
+const channelCard = (card: ChannelCard, context: ViewContext): HTMLElement =>
   h(
     'li',
-    {
-      class: `channel-card ${channel.answering ? 'is-helping' : ''} ${isPrivate(channel) ? 'is-private' : ''}`,
-      data: { slug: channel.slug },
-    },
+    { class: card.className, data: { slug: card.channel.slug } },
     h(
       'div',
       { class: 'channel-main' },
-      h(
-        'h2',
-        { class: 'channel-name' },
-        h('a', { href: hrefFor({ name: 'channel', slug: channel.slug }) }, channelLabel(channel.slug)),
-        privateMark(channel),
-      ),
-      h('p', { class: 'channel-description' }, channel.description),
+      h('h2', { class: 'channel-name' }, h('a', { href: card.href }, card.label), privateMark(card.channel)),
+      h('p', { class: 'channel-description' }, card.channel.description),
       h(
         'p',
         { class: 'channel-meta' },
-        channelCounts(channel),
-        channel.answering
-          ? h('span', { class: 'kind is-helping' }, strings.helpingHere)
-          : channel.joined && h('span', { class: 'kind is-joined' }, strings.inRoom),
+        channelCounts(card.channel),
+        card.status !== null && h('span', { class: card.status.className }, card.status.text),
       ),
     ),
     h(
       'div',
       { class: 'channel-actions' },
-      !channel.joined && !isPrivate(channel) && joinButtons(channel),
-      h(
-        'a',
-        {
-          class: `button ${channel.joined ? 'primary' : ''}`,
-          href: hrefFor({ name: 'channel', slug: channel.slug }),
-        },
-        channel.joined || isPrivate(channel) ? strings.openRoom : strings.askChannel,
-      ),
+      card.mayJoin && joinButtons(context, card.channel),
+      h('a', { class: `button ${card.open.primary ? 'primary' : ''}`, href: card.href }, card.open.text),
     ),
   )
 
-const createForm = (life: Lifetime): HTMLElement => {
+const createForm = (context: ViewContext, life: Lifetime): HTMLElement => {
+  const { state, actions } = context
   const typed = signal('')
   const slug = h('input', {
     name: 'slug',
@@ -239,47 +165,40 @@ const createForm = (life: Lifetime): HTMLElement => {
       on: {
         submit: (event) => {
           event.preventDefault()
-          const wanted = slugFrom(slug.value).replace(/-+$/, '')
-          if (!isValidSlug(wanted) || channelNamed(channels.get(), wanted) !== null) return
+          const wanted = slugToCreate(state.channels.get(), slug.value)
+          if (wanted === null) return
           const chosen = visibility.querySelector<HTMLInputElement>('input:checked')?.value
-          launch(
-            createChannel(wanted, description.value.trim(), chosen === 'private' ? 'private' : 'open'),
-            (created) => {
-              channels.update((all) => withChannel(all, created))
-              closeDialog()
-              location.hash = hrefFor({ name: 'channel', slug: created.slug })
+          actions.createChannel(wanted, description.value.trim(), chosen === 'private' ? 'private' : 'open', {
+            done: (created) => {
+              closeDialog(context)
+              context.page.go(hrefFor({ name: 'channel', slug: created.slug }))
             },
-            'channel-name',
-          )
+            attempt: 'channel-name',
+          })
         },
       },
     },
     field(strings.channelSlugLabel, slug, strings.channelSlugHint),
     region(
       life,
-      [typed, channels],
+      [typed, state.channels],
       () => {
-        const similar = similarChannels(channels.get(), typed.get())
-        const exact = channelNamed(channels.get(), typed.get().replace(/-+$/, ''))
-        submit.disabled = exact !== null
-        if (exact !== null)
+        const check = nameCheck(state.channels.get(), typed.get())
+        submit.disabled = check.kind === 'exists'
+        if (check.kind === 'exists')
           return h(
             'p',
             { class: 'channel-exists', role: 'status' },
-            h('span', {}, strings.channelExists({ channel: channelLabel(exact.slug) })),
-            h(
-              'a',
-              { href: hrefFor({ name: 'channel', slug: exact.slug }), on: { click: closeDialog } },
-              strings.openRoom,
-            ),
+            h('span', {}, check.text),
+            h('a', { href: check.href, on: { click: () => closeDialog(context) } }, strings.openRoom),
           )
         return (
-          similar.length > 0 &&
+          check.kind === 'similar' &&
           h(
             'div',
             { class: 'channel-similar' },
             h('span', {}, strings.similarChannels),
-            channelChips(similar.map((channel) => channel.slug)),
+            channelChips(check.slugs),
           )
         )
       },
@@ -320,7 +239,8 @@ const visibilityChoice = (): HTMLFieldSetElement =>
     ),
   )
 
-const askPage = (life: Lifetime, channel: Channel): Child => {
+const askPage = (context: ViewContext, life: Lifetime, channel: AsRead.Channel): Child => {
+  const model = askPageModel(channel, signedIn(context.state)?.member.role === 'admin')
   const text = h('textarea', {
     name: 'body',
     rows: '4',
@@ -329,27 +249,16 @@ const askPage = (life: Lifetime, channel: Channel): Child => {
     placeholder: strings.askChannelPlaceholder,
     'aria-label': strings.askChannelPlaceholder,
   })
-  const enterRoom = (conversationId: string): void =>
-    launch(T.asUnit(loadConversations), () => {
-      location.hash = hrefFor({ name: 'conversation', id: conversationId })
-    })
-  const mayAsk = channel.joined || !isPrivate(channel)
+  const enterRoom = (conversationId: string): void => context.actions.enterRoom(conversationId)
   return page(
-    mayAsk ? strings.askChannelTitle({ channel: channelLabel(channel.slug) }) : channelLabel(channel.slug),
+    model.title,
     privateMark(channel),
-    h('p', { class: 'channel-description' }, channel.description),
+    h('p', { class: 'channel-description' }, model.description),
     h('p', { class: 'channel-meta' }, channelCounts(channel)),
-    !channel.joined && !isPrivate(channel) && joinButtons(channel),
-    channel.managing && roomControls(channel),
-    mayAsk &&
-      h(
-        'p',
-        {},
-        channel.helperCount === 0
-          ? strings.askChannelNobodyAnswers
-          : strings.askChannelIntro({ count: channel.helperCount }),
-      ),
-    mayAsk &&
+    model.mayJoin && joinButtons(context, channel),
+    model.seesMembers && roomControls(context, channel),
+    model.intro !== null && h('p', {}, model.intro),
+    model.mayAsk &&
       h(
         'form',
         {
@@ -358,13 +267,14 @@ const askPage = (life: Lifetime, channel: Channel): Child => {
             submit: (event) => {
               event.preventDefault()
               const body = text.value.trim()
-              if (body !== '') launch(askChannel(channel.slug, body), enterRoom)
+              if (body !== '') context.actions.askChannel(channel.slug, body, { done: enterRoom })
             },
           },
         },
         text,
         h('button', { type: 'submit', class: 'primary' }, strings.send),
         agentAsk(
+          context,
           life,
           () => ({ channel: channel.slug }),
           (request) => enterRoom(request.conversationId),
@@ -372,3 +282,48 @@ const askPage = (life: Lifetime, channel: Channel): Child => {
       ),
   )
 }
+
+const renderChannelList = (model: ChannelListModel, context: ViewContext, more: () => void): Child => {
+  switch (model.kind) {
+    case 'loading':
+      return loading()
+    case 'none-yet':
+      return emptyWithPip(
+        'searching',
+        model.text,
+        h(
+          'div',
+          { class: 'empty-actions' },
+          newChannelButton(context),
+          h('a', { class: 'button', href: hrefFor({ name: 'people' }) }, strings.askAPersonInstead),
+        ),
+      )
+    case 'no-match':
+      return empty(model.text)
+    case 'channels':
+      return [
+        h(
+          'ul',
+          { class: 'channel-list' },
+          model.cards.map((card) => channelCard(card, context)),
+        ),
+        model.onlyOne !== null && h('p', { class: 'hint only-one-channel' }, model.onlyOne),
+        model.more !== null &&
+          h('button', { type: 'button', class: 'show-more', on: { click: more } }, model.more),
+      ]
+  }
+}
+
+/** "New channel": opens the form to start one, where channels are on. */
+const newChannelButton = (context: ViewContext): HTMLElement | null =>
+  !featureOn('channels', context.state.serverInfo.get())
+    ? null
+    : h(
+        'button',
+        {
+          type: 'button',
+          class: 'primary new-channel',
+          ...opensDialog(context, strings.createChannelTitle, (life) => createForm(context, life)),
+        },
+        strings.newChannel,
+      )
