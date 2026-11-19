@@ -418,7 +418,21 @@ const authorButton = (life: Lifetime, note: Note, mine: boolean, sentAt: string 
     'div',
     { id, class: 'author-details', popover: POPOVER_KIND, role: 'note' },
     h('p', { class: 'author-line' }, authorshipLine(note, mine)),
+    note.fromDebate !== undefined &&
+      h(
+        'p',
+        { class: 'author-debate' },
+        strings.authorship.fromDebate({
+          question: note.fromDebate.question,
+          agents: listOf(
+            note.fromDebate.agents.map((one) =>
+              strings.debates.agentOf({ agent: one.agent, person: one.person }),
+            ),
+          ),
+        }),
+      ),
     showsNoteDetails() &&
+      note.fromDebate === undefined &&
       note.origin !== 'human' && [
         h(
           'p',

@@ -78,7 +78,18 @@ export const channelsView = (life: Lifetime): HTMLElement => {
   load('', null)
   return page(
     strings.channels,
-    h('div', { class: 'channels-intro' }, h('p', {}, strings.channelsIntro), newChannelButton()),
+    h(
+      'div',
+      { class: 'channels-intro' },
+      h('p', {}, strings.channelsIntro),
+      newChannelButton(),
+      featureOn('debateRooms') &&
+        h(
+          'a',
+          { class: 'button debate-rooms-link', href: hrefFor({ name: 'debates' }) },
+          strings.debates.title,
+        ),
+    ),
     field(strings.channelsSearchLabel, search),
     region(life, [listed], () => {
       const current = listed.get()

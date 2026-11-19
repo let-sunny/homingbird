@@ -5,6 +5,8 @@ import type {
   Conversation,
   ConversationId,
   Credential,
+  Debate,
+  DebateSummary,
   DirectoryEntry,
   DraftRequest,
   Me,
@@ -69,6 +71,9 @@ export const archiveDiscards = signal<ReadonlyMap<ConversationId, ReadonlyArray<
 export const openedForThePerson = signal<ConversationId | null>(null)
 export const agentReport = signal<AgentReport | 'failed' | null>(null)
 export const taught = signal<MyPrinciples | 'failed' | null>(null)
+export const debates = signal<ReadonlyArray<DebateSummary>>([])
+export const debatesLoaded = signal(false)
+export const shownDebate = signal<Debate | 'missing' | null>(null)
 
 export const members = derived(
   [directory, session],

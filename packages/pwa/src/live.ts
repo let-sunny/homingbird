@@ -13,6 +13,7 @@ import {
   rememberNote,
 } from './actions.ts'
 import { channelLabel, withChannel, withoutRoom } from './channels.ts'
+import { loadDebate, loadDebates } from './debate-actions.ts'
 import { upsertRequest } from './draft-requests.ts'
 import { hrefFor } from './routes.ts'
 import {
@@ -114,6 +115,9 @@ export const applyEvent = (event: StreamEvent): void => {
       })
       leaveRoomIfShown(body.conversationId)
       break
+    case 'debate.changed':
+      reloadShownDebate(body.debateId)
+      break
     case 'presence':
       directory.update((entries) => withPresence(entries, body.members))
       if (body.members.some((change) => change.memberId === signedIn()?.member.id && change.agentOnline))
@@ -153,6 +157,12 @@ const announceIfFresh = (event: StreamEvent): void => {
   announcement.set(
     strings.incomingNote({ name: members.get().get(note.authorId)?.name ?? strings.formerMember }),
   )
+}
+
+const reloadShownDebate = (id: string): void => {
+  const current = route.get()
+  if (current.name === 'debates') launch(loadDebates)
+  if (current.name === 'debate' && current.id === id) launch(loadDebate(id))
 }
 
 const refreshAgentsIfNoneKnown = (): void => {

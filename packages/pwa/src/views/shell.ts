@@ -5,6 +5,7 @@ import { launch, signOut } from '../actions.ts'
 import { arrivalTracker } from '../arrivals.ts'
 import { archivedRooms, channelOfRoom, channelRooms, peopleConversations } from '../channels.ts'
 import { connectionShown } from '../connection-status.ts'
+import { featureOn } from '../features.ts'
 import { type Route, hrefFor } from '../routes.ts'
 import { spriteOwner } from '../sprite-owner.ts'
 import {
@@ -75,7 +76,12 @@ const titleBar = (life: Lifetime, me: Me): HTMLElement =>
           tab(strings.navNotes, { name: 'home' }, ['home', 'conversation']),
           tab(strings.navMyAgent, { name: 'agent', section: null }, ['agent'], 'connect'),
           tab(strings.navPeople, { name: 'people' }, ['people']),
-          tab(strings.channels, { name: 'channels' }, ['channels', 'channel'], 'channels'),
+          tab(
+            strings.channels,
+            { name: 'channels' },
+            ['channels', 'channel', 'debates', 'debate'],
+            'channels',
+          ),
           tab(strings.navSearch, { name: 'search', query: '' }, ['search']),
         ),
       { class: 'tabs-host' },
@@ -137,6 +143,7 @@ const userMenu = (me: Me): HTMLElement =>
     { id: USER_MENU_ID, popover: 'auto', class: 'menu' },
     h('p', { class: 'menu-who' }, h('strong', {}, me.member.name), h('span', {}, me.member.email)),
     menuLink(strings.menuProfile, { name: 'profile' }),
+    featureOn('debateRooms') && menuLink(strings.debates.title, { name: 'debates' }),
     me.member.role === 'admin' && menuLink(strings.menuAdmin, { name: 'admin', section: 'settings' }),
     h(
       'button',

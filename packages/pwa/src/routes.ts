@@ -6,6 +6,8 @@ export type Route =
   | { readonly name: 'people' }
   | { readonly name: 'channels' }
   | { readonly name: 'channel'; readonly slug: string }
+  | { readonly name: 'debates' }
+  | { readonly name: 'debate'; readonly id: string }
   | { readonly name: 'search'; readonly query: string }
   | { readonly name: 'profile' }
   | { readonly name: 'agent'; readonly section: AgentSection | null }
@@ -35,6 +37,8 @@ export const parseRoute = (hash: string): Route => {
   if (head === 'channels') return { name: 'channels' }
   if ((head === 'channel' || head === LEGACY_CHANNEL_HEAD) && second !== undefined)
     return { name: 'channel', slug: second }
+  if (head === 'debates') return { name: 'debates' }
+  if (head === 'debate' && second !== undefined) return { name: 'debate', id: second }
   if (head === 'search') return { name: 'search', query: parameters.get('q') ?? '' }
   if (head === 'me') return { name: 'profile' }
   if (head === 'agent') return { name: 'agent', section: isAgentSection(second) ? second : null }
@@ -61,6 +65,10 @@ export const hrefFor = (route: Route): string => {
       return '#/channels'
     case 'channel':
       return `#/channel/${encodeURIComponent(route.slug)}`
+    case 'debates':
+      return '#/debates'
+    case 'debate':
+      return `#/debate/${encodeURIComponent(route.id)}`
     case 'search':
       return `#/search?${new URLSearchParams({ q: route.query }).toString()}`
     case 'profile':

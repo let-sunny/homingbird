@@ -14,7 +14,7 @@ export const routeMapSection = (life: Lifetime): HTMLElement =>
     () => {
       const loaded = taught.get()
       if (loaded === null || loaded === 'failed') return null
-      if (loaded.routes.length === 0) return emptyMap()
+      if (loaded.routes.length === 0) return [emptyMap(), debateRoute(loaded)]
       const nodes = routeLayout(loaded.routes, MAP_SIZE)
       return [
         h('p', { class: 'trust-footnote' }, strings.routes.intro),
@@ -26,6 +26,7 @@ export const routeMapSection = (life: Lifetime): HTMLElement =>
         ),
         h('ul', { class: 'route-legend' }, nodes.map(legendItem)),
         mapTable(loaded),
+        debateRoute(loaded),
       ]
     },
     { class: 'routes' },
@@ -157,6 +158,24 @@ const mapTable = (loaded: MyPrinciples): HTMLElement =>
       ),
     ),
   )
+
+/** What approved debate results credited the agent for, each kind once: never a count or a ranking. */
+const debateRoute = (loaded: MyPrinciples): HTMLElement | null =>
+  (loaded.debateCredits ?? []).length === 0
+    ? null
+    : h(
+        'section',
+        { class: 'route-debates', 'aria-labelledby': 'route-debates' },
+        h('h3', { id: 'route-debates' }, strings.routes.debateRooms),
+        h('p', { class: 'trust-footnote' }, strings.routes.debateIntro),
+        h(
+          'ul',
+          {},
+          (loaded.debateCredits ?? []).map((credit) =>
+            h('li', { class: 'route-debate-credit' }, strings.teach.achievements[`debate_${credit}`]),
+          ),
+        ),
+      )
 
 const emptyMap = (): HTMLElement =>
   h(

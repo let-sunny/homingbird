@@ -14,6 +14,8 @@ import { agentTrustView } from './views/agent-trust.ts'
 import { channelView, channelsView } from './views/channels.ts'
 import { characterEditorView } from './views/character.ts'
 import { consentView, deviceView } from './views/connect.ts'
+import { debateView } from './views/debate-room.ts'
+import { debatesView } from './views/debates.ts'
 import { dialogHost } from './views/dialog.ts'
 import { homeView } from './views/home.ts'
 import { emptyWithPip } from './views/parts.ts'
@@ -98,6 +100,10 @@ const stageFor = (life: Lifetime, me: Me, current: Route): Child => {
       return channelsView(life)
     case 'channel':
       return channelView(life, current.slug)
+    case 'debates':
+      return featureOn('debateRooms') ? debatesView(life, me) : notFound()
+    case 'debate':
+      return featureOn('debateRooms') ? debateView(life, me, current.id) : notFound()
     case 'search':
       return searchView(life, me, current.query)
     case 'profile':
