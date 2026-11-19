@@ -58,6 +58,10 @@ const agentActivity = (
       SELECT n.sent_at AS at, ${PLACE_COLUMNS} FROM notes n ${PLACE_JOIN}
       WHERE n.author_id = ${memberId} AND n.agent_name IS NULL AND n.debate_id IS NULL AND n.status = 'sent'
       AND n.sent_at >= ${since}`)
+    const debateResults = yield* all<DatedRow>(sql`
+      SELECT n.sent_at AS at, ${PLACE_COLUMNS} FROM notes n ${PLACE_JOIN}
+      WHERE n.author_id = ${memberId} AND n.debate_id IS NOT NULL AND n.status = 'sent'
+      AND n.sent_at >= ${since}`)
     const skips = yield* all<SkipRow>(sql`
       SELECT n.created_at AS at, n.reason, ${PLACE_COLUMNS} FROM releases n ${PLACE_JOIN}
       WHERE n.member_id = ${memberId} AND n.created_at >= ${since}
@@ -70,6 +74,7 @@ const agentActivity = (
     return {
       drafts: drafts.map(toDraft),
       handWritten: handWritten.map(toDated),
+      debateResults: debateResults.map(toDated),
       skips: skips.map((row) => ({ ...toDated(row), reason: row.reason })),
       expiredRequests: expired.map(toDated),
     }
@@ -87,6 +92,9 @@ const organizationActivity = (since: number): T.Task<OrganizationActivity, never
     const skips = yield* all<DatedRow & { member_id: string }>(sql`
       SELECT n.member_id, n.created_at AS at, ${PLACE_COLUMNS} FROM releases n ${PLACE_JOIN}
       WHERE n.created_at >= ${since}`)
+    const debateResults = yield* all<{ author_id: string; sent_at: number }>(sql`
+      SELECT n.author_id, n.sent_at FROM notes n
+      WHERE n.status = 'sent' AND n.debate_id IS NOT NULL AND n.sent_at >= ${since}`)
     return {
       sent: sent.map((row) => ({
         id: row.id,
@@ -97,6 +105,7 @@ const organizationActivity = (since: number): T.Task<OrganizationActivity, never
       })),
       drafts: drafts.map((row) => ({ ...toDraft(row), authorId: row.author_id })),
       skips: skips.map((row) => ({ ...toDated(row), memberId: row.member_id })),
+      debateResults: debateResults.map((row) => ({ authorId: row.author_id, sentAt: Number(row.sent_at) })),
     }
   })
 

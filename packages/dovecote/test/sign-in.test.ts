@@ -189,12 +189,16 @@ describe('signing in through an OpenID Connect provider', () => {
     'makes sign-in unavailable for a discovery document with %s, and sends nothing',
     async (_, discovery, reason) => {
       const issuer = makeFakeIssuer()
-      await withIssuer(issuer, { HB_OIDC_ISSUER: `${issuer.issuer}/` })
+      await withIssuer(issuer, { HB_OIDC_ISSUER: `${issuer.issuer}/`, HB_LOGS: 'operational=debug' })
       issuer.discovery = discovery
       const started = await server.request('GET', '/auth/login')
       expect(refusalOf(started)).toMatch(/Sign-in is unavailable/)
       expect(refusalOf(started)).toMatch(reason)
-      expect(server.logged.some((line) => reason.test(line))).toBe(true)
+      const logged = server.logged.map((line) => JSON.parse(line))
+      expect(logged.map((line) => line.eventName)).toContain('sign_in.provider_failed')
+      expect(
+        logged.some((line) => line.eventName === 'defect.detail' && reason.test(line.attributes.detail)),
+      ).toBe(true)
       expect(issuer.requests).toEqual([`${issuer.issuer}/.well-known/openid-configuration`])
     },
   )

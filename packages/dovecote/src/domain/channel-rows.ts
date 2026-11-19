@@ -46,15 +46,18 @@ export const describeChannel = (viewer: Viewer, row: ChannelRow): T.Task<Channel
       helperCount: helpers.length,
       joined,
       answering: helpers.includes(viewer.id),
-      managing: (joined && managers.includes(viewer.id)) || viewer.role === 'admin',
+      managing:
+        (joined && managers.includes(viewer.id)) || (viewer.role === 'admin' && visibilityOf(row) === 'open'),
       createdAt: Number(row.created_at),
     }
   })
 
-export const maySee = (viewer: Viewer, row: ChannelRow): T.Task<boolean, never, AppEnv> =>
-  visibilityOf(row) === 'open' || viewer.role === 'admin'
-    ? T.succeed(true)
-    : isMemberOf(row.conversation_id, viewer.id)
+/**
+ * Whether a room is visible without being in it: an open one to everyone, a private one to administrators
+ * only. Channels and debate rooms share this rule; members of a private room see it through membership.
+ */
+export const isVisibleRoom = (visibility: ChannelVisibility, viewer: Pick<Viewer, 'role'>): boolean =>
+  visibility === 'open' || viewer.role === 'admin'
 
 export const visibilityOf = (row: ChannelRow): ChannelVisibility => row.visibility ?? 'open'
 
@@ -160,3 +163,6 @@ const addTo = (
 
 const idsOf = (query: ReturnType<typeof sql>): T.Task<MemberId[], never, AppEnv> =>
   T.map((rows: ReadonlyArray<{ member_id: MemberId }>) => rows.map((row) => row.member_id))(all(query))
+
+const maySee = (viewer: Viewer, row: ChannelRow): T.Task<boolean, never, AppEnv> =>
+  isVisibleRoom(visibilityOf(row), viewer) ? T.succeed(true) : isMemberOf(row.conversation_id, viewer.id)

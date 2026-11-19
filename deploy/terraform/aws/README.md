@@ -26,7 +26,7 @@ terraform apply \
   -var 'channels=["billing: Invoices and the nightly export", "deploys"]'
 ```
 
-Every variable Dovecote reads is either a variable here (`channels`, `contact_mode`, `audit_webhook_url`,
+Every variable Dovecote reads is either a variable here (`channels`, `contact_mode`,
 `audit_retention_days`) or can be passed through `extra_environment`, for example
 `-var 'extra_environment={HB_SESSION_DAYS="14"}'`. See [docs/deployment.md](../../../docs/deployment.md#configuration).
 
@@ -42,13 +42,14 @@ Every variable Dovecote reads is either a variable here (`channels`, `contact_mo
 - **`HB_TRUST_PROXY=1`**, because the task is reachable only through the load balancer, and the
   Application Load Balancer appends one entry, the client address it saw, to `X-Forwarded-For`. See
   [docs/deployment.md](../../../docs/deployment.md#behind-a-load-balancer).
-- **`HB_AUDIT_STDOUT=1`**, so the audit trail reaches CloudWatch Logs.
+- **`HB_LOGS=auditCopy=on`**, so a metadata-only copy of the audit trail reaches CloudWatch Logs next to
+  the operational log, outside the database.
 
 ## What it leaves to you
 
 - Building the image (`docker build -t ... .` at the repository root) and pushing it to ECR.
 - The VPC, its subnets and a NAT gateway: the task needs outbound HTTPS to reach the identity provider,
-  push services and the audit webhook.
+  push services and, if you set one, the analytics destination.
 - The ACM certificate, the DNS record pointing at the load balancer, and registering
   `<public_url>/auth/callback` with your identity provider.
 - Remote state. The state holds the database password and the client secret in plain text; keep it in a

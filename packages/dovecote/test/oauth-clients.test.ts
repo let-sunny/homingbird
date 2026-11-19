@@ -72,7 +72,7 @@ const connect = async (clientId: string, redirectUri: string) => {
 }
 
 const auditActions = async (): Promise<string[]> =>
-  (await storedRows(server, 'audit_log')).map((row) => String(row.action))
+  (await storedRows(server, 'audit_events')).map((row) => String(row.event))
 
 const authorizeRequests = async () =>
   (await storedRows(server, 'auth_requests')).filter((row) => row.kind === 'authorize')
@@ -119,19 +119,17 @@ describe('redirect hosts', () => {
     expect((await register([CLAUDE_CALLBACK])).status).toBe(400)
   })
 
-  it('audits a registration with the client name and redirect hosts', async () => {
+  it('audits a registration with its client id and redirect hosts', async () => {
     server = await startTestServer()
     const registered = (await register([CLAUDE_CALLBACK, 'http://127.0.0.1:9/cb'])).json
-    const [entry] = await storedRows(server, 'audit_log')
+    const [entry] = await storedRows(server, 'audit_events')
     expect(entry).toMatchObject({
-      action: 'oauth.client.registered',
-      target: registered.client_id,
+      event: 'oauth.client_registered',
+      target_id: registered.client_id,
+      client_id: registered.client_id,
       actor_id: null,
     })
-    expect(JSON.parse(String(entry!.detail))).toEqual({
-      clientName: 'Connector',
-      redirectHosts: ['claude.ai', '127.0.0.1:9'],
-    })
+    expect(JSON.parse(String(entry!.detail))).toEqual({ redirectHosts: ['claude.ai', '127.0.0.1:9'] })
   })
 
   it('refuses at authorization a client whose redirect host is no longer allowed', async () => {
@@ -216,15 +214,12 @@ describe('client ID metadata documents', () => {
         ).status,
       ).toBe(302)
     expect(claude.fetched).toHaveLength(1)
-    const resolved = (await storedRows(server, 'audit_log')).filter(
-      (row) => row.action === 'oauth.client.resolved',
+    const resolved = (await storedRows(server, 'audit_events')).filter(
+      (row) => row.event === 'oauth.client_resolved',
     )
     expect(resolved).toHaveLength(1)
-    expect(resolved[0]).toMatchObject({ target: CLAUDE_CLIENT_ID, actor_id: null })
-    expect(JSON.parse(String(resolved[0]!.detail))).toEqual({
-      clientName: 'Claude',
-      redirectHosts: ['claude.ai'],
-    })
+    expect(resolved[0]).toMatchObject({ target_id: CLAUDE_CLIENT_ID, actor_id: null })
+    expect(JSON.parse(String(resolved[0]!.detail))).toEqual({ redirectHosts: ['claude.ai'] })
   })
 
   it('refuses a document that names another client, leaving nothing behind and logging the reason', async () => {
@@ -240,9 +235,12 @@ describe('client ID metadata documents', () => {
       'invalid_client: The client metadata document was refused: the document names a different client_id.',
     ])
     expect(await authorizeRequests()).toEqual([])
-    expect(await auditActions()).not.toContain('oauth.client.resolved')
-    expect(server.logged).toContain(
-      'oauth: refused a client metadata document (the document names a different client_id)',
+    expect(await auditActions()).not.toContain('oauth.client_resolved')
+    expect(server.logged.map((line) => JSON.parse(line))).toContainEqual(
+      expect.objectContaining({
+        eventName: 'oauth.client_metadata_refused',
+        attributes: expect.objectContaining({ reason: 'the document names a different client_id' }),
+      }),
     )
   })
 

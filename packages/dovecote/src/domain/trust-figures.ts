@@ -43,6 +43,8 @@ export interface AgentActivity {
   readonly skips: ReadonlyArray<Skip>
   readonly expiredRequests: ReadonlyArray<Dated>
   readonly handWritten: ReadonlyArray<Dated>
+  /** Debate results the person sent, counted apart from their agent's drafts and their own notes. */
+  readonly debateResults?: ReadonlyArray<Dated>
 }
 
 export interface Window {
@@ -92,6 +94,7 @@ export const agentFiguresIn = (
     quickApprovals,
     quickApprovalsFrequent: isQuickApprovalFrequent(quickApprovals, decisions.sentAsWritten),
     wroteYourself: activity.handWritten.filter((note) => isIn(window, note.at)).length,
+    debateResultsSent: (activity.debateResults ?? []).filter((note) => isIn(window, note.at)).length,
     verdict: verdictOf(decisions),
     places: placesIn(activity, window),
     byClient: labelTotals(activity.drafts, window, (draft) => draft.client ?? null),

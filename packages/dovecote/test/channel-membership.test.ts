@@ -163,16 +163,20 @@ describe('private channels', () => {
     expect((await cy.api('DELETE', '/channels/payroll/membership')).json.joined).toBe(false)
   })
 
-  it('lets an administrator manage any channel, and shows them as able to', async () => {
+  it('lets an administrator manage an open channel, and only see who is in a private one', async () => {
     await create()
     expect((await channels(ana)).find((channel) => channel.slug === 'payroll')).toMatchObject({
       joined: false,
-      managing: true,
+      managing: false,
     })
     expect((await ana.api('GET', '/channels/billing')).json.managing).toBe(true)
-    expect((await ana.api('PUT', `/channels/payroll/members/${cy.me.member.id}`)).status).toBe(200)
-    expect((await ana.api('PUT', `/channels/payroll/managers/${cy.me.member.id}`)).status).toBe(200)
+    expect((await ana.api('PUT', `/channels/payroll/members/${cy.me.member.id}`)).status).toBe(403)
+    expect((await ana.api('PUT', `/channels/payroll/members/${ana.me.member.id}`)).status).toBe(403)
+    await add(ben, cy)
+    expect((await ana.api('PUT', `/channels/payroll/managers/${cy.me.member.id}`)).status).toBe(403)
+    expect((await ana.api('PUT', '/channels/payroll/visibility', { visibility: 'open' })).status).toBe(403)
     expect((await ana.api('GET', '/channels/payroll/members')).json.members).toHaveLength(2)
+    expect((await ana.api('DELETE', `/channels/payroll/members/${cy.me.member.id}`)).status).toBe(200)
     expect(
       (await ana.api('GET', '/conversations')).json.conversations.map((room: any) => room.title),
     ).not.toContain('payroll')
@@ -199,10 +203,10 @@ describe('private channels', () => {
       (await ben.api('PUT', '/channels/deploys/visibility', { visibility: 'open' })).json.visibility,
     ).toBe('open')
     expect((await channels(dee)).map((channel) => channel.slug)).toContain('deploys')
-    const audited = (await storedRows(server, 'audit_log')).filter(
-      (row) => row.action === 'channels.visibility.set',
+    const audited = (await storedRows(server, 'audit_events')).filter(
+      (row) => row.event === 'channel.visibility_changed',
     )
-    expect(audited.map((row) => [row.actor_id, row.target, JSON.parse(String(row.detail)).request])).toEqual([
+    expect(audited.map((row) => [row.actor_id, row.target_id, JSON.parse(String(row.detail))])).toEqual([
       [ben.me.member.id, 'deploys', { visibility: 'private' }],
       [ben.me.member.id, 'deploys', { visibility: 'open' }],
     ])

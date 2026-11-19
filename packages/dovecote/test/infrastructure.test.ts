@@ -8,6 +8,7 @@ import { LIMITS, makeRateLimiter } from '../src/http/rate-limiter.ts'
 import { SECURITY_HEADERS } from '../src/http/static-routes.ts'
 import { cryptoRandom, hashSecret, normalizeUserCode } from '../src/random.ts'
 import { run } from '../src/sql/database.ts'
+import { MIGRATIONS } from '../src/sql/migrations.ts'
 import { openDatabase } from '../src/sql/open.ts'
 import {
   containsIgnoringCase,
@@ -19,7 +20,7 @@ import {
   raw,
   sql,
 } from '../src/sql/query.ts'
-import { MIGRATIONS, migrate, schemaStatements } from '../src/sql/schema.ts'
+import { migrate, schemaStatements } from '../src/sql/schema.ts'
 import { type TestServer, connectAgent, startTestServer, storedRows } from './harness.ts'
 
 describe('configuration', () => {
@@ -48,13 +49,17 @@ describe('configuration', () => {
         webDirectory: null,
         themeDirectory: null,
         identity: { issuer: 'https://accounts.google.com', label: 'Google', devLogin: false },
-        initial: { allowedDomains: [], contactMode: 'open', auditRetentionDays: null },
+        initial: { allowedDomains: [], contactMode: 'open' },
         adminEmails: ['root@example.com'],
         trustedProxies: 0,
         sessionDays: 30,
         agentCredentialDays: 90,
         insights: { quickApprovalSeconds: 3, minimumGroupSize: 5 },
-        audit: { toStdout: false, webhookUrl: null },
+        logs: { audit: 'full', operational: 'info', requests: false, auditCopy: false },
+        auditRetentionDays: 400,
+        auditRetentionVariableDays: null,
+        ignoredVariables: [],
+        analytics: { kind: 'off' },
         oauth: {
           redirectHosts: ['claude.ai', 'claude.com'],
           clientMetadataHosts: ['claude.ai', 'claude.com'],
@@ -98,24 +103,77 @@ describe('configuration', () => {
         webDirectory: '/web',
         themeDirectory: '/theme',
         identity: { issuer: 'https://idp.example.com', label: 'Okta' },
-        initial: {
-          allowedDomains: ['example.com', 'partner.org'],
-          contactMode: 'contacts',
-          auditRetentionDays: 365,
-        },
+        initial: { allowedDomains: ['example.com', 'partner.org'], contactMode: 'contacts' },
+        auditRetentionDays: 365,
+        auditRetentionVariableDays: 365,
         adminEmails: ['root@example.com'],
         trustedProxies: 2,
         pushHosts: ['push.example.com'],
         sessionDays: 7,
         agentCredentialDays: 14,
         insights: { quickApprovalSeconds: 5, minimumGroupSize: 8 },
-        audit: { toStdout: true, webhookUrl: 'https://siem.example.com/in' },
+        logs: { audit: 'full', operational: 'info', requests: false, auditCopy: true },
+        ignoredVariables: ['HB_AUDIT_WEBHOOK_URL'],
         oauth: {
           redirectHosts: ['claude.ai', 'agent.example'],
           clientMetadataHosts: [],
           clients: [{ client_id: 'tool', client_name: 'Tool', redirect_uris: ['https://tool.example/cb'] }],
         },
       },
+    })
+  })
+
+  it('reads HB_LOGS like HB_FEATURES, and refuses what it does not know', () => {
+    expect(
+      loadConfig({ ...minimal, HB_LOGS: 'audit=security, operational=debug,requests=on,auditCopy=on' }),
+    ).toMatchObject({
+      _tag: 'Ok',
+      value: { logs: { audit: 'security', operational: 'debug', requests: true, auditCopy: true } },
+    })
+    const refused = loadConfig({ ...minimal, HB_LOGS: 'audit=everything,trace=on' })
+    expect(refused._tag === 'Err' && refused.error).toEqual([
+      expect.stringMatching(/^HB_LOGS: "audit=everything" is not a log setting/),
+      expect.stringMatching(/^HB_LOGS: "trace=on" is not a log setting/),
+    ])
+  })
+
+  it('raises a retention under 90 days to 90, and refuses analytics without where they go', () => {
+    expect(loadConfig({ ...minimal, HB_AUDIT_RETENTION_DAYS: '30' })).toMatchObject({
+      _tag: 'Ok',
+      value: { auditRetentionDays: 90, auditRetentionVariableDays: 30 },
+    })
+    for (const variables of [
+      { HB_ANALYTICS: 'posthog' },
+      { HB_ANALYTICS: 'ga4', HB_ANALYTICS_KEY: 'k3y-value-7' },
+      { HB_ANALYTICS: 'http' },
+    ]) {
+      const refused = loadConfig({ ...minimal, ...variables })
+      expect(refused._tag).toBe('Err')
+      expect(JSON.stringify(refused)).not.toContain('k3y-value-7')
+    }
+  })
+
+  it('reads where analytics go', () => {
+    const destination = (variables: Record<string, string>) => {
+      const loaded = loadConfig({ ...minimal, ...variables })
+      return loaded._tag === 'Ok' ? loaded.value.analytics : null
+    }
+    expect(destination({ HB_ANALYTICS: 'posthog', HB_ANALYTICS_KEY: 'phc_1' })).toEqual({
+      kind: 'posthog',
+      url: 'https://us.i.posthog.com',
+      key: 'phc_1',
+    })
+    expect(
+      destination({
+        HB_ANALYTICS: 'ga4',
+        HB_ANALYTICS_URL: 'https://www.google-analytics.com/mp/collect?measurement_id=G-ABC123',
+        HB_ANALYTICS_KEY: 'k',
+      }),
+    ).toMatchObject({ kind: 'ga4', key: 'k' })
+    expect(destination({ HB_ANALYTICS: 'http', HB_ANALYTICS_URL: 'https://collect.example/in' })).toEqual({
+      kind: 'http',
+      url: 'https://collect.example/in',
+      key: null,
     })
   })
 
@@ -263,9 +321,9 @@ describe('schema', () => {
   })
 
   it.each(['sqlite', 'postgres', 'mysql'] as const)(
-    'keeps the 0.1.0 baseline and step 2 as released, and adds debate rooms in step 3 in %s',
+    'keeps the 0.1.0 baseline and steps 2 and 3 as released, and adds result votes and the grace in step 4 in %s',
     (dialect) => {
-      const [baseline = [], second = []] = MIGRATIONS
+      const [baseline = [], second = [], third = [], fourth = []] = MIGRATIONS
       const created = schemaStatements(dialect, [baseline])
       expect(created.filter((statement) => !statement.startsWith('CREATE'))).toEqual([])
       expect(created.find((statement) => statement.includes('TABLE IF NOT EXISTS members'))).toContain(
@@ -275,13 +333,36 @@ describe('schema', () => {
       for (const column of ['seen_at', 'decided_at', 'agent_body', 'agent_client', 'agent_model'])
         expect(notes).not.toContain(column)
       expect(created.some((statement) => statement.includes('principles'))).toBe(false)
-      expect(MIGRATIONS).toHaveLength(3)
+      expect(MIGRATIONS).toHaveLength(5)
+      expect(
+        schemaStatements(dialect, [[], third]).some((statement) => statement.includes('debate_votes')),
+      ).toBe(false)
+      expect(schemaStatements(dialect, [[], fourth]).slice(1)).toEqual([
+        expect.stringMatching(/^ALTER TABLE debates ADD COLUMN votes_open_at /),
+        expect.stringMatching(/^ALTER TABLE debates ADD COLUMN grace_minutes /),
+        expect.stringMatching(/^ALTER TABLE debates ADD COLUMN dropped_out /),
+        expect.stringContaining('TABLE IF NOT EXISTS debate_drafts ('),
+        expect.stringContaining('TABLE IF NOT EXISTS debate_votes ('),
+      ])
       expect(schemaStatements(dialect, [[], second]).some((statement) => statement.includes('debate'))).toBe(
         false,
       )
       expect(
         schemaStatements(dialect, [[], second]).filter((statement) => statement.startsWith('ALTER')),
       ).toHaveLength(7)
+    },
+  )
+
+  it.each(['sqlite', 'postgres', 'mysql'] as const)(
+    'adds the audit trail as its own step, after the result votes, touching no earlier table, in %s',
+    (dialect) => {
+      const audit = schemaStatements(dialect, [[], [], [], [], MIGRATIONS[4]!])
+      expect(
+        audit
+          .filter((statement) => /TABLE IF NOT EXISTS (\w+)/.test(statement))
+          .map((statement) => /TABLE IF NOT EXISTS (\w+)/.exec(statement)![1]),
+      ).toEqual(['schema_versions', 'audit_events', 'audit_head'])
+      expect(audit.some((statement) => statement.startsWith('ALTER'))).toBe(false)
     },
   )
 
@@ -309,21 +390,22 @@ describe('schema', () => {
   )
 
   it('refuses a database URL it does not understand', async () => {
-    await expect(openDatabase('oracle://x')).rejects.toThrow(/sqlite:, postgres: or mysql:/)
+    await expect(T.runPromise(openDatabase('oracle://x'))).rejects.toThrow(/sqlite:, postgres: or mysql:/)
   })
 
   it('opens a SQLite file, creating its directory', async () => {
     const path = join(mkdtempSync(join(tmpdir(), 'hb-')), 'nested', 'db.sqlite')
-    const database = await openDatabase(`sqlite:${path}`)
-    await database.run(raw('CREATE TABLE t (a INTEGER)'))
+    const database = await T.runPromise(openDatabase(`sqlite:${path}`))
+    await T.runPromise(database.run(raw('CREATE TABLE t (a INTEGER)')))
     await expect(
-      database.transaction(async (connection) => {
-        await connection.run(raw('INSERT INTO t (a) VALUES (1)'))
-        throw new Error('roll back')
-      }),
+      T.runPromise(
+        database.transaction((connection) =>
+          T.flatMap(() => T.fail('roll back'))(connection.run(raw('INSERT INTO t (a) VALUES (1)'))),
+        ),
+      ),
     ).rejects.toThrow('roll back')
-    expect(await database.all(raw('SELECT * FROM t'))).toEqual([])
-    await database.close()
+    expect(await T.runPromise(database.all(raw('SELECT * FROM t')))).toEqual([])
+    await T.runPromise(database.close)
   })
 })
 

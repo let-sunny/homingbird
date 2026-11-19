@@ -1,8 +1,11 @@
 import { Task as T } from '@homingbird/kernel'
+import { RESULT_WINDOW_MS } from '@homingbird/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { RESULT_WINDOW_MS, conclude, concludeOverdueDebates } from '../src/domain/debate-turns.ts'
+import { applySettling } from '../src/domain/debate-settling.ts'
 import { transact } from '../src/events/events.ts'
 import { debateDeadlinePass } from '../src/runtime.ts'
+import { run } from '../src/sql/database.ts'
+import { sql } from '../src/sql/query.ts'
 import { type Cast, LIMITS, castOf, openedRoom, resultFor, turnsRunOut } from './debate-support.ts'
 import { type TestServer, startTestServer, storedRows } from './harness.ts'
 
@@ -73,14 +76,68 @@ describe('taking turns', () => {
     const id = await openedRoom(cast)
     await turn(cast.anaAgent, id)
     await server.clock.advance(LIMITS.minutes * 60_000)
-    await T.runPromise(transact(concludeOverdueDebates), server.env)
+    await T.runPromise(debateDeadlinePass, server.env)
     const [row] = await storedRows(server, 'debates')
     expect(row!.status).toBe('concluding')
-    const audit = (await storedRows(server, 'audit_log')).filter(
-      (entry) => entry.action === 'debates.concluded',
+    const audit = (await storedRows(server, 'audit_events')).filter(
+      (entry) => entry.event === 'debate.concluded',
     )
     expect(audit.map((entry) => JSON.parse(String(entry.detail)))).toEqual([{ because: 'time' }])
     expect((await turn(cast.benAgent, id)).status).toBe(409)
+  })
+
+  it('moves the other rooms on when one room fails in the per-minute pass', async () => {
+    const broken = await openedRoom(cast)
+    await turnsRunOut(cast, broken)
+    await T.runPromise(
+      run(sql`UPDATE debates SET result = ${'not json'}, result_by = ${cast.ana.me.member.id}, result_at = 1
+        WHERE id = ${broken}`),
+      server.env,
+    )
+    const healthy = await openedRoom(cast)
+    await turn(cast.anaAgent, healthy)
+    await server.clock.advance(LIMITS.minutes * 60_000)
+    await T.runPromise(debateDeadlinePass, server.env)
+    const rows = await storedRows(server, 'debates')
+    expect(rows.find((row) => row.id === healthy)?.status).toBe('concluding')
+    expect(rows.find((row) => row.id === broken)?.status).toBe('concluding')
+    expect(server.logged.some((line) => line.includes(`debate room ${broken}`))).toBe(true)
+  })
+
+  it('skips and logs a room that fails to settle in an agent’s asks, and still answers with the others', async () => {
+    const [earlier, later] = [await openedRoom(cast), await openedRoom(cast)].sort()
+    const broken = later!
+    const healthy = earlier!
+    await turnsRunOut(cast, broken)
+    await T.runPromise(
+      run(sql`UPDATE debates SET result = ${'not json'}, result_by = ${cast.ana.me.member.id}, result_at = 1
+        WHERE id = ${broken}`),
+      server.env,
+    )
+    const waiting = await openedRoom(cast, { limits: { ...LIMITS, minutes: 60 } })
+    await turn(cast.anaAgent, healthy)
+    await server.clock.advance(LIMITS.minutes * 60_000)
+    const asks = await cast.benAgent.api('GET', '/debate-asks')
+    expect(asks.status).toBe(200)
+    expect(asks.json.asks.map((ask: { debate: { id: string } }) => ask.debate.id)).toContain(waiting)
+    expect(asks.json.asks.map((ask: { debate: { id: string } }) => ask.debate.id)).toContain(healthy)
+    expect((await storedRows(server, 'debates')).find((row) => row.id === healthy)?.status).toBe('concluding')
+    expect(server.logged.some((line) => line.includes(`debate room ${broken}`))).toBe(true)
+  })
+
+  it('leaves a room’s updated_at alone when a read or a pass changes nothing', async () => {
+    const id = await openedRoom(cast)
+    await turn(cast.anaAgent, id)
+    const before = (await storedRows(server, 'debates')).find((row) => row.id === id)?.updated_at
+    await server.clock.advance(60_000)
+    await cast.ana.api('GET', `/debates/${id}`)
+    await cast.benAgent.api('GET', '/debate-asks')
+    await T.runPromise(debateDeadlinePass, server.env)
+    expect((await storedRows(server, 'debates')).find((row) => row.id === id)?.updated_at).toBe(before)
+    await turn(cast.benAgent, id)
+    expect((await storedRows(server, 'debates')).find((row) => row.id === id)?.updated_at).toBe(
+      server.clock.now(),
+    )
   })
 
   it('ends a room without a result when time runs out with fewer than two agents, or with no turn', async () => {
@@ -95,7 +152,7 @@ describe('taking turns', () => {
       result: null,
     })
     expect((await cast.ana.api('GET', `/debates/${silent}`)).json.endedBecause).toBe('no_turns')
-    const ended = (await storedRows(server, 'audit_log')).filter((entry) => entry.action === 'debates.ended')
+    const ended = (await storedRows(server, 'audit_events')).filter((entry) => entry.event === 'debate.ended')
     expect(ended.map((entry) => JSON.parse(String(entry.detail)).because).sort()).toEqual([
       'no_turns',
       'too_few_agents',
@@ -114,9 +171,12 @@ describe('taking turns', () => {
     await turn(cast.anaAgent, id)
     const [row] = await storedRows(server, 'debates')
     for (let time = 0; time < 2; time++)
-      await T.runPromise(transact(conclude(row as never, 'limit')), server.env)
-    const stops = (await storedRows(server, 'audit_log')).filter(
-      (entry) => entry.action === 'debates.concluded',
+      await T.runPromise(
+        transact(applySettling(row as never, { type: 'conclude', because: 'limit' })),
+        server.env,
+      )
+    const stops = (await storedRows(server, 'audit_events')).filter(
+      (entry) => entry.event === 'debate.concluded',
     )
     expect(stops).toHaveLength(1)
     expect((await cast.ana.api('GET', `/debates/${id}`)).json.status).toBe('concluding')
@@ -132,10 +192,9 @@ describe('taking turns', () => {
     expect([row!.id, row!.status]).toEqual([id, 'open'])
   })
 
-  it('ends a room that waited a day for an approved result, without one and without credits', async () => {
+  it('ends a room that waited a day for its agents to draft a result, without one and without credits', async () => {
     const id = await openedRoom(cast)
     await turnsRunOut(cast, id)
-    await cast.anaAgent.api('PUT', `/debates/${id}/result`, resultFor(cast))
     await server.clock.advance(RESULT_WINDOW_MS - 1)
     await T.runPromise(debateDeadlinePass, server.env)
     expect((await cast.ana.api('GET', `/debates/${id}`)).json.status).toBe('concluding')
@@ -146,7 +205,7 @@ describe('taking turns', () => {
       status: 'ended',
       endedBecause: 'no_result',
     })
-    const ended = (await storedRows(server, 'audit_log')).filter((entry) => entry.action === 'debates.ended')
+    const ended = (await storedRows(server, 'audit_events')).filter((entry) => entry.event === 'debate.ended')
     expect(ended.map((entry) => JSON.parse(String(entry.detail)))).toEqual([{ because: 'no_result' }])
     expect(await storedRows(server, 'debate_credits')).toEqual([])
     expect((await cast.ana.api('POST', `/debates/${id}/export`, { format: 'json' })).status).toBe(409)

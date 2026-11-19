@@ -72,6 +72,21 @@ describe('listing and reading rooms', () => {
     expect([...summary.participantIds].sort()).toEqual([cast.ana.me.member.id, cast.ben.me.member.id].sort())
   })
 
+  it('lists and shows every private room to an administrator’s own sign-in, never to their agent', async () => {
+    const secret = (await cast.ben.api('POST', '/debates', { question: QUESTION, visibility: 'private' }))
+      .json.id
+    const listed = async (who: Pick<typeof cast.ana, 'api'>) =>
+      (await who.api('GET', '/debates')).json.debates.map((room: { id: string; joined: boolean }) => [
+        room.id,
+        room.joined,
+      ])
+    expect(await listed(cast.ana)).toEqual([[secret, false]])
+    expect(await listed(cast.anaAgent)).toEqual([])
+    expect(await listed(cast.cy)).toEqual([])
+    expect((await cast.ana.api('GET', `/debates/${secret}`)).status).toBe(200)
+    expect((await cast.anaAgent.api('GET', `/debates/${secret}`)).status).toBe(404)
+  })
+
   it('lists nothing when there are no rooms', async () => {
     expect((await cast.ana.api('GET', '/debates')).json.debates).toEqual([])
   })
@@ -96,6 +111,7 @@ describe('opting an agent in', () => {
         agentId: cast.cyAgent.id,
         agentName: 'Cy agent',
         joinedAt: expect.any(Number),
+        takingPart: true,
       },
     ])
     expect(room.memberIds).toContain(cast.cy.me.member.id)
@@ -132,6 +148,38 @@ describe('limits', () => {
     expect(room.status).toBe('open')
   })
 
+  it('sets the grace at setup, keeps it when a change leaves it out, and refuses any but 5, 10 or 30 minutes', async () => {
+    const created = (
+      await cast.ana.api('POST', '/debates', { question: QUESTION, limits: { ...LIMITS, graceMinutes: 10 } })
+    ).json
+    expect(created.limits.graceMinutes).toBe(10)
+    const id = created.id
+    expect(
+      (await cast.ana.api('PUT', `/debates/${id}/limits`, { ...LIMITS, minutes: 40 })).json.limits,
+    ).toMatchObject({
+      minutes: 40,
+      graceMinutes: 10,
+    })
+    expect(
+      (await cast.ana.api('PUT', `/debates/${id}/limits`, { ...LIMITS, graceMinutes: 30 })).json.limits
+        .graceMinutes,
+    ).toBe(30)
+    expect((await cast.ana.api('PUT', `/debates/${id}/limits`, { ...LIMITS, graceMinutes: 15 })).status).toBe(
+      400,
+    )
+    expect(
+      (await openedRoom(cast).then((room) => cast.ana.api('GET', `/debates/${room}`))).json.limits,
+    ).toMatchObject({ graceMinutes: 5 })
+  })
+
+  it('refuses a change of the grace once the first turn is taken', async () => {
+    const id = await openedRoom(cast)
+    await turnsRunOut(cast, id, 1)
+    expect((await cast.ana.api('PUT', `/debates/${id}/limits`, { ...LIMITS, graceMinutes: 30 })).status).toBe(
+      409,
+    )
+  })
+
   it('refuses limits from anyone but the creator, limits that do not add up, and a room past its turns', async () => {
     const id = await openedRoom(cast)
     expect((await cast.ben.api('PUT', `/debates/${id}/limits`, LIMITS)).status).toBe(403)
@@ -142,13 +190,29 @@ describe('limits', () => {
     expect((await cast.ana.api('PUT', `/debates/${id}/limits`, LIMITS)).status).toBe(409)
   })
 
-  it('asks for the result at once when new limits are already reached', async () => {
+  it('refuses a change of limits once the first turn is taken, with a message that says why', async () => {
     const id = await openedRoom(cast)
-    await turnsRunOut(cast, id, 2)
-    const room = (
-      await cast.ana.api('PUT', `/debates/${id}/limits`, { ...LIMITS, totalTurns: 2, turnsPerAgent: 1 })
-    ).json
-    expect(room.status).toBe('concluding')
+    await turnsRunOut(cast, id, 1)
+    const refused = await cast.ana.api('PUT', `/debates/${id}/limits`, { ...LIMITS, minutes: 90 })
+    expect(refused.status).toBe(409)
+    expect(refused.json.error.message).toMatch(/only at setup, before the first turn/)
+    expect((await cast.ana.api('GET', `/debates/${id}`)).json.limits).toEqual({ ...LIMITS, graceMinutes: 5 })
+  })
+
+  it('lets a private room’s invitees opt in, and no administrator who was not invited', async () => {
+    expect(cast.ana.me.member.role).toBe('admin')
+    const id = (
+      await cast.ben.api('POST', '/debates', {
+        question: QUESTION,
+        visibility: 'private',
+        memberIds: [cast.cy.me.member.id],
+      })
+    ).json.id
+    expect((await cast.ana.api('GET', `/debates/${id}`)).status).toBe(200)
+    const refused = await cast.ana.api('PUT', `/debates/${id}/agent`, { agentId: cast.anaAgent.id })
+    expect(refused.status).toBe(403)
+    expect(refused.json.error.message).toMatch(/invited/)
+    expect((await cast.cy.api('PUT', `/debates/${id}/agent`, { agentId: cast.cyAgent.id })).status).toBe(200)
   })
 })
 

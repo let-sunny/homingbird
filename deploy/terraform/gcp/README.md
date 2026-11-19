@@ -24,7 +24,7 @@ terraform apply \
   -var 'channels=["billing: Invoices and the nightly export", "deploys"]'
 ```
 
-Every variable Dovecote reads is either a variable here (`channels`, `contact_mode`, `audit_webhook_url`,
+Every variable Dovecote reads is either a variable here (`channels`, `contact_mode`,
 `audit_retention_days`) or can be passed through `extra_environment`, for example
 `-var 'extra_environment={HB_SESSION_DAYS="14"}'`. See [docs/deployment.md](../../../docs/deployment.md#configuration).
 
@@ -41,10 +41,11 @@ Every variable Dovecote reads is either a variable here (`channels`, `contact_mo
   balancer appends two entries to `X-Forwarded-For`: the client address it saw, then its own address.
   Dovecote counts trusted entries from the right, so `2` picks the client address and ignores whatever
   the client put in the header itself. With `1` every request would appear to come from the load
-  balancer, so rate limiting would lump all clients together and the audit log would record Google's
+  balancer, so rate limiting would lump all clients together and the audit trail would record Google's
   address. Add one if you put a CDN or another proxy in front. See
   [docs/deployment.md](../../../docs/deployment.md#behind-a-load-balancer).
-- **`HB_AUDIT_STDOUT=1`**, so the audit trail reaches Cloud Logging.
+- **`HB_LOGS=auditCopy=on`**, so a metadata-only copy of the audit trail reaches Cloud Logging next to the
+  operational log, outside the database.
 
 ## What it leaves to you
 

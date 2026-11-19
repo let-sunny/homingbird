@@ -201,24 +201,18 @@ describe('agents and characters', () => {
 })
 
 describe('the record of character changes', () => {
-  it('audits setting, clearing and resetting a character, with who did it', async () => {
+  it('audits setting, clearing and resetting a character, with who did it and nothing of the character', async () => {
     await ben.api('PUT', '/me/character', OTTER)
     await ben.api('DELETE', '/me/character')
     await ana.api('DELETE', `/admin/members/${ben.me.member.id}/character`)
-    const entries = (await ana.api('GET', '/admin/audit')).json.entries as ReadonlyArray<{
-      action: string
-      actorId: string
-      target: string | null
-      detail: { request?: unknown }
-    }>
-    const ofCharacters = entries.filter((entry) => entry.action.includes('haracter')).reverse()
-    expect(ofCharacters.map((entry) => [entry.action, entry.actorId])).toEqual([
-      ['me.character.set', ben.me.member.id],
-      ['me.character.clear', ben.me.member.id],
-      ['admin.members.resetCharacter', ana.me.member.id],
+    const ofCharacters = (await storedRows(server, 'audit_events')).filter((row) =>
+      String(row.event).startsWith('character.'),
+    )
+    expect(ofCharacters.map((row) => [row.event, row.actor_id, row.target_id, row.detail])).toEqual([
+      ['character.set', ben.me.member.id, ben.me.member.id, '{}'],
+      ['character.cleared', ben.me.member.id, ben.me.member.id, '{}'],
+      ['character.reset', ana.me.member.id, ben.me.member.id, '{}'],
     ])
-    expect(ofCharacters[0]!.detail.request).toEqual(OTTER)
-    expect(ofCharacters[2]!.target).toBe(ben.me.member.id)
   })
 
   it('tells every connected client to redraw the directory when a character changes', async () => {

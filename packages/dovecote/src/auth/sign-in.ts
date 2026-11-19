@@ -9,7 +9,19 @@ import { type RequestEnv, announceDirectoryChange } from '../events/events.ts'
 import type { VerifiedIdentity } from './identity-provider.ts'
 import { advanceAuthRequest, authRequestById, openAuthRequest } from './requests.ts'
 
-export const SignInRefused = tagged('SignInRefused')<{ readonly message: string }>()
+export const SignInRefused = tagged('SignInRefused')<{
+  readonly message: string
+  readonly reason: SignInFailure
+}>()
+
+/** Why a sign-in was refused, as the audit trail records it: a code, never the address. */
+export type SignInFailure =
+  | 'expired'
+  | 'identity_provider'
+  | 'unverified_email'
+  | 'domain_refused'
+  | 'personal_account'
+  | 'deactivated'
 export type SignInRefused = ReturnType<typeof SignInRefused>
 
 export interface Session {
@@ -48,7 +60,9 @@ export const completeSignIn = (
       request !== null &&
       (yield* advanceAuthRequest(request.id, { status: 'consumed', expectedStatus: 'pending' }))
     if (request === null || !consumed || !parameters.code)
-      return yield* T.fail(SignInRefused({ message: 'This sign-in attempt expired. Please start again.' }))
+      return yield* T.fail(
+        SignInRefused({ message: 'This sign-in attempt expired. Please start again.', reason: 'expired' }),
+      )
     const identity = yield* T.mapError(refuse)(
       env.identityProvider.identify({
         code: parameters.code,
@@ -62,7 +76,10 @@ export const completeSignIn = (
     yield* announceDirectoryChange(member.id)
     if (member.status !== 'active')
       return yield* T.fail(
-        SignInRefused({ message: 'Your account has been deactivated by an administrator.' }),
+        SignInRefused({
+          message: 'Your account has been deactivated by an administrator.',
+          reason: 'deactivated',
+        }),
       )
     const issued = yield* issueCredential({
       memberId: member.id,
@@ -76,16 +93,14 @@ export const completeSignIn = (
       member,
       credential: { id: issued.credentialId, kind: 'human' as const, name: BROWSER_SIGN_IN_CLIENT },
     }
-    yield* recordAudit({
+    yield* recordAudit('credential.issued', {
       caller,
-      action: 'session.signed_in',
-      target: member.id,
-      detail: { email: member.email },
+      targetId: issued.credentialId,
+      detail: { kind: 'human', grant: 'browser', clientKind: 'browser' },
     })
+    yield* recordAudit('authn.signed_in', { caller, targetId: member.id, detail: {} })
     return { token: issued.token, expiresAt: issued.tokenExpiresAt, returnTo: request.detail.returnTo }
   })
-
-export const callbackUrl = (publicUrl: string): string => `${publicUrl}/auth/callback`
 
 export const localPath = (returnTo: string | undefined): string =>
   returnTo !== undefined && /^\/(?![/\\])[^\\\s\p{Cc}]*$/u.test(returnTo) ? returnTo : '/'
@@ -121,7 +136,7 @@ const PLATFORMS: ReadonlyArray<readonly [RegExp, string]> = [
 ]
 
 const refuse = (error: { readonly message: string }): SignInRefused =>
-  SignInRefused({ message: error.message })
+  SignInRefused({ message: error.message, reason: 'identity_provider' })
 
 const requireAllowed = (identity: VerifiedIdentity): T.Task<void, SignInRefused, AppEnv> =>
   T.gen(function* () {
@@ -130,15 +145,26 @@ const requireAllowed = (identity: VerifiedIdentity): T.Task<void, SignInRefused,
     const domain = identity.email.toLowerCase().split('@').at(-1) ?? ''
     if (!identity.emailVerified)
       return yield* T.fail(
-        SignInRefused({ message: 'Your email address has not been verified by the identity provider.' }),
+        SignInRefused({
+          message: 'Your email address has not been verified by the identity provider.',
+          reason: 'unverified_email',
+        }),
       )
     const acceptsAnyone = env.config.identity.devLogin && settings.allowedDomains.length === 0
     if (!acceptsAnyone && !isAllowedEmail(settings, identity.email))
       return yield* T.fail(
-        SignInRefused({ message: `Accounts from ${domain || 'this domain'} are not allowed here.` }),
+        SignInRefused({
+          message: `Accounts from ${domain || 'this domain'} are not allowed here.`,
+          reason: 'domain_refused',
+        }),
       )
     if (env.identityProvider.requiresHostedDomain && identity.hostedDomain !== domain)
       return yield* T.fail(
-        SignInRefused({ message: 'Sign in with your organization account, not a personal one.' }),
+        SignInRefused({
+          message: 'Sign in with your organization account, not a personal one.',
+          reason: 'personal_account',
+        }),
       )
   })
+
+const callbackUrl = (publicUrl: string): string => `${publicUrl}/auth/callback`

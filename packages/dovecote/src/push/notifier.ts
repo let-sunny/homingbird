@@ -1,4 +1,3 @@
-import { randomBytes } from 'node:crypto'
 import { createECDH } from 'node:crypto'
 import { type Clock, Task as T, makeQueue } from '@homingbird/kernel'
 import type { Locale, MemberId, StreamEvent } from '@homingbird/protocol'
@@ -55,10 +54,7 @@ export const makePushNotifier = (fetch: Fetch): PushNotifier => {
   }
 }
 
-export const pushNoticeFor = (
-  memberId: MemberId,
-  event: StreamEvent,
-): T.Task<PushNotice | null, never, AppEnv> =>
+const pushNoticeFor = (memberId: MemberId, event: StreamEvent): T.Task<PushNotice | null, never, AppEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
     if (env.hub.isLooking(memberId)) return null
@@ -91,7 +87,7 @@ export interface PushOutcome {
   readonly removed: boolean
 }
 
-export const deliverToMember = (
+const deliverToMember = (
   fetch: Fetch,
   memberId: MemberId,
   notice: PushNotice,
@@ -103,13 +99,20 @@ export const deliverToMember = (
     const outcomes: PushOutcome[] = []
     for (const subscription of yield* pushSubscriptionsOf(memberId)) {
       const message = messageIn(chosen ?? subscription.locale ?? null, notice)
-      const status = yield* send(fetch, env.clock, vapidSubject(env.config), keys, subscription, message)
+      const salt = env.random.bytes(16)
+      const status = yield* send(
+        fetch,
+        env.clock,
+        vapidSubject(env.config),
+        keys,
+        subscription,
+        message,
+        salt,
+      )
       const removed = status === 404 || status === 410
       if (removed) yield* removePushSubscription(subscription.endpoint)
       const outcome = { endpointHost: new URL(subscription.endpoint).host, status, removed }
-      env.log(
-        `push: member ${memberId} via ${outcome.endpointHost} answered ${status === 0 ? 'nothing (unreachable or timed out)' : status}${removed ? '; subscription removed' : ''}`,
-      )
+      env.log.emit({ name: 'push.delivered', attributes: { memberId, ...outcome } }, env.requestId)
       outcomes.push(outcome)
     }
     return outcomes
@@ -163,6 +166,7 @@ const send = (
   keys: VapidKeys,
   subscription: PushSubscription,
   message: PushMessage,
+  salt: Buffer,
 ): T.Task<number, never, { clock: Clock }> => {
   const ephemeral = createECDH('prime256v1')
   ephemeral.generateKeys()
@@ -171,7 +175,7 @@ const send = (
     subscriberPublicKey: Buffer.from(subscription.keys.p256dh, 'base64url'),
     subscriberAuthSecret: Buffer.from(subscription.keys.auth, 'base64url'),
     senderPrivateKey: ephemeral.getPrivateKey(),
-    salt: randomBytes(16),
+    salt,
   })
   const authorization = vapidAuthorization(keys, {
     audience: new URL(subscription.endpoint).origin,
@@ -180,10 +184,10 @@ const send = (
   })
   return T.catchAll(() => T.succeed(0))(
     T.timeout(REQUEST_TIMEOUT_MS)(
-      T.tryPromise(
-        async (signal) =>
-          (
-            await fetch(subscription.endpoint, {
+      T.map((response: Response) => response.status)(
+        T.tryPromise(
+          (signal) =>
+            fetch(subscription.endpoint, {
               method: 'POST',
               headers: {
                 authorization,
@@ -194,9 +198,9 @@ const send = (
               },
               body,
               signal,
-            })
-          ).status,
-        () => 'unreachable' as const,
+            }),
+          () => 'unreachable' as const,
+        ),
       ),
     ),
   )

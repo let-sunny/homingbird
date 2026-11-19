@@ -1,9 +1,11 @@
 import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
+import { Task as T, makeMutex } from '@homingbird/kernel'
 import type { Connection, Database, Row } from './database.ts'
 import type { Query } from './query.ts'
 
+/** One connection, used by one statement or transaction at a time, so no transaction sees another's work. */
 export const openSqlite = (path: string): Database => {
   if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true })
   const db = new DatabaseSync(path)
@@ -11,34 +13,32 @@ export const openSqlite = (path: string): Database => {
 
   const connection: Connection = {
     dialect: 'sqlite',
-    all: async (query) => db.prepare(query.text).all(...bindable(query)) as Row[],
-    run: async (query) => ({ changes: Number(db.prepare(query.text).run(...bindable(query)).changes) }),
+    all: (query) => T.sync(() => db.prepare(query.text).all(...bindable(query)) as Row[]),
+    run: (query) =>
+      T.sync(() => ({ changes: Number(db.prepare(query.text).run(...bindable(query)).changes) })),
   }
-
-  let queue: Promise<unknown> = Promise.resolve()
-  const exclusively = <A>(work: () => Promise<A>): Promise<A> => {
-    const result = queue.then(work)
-    queue = result.catch(() => {})
-    return result
-  }
+  const exclusively = makeMutex().withPermit
 
   return {
     dialect: 'sqlite',
-    all: (query) => exclusively(() => connection.all(query)),
-    run: (query) => exclusively(() => connection.run(query)),
+    all: (query) => exclusively(connection.all(query)),
+    run: (query) => exclusively(connection.run(query)),
     transaction: (body) =>
-      exclusively(async () => {
-        db.exec('BEGIN IMMEDIATE')
-        try {
-          const result = await body(connection)
-          db.exec('COMMIT')
-          return result
-        } catch (error) {
-          db.exec('ROLLBACK')
-          throw error
-        }
-      }),
-    close: () => exclusively(async () => db.close()),
+      exclusively(
+        T.gen(function* () {
+          let committed = false
+          db.exec('BEGIN IMMEDIATE')
+          try {
+            const result = yield* body(connection)
+            db.exec('COMMIT')
+            committed = true
+            return result
+          } finally {
+            if (!committed) db.exec('ROLLBACK')
+          }
+        }),
+      ),
+    close: exclusively(T.sync(() => db.close())),
   }
 }
 

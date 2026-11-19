@@ -16,7 +16,7 @@ import { type Caller, isHuman } from '../environment.ts'
 import { type RequestEnv, emit } from '../events/events.ts'
 import { all, first, run } from '../sql/database.ts'
 import { insertInto, list, sql } from '../sql/query.ts'
-import { type DraftDestination, type NoteFailure, conversationForDraft, createDraft } from './notes.ts'
+import { type DraftDestination, type NoteFailure, conversationForDraft, createDraft } from './drafts.ts'
 import { forgetNotice } from './notices.ts'
 
 export interface DraftWish extends DraftDestination {
@@ -118,7 +118,7 @@ export const openDraftRequests = (caller: Caller): T.Task<DraftRequest[], never,
   })
 
 export const DRAFT_REQUEST_LIFETIME_MS = 24 * 60 * 60_000
-export const MAX_OPEN_DRAFT_REQUESTS = 50
+const MAX_OPEN_DRAFT_REQUESTS = 50
 
 interface DraftRequestRow {
   readonly id: DraftRequestId

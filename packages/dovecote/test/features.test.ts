@@ -1,6 +1,13 @@
 import { FEATURES, FEATURE_NAMES, FEATURE_OFF_MESSAGE } from '@homingbird/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { type Agent, type Session, type TestServer, connectAgent, startTestServer } from './harness.ts'
+import {
+  type Agent,
+  type Session,
+  type TestServer,
+  connectAgent,
+  startTestServer,
+  storedRows,
+} from './harness.ts'
 
 let server: TestServer
 let ana: Session
@@ -38,9 +45,12 @@ const probes: Readonly<Record<string, (person: Session) => Promise<{ status: num
 }
 
 describe('feature switches', () => {
-  it('are all on by default, and server.info says which are on', async () => {
+  it('are all on by default but analytics, and server.info says which are on', async () => {
     const info = (await server.request('GET', '/api/v1/info')).json
-    expect(info.features).toEqual(Object.fromEntries(FEATURE_NAMES.map((name) => [name, true])))
+    expect(info.features).toEqual({
+      ...Object.fromEntries(FEATURE_NAMES.map((name) => [name, true])),
+      analytics: false,
+    })
     await switchTo({ teaching: false })
     expect((await server.request('GET', '/api/v1/info')).json.features.teaching).toBe(false)
   })
@@ -60,9 +70,10 @@ describe('feature switches', () => {
     },
   )
 
-  it('names a route for every switch that has one', () => {
+  it('names a route for every switch that has one; analytics, which also needs a destination, has its own tests', () => {
     for (const name of FEATURE_NAMES)
-      if (FEATURES[name].routes.length > 0) expect(Object.keys(probes)).toContain(name)
+      if (FEATURES[name].routes.length > 0 && name !== 'analytics')
+        expect(Object.keys(probes)).toContain(name)
   })
 
   it('keeps a principle while teaching is off, and gives it back when it is on again', async () => {
@@ -120,10 +131,14 @@ describe('feature switches', () => {
     expect((await ana.api('GET', '/admin/settings')).json.features.teaching).toBe(true)
   })
 
-  it('records every switch in the audit log', async () => {
+  it('records every switch in the audit trail, with its value before and after', async () => {
     await switchTo({ characters: false })
-    const entries = (await ana.api('GET', '/admin/audit?action=admin.settings.put')).json.entries
-    expect(JSON.stringify(entries[0].detail)).toContain('"characters":false')
+    const [entry] = (await storedRows(server, 'audit_events')).filter(
+      (row) => row.event === 'organization.settings_changed',
+    )
+    const detail = JSON.parse(String(entry!.detail))
+    expect(detail.changed).toEqual(['features'])
+    expect([detail.features.from.characters, detail.features.to.characters]).toEqual([true, false])
   })
 
   it('takes its starting switches from HB_FEATURES until an administrator saves settings', async () => {

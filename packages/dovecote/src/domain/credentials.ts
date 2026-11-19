@@ -29,8 +29,6 @@ export interface Issued {
   readonly refreshToken: string | null
 }
 
-export const ACCESS_TOKEN_LIFETIME_MS = 60 * 60_000
-
 export const BROWSER_SIGN_IN_CLIENT = 'Web'
 
 export const issueCredential = (request: IssueRequest): T.Task<Issued, never, AppEnv> =>
@@ -159,7 +157,7 @@ export const revokeByToken = (token: string): T.Task<void, never, AppEnv> =>
 
 const TOKEN_PREFIX: Readonly<Record<CredentialKind, string>> = { human: 'hbh_', agent: 'hba_' }
 const REFRESH_PREFIX = 'hbr_'
-const LAST_USED_RESOLUTION_MS = 60_000
+const LAST_USED_RESOLUTION_MS = 30_000
 
 interface CredentialRow {
   readonly id: CredentialId
@@ -188,3 +186,5 @@ const toCredential = (row: CredentialRow, currentId: CredentialId): Credential =
   revokedAt: row.revoked_at,
   current: row.id === currentId,
 })
+
+const ACCESS_TOKEN_LIFETIME_MS = 60 * 60_000

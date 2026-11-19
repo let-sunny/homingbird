@@ -34,7 +34,12 @@ const finishSignIn = (request: HttpRequest): T.Task<HttpResponse, never, AppEnv>
       ...(request.query.has('state') && { state: request.query.get('state')! }),
     }
     const session = yield* T.result(transact(completeSignIn(parameters, request.headers['user-agent'] ?? '')))
-    if (session._tag === 'Err') return refusal(session.error)
+    if (session._tag === 'Err') {
+      yield* transact(
+        recordAudit('authn.sign_in_failed', { outcome: 'failed', detail: { reason: session.error.reason } }),
+      )
+      return refusal(session.error)
+    }
     const maxAge = Math.floor((session.value.expiresAt - env.clock.now()) / 1000)
     return redirect(session.value.returnTo, {
       'set-cookie': sessionCookie(session.value.token, maxAge, env.config.publicUrl),
@@ -49,7 +54,13 @@ const signOut = (request: HttpRequest): T.Task<HttpResponse, never, AppEnv> =>
     const caller = yield* T.result(authenticate(token))
     yield* revokeByToken(token)
     if (caller._tag === 'Ok')
-      yield* transact(recordAudit({ caller: caller.value, action: 'session.signed_out' }))
+      yield* transact(
+        recordAudit('authn.signed_out', {
+          caller: caller.value,
+          targetId: caller.value.member.id,
+          detail: {},
+        }),
+      )
     return noContent({ 'set-cookie': sessionCookie('', 0, env.config.publicUrl) })
   })
 

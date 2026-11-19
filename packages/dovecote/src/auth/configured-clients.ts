@@ -1,5 +1,5 @@
 import { Result } from '@homingbird/kernel'
-import type { RegisteredClient } from './oauth.ts'
+import type { RegisteredClient } from './oauth-clients.ts'
 import { isAcceptableRedirectUri } from './redirect-policy.ts'
 
 export const parseConfiguredClients = (

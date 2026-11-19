@@ -1,5 +1,23 @@
+import { Task as T } from '@homingbird/kernel'
+import { RESULT_DRAFTING_WINDOW_MS, RESULT_VOTING_WINDOW_MS, RESULT_WINDOW_MS } from '@homingbird/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { type Cast, castOf, decide, openedRoom, resultFor, turnsRunOut } from './debate-support.ts'
+import type { DebateRow } from '../src/domain/debate-rows.ts'
+import { settleDebateRow } from '../src/domain/debate-settling.ts'
+import { transact } from '../src/events/events.ts'
+import { debateDeadlinePass } from '../src/runtime.ts'
+import { run } from '../src/sql/database.ts'
+import { sql } from '../src/sql/query.ts'
+import {
+  type Cast,
+  castOf,
+  draftedAlone,
+  dropOut,
+  openedRoom,
+  resultFor,
+  roomOfThree as roomOfThreeOf,
+  threeResult as threeResultOf,
+  turnsRunOut,
+} from './debate-support.ts'
 import { type TestServer, startTestServer, storedRows } from './harness.ts'
 
 let server: TestServer
@@ -20,24 +38,83 @@ const concludedRoom = async (visibility: 'open' | 'private' = 'open') => {
 
 const closedRoom = async (visibility: 'open' | 'private' = 'open') => {
   const id = await concludedRoom(visibility)
-  await cast.anaAgent.api('PUT', `/debates/${id}/result`, resultFor(cast))
-  await decide(cast.ana, id, 'approval')
-  await decide(cast.ben, id, 'approval')
+  await draftedAlone(server, cast, id)
   return id
 }
 
+const roomOfThree = () => roomOfThreeOf(cast)
+
+const threeResult = (conclusion: string) => threeResultOf(cast, conclusion)
+
+const roomOf = async (id: string) => (await cast.cy.api('GET', `/debates/${id}`)).json
+
+const storedRoom = async (id: string): Promise<DebateRow> =>
+  (await storedRows(server, 'debates')).find((row) => row.id === id) as unknown as DebateRow
+
 describe('drafting the result', () => {
-  it('saves the first agent’s draft, with every participant’s approval still to come', async () => {
+  it('keeps collecting drafts after the first, then closes the room with the only draft', async () => {
     const id = await concludedRoom()
-    const room = (await cast.benAgent.api('PUT', `/debates/${id}/result`, resultFor(cast, 'no_conclusion')))
+    const first = (await cast.benAgent.api('PUT', `/debates/${id}/result`, resultFor(cast, 'no_conclusion')))
       .json
-    expect(room.result).toMatchObject({ draftedBy: cast.ben.me.member.id, result: { kind: 'no_conclusion' } })
-    expect(room.approvals).toEqual([
-      expect.objectContaining({ approvedAt: null }),
-      expect.objectContaining({ approvedAt: null }),
-    ])
+    expect(first.result).toBeNull()
+    expect(first.drafts).toEqual([expect.objectContaining({ draftedBy: cast.ben.me.member.id, votes: null })])
+    expect(first.draftsCloseAt).toBe(first.drafts[0].draftedAt + RESULT_DRAFTING_WINDOW_MS)
+    expect((await cast.benAgent.api('PUT', `/debates/${id}/result`, resultFor(cast))).status).toBe(409)
+    expect((await cast.benAgent.api('GET', '/debate-asks')).json.asks).toEqual([])
+    expect((await cast.anaAgent.api('GET', '/debate-asks')).json.asks).toHaveLength(1)
+    await server.clock.advance(RESULT_DRAFTING_WINDOW_MS)
+    const room = await roomOf(id)
+    expect(room).toMatchObject({
+      status: 'closed',
+      result: { draftedBy: cast.ben.me.member.id, result: { kind: 'no_conclusion' } },
+      voteRecord: { votes: [], droppedOut: [] },
+    })
+    expect(room.drafts[0].votes).toBe(0)
     expect((await cast.anaAgent.api('PUT', `/debates/${id}/result`, resultFor(cast))).status).toBe(409)
-    expect((await cast.anaAgent.api('GET', '/debate-asks')).json.asks).toEqual([])
+    expect((await cast.anaAgent.api('GET', '/debate-asks')).json).toEqual({
+      asks: [],
+      ballots: [],
+      ended: [],
+    })
+  })
+
+  it('stops collecting at once when every agent taking part drafted, and puts the drafts to a vote', async () => {
+    const id = await concludedRoom()
+    await cast.anaAgent.api('PUT', `/debates/${id}/result`, resultFor(cast))
+    const both = (await cast.benAgent.api('PUT', `/debates/${id}/result`, resultFor(cast, 'no_conclusion')))
+      .json
+    expect(both).toMatchObject({ result: null, draftsCloseAt: null, votedBy: [], voteRecord: null })
+    expect(both.votingClosesAt).toEqual(expect.any(Number))
+    expect((await cast.anaAgent.api('PUT', `/debates/${id}/result`, resultFor(cast))).status).toBe(409)
+    const ballots = (await cast.anaAgent.api('GET', '/debate-asks')).json
+    expect(ballots.asks).toEqual([])
+    expect(ballots.ballots.map((room: { id: string }) => room.id)).toEqual([id])
+  })
+
+  it('does not wait for an agent that dropped out, and puts the drafts of those taking part to a vote', async () => {
+    const id = await roomOfThree()
+    await dropOut(server, cast, 'cy')
+    const first = (await cast.anaAgent.api('PUT', `/debates/${id}/result`, threeResult('A.'))).json
+    expect(first).toMatchObject({ result: null, votingClosesAt: null })
+    expect(
+      first.participants.find((one: { memberId: string }) => one.memberId === cast.cy.me.member.id),
+    ).toMatchObject({
+      takingPart: false,
+    })
+    const room = (await cast.benAgent.api('PUT', `/debates/${id}/result`, threeResult('B.'))).json
+    expect(room).toMatchObject({ status: 'concluding', result: null, votingClosesAt: expect.any(Number) })
+  })
+
+  it('hides the other agents’ drafts from an agent until it drafted, never from a person', async () => {
+    const id = await concludedRoom()
+    await cast.benAgent.api('PUT', `/debates/${id}/result`, resultFor(cast, 'no_conclusion'))
+    expect((await cast.anaAgent.api('GET', `/debates/${id}`)).json.drafts).toEqual([])
+    const asked = (await cast.anaAgent.api('GET', '/debate-asks')).json.asks
+    expect(asked[0].debate.drafts).toEqual([])
+    expect((await cast.benAgent.api('GET', `/debates/${id}`)).json.drafts).toHaveLength(1)
+    expect((await cast.ana.api('GET', `/debates/${id}`)).json.drafts).toHaveLength(1)
+    const voting = (await cast.anaAgent.api('PUT', `/debates/${id}/result`, resultFor(cast))).json
+    expect(voting.drafts).toHaveLength(2)
   })
 
   it('refuses a draft before the turns ran out, from a person or an outside agent, and one that leaves someone out', async () => {
@@ -49,17 +126,241 @@ describe('drafting the result', () => {
     const partial = { ...resultFor(cast), contributions: resultFor(cast).contributions.slice(0, 1) }
     expect((await cast.anaAgent.api('PUT', `/debates/${id}/result`, partial)).status).toBe(400)
   })
-})
 
-describe('approving the result', () => {
-  it('closes the room once every participant’s person approved, and credits the growth record', async () => {
+  it('refuses a draft once the drafting window passed, even before the room was read again', async () => {
     const id = await concludedRoom()
     await cast.anaAgent.api('PUT', `/debates/${id}/result`, resultFor(cast))
-    const halfway = (await decide(cast.ana, id, 'approval')).json
-    expect(halfway.status).toBe('concluding')
-    const closed = (await decide(cast.ben, id, 'approval')).json
-    expect(closed).toMatchObject({ status: 'closed', closedAt: expect.any(Number) })
-    expect(closed.approvals.every((one: { approvedAt: number | null }) => one.approvedAt !== null)).toBe(true)
+    await server.clock.advance(RESULT_DRAFTING_WINDOW_MS)
+    const late = await cast.benAgent.api('PUT', `/debates/${id}/result`, resultFor(cast))
+    expect(late.status).toBe(409)
+  })
+})
+
+describe('settling the result by vote', () => {
+  it('closes the room with the draft that has the most votes, and records who voted for which', async () => {
+    const id = await roomOfThree()
+    await cast.anaAgent.api('PUT', `/debates/${id}/result`, threeResult('Ana’s draft.'))
+    await cast.benAgent.api('PUT', `/debates/${id}/result`, threeResult('Ben’s draft.'))
+    const voting = (await cast.cyAgent.api('PUT', `/debates/${id}/result`, threeResult('Cy’s draft.'))).json
+    expect(voting.drafts.map((draft: { votes: number | null }) => draft.votes)).toEqual([null, null, null])
+    const round = voting.resultRound
+    const ana = cast.ana.me.member.id
+    const ben = cast.ben.me.member.id
+    const cy = cast.cy.me.member.id
+    expect(
+      (await cast.anaAgent.api('POST', `/debates/${id}/result/vote`, { round, draftBy: ben })).status,
+    ).toBe(200)
+    const halfway = (await cast.cyAgent.api('POST', `/debates/${id}/result/vote`, { round, draftBy: ben }))
+      .json
+    expect(halfway).toMatchObject({ result: null, voteRecord: null })
+    expect([...halfway.votedBy].sort()).toEqual([ana, cy].sort())
+    expect(halfway.drafts.map((draft: { votes: number | null }) => draft.votes)).toEqual([null, null, null])
+    const decided = (await cast.benAgent.api('POST', `/debates/${id}/result/vote`, { round, draftBy: ana }))
+      .json
+    expect(decided).toMatchObject({
+      status: 'closed',
+      result: { draftedBy: ben, result: { conclusion: 'Ben’s draft.' } },
+    })
+    expect(decided.voteRecord.votes).toEqual(
+      expect.arrayContaining([
+        { voterId: ana, draftBy: ben },
+        { voterId: cy, draftBy: ben },
+        { voterId: ben, draftBy: ana },
+      ]),
+    )
+    expect(decided.voteRecord.droppedOut).toEqual([])
+    const votesFor = Object.fromEntries(
+      decided.drafts.map((draft: { draftedBy: string; votes: number }) => [draft.draftedBy, draft.votes]),
+    )
+    expect(votesFor).toEqual({ [ana]: 1, [ben]: 2, [cy]: 0 })
+    const closed = (await storedRows(server, 'audit_events')).find((entry) => entry.event === 'debate.closed')
+    expect(JSON.parse(String(closed?.detail))).toMatchObject({ draftedBy: ben, votes: 2, drafts: 3 })
+    expect(String(closed?.detail)).not.toMatch(/summary|conclusion/i)
+  })
+
+  it('breaks a tie by the earliest draft', async () => {
+    const id = await concludedRoom()
+    await cast.anaAgent.api('PUT', `/debates/${id}/result`, resultFor(cast))
+    await server.clock.advance(1_000)
+    const room = (await cast.benAgent.api('PUT', `/debates/${id}/result`, resultFor(cast, 'no_conclusion')))
+      .json
+    await cast.anaAgent.api('POST', `/debates/${id}/result/vote`, {
+      round: room.resultRound,
+      draftBy: cast.ben.me.member.id,
+    })
+    const decided = (
+      await cast.benAgent.api('POST', `/debates/${id}/result/vote`, {
+        round: room.resultRound,
+        draftBy: cast.ana.me.member.id,
+      })
+    ).json
+    expect(decided).toMatchObject({ status: 'closed', result: { draftedBy: cast.ana.me.member.id } })
+  })
+
+  it('refuses a vote for one’s own draft, a second vote, a stale round and a person', async () => {
+    const id = await roomOfThree()
+    await cast.anaAgent.api('PUT', `/debates/${id}/result`, threeResult('A.'))
+    await cast.benAgent.api('PUT', `/debates/${id}/result`, threeResult('B.'))
+    const room = (await cast.cyAgent.api('PUT', `/debates/${id}/result`, threeResult('C.'))).json
+    const vote = (draftBy: string, round = room.resultRound) => ({ round, draftBy })
+    const own = await cast.anaAgent.api('POST', `/debates/${id}/result/vote`, vote(cast.ana.me.member.id))
+    expect(own.status).toBe(409)
+    expect(own.json.error.message).toMatch(/own draft/)
+    expect(
+      (await cast.anaAgent.api('POST', `/debates/${id}/result/vote`, vote(cast.ben.me.member.id, 7))).status,
+    ).toBe(409)
+    expect(
+      (await cast.anaAgent.api('POST', `/debates/${id}/result/vote`, vote(cast.ben.me.member.id))).status,
+    ).toBe(200)
+    expect(
+      (await cast.anaAgent.api('POST', `/debates/${id}/result/vote`, vote(cast.cy.me.member.id))).status,
+    ).toBe(409)
+    expect(
+      (await cast.ana.api('POST', `/debates/${id}/result/vote`, vote(cast.cy.me.member.id))).status,
+    ).toBe(403)
+  })
+
+  it('leaves an agent that dropped out out of the vote, records it, and lets its draft win', async () => {
+    const id = await roomOfThree()
+    await cast.anaAgent.api('PUT', `/debates/${id}/result`, threeResult('A.'))
+    await cast.benAgent.api('PUT', `/debates/${id}/result`, threeResult('B.'))
+    await cast.cyAgent.api('PUT', `/debates/${id}/result`, threeResult('C.'))
+    cast.sleep('ben')
+    await server.clock.advance(RESULT_VOTING_WINDOW_MS - 1)
+    const round = (await roomOf(id)).resultRound
+    await cast.anaAgent.api('POST', `/debates/${id}/result/vote`, { round, draftBy: cast.ben.me.member.id })
+    await cast.cyAgent.api('POST', `/debates/${id}/result/vote`, { round, draftBy: cast.ben.me.member.id })
+    expect((await roomOf(id)).status).toBe('concluding')
+    await server.clock.advance(2)
+    const closed = await roomOf(id)
+    expect(closed).toMatchObject({ status: 'closed', result: { draftedBy: cast.ben.me.member.id } })
+    expect(closed.voteRecord.droppedOut).toEqual([cast.ben.me.member.id])
+  })
+
+  it('stops waiting for an agent that dropped out, and records that it did not vote', async () => {
+    const id = await roomOfThree()
+    await dropOut(server, cast, 'cy')
+    await cast.anaAgent.api('PUT', `/debates/${id}/result`, threeResult('A.'))
+    const voting = (await cast.benAgent.api('PUT', `/debates/${id}/result`, threeResult('B.'))).json
+    expect(voting.votingClosesAt).toEqual(expect.any(Number))
+    const round = voting.resultRound
+    await cast.anaAgent.api('POST', `/debates/${id}/result/vote`, { round, draftBy: cast.ben.me.member.id })
+    const closed = (
+      await cast.benAgent.api('POST', `/debates/${id}/result/vote`, { round, draftBy: cast.ana.me.member.id })
+    ).json
+    expect(closed).toMatchObject({ status: 'closed', voteRecord: { droppedOut: [cast.cy.me.member.id] } })
+  })
+
+  it('takes an agent that dropped out back in once it makes a request again', async () => {
+    const id = await roomOfThree()
+    await dropOut(server, cast, 'cy')
+    const takingPart = async () =>
+      Object.fromEntries(
+        (await roomOf(id)).participants.map((one: { memberId: string; takingPart: boolean }) => [
+          one.memberId,
+          one.takingPart,
+        ]),
+      )
+    expect(await takingPart()).toEqual({
+      [cast.ana.me.member.id]: true,
+      [cast.ben.me.member.id]: true,
+      [cast.cy.me.member.id]: false,
+    })
+    await cast.cyAgent.api('GET', '/debate-asks')
+    expect((await roomOf(id)).participants.every((one: { takingPart: boolean }) => one.takingPart)).toBe(true)
+  })
+
+  it('closes with the earliest draft when the vote runs out, and ends a room with one agent left', async () => {
+    const id = await concludedRoom()
+    await cast.anaAgent.api('PUT', `/debates/${id}/result`, resultFor(cast))
+    await server.clock.advance(1_000)
+    await cast.benAgent.api('PUT', `/debates/${id}/result`, resultFor(cast, 'no_conclusion'))
+    await server.clock.advance(RESULT_VOTING_WINDOW_MS)
+    expect(await roomOf(id)).toMatchObject({ status: 'closed', result: { draftedBy: cast.ana.me.member.id } })
+
+    const other = await concludedRoom()
+    await cast.anaAgent.api('PUT', `/debates/${other}/result`, resultFor(cast))
+    await dropOut(server, cast, 'ben')
+    expect(await roomOf(other)).toMatchObject({
+      status: 'ended',
+      endedBecause: 'one_agent_left',
+      result: null,
+    })
+    expect(
+      (await cast.anaAgent.api('PUT', `/debates/${other}/result`, resultFor(cast, 'no_conclusion'))).status,
+    ).toBe(409)
+  })
+})
+
+describe('a room settled before 0.1.4', () => {
+  const waitingForApprovals = async () => {
+    const id = await concludedRoom()
+    const result = JSON.stringify(resultFor(cast))
+    await T.runPromise(
+      run(sql`UPDATE debates SET result = ${result}, result_by = ${cast.ana.me.member.id},
+        result_at = ${server.clock.now()} WHERE id = ${id}`),
+      server.env,
+    )
+    return id
+  }
+
+  it('closes a room stored while it waited for approvals with the result it chose, on the next pass', async () => {
+    const id = await waitingForApprovals()
+    await T.runPromise(debateDeadlinePass, server.env)
+    const room = (await storedRows(server, 'debates')).find((row) => row.id === id)!
+    expect(room).toMatchObject({ status: 'closed', result_by: cast.ana.me.member.id })
+    const credits = (await storedRows(server, 'debate_credits')).map((row) => [row.member_id, row.kind])
+    expect(credits).toEqual(expect.arrayContaining([[cast.ana.me.member.id, 'gap_filled']]))
+  })
+
+  it('closes a room that waited for approvals for more than a day with its result, not without one', async () => {
+    const id = await waitingForApprovals()
+    await server.clock.advance(RESULT_WINDOW_MS + 1)
+    await T.runPromise(debateDeadlinePass, server.env)
+    expect(await storedRoom(id)).toMatchObject({ status: 'closed', ended_because: null })
+  })
+
+  it('closes a room whose vote ran out unread for more than a day with the winning draft', async () => {
+    const id = await concludedRoom()
+    await cast.anaAgent.api('PUT', `/debates/${id}/result`, resultFor(cast))
+    await server.clock.advance(1_000)
+    await cast.benAgent.api('PUT', `/debates/${id}/result`, resultFor(cast, 'no_conclusion'))
+    await server.clock.advance(RESULT_WINDOW_MS + 1)
+    await T.runPromise(debateDeadlinePass, server.env)
+    expect(await storedRoom(id)).toMatchObject({ status: 'closed', result_by: cast.ana.me.member.id })
+  })
+
+  it('closes a room left unread for more than a day before its vote opened with the earliest draft', async () => {
+    const id = await roomOfThree()
+    await cast.anaAgent.api('PUT', `/debates/${id}/result`, threeResult('Ship.'))
+    await server.clock.advance(1_000)
+    await cast.benAgent.api('PUT', `/debates/${id}/result`, threeResult('Wait.'))
+    await server.clock.advance(RESULT_WINDOW_MS + 1)
+    await T.runPromise(debateDeadlinePass, server.env)
+    expect(await storedRoom(id)).toMatchObject({
+      status: 'closed',
+      result_by: cast.ana.me.member.id,
+      votes_open_at: null,
+    })
+  })
+
+  it('leaves a room alone when its round or result changed after it was described', async () => {
+    const id = await waitingForApprovals()
+    const described = await storedRoom(id)
+    await T.runPromise(
+      run(sql`UPDATE debates SET result = NULL, result_by = NULL, result_at = NULL,
+        result_round = result_round + 1 WHERE id = ${id}`),
+      server.env,
+    )
+    await T.runPromise(transact(settleDebateRow(described)), server.env)
+    expect(await storedRoom(id)).toMatchObject({ status: 'concluding', result: null })
+    expect(await storedRows(server, 'debate_credits')).toEqual([])
+  })
+})
+
+describe('credits', () => {
+  it('credits the growth record when the room closes, with no person approving', async () => {
+    await closedRoom()
     const credits = (await storedRows(server, 'debate_credits')).map((row) => [row.member_id, row.kind])
     expect(credits.sort()).toEqual(
       [
@@ -73,64 +374,16 @@ describe('approving the result', () => {
     const mine = (await cast.ana.api('GET', '/principles')).json
     expect(mine.debateCredits).toEqual(['conclusion', 'gap_filled', 'next_step_accepted'])
     expect(mine.achievements).toEqual(['debate_conclusion', 'debate_gap_filled', 'debate_next_step_accepted'])
-    expect((await decide(cast.ana, id, 'approval')).status).toBe(409)
   })
 
-  it('lets only a participant’s person approve or decline, never an agent', async () => {
-    const id = await concludedRoom()
-    await cast.anaAgent.api('PUT', `/debates/${id}/result`, resultFor(cast))
-    expect((await decide(cast.anaAgent, id, 'approval')).status).toBe(403)
-    expect((await decide(cast.cy, id, 'approval')).status).toBe(403)
-    expect((await decide(cast.cy, id, 'decline')).status).toBe(403)
-  })
-
-  it('asks the agents again when a person declines, dropping earlier approvals', async () => {
-    const id = await concludedRoom()
-    await cast.anaAgent.api('PUT', `/debates/${id}/result`, resultFor(cast))
-    await decide(cast.ana, id, 'approval')
-    const declined = (await decide(cast.ben, id, 'decline')).json
-    expect(declined.result).toBeNull()
-    expect(declined.approvals.map((one: { approvedAt: number | null }) => one.approvedAt)).toEqual([
-      null,
-      null,
-    ])
-    expect((await cast.benAgent.api('GET', '/debate-asks')).json.asks).toHaveLength(1)
-    expect((await decide(cast.ben, id, 'decline')).status).toBe(409)
+  it('offers no route to approve or decline a result', async () => {
+    const id = await closedRoom()
+    expect((await cast.ana.api('POST', `/debates/${id}/result/approval`, { draftedAt: 1 })).status).toBe(404)
+    expect((await cast.ana.api('POST', `/debates/${id}/result/decline`, { draftedAt: 1 })).status).toBe(404)
   })
 })
 
-describe('a decision on the result', () => {
-  it('counts a new round when a person declines, so the agents draft again', async () => {
-    const id = await concludedRoom()
-    await cast.anaAgent.api('PUT', `/debates/${id}/result`, resultFor(cast))
-    const declined = (await decide(cast.ben, id, 'decline')).json
-    expect(declined.resultRound).toBe(1)
-    const asks = (await cast.anaAgent.api('GET', '/debate-asks')).json.asks
-    expect(
-      asks.map((ask: { ask: string; debate: { resultRound: number } }) => [ask.ask, ask.debate.resultRound]),
-    ).toEqual([['result', 1]])
-    const redrafted = (
-      await cast.benAgent.api('PUT', `/debates/${id}/result`, resultFor(cast, 'no_conclusion'))
-    ).json
-    expect(redrafted).toMatchObject({ resultRound: 1, result: { draftedBy: cast.ben.me.member.id } })
-  })
-
-  it('refuses a decision on a draft other than the one the person read', async () => {
-    const id = await concludedRoom()
-    await cast.anaAgent.api('PUT', `/debates/${id}/result`, resultFor(cast))
-    const read = (await cast.ana.api('GET', `/debates/${id}`)).json.result.draftedAt
-    await decide(cast.ben, id, 'decline')
-    await server.clock.advance(1_000)
-    await cast.benAgent.api('PUT', `/debates/${id}/result`, resultFor(cast, 'no_conclusion'))
-    const stale = await decide(cast.ana, id, 'approval', read)
-    expect(stale.status).toBe(409)
-    expect(stale.json.error.message).toMatch(/changed since you read it/)
-    expect((await decide(cast.ana, id, 'decline', read)).status).toBe(409)
-    expect((await decide(cast.ana, id, 'approval')).status).toBe(200)
-  })
-})
-
-describe('the approved result leaving the room', () => {
+describe('the settled result leaving the room', () => {
   it('puts only the result into a draft of the person’s own, sent like any other note', async () => {
     const id = await closedRoom()
     const lobby = (await cast.ana.api('PUT', '/channels/lobby/membership', {})).json
@@ -193,7 +446,7 @@ describe('the approved result leaving the room', () => {
         organization.periods,
         taught.routes,
         taught.offers,
-      ])
+      ]).replace(/"debateResultsSent":\d+,/g, '')
     }
     const before = await figures()
     const asWritten = (await cast.ana.api('POST', `/debates/${id}/result/post`, { to: cast.cy.me.member.id }))
@@ -209,17 +462,17 @@ describe('the approved result leaving the room', () => {
     ).json
     await cast.ana.api('POST', `/drafts/${discarded.id}/discard`)
     expect(await figures()).toBe(before)
+    const mine = (await cast.ana.api('GET', '/insights/me')).json.periods[0].current
+    expect(mine).toMatchObject({ debateResultsSent: 2, written: 0, wroteYourself: 0 })
     expect(await storedRows(server, 'principle_offers')).toEqual([])
   })
 
-  it('refuses before approval, from someone whose agent took no part, and without exactly one destination', async () => {
+  it('refuses before the room closed, from someone whose agent took no turn, and without exactly one destination', async () => {
     const id = await concludedRoom()
     expect(
       (await cast.ana.api('POST', `/debates/${id}/result/post`, { to: cast.cy.me.member.id })).status,
     ).toBe(409)
-    await cast.anaAgent.api('PUT', `/debates/${id}/result`, resultFor(cast))
-    await decide(cast.ana, id, 'approval')
-    await decide(cast.ben, id, 'approval')
+    await draftedAlone(server, cast, id)
     expect(
       (await cast.cy.api('POST', `/debates/${id}/result/post`, { to: cast.ana.me.member.id })).status,
     ).toBe(403)
@@ -232,6 +485,30 @@ describe('the approved result leaving the room', () => {
         })
       ).status,
     ).toBe(400)
+  })
+
+  it('lets a person whose agent was opted in but took no turn neither post nor approve', async () => {
+    const created = await cast.ana.api('POST', '/debates', {
+      question: 'Which week?',
+      limits: { turnsPerAgent: 1, totalTurns: 2, minutes: 30, turnCharacters: 300 },
+    })
+    const id = created.json.id as string
+    for (const [who, agent] of [
+      [cast.ana, cast.anaAgent],
+      [cast.ben, cast.benAgent],
+      [cast.cy, cast.cyAgent],
+    ] as const)
+      await who.api('PUT', `/debates/${id}/agent`, { agentId: agent.id })
+    await cast.anaAgent.api('POST', `/debates/${id}/turns`, { body: 'Thursday.' })
+    await cast.benAgent.api('POST', `/debates/${id}/turns`, { body: 'Friday.' })
+    await draftedAlone(server, cast, id, threeResult('Thursday.'))
+    expect((await roomOf(id)).status).toBe('closed')
+    const refused = await cast.cy.api('POST', `/debates/${id}/result/post`, { to: cast.ana.me.member.id })
+    expect(refused.status).toBe(403)
+    expect(refused.json.error.message).toMatch(/took a turn/)
+    expect(
+      (await cast.ben.api('POST', `/debates/${id}/result/post`, { to: cast.ana.me.member.id })).status,
+    ).toBe(200)
   })
 
   it('exports the closed room as Markdown and JSON with display names, recording the export', async () => {
@@ -247,19 +524,39 @@ describe('the approved result leaving the room', () => {
         { name: 'Ben', agent: 'Ben agent' },
       ]),
     )
-    const audited = (await storedRows(server, 'audit_log')).filter(
-      (entry) => entry.action === 'debates.export',
+    const audited = (await storedRows(server, 'audit_events')).filter(
+      (entry) => entry.event === 'debate.exported',
     )
     expect(audited.map((entry) => entry.actor_id)).toEqual([cast.ben.me.member.id, cast.cy.me.member.id])
-    expect((await storedRows(server, 'audit_log')).some((entry) => entry.action === 'debates.closed')).toBe(
+    expect((await storedRows(server, 'audit_events')).some((entry) => entry.event === 'debate.closed')).toBe(
       true,
     )
+  })
+
+  it('writes the export’s headings in the exporting person’s language, chosen or asked for', async () => {
+    const id = await closedRoom()
+    await cast.ben.api('PATCH', '/me', { locale: 'ko' })
+    const korean = (await cast.ben.api('POST', `/debates/${id}/export`, { format: 'markdown' })).json.text
+    expect(korean).toMatch(/^# 토론방: /)
+    expect(korean).toContain('## 차례')
+    const asked = (
+      await cast.ben.api('POST', `/debates/${id}/export`, { format: 'markdown', language: 'en' })
+    ).json.text
+    expect(asked).toMatch(/^# Debate room: /)
+    const fallback = (await cast.ana.api('POST', `/debates/${id}/export`, { format: 'markdown' })).json.text
+    expect(fallback).toContain('## Turns')
+    expect(fallback).toContain('## Vote\n\nNo vote was held: the result was the only draft.')
+    expect(korean).toContain('## 투표\n\n초안이 하나뿐이라 투표하지 않았어요.')
   })
 
   it('exports a private room to its members only, and no room before it closed', async () => {
     const secret = await closedRoom('private')
     expect((await cast.cy.api('POST', `/debates/${secret}/export`, { format: 'json' })).status).toBe(404)
     expect((await cast.ben.api('POST', `/debates/${secret}/export`, { format: 'json' })).status).toBe(200)
+    const record = JSON.parse(
+      (await cast.ben.api('POST', `/debates/${secret}/export`, { format: 'json' })).json.text,
+    )
+    expect(record.vote).toEqual({ votes: [], droppedOut: [] })
     const open = await concludedRoom()
     expect((await cast.ana.api('POST', `/debates/${open}/export`, { format: 'json' })).status).toBe(409)
     expect((await cast.anaAgent.api('POST', `/debates/${open}/export`, { format: 'json' })).status).toBe(403)

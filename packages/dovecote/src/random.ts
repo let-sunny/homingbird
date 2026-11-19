@@ -4,6 +4,7 @@ export interface Random {
   readonly identifier: () => string
   readonly secret: () => string
   readonly userCode: () => string
+  readonly bytes: (length: number) => Buffer
 }
 
 export const cryptoRandom: Random = {
@@ -13,6 +14,7 @@ export const cryptoRandom: Random = {
     const letters = Array.from({ length: 8 }, () => USER_CODE_ALPHABET[randomInt(USER_CODE_ALPHABET.length)])
     return `${letters.slice(0, 4).join('')}-${letters.slice(4).join('')}`
   },
+  bytes: (length) => randomBytes(length),
 }
 
 export const hashSecret = (secret: string): string => createHash('sha256').update(secret).digest('hex')

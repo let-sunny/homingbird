@@ -1,6 +1,7 @@
 import { type JsonWebKey, createPublicKey, verify } from 'node:crypto'
 import { Result, Task as T, tagged } from '@homingbird/kernel'
 import type { Config } from '../config.ts'
+import { type Log, redact } from '../log/operational-log.ts'
 import { isFetchableHostName } from './client-metadata.ts'
 import { isLoopbackHost } from './redirect-policy.ts'
 
@@ -32,15 +33,15 @@ export interface IdentifyRequest {
   readonly redirectUri: string
 }
 
-export const IdentityError = tagged('IdentityError')<{ readonly message: string }>()
-export type IdentityError = ReturnType<typeof IdentityError>
+const IdentityError = tagged('IdentityError')<{ readonly message: string }>()
+type IdentityError = ReturnType<typeof IdentityError>
 
 export type Fetch = (url: string, init?: RequestInit) => Promise<Response>
 
 export interface ProviderServices {
   readonly fetch: Fetch
   readonly now: () => number
-  readonly log: (line: string) => void
+  readonly log: Log
   readonly allowsLoopback: boolean
 }
 
@@ -53,7 +54,7 @@ export const openIdConnectProvider = (
   const discover: T.Task<Discovery, IdentityError> = T.suspend(() =>
     discovered !== null
       ? T.succeed(discovered)
-      : T.tapError((error: IdentityError) => T.sync(() => services.log(`sign-in: ${error.message}`)))(
+      : T.tapError((error: IdentityError) => T.sync(() => logProviderFailure(services.log, error)))(
           T.map((document: Discovery) => (discovered = document))(
             T.flatMap((document: unknown) =>
               T.fromResult(trustedDiscovery(document, identity.issuer, allowsLoopback)),
@@ -127,22 +128,28 @@ export const developmentProvider = (publicUrl: string): IdentityProvider => ({
   authorizationUrl: (request) =>
     T.succeed(`${publicUrl}/auth/dev?${new URLSearchParams({ state: request.state }).toString()}`),
   identify: (request) =>
-    T.attempt(
-      () => {
-        const { email, name } = JSON.parse(Buffer.from(request.code, 'base64url').toString('utf8')) as Record<
-          string,
-          string
-        >
-        if (!email || !/^[^@\s]+@[^@\s]+$/.test(email)) throw new Error('missing email')
+    T.fromResult(
+      Result.gen(function* () {
+        const { email, name } = yield* Result.attempt(
+          () => {
+            const form = JSON.parse(Buffer.from(request.code, 'base64url').toString('utf8')) as Record<
+              string,
+              unknown
+            >
+            return { email: form.email, name: form.name }
+          },
+          () => DEVELOPMENT_FORM_UNFILLED,
+        )
+        if (typeof email !== 'string' || !/^[^@\s]+@[^@\s]+$/.test(email))
+          return yield* Result.err(DEVELOPMENT_FORM_UNFILLED)
         return {
           subject: `dev|${email.toLowerCase()}`,
           email,
           emailVerified: true,
-          name: name || email,
+          name: (name as string) || email,
           hostedDomain: null,
         }
-      },
-      () => IdentityError({ message: 'The development login form was not filled in correctly.' }),
+      }),
     ),
 })
 
@@ -157,47 +164,68 @@ export const verifyIdToken = (
   token: string,
   keys: ReadonlyArray<JsonWebKey & { kid?: string }>,
   expected: IdTokenExpectations,
-) =>
-  Result.attempt(() => {
+): Result.Result<Record<string, unknown> & { sub: string }, IdentityError> =>
+  Result.gen(function* () {
     const [headerPart, payloadPart, signaturePart] = token.split('.')
-    if (!headerPart || !payloadPart || !signaturePart) throw new Error('The ID token is malformed.')
-    const header = JSON.parse(Buffer.from(headerPart, 'base64url').toString('utf8')) as {
-      alg?: string
-      kid?: string
-    }
+    if (!headerPart || !payloadPart || !signaturePart) return yield* rejected('The ID token is malformed.')
+    const header = yield* decodedPart<{ alg?: string; kid?: string }>(headerPart)
     const algorithm = SIGNATURE_ALGORITHMS[header.alg ?? '']
-    if (algorithm === undefined) throw new Error('The ID token uses an unsupported signature algorithm.')
+    if (algorithm === undefined)
+      return yield* rejected('The ID token uses an unsupported signature algorithm.')
     const key =
       keys.find((candidate) => candidate.kid === header.kid) ?? (keys.length === 1 ? keys[0] : undefined)
-    if (key === undefined) throw new Error('The ID token was signed with an unknown key.')
-    const signed = verify(
-      algorithm.digest,
-      Buffer.from(`${headerPart}.${payloadPart}`),
-      { key: createPublicKey({ key, format: 'jwk' }), ...algorithm.options },
-      Buffer.from(signaturePart, 'base64url'),
+    if (key === undefined) return yield* rejected('The ID token was signed with an unknown key.')
+    const signed = yield* Result.attempt(
+      () =>
+        verify(
+          algorithm.digest,
+          Buffer.from(`${headerPart}.${payloadPart}`),
+          { key: createPublicKey({ key, format: 'jwk' }), ...algorithm.options },
+          Buffer.from(signaturePart, 'base64url'),
+        ),
+      toIdentityError,
     )
-    if (!signed) throw new Error('The ID token signature is invalid.')
-    const claims = JSON.parse(Buffer.from(payloadPart, 'base64url').toString('utf8')) as Record<
-      string,
-      unknown
-    >
+    if (!signed) return yield* rejected('The ID token signature is invalid.')
+    const claims = yield* decodedPart<Record<string, unknown>>(payloadPart)
     const audiences = Array.isArray(claims.aud) ? claims.aud : [claims.aud]
-    if (claims.iss !== expected.issuer) throw new Error('The ID token came from an unexpected issuer.')
+    if (claims.iss !== expected.issuer) return yield* rejected('The ID token came from an unexpected issuer.')
     if (!audiences.includes(expected.audience))
-      throw new Error('The ID token was issued for another application.')
-    if (claims.nonce !== expected.nonce) throw new Error('The ID token does not belong to this sign-in.')
+      return yield* rejected('The ID token was issued for another application.')
+    if (claims.nonce !== expected.nonce)
+      return yield* rejected('The ID token does not belong to this sign-in.')
     if (typeof claims.exp !== 'number' || claims.exp + CLOCK_SKEW_SECONDS < expected.nowSeconds)
-      throw new Error('The ID token has expired.')
+      return yield* rejected('The ID token has expired.')
     if (typeof claims.iat !== 'number' || claims.iat - CLOCK_SKEW_SECONDS > expected.nowSeconds)
-      throw new Error('The ID token claims to be issued in the future.')
+      return yield* rejected('The ID token claims to be issued in the future.')
     if (
       claims.nbf !== undefined &&
       (typeof claims.nbf !== 'number' || claims.nbf - CLOCK_SKEW_SECONDS > expected.nowSeconds)
     )
-      throw new Error('The ID token is not valid yet.')
-    if (typeof claims.sub !== 'string' || claims.sub === '') throw new Error('The ID token has no subject.')
+      return yield* rejected('The ID token is not valid yet.')
+    if (typeof claims.sub !== 'string' || claims.sub === '')
+      return yield* rejected('The ID token has no subject.')
     return claims as Record<string, unknown> & { sub: string }
-  }, toIdentityError)
+  })
+
+/** A part of the token as the JSON object it must be. */
+const decodedPart = <A extends object>(part: string): Result.Result<A, IdentityError> =>
+  Result.flatMap((decoded: unknown) =>
+    typeof decoded === 'object' && decoded !== null
+      ? Result.ok(decoded as A)
+      : rejected('The ID token is malformed.'),
+  )(
+    Result.attempt(
+      () => JSON.parse(Buffer.from(part, 'base64url').toString('utf8')) as unknown,
+      toIdentityError,
+    ),
+  )
+
+const rejected = (message: string): Result.Result<never, IdentityError> =>
+  Result.err(IdentityError({ message }))
+
+const DEVELOPMENT_FORM_UNFILLED = IdentityError({
+  message: 'The development login form was not filled in correctly.',
+})
 
 const toIdentityError = (cause: unknown): IdentityError =>
   IdentityError({ message: (cause as Error).message })
@@ -265,12 +293,21 @@ const unavailable = (problem: string): IdentityError =>
 const ENDPOINTS = ['authorization_endpoint', 'token_endpoint', 'jwks_uri'] as const
 
 const fetchJson = <A>(fetch: Fetch, url: string, init?: RequestInit): T.Task<A, IdentityError> =>
-  T.tryPromise(
-    async (signal) => {
-      const response = await fetch(url, { ...init, redirect: 'error', signal })
-      if (!response.ok) throw new Error(`${new URL(url).host} answered ${response.status}`)
-      return (await response.json()) as A
-    },
-    (cause) =>
-      IdentityError({ message: `The identity provider could not be reached: ${(cause as Error).message}` }),
-  )
+  T.gen(function* () {
+    const response = yield* T.tryPromise(
+      (signal) => fetch(url, { ...init, redirect: 'error', signal }),
+      unreachableBecause,
+    )
+    if (!response.ok) return yield* T.fail(unreachable(`${new URL(url).host} answered ${response.status}`))
+    return (yield* T.tryPromise(() => response.json(), unreachableBecause)) as A
+  })
+
+const unreachable = (reason: string): IdentityError =>
+  IdentityError({ message: `The identity provider could not be reached: ${reason}` })
+
+const unreachableBecause = (cause: unknown): IdentityError => unreachable((cause as Error).message)
+
+const logProviderFailure = (log: Log, error: IdentityError): void => {
+  log.emit({ name: 'sign_in.provider_failed', attributes: {} })
+  log.emit({ name: 'defect.detail', attributes: { defect: 'IdentityError', detail: redact(error.message) } })
+}

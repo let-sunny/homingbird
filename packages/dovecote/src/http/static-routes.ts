@@ -37,19 +37,11 @@ export const SECURITY_HEADERS: Readonly<Record<string, string>> = {
   'referrer-policy': 'no-referrer',
 }
 
-export const DEFAULT_BRANDING = { name: 'Homingbird', logo: null } as const
+const DEFAULT_BRANDING = { name: 'Homingbird', logo: null } as const
 
-export const THEME_PREFIX = '/theme/'
+const THEME_PREFIX = '/theme/'
 
-export const THEME_ASSET_TYPES: ReadonlyArray<string> = [
-  '.woff2',
-  '.png',
-  '.svg',
-  '.jpg',
-  '.jpeg',
-  '.webp',
-  '.ico',
-]
+const THEME_ASSET_TYPES: ReadonlyArray<string> = ['.woff2', '.png', '.svg', '.jpg', '.jpeg', '.webp', '.ico']
 
 const themeStylesheet = (themeDirectory: string | null): T.Task<HttpResponse, never, unknown> =>
   T.map((css: Buffer | null) =>

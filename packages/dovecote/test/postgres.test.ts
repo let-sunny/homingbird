@@ -1,3 +1,4 @@
+import { Task as T } from '@homingbird/kernel'
 import pg from 'pg'
 import { describe, expect, it } from 'vitest'
 import { openDatabase } from '../src/sql/open.ts'
@@ -44,12 +45,12 @@ describe('a PostgreSQL URL', () => {
 
 describe('Dovecote on PostgreSQL through a Unix socket', () => {
   it.skipIf(SOCKET_URL === undefined)('connects with a URL whose host is a socket directory', async () => {
-    const database = await openDatabase(SOCKET_URL!)
+    const database = await T.runPromise(openDatabase(SOCKET_URL!))
     try {
-      const [connection] = await database.all(raw('SELECT inet_server_addr() AS address'))
+      const [connection] = await T.runPromise(database.all(raw('SELECT inet_server_addr() AS address')))
       expect(connection).toEqual({ address: null })
     } finally {
-      await database.close()
+      await T.runPromise(database.close)
     }
   })
 

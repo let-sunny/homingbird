@@ -258,6 +258,23 @@ describe('agentFiguresIn', () => {
     })
   })
 
+  it('counts the debate results the person sent apart from their agent’s drafts and their own notes', () => {
+    const activity: AgentActivity = {
+      ...nothing,
+      debateResults: [
+        { place: null, at: NOW - HOUR },
+        { place: 'billing', at: NOW - 2 * HOUR },
+        { place: null, at: NOW - 8 * DAY_MS },
+      ],
+    }
+    expect(agentFiguresIn(activity, lastWeek, 3)).toMatchObject({
+      debateResultsSent: 2,
+      written: 0,
+      wroteYourself: 0,
+    })
+    expect(agentFiguresIn(nothing, lastWeek, 3).debateResultsSent).toBe(0)
+  })
+
   it('breaks the figures down by channel, with direct messages together, the busiest first', () => {
     const activity: AgentActivity = {
       ...nothing,

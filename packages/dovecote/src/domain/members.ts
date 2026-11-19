@@ -15,9 +15,9 @@ import {
 import type { AppEnv } from '../environment.ts'
 import { all, first, run } from '../sql/database.ts'
 import { containsIgnoringCase, insertInto, list, sql } from '../sql/query.ts'
+import { agentIntroductionsOf } from './agent-introductions.ts'
 import { channelsHelpedBy, helpersOfChannelSeenBy } from './channels.ts'
 import { type Ties, tiesOf } from './contacts.ts'
-import { agentIntroductionsOf } from './principles.ts'
 import { featureIsOn, readSettings } from './settings.ts'
 
 export const directoryFor = (

@@ -16,7 +16,7 @@ let benAgent: Agent
 
 beforeEach(async () => {
   server = await startTestServer({ HB_TRUST_PROXY: '1' })
-  listening = await startServer(server.env, 0)
+  listening = await T.runPromise(startServer(server.env, 0))
   origin = `http://127.0.0.1:${listening.port}`
   ana = await server.signIn('ana@example.com', 'Ana')
   ben = await server.signIn('ben@example.com', 'Ben')
@@ -24,7 +24,7 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
-  await listening.close()
+  await T.runPromise(listening.close)
   await server.close()
 })
 
@@ -253,7 +253,11 @@ describe('over a real socket', () => {
     expect(await response.json()).toEqual({
       error: { code: 'Unavailable', message: 'The server hit an unexpected error.' },
     })
-    expect(server.logged.some((line) => line.startsWith('request failed: GET /api/v1/info'))).toBe(true)
+    const failed = server.logged
+      .map((line) => JSON.parse(line))
+      .find((line) => line.eventName === 'http.request_failed')
+    expect(failed).toMatchObject({ attributes: { route: 'server.info', method: 'GET' } })
+    expect(response.headers.get('x-request-id')).toBe(failed.attributes.requestId)
     server = await startTestServer()
   })
 })

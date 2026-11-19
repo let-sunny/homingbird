@@ -1,5 +1,6 @@
 import { Task as T } from '@homingbird/kernel'
 import {
+  Conflict,
   type Conversation,
   ConversationId,
   type ConversationKind,
@@ -88,7 +89,7 @@ export const createGroupConversation = (
     return yield* describeConversation(viewerId, row)
   })
 
-export const requireMayMessage = (
+const requireMayMessage = (
   viewerId: MemberId,
   otherIds: ReadonlyArray<MemberId>,
 ): T.Task<void, Forbidden | NotFound, AppEnv> =>
@@ -104,6 +105,19 @@ export const requireMayMessage = (
     }
   })
 
+/** Whether the author may write in this conversation now: not archived, and in a direct one, not blocked. */
+export const requireMayMessageIn = (
+  authorId: MemberId,
+  conversationId: ConversationId,
+): T.Task<void, NotFound | Forbidden | Conflict, AppEnv> =>
+  T.gen(function* () {
+    const conversation = yield* participatedConversation(authorId, conversationId)
+    if ((conversation.archived_at ?? null) !== null) return yield* T.fail(ARCHIVED)
+    if (conversation.kind !== 'direct') return
+    const others = (yield* participantsOf(conversationId)).filter((memberId) => memberId !== authorId)
+    yield* requireMayMessage(authorId, others)
+  })
+
 export interface ConversationRow {
   readonly id: ConversationId
   readonly kind: ConversationKind
@@ -114,6 +128,10 @@ export interface ConversationRow {
 }
 
 const CONVERSATION_LIMIT = 200
+const ARCHIVED = Conflict({
+  message:
+    'No reply is possible: this channel was archived. It can still be read, but nothing more can be written in it, here or in the web client.',
+})
 
 const describeConversation = (
   viewerId: MemberId,

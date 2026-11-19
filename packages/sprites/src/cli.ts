@@ -74,17 +74,8 @@ export interface CliIo {
   readonly encodeGif: (frames: ReadonlyArray<Frame>, palette: Readonly<Record<string, string>>) => Uint8Array
 }
 
-export const USAGE = `usage:
-  homingbird-sprites build <dir>
-  homingbird-sprites check <spec.json | ->
-  homingbird-sprites preview <spec.json | -> <out.png> [--scale N]
-  homingbird-sprites gif <spec.json | -> <state> <out.gif>
-  homingbird-sprites random <seed>
-  homingbird-sprites presets
-  homingbird-sprites states`
-
 /** Idle, sending and new note side by side: the three a person needs to judge a character. */
-export const previewOf = (spec: CharacterSpec, scale: number): Pixels => {
+const previewOf = (spec: CharacterSpec, scale: number): Pixels => {
   const states = statesFor(spec)
   const shown: ReadonlyArray<readonly [StateName, number]> = [
     ['idle', 0],
@@ -112,3 +103,12 @@ const reportProblems = (problems: ReadonlyArray<string>, io: CliIo): number => {
   for (const problem of problems) io.err(`  - ${problem}`)
   return 1
 }
+
+const USAGE = `usage:
+  homingbird-sprites build <dir>
+  homingbird-sprites check <spec.json | ->
+  homingbird-sprites preview <spec.json | -> <out.png> [--scale N]
+  homingbird-sprites gif <spec.json | -> <state> <out.gif>
+  homingbird-sprites random <seed>
+  homingbird-sprites presets
+  homingbird-sprites states`

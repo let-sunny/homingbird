@@ -103,7 +103,7 @@ variable "database_multi_az" {
 }
 
 variable "log_retention_days" {
-  description = "Days to keep the task's logs, which include the audit trail when HB_AUDIT_STDOUT=1."
+  description = "Days to keep the task's logs, which include a metadata-only copy of the audit trail."
   type        = number
   default     = 90
 }
@@ -131,14 +131,8 @@ variable "contact_mode" {
   }
 }
 
-variable "audit_webhook_url" {
-  description = "HB_AUDIT_WEBHOOK_URL: where to POST audit entries, which contain note content. Empty for none."
-  type        = string
-  default     = ""
-}
-
 variable "audit_retention_days" {
-  description = "HB_AUDIT_RETENTION_DAYS until an administrator changes it. null keeps audit entries forever."
+  description = "HB_AUDIT_RETENTION_DAYS: days to keep audit rows, at least 90. null keeps Dovecote's default of 400."
   type        = number
   default     = null
 }

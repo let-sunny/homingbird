@@ -7,6 +7,7 @@ import {
   Forbidden,
   Invalid,
   NotFound,
+  ROUTE_AUDIT,
   type RequestOf,
   type ResponseOf,
   type RouteName,
@@ -16,9 +17,11 @@ import {
   featureOfRoute,
 } from '@homingbird/protocol'
 import { recordAudit } from '../domain/audit.ts'
+import { noteDenied } from '../domain/denied-attempts.ts'
 import { featureIsOn } from '../domain/settings.ts'
 import type { AppEnv, Caller } from '../environment.ts'
 import { type RequestEnv, transact } from '../events/events.ts'
+import { AUDIT_DETAILS, type AuditFacts } from './audit-details.ts'
 import { type Handlers, handlers } from './handlers.ts'
 
 export interface RawRequest {
@@ -57,10 +60,8 @@ export const invoke = <N extends RouteName>(
       request: unknown,
       caller: Caller | null,
     ) => ReturnType<Handlers[N]>
-    const audited = T.tap((response: ResponseOf<Contract[N]>) =>
-      isRecorded(name) ? recordAudit(auditOf(name, request, response, caller)) : T.unit,
-    )(handler(request, caller))
-    return yield* isLongRunning(name)
+    const audited = withAudit(name, request, caller, handler(request, caller))
+    return yield* OWN_TRANSACTIONS.includes(name)
       ? (T.provide({ outbox: [], audited: [] })(audited) as T.Task<ResponseOf<Contract[N]>, ApiError, AppEnv>)
       : transact(audited as T.Task<ResponseOf<Contract[N]>, ApiError, RequestEnv>)
   })
@@ -72,9 +73,6 @@ export const localApi = (caller: Caller, env: AppEnv): Api =>
       (request: never) => T.provide(env)(invoke(name, request, caller)),
     ]),
   ) as unknown as Api
-
-export const recordDenied = (name: RouteName, caller: Caller | null): T.Task<void, never, AppEnv> =>
-  transact(recordAudit({ caller, action: `denied:${name}` }))
 
 const requireAllowed = (
   name: RouteName,
@@ -88,7 +86,7 @@ const requireAllowed = (
     access === 'admin'
       ? 'Only an administrator can do this.'
       : 'Only a person can do this; agent credentials are refused.'
-  return T.flatMap(() => T.fail(Forbidden({ message })))(recordDenied(name, caller))
+  return T.flatMap(() => T.fail(Forbidden({ message })))(noteDenied(caller, name))
 }
 
 const requireFeature = (name: RouteName): T.Task<void, NotFound, AppEnv> => {
@@ -106,36 +104,30 @@ const decoded = <A>(schema: S.Schema<A>, input: unknown): T.Task<A, Invalid> => 
     : T.fail(Invalid({ message: S.formatIssues(result.error) }))
 }
 
-const isLongRunning = (name: RouteName): boolean => name === 'events.poll'
-
-const isRecorded = (name: RouteName): boolean => contract[name].method !== 'GET' && !UNRECORDED.includes(name)
-
 /**
- * Not worth an audit entry, or not allowed one: a page saying it is visible changes nothing anyone keeps,
- * and when a person first saw a draft would let the audit log time each person's approvals.
+ * Routes that open their own transactions: a long poll holds none while it waits, and the asks of a
+ * debate room move each of the agent's rooms on in a transaction of its own before they are read.
  */
-const UNRECORDED: ReadonlyArray<RouteName> = ['presence.visibility', 'drafts.seen']
+const OWN_TRANSACTIONS: ReadonlyArray<RouteName> = ['events.poll', 'debates.waiting']
 
-const auditOf = (name: RouteName, request: unknown, response: unknown, caller: Caller | null) => {
-  const { params, body } = request as { params?: Readonly<Record<string, string>>; body?: unknown }
-  const note = isNoteLike(response)
-    ? { id: response.id, status: response.status, body: response.body }
-    : undefined
-  return {
-    caller,
-    action: name,
-    target: note?.id ?? Object.values(params ?? {})[0] ?? null,
-    detail: {
-      ...(params && { params }),
-      ...(body !== undefined && { request: body }),
-      ...(note && { note }),
-      ...(isPrincipleLike(response) && { principle: response }),
-    },
-  }
+/** Runs a handler and records its route's audit event, in the same transaction, when it succeeds. */
+const withAudit = <A, E>(
+  name: RouteName,
+  request: unknown,
+  caller: Caller | null,
+  handled: T.Task<A, E, RequestEnv>,
+): T.Task<A, E, RequestEnv> => {
+  const decision = ROUTE_AUDIT[name]
+  if (!('event' in decision) || caller === null) return handled
+  const event = decision.event
+  const describe = AUDIT_DETAILS[name as keyof typeof AUDIT_DETAILS] as unknown as (
+    request: unknown,
+    caller: Caller,
+  ) => T.Task<(response: A) => AuditFacts<typeof event>, never, RequestEnv>
+  return T.gen(function* () {
+    const facts = yield* describe(request, caller)
+    const response = yield* handled
+    yield* recordAudit(event, { caller, ...facts(response) })
+    return response
+  })
 }
-
-const isPrincipleLike = (value: unknown): value is { topic: string; rule: string } =>
-  typeof value === 'object' && value !== null && 'topic' in value && 'rule' in value && 'counts' in value
-
-const isNoteLike = (value: unknown): value is { id: string; status: string; body: string } =>
-  typeof value === 'object' && value !== null && 'body' in value && 'status' in value && 'authorId' in value

@@ -1,0 +1,31 @@
+import { describe, expect, it } from 'vitest'
+import { AUDIT_TRAIL_STEP, MIGRATIONS } from '../src/sql/migrations.ts'
+import type { Step } from '../src/sql/schema-steps.ts'
+
+const tablesOf = (steps: ReadonlyArray<Step>): string[] =>
+  steps.flatMap((step) => ('primaryKey' in step ? [step.name] : []))
+
+describe('the migrations', () => {
+  it('run in a fixed order, with the audit trail as the fifth step', () => {
+    expect(MIGRATIONS).toHaveLength(5)
+    expect(AUDIT_TRAIL_STEP).toBe(5)
+  })
+
+  it('never create a table twice, and add columns and indexes only to tables an earlier step made', () => {
+    const created: string[] = []
+    for (const steps of MIGRATIONS) {
+      for (const step of steps) {
+        if ('addTo' in step) expect(created).toContain(step.addTo)
+        if ('indexOn' in step) expect(created).toContain(step.indexOn)
+      }
+      for (const table of tablesOf(steps)) {
+        expect(created).not.toContain(table)
+        created.push(table)
+      }
+    }
+  })
+
+  it('add only columns that may be empty, so a step can run against rows that already exist', () => {
+    for (const step of MIGRATIONS.flat()) if ('addTo' in step) expect(step.column.nullable).toBe(true)
+  })
+})

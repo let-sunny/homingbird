@@ -1,12 +1,26 @@
 import { Task as T, tagged } from '@homingbird/kernel'
 import { type Dialect, type HasSql, all, dialect, first, inTransaction, run } from './database.ts'
+import { MIGRATIONS } from './migrations.ts'
 import { list, raw, sql } from './query.ts'
+import {
+  type AddedColumn,
+  type AddedIndex,
+  type Column,
+  type ColumnType,
+  type Migration,
+  type Step,
+  type Table,
+  integer,
+} from './schema-steps.ts'
 
-export const migrate: T.Task<void, UnknownDatabase, HasSql> = T.gen(function* () {
-  yield* migrateThrough(MIGRATIONS)
-})
+/** Brings the database to the current schema and says which steps it applied. */
+export const migrate: T.Task<ReadonlyArray<number>, UnknownDatabase, HasSql> = T.suspend(() =>
+  migrateThrough(MIGRATIONS),
+)
 
-export const migrateThrough = (migrations: ReadonlyArray<Migration>): T.Task<void, UnknownDatabase, HasSql> =>
+export const migrateThrough = (
+  migrations: ReadonlyArray<Migration>,
+): T.Task<ReadonlyArray<number>, UnknownDatabase, HasSql> =>
   T.gen(function* () {
     const target = yield* dialect
     yield* run(raw(createTable(target, VERSION_TABLE)))
@@ -18,11 +32,33 @@ export const migrateThrough = (migrations: ReadonlyArray<Migration>): T.Task<voi
     const unknown = [...applied].some((version) => version < 1 || version > migrations.length)
     if (unknown || (applied.size === 0 && (yield* hasTablesOf(target, migrations))))
       return yield* T.fail(UnknownDatabase({ message: UNKNOWN_DATABASE }))
+    const appliedNow: number[] = []
     for (const [index, steps] of migrations.entries()) {
       const version = index + 1
-      if (!applied.has(version)) yield* applying(target, steps, version)
+      if (applied.has(version)) continue
+      yield* applying(target, steps, version)
+      appliedNow.push(version)
     }
+    return appliedNow
   })
+
+/**
+ * Refuses, without changing anything, a database whose schema is not exactly this build's: a command
+ * that only reads, such as `dovecote audit verify`, must not migrate.
+ */
+export const requireCurrentSchema: T.Task<void, UnknownDatabase, HasSql> = T.gen(function* () {
+  const read = yield* T.exit(all<{ version: number }>(sql`SELECT version FROM schema_versions`))
+  const versions = read._tag === 'Ok' ? read.value.map((row) => Number(row.version)) : []
+  const newest = Math.max(0, ...versions)
+  if (newest < MIGRATIONS.length)
+    return yield* T.fail(
+      UnknownDatabase({
+        message:
+          'This database is older than this Dovecote: start the server once to upgrade it, then run the command again.',
+      }),
+    )
+  if (newest > MIGRATIONS.length) return yield* T.fail(UnknownDatabase({ message: UNKNOWN_DATABASE }))
+})
 
 export const UnknownDatabase = tagged('UnknownDatabase')<{ readonly message: string }>()
 export type UnknownDatabase = ReturnType<typeof UnknownDatabase>
@@ -35,446 +71,11 @@ export const schemaStatements = (
 export const tableNames = (): string[] =>
   [VERSION_TABLE, ...MIGRATIONS.flat()].filter(isTable).map((table) => table.name)
 
-export type Migration = ReadonlyArray<Step>
-
-export type Step = Table | AddedColumn | AddedIndex | Backfill
-
-type ColumnType = 'id' | 'string' | 'text' | 'integer' | 'serial'
-
-interface Column {
-  readonly type: ColumnType
-  readonly nullable?: true
-}
-
-interface Table {
-  readonly name: string
-  readonly columns: Readonly<Record<string, Column>>
-  readonly primaryKey: ReadonlyArray<string>
-  readonly indexes?: ReadonlyArray<{ readonly columns: ReadonlyArray<string>; readonly unique?: true }>
-}
-
-interface AddedColumn {
-  readonly addTo: string
-  readonly name: string
-  readonly column: Column & { readonly nullable: true }
-}
-
-interface AddedIndex {
-  readonly indexOn: string
-  readonly columns: ReadonlyArray<string>
-}
-
-interface Backfill {
-  readonly backfill: string
-}
-
-const id: Column = { type: 'id' }
-const optionalId: Column = { type: 'id', nullable: true }
-const string: Column = { type: 'string' }
-const optionalString = { type: 'string', nullable: true } as const satisfies Column
-const text: Column = { type: 'text' }
-const optionalText = { type: 'text', nullable: true } as const satisfies Column
-const integer: Column = { type: 'integer' }
-const optionalInteger = { type: 'integer', nullable: true } as const satisfies Column
-
 const VERSION_TABLE: Table = {
   name: 'schema_versions',
   columns: { version: integer },
   primaryKey: ['version'],
 }
-
-const BASELINE: ReadonlyArray<Table> = [
-  {
-    name: 'members',
-    columns: {
-      id,
-      email: string,
-      subject: string,
-      name: string,
-      profile: text,
-      role: string,
-      status: string,
-      event_seq: integer,
-      created_at: integer,
-      last_seen_at: optionalInteger,
-      locale: optionalString,
-      character_spec: optionalText,
-    },
-    primaryKey: ['id'],
-    indexes: [
-      { columns: ['email'], unique: true },
-      { columns: ['subject'], unique: true },
-    ],
-  },
-  { name: 'settings', columns: { name: string, value: text }, primaryKey: ['name'] },
-  {
-    name: 'credentials',
-    columns: {
-      id,
-      member_id: id,
-      kind: string,
-      name: string,
-      client: string,
-      token_hash: string,
-      refresh_hash: optionalString,
-      token_expires_at: integer,
-      expires_at: integer,
-      created_at: integer,
-      last_used_at: optionalInteger,
-      revoked_at: optionalInteger,
-    },
-    primaryKey: ['id'],
-    indexes: [
-      { columns: ['token_hash'], unique: true },
-      { columns: ['refresh_hash'] },
-      { columns: ['member_id'] },
-    ],
-  },
-  {
-    name: 'oauth_clients',
-    columns: { id, name: string, redirect_uris: text, created_at: integer },
-    primaryKey: ['id'],
-  },
-  {
-    name: 'auth_requests',
-    columns: {
-      id,
-      kind: string,
-      status: string,
-      secret_hash: optionalString,
-      user_code: optionalString,
-      member_id: optionalId,
-      detail: text,
-      created_at: integer,
-      expires_at: integer,
-    },
-    primaryKey: ['id'],
-    indexes: [{ columns: ['secret_hash'] }, { columns: ['user_code'] }, { columns: ['expires_at'] }],
-  },
-  {
-    name: 'conversations',
-    columns: {
-      id,
-      kind: string,
-      title: optionalString,
-      pair_key: optionalString,
-      created_at: integer,
-      last_activity_at: integer,
-      archived_at: optionalInteger,
-    },
-    primaryKey: ['id'],
-    indexes: [{ columns: ['pair_key'], unique: true }],
-  },
-  {
-    name: 'participants',
-    columns: { conversation_id: id, member_id: id },
-    primaryKey: ['conversation_id', 'member_id'],
-    indexes: [{ columns: ['member_id'] }],
-  },
-  {
-    name: 'notes',
-    columns: {
-      id,
-      conversation_id: id,
-      author_id: id,
-      status: string,
-      body: text,
-      in_reply_to: optionalId,
-      origin: string,
-      agent_name: optionalString,
-      credential_id: optionalId,
-      created_at: integer,
-      updated_at: integer,
-      sent_at: optionalInteger,
-      basis: optionalText,
-    },
-    primaryKey: ['id'],
-    indexes: [
-      { columns: ['conversation_id', 'status', 'sent_at'] },
-      { columns: ['author_id', 'status'] },
-      { columns: ['in_reply_to'] },
-    ],
-  },
-  {
-    name: 'receipts',
-    columns: {
-      note_id: id,
-      member_id: id,
-      delivered_at: integer,
-      read_at: optionalInteger,
-      drafting_at: optionalInteger,
-      replied_at: optionalInteger,
-    },
-    primaryKey: ['note_id', 'member_id'],
-    indexes: [{ columns: ['member_id', 'replied_at'] }],
-  },
-  {
-    name: 'pickups',
-    columns: { note_id: id, credential_id: id, picked_at: integer },
-    primaryKey: ['note_id', 'credential_id'],
-  },
-  {
-    name: 'contacts',
-    columns: {
-      low_id: id,
-      high_id: id,
-      requested_by: id,
-      status: string,
-      created_at: integer,
-    },
-    primaryKey: ['low_id', 'high_id'],
-    indexes: [{ columns: ['high_id'] }],
-  },
-  {
-    name: 'blocks',
-    columns: { blocker_id: id, blocked_id: id, created_at: integer },
-    primaryKey: ['blocker_id', 'blocked_id'],
-    indexes: [{ columns: ['blocked_id'] }],
-  },
-  {
-    name: 'events',
-    columns: { member_id: id, seq: integer, created_at: integer, body: text },
-    primaryKey: ['member_id', 'seq'],
-    indexes: [{ columns: ['created_at'] }],
-  },
-  {
-    name: 'audit_log',
-    columns: {
-      id: { type: 'serial' },
-      created_at: integer,
-      actor_id: optionalId,
-      credential_id: optionalId,
-      credential_kind: optionalString,
-      action: string,
-      target: optionalString,
-      detail: text,
-    },
-    primaryKey: ['id'],
-    indexes: [{ columns: ['created_at'] }, { columns: ['actor_id'] }],
-  },
-  {
-    name: 'push_subscriptions',
-    columns: {
-      endpoint_hash: string,
-      member_id: id,
-      endpoint: text,
-      p256dh: string,
-      auth: string,
-      created_at: integer,
-      locale: optionalString,
-    },
-    primaryKey: ['endpoint_hash'],
-    indexes: [{ columns: ['member_id'] }],
-  },
-  {
-    name: 'draft_requests',
-    columns: {
-      id,
-      member_id: id,
-      conversation_id: id,
-      in_reply_to: optionalId,
-      instruction: text,
-      agent_id: optionalId,
-      created_at: integer,
-      expires_at: integer,
-      cancelled_at: optionalInteger,
-    },
-    primaryKey: ['id'],
-    indexes: [{ columns: ['member_id', 'expires_at'] }],
-  },
-  {
-    name: 'draft_request_answers',
-    columns: { request_id: id, note_id: id, credential_id: id },
-    primaryKey: ['request_id', 'note_id'],
-  },
-  {
-    name: 'channels',
-    columns: {
-      slug: id,
-      description: string,
-      conversation_id: id,
-      created_by: optionalId,
-      created_at: integer,
-      visibility: optionalString,
-    },
-    primaryKey: ['slug'],
-    indexes: [{ columns: ['conversation_id'], unique: true }],
-  },
-  {
-    name: 'notices',
-    columns: {
-      member_id: id,
-      note_id: id,
-      conversation_id: id,
-      kind: string,
-      reason: optionalText,
-      agent_name: optionalString,
-      channel: optionalString,
-      created_at: integer,
-    },
-    primaryKey: ['member_id', 'note_id'],
-    indexes: [{ columns: ['member_id', 'conversation_id'] }],
-  },
-  {
-    name: 'channel_answerers',
-    columns: { conversation_id: id, member_id: id },
-    primaryKey: ['conversation_id', 'member_id'],
-    indexes: [{ columns: ['member_id'] }],
-  },
-  {
-    name: 'channel_managers',
-    columns: { conversation_id: id, member_id: id },
-    primaryKey: ['conversation_id', 'member_id'],
-    indexes: [{ columns: ['member_id'] }],
-  },
-]
-
-const TEACHING_AND_FIGURES: Migration = [
-  { addTo: 'notes', name: 'seen_at', column: optionalInteger },
-  { addTo: 'notes', name: 'decided_at', column: optionalInteger },
-  { addTo: 'notes', name: 'agent_body', column: optionalText },
-  { addTo: 'notes', name: 'agent_client', column: optionalString },
-  { addTo: 'notes', name: 'agent_model', column: optionalString },
-  { addTo: 'notes', name: 'session_minutes', column: optionalInteger },
-  { addTo: 'notes', name: 'context_percent', column: optionalInteger },
-  { indexOn: 'notes', columns: ['status', 'sent_at'] },
-  { indexOn: 'notes', columns: ['decided_at'] },
-  {
-    name: 'principles',
-    columns: {
-      id,
-      member_id: id,
-      kind: string,
-      topic: string,
-      rule: text,
-      source: optionalText,
-      place: optionalString,
-      enabled: integer,
-      origin: string,
-      position: integer,
-      created_at: integer,
-      updated_at: integer,
-      last_applied_at: optionalInteger,
-      public_text: optionalText,
-    },
-    primaryKey: ['id'],
-    indexes: [{ columns: ['member_id'] }],
-  },
-  {
-    name: 'principle_applications',
-    columns: {
-      principle_id: id,
-      note_id: id,
-      member_id: id,
-      created_at: integer,
-      missed_at: optionalInteger,
-    },
-    primaryKey: ['principle_id', 'note_id'],
-    indexes: [{ columns: ['member_id'] }, { columns: ['note_id'] }],
-  },
-  {
-    name: 'principle_offers',
-    columns: {
-      id,
-      member_id: id,
-      note_id: id,
-      conversation_id: id,
-      place: optionalString,
-      kind: string,
-      suggested_change: optionalText,
-      created_at: integer,
-      closed_at: optionalInteger,
-    },
-    primaryKey: ['id'],
-    indexes: [{ columns: ['member_id', 'created_at'] }],
-  },
-  {
-    name: 'principle_quiet_places',
-    columns: { member_id: id, place: string, created_at: integer },
-    primaryKey: ['member_id', 'place'],
-  },
-  {
-    name: 'releases',
-    columns: {
-      note_id: id,
-      credential_id: id,
-      member_id: id,
-      conversation_id: id,
-      reason: optionalText,
-      created_at: integer,
-    },
-    primaryKey: ['note_id', 'credential_id'],
-    indexes: [{ columns: ['member_id', 'created_at'] }, { columns: ['created_at'] }],
-  },
-]
-
-const DEBATES: Migration = [
-  { addTo: 'notes', name: 'debate_id', column: { type: 'id', nullable: true } },
-  {
-    name: 'debates',
-    columns: {
-      id,
-      question: text,
-      visibility: string,
-      status: string,
-      created_by: id,
-      turns_per_agent: integer,
-      total_turns: integer,
-      minutes: integer,
-      turn_characters: integer,
-      created_at: integer,
-      updated_at: integer,
-      deadline_at: integer,
-      concluded_at: optionalInteger,
-      closed_at: optionalInteger,
-      result: optionalText,
-      result_by: optionalId,
-      result_at: optionalInteger,
-      result_round: integer,
-      ended_because: optionalString,
-    },
-    primaryKey: ['id'],
-    indexes: [{ columns: ['status', 'deadline_at'] }, { columns: ['visibility', 'created_at'] }],
-  },
-  {
-    name: 'debate_members',
-    columns: { debate_id: id, member_id: id, created_at: integer },
-    primaryKey: ['debate_id', 'member_id'],
-    indexes: [{ columns: ['member_id'] }],
-  },
-  {
-    name: 'debate_participants',
-    columns: { debate_id: id, member_id: id, credential_id: id, agent_name: string, created_at: integer },
-    primaryKey: ['debate_id', 'member_id'],
-    indexes: [{ columns: ['credential_id'] }],
-  },
-  {
-    name: 'debate_turns',
-    columns: {
-      debate_id: id,
-      position: integer,
-      member_id: id,
-      credential_id: id,
-      agent_name: string,
-      body: text,
-      created_at: integer,
-    },
-    primaryKey: ['debate_id', 'position'],
-  },
-  {
-    name: 'debate_approvals',
-    columns: { debate_id: id, member_id: id, approved_at: integer },
-    primaryKey: ['debate_id', 'member_id'],
-  },
-  {
-    name: 'debate_credits',
-    columns: { debate_id: id, member_id: id, kind: string, created_at: integer },
-    primaryKey: ['debate_id', 'member_id', 'kind'],
-    indexes: [{ columns: ['member_id'] }],
-  },
-]
-
-export const MIGRATIONS: ReadonlyArray<Migration> = [BASELINE, TEACHING_AND_FIGURES, DEBATES]
 
 const UNKNOWN_DATABASE =
   'This database was not made by this version of Dovecote, so it is left untouched: start Dovecote with an empty database.'

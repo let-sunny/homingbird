@@ -1,21 +1,25 @@
-import { type Clock, Iter, Schedule, Task as T, makeQueue, pipe, systemClock } from '@homingbird/kernel'
+import { type Clock, Task as T, systemClock } from '@homingbird/kernel'
+import { makeAnalyticsForwarder } from './analytics/forward.ts'
 import { makeClientMetadataDocuments } from './auth/client-metadata.ts'
 import { type Fetch, developmentProvider, openIdConnectProvider } from './auth/identity-provider.ts'
 import { isLoopbackHost } from './auth/redirect-policy.ts'
 import { deleteExpiredAuthRequests } from './auth/requests.ts'
 import { survivingPass } from './background-pass.ts'
 import type { Config } from './config.ts'
-import { type AuditRecord, deleteAuditBefore } from './domain/audit.ts'
-import { concludeOverdueDebates } from './domain/debate-turns.ts'
-import { featureIsOn, readSettings } from './domain/settings.ts'
+import { auditRetention } from './domain/audit-retention.ts'
+import { auditHead, purgeAuditBefore } from './domain/audit.ts'
+import { settleDebate, undecidedDebates } from './domain/debate-turns.ts'
+import { flushAttempts, makeAttemptWindows } from './domain/denied-attempts.ts'
+import { featureIsOn } from './domain/settings.ts'
 import type { AppEnv } from './environment.ts'
 import { deleteEventsBefore, transact } from './events/events.ts'
 import { PRESENCE_FLUSH_INTERVAL_MS, makeHub } from './events/hub.ts'
 import { makeRateLimiter } from './http/rate-limiter.ts'
+import { makeLog } from './log/operational-log.ts'
 import { makePushNotifier, sendTestPush } from './push/notifier.ts'
 import { cryptoRandom } from './random.ts'
 import { type Database, sqlEnvironment } from './sql/database.ts'
-import { makeWorkTally } from './work-tally.ts'
+import { SERVER_VERSION } from './version.ts'
 
 export interface Runtime {
   readonly env: AppEnv
@@ -28,15 +32,22 @@ export interface RuntimeParts {
   readonly database: Database
   readonly clock?: Clock
   readonly fetch?: Fetch
-  readonly log?: (line: string) => void
+  /** Where operational lines go; stdout unless a test collects them. */
+  readonly write?: (line: string) => void
 }
 
 export const buildRuntime = (parts: RuntimeParts): Runtime => {
   const clock = parts.clock ?? systemClock
   const fetch = parts.fetch ?? globalThis.fetch
-  const log = parts.log ?? ((line: string) => process.stdout.write(`${line}\n`))
-  const forwarder = auditForwarder(parts.config, fetch, log)
+  const write = parts.write ?? ((line: string) => process.stdout.write(`${line}\n`))
+  const log = makeLog({
+    level: parts.config.logs.operational,
+    write,
+    now: clock.now,
+    version: SERVER_VERSION,
+  })
   const push = makePushNotifier(fetch)
+  const analytics = makeAnalyticsForwarder(parts.config.analytics, fetch, log)
   const env: AppEnv = {
     ...sqlEnvironment(parts.database),
     clock,
@@ -53,17 +64,28 @@ export const buildRuntime = (parts: RuntimeParts): Runtime => {
           allowsLoopback: isLoopbackHost(new URL(parts.config.publicUrl).hostname),
         }),
     clientMetadata: makeClientMetadataDocuments(fetch),
-    auditSink: forwarder.accept,
+    attempts: makeAttemptWindows(clock.now),
+    analytics,
     pushSink: push.consider,
     pushTest: (memberId) => sendTestPush(fetch, memberId),
     log,
+    requestId: null,
+    client: null,
   }
   return {
     env,
-    background: T.race([housekeeping, debateDeadlines, presenceBroadcast, forwarder.run, push.run]),
+    background: T.race([
+      housekeeping,
+      debateDeadlines,
+      presenceBroadcast,
+      refusedAttempts,
+      analytics.run,
+      chainHead,
+      push.run,
+    ]),
     settled: T.gen(function* () {
       yield* push.settled
-      yield* forwarder.settled
+      yield* analytics.settled
     }),
   }
 }
@@ -71,75 +93,48 @@ export const buildRuntime = (parts: RuntimeParts): Runtime => {
 export const housekeepingPass: T.Task<void, never, AppEnv> = T.gen(function* () {
   const env = yield* T.ask<AppEnv>()
   const now = env.clock.now()
-  const settings = yield* readSettings
   yield* deleteExpiredAuthRequests(now)
   yield* deleteEventsBefore(now - EVENT_RETENTION_MS)
-  if (settings.auditRetentionDays !== null)
-    yield* deleteAuditBefore(now - settings.auditRetentionDays * DAY_MS)
+  const retention = yield* auditRetention
+  if (retention !== 'forever') yield* transact(purgeAuditBefore(now - retention * DAY_MS))
 })
 
-export const housekeeping: T.Task<never, never, AppEnv> = T.forever(60 * 60_000)(
+const housekeeping: T.Task<never, never, AppEnv> = T.forever(60 * 60_000)(
   survivingPass('housekeeping', housekeepingPass),
 )
 
-/** A room whose time ran out stops within a minute, even if nobody looks at it, while debate rooms are on. */
-export const debateDeadlinePass: T.Task<void, never, AppEnv> = T.flatMap((on: boolean) =>
-  on ? transact(concludeOverdueDebates) : T.unit,
-)(featureIsOn('debateRooms'))
+/**
+ * A room whose time ran out stops within a minute, even if nobody looks at it, while debate rooms are on.
+ * Each room moves on in a transaction of its own, so one room that fails leaves the others to move on.
+ */
+export const debateDeadlinePass: T.Task<void, never, AppEnv> = T.gen(function* () {
+  if (!(yield* featureIsOn('debateRooms'))) return
+  for (const id of yield* undecidedDebates())
+    yield* survivingPass(`debate room ${id}`, transact(settleDebate(id)))
+})
 
-export const debateDeadlines: T.Task<never, never, AppEnv> = T.forever(60_000)(
-  survivingPass('debate deadlines', debateDeadlinePass),
+/** Refused attempts are written within ten seconds of their minute ending, one row per window. */
+export const refusedAttempts: T.Task<never, never, AppEnv> = T.forever(10_000)(
+  survivingPass('refused attempts', flushAttempts('due')),
 )
 
-export const presenceBroadcast: T.Task<never, never, AppEnv> = T.forever(PRESENCE_FLUSH_INTERVAL_MS)(
-  survivingPass('presence', T.map((env: AppEnv) => env.hub.flushPresence())(T.ask<AppEnv>())),
-)
+/** Once a day the chain head goes to the operational log, so a copy of it lives outside the database. */
+export const chainHeadPass: T.Task<void, never, AppEnv> = T.gen(function* () {
+  const env = yield* T.ask<AppEnv>()
+  env.log.emit({ name: 'audit.chain_head', attributes: yield* auditHead })
+})
 
 const DAY_MS = 24 * 60 * 60_000
 const EVENT_RETENTION_MS = 7 * DAY_MS
-const WEBHOOK_BATCH = 100
-const WEBHOOK_BUFFER = 10_000
 
-const auditForwarder = (config: Config, fetch: Fetch, log: (line: string) => void) => {
-  const pending = makeQueue<AuditRecord>(WEBHOOK_BUFFER)
-  const work = makeWorkTally()
-  const { toStdout, webhookUrl } = config.audit
-  const deliver = (batch: ReadonlyArray<AuditRecord>): T.Task<void, never, { clock: Clock }> =>
-    pipe(
-      T.tryPromise(
-        async (signal) => {
-          const response = await fetch(webhookUrl!, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ entries: batch }),
-            signal,
-          })
-          if (!response.ok) throw new Error(`status ${response.status}`)
-        },
-        (cause) => (cause as Error).message,
-      ),
-      T.retry({ schedule: () => pipe(Schedule.exponential(1_000, 2, 60_000), Iter.take(8)) }),
-      T.catchAll((reason) => T.sync(() => log(`audit webhook: dropped ${batch.length} entries (${reason})`))),
-    )
-  return {
-    accept: (record: AuditRecord): void => {
-      if (toStdout) log(JSON.stringify({ type: 'audit', ...record }))
-      if (webhookUrl === null) return
-      if (pending.tryOffer(record)) work.started()
-      else log('audit webhook: buffer full, entry dropped')
-    },
-    run: T.gen(function* () {
-      for (;;) {
-        const first = yield* T.orDie(pending.take)
-        const batch = [first]
-        while (batch.length < WEBHOOK_BATCH && pending.size() > 0) batch.push(yield* T.orDie(pending.take))
-        try {
-          yield* deliver(batch)
-        } finally {
-          for (const _ of batch) work.finished()
-        }
-      }
-    }) as T.Task<never, never, { clock: Clock }>,
-    settled: work.settled,
-  }
-}
+const debateDeadlines: T.Task<never, never, AppEnv> = T.forever(60_000)(
+  survivingPass('debate deadlines', debateDeadlinePass),
+)
+
+const presenceBroadcast: T.Task<never, never, AppEnv> = T.forever(PRESENCE_FLUSH_INTERVAL_MS)(
+  survivingPass('presence', T.map((env: AppEnv) => env.hub.flushPresence())(T.ask<AppEnv>())),
+)
+
+const chainHead: T.Task<never, never, AppEnv> = T.forever(24 * 60 * 60_000)(
+  survivingPass('audit chain head', chainHeadPass),
+)

@@ -23,7 +23,7 @@ import {
   visibilityOf,
 } from './channel-rows.ts'
 import type { NoteRow } from './note-rows.ts'
-import { announceStatus } from './notes.ts'
+import { announceStatus } from './note-status.ts'
 import { renamePlace } from './principles.ts'
 
 export const reviseChannel = (

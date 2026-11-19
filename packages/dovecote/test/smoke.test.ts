@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { startTestServer } from './harness.ts'
+import { startTestServer, storedRows } from './harness.ts'
 
 it('carries a note from draft through approval to a reply', async () => {
   const server = await startTestServer()
@@ -35,7 +35,8 @@ it('carries a note from draft through approval to a reply', async () => {
     'note.sent',
     'note.status',
   ])
-  const audit = await ana.api('GET', '/admin/audit')
-  expect(audit.json.entries.some((entry: any) => entry.detail?.note?.body === 'Yes, go ahead.')).toBe(true)
+  const audit = JSON.stringify(await storedRows(server, 'audit_events'))
+  expect(audit).toContain('note.approved')
+  expect(audit).not.toContain('Yes, go ahead.')
   await server.close()
 })

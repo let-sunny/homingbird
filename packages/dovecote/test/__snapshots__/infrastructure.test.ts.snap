@@ -45,6 +45,13 @@ exports[`schema > generates stable DDL for mysql 1`] = `
   "CREATE TABLE IF NOT EXISTS debate_turns (debate_id VARCHAR(64) NOT NULL, position BIGINT NOT NULL, member_id VARCHAR(64) NOT NULL, credential_id VARCHAR(64) NOT NULL, agent_name VARCHAR(400) NOT NULL, body MEDIUMTEXT NOT NULL, created_at BIGINT NOT NULL, PRIMARY KEY (debate_id, position))",
   "CREATE TABLE IF NOT EXISTS debate_approvals (debate_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, approved_at BIGINT NOT NULL, PRIMARY KEY (debate_id, member_id))",
   "CREATE TABLE IF NOT EXISTS debate_credits (debate_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, kind VARCHAR(400) NOT NULL, created_at BIGINT NOT NULL, PRIMARY KEY (debate_id, member_id, kind), INDEX debate_credits_member_id_idx (member_id))",
+  "ALTER TABLE debates ADD COLUMN votes_open_at BIGINT",
+  "ALTER TABLE debates ADD COLUMN grace_minutes BIGINT",
+  "ALTER TABLE debates ADD COLUMN dropped_out MEDIUMTEXT",
+  "CREATE TABLE IF NOT EXISTS debate_drafts (debate_id VARCHAR(64) NOT NULL, round BIGINT NOT NULL, member_id VARCHAR(64) NOT NULL, credential_id VARCHAR(64) NOT NULL, result MEDIUMTEXT NOT NULL, created_at BIGINT NOT NULL, PRIMARY KEY (debate_id, round, member_id))",
+  "CREATE TABLE IF NOT EXISTS debate_votes (debate_id VARCHAR(64) NOT NULL, round BIGINT NOT NULL, voter_id VARCHAR(64) NOT NULL, draft_by VARCHAR(64) NOT NULL, created_at BIGINT NOT NULL, PRIMARY KEY (debate_id, round, voter_id))",
+  "CREATE TABLE IF NOT EXISTS audit_events (id BIGINT AUTO_INCREMENT PRIMARY KEY, created_at BIGINT NOT NULL, event VARCHAR(400) NOT NULL, outcome VARCHAR(400) NOT NULL, actor_id VARCHAR(64), credential_id VARCHAR(64), credential_kind VARCHAR(400), client_id VARCHAR(400), target_kind VARCHAR(400) NOT NULL, target_id VARCHAR(400), request_id VARCHAR(400), client_address VARCHAR(400), user_agent VARCHAR(400), detail MEDIUMTEXT NOT NULL, previous_hash VARCHAR(400) NOT NULL, hash VARCHAR(400) NOT NULL, INDEX audit_events_created_at_idx (created_at), INDEX audit_events_actor_id_idx (actor_id), INDEX audit_events_target_id_idx (target_id), INDEX audit_events_event_idx (event))",
+  "CREATE TABLE IF NOT EXISTS audit_head (name VARCHAR(400) NOT NULL, last_id BIGINT NOT NULL, hash VARCHAR(400) NOT NULL, PRIMARY KEY (name))",
 ]
 `;
 
@@ -129,6 +136,17 @@ exports[`schema > generates stable DDL for postgres 1`] = `
   "CREATE TABLE IF NOT EXISTS debate_approvals (debate_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, approved_at BIGINT NOT NULL, PRIMARY KEY (debate_id, member_id))",
   "CREATE TABLE IF NOT EXISTS debate_credits (debate_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, kind VARCHAR(400) NOT NULL, created_at BIGINT NOT NULL, PRIMARY KEY (debate_id, member_id, kind))",
   "CREATE INDEX IF NOT EXISTS debate_credits_member_id_idx ON debate_credits (member_id)",
+  "ALTER TABLE debates ADD COLUMN votes_open_at BIGINT",
+  "ALTER TABLE debates ADD COLUMN grace_minutes BIGINT",
+  "ALTER TABLE debates ADD COLUMN dropped_out TEXT",
+  "CREATE TABLE IF NOT EXISTS debate_drafts (debate_id VARCHAR(64) NOT NULL, round BIGINT NOT NULL, member_id VARCHAR(64) NOT NULL, credential_id VARCHAR(64) NOT NULL, result TEXT NOT NULL, created_at BIGINT NOT NULL, PRIMARY KEY (debate_id, round, member_id))",
+  "CREATE TABLE IF NOT EXISTS debate_votes (debate_id VARCHAR(64) NOT NULL, round BIGINT NOT NULL, voter_id VARCHAR(64) NOT NULL, draft_by VARCHAR(64) NOT NULL, created_at BIGINT NOT NULL, PRIMARY KEY (debate_id, round, voter_id))",
+  "CREATE TABLE IF NOT EXISTS audit_events (id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, created_at BIGINT NOT NULL, event VARCHAR(400) NOT NULL, outcome VARCHAR(400) NOT NULL, actor_id VARCHAR(64), credential_id VARCHAR(64), credential_kind VARCHAR(400), client_id VARCHAR(400), target_kind VARCHAR(400) NOT NULL, target_id VARCHAR(400), request_id VARCHAR(400), client_address VARCHAR(400), user_agent VARCHAR(400), detail TEXT NOT NULL, previous_hash VARCHAR(400) NOT NULL, hash VARCHAR(400) NOT NULL)",
+  "CREATE INDEX IF NOT EXISTS audit_events_created_at_idx ON audit_events (created_at)",
+  "CREATE INDEX IF NOT EXISTS audit_events_actor_id_idx ON audit_events (actor_id)",
+  "CREATE INDEX IF NOT EXISTS audit_events_target_id_idx ON audit_events (target_id)",
+  "CREATE INDEX IF NOT EXISTS audit_events_event_idx ON audit_events (event)",
+  "CREATE TABLE IF NOT EXISTS audit_head (name VARCHAR(400) NOT NULL, last_id BIGINT NOT NULL, hash VARCHAR(400) NOT NULL, PRIMARY KEY (name))",
 ]
 `;
 
@@ -213,5 +231,16 @@ exports[`schema > generates stable DDL for sqlite 1`] = `
   "CREATE TABLE IF NOT EXISTS debate_approvals (debate_id TEXT NOT NULL, member_id TEXT NOT NULL, approved_at INTEGER NOT NULL, PRIMARY KEY (debate_id, member_id))",
   "CREATE TABLE IF NOT EXISTS debate_credits (debate_id TEXT NOT NULL, member_id TEXT NOT NULL, kind TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY (debate_id, member_id, kind))",
   "CREATE INDEX IF NOT EXISTS debate_credits_member_id_idx ON debate_credits (member_id)",
+  "ALTER TABLE debates ADD COLUMN votes_open_at INTEGER",
+  "ALTER TABLE debates ADD COLUMN grace_minutes INTEGER",
+  "ALTER TABLE debates ADD COLUMN dropped_out TEXT",
+  "CREATE TABLE IF NOT EXISTS debate_drafts (debate_id TEXT NOT NULL, round INTEGER NOT NULL, member_id TEXT NOT NULL, credential_id TEXT NOT NULL, result TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY (debate_id, round, member_id))",
+  "CREATE TABLE IF NOT EXISTS debate_votes (debate_id TEXT NOT NULL, round INTEGER NOT NULL, voter_id TEXT NOT NULL, draft_by TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY (debate_id, round, voter_id))",
+  "CREATE TABLE IF NOT EXISTS audit_events (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at INTEGER NOT NULL, event TEXT NOT NULL, outcome TEXT NOT NULL, actor_id TEXT, credential_id TEXT, credential_kind TEXT, client_id TEXT, target_kind TEXT NOT NULL, target_id TEXT, request_id TEXT, client_address TEXT, user_agent TEXT, detail TEXT NOT NULL, previous_hash TEXT NOT NULL, hash TEXT NOT NULL)",
+  "CREATE INDEX IF NOT EXISTS audit_events_created_at_idx ON audit_events (created_at)",
+  "CREATE INDEX IF NOT EXISTS audit_events_actor_id_idx ON audit_events (actor_id)",
+  "CREATE INDEX IF NOT EXISTS audit_events_target_id_idx ON audit_events (target_id)",
+  "CREATE INDEX IF NOT EXISTS audit_events_event_idx ON audit_events (event)",
+  "CREATE TABLE IF NOT EXISTS audit_head (name TEXT NOT NULL, last_id INTEGER NOT NULL, hash TEXT NOT NULL, PRIMARY KEY (name))",
 ]
 `;

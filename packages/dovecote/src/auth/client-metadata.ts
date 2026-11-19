@@ -1,7 +1,7 @@
 import { type HasClock, Result, Task as T, pipe, tagged } from '@homingbird/kernel'
 import type { Config } from '../config.ts'
 import type { Fetch } from './identity-provider.ts'
-import type { RegisteredClient } from './oauth.ts'
+import type { RegisteredClient } from './oauth-clients.ts'
 import { isAllowedRedirectUri, isLoopbackHost } from './redirect-policy.ts'
 
 export interface ClientMetadataDocuments {
@@ -17,8 +17,8 @@ export interface ClientMetadataEnv extends HasClock {
   readonly config: Pick<Config, 'oauth'>
 }
 
-export const ClientMetadataRefused = tagged('ClientMetadataRefused')<{ readonly reason: string }>()
-export type ClientMetadataRefused = ReturnType<typeof ClientMetadataRefused>
+const ClientMetadataRefused = tagged('ClientMetadataRefused')<{ readonly reason: string }>()
+type ClientMetadataRefused = ReturnType<typeof ClientMetadataRefused>
 
 export const makeClientMetadataDocuments = (fetch: Fetch): ClientMetadataDocuments => {
   const cache = new Map<string, { readonly client: RegisteredClient; readonly expiresAt: number }>()
@@ -79,36 +79,7 @@ const documentText = (
   allowedHosts: ReadonlyArray<string>,
 ): T.Task<string, ClientMetadataRefused, HasClock> =>
   pipe(
-    T.tryPromise(
-      async (signal) => {
-        let target = clientId
-        for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-          const response = await fetch(target, {
-            headers: { accept: 'application/json' },
-            redirect: 'manual',
-            signal,
-          })
-          if (response.status >= 300 && response.status < 400) {
-            const location = response.headers.get('location')
-            const next =
-              location !== null && URL.canParse(location, target) ? new URL(location, target).href : ''
-            if (fetchTargetProblem(next, allowedHosts) !== null)
-              throw refused('the document redirects to a place that is not allowed')
-            target = next
-            continue
-          }
-          if (!response.ok) throw refused(`the document host answered ${response.status}`)
-          if (!/^application\/([a-z.+-]*\+)?json\s*(;|$)/i.test(response.headers.get('content-type') ?? ''))
-            throw refused('the document is not served as JSON')
-          return await limitedText(response)
-        }
-        throw refused('the document redirects too many times')
-      },
-      (cause) =>
-        ClientMetadataRefused.is(cause)
-          ? cause
-          : ClientMetadataRefused({ reason: 'the document could not be fetched' }),
-    ),
+    followedDocument(fetch, clientId, allowedHosts),
     T.timeout(FETCH_TIMEOUT_MS),
     T.mapError((error: ClientMetadataRefused | T.TimeoutError) =>
       error._tag === 'TimeoutError'
@@ -117,24 +88,55 @@ const documentText = (
     ),
   )
 
-const limitedText = async (response: Response): Promise<string> => {
-  if (Number(response.headers.get('content-length') ?? '0') > MAX_DOCUMENT_BYTES)
-    throw refused('the document is too large')
-  const reader = response.body!.getReader()
-  const chunks: Uint8Array[] = []
-  let size = 0
-  for (;;) {
-    const { done, value } = await reader.read()
-    if (done) break
-    size += value.byteLength
-    if (size > MAX_DOCUMENT_BYTES) {
-      await reader.cancel()
-      throw refused('the document is too large')
+const followedDocument = (
+  fetch: Fetch,
+  clientId: string,
+  allowedHosts: ReadonlyArray<string>,
+): T.Task<string, ClientMetadataRefused> =>
+  T.gen(function* () {
+    let target = clientId
+    for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+      const requested = target
+      const response = yield* T.tryPromise(
+        (signal) => fetch(requested, { headers: { accept: 'application/json' }, redirect: 'manual', signal }),
+        unfetchable,
+      )
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get('location')
+        const next =
+          location !== null && URL.canParse(location, requested) ? new URL(location, requested).href : ''
+        if (fetchTargetProblem(next, allowedHosts) !== null)
+          return yield* T.fail(refused('the document redirects to a place that is not allowed'))
+        target = next
+        continue
+      }
+      if (!response.ok) return yield* T.fail(refused(`the document host answered ${response.status}`))
+      if (!/^application\/([a-z.+-]*\+)?json\s*(;|$)/i.test(response.headers.get('content-type') ?? ''))
+        return yield* T.fail(refused('the document is not served as JSON'))
+      return yield* limitedText(response)
     }
-    chunks.push(value)
-  }
-  return Buffer.concat(chunks).toString('utf8')
-}
+    return yield* T.fail(refused('the document redirects too many times'))
+  })
+
+const limitedText = (response: Response): T.Task<string, ClientMetadataRefused> =>
+  T.gen(function* () {
+    if (Number(response.headers.get('content-length') ?? '0') > MAX_DOCUMENT_BYTES)
+      return yield* T.fail(refused('the document is too large'))
+    const reader = yield* T.attempt(() => response.body!.getReader(), unfetchable)
+    const chunks: Uint8Array[] = []
+    let size = 0
+    for (;;) {
+      const { done, value } = yield* T.tryPromise(() => reader.read(), unfetchable)
+      if (done) break
+      size += value.byteLength
+      if (size > MAX_DOCUMENT_BYTES) {
+        yield* T.tryPromise(() => reader.cancel(), unfetchable)
+        return yield* T.fail(refused('the document is too large'))
+      }
+      chunks.push(value)
+    }
+    return Buffer.concat(chunks).toString('utf8')
+  })
 
 const clientFrom = (
   text: string,
@@ -178,3 +180,5 @@ const clientFrom = (
 }
 
 const refused = (reason: string): ClientMetadataRefused => ClientMetadataRefused({ reason })
+
+const unfetchable = (): ClientMetadataRefused => refused('the document could not be fetched')

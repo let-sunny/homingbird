@@ -9,6 +9,8 @@ export interface Hub {
     signal: AbortSignal,
   ) => Subscription<StreamEvent>
   readonly presenceOf: (memberId: MemberId) => Presence
+  /** When this server started: what happened before it, such as requests made, is not counted yet. */
+  readonly startedAt: number
   readonly flushPresence: () => void
   readonly broadcast: (event: StreamEvent) => void
   /** A web page says whether a person can see it now; a report lasts VISIBLE_REPORT_MS unless renewed. */
@@ -18,10 +20,9 @@ export interface Hub {
 }
 
 export const PRESENCE_FLUSH_INTERVAL_MS = 1_000
-export const VISIBLE_REPORT_MS = 90_000
-
 export const makeHub = (now: () => number): Hub => {
   const channels = new Map<MemberId, Channel>()
+  const startedAt = now()
 
   const presenceOf = (memberId: MemberId): Presence => {
     const connections = channels.get(memberId)?.connections
@@ -51,6 +52,7 @@ export const makeHub = (now: () => number): Hub => {
 
   return {
     presenceOf,
+    startedAt,
     flushPresence,
     isLooking,
     reportVisibility: (memberId, page, visible) => {
@@ -89,14 +91,14 @@ export const makeHub = (now: () => number): Hub => {
         [Symbol.asyncIterator]: () => {
           const iterator = subscription[Symbol.asyncIterator]()
           return {
-            next: async () => {
-              const step = await iterator.next()
-              if (step.done) close()
-              return step
-            },
-            return: async () => {
+            next: () =>
+              iterator.next().then((step) => {
+                if (step.done) close()
+                return step
+              }),
+            return: () => {
               close()
-              return { done: true, value: undefined }
+              return Promise.resolve({ done: true, value: undefined })
             },
           }
         },
@@ -111,3 +113,5 @@ interface Channel {
 }
 
 const SUBSCRIBER_BUFFER = 2048
+
+const VISIBLE_REPORT_MS = 90_000

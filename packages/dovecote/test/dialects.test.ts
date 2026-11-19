@@ -1,9 +1,13 @@
 import { Task as T } from '@homingbird/kernel'
 import { featureSwitches } from '@homingbird/protocol'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { recordAudit, verifyAudit } from '../src/domain/audit.ts'
+import { transact } from '../src/events/events.ts'
 import type { Database } from '../src/sql/database.ts'
+import { MIGRATIONS } from '../src/sql/migrations.ts'
 import { raw } from '../src/sql/query.ts'
-import { MIGRATIONS, type Migration, migrate, migrateThrough, schemaStatements } from '../src/sql/schema.ts'
+import type { Migration } from '../src/sql/schema-steps.ts'
+import { migrate, migrateThrough, schemaStatements } from '../src/sql/schema.ts'
 import {
   type Agent,
   type Session,
@@ -126,26 +130,40 @@ describe.each(DIALECTS)('Dovecote on %s', (_, url) => {
   })
 
   it.skipIf(url === undefined)(
-    'pages the audit log by its serial id and rolls back a refused action',
+    'chains the audit trail under its serial ids, verifies it, and rolls back a refused action',
     async () => {
-      const first = (await ana.api('GET', '/admin/audit?limit=2')).json
-      expect(first.entries).toHaveLength(2)
-      expect(typeof first.entries[0].id).toBe('number')
-      expect(first.entries[0].id).toBeGreaterThan(first.entries[1].id)
-      const next = (await ana.api('GET', `/admin/audit?limit=2&before=${first.entries[1].id}`)).json
-      expect(next.entries[0].id).toBeLessThan(first.entries[1].id)
-      const before = (await storedRows(server, 'audit_log')).length
+      const ids = (await storedRows(server, 'audit_events')).map((row) => Number(row.id))
+      expect(ids.length).toBeGreaterThan(2)
+      expect([...ids].sort((a, b) => a - b)).toEqual(ids)
+      expect(await T.runPromise(verifyAudit, server.env)).toMatchObject({ ok: true, rows: ids.length })
       expect((await ana.api('PATCH', `/admin/members/${ana.me.member.id}`, { role: 'member' })).status).toBe(
         409,
       )
-      expect((await storedRows(server, 'audit_log')).length).toBe(before)
+      expect((await storedRows(server, 'audit_events')).length).toBe(ids.length)
+    },
+  )
+
+  it.skipIf(url === undefined)(
+    'keeps one unbroken chain when many requests write audit rows at once',
+    async () => {
+      const before = (await storedRows(server, 'audit_events')).length
+      await Promise.all(
+        Array.from({ length: 12 }, (_, index) =>
+          T.runPromise(
+            transact(recordAudit('system.migrated', { detail: { steps: [index + 1] } })),
+            server.env,
+          ),
+        ),
+      )
+      expect((await storedRows(server, 'audit_events')).length).toBe(before + 12)
+      expect(await T.runPromise(verifyAudit, server.env)).toMatchObject({ ok: true, rows: before + 12 })
     },
   )
 
   it.skipIf(url === undefined)(
     'stores settings, revokes credentials on deactivation and expires sessions',
     async () => {
-      const settings = { allowedDomains: ['example.com'], contactMode: 'open', auditRetentionDays: 30 }
+      const settings = { allowedDomains: ['example.com'], contactMode: 'open' }
       expect((await ana.api('PUT', '/admin/settings', settings)).json).toEqual({
         ...settings,
         answeringFlow: null,
@@ -173,7 +191,9 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
       connection: database,
     })
   const versionsOf = async (database: Database) =>
-    (await database.all(raw('SELECT version FROM schema_versions'))).map((row) => Number(row.version)).sort()
+    (await T.runPromise(database.all(raw('SELECT version FROM schema_versions'))))
+      .map((row) => Number(row.version))
+      .sort()
   const REFUSAL = {
     _tag: 'Err',
     error: {
@@ -186,12 +206,12 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
   it.skipIf(url === undefined)('creates every step on an empty database, once', async () => {
     const database = await emptyDatabase()
     try {
-      expect(await migrated(database)).toEqual({ _tag: 'Ok', value: undefined })
-      expect(await migrated(database)).toEqual({ _tag: 'Ok', value: undefined })
-      expect(await versionsOf(database)).toEqual([1, 2, 3])
-      expect(await database.all(raw('SELECT archived_at FROM conversations'))).toEqual([])
+      expect(await migrated(database)).toEqual({ _tag: 'Ok', value: [1, 2, 3, 4, 5] })
+      expect(await migrated(database)).toEqual({ _tag: 'Ok', value: [] })
+      expect(await versionsOf(database)).toEqual([1, 2, 3, 4, 5])
+      expect(await T.runPromise(database.all(raw('SELECT archived_at FROM conversations')))).toEqual([])
     } finally {
-      await database.close()
+      await T.runPromise(database.close)
     }
   })
 
@@ -200,13 +220,13 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
     async () => {
       const database = await emptyDatabase()
       try {
-        expect(await migrated(database, MIGRATIONS.slice(0, 2))).toEqual({ _tag: 'Ok', value: undefined })
-        await database.run(raw(MEMBER_ROW))
-        expect(await database.all(raw('SELECT id FROM debates')).catch(() => 'no debates table')).toBe(
-          'no debates table',
-        )
-        expect(await migrated(database)).toEqual({ _tag: 'Ok', value: undefined })
-        expect(await versionsOf(database)).toEqual([1, 2, 3])
+        expect(await migrated(database, MIGRATIONS.slice(0, 2))).toEqual({ _tag: 'Ok', value: [1, 2] })
+        await T.runPromise(database.run(raw(MEMBER_ROW)))
+        expect(
+          await T.runPromise(database.all(raw('SELECT id FROM debates'))).catch(() => 'no debates table'),
+        ).toBe('no debates table')
+        expect(await migrated(database)).toEqual({ _tag: 'Ok', value: [3, 4, 5] })
+        expect(await versionsOf(database)).toEqual([1, 2, 3, 4, 5])
         for (const table of [
           'debates',
           'debate_members',
@@ -215,10 +235,73 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
           'debate_approvals',
           'debate_credits',
         ])
-          expect(await database.all(raw(`SELECT * FROM ${table}`))).toEqual([])
-        expect((await database.all(raw('SELECT id FROM members'))).map((row) => row.id)).toEqual(['mem_kept'])
+          expect(await T.runPromise(database.all(raw(`SELECT * FROM ${table}`)))).toEqual([])
+        expect(
+          (await T.runPromise(database.all(raw('SELECT id FROM members')))).map((row) => row.id),
+        ).toEqual(['mem_kept'])
       } finally {
-        await database.close()
+        await T.runPromise(database.close)
+      }
+    },
+  )
+
+  it.skipIf(url === undefined)(
+    'adds the audit trail as step 5 to a database that has steps 1 to 4, keeping its rows and the first audit table',
+    async () => {
+      const database = await emptyDatabase()
+      try {
+        expect(await migrated(database, MIGRATIONS.slice(0, 4))).toEqual({ _tag: 'Ok', value: [1, 2, 3, 4] })
+        await T.runPromise(database.run(raw(MEMBER_ROW)))
+        expect(await migrated(database)).toEqual({ _tag: 'Ok', value: [5] })
+        for (const table of ['audit_events', 'audit_head', 'audit_log'])
+          expect(await T.runPromise(database.all(raw(`SELECT * FROM ${table}`)))).toEqual([])
+        expect(
+          (await T.runPromise(database.all(raw('SELECT id FROM members')))).map((row) => row.id),
+        ).toEqual(['mem_kept'])
+      } finally {
+        await T.runPromise(database.close)
+      }
+    },
+  )
+
+  it.skipIf(url === undefined)(
+    'adds the result votes as step 4 to a database that has steps 1 to 3, keeping its rooms',
+    async () => {
+      const database = await emptyDatabase()
+      try {
+        expect(await migrated(database, MIGRATIONS.slice(0, 3))).toEqual({ _tag: 'Ok', value: [1, 2, 3] })
+        await T.runPromise(database.run(raw(DEBATE_ROW)))
+        expect(
+          await T.runPromise(database.all(raw('SELECT * FROM debate_votes'))).catch(() => 'no votes table'),
+        ).toBe('no votes table')
+        expect(await migrated(database)).toEqual({ _tag: 'Ok', value: [4, 5] })
+        expect(await versionsOf(database)).toEqual([1, 2, 3, 4, 5])
+        expect(await T.runPromise(database.all(raw('SELECT id, votes_open_at FROM debates')))).toEqual([
+          { id: 'deb_kept', votes_open_at: null },
+        ])
+        for (const table of ['debate_drafts', 'debate_votes'])
+          expect(await T.runPromise(database.all(raw(`SELECT * FROM ${table}`)))).toEqual([])
+      } finally {
+        await T.runPromise(database.close)
+      }
+    },
+  )
+
+  it.skipIf(url === undefined || !url.startsWith('mysql'))(
+    'runs step 4 again after MySQL left it half applied, skipping the column already added',
+    async () => {
+      const database = await emptyDatabase()
+      try {
+        await migrated(database, MIGRATIONS.slice(0, 3))
+        const fourth = MIGRATIONS[3] ?? []
+        const half = schemaStatements('mysql', [[], fourth]).slice(1, 3)
+        expect(half[0]).toMatch(/^ALTER TABLE debates ADD COLUMN votes_open_at/)
+        for (const statement of half) await T.runPromise(database.run(raw(statement)))
+        expect(await migrated(database)).toEqual({ _tag: 'Ok', value: [4, 5] })
+        expect(await versionsOf(database)).toEqual([1, 2, 3, 4, 5])
+        expect(await T.runPromise(database.all(raw('SELECT * FROM debate_votes')))).toEqual([])
+      } finally {
+        await T.runPromise(database.close)
       }
     },
   )
@@ -229,14 +312,16 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
       const database = await emptyDatabase()
       try {
         await migrated(database)
-        for (const version of [4, 5, 6, 7, 8])
-          await database.run(raw(`INSERT INTO schema_versions (version) VALUES (${version})`))
-        await database.run(raw(MEMBER_ROW))
+        for (const version of [6, 7, 8, 9])
+          await T.runPromise(database.run(raw(`INSERT INTO schema_versions (version) VALUES (${version})`)))
+        await T.runPromise(database.run(raw(MEMBER_ROW)))
         expect(await migrated(database)).toEqual(REFUSAL)
-        expect(await versionsOf(database)).toEqual([1, 2, 3, 4, 5, 6, 7, 8])
-        expect((await database.all(raw('SELECT id FROM members'))).map((row) => row.id)).toEqual(['mem_kept'])
+        expect(await versionsOf(database)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9])
+        expect(
+          (await T.runPromise(database.all(raw('SELECT id FROM members')))).map((row) => row.id),
+        ).toEqual(['mem_kept'])
       } finally {
-        await database.close()
+        await T.runPromise(database.close)
       }
     },
   )
@@ -249,14 +334,16 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
         const [baseline = []] = MIGRATIONS
         await migrated(database, [baseline])
         expect(await versionsOf(database)).toEqual([1])
-        await database.run(raw(MEMBER_ROW))
-        await database.run(raw(CONVERSATION_ROW))
-        await database.run(raw(NOTE_ROW))
-        expect(await migrated(database)).toEqual({ _tag: 'Ok', value: undefined })
-        expect(await versionsOf(database)).toEqual([1, 2, 3])
+        await T.runPromise(database.run(raw(MEMBER_ROW)))
+        await T.runPromise(database.run(raw(CONVERSATION_ROW)))
+        await T.runPromise(database.run(raw(NOTE_ROW)))
+        expect(await migrated(database)).toEqual({ _tag: 'Ok', value: [2, 3, 4, 5] })
+        expect(await versionsOf(database)).toEqual([1, 2, 3, 4, 5])
         expect(
-          await database.all(
-            raw('SELECT id, body, seen_at, decided_at, agent_body, agent_client, agent_model FROM notes'),
+          await T.runPromise(
+            database.all(
+              raw('SELECT id, body, seen_at, decided_at, agent_body, agent_client, agent_model FROM notes'),
+            ),
           ),
         ).toEqual([
           {
@@ -276,9 +363,9 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
           'principle_quiet_places',
           'releases',
         ])
-          expect(await database.all(raw(`SELECT * FROM ${table}`))).toEqual([])
+          expect(await T.runPromise(database.all(raw(`SELECT * FROM ${table}`)))).toEqual([])
       } finally {
-        await database.close()
+        await T.runPromise(database.close)
       }
     },
   )
@@ -292,12 +379,14 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
         await migrated(database, [baseline])
         const half = schemaStatements('mysql', [[], second]).slice(1, 9)
         expect(half.some((statement) => statement.startsWith('CREATE INDEX'))).toBe(true)
-        for (const statement of half) await database.run(raw(statement))
-        expect(await migrated(database)).toEqual({ _tag: 'Ok', value: undefined })
-        expect(await versionsOf(database)).toEqual([1, 2, 3])
-        expect(await database.all(raw('SELECT agent_body, session_minutes FROM notes'))).toEqual([])
+        for (const statement of half) await T.runPromise(database.run(raw(statement)))
+        expect(await migrated(database)).toEqual({ _tag: 'Ok', value: [2, 3, 4, 5] })
+        expect(await versionsOf(database)).toEqual([1, 2, 3, 4, 5])
+        expect(
+          await T.runPromise(database.all(raw('SELECT agent_body, session_minutes FROM notes'))),
+        ).toEqual([])
       } finally {
-        await database.close()
+        await T.runPromise(database.close)
       }
     },
   )
@@ -307,16 +396,18 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
     async () => {
       const database = await emptyDatabase()
       try {
-        await database.run(raw('CREATE TABLE members (id VARCHAR(64) NOT NULL, PRIMARY KEY (id))'))
-        await database.run(raw("INSERT INTO members (id) VALUES ('mem_kept')"))
+        await T.runPromise(
+          database.run(raw('CREATE TABLE members (id VARCHAR(64) NOT NULL, PRIMARY KEY (id))')),
+        )
+        await T.runPromise(database.run(raw("INSERT INTO members (id) VALUES ('mem_kept')")))
         expect(await migrated(database)).toEqual(REFUSAL)
         expect(await versionsOf(database)).toEqual([])
-        expect(await database.all(raw('SELECT * FROM members'))).toEqual([{ id: 'mem_kept' }])
-        expect(await database.all(raw('SELECT * FROM notes')).catch(() => 'no notes table')).toBe(
-          'no notes table',
-        )
+        expect(await T.runPromise(database.all(raw('SELECT * FROM members')))).toEqual([{ id: 'mem_kept' }])
+        expect(
+          await T.runPromise(database.all(raw('SELECT * FROM notes'))).catch(() => 'no notes table'),
+        ).toBe('no notes table')
       } finally {
-        await database.close()
+        await T.runPromise(database.close)
       }
     },
   )
@@ -326,7 +417,7 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
     async () => {
       const database = await emptyDatabase()
       try {
-        await database.run(raw('DROP TABLE IF EXISTS scratch_notes'))
+        await T.runPromise(database.run(raw('DROP TABLE IF EXISTS scratch_notes')))
         const first: Migration = [
           { name: 'scratch_notes', columns: { id: { type: 'id' } }, primaryKey: ['id'] },
         ]
@@ -335,16 +426,16 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
           { backfill: "UPDATE scratch_notes SET mood = 'calm'" },
         ]
         await migrated(database, [first])
-        await database.run(raw("INSERT INTO scratch_notes (id) VALUES ('n1')"))
+        await T.runPromise(database.run(raw("INSERT INTO scratch_notes (id) VALUES ('n1')")))
         await migrated(database, [first, second])
         await migrated(database, [first, second])
-        expect(await database.all(raw('SELECT id, mood FROM scratch_notes'))).toEqual([
+        expect(await T.runPromise(database.all(raw('SELECT id, mood FROM scratch_notes')))).toEqual([
           { id: 'n1', mood: 'calm' },
         ])
         expect(await versionsOf(database)).toEqual([1, 2])
-        await database.run(raw('DROP TABLE scratch_notes'))
+        await T.runPromise(database.run(raw('DROP TABLE scratch_notes')))
       } finally {
-        await database.close()
+        await T.runPromise(database.close)
       }
     },
   )
@@ -352,6 +443,8 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
 
 const MEMBER_ROW =
   "INSERT INTO members (id, email, subject, name, profile, role, status, event_seq, created_at) VALUES ('mem_kept', 'kept@example.com', 'dev:kept', 'Kept', '', 'member', 'active', 0, 1)"
+const DEBATE_ROW =
+  "INSERT INTO debates (id, question, visibility, status, created_by, turns_per_agent, total_turns, minutes, turn_characters, created_at, updated_at, deadline_at, result_round) VALUES ('deb_kept', 'Kept?', 'open', 'open', 'mem_kept', 1, 2, 5, 200, 1, 1, 2, 0)"
 const CONVERSATION_ROW =
   "INSERT INTO conversations (id, kind, created_at, last_activity_at) VALUES ('conv_kept', 'direct', 1, 1)"
 const NOTE_ROW =

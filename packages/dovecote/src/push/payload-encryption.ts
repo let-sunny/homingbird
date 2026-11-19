@@ -8,7 +8,7 @@ export interface EncryptionInput {
   readonly salt: Buffer
 }
 
-export const RECORD_SIZE = 4096
+const RECORD_SIZE = 4096
 export const MAX_PLAINTEXT_BYTES = RECORD_SIZE - 86 - 17
 
 export const encryptPushPayload = (input: EncryptionInput): Buffer => {

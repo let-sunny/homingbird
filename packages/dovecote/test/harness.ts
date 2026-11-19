@@ -22,6 +22,8 @@ export interface TestServer {
   readonly request: (method: string, url: string, options?: RequestOptions) => Promise<TestResponse>
   readonly requestWithSettings: (overrides: Readonly<Record<string, string>>) => TestServer['request']
   readonly signIn: (email: string, name?: string) => Promise<Session>
+  /** The heartbeats of the desks `keepAwake` runs; each is sent after every advance of the clock. */
+  readonly desks: Set<() => Promise<unknown>>
   readonly close: () => Promise<void>
 }
 
@@ -79,6 +81,26 @@ export const connectAgent = async (
   }
 }
 
+/**
+ * Runs a desk for this agent, as the event stream client does: it holds an agent event stream for the
+ * member and sends the heartbeat request after every advance of the clock, so the agent takes part in
+ * its debate rooms. The returned function stops the desk.
+ */
+export const keepAwake = (
+  server: Pick<TestServer, 'env' | 'desks'>,
+  memberId: string,
+  agent: Pick<Agent, 'api'>,
+): (() => void) => {
+  const stream = new AbortController()
+  server.env.hub.subscribe(memberId as never, 'agent', stream.signal)
+  const heartbeat = () => agent.api('GET', '/presence/heartbeat')
+  server.desks.add(heartbeat)
+  return () => {
+    stream.abort()
+    server.desks.delete(heartbeat)
+  }
+}
+
 export const PUBLIC_URL = 'http://localhost:8080'
 
 export const testConfig = (overrides: Readonly<Record<string, string>> = {}): Config => {
@@ -93,6 +115,14 @@ export const testConfig = (overrides: Readonly<Record<string, string>> = {}): Co
 }
 
 const NETWORK_ROUND_TRIPS_MS = 60
+
+const withDesks = (clock: TestClock, desks: TestServer['desks']): TestClock => ({
+  ...clock,
+  advance: async (ms) => {
+    await clock.advance(ms)
+    for (const heartbeat of [...desks]) await heartbeat()
+  },
+})
 
 const patient = (clock: TestClock): TestClock => {
   const settle = () => new Promise<void>((resolve) => setTimeout(resolve, NETWORK_ROUND_TRIPS_MS))
@@ -111,8 +141,8 @@ export const TEST_DATABASE_URL = process.env.HB_TEST_DATABASE_URL ?? null
 
 export const openTestDatabase = async (url: string | null = TEST_DATABASE_URL): Promise<Database> => {
   if (url === null) return openSqlite(':memory:')
-  const database = await openDatabase(url)
-  for (const table of tableNames()) await database.run(raw(`DROP TABLE IF EXISTS ${table}`))
+  const database = await T.runPromise(openDatabase(url))
+  for (const table of tableNames()) await T.runPromise(database.run(raw(`DROP TABLE IF EXISTS ${table}`)))
   return database
 }
 
@@ -133,14 +163,15 @@ export const startTestServer = async (
   const databaseUrl = parts.databaseUrl ?? TEST_DATABASE_URL
   const database = await openTestDatabase(databaseUrl)
   const logged: string[] = []
+  const desks: TestServer['desks'] = new Set()
   const { env, background, settled } = buildRuntime({
     config: testConfig(overrides),
     database,
     clock,
-    log: (line) => logged.push(line),
+    write: (line) => logged.push(line),
     ...(parts.fetch !== undefined && { fetch: parts.fetch }),
   })
-  await T.runPromise(overrides.HB_CHANNELS === undefined ? migrate : prepareDatabase, env)
+  await T.runPromise(overrides.HB_CHANNELS === undefined ? T.asUnit(migrate) : prepareDatabase, env)
 
   const requestWith =
     (serving: AppEnv): TestServer['request'] =>
@@ -193,7 +224,8 @@ export const startTestServer = async (
 
   return {
     env,
-    clock: databaseUrl === null ? clock : patient(clock),
+    clock: withDesks(databaseUrl === null ? clock : patient(clock), desks),
+    desks,
     background,
     settled: () => T.runPromise(settled, env),
     logged,
@@ -201,7 +233,7 @@ export const startTestServer = async (
     requestWithSettings: (changed) =>
       requestWith({ ...env, config: testConfig({ ...overrides, ...changed }) }),
     signIn,
-    close: () => database.close(),
+    close: () => T.runPromise(database.close),
   }
 }
 

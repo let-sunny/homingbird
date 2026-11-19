@@ -3,7 +3,8 @@ import { type ContactMode, featureSwitchesFrom } from '@homingbird/protocol'
 import { isFetchableHostName } from './auth/client-metadata.ts'
 import { parseConfiguredClients } from './auth/configured-clients.ts'
 import { DEFAULT_CLIENT_METADATA_HOSTS, DEFAULT_REDIRECT_HOSTS } from './auth/default-oauth-hosts.ts'
-import type { RegisteredClient } from './auth/oauth.ts'
+import type { RegisteredClient } from './auth/oauth-clients.ts'
+import { type LogSettings, logSettingsFrom } from './log/log-settings.ts'
 import { DEFAULT_PUSH_HOSTS } from './push/default-hosts.ts'
 
 export interface Config {
@@ -22,7 +23,6 @@ export interface Config {
   readonly initial: {
     readonly allowedDomains: ReadonlyArray<string>
     readonly contactMode: ContactMode
-    readonly auditRetentionDays: number | null
     readonly features: Readonly<Record<string, boolean>>
   }
   readonly adminEmails: ReadonlyArray<string>
@@ -30,7 +30,13 @@ export interface Config {
   readonly trustedProxies: number
   readonly pushHosts: ReadonlyArray<string>
   readonly sessionDays: number
-  readonly audit: { readonly toStdout: boolean; readonly webhookUrl: string | null }
+  readonly logs: LogSettings
+  /** Days audit rows are kept unless an administrator saved longer before the variable replaced it. */
+  readonly auditRetentionDays: number
+  /** What HB_AUDIT_RETENTION_DAYS asked for, even below the minimum; null when it is unset. */
+  readonly auditRetentionVariableDays: number | null
+  readonly ignoredVariables: ReadonlyArray<'HB_AUDIT_WEBHOOK_URL'>
+  readonly analytics: AnalyticsDestination
   readonly agentCredentialDays: number
   readonly insights: { readonly quickApprovalSeconds: number; readonly minimumGroupSize: number }
   readonly oauth: {
@@ -52,6 +58,8 @@ export const loadConfig = (
   const clientMetadataHosts = hostListOf(v.HB_OAUTH_CLIENT_METADATA_HOSTS, DEFAULT_CLIENT_METADATA_HOSTS)
   const clients = parseConfiguredClients(v.HB_OAUTH_CLIENTS)
   const features = featureSwitchesFrom(v.HB_FEATURES ?? '')
+  const logs = logSettingsFrom(v.HB_LOGS ?? '', v.HB_AUDIT_STDOUT === '1')
+  const analytics = analyticsDestinationOf(v.HB_ANALYTICS ?? 'off', v.HB_ANALYTICS_URL, v.HB_ANALYTICS_KEY)
   const problems = [
     environment.HB_TOPICS !== undefined
       ? 'HB_TOPICS: was renamed to HB_CHANNELS; set HB_CHANNELS instead and remove HB_TOPICS'
@@ -80,8 +88,11 @@ export const loadConfig = (
       (item) => `HB_FEATURES: "${item}" is not a feature switch; write name=on or name=off with a known name`,
     ),
     ...(clients._tag === 'Err' ? clients.error : []),
+    ...logs.problems,
+    ...(typeof analytics === 'string' ? [analytics] : []),
   ].filter((problem): problem is string => problem !== null)
-  if (problems.length > 0 || clients._tag === 'Err') return Result.err(problems)
+  if (problems.length > 0 || clients._tag === 'Err' || typeof analytics === 'string')
+    return Result.err(problems)
   return Result.ok({
     publicUrl: v.HB_PUBLIC_URL.replace(/\/+$/, ''),
     port: Number(v.HB_PORT ?? '8080'),
@@ -98,7 +109,6 @@ export const loadConfig = (
     initial: {
       allowedDomains: commaList(v.HB_ALLOWED_DOMAINS),
       contactMode: v.HB_CONTACT_MODE ?? 'open',
-      auditRetentionDays: v.HB_AUDIT_RETENTION_DAYS ? Number(v.HB_AUDIT_RETENTION_DAYS) : null,
       features: features.switches,
     },
     adminEmails: commaList(v.HB_ADMIN_EMAILS),
@@ -106,7 +116,15 @@ export const loadConfig = (
     trustedProxies: Number(v.HB_TRUST_PROXY ?? '0'),
     pushHosts: v.HB_PUSH_HOSTS ? commaList(v.HB_PUSH_HOSTS) : DEFAULT_PUSH_HOSTS,
     sessionDays: Number(v.HB_SESSION_DAYS ?? '30'),
-    audit: { toStdout: v.HB_AUDIT_STDOUT === '1', webhookUrl: v.HB_AUDIT_WEBHOOK_URL ?? null },
+    logs: logs.settings,
+    auditRetentionDays:
+      v.HB_AUDIT_RETENTION_DAYS === undefined
+        ? AUDIT_RETENTION_DEFAULT_DAYS
+        : Math.max(Number(v.HB_AUDIT_RETENTION_DAYS), AUDIT_RETENTION_MINIMUM_DAYS),
+    auditRetentionVariableDays:
+      v.HB_AUDIT_RETENTION_DAYS === undefined ? null : Number(v.HB_AUDIT_RETENTION_DAYS),
+    ignoredVariables: v.HB_AUDIT_WEBHOOK_URL === undefined ? [] : ['HB_AUDIT_WEBHOOK_URL'],
+    analytics,
     agentCredentialDays: Number(v.HB_AGENT_CREDENTIAL_DAYS ?? '90'),
     insights: {
       quickApprovalSeconds: Number(v.HB_QUICK_APPROVAL_SECONDS ?? '3'),
@@ -115,6 +133,14 @@ export const loadConfig = (
     oauth: { redirectHosts, clientMetadataHosts, clients: clients.value },
   })
 }
+
+const AUDIT_RETENTION_DEFAULT_DAYS = 400
+const AUDIT_RETENTION_MINIMUM_DAYS = 90
+
+/** Where product analytics go, if anywhere. The key is a secret: it is never logged or shown. */
+export type AnalyticsDestination =
+  | { readonly kind: 'off' }
+  | { readonly kind: 'posthog' | 'ga4' | 'http'; readonly url: string; readonly key: string | null }
 
 const CHANNEL_LIST =
   /^\s*[a-z0-9][a-z0-9-]{0,39}(:[^,]{0,200})?(\s*,\s*[a-z0-9][a-z0-9-]{0,39}(:[^,]{0,200})?)*\s*$/
@@ -143,7 +169,11 @@ const Variables = S.struct({
   HB_AUDIT_RETENTION_DAYS: S.optional(positiveInteger),
   HB_SESSION_DAYS: S.optional(positiveInteger),
   HB_AUDIT_STDOUT: S.optional(S.literal('0', '1')),
-  HB_AUDIT_WEBHOOK_URL: S.optional(S.string({ pattern: /^https?:\/\// })),
+  HB_AUDIT_WEBHOOK_URL: S.optional(S.string()),
+  HB_LOGS: S.optional(S.string({ maxLength: 200 })),
+  HB_ANALYTICS: S.optional(S.literal('posthog', 'ga4', 'http', 'off')),
+  HB_ANALYTICS_URL: S.optional(S.string({ pattern: /^https:\/\/[^\s/]+(\/\S*)?$/ })),
+  HB_ANALYTICS_KEY: S.optional(S.string({ maxLength: 400 })),
   HB_AGENT_CREDENTIAL_DAYS: S.optional(positiveInteger),
   HB_QUICK_APPROVAL_SECONDS: S.optional(S.string({ pattern: /^[1-9][0-9]?$/ })),
   HB_INSIGHTS_MINIMUM_GROUP: S.optional(S.string({ pattern: /^[1-9][0-9]{0,3}$/ })),
@@ -181,3 +211,24 @@ const hostListOf = (value: string | undefined, defaults: ReadonlyArray<string>):
 
 const isLoopback = (url: string): boolean =>
   /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?(\/|$)/.test(url)
+
+const POSTHOG_DEFAULT_URL = 'https://us.i.posthog.com'
+
+const analyticsDestinationOf = (
+  kind: 'posthog' | 'ga4' | 'http' | 'off',
+  url: string | undefined,
+  key: string | undefined,
+): AnalyticsDestination | string => {
+  if (kind === 'off') return { kind }
+  if (kind === 'posthog')
+    return key === undefined
+      ? 'HB_ANALYTICS_KEY: PostHog needs the project API key'
+      : { kind, url: (url ?? POSTHOG_DEFAULT_URL).replace(/\/+$/, ''), key }
+  if (kind === 'ga4')
+    return url === undefined || !/[?&]measurement_id=G-[A-Z0-9]+/.test(url) || key === undefined
+      ? 'HB_ANALYTICS_URL and HB_ANALYTICS_KEY: GA4 needs the Measurement Protocol address with measurement_id=G-... and the API secret'
+      : { kind, url, key }
+  return url === undefined
+    ? 'HB_ANALYTICS_URL: HB_ANALYTICS=http needs the address events are posted to'
+    : { kind, url, key: key ?? null }
+}

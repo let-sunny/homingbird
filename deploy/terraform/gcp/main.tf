@@ -30,10 +30,9 @@ locals {
     HB_ADMIN_EMAILS         = join(",", var.admin_emails)
     HB_CHANNELS             = join(",", var.channels)
     HB_CONTACT_MODE         = var.contact_mode
-    HB_AUDIT_WEBHOOK_URL    = var.audit_webhook_url
     HB_AUDIT_RETENTION_DAYS = var.audit_retention_days == null ? "" : tostring(var.audit_retention_days)
     HB_TRUST_PROXY          = "2"
-    HB_AUDIT_STDOUT         = "1"
+    HB_LOGS                 = "auditCopy=on"
   }, var.extra_environment) : name => value if value != "" }
 }
 

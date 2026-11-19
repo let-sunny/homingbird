@@ -1,15 +1,13 @@
 import { type Result, Task as T } from '@homingbird/kernel'
+import { deviceClientKindOf } from '@homingbird/protocol'
+import { exchangeAuthorizationCode, openConsent, requireAuthorization } from '../auth/authorization-codes.ts'
+import { beginDeviceAuthorization, exchangeDeviceCode } from '../auth/device-authorization.ts'
+import { registerClient } from '../auth/oauth-clients.ts'
 import {
   AGENT_SCOPE,
   type OAuthError,
-  beginDeviceAuthorization,
-  exchangeAuthorizationCode,
-  exchangeDeviceCode,
   exchangeRefreshToken,
   OAuthError as oauthError,
-  openConsent,
-  registerClient,
-  requireAuthorization,
   revokeToken,
 } from '../auth/oauth.ts'
 import { authenticate } from '../domain/credentials.ts'
@@ -117,7 +115,10 @@ const token = (request: HttpRequest): T.Task<HttpResponse, never, AppEnv> => {
 const startDevice = (request: HttpRequest): T.Task<HttpResponse, never, AppEnv> => {
   const fields = formFields(request)
   return T.map((authorization: object) => json(200, authorization))(
-    beginDeviceAuthorization(fields.client_name ?? fields.client_id ?? ''),
+    beginDeviceAuthorization(
+      fields.client_name ?? fields.client_id ?? '',
+      deviceClientKindOf(fields.client_kind),
+    ),
   )
 }
 

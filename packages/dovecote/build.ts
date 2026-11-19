@@ -1,8 +1,9 @@
+import { fileURLToPath } from 'node:url'
 import { build } from 'esbuild'
 
 await build({
-  entryPoints: [new URL('src/main.ts', import.meta.url).pathname],
-  outfile: new URL('dist/dovecote.mjs', import.meta.url).pathname,
+  entryPoints: [fileURLToPath(new URL('src/main.ts', import.meta.url))],
+  outfile: fileURLToPath(new URL('dist/dovecote.mjs', import.meta.url)),
   bundle: true,
   platform: 'node',
   format: 'esm',

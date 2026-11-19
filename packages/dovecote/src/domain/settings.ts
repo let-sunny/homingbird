@@ -9,6 +9,7 @@ import {
   featureSwitches,
   isFeatureOn,
 } from '@homingbird/protocol'
+import type { Config } from '../config.ts'
 import type { AppEnv } from '../environment.ts'
 import { first, run } from '../sql/database.ts'
 import { insertInto, sql } from '../sql/query.ts'
@@ -17,7 +18,8 @@ export const readSettings: T.Task<Settings, never, AppEnv> = T.gen(function* () 
   const env = yield* T.ask<AppEnv>()
   const row = yield* first<{ value: string }>(sql`SELECT value FROM settings WHERE name = ${SETTINGS_ROW}`)
   const decoded = row === null ? null : Settings.decode(JSON.parse(row.value))
-  const organization = decoded?._tag === 'Ok' ? decoded.value : (env.config.initial as Settings)
+  const { auditRetentionDays: _, ...organization } =
+    decoded?._tag === 'Ok' ? decoded.value : (env.config.initial as Settings)
   const { flow } = yield* readAnsweringFlow
   return {
     ...withoutFlow(organization),
@@ -42,9 +44,14 @@ export const writeSettings = (settings: Settings): T.Task<Settings, Invalid, App
         yield* store(FLOW_ROW, { flow, updatedAt: env.clock.now() })
     }
     const current = yield* readSettings
+    const savedRetention = yield* savedAuditRetention
+    const { auditRetentionDays: _, ...kept } = withoutFlow(settings)
     yield* store(SETTINGS_ROW, {
-      ...withoutFlow(settings),
+      ...kept,
       features: featureSwitches({ ...current.features, ...settings.features }),
+      ...(savedRetention !== null && {
+        auditRetentionDays: savedRetention === 'forever' ? null : savedRetention,
+      }),
     })
     return yield* readSettings
   })
@@ -58,9 +65,31 @@ export const readAnsweringFlow: T.Task<AnsweringFlowSetting, never, AppEnv> = T.
   }
 })
 
-/** Whether an optional feature is on in this organization. */
+/**
+ * The audit retention an administrator saved before the operator's variable replaced it: days, or
+ * `forever` for the saved null that meant keep every row; null when none was saved. Saving the
+ * settings again keeps it, so housekeeping can still honour it.
+ */
+export const savedAuditRetention: T.Task<number | 'forever' | null, never, AppEnv> = T.suspend(() =>
+  T.map((row: { value: string } | null) => {
+    const saved = row === null ? {} : (JSON.parse(row.value) as { auditRetentionDays?: unknown })
+    if (typeof saved.auditRetentionDays === 'number') return saved.auditRetentionDays
+    return saved.auditRetentionDays === null ? 'forever' : null
+  })(first<{ value: string }>(sql`SELECT value FROM settings WHERE name = ${SETTINGS_ROW}`)),
+)
+
+/** Whether an optional feature is on in this organization; analytics also need a destination. */
 export const featureIsOn = (name: FeatureName): T.Task<boolean, never, AppEnv> =>
-  T.map((settings: Settings) => isFeatureOn(settings.features, name))(readSettings)
+  T.gen(function* () {
+    const env = yield* T.ask<AppEnv>()
+    return offeredFeatures(yield* readSettings, env.config)[name]
+  })
+
+/** The features `server.info` offers: the switches, with analytics off while it has nowhere to go. */
+export const offeredFeatures = (settings: Settings, config: Config): Record<FeatureName, boolean> => {
+  const switches = featureSwitches(settings.features)
+  return { ...switches, analytics: switches.analytics && config.analytics.kind !== 'off' }
+}
 
 export const isAllowedEmail = (settings: Settings, email: string): boolean => {
   const domain = email.toLowerCase().split('@').at(-1) ?? ''

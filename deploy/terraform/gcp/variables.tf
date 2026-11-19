@@ -104,14 +104,8 @@ variable "contact_mode" {
   }
 }
 
-variable "audit_webhook_url" {
-  description = "HB_AUDIT_WEBHOOK_URL: where to POST audit entries, which contain note content. Empty for none."
-  type        = string
-  default     = ""
-}
-
 variable "audit_retention_days" {
-  description = "HB_AUDIT_RETENTION_DAYS until an administrator changes it. null keeps audit entries forever."
+  description = "HB_AUDIT_RETENTION_DAYS: days to keep audit rows, at least 90. null keeps Dovecote's default of 400."
   type        = number
   default     = null
 }

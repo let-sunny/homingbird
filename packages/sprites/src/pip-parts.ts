@@ -25,11 +25,6 @@ export const FEET: ReadonlyArray<Rect> = [
   [6, 13, 1, 2, 'F'],
   [9, 13, 1, 2, 'F'],
 ]
-export const FEET_TUCKED: ReadonlyArray<Rect> = [[7, 13, 2, 1, 'F']]
-export const WING: ReadonlyArray<Rect> = [
-  [3, 8, 4, 1, 'D'],
-  [4, 9, 4, 1, 'D'],
-]
 export const WINGS = {
   up: [
     [4, 0, 2, 1, 'D'],
@@ -73,21 +68,6 @@ export const ENVELOPE: ReadonlyArray<Rect> = [
   [14, 9, 1, 1, 'N'],
   [15, 8, 1, 1, 'N'],
 ]
-
-export const TRAILS = {
-  up: [
-    [0, 3, 1, 1, 'G'],
-    [0, 9, 2, 1, 'G'],
-  ],
-  mid: [
-    [0, 5, 2, 1, 'G'],
-    [0, 11, 1, 1, 'G'],
-  ],
-  down: [
-    [0, 7, 1, 1, 'G'],
-    [0, 3, 2, 1, 'G'],
-  ],
-} as const satisfies Record<keyof typeof WINGS, ReadonlyArray<Rect>>
 
 export const QUESTION: ReadonlyArray<Rect> = [
   [13, 0, 3, 1, 'A'],
@@ -144,8 +124,7 @@ export const PUFF: ReadonlyArray<Rect> = [
   [12, 14, 1, 1, 'G'],
 ]
 
-export const STANDING: ReadonlyArray<Rect> = [...BODY, ...WING, ...FEET]
-export const FLYING: ReadonlyArray<Rect> = [...BODY, ...FEET_TUCKED]
+export const STANDING: ReadonlyArray<Rect> = [...BODY, [3, 8, 4, 1, 'D'], [4, 9, 4, 1, 'D'], ...FEET]
 
 export const badge = (y: number): Rect[] => [
   [12, y, 4, 4, 'R'],
@@ -229,3 +208,22 @@ export const sendingFrames = (): Frame[] =>
   (['up', 'mid', 'down', 'mid'] as const).map((wing, i) =>
     frame([...TRAILS[wing], ...FLYING, ...EYE, ...WINGS[wing], ...ENVELOPE], 140, i === 1 || i === 2 ? 1 : 0),
   )
+
+const FEET_TUCKED: ReadonlyArray<Rect> = [[7, 13, 2, 1, 'F']]
+
+const TRAILS = {
+  up: [
+    [0, 3, 1, 1, 'G'],
+    [0, 9, 2, 1, 'G'],
+  ],
+  mid: [
+    [0, 5, 2, 1, 'G'],
+    [0, 11, 1, 1, 'G'],
+  ],
+  down: [
+    [0, 7, 1, 1, 'G'],
+    [0, 3, 2, 1, 'G'],
+  ],
+} as const satisfies Record<keyof typeof WINGS, ReadonlyArray<Rect>>
+
+const FLYING: ReadonlyArray<Rect> = [...BODY, ...FEET_TUCKED]

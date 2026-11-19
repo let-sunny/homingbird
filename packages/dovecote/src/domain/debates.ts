@@ -1,11 +1,13 @@
 import { Task as T } from '@homingbird/kernel'
 import {
-  Conflict,
+  type Conflict,
+  type Contract,
   type CredentialId,
-  DEBATE_PARTICIPANTS_MAX,
   DEFAULT_DEBATE_LIMITS,
+  DEFAULT_GRACE_MINUTES,
   type Debate,
   type DebateAsk,
+  type DebateEnding,
   DebateId,
   type DebateLimits,
   type DebateSummary,
@@ -14,23 +16,28 @@ import {
   Invalid,
   type MemberId,
   NotFound,
-  isAtLimit,
+  RESULT_WINDOW_MS,
+  type ResponseOf,
+  askOf,
   limitsProblem,
-  mayTakeTurn,
 } from '@homingbird/protocol'
-import { type Caller, isHuman } from '../environment.ts'
+import { type Caller, isHuman, viewerOf } from '../environment.ts'
 import type { RequestEnv } from '../events/events.ts'
-import { all, dialect, first, run } from '../sql/database.ts'
-import { insertIgnoringConflict, insertInto, list, sql } from '../sql/query.ts'
+import { all, first, run } from '../sql/database.ts'
+import { insertInto, list, sql } from '../sql/query.ts'
+import { type Viewer, isVisibleRoom } from './channel-rows.ts'
 import {
   type DebateRow,
   announceDebate,
   describeDebate,
+  enterDebate,
+  isDebateMember,
+  loadRoom,
   lockedDebate,
-  participantsOf,
   visibleDebate,
 } from './debate-rows.ts'
-import { conclude, concludeOverdueDebates } from './debate-turns.ts'
+import { moveDebate } from './debate-settling.ts'
+import { settleDebate } from './debate-turns.ts'
 
 export interface DebateWish {
   readonly question: string
@@ -74,6 +81,9 @@ export const createDebate = (
       result_at: null,
       result_round: 0,
       ended_because: null,
+      votes_open_at: null,
+      grace_minutes: limits.graceMinutes ?? DEFAULT_GRACE_MINUTES,
+      dropped_out: null,
     }
     yield* run(insertInto('debates', { ...row }))
     for (const memberId of [caller.member.id, ...invited]) yield* enterDebate(row.id, memberId, now)
@@ -81,15 +91,18 @@ export const createDebate = (
     return yield* describeDebate(row)
   })
 
-/** The rooms the viewer may see, newest first: every open room and the private rooms they are in. */
-export const listDebates = (viewerId: MemberId): T.Task<DebateSummary[], never, RequestEnv> =>
+/**
+ * The rooms the viewer may see, newest first: every open room and the private rooms they are in, and for
+ * an administrator's own sign-in every private room too, as with channels. Statuses are as the
+ * background pass left them, at most a minute ago.
+ */
+export const listDebates = (viewer: Viewer): T.Task<DebateSummary[], never, RequestEnv> =>
   T.gen(function* () {
-    yield* concludeOverdueDebates
     const rows = yield* all<DebateRow & { joined: number | null; turn_count: number }>(sql`
       SELECT d.*, m.member_id IS NOT NULL AS joined,
         (SELECT COUNT(*) FROM debate_turns t WHERE t.debate_id = d.id) AS turn_count
-      FROM debates d LEFT JOIN debate_members m ON m.debate_id = d.id AND m.member_id = ${viewerId}
-      WHERE d.visibility = 'open' OR m.member_id IS NOT NULL
+      FROM debates d LEFT JOIN debate_members m ON m.debate_id = d.id AND m.member_id = ${viewer.id}
+      WHERE ${isVisibleRoom('private', viewer) ? sql`1 = 1` : sql`d.visibility = 'open' OR m.member_id IS NOT NULL`}
       ORDER BY d.created_at DESC, d.id LIMIT ${LISTED_ROOMS}`)
     if (rows.length === 0) return []
     const participants = yield* all<{ debate_id: DebateId; member_id: MemberId }>(sql`
@@ -110,10 +123,11 @@ export const listDebates = (viewerId: MemberId): T.Task<DebateSummary[], never, 
     }))
   })
 
-export const debateFor = (viewerId: MemberId, id: DebateId): T.Task<Debate, NotFound, RequestEnv> =>
+export const debateFor = (viewer: Viewer, id: DebateId): T.Task<Debate, NotFound, RequestEnv> =>
   T.gen(function* () {
-    yield* concludeOverdueDebates
-    return yield* describeDebate(yield* visibleDebate(viewerId, id))
+    yield* visibleDebate(viewer, id)
+    yield* settleDebate(id)
+    return yield* describeDebate(yield* visibleDebate(viewer, id))
   })
 
 /** Opts the person's own connected agent in; it joins the room and may take turns there, never elsewhere. */
@@ -121,7 +135,7 @@ export const optInAgent = (
   caller: Caller,
   id: DebateId,
   agentId: CredentialId,
-): T.Task<Debate, NotFound | Forbidden | Conflict, RequestEnv> =>
+): T.Task<Debate, NotFound | Forbidden | Conflict | Invalid, RequestEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
     if (!isHuman(caller))
@@ -129,86 +143,80 @@ export const optInAgent = (
         Forbidden({ message: 'Only a person can opt their agent in; an agent never joins by itself.' }),
       )
     const now = env.clock.now()
-    yield* concludeOverdueDebates
-    yield* visibleDebate(caller.member.id, id)
+    const visible = yield* visibleDebate(viewerOf(caller), id)
+    if (visible.visibility === 'private' && !(yield* isDebateMember(id, caller.member.id)))
+      return yield* T.fail(
+        Forbidden({ message: 'Only people invited to a private room can opt their agent in.' }),
+      )
     const agentName = yield* ownAgentName(caller.member.id, agentId, now)
-    const row = yield* lockedDebate(id, now)
-    if (row.status !== 'open') return yield* T.fail(Conflict({ message: 'This room takes no more agents.' }))
-    const participants = yield* participantsOf(id)
-    if (participants.some((one) => one.member_id === caller.member.id))
-      return yield* T.fail(Conflict({ message: 'Your agent already takes part in this room.' }))
-    if (participants.length >= DEBATE_PARTICIPANTS_MAX)
-      return yield* T.fail(Conflict({ message: `A room holds at most ${DEBATE_PARTICIPANTS_MAX} agents.` }))
-    yield* enterDebate(id, caller.member.id, now)
-    yield* run(
-      insertInto('debate_participants', {
-        debate_id: id,
-        member_id: caller.member.id,
-        credential_id: agentId,
-        agent_name: agentName,
-        created_at: now,
-      }),
+    yield* moveDebate(
+      yield* lockedDebate(id),
+      { type: 'join', memberId: caller.member.id },
+      { credentialId: agentId, agentName },
     )
-    yield* announceDebate(row)
-    return yield* describeDebate(row)
+    return yield* describeDebate(yield* lockedDebate(id))
   })
 
-/** Changes the limits while the room is open; only the person who opened it may. */
+/** Changes the limits at setup, before the first turn; only the person who opened the room may. */
 export const setDebateLimits = (
   caller: Caller,
   id: DebateId,
   limits: DebateLimits,
 ): T.Task<Debate, NotFound | Forbidden | Conflict | Invalid, RequestEnv> =>
   T.gen(function* () {
-    const env = yield* T.ask<RequestEnv>()
     if (!isHuman(caller))
       return yield* T.fail(Forbidden({ message: 'Only a person can set a room’s limits.' }))
-    const now = env.clock.now()
-    yield* concludeOverdueDebates
-    yield* visibleDebate(caller.member.id, id)
-    const row = yield* lockedDebate(id, now)
+    yield* visibleDebate(viewerOf(caller), id)
+    const row = yield* lockedDebate(id)
     if (row.created_by !== caller.member.id)
       return yield* T.fail(
         Forbidden({ message: 'Only the person who opened this room can change its limits.' }),
       )
-    if (row.status !== 'open') return yield* T.fail(Conflict({ message: 'This room no longer takes turns.' }))
-    yield* requireUsableLimits(limits)
-    const changed: DebateRow = {
-      ...row,
-      turns_per_agent: limits.turnsPerAgent,
-      total_turns: limits.totalTurns,
-      minutes: limits.minutes,
-      turn_characters: limits.turnCharacters,
-      deadline_at: Number(row.created_at) + limits.minutes * 60_000,
-    }
-    yield* run(sql`
-      UPDATE debates SET turns_per_agent = ${changed.turns_per_agent}, total_turns = ${changed.total_turns},
-      minutes = ${changed.minutes}, turn_characters = ${changed.turn_characters}, deadline_at = ${changed.deadline_at}
-      WHERE id = ${id}`)
-    if (isAtLimit(yield* describeDebate(changed), now)) return yield* conclude(changed, 'limit')
-    yield* announceDebate(row)
-    return yield* describeDebate(changed)
+    yield* moveDebate(row, { type: 'setLimits', limits })
+    return yield* describeDebate(yield* lockedDebate(id))
   })
 
-/** What the rooms ask of the calling agent: a turn where it may take one, the result where none is drafted. */
-export const debateAsks = (caller: Caller): T.Task<DebateAsk[], never, RequestEnv> =>
+/**
+ * What the rooms ask of the calling agent: a turn where it may take one, a draft of the result while the
+ * room collects drafts and it has not drafted, and as ballots the rooms whose drafts it is asked to vote
+ * on; and, so it learns why they stopped asking, its rooms that closed in the last day because agents
+ * dropped out. The route moves this agent's own rooms on first, each in a transaction of its own.
+ */
+export const debateAsks = (caller: Caller): T.Task<DebateAsks, never, RequestEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
-    if (isHuman(caller)) return []
-    yield* concludeOverdueDebates
+    if (isHuman(caller)) return { asks: [], ballots: [], ended: [] }
+    const ended = yield* all<{ id: DebateId; ended_because: DebateEnding; closed_at: number }>(sql`
+      SELECT d.id, d.ended_because, d.closed_at FROM debates d
+      JOIN debate_participants p ON p.debate_id = d.id
+      WHERE p.credential_id = ${caller.credential.id} AND d.status = 'ended'
+      AND d.ended_because IN ('one_agent_left', 'no_agent_left') AND d.closed_at >= ${env.clock.now() - RESULT_WINDOW_MS}
+      ORDER BY d.closed_at, d.id`)
     const rows = yield* all<DebateRow & { member_id: MemberId }>(sql`
       SELECT d.*, p.member_id FROM debates d JOIN debate_participants p ON p.debate_id = d.id
       WHERE p.credential_id = ${caller.credential.id}
       AND (d.status = 'open' OR (d.status = 'concluding' AND d.result IS NULL))
       ORDER BY d.created_at, d.id`)
     const asks: DebateAsk[] = []
+    const ballots: Debate[] = []
     for (const row of rows) {
-      const debate = yield* describeDebate(row)
-      if (debate.status === 'concluding') asks.push({ debate, ask: 'result' })
-      else if (mayTakeTurn(debate, row.member_id, env.clock.now())) asks.push({ debate, ask: 'turn' })
+      const { debate, room } = yield* loadRoom(row)
+      const ask = askOf(room, row.member_id, env.clock.now())
+      if (ask === 'ballot') ballots.push(debate)
+      else if (ask !== null) asks.push({ debate, ask })
     }
-    return asks
+    return {
+      asks,
+      ballots,
+      ended: ended.map((row) => ({
+        id: row.id,
+        endedBecause: row.ended_because,
+        closedAt: Number(row.closed_at),
+      })),
+    }
   })
+
+export type DebateAsks = Required<ResponseOf<Contract['debates.waiting']>>
 
 const LISTED_ROOMS = 100
 
@@ -216,17 +224,6 @@ const requireUsableLimits = (limits: DebateLimits): T.Task<void, Invalid> => {
   const problem = limitsProblem(limits)
   return problem === null ? T.unit : T.fail(Invalid({ message: problem }))
 }
-
-const enterDebate = (id: DebateId, memberId: MemberId, now: number): T.Task<void, never, RequestEnv> =>
-  T.gen(function* () {
-    yield* run(
-      insertIgnoringConflict(yield* dialect, 'debate_members', {
-        debate_id: id,
-        member_id: memberId,
-        created_at: now,
-      }),
-    )
-  })
 
 const activeMembersAmong = (ids: ReadonlyArray<MemberId>): T.Task<MemberId[], Invalid, RequestEnv> =>
   T.gen(function* () {

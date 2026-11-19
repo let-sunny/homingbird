@@ -134,6 +134,35 @@ describe('organizationFiguresIn', () => {
     })
   })
 
+  it('counts sent debate results on their own line, apart from notes, replies and active members', () => {
+    const team = people(5)
+    const activity: OrganizationActivity = {
+      ...empty,
+      sent: team.map((id) => note(id, null, 2)),
+      debateResults: [
+        ...team.map((authorId) => ({ authorId, sentAt: NOW - HOUR })),
+        { authorId: 'outsider', sentAt: NOW - HOUR },
+        { authorId: team[0]!, sentAt: NOW - 30 * DAY_MS },
+      ],
+    }
+    expect(organizationFiguresIn(activity, lastWeek, settings)).toMatchObject({
+      activeMembers: 5,
+      notesSent: 5,
+      debateResultsSent: 6,
+    })
+  })
+
+  it('hides the debate results while fewer people than the minimum sent one', () => {
+    const team = people(5)
+    const noResults: OrganizationActivity = { ...empty, sent: team.map((id) => note(id, null, 2)) }
+    const activity: OrganizationActivity = {
+      ...noResults,
+      debateResults: team.slice(0, 4).map((authorId) => ({ authorId, sentAt: NOW - HOUR })),
+    }
+    expect(organizationFiguresIn(activity, lastWeek, settings)?.debateResultsSent).toBeNull()
+    expect(organizationFiguresIn(noResults, lastWeek, settings)?.debateResultsSent).toBeNull()
+  })
+
   it('counts the approval mix, quick approvals and skips across everyone', () => {
     const team = people(5)
     const activity: OrganizationActivity = {

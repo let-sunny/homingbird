@@ -64,11 +64,11 @@ describe('credentials', () => {
     ).toBe(401)
   })
 
-  it('updates last use at most once a minute', async () => {
+  it('updates last use at most once every 30 seconds', async () => {
     const lastUsed = async () =>
       (await storedRows(server, 'credentials')).find((row) => row.id === ana.me.credential.id)!.last_used_at
     const first = await lastUsed()
-    await server.clock.advance(59_000)
+    await server.clock.advance(29_000)
     await ana.api('GET', '/me')
     expect(await lastUsed()).toBe(first)
     await server.clock.advance(2_000)
@@ -112,7 +112,6 @@ describe('administration', () => {
     expect(ana.me.member.role).toBe('admin')
     expect(ben.me.member.role).toBe('member')
     expect((await ben.api('GET', '/admin/settings')).status).toBe(403)
-    expect((await ben.api('GET', '/admin/audit')).status).toBe(403)
     expect((await ana.api('GET', '/admin/members')).json.members).toHaveLength(2)
   })
 
@@ -146,14 +145,12 @@ describe('administration', () => {
     expect(initial).toEqual({
       allowedDomains: ['example.com'],
       contactMode: 'open',
-      auditRetentionDays: null,
       answeringFlow: null,
       features: featureSwitches({}),
     })
     const next = {
       allowedDomains: ['example.com', 'partner.org'],
       contactMode: 'contacts',
-      auditRetentionDays: 30,
     }
     expect((await ana.api('PUT', '/admin/settings', next)).json).toEqual({
       ...next,
@@ -222,8 +219,13 @@ describe('administration', () => {
     expect((await anaAgent.api('PUT', '/admin/settings', { ...base, answeringFlow: flow })).status).toBe(403)
     expect((await ben.api('GET', '/answering-flow')).json.flow).toBeNull()
     await ana.api('PUT', '/admin/settings', { ...base, answeringFlow: flow })
-    const audited = (await ana.api('GET', '/admin/audit?action=admin.settings.put')).json.entries
-    expect(audited[0].detail.request.answeringFlow).toBe(flow)
+    const audited = (await storedRows(server, 'audit_events')).filter(
+      (row) => row.event === 'organization.settings_changed',
+    )
+    expect(audited.map((row) => [row.actor_id, JSON.parse(String(row.detail))])).toEqual([
+      [ana.me.member.id, { changed: ['answeringFlow'] }],
+    ])
+    expect(JSON.stringify(audited)).not.toContain('two sentences')
     expect((await server.request('GET', '/api/v1/info')).json).not.toHaveProperty('answeringFlow')
   })
 })

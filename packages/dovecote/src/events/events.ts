@@ -1,6 +1,6 @@
-import { type Stream, Task as T } from '@homingbird/kernel'
+import { Stream, Task as T, isOk, pipe } from '@homingbird/kernel'
 import type { CredentialKind, EventBody, MemberId, StreamEvent } from '@homingbird/protocol'
-import type { AuditRecord } from '../domain/audit.ts'
+import type { AuditCopy } from '../domain/audit.ts'
 import { featureIsOn } from '../domain/settings.ts'
 import type { AppEnv } from '../environment.ts'
 import { all, first, inTransaction, run } from '../sql/database.ts'
@@ -15,14 +15,14 @@ export interface Delivery {
 
 export interface RequestEnv extends AppEnv {
   readonly outbox: Delivery[]
-  readonly audited: AuditRecord[]
+  readonly audited: AuditCopy[]
 }
 
 export const transact = <A, E>(task: T.Task<A, E, RequestEnv>): T.Task<A, E, AppEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
     const outbox: Delivery[] = []
-    const audited: AuditRecord[] = []
+    const audited: AuditCopy[] = []
     const value = yield* T.provide({ outbox, audited })(inTransaction(task)) as T.Task<A, E, AppEnv>
     const pushes = outbox.length > 0 && (yield* featureIsOn('webPush'))
     for (const delivery of outbox) {
@@ -33,7 +33,8 @@ export const transact = <A, E>(task: T.Task<A, E, RequestEnv>): T.Task<A, E, App
       env.hub.publish(delivery.memberId, delivery.event)
       if (pushes) env.pushSink(delivery.memberId, delivery.event)
     }
-    for (const record of audited) env.auditSink(record)
+    if (env.config.logs.auditCopy)
+      for (const copy of audited) env.log.emit({ name: 'audit.copy', attributes: copy }, env.requestId)
     return value
   })
 
@@ -89,6 +90,10 @@ export const eventsAfter = (
     return { events, cursor: events.at(-1)!.seq }
   })
 
+/**
+ * The member's events after `after`, then live ones: the subscription is opened first, so nothing is
+ * missed between the replay and the live part, and a live event already replayed is skipped.
+ */
 export const liveEvents = (
   memberId: MemberId,
   kind: CredentialKind,
@@ -99,29 +104,42 @@ export const liveEvents = (
     const env = yield* T.ask<AppEnv>()
     const subscription = env.hub.subscribe(memberId, kind, signal)
     const firstPage = after === null ? null : yield* eventsAfter(memberId, after)
-    return {
-      async *[Symbol.asyncIterator]() {
-        try {
-          let cursor = 0
-          let page = firstPage
-          while (page !== null) {
-            yield* page.events
-            cursor = page.cursor
-            if (page.events.length < REPLAY_LIMIT) break
-            const next = await T.run(eventsAfter(memberId, cursor), env, signal)
-            if (next._tag === 'Err') return
-            page = next.value
-          }
-          for await (const event of subscription) {
-            if (event.seq !== 0 && event.seq <= cursor) continue
-            yield event
-          }
-          if (subscription.overflowed()) yield resync(env.clock.now())
-        } finally {
-          subscription.close()
-        }
-      },
-    }
+    let cursor = 0
+    const replay = (page: EventPage): Stream.Stream<StreamEvent | typeof STOP> =>
+      pipe(
+        Stream.fromIterable(page.events),
+        Stream.concat(
+          Stream.fromTask(
+            T.suspend(() => {
+              cursor = page.cursor
+              if (page.events.length < REPLAY_LIMIT) return T.succeed(Stream.empty)
+              return T.map((next: T.Exit<EventPage, never>) =>
+                isOk(next) ? replay(next.value) : Stream.of(STOP),
+              )(T.exit(eventsAfter(memberId, cursor)))
+            }),
+            env,
+            signal,
+          ),
+        ),
+      )
+    const live = pipe(
+      subscription,
+      Stream.filter((event: StreamEvent) => event.seq === 0 || event.seq > cursor),
+      Stream.concat(
+        Stream.fromTask(
+          T.sync(() => (subscription.overflowed() ? Stream.of(resync(env.clock.now())) : Stream.empty)),
+          env,
+          signal,
+        ),
+      ),
+    )
+    return pipe(
+      firstPage === null ? Stream.empty : replay(firstPage),
+      Stream.concat(live),
+      Stream.takeWhile((item: StreamEvent | typeof STOP) => item !== STOP),
+      Stream.filter((item): item is StreamEvent => item !== STOP),
+      Stream.ensuring(() => subscription.close()),
+    )
   })
 
 export const waitForEvents = (
@@ -138,9 +156,13 @@ export const waitForEvents = (
         const waiting = new AbortController()
         yield* scope.addFinalizer(T.sync(() => waiting.abort()))
         const subscription = env.hub.subscribe(memberId, 'hidden', waiting.signal)
-        const firstDurable = T.promise(async () => {
-          for await (const event of subscription) if (event.seq !== 0) return
-        })
+        const firstDurable = Stream.toArray(
+          pipe(
+            subscription,
+            Stream.filter((event: StreamEvent) => event.seq !== 0),
+            Stream.take(1),
+          ),
+        )
         yield* T.race([firstDurable, T.sleep(waitMs)])
         return yield* eventsAfter(memberId, after)
       }),
@@ -151,6 +173,13 @@ export const REPLAY_LIMIT = 500
 
 export const deleteEventsBefore = (cutoff: number): T.Task<number, never, AppEnv> =>
   run(sql`DELETE FROM events WHERE created_at < ${cutoff}`)
+
+interface EventPage {
+  readonly events: StreamEvent[]
+  readonly cursor: number
+}
+
+const STOP = Symbol('stop')
 
 interface EventRow {
   readonly seq: number

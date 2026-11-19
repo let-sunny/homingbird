@@ -42,6 +42,8 @@ export interface OrganizationActivity {
   readonly sent: ReadonlyArray<SentNote>
   readonly drafts: ReadonlyArray<MemberDraft>
   readonly skips: ReadonlyArray<MemberSkip>
+  /** Sent debate results: neither agent drafts nor notes, so they count only here. */
+  readonly debateResults?: ReadonlyArray<{ readonly authorId: string; readonly sentAt: number }>
 }
 
 export interface PrivacySettings {
@@ -109,6 +111,7 @@ export const organizationFiguresIn = (
       ? decided.filter((draft) => isQuickApproval(draft, settings.quickApprovalSeconds)).length
       : null,
     skipped: skips.length,
+    debateResultsSent: debateResultsShown(activity, window, settings.minimumGroupSize),
     ...labelsShown(activity.drafts, window, settings.minimumGroupSize, draftsShown),
     places: shown
       .map((place) => groups.get(place)!.totals)
@@ -141,6 +144,16 @@ export const placesShown = (
     for (const person of smallest.people) hiddenPeople.add(person)
   }
   return { shown: shown.map((group) => group.place), hidden: hidden.map((group) => group.place) }
+}
+
+/** The sent debate results, or null while fewer people than the minimum sent one. */
+const debateResultsShown = (
+  activity: OrganizationActivity,
+  window: Window,
+  minimum: number,
+): number | null => {
+  const sent = (activity.debateResults ?? []).filter((note) => isIn(window, note.sentAt))
+  return new Set(sent.map((note) => note.authorId)).size >= minimum ? sent.length : null
 }
 
 const HIDDEN_DECISIONS = { sentAsWritten: null, sentAfterEdits: null, discarded: null } as const

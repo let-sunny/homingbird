@@ -1,4 +1,5 @@
-import { type Agent, type Session, type TestServer, connectAgent } from './harness.ts'
+import { RESULT_DRAFTING_WINDOW_MS } from '@homingbird/protocol'
+import { type Agent, type Session, type TestServer, connectAgent, keepAwake } from './harness.ts'
 
 export interface Cast {
   readonly ana: Session
@@ -7,21 +8,50 @@ export interface Cast {
   readonly anaAgent: Agent & { readonly id: string }
   readonly benAgent: Agent & { readonly id: string }
   readonly cyAgent: Agent & { readonly id: string }
+  /** Stops the desk of this person's agent, stream and heartbeat, so it drops out once the grace passed. */
+  readonly sleep: (who: 'ana' | 'ben' | 'cy') => void
 }
 
-/** Three colleagues, each with one connected agent. */
+/** One step past the default grace, and past the grace after the test server started. */
+export const PAST_GRACE_MS = 5 * 60_000 + 1
+
+/** Three colleagues, each with one connected agent taking part: its desk streams and sends heartbeats. */
 export const castOf = async (server: TestServer): Promise<Cast> => {
   const ana = await server.signIn('ana@example.com', 'Ana')
   const ben = await server.signIn('ben@example.com', 'Ben')
   const cy = await server.signIn('cy@example.com', 'Cy')
-  return {
-    ana,
-    ben,
-    cy,
-    anaAgent: await agentOf(server, ana, 'Ana agent'),
-    benAgent: await agentOf(server, ben, 'Ben agent'),
-    cyAgent: await agentOf(server, cy, 'Cy agent'),
+  const anaAgent = await agentOf(server, ana, 'Ana agent')
+  const benAgent = await agentOf(server, ben, 'Ben agent')
+  const cyAgent = await agentOf(server, cy, 'Cy agent')
+  const streams = {
+    ana: keepAwake(server, ana.me.member.id, anaAgent),
+    ben: keepAwake(server, ben.me.member.id, benAgent),
+    cy: keepAwake(server, cy.me.member.id, cyAgent),
   }
+  return { ana, ben, cy, anaAgent, benAgent, cyAgent, sleep: (who) => streams[who]() }
+}
+
+/** Stops the agent's desk and lets the grace pass, so it has dropped out; the others keep theirs. */
+export const dropOut = async (server: TestServer, cast: Cast, who: 'ana' | 'ben' | 'cy'): Promise<void> => {
+  cast.sleep(who)
+  await server.clock.advance(PAST_GRACE_MS)
+}
+
+/**
+ * Ana's agent drafts the result alone, and the room waits out the drafting window, so that draft goes to
+ * the people: the room as it then stands.
+ */
+export const draftedAlone = async (
+  server: TestServer,
+  cast: Cast,
+  id: string,
+  result: unknown = resultFor(cast),
+  agent: Agent = cast.anaAgent,
+) => {
+  const drafted = await agent.api('PUT', `/debates/${id}/result`, result)
+  if (drafted.status !== 200) return drafted
+  await server.clock.advance(RESULT_DRAFTING_WINDOW_MS)
+  return cast.ana.api('GET', `/debates/${id}`)
 }
 
 export const QUESTION = 'Should we ship the billing migration this week?'
@@ -31,7 +61,10 @@ export const LIMITS = { turnsPerAgent: 2, totalTurns: 4, minutes: 30, turnCharac
 /** A room Ana opened, with Ana's and Ben's agents opted in by Ana and Ben. */
 export const openedRoom = async (
   cast: Cast,
-  options: { readonly visibility?: 'open' | 'private'; readonly limits?: typeof LIMITS } = {},
+  options: {
+    readonly visibility?: 'open' | 'private'
+    readonly limits?: typeof LIMITS & { readonly graceMinutes?: 5 | 10 | 30 }
+  } = {},
 ) => {
   const created = await cast.ana.api('POST', '/debates', {
     question: QUESTION,
@@ -53,6 +86,32 @@ export const turnsRunOut = async (cast: Cast, id: string, count = LIMITS.totalTu
     if (taken.status !== 200) throw new Error(JSON.stringify(taken.json))
   }
 }
+
+/** A room with Cy's agent opted in too, whose three agents each took their one turn. */
+export const roomOfThree = async (cast: Cast): Promise<string> => {
+  const created = await cast.ana.api('POST', '/debates', {
+    question: 'Which week?',
+    limits: { turnsPerAgent: 1, totalTurns: 3, minutes: 30, turnCharacters: 300 },
+  })
+  const id = created.json.id as string
+  await cast.ana.api('PUT', `/debates/${id}/agent`, { agentId: cast.anaAgent.id })
+  await cast.ben.api('PUT', `/debates/${id}/agent`, { agentId: cast.benAgent.id })
+  await cast.cy.api('PUT', `/debates/${id}/agent`, { agentId: cast.cyAgent.id })
+  for (const agent of [cast.anaAgent, cast.benAgent, cast.cyAgent])
+    await agent.api('POST', `/debates/${id}/turns`, { body: 'My view.' })
+  return id
+}
+
+/** A result naming all three of Ana, Ben and Cy. */
+export const threeResult = (cast: Cast, conclusion: string) => ({
+  ...resultFor(cast),
+  conclusion,
+  contributions: [cast.ana, cast.ben, cast.cy].map((who) => ({
+    memberId: who.me.member.id,
+    summary: 'Spoke.',
+    credits: [],
+  })),
+})
 
 export const resultFor = (cast: Cast, kind: 'conclusion' | 'no_conclusion' = 'conclusion') => {
   const contributions = [
@@ -91,17 +150,4 @@ const agentOf = async (server: TestServer, owner: Session, name: string) => {
   const agent = await connectAgent(server, owner, { name })
   const me = (await agent.api('GET', '/me')).json
   return { ...agent, id: me.credential.id as string }
-}
-
-/** Approves or declines the result as the person read it, naming the draft they saw. */
-export const decide = async (
-  who: { readonly api: Session['api'] },
-  id: string,
-  how: 'approval' | 'decline',
-  draftedAt?: number,
-) => {
-  const room = (await who.api('GET', `/debates/${id}`)).json
-  return who.api('POST', `/debates/${id}/result/${how}`, {
-    draftedAt: draftedAt ?? room.result?.draftedAt ?? 0,
-  })
 }

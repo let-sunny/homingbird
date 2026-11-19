@@ -48,11 +48,7 @@ export const memberFeed = (
     const events = yield* liveEvents(caller.member.id, caller.credential.kind, after, ended.signal)
     const heartbeats = pipe(
       Stream.interval(env.clock, HEARTBEAT_SECONDS * 1000, ended.signal),
-      Stream.map(async (): Promise<FeedItem> => {
-        const stillValid = await T.run(authenticate(token), env)
-        if (stillValid._tag === 'Err') ended.abort()
-        return HEARTBEAT
-      }),
+      Stream.map(() => T.runPromise(heartbeat(token, ended), env)),
     )
     return Stream.untilAborted(ended.signal)(Stream.merge<FeedItem>(events, heartbeats))
   })
@@ -64,6 +60,13 @@ export const resumePoint = (request: HttpRequest): number | null => {
 
 export const tokenOf = (request: HttpRequest): string | null =>
   /^Bearer\s+(\S+)$/i.exec(request.headers.authorization ?? '')?.[1] ?? sessionToken(request)
+
+/** A heartbeat checks the credential again; one that fails to sign in ends the feed. */
+const heartbeat = (token: string, ended: AbortController): T.Task<FeedItem, never, AppEnv> =>
+  T.map((stillValid: T.Exit<unknown, unknown>): FeedItem => {
+    if (stillValid._tag === 'Err') ended.abort()
+    return HEARTBEAT
+  })(T.exit(authenticate(token)))
 
 const toServerSentFrame = (item: FeedItem): string =>
   item === HEARTBEAT
