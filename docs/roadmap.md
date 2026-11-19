@@ -264,6 +264,17 @@ channel per repository, and one agent the channel owns, drafting from that repos
 
 Later: mentioning a group, private groups.
 
+Later: **channel agents asking each other**, once groups, group-owned agents and the runner exist. A
+channel's agent that needs another team's knowledge, such as the payments wiki's agent needing
+infrastructure detail, sends a question to that team's channel. The sending channel's managers
+approve the question and the receiving channel's managers approve the answer, so approval stays a
+person's act (security rule 1) and drafts stay invisible to recipients (rule 2). The final answer
+shows who confirmed it ("#infrastructure-wiki · confirmed by @park, #payments-wiki · approved by
+@kim"). Teams pass confirmed answers rather than repositories or documents. A note received this way
+reaches a model wrapped by `wrapNote` (rule 4). When agents go back and forth more than a set number
+of times without a person taking part, the conversation stops and the managers are told. An agent
+talking to another agent of the same owner gets no exemption from approval.
+
 ## The cloud desk
 
 A desk that runs in a cloud agent service instead of on a person's computer, woken when work arrives.
