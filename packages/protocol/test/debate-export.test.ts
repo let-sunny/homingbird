@@ -99,6 +99,16 @@ describe('exporting a debate room', () => {
     expect(quoted).toContain('> Title\n> \\===\n> x\n> \\---')
   })
 
+  it('escapes an underline padded with other whitespace, such as a vertical tab', () => {
+    const quoted = debateMarkdown(
+      roomOf({
+        turns: [{ position: 1, memberId: ANA, agentName: 'Laptop', body: 'Title\n=\u000b \n-\t-', at: 1 }],
+      }),
+      nameOf,
+    )
+    expect(quoted).toContain('> Title\n> \\=\n> \\-\t-')
+  })
+
   it('lets no text a person or agent wrote add a heading, an HTML tag or a link but http(s)', () => {
     fc.assert(
       fc.property(HOSTILE, HOSTILE, arbitrary(DebateResult), (question, turn, result) => {

@@ -118,7 +118,7 @@ const PLAIN: Style = {
 const LINE_BREAKS = /\r\n?|\u2028|\u2029/g
 
 /** A setext underline or a thematic break: dashes, equals signs or stars and underscores, spaced or not. */
-const RULE_OR_UNDERLINE = /^ *(?:(?:- *)+|(?:= *)+|(?:\* *){3,}|(?:_ *){3,})$/
+const RULE_OR_UNDERLINE = /^\s*(?:(?:-\s*)+|(?:=\s*)+|(?:\*\s*){3,}|(?:_\s*){3,})$/
 
 const ENDINGS = {
   too_few_agents: 'too few agents',
