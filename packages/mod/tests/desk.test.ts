@@ -5,6 +5,7 @@ import {
   ARRIVAL,
   DESK_SESSION,
   DRAFT,
+  HOST_CLIENT,
   NOTE_ID,
   OVERVIEW,
   PANE,
@@ -194,6 +195,7 @@ test(
     await openDesk($, seen)
     expect(seen.prompts).toEqual([])
     expect(seen.forks).toEqual([replyPromptFor(WRAPPED)])
+    expect(seen.clients).toContain(HOST_CLIENT)
     expect(seen.commands).toContainEqual(['draft', '--reply', NOTE_ID, '--', 'It is safe after 6pm.'])
   },
 )
@@ -312,6 +314,40 @@ test(
     expect(seen.forks[0]).toContain('you can follow only its steps about wording')
   },
 )
+
+test('each draft carries the guidance for its own conversation, so a channel’s principles come first', async ($, on) => {
+  const channel = 'conv_tttttttttttttttt'
+  const seen = engineBeneath(on, {
+    overview: {
+      ...OVERVIEW,
+      answeringFlow: FLOW_BLOCK,
+      awaiting: [
+        {
+          noteId: NOTE_ID,
+          conversationId: channel,
+          from: { name: 'Ana', email: 'ana@example.com' },
+          wrapped: WRAPPED,
+        },
+      ],
+    },
+    streamLines: [ARRIVAL, streamLine({ type: 'draft.requested', request: REQUEST_EVENT })],
+    requests: { requests: [REQUEST_EVENT] },
+    guidance: {
+      [channel]: 'GUIDANCE FOR #payments',
+      [REQUEST_EVENT.conversationId]: 'GUIDANCE FOR THE DIRECT MESSAGE',
+    },
+  })
+  await $.session.start(START)
+  await openDesk($, seen)
+  const forNote = seen.prompts.find((prompt) => prompt.includes(`draft_reply tool with noteId "${NOTE_ID}"`))
+  const forRequest = seen.prompts.find((prompt) => prompt.includes('asked for a Homingbird draft'))
+  expect(forNote).toContain('GUIDANCE FOR #payments')
+  expect(forNote).not.toContain(FLOW_BLOCK)
+  expect(forRequest).toContain('GUIDANCE FOR THE DIRECT MESSAGE')
+  expect(seen.commands).toContainEqual(['guidance', channel, '--json'])
+  expect(seen.commands).toContainEqual(['guidance', REQUEST_EVENT.conversationId, '--json'])
+  seen.release()
+})
 
 test('with no answering flow the prompts carry none', async ($, on) => {
   const seen = engineBeneath(on, { overview: OVERVIEW, streamLines: [ARRIVAL] })

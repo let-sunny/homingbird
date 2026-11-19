@@ -7,6 +7,7 @@ import { autoDraftOf, notePromptFor, replyIn, replyPromptFor, requestPromptFor }
 import { PANE, paneTitleFor } from './pane'
 import { type PaneText, textFor } from './pane-text'
 import { SERVER_SETTING, checkServer } from './server-address'
+import { hostEnvOf } from './tools'
 
 export interface Desk {
   readonly options: PluginOptions
@@ -325,14 +326,17 @@ async function draftReply($: Engine, desk: Desk, noteId: string, wrappedNote: st
   if (mode === 'off' || desk.handled.has(noteId)) return
   desk.handled.add(noteId)
   await run($, desk, ['pickup', noteId])
+  await refresh($, desk)
+  const waiting = (await read($, overview))?.awaiting.find((one) => one.noteId === noteId)
+  const guidance = await guidanceFor($, desk, waiting?.conversationId)
   if (mode === 'turn')
-    return void (await $.prompt.submit({ text: notePromptFor(noteId, wrappedNote, desk.answeringFlow) }))
-  const reply = replyIn(await suggestReply($, replyPromptFor(wrappedNote, desk.answeringFlow)))
+    return void (await $.prompt.submit({ text: notePromptFor(noteId, wrappedNote, guidance) }))
+  const reply = replyIn(await suggestReply($, replyPromptFor(wrappedNote, guidance)))
   if (reply === null) {
     await run($, desk, ['skip', '--', noteId, QUIET_SKIP])
     return void (await refresh($, desk))
   }
-  const drafted = await run($, desk, ['draft', '--reply', noteId, '--', reply])
+  const drafted = await run($, desk, ['draft', '--reply', noteId, '--', reply], await hostEnvOf($))
   if (drafted.kind === 'ok') await refresh($, desk)
 }
 
@@ -340,9 +344,12 @@ async function answerRequest($: Engine, desk: Desk, request: HomingbirdDraftRequ
   await update($, requests, (open) => [...open.filter((one) => one.id !== request.id), request])
   if (autoDraftOf(desk.options.autoDraft) === 'off' || desk.handled.has(request.id)) return
   desk.handled.add(request.id)
+  await refresh($, desk)
   const text = await said($)
   notifyPerson($, text, text.draftingRequest)
-  await $.prompt.submit({ text: requestPromptFor(request, desk.answeringFlow) })
+  await $.prompt.submit({
+    text: requestPromptFor(request, await guidanceFor($, desk, request.conversationId)),
+  })
 }
 
 async function suggestReply($: Engine, prompt: string): Promise<string> {
@@ -428,6 +435,17 @@ const overviewIn = (value: unknown): HomingbirdOverview | null => {
     awaiting: data.awaiting ?? [],
     drafts: data.drafts ?? [],
   }
+}
+
+/**
+ * The answering flow and principles for one conversation, so a channel's principles come first as with
+ * the runner and MCP; the overview's general guidance when the conversation is not known.
+ */
+async function guidanceFor($: Engine, desk: Desk, conversationId: string | undefined): Promise<string> {
+  if (conversationId === undefined) return desk.answeringFlow
+  const ran = await runJson($, desk, ['guidance', conversationId])
+  const guidance = ran.kind === 'ok' ? (ran.value as { guidance?: unknown } | null)?.guidance : undefined
+  return typeof guidance === 'string' ? guidance : desk.answeringFlow
 }
 
 const answeringFlowIn = (value: unknown): string => {

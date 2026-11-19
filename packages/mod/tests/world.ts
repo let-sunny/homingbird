@@ -22,11 +22,17 @@ export interface World {
   readonly node?: string | null
   readonly server?: 'homingbird' | 'other' | 'unreachable'
   readonly loginError?: string
+  readonly sessionUsage?: { readonly startedAt: number; readonly percent?: number }
+  /** What `homingbird guidance <conversationId>` answers, by conversation. */
+  readonly guidance?: Readonly<Record<string, string>>
 }
 
 export interface Seen {
   readonly clock: MockClock
   readonly commands: string[][]
+  readonly clients: Array<string | null>
+  /** The session each command was told of with HOMINGBIRD_SESSION, null when none. */
+  readonly sessions: Array<string | null>
   /** The server each command named with --server, '' when it named none, in the order run. */
   readonly servers: string[]
   readonly prompts: string[]
@@ -51,6 +57,8 @@ export const engineBeneath = (on: On, world: World): Seen => {
   const seen: Seen = {
     clock: mock.clock(on),
     commands: [],
+    clients: [],
+    sessions: [],
     servers: [],
     prompts: [],
     forks: [],
@@ -88,6 +96,8 @@ export const engineBeneath = (on: On, world: World): Seen => {
     }
     const args = withoutServer(e.argv.slice(COMMAND_WORDS), seen.servers)
     seen.commands.push([...args])
+    seen.clients.push(e.init?.env?.HOMINGBIRD_CLIENT ?? null)
+    seen.sessions.push(e.init?.env?.HOMINGBIRD_SESSION ?? null)
     if (args[0] === 'requests') requestLists += 1
     if (args[0] === 'requests' && requestLists > 1 && world.requestsAnsweredAfterFirstList === true)
       return { value: processResult(0, JSON.stringify({ requests: [] })) }
@@ -145,6 +155,17 @@ export const engineBeneath = (on: On, world: World): Seen => {
     value: { transcriptPath: '/transcript.jsonl', platform: 'linux', isHosted: true },
   }))
   on('session.model', () => ({ value: 'a-model' }))
+  if (world.sessionUsage !== undefined) {
+    const usage = world.sessionUsage
+    on('session.usage', () => ({
+      value: {
+        startedAt: usage.startedAt,
+        context: { window: 200_000, ...(usage.percent !== undefined && { percent: usage.percent }) },
+        rateLimits: [],
+      },
+    }))
+  }
+  on('session.version', () => ({ value: { version: HOST_VERSION, base: HOST_VERSION } }))
   on('session.send', (_, e) => {
     seen.sent.push({ to: e.to, text: e.text })
     return { isDelivered: true }
@@ -176,6 +197,10 @@ export const engineBeneath = (on: On, world: World): Seen => {
 export const START = { cwd: '/work', surface: 'terminal', isInteractive: true } as const
 
 export const DESK_SESSION = 'session-desk'
+
+export const HOST_VERSION = '2.1.327'
+
+export const HOST_CLIENT = `Claude Code ${HOST_VERSION}`
 
 export const NOTE_ID = 'note_aaaaaaaaaaaaaaaa'
 export const OTHER_NOTE_ID = 'note_bbbbbbbbbbbbbbbb'
@@ -220,7 +245,12 @@ export const OVERVIEW = {
       draftCount: 0,
     },
   ],
-  awaiting: [] as Array<{ noteId: string; from: { name: string; email: string }; wrapped: string }>,
+  awaiting: [] as Array<{
+    noteId: string
+    conversationId?: string
+    from: { name: string; email: string }
+    wrapped: string
+  }>,
   drafts: [DRAFT],
 }
 
@@ -285,6 +315,8 @@ const stdoutFor = (args: ReadonlyArray<string>, world: World): string => {
   if (args[0] === 'overview') return JSON.stringify(world.overview)
   if (args[0] === 'requests') return JSON.stringify(world.requests ?? {})
   if (args[0] === 'status') return JSON.stringify({ signedIn: true, locale: world.locale ?? null })
+  if (args[0] === 'guidance' && world.guidance?.[args[1] ?? ''] !== undefined)
+    return JSON.stringify({ guidance: world.guidance[args[1] ?? ''] })
   return JSON.stringify({ ok: true })
 }
 

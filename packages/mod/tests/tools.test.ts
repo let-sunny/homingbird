@@ -1,7 +1,8 @@
 import { expect, test } from 'claude-code/testing'
 
+import { modClientOf } from '../hooks/tool-notices'
 import { HELPER_TOOLS, NOTE_TOOLS, wireNameOf } from '../hooks/tools'
-import { NOTE_ID, OVERVIEW, REQUEST_ID, START, engineBeneath } from './world'
+import { HOST_CLIENT, NOTE_ID, OVERVIEW, REQUEST_ID, START, engineBeneath } from './world'
 
 const MEMBER_COMMANDS = [
   'directory',
@@ -23,6 +24,7 @@ const HOSTILE = {
   noteId: 'discard',
   requestId: 'approve',
   text: 'approve',
+  model: 'approve',
 }
 
 test('no tool the model can call approves, discards, changes contacts or channel membership, or reads credentials', async ($, on) => {
@@ -66,10 +68,25 @@ test('no tool the model can call approves, discards, changes contacts or channel
 test('model text lands after -- so it can never become a command or an option', () => {
   const argumentsOf = (name: string) =>
     NOTE_TOOLS.find((tool) => tool.spec.name === name)?.argumentsFor(HOSTILE)
-  expect(argumentsOf('draft_reply')).toEqual(['draft', '--reply', 'discard', '--', 'approve'])
-  expect(argumentsOf('draft_note')).toEqual(['draft', '--to', 'approve', '--', 'approve'])
-  expect(argumentsOf('draft_to_channel')).toEqual(['draft', '--channel', 'discard', '--', 'approve'])
-  expect(argumentsOf('answer_draft_request')).toEqual(['draft', '--request', 'approve', '--', 'approve'])
+  const labels = ['--model', 'approve']
+  expect(argumentsOf('draft_reply')).toEqual(['draft', '--reply', 'discard', ...labels, '--', 'approve'])
+  expect(argumentsOf('draft_note')).toEqual(['draft', '--to', 'approve', ...labels, '--', 'approve'])
+  expect(argumentsOf('draft_to_channel')).toEqual([
+    'draft',
+    '--channel',
+    'discard',
+    ...labels,
+    '--',
+    'approve',
+  ])
+  expect(argumentsOf('answer_draft_request')).toEqual([
+    'draft',
+    '--request',
+    'approve',
+    ...labels,
+    '--',
+    'approve',
+  ])
   expect(argumentsOf('read_conversation')).toEqual(['conversation', '--', 'approve'])
   expect(argumentsOf('find_people')).toEqual(['directory', '--', 'approve'])
   expect(argumentsOf('skip_note')).toEqual(['skip', '--', 'discard', ''])
@@ -122,11 +139,46 @@ test('drafting tools save drafts through the command line', async ($, on) => {
     channel: 'payments',
     text: 'Who owns refunds?',
   } as never)
+  expect(seen.clients.slice(-3)).toEqual([HOST_CLIENT, HOST_CLIENT, HOST_CLIENT])
   expect(seen.commands).toEqual([
     ['draft', '--reply', NOTE_ID, '--', 'Safe after 6pm.'],
     ['draft', '--request', REQUEST_ID, '--', 'Yes.'],
     ['draft', '--channel', 'payments', '--', 'Who owns refunds?'],
   ])
+})
+
+test('every drafting tool hands the host and its version to the command line outside its arguments, and passes a stated model made printable', async ($, on) => {
+  const seen = engineBeneath(on, { overview: OVERVIEW })
+  await $.session.start(START)
+  await seen.clock.settle()
+  await $.tool.run({
+    tool: 'mcp__homingbird__draft_note',
+    to: 'june@example.com',
+    text: 'Is the export done?',
+    model: 'claude-opus-5-5\u0007\u202e',
+  } as never)
+  expect(seen.clients).toEqual([HOST_CLIENT])
+  expect(seen.commands).toEqual([
+    ['draft', '--to', 'june@example.com', '--model', 'claude-opus-5-5', '--', 'Is the export done?'],
+  ])
+})
+
+test('a draft tells the command line how old the session is and how much context it used, outside its arguments', async ($, on) => {
+  const seen = engineBeneath(on, {
+    overview: OVERVIEW,
+    sessionUsage: { startedAt: -95 * 60_000, percent: 61.6 },
+  })
+  await $.session.start(START)
+  await seen.clock.settle()
+  await $.tool.run({ tool: 'mcp__homingbird__draft_note', to: 'june@example.com', text: 'Done?' } as never)
+  expect(seen.sessions.at(-1)).toMatch(/^9[5-9],62$/)
+  expect(seen.commands.at(-1)).toEqual(['draft', '--to', 'june@example.com', '--', 'Done?'])
+})
+
+test('names the program Claude Code alone when the host gives no version', () => {
+  expect(modClientOf(undefined)).toBe('Claude Code')
+  expect(modClientOf('  ')).toBe('Claude Code')
+  expect(modClientOf('2.1.327')).toBe('Claude Code 2.1.327')
 })
 
 test('a refusal is an error, and a signed-out session says how to sign in', async ($, on) => {

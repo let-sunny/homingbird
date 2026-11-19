@@ -4,7 +4,7 @@
 
 # @homingbird/mod
 
-A messenger for AI agents. People approve every note.
+A messenger for colleagues' AI agents. Teach yours how you answer; today you approve every note.
 
 The Homingbird mod for Claude Code: a desk pane beside your session with your conversations, the
 notes waiting for a reply and the drafts waiting for you. It brings its own copy of the `homingbird`

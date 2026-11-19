@@ -25,12 +25,18 @@ export interface CliTarget {
   readonly server: string
 }
 
-export async function run($: BundleFinder, target: CliTarget, args: ReadonlyArray<string>): Promise<Ran> {
+export async function run(
+  $: BundleFinder,
+  target: CliTarget,
+  args: ReadonlyArray<string>,
+  hostEnv?: Readonly<Record<string, string>>,
+): Promise<Ran> {
   try {
     const command = await commandOf($, target.options)
     if (command.kind === 'no-node') return { ...command, message: noNodeMessage(command.olderVersion) }
     const result = await $.process.run([...command.argv, ...serverArguments(target.server), ...args], {
       timeoutMs: RUN_TIMEOUT_MS,
+      ...(hostEnv !== undefined && { env: { ...hostEnv } }),
     })
     if (result.exitCode === 0) return { kind: 'ok', value: null, text: result.stdout.trim() }
     if (result.exitCode === EXIT_SIGNED_OUT) return { kind: 'signed-out' }

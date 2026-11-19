@@ -21,7 +21,7 @@ import { PROJECT_READER, READER_TYPE, askProject, askSession, deliverHelperFacts
 import { optionally } from './host-support'
 import { PANE, renderPane } from './pane'
 import { looksLikeAddress } from './server-address'
-import { HELPER_TOOLS, NOTE_TOOLS, TOOL_PREFIX, wireNameOf } from './tools'
+import { HELPER_TOOLS, NOTE_TOOLS, TOOL_PREFIX, hostEnvOf, wireNameOf } from './tools'
 
 export const register: Register = (on, options) => {
   const desk = makeDesk(options)
@@ -110,7 +110,7 @@ export const register: Register = (on, options) => {
         const tool = NOTE_TOOLS.find((one) => wireNameOf(one.spec.name) === String(e.tool))
         if (tool === undefined)
           return { result: `homingbird: there is no tool ${String(e.tool)}.`, isError: true }
-        const ran = await run($, desk, tool.argumentsFor(input))
+        const ran = await run($, desk, tool.argumentsFor(input), await hostEnvOf($))
         if (ran.kind === 'ok') return { result: ran.text }
         return { result: ran.kind === 'signed-out' ? SIGNED_OUT : ran.message, isError: true }
       }).catch(() => ({ result: 'homingbird: the tool failed before it could answer.', isError: true }))

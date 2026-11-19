@@ -23,6 +23,37 @@ test('the desk pane says to keep the session open and lists drafts, waiting note
   seen.release()
 })
 
+const freshSessionLine = async (
+  $: Parameters<Parameters<typeof test>[1]>[0],
+  on: Parameters<Parameters<typeof test>[1]>[1],
+  usage: { readonly startedAt: number; readonly percent: number },
+): Promise<string | null> => {
+  const seen = engineBeneath(on, { overview: OVERVIEW, holdsStream: true, sessionUsage: usage })
+  await $.session.start(START)
+  await openDesk($, seen)
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  const line = (await ui.find({ type: 'Text', text: /fresh one/ }))?.text ?? null
+  await ui.unmount()
+  seen.release()
+  return line
+}
+
+test('the desk pane suggests no fresh session while this one is young and has room', async ($, on) => {
+  expect(await freshSessionLine($, on, { startedAt: -30 * 60_000, percent: 20 })).toBeNull()
+})
+
+test('the desk pane suggests a fresh session once this one ran for eight hours', async ($, on) => {
+  expect(await freshSessionLine($, on, { startedAt: -9 * 60 * 60_000, percent: 20 })).toBe(
+    paneTextIn('en').freshSession,
+  )
+})
+
+test('the desk pane suggests a fresh session once this one used most of its context', async ($, on) => {
+  expect(await freshSessionLine($, on, { startedAt: -30 * 60_000, percent: 85 })).toBe(
+    paneTextIn('en').freshSession,
+  )
+})
+
 test('Pip is a small picture on every surface', async ($, on) => {
   const seen = engineBeneath(on, { overview: OVERVIEW, holdsStream: true })
   await $.session.start(START)

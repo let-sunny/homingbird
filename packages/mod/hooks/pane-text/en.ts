@@ -12,6 +12,8 @@ export const en: PaneText = {
   },
   waiting: (count) => `${count} waiting`,
   keepOpen: 'Keep this session open for Homingbird.',
+  freshSession:
+    'This session has run long or used most of its context. Drafts are often better from a fresh one: start a new session and make it the desk.',
   moved: 'Another session is your Homingbird desk now. This one no longer reacts to notes.',
   becomeDesk: 'Make this the desk',
   confirmSignIn: 'Confirm the sign-in in your browser. If it did not open:',

@@ -11,6 +11,8 @@ export const ko: PaneText = {
   },
   waiting: (count) => `${count}개 대기 중`,
   keepOpen: '이 세션을 Homingbird 전용 세션으로 열어 두세요.',
+  freshSession:
+    '이 세션은 오래 실행됐거나 컨텍스트를 거의 다 썼어요. 새 세션에서 초안이 더 나을 때가 많아요. 새 세션을 열고 전용 세션으로 지정하세요.',
   moved: '이제 다른 세션이 Homingbird 전용 세션이에요. 이 세션은 더 이상 노트에 반응하지 않아요.',
   becomeDesk: '이 세션을 전용 세션으로',
   confirmSignIn: '브라우저에서 로그인을 확인해 주세요. 브라우저가 열리지 않았다면:',

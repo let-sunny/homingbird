@@ -1,6 +1,6 @@
-import type { ToolSpec } from 'claude-code'
+import type { EngineInterface, ToolSpec } from 'claude-code'
 
-import { APPROVAL_NOTICE, BASIS, QUOTED_NOTICE } from './tool-notices'
+import { APPROVAL_NOTICE, BASIS, MODEL, QUOTED_NOTICE, modClientOf } from './tool-notices'
 
 export interface NoteTool {
   readonly spec: ToolSpec
@@ -65,12 +65,21 @@ export const NOTE_TOOLS: ReadonlyArray<NoteTool> = [
           to: { type: 'string', description: 'The colleague, by email address or member id.' },
           text: { type: 'string', description: 'The note. Plain text and links only.' },
           basis: BASIS,
+          model: MODEL,
         },
         ['to', 'text'],
       ),
       isDeferred: false,
     },
-    argumentsFor: (input) => ['draft', '--to', textOf(input.to), ...basisOf(input), '--', textOf(input.text)],
+    argumentsFor: (input) => [
+      'draft',
+      '--to',
+      textOf(input.to),
+      ...basisOf(input),
+      ...modelOf(input),
+      '--',
+      textOf(input.text),
+    ],
   },
   {
     spec: {
@@ -81,6 +90,7 @@ export const NOTE_TOOLS: ReadonlyArray<NoteTool> = [
           channel: { type: 'string', description: 'The channel slug, without the #.' },
           text: { type: 'string', description: 'The question. Plain text and links only.' },
           basis: BASIS,
+          model: MODEL,
         },
         ['channel', 'text'],
       ),
@@ -90,6 +100,7 @@ export const NOTE_TOOLS: ReadonlyArray<NoteTool> = [
       '--channel',
       textOf(input.channel).replace(/^#/, ''),
       ...basisOf(input),
+      ...modelOf(input),
       '--',
       textOf(input.text),
     ],
@@ -107,6 +118,7 @@ export const NOTE_TOOLS: ReadonlyArray<NoteTool> = [
               'The reply. Plain text and links only. When you cannot answer yet, a holding reply saying what you will check is a good draft.',
           },
           basis: BASIS,
+          model: MODEL,
         },
         ['noteId', 'text'],
       ),
@@ -117,6 +129,7 @@ export const NOTE_TOOLS: ReadonlyArray<NoteTool> = [
       '--reply',
       textOf(input.noteId),
       ...basisOf(input),
+      ...modelOf(input),
       '--',
       textOf(input.text),
     ],
@@ -155,6 +168,7 @@ export const NOTE_TOOLS: ReadonlyArray<NoteTool> = [
           requestId: { type: 'string', description: 'The id of the draft request.' },
           text: { type: 'string', description: 'The draft. Plain text and links only.' },
           basis: BASIS,
+          model: MODEL,
         },
         ['requestId', 'text'],
       ),
@@ -164,6 +178,7 @@ export const NOTE_TOOLS: ReadonlyArray<NoteTool> = [
       '--request',
       textOf(input.requestId),
       ...basisOf(input),
+      ...modelOf(input),
       '--',
       textOf(input.text),
     ],
@@ -211,11 +226,57 @@ export const wireNameOf = (name: string): string => `${TOOL_PREFIX}${name}`
 
 export const TOOL_PREFIX = 'mcp__homingbird__'
 
+const MODEL_MAX = 80
+
+/** What the host observes about itself for a draft: its name and version, and the session's age and context use. */
+export async function hostEnvOf($: EngineInterface): Promise<Record<string, string>> {
+  const session = await sessionReportOf($)
+  return {
+    HOMINGBIRD_CLIENT: await hostClientOf($),
+    ...(session !== null && { HOMINGBIRD_SESSION: session }),
+  }
+}
+
+/** The session's age in minutes and, once known, its context use as a percentage: "95" or "95,62". */
+export async function sessionReportOf($: EngineInterface): Promise<string | null> {
+  const usage = await usageOf($)
+  if (usage === undefined) return null
+  const minutes = Math.max(0, Math.floor(((await $.clock.now()) - usage.startedAt) / 60_000))
+  const percent = usage.context.percent
+  return percent === undefined || !Number.isFinite(percent)
+    ? `${minutes}`
+    : `${minutes},${Math.round(Math.min(100, Math.max(0, percent)))}`
+}
+
+/** The host's session figures; undefined when an older host has no `session.usage`, or it fails. */
+async function usageOf($: EngineInterface) {
+  try {
+    return await $.session.usage()
+  } catch {
+    return undefined
+  }
+}
+
+async function hostClientOf($: EngineInterface): Promise<string> {
+  const answer = await $.session.version().catch(() => undefined)
+  return modClientOf(answer?.version)
+}
+
 export const textOf = (value: unknown): string => (typeof value === 'string' ? value : '')
 
 function basisOf(input: Readonly<Record<string, unknown>>): string[] {
   const basis = textOf(input.basis).trim()
   return basis === '' ? [] : ['--basis', basis]
+}
+
+/** The model the agent states, made printable so the server never refuses the whole draft over it. */
+function modelOf(input: Readonly<Record<string, unknown>>): string[] {
+  const model = textOf(input.model)
+    .replace(/[\p{Cc}\p{Cf}]/gu, '')
+    .trim()
+    .slice(0, MODEL_MAX)
+    .trim()
+  return model === '' ? [] : ['--model', model]
 }
 
 function objectOf(properties: Readonly<Record<string, object>>, required: ReadonlyArray<string>) {

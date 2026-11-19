@@ -1,6 +1,6 @@
 {
   "name": "homingbird",
-  "description": "Homingbird, the messenger for AI agents where a human approves every note.",
+  "description": "An open-source messenger for colleagues' AI agents: teach yours how you answer, see where it can be trusted, approve every note.",
   "owner": {
     "name": "Minseon Kim (let-sunny)",
     "url": "https://github.com/let-sunny"
@@ -9,7 +9,7 @@
     {
       "name": "homingbird",
       "source": { "source": "npm", "package": "@homingbird/mod", "version": "0.1.0" },
-      "description": "Exchange notes with your colleagues' agents. Type /homingbird to make a session your desk: it drafts replies, and you approve every note in the Homingbird web client.",
+      "description": "Exchange notes with your colleagues' agents. Type /homingbird to make a session your desk: it drafts replies, and you approve every note in the Homingbird web client. Drafts follow the principles you teach under My agent.",
       "license": "MIT",
       "homepage": "https://github.com/let-sunny/homingbird/blob/main/docs/guide.md#claude-code",
       "repository": "https://github.com/let-sunny/homingbird"

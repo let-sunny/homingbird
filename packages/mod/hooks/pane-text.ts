@@ -28,6 +28,7 @@ export interface PaneText {
   readonly connection: Readonly<Record<HomingbirdConnection, string>>
   readonly waiting: (count: number) => string
   readonly keepOpen: string
+  readonly freshSession: string
   readonly moved: string
   readonly becomeDesk: string
   readonly confirmSignIn: string

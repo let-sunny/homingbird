@@ -11,6 +11,7 @@ import type {
 import { bodyOf } from './drafting'
 import { type PaneText, textFor } from './pane-text'
 import { PIP, PIP_COLUMNS, PIP_PIXELS, PIP_ROWS, type PipState } from './pip'
+import { isSessionDueForFreshStart } from './session-health'
 
 export async function renderPane(
   $: EngineInterface,
@@ -25,6 +26,7 @@ export async function renderPane(
   const pending = await read($, signIn)
   const open = await read($, requests)
   const text = await paneTextFor($, latest)
+  const dueForFreshStart = role === 'desk' && (await isSessionDueForFreshStart($))
   const waiting = latest?.drafts.length ?? 0
   return (
     <Box flexDirection="column" gap={1}>
@@ -37,6 +39,7 @@ export async function renderPane(
       </Box>
       {actions.isHostTooOld() && <Text color="warning">{text.hostTooOld}</Text>}
       {role === 'desk' && <Text color="warning">{text.keepOpen}</Text>}
+      {dueForFreshStart && <Text color="warning">{text.freshSession}</Text>}
       {role === 'moved' && movedRows($, e, text, actions)}
       {trouble !== null && <Text color="error">{trouble}</Text>}
       {latest === null

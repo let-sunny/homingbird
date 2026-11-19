@@ -9,6 +9,7 @@ export type HomingbirdConversation = {
 
 export type HomingbirdAwaiting = {
   noteId: string
+  conversationId?: string
   from: { name: string; email: string }
   wrapped: string
 }
