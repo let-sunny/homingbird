@@ -7,6 +7,7 @@ import {
   type Note,
   NoteBody,
   NoteId,
+  agentLabelOf,
 } from '@homingbird/protocol'
 import { A2A_CODE } from './errors.ts'
 import { RpcFailure, invalidParams } from './json-rpc.ts'
@@ -21,14 +22,15 @@ export const draftFromMessage = (
     if (message === null) return yield* T.fail(invalidParams('params.message is required.'))
     const body = yield* T.fromResult(bodyOf(message))
     const metadata = { ...recordAt(params, 'metadata'), ...recordAt(message, 'metadata') }
+    const labels = labelsOf(metadata)
     if (typeof message.taskId === 'string' && message.taskId !== '')
-      return yield* reviseDraft(message.taskId, body, api)
+      return yield* reviseDraft(message.taskId, body, api, labels.model)
     const inReplyTo = NoteId.decode(metadata.inReplyTo)
     if (inReplyTo._tag === 'Ok')
-      return yield* api['drafts.create']({ body: { body, inReplyTo: inReplyTo.value } })
+      return yield* api['drafts.create']({ body: { body, inReplyTo: inReplyTo.value, ...labels } })
     const conversationId = ConversationId.decode(message.contextId)
     if (conversationId._tag === 'Ok')
-      return yield* api['drafts.create']({ body: { body, conversationId: conversationId.value } })
+      return yield* api['drafts.create']({ body: { body, conversationId: conversationId.value, ...labels } })
     if (metadata.channel !== undefined) {
       const channel = ChannelSlug.decode(metadata.channel)
       if (channel._tag === 'Err')
@@ -37,7 +39,7 @@ export const draftFromMessage = (
             'message.metadata.channel must be a channel slug from channels.list, such as billing.',
           ),
         )
-      return yield* api['drafts.create']({ body: { body, channel: channel.value } })
+      return yield* api['drafts.create']({ body: { body, channel: channel.value, ...labels } })
     }
     if (typeof metadata.to !== 'string')
       return yield* T.fail(
@@ -46,7 +48,7 @@ export const draftFromMessage = (
         ),
       )
     const recipient = yield* recipientNamed(metadata.to, api)
-    return yield* api['drafts.create']({ body: { body, to: [recipient] } })
+    return yield* api['drafts.create']({ body: { body, to: [recipient], ...labels } })
   })
 
 const bodyOf = (message: Readonly<Record<string, unknown>>): Result.Result<string, RpcFailure> => {
@@ -65,7 +67,24 @@ const bodyOf = (message: Readonly<Record<string, unknown>>): Result.Result<strin
     : err(invalidParams('The message needs between 1 and 16000 characters of text.'))
 }
 
-const reviseDraft = (taskId: string, body: string, api: MemberApi): T.Task<Note, RpcFailure | ApiError> => {
+/**
+ * What wrote the message, as labels people see next to the note: the calling agent's card name when it
+ * sends one, and the model it states. Never validated and never read by a model.
+ */
+const labelsOf = (
+  metadata: Readonly<Record<string, unknown>>,
+): { readonly client?: string; readonly model?: string } => {
+  const client = agentLabelOf(recordAt(metadata, 'agentCard')?.name)
+  const model = agentLabelOf(metadata.model)
+  return { ...(client !== null && { client }), ...(model !== null && { model }) }
+}
+
+const reviseDraft = (
+  taskId: string,
+  body: string,
+  api: MemberApi,
+  model: string | undefined,
+): T.Task<Note, RpcFailure | ApiError> => {
   const noteId = NoteId.decode(taskId)
   const unknownTask = RpcFailure({ code: A2A_CODE.taskNotFound, message: `Task not found: ${taskId}` })
   if (noteId._tag === 'Err') return T.fail(unknownTask)
@@ -78,7 +97,10 @@ const reviseDraft = (taskId: string, body: string, api: MemberApi): T.Task<Note,
           message: 'This task is no longer a draft, so it cannot be revised. Send a new message instead.',
         }),
       )
-    return yield* api['drafts.update']({ params: { id: noteId.value }, body: { body } })
+    return yield* api['drafts.update']({
+      params: { id: noteId.value },
+      body: { body, ...(model !== undefined && { model }) },
+    })
   })
 }
 

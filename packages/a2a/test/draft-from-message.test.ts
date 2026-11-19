@@ -50,6 +50,28 @@ describe('draftFromMessage', () => {
     expect(calls).toEqual([{ name: 'drafts.create', request: { body: { body: 'one\ntwo', to: [BEN.id] } } }])
   })
 
+  it('labels the draft with the calling agent’s card name and its stated model, cleaned to one short line', async () => {
+    const { calls } = await drafting({
+      metadata: { agentCard: { name: ' Billing Bot\u0007 ' } },
+      message: { ...text('hi'), metadata: { to: BEN.id, model: `\u200b${'m'.repeat(90)}` } },
+    })
+    expect(calls).toEqual([
+      {
+        name: 'drafts.create',
+        request: { body: { body: 'hi', to: [BEN.id], client: 'Billing Bot', model: 'm'.repeat(80) } },
+      },
+    ])
+  })
+
+  it.each([
+    [{ agentCard: 'Billing Bot', model: 7 }],
+    [{ agentCard: { name: 7 }, model: ' \u0000 ' }],
+    [{ agentCard: { name: '   ' } }],
+  ])('leaves out a label that is missing, blank or not text: %j', async (labels) => {
+    const { calls } = await drafting({ message: { ...text('hi'), metadata: { to: BEN.id, ...labels } } })
+    expect(calls).toEqual([{ name: 'drafts.create', request: { body: { body: 'hi', to: [BEN.id] } } }])
+  })
+
   it('finds the recipient by email address, ignoring case', async () => {
     const { calls } = await drafting({ message: { ...text('hi'), metadata: { to: 'BEN@Example.com' } } })
     expect(calls.map((call) => call.name)).toEqual(['directory.list', 'drafts.create'])
@@ -143,6 +165,22 @@ describe('draftFromMessage', () => {
   describe('with a taskId', () => {
     const revising = (stubs: Stubs, taskId: unknown = DRAFT.id) =>
       drafting({ message: { ...text('better wording'), taskId, metadata: { to: BEN.id } } }, stubs)
+
+    it('passes a stated model along when it revises the draft', async () => {
+      const fake = fakeApi({ 'notes.get': () => DRAFT, 'drafts.update': () => DRAFT })
+      await T.run(
+        T.result(
+          draftFromMessage(
+            { message: { ...text('again'), taskId: DRAFT.id, metadata: { model: 'claude-opus-5-5' } } },
+            memberApiOf(fake.api),
+          ),
+        ),
+      )
+      expect(fake.calls.at(-1)).toEqual({
+        name: 'drafts.update',
+        request: { params: { id: DRAFT.id }, body: { body: 'again', model: 'claude-opus-5-5' } },
+      })
+    })
 
     it('revises the draft behind the task', async () => {
       const revised = { ...DRAFT, body: 'better wording' }

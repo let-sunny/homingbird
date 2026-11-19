@@ -136,6 +136,7 @@ export const entryOf = (member: Member, overrides: Partial<DirectoryEntry> = {})
   relation: 'none',
   canMessage: true,
   channels: [],
+  agentIntroduction: [],
   ...overrides,
 })
 
