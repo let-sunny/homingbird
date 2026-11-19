@@ -26,6 +26,7 @@ import {
 } from './answering.ts'
 import type { OpenInBrowser } from './browser-opener.ts'
 import { CHARACTER_TOOLS } from './character-tools.ts'
+import { DEBATE_TOOLS } from './debate-tools.ts'
 import { type RpcFailure, invalidParams } from './json-rpc.ts'
 import type { MemberApi } from './member-api.ts'
 import { type Quoting, quoteNote, quoteNotes, quotingFor as quotingOf } from './quote.ts'
@@ -421,6 +422,7 @@ export const TOOLS: ReadonlyArray<Tool<any>> = [
         context.api['drafts.update']({ params: { id: draftId }, body: { body } }),
       ),
   }),
+  ...DEBATE_TOOLS,
   ...CHARACTER_TOOLS,
 ]
 

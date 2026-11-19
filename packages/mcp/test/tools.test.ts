@@ -19,9 +19,12 @@ import {
   ANA,
   BEN,
   CONVERSATION_ID,
+  DEBATE_ID,
   DIRECTORY,
+  RESULT,
   type Stubs,
   conversationOf,
+  debateOf,
   fakeApi,
   noteOf,
   receiptOf,
@@ -82,6 +85,10 @@ const HAPPY: Stubs = {
   'channels.list': () => ({ channels: [BILLING], hasMore: false, cursor: null }),
   'draftRequests.list': () => ({ requests: [] }),
   'events.poll': () => ({ events: [], cursor: 0 }),
+  'debates.waiting': () => ({ asks: [{ debate: debateOf(), ask: 'turn' }] }),
+  'debates.get': () => debateOf(),
+  'debates.turns.post': () => debateOf(),
+  'debates.result.draft': () => debateOf({ status: 'concluding' }),
 }
 
 const SAMPLE_ARGUMENTS: Readonly<Record<string, unknown>> = {
@@ -100,6 +107,10 @@ const SAMPLE_ARGUMENTS: Readonly<Record<string, unknown>> = {
   revise_draft: { draftId: DRAFT.id, body: 'Yes, go ahead' },
   open_homingbird: { draftId: DRAFT.id },
   wait_for_notes: { waitSeconds: 1 },
+  check_debates: {},
+  read_debate: { debateId: DEBATE_ID },
+  take_debate_turn: { debateId: DEBATE_ID, body: 'The rollback was tested in May.' },
+  draft_debate_result: { debateId: DEBATE_ID, result: RESULT },
   check_character: { character: OTTER },
   preview_character: { character: OTTER },
 }
@@ -178,6 +189,10 @@ describe('the tool table', () => {
       'channels.list',
       'conversations.list',
       'conversations.notes',
+      'debates.get',
+      'debates.result.draft',
+      'debates.turns.post',
+      'debates.waiting',
       'directory.list',
       'draftRequests.list',
       'drafts.create',
@@ -242,6 +257,11 @@ describe('the tool table', () => {
             requests: [requestOf({ inReplyTo: noteOf().id, instruction: 'Say yes, after six.' })],
           }),
           'conversations.list': () => ({ conversations: [conversationOf({ lastNote: noteOf({ body }) })] }),
+          'debates.get': () =>
+            debateOf({
+              question: body,
+              turns: [{ position: 1, memberId: BEN.id, agentName: 'Ben agent', body, at: 2 }],
+            }),
         }
         const { text } = await call(name, SAMPLE_ARGUMENTS[name], stubs)
         expect(textOutsideWrappers(text)).not.toContain(marker)

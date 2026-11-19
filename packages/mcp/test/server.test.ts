@@ -167,6 +167,29 @@ describe('handleMcpMessage', () => {
     }
   })
 
+  it('lists the debate tools only while the server has debate rooms switched on', async () => {
+    const info = (features?: Readonly<Record<string, boolean>>): Stubs => ({
+      'server.info': () => ({
+        name: 'dovecote',
+        version: '1',
+        contactMode: 'open' as const,
+        signInWith: 'Development login',
+        ...(features !== undefined && { features }),
+      }),
+    })
+    const names = async (stubs: Stubs) =>
+      ((await server(stubs).call('tools/list')).result.tools as Array<{ name: string }>).map(
+        (tool) => tool.name,
+      )
+    const debateTools = ['check_debates', 'read_debate', 'take_debate_turn', 'draft_debate_result']
+    expect(await names(info({ debateRooms: true }))).toEqual(expect.arrayContaining(debateTools))
+    for (const off of [info({ debateRooms: false }), info({ teaching: true }), info()]) {
+      const listed = await names(off)
+      expect(listed.filter((name) => debateTools.includes(name))).toEqual([])
+      expect(listed).toContain('check_inbox')
+    }
+  })
+
   it('runs a tool and returns its text', async () => {
     const { call, calls } = server()
     const { result } = await call('tools/call', { name: 'whoami', arguments: {} })

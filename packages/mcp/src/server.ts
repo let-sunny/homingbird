@@ -4,6 +4,7 @@ import type { Api } from '@homingbird/protocol'
 import { ANSWER_RULE, LINKS_RULE } from './answering.ts'
 import type { OpenInBrowser } from './browser-opener.ts'
 import { CHANNEL_CAPABILITY, CHANNEL_INSTRUCTIONS } from './channel.ts'
+import { DEBATE_TOOL_NAMES } from './debate-tools.ts'
 import { type RpcCall, RpcFailure, methodNotFound, serveJsonRpc } from './json-rpc.ts'
 import type { LocalAdapter } from './local-tools.ts'
 import { memberApiOf } from './member-api.ts'
@@ -110,7 +111,12 @@ const METHODS: Readonly<Record<string, Method>> = {
   'notifications/initialized': (_, context) => T.as({})(context.channel?.opened ?? T.unit),
   'notifications/cancelled': () => T.succeed({}),
   'tools/list': (_, context) =>
-    T.succeed({ tools: [...(context.local?.tools ?? []).map(localDefinition), ...toolDefinitions()] }),
+    T.map((debates: boolean) => ({
+      tools: [
+        ...(context.local?.tools ?? []).map(localDefinition),
+        ...toolDefinitions().filter((tool) => debates || !DEBATE_TOOL_NAMES.includes(String(tool.name))),
+      ],
+    }))((context.local?.blockedBecause() ?? null) === null ? offersDebates(context.api) : T.succeed(true)),
   'tools/call': (params, context) => {
     const local = context.local?.tools.find((each) => each.name === params.name)
     if (local !== undefined) return T.map(said)(local.run)
@@ -124,6 +130,16 @@ const METHODS: Readonly<Record<string, Method>> = {
   'prompts/list': (_, context) => T.succeed({ prompts: promptDefinitions(promptsOf(context)) }),
   'prompts/get': (params, context) => getPrompt(promptsOf(context), params.name, params.arguments),
 }
+
+/**
+ * Whether the server has debate rooms switched on. A server that says nothing about them, an older one,
+ * has no debate routes. Before sign-in the server is not asked, and the tools are listed as before.
+ */
+const offersDebates = (api: Api): T.Task<boolean> =>
+  T.fold(
+    () => true,
+    (info: { readonly features?: Readonly<Record<string, boolean>> }) => info.features?.debateRooms === true,
+  )(api['server.info']({}))
 
 const promptsOf = (context: McpContext) => [...(context.local?.prompts ?? []), ...PROMPTS]
 

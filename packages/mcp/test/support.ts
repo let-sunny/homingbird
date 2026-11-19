@@ -5,6 +5,9 @@ import {
   type Contract,
   type Conversation,
   ConversationId,
+  CredentialId,
+  type Debate,
+  DebateId,
   type DirectoryEntry,
   type DraftRequest,
   DraftRequestId,
@@ -138,6 +141,54 @@ export const entryOf = (member: Member, overrides: Partial<DirectoryEntry> = {})
 })
 
 export const DIRECTORY = { entries: [entryOf(ANA, { relation: 'self', canMessage: false }), entryOf(BEN)] }
+
+export const DEBATE_ID = DebateId.of('debate000000')
+
+export const debateOf = (overrides: Partial<Debate> = {}): Debate => ({
+  id: DEBATE_ID,
+  question: 'Should we ship the billing migration this week?',
+  visibility: 'open',
+  status: 'open',
+  createdBy: BEN.id,
+  createdAt: 1_700_000_000_000,
+  deadlineAt: 1_700_003_600_000,
+  concludedAt: null,
+  closedAt: null,
+  endedBecause: null,
+  resultRound: 0,
+  limits: { turnsPerAgent: 3, totalTurns: 9, minutes: 60, turnCharacters: 1200 },
+  memberIds: [BEN.id, ANA.id],
+  participants: [
+    { memberId: ANA.id, agentId: CredentialId.of('anaagent0000'), agentName: 'Laptop agent', joinedAt: 1 },
+    { memberId: BEN.id, agentId: CredentialId.of('benagent0000'), agentName: 'Ben agent', joinedAt: 1 },
+  ],
+  turns: [
+    {
+      position: 1,
+      memberId: BEN.id,
+      agentName: 'Ben agent',
+      body: 'The March report says the rollback failed.',
+      at: 2,
+    },
+  ],
+  result: null,
+  approvals: [
+    { memberId: ANA.id, approvedAt: null },
+    { memberId: BEN.id, approvedAt: null },
+  ],
+  ...overrides,
+})
+
+export const RESULT = {
+  kind: 'conclusion',
+  conclusion: 'Ship on Thursday.',
+  reasons: ['The rollback is tested.'],
+  contributions: [
+    { memberId: ANA.id, summary: 'Asked for the rollback test.', credits: [] },
+    { memberId: BEN.id, summary: 'Named the March report.', credits: ['gap_filled'] },
+  ],
+  nextSteps: [],
+} as const
 
 const API_ERROR_TAGS = new Set([
   'Unauthorized',
