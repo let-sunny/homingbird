@@ -12,7 +12,8 @@
       "packages/mod/hooks/character-rules.mjs",
       "**/*.css",
       "assets",
-      "deploy"
+      "deploy",
+      ".claude/worktrees"
     ]
   },
   "formatter": {
