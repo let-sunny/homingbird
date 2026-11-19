@@ -31,6 +31,23 @@ export const FEATURES = {
   routeMap: { default: true, routes: [] },
   insights: { default: true, routes: ['admin.insights'] },
   noteDetails: { default: true, routes: [] },
+  debateRooms: {
+    default: true,
+    routes: [
+      'debates.list',
+      'debates.waiting',
+      'debates.get',
+      'debates.create',
+      'debates.optIn',
+      'debates.limits.set',
+      'debates.turns.post',
+      'debates.result.draft',
+      'debates.result.approve',
+      'debates.result.decline',
+      'debates.result.post',
+      'debates.export',
+    ],
+  },
 } as const satisfies Readonly<
   Record<string, { readonly default: boolean; readonly routes: ReadonlyArray<RouteName> }>
 >

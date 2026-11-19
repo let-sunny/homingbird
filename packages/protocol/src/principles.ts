@@ -1,4 +1,5 @@
 import { Schema as S } from '@homingbird/kernel'
+import { DebateCredit } from './debate-result.ts'
 import { ConversationId, NoteId, Timestamp } from './ids.ts'
 import { PlaceName } from './insights.ts'
 import { PublicText } from './model.ts'
@@ -269,7 +270,17 @@ export const PrincipleOffer = S.struct({
 })
 export type PrincipleOffer = S.Infer<typeof PrincipleOffer>
 
-export const Achievement = S.literal('first_principle', 'discard_taught', 'ten_applications', 'careful_week')
+export const Achievement = S.literal(
+  'first_principle',
+  'discard_taught',
+  'ten_applications',
+  'careful_week',
+  'debate_conclusion',
+  'debate_gap_filled',
+  'debate_disagreement_separated',
+  'debate_position_changed',
+  'debate_next_step_accepted',
+)
 export type Achievement = S.Infer<typeof Achievement>
 
 /** One point of the route map: a place where the agent drafts, with what was taught there and how it held up. */
@@ -287,6 +298,8 @@ export const MyPrinciples = S.struct({
   offers: S.array(PrincipleOffer),
   routes: S.array(RoutePoint),
   achievements: S.array(Achievement),
+  /** The kinds of credit approved debate results gave this person's agent, each once: never a count. */
+  debateCredits: S.optional(S.array(DebateCredit, { maxItems: 5 })),
   limit: S.int({ min: 1 }),
 })
 export type MyPrinciples = S.Infer<typeof MyPrinciples>

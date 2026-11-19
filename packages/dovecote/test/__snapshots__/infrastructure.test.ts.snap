@@ -38,6 +38,13 @@ exports[`schema > generates stable DDL for mysql 1`] = `
   "CREATE TABLE IF NOT EXISTS principle_offers (id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, note_id VARCHAR(64) NOT NULL, conversation_id VARCHAR(64) NOT NULL, place VARCHAR(400), kind VARCHAR(400) NOT NULL, suggested_change MEDIUMTEXT, created_at BIGINT NOT NULL, closed_at BIGINT, PRIMARY KEY (id), INDEX principle_offers_member_id_created_at_idx (member_id, created_at))",
   "CREATE TABLE IF NOT EXISTS principle_quiet_places (member_id VARCHAR(64) NOT NULL, place VARCHAR(400) NOT NULL, created_at BIGINT NOT NULL, PRIMARY KEY (member_id, place))",
   "CREATE TABLE IF NOT EXISTS releases (note_id VARCHAR(64) NOT NULL, credential_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, conversation_id VARCHAR(64) NOT NULL, reason MEDIUMTEXT, created_at BIGINT NOT NULL, PRIMARY KEY (note_id, credential_id), INDEX releases_member_id_created_at_idx (member_id, created_at), INDEX releases_created_at_idx (created_at))",
+  "ALTER TABLE notes ADD COLUMN debate_id VARCHAR(64)",
+  "CREATE TABLE IF NOT EXISTS debates (id VARCHAR(64) NOT NULL, question MEDIUMTEXT NOT NULL, visibility VARCHAR(400) NOT NULL, status VARCHAR(400) NOT NULL, created_by VARCHAR(64) NOT NULL, turns_per_agent BIGINT NOT NULL, total_turns BIGINT NOT NULL, minutes BIGINT NOT NULL, turn_characters BIGINT NOT NULL, created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL, deadline_at BIGINT NOT NULL, concluded_at BIGINT, closed_at BIGINT, result MEDIUMTEXT, result_by VARCHAR(64), result_at BIGINT, result_round BIGINT NOT NULL, ended_because VARCHAR(400), PRIMARY KEY (id), INDEX debates_status_deadline_at_idx (status, deadline_at), INDEX debates_visibility_created_at_idx (visibility, created_at))",
+  "CREATE TABLE IF NOT EXISTS debate_members (debate_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, created_at BIGINT NOT NULL, PRIMARY KEY (debate_id, member_id), INDEX debate_members_member_id_idx (member_id))",
+  "CREATE TABLE IF NOT EXISTS debate_participants (debate_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, credential_id VARCHAR(64) NOT NULL, agent_name VARCHAR(400) NOT NULL, created_at BIGINT NOT NULL, PRIMARY KEY (debate_id, member_id), INDEX debate_participants_credential_id_idx (credential_id))",
+  "CREATE TABLE IF NOT EXISTS debate_turns (debate_id VARCHAR(64) NOT NULL, position BIGINT NOT NULL, member_id VARCHAR(64) NOT NULL, credential_id VARCHAR(64) NOT NULL, agent_name VARCHAR(400) NOT NULL, body MEDIUMTEXT NOT NULL, created_at BIGINT NOT NULL, PRIMARY KEY (debate_id, position))",
+  "CREATE TABLE IF NOT EXISTS debate_approvals (debate_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, approved_at BIGINT NOT NULL, PRIMARY KEY (debate_id, member_id))",
+  "CREATE TABLE IF NOT EXISTS debate_credits (debate_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, kind VARCHAR(400) NOT NULL, created_at BIGINT NOT NULL, PRIMARY KEY (debate_id, member_id, kind), INDEX debate_credits_member_id_idx (member_id))",
 ]
 `;
 
@@ -110,6 +117,18 @@ exports[`schema > generates stable DDL for postgres 1`] = `
   "CREATE TABLE IF NOT EXISTS releases (note_id VARCHAR(64) NOT NULL, credential_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, conversation_id VARCHAR(64) NOT NULL, reason TEXT, created_at BIGINT NOT NULL, PRIMARY KEY (note_id, credential_id))",
   "CREATE INDEX IF NOT EXISTS releases_member_id_created_at_idx ON releases (member_id, created_at)",
   "CREATE INDEX IF NOT EXISTS releases_created_at_idx ON releases (created_at)",
+  "ALTER TABLE notes ADD COLUMN debate_id VARCHAR(64)",
+  "CREATE TABLE IF NOT EXISTS debates (id VARCHAR(64) NOT NULL, question TEXT NOT NULL, visibility VARCHAR(400) NOT NULL, status VARCHAR(400) NOT NULL, created_by VARCHAR(64) NOT NULL, turns_per_agent BIGINT NOT NULL, total_turns BIGINT NOT NULL, minutes BIGINT NOT NULL, turn_characters BIGINT NOT NULL, created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL, deadline_at BIGINT NOT NULL, concluded_at BIGINT, closed_at BIGINT, result TEXT, result_by VARCHAR(64), result_at BIGINT, result_round BIGINT NOT NULL, ended_because VARCHAR(400), PRIMARY KEY (id))",
+  "CREATE INDEX IF NOT EXISTS debates_status_deadline_at_idx ON debates (status, deadline_at)",
+  "CREATE INDEX IF NOT EXISTS debates_visibility_created_at_idx ON debates (visibility, created_at)",
+  "CREATE TABLE IF NOT EXISTS debate_members (debate_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, created_at BIGINT NOT NULL, PRIMARY KEY (debate_id, member_id))",
+  "CREATE INDEX IF NOT EXISTS debate_members_member_id_idx ON debate_members (member_id)",
+  "CREATE TABLE IF NOT EXISTS debate_participants (debate_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, credential_id VARCHAR(64) NOT NULL, agent_name VARCHAR(400) NOT NULL, created_at BIGINT NOT NULL, PRIMARY KEY (debate_id, member_id))",
+  "CREATE INDEX IF NOT EXISTS debate_participants_credential_id_idx ON debate_participants (credential_id)",
+  "CREATE TABLE IF NOT EXISTS debate_turns (debate_id VARCHAR(64) NOT NULL, position BIGINT NOT NULL, member_id VARCHAR(64) NOT NULL, credential_id VARCHAR(64) NOT NULL, agent_name VARCHAR(400) NOT NULL, body TEXT NOT NULL, created_at BIGINT NOT NULL, PRIMARY KEY (debate_id, position))",
+  "CREATE TABLE IF NOT EXISTS debate_approvals (debate_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, approved_at BIGINT NOT NULL, PRIMARY KEY (debate_id, member_id))",
+  "CREATE TABLE IF NOT EXISTS debate_credits (debate_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, kind VARCHAR(400) NOT NULL, created_at BIGINT NOT NULL, PRIMARY KEY (debate_id, member_id, kind))",
+  "CREATE INDEX IF NOT EXISTS debate_credits_member_id_idx ON debate_credits (member_id)",
 ]
 `;
 
@@ -182,5 +201,17 @@ exports[`schema > generates stable DDL for sqlite 1`] = `
   "CREATE TABLE IF NOT EXISTS releases (note_id TEXT NOT NULL, credential_id TEXT NOT NULL, member_id TEXT NOT NULL, conversation_id TEXT NOT NULL, reason TEXT, created_at INTEGER NOT NULL, PRIMARY KEY (note_id, credential_id))",
   "CREATE INDEX IF NOT EXISTS releases_member_id_created_at_idx ON releases (member_id, created_at)",
   "CREATE INDEX IF NOT EXISTS releases_created_at_idx ON releases (created_at)",
+  "ALTER TABLE notes ADD COLUMN debate_id TEXT",
+  "CREATE TABLE IF NOT EXISTS debates (id TEXT NOT NULL, question TEXT NOT NULL, visibility TEXT NOT NULL, status TEXT NOT NULL, created_by TEXT NOT NULL, turns_per_agent INTEGER NOT NULL, total_turns INTEGER NOT NULL, minutes INTEGER NOT NULL, turn_characters INTEGER NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, deadline_at INTEGER NOT NULL, concluded_at INTEGER, closed_at INTEGER, result TEXT, result_by TEXT, result_at INTEGER, result_round INTEGER NOT NULL, ended_because TEXT, PRIMARY KEY (id))",
+  "CREATE INDEX IF NOT EXISTS debates_status_deadline_at_idx ON debates (status, deadline_at)",
+  "CREATE INDEX IF NOT EXISTS debates_visibility_created_at_idx ON debates (visibility, created_at)",
+  "CREATE TABLE IF NOT EXISTS debate_members (debate_id TEXT NOT NULL, member_id TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY (debate_id, member_id))",
+  "CREATE INDEX IF NOT EXISTS debate_members_member_id_idx ON debate_members (member_id)",
+  "CREATE TABLE IF NOT EXISTS debate_participants (debate_id TEXT NOT NULL, member_id TEXT NOT NULL, credential_id TEXT NOT NULL, agent_name TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY (debate_id, member_id))",
+  "CREATE INDEX IF NOT EXISTS debate_participants_credential_id_idx ON debate_participants (credential_id)",
+  "CREATE TABLE IF NOT EXISTS debate_turns (debate_id TEXT NOT NULL, position INTEGER NOT NULL, member_id TEXT NOT NULL, credential_id TEXT NOT NULL, agent_name TEXT NOT NULL, body TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY (debate_id, position))",
+  "CREATE TABLE IF NOT EXISTS debate_approvals (debate_id TEXT NOT NULL, member_id TEXT NOT NULL, approved_at INTEGER NOT NULL, PRIMARY KEY (debate_id, member_id))",
+  "CREATE TABLE IF NOT EXISTS debate_credits (debate_id TEXT NOT NULL, member_id TEXT NOT NULL, kind TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY (debate_id, member_id, kind))",
+  "CREATE INDEX IF NOT EXISTS debate_credits_member_id_idx ON debate_credits (member_id)",
 ]
 `;

@@ -5,6 +5,7 @@ import {
   type Contract,
   ConversationId,
   CredentialId,
+  DebateId,
   DraftRequestId,
   Invalid,
   type Member,
@@ -45,6 +46,23 @@ import {
 } from '../domain/contacts.ts'
 import { conversationFor, createGroupConversation, listConversations } from '../domain/conversations.ts'
 import { listCredentials, renameCredential, revokeCredential } from '../domain/credentials.ts'
+import {
+  approveResult,
+  declineResult,
+  draftResult,
+  exportDebate,
+  postResult,
+} from '../domain/debate-results.ts'
+import { seenBy } from '../domain/debate-rows.ts'
+import { takeTurn } from '../domain/debate-turns.ts'
+import {
+  createDebate,
+  debateAsks,
+  debateFor,
+  listDebates,
+  optInAgent,
+  setDebateLimits,
+} from '../domain/debates.ts'
 import {
   answerDraftRequest,
   cancelDraftRequest,
@@ -278,6 +296,48 @@ export const handlers: Handlers = {
   'draftRequests.create': ({ body }, caller) => requestDraft(caller, body),
   'draftRequests.cancel': ({ params }, caller) =>
     T.flatMap((id: DraftRequestId) => cancelDraftRequest(caller, id))(identifier(DraftRequestId, params.id)),
+
+  'debates.list': (_, caller) =>
+    T.map((debates: Awaited<ResponseOf<Contract['debates.list']>>['debates']) => ({ debates }))(
+      listDebates(caller.member.id),
+    ),
+  'debates.waiting': (_, caller) =>
+    T.map((asks: Awaited<ResponseOf<Contract['debates.waiting']>>['asks']) => ({
+      asks: asks.map((ask) => ({ ...ask, debate: seenBy(caller.member.id)(ask.debate) })),
+    }))(debateAsks(caller)),
+  'debates.get': ({ params }, caller) =>
+    T.flatMap((id: DebateId) => T.map(seenBy(caller.member.id))(debateFor(caller.member.id, id)))(
+      identifier(DebateId, params.id),
+    ),
+  'debates.create': ({ body }, caller) => T.map(seenBy(caller.member.id))(createDebate(caller, body)),
+  'debates.optIn': ({ params, body }, caller) =>
+    T.flatMap((id: DebateId) => T.map(seenBy(caller.member.id))(optInAgent(caller, id, body.agentId)))(
+      identifier(DebateId, params.id),
+    ),
+  'debates.limits.set': ({ params, body }, caller) =>
+    T.flatMap((id: DebateId) => T.map(seenBy(caller.member.id))(setDebateLimits(caller, id, body)))(
+      identifier(DebateId, params.id),
+    ),
+  'debates.turns.post': ({ params, body }, caller) =>
+    T.flatMap((id: DebateId) => T.map(seenBy(caller.member.id))(takeTurn(caller, id, body.body)))(
+      identifier(DebateId, params.id),
+    ),
+  'debates.result.draft': ({ params, body }, caller) =>
+    T.flatMap((id: DebateId) => T.map(seenBy(caller.member.id))(draftResult(caller, id, body)))(
+      identifier(DebateId, params.id),
+    ),
+  'debates.result.approve': ({ params, body }, caller) =>
+    T.flatMap((id: DebateId) => T.map(seenBy(caller.member.id))(approveResult(caller, id, body.draftedAt)))(
+      identifier(DebateId, params.id),
+    ),
+  'debates.result.decline': ({ params, body }, caller) =>
+    T.flatMap((id: DebateId) => T.map(seenBy(caller.member.id))(declineResult(caller, id, body.draftedAt)))(
+      identifier(DebateId, params.id),
+    ),
+  'debates.result.post': ({ params, body }, caller) =>
+    T.flatMap((id: DebateId) => postResult(caller, id, body))(identifier(DebateId, params.id)),
+  'debates.export': ({ params, body }, caller) =>
+    T.flatMap((id: DebateId) => exportDebate(caller, id, body.format))(identifier(DebateId, params.id)),
 
   'credentials.list': (_, caller) =>
     T.map((credentials: Awaited<ResponseOf<Contract['credentials.list']>>['credentials']) => ({

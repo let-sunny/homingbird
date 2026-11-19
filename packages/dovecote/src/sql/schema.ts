@@ -408,7 +408,73 @@ const TEACHING_AND_FIGURES: Migration = [
   },
 ]
 
-export const MIGRATIONS: ReadonlyArray<Migration> = [BASELINE, TEACHING_AND_FIGURES]
+const DEBATES: Migration = [
+  { addTo: 'notes', name: 'debate_id', column: { type: 'id', nullable: true } },
+  {
+    name: 'debates',
+    columns: {
+      id,
+      question: text,
+      visibility: string,
+      status: string,
+      created_by: id,
+      turns_per_agent: integer,
+      total_turns: integer,
+      minutes: integer,
+      turn_characters: integer,
+      created_at: integer,
+      updated_at: integer,
+      deadline_at: integer,
+      concluded_at: optionalInteger,
+      closed_at: optionalInteger,
+      result: optionalText,
+      result_by: optionalId,
+      result_at: optionalInteger,
+      result_round: integer,
+      ended_because: optionalString,
+    },
+    primaryKey: ['id'],
+    indexes: [{ columns: ['status', 'deadline_at'] }, { columns: ['visibility', 'created_at'] }],
+  },
+  {
+    name: 'debate_members',
+    columns: { debate_id: id, member_id: id, created_at: integer },
+    primaryKey: ['debate_id', 'member_id'],
+    indexes: [{ columns: ['member_id'] }],
+  },
+  {
+    name: 'debate_participants',
+    columns: { debate_id: id, member_id: id, credential_id: id, agent_name: string, created_at: integer },
+    primaryKey: ['debate_id', 'member_id'],
+    indexes: [{ columns: ['credential_id'] }],
+  },
+  {
+    name: 'debate_turns',
+    columns: {
+      debate_id: id,
+      position: integer,
+      member_id: id,
+      credential_id: id,
+      agent_name: string,
+      body: text,
+      created_at: integer,
+    },
+    primaryKey: ['debate_id', 'position'],
+  },
+  {
+    name: 'debate_approvals',
+    columns: { debate_id: id, member_id: id, approved_at: integer },
+    primaryKey: ['debate_id', 'member_id'],
+  },
+  {
+    name: 'debate_credits',
+    columns: { debate_id: id, member_id: id, kind: string, created_at: integer },
+    primaryKey: ['debate_id', 'member_id', 'kind'],
+    indexes: [{ columns: ['member_id'] }],
+  },
+]
+
+export const MIGRATIONS: ReadonlyArray<Migration> = [BASELINE, TEACHING_AND_FIGURES, DEBATES]
 
 const UNKNOWN_DATABASE =
   'This database was not made by this version of Dovecote, so it is left untouched: start Dovecote with an empty database.'

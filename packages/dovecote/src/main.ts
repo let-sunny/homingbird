@@ -1,4 +1,5 @@
 import { Task as T } from '@homingbird/kernel'
+import { backgroundEnded } from './background-pass.ts'
 import { loadConfig } from './config.ts'
 import { startServer } from './http/node-server.ts'
 import { prepareDatabase } from './prepare-database.ts'
@@ -24,6 +25,7 @@ if (prepared._tag === 'Err') {
 }
 
 const backgroundWork = T.runFork(background, env)
+void backgroundWork.exit.then((exit) => env.log(backgroundEnded(exit)))
 const server = await startServer(env, config.value.port)
 
 env.log(`Dovecote ${SERVER_VERSION} is listening on port ${server.port}, serving ${config.value.publicUrl}`)

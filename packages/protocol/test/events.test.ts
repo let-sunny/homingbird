@@ -24,6 +24,7 @@ const types: EventType[] = [
   'directory.changed',
   'channel.changed',
   'channel.left',
+  'debate.changed',
   'note.released',
   'resync',
 ]
@@ -43,8 +44,13 @@ describe('stream events', () => {
     expect([...seen].sort()).toEqual([...types].sort())
   })
 
-  it('treats presence and resync as ephemeral and everything else as durable', () => {
-    expect(types.filter((type) => !isDurable(type))).toEqual(['presence', 'directory.changed', 'resync'])
+  it('treats presence, directory and debate room changes and resync as ephemeral, and everything else as durable', () => {
+    expect(types.filter((type) => !isDurable(type))).toEqual([
+      'presence',
+      'directory.changed',
+      'debate.changed',
+      'resync',
+    ])
   })
 
   it('refuses an unknown event type and reports the discriminator', () => {

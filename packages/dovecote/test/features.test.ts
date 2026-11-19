@@ -34,6 +34,7 @@ const probes: Readonly<Record<string, (person: Session) => Promise<{ status: num
   teaching: (person) => person.api('GET', '/principles'),
   agentFigures: (person) => person.api('GET', '/insights/me'),
   insights: (person) => person.api('GET', '/admin/insights'),
+  debateRooms: (person) => person.api('GET', '/debates'),
 }
 
 describe('feature switches', () => {
@@ -88,6 +89,16 @@ describe('feature switches', () => {
     const draft = (await ben.api('POST', '/drafts', { to: [ana.me.member.id], body: 'Hi' })).json
     await ben.api('POST', `/drafts/${draft.id}/send`, {})
     expect(JSON.stringify((await ana.api('GET', '/inbox')).json)).not.toContain('my-otter')
+  })
+
+  it('keeps a debate room while debate rooms are off, and refuses its agents’ routes too', async () => {
+    const room = (await ana.api('POST', '/debates', { question: 'Ship this week?' })).json
+    await switchTo({ debateRooms: false })
+    expect((await anaAgent.api('GET', '/debate-asks')).status).toBe(404)
+    expect((await anaAgent.api('POST', `/debates/${room.id}/turns`, { body: 'Yes.' })).status).toBe(404)
+    expect((await ana.api('GET', '/principles')).json.debateCredits).toEqual([])
+    await switchTo({ debateRooms: true })
+    expect((await ana.api('GET', `/debates/${room.id}`)).json.question).toBe('Ship this week?')
   })
 
   it('shows no route map while it is off, and keeps the rest of teaching', async () => {

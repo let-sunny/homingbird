@@ -15,6 +15,9 @@ export type CredentialId = S.Infer<typeof CredentialId>
 export const DraftRequestId = prefixedId<'DraftRequestId'>('dreq')
 export type DraftRequestId = S.Infer<typeof DraftRequestId>
 
+export const DebateId = prefixedId<'DebateId'>('deb')
+export type DebateId = S.Infer<typeof DebateId>
+
 export const Timestamp = S.int({ min: 0 })
 export type Timestamp = number
 

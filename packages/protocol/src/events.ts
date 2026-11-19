@@ -1,5 +1,5 @@
 import { Schema as S } from '@homingbird/kernel'
-import { ConversationId, MemberId, NoteId } from './ids.ts'
+import { ConversationId, DebateId, MemberId, NoteId } from './ids.ts'
 import { Channel, ChannelSlug, DraftRequest, Note, RELEASE_REASON_MAX, Receipt } from './model.ts'
 
 export const EventBody = S.variants('type', {
@@ -28,6 +28,7 @@ export const EventBody = S.variants('type', {
   'directory.changed': { memberId: MemberId },
   'channel.changed': { channel: Channel },
   'channel.left': { slug: ChannelSlug, conversationId: ConversationId },
+  'debate.changed': { debateId: DebateId, participantIds: S.array(MemberId, { maxItems: 8 }) },
   resync: {},
 })
 export type EventBody = S.Infer<typeof EventBody>
@@ -40,7 +41,8 @@ export const StreamEvent = S.struct({
 })
 export type StreamEvent = S.Infer<typeof StreamEvent>
 
-const EPHEMERAL: ReadonlyArray<EventType> = ['presence', 'directory.changed', 'resync']
+/** A room's change carries no content and is not stored: a client reads the room through the API. */
+const EPHEMERAL: ReadonlyArray<EventType> = ['presence', 'directory.changed', 'debate.changed', 'resync']
 
 export const isDurable = (type: EventType): boolean => !EPHEMERAL.includes(type)
 

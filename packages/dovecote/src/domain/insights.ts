@@ -52,11 +52,12 @@ const agentActivity = (
       SELECT n.created_at, n.seen_at, n.decided_at, n.status, n.origin, n.agent_client, n.agent_model,
         n.agent_name, n.session_minutes, n.context_percent, ${PLACE_COLUMNS}
       FROM notes n ${PLACE_JOIN}
-      WHERE n.author_id = ${memberId} AND n.agent_name IS NOT NULL
+      WHERE n.author_id = ${memberId} AND n.agent_name IS NOT NULL AND n.debate_id IS NULL
       AND (n.created_at >= ${since} OR n.decided_at >= ${since})`)
     const handWritten = yield* all<DatedRow>(sql`
       SELECT n.sent_at AS at, ${PLACE_COLUMNS} FROM notes n ${PLACE_JOIN}
-      WHERE n.author_id = ${memberId} AND n.agent_name IS NULL AND n.status = 'sent' AND n.sent_at >= ${since}`)
+      WHERE n.author_id = ${memberId} AND n.agent_name IS NULL AND n.debate_id IS NULL AND n.status = 'sent'
+      AND n.sent_at >= ${since}`)
     const skips = yield* all<SkipRow>(sql`
       SELECT n.created_at AS at, n.reason, ${PLACE_COLUMNS} FROM releases n ${PLACE_JOIN}
       WHERE n.member_id = ${memberId} AND n.created_at >= ${since}
@@ -78,11 +79,11 @@ const organizationActivity = (since: number): T.Task<OrganizationActivity, never
   T.gen(function* () {
     const sent = yield* all<SentRow>(sql`
       SELECT n.id, n.author_id, n.in_reply_to, n.sent_at, ${PLACE_COLUMNS} FROM notes n ${PLACE_JOIN}
-      WHERE n.status = 'sent' AND n.sent_at >= ${since}`)
+      WHERE n.status = 'sent' AND n.debate_id IS NULL AND n.sent_at >= ${since}`)
     const drafts = yield* all<DraftRow & { author_id: string }>(sql`
       SELECT n.author_id, n.created_at, n.seen_at, n.decided_at, n.status, n.origin, n.agent_client, n.agent_model, ${PLACE_COLUMNS}
       FROM notes n ${PLACE_JOIN}
-      WHERE n.agent_name IS NOT NULL AND (n.created_at >= ${since} OR n.decided_at >= ${since})`)
+      WHERE n.agent_name IS NOT NULL AND n.debate_id IS NULL AND (n.created_at >= ${since} OR n.decided_at >= ${since})`)
     const skips = yield* all<DatedRow & { member_id: string }>(sql`
       SELECT n.member_id, n.created_at AS at, ${PLACE_COLUMNS} FROM releases n ${PLACE_JOIN}
       WHERE n.created_at >= ${since}`)

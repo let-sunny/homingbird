@@ -11,6 +11,20 @@ import {
   Recipients,
   ServerInfo,
 } from './contract-schemas.ts'
+import { DebateResult } from './debate-result.ts'
+import {
+  DEBATE_INVITEES_MAX,
+  DEBATE_TURN_MAX,
+  Debate,
+  DebateAsk,
+  DebateDecision,
+  DebateExport,
+  DebateExportFormat,
+  DebateLimits,
+  DebateQuestion,
+  DebateSummary,
+  DebateVisibility,
+} from './debates.ts'
 import type { ApiError } from './errors.ts'
 import { StreamEvent } from './events.ts'
 import { ConversationId, CredentialId, DraftRequestId, MemberId, NoteId } from './ids.ts'
@@ -427,6 +441,92 @@ export const contract = {
     path: '/draft-requests/:id/cancel',
     access: 'human',
     response: DraftRequest,
+  }),
+
+  'debates.list': route({
+    method: 'GET',
+    path: '/debates',
+    access: 'member',
+    response: S.struct({ debates: S.array(DebateSummary) }),
+  }),
+  'debates.waiting': route({
+    method: 'GET',
+    path: '/debate-asks',
+    access: 'member',
+    response: S.struct({ asks: S.array(DebateAsk) }),
+  }),
+  'debates.get': route({ method: 'GET', path: '/debates/:id', access: 'member', response: Debate }),
+  'debates.create': route({
+    method: 'POST',
+    path: '/debates',
+    access: 'human',
+    body: S.struct({
+      question: DebateQuestion,
+      visibility: S.optional(DebateVisibility),
+      limits: S.optional(DebateLimits),
+      memberIds: S.optional(S.array(MemberId, { maxItems: DEBATE_INVITEES_MAX })),
+    }),
+    response: Debate,
+  }),
+  'debates.optIn': route({
+    method: 'PUT',
+    path: '/debates/:id/agent',
+    access: 'human',
+    body: S.struct({ agentId: CredentialId }),
+    response: Debate,
+  }),
+  'debates.limits.set': route({
+    method: 'PUT',
+    path: '/debates/:id/limits',
+    access: 'human',
+    body: DebateLimits,
+    response: Debate,
+  }),
+  'debates.turns.post': route({
+    method: 'POST',
+    path: '/debates/:id/turns',
+    access: 'member',
+    body: S.struct({ body: S.string({ minLength: 1, maxLength: DEBATE_TURN_MAX }) }),
+    response: Debate,
+  }),
+  'debates.result.draft': route({
+    method: 'PUT',
+    path: '/debates/:id/result',
+    access: 'member',
+    body: DebateResult,
+    response: Debate,
+  }),
+  'debates.result.approve': route({
+    method: 'POST',
+    path: '/debates/:id/result/approval',
+    access: 'human',
+    body: DebateDecision,
+    response: Debate,
+  }),
+  'debates.result.decline': route({
+    method: 'POST',
+    path: '/debates/:id/result/decline',
+    access: 'human',
+    body: DebateDecision,
+    response: Debate,
+  }),
+  'debates.result.post': route({
+    method: 'POST',
+    path: '/debates/:id/result/post',
+    access: 'human',
+    body: S.struct({
+      conversationId: S.optional(ConversationId),
+      to: S.optional(MemberId),
+      channel: S.optional(ChannelSlug),
+    }),
+    response: Note,
+  }),
+  'debates.export': route({
+    method: 'POST',
+    path: '/debates/:id/export',
+    access: 'human',
+    body: S.struct({ format: DebateExportFormat }),
+    response: DebateExport,
   }),
 
   'credentials.list': route({

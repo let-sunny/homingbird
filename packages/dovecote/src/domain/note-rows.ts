@@ -2,6 +2,7 @@ import { Task as T } from '@homingbird/kernel'
 import {
   type ConversationId,
   type CredentialId,
+  type DebateId,
   type MemberId,
   type Note,
   type NoteId,
@@ -36,6 +37,7 @@ export interface NoteRow {
   readonly agent_model: string | null
   readonly session_minutes: number | null
   readonly context_percent: number | null
+  readonly debate_id: DebateId | null
 }
 
 export const PICKUP_GRACE_MS = 10 * 60_000
@@ -51,8 +53,9 @@ export const hydrateNotes = (
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
     const details = rows.some((row) => row.agent_name !== null) && (yield* featureIsOn('noteDetails'))
+    const debates = yield* debatesBehind(rows)
     const sentIds = rows.filter((row) => row.status === 'sent').map((row) => row.id)
-    if (sentIds.length === 0) return rows.map((row) => toNote(row, [], viewerId, details))
+    if (sentIds.length === 0) return rows.map((row) => toNote(row, [], viewerId, details, debates))
     const receiptRows = yield* all<ReceiptRow>(
       sql`SELECT * FROM receipts WHERE note_id IN ${list(sentIds)} ORDER BY member_id`,
     )
@@ -76,7 +79,37 @@ export const hydrateNotes = (
         ),
         viewerId,
         details,
+        debates,
       ),
+    )
+  })
+
+type DebateOrigin = NonNullable<Note['fromDebate']>
+
+/** The debate rooms some of these notes were posted from: their question and agents, by display name. */
+const debatesBehind = (
+  rows: ReadonlyArray<NoteRow>,
+): T.Task<ReadonlyMap<DebateId, DebateOrigin>, never, AppEnv> =>
+  T.gen(function* () {
+    const ids = [...new Set(rows.flatMap((row) => (row.debate_id ? [row.debate_id] : [])))]
+    if (ids.length === 0) return new Map()
+    const rooms = yield* all<{ id: DebateId; question: string }>(
+      sql`SELECT id, question FROM debates WHERE id IN ${list(ids)}`,
+    )
+    const agents = yield* all<{ debate_id: DebateId; agent_name: string; name: string }>(sql`
+      SELECT p.debate_id, p.agent_name, m.name FROM debate_participants p JOIN members m ON m.id = p.member_id
+      WHERE p.debate_id IN ${list(ids)} ORDER BY p.created_at, p.member_id`)
+    return new Map(
+      rooms.map((room) => [
+        room.id,
+        {
+          debateId: room.id,
+          question: room.question,
+          agents: agents
+            .filter((one) => one.debate_id === room.id)
+            .map((one) => ({ agent: one.agent_name, person: one.name })),
+        },
+      ]),
     )
   })
 
@@ -100,6 +133,7 @@ const toNote = (
   receipts: ReadonlyArray<Receipt>,
   viewerId: MemberId | null,
   details: boolean,
+  debates: ReadonlyMap<DebateId, DebateOrigin>,
 ): Note => ({
   id: row.id,
   conversationId: row.conversation_id,
@@ -115,6 +149,7 @@ const toNote = (
   receipts,
   ...(row.author_id === viewerId && { basis: row.basis }),
   ...(details && row.agent_name !== null && { agentClient: row.agent_client, agentModel: row.agent_model }),
+  ...(row.debate_id && debates.has(row.debate_id) && { fromDebate: debates.get(row.debate_id)! }),
 })
 
 const toReceipt = (row: ReceiptRow, replyDraftStartedAt: number | null, now: number): Receipt => {

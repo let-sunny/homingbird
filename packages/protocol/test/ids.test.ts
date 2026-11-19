@@ -2,9 +2,24 @@ import type { Schema } from '@homingbird/kernel'
 import { arbitrary } from '@homingbird/kernel/testing'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { ConversationId, CredentialId, DraftRequestId, MemberId, NoteId, Timestamp } from '../src/ids.ts'
+import {
+  ConversationId,
+  CredentialId,
+  DebateId,
+  DraftRequestId,
+  MemberId,
+  NoteId,
+  Timestamp,
+} from '../src/ids.ts'
 
-const ids = { mem: MemberId, conv: ConversationId, note: NoteId, cred: CredentialId, dreq: DraftRequestId }
+const ids = {
+  mem: MemberId,
+  conv: ConversationId,
+  note: NoteId,
+  cred: CredentialId,
+  dreq: DraftRequestId,
+  deb: DebateId,
+}
 
 describe('ids', () => {
   it.each(Object.entries(ids))('builds a %s id that its own schema accepts', (prefix, schema) => {

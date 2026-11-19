@@ -1,7 +1,7 @@
 import { Schema as S } from '@homingbird/kernel'
 import { ANSWERING_FLOW_MAX_CHARACTERS } from './answering-flow.ts'
 import { CharacterSpec } from './character.ts'
-import { ConversationId, CredentialId, DraftRequestId, MemberId, NoteId, Timestamp } from './ids.ts'
+import { ConversationId, CredentialId, DebateId, DraftRequestId, MemberId, NoteId, Timestamp } from './ids.ts'
 
 export const NOTE_BODY_MAX = 16_000
 export const NoteBody = S.refine<string>(
@@ -144,6 +144,17 @@ export const Note = S.struct({
   basis: S.optional(S.nullable(NoteBasis)),
   agentClient: S.optional(S.nullable(AgentLabel)),
   agentModel: S.optional(S.nullable(AgentLabel)),
+  /** A debate room's approved result, posted by a person whose agent took part: which room, which agents. */
+  fromDebate: S.optional(
+    S.struct({
+      debateId: DebateId,
+      question: S.string({ maxLength: 500 }),
+      agents: S.array(
+        S.struct({ agent: S.string({ maxLength: 200 }), person: S.string({ maxLength: 200 }) }),
+        { maxItems: 8 },
+      ),
+    }),
+  ),
 })
 export type Note = S.Infer<typeof Note>
 

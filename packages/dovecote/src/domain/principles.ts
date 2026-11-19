@@ -33,6 +33,7 @@ import type { AppEnv } from '../environment.ts'
 import { all, dialect, first, inTransaction, run } from '../sql/database.ts'
 import { insertIgnoringConflict, insertInto, list, sql } from '../sql/query.ts'
 import { participatedConversation } from './conversations.ts'
+import { debateAchievementsOf, debateCreditsOf } from './debate-credits.ts'
 import { agentReportFor } from './insights.ts'
 import type { NoteRow } from './note-rows.ts'
 import { PLACE_COLUMNS, PLACE_JOIN, type PlaceRow, placeOf, placeOfConversation } from './places.ts'
@@ -46,18 +47,22 @@ export const myPrinciples = (memberId: MemberId): T.Task<MyPrinciples, never, Ap
     const principles = yield* principlesOf(memberId)
     const figures = yield* featureIsOn('agentFigures')
     const week = figures ? (yield* agentReportFor(memberId)).periods[0]!.current : null
+    const debateCredits = (yield* featureIsOn('debateRooms')) ? yield* debateCreditsOf(memberId) : []
     return {
       principles: principles.map((principle) => shownWith(principle, figures)),
       offers: yield* openOffers(memberId),
       routes: (yield* featureIsOn('routeMap')) ? yield* routeMap(memberId, principles, env.clock.now()) : [],
-      achievements:
-        week === null
+      achievements: [
+        ...(week === null
           ? []
           : achievementsOf(
               principles,
               week.sentAsWritten + week.sentAfterEdits + week.discarded,
               week.quickApprovals,
-            ),
+            )),
+        ...debateAchievementsOf(debateCredits),
+      ],
+      debateCredits,
       limit: PRINCIPLES_PER_PERSON,
     }
   })
@@ -279,7 +284,7 @@ export const offerAfterDecision = (draft: NoteRow, sentBody: string | null): T.T
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
     const agentText = draft.agent_body
-    if (draft.agent_name === null || agentText === null) return
+    if (draft.agent_name === null || agentText === null || draft.debate_id) return
     if (sentBody !== null && !isSubstantialEdit(agentText, sentBody)) return
     if (!(yield* featureIsOn('teaching'))) return
     const place = yield* placeOfConversation(draft.conversation_id)
@@ -458,7 +463,7 @@ const principlesOf = (memberId: MemberId): T.Task<CountedPrinciple[], never, App
     if (rows.length === 0) return []
     const applications = yield* all<ApplicationRow>(sql`
       SELECT a.principle_id, n.status, n.origin, n.decided_at, a.missed_at
-      FROM principle_applications a JOIN notes n ON n.id = a.note_id
+      FROM principle_applications a JOIN notes n ON n.id = a.note_id AND n.debate_id IS NULL
       WHERE a.principle_id IN ${list(rows.map((row) => row.id))}`)
     const byPrinciple = Map.groupBy(applications, (application) => application.principle_id)
     return rows.map((row) => toPrinciple(row, byPrinciple.get(row.id) ?? []))
@@ -521,7 +526,8 @@ const routeMap = (
   T.gen(function* () {
     const drafts = yield* all<PlaceRow & { status: string; origin: string; decided_at: number | null }>(sql`
       SELECT n.status, n.origin, n.decided_at, ${PLACE_COLUMNS} FROM notes n ${PLACE_JOIN}
-      WHERE n.author_id = ${memberId} AND n.agent_name IS NOT NULL AND n.created_at > ${now - ROUTE_DAYS * DAY_MS}`)
+      WHERE n.author_id = ${memberId} AND n.agent_name IS NOT NULL AND n.debate_id IS NULL
+      AND n.created_at > ${now - ROUTE_DAYS * DAY_MS}`)
     const byPlace = Map.groupBy(drafts, (draft) => placeOf(draft))
     const places = new Set<PlaceName>([...byPlace.keys(), ...principles.map((principle) => principle.place)])
     return [...places]

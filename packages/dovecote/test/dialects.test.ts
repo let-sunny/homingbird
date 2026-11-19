@@ -188,7 +188,7 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
     try {
       expect(await migrated(database)).toEqual({ _tag: 'Ok', value: undefined })
       expect(await migrated(database)).toEqual({ _tag: 'Ok', value: undefined })
-      expect(await versionsOf(database)).toEqual([1, 2])
+      expect(await versionsOf(database)).toEqual([1, 2, 3])
       expect(await database.all(raw('SELECT archived_at FROM conversations'))).toEqual([])
     } finally {
       await database.close()
@@ -196,12 +196,40 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
   })
 
   it.skipIf(url === undefined)(
+    'adds the debate room tables as step 3 to a database that has steps 1 and 2, keeping its rows',
+    async () => {
+      const database = await emptyDatabase()
+      try {
+        expect(await migrated(database, MIGRATIONS.slice(0, 2))).toEqual({ _tag: 'Ok', value: undefined })
+        await database.run(raw(MEMBER_ROW))
+        expect(await database.all(raw('SELECT id FROM debates')).catch(() => 'no debates table')).toBe(
+          'no debates table',
+        )
+        expect(await migrated(database)).toEqual({ _tag: 'Ok', value: undefined })
+        expect(await versionsOf(database)).toEqual([1, 2, 3])
+        for (const table of [
+          'debates',
+          'debate_members',
+          'debate_participants',
+          'debate_turns',
+          'debate_approvals',
+          'debate_credits',
+        ])
+          expect(await database.all(raw(`SELECT * FROM ${table}`))).toEqual([])
+        expect((await database.all(raw('SELECT id FROM members'))).map((row) => row.id)).toEqual(['mem_kept'])
+      } finally {
+        await database.close()
+      }
+    },
+  )
+
+  it.skipIf(url === undefined)(
     'refuses a database that records versions this build does not know, and changes nothing in it',
     async () => {
       const database = await emptyDatabase()
       try {
         await migrated(database)
-        for (const version of [3, 4, 5, 6, 7, 8])
+        for (const version of [4, 5, 6, 7, 8])
           await database.run(raw(`INSERT INTO schema_versions (version) VALUES (${version})`))
         await database.run(raw(MEMBER_ROW))
         expect(await migrated(database)).toEqual(REFUSAL)
@@ -225,7 +253,7 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
         await database.run(raw(CONVERSATION_ROW))
         await database.run(raw(NOTE_ROW))
         expect(await migrated(database)).toEqual({ _tag: 'Ok', value: undefined })
-        expect(await versionsOf(database)).toEqual([1, 2])
+        expect(await versionsOf(database)).toEqual([1, 2, 3])
         expect(
           await database.all(
             raw('SELECT id, body, seen_at, decided_at, agent_body, agent_client, agent_model FROM notes'),
@@ -266,7 +294,7 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
         expect(half.some((statement) => statement.startsWith('CREATE INDEX'))).toBe(true)
         for (const statement of half) await database.run(raw(statement))
         expect(await migrated(database)).toEqual({ _tag: 'Ok', value: undefined })
-        expect(await versionsOf(database)).toEqual([1, 2])
+        expect(await versionsOf(database)).toEqual([1, 2, 3])
         expect(await database.all(raw('SELECT agent_body, session_minutes FROM notes'))).toEqual([])
       } finally {
         await database.close()

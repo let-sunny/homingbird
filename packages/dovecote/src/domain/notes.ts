@@ -2,6 +2,7 @@ import { Task as T } from '@homingbird/kernel'
 import {
   Conflict,
   type ConversationId,
+  type DebateId,
   type DeskSession,
   Forbidden,
   type InboxItem,
@@ -42,6 +43,8 @@ export interface DraftDestination {
 
 export interface DraftTarget extends DraftDestination {
   readonly body: string
+  /** The debate room whose approved result this draft carries; its agents wrote it, so it is the agents' note. */
+  readonly fromDebate?: DebateId
   readonly basis?: string
   readonly client?: string
   readonly model?: string
@@ -69,7 +72,7 @@ export const createDraft = (caller: Caller, target: DraftTarget): T.Task<Note, N
       status: 'draft',
       body: target.body,
       in_reply_to: target.inReplyTo ?? null,
-      origin: isHuman(caller) ? 'human' : 'agent',
+      origin: isHuman(caller) && target.fromDebate === undefined ? 'human' : 'agent',
       agent_name: isHuman(caller) ? null : caller.credential.name,
       credential_id: caller.credential.id,
       created_at: now,
@@ -83,6 +86,7 @@ export const createDraft = (caller: Caller, target: DraftTarget): T.Task<Note, N
       agent_model: isHuman(caller) ? null : (target.model?.trim() ?? null),
       session_minutes: isHuman(caller) ? null : (target.session?.ageMinutes ?? null),
       context_percent: isHuman(caller) ? null : (target.session?.contextPercent ?? null),
+      debate_id: target.fromDebate ?? null,
     }
     yield* run(insertInto('notes', { ...row }))
     if (!isHuman(caller)) yield* recordApplications(authorId, row.id, row.basis)

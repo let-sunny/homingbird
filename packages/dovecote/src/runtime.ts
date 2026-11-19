@@ -3,11 +3,13 @@ import { makeClientMetadataDocuments } from './auth/client-metadata.ts'
 import { type Fetch, developmentProvider, openIdConnectProvider } from './auth/identity-provider.ts'
 import { isLoopbackHost } from './auth/redirect-policy.ts'
 import { deleteExpiredAuthRequests } from './auth/requests.ts'
+import { survivingPass } from './background-pass.ts'
 import type { Config } from './config.ts'
 import { type AuditRecord, deleteAuditBefore } from './domain/audit.ts'
-import { readSettings } from './domain/settings.ts'
+import { concludeOverdueDebates } from './domain/debate-turns.ts'
+import { featureIsOn, readSettings } from './domain/settings.ts'
 import type { AppEnv } from './environment.ts'
-import { deleteEventsBefore } from './events/events.ts'
+import { deleteEventsBefore, transact } from './events/events.ts'
 import { PRESENCE_FLUSH_INTERVAL_MS, makeHub } from './events/hub.ts'
 import { makeRateLimiter } from './http/rate-limiter.ts'
 import { makePushNotifier, sendTestPush } from './push/notifier.ts'
@@ -58,7 +60,7 @@ export const buildRuntime = (parts: RuntimeParts): Runtime => {
   }
   return {
     env,
-    background: T.race([housekeeping, presenceBroadcast, forwarder.run, push.run]),
+    background: T.race([housekeeping, debateDeadlines, presenceBroadcast, forwarder.run, push.run]),
     settled: T.gen(function* () {
       yield* push.settled
       yield* forwarder.settled
@@ -76,10 +78,21 @@ export const housekeepingPass: T.Task<void, never, AppEnv> = T.gen(function* () 
     yield* deleteAuditBefore(now - settings.auditRetentionDays * DAY_MS)
 })
 
-export const housekeeping: T.Task<never, never, AppEnv> = T.forever(60 * 60_000)(housekeepingPass)
+export const housekeeping: T.Task<never, never, AppEnv> = T.forever(60 * 60_000)(
+  survivingPass('housekeeping', housekeepingPass),
+)
+
+/** A room whose time ran out stops within a minute, even if nobody looks at it, while debate rooms are on. */
+export const debateDeadlinePass: T.Task<void, never, AppEnv> = T.flatMap((on: boolean) =>
+  on ? transact(concludeOverdueDebates) : T.unit,
+)(featureIsOn('debateRooms'))
+
+export const debateDeadlines: T.Task<never, never, AppEnv> = T.forever(60_000)(
+  survivingPass('debate deadlines', debateDeadlinePass),
+)
 
 export const presenceBroadcast: T.Task<never, never, AppEnv> = T.forever(PRESENCE_FLUSH_INTERVAL_MS)(
-  T.map((env: AppEnv) => env.hub.flushPresence())(T.ask<AppEnv>()),
+  survivingPass('presence', T.map((env: AppEnv) => env.hub.flushPresence())(T.ask<AppEnv>())),
 )
 
 const DAY_MS = 24 * 60 * 60_000

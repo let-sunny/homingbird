@@ -84,6 +84,7 @@ describe('wire model', () => {
         'body',
         'conversationId',
         'createdAt',
+        'fromDebate',
         'id',
         'inReplyTo',
         'origin',

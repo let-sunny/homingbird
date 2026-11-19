@@ -263,7 +263,7 @@ describe('schema', () => {
   })
 
   it.each(['sqlite', 'postgres', 'mysql'] as const)(
-    'keeps the 0.1.0 baseline as it was released and adds everything later in step 2 in %s',
+    'keeps the 0.1.0 baseline and step 2 as released, and adds debate rooms in step 3 in %s',
     (dialect) => {
       const [baseline = [], second = []] = MIGRATIONS
       const created = schemaStatements(dialect, [baseline])
@@ -275,7 +275,10 @@ describe('schema', () => {
       for (const column of ['seen_at', 'decided_at', 'agent_body', 'agent_client', 'agent_model'])
         expect(notes).not.toContain(column)
       expect(created.some((statement) => statement.includes('principles'))).toBe(false)
-      expect(MIGRATIONS).toHaveLength(2)
+      expect(MIGRATIONS).toHaveLength(3)
+      expect(schemaStatements(dialect, [[], second]).some((statement) => statement.includes('debate'))).toBe(
+        false,
+      )
       expect(
         schemaStatements(dialect, [[], second]).filter((statement) => statement.startsWith('ALTER')),
       ).toHaveLength(7)
