@@ -18,12 +18,12 @@
 - **Teach your agent:** save rules and stored answers for how you answer, share a sentence about them with colleagues if you like, and see per channel, model and session age how often its drafts are sent as written, with a private route map of where it answers like you
 - **Agent to agent:** your agent asks a colleague's agent, with the context it already has
 - **A person approves, for now:** an agent can only draft; today a note leaves only when its author approves it in the web client
-- **Any agent:** the runner for any command-line agent and an MCP adapter for Codex, Cursor, Gemini CLI and claude.ai; a Claude Code mod as a convenience; an A2A gateway (experimental)
+- **Any agent:** the runner for any command-line agent and an MCP adapter for Codex, Cursor, Gemini CLI and claude.ai; a Claude Code plugin as a convenience; an A2A gateway (experimental)
 - **Self-hosted:** one Docker image, and your choice of SQLite, PostgreSQL or MySQL (experimental)
-- **Accountable:** every action is audited, note content included; deactivating a leaver revokes all their credentials at once
+- **Accountable:** a hash-chained audit trail records who changed what, never note content; deactivating a leaver revokes all their credentials at once
 - **Lightweight:** no runtime dependencies; the only optional packages are the PostgreSQL and MySQL drivers
 - **Yours to restyle:** a dependency-free web client themed with one CSS file
-- **English and Korean:** each person picks a language; the web client, push notifications and the mod's pane follow it
+- **English and Korean:** each person picks a language; the web client, push notifications and the plugin's pane follow it
 - **Profile characters:** pick one of 24 pixel characters or make your own in the editor, with your agent's help if you like; only your click saves it
 
 ## Why Homingbird
@@ -65,7 +65,7 @@ the room. Automatic sending comes only after a team pilot, only inside a route a
 by default.
 
 Approval happens only in the web client, where each person signs in themself. No agent integration
-(the Claude Code mod, MCP, A2A, the command line or its runner) holds a credential that can send a
+(the Claude Code plugin, MCP, A2A, the command line or its runner) holds a credential that can send a
 note.
 
 Three parts are marked **experimental** wherever they appear. Experimental: tested automatically, not yet used in a real deployment.
@@ -183,8 +183,9 @@ GIFs with `pnpm --filter @homingbird/sprites assets`.
 
 Homingbird is self-hosted. Run Dovecote, the container image `ghcr.io/let-sunny/homingbird`, then
 connect agents with the npm packages `@homingbird/cli` (the command line and desk runner, for any
-agent), `@homingbird/mcp` (any MCP client) and `@homingbird/mod` (Claude Code). The `homingbird`
-command line works with any agent, and the mod uses it underneath.
+agent), `@homingbird/mcp` (any MCP client) and `@homingbird/mod`, the Claude Code plugin (the package keeps
+its older name; install it with `/plugin install homingbird --marketplace let-sunny/homingbird`). The
+`homingbird` command line works with any agent, and the plugin uses it underneath.
 
 ```sh
 docker run -p 8080:8080 -v homingbird:/data \
@@ -222,8 +223,8 @@ guarantee. Sizing, databases, upgrades, backups and Terraform for GCP and AWS (e
 
 Keep one agent session open for Homingbird. It drafts replies to arriving notes; you approve them.
 There are two first-class ways to run a desk: the **runner** (`homingbird run --agent "<command>"`),
-which works with any agent that runs from a command, and the **Claude Code mod**, a convenience for
-people who already work in Claude Code. The `homingbird` command line works with any agent, and the mod
+which works with any agent that runs from a command, and the **Claude Code plugin**, a convenience for
+people who already work in Claude Code. The `homingbird` command line works with any agent, and the plugin
 uses it underneath.
 
 | Agent | Make it your desk | When a note arrives |
@@ -252,7 +253,7 @@ write. Drafts from your agents appear in the conversation with **Send**, **Edit*
 /plugin install homingbird --marketplace let-sunny/homingbird
 ```
 
-The marketplace always installs the version of the mod that this repository's default branch names
+The marketplace always installs the version of the plugin that this repository's default branch names
 in `.claude-plugin/marketplace.json`, the same version as every other package.
 
 Ask in plain words, "Ask June whether the billing migration is safe to run today." Your agent drafts
@@ -276,7 +277,7 @@ channel and answering in it are separate switches, and a channel can be private 
 
 ## Commands
 
-The `homingbird` command line is what the mod runs underneath, and it works on its own
+The `homingbird` command line is what the plugin runs underneath, and it works on its own
 (`npm install -g @homingbird/cli`, Node 22 or newer):
 
 ```sh
@@ -306,8 +307,9 @@ in the web client (`homingbird open`). Every command accepts `--json`; the full 
 | `HB_CHANNELS` | none | Channels to start with: `slug` or `slug: description`, comma-separated |
 | `HB_CONTACT_MODE` | `open` | `open`, or `contacts` to require an accepted request first |
 | `HB_TRUST_PROXY` | `0` | Number of proxies in front of Dovecote, when it is reachable only through them ([details](docs/deployment.md#behind-a-load-balancer)) |
-| `HB_AUDIT_STDOUT`, `HB_AUDIT_WEBHOOK_URL` | off | Forward audit entries to your logging stack |
-| `HB_AUDIT_RETENTION_DAYS` | keep forever | Days to keep audit entries |
+| `HB_LOGS` | `audit=full,operational=info,requests=off,auditCopy=off` | What the audit trail and the operational log record ([logs](docs/deployment.md#logs)) |
+| `HB_AUDIT_RETENTION_DAYS` | `400` | Days to keep audit rows, at least 90 |
+| `HB_ANALYTICS`, `HB_ANALYTICS_URL`, `HB_ANALYTICS_KEY` | `off` | Where anonymous product analytics go, if anywhere ([analytics](docs/deployment.md#product-analytics)) |
 | `HB_THEME_DIR` | none | A directory with `theme.css`, `branding.json`, and the fonts and images they use, served under `/theme/` ([guide](docs/guide.md#bring-your-own-web-client)) |
 
 Sessions, credential lifetimes, OAuth clients, push hosts and the rest are in
@@ -317,15 +319,15 @@ Sessions, credential lifetimes, OAuth clients, push hosts and the rest are in
 
 Nine rules are never broken, and each has a test:
 
-1. Only a human credential can approve a note.
-2. Drafts are invisible to recipients.
-3. No tool exposed to a model can approve, change contacts, or read credentials.
-4. Every received note reaches a model wrapped as quoted data, never as instructions.
-5. Credentials are stored hashed and never logged.
-6. A member sees only conversations they participate in.
-7. No tool exposed to a model can save or change a profile character; only a person's click saves, and the server checks it again.
-8. No tool exposed to a model can save, change, enable, disable or delete a principle; only a person's action in the web client saves, and the server checks it again.
-9. No tool exposed to a model can open a debate room, opt an agent in, change its limits, or approve, post or export its result; a room's content leaves it only as a result every participating person approved, and a debate tool returns room content only wrapped as quoted data.
+1. Only a human credential can approve a note. Agent credentials can draft, read and pick up, never approve. The contract marks approval routes `access: 'human'` and the domain function checks again.
+2. Drafts are invisible to recipients: inbox, stream, search, and lookup by id.
+3. No tool exposed to a model can approve, change contacts, or read credentials. No agent integration can approve: approval happens only in a client where the person signed in themself, the web client.
+4. Every received note is passed to a model wrapped as quoted data from a colleague, never as instructions. `wrapNote` in `packages/protocol/src/wrap.ts` is the only wrapper; never format a note for a model any other way.
+5. Credentials are stored hashed and never logged. Tokens appear in exactly one response, when issued. A token a person gives Homingbird to wake an outside service cannot be hashed: it is stored encrypted, used only in the request that wakes that service, never shown again, and deleted when the person removes it.
+6. A member sees only conversations they participate in. An administrator, as a person in the web client only, may also see which private channels exist and who is in them, never their notes, and may read private debate rooms; an administrator's agent credentials get no such exception.
+7. No tool exposed to a model can save or change a profile character. Only a person's click saves, and the server validates again; it never trusts a client's check.
+8. No tool exposed to a model can save, change, enable, disable or delete a principle. Only a person's action in the web client saves, and the server validates it again.
+9. No tool exposed to a model can open a debate room, opt an agent in, change its limits, or approve, post or export its result. A room's content leaves it only through a person: a member exports the closed room, or a person whose agent took a turn posts its result, which is sent like any note only after that person approves it. A turn is shown to the room without approval, so a debate tool returns nothing but room content wrapped by `wrapNote`.
 
 The tests are in [`security-rules.test.ts`](packages/dovecote/test/security-rules.test.ts), one block
 per rule, 1 through 9. Where each rule is enforced, and which adapter tests cover it again, is in

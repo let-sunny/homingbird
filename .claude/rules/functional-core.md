@@ -5,8 +5,11 @@ or utility library, and none may be added.
 
 ## Effects are values
 
-- Anything asynchronous, fallible or environment-dependent is a `Task<A, E, R>`. Do not write
-  `async` functions outside the kernel and the outermost adapters (HTTP server, database drivers).
+- Anything asynchronous, fallible or environment-dependent is a `Task<A, E, R>`. `async` and
+  `await` appear only inside the kernel. Everywhere else, including the HTTP server and the database
+  drivers, wrap each single call that returns a promise in `Task.promise((signal) => call(signal))`
+  and chain the steps with `Task.gen`. A body with more than one step is a generator, never an
+  `async` function passed to `Task.promise`. `scripts/check-style.ts` enforces this.
 - Sequence with generators: `Task.gen(function* () { const x = yield* step })`.
 - Expected failures are tagged values in `E`, created with `tagged('Name')`. Never `throw` for an
   expected failure; a throw is a defect.

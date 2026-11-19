@@ -11,6 +11,11 @@ paths:
 - Responsive layout uses container queries (`@container`) only. No viewport media queries for layout;
   `@media` is allowed for user preferences (`prefers-reduced-motion`, `prefers-color-scheme`) and input
   capabilities (`hover`, `pointer`).
+- A view is two functions: a pure view model that turns state into plain data (what to show, in what
+  order, with which words), and a render that only turns that data into DOM. A view receives its
+  state, its actions and its clock as arguments; it never reads a global or calls the API itself.
+  Every view model has a unit test; renders are tested against the fake DOM in
+  `@homingbird/ui/testing`, and the end-to-end tests only check that the pages connect.
 - Prefer the platform over script: `popover`, `<dialog>`, `command`/`commandfor`, `:has()`, anchor
   positioning, `@starting-style`, view transitions, scroll-driven animations. Script is for data.
 - Newer features are progressive enhancement: the page must work without them. Guard with `@supports`.

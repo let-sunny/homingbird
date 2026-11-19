@@ -2,7 +2,8 @@
 
 What comes next, in order: this release (My agent, teaching with rules and stored answers, the agent
 introduction, session health and the always-on runner), debate rooms, a UI and UX improvement stage, a
-refactoring pass, a pilot with a real team, then answering on its own. Items marked **Built** are done;
+refactoring pass, groups and channel agents, the cloud desk, more insights, a pilot with a real team,
+then answering on its own. Items marked **Built** are done;
 everything else is not built yet. Open an issue to discuss one before starting.
 
 ## This release: My agent and an agent that is always on
@@ -11,7 +12,7 @@ everything else is not built yet. Open an issue to discuss one before starting.
 a source, still approved by a person); the agent introduction (a per-item Public toggle with a sentence
 written for colleagues, shown in the people list); session health (each agent draft records its desk
 session's age and, where the integration knows it, context use; My agent shows edit and discard rates by
-session, and the mod pane and My agent → Connection suggest a fresh session); and the always-on runner
+session, and the plugin pane and My agent → Connection suggest a fresh session); and the always-on runner
 service. Still to come from this release:
 
 - Context use for MCP desks is self-reported, like the model; measure it where an MCP host exposes it.
@@ -28,16 +29,22 @@ left by renames and removals, split files that answer more than one question, gi
 same-named test (the lint warning list), run mutation tests on `kernel` and `protocol`, measure the
 administrator Insights aggregation and the event fan-out at pilot size, and run the full live test again.
 
-A pilot with a real team starts after that and before **answering on its own** (automatic sending and
+After it come **groups and channel agents**, then **the cloud desk** (a desk woken through a URL a
+person registers, below), then **more insights** (per group and per channel agent). A pilot with a
+real team starts after that and before **answering on its own** (automatic sending and
 judging its scope, described under "An agent that earns trust"); the numbers from that pilot decide
 whether, and where, automatic sending opens.
 
 ## Debate rooms
 
-**Built** as described below ([guide](guide.md#debate-rooms)). Still to come:
+**Built** as described below ([guide](guide.md#debate-rooms)), with the result settled by the agents'
+vote among their drafts, a room that never waits for an agent that dropped out and closes with one
+agent left, a grace chosen at setup, limits fixed once the debate starts, private rooms readable by an
+administrator as a person, as private channels are, and exports in the exporting person's language.
+Still to come:
 
 - **A short debate before answering alone.** An option for an agent, before it drafts an answer on its
-  own, to hold a short debate with colleagues' agents and draft from the approved result. It waits for
+  own, to hold a short debate with colleagues' agents and draft from the settled result. It waits for
   answering on its own, and the person still approves what is sent.
 - Adding members to a private room after it is opened, and taking an agent out of a room.
 
@@ -49,15 +56,17 @@ a limited number of turns and produce one result. Open or private, like channels
   is sent without them.
 - **Opt-in per room.** Each participant's person opts their agent in for that room; an agent never joins
   by itself.
-- **Limits are settings people choose:** maximum turns per agent and in total, a time limit and a length
-  cap per turn. The room stops at the limit and asks for the result.
+- **Limits are settings people choose** at setup, before the first turn: maximum turns per agent and in
+  total, a time limit, a length cap per turn, and the grace after which an unseen agent drops out (5,
+  10 or 30 minutes). The room stops at the limit and asks for the result.
 - **Turns are untrusted input.** Each agent reads the others' turns as quoted data from colleagues,
   through `wrapNote`. Agents in a debate run without action tools (read-only sources their person
   allowed; split mode recommended), and nothing in a turn can make an agent send, change contacts or
   touch credentials.
-- **The result is a draft.** When the turns run out, the room always produces one of two results, and it
-  leaves the room (to a channel, a direct message or a document) only when the people whose agents took
-  part approve it, each in the web client:
+- **The agents settle the result; a person takes it out.** When the turns run out, the agents draft and
+  vote, and the room always produces one of two results. It leaves the room only through a person: a
+  person whose agent took a turn posts it to a channel or a direct message as a draft of theirs, which
+  they send, or a member exports the closed room:
   1. **A conclusion summary** when the agents agreed: the conclusion, the reasons, and what each
      participant contributed.
   2. **A "no conclusion" analysis** when they did not: where they disagreed and why, above all
@@ -74,12 +83,13 @@ a limited number of turns and produce one result. Open or private, like channels
   and becomes read-only; it is never reopened, and a new question is a new room.
 - **Exportable.** A member can export the whole transcript and the result (the conclusion summary or the
   "no conclusion" analysis) as Markdown, and as JSON for tools, with participants named by display name.
-  Exporting a private room is open to its members only and is recorded in the audit log.
-- **Private rooms:** only members see the turns and the result; the audit log records everything, as
-  elsewhere.
+  Exporting a private room is open to its members only and is recorded in the audit trail.
+- **Private rooms:** only members see the turns and the result, and administrators when they sign in
+  themselves, as with private channels; the audit trail records that the room was opened and exported,
+  never its content.
 - **What growth rewards.** A good agent produces a conclusion and proposes next steps; it does not win
   arguments. The person's private growth record (the route map, milestones) credits an agent when its
-  contributions end up in an approved conclusion, when it fills a gap another agent lacked, when it
+  contributions end up in a settled conclusion, when it fills a gap another agent lacked, when it
   separates a disagreement into information, assumptions and goals, when it changes its position on
   better evidence, and when the people accept its proposed next steps. Never wins, debate counts, or
   rankings between people or agents.
@@ -189,7 +199,7 @@ celebration is for a principle being saved, never for sending.
 ## Approving
 
 - Approve from the desk, confirmed on another device: the desk pane asks, and the person confirms on a
-  device where they signed in themself, by a push notification or the web client. Approval in the mod
+  device where they signed in themself, by a push notification or the web client. Approval in the plugin
   was removed in 0.1.0 because a credential stored next to the agent cannot be protected; this is the
   possible way back, with the credential never on the agent's machine.
 
@@ -201,29 +211,77 @@ celebration is for a principle being saved, never for sending.
 - Attachments. Notes are text and links only by design.
 - Per-conversation mute and notification preferences.
 - Muting a channel: staying in a room without its notifications, short of turning answering off.
-- An intake mode for private channels, where people outside the channel submit a question and see only
-  their own thread, for teams such as payroll or security that take questions from everyone.
-- Recommended sources per channel: a channel names the sources its answerers should consult first, such
-  as a wiki space or a runbook, passed to answering agents as guidance, never as instructions.
-- Basis as links: what an agent relied on for a draft names its sources as links its person and an
-  administrator can open, not only as text.
 - Answering flows per channel: a channel adds its own steps to the server's answering flow, with the trust
   questions that raises (who may write them, and how members see what applies).
 - Command steps for the runner: `homingbird run` runs commands a person names before drafting and as
   checks on the draft, passing their output to the agent as quoted data.
 
-## Agreeing in channel rooms
+## Groups and channel agents
 
-- Marks: members of a channel room mark a note "agree" or "disagree", and everyone in the room sees who
-  did, with their characters and names. An agent may propose its person's position, with a reason, as
-  a draft; the mark counts only once the person confirms it.
-- Settling: a channel manager sets a threshold for a channel or for one proposal, such as three
-  agreements. When it is reached the note is marked settled and the room is told.
-- A mark is a person's act, like approving a note: no tool exposed to a model can cast one, for the
-  reason behind security rule 3, or agents could settle what no person saw. Letting an agent mark
-  without its person would be a deliberate relaxation, and would need a delegation the person scopes
-  (which channel, which kind of proposal), an organization setting that is off by default, an audit entry for every delegated mark, and results that show delegated marks
-  apart from people's.
+For a team that answers questions from its own knowledge, such as a wiki kept in a repository: one
+channel per repository, and one agent the channel owns, drafting from that repository. In this order:
+
+1. **Groups.** One kind of group replaces teams, channel managers and approvers. An administrator
+   creates groups in Dovecote and names their members, by hand or from a CSV file; groups come from
+   nowhere else (no directory import, no SCIM). Every member sees the groups and who is in them. A
+   person's profile shows their groups, the channels those groups manage, and what they may approve
+   ("approves answers for #payments-wiki"); a group's page shows its members, channels and agents; the
+   people list filters by group. Changing a group is a person's action (`access: 'human'`), never a
+   model's tool, and deactivating a member removes them from every group at once, with any approval
+   it gave them.
+2. **An agent owned by a group.** An agent's owner becomes a group of approvers: a person's own agent
+   is a group of one; a channel's agent is owned by the channel's managers. Its drafts are visible only
+   to that group, never to the person who asked. Any one member approves, and the first approval wins;
+   the others see who already sent it, and a member can take a draft ("I'll look at this"). A sent
+   note shows the agent and its approver ("#payments-wiki · approved by @kim"), and the audit trail
+   records the approver. Approval stays a person's act. This widens "only the agent's owner approves"
+   and needs a decision entry and changes to security rules 1, 2 and 6 and their tests when built.
+3. **Asking a channel's agent privately.** A sensitive question goes to the channel's agent as a direct
+   conversation: the asker sees only their own conversation, and its first screen says that the
+   channel's managers see it too, because they take part in it.
+4. **Where to ask**: the list of channel descriptions tells people which channel to ask, rather than an
+   agent that forwards questions, which would need an approval at every hop. A question asked in the
+   wrong place is moved with the existing move.
+
+5. **Decision rules.** One rule says who decides, how many of them must agree, and what is decided:
+   a group, a number, and either sending a draft or settling a proposal in a channel. One approver is
+   today's approval; two approvers is a stricter rule for a group's agent. In a channel room, members
+   mark a note "agree" or "disagree", everyone in the room sees who did, with their characters and
+   names, and when the channel's rule is met the note is marked settled and the room is told. An
+   agent may propose its person's mark, with a reason, as a draft; it counts only once the person
+   confirms it. Every decision is a person's act, like approving a note: no tool exposed to a model can
+   cast one, for the reason behind security rule 3, or agents could settle what no person saw. Letting
+   an agent decide without its person would be a deliberate relaxation needing a delegation the person
+   scopes, an organization setting that is off by default, an audit entry for every delegated
+   decision, and results that show delegated decisions apart from people's. A debate's result stays
+   the agents' vote, outside these rules.
+
+6. **Recommended sources per channel**: a channel names the sources its answerers should consult
+   first, such as a wiki space or a runbook, passed to answering agents as guidance, never as
+   instructions.
+7. **Basis as links**: what an agent relied on for a draft names its sources as links its person and an
+   administrator can open, not only as text.
+
+Later: mentioning a group, private groups.
+
+## The cloud desk
+
+A desk that runs in a cloud agent service instead of on a person's computer, woken when work arrives.
+Experimental, behind a feature switch that is off by default.
+
+- **A wake URL.** A person registers a URL and a token in the web client. When notes, debate turns or
+  votes wait for their agent, Dovecote sends a request to that URL carrying only that there is work and
+  the server's address, never a note; the woken session reads everything through the Homingbird
+  connector. Work arriving close together is woken once, and a room the agent takes part in is woken
+  again before its grace runs out. A refused or unanswered wake is shown to the person and retried.
+- **Setup helpers, not server code.** The web client offers presets that fill in the URL format and
+  headers and show a prompt to paste into the woken task: first a Claude scheduled task (its API
+  trigger, whose token can only start that task), then a generic "POST this URL with this header". A
+  token that can do more than wake (a Cursor or Devin key) is accepted with a warning.
+- **The token** is stored encrypted, used only in the wake request, never shown again, and deleted
+  when the person removes it (security rule 5).
+- Not yet possible: Codex cloud, ChatGPT tasks and the Gemini app offer no HTTP trigger; revisit when
+  they do.
 
 ## Insights
 
@@ -236,10 +294,10 @@ to come:
 - **More for administrators**: decision time, the quick-approval rate with a warning when a team stays
   above a threshold (25% over 2 weeks, as settings), who wrote what was sent (`agent`, `human_edited`,
   `human`), and delivery health.
-- **Teams**: an administrator creates teams and assigns members, by hand or from a CSV file; a
-  Google Workspace directory import is optional, needs a read-only directory service account, and a
-  value an administrator set wins over it; group sync arrives with SCIM. With no teams, only
-  organization-wide numbers are shown, as now.
+- **Numbers per group**: insights show figures per group (see "Groups and channel agents"), still
+  hiding groups under 5 people; with no groups, only organization-wide numbers are shown, as now.
+- **Channel agents**: per channel, how often its agent's drafts are approved, how often after an edit,
+  and how many each manager approved.
 - **Privacy, binding for all of it:** numbers only, never note content. An administrator sees team
   totals, never one person's approval figures. Groups under 5 people are hidden. Blocks are a count,
   never who blocked whom. Every member can see the list of what is measured.
@@ -247,14 +305,28 @@ to come:
 ## Operations
 
 - Multi-node deployment: shared event fan-out through the database or a message broker.
-- Audit forwarding over syslog and OpenTelemetry.
-- SCIM provisioning and periodic re-validation of members against the identity provider.
+- Forwarding the metadata-only audit copy over syslog and OpenTelemetry, and an OCSF mapping for
+  `dovecote audit export`.
+- A compliance export of the product's own data (notes, drafts, debate rooms) for legal hold, if an
+  organization asks for one: not the audit trail's job.
+- A check in `scripts/check-style.ts` that refuses `UPDATE` and `DELETE` on `audit_events` outside
+  `dovecote/src/domain/audit.ts`, and `process.stdout.write` outside the log service.
+- Periodic re-validation of members against the identity provider.
 - Revoking a credential family when a refresh token is replayed.
 - Supported upgrades between releases. The mechanism exists (a schema version table, with steps
   applied in order at start) and step 2 upgrades a 0.1.0 database, but upgrades between 0.x releases
   are not yet promised or tested release by release.
 
 ## Clients
+
+**Built:** log rotation for the background service (5 MB, one backup, and `--log-level`); headless
+sign-in with a credentials file (`homingbird login --credentials-file` on the person's own machine,
+`--credentials-file` or `HOMINGBIRD_CREDENTIALS_FILE` for the runner and `homingbird service install`,
+with a complete server example in the deployment guide); the launchd service on macOS, installed and
+run on a real Mac by the maintainer for 0.1.3; and desktop CI, which runs the command line and MCP
+tests on macOS and Windows, and there installs the real launchd agent and Run key entry, has each
+answer a note and removes it.
+Still to come:
 
 - Presence for remote MCP connectors and long-poll clients.
 - Connected versus awake for agents that cannot be woken: the web client and the guide already say an
@@ -263,14 +335,12 @@ to come:
   that is merely asleep.
 - Native desktop and mobile clients.
 - Languages beyond English and Korean.
-- The background service tested where it runs: the launchd agent on a Mac, the Run key entry and the
-  runner's own supervision on Windows, and the systemd unit under a real user manager. Until then
-  `homingbird service` documents macOS and Windows as generated output only.
+- The background service tested where it is still untested: the Run key entry and the runner's own
+  supervision on a real Windows machine, and the systemd unit under a real user manager.
 - Agent presets verified with the real agents: Codex CLI, Antigravity CLI and Gemini CLI are listed as
-  "from source, unrun" until run here. Codex's reader keeps minimal tools, and Antigravity and Gemini
+  "not yet tested with the real CLI" until run here. Codex's reader keeps minimal tools, and Antigravity and Gemini
   have no reader preset for split mode yet. When the agent supports MCP, the run
   attaches this Homingbird MCP server (member routes only) so the agent can find people and channels.
-- Log rotation for the background service: its log grows a line per step until the person removes it.
 - A service started without a credential tells the person, through a web banner or a notification,
   with a connection link; today `homingbird service status` says to sign in. Managed settings shipped
   with the organization's skills as a third way to roll out, next to MDM and onboarding scripts.

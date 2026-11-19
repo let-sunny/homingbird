@@ -16,6 +16,7 @@ pnpm lint             # biome + scripts/check-style.ts
 pnpm format           # biome check --write
 pnpm test             # vitest, all packages
 pnpm test:coverage    # fails under the thresholds in vitest.config.ts
+pnpm test:plugin      # the Claude Code plugin's own tests, under Claude Code's test runner
 pnpm test:mutation    # stryker, kernel and protocol; fails under a score of 90
 pnpm dev              # Dovecote with development login on http://localhost:8080
 pnpm build            # server, CLI, MCP and web bundles
@@ -31,12 +32,12 @@ PostgreSQL and MySQL.
 | Package | Role |
 | --- | --- |
 | `kernel` | Result, Option, Task, Stream, Schema. No dependencies. Everything else builds on it. |
-| `protocol` | Wire model, API contract, note status, messaging policy, the note wrapper. |
+| `protocol` | Wire model, API contract, note status, messaging policy, the note wrapper, and the one drafting flow every agent integration uses (`src/drafting/`). |
 | `dovecote` | The relay server. |
 | `client` | Typed API client and event stream, derived from the contract. |
 | `ui`, `pwa` | Dependency-free web client. |
 | `cli`, `mcp`, `a2a` | Command line, MCP adapter, A2A gateway. |
-| `mod` | The Claude Code mod: the desk pane, which links each draft to the web client for approval. |
+| `plugin` | The Claude Code plugin: the desk pane, which links each draft to the web client for approval. |
 
 ## Rules
 
@@ -48,6 +49,7 @@ The rules below are binding. Details and examples live in `.claude/rules/`.
 - @.claude/rules/testing.md
 - @.claude/rules/security.md
 - @.claude/rules/web-client.md
+- @.claude/rules/compatibility.md
 
 ## Naming and language
 

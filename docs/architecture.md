@@ -16,7 +16,7 @@ Everything below is described from the code in `packages/`.
 | Package | What it is for |
 | --- | --- |
 | `kernel` | `Result`, `Option`, `Task`, `Stream`, `Schema` and the clock, queue and pub-sub primitives. No dependencies. |
-| `protocol` | The wire model, the API contract (`contract.ts`), events (`events.ts`), note and receipt status (`status.ts`), messaging policy (`policy.ts`) and `wrapNote` (`wrap.ts`). |
+| `protocol` | The wire model, the API contract (`contract.ts`), events (`events.ts`), note and receipt status (`status.ts`), messaging policy (`policy.ts`), `wrapNote` (`wrap.ts`), and the drafting flow every agent integration shares (`drafting/`: quoting, principle selection, guidance, each integration's prompt texts, debate prompts, reading what an agent printed). |
 | `dovecote` | The relay server: API, sign-in, OAuth and device flow, event log and hub, Web Push, audit, SQL for SQLite, PostgreSQL and MySQL. It also serves the remote MCP endpoint `/mcp` and the A2A gateway `/a2a`. |
 | `client` | The typed HTTP client derived from the contract, the device flow, and the event stream (SSE with long-poll fallback). |
 | `ui` | The dependency-free DOM toolkit: elements, signals, regions, safe link rendering. |
@@ -24,7 +24,7 @@ Everything below is described from the code in `packages/`.
 | `cli` | The `homingbird` command: sign-in with an agent credential, reading, drafting, skipping, `stream`, `open` for the web client, and the runner `run --agent`. It cannot send or discard. |
 | `mcp` | The MCP adapter: tools, prompts, the stdio program `homingbird-mcp` with `--channel` and `--desk`, and the handler behind the remote `/mcp` endpoint. |
 | `a2a` | The A2A gateway: a remote agent's message becomes a draft; tasks show the draft's state and the wrapped replies. Experimental: tested automatically, not yet used in a real deployment. |
-| `mod` | The Claude Code mod: the Homingbird pane, which shows each draft as waiting for approval and opens it in the web client, the desk session, the model-facing note, channel and draft-request tools, the read-only project-reader helper, and the guard. It drives the `cli` package. |
+| `plugin` | The Claude Code plugin: the Homingbird pane, which shows each draft as waiting for approval and opens it in the web client, the desk session, the model-facing note, channel and draft-request tools, the read-only project-reader helper, and the guard. It drives the `cli` package. |
 
 ## System overview
 
@@ -39,7 +39,7 @@ flowchart TB
   subgraph MINE["Your side"]
     direction LR
     WEB["Web client<br/>you, a person"]
-    DESK["Your desk session<br/>mod pane, MCP desk or homingbird run"]
+    DESK["Your desk session<br/>plugin pane, MCP desk or homingbird run"]
     OTHER["Your other agent sessions<br/>MCP stdio or CLI"]
   end
   subgraph REMOTE["Remote clients"]
@@ -57,7 +57,7 @@ flowchart TB
   end
   IDP["OpenID Connect provider"]
   JUNE["June's desk and web client<br/>connected the same way"]
-  AUD["Audit forwarding<br/>stdout or webhook, off by default"]
+  AUD["Operational log<br/>JSON lines on stdout"]
   PUSH["Web Push service"]
 
   WEB -->|"session cookie, human"| API
@@ -72,7 +72,7 @@ flowchart TB
   ADAPT -->|"member routes only"| API
   API --> DB
   API -->|"events in the same transaction"| EV
-  API -->|"after commit"| AUD
+  API -->|"request lines, audit copy"| AUD
   EV -.->|"SSE, long-poll fallback"| WEB
   EV -.->|"SSE, counts as agent awake"| DESK
   EV -.->|"only when no human client is connected"| PUSH
@@ -125,7 +125,7 @@ sequenceDiagram
   S-)W: presence with agentOnline true, within a second
 ```
 
-The mod signs in with `homingbird login`, and its draft cards link to the web client. In the mod, the
+The plugin signs in with `homingbird login`, and its draft cards link to the web client. In the plugin, the
 guard asks the model to leave the credential files alone; that keeps the agent token out of a
 session's transcript and is not a security boundary, because the token cannot approve. Remote connectors such as ChatGPT and claude.ai use the authorization code flow with
 PKCE through the consent page (`consent.decide`) instead of the device flow, and receive only an agent
@@ -178,19 +178,19 @@ answer; the desk prompt tells the model not to draft when a note needs no reply.
 ## Receiving a note at the desk session
 
 When a note arrives, only your desk session wakes, drafts a reply, and waits for you to approve, edit
-or discard it. In Claude Code the desk is the session where the mod's pane is open: the mod runs
+or discard it. In Claude Code the desk is the session where the plugin's pane is open: the plugin runs
 `homingbird stream --json` as a child process, and the CLI hands every received note over already
-wrapped by `wrapNote`. With the default `autoDraft: turn`, the mod opens a new turn with the wrapped
+wrapped by `wrapNote`. With the default `autoDraft: turn`, the plugin opens a new turn with the wrapped
 note and asks the model to call `draft_reply`; with `quiet` it asks a forked model for the reply text
 in the background; with `off` it drafts nothing. When the reply needs project facts, the model can ask
 another session (`ask_session`) or a read-only helper (`ask_project`); either gets the note only as
 quoted data and returns facts, never a draft.
 
-`/homingbird` opens the pane and claims the desk: the claim (session id and time) is kept in the mod's
+`/homingbird` opens the pane and claims the desk: the claim (session id and time) is kept in the plugin's
 store, and every 30 seconds the desk checks it, refreshes `homingbird overview` and restarts the stream
 if it stopped. A session that finds another session's claim stands down, stops its stream and offers
 "Make this the desk". When a session starts, it resumes the desk if the claim is still its own. On
-claiming the desk and on `resync`, the mod catches up: it drafts for every waiting note that has no
+claiming the desk and on `resync`, the plugin catches up: it drafts for every waiting note that has no
 draft yet and answers every open draft request. `ask_project` starts the `project-reader` agent, which
 may only read, grep and glob, in the directory it names; a hook refuses to start that agent any other
 way. Its facts come back as a new message to the desk when its turn completes.
@@ -200,7 +200,7 @@ sequenceDiagram
   autonumber
   participant S as Dovecote
   participant C as homingbird stream
-  participant D as Desk mod
+  participant D as Desk plugin
   participant M as Desk model
   participant P as Other session or helper
   participant W as Your web client
@@ -227,7 +227,7 @@ sequenceDiagram
 ```
 
 The pane has no approve, edit or discard: every draft links to its conversation in the web client.
-The mod's guard (`forbiddenReason` in `packages/mod/hooks/guard.ts`) asks the model to leave the
+The plugin's guard (`forbiddenReason` in `packages/plugin/hooks/guard.ts`) asks the model to leave the
 Homingbird configuration directory alone, also when a file path given to a tool resolves into it
 through a link. It is a courtesy that keeps the agent token out of transcripts, not a security
 boundary: the only credential on the machine is an agent credential, which the server refuses on
@@ -278,8 +278,8 @@ sequenceDiagram
 ```
 
 A request names its destination: a reply to a note, a conversation, a colleague or a channel, plus an
-optional instruction and optionally one chosen agent. The MCP desk, the runner and the mod all answer
-requests. The mod opens a turn for each `draft.requested` with the instruction and, for a reply, the
+optional instruction and optionally one chosen agent. The MCP desk, the runner and the plugin all answer
+requests. The plugin opens a turn for each `draft.requested` with the instruction and, for a reply, the
 wrapped note it answers; the model reads the conversation with `read_conversation` and answers with
 `answer_draft_request`. The pane lists the open requests under "Notes waiting for a reply".
 
@@ -327,7 +327,7 @@ and a taken slug, visible or not, answers "That name is not available."
 | `channels.visibility.set` | human | A manager makes a channel private or open |
 
 Every membership, answering, manager and visibility change is a `human` route, so it is audited and no
-agent credential, MCP tool, CLI command, A2A method or mod tool can make it. A member who leaves or is
+agent credential, MCP tool, CLI command, A2A method or plugin tool can make it. A member who leaves or is
 removed loses the room at once: their waiting drafts in it are discarded (`draft.discarded`) and they
 receive `channel.left` with only the slug and conversation id, so a client drops the room. A member whose
 view of a channel changed (joined, added, answering, manager, visibility) receives `channel.changed` with
@@ -385,7 +385,7 @@ sequenceDiagram
 ```
 
 The MCP tools `find_channels` and `draft_note` with `channel`, the CLI `channels` and `draft --channel`, the
-A2A gateway (`metadata.channel`) and the mod's `list_channels` and `draft_to_channel` all reach channels; they
+A2A gateway (`metadata.channel`) and the plugin's `list_channels` and `draft_to_channel` all reach channels; they
 list only what the member can see, mark private channels, say whether the member answers there, and
 tell the model never to mention a private channel outside it. None of them joins, leaves, answers or
 changes members, managers or visibility. The web client offers Join and Join and answer in the list,
@@ -408,7 +408,7 @@ An agent ends every note it picked up in a draft or a release. `notes.release` (
 member has a reply draft to the note. It clears the member's drafting state, so colleagues receive
 `note.status`, and sends `note.released` (`noteId`, `conversationId`, `reason`, `agentName`) to the
 member's own clients only. The pickup row stays, so the same credential is not handed the note again as
-fresh. MCP `skip_note`, the mod's `skip_note`, `homingbird skip` and the runner's `SKIP:` line all call
+fresh. MCP `skip_note`, the plugin's `skip_note`, `homingbird skip` and the runner's `SKIP:` line all call
 it; none of them can send anything.
 
 A draft may carry `basis`, what its agent read or relied on and how each answering-flow step went (at
@@ -416,12 +416,12 @@ most 1,000 characters, on `drafts.create` and `drafts.update`). It is stored wit
 `Note.basis` and returned only when the viewer is the note's author, on the draft and after it is sent:
 `hydrateNotes` in `dovecote/src/domain/note-rows.ts` takes the viewer, and every event delivered to
 anyone else carries the note without it. The web client shows it on the author's draft card. The audit
-entry of the draft action keeps it too.
+trail never keeps it.
 
 The answering flow is one organization setting, `answeringFlow` (at most 4,000 characters), set with
 `admin.settings.put` by an administrator and checked for format and length only. Agents read it with
 `answeringFlow.get` (`GET /answering-flow`, `member`, answering `{ flow, updatedAt }`) when they write a
-desk prompt: the mod through `homingbird overview --json`, `homingbird-mcp --desk` in its triggers,
+desk prompt: the plugin through `homingbird overview --json`, `homingbird-mcp --desk` in its triggers,
 and `homingbird run` per prompt. `answeringFlowInstructions` in `packages/protocol` turns it into the
 instruction block placed after our own instructions and outside the wrapped note; when it cannot be
 fetched, the prompt says so and the agent drafts without it.
@@ -476,7 +476,7 @@ in the web client.
 
 | Agent | How it becomes the desk | How it wakes | Counts as awake | Where the person approves | State |
 | --- | --- | --- | --- | --- | --- |
-| Claude Code with the mod | `/homingbird` opens the pane and claims the desk; another session that claims it makes this one stand down within 30 seconds | `homingbird stream --json`: `note.sent` opens a turn (`turn`) or drafts in the background (`quiet`); `draft.requested` opens a turn | Yes, through the CLI's SSE stream | Web client, which each draft in the pane opens | Implemented |
+| Claude Code with the plugin | `/homingbird` opens the pane and claims the desk; another session that claims it makes this one stand down within 30 seconds | `homingbird stream --json`: `note.sent` opens a turn (`turn`) or drafts in the background (`quiet`); `draft.requested` opens a turn | Yes, through the CLI's SSE stream | Web client, which each draft in the pane opens | Implemented |
 | Claude Code with `homingbird-mcp --desk` | Started in a session launched with `--channels` | The MCP server holds the stream and pushes notes and draft requests as `notifications/claude/channel`; at start the model is told to call `check_inbox` | Yes, while the SSE stream holds | Web client, through the `open_homingbird` link | Implemented |
 | Codex, Gemini CLI, Cursor or any headless agent | `homingbird run --agent "<command>"` | The runner holds the stream; on `note.sent`, `draft.requested` or `resync` it picks up each new note and request, pipes the wrapped prompt to the command, with no Homingbird variable or credential in its environment, and saves its output as a draft | Yes, while the SSE stream holds | Web client | Implemented |
 | An MCP client with a chat left open | The `watch` prompt calls `wait_for_notes` in a loop | `events.poll` long-poll returns, then the tool fetches new notes and requests | No, long-poll is not counted | Web client, through the `open_homingbird` link | Implemented |
@@ -485,23 +485,48 @@ in the web client.
 
 ## Debate rooms
 
-A debate room (`debates`) holds one question, its limits and, once drafted, its result as JSON.
-`debate_members` lists who may see a private room; `debate_participants` the one agent credential each
-person opted in; `debate_turns` the turns in order; `debate_approvals` each person's approval of the
-current result; `debate_credits` what approved results credited. The routes are `debates.list`,
-`debates.get`, `debates.waiting` (`/debate-asks`), `debates.turns.post` and `debates.result.draft`
-(`member`), and `debates.create`, `debates.optIn`, `debates.limits.set`, `debates.result.approve`,
-`debates.result.decline`, `debates.result.post` and `debates.export` (`human`), all behind the
-`debateRooms` switch. The rules of whose turn it is and when a room stops are pure functions in
-`protocol/src/debate-rules.ts`; Dovecote's `debates.ts`, `debate-turns.ts` and `debate-results.ts`
-apply them under the room's row lock, and `debateDeadlines` in `runtime.ts` concludes rooms whose time
-ran out, or ends without a result a room with fewer than two agents or no turn. The tables are
-migration step 3. Nothing in a room is written to `notes`, `receipts` or an event log: a change is the
-ephemeral `debate.changed` with the room's id and participants, sent to its members (to everyone only
-when an open room opens or ends). Agents read a room through `quotedDebate`
-(`protocol/src/debate-prompts.ts`), which wraps the question and each turn in `wrapNote`; the runner
+A debate room (`debates`) holds one question, its limits and grace and, once settled, its result as
+JSON. `debate_members` lists who may see a private room; `debate_participants` the one agent credential
+each person opted in; `debate_turns` the turns in order; `debate_drafts` every agent's draft of the
+result in each round and `debate_votes` the votes on them, with `debates.votes_open_at` the time the
+vote opened and `debates.dropped_out` the agents that had dropped out when the room closed;
+`debate_credits` what settled results credited. `debate_approvals`, from 0.1.x, is no longer read or
+written. The routes are `debates.list`, `debates.get`, `debates.waiting` (`/debate-asks`, whose optional
+`ballots` are the rooms waiting for the agent's vote and `ended` its rooms closed in the last day
+because agents dropped out), `debates.turns.post`, `debates.result.draft` and `debates.result.vote`
+(`member`), and `debates.create`, `debates.optIn`, `debates.limits.set`, `debates.result.post` and
+`debates.export` (`human`), all behind the `debateRooms` switch. How a room moves is one pure state
+machine in `protocol/src/debate-room.ts`: a room is in setup, open, drafting, voting, closed or ended
+(or approving, for a room stored while it waited for people's approvals); `settleDebateRoom` gives
+what time alone decides and `stepDebate` takes a join, limits, a turn, a draft or a vote, each
+returning the next room and the effects to store, or the refusal; `askOf` says what a room asks of an
+agent. `protocol/src/debate-rules.ts` keeps the checks clients share (`isTakingPart`, `turnProblem`,
+`limitsProblem`, `resultProblem`, `creditsOf`). Whether an agent is taking part is
+`isAgentTakingPart` in `debate-rows.ts`: its credential's `last_used_at` (written at most every 30
+seconds) within the room's grace, and everyone for one grace after the hub's `startedAt`. A held stream
+alone does not count, so the shared event stream client sends `presence.heartbeat` every
+`STREAM_HEARTBEAT_MS` (a minute) while it is read. `settleDebate` in `debate-turns.ts` locks one room
+and moves it on; every debate route calls it for its own room. `debateDeadlinePass` in `runtime.ts`
+calls it for every undecided room each minute, and `debates.waiting` for the calling agent's rooms, in
+the order of their ids, each room in a transaction of its own; a room that fails is logged and skipped
+(`survivingPass`), and a pass that changes nothing leaves `updated_at` alone. A result the room can
+settle comes before its day-long limit: a room still open a day after its turns stopped settles its
+drafts at once, and ends with `no_result` only without one. Dovecote only loads a room's facts
+(`loadRoom` in `debate-rows.ts`), calls the machine and stores its effects (`debate-settling.ts`), each
+with an update that matches the stage, round and result it was decided on, so a room that changed in
+between stays as it is; a room stored while waiting for approvals closes with its chosen result. A room with fewer
+than two agents or no turn ends without a result, as does a started room with one agent left
+(`one_agent_left`) or none (`no_agent_left`), whatever stage it reached. An event stream whose reader
+does not drain within 60 seconds, or a WebSocket that leaves two pings in a row unanswered, is closed by
+`node-server.ts` (`writeDrained`, `pongWatch` in `http/stalled-streams.ts`). The tables are migration
+step 3; drafts, votes, the grace and the dropped-out record are step 4. Nothing in a room is written to
+`notes`, `receipts` or an event log: a change is the ephemeral `debate.changed` with the room's id and
+participants, sent to its members (to everyone only when an open room opens or ends). Agents read a room
+through `quotedDebate` (`protocol/src/drafting/debate-prompts.ts`), which wraps the question, each turn and the
+vote record in `wrapNote`, and the drafts they vote on through `quotedDrafts`; an agent receives no
+other agent's draft before it drafted (`seenBy` in `debate-rows.ts`). The runner
 (`cli/src/debate-runner.ts`, with a reader in split mode), the MCP tools (`mcp/src/debate-tools.ts`) and
-the mod's notice (`homingbird debates`) are the integrations.
+the plugin's notice (`homingbird debates`) are the integrations.
 
 ## Where the nine security rules are enforced and tested
 
@@ -510,15 +535,15 @@ that faces a model. Paths are relative to `packages/`.
 
 | Rule | Enforced in | Tested in |
 | --- | --- | --- |
-| 1. Only a human credential can approve a note. | `access: 'human'` on `drafts.send`, `drafts.discard` and every other human route in `protocol/src/contract.ts`; `allows` in `protocol/src/policy.ts`; `requireAllowed` in `dovecote/src/api/invoke.ts`, which also audits the refusal; `sendDraft` and `discardDraft` in `dovecote/src/domain/notes.ts` check `isHuman` again. A human credential counts only when a browser sign-in issued it (`mayAuthenticate` in `dovecote/src/domain/credentials.ts`); the device and authorization-code flows issue agent credentials only (`exchangeDeviceCode` and `exchangeAuthorizationCode` in `dovecote/src/auth/oauth.ts`). | `dovecote/test/security-rules.test.ts`, block "Rule 1" |
+| 1. Only a human credential can approve a note. | `access: 'human'` on `drafts.send`, `drafts.discard` and every other human route in `protocol/src/contract.ts`; `allows` in `protocol/src/policy.ts`; `requireAllowed` in `dovecote/src/api/invoke.ts`, which also counts the refusal for an `authz.denied` row; `sendDraft` and `discardDraft` in `dovecote/src/domain/notes.ts` check `isHuman` again. A human credential counts only when a browser sign-in issued it (`mayAuthenticate` in `dovecote/src/domain/credentials.ts`); the device and authorization-code flows issue agent credentials only (`exchangeDeviceCode` and `exchangeAuthorizationCode` in `dovecote/src/auth/oauth.ts`). | `dovecote/test/security-rules.test.ts`, block "Rule 1" |
 | 2. Drafts are invisible to recipients. | `visibleNote`, `notesInConversation`, `searchNotes` and `notesAwaitingReply` in `dovecote/src/domain/notes.ts` filter by `status = 'sent' OR author_id = viewer`; `listConversations` in `dovecote/src/domain/conversations.ts` hides a direct conversation without a sent note; `createDraft`, `updateDraft` and `discard` emit `draft.saved` and `draft.discarded` to the author only; receipts are created only by `sendDraft`. | `dovecote/test/security-rules.test.ts`, block "Rule 2" |
-| 3. No tool exposed to a model can approve, change contacts, or read credentials. | Channel membership, answering, manager and visibility routes are `human` too, so no tool reaches them; `memberApiOf` in `mcp/src/member-api.ts` and `a2a/src/member-api.ts` exposes only `member` and `public` routes; no agent integration can approve: the command line has no approve or discard command and stores only an agent credential (`cli/src/credentials.ts`); `NOTE_TOOLS` in `mod/hooks/tools.ts` run only the CLI's agent commands and the pane only links to the web client; the runner uses only the agent credential and strips Homingbird variables and the token from the agent command's environment (`agentEnvironment` in `cli/src/agent-environment.ts`). | `dovecote/test/security-rules.test.ts`, block "Rule 3"; `mcp/test/tools.test.ts`, `mcp/test/server.test.ts`, `mcp/test/member-api.test.ts`, `mcp/test/triggers.test.ts`; `mod/tests/tools.test.ts`, `mod/tests/guard.test.ts`; `cli/test/security.test.ts`, `a2a/test/gateway.test.ts`, `cli/test/run.test.ts`, `cli/test/agent-environment.test.ts`, `cli/test/node-launcher.test.ts` |
-| 4. Every received note reaches a model only through `wrapNote`. | `wrapNote` in `protocol/src/wrap.ts`, with a random nonce in the boundary; its callers are `quoteNote` in `mcp/src/quote.ts`, `quoteForModel` in `cli/src/quoting.ts` (used by `stream`, `inbox`, `conversation`, `requests` and `run`), and `taskViewOf` in `a2a/src/task-view.ts`. The mod receives notes only as the CLI's wrapped text. Debate rooms are covered by rule 9. | `dovecote/test/security-rules.test.ts`, block "Rule 4": a hostile note through every note-returning tool of `/mcp` and through A2A `tasks/get` and `GetTask`, each time inside `wrapNote` with a fresh nonce; `protocol/test/wrap.test.ts` (property tests), `mcp/test/quote.test.ts`, `mcp/test/triggers.test.ts`, `mcp/test/channel.test.ts` |
+| 3. No tool exposed to a model can approve, change contacts, or read credentials. | Channel membership, answering, manager and visibility routes are `human` too, so no tool reaches them; `memberApiOf` in `mcp/src/member-api.ts` and `a2a/src/member-api.ts` exposes only `member` and `public` routes; no agent integration can approve: the command line has no approve or discard command and stores only an agent credential (`cli/src/credentials.ts`); `NOTE_TOOLS` in `plugin/hooks/tools.ts` run only the CLI's agent commands and the pane only links to the web client; the runner uses only the agent credential and strips Homingbird variables and the token from the agent command's environment (`agentEnvironment` in `cli/src/agent-environment.ts`). | `dovecote/test/security-rules.test.ts`, block "Rule 3"; `mcp/test/tools.test.ts`, `mcp/test/server.test.ts`, `mcp/test/member-api.test.ts`, `mcp/test/triggers.test.ts`; `plugin/tests/tools.test.ts`, `plugin/tests/guard.test.ts`; `cli/test/security.test.ts`, `a2a/test/gateway.test.ts`, `cli/test/run.test.ts`, `cli/test/agent-environment.test.ts`, `cli/test/node-launcher.test.ts` |
+| 4. Every received note reaches a model only through `wrapNote`. | `wrapNote` in `protocol/src/wrap.ts`, with a random nonce in the boundary; its callers for notes are `quotedNote` and `quotedNoteWithState` in `protocol/src/drafting/quote-note.ts`, used by the MCP tools and triggers, by the CLI's `stream`, `inbox`, `conversation`, `requests` and `run`, and by `taskViewOf` in `a2a/src/task-view.ts`. Agent introductions reach a model only through `quotedIntroduction` in `protocol/src/agent-introduction.ts`, a `wrapNote` call, used by `find_people` in `mcp/src/tools.ts` and `homingbird directory` in `cli/src/commands/reading.ts`. The plugin receives notes only as the CLI's wrapped text. Debate rooms are covered by rule 9. | `dovecote/test/security-rules.test.ts`, block "Rule 4": a hostile note through every note-returning tool of `/mcp` and through A2A `tasks/get` and `GetTask`, and a hostile agent introduction through `find_people`, each time inside `wrapNote` with a fresh nonce; `protocol/test/agent-introduction.test.ts`, `cli/test/commands.test.ts`; `protocol/test/wrap.test.ts` (property tests), `protocol/test/drafting/quote-note.test.ts`, `mcp/test/triggers.test.ts`, `mcp/test/channel.test.ts` |
 | 5. Credentials are stored hashed and never logged. | `hashSecret` (SHA-256) in `dovecote/src/random.ts`; `issueCredential`, `authenticate` and `refreshCredential` in `dovecote/src/domain/credentials.ts` store only `token_hash` and `refresh_hash`; tokens leave the server only in the token response or the session cookie; `serve` in `dovecote/src/http/node-server.ts` logs failed requests without their query string. | `dovecote/test/security-rules.test.ts`, block "Rule 5" |
-| 6. A member sees only conversations they participate in. | `participatedConversation` and `participantsOf` in `dovecote/src/domain/conversations.ts`; every note query joins `participants`; `sendDraft`, `moveToChannel` and `announceStatus` emit to the conversation's participants only. A private channel is listed, resolved and shown as a chip only to its members: `maySee` and `visibleChannel` in `dovecote/src/domain/channel-rows.ts`, `listChannels`, `channelsHelpedBy`, `helpersOfChannelSeenBy`, `channelRoomFor` and `roomForMovedQuestion` in `dovecote/src/domain/channels.ts`; `depart` drops a removed member from the room, discards their drafts in it and sends `channel.left`. | `dovecote/test/security-rules.test.ts`, block "Rule 6", including every surface of a private channel for a non-member person and their agent; `dovecote/test/channel-membership.test.ts` |
-| 7. No tool exposed to a model can save or change a profile character. | `access: 'human'` on `me.character.set` and `me.character.clear` and `access: 'admin'` on `admin.members.resetCharacter` in `protocol/src/contract.ts`; `saveCharacter` in `dovecote/src/domain/characters.ts` runs `characterProblems` (`protocol/src/character.ts`: `validateCharacter` from `sprites` plus the built-in id rule) again whatever the client checked, and stores exactly the spec that passed; `handleApiRequest` in `dovecote/src/http/api-routes.ts` refuses a body over `CHARACTER_BYTES_MAX`. The model-facing `check_character` and `preview_character` (`mcp/src/character-tools.ts`, `mod/hooks/character.ts`) call no route; the web client saves only from **Use this character** and never from a `#/character/` link. | `dovecote/test/security-rules.test.ts`, block "Rule 7"; `dovecote/test/characters.test.ts`; `mcp/test/character-tools.test.ts`, `mcp/test/tools.test.ts`; `mod/tests/character.test.ts` |
+| 6. A member sees only conversations they participate in. | `participatedConversation` and `participantsOf` in `dovecote/src/domain/conversations.ts`; every note query joins `participants`; `sendDraft`, `moveToChannel` and `announceStatus` emit to the conversation's participants only. A private channel, and a private debate room, is listed, resolved and shown only to its members and to an administrator's own sign-in, through one rule, `isVisibleRoom` in `dovecote/src/domain/channel-rows.ts`, given `viewerOf(caller)` from `dovecote/src/environment.ts`, which reads an agent credential as an ordinary member: `maySee` and `visibleChannel` in `dovecote/src/domain/channel-rows.ts`, `listChannels`, `channelsHelpedBy`, `helpersOfChannelSeenBy`, `channelRoomFor` and `roomForMovedQuestion` in `dovecote/src/domain/channels.ts`; `depart` drops a removed member from the room, discards their drafts in it and sends `channel.left`. | `dovecote/test/security-rules.test.ts`, block "Rule 6", including every surface of a private channel for a non-member person and their agent, and for an administrator's agent; `dovecote/test/channel-membership.test.ts` |
+| 7. No tool exposed to a model can save or change a profile character. | `access: 'human'` on `me.character.set` and `me.character.clear` and `access: 'admin'` on `admin.members.resetCharacter` in `protocol/src/contract.ts`; `saveCharacter` in `dovecote/src/domain/characters.ts` runs `characterProblems` (`protocol/src/character.ts`: `validateCharacter` from `sprites` plus the built-in id rule) again whatever the client checked, and stores exactly the spec that passed; `handleApiRequest` in `dovecote/src/http/api-routes.ts` refuses a body over `CHARACTER_BYTES_MAX`. The model-facing `check_character` and `preview_character` (`mcp/src/character-tools.ts`, `plugin/hooks/character.ts`) call no route; the web client saves only from **Use this character** and never from a `#/character/` link. | `dovecote/test/security-rules.test.ts`, block "Rule 7"; `dovecote/test/characters.test.ts`; `mcp/test/character-tools.test.ts`, `mcp/test/tools.test.ts`; `plugin/tests/character.test.ts` |
 | 8. No tool exposed to a model can save, change, enable, disable or delete a principle. | `access: 'human'` on `principles.list`, `principles.create`, `principles.update`, `principles.reorder`, `principles.delete`, `principles.miss` and `principles.offers.dismiss` in `protocol/src/contract.ts`; the only route an agent reaches is the read-only `principles.drafting` (`member`, own principles only). `createPrinciple` and `updatePrinciple` in `dovecote/src/domain/principles.ts` check kind, length, title, limit (atomically), source, channel participation and the public sentence again (`principleProblem`, `publicTextProblem`), and a principle saved from an offer needs the person's change or confirmation. Stored answers and public sentences go through the same `human` routes; the directory shows only public sentences (`agentIntroductionsOf`). Suggestions (`principle_offers`) come from `editDifference` in `protocol/src/edit-difference.ts`, not from the incoming note (the draft can quote it, hence the person's confirmation), and never reach an instruction block. `isLikelyForbidden` in `protocol/src/principles.ts` leaves out and names a principle worded like a forbidden request; it is a hint, and rules 1 and 3 are the guard. | `dovecote/test/security-rules.test.ts`, block "Rule 8"; `dovecote/test/principles.test.ts`; `protocol/test/principles.test.ts`; `cli/test/run.test.ts` (principles reach the writer only) |
-| 9. No tool exposed to a model can open a debate room, opt an agent in, change its limits, or approve, post or export its result; a room's content leaves it only as an approved result, and a debate tool returns room content only wrapped by `wrapNote`. | `access: 'human'` on `debates.create`, `debates.optIn`, `debates.limits.set`, `debates.result.approve`, `debates.result.decline`, `debates.result.post` and `debates.export`; `takeTurn` and `draftResult` in `dovecote/src/domain/debate-turns.ts` and `debate-results.ts` accept only the agent credential its person opted in, and `waitingResult` and `closedDebate` refuse agents and any approval of a draft other than the one the person read; `postResult` takes out only an approved result, as the person's own draft; turns are never written to `notes` or `receipts`. The model-facing tools (`mcp/src/debate-tools.ts`), the runner (`cli/src/debate-runner.ts`) and the mod's notice reach only `member` routes, and every question, turn and name reaches a model through `quotedDebate` (`protocol/src/debate-prompts.ts`), which uses `wrapNote`. A private room is visible to its members only (`visibleDebate` in `dovecote/src/domain/debate-rows.ts`). | `dovecote/test/security-rules.test.ts`, block "Rule 9"; `protocol/test/debate-prompts.test.ts`; `mcp/test/debate-tools.test.ts`; `cli/test/debate-runner.test.ts` |
+| 9. No tool exposed to a model can open a debate room, opt an agent in, change its limits, or post or export its result; a room's content leaves it only through a person, and a debate tool returns room content only wrapped by `wrapNote`. | `access: 'human'` on `debates.create`, `debates.optIn`, `debates.limits.set`, `debates.result.post` and `debates.export`; there is no approval route, because the agents settle the result by vote. `takeTurn`, `draftResult` and `voteForDraft` in `dovecote/src/domain/debate-turns.ts` and `debate-results.ts` accept only the agent credential its person opted in (a vote never for its own draft); `postResult` accepts only a person whose agent took a turn and makes the closed room's result a draft of theirs, which only they send; `exportDebate` refuses a private room to anyone but its members; turns are never written to `notes` or `receipts`. The model-facing tools (`mcp/src/debate-tools.ts`), the runner (`cli/src/debate-runner.ts`) and the plugin's notice reach only `member` routes, and every question, turn, name and vote record reaches a model through `quotedDebate`, and every draft put to a vote through `quotedDrafts` (`protocol/src/drafting/debate-prompts.ts`), which use `wrapNote`. | `dovecote/test/security-rules.test.ts`, block "Rule 9"; `protocol/test/drafting/debate-prompts.test.ts`; `mcp/test/debate-tools.test.ts`; `cli/test/debate-runner.test.ts` |
 
 ## Real-time delivery
 
@@ -699,13 +724,18 @@ erDiagram
     id member_id
     text endpoint
   }
-  AUDIT_LOG {
+  AUDIT_EVENTS {
     serial id PK
+    string event
+    string outcome
     id actor_id
     id credential_id
-    string action
-    string target
+    string target_kind
+    string target_id
+    string request_id
     text detail
+    string previous_hash
+    string hash
   }
   AUTH_REQUESTS {
     id id PK
@@ -783,13 +813,13 @@ erDiagram
   MEMBERS ||--o{ CONTACTS : "low or high side"
   MEMBERS ||--o{ BLOCKS : blocks
   MEMBERS ||--o{ PUSH_SUBSCRIPTIONS : subscribes
-  MEMBERS |o--o{ AUDIT_LOG : acts
+  MEMBERS |o--o{ AUDIT_EVENTS : acts
   MEMBERS |o--o{ AUTH_REQUESTS : decides
   DEBATES ||--o{ DEBATE_MEMBERS : "seen by"
   DEBATES ||--o{ DEBATE_PARTICIPANTS : "argued by"
   CREDENTIALS ||--o{ DEBATE_PARTICIPANTS : "takes turns as"
   DEBATES ||--o{ DEBATE_TURNS : holds
-  DEBATES ||--o{ DEBATE_APPROVALS : "approved by"
+  DEBATES ||--o{ DEBATE_VOTES : "settled by"
   DEBATES ||--o{ DEBATE_CREDITS : credits
 ```
 
@@ -808,11 +838,11 @@ consent requests; their secrets are stored hashed.
 - **A `resync` on a stream does not move the client's cursor.** The event has sequence number 0, so a
   client whose stream drops before the next durable event resumes from its old cursor, is told to
   resync again and reloads again. It misses nothing; it reloads twice.
-- **The server does not enforce one desk.** The mod keeps one desk among Claude Code sessions, but
+- **The server does not enforce one desk.** The plugin keeps one desk among Claude Code sessions, but
   `homingbird-mcp --desk`, `homingbird-mcp --channel` and `homingbird run` each hold a stream and
   each drafts its own reply to the same note. `--channel` without `--desk` also counts as agent
   online. `docs/decisions.md` names only the
-  mod pane and the runner as desks.
+  plugin pane and the runner as desks.
 - **A note in a channel room writes one event row per participant of that room.** Members, helpers and
   the asker each get `note.sent` in their own event log, so the cost of a note grows with the room's
   size. No room holds every member unless every member joined it.
@@ -828,7 +858,7 @@ consent requests; their secrets are stored hashed.
   the agent credential file is readable by the same OS user. With the agent credential the command can read the person's conversations and draft; Dovecote refuses it
   on every approving route. Run an agent command you do not trust under a separate OS user or in a
   container (`docs/guide.md`, `docs/deployment.md`).
-- **The mod's guard is a pattern check, and nothing relies on it.** `forbiddenReason` matches the text
+- **The plugin's guard is a pattern check, and nothing relies on it.** `forbiddenReason` matches the text
   of each tool call and the resolved path of a file tool, so a shell command that assembles the
   credential path at run time is not recognized. The file it protects holds an agent credential, which
   can read and draft, never approve.

@@ -91,7 +91,7 @@ For an annotated tag, use the commit on the `^{}` line; otherwise the only line 
 
   The first line is `<type>(<scope>): <summary>`. Types: `feat`, `fix`, `docs`, `test`, `refactor`,
   `perf`, `build`, `ci`, `chore`. The scope is optional; when present it is a package (`kernel`,
-  `protocol`, `dovecote`, `client`, `ui`, `pwa`, `cli`, `mcp`, `a2a`, `mod`, `sprites`) or `deploy`,
+  `protocol`, `dovecote`, `client`, `ui`, `pwa`, `cli`, `mcp`, `a2a`, `plugin`, `sprites`) or `deploy`,
   `release`, `repo`. The summary is imperative, starts lower-case, has no trailing period and at most
   72 characters. Mark a breaking change with `!` before the colon or a `BREAKING CHANGE:` footer.
   The body says why; trailers such as `Co-Authored-By:` may follow it. Merge commits and the release
@@ -168,12 +168,14 @@ Commit the change to `main` like any other.
   if a person should confirm each publish.
 
 To try a release without publishing, run the workflow's pack and smoke-test steps locally:
-`pnpm build`, then `pnpm pack` in `packages/cli`, `packages/mcp` and `packages/mod`, install the CLI
+`pnpm build`, then `pnpm pack` in `packages/cli`, `packages/mcp` and `packages/plugin`, install the CLI
 and MCP tarballs into an empty directory with `npm install`, and run `homingbird --help`.
 
-To try the mod from a checkout, run `pnpm build` (it copies the CLI bundle to
-`packages/mod/cli/homingbird.mjs`) and start Claude Code with `claude --plugin-dir packages/mod`.
-`claude plugin validate packages/mod` and `claude plugin test packages/mod` check it.
+To try the plugin from a checkout, run `pnpm build` (it copies the CLI bundle to
+`packages/plugin/cli/homingbird.mjs`) and start Claude Code with `claude --plugin-dir packages/plugin`.
+`pnpm test:plugin` checks it with `claude plugin validate` and `claude plugin test`: the plugin's tests
+import the host's `claude-code/testing` kit and run in its environment, so they need Claude Code
+installed and are not part of `pnpm test`.
 
 ### Publishing from a fork
 

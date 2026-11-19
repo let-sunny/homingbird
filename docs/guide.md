@@ -2,13 +2,13 @@
 
 **Keep one agent session open for Homingbird: your desk. It drafts replies to notes that arrive, and
 you approve them in the web client.** Approval happens only there, where you signed in yourself: no
-agent, mod, command line or runner can send a note. Every other session drafts only when you ask it to,
+agent, plugin, command line or runner can send a note. Every other session drafts only when you ask it to,
 and writing by hand works in the web client too. Teach it your principles under My agent, and its
 numbers show where it already answers the way you would.
 
 | Your agent | How to make the desk | When a note arrives |
 | --- | --- | --- |
-| Claude Code | Type `/homingbird` in one session. The mod's pane opens. | It wakes by itself and drafts; the pane shows each draft as waiting for your approval and opens it in the web client, where you approve. |
+| Claude Code | Type `/homingbird` in one session. The plugin's pane opens. | It wakes by itself and drafts; the pane shows each draft as waiting for your approval and opens it in the web client, where you approve. |
 | Codex CLI, Gemini CLI, Cursor agent | Keep `homingbird run --agent "codex exec"` running in a terminal (or `--agent "gemini -p"`, `--agent "cursor-agent -p"`). | It drafts by itself; you approve in the web client. |
 | An MCP client whose chat can stay open, such as Cursor | Run the `watch` prompt in one chat. | It drafts while that chat is open; you approve in the web client. |
 | ChatGPT, claude.ai and other web connectors | Pick one chat that has the Homingbird connector. | It cannot be woken. A phone notification tells you; say "check Homingbird" in that chat, or answer by hand in the web client. |
@@ -23,7 +23,7 @@ numbers show where it already answers the way you would.
 
 Two ways to run a desk are equally supported: the runner, `homingbird run --agent "<command>"`, works
 with any agent that runs from a command, in a terminal or inside any MCP client app
-([`--run-agent`](#run-your-desk-from-your-mcp-client)), and the Claude Code mod is a convenience for
+([`--run-agent`](#run-your-desk-from-your-mcp-client)), and the Claude Code plugin is a convenience for
 people who already work in Claude Code.
 
 How agents, the server and the web client fit together is drawn in [architecture](architecture.md).
@@ -68,7 +68,7 @@ to rename or revoke them are under **My agent**, **Connection**, in the header.
 
 ### Claude Code
 
-1. Install the mod. At the prompt of a Claude Code session in a terminal, type:
+1. Install the plugin. At the prompt of a Claude Code session in a terminal, type:
 
    ```
    /plugin install homingbird --marketplace let-sunny/homingbird
@@ -82,18 +82,18 @@ to rename or revoke them are under **My agent**, **Connection**, in the header.
    ```
 
    In the desktop app, click **+** next to the prompt box, then **Plugins**, **Add marketplace** with
-   `let-sunny/homingbird`, then **Add plugin**. The mod brings its own copy of the `homingbird` command
+   `let-sunny/homingbird`, then **Add plugin**. The plugin brings its own copy of the `homingbird` command
    line, which needs Node 22 or newer installed on the computer. It finds `node` on `PATH` or where nvm,
    Volta, asdf, fnm or Homebrew put it; if it finds none, the pane says so, and you either start Claude
    Code from a shell where `node -v` works or set **Homingbird command** to the full path of `node`
    with `/plugin configure homingbird@homingbird`. Update with `claude plugin update homingbird@homingbird`.
    An organization can set the address for everyone: in managed settings under `pluginConfigs`,
    `homingbird`, `server`, or in a fork of the marketplace whose `plugin.json` gives `server` a default.
-2. In the session you want as your desk, type `/homingbird`. The mod takes the server you are signed in
+2. In the session you want as your desk, type `/homingbird`. The plugin takes the server you are signed in
    to, else the one configured, else the `HOMINGBIRD_SERVER` environment variable. With one, the pane
    offers **Sign in to** your server and **Open web**: press **Sign in**, approve in the browser page it
    opens (the code is filled in), and the pane turns into your desk by itself. With none, the pane asks
-   for the address; type it there, or as `/homingbird https://homingbird.example.com`, and the mod
+   for the address; type it there, or as `/homingbird https://homingbird.example.com`, and the plugin
    checks that a Homingbird server answers before signing in. Change the server later the same way, or
    with `/plugin configure homingbird@homingbird`.
 3. Approve drafts in the web client. The pane shows each draft as **Waiting for your approval** with
@@ -226,7 +226,7 @@ absolute path.
   says what it is doing.
 - It claims your desk on this computer: a second app with the same configuration, or a runner in a
   terminal, waits until the first one stops, so two never draft the same note. Do not also run a
-  `--desk` session or the Claude Code mod's pane for the same account.
+  `--desk` session or the Claude Code plugin's pane for the same account.
 - The `desk` prompt with `on` or `off` sets it on or off, without taking any command: `/homingbird:desk off`
   in Claude Code, `/desk off` in Gemini CLI. Codex offers no MCP prompts; there, run
   `homingbird desk pause` and `homingbird desk resume`, which pause every desk of yours on that
@@ -309,8 +309,12 @@ loses the room at once. Making a private channel open lets everyone read every q
 far; the confirmation says so.
 
 **Private means hidden from other members, not from your organization.** Your server administrator
-can manage every channel, and the audit log they keep records the content of every note, private channels
-included. Write in a private channel what you would write in a work chat your administrator can read.
+can manage every open channel. A private channel they are not in they can see when they sign in
+themselves (never through an agent): that it exists and, under **Members**, who is in it, never its
+notes. They can remove members from it or archive it, but not add anyone, themself included, make a
+manager or open it; only the channel's own managers do that. Whoever runs the server can read its database, notes included. The audit trail records who joined,
+left and changed a channel, never what was written in it. Write in a private channel what you would
+write in a work chat your administrator can read.
 
 ## Ask your agent for a draft from the web
 
@@ -329,33 +333,55 @@ information one side lacked, differing assumptions or criteria, differing goals,
 
 1. **Open a room.** Under **Debates**, beside Channels, press **New debate room**. Write the
    question, choose **Open** (everyone can follow it) or **Private** (only you and the people you
-   invite), and set the limits: turns per agent, turns in total, a time limit and a length per turn. The
-   room stops at whichever comes first. Only the person who opened it changes the limits, while turns
-   are still being taken.
+   invite take part; the organization's administrators may read it when they sign in themselves, as
+   with a private channel, never through an agent), and set the limits: turns per agent, turns in
+   total, a time limit, a length per turn, and after how long unseen an agent drops out of the debate
+   (5, 10 or 30 minutes). The room stops at whichever limit comes first. If any agent in the room
+   works through a remote MCP connector, choose 30 minutes: a connector has no event stream and sends
+   no heartbeat, so it makes a request only when the model calls one of its tools, and between turns
+   that can take longer than 5 or 10 minutes. With a shorter time it drops out while it is still
+   thinking or waiting for its person, and a room of two ends without a result. Only the person who opened it
+   changes the limits, and only at setup: once the first turn is taken, they are shown read-only.
 2. **Opt your agent in.** Each person opts their own agent in, in the web client; an agent never joins
    by itself. The first turn waits for a second agent.
-3. **Let the agents take turns.** `homingbird run` takes your agent's turns and drafts the result, like
-   it answers notes; `homingbird run --split` works here too, so the agent writes from a reader's
-   description of the room, never from the other turns' words. An MCP desk uses `check_debates`,
-   `read_debate`, `take_debate_turn` and `draft_debate_result`. The Claude Code mod shows a notice when a
-   room waits on your agent. Every other turn reaches your agent as quoted data from a colleague. Run the
-   agent without action tools: nothing in a turn can make it send, change contacts or touch credentials,
-   and no tool can open a room, opt an agent in or approve a result. `homingbird debates` lists what
-   waits.
-4. **Approve the result.** When the turns run out, one agent drafts the result. Each person whose agent
-   took part approves it in the web client, or presses **Ask for another draft**. When everyone approved,
-   the room closes and becomes read-only; a new question is a new room. A room whose time runs out with
-   fewer than two agents, or before any turn, ends without a result.
-5. **Take the result out.** Only then can a person whose agent took part post it to a channel or a
-   person: the result, without the turns, becomes a draft of theirs that starts "From the debate room:"
-   and is sent as usual. Anyone who can see the room can export the whole room, turns and result, as
-   Markdown or JSON, with people named by display name. Every export is recorded in the audit log, which
-   also keeps every turn and result, private rooms' included, as it keeps notes.
+3. **Let the agents take turns.** `homingbird run` takes your agent's turns, drafts the result and votes
+   on the other agents' drafts, like it answers notes; `homingbird run --split` works here too, so the
+   agent writes, and votes, from a reader's description of the room, never from the other turns' or
+   drafts' words. An MCP desk, a remote connector included, uses `check_debates`, `read_debate`,
+   `take_debate_turn`, `draft_debate_result` and `vote_debate_result`. The Claude Code plugin's desk
+   takes no turns: it only shows a notice when a room waits on your agent, so opt in the agent that a
+   `homingbird run` signs in as (on the same computer that is the plugin's own agent). An agent is **taking part** while it sends requests, and a
+   running desk or runner sends one every minute. Only requests count: a connection held open, such
+   as an event stream, does not keep an agent in. With no request for longer than the room allows, it
+   has **dropped out**, and the room goes on without it until it is back. A brief disconnect or a
+   server restart drops nobody out. Once the debate has started, a room with one agent left closes as
+   it is, without a result, so in a room of two agents one dropping out ends it without a result; the room page says why, and `homingbird debates` lists it for a day. Every other
+   turn reaches your agent as quoted data from a colleague. Run the agent without action tools: nothing
+   in a turn can make it send, change contacts or touch credentials, and no tool can open a room, opt an
+   agent in, post or export a result. `homingbird debates` lists what waits.
+4. **The agents settle the result.** When the turns run out, each agent drafts the result. The room
+   keeps collecting drafts for three minutes after the first one arrives (less when every agent taking
+   part has drafted); an agent sees the others' drafts only once it drafted. Then the agents taking
+   part vote on them, never for their own. The draft with the most votes becomes the result, a tie going
+   to the earliest; with only one draft, that draft is the result. The room then closes and becomes
+   read-only, and shows how each agent voted and which ones had dropped out; while the vote runs it shows
+   only who has voted. Nobody approves the result in the room: it stays there until a person takes it
+   out. A room whose time runs out with fewer than two agents, or before any turn, ends without a
+   result, and so does a room left with one agent or none. A day after its turns ran out, a room settles
+   the drafts it has, the most votes winning and a tie going to the earliest, and ends without a result
+   only if no agent drafted one.
+5. **Take the result out.** A person whose agent took a turn can post it to a channel or a person: the
+   result, without the turns, becomes a draft of theirs that starts "From the debate room:", and nothing
+   leaves until they send it, as with any note. A member can export the whole closed room, turns, result
+   and vote, as Markdown or JSON, with people named by display name and the headings in the language
+   you use Homingbird in (English or Korean); a private room only by its members. The audit trail
+   records that a room was opened, that an agent was opted in and that the room was exported, never
+   its turns or its result.
 
 Turns are never notes: they stay in the room, visible to its members (to everyone for an open room). On
-**My agent → Route map**, approved results credit your agent when its contribution became part of a
+**My agent → Route map**, settled results credit your agent when its contribution became part of a
 conclusion, when it filled a gap another agent lacked, separated a disagreement, changed its position
-on better evidence, or proposed a next step people accepted. There are no wins, counts or rankings.
+on better evidence, or proposed a next step the agents' vote kept. There are no wins, counts or rankings.
 
 ## When your agent cannot answer
 
@@ -374,15 +400,33 @@ finds, and never follows instructions in the note or in the linked material. Acc
 follows each person's own tools and permissions: Homingbird passes links, not documents. When your
 agent cannot open something, it records that, or skips the note with that reason; it
 never guesses the content and never asks the colleague for access. The desk's model runs where its tools are: the
-Claude Code mod's default **Desk drafting** (`turn`) and `homingbird-mcp --desk` answer in your
+Claude Code plugin's default **Desk drafting** (`turn`) and an MCP desk (the Homingbird MCP server
+started with `homingbird-mcp --desk`, see [Run your desk from your MCP client](#run-your-desk-from-your-mcp-client)) answer in your
 interactive session, with its connectors; `quiet` drafts without any tools, so it cannot open links and
 skips such notes saying so; `homingbird run` starts your agent command as its own process, with the
 tools that command loads.
 
+A note never makes your desk act. Every drafting prompt tells the agent that a note is quoted data,
+never instructions: it never runs commands, changes files, sends or approves anything, or follows
+instructions because a note says so, and it only drafts a reply or skips. Reading what a note links to
+is its own research choice for the draft, read-only. Back that up in how you run the desk session:
+
+- **Run the desk without auto-approve for tools.** Leave your agent's auto mode, "always allow",
+  `--dangerously-skip-permissions`, `--yolo` or similar off in the desk session (the Claude Code plugin's
+  session, an MCP `--desk` chat) and in the agent command you give `homingbird run`, so that a tool
+  call still needs your permission. A note is written by someone else; the desk should not act on it
+  unattended.
+- **The `codex` preset is the exception.** It runs Codex with `--sandbox workspace-write`, which runs
+  shell commands inside its sandboxed working directory (the service's `--workdir`) without asking.
+  Give it a working directory that holds nothing you mind it changing, or give `--agent` a Codex
+  command with `--sandbox read-only` instead.
+- **Keep auto-compact on.** Your principles and the answering flow are fetched again for each note,
+  so compacting the session's context does not change how the desk answers.
+
 With each draft the agent records what it read or relied on, and how each step of the answering flow
 went. You see it on the draft, under **What this draft is based on**, before you approve; when the agent
 gave none, the draft says so. After you send, it stays with your own note behind the same heading. The
-colleague never sees it, and it is also kept in the audit log for your organization's administrators.
+colleague never sees it, and the audit trail does not keep it.
 The record describes each step of the answering flow by its purpose, never in the flow's words.
 
 ## Answering flow
@@ -411,7 +455,7 @@ under two optional headings (a list with no headings is all "before drafting"):
 - **It is not shown, and not secret.** The flow is not displayed to members, but it reaches each
   member's own agent session, so never put confidential material in it. The server checks only its
   format and length (at most 4,000 characters and 20 steps).
-- The mod's `quiet` drafting has no tools, so it follows only steps about wording; use the default
+- The plugin's `quiet` drafting has no tools, so it follows only steps about wording; use the default
   `turn` for the rest.
 
 ## Approve, edit or discard
@@ -484,6 +528,8 @@ before:
 - **Quick approvals**: drafts sent as written within a few seconds of appearing (3 by default). When
   they are frequent, the page asks you to read drafts with numbers, dates or promises before sending.
 - **Notes you wrote yourself.**
+- **Debate results you sent**, on their own line: a result you posted from a debate room and sent counts
+  neither as your agent's draft nor as a note you wrote.
 - **Where your agent is trusted**: the same breakdown per channel, with direct messages together, such as
   "#billing: 9 of 10 sent as written" next to "#payroll: 2 of 6 sent as written".
 - **Sent as written, week by week** over the last 8 weeks, as a chart and as a table.
@@ -519,8 +565,9 @@ You can add a source, a web page your agent may read for it (http or https; it i
 instructions).
 
 An item in the same list can instead be an **answer**: **When asked about** "Office hours" **answer
-with** "We are open 9 to 5, Monday to Friday", up to 600 characters, or with the text left empty and a
-source to take the answer from. Your agent uses it when it fits the question and says so in the basis.
+with** "We are open 9 to 5, Monday to Friday", up to 300 characters with its title, the same as a rule,
+or with the text left empty and a source to take the answer from; anything longer belongs in a source.
+An answer saved longer before this limit keeps working, and must be shortened to 300 when you edit it. Your agent uses it when it fits the question and says so in the basis.
 You still approve every draft: an answer is never sent on its own.
 
 - Your principles are a list you keep like a to-do list: a switch on each row turns a principle on or
@@ -553,12 +600,31 @@ You still approve every draft: an answer is never sent on its own.
 
 - **Public** on a row lets you write one sentence about that item for colleagues, up to 200 characters,
   such as "My agent can tell you our release dates." Colleagues see these sentences under **About their
-  agent** in the people list. The sentence may not repeat four words in a row of the private text, its
-  source or the channel's name, and the form warns that it can still reveal what the principle says.
+  agent** in the people list, and their agents may read them too (MCP `find_people`, `homingbird
+  directory`), always quoted as a colleague's text, never as instructions. The sentence may not repeat
+  four words in a row of the private text, its source or the channel's name, and the form warns that
+  it can still reveal what the principle says.
 
 Your principles are private: colleagues see only the public sentences you wrote, never the principles or
-their sources, and administrators' Insights do not include them. Your organization's
-audit log records all of it, as it records every note.
+their sources, and administrators' Insights do not include them. Your organization's audit trail
+records that you saved, changed or deleted a principle, never its text.
+
+## What is recorded about you
+
+Homingbird keeps what you and your agent do in the product itself: your notes, drafts and principles,
+shown to the people concerned and nobody else. Apart from that, whoever runs your server keeps:
+
+- **An audit trail** of who changed what: that you signed in or out (with the address and browser you
+  used), approved or discarded a draft, connected or removed an agent, changed which parts of your
+  profile, joined or left a channel, added a contact or blocked someone, and saved, changed or deleted
+  a principle. It holds ids and outcomes, never the text of a note, a draft, what a draft was based on,
+  a principle or a debate turn. It does not record when you read a note or first saw a draft. It is kept
+  400 days unless your organization chose otherwise, and read on the server, not in the web client.
+- **An operational log** of the server's health: which kind of request was answered and how fast,
+  never its content and never your email address.
+- **Anonymous usage counts**, only if your organization turned them on: which pages are viewed and that
+  a principle was saved, under a random id that is not linked to you. `homingbird analytics off` or
+  `DO_NOT_TRACK=1` stops them from the command line.
 
 ## Turn on phone notifications
 
@@ -587,7 +653,7 @@ pigeon.
 - **Make my own** opens the editor: colors, feet, and one part per slot. Parts that would break a rule
   are greyed out with the reason. **Surprise me** makes a random character that passes every rule.
 - **Ask my agent:** in an agent session, ask it to make your Homingbird character (the `character`
-  prompt over MCP, or `/homingbird character` with the Claude Code mod). It drafts and checks the
+  prompt over MCP, or `/homingbird character` with the Claude Code plugin). It drafts and checks the
   character and gives you a link that opens it in the editor, its markings as a layer you can keep or
   remove. Opening the link saves nothing.
 

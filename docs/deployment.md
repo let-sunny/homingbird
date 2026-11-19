@@ -24,7 +24,8 @@ move up one size for the large row.
 - [Behind a load balancer](#behind-a-load-balancer)
 - [Backups](#backups)
 - [When someone leaves](#when-someone-leaves)
-- [Audit log forwarding](#audit-log-forwarding)
+- [Logs](#logs)
+- [Product analytics](#product-analytics)
 - [Answering flow](#answering-flow)
 - [Insights](#insights)
 - [Features](#features)
@@ -63,6 +64,40 @@ What follows from that, and has **not** been measured:
   people joined costs 1,000 writes per note. Dovecote puts nobody in a channel by itself, so a room is as
   large as the people who joined it.
 
+### At pilot size
+
+**At pilot size, every call we measured answers within a quarter of a second at the 95th percentile, on
+SQLite and on PostgreSQL.** The slowest is the organization's Insights page, at about 85 ms typically and
+under 230 ms at the 95th percentile; everything else stays under 120 ms at the 95th percentile.
+
+`npx tsx scripts/pilot-measure.ts` seeds a pilot on a fresh SQLite file and times the calls that grow with
+history; `--database-url postgres://…` runs it on PostgreSQL, **dropping Dovecote's tables in that
+database first**, so point it only at a scratch database. The pilot is
+50 members, each with 2 agents (100 agent credentials), 20 channels with every member in 6 of them and 4
+people answering in each, 30 days of history at about 200 notes a day (3,000 exchanges: 5,036 sent notes,
+5,582 notes with drafts, 9,838 receipts and 122,636 event rows, since housekeeping is not run), and 10
+open debate rooms with 5 agents each. Four in five drafts come from an agent; seven in ten are sent as
+written, two edited and one discarded, and one reply in twenty is given back. The calls go over HTTP
+to a server in the same process, one at a time. For the fan-out, 100 agent streams are open and one note
+is sent to a channel all 50 members joined; the time runs from the send until the last stream has it.
+
+Measured on 4 vCPUs (Intel Xeon at 2.1 GHz, shared), 16 GB of memory, Node 22.23, with SQLite on local
+disk and PostgreSQL 16 on the same machine:
+
+| What | Runs | SQLite median | SQLite p95 | PostgreSQL median | PostgreSQL p95 |
+| --- | --- | --- | --- | --- | --- |
+| Organization Insights (`GET /admin/insights`) | 20 | 83 ms | 226 ms | 83 ms | 159 ms |
+| The administrator's own figures (`GET /insights/me`) | 20 | 6 ms | 11 ms | 6 ms | 14 ms |
+| Each member's trust figures (`GET /insights/me`, all 50) | 50 | 6 ms | 11 ms | 6 ms | 12 ms |
+| Each member's principles with this week's figures (`GET /principles`) | 50 | 9 ms | 30 ms | 16 ms | 23 ms |
+| One channel note to 100 open streams, until the last arrives | 20 | 61 ms | 90 ms | 71 ms | 117 ms |
+| Debate asks for every agent (`GET /debate-asks`, 100 agents) | 300 | 2 ms | 6 ms | 7 ms | 19 ms |
+
+Seeding took about 3.5 minutes on SQLite and 5.5 on PostgreSQL. No call came near the 500 ms we treat as
+slow, so no index was added for the pilot. Organization Insights reads the drafts and sent notes of the
+last 60 days into memory: it grows with an organization's history, and is the first figure to measure
+again before a pilot several times this size.
+
 ## One instance only
 
 Real-time fan-out and presence are in process (see [decisions](decisions.md#architecture)). Two
@@ -99,7 +134,10 @@ Horizontal scaling (shared fan-out through the database or a broker) is on the
 - Dovecote creates its tables on first start. The 0.1.0 schema is one baseline, recorded as version
   1. Step 2 adds the columns and tables for the agent figures and teaching; a 0.1.0 database gets it
   on its next start and keeps every row. Step 3 adds the debate room tables and the column that
-  links a posted debate result to its room; a database at step 2 gets it on its next start.
+  links a posted debate result to its room; a database at step 2 gets it on its next start. Step 4
+  adds the tables for every agent's draft of a room's result and the votes on them, and the time a
+  room's vote opened; a database at step 3 gets it on its next start, and on MySQL a step cut off
+  halfway runs again.
 - The mechanism for later changes exists: a `schema_versions` table records which schema steps a
   database has, and Dovecote applies the missing ones in order when it starts, each in its own
   transaction. There are no down-migrations.
@@ -111,6 +149,48 @@ Horizontal scaling (shared fan-out through the database or a broker) is on the
   a step that version does not know. Back up before upgrading, and restore that backup to roll back.
 - Upgrades between 0.x releases are not promised. [Back up](#backups) before every upgrade, and read
   the [changelog](../CHANGELOG.md) first.
+
+**Upgrading to the release with the new audit trail:**
+
+- The audit trail moves to a new table, `audit_events`, added by a new schema step. The first table,
+  `audit_log`, which held request bodies and note content, is no longer written and its rows are not
+  copied. At the first start of this version Dovecote removes its rows older than the audit retention
+  your administrator had saved (`HB_AUDIT_RETENTION_DAYS`, 400 days by default, when none was saved),
+  and records how many in an `audit.legacy_purged` row; after that, retention removes the rest with
+  the same cutoff as new rows. When the saved retention was **keep forever**, nothing is removed at
+  the upgrade. To remove them all at once, run `dovecote audit purge-legacy` on the
+  host.
+- The audit view in the web client and the `GET /api/v1/admin/audit` route are gone: the trail is read
+  on the server host ([Logs](#logs)). A script that called that route gets 404.
+- `HB_AUDIT_WEBHOOK_URL` is no longer read; Dovecote warns once at start while it is set. Collect
+  stdout instead, with `HB_LOGS=auditCopy=on` for a metadata-only copy of the audit trail.
+- `HB_AUDIT_STDOUT=1` still works and means `HB_LOGS=auditCopy=on`.
+- `HB_AUDIT_RETENTION_DAYS` is now the only retention control, 400 days unless set, at least 90. The
+  administrator's retention setting in the web client is gone. A retention your administrator saved is
+  never shortened silently: while `HB_AUDIT_RETENTION_DAYS` is unset, a saved value longer than 400
+  days keeps rows that long, and a saved **keep forever** keeps every row, so housekeeping removes
+  none. When the variable is set it decides, and whenever the retention kept is shorter than the saved
+  one Dovecote writes one `system.audit_retention_shorter` warning at start, naming both (`saved` is
+  `"forever"` for keep forever).
+- A value of `HB_AUDIT_RETENTION_DAYS` below 90, which 0.1.3 accepted, no longer stops Dovecote:
+  it starts, keeps rows for 90 days, and warns once with `system.audit_retention_raised`. Raise the
+  variable to 90 or more to silence it.
+- The Terraform modules for AWS and Google Cloud no longer have an `audit_webhook_url` variable, and
+  no longer pass `HB_AUDIT_WEBHOOK_URL` to the server. Remove it from your `terraform.tfvars`:
+  Terraform warns about a value for an undeclared variable, and `-var audit_webhook_url=...` on the
+  command line is an error.
+- Lines on stdout are now JSON objects ([Operational log](#operational-log)), not free text.
+
+### Mixing versions
+
+Upgrade the server and people's command lines and MCP adapters together where you can: mixed versions
+are not tested. Clients read values a newer server added safely (an unknown status as not sent, an
+unknown role as no administrator, an unknown relation as no contact), skip an event they cannot read,
+and use only the features `server.info` lists as on. At start they compare the server's
+`protocolVersion`, which changes only with a breaking change announced in the changelog; a client that
+cannot read it says in one sentence which side to upgrade: "This Homingbird server is newer than this
+client understands; upgrade the client." The web client is served by Dovecote itself, so a reload
+always brings the matching one.
 
 ## Behind a load balancer
 
@@ -163,7 +243,7 @@ heartbeat and the events with it.
   not a backup: recent writes sit in the `-wal` file beside it.
 - **PostgreSQL and MySQL:** use the managed service's automated backups with point-in-time recovery.
   Both Terraform setups turn them on.
-- The database holds note content, the audit log and hashed credentials. Encrypt backups and restrict
+- The database holds note content, the audit trail and hashed credentials. Encrypt backups and restrict
   who can read them.
 
 ## When someone leaves
@@ -182,8 +262,8 @@ administrator opens **Administration**, **Members** in the web client and presse
 because revoked credentials stay revoked. The deactivation itself is audited.
 
 What stays: notes they sent remain in their conversations for the other participants, and the audit
-log keeps every entry about them, note content included, until `HB_AUDIT_RETENTION_DAYS` removes it
-(by default never). Their unsent drafts stay in the database and no one else can see them.
+trail keeps its rows about them, ids and outcomes only, until `HB_AUDIT_RETENTION_DAYS` removes them
+(400 days by default). Their unsent drafts stay in the database and no one else can see them.
 
 Limits:
 
@@ -194,25 +274,178 @@ Limits:
   credential after `HB_AGENT_CREDENTIAL_DAYS` (90 days by default). Refreshing an
   agent's token does not extend that.
 
-## Audit log forwarding
+## Logs
 
-Every state-changing call and every sign-in is audited in the same transaction as the action, with the
-note content. Administrators read the log in the web client. To keep it elsewhere as well:
+**Dovecote keeps five kinds of record, each for its own reader, and none of them holds the content of
+a note, a draft, a basis, a principle or a debate turn except the product's own data.**
 
-- **`HB_AUDIT_STDOUT=1`** prints each entry as one JSON line on stdout. Cloud Logging and CloudWatch Logs
-  collect it with no further setup.
-- **`HB_AUDIT_WEBHOOK_URL=https://...`** posts entries in batches to your endpoint, retrying with backoff,
-  and logs loudly when it gives up.
-- **`HB_AUDIT_RETENTION_DAYS`** sets how long Dovecote itself keeps entries; by default, forever.
+| Kind | Answers | Reader | Where |
+| --- | --- | --- | --- |
+| Audit trail | Who changed who may do what, and who was refused? | The operator, and auditors through them | Table `audit_events`, database only |
+| Activity | What happened in my conversations, drafts, principles, rooms? | The people concerned, in the product | The product's own tables |
+| Operational log | Is the server healthy, and why did that request fail? | The operator's log collector | JSON lines on stdout |
+| Service log | Why did my background agent stop? | The person, on their own computer | `homingbird run` log file |
+| Product analytics | Which parts of Homingbird are used? | Whoever the operator sends them to | Off unless set up ([Product analytics](#product-analytics)) |
 
-Both forwards are off by default because the entries contain note content. Point them only at systems
-cleared for it.
+### Choosing what is recorded
+
+One variable, read at start like `HB_FEATURES`. It is the operator's: no web setting overrides it, and
+`server.info` does not show it.
+
+```sh
+HB_LOGS="audit=full,operational=info,requests=off,auditCopy=off"   # the defaults
+```
+
+| Kind | Values | Default | What it means |
+| --- | --- | --- | --- |
+| `audit` | `full`, `security`, `off` | `full` | `security` keeps sign-in, credentials, refused attempts and refused tokens, roles and status, settings, retention and start; `full` adds channels, contacts, principles, characters, approvals and debate rooms. `off` records nothing; Dovecote warns once at start |
+| `operational` | `debug`, `info`, `warn`, `error`, `off` | `info` | The lowest level written to stdout. `debug` adds the redacted detail of defects; Dovecote warns that it is not for production |
+| `requests` | `on`, `off` | `off` | One `http.request` line per request: route name, method, status and duration |
+| `auditCopy` | `on`, `off` | `off` | Each audit row also as an `audit.copy` line on stdout, without its detail. `HB_AUDIT_STDOUT=1` means the same |
+
+An unknown name or value, a name given twice, an item such as `audit=full=x`, and any choice that would
+silently drop output it asks for (`auditCopy=on` or `requests=on` with `operational` below `info`) stop
+Dovecote at start with one sentence that says which.
+
+### The audit trail
+
+Every row is written in the same transaction as the action it records, and rolls back with it. It
+holds ids, enums, the outcome and, for settings, the values before and after; never a request body,
+note content, a token, a cookie or an email address. The client address and user agent are kept only
+on sign-in, sign-out, failed sign-in and credential issue rows.
+
+| Column | Holds |
+| --- | --- |
+| `id`, `created_at` | Order and time (milliseconds since 1970) |
+| `event`, `outcome` | A catalogue name such as `note.approved`, and `success`, `denied` or `failed` |
+| `actor_id`, `credential_id`, `credential_kind`, `client_id` | Who acted, with which credential, and the OAuth client when one did |
+| `target_kind`, `target_id` | What it is about: a member, note, channel, principle, debate, route, … |
+| `request_id` | The request's `X-Request-Id`, also on its operational log lines |
+| `client_address`, `user_agent` | Sign-in and credential rows only |
+| `detail` | JSON declared per event in `packages/protocol/src/audit-events.ts` |
+| `previous_hash`, `hash` | The hash chain |
+
+Recorded: approving and discarding a note; credentials renamed, revoked and issued; device and consent
+decisions; which profile fields changed; characters set, cleared and reset; role and status; settings;
+channels created, made open or private, joined, left, archived, renamed, and their members and managers;
+contacts and blocks; principles created, changed, deleted and reordered, without their text; debate
+rooms opened, agents opted in, limits, results decided, posted and exported; sign-in, failed sign-in
+and sign-out; OAuth clients registered and resolved; retention purges; start and schema steps;
+refused attempts as `authz.denied`, one row per credential and route a minute with a `count`; and a
+missing, expired or revoked token as `authn.token_refused`, one row a minute per credential, or per a
+hash of the token when no credential has it, never the token. Such refusals also write one
+`authn.refused_burst` warning a minute per address, cut to its /24 or /48. A window is written within
+ten seconds of its minute ending, and every open window when Dovecote stops. A credential's row names
+the kind of program it went to (`browser`, `cli`, `mcp`, `plugin`, `oauth`, or `device` for an older
+client) and the OAuth client id, never the name the program gave itself. Not
+recorded, because they are activity the product already keeps or a read: every `GET`, reading, moving,
+picking up and releasing notes, drafting and editing drafts, when a draft was first seen, debate turns,
+drafted results and votes, push subscriptions and presence.
+
+A detail that does not match its schema never fails the action: the row is kept with
+`{"invalidDetail":true}` and an `audit.invalid_detail` warning is written.
+
+**Tamper evidence.** Each row's `hash` is SHA-256 over the previous row's hash and the row itself; the
+first row follows 64 zeros. A one-row table, `audit_head`, holds the newest hash and serialises
+writers. Once a day the head goes to the operational log as `audit.chain_head`, so a copy lives
+outside the database. A retention purge removes the oldest rows as one piece, remembers the last hash
+it removed and records `audit.retention_purged`, so what is left still verifies.
+
+**Retention.** `HB_AUDIT_RETENTION_DAYS`, 400 days unless set, at least 90: a smaller value is raised
+to 90 with a warning at start. While it is unset, a longer retention an administrator saved before
+this setting moved to the variable is kept, and a saved keep forever keeps every row. The hourly housekeeping pass removes older rows, and rows
+of the first audit table, `audit_log`, with the same cutoff.
+
+**On the server host**, with the same `HB_DATABASE_URL` as the server:
+
+```sh
+node dovecote.mjs audit verify                               # in the image: docker compose exec dovecote node dovecote.mjs audit verify
+node dovecote.mjs audit export --since 2026-11-01 > audit.jsonl
+node dovecote.mjs audit export --since 2026-11-01 --until 2026-12-01
+node dovecote.mjs audit purge-legacy                         # removes every row of the first audit table
+```
+
+`verify` walks the chain up to the head it read when it started, so rows the server writes meanwhile
+wait for the next run and a retention purge meanwhile is no break; it says where the chain breaks and
+exits 1. `export` writes one JSON object per row. The commands never migrate or seed: a database of
+another version is refused with exit code 3 and one sentence. None has a network route: the trail is
+read where the database is.
+
+Recipes, for PostgreSQL; SQLite and MySQL differ only in date functions:
+
+```sql
+-- Everything one credential did
+SELECT created_at, event, outcome, target_kind, target_id FROM audit_events
+WHERE credential_id = 'cred_...' ORDER BY id;
+
+-- Who changed roles or status, and how
+SELECT created_at, actor_id, target_id, detail FROM audit_events
+WHERE event = 'member.access_changed' ORDER BY id;
+
+-- Refused attempts in the last day
+SELECT created_at, credential_id, target_id AS route, detail FROM audit_events
+WHERE event = 'authz.denied' AND created_at > (extract(epoch FROM now()) * 1000 - 86400000)::bigint;
+
+-- A channel's membership history
+SELECT created_at, event, actor_id, detail FROM audit_events
+WHERE target_kind = 'channel' AND target_id = 'payroll' ORDER BY id;
+
+-- Failed sign-ins by reason
+SELECT detail, count(*) FROM audit_events WHERE event = 'authn.sign_in_failed' GROUP BY detail;
+```
+
+Give Dovecote's database role `INSERT, SELECT, DELETE` on `audit_events` and nothing more if your
+database allows it, and auditors a separate read-only role.
 
 **Private channels are private from other members, not from the organization.** A private channel is
-hidden from everyone outside it in the web client, the API and every agent tool, but the audit log
-records the content of its notes like any other, administrators can manage every channel, and anyone
-who can read the database or the forwarded entries can read it. Tell your members so; the user guide
-says it too. Every change to a channel's members, managers and visibility is audited as well.
+hidden from everyone outside it in the web client, the API and every agent tool. The audit trail
+records who joined it, left it and changed it, never its notes; but administrators can manage every
+channel, and anyone who can read the database can read its notes. Tell your members so; the user guide
+says it too.
+
+### Operational log
+
+One JSON object per line on stdout, with OpenTelemetry field names so a collector maps it without
+configuration:
+
+```json
+{"timestamp":"2026-11-19T10:02:03.123Z","severityText":"ERROR","severityNumber":17,
+ "eventName":"http.request_failed","body":"A request failed with a defect.",
+ "attributes":{"route":"drafts.send","method":"POST","defect":"TypeError","requestId":"req_6f2c..."},
+ "resource":{"service.name":"dovecote","service.version":"0.1.4"}}
+```
+
+Every line is one of a fixed set of events, each with a fixed sentence and typed attributes; there is
+no free-form message. Lines never carry tokens, cookies, authorization headers, query strings, request
+or response bodies, note or principle text or email addresses. A defect is logged by the name of its
+type; its detail appears only at `debug`, with tokens, cookies, query strings, email addresses and
+long secrets removed. Every response carries `X-Request-Id`, the same id as on that request's log lines
+and audit rows. Dovecote keeps no log of its own: retention is the collector's.
+
+A start failure still goes to stderr as one sentence, because there is nowhere else to say it.
+
+## Product analytics
+
+**Off unless the operator chooses a destination and an administrator turns the `analytics` feature
+on.** Then the web client and the command line send anonymous counts to this Dovecote only, which
+checks each against its catalogue, replaces each anonymous id with an HMAC under a key it made at
+first start, so nothing a client puts there leaves as sent, and forwards them from a bounded queue
+in the background. One credential may send 60 events a minute; more are refused with 429. The catalogue
+(`packages/protocol/src/analytics.ts`) holds enums and short codes only, never content, names or email
+addresses: `sign_in_completed {client}`, `page_viewed {page}` (a web client route name),
+`principle_saved {kind}`, `draft_approved`, `debate_opened {visibility}`, `desk_started {agentPreset}`
+(a preset name or `custom`). An unknown event or
+property refuses the whole batch. Events carry a random id kept in the browser or on the computer,
+never the member.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `HB_ANALYTICS` | `off` | `posthog` (batch capture API), `ga4` (Measurement Protocol) or `http` (our own Segment-shaped JSON, `{"events":[{"event","properties","anonymousId","timestamp"}]}`) |
+| `HB_ANALYTICS_URL` | PostHog US cloud for `posthog` | Where events go. For `ga4`, the collect address with `?measurement_id=G-...` |
+| `HB_ANALYTICS_KEY` | none | The PostHog project key, the GA4 API secret, or a bearer token for `http`. Never logged |
+
+The command line says once that the server counts usage; `homingbird analytics off` or
+`DO_NOT_TRACK=1` stops it on that computer. The MCP adapter sends none and says so in its status.
 
 ## Answering flow
 
@@ -220,7 +453,7 @@ An administrator can set one answering flow for the server: steps every member's
 drafting, and checks it runs on each draft before a person sees it. Set it as `answeringFlow` on
 `PUT /api/v1/admin/settings` with an administrator's session, or in the web client's administration
 settings, where the steps are two lists, each step with a switch to turn it off, edited in place and
-put in order; the change is audited with its text. A turned off step is stored with "[off] " in front and
+put in order; the audit trail records that it changed, not its text. A turned off step is stored with "[off] " in front and
 never reaches an agent. Write each step by the outcome you want, not by a tool, because members' agents differ
 in what they have; the [guide](guide.md#answering-flow) shows the format. The flow is not shown to
 members but reaches each member's agent, so never put confidential material in it.
@@ -231,8 +464,9 @@ Every member sees their own agent's numbers under **My agent** ([guide](guide.md
 how many of its drafts were sent as written, edited or discarded, what it skipped, and how quickly the
 member decided. Administrators see **Insights** in the administration area: people who sent notes,
 notes per person, reply rate and typical time to the first reply, the approval mix, the share of quick
-approvals and of skipped notes, and totals per channel. Insights hold numbers only, never note content
-and never one person's figures:
+approvals and of skipped notes, debate results sent (a line of their own: they count neither as agent
+drafts nor as notes), and totals per channel. Insights hold numbers only, never note content and never
+one person's figures:
 
 - A period in which fewer than `HB_INSIGHTS_MINIMUM_GROUP` people (5 by default) sent notes shows no
   numbers at all, and the block count is shown only as a number, and only once the organization has
@@ -240,10 +474,11 @@ and never one person's figures:
 - A channel, or direct messages together, appears on its own only when at least that many people
   contributed to it. When the left-out groups together would still be fewer people, the next smallest
   group is left out too, so the organization's totals minus the shown groups never reveal a small one.
+- Debate results sent are shown only once at least that many people sent one in the period.
 - The member's own route is for people only: an agent credential cannot read how its person approves.
 
 Principles that members teach their agents ([guide](guide.md#my-agent)) are private to each member and
-never appear in Insights. Like every action and every note, they are recorded in full in the audit log.
+never appear in Insights. The audit trail records that a principle was created, changed or deleted, never its text.
 
 Two settings shape the numbers. Both apply to everything already recorded, because Dovecote stores
 times, not verdicts:
@@ -262,6 +497,7 @@ An administrator can turn optional features off under **Administration → Setti
 feature that is off disappears from the web client, its routes answer 404 "This feature is turned off in
 this organization.", agents are told nothing about it, and its data is kept for when it is turned on
 again. Every change is audited. `server.info` lists which features are on, so every client adapts.
+`analytics` is off by default and stays off while `HB_ANALYTICS` is `off`.
 
 | Switch | Default | When it is off |
 | --- | --- | --- |
@@ -276,8 +512,9 @@ again. Every change is audited. `server.info` lists which features are on, so ev
 | `insights` | on | Administrators see no organization-wide numbers |
 | `noteDetails` | on | Notes no longer show the model and program that wrote them |
 | `debateRooms` | on | Debate rooms are hidden, agents take no turns and no room stops on time; the rooms stay |
+| `analytics` | **off** | No usage counts leave the server ([Product analytics](#product-analytics)) |
 
-Notes, drafts, approval, direct messages, sign-in and the audit log are the core and cannot be turned
+Notes, drafts, approval, direct messages, sign-in and the audit trail are the core and cannot be turned
 off. `HB_FEATURES` seeds the switches at first start, such as `HB_FEATURES="teaching=off,characters=on"`;
 once an administrator saves settings, the saved switches win.
 
@@ -331,6 +568,119 @@ The agent command runs with the permissions of the OS user that runs the runner,
   another matter.
 - The runner holds an event stream, so the person's agent shows as **awake** while it runs.
 
+### A complete example: one person's runner on a Linux server
+
+A server has no browser where the person can approve a sign-in, so the person signs in once on their
+own machine and hands the runner the credential as a file. The steps below set up one person's runner
+on a Linux server with systemd, as a dedicated OS user, `hb-ana` here, and Claude Code as the agent;
+replace the server address, the user and the agent with yours. Every command is meant to be copied as
+it is. The systemd unit passes `systemd-analyze verify` but has not yet been loaded by a real user
+manager in our tests, so check step 6 before you rely on it.
+
+**1. On your own machine, sign in to a file.** You approve in the web client as always. The agent
+credential (the server's address and the token) goes to that file only, readable by you only
+(`0600`); the command prints where it wrote it, never the token, and refuses to replace an existing
+file without `--force`. `--name` is what the web client calls this connection under **My agent** →
+**Connection**, and its drafts show as **Runner · build-1**.
+
+```sh
+homingbird login --server https://homingbird.example.com \
+  --credentials-file ./homingbird.json --name build-1
+scp ./homingbird.json admin@build-1:/tmp/homingbird.json
+rm ./homingbird.json
+```
+
+Or store the file as a secret, such as in GCP Secret Manager, and have the server's startup script
+fetch it; either way, delete your local copy.
+
+**2. On the server, as root: the runner's user, Node, the command line and the agent.** The user
+gets no password and no `sudo`. Lingering lets its own systemd user manager run without anyone
+logged in.
+
+```sh
+useradd --create-home --shell /bin/bash hb-ana
+loginctl enable-linger hb-ana
+npm install -g @homingbird/cli @anthropic-ai/claude-code   # Node 22 or newer is already installed
+```
+
+**3. Put the credential where the runner can read it and nothing can change it.** The file belongs to
+the runner's user and is read-only (`0400`) in a directory only root can write, so neither the runner
+nor its agent can replace or delete it. In a container, mount it read-only instead, such as
+`--mount type=bind,src=/etc/homingbird/hb-ana/homingbird.json,dst=/run/secrets/homingbird.json,readonly`.
+
+```sh
+install -d -o root -g root -m 0755 /etc/homingbird/hb-ana
+install -o hb-ana -g hb-ana -m 0400 /tmp/homingbird.json /etc/homingbird/hb-ana/homingbird.json
+shred -u /tmp/homingbird.json
+```
+
+**4. Give the agent its model key in an environment file only that user can read.** The runner passes
+its own environment to the agent command, except `HOMINGBIRD_*` and `HB_*` variables, so a systemd
+drop-in that loads the file gives the agent its key. The drop-in sits beside the unit that `service
+install` writes and survives a reinstall. The service's name is `homingbird-runner-` followed by the
+server address with its scheme, as `service install` prints it.
+
+```sh
+UNIT=homingbird-runner-https-homingbird-example-com.service
+sudo -u hb-ana sh -c 'umask 077 && cat > /home/hb-ana/model.env' <<'KEY'
+ANTHROPIC_API_KEY=<the key>
+KEY
+sudo -u hb-ana mkdir -p /home/hb-ana/.config/systemd/user/$UNIT.d
+printf '[Service]\nEnvironmentFile=/home/hb-ana/model.env\n' |
+  sudo -u hb-ana tee /home/hb-ana/.config/systemd/user/$UNIT.d/model-key.conf > /dev/null
+```
+
+If your shell keeps a history of what you paste, write the key with an editor as `hb-ana` instead,
+and keep the file at mode `0600`.
+
+**5. Install the service as that user.** `service install` refuses to run as root. It writes the path
+of the credentials file, never its content, into the unit as `HOMINGBIRD_CREDENTIALS_FILE`, and starts
+the service.
+
+```sh
+as_runner() { sudo -iu hb-ana env XDG_RUNTIME_DIR=/run/user/$(id -u hb-ana) "$@"; }
+as_runner homingbird service install --server https://homingbird.example.com --agent claude \
+  --credentials-file /etc/homingbird/hb-ana/homingbird.json
+```
+
+**6. Check that it runs.** `service status` says whether the service is installed and running, how it
+last exited and where its log is; the log has one line per step, never note text or tokens. In the web
+client, the person's agent shows as **awake**.
+
+```sh
+as_runner homingbird service status --server https://homingbird.example.com \
+  --credentials-file /etc/homingbird/hb-ana/homingbird.json
+as_runner tail -n 20 /home/hb-ana/.config/homingbird/logs/runner-https-homingbird-example-com.log
+```
+
+**7. Rotate the credential** when the person leaves the machine, suspects it was copied, or on your own
+schedule. Sign in to a new file and copy it to `/tmp/homingbird.json` as in step 1, then on the
+server, as root:
+
+```sh
+install -o hb-ana -g hb-ana -m 0400 /tmp/homingbird.json /etc/homingbird/hb-ana/homingbird.json
+shred -u /tmp/homingbird.json
+as_runner systemctl --user restart homingbird-runner-https-homingbird-example-com.service
+```
+
+Then revoke the old connection under **My agent** → **Connection** in the web client; it is the older
+of the two with the same name. Rotate the model key the same way: edit `/home/hb-ana/model.env` and
+restart the service. To stop for good, run `as_runner homingbird service uninstall --server
+https://homingbird.example.com`, revoke the
+connection in the web client, and delete `/etc/homingbird/hb-ana` and the secret.
+
+What the runner does with the file: it only reads it. It refuses a file that is missing, unreadable,
+not a credential or for another server than `--server`, and warns when the file's group or other users
+can read it. A service waits until the file can be used, and waits for a new file when the server
+refuses the one it holds. The agent command's environment never holds the variable or any value
+containing the path, and its arguments and input never hold the path. The runner's own command line
+does when you pass `--credentials-file` to `homingbird run`, and other users of the computer can list
+it; the variable keeps the path off it, which is why the systemd unit and the launchd agent use it.
+Either way the agent command runs as the same OS user and can read the file, as it can read
+`~/.config/homingbird`: the credential can read and draft, never send. `homingbird logout
+--credentials-file <path>` revokes the credential and deletes the file only where it may; for the
+read-only file above it says so, and you delete it yourself.
+
 ## Roll out to an organization
 
 Install the command line and register each person's runner centrally, with MDM (Jamf, Intune) or an
@@ -339,17 +689,20 @@ onboarding script, so that people only open the web client. Every script does tw
 1. Install the CLI: `npm install -g @homingbird/cli` (Node 22 or newer must already be installed).
 2. As the person, never as root: `homingbird service install --server <url> --agent <preset or command>`.
 
-**Signing in is never pre-provisioned.** Credentials are per person, so that the audit log says who
-drafted and offboarding revokes one person's access. Do not copy credential files between machines or
-create them centrally. After the script, each person runs `homingbird login --server <url>` once and
+**Signing in is never pre-provisioned.** Credentials are per person, so that the audit trail says who
+drafted and offboarding revokes one person's access. Do not create credential files centrally or copy
+one person's credential to another's machine; a person may move their own to a server they run, as in
+[A complete example: one person's runner on a Linux server](#a-complete-example-one-persons-runner-on-a-linux-server). After the script, each person runs `homingbird login --server <url>` once and
 approves the connection in the browser; until then the service runs and waits, and `homingbird service
 status` says `Sign in first: homingbird login --server <url>`. Put that line in your onboarding
 instructions: the service does not yet tell the person through the web client or a notification.
 
-**Tested so far.** The service definitions are generated by tested code, but on macOS and Windows
-neither they nor the scripts below have been run on those systems yet, and on Linux the systemd unit
-is checked with `systemd-analyze verify` but has not been loaded by a real user manager. Try each
-script on one machine before rolling it out. Windows is untested.
+**Tested so far.** The service definitions are generated by tested code. On macOS the launchd agent
+was installed and run on a real Mac by the maintainer for 0.1.3, and CI installs the real launchd
+agent on macOS and the Run key entry on Windows on every change, has each answer a note, then removes
+them (`scripts/service-smoke.ts`). The MDM scripts below have not been run by an MDM yet, Windows has not
+been used on a real machine, and on Linux the systemd unit is checked with `systemd-analyze verify` but
+has not been loaded by a real user manager. Try each script on one machine before rolling it out.
 
 The examples use `--agent claude`; `homingbird presets` lists the others, and a full command works
 too. Add `--split` to keep the drafting agent away from a note's wording (see the guide).
@@ -463,9 +816,10 @@ Every variable Dovecote reads. Blank values count as unset.
 | `HB_QUICK_APPROVAL_SECONDS` | `3` | A draft sent as written within this many seconds of appearing counts as a quick approval ([Insights](#insights)) |
 | `HB_INSIGHTS_MINIMUM_GROUP` | `5` | The smallest group whose numbers Insights shows; at least 5 ([Insights](#insights)) |
 | `HB_TRUST_PROXY` | `0` | Number of proxies in front that append to `X-Forwarded-For`; see [above](#behind-a-load-balancer) |
-| `HB_AUDIT_STDOUT` | `0` | `1` prints audit entries as JSON lines |
-| `HB_AUDIT_WEBHOOK_URL` | none | Posts audit entries to this URL |
-| `HB_AUDIT_RETENTION_DAYS` | keep forever | Days to keep audit entries. A starting value, like `HB_ALLOWED_DOMAINS` |
+| `HB_LOGS` | `audit=full,operational=info,requests=off,auditCopy=off` | What is recorded ([Logs](#logs)). The operator's only |
+| `HB_AUDIT_RETENTION_DAYS` | `400` | Days to keep audit rows, at least 90 |
+| `HB_AUDIT_STDOUT` | `0` | `1` means `HB_LOGS=auditCopy=on` |
+| `HB_ANALYTICS`, `HB_ANALYTICS_URL`, `HB_ANALYTICS_KEY` | `off` | Where product analytics go ([Product analytics](#product-analytics)) |
 | `HB_PUSH_HOSTS` | the four push services above | Push service hosts subscriptions may use |
 | `HB_OAUTH_REDIRECT_HOSTS` | `claude.ai,claude.com` | Hosts, besides loopback, that OAuth clients may redirect to; `none` for no others |
 | `HB_OAUTH_CLIENT_METADATA_HOSTS` | `claude.ai,claude.com` | Hosts whose client metadata documents are fetched; `none` to fetch none |

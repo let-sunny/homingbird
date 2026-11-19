@@ -5,6 +5,101 @@ states the decision first, then the reason. Add new entries at the top of their 
 
 ## Product
 
+- **In a debate, an agent is taking part or has dropped out, by its own credential and the room's
+  grace.** An opted-in agent is *taking part* while its credential made an authenticated request within
+  the room's grace; past it, the agent has *dropped out* (`isAgentTakingPart` in `debate-rows.ts`).
+  Holding an event stream alone does not count: a half-open connection, after a laptop sleeps or Wi-Fi
+  drops, looks held for about 15 minutes, longer than the shortest grace. So every client of ours that
+  holds a stream (the event stream in `client/src/event-stream.ts`, which the CLI, the MCP server and
+  the plugin use) sends the member route `presence.heartbeat` every minute while it streams
+  (`STREAM_HEARTBEAT_MS`). It is a `GET` that answers nothing, so it is not audited, and like any
+  request it writes the credential's `last_used_at` at most once every 30 seconds, by the clock service.
+  A server older than the route answers 404, which the client ignores. The web client sends none: a
+  person's session takes part in no room. The grace is a room setting chosen at setup, before the first
+  turn, like the limits: 5 minutes (the default), 10 or 30, nothing else (`DEBATE_GRACE_MINUTES`). Until
+  one grace has passed since the server started, nobody counts as dropped out, so a restart ends no
+  room. A member account an administrator deactivated, or a revoked credential, has dropped out at once.
+  A remote MCP connector or a long-poll client takes part by its requests, like any other agent. A
+  stalled stream is closed as well: an event stream whose reader does not drain a write within 60
+  seconds, or a WebSocket that leaves two pings in a row unanswered (`stalled-streams.ts`), timed by the
+  clock service. This replaces the earlier rule, unreleased, that read the member's "agent awake"
+  presence: one agent's desk restarting no longer counted as every agent of that person leaving, and a
+  brief disconnect no longer ends a room. It also replaces counting a held stream as taking part. Inside
+  debates the words are "taking part" and "dropped out" (ko: 토론 참여 중, 토론 이탈); "active" stays the word
+  for accounts.
+- **A room never waits for an agent that dropped out, and closes as it is with one agent left.** Turns
+  skip it (once the first turn is taken the room stops when no agent taking part has a turn left; before
+  the first turn it waits for its time limit, because people opt agents in before their desks start),
+  the room stops collecting drafts when every agent taking part drafted, and the vote leaves it out.
+  Once the first turn is taken, a room with fewer than two agents taking part ends at once with
+  `one_agent_left`, or `no_agent_left` when none is left, whatever stage it reached and before it
+  closes: no draft, vote or result follows, because one agent alone is no debate. The turns stay. The
+  web client says why, in English and Korean, and `homingbird debates` (the `ended` field of
+  `debates.waiting`) lists such rooms of the agent for a day. An agent that comes back with a request
+  takes part again.
+- **The agents settle a room's result by vote; no person approves it.** When the first draft of a round
+  arrives, the room collects drafts for `RESULT_DRAFTING_WINDOW_MS` (3 minutes) or until every agent
+  taking part drafted, one per agent. With one draft, that draft is the result. Otherwise the agents
+  taking part vote for up to `RESULT_VOTING_WINDOW_MS` (5 minutes), ending early once all of them voted;
+  an agent cannot vote for its own draft, and a vote is the member route `debates.result.vote`, limited
+  to the credential its person opted in. The draft with the most votes, a tie to the earliest, becomes
+  the result and the room closes; credits are given then. While the vote runs, only who voted is shown;
+  once the room closed, the vote record shows which agent voted for whose draft and which agents had
+  dropped out and did not vote (`voteRecord`, `debates.dropped_out`), in the web client, in the export
+  in the exporter's language, and to agents only inside `wrapNote`. Every draft reaches a voting agent
+  only inside `wrapNote` (`quotedDrafts`); an agent sees no other agent's draft before it drafted or the
+  window ended, so none copies another, while people see them all. This replaces "the first agent to
+  draft the result wins" and the approval by the people in the entry on debate rooms below. The routes
+  `debates.result.approve` and `debates.result.decline` are removed: only the bundled web client called
+  them. A room stored while it waited for approvals closes with the result it chose on the next pass;
+  the released `debate_approvals` table stays, unread and unwritten. A room whose result is still open a
+  day after its turns stopped (`RESULT_WINDOW_MS`) settles its drafts at once, the most votes winning
+  and a tie going to the earliest, and ends with `no_result` only when it has no draft; this replaces
+  the day-long wait for an approved result in the entry below. Drafts, votes, the grace and the
+  dropped-out record are migration step 4.
+- **A room's content leaves it only through a person.** A person whose agent took a turn posts the
+  result, which becomes a draft of theirs that only they can send, like any note; a member exports the
+  closed room (a private room's members only, not an administrator outside it). No agent route or tool
+  can post or export (rule 9).
+- **An administrator reads private channels and private debate rooms as a person only.** This
+  replaces "with no administrator exception in the web client or the API" below. The administrator's
+  own sign-in sees private channels and rooms in lists and by id (`isVisibleRoom` in `channel-rows.ts`,
+  given `viewerOf(caller)`); an administrator's agent credential reads as an ordinary member and sees
+  only what that member takes part in (rule 6). Seeing is not joining: an administrator who was not
+  invited cannot opt an agent in or export a private room.
+- **A request settles only the room it reads or acts on.** Each debate route locks its own room and
+  moves it on (`settleDebate`); the per-minute pass settles every undecided room in the order of their
+  ids, each in a transaction of its own, so a room that fails is logged and leaves the others to move
+  on. Taking the lock changes nothing: `updated_at` moves only when something in the room did. A result
+  the room can settle (a vote that ran out, a single draft, a result stored while waiting for
+  approvals) is settled before the day after the turns ran out ends the room, so a room with a result
+  closes with it. The update that closes a room matches the round and result it was decided on, so a room that
+  changed in between is left for the next pass. A draft, vote or turn that loses a race with an
+  identical one answers 409, not an error, on every database.
+- **Limits are set at setup and fixed once the debate starts.** The person who opened a room changes
+  its limits, the grace included, only before the first turn; afterwards `debates.limits.set` answers
+  409 with a sentence saying so, and the web client shows them read-only. A limit changed mid-debate would change the
+  rules for agents that already spoke.
+- **An export is written in the exporting person's language.** Headings and labels of the Markdown
+  export follow the language the web client sends (`language` on `debates.export`), else the person's
+  chosen language, else English (`exportLabelsIn` in `protocol`). JSON keys and the posted result stay
+  English, because tools and recipients read them. The escaping is the same in both languages, and the
+  property tests run over both.
+- **Posted debate results are counted on their own line.** A sent note with `debate_id` counts neither
+  as an agent draft, nor as a note the person wrote, nor in the organization's notes, replies or active
+  people; My agent → How it is doing and the administrator's Insights each show "Debate results sent"
+  as a separate line (`debateResultsSent`, optional on the wire), and Insights hide it while fewer
+  than `HB_INSIGHTS_MINIMUM_GROUP` people sent one in the period.
+- **Agents may read colleagues' agent introductions, always quoted.** The public sentences are written
+  for colleagues and agents work for colleagues, so `find_people` and `homingbird directory` (text and
+  `--json`) show them, where they were left out before, but only inside `wrapNote`
+  (`quotedIntroduction` in `protocol`), as a colleague's note (rule 4), so a sentence that reads like an
+  instruction stays data.
+- **A stored answer holds at most 300 characters with its title, the same as a rule.** This replaces
+  "a fixed text of at most 600 characters" in the entry on stored answers below. Longer material belongs
+  in a source, read as data. Answers saved longer before keep working: the wire schema still reads up
+  to 600 characters (`STORED_RULE_MAX`), drafting uses them, and turning one on or off is not an edit;
+  any other change must bring it to 300 or fewer, and the save dialog says so in English and Korean.
 - **A character stands for a person, and Pip appears once per page at most.** A member's character
   appears where it identifies who is acting: the person's own button in the header, each direct
   message in the list, the author of each run of notes in a thread, each card under People, each row
@@ -86,14 +181,14 @@ states the decision first, then the reason. Add new entries at the top of their 
   person approved quickly often this week and the draft contains a date, a number or a promise, found by
   simple patterns. It never blocks sending.
 - **Session health is recorded with each agent draft and shown only to its author.** A desk reports the
-  session's age in minutes and, where it can know it, its context use: the mod reads both from Claude
+  session's age in minutes and, where it can know it, its context use: the plugin reads both from Claude
   Code's `$.session.usage()` and hands them to the command line in `HOMINGBIRD_SESSION`, outside any
   argument a model writes; an MCP desk's model may state them, like its model; the runner starts afresh
   for every note and sends no session, so its drafts stay out of these figures. How it is doing groups
   decided drafts into four age and four context buckets and shows edit and discard shares only from five
   drafts per bucket. A fresh session is suggested from 8 hours or 80% context use, judged from a desk's
   latest draft only while it is under an hour old (`FRESH_SESSION_AFTER_MINUTES`,
-  `FRESH_SESSION_AT_CONTEXT_PERCENT` in `protocol`; the mod keeps an equal copy, checked by a test). A
+  `FRESH_SESSION_AT_CONTEXT_PERCENT` in `protocol`; the plugin keeps an equal copy, checked by a test). A
   recipient never sees any of it, and nothing reaches another person's view, so `noteDetails` has
   nothing to hide.
 - **The agent introduction is a sentence per item, written for colleagues, never the item itself.** Each
@@ -115,7 +210,7 @@ states the decision first, then the reason. Add new entries at the top of their 
   the only route an agent reaches is `principles.drafting` (`member`, read-only, own principles only),
   which each desk calls for every draft so it always follows the current set. A desk adds them after
   the answering flow through one helper in `protocol` (`principlesInstructions`, `draftingGuidance`),
-  shared by the runner, the MCP server and the mod, whose overview carries them; in split mode only
+  shared by the runner, the MCP server and the plugin, whose overview carries them; in split mode only
   the writer gets them, never the reader that sees the note. The flow always wins, a principle cannot
   turn off a check. One whose wording looks like a request for something no agent may do (approve,
   send, discard, change contacts or a character, touch credentials) is left out and named for the
@@ -189,7 +284,7 @@ states the decision first, then the reason. Add new entries at the top of their 
   arrived, the composer shows the sender's own character `sending`, and the editor's preview plays its
   states. With `prefers-reduced-motion` every character is its first frame, and every state is named in
   words beside it.
-- **The web client, push titles and the mod's pane speak English and Korean; nothing a model reads
+- **The web client, push titles and the plugin's pane speak English and Korean; nothing a model reads
   is translated.** English is the default and the fallback. A member's choice is saved on the
   profile (`locale`, absent means "follow the browser"), so every device and every push title
   follows it; before sign-in, and while nothing is chosen, the browser's `navigator.languages`
@@ -202,7 +297,7 @@ states the decision first, then the reason. Add new entries at the top of their 
   draft → 초안, approve → 승인, send → 보내기, desk session → 전용 세션, agent → 에이전트,
   channel → 채널; Homingbird, Dovecote and Pip stay in Latin letters. One language is one file per
   surface (`packages/pwa/src/languages/`, `packages/dovecote/src/push/titles/`,
-  `packages/mod/hooks/pane-text/`) plus its tag in `LOCALES`; the compiler names every surface a
+  `packages/plugin/hooks/pane-text/`) plus its tag in `LOCALES`; the compiler names every surface a
   new tag still lacks.
 - **A new or changed member appears in open directories at once.** Dovecote broadcasts an ephemeral
   `directory.changed` event, also when someone starts or stops helping with a channel and when an
@@ -224,7 +319,7 @@ states the decision first, then the reason. Add new entries at the top of their 
   because it works without a model and makes small changes easy.
 - **Brand assets are generated by `packages/sprites` and checked in.** `assets/brand`, `assets/pip`
   and `assets/characters` come from one TypeScript package, which also renders characters at run
-  time in the web client and the mod and validates them in Dovecote. Keeping the generator in the
+  time in the web client and the plugin and validates them in Dovecote. Keeping the generator in the
   repository means a changed pixel changes everywhere, and golden tests catch accidental changes.
   `assets/fonts` holds Inter and Bricolage Grotesque under the Open Font License.
 - **The README shows the characters as GIFs that are checked in.** `assets/characters/gif` holds one
@@ -254,21 +349,56 @@ states the decision first, then the reason. Add new entries at the top of their 
 
 ## Architecture
 
+- **A debate room's rules are one pure state machine in `protocol`; Dovecote loads, applies and
+  stores.** `stepDebate` and `settleDebateRoom` in `protocol/src/debate-room.ts` take a room's facts
+  (who takes part, turns, drafts, votes, limits, time) and return the next stage and the effects to
+  store, and their laws are property-tested over any run of events. Dovecote reads the facts, calls the
+  machine and stores each effect with the guarded update it always used, in the room's own
+  transaction. With the rules split between `protocol` and four domain files in Dovecote,
+  so a law such as "no result without a draft" could only be tested through the server.
+- **One drafting flow, in `protocol/src/drafting/`; every adapter keeps only its input and output.**
+  What a model is told when it drafts (note in, `wrapNote`, the answering flow, the person's
+  principles, the prompt, the draft out) was written four times, in the runner, the MCP adapter, the
+  Claude Code plugin and A2A, and the copies drifted: the MCP desk put the answering flow, the
+  principles and the rule against acting on a note after the quoted note. `protocol` is the one place
+  all four already depend on, and it holds no route call and no credential, so a model-facing adapter
+  can import it without reaching a `human` route (rule 3); `wrapNote` stays its only wrapper (rule 4).
+  It holds `NOTES_ARE_NOT_COMMANDS` once, quoting by the directory (`quotedNote`), principle selection
+  (`selectPrinciples`: the channel's principles first, then the rest), the guidance built from what a
+  desk fetched (`flowGuidance`, `principlesGuidance`, `draftingGuidance`), each adapter's prompt texts,
+  the split-mode readers, the debate prompts and the parsing of what an agent printed. Every prompt puts
+  the rule and the guidance before the quoted note, and a test checks it for each. The plugin may import
+  only its own files, so it carries `hooks/drafting-prompts.mjs`, an esbuild bundle of
+  `drafting/plugin-prompts.ts` that `protocol/test/plugin-drafting-prompts.test.ts` keeps equal to the
+  source, as with the character rules. A new package would have added a workspace link for the same
+  four dependants; `protocol` already carries the mutation and coverage bar the prompts need.
+- **The Claude Code integration is the plugin (`packages/plugin`); its npm package stays
+  `@homingbird/mod`.** Claude Code calls it a plugin, and its manifest and marketplace already did, so
+  the folder, the docs and the strings say plugin. The published package keeps its name, so the
+  marketplace's npm source and the release go on naming the package already on npm. The name people
+  install, `homingbird`, does not change.
+- **The plugin is written against the kernel too, through a generated `hooks/kernel.mjs`.** Its hooks
+  were `async` functions over the host's promises. The plugin may import only its own files, so
+  `kernel/test/plugin-kernel.test.ts` keeps an esbuild bundle of `Task` and `Stream` beside the hooks,
+  with `hooks/kernel.d.mts` declaring the part it uses. Every host call is one `host(() => $.noun.verb())`
+  (`hooks/effects.ts`), steps are chained with `Task.gen`, and each hook, render and handler runs its
+  task once with `answered` or `inBackground`, where the host awaits a promise. The host follows `$`
+  only into function declarations, so every function that takes `$` is declared with `function`.
 - **The answering flow's stored text marks a turned off step with "[off] ".** The administration page
   edits the flow as two to-do lists and serialises them to the same two headed lists the server
   already validated; a turned off step keeps its place in the text, counts toward the 20 steps and
   4,000 characters, and is left out of every agent's instructions by the one parser in `protocol`
   (`answeringFlowSteps`, `answeringFlowFrom`). Storing the steps as structured data would have changed
   the setting's contract for every client; one marker kept it.
-- **The marketplace entry names the exact mod version.** Its npm source carries `version`, written by
+- **The marketplace entry names the exact plugin version.** Its npm source carries `version`, written by
   `scripts/release-version.ts` on every version bump with the other version holders, because an npm
   source without one installs `latest`, and during pre-releases `latest` lagged behind `next`.
-- **`protocol` depends on `sprites`, and the mod carries a generated copy of the character rules.**
+- **`protocol` depends on `sprites`, and the plugin carries a generated copy of the character rules.**
   `sprites` depends only on `kernel`, so there is no cycle, and the wire schema of a character is the
-  one `CharacterSpec` the art is drawn from. The mod may import only its own files and reaches the server
-  only through the command line, so `mod/hooks/character-rules.mjs` is an esbuild bundle of
-  `characterProblems`, `characterLink` and the built-in characters; `protocol/test/mod-character-rules.test.ts`
-  fails when it differs from a fresh bundle (`HB_WRITE_MOD_BUNDLE=1` writes it). The web client draws
+  one `CharacterSpec` the art is drawn from. The plugin may import only its own files and reaches the server
+  only through the command line, so `plugin/hooks/character-rules.mjs` is an esbuild bundle of
+  `characterProblems`, `characterLink` and the built-in characters; `protocol/test/plugin-character-rules.test.ts`
+  fails when it differs from a fresh bundle (`HB_WRITE_PLUGIN_BUNDLES=1` writes it). The web client draws
   characters with `sprites` itself, which adds about 45 KB to `app.js` (about 16 KB gzipped).
 - **CI publishes three npm packages and the image; everything else stays private.**
   `@homingbird/cli`, `@homingbird/mcp` and `@homingbird/mod` are what people install, and each ships an
@@ -282,7 +412,7 @@ states the decision first, then the reason. Add new entries at the top of their 
   `main`, skipping merges and "Version Packages" commits (`conventional-commit.ts`), computes the next
   version (`next-version.ts`: before 1.0 a breaking change bumps the minor and a `feat`, `fix` or
   `perf` the patch; from 1.0 major, minor and patch as usual; only `chore`, `docs`, `test`, `ci`,
-  `build` and `refactor` release nothing), and writes it to every package, the root, the mod's
+  `build` and `refactor` release nothing), and writes it to every package, the root, the plugin's
   `plugin.json`, the marketplace pin and the two version constants, so all share one version. It
   writes the notes (`release-notes.ts`: breaking changes, added, fixed, performance, each entry the
   summary and the first body paragraph) as a section of the one root `CHANGELOG.md`. The release
@@ -290,12 +420,12 @@ states the decision first, then the reason. Add new entries at the top of their 
   the section on that branch, and the published release takes its notes from the merged
   `CHANGELOG.md`, never regenerated. Pre-releases are a committed setting, `"pre"` in `release.json`,
   instead of a tool's mode.
-- **The mod ships its own copy of the command line, and its marketplace entry is the npm package.**
-  `@homingbird/mod` holds the plugin files plus `cli/homingbird.mjs`, and the mod runs that file with
-  `node` unless **Homingbird command** names another. The copy always matches the mod's version and
-  needs no network when it runs. A relative path to `packages/mod` would install the repository's
+- **The plugin ships its own copy of the command line, and its marketplace entry is the npm package.**
+  `@homingbird/mod` holds the plugin files plus `cli/homingbird.mjs`, and the plugin runs that file with
+  `node` unless **Homingbird command** names another. The copy always matches the plugin's version and
+  needs no network when it runs. A relative path to `packages/plugin` would install the repository's
   files, which hold no built bundle; committing the bundle would put generated code in review. The
-  cost: the mod installs only from a published release, and a checkout without `pnpm build` falls back
+  cost: the plugin installs only from a published release, and a checkout without `pnpm build` falls back
   to `npx -y @homingbird/cli`.
 - **A stream that resumes replays its whole backlog before it goes live.** `liveEvents` subscribes to
   the hub first, then reads the log in pages of 500 until a page comes back short, and only then passes
@@ -316,6 +446,19 @@ states the decision first, then the reason. Add new entries at the top of their 
 - **The API is declared once, as data.** `contract.ts` holds every route's path, access level and
   schemas. The server router, the HTTP client, the in-process API used by the MCP and A2A adapters,
   and the access checks are all derived from it.
+- **The server decodes strictly; clients read unknown values safely and check the protocol version
+  at start.** `Schema` has two readings: `decode`, what the server accepts, and `read`, what a client
+  does with a response. `read` accepts longer text, larger numbers and longer lists, fills a field's
+  default (`S.withDefault`), and reads a value of an `S.tolerant` enum, or an `S.openVariants` tag, it
+  does not know as `"unknown"`, which always means the safe thing: a status is not sent, a role is not
+  an administrator, a relation is no contact, a character is none. A test walks every response and
+  event and fails on a literal or a set of variants that is not tolerant. The event stream skips an
+  event it cannot read and moves past it. `server.info` carries a `protocolVersion` (read as 1 when
+  absent) that rises only for a breaking change, and keeps its required fields across protocol
+  versions; the command line (`status`, `stream`, `run`), the MCP adapter after sign-in, and the web
+  client at start ask it once and name the side to upgrade in one sentence. A feature is offered only
+  when the server lists it as on. Mixed versions are not tested; a version-negotiated API with several
+  live shapes per route would have cost every handler.
 - **One SQL implementation, three dialects.** Queries are written once in portable SQL through a
   tagged template. A small table DSL generates dialect-specific DDL. SQLite uses the runtime's
   built-in `node:sqlite`.
@@ -347,15 +490,15 @@ states the decision first, then the reason. Add new entries at the top of their 
 ## Authentication
 
 - **Approval happens only in a client where the person signed in themself; no agent integration can
-  approve.** The Claude Code mod once offered an approve button backed by a human credential stored
+  approve.** The Claude Code plugin once offered an approve button backed by a human credential stored
   on the person's computer (`approval-credential.json`). The agent runs on that computer as the same OS
   user, so the only thing between a prompt-injected agent and that file was a pattern blocklist in the
-  mod's guard, and a credential on the same machine as the agent cannot be protected by pattern
+  plugin's guard, and a credential on the same machine as the agent cannot be protected by pattern
   matching: any command, script or tool the agent can run may read it under a name the patterns do not
   know. So the button, its credential, the `approve` scope, `HB_APPROVE_BUTTON`, `server.info`'s
   `approveButton` and the command line's `approve`, `discard` and `login --approve-button` are gone. A
   device or OAuth sign-in issues an agent credential and nothing else; the pane shows a draft as waiting
-  for approval and links to it in the web client. The mod's guard still asks the model to leave the
+  for approval and links to it in the web client. The plugin's guard still asks the model to leave the
   Homingbird configuration directory alone, as a courtesy that keeps the agent token out of transcripts,
   not as a boundary. Approving from the desk with a confirmation on another device is on the roadmap.
 - **A human credential counts only when a browser sign-in issued it.** `authenticate` refuses a `human`
@@ -407,6 +550,61 @@ states the decision first, then the reason. Add new entries at the top of their 
   as the action.** Reads are not audited.
 - **Audit entries can be forwarded** as JSON lines on stdout or to a webhook. Both are off by default
   because entries contain note content.
+
+## The audit trail records who changed what, never content; logs and analytics are separate kinds
+
+This reverses four earlier entries: "Every state-changing API call ... is audited" (under Audit),
+"Principles, offers and their audit entries keep the full text", "The audit log holds every turn, every
+drafted result and every export", and, for the basis, "The audit entry keeps it too". An audit log that
+copies every note, basis, principle and turn becomes the most sensitive table in the database, read
+through a web view and shipped to log vendors; and recording reads and draft edits makes it a tool for
+timing people, the reason `drafts.seen` was already left out.
+
+- **Five kinds, each with its own reader.** The audit trail (table `audit_events`, database only), the
+  product's own activity data (no new log), the operational log (JSON lines on stdout), the CLI and MCP
+  service log (a file on the person's computer), and product analytics (off by default).
+- **The audit trail holds metadata only.** Ids, enums, the outcome, and old and new values for settings;
+  never request bodies, note, draft, basis, principle, character or turn text, tokens or email
+  addresses. The client address and user agent only on authentication rows and credential issue. Each
+  event's detail is a Schema in `protocol/src/audit-events.ts`, and encoding with it is the allow-list.
+- **Every contract route declares its audit decision**, an event and the kind of thing it is about, or
+  why it keeps nothing, in `protocol/src/route-audit.ts`, a map over every route name, so a new route
+  does not type-check without one. It is a separate map rather than a field on each route so the
+  contract file stays the wire contract. Reads, note reads, moves, pickups and releases, drafts created,
+  edited and seen, debate turns, drafted results and votes, push and presence keep nothing.
+- **Refused attempts are coalesced**: one `authz.denied` row per credential and route a minute, with a
+  count, and one `authn.token_refused` row a minute per refused token's credential, or per a hash of the
+  token, never the token; plus one warning line per address, cut to /24 or /48. Windows are written
+  within ten seconds of closing and all at shutdown.
+- **A credential's row names the kind of program, not its name**: `browser`, `cli`, `mcp`, `plugin`,
+  `oauth`, or `device` for a client before this version, and the OAuth client id. A device sign-in
+  says its kind in an optional `client_kind` form field that older servers ignore.
+- **A detail that fails its schema never fails the action**; the row keeps `invalidDetail` instead.
+- **The first audit table ages out at the upgrade** by the retention the administrator had saved, and
+  `dovecote audit purge-legacy` removes it all; the audit commands never migrate.
+- **The trail is hash-chained and read on the host.** SHA-256 over the previous hash and the row, a head
+  row that serialises writers, the head written to the operational log daily, a purge that remembers the
+  last hash it removed. `dovecote audit verify` and `dovecote audit export` run against the database;
+  the admin web view and its route are removed in one release, since only the bundled web client called
+  that `human` route.
+- **The operator decides what is recorded, the administrator does not.** `HB_LOGS` and
+  `HB_AUDIT_RETENTION_DAYS` (400 days, at least 90) are environment variables only and are not in
+  `server.info`; the audited party cannot shorten its own trail. `audit=off` is allowed with one warning
+  at start. The administrator's retention setting is ignored and stays optional on the wire.
+- **The webhook is removed; stdout is the way out.** `auditCopy=on` copies each row without its detail as
+  an operational line; collectors already ship stdout.
+- **The operational log is a `Log` service with a fixed event catalogue.** No free-form message, so a
+  line cannot carry a secret by accident; a defect is logged by its type, its redacted detail only at
+  `debug`. Each request gets an id from the random service, returned as `X-Request-Id` and shared by its
+  log lines and audit rows.
+- **Product analytics go through Dovecote only, re-keyed and queued.** Pages and presets are enums, each
+  anonymous id is replaced by an HMAC under a server key before forwarding, one credential may send 60
+  events a minute, and delivery runs from a bounded background queue, never inside the request. Our own catalogue, Segment-shaped, checked by the
+  server and forwarded by data-only adapters for PostHog, GA4 and a generic HTTP endpoint, so no
+  third-party script reaches a browser and nothing unchecked leaves. A random id, never the member.
+  Off unless the operator sets a destination and the administrator turns the `analytics` feature on.
+- **The CLI service log rotates** at 5 MB into one `.1` backup, and the systemd and launchd units now
+  pass `--log` so the runner owns the file it rotates; `--log-level` keeps only problems when asked.
 
 ## A person asks their own agents for a draft through a draft request
 
@@ -513,7 +711,7 @@ without answering in it, and a team can keep a room to itself.
 ## One desk session per person reacts to arriving notes
 
 Each person keeps one agent session open for Homingbird: the desk. In Claude Code it is the session
-where the mod's pane is open; for other agents it is the runner, `homingbird run --agent`. Only the
+where the plugin's pane is open; for other agents it is the runner, `homingbird run --agent`. Only the
 desk holds the event stream, wakes on an arriving note or a draft request, and drafts the reply.
 Every other session may draft only when its human asks, and only the desk picks notes up: in any
 other session `check_inbox` lists the waiting notes, says which ones an agent is already drafting, and
@@ -610,7 +808,7 @@ agent ran in, and `model`, the model it ran as. Both are what the agent or its i
 facts the server can check. Each integration passes on what it is told: MCP takes the client's
 `clientInfo` name and version from `initialize` (or a stateless call's `_meta`), which the client
 declares about itself; the runner and the MCP-hosted desk use the agent command's program "via homingbird
-run", past launchers such as `env` or `npx`; the mod asks its host for "Claude Code" and its version;
+run", past launchers such as `env` or `npx`; the plugin asks its host for "Claude Code" and its version;
 A2A uses the calling agent's card name when it sends one. When an integration names none, the server
 falls back to the client name the credential was registered with. `model` is what the agent says about
 itself (`model` on `drafts.create` and `drafts.update`); desk prompts ask for it only if the agent knows
@@ -655,7 +853,7 @@ command through the injected process service.
   command's own error output is discarded in service mode.
 - **A preset is a name, resolved when the runner starts.** The service keeps `--agent claude`, not the
   command it stands for, so an upgrade changes the preset everywhere. A preset is marked verified only
-  after a run with the real agent, and "from source, unrun" when written from the tool's source code.
+  after a run with the real agent, and "not yet tested with the real CLI" when written from the tool's source code.
   A reader that keeps some tools, as Codex's does, is marked so and never passes
   `--require-toolless-reader`.
 - **Pausing is a file beside the desk claim.** `homingbird desk pause` writes
