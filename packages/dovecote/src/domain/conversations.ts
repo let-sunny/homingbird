@@ -227,6 +227,8 @@ const insertConversation = (
       insertIgnoringConflict(yield* dialect, 'conversations', {
         ...row,
         pair_key: pairKey,
+        // asked_by names a group's starter here and a private question's asker where channel_id is set,
+        // so every reader of asked_by must check channel_id first.
         asked_by: startedBy,
       }),
     )

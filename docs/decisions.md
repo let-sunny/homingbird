@@ -13,7 +13,8 @@ states the decision first, then the reason. Add new entries at the top of their 
   people brings back to it: not in the others' list, unread counts, event stream or search, and a lookup
   by id answers 404. Visibility is derived from the notes; the starter is kept in `asked_by`, the column
   that names who opened a private question, so no migration is needed. Groups started before this have
-  no starter recorded and show to their members only once a note is sent or while their own draft waits.
+  no starter recorded, so until a note in one is sent no one sees it, its starter included: they cannot
+  reopen that empty room, and **Start group message** in People makes a new one.
   Channel rooms, private questions and archived rooms show to their participants as before.
 - **A channel's managers are notified when its agent's answer waits for their review, as the channel
   notifies them.** When a channel's agent writes a new draft, every person who may review it then gets a

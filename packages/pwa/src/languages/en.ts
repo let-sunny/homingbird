@@ -1222,7 +1222,7 @@ export const en = {
   groupStart: {
     title: 'Start a group message',
     intro:
-      'Choose two or more people below. Everyone you choose sees the group message as soon as you start it. Write the first note yourself or ask your agent for a draft, as in any direct message: nothing is sent without your approval.',
+      'Choose two or more people below. The people you choose see it only once a note in it is sent. Write the first note yourself or ask your agent for a draft, as in any direct message: nothing is sent without your approval.',
     choose: 'Add to group message',
     chooseName: 'Add {name} to the group message',
     remove: 'Remove {name}',

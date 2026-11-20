@@ -1,4 +1,9 @@
+import { Task as T } from '@homingbird/kernel'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { askersOf, reviewersOf } from '../src/domain/reviews.ts'
+import { wantsPushAbout } from '../src/push/wants-push.ts'
+import { run } from '../src/sql/database.ts'
+import { insertInto, sql } from '../src/sql/query.ts'
 import { type Session, type TestServer, asShown, startTestServer, storedRows } from './harness.ts'
 
 let server: TestServer
@@ -83,7 +88,7 @@ describe('group conversations', () => {
 
   it('hides a new group from everyone but its starter until a note in it is sent', async () => {
     const group = await startGroup()
-    expect(await sightings(ana, group.id)).toEqual(SEEN_EMPTY)
+    expect(await sightings(ana, group.id, STARTER)).toEqual(SEEN_EMPTY)
     for (const other of [ben, cy]) expect(await sightings(other, group.id)).toEqual(UNSEEN)
 
     const draft = (await ana.api('POST', '/drafts', { conversationId: group.id, body: 'quokka plan' })).json
@@ -103,7 +108,7 @@ describe('group conversations', () => {
         events: true,
         found: 1,
       })
-    expect(await sightings(ana, group.id)).toEqual({
+    expect(await sightings(ana, group.id, STARTER)).toEqual({
       listed: true,
       byId: 200,
       unread: 0,
@@ -117,9 +122,63 @@ describe('group conversations', () => {
     const draft = (await ana.api('POST', '/drafts', { conversationId: group.id, body: 'quokka plan' })).json
     await ana.api('POST', `/drafts/${draft.id}/discard`)
     for (const other of [ben, cy]) expect(await sightings(other, group.id)).toEqual(UNSEEN)
-    expect(await sightings(ana, group.id)).toEqual(SEEN_EMPTY)
+    expect(await sightings(ana, group.id, STARTER)).toEqual(SEEN_EMPTY)
     const again = (await ana.api('POST', '/drafts', { conversationId: group.id, body: 'second try' })).json
     expect(again.conversationId).toBe(group.id)
+  })
+
+  it('gives another member who starts a group with the same people a room of their own', async () => {
+    const anas = await startGroup()
+    const draft = (await ana.api('POST', '/drafts', { conversationId: anas.id, body: 'quokka plan' })).json
+    const bens = (
+      await ben.api('POST', '/conversations', { participantIds: [ana.me.member.id, cy.me.member.id] })
+    ).json
+    expect(bens.id).not.toBe(anas.id)
+    expect(await sightings(ben, anas.id)).toEqual(UNSEEN)
+    expect(await sightings(ana, bens.id)).toEqual(UNSEEN)
+    await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))
+    expect((await sightings(ben, anas.id)).listed).toBe(true)
+  })
+
+  it('shows a group started before its starter was recorded to no one until a note in it is sent', async () => {
+    const group = await startGroup()
+    await T.runPromise(run(sql`UPDATE conversations SET asked_by = NULL WHERE id = ${group.id}`), server.env)
+    for (const member of [ana, ben, cy]) expect(await sightings(member, group.id)).toEqual(UNSEEN)
+    const created = await T.runPromise(
+      run(
+        insertInto('notes', {
+          id: 'note_legacy',
+          conversation_id: group.id,
+          author_id: ana.me.member.id,
+          status: 'sent',
+          body: 'quokka plan',
+          origin: 'human',
+          created_at: 1,
+          updated_at: 1,
+          sent_at: 1,
+        }),
+      ),
+      server.env,
+    )
+    expect(created).toBe(1)
+    for (const member of [ana, ben, cy]) expect((await sightings(member, group.id)).listed).toBe(true)
+  })
+
+  it('treats a group starter as no asker: no reviewers, and pushes as a group', async () => {
+    const group = await startGroup()
+    const draft = (await ana.api('POST', '/drafts', { conversationId: group.id, body: 'quokka plan' })).json
+    const [row] = (await storedRows(server, 'notes')).filter((note) => note.id === draft.id)
+    expect(await T.runPromise(reviewersOf(row as never), server.env)).toEqual([])
+    expect(
+      await T.runPromise(askersOf({ conversation_id: group.id as never, in_reply_to: null }), server.env),
+    ).toEqual([])
+    await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))
+    for (const member of [ana, ben]) {
+      await member.api('PUT', '/me/notifications', { notifications: 'direct' })
+      expect(await T.runPromise(wantsPushAbout(member.me.member.id, group.id as never), server.env)).toBe(
+        true,
+      )
+    }
   })
 
   it('keeps a direct conversation readable by id from both sides, as before', async () => {
@@ -147,14 +206,15 @@ describe('group conversations', () => {
   })
 })
 
+const STARTER = { ignoringOwnDrafts: true }
 const UNSEEN = { listed: false, byId: 404, unread: 0, events: false, found: 0 }
 const SEEN_EMPTY = { listed: true, byId: 200, unread: 0, events: false, found: 0 }
 
 const startGroup = async (): Promise<{ id: string }> =>
   (await ana.api('POST', '/conversations', { participantIds: [ben.me.member.id, cy.me.member.id] })).json
 
-/** Every way a member could come across the group besides their own drafts' events. */
-const sightings = async (who: Session, groupId: string) => {
+/** Every way a member could come across the group; its starter's own draft events are left out. */
+const sightings = async (who: Session, groupId: string, options = { ignoringOwnDrafts: false }) => {
   const list = (await who.api('GET', '/conversations')).json.conversations
   const events = (await who.api('GET', '/events/poll?after=0')).json.events
   return {
@@ -162,8 +222,12 @@ const sightings = async (who: Session, groupId: string) => {
     byId: (await who.api('GET', `/conversations/${groupId}`)).status,
     unread: list.reduce((total: number, conversation: any) => total + conversation.unreadCount, 0),
     events: events.some(
-      (event: any) => !event.body.type.startsWith('draft.') && JSON.stringify(event).includes(groupId),
+      (event: any) =>
+        !(options.ignoringOwnDrafts && event.body.type.startsWith('draft.')) &&
+        JSON.stringify(event).includes(groupId),
     ),
-    found: (await who.api('GET', '/search?q=quokka')).json.notes.length,
+    found: (await who.api('GET', '/search?q=quokka')).json.notes.filter(
+      (note: any) => note.conversationId === groupId,
+    ).length,
   }
 }
