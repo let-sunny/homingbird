@@ -7,12 +7,10 @@ import { SAME_SITE_HEADER, SESSION_COOKIE } from '../src/http/authenticate.ts'
 import type { HttpResponse } from '../src/http/exchange.ts'
 import { prepareDatabase } from '../src/prepare-database.ts'
 import { type Runtime, buildRuntime } from '../src/runtime.ts'
-import { type Connection, type Database, type Row, all, dialect, run } from '../src/sql/database.ts'
-import { MIGRATIONS } from '../src/sql/migrations.ts'
-import { MUTE } from '../src/sql/migrations/mute-step.ts'
+import { type Connection, type Database, type Row, all } from '../src/sql/database.ts'
 import { openDatabase } from '../src/sql/open.ts'
 import { type Query, raw } from '../src/sql/query.ts'
-import { migrate, schemaStatements, tableNames } from '../src/sql/schema.ts'
+import { migrate, tableNames } from '../src/sql/schema.ts'
 import { openSqlite } from '../src/sql/sqlite.ts'
 
 export interface TestServer {
@@ -219,7 +217,6 @@ export const startTestServer = async (
     ...(parts.fetch !== undefined && { fetch: parts.fetch }),
   })
   await T.runPromise(overrides.HB_CHANNELS === undefined ? T.asUnit(migrate) : prepareDatabase, env)
-  await withMuting(env)
 
   const requestWith =
     (serving: AppEnv): TestServer['request'] =>
@@ -293,13 +290,6 @@ export const startTestServer = async (
     signIn,
     close: () => T.runPromise(database.close),
   }
-}
-
-/** Adds the columns muting reads while its step waits to be registered after the reserved steps. */
-const withMuting = async (env: AppEnv): Promise<void> => {
-  if (MIGRATIONS.includes(MUTE)) return
-  const target = await T.runPromise(dialect, env)
-  for (const statement of schemaStatements(target, [MUTE])) await T.runPromise(run(raw(statement)), env)
 }
 
 const parseOrNull = (text: string): unknown => {

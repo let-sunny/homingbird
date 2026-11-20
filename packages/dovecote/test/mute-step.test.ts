@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { MIGRATIONS } from '../src/sql/migrations.ts'
 import { MUTE } from '../src/sql/migrations/mute-step.ts'
-import { type MigratedDatabase, migratedThrough } from './migration-support.ts'
+import { type MigratedDatabase, migratedThrough, stepNumberOf } from './migration-support.ts'
 
 let database: MigratedDatabase | undefined
 
@@ -11,8 +11,12 @@ afterEach(async () => {
 })
 
 describe('the mute step', () => {
+  it('is the ninth step, after channel agents', () => {
+    expect(stepNumberOf(MUTE)).toBe(9)
+  })
+
   it('adds a mute to every place in a conversation and a notification level to every member, keeping their rows', async () => {
-    const earlier = MIGRATIONS.includes(MUTE) ? MIGRATIONS.indexOf(MUTE) : MIGRATIONS.length
+    const earlier = MIGRATIONS.indexOf(MUTE)
     database = await migratedThrough(earlier)
     await database.execute(
       `INSERT INTO members (id, email, subject, name, profile, role, status, event_seq, created_at) VALUES ('mem_ana', 'ana@example.com', 'dev:ana', 'Ana', '', 'member', 'active', 0, 1)`,

@@ -1,13 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { AUDIT_TRAIL_STEP, MIGRATIONS } from '../src/sql/migrations.ts'
+import { CHANNEL_AGENTS } from '../src/sql/migrations/channel-agents-step.ts'
+import { MUTE } from '../src/sql/migrations/mute-step.ts'
 import type { Step } from '../src/sql/schema-steps.ts'
 
 const tablesOf = (steps: ReadonlyArray<Step>): string[] =>
   steps.flatMap((step) => ('primaryKey' in step ? [step.name] : []))
 
 describe('the migrations', () => {
-  it('run in a fixed order, with the audit trail as the fifth step, groups as the sixth and channel agents as the eighth', () => {
-    expect(MIGRATIONS).toHaveLength(8)
+  it('run in a fixed order, with the audit trail as the fifth step, groups as the sixth, channel agents as the eighth and mutes as the ninth', () => {
+    expect(MIGRATIONS).toHaveLength(9)
+    expect(MIGRATIONS.indexOf(CHANNEL_AGENTS)).toBe(7)
+    expect(MIGRATIONS.indexOf(MUTE)).toBe(8)
     expect(AUDIT_TRAIL_STEP).toBe(5)
   })
 

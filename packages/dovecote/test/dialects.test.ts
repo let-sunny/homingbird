@@ -7,6 +7,7 @@ import type { Database } from '../src/sql/database.ts'
 import { MIGRATIONS } from '../src/sql/migrations.ts'
 import { DEBATE_MODEL } from '../src/sql/migrations/debate-model-step.ts'
 import { GROUPS } from '../src/sql/migrations/groups-step.ts'
+import { MUTE } from '../src/sql/migrations/mute-step.ts'
 import { raw } from '../src/sql/query.ts'
 import type { Migration } from '../src/sql/schema-steps.ts'
 import { migrate, migrateThrough, schemaStatements } from '../src/sql/schema.ts'
@@ -398,6 +399,24 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
         expect(await migrated(database)).toEqual({ _tag: 'Ok', value: stepsFrom(4) })
         expect(await versionsOf(database)).toEqual(stepsFrom(1))
         expect(await T.runPromise(database.all(raw('SELECT * FROM debate_votes')))).toEqual([])
+      } finally {
+        await T.runPromise(database.close)
+      }
+    },
+  )
+
+  it.skipIf(url === undefined || !url.startsWith('mysql'))(
+    'runs the mute step again after MySQL left it half applied, skipping the column already added',
+    async () => {
+      const database = await emptyDatabase()
+      try {
+        const mute = MIGRATIONS.indexOf(MUTE)
+        await migrated(database, MIGRATIONS.slice(0, mute))
+        const half = schemaStatements('mysql', [[], MUTE]).slice(1, 2)
+        expect(half).toEqual(['ALTER TABLE participants ADD COLUMN muted_at BIGINT'])
+        for (const statement of half) await T.runPromise(database.run(raw(statement)))
+        expect(await migrated(database)).toEqual({ _tag: 'Ok', value: stepsFrom(mute + 1) })
+        expect(await versionsOf(database)).toEqual(stepsFrom(1))
       } finally {
         await T.runPromise(database.close)
       }
