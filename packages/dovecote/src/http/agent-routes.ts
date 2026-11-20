@@ -30,13 +30,13 @@ export const handleAgentRequest = (request: HttpRequest): T.Task<HttpResponse, n
     if (caller._tag === 'Err') return challenge(caller.error, env.config.publicUrl)
     const message = parseJson(request.body)
     if (message === INVALID_JSON) return json(400, PARSE_ERROR)
-    const reply = yield* answer(request.path, message, caller.value, env)
+    const reply = yield* answer(request, message, caller.value, env)
     return reply === null ? noContent() : json(200, reply)
   })
 
 /** A credential a cloud desk is woken for is served as a desk, so the woken session picks up what waits. */
 const answer = (
-  path: string,
+  request: HttpRequest,
   message: unknown,
   caller: Caller,
   env: AppEnv,
@@ -44,8 +44,11 @@ const answer = (
   T.gen(function* () {
     const api = localApi(caller, env)
     const nonce = env.random.identifier
-    if (path !== '/mcp')
-      return yield* handleA2aMessage(message, { api, publicUrl: env.config.publicUrl, nonce })
+    if (request.path !== '/mcp') {
+      const header = request.headers['a2a-version']?.trim()
+      const version = header ? header : (request.query.get('A2A-Version') ?? undefined)
+      return yield* handleA2aMessage(message, { api, publicUrl: env.config.publicUrl, nonce }, version)
+    }
     const desk = (yield* featureIsOn('cloudDesk')) && (yield* isWakeBound(caller))
     return yield* handleMcpMessage(message, {
       api,

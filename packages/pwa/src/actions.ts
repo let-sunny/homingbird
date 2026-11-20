@@ -83,6 +83,7 @@ export const TASKS = {
   reviseChannel: channels.reviseChannel,
   archiveChannel: channels.archiveChannel,
   loadReviews: () => channelAgents.loadReviews,
+  loadDecidedAnswer: channelAgents.loadDecidedAnswer,
   sendReview: channelAgents.sendReview,
   discardReview: channelAgents.discardReview,
   confirmReviewRead: channelAgents.confirmReviewRead,

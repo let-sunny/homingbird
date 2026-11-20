@@ -72,6 +72,7 @@ export const fakePage = (hash = '#/') => {
   }> = []
   const visited: string[] = []
   const downloads: Array<{ readonly filename: string }> = []
+  const notifications = new Map<string, number | null>()
   const state = { hash, visible: true, reducedMotion: true, anchors: false, hint: true, push: false }
   const page: Page = {
     origin: 'http://localhost',
@@ -101,6 +102,14 @@ export const fakePage = (hash = '#/') => {
     supportsAnchors: () => state.anchors,
     supportsPush: () => state.push,
     supportsHintPopovers: () => state.hint,
+    shownNotifications: () =>
+      Promise.resolve(
+        [...notifications].map(([tag, shownAt]) => ({
+          tag,
+          shownAt,
+          close: () => void notifications.delete(tag),
+        })),
+      ),
     storage: {
       local: (key) => local.get(key) ?? null,
       setLocal: (key, value) => void local.set(key, value),
@@ -127,6 +136,7 @@ export const fakePage = (hash = '#/') => {
     state,
     visited,
     downloads,
+    notifications,
     local,
     session,
     watches,

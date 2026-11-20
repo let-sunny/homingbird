@@ -19,8 +19,10 @@ const HAPPY: Stubs = {
 const gateway = (stubs: Stubs = HAPPY) => {
   const fake = fakeApi(stubs)
   const context = { api: fake.api, publicUrl: 'https://hb.example.com', nonce: sequentialNonce() }
-  const call = (method: string, params: unknown = {}, id: unknown = 1) =>
-    T.runPromise(handleA2aMessage({ jsonrpc: '2.0', id, method, params }, context)) as Promise<any>
+  const call = (method: string, params: unknown = {}, version?: string) =>
+    T.runPromise(
+      handleA2aMessage({ jsonrpc: '2.0', id: 1, method, params }, context, version),
+    ) as Promise<any>
   return { call, calls: fake.calls, context }
 }
 
@@ -64,7 +66,7 @@ describe('handleA2aMessage', () => {
     '%s says task not found for an unknown or malformed id',
     async (method) => {
       const { call, calls } = gateway({ 'notes.get': () => NotFound({ message: 'No such note.' }) })
-      expect((await call(method, { id: 'task-1' })).error).toEqual({
+      expect((await call(method, { id: 'task-1' })).error).toMatchObject({
         code: A2A_CODE.taskNotFound,
         message: 'Task not found: task-1',
       })
@@ -94,7 +96,7 @@ describe('handleA2aMessage', () => {
     'tasks/resubscribe',
   ])('refuses %s as unsupported', async (method) => {
     const { call, calls } = gateway()
-    expect((await call(method, MESSAGE)).error).toEqual({
+    expect((await call(method, MESSAGE)).error).toMatchObject({
       code: A2A_CODE.unsupportedOperation,
       message: `${method} is not supported by this agent.`,
     })
@@ -122,7 +124,7 @@ describe('handleA2aMessage', () => {
   it('refuses a batch', async () => {
     const { context, calls } = gateway()
     const answer: any = await T.runPromise(
-      handleA2aMessage([{ jsonrpc: '2.0', id: 1, method: 'SendMessage', params: MESSAGE }], context),
+      handleA2aMessage([{ jsonrpc: '2.0', id: 1, method: 'SendMessage', params: MESSAGE }], context, '1.0'),
     )
     expect(answer).toEqual({
       jsonrpc: '2.0',
@@ -134,14 +136,14 @@ describe('handleA2aMessage', () => {
 
   it('rejects an envelope that is not JSON-RPC 2.0', async () => {
     const { context } = gateway()
-    const answer: any = await T.runPromise(handleA2aMessage({ id: 1, method: 'SendMessage' }, context))
+    const answer: any = await T.runPromise(handleA2aMessage({ id: 1, method: 'SendMessage' }, context, '1.0'))
     expect(answer.error.code).toBe(RPC_CODE.invalidRequest)
   })
 
   it('answers nothing to a notification', async () => {
     const { context } = gateway()
     expect(
-      await T.runPromise(handleA2aMessage({ jsonrpc: '2.0', method: 'GetTask', params: {} }, context)),
+      await T.runPromise(handleA2aMessage({ jsonrpc: '2.0', method: 'GetTask', params: {} }, context, '1.0')),
     ).toBeNull()
   })
 
@@ -198,8 +200,124 @@ describe('handleA2aMessage', () => {
     })
     const context = { api: trapped, publicUrl: 'https://hb.example.com', nonce: sequentialNonce() }
     const answer: any = await T.runPromise(
-      handleA2aMessage({ jsonrpc: '2.0', id: 1, method: 'SendMessage', params: MESSAGE }, context),
+      handleA2aMessage({ jsonrpc: '2.0', id: 1, method: 'SendMessage', params: MESSAGE }, context, '1.0'),
     )
     expect(answer.result.task.id).toBe(DRAFT.id)
+  })
+})
+
+describe('A2A-Version negotiation', () => {
+  const ERROR_INFO = (reason: string) => [
+    { '@type': 'type.googleapis.com/google.rpc.ErrorInfo', reason, domain: 'a2a-protocol.org' },
+  ]
+
+  it.each([
+    ['1.0', 'SendMessage', 'TASK_STATE_INPUT_REQUIRED'],
+    ['1.0.0', 'SendMessage', 'TASK_STATE_INPUT_REQUIRED'],
+    ['0.3', 'message/send', 'input-required'],
+  ])('answers A2A-Version %s and %s in that version’s shape', async (version, method, state) => {
+    const answer = await gateway().call(method, MESSAGE, version)
+    expect((answer.result.task ?? answer.result).status.state).toBe(state)
+  })
+
+  it.each([
+    ['SendMessage', 'TASK_STATE_INPUT_REQUIRED'],
+    ['message/send', 'input-required'],
+  ])('lets the method naming decide when no version is stated: %s', async (method, state) => {
+    const answer = await gateway().call(method, MESSAGE)
+    expect((answer.result.task ?? answer.result).status.state).toBe(state)
+  })
+
+  it.each(['2.0', '1.1', '0.2', 'latest'])(
+    'refuses A2A-Version %s as not supported, before reaching any route',
+    async (version) => {
+      const { call, calls } = gateway()
+      for (const method of ['SendMessage', 'message/send', 'tasks/approve']) {
+        const answer = await call(method, MESSAGE, version)
+        expect(answer.error).toEqual({
+          code: A2A_CODE.versionNotSupported,
+          message: 'This A2A-Version is not supported. Send A2A-Version 1.0 or 0.3.',
+          data: ERROR_INFO('VERSION_NOT_SUPPORTED'),
+        })
+      }
+      expect(calls).toEqual([])
+    },
+  )
+
+  it('never repeats the version it was sent in the error', async () => {
+    const version = `9.${'9'.repeat(10_000)}`
+    const { message } = (await gateway().call('SendMessage', MESSAGE, version)).error
+    expect(message).not.toContain('999')
+    expect(message.length).toBeLessThan(100)
+  })
+
+  it('answers nothing to a notification with an unsupported version', async () => {
+    const { context, calls } = gateway()
+    expect(
+      await T.runPromise(handleA2aMessage({ jsonrpc: '2.0', method: 'GetTask', params: {} }, context, '2.0')),
+    ).toBeNull()
+    expect(calls).toEqual([])
+  })
+
+  it.each([
+    ['1.0', 'message/send', 'tasks/get'],
+    ['0.3', 'SendMessage', 'GetTask'],
+  ])('refuses A2A-Version %s with the other version’s method names', async (version, send, get) => {
+    const { call, calls } = gateway()
+    const answer = await call(send, MESSAGE, version)
+    expect(answer.error.code).toBe(A2A_CODE.versionNotSupported)
+    expect(answer.error.message).toBe(
+      `${send} is an A2A ${version === '1.0' ? '0.3' : '1.0'} method, but the request names A2A-Version ${version}.`,
+    )
+    expect((await call(get, { id: SENT.id }, version)).error.code).toBe(A2A_CODE.versionNotSupported)
+    expect(calls).toEqual([])
+  })
+
+  it('details a mismatch in the shape of the version the request names', async () => {
+    const { call } = gateway()
+    expect((await call('message/send', MESSAGE, '1.0')).error.data).toEqual(
+      ERROR_INFO('VERSION_NOT_SUPPORTED'),
+    )
+    expect((await call('SendMessage', MESSAGE, '0.3')).error).not.toHaveProperty('data')
+  })
+
+  it('answers an unknown method with method not found, without details', async () => {
+    const { call } = gateway()
+    for (const version of [undefined, '1.0', '0.3'])
+      expect((await call('tasks/approve', {}, version)).error).toEqual({
+        code: RPC_CODE.methodNotFound,
+        message: 'Method not found: tasks/approve',
+      })
+  })
+})
+
+describe('error details', () => {
+  it.each([
+    ['GetTask', { id: 'task-1' }, 'TASK_NOT_FOUND'],
+    ['CancelTask', { id: DRAFT.id }, 'TASK_NOT_CANCELABLE'],
+    ['ListTasks', {}, 'UNSUPPORTED_OPERATION'],
+    ['CreateTaskPushNotificationConfig', {}, 'PUSH_NOTIFICATION_NOT_SUPPORTED'],
+  ])('adds an ErrorInfo to %s’s A2A error in the 1.0 dialect', async (method, params, reason) => {
+    const { error } = await gateway().call(method, params, '1.0')
+    expect(error.data).toEqual([
+      { '@type': 'type.googleapis.com/google.rpc.ErrorInfo', reason, domain: 'a2a-protocol.org' },
+    ])
+  })
+
+  it.each([
+    ['tasks/get', { id: 'task-1' }],
+    ['tasks/cancel', { id: DRAFT.id }],
+    ['message/stream', {}],
+    ['tasks/pushNotificationConfig/set', {}],
+  ])('keeps %s’s error without details in the 0.3 dialect', async (method, params) => {
+    expect((await gateway().call(method, params, '0.3')).error).not.toHaveProperty('data')
+  })
+
+  it('adds no ErrorInfo to a plain JSON-RPC error from the server', async () => {
+    const { call } = gateway({ 'drafts.create': () => Forbidden({ message: 'You cannot message Ben.' }) })
+    expect((await call('SendMessage', MESSAGE, '1.0')).error).toEqual({
+      code: RPC_CODE.invalidRequest,
+      message: 'You cannot message Ben.',
+    })
   })
 })

@@ -128,6 +128,7 @@ describe('push notifications', () => {
       title: 'A draft is waiting for your approval',
       body: 'agent answer',
       url: `/#/c/${draft.conversationId}?draft=${draft.id}`,
+      tag: `draft:${draft.id}`,
     })
     await server.clock.advance(1_000)
     await benAgent.api('PATCH', `/drafts/${draft.id}`, { body: 'agent answer, revised' })

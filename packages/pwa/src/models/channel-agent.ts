@@ -125,6 +125,21 @@ export const reviewCardsModel = (
   }
 }
 
+/**
+ * Why the answer a notification opened is not among the cards: who sent it, or that it no longer waits,
+ * so that a notification left on another device does not read as an error.
+ */
+export const decidedAnswerModel = (
+  decided: AsRead.Note | null,
+  viewerId: MemberId | null,
+  members: ReadonlyMap<MemberId, AsRead.Member>,
+): string => {
+  const approvedBy = decided?.status === 'sent' ? (decided.approvedBy ?? null) : null
+  if (approvedBy === null) return strings.channelAgent.decided.gone
+  if (approvedBy === viewerId) return strings.channelAgent.decided.sentByYou
+  return strings.channelAgent.decided.sentBy({ name: members.get(approvedBy)?.name ?? strings.formerMember })
+}
+
 /** How many answers wait for the person, and a way to each channel they wait in; null for none. */
 export const reviewsWaitingModel = (reviews: ReadonlyArray<AsRead.Review>): ReviewsWaiting | null =>
   reviews.length === 0

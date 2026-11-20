@@ -4,7 +4,10 @@ import { strings } from '../src/strings.ts'
 const listeners = new Map<string, (event: unknown) => void>()
 const cache = { addAll: vi.fn(() => Promise.resolve()), put: vi.fn(() => Promise.resolve()) }
 const cached = new Map<string, Response>()
-const shown: Array<{ title: string; options: { body: string; data: { url: string } } }> = []
+const shown: Array<{
+  title: string
+  options: { body: string; data: { url: string }; tag?: string; renotify?: boolean }
+}> = []
 const windows: Array<{
   url: string
   navigate: (url: string) => Promise<unknown>
@@ -92,13 +95,17 @@ describe('the service worker', () => {
     expect((await respond('https://homingbird.example/people')!).type).toBe('error')
   })
 
-  it('shows a push as a notification, in words of its own when the push brings none', async () => {
+  it('shows a push as a notification that a repeat about the same draft replaces, in words of its own when the push brings none', async () => {
     const push = (data: unknown) => {
       const event = waiting()
       listeners.get('push')!({ ...event, data })
       return event.settled()
     }
     await push({ json: () => ({ title: 'Ben', body: 'Hello', url: '/#/c/1' }) })
+    await push({
+      json: () => ({ title: 'Ben', body: 'Agent draft', url: '/#/c/1?draft=n1', tag: 'draft:n1' }),
+    })
+    await push({ json: () => ({ title: 'Ben', body: 'Hello', url: '/#/c/1', tag: '' }) })
     await push(null)
     await push({ json: () => ({ title: 3 }) })
     await push({
@@ -108,9 +115,19 @@ describe('the service worker', () => {
     })
     expect(shown.map((one) => [one.title, one.options.body, one.options.data.url])).toEqual([
       ['Ben', 'Hello', '/#/c/1'],
+      ['Ben', 'Agent draft', '/#/c/1?draft=n1'],
+      ['Ben', 'Hello', '/#/c/1'],
       [strings.appName, strings.pushFallback, '/'],
       [strings.appName, strings.pushFallback, '/'],
       [strings.appName, strings.pushFallback, '/'],
+    ])
+    expect(shown.map((one) => [one.options.tag, one.options.renotify])).toEqual([
+      [undefined, undefined],
+      ['draft:n1', false],
+      [undefined, undefined],
+      [undefined, undefined],
+      [undefined, undefined],
+      [undefined, undefined],
     ])
   })
 

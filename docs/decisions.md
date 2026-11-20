@@ -21,6 +21,12 @@ states the decision first, then the reason. Add new entries at the top of their 
   conversation list still shows what waits. Only the new answer's event notifies; an agent's later edits
   do not: the server does not know who has read a card, and the card already asks to read a changed
   answer again. Like every push, nothing is audited and `push.delivered` logs carry no content.
+- **A decided draft's notification is closed by an open page, never by a push.** Browsers require every
+  push to show a notification (`userVisibleOnly`), so a silent "close it" push would show a generic one;
+  instead each draft's push carries the tag `review:<id>` or `draft:<id>`, so a repeat replaces it, a
+  page that loads the waiting answers or hears the draft was sent or discarded closes it on its device,
+  and a card opened from one left on a device with no page open says who already sent the answer (read
+  with `notes.get`, so a discarded one only says it no longer waits).
 - **Muting belongs to one person and one conversation, and the server decides every push.** A person
   mutes a direct message or a channel (`conversations.mute`, `conversations.unmute`) and chooses which
   conversations may notify their devices (`me.notifications.set`: `all`, `direct` or `none`). All three
@@ -510,6 +516,13 @@ states the decision first, then the reason. Add new entries at the top of their 
   client at start ask it once and name the side to upgrade in one sentence. A feature is offered only
   when the server lists it as on. Mixed versions are not tested; a version-negotiated API with several
   live shapes per route would have cost every handler.
+- **The A2A gateway speaks 1.0 and 0.3 and lets the `A2A-Version` header choose.** The card lists the
+  one JSON-RPC URL once per version. The 0.3 entry is for clients that read a 1.0 card; a plain 0.3
+  client that reads only the card's top-level `url` does not find it. A stated version other than 1.0
+  or 0.3, or one that does not match the method names, is refused as not supported. §3.6.2 says a
+  request without a version MUST be read as 0.3; the gateway is deliberately more lenient: with no
+  version stated the method names decide, so a 1.0 client that leaves out the header still works.
+  Only 1.0 errors carry an `ErrorInfo`.
 - **One SQL implementation, three dialects.** Queries are written once in portable SQL through a
   tagged template. A small table DSL generates dialect-specific DDL. SQLite uses the runtime's
   built-in `node:sqlite`.

@@ -755,7 +755,9 @@ shown to the people concerned and nobody else. Apart from that, whoever runs you
 
 You are notified when a note arrives and when a draft waits for your approval, unless a Homingbird
 page is on screen: a minimised window, a background tab or a closed app counts as not looking. A
-draft's notification opens that draft's card, as `homingbird open <draft id>` does. To check
+draft's notification opens that draft's card, as `homingbird open <draft id>` does. Once a draft is
+sent or discarded, opening Homingbird on a device clears its notification there, and one opened later
+says who already sent the answer. To check
 that notifications reach this device, press **Send a test notification** under the switch; it says what
 the browser's push service answered for each of your devices.
 
