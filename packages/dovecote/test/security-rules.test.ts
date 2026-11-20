@@ -461,6 +461,26 @@ describe('Rule 2: drafts are invisible to recipients', () => {
     expect(JSON.stringify((await ben.api('GET', '/search?q=secret')).json)).not.toContain(SECRET_ANSWER)
     expect((await ana.api('GET', `/reviews/${draft.id}`)).status).toBe(404)
   })
+
+  it('hides a group message from its other members until a note in it is sent', async () => {
+    const group = (
+      await ana.api('POST', '/conversations', { participantIds: [ben.me.member.id, cy.me.member.id] })
+    ).json
+    const draft = (await ana.api('POST', '/drafts', { conversationId: group.id, body: SECRET_BODY })).json
+    for (const viewer of [ben, cy, benAgent]) {
+      expect(JSON.stringify((await viewer.api('GET', '/conversations')).json)).not.toContain(group.id)
+      expect((await viewer.api('GET', `/conversations/${group.id}`)).status).toBe(404)
+      expect((await viewer.api('GET', `/conversations/${group.id}/notes`)).status).toBe(404)
+      expect((await viewer.api('GET', '/search?q=7f3a')).json.notes).toEqual([])
+      expect(JSON.stringify((await viewer.api('GET', '/events/poll?after=0')).json)).not.toContain(group.id)
+    }
+    await ana.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })
+    for (const viewer of [ben, cy, benAgent]) {
+      expect(JSON.stringify((await viewer.api('GET', '/conversations')).json)).toContain(group.id)
+      expect((await viewer.api('GET', `/conversations/${group.id}`)).status).toBe(200)
+      expect((await viewer.api('GET', '/search?q=7f3a')).json.notes).toHaveLength(1)
+    }
+  })
 })
 
 describe('Rule 3: no model-facing credential can approve, change contacts, or read credentials', () => {

@@ -220,15 +220,14 @@ there ([guide](guide.md#turn-on-phone-notifications)).
 message** on every card one may message, the people chosen show as removable chips, and
 **Start group message** opens the group room, where the first note is written or drafted and approved as
 in a direct conversation ([guide](guide.md#ask-a-person)). When a group room with exactly those
-people exists, People opens it instead.
+people exists, People opens it instead. Until a note in it is sent, a group message shows only to the
+person who started it, as a direct message does
+([decisions](decisions.md#product)).
 
 **Built:** muting a direct message or a channel, which keeps its notes and unread count but sends the
 person no notification, and a level for device notifications: every direct message and channel, direct
 messages only, or nothing ([guide](guide.md#turn-on-phone-notifications)).
 
-- Hiding a new group message from its other members until a note in it is sent, as a direct message is
-  hidden. Today everyone chosen sees the empty room at once, and a room whose only draft was discarded
-  stays in their list. This changes what `conversations.list` returns, so it waits for a decision.
 - Naming a group message from the web client. The API accepts a title, but everyone in the room sees
   it as soon as the room is made, before any note is approved, so the web client leaves it unnamed.
 - Attachments. Notes are text and links only by design.
