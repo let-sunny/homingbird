@@ -5,6 +5,74 @@ Every release of Homingbird, newest first. The format follows
 [Semantic Versioning](https://semver.org/); before 1.0, a minor version may break interfaces and the
 database schema.
 
+## [0.3.1] - 2026-11-20
+
+### Added
+
+- **pwa:** tell a person when their desk has not connected
+
+  My agent now says when none of a person's agent credentials can be used, with the exact command to sign in, and the service and runner messages end with the exact next command instead of a placeholder.
+- **pwa:** start a group message with several people from People
+
+  People now offers Add to group message on every card you may message. The people you choose show above the list as chips you can remove, and Start group message opens a room with all of them, where you write the first note or ask your agent for a draft as in any direct message: nothing is sent until you approve it. When you already have a group message with exactly those people, People opens it instead of starting another.
+- **dovecote:** count your week and more organization-wide figures
+
+  My agent's report now carries your own week: the notes you sent in the last 7 days, the replies colleagues sent to them, and your typical time to reply, from a colleague's new note to your first reply, beside the week before. Administrators' Insights add the typical time to decide on an agent draft, who wrote what was sent, how soon agents pick up the notes people receive, and quick approvals week by week with a warning when a quarter or more were quick for two weeks in a row.
+- **pwa:** show your week, more insights and what is measured
+
+  How it is doing now opens with Your week. Administration, Insights adds the typical decision time, a share bar of who wrote what was sent, delivery to agents, quick approvals week by week and an announced warning when approving may be becoming a formality. A new page, What is measured, linked from both, lists for every member what each person sees about themself and what administrators see as totals.
+- give a channel its own agent, whose answers its managers approve
+
+  A channel can now have one agent of its own, such as one that answers from a team's wiki. Its managers create it, connect desks to it from the device approval page, and send or discard each answer it drafts; the first manager to send an answer wins, and a sent answer shows who approved it ("#payments-wiki · approved by Kim"). People can also ask the agent privately: the conversation holds the asker, the agent and the channel's managers, now and later. Channel agents are off until an administrator turns on the `channelAgents` feature.
+- mute direct messages and channels, and choose what notifies you
+
+  You can now mute a direct message or a channel from its header or from the list. A muted one still receives every note and keeps its unread count, but sends no notification to your devices and the page announces nothing. Under What notifies you on your Profile, choose every direct message and channel, direct messages only, or nothing.
+- **pwa:** open one answer's review card from its address
+
+  A notification about a channel's agent's answer has to lead the manager to that answer, not only to the channel's agent page. The page now takes `?draft=<id>` (`#/channel/<slug>/agent?draft=<id>`), marks that card as the current one and brings it into view once.
+- **dovecote:** notify a channel's managers when its agent's answer waits
+
+  Answers from a channel's agent stalled because nobody was told one was waiting. Every manager who may review a new answer now gets a push named after the channel, with a short encrypted preview, that opens the answer's card. It follows the channel's mute and the person's level, and a burst of answers in one channel is one push per manager every two minutes.
+
+### Fixed
+
+- **pwa:** keep a draft's basis under its bubble and show the vote text while voting
+
+  The box saying what a draft is based on now sits to the right under the note it belongs to instead of stretching across the page, and a debate room that is voting no longer says the turns ran out.
+- **dovecote:** keep an agent from changing a draft between reading it and sending it
+
+  Send now sends exactly the draft you read. If your agent rewrites a draft or moves it to another room after the card appeared on your screen, Send refuses, nothing is delivered, and the web client shows the draft as it is now with "Your agent changed this draft after you read it, so it was not sent. Read it again."
+- **pwa:** ask you to read a draft again when your agent changes it
+
+  When your agent rewrites a draft or moves it to another room while its card is on your screen, the card now says so and hides Send and Edit until you tap "I have read it again". Before, the card quietly redrew with the new text, so a tap meant for the old text sent the new one.
+- **dovecote:** refuse a send that does not say which draft was read
+
+  Sending a draft now always names the version you read. A send without it is refused as invalid instead of going out unchecked, so no client can send a draft without the guard against an agent's late change.
+- **dovecote:** keep delivery and quick-approval weeks from isolating anyone
+
+  The received total in Insights' delivery is now hidden unless no recipient, or at least the minimum group size of recipients, had no agent connected: otherwise subtracting the notes to agents gave one person's count. A week of quick approvals is hidden exactly when that week's draft decisions are, so the last week can no longer hide what the 7-day figures already show. An agent credential that had expired when a note was sent no longer counts as an agent.
+- **dovecote:** refuse a draft that changed even if it was changed back
+
+  A draft is sent only if it still holds what you read when the server picks it up, and again when it sends it. Before, a draft rewritten and then put back in the moment you tapped Send could go out with the rewritten text, or to the people of the room it had been moved to.
+- **dovecote:** keep a private question's asker from reviewing its answers
+
+  In a private question every answer goes to the person who asked it, but a reviewer was told apart from the asker by the author of the note the answer replied to. A manager who asked privately could then read and send the agent's answer to another manager's note in their own question, an answer meant for them. Whom a draft is for is now decided in one place, `askersOf`: the author of the note it answers and, in a private question, its asker. Neither sees it under reviews, sends or discards it, or counts as the reviewer the agent needs before it may draft.
+- **pwa:** lead a channel's managers to the answers waiting for them
+
+  A manager now sees above their conversations how many of a channel agent's answers wait for them, with a link to each channel's agent page (#/channel/<slug>/agent), where they review and send them. A desk connected as a channel's agent, in Claude Code or through homingbird open and overview, says its drafts wait for the channel's managers and links to that page instead of to a conversation that does not show them.
+- **cli:** say which channel's agent a login connected and who reviews it
+
+  Signing in as a channel's agent printed its placeholder address and said the credential drafts "as you", which reads as the manager's own agent. The login now names the channel, says that one of its managers approves each answer, and links to where they review; the JSON gains the channel.
+- **dovecote:** keep a person's mutes and notification level from their agent
+
+  An agent's credential reading `me.get`, the conversation list, a conversation or the inbox no longer sees which rooms its person muted or which notifications they chose. Those are the person's own settings, so the server includes them only when the person themself asks.
+- **dovecote:** notify a channel's managers of private questions as the channel
+
+  A manager who chose direct messages only no longer gets a notification for every private question asked of their channel's agent: to them it is channel work. The person who asked still gets notified of answers as in a direct message, since the conversation is their own.
+- **dovecote:** quiet review pushes in a muted channel and keep edited new answers
+
+  A manager who muted a channel still got review pushes for answers to its private questions, because only the question's own room was asked. A review push now needs both that room and the channel to want it.
+
 ## [0.3.0] - 2026-11-20
 
 ### Breaking changes
@@ -308,6 +376,7 @@ Since 0.1.0-rc.2:
 - The web client has a guided tour and clearer topics, refusals and dark mode.
 - The Claude Code mod asks for the server address at install, finds Node 22 where version managers put it, and signs in from its pane.
 
+[0.3.1]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.1
 [0.3.0]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.0
 [0.2.0]: https://github.com/let-sunny/homingbird/releases/tag/v0.2.0
 [0.1.3]: https://github.com/let-sunny/homingbird/releases/tag/v0.1.3
