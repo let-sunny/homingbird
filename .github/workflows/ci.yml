@@ -13,11 +13,15 @@ permissions:
   contents: read
 
 jobs:
-  # Decides which jobs a pull request needs from the files it changes. A push to main was already
-  # checked in full on its pull request, so it runs only the main check once.
+  # Decides what a pull request needs from the files it changes: the tests of the changed packages and
+  # their dependents, and the jobs those files touch. The release pull request (from release/main)
+  # runs everything with coverage, once before each release. A push to main was checked on its pull
+  # request, so it only type-checks, lints and builds.
   changes:
     runs-on: ubuntu-latest
     outputs:
+      release: ${{ steps.diff.outputs.release }}
+      tests: ${{ steps.diff.outputs.tests }}
       desktop: ${{ steps.diff.outputs.desktop }}
       plugin: ${{ steps.diff.outputs.plugin }}
       database: ${{ steps.diff.outputs.database }}
@@ -27,14 +31,23 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
       - id: diff
         env:
           EVENT: ${{ github.event_name }}
+          HEAD_REF: ${{ github.head_ref }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
+          jobs="desktop plugin database image terraform"
           if [ "$EVENT" != pull_request ]; then
-            for job in desktop plugin database image terraform; do echo "$job=false" >> "$GITHUB_OUTPUT"; done
+            { echo "release=false"; echo "tests="; for job in $jobs; do echo "$job=false"; done; } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$HEAD_REF" = release/main ]; then
+            { echo "release=true"; echo "tests=everything"; for job in $jobs; do echo "$job=true"; done; } >> "$GITHUB_OUTPUT"
             exit 0
           fi
           files=$(git diff --name-only "$BASE_SHA...$HEAD_SHA")
@@ -42,6 +55,8 @@ jobs:
           core='^packages/(kernel|protocol|sprites|client|cli|mcp)/'
           matches() { if echo "$files" | grep -Eq "$1|$shared"; then echo true; else echo false; fi; }
           {
+            echo "release=false"
+            echo "tests=$(echo "$files" | node scripts/affected-tests.ts)"
             echo "desktop=$(matches "$core|^scripts/service-smoke\.ts$")"
             echo "plugin=$(matches "$core|^packages/plugin/")"
             echo "database=$(matches "$core|^packages/(a2a|dovecote)/")"
@@ -51,11 +66,12 @@ jobs:
 
   check:
     name: check on Node ${{ matrix.node }}
+    needs: changes
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        node: ${{ fromJSON(github.event_name == 'pull_request' && '[22, 24]' || '[24]') }}
+        node: ${{ fromJSON(needs.changes.outputs.release == 'true' && '[22, 24]' || '[24]') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6
@@ -66,7 +82,17 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm lint
-      - run: pnpm test:coverage
+      - name: Tests with coverage, before a release
+        if: needs.changes.outputs.release == 'true'
+        run: pnpm test:coverage
+      - name: Every test, when a shared file changed
+        if: needs.changes.outputs.release != 'true' && needs.changes.outputs.tests == 'everything'
+        run: pnpm test
+      - name: The tests of the changed packages and their dependents
+        if: needs.changes.outputs.release != 'true' && needs.changes.outputs.tests != 'everything' && needs.changes.outputs.tests != ''
+        env:
+          TESTS: ${{ needs.changes.outputs.tests }}
+        run: pnpm exec vitest run $TESTS
       - run: pnpm build
 
   desktop:
