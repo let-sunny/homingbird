@@ -159,9 +159,12 @@ any of the preparation below.
 `homingbird run --attach-mcp` also gives the agent, never the reader, the Homingbird MCP server for
 each run, so it can look up people and channels while drafting: Claude Code through an inline
 `--mcp-config` with `--strict-mcp-config`, Codex through one `-c mcp_servers.homingbird=…` table. No
-configuration file of yours is read or written. The server is `npx -y @homingbird/mcp@<this version>`,
-signed in with the runner's own agent credential file, whose path it gets in its environment; the token
-never appears on a command line. It is off unless you ask, until it has run with the real agents, and
+configuration file of yours is read or written. The server is the `@homingbird/mcp` installed beside
+the command line, run by the same Node, or else `npx -y @homingbird/mcp@<this version>`, signed in
+with the runner's own agent credential file, whose path it gets in its environment; the token
+never appears on a command line. It offers no `skip_note` or `wait_for_notes`, since the runner picks
+notes up and gives them back, and on Windows a server address or path holding `% & ^ | < >` is refused,
+as cmd.exe would read it. It is off unless you ask, until it has run with the real agents, and
 Antigravity and Gemini have no known way to take a server for one run.
 
 A runner started from inside Claude Code or Codex, such as a desk an MCP client runs, does not pass
@@ -189,6 +192,8 @@ In an MCP client, add `"--split", "--reader", "claude -p --tools '' --strict-mcp
   runner says so; see [Agent presets](#agent-presets). Without `--reader`, the reader
   is your agent command, with all its tools, and the runner warns; add `--require-toolless-reader` to
   have it refuse to start then.
+- **No MCP server for the drafting agent.** `--attach-mcp` is refused with `--split`: the server's tools
+  would let the agent read the note itself.
 - **What you see.** Drafts say "Drafted from the extracted question (split mode)" in their basis. A
   note the reader cannot describe in the fixed form is given back, and you see why: "could not read the
   note safely".

@@ -66,26 +66,55 @@ export const run = (
       if (missing !== null) return yield* T.fail(failed(missing))
       const session = yield* openSession
       const env = yield* T.ask<CliEnv>()
-      const attached = isAttachingMcp(settings, env.platform) ? attachedServer(env, session) : null
+      const attached = isAttachingMcp(settings, env.platform) ? yield* attachedServer(session) : null
       const launches = yield* preparedLaunches(settings, attached)
       yield* runDesk(session, { ...settings, launches, countsUsage: true }, report)
     }),
   )
 
 /**
- * The Homingbird MCP server for one agent run: the version that matches this command line, started
- * by the agent with the runner's own credential file named in its environment, never the token.
+ * The Homingbird MCP server for one agent run, started by the agent with the runner's own credential
+ * file named in its environment, never the token: the `@homingbird/mcp` installed beside this command
+ * line, run by the same Node, or else that release through npx.
  */
-export const attachedServer = (env: CliEnv, session: Session): AttachedServer => {
-  const serverUrl = session.credential.serverUrl
-  const npx = ['npx', '-y', `@homingbird/mcp@${CLI_VERSION}`, '--server', serverUrl]
-  const [command, ...args] = env.platform === 'win32' ? ['cmd', '/c', ...npx] : npx
-  return {
-    command: command!,
-    args,
-    environment: { HOMINGBIRD_CREDENTIALS_FILE: env.credentialsFile ?? credentialPathFor(env, serverUrl) },
-  }
-}
+export const attachedServer = (session: Session): T.Task<AttachedServer, CliFailure, CliEnv> =>
+  T.gen(function* () {
+    const env = yield* T.ask<CliEnv>()
+    const serverUrl = session.credential.serverUrl
+    const environment = {
+      HOMINGBIRD_CREDENTIALS_FILE: env.credentialsFile ?? credentialPathFor(env, serverUrl),
+    }
+    const installed = yield* installedMcpServer
+    const npx = ['npx', '-y', `@homingbird/mcp@${CLI_VERSION}`, '--server', serverUrl]
+    const [command, ...args] =
+      installed !== null
+        ? [...installed, '--server', serverUrl]
+        : env.platform === 'win32'
+          ? ['cmd', '/c', ...npx]
+          : npx
+    const unsafe = [command!, ...args, ...Object.values(environment)].find((value) => CMD_SPECIAL.test(value))
+    if (env.platform === 'win32' && unsafe !== undefined)
+      return yield* T.fail(
+        failed(
+          `--attach-mcp cannot pass ${unsafe} to cmd.exe on Windows, which reads % & ^ | < > in it. Use a server address and credentials file path without them.`,
+        ),
+      )
+    return { command: command!, args, environment }
+  })
+
+/** The MCP adapter's bundle where npm installs it next to this command line's own package. */
+const installedMcpServer: T.Task<string[] | null, never, CliEnv> = T.gen(function* () {
+  const env = yield* T.ask<CliEnv>()
+  const [node, script] = env.program
+  if (node === undefined || script === undefined) return null
+  const bundle = script.replace(/[\\/]cli[\\/]dist[\\/][^\\/]+$/, (found) =>
+    found.replace(/cli([\\/])dist\1[^\\/]+$/, 'mcp$1dist$1homingbird-mcp.mjs'),
+  )
+  if (bundle === script || !(yield* env.files.exists(bundle))) return null
+  return [node, bundle]
+})
+
+const CMD_SPECIAL = /[%&^|<>]/
 
 /** Runs a runner with the agents' Windows install directories on its PATH; elsewhere as it is. */
 export const withAgentDirectories = <A, E>(task: T.Task<A, E, CliEnv>): T.Task<A, E, CliEnv> =>
@@ -166,7 +195,7 @@ export const runDesk = (
           member,
           agent,
           split,
-          launches: settings.launches ?? launchesAsGiven(settings),
+          launches: settings.launches ?? launchesAsGiven(settings, env.platform ?? 'linux'),
           credentialsFile: env.credentialsFile ?? '',
           platform: env.platform ?? 'linux',
           isService: settings.isService === true,

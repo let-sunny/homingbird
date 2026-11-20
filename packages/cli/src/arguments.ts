@@ -1,4 +1,5 @@
 import { Result } from '@homingbird/kernel'
+import { ATTACH_WITH_SPLIT } from './agent-launch.ts'
 import { agentCommand, defaultReader } from './agent-presets.ts'
 import type { RunnerSettings } from './commands/run.ts'
 import type { ServiceOptions } from './commands/service.ts'
@@ -276,6 +277,7 @@ const BUILDERS: Readonly<Record<string, (tokens: Tokens) => Result.Result<Invoca
         return yield* usage('--log-level needs error, warn, info or debug.')
       if ((values.has('log') || values.has('workdir')) && !switches.has('service'))
         return yield* usage('--log and --workdir go with --service.')
+      if (switches.has('attach-mcp') && isSplit) return yield* usage(ATTACH_WITH_SPLIT)
       if (switches.has('attach-mcp') && switches.has('service'))
         return yield* usage(
           '--attach-mcp is for run in a terminal; the service does not attach the MCP server yet.',

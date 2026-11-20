@@ -15,7 +15,13 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { asShown } from '../../dovecote/test/harness.ts'
 import { DESCRIPTIONS } from '../src/hosted-desk.ts'
 import { NO_DESK_RUNNER } from '../src/local-tools.ts'
-import { RUNNERS_SERVER_ONLY, type StdioProgram, USAGE, runStdioProgram } from '../src/stdio-program.ts'
+import {
+  RUNNERS_SERVER_ONLY,
+  RUNNER_WITHHELD_TOOLS,
+  type StdioProgram,
+  USAGE,
+  runStdioProgram,
+} from '../src/stdio-program.ts'
 import { ADAPTER_VERSION } from '../src/version.ts'
 import { type RunningServer, SERVER_URL, startRunningServer } from './running-server.ts'
 import { sequentialNonce } from './support.ts'
@@ -429,6 +435,10 @@ describe('a desk run inside the MCP server', () => {
       })
       expect(await exit).toMatchObject({ error: { error: { message: RUNNERS_SERVER_ONLY } } })
     }
+  })
+
+  it('withholds the tools that move notes on a server a runner started for one agent run', () => {
+    expect(RUNNER_WITHHELD_TOOLS).toEqual(['skip_note', 'wait_for_notes'])
   })
 
   it('refuses to start a desk where no runner environment was given', async () => {

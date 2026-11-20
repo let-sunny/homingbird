@@ -56,13 +56,14 @@ export const USAGE = [
 export const RUNNERS_SERVER_ONLY =
   'HOMINGBIRD_CREDENTIALS_FILE is set: this server answers one agent run of homingbird run, so it takes no --run-agent, --desk or --channel.'
 
+/** The runner picks notes up, gives them back and waits for them; its agent only reads and drafts. */
+export const RUNNER_WITHHELD_TOOLS: ReadonlyArray<string> = ['skip_note', 'wait_for_notes']
+
 export const runStdioProgram = (program: StdioProgram): T.Task<void, ProgramFailed, HasClock> =>
   T.gen(function* () {
     const options = yield* T.fromResult(optionsFrom(program))
-    if (
-      program.environment.HOMINGBIRD_CREDENTIALS_FILE?.trim() &&
-      (options.agent !== null || options.isChannel)
-    )
+    const runnerCredentialPath = program.environment.HOMINGBIRD_CREDENTIALS_FILE?.trim() || null
+    if (runnerCredentialPath !== null && (options.agent !== null || options.isChannel))
       return yield* T.fail(ProgramFailed({ message: RUNNERS_SERVER_ONLY }))
     const deskEnv = program.deskEnv
     if (options.agent !== null && deskEnv === undefined)
@@ -95,7 +96,7 @@ export const runStdioProgram = (program: StdioProgram): T.Task<void, ProgramFail
           serverUrl: options.serverUrl,
           clientName: options.clientName,
           credentialPath: program.credentialPath,
-          runnerCredentialPath: program.environment.HOMINGBIRD_CREDENTIALS_FILE?.trim() || null,
+          runnerCredentialPath,
           scope,
           clock,
           ...fetching,
@@ -114,6 +115,7 @@ export const runStdioProgram = (program: StdioProgram): T.Task<void, ProgramFail
           local: localAdapterOf(session, desk),
           desk: options.isDesk,
           announced,
+          ...(runnerCredentialPath !== null && { withheldTools: RUNNER_WITHHELD_TOOLS }),
           ...opening,
           ...(channel !== null && {
             channel: {

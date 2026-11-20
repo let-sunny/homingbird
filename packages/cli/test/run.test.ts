@@ -1,3 +1,4 @@
+import { Task as T } from '@homingbird/kernel'
 import {
   DraftRequestId,
   NOTES_ARE_NOT_COMMANDS,
@@ -861,15 +862,39 @@ describe('homingbird run --split', () => {
     await r.stop()
   })
 
-  it('starts the attached server through cmd on Windows, from the credentials file the runner was given', () => {
-    const env = { ...world().env, platform: 'win32', credentialsFile: 'C:\\creds\\agent.json' }
+  describe('the attached MCP server', () => {
     const session = { credential: { serverUrl: SERVER, token: AGENT_TOKEN } } as unknown as Parameters<
       typeof attachedServer
-    >[1]
-    expect(attachedServer(env, session)).toEqual({
-      command: 'cmd',
-      args: ['/c', 'npx', '-y', `@homingbird/mcp@${CLI_VERSION}`, '--server', SERVER],
-      environment: { HOMINGBIRD_CREDENTIALS_FILE: 'C:\\creds\\agent.json' },
+    >[0]
+    const served = async (options: Parameters<typeof world>[0], credentialsFile: string | null) => {
+      const w = world(options)
+      return T.run(attachedServer(session), { ...w.env, credentialsFile })
+    }
+
+    it('starts through cmd and npx on Windows, from the credentials file the runner was given', async () => {
+      expect(await served({ platform: 'win32' }, 'C:\\creds\\agent.json')).toEqual({
+        _tag: 'Ok',
+        value: {
+          command: 'cmd',
+          args: ['/c', 'npx', '-y', `@homingbird/mcp@${CLI_VERSION}`, '--server', SERVER],
+          environment: { HOMINGBIRD_CREDENTIALS_FILE: 'C:\\creds\\agent.json' },
+        },
+      })
+    })
+
+    it('runs the MCP adapter installed beside this command line with the same Node, before npx', async () => {
+      const bundle = '/usr/lib/node_modules/@homingbird/mcp/dist/homingbird-mcp.mjs'
+      expect(await served({ files: { [bundle]: '' } }, null)).toMatchObject({
+        _tag: 'Ok',
+        value: { command: '/usr/bin/node', args: [bundle, '--server', SERVER] },
+      })
+    })
+
+    it('refuses on Windows a value that cmd.exe would read, such as a % in the credentials file path', async () => {
+      expect(await served({ platform: 'win32' }, 'C:\\100%\\agent.json')).toMatchObject({
+        error: { error: { message: expect.stringContaining('cannot pass C:\\100%\\agent.json to cmd.exe') } },
+      })
+      expect(await served({}, '/home/june/100%/agent.json')).toMatchObject({ _tag: 'Ok' })
     })
   })
 

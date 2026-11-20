@@ -22,6 +22,7 @@ export const preparedLaunches = (
   attached: AttachedServer | null = null,
 ): T.Task<Launches, CliFailure, CliEnv> =>
   T.gen(function* () {
+    if (attached !== null && settings.split !== null) return yield* T.fail(failed(ATTACH_WITH_SPLIT))
     const ready = new Map<string, string>()
     const agent = yield* preparedLaunch(settings.agent, 'agent', ready, attached)
     const reader =
@@ -29,10 +30,13 @@ export const preparedLaunches = (
     return { agent, reader, installed: [...ready.values()] }
   })
 
-/** The commands as given, for a host that has no processes to ask, such as an MCP-hosted desk. */
-export const launchesAsGiven = (settings: LaunchSettings): Launches => ({
-  agent: launchAsGiven(settings.agent),
-  reader: settings.split === null ? null : launchAsGiven(settings.split.reader),
+/**
+ * The commands as given, for a host that has no processes to ask, such as an MCP-hosted desk: a preset
+ * command still talks in its format and gets its variables, without being probed.
+ */
+export const launchesAsGiven = (settings: LaunchSettings, platform: string): Launches => ({
+  agent: unprobed(settings.agent, platform),
+  reader: settings.split === null ? null : unprobed(settings.split.reader, platform),
   installed: [],
 })
 
@@ -44,6 +48,10 @@ export const isAttachingMcp = (
   settings: LaunchSettings & { readonly attachMcp?: boolean },
   platform: string,
 ) => settings.attachMcp ?? presetCommandOf(settings.agent, platform)?.preset.mcpAttach?.verified ?? false
+
+/** In split mode the agent must never reach a note's own words, which the MCP server's tools return. */
+export const ATTACH_WITH_SPLIT =
+  '--attach-mcp and --split do not go together: the MCP server would let the drafting agent read the note itself.'
 
 export const ATTACH_NEEDS_PRESET =
   '--attach-mcp needs an agent preset that can take an MCP server for one run: --agent claude or --agent codex.'
@@ -76,6 +84,12 @@ export interface Launch {
 export interface LaunchSettings {
   readonly agent: string
   readonly split: { readonly reader: string } | null
+}
+
+const unprobed = (command: string, platform: string): Launch => {
+  const match = presetCommandOf(command, platform)
+  if (match === null) return launchAsGiven(command)
+  return { ...launchAsGiven(command), format: match.launch.format, environment: match.preset.environment }
 }
 
 const launchAsGiven = (command: string): Launch => ({

@@ -350,6 +350,7 @@ describe('parseArguments', () => {
     [['service', 'start'], /service needs install, status, stop or uninstall/],
     [['run', '--agent', 'claude', '--workdir', '/w'], /--log and --workdir go with --service/],
     [['run', '--agent', 'claude', '--service', '--attach-mcp'], /--attach-mcp is for run in a terminal/],
+    [['run', '--agent', 'claude', '--split', '--attach-mcp'], /--attach-mcp and --split do not go together/],
     [['service', 'install'], /service install needs --agent/],
     [['service', 'install', '--agent', 'claude', '--reader', 'r'], /go with --split/],
     [['service', 'install', '--agent', 'claude', '--require-toolless-reader'], /go with --split/],

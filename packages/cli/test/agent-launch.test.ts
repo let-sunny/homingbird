@@ -2,6 +2,7 @@ import { Task as T } from '@homingbird/kernel'
 import { describe, expect, it } from 'vitest'
 import {
   ATTACH_NEEDS_PRESET,
+  ATTACH_WITH_SPLIT,
   isAttachingMcp,
   launchesAsGiven,
   preparedLaunches,
@@ -187,8 +188,8 @@ describe('preparedLaunches with the MCP server attached', () => {
     return T.run(preparedLaunches({ agent, split: reader === null ? null : { reader } }, server), w.env)
   }
 
-  it('gives Claude Code only this server for the run, inline, and the agent alone', async () => {
-    const exit = await attached(agentCommand('claude', 'linux'), defaultReader('claude', 'linux'))
+  it('gives Claude Code only this server for the run, inline', async () => {
+    const exit = await attached(agentCommand('claude', 'linux'))
     if (exit._tag !== 'Ok') throw new Error('not prepared')
     const { agent, reader } = exit.value
     const config = agent.command.match(/--mcp-config '([^']*)' --strict-mcp-config$/)![1]!
@@ -203,7 +204,7 @@ describe('preparedLaunches with the MCP server attached', () => {
       },
     })
     expect(agent.withoutStrictMcp?.command).toBe(agentCommand('claude', 'linux'))
-    expect(reader!.command).toBe(defaultReader('claude', 'linux'))
+    expect(reader).toBeNull()
   })
 
   it('gives Codex the server as one -c table, before the - that reads the prompt', async () => {
@@ -212,6 +213,12 @@ describe('preparedLaunches with the MCP server attached', () => {
       `${agentCommand('codex', 'linux').slice(0, -2)} -c 'mcp_servers.homingbird={command="npx",args=["-y","@homingbird/mcp@0.3.1","--server","https://hb.example.com"],env={HOMINGBIRD_CREDENTIALS_FILE="/home/june/.config/homingbird/agents/hb.json"}}' -`,
     )
     expect(exit._tag === 'Ok' && exit.value.agent.withoutStrictMcp).toBeNull()
+  })
+
+  it('refuses to attach in split mode, where the agent must never reach the note itself', async () => {
+    expect(await attached(agentCommand('claude', 'linux'), defaultReader('claude', 'linux'))).toMatchObject({
+      error: { error: { message: ATTACH_WITH_SPLIT } },
+    })
   })
 
   it('refuses to attach to a command of one’s own or a preset with no known way', async () => {
@@ -227,10 +234,18 @@ describe('preparedLaunches with the MCP server attached', () => {
 
 describe('launchesAsGiven', () => {
   it('launches the agent and the reader exactly as given', () => {
-    expect(launchesAsGiven({ agent: 'claude -p', split: null })).toEqual({
+    expect(launchesAsGiven({ agent: 'claude -p', split: null }, 'linux')).toEqual({
       agent: plain('claude -p'),
       reader: null,
       installed: [],
+    })
+  })
+
+  it('still talks to a preset command in its format, with its variables, without probing it', () => {
+    const { agent } = launchesAsGiven({ agent: agentCommand('antigravity', 'linux'), split: null }, 'linux')
+    expect(agent).toMatchObject({
+      format: 'antigravity-stream',
+      environment: { AGY_CLI_DISABLE_AUTO_UPDATE: 'true' },
     })
   })
 })
