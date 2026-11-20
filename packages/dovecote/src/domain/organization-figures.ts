@@ -132,7 +132,7 @@ export const organizationFiguresIn = (
       : null,
     skipped: skips.length,
     debateResultsSent: debateResultsShown(activity, window, settings.minimumGroupSize),
-    ...labelsShown(activity.drafts, window, settings.minimumGroupSize, draftsShown),
+    ...labelsShown(activity.drafts, window, Math.max(settings.minimumGroupSize, LABEL_MINIMUM), draftsShown),
     places: shown
       .map((place) => groups.get(place)!.totals)
       .sort(
@@ -273,3 +273,7 @@ const labelsShown = (
   const models = shownFor((draft) => draft.model ?? null)
   return { byClient: clients.totals, byModel: models.totals, hiddenLabels: clients.hidden + models.hidden }
 }
+
+// A program or model label is free text a person can set, such as a device name; one used by a single
+// person can name them, so labels need two people even when no other group is hidden.
+const LABEL_MINIMUM = 2

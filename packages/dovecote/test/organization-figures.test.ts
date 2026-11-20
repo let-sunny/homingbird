@@ -238,6 +238,26 @@ describe('organizationFiguresIn', () => {
 })
 
 describe('drafts by program and model', () => {
+  it('hides a label only one person used even when no other group is hidden, since it can name them', () => {
+    const [ana, ben, cy] = people(3, 'd')
+    const codex = people(3, 'e')
+    const activity: OrganizationActivity = {
+      sent: [ana!, ben!, cy!, ...codex].map((id) => note(id, null, 1)),
+      drafts: [
+        { ...draft(ana!, null, 'as_written'), client: 'Ana desk', model: null },
+        { ...draft(ben!, null, 'as_written'), client: 'Claude Code', model: null },
+        { ...draft(cy!, null, 'edited'), client: 'Claude Code', model: null },
+        ...codex.map((id) => ({ ...draft(id, null, 'as_written'), client: 'Codex', model: null })),
+      ],
+      skips: [],
+      received: [],
+    }
+    const figures = organizationFiguresIn(activity, lastWeek, NOW, { ...settings, minimumGroupSize: 1 })!
+    expect(figures.byClient.map((each) => each.label)).toEqual(['Codex'])
+    expect(figures.hiddenLabels).toBeGreaterThan(0)
+    expect(JSON.stringify(figures)).not.toContain('Ana desk')
+  })
+
   it('shows a program or model only when at least the minimum people used it', () => {
     const many = people(5, 'a')
     const few = people(2, 'b')
