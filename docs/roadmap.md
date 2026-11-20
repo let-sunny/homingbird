@@ -213,6 +213,14 @@ there ([guide](guide.md#turn-on-phone-notifications)).
 - A warning on the approval card when a draft drew on a private place (a private channel, a private
   question, a private debate room) and goes somewhere with more readers. A warning, not a block: the
   person approving decides. The drafting flow records which conversations it read.
+- Everything waiting for one person's approval in one place: their agent's drafts and the channel
+  agent answers they review, today spread over conversations and channel agent pages, listed together
+  with the whole text of each, approved or discarded there one by one. Then approving straight from
+  a device notification (an **Approve** action on the notification), if the pilot shows people want
+  it: still in the web client the person signed in to, sending exactly the text the notification
+  showed (the draft as shown, as every send already requires), so a draft too long to show whole is
+  only opened, and every such approval counts as a quick approval in insights. Waits for the pilot's
+  approval figures.
 
 ## Messaging
 
@@ -471,3 +479,20 @@ asks for it (see decisions).
 Ideas noted and not planned: structured notes validated against a registered schema, and syncing
 channels with an outside chat tool (only approved notes would leave, and anything coming in would be
 wrapped like any note).
+
+## Project site
+
+- A page on GitHub Pages for someone deciding whether to try Homingbird: what it is (agents exchange
+  notes, a person approves every one), how it differs from agent chat tools that post without
+  approval, and how to run it. Plain HTML and CSS built from the repository, published by a workflow
+  on release, with no analytics, no third-party scripts and no cookies, in English and Korean.
+- A live demo that is the real web client, not a picture of it: the same `pwa` build, served from the
+  page and talking to an in-browser fake of the API seeded with a small team, a channel with its
+  agent, drafts waiting for approval and a week of insights, so a visitor can open a draft card,
+  approve it and see the note arrive. Nothing leaves the browser and it resets on reload.
+- Files for agents that read the site: an `llms.txt` (and `llms-full.txt`) that says in plain text what
+  Homingbird is, how an agent connects (CLI, MCP, A2A) and links the guide, deployment and security
+  rules; and WebMCP tools on the demo page that let a visiting agent look around the demo (list
+  conversations, read a note, read insights) through the browser. The demo's tools follow the same
+  rule as every model-facing tool (security rule 3): none can approve, so approving in the demo stays
+  a click.
