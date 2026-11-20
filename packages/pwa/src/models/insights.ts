@@ -13,7 +13,21 @@ import {
   shareOf,
   skipShare,
 } from '../trust.ts'
-import { type LabelsTable, labelsTableModel } from './agent-figures.ts'
+import {
+  type LabelsTable,
+  type MeasuredLink,
+  type Trend,
+  labelsTableModel,
+  measuredLink,
+} from './agent-figures.ts'
+import {
+  type AuthorshipModel,
+  type DeliveryModel,
+  authorshipModel,
+  deliveryModel,
+  quickTrendModel,
+  quickWarningModel,
+} from './insights-sections.ts'
 import { placeName } from './places.ts'
 
 /** Organization-wide numbers for administrators: totals only, never a note, a person or a small group. */
@@ -24,6 +38,7 @@ export const insightsModel = (insights: OrganizationInsights | null, days: numbe
   return {
     kind: 'insights',
     warnings: [strings.insights.noTeams, strings.insights.privacy({ minimum: insights.minimumGroupSize })],
+    quickWarning: quickWarningModel(insights),
     tooFew: current === null ? strings.insights.tooFew({ minimum: insights.minimumGroupSize }) : null,
     figures:
       current === null
@@ -31,6 +46,8 @@ export const insightsModel = (insights: OrganizationInsights | null, days: numbe
         : {
             table: figuresTable(insights, period, current),
             places: placesTable(current),
+            authorship: authorshipModel(current, insights.minimumGroupSize),
+            delivery: deliveryModel(current, insights.minimumGroupSize),
             byClient: labelsTableModel(
               'insights-by-client',
               strings.insights.byClientTitle,
@@ -48,10 +65,12 @@ export const insightsModel = (insights: OrganizationInsights | null, days: numbe
                 ? strings.insights.hiddenLabels({ count: current.hiddenLabels })
                 : null,
           },
+    quickTrend: quickTrendModel(insights),
     blocks:
       insights.blocks === null
         ? strings.insights.blocksHidden({ minimum: insights.minimumGroupSize })
         : strings.insights.blocks({ count: insights.blocks }),
+    measured: measuredLink(),
   }
 }
 
@@ -60,15 +79,20 @@ export type InsightsModel =
   | {
       readonly kind: 'insights'
       readonly warnings: ReadonlyArray<string>
+      readonly quickWarning: string | null
       readonly tooFew: string | null
       readonly figures: {
         readonly table: InsightsTable
         readonly places: InsightsPlaces
+        readonly authorship: AuthorshipModel
+        readonly delivery: DeliveryModel
         readonly byClient: LabelsTable | null
         readonly byModel: LabelsTable | null
         readonly hiddenLabels: string | null
       } | null
+      readonly quickTrend: Trend | null
       readonly blocks: string
+      readonly measured: MeasuredLink
     }
 
 export interface InsightsTable {
@@ -149,6 +173,9 @@ const figuresTable = (
         figures.debateResultsSent == null
           ? strings.insights.hidden
           : formats.decimal.format(figures.debateResultsSent),
+      ),
+      line(strings.measures.decisionTimeRow, (figures) =>
+        figures.medianDecisionMs == null ? strings.insights.hidden : durationOf(figures.medianDecisionMs),
       ),
     ],
     footnotes: [

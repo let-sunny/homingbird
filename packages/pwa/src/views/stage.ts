@@ -14,6 +14,7 @@ import { debateView } from './debate-room.ts'
 import { debatesView } from './debates.ts'
 import { groupPageView } from './group-page.ts'
 import { homeView } from './home.ts'
+import { measuresView } from './measures.ts'
 import { emptyWithPip } from './parts.ts'
 import { peopleView } from './people.ts'
 import { searchView } from './search.ts'
@@ -46,6 +47,8 @@ export const stageFor = (context: ViewContext, life: Lifetime, me: AsRead.Me, cu
       return profileView(context, life, me)
     case 'agent':
       return agentTrustView(context, life, me, current.section)
+    case 'measured':
+      return measuresView(context)
     case 'character':
       return on('characters')
         ? characterEditorView(context, life, me, current.draft, current.from)

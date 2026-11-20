@@ -33,6 +33,8 @@ describe('figuresModel', () => {
       strings.trust.noneYet,
     ])
     expect(model.measured.lines.at(-1)).toBe(strings.trust.quickExplained({ seconds: 3 }))
+    expect(model.measured.link).toEqual({ href: '#/measured', label: strings.measures.pageLink })
+    expect(model.trend.id).toBe('trust-trend')
   })
 
   it('compares the share sent as written and nudges a person who approves too quickly', () => {

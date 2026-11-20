@@ -1,5 +1,6 @@
 import type { AsRead, LabelTotals, OrganizationLabelTotals } from '@homingbird/protocol'
 import { shortLabel } from '../authorship.ts'
+import { hrefFor } from '../routes.ts'
 import { durationOf, formats, percentOf, strings } from '../strings.ts'
 import { PERIODS, compareSentAsWritten, decidedOf, periodOf, shareOf, trendBars } from '../trust.ts'
 import { placeName } from './places.ts'
@@ -36,6 +37,7 @@ export const figuresModel = (report: AsRead.AgentReport | 'failed' | null, days:
         strings.trust.quickExplained({ seconds: report.quickApprovalSeconds }),
       ],
       privacy: strings.trust.measuredPrivacy,
+      link: measuredLink(),
     },
   }
 }
@@ -89,8 +91,20 @@ export type FiguresModel =
         readonly title: string
         readonly lines: ReadonlyArray<string>
         readonly privacy: string
+        readonly link: MeasuredLink
       }
     }
+
+/** The way to "What is measured", the page every member can open. */
+export const measuredLink = (): MeasuredLink => ({
+  href: hrefFor({ name: 'measured' }),
+  label: strings.measures.pageLink,
+})
+
+export interface MeasuredLink {
+  readonly href: string
+  readonly label: string
+}
 
 export interface PeriodChoice {
   readonly days: number
@@ -144,6 +158,7 @@ export interface LabelsTable {
 }
 
 export interface Trend {
+  readonly id: string
   readonly title: string
   readonly intro: string
   readonly bars: ReadonlyArray<{
@@ -300,6 +315,7 @@ const trend = (report: AsRead.AgentReport): Trend => {
   const bars = trendBars(report.weeks)
   const weekLabel = (start: number): string => formats.day.format(new Date(start))
   return {
+    id: 'trust-trend',
     title: strings.trust.trendTitle,
     intro: strings.trust.trendIntro,
     bars: bars.map((bar) => ({

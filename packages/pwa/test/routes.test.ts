@@ -19,6 +19,7 @@ const routes: fc.Arbitrary<Route> = fc.oneof(
   segment.map((slug): Route => ({ name: 'channel', slug })),
   segment.map((id): Route => ({ name: 'group', id })),
   fc.constant<Route>({ name: 'profile' }),
+  fc.constant<Route>({ name: 'measured' }),
   fc
     .constantFrom<AgentSection | null>(null, 'connection', 'teaching', 'doing', 'routes')
     .map((section): Route => ({ name: 'agent', section })),
@@ -68,6 +69,7 @@ describe('routes', () => {
     ['#/group', { name: 'unknown' }],
     ['#/admin/insights', { name: 'admin', section: 'insights' }],
     ['#/agent', { name: 'agent', section: null }],
+    ['#/measured', { name: 'measured' }],
     ['#/agent/teaching', { name: 'agent', section: 'teaching' }],
     ['#/agent/nonsense', { name: 'agent', section: null }],
     ['#/connect', { name: 'agent', section: 'connection' }],

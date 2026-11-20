@@ -85,6 +85,7 @@ export const renderFigures = (model: FiguresModel): Child => {
         model.measured.lines.map((line) => h('li', {}, line)),
       ),
       h('p', {}, model.measured.privacy),
+      h('p', {}, h('a', { href: model.measured.link.href }, model.measured.link.label)),
     ),
   ]
 }
@@ -171,7 +172,8 @@ const renderPlaces = (places: Places): HTMLElement =>
     ),
   )
 
-const shareBar = (share: number | null): HTMLElement => {
+/** A bar filled to a share, for the eye only: the share is always written beside it. */
+export const shareBar = (share: number | null): HTMLElement => {
   const bar = h(
     'span',
     { class: `share-bar${share === null ? ' is-empty' : ''}`, 'aria-hidden': 'true' },
@@ -181,11 +183,12 @@ const shareBar = (share: number | null): HTMLElement => {
   return bar
 }
 
-const renderTrend = (trend: Trend): HTMLElement =>
+/** Shares week by week as bars, with the same weeks as a table for anyone who wants the numbers. */
+export const renderTrend = (trend: Trend): HTMLElement =>
   h(
     'section',
-    { class: 'trust-section', 'aria-labelledby': 'trust-trend' },
-    h('h3', { id: 'trust-trend' }, trend.title),
+    { class: 'trust-section', 'aria-labelledby': trend.id },
+    h('h3', { id: trend.id }, trend.title),
     h('p', { class: 'trust-footnote' }, trend.intro),
     h(
       'ol',

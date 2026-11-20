@@ -1132,4 +1132,77 @@ export const en = {
     unmanage: 'Remove as manager',
     deactivateLeaves: 'Deactivating {name} removes them from every group: {groups}.',
   },
+  measures: {
+    weekTitle: 'Your week',
+    weekIntro: 'Your own notes in the last 7 days, whoever drafted them, beside the 7 days before.',
+    weekNotesSent: 'Notes you sent',
+    weekRepliesReceived: 'Replies you received',
+    weekMedianReply: 'Your typical time to reply',
+    weekValue: '{now} (before: {before})',
+    weekReplyExplained: 'Your time to reply runs from a colleague’s new note to your first reply to it.',
+    decisionTimeRow: 'Typical time from seeing an agent draft to deciding',
+    authorshipTitle: 'Who wrote what was sent',
+    authorshipAgent: 'The agent, sent as written: {share} ({count})',
+    authorshipEdited: 'The agent, then edited by its person: {share} ({count})',
+    authorshipHuman: 'The person, by hand: {share} ({count})',
+    authorshipHidden: 'Hidden while fewer than {minimum} people decided their agent’s drafts.',
+    deliveryTitle: 'Delivery to agents',
+    deliveryIntro:
+      'Notes people received, and how soon their agent picked each one up. Counted from when the note was sent.',
+    deliveryReceived: 'Notes received',
+    deliveryToAgents: 'Received by someone with an agent connected',
+    deliveryQuickly: 'Picked up by the agent within 5 minutes',
+    deliveryMedian: 'Typical time until the agent picked a note up',
+    deliveryWaited: 'Waited a day without the agent picking it up',
+    deliveryHidden: 'Hidden while fewer than {minimum} people with an agent received a note.',
+    quickTrendTitle: 'Quick approvals, week by week',
+    quickTrendIntro:
+      'Of the agent drafts sent as written each week, the share sent within {seconds} seconds of appearing, over the last 8 weeks.',
+    quickTrendWeek: 'Week from {date}: {quick} of {asWritten} sent quickly',
+    quickTrendHiddenWeek: 'Week from {date}: hidden, too few people',
+    quickTrendTable: 'The same weeks as a table',
+    quickColumn: 'Quick approvals',
+    asWrittenColumn: 'Sent as written',
+    quickWarning:
+      'For {weeks} weeks in a row, {share} or more of the drafts sent as written were approved within {seconds} seconds. Approving may be becoming a formality: remind people to read drafts with numbers, dates or promises.',
+    pageLink: 'What is measured, for everyone',
+    pageTitle: 'What is measured',
+    pageIntro:
+      'Homingbird counts only what these lines say, from the notes and drafts themselves. It never counts what a note says.',
+    youTitle: 'What you see about yourself',
+    youPrivacy:
+      'Only you see these, on My agent. Your agent cannot read them, and no administrator sees yours.',
+    administratorsTitle: 'What administrators see, as totals',
+    administratorsPrivacy:
+      'Administrators see totals for the whole organization only: never one person, never a note, and nothing for a group of fewer people than the server’s minimum.',
+    nothing: 'This server measures nothing about people.',
+    you: {
+      decisions:
+        'Each draft your agent wrote, and whether you sent it as written, edited it first or discarded it, by period and week by week.',
+      decisionTime:
+        'When a draft first appeared on your screen and when you decided it, and how often you sent one quickly.',
+      skips:
+        'Notes your agent skipped, with the reason it gave, and draft requests that ran out without a draft.',
+      ownNotes: 'How many notes you wrote yourself, and the debate results you sent.',
+      places: 'The channel of each draft, with direct messages counted together.',
+      labels: 'The program that wrote each draft, and the model your agent says it used.',
+      sessions: 'How long the desk session had run and how much of its context it had used, for each draft.',
+      week: 'How many notes you sent, how many replies you received, and your typical time to reply.',
+    },
+    administrators: {
+      activity:
+        'How many people sent notes, how many notes, how many got a reply, and the typical time to the first reply.',
+      decisions: 'Agent drafts written, and how many were sent as written, edited first or discarded.',
+      decisionTime:
+        'The typical time from seeing a draft to deciding, and quick approvals, week by week, with a warning when they stay frequent.',
+      authorship: 'Whether each sent note was written by an agent, by an agent and then edited, or by hand.',
+      skips: 'How many notes agents skipped.',
+      debateResults: 'How many debate results were sent.',
+      places: 'The same counts for each channel used by enough people, with direct messages together.',
+      labels: 'The same counts for each program and model used by enough people.',
+      delivery:
+        'How many received notes went to someone with an agent, and how soon the agent picked them up.',
+      blocks: 'How many blocks there are between people, never who blocked whom.',
+    },
+  },
 } as const

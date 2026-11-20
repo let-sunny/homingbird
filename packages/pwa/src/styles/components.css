@@ -2667,6 +2667,42 @@ textarea:disabled {
   max-inline-size: 48rem;
 }
 
+.your-week {
+  display: grid;
+  gap: var(--hb-space-2);
+  max-inline-size: 48rem;
+  padding: var(--hb-space-3) var(--hb-space-4);
+  border: var(--hb-border);
+  background: var(--hb-color-surface);
+}
+
+.your-week h3 {
+  margin: 0;
+}
+
+.your-week-figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--hb-space-2) var(--hb-space-4);
+  margin: 0;
+}
+
+.your-week-figures dt {
+  color: var(--hb-color-muted);
+  font-size: var(--hb-text-small);
+}
+
+.your-week-figures dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.measured-section {
+  display: grid;
+  gap: var(--hb-space-2);
+  max-inline-size: 48rem;
+}
+
 .trust-page {
   display: grid;
   gap: var(--hb-space-4);

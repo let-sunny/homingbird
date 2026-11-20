@@ -22,6 +22,7 @@ const routes: ReadonlyArray<Route> = [
   { name: 'search', query: '' },
   { name: 'profile' },
   { name: 'agent', section: null },
+  { name: 'measured' },
   { name: 'character', draft: null, from: null },
   { name: 'device', code: null },
   { name: 'consent', id: 'consent_1' },
