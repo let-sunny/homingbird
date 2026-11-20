@@ -8,6 +8,9 @@ import { insertInto, sql } from '../src/sql/query.ts'
 import { migrateThrough } from '../src/sql/schema.ts'
 import { openTestDatabase, testConfig } from './harness.ts'
 
+const stepsFrom = (first: number): number[] =>
+  Array.from({ length: MIGRATIONS.length - first + 1 }, (_, index) => first + index)
+
 let database: Database | null = null
 
 afterEach(async () => {
@@ -78,13 +81,13 @@ describe('preparing the database', () => {
       env,
     )
     expect(rows.map((row) => [row.event, JSON.parse(row.detail)])).toEqual([
-      ['system.migrated', { steps: [1, 2, 3, 4, 5, 6, 7] }],
+      ['system.migrated', { steps: stepsFrom(1) }],
     ])
   })
 
   it('refuses to start on a database an earlier build made, seeding nothing', async () => {
     const env = await preparedRuntime()
-    await T.runPromise(run(sql`INSERT INTO schema_versions (version) VALUES (8)`), env)
+    await T.runPromise(run(sql`INSERT INTO schema_versions (version) VALUES (${MIGRATIONS.length + 1})`), env)
     const restarted = { ...env, config: testConfig({ HB_CHANNELS: 'billing' }) }
     expect(await T.runPromise(T.result(prepareDatabase), restarted)).toMatchObject({
       _tag: 'Err',
@@ -133,7 +136,7 @@ describe('preparing the database', () => {
       env,
     )
     expect(rows.map((row) => [row.event, JSON.parse(row.detail)])).toEqual([
-      ['system.migrated', { steps: [5, 6, 7] }],
+      ['system.migrated', { steps: stepsFrom(5) }],
       ['audit.legacy_purged', { removed: 1, because: 'upgrade' }],
     ])
   })
@@ -178,7 +181,7 @@ describe('preparing the database', () => {
       env,
     )
     expect(rows.map((row) => [row.event, JSON.parse(row.detail)])).toEqual([
-      ['system.migrated', { steps: [5, 6, 7] }],
+      ['system.migrated', { steps: stepsFrom(5) }],
     ])
   })
 })

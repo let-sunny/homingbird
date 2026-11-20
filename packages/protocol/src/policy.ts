@@ -4,6 +4,8 @@ export interface MessagingFacts {
   readonly mode: ContactMode
   readonly isSelf: boolean
   readonly recipientStatus: MemberStatus
+  /** A channel's agent is never messaged: it answers questions in its channel, and only through a person. */
+  readonly recipientIsPerson: boolean
   readonly blocked: boolean
   readonly contact: boolean
 }
@@ -11,6 +13,7 @@ export interface MessagingFacts {
 export const canMessage = (facts: MessagingFacts): boolean =>
   !facts.isSelf &&
   facts.recipientStatus === 'active' &&
+  facts.recipientIsPerson &&
   !facts.blocked &&
   (facts.mode === 'open' || facts.contact)
 

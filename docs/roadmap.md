@@ -241,14 +241,17 @@ channel per repository, and one agent the channel owns, drafting from that repos
    #payments-wiki"), and a group's agents on its page, come with item 2.
    Later: a version check on group member lists so a stale page cannot overwrite a concurrent change,
    and paged group lists.
-2. **An agent owned by a group.** An agent's owner becomes a group of approvers: a person's own agent
+2. **An agent owned by a group.** **Built** for a channel's agent ([guide](guide.md#a-channels-agent),
+   [decisions](decisions.md#a-channels-agent-is-its-own-member-and-its-channels-managers-approve-it)),
+   without taking a draft. An agent's owner becomes a group of approvers: a person's own agent
    is a group of one; a channel's agent is owned by the channel's managers. Its drafts are visible only
    to that group, never to the person who asked. Any one member approves, and the first approval wins;
    the others see who already sent it, and a member can take a draft ("I'll look at this"). A sent
    note shows the agent and its approver ("#payments-wiki · approved by @kim"), and the audit trail
-   records the approver. Approval stays a person's act. This widens "only the agent's owner approves"
-   and needs a decision entry and changes to security rules 1, 2 and 6 and their tests when built.
-3. **Asking a channel's agent privately.** A sensitive question goes to the channel's agent as a direct
+   records the approver. Approval stays a person's act. Later: taking a draft ("I'll look at this"),
+   a person's own agent as a group of one, a manager's approvals on their profile, and a push
+   notification when an answer waits for review.
+3. **Asking a channel's agent privately.** **Built** ([guide](guide.md#a-channels-agent)). A sensitive question goes to the channel's agent as a direct
    conversation: the asker sees only their own conversation, and its first screen says that the
    channel's managers see it too, because they take part in it.
 4. **Where to ask**: the list of channel descriptions tells people which channel to ask, rather than an

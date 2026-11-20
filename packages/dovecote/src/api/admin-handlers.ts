@@ -3,8 +3,8 @@ import { type Channel, type Contract, type Member, MemberId, type ResponseOf } f
 import { archiveChannel, reviseChannel } from '../domain/channel-administration.ts'
 import { clearCharacter } from '../domain/characters.ts'
 import { organizationInsights } from '../domain/insights.ts'
-import { administerMember, allMembers } from '../domain/members.ts'
-import { readAnsweringFlow, readSettings, writeSettings } from '../domain/settings.ts'
+import { administerMember, allAgents, allMembers } from '../domain/members.ts'
+import { featureIsOn, readAnsweringFlow, readSettings, writeSettings } from '../domain/settings.ts'
 import { viewerOf } from '../environment.ts'
 import { announceDirectoryChange } from '../events/events.ts'
 import type { Handlers } from './handlers.ts'
@@ -16,9 +16,11 @@ export const adminHandlers = {
   'admin.settings.get': () => readSettings,
   'admin.settings.put': ({ body }) => writeSettings(body),
   'admin.members.list': () =>
-    T.map((members: Awaited<ResponseOf<Contract['admin.members.list']>>['members']) => ({ members }))(
-      allMembers,
-    ),
+    T.gen(function* () {
+      const members = yield* allMembers
+      if (!(yield* featureIsOn('channelAgents'))) return { members }
+      return { members, agents: yield* allAgents }
+    }),
   'admin.members.update': ({ params, body }, caller) =>
     T.flatMap((id: MemberId) =>
       T.tap((_: Member) => announceDirectoryChange(id))(administerMember(caller, id, body)),
@@ -34,7 +36,7 @@ export const adminHandlers = {
   'admin.channels.archive': ({ params, body }, caller) =>
     T.as({})(
       T.tap(() => announceDirectoryChange(caller.member.id))(
-        archiveChannel(params.slug, body.moveMembersTo ?? null),
+        archiveChannel(params.slug, body.moveMembersTo ?? null, caller.member.id),
       ),
     ),
   'admin.insights': () => organizationInsights,

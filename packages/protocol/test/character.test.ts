@@ -148,6 +148,7 @@ describe('characters on the wire', () => {
       profile: '',
       role: 'member',
       status: 'active',
+      kind: 'person',
       createdAt: 1,
     }
     expect(Member.is(member)).toBe(false)

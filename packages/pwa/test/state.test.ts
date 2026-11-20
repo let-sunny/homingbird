@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createState, signedIn } from '../src/state.ts'
-import { ANA, BEN, ROOM, draft, entry, me } from './support/fixtures.ts'
+import { ANA, BEN, ROOM, channel, draft, entry, me, member } from './support/fixtures.ts'
 
 describe('createState', () => {
   it('starts on the route of the address, loading, with nothing known yet', () => {
@@ -24,6 +24,18 @@ describe('createState', () => {
     state.session.set(me())
     state.directory.set([entry(BEN, 'Ben')])
     expect([...state.members.get().keys()]).toEqual([ANA, BEN])
+  })
+
+  it('knows the channels’ agents by name, and each answer a manager reviews as first read', () => {
+    const state = createState('')
+    const agent = { id: 'mem_agent0000000' as never, name: 'Payments wiki' }
+    state.channels.set([channel('wiki', { agent }), channel('quiet', { agent: null }), channel('old')])
+    expect(state.members.get().get(agent.id)).toMatchObject({ name: 'Payments wiki', kind: 'channel_agent' })
+    expect(state.members.get().size).toBe(1)
+    state.reviews.set([
+      { note: draft('d1'), question: null, channel: 'wiki', agent: member(ANA, 'x'), privately: false },
+    ])
+    expect(state.reviewsRead.get().get('d1' as never)).toEqual({ body: 'body of d1', conversationId: ROOM })
   })
 })
 

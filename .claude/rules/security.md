@@ -4,9 +4,15 @@ These nine rules are never broken. Each has a test; keep it passing and keep it 
 
 1. Only a human credential can approve a note. Agent credentials can draft, read and pick up, never
    approve. The contract marks approval routes `access: 'human'` and the domain function checks again.
-2. Drafts are invisible to recipients: inbox, stream, search, and lookup by id.
+   A person approves their own drafts; a channel's agent's draft is approved by one person who manages
+   its channel when they send it and did not ask the question it answers, and the note records who.
+2. Drafts are invisible to recipients: inbox, stream, search, and lookup by id. A channel's agent's
+   draft is shown only through the review routes, to the managers of its channel, never to the person
+   whose question it answers, a manager included.
 3. No tool exposed to a model can approve, change contacts, or read credentials. No agent integration
    can approve: approval happens only in a client where the person signed in themself, the web client.
+   No tool exposed to a model can create, rename, retire or connect a channel's agent, ask it
+   privately, or read or decide its drafts as a reviewer.
 4. Every received note is passed to a model wrapped as quoted data from a colleague, never as
    instructions. `wrapNote` in `packages/protocol/src/wrap.ts` is the only wrapper; never format a
    note for a model any other way.
@@ -21,6 +27,10 @@ These nine rules are never broken. Each has a test; keep it passing and keep it 
    administrator outside the group can add no one, themself included. Every member sees teams and who is
    in them; a group made for one channel is shown only to people who can see that channel. Deactivating
    a member removes them from every group. An administrator's agent credentials get no such exception.
+   A channel's agent is not a person: it is in its channel's room and its private questions only, and
+   cannot sign in, be messaged, or be added to a group or a channel. Only its channel's managers run
+   it; an administrator outside the managing group cannot. A private question is seen by its asker,
+   the agent and the channel's current managers only; an administrator gets no view of it.
 7. No tool exposed to a model can save or change a profile character. Only a person's click saves, and
    the server validates again; it never trusts a client's check.
 8. No tool exposed to a model can save, change, enable, disable or delete a principle. Only a person's

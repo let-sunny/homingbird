@@ -12,6 +12,7 @@ import { featureOn } from '../features.ts'
 import type { ArchiveDiscard, Release, Thread } from '../state.ts'
 import { strings } from '../strings.ts'
 import { conversationTitle, isArchived, otherParticipants } from '../thread.ts'
+import { privateQuestionNotice } from './channel-agent.ts'
 
 /** What every part of a conversation's page reads: the room, its notes, the people and the person. */
 export interface ThreadInput {
@@ -62,7 +63,9 @@ export const threadTopModel = (input: ThreadInput): ThreadTop => {
   if (thread.notes.length > 0) return { kind: 'none' }
   return {
     kind: 'empty',
-    text: roomOf(input)?.kind === 'channel' ? strings.channelRoomEmpty : strings.emptyThread,
+    text:
+      privateQuestionNotice(roomOf(input), input.channels) ??
+      (roomOf(input)?.kind === 'channel' ? strings.channelRoomEmpty : strings.emptyThread),
   }
 }
 
@@ -96,7 +99,7 @@ export const threadHeadModel = (input: ThreadInput): ThreadHead => {
   return {
     kind: 'people',
     title,
-    profile: entry?.member.profile ?? null,
+    profile: privateQuestionNotice(conversation, input.channels) ?? entry?.member.profile ?? null,
     presence: entry?.presence ?? null,
   }
 }

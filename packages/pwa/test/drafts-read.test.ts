@@ -1,6 +1,12 @@
 import type { ConversationId } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
-import { asRead, isChangedSinceRead, withDraftRead, withDraftsAsRead } from '../src/drafts-read.ts'
+import {
+  asRead,
+  isChangedSinceRead,
+  withDraftRead,
+  withDraftsAsRead,
+  withReviewsAsRead,
+} from '../src/drafts-read.ts'
 import { ROOM, draft, note } from './support/fixtures.ts'
 
 const OTHER = 'conv_other000000' as ConversationId
@@ -32,5 +38,13 @@ describe('drafts as the person read them', () => {
     expect(isChangedSinceRead(again, changed)).toBe(false)
     expect(again.get(changed.id)).toEqual(asRead(changed))
     expect(isChangedSinceRead(read, changed)).toBe(true)
+  })
+
+  it('remembers each answer a manager reviews as it first reached the page', () => {
+    const answer = draft('d1')
+    const review = { note: answer, question: null, channel: 'wiki', agent: answer as never, privately: false }
+    const read = withReviewsAsRead(new Map(), [review])
+    expect(read.get(answer.id)).toEqual(asRead(answer))
+    expect(withReviewsAsRead(read, [{ ...review, note: draft('d1', { body: 'changed' }) }])).toBe(read)
   })
 })

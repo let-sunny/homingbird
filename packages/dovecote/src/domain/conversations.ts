@@ -125,6 +125,7 @@ export interface ConversationRow {
   readonly created_at: number
   readonly last_activity_at: number
   readonly archived_at?: number | null
+  readonly channel_id?: ConversationId | null
 }
 
 const CONVERSATION_LIMIT = 200
@@ -149,6 +150,8 @@ const describeConversation = (
     const drafts = yield* first<{ total: number }>(
       sql`SELECT COUNT(*) AS total FROM notes WHERE conversation_id = ${row.id} AND status = 'draft' AND author_id = ${viewerId}`,
     )
+    const channelRoom = row.channel_id ?? null
+    const askedOf = channelRoom === null ? null : yield* channelSlugOfRoom(channelRoom)
     return {
       id: row.id,
       kind: row.kind,
@@ -160,8 +163,15 @@ const describeConversation = (
       unreadCount: Number(unread?.total ?? 0),
       draftCount: Number(drafts?.total ?? 0),
       archivedAt: row.archived_at ?? null,
+      ...(channelRoom !== null && { privateQuestionOf: askedOf }),
     }
   })
+
+/** The slug of the channel whose room this is, or null once it was archived. */
+const channelSlugOfRoom = (conversationId: ConversationId): T.Task<string | null, never, AppEnv> =>
+  T.map((row: { slug: string } | null) => row?.slug ?? null)(
+    first<{ slug: string }>(sql`SELECT slug FROM channels WHERE conversation_id = ${conversationId}`),
+  )
 
 const insertConversation = (
   kind: ConversationKind,

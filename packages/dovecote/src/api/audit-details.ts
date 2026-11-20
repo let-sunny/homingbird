@@ -15,6 +15,7 @@ import {
   type Settings,
   membershipChange,
 } from '@homingbird/protocol'
+import { type ChannelRow, channelAgentOf, channelRow } from '../domain/channel-rows.ts'
 import { teamToCopy } from '../domain/group-membership.ts'
 import { lockGroups } from '../domain/group-rows.ts'
 import { memberById } from '../domain/members.ts'
@@ -57,6 +58,23 @@ export const AUDIT_DETAILS: { readonly [N in AuditedRoute]: Describe<N> } = {
           detail: { added: copied?.added ?? [], removed: [] },
         }),
     )(T.catchAll(() => T.succeed(null))(teamToCopy(viewerOf(caller), params.slug, body.groupId))),
+  'channels.agent.create': () =>
+    afterwards((view) => ({ targetId: view.agent.id, detail: { channel: view.channel } })),
+  'channels.agent.rename': () =>
+    afterwards((view) => ({ targetId: view.agent.id, detail: { channel: view.channel } })),
+  'channels.agent.retire': ({ params }) =>
+    T.map(
+      (agent: { readonly id: MemberId } | null) => (): AuditFacts<'channel.agent_retired'> => ({
+        targetId: agent?.id ?? null,
+        detail: { channel: params.slug },
+      }),
+    )(
+      T.flatMap((row: ChannelRow | null) => (row === null ? T.succeed(null) : channelAgentOf(row)))(
+        channelRow(params.slug),
+      ),
+    ),
+  'channels.agent.credentials.revoke': ({ params }) =>
+    afterwards(() => ({ targetId: params.id, detail: {} })),
   'groups.rename': ({ params }) => afterwards(() => ({ targetId: params.id, detail: {} })),
   'groups.members.set': ({ params }) =>
     T.map(
@@ -81,7 +99,11 @@ export const AUDIT_DETAILS: { readonly [N in AuditedRoute]: Describe<N> } = {
   'drafts.send': () =>
     afterwards((note) => ({
       targetId: note.id,
-      detail: { conversationId: note.conversationId, edited: note.origin === 'human_edited' },
+      detail: {
+        conversationId: note.conversationId,
+        edited: note.origin === 'human_edited',
+        ...((note.approvedBy ?? null) !== null && { agentId: note.authorId }),
+      },
     })),
   'drafts.discard': () =>
     afterwards((note) => ({ targetId: note.id, detail: { conversationId: note.conversationId } })),

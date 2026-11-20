@@ -44,14 +44,16 @@ const probes: Readonly<Record<string, (person: Session) => Promise<{ status: num
   insights: (person) => person.api('GET', '/admin/insights'),
   debateRooms: (person) => person.api('GET', '/debates'),
   groups: (person) => person.api('GET', '/groups'),
+  channelAgents: (person) => person.api('GET', '/reviews'),
 }
 
 describe('feature switches', () => {
-  it('are all on by default but analytics, and server.info says which are on', async () => {
+  it('are all on by default but analytics and channel agents, and server.info says which are on', async () => {
     const info = (await server.request('GET', '/api/v1/info')).json
     expect(info.features).toEqual({
       ...Object.fromEntries(FEATURE_NAMES.map((name) => [name, true])),
       analytics: false,
+      channelAgents: false,
     })
     await switchTo({ teaching: false })
     expect((await server.request('GET', '/api/v1/info')).json.features.teaching).toBe(false)
@@ -60,6 +62,7 @@ describe('feature switches', () => {
   it.each(Object.keys(probes))(
     'refuses the routes of %s while it is off, and serves them when it is on',
     async (name) => {
+      await switchTo({ [name]: true })
       expect((await probes[name]!(ana)).status).toBe(200)
       await switchTo({ [name]: false })
       const refused = await probes[name]!(ana)

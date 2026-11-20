@@ -1,7 +1,17 @@
 import { Task as T } from '@homingbird/kernel'
-import { type ClientKind, Conflict, type DeviceRequest, NotFound } from '@homingbird/protocol'
+import {
+  type ClientKind,
+  Conflict,
+  type DeviceRequest,
+  FEATURE_OFF_MESSAGE,
+  type Forbidden,
+  type MemberId,
+  NotFound,
+} from '@homingbird/protocol'
 import { recordAudit } from '../domain/audit.ts'
+import { agentToIssue, mayStillIssue } from '../domain/channel-agents.ts'
 import { issueCredential } from '../domain/credentials.ts'
+import { featureIsOn } from '../domain/settings.ts'
 import type { AppEnv, Caller } from '../environment.ts'
 import type { RequestEnv } from '../events/events.ts'
 import { normalizeUserCode } from '../random.ts'
@@ -72,15 +82,23 @@ export const describeDeviceRequest = (userCode: string): T.Task<DeviceRequest, N
 export const decideDeviceRequest = (
   caller: Caller,
   userCode: string,
-  decision: { readonly approve: boolean; readonly name?: string },
-): T.Task<void, NotFound | Conflict, RequestEnv> =>
+  decision: { readonly approve: boolean; readonly name?: string; readonly channel?: string },
+): T.Task<void, NotFound | Conflict | Forbidden, RequestEnv> =>
   T.gen(function* () {
     const request = yield* pendingDevice(userCode)
+    const channel = decision.approve ? decision.channel : undefined
+    if (channel !== undefined && !(yield* featureIsOn('channelAgents')))
+      return yield* T.fail(NotFound({ message: FEATURE_OFF_MESSAGE }))
+    const agentId = channel === undefined ? null : yield* agentToIssue(caller, channel)
     const advanced = yield* advanceAuthRequest(request.id, {
       status: decision.approve ? 'approved' : 'denied',
       expectedStatus: 'pending',
-      memberId: caller.member.id,
-      detail: { ...request.detail, credentialName: decision.name ?? request.detail.client },
+      memberId: agentId ?? caller.member.id,
+      detail: {
+        ...request.detail,
+        credentialName: decision.name ?? request.detail.client,
+        ...(agentId !== null && { issuedBy: caller.member.id }),
+      },
     })
     if (!advanced) return yield* T.fail(Conflict({ message: 'This request was already decided.' }))
   })
@@ -104,6 +122,14 @@ export const exchangeDeviceCode = (deviceCode: string): T.Task<TokenResponse, OA
       return yield* T.fail(
         OAuthError({ code: 'invalid_grant', description: 'The device code was already used.' }),
       )
+    const issuedBy = request.detail.issuedBy ?? null
+    if (issuedBy !== null && !(yield* mayStillIssue(request.memberId, issuedBy)))
+      return yield* T.fail(
+        OAuthError({
+          code: 'invalid_grant',
+          description: 'The person who approved this no longer manages the channel’s agent.',
+        }),
+      )
     const issued = yield* issueCredential({
       memberId: request.memberId,
       kind: 'agent',
@@ -111,11 +137,17 @@ export const exchangeDeviceCode = (deviceCode: string): T.Task<TokenResponse, OA
       client: request.detail.client,
       lifetimeMs: agentCredentialLifetimeMs(env.config.agentCredentialDays),
       refreshable: false,
+      ...(issuedBy !== null && { issuedBy }),
     })
     yield* recordAudit('credential.issued', {
-      actorId: request.memberId,
+      actorId: issuedBy ?? request.memberId,
       targetId: issued.credentialId,
-      detail: { kind: 'agent', grant: 'device_code', clientKind: request.detail.clientKind ?? 'device' },
+      detail: {
+        kind: 'agent',
+        grant: 'device_code',
+        clientKind: request.detail.clientKind ?? 'device',
+        ...(issuedBy !== null && { channelAgent: request.memberId }),
+      },
     })
     return tokenResponse(issued, env.clock.now(), AGENT_SCOPE)
   })
@@ -125,6 +157,8 @@ interface DeviceDetail {
   /** Missing on a request a version before client kinds opened. */
   readonly clientKind?: ClientKind
   readonly credentialName: string | null
+  /** The manager who approved a credential for their channel's agent. */
+  readonly issuedBy?: MemberId
 }
 
 const DEVICE_CODE_LIFETIME_SECONDS = 600

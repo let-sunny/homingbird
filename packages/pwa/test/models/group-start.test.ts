@@ -55,6 +55,12 @@ describe('groupStartModel', () => {
     })
   })
 
+  it('never offers a channel’s agent, even one the server said may be messaged', () => {
+    const agent = entry('mem_agent0000000' as MemberId, 'Payments wiki')
+    const shown = [...directory, { ...agent, member: { ...agent.member, kind: 'channel_agent' as const } }]
+    expect([...groupStartModel({ ...base, directory: shown })!.toggles.keys()]).toEqual([BEN, CY, DEE])
+  })
+
   it('asks for one more person after the first, and starts with two or more, named as a list', () => {
     const one = groupStartModel({ ...base, chosen: [CY] })!
     expect(one).toMatchObject({

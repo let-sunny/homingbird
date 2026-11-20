@@ -15,6 +15,7 @@ import { all, dialect, first, run } from '../sql/database.ts'
 import { insertIgnoringConflict, sql } from '../sql/query.ts'
 import { abandonDraftsIn } from './abandoned-drafts.ts'
 import { recordAudit } from './audit.ts'
+import { featureIsOn } from './settings.ts'
 
 export type Viewer = Pick<Member, 'id' | 'role'>
 
@@ -40,6 +41,8 @@ export const describeChannel = (viewer: Viewer, row: ChannelRow): T.Task<Channel
     const helpers = yield* helpersOf(row.conversation_id)
     const managers = yield* managersOf(row)
     const joined = members.includes(viewer.id)
+    const agentsOn = yield* featureIsOn('channelAgents')
+    const agent = agentsOn ? yield* channelAgentOf(row) : null
     return {
       slug: row.slug,
       description: row.description,
@@ -52,8 +55,31 @@ export const describeChannel = (viewer: Viewer, row: ChannelRow): T.Task<Channel
       managing:
         (joined && managers.includes(viewer.id)) || (viewer.role === 'admin' && visibilityOf(row) === 'open'),
       managedBy: row.manager_group_id,
+      agent: agent === null ? null : { id: agent.id, name: agent.name },
+      runsAgent: agentsOn && joined && managers.includes(viewer.id),
       createdAt: Number(row.created_at),
     }
+  })
+
+/** A channel's agent: the one active member of that kind in its room, which only its managers put there. */
+export const channelAgentOf = (
+  row: Pick<ChannelRow, 'conversation_id'>,
+): T.Task<{ readonly id: MemberId; readonly name: string } | null, never, AppEnv> =>
+  first<{ id: MemberId; name: string }>(sql`
+    SELECT m.id, m.name FROM participants p JOIN members m ON m.id = p.member_id
+    WHERE p.conversation_id = ${row.conversation_id} AND m.kind = 'channel_agent' AND m.status = 'active'
+    ORDER BY m.id LIMIT 1`)
+
+/** The channel a room belongs to: the channel's own room, or a question asked privately of its agent. */
+export const channelOfAgentRoom = (
+  conversationId: ConversationId,
+): T.Task<ChannelRow | null, never, AppEnv> =>
+  T.gen(function* () {
+    const room = yield* first<{ channel_id: ConversationId | null }>(
+      sql`SELECT channel_id FROM conversations WHERE id = ${conversationId}`,
+    )
+    if (room === null) return null
+    return yield* channelOfRoom(room.channel_id ?? conversationId)
   })
 
 /**
@@ -88,24 +114,32 @@ export const isMemberOf = (
     ),
   )
 
+/** The people in a room; its channel's agent is not one, so it never counts, moves or keeps a manager. */
 export const membersOf = (conversationId: ConversationId): T.Task<MemberId[], never, AppEnv> =>
   idsOf(sql`
     SELECT p.member_id FROM participants p JOIN members m ON m.id = p.member_id
-    WHERE p.conversation_id = ${conversationId} AND m.status = 'active' ORDER BY p.member_id`)
+    WHERE p.conversation_id = ${conversationId} AND m.status = 'active' AND m.kind = 'person' ORDER BY p.member_id`)
 
+/** The people who answer in a room. */
 export const helpersOf = (conversationId: ConversationId): T.Task<MemberId[], never, AppEnv> =>
+  idsOf(sql`
+    SELECT h.member_id FROM channel_answerers h JOIN members m ON m.id = h.member_id
+    WHERE h.conversation_id = ${conversationId} AND m.status = 'active' AND m.kind = 'person' ORDER BY h.member_id`)
+
+/** Whom a question in a room is delivered to: its helpers and its channel's agent. */
+export const answerersOf = (conversationId: ConversationId): T.Task<MemberId[], never, AppEnv> =>
   idsOf(sql`
     SELECT h.member_id FROM channel_answerers h JOIN members m ON m.id = h.member_id
     WHERE h.conversation_id = ${conversationId} AND m.status = 'active' ORDER BY h.member_id`)
 
-/** The active members of the channel's group, every one of them in its room. */
+/** The active people of the channel's group, every one of them in its room. */
 export const managersOf = (
   row: Pick<ChannelRow, 'conversation_id' | 'manager_group_id'>,
 ): T.Task<MemberId[], never, AppEnv> =>
   idsOf(sql`
     SELECT g.member_id FROM group_members g JOIN members m ON m.id = g.member_id
     JOIN participants p ON p.conversation_id = ${row.conversation_id} AND p.member_id = g.member_id
-    WHERE g.group_id = ${row.manager_group_id} AND m.status = 'active' ORDER BY g.member_id`)
+    WHERE g.group_id = ${row.manager_group_id} AND m.status = 'active' AND m.kind = 'person' ORDER BY g.member_id`)
 
 export const enter = (conversationId: ConversationId, memberId: MemberId): T.Task<void, never, AppEnv> =>
   addTo('participants', conversationId, memberId)

@@ -423,6 +423,7 @@ describe('the managers of a channel', () => {
             profile: '',
             role: 'member',
             status: 'active',
+            kind: 'person',
             event_seq: 0,
             created_at: 0,
             last_seen_at: null,

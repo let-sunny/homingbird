@@ -23,9 +23,12 @@ export const AUDIT_EVENTS = {
     kind: CredentialKind,
     grant: S.literal('browser', 'device_code', 'authorization_code'),
     clientKind: CLIENT_KIND,
+    channelAgent: S.optional(MemberId),
   }),
   'credential.renamed': event('security', 'credential', {}),
-  'credential.revoked': event('security', 'credential', {}),
+  'credential.revoked': event('security', 'credential', {
+    because: S.optional(S.literal('issuer_left', 'agent_retired')),
+  }),
   'credential.device_decided': event('security', 'none', { approved: S.boolean }),
   'credential.consent_decided': event('security', 'auth_request', { approved: S.boolean }),
   'oauth.client_registered': event('security', 'oauth_client', { redirectHosts: hostList() }),
@@ -64,7 +67,11 @@ export const AUDIT_EVENTS = {
     because: S.optional(S.literal('deactivated')),
   }),
 
-  'note.approved': event('full', 'note', { conversationId: ConversationId, edited: S.boolean }),
+  'note.approved': event('full', 'note', {
+    conversationId: ConversationId,
+    edited: S.boolean,
+    agentId: S.optional(MemberId),
+  }),
   'note.discarded': event('full', 'note', { conversationId: ConversationId }),
   'member.profile_changed': event('full', 'member', {
     fields: S.array(S.literal('name', 'profile', 'locale'), { maxItems: 3 }),
@@ -84,6 +91,12 @@ export const AUDIT_EVENTS = {
   'group.created': event('full', 'group', { memberCount: S.int({ min: 0 }) }),
   'group.renamed': event('full', 'group', {}),
   'group.deleted': event('full', 'group', {}),
+  'channel.agent_created': event('security', 'member', { channel: ChannelSlug }),
+  'channel.agent_renamed': event('full', 'member', { channel: ChannelSlug }),
+  'channel.agent_retired': event('security', 'member', {
+    channel: ChannelSlug,
+    because: S.optional(S.literal('channel_archived')),
+  }),
   'channel.answering_changed': event('full', 'channel', { on: S.boolean }),
   'channel.renamed': event('full', 'channel', {
     fields: S.array(S.literal('slug', 'description'), { maxItems: 2 }),

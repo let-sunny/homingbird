@@ -5,6 +5,7 @@ import { verifyAudit } from '../src/domain/audit.ts'
 import { SESSION_COOKIE } from '../src/http/authenticate.ts'
 import { buildRuntime } from '../src/runtime.ts'
 import type { Connection, Database, Row } from '../src/sql/database.ts'
+import { MIGRATIONS } from '../src/sql/migrations.ts'
 import { raw } from '../src/sql/query.ts'
 import { tableNames } from '../src/sql/schema.ts'
 import { startDovecote } from '../src/startup.ts'
@@ -29,6 +30,9 @@ import {
   databaseAt020,
   rowsOf020Tables,
 } from './upgrade-support.ts'
+
+const stepsFrom = (first: number): number[] =>
+  Array.from({ length: MIGRATIONS.length - first + 1 }, (_, index) => first + index)
 
 const DIALECTS = [
   ['SQLite', 'sqlite::memory:'],
@@ -81,6 +85,7 @@ describe.each(DIALECTS)('Starting 0.3.0 on a database 0.2.0 left, on %s', (_, ur
   let database: Database
   let before: Readonly<Record<string, Row[]>>
   let after: Readonly<Record<string, Row[]>>
+  let kindsAfter: ReadonlyArray<Row>
   let chainBefore: unknown
   let commandBefore: { readonly exitCode: number; readonly written: string[] }
   let started: Started
@@ -100,6 +105,7 @@ describe.each(DIALECTS)('Starting 0.3.0 on a database 0.2.0 left, on %s', (_, ur
     commandBefore = { exitCode, written }
     started = await startOn(database)
     after = await rowsOf020Tables(database)
+    kindsAfter = await T.runPromise(database.all(raw('SELECT DISTINCT kind FROM members')))
     server = await startTestServer(
       {},
       { database, ...(url.startsWith('sqlite:') ? {} : { databaseUrl: url }) },
@@ -117,13 +123,14 @@ describe.each(DIALECTS)('Starting 0.3.0 on a database 0.2.0 left, on %s', (_, ur
   const auditAdded = () => after.audit_events!.slice(before.audit_events!.length)
 
   it.skipIf(url === undefined)(
-    'applies only steps 6 and 7 at start and records them as one system.migrated event',
+    'applies only the steps after 0.2.0 at start, records them as one system.migrated event, and makes every member a person',
     () => {
       expect(started.outcome).toBe('serve')
       expect(before.schema_versions!.map((row) => Number(row.version))).toEqual([1, 2, 3, 4, 5])
-      expect(after.schema_versions!.map((row) => Number(row.version))).toEqual([1, 2, 3, 4, 5, 6, 7])
+      expect(after.schema_versions!.map((row) => Number(row.version))).toEqual(stepsFrom(1))
+      expect(kindsAfter).toEqual([{ kind: 'person' }])
       expect(auditAdded().map((row) => [row.event, JSON.parse(String(row.detail))])).toEqual([
-        ['system.migrated', { steps: [6, 7] }],
+        ['system.migrated', { steps: stepsFrom(6) }],
         [
           'system.started',
           { version: expect.any(String), tier: expect.any(String), retentionDays: RETENTION_DAYS_OF_020 },
@@ -425,7 +432,7 @@ describe.each(DIALECTS.filter(([name]) => name !== 'MySQL'))(
           expect(finished.outcome).toBe('serve')
           expect(
             (await read('SELECT version FROM schema_versions')).map((row) => Number(row.version)).sort(),
-          ).toEqual([1, 2, 3, 4, 5, 6, 7])
+          ).toEqual(stepsFrom(1))
           expect((await groupsAndManagers(read)).members).toEqual([
             { group_id: 'grp_general00000', member_id: ID.ana },
             { group_id: 'grp_payroll00000', member_id: ID.ben },

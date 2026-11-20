@@ -53,7 +53,7 @@ describe('account tasks', () => {
     await run(tasks.renameCredential('cred_one' as never, 'Laptop'))
     await run(tasks.revokeCredential('cred_one' as never))
     await run(tasks.lookUpDevice('ABCD'))
-    await run(tasks.decideDevice('ABCD', true, 'Desk'))
+    await run(tasks.decideDevice('ABCD', true, 'Desk', ''))
     await run(tasks.lookUpConsent('c1'))
     expect(await run(tasks.decideConsent('c1', true, 'Desk'))).toEqual({
       _tag: 'Ok',

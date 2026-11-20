@@ -6,6 +6,7 @@ export const ANALYTICS_PAGES = [
   'group',
   'channels',
   'channel',
+  'channel-agent',
   'debates',
   'debate',
   'search',

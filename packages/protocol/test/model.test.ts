@@ -33,6 +33,7 @@ describe('wire model', () => {
         'DraftRequest',
         'Locale',
         'Member',
+        'MemberKind',
         'MemberStatus',
         'Note',
         'NoteBasis',
@@ -78,6 +79,7 @@ describe('wire model', () => {
         'agentClient',
         'agentModel',
         'agentName',
+        'approvedBy',
         'basis',
         'authorId',
         'body',
@@ -167,5 +169,14 @@ describe('agentLabelOf', () => {
         if (label !== null) expect(model.AgentLabel.is(label)).toBe(true)
       }),
     )
+  })
+})
+
+describe('isPerson', () => {
+  it('counts only a person, so that a kind a newer server adds is never one', () => {
+    expect(model.isPerson({ kind: 'person' })).toBe(true)
+    expect(model.isPerson({ kind: 'channel_agent' })).toBe(false)
+    expect(model.isPerson({ kind: 'unknown' })).toBe(false)
+    expect(model.MemberKind.read('robot')).toEqual({ _tag: 'Ok', value: 'unknown' })
   })
 })

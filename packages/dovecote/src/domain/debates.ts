@@ -230,7 +230,7 @@ const activeMembersAmong = (ids: ReadonlyArray<MemberId>): T.Task<MemberId[], In
     if (ids.length === 0) return []
     const unique = [...new Set(ids)]
     const found = yield* all<{ id: MemberId }>(
-      sql`SELECT id FROM members WHERE status = 'active' AND id IN ${list(unique)}`,
+      sql`SELECT id FROM members WHERE status = 'active' AND kind = 'person' AND id IN ${list(unique)}`,
     )
     if (found.length !== unique.length)
       return yield* T.fail(Invalid({ message: 'Invite active members only.' }))

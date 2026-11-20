@@ -6,6 +6,7 @@ const facts: fc.Arbitrary<MessagingFacts> = fc.record({
   mode: fc.constantFrom('open', 'contacts'),
   isSelf: fc.boolean(),
   recipientStatus: fc.constantFrom('active', 'deactivated'),
+  recipientIsPerson: fc.boolean(),
   blocked: fc.boolean(),
   contact: fc.boolean(),
 })
@@ -14,6 +15,7 @@ const open: MessagingFacts = {
   mode: 'open',
   isSelf: false,
   recipientStatus: 'active',
+  recipientIsPerson: true,
   blocked: false,
   contact: false,
 }
@@ -28,10 +30,11 @@ describe('canMessage', () => {
     expect(canMessage({ ...open, mode: 'contacts', contact: true })).toBe(true)
   })
 
-  it('is always refused by a block, by self, and by a deactivated recipient', () => {
+  it('is always refused by a block, by self, by a deactivated recipient and by a channel’s agent', () => {
     fc.assert(
       fc.property(facts, (f) => {
-        if (f.blocked || f.isSelf || f.recipientStatus !== 'active') expect(canMessage(f)).toBe(false)
+        if (f.blocked || f.isSelf || f.recipientStatus !== 'active' || !f.recipientIsPerson)
+          expect(canMessage(f)).toBe(false)
       }),
     )
   })
@@ -40,7 +43,11 @@ describe('canMessage', () => {
     fc.assert(
       fc.property(facts, (f) => {
         const expected =
-          !f.isSelf && f.recipientStatus === 'active' && !f.blocked && (f.mode === 'open' || f.contact)
+          !f.isSelf &&
+          f.recipientStatus === 'active' &&
+          f.recipientIsPerson &&
+          !f.blocked &&
+          (f.mode === 'open' || f.contact)
         expect(canMessage(f)).toBe(expected)
       }),
     )

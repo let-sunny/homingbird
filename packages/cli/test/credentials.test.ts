@@ -20,6 +20,7 @@ const ANA = {
   email: 'ana@example.com',
   role: 'member',
   status: 'active',
+  kind: 'person',
 }
 const BEN = {
   id: 'mem_bbbbbbbbbbbbbbbb',
@@ -27,6 +28,7 @@ const BEN = {
   email: 'ben@other.org',
   role: 'member',
   status: 'active',
+  kind: 'person',
 }
 
 const signedInTwice = (variables: Readonly<Record<string, string>> = {}) => {

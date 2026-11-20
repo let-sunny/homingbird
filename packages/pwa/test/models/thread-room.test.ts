@@ -46,6 +46,14 @@ describe('threadTopModel', () => {
       text: strings.channelRoomEmpty,
     })
   })
+
+  it('tells the asker, at the top and in the head, who else reads a private question', () => {
+    const asked = conversation({ kind: 'group', privateQuestionOf: 'wiki', participantIds: [ANA, BEN] })
+    const input = threadInput({ conversations: [asked] })
+    const notice = strings.channelAgent.privateNotice({ agent: '#wiki', channel: '#wiki' })
+    expect(threadTopModel(input)).toEqual({ kind: 'empty', text: notice })
+    expect(threadHeadModel(input)).toMatchObject({ kind: 'people', profile: notice })
+  })
 })
 
 describe('archiveDiscardLines', () => {

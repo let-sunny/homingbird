@@ -773,6 +773,49 @@ The table is `member_groups`, because `groups` is reserved in MySQL 8, with `kin
 `channel`. `channel_managers` stays in the schema and is no longer read or written; the old
 `channel.manager_added` and `channel.manager_removed` audit rows keep their meaning.
 
+## A channel's agent is its own member, and its channel's managers approve it
+
+A team that answers questions from its own knowledge needs an agent nobody owns alone: whoever runs
+the channel this month must be able to run it and approve what it writes. So a channel's agent is a
+`members` row of its own `kind = 'channel_agent'`, with credentials of its own, and its drafts carry
+its id as `author_id`.
+
+- **A principal, not a person's second agent.** Every rule that shows a draft to its author compares
+  `author_id` with the viewer, so with the agent as author none of them opens to a person: inbox,
+  search, stream, lookup by id and conversation lists stay exactly as they were. Reviewers read the
+  agent's drafts only through `reviews.list` and `reviews.get`, `human` routes that check the reviewer
+  rule. Attaching the agent to a person instead would have made that person able to read and send
+  every answer, and nobody else.
+- **Ownership is not stored.** The channel's agent is the one active `channel_agent` in its room, and
+  its owners are the channel's managers (`managersOf`) at the moment they act. A stored owner would be
+  a second list of managers to keep in step with the group, and the races of doing so are the ones
+  "Groups replace channel managers" removed. One agent per channel is checked under the channel
+  group's lock.
+- **Who approves.** A person, a current manager of the channel, and not the author of the question the
+  draft answers: a draft stays invisible to whom it is for (rule 2). Outside a channel's room every
+  participant is a recipient, so the rule is phrased by the asker, not by recipients. When the asker is
+  the only manager nobody could approve, so the agent's draft is refused with a Conflict telling the
+  managers to add another. The send locks the channel's group, reads the managers again, checks the
+  reviewer and then `expected`, and records `notes.approved_by`; the first approval wins.
+- **What the agent may write.** Only a reply to a note someone else sent in its channel's room or one
+  of its private questions, one waiting per question and a bounded number in all. It opens no
+  conversation, joins no room and cannot be messaged, added to a group or a channel, or signed in as:
+  every route that names a member refuses its id, and a test walks the contract for them.
+- **Credentials have an issuer.** A manager in the room issues one through the device flow; the
+  credential records `issued_by`, and when the issuer stops managing the channel their credentials go
+  in the same locked change. Retiring the agent, or archiving the channel, deactivates it and revokes
+  them all. With `channelAgents=off` the agent's credentials are refused and nothing is deleted.
+- **Private questions are conversations, not private channels.** Asking privately makes a conversation
+  tied to the channel (`conversations.channel_id`, `asked_by`) of the asker, the agent and the current
+  managers; manager changes bring its participants in step under the same lock, so a new manager reads
+  its history and one who left loses it. A private channel would have needed its own managers and
+  members for every question, and the asker would have been one of its managers. The asker's notes go
+  to the agent alone and everyone else's to the asker alone, so the managers' own agents do not answer
+  it. A question there never moves to another room, administrators get no view of it, and archiving the
+  channel closes it, readable to who was in it.
+- **Not in this release:** taking a draft ("I'll look at this"), principles and saved answers for a
+  channel's agent, and decision rules with more than one approver.
+
 ## One desk session per person reacts to arriving notes
 
 Each person keeps one agent session open for Homingbird: the desk. In Claude Code it is the session

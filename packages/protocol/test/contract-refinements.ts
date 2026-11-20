@@ -5,6 +5,9 @@ export const refinements = {
   'agent-label': fc
     .string({ minLength: 1, maxLength: 80 })
     .filter((s) => s.trim() !== '' && !/[\p{Cc}\p{Cf}]/u.test(s)),
+  'channel-agent-name': fc
+    .string({ minLength: 1, maxLength: 80 })
+    .filter((s) => s.trim() !== '' && !/[\p{Cc}\p{Cf}]/u.test(s)),
   'group-name': fc
     .string({ minLength: 1, maxLength: 80 })
     .filter((s) => s.trim() !== '' && !/[\p{Cc}\p{Cf}]/u.test(s)),

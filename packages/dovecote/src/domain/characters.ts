@@ -10,6 +10,7 @@ import {
 import type { AppEnv } from '../environment.ts'
 import { run } from '../sql/database.ts'
 import { sql } from '../sql/query.ts'
+import { requireNotAgent } from './member-kinds.ts'
 import { memberById } from './members.ts'
 
 /** Saves a person's character, checking the rules again whatever the client checked; stores what passed. */
@@ -29,6 +30,7 @@ export const saveCharacter = (
 export const clearCharacter = (id: MemberId): T.Task<Member, NotFound, AppEnv> =>
   T.gen(function* () {
     yield* memberById(id)
+    yield* requireNotAgent(id)
     yield* run(sql`UPDATE members SET character_spec = NULL WHERE id = ${id}`)
     return yield* memberById(id)
   })

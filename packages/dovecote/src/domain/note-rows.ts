@@ -38,6 +38,7 @@ export interface NoteRow {
   readonly session_minutes: number | null
   readonly context_percent: number | null
   readonly debate_id: DebateId | null
+  readonly approved_by: MemberId | null
 }
 
 export const PICKUP_GRACE_MS = 10 * 60_000
@@ -149,6 +150,7 @@ const toNote = (
   receipts,
   ...(row.author_id === viewerId && { basis: row.basis }),
   ...(details && row.agent_name !== null && { agentClient: row.agent_client, agentModel: row.agent_model }),
+  ...((row.approved_by ?? null) !== null && { approvedBy: row.approved_by }),
   ...(row.debate_id && debates.has(row.debate_id) && { fromDebate: debates.get(row.debate_id)! }),
 })
 

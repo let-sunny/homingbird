@@ -3,6 +3,21 @@ import { describe, expect, it } from 'vitest'
 import { DRAFT, READING } from './command-fixtures.ts'
 import { AGENT_TOKEN, ANA, SERVER, world } from './support.ts'
 
+const channelNamed = (slug: string, agent: { readonly id: string; readonly name: string } | null) => ({
+  slug,
+  description: `About ${slug}`,
+  conversationId: `conv_${slug.replace(/-/g, '').padEnd(12, '0')}`,
+  visibility: 'open',
+  memberCount: 2,
+  helperCount: 1,
+  joined: true,
+  answering: true,
+  managing: false,
+  managedBy: `grp_${slug.replace(/-/g, '').padEnd(12, '0')}`,
+  agent,
+  createdAt: 1,
+})
+
 describe('overview', () => {
   it('gathers who is signed in, conversations, waiting notes and drafts in one answer', async () => {
     const w = world({ stubs: READING })
@@ -18,6 +33,54 @@ describe('overview', () => {
     expect(overview.awaiting[0].wrapped).toContain(`<${WRAPPER_TAG}`)
     expect(overview.drafts[0]).toMatchObject({ id: DRAFT.id, body: 'Yes, after six.' })
     expect(JSON.stringify(overview)).not.toContain(AGENT_TOKEN)
+  })
+
+  it('names the channel whose managers review a channel agent’s drafts, and where', async () => {
+    const agent = { ...ANA, kind: 'channel_agent' }
+    const w = world({
+      stubs: {
+        ...READING,
+        'me.get': () =>
+          ({
+            member: agent,
+            credential: { id: 'cred_aaaaaaaaaaaa', kind: 'agent', name: 'Desk' },
+            contactMode: 'open',
+          }) as never,
+        'channels.list': () =>
+          ({
+            channels: [channelNamed('payments-wiki', { id: ANA.id, name: 'Wiki' })],
+            hasMore: false,
+            cursor: null,
+          }) as never,
+      },
+    })
+    await w.run('overview', '--json')
+    expect(w.json()).toMatchObject({
+      member: { kind: 'channel_agent' },
+      reviewChannel: 'payments-wiki',
+      reviewLink: `${SERVER}/#/channel/payments-wiki/agent`,
+    })
+    await w.run('overview')
+    expect(w.lines.at(-1)).toContain('Drafts waiting for the managers of #payments-wiki')
+    expect(w.lines.at(-1)).toContain(`They review them at ${SERVER}/#/channel/payments-wiki/agent`)
+  })
+
+  it('names no channel when the channel list cannot be read', async () => {
+    const agent = { ...ANA, kind: 'channel_agent' }
+    const w = world({
+      stubs: {
+        ...READING,
+        'me.get': () =>
+          ({
+            member: agent,
+            credential: { id: 'cred_aaaaaaaaaaaa', kind: 'agent', name: 'Desk' },
+            contactMode: 'open',
+          }) as never,
+        'channels.list': () => ({ channels: [], hasMore: false, cursor: null }) as never,
+      },
+    })
+    await w.run('overview', '--json')
+    expect(w.json()).not.toHaveProperty('reviewChannel')
   })
 
   it('prints the same as sections of text', async () => {

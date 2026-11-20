@@ -15,6 +15,7 @@ import {
 } from '../models/channel-membership.ts'
 import { signedIn } from '../state.ts'
 import { strings } from '../strings.ts'
+import { agentButtons } from './channel-agent.ts'
 import type { ViewContext } from './context.ts'
 import { closeDialog, opensDialog } from './dialog.ts'
 import { button, dialogActions, disabledWithReason, loading, privateMarkOf, youMark } from './parts.ts'
@@ -363,6 +364,7 @@ const renderRoomControls = (
           },
           strings.manageMembers,
         ),
+      agentButtons(context, channel),
       model.leave?.kind === 'blocked' &&
         disabledWithReason(strings.leaveChannel, model.leave.reason, 'leave-channel'),
       model.leave?.kind === 'allowed' &&

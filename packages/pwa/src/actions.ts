@@ -3,6 +3,7 @@ import type { Action, Launch, Then } from './app.ts'
 import { pushIsOn, testPush, turnPushOff, turnPushOn } from './push.ts'
 import * as account from './tasks/account.ts'
 import * as admin from './tasks/admin.ts'
+import * as channelAgents from './tasks/channel-agents.ts'
 import * as channels from './tasks/channels.ts'
 import * as debates from './tasks/debates.ts'
 import * as drafts from './tasks/drafts.ts'
@@ -77,6 +78,16 @@ export const TASKS = {
   ) => channels.createChannelThen(channel, (slug) => drafts.readdressDraft(draft, slug)),
   reviseChannel: channels.reviseChannel,
   archiveChannel: channels.archiveChannel,
+  loadReviews: () => channelAgents.loadReviews,
+  sendReview: channelAgents.sendReview,
+  discardReview: channelAgents.discardReview,
+  confirmReviewRead: channelAgents.confirmReviewRead,
+  loadChannelAgent: channelAgents.loadChannelAgent,
+  createChannelAgent: channelAgents.createChannelAgent,
+  renameChannelAgent: channelAgents.renameChannelAgent,
+  retireChannelAgent: channelAgents.retireChannelAgent,
+  disconnectAgentDesk: channelAgents.disconnectAgentDesk,
+  askPrivately: channelAgents.askPrivately,
   loadGroups: () => groups.loadGroups,
   renameGroup: groups.renameGroup,
   setGroupMembers: groups.setGroupMembers,

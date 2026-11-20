@@ -46,6 +46,7 @@ export const en: PaneText = {
   approveInWebClient:
     'Drafts are approved, edited or discarded only in the Homingbird web client, where you sign in yourself. Each draft links there.',
   awaitingYourApproval: 'Waiting for your approval',
+  awaitingManagers: (channel) => `Waiting for the managers of #${channel}`,
   openInWebClient: 'Open in web',
   deskStatus: (waiting) =>
     waiting === 0

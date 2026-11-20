@@ -1,4 +1,5 @@
 import type { Schema as S } from '@homingbird/kernel'
+import type { ChannelAgent as ChannelAgentSchema, Review as ReviewSchema } from './channel-agents.ts'
 import type {
   InboxItem as InboxItemSchema,
   Me as MeSchema,
@@ -74,3 +75,5 @@ export type AgentReport = S.Read<typeof AgentReportSchema>
 export type AgentPeriod = S.Read<typeof AgentPeriodSchema>
 export type AgentFigures = S.Read<typeof AgentFiguresSchema>
 export type ServerInfo = S.Read<typeof ServerInfoSchema>
+export type ChannelAgent = S.Read<typeof ChannelAgentSchema>
+export type Review = S.Read<typeof ReviewSchema>

@@ -147,12 +147,18 @@ describe('the tool table', () => {
     )
   })
 
-  it('reaches no route that changes channel membership, answering, managers or visibility, whatever it is asked', async () => {
+  it('reaches no route that changes channel membership, answering, managers or visibility, or runs its agent, whatever it is asked', async () => {
     const membership = humanOnlyRoutes.filter((route) => route.startsWith('channels.'))
     expect(membership.sort()).toEqual(
       [
+        'channels.agent.create',
+        'channels.agent.credentials.revoke',
+        'channels.agent.get',
+        'channels.agent.rename',
+        'channels.agent.retire',
         'channels.answering.off',
         'channels.answering.on',
+        'channels.askPrivately',
         'channels.create',
         'channels.join',
         'channels.leave',

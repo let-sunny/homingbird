@@ -11,6 +11,7 @@ import type { AppEnv } from '../environment.ts'
 import { type RequestEnv, emit } from '../events/events.ts'
 import { all, dialect, first, run } from '../sql/database.ts'
 import { insertIgnoringConflict, insertInto, sql } from '../sql/query.ts'
+import { requireNotAgent } from './member-kinds.ts'
 
 export interface Ties {
   readonly contacts: ReadonlyMap<MemberId, ContactState>
@@ -60,8 +61,10 @@ export const requestContact = (
     const env = yield* T.ask<RequestEnv>()
     if (otherId === viewerId)
       return yield* T.fail(Conflict({ message: 'You cannot add yourself as a contact.' }))
-    const other = yield* first<{ status: string }>(sql`SELECT status FROM members WHERE id = ${otherId}`)
-    if (other === null || other.status !== 'active')
+    const other = yield* first<{ status: string; kind: string | null }>(
+      sql`SELECT status, kind FROM members WHERE id = ${otherId}`,
+    )
+    if (other === null || other.status !== 'active' || other.kind !== 'person')
       return yield* T.fail(NotFound({ message: 'No such member.' }))
     const ties = yield* tiesOf(viewerId)
     if (ties.blockedByViewer.has(otherId) || ties.blockingViewer.has(otherId))
@@ -112,10 +115,11 @@ export const removeContact = (viewerId: MemberId, otherId: MemberId): T.Task<voi
     yield* emit([otherId], { type: 'contact.changed', memberId: viewerId })
   })
 
-export const block = (viewerId: MemberId, otherId: MemberId): T.Task<void, Conflict, RequestEnv> =>
+export const block = (viewerId: MemberId, otherId: MemberId): T.Task<void, Conflict | NotFound, RequestEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
     if (otherId === viewerId) return yield* T.fail(Conflict({ message: 'You cannot block yourself.' }))
+    yield* requireNotAgent(otherId)
     yield* run(
       insertIgnoringConflict(yield* dialect, 'blocks', {
         blocker_id: viewerId,

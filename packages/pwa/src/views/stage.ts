@@ -6,6 +6,7 @@ import { strings } from '../strings.ts'
 import { profileView } from './account.ts'
 import { adminView } from './admin.ts'
 import { agentTrustView } from './agent-trust.ts'
+import { channelAgentView } from './channel-agent.ts'
 import { channelView, channelsView } from './channels.ts'
 import { characterEditorView } from './character-editor.ts'
 import { consentView, deviceView } from './connect.ts'
@@ -37,6 +38,8 @@ export const stageFor = (context: ViewContext, life: Lifetime, me: AsRead.Me, cu
       return channelsView(context, life)
     case 'channel':
       return channelView(context, life, current.slug)
+    case 'channel-agent':
+      return on('channelAgents') ? channelAgentView(context, life, current.slug) : notFound()
     case 'debates':
       return on('debateRooms') ? debatesView(context, life, me) : notFound()
     case 'debate':

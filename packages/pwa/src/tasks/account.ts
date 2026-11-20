@@ -61,8 +61,16 @@ export const revokeCredential = (id: CredentialId): Action =>
 export const lookUpDevice = (userCode: string): Action<DeviceRequest> =>
   withApp(({ api }) => api['device.get']({ params: { userCode } }))
 
-export const decideDevice = (userCode: string, approve: boolean, name: string): Action =>
-  withApp(({ api }) => T.asUnit(api['device.decide']({ params: { userCode }, body: { approve, name } })))
+/** Approves or denies a device; with a channel, a manager connects it as that channel's agent. */
+export const decideDevice = (userCode: string, approve: boolean, name: string, channel: string): Action =>
+  withApp(({ api }) =>
+    T.asUnit(
+      api['device.decide']({
+        params: { userCode },
+        body: { approve, name, ...(approve && channel !== '' && { channel }) },
+      }),
+    ),
+  )
 
 export const lookUpConsent = (id: string): Action<ConsentRequest> =>
   withApp(({ api }) => api['consent.get']({ params: { id } }))

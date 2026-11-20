@@ -11,9 +11,12 @@ import type { RequestEnv } from '../events/events.ts'
 import { all, dialect, run } from '../sql/database.ts'
 import { insertIgnoringConflict, sql } from '../sql/query.ts'
 import { abandonDraft } from './abandoned-drafts.ts'
+import { recordAudit } from './audit.ts'
+import { retireAgent } from './channel-agents.ts'
 import {
   type ChannelRow,
   type Viewer,
+  channelAgentOf,
   channelRow,
   describeChannel,
   existingChannel,
@@ -25,6 +28,7 @@ import { announceGroups, audienceOf, lockGroups } from './group-rows.ts'
 import type { NoteRow } from './note-rows.ts'
 import { announceStatus } from './note-status.ts'
 import { renamePlace } from './principles.ts'
+import { closePrivateQuestions } from './private-questions.ts'
 
 export const reviseChannel = (
   viewer: Viewer,
@@ -50,16 +54,28 @@ export const reviseChannel = (
 /**
  * Archives a channel: it leaves the list, its room becomes read-only and stays readable to its members,
  * its notes stay where they are and its waiting drafts are discarded. With a destination, its members
- * join that channel and keep answering if they did. Its group of managers goes with it.
+ * join that channel and keep answering if they did. Its group of managers goes with it, and its agent
+ * retires first, so that it never moves; its private questions stay readable to whoever was in them.
  */
 export const archiveChannel = (
   slug: string,
   moveMembersTo: string | null,
+  actorId: MemberId | null = null,
 ): T.Task<void, NotFound | Conflict, RequestEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
     const row = yield* existingChannel(slug)
     yield* lockGroups([row.manager_group_id])
+    const agent = yield* channelAgentOf(row)
+    if (agent !== null) {
+      yield* retireAgent(row, agent, slug)
+      yield* recordAudit('channel.agent_retired', {
+        actorId,
+        targetId: agent.id,
+        detail: { channel: slug, because: 'channel_archived' },
+      })
+    }
+    yield* closePrivateQuestions(row, slug)
     if (moveMembersTo !== null) yield* moveMembers(row, moveMembersTo)
     const drafts = yield* all<NoteRow>(
       sql`SELECT * FROM notes WHERE conversation_id = ${row.conversation_id} AND status = 'draft' ORDER BY id`,

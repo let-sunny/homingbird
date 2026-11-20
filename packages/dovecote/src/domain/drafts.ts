@@ -1,28 +1,35 @@
 import { Task as T } from '@homingbird/kernel'
 import {
+  AGENT_OPEN_DRAFTS_MAX,
   Conflict,
   type ConversationId,
   type DebateId,
   type DeskSession,
-  type Forbidden,
+  Forbidden,
   Invalid,
   type MemberId,
+  NO_REVIEWER_MESSAGE,
   NotFound,
   type Note,
   NoteId,
   type Origin,
   agentLabelOf,
+  isPerson,
+  possibleReviewers,
 } from '@homingbird/protocol'
 import { type Caller, isHuman } from '../environment.ts'
 import { type RequestEnv, emit } from '../events/events.ts'
 import { first, run } from '../sql/database.ts'
 import { insertInto, sql } from '../sql/query.ts'
+import { channelAgentOf, channelOfAgentRoom, managersOf } from './channel-rows.ts'
 import { channelRoomFor } from './channels.ts'
 import { directConversationWith, participatedConversation, requireMayMessageIn } from './conversations.ts'
 import type { NoteRow } from './note-rows.ts'
 import { announceStatus, noteById } from './note-status.ts'
 import { visibleNote } from './notes.ts'
 import { recordApplications } from './principle-applications.ts'
+import { announceReview } from './review-events.ts'
+import { askersOf, reviewersOf } from './reviews.ts'
 
 export interface DraftDestination {
   readonly conversationId?: ConversationId
@@ -54,6 +61,7 @@ export const createDraft = (caller: Caller, target: DraftTarget): T.Task<Note, N
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
     const authorId = caller.member.id
+    yield* requireAgentMayAnswer(caller, target)
     const conversationId = yield* conversationForDraft(authorId, target)
     yield* requireRoomForAnotherDraft(authorId)
     const now = env.clock.now()
@@ -79,12 +87,14 @@ export const createDraft = (caller: Caller, target: DraftTarget): T.Task<Note, N
       session_minutes: isHuman(caller) ? null : (target.session?.ageMinutes ?? null),
       context_percent: isHuman(caller) ? null : (target.session?.contextPercent ?? null),
       debate_id: target.fromDebate ?? null,
+      approved_by: null,
     }
     yield* run(insertInto('notes', { ...row }))
     if (!isHuman(caller)) yield* recordApplications(authorId, row.id, row.basis)
     const draft = yield* noteById(row.id, authorId)
     yield* emit([authorId], { type: 'draft.saved', note: draft })
     if (row.in_reply_to !== null) yield* announceStatus(row.in_reply_to)
+    if (!isPerson(caller.member)) yield* announceReview(yield* reviewersOf(row), row.id)
     return draft
   })
 
@@ -95,6 +105,8 @@ export const updateDraft = (
 ): T.Task<Note, NoteFailure, RequestEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
+    if (!isPerson(caller.member) && change.channel !== undefined)
+      return yield* T.fail(Forbidden({ message: AGENT_ANSWERS_ONLY }))
     const draft = yield* ownDraft(caller.member.id, id)
     const body = change.body ?? draft.body
     const conversationId =
@@ -109,6 +121,7 @@ export const updateDraft = (
     if (!isHuman(caller)) yield* recordApplications(caller.member.id, id, basis)
     const updated = yield* noteById(id, caller.member.id)
     yield* emit([caller.member.id], { type: 'draft.saved', note: updated })
+    if (!isPerson(caller.member)) yield* announceReview(yield* reviewersOf(draft), id)
     return updated
   })
 
@@ -152,6 +165,47 @@ export const originAfterEdit = (origin: Origin, editorIsHuman: boolean, bodyChan
         : origin
 
 const MAX_OPEN_DRAFTS = 200
+
+const AGENT_ANSWERS_ONLY = 'A channel’s agent only answers questions asked in its channel.'
+
+/**
+ * A channel's agent writes only an answer: to a note someone else sent in its channel's room or in one of
+ * its private questions, one waiting answer per question, a bounded number in all, and only when a
+ * manager other than the asker could send it. It opens no conversation and joins no room.
+ */
+const requireAgentMayAnswer = (caller: Caller, target: DraftTarget): T.Task<void, NoteFailure, RequestEnv> =>
+  T.gen(function* () {
+    if (isPerson(caller.member)) return
+    const agentId = caller.member.id
+    if (target.inReplyTo === undefined || target.to !== undefined || target.channel !== undefined)
+      return yield* T.fail(Forbidden({ message: AGENT_ANSWERS_ONLY }))
+    const question = yield* visibleNote(agentId, target.inReplyTo)
+    const channel = yield* channelOfAgentRoom(question.conversationId)
+    if (
+      question.status !== 'sent' ||
+      question.authorId === agentId ||
+      channel === null ||
+      (yield* channelAgentOf(channel))?.id !== agentId
+    )
+      return yield* T.fail(Forbidden({ message: AGENT_ANSWERS_ONLY }))
+    const waiting = yield* first(
+      sql`SELECT id FROM notes WHERE in_reply_to = ${question.id} AND author_id = ${agentId} AND status = 'draft'`,
+    )
+    if (waiting !== null)
+      return yield* T.fail(
+        Conflict({ message: 'An answer to this question is already waiting for approval.' }),
+      )
+    const open = yield* first<{ total: number }>(
+      sql`SELECT COUNT(*) AS total FROM notes WHERE author_id = ${agentId} AND status = 'draft'`,
+    )
+    if (Number(open?.total ?? 0) >= AGENT_OPEN_DRAFTS_MAX)
+      return yield* T.fail(
+        Conflict({ message: 'Too many answers are waiting for approval. The managers decide some first.' }),
+      )
+    const askers = yield* askersOf({ conversation_id: question.conversationId, in_reply_to: question.id })
+    if (possibleReviewers(yield* managersOf(channel), askers).length === 0)
+      return yield* T.fail(Conflict({ message: NO_REVIEWER_MESSAGE }))
+  })
 
 /**
  * The program a credential signed in from, as its registration named it: a fallback when the

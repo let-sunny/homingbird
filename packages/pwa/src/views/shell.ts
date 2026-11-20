@@ -15,6 +15,7 @@ import {
 } from '../models/shell.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
+import { reviewsWaiting } from './channel-agent.ts'
 import { renderAvatar, renderGroupAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
 import { startingPoints } from './home.ts'
@@ -188,6 +189,7 @@ const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLEleme
     region(life, [state.agentCredentials, state.session], () => model().onboarding && onboarding(), {
       class: 'onboarding-host',
     }),
+    reviewsWaiting(context, life),
     h('h2', { class: 'sidebar-title', data: { tour: 'notes' } }, strings.conversations),
     region(
       life,

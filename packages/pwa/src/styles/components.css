@@ -4029,3 +4029,90 @@ textarea:disabled {
 .channel-exists {
   --hb-color-focus: var(--hb-color-focus-on-pending);
 }
+
+.channel-agent-panel h3 {
+  margin: var(--hb-space-3) 0 var(--hb-space-1);
+}
+
+.agent-desks,
+.review-cards {
+  display: grid;
+  gap: var(--hb-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agent-desk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--hb-space-2);
+  padding: var(--hb-space-2);
+  border: var(--hb-border-thin);
+  background: var(--hb-color-surface);
+}
+
+.agent-desk-name {
+  font-weight: 700;
+}
+
+.review-card {
+  display: grid;
+  gap: var(--hb-space-2);
+  padding: var(--hb-space-3);
+  border: var(--hb-border);
+  background: var(--hb-color-surface);
+}
+
+.review-question {
+  margin: 0;
+  padding-inline-start: var(--hb-space-2);
+  border-inline-start: var(--hb-border);
+}
+
+.review-question p,
+.review-body {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.review-basis ul {
+  margin: 0;
+  padding-inline-start: var(--hb-space-3);
+}
+
+.review-private {
+  justify-self: start;
+  padding: 0 var(--hb-space-2);
+  border: var(--hb-border-thin);
+  font: 700 var(--hb-text-small) / 1.6 var(--hb-font-mono);
+}
+
+.review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--hb-space-2);
+}
+
+.note-approval {
+  margin: var(--hb-space-1) 0 0;
+  font: var(--hb-text-small) / 1.6 var(--hb-font-mono);
+}
+
+.reviews-waiting {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--hb-space-2);
+  margin: var(--hb-space-2);
+  padding: var(--hb-space-2);
+  border: var(--hb-border);
+  background: var(--hb-color-surface);
+}
+
+.reviews-waiting p {
+  margin: 0;
+  font-weight: 700;
+}

@@ -39,6 +39,7 @@ let server: TestServer
 let ana: Session
 let ben: Session
 let cy: Session
+let dee: Session
 let anaAgent: Agent
 let benAgent: Agent
 
@@ -80,6 +81,52 @@ const stateOf = (dump: string): string =>
     .filter((line) => !line.startsWith('audit_log:'))
     .join('\n')
     .replace(/"last_used_at":(\d+|null)/g, '')
+
+const SECRET_ANSWER = 'channel-agent secret 51c9'
+
+/**
+ * #wiki, managed by Ben and Cy, with its agent connected by Ben and Dee in its room. Ana, the
+ * administrator, is outside the group that manages it.
+ */
+const startChannelAgent = async (): Promise<Agent & { readonly id: string }> => {
+  const settings = (await ana.api('GET', '/admin/settings')).json
+  await ana.api('PUT', '/admin/settings', {
+    ...settings,
+    features: { ...settings.features, channelAgents: true },
+  })
+  dee = await server.signIn('dee@example.com', 'Dee')
+  const made = (await ben.api('POST', '/channels', { slug: 'wiki', description: 'Wiki' })).json
+  await ben.api('PUT', `/groups/${made.managedBy}/members`, {
+    memberIds: [ben.me.member.id, cy.me.member.id],
+  })
+  await dee.api('PUT', '/channels/wiki/membership', {})
+  const id = (await ben.api('PUT', '/channels/wiki/agent', { name: 'Wiki' })).json.agent.id
+  const started = await server.request('POST', '/oauth/device_authorization', {
+    form: { client_name: 'Wiki desk', scope: 'notes' },
+  })
+  await ben.api('POST', `/device/${started.json.user_code}`, { approve: true, channel: 'wiki' })
+  const token: string = (
+    await server.request('POST', '/oauth/token', {
+      form: {
+        grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+        device_code: started.json.device_code,
+      },
+    })
+  ).json.access_token
+  return {
+    id,
+    token,
+    api: (method, path, body) =>
+      server.request(method, `/api/v1${path}`, { token, ...(body !== undefined && { body }) }),
+  }
+}
+
+const askAndAnswer = async (asker: Session, agent: Agent) => {
+  const asked = (await asker.api('POST', '/drafts', { channel: 'wiki', body: 'Where is the runbook?' })).json
+  const question = (await asker.api('POST', `/drafts/${asked.id}/send`, { expected: asRead(asked) })).json
+  const draft = (await agent.api('POST', '/drafts', { inReplyTo: question.id, body: SECRET_ANSWER })).json
+  return { question, draft }
+}
 
 describe('Rule 1: only a human credential can approve a note', () => {
   it('refuses an agent credential that tries to send its own draft', async () => {
@@ -151,6 +198,79 @@ describe('Rule 1: only a human credential can approve a note', () => {
     expect((await ana.api('POST', `/drafts/${draft.id}/send`, {})).status).toBe(400)
     expect((await ana.api('POST', `/drafts/${draft.id}/send`, { body: 'edited' })).status).toBe(400)
     expect((await ana.api('GET', `/notes/${draft.id}`)).json.status).toBe('draft')
+  })
+
+  it('lets only a person who manages the channel, and did not ask, send its agent’s answer, and records them', async () => {
+    const agent = await startChannelAgent()
+    const { draft } = await askAndAnswer(dee, agent)
+    expect((await agent.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })).status).toBe(
+      403,
+    )
+    expect((await dee.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })).status).toBe(404)
+    expect((await ana.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })).status).toBe(404)
+    const sent = await cy.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })
+    expect(sent.json).toMatchObject({ status: 'sent', authorId: agent.id, approvedBy: cy.me.member.id })
+    const approved = (await storedRows(server, 'audit_events')).filter((row) => row.target_id === draft.id)
+    expect(approved.map((row) => [row.event, row.actor_id, row.credential_kind])).toEqual([
+      ['note.approved', cy.me.member.id, 'human'],
+    ])
+  })
+
+  it('refuses a manager’s own agent credential as an approver of the channel’s agent', async () => {
+    const agent = await startChannelAgent()
+    const { draft } = await askAndAnswer(dee, agent)
+    const started = await server.request('POST', '/oauth/device_authorization', {
+      form: { client_name: 'Ben desk', scope: 'notes' },
+    })
+    await ben.api('POST', `/device/${started.json.user_code}`, { approve: true })
+    const token = (
+      await server.request('POST', '/oauth/token', {
+        form: {
+          grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+          device_code: started.json.device_code,
+        },
+      })
+    ).json.access_token
+    const refused = await server.request('POST', `/api/v1/drafts/${draft.id}/send`, {
+      token,
+      body: { expected: asRead(draft) },
+    })
+    expect(refused.status).toBe(403)
+    expect((await storedRows(server, 'notes')).find((row) => row.id === draft.id)?.status).toBe('draft')
+  })
+
+  it('refuses a manager who asked as the sender of the answer to it, in the channel and in a private question', async () => {
+    const agent = await startChannelAgent()
+    const { draft } = await askAndAnswer(cy, agent)
+    expect((await cy.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })).status).toBe(404)
+    expect((await storedRows(server, 'notes')).find((row) => row.id === draft.id)?.status).toBe('draft')
+    const group = (await ben.api('GET', '/channels/wiki')).json.managedBy
+    await ben.api('PUT', `/groups/${group}/members`, {
+      memberIds: [ben.me.member.id, cy.me.member.id, dee.me.member.id],
+    })
+    const room = (await ben.api('POST', '/channels/wiki/private-question')).json.id
+    const context = (await cy.api('POST', '/drafts', { conversationId: room, body: 'Ben, some context.' }))
+      .json
+    const cys = (await cy.api('POST', `/drafts/${context.id}/send`, { expected: asRead(context) })).json
+    const forBen = (await agent.api('POST', '/drafts', { inReplyTo: cys.id, body: SECRET_ANSWER })).json
+    for (const asker of [ben, cy])
+      expect(
+        (await asker.api('POST', `/drafts/${forBen.id}/send`, { expected: asRead(forBen) })).status,
+      ).toBe(404)
+    const sent = await dee.api('POST', `/drafts/${forBen.id}/send`, { expected: asRead(forBen) })
+    expect(sent.json).toMatchObject({
+      approvedBy: dee.me.member.id,
+      receipts: [{ memberId: ben.me.member.id }],
+    })
+  })
+
+  it('refuses an answer’s send by a manager taken out of the managers after it was drafted', async () => {
+    const agent = await startChannelAgent()
+    const { draft } = await askAndAnswer(dee, agent)
+    const group = (await ben.api('GET', '/channels/wiki')).json.managedBy
+    await ben.api('PUT', `/groups/${group}/members`, { memberIds: [ben.me.member.id] })
+    expect((await cy.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })).status).toBe(404)
+    expect((await storedRows(server, 'notes')).find((row) => row.id === draft.id)?.status).toBe('draft')
   })
 })
 
@@ -309,6 +429,35 @@ describe('Rule 2: drafts are invisible to recipients', () => {
         agentName: 'Ben agent',
       },
     ])
+  })
+
+  it('hides a channel agent’s answer from the person who asked, everywhere, even when they manage the channel', async () => {
+    const agent = await startChannelAgent()
+    for (const asker of [dee, cy]) {
+      const { question, draft } = await askAndAnswer(asker, agent)
+      expect((await asker.api('GET', `/notes/${draft.id}`)).status).toBe(404)
+      expect((await asker.api('GET', `/reviews/${draft.id}`)).status).toBe(404)
+      expect(JSON.stringify((await asker.api('GET', '/reviews')).json)).not.toContain(SECRET_ANSWER)
+      expect(
+        JSON.stringify((await asker.api('GET', `/conversations/${question.conversationId}/notes`)).json),
+      ).not.toContain(SECRET_ANSWER)
+      expect(JSON.stringify((await asker.api('GET', '/search?q=secret')).json)).not.toContain(SECRET_ANSWER)
+      expect(JSON.stringify((await asker.api('GET', '/inbox')).json)).not.toContain(SECRET_ANSWER)
+      expect(JSON.stringify((await asker.api('GET', '/events/poll')).json)).not.toContain(SECRET_ANSWER)
+      await ben.api('POST', `/drafts/${draft.id}/discard`)
+    }
+  })
+
+  it('shows a channel agent’s answer to its reviewers only through the review routes', async () => {
+    const agent = await startChannelAgent()
+    const { question, draft } = await askAndAnswer(dee, agent)
+    expect((await ben.api('GET', `/reviews/${draft.id}`)).json.note.body).toBe(SECRET_ANSWER)
+    expect((await ben.api('GET', `/notes/${draft.id}`)).status).toBe(404)
+    expect(
+      JSON.stringify((await ben.api('GET', `/conversations/${question.conversationId}/notes`)).json),
+    ).not.toContain(SECRET_ANSWER)
+    expect(JSON.stringify((await ben.api('GET', '/search?q=secret')).json)).not.toContain(SECRET_ANSWER)
+    expect((await ana.api('GET', `/reviews/${draft.id}`)).status).toBe(404)
   })
 })
 
@@ -506,6 +655,66 @@ describe('Rule 3: no model-facing credential can approve, change contacts, or re
       ].map((what) => `${file}: ${what}`)
     })
     expect(named).toEqual([])
+  })
+
+  it('keeps running a channel’s agent and reviewing its answers to people, out of every tool and gateway', () => {
+    const agentRoutes: RouteName[] = [
+      'channels.agent.get',
+      'channels.agent.create',
+      'channels.agent.rename',
+      'channels.agent.retire',
+      'channels.agent.credentials.revoke',
+      'channels.askPrivately',
+      'reviews.list',
+      'reviews.get',
+      'device.decide',
+    ]
+    for (const name of agentRoutes) {
+      expect([name, contract[name].access]).toEqual([name, 'human'])
+      expect(humanOnlyRoutes).toContain(name)
+      expect(MCP_ROUTES).not.toContain(name)
+      expect(A2A_ROUTES).not.toContain(name)
+    }
+  })
+
+  it('refuses every channel agent route to an agent credential, the agent’s own and a manager’s', async () => {
+    const agent = await startChannelAgent()
+    for (const [method, path] of [
+      ['GET', '/channels/wiki/agent'],
+      ['PUT', '/channels/wiki/agent'],
+      ['PATCH', '/channels/wiki/agent'],
+      ['DELETE', '/channels/wiki/agent'],
+      ['DELETE', '/channels/wiki/agent/credentials/cred_any000000000'],
+      ['POST', '/channels/wiki/private-question'],
+      ['GET', '/reviews'],
+    ] as const)
+      expect([
+        path,
+        (await agent.api(method, path, method === 'GET' ? undefined : { name: 'x' })).status,
+      ]).toEqual([path, 403])
+  })
+
+  it('revokes a channel agent’s credential when the manager who issued it leaves the managers', async () => {
+    const agent = await startChannelAgent()
+    expect((await agent.api('GET', '/me')).status).toBe(200)
+    const group = (await ben.api('GET', '/channels/wiki')).json.managedBy
+    await cy.api('PUT', `/groups/${group}/members`, { memberIds: [cy.me.member.id] })
+    expect((await agent.api('GET', '/me')).status).toBe(401)
+    const revoked = (await storedRows(server, 'audit_events')).filter(
+      (row) => row.event === 'credential.revoked',
+    )
+    expect(revoked.map((row) => JSON.parse(String(row.detail)))).toEqual([{ because: 'issuer_left' }])
+  })
+
+  it('refuses a channel agent’s token while channel agents are off', async () => {
+    const agent = await startChannelAgent()
+    const settings = (await ana.api('GET', '/admin/settings')).json
+    await ana.api('PUT', '/admin/settings', {
+      ...settings,
+      features: { ...settings.features, channelAgents: false },
+    })
+    expect((await agent.api('GET', '/me')).status).toBe(401)
+    expect((await agent.api('GET', '/inbox')).status).toBe(401)
   })
 })
 
@@ -1175,6 +1384,45 @@ describe('Rule 6: a member sees only conversations they participate in', () => {
       expect((await dee.api('GET', `/conversations/${room}/notes`)).status).toBe(404)
       expect((await dee.api('GET', `/notes/${question.id}`)).status).toBe(404)
     })
+  })
+
+  it('gives an administrator no view of a private question, and no way to run a channel’s agent', async () => {
+    expect(ana.me.member.role).toBe('admin')
+    const agent = await startChannelAgent()
+    const room = (await dee.api('POST', '/channels/wiki/private-question')).json
+    expect((await ana.api('GET', `/conversations/${room.id}`)).status).toBe(404)
+    expect((await ana.api('GET', `/conversations/${room.id}/notes`)).status).toBe(404)
+    expect((await ana.api('PUT', '/channels/wiki/agent', { name: 'Mine' })).status).toBe(403)
+    expect((await ana.api('GET', '/channels/wiki/agent')).status).toBe(403)
+    expect((await agent.api('GET', '/me')).status).toBe(200)
+  })
+
+  it('lets a channel’s agent into no room but its channel’s and its private questions', async () => {
+    const agent = await startChannelAgent()
+    const lobby = (await dee.api('POST', '/drafts', { channel: 'lobby', body: 'Hello lobby' })).json
+    const sent = (await dee.api('POST', `/drafts/${lobby.id}/send`, { expected: asRead(lobby) })).json
+    expect((await agent.api('GET', `/notes/${sent.id}`)).status).toBe(404)
+    expect((await agent.api('POST', '/drafts', { channel: 'lobby', body: 'Joining' })).status).toBe(403)
+    expect((await agent.api('POST', '/drafts', { to: [dee.me.member.id], body: 'Hi' })).status).toBe(403)
+    expect((await dee.api('POST', '/drafts', { to: [agent.id], body: 'Hi' })).status).toBe(403)
+    const lobbyRoom = (await dee.api('GET', '/channels/lobby')).json.conversationId
+    expect((await dee.api('GET', `/conversations/${lobbyRoom}`)).json.participantIds).not.toContain(agent.id)
+  })
+
+  it('refuses to sign anyone in as a channel’s agent, even with its own address', async () => {
+    const agent = await startChannelAgent()
+    const email = `${agent.id}@agents.invalid`
+    const settings = (await ana.api('GET', '/admin/settings')).json
+    await ana.api('PUT', '/admin/settings', {
+      ...settings,
+      allowedDomains: ['example.com', 'agents.invalid'],
+    })
+    await expect(server.signIn(email, 'Me')).rejects.toThrow(/sign-in refused/)
+    const failed = (await storedRows(server, 'audit_events')).filter(
+      (row) => row.event === 'authn.sign_in_failed',
+    )
+    expect(failed.map((row) => JSON.parse(String(row.detail)))).toEqual([{ reason: 'not_a_person' }])
+    expect((await ben.api('GET', '/channels/wiki/agent')).json.agent).toMatchObject({ id: agent.id, email })
   })
 })
 
