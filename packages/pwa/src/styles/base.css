@@ -161,6 +161,15 @@ input[type="radio"] {
   outline-offset: var(--hb-pixel);
 }
 
+/* The browser's own table colours its rows gray; tables take the theme's line colour instead. */
+table,
+thead,
+tbody,
+tfoot,
+tr {
+  border-color: var(--hb-color-line);
+}
+
 code,
 pre {
   font-family: var(--hb-font-mono);
