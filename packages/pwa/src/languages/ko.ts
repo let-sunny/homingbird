@@ -1228,6 +1228,11 @@ export const ko: Translation<typeof en> = {
     revoked: '연결 끊김',
     reviewsTitle: '나를 기다리는 답',
     reviewsNone: '기다리는 답이 없어요.',
+    decided: {
+      sentBy: '{name} 님이 이미 이 답을 보냈어요.',
+      sentByYou: '이 답은 이미 보냈어요.',
+      gone: '이 답은 더 이상 검토를 기다리지 않아요. 버려졌거나, 이제 내가 결정할 답이 아니에요.',
+    },
     reviewsWaiting: { other: '답 {count}개가 기다리고 있어요' },
     questionFrom: '{name} 님의 질문',
     askedPrivately: '비공개 질문',

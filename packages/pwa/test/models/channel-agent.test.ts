@@ -6,6 +6,7 @@ import {
   agentPanelModel,
   approvalLine,
   channelAgentPageModel,
+  decidedAnswerModel,
   deviceTargetsModel,
   privateQuestionNotice,
   reviewCardsModel,
@@ -202,6 +203,31 @@ describe('reviewCardsModel', () => {
     })
     useLanguage('ko')
     expect(reviewsWaitingModel([review()])?.text).toBe('답 1개가 기다리고 있어요')
+  })
+})
+
+describe('decidedAnswerModel', () => {
+  const members = new Map([[BEN, member(BEN, 'Ben')]])
+
+  it('names the manager who already sent the answer, or the person themself', () => {
+    const sent = (approvedBy: MemberId) => note('note_answer00000', { authorId: AGENT, approvedBy })
+    expect(decidedAnswerModel(sent(BEN), ANA, members)).toBe('Ben already sent this answer.')
+    expect(decidedAnswerModel(sent(ANA), ANA, members)).toBe(strings.channelAgent.decided.sentByYou)
+    expect(decidedAnswerModel(sent(CY), ANA, members)).toBe(
+      strings.channelAgent.decided.sentBy({ name: strings.formerMember }),
+    )
+    useLanguage('ko')
+    expect(decidedAnswerModel(sent(BEN), ANA, members)).toBe('Ben 님이 이미 이 답을 보냈어요.')
+  })
+
+  it('says only that the answer no longer waits when it cannot be read or was not sent by a manager', () => {
+    expect(decidedAnswerModel(null, ANA, members)).toBe(strings.channelAgent.decided.gone)
+    expect(decidedAnswerModel(note('note_answer00000', { authorId: AGENT }), ANA, members)).toBe(
+      strings.channelAgent.decided.gone,
+    )
+    expect(
+      decidedAnswerModel(draft('note_answer00000', { authorId: AGENT, approvedBy: BEN }), null, members),
+    ).toBe(strings.channelAgent.decided.gone)
   })
 })
 

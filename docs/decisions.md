@@ -21,6 +21,12 @@ states the decision first, then the reason. Add new entries at the top of their 
   conversation list still shows what waits. Only the new answer's event notifies; an agent's later edits
   do not: the server does not know who has read a card, and the card already asks to read a changed
   answer again. Like every push, nothing is audited and `push.delivered` logs carry no content.
+- **A decided draft's notification is closed by an open page, never by a push.** Browsers require every
+  push to show a notification (`userVisibleOnly`), so a silent "close it" push would show a generic one;
+  instead each draft's push carries the tag `review:<id>` or `draft:<id>`, so a repeat replaces it, a
+  page that loads the waiting answers or hears the draft was sent or discarded closes it on its device,
+  and a card opened from one left on a device with no page open says who already sent the answer (read
+  with `notes.get`, so a discarded one only says it no longer waits).
 - **Muting belongs to one person and one conversation, and the server decides every push.** A person
   mutes a direct message or a channel (`conversations.mute`, `conversations.unmute`) and chooses which
   conversations may notify their devices (`me.notifications.set`: `all`, `direct` or `none`). All three

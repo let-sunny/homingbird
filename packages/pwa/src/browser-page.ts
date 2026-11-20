@@ -30,6 +30,12 @@ export const browserPage = (window: BrowserWindow): Page => {
       'serviceWorker' in window.navigator &&
       'PushManager' in window &&
       'Notification' in window,
+    shownNotifications: () =>
+      Promise.resolve()
+        .then(() => window.navigator?.serviceWorker?.getRegistration?.())
+        .then((registration) => registration?.getNotifications() ?? [])
+        .then((shown) => shown.map((one) => ({ tag: one.tag, close: () => one.close() })))
+        .catch(() => []),
     supportsHintPopovers: () => {
       const probe = document.createElement('div')
       probe.setAttribute('popover', 'hint')
@@ -91,6 +97,8 @@ export interface Page {
   readonly supportsAnchors: () => boolean
   /** Whether this browser can subscribe to push notifications. */
   readonly supportsPush: () => boolean
+  /** The notifications this app shows on this device; none where it has no service worker. */
+  readonly shownNotifications: () => Promise<ReadonlyArray<ShownNotification>>
   /** Whether popovers of the `hint` kind exist, which leave other open popovers alone. */
   readonly supportsHintPopovers: () => boolean
   readonly storage: PageStorage
@@ -98,6 +106,11 @@ export interface Page {
   /** The text of a file the person chose, read in this browser only. */
   readonly readText: (file: Blob) => Promise<string>
   readonly watchInView: (root: HTMLElement, onChange: (entries: ReadonlyArray<InView>) => void) => InViewWatch
+}
+
+export interface ShownNotification {
+  readonly tag: string
+  readonly close: () => void
 }
 
 export type PageEvent = 'online' | 'offline' | 'visibilitychange' | 'hashchange' | 'resize'
@@ -136,7 +149,9 @@ export interface BrowserWindow {
   >
   readonly location: Pick<Location, 'origin' | 'hash' | 'replace' | 'assign'>
   readonly history: Pick<History, 'replaceState'>
-  readonly navigator?: Pick<Navigator, 'languages'> & { readonly serviceWorker?: unknown }
+  readonly navigator?: Pick<Navigator, 'languages'> & {
+    readonly serviceWorker?: { readonly getRegistration?: () => Promise<NotificationSource | undefined> }
+  }
   readonly fetch: Fetch
   readonly addEventListener: (type: string, listener: () => void) => void
   readonly removeEventListener: (type: string, listener: () => void) => void
@@ -149,6 +164,11 @@ export interface BrowserWindow {
   readonly URL: Pick<typeof URL, 'createObjectURL' | 'revokeObjectURL'>
   readonly Blob: typeof Blob
   readonly IntersectionObserver: typeof IntersectionObserver
+}
+
+/** A service worker registration, as far as the page reads the notifications it shows. */
+export interface NotificationSource {
+  readonly getNotifications: () => Promise<ReadonlyArray<Pick<Notification, 'tag' | 'close'>>>
 }
 
 /** Share of an item that must show for it to count as in view. */

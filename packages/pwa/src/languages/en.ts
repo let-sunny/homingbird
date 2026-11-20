@@ -1268,6 +1268,11 @@ export const en = {
     revoked: 'Disconnected',
     reviewsTitle: 'Answers waiting for you',
     reviewsNone: 'No answer is waiting for you.',
+    decided: {
+      sentBy: '{name} already sent this answer.',
+      sentByYou: 'You already sent this answer.',
+      gone: 'This answer no longer waits for your review: it was discarded, or is no longer yours to decide.',
+    },
     reviewsWaiting: {
       one: '{count} answer is waiting for you',
       other: '{count} answers are waiting for you',

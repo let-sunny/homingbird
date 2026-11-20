@@ -7,7 +7,7 @@ import { agentButtons, channelAgentView, reviewsWaiting } from '../../src/views/
 import { dialogHost } from '../../src/views/dialog.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
-import { ANA, CY, channel, draft, everything, me, member, note } from '../support/fixtures.ts'
+import { ANA, CY, channel, draft, entry, everything, me, member, note } from '../support/fixtures.ts'
 
 usingFakeDom()
 
@@ -162,6 +162,50 @@ describe('channelAgentView', () => {
     context.state.reviews.set([review()])
     page.runFrames()
     expect(document.activeElement).toBe(document.body)
+  })
+})
+
+describe('the answer a stale notification opened', () => {
+  const openedFor = (focus: string) => {
+    const { context, called } = testContext()
+    context.state.session.set(me())
+    context.state.serverInfo.set(everything())
+    context.state.channelsLoaded.set(true)
+    context.state.channels.set([wiki])
+    context.state.directory.set([entry(CY, 'Cy')])
+    const shown = mount(channelAgentView(context, lifetime(), 'payments-wiki', focus))
+    return { context, called, shown }
+  }
+
+  it('says who already sent it instead of showing nothing', () => {
+    const { called, shown } = openedFor('note_answer00000')
+    called('loadReviews')[0]!.then!.done!(undefined)
+    const asked = called('loadDecidedAnswer')
+    expect(asked.map((call) => call.args)).toEqual([['note_answer00000']])
+    asked[0]!.then!.done!(note('note_answer00000', { authorId: AGENT, approvedBy: CY }))
+    expect(getByRole(shown, 'status').textContent).toBe('Cy already sent this answer.')
+  })
+
+  it('asks once, when the card it opened leaves the list, and not while it waits', () => {
+    const { context, called, shown } = openedFor('note_answer00000')
+    context.state.reviews.set([review()])
+    called('loadReviews')[0]!.then!.done!(undefined)
+    expect(called('loadDecidedAnswer')).toHaveLength(0)
+    context.state.reviews.set([])
+    context.state.reviews.set([])
+    expect(called('loadDecidedAnswer')).toHaveLength(1)
+    called('loadDecidedAnswer')[0]!.then!.done!(null)
+    expect(textOf(shown)).toContain(strings.channelAgent.decided.gone)
+  })
+
+  it('asks nothing when no notification opened the page', () => {
+    const { context, called } = testContext()
+    context.state.serverInfo.set(everything())
+    context.state.channelsLoaded.set(true)
+    context.state.channels.set([wiki])
+    mount(channelAgentView(context, lifetime(), 'payments-wiki', null))
+    called('loadReviews')[0]!.then!.done!(undefined)
+    expect(called('loadDecidedAnswer')).toHaveLength(0)
   })
 })
 

@@ -23,14 +23,16 @@ const agentView: AsRead.ChannelAgent = {
 }
 
 describe('the channel agent tasks', () => {
-  it('load the waiting answers only while channel agents are on', async () => {
-    const { run, state, routes } = testApp({ 'reviews.list': () => ({ reviews: [review()] }) })
+  it('load the waiting answers only while channel agents are on, and close the notices of the others', async () => {
+    const { run, state, routes, page } = testApp({ 'reviews.list': () => ({ reviews: [review()] }) })
     state.serverInfo.set(serverInfo())
     await run(tasks.loadReviews)
     expect(routes()).toEqual([])
     state.serverInfo.set(everything())
+    page.notifications.add(`review:${review().note.id}`).add('review:note_sent000000')
     await run(tasks.loadReviews)
     expect(state.reviews.get()).toEqual([review()])
+    expect([...page.notifications]).toEqual([`review:${review().note.id}`])
     expect(state.reviewsRead.get().get(review().note.id)).toEqual({
       body: review().note.body,
       conversationId: review().note.conversationId,
@@ -83,6 +85,16 @@ describe('the channel agent tasks', () => {
     const changed = review({ note: { ...review().note, body: 'New' } })
     await run(tasks.confirmReviewRead(changed))
     expect(state.reviewsRead.get().get(changed.note.id)?.body).toBe('New')
+  })
+
+  it('learn what became of an answer: the note once sent, nothing when it cannot be read', async () => {
+    const answer = note('note_answer00000', { authorId: AGENT, approvedBy: CY })
+    const sent = testApp({ 'notes.get': () => answer })
+    expect(await sent.run(tasks.loadDecidedAnswer(answer.id))).toEqual({ _tag: 'Ok', value: answer })
+    const gone = testApp({ 'notes.get': () => fail(NotFound({ message: 'No such note.' })) })
+    expect(await gone.run(tasks.loadDecidedAnswer(answer.id))).toEqual({ _tag: 'Ok', value: null })
+    const refused = testApp({ 'notes.get': () => fail(Forbidden({ message: 'No.' })) })
+    expect((await refused.run(tasks.loadDecidedAnswer(answer.id)))._tag).toBe('Err')
   })
 
   it('load a channel’s agent, forgetting it when there is none, and refusing other failures', async () => {
