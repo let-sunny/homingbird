@@ -18,6 +18,8 @@ import {
 import { managersOf, visibleChannel } from './channel-rows.ts'
 import { type OrganizationActivity, organizationInsightsOf } from './organization-figures.ts'
 import { PLACE_COLUMNS, PLACE_JOIN, type PlaceRow, placeOf } from './places.ts'
+import { featureIsOn } from './settings.ts'
+import type { TeamMembership } from './team-figures.ts'
 import {
   type AgentActivity,
   DAY_MS,
@@ -191,6 +193,7 @@ const organizationActivity = (
       FROM receipts r JOIN notes n ON n.id = r.note_id JOIN members m ON m.id = r.member_id AND m.kind = 'person'
       WHERE n.status = 'sent' AND n.debate_id IS NULL AND n.sent_at >= ${since} AND r.member_id <> n.author_id`)
     return {
+      ...((yield* featureIsOn('groups')) && { teams: yield* teamMembership }),
       sent: sent.map((row) => ({
         id: row.id,
         authorId: row.author_id,
@@ -211,6 +214,25 @@ const organizationActivity = (
       })),
     }
   })
+
+const teamMembership: T.Task<TeamMembership, never, AppEnv> = T.gen(function* () {
+  const teams = yield* all<{ id: string; name: string }>(
+    sql`SELECT id, name FROM member_groups WHERE kind = 'team' AND name IS NOT NULL ORDER BY id`,
+  )
+  const spans = yield* all<{ group_id: string; member_id: string; since: number; until: number | null }>(sql`
+    SELECT s.group_id, s.member_id, s.since, s.until FROM group_member_spans s
+    JOIN member_groups g ON g.id = s.group_id AND g.kind = 'team'
+    ORDER BY s.group_id, s.member_id, s.since`)
+  return {
+    teams,
+    spans: spans.map((span) => ({
+      teamId: span.group_id,
+      memberId: span.member_id,
+      since: Number(span.since),
+      until: optionalNumber(span.until),
+    })),
+  }
+})
 
 const channelAgentActivity = (
   room: ConversationId,

@@ -526,7 +526,11 @@ times, not verdicts:
   smaller groups and anything that would let the shown totals give one away.
 
 The figures are computed when the page is opened, from the last 60 days of notes, decisions and skips.
-Teams are not built yet, so only organization-wide numbers are shown.
+Teams get rows of their own, alphabetically: people who sent notes, notes sent, draft decisions,
+quick approvals, the typical decision time and skips, counting a person for a team on every UTC day
+they were in it. With a raised minimum, a team is left out when it, or a group of people who share the
+same teams, is smaller, and the page says how many teams were left out. With groups switched off, no
+team row is shown.
 
 ## Features
 

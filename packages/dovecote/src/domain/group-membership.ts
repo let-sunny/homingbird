@@ -40,6 +40,7 @@ import {
   requireAvailableGroupName,
   requireMayChangeGroup,
 } from './group-rows.ts'
+import { addToGroup, removeFromGroup } from './group-spans.ts'
 import { describeGroup, groupViewerOf, lockedGroup } from './groups.ts'
 
 /**
@@ -151,9 +152,7 @@ const joinGroup = (
   removed: ReadonlyArray<MemberId>,
 ): T.Task<void, never, RequestEnv> =>
   T.gen(function* () {
-    const target = yield* dialect
-    for (const member_id of added)
-      yield* run(insertIgnoringConflict(target, 'group_members', { group_id: group.id, member_id }))
+    for (const memberId of added) yield* addToGroup(group.id, memberId)
     if (channel === null) return yield* announceGroups([group.id])
     yield* admit(caller, channel, added)
     yield* followManagers(caller.member.id, channel)
@@ -192,4 +191,4 @@ const lockedGroupsOf = (
   })
 
 const leaveGroup = (id: GroupId, memberId: MemberId): T.Task<number, never, RequestEnv> =>
-  run(sql`DELETE FROM group_members WHERE group_id = ${id} AND member_id = ${memberId}`)
+  removeFromGroup(id, memberId)

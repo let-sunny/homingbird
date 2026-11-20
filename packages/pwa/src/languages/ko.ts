@@ -928,6 +928,17 @@ export const ko: Translation<typeof en> = {
     skippedColumn: '건너뜀',
     noPlaces: '따로 보여 줄 만큼 사람이 많은 채널이 없어요.',
     hiddenPlaces: { other: '사람이 적은 그룹 {count}개는 보여 주지 않아요.' },
+    teamsTitle: '팀별',
+    teamColumn: '팀',
+    peopleColumn: '노트를 보낸 사람',
+    editedColumn: '수정 후 보냄',
+    discardedColumn: '버림',
+    quickColumn: '빠른 승인',
+    decisionTimeColumn: '결정하기까지 보통 걸린 시간',
+    noTeamRows: '따로 보여 줄 만큼 사람이 많은 팀이 없어요.',
+    hiddenTeams: { other: '사람이 적은 팀 {count}개는 보여 주지 않아요.' },
+    teamsExplained:
+      '사람은 팀에 속해 있던 날(UTC 기준, 하루 중 잠깐이라도)마다 그 팀에 세요. 두 팀에 속한 사람은 두 팀 모두에 세요.',
   },
   start: {
     title: '여기서 시작해 보세요',
@@ -1199,6 +1210,7 @@ export const ko: Translation<typeof en> = {
       delivery: '받은 노트 중 에이전트를 연결한 사람에게 간 노트 수와, 에이전트가 얼마나 빨리 가져갔는지.',
       channelAgents:
         '관리자가 볼 수 있는 채널에서 채널 에이전트가 쓴 답변 합계와, 그대로 보낸 것, 수정 후 보낸 것, 버린 것의 수.',
+      teams: '팀마다 같은 수를 이름순으로 보여 주고, 보여 주기에 너무 작은 팀은 빼요.',
       blocks: '사람 사이의 차단 수. 누가 누구를 차단했는지는 보여 주지 않아요.',
     },
   },

@@ -100,6 +100,48 @@ describe('insightsModel', () => {
     expect(older.rows.map((row) => row[0])).not.toContain(rows.channelAgentAnswers)
   })
 
+  it('lists teams with hidden figures as hidden, says when none can be shown, and drops the no-teams warning', () => {
+    const team = {
+      team: 'Payments',
+      activeMembers: 5,
+      notesSent: 7,
+      sentAsWritten: null,
+      sentAfterEdits: null,
+      discarded: null,
+      quickApprovals: null,
+      medianDecisionMs: null,
+      skipped: 1,
+    }
+    const model = insightsModel(
+      insights({
+        periods: [{ days: 30, current: organization({ teams: [team], hiddenTeams: 0 }), previous: null }],
+      }),
+      30,
+    )
+    const teams = figuresOf(model).teams!
+    expect(teams.rows).toEqual([
+      ['Payments', '5', '7', ...Array.from({ length: 5 }, () => strings.insights.hidden), '1'],
+    ])
+    expect(teams.hidden).toBeNull()
+    expect(model.kind === 'insights' && model.warnings).not.toContain(strings.insights.noTeams)
+    const none = insightsModel(
+      insights({
+        periods: [{ days: 30, current: organization({ teams: [], hiddenTeams: 3 }), previous: null }],
+      }),
+      30,
+    )
+    expect(figuresOf(none).teams).toMatchObject({
+      none: strings.insights.noTeamRows,
+      hidden: strings.insights.hiddenTeams({ count: 3 }),
+    })
+    const empty = insightsModel(
+      insights({ periods: [{ days: 30, current: organization({ teams: [] }), previous: null }] }),
+      30,
+    )
+    expect(empty.kind === 'insights' && empty.warnings[0]).toBe(strings.insights.noTeams)
+    expect(figuresOf(insightsModel(insights(), 30)).teams).toBeNull()
+  })
+
   it('falls back to the first period, and says when a period has too few people', () => {
     const model = insightsModel(
       insights({ periods: [{ days: 7, current: null, previous: null }], blocks: null }),

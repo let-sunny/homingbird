@@ -319,12 +319,18 @@ states the decision first, then the reason. Add new entries at the top of their 
   these would give away (`placesShown`, which also counts a hidden group nobody is known in), and only
   from open channels and the private ones they are in. Every minimum counts the people active in the
   period, never the size of a roster.
-- **Team figures wait for a primary team per person.** Teams overlap, and a team's totals beside the
-  others' and the organization's isolate the few people two teams share unless every cell of people
-  who share the same shown teams has the minimum (`teamsShown`). Measured on 1,000 organizations of 50
-  people with 6 freely overlapping teams of 3 to 12, that rule shows 23% of teams and 33% at best,
-  against 75% with one primary team per person (`scripts/pilot-measure.ts --teams`); so team figures
-  are not built until a person has one primary team.
+- **Teams get rows of their own in Insights, counted by whole UTC days.** A person counts for a team on
+  every UTC day they were in it for any part of, from `group_member_spans` (since and until per
+  membership, written by every change to a group, deletion and deactivation included; a span from 0
+  began before records), so moving between teams moves their figures from that day, and someone in
+  two teams counts in both. Rows are alphabetical, never ranked, and never merged into an "others"
+  row. With a raised minimum a team is shown only while every cell of people who share the same shown
+  teams has that many (`teamsShown`), its decisions only while the cells of the people who decided
+  pass too, and its typical decision time, a median that no subtraction undoes, only while those
+  decisions are shown and that many people decided a draft they had seen; the rest are counted ("2
+  teams with too few people are not shown"). Overlapping teams make that rule hide most teams at a
+  minimum of 5 (measured: 23% shown, against 75% with one primary team per person,
+  `scripts/pilot-measure.ts --teams`), which is a reason the default is 1.
 - **The agent page says what the numbers mean in words, beside the numbers, and never collapses them
   into one score.** A single trust score hides which channel is trusted and why, invites chasing the
   number by approving faster, and grades the person rather than the agent. The server reads a verdict

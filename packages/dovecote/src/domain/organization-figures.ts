@@ -8,8 +8,9 @@ import type {
 } from '@homingbird/protocol'
 import { type ReviewedDraft, channelAgentTotalsIn } from './channel-agent-figures.ts'
 import { type ReceivedNote, deliveryIn } from './delivery-figures.ts'
-import { peopleOf, placesShown } from './disclosure.ts'
+import { isEnough, peopleOf, placesShown } from './disclosure.ts'
 import { quickWeeksOf } from './quick-weeks.ts'
+import { type TeamMembership, teamRowsIn } from './team-figures.ts'
 import {
   type AgentDraft,
   type Decisions,
@@ -57,6 +58,8 @@ export interface OrganizationActivity {
   /** Sent debate results: neither agent drafts nor notes, so they count only here. */
   readonly debateResults?: ReadonlyArray<{ readonly authorId: string; readonly sentAt: number }>
   readonly channelAgentDrafts?: ReadonlyArray<ReviewedDraft>
+  /** Absent while groups are switched off, so no team row is shown. */
+  readonly teams?: TeamMembership
 }
 
 export interface PrivacySettings {
@@ -73,7 +76,7 @@ export const organizationInsightsOf = (
   generatedAt: now,
   quickApprovalSeconds: settings.quickApprovalSeconds,
   minimumGroupSize: settings.minimumGroupSize,
-  blocks: people.members >= settings.minimumGroupSize ? people.blocks : null,
+  blocks: isEnough(people.members, settings.minimumGroupSize) ? people.blocks : null,
   periods: PERIOD_DAYS.map((days) => ({
     days,
     current: organizationFiguresIn(activity, periodEndingAt(now, days, 0), now, settings),
@@ -91,7 +94,7 @@ export const organizationFiguresIn = (
 ): OrganizationFigures | null => {
   const sent = activity.sent.filter((note) => isIn(window, note.sentAt))
   const activeMembers = new Set(sent.map((note) => note.authorId)).size
-  if (activeMembers < settings.minimumGroupSize) return null
+  if (!isEnough(activeMembers, settings.minimumGroupSize)) return null
   const decided = activity.drafts.filter((draft) => isIn(window, draft.decidedAt) && draft.outcome !== null)
   const skips = activity.skips.filter((skip) => isIn(window, skip.at))
   const newNotes = sent.filter((note) => note.inReplyTo === null)
@@ -105,7 +108,10 @@ export const organizationFiguresIn = (
     [...groups.values()].map((group) => ({ place: group.totals.place, people: group.people })),
     settings.minimumGroupSize,
   )
-  const draftsShown = peopleOf(decided.map((draft) => draft.authorId)).size >= settings.minimumGroupSize
+  const draftsShown = isEnough(
+    peopleOf(decided.map((draft) => draft.authorId)).size,
+    settings.minimumGroupSize,
+  )
   const decidedPlaces = placesShown(
     [...Map.groupBy(decided, (draft) => draft.place)].map(([place, drafts]) => ({
       place,
@@ -139,6 +145,9 @@ export const organizationFiguresIn = (
     medianDecisionMs: medianDecisionShown(decided, settings.minimumGroupSize),
     authorship: draftsShown ? authorshipOf(sent) : null,
     delivery: deliveryIn(activity.received, window, now, settings.minimumGroupSize),
+    ...(activity.teams === undefined
+      ? {}
+      : teamRowsIn(activity, activity.teams, window, settings, draftsShown)),
     channelAgents: channelAgentTotalsIn(
       activity.channelAgentDrafts ?? [],
       decided,
@@ -155,7 +164,7 @@ const debateResultsShown = (
   minimum: number,
 ): number | null => {
   const sent = (activity.debateResults ?? []).filter((note) => isIn(window, note.sentAt))
-  return new Set(sent.map((note) => note.authorId)).size >= minimum ? sent.length : null
+  return isEnough(new Set(sent.map((note) => note.authorId)).size, minimum) ? sent.length : null
 }
 
 /** The typical decision time, or null while fewer people than the minimum have a decision with a time. */
@@ -164,7 +173,7 @@ const medianDecisionShown = (decided: ReadonlyArray<MemberDraft>, minimum: numbe
     const time = decisionTime(draft)
     return time === null ? [] : [{ authorId: draft.authorId, time }]
   })
-  return peopleOf(timed.map((draft) => draft.authorId)).size >= minimum
+  return isEnough(peopleOf(timed.map((draft) => draft.authorId)).size, minimum)
     ? median(timed.map((draft) => draft.time))
     : null
 }

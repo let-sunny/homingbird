@@ -328,21 +328,16 @@ time); for administrators, organization-wide, the typical decision time, who wro
 at 25% for 2 weeks; and **What is measured**, a page every member can open, with a test that fails for a
 figure it does not name; and **How #channel's agent is doing** on a channel's agent page, for its
 managers only, with the answers each manager sent, a manager's approvals in their week apart from
-their notes, and channel agents' totals for administrators. Still to come:
+their notes, and channel agents' totals for administrators; and rows per team, counted by whole UTC
+days from each membership's history. Still to come:
 
 - **Quick-approval warning per team, and as settings**: the 25% and 2 weeks are constants today
   (`QUICK_APPROVAL_SHARE`, `QUICK_WARNING_WEEKS` in `protocol`), organization-wide only.
-- **Numbers per team, through a primary team per person.** Teams overlap, so a team's totals beside
-  another's and the organization's can give away the few people they share. The rule that keeps that
-  safe (`teamsShown` in `dovecote/src/domain/disclosure.ts`: every cell of people who share the same
-  shown teams has at least 5) hides most teams when they overlap freely: in 1,000 organizations of 50
-  people with 6 teams of 3 to 12 (`npx tsx scripts/pilot-measure.ts --teams`), 4,818 of 6,000 teams
-  had 5 people, the rule showed 1,373 (23%), the best possible choice 1,964 (33%), and only 24
-  organizations (113 at best) showed half their teams. With one primary team per person it showed
-  4,513 (75%), and 992 organizations showed half. So team figures wait for a primary team, chosen per
-  person by an administrator, with its own membership history (`group_member_spans`, since and until
-  per membership, written at every change and at deactivation); teams too small are left out with a
-  count, never merged into an "others" row, and a team's medians need its cells to pass too.
+- **A primary team per person**, if organizations raise the minimum: overlapping teams make the cell
+  rule (`teamsShown`) hide most of them. In 1,000 organizations of 50 people with 6 freely overlapping
+  teams of 3 to 12 at a minimum of 5 (`npx tsx scripts/pilot-measure.ts --teams`), it showed 23% of
+  teams (33% at best), against 75% with one primary team per person. At the default of 1 nothing is
+  hidden, so this waits until an organization asks.
 - **Privacy, binding for all of it:** numbers only, never note content. An administrator sees team
   totals, never one person's approval figures. Groups under the configured minimum are hidden. Blocks are a count,
   never who blocked whom.

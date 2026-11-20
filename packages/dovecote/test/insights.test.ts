@@ -234,6 +234,54 @@ describe('admin.insights by default', () => {
   })
 })
 
+describe('team rows in admin.insights', () => {
+  it('shows a two-person team by name with totals only, and nothing about teams while groups are off', async () => {
+    for (const groups of ['on', 'off']) {
+      const small = await startTestServer({ HB_FEATURES: `groups=${groups}` })
+      try {
+        const first = await small.signIn('ana@example.com', 'Ana')
+        const second = await small.signIn('ben@example.com', 'Ben')
+        if (groups === 'on')
+          await first.api('POST', '/admin/groups', {
+            name: 'Payments',
+            memberIds: [first.me.member.id, second.me.member.id],
+          })
+        for (const person of [first, second]) {
+          const draft = (
+            await person.api('POST', '/drafts', {
+              to: [first.me.member.id === person.me.member.id ? second.me.member.id : first.me.member.id],
+              body: 'Hi',
+            })
+          ).json
+          await person.api('POST', `/drafts/${draft.id}/send`, await asShown(person, draft.id))
+        }
+        const current = (await first.api('GET', '/admin/insights')).json.periods[0].current
+        if (groups === 'off') {
+          expect(current.teams).toBeUndefined()
+          continue
+        }
+        expect(current.teams).toEqual([
+          {
+            team: 'Payments',
+            activeMembers: 2,
+            notesSent: 2,
+            sentAsWritten: 0,
+            sentAfterEdits: 0,
+            discarded: 0,
+            quickApprovals: 0,
+            medianDecisionMs: null,
+            skipped: 0,
+          },
+        ])
+        expect(current.hiddenTeams).toBe(0)
+        expect(JSON.stringify(current)).not.toContain(first.me.member.id)
+      } finally {
+        await small.close()
+      }
+    }
+  })
+})
+
 describe('admin.insights', () => {
   const team = async (count: number): Promise<Session[]> => {
     const people: Session[] = [ana, ben]

@@ -130,6 +130,20 @@ export const Delivery = S.struct({
 })
 export type Delivery = S.Infer<typeof Delivery>
 
+/** A team's totals, counting each person for the whole UTC days they were in it; decisions null while hidden. */
+export const TeamTotals = S.struct({
+  team: S.string({ minLength: 1, maxLength: 80 }),
+  activeMembers: count,
+  notesSent: count,
+  sentAsWritten: S.nullable(count),
+  sentAfterEdits: S.nullable(count),
+  discarded: S.nullable(count),
+  quickApprovals: S.nullable(count),
+  medianDecisionMs: S.nullable(count),
+  skipped: count,
+})
+export type TeamTotals = S.Infer<typeof TeamTotals>
+
 export const ChannelAgentTotals = S.struct({
   written: count,
   sentAsWritten: count,
@@ -162,6 +176,8 @@ export const OrganizationFigures = S.struct({
   authorship: S.optional(S.nullable(Authorship)),
   delivery: S.optional(S.nullable(Delivery)),
   channelAgents: S.optional(S.nullable(ChannelAgentTotals)),
+  teams: S.optional(S.array(TeamTotals)),
+  hiddenTeams: S.optional(count),
 })
 export type OrganizationFigures = S.Infer<typeof OrganizationFigures>
 

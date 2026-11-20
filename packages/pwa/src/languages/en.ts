@@ -958,6 +958,20 @@ export const en = {
       one: '{count} group with too few people is not shown.',
       other: '{count} groups with too few people are not shown.',
     },
+    teamsTitle: 'By team',
+    teamColumn: 'Team',
+    peopleColumn: 'People who sent notes',
+    editedColumn: 'Edited, then sent',
+    discardedColumn: 'Discarded',
+    quickColumn: 'Quick approvals',
+    decisionTimeColumn: 'Typical time to decide',
+    noTeamRows: 'No team has enough people to show on its own.',
+    hiddenTeams: {
+      one: '{count} team with too few people is not shown.',
+      other: '{count} teams with too few people are not shown.',
+    },
+    teamsExplained:
+      'A person counts for a team on each whole day, in UTC, they were in it for any part of. People in two teams count in both.',
   },
   start: {
     title: 'Where to start',
@@ -1238,6 +1252,7 @@ export const en = {
         'How many received notes went to someone with an agent, and how soon the agent picked them up.',
       channelAgents:
         'Channels’ agents’ answers together, and how many were sent as written, edited first or discarded, in the channels the administrator may read.',
+      teams: 'The same counts for each team, alphabetically, leaving out teams too small to show.',
       blocks: 'How many blocks there are between people, never who blocked whom.',
     },
   },

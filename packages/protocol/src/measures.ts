@@ -149,6 +149,21 @@ export const MEASURES = [
       'channelAgents.discarded',
     ],
   },
+  {
+    key: 'teams',
+    audience: 'administrators',
+    fields: [
+      'teams.activeMembers',
+      'teams.notesSent',
+      'teams.sentAsWritten',
+      'teams.sentAfterEdits',
+      'teams.discarded',
+      'teams.quickApprovals',
+      'teams.medianDecisionMs',
+      'teams.skipped',
+      'hiddenTeams',
+    ],
+  },
   { key: 'blocks', audience: 'administrators', fields: ['blocks'] },
 ] as const satisfies ReadonlyArray<Measure>
 
@@ -180,6 +195,7 @@ export const NOT_MEASURES: ReadonlyArray<string> = [
   'agentName',
   'at',
   'channel',
+  'team',
   'memberId',
   'name',
 ]

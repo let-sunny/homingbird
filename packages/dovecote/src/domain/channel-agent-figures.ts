@@ -5,7 +5,7 @@ import type {
   ManagerApprovals,
   MemberId,
 } from '@homingbird/protocol'
-import { peopleOf, placesShown } from './disclosure.ts'
+import { isEnough, peopleOf, placesShown } from './disclosure.ts'
 import {
   type AgentDraft,
   PERIOD_DAYS,
@@ -80,8 +80,9 @@ const channelAgentFiguresIn = (
     ...decisionsOf(decided),
     medianDecisionMs: median(decided.flatMap((draft) => decisionTime(draft) ?? [])),
     quickApprovals: decided.filter((draft) => isQuickApproval(draft, settings.quickApprovalSeconds)).length,
-    approvals:
-      activity.managers.length >= settings.minimumGroupSize ? approvalsBy(activity.managers, decided) : null,
+    approvals: isEnough(activity.managers.length, settings.minimumGroupSize)
+      ? approvalsBy(activity.managers, decided)
+      : null,
   }
 }
 

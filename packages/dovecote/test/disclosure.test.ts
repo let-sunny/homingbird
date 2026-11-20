@@ -1,6 +1,6 @@
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { type Contribution, cellOf, placesShown, teamsShown } from '../src/domain/disclosure.ts'
+import { type Contribution, cellOf, isEnough, placesShown, teamsShown } from '../src/domain/disclosure.ts'
 
 const people = (count: number, prefix = 'm'): string[] =>
   Array.from({ length: count }, (_, i) => `${prefix}${i}`)
@@ -43,6 +43,14 @@ const combinations = (length: number): number[][] =>
   length === 0
     ? [[]]
     : combinations(length - 1).flatMap((rest) => [-1, 0, 1].map((weight) => [weight, ...rest]))
+
+describe('isEnough', () => {
+  it('needs the minimum of people, except at a minimum of 1, which hides nothing, not even an empty figure', () => {
+    expect(isEnough(0, 1)).toBe(true)
+    expect(isEnough(4, 5)).toBe(false)
+    expect(isEnough(5, 5)).toBe(true)
+  })
+})
 
 describe('teamsShown', () => {
   it('shows teams that do not overlap when each has the minimum', () => {

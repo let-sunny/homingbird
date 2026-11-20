@@ -76,3 +76,6 @@ const contributorsByTeam = (contributions: ReadonlyArray<Contribution>): Map<str
 /** The people among some contributors, leaving out those nobody knows. */
 export const peopleOf = (ids: Iterable<string | null>): Set<string> =>
   new Set([...ids].filter((id): id is string => id !== null))
+
+/** Whether a figure has enough people behind it; a minimum of 1 hides nothing, not even an empty figure. */
+export const isEnough = (people: number, minimum: number): boolean => minimum <= 1 || people >= minimum
