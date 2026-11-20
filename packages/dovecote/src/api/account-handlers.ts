@@ -5,7 +5,7 @@ import { clearCharacter, saveCharacter } from '../domain/characters.ts'
 import { chosenLocaleOf, directoryFor, updateOwnProfile } from '../domain/members.ts'
 import { notificationLevelOf, setNotificationLevel } from '../domain/notification-level.ts'
 import { featureIsOn, offeredFeatures, readSettings } from '../domain/settings.ts'
-import { viewerOf } from '../environment.ts'
+import { isHuman, viewerOf } from '../environment.ts'
 import { type RequestEnv, announceDirectoryChange } from '../events/events.ts'
 import { SERVER_VERSION } from '../version.ts'
 import type { Handlers } from './handlers.ts'
@@ -29,7 +29,8 @@ export const accountHandlers = {
     T.gen(function* () {
       const settings = yield* readSettings
       const locale = yield* chosenLocaleOf(caller.member.id)
-      const notifications = (yield* featureIsOn('mute')) ? yield* notificationLevelOf(caller.member.id) : null
+      const notifications =
+        isHuman(caller) && (yield* featureIsOn('mute')) ? yield* notificationLevelOf(caller.member.id) : null
       return {
         member: caller.member,
         credential: caller.credential,

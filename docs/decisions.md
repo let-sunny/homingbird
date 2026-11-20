@@ -15,7 +15,9 @@ states the decision first, then the reason. Add new entries at the top of their 
   shows no draft but the person's own, as `conversations.get` does (rule 2). The notifier asks
   `wantsPushAbout` before every push, so no client, old or new, can bring a muted conversation's
   notifications back. `direct` means every conversation outside a channel, group ones included, which is
-  what the web client calls direct messages. The rule covers the "draft waiting" notification too:
+  what the web client calls direct messages. Neither a mute nor a level is shown to an agent's
+  credential: they are the person's own settings, so `me.get` and the conversation routes include them
+  only for the person. The rule covers the "draft waiting" notification too:
   someone who muted a room, or chose `none`, sees its drafts when they open Homingbird. In the page, a
   muted conversation plays no arrival and announces nothing. No model-facing tool calls these routes
   (rule 3): muting is a person's preference, not something an agent decides for them. While the feature

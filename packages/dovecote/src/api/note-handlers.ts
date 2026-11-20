@@ -14,6 +14,7 @@ import { setMuted } from '../domain/mutes.ts'
 import { moveToChannel } from '../domain/note-moves.ts'
 import { draftsOf, notesInConversation, searchNotes, visibleNote } from '../domain/notes.ts'
 import { markRead, pickUp, release } from '../domain/receipts.ts'
+import { isHuman } from '../environment.ts'
 import type { Handlers } from './handlers.ts'
 import { identifier, pageSize } from './route-parameters.ts'
 
@@ -22,11 +23,11 @@ export const noteHandlers = {
   'conversations.list': (_, caller) =>
     T.map((conversations: Awaited<ResponseOf<Contract['conversations.list']>>['conversations']) => ({
       conversations,
-    }))(listConversations(caller.member.id)),
+    }))(listConversations(caller.member.id, isHuman(caller))),
   'conversations.create': ({ body }, caller) =>
     createGroupConversation(caller.member.id, body.participantIds, body.title),
   'conversations.get': ({ params }, caller) =>
-    T.flatMap((id: ConversationId) => conversationFor(caller.member.id, id))(
+    T.flatMap((id: ConversationId) => conversationFor(caller.member.id, id, isHuman(caller)))(
       identifier(ConversationId, params.id),
     ),
   'conversations.mute': ({ params }, caller) =>

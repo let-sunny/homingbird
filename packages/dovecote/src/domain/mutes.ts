@@ -21,5 +21,5 @@ export const setMuted = (
     yield* run(sql`
       UPDATE participants SET muted_at = ${mutedAt}
       WHERE conversation_id = ${conversationId} AND member_id = ${viewerId}`)
-    return yield* conversationFor(viewerId, conversationId)
+    return yield* conversationFor(viewerId, conversationId, true)
   })

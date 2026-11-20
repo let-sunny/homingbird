@@ -73,6 +73,25 @@ describe('muting a conversation', () => {
     expect((await agent.api('DELETE', `/conversations/${note.conversationId}/mute`)).status).toBe(403)
   })
 
+  it('keeps a person’s mutes and level from their agent’s credential, which reads the same rooms without them', async () => {
+    const note = await sendTo(ana, ben, 'Hello')
+    await ben.api('PUT', `/conversations/${note.conversationId}/mute`)
+    await ben.api('PUT', '/me/notifications', { notifications: 'none' })
+    const agent = await connectAgent(server, ben, { name: 'Ben agent' })
+    expect((await ben.api('GET', '/me')).json).toMatchObject({ notifications: 'none' })
+    expect((await agent.api('GET', '/me')).json).not.toHaveProperty('notifications')
+    const listedForAgent = (await agent.api('GET', '/conversations')).json.conversations.find(
+      (conversation: { id: string }) => conversation.id === note.conversationId,
+    )
+    expect(listedForAgent).toMatchObject({ id: note.conversationId })
+    expect(listedForAgent).not.toHaveProperty('muted')
+    expect((await agent.api('GET', `/conversations/${note.conversationId}`)).json).not.toHaveProperty('muted')
+    const inbox = (await agent.api('GET', '/inbox')).json.items
+    expect(inbox.map((item: { note: { id: string } }) => item.note.id)).toEqual([note.id])
+    expect(inbox[0].conversation).not.toHaveProperty('muted')
+    expect((await ben.api('GET', '/inbox')).json.items[0].conversation).toMatchObject({ muted: true })
+  })
+
   it('answers 404 while the mute feature is off, and lists conversations without a mute', async () => {
     await server.close()
     server = await startTestServer({ HB_FEATURES: 'mute=off' })

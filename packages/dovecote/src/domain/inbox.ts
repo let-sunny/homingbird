@@ -1,6 +1,6 @@
 import { Task as T } from '@homingbird/kernel'
 import type { InboxItem } from '@homingbird/protocol'
-import type { Caller } from '../environment.ts'
+import { type Caller, isHuman } from '../environment.ts'
 import type { RequestEnv } from '../events/events.ts'
 import { all } from '../sql/database.ts'
 import { sql } from '../sql/query.ts'
@@ -29,7 +29,7 @@ export const notesAwaitingReply = (
     const authors = yield* membersByIds(notes.map((note) => note.authorId))
     const items: InboxItem[] = []
     for (const note of notes) {
-      const conversation = yield* T.result(conversationFor(viewerId, note.conversationId))
+      const conversation = yield* T.result(conversationFor(viewerId, note.conversationId, isHuman(caller)))
       const author = authors.get(note.authorId)
       if (conversation._tag === 'Ok' && author !== undefined)
         items.push({ note, author, conversation: conversation.value })

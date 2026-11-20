@@ -18,7 +18,14 @@ import { membersByIds, messagingFacts } from './members.ts'
 import { type NoteRow, hydrateNotes } from './note-rows.ts'
 import { featureIsOn, readSettings } from './settings.ts'
 
-export const listConversations = (viewerId: MemberId): T.Task<Conversation[], never, AppEnv> =>
+/**
+ * The viewer's conversations. A mute is a person's own setting, so it is shown only to the person
+ * themself, never to their agent's credential.
+ */
+export const listConversations = (
+  viewerId: MemberId,
+  forPerson: boolean,
+): T.Task<Conversation[], never, AppEnv> =>
   T.gen(function* () {
     const rows = yield* all<ConversationRow>(sql`
       SELECT c.* FROM conversations c
@@ -27,17 +34,18 @@ export const listConversations = (viewerId: MemberId): T.Task<Conversation[], ne
          OR EXISTS (SELECT 1 FROM notes n WHERE n.conversation_id = c.id
                     AND (n.status = 'sent' OR (n.status = 'draft' AND n.author_id = ${viewerId})))
       ORDER BY c.last_activity_at DESC LIMIT ${CONVERSATION_LIMIT}`)
-    const muting = yield* featureIsOn('mute')
+    const muting = yield* showsMute(forPerson)
     return yield* T.forEach(rows, (row) => describeConversation(viewerId, row, muting))
   })
 
 export const conversationFor = (
   viewerId: MemberId,
   id: ConversationId,
+  forPerson: boolean,
 ): T.Task<Conversation, NotFound, AppEnv> =>
   T.gen(function* () {
     const row = yield* participatedConversation(viewerId, id)
-    return yield* describeConversation(viewerId, row, yield* featureIsOn('mute'))
+    return yield* describeConversation(viewerId, row, yield* showsMute(forPerson))
   })
 
 export const participatedConversation = (
@@ -139,6 +147,9 @@ const ARCHIVED = Conflict({
   message:
     'No reply is possible: this channel was archived. It can still be read, but nothing more can be written in it, here or in the web client.',
 })
+
+const showsMute = (forPerson: boolean): T.Task<boolean, never, AppEnv> =>
+  forPerson ? featureIsOn('mute') : T.succeed(false)
 
 const describeConversation = (
   viewerId: MemberId,
