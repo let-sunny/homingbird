@@ -25,6 +25,7 @@ export interface PushNotice {
     | { readonly kind: 'draft' }
     | { readonly kind: 'review'; readonly channel: string }
     | { readonly kind: 'test'; readonly title: string }
+    | { readonly kind: 'deskStopped'; readonly title: string }
   readonly body: string
   readonly url: string
 }
@@ -184,6 +185,17 @@ export const sendTestPush = (fetch: Fetch, memberId: MemberId): T.Task<PushOutco
     })
   })
 
+/** Tells the person on their devices that their cloud desk stopped being woken, whatever they muted. */
+export const sendDeskStoppedPush = (fetch: Fetch, memberId: MemberId): T.Task<PushOutcome[], never, AppEnv> =>
+  T.gen(function* () {
+    const titles = pushTitlesIn(yield* chosenLocaleOf(memberId))
+    return yield* deliverToMember(fetch, memberId, {
+      about: { kind: 'deskStopped', title: titles.deskStopped },
+      body: titles.deskStoppedBody,
+      url: '/#/agent/connection',
+    })
+  })
+
 /**
  * The VAPID subject must be an https URL or a mailto: address (RFC 8292); push services refuse
  * anything else, so a server on plain http names an administrator's address instead.
@@ -208,7 +220,7 @@ const messageIn = (locale: Locale | null, notice: PushNotice): PushMessage => ({
 const titleOf = (titles: PushTitles, about: PushNotice['about']): string => {
   if (about.kind === 'draft') return titles.draftWaiting
   if (about.kind === 'review') return titles.reviewWaiting(`#${about.channel}`)
-  if (about.kind === 'test') return about.title
+  if (about.kind === 'test' || about.kind === 'deskStopped') return about.title
   return about.author === null ? titles.noteFromColleague : titles.noteFrom(about.author)
 }
 

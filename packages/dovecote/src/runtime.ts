@@ -20,6 +20,7 @@ import { makePushNotifier, sendTestPush } from './push/notifier.ts'
 import { cryptoRandom } from './random.ts'
 import { type Database, sqlEnvironment } from './sql/database.ts'
 import { SERVER_VERSION } from './version.ts'
+import { makeDeskWaker } from './wake/waker.ts'
 
 export interface Runtime {
   readonly env: AppEnv
@@ -47,6 +48,7 @@ export const buildRuntime = (parts: RuntimeParts): Runtime => {
     version: SERVER_VERSION,
   })
   const push = makePushNotifier(fetch)
+  const waker = makeDeskWaker(fetch)
   const analytics = makeAnalyticsForwarder(parts.config.analytics, fetch, log)
   const env: AppEnv = {
     ...sqlEnvironment(parts.database),
@@ -68,6 +70,8 @@ export const buildRuntime = (parts: RuntimeParts): Runtime => {
     analytics,
     pushSink: push.consider,
     pushTest: (memberId) => sendTestPush(fetch, memberId),
+    wakeSink: waker.consider,
+    wakeTest: waker.test,
     log,
     requestId: null,
     client: null,
@@ -82,6 +86,7 @@ export const buildRuntime = (parts: RuntimeParts): Runtime => {
       analytics.run,
       chainHead,
       push.run,
+      waker.run,
     ]),
     settled: T.gen(function* () {
       yield* push.settled

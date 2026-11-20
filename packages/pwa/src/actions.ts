@@ -5,6 +5,7 @@ import * as account from './tasks/account.ts'
 import * as admin from './tasks/admin.ts'
 import * as channelAgents from './tasks/channel-agents.ts'
 import * as channels from './tasks/channels.ts'
+import * as cloudDesk from './tasks/cloud-desk.ts'
 import * as debates from './tasks/debates.ts'
 import * as drafts from './tasks/drafts.ts'
 import * as groups from './tasks/groups.ts'
@@ -122,6 +123,10 @@ export const TASKS = {
   turnPushOn: () => turnPushOn,
   turnPushOff: () => turnPushOff,
   testPush: () => testPush,
+  loadDeskWake: () => cloudDesk.loadDeskWake,
+  saveDeskWake: cloudDesk.saveDeskWake,
+  removeDeskWake: () => cloudDesk.removeDeskWake,
+  testDeskWake: () => cloudDesk.testDeskWake,
   loadSettings: () => admin.loadSettings,
   saveSettings: admin.saveSettings,
   listMembers: () => admin.listMembers,

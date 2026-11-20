@@ -67,6 +67,18 @@ export const OPERATIONAL_EVENTS = {
     status: S.int({ min: 0 }),
     removed: S.boolean,
   }),
+  'desk_wake.fired': line('info', 'A cloud desk was woken.', {
+    memberId: S.string({ maxLength: 64 }),
+    host: S.string({ maxLength: 253 }),
+    status: S.int({ min: 0 }),
+    timedOut: S.boolean,
+    outcome: S.literal('sent', 'refused', 'rate_limited', 'unreachable'),
+    reason: S.literal('work', 'debate', 'test'),
+  }),
+  'desk_wake.unanswered': line('warn', 'A woken cloud desk did not come online within ten minutes.', {
+    memberId: S.string({ maxLength: 64 }),
+    host: S.string({ maxLength: 253 }),
+  }),
   'oauth.client_metadata_refused': line('warn', 'A client metadata document was refused.', {
     reason: S.string({ maxLength: 200 }),
   }),

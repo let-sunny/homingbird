@@ -105,6 +105,9 @@ export const keepAwake = (
 
 export const PUBLIC_URL = 'http://localhost:8080'
 
+/** A key for HB_SECRETS_KEY that only tests use. */
+export const TEST_SECRETS_KEY = Buffer.alloc(32, 7).toString('base64')
+
 export const testConfig = (overrides: Readonly<Record<string, string>> = {}): Config => {
   const loaded = loadConfig({
     HB_PUBLIC_URL: PUBLIC_URL,

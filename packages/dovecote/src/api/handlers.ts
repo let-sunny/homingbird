@@ -8,6 +8,7 @@ import { channelHandlers } from './channel-handlers.ts'
 import { contactHandlers } from './contact-handlers.ts'
 import { credentialHandlers } from './credential-handlers.ts'
 import { debateHandlers } from './debate-handlers.ts'
+import { deskWakeHandlers } from './desk-wake-handlers.ts'
 import { eventHandlers } from './event-handlers.ts'
 import { groupHandlers } from './group-handlers.ts'
 import { noteHandlers } from './note-handlers.ts'
@@ -16,6 +17,7 @@ import { teachingHandlers } from './teaching-handlers.ts'
 /** One handler for every route of the contract; the type fails when a route has none. */
 export const handlers: Handlers = {
   ...accountHandlers,
+  ...deskWakeHandlers,
   ...channelHandlers,
   ...groupHandlers,
   ...contactHandlers,
