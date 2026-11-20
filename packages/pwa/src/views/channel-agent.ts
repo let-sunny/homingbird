@@ -1,6 +1,6 @@
 import type { AsRead, NoteId } from '@homingbird/protocol'
 import { CHANNEL_AGENT_NAME_MAX } from '@homingbird/protocol'
-import { type Child, type Lifetime, h, region, signal } from '@homingbird/ui'
+import { type Child, type Lifetime, derived, h, region, signal } from '@homingbird/ui'
 import { featureOn } from '../features.ts'
 import {
   type ChannelAgentFiguresModel,
@@ -125,14 +125,24 @@ const agentPanel = (
       life.add(state.reviews.subscribe(learnWhatBecameOfFocus))
     },
   })
+  const retiring = { open: false }
   const figures = signal<ChannelAgentFiguresState>('loading')
-  const loadFigures = (): void =>
+  let latestFigures = 0
+  const loadFigures = (): void => {
+    const asked = ++latestFigures
     actions.loadChannelAgentFigures(channel.slug, {
-      done: (report) => figures.set(report),
-      failed: () => figures.set('failed'),
+      done: (report) => asked === latestFigures && figures.set(report),
+      failed: () => asked === latestFigures && figures.set('failed'),
     })
+  }
+  const waitingHere = derived([state.reviews], (reviews) =>
+    reviews
+      .filter((review) => review.channel === channel.slug)
+      .map((review) => review.note.id)
+      .join(' '),
+  )
   loadFigures()
-  life.add(state.reviews.subscribe(loadFigures))
+  life.add(waitingHere.subscribe(loadFigures))
   const panel = h(
     'div',
     { class: 'dialog-body channel-agent-panel' },
@@ -145,6 +155,7 @@ const agentPanel = (
         context,
         channel,
         joinCodeFor,
+        retiring,
       ),
     ),
     region(life, [state.reviews, state.reviewsRead, state.members, decided], () => {
@@ -258,6 +269,7 @@ const renderPanel = (
   context: ViewContext,
   channel: AsRead.Channel,
   joinCodeFor: (name: string) => HTMLElement | null,
+  retiring: { open: boolean },
 ): Child => {
   if (model.kind === 'loading') return loading()
   if (model.kind === 'failed') return h('p', { class: 'hint', role: 'status' }, model.text)
@@ -295,8 +307,12 @@ const renderPanel = (
     joinCodeFor(model.name),
     h(
       'details',
-      { class: 'retire-agent-step' },
-      h('summary', {}, strings.channelAgent.retire),
+      {
+        class: 'retire-agent-step',
+        open: retiring.open,
+        on: { toggle: (event) => (retiring.open = (event.currentTarget as HTMLDetailsElement).open) },
+      },
+      h('summary', {}, model.retireTitle),
       h(
         'form',
         {
@@ -308,7 +324,6 @@ const renderPanel = (
             },
           },
         },
-        h('h3', {}, model.retireTitle),
         h('p', {}, model.retireBody),
         h('button', { type: 'submit', class: 'danger' }, strings.channelAgent.retire),
       ),

@@ -142,8 +142,8 @@ const addressOf = (
 /** Names the program for an integration that runs this command line, such as the mod; never a flag a model can pass. */
 const CLIENT_VARIABLE = 'HOMINGBIRD_CLIENT'
 
-// Without a label the server falls back to the credential's name, which names this computer
-// ("Homingbird CLI on <host>"); a draft must not carry that to its recipients and the insights.
+// Without a label the server falls back to the credential's name, which a person may have set to
+// name their computer; the program label in insights should say the program, not the device.
 const UNNAMED_CLIENT = 'homingbird'
 
 /** The desk session's age in minutes and context use, "95" or "95,62", set by an integration that observes them. */

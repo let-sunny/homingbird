@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as tasks from '../../src/tasks/admin.ts'
-import { testApp } from '../support/app.ts'
+import { fail, testApp } from '../support/app.ts'
 import { ANA, member } from '../support/fixtures.ts'
 
 describe('administration tasks', () => {
@@ -36,5 +36,14 @@ describe('administration tasks', () => {
       'admin.members.resetCharacter',
       'admin.insights',
     ])
+  })
+
+  it('keeps a saved setting saved when the features cannot be read again', async () => {
+    const { run, state } = testApp({
+      'server.info': () => fail({ _tag: 'Unavailable', message: 'down' } as never),
+    })
+    const saved = await run(tasks.saveSettings({ allowedDomains: [], contactMode: 'open' }))
+    expect(saved._tag).toBe('Ok')
+    expect(state.serverInfo.get()).toBeNull()
   })
 })

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process'
 import { randomBytes, randomInt } from 'node:crypto'
-import { homedir, hostname } from 'node:os'
+import { homedir } from 'node:os'
 import { nodeFiles, nodeLauncher } from '@homingbird/cli'
 import { Task as T, systemClock } from '@homingbird/kernel'
 import { credentialFilePath } from './credential-file.ts'
@@ -17,7 +17,6 @@ const exit = await T.run(
     arguments: process.argv.slice(2),
     environment: process.env,
     credentialPath: credentialFilePath(process.env, homedir()),
-    hostName: hostname(),
     version: ADAPTER_VERSION,
     input: process.stdin,
     write: (line) => process.stdout.write(line),

@@ -33,7 +33,7 @@ export const setup = (invocation: Setup): T.Task<Outcome, CliFailure, CliEnv> =>
       redeemJoinCode({
         serverUrl: invocation.server,
         code: invocation.code,
-        clientName: invocation.name ?? `Homingbird on ${env.hostName}`,
+        clientName: invocation.name ?? DEFAULT_SERVER_NAME,
         clientKind: 'cli',
         fetch: env.fetch,
       }),
@@ -90,3 +90,7 @@ const quoted = (agent: string): string =>
 const refused = (refusal: JoinCodeRefused): CliFailure => failed(refusal.message)
 
 const usage = (message: string): CliFailure => CliFailure({ message, exitCode: EXIT.usage })
+
+// The computer's host name stays out of the default: the credential's name travels with every draft
+// the agent writes. A person names the device with --name or renames it in the web client.
+const DEFAULT_SERVER_NAME = 'Homingbird on a server'

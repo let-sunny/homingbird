@@ -58,6 +58,16 @@ describe('the static files', () => {
     const changed = await server.request('GET', '/app.js', { headers: { 'if-none-match': etag } })
     expect([changed.status, body(changed)]).toEqual([200, 'startNextRelease()'])
     expect(changed.headers.etag).not.toBe(etag)
+    const weak = await server.request('GET', '/app.js', {
+      headers: { 'if-none-match': `"other", W/${changed.headers.etag!}` },
+    })
+    expect(weak.status).toBe(304)
+    expect((await server.request('GET', '/app.js', { headers: { 'if-none-match': '*' } })).status).toBe(304)
+    const theme = await server.request('GET', '/theme.css')
+    expect(
+      (await server.request('GET', '/theme.css', { headers: { 'if-none-match': theme.headers.etag! } }))
+        .status,
+    ).toBe(304)
     const page = await server.request('GET', '/c/conv_1', {
       headers: { 'if-none-match': (await server.request('GET', '/')).headers.etag! },
     })

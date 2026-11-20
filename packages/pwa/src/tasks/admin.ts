@@ -17,7 +17,8 @@ export const saveSettings = (settings: Settings): Action =>
   T.gen(function* () {
     const { api, state } = yield* T.ask<App>()
     yield* api['admin.settings.put']({ body: settings })
-    state.serverInfo.set(yield* api['server.info']({}))
+    const info = yield* T.result(api['server.info']({}))
+    if (info._tag === 'Ok') state.serverInfo.set(info.value)
   })
 
 export const listMembers: Action<ReadonlyArray<AsRead.Member>> = withApp(({ api }) =>

@@ -9,7 +9,8 @@ export const handleStaticRequest = (request: HttpRequest): T.Task<HttpResponse, 
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
     if (request.method !== 'GET' && request.method !== 'HEAD') return text(405, 'Method not allowed.')
-    if (request.path === '/theme.css') return yield* themeStylesheet(env.config.themeDirectory)
+    if (request.path === '/theme.css')
+      return unchangedSince(request, yield* themeStylesheet(env.config.themeDirectory))
     if (request.path === '/branding.json') return yield* branding(env.config.themeDirectory)
     if (request.path.startsWith(THEME_PREFIX))
       return (
@@ -86,7 +87,7 @@ const fileWithin = (directory: string, requestPath: string): T.Task<HttpResponse
 /** A 304 when the browser already holds this exact file, so revalidating the web client costs no download. */
 const unchangedSince = (request: HttpRequest, response: HttpResponse): HttpResponse => {
   const tag = response.headers.etag
-  return tag !== undefined && request.headers['if-none-match'] === tag
+  return tag !== undefined && isHeld(request.headers['if-none-match'], tag)
     ? {
         status: 304,
         headers: { etag: tag, 'cache-control': response.headers['cache-control'] ?? 'no-cache' },
@@ -95,9 +96,17 @@ const unchangedSince = (request: HttpRequest, response: HttpResponse): HttpRespo
     : response
 }
 
+// If-None-Match compares weakly: a proxy that compresses may send the tag back as W/"…", and a
+// client may list several tags or send *.
+const isHeld = (header: string | undefined, tag: string): boolean =>
+  (header ?? '').split(',').some((each) => {
+    const held = each.trim().replace(/^W\//, '')
+    return held === '*' || held === tag
+  })
+
 // The web client's files keep their names from one release to the next, so the browser must ask
 // again each time; otherwise it would run the previous release's script against the new server.
-const CHANGES_EACH_RELEASE: ReadonlyArray<string> = ['.html', '.js', '.css', '.webmanifest', '.json']
+const CHANGES_EACH_RELEASE: ReadonlyArray<string> = ['.html', '.js', '.css', '.webmanifest', '.json', '.map']
 
 const served = (file: Buffer, extension: string, cacheControl: string): HttpResponse => ({
   status: 200,
