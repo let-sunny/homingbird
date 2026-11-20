@@ -529,6 +529,7 @@ const overviewIn = (value: unknown): HomingbirdOverview | null => {
     conversations: data.conversations ?? [],
     awaiting: data.awaiting ?? [],
     drafts: data.drafts ?? [],
+    reviewChannel: typeof data.reviewChannel === 'string' ? data.reviewChannel : null,
   }
 }
 

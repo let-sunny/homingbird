@@ -64,6 +64,7 @@ export interface PaneText {
   readonly inReplyTo: (author: string, firstLine: string) => string
   readonly approveInWebClient: string
   readonly awaitingYourApproval: string
+  readonly awaitingManagers: (channel: string) => string
   readonly openInWebClient: string
   readonly deskStatus: (waiting: number) => string
   readonly toast: (text: string) => string

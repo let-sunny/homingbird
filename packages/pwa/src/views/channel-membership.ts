@@ -1,6 +1,6 @@
 import type { AsRead, ChannelMember, GroupId, MemberId } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, region, replaceChildren, signal } from '@homingbird/ui'
-import { isPrivate, rosterFacts } from '../channels.ts'
+import { isPrivate } from '../channels.ts'
 import { featureOn } from '../features.ts'
 import {
   type Choice,
@@ -25,12 +25,15 @@ export const roomControls = (context: ViewContext, channel: AsRead.Channel): HTM
   const { state } = context
   const need = rosterNeed(channel, state.rosters.get())
   if (need.stale) refreshRoster(context, channel)
-  const viewerId = signedIn(state)?.member.id ?? null
   return renderRoomControls(
-    roomControlsModel(channel, need.roster, viewerId, signedIn(state)?.member.role === 'admin'),
+    roomControlsModel(
+      channel,
+      need.roster,
+      signedIn(state)?.member.id ?? null,
+      signedIn(state)?.member.role === 'admin',
+    ),
     channel,
     context,
-    rosterFacts(need.roster, viewerId).viewerIsManager,
   )
 }
 
@@ -343,7 +346,6 @@ const renderRoomControls = (
   model: RoomControls,
   channel: AsRead.Channel,
   context: ViewContext,
-  viewerIsManager: boolean,
 ): HTMLElement =>
   h(
     'div',
@@ -362,7 +364,7 @@ const renderRoomControls = (
           },
           strings.manageMembers,
         ),
-      agentButtons(context, channel, viewerIsManager),
+      agentButtons(context, channel),
       model.leave?.kind === 'blocked' &&
         disabledWithReason(strings.leaveChannel, model.leave.reason, 'leave-channel'),
       model.leave?.kind === 'allowed' &&

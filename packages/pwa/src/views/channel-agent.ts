@@ -6,20 +6,18 @@ import {
   type ReviewCard,
   agentControlsModel,
   agentPanelModel,
+  channelAgentPageModel,
   reviewCardsModel,
+  reviewsWaitingModel,
 } from '../models/channel-agent.ts'
 import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
 import { closeDialog, opensDialog } from './dialog.ts'
-import { button, dialogActions, field, loading } from './parts.ts'
+import { button, dialogActions, field, loading, page as pageOf } from './parts.ts'
 
 /** The agent's buttons among a channel's own controls: its panel for a manager, and asking it privately. */
-export const agentButtons = (
-  context: ViewContext,
-  channel: AsRead.Channel,
-  viewerIsManager: boolean,
-): Child => {
-  const model = agentControlsModel(channel, context.state.serverInfo.get(), viewerIsManager)
+export const agentButtons = (context: ViewContext, channel: AsRead.Channel): Child => {
+  const model = agentControlsModel(channel, context.state.serverInfo.get())
   return [
     model.manage !== null &&
       h(
@@ -38,10 +36,50 @@ export const agentButtons = (
   ]
 }
 
+/** Beside the conversations: how many answers wait for the person to review, and where. */
+export const reviewsWaiting = (context: ViewContext, life: Lifetime): HTMLElement =>
+  region(
+    life,
+    [context.state.reviews],
+    () => {
+      const model = reviewsWaitingModel(context.state.reviews.get())
+      return (
+        model !== null &&
+        h(
+          'div',
+          { class: 'reviews-waiting', role: 'status' },
+          h('p', {}, model.text),
+          model.links.map((link) => h('a', { class: 'button', href: link.href }, link.label)),
+        )
+      )
+    },
+    { class: 'reviews-waiting-host' },
+  )
+
+/** The page of a channel's agent, where a desk connected as it sends its managers to review its answers. */
+export const channelAgentView = (context: ViewContext, life: Lifetime, slug: string): HTMLElement => {
+  const { state, actions } = context
+  actions.loadKnownChannels()
+  return h(
+    'div',
+    { class: 'channel-agent-page' },
+    region(life, [state.channels, state.channelsLoaded], () => {
+      const page = channelAgentPageModel(state.channels.get(), state.channelsLoaded.get(), slug)
+      if (page.kind === 'loading') return loading()
+      if (page.kind === 'missing') return h('p', { class: 'hint' }, page.text)
+      return pageOf(page.title, agentPanel(context, life, page.channel))
+    }),
+  )
+}
+
+/** The agent of a channel the person manages, its desks and the answers waiting: in a dialog or on its own page. */
 const agentPanel = (context: ViewContext, life: Lifetime, channel: AsRead.Channel): HTMLElement => {
   const { state, actions } = context
-  const loaded = signal(false)
-  actions.loadChannelAgent(channel.slug, { done: () => loaded.set(true) })
+  const loaded = signal<'loading' | 'loaded' | 'failed'>('loading')
+  actions.loadChannelAgent(channel.slug, {
+    done: () => loaded.set('loaded'),
+    failed: () => loaded.set('failed'),
+  })
   actions.loadReviews()
   return h(
     'div',
@@ -49,7 +87,7 @@ const agentPanel = (context: ViewContext, life: Lifetime, channel: AsRead.Channe
     region(life, [loaded, state.channelAgents, state.members], () =>
       renderPanel(
         agentPanelModel(
-          loaded.get() ? (state.channelAgents.get().get(channel.slug) ?? null) : 'loading',
+          agentState(loaded.get(), state.channelAgents.get(), channel.slug),
           state.members.get(),
         ),
         context,
@@ -78,8 +116,16 @@ const agentPanel = (context: ViewContext, life: Lifetime, channel: AsRead.Channe
   )
 }
 
+const agentState = (
+  loaded: 'loading' | 'loaded' | 'failed',
+  agents: ReadonlyMap<string, AsRead.ChannelAgent>,
+  slug: string,
+): AsRead.ChannelAgent | null | 'loading' | 'failed' =>
+  loaded === 'loaded' ? (agents.get(slug) ?? null) : loaded
+
 const renderPanel = (model: AgentPanel, context: ViewContext, channel: AsRead.Channel): Child => {
   if (model.kind === 'loading') return loading()
+  if (model.kind === 'failed') return h('p', { class: 'hint', role: 'status' }, model.text)
   if (model.kind === 'none')
     return [
       h('p', {}, model.intro),

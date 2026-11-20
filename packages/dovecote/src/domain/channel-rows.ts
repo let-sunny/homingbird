@@ -41,7 +41,8 @@ export const describeChannel = (viewer: Viewer, row: ChannelRow): T.Task<Channel
     const helpers = yield* helpersOf(row.conversation_id)
     const managers = yield* managersOf(row)
     const joined = members.includes(viewer.id)
-    const agent = (yield* featureIsOn('channelAgents')) ? yield* channelAgentOf(row) : null
+    const agentsOn = yield* featureIsOn('channelAgents')
+    const agent = agentsOn ? yield* channelAgentOf(row) : null
     return {
       slug: row.slug,
       description: row.description,
@@ -55,6 +56,7 @@ export const describeChannel = (viewer: Viewer, row: ChannelRow): T.Task<Channel
         (joined && managers.includes(viewer.id)) || (viewer.role === 'admin' && visibilityOf(row) === 'open'),
       managedBy: row.manager_group_id,
       agent: agent === null ? null : { id: agent.id, name: agent.name },
+      runsAgent: agentsOn && joined && managers.includes(viewer.id),
       createdAt: Number(row.created_at),
     }
   })

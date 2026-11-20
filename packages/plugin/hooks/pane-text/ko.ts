@@ -45,6 +45,7 @@ export const ko: PaneText = {
   approveInWebClient:
     '초안은 직접 로그인한 Homingbird 웹 클라이언트에서만 승인, 수정, 삭제해요. 초안마다 바로 가는 링크가 있어요.',
   awaitingYourApproval: '승인을 기다리고 있어요',
+  awaitingManagers: (channel) => `#${channel} 채널 운영자를 기다리고 있어요`,
   openInWebClient: '웹에서 열기',
   deskStatus: (waiting) =>
     waiting === 0 ? 'Homingbird 데스크' : `Homingbird 데스크 · 승인을 기다리는 초안 ${waiting}개`,

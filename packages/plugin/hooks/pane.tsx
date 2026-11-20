@@ -257,6 +257,7 @@ function draftRow(
 ): RenderElement {
   const { Box, Text, Link } = $.ui.resolve(e)
   const answered = latest.awaiting.find((waiting) => waiting.noteId === draft.inReplyTo)
+  const reviewChannel = latest.reviewChannel ?? null
   return (
     <Box key={`draft:${draft.id}`} flexDirection="column" borderStyle="round" paddingX={1}>
       <Text dimColor>{draftHeading(text, draft)}</Text>
@@ -267,14 +268,27 @@ function draftRow(
       )}
       <Text>{draft.body}</Text>
       <Box flexDirection="row" gap={1}>
-        <Text color="warning">{text.awaitingYourApproval}</Text>
-        <Link href={conversationUrl(latest.server, draft.conversationId)}>{text.openInWebClient}</Link>
+        <Text color="warning">
+          {reviewChannel === null ? text.awaitingYourApproval : text.awaitingManagers(reviewChannel)}
+        </Text>
+        <Link
+          href={
+            reviewChannel === null
+              ? conversationUrl(latest.server, draft.conversationId)
+              : reviewUrl(latest.server, reviewChannel)
+          }
+        >
+          {text.openInWebClient}
+        </Link>
       </Box>
     </Box>
   )
 }
 
 const hostOf = (server: string): string => server.replace(/^https?:\/\//, '').replace(/\/.*$/, '')
+
+const reviewUrl = (server: string, slug: string): string =>
+  `${server.replace(/\/+$/, '')}/#/channel/${encodeURIComponent(slug)}/agent`
 
 const conversationUrl = (server: string, conversationId: string): string =>
   `${server.replace(/\/+$/, '')}/#/c/${encodeURIComponent(conversationId)}`

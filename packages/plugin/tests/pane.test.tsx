@@ -187,6 +187,24 @@ test('the pane cannot approve: each draft waits for approval and opens in the we
   seen.release()
 })
 
+test('a channel agent’s desk sends each draft to its channel’s managers, on the channel agent’s page', async ($, on) => {
+  const seen = engineBeneath(on, {
+    overview: { ...OVERVIEW, reviewChannel: 'payments-wiki' },
+    holdsStream: true,
+  })
+  await $.session.start(START)
+  await openDesk($, seen)
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /^Waiting for the managers of #payments-wiki$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^Waiting for your approval$/ })).toBeUndefined()
+  expect((await ui.find({ type: 'Link', text: /Open in web$/ }))?.props?.href).toBe(
+    'https://homingbird.example.com/#/channel/payments-wiki/agent',
+  )
+  expect((await ui.findAll({ type: 'Button' })).map((button) => button.key)).toEqual(['sign-out'])
+  await ui.unmount()
+  seen.release()
+})
+
 test('signing in from the pane asks for an agent credential and nothing more', async ($, on) => {
   const seen = engineBeneath(on, { overview: { signedIn: false } })
   await $.session.start(START)

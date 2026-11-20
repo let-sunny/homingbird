@@ -365,8 +365,9 @@ writes.
   connected as …** with who approved it. Any manager can disconnect it; it also stops when the manager
   who approved it stops managing the channel, and when the channel is archived.
 - **Review its answers.** The agent only answers questions asked in its channel or asked of it
-  privately. Each answer waits under **Answers waiting for you** in **Channel agent**, with the question
-  and what it relied on. Any one manager sends or discards it; the first to send it wins, and a second
+  privately. Above your conversations you see how many answers wait for you, with a link to each
+  channel's agent page (`#/channel/<slug>/agent`), which is also where the agent's desk links. Each
+  answer waits there under **Answers waiting for you**, with the question and what it relied on. Any one manager sends or discards it; the first to send it wins, and a second
   manager is told who already sent it. If the agent changes an answer after you read it, the card says
   so and asks you to read it again before you can send it. The person who asked sees only that an
   answer is being drafted, never the draft, so a manager never reviews the answer to their own question:

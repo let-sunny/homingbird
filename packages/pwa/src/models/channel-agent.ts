@@ -1,31 +1,56 @@
-import type { AsRead, CredentialId, DraftAsShown, MemberId, NoteId } from '@homingbird/protocol'
+import {
+  type AsRead,
+  type CredentialId,
+  type DraftAsShown,
+  type MemberId,
+  type NoteId,
+  isPerson,
+} from '@homingbird/protocol'
 import { channelLabel, channelOfRoom, isPrivate } from '../channels.ts'
 import { draftBasisOf } from '../draft-basis.ts'
 import { isChangedSinceRead } from '../drafts-read.ts'
 import { featureOn } from '../features.ts'
+import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 
 /** What a channel's own controls offer about its agent: running it, for a manager, and asking it privately. */
 export const agentControlsModel = (
   channel: AsRead.Channel,
   serverInfo: AsRead.ServerInfo | null,
-  viewerIsManager: boolean,
 ): AgentControls => {
   if (!featureOn('channelAgents', serverInfo)) return { manage: null, askPrivately: null }
   const agent = channel.agent ?? null
   const mayAsk = agent !== null && (channel.joined || !isPrivate(channel))
   return {
-    manage: viewerIsManager && channel.joined ? strings.channelAgent.title : null,
+    manage: channel.runsAgent === true ? strings.channelAgent.title : null,
     askPrivately: mayAsk ? strings.channelAgent.askPrivately({ agent: agent.name }) : null,
+  }
+}
+
+/** The page of a channel's agent: its channel once known, for a manager of it; anyone else finds nothing. */
+export const channelAgentPageModel = (
+  channels: ReadonlyArray<AsRead.Channel>,
+  loaded: boolean,
+  slug: string,
+): ChannelAgentPage => {
+  const channel = channels.find((one) => one.slug === slug)
+  if (channel === undefined && !loaded) return { kind: 'loading' }
+  if (channel === undefined || channel.runsAgent !== true)
+    return { kind: 'missing', text: strings.channelAgent.notYours }
+  return {
+    kind: 'channel',
+    title: strings.channelAgent.pageTitle({ channel: channelLabel(slug) }),
+    channel,
   }
 }
 
 /** The agent panel of a channel's manager: making the agent, or naming it, its desks and retiring it. */
 export const agentPanelModel = (
-  agent: AsRead.ChannelAgent | null | 'loading',
+  agent: AsRead.ChannelAgent | null | 'loading' | 'failed',
   members: ReadonlyMap<MemberId, AsRead.Member>,
 ): AgentPanel => {
   if (agent === 'loading') return { kind: 'loading' }
+  if (agent === 'failed') return { kind: 'failed', text: strings.channelAgent.loadFailed }
   if (agent === null)
     return {
       kind: 'none',
@@ -95,9 +120,17 @@ export const reviewCardsModel = (
   }
 }
 
-/** How many answers wait for the person, or null for none. */
-export const reviewsWaitingText = (reviews: ReadonlyArray<AsRead.Review>): string | null =>
-  reviews.length === 0 ? null : strings.channelAgent.reviewsWaiting({ count: reviews.length })
+/** How many answers wait for the person, and a way to each channel they wait in; null for none. */
+export const reviewsWaitingModel = (reviews: ReadonlyArray<AsRead.Review>): ReviewsWaiting | null =>
+  reviews.length === 0
+    ? null
+    : {
+        text: strings.channelAgent.reviewsWaiting({ count: reviews.length }),
+        links: [...new Set(reviews.map((review) => review.channel))].map((slug) => ({
+          href: hrefFor({ name: 'channel-agent', slug }),
+          label: strings.channelAgent.reviewIn({ channel: channelLabel(slug) }),
+        })),
+      }
 
 /** Beside a channel's agent's sent answer: where it answered and who approved it ("#payments-wiki · approved by Kim"). */
 export const approvalLine = (
@@ -113,6 +146,31 @@ export const approvalLine = (
   return slug === null
     ? strings.channelAgent.approvedByManager({ name })
     : strings.channelAgent.approvedBy({ channel: channelLabel(slug), name })
+}
+
+/**
+ * Who wrote a channel's agent's note, said as the agent of its channel, never as a person's agent; null
+ * for a note a person or their own agent wrote.
+ */
+export const agentAuthorshipLine = (
+  note: AsRead.Note,
+  room: AsRead.Conversation | undefined,
+  channels: ReadonlyArray<AsRead.Channel>,
+  members: ReadonlyMap<MemberId, AsRead.Member>,
+): string | null => {
+  const author = members.get(note.authorId)
+  if (author === undefined || isPerson(author)) return null
+  const slug =
+    room === undefined ? null : (room.privateQuestionOf ?? channelOfRoom(channels, room.id)?.slug ?? null)
+  const channel = slug === null ? strings.channelAgent.someChannel : channelLabel(slug)
+  const approver = note.approvedBy ?? null
+  return note.origin === 'human_edited' && approver !== null
+    ? strings.channelAgent.writtenByEdited({
+        agent: author.name,
+        channel,
+        name: members.get(approver)?.name ?? strings.formerMember,
+      })
+    : strings.channelAgent.writtenBy({ agent: author.name, channel })
 }
 
 /** The first screen of a private question: who else reads it, now and later. */
@@ -139,8 +197,8 @@ export const deviceTargetsModel = (
   serverInfo: AsRead.ServerInfo | null,
 ): DeviceTargets | null => {
   if (!featureOn('channelAgents', serverInfo)) return null
-  const managed = channels.flatMap(({ slug, joined, managing, agent }) =>
-    joined && managing && agent !== undefined && agent !== null
+  const managed = channels.flatMap(({ slug, runsAgent, agent }) =>
+    runsAgent === true && agent !== undefined && agent !== null
       ? [
           {
             value: slug,
@@ -156,6 +214,16 @@ export const deviceTargetsModel = (
   }
 }
 
+export type ChannelAgentPage =
+  | { readonly kind: 'loading' }
+  | { readonly kind: 'missing'; readonly text: string }
+  | { readonly kind: 'channel'; readonly title: string; readonly channel: AsRead.Channel }
+
+export interface ReviewsWaiting {
+  readonly text: string
+  readonly links: ReadonlyArray<{ readonly href: string; readonly label: string }>
+}
+
 export interface AgentControls {
   readonly manage: string | null
   readonly askPrivately: string | null
@@ -163,6 +231,7 @@ export interface AgentControls {
 
 export type AgentPanel =
   | { readonly kind: 'loading' }
+  | { readonly kind: 'failed'; readonly text: string }
   | { readonly kind: 'none'; readonly intro: string; readonly text: string; readonly create: string }
   | {
       readonly kind: 'agent'

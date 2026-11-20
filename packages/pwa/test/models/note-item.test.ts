@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { noteItemModel } from '../../src/models/note-item.ts'
 import { timeShown } from '../../src/models/time.ts'
 import { formats, strings } from '../../src/strings.ts'
-import { ANA, BEN, CY, ROOM, conversation, note, serverInfo } from '../support/fixtures.ts'
+import { ANA, BEN, CY, ROOM, conversation, member, note, serverInfo } from '../support/fixtures.ts'
 import { threadInput } from '../support/thread.ts'
 
 const item = (shown: AsRead.Note, fields: { leadsRun?: boolean; next?: AsRead.Note | null } = {}) => ({
@@ -31,6 +31,17 @@ describe('noteItemModel', () => {
     const input = threadInput({ conversations: [room], thread: { notes: [answer], hasMore: false } })
     expect(noteItemModel(input, item(answer)).approval).toBe('#wiki · approved by Ana')
     expect(noteItemModel(input, item(note('n2'))).approval).toBeNull()
+  })
+
+  it('says a channel’s agent wrote its answer, as the agent of its channel', () => {
+    const answer = note('n1', { authorId: CY, origin: 'agent', agentName: 'Desk', approvedBy: ANA })
+    const room = conversation({ kind: 'group', privateQuestionOf: 'wiki' })
+    const members = new Map([
+      [ANA, member(ANA, 'Ana')],
+      [CY, member(CY, 'Wiki', { kind: 'channel_agent' })],
+    ])
+    const input = threadInput({ conversations: [room], members, thread: { notes: [answer], hasMore: false } })
+    expect(noteItemModel(input, item(answer)).author?.line).toBe('Written by Wiki, the agent of #wiki')
   })
 
   it('shows a colleague’s note leading a run with its author, time, and ways to answer it', () => {

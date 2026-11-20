@@ -37,6 +37,8 @@ export type HomingbirdOverview = {
   conversations: HomingbirdConversation[]
   awaiting: HomingbirdAwaiting[]
   drafts: HomingbirdDraft[]
+  /** Set when this desk is a channel's agent: its managers review its drafts on that channel's page. */
+  reviewChannel?: string | null
 }
 
 export type HomingbirdConnection =

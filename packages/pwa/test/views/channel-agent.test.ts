@@ -1,9 +1,9 @@
 import type { AsRead, MemberId, NoteId } from '@homingbird/protocol'
-import { h } from '@homingbird/ui'
+import { h, lifetime } from '@homingbird/ui'
 import { fire, getByRole, queryByRole, textOf } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
 import { strings } from '../../src/strings.ts'
-import { agentButtons } from '../../src/views/channel-agent.ts'
+import { agentButtons, channelAgentView, reviewsWaiting } from '../../src/views/channel-agent.ts'
 import { dialogHost } from '../../src/views/dialog.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
@@ -15,6 +15,7 @@ const AGENT = 'mem_agent0000000' as MemberId
 const wiki = channel('payments-wiki', {
   joined: true,
   managing: true,
+  runsAgent: true,
   agent: { id: AGENT, name: 'Payments wiki' },
 })
 
@@ -42,7 +43,7 @@ const opened = () => {
   context.state.serverInfo.set(everything())
   context.state.session.set(me())
   mount(dialogHost())
-  const buttons = mount(h('div', {}, agentButtons(context, wiki, true)))
+  const buttons = mount(h('div', {}, agentButtons(context, wiki)))
   getByRole(buttons, 'button', { name: strings.channelAgent.title }).click()
   return { context, called, dialog: document.getElementById('dialog')!, buttons }
 }
@@ -56,7 +57,7 @@ describe('agentButtons', () => {
 
   it('shows nothing to a member while channel agents are off', () => {
     const { context } = testContext()
-    const shown = mount(h('div', {}, agentButtons(context, wiki, true)))
+    const shown = mount(h('div', {}, agentButtons(context, wiki)))
     expect(queryByRole(shown, 'button', { name: strings.channelAgent.title })).toBeNull()
   })
 })
@@ -127,5 +128,34 @@ describe('the agent panel', () => {
       review({ privately: true, question: null, note: draft('note_x', { basis: null }) }),
     ])
     expect(textOf(dialog)).toContain(strings.channelAgent.askedPrivately)
+  })
+})
+
+describe('channelAgentView', () => {
+  it('shows a manager the agent’s page and anyone else that only managers run it', () => {
+    const { context, called } = testContext()
+    context.state.serverInfo.set(everything())
+    const shown = mount(channelAgentView(context, lifetime(), 'payments-wiki'))
+    expect(called('loadKnownChannels')).toHaveLength(1)
+    expect(shown.querySelector('.loading')).not.toBeNull()
+    context.state.channelsLoaded.set(true)
+    expect(textOf(shown)).toContain(strings.channelAgent.notYours)
+    context.state.channels.set([wiki])
+    expect(textOf(shown)).toContain('The agent of #payments-wiki')
+    called('loadChannelAgent')[0]!.then!.failed!(new Error('down'))
+    expect(textOf(shown)).toContain(strings.channelAgent.loadFailed)
+  })
+})
+
+describe('reviewsWaiting', () => {
+  it('says how many answers wait and links to each channel’s page, and nothing when none waits', () => {
+    const { context } = testContext()
+    const shown = mount(reviewsWaiting(context, lifetime()))
+    expect(textOf(shown)).toBe('')
+    context.state.reviews.set([review()])
+    expect(textOf(shown)).toContain('1 answer is waiting for you')
+    expect(getByRole(shown, 'link', { name: 'Review in #payments-wiki' }).getAttribute('href')).toBe(
+      '#/channel/payments-wiki/agent',
+    )
   })
 })

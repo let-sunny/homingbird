@@ -95,6 +95,8 @@ export const Channel = S.struct({
   managedBy: GroupId,
   /** The channel's own agent, with the `channelAgents` feature on. */
   agent: S.optional(S.nullable(S.struct({ id: MemberId, name: S.string({ maxLength: 200 }) }))),
+  /** Whether the viewer manages the channel themself, and so runs its agent and reviews its answers. */
+  runsAgent: S.optional(S.boolean),
   createdAt: Timestamp,
 })
 export type Channel = S.Infer<typeof Channel>

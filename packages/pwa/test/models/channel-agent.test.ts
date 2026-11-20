@@ -1,13 +1,15 @@
 import type { AsRead, MemberId, NoteId } from '@homingbird/protocol'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
+  agentAuthorshipLine,
   agentControlsModel,
   agentPanelModel,
   approvalLine,
+  channelAgentPageModel,
   deviceTargetsModel,
   privateQuestionNotice,
   reviewCardsModel,
-  reviewsWaitingText,
+  reviewsWaitingModel,
 } from '../../src/models/channel-agent.ts'
 import { strings, useLanguage } from '../../src/strings.ts'
 import {
@@ -48,25 +50,23 @@ const review = (fields: Partial<AsRead.Review> = {}): AsRead.Review => ({
 
 describe('agentControlsModel', () => {
   it('offers the panel to a manager in the room and asking privately to whoever may ask', () => {
-    expect(agentControlsModel({ ...wiki, joined: true }, everything(), true)).toEqual({
+    expect(agentControlsModel({ ...wiki, joined: true, runsAgent: true }, everything())).toEqual({
       manage: strings.channelAgent.title,
       askPrivately: 'Ask Payments wiki privately',
     })
-    expect(agentControlsModel(wiki, everything(), false)).toEqual({
+    expect(agentControlsModel(wiki, everything())).toEqual({
       manage: null,
       askPrivately: 'Ask Payments wiki privately',
     })
   })
 
   it('offers nothing while channel agents are off, and no asking in a private channel one is not in', () => {
-    expect(agentControlsModel({ ...wiki, joined: true }, serverInfo(), true)).toEqual({
+    expect(agentControlsModel({ ...wiki, joined: true, runsAgent: true }, serverInfo())).toEqual({
       manage: null,
       askPrivately: null,
     })
-    expect(
-      agentControlsModel({ ...wiki, visibility: 'private' }, everything(), false).askPrivately,
-    ).toBeNull()
-    expect(agentControlsModel(channel('quiet', { joined: true }), everything(), true)).toEqual({
+    expect(agentControlsModel({ ...wiki, visibility: 'private' }, everything()).askPrivately).toBeNull()
+    expect(agentControlsModel(channel('quiet', { joined: true, runsAgent: true }), everything())).toEqual({
       manage: strings.channelAgent.title,
       askPrivately: null,
     })
@@ -74,8 +74,12 @@ describe('agentControlsModel', () => {
 })
 
 describe('agentPanelModel', () => {
-  it('waits, then offers making an agent when there is none', () => {
+  it('waits, then offers making an agent when there is none, or says it could not be loaded', () => {
     expect(agentPanelModel('loading', members)).toEqual({ kind: 'loading' })
+    expect(agentPanelModel('failed', members)).toEqual({
+      kind: 'failed',
+      text: strings.channelAgent.loadFailed,
+    })
     expect(agentPanelModel(null, members)).toMatchObject({
       kind: 'none',
       create: strings.channelAgent.create,
@@ -184,11 +188,17 @@ describe('reviewCardsModel', () => {
     )
   })
 
-  it('counts the answers waiting', () => {
-    expect(reviewsWaitingText([])).toBeNull()
-    expect(reviewsWaitingText([review(), review()])).toBe('2 answers are waiting for you')
+  it('counts the answers waiting and leads to each channel they wait in', () => {
+    expect(reviewsWaitingModel([])).toBeNull()
+    expect(reviewsWaitingModel([review(), review(), review({ channel: 'ops' })])).toEqual({
+      text: '3 answers are waiting for you',
+      links: [
+        { href: '#/channel/payments-wiki/agent', label: 'Review in #payments-wiki' },
+        { href: '#/channel/ops/agent', label: 'Review in #ops' },
+      ],
+    })
     useLanguage('ko')
-    expect(reviewsWaitingText([review()])).toBe('답 1개가 기다리고 있어요')
+    expect(reviewsWaitingModel([review()])?.text).toBe('답 1개가 기다리고 있어요')
   })
 })
 
@@ -229,7 +239,7 @@ describe('privateQuestionNotice', () => {
 
 describe('deviceTargetsModel', () => {
   it('offers the agents of the channels the person manages beside their own agent', () => {
-    const managed = { ...wiki, joined: true, managing: true }
+    const managed = { ...wiki, joined: true, managing: true, runsAgent: true }
     expect(
       deviceTargetsModel([managed, channel('quiet', { joined: true, managing: true })], everything()),
     ).toEqual({
@@ -241,5 +251,61 @@ describe('deviceTargetsModel', () => {
     })
     expect(deviceTargetsModel([wiki], everything())).toBeNull()
     expect(deviceTargetsModel([managed], serverInfo())).toBeNull()
+  })
+
+  it('offers no agent to an administrator who sees an open channel as managing without being in its group', () => {
+    const seenByAdmin = { ...wiki, joined: true, managing: true, runsAgent: false }
+    expect(deviceTargetsModel([seenByAdmin], everything())).toBeNull()
+  })
+})
+
+describe('channelAgentPageModel', () => {
+  it('waits for the channels, then shows a manager the channel and anyone else nothing', () => {
+    expect(channelAgentPageModel([], false, 'payments-wiki')).toEqual({ kind: 'loading' })
+    expect(channelAgentPageModel([], true, 'payments-wiki')).toEqual({
+      kind: 'missing',
+      text: strings.channelAgent.notYours,
+    })
+    expect(channelAgentPageModel([wiki], false, 'payments-wiki')).toMatchObject({ kind: 'missing' })
+    const managed = { ...wiki, runsAgent: true }
+    expect(channelAgentPageModel([managed], true, 'payments-wiki')).toEqual({
+      kind: 'channel',
+      title: 'The agent of #payments-wiki',
+      channel: managed,
+    })
+  })
+})
+
+describe('agentAuthorshipLine', () => {
+  const agentMembers = new Map([
+    ...members,
+    [AGENT, member(AGENT, 'Payments wiki', { kind: 'channel_agent' })],
+  ])
+  const room = conversation({ id: wiki.conversationId, kind: 'channel' })
+
+  it('says a channel’s agent wrote its note, and who edited it, never as a person’s agent', () => {
+    const sent = note('note_a', { authorId: AGENT, origin: 'agent', approvedBy: ANA })
+    expect(agentAuthorshipLine(sent, room, [wiki], agentMembers)).toBe(
+      'Written by Payments wiki, the agent of #payments-wiki',
+    )
+    const edited = { ...sent, origin: 'human_edited' as const }
+    expect(agentAuthorshipLine(edited, room, [wiki], agentMembers)).toBe(
+      'Written by Payments wiki, the agent of #payments-wiki, edited by Ana',
+    )
+    expect(agentAuthorshipLine(edited, undefined, [], new Map([[AGENT, agentMembers.get(AGENT)!]]))).toBe(
+      `Written by Payments wiki, the agent of a channel, edited by ${strings.formerMember}`,
+    )
+    expect(agentAuthorshipLine(sent, room, [], agentMembers)).toBe(
+      'Written by Payments wiki, the agent of a channel',
+    )
+    const asked = conversation({ kind: 'group', privateQuestionOf: 'payments-wiki' })
+    expect(agentAuthorshipLine({ ...edited, approvedBy: null }, asked, [], agentMembers)).toBe(
+      'Written by Payments wiki, the agent of #payments-wiki',
+    )
+  })
+
+  it('leaves a person’s note, and one by someone unknown, to the person’s own wording', () => {
+    expect(agentAuthorshipLine(note('note_b', { authorId: BEN }), room, [wiki], agentMembers)).toBeNull()
+    expect(agentAuthorshipLine(note('note_c', { authorId: AGENT }), room, [wiki], members)).toBeNull()
   })
 })

@@ -1242,6 +1242,13 @@ export const en = {
     intro:
       'One agent answers this channel’s questions. Its answers wait for its managers: any one of you sends an answer, and the first to send it wins.',
     none: 'This channel has no agent yet.',
+    loadFailed: 'The channel’s agent could not be loaded. Try again in a moment.',
+    pageTitle: 'The agent of {channel}',
+    writtenBy: 'Written by {agent}, the agent of {channel}',
+    writtenByEdited: 'Written by {agent}, the agent of {channel}, edited by {name}',
+    someChannel: 'a channel',
+    notYours: 'Only the managers of this channel run its agent and review its answers.',
+    reviewIn: 'Review in {channel}',
     nameLabel: 'Name',
     nameHint: 'One line, at most 80 characters, shown on every answer it writes.',
     create: 'Create the agent',

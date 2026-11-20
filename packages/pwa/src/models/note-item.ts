@@ -16,7 +16,7 @@ import {
   statusOf,
 } from '../thread.ts'
 import { type AvatarModel, memberAvatarOf } from './avatar.ts'
-import { approvalLine } from './channel-agent.ts'
+import { agentAuthorshipLine, approvalLine } from './channel-agent.ts'
 import { type ThreadInput, isOn, nameIn, noteIn, notesOf, roomOf } from './thread-room.ts'
 import { type TimeShown, timeShown } from './time.ts'
 
@@ -141,6 +141,8 @@ const STATE_GLYPHS: Readonly<Record<SingleStatus, string>> = {
 }
 
 const authorshipLine = (input: ThreadInput, note: AsRead.Note, mine: boolean): string => {
+  const byAgent = agentAuthorshipLine(note, roomOf(input), input.channels, input.members)
+  if (byAgent !== null) return byAgent
   const name = nameIn(input, note.authorId)
   switch (authorshipOf(note)) {
     case 'agent':

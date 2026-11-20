@@ -45,6 +45,12 @@ describe('a channel’s agent', () => {
       name: 'Payments wiki',
     })
     expect((await cy.api('GET', `/channels/${CHANNEL}`)).json.memberCount).toBe(3)
+    expect((await ana.api('GET', `/channels/${CHANNEL}`)).json.runsAgent).toBe(true)
+    expect((await cy.api('GET', `/channels/${CHANNEL}`)).json.runsAgent).toBe(false)
+    expect((await root.api('GET', `/channels/${CHANNEL}`)).json).toMatchObject({
+      managing: true,
+      runsAgent: false,
+    })
     const room = (await cy.api('GET', `/channels/${CHANNEL}/members`)).json.members.map(
       (one: any) => one.memberId,
     )

@@ -7,6 +7,7 @@ export type Route =
   | { readonly name: 'group'; readonly id: string }
   | { readonly name: 'channels' }
   | { readonly name: 'channel'; readonly slug: string }
+  | { readonly name: 'channel-agent'; readonly slug: string }
   | { readonly name: 'debates' }
   | { readonly name: 'debate'; readonly id: string }
   | { readonly name: 'search'; readonly query: string }
@@ -28,7 +29,7 @@ export type AdminSection = 'settings' | 'members' | 'groups' | 'channels' | 'ins
 
 export const parseRoute = (hash: string): Route => {
   const [path = '', search = ''] = hash.replace(/^#\/?/, '').split('?')
-  const [head = '', second] = path
+  const [head = '', second, third] = path
     .split('/')
     .filter((segment) => segment !== '')
     .map(decodeSegment)
@@ -38,6 +39,8 @@ export const parseRoute = (hash: string): Route => {
   if (head === 'people') return { name: 'people' }
   if (head === 'group' && second !== undefined) return { name: 'group', id: second }
   if (head === 'channels') return { name: 'channels' }
+  if (head === 'channel' && second !== undefined && third === 'agent')
+    return { name: 'channel-agent', slug: second }
   if ((head === 'channel' || head === LEGACY_CHANNEL_HEAD) && second !== undefined)
     return { name: 'channel', slug: second }
   if (head === 'debates') return { name: 'debates' }
@@ -71,6 +74,8 @@ export const hrefFor = (route: Route): string => {
       return '#/channels'
     case 'channel':
       return `#/channel/${encodeURIComponent(route.slug)}`
+    case 'channel-agent':
+      return `#/channel/${encodeURIComponent(route.slug)}/agent`
     case 'debates':
       return '#/debates'
     case 'debate':
