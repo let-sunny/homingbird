@@ -197,11 +197,16 @@ const inStableOrder = (rows: ReadonlyArray<unknown>): ReadonlyArray<unknown> =>
 
 export const startTestServer = async (
   overrides: Readonly<Record<string, string>> = {},
-  parts: { readonly fetch?: Fetch; readonly databaseUrl?: string } = {},
+  parts: {
+    readonly fetch?: Fetch
+    readonly databaseUrl?: string
+    /** A database to serve as it is, instead of an empty one; it is migrated like any other. */
+    readonly database?: Database
+  } = {},
 ): Promise<TestServer> => {
   const clock = makeTestClock(1_700_000_000_000)
   const databaseUrl = parts.databaseUrl ?? TEST_DATABASE_URL
-  const database = await openTestDatabase(databaseUrl)
+  const database = parts.database ?? (await openTestDatabase(databaseUrl))
   const logged: string[] = []
   const desks: TestServer['desks'] = new Set()
   const { env, background, settled } = buildRuntime({

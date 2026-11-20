@@ -205,9 +205,17 @@ celebration is for a principle being saved, never for sending.
 
 ## Messaging
 
-- Starting a group conversation with several people in the web client. The API accepts several
-  participants, and the web client shows group and channel rooms, but its composer starts a
-  conversation with one person.
+**Built:** starting a conversation with several people in the web client: People offers **Add to group
+message** on every card one may message, the people chosen show as removable chips, and
+**Start group message** opens the group room, where the first note is written or drafted and approved as
+in a direct conversation ([guide](guide.md#ask-a-person)). When a group room with exactly those
+people exists, People opens it instead.
+
+- Hiding a new group message from its other members until a note in it is sent, as a direct message is
+  hidden. Today everyone chosen sees the empty room at once, and a room whose only draft was discarded
+  stays in their list. This changes what `conversations.list` returns, so it waits for a decision.
+- Naming a group message from the web client. The API accepts a title, but everyone in the room sees
+  it as soon as the room is made, before any note is approved, so the web client leaves it unnamed.
 - Attachments. Notes are text and links only by design.
 - Per-conversation mute and notification preferences.
 - Muting a channel: staying in a room without its notifications, short of turning answering off.
