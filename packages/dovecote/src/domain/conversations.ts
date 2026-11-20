@@ -16,7 +16,7 @@ import { insertIgnoringConflict, insertInto, sql } from '../sql/query.ts'
 import { tiesOf } from './contacts.ts'
 import { membersByIds, messagingFacts } from './members.ts'
 import { type NoteRow, hydrateNotes } from './note-rows.ts'
-import { readSettings } from './settings.ts'
+import { featureIsOn, readSettings } from './settings.ts'
 
 export const listConversations = (viewerId: MemberId): T.Task<Conversation[], never, AppEnv> =>
   T.gen(function* () {
@@ -27,7 +27,8 @@ export const listConversations = (viewerId: MemberId): T.Task<Conversation[], ne
          OR EXISTS (SELECT 1 FROM notes n WHERE n.conversation_id = c.id
                     AND (n.status = 'sent' OR (n.status = 'draft' AND n.author_id = ${viewerId})))
       ORDER BY c.last_activity_at DESC LIMIT ${CONVERSATION_LIMIT}`)
-    return yield* T.forEach(rows, (row) => describeConversation(viewerId, row))
+    const muting = yield* featureIsOn('mute')
+    return yield* T.forEach(rows, (row) => describeConversation(viewerId, row, muting))
   })
 
 export const conversationFor = (
@@ -36,7 +37,7 @@ export const conversationFor = (
 ): T.Task<Conversation, NotFound, AppEnv> =>
   T.gen(function* () {
     const row = yield* participatedConversation(viewerId, id)
-    return yield* describeConversation(viewerId, row)
+    return yield* describeConversation(viewerId, row, yield* featureIsOn('mute'))
   })
 
 export const participatedConversation = (
@@ -82,11 +83,16 @@ export const createGroupConversation = (
     const others = [...new Set(otherIds)].filter((id) => id !== viewerId)
     if (others.length === 0)
       return yield* T.fail(Invalid({ message: 'A conversation needs someone else in it.' }))
+    const muting = yield* featureIsOn('mute')
     if (others.length === 1)
-      return yield* describeConversation(viewerId, yield* directConversationWith(viewerId, others[0]!))
+      return yield* describeConversation(
+        viewerId,
+        yield* directConversationWith(viewerId, others[0]!),
+        muting,
+      )
     yield* requireMayMessage(viewerId, others)
     const row = yield* insertConversation('group', title ?? null, null, [viewerId, ...others])
-    return yield* describeConversation(viewerId, row)
+    return yield* describeConversation(viewerId, row, muting)
   })
 
 const requireMayMessage = (
@@ -137,6 +143,7 @@ const ARCHIVED = Conflict({
 const describeConversation = (
   viewerId: MemberId,
   row: ConversationRow,
+  muting: boolean,
 ): T.Task<Conversation, never, AppEnv> =>
   T.gen(function* () {
     const participantIds = yield* participantsOf(row.id)
@@ -152,6 +159,11 @@ const describeConversation = (
     )
     const channelRoom = row.channel_id ?? null
     const askedOf = channelRoom === null ? null : yield* channelSlugOfRoom(channelRoom)
+    const place = muting
+      ? yield* first<{ muted_at: number | null }>(
+          sql`SELECT muted_at FROM participants WHERE conversation_id = ${row.id} AND member_id = ${viewerId}`,
+        )
+      : null
     return {
       id: row.id,
       kind: row.kind,
@@ -164,6 +176,7 @@ const describeConversation = (
       draftCount: Number(drafts?.total ?? 0),
       archivedAt: row.archived_at ?? null,
       ...(channelRoom !== null && { privateQuestionOf: askedOf }),
+      ...(muting && { muted: (place?.muted_at ?? null) !== null }),
     }
   })
 

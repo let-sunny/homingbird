@@ -24,6 +24,10 @@ export const FEATURES = {
     default: true,
     routes: ['me.character.set', 'me.character.clear', 'admin.members.resetCharacter'],
   },
+  mute: {
+    default: true,
+    routes: ['conversations.mute', 'conversations.unmute', 'me.notifications.set'],
+  },
   webPush: { default: true, routes: ['push.key', 'push.subscribe', 'push.test', 'push.unsubscribe'] },
   answeringFlow: { default: true, routes: ['answeringFlow.get'] },
   teaching: {

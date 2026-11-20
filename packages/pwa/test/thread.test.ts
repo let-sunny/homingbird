@@ -20,6 +20,7 @@ import {
   excerpt,
   groupWith,
   isArchived,
+  isMuted,
   isOpenQuestion,
   isUnreadBy,
   myNoteState,
@@ -280,6 +281,12 @@ describe('conversation titles', () => {
     expect(isArchived(archived)).toBe(true)
     expect(isArchived(conversation({}))).toBe(false)
     expect(isArchived(undefined)).toBe(false)
+  })
+
+  it('counts a conversation as muted only when the server says so', () => {
+    expect(isMuted(conversation({ muted: true }))).toBe(true)
+    expect(isMuted(conversation({ muted: false }))).toBe(false)
+    expect(isMuted(conversation({}))).toBe(false)
   })
 })
 

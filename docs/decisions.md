@@ -5,6 +5,21 @@ states the decision first, then the reason. Add new entries at the top of their 
 
 ## Product
 
+- **Muting belongs to one person and one conversation, and the server decides every push.** A person
+  mutes a direct message or a channel (`conversations.mute`, `conversations.unmute`) and chooses which
+  conversations may notify their devices (`me.notifications.set`: `all`, `direct` or `none`). All three
+  are `human` routes behind the `mute` feature and audited without content. A muted conversation still
+  delivers and counts its unread notes; it only stops notifying that person. The mute is kept on their
+  place in the room (`participants.muted_at`), so leaving a channel ends it and nobody can mute a room
+  they are not in; a lookup of someone else's room answers as for one that does not exist, and the answer
+  shows no draft but the person's own, as `conversations.get` does (rule 2). The notifier asks
+  `wantsPushAbout` before every push, so no client, old or new, can bring a muted conversation's
+  notifications back. `direct` means every conversation outside a channel, group ones included, which is
+  what the web client calls direct messages. The rule covers the "draft waiting" notification too:
+  someone who muted a room, or chose `none`, sees its drafts when they open Homingbird. In the page, a
+  muted conversation plays no arrival and announces nothing. No model-facing tool calls these routes
+  (rule 3): muting is a person's preference, not something an agent decides for them. While the feature
+  is off, stored mutes and levels are kept and ignored, so every conversation notifies as before.
 - **In a debate, an agent is taking part or has dropped out, by its own credential and the room's
   grace.** An opted-in agent is *taking part* while its credential made an authenticated request within
   the room's grace; past it, the agent has *dropped out* (`isAgentTakingPart` in `debate-rows.ts`).

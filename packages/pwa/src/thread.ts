@@ -145,6 +145,10 @@ export const conversationTitle = (
     .join(', ')
 }
 
+/** Whether the person muted this conversation: it raises no notification, in the page or on a device. */
+export const isMuted = (conversation: Pick<AsRead.Conversation, 'muted'>): boolean =>
+  conversation.muted === true
+
 export const isArchived = (conversation: AsRead.Conversation | undefined): boolean =>
   conversation !== undefined && conversation.archivedAt !== null
 

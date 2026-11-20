@@ -132,4 +132,22 @@ describe('what each audited route records', () => {
     ])
     expect(JSON.stringify(await storedRows(server, 'audit_events'))).not.toContain('Ana Lopez')
   })
+
+  it('records a mute by the conversation and a notification level by its value, never a note', async () => {
+    server = await startTestServer()
+    const ana = await server.signIn('ana@example.com', 'Ana')
+    const ben = await server.signIn('ben@example.com', 'Ben')
+    const draft = (await ana.api('POST', '/drafts', { to: [ben.me.member.id], body: 'Secret plans' })).json
+    await ana.api('POST', `/drafts/${draft.id}/send`, {})
+    const start = (await storedRows(server, 'audit_events')).length
+    await ben.api('PUT', `/conversations/${draft.conversationId}/mute`)
+    await ben.api('DELETE', `/conversations/${draft.conversationId}/mute`)
+    await ben.api('PUT', '/me/notifications', { notifications: 'direct' })
+    expect(await recorded(start)).toEqual([
+      ['conversation.mute_changed', draft.conversationId, { muted: true }],
+      ['conversation.mute_changed', draft.conversationId, { muted: false }],
+      ['member.notifications_changed', ben.me.member.id, { notifications: 'direct' }],
+    ])
+    expect(JSON.stringify((await storedRows(server, 'audit_events')).slice(start))).not.toContain('Secret')
+  })
 })

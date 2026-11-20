@@ -73,6 +73,7 @@ describe('sidebarModel', () => {
     channels: [],
     agentCount: 1,
     charactersOn: true,
+    muteOn: true,
     now: 10,
     arrived: new Set(),
     ...fields,
@@ -170,5 +171,16 @@ describe('sidebarModel', () => {
       current: true,
     })
     expect(sidebarModel(input({ conversations: [old] })).archived!.open).toBe(false)
+  })
+
+  it('offers each row a mute switch, marks a muted one, and lets no muted row play an arrival', () => {
+    const muted = conversation({ muted: true, lastNote: note('n1', { authorId: BEN, sentAt: 9 }) })
+    const model = sidebarModel(input({ conversations: [muted], arrived: new Set([ROOM]) }))
+    if (model.people.kind !== 'rows') throw new Error('expected rows')
+    const [row] = model.people.rows
+    expect(row!.mute).toMatchObject({ muted: true, label: 'Unmute Ben', mark: strings.mute.muted })
+    expect(row!.face).toMatchObject({ kind: 'member', avatar: { state: 'idle', motion: 'still' } })
+    const off = sidebarModel(input({ conversations: [conversation()], muteOn: false }))
+    expect(off.people.kind === 'rows' && off.people.rows[0]!.mute).toBeNull()
   })
 })

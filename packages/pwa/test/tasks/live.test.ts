@@ -65,6 +65,23 @@ describe('liveEvents', () => {
     expect(routes()).toContain('conversations.list')
   })
 
+  it('announces nothing from a conversation the person muted, and still files its note', () => {
+    const { apply, state, clock } = live()
+    state.threads.set(new Map([[ROOM, { notes: [], hasMore: false }]]))
+    state.conversations.set([conversation({ muted: true })])
+    apply(event({ type: 'note.sent', note: note('n1', { sentAt: clock.now() }) }))
+    expect(state.announcement.get()).toBe('')
+    expect(
+      state.threads
+        .get()
+        .get(ROOM)!
+        .notes.map((one) => one.id),
+    ).toEqual(['n1'])
+    state.conversations.set([conversation({ muted: false })])
+    apply(event({ type: 'note.sent', note: note('n2', { sentAt: clock.now() }) }))
+    expect(state.announcement.get()).toBe(strings.incomingNote({ name: 'Ben' }))
+  })
+
   it('updates receipts, moves a question away, and keeps a saved draft', async () => {
     const { apply, state } = live()
     apply(event({ type: 'note.status', noteId: 'n1', conversationId: ROOM, receipts: [] }))

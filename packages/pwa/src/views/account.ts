@@ -4,11 +4,14 @@ import { applyAppearance, currentAppearance } from '../appearance.ts'
 import { featureOn } from '../features.ts'
 import {
   type LanguageOption,
+  type NotificationLevelModel,
   type ProfileModel,
   myGroupsModel,
+  notificationLevelModel,
   notificationsModel,
   profileModel,
 } from '../models/account.ts'
+import { signedIn } from '../state.ts'
 import { strings } from '../strings.ts'
 import { myCharacterSection } from './character.ts'
 import type { ViewContext } from './context.ts'
@@ -219,5 +222,50 @@ const renderProfile = (
         h('p', {}, strings.notificationsUnavailable),
       ),
     model.notifications === 'available' && notificationsToggle(context, life),
+    notificationLevelPicker(context, life, me),
   )
 }
+
+/** Which conversations notify the person; choosing one saves it at once. */
+const notificationLevelPicker = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement =>
+  region(
+    life,
+    [context.state.session, context.state.serverInfo],
+    (): Child => {
+      const info = context.state.serverInfo.get()
+      const model = notificationLevelModel({
+        me: signedIn(context.state) ?? me,
+        muteOn: featureOn('mute', info),
+        webPushOn: featureOn('webPush', info),
+      })
+      return model !== null && renderNotificationLevel(context, model)
+    },
+    { class: 'notification-level-host' },
+  )
+
+const renderNotificationLevel = (context: ViewContext, model: NotificationLevelModel): HTMLElement =>
+  h(
+    'fieldset',
+    { class: 'appearance notification-level' },
+    h('legend', {}, model.legend),
+    model.options.map((option) =>
+      h(
+        'label',
+        { class: 'choice' },
+        h('input', {
+          type: 'radio',
+          name: 'notification-level',
+          value: option.value,
+          checked: option.checked,
+          on: {
+            change: () =>
+              context.actions.chooseNotificationLevel(option.value, {
+                done: () => context.state.notice.set({ kind: 'info', text: strings.saved }),
+              }),
+          },
+        }),
+        h('span', {}, option.label, option.hint !== null && h('small', {}, option.hint)),
+      ),
+    ),
+    h('small', {}, model.hint),
+  )

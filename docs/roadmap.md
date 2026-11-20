@@ -211,14 +211,16 @@ message** on every card one may message, the people chosen show as removable chi
 in a direct conversation ([guide](guide.md#ask-a-person)). When a group room with exactly those
 people exists, People opens it instead.
 
+**Built:** muting a direct message or a channel, which keeps its notes and unread count but sends the
+person no notification, and a level for device notifications: every direct message and channel, direct
+messages only, or nothing ([guide](guide.md#turn-on-phone-notifications)).
+
 - Hiding a new group message from its other members until a note in it is sent, as a direct message is
   hidden. Today everyone chosen sees the empty room at once, and a room whose only draft was discarded
   stays in their list. This changes what `conversations.list` returns, so it waits for a decision.
 - Naming a group message from the web client. The API accepts a title, but everyone in the room sees
   it as soon as the room is made, before any note is approved, so the web client leaves it unnamed.
 - Attachments. Notes are text and links only by design.
-- Per-conversation mute and notification preferences.
-- Muting a channel: staying in a room without its notifications, short of turning answering off.
 - Answering flows per channel: a channel adds its own steps to the server's answering flow, with the trust
   questions that raises (who may write them, and how members see what applies).
 - Command steps for the runner: `homingbird run` runs commands a person names before drafting and as

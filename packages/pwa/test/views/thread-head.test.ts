@@ -4,7 +4,7 @@ import { strings } from '../../src/strings.ts'
 import { renderThreadHead } from '../../src/views/thread-head.ts'
 import { testContext } from '../support/context.ts'
 import { usingFakeDom } from '../support/dom.ts'
-import { channel } from '../support/fixtures.ts'
+import { ROOM, channel } from '../support/fixtures.ts'
 
 usingFakeDom()
 
@@ -28,13 +28,22 @@ describe('renderThreadHead', () => {
         title: 'Ben',
         profile: 'Billing',
         presence: { humanOnline: true, agentOnline: false },
+        mute: null,
       }),
     )
     expect(textOf(shown)).toContain('Billing')
     expect(textOf(shown)).toContain(strings.humanOnline)
     expect(
       textOf(
-        host(renderThreadHead(context, { kind: 'people', title: 'Team', profile: null, presence: null })),
+        host(
+          renderThreadHead(context, {
+            kind: 'people',
+            title: 'Team',
+            profile: null,
+            presence: null,
+            mute: null,
+          }),
+        ),
       ),
     ).not.toContain('Billing')
   })
@@ -47,12 +56,52 @@ describe('renderThreadHead', () => {
         title: '#billing',
         archived: false,
         channel: channel('billing', { joined: true }),
+        mute: null,
       }),
     )
     expect(getByRole(shown, 'switch', { name: strings.answerHere })).toBeTruthy()
     const archived = host(
-      renderThreadHead(context, { kind: 'channel', title: '#old', archived: true, channel: null }),
+      renderThreadHead(context, {
+        kind: 'channel',
+        title: '#old',
+        archived: true,
+        channel: null,
+        mute: null,
+      }),
     )
     expect(textOf(archived)).toContain(strings.archived)
+  })
+
+  it('marks a muted conversation and offers to lift the mute, beside a person or a channel', () => {
+    const { context, called } = testContext()
+    const mute = {
+      conversationId: ROOM,
+      muted: true,
+      text: strings.mute.unmute,
+      label: 'Unmute Ben',
+      mark: strings.mute.muted,
+      hint: strings.mute.hint,
+    }
+    const person = host(
+      renderThreadHead(context, { kind: 'people', title: 'Ben', profile: null, presence: null, mute }),
+    )
+    expect(getByRole(person, 'heading').textContent).toContain(strings.mute.muted)
+    getByRole(person, 'button', { name: 'Unmute Ben' }).click()
+    expect(called('setMuted').map((call) => call.args)).toEqual([[ROOM, false]])
+    const room = host(
+      renderThreadHead(context, {
+        kind: 'channel',
+        title: '#billing',
+        archived: false,
+        channel: channel('billing', { joined: true }),
+        mute: { ...mute, muted: false, text: strings.mute.mute, label: 'Mute #billing', mark: null },
+      }),
+    )
+    expect(getByRole(room, 'heading').textContent).not.toContain(strings.mute.muted)
+    getByRole(room, 'button', { name: 'Mute #billing' }).click()
+    expect(called('setMuted').map((call) => call.args)).toEqual([
+      [ROOM, false],
+      [ROOM, true],
+    ])
   })
 })

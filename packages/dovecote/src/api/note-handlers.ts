@@ -10,6 +10,7 @@ import {
 } from '../domain/draft-requests.ts'
 import { createDraft, markDraftSeen, updateDraft } from '../domain/drafts.ts'
 import { notesAwaitingReply } from '../domain/inbox.ts'
+import { setMuted } from '../domain/mutes.ts'
 import { moveToChannel } from '../domain/note-moves.ts'
 import { draftsOf, notesInConversation, searchNotes, visibleNote } from '../domain/notes.ts'
 import { markRead, pickUp, release } from '../domain/receipts.ts'
@@ -26,6 +27,14 @@ export const noteHandlers = {
     createGroupConversation(caller.member.id, body.participantIds, body.title),
   'conversations.get': ({ params }, caller) =>
     T.flatMap((id: ConversationId) => conversationFor(caller.member.id, id))(
+      identifier(ConversationId, params.id),
+    ),
+  'conversations.mute': ({ params }, caller) =>
+    T.flatMap((id: ConversationId) => setMuted(caller.member.id, id, true))(
+      identifier(ConversationId, params.id),
+    ),
+  'conversations.unmute': ({ params }, caller) =>
+    T.flatMap((id: ConversationId) => setMuted(caller.member.id, id, false))(
       identifier(ConversationId, params.id),
     ),
   'conversations.notes': ({ params, query }, caller) =>

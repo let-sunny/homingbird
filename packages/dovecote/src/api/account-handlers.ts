@@ -3,7 +3,8 @@ import { type Contract, type Member, PROTOCOL_VERSION, type ResponseOf } from '@
 import { trackAnalytics } from '../domain/analytics.ts'
 import { clearCharacter, saveCharacter } from '../domain/characters.ts'
 import { chosenLocaleOf, directoryFor, updateOwnProfile } from '../domain/members.ts'
-import { offeredFeatures, readSettings } from '../domain/settings.ts'
+import { notificationLevelOf, setNotificationLevel } from '../domain/notification-level.ts'
+import { featureIsOn, offeredFeatures, readSettings } from '../domain/settings.ts'
 import { viewerOf } from '../environment.ts'
 import { type RequestEnv, announceDirectoryChange } from '../events/events.ts'
 import { SERVER_VERSION } from '../version.ts'
@@ -28,17 +29,20 @@ export const accountHandlers = {
     T.gen(function* () {
       const settings = yield* readSettings
       const locale = yield* chosenLocaleOf(caller.member.id)
+      const notifications = (yield* featureIsOn('mute')) ? yield* notificationLevelOf(caller.member.id) : null
       return {
         member: caller.member,
         credential: caller.credential,
         contactMode: settings.contactMode,
         ...(locale !== null && { locale }),
+        ...(notifications !== null && { notifications }),
       }
     }),
   'me.update': ({ body }, caller) =>
     T.tap((_: Member) => announceDirectoryChange(caller.member.id))(updateOwnProfile(caller.member.id, body)),
   'me.character.set': ({ body }, caller) =>
     T.tap((_: Member) => announceDirectoryChange(caller.member.id))(saveCharacter(caller.member.id, body)),
+  'me.notifications.set': ({ body }, caller) => setNotificationLevel(caller.member.id, body.notifications),
   'me.character.clear': (_, caller) =>
     T.tap((_: Member) => announceDirectoryChange(caller.member.id))(clearCharacter(caller.member.id)),
   'directory.list': ({ query }, caller) =>

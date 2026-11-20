@@ -13,6 +13,7 @@ import type { ArchiveDiscard, Release, Thread } from '../state.ts'
 import { strings } from '../strings.ts'
 import { conversationTitle, isArchived, otherParticipants } from '../thread.ts'
 import { privateQuestionNotice } from './channel-agent.ts'
+import { type MuteToggle, muteToggleModel } from './mute-toggle.ts'
 
 /** What every part of a conversation's page reads: the room, its notes, the people and the person. */
 export interface ThreadInput {
@@ -84,12 +85,14 @@ export const threadHeadModel = (input: ThreadInput): ThreadHead => {
   if (conversation === undefined) return { kind: 'loading', title: strings.loading }
   const title = conversationTitle(conversation, input.members, input.me.member.id, strings.formerMember)
   const archived = isArchived(conversation)
+  const mute = muteToggleModel(conversation, title, isOn(input, 'mute'))
   if (conversation.kind === 'channel' || archived)
     return {
       kind: 'channel',
       title,
       archived,
       channel: archived ? null : channelOfRoom(input.channels, conversation.id),
+      mute,
     }
   const others = otherParticipants(conversation, input.me.member.id)
   const entry =
@@ -101,6 +104,7 @@ export const threadHeadModel = (input: ThreadInput): ThreadHead => {
     title,
     profile: privateQuestionNotice(conversation, input.channels) ?? entry?.member.profile ?? null,
     presence: entry?.presence ?? null,
+    mute,
   }
 }
 
@@ -126,10 +130,12 @@ export type ThreadHead =
       readonly title: string
       readonly archived: boolean
       readonly channel: AsRead.Channel | null
+      readonly mute: MuteToggle | null
     }
   | {
       readonly kind: 'people'
       readonly title: string
       readonly profile: string | null
       readonly presence: Presence | null
+      readonly mute: MuteToggle | null
     }

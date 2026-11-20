@@ -1,4 +1,4 @@
-import type { AsRead, Locale } from '@homingbird/protocol'
+import { type AsRead, type Locale, NOTIFICATION_LEVELS } from '@homingbird/protocol'
 import { APPEARANCES, type Appearance } from '../appearance.ts'
 import { channelsManagedBy, groupLabel, managesText, teamsOf } from '../groups.ts'
 import { languageChoices } from '../languages.ts'
@@ -64,6 +64,25 @@ export const notificationsModel = (input: {
   results: input.tested,
 })
 
+/** Which conversations may notify the person on their devices; none while muting or notifications are off. */
+export const notificationLevelModel = (input: {
+  readonly me: AsRead.Me
+  readonly muteOn: boolean
+  readonly webPushOn: boolean
+}): NotificationLevelModel | null => {
+  if (!input.muteOn || !input.webPushOn) return null
+  return {
+    legend: strings.mute.levelLegend,
+    hint: strings.mute.levelHint,
+    options: NOTIFICATION_LEVELS.map((level) => ({
+      value: level,
+      label: LEVEL_LABELS[level](),
+      hint: level === 'direct' ? strings.mute.directHint : null,
+      checked: input.me.notifications === level,
+    })),
+  }
+}
+
 export interface ProfileInput {
   readonly me: AsRead.Me
   readonly appearance: Appearance
@@ -104,6 +123,19 @@ export interface LanguageOption {
   readonly checked: boolean
 }
 
+export interface NotificationLevelModel {
+  readonly legend: string
+  readonly hint: string
+  readonly options: ReadonlyArray<{
+    readonly value: NotificationLevel
+    readonly label: string
+    readonly hint: string | null
+    readonly checked: boolean
+  }>
+}
+
+export type NotificationLevel = (typeof NOTIFICATION_LEVELS)[number]
+
 export interface NotificationsModel {
   readonly checked: boolean
   readonly disabled: boolean
@@ -115,4 +147,10 @@ const APPEARANCE_LABELS: Readonly<Record<Appearance, () => string>> = {
   auto: () => strings.appearanceAuto,
   light: () => strings.appearanceLight,
   dark: () => strings.appearanceDark,
+}
+
+const LEVEL_LABELS: Readonly<Record<NotificationLevel, () => string>> = {
+  all: () => strings.mute.all,
+  direct: () => strings.mute.direct,
+  none: () => strings.mute.none,
 }

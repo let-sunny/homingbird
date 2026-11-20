@@ -81,12 +81,14 @@ describe('threadHeadModel', () => {
       title: 'Ben',
       profile: 'Billing.',
       presence,
+      mute: expect.objectContaining({ conversationId: ROOM, muted: false, label: 'Mute Ben' }),
     })
     expect(threadHeadModel(threadInput())).toEqual({
       kind: 'people',
       title: 'Ben',
       profile: null,
       presence: null,
+      mute: expect.objectContaining({ muted: false }),
     })
     expect(
       threadHeadModel(
@@ -97,6 +99,17 @@ describe('threadHeadModel', () => {
       title: 'Team',
       profile: null,
       presence: null,
+      mute: expect.objectContaining({ label: 'Mute Team' }),
+    })
+  })
+
+  it('offers to mute the conversation, or to lift its mute, only while the server offers muting', () => {
+    expect(threadHeadModel(threadInput({ conversations: [conversation({ muted: true })] }))).toMatchObject({
+      mute: { muted: true, text: strings.mute.unmute, mark: strings.mute.muted, label: 'Unmute Ben' },
+    })
+    expect(threadHeadModel(threadInput({ serverInfo: serverInfo({ mute: false }) }))).toMatchObject({
+      kind: 'people',
+      mute: null,
     })
   })
 
@@ -114,6 +127,7 @@ describe('threadHeadModel', () => {
       title: '#billing',
       archived: false,
       channel: billing,
+      mute: expect.objectContaining({ label: 'Mute #billing' }),
     })
     expect(
       threadHeadModel(threadInput({ conversations: [conversation({ archivedAt: 5 })], channels: [billing] })),
@@ -121,6 +135,7 @@ describe('threadHeadModel', () => {
       kind: 'channel',
       archived: true,
       channel: null,
+      mute: null,
     })
   })
 })

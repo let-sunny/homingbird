@@ -41,6 +41,7 @@ describe('wire model', () => {
         'NoteStatus',
         'Notice',
         'NoticeKind',
+        'NotificationLevel',
         'Origin',
         'Presence',
         'PublicText',

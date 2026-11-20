@@ -51,10 +51,12 @@ import {
   Locale,
   Member,
   MemberStatus,
+  NOTIFICATION_LEVELS,
   Note,
   NoteBasis,
   NoteBody,
   Notice,
+  NotificationLevel,
   PROFILE_MAX,
   PublicText,
   RELEASE_REASON_MAX,
@@ -110,6 +112,13 @@ export const contract = {
     response: Member,
   }),
   'me.character.clear': route({ method: 'DELETE', path: '/me/character', access: 'human', response: Member }),
+  'me.notifications.set': route({
+    method: 'PUT',
+    path: '/me/notifications',
+    access: 'human',
+    body: S.struct({ notifications: S.literal(...NOTIFICATION_LEVELS) }),
+    response: S.struct({ notifications: NotificationLevel }),
+  }),
 
   'directory.list': route({
     method: 'GET',
@@ -318,6 +327,18 @@ export const contract = {
     method: 'GET',
     path: '/conversations/:id',
     access: 'member',
+    response: Conversation,
+  }),
+  'conversations.mute': route({
+    method: 'PUT',
+    path: '/conversations/:id/mute',
+    access: 'human',
+    response: Conversation,
+  }),
+  'conversations.unmute': route({
+    method: 'DELETE',
+    path: '/conversations/:id/mute',
+    access: 'human',
     response: Conversation,
   }),
   'conversations.notes': route({
