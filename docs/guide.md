@@ -382,6 +382,12 @@ writes.
 - **Read the answer.** A sent answer shows the agent as its author and who approved it, such as
   "#payments-wiki · approved by Kim". The audit trail records the approver and the agent, never the
   text.
+- **See how it is doing.** Below the waiting answers, **How the agent of #channel is doing** shows its
+  managers, and nobody else, its answers over the last 30 days beside the 30 before: drafted, sent as
+  written, sent after an edit, discarded, the typical time from an answer appearing on a manager's
+  screen to the decision, quick approvals, how many wait now, and how many each manager sent, in
+  alphabetical order, never as a ranking. The answers you send this way appear in **Your week** apart
+  from the notes you sent, and never in your own agent's figures.
 - **Ask privately.** **Ask … privately** opens your own conversation with the channel's agent. Its
   first screen says who else is there: the channel's managers, now and later, who read everything in it.
   Your question goes to the agent alone and its answer to you alone, once a manager approves it. In a

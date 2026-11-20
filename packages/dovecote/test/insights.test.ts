@@ -182,13 +182,19 @@ describe('your week', () => {
     const report = (await ana.api('GET', '/insights/me')).json
     expect(report.week).toEqual({
       days: 7,
-      current: { notesSent: 4, repliesReceived: 1, medianReplyMs: answer.sentAt - asked.sentAt },
-      previous: { notesSent: 0, repliesReceived: 0, medianReplyMs: null },
+      current: {
+        notesSent: 4,
+        repliesReceived: 1,
+        medianReplyMs: answer.sentAt - asked.sentAt,
+        approvedForChannels: 0,
+      },
+      previous: { notesSent: 0, repliesReceived: 0, medianReplyMs: null, approvedForChannels: 0 },
     })
     expect((await ben.api('GET', '/insights/me')).json.week.current).toEqual({
       notesSent: 2,
       repliesReceived: 2,
       medianReplyMs: done.sentAt - own.sentAt,
+      approvedForChannels: 0,
     })
   })
 

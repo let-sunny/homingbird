@@ -6,6 +6,7 @@ import type {
   PlaceName,
   PlaceTotals,
 } from '@homingbird/protocol'
+import { type ReviewedDraft, channelAgentTotalsIn } from './channel-agent-figures.ts'
 import { type ReceivedNote, deliveryIn } from './delivery-figures.ts'
 import { placesShown } from './disclosure.ts'
 import { quickWeeksOf } from './quick-weeks.ts'
@@ -36,11 +37,13 @@ export interface SentNote {
 }
 
 export interface MemberDraft extends AgentDraft {
-  readonly authorId: string
+  /** Who decided it: its author, or the manager who sent a channel's agent's answer; null when nobody is known. */
+  readonly authorId: string | null
 }
 
 export interface MemberSkip {
-  readonly memberId: string
+  /** Null for a channel's agent, which is not a person. */
+  readonly memberId: string | null
   readonly place: PlaceName
   readonly at: number
 }
@@ -52,6 +55,7 @@ export interface OrganizationActivity {
   readonly received: ReadonlyArray<ReceivedNote>
   /** Sent debate results: neither agent drafts nor notes, so they count only here. */
   readonly debateResults?: ReadonlyArray<{ readonly authorId: string; readonly sentAt: number }>
+  readonly channelAgentDrafts?: ReadonlyArray<ReviewedDraft>
 }
 
 export interface PrivacySettings {
@@ -100,12 +104,11 @@ export const organizationFiguresIn = (
     [...groups.values()].map((group) => ({ place: group.totals.place, people: group.people })),
     settings.minimumGroupSize,
   )
-  const decidedBy = new Set(decided.map((draft) => draft.authorId))
-  const draftsShown = decidedBy.size >= settings.minimumGroupSize
+  const draftsShown = peopleOf(decided.map((draft) => draft.authorId)).size >= settings.minimumGroupSize
   const decidedPlaces = placesShown(
     [...Map.groupBy(decided, (draft) => draft.place)].map(([place, drafts]) => ({
       place,
-      people: new Set(drafts.map((draft) => draft.authorId)),
+      people: peopleOf(drafts.map((draft) => draft.authorId)),
     })),
     settings.minimumGroupSize,
   ).hidden
@@ -135,8 +138,13 @@ export const organizationFiguresIn = (
     medianDecisionMs: medianDecisionShown(decided, settings.minimumGroupSize),
     authorship: draftsShown ? authorshipOf(sent) : null,
     delivery: deliveryIn(activity.received, window, now, settings.minimumGroupSize),
+    channelAgents: channelAgentTotalsIn(activity.channelAgentDrafts ?? [], window, settings.minimumGroupSize),
   }
 }
+
+/** The people among some contributors, leaving out those nobody knows. */
+export const peopleOf = (ids: Iterable<string | null>): Set<string> =>
+  new Set([...ids].filter((id): id is string => id !== null))
 
 /** The sent debate results, or null while fewer people than the minimum sent one. */
 const debateResultsShown = (
@@ -154,7 +162,7 @@ const medianDecisionShown = (decided: ReadonlyArray<MemberDraft>, minimum: numbe
     const time = decisionTime(draft)
     return time === null ? [] : [{ authorId: draft.authorId, time }]
   })
-  return new Set(timed.map((draft) => draft.authorId)).size >= minimum
+  return peopleOf(timed.map((draft) => draft.authorId)).size >= minimum
     ? median(timed.map((draft) => draft.time))
     : null
 }
@@ -186,7 +194,7 @@ const groupsByPlace = (
       const notes = notesBy.get(place) ?? []
       const drafts = draftsBy.get(place) ?? []
       const skipped = skipsBy.get(place) ?? []
-      const people = new Set([
+      const people = peopleOf([
         ...notes.map((note) => note.authorId),
         ...drafts.map((draft) => draft.authorId),
         ...skipped.map((skip) => skip.memberId),
@@ -227,7 +235,7 @@ const labelsShown = (
     const { shown, hidden } = placesShown(
       [...people].map(([label, group]) => ({
         place: label,
-        people: new Set(group.map((draft) => draft.authorId)),
+        people: peopleOf(group.map((draft) => draft.authorId)),
       })),
       minimum,
     )
@@ -235,7 +243,7 @@ const labelsShown = (
     const decisionsHidden = placesShown(
       [...Map.groupBy(decided, labelOf)].map(([label, group]) => ({
         place: label,
-        people: new Set(group.map((draft) => draft.authorId)),
+        people: peopleOf(group.map((draft) => draft.authorId)),
       })),
       minimum,
     ).hidden

@@ -325,7 +325,9 @@ and organization-wide **Insights** for administrators, with groups under 5 peopl
 time); for administrators, organization-wide, the typical decision time, who wrote what was sent
 (`agent`, `human_edited`, `human`), delivery to agents, and quick approvals week by week with a warning
 at 25% for 2 weeks; and **What is measured**, a page every member can open, with a test that fails for a
-figure it does not name. Still to come:
+figure it does not name; and **How #channel's agent is doing** on a channel's agent page, for its
+managers only, with the answers each manager sent, a manager's approvals in their week apart from
+their notes, and channel agents' totals for administrators. Still to come:
 
 - **Quick-approval warning per team, and as settings**: the 25% and 2 weeks are constants today
   (`QUICK_APPROVAL_SHARE`, `QUICK_WARNING_WEEKS` in `protocol`), organization-wide only.
@@ -340,8 +342,6 @@ figure it does not name. Still to come:
   person by an administrator, with its own membership history (`group_member_spans`, since and until
   per membership, written at every change and at deactivation); teams too small are left out with a
   count, never merged into an "others" row, and a team's medians need its cells to pass too.
-- **Channel agents**: per channel, how often its agent's drafts are approved, how often after an edit,
-  and how many each manager approved.
 - **Privacy, binding for all of it:** numbers only, never note content. An administrator sees team
   totals, never one person's approval figures. Groups under 5 people are hidden. Blocks are a count,
   never who blocked whom.

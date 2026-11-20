@@ -1,7 +1,7 @@
 import { Schema as S } from '@homingbird/kernel'
 import { UNKNOWN } from './compatibility.ts'
-import { Timestamp } from './ids.ts'
-import { RELEASE_REASON_MAX } from './model.ts'
+import { MemberId, Timestamp } from './ids.ts'
+import { ChannelSlug, RELEASE_REASON_MAX } from './model.ts'
 import { SessionHealth } from './session-health.ts'
 
 /** What the numbers say about one person's agent, in words a client renders; never a single score. */
@@ -88,6 +88,8 @@ export const WeekFigures = S.struct({
   repliesReceived: count,
   /** The typical time from a colleague's new note to the person's first reply to it. */
   medianReplyMs: S.nullable(count),
+  /** Answers of channels' agents the person approved as a manager, never counted as notes they sent. */
+  approvedForChannels: S.optional(count),
 })
 export type WeekFigures = S.Infer<typeof WeekFigures>
 
@@ -128,6 +130,14 @@ export const Delivery = S.struct({
 })
 export type Delivery = S.Infer<typeof Delivery>
 
+export const ChannelAgentTotals = S.struct({
+  written: count,
+  sentAsWritten: count,
+  sentAfterEdits: count,
+  discarded: count,
+})
+export type ChannelAgentTotals = S.Infer<typeof ChannelAgentTotals>
+
 /** Organization-wide counts only; draft decisions are null while too few people decided agent drafts. */
 export const OrganizationFigures = S.struct({
   activeMembers: count,
@@ -151,6 +161,7 @@ export const OrganizationFigures = S.struct({
   medianDecisionMs: S.optional(S.nullable(count)),
   authorship: S.optional(S.nullable(Authorship)),
   delivery: S.optional(S.nullable(Delivery)),
+  channelAgents: S.optional(S.nullable(ChannelAgentTotals)),
 })
 export type OrganizationFigures = S.Infer<typeof OrganizationFigures>
 
@@ -179,6 +190,42 @@ export const OrganizationInsights = S.struct({
   quickWarning: S.optional(S.boolean),
 })
 export type OrganizationInsights = S.Infer<typeof OrganizationInsights>
+
+/** How many of a channel's agent's answers one manager sent: a count beside the others', never a rank. */
+export const ManagerApprovals = S.struct({
+  memberId: MemberId,
+  name: S.string({ maxLength: 200 }),
+  approved: count,
+})
+export type ManagerApprovals = S.Infer<typeof ManagerApprovals>
+
+export const ChannelAgentFigures = S.struct({
+  written: count,
+  sentAsWritten: count,
+  sentAfterEdits: count,
+  discarded: count,
+  medianDecisionMs: S.nullable(count),
+  quickApprovals: count,
+  approvals: S.array(ManagerApprovals),
+})
+export type ChannelAgentFigures = S.Infer<typeof ChannelAgentFigures>
+
+export const ChannelAgentPeriod = S.struct({
+  days: S.int({ min: 1 }),
+  current: ChannelAgentFigures,
+  previous: ChannelAgentFigures,
+})
+export type ChannelAgentPeriod = S.Infer<typeof ChannelAgentPeriod>
+
+/** How a channel's agent is doing, for the managers of its channel only. */
+export const ChannelAgentReport = S.struct({
+  generatedAt: Timestamp,
+  channel: ChannelSlug,
+  quickApprovalSeconds: S.int({ min: 1 }),
+  waiting: count,
+  periods: S.array(ChannelAgentPeriod),
+})
+export type ChannelAgentReport = S.Infer<typeof ChannelAgentReport>
 
 /** A person is nudged, and an organization warned, when this share of drafts sent as written was quick. */
 export const QUICK_APPROVAL_SHARE = 0.25

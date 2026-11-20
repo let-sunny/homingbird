@@ -64,6 +64,40 @@ describe('insightsModel', () => {
     expect(table.footnotes).toHaveLength(3)
   })
 
+  it('adds every channel agent’s answers together where the server counts them, hidden for a period too small', () => {
+    const model = insightsModel(
+      insights({
+        periods: [
+          {
+            days: 30,
+            current: organization({
+              medianDecisionMs: 60_000,
+              channelAgents: { written: 9, sentAsWritten: 5, sentAfterEdits: 2, discarded: 1 },
+            }),
+            previous: organization({ channelAgents: null }),
+          },
+        ],
+      }),
+      30,
+    )
+    const table = figuresOf(model).table
+    const rows = strings.insights.rows
+    expect(table.rows.at(-5)).toEqual([
+      strings.measures.decisionTimeRow,
+      durationOf(60_000),
+      strings.insights.hidden,
+    ])
+    expect(table.rows.slice(-4)).toEqual([
+      [rows.channelAgentAnswers, '9', strings.insights.hidden],
+      [rows.channelAgentAsWritten, '5', strings.insights.hidden],
+      [rows.channelAgentEdited, '2', strings.insights.hidden],
+      [rows.channelAgentDiscarded, '1', strings.insights.hidden],
+    ])
+    expect(table.footnotes[0]).toBe(strings.insights.channelAgentsExplained({ minimum: 5 }))
+    const older = figuresOf(insightsModel(insights(), 30)).table
+    expect(older.rows.map((row) => row[0])).not.toContain(rows.channelAgentAnswers)
+  })
+
   it('falls back to the first period, and says when a period has too few people', () => {
     const model = insightsModel(
       insights({ periods: [{ days: 7, current: null, previous: null }], blocks: null }),

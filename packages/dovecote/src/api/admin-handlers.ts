@@ -39,5 +39,5 @@ export const adminHandlers = {
         archiveChannel(params.slug, body.moveMembersTo ?? null, caller.member.id),
       ),
     ),
-  'admin.insights': () => organizationInsights,
+  'admin.insights': (_, caller) => organizationInsights(caller.member.id),
 } satisfies Partial<Handlers>

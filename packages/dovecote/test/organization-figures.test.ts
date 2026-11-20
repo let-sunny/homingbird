@@ -34,7 +34,7 @@ const note = (
 })
 
 const draft = (
-  authorId: string,
+  authorId: string | null,
   place: string | null,
   outcome: MemberDraft['outcome'],
   seconds = 30,
@@ -50,6 +50,31 @@ const draft = (
 const empty: OrganizationActivity = { sent: [], drafts: [], skips: [], received: [] }
 
 describe('organizationFiguresIn', () => {
+  it('never counts a draft or skip whose decider is unknown as a person who decided', () => {
+    const team = people(5)
+    const activity: OrganizationActivity = {
+      ...empty,
+      sent: team.map((id) => note(id, 'billing', 1)),
+      drafts: [
+        ...people(4).map((id) => draft(id, 'billing', 'as_written')),
+        draft(null, 'billing', 'discarded'),
+        draft(null, 'billing', 'discarded'),
+      ],
+      skips: [{ memberId: null, place: 'billing', at: NOW - HOUR }],
+    }
+    const figures = organizationFiguresIn(activity, lastWeek, NOW, settings)!
+    expect(figures.sentAsWritten).toBeNull()
+    expect(figures.discarded).toBeNull()
+    expect(figures.skipped).toBe(1)
+    expect(figures.channelAgents).toBeNull()
+    const enough = { ...activity, drafts: [...activity.drafts, draft(team[4]!, 'billing', 'edited')] }
+    expect(organizationFiguresIn(enough, lastWeek, NOW, settings)).toMatchObject({
+      sentAsWritten: 4,
+      sentAfterEdits: 1,
+      discarded: 2,
+    })
+  })
+
   it('shows nothing at all while fewer people than the minimum were active', () => {
     const activity = { ...empty, sent: people(4).map((id) => note(id, 'billing', 1)) }
     expect(organizationFiguresIn(activity, lastWeek, NOW, settings)).toBeNull()

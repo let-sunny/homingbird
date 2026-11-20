@@ -177,8 +177,12 @@ const figuresTable = (
       line(strings.measures.decisionTimeRow, (figures) =>
         figures.medianDecisionMs == null ? strings.insights.hidden : durationOf(figures.medianDecisionMs),
       ),
+      ...(current.channelAgents === undefined ? [] : channelAgentRows(line)),
     ],
     footnotes: [
+      ...(current.channelAgents === undefined
+        ? []
+        : [strings.insights.channelAgentsExplained({ minimum: insights.minimumGroupSize })]),
       strings.insights.debateResultsExplained({ minimum: insights.minimumGroupSize }),
       strings.insights.quickExplained({ seconds: insights.quickApprovalSeconds }),
       strings.insights.skipExplained,
@@ -187,6 +191,37 @@ const figuresTable = (
         : []),
     ],
   }
+}
+
+/** Every channel's agent's answers together; a period shows them only when enough managers sent one. */
+const channelAgentRows = (
+  line: (label: string, value: (figures: OrganizationFigures) => string) => readonly [string, string, string],
+) => {
+  const rows = strings.insights.rows
+  const shown =
+    (count: (totals: NonNullable<OrganizationFigures['channelAgents']>) => number) =>
+    (figures: OrganizationFigures) =>
+      figures.channelAgents == null
+        ? strings.insights.hidden
+        : formats.decimal.format(count(figures.channelAgents))
+  return [
+    line(
+      rows.channelAgentAnswers,
+      shown((totals) => totals.written),
+    ),
+    line(
+      rows.channelAgentAsWritten,
+      shown((totals) => totals.sentAsWritten),
+    ),
+    line(
+      rows.channelAgentEdited,
+      shown((totals) => totals.sentAfterEdits),
+    ),
+    line(
+      rows.channelAgentDiscarded,
+      shown((totals) => totals.discarded),
+    ),
+  ]
 }
 
 const placesTable = (current: OrganizationFigures): InsightsPlaces => ({

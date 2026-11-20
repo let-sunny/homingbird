@@ -13,6 +13,14 @@ export const measuresModel = (info: AsRead.ServerInfo | null): MeasuresModel => 
         measure.audience === 'you' ? [strings.measures.you[measure.key]] : [],
       ),
     },
+    featureOn('channelAgents', info) && {
+      id: 'measured-managers',
+      title: strings.measures.managersTitle,
+      privacy: strings.measures.managersPrivacy,
+      lines: MEASURES.flatMap((measure) =>
+        measure.audience === 'managers' ? [strings.measures.managers[measure.key]] : [],
+      ),
+    },
     featureOn('insights', info) && {
       id: 'measured-administrators',
       title: strings.measures.administratorsTitle,

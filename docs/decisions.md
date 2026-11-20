@@ -299,6 +299,23 @@ states the decision first, then the reason. Add new entries at the top of their 
   row, each with at least 10) is a constant in `protocol` until it becomes a setting. **What is
   measured** is a catalogue in `protocol` (`MEASURES`), and a test fails for a response field it does
   not name, so a figure cannot be added without telling members.
+- **A channel's agent's figures belong to its channel's managers, and a decision belongs to whoever
+  made it.** `channels.agent.figures` is `human` and answers 404 to everyone outside the channel's
+  group, administrators included (rule 6): its answers drafted, sent as written, after an edit,
+  discarded and waiting, the typical decision time, quick approvals, and each current manager's count
+  of answers sent, alphabetically and never ranked, since a ranking would invite approving faster. A
+  reviewer's first sight of an answer is recorded by `drafts.seen` as an author's is. A sent note
+  counts for `notes.approved_by` when it has one, so the organization's active people and deciders
+  are people, never a channel's agent; a discard records nobody, so it is counted but adds no decider.
+  A manager's approvals never mix into their own agent's figures; Your week shows them apart
+  (`approvedForChannels`). Administrators get every channel agent's answers together only while that
+  many managers sent one, and only from open channels and the private ones they are in.
+- **Team figures wait for a primary team per person.** Teams overlap, and a team's totals beside the
+  others' and the organization's isolate the few people two teams share unless every cell of people
+  who share the same shown teams has the minimum (`teamsShown`). Measured on 1,000 organizations of 50
+  people with 6 freely overlapping teams of 3 to 12, that rule shows 23% of teams and 33% at best,
+  against 75% with one primary team per person (`scripts/pilot-measure.ts --teams`); so team figures
+  are not built until a person has one primary team.
 - **The agent page says what the numbers mean in words, beside the numbers, and never collapses them
   into one score.** A single trust score hides which channel is trusted and why, invites chasing the
   number by approving faster, and grades the person rather than the agent. The server reads a verdict

@@ -899,7 +899,13 @@ export const ko: Translation<typeof en> = {
       quickShare: '빠른 승인',
       skipShare: '에이전트가 건너뛴 노트',
       debateResultsSent: '보낸 토론 결과',
+      channelAgentAnswers: '채널 에이전트의 답변',
+      channelAgentAsWritten: '그대로 보낸 채널 에이전트 답변',
+      channelAgentEdited: '수정 후 보낸 채널 에이전트 답변',
+      channelAgentDiscarded: '버린 채널 에이전트 답변',
     },
+    channelAgentsExplained:
+      '채널 에이전트의 답변은 에이전트 초안에도 함께 세요. 여기서는 공개 채널과 내가 속한 비공개 채널만 세고, 답변을 보낸 관리자가 {minimum}명보다 적으면 숨겨요.',
     debateResultsExplained:
       '보낸 토론 결과는 노트나 에이전트 초안과 따로 세고, 보낸 사람이 {minimum}명보다 적으면 숨겨요.',
     partOf: '{share} ({total}개 중 {count}개)',
@@ -1122,6 +1128,7 @@ export const ko: Translation<typeof en> = {
     weekMedianReply: '내가 답장하기까지 보통 걸린 시간',
     weekValue: '{now} (그 전: {before})',
     weekReplyExplained: '답장 시간은 동료의 새 노트가 온 때부터 내가 처음 답장한 때까지예요.',
+    weekApprovedForChannels: '관리자로서 보낸 채널 에이전트 답변',
     decisionTimeRow: '에이전트 초안을 보고 결정하기까지 보통 걸린 시간',
     authorshipTitle: '보낸 노트는 누가 썼나요',
     authorshipAgent: '에이전트가 쓰고 그대로 보냄: {share} ({count})',
@@ -1153,6 +1160,9 @@ export const ko: Translation<typeof en> = {
       'Homingbird는 아래에 적힌 것만 노트와 초안 자체에서 세요. 노트에 무엇이 적혔는지는 절대 세지 않아요.',
     youTitle: '나에 대해 내가 보는 것',
     youPrivacy: '내 에이전트 페이지에서 나만 봐요. 에이전트는 읽을 수 없고, 관리자도 내 숫자는 보지 못해요.',
+    managersTitle: '채널 관리자가 그 채널 에이전트에 대해 보는 것',
+    managersPrivacy:
+      '그 채널의 관리자만 에이전트 페이지에서 봐요. 관리하지 않는 관리자는 보지 못하고, 에이전트도 읽을 수 없어요.',
     administratorsTitle: '관리자가 합계로 보는 것',
     administratorsPrivacy:
       '관리자는 조직 전체의 합계만 봐요. 한 사람의 숫자나 노트는 보지 못하고, 서버가 정한 최소 인원보다 적은 그룹은 아무것도 보지 못해요.',
@@ -1166,6 +1176,13 @@ export const ko: Translation<typeof en> = {
       labels: '초안마다 쓴 프로그램과, 에이전트가 밝힌 모델.',
       sessions: '초안마다 데스크 세션이 얼마나 오래 실행됐고 컨텍스트를 얼마나 썼는지.',
       week: '내가 보낸 노트 수, 받은 답장 수, 그리고 내가 답장하기까지 보통 걸린 시간.',
+      approvedForChannels: '채널 관리자로서 보낸 그 채널 에이전트의 답변 수. 내 노트와 따로 세요.',
+    },
+    managers: {
+      decisions:
+        '채널 에이전트가 쓴 답변마다 관리자가 그대로 보냈는지, 수정한 뒤 보냈는지, 버렸는지, 그리고 기다리는 답변 수.',
+      decisionTime: '답변이 관리자 화면에 처음 나타난 때와 결정한 때, 그리고 빨리 보낸 경우가 얼마나 되는지.',
+      approvals: '관리자마다 보낸 답변 수. 이름순으로 보여 주고, 순위로 매기지 않아요.',
     },
     administrators: {
       activity: '노트를 보낸 사람 수, 노트 수, 답장을 받은 노트 수, 그리고 첫 답장까지 보통 걸린 시간.',
@@ -1178,6 +1195,8 @@ export const ko: Translation<typeof en> = {
       places: '사람이 충분히 쓴 채널마다 같은 수. DM은 하나로 묶어요.',
       labels: '사람이 충분히 쓴 프로그램과 모델마다 같은 수.',
       delivery: '받은 노트 중 에이전트를 연결한 사람에게 간 노트 수와, 에이전트가 얼마나 빨리 가져갔는지.',
+      channelAgents:
+        '관리자가 볼 수 있는 채널에서 채널 에이전트가 쓴 답변 합계와, 그대로 보낸 것, 수정 후 보낸 것, 버린 것의 수.',
       blocks: '사람 사이의 차단 수. 누가 누구를 차단했는지는 보여 주지 않아요.',
     },
   },
@@ -1243,6 +1262,20 @@ export const ko: Translation<typeof en> = {
     connectAs: '연결할 대상',
     connectAsMe: '내 에이전트',
     connectAsAgent: '{channel} 채널의 에이전트: {agent}',
+    figuresTitle: '{channel} 채널 에이전트는 어떻게 하고 있나요',
+    figuresIntro: '에이전트의 답변을 그 전 기간과 나란히 보여 줘요. {channel}의 관리자만 봐요.',
+    figuresWritten: '쓴 답변',
+    figuresAsWritten: '그대로 보냄',
+    figuresEdited: '수정 후 보냄',
+    figuresDiscarded: '버림',
+    figuresMedian: '답변을 보고 결정하기까지 보통 걸린 시간',
+    figuresQuick: '빠른 승인',
+    figuresQuickExplained: '빠른 승인: 나타난 지 {seconds}초 안에 그대로 보낸 답변.',
+    figuresWaiting: { other: '지금 답변 {count}개가 기다리고 있어요.' },
+    figuresApprovalsTitle: '최근 {days}일 동안 관리자마다 보낸 답변',
+    figuresApprovalsHint: '관리자마다 센 수를 이름순으로 보여 줘요. 순위가 아니에요.',
+    figuresApproved: { other: '{name}: 답변 {count}개' },
+    figuresLoadFailed: '에이전트가 어떻게 하고 있는지 불러오지 못했어요. 잠시 뒤에 다시 해 보세요.',
   },
   mute: {
     mute: '알림 끄기',

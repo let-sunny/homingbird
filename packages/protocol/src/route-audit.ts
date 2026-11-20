@@ -26,6 +26,7 @@ export const ROUTE_AUDIT = {
   'channels.members.remove': { event: 'channel.member_removed', target: 'channel' },
   'channels.managers.addTeam': { event: 'group.members_changed', target: 'group' },
   'channels.agent.get': read(),
+  'channels.agent.figures': read(),
   'channels.agent.create': { event: 'channel.agent_created', target: 'member' },
   'channels.agent.rename': { event: 'channel.agent_renamed', target: 'member' },
   'channels.agent.retire': { event: 'channel.agent_retired', target: 'member' },

@@ -921,7 +921,13 @@ export const en = {
       quickShare: 'Quick approvals',
       skipShare: 'Notes agents skipped',
       debateResultsSent: 'Debate results sent',
+      channelAgentAnswers: 'Answers by channel agents',
+      channelAgentAsWritten: 'Channel agents’ answers sent as written',
+      channelAgentEdited: 'Channel agents’ answers edited, then sent',
+      channelAgentDiscarded: 'Channel agents’ answers discarded',
     },
+    channelAgentsExplained:
+      'Channel agents’ answers count among agent drafts too. Here they are counted in open channels and the private channels you are in only, and hidden while fewer than {minimum} managers sent one.',
     debateResultsExplained:
       'Debate results sent are counted apart from notes and agent drafts, and hidden while fewer than {minimum} people sent one.',
     partOf: '{share} ({count} of {total})',
@@ -1153,6 +1159,7 @@ export const en = {
     weekMedianReply: 'Your typical time to reply',
     weekValue: '{now} (before: {before})',
     weekReplyExplained: 'Your time to reply runs from a colleague’s new note to your first reply to it.',
+    weekApprovedForChannels: 'Channel agents’ answers you sent as a manager',
     decisionTimeRow: 'Typical time from seeing an agent draft to deciding',
     authorshipTitle: 'Who wrote what was sent',
     authorshipAgent: 'The agent, sent as written: {share} ({count})',
@@ -1185,6 +1192,9 @@ export const en = {
     youTitle: 'What you see about yourself',
     youPrivacy:
       'Only you see these, on My agent. Your agent cannot read them, and no administrator sees yours.',
+    managersTitle: 'What a channel’s managers see about its agent',
+    managersPrivacy:
+      'Only the managers of the channel see these, on its agent’s page. An administrator who does not manage it does not, and the agent cannot read them.',
     administratorsTitle: 'What administrators see, as totals',
     administratorsPrivacy:
       'Administrators see totals for the whole organization only: never one person, never a note, and nothing for a group of fewer people than the server’s minimum.',
@@ -1201,6 +1211,15 @@ export const en = {
       labels: 'The program that wrote each draft, and the model your agent says it used.',
       sessions: 'How long the desk session had run and how much of its context it had used, for each draft.',
       week: 'How many notes you sent, how many replies you received, and your typical time to reply.',
+      approvedForChannels:
+        'How many answers of a channel’s agent you sent as one of its managers, counted apart from your own notes.',
+    },
+    managers: {
+      decisions:
+        'Each answer the channel’s agent wrote, whether a manager sent it as written, edited it first or discarded it, and how many wait.',
+      decisionTime:
+        'When an answer first appeared on a manager’s screen and when it was decided, and how often one was sent quickly.',
+      approvals: 'How many answers each manager sent, in alphabetical order, never as a ranking.',
     },
     administrators: {
       activity:
@@ -1215,6 +1234,8 @@ export const en = {
       labels: 'The same counts for each program and model used by enough people.',
       delivery:
         'How many received notes went to someone with an agent, and how soon the agent picked them up.',
+      channelAgents:
+        'Channels’ agents’ answers together, and how many were sent as written, edited first or discarded, in the channels the administrator may read.',
       blocks: 'How many blocks there are between people, never who blocked whom.',
     },
   },
@@ -1286,6 +1307,23 @@ export const en = {
     connectAs: 'Connect it as',
     connectAsMe: 'My own agent',
     connectAsAgent: '{agent}, the agent of {channel}',
+    figuresTitle: 'How the agent of {channel} is doing',
+    figuresIntro: 'Its answers, beside the period before. Only the managers of {channel} see this.',
+    figuresWritten: 'Answers drafted',
+    figuresAsWritten: 'Sent as written',
+    figuresEdited: 'Sent after an edit',
+    figuresDiscarded: 'Discarded',
+    figuresMedian: 'Typical time from seeing an answer to deciding',
+    figuresQuick: 'Quick approvals',
+    figuresQuickExplained: 'Quick approvals: answers sent as written within {seconds} seconds of appearing.',
+    figuresWaiting: {
+      one: '{count} answer is waiting now.',
+      other: '{count} answers are waiting now.',
+    },
+    figuresApprovalsTitle: 'Sent by each manager in the last {days} days',
+    figuresApprovalsHint: 'A count for each manager, in alphabetical order. It is not a ranking.',
+    figuresApproved: { one: '{name}: {count} answer', other: '{name}: {count} answers' },
+    figuresLoadFailed: 'How the agent is doing could not be loaded. Try again in a moment.',
   },
   mute: {
     mute: 'Mute',

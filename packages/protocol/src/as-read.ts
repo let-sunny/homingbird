@@ -19,6 +19,8 @@ import type {
   AgentFigures as AgentFiguresSchema,
   AgentPeriod as AgentPeriodSchema,
   AgentReport as AgentReportSchema,
+  ChannelAgentFigures as ChannelAgentFiguresSchema,
+  ChannelAgentReport as ChannelAgentReportSchema,
 } from './insights.ts'
 import type {
   Channel as ChannelSchema,
@@ -72,6 +74,8 @@ export type PrincipleOffer = S.Read<typeof PrincipleOfferSchema>
 export type DraftingPrinciples = S.Read<typeof DraftingPrinciplesSchema>
 export type Achievement = S.Read<typeof AchievementSchema>
 export type AgentReport = S.Read<typeof AgentReportSchema>
+export type ChannelAgentReport = S.Read<typeof ChannelAgentReportSchema>
+export type ChannelAgentFigures = S.Read<typeof ChannelAgentFiguresSchema>
 export type AgentPeriod = S.Read<typeof AgentPeriodSchema>
 export type AgentFigures = S.Read<typeof AgentFiguresSchema>
 export type ServerInfo = S.Read<typeof ServerInfoSchema>
