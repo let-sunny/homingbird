@@ -1,5 +1,5 @@
 import { createECDH } from 'node:crypto'
-import { Task as T } from '@homingbird/kernel'
+import { Task as T, type TestClock } from '@homingbird/kernel'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { run as run_ } from '../src/sql/database.ts'
 import { sql } from '../src/sql/query.ts'
@@ -24,7 +24,7 @@ let ana: Session
 let ben: Session
 let agent: Agent
 let credentialId: string
-let running: T.RunningTask<never, never> | null
+let started: boolean
 
 const start = async (overrides: Readonly<Record<string, string>> = {}) => {
   service = fakeService()
@@ -36,12 +36,23 @@ const start = async (overrides: Readonly<Record<string, string>> = {}) => {
   await ana.api('PUT', '/me/desk-wake', routineSetup(credentialId))
 }
 
-const run = () => {
-  running = T.runFork(server.background, server.env)
+/**
+ * The pass runs where the background loop would, every 15 seconds, but the test runs each one to its
+ * end, so a database whose driver does real I/O is read only once it is done. Desks that keep awake
+ * send their heartbeat after each step.
+ */
+const run = async () => {
+  started = true
+  await server.wakePass()
 }
 
-const wait = async (ms: number) => {
-  for (let passed = 0; passed < ms; passed += 5_000) await server.clock.advance(Math.min(5_000, ms - passed))
+const wait = async (ms: number, stride = 15_000) => {
+  const clock = server.env.clock as TestClock
+  for (let passed = 0; passed < ms; passed += stride) {
+    await clock.advance(Math.min(stride, ms - passed))
+    for (const heartbeat of [...server.desks]) await heartbeat()
+    if (started) await server.wakePass()
+  }
 }
 
 const noteToAna = async (body = 'Can you check the invoice?') => {
@@ -73,17 +84,13 @@ const subscribeAna = async () => {
   })
 }
 
-/** The note from Ben notifies Ana's device too. */
-const NOTE_PUSHES = 1
-
 const pushes = () => service.calls.filter((call) => call.url === PUSH_ENDPOINT)
 
 beforeEach(() => {
-  running = null
+  started = false
 })
 
 afterEach(async () => {
-  await running?.interrupt()
   await server.close()
 })
 
@@ -91,7 +98,7 @@ describe('waking a cloud desk', () => {
   beforeEach(() => start())
 
   it('wakes once for a burst of notes, after gathering them for 30 seconds', async () => {
-    run()
+    await run()
     await noteToAna('First')
     await wait(10_000)
     await noteToAna('Second')
@@ -113,7 +120,7 @@ describe('waking a cloud desk', () => {
   })
 
   it('logs each wake with the host and outcome, never the token or the address', async () => {
-    run()
+    await run()
     await noteToAna()
     await wait(45_000)
     expect(fired()).toEqual([
@@ -131,7 +138,7 @@ describe('waking a cloud desk', () => {
   })
 
   it('marks the wake answered once the woken desk uses its credential, and wakes again five minutes on', async () => {
-    run()
+    await run()
     await noteToAna('First')
     await wait(45_000)
     expect(service.wakes()).toHaveLength(1)
@@ -147,7 +154,7 @@ describe('waking a cloud desk', () => {
   })
 
   it('does not wake for work the desk already took', async () => {
-    run()
+    await run()
     const note = await noteToAna()
     await agent.api('POST', `/notes/${note.id}/pickup`)
     await wait(3 * MINUTE)
@@ -157,7 +164,7 @@ describe('waking a cloud desk', () => {
   it('never wakes while an agent of the person holds an event stream', async () => {
     const stream = new AbortController()
     server.env.hub.subscribe(ana.me.member.id as never, 'agent', stream.signal)
-    run()
+    await run()
     await noteToAna()
     await wait(3 * MINUTE)
     expect(service.wakes()).toEqual([])
@@ -165,7 +172,7 @@ describe('waking a cloud desk', () => {
   })
 
   it('waits until the bound credential has been silent for two minutes', async () => {
-    run()
+    await run()
     await noteToAna()
     await agent.api('GET', '/me')
     await wait(MINUTE)
@@ -176,7 +183,7 @@ describe('waking a cloud desk', () => {
 
   it('wakes, after a restart, for work that arrived while it was down', async () => {
     await noteToAna()
-    run()
+    await run()
     await wait(15_000)
     expect(service.wakes()).toEqual([])
     await wait(30_000)
@@ -185,7 +192,7 @@ describe('waking a cloud desk', () => {
 
   it('wakes nothing that is paused, and nothing while the feature is off', async () => {
     await ana.api('PUT', '/me/desk-wake', routineSetup(credentialId, { enabled: false }))
-    run()
+    await run()
     await noteToAna()
     await wait(MINUTE)
     expect(service.wakes()).toEqual([])
@@ -213,12 +220,12 @@ describe('a wake that fails', () => {
   it('stops at once when the service refuses it, audited and told to the person', async () => {
     await subscribeAna()
     service.answers.push(401)
-    run()
+    await run()
     await noteToAna()
     await wait(45_000)
     expect(await wake()).toMatchObject({ lastStatus: 'refused', stoppedBecause: 'refused' })
     expect(await audited()).toEqual([{ host: 'api.anthropic.com', because: 'refused' }])
-    expect(pushes()).toHaveLength(1 + NOTE_PUSHES)
+    expect(pushes()).toHaveLength(1)
     await noteToAna()
     await wait(10 * MINUTE)
     expect(service.wakes()).toHaveLength(1)
@@ -227,7 +234,7 @@ describe('a wake that fails', () => {
   it('backs off 5, 15 and 60 minutes after server errors, and stops after five in a row', async () => {
     await subscribeAna()
     service.answers.push(500, 503, 502, 500, 500)
-    run()
+    await run()
     await noteToAna()
     await wait(45_000)
     expect(service.wakes()).toHaveLength(1)
@@ -235,22 +242,22 @@ describe('a wake that fails', () => {
     expect(service.wakes()).toHaveLength(1)
     await wait(MINUTE)
     expect(service.wakes()).toHaveLength(2)
-    await wait(15 * MINUTE)
+    await wait(15 * MINUTE, MINUTE)
     expect(service.wakes()).toHaveLength(3)
     expect(await wake()).toMatchObject({ lastStatus: 'unreachable', failures: 3, stoppedBecause: null })
-    await wait(60 * MINUTE)
-    await wait(60 * MINUTE)
+    await wait(60 * MINUTE, MINUTE)
+    await wait(60 * MINUTE, MINUTE)
     expect(service.wakes()).toHaveLength(5)
     expect(await wake()).toMatchObject({ failures: 5, stoppedBecause: 'failures' })
     expect(await audited()).toEqual([{ host: 'api.anthropic.com', because: 'failures' }])
-    expect(pushes()).toHaveLength(1 + NOTE_PUSHES)
-    await wait(60 * MINUTE)
+    expect(pushes()).toHaveLength(1)
+    await wait(60 * MINUTE, MINUTE)
     expect(service.wakes()).toHaveLength(5)
   })
 
   it('waits as long as Retry-After asks', async () => {
     service.answers.push({ status: 429, retryAfter: '600' })
-    run()
+    await run()
     await noteToAna()
     await wait(45_000)
     expect(await wake()).toMatchObject({ lastStatus: 'rate_limited', failures: 1 })
@@ -262,7 +269,7 @@ describe('a wake that fails', () => {
   })
 
   it('counts a desk that never came online within ten minutes, and wakes again', async () => {
-    run()
+    await run()
     await noteToAna()
     await wait(45_000)
     expect(service.wakes()).toHaveLength(1)
@@ -275,7 +282,7 @@ describe('a wake that fails', () => {
 
   it('stops when the bound credential is revoked', async () => {
     await subscribeAna()
-    run()
+    await run()
     await ana.api('DELETE', `/credentials/${credentialId}`)
     await wait(15_000)
     expect(await wake()).toMatchObject({ stoppedBecause: 'credential_gone' })
@@ -285,34 +292,35 @@ describe('a wake that fails', () => {
 
   const answeredLate = async (meanwhile: () => Promise<unknown>) => {
     await subscribeAna()
-    const answer = service.holdNext()
-    run()
+    const held = service.holdNext()
+    await run()
     await noteToAna()
-    for (let waited = 0; service.wakes().length === 0 && waited < 60_000; waited += 5_000) await wait(5_000)
+    await (server.env.clock as TestClock).advance(45_000)
+    const passing = server.wakePass()
+    await held.called
     expect(service.wakes()).toHaveLength(1)
     await meanwhile()
-    answer(401)
-    await server.clock.advance(0)
-    await server.settled()
+    held.answer(401)
+    await passing
   }
 
   it('keeps a refusal that arrives after a new setup from stopping it', async () => {
     await answeredLate(() => ana.api('PUT', '/me/desk-wake', routineSetup(credentialId)))
     expect(await wake()).toMatchObject({ stoppedBecause: null, failures: 0, lastStatus: 'never' })
     expect(await audited()).toEqual([])
-    expect(pushes()).toHaveLength(NOTE_PUSHES)
+    expect(pushes()).toEqual([])
   })
 
   it('audits nothing and tells no one when the wake was removed while it was out', async () => {
     await answeredLate(() => ana.api('DELETE', '/me/desk-wake'))
     expect(await storedRows(server, 'desk_wakes')).toEqual([])
     expect(await audited()).toEqual([])
-    expect(pushes()).toHaveLength(NOTE_PUSHES)
+    expect(pushes()).toEqual([])
   })
 
   it('stops when the stored wake no longer opens, as after the key changed', async () => {
     await T.runPromise(run_(sql`UPDATE desk_wakes SET sealed = 'v1.AAAA.AAAA.AAAA'`), server.env)
-    run()
+    await run()
     await noteToAna()
     await wait(45_000)
     expect(service.wakes()).toEqual([])
@@ -347,7 +355,7 @@ describe('a debate room the cloud desk takes part in', () => {
 
   it('wakes it while the room asks it for a turn, and again two minutes before each grace runs out', async () => {
     const cast = await roomWith(2)
-    run()
+    await run()
     await wait(MINUTE + 45_000)
     expect(fired()).toEqual([])
     await wait(45_000)
@@ -368,7 +376,7 @@ describe('a debate room the cloud desk takes part in', () => {
 
   it('does not wake it for a room that asks nothing of it', async () => {
     await roomWith(1)
-    run()
+    await run()
     await wait(12 * MINUTE)
     expect(fired()).toEqual([])
   })
@@ -387,7 +395,7 @@ describe('a debate room the cloud desk takes part in', () => {
     await cast.anaAgent.api('POST', `/debates/${id}/turns`, { body: 'Turn 1' })
     await cast.benAgent.api('POST', `/debates/${id}/turns`, { body: 'Turn 2' })
     cast.sleep('ana')
-    run()
+    await run()
     await wait(12 * MINUTE)
     expect(fired()).toEqual([])
   })

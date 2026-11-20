@@ -24,8 +24,8 @@ export interface FakeService {
   readonly calls: Array<{ readonly url: string; readonly init: RequestInit }>
   readonly wakes: () => ReadonlyArray<{ readonly url: string; readonly init: RequestInit }>
   readonly answers: Array<number | { readonly status: number; readonly retryAfter: string }>
-  /** Holds the next wake unanswered until the returned function answers it with a status. */
-  readonly holdNext: () => (status: number) => void
+  /** Holds the next wake unanswered until `answer` gives its status; `called` settles once it is sent. */
+  readonly holdNext: () => { readonly called: Promise<void>; readonly answer: (status: number) => void }
   readonly fetch: (url: string, init?: RequestInit) => Promise<Response>
 }
 
@@ -33,6 +33,7 @@ export const fakeService = (): FakeService => {
   const calls: FakeService['calls'] = []
   const answers: FakeService['answers'] = []
   let held: Promise<number> | null = null
+  let sent: () => void = () => {}
   return {
     calls,
     answers,
@@ -41,7 +42,10 @@ export const fakeService = (): FakeService => {
       held = new Promise<number>((resolve) => {
         answer = resolve
       })
-      return (status) => answer(status)
+      const called = new Promise<void>((resolve) => {
+        sent = resolve
+      })
+      return { called, answer: (status) => answer(status) }
     },
     wakes: () => calls.filter((call) => call.url.startsWith('https://api.anthropic.com/')),
     fetch: async (url, init) => {
@@ -50,6 +54,7 @@ export const fakeService = (): FakeService => {
       if (held !== null) {
         const waiting = held
         held = null
+        sent()
         return new Response('{}', { status: await waiting })
       }
       const next = answers.shift() ?? 200

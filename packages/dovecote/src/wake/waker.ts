@@ -45,6 +45,8 @@ export interface DeskWaker {
   /** Told of every event a member receives; one that may mean work makes their wake a candidate. */
   readonly consider: (memberId: MemberId, event: StreamEvent) => void
   readonly run: T.Task<never, never, AppEnv>
+  /** One pass of `run`, which runs it every 15 seconds; a test drives it to the end itself. */
+  readonly pass: T.Task<void, never, AppEnv>
   /** Sends one wake now, as the person asked, and says how it went; it changes nothing kept. */
   readonly test: (memberId: MemberId) => T.Task<DeskWakeTest, NotFound | Conflict, AppEnv>
 }
@@ -58,25 +60,25 @@ export interface DeskWaker {
 export const makeDeskWaker = (fetch: Fetch): DeskWaker => {
   const waiting = new Map<MemberId, number>()
   let primed = false
+  const pass = survivingPass(
+    'desk wakes',
+    T.gen(function* () {
+      if (!(yield* featureIsOn('cloudDesk'))) {
+        waiting.clear()
+        primed = false
+        return
+      }
+      const priming = !primed
+      primed = true
+      yield* wakePass(fetch, waiting, priming)
+    }),
+  )
   return {
     consider: (memberId, event) => {
       if (!waiting.has(memberId) && isWakingEvent(event.body, memberId)) waiting.set(memberId, event.at)
     },
-    run: T.forever(WAKE_PASS_MS)(
-      survivingPass(
-        'desk wakes',
-        T.gen(function* () {
-          if (!(yield* featureIsOn('cloudDesk'))) {
-            waiting.clear()
-            primed = false
-            return
-          }
-          const priming = !primed
-          primed = true
-          yield* wakePass(fetch, waiting, priming)
-        }),
-      ),
-    ),
+    run: T.forever(WAKE_PASS_MS)(pass),
+    pass,
     test: (memberId) => testWake(fetch, memberId),
   }
 }

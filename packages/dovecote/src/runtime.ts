@@ -26,6 +26,8 @@ export interface Runtime {
   readonly env: AppEnv
   readonly background: T.Task<never, never, AppEnv>
   readonly settled: T.Task<void>
+  /** One cloud desk wake pass, as `background` runs it every 15 seconds. */
+  readonly wakePass: T.Task<void, never, AppEnv>
 }
 
 export interface RuntimeParts {
@@ -88,6 +90,7 @@ export const buildRuntime = (parts: RuntimeParts): Runtime => {
       push.run,
       waker.run,
     ]),
+    wakePass: waker.pass,
     settled: T.gen(function* () {
       yield* push.settled
       yield* analytics.settled
