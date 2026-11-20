@@ -22,10 +22,11 @@ export const firstErrorLine = (run: AgentRun, secrets: ReadonlyArray<string>): s
 
 /**
  * Whether Claude Code refused `--strict-mcp-config` because the organization's managed MCP
- * configuration is present, which only a run without it can get past.
+ * configuration is present, which only a run without it can get past. Only its error output counts:
+ * what it printed can quote the note it was given.
  */
 export const isManagedMcpRefusal = (run: AgentRun): boolean =>
-  run.exitCode !== 0 && MANAGED_MCP_REFUSAL.test(`${run.errors ?? ''}\n${run.output}`)
+  run.exitCode !== 0 && MANAGED_MCP_REFUSAL.test(run.errors ?? '')
 
 const MANAGED_MCP_REFUSAL = /cannot use --strict-mcp-config when an enterprise MCP config is present/i
 

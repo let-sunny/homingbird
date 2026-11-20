@@ -168,8 +168,9 @@ as cmd.exe would read it. It is off unless you ask, until it has run with the re
 Antigravity and Gemini have no known way to take a server for one run.
 
 A runner started from inside Claude Code or Codex, such as a desk an MCP client runs, does not pass
-that session's own variables (`CLAUDECODE`, `CLAUDE_CODE_SESSION_ID`, `CODEX_THREAD_ID` and the like) to
-the agent command, so each agent run is a session of its own.
+that session's own variables (`CLAUDECODE`, every `CLAUDE_CODE_` variable but the few you set yourself,
+such as `CLAUDE_CODE_USE_BEDROCK`, `CODEX_THREAD_ID` and the like) to the agent command, so each agent
+run is a session of its own.
 
 ### Keep the drafting agent away from the note's wording (split mode)
 

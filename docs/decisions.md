@@ -1025,9 +1025,10 @@ command through the injected process service.
   are never probed. `verifiedWith` still means a run with the real agent; `optionsSeenIn` only records
   whose `--help` listed every option.
 - **One retry, for one known refusal.** Claude Code refuses `--strict-mcp-config` under an
-  organization's managed MCP configuration. Only that sentence, from a failed run, makes the runner
-  run the reader again without it and with every MCP tool denied, or the agent without its attached
-  server, and keep that for the rest of the run. No other failure is retried.
+  organization's managed MCP configuration. Only that sentence, in the error output of a failed run,
+  makes the runner run the reader again without it and with every MCP tool denied, or the agent
+  without its attached server, and keep that for the rest of the run, both runs within the one time
+  limit. No other failure is retried.
 - **One line of an agent's error output reaches the log.** The runner reads an agent command's error
   output to recognise that refusal and to say why a run failed: its first line, at most 160
   characters, without control characters and with the token and the credentials file's path
@@ -1043,7 +1044,10 @@ command through the injected process service.
   default until it has run with each real agent.
 - **An agent command is not part of the session that started the runner.** The variables by which
   Claude Code and Codex mark their own children are removed from its environment, compared in
-  capitals as Windows reads names.
+  capitals as Windows reads names: every `CLAUDE_CODE_`, `CLAUDE_AGENT_SDK_` and `CLAUDE_PREVIEW_`
+  variable except the few a person sets themself (`CLAUDE_CODE_OAUTH_TOKEN`, `CLAUDE_CODE_USE_BEDROCK`,
+  `CLAUDE_CODE_USE_VERTEX`, `CLAUDE_CODE_GIT_BASH_PATH`, `CLAUDE_CODE_MAX_OUTPUT_TOKENS`,
+  `CLAUDE_CODE_SKIP_BEDROCK_AUTH`, `CLAUDE_CODE_SKIP_VERTEX_AUTH`), and Codex's session variables.
 - **Pausing is a file beside the desk claim.** `homingbird desk pause` writes
   `desks/<server>~<member>.paused`; every runner on the computer, CLI and MCP-hosted, checks it before
   each note and request and keeps its claim while paused, so pausing never hands the desk to another

@@ -7,7 +7,12 @@ const REFUSAL = 'Error: You cannot use --strict-mcp-config when an enterprise MC
 describe('isManagedMcpRefusal', () => {
   it('knows Claude Code’s refusal of --strict-mcp-config under a managed MCP configuration', () => {
     expect(isManagedMcpRefusal({ exitCode: 1, output: '', errors: `${REFUSAL}\n` })).toBe(true)
-    expect(isManagedMcpRefusal({ exitCode: 1, output: REFUSAL.toUpperCase() })).toBe(true)
+    expect(isManagedMcpRefusal({ exitCode: 1, output: '', errors: REFUSAL.toUpperCase() })).toBe(true)
+  })
+
+  it('does not retry when only standard output carries the sentence', () => {
+    expect(isManagedMcpRefusal({ exitCode: 1, output: REFUSAL, errors: '' })).toBe(false)
+    expect(isManagedMcpRefusal({ exitCode: 1, output: REFUSAL })).toBe(false)
   })
 
   it('takes nothing else for it: another failure, or the sentence from a run that succeeded', () => {

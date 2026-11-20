@@ -1,5 +1,5 @@
 import { eventStream } from '@homingbird/client'
-import { type Result, Stream, Task as T } from '@homingbird/kernel'
+import { Stream, Task as T } from '@homingbird/kernel'
 import {
   type AgentReply,
   type AsRead,
@@ -549,13 +549,18 @@ const outputOf = (
 ): T.Task<string | null, CliFailure, DeskEnv> =>
   T.gen(function* () {
     const launch = role === 'agent' ? runner.launches.agent : runner.launches.reader!
-    let finished = yield* launched(runner, launch, prompt)
-    const fallback = launch.withoutStrictMcp
-    if (finished._tag === 'Ok' && fallback !== null && isManagedMcpRefusal(finished.value)) {
-      yield* warn(role === 'reader' ? MANAGED_MCP_WARNING : MANAGED_MCP_AGENT_WARNING)
-      runner.launches = { ...runner.launches, [role]: fallback }
-      finished = yield* launched(runner, fallback, prompt)
-    }
+    const finished = yield* T.result(
+      T.timeout(runner.timeoutMs)(
+        T.gen(function* () {
+          const first = yield* launched(runner, launch, prompt)
+          const fallback = launch.withoutStrictMcp
+          if (fallback === null || !isManagedMcpRefusal(first)) return first
+          yield* warn(role === 'reader' ? MANAGED_MCP_WARNING : MANAGED_MCP_AGENT_WARNING)
+          runner.launches = { ...runner.launches, [role]: fallback }
+          return yield* launched(runner, fallback, prompt)
+        }),
+      ),
+    )
     const reason =
       finished._tag === 'Ok'
         ? exitProblem(finished.value, launch.command, secretsOf(runner), runner.platform)
@@ -579,11 +584,7 @@ export const MANAGED_MCP_AGENT_WARNING =
 export const MANAGED_MCP_WARNING =
   'Claude Code refused --strict-mcp-config because your organization manages its MCP configuration: the reader now runs without it, with every MCP tool denied.'
 
-const launched = (
-  runner: Runner,
-  launch: Launch,
-  prompt: string,
-): T.Task<Result.Result<AgentRun, CliFailure | T.TimeoutError>, never, DeskEnv> =>
+const launched = (runner: Runner, launch: Launch, prompt: string): T.Task<AgentRun, CliFailure, DeskEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<DeskEnv>()
     const environment = {
@@ -591,13 +592,9 @@ const launched = (
       ...launch.environment,
     }
     const input = launch.format === 'antigravity-stream' ? antigravityInput(prompt) : prompt
-    return yield* T.result(
-      T.timeout(runner.timeoutMs)(
-        T.tryPromise(
-          (signal: AbortSignal) => env.launcher.runAgent(launch.command, input, environment, signal),
-          (cause) => failed(cause instanceof Error ? cause.message : String(cause)),
-        ),
-      ),
+    return yield* T.tryPromise(
+      (signal: AbortSignal) => env.launcher.runAgent(launch.command, input, environment, signal),
+      (cause) => failed(cause instanceof Error ? cause.message : String(cause)),
     )
   })
 

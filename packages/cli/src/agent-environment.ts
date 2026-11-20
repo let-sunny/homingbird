@@ -13,22 +13,26 @@ export const agentEnvironment = (
     ),
   )
 
+/**
+ * Claude Code variables a person sets themself for the agent, which it keeps; every other
+ * `CLAUDE_CODE_` variable is one a Claude Code session sets for its own children.
+ */
+export const PERSON_CLAUDE_CODE_VARIABLES: ReadonlySet<string> = new Set([
+  'CLAUDE_CODE_OAUTH_TOKEN',
+  'CLAUDE_CODE_USE_BEDROCK',
+  'CLAUDE_CODE_USE_VERTEX',
+  'CLAUDE_CODE_GIT_BASH_PATH',
+  'CLAUDE_CODE_MAX_OUTPUT_TOKENS',
+  'CLAUDE_CODE_SKIP_BEDROCK_AUTH',
+  'CLAUDE_CODE_SKIP_VERTEX_AUTH',
+])
+
 /** Names are compared in capitals, as Windows reads every variable name. */
 export const PARENT_SESSION_VARIABLES: ReadonlySet<string> = new Set([
   'CLAUDECODE',
-  'CLAUDE_CODE_ENTRYPOINT',
-  'CLAUDE_CODE_CHILD_SESSION',
-  'CLAUDE_CODE_SESSION_ID',
-  'CLAUDE_CODE_BRIDGE_SESSION_ID',
-  'CLAUDE_CODE_HOST_SESSION_ID',
-  'CLAUDE_CODE_SESSION_ATTENDED',
-  'CLAUDE_CODE_MESSAGING_SOCKET',
-  'CLAUDE_CODE_MESSAGING_TOKEN',
-  'CLAUDE_CODE_EXECPATH',
-  'CLAUDE_CODE_DESKTOP_APP_VERSION',
   'CLAUDE_EFFORT',
   'CLAUDE_PID',
-  'CLAUDE_AGENT_SDK_VERSION',
+  'MCP_SERVER_CONNECTION_BATCH_SIZE',
   'CODEX_THREAD_ID',
   'CODEX_SESSION_ID',
   'CODEX_TOOL_CALL_ID',
@@ -37,9 +41,20 @@ export const PARENT_SESSION_VARIABLES: ReadonlySet<string> = new Set([
   'CODEX_PERMISSION_PROFILE',
 ])
 
+const PARENT_SESSION_PREFIXES = ['CLAUDE_CODE_', 'CLAUDE_AGENT_SDK_', 'CLAUDE_PREVIEW_']
+
+const isParentSession = (name: string): boolean => {
+  const upper = name.toUpperCase()
+  if (PARENT_SESSION_VARIABLES.has(upper)) return true
+  return (
+    PARENT_SESSION_PREFIXES.some((prefix) => upper.startsWith(prefix)) &&
+    !PERSON_CLAUDE_CODE_VARIABLES.has(upper)
+  )
+}
+
 const WITHHELD_NAME = /^(?:HOMINGBIRD|HB)_/i
 
 const isWithheld = (name: string, value: string, secrets: ReadonlyArray<string>): boolean =>
   WITHHELD_NAME.test(name) ||
-  PARENT_SESSION_VARIABLES.has(name.toUpperCase()) ||
+  isParentSession(name) ||
   secrets.some((secret) => secret !== '' && value.includes(secret))

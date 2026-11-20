@@ -1,5 +1,10 @@
+import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { PARENT_SESSION_VARIABLES, agentEnvironment } from '../src/agent-environment.ts'
+import {
+  PARENT_SESSION_VARIABLES,
+  PERSON_CLAUDE_CODE_VARIABLES,
+  agentEnvironment,
+} from '../src/agent-environment.ts'
 import { AGENT_TOKEN } from './support.ts'
 
 describe('agentEnvironment', () => {
@@ -40,5 +45,39 @@ describe('agentEnvironment', () => {
       ),
     ).toEqual({ PATH: '/usr/bin', CLAUDE_CONFIG_DIR: '/home/june/.claude', CODEX_HOME: '/home/june/.codex' })
     for (const name of PARENT_SESSION_VARIABLES) expect(name).toBe(name.toUpperCase())
+  })
+
+  it('drops every CLAUDE_CODE_ variable but those a person sets, and keeps PATH, HOME and proxies', () => {
+    const name = fc
+      .stringMatching(/^[A-Z0-9_]{1,24}$/)
+      .map((rest) => `CLAUDE_CODE_${rest}`)
+      .filter((each) => !PERSON_CLAUDE_CODE_VARIABLES.has(each))
+    fc.assert(
+      fc.property(
+        name,
+        fc.constantFrom('CLAUDE_AGENT_SDK_X', 'CLAUDE_PREVIEW_Y', 'claude_code_simple'),
+        (session, other) => {
+          const kept = agentEnvironment(
+            {
+              [session]: 'x',
+              [other]: 'y',
+              PATH: '/usr/bin',
+              HOME: '/home/june',
+              HTTPS_PROXY: 'http://proxy:3128',
+              CLAUDE_CODE_USE_BEDROCK: '1',
+              CLAUDE_CONFIG_DIR: '/home/june/.claude',
+            },
+            [],
+          )
+          expect(kept).toEqual({
+            PATH: '/usr/bin',
+            HOME: '/home/june',
+            HTTPS_PROXY: 'http://proxy:3128',
+            CLAUDE_CODE_USE_BEDROCK: '1',
+            CLAUDE_CONFIG_DIR: '/home/june/.claude',
+          })
+        },
+      ),
+    )
   })
 })
