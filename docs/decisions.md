@@ -510,6 +510,10 @@ states the decision first, then the reason. Add new entries at the top of their 
   client at start ask it once and name the side to upgrade in one sentence. A feature is offered only
   when the server lists it as on. Mixed versions are not tested; a version-negotiated API with several
   live shapes per route would have cost every handler.
+- **The A2A gateway speaks 1.0 and 0.3 and lets the `A2A-Version` header choose.** The card lists the
+  one JSON-RPC URL once per version; a stated version other than 1.0 or 0.3, or one that does not
+  match the method names, is refused as not supported, and with no version stated the method names
+  decide, so clients that predate the header keep working. Only 1.0 errors carry an `ErrorInfo`.
 - **One SQL implementation, three dialects.** Queries are written once in portable SQL through a
   tagged template. A small table DSL generates dialect-specific DDL. SQLite uses the runtime's
   built-in `node:sqlite`.

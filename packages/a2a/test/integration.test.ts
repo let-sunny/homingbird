@@ -67,6 +67,30 @@ describe('the A2A gateway on a running server', () => {
     expect(withCookie.status).toBe(401)
   })
 
+  it('passes the A2A-Version header or request parameter on to the gateway', async () => {
+    const versioned = async (path: string, method: string, headers: Record<string, string> = {}) =>
+      (
+        await server.request('POST', path, {
+          token: anaAgent.token,
+          headers,
+          body: { jsonrpc: '2.0', id: 1, method, params: say('hi', { to: 'ben@example.com' }) },
+        })
+      ).json
+    const refused = await versioned('/a2a', 'message/send', { 'a2a-version': '1.0' })
+    expect(refused.error).toMatchObject({
+      code: A2A_CODE.versionNotSupported,
+      data: [{ reason: 'VERSION_NOT_SUPPORTED', domain: 'a2a-protocol.org' }],
+    })
+    expect((await versioned('/a2a', 'SendMessage', { 'a2a-version': '2.0' })).error.code).toBe(
+      A2A_CODE.versionNotSupported,
+    )
+    expect((await versioned('/a2a?A2A-Version=0.3', 'SendMessage')).error.code).toBe(
+      A2A_CODE.versionNotSupported,
+    )
+    const accepted = await versioned('/a2a', 'SendMessage', { 'a2a-version': '1.0' })
+    expect(accepted.result.task.status.state).toBe('TASK_STATE_INPUT_REQUIRED')
+  })
+
   it('answers a body that is not JSON with a parse error', async () => {
     const answer = await server.request('POST', '/a2a', { token: anaAgent.token, form: { not: 'json' } })
     expect(answer.status).toBe(400)

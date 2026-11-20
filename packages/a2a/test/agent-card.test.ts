@@ -4,16 +4,34 @@ import { A2A_PROTOCOL_VERSION, agentCard } from '../src/agent-card.ts'
 const card = agentCard('https://hb.example.com', '1.2.3') as any
 
 describe('agentCard', () => {
-  it('advertises the JSON-RPC interface at /a2a for the supported protocol version', () => {
+  it('advertises the JSON-RPC interface at /a2a for 1.0 first and for 0.3 readers second', () => {
+    expect(A2A_PROTOCOL_VERSION).toBe('1.0')
     expect(card.supportedInterfaces).toEqual([
-      {
-        url: 'https://hb.example.com/a2a',
-        protocolBinding: 'JSONRPC',
-        protocolVersion: A2A_PROTOCOL_VERSION,
-      },
+      { url: 'https://hb.example.com/a2a', protocolBinding: 'JSONRPC', protocolVersion: '1.0' },
+      { url: 'https://hb.example.com/a2a', protocolBinding: 'JSONRPC', protocolVersion: '0.3' },
     ])
     expect(card.version).toBe('1.2.3')
     expect(card.name).toBe('Homingbird')
+  })
+
+  it('carries only the top-level fields of the 1.0 AgentCard, which allows no others', () => {
+    const allowed = [
+      'capabilities',
+      'defaultInputModes',
+      'defaultOutputModes',
+      'description',
+      'documentationUrl',
+      'iconUrl',
+      'name',
+      'provider',
+      'securityRequirements',
+      'securitySchemes',
+      'signatures',
+      'skills',
+      'supportedInterfaces',
+      'version',
+    ]
+    expect(Object.keys(card).filter((key) => !allowed.includes(key))).toEqual([])
   })
 
   it('claims no capability the gateway refuses', () => {
