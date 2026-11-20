@@ -4,7 +4,14 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { REPLAY_LIMIT, emit, transact } from '../src/events/events.ts'
 import { type RunningServer, startServer } from '../src/http/node-server.ts'
 import { OPCODE, decodeClientFrames, encodeFrame } from '../src/http/websocket.ts'
-import { type Agent, type Session, type TestServer, connectAgent, startTestServer } from './harness.ts'
+import {
+  type Agent,
+  type Session,
+  type TestServer,
+  asShown,
+  connectAgent,
+  startTestServer,
+} from './harness.ts'
 import { maskedFrame } from './websocket-support.ts'
 
 let server: TestServer
@@ -30,7 +37,7 @@ afterEach(async () => {
 
 const sendNote = async (body: string) => {
   const draft = (await ana.api('POST', '/drafts', { to: [ben.me.member.id], body })).json
-  await ana.api('POST', `/drafts/${draft.id}/send`, {})
+  await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))
 }
 
 const upgrade = (headers: Record<string, string>, path = '/api/v1/events/ws?after=0') =>

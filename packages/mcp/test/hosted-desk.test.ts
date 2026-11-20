@@ -12,6 +12,7 @@ import {
 } from '@homingbird/cli'
 import { Task as T } from '@homingbird/kernel'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { asShown } from '../../dovecote/test/harness.ts'
 import { DESCRIPTIONS } from '../src/hosted-desk.ts'
 import { NO_DESK_RUNNER } from '../src/local-tools.ts'
 import { type StdioProgram, USAGE, runStdioProgram } from '../src/stdio-program.ts'
@@ -124,7 +125,7 @@ const instance = (
 const sendFromBen = async (body: string) => {
   const ben = await running.server.signIn('ben@example.com', 'Ben')
   const draft = (await ben.api('POST', '/drafts', { to: [running.owner.me.member.id], body })).json
-  await ben.api('POST', `/drafts/${draft.id}/send`, {})
+  await ben.api('POST', `/drafts/${draft.id}/send`, await asShown(ben, draft.id))
   return draft
 }
 

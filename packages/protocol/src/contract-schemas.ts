@@ -1,7 +1,7 @@
 import { Schema as S } from '@homingbird/kernel'
 import { UNKNOWN } from './compatibility.ts'
-import { CredentialId, MemberId } from './ids.ts'
-import { ContactMode, Conversation, CredentialKind, Locale, Member, Note } from './model.ts'
+import { ConversationId, CredentialId, MemberId } from './ids.ts'
+import { ContactMode, Conversation, CredentialKind, Locale, Member, Note, NoteBody } from './model.ts'
 
 export const Empty = S.struct({})
 export const Digits = S.string({ pattern: /^[0-9]{1,15}$/ })
@@ -11,6 +11,9 @@ export const PageLimit = S.string({ pattern: /^[0-9]{1,3}$/ })
 export const RECIPIENTS_MAX = 50
 
 export const Recipients = S.array(MemberId, { minItems: 1, maxItems: RECIPIENTS_MAX })
+
+export const DraftAsShown = S.struct({ body: NoteBody, conversationId: ConversationId })
+export type DraftAsShown = S.Infer<typeof DraftAsShown>
 
 export const InboxItem = S.struct({ note: Note, author: Member, conversation: Conversation })
 export type InboxItem = S.Infer<typeof InboxItem>

@@ -1,7 +1,9 @@
+import { DRAFT_CHANGED } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import {
   approveDraft,
   askAgent,
+  confirmDraftRead,
   discardDraft,
   readdressDraft,
   reportDraftSeen,
@@ -40,7 +42,8 @@ describe('deciding on drafts', () => {
   it('sends a draft as written or edited, discards its alternatives, and refreshes what it changed', async () => {
     const { run, sent, state } = testApp(answers)
     await run(approveDraft(draft('d1'), null, [draft('d2')]))
-    expect(sent[0]!.request).toEqual({ params: { id: 'd1' }, body: {} })
+    const asRead = { body: draft('d1').body, conversationId: draft('d1').conversationId }
+    expect(sent[0]!.request).toEqual({ params: { id: 'd1' }, body: { expected: asRead } })
     expect(sent.map((one) => one.route)).toEqual(
       expect.arrayContaining([
         'drafts.discard',
@@ -54,8 +57,92 @@ describe('deciding on drafts', () => {
     await run(approveDraft(draft('d1'), 'Edited', []))
     expect(sent.filter((one) => one.route === 'drafts.send')[1]!.request).toEqual({
       params: { id: 'd1' },
-      body: { body: 'Edited' },
+      body: { body: 'Edited', expected: asRead },
     })
+  })
+
+  it('reads the thread again when the draft changed after the person read it, and sends nothing', async () => {
+    const { run, sent } = testApp({
+      ...answers,
+      'drafts.send': () => fail({ _tag: 'Conflict', message: 'This draft changed; read it again.' }),
+    })
+    const exit = await run(approveDraft(draft('d1'), null, [draft('d2')]))
+    expect(exit).toMatchObject({ _tag: 'Err' })
+    expect(sent.map((one) => one.route)).toEqual([
+      'drafts.send',
+      'conversations.get',
+      'conversations.notes',
+      'notes.get',
+    ])
+  })
+
+  it('reads the draft’s new room too when its agent moved it, so the person finds it there', async () => {
+    const MOVED = 'conv_moved0000000' as never
+    const { run, sent, state } = testApp({
+      ...answers,
+      'drafts.send': () => fail({ _tag: 'Conflict', message: DRAFT_CHANGED }),
+      'notes.get': () => draft('d1', { conversationId: MOVED, body: 'elsewhere' }),
+      'conversations.notes': () => ({
+        notes: [draft('d1', { conversationId: MOVED, body: 'elsewhere' })],
+        hasMore: false,
+        notices: [],
+      }),
+    })
+    await run(approveDraft(draft('d1'), null, []))
+    expect(sent.filter((one) => one.route === 'conversations.get').map((one) => one.request)).toEqual([
+      { params: { id: ROOM } },
+      { params: { id: MOVED } },
+    ])
+    expect(state.threads.get().get(MOVED)!.notes[0]!.body).toBe('elsewhere')
+  })
+
+  it('reads nothing more when the draft was sent or discarded elsewhere, or stayed in its room', async () => {
+    for (const now of [note('d1'), draft('d1', { body: 'rewritten' })]) {
+      const { run, sent } = testApp({
+        ...answers,
+        'drafts.send': () => fail({ _tag: 'Conflict', message: DRAFT_CHANGED }),
+        'notes.get': () => now,
+      })
+      await run(approveDraft(draft('d1'), null, []))
+      expect(sent.filter((one) => one.route === 'conversations.get')).toHaveLength(1)
+    }
+  })
+
+  it('takes what the person saved or moved, and a draft they read again, as read', async () => {
+    const { run, state } = testApp({ ...answers, 'drafts.update': () => draft('d1', { body: 'Better' }) })
+    await run(saveDraft(draft('d1'), 'Better'))
+    expect(state.draftsRead.get().get('d1' as never)).toEqual({ body: 'Better', conversationId: ROOM })
+    const changed = draft('d1', { body: 'from the agent' })
+    await run(confirmDraftRead(changed))
+    expect(state.draftsRead.get().get('d1' as never)).toEqual({
+      body: 'from the agent',
+      conversationId: ROOM,
+    })
+    const moved = testApp(answers)
+    await moved.run(readdressDraft(draft('d1'), 'billing'))
+    expect(moved.state.draftsRead.get().get('d1' as never)!.conversationId).toBe('conv_moved0000000')
+  })
+
+  it('leaves the thread alone when sending fails for another reason', async () => {
+    const { run, sent } = testApp({
+      ...answers,
+      'drafts.send': () => fail({ _tag: 'Forbidden', message: 'No.' }),
+    })
+    await run(approveDraft(draft('d1'), null, []))
+    expect(sent.map((one) => one.route)).toEqual(['drafts.send'])
+  })
+
+  it('keeps the refusal when reading the thread again fails too', async () => {
+    const { run, sent } = testApp({
+      ...answers,
+      'drafts.send': () => fail({ _tag: 'Conflict', message: 'This draft changed; read it again.' }),
+      'conversations.get': () => fail({ _tag: 'Unavailable', message: 'down' }),
+    })
+    expect(await run(approveDraft(draft('d1'), null, []))).toMatchObject({
+      _tag: 'Err',
+      error: { _tag: 'Fail', error: { _tag: 'Conflict' } },
+    })
+    expect(sent[0]!.route).toBe('drafts.send')
   })
 
   it('saves an edit, discards a draft, and sends it to another channel’s room', async () => {

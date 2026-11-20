@@ -7,6 +7,7 @@ import {
   type Agent,
   type Session,
   type TestServer,
+  asShown,
   connectAgent,
   startTestServer,
   storedRows,
@@ -52,7 +53,7 @@ describe('drafts.seen', () => {
 
   it('leaves a sent note as it was', async () => {
     const draft = await agentDraft(anaAgent, ben)
-    await ana.api('POST', `/drafts/${draft.id}/send`, {})
+    await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))
     expect((await ana.api('POST', `/drafts/${draft.id}/seen`)).status).toBe(200)
     expect((await noteRow(draft.id)).seen_at).toBeNull()
   })
@@ -64,15 +65,19 @@ describe('insights.mine', () => {
     const edited = await agentDraft(anaAgent, ben, 'to edit')
     const thrownAway = await agentDraft(anaAgent, ben, 'to discard')
     await agentDraft(anaAgent, ben, 'still waiting')
-    await ana.api('POST', `/drafts/${unchanged.id}/send`, {})
-    await ana.api('POST', `/drafts/${edited.id}/send`, { body: 'edited by Ana' })
+    await ana.api('POST', `/drafts/${unchanged.id}/send`, await asShown(ana, unchanged.id))
+    await ana.api(
+      'POST',
+      `/drafts/${edited.id}/send`,
+      await asShown(ana, edited.id, { body: 'edited by Ana' }),
+    )
     await ana.api('POST', `/drafts/${thrownAway.id}/discard`)
     const question = (await ben.api('POST', '/drafts', { to: [ana.me.member.id], body: 'Question?' })).json
-    await ben.api('POST', `/drafts/${question.id}/send`, {})
+    await ben.api('POST', `/drafts/${question.id}/send`, await asShown(ben, question.id))
     const chosen = (await anaAgent.api('POST', '/drafts', { inReplyTo: question.id, body: 'Answer one' }))
       .json
     await anaAgent.api('POST', '/drafts', { inReplyTo: question.id, body: 'Answer two' })
-    await ana.api('POST', `/drafts/${chosen.id}/send`, {})
+    await ana.api('POST', `/drafts/${chosen.id}/send`, await asShown(ana, chosen.id))
     expect(await thisWeek(ana)).toMatchObject({
       written: 6,
       sentAsWritten: 2,
@@ -85,7 +90,7 @@ describe('insights.mine', () => {
 
   it('counts the notes a person wrote themself apart from their agent’s drafts', async () => {
     const own = (await ana.api('POST', '/drafts', { to: [ben.me.member.id], body: 'by hand' })).json
-    await ana.api('POST', `/drafts/${own.id}/send`, {})
+    await ana.api('POST', `/drafts/${own.id}/send`, await asShown(ana, own.id))
     expect(await thisWeek(ana)).toMatchObject({ written: 0, sentAsWritten: 0, wroteYourself: 1 })
   })
 
@@ -95,9 +100,9 @@ describe('insights.mine', () => {
     await ana.api('POST', `/drafts/${quick.id}/seen`)
     await ana.api('POST', `/drafts/${careful.id}/seen`)
     await server.clock.advance(2_000)
-    await ana.api('POST', `/drafts/${quick.id}/send`, {})
+    await ana.api('POST', `/drafts/${quick.id}/send`, await asShown(ana, quick.id))
     await server.clock.advance(58_000)
-    await ana.api('POST', `/drafts/${careful.id}/send`, {})
+    await ana.api('POST', `/drafts/${careful.id}/send`, await asShown(ana, careful.id))
     expect(await thisWeek(ana)).toMatchObject({ quickApprovals: 1, medianDecisionMs: 31_000 })
   })
 
@@ -105,7 +110,7 @@ describe('insights.mine', () => {
     const draft = await agentDraft(anaAgent, ben)
     await ana.api('POST', `/drafts/${draft.id}/seen`)
     await server.clock.advance(4_000)
-    await ana.api('POST', `/drafts/${draft.id}/send`, {})
+    await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))
     const request = server.requestWithSettings({ HB_QUICK_APPROVAL_SECONDS: '5' })
     const report = (await request('GET', '/api/v1/insights/me', { cookie: ana.cookie })).json
     expect(report.quickApprovalSeconds).toBe(5)
@@ -116,8 +121,8 @@ describe('insights.mine', () => {
   it('counts the notes the agent skipped with their reasons, but not a person’s own release', async () => {
     const first = (await ben.api('POST', '/drafts', { to: [ana.me.member.id], body: 'One' })).json
     const second = (await ben.api('POST', '/drafts', { to: [ana.me.member.id], body: 'Two' })).json
-    await ben.api('POST', `/drafts/${first.id}/send`, {})
-    await ben.api('POST', `/drafts/${second.id}/send`, {})
+    await ben.api('POST', `/drafts/${first.id}/send`, await asShown(ben, first.id))
+    await ben.api('POST', `/drafts/${second.id}/send`, await asShown(ben, second.id))
     await anaAgent.api('POST', `/notes/${first.id}/release`, { reason: 'Needs the release plan' })
     await anaAgent.api('POST', `/notes/${first.id}/release`, { reason: 'Asked again' })
     await server.clock.advance(1_000)
@@ -142,7 +147,7 @@ describe('insights.mine', () => {
     await ana.api('POST', '/channels', { slug: 'billing', description: 'Invoices' })
     const question = (await anaAgent.api('POST', '/drafts', { channel: 'billing', body: 'Who invoices?' }))
       .json
-    await ana.api('POST', `/drafts/${question.id}/send`, {})
+    await ana.api('POST', `/drafts/${question.id}/send`, await asShown(ana, question.id))
     await agentDraft(anaAgent, ben)
     const places = async () =>
       (await thisWeek(ana)).places.map((place: { place: string | null }) => place.place)
@@ -153,7 +158,7 @@ describe('insights.mine', () => {
 
   it('shows each person only their own agent', async () => {
     const draft = await agentDraft(anaAgent, ben)
-    await ana.api('POST', `/drafts/${draft.id}/send`, {})
+    await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))
     expect((await thisWeek(ben)).sentAsWritten).toBe(0)
     expect((await thisWeek(ana)).sentAsWritten).toBe(1)
   })
@@ -162,7 +167,7 @@ describe('insights.mine', () => {
 describe('your week', () => {
   const send = async (author: Session, body: Record<string, unknown>) => {
     const draft = (await author.api('POST', '/drafts', body)).json
-    return (await author.api('POST', `/drafts/${draft.id}/send`, {})).json
+    return (await author.api('POST', `/drafts/${draft.id}/send`, await asShown(author, draft.id))).json
   }
 
   it('counts the notes a person sent, the replies they received and their typical time to reply', async () => {
@@ -203,7 +208,7 @@ describe('admin.insights', () => {
 
   const sendBetween = async (author: Session, to: Session, body: string) => {
     const draft = (await author.api('POST', '/drafts', { to: [to.me.member.id], body })).json
-    return (await author.api('POST', `/drafts/${draft.id}/send`, {})).json
+    return (await author.api('POST', `/drafts/${draft.id}/send`, await asShown(author, draft.id))).json
   }
 
   it('is for administrators only', async () => {
@@ -225,7 +230,7 @@ describe('admin.insights', () => {
     await ben.api('PUT', `/blocks/${people[5]!.me.member.id}`)
     for (const person of people.slice(0, 5)) await sendBetween(person, person === ana ? ben : ana, 'hello')
     const draft = await agentDraft(anaAgent, ben, 'Agent text')
-    await ana.api('POST', `/drafts/${draft.id}/send`, {})
+    await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))
     const insights = (await ana.api('GET', '/admin/insights')).json
     expect(insights.blocks).toBe(1)
     expect(insights.periods[0].current).toMatchObject({
@@ -253,7 +258,7 @@ describe('admin.insights', () => {
     await ana.api('POST', '/channels', { slug: 'payroll', description: 'Pay' })
     for (const person of people.slice(0, 5)) await sendBetween(person, person === ana ? ben : ana, 'hello')
     const asked = (await ben.api('POST', '/drafts', { channel: 'payroll', body: 'When is pay day?' })).json
-    await ben.api('POST', `/drafts/${asked.id}/send`, {})
+    await ben.api('POST', `/drafts/${asked.id}/send`, await asShown(ben, asked.id))
     const figures = (await ana.api('GET', '/admin/insights')).json.periods[0].current
     expect(figures.notesSent).toBe(6)
     expect(figures.places).toEqual([])
@@ -270,7 +275,7 @@ describe('admin.insights', () => {
       const draft = await agentDraft(agents[index]!, next, `From agent ${index}`)
       await person.api('POST', `/drafts/${draft.id}/seen`)
       await server.clock.advance(1_000)
-      await person.api('POST', `/drafts/${draft.id}/send`, {})
+      await person.api('POST', `/drafts/${draft.id}/send`, await asShown(person, draft.id))
     }
     await sendBetween(ana, ben, 'By hand')
     await server.clock.advance(60_000)
@@ -328,7 +333,7 @@ describe('session health', () => {
         session: { ageMinutes: 500, contextPercent: 85 },
       })
     ).json
-    await ana.api('POST', `/drafts/${draft.id}/send`, {})
+    await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))
     const report = (await ana.api('GET', '/insights/me')).json
     expect(
       report.sessions.byAge.find((bucket: { bucket: string }) => bucket.bucket === 'half_day').decided,

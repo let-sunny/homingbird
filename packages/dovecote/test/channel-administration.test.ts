@@ -5,6 +5,7 @@ import {
   type Agent,
   type Session,
   type TestServer,
+  asShown,
   connectAgent,
   startTestServer,
   storedRows,
@@ -35,7 +36,7 @@ const channels = async (who: Session | Agent, query = '') =>
 
 const ask = async (author: Session, channel: string, body: string) => {
   const draft = (await author.api('POST', '/drafts', { channel, body })).json
-  return (await author.api('POST', `/drafts/${draft.id}/send`, {})).json
+  return (await author.api('POST', `/drafts/${draft.id}/send`, await asShown(author, draft.id))).json
 }
 
 const inboxOf = async (agent: Agent) =>
@@ -174,7 +175,9 @@ describe('an archived room', () => {
       await cy.api('POST', '/drafts', { conversationId: room, body: 'Anyone?' }),
     ])
       expect([attempt.status, attempt.json.error.message]).toEqual([409, ARCHIVED])
-    expect((await ben.api('POST', `/drafts/${waitingReply.id}/send`, {})).status).toBe(409)
+    expect(
+      (await ben.api('POST', `/drafts/${waitingReply.id}/send`, await asShown(ben, waitingReply.id))).status,
+    ).toBe(409)
     expect((await cy.api('POST', `/notes/${question.id}/move`, { channel: 'general' })).status).toBe(409)
     expect((await ana.api('PUT', `/channels/billing/members/${ben.me.member.id}`)).status).toBe(404)
   })
@@ -202,7 +205,7 @@ describe('an archived room', () => {
     const question = await ask(cy, 'billing', 'Who owns refunds?')
     const reply = (await ben.api('POST', '/drafts', { inReplyTo: question.id, body: 'Ben does.' })).json
     await ana.api('POST', '/admin/channels/billing/archive', {})
-    const refused = await ben.api('POST', `/drafts/${reply.id}/send`, {})
+    const refused = await ben.api('POST', `/drafts/${reply.id}/send`, await asShown(ben, reply.id))
     expect(refused.status).toBe(409)
   })
 })

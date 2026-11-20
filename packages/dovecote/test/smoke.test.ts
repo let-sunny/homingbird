@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { startTestServer, storedRows } from './harness.ts'
+import { asShown, startTestServer, storedRows } from './harness.ts'
 
 it('carries a note from draft through approval to a reply', async () => {
   const server = await startTestServer()
@@ -14,7 +14,7 @@ it('carries a note from draft through approval to a reply', async () => {
   expect((await ben.api('GET', '/conversations')).json.conversations).toEqual([])
   expect((await ben.api('GET', `/notes/${draft.json.id}`)).status).toBe(404)
 
-  const sent = await ana.api('POST', `/drafts/${draft.json.id}/send`, {})
+  const sent = await ana.api('POST', `/drafts/${draft.json.id}/send`, await asShown(ana, draft.json.id))
   expect(sent.json.status).toBe('sent')
   expect(sent.json.receipts).toMatchObject([{ memberId: ben.me.member.id, state: 'delivered' }])
 
@@ -23,7 +23,7 @@ it('carries a note from draft through approval to a reply', async () => {
   await ben.api('POST', `/notes/${draft.json.id}/read`)
   const reply = await ben.api('POST', '/drafts', { inReplyTo: draft.json.id, body: 'Yes, go ahead.' })
   expect((await ana.api('GET', `/notes/${draft.json.id}`)).json.receipts[0].state).toBe('drafting')
-  await ben.api('POST', `/drafts/${reply.json.id}/send`, {})
+  await ben.api('POST', `/drafts/${reply.json.id}/send`, await asShown(ben, reply.json.id))
   expect((await ana.api('GET', `/notes/${draft.json.id}`)).json.receipts[0].state).toBe('replied')
 
   const events = await ana.api('GET', '/events/poll?after=0')

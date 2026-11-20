@@ -5,6 +5,7 @@ import {
   type Agent,
   type Session,
   type TestServer,
+  asShown,
   connectAgent,
   startTestServer,
   storedRows,
@@ -37,7 +38,7 @@ const channels = async (who: Session | Agent, query = '') =>
 
 const ask = async (author: Session, channel: string, body: string) => {
   const draft = (await author.api('POST', '/drafts', { channel, body })).json
-  return (await author.api('POST', `/drafts/${draft.id}/send`, {})).json
+  return (await author.api('POST', `/drafts/${draft.id}/send`, await asShown(author, draft.id))).json
 }
 
 const inboxOf = async (agent: Agent) =>
@@ -153,7 +154,7 @@ describe('asking a channel', () => {
     const draft = (await anaAgent.api('POST', '/drafts', { channel: 'billing', body: 'Who owns refunds?' }))
       .json
     expect((await ben.api('GET', `/notes/${draft.id}`)).status).toBe(404)
-    const note = (await ana.api('POST', `/drafts/${draft.id}/send`, {})).json
+    const note = (await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))).json
     expect(note.receipts.map((receipt: any) => receipt.memberId).sort()).toEqual(
       [ben.me.member.id, cy.me.member.id].sort(),
     )
@@ -170,7 +171,7 @@ describe('asking a channel', () => {
     const question = await ask(ana, 'billing', 'Who owns refunds?')
     const draft = (await benAgent.api('POST', '/drafts', { inReplyTo: question.id, body: 'Ben does.' })).json
     expect(await inboxOf(cyAgent)).toEqual(['Who owns refunds?'])
-    const answer = (await ben.api('POST', `/drafts/${draft.id}/send`, {})).json
+    const answer = (await ben.api('POST', `/drafts/${draft.id}/send`, await asShown(ben, draft.id))).json
     expect(answer.receipts.map((receipt: any) => receipt.memberId)).toEqual([ana.me.member.id])
     expect(await inboxOf(cyAgent)).toEqual([])
     expect(await inboxOf(benAgent)).toEqual([])
@@ -255,7 +256,9 @@ describe('moving a question to a better channel', () => {
     const moved = (await cy.api('POST', `/notes/${question.id}/move`, { channel: 'billing' })).json
 
     expect((await cy.api('GET', '/drafts')).json.drafts).toEqual([])
-    expect((await cy.api('POST', `/drafts/${outside.id}/send`, {})).status).toBe(409)
+    expect((await cy.api('POST', `/drafts/${outside.id}/send`, await asShown(cy, outside.id))).status).toBe(
+      409,
+    )
     const kept = (await ben.api('GET', `/notes/${inside.id}`)).json
     expect(kept).toMatchObject({ status: 'draft', conversationId: moved.conversationId, body: 'I do.' })
     const benEvents = (await ben.api('GET', `/events/poll?after=${benCursor}`)).json.events
@@ -263,7 +266,7 @@ describe('moving a question to a better channel', () => {
     expect(benEvents[2].body.note).toEqual(kept)
     expect(moved.receipts).toMatchObject([{ memberId: ben.me.member.id, state: 'drafting' }])
 
-    const sent = (await ben.api('POST', `/drafts/${inside.id}/send`, {})).json
+    const sent = (await ben.api('POST', `/drafts/${inside.id}/send`, await asShown(ben, inside.id))).json
     expect(sent).toMatchObject({ status: 'sent', conversationId: moved.conversationId })
     expect((await ana.api('GET', `/notes/${sent.id}`)).json.body).toBe('I do.')
   })
@@ -278,11 +281,11 @@ describe('moving a question to a better channel', () => {
     expect((await cy.api('POST', `/notes/${question.id}/move`, { channel: 'lobby' })).status).toBe(409)
     expect((await cy.api('POST', `/notes/${question.id}/move`, { channel: 'nowhere' })).status).toBe(404)
     const answer = (await cy.api('POST', '/drafts', { inReplyTo: question.id, body: 'Ben does.' })).json
-    await cy.api('POST', `/drafts/${answer.id}/send`, {})
+    await cy.api('POST', `/drafts/${answer.id}/send`, await asShown(cy, answer.id))
     expect((await cy.api('POST', `/notes/${question.id}/move`, { channel: 'billing' })).status).toBe(409)
     expect((await ana.api('POST', `/notes/${answer.id}/move`, { channel: 'billing' })).status).toBe(409)
     const direct = (await ana.api('POST', '/drafts', { to: [ben.me.member.id], body: 'direct' })).json
-    await ana.api('POST', `/drafts/${direct.id}/send`, {})
+    await ana.api('POST', `/drafts/${direct.id}/send`, await asShown(ana, direct.id))
     expect((await ben.api('POST', `/notes/${direct.id}/move`, { channel: 'billing' })).status).toBe(409)
   })
 })
@@ -312,7 +315,7 @@ describe('re-addressing a draft question', () => {
     expect(
       (await ana.api('GET', `/events/poll?after=${cursor}`)).json.events.map((event: any) => event.body),
     ).toEqual([{ type: 'draft.saved', note: moved }])
-    const sent = (await ana.api('POST', `/drafts/${draft.id}/send`, {})).json
+    const sent = (await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))).json
     expect(sent.receipts.map((receipt: any) => receipt.memberId)).toEqual([ben.me.member.id])
     expect(await inboxOf(cyAgent)).toEqual([])
   })
@@ -355,7 +358,7 @@ describe('re-addressing a draft question', () => {
     expect((await ana.api('PATCH', `/drafts/${draft.id}`, { channel: 'nowhere' })).status).toBe(404)
     expect((await ana.api('PATCH', `/drafts/${draft.id}`, {})).status).toBe(400)
     expect((await ben.api('PATCH', `/drafts/${draft.id}`, { channel: 'billing' })).status).toBe(404)
-    await ana.api('POST', `/drafts/${draft.id}/send`, {})
+    await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))
     expect((await ana.api('PATCH', `/drafts/${draft.id}`, { channel: 'billing' })).status).toBe(409)
     expect((await ana.api('PATCH', `/notes/${question.id}`, { channel: 'billing' })).status).toBe(404)
   })

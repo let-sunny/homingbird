@@ -143,13 +143,13 @@ async function exchange(
   })
   const sentAt = performance.now()
   const delivered = new Promise<number>((resolve) => arrivals.set(question.id, resolve))
-  await call(asker.humanToken, 'POST', `/drafts/${question.id}/send`, {})
+  await call(asker.humanToken, 'POST', `/drafts/${question.id}/send`, { expected: asShown(question) })
   sendLatencies.push(performance.now() - sentAt)
   deliveryLatencies.push((await delivered) - sentAt)
   await call(answerer.agentToken, 'POST', `/notes/${question.id}/pickup`)
   const reply = await call(answerer.agentToken, 'POST', '/drafts', { inReplyTo: question.id, body: ANSWER })
   await call(answerer.humanToken, 'POST', `/notes/${question.id}/read`)
-  await call(answerer.humanToken, 'POST', `/drafts/${reply.id}/send`, {})
+  await call(answerer.humanToken, 'POST', `/drafts/${reply.id}/send`, { expected: asShown(reply) })
 }
 
 async function holdStream(
@@ -183,7 +183,7 @@ async function drain(response: Response): Promise<void> {
   for await (const chunk of response.body as unknown as AsyncIterable<Uint8Array>) void chunk
 }
 
-async function call(token: string, method: string, path: string, body?: unknown): Promise<{ id: string }> {
+async function call(token: string, method: string, path: string, body?: unknown): Promise<Created> {
   const response = await fetch(`${serverUrl}/api/v1${path}`, {
     method,
     headers: {
@@ -255,3 +255,11 @@ async function runServer(): Promise<void> {
   await T.runPromise(startServer(env, port))
   process.stdout.write('ready\n')
 }
+
+interface Created {
+  readonly id: string
+  readonly body: string
+  readonly conversationId: string
+}
+
+const asShown = (draft: Created) => ({ body: draft.body, conversationId: draft.conversationId })

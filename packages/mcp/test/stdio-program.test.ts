@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { Task as T } from '@homingbird/kernel'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { asShown } from '../../dovecote/test/harness.ts'
 import { ONE_DESK } from '../src/answering.ts'
 import { CHANNEL_METHOD } from '../src/channel.ts'
 import {
@@ -178,7 +179,7 @@ describe('runStdioProgram', () => {
     expect(greeting.instructions).toContain(DESK_INSTRUCTIONS)
     expect(greeting.capabilities.experimental).toEqual({ 'claude/channel': {} })
     const early = (await ben.api('POST', '/drafts', { to: [ana], body: 'Is the migration safe?' })).json
-    await ben.api('POST', `/drafts/${early.id}/send`, {})
+    await ben.api('POST', `/drafts/${early.id}/send`, await asShown(ben, early.id))
     await desk.signIn()
     desk.notify('notifications/initialized')
     await running.until(() => desk.pushed().length === 1)

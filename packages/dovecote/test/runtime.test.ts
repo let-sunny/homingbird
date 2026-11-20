@@ -5,7 +5,7 @@ import { run } from '../src/sql/database.ts'
 import { raw } from '../src/sql/query.ts'
 import { migrate } from '../src/sql/schema.ts'
 import { openSqlite } from '../src/sql/sqlite.ts'
-import { type Session, type TestServer, startTestServer, storedRows, testConfig } from './harness.ts'
+import { type Session, type TestServer, asShown, startTestServer, storedRows, testConfig } from './harness.ts'
 
 const DAY_MS = 24 * 60 * 60_000
 
@@ -59,7 +59,7 @@ describe('the housekeeping pass', () => {
   it('forgets events a week old and expired sign-in requests, and keeps the recent ones', async () => {
     const ben = await server.signIn('ben@example.com', 'Ben')
     const draft = (await ana.api('POST', '/drafts', { to: [ben.me.member.id], body: 'Old' })).json
-    await ana.api('POST', `/drafts/${draft.id}/send`, {})
+    await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))
     await T.runPromise(
       run(
         raw(

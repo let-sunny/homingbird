@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { PICKUP_GRACE_MS } from '../src/domain/note-rows.ts'
-import { type Agent, type Session, type TestServer, connectAgent, startTestServer } from './harness.ts'
+import {
+  type Agent,
+  type Session,
+  type TestServer,
+  asShown,
+  connectAgent,
+  startTestServer,
+} from './harness.ts'
 
 let server: TestServer
 let ana: Session
@@ -20,7 +27,7 @@ afterEach(() => server.close())
 
 const send = async (author: Session, to: Session, body: string) => {
   const draft = (await author.api('POST', '/drafts', { to: [to.me.member.id], body })).json
-  return (await author.api('POST', `/drafts/${draft.id}/send`, {})).json
+  return (await author.api('POST', `/drafts/${draft.id}/send`, await asShown(author, draft.id))).json
 }
 
 describe('receipts', () => {
@@ -40,7 +47,7 @@ describe('receipts', () => {
     await everyoneSees('drafting')
     const reply = (await benAgent.api('POST', '/drafts', { inReplyTo: note.id, body: 'answer' })).json
     await everyoneSees('drafting')
-    await ben.api('POST', `/drafts/${reply.id}/send`, {})
+    await ben.api('POST', `/drafts/${reply.id}/send`, await asShown(ben, reply.id))
     await everyoneSees('replied')
   })
 
@@ -50,7 +57,7 @@ describe('receipts', () => {
     const picked = (await ana.api('GET', `/notes/${note.id}`)).json.receipts[0]
     expect(picked).toMatchObject({ state: 'drafting', readAt: null })
     const reply = (await ben.api('POST', '/drafts', { inReplyTo: note.id, body: 'answer' })).json
-    await ben.api('POST', `/drafts/${reply.id}/send`, {})
+    await ben.api('POST', `/drafts/${reply.id}/send`, await asShown(ben, reply.id))
     const replied = (await ana.api('GET', `/notes/${note.id}`)).json.receipts[0]
     expect(replied.readAt).toBe(replied.repliedAt)
   })

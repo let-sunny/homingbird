@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { type Agent, type Session, type TestServer, connectAgent, startTestServer } from './harness.ts'
+import {
+  type Agent,
+  type Session,
+  type TestServer,
+  asShown,
+  connectAgent,
+  startTestServer,
+} from './harness.ts'
 
 let server: TestServer
 let ana: Session
@@ -31,8 +38,12 @@ describe('a principle as the server keeps it', () => {
     const edited = await applying('Wednesday.')
     const discarded = await applying('Thursday.')
     const undecided = await applying('Friday.')
-    await ana.api('POST', `/drafts/${asWritten.id}/send`, {})
-    await ana.api('POST', `/drafts/${edited.id}/send`, { body: 'Wednesday at noon.' })
+    await ana.api('POST', `/drafts/${asWritten.id}/send`, await asShown(ana, asWritten.id))
+    await ana.api(
+      'POST',
+      `/drafts/${edited.id}/send`,
+      await asShown(ana, edited.id, { body: 'Wednesday at noon.' }),
+    )
     await ana.api('POST', `/drafts/${discarded.id}/discard`)
     const [principle] = (await ana.api('GET', '/principles')).json.principles
     await ana.api('POST', `/principles/${principle.id}/misses`, { noteId: undecided.id })

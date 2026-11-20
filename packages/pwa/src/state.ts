@@ -1,6 +1,14 @@
-import type { AsRead, ConversationId, DraftRequest, MemberId, NoteId } from '@homingbird/protocol'
+import type {
+  AsRead,
+  ConversationId,
+  DraftAsShown,
+  DraftRequest,
+  MemberId,
+  NoteId,
+} from '@homingbird/protocol'
 import { type ReadableSignal, type Signal, derived, signal } from '@homingbird/ui'
 import type { Roster } from './channels.ts'
+import { withDraftsAsRead } from './drafts-read.ts'
 import { type Route, parseRoute } from './routes.ts'
 import { type ChangeCounter, changeCounter } from './thread-changes.ts'
 
@@ -8,6 +16,9 @@ import { type ChangeCounter, changeCounter } from './thread-changes.ts'
 export const createState = (hash: string): AppState => {
   const session = signal<AsRead.Me | null | 'loading'>('loading')
   const directory = signal<ReadonlyArray<AsRead.DirectoryEntry>>([])
+  const threads = signal<ReadonlyMap<ConversationId, Thread>>(new Map())
+  const draftsRead = signal<ReadonlyMap<NoteId, DraftAsShown>>(new Map())
+  threads.subscribe((all) => draftsRead.update((read) => withDraftsAsRead(read, all)))
   return {
     session,
     serverInfo: signal<AsRead.ServerInfo | null>(null),
@@ -15,7 +26,8 @@ export const createState = (hash: string): AppState => {
     route: signal<Route>(parseRoute(hash)),
     conversations: signal<ReadonlyArray<AsRead.Conversation>>([]),
     conversationsLoaded: signal(false),
-    threads: signal<ReadonlyMap<ConversationId, Thread>>(new Map()),
+    threads,
+    draftsRead,
     directory,
     directoryLoaded: signal(false),
     contacts: signal<ReadonlyArray<AsRead.Contact>>([]),
@@ -67,6 +79,8 @@ export interface AppState {
   readonly conversations: Signal<ReadonlyArray<AsRead.Conversation>>
   readonly conversationsLoaded: Signal<boolean>
   readonly threads: Signal<ReadonlyMap<ConversationId, Thread>>
+  /** Each draft's text and room as the person last read them on this page. */
+  readonly draftsRead: Signal<ReadonlyMap<NoteId, DraftAsShown>>
   readonly directory: Signal<ReadonlyArray<AsRead.DirectoryEntry>>
   readonly directoryLoaded: Signal<boolean>
   readonly contacts: Signal<ReadonlyArray<AsRead.Contact>>

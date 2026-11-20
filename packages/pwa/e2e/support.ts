@@ -75,7 +75,16 @@ export const api = async (person: Person, method: string, path: string, body?: u
 
 export const sendThroughApi = async (person: Person, draft: object): Promise<void> => {
   const created = await api(person, 'POST', '/drafts', draft)
-  await api(person, 'POST', `/drafts/${created.id}/send`, {})
+  await sendDraft(person, created.id)
+}
+
+/** Sends a draft the way the web client does: with the text and room the person sees now. */
+export const sendDraft = async (person: Person, id: string, body?: string): Promise<any> => {
+  const shown = await api(person, 'GET', `/notes/${id}`)
+  return api(person, 'POST', `/drafts/${id}/send`, {
+    ...(body !== undefined && { body }),
+    expected: { body: shown.body, conversationId: shown.conversationId },
+  })
 }
 
 export const form = (fields: Record<string, string>) => ({

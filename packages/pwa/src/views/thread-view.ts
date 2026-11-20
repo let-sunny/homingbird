@@ -48,6 +48,7 @@ export const threadView = (
     me,
     conversationId: id,
     thread: state.threads.get().get(id),
+    draftsRead: state.draftsRead.get(),
     conversations: state.conversations.get(),
     channels: state.channels.get(),
     members: state.members.get(),
@@ -84,6 +85,7 @@ export const threadView = (
     list,
     [
       state.threads,
+      state.draftsRead,
       state.members,
       state.replyTargets,
       state.draftRequests,
@@ -176,6 +178,7 @@ const missingConversation = (): HTMLElement =>
 
 /** What else a thread item's drawing depends on, so that a change to any of it redraws the item. */
 const signatureParts = (input: ThreadInput, item: ThreadItem): unknown[] => [
+  item.type === 'drafts' ? item.drafts.map((draft) => input.draftsRead.get(draft.id) ?? null) : null,
   peopleIn(input, item),
   roomState(input),
   input.replyTarget,

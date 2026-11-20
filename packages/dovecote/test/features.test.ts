@@ -4,6 +4,7 @@ import {
   type Agent,
   type Session,
   type TestServer,
+  asShown,
   connectAgent,
   startTestServer,
   storedRows,
@@ -122,7 +123,7 @@ describe('feature switches', () => {
     const members = (await ana.api('GET', '/admin/members')).json.members
     expect(members.find((member: { id: string }) => member.id === ben.me.member.id).character).toBeNull()
     const draft = (await ben.api('POST', '/drafts', { to: [ana.me.member.id], body: 'Hi' })).json
-    await ben.api('POST', `/drafts/${draft.id}/send`, {})
+    await ben.api('POST', `/drafts/${draft.id}/send`, await asShown(ben, draft.id))
     expect(JSON.stringify((await ana.api('GET', '/inbox')).json)).not.toContain('my-otter')
   })
 

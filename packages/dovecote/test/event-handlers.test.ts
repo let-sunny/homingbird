@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { type Agent, type Session, type TestServer, connectAgent, startTestServer } from './harness.ts'
+import {
+  type Agent,
+  type Session,
+  type TestServer,
+  asShown,
+  connectAgent,
+  startTestServer,
+} from './harness.ts'
 
 let server: TestServer
 let ana: Session
@@ -18,7 +25,7 @@ afterEach(() => server.close())
 describe('the event handlers', () => {
   it('poll for events after a cursor, never waiting longer than the protocol allows', async () => {
     const draft = (await ana.api('POST', '/drafts', { to: [ben.me.member.id], body: 'Hi' })).json
-    await ana.api('POST', `/drafts/${draft.id}/send`, {})
+    await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))
     const all = (await ben.api('GET', '/events/poll?after=0')).json
     expect(all.events.map((event: any) => event.body.type)).toContain('note.sent')
     expect((await ben.api('GET', `/events/poll?after=${all.cursor}`)).json.events).toEqual([])
