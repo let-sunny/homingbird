@@ -1,9 +1,16 @@
 import { Task as T } from '@homingbird/kernel'
-import { Conflict, Forbidden, type MemberId, type Note, type NoteId } from '@homingbird/protocol'
+import {
+  Conflict,
+  type DraftAsShown,
+  Forbidden,
+  type MemberId,
+  type Note,
+  type NoteId,
+} from '@homingbird/protocol'
 import { type Caller, isHuman } from '../environment.ts'
 import { type RequestEnv, emit } from '../events/events.ts'
-import { all, first, run } from '../sql/database.ts'
-import { insertInto, sql } from '../sql/query.ts'
+import { all, dialect, first, run } from '../sql/database.ts'
+import { equalsExactly, insertInto, sql } from '../sql/query.ts'
 import { abandonDraft } from './abandoned-drafts.ts'
 import { helpersOf } from './channel-rows.ts'
 import { participantsOf, requireMayMessageIn } from './conversations.ts'
@@ -17,6 +24,7 @@ export const sendDraft = (
   caller: Caller,
   id: NoteId,
   replacementBody: string | undefined,
+  expected: DraftAsShown | undefined,
 ): T.Task<Note, NoteFailure, RequestEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
@@ -30,10 +38,12 @@ export const sendDraft = (
     const origin = originAfterEdit(draft.origin, true, body !== draft.body)
     const decidedAt = env.clock.now()
     const now = yield* nextSendTime(draft.conversation_id, decidedAt)
+    const asRead = expected ?? { body: draft.body, conversationId: draft.conversation_id }
+    const sameBody = equalsExactly(yield* dialect, 'body', asRead.body)
     const sent = yield* run(
-      sql`UPDATE notes SET status = 'sent', body = ${body}, origin = ${origin}, sent_at = ${now}, updated_at = ${now}, decided_at = ${decidedAt} WHERE id = ${id} AND status = 'draft'`,
+      sql`UPDATE notes SET status = 'sent', body = ${body}, origin = ${origin}, sent_at = ${now}, updated_at = ${now}, decided_at = ${decidedAt} WHERE id = ${id} AND status = 'draft' AND ${sameBody} AND conversation_id = ${asRead.conversationId}`,
     )
-    if (sent === 0) return yield* T.fail(Conflict({ message: 'This draft was already sent or discarded.' }))
+    if (sent === 0) return yield* T.fail(yield* refusalAfterMissedSend(id))
     for (const memberId of recipients)
       yield* run(insertInto('receipts', { note_id: id, member_id: memberId, delivered_at: now }))
     yield* run(sql`UPDATE conversations SET last_activity_at = ${now} WHERE id = ${draft.conversation_id}`)
@@ -55,6 +65,16 @@ export const discardDraft = (caller: Caller, id: NoteId): T.Task<Note, NoteFailu
     if (draft.in_reply_to !== null) yield* announceStatus(draft.in_reply_to)
     return yield* noteById(id, caller.member.id)
   })
+
+const refusalAfterMissedSend = (id: NoteId): T.Task<NoteFailure, never, RequestEnv> =>
+  T.map((row: { status: string } | null) =>
+    Conflict({
+      message:
+        row?.status === 'draft'
+          ? 'This draft changed; read it again.'
+          : 'This draft was already sent or discarded.',
+    }),
+  )(first<{ status: string }>(sql`SELECT status FROM notes WHERE id = ${id}`))
 
 const recipientsOf = (
   draft: NoteRow,

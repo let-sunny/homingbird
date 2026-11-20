@@ -138,6 +138,9 @@ const draftEditor = (
           event.preventDefault()
           context.actions.approveDraft(draft, text.value, alternatives, {
             done: () => closeDialog(context),
+            failed: (error) => {
+              if (error._tag === 'Conflict') closeDialog(context)
+            },
             attempt: 'draft',
           })
         },

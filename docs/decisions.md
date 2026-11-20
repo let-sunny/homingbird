@@ -917,3 +917,21 @@ command through the injected process service.
   `desks/<server>~<member>.paused`; every runner on the computer, CLI and MCP-hosted, checks it before
   each note and request and keeps its claim while paused, so pausing never hands the desk to another
   runner.
+
+## Sending binds to the draft the person read
+
+An agent may change its own draft at any time (`drafts.update` is a `member` route), and the card a
+person reads can be seconds or minutes old when they tap Send. So `drafts.send` carries `expected`:
+the body and conversation the card showed, or, for an edited send, the ones the edit started from. The
+server's `UPDATE` sends only while the row still matches both, and otherwise answers 409 "This draft
+changed; read it again." without sending; the web client reads the thread again and says the agent
+changed the draft.
+
+- **The comparison is in the `UPDATE`, not before it,** so a change that lands between reading the row
+  and writing it is caught too.
+- **`expected` is optional on the wire.** Only the bundled web client calls `drafts.send` (Rule 3), and
+  it always fills it. A human caller that leaves it out binds to the row `sendDraft` read a moment
+  before, which still closes that race but not the one on the person's screen. Making it required
+  changes the Rule 1 tests, which needs a maintainer's approval.
+- **The basis and model are not compared.** They describe the draft; the body and the room are what
+  is sent and to whom.

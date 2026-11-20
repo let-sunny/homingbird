@@ -46,6 +46,12 @@ export const insertIgnoringConflict = (
 export const containsIgnoringCase = (column: string, needle: string): Query =>
   query(`LOWER(${column}) LIKE ? ESCAPE '!'`, [`%${needle.toLowerCase().replace(/[!%_]/g, '!$&')}%`])
 
+/** MySQL's default collations ignore case and accents; a guard on what a person read must not. */
+export const equalsExactly = (dialect: Dialect, column: string, value: string): Query =>
+  dialect === 'mysql'
+    ? query(`CAST(${column} AS BINARY) = CAST(? AS BINARY)`, [value])
+    : query(`${column} = ?`, [value])
+
 export const numberedPlaceholders = (text: string): string => {
   let index = 0
   return text.replace(/\?/g, () => `$${++index}`)

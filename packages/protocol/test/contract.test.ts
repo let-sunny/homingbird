@@ -4,6 +4,7 @@ import fc from 'fast-check'
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import * as shared from '../src/contract-schemas.ts'
 import { type Api, type Contract, type RouteName, contract, humanOnlyRoutes } from '../src/contract.ts'
+import type { ConversationId } from '../src/ids.ts'
 import type { Note } from '../src/model.ts'
 import { type RequestOf, fillPath, matchPath } from '../src/route.ts'
 import { refinements } from './contract-refinements.ts'
@@ -210,7 +211,10 @@ describe('contract', () => {
     expectTypeOf<keyof Api>().toEqualTypeOf<RouteName>()
     expectTypeOf<Parameters<Api['drafts.send']>[0]>().toEqualTypeOf<{
       readonly params: { readonly id: string }
-      readonly body: { readonly body?: string }
+      readonly body: {
+        readonly body?: string
+        readonly expected?: { readonly body: string; readonly conversationId: ConversationId }
+      }
     }>()
     expectTypeOf<RequestOf<Contract['me.get']>>().toEqualTypeOf<{}>()
     type Sent = Awaited<ReturnType<Api['drafts.send']>> extends never ? never : Note

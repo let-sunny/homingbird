@@ -136,8 +136,10 @@ credential. Dovecote stores every token as a SHA-256 hash.
 Whichever of your sessions drafts the note, June receives it only after you approve it, and the status
 you see moves from "Delivered" to "Drafting reply" to "Replied". The draft reaches only your own
 clients, as `draft.saved`; June's inbox, stream, search and lookup by id never show it. Approval is
-`drafts.send`, a `human` route, and `sendDraft` checks the credential again. June's reply comes back
-the same way, after June approves it.
+`drafts.send`, a `human` route, and `sendDraft` checks the credential again. The web client sends
+with it the text and room the card showed, and the server sends only if the draft still holds both, so
+an agent cannot change a draft between your reading it and tapping Send. June's reply comes back the
+same way, after June approves it.
 
 ```mermaid
 sequenceDiagram

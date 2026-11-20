@@ -71,6 +71,70 @@ describe('approval', () => {
   })
 })
 
+describe('sending what the person read', () => {
+  const asRead = (note: any) => ({ body: note.body, conversationId: note.conversationId })
+
+  it('refuses to send when an agent rewrote the draft after the person read it', async () => {
+    const read = (await anaAgent.api('POST', '/drafts', { to: [ben.me.member.id], body: 'see you at 3' }))
+      .json
+    await anaAgent.api('PATCH', `/drafts/${read.id}`, { body: 'wire the money now' })
+    const refused = await ana.api('POST', `/drafts/${read.id}/send`, { expected: asRead(read) })
+    expect(refused.status).toBe(409)
+    expect(refused.json.error.message).toBe('This draft changed; read it again.')
+    expect((await ana.api('GET', `/notes/${read.id}`)).json).toMatchObject({
+      status: 'draft',
+      body: 'wire the money now',
+    })
+    expect((await ben.api('GET', `/notes/${read.id}`)).status).toBe(404)
+  })
+
+  it('refuses to send when an agent moved the draft to another room after the person read it', async () => {
+    for (const slug of ['billing', 'support']) await ana.api('POST', '/channels', { slug, description: slug })
+    await ben.api('PUT', '/channels/support/membership', { answering: true })
+    const read = (await anaAgent.api('POST', '/drafts', { channel: 'billing', body: 'our numbers' })).json
+    const moved = (await anaAgent.api('PATCH', `/drafts/${read.id}`, { channel: 'support' })).json
+    expect(moved.conversationId).not.toBe(read.conversationId)
+    const refused = await ana.api('POST', `/drafts/${read.id}/send`, { expected: asRead(read) })
+    expect(refused.status).toBe(409)
+    expect(refused.json.error.message).toBe('This draft changed; read it again.')
+    expect((await ana.api('GET', `/notes/${read.id}`)).json.status).toBe('draft')
+  })
+
+  it('counts a change of case alone as a change, on every database', async () => {
+    const read = (await anaAgent.api('POST', '/drafts', { to: [ben.me.member.id], body: 'do not ship' })).json
+    await anaAgent.api('PATCH', `/drafts/${read.id}`, { body: 'DO NOT SHIP' })
+    expect((await ana.api('POST', `/drafts/${read.id}/send`, { expected: asRead(read) })).status).toBe(409)
+  })
+
+  it('refuses an edited send whose starting text an agent changed meanwhile', async () => {
+    const read = (await anaAgent.api('POST', '/drafts', { to: [ben.me.member.id], body: 'draft one' })).json
+    await anaAgent.api('PATCH', `/drafts/${read.id}`, { body: 'draft two' })
+    const refused = await ana.api('POST', `/drafts/${read.id}/send`, { body: 'mine', expected: asRead(read) })
+    expect(refused.status).toBe(409)
+    expect((await ana.api('GET', `/notes/${read.id}`)).json.body).toBe('draft two')
+  })
+
+  it('sends the draft as read, or as edited from what was read', async () => {
+    const read = (await anaAgent.api('POST', '/drafts', { to: [ben.me.member.id], body: 'as read' })).json
+    const sent = (await ana.api('POST', `/drafts/${read.id}/send`, { expected: asRead(read) })).json
+    expect(sent).toMatchObject({ status: 'sent', body: 'as read', origin: 'agent' })
+    const other = (await anaAgent.api('POST', '/drafts', { to: [ben.me.member.id], body: 'start' })).json
+    const edited = await ana.api('POST', `/drafts/${other.id}/send`, {
+      body: 'finish',
+      expected: asRead(other),
+    })
+    expect(edited.json).toMatchObject({ status: 'sent', body: 'finish', origin: 'human_edited' })
+  })
+
+  it('still says a draft was already sent when the person reads and sends it twice', async () => {
+    const read = (await anaAgent.api('POST', '/drafts', { to: [ben.me.member.id], body: 'once' })).json
+    await ana.api('POST', `/drafts/${read.id}/send`, { expected: asRead(read) })
+    const again = await ana.api('POST', `/drafts/${read.id}/send`, { expected: asRead(read) })
+    expect(again.status).toBe(409)
+    expect(again.json.error.message).toBe('This draft was already sent or discarded.')
+  })
+})
+
 describe('several agents answering one note', () => {
   it('lets each agent draft, and sending one discards the others', async () => {
     const note = await send(ana, ben, 'question')

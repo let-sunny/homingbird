@@ -369,6 +369,7 @@ export const en = {
     connectionCode: 'This connection code is unknown or has expired. Ask your agent for a new one.',
     roomArchived: 'This room is archived. You can read it, but no new notes can be written.',
     draftHandled: 'This draft was already sent or discarded.',
+    draftChanged: 'Your agent changed this draft after you read it, so it was not sent. Read it again.',
     nameTaken: 'That name is not available.',
     lastManager: 'A channel with members keeps a manager. Add another manager first.',
     needsManagerInRoom: 'Add a manager who is in the channel before making it private.',

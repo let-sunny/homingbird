@@ -1,5 +1,5 @@
 import { Task as T } from '@homingbird/kernel'
-import type { AsRead, DraftRequest, NoteId } from '@homingbird/protocol'
+import type { ApiError, AsRead, DraftRequest, NoteId } from '@homingbird/protocol'
 import { track } from '../analytics.ts'
 import { type Action, type App, withApp } from '../app.ts'
 import { type AgentAsk, requestBody, upsertRequest } from '../draft-requests.ts'
@@ -8,7 +8,11 @@ import { forgetNote, forgetRelease, loadThread, rememberNote } from './notes.ts'
 import { refreshAgentReport, refreshPrinciples } from './teaching.ts'
 import { loadConversations } from './workspace.ts'
 
-/** Sends a draft, edited or as written, and discards the alternatives it was chosen from. */
+/**
+ * Sends a draft, edited or as written, and discards the alternatives it was chosen from. The server
+ * sends only the text and room the card showed; if an agent changed either since, the thread is read
+ * again so the person sees what changed.
+ */
 export const approveDraft = (
   draft: AsRead.Note,
   editedBody: string | null,
@@ -16,11 +20,16 @@ export const approveDraft = (
 ): Action =>
   T.gen(function* () {
     const { api, state } = yield* T.ask<App>()
+    const expected = { body: draft.body, conversationId: draft.conversationId }
     rememberNote(state)(
-      yield* api['drafts.send']({
-        params: { id: draft.id },
-        body: editedBody === null ? {} : { body: editedBody },
-      }),
+      yield* T.tapError((error: ApiError) =>
+        error._tag === 'Conflict' ? T.catchAll(() => T.unit)(loadThread(draft.conversationId)) : T.unit,
+      )(
+        api['drafts.send']({
+          params: { id: draft.id },
+          body: editedBody === null ? { expected } : { body: editedBody, expected },
+        }),
+      ),
     )
     yield* track('draft_approved', {})
     for (const alternative of alternatives)

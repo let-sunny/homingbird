@@ -140,7 +140,9 @@ const deliverNote = (conversationId: ConversationId, body: string): Action =>
     const draft = yield* api['drafts.create']({
       body: { body, conversationId, ...(inReplyTo !== null && { inReplyTo }) },
     })
-    rememberNote(state)(yield* api['drafts.send']({ params: { id: draft.id }, body: {} }))
+    rememberNote(state)(
+      yield* api['drafts.send']({ params: { id: draft.id }, body: { expected: { body, conversationId } } }),
+    )
     state.replyTargets.update((targets) => withoutKey(targets, conversationId))
     yield* loadConversations
   })

@@ -93,8 +93,12 @@ describe('channel tasks', () => {
   })
 
   it('asks a channel, enters its room, and moves a question', async () => {
-    const { run, page, state } = testApp(answers)
+    const { run, page, state, sent } = testApp(answers)
     expect(await run(tasks.askChannel('billing', 'When?'))).toEqual({ _tag: 'Ok', value: ROOM })
+    expect(sent.find((one) => one.route === 'drafts.send')!.request).toEqual({
+      params: { id: 'd1' },
+      body: { expected: { body: 'When?', conversationId: ROOM } },
+    })
     await run(tasks.enterRoom(ROOM))
     expect(page.visited).toEqual([`go #/c/${ROOM}`])
     state.threads.set(new Map([[ROOM, { notes: [note('q')], hasMore: false }]]))

@@ -36,6 +36,15 @@ describe('renderDraftsItem', () => {
     expect(called('approveDraft')[1]!.args).toEqual([a, 'Edited', [b]])
     called('approveDraft')[1]!.then!.done!(undefined)
     expect(dialog.open).toBe(false)
+    getByRole(card, 'button', { name: strings.edit }).click()
+    fire.submit(dialog.querySelector('form')!)
+    called('approveDraft')[2]!.then!.failed!({ _tag: 'Unavailable', message: 'down' })
+    expect(dialog.open).toBe(true)
+    called('approveDraft')[2]!.then!.failed!({
+      _tag: 'Conflict',
+      message: 'This draft changed; read it again.',
+    })
+    expect(dialog.open).toBe(false)
     getByRole(card, 'button', { name: strings.discard }).click()
     expect(called('discardDraft')[0]!.args).toEqual([a])
   })

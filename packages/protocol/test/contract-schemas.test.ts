@@ -22,7 +22,16 @@ describe('shared contract schemas', () => {
     expect(shared.Recipients.is(Array.from({ length: 51 }, () => id))).toBe(false)
   })
 
-  it.each(['InboxItem', 'DeviceRequest', 'ConsentRequest', 'ServerInfo', 'Me'] as const)(
+  it('names a draft as shown by both its text and its conversation', () => {
+    const conversationId = 'conv_abcdefghijkl'
+    expect(shared.DraftAsShown.is({ body: 'Lunch?', conversationId })).toBe(true)
+    expect(shared.DraftAsShown.is({ body: 'Lunch?' })).toBe(false)
+    expect(shared.DraftAsShown.is({ conversationId })).toBe(false)
+    expect(shared.DraftAsShown.is({ body: ' ', conversationId })).toBe(false)
+    expect(shared.DraftAsShown.is({ body: 'Lunch?', conversationId: 'note_abcdefghijkl' })).toBe(false)
+  })
+
+  it.each(['InboxItem', 'DraftAsShown', 'DeviceRequest', 'ConsentRequest', 'ServerInfo', 'Me'] as const)(
     '%s accepts its generated values',
     (name) => {
       const schema = shared[name] as S.Schema<unknown>

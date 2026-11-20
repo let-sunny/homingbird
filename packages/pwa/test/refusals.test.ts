@@ -14,6 +14,14 @@ describe('refusalText', () => {
     )
   })
 
+  it('says an agent changed the draft after the person read it, rather than that it was handled', () => {
+    const changed = conflict('This draft changed; read it again.')
+    expect(refusalText(changed, 'draft')).toBe(strings.refusals.draftChanged)
+    expect(refusalText(changed, 'request')).toBe(strings.refusals.requestNotWaiting)
+    useLanguage('ko')
+    expect(refusalText(changed, 'draft')).toBe(strings.refusals.draftChanged)
+  })
+
   it('says a connection code is unknown or expired, whatever the server calls it', () => {
     for (const error of [
       { _tag: 'NotFound', message: 'Unknown user code.' },

@@ -13,12 +13,16 @@ export type Attempt =
 
 export const refusalText = (error: ApiError, attempt?: Attempt): string => {
   if (error._tag === 'Conflict' && ARCHIVED.test(error.message)) return strings.refusals.roomArchived
+  if (attempt === 'draft' && error._tag === 'Conflict' && CHANGED.test(error.message))
+    return strings.refusals.draftChanged
   if (attempt === 'device' && CODE_REFUSALS.has(error._tag)) return strings.refusals.connectionCode
   const known = attempt === undefined || error._tag !== 'Conflict' ? null : CONFLICTS[attempt]()
   return known ?? errorText(error)
 }
 
 const ARCHIVED = /\barchived\b/i
+
+const CHANGED = /\bdraft changed\b/i
 
 const CODE_REFUSALS: ReadonlySet<ApiError['_tag']> = new Set(['NotFound', 'Conflict', 'Invalid'])
 
