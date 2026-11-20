@@ -283,6 +283,33 @@ describe('a wake that fails', () => {
     expect(pushes()).toHaveLength(1)
   })
 
+  const answeredLate = async (meanwhile: () => Promise<unknown>) => {
+    await subscribeAna()
+    const answer = service.holdNext()
+    run()
+    await noteToAna()
+    for (let waited = 0; service.wakes().length === 0 && waited < 60_000; waited += 5_000) await wait(5_000)
+    expect(service.wakes()).toHaveLength(1)
+    await meanwhile()
+    answer(401)
+    await server.clock.advance(0)
+    await server.settled()
+  }
+
+  it('keeps a refusal that arrives after a new setup from stopping it', async () => {
+    await answeredLate(() => ana.api('PUT', '/me/desk-wake', routineSetup(credentialId)))
+    expect(await wake()).toMatchObject({ stoppedBecause: null, failures: 0, lastStatus: 'never' })
+    expect(await audited()).toEqual([])
+    expect(pushes()).toHaveLength(NOTE_PUSHES)
+  })
+
+  it('audits nothing and tells no one when the wake was removed while it was out', async () => {
+    await answeredLate(() => ana.api('DELETE', '/me/desk-wake'))
+    expect(await storedRows(server, 'desk_wakes')).toEqual([])
+    expect(await audited()).toEqual([])
+    expect(pushes()).toHaveLength(NOTE_PUSHES)
+  })
+
   it('stops when the stored wake no longer opens, as after the key changed', async () => {
     await T.runPromise(run_(sql`UPDATE desk_wakes SET sealed = 'v1.AAAA.AAAA.AAAA'`), server.env)
     run()
@@ -295,34 +322,55 @@ describe('a wake that fails', () => {
 })
 
 describe('a debate room the cloud desk takes part in', () => {
-  it('wakes it two minutes before its grace would drop it out, and again after each time it answered', async () => {
+  const GRACE_5 = {
+    turnsPerAgent: 2,
+    totalTurns: 4,
+    minutes: 60,
+    turnCharacters: 300,
+    graceMinutes: 5 as const,
+  }
+
+  const roomWith = async (turns: number) => {
     service = fakeService()
     server = await startCloudDeskServer(service)
     const cast = await castOf(server)
     ana = cast.ana
     await ana.api('PUT', '/me/desk-wake', routineSetup(cast.anaAgent.id))
-    const limits = {
-      turnsPerAgent: 2,
-      totalTurns: 4,
-      minutes: 60,
-      turnCharacters: 300,
-      graceMinutes: 10 as const,
-    }
-    const id = await openedRoom(cast, { limits })
-    await cast.anaAgent.api('POST', `/debates/${id}/turns`, { body: 'Turn 1' })
+    const id = await openedRoom(cast, { limits: GRACE_5 })
+    for (let turn = 0; turn < turns; turn++)
+      await (turn % 2 === 0 ? cast.anaAgent : cast.benAgent).api('POST', `/debates/${id}/turns`, {
+        body: `Turn ${turn + 1}`,
+      })
     cast.sleep('ana')
+    return cast
+  }
+
+  it('wakes it while the room asks it for a turn, and again two minutes before each grace runs out', async () => {
+    const cast = await roomWith(2)
     run()
-    await wait(7 * MINUTE)
+    await wait(MINUTE + 45_000)
     expect(fired()).toEqual([])
-    await wait(MINUTE)
-    expect(fired().map((each) => each.reason)).toEqual(['debate'])
+    await wait(45_000)
+    expect(fired().map((each) => each.reason)).toEqual(['work'])
     await cast.anaAgent.api('GET', '/presence/heartbeat')
     await wait(15_000)
     expect(await wake()).toMatchObject({ lastStatus: 'online' })
-    await wait(7 * MINUTE)
+    await wait(2 * MINUTE + 30_000)
     expect(fired()).toHaveLength(1)
-    await wait(MINUTE)
-    expect(fired().map((each) => each.reason)).toEqual(['debate', 'debate'])
+    await wait(30_000)
+    expect(fired().map((each) => each.reason)).toEqual(['work', 'debate'])
+    await cast.anaAgent.api('GET', '/presence/heartbeat')
+    await wait(2 * MINUTE + 45_000)
+    expect(fired()).toHaveLength(2)
+    await wait(30_000)
+    expect(fired().map((each) => each.reason)).toEqual(['work', 'debate', 'debate'])
+  })
+
+  it('does not wake it for a room that asks nothing of it', async () => {
+    await roomWith(1)
+    run()
+    await wait(12 * MINUTE)
+    expect(fired()).toEqual([])
   })
 
   it('does not wake for a room the bound credential did not opt into', async () => {
@@ -335,15 +383,9 @@ describe('a debate room the cloud desk takes part in', () => {
       (each: { name: string }) => each.name === 'Cloud desk',
     ).id
     await ana.api('PUT', '/me/desk-wake', routineSetup(cloud))
-    const limits = {
-      turnsPerAgent: 2,
-      totalTurns: 4,
-      minutes: 60,
-      turnCharacters: 300,
-      graceMinutes: 10 as const,
-    }
-    const id = await openedRoom(cast, { limits })
+    const id = await openedRoom(cast, { limits: GRACE_5 })
     await cast.anaAgent.api('POST', `/debates/${id}/turns`, { body: 'Turn 1' })
+    await cast.benAgent.api('POST', `/debates/${id}/turns`, { body: 'Turn 2' })
     cast.sleep('ana')
     run()
     await wait(12 * MINUTE)

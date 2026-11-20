@@ -115,7 +115,7 @@ const wakeOne = (fetch: Fetch, row: PassRow, waiting: Map<MemberId, number>): T.
     const lastWakeAt = numberOrNull(row.last_wake_at)
     const pending = pendingWake({ now, lastWakeAt, lastStatus: row.last_status, lastUsedAt })
     if (pending === 'waiting') return
-    if (pending === 'came_online') return yield* markWakeAnswered(memberId)
+    if (pending === 'came_online') return yield* markWakeAnswered(row)
     if (pending === 'did_not_come_online') {
       env.log.emit({ name: 'desk_wake.unanswered', attributes: { memberId, host: row.host } })
       if (!waiting.has(memberId)) waiting.set(memberId, now)
@@ -139,7 +139,8 @@ const wakeOne = (fetch: Fetch, row: PassRow, waiting: Map<MemberId, number>): T.
     const caller = yield* callerOf(row)
     const hasWork = due.work && caller !== null && (yield* isWorkWaiting(caller))
     if (due.work && !hasWork) waiting.delete(memberId)
-    if (!hasWork && !due.debate) return
+    const isAsked = !hasWork && due.debate && caller !== null && (yield* isDebateAsking(caller))
+    if (!hasWork && !isAsked) return
     const target = openWakeTarget(env.config.secretsKey, row)
     if (target === null) return yield* stopped(fetch, row, 'unreadable')
     const answer = yield* sendWake(fetch, target, env.config.publicUrl)
@@ -174,7 +175,7 @@ const testWake = (fetch: Fetch, memberId: MemberId): T.Task<DeskWakeTest, NotFou
     return { status: facts.status, outcome: facts.outcome }
   })
 
-/** Keeps an outcome; a stop also tells the person on their devices, as no page may be open to show it. */
+/** A stop that took also tells the person on their devices, as no page may be open to show it. */
 const settled = (
   fetch: Fetch,
   row: WakeRow,
@@ -182,8 +183,7 @@ const settled = (
   wokenAt: number | null,
 ): T.Task<void, never, AppEnv> =>
   T.gen(function* () {
-    yield* transact(recordWakeOutcome(row, after, wokenAt))
-    if (after.stop !== null) yield* told(fetch, row.member_id)
+    if (yield* transact(recordWakeOutcome(row, after, wokenAt))) yield* told(fetch, row.member_id)
   })
 
 const stopped = (
@@ -192,8 +192,7 @@ const stopped = (
   because: 'credential_gone' | 'unreadable',
 ): T.Task<void, never, AppEnv> =>
   T.gen(function* () {
-    yield* transact(stopDeskWake(row, because))
-    yield* told(fetch, row.member_id)
+    if (yield* transact(stopDeskWake(row, because))) yield* told(fetch, row.member_id)
   })
 
 const told = (fetch: Fetch, memberId: MemberId): T.Task<void, never, AppEnv> =>
@@ -217,6 +216,12 @@ const isWorkWaiting = (caller: Caller): T.Task<boolean, never, AppEnv> =>
     if (inbox._tag === 'Ok' && inbox.value.items.length > 0) return true
     const requests = yield* T.result(invoke('draftRequests.list', {}, caller))
     if (requests._tag === 'Ok' && requests.value.requests.length > 0) return true
+    return yield* isDebateAsking(caller)
+  })
+
+/** A room keeps an agent from dropping out only while it still asks it for a turn or a vote. */
+const isDebateAsking = (caller: Caller): T.Task<boolean, never, AppEnv> =>
+  T.gen(function* () {
     const debates = yield* T.result(invoke('debates.waiting', {}, caller))
     return (
       debates._tag === 'Ok' && (debates.value.asks ?? []).length + (debates.value.ballots ?? []).length > 0

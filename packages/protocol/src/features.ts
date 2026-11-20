@@ -78,7 +78,7 @@ export const FEATURES = {
   },
   cloudDesk: {
     default: false,
-    routes: ['me.deskWake.get', 'me.deskWake.set', 'me.deskWake.remove', 'me.deskWake.test'],
+    routes: ['me.deskWake.get', 'me.deskWake.set', 'me.deskWake.test'],
   },
   analytics: { default: false, routes: ['analytics.track'] },
 } as const satisfies Readonly<

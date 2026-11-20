@@ -92,7 +92,8 @@ export const isWakeBound = (caller: Caller): T.Task<boolean, never, AppEnv> =>
   T.map((row: unknown) => row !== null)(
     first(sql`
       SELECT member_id FROM desk_wakes
-      WHERE member_id = ${caller.member.id} AND credential_id = ${caller.credential.id} AND enabled = 1`),
+      WHERE member_id = ${caller.member.id} AND credential_id = ${caller.credential.id} AND enabled = 1
+        AND stopped_because IS NULL`),
   )
 
 export const openWakeTarget = (
@@ -105,39 +106,45 @@ export const openWakeTarget = (
   return target._tag === 'Ok' ? target.value : null
 }
 
-export const stopDeskWake = (row: WakeRow, because: DeskWakeStop): T.Task<void, never, RequestEnv> =>
+/**
+ * Every write about a wake names the sealed value it read: a fresh nonce makes each save's value new,
+ * so a wake replaced or removed while a request was out keeps nothing that request learned.
+ */
+export const stopDeskWake = (row: WakeRow, because: DeskWakeStop): T.Task<boolean, never, RequestEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
-    yield* run(sql`
+    const changed = yield* run(sql`
       UPDATE desk_wakes SET stopped_because = ${because}, retry_at = NULL, updated_at = ${env.clock.now()}
-      WHERE member_id = ${row.member_id} AND stopped_because IS NULL`)
+      WHERE member_id = ${row.member_id} AND sealed = ${row.sealed} AND stopped_because IS NULL`)
+    if (changed === 0) return false
     yield* recordAudit('desk_wake.stopped', {
       actorId: row.member_id,
       targetId: row.member_id,
       detail: { host: row.host, because },
     })
+    return true
   })
 
 export const recordWakeOutcome = (
   row: WakeRow,
   after: WakeAfter,
   wokenAt: number | null,
-): T.Task<void, never, RequestEnv> =>
+): T.Task<boolean, never, RequestEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
     const lastWakeAt = wokenAt ?? numberOrNull(row.last_wake_at)
-    yield* run(sql`
+    const changed = yield* run(sql`
       UPDATE desk_wakes SET last_wake_at = ${lastWakeAt}, last_status = ${after.lastStatus},
         failures = ${after.failures}, retry_at = ${after.retryAt}, updated_at = ${env.clock.now()}
-      WHERE member_id = ${row.member_id}`)
-    if (after.stop !== null) yield* stopDeskWake(row, after.stop)
+      WHERE member_id = ${row.member_id} AND sealed = ${row.sealed}`)
+    return changed > 0 && after.stop !== null && (yield* stopDeskWake(row, after.stop))
   })
 
-export const markWakeAnswered = (memberId: MemberId): T.Task<void, never, AppEnv> =>
+export const markWakeAnswered = (row: Pick<WakeRow, 'member_id' | 'sealed'>): T.Task<void, never, AppEnv> =>
   T.asUnit(
     run(sql`
       UPDATE desk_wakes SET last_status = 'online', failures = 0, retry_at = NULL
-      WHERE member_id = ${memberId} AND last_status = 'sent'`),
+      WHERE member_id = ${row.member_id} AND sealed = ${row.sealed} AND last_status = 'sent'`),
   )
 
 export interface WakeRow {

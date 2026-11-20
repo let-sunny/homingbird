@@ -24,19 +24,34 @@ export interface FakeService {
   readonly calls: Array<{ readonly url: string; readonly init: RequestInit }>
   readonly wakes: () => ReadonlyArray<{ readonly url: string; readonly init: RequestInit }>
   readonly answers: Array<number | { readonly status: number; readonly retryAfter: string }>
+  /** Holds the next wake unanswered until the returned function answers it with a status. */
+  readonly holdNext: () => (status: number) => void
   readonly fetch: (url: string, init?: RequestInit) => Promise<Response>
 }
 
 export const fakeService = (): FakeService => {
   const calls: FakeService['calls'] = []
   const answers: FakeService['answers'] = []
+  let held: Promise<number> | null = null
   return {
     calls,
     answers,
+    holdNext: () => {
+      let answer: (status: number) => void = () => {}
+      held = new Promise<number>((resolve) => {
+        answer = resolve
+      })
+      return (status) => answer(status)
+    },
     wakes: () => calls.filter((call) => call.url.startsWith('https://api.anthropic.com/')),
     fetch: async (url, init) => {
       calls.push({ url, init: init ?? {} })
       if (!url.startsWith('https://api.anthropic.com/')) return new Response('', { status: 201 })
+      if (held !== null) {
+        const waiting = held
+        held = null
+        return new Response('{}', { status: await waiting })
+      }
       const next = answers.shift() ?? 200
       return typeof next === 'number'
         ? new Response('{}', { status: next })

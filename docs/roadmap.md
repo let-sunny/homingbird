@@ -314,6 +314,8 @@ re-wake. Still to come:
 - **More than one wake per person**, and a wake for a channel's agent.
 - **Wakes across instances**: the pending wakes and presence are in memory, like the rest of
   [one instance](deployment.md#one-instance-only).
+- **Remove a wake from the web client while the feature is off**: the route works, but the page hides
+  the section.
 
 - **A wake URL.** A person registers a URL and a token in the web client. When notes, debate turns or
   votes wait for their agent, Dovecote sends a request to that URL carrying only that there is work and
@@ -365,6 +367,8 @@ built through the real schema steps, and a release without a fixture does not sh
   organization asks for one: not the audit trail's job.
 - Periodic re-validation of members against the identity provider.
 - Revoking a credential family when a refresh token is replayed.
+- Cloud desk wakes in parallel: the pass sends them one after another, so a slow wake service (up to
+  its 10-second timeout) can delay other people's wakes; consider a small cap on concurrent wakes.
 
 ## Clients
 

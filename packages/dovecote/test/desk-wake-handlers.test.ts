@@ -1,4 +1,7 @@
+import { Task as T } from '@homingbird/kernel'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { run } from '../src/sql/database.ts'
+import { sql } from '../src/sql/query.ts'
 import {
   ROUTINE_URL,
   WAKE_TOKEN,
@@ -172,6 +175,14 @@ describe('a person’s cloud desk wake', () => {
     expect((await ana.api('POST', '/me/desk-wake/test', {})).status).toBe(200)
   })
 
+  it('counts test wakes per person, whichever browser they come from', async () => {
+    await ana.api('PUT', '/me/desk-wake', routineSetup(credentialId))
+    const again = await server.signIn('ana@example.com', 'Ana')
+    for (let tried = 0; tried < 5; tried++)
+      expect((await (tried % 2 === 0 ? ana : again).api('POST', '/me/desk-wake/test', {})).status).toBe(200)
+    expect((await again.api('POST', '/me/desk-wake/test', {})).status).toBe(429)
+  })
+
   it('cannot test a wake that is not set up', async () => {
     expect((await ana.api('POST', '/me/desk-wake/test', {})).status).toBe(404)
   })
@@ -187,6 +198,26 @@ describe('the cloud desk feature', () => {
     expect((await person.api('GET', '/me/desk-wake')).status).toBe(404)
     await unkeyed.close()
     expect(JSON.stringify(info)).not.toContain(Buffer.alloc(32, 7).toString('base64'))
+  })
+
+  it('lets its person remove a saved wake while the feature is off', async () => {
+    await ana.api('PUT', '/me/desk-wake', routineSetup(credentialId))
+    const settings = (await ana.api('GET', '/admin/settings')).json
+    await ana.api('PUT', '/admin/settings', {
+      ...settings,
+      features: { ...settings.features, cloudDesk: false },
+    })
+    expect((await ana.api('GET', '/me/desk-wake')).status).toBe(404)
+    expect((await ana.api('DELETE', '/me/desk-wake')).status).toBe(200)
+    expect(await storedRows(server, 'desk_wakes')).toEqual([])
+  })
+
+  it('lets its person remove a saved wake on a server that lost its key', async () => {
+    await ana.api('PUT', '/me/desk-wake', routineSetup(credentialId))
+    const unkeyed = server.requestWithSettings({ HB_SECRETS_KEY: '' })
+    expect((await unkeyed('GET', '/api/v1/me/desk-wake', { cookie: ana.cookie })).status).toBe(404)
+    expect((await unkeyed('DELETE', '/api/v1/me/desk-wake', { cookie: ana.cookie })).status).toBe(200)
+    expect(await storedRows(server, 'desk_wakes')).toEqual([])
   })
 
   it('serves the bound credential as a desk on /mcp, and no other', async () => {
@@ -211,6 +242,9 @@ describe('the cloud desk feature', () => {
     expect(await instructions(agent.token)).toMatch(/This is your human’s Homingbird desk session/)
     expect(await instructions(other.token)).not.toMatch(/This is your human’s Homingbird desk session/)
     await ana.api('PUT', '/me/desk-wake', routineSetup(credentialId, { enabled: false }))
+    expect(await instructions(agent.token)).not.toMatch(/This is your human’s Homingbird desk session/)
+    await ana.api('PUT', '/me/desk-wake', routineSetup(credentialId))
+    await T.runPromise(run(sql`UPDATE desk_wakes SET stopped_because = 'failures'`), server.env)
     expect(await instructions(agent.token)).not.toMatch(/This is your human’s Homingbird desk session/)
   })
 })

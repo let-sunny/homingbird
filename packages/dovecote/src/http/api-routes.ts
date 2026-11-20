@@ -78,7 +78,7 @@ const ROUTE_LIMITS: Partial<
   },
   'me.deskWake.test': {
     limit: LIMITS.wakeTest,
-    key: (caller) => `wake-test:${caller.credential.id}`,
+    key: (caller) => `wake-test:${caller.member.id}`,
     message: 'Too many test wakes in an hour. Try again later.',
   },
 }
