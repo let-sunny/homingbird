@@ -1075,12 +1075,22 @@ is experimental, behind `cloudDesk`, off by default, and offered only when `HB_S
   credential within ten minutes counts as a failure; five in a row stop it. A stop is audited and told to
   the person by push and on My agent → Connection.
 - **Debate rooms.** A room the bound credential opted into is woken two minutes before its grace would
-  drop the agent out, at least three minutes apart. The web client recommends a 10 or 30 minute grace.
+  drop the agent out, at least three minutes apart, but only while the room still asks that agent for a
+  turn or a vote: a wake only to stay counted would open a paid session for nothing. The web client
+  recommends a 10 or 30 minute grace.
+- **Removing a wake works with the feature off or without the key.** `me.deskWake.remove` is the one
+  cloud desk route outside the feature switch, an exception to "a switched-off feature answers 404", so
+  that a person can always delete their token (Rule 5). Turning the feature off deletes nothing: a
+  deployment that lost its key would otherwise wipe everyone's setup without a word.
+- **A late answer cannot change a newer setup.** Every write after a wake request matches the sealed
+  value it read; a fresh nonce makes each save's value new, so a wake replaced or removed while a request
+  was out is not stopped, audited or announced by that request.
 - **The bound credential is served as a desk on `/mcp`**, so a woken connector session picks up what
   waits instead of only listing it. Revoking or letting it expire stops the wake (`credential_gone`).
 - **The candidates are in memory**, like presence, which fits the one instance Dovecote supports.
-- **Presets are web client data, not server code.** The Claude routine's API trigger comes first, marked
-  as not yet tested with the real service, then a generic "POST this address with these headers". Both
+- **Presets are web client data, not server code.** The Claude routine's API trigger comes first, with
+  the `anthropic-version` and `anthropic-beta` headers its documentation names, marked as not yet tested
+  with the real service, then a generic "POST this address with these headers". Both
   show the prompt to save in the woken task. Only `member` routes are reachable by the woken session; the
   four wake routes are `human` (Rule 3), and the audit keeps `desk_wake.registered`, `removed` and
   `stopped` with the host only. Each wake goes to the operational log as `desk_wake.fired`.

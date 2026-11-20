@@ -11,6 +11,7 @@ describe('the cloud desk presets', () => {
     expect(CLOUD_DESK_PRESETS[0].headers.map((header) => [header.name, header.value])).toEqual([
       ['Authorization', ''],
       ['anthropic-version', '2023-06-01'],
+      ['anthropic-beta', 'experimental-cc-routine-2026-04-01'],
     ])
   })
 

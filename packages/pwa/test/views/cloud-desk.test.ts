@@ -77,6 +77,7 @@ describe('cloudDeskSection', () => {
         headers: [
           { name: 'Authorization', value: 'Bearer secret' },
           { name: 'anthropic-version', value: '2023-06-01' },
+          { name: 'anthropic-beta', value: 'experimental-cc-routine-2026-04-01' },
         ],
         credentialId: 'cred_cloud0000000',
         enabled: true,

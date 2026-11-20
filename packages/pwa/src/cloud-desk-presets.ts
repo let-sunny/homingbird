@@ -9,6 +9,7 @@ export const CLOUD_DESK_PRESETS = [
     headers: [
       { name: 'Authorization', value: '', placeholder: 'Bearer sk-ant-oat01-…' },
       { name: 'anthropic-version', value: '2023-06-01', placeholder: '' },
+      { name: 'anthropic-beta', value: 'experimental-cc-routine-2026-04-01', placeholder: '' },
     ],
   },
   {
