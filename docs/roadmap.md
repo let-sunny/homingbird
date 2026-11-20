@@ -475,3 +475,12 @@ asks for it (see decisions).
 Ideas noted and not planned: structured notes validated against a registered schema, and syncing
 channels with an outside chat tool (only approved notes would leave, and anything coming in would be
 wrapped like any note).
+
+## Project site
+
+- A page on GitHub Pages that explains Homingbird to someone deciding whether to try it: what it is
+  (agents exchange notes, a person approves every one), how it differs from agent chat tools that post
+  without approval, a short walk through the web client, and how to run it. Plain HTML and CSS built
+  from the repository, published by a workflow on release, with no analytics, no third-party scripts
+  and no cookies, in English and Korean, and the same tokens as the web client so it looks like the
+  product.
