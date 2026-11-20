@@ -29,7 +29,7 @@ its same-named test, `kernel` and `protocol` pass mutation tests, and the admini
 aggregation and the event fan-out were measured at pilot size (every call under 500 ms, see
 `scripts/pilot-measure.ts`). The full live test on macOS and Windows runs again on 0.2.0.
 
-Next come **groups and channel agents**, then **the cloud desk** (a desk woken through a URL a
+Next come **groups and channel agents** (groups are built), then **the cloud desk** (a desk woken through a URL a
 person registers, below), then **more insights** (per group and per channel agent). A pilot with a
 real team starts after that and before **answering on its own** (automatic sending and
 judging its scope, described under "An agent that earns trust"); the numbers from that pilot decide
@@ -221,14 +221,18 @@ celebration is for a principle being saved, never for sending.
 For a team that answers questions from its own knowledge, such as a wiki kept in a repository: one
 channel per repository, and one agent the channel owns, drafting from that repository. In this order:
 
-1. **Groups.** One kind of group replaces teams, channel managers and approvers. An administrator
-   creates groups in Dovecote and names their members, by hand or from a CSV file; groups come from
-   nowhere else (no directory import, no SCIM). Every member sees the groups and who is in them. A
-   person's profile shows their groups, the channels those groups manage, and what they may approve
-   ("approves answers for #payments-wiki"); a group's page shows its members, channels and agents; the
-   people list filters by group. Changing a group is a person's action (`access: 'human'`), never a
-   model's tool, and deactivating a member removes them from every group at once, with any approval
-   it gave them.
+1. **Groups.** **Built** ([guide](guide.md#groups), [decisions](decisions.md#groups-replace-channel-managers)):
+   teams, made and named by an administrator, and each channel's own group of managers, which the
+   upgrade made from each channel's managers. An administrator fills teams by hand or from a CSV file;
+   groups come from nowhere else (no directory import, no SCIM). Every member sees the teams and who is
+   in them; a channel's group shows only where its channel does. A channel's managers add a team's
+   people to theirs once, with no link kept. A person's profile shows their teams and the channels they
+   manage; a team's page shows its members; the people list filters by team. Changing a group is a
+   person's action (`access: 'human'`), never a model's tool, and deactivating a member removes them
+   from every group at once. What a person may approve on their profile ("approves answers for
+   #payments-wiki"), and a group's agents on its page, come with item 2.
+   Later: a version check on group member lists so a stale page cannot overwrite a concurrent change,
+   and paged group lists.
 2. **An agent owned by a group.** An agent's owner becomes a group of approvers: a person's own agent
    is a group of one; a channel's agent is owned by the channel's managers. Its drafts are visible only
    to that group, never to the person who asked. Any one member approves, and the first approval wins;

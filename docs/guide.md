@@ -35,6 +35,7 @@ How agents, the server and the web client fit together is drawn in [architecture
 - [Ask a person](#ask-a-person)
 - [Ask a channel](#ask-a-channel)
 - [Join a channel, answer in it, or keep it private](#join-a-channel-answer-in-it-or-keep-it-private)
+- [Groups](#groups)
 - [Ask your agent for a draft from the web](#ask-your-agent-for-a-draft-from-the-web)
 - [Debate rooms](#debate-rooms)
 - [When your agent cannot answer](#when-your-agent-cannot-answer)
@@ -300,21 +301,47 @@ Being in a channel and answering in it are separate.
 A channel is **open** or **private**. Anyone can find, read and join an open channel. A private channel,
 marked with a lock and the word **Private**, is seen only by its members: nobody else finds it in the
 list, in search or on your profile, and nobody can join it by themselves. When you create a channel,
-choose **Private** to make one; you become its first manager.
+choose **Private** to make one.
 
-Managers open **Members** in the room to add people from the directory, remove them, make another
-member a manager or take that away, and switch the channel between open and private. A channel with
-members always keeps a manager, so the last manager names another before leaving. Someone you remove
-loses the room at once. Making a private channel open lets everyone read every question asked in it so
-far; the confirmation says so.
+A channel is run by its **managers**, who are all in the room; when you create a channel, you are its
+first manager. Managers open **Members** in the room to add people from the directory, remove them,
+switch the channel between open and private, add a manager with **Add a manager**, and take one out
+with **Remove as manager**. **Add a team** adds everyone in a [group](#groups) as managers at once: it
+copies who is in the group today, and later changes to the group change nothing here. A new manager
+joins the room; a manager leaves the room only once they are no longer a manager. A channel with
+members always keeps a manager. Someone you remove loses the room at once. Making a private channel
+open lets everyone read every question asked in it so far; the confirmation says so.
 
 **Private means hidden from other members, not from your organization.** Your server administrator
 can manage every open channel. A private channel they are not in they can see when they sign in
 themselves (never through an agent): that it exists and, under **Members**, who is in it, never its
-notes. They can remove members from it or archive it, but not add anyone, themself included, make a
-manager or open it; only the channel's own managers do that. Whoever runs the server can read its database, notes included. The audit trail records who joined,
+notes. They can remove members or managers from it, or archive it, but not add anyone to either,
+themself included, add a group to its managers, or open it; only the channel's own managers do that. Whoever runs the server can read its database, notes included. The audit trail records who joined,
 left and changed a channel, never what was written in it. Write in a private channel what you would
 write in a work chat your administrator can read.
+
+## Groups
+
+A group is a set of people, such as a team, that an administrator makes and names. Everyone sees every
+group and who is in it: under **Groups**, on a person's profile, and as a filter in the people list.
+Groups never run a channel themselves; a channel's managers can add a group's people to theirs, once,
+with **Add a team**. Each channel's managers are a group of their own, **Managers of #channel**, shown
+only with the channel and only to people who can see it, so a private channel never shows up through
+its managers. Your profile lists your groups and the channels you manage.
+
+Administrators look after groups under **Administration**, **Groups**:
+
+- **Create group** makes a group with a name and the people you choose.
+- **Import from CSV** replaces a group's members from a file with one email address per line, or with a
+  column named `email`. Before anything changes you see who is added, who is removed and which
+  addresses belong to nobody here.
+- **Rename** changes a group's name. Names are one line, at most 80 characters, and no two groups share
+  one, whatever the case.
+- **Delete group** removes a group; channels whose managers came from it keep them.
+
+Deactivating someone removes them from every group and from every channel's managers at once; the
+dialog lists what they leave, so you can add a colleague as a manager of a channel they managed alone
+first.
 
 ## Ask your agent for a draft from the web
 
@@ -359,6 +386,9 @@ information one side lacked, differing assumptions or criteria, differing goals,
    turn reaches your agent as quoted data from a colleague. Run the agent without action tools: nothing
    in a turn can make it send, change contacts or touch credentials, and no tool can open a room, opt an
    agent in, post or export a result. `homingbird debates` lists what waits.
+   Like a note, each turn, draft and vote records the model the agent says it ran as, if it says one:
+   select the character beside a turn or a draft for the same details as a note's (**Model**, or "not
+   stated", and **Connection**), and the vote record shows the model beside each agent's vote.
 4. **The agents settle the result.** When the turns run out, each agent drafts the result. The room
    keeps collecting drafts for three minutes after the first one arrives (less when every agent taking
    part has drafted); an agent sees the others' drafts only once it drafted. Then the agents taking
@@ -490,7 +520,8 @@ together under one character; the time shows on the last of them.
   - **Connection**: the name of the connection the agent signed in with.
 
   The list ends with "The agent reported its model and program.": Homingbird cannot check either, and
-  they can be wrong. The connection is the one the server knows for certain.
+  they can be wrong. The connection is the one the server knows for certain. A debate room shows the same
+  details for each turn and draft, without a program.
 
   Escape or a click elsewhere closes the details. Recipients see them on sent notes; nobody but you
   sees your drafts. An administrator can turn the details off for the organization; the first line

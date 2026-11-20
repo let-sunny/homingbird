@@ -157,8 +157,10 @@ states the decision first, then the reason. Add new entries at the top of their 
   result and every export, as it holds note content, so administrators can read private rooms' turns
   and results there. A change is announced by an ephemeral, content-free `debate.changed` naming the
   room and its participants, to the room's members; everyone hears only that an open room was opened
-  or ended. Desks wake only for a room their person's agent takes part in. Turns reach a model only
-  through `quotedDebate`, which wraps the question and every turn in `wrapNote`; the Markdown export
+  or ended. Desks wake only for a room their person's agent takes part in, and read their rooms
+  again each time their stream connects and after each poll, since the change is never replayed.
+  Turns reach a model only through `quotedDebate`, which wraps the question and every turn in
+  `wrapNote`; the Markdown export
   escapes everything people and agents wrote, so no text can add a heading, an HTML tag or a link other
   than http(s). The growth record keeps the kinds of credit an approved result names, each once
   (`debate_credits`), as milestones and on the route map; never a count. A turn could have been a note
@@ -691,12 +693,11 @@ without answering in it, and a team can keep a room to itself.
   and a taken slug, hidden or not, answers "That name is not available.", so a name probe learns no
   more than that. Any person may create one. Private means hidden from other members, not from the
   organization: administrators can manage every channel and the audit log still holds note content.
-- **Managers change a room; the creator is the first.** A manager adds and removes members of a
-  private channel, grants and revokes manager, and changes the visibility; nobody joins a private channel
-  by themselves, not even an administrator, who adds people as a manager would. A channel with members
-  keeps a manager: the last one cannot step down, leave or be removed until another exists. Seeded
-  channels have no manager until an administrator names one, and a channel needs a manager in the room
-  before it can become private.
+- **A channel's own group manages it** ([below](#groups-replace-channel-managers)). Its members are
+  the channel's managers: they add and remove members of a private channel and change the visibility;
+  nobody joins a private channel by themselves, not even an administrator. A new channel's managers are
+  its creator alone. A channel with members keeps a manager in the room, and a channel needs one before
+  it can become private.
 - **Open → private keeps everyone in the room; private → open is allowed and audited.** Every
   membership, answering, manager and visibility change is a `human` route, so it is audited and never
   reachable by a model.
@@ -706,7 +707,57 @@ without answering in it, and a team can keep a room to itself.
   from their clients at once through `channel.left`, which carries only the slug and room id.
 - **The web client shows "Private" with a lock, never colour alone.** Korean uses 비공개 and 공개 for
   the visibility, 참여하기 and 나가기 for join and leave, 여기서 질문에 답하기 for the switch, and
-  운영자 for a channel manager, because 관리자 already means a server administrator.
+  운영자 for a channel manager, because 관리자 already means a server administrator, and 그룹 for a
+  group.
+
+## Groups replace channel managers
+
+A list of managers kept on each channel by hand is hard to fill for a team that runs several channels,
+and someone who left stays a manager wherever nobody removed them. There are two kinds of group. A
+**team** is made and named by an administrator and changed by administrators only. A **channel group**
+is made with each channel, has no name, and holds that channel's managers: a channel's managers are the
+active members of its own group (`channels.manager_group_id`), every one of them in the room. Teams
+never manage a channel: **Add a team** copies a team's current members into a channel's group once, a
+snapshot with no link, so a change to a team never silently changes who runs a channel, and a channel
+group is never shared, so handing channels between groups, and the races of doing so, do not exist.
+Every member sees every team and who is in it; a group made for one channel is shown only to people
+who can see that channel, because an unnamed group that appears with a new member would tell everyone a
+private channel was just made. The same groups can later own a channel's agent
+([roadmap](roadmap.md#groups-and-channel-agents)).
+
+- **A channel's group is changed by its managers.** Its members who are in the room add and remove
+  managers and add a team. An administrator may change the group of an open channel; outside a private
+  channel they may only remove people, still keeping a manager, and never add anyone, themself
+  included, nor add a team. Adding a manager puts them in the room, so anything more would let an
+  administrator join a private channel by the back door, which rule 6 forbids. A group member who is
+  not in a private channel's room, which a race or a deactivation can leave behind, gets no right to
+  add either.
+- **Every change to a group locks it first.** Dovecote runs PostgreSQL and MySQL at READ COMMITTED, so
+  a check read before a concurrent change commits can pass twice: two removals could empty a channel's
+  managers. Each change to a group, and to a channel's members, managers or visibility, takes the
+  channel group's row lock with a no-op `UPDATE`, as a debate room does, in id order when it touches
+  two groups, and reads the channel and what it checks after the lock. SQLite runs one
+  transaction at a time and needs nothing more.
+- **`groups=off` freezes groups; it never unlocks a channel.** With the switch off the group routes and
+  adding a team answer 404 and clients hide the group page, the administration's Groups tab, the people
+  filter and the groups on a profile. Every channel keeps its managers, who still run it. Turning a
+  feature off must never leave a private channel open to anyone or managed by no one.
+- **Deactivating a member removes them from every group, even the last manager.** It is the one
+  exception to keeping a manager: someone who has left loses every right at once, and refusing to
+  deactivate them until a channel found another manager would keep a departed person's access. The
+  deactivation dialog lists the groups the person leaves, so a colleague can be added first. A private
+  channel whose managers are emptied keeps its members and notes; an administrator can archive it but
+  not add anyone to it, for the reason above.
+- **Membership follows management.** Adding someone to a channel's managers, one by one or from a
+  team, puts them in the room and records `channel.member_added`, as adding a member does, and a
+  manager cannot leave the room while a manager. A manager outside the room would change a room they
+  cannot read, and "managers are in the room" keeps rule 6 one check rather than two.
+- **A team has a name; a channel group has none.** A team's name is one line of at most 80 characters,
+  unique ignoring case. A channel group shows as "Managers of #slug", only where its channel shows.
+
+The table is `member_groups`, because `groups` is reserved in MySQL 8, with `kind` `team` or
+`channel`. `channel_managers` stays in the schema and is no longer read or written; the old
+`channel.manager_added` and `channel.manager_removed` audit rows keep their meaning.
 
 ## One desk session per person reacts to arriving notes
 
@@ -825,6 +876,12 @@ runs it, never from a model.
 - **Drafts stay private (Rule 2).** A recipient sees neither label until the note is sent.
 - **An administrator can hide them.** With the `noteDetails` feature off, the server keeps recording
   both labels but returns them to nobody, and the character's details show only who wrote the note.
+- **A debate room records the model the same way.** Each turn, draft of the result and vote keeps the
+  model its agent stated (`model` on `debates.turns.post`, `debates.result.draft` and
+  `debates.result.vote`; the runner reads a last `MODEL:` line, MCP takes a tool argument), with no
+  program, since a room has no client label. The web client shows it in the author's details and beside
+  each vote, the exports beside each turn, the result and each vote, escaped like everything an agent
+  wrote, and `noteDetails` hides it as it hides a note's. `quotedDebate` leaves it out, so no model reads it.
 
 ## The always-on runner is the person's own service, written with each platform's files
 

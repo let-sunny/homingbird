@@ -138,6 +138,11 @@ Horizontal scaling (shared fan-out through the database or a broker) is on the
   adds the tables for every agent's draft of a room's result and the votes on them, and the time a
   room's vote opened; a database at step 3 gets it on its next start, and on MySQL a step cut off
   halfway runs again.
+- Step 6 adds groups. It gives every channel its own unnamed group of managers: the channel's current
+  managers who are still active and in the room, so every manager keeps their channel, or nobody. The
+  old `channel_managers` table stays and is no longer read. A channel's group is shown only to people
+  who can see the channel; teams, which administrators make and name, are shown to everyone. Turn groups
+  off with `HB_FEATURES=groups=off` ([Features](#features)); every channel keeps its managers.
 - The mechanism for later changes exists: a `schema_versions` table records which schema steps a
   database has, and Dovecote applies the missing ones in order when it starts, each in its own
   transaction. There are no down-migrations.
@@ -511,6 +516,7 @@ again. Every change is audited. `server.info` lists which features are on, so ev
 | `routeMap` | on | My agent shows no route map |
 | `insights` | on | Administrators see no organization-wide numbers |
 | `noteDetails` | on | Notes no longer show the model and program that wrote them |
+| `groups` | on | Groups are hidden and frozen: nobody creates, renames or changes a team or a channel's managers, nor adds a team to them; every channel keeps its managers, who still run it |
 | `debateRooms` | on | Debate rooms are hidden, agents take no turns and no room stops on time; the rooms stay |
 | `analytics` | **off** | No usage counts leave the server ([Product analytics](#product-analytics)) |
 

@@ -298,13 +298,21 @@ visibility. Three sets of people belong to it, each a subset of the one before:
   help with" lists exactly these channels. `channels.join` with `answering: true` is "Join and answer";
   leaving turns answering off. A new member is in no channel; Dovecote never joins anyone to a channel,
   seeded or not.
-- **Managers** are members who may change the room (`channel_managers`). The creator is the first;
-  a manager adds and removes members of a private channel (`/channels/:slug/members/:memberId`), makes
-  another member a manager or takes that away (`/channels/:slug/managers/:memberId`), and changes the
-  visibility (`PUT /channels/:slug/visibility`). A channel that has managers and members always keeps a
-  manager: the last one cannot step down, leave or be removed while others remain
-  (`requireManagerRemains`). A server administrator can manage every channel and is shown as managing
-  it (`managing: true`), without becoming a member. Seeded channels start without managers.
+- **Managers** are the active members of the channel's own group, of kind `channel`
+  (`channels.manager_group_id`, `member_groups`, `group_members`), every one of them in the room. Every
+  channel has exactly one, made with it: its creator alone, or nobody for a seeded channel; it goes when
+  the channel is archived. A manager adds and removes members of a private channel
+  (`/channels/:slug/members/:memberId`), adds a manager (`PUT /groups/:id/members`), copies the people of
+  a team into the managers once (`PUT /channels/:slug/managers/team`), and changes the visibility
+  (`PUT /channels/:slug/visibility`). Adding someone to the managers puts them in the room, recorded as
+  `channel.member_added`, and a manager cannot leave the room while a manager. A channel with members
+  always keeps a manager (`requireManagerRemains`); deactivation is the one exception. A server
+  administrator can manage every open channel and is shown as managing it (`managing: true`), without
+  becoming a member; outside a private channel they may only remove people (`requireMayChangeGroup` in
+  `dovecote/src/domain/group-rows.ts`), and a manager outside a private room may only remove too. A
+  change to a group, and to a channel's members, managers or visibility, takes the group's row lock
+  first (`lockGroups`, `lockedChannel`), in id order when it touches two, and reads the channel and what
+  it checks after it. `channel_managers` stays in the schema and is no longer read.
 
 Visibility is `open` or `private`. An open channel is listed to everyone and anyone may join it. A
 private channel exists only for its members: its name, description, room, notes and member chips are
@@ -323,14 +331,17 @@ and a taken slug, visible or not, answers "That name is not available."
 | `channels.join`, `channels.leave` | human | Join (optionally answering) or leave; a private channel refuses a self-join |
 | `channels.answering.on`, `channels.answering.off` | human | "Answer questions here", for a member only |
 | `channels.members.add`, `channels.members.remove` | human | A manager adds or removes a member of a private channel |
-| `channels.managers.add`, `channels.managers.remove` | human | A manager grants or revokes manager to a member |
+| `channels.managers.addTeam` | human | A manager copies the people of a team into the channel's managers, once (`groups` feature) |
+| `groups.list`, `groups.get` | member | Every team, and the group of each channel the viewer can see, with members (`groups` feature) |
+| `groups.rename`, `groups.members.set` | human | Administrators rename a team or replace its members; a channel's managers, or an administrator within the limits above, replace the channel group's members (`groups` feature) |
+| `admin.groups.create`, `admin.groups.delete` | admin | Create a named team; delete a team (`groups` feature) |
 | `channels.visibility.set` | human | A manager makes a channel private or open |
 
-Every membership, answering, manager and visibility change is a `human` route, so it is audited and no
+Every membership, answering, group, managers and visibility change is a `human` route, so it is audited and no
 agent credential, MCP tool, CLI command, A2A method or plugin tool can make it. A member who leaves or is
 removed loses the room at once: their waiting drafts in it are discarded (`draft.discarded`) and they
 receive `channel.left` with only the slug and conversation id, so a client drops the room. A member whose
-view of a channel changed (joined, added, answering, manager, visibility) receives `channel.changed` with
+view of a channel changed (joined, added, answering, managers, visibility) receives `channel.changed` with
 the channel as they now see it; the ephemeral `directory.changed` broadcast makes open clients refetch
 lists and profile chips.
 
@@ -388,7 +399,7 @@ The MCP tools `find_channels` and `draft_note` with `channel`, the CLI `channels
 A2A gateway (`metadata.channel`) and the plugin's `list_channels` and `draft_to_channel` all reach channels; they
 list only what the member can see, mark private channels, say whether the member answers there, and
 tell the model never to mention a private channel outside it. None of them joins, leaves, answers or
-changes members, managers or visibility. The web client offers Join and Join and answer in the list,
+changes members, groups, managers or visibility. The web client offers Join and Join and answer in the list,
 the "Answer questions here" switch and Leave in a room, a Members panel for managers, a lock and the
 word "Private" on private channels, and shows the destination when approving. When a question moves, a waiting reply draft by a member of the new room moves with it
 (`draft.saved` to its author); one by anyone else is discarded (`draft.discarded`), because its author
@@ -537,10 +548,10 @@ that faces a model. Paths are relative to `packages/`.
 | --- | --- | --- |
 | 1. Only a human credential can approve a note. | `access: 'human'` on `drafts.send`, `drafts.discard` and every other human route in `protocol/src/contract.ts`; `allows` in `protocol/src/policy.ts`; `requireAllowed` in `dovecote/src/api/invoke.ts`, which also counts the refusal for an `authz.denied` row; `sendDraft` and `discardDraft` in `dovecote/src/domain/notes.ts` check `isHuman` again. A human credential counts only when a browser sign-in issued it (`mayAuthenticate` in `dovecote/src/domain/credentials.ts`); the device and authorization-code flows issue agent credentials only (`exchangeDeviceCode` and `exchangeAuthorizationCode` in `dovecote/src/auth/oauth.ts`). | `dovecote/test/security-rules.test.ts`, block "Rule 1" |
 | 2. Drafts are invisible to recipients. | `visibleNote`, `notesInConversation`, `searchNotes` and `notesAwaitingReply` in `dovecote/src/domain/notes.ts` filter by `status = 'sent' OR author_id = viewer`; `listConversations` in `dovecote/src/domain/conversations.ts` hides a direct conversation without a sent note; `createDraft`, `updateDraft` and `discard` emit `draft.saved` and `draft.discarded` to the author only; receipts are created only by `sendDraft`. | `dovecote/test/security-rules.test.ts`, block "Rule 2" |
-| 3. No tool exposed to a model can approve, change contacts, or read credentials. | Channel membership, answering, manager and visibility routes are `human` too, so no tool reaches them; `memberApiOf` in `mcp/src/member-api.ts` and `a2a/src/member-api.ts` exposes only `member` and `public` routes; no agent integration can approve: the command line has no approve or discard command and stores only an agent credential (`cli/src/credentials.ts`); `NOTE_TOOLS` in `plugin/hooks/tools.ts` run only the CLI's agent commands and the pane only links to the web client; the runner uses only the agent credential and strips Homingbird variables and the token from the agent command's environment (`agentEnvironment` in `cli/src/agent-environment.ts`). | `dovecote/test/security-rules.test.ts`, block "Rule 3"; `mcp/test/tools.test.ts`, `mcp/test/server.test.ts`, `mcp/test/member-api.test.ts`, `mcp/test/triggers.test.ts`; `plugin/tests/tools.test.ts`, `plugin/tests/guard.test.ts`; `cli/test/security.test.ts`, `a2a/test/gateway.test.ts`, `cli/test/run.test.ts`, `cli/test/agent-environment.test.ts`, `cli/test/node-launcher.test.ts` |
+| 3. No tool exposed to a model can approve, change contacts, or read credentials. | Channel membership, answering, group, managers and visibility routes are `human` too, so no tool reaches them; `memberApiOf` in `mcp/src/member-api.ts` and `a2a/src/member-api.ts` exposes only `member` and `public` routes; no agent integration can approve: the command line has no approve or discard command and stores only an agent credential (`cli/src/credentials.ts`); `NOTE_TOOLS` in `plugin/hooks/tools.ts` run only the CLI's agent commands and the pane only links to the web client; the runner uses only the agent credential and strips Homingbird variables and the token from the agent command's environment (`agentEnvironment` in `cli/src/agent-environment.ts`). | `dovecote/test/security-rules.test.ts`, block "Rule 3"; `mcp/test/tools.test.ts`, `mcp/test/server.test.ts`, `mcp/test/member-api.test.ts`, `mcp/test/triggers.test.ts`; `plugin/tests/tools.test.ts`, `plugin/tests/guard.test.ts`; `cli/test/security.test.ts`, `a2a/test/gateway.test.ts`, `cli/test/run.test.ts`, `cli/test/agent-environment.test.ts`, `cli/test/node-launcher.test.ts` |
 | 4. Every received note reaches a model only through `wrapNote`. | `wrapNote` in `protocol/src/wrap.ts`, with a random nonce in the boundary; its callers for notes are `quotedNote` and `quotedNoteWithState` in `protocol/src/drafting/quote-note.ts`, used by the MCP tools and triggers, by the CLI's `stream`, `inbox`, `conversation`, `requests` and `run`, and by `taskViewOf` in `a2a/src/task-view.ts`. Agent introductions reach a model only through `quotedIntroduction` in `protocol/src/agent-introduction.ts`, a `wrapNote` call, used by `find_people` in `mcp/src/tools.ts` and `homingbird directory` in `cli/src/commands/reading.ts`. The plugin receives notes only as the CLI's wrapped text. Debate rooms are covered by rule 9. | `dovecote/test/security-rules.test.ts`, block "Rule 4": a hostile note through every note-returning tool of `/mcp` and through A2A `tasks/get` and `GetTask`, and a hostile agent introduction through `find_people`, each time inside `wrapNote` with a fresh nonce; `protocol/test/agent-introduction.test.ts`, `cli/test/commands.test.ts`; `protocol/test/wrap.test.ts` (property tests), `protocol/test/drafting/quote-note.test.ts`, `mcp/test/triggers.test.ts`, `mcp/test/channel.test.ts` |
 | 5. Credentials are stored hashed and never logged. | `hashSecret` (SHA-256) in `dovecote/src/random.ts`; `issueCredential`, `authenticate` and `refreshCredential` in `dovecote/src/domain/credentials.ts` store only `token_hash` and `refresh_hash`; tokens leave the server only in the token response or the session cookie; `serve` in `dovecote/src/http/node-server.ts` logs failed requests without their query string. | `dovecote/test/security-rules.test.ts`, block "Rule 5" |
-| 6. A member sees only conversations they participate in. | `participatedConversation` and `participantsOf` in `dovecote/src/domain/conversations.ts`; every note query joins `participants`; `sendDraft`, `moveToChannel` and `announceStatus` emit to the conversation's participants only. A private channel, and a private debate room, is listed, resolved and shown only to its members and to an administrator's own sign-in, through one rule, `isVisibleRoom` in `dovecote/src/domain/channel-rows.ts`, given `viewerOf(caller)` from `dovecote/src/environment.ts`, which reads an agent credential as an ordinary member: `maySee` and `visibleChannel` in `dovecote/src/domain/channel-rows.ts`, `listChannels`, `channelsHelpedBy`, `helpersOfChannelSeenBy`, `channelRoomFor` and `roomForMovedQuestion` in `dovecote/src/domain/channels.ts`; `depart` drops a removed member from the room, discards their drafts in it and sends `channel.left`. | `dovecote/test/security-rules.test.ts`, block "Rule 6", including every surface of a private channel for a non-member person and their agent, and for an administrator's agent; `dovecote/test/channel-membership.test.ts` |
+| 6. A member sees only conversations they participate in. | `participatedConversation` and `participantsOf` in `dovecote/src/domain/conversations.ts`; every note query joins `participants`; `sendDraft`, `moveToChannel` and `announceStatus` emit to the conversation's participants only. A private channel, and a private debate room, is listed, resolved and shown only to its members and to an administrator's own sign-in, through one rule, `isVisibleRoom` in `dovecote/src/domain/channel-rows.ts`, given `viewerOf(caller)` from `dovecote/src/environment.ts`, which reads an agent credential as an ordinary member: `maySee` and `visibleChannel` in `dovecote/src/domain/channel-rows.ts`, `listChannels`, `channelsHelpedBy`, `helpersOfChannelSeenBy`, `channelRoomFor` and `roomForMovedQuestion` in `dovecote/src/domain/channels.ts`; `depart` drops a removed member from the room, discards their drafts in it and sends `channel.left`. A private channel's managers are the members of its own group who are in its room, and only they add people to the channel or the group; an administrator outside it may only remove (`requireMayChangeGroup` in `dovecote/src/domain/group-rows.ts`). A channel's group, and its `Group.channels`, is listed and found only by people who can see that channel, through the same `visibleTo(viewerOf(caller))` (`listGroups` and `groupById` in `dovecote/src/domain/groups.ts`), and `group.changed` for a private channel goes to its room only; `administerMember` removes a deactivated member from every group. | `dovecote/test/security-rules.test.ts`, block "Rule 6", including every surface of a private channel for a non-member person and their agent, and for an administrator's agent; `dovecote/test/channel-membership.test.ts` |
 | 7. No tool exposed to a model can save or change a profile character. | `access: 'human'` on `me.character.set` and `me.character.clear` and `access: 'admin'` on `admin.members.resetCharacter` in `protocol/src/contract.ts`; `saveCharacter` in `dovecote/src/domain/characters.ts` runs `characterProblems` (`protocol/src/character.ts`: `validateCharacter` from `sprites` plus the built-in id rule) again whatever the client checked, and stores exactly the spec that passed; `handleApiRequest` in `dovecote/src/http/api-routes.ts` refuses a body over `CHARACTER_BYTES_MAX`. The model-facing `check_character` and `preview_character` (`mcp/src/character-tools.ts`, `plugin/hooks/character.ts`) call no route; the web client saves only from **Use this character** and never from a `#/character/` link. | `dovecote/test/security-rules.test.ts`, block "Rule 7"; `dovecote/test/characters.test.ts`; `mcp/test/character-tools.test.ts`, `mcp/test/tools.test.ts`; `plugin/tests/character.test.ts` |
 | 8. No tool exposed to a model can save, change, enable, disable or delete a principle. | `access: 'human'` on `principles.list`, `principles.create`, `principles.update`, `principles.reorder`, `principles.delete`, `principles.miss` and `principles.offers.dismiss` in `protocol/src/contract.ts`; the only route an agent reaches is the read-only `principles.drafting` (`member`, own principles only). `createPrinciple` and `updatePrinciple` in `dovecote/src/domain/principles.ts` check kind, length, title, limit (atomically), source, channel participation and the public sentence again (`principleProblem`, `publicTextProblem`), and a principle saved from an offer needs the person's change or confirmation. Stored answers and public sentences go through the same `human` routes; the directory shows only public sentences (`agentIntroductionsOf`). Suggestions (`principle_offers`) come from `editDifference` in `protocol/src/edit-difference.ts`, not from the incoming note (the draft can quote it, hence the person's confirmation), and never reach an instruction block. `isLikelyForbidden` in `protocol/src/principles.ts` leaves out and names a principle worded like a forbidden request; it is a hint, and rules 1 and 3 are the guard. | `dovecote/test/security-rules.test.ts`, block "Rule 8"; `dovecote/test/principles.test.ts`; `protocol/test/principles.test.ts`; `cli/test/run.test.ts` (principles reach the writer only) |
 | 9. No tool exposed to a model can open a debate room, opt an agent in, change its limits, or post or export its result; a room's content leaves it only through a person, and a debate tool returns room content only wrapped by `wrapNote`. | `access: 'human'` on `debates.create`, `debates.optIn`, `debates.limits.set`, `debates.result.post` and `debates.export`; there is no approval route, because the agents settle the result by vote. `takeTurn`, `draftResult` and `voteForDraft` in `dovecote/src/domain/debate-turns.ts` and `debate-results.ts` accept only the agent credential its person opted in (a vote never for its own draft); `postResult` accepts only a person whose agent took a turn and makes the closed room's result a draft of theirs, which only they send; `exportDebate` refuses a private room to anyone but its members; turns are never written to `notes` or `receipts`. The model-facing tools (`mcp/src/debate-tools.ts`), the runner (`cli/src/debate-runner.ts`) and the plugin's notice reach only `member` routes, and every question, turn, name and vote record reaches a model through `quotedDebate`, and every draft put to a vote through `quotedDrafts` (`protocol/src/drafting/debate-prompts.ts`), which use `wrapNote`. | `dovecote/test/security-rules.test.ts`, block "Rule 9"; `protocol/test/drafting/debate-prompts.test.ts`; `mcp/test/debate-tools.test.ts`; `cli/test/debate-runner.test.ts` |
@@ -679,13 +690,21 @@ erDiagram
     id conversation_id UK
     id created_by
     string visibility
+    id manager_group_id
   }
   CHANNEL_HELPERS {
     id conversation_id PK
     id member_id PK
   }
-  CHANNEL_MANAGERS {
-    id conversation_id PK
+  MEMBER_GROUPS {
+    id id PK
+    string kind
+    string name
+    id created_by
+    integer created_at
+  }
+  GROUP_MEMBERS {
+    id group_id PK
     id member_id PK
   }
   DRAFT_REQUESTS {
@@ -803,8 +822,9 @@ erDiagram
   CONVERSATIONS ||--o| CHANNELS : "is the room of"
   CONVERSATIONS ||--o{ CHANNEL_HELPERS : "has helpers"
   MEMBERS ||--o{ CHANNEL_HELPERS : helps
-  CONVERSATIONS ||--o{ CHANNEL_MANAGERS : "has managers"
-  MEMBERS ||--o{ CHANNEL_MANAGERS : manages
+  MEMBER_GROUPS ||--o| CHANNELS : manages
+  MEMBER_GROUPS ||--o{ GROUP_MEMBERS : has
+  MEMBERS ||--o{ GROUP_MEMBERS : "belongs to"
   MEMBERS ||--o{ DRAFT_REQUESTS : asks
   CONVERSATIONS ||--o{ DRAFT_REQUESTS : "is the destination of"
   DRAFT_REQUESTS ||--o{ DRAFT_REQUEST_ANSWERS : "answered by"

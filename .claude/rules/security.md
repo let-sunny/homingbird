@@ -16,9 +16,11 @@ These nine rules are never broken. Each has a test; keep it passing and keep it 
    the person removes it.
 6. A member sees only conversations they participate in. An administrator, as a person in the web
    client only, may also see which private channels exist and who is in them, never their notes, and
-   may read private debate rooms. Only a private channel's own managers add its members: an
-   administrator outside it can add no one, themself included. An administrator's agent credentials
-   get no such exception.
+   may read private debate rooms. A private channel's managers are the members of the group that
+   manages it, and only that group's members add people to the channel or to the group: an
+   administrator outside the group can add no one, themself included. Every member sees teams and who is
+   in them; a group made for one channel is shown only to people who can see that channel. Deactivating
+   a member removes them from every group. An administrator's agent credentials get no such exception.
 7. No tool exposed to a model can save or change a profile character. Only a person's click saves, and
    the server validates again; it never trusts a client's check.
 8. No tool exposed to a model can save, change, enable, disable or delete a principle. Only a person's
