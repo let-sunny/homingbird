@@ -23,7 +23,7 @@ import type { ViewContext } from './context.ts'
 import { closeDialog, opensDialog } from './dialog.ts'
 import { reportWhenSeen } from './drafts-item.ts'
 import { joinCodeSection } from './join-code.ts'
-import { button, dialogActions, field, loading, page as pageOf } from './parts.ts'
+import { button, field, loading, page as pageOf } from './parts.ts'
 
 /** The agent's buttons among a channel's own controls: its panel for a manager, and asking it privately. */
 export const agentButtons = (context: ViewContext, channel: AsRead.Channel): Child => {
@@ -291,19 +291,24 @@ const renderPanel = (
     h('p', { class: 'hint' }, model.connectHint),
     joinCodeFor(model.name),
     h(
-      'form',
-      {
-        class: 'retire-agent',
-        on: {
-          submit: (event) => {
-            event.preventDefault()
-            context.actions.retireChannelAgent(channel.slug, { done: () => closeDialog(context) })
+      'details',
+      { class: 'retire-agent-step' },
+      h('summary', {}, strings.channelAgent.retire),
+      h(
+        'form',
+        {
+          class: 'retire-agent',
+          on: {
+            submit: (event) => {
+              event.preventDefault()
+              context.actions.retireChannelAgent(channel.slug, { done: () => closeDialog(context) })
+            },
           },
         },
-      },
-      h('h3', {}, model.retireTitle),
-      h('p', {}, model.retireBody),
-      dialogActions(strings.channelAgent.retire, 'danger'),
+        h('h3', {}, model.retireTitle),
+        h('p', {}, model.retireBody),
+        h('button', { type: 'submit', class: 'danger' }, strings.channelAgent.retire),
+      ),
     ),
   ]
 }

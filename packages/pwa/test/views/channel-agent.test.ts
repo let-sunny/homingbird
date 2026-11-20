@@ -102,7 +102,10 @@ describe('the agent panel', () => {
     expect(called('renameChannelAgent')[0]!.args).toEqual(['payments-wiki', 'Refunds wiki'])
     getByRole(dialog, 'button', { name: strings.channelAgent.revoke }).click()
     expect(called('disconnectAgentDesk')[0]!.args).toEqual(['payments-wiki', 'cred_desk00000000'])
-    fire.submit(dialog.querySelector('form.retire-agent')!)
+    const retire = dialog.querySelector<HTMLDetailsElement>('details.retire-agent-step')!
+    expect(retire.open).toBe(false)
+    expect(called('retireChannelAgent')).toEqual([])
+    fire.submit(retire.querySelector('form.retire-agent')!)
     expect(called('retireChannelAgent')[0]!.args).toEqual(['payments-wiki'])
   })
 
