@@ -276,7 +276,7 @@ const BUILDERS: Readonly<Record<string, (tokens: Tokens) => Result.Result<Invoca
       const reader = values.get('reader')?.trim() || defaultReader(given, platform)
       return {
         command: 'run',
-        agent: agentCommand(given),
+        agent: agentCommand(given, platform),
         timeoutSeconds: timeoutSeconds ?? RUN_TIMEOUT_DEFAULT_SECONDS,
         split: isSplit ? { reader, requireToollessReader: switches.has('require-toolless-reader') } : null,
         ...(switches.has('service') && { isService: true }),

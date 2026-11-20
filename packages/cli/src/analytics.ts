@@ -8,7 +8,7 @@ import {
   analyticsEvent,
   isFeatureOffered,
 } from '@homingbird/protocol'
-import { AGENT_PRESETS } from './agent-presets.ts'
+import { AGENT_PRESETS, presetAgent } from './agent-presets.ts'
 import { credentialDirectory } from './credentials.ts'
 import type { CliEnv } from './environment.ts'
 
@@ -68,7 +68,10 @@ export const isDoNotTrack = (variables: Readonly<Record<string, string | undefin
 
 /** The preset a desk runs, by name, or `custom`: never the command itself, which can hold paths. */
 export const presetLabel = (agent: string): AnalyticsAgentPreset => {
-  const name = AGENT_PRESETS.find((preset) => preset.agent === agent || preset.name === agent)?.name
+  const name = AGENT_PRESETS.find(
+    (preset) =>
+      preset.name === agent || ['linux', 'win32'].some((shell) => presetAgent(preset, shell) === agent),
+  )?.name
   return ANALYTICS_AGENT_PRESETS.find((known) => known === name) ?? 'custom'
 }
 

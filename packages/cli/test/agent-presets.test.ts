@@ -6,24 +6,36 @@ import {
   defaultReader,
   isPresetCommand,
   isReaderWithSomeTools,
+  presetCommandOf,
   presetNamed,
   presetReader,
   presetState,
+  shellCommand,
+  withWords,
 } from '../src/agent-presets.ts'
+
+const CODEX_READER = presetReader(presetNamed('codex')!, 'linux')!
+const codexProbe = presetNamed('codex')!.reader!.probe!
 
 describe('agent presets', () => {
   it('stand for documented commands by their bare names', () => {
-    expect(agentCommand('claude')).toBe('claude -p')
-    expect(agentCommand(' codex ')).toBe(
+    expect(agentCommand('claude', 'linux')).toBe('claude -p')
+    expect(agentCommand(' codex ', 'linux')).toBe(
       'codex exec --skip-git-repo-check --ephemeral --sandbox workspace-write -',
     )
-    expect(agentCommand('antigravity')).toBe('agy -p --mode default --output-format text')
-    expect(agentCommand('gemini')).toBe('gemini -p "" --output-format text --approval-mode default')
+    expect(agentCommand('antigravity', 'linux')).toBe('agy -p --mode default --output-format text')
+    expect(agentCommand('gemini', 'linux')).toBe("gemini -p '' --output-format text --approval-mode default")
+    expect(agentCommand('gemini', 'win32')).toBe('gemini -p "" --output-format text --approval-mode default')
   })
 
   it('tell a preset’s agent and reader commands from a command of one’s own', () => {
-    for (const preset of AGENT_PRESETS) expect(isPresetCommand(` ${preset.agent} `, 'linux')).toBe(true)
+    for (const preset of AGENT_PRESETS)
+      expect(isPresetCommand(` ${agentCommand(preset.name, 'linux')} `, 'linux')).toBe(true)
     expect(isPresetCommand(defaultReader('claude', 'win32'), 'win32')).toBe(true)
+    expect(presetCommandOf(CODEX_READER, 'darwin')).toMatchObject({
+      role: 'reader',
+      preset: { name: 'codex' },
+    })
     expect(isPresetCommand('claude -p --verbose', 'linux')).toBe(false)
     expect(isPresetCommand('./my-agent.sh', 'darwin')).toBe(false)
   })
@@ -39,19 +51,56 @@ describe('agent presets', () => {
   })
 
   it('give Codex a reader with minimal tools, which is never taken for one without tools', () => {
-    const codex = presetNamed('codex')!
-    expect(codex.readerTools).toBe('minimal')
-    expect(defaultReader('codex', 'linux')).toBe(codex.reader)
-    expect(codex.reader).toContain('--sandbox read-only --disable shell_tool --disable unified_exec')
-    expect(isReaderWithSomeTools(codex.reader!)).toBe(true)
-    expect(isReaderWithSomeTools(` ${codex.reader} `)).toBe(true)
+    expect(presetNamed('codex')!.readerTools).toBe('minimal')
+    expect(CODEX_READER).toContain('--sandbox read-only --disable shell_tool --disable unified_exec')
+    expect(isReaderWithSomeTools(CODEX_READER)).toBe(true)
+    expect(isReaderWithSomeTools(` ${defaultReader('codex', 'win32')} `)).toBe(true)
     expect(isReaderWithSomeTools(defaultReader('claude', 'linux'))).toBe(false)
     expect(isReaderWithSomeTools('my-reader')).toBe(false)
   })
 
+  it('keep the Codex reader ephemeral, read-only and without plugins or apps', () => {
+    expect(CODEX_READER).toContain('--ephemeral')
+    expect(CODEX_READER).toContain('-c features.plugins=false -c features.apps=false -')
+    expect(CODEX_READER.endsWith(' -')).toBe(true)
+    expect(codexProbe.args).toEqual([
+      '-c',
+      'features.plugins=false',
+      '-c',
+      'features.apps=false',
+      'mcp',
+      'list',
+      '--json',
+    ])
+  })
+
+  it('switch off every MCP server Codex lists for the reader, and none when it lists none', () => {
+    const listed = '[{"name":"github","transport":{"type":"stdio"}},{"name":"my \\"docs\\""}]'
+    expect(codexProbe.wordsFrom({ exitCode: 0, output: `warning: old config\n${listed}\n` })).toEqual({
+      _tag: 'Ok',
+      value: ['-c', 'mcp_servers={"github"={enabled=false},"my \\"docs\\""={enabled=false}}'],
+    })
+    expect(codexProbe.wordsFrom({ exitCode: 0, output: '[]' })).toEqual({ _tag: 'Ok', value: [] })
+  })
+
+  it('refuse to prepare the Codex reader when its MCP servers cannot be listed', () => {
+    expect(codexProbe.wordsFrom({ exitCode: 2, output: 'unknown command mcp' })).toEqual({
+      _tag: 'Err',
+      error: 'codex mcp list exited with code 2',
+    })
+    expect(codexProbe.wordsFrom({ exitCode: null, output: '' })).toMatchObject({
+      error: 'codex mcp list exited with code unknown',
+    })
+    for (const output of ['', 'no servers', '[not json]', '[{"title":"x"}]', '] ['])
+      expect(codexProbe.wordsFrom({ exitCode: 0, output })).toEqual({
+        _tag: 'Err',
+        error: 'codex mcp list --json printed no list of servers',
+      })
+  })
+
   it('fall back to the agent itself as the reader when no reader is known', () => {
-    expect(defaultReader('antigravity', 'linux')).toBe(agentCommand('antigravity'))
-    expect(defaultReader('gemini', 'linux')).toBe(agentCommand('gemini'))
+    expect(defaultReader('antigravity', 'linux')).toBe(agentCommand('antigravity', 'linux'))
+    expect(defaultReader('gemini', 'linux')).toBe(agentCommand('gemini', 'linux'))
     expect(defaultReader('my-agent --fast', 'win32')).toBe('my-agent --fast')
   })
 
@@ -59,10 +108,10 @@ describe('agent presets', () => {
     fc.assert(
       fc.property(fc.string(), (command) => {
         fc.pre(presetNamed(command) === null)
-        expect(agentCommand(command)).toBe(command)
+        expect(agentCommand(command, 'linux')).toBe(command)
       }),
     )
-    expect(agentCommand('claude -p --model opus')).toBe('claude -p --model opus')
+    expect(agentCommand('claude -p --model opus', 'linux')).toBe('claude -p --model opus')
   })
 
   it('are verified only when run with the real agent, and otherwise say they come from source', () => {
@@ -74,3 +123,52 @@ describe('agent presets', () => {
     ])
   })
 })
+
+describe('shellCommand', () => {
+  it('quotes a word for sh with single quotes, a quote inside it included', () => {
+    expect(shellCommand(['say', 'it\'s {"a":1}', '', 'plain-word.x'], 'linux')).toBe(
+      `say 'it'\\''s {"a":1}' '' plain-word.x`,
+    )
+  })
+
+  it('quotes a word for cmd.exe with double quotes, escaping each quote inside it', () => {
+    expect(shellCommand(['say', '{"a":1}', ''], 'win32')).toBe('say "{\\"a\\":1}" ""')
+  })
+
+  it('keeps the words, as sh reads them back', () => {
+    fc.assert(
+      fc.property(fc.array(fc.string({ unit: 'grapheme-ascii' })), (words) => {
+        expect(posixWords(shellCommand(['cmd', ...words], 'linux'))).toEqual(['cmd', ...words])
+      }),
+    )
+  })
+})
+
+describe('withWords', () => {
+  it('adds words before the final `-` that reads the prompt from standard input, or at the end', () => {
+    expect(withWords(['codex', 'exec', '-'], ['-c', 'x'])).toEqual(['codex', 'exec', '-c', 'x', '-'])
+    expect(withWords(['claude', '-p'], ['--x'])).toEqual(['claude', '-p', '--x'])
+  })
+})
+
+/** Splits a command line the way sh does for the quoting shellCommand writes: plain words and single quotes. */
+const posixWords = (line: string): string[] => {
+  const words: string[] = []
+  let current: string | null = null
+  for (let index = 0; index < line.length; index++) {
+    const character = line[index]!
+    if (character === ' ') {
+      if (current !== null) words.push(current)
+      current = null
+    } else if (character === "'") {
+      const end = line.indexOf("'", index + 1)
+      current = (current ?? '') + line.slice(index + 1, end)
+      index = end
+    } else if (character === '\\') {
+      current = (current ?? '') + line[index + 1]
+      index++
+    } else current = (current ?? '') + character
+  }
+  if (current !== null) words.push(current)
+  return words
+}

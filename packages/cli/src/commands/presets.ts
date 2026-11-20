@@ -1,4 +1,4 @@
-import { AGENT_PRESETS, type AgentPreset, presetReader, presetState } from '../agent-presets.ts'
+import { AGENT_PRESETS, type AgentPreset, presetAgent, presetReader, presetState } from '../agent-presets.ts'
 import { type Outcome, outcome } from '../outcome.ts'
 
 /** The agent presets `--agent` accepts by name, and how far each has been verified. */
@@ -6,8 +6,12 @@ export const presets = (platform: string): Outcome =>
   outcome(
     {
       presets: AGENT_PRESETS.map((preset) => ({
-        ...preset,
+        name: preset.name,
+        program: preset.program,
+        agent: presetAgent(preset, platform),
         reader: presetReader(preset, platform),
+        readerTools: preset.readerTools,
+        verifiedWith: preset.verifiedWith,
         state: presetState(preset),
       })),
     },
@@ -16,7 +20,7 @@ export const presets = (platform: string): Outcome =>
       ...AGENT_PRESETS.flatMap((preset) => [
         '',
         `  ${preset.name}  ${preset.program}; ${presetState(preset)}`,
-        `    agent:   ${preset.agent}`,
+        `    agent:   ${presetAgent(preset, platform)}`,
         `    reader:  ${readerLine(preset, platform)}`,
       ]),
       '',

@@ -1,5 +1,5 @@
 import { DraftRequestId, NoteId, type StreamEvent } from '@homingbird/protocol'
-import type { AgentRun } from '../src/environment.ts'
+import type { AgentRun, ProcessRun } from '../src/environment.ts'
 import {
   ANA,
   BEN,
@@ -63,6 +63,7 @@ export const runner = (
     readonly runnable?: (path: string) => boolean
     readonly files?: Readonly<Record<string, string>>
     readonly modes?: Readonly<Record<string, number>>
+    readonly process?: (program: string, args: ReadonlyArray<string>) => ProcessRun | undefined
   } = {},
 ): Runner => {
   const created: unknown[] = []
@@ -101,6 +102,7 @@ export const runner = (
     ...(options.runnable !== undefined && { runnable: options.runnable }),
     ...(options.files !== undefined && { files: options.files }),
     ...(options.modes !== undefined && { modes: options.modes }),
+    process: options.process ?? noMcpServers,
   })
   const exit = w.run('run', '--agent', 'claude -p', ...(options.argv ?? []))
   return {
@@ -115,6 +117,10 @@ export const runner = (
     },
   }
 }
+
+/** What the probes print on a computer where Codex knows no MCP server. */
+export const noMcpServers = (_program: string, args: ReadonlyArray<string>): ProcessRun | undefined =>
+  args.includes('mcp') ? { exitCode: 0, output: '[]\n' } : undefined
 
 export const once = <A>(first: A, then: A): (() => A) => {
   let called = false

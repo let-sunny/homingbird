@@ -22,6 +22,7 @@ import {
   runnerRequestPrompt,
 } from '@homingbird/protocol'
 import { agentEnvironment } from '../agent-environment.ts'
+import { type Launches, launchesAsGiven, preparedLaunches } from '../agent-launch.ts'
 import { isReaderWithSomeTools } from '../agent-presets.ts'
 import { countUsage, presetLabel } from '../analytics.ts'
 import { answeringFlowFor } from '../answering-flow.ts'
@@ -50,8 +51,9 @@ export const run = (
   T.gen(function* () {
     const missing = yield* missingCommandOf(settings)
     if (missing !== null) return yield* T.fail(failed(missing))
+    const launches = yield* preparedLaunches(settings)
     const session = yield* openSession
-    yield* runDesk(session, { ...settings, countsUsage: true }, report)
+    yield* runDesk(session, { ...settings, launches, countsUsage: true }, report)
   })
 
 /** Says which preset command is not on this PATH, before any note waits on it; null when all are. */
@@ -73,6 +75,8 @@ export interface RunnerSettings {
   readonly isService?: boolean
   /** `homingbird run` counts that a desk started, when the server asks for anonymous usage counts. */
   readonly countsUsage?: boolean
+  /** The commands as prepared from their presets; without them, the agent and reader run as given. */
+  readonly launches?: Launches
 }
 
 export interface SplitMode {
@@ -123,6 +127,7 @@ export const runDesk = (
           member,
           agent,
           split,
+          launches: settings.launches ?? launchesAsGiven(settings),
           isService: settings.isService === true,
           pause: deskPausePath(env, session.credential.serverUrl, member.id),
           timeoutMs: timeoutSeconds * 1000,
@@ -220,6 +225,7 @@ interface Runner {
   readonly member: AsRead.Member
   readonly agent: string
   readonly split: SplitMode | null
+  readonly launches: Launches
   readonly isService: boolean
   readonly pause: string
   readonly timeoutMs: number
@@ -298,8 +304,7 @@ const debateDeskOf = (runner: Runner): DebateDesk<DeskEnv> => ({
   tried: runner.triedDebates,
   told: runner.told,
   report: runner.report,
-  run: (role, prompt, what) =>
-    outputOf(runner, role === 'agent' ? runner.agent : runner.split!.reader, role, prompt, what),
+  run: (role, prompt, what) => outputOf(runner, role, prompt, what),
   warn,
 })
 
@@ -422,7 +427,7 @@ const draftedBy = (
   what: string,
 ): T.Task<AgentReply | null, CliFailure, DeskEnv> =>
   T.gen(function* () {
-    const output = yield* outputOf(runner, runner.agent, 'agent', prompt, what)
+    const output = yield* outputOf(runner, 'agent', prompt, what)
     if (output === null) return null
     const reply = runnerReplyIn(output)
     const problem = replyProblem(reply)
@@ -440,7 +445,7 @@ const extractedFrom = (
   T.gen(function* () {
     const env = yield* T.ask<DeskEnv>()
     const prompt = readerPrompt(quotedNote(note, { authors, nonce: env.nonce }))
-    const output = yield* outputOf(runner, runner.split!.reader, 'reader', prompt, what)
+    const output = yield* outputOf(runner, 'reader', prompt, what)
     const extracted = output === null ? null : extractionIn(output)
     if (extracted === null) {
       if (output !== null)
@@ -466,13 +471,13 @@ const extractedOriginalOf = (
 
 const outputOf = (
   runner: Runner,
-  command: string,
   role: 'agent' | 'reader',
   prompt: string,
   what: string,
 ): T.Task<string | null, CliFailure, DeskEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<DeskEnv>()
+    const { command } = role === 'agent' ? runner.launches.agent : runner.launches.reader!
     const environment = agentEnvironment(env.variables, [
       runner.session.credential.token,
       env.credentialsFile ?? '',

@@ -1,10 +1,10 @@
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { presetNamed } from '../src/agent-presets.ts'
+import { presetNamed, presetReader } from '../src/agent-presets.ts'
 import { type Invocation, USAGE, parseArguments } from '../src/arguments.ts'
 import { EXIT } from '../src/failure.ts'
 
-const CODEX_READER = presetNamed('codex')!.reader!
+const CODEX_READER = presetReader(presetNamed('codex')!, 'linux')!
 
 const parsed = (...argv: string[]): Invocation => {
   const result = parseArguments(argv)

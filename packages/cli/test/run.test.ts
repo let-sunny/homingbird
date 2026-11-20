@@ -11,7 +11,7 @@ import {
 } from '@homingbird/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type Session, type TestServer, asShown, startTestServer } from '../../dovecote/test/harness.ts'
-import { presetNamed } from '../src/agent-presets.ts'
+import { presetNamed, presetReader } from '../src/agent-presets.ts'
 import {
   MINIMAL_READER_REFUSED,
   MINIMAL_READER_WARNING,
@@ -268,7 +268,14 @@ describe('homingbird run', () => {
       runnable: (path) => path === '/usr/bin/my-agent',
     })
     expect(
-      await w.run('run', '--agent', 'my-agent', '--split', '--reader', presetNamed('codex')!.reader!),
+      await w.run(
+        'run',
+        '--agent',
+        'my-agent',
+        '--split',
+        '--reader',
+        presetReader(presetNamed('codex')!, 'linux')!,
+      ),
     ).toBe(EXIT.failed)
     expect(w.problems[0]).toMatch(/^The reader command could not be found: "codex"/)
   })
@@ -727,6 +734,27 @@ describe('homingbird run --split', () => {
     expect(await strict.exit).toBe(EXIT.usage)
     expect(strict.w.problems).toEqual([MINIMAL_READER_REFUSED])
     expect(strict.w.calls).toEqual([])
+  })
+
+  it('runs the Codex preset reader with every MCP server Codex lists switched off', async () => {
+    const r = runner({
+      argv: ['--agent', 'codex', '--split'],
+      agent: splitAgent(),
+      stubs: { 'inbox.list': () => waitingQuestion },
+      process: (_program, args) =>
+        args.includes('mcp') ? { exitCode: 0, output: '[{"name":"github"}]' } : undefined,
+    })
+    await settle(() => r.created.length === 1)
+    expect(r.w.agentRuns[0]!.command).toContain(`-c 'mcp_servers={"github"={enabled=false}}' -`)
+    expect(r.w.agentRuns[1]!.command).not.toContain('mcp_servers')
+    await r.stop()
+  })
+
+  it('starts no desk when the Codex preset reader cannot be prepared', async () => {
+    const r = runner({ argv: ['--agent', 'codex', '--split'], process: () => ({ exitCode: 1, output: '' }) })
+    expect(await r.exit).toBe(EXIT.failed)
+    expect(r.w.problems[0]).toMatch(/^The reader command was not started: codex mcp list exited with code 1/)
+    expect(r.w.calls).toEqual([])
   })
 })
 

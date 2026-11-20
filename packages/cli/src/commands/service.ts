@@ -288,7 +288,7 @@ const stableProgram = (
     const program = yield* T.forEach(env.program, lastingPathOf)
     const given = env.variables.PATH
     const searched = given === undefined ? undefined : yield* stablePath(given, env.platform)
-    const agent = agentCommand(options.agent)
+    const agent = agentCommand(options.agent, env.platform)
     const settings: RunnerSettings = {
       agent,
       timeoutSeconds: 0,

@@ -87,7 +87,7 @@ describe('candidatesFor', () => {
 
 describe('programWord', () => {
   it('is the first word of a plain command, and null when the shell would do more than look it up', () => {
-    expect(programWord(agentCommand('codex'))).toBe('codex')
+    expect(programWord(agentCommand('codex', 'linux'))).toBe('codex')
     expect(programWord('  /opt/bin/agent --fast')).toBe('/opt/bin/agent')
     expect(programWord('A=1 agent')).toBeNull()
     expect(programWord('"$HOME/bin/agent"')).toBeNull()
@@ -123,13 +123,13 @@ describe('resolvedProgram', () => {
 describe('missingPresetCommand', () => {
   it('names the first preset command whose program is missing, and checks no command of one’s own', async () => {
     const run = lookup(['/usr/bin/claude'])
-    const codex = agentCommand('codex')
+    const codex = agentCommand('codex', 'linux')
     expect(await run(missingPresetCommand(['claude -p', codex], '/usr/bin'))).toBe(codex)
     expect(await run(missingPresetCommand(['claude -p', 'my-agent'], '/usr/bin'))).toBeNull()
   })
 
   it('checks nothing when no PATH is set, since the shell then decides', async () => {
-    expect(await lookup([])(missingPresetCommand([agentCommand('codex')], undefined))).toBeNull()
+    expect(await lookup([])(missingPresetCommand([agentCommand('codex', 'linux')], undefined))).toBeNull()
   })
 })
 
