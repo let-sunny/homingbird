@@ -470,8 +470,13 @@ how many of its drafts were sent as written, edited or discarded, what it skippe
 member decided. Administrators see **Insights** in the administration area: people who sent notes,
 notes per person, reply rate and typical time to the first reply, the approval mix, the share of quick
 approvals and of skipped notes, debate results sent (a line of their own: they count neither as agent
-drafts nor as notes), and totals per channel. Insights hold numbers only, never note content and never
-one person's figures:
+drafts nor as notes), the typical time from seeing an agent draft to deciding, who wrote what was sent
+(the agent as written, edited by its person, or by hand), delivery to agents (notes received, those
+received by someone with an agent connected, picked up within 5 minutes, the typical pickup time, and
+those that waited a day without an agent picking them up), quick approvals week by week over 8 weeks,
+and totals per channel. When at least 25% of the drafts sent as written were quick approvals in each of
+the last two weeks, each with at least 10 such drafts, Insights show a warning that approving may be
+becoming a formality. Insights hold numbers only, never note content and never one person's figures:
 
 - A period in which fewer than `HB_INSIGHTS_MINIMUM_GROUP` people (5 by default) sent notes shows no
   numbers at all, and the block count is shown only as a number, and only once the organization has
@@ -480,6 +485,11 @@ one person's figures:
   contributed to it. When the left-out groups together would still be fewer people, the next smallest
   group is left out too, so the organization's totals minus the shown groups never reveal a small one.
 - Debate results sent are shown only once at least that many people sent one in the period.
+- Each newer figure needs its own people: the typical decision time needs that many people who decided
+  a draft they had seen; who wrote what is hidden whenever draft decisions are; a week of quick
+  approvals needs that many people who sent a draft as written that week; delivery needs that many
+  people with an agent connected who received a note, and its typical pickup time that many whose agent
+  picked one up.
 - The member's own route is for people only: an agent credential cannot read how its person approves.
 
 Principles that members teach their agents ([guide](guide.md#my-agent)) are private to each member and
