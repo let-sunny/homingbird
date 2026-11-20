@@ -1,0 +1,25 @@
+/**
+ * The databases a test that compares dialects runs on: SQLite always, PostgreSQL and MySQL when their URL
+ * is set. A run whose `HB_TEST_DATABASE_URL` names PostgreSQL or MySQL is CI's run for that database, so
+ * a missing URL there would skip that database's variants without a word: it fails instead.
+ */
+export const testDialects = (
+  env: Readonly<Record<string, string | undefined>>,
+): ReadonlyArray<readonly [name: string, url: string | undefined]> => {
+  const named = env.HB_TEST_DATABASE_URL ?? ''
+  const servers = [
+    ['PostgreSQL', 'postgres', 'HB_TEST_POSTGRES_URL'],
+    ['MySQL', 'mysql', 'HB_TEST_MYSQL_URL'],
+  ] as const
+  for (const [name, scheme, variable] of servers)
+    if (named.startsWith(scheme) && env[variable] === undefined)
+      throw new Error(
+        `HB_TEST_DATABASE_URL names ${name}, but ${variable} is not set: set it to run the ${name} variants.`,
+      )
+  return [
+    ['SQLite', 'sqlite::memory:'],
+    ...servers.map(([name, , variable]) => [name, env[variable]] as const),
+  ]
+}
+
+export const TEST_DIALECTS = testDialects(process.env)

@@ -148,6 +148,13 @@ already tagged and on npm is skipped, so a failed run can be run again.
 The "Version Packages" pull request is opened with `GITHUB_TOKEN`, which starts no CI on it. The
 release job therefore runs the checks itself before it publishes.
 
+**Upgrades from every release are tested.** `prepare` also adds the new final version, with the number
+of schema steps it leaves, to `packages/dovecote/test/releases.json`; the upgrade tests then build a
+database as that release left it and start every later server on it. `node scripts/release-version.ts
+check`, which the release workflow runs on every push to `main`, fails while a final `v*` tag or the
+version being released has no entry there. When a release adds a schema step, give its new tables and
+columns realistic rows in `packages/dovecote/test/upgrade-support.ts` before releasing it.
+
 ### Pre-releases
 
 `release.json` at the root holds one setting, `"pre"`:
