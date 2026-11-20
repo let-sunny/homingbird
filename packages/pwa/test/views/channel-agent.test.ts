@@ -106,6 +106,22 @@ describe('the agent panel', () => {
     expect(called('retireChannelAgent')[0]!.args).toEqual(['payments-wiki'])
   })
 
+  it('lets a manager make a join code for the agent, which a new render keeps', () => {
+    const { context, called, dialog } = opened()
+    context.state.channelAgents.set(new Map([['payments-wiki', agentView()]]))
+    called('loadChannelAgent')[0]!.then!.done!(null)
+    getByRole(dialog, 'button', { name: strings.joinCode.create }).click()
+    expect(called('createJoinCode')[0]!.args).toEqual(['payments-wiki'])
+    called('createJoinCode')[0]!.then!.done!({
+      code: 'hbj_secret',
+      serverUrl: 'https://hb.example.com',
+      expiresAt: context.clock.now() + 600_000,
+    })
+    context.state.channelAgents.set(new Map([['payments-wiki', agentView()]]))
+    expect(dialog.querySelector('.join-code pre')!.textContent).toContain('--join hbj_secret')
+    expect(textOf(dialog)).toContain(strings.joinCode.explanationAgent({ agent: 'Payments wiki' }))
+  })
+
   it('sends or discards a waiting answer, and asks to read one again that the agent changed', () => {
     const { context, called, dialog } = opened()
     context.state.reviews.set([review()])

@@ -385,13 +385,15 @@ export const en = {
   },
   deskTitle: 'Keep one agent session open as your desk.',
   deskBody:
-    'It drafts replies to arriving notes for you to approve here; other sessions draft only when asked. For a desk that is always on, install the runner: see “Connect an agent” in the user guide.',
+    'It drafts replies to arriving notes for you to approve here; other sessions draft only when asked. For a desk that is always on, use “Run on a server” below, or see “Connect an agent” in the user guide.',
   noAgentsYet: 'No agent is connected yet. Once one is, replies are drafted for you as notes arrive.',
   codeFallback: 'Did your agent show you a connection code instead of a link? Enter it here.',
   notSetUp: 'Your agent is not set up yet? Ask your administrator.',
   serviceBanner: {
     title: 'Your desk has not connected yet.',
     body: 'A background service you installed waits until you run this command on its computer and confirm the code it shows.',
+    bodyWithJoin:
+      'For a server, “Run on a server” below is the simplest way: one line to paste there. On a computer with a browser, run this command and confirm the code it shows.',
     enterCode: 'Enter a connection code',
   },
   backToHomingbird: 'Back to Homingbird',
@@ -458,6 +460,7 @@ export const en = {
       debateRooms: 'Debate rooms',
       channelAgents: 'Channel agents',
       cloudDesk: 'Cloud desk (experimental)',
+      joinCodes: 'Join codes for running an agent on a server',
       analytics: 'Anonymous product analytics',
     },
     whenOff: {
@@ -479,6 +482,8 @@ export const en = {
         'Off: channels’ agents stop answering and their desks are refused; nothing is deleted, and turning it on again brings them back.',
       cloudDesk:
         'Off: no cloud desk is woken and nobody can set one up; saved wakes are kept. It also needs HB_SECRETS_KEY on the server.',
+      joinCodes:
+        'Off: nobody can make a join code and codes already made are refused; people sign in servers with homingbird login instead.',
       analytics:
         'Off: no usage counts leave this server. On, and only where the operator set a destination: anonymous counts such as pages viewed, never content, names or email addresses.',
     },
@@ -1266,7 +1271,7 @@ export const en = {
     desksTitle: 'Desks connected as {agent}',
     desksNone: 'No desk is connected yet.',
     connectHint:
-      'To connect a desk, run homingbird login where the agent works, and on the approval page choose {agent}. A desk stops working when the manager who approved it stops managing the channel.',
+      'To connect a desk on a server, use “Run on a server” below. On a computer with a browser, run homingbird login there, and on the approval page choose {agent}. A desk stops working when the manager who made its code or approved it stops managing the channel.',
     approvedByManager: 'Approved by {name}',
     revoke: 'Disconnect',
     revoked: 'Disconnected',
@@ -1309,6 +1314,26 @@ export const en = {
     direct: 'Direct messages only',
     directHint: 'Channels send no notifications.',
     none: 'Nothing',
+  },
+  joinCode: {
+    title: 'Run on a server',
+    intro:
+      'For an agent that stays on, on a server without a browser: make a code here and paste one line there. Install the command line on the server first: npm install -g @homingbird/cli',
+    introAgent:
+      'Run {agent} on a server without a browser: make a code here and paste one line there. Install the command line on the server first: npm install -g @homingbird/cli',
+    create: 'Run on a server',
+    creating: 'Making a code…',
+    explanation:
+      'Paste it on the server as the person whose agent it runs, not as root: it signs that server in as your agent, which drafts and never sends, and starts it in the background. Change --agent if the server uses codex, gemini or antigravity.',
+    explanationAgent:
+      'Paste it on the server as the account that runs {agent}, not as root: it signs that server in as {agent}, whose answers wait for this channel’s managers, and starts it in the background. Change --agent if the server uses codex, gemini or antigravity.',
+    expiresIn: 'Works once, for {time} more.',
+    copy: 'Copy',
+    copied: 'Copied',
+    copyFailed: 'This browser did not copy it. Select the line and copy it yourself.',
+    expired: 'This code expired before it was used.',
+    again: 'Make a new code',
+    failed: 'No code could be made just now. Try again in a moment.',
   },
   cloudDesk: {
     legend: 'Cloud desk',

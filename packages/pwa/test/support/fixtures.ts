@@ -152,6 +152,7 @@ export const everything = (): AsRead.ServerInfo =>
         'channelAgents',
         'mute',
         'cloudDesk',
+        'joinCodes',
         'analytics',
       ].map((name) => [name, true]),
     ),

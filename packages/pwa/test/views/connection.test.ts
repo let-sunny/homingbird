@@ -75,7 +75,7 @@ describe('connectionSection', () => {
     expect(shown.querySelector('.service-banner')).toBeNull()
     called('listCredentials')[0]!.then!.done!([credential('cred_web', { kind: 'human', current: true })])
     expect(textOf(shown.querySelector('.service-banner')!)).toContain(
-      `${strings.serviceBanner.title}${strings.serviceBanner.body}homingbird login --server http://localhost`,
+      `${strings.serviceBanner.title}${strings.serviceBanner.bodyWithJoin}homingbird login --server http://localhost`,
     )
     called('listCredentials')[0]!.then!.done!([credential('cred_desk', { expiresAt: clock.now() + 1 })])
     expect(shown.querySelector('.service-banner')).toBeNull()
@@ -99,5 +99,19 @@ describe('connectionSection', () => {
     const shown = connectionSection(on.context, lifetime(), me())
     expect(textOf(shown.querySelector('.cloud-desk')!)).toContain(strings.cloudDesk.legend)
     expect(on.called('loadDeskWake')).toHaveLength(1)
+  })
+
+  it('offers to run the agent on a server only where the server offers join codes, and says so in the banner', () => {
+    const on = testContext()
+    const shown = connectionSection(on.context, lifetime(), me())
+    expect(textOf(shown.querySelector('.join-code')!)).toContain(strings.joinCode.title)
+    on.called('listCredentials')[0]!.then!.done!([])
+    expect(textOf(shown.querySelector('.service-banner')!)).toContain(strings.serviceBanner.bodyWithJoin)
+    const off = testContext()
+    off.context.state.serverInfo.set(serverInfo({ joinCodes: false }))
+    const without = connectionSection(off.context, lifetime(), me())
+    expect(without.querySelector('.join-code')).toBeNull()
+    off.called('listCredentials')[0]!.then!.done!([])
+    expect(textOf(without.querySelector('.service-banner')!)).toContain(strings.serviceBanner.body)
   })
 })

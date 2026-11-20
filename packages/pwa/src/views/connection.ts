@@ -8,6 +8,7 @@ import { strings } from '../strings.ts'
 import { cloudDeskSection } from './cloud-desk.ts'
 import type { ViewContext } from './context.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
+import { joinCodeSection } from './join-code.ts'
 import { channelChips, field, loading, presenceBadges } from './parts.ts'
 import { serviceBanner } from './service-banner.ts'
 import { freshSessionSuggestions } from './session-health-view.ts'
@@ -38,10 +39,12 @@ export const connectionSection = (context: ViewContext, life: Lifetime, me: AsRe
           credentials: credentials.get(),
           origin: context.page.origin,
           now: context.clock.now(),
+          joinCodes: featureOn('joinCodes', state.serverInfo.get()),
         }),
       ),
     ),
     deskRecommendation(),
+    featureOn('joinCodes', state.serverInfo.get()) && joinCodeSection(context, life, null),
     region(life, [state.agentReport], () => {
       const report = state.agentReport.get()
       return report === null || report === 'failed' ? null : freshSessionSuggestions(report.sessions.latest)

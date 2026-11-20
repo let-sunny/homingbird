@@ -2749,6 +2749,32 @@ textarea:disabled {
   overflow-wrap: anywhere;
 }
 
+.join-code {
+  display: grid;
+  gap: var(--hb-space-2);
+  justify-items: start;
+}
+
+.join-command {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  gap: var(--hb-space-2);
+  inline-size: 100%;
+}
+
+.join-command pre {
+  flex: 1 1 20rem;
+  margin: 0;
+  padding: var(--hb-space-2) var(--hb-space-3);
+  border: var(--hb-border);
+  background: var(--hb-color-sunken);
+  font: var(--hb-text-small) / 1.6 var(--hb-font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
 .flow-tools {
   display: flex;
   flex-wrap: wrap;
