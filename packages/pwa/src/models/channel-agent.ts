@@ -83,12 +83,16 @@ export const agentPanelModel = (
   }
 }
 
-/** The answers waiting in one channel, each as a card; one the agent changed since it was read says so. */
+/**
+ * The answers waiting in one channel, each as a card; one the agent changed since it was read says so,
+ * and the one a notification opened is the focused card.
+ */
 export const reviewCardsModel = (
   reviews: ReadonlyArray<AsRead.Review>,
   slug: string,
   read: ReadonlyMap<NoteId, DraftAsShown>,
   members: ReadonlyMap<MemberId, AsRead.Member>,
+  focus: string | null,
 ): ReviewCards => {
   const shown = reviews.filter((review) => review.channel === slug)
   return {
@@ -98,6 +102,7 @@ export const reviewCardsModel = (
       const basis = draftBasisOf(review.note)
       return {
         review,
+        focused: review.note.id === focus,
         question:
           review.question === null
             ? null
@@ -127,7 +132,7 @@ export const reviewsWaitingModel = (reviews: ReadonlyArray<AsRead.Review>): Revi
     : {
         text: strings.channelAgent.reviewsWaiting({ count: reviews.length }),
         links: [...new Set(reviews.map((review) => review.channel))].map((slug) => ({
-          href: hrefFor({ name: 'channel-agent', slug }),
+          href: hrefFor({ name: 'channel-agent', slug, draft: null }),
           label: strings.channelAgent.reviewIn({ channel: channelLabel(slug) }),
         })),
       }
@@ -259,6 +264,7 @@ export interface ReviewCards {
 
 export interface ReviewCard {
   readonly review: AsRead.Review
+  readonly focused: boolean
   readonly question: { readonly from: string; readonly body: string } | null
   readonly privately: string | null
   readonly body: string

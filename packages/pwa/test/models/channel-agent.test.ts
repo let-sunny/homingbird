@@ -152,8 +152,10 @@ describe('reviewCardsModel', () => {
       'payments-wiki',
       new Map(),
       members,
+      'note_two',
     )
     expect(model.none).toBeNull()
+    expect(model.cards.map((card) => card.focused)).toEqual([false, true])
     expect(model.cards).toHaveLength(2)
     expect(model.cards[0]).toMatchObject({
       question: { from: 'Question from Cy', body: 'Where is the runbook?' },
@@ -177,13 +179,14 @@ describe('reviewCardsModel', () => {
       'payments-wiki',
       read,
       members,
+      null,
     )
     expect(changed.cards[0]!.readAgain).toEqual({
       notice: strings.draftChangedSinceRead,
       confirm: strings.draftReadAgain,
     })
     expect(changed.cards[0]!.question!.from).toBe(`Question from ${strings.formerMember}`)
-    expect(reviewCardsModel([], 'payments-wiki', new Map(), members).none).toBe(
+    expect(reviewCardsModel([], 'payments-wiki', new Map(), members, null).none).toBe(
       strings.channelAgent.reviewsNone,
     )
   })

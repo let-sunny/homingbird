@@ -25,7 +25,7 @@ export const agentButtons = (context: ViewContext, channel: AsRead.Channel): Chi
         {
           type: 'button',
           class: 'channel-agent-open',
-          ...opensDialog(context, model.manage, (life) => agentPanel(context, life, channel)),
+          ...opensDialog(context, model.manage, (life) => agentPanel(context, life, channel, null)),
         },
         model.manage,
       ),
@@ -56,8 +56,16 @@ export const reviewsWaiting = (context: ViewContext, life: Lifetime): HTMLElemen
     { class: 'reviews-waiting-host' },
   )
 
-/** The page of a channel's agent, where a desk connected as it sends its managers to review its answers. */
-export const channelAgentView = (context: ViewContext, life: Lifetime, slug: string): HTMLElement => {
+/**
+ * The page of a channel's agent, where a desk connected as it sends its managers to review its answers,
+ * and a review notification opens one answer's card.
+ */
+export const channelAgentView = (
+  context: ViewContext,
+  life: Lifetime,
+  slug: string,
+  focus: string | null,
+): HTMLElement => {
   const { state, actions } = context
   actions.loadKnownChannels()
   return h(
@@ -67,21 +75,27 @@ export const channelAgentView = (context: ViewContext, life: Lifetime, slug: str
       const page = channelAgentPageModel(state.channels.get(), state.channelsLoaded.get(), slug)
       if (page.kind === 'loading') return loading()
       if (page.kind === 'missing') return h('p', { class: 'hint' }, page.text)
-      return pageOf(page.title, agentPanel(context, life, page.channel))
+      return pageOf(page.title, agentPanel(context, life, page.channel, focus))
     }),
   )
 }
 
 /** The agent of a channel the person manages, its desks and the answers waiting: in a dialog or on its own page. */
-const agentPanel = (context: ViewContext, life: Lifetime, channel: AsRead.Channel): HTMLElement => {
+const agentPanel = (
+  context: ViewContext,
+  life: Lifetime,
+  channel: AsRead.Channel,
+  focus: string | null,
+): HTMLElement => {
   const { state, actions } = context
   const loaded = signal<'loading' | 'loaded' | 'failed'>('loading')
+  let broughtIntoView = false
   actions.loadChannelAgent(channel.slug, {
     done: () => loaded.set('loaded'),
     failed: () => loaded.set('failed'),
   })
   actions.loadReviews()
-  return h(
+  const panel = h(
     'div',
     { class: 'dialog-body channel-agent-panel' },
     region(life, [loaded, state.channelAgents, state.members], () =>
@@ -100,7 +114,12 @@ const agentPanel = (context: ViewContext, life: Lifetime, channel: AsRead.Channe
         channel.slug,
         state.reviewsRead.get(),
         state.members.get(),
+        focus,
       )
+      if (!broughtIntoView && model.cards.some((card) => card.focused)) {
+        broughtIntoView = true
+        context.page.nextFrame(() => bringIntoView(panel.querySelector(FOCUSED_CARD)))
+      }
       return h(
         'section',
         { class: 'reviews' },
@@ -114,6 +133,14 @@ const agentPanel = (context: ViewContext, life: Lifetime, channel: AsRead.Channe
       )
     }),
   )
+  return panel
+}
+
+const FOCUSED_CARD = '.review-card[aria-current="true"]'
+
+const bringIntoView = (card: HTMLElement | null): void => {
+  card?.scrollIntoView({ block: 'center' })
+  card?.focus({ preventScroll: true })
 }
 
 const agentState = (
@@ -203,7 +230,11 @@ const nameForm = (label: string, value: string, save: (name: string) => void): H
 const reviewCard = (context: ViewContext, card: ReviewCard): HTMLElement =>
   h(
     'li',
-    { class: 'review-card', data: { note: card.review.note.id } },
+    {
+      class: 'review-card',
+      data: { note: card.review.note.id },
+      ...(card.focused && { 'aria-current': 'true', tabindex: '-1' }),
+    },
     card.privately !== null && h('span', { class: 'review-private' }, card.privately),
     card.question !== null &&
       h(
