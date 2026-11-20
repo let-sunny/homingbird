@@ -12,6 +12,7 @@ import {
   extractedRoom,
   quotedDebate,
   quotedDrafts,
+  statedModelIn,
   voteIn,
 } from '@homingbird/protocol'
 import { authorsOf } from './commands/reading.ts'
@@ -103,14 +104,17 @@ const takeTurn = <R extends { readonly nonce: () => string }>(
     if (room === null) return
     const output = yield* desk.run('agent', debateTurnPrompt(room), what)
     if (output === null) return
-    const body = output.trim()
+    const { answer: body, model } = statedModelIn(output)
     if (/^SKIP:/i.test(body)) return yield* desk.warn(`The agent took no turn in ${what}.`)
     if (body === '' || body.length > debate.limits.turnCharacters)
       return yield* desk.warn(
         `The agent command printed ${body === '' ? 'nothing' : 'more than a turn in this room holds'}; no turn was taken in ${what}.`,
       )
     const posted = yield* T.result(
-      desk.session.api['debates.turns.post']({ params: { id: debate.id }, body: { body } }),
+      desk.session.api['debates.turns.post']({
+        params: { id: debate.id },
+        body: { body, ...modelOf(model) },
+      }),
     )
     if (posted._tag === 'Err')
       return yield* desk.warn(`The turn in ${what} was refused: ${posted.error.message}`)
@@ -134,13 +138,17 @@ const draftResult = <R extends { readonly nonce: () => string }>(
     if (room === null) return
     const output = yield* desk.run('agent', debateResultPrompt(room), what)
     if (output === null) return
-    const result = debateResultIn(output)
+    const { answer, model } = statedModelIn(output)
+    const result = debateResultIn(answer)
     if (result === null)
       return yield* desk.warn(
         `The agent command did not print a result in the expected form; nothing was drafted for ${what}.`,
       )
     const drafted = yield* T.result(
-      desk.session.api['debates.result.draft']({ params: { id: debate.id }, body: result }),
+      desk.session.api['debates.result.draft']({
+        params: { id: debate.id },
+        body: { ...result, ...modelOf(model) },
+      }),
     )
     if (drafted._tag === 'Err')
       return yield* desk.warn(`The result for ${what} was refused: ${drafted.error.message}`)
@@ -168,7 +176,8 @@ const vote = <R extends { readonly nonce: () => string }>(
     if (room === null) return
     const output = yield* desk.run('agent', debateVotePrompt(room, desk.isSplit ? null : drafts), what)
     if (output === null) return
-    const draftBy = voteIn(output, choices)
+    const { answer, model } = statedModelIn(output)
+    const draftBy = voteIn(answer, choices)
     if (draftBy === null)
       return yield* desk.warn(
         `The agent command did not print one of the drafts it may vote for; no vote was cast in ${what}.`,
@@ -176,7 +185,7 @@ const vote = <R extends { readonly nonce: () => string }>(
     const cast = yield* T.result(
       desk.session.api['debates.result.vote']({
         params: { id: debate.id },
-        body: { round: debate.resultRound, draftBy },
+        body: { round: debate.resultRound, draftBy, ...modelOf(model) },
       }),
     )
     if (cast._tag === 'Err') return yield* desk.warn(`The vote in ${what} was refused: ${cast.error.message}`)
@@ -187,6 +196,9 @@ const vote = <R extends { readonly nonce: () => string }>(
       ),
     )
   })
+
+/** The model the agent stated, for a request body; nothing when it stated none. */
+const modelOf = (model: string | null): { model?: string } => (model === null ? {} : { model })
 
 /** The room as the writer reads it: quoted in full, or in split mode the reader's checked description. */
 const roomFor = <R extends { readonly nonce: () => string }>(

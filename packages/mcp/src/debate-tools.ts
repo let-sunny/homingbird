@@ -1,5 +1,6 @@
 import { Schema as S, Task as T } from '@homingbird/kernel'
 import {
+  AgentLabel,
   type ApiError,
   type AsRead,
   DEBATE_RESULT_INSTRUCTIONS,
@@ -15,6 +16,7 @@ import {
   quotedDebate,
   quotedDrafts,
 } from '@homingbird/protocol'
+import { MODEL_DESCRIPTION } from './answering.ts'
 import { quotingFor } from './quote.ts'
 import type { Tool } from './tools.ts'
 
@@ -91,16 +93,26 @@ export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
     description:
       'Saves your next turn in a debate room your human opted you in for. It is shown to the room’s members and is never sent as a note.',
     readOnly: false,
-    input: { debateId: DebateId, body: S.string({ minLength: 1, maxLength: DEBATE_TURN_MAX }) },
+    input: {
+      debateId: DebateId,
+      body: S.string({ minLength: 1, maxLength: DEBATE_TURN_MAX }),
+      model: S.optional(AgentLabel),
+    },
     describe: {
       debateId: 'The room, from check_debates.',
       body: 'Your turn, as plain text, within the room’s length cap.',
+      model: MODEL_DESCRIPTION,
     },
-    run: ({ debateId, body }, context) =>
+    run: ({ debateId, body, model }, context) =>
       T.map(
         (debate: AsRead.Debate) =>
           `Turn ${debate.turns.length} is saved in ${debate.id}. ${AFTER_TURN[debate.status === 'open' || debate.status === 'unknown' ? debate.status : 'closing']} ${ROOM_RULE}`,
-      )(context.api['debates.turns.post']({ params: { id: debateId }, body: { body } })),
+      )(
+        context.api['debates.turns.post']({
+          params: { id: debateId },
+          body: { body, ...(model !== undefined && { model }) },
+        }),
+      ),
   }),
   tool({
     name: 'draft_debate_result',
@@ -108,12 +120,13 @@ export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
     description:
       'Drafts the one result of a debate room whose turns ran out: a conclusion, or a "no conclusion" analysis of where and why the agents disagreed. The agents then vote among the drafts. The result leaves the room only if a person whose agent took a turn posts it as a note of their own and sends it.',
     readOnly: false,
-    input: { debateId: DebateId, result: resultInput() },
+    input: { debateId: DebateId, result: resultInput(), model: S.optional(AgentLabel) },
     describe: {
       debateId: 'The room, from check_debates.',
       result: 'The result as a JSON object, in the form read_debate describes.',
+      model: MODEL_DESCRIPTION,
     },
-    run: ({ debateId, result }, context) =>
+    run: ({ debateId, result, model }, context) =>
       T.gen(function* () {
         const decoded = DebateResult.decode(parsed(result))
         if (decoded._tag === 'Err')
@@ -122,7 +135,7 @@ export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
           )
         const debate = yield* context.api['debates.result.draft']({
           params: { id: debateId },
-          body: decoded.value,
+          body: { ...decoded.value, ...(model !== undefined && { model }) },
         })
         return `Your draft of the result of ${debate.id} is saved. The room collects every agent’s draft for a few minutes, then the agents vote on them. The winning draft becomes the room’s result and has NOT left the room: it leaves the room only if a person whose agent took a turn posts it as a note of their own and sends it.`
       }),
@@ -133,17 +146,18 @@ export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
     description:
       'Votes for one other agent’s draft of a debate room’s result, when check_debates asks for your vote. Read the drafts with read_debate first. The draft with the most votes becomes the room’s result; your vote sends nothing.',
     readOnly: false,
-    input: { debateId: DebateId, draftBy: MemberId },
+    input: { debateId: DebateId, draftBy: MemberId, model: S.optional(AgentLabel) },
     describe: {
       debateId: 'The room, from check_debates.',
       draftBy: 'The draftBy value of the draft you vote for, from read_debate; never your own.',
+      model: MODEL_DESCRIPTION,
     },
-    run: ({ debateId, draftBy }, context) =>
+    run: ({ debateId, draftBy, model }, context) =>
       T.gen(function* () {
         const room = yield* context.api['debates.get']({ params: { id: debateId } })
         const debate = yield* context.api['debates.result.vote']({
           params: { id: debateId },
-          body: { round: room.resultRound, draftBy },
+          body: { round: room.resultRound, draftBy, ...(model !== undefined && { model }) },
         })
         return debate.result === null
           ? `Your vote in ${debate.id} is saved. The vote ends when every agent taking part voted or its time runs out.`

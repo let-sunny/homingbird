@@ -72,6 +72,44 @@ describe('the runner in a debate room', () => {
       if (call.route !== null) expect(contract[call.route].access).not.toMatch(/human|admin/)
   })
 
+  it('sends the model the agent stated on its last line with its turn and its draft, never in their text', async () => {
+    const posted: unknown[] = []
+    const r = runner({
+      stubs: {
+        'debates.waiting': once(
+          {
+            asks: [
+              { debate: ROOM, ask: 'turn' },
+              { debate: { ...ROOM, status: 'concluding' }, ask: 'result' },
+            ],
+          },
+          { asks: [] },
+        ),
+        'debates.turns.post': (request) => {
+          posted.push(request.body)
+          return { ...ROOM, turns: [...ROOM.turns, { ...ROOM.turns[0]!, position: 2 }] }
+        },
+        'debates.result.draft': (request) => {
+          posted.push(request.body)
+          return { ...ROOM, status: 'concluding' }
+        },
+      },
+      agent: (prompt) => ({
+        exitCode: 0,
+        output: prompt.includes('"kind":"no_conclusion"')
+          ? `${JSON.stringify(RESULT)}\nMODEL: gpt-6`
+          : 'I would ship.\nMODEL: claude-opus-5-5',
+      }),
+    })
+    await settle(() => posted.length === 2)
+    await r.stop()
+    expect(posted).toEqual([
+      { body: 'I would ship.', model: 'claude-opus-5-5' },
+      { ...RESULT, model: 'gpt-6' },
+    ])
+    expect(r.w.agentRuns[0]!.prompt).toContain('MODEL: followed by it')
+  })
+
   it('drafts the result as the JSON the agent printed, in a code fence or not', async () => {
     const drafted: unknown[] = []
     const r = runner({
@@ -241,6 +279,51 @@ describe('the runner voting on drafts', () => {
     expect(r.w.lines.join('\n')).toContain('Voted in the vote on the drafts')
     for (const call of r.w.calls)
       if (call.route !== null) expect(contract[call.route].access).not.toMatch(/human|admin/)
+  })
+
+  it('votes once its own draft opened the vote, though the room said so before its stream connected', async () => {
+    const drafting = { ...BALLOT, resultRound: 1, drafts: [], votingClosesAt: null }
+    let drafted = false
+    const votes: unknown[] = []
+    const r = runner({
+      stubs: {
+        'debates.waiting': () =>
+          drafted ? { asks: [], ballots: [BALLOT] } : { asks: [{ debate: drafting, ask: 'result' }] },
+        'debates.result.draft': () => {
+          drafted = true
+          r.push({ type: 'debate.changed', debateId: ROOM.id, participantIds: [ANA.id, BEN.id] })
+          return drafting
+        },
+        'debates.result.vote': (request) => {
+          votes.push(request.body)
+          return BALLOT
+        },
+      },
+      agent: (prompt) => ({
+        exitCode: 0,
+        output: prompt.includes('Vote for the one draft') ? BEN.id : JSON.stringify(RESULT),
+      }),
+    })
+    await settle(() => votes.length === 1)
+    await r.stop()
+    expect(votes).toEqual([{ round: 1, draftBy: BEN.id }])
+  })
+
+  it('sends the model the agent stated after its vote', async () => {
+    const votes: unknown[] = []
+    const r = runner({
+      stubs: {
+        'debates.waiting': once({ asks: [], ballots: [BALLOT] }, { asks: [] }),
+        'debates.result.vote': (request) => {
+          votes.push(request.body)
+          return BALLOT
+        },
+      },
+      agent: () => ({ exitCode: 0, output: `${BEN.id}\nMODEL: claude-opus-5-5` }),
+    })
+    await settle(() => votes.length === 1)
+    await r.stop()
+    expect(votes).toEqual([{ round: 1, draftBy: BEN.id, model: 'claude-opus-5-5' }])
   })
 
   it('casts no vote for its own draft or anything that is not a choice, and says why a vote was refused', async () => {

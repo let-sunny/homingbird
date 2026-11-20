@@ -48,7 +48,7 @@ const scripted = (answers: ReadonlyArray<() => Response | Promise<Response>>) =>
   return { fetch, calls }
 }
 
-const listen = (fetch: Fetch, extra: { after?: number } = {}) => {
+const listen = (fetch: Fetch, extra: { after?: number; resyncOnConnect?: boolean } = {}) => {
   const clock = makeTestClock()
   const stop = new AbortController()
   const events: AsRead.StreamEvent[] = []
@@ -234,6 +234,34 @@ describe('eventStream', () => {
     await clock.advance(1_000)
     expect(calls[5]!.url).toBe('https://hb.test/api/v1/events/poll?after=2&wait=25')
     expect(transports.slice(0, 5)).toEqual(['sse', 'sse', 'sse', 'poll', 'poll'])
+    stop.abort()
+    await done
+  })
+
+  it('tells a client that asked for it to read state again each time the stream connects, and on the first poll after a failure', async () => {
+    const resync: StreamEvent = { seq: 0, at: 0, body: { type: 'resync' } }
+    const polled = (seq: number) => () =>
+      new Response(JSON.stringify({ events: [presence(seq)], cursor: seq }), { status: 200 })
+    const { fetch } = scripted([
+      () => streamOf(frame(presence(1))),
+      () => streamOf(frame(presence(2))),
+      refused,
+      refused,
+      refused,
+      polled(3),
+      polled(4),
+      refused,
+      polled(5),
+      polled(6),
+    ])
+    const { clock, events, stop, done } = listen(fetch, { resyncOnConnect: true })
+    await clock.flush()
+    expect(events).toEqual([resync, presence(1)])
+    await clock.advance(500)
+    expect(events).toEqual([resync, presence(1), { ...resync, at: 500 }, presence(2)])
+    await clock.advance(500 + 1_000 + 2_000 + 4_000)
+    await clock.advance(60_000)
+    expect(events.slice(4).map((event) => event.seq)).toEqual([3, 0, 4, 5, 0, 6])
     stop.abort()
     await done
   })

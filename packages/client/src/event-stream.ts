@@ -21,6 +21,8 @@ export interface EventStreamOptions extends HttpApiOptions {
   readonly onUnreadable?: (problem: string) => void
   /** False for a person's web client, whose session takes part in no debate room; true by default. */
   readonly heartbeat?: boolean
+  /** Also delivers `resync` on each stream connect and on the first poll that answers after a failure. */
+  readonly resyncOnConnect?: boolean
 }
 
 export const FAILED_STREAMS_BEFORE_POLLING = 3
@@ -58,6 +60,7 @@ const deliverEvents = (
     let cursor = options.after ?? null
     let failedStreams = 0
     let backoff = reconnectDelays()
+    let isResyncDue = true
     for (;;) {
       const transport: Transport = failedStreams >= FAILED_STREAMS_BEFORE_POLLING ? 'poll' : 'sse'
       options.onTransport?.(transport)
@@ -69,15 +72,24 @@ const deliverEvents = (
         else if (isKnownEvent(arrived.event)) return emit(arrived.event)
         return T.unit
       }
+      const connected = T.suspend(() => {
+        const isDue = options.resyncOnConnect === true && (transport === 'sse' || isResyncDue)
+        isResyncDue = false
+        return isDue ? emit(resyncAt(options.clock.now())) : T.unit
+      })
       const attempt =
         transport === 'sse'
-          ? T.flatMap(Stream.forEach(deliver))(streamOnce(options, cursor))
+          ? T.flatMap((arrivals: Stream.Stream<Arrived>) =>
+              T.flatMap(() => Stream.forEach(deliver)(arrivals))(connected),
+            )(streamOnce(options, cursor))
           : T.gen(function* () {
               const polled = yield* pollOnce(options, cursor ?? 0)
               for (const arrived of polled.arrivals) yield* deliver(arrived)
               if (polled.cursor !== null) cursor = polled.cursor
+              yield* connected
             })
       const failed = !isOk(yield* T.exit(attempt))
+      if (failed) isResyncDue = true
       if (delivered) backoff = reconnectDelays()
       if (transport === 'sse') failedStreams = delivered ? 0 : failed ? failedStreams + 1 : failedStreams
       if (failed || transport === 'sse') yield* T.sleep(backoff.next().value)
@@ -106,6 +118,8 @@ const heartbeat = (options: EventStreamOptions): T.Task<void> =>
   )
 
 const EMPTY_POLL_PAUSE_MS = 1_000
+
+const resyncAt = (at: number): AsRead.KnownEvent => ({ seq: 0, at, body: { type: 'resync' } })
 
 /** An event of a kind a newer server added still moves the cursor past it, and is then skipped. */
 const isKnownEvent = (event: AsRead.StreamEvent): event is AsRead.KnownEvent => event.body.type !== UNKNOWN

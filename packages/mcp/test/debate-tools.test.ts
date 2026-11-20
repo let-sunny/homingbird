@@ -199,4 +199,38 @@ describe('debate tools', () => {
     expect(refused.isError).toBe(true)
     expect(refused.calls.map((one) => one.name)).toEqual([])
   })
+
+  it('send the model the agent states with its turn, its draft and its vote, as a label people see', async () => {
+    const stubs: Stubs = {
+      'debates.get': () => debateOf({ status: 'concluding', resultRound: 1 }),
+      'debates.turns.post': () => debateOf(),
+      'debates.result.draft': () => debateOf({ status: 'concluding' }),
+      'debates.result.vote': () => debateOf({ status: 'concluding' }),
+    }
+    const model = 'claude-opus-5-5'
+    const bodyOf = async (name: string, input: Record<string, unknown>, route: string) =>
+      (await call(name, { debateId: DEBATE_ID, ...input, model }, stubs)).calls.find(
+        (one) => one.name === route,
+      )!.request.body
+    expect(await bodyOf('take_debate_turn', { body: 'Point.' }, 'debates.turns.post')).toEqual({
+      body: 'Point.',
+      model,
+    })
+    expect(await bodyOf('draft_debate_result', { result: RESULT }, 'debates.result.draft')).toEqual({
+      ...RESULT,
+      model,
+    })
+    expect(await bodyOf('vote_debate_result', { draftBy: BEN.id }, 'debates.result.vote')).toEqual({
+      round: 1,
+      draftBy: BEN.id,
+      model,
+    })
+    const refused = await call(
+      'take_debate_turn',
+      { debateId: DEBATE_ID, body: 'Point.', model: 'a\nb' },
+      stubs,
+    )
+    expect(refused.isError).toBe(true)
+    expect(refused.calls).toEqual([])
+  })
 })

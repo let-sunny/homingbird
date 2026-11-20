@@ -147,7 +147,6 @@ const answering = (runner: Runner): T.Task<void, CliFailure, DeskEnv> =>
         `Answering notes and draft requests for ${member.name} with: ${agent}\nEvery draft waits for approval in the web client.${runner.isService ? '' : ' Press Ctrl-C to stop.'}`,
       ),
     )
-    yield* answerWaiting(runner)
     const stopping = new AbortController()
     const events = eventStream(
       {
@@ -157,6 +156,7 @@ const answering = (runner: Runner): T.Task<void, CliFailure, DeskEnv> =>
         clock: env.clock,
         after: cursor,
         onUnreadable: env.output.problem,
+        resyncOnConnect: true,
       },
       AbortSignal.any([stopping.signal, env.stopped]),
     )

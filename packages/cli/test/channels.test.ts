@@ -1,4 +1,11 @@
-import { type Channel, ConversationId, DraftRequestId, NoteId, WRAPPER_TAG } from '@homingbird/protocol'
+import {
+  type Channel,
+  ConversationId,
+  DraftRequestId,
+  GroupId,
+  NoteId,
+  WRAPPER_TAG,
+} from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import { EXIT, SIGNED_OUT_MESSAGE } from '../src/failure.ts'
 import {
@@ -25,6 +32,7 @@ const BILLING: Channel = {
   joined: true,
   answering: true,
   managing: false,
+  managedBy: GroupId.of('billing00000'),
   createdAt: 1,
 }
 

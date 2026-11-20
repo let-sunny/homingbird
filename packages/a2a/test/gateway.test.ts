@@ -168,7 +168,7 @@ describe('handleA2aMessage', () => {
     const membership = (Object.keys(contract) as RouteName[]).filter(
       (name) => name.startsWith('channels.') && humanOnlyRoutes.includes(name),
     )
-    expect(membership).toHaveLength(10)
+    expect(membership).toHaveLength(9)
     for (const method of [
       ...CURRENT_METHODS,
       ...LEGACY_METHODS,

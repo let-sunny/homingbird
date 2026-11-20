@@ -5,6 +5,7 @@ import {
   ConversationId,
   DraftRequestId,
   Forbidden,
+  GroupId,
   NoteId,
   type RouteName,
   contract,
@@ -51,6 +52,7 @@ const BILLING: Channel = {
   joined: false,
   answering: false,
   managing: false,
+  managedBy: GroupId.of('billing00000'),
   createdAt: 1,
 }
 
@@ -154,8 +156,7 @@ describe('the tool table', () => {
         'channels.create',
         'channels.join',
         'channels.leave',
-        'channels.managers.add',
-        'channels.managers.remove',
+        'channels.managers.addTeam',
         'channels.members.add',
         'channels.members.remove',
         'channels.visibility.set',
