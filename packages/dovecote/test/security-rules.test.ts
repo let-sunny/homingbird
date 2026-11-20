@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { Task as T } from '@homingbird/kernel'
@@ -963,6 +964,69 @@ describe('Rule 5: credentials are stored hashed and never logged', () => {
 })
 
 describe('Rule 6: a member sees only conversations they participate in', () => {
+  it('stops every credential of a deactivated person at once, refreshing and unfinished sign-ins included', async () => {
+    const redirect = 'https://claude.ai/api/mcp/auth_callback'
+    const verifier = 'v'.repeat(64)
+    const token = (form: Record<string, string>) => server.request('POST', '/oauth/token', { form })
+    const { client_id: clientId } = (
+      await server.request('POST', '/oauth/register', {
+        body: { client_name: 'Connector', redirect_uris: [redirect] },
+      })
+    ).json
+    const approvedCode = async () => {
+      const started = await server.request(
+        'GET',
+        `/oauth/authorize?${new URLSearchParams({
+          response_type: 'code',
+          client_id: clientId,
+          redirect_uri: redirect,
+          code_challenge: createHash('sha256').update(verifier).digest('base64url'),
+          code_challenge_method: 'S256',
+          state: 'xyz',
+        })}`,
+        { cookie: ben.cookie },
+      )
+      const consentId = started.headers.location!.split('/#/consent/')[1]!
+      const decided = await ben.api('POST', `/consent/${consentId}`, { approve: true })
+      const code = new URL(decided.json.redirectTo).searchParams.get('code')!
+      return () =>
+        token({
+          grant_type: 'authorization_code',
+          code,
+          code_verifier: verifier,
+          client_id: clientId,
+          redirect_uri: redirect,
+        })
+    }
+    const connector = (await (await approvedCode())()).json
+    const unfinishedCode = await approvedCode()
+    const device = await server.request('POST', '/oauth/device_authorization', {
+      form: { client_name: 'Terminal', scope: 'notes' },
+    })
+    await ben.api('POST', `/device/${device.json.user_code}`, { approve: true })
+    const asConnector = () => server.request('GET', '/api/v1/me', { token: connector.access_token })
+    expect((await asConnector()).status).toBe(200)
+
+    await ana.api('PATCH', `/admin/members/${ben.me.member.id}`, { status: 'deactivated' })
+
+    expect((await ben.api('GET', '/me')).status).toBe(401)
+    expect((await benAgent.api('GET', '/me')).status).toBe(401)
+    expect((await asConnector()).status).toBe(401)
+    expect(
+      (await token({ grant_type: 'refresh_token', refresh_token: connector.refresh_token })).json.error,
+    ).toBe('invalid_grant')
+    expect((await unfinishedCode()).json.error).toBe('invalid_grant')
+    expect(
+      (
+        await token({
+          grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+          device_code: device.json.device_code,
+        })
+      ).json.error,
+    ).toBe('access_denied')
+    const held = (await storedRows(server, 'credentials')).filter((row) => row.member_id === ben.me.member.id)
+    expect(held.filter((row) => row.revoked_at === null)).toEqual([])
+  })
   it('keeps why an agent gave a note back to that note’s recipient alone, until a reply draft exists', async () => {
     const note = await sentFromAnaToBen('Is the export done?')
     await benAgent.api('POST', `/notes/${note.id}/pickup`)
