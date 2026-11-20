@@ -170,7 +170,10 @@ export const chosenLocaleOf = (id: MemberId): T.Task<Locale | null, never, AppEn
     first<{ locale: unknown }>(sql`SELECT locale FROM members WHERE id = ${id}`),
   )
 
-/** Deactivating a member revokes their credentials and takes them out of every group at once. */
+/**
+ * Deactivating a member revokes their credentials, refuses a sign-in they approved and no program has
+ * finished yet, and takes them out of every group at once.
+ */
 export const administerMember = (
   actor: Caller,
   id: MemberId,
@@ -189,6 +192,9 @@ export const administerMember = (
     if (changes.status === 'deactivated') {
       yield* run(
         sql`UPDATE credentials SET revoked_at = ${env.clock.now()} WHERE member_id = ${id} AND revoked_at IS NULL`,
+      )
+      yield* run(
+        sql`UPDATE auth_requests SET status = 'denied' WHERE member_id = ${id} AND status = 'approved'`,
       )
       if (before.status !== 'deactivated') yield* removeFromEveryGroup(actor, id)
     }

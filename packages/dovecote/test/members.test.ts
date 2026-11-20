@@ -1,5 +1,6 @@
+import { createHash } from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { type Session, type TestServer, connectAgent, startTestServer } from './harness.ts'
+import { type Session, type TestServer, connectAgent, startTestServer, storedRows } from './harness.ts'
 
 let server: TestServer
 let ana: Session
@@ -71,5 +72,90 @@ describe('the directory', () => {
     ).json.managedBy
     expect(await namesIn(own)).toEqual([])
     expect((await ben.api('GET', '/directory')).json.entries).toHaveLength(2)
+  })
+})
+
+describe('deactivation', () => {
+  const REDIRECT = 'https://client.example/callback'
+  const VERIFIER = 'v'.repeat(64)
+  const CHALLENGE = createHash('sha256').update(VERIFIER).digest('base64url')
+  const DEVICE_GRANT = 'urn:ietf:params:oauth:grant-type:device_code'
+
+  let oauthServer: TestServer
+  let admin: Session
+  let leaver: Session
+
+  beforeEach(async () => {
+    oauthServer = await startTestServer({ HB_OAUTH_REDIRECT_HOSTS: 'client.example' })
+    admin = await oauthServer.signIn('ana@example.com', 'Ana')
+    leaver = await oauthServer.signIn('ben@example.com', 'Ben')
+  })
+
+  afterEach(() => oauthServer.close())
+
+  const token = (form: Record<string, string>) => oauthServer.request('POST', '/oauth/token', { form })
+
+  const approvedCode = async () => {
+    const { client_id: clientId } = (
+      await oauthServer.request('POST', '/oauth/register', {
+        body: { client_name: 'Connector', redirect_uris: [REDIRECT] },
+      })
+    ).json
+    const started = await oauthServer.request(
+      'GET',
+      `/oauth/authorize?${new URLSearchParams({
+        response_type: 'code',
+        client_id: clientId,
+        redirect_uri: REDIRECT,
+        code_challenge: CHALLENGE,
+        code_challenge_method: 'S256',
+        state: 'xyz',
+      })}`,
+      { cookie: leaver.cookie },
+    )
+    const consentId = started.headers.location!.split('/#/consent/')[1]!
+    const decided = await leaver.api('POST', `/consent/${consentId}`, { approve: true })
+    const code = new URL(decided.json.redirectTo).searchParams.get('code')!
+    return () =>
+      token({
+        grant_type: 'authorization_code',
+        code,
+        code_verifier: VERIFIER,
+        client_id: clientId,
+        redirect_uri: REDIRECT,
+      })
+  }
+
+  const approvedDeviceCode = async () => {
+    const started = await oauthServer.request('POST', '/oauth/device_authorization', {
+      form: { client_name: 'Terminal', scope: 'notes' },
+    })
+    await leaver.api('POST', `/device/${started.json.user_code}`, { approve: true })
+    return () => token({ grant_type: DEVICE_GRANT, device_code: started.json.device_code })
+  }
+
+  it('stops every kind of credential at once, refreshing included, and any sign-in not yet finished', async () => {
+    const agent = await connectAgent(oauthServer, leaver)
+    const connector = (await (await approvedCode())()).json
+    const unfinishedConnector = await approvedCode()
+    const unfinishedDevice = await approvedDeviceCode()
+    const asConnector = () => oauthServer.request('GET', '/api/v1/me', { token: connector.access_token })
+    expect((await asConnector()).status).toBe(200)
+
+    await admin.api('PATCH', `/admin/members/${leaver.me.member.id}`, { status: 'deactivated' })
+
+    expect((await leaver.api('GET', '/me')).status).toBe(401)
+    expect((await agent.api('GET', '/me')).status).toBe(401)
+    expect((await asConnector()).status).toBe(401)
+    expect(
+      (await token({ grant_type: 'refresh_token', refresh_token: connector.refresh_token })).json.error,
+    ).toBe('invalid_grant')
+    expect((await unfinishedConnector()).json.error).toBe('invalid_grant')
+    expect((await unfinishedDevice()).json.error).toBe('access_denied')
+    const held = (await storedRows(oauthServer, 'credentials')).filter(
+      (row) => row.member_id === leaver.me.member.id,
+    )
+    expect(held).toHaveLength(3)
+    expect(held.filter((row) => row.revoked_at === null)).toEqual([])
   })
 })
