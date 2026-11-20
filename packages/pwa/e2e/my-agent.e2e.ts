@@ -15,6 +15,7 @@ import {
   newPage,
   overflowsSideways,
   screenshotCounter,
+  sendDraft,
   signInWith,
   startDovecote,
   submitDevelopmentLogin,
@@ -67,7 +68,7 @@ const scenario = async (): Promise<void> => {
       await api(ana, 'PUT', `/channels/${channel}/membership`, { answering: true })
     const ask = async (channel: string, body: string): Promise<string> => {
       const draft = await api(ben, 'POST', '/drafts', { channel, body })
-      return (await api(ben, 'POST', `/drafts/${draft.id}/send`, {})).id
+      return (await sendDraft(ben, draft.id)).id
     }
     const reply = async (question: string, body: string, basis?: string) =>
       agent.call('POST', '/drafts', { inReplyTo: question, body, ...(basis !== undefined && { basis }) })
@@ -146,7 +147,7 @@ const scenario = async (): Promise<void> => {
       '.draft .applied-mark:has-text("Your agent says it applied: Release dates")',
     )
     await capture(ana.page, 'draft-card-names-the-applied-principle')
-    await api(ana, 'POST', `/drafts/${applied.id}/send`, {})
+    await sendDraft(ana, applied.id)
     for (let index = 0; index < 5; index++) {
       const question = await ask('releases', `Is release ${index + 2} on schedule?`)
       const draft = await reply(
@@ -154,7 +155,7 @@ const scenario = async (): Promise<void> => {
         `Yes, Tuesday ${index + 3} December, 14:00 CET.`,
         'Principles applied: Release dates',
       )
-      await api(ana, 'POST', `/drafts/${draft.id}/send`, {})
+      await sendDraft(ana, draft.id)
     }
     const wrong = await reply(
       await ask('releases', 'Does the hotfix wait for the release?'),
@@ -166,9 +167,11 @@ const scenario = async (): Promise<void> => {
       .locator(`.draft[data-draft-id="${wrong.id}"] button:has-text("This principle was wrong here")`)
       .click()
     await ana.page.waitForSelector('.toast:has-text("Recorded")')
-    await api(ana, 'POST', `/drafts/${wrong.id}/send`, {
-      body: 'Hotfixes ship on their own, the same day they are approved by the on-call engineer.',
-    })
+    await sendDraft(
+      ana,
+      wrong.id,
+      'Hotfixes ship on their own, the same day they are approved by the on-call engineer.',
+    )
 
     // -- A substantial edit offers a chance to teach, prefilled from the edit alone -------------------
     const refund = await reply(
@@ -322,7 +325,7 @@ const scenario = async (): Promise<void> => {
       to: [benId],
       body: 'Arrives live while draft requests are off.',
     })
-    await api(ana, 'POST', `/drafts/${live.id}/send`, {})
+    await sendDraft(ana, live.id)
     await ben.page.waitForSelector('text=Arrives live while draft requests are off.', { timeout: 15_000 })
     await api(ana, 'PUT', '/admin/settings', {
       ...settings,

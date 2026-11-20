@@ -1,6 +1,12 @@
 import { WRAPPER_TAG } from '@homingbird/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { type Session, type TestServer, startTestServer, storedRows } from '../../dovecote/test/harness.ts'
+import {
+  type Session,
+  type TestServer,
+  asShown,
+  startTestServer,
+  storedRows,
+} from '../../dovecote/test/harness.ts'
 import { EXIT } from '../src/failure.ts'
 import { SERVER_URL, fetchThrough } from './server-fetch.ts'
 import { INTERRUPTED, type World, agentFileFor, world } from './support.ts'
@@ -66,7 +72,9 @@ describe('the homingbird command against a running server', () => {
     await benCli.run('inbox', '--json')
     expect(benCli.json().items).toEqual([])
 
-    expect((await ana.api('POST', `/drafts/${draftId}/send`, {})).json.status).toBe('sent')
+    expect((await ana.api('POST', `/drafts/${draftId}/send`, await asShown(ana, draftId))).json.status).toBe(
+      'sent',
+    )
     await benCli.run('inbox', '--json')
     const [waiting] = benCli.json().items
     expect(waiting.wrapped).toContain(`<${WRAPPER_TAG} id="${draftId}" from="Ana &lt;ana@example.com&gt;"`)
@@ -78,7 +86,11 @@ describe('the homingbird command against a running server', () => {
     expect(anaCli.json().notes).toHaveLength(1)
     expect(anaCli.json().notes[0].status).toBe('Drafting reply')
 
-    await ben.api('POST', `/drafts/${replyId}/send`, { body: 'Yes. Run it after the nightly export.' })
+    await ben.api(
+      'POST',
+      `/drafts/${replyId}/send`,
+      await asShown(ben, replyId, { body: 'Yes. Run it after the nightly export.' }),
+    )
     await anaCli.run('conversation', waiting.conversationId)
     expect(anaCli.lines.at(-1)).toContain('Yes. Run it after the nightly export.')
     expect(anaCli.lines.at(-1)).toContain('(Replied)')
@@ -115,7 +127,7 @@ describe('the homingbird command against a running server', () => {
     expect(await benIsOnline()).toBe(true)
 
     const draft = (await ana.api('POST', '/drafts', { to: [ben.me.member.id], body: 'Lunch at noon?' })).json
-    await ana.api('POST', `/drafts/${draft.id}/send`, {})
+    await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))
     await settle(() => benCli.lines.length > 0)
     const line = JSON.parse(benCli.lines[0]!)
     expect(line.event.body.type).toBe('note.sent')

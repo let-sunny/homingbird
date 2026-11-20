@@ -9,6 +9,7 @@ import {
   type Agent,
   type Session,
   type TestServer,
+  asShown,
   connectAgent,
   meanwhile,
   startTestServer,
@@ -42,7 +43,7 @@ const channels = async (who: Session | Agent, query = '') =>
 
 const ask = async (author: Session, channel: string, body: string) => {
   const draft = (await author.api('POST', '/drafts', { channel, body })).json
-  return (await author.api('POST', `/drafts/${draft.id}/send`, {})).json
+  return (await author.api('POST', `/drafts/${draft.id}/send`, await asShown(author, draft.id))).json
 }
 
 const inboxOf = async (agent: Agent) =>
@@ -138,7 +139,9 @@ describe('private channels', () => {
       { type: 'channel.left', slug: 'payroll', conversationId: question.conversationId },
     ])
     expect((await cy.api('GET', '/drafts')).json.drafts.map((draft: any) => draft.id)).toEqual([elsewhere.id])
-    expect((await cy.api('POST', `/drafts/${cyAgentDraft.id}/send`, {})).status).toBe(409)
+    expect(
+      (await cy.api('POST', `/drafts/${cyAgentDraft.id}/send`, await asShown(cy, cyAgentDraft.id))).status,
+    ).toBe(409)
     expect(
       (await cy.api('GET', '/conversations')).json.conversations.map((room: any) => room.title),
     ).not.toContain('payroll')
@@ -232,7 +235,7 @@ describe('private channels', () => {
     await add(ben, cy)
     await cy.api('PUT', '/channels/payroll/answering')
     const draft = (await cyAgent.api('POST', '/drafts', { channel: 'payroll', body: 'Bonus dates?' })).json
-    const question = (await cy.api('POST', `/drafts/${draft.id}/send`, {})).json
+    const question = (await cy.api('POST', `/drafts/${draft.id}/send`, await asShown(cy, draft.id))).json
     expect(question.receipts.map((receipt: any) => receipt.memberId)).toEqual([ben.me.member.id])
     expect(await inboxOf(benAgent)).toEqual(['Bonus dates?'])
     expect((await anaAgent.api('POST', '/drafts', { channel: 'payroll', body: 'Me too' })).status).toBe(404)

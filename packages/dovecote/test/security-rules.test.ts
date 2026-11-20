@@ -61,9 +61,14 @@ const SECRET_BODY = 'draft-only secret 7f3a'
 const draftFromAnaToBen = async (body = SECRET_BODY) =>
   (await anaAgent.api('POST', '/drafts', { to: [ben.me.member.id], body })).json
 
+const asRead = (note: { readonly body: string; readonly conversationId: string }) => ({
+  body: note.body,
+  conversationId: note.conversationId,
+})
+
 const sentFromAnaToBen = async (body = 'A sent note') => {
   const draft = await draftFromAnaToBen(body)
-  return (await ana.api('POST', `/drafts/${draft.id}/send`, {})).json
+  return (await ana.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })).json
 }
 
 const pathOf = (name: RouteName, id: string): string =>
@@ -79,7 +84,7 @@ const stateOf = (dump: string): string =>
 describe('Rule 1: only a human credential can approve a note', () => {
   it('refuses an agent credential that tries to send its own draft', async () => {
     const draft = await draftFromAnaToBen()
-    const refused = await anaAgent.api('POST', `/drafts/${draft.id}/send`, {})
+    const refused = await anaAgent.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })
     expect(refused.status).toBe(403)
     expect((await ana.api('GET', `/notes/${draft.id}`)).json.status).toBe('draft')
   })
@@ -117,12 +122,34 @@ describe('Rule 1: only a human credential can approve a note', () => {
 
   it('lets the person who signed in through the browser send their draft', async () => {
     const draft = await draftFromAnaToBen()
-    expect((await ana.api('POST', `/drafts/${draft.id}/send`, {})).json.status).toBe('sent')
+    expect((await ana.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })).json.status).toBe(
+      'sent',
+    )
   })
 
   it('does not let one person approve another person’s draft', async () => {
     const draft = await draftFromAnaToBen()
-    expect((await ben.api('POST', `/drafts/${draft.id}/send`, {})).status).toBe(404)
+    expect((await ben.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })).status).toBe(404)
+    expect((await ana.api('GET', `/notes/${draft.id}`)).json.status).toBe('draft')
+  })
+
+  it('sends only the draft the person read, refusing one its agent changed after the card was shown', async () => {
+    const read = await draftFromAnaToBen('Lunch at noon?')
+    await anaAgent.api('PATCH', `/drafts/${read.id}`, { body: 'Send me the payroll file.' })
+    const refused = await ana.api('POST', `/drafts/${read.id}/send`, { expected: asRead(read) })
+    expect(refused.status).toBe(409)
+    expect((await ana.api('GET', `/notes/${read.id}`)).json).toMatchObject({
+      status: 'draft',
+      body: 'Send me the payroll file.',
+    })
+    expect((await ben.api('GET', `/notes/${read.id}`)).status).toBe(404)
+    expect((await ben.api('GET', '/inbox')).json.items).toEqual([])
+  })
+
+  it('refuses a send that does not say which version of the draft the person read', async () => {
+    const draft = await draftFromAnaToBen()
+    expect((await ana.api('POST', `/drafts/${draft.id}/send`, {})).status).toBe(400)
+    expect((await ana.api('POST', `/drafts/${draft.id}/send`, { body: 'edited' })).status).toBe(400)
     expect((await ana.api('GET', `/notes/${draft.id}`)).json.status).toBe('draft')
   })
 })
@@ -198,7 +225,7 @@ describe('Rule 2: drafts are invisible to recipients', () => {
       agentClient: LABELS.client,
       agentModel: LABELS.model,
     })
-    await ana.api('POST', `/drafts/${draft.id}/send`, {})
+    await ana.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })
     expect((await ben.api('GET', `/notes/${draft.id}`)).json).toMatchObject({
       agentName: 'Ana agent',
       agentClient: LABELS.client,
@@ -221,7 +248,9 @@ describe('Rule 2: drafts are invisible to recipients', () => {
     ]
     expect(await authorSees()).toEqual([`${BASIS}, revised`, `${BASIS}, revised`])
     expect((await ana.api('GET', '/drafts')).json.drafts[0].basis).toBe(`${BASIS}, revised`)
-    expect((await ana.api('POST', `/drafts/${draft.id}/send`, {})).json.basis).toBe(`${BASIS}, revised`)
+    expect((await ana.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })).json.basis).toBe(
+      `${BASIS}, revised`,
+    )
     expect(await authorSees()).toEqual([`${BASIS}, revised`, `${BASIS}, revised`])
     const others = [ben, cy] as const
     const responses = [
@@ -261,7 +290,7 @@ describe('Rule 2: drafts are invisible to recipients', () => {
       await ana.api('POST', '/conversations', { participantIds: [ben.me.member.id, cy.me.member.id] })
     ).json
     const question = (await ana.api('POST', '/drafts', { conversationId: group.id, body: 'Who knows?' })).json
-    await ana.api('POST', `/drafts/${question.id}/send`, {})
+    await ana.api('POST', `/drafts/${question.id}/send`, { expected: asRead(question) })
     await benAgent.api('POST', `/notes/${question.id}/pickup`)
     const REASON = 'Not my area 4b7d; nothing in my notes about it.'
     expect((await benAgent.api('POST', `/notes/${question.id}/release`, { reason: REASON })).status).toBe(200)
@@ -410,7 +439,10 @@ describe('Rule 3: no model-facing credential can approve, change contacts, or re
       server.env,
     )
     const draft = await draftFromAnaToBen()
-    const refused = await server.request('POST', `/api/v1/drafts/${draft.id}/send`, { token, body: {} })
+    const refused = await server.request('POST', `/api/v1/drafts/${draft.id}/send`, {
+      token,
+      body: { expected: asRead(draft) },
+    })
     expect(refused.status).toBe(401)
     expect((await ana.api('GET', `/notes/${draft.id}`)).json.status).toBe('draft')
   })
@@ -689,9 +721,12 @@ describe('Rule 4: a received note reaches a model only inside wrapNote', () => {
       },
     })
     const taskId = sent.result.id
-    await ana.api('POST', `/drafts/${taskId}/send`, {})
+    await ana.api('POST', `/drafts/${taskId}/send`, {
+      expected: asRead((await ana.api('GET', `/notes/${taskId}`)).json),
+    })
     const reply = (await ben.api('POST', '/drafts', { inReplyTo: taskId, body: HOSTILE })).json
-    const answered: Quoted = (await ben.api('POST', `/drafts/${reply.id}/send`, {})).json
+    const answered: Quoted = (await ben.api('POST', `/drafts/${reply.id}/send`, { expected: asRead(reply) }))
+      .json
     for (const method of ['tasks/get', 'GetTask']) {
       const task = await rpcAsAna(method, { id: taskId })
       expect(task.error).toBeUndefined()
@@ -704,7 +739,7 @@ describe('Rule 4: a received note reaches a model only inside wrapNote', () => {
 describe('Rule 5: credentials are stored hashed and never logged', () => {
   it('keeps no issued token anywhere in the database or the audit log', async () => {
     const draft = await draftFromAnaToBen()
-    await ana.api('POST', `/drafts/${draft.id}/send`, {})
+    await ana.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })
     const stored = await everyStoredValue(server)
     for (const token of [ana.token, ben.token, cy.token, anaAgent.token, benAgent.token])
       expect(stored.includes(token)).toBe(false)
@@ -841,7 +876,7 @@ describe('Rule 6: a member sees only conversations they participate in', () => {
       managing = made.managedBy
       await ben.api('PUT', `/channels/${NAME}/members/${dee.me.member.id}`)
       const draft = (await dee.api('POST', '/drafts', { channel: NAME, body: QUESTION })).json
-      question = (await dee.api('POST', `/drafts/${draft.id}/send`, {})).json
+      question = (await dee.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })).json
     })
 
     const leaks = (text: string): string[] =>
@@ -899,7 +934,7 @@ describe('Rule 6: a member sees only conversations they participate in', () => {
       )
       expect((await cy.api('PUT', `/channels/${NAME}/membership`, { answering: true })).status).toBe(404)
       expect((await cy.api('PUT', `/channels/${NAME}/answering`)).status).toBe(404)
-      const sent = (await cy.api('POST', `/drafts/${own.id}/send`, {})).json
+      const sent = (await cy.api('POST', `/drafts/${own.id}/send`, { expected: asRead(own) })).json
       expect((await cy.api('POST', `/notes/${sent.id}/move`, { channel: NAME })).status).toBe(404)
       expect(
         (await cy.api('POST', '/channels', { slug: NAME, description: 'mine' })).json.error.message,
@@ -1296,7 +1331,10 @@ describe('Rule 8: no tool exposed to a model can save, change, enable, disable o
 
   it('never puts a suggestion into an instruction block, only a saved principle', async () => {
     const draft = await draftFromAnaToBen('The release ships soon.')
-    await ana.api('POST', `/drafts/${draft.id}/send`, { body: 'The release ships on Tuesday at 14:00 CET.' })
+    await ana.api('POST', `/drafts/${draft.id}/send`, {
+      body: 'The release ships on Tuesday at 14:00 CET.',
+      expected: asRead(draft),
+    })
     const [offer] = (await ana.api('GET', '/principles')).json.offers
     expect(offer.suggestion.added).toBe('on Tuesday at 14:00 CET')
     const drafting = (await anaAgent.api('GET', '/principles/drafting')).json
@@ -1440,7 +1478,7 @@ describe('Rule 9: no tool exposed to a model can open a debate room, opt an agen
     expect(draft.body).not.toContain('3e7a')
     expect((await cy.api('GET', '/inbox')).json.items).toEqual([])
     expect(await storedRows(server, 'receipts')).toEqual([])
-    await ana.api('POST', `/drafts/${draft.id}/send`, {})
+    await ana.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })
     expect((await cy.api('GET', '/inbox')).json.items).toHaveLength(1)
   })
 
@@ -1495,11 +1533,13 @@ describe('Rule 9: no tool exposed to a model can open a debate room, opt an agen
     expect(await storedRows(server, 'notes')).toEqual([])
     const draft = (await ana.api('POST', `/debates/${id}/result/post`, { to: cy.me.member.id })).json
     expect(draft).toMatchObject({ status: 'draft', authorId: ana.me.member.id })
-    expect((await ben.api('POST', `/drafts/${draft.id}/send`, {})).status).toBe(404)
-    expect((await anaAgent.api('POST', `/drafts/${draft.id}/send`, {})).status).toBe(403)
+    expect((await ben.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })).status).toBe(404)
+    expect((await anaAgent.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })).status).toBe(
+      403,
+    )
     expect((await cy.api('GET', '/inbox')).json.items).toEqual([])
     expect((await cy.api('GET', `/notes/${draft.id}`)).status).toBe(404)
-    await ana.api('POST', `/drafts/${draft.id}/send`, {})
+    await ana.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })
     expect((await cy.api('GET', '/inbox')).json.items).toHaveLength(1)
   })
 
@@ -1604,7 +1644,7 @@ describe('Rule 9: no tool exposed to a model can open a debate room, opt an agen
     expect(draft).toMatchObject({ origin: 'agent', fromDebate: { debateId: id } })
     expect((await cy.api('GET', `/notes/${draft.id}`)).status).toBe(404)
     expect(JSON.stringify((await cy.api('GET', '/events/poll?after=0')).json)).not.toContain(id)
-    await ana.api('POST', `/drafts/${draft.id}/send`, {})
+    await ana.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })
     expect((await cy.api('GET', `/notes/${draft.id}`)).json).toMatchObject({
       origin: 'agent',
       fromDebate: { debateId: id },

@@ -14,6 +14,7 @@ import {
   type Agent,
   type Session,
   type TestServer,
+  asShown,
   connectAgent,
   startTestServer,
   storedRows,
@@ -35,7 +36,7 @@ afterEach(() => server.close())
 
 const sendNote = async (body: string) => {
   const draft = (await ana.api('POST', '/drafts', { to: [ben.me.member.id], body })).json
-  return (await ana.api('POST', `/drafts/${draft.id}/send`, {})).json
+  return (await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))).json
 }
 
 const frames = async (response: { raw: { body: unknown } }, count: number): Promise<string[]> => {

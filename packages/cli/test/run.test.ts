@@ -10,7 +10,7 @@ import {
   contract,
 } from '@homingbird/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { type Session, type TestServer, startTestServer } from '../../dovecote/test/harness.ts'
+import { type Session, type TestServer, asShown, startTestServer } from '../../dovecote/test/harness.ts'
 import { presetNamed } from '../src/agent-presets.ts'
 import {
   MINIMAL_READER_REFUSED,
@@ -540,7 +540,7 @@ describe('homingbird run against a running server', () => {
     await settle(() => w.lines.length === 1)
     const anaId = ana.me.member.id
     const draft = (await ben.api('POST', '/drafts', { to: [anaId], body: 'Is the migration safe?' })).json
-    await ben.api('POST', `/drafts/${draft.id}/send`, {})
+    await ben.api('POST', `/drafts/${draft.id}/send`, await asShown(ben, draft.id))
     let drafts: any[] = []
     for (let turn = 0; turn < 200 && drafts.length === 0; turn++) {
       await new Promise((resolve) => setTimeout(resolve, 5))

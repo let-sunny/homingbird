@@ -4,6 +4,7 @@ import {
   type Agent,
   type Session,
   type TestServer,
+  asShown,
   connectAgent,
   startTestServer,
 } from '../../dovecote/test/harness.ts'
@@ -80,7 +81,7 @@ describe('the A2A gateway on a running server', () => {
     expect((await ben.api('GET', `/notes/${taskId}`)).status).toBe(404)
     expect((await ben.api('GET', '/inbox')).json.items).toEqual([])
 
-    await ana.api('POST', `/drafts/${taskId}/send`, {})
+    await ana.api('POST', `/drafts/${taskId}/send`, await asShown(ana, taskId))
     expect((await a2a(anaAgent, 'GetTask', { id: taskId })).result.status.state).toBe('TASK_STATE_WORKING')
 
     const reply = await a2a(
@@ -95,7 +96,7 @@ describe('the A2A gateway on a running server', () => {
     expect(drafting.result.artifacts).toEqual([])
     expect(JSON.stringify(drafting)).not.toContain('nightly export')
 
-    await ben.api('POST', `/drafts/${reply.result.task.id}/send`, {})
+    await ben.api('POST', `/drafts/${reply.result.task.id}/send`, await asShown(ben, reply.result.task.id))
     const done = await a2a(anaAgent, 'GetTask', { id: taskId })
     expect(done.result.status.state).toBe('TASK_STATE_COMPLETED')
     expect(done.result.artifacts).toHaveLength(1)
@@ -121,11 +122,11 @@ describe('the A2A gateway on a running server', () => {
     expect(sent.result.task.status.state).toBe('TASK_STATE_INPUT_REQUIRED')
     const room = (await ana.api('GET', `/conversations/${sent.result.task.contextId}`)).json
     expect(room.kind).toBe('channel')
-    await ana.api('POST', `/drafts/${taskId}/send`, {})
+    await ana.api('POST', `/drafts/${taskId}/send`, await asShown(ana, taskId))
     expect((await a2a(anaAgent, 'GetTask', { id: taskId })).result.status.state).toBe('TASK_STATE_WORKING')
 
     const reply = await a2a(benAgent, 'SendMessage', say('I do. It runs at 02:00.', { inReplyTo: taskId }))
-    await ben.api('POST', `/drafts/${reply.result.task.id}/send`, {})
+    await ben.api('POST', `/drafts/${reply.result.task.id}/send`, await asShown(ben, reply.result.task.id))
     const done = await a2a(anaAgent, 'GetTask', { id: taskId })
     expect(done.result.status.state).toBe('TASK_STATE_COMPLETED')
     expect(done.result.artifacts).toHaveLength(1)
@@ -159,7 +160,7 @@ describe('the A2A gateway on a running server', () => {
     await a2a(anaAgent, 'SendMessage', say('second wording', {}, { taskId }))
     const draft = (await ana.api('GET', `/notes/${taskId}`)).json
     expect(draft).toMatchObject({ status: 'draft', body: 'second wording' })
-    await ana.api('POST', `/drafts/${taskId}/send`, {})
+    await ana.api('POST', `/drafts/${taskId}/send`, await asShown(ana, taskId))
     const late = await a2a(anaAgent, 'SendMessage', say('third wording', {}, { taskId }))
     expect(late.error.code).toBe(A2A_CODE.unsupportedOperation)
     expect((await ana.api('GET', `/notes/${taskId}`)).json.body).toBe('second wording')
@@ -204,7 +205,7 @@ describe('the A2A gateway on a running server', () => {
     expect((await ben.api('GET', '/events/poll?after=0')).json.events).toEqual([])
     const direct = await server.request('POST', `/api/v1/drafts/${taskId}/send`, {
       token: anaAgent.token,
-      body: {},
+      body: await asShown(anaAgent, taskId),
     })
     expect(direct.status).toBe(403)
   })

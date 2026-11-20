@@ -213,7 +213,7 @@ describe('contract', () => {
       readonly params: { readonly id: string }
       readonly body: {
         readonly body?: string
-        readonly expected?: { readonly body: string; readonly conversationId: ConversationId }
+        readonly expected: { readonly body: string; readonly conversationId: ConversationId }
       }
     }>()
     expectTypeOf<RequestOf<Contract['me.get']>>().toEqualTypeOf<{}>()

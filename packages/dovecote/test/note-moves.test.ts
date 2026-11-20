@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { type Agent, type Session, type TestServer, connectAgent, startTestServer } from './harness.ts'
+import {
+  type Agent,
+  type Session,
+  type TestServer,
+  asShown,
+  connectAgent,
+  startTestServer,
+} from './harness.ts'
 
 let server: TestServer
 let ana: Session
@@ -22,7 +29,7 @@ afterEach(() => server.close())
 
 const ask = async (channel: string, body: string) => {
   const draft = (await ana.api('POST', '/drafts', { channel, body })).json
-  return (await ana.api('POST', `/drafts/${draft.id}/send`, {})).json
+  return (await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))).json
 }
 
 const eventsOf = async (session: Session) =>
@@ -72,13 +79,13 @@ describe('moving a question to another channel', () => {
       (await ben.api('POST', `/notes/${question.id}/move`, { channel: 'billing' })).json.error.message,
     ).toBe('The question is already in that channel.')
     const reply = (await ben.api('POST', '/drafts', { inReplyTo: question.id, body: 'Finance.' })).json
-    await ben.api('POST', `/drafts/${reply.id}/send`, {})
+    await ben.api('POST', `/drafts/${reply.id}/send`, await asShown(ben, reply.id))
     expect(
       (await ben.api('POST', `/notes/${question.id}/move`, { channel: 'support' })).json.error.message,
     ).toBe('This question already has an answer here.')
     expect((await ben.api('POST', `/notes/${reply.id}/move`, { channel: 'support' })).status).toBe(409)
     const direct = (await ana.api('POST', '/drafts', { to: [ben.me.member.id], body: 'Direct' })).json
-    await ana.api('POST', `/drafts/${direct.id}/send`, {})
+    await ana.api('POST', `/drafts/${direct.id}/send`, await asShown(ana, direct.id))
     expect(
       (await ana.api('POST', `/notes/${direct.id}/move`, { channel: 'support' })).json.error.message,
     ).toBe('Only a question asked in a channel can be moved.')

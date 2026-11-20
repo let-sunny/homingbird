@@ -14,6 +14,7 @@ import {
   type Agent,
   type Session,
   type TestServer,
+  asShown,
   connectAgent,
   openTestDatabase,
   startTestServer,
@@ -48,7 +49,7 @@ describe.each(DIALECTS)('Dovecote on %s', (_, url) => {
   const send = async (author: Session, to: Session, body: string) => {
     const draft = (await author.api('POST', '/drafts', { to: [to.me.member.id], body })).json
     await server.clock.advance(1_000)
-    return (await author.api('POST', `/drafts/${draft.id}/send`, {})).json
+    return (await author.api('POST', `/drafts/${draft.id}/send`, await asShown(author, draft.id))).json
   }
 
   it.skipIf(url === undefined)('migrates twice without changing anything', async () => {
@@ -67,7 +68,11 @@ describe.each(DIALECTS)('Dovecote on %s', (_, url) => {
       await benAgent.api('POST', `/notes/${note.id}/pickup`)
       const reply = (await benAgent.api('POST', '/drafts', { inReplyTo: note.id, body: 'Yes.' })).json
       expect((await ben.api('GET', `/conversations/${note.conversationId}`)).json.draftCount).toBe(1)
-      await ben.api('POST', `/drafts/${reply.id}/send`, { body: 'Yes, go ahead.' })
+      await ben.api(
+        'POST',
+        `/drafts/${reply.id}/send`,
+        await asShown(ben, reply.id, { body: 'Yes, go ahead.' }),
+      )
       const receipt = (await ana.api('GET', `/notes/${note.id}`)).json.receipts[0]
       expect(receipt.state).toBe('replied')
       expect(typeof receipt.repliedAt).toBe('number')
@@ -102,8 +107,8 @@ describe.each(DIALECTS)('Dovecote on %s', (_, url) => {
   it.skipIf(url === undefined)('sends a draft once when two approvals race', async () => {
     const draft = (await ana.api('POST', '/drafts', { to: [ben.me.member.id], body: 'once' })).json
     const outcomes = await Promise.all([
-      ana.api('POST', `/drafts/${draft.id}/send`, {}),
-      ana.api('POST', `/drafts/${draft.id}/send`, {}),
+      ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id)),
+      ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id)),
     ])
     expect(outcomes.map((outcome) => outcome.status).sort()).toEqual([200, 409])
     const receipts = (await storedRows(server, 'receipts')).filter((row) => row.note_id === draft.id)

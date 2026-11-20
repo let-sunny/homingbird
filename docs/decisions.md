@@ -929,10 +929,9 @@ changed the draft.
 
 - **The comparison is in the `UPDATE`, not before it,** so a change that lands between reading the row
   and writing it is caught too.
-- **`expected` is optional on the wire.** Only the bundled web client calls `drafts.send` (Rule 3), and
-  it always fills it. A human caller that leaves it out binds to the row `sendDraft` read a moment
-  before, which still closes that race but not the one on the person's screen. Making it required
-  changes the Rule 1 tests, which needs a maintainer's approval.
+- **`expected` is required.** A send that does not say which version the person read is refused as
+  invalid, so no caller can send a draft without binding to one. Only the bundled web client calls
+  `drafts.send` (Rule 3), so the route changed at once.
 - **The basis and model are not compared.** They describe the draft; the body and the room are what
   is sent and to whom.
 - **The card binds to what was read, not to what is on screen at the tap.** A change arriving on the

@@ -7,6 +7,7 @@ import {
   type Agent,
   type Session,
   type TestServer,
+  asShown,
   connectAgent,
   startTestServer,
   storedRows,
@@ -105,7 +106,7 @@ describe('push subscriptions', () => {
 
   const sendNote = async (body: string) => {
     const draft = (await ana.api('POST', '/drafts', { to: [ben.me.member.id], body })).json
-    const sent = (await ana.api('POST', `/drafts/${draft.id}/send`, {})).json
+    const sent = (await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))).json
     await server.settled()
     return sent
   }

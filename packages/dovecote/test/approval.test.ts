@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { type Agent, type Session, type TestServer, connectAgent, startTestServer } from './harness.ts'
+import {
+  type Agent,
+  type Session,
+  type TestServer,
+  asShown,
+  connectAgent,
+  startTestServer,
+} from './harness.ts'
 
 let server: TestServer
 let ana: Session
@@ -19,7 +26,7 @@ afterEach(() => server.close())
 
 const send = async (author: Session, to: Session, body: string) => {
   const draft = (await author.api('POST', '/drafts', { to: [to.me.member.id], body })).json
-  return (await author.api('POST', `/drafts/${draft.id}/send`, {})).json
+  return (await author.api('POST', `/drafts/${draft.id}/send`, await asShown(author, draft.id))).json
 }
 
 describe('approval', () => {
@@ -27,7 +34,7 @@ describe('approval', () => {
     const draft = (await anaAgent.api('POST', '/drafts', { to: [ben.me.member.id], body: 'hello' })).json
     server.clock.advance(5_000)
     await server.clock.flush()
-    const sent = (await ana.api('POST', `/drafts/${draft.id}/send`, {})).json
+    const sent = (await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))).json
     expect(sent).toMatchObject({ status: 'sent', origin: 'agent', body: 'hello' })
     expect(sent.sentAt).toBeGreaterThan(sent.createdAt)
     expect(sent.receipts).toEqual([
@@ -40,7 +47,7 @@ describe('approval', () => {
         repliedAt: null,
       },
     ])
-    expect((await ana.api('POST', `/drafts/${draft.id}/send`, {})).status).toBe(409)
+    expect((await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))).status).toBe(409)
     expect((await ana.api('POST', `/drafts/${draft.id}/discard`)).status).toBe(409)
     expect((await ana.api('PATCH', `/drafts/${draft.id}`, { body: 'late edit' })).status).toBe(409)
   })
@@ -48,26 +55,39 @@ describe('approval', () => {
   it('marks a note the person rewrote before sending as human edited', async () => {
     const draft = (await anaAgent.api('POST', '/drafts', { to: [ben.me.member.id], body: 'agent words' }))
       .json
-    const sent = (await ana.api('POST', `/drafts/${draft.id}/send`, { body: 'my words' })).json
+    const sent = (
+      await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id, { body: 'my words' }))
+    ).json
     expect(sent).toMatchObject({ body: 'my words', origin: 'human_edited', agentName: 'Ana agent' })
     const unchanged = (await anaAgent.api('POST', '/drafts', { to: [ben.me.member.id], body: 'same' })).json
-    expect((await ana.api('POST', `/drafts/${unchanged.id}/send`, { body: 'same' })).json.origin).toBe(
-      'agent',
-    )
+    expect(
+      (
+        await ana.api(
+          'POST',
+          `/drafts/${unchanged.id}/send`,
+          await asShown(ana, unchanged.id, { body: 'same' }),
+        )
+      ).json.origin,
+    ).toBe('agent')
   })
 
   it('discards a draft for good', async () => {
     const draft = (await ana.api('POST', '/drafts', { to: [ben.me.member.id], body: 'never mind' })).json
     expect((await ana.api('POST', `/drafts/${draft.id}/discard`)).json.status).toBe('discarded')
-    expect((await ana.api('POST', `/drafts/${draft.id}/send`, {})).status).toBe(409)
+    expect((await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))).status).toBe(409)
     expect((await ana.api('GET', '/drafts')).json.drafts).toEqual([])
     expect((await ana.api('GET', `/notes/${draft.id}`)).json.status).toBe('discarded')
     expect((await ana.api('GET', `/conversations/${draft.conversationId}/notes`)).json.notes).toEqual([])
   })
 
   it('answers 404 for a draft that does not exist and 400 for a malformed id', async () => {
-    expect((await ana.api('POST', '/drafts/note_doesnotexist00/send', {})).status).toBe(404)
-    expect((await ana.api('POST', '/drafts/not-an-id/send', {})).status).toBe(400)
+    expect(
+      (await ana.api('POST', '/drafts/note_doesnotexist00/send', await asShown(ana, 'note_doesnotexist00')))
+        .status,
+    ).toBe(404)
+    expect((await ana.api('POST', '/drafts/not-an-id/send', await asShown(ana, 'not-an-id'))).status).toBe(
+      400,
+    )
   })
 })
 
@@ -146,7 +166,7 @@ describe('several agents answering one note', () => {
       ['Ben agent', note.id],
       ['Ben second agent', note.id],
     ])
-    await ben.api('POST', `/drafts/${b.id}/send`, {})
+    await ben.api('POST', `/drafts/${b.id}/send`, await asShown(ben, b.id))
     expect((await ben.api('GET', `/notes/${a.id}`)).json.status).toBe('discarded')
     expect((await ben.api('GET', '/drafts')).json.drafts).toEqual([])
     const thread = (await ana.api('GET', `/conversations/${note.conversationId}/notes`)).json.notes

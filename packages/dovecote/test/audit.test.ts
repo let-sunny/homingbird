@@ -9,7 +9,14 @@ import { handleRequest } from '../src/http/app.ts'
 import { chainHeadPass, housekeepingPass, refusedAttempts } from '../src/runtime.ts'
 import { run } from '../src/sql/database.ts'
 import { insertInto, sql } from '../src/sql/query.ts'
-import { type TestServer, connectAgent, everyStoredValue, startTestServer, storedRows } from './harness.ts'
+import {
+  type TestServer,
+  asShown,
+  connectAgent,
+  everyStoredValue,
+  startTestServer,
+  storedRows,
+} from './harness.ts'
 
 const HOUR = 60 * 60_000
 const DAY = 24 * HOUR
@@ -26,11 +33,17 @@ const scenario = async (overrides: Record<string, string> = {}) => {
   const draft = (await anaAgent.api('POST', '/drafts', { to: [ben.me.member.id], body: 'audited question' }))
     .json
   await anaAgent.api('PATCH', `/drafts/${draft.id}`, { body: 'audited question v2' })
-  const sent = (await ana.api('POST', `/drafts/${draft.id}/send`, { body: 'audited question final' })).json
+  const sent = (
+    await ana.api(
+      'POST',
+      `/drafts/${draft.id}/send`,
+      await asShown(ana, draft.id, { body: 'audited question final' }),
+    )
+  ).json
   await ben.api('POST', `/notes/${sent.id}/read`)
   const reply = (await ben.api('POST', '/drafts', { inReplyTo: sent.id, body: 'audited reply' })).json
   await ben.api('POST', `/drafts/${reply.id}/discard`)
-  await anaAgent.api('POST', `/drafts/${draft.id}/send`, {})
+  await anaAgent.api('POST', `/drafts/${draft.id}/send`, await asShown(anaAgent, draft.id))
   await ana.api('PATCH', '/me', { profile: 'Billing' })
   await ana.api('PUT', `/blocks/${ben.me.member.id}`)
   await server.request('POST', '/auth/logout', { cookie: ben.cookie })
@@ -115,7 +128,7 @@ describe('the audit trail', () => {
     const draft = (await agent.api('POST', '/drafts', { to: [cy.me.member.id], body: 'seen once' })).json
     await agent.api('PATCH', `/drafts/${draft.id}`, { body: 'seen twice' })
     expect((await ben.api('POST', `/drafts/${draft.id}/seen`)).status).toBe(200)
-    const sent = (await ben.api('POST', `/drafts/${draft.id}/send`, {})).json
+    const sent = (await ben.api('POST', `/drafts/${draft.id}/send`, await asShown(ben, draft.id))).json
     const afterSend = (await rows()).length
     await cy.api('POST', `/notes/${sent.id}/read`)
     await cyAgent.api('POST', `/notes/${sent.id}/pickup`)
@@ -127,7 +140,10 @@ describe('the audit trail', () => {
   it('rolls the row back together with a failed action', async () => {
     const { ana } = await scenario()
     const before = (await rows()).length
-    expect((await ana.api('POST', '/drafts/note_doesnotexist00/send', {})).status).toBe(404)
+    expect(
+      (await ana.api('POST', '/drafts/note_doesnotexist00/send', await asShown(ana, 'note_doesnotexist00')))
+        .status,
+    ).toBe(404)
     expect((await rows()).length).toBe(before)
   })
 
@@ -161,7 +177,11 @@ describe('the audit trail', () => {
             basis: marker,
           })
         ).json
-        await ana.api('POST', `/drafts/${draft.id}/send`, { body: `${marker} sent` })
+        await ana.api(
+          'POST',
+          `/drafts/${draft.id}/send`,
+          await asShown(ana, draft.id, { body: `${marker} sent` }),
+        )
         const principle = (
           await ana.api('POST', '/principles', { topic: marker, rule: `${marker} rule`, place: null })
         ).json
@@ -181,7 +201,8 @@ describe('refused attempts', () => {
     const { anaAgent, sent } = await scenario()
     const before = (await events()).filter((event) => event === 'authz.denied').length
     expect(before).toBe(0)
-    for (let attempt = 0; attempt < 49; attempt++) await anaAgent.api('POST', `/drafts/${sent.id}/send`, {})
+    for (let attempt = 0; attempt < 49; attempt++)
+      await anaAgent.api('POST', `/drafts/${sent.id}/send`, await asShown(anaAgent, sent.id))
     await T.runPromise(flushAttempts('due'), server.env)
     expect((await events()).filter((event) => event === 'authz.denied')).toEqual([])
     await server.clock.advance(60_000)

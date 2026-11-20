@@ -3,6 +3,7 @@ import {
   type Agent,
   type Session,
   type TestServer,
+  asShown,
   connectAgent,
   startTestServer,
   storedRows,
@@ -55,8 +56,8 @@ describe('principles a draft applied', () => {
     const edited = await agentDraft('Soon.', 'Principles applied: Release dates; Unknown')
     const thrown = await agentDraft('Maybe.', 'Principles applied: Release dates')
     await agentDraft('Not applied.', 'Read the wiki.')
-    await ana.api('POST', `/drafts/${kept.id}/send`, {})
-    await ana.api('POST', `/drafts/${edited.id}/send`, { body: 'Tuesday.' })
+    await ana.api('POST', `/drafts/${kept.id}/send`, await asShown(ana, kept.id))
+    await ana.api('POST', `/drafts/${edited.id}/send`, await asShown(ana, edited.id, { body: 'Tuesday.' }))
     await ana.api('POST', `/drafts/${thrown.id}/discard`)
     const missed = await ana.api('POST', `/principles/${saved.id}/misses`, { noteId: edited.id })
     expect(missed.json.counts).toEqual({ applied: 3, sentAsWritten: 1, edited: 1, discarded: 1, missed: 1 })
@@ -90,9 +91,11 @@ describe('with teaching switched off', () => {
     await save()
     await switchTeaching(false)
     const applied = await agentDraft('Tuesday at 14:00.', 'Principles applied: Release dates')
-    await ana.api('POST', `/drafts/${applied.id}/send`, {
-      body: 'The release ships on Tuesday at 14:00 CET.',
-    })
+    await ana.api(
+      'POST',
+      `/drafts/${applied.id}/send`,
+      await asShown(ana, applied.id, { body: 'The release ships on Tuesday at 14:00 CET.' }),
+    )
     const thrown = await agentDraft('Wrong answer.')
     await ana.api('POST', `/drafts/${thrown.id}/discard`)
     expect(await applications()).toEqual([])

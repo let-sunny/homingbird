@@ -25,7 +25,7 @@ export const sendDraft = (
   caller: Caller,
   id: NoteId,
   replacementBody: string | undefined,
-  expected: DraftAsShown | undefined,
+  expected: DraftAsShown,
 ): T.Task<Note, NoteFailure, RequestEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
@@ -39,10 +39,9 @@ export const sendDraft = (
     const origin = originAfterEdit(draft.origin, true, body !== draft.body)
     const decidedAt = env.clock.now()
     const now = yield* nextSendTime(draft.conversation_id, decidedAt)
-    const asRead = expected ?? { body: draft.body, conversationId: draft.conversation_id }
-    const sameBody = equalsExactly(yield* dialect, 'body', asRead.body)
+    const sameBody = equalsExactly(yield* dialect, 'body', expected.body)
     const sent = yield* run(
-      sql`UPDATE notes SET status = 'sent', body = ${body}, origin = ${origin}, sent_at = ${now}, updated_at = ${now}, decided_at = ${decidedAt} WHERE id = ${id} AND status = 'draft' AND ${sameBody} AND conversation_id = ${asRead.conversationId}`,
+      sql`UPDATE notes SET status = 'sent', body = ${body}, origin = ${origin}, sent_at = ${now}, updated_at = ${now}, decided_at = ${decidedAt} WHERE id = ${id} AND status = 'draft' AND ${sameBody} AND conversation_id = ${expected.conversationId}`,
     )
     if (sent === 0) return yield* T.fail(yield* refusalAfterMissedSend(id))
     for (const memberId of recipients)

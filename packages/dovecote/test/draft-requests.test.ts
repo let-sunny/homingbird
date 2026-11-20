@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { DRAFT_REQUEST_LIFETIME_MS } from '../src/domain/draft-requests.ts'
-import { type Agent, type Session, type TestServer, connectAgent, startTestServer } from './harness.ts'
+import {
+  type Agent,
+  type Session,
+  type TestServer,
+  asShown,
+  connectAgent,
+  startTestServer,
+} from './harness.ts'
 
 let server: TestServer
 let ana: Session
@@ -22,7 +29,7 @@ afterEach(() => server.close())
 
 const receivedByAna = async (body: string) => {
   const draft = (await ben.api('POST', '/drafts', { to: [ana.me.member.id], body })).json
-  return (await ben.api('POST', `/drafts/${draft.id}/send`, {})).json
+  return (await ben.api('POST', `/drafts/${draft.id}/send`, await asShown(ben, draft.id))).json
 }
 
 const waitingFor = async (who: Session | Agent) =>
@@ -129,7 +136,7 @@ describe('answering a draft request', () => {
   it('stops asking the other agents once the person has sent one answer', async () => {
     const request = (await ana.api('POST', '/draft-requests', { to: [ben.me.member.id] })).json
     const draft = (await anaAgent.api('POST', '/drafts', { requestId: request.id, body: 'good enough' })).json
-    await ana.api('POST', `/drafts/${draft.id}/send`, {})
+    await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))
     expect(await waitingFor(anaSecondAgent)).toEqual([])
   })
 

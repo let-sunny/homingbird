@@ -370,7 +370,7 @@ export const contract = {
     access: 'human',
     body: S.struct({
       body: S.optional(NoteBody),
-      expected: S.optional(DraftAsShown),
+      expected: DraftAsShown,
     }),
     response: Note,
   }),

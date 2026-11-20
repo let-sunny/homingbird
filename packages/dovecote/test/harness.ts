@@ -294,3 +294,21 @@ const parseOrNull = (text: string): unknown => {
     return null
   }
 }
+
+/**
+ * A send request that carries the draft as the sender reads it now, as the web client sends one. A
+ * sender who may not read the draft carries a version that matches nothing, so the server refuses
+ * them for the reason it would have anyway.
+ */
+export const asShown = async (
+  sender: Pick<Session, 'api'>,
+  id: string,
+  body: Readonly<Record<string, unknown>> = {},
+): Promise<Readonly<Record<string, unknown>>> => {
+  const shown = await sender.api('GET', `/notes/${id}`)
+  const expected =
+    shown.status === 200
+      ? { body: shown.json.body, conversationId: shown.json.conversationId }
+      : { body: 'a draft this sender cannot read', conversationId: 'conv_unreadable00' }
+  return { ...body, expected }
+}
