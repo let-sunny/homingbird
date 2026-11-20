@@ -1,12 +1,13 @@
 import { presetById } from '@homingbird/sprites'
 import { lifetime } from '@homingbird/ui'
-import { getByRole, textOf } from '@homingbird/ui/testing'
+import { fire, getByRole, textOf } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
 import { strings } from '../../src/strings.ts'
 import { adminMembersSection } from '../../src/views/admin-members.ts'
+import { dialogHost } from '../../src/views/dialog.ts'
 import { testContext } from '../support/context.ts'
-import { usingFakeDom } from '../support/dom.ts'
-import { ANA, BEN, CY, me, member } from '../support/fixtures.ts'
+import { mount, usingFakeDom } from '../support/dom.ts'
+import { ANA, BEN, CY, TEAM, group, me, member } from '../support/fixtures.ts'
 
 usingFakeDom()
 
@@ -42,5 +43,25 @@ describe('adminMembersSection', () => {
       text: strings.character.resetMemberDone({ name: 'Ben' }),
     })
     expect(called('listMembers')).toHaveLength(3)
+  })
+
+  it('asks before deactivating someone in a group, naming every group they leave', () => {
+    const { context, called } = testContext()
+    mount(dialogHost())
+    context.state.groups.set([group(TEAM, { name: 'Finance', memberIds: [CY] })])
+    const shown = mount(adminMembersSection(context, lifetime(), me({}, { role: 'admin' })))
+    expect(called('loadGroups')).toHaveLength(1)
+    called('listMembers')[0]!.then!.done!([member(ANA, 'Ana', { role: 'admin' }), member(CY, 'Cy')])
+    getByRole(shown, 'button', { name: strings.deactivate }).click()
+    expect(called('updateMember')).toHaveLength(0)
+    const dialog = document.getElementById('dialog')!
+    expect(textOf(dialog)).toContain(strings.deactivateTitle({ name: 'Cy' }))
+    expect(textOf(dialog)).toContain(strings.groups.deactivateLeaves({ name: 'Cy', groups: 'Finance' }))
+    fire.submit(dialog.querySelector('form')!)
+    expect(called('updateMember')[0]!.args).toEqual([CY, { status: 'deactivated' }])
+    called('updateMember')[0]!.then!.done!(undefined)
+    expect((dialog as HTMLDialogElement).open).toBe(false)
+    expect(called('listMembers')).toHaveLength(2)
+    expect(called('loadGroups')).toHaveLength(2)
   })
 })

@@ -37,6 +37,12 @@ describe('Korean', () => {
     expect(hanging).toEqual([])
   })
 
+  it('asks for a manager to be added, never for a managing group to be chosen', () => {
+    expect(texts(ko).join(' ')).not.toMatch(/운영 그룹을 정해|운영 그룹 변경|운영 그룹에 다른/)
+    for (const text of [ko.privateNeedsManager, ko.refusals.needsManagerInRoom, ko.refusals.lastManager])
+      expect(text).toContain('운영자')
+  })
+
   it('has its own text for the error kinds that always mean the same thing', () => {
     for (const kind of ['Unauthorized', 'RateLimited', 'Unavailable'] as const)
       expect(ko.errors[kind]).not.toBe('')

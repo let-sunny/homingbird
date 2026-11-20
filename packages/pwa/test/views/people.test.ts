@@ -5,7 +5,7 @@ import { strings } from '../../src/strings.ts'
 import { peopleView } from '../../src/views/people.ts'
 import { testContext } from '../support/context.ts'
 import { usingFakeDom } from '../support/dom.ts'
-import { ANA, BEN, CY, channel, entry, me } from '../support/fixtures.ts'
+import { ANA, BEN, CY, OPS, TEAM, channel, entry, group, me, serverInfo } from '../support/fixtures.ts'
 
 usingFakeDom()
 
@@ -87,5 +87,39 @@ describe('peopleView', () => {
     getByRole(shown, 'button', { name: strings.removeContact }).click()
     expect(called('requestContact').map((call) => call.args[0])).toEqual([ANA])
     expect(called('removeContact').map((call) => call.args[0])).toEqual([BEN, CY])
+  })
+
+  it('filters by a group as the server lists its members, and links each person’s groups', () => {
+    const { context, called } = testContext()
+    const shown = peopleView(context, lifetime(), me())
+    expect(called('loadGroups')).toHaveLength(1)
+    loaded(context, [entry(BEN, 'Ben'), entry(CY, 'Cy')])
+    context.state.groups.set([group(TEAM, { name: 'Finance', memberIds: [CY] }), group(OPS, { name: 'Ops' })])
+    expect(getByRole(shown, 'link', { name: 'Finance' }).getAttribute('href')).toBe(
+      '#/group/grp_team00000000',
+    )
+    const filter = getByRole(shown, 'combobox', { name: strings.groups.filter })
+    fire.select(filter, OPS)
+    fire.select(filter, TEAM)
+    expect(textOf(shown)).toContain(strings.loading)
+    expect(called('listPeopleInGroup').map((call) => call.args)).toEqual([[OPS], [TEAM]])
+    called('listPeopleInGroup')[0]!.then!.done!([BEN])
+    expect(textOf(shown)).toContain(strings.loading)
+    called('listPeopleInGroup')[1]!.then!.done!([CY])
+    expect(textOf(shown)).toContain('Cy')
+    expect(textOf(shown)).not.toContain('Ben')
+    fire.select(filter, '')
+    expect(textOf(shown)).toContain('Ben')
+    expect(called('listPeopleInGroup')).toHaveLength(2)
+  })
+
+  it('offers no group filter and no group links while groups are off', () => {
+    const { context } = testContext()
+    context.state.serverInfo.set(serverInfo())
+    const shown = peopleView(context, lifetime(), me())
+    loaded(context, [entry(CY, 'Cy')])
+    context.state.groups.set([group(TEAM, { name: 'Finance', memberIds: [CY] })])
+    expect(shown.querySelector('select[name="group"]')).toBeNull()
+    expect(shown.querySelector('.group-chips')).toBeNull()
   })
 })

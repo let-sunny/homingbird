@@ -17,6 +17,7 @@ const routes: fc.Arbitrary<Route> = fc.oneof(
   fc.constant<Route>({ name: 'people' }),
   fc.constant<Route>({ name: 'channels' }),
   segment.map((slug): Route => ({ name: 'channel', slug })),
+  segment.map((id): Route => ({ name: 'group', id })),
   fc.constant<Route>({ name: 'profile' }),
   fc
     .constantFrom<AgentSection | null>(null, 'connection', 'teaching', 'doing', 'routes')
@@ -29,7 +30,7 @@ const routes: fc.Arbitrary<Route> = fc.oneof(
   fc.option(segment, { nil: null }).map((code): Route => ({ name: 'device', code })),
   fc.string({ maxLength: 40 }).map((query): Route => ({ name: 'search', query })),
   fc
-    .constantFrom<AdminSection>('settings', 'members', 'channels', 'insights')
+    .constantFrom<AdminSection>('settings', 'members', 'groups', 'channels', 'insights')
     .map((section): Route => ({ name: 'admin', section })),
   fc
     .option(fc.string({ maxLength: 60 }), { nil: null })
@@ -62,6 +63,9 @@ describe('routes', () => {
     ['#/t/billing', { name: 'channel', slug: 'billing' }],
     ['#/t', { name: 'unknown' }],
     ['#/admin/channels', { name: 'admin', section: 'channels' }],
+    ['#/admin/groups', { name: 'admin', section: 'groups' }],
+    ['#/group/grp_team00000000', { name: 'group', id: 'grp_team00000000' }],
+    ['#/group', { name: 'unknown' }],
     ['#/admin/insights', { name: 'admin', section: 'insights' }],
     ['#/agent', { name: 'agent', section: null }],
     ['#/agent/teaching', { name: 'agent', section: 'teaching' }],

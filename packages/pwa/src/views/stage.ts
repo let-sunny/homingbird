@@ -12,6 +12,7 @@ import { consentView, deviceView } from './connect.ts'
 import type { ViewContext } from './context.ts'
 import { debateView } from './debate-room.ts'
 import { debatesView } from './debates.ts'
+import { groupPageView } from './group-page.ts'
 import { homeView } from './home.ts'
 import { emptyWithPip } from './parts.ts'
 import { peopleView } from './people.ts'
@@ -29,6 +30,8 @@ export const stageFor = (context: ViewContext, life: Lifetime, me: AsRead.Me, cu
       return threadView(context, life, me, current.id as ConversationId)
     case 'people':
       return peopleView(context, life, me)
+    case 'group':
+      return on('groups') ? groupPageView(context, life, me.member.id, current.id) : notFound()
     case 'channels':
       return channelsView(context, life)
     case 'channel':

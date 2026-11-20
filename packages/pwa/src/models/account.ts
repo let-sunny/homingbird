@@ -1,6 +1,8 @@
 import type { AsRead, Locale } from '@homingbird/protocol'
 import { APPEARANCES, type Appearance } from '../appearance.ts'
+import { channelsManagedBy, groupLabel, managesText, teamsOf } from '../groups.ts'
 import { languageChoices } from '../languages.ts'
+import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 
 /** Profile: the person's name and about text, how the page looks, its language, and notifications. */
@@ -15,8 +17,31 @@ export const profileModel = (input: ProfileInput): ProfileModel => ({
   })),
   languages: languageChoicesFor(input.me),
   showsCharacter: input.charactersOn,
+  showsGroups: input.groupsOn,
   notifications: input.webPushOn ? (input.pushAvailable ? 'available' : 'unavailable') : null,
 })
+
+/** The person's own teams, and the channels whose managers they are; nothing while groups are off. */
+export const myGroupsModel = (
+  me: AsRead.Me,
+  groups: ReadonlyArray<AsRead.Group>,
+  loaded: boolean,
+  groupsOn: boolean,
+): MyGroupsModel | null => {
+  if (!groupsOn || !loaded) return null
+  const mine = teamsOf(groups, me.member.id)
+  const managed = channelsManagedBy(groups, me.member.id)
+  return {
+    title: strings.groups.yours,
+    empty: mine.length === 0 ? strings.groups.yoursNone : null,
+    groups: mine.map((group) => ({
+      label: groupLabel(group),
+      href: hrefFor({ name: 'group', id: group.id }),
+    })),
+    manages: managesText(managed),
+    channels: managed,
+  }
+}
 
 /** The languages to choose from, the one chosen checked; none chosen follows the browser. */
 export const languageChoicesFor = (me: Pick<AsRead.Me, 'locale'>): ReadonlyArray<LanguageOption> =>
@@ -43,6 +68,7 @@ export interface ProfileInput {
   readonly me: AsRead.Me
   readonly appearance: Appearance
   readonly charactersOn: boolean
+  readonly groupsOn: boolean
   readonly webPushOn: boolean
   readonly pushAvailable: boolean
 }
@@ -58,7 +84,17 @@ export interface ProfileModel {
   }>
   readonly languages: ReadonlyArray<LanguageOption>
   readonly showsCharacter: boolean
+  readonly showsGroups: boolean
   readonly notifications: 'available' | 'unavailable' | null
+}
+
+export interface MyGroupsModel {
+  readonly title: string
+  readonly empty: string | null
+  readonly groups: ReadonlyArray<{ readonly label: string; readonly href: string }>
+  /** The channels the person manages, in one sentence and as chips. */
+  readonly manages: string
+  readonly channels: ReadonlyArray<string>
 }
 
 export interface LanguageOption {

@@ -37,6 +37,12 @@ export const resultModel = (debate: AsRead.Debate, nameOf: (id: MemberId) => str
                   : line.kind === 'dropped-out'
                     ? strings.debates.droppedOutWithoutVote({ person: nameOf(line.memberId) })
                     : strings.debates.didNotVote({ person: nameOf(line.memberId) }),
+              model:
+                line.agentModel === undefined
+                  ? null
+                  : line.agentModel === null
+                    ? strings.authorship.modelNotStated
+                    : strings.authorship.model({ model: line.agentModel }),
             })),
           },
   }
@@ -102,6 +108,8 @@ export interface VoteLine {
   readonly kind: 'voted' | 'dropped-out' | 'silent'
   readonly memberId: MemberId
   readonly text: string
+  /** The model the voter stated, beside its vote; null for no vote, or while note details are off. */
+  readonly model: string | null
 }
 
 export type ResultBody =

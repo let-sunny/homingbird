@@ -22,10 +22,16 @@ describe('the result of a room', () => {
       voteRecord: {
         title: 'Votes',
         none: null,
-        lines: [{ kind: 'voted', memberId: 'm' as never, text: 'Ana voted' }],
+        lines: [
+          { kind: 'voted', memberId: 'm' as never, text: 'Ana voted', model: 'Model: gpt-6' },
+          { kind: 'silent', memberId: 'n' as never, text: 'Ben did not vote', model: null },
+        ],
       },
     })
     expect(textOf(settled)).toContain('Ana voted')
+    expect([...settled.querySelectorAll('.debate-vote-model')].map((one) => one.textContent)).toEqual([
+      'Model: gpt-6',
+    ])
     const none = resultSection({
       kind: 'settled',
       draftedBy: 'Drafted by Ben',

@@ -6,6 +6,7 @@ import * as admin from './tasks/admin.ts'
 import * as channels from './tasks/channels.ts'
 import * as debates from './tasks/debates.ts'
 import * as drafts from './tasks/drafts.ts'
+import * as groups from './tasks/groups.ts'
 import * as notes from './tasks/notes.ts'
 import * as people from './tasks/people.ts'
 import * as teaching from './tasks/teaching.ts'
@@ -60,7 +61,7 @@ export const TASKS = {
   setAnswering: channels.setAnswering,
   loadChannelMembers: channels.loadChannelMembers,
   setChannelMember: channels.setChannelMember,
-  setChannelManager: channels.setChannelManager,
+  addTeam: channels.addTeam,
   setChannelVisibility: channels.setChannelVisibility,
   askChannel: channels.askChannel,
   enterRoom: channels.enterRoom,
@@ -75,6 +76,13 @@ export const TASKS = {
   ) => channels.createChannelThen(channel, (slug) => drafts.readdressDraft(draft, slug)),
   reviseChannel: channels.reviseChannel,
   archiveChannel: channels.archiveChannel,
+  loadGroups: () => groups.loadGroups,
+  renameGroup: groups.renameGroup,
+  setGroupMembers: groups.setGroupMembers,
+  createGroup: groups.createGroup,
+  deleteGroup: groups.deleteGroup,
+  listPeopleInGroup: groups.listPeopleInGroup,
+  readImportFile: groups.readImportFile,
   openConversationWith: people.openConversationWith,
   requestContact: people.requestContact,
   acceptContact: people.acceptContact,

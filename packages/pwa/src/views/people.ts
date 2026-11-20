@@ -1,8 +1,14 @@
-import type { AsRead } from '@homingbird/protocol'
+import type { AsRead, GroupId, MemberId } from '@homingbird/protocol'
 import { type Lifetime, h, region, signal } from '@homingbird/ui'
 import type { Actions } from '../actions.ts'
 import { featureOn } from '../features.ts'
-import { type PeopleModel, type PersonAction, type PersonCard, peopleModel } from '../models/people.ts'
+import {
+  type FilterOption,
+  type PeopleModel,
+  type PersonAction,
+  type PersonCard,
+  peopleModel,
+} from '../models/people.ts'
 import { strings } from '../strings.ts'
 import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
@@ -18,8 +24,21 @@ export const peopleView = (context: ViewContext, life: Lifetime, me: AsRead.Me):
   }
   load()
   actions.loadKnownChannels()
+  actions.loadGroups()
   const query = signal('')
   const channelFilter = signal('')
+  const groupFilter = signal('')
+  const groupMembers = signal<ReadonlySet<MemberId> | null>(null)
+  const chooseGroup = (value: string): void => {
+    groupFilter.set(value)
+    groupMembers.set(null)
+    if (value !== '')
+      actions.listPeopleInGroup(value as GroupId, {
+        done: (memberIds) => {
+          if (groupFilter.get() === value) groupMembers.set(new Set(memberIds))
+        },
+      })
+  }
   const search = h('input', {
     type: 'search',
     placeholder: strings.peopleSearchPlaceholder,
@@ -35,6 +54,10 @@ export const peopleView = (context: ViewContext, life: Lifetime, me: AsRead.Me):
       channelFilter: channelFilter.get(),
       channels: state.channels.get(),
       charactersOn: featureOn('characters', state.serverInfo.get()),
+      groups: state.groups.get(),
+      groupsOn: featureOn('groups', state.serverInfo.get()),
+      groupFilter: groupFilter.get(),
+      groupMembers: groupMembers.get(),
     })
   const shown = model()
   return page(
@@ -47,14 +70,37 @@ export const peopleView = (context: ViewContext, life: Lifetime, me: AsRead.Me):
       region(
         life,
         [state.channels],
-        () => renderChannelFilter(model(), (value) => channelFilter.set(value)),
+        () =>
+          filter(strings.peopleChannelFilter, 'channel', model().channelFilter, (value) =>
+            channelFilter.set(value),
+          ),
         {
           class: 'channel-filter-host',
         },
       ),
+      region(
+        life,
+        [state.groups],
+        () => filter(strings.groups.filter, 'group', model().groupFilter, chooseGroup),
+        {
+          class: 'group-filter-host',
+        },
+      ),
     ),
-    region(life, [state.directory, state.directoryLoaded, failed, query, channelFilter, state.channels], () =>
-      renderPeople(model(), context, load),
+    region(
+      life,
+      [
+        state.directory,
+        state.directoryLoaded,
+        failed,
+        query,
+        channelFilter,
+        state.channels,
+        state.groups,
+        groupFilter,
+        groupMembers,
+      ],
+      () => renderPeople(model(), context, load),
     ),
   )
 }
@@ -111,6 +157,14 @@ const personCard = (
                 channelChips(person.channels.rest),
               ),
           ),
+        person.groups.length > 0 &&
+          h(
+            'ul',
+            { class: 'group-chips', 'aria-label': strings.groups.title },
+            person.groups.map((group) =>
+              h('li', {}, h('a', { class: 'group-chip', href: group.href }, group.label)),
+            ),
+          ),
         h(
           'details',
           { class: 'person-profile', open: person.profile.open },
@@ -157,14 +211,17 @@ const ACTIONS: Readonly<Record<PersonAction['kind'], (actions: Actions, person: 
   block: (actions, person) => actions.blockMember(person.memberId),
 }
 
-const renderChannelFilter = (model: PeopleModel, choose: (slug: string) => void): HTMLElement | null => {
-  if (model.channelFilter === null) return null
+const filter = (
+  label: string,
+  name: string,
+  options: ReadonlyArray<FilterOption> | null,
+  choose: (value: string) => void,
+): HTMLElement | null => {
+  if (options === null) return null
   const select = h(
     'select',
-    { name: 'channel', on: { change: () => choose(select.value) } },
-    model.channelFilter.map((option) =>
-      h('option', { value: option.value, selected: option.selected }, option.label),
-    ),
+    { name, on: { change: () => choose(select.value) } },
+    options.map((option) => h('option', { value: option.value, selected: option.selected }, option.label)),
   )
-  return field(strings.peopleChannelFilter, select)
+  return field(label, select)
 }

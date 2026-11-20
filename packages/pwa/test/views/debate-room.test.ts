@@ -136,6 +136,40 @@ describe('debateView', () => {
     expect(page.visited).toEqual(['go #/c/conv_x'])
   })
 
+  it('opens the details of who wrote a turn or a draft, with the model its agent stated', () => {
+    const { context } = testContext()
+    context.state.directory.set([entry(BEN, 'Ben')])
+    const shown = debateView(context, lifetime(), me(), 'debate_1')
+    context.state.shownDebate.set(
+      debate({
+        status: 'closed',
+        participants: [participant(ANA), participant(BEN)],
+        turns: [{ position: 1, memberId: BEN, agentName: 'Desk', body: 'Yes.', at: 3, agentModel: 'gpt-6' }],
+        result: { result: conclusion, draftedBy: BEN, draftedAt: 4 },
+        drafts: [{ draftedBy: BEN, draftedAt: 4, result: conclusion, votes: 1 }],
+        voteRecord: {
+          votes: [{ voterId: ANA, draftBy: BEN, agentModel: 'claude-opus-5-5' }],
+          droppedOut: [],
+        },
+      }),
+    )
+    const line = strings.authorship.agent({ name: 'Ben' })
+    const buttons = shown.querySelectorAll(
+      '.debate-turn-head .author-button, .debate-draft-author .author-button',
+    )
+    expect(buttons).toHaveLength(2)
+    expect(buttons[0]!.getAttribute('aria-label')).toBe(strings.debates.authorWho({ authorship: line }))
+    const turnDetails = shown.querySelector('.debate-turn-head .author-details')!
+    expect(textOf(turnDetails)).toContain(strings.authorship.model({ model: 'gpt-6' }))
+    expect(textOf(turnDetails)).toContain(strings.authorship.connection({ name: 'Desk' }))
+    expect(textOf(shown.querySelector('.debate-draft-author')!)).toContain(strings.authorship.modelNotStated)
+    expect(textOf(shown.querySelector('.debate-vote-record')!)).toContain(
+      strings.authorship.model({ model: 'claude-opus-5-5' }),
+    )
+    context.state.shownDebate.set(debate({ status: 'ended', endedBecause: 'no_turns' }))
+    expect(shown.querySelector('.author-button')).toBeNull()
+  })
+
   it('shows a vote record without votes', () => {
     const { context } = testContext()
     const shown = debateView(context, lifetime(), me(), 'debate_1')

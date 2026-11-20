@@ -1,10 +1,12 @@
-import type { AsRead, ConversationId, MemberId, NoteId } from '@homingbird/protocol'
+import type { AsRead, ConversationId, GroupId, MemberId, NoteId } from '@homingbird/protocol'
 
 export const ANA = 'mem_ana000000000' as MemberId
 export const BEN = 'mem_ben000000000' as MemberId
 export const CY = 'mem_cy0000000000' as MemberId
 export const ROOM = 'conv_room00000000' as ConversationId
 export const CHANNEL_ROOM = 'conv_chan00000000' as ConversationId
+export const TEAM = 'grp_team00000000' as GroupId
+export const OPS = 'grp_ops000000000' as GroupId
 
 export const member = (id: MemberId, name: string, fields: Partial<AsRead.Member> = {}): AsRead.Member => ({
   id,
@@ -85,9 +87,27 @@ export const channel = (slug: string, fields: Partial<AsRead.Channel> = {}): AsR
   joined: false,
   answering: false,
   managing: false,
+  managedBy: `grp_${slug.padEnd(12, '0')}` as GroupId,
   createdAt: 1,
   ...fields,
 })
+
+/** A team unless the fields say otherwise; `managersOf` makes a channel's group. */
+export const group = (id: GroupId, fields: Partial<AsRead.Group> = {}): AsRead.Group => ({
+  id,
+  kind: 'team',
+  name: null,
+  memberIds: [],
+  channels: [],
+  mayAdd: false,
+  mayRemove: false,
+  createdAt: 1,
+  ...fields,
+})
+
+/** The group of a channel's managers, under the id the `channel` fixture gives it. */
+export const managersOf = (slug: string, fields: Partial<AsRead.Group> = {}): AsRead.Group =>
+  group(`grp_${slug.padEnd(12, '0')}` as GroupId, { kind: 'channel', channels: [slug], ...fields })
 
 export const credential = (id: string, fields: Partial<AsRead.Credential> = {}): AsRead.Credential => ({
   id: id as never,
@@ -121,6 +141,7 @@ export const everything = (): AsRead.ServerInfo =>
         'routeMap',
         'draftRequests',
         'channels',
+        'groups',
         'characters',
         'debateRooms',
         'insights',

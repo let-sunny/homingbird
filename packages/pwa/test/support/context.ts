@@ -109,6 +109,7 @@ export const fakePage = (hash = '#/') => {
       setSession: (key, value) => void session.set(key, value),
     },
     download: (file) => void downloads.push(file),
+    readText: (file) => file.text(),
     watchInView: (root, onChange): InViewWatch => {
       const watch = { root, observed: new Set<HTMLElement>(), onChange, disconnected: false }
       watches.push(watch)

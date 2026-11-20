@@ -1,11 +1,13 @@
 import type { AsRead, MemberId, Presence, Relation } from '@homingbird/protocol'
 import { channelLabel, chipsForPerson } from '../channels.ts'
+import { groupLabel, teamsByLabel, teamsOf } from '../groups.ts'
 import { shownRelation } from '../relations.ts'
+import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 import type { PipState } from '../views/pip.ts'
 import { type AvatarModel, memberAvatarOf } from './avatar.ts'
 
-/** People: who matches the search and the channel chosen, agents awake first, and what one may do. */
+/** People: who matches the search, the channel and the group chosen, agents awake first, and what one may do. */
 export const peopleModel = (input: PeopleInput): PeopleModel => ({
   contactsNotice: input.contactMode === 'contacts' ? strings.contactsModeNotice : null,
   channelFilter:
@@ -17,6 +19,17 @@ export const peopleModel = (input: PeopleInput): PeopleModel => ({
             value: channel.slug,
             label: channelLabel(channel.slug),
             selected: input.channelFilter === channel.slug,
+          })),
+        ],
+  groupFilter:
+    !input.groupsOn || teamsByLabel(input.groups).length === 0
+      ? null
+      : [
+          { value: '', label: strings.groups.any, selected: input.groupFilter === '' },
+          ...teamsByLabel(input.groups).map((group) => ({
+            value: group.id,
+            label: groupLabel(group),
+            selected: input.groupFilter === group.id,
           })),
         ],
   list: peopleList(input),
@@ -31,20 +44,29 @@ export interface PeopleInput {
   readonly channelFilter: string
   readonly channels: ReadonlyArray<AsRead.Channel>
   readonly charactersOn: boolean
+  readonly groups: ReadonlyArray<AsRead.Group>
+  readonly groupsOn: boolean
+  /** The group chosen, or '' for any. */
+  readonly groupFilter: string
+  /** Who is in the group chosen, as the server listed them; null while that list is on its way. */
+  readonly groupMembers: ReadonlySet<MemberId> | null
 }
 
 export interface PeopleModel {
   readonly contactsNotice: string | null
-  readonly channelFilter: ReadonlyArray<{
-    readonly value: string
-    readonly label: string
-    readonly selected: boolean
-  }> | null
+  readonly channelFilter: ReadonlyArray<FilterOption> | null
+  readonly groupFilter: ReadonlyArray<FilterOption> | null
   readonly list:
     | { readonly kind: 'loading' }
     | { readonly kind: 'failed' }
     | { readonly kind: 'empty'; readonly text: string }
     | { readonly kind: 'people'; readonly people: ReadonlyArray<PersonCard> }
+}
+
+export interface FilterOption {
+  readonly value: string
+  readonly label: string
+  readonly selected: boolean
 }
 
 export interface PersonCard {
@@ -59,6 +81,7 @@ export interface PersonCard {
     readonly rest: ReadonlyArray<string>
     readonly more: string
   } | null
+  readonly groups: ReadonlyArray<{ readonly label: string; readonly href: string }>
   readonly profile: { readonly open: boolean; readonly text: string }
   readonly agentIntroduction: ReadonlyArray<string>
   readonly actions: ReadonlyArray<PersonAction>
@@ -83,10 +106,13 @@ export interface PersonAction {
 
 const peopleList = (input: PeopleInput): PeopleModel['list'] => {
   if (!input.loaded) return input.failed ? { kind: 'failed' } : { kind: 'loading' }
+  const inGroup = input.groupsOn && input.groupFilter !== '' ? input.groupMembers : 'anyone'
+  if (inGroup === null) return { kind: 'loading' }
   const query = input.query.trim().toLowerCase()
   const matching = input.directory
     .filter((entry) => matches(entry, query))
     .filter((entry) => input.channelFilter === '' || entry.channels.includes(input.channelFilter))
+    .filter((entry) => inGroup === 'anyone' || inGroup.has(entry.member.id))
   if (matching.length === 0) return { kind: 'empty', text: strings.noPeople }
   const mine = new Set(input.channels.filter((channel) => channel.joined).map((channel) => channel.slug))
   return {
@@ -123,6 +149,12 @@ const personCard = (
       entry.channels.length === 0
         ? null
         : { first: chips.first, rest: chips.rest, more: strings.moreChannels({ count: chips.rest.length }) },
+    groups: input.groupsOn
+      ? teamsOf(input.groups, entry.member.id).map((group) => ({
+          label: groupLabel(group),
+          href: hrefFor({ name: 'group', id: group.id }),
+        }))
+      : [],
     profile: { open: entry.member.profile !== '', text: entry.member.profile || strings.noProfile },
     agentIntroduction: entry.agentIntroduction ?? [],
     actions: actionsFor(entry, relation, mode),

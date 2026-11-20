@@ -28,7 +28,12 @@ export const resultSection = (result: ResultModel): HTMLElement => {
               'ul',
               {},
               result.voteRecord.lines.map((line) =>
-                h('li', { class: `is-${line.kind}`, data: { member: line.memberId } }, line.text),
+                h(
+                  'li',
+                  { class: `is-${line.kind}`, data: { member: line.memberId } },
+                  line.text,
+                  line.model !== null && h('small', { class: 'debate-vote-model' }, line.model),
+                ),
               ),
             ),
       ),

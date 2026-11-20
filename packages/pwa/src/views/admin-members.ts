@@ -1,18 +1,25 @@
 import type { AsRead } from '@homingbird/protocol'
 import { type Lifetime, h, region, signal } from '@homingbird/ui'
 import { featureOn } from '../features.ts'
-import { type AdminMembersModel, type MemberActionKind, adminMembersModel } from '../models/admin.ts'
+import {
+  type AdminMembersModel,
+  type MemberActionKind,
+  adminMembersModel,
+  deactivationModel,
+} from '../models/admin.ts'
 import { memberAvatarOf } from '../models/avatar.ts'
 import { strings } from '../strings.ts'
 import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
-import { button, loading, youMark } from './parts.ts'
+import { closeDialog, showDialog } from './dialog.ts'
+import { button, dialogActions, loading, youMark } from './parts.ts'
 
 /** Administration → Members: every member, and their role and status to change. */
 export const adminMembersSection = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
   const members = signal<ReadonlyArray<AsRead.Member> | null>(null)
   const reload = (): void => context.actions.listMembers({ done: (listed) => members.set(listed) })
   reload()
+  context.actions.loadGroups()
   const charactersOn = (): boolean => featureOn('characters', context.state.serverInfo.get())
   return region(life, [members], () =>
     renderAdminMembers(
@@ -70,8 +77,32 @@ const ACTIONS: Readonly<
     context.actions.updateMember(member.id, { role: 'member' }, { done: reload }),
   'make-admin': (context, member, reload) =>
     context.actions.updateMember(member.id, { role: 'admin' }, { done: reload }),
-  deactivate: (context, member, reload) =>
-    context.actions.updateMember(member.id, { status: 'deactivated' }, { done: reload }),
+  deactivate: (context, member, reload) => {
+    const deactivate = (then: () => void): void =>
+      context.actions.updateMember(member.id, { status: 'deactivated' }, { done: then })
+    const warning = deactivationModel(member, context.state.groups.get())
+    if (warning === null) return deactivate(reload)
+    showDialog(context, warning.title, () =>
+      h(
+        'form',
+        {
+          class: 'dialog-body deactivate-form',
+          on: {
+            submit: (event) => {
+              event.preventDefault()
+              deactivate(() => {
+                closeDialog(context)
+                reload()
+                context.actions.loadGroups()
+              })
+            },
+          },
+        },
+        h('p', {}, warning.body),
+        dialogActions(warning.confirm, 'danger'),
+      ),
+    )
+  },
   reactivate: (context, member, reload) =>
     context.actions.updateMember(member.id, { status: 'active' }, { done: reload }),
   'reset-character': (context, member, reload) =>

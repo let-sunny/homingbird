@@ -227,23 +227,17 @@ const scenario = async (): Promise<void> => {
     const ownRow = ben.page.locator(`dialog[open] .channel-member[data-member="${ids.Ben}"]`)
     await ownRow.locator('.is-you:has-text("(you)")').waitFor()
     assert.equal(await ownRow.getByRole('button', { name: 'Remove' }).count(), 0)
-    assert.equal(await ownRow.getByRole('button', { name: 'Remove as manager' }).count(), 0)
-    await ownRow.getByRole('button', { name: 'Leave channel' }).waitFor()
-    await ownRow.getByRole('button', { name: 'Step down as manager' }).click()
-    await ben.page.waitForSelector('dialog[open]:has-text("you can no longer add or remove people")')
-    await inThemes(ben.page, 'stepping-down-states-the-consequence', false)
-    await ben.page.locator('dialog[open]').getByRole('button', { name: 'Cancel' }).click()
+    await ownRow
+      .locator('.disabled-control:has-text("Leave the group before you leave the channel")')
+      .waitFor()
+    assert.equal(await ownRow.locator('button.leave-own').isDisabled(), true)
+    await ben.page.waitForSelector('dialog[open] .managed-by:has-text("Managed by")')
+    await inThemes(ben.page, 'a-manager-leaves-the-group-before-the-channel', false)
+    await ben.page.keyboard.press('Escape')
+    await ben.page.waitForSelector('.room-actions .disabled-control:has-text("Leave the group before")')
+    assert.equal(await ben.page.locator('.room-actions button.leave-channel').isDisabled(), true)
     await api(ben, 'PUT', `/channels/billing/members/${ids.June}`).catch(() => undefined)
     await api(june, 'PUT', '/channels/billing/membership', {})
-    await ben.page.reload()
-    await ben.page.waitForSelector('.room-actions .disabled-control:has-text("You are the last manager")')
-    assert.equal(await ben.page.locator('.room-actions button.leave-channel').isDisabled(), true)
-    await ben.page.locator('.room-actions').getByRole('button', { name: 'Members' }).click()
-    await ben.page.waitForSelector(
-      'dialog[open] .is-self .disabled-control:has-text("You are the last manager")',
-    )
-    await inThemes(ben.page, 'last-manager-cannot-step-down-or-leave', false)
-    await ben.page.keyboard.press('Escape')
 
     // -- 10: a refusal the client can foresee is shown disabled with its reason ------------------
     await api(ana, 'DELETE', '/channels/area-03/membership')

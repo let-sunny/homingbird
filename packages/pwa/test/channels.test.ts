@@ -1,4 +1,4 @@
-import type { Channel, Conversation, ConversationId } from '@homingbird/protocol'
+import type { Channel, Conversation, ConversationId, GroupId } from '@homingbird/protocol'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import {
@@ -31,6 +31,7 @@ const channel = (slug: string, fields: Partial<Channel> = {}): Channel => ({
   joined: false,
   answering: false,
   managing: false,
+  managedBy: `grp_${slug}` as GroupId,
   createdAt: 1,
   ...fields,
 })
@@ -177,31 +178,17 @@ describe('rosterFacts', () => {
     manager,
   })
 
-  it('names the last manager and whether that is the viewer', () => {
+  it('says whether the viewer manages the room, which keeps them in it', () => {
     const roster = { memberCount: 2, members: [member('me', true), member('you', false)] }
-    expect(rosterFacts(roster, 'me' as never)).toEqual({
-      hasManager: true,
-      lastManagerId: 'me',
-      viewerIsLastManager: true,
-    })
-    expect(rosterFacts(roster, 'you' as never).viewerIsLastManager).toBe(false)
-  })
-
-  it('lets the only member, who is the manager, leave', () => {
-    expect(
-      rosterFacts({ memberCount: 1, members: [member('me', true)] }, 'me' as never).viewerIsLastManager,
-    ).toBe(false)
+    expect(rosterFacts(roster, 'me' as never)).toEqual({ hasManager: true, viewerIsManager: true })
+    expect(rosterFacts(roster, 'you' as never).viewerIsManager).toBe(false)
   })
 
   it('knows when nobody in the room manages it', () => {
     expect(rosterFacts({ memberCount: 1, members: [member('me', false)] }, 'me' as never).hasManager).toBe(
       false,
     )
-    expect(rosterFacts(null, null)).toEqual({
-      hasManager: false,
-      lastManagerId: null,
-      viewerIsLastManager: false,
-    })
+    expect(rosterFacts(null, null)).toEqual({ hasManager: false, viewerIsManager: false })
   })
 })
 

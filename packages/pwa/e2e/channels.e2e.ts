@@ -112,19 +112,15 @@ const scenario = async (): Promise<void> => {
     await ben.page.waitForSelector('.thread-head .private-mark .lock-mark')
     await capture(ben.page, 'private-room-shows-a-lock-and-the-word-private')
 
-    // -- Members panel: add from People, make manager --------------------------------------
+    // -- Members panel: add from People, and the group that manages it -----------------------
     await ben.page.locator('.room-actions').getByRole('button', { name: 'Members' }).click()
     await ben.page.waitForSelector('dialog[open] .channel-member')
     await ben.page.selectOption('dialog[open] select[name=member]', ids.Cy!)
     await ben.page.locator('dialog[open] .add-member').getByRole('button', { name: 'Add' }).click()
     await ben.page.waitForSelector(`dialog[open] .channel-member[data-member="${ids.Cy}"]`)
     await capture(ben.page, 'members-panel-after-adding-from-people')
-    await ben.page
-      .locator(`dialog[open] .channel-member[data-member="${ids.Cy}"]`)
-      .getByRole('button', { name: 'Make manager' })
-      .click()
-    await ben.page.waitForSelector(`dialog[open] .channel-member[data-member="${ids.Cy}"] .kind.is-manager`)
-    await capture(ben.page, 'members-panel-with-a-second-manager')
+    await ben.page.waitForSelector('dialog[open] .managed-by:has-text("Managed by")')
+    await capture(ben.page, 'members-panel-names-the-managing-group')
     await ben.page.locator('dialog[open]').getByRole('button', { name: 'Make open…' }).click()
     await ben.page.waitForSelector('dialog[open]:has-text("read every question asked in it so far")')
     await capture(ben.page, 'opening-a-private-channel-states-the-consequence')
@@ -168,7 +164,8 @@ const scenario = async (): Promise<void> => {
     await cy.page.goto(`${base}/#/c/${payroll}`)
     await cy.page.waitForSelector('.thread-head h1:has-text("#payroll")')
     await cy.page.waitForSelector('.channel-rooms a:has-text("#payroll")')
-    await api(ben, 'DELETE', `/channels/payroll/managers/${ids.Cy}`)
+    const payrollManagers = (await api(ben, 'GET', '/channels/payroll')).managedBy as string
+    await api(ben, 'PUT', `/groups/${payrollManagers}/members`, { memberIds: [ids.Ben] })
     await api(ben, 'DELETE', `/channels/payroll/members/${ids.Cy}`)
     await cy.page.waitForFunction(() => (globalThis as any).location.hash === '#/channels')
     await cy.page.waitForFunction(
@@ -179,7 +176,8 @@ const scenario = async (): Promise<void> => {
 
     // -- Making a channel private, with the consequence stated --------------------------------------
     await api(ben, 'PUT', '/channels/deploys/membership', {})
-    await api(ana, 'PUT', `/channels/deploys/managers/${ids.Ben}`)
+    const deploysManagers = (await api(ana, 'GET', '/channels/deploys')).managedBy as string
+    await api(ana, 'PUT', `/groups/${deploysManagers}/members`, { memberIds: [ids.Ben] })
     const deploys = (await api(ben, 'GET', '/channels/deploys')).conversationId as string
     await ben.page.goto(`${base}/#/c/${deploys}`)
     await ben.page.locator('.room-actions').getByRole('button', { name: 'Members' }).click()

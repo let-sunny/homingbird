@@ -1208,9 +1208,107 @@
   overflow-wrap: anywhere;
 }
 
-.channel-chip:hover {
+.channel-chip:hover,
+.group-chip:hover {
   background: var(--hb-color-accent);
   color: var(--hb-color-on-accent);
+}
+
+.group-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hb-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.group-chip {
+  display: inline-block;
+  padding: 0 var(--hb-space-2);
+  border: var(--hb-border-thin);
+  border-radius: var(--hb-radius);
+  background: var(--hb-color-sunken);
+  color: var(--hb-color-text);
+  font-size: var(--hb-text-small);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.group-actions,
+.admin-groups-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hb-space-2);
+}
+
+.group-manages {
+  margin: 0;
+  color: var(--hb-color-muted);
+}
+
+.group-members,
+.my-group-list {
+  display: grid;
+  gap: var(--hb-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.group-member {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--hb-space-2);
+  padding: var(--hb-space-2);
+  border: var(--hb-border-thin);
+  background: var(--hb-color-surface);
+}
+
+.group-member-name {
+  flex: 1 1 8rem;
+  min-inline-size: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.group-member-name .is-you {
+  margin-inline-start: var(--hb-space-2);
+  color: var(--hb-color-muted);
+  font-weight: 400;
+}
+
+@container stage (min-width: 40rem) {
+  .group-members {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.my-group {
+  display: grid;
+  gap: var(--hb-space-1);
+}
+
+.import-preview {
+  display: grid;
+  gap: var(--hb-space-2);
+}
+
+.import-preview h3 {
+  margin: 0;
+  font-size: var(--hb-text-body);
+}
+
+.import-preview ul {
+  margin: 0;
+  padding-inline-start: var(--hb-space-4);
+}
+
+.import-unknown {
+  margin: 0;
+  color: var(--hb-color-danger);
+  overflow-wrap: anywhere;
 }
 
 .channel-list {
@@ -1591,15 +1689,22 @@
   gap: var(--hb-space-2);
 }
 
-.add-member {
+.add-member,
+.change-managing {
   display: flex;
   flex-wrap: wrap;
   align-items: end;
   gap: var(--hb-space-2);
 }
 
-.add-member .field {
+.add-member .field,
+.change-managing .field {
   flex: 1 1 14rem;
+}
+
+.managed-by {
+  margin: 0;
+  color: var(--hb-color-muted);
 }
 
 .visibility-switch {
@@ -3593,6 +3698,16 @@ textarea:disabled {
   justify-content: space-between;
   gap: var(--hb-space-1) var(--hb-space-3);
   font-size: var(--hb-text-small);
+}
+
+.debate-turn-author {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--hb-space-2);
+}
+
+.debate-draft-author {
+  margin-block: var(--hb-space-2);
 }
 
 .debate-turn-body {

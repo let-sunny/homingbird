@@ -4,6 +4,7 @@ export type Route =
   | { readonly name: 'home' }
   | { readonly name: 'conversation'; readonly id: string }
   | { readonly name: 'people' }
+  | { readonly name: 'group'; readonly id: string }
   | { readonly name: 'channels' }
   | { readonly name: 'channel'; readonly slug: string }
   | { readonly name: 'debates' }
@@ -22,7 +23,7 @@ export type AgentSection = 'connection' | 'teaching' | 'doing' | 'routes'
 
 export const AGENT_SECTIONS: ReadonlyArray<AgentSection> = ['connection', 'teaching', 'doing', 'routes']
 
-export type AdminSection = 'settings' | 'members' | 'channels' | 'insights'
+export type AdminSection = 'settings' | 'members' | 'groups' | 'channels' | 'insights'
 
 export const parseRoute = (hash: string): Route => {
   const [path = '', search = ''] = hash.replace(/^#\/?/, '').split('?')
@@ -34,6 +35,7 @@ export const parseRoute = (hash: string): Route => {
   if (head === '') return { name: 'home' }
   if (head === 'c' && second !== undefined) return { name: 'conversation', id: second }
   if (head === 'people') return { name: 'people' }
+  if (head === 'group' && second !== undefined) return { name: 'group', id: second }
   if (head === 'channels') return { name: 'channels' }
   if ((head === 'channel' || head === LEGACY_CHANNEL_HEAD) && second !== undefined)
     return { name: 'channel', slug: second }
@@ -61,6 +63,8 @@ export const hrefFor = (route: Route): string => {
       return `#/c/${encodeURIComponent(route.id)}`
     case 'people':
       return '#/people'
+    case 'group':
+      return `#/group/${encodeURIComponent(route.id)}`
     case 'channels':
       return '#/channels'
     case 'channel':
@@ -108,7 +112,7 @@ export const signInHref = (hash: string): string =>
 
 const LEGACY_CHANNEL_HEAD = 't'
 
-const ADMIN_SECTIONS: ReadonlyArray<AdminSection> = ['settings', 'members', 'channels', 'insights']
+const ADMIN_SECTIONS: ReadonlyArray<AdminSection> = ['settings', 'members', 'groups', 'channels', 'insights']
 
 const isAgentSection = (value: string | undefined): value is AgentSection =>
   AGENT_SECTIONS.includes(value as AgentSection)

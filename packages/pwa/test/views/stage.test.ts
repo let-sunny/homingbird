@@ -14,6 +14,7 @@ const routes: ReadonlyArray<Route> = [
   { name: 'home' },
   { name: 'conversation', id: ROOM },
   { name: 'people' },
+  { name: 'group', id: 'grp_team00000000' },
   { name: 'channels' },
   { name: 'channel', slug: 'billing' },
   { name: 'debates' },
@@ -44,7 +45,7 @@ describe('stageFor', () => {
       strings.notFound,
     )
     context.state.serverInfo.set(serverInfo())
-    for (const name of ['debates', 'debate', 'character'] as const)
+    for (const name of ['debates', 'debate', 'character', 'group'] as const)
       expect(
         shows(stageFor(context, lifetime(), me(), routes.find((route) => route.name === name)!)),
       ).toContain(strings.notFound)

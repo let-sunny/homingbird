@@ -12,7 +12,7 @@ import { type TimeShown, timeShown } from './time.ts'
 export const tabsModel = (route: Route, info: AsRead.ServerInfo | null): ReadonlyArray<Tab> => [
   tab(strings.navNotes, { name: 'home' }, ['home', 'conversation'], route),
   tab(strings.navMyAgent, { name: 'agent', section: null }, ['agent'], route, 'connect'),
-  tab(strings.navPeople, { name: 'people' }, ['people'], route),
+  tab(strings.navPeople, { name: 'people' }, ['people', 'group'], route),
   tab(strings.channels, { name: 'channels' }, ['channels', 'channel'], route, 'channels'),
   ...(featureOn('debateRooms', info)
     ? [tab(strings.navDebates, { name: 'debates' }, ['debates', 'debate'], route)]

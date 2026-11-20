@@ -53,6 +53,7 @@ export const browserPage = (window: BrowserWindow): Page => {
       link.remove()
       window.requestAnimationFrame(() => window.URL.revokeObjectURL(url))
     },
+    readText: (file) => file.text(),
     watchInView: (root, onChange) => {
       const observer = new window.IntersectionObserver(
         (entries) =>
@@ -94,6 +95,8 @@ export interface Page {
   readonly supportsHintPopovers: () => boolean
   readonly storage: PageStorage
   readonly download: (file: DownloadedFile) => void
+  /** The text of a file the person chose, read in this browser only. */
+  readonly readText: (file: Blob) => Promise<string>
   readonly watchInView: (root: HTMLElement, onChange: (entries: ReadonlyArray<InView>) => void) => InViewWatch
 }
 

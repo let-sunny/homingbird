@@ -1,7 +1,9 @@
-import type { AsRead, ChannelMember, MemberId } from '@homingbird/protocol'
+import type { AsRead, ChannelMember, GroupId, MemberId } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, region, replaceChildren, signal } from '@homingbird/ui'
 import { isPrivate } from '../channels.ts'
+import { featureOn } from '../features.ts'
 import {
+  type Choice,
   type Confirmation,
   type MemberRow,
   type MembersPanelModel,
@@ -105,6 +107,7 @@ const membersPanel = (context: ViewContext, life: Lifetime, channel: AsRead.Chan
   const reload = (): void => actions.loadChannelMembers(channel.slug, { done: (found) => listed.set(found) })
   const changes = { done: reload, attempt: 'managers' as const }
   reload()
+  actions.loadGroups()
   const host = h('div', { class: 'dialog-body members-panel' })
   const confirm = (content: HTMLElement): void => replaceChildren(host, content)
   const model = (): MembersPanelModel => {
@@ -116,12 +119,15 @@ const membersPanel = (context: ViewContext, life: Lifetime, channel: AsRead.Chan
       viewerIsAdmin: me?.member.role === 'admin',
       members: state.members.get(),
       directory: state.directory.get(),
+      groups: state.groups.get(),
+      groupsOn: featureOn('groups', state.serverInfo.get()),
     })
   }
   const panel = {
     confirm,
-    setManager: (memberId: MemberId, isManager: boolean) =>
-      actions.setChannelManager(channel.slug, memberId, isManager, changes),
+    addTeam: (groupId: GroupId) => actions.addTeam(channel.slug, groupId, changes),
+    setManagers: (groupId: GroupId, memberIds: ReadonlyArray<MemberId>) =>
+      actions.setGroupMembers(groupId, memberIds, changes),
     setMember: (memberId: MemberId, isMember: boolean) =>
       actions.setChannelMember(channel.slug, memberId, isMember, changes),
   }
@@ -131,7 +137,7 @@ const membersPanel = (context: ViewContext, life: Lifetime, channel: AsRead.Chan
     shown.managedByAdmin !== null && h('p', { class: 'hint' }, shown.managedByAdmin),
     region(
       life,
-      [listed, state.members, state.directory],
+      [listed, state.members, state.directory, state.groups],
       () => renderMembers(model(), context, channel, panel),
       {
         class: 'members-host',
@@ -143,7 +149,8 @@ const membersPanel = (context: ViewContext, life: Lifetime, channel: AsRead.Chan
 
 interface Panel {
   readonly confirm: (content: HTMLElement) => void
-  readonly setManager: (memberId: MemberId, isManager: boolean) => void
+  readonly addTeam: (groupId: GroupId) => void
+  readonly setManagers: (groupId: GroupId, memberIds: ReadonlyArray<MemberId>) => void
   readonly setMember: (memberId: MemberId, isMember: boolean) => void
 }
 
@@ -153,9 +160,18 @@ const renderMembers = (
   channel: AsRead.Channel,
   panel: Panel,
 ): Child => {
-  if (model.rows === null) return loading()
+  const managing = model.managedBy !== null && h('p', { class: 'managed-by' }, model.managedBy.text)
+  if (model.rows === null) return [managing, loading()]
   const visibility = model.visibility
+  const addManager = model.addManager
   return [
+    managing,
+    addManager !== null &&
+      choiceForm('add-manager', addManager, (memberId) =>
+        panel.setManagers(addManager.groupId, [...addManager.memberIds, memberId]),
+      ),
+    model.addTeam !== null &&
+      choiceForm('add-team', model.addTeam, (groupId) => panel.addTeam(groupId), model.addTeam.hint),
     h(
       'ul',
       { class: 'channel-members' },
@@ -211,55 +227,22 @@ const ownRow = (
     h(
       'span',
       { class: 'channel-member-actions' },
+      unmanageButton(row, panel),
       row.blocked !== null
-        ? h(
-            'span',
-            { class: 'disabled-control' },
-            h(
-              'span',
-              { class: 'disabled-buttons' },
-              h(
-                'button',
-                { type: 'button', class: 'step-down', disabled: true, 'aria-describedby': 'own-row-reason' },
-                strings.stepDown,
-              ),
-              h(
-                'button',
-                { type: 'button', class: 'leave-own', disabled: true, 'aria-describedby': 'own-row-reason' },
-                strings.leaveChannel,
-              ),
-            ),
-            h('small', { id: 'own-row-reason' }, row.blocked),
-          )
-        : [
-            row.stepDown !== null &&
-              button(
-                strings.stepDown,
-                () =>
-                  panel.confirm(
-                    confirmation('self-confirmation', row.stepDown!, () =>
-                      context.actions.setChannelManager(channel.slug, row.memberId, false, {
-                        done: () => closeDialog(context),
-                        attempt: 'managers',
-                      }),
-                    ),
-                  ),
-                { class: 'step-down' },
-              ),
-            button(
-              strings.leaveChannel,
-              () =>
-                panel.confirm(
-                  confirmation('self-confirmation', row.leave, () =>
-                    context.actions.leaveChannel(channel.slug, {
-                      done: () => closeDialog(context),
-                      attempt: 'managers',
-                    }),
-                  ),
+        ? disabledWithReason(strings.leaveChannel, row.blocked, 'leave-own')
+        : button(
+            strings.leaveChannel,
+            () =>
+              panel.confirm(
+                confirmation('self-confirmation', row.leave, () =>
+                  context.actions.leaveChannel(channel.slug, {
+                    done: () => closeDialog(context),
+                    attempt: 'managers',
+                  }),
                 ),
-              { class: 'danger leave-own' },
-            ),
-          ],
+              ),
+            { class: 'danger leave-own' },
+          ),
     ),
   )
 
@@ -272,12 +255,21 @@ const memberRow = (row: Extract<MemberRow, { kind: 'other' }>, panel: Panel): HT
     h(
       'span',
       { class: 'channel-member-actions' },
-      row.manager !== null &&
-        button(row.manager.label, () => panel.setManager(row.memberId, row.manager!.makes)),
+      unmanageButton(row, panel),
       row.remove !== null &&
         button(row.remove, () => panel.setMember(row.memberId, false), { class: 'danger' }),
     ),
   )
+
+const unmanageButton = (row: MemberRow, panel: Panel): Child => {
+  const unmanage = row.unmanage
+  return (
+    unmanage !== null &&
+    button(unmanage.label, () => panel.setManagers(unmanage.groupId, unmanage.memberIds), {
+      class: 'unmanage',
+    })
+  )
+}
 
 const confirmation = (className: string, words: Confirmation, confirm: () => void): HTMLElement =>
   h(
@@ -295,6 +287,34 @@ const confirmation = (className: string, words: Confirmation, confirm: () => voi
     h('p', {}, words.body),
     dialogActions(words.confirm, 'danger'),
   )
+
+const choiceForm = <A extends string>(
+  className: string,
+  offer: Choice<A>,
+  choose: (value: A) => void,
+  hint: string | null = null,
+): HTMLElement => {
+  const choice = h(
+    'select',
+    { name: 'choice', 'aria-label': offer.label },
+    offer.choices.map((one) => h('option', { value: one.value }, one.label)),
+  )
+  return h(
+    'form',
+    {
+      class: className,
+      on: {
+        submit: (event) => {
+          event.preventDefault()
+          choose(choice.value as A)
+        },
+      },
+    },
+    h('label', { class: 'field' }, h('span', { class: 'field-label' }, offer.label), choice),
+    hint !== null && h('p', { class: 'hint' }, hint),
+    h('button', { type: 'submit' }, offer.label),
+  )
+}
 
 const addMemberForm = (
   choices: ReadonlyArray<{ readonly value: MemberId; readonly label: string }>,

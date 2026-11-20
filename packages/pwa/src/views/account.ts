@@ -1,17 +1,18 @@
 import type { AsRead } from '@homingbird/protocol'
-import { type Lifetime, h, region, signal } from '@homingbird/ui'
+import { type Child, type Lifetime, h, region, signal } from '@homingbird/ui'
 import { applyAppearance, currentAppearance } from '../appearance.ts'
 import { featureOn } from '../features.ts'
 import {
   type LanguageOption,
   type ProfileModel,
+  myGroupsModel,
   notificationsModel,
   profileModel,
 } from '../models/account.ts'
 import { strings } from '../strings.ts'
 import { myCharacterSection } from './character.ts'
 import type { ViewContext } from './context.ts'
-import { button, field, page } from './parts.ts'
+import { button, channelChips, field, page } from './parts.ts'
 
 /** Profile: name and about text, character, appearance, language, the tour again and notifications. */
 export const profileView = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
@@ -21,10 +22,48 @@ export const profileView = (context: ViewContext, life: Lifetime, me: AsRead.Me)
     me,
     appearance: currentAppearance(browser.storage),
     charactersOn: featureOn('characters', info),
+    groupsOn: featureOn('groups', info),
     webPushOn: featureOn('webPush', info),
     pushAvailable: browser.supportsPush(),
   })
   return renderProfile(model, context, life, me)
+}
+
+/** The person's teams, and the channels they manage. */
+const myGroups = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
+  const { state } = context
+  context.actions.loadGroups()
+  return region(
+    life,
+    [state.groups, state.groupsLoaded],
+    (): Child => {
+      const model = myGroupsModel(
+        me,
+        state.groups.get(),
+        state.groupsLoaded.get(),
+        featureOn('groups', state.serverInfo.get()),
+      )
+      return (
+        model !== null &&
+        h(
+          'section',
+          { class: 'appearance my-groups' },
+          h('h2', {}, model.title),
+          model.empty !== null && h('p', {}, model.empty),
+          h(
+            'ul',
+            { class: 'my-group-list' },
+            model.groups.map((group) =>
+              h('li', { class: 'my-group' }, h('a', { href: group.href }, group.label)),
+            ),
+          ),
+          h('p', { class: 'group-manages' }, model.manages),
+          model.channels.length > 0 && channelChips(model.channels),
+        )
+      )
+    },
+    { class: 'my-groups-host' },
+  )
 }
 
 /** The language choices; choosing one saves it for the person. */
@@ -143,6 +182,7 @@ const renderProfile = (
       h('button', { type: 'submit', class: 'primary' }, strings.save),
     ),
     model.showsCharacter && myCharacterSection(context, life, me),
+    model.showsGroups && myGroups(context, life, me),
     h(
       'fieldset',
       { class: 'appearance' },

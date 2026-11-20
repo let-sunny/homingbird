@@ -144,6 +144,7 @@ export const voteRecordLines = (
       kind: 'voted' as const,
       memberId: vote.voterId,
       draftBy: vote.draftBy,
+      agentModel: vote.agentModel,
     })),
     ...debate.participants
       .map((one) => one.memberId)
@@ -160,6 +161,8 @@ export interface VoteRecordLine {
   readonly kind: 'voted' | 'dropped-out' | 'silent'
   readonly memberId: MemberId
   readonly draftBy: MemberId | null
+  /** What the voter stated about its model; absent while the organization keeps note details off. */
+  readonly agentModel?: string | null | undefined
 }
 
 const graceFrom = (typed: string | undefined): DebateGraceMinutes =>

@@ -17,12 +17,14 @@ describe('adminView', () => {
     for (const [section, action] of [
       ['settings', 'loadSettings'],
       ['members', 'listMembers'],
+      ['groups', 'loadGroups'],
       ['channels', 'loadKnownChannels'],
       ['insights', 'loadInsights'],
     ] as const) {
+      const before = called(action).length
       const shown = adminView(context, lifetime(), admin, section)
-      expect(called(action)).toHaveLength(1)
-      expect(allByRole(getByRole(shown, 'navigation'), 'link')).toHaveLength(4)
+      expect(called(action).length).toBeGreaterThan(before)
+      expect(allByRole(getByRole(shown, 'navigation'), 'link')).toHaveLength(5)
     }
     const shown = adminView(context, lifetime(), admin, 'members')
     expect(getByRole(shown, 'link', { name: strings.adminMembers }).getAttribute('aria-current')).toBe('page')

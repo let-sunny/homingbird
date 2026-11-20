@@ -1,6 +1,6 @@
 import { CHANNEL_DESCRIPTION_MAX, NOTE_BODY_MAX } from '@homingbird/protocol'
-import type { AsRead } from '@homingbird/protocol'
-import { type Child, type Lifetime, h, region, signal } from '@homingbird/ui'
+import type { AsRead, GroupId } from '@homingbird/protocol'
+import { type Child, type Lifetime, h, region, replaceChildren, signal } from '@homingbird/ui'
 import { channelNamed, slugFrom } from '../channels.ts'
 import { featureOn } from '../features.ts'
 import {

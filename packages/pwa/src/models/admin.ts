@@ -4,22 +4,27 @@ import {
   FEATURE_NAMES,
   type FeatureName,
   type FlowStep,
+  type Group,
 } from '@homingbird/protocol'
 import { flowSize, mayInsertExample } from '../answering-flow.ts'
 import { channelLabel } from '../channels.ts'
 import { featureOn } from '../features.ts'
+import { groupLabel, groupsOf } from '../groups.ts'
 import { type AdminSection, hrefFor } from '../routes.ts'
-import { strings } from '../strings.ts'
+import { listOf, strings } from '../strings.ts'
 
-/** Administration: its tabs, the one shown, and Insights only where the organization has it. */
+/** Administration: its tabs, the one shown, and Groups and Insights only where the organization has them. */
 export const adminModel = (info: AsRead.ServerInfo | null, section: AdminSection): AdminModel => {
   const insights = featureOn('insights', info)
+  const groups = featureOn('groups', info)
   const sections: ReadonlyArray<readonly [AdminSection, string]> = [
     ['settings', strings.adminSettings],
     ['members', strings.adminMembers],
+    ...(groups ? [['groups', strings.groups.title] as const] : []),
     ['channels', strings.adminChannels],
     ...(insights ? [['insights', strings.adminInsights] as const] : []),
   ]
+  const isOff = (section === 'insights' && !insights) || (section === 'groups' && !groups)
   return {
     title: strings.adminTitle,
     tabs: sections.map(([name, label]) => ({
@@ -27,7 +32,7 @@ export const adminModel = (info: AsRead.ServerInfo | null, section: AdminSection
       label,
       current: name === section,
     })),
-    shown: section === 'insights' && !insights ? 'settings' : section,
+    shown: isOff ? 'settings' : section,
   }
 }
 
@@ -89,6 +94,27 @@ export const adminMembersModel = (
               ],
       }))
 
+/**
+ * What deactivating a member does to their groups: it removes them from every one, so the dialog names
+ * those groups and a colleague can be added first. Null when they are in none.
+ */
+export const deactivationModel = (
+  member: AsRead.Member,
+  groups: ReadonlyArray<AsRead.Group>,
+): Confirmation | null => {
+  const leaves = groupsOf(groups, member.id)
+  return leaves.length === 0
+    ? null
+    : {
+        title: strings.deactivateTitle({ name: member.name }),
+        body: strings.groups.deactivateLeaves({
+          name: member.name,
+          groups: listOf(leaves.map((group) => groupLabel(group))),
+        }),
+        confirm: strings.deactivate,
+      }
+}
+
 /** Administration → Channels: loading, a retry, none, or each channel with its edit and archive. */
 export const adminChannelsModel = (
   channels: ReadonlyArray<AsRead.Channel>,
@@ -130,6 +156,12 @@ export interface AdminModel {
   readonly title: string
   readonly tabs: ReadonlyArray<{ readonly href: string; readonly label: string; readonly current: boolean }>
   readonly shown: AdminSection
+}
+
+export interface Confirmation {
+  readonly title: string
+  readonly body: string
+  readonly confirm: string
 }
 
 export interface FeatureRow {

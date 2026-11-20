@@ -5,11 +5,13 @@ import type {
   ChannelMember,
   ChannelVisibility,
   ConversationId,
+  GroupId,
   MemberId,
 } from '@homingbird/protocol'
 import { type Action, type App, withApp } from '../app.ts'
 import { withChannel } from '../channels.ts'
 import { hrefFor } from '../routes.ts'
+import { loadGroups } from './groups.ts'
 import { forgetNote } from './notes.ts'
 import { loadConversations, loadKnownChannels, loadPeople } from './workspace.ts'
 
@@ -33,7 +35,7 @@ export const loadChannelPage = (query: string, cursor: string | null): Action<Ch
     }),
   )
 
-/** Opens a channel and keeps it in the list straight away. */
+/** Opens a channel and keeps it in the list straight away; the person who opens it is its first manager. */
 export const createChannel = (
   slug: string,
   description: string,
@@ -41,8 +43,11 @@ export const createChannel = (
 ): Action<AsRead.Channel> =>
   T.gen(function* () {
     const { api, state } = yield* T.ask<App>()
-    const created = yield* api['channels.create']({ body: { slug, description, visibility } })
+    const created = yield* api['channels.create']({
+      body: { slug, description, visibility },
+    })
     yield* afterChannelChange
+    yield* loadGroups
     state.channels.update((all) => withChannel(all, created))
     return created
   })
@@ -82,12 +87,11 @@ export const setChannelMember = (slug: string, memberId: MemberId, isMember: boo
     ),
   )
 
-export const setChannelManager = (slug: string, memberId: MemberId, isManager: boolean): Action =>
+/** Adds the people in a team to a channel's managers, once; they join its room. */
+export const addTeam = (slug: string, groupId: GroupId): Action =>
   withApp(({ api }) =>
-    T.flatMap(() => afterChannelChange)(
-      (isManager ? api['channels.managers.add'] : api['channels.managers.remove'])({
-        params: { slug, memberId },
-      }),
+    T.flatMap(() => T.asUnit(T.all([afterChannelChange, loadGroups])))(
+      api['channels.managers.addTeam']({ params: { slug }, body: { groupId } }),
     ),
   )
 

@@ -5,12 +5,33 @@ import { strings } from '../../src/strings.ts'
 import { profileView } from '../../src/views/account.ts'
 import { testContext } from '../support/context.ts'
 import { usingFakeDom } from '../support/dom.ts'
-import { me, serverInfo } from '../support/fixtures.ts'
+import { ANA, TEAM, group, managersOf, me, serverInfo } from '../support/fixtures.ts'
 
 usingFakeDom()
 afterEach(() => vi.unstubAllGlobals())
 
 describe('profileView', () => {
+  it('lists the person’s groups and the channels they manage, and none while groups are off', () => {
+    const { context, called } = testContext()
+    const shown = profileView(context, lifetime(), me())
+    expect(called('loadGroups')).toHaveLength(1)
+    expect(textOf(shown)).not.toContain(strings.groups.yours)
+    context.state.groupsLoaded.set(true)
+    expect(textOf(shown)).toContain(strings.groups.yoursNone)
+    context.state.groups.set([
+      group(TEAM, { name: 'Finance', memberIds: [ANA] }),
+      managersOf('billing', { memberIds: [ANA] }),
+    ])
+    expect(getByRole(shown, 'link', { name: 'Finance' }).getAttribute('href')).toBe(
+      '#/group/grp_team00000000',
+    )
+    expect(getByRole(shown, 'link', { name: '#billing' })).toBeTruthy()
+    expect(textOf(shown)).toContain(strings.groups.manages({ channels: '#billing' }))
+    context.state.serverInfo.set(serverInfo())
+    const off = profileView(context, lifetime(), me())
+    expect(textOf(off)).not.toContain(strings.groups.yours)
+  })
+
   it('saves the person’s name and about text, and says so', () => {
     const { context, called } = testContext()
     const shown = profileView(context, lifetime(), me({}, { profile: 'About' }))

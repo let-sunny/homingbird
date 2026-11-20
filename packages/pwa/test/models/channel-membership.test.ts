@@ -9,7 +9,7 @@ import {
   rosterNeed,
 } from '../../src/models/channel-membership.ts'
 import { strings } from '../../src/strings.ts'
-import { ANA, BEN, CY, channel, entry, member } from '../support/fixtures.ts'
+import { ANA, BEN, CY, OPS, TEAM, channel, entry, group, managersOf, member } from '../support/fixtures.ts'
 
 const roster = (...members: ChannelMember[]) => ({ memberCount: members.length, members })
 const one = (memberId: typeof ANA, manager = false, answering = false): ChannelMember => ({
@@ -21,7 +21,7 @@ const one = (memberId: typeof ANA, manager = false, answering = false): ChannelM
 describe('roomControlsModel', () => {
   it('offers answering and leaving in a channel the person is in, and managing where they manage', () => {
     const billing = channel('billing', { joined: true, managing: true })
-    expect(roomControlsModel(billing, roster(one(ANA, true), one(BEN, true)), ANA)).toEqual({
+    expect(roomControlsModel(billing, roster(one(ANA), one(BEN, true)), ANA)).toEqual({
       answering: answeringModel(billing),
       manage: strings.membersTitle({ channel: '#billing' }),
       leave: { kind: 'allowed', title: strings.leaveChannelTitle({ channel: '#billing' }) },
@@ -29,11 +29,14 @@ describe('roomControlsModel', () => {
     })
   })
 
-  it('keeps the last manager from leaving, and offers nothing in a channel the person is not in', () => {
+  it('keeps a manager in the room while they are in its group, and offers nothing in a channel the person is not in', () => {
     const billing = channel('billing', { joined: true, managing: true, visibility: 'private' })
     expect(roomControlsModel(billing, roster(one(ANA, true), one(BEN)), ANA).leave).toEqual({
       kind: 'blocked',
-      reason: strings.lastManagerCannotLeave,
+      reason: strings.managerCannotLeave,
+    })
+    expect(roomControlsModel(billing, roster(one(ANA, true), one(BEN)), BEN).leave).toMatchObject({
+      kind: 'allowed',
     })
     expect(roomControlsModel(channel('ops'), null, ANA)).toMatchObject({
       answering: null,
@@ -77,12 +80,17 @@ describe('membersPanelModel', () => {
     viewerIsAdmin: false,
     members,
     directory: [],
+    groups: [],
+    groupsOn: true,
     ...fields,
   })
 
   it('waits for the roster, and tells an administrator outside the channel why they manage it', () => {
     expect(membersPanelModel(input({}))).toEqual({
       managedByAdmin: null,
+      managedBy: null,
+      addManager: null,
+      addTeam: null,
       rows: null,
       addMember: null,
       visibility: null,
@@ -102,18 +110,22 @@ describe('membersPanelModel', () => {
         viewerIsAdmin: true,
         roster: [one(ANA, true), one(BEN)],
         directory: [entry(CY, 'Cy')],
+        groups: [
+          managersOf('secret', { memberIds: [ANA], mayRemove: true }),
+          group(OPS, { name: 'Ops', memberIds: [CY] }),
+        ],
       }),
     )
     expect(model).toEqual({
       managedByAdmin: strings.seenByAdmin,
+      managedBy: {
+        text: strings.groups.managedBy({ group: strings.groups.managersOf({ channel: '#secret' }) }),
+      },
+      addManager: null,
+      addTeam: null,
       rows: [
-        expect.objectContaining({ kind: 'other', memberId: ANA, manager: null, remove: null }),
-        expect.objectContaining({
-          kind: 'other',
-          memberId: BEN,
-          manager: null,
-          remove: strings.removeMember,
-        }),
+        expect.objectContaining({ kind: 'other', memberId: ANA, remove: null }),
+        expect.objectContaining({ kind: 'other', memberId: BEN, remove: strings.removeMember }),
       ],
       addMember: null,
       visibility: null,
@@ -125,30 +137,31 @@ describe('membersPanelModel', () => {
     expect(roomControlsModel(channel('ops'), null, CY, true).manage).toBeNull()
   })
 
-  it('lets the person step down or leave, and change managers of others, but keeps one manager', () => {
-    const model = membersPanelModel(input({ roster: [one(ANA, true, true), one(BEN, true), one(CY)] }))
+  it('lets the person leave, marks the managers, and removes no manager from the room', () => {
+    const model = membersPanelModel(input({ roster: [one(ANA, false, true), one(BEN, true), one(CY)] }))
     const [own, ben, cy] = model.rows!
-    expect(own).toMatchObject({
+    expect(own).toEqual({
       kind: 'own',
+      memberId: ANA,
       name: 'Ana',
-      roles: [
-        { text: strings.managerLabel, className: 'kind is-manager' },
-        { text: strings.answersLabel, className: 'kind is-helping' },
-      ],
+      roles: [{ text: strings.answersLabel, className: 'kind is-helping' }],
       blocked: null,
-      stepDown: { confirm: strings.stepDown, title: strings.stepDownTitle({ channel: '#billing' }) },
-      leave: { confirm: strings.leaveChannel, body: strings.leaveChannelBody },
+      leave: {
+        title: strings.leaveChannelTitle({ channel: '#billing' }),
+        body: strings.leaveChannelBody,
+        confirm: strings.leaveChannel,
+      },
+      unmanage: null,
     })
-    expect(ben).toMatchObject({
+    expect(ben).toEqual({
       kind: 'other',
+      memberId: BEN,
       name: 'Ben',
-      manager: { label: strings.revokeManager, makes: false },
+      roles: [{ text: strings.managerLabel, className: 'kind is-manager' }],
       remove: null,
+      unmanage: null,
     })
-    expect(cy).toMatchObject({
-      name: strings.formerMember,
-      manager: { label: strings.makeManager, makes: true },
-    })
+    expect(cy).toMatchObject({ name: strings.formerMember, remove: null })
     expect(model.addMember).toBeNull()
     expect(model.visibility).toMatchObject({
       current: strings.visibilityOpen,
@@ -157,13 +170,72 @@ describe('membersPanelModel', () => {
     })
   })
 
-  it('keeps the last manager in place and says why', () => {
+  it('keeps a manager in the room while they are in its managing group, and says why', () => {
     const own = membersPanelModel(input({ roster: [one(ANA, true), one(BEN)] })).rows![0]!
-    expect(own).toMatchObject({ blocked: strings.lastManagerOwnRow, stepDown: expect.anything() })
-    const other = membersPanelModel(input({ viewerId: CY, roster: [one(ANA, true), one(BEN)] })).rows![0]!
-    expect(other).toMatchObject({ kind: 'other', manager: null, remove: null })
-    const mine = membersPanelModel(input({ roster: [one(ANA)] })).rows![0]!
-    expect(mine).toMatchObject({ blocked: null, stepDown: null })
+    expect(own).toMatchObject({ kind: 'own', blocked: strings.managerCannotLeave })
+  })
+
+  it('names the channel’s managers, as far as the person can see them', () => {
+    const groups = [managersOf('billing', { memberIds: [ANA] })]
+    expect(membersPanelModel(input({ groups })).managedBy).toEqual({
+      text: strings.groups.managedBy({ group: strings.groups.managersOf({ channel: '#billing' }) }),
+    })
+    expect(membersPanelModel(input({})).managedBy).toBeNull()
+  })
+
+  it('adds one person to the managers, or the people of a team once, where the person may add managers', () => {
+    const groups = [
+      managersOf('billing', { memberIds: [ANA], mayAdd: true, mayRemove: true }),
+      group(OPS, { name: 'Operations', memberIds: [ANA, BEN] }),
+      group(TEAM, { name: 'Finance', memberIds: [ANA] }),
+    ]
+    const roster = [one(ANA, true)]
+    const directory = [entry(ANA, 'Ana'), entry(BEN, 'Ben')]
+    const model = membersPanelModel(input({ groups, roster, directory }))
+    expect(model.addManager).toEqual({
+      label: strings.groups.addManager,
+      choices: [{ value: BEN, label: 'Ben · ben@example.com' }],
+      groupId: 'grp_billing00000',
+      memberIds: [ANA],
+    })
+    expect(model.addTeam).toEqual({
+      label: strings.groups.addTeam,
+      hint: strings.groups.addTeamHint,
+      choices: [{ value: OPS, label: 'Operations' }],
+    })
+    const everyone = [managersOf('billing', { memberIds: [ANA, BEN], mayAdd: true }), groups[1]!]
+    expect(membersPanelModel(input({ groups: everyone, roster, directory }))).toMatchObject({
+      addManager: null,
+      addTeam: null,
+    })
+    for (const shut of [
+      input({ groups: [{ ...groups[0]!, mayAdd: false }, ...groups.slice(1)], roster, directory }),
+      input({ groups, roster, directory, groupsOn: false }),
+    ])
+      expect(membersPanelModel(shut)).toMatchObject({ addManager: null, addTeam: null })
+  })
+
+  it('takes a manager out of the managers where the person may, never the last one', () => {
+    const groups = [managersOf('billing', { memberIds: [ANA, BEN], mayRemove: true })]
+    const roster = [one(ANA, true), one(BEN, true), one(CY)]
+    const [own, ben, cy] = membersPanelModel(input({ groups, roster })).rows!
+    expect(own!.unmanage).toEqual({
+      label: strings.groups.unmanage,
+      groupId: 'grp_billing00000',
+      memberIds: [BEN],
+    })
+    expect(ben!.unmanage).toEqual({
+      label: strings.groups.unmanage,
+      groupId: 'grp_billing00000',
+      memberIds: [ANA],
+    })
+    expect(cy!.unmanage).toBeNull()
+    const alone = [managersOf('billing', { memberIds: [ANA], mayRemove: true })]
+    expect(
+      membersPanelModel(input({ groups: alone, roster: [one(ANA, true)] })).rows![0]!.unmanage,
+    ).toBeNull()
+    const barred = [managersOf('billing', { memberIds: [ANA, BEN], mayRemove: false })]
+    expect(membersPanelModel(input({ groups: barred, roster })).rows![1]!.unmanage).toBeNull()
   })
 
   it('adds and removes members of a private channel, and makes it open again', () => {

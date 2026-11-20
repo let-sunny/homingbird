@@ -5,12 +5,24 @@ import {
   adminMembersModel,
   adminModel,
   archiveModel,
+  deactivationModel,
   domainsFrom,
   featureRows,
   flowToolsModel,
 } from '../../src/models/admin.ts'
 import { strings } from '../../src/strings.ts'
-import { ANA, BEN, CY, channel, member, serverInfo } from '../support/fixtures.ts'
+import {
+  ANA,
+  BEN,
+  CY,
+  OPS,
+  TEAM,
+  channel,
+  group,
+  managersOf,
+  member,
+  serverInfo,
+} from '../support/fixtures.ts'
 
 describe('adminModel', () => {
   it('offers Insights only where it is on, and shows settings in its place otherwise', () => {
@@ -26,6 +38,34 @@ describe('adminModel', () => {
     expect(off.tabs).toHaveLength(3)
     expect(off.shown).toBe('settings')
     expect(adminModel(serverInfo(), 'members')).toMatchObject({ title: strings.adminTitle, shown: 'members' })
+  })
+
+  it('offers Groups only where they are on, and shows settings in their place otherwise', () => {
+    const on = adminModel(serverInfo({ groups: true }), 'groups')
+    expect(on.tabs.map((tab) => tab.label)).toEqual([
+      strings.adminSettings,
+      strings.adminMembers,
+      strings.groups.title,
+      strings.adminChannels,
+    ])
+    expect(on.tabs[2]).toEqual({ href: '#/admin/groups', label: strings.groups.title, current: true })
+    expect(on.shown).toBe('groups')
+    expect(adminModel(serverInfo(), 'groups').shown).toBe('settings')
+  })
+})
+
+describe('deactivationModel', () => {
+  it('names every group a member leaves when deactivated, and asks nothing when they are in none', () => {
+    const groups = [
+      group(TEAM, { name: 'Finance', memberIds: [BEN] }),
+      managersOf('ops', { memberIds: [BEN, CY] }),
+    ]
+    expect(deactivationModel(member(BEN, 'Ben'), groups)).toEqual({
+      title: strings.deactivateTitle({ name: 'Ben' }),
+      body: strings.groups.deactivateLeaves({ name: 'Ben', groups: 'Finance and Managers of #ops' }),
+      confirm: strings.deactivate,
+    })
+    expect(deactivationModel(member(ANA, 'Ana'), groups)).toBeNull()
   })
 })
 

@@ -1,5 +1,7 @@
-import type { AsRead, ChannelMember, MemberId } from '@homingbird/protocol'
+import type { AsRead, ChannelMember, GroupId, MemberId } from '@homingbird/protocol'
 import { type Roster, channelLabel, isPrivate, rosterFacts } from '../channels.ts'
+import { groupById, groupLabel, teamsByLabel } from '../groups.ts'
+import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 
 /** A channel's own controls: answering there, managing its members, and leaving it. */
@@ -16,8 +18,8 @@ export const roomControlsModel = (
     manage: seesMembers ? strings.membersTitle({ channel: channelLabel(channel.slug) }) : null,
     leave: !channel.joined
       ? null
-      : facts.viewerIsLastManager
-        ? { kind: 'blocked', reason: strings.lastManagerCannotLeave }
+      : facts.viewerIsManager
+        ? { kind: 'blocked', reason: strings.managerCannotLeave }
         : { kind: 'allowed', title: strings.leaveChannelTitle({ channel: channelLabel(channel.slug) }) },
     leaveBody: leaveConsequence(channel),
   }
@@ -41,7 +43,10 @@ export const answeringModel = (channel: AsRead.Channel): AnsweringModel => ({
   state: channel.answering ? strings.switchOn : strings.switchOff,
 })
 
-/** The members panel: one row per member with what may be changed, adding members, and the visibility. */
+/**
+ * The members panel: who manages the channel and adding managers, one by one or a team's people at once,
+ * one row per member with what may be changed, adding members, and the visibility.
+ */
 export const membersPanelModel = (input: MembersPanelInput): MembersPanelModel => {
   const roster = input.roster
   const managedByAdmin =
@@ -50,18 +55,32 @@ export const membersPanelModel = (input: MembersPanelInput): MembersPanelModel =
       : input.channel.managing
         ? strings.managedByAdmin
         : strings.seenByAdmin
-  if (roster === null) return { managedByAdmin, rows: null, addMember: null, visibility: null }
-  if (!input.channel.managing) return seenByAdministrator(input, roster, managedByAdmin)
+  const managedBy = managedByModel(input)
+  const managers = managersOf(input)
+  if (roster === null)
+    return {
+      managedByAdmin,
+      managedBy,
+      addManager: null,
+      addTeam: null,
+      rows: null,
+      addMember: null,
+      visibility: null,
+    }
+  if (!input.channel.managing) return seenByAdministrator(input, roster, managedByAdmin, managedBy)
   const facts = rosterFacts({ memberCount: roster.length, members: roster }, input.viewerId)
   const inside = new Set(roster.map((member) => member.memberId))
   const candidates = input.directory.filter((entry) => !inside.has(entry.member.id))
   const toPrivate = !isPrivate(input.channel)
   return {
     managedByAdmin,
+    managedBy,
+    addManager: addManagerModel(input, managers),
+    addTeam: addTeamModel(input, managers),
     rows: roster.map((member) =>
       member.memberId === input.viewerId
-        ? ownRow(input, member, facts.viewerIsLastManager)
-        : memberRow(input, member, facts.lastManagerId === member.memberId && roster.length > 1),
+        ? ownRow(input, member, facts.viewerIsManager, managers)
+        : memberRow(input, member, managers),
     ),
     addMember: !isPrivate(input.channel)
       ? null
@@ -81,7 +100,7 @@ export const membersPanelModel = (input: MembersPanelInput): MembersPanelModel =
         : facts.hasManager
           ? { kind: 'allowed', label: strings.makePrivate }
           : { kind: 'blocked', label: strings.makePrivate, reason: strings.privateNeedsManager },
-      confirmation: visibilityConfirmation(input.channel, toPrivate),
+      confirmation: visibilityConfirmation(input, toPrivate),
     },
   }
 }
@@ -116,10 +135,20 @@ export interface MembersPanelInput {
   readonly viewerIsAdmin: boolean
   readonly members: ReadonlyMap<MemberId, AsRead.Member>
   readonly directory: ReadonlyArray<AsRead.DirectoryEntry>
+  readonly groups: ReadonlyArray<AsRead.Group>
+  readonly groupsOn: boolean
 }
 
 export interface MembersPanelModel {
   readonly managedByAdmin: string | null
+  /** "Managed by Managers of #slug"; null when the person cannot see the channel's managers. */
+  readonly managedBy: { readonly text: string } | null
+  /** Adding one person to the managers, who joins the room; null when the person may not. */
+  readonly addManager:
+    | (Choice<MemberId> & { readonly groupId: GroupId; readonly memberIds: ReadonlyArray<MemberId> })
+    | null
+  /** Adding the people of a team to the managers, once; null when the person may not or no team adds anyone. */
+  readonly addTeam: (Choice<GroupId> & { readonly hint: string }) | null
   readonly rows: ReadonlyArray<MemberRow> | null
   readonly addMember:
     | { readonly kind: 'nobody'; readonly text: string }
@@ -144,17 +173,29 @@ export type MemberRow =
       readonly name: string
       readonly roles: ReadonlyArray<Role>
       readonly blocked: string | null
-      readonly stepDown: Confirmation | null
       readonly leave: Confirmation
+      readonly unmanage: Unmanage | null
     }
   | {
       readonly kind: 'other'
       readonly memberId: MemberId
       readonly name: string
       readonly roles: ReadonlyArray<Role>
-      readonly manager: { readonly label: string; readonly makes: boolean } | null
       readonly remove: string | null
+      readonly unmanage: Unmanage | null
     }
+
+export interface Choice<A> {
+  readonly label: string
+  readonly choices: ReadonlyArray<{ readonly value: A; readonly label: string }>
+}
+
+/** Taking someone out of the managers: the label, and who the managers are afterwards. */
+export interface Unmanage {
+  readonly label: string
+  readonly groupId: GroupId
+  readonly memberIds: ReadonlyArray<MemberId>
+}
 
 export interface Role {
   readonly text: string
@@ -175,66 +216,109 @@ const roles = (member: ChannelMember): Role[] => [
 const nameIn = (input: MembersPanelInput, memberId: MemberId): string =>
   input.members.get(memberId)?.name ?? strings.formerMember
 
-const ownRow = (input: MembersPanelInput, member: ChannelMember, isLastManager: boolean): MemberRow => {
+const ownRow = (
+  input: MembersPanelInput,
+  member: ChannelMember,
+  isManager: boolean,
+  managers: AsRead.Group | null,
+): MemberRow => {
   const label = channelLabel(input.channel.slug)
   return {
     kind: 'own',
     memberId: member.memberId,
     name: nameIn(input, member.memberId),
     roles: roles(member),
-    blocked: isLastManager ? strings.lastManagerOwnRow : null,
-    stepDown: member.manager
-      ? {
-          title: strings.stepDownTitle({ channel: label }),
-          body: strings.stepDownBody({ channel: label }),
-          confirm: strings.stepDown,
-        }
-      : null,
+    blocked: isManager ? strings.managerCannotLeave : null,
     leave: {
       title: strings.leaveChannelTitle({ channel: label }),
       body: leaveConsequence(input.channel),
       confirm: strings.leaveChannel,
     },
+    unmanage: unmanageModel(member, managers),
   }
 }
 
+/** A manager stays in the room while they manage it, so only others are removed from the room. */
 const memberRow = (
   input: MembersPanelInput,
   member: ChannelMember,
-  keepsTheChannelManaged: boolean,
+  managers: AsRead.Group | null,
 ): MemberRow => ({
   kind: 'other',
   memberId: member.memberId,
   name: nameIn(input, member.memberId),
   roles: roles(member),
-  manager: keepsTheChannelManaged
-    ? null
-    : { label: member.manager ? strings.revokeManager : strings.makeManager, makes: !member.manager },
-  remove: isPrivate(input.channel) && !keepsTheChannelManaged ? strings.removeMember : null,
+  remove: isPrivate(input.channel) && !member.manager ? strings.removeMember : null,
+  unmanage: unmanageModel(member, managers),
 })
 
 /**
  * An administrator outside a private channel sees who is in it and may remove people, as the server
- * allows, but never adds a member, makes a manager or opens the channel: only its managers do that.
+ * allows, but never adds a member or a manager, or opens the channel: only its managers do that.
  */
 const seenByAdministrator = (
   input: MembersPanelInput,
   roster: ReadonlyArray<ChannelMember>,
   managedByAdmin: string | null,
-): MembersPanelModel => {
-  const facts = rosterFacts({ memberCount: roster.length, members: roster }, input.viewerId)
-  return {
-    managedByAdmin,
-    rows: roster.map((member) => ({
-      ...memberRow(input, member, facts.lastManagerId === member.memberId && roster.length > 1),
-      manager: null,
-    })),
-    addMember: null,
-    visibility: null,
-  }
+  managedBy: MembersPanelModel['managedBy'],
+): MembersPanelModel => ({
+  managedByAdmin,
+  managedBy,
+  addManager: null,
+  addTeam: null,
+  rows: roster.map((member) => memberRow(input, member, managersOf(input))),
+  addMember: null,
+  visibility: null,
+})
+
+const managersOf = (input: MembersPanelInput): AsRead.Group | null =>
+  input.groupsOn ? groupById(input.groups, input.channel.managedBy) : null
+
+const managedByModel = (input: MembersPanelInput): MembersPanelModel['managedBy'] => {
+  const group = groupById(input.groups, input.channel.managedBy)
+  return group === null ? null : { text: strings.groups.managedBy({ group: groupLabel(group) }) }
 }
 
-const visibilityConfirmation = (channel: AsRead.Channel, toPrivate: boolean): Confirmation => {
+/** Anyone in the directory who does not manage the channel yet; the server lets them into the room. */
+const addManagerModel = (
+  input: MembersPanelInput,
+  managers: AsRead.Group | null,
+): MembersPanelModel['addManager'] => {
+  if (managers === null || !managers.mayAdd) return null
+  const choices = input.directory
+    .filter((entry) => entry.member.status === 'active' && !managers.memberIds.includes(entry.member.id))
+    .map((entry) => ({ value: entry.member.id, label: `${entry.member.name} · ${entry.member.email}` }))
+  return choices.length === 0
+    ? null
+    : { label: strings.groups.addManager, choices, groupId: managers.id, memberIds: managers.memberIds }
+}
+
+/** Every team that would add someone: its people are copied into the managers once. */
+const addTeamModel = (
+  input: MembersPanelInput,
+  managers: AsRead.Group | null,
+): MembersPanelModel['addTeam'] => {
+  if (managers === null || !managers.mayAdd) return null
+  const choices = teamsByLabel(input.groups)
+    .filter((team) => team.memberIds.some((memberId) => !managers.memberIds.includes(memberId)))
+    .map((team) => ({ value: team.id, label: groupLabel(team) }))
+  return choices.length === 0
+    ? null
+    : { label: strings.groups.addTeam, hint: strings.groups.addTeamHint, choices }
+}
+
+/** A channel keeps a manager, so the last one cannot be taken out. */
+const unmanageModel = (member: ChannelMember, managers: AsRead.Group | null): Unmanage | null =>
+  managers === null || !managers.mayRemove || !member.manager || managers.memberIds.length < 2
+    ? null
+    : {
+        label: strings.groups.unmanage,
+        groupId: managers.id,
+        memberIds: managers.memberIds.filter((memberId) => memberId !== member.memberId),
+      }
+
+const visibilityConfirmation = (input: MembersPanelInput, toPrivate: boolean): Confirmation => {
+  const channel = input.channel
   const label = channelLabel(channel.slug)
   return toPrivate
     ? {

@@ -134,4 +134,9 @@ describe('browserPage', () => {
     expect(seen).toHaveBeenCalledWith([{ target: element, isInView: true }])
     expect(observed).toEqual([{ root, threshold: IN_VIEW_SHARE }])
   })
+
+  it('reads the text of a chosen file without sending it anywhere', async () => {
+    const { window } = fakeWindow()
+    expect(await browserPage(window).readText(new Blob(['ana@example.com']))).toBe('ana@example.com')
+  })
 })

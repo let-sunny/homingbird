@@ -3,13 +3,14 @@ import { type Lifetime, h } from '@homingbird/ui'
 import { adminModel } from '../models/admin.ts'
 import type { AdminSection } from '../routes.ts'
 import { adminChannelsSection } from './admin-channels.ts'
+import { adminGroupsSection } from './admin-groups.ts'
 import { adminMembersSection } from './admin-members.ts'
 import { settingsSection } from './admin-settings.ts'
 import type { ViewContext } from './context.ts'
 import { insightsSection } from './insights.ts'
 import { page } from './parts.ts'
 
-/** Administration: settings, members, channels and, where it is on, Insights, one tab at a time. */
+/** Administration: settings, members, groups, channels and Insights where they are on, one tab at a time. */
 export const adminView = (
   context: ViewContext,
   life: Lifetime,
@@ -33,6 +34,7 @@ const SECTIONS: Readonly<
 > = {
   settings: (context, life) => settingsSection(context, life),
   members: adminMembersSection,
+  groups: (context, life) => adminGroupsSection(context, life),
   channels: (context, life) => adminChannelsSection(context, life),
   insights: (context, life) => insightsSection(context, life),
 }

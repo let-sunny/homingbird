@@ -98,18 +98,15 @@ export interface Roster {
 
 export interface RosterFacts {
   readonly hasManager: boolean
-  readonly lastManagerId: MemberId | null
-  readonly viewerIsLastManager: boolean
+  /** A manager stays in the room while they are in its managing group. */
+  readonly viewerIsManager: boolean
 }
 
 export const rosterFacts = (roster: Roster | null, viewerId: MemberId | null): RosterFacts => {
   const managers = (roster?.members ?? []).filter((member) => member.manager)
-  const lastManagerId = managers.length === 1 ? managers[0]!.memberId : null
   return {
     hasManager: managers.length > 0,
-    lastManagerId,
-    viewerIsLastManager:
-      lastManagerId !== null && lastManagerId === viewerId && (roster?.members.length ?? 0) > 1,
+    viewerIsManager: managers.some((member) => member.memberId === viewerId),
   }
 }
 

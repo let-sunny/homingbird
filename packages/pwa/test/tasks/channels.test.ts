@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { moveQuestion as move } from '../../src/tasks/channels.ts'
 import * as tasks from '../../src/tasks/channels.ts'
 import { fail, testApp } from '../support/app.ts'
-import { BEN, ROOM, channel, conversation, note } from '../support/fixtures.ts'
+import { BEN, ROOM, TEAM, channel, conversation, group, note } from '../support/fixtures.ts'
 
 const answers = {
   'channels.list': () => ({ channels: [channel('billing')], hasMore: false, cursor: null }),
@@ -13,6 +13,8 @@ const answers = {
   'channels.members.list': () => ({ members: [{ memberId: BEN, manager: true, answering: false }] }),
   'drafts.create': () => note('d1', { conversationId: ROOM }),
   'drafts.send': () => note('d1'),
+  'groups.list': () => ({ groups: [group(TEAM)] }),
+  'channels.managers.addTeam': () => channel('billing'),
 }
 
 describe('channel tasks', () => {
@@ -27,12 +29,18 @@ describe('channel tasks', () => {
   })
 
   it('opens a channel and keeps it in the known list after the reload', async () => {
-    const { run, state } = testApp(answers)
+    const { run, state, sent } = testApp(answers)
     expect(await run(tasks.createChannel('ops', 'Operations', 'open'))).toEqual({
       _tag: 'Ok',
       value: channel('ops'),
     })
     expect(state.channels.get().map((one) => one.slug)).toEqual(['billing', 'ops'])
+    expect(state.groups.get()).toEqual([group(TEAM)])
+    await run(tasks.createChannel('ops', 'Operations', 'private'))
+    expect(sent.filter((one) => one.route === 'channels.create').map((one) => one.request)).toEqual([
+      { body: { slug: 'ops', description: 'Operations', visibility: 'open' } },
+      { body: { slug: 'ops', description: 'Operations', visibility: 'private' } },
+    ])
   })
 
   it('joins, leaves, answers, manages members and visibility, each reloading the lists', async () => {
@@ -43,8 +51,6 @@ describe('channel tasks', () => {
     await run(tasks.setAnswering('billing', false))
     await run(tasks.setChannelMember('billing', BEN, true))
     await run(tasks.setChannelMember('billing', BEN, false))
-    await run(tasks.setChannelManager('billing', BEN, true))
-    await run(tasks.setChannelManager('billing', BEN, false))
     await run(tasks.setChannelVisibility('billing', 'private'))
     await run(tasks.reviseChannel('billing', { description: 'Money' }))
     await run(tasks.archiveChannel('billing', null))
@@ -59,13 +65,22 @@ describe('channel tasks', () => {
       'channels.answering.off',
       'channels.members.add',
       'channels.members.remove',
-      'channels.managers.add',
-      'channels.managers.remove',
       'channels.visibility.set',
       'admin.channels.update',
       'admin.channels.archive',
       'admin.channels.archive',
     ])
+  })
+
+  it('adds a team’s people to a channel’s managers, then reloads the channels and the groups', async () => {
+    const { run, sent, routes } = testApp(answers)
+    await run(tasks.addTeam('billing', TEAM))
+    expect(sent[0]).toEqual({
+      route: 'channels.managers.addTeam',
+      request: { params: { slug: 'billing' }, body: { groupId: TEAM } },
+    })
+    expect(routes()).toContain('groups.list')
+    expect(routes()).toContain('channels.list')
   })
 
   it('remembers a managed channel’s roster', async () => {

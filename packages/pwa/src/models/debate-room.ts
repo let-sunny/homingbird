@@ -11,7 +11,9 @@ import {
   turnsLeftFor,
 } from '../debates.ts'
 import { formats, strings } from '../strings.ts'
+import { debateAuthorModel } from './debate-author.ts'
 import { type ResultBody, type ResultModel, resultBody, resultModel } from './debate-result.ts'
+import type { AuthorModel } from './note-item.ts'
 import { type TimeShown, timeShown } from './time.ts'
 
 /** One debate room: its question, its agents and turns, the result the agents settled, and what to do next. */
@@ -68,6 +70,12 @@ export const debateRoomModel = (input: DebateRoomInput): DebateRoomModel => {
               position: turn.position,
               mine: turn.memberId === viewerId,
               author: strings.debates.agentOf({ agent: turn.agentName, person: nameOf(turn.memberId) }),
+              details: debateAuthorModel(input, {
+                id: `${debate.id}-turn-${turn.position}`,
+                memberId: turn.memberId,
+                agentName: turn.agentName,
+                agentModel: turn.agentModel,
+              }),
               time: timeShown(turn.at, input.now),
               body: turn.body,
             })),
@@ -84,6 +92,13 @@ export const debateRoomModel = (input: DebateRoomInput): DebateRoomModel => {
             memberId: draft.draftedBy,
             chosen,
             title: strings.debates.draftOf({ person: nameOf(draft.draftedBy) }),
+            details: debateAuthorModel(input, {
+              id: `${debate.id}-draft-${draft.draftedBy}`,
+              memberId: draft.draftedBy,
+              agentName:
+                debate.participants.find((one) => one.memberId === draft.draftedBy)?.agentName ?? null,
+              agentModel: draft.agentModel,
+            }),
             votes: draft.votes === null ? null : strings.debates.votes({ count: draft.votes }),
             time: timeShown(draft.draftedAt, input.now),
             body: resultBody(draft.result, nameOf),
@@ -117,6 +132,7 @@ export interface DebateRoomInput {
   readonly agents: ReadonlyArray<AsRead.Credential>
   readonly channels: ReadonlyArray<AsRead.Channel>
   readonly directory: ReadonlyArray<AsRead.DirectoryEntry>
+  readonly serverInfo: AsRead.ServerInfo | null
   readonly now: number
 }
 
@@ -156,6 +172,7 @@ export type DebateRoomModel =
               readonly position: number
               readonly mine: boolean
               readonly author: string
+              readonly details: AuthorModel
               readonly time: TimeShown
               readonly body: string
             }>
@@ -166,6 +183,7 @@ export type DebateRoomModel =
         readonly memberId: MemberId
         readonly chosen: boolean
         readonly title: string
+        readonly details: AuthorModel
         readonly votes: string | null
         readonly time: TimeShown
         readonly body: ResultBody

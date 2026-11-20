@@ -31,6 +31,7 @@ const live = () => {
     'draftRequests.list': () => ({ requests: [] }),
     'debates.list': () => ({ debates: [] }),
     'debates.get': () => ({}),
+    'groups.list': () => ({ groups: [] }),
   })
   test.state.session.set(me())
   test.state.directory.set([entry(BEN, 'Ben')])
@@ -211,5 +212,30 @@ describe('liveEvents', () => {
     await settle()
     expect(routes()).toEqual(expect.arrayContaining(['credentials.list', 'conversations.get']))
     expect(member(ANA, 'Ana').id).toBe(ANA)
+  })
+
+  it('reloads the groups once after a run of changes settles, once they were loaded', async () => {
+    const { apply, state, clock, routes } = live()
+    apply(event({ type: 'group.changed', groupId: 'grp_team00000000' }))
+    await clock.advance(DIRECTORY_SETTLE_MS)
+    await settle()
+    expect(routes()).not.toContain('groups.list')
+    state.groupsLoaded.set(true)
+    for (const groupId of ['grp_team00000000', 'grp_ops000000000', 'grp_team00000000'])
+      apply(event({ type: 'group.changed', groupId }))
+    await clock.advance(DIRECTORY_SETTLE_MS - 1)
+    await settle()
+    expect(routes()).not.toContain('groups.list')
+    await clock.advance(1)
+    await settle()
+    expect(routes().filter((route) => route === 'groups.list')).toHaveLength(1)
+  })
+
+  it('reloads the groups on a resync, once they were loaded', async () => {
+    const { apply, state, routes } = live()
+    state.groupsLoaded.set(true)
+    apply(event({ type: 'resync' }))
+    await settle()
+    expect(routes()).toContain('groups.list')
   })
 })

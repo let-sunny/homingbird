@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { languageChoicesFor, notificationsModel, profileModel } from '../../src/models/account.ts'
+import {
+  languageChoicesFor,
+  myGroupsModel,
+  notificationsModel,
+  profileModel,
+} from '../../src/models/account.ts'
 import { strings } from '../../src/strings.ts'
-import { me } from '../support/fixtures.ts'
+import { ANA, BEN, OPS, TEAM, group, managersOf, me } from '../support/fixtures.ts'
 
 describe('profileModel', () => {
   it('fills the form and checks the appearance in use', () => {
@@ -9,6 +14,7 @@ describe('profileModel', () => {
       me: me({}, { profile: 'About me' }),
       appearance: 'dark',
       charactersOn: true,
+      groupsOn: true,
       webPushOn: true,
       pushAvailable: true,
     })
@@ -17,6 +23,7 @@ describe('profileModel', () => {
       name: 'Ana',
       profile: 'About me',
       showsCharacter: true,
+      showsGroups: true,
     })
     expect(model.appearances).toEqual([
       { value: 'auto', label: strings.appearanceAuto, checked: false },
@@ -27,7 +34,7 @@ describe('profileModel', () => {
   })
 
   it('says notifications are unavailable in this browser, and leaves them out where the server has none', () => {
-    const base = { me: me(), appearance: 'auto' as const, charactersOn: false }
+    const base = { me: me(), appearance: 'auto' as const, charactersOn: false, groupsOn: false }
     expect(profileModel({ ...base, webPushOn: true, pushAvailable: false }).notifications).toBe('unavailable')
     expect(profileModel({ ...base, webPushOn: false, pushAvailable: true }).notifications).toBeNull()
   })
@@ -56,5 +63,33 @@ describe('notificationsModel', () => {
       disabled: true,
       mayTest: false,
     })
+  })
+})
+
+describe('myGroupsModel', () => {
+  it('lists the person’s teams and the channels they manage, and nothing while groups are off or loading', () => {
+    const groups = [
+      group(TEAM, { name: 'Finance', memberIds: [ANA, BEN] }),
+      group(OPS, { name: 'Ops', memberIds: [BEN] }),
+      managersOf('payroll', { memberIds: [ANA] }),
+      managersOf('billing', { memberIds: [ANA, BEN] }),
+      managersOf('lobby', { memberIds: [BEN] }),
+    ]
+    expect(myGroupsModel(me(), groups, true, true)).toEqual({
+      title: strings.groups.yours,
+      empty: null,
+      groups: [{ label: 'Finance', href: '#/group/grp_team00000000' }],
+      manages: strings.groups.manages({ channels: '#billing and #payroll' }),
+      channels: ['billing', 'payroll'],
+    })
+    expect(myGroupsModel(me(), [], true, true)).toEqual({
+      title: strings.groups.yours,
+      empty: strings.groups.yoursNone,
+      groups: [],
+      manages: strings.groups.managesNone,
+      channels: [],
+    })
+    expect(myGroupsModel(me(), groups, false, true)).toBeNull()
+    expect(myGroupsModel(me(), groups, true, false)).toBeNull()
   })
 })

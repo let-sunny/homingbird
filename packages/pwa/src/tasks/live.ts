@@ -9,6 +9,7 @@ import { signedIn } from '../state.ts'
 import { strings } from '../strings.ts'
 import { withPresence, withReceipts, withoutMovedQuestion } from '../thread.ts'
 import { loadDebate, loadDebates } from './debates.ts'
+import { loadGroups } from './groups.ts'
 import { forgetNote, forgetRelease, loadThread, rememberNote } from './notes.ts'
 import { loadAgents, loadConversations, loadKnownChannels, loadPeople, loadWorkspace } from './workspace.ts'
 
@@ -21,6 +22,12 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
     cancelDirectoryReload = later(app.clock, DIRECTORY_SETTLE_MS, () =>
       launch(T.all([loadPeople, loadKnownChannels, loadConversations])),
     )
+  }
+  let cancelGroupsReload = (): void => {}
+  const reloadGroupsSoon = (): void => {
+    if (!state.groupsLoaded.get()) return
+    cancelGroupsReload()
+    cancelGroupsReload = later(app.clock, DIRECTORY_SETTLE_MS, () => launch(loadGroups))
   }
   const refreshAgentsIfNoneKnown = (): void => {
     if (state.agentCredentials.get().length === 0) launch(loadAgents)
@@ -107,6 +114,9 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
         })
         leaveRoomIfShown(app, body.conversationId)
         break
+      case 'group.changed':
+        reloadGroupsSoon()
+        break
       case 'debate.changed':
         reloadShownDebate(app, body.debateId)
         break
@@ -124,7 +134,7 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
   }
 }
 
-/** Several directory changes in a row are loaded once, after they settle. */
+/** Several directory or group changes in a row are loaded once, after they settle. */
 export const DIRECTORY_SETTLE_MS = 400
 
 const leaveRoomIfShown = (app: App, conversationId: string): void => {
@@ -150,6 +160,7 @@ const reloadShownDebate = (app: App, id: string): void => {
 
 const reloadEverything = (app: App): void => {
   app.launch(loadWorkspace)
+  if (app.state.groupsLoaded.get()) app.launch(loadGroups)
   const current = app.state.route.get()
   if (current.name === 'conversation') app.launch(loadThread(current.id as ConversationId))
 }

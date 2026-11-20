@@ -27,6 +27,8 @@ export const createState = (hash: string): AppState => {
     agentCredentials: signal<ReadonlyArray<AsRead.Credential>>([]),
     channels: signal<ReadonlyArray<AsRead.Channel>>([]),
     channelsLoaded: signal(false),
+    groups: signal<ReadonlyArray<AsRead.Group>>([]),
+    groupsLoaded: signal(false),
     rosters: signal<ReadonlyMap<string, Roster>>(new Map()),
     rostersLoading: new Set(),
     replyTargets: signal<ReadonlyMap<ConversationId, string | null>>(new Map()),
@@ -76,6 +78,9 @@ export interface AppState {
   readonly agentCredentials: Signal<ReadonlyArray<AsRead.Credential>>
   readonly channels: Signal<ReadonlyArray<AsRead.Channel>>
   readonly channelsLoaded: Signal<boolean>
+  /** Every group, as the server shows them to the person; none while the organization has groups off. */
+  readonly groups: Signal<ReadonlyArray<AsRead.Group>>
+  readonly groupsLoaded: Signal<boolean>
   /** The members of the channels the person manages, as last loaded, by slug. */
   readonly rosters: Signal<ReadonlyMap<string, Roster>>
   /** Rosters on their way, by slug and member count, so that each is asked for once. */

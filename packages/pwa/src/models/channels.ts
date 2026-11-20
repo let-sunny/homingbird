@@ -1,4 +1,4 @@
-import type { AsRead, ConversationId } from '@homingbird/protocol'
+import type { AsRead, ConversationId, Group, GroupId, MemberId } from '@homingbird/protocol'
 import { channelLabel, channelNamed, isPrivate, isValidSlug, similarChannels, slugFrom } from '../channels.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'

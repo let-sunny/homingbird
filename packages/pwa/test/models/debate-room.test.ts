@@ -17,6 +17,7 @@ const input = (room: DebateRoomInput['debate'], fields: Partial<DebateRoomInput>
   agents: [],
   channels: [],
   directory: [],
+  serverInfo: null,
   now: 10,
   ...fields,
 })
@@ -115,6 +116,7 @@ describe('debateRoomModel', () => {
           position: 1,
           mine: true,
           author: strings.debates.agentOf({ agent: 'Ana desk', person: 'Ana' }),
+          details: expect.objectContaining({ line: strings.authorship.agentYou }),
           time: timeShown(5, 10),
           body: 'We should.',
         },
@@ -240,6 +242,94 @@ describe('debateRoomModel', () => {
       mayPost: true,
       channels: [{ value: 'billing', label: '#billing' }],
       people: [{ value: BEN, label: 'Ben' }],
+    })
+  })
+
+  it('opens the details of who wrote each turn and draft, with the model its agent stated, and puts it beside each vote', () => {
+    const model = room(
+      debateRoomModel(
+        input(
+          debate({
+            status: 'closed',
+            participants: [participant(ANA), participant(BEN)],
+            turns: [
+              { position: 1, memberId: BEN, agentName: 'Ben desk', body: 'Yes.', at: 5, agentModel: 'gpt-6' },
+              { position: 2, memberId: ANA, agentName: 'Ana desk', body: 'No.', at: 6, agentModel: null },
+            ],
+            result: { result: conclusion, draftedBy: BEN, draftedAt: 7 },
+            drafts: [{ draftedBy: BEN, draftedAt: 7, result: conclusion, votes: 1, agentModel: 'gpt-6' }],
+            voteRecord: {
+              votes: [{ voterId: ANA, draftBy: BEN, agentModel: 'claude-opus-5-5' }],
+              droppedOut: [],
+            },
+          }),
+        ),
+      ),
+    )
+    if (model.turns.kind !== 'turns') throw new Error('expected turns')
+    expect(
+      model.turns.turns.map((turn) => [turn.details.id, turn.details.line, turn.details.details[0]!.text]),
+    ).toEqual([
+      [
+        'author-debate_000000000000-turn-1',
+        strings.authorship.agent({ name: 'Ben' }),
+        strings.authorship.model({ model: 'gpt-6' }),
+      ],
+      ['author-debate_000000000000-turn-2', strings.authorship.agentYou, strings.authorship.modelNotStated],
+    ])
+    expect(model.drafts![0]!.details.details.map((detail) => detail.text)).toEqual([
+      strings.authorship.model({ model: 'gpt-6' }),
+      strings.authorship.connection({ name: `${BEN} desk` }),
+      strings.debates.modelReported,
+    ])
+    expect(model.result).toMatchObject({
+      voteRecord: {
+        lines: [
+          { kind: 'voted', memberId: ANA, model: strings.authorship.model({ model: 'claude-opus-5-5' }) },
+          { kind: 'silent', memberId: BEN, model: null },
+        ],
+      },
+    })
+  })
+
+  it('names no connection for a draft by an agent no longer listed, and leaves a vote’s model out when details are off', () => {
+    const model = room(
+      debateRoomModel(
+        input(
+          debate({
+            status: 'closed',
+            participants: [participant(ANA)],
+            result: { result: conclusion, draftedBy: BEN, draftedAt: 7 },
+            drafts: [{ draftedBy: BEN, draftedAt: 7, result: conclusion, votes: 1 }],
+            voteRecord: { votes: [{ voterId: ANA, draftBy: BEN }], droppedOut: [] },
+          }),
+        ),
+      ),
+    )
+    expect(model.drafts![0]!.details.details.map((detail) => detail.text)).toEqual([
+      strings.authorship.modelNotStated,
+      strings.debates.modelReported,
+    ])
+    expect(model.result).toMatchObject({ voteRecord: { lines: [{ kind: 'voted', model: null }] } })
+    const voted = room(
+      debateRoomModel(
+        input(
+          debate({
+            status: 'closed',
+            participants: [participant(ANA), participant(BEN)],
+            result: { result: conclusion, draftedBy: BEN, draftedAt: 7 },
+            voteRecord: { votes: [{ voterId: ANA, draftBy: BEN, agentModel: null }], droppedOut: [] },
+          }),
+        ),
+      ),
+    )
+    expect(voted.result).toMatchObject({
+      voteRecord: {
+        lines: [
+          { kind: 'voted', model: strings.authorship.modelNotStated },
+          { kind: 'silent', model: null },
+        ],
+      },
     })
   })
 

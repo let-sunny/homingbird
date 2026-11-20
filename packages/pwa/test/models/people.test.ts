@@ -2,7 +2,7 @@ import type { Relation } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import { type PeopleInput, peopleModel } from '../../src/models/people.ts'
 import { strings } from '../../src/strings.ts'
-import { ANA, BEN, CY, channel, entry } from '../support/fixtures.ts'
+import { ANA, BEN, CY, OPS, TEAM, channel, entry, group, managersOf } from '../support/fixtures.ts'
 
 const base: PeopleInput = {
   contactMode: 'open',
@@ -13,6 +13,10 @@ const base: PeopleInput = {
   channelFilter: '',
   channels: [],
   charactersOn: true,
+  groups: [],
+  groupsOn: true,
+  groupFilter: '',
+  groupMembers: null,
 }
 
 const list = (input: Partial<PeopleInput>) => {
@@ -48,6 +52,37 @@ describe('peopleModel', () => {
     expect(list({ directory }).map((person) => person.name)).toEqual(['Ben', 'Ana', 'Cy'])
     expect(list({ directory, query: ' BEN ' }).map((person) => person.name)).toEqual(['Ben'])
     expect(list({ directory, channelFilter: 'billing' }).map((person) => person.name)).toEqual(['Ben', 'Cy'])
+  })
+
+  it('filters by the team chosen once the server listed its members, and offers teams only where they are on', () => {
+    const directory = [entry(BEN, 'Ben'), entry(CY, 'Cy')]
+    const groups = [group(TEAM, { name: 'Finance' }), managersOf('ops')]
+    expect(peopleModel({ ...base, groups, groupFilter: TEAM }).groupFilter).toEqual([
+      { value: '', label: strings.groups.any, selected: false },
+      { value: TEAM, label: 'Finance', selected: true },
+    ])
+    expect(peopleModel({ ...base, groups, groupsOn: false }).groupFilter).toBeNull()
+    expect(peopleModel(base).groupFilter).toBeNull()
+    expect(peopleModel({ ...base, groups: [managersOf('ops')] }).groupFilter).toBeNull()
+    expect(peopleModel({ ...base, directory, groupFilter: TEAM }).list).toEqual({ kind: 'loading' })
+    expect(
+      list({ directory, groupFilter: TEAM, groupMembers: new Set([CY]) }).map((one) => one.name),
+    ).toEqual(['Cy'])
+    expect(list({ directory, groupFilter: TEAM, groupsOn: false }).map((one) => one.name)).toEqual([
+      'Ben',
+      'Cy',
+    ])
+  })
+
+  it('shows the teams a person is in, linking to each, and none while groups are off', () => {
+    const groups = [
+      group(TEAM, { name: 'Finance', memberIds: [BEN] }),
+      group(OPS, { name: 'Ops', memberIds: [CY] }),
+      managersOf('billing', { memberIds: [BEN] }),
+    ]
+    const [ben] = list({ directory: [entry(BEN, 'Ben')], groups })
+    expect(ben!.groups).toEqual([{ label: 'Finance', href: '#/group/grp_team00000000' }])
+    expect(list({ directory: [entry(BEN, 'Ben')], groups, groupsOn: false })[0]!.groups).toEqual([])
   })
 
   it('shows a person’s relation, channels, profile and agent introduction', () => {

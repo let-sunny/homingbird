@@ -1,8 +1,9 @@
 import type { AsRead, CredentialId, DebateExportFormat } from '@homingbird/protocol'
-import { type Child, type Lifetime, h, linkedText, region } from '@homingbird/ui'
+import { type Child, type Lifetime, h, lifetime, linkedText, region } from '@homingbird/ui'
 import { type DebateRoomModel, debateRoomModel, resultDestination } from '../models/debate-room.ts'
 import { hrefFor } from '../routes.ts'
 import { locale, strings } from '../strings.ts'
+import { authorButton } from './author-details.ts'
 import type { ViewContext } from './context.ts'
 import { renderResultBody, resultSection, section } from './debate-result.ts'
 import { limitFields, limitsTypedIn } from './debates.ts'
@@ -13,11 +14,14 @@ export const debateView = (context: ViewContext, life: Lifetime, me: AsRead.Me, 
   const { state, actions } = context
   state.shownDebate.set(null)
   actions.loadDebate(id)
+  const drawn = lifetime()
+  life.add(drawn.end)
   return region(
     life,
-    [state.shownDebate, state.members, state.agentCredentials],
-    () =>
-      renderDebateRoom(
+    [state.shownDebate, state.members, state.agentCredentials, state.serverInfo],
+    () => {
+      drawn.end()
+      return renderDebateRoom(
         debateRoomModel({
           debate: state.shownDebate.get(),
           viewerId: me.member.id,
@@ -25,15 +29,18 @@ export const debateView = (context: ViewContext, life: Lifetime, me: AsRead.Me, 
           agents: state.agentCredentials.get(),
           channels: state.channels.get(),
           directory: state.directory.get(),
+          serverInfo: state.serverInfo.get(),
           now: context.clock.now(),
         }),
         context,
-      ),
+        drawn,
+      )
+    },
     { class: 'debate-room-host' },
   )
 }
 
-const renderDebateRoom = (model: DebateRoomModel, context: ViewContext): HTMLElement => {
+const renderDebateRoom = (model: DebateRoomModel, context: ViewContext, drawn: Lifetime): HTMLElement => {
   if (model.kind === 'loading') return loading()
   if (model.kind === 'missing')
     return emptyWithPip(
@@ -95,7 +102,12 @@ const renderDebateRoom = (model: DebateRoomModel, context: ViewContext): HTMLEle
                 h(
                   'header',
                   { class: 'debate-turn-head' },
-                  h('strong', {}, turn.author),
+                  h(
+                    'span',
+                    { class: 'debate-turn-author' },
+                    authorButton(context, drawn, turn.details),
+                    h('strong', {}, turn.author),
+                  ),
                   timeLabel(turn.time),
                 ),
                 h('p', { class: 'debate-turn-body' }, ...linkedText(turn.body)),
@@ -127,6 +139,7 @@ const renderDebateRoom = (model: DebateRoomModel, context: ViewContext): HTMLEle
                   draft.chosen && h('span', { class: 'debate-draft-chosen' }, strings.debates.chosen),
                   timeLabel(draft.time),
                 ),
+                h('div', { class: 'debate-draft-author' }, authorButton(context, drawn, draft.details)),
                 draft.chosen && h('p', { class: 'hint' }, strings.debates.chosenHint),
                 ...renderResultBody(draft.body),
               ),
