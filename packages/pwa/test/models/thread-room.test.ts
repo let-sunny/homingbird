@@ -7,11 +7,23 @@ import {
   noteIn,
   notesOf,
   roomOf,
+  settledDraftLine,
   threadHeadModel,
   threadTopModel,
 } from '../../src/models/thread-room.ts'
 import { strings } from '../../src/strings.ts'
-import { ANA, BEN, CY, ROOM, channel, conversation, entry, note, serverInfo } from '../support/fixtures.ts'
+import {
+  ANA,
+  BEN,
+  CY,
+  ROOM,
+  channel,
+  conversation,
+  draft,
+  entry,
+  note,
+  serverInfo,
+} from '../support/fixtures.ts'
 import { threadInput } from '../support/thread.ts'
 
 describe('reading the conversation', () => {
@@ -53,6 +65,18 @@ describe('threadTopModel', () => {
     const notice = strings.channelAgent.privateNotice({ agent: '#wiki', channel: '#wiki' })
     expect(threadTopModel(input)).toEqual({ kind: 'empty', text: notice })
     expect(threadHeadModel(input)).toMatchObject({ kind: 'people', profile: notice })
+  })
+})
+
+describe('settledDraftLine', () => {
+  it('says the draft a notification opened was settled once the thread shows it is not open', () => {
+    const shownWith = (notes: ReturnType<typeof note>[], focusedDraft: string | null = 'd1') =>
+      settledDraftLine(threadInput({ thread: { notes, hasMore: false }, focusedDraft }))
+    expect(settledDraftLine(threadInput({ thread: undefined, focusedDraft: 'd1' }))).toBeNull()
+    expect(shownWith([draft('d1')])).toBeNull()
+    expect(shownWith([draft('d2')], null)).toBeNull()
+    expect(shownWith([note('d1')])).toBe(strings.draftAlreadySettled)
+    expect(shownWith([draft('d2')])).toBe(strings.draftAlreadySettled)
   })
 })
 

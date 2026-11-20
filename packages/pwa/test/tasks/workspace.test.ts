@@ -8,7 +8,7 @@ import {
   loadWorkspace,
 } from '../../src/tasks/workspace.ts'
 import { fail, testApp } from '../support/app.ts'
-import { BEN, channel, conversation, credential, entry, serverInfo } from '../support/fixtures.ts'
+import { BEN, channel, conversation, credential, draft, entry, serverInfo } from '../support/fixtures.ts'
 
 describe('loading the workspace', () => {
   it('loads conversations, people, contacts, agents and channels, and marks them loaded', async () => {
@@ -41,6 +41,24 @@ describe('loading the workspace', () => {
         'draftRequests.list',
       ].sort(),
     )
+  })
+
+  it('closes the notifications of drafts sent or discarded elsewhere, where the browser has push', async () => {
+    const { run, page, routes } = testApp({
+      'conversations.list': () => ({ conversations: [] }),
+      'directory.list': () => ({ entries: [] }),
+      'contacts.list': () => ({ contacts: [] }),
+      'credentials.list': () => ({ credentials: [] }),
+      'channels.list': () => ({ channels: [], hasMore: false, cursor: null }),
+      'drafts.list': () => ({ drafts: [draft('d_open')] }),
+    })
+    page.notifications.set('draft:d_open', 0).set('draft:d_sent', 0)
+    await run(loadWorkspace)
+    expect(routes()).not.toContain('drafts.list')
+    expect([...page.notifications.keys()]).toEqual(['draft:d_open', 'draft:d_sent'])
+    page.state.push = true
+    await run(loadWorkspace)
+    expect([...page.notifications.keys()]).toEqual(['draft:d_open'])
   })
 
   it('reads no draft requests where they are off or the server lacks them', async () => {

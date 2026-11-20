@@ -4,6 +4,7 @@ import { type Action, type App, withApp } from '../app.ts'
 import { featureOn } from '../features.ts'
 import type { Branding } from '../state.ts'
 import { loadReviews } from './channel-agents.ts'
+import { closeSettledDraftNotices } from './notifications.ts'
 
 export const loadWorkspace: Action = T.gen(function* () {
   const { api, state } = yield* T.ask<App>()
@@ -20,6 +21,7 @@ export const loadWorkspace: Action = T.gen(function* () {
   yield* loadAgents
   yield* loadKnownChannels
   yield* T.result(loadReviews)
+  yield* T.result(closeNoticesOfSettledDrafts)
 })
 
 export const loadAgents: Action = T.gen(function* () {
@@ -83,3 +85,15 @@ export const loadBranding: Action<Branding> = withApp(({ page, state }) =>
     }),
   ),
 )
+
+/** Clears notifications about drafts sent or discarded elsewhere; a browser without push shows none. */
+const closeNoticesOfSettledDrafts: Action = T.gen(function* () {
+  const { api, page, clock } = yield* T.ask<App>()
+  if (!page.supportsPush()) return
+  const requestedAt = clock.now()
+  const { drafts } = yield* api['drafts.list']({})
+  yield* closeSettledDraftNotices(
+    drafts.map((draft) => draft.id),
+    requestedAt,
+  )
+})

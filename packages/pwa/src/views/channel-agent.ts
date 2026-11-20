@@ -1,4 +1,4 @@
-import type { AsRead } from '@homingbird/protocol'
+import type { AsRead, NoteId } from '@homingbird/protocol'
 import { CHANNEL_AGENT_NAME_MAX } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, region, signal } from '@homingbird/ui'
 import {
@@ -7,9 +7,11 @@ import {
   agentControlsModel,
   agentPanelModel,
   channelAgentPageModel,
+  decidedAnswerModel,
   reviewCardsModel,
   reviewsWaitingModel,
 } from '../models/channel-agent.ts'
+import { signedIn } from '../state.ts'
 import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
 import { closeDialog, opensDialog } from './dialog.ts'
@@ -89,12 +91,25 @@ const agentPanel = (
 ): HTMLElement => {
   const { state, actions } = context
   const loaded = signal<'loading' | 'loaded' | 'failed'>('loading')
+  const decided = signal<{ readonly note: AsRead.Note | null } | null>(null)
   let broughtIntoView = false
+  let askedWhatBecameOfFocus = false
+  const learnWhatBecameOfFocus = (): void => {
+    const isWaiting = state.reviews.get().some((review) => review.note.id === focus)
+    if (focus === null || isWaiting || askedWhatBecameOfFocus) return
+    askedWhatBecameOfFocus = true
+    actions.loadDecidedAnswer(focus as NoteId, { done: (note) => decided.set({ note }) })
+  }
   actions.loadChannelAgent(channel.slug, {
     done: () => loaded.set('loaded'),
     failed: () => loaded.set('failed'),
   })
-  actions.loadReviews()
+  actions.loadReviews({
+    done: () => {
+      learnWhatBecameOfFocus()
+      life.add(state.reviews.subscribe(learnWhatBecameOfFocus))
+    },
+  })
   const panel = h(
     'div',
     { class: 'dialog-body channel-agent-panel' },
@@ -108,7 +123,8 @@ const agentPanel = (
         channel,
       ),
     ),
-    region(life, [state.reviews, state.reviewsRead, state.members], () => {
+    region(life, [state.reviews, state.reviewsRead, state.members, decided], () => {
+      const settled = decided.get()
       const model = reviewCardsModel(
         state.reviews.get(),
         channel.slug,
@@ -124,11 +140,21 @@ const agentPanel = (
         'section',
         { class: 'reviews' },
         h('h3', {}, model.title),
+        settled !== null &&
+          h(
+            'p',
+            { class: 'hint review-decided', role: 'status' },
+            decidedAnswerModel(settled.note, signedIn(state)?.member.id ?? null, state.members.get()),
+          ),
         model.none !== null && h('p', { class: 'hint' }, model.none),
         h(
           'ul',
           { class: 'review-cards' },
-          model.cards.map((card) => reviewCard(context, card)),
+          model.cards.map((card) =>
+            reviewCard(context, card, () => {
+              if (card.focused) askedWhatBecameOfFocus = true
+            }),
+          ),
         ),
       )
     }),
@@ -227,7 +253,8 @@ const nameForm = (label: string, value: string, save: (name: string) => void): H
   )
 }
 
-const reviewCard = (context: ViewContext, card: ReviewCard): HTMLElement =>
+/** `decides` runs before the person sends or discards, so their own decision is not told back to them. */
+const reviewCard = (context: ViewContext, card: ReviewCard, decides: () => void): HTMLElement =>
   h(
     'li',
     {
@@ -265,9 +292,21 @@ const reviewCard = (context: ViewContext, card: ReviewCard): HTMLElement =>
       : h(
           'div',
           { class: 'review-actions' },
-          button(card.discard, () => context.actions.discardReview(card.review), { class: 'danger' }),
-          button(card.send, () => context.actions.sendReview(card.review, null, { attempt: 'draft' }), {
-            class: 'primary',
-          }),
+          button(
+            card.discard,
+            () => {
+              decides()
+              context.actions.discardReview(card.review)
+            },
+            { class: 'danger' },
+          ),
+          button(
+            card.send,
+            () => {
+              decides()
+              context.actions.sendReview(card.review, null, { attempt: 'draft' })
+            },
+            { class: 'primary' },
+          ),
         ),
   )

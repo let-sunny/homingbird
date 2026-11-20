@@ -72,6 +72,14 @@ export const threadTopModel = (input: ThreadInput): ThreadTop => {
   }
 }
 
+/** Why the draft a notification opened is not shown: it was sent or discarded, here or on another device. */
+export const settledDraftLine = (input: Pick<ThreadInput, 'thread' | 'focusedDraft'>): string | null => {
+  const isOpen = notesOf(input).some((note) => note.id === input.focusedDraft && note.status === 'draft')
+  return input.focusedDraft === null || input.thread === undefined || isOpen
+    ? null
+    : strings.draftAlreadySettled
+}
+
 /** Below the notes: each draft that archiving the channel discarded, in the person's own words. */
 export const archiveDiscardLines = (
   discards: ReadonlyArray<ArchiveDiscard>,

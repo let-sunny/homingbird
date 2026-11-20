@@ -12,6 +12,7 @@ import { loadReviews } from './channel-agents.ts'
 import { loadDebate, loadDebates } from './debates.ts'
 import { loadGroups } from './groups.ts'
 import { forgetNote, forgetRelease, loadThread, rememberNote } from './notes.ts'
+import { closeDraftNotice } from './notifications.ts'
 import { loadAgents, loadConversations, loadKnownChannels, loadPeople, loadWorkspace } from './workspace.ts'
 
 /** What each live event changes in the page: the state it updates and what it loads again. */
@@ -43,6 +44,7 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
     switch (body.type) {
       case 'note.sent':
         rememberNote(state)(body.note)
+        if (body.note.authorId === signedIn(state)?.member.id) launch(closeDraftNotice(body.note.id))
         announceIfFresh(app, body.note)
         launch(loadConversations)
         break
@@ -72,6 +74,7 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
         break
       case 'draft.discarded':
         forgetNote(state, body.conversationId, body.noteId)
+        launch(closeDraftNotice(body.noteId))
         if (body.because === 'channel_archived' && body.channel !== undefined) {
           const channel = body.channel
           state.archiveDiscards.update((all) =>

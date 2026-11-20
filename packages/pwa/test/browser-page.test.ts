@@ -90,6 +90,38 @@ describe('browserPage', () => {
     ]).toEqual([[], true, 1, false, false])
   })
 
+  it('reads the notifications its service worker shows, and none without one', async () => {
+    const close = vi.fn()
+    const registration = {
+      getNotifications: () =>
+        Promise.resolve([
+          { tag: 'review:n1', timestamp: 5, close },
+          { tag: 'review:n2', close },
+        ]),
+    }
+    const page = browserPage(
+      fakeWindow({
+        navigator: { languages: [], serviceWorker: { getRegistration: () => Promise.resolve(registration) } },
+      }).window,
+    )
+    const shown = await page.shownNotifications()
+    expect(shown.map((one) => [one.tag, one.shownAt])).toEqual([
+      ['review:n1', 5],
+      ['review:n2', null],
+    ])
+    shown[0]!.close()
+    expect(close).toHaveBeenCalled()
+    const unregistered = { getRegistration: () => Promise.resolve(undefined) }
+    const refused = { getRegistration: () => Promise.reject(new Error('insecure')) }
+    for (const serviceWorker of [unregistered, refused, {}, undefined])
+      expect(
+        await browserPage(
+          fakeWindow({ navigator: { languages: [], serviceWorker } }).window,
+        ).shownNotifications(),
+      ).toEqual([])
+    expect(await browserPage(fakeWindow({ navigator: undefined }).window).shownNotifications()).toEqual([])
+  })
+
   it('listens to the window and to the document’s visibility, and stops listening', () => {
     const { window, listeners, document } = fakeWindow()
     const page = browserPage(window)

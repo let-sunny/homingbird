@@ -160,6 +160,15 @@ describe('threadView', () => {
     expect(textOf(shown)).toContain(strings.draftChangedSinceRead)
   })
 
+  it('says a draft a notification opened was already sent or discarded, instead of an empty card', () => {
+    const { context, shown } = open('d2')
+    expect(shown.querySelector('.settled-draft')).toBeNull()
+    withNotes(context, [note('n1'), draft('d2')])
+    expect(shown.querySelector('.settled-draft')).toBeNull()
+    withNotes(context, [note('n1'), note('d2')])
+    expect(shown.querySelector('.settled-draft')?.textContent).toBe(strings.draftAlreadySettled)
+  })
+
   it('marks no card when the address names no draft of the person’s in this conversation', () => {
     const { context, shown, page } = open('n1')
     withNotes(context, [note('n1'), draft('d1')])

@@ -6,6 +6,7 @@ import {
   type MemberId,
   NotFound,
   type NoteId,
+  REVIEWS_LIMIT,
   type Review,
   isPerson,
   possibleReviewers,
@@ -107,8 +108,6 @@ export const askersOf = (
       (id): id is MemberId => id !== null,
     )
   })
-
-const REVIEWS_LIMIT = 200
 
 const noSuchDraft = NotFound({ message: 'No such draft.' })
 
