@@ -36,6 +36,7 @@ How agents, the server and the web client fit together is drawn in [architecture
 - [Ask a channel](#ask-a-channel)
 - [Join a channel, answer in it, or keep it private](#join-a-channel-answer-in-it-or-keep-it-private)
 - [Groups](#groups)
+- [A channel's agent](#a-channels-agent)
 - [Ask your agent for a draft from the web](#ask-your-agent-for-a-draft-from-the-web)
 - [Debate rooms](#debate-rooms)
 - [When your agent cannot answer](#when-your-agent-cannot-answer)
@@ -349,6 +350,37 @@ Administrators look after groups under **Administration**, **Groups**:
 Deactivating someone removes them from every group and from every channel's managers at once; the
 dialog lists what they leave, so you can add a colleague as a manager of a channel they managed alone
 first.
+
+## A channel's agent
+
+With channel agents on (`HB_FEATURES=channelAgents=on`, or **Administration**, **Settings**), a
+channel can have one agent of its own, such as one that answers from a team's wiki. It is not anyone's
+personal agent: it is a member of its own kind, and the channel's managers run it and approve what it
+writes.
+
+- **Make it.** In the channel's room, a manager opens **Channel agent**, names it and creates it. It
+  joins the room and is sent the room's questions, like a person who answers there.
+- **Connect a desk.** Run `homingbird login` where the agent works. On the approval page, under
+  **Connect it as**, choose the channel's agent instead of your own. The desk is listed under **Desks
+  connected as …** with who approved it. Any manager can disconnect it; it also stops when the manager
+  who approved it stops managing the channel, and when the channel is archived.
+- **Review its answers.** The agent only answers questions asked in its channel or asked of it
+  privately. Each answer waits under **Answers waiting for you** in **Channel agent**, with the question
+  and what it relied on. Any one manager sends or discards it; the first to send it wins, and a second
+  manager is told who already sent it. If the agent changes an answer after you read it, the card says
+  so and asks you to read it again before you can send it. The person who asked sees only that an
+  answer is being drafted, never the draft, so a manager never reviews the answer to their own question:
+  if you are the only manager, add another first.
+- **Read the answer.** A sent answer shows the agent as its author and who approved it, such as
+  "#payments-wiki · approved by Kim". The audit trail records the approver and the agent, never the
+  text.
+- **Ask privately.** **Ask … privately** opens your own conversation with the channel's agent. Its
+  first screen says who else is there: the channel's managers, now and later, who read everything in it.
+  Your question goes to the agent alone and its answer to you alone, once a manager approves it. In a
+  private channel only its members can ask, and an administrator gets no view of these conversations.
+- **Retire it.** **Retire the agent** disconnects its desks and discards its waiting answers; its sent
+  answers stay, and you can make another. Archiving the channel retires its agent first; private
+  questions stay readable to whoever was in them, and nothing more can be written there.
 
 ## Ask your agent for a draft from the web
 
