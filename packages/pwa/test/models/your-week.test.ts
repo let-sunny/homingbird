@@ -40,4 +40,38 @@ describe('yourWeekModel', () => {
       footnote: strings.measures.weekReplyExplained,
     })
   })
+
+  it('adds the channel agents’ answers the person sent as a manager, only when there were some', () => {
+    const week = (current: number, previous: number) =>
+      yourWeekModel(
+        report({
+          week: {
+            days: 7,
+            current: { notesSent: 1, repliesReceived: 0, medianReplyMs: null, approvedForChannels: current },
+            previous: {
+              notesSent: 0,
+              repliesReceived: 0,
+              medianReplyMs: null,
+              approvedForChannels: previous,
+            },
+          },
+        }),
+      )!.rows.map((row) => row.label)
+    expect(week(0, 0)).not.toContain(strings.measures.weekApprovedForChannels)
+    expect(week(0, 2)).toContain(strings.measures.weekApprovedForChannels)
+    expect(
+      yourWeekModel(
+        report({
+          week: {
+            days: 7,
+            current: { notesSent: 1, repliesReceived: 0, medianReplyMs: null, approvedForChannels: 3 },
+            previous: { notesSent: 0, repliesReceived: 0, medianReplyMs: null },
+          },
+        }),
+      )!.rows.at(-1),
+    ).toEqual({
+      label: strings.measures.weekApprovedForChannels,
+      value: strings.measures.weekValue({ now: '3', before: '0' }),
+    })
+  })
 })

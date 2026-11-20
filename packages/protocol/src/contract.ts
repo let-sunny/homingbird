@@ -34,7 +34,7 @@ import type { ApiError } from './errors.ts'
 import { StreamEvent } from './events.ts'
 import { GROUP_MEMBERS_MAX, Group, GroupName } from './groups.ts'
 import { ConversationId, CredentialId, DraftRequestId, GroupId, MemberId, NoteId } from './ids.ts'
-import { AgentReport, OrganizationInsights, PlaceName } from './insights.ts'
+import { AgentReport, ChannelAgentReport, OrganizationInsights, PlaceName } from './insights.ts'
 import {
   AgentLabel,
   AnsweringFlowSetting,
@@ -264,6 +264,12 @@ export const contract = {
     path: '/channels/:slug/agent/credentials/:id',
     access: 'human',
     response: ChannelAgent,
+  }),
+  'channels.agent.figures': route({
+    method: 'GET',
+    path: '/channels/:slug/agent/figures',
+    access: 'human',
+    response: ChannelAgentReport,
   }),
   'channels.askPrivately': route({
     method: 'POST',

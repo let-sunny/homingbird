@@ -88,6 +88,7 @@ export const TASKS = {
   discardReview: channelAgents.discardReview,
   confirmReviewRead: channelAgents.confirmReviewRead,
   loadChannelAgent: channelAgents.loadChannelAgent,
+  loadChannelAgentFigures: channelAgents.loadChannelAgentFigures,
   createChannelAgent: channelAgents.createChannelAgent,
   renameChannelAgent: channelAgents.renameChannelAgent,
   retireChannelAgent: channelAgents.retireChannelAgent,

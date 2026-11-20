@@ -130,7 +130,8 @@ states the decision first, then the reason. Add new entries at the top of their 
   as an agent draft, nor as a note the person wrote, nor in the organization's notes, replies or active
   people; My agent → How it is doing and the administrator's Insights each show "Debate results sent"
   as a separate line (`debateResultsSent`, optional on the wire), and Insights hide it while fewer
-  than `HB_INSIGHTS_MINIMUM_GROUP` people sent one in the period.
+  than `HB_INSIGHTS_MINIMUM_GROUP` people sent one in the period (1 by default, so never unless an
+  administrator raises it).
 - **Agents may read colleagues' agent introductions, always quoted.** The public sentences are written
   for colleagues and agents work for colleagues, so `find_people` and `homingbird directory` (text and
   `--json`) show them, where they were left out before, but only inside `wrapNote`
@@ -287,10 +288,13 @@ states the decision first, then the reason. Add new entries at the top of their 
   reaches them, and `drafts.seen`, which records when a draft card first appeared on a visible page, is
   `human` too, so an agent cannot fake its person having read a draft. `admin.insights` is `admin` and
   returns counts and medians only: never a member id, a name or note content, nothing for a period in
-  which fewer than `HB_INSIGHTS_MINIMUM_GROUP` people (at least 5) were active, and no channel whose
+  which fewer than `HB_INSIGHTS_MINIMUM_GROUP` people were active (1 by default, so nothing is hidden
+  unless an administrator raises it), and no channel whose
   contributors are fewer; when the hidden groups together are still fewer people, the next smallest is
   hidden too, so subtracting the shown ones from the totals never isolates a small group. Differences
-  between periods are not suppressed.
+  between periods are not suppressed. Insights measure how agents are doing, and must be useful to a
+  small team too, so the default hides nothing; an organization that wants small groups hidden raises
+  the minimum, and every rule above applies as written.
 - **Every newer organization figure needs its own contributors, and reply and pickup times come from
   the notes themselves.** The typical decision time needs `HB_INSIGHTS_MINIMUM_GROUP` people who decided
   a draft they had seen; who wrote what was sent is hidden whenever draft decisions are; a week of quick
@@ -305,6 +309,38 @@ states the decision first, then the reason. Add new entries at the top of their 
   row, each with at least 10) is a constant in `protocol` until it becomes a setting. **What is
   measured** is a catalogue in `protocol` (`MEASURES`), and a test fails for a response field it does
   not name, so a figure cannot be added without telling members.
+- **A channel's agent's figures belong to its channel's managers, and a decision belongs to whoever
+  made it.** `channels.agent.figures` is `human` and answers 404 to everyone outside the channel's
+  group, administrators included (rule 6): its answers drafted, sent as written, after an edit,
+  discarded and waiting, the typical decision time, quick approvals, and each current manager's count
+  of answers sent, alphabetically and never ranked, since a ranking would invite approving faster.
+  `channels.agent.figures` holds the current managers' ids and names and is shown only to that
+  channel's managers, who already see who manages it; answers sent by people who no longer manage it
+  are one total of their own, shown rather than left to be worked out by subtraction, and with a raised
+  minimum each manager's count needs that many people who sent an answer in the period. A
+  reviewer's first sight of an answer is recorded by `drafts.seen` as an author's is. A sent note
+  counts for `notes.approved_by` when it has one, so the organization's active people and deciders
+  are people, never a channel's agent; a discard records nobody, so it is counted but adds no decider.
+  A manager's approvals never mix into their own agent's figures; Your week shows them apart
+  (`approvedForChannels`). Each manager's count is that manager's own figure, so it is shown only
+  while that many managers sent an answer in the period; until then the managers see the totals alone.
+  Administrators get every channel agent's answers together only while that many managers sent one
+  and that many people made the organization's other decisions, which the organization's total minus
+  these would give away (`placesShown`, which also counts a hidden group nobody is known in), and only
+  from open channels and the private ones they are in. Every minimum counts the people active in the
+  period, never the size of a roster.
+- **Teams get rows of their own in Insights, counted by whole UTC days.** A person counts for a team on
+  every UTC day they were in it for any part of, from `group_member_spans` (since and until per
+  membership, written by every change to a group, deletion and deactivation included; a span from 0
+  began before records), so moving between teams moves their figures from that day, and someone in
+  two teams counts in both. Rows are alphabetical, never ranked, and never merged into an "others"
+  row. With a raised minimum a team is shown only while every cell of people who share the same shown
+  teams has that many (`teamsShown`), its decisions only while the cells of the people who decided
+  pass too, and its typical decision time, a median that no subtraction undoes, only while those
+  decisions are shown and that many people decided a draft they had seen; the rest are counted ("2
+  teams with too few people are not shown"). Overlapping teams make that rule hide most teams at a
+  minimum of 5 (measured: 23% shown, against 75% with one primary team per person,
+  `scripts/pilot-measure.ts --teams`), which is a reason the default is 1.
 - **The agent page says what the numbers mean in words, beside the numbers, and never collapses them
   into one score.** A single trust score hides which channel is trusted and why, invites chasing the
   number by approving faster, and grades the person rather than the agent. The server reads a verdict

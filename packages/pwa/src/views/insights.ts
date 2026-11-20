@@ -42,6 +42,7 @@ const renderInsights = (model: InsightsModel): Child => {
       authorship(model.figures.authorship),
       delivery(model.figures.delivery),
       places(model.figures.places),
+      model.figures.teams !== null && places(model.figures.teams, 'insights-teams'),
       renderLabelsTable(model.figures.byClient),
       renderLabelsTable(model.figures.byModel),
       model.figures.hiddenLabels !== null && h('p', { class: 'trust-footnote' }, model.figures.hiddenLabels),
@@ -126,11 +127,11 @@ const table = (model: InsightsTable): HTMLElement =>
     model.footnotes.map((footnote) => h('p', { class: 'trust-footnote' }, footnote)),
   )
 
-const places = (model: InsightsPlaces): HTMLElement =>
+const places = (model: InsightsPlaces, id = 'insights-places'): HTMLElement =>
   h(
     'section',
-    { class: 'trust-section', 'aria-labelledby': 'insights-places' },
-    h('h2', { id: 'insights-places' }, model.title),
+    { class: 'trust-section', 'aria-labelledby': id },
+    h('h2', { id }, model.title),
     model.none !== null
       ? h('p', {}, model.none)
       : h(
@@ -163,4 +164,5 @@ const places = (model: InsightsPlaces): HTMLElement =>
           ),
         ),
     model.hidden !== null && h('p', { class: 'trust-footnote' }, model.hidden),
+    model.footnote !== undefined && h('p', { class: 'trust-footnote' }, model.footnote),
   )

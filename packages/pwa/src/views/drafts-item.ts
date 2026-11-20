@@ -120,7 +120,11 @@ const draftCard = (context: ViewContext, card: DraftCard): HTMLElement => {
  * Reports a draft as seen, once per page, when its card is on a screen the person can see, so the time
  * from seeing a draft to deciding can be measured. A hidden page waits until it is shown.
  */
-const reportWhenSeen = (context: ViewContext, card: HTMLElement, draft: AsRead.Note): void => {
+export const reportWhenSeen = (
+  context: ViewContext,
+  card: HTMLElement,
+  draft: Pick<AsRead.Note, 'id'>,
+): void => {
   const { state, page, actions } = context
   if (state.seenDrafts.has(draft.id)) return
   let stopWaiting = (): void => {}

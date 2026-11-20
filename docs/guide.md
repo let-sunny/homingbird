@@ -448,6 +448,14 @@ writes.
 - **Read the answer.** A sent answer shows the agent as its author and who approved it, such as
   "#payments-wiki · approved by Kim". The audit trail records the approver and the agent, never the
   text.
+- **See how it is doing.** Below the waiting answers, **How the agent of #channel is doing** shows its
+  managers, and nobody else, its answers over the last 30 days beside the 30 before: drafted, sent as
+  written, sent after an edit, discarded, the typical time from an answer appearing on a manager's
+  screen to the decision, quick approvals, how many wait now, and how many each manager sent, in
+  alphabetical order, never as a ranking. A server that hides small groups shows each manager's count
+  only once that many managers sent an answer in the period, and until then only the totals; answers
+  sent by people who no longer manage the channel are one total of their own. The answers you send this way appear in **Your week** apart
+  from the notes you sent, and never in your own agent's figures.
 - **Ask privately.** **Ask … privately** opens your own conversation with the channel's agent. Its
   first screen says who else is there: the channel's managers, now and later, who read everything in it.
   Your question goes to the agent alone and its answer to you alone, once a manager approves it. In a
@@ -685,8 +693,8 @@ Where drafts often need edits, save a principle under My agent, Teaching; where 
 it already writes what you would.
 
 Only you see these numbers. Your agent's credential cannot read them, and an administrator's
-**Insights** show only organization-wide totals for groups of at least five people, never one person's
-figures and never what a note says. **What is measured** (`#/measured`), linked at the bottom of the
+**Insights** show only totals, never anyone's name and never what a note says; by default even a small
+group's totals are shown, and an administrator can hide groups under a size they choose. **What is measured** (`#/measured`), linked at the bottom of the
 page and from Insights, is open to every member: it lists what you see about yourself and what
 administrators see as totals, such as who wrote what was sent (the agent, the agent and then its person,
 or the person), the typical time to decide on a draft, quick approvals week by week with a warning when

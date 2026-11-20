@@ -6,7 +6,6 @@ import {
   type SentNote,
   organizationFiguresIn,
   organizationInsightsOf,
-  placesShown,
 } from '../src/domain/organization-figures.ts'
 import { DAY_MS, periodEndingAt } from '../src/domain/trust-figures.ts'
 
@@ -35,7 +34,7 @@ const note = (
 })
 
 const draft = (
-  authorId: string,
+  authorId: string | null,
   place: string | null,
   outcome: MemberDraft['outcome'],
   seconds = 30,
@@ -50,61 +49,32 @@ const draft = (
 
 const empty: OrganizationActivity = { sent: [], drafts: [], skips: [], received: [] }
 
-describe('placesShown', () => {
-  const group = (place: string | null, members: ReadonlyArray<string>) => ({
-    place,
-    people: new Set(members),
-  })
-
-  it('shows every group of at least the minimum and hides the smaller ones', () => {
-    const shown = placesShown(
-      [
-        group('billing', people(6, 'b')),
-        group(null, people(5, 'd')),
-        group('payroll', people(2, 'p')),
-        group('security', people(3, 's')),
-      ],
-      5,
-    )
-    expect(shown).toEqual({ shown: ['billing', null], hidden: ['payroll', 'security'] })
-  })
-
-  it('hides one more group when the hidden ones together are still too few, so no remainder gives one away', () => {
-    const shown = placesShown(
-      [group('billing', people(9, 'b')), group('deploys', people(6, 'd')), group('payroll', people(2, 'p'))],
-      5,
-    )
-    expect(shown).toEqual({ shown: ['billing'], hidden: ['payroll', 'deploys'] })
-  })
-
-  it('leaves the hidden groups together either empty or at least the minimum, whatever the groups are', () => {
-    const groups = fc.array(
-      fc.record({
-        place: fc.option(fc.string({ minLength: 1, maxLength: 3 })),
-        people: fc
-          .uniqueArray(fc.constantFrom(...people(14)), { maxLength: 12 })
-          .map((each) => new Set(each)),
-      }),
-      { maxLength: 8 },
-    )
-    fc.assert(
-      fc.property(groups, fc.integer({ min: 5, max: 8 }), (all, minimum) => {
-        const { shown, hidden } = placesShown(all, minimum)
-        const hiddenPeople = new Set(
-          all.filter((each) => hidden.includes(each.place)).flatMap((each) => [...each.people]),
-        )
-        expect(shown.length + hidden.length).toBe(all.length)
-        expect(hiddenPeople.size === 0 || hiddenPeople.size >= minimum || shown.length === 0).toBe(true)
-        for (const each of all.filter(
-          (candidate) => shown.includes(candidate.place) && !hidden.includes(candidate.place),
-        ))
-          expect(each.people.size).toBeGreaterThanOrEqual(minimum)
-      }),
-    )
-  })
-})
-
 describe('organizationFiguresIn', () => {
+  it('never counts a draft or skip whose decider is unknown as a person who decided', () => {
+    const team = people(5)
+    const activity: OrganizationActivity = {
+      ...empty,
+      sent: team.map((id) => note(id, 'billing', 1)),
+      drafts: [
+        ...people(4).map((id) => draft(id, 'billing', 'as_written')),
+        draft(null, 'billing', 'discarded'),
+        draft(null, 'billing', 'discarded'),
+      ],
+      skips: [{ memberId: null, place: 'billing', at: NOW - HOUR }],
+    }
+    const figures = organizationFiguresIn(activity, lastWeek, NOW, settings)!
+    expect(figures.sentAsWritten).toBeNull()
+    expect(figures.discarded).toBeNull()
+    expect(figures.skipped).toBe(1)
+    expect(figures.channelAgents).toBeNull()
+    const enough = { ...activity, drafts: [...activity.drafts, draft(team[4]!, 'billing', 'edited')] }
+    expect(organizationFiguresIn(enough, lastWeek, NOW, settings)).toMatchObject({
+      sentAsWritten: 4,
+      sentAfterEdits: 1,
+      discarded: 2,
+    })
+  })
+
   it('shows nothing at all while fewer people than the minimum were active', () => {
     const activity = { ...empty, sent: people(4).map((id) => note(id, 'billing', 1)) }
     expect(organizationFiguresIn(activity, lastWeek, NOW, settings)).toBeNull()

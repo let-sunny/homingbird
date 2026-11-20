@@ -1468,6 +1468,18 @@ describe('Rule 6: a member sees only conversations they participate in', () => {
     expect(failed.map((row) => JSON.parse(String(row.detail)))).toEqual([{ reason: 'not_a_person' }])
     expect((await ben.api('GET', '/channels/wiki/agent')).json.agent).toMatchObject({ id: agent.id, email })
   })
+
+  it('shows how a channel’s agent is doing to its managers only, never to an administrator outside the group of an open channel', async () => {
+    const agent = await startChannelAgent()
+    const { draft } = await askAndAnswer(dee, agent)
+    await ben.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })
+    const figures = (person: Session) => person.api('GET', '/channels/wiki/agent/figures')
+    expect((await figures(ben)).status).toBe(200)
+    expect((await figures(cy)).status).toBe(200)
+    expect((await figures(ana)).status).toBe(404)
+    expect((await figures(dee)).status).toBe(404)
+    expect(JSON.stringify((await figures(ben)).json)).not.toContain(SECRET_ANSWER)
+  })
 })
 
 const stringsIn = (value: unknown): string[] =>

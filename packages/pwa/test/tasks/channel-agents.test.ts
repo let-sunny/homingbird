@@ -111,6 +111,29 @@ describe('the channel agent tasks', () => {
     expect((await refused.run(tasks.loadChannelAgent('payments-wiki')))._tag).toBe('Err')
   })
 
+  it('load how the agent is doing for a manager, nothing for anyone else, and fail on other refusals', async () => {
+    const figures = {
+      generatedAt: 1,
+      channel: 'payments-wiki',
+      quickApprovalSeconds: 3,
+      minimumGroupSize: 5,
+      waiting: 0,
+      periods: [],
+    } satisfies AsRead.ChannelAgentReport
+    const found = testApp({ 'channels.agent.figures': () => figures })
+    expect(await found.run(tasks.loadChannelAgentFigures('payments-wiki'))).toEqual({
+      _tag: 'Ok',
+      value: figures,
+    })
+    const hidden = testApp({ 'channels.agent.figures': () => fail(NotFound({ message: 'Only managers.' })) })
+    expect(await hidden.run(tasks.loadChannelAgentFigures('payments-wiki'))).toEqual({
+      _tag: 'Ok',
+      value: null,
+    })
+    const refused = testApp({ 'channels.agent.figures': () => fail(Forbidden({ message: 'No.' })) })
+    expect((await refused.run(tasks.loadChannelAgentFigures('payments-wiki')))._tag).toBe('Err')
+  })
+
   it('make, rename and retire the agent and disconnect a desk, reading the agent again each time', async () => {
     const { run, state, routes } = testApp({
       'channels.agent.get': () => agentView,

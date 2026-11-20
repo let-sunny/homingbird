@@ -2,12 +2,17 @@ import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import {
   PILOT_SIZE,
+  TEAM_SIZE,
   isSlow,
+  measureTeams,
   measurementTable,
+  mostTeamsShown,
   planChannels,
   planExchanges,
+  planTeams,
   seededRandom,
   summarize,
+  teamTable,
 } from '../pilot-measure.ts'
 
 describe('the pilot measurement', () => {
@@ -77,6 +82,64 @@ describe('the pilot measurement', () => {
         '| --- | --- | --- | --- | --- |',
         '| Organization insights | 2 | 2 ms | 4 ms | 4 ms |',
       ].join('\n'),
+    )
+  })
+})
+
+describe('the team measurement', () => {
+  it('draws each team between the smallest and largest size, of distinct members of the organization', () => {
+    fc.assert(
+      fc.property(fc.integer(), fc.boolean(), (seed, primary) => {
+        const teams = planTeams(TEAM_SIZE, seededRandom(seed), primary)
+        expect(teams).toHaveLength(TEAM_SIZE.teams)
+        for (const team of teams) {
+          expect(new Set(team).size).toBe(team.length)
+          expect(team.every((member) => member >= 0 && member < TEAM_SIZE.members)).toBe(true)
+          expect(team.length).toBeLessThanOrEqual(TEAM_SIZE.largestTeam)
+          if (!primary) expect(team.length).toBeGreaterThanOrEqual(TEAM_SIZE.smallestTeam)
+        }
+      }),
+    )
+  })
+
+  it('puts every person in one primary team at most', () => {
+    const teams = planTeams(TEAM_SIZE, seededRandom(7), true)
+    const memberships = teams.flat()
+    expect(new Set(memberships).size).toBe(memberships.length)
+  })
+
+  it('stops filling primary teams once everyone has one', () => {
+    const teams = planTeams({ ...TEAM_SIZE, members: 10 }, seededRandom(7), true)
+    expect(teams.flat().sort((a, b) => a - b)).toEqual(Array.from({ length: 10 }, (_, member) => member))
+  })
+
+  it('never shows more teams than the best choice, nor more than are large enough', () => {
+    const seeds = [1, 2, 3, 4, 5]
+    for (const primary of [false, true]) {
+      const measured = measureTeams(TEAM_SIZE, seeds, primary)
+      expect(measured.shown).toHaveLength(seeds.length)
+      seeds.forEach((_, index) => {
+        expect(measured.shown[index]!).toBeLessThanOrEqual(measured.atBest[index]!)
+        expect(measured.atBest[index]!).toBeLessThanOrEqual(measured.largeEnough[index]!)
+      })
+    }
+  })
+
+  it('finds the most teams the cell rule allows', () => {
+    const size = { ...TEAM_SIZE, members: 15, minimum: 5 }
+    const apart = [
+      [0, 1, 2, 3, 4],
+      [5, 6, 7, 8, 9],
+    ]
+    expect(mostTeamsShown(apart, size)).toBe(2)
+    expect(mostTeamsShown([...apart, [0, 1, 2, 3, 5]], size)).toBe(2)
+    expect(mostTeamsShown([[0, 1, 2]], size)).toBe(0)
+    expect(mostTeamsShown([[...Array.from({ length: 12 }, (_, member) => member)]], size)).toBe(0)
+  })
+
+  it('tables how many organizations showed each number of teams', () => {
+    expect(teamTable({ shown: [1, 1, 2] }, 2)).toBe(
+      ['| Teams shown | Organizations |', '| --- | --- |', '| 0 | 0 |', '| 1 | 2 |', '| 2 | 1 |'].join('\n'),
     )
   })
 })

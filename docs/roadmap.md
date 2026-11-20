@@ -346,22 +346,27 @@ re-wake. Still to come:
 ## Insights
 
 The first part is built: **My agent** for each person (a page in the header, per channel)
-and organization-wide **Insights** for administrators, with groups under 5 people hidden
+and organization-wide **Insights** for administrators, with groups under `HB_INSIGHTS_MINIMUM_GROUP`
+people hidden (1 by default, so none)
 ([guide](guide.md#see-how-far-you-can-trust-your-agent), [deployment](deployment.md#insights)).
 **Built:** **Your week** at the top of How it is doing (notes sent, replies received, typical reply
 time); for administrators, organization-wide, the typical decision time, who wrote what was sent
 (`agent`, `human_edited`, `human`), delivery to agents, and quick approvals week by week with a warning
 at 25% for 2 weeks; and **What is measured**, a page every member can open, with a test that fails for a
-figure it does not name. Still to come:
+figure it does not name; and **How #channel's agent is doing** on a channel's agent page, for its
+managers only, with the answers each manager sent, a manager's approvals in their week apart from
+their notes, and channel agents' totals for administrators; and rows per team, counted by whole UTC
+days from each membership's history. Still to come:
 
 - **Quick-approval warning per team, and as settings**: the 25% and 2 weeks are constants today
   (`QUICK_APPROVAL_SHARE`, `QUICK_WARNING_WEEKS` in `protocol`), organization-wide only.
-- **Numbers per group**: insights show figures per group (see "Groups and channel agents"), still
-  hiding groups under 5 people; with no groups, only organization-wide numbers are shown, as now.
-- **Channel agents**: per channel, how often its agent's drafts are approved, how often after an edit,
-  and how many each manager approved.
+- **A primary team per person**, if organizations raise the minimum: overlapping teams make the cell
+  rule (`teamsShown`) hide most of them. In 1,000 organizations of 50 people with 6 freely overlapping
+  teams of 3 to 12 at a minimum of 5 (`npx tsx scripts/pilot-measure.ts --teams`), it showed 23% of
+  teams (33% at best), against 75% with one primary team per person. At the default of 1 nothing is
+  hidden, so this waits until an organization asks.
 - **Privacy, binding for all of it:** numbers only, never note content. An administrator sees team
-  totals, never one person's approval figures. Groups under 5 people are hidden. Blocks are a count,
+  totals, never one person's approval figures. Groups under the configured minimum are hidden. Blocks are a count,
   never who blocked whom.
 
 ## Operations

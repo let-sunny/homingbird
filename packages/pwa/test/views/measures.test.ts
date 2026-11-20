@@ -15,9 +15,12 @@ describe('measuresView', () => {
     const shown = measuresView(context)
     expect(getByRole(shown, 'heading', { name: strings.measures.pageTitle })).toBeTruthy()
     expect(getByRole(shown, 'heading', { name: strings.measures.youTitle })).toBeTruthy()
+    expect(getByRole(shown, 'heading', { name: strings.measures.managersTitle })).toBeTruthy()
     expect(getByRole(shown, 'heading', { name: strings.measures.administratorsTitle })).toBeTruthy()
     expect(allByRole(shown, 'listitem')).toHaveLength(
-      Object.keys(strings.measures.you).length + Object.keys(strings.measures.administrators).length,
+      Object.keys(strings.measures.you).length +
+        Object.keys(strings.measures.managers).length +
+        Object.keys(strings.measures.administrators).length,
     )
   })
 

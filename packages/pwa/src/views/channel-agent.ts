@@ -2,6 +2,11 @@ import type { AsRead, NoteId } from '@homingbird/protocol'
 import { CHANNEL_AGENT_NAME_MAX } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, region, signal } from '@homingbird/ui'
 import {
+  type ChannelAgentFiguresModel,
+  type ChannelAgentFiguresState,
+  channelAgentFiguresModel,
+} from '../models/channel-agent-figures.ts'
+import {
   type AgentPanel,
   type ReviewCard,
   agentControlsModel,
@@ -15,6 +20,7 @@ import { signedIn } from '../state.ts'
 import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
 import { closeDialog, opensDialog } from './dialog.ts'
+import { reportWhenSeen } from './drafts-item.ts'
 import { button, dialogActions, field, loading, page as pageOf } from './parts.ts'
 
 /** The agent's buttons among a channel's own controls: its panel for a manager, and asking it privately. */
@@ -110,6 +116,11 @@ const agentPanel = (
       life.add(state.reviews.subscribe(learnWhatBecameOfFocus))
     },
   })
+  const figures = signal<ChannelAgentFiguresState>('loading')
+  actions.loadChannelAgentFigures(channel.slug, {
+    done: (report) => figures.set(report),
+    failed: () => figures.set('failed'),
+  })
   const panel = h(
     'div',
     { class: 'dialog-body channel-agent-panel' },
@@ -150,16 +161,68 @@ const agentPanel = (
         h(
           'ul',
           { class: 'review-cards' },
-          model.cards.map((card) =>
-            reviewCard(context, card, () => {
+          model.cards.map((card) => {
+            const element = reviewCard(context, card, () => {
               if (card.focused) askedWhatBecameOfFocus = true
-            }),
-          ),
+            })
+            reportWhenSeen(context, element, card.review.note)
+            return element
+          }),
         ),
       )
     }),
+    region(life, [figures], () =>
+      renderFigures(channelAgentFiguresModel(figures.get(), channel.slug, FIGURES_DAYS)),
+    ),
   )
   return panel
+}
+
+const FIGURES_DAYS = 30
+
+const renderFigures = (model: ChannelAgentFiguresModel): Child => {
+  if (model.kind === 'hidden') return null
+  if (model.kind === 'loading') return loading()
+  if (model.kind === 'failed') return h('p', { class: 'hint', role: 'status' }, model.text)
+  return h(
+    'section',
+    { class: 'channel-agent-figures' },
+    h('h3', {}, model.title),
+    h('p', { class: 'hint' }, model.intro),
+    h(
+      'div',
+      { class: 'table-scroll trust-table-scroll' },
+      h(
+        'table',
+        { class: 'trust-table' },
+        h(
+          'thead',
+          {},
+          h(
+            'tr',
+            {},
+            model.headings.map((heading) => h('th', { scope: 'col' }, heading)),
+          ),
+        ),
+        h(
+          'tbody',
+          {},
+          model.rows.map(([label, now, before]) =>
+            h('tr', {}, h('th', { scope: 'row' }, label), h('td', {}, now), h('td', {}, before)),
+          ),
+        ),
+      ),
+    ),
+    h('p', {}, model.waiting),
+    h('h4', {}, model.approvalsTitle),
+    h('p', { class: 'hint' }, model.approvalsHint),
+    h(
+      'ul',
+      { class: 'channel-agent-approvals' },
+      model.approvals.map((line) => h('li', {}, line)),
+    ),
+    h('p', { class: 'hint' }, model.footnote),
+  )
 }
 
 const FOCUSED_CARD = '.review-card[aria-current="true"]'

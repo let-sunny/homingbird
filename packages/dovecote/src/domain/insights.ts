@@ -1,10 +1,25 @@
 import { Task as T } from '@homingbird/kernel'
-import type { AgentReport, MemberId, OrganizationInsights } from '@homingbird/protocol'
-import type { AppEnv } from '../environment.ts'
+import {
+  type AgentReport,
+  type ChannelAgentReport,
+  type ConversationId,
+  type MemberId,
+  NotFound,
+  type OrganizationInsights,
+} from '@homingbird/protocol'
+import { type AppEnv, type Caller, isHuman, viewerOf } from '../environment.ts'
 import { all, first } from '../sql/database.ts'
-import { sql } from '../sql/query.ts'
+import { type Query, raw, sql } from '../sql/query.ts'
+import {
+  type ChannelAgentActivity,
+  type ReviewedDraft,
+  channelAgentReportOf,
+} from './channel-agent-figures.ts'
+import { managersOf, visibleChannel } from './channel-rows.ts'
 import { type OrganizationActivity, organizationInsightsOf } from './organization-figures.ts'
 import { PLACE_COLUMNS, PLACE_JOIN, type PlaceRow, placeOf } from './places.ts'
+import { featureIsOn } from './settings.ts'
+import type { TeamMembership } from './team-figures.ts'
 import {
   type AgentActivity,
   DAY_MS,
@@ -32,22 +47,44 @@ export const myInsights = (memberId: MemberId): T.Task<AgentReport, never, AppEn
     return { ...report, week: yourWeekOf(week, report.generatedAt) }
   })
 
-/** Organization-wide totals for administrators, with every group under the minimum left out. */
-export const organizationInsights: T.Task<OrganizationInsights, never, AppEnv> = T.gen(function* () {
-  const env = yield* T.ask<AppEnv>()
-  const now = env.clock.now()
-  const activity = yield* organizationActivity(now - LOOKBACK_MS)
-  const members = yield* first<{ total: number }>(
-    sql`SELECT COUNT(*) AS total FROM members WHERE status = 'active' AND kind = 'person'`,
-  )
-  const blocks = yield* first<{ total: number }>(sql`SELECT COUNT(*) AS total FROM blocks`)
-  return organizationInsightsOf(
-    activity,
-    { members: Number(members?.total ?? 0), blocks: Number(blocks?.total ?? 0) },
-    now,
-    env.config.insights,
-  )
-})
+/** How a channel's agent is doing, for the people who manage its channel and nobody else (rule 6). */
+export const channelAgentInsights = (
+  caller: Caller,
+  slug: string,
+): T.Task<ChannelAgentReport, NotFound, AppEnv> =>
+  T.gen(function* () {
+    const env = yield* T.ask<AppEnv>()
+    const row = yield* visibleChannel(viewerOf(caller), slug)
+    const managers = yield* managersOf(row)
+    if (!isHuman(caller) || !managers.includes(caller.member.id))
+      return yield* T.fail(
+        NotFound({ message: 'Only the managers of this channel see how its agent is doing.' }),
+      )
+    const now = env.clock.now()
+    const activity = yield* channelAgentActivity(row.conversation_id, managers, now - LOOKBACK_MS)
+    return channelAgentReportOf(row.slug, activity, now, env.config.insights)
+  })
+
+/**
+ * Organization-wide totals for administrators, with every group under the minimum left out, and channel
+ * agents only in channels the administrator may read: every open one, and the private ones they are in.
+ */
+export const organizationInsights = (viewerId: MemberId): T.Task<OrganizationInsights, never, AppEnv> =>
+  T.gen(function* () {
+    const env = yield* T.ask<AppEnv>()
+    const now = env.clock.now()
+    const activity = yield* organizationActivity(now - LOOKBACK_MS, viewerId)
+    const members = yield* first<{ total: number }>(
+      sql`SELECT COUNT(*) AS total FROM members WHERE status = 'active' AND kind = 'person'`,
+    )
+    const blocks = yield* first<{ total: number }>(sql`SELECT COUNT(*) AS total FROM blocks`)
+    return organizationInsightsOf(
+      activity,
+      { members: Number(members?.total ?? 0), blocks: Number(blocks?.total ?? 0) },
+      now,
+      env.config.insights,
+    )
+  })
 
 const LOOKBACK_MS = Math.max(2 * Math.max(...PERIOD_DAYS), 7 * TREND_WEEKS) * DAY_MS
 
@@ -104,8 +141,12 @@ const weekActivity = (memberId: MemberId, since: number): T.Task<WeekActivity, n
       WHERE r.author_id = ${memberId} AND r.status = 'sent' AND r.debate_id IS NULL
       AND o.author_id <> ${memberId} AND o.status = 'sent' AND o.debate_id IS NULL AND o.in_reply_to IS NULL
       AND o.sent_at >= ${since}`)
+    const approved = yield* all<{ at: number }>(sql`
+      SELECT n.decided_at AS at FROM notes n
+      WHERE n.approved_by = ${memberId} AND n.status = 'sent' AND n.decided_at >= ${since}`)
     return {
       sent: sent.map((row) => Number(row.at)),
+      approvedForChannels: approved.map((row) => Number(row.at)),
       repliesReceived: repliesReceived.map((row) => Number(row.at)),
       ownReplies: ownReplies.map((row) => ({
         originalId: row.id,
@@ -115,17 +156,27 @@ const weekActivity = (memberId: MemberId, since: number): T.Task<WeekActivity, n
     }
   })
 
-const organizationActivity = (since: number): T.Task<OrganizationActivity, never, AppEnv> =>
+const organizationActivity = (
+  since: number,
+  viewerId: MemberId,
+): T.Task<OrganizationActivity, never, AppEnv> =>
   T.gen(function* () {
     const sent = yield* all<SentRow>(sql`
-      SELECT n.id, n.author_id, n.in_reply_to, n.sent_at, n.origin, ${PLACE_COLUMNS} FROM notes n ${PLACE_JOIN}
-      WHERE n.status = 'sent' AND n.debate_id IS NULL AND n.sent_at >= ${since}`)
-    const drafts = yield* all<DraftRow & { author_id: string }>(sql`
-      SELECT n.author_id, n.created_at, n.seen_at, n.decided_at, n.status, n.origin, n.agent_client, n.agent_model, ${PLACE_COLUMNS}
+      SELECT n.id, COALESCE(n.approved_by, n.author_id) AS author_id, n.in_reply_to, n.sent_at, n.origin, ${PLACE_COLUMNS}
       FROM notes n ${PLACE_JOIN}
+      WHERE n.status = 'sent' AND n.debate_id IS NULL AND n.sent_at >= ${since}`)
+    const drafts = yield* all<DraftRow & { id: string; author_id: string | null }>(sql`
+      SELECT n.id, ${DECIDER} AS author_id, n.created_at, n.seen_at, n.decided_at, n.status, n.origin, n.agent_client, n.agent_model, ${PLACE_COLUMNS}
+      FROM notes n ${PLACE_JOIN} JOIN members a ON a.id = n.author_id
       WHERE n.agent_name IS NOT NULL AND n.debate_id IS NULL AND (n.created_at >= ${since} OR n.decided_at >= ${since})`)
-    const skips = yield* all<DatedRow & { member_id: string }>(sql`
-      SELECT n.member_id, n.created_at AS at, ${PLACE_COLUMNS} FROM releases n ${PLACE_JOIN}
+    const channelAgentDrafts = yield* reviewedDrafts(
+      sql`(COALESCE(t.visibility, 'open') = 'open' OR EXISTS (SELECT 1 FROM participants v
+        WHERE v.conversation_id = t.conversation_id AND v.member_id = ${viewerId}))`,
+      since,
+    )
+    const skips = yield* all<DatedRow & { member_id: string | null }>(sql`
+      SELECT CASE WHEN a.kind = 'channel_agent' THEN NULL ELSE n.member_id END AS member_id, n.created_at AS at, ${PLACE_COLUMNS}
+      FROM releases n ${PLACE_JOIN} JOIN members a ON a.id = n.member_id
       WHERE n.created_at >= ${since}`)
     const debateResults = yield* all<{ author_id: string; sent_at: number }>(sql`
       SELECT n.author_id, n.sent_at FROM notes n
@@ -139,9 +190,10 @@ const organizationActivity = (since: number): T.Task<OrganizationActivity, never
         ) THEN 1 ELSE 0 END AS has_agent,
         (SELECT MIN(p.picked_at) FROM pickups p JOIN credentials k ON k.id = p.credential_id
           WHERE p.note_id = n.id AND k.member_id = r.member_id AND k.kind = 'agent') AS picked_up_at
-      FROM receipts r JOIN notes n ON n.id = r.note_id
+      FROM receipts r JOIN notes n ON n.id = r.note_id JOIN members m ON m.id = r.member_id AND m.kind = 'person'
       WHERE n.status = 'sent' AND n.debate_id IS NULL AND n.sent_at >= ${since} AND r.member_id <> n.author_id`)
     return {
+      ...((yield* featureIsOn('groups')) && { teams: yield* teamMembership }),
       sent: sent.map((row) => ({
         id: row.id,
         authorId: row.author_id,
@@ -150,7 +202,8 @@ const organizationActivity = (since: number): T.Task<OrganizationActivity, never
         place: placeOf(row),
         origin: row.origin,
       })),
-      drafts: drafts.map((row) => ({ ...toDraft(row), authorId: row.author_id })),
+      drafts: drafts.map((row) => ({ ...toDraft(row), id: row.id, authorId: row.author_id })),
+      channelAgentDrafts,
       skips: skips.map((row) => ({ ...toDated(row), memberId: row.member_id })),
       debateResults: debateResults.map((row) => ({ authorId: row.author_id, sentAt: Number(row.sent_at) })),
       received: received.map((row) => ({
@@ -161,6 +214,84 @@ const organizationActivity = (since: number): T.Task<OrganizationActivity, never
       })),
     }
   })
+
+const teamMembership: T.Task<TeamMembership, never, AppEnv> = T.gen(function* () {
+  const teams = yield* all<{ id: string; name: string }>(
+    sql`SELECT id, name FROM member_groups WHERE kind = 'team' AND name IS NOT NULL ORDER BY id`,
+  )
+  const spans = yield* all<{
+    group_id: string
+    member_id: string
+    joined_at: number
+    left_at: number | null
+  }>(sql`
+    SELECT s.group_id, s.member_id, s.joined_at, s.left_at FROM group_member_spans s
+    JOIN member_groups g ON g.id = s.group_id AND g.kind = 'team'
+    ORDER BY s.group_id, s.member_id, s.joined_at`)
+  return {
+    teams,
+    spans: spans.map((span) => ({
+      teamId: span.group_id,
+      memberId: span.member_id,
+      joinedAt: Number(span.joined_at),
+      leftAt: optionalNumber(span.left_at),
+    })),
+  }
+})
+
+const channelAgentActivity = (
+  room: ConversationId,
+  managers: ReadonlyArray<MemberId>,
+  since: number,
+): T.Task<ChannelAgentActivity, never, AppEnv> =>
+  T.gen(function* () {
+    const drafts = yield* reviewedDrafts(sql`t.conversation_id = ${room}`, since)
+    const waiting = yield* first<{ total: number }>(sql`
+      SELECT COUNT(*) AS total FROM notes n JOIN members a ON a.id = n.author_id AND a.kind = 'channel_agent'
+      JOIN conversations c ON c.id = n.conversation_id
+      WHERE n.status = 'draft' AND COALESCE(c.channel_id, c.id) = ${room}`)
+    const names = yield* T.forEach(managers, (id) =>
+      T.map((row: { name: string } | null) => ({ id, name: row?.name ?? '' }))(
+        first<{ name: string }>(sql`SELECT name FROM members WHERE id = ${id}`),
+      ),
+    )
+    return { drafts, waiting: Number(waiting?.total ?? 0), managers: names }
+  })
+
+/** Channels' agents' answers, in their channel's room or a question asked privately of it, where `inChannel` holds of the channel `t`. */
+const reviewedDrafts = (inChannel: Query, since: number): T.Task<ReviewedDraft[], never, AppEnv> =>
+  T.map((rows: ReadonlyArray<ReviewedRow>) =>
+    rows.map((row) => ({
+      id: row.id,
+      place: row.slug,
+      createdAt: Number(row.created_at),
+      seenAt: optionalNumber(row.seen_at),
+      decidedAt: optionalNumber(row.decided_at),
+      outcome: outcomeOf(row),
+      approvedBy: row.approved_by,
+    })),
+  )(
+    all<ReviewedRow>(sql`
+      SELECT n.id, n.created_at, n.seen_at, n.decided_at, n.status, n.origin, n.approved_by, t.slug
+      FROM notes n JOIN members a ON a.id = n.author_id AND a.kind = 'channel_agent'
+      JOIN conversations c ON c.id = n.conversation_id
+      JOIN channels t ON t.conversation_id = COALESCE(c.channel_id, c.id)
+      WHERE n.debate_id IS NULL AND (n.created_at >= ${since} OR n.decided_at >= ${since}) AND ${inChannel}`),
+  )
+
+/** Whose decision a draft is: a channel's agent's answer is its approver's, and nobody's until one sends it. */
+const DECIDER: Query = raw("CASE WHEN a.kind = 'channel_agent' THEN n.approved_by ELSE n.author_id END")
+
+interface ReviewedRow {
+  readonly id: string
+  readonly created_at: number
+  readonly seen_at: number | null
+  readonly decided_at: number | null
+  readonly status: string
+  readonly origin: string
+  readonly approved_by: string | null
+  readonly slug: string
+}
 
 interface DraftRow extends PlaceRow {
   readonly created_at: number
@@ -213,7 +344,7 @@ const toDraft = (row: DraftRow) => ({
   contextPercent: optionalNumber(row.context_percent ?? null),
 })
 
-const outcomeOf = (row: DraftRow): DraftOutcome | null =>
+const outcomeOf = (row: Pick<DraftRow, 'status' | 'origin' | 'decided_at'>): DraftOutcome | null =>
   row.status === 'sent'
     ? row.origin === 'agent'
       ? 'as_written'

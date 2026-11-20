@@ -10,6 +10,8 @@ export interface OwnReply {
 
 export interface WeekActivity {
   readonly sent: ReadonlyArray<number>
+  /** When the person sent a channel's agent's answer as one of its managers. */
+  readonly approvedForChannels?: ReadonlyArray<number>
   readonly repliesReceived: ReadonlyArray<number>
   readonly ownReplies: ReadonlyArray<OwnReply>
 }
@@ -31,6 +33,7 @@ export const weekFiguresIn = (activity: WeekActivity, window: Window): WeekFigur
   }
   return {
     notesSent: activity.sent.filter((at) => isIn(window, at)).length,
+    approvedForChannels: (activity.approvedForChannels ?? []).filter((at) => isIn(window, at)).length,
     repliesReceived: activity.repliesReceived.filter((at) => isIn(window, at)).length,
     medianReplyMs: median(
       [...firstReplies.values()]

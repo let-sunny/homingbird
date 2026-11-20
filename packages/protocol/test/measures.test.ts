@@ -1,16 +1,21 @@
 import type { Schema as S } from '@homingbird/kernel'
 import { describe, expect, it } from 'vitest'
-import { AgentReport, OrganizationInsights } from '../src/insights.ts'
+import { AgentReport, ChannelAgentReport, OrganizationInsights } from '../src/insights.ts'
 import { MEASURES, type MeasureAudience, NOT_MEASURES, PERIOD_FIELDS } from '../src/measures.ts'
 
 const RESPONSES: Readonly<Record<MeasureAudience, S.Ast>> = {
   you: AgentReport.ast,
+  managers: ChannelAgentReport.ast,
   administrators: OrganizationInsights.ast,
 }
 
 describe('MEASURES', () => {
   it('names the path of every figure in a person’s own report as a measure the person sees', () => {
     expect(unnamed('you')).toEqual([])
+  })
+
+  it('names the path of every figure in a channel agent’s report as a measure its managers see', () => {
+    expect(unnamed('managers')).toEqual([])
   })
 
   it('names the path of every figure in the organization’s insights as a measure administrators see', () => {

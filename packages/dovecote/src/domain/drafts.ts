@@ -29,7 +29,7 @@ import { announceStatus, noteById } from './note-status.ts'
 import { visibleNote } from './notes.ts'
 import { recordApplications } from './principle-applications.ts'
 import { announceReview } from './review-events.ts'
-import { askersOf, reviewersOf } from './reviews.ts'
+import { askersOf, reviewFor, reviewersOf } from './reviews.ts'
 
 export interface DraftDestination {
   readonly conversationId?: ConversationId
@@ -126,12 +126,15 @@ export const updateDraft = (
     return updated
   })
 
-/** Records when a draft was first shown to its author in a visible page; later calls change nothing. */
+/**
+ * Records when a draft was first shown in a visible page to who decides it: its author, or a manager
+ * who reviews a channel's agent's answer. Later calls change nothing.
+ */
 export const markDraftSeen = (caller: Caller, id: NoteId): T.Task<void, NotFound, RequestEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
     const own = yield* first(sql`SELECT id FROM notes WHERE id = ${id} AND author_id = ${caller.member.id}`)
-    if (own === null) return yield* T.fail(NotFound({ message: 'No such draft.' }))
+    if (own === null) yield* reviewFor(caller, id)
     yield* run(
       sql`UPDATE notes SET seen_at = ${env.clock.now()} WHERE id = ${id} AND status = 'draft' AND seen_at IS NULL`,
     )

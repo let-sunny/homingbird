@@ -10,6 +10,7 @@ import {
   requireAvailableGroupName,
   storeGroup,
 } from './group-rows.ts'
+import { emptyGroup } from './group-spans.ts'
 import { type GroupViewer, describeGroup } from './groups.ts'
 
 /** An administrator makes teams; only administrators change them, and a team manages no channel. */
@@ -34,7 +35,7 @@ export const deleteGroup = (id: GroupId): T.Task<void, NotFound | Conflict, Requ
       return yield* T.fail(
         Conflict({ message: 'A channel’s managers go only when the channel is archived.' }),
       )
-    yield* run(sql`DELETE FROM group_members WHERE group_id = ${id}`)
+    yield* emptyGroup(id)
     yield* run(sql`DELETE FROM member_groups WHERE id = ${id}`)
     yield* announceGroups([id])
   })
