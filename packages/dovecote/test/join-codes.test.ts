@@ -79,6 +79,8 @@ describe('join codes', () => {
 
     const pending = (await ana.api('POST', '/join-codes', {})).json.code
     await root.api('PATCH', `/admin/members/${ana.me.member.id}`, { status: 'deactivated' })
+    const joins = (await storedRows(server, 'auth_requests')).filter((row) => row.kind === 'join')
+    expect(new Set(joins.map((row) => row.status))).toEqual(new Set(['denied']))
     expect((await redeem(pending)).json).toEqual(refused)
   })
 
