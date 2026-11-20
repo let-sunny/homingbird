@@ -71,10 +71,15 @@ export const FEATURES = {
       'channels.agent.rename',
       'channels.agent.retire',
       'channels.agent.credentials.revoke',
+      'channels.agent.figures',
       'channels.askPrivately',
       'reviews.list',
       'reviews.get',
     ],
+  },
+  cloudDesk: {
+    default: false,
+    routes: ['me.deskWake.get', 'me.deskWake.set', 'me.deskWake.test'],
   },
   analytics: { default: false, routes: ['analytics.track'] },
 } as const satisfies Readonly<

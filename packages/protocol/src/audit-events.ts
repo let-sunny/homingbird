@@ -74,6 +74,15 @@ export const AUDIT_EVENTS = {
     removed: S.array(MemberId, { maxItems: GROUP_MEMBERS_MAX }),
     because: S.optional(S.literal('deactivated')),
   }),
+  'desk_wake.registered': event('security', 'member', { host: S.string({ maxLength: 253 }) }),
+  'desk_wake.removed': event('security', 'member', {
+    host: S.string({ maxLength: 253 }),
+    because: S.optional(S.literal('deactivated')),
+  }),
+  'desk_wake.stopped': event('security', 'member', {
+    host: S.string({ maxLength: 253 }),
+    because: S.literal('refused', 'failures', 'credential_gone', 'unreadable'),
+  }),
 
   'note.approved': event('full', 'note', {
     conversationId: ConversationId,

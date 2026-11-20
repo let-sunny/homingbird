@@ -24,11 +24,13 @@ import { MEMBER_ROUTES as A2A_ROUTES } from '../../a2a/src/member-api.ts'
 import { hashSecret } from '../src/random.ts'
 import { run } from '../src/sql/database.ts'
 import { insertInto } from '../src/sql/query.ts'
+import { agentCredentialOf, fakeService, routineSetup, startCloudDeskServer } from './cloud-desk-support.ts'
 import { PAST_GRACE_MS } from './debate-support.ts'
 import {
   type Agent,
   type Session,
   type TestServer,
+  asShown,
   connectAgent,
   everyStoredValue,
   keepAwake,
@@ -495,6 +497,26 @@ describe('Rule 2: drafts are invisible to recipients', () => {
     ).not.toContain(SECRET_ANSWER)
     expect(JSON.stringify((await ben.api('GET', '/search?q=secret')).json)).not.toContain(SECRET_ANSWER)
     expect((await ana.api('GET', `/reviews/${draft.id}`)).status).toBe(404)
+  })
+
+  it('hides a group message from its other members until a note in it is sent', async () => {
+    const group = (
+      await ana.api('POST', '/conversations', { participantIds: [ben.me.member.id, cy.me.member.id] })
+    ).json
+    const draft = (await ana.api('POST', '/drafts', { conversationId: group.id, body: SECRET_BODY })).json
+    for (const viewer of [ben, cy, benAgent]) {
+      expect(JSON.stringify((await viewer.api('GET', '/conversations')).json)).not.toContain(group.id)
+      expect((await viewer.api('GET', `/conversations/${group.id}`)).status).toBe(404)
+      expect((await viewer.api('GET', `/conversations/${group.id}/notes`)).status).toBe(404)
+      expect((await viewer.api('GET', '/search?q=7f3a')).json.notes).toEqual([])
+      expect(JSON.stringify((await viewer.api('GET', '/events/poll?after=0')).json)).not.toContain(group.id)
+    }
+    await ana.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })
+    for (const viewer of [ben, cy, benAgent]) {
+      expect(JSON.stringify((await viewer.api('GET', '/conversations')).json)).toContain(group.id)
+      expect((await viewer.api('GET', `/conversations/${group.id}`)).status).toBe(200)
+      expect((await viewer.api('GET', '/search?q=7f3a')).json.notes).toHaveLength(1)
+    }
   })
 })
 
@@ -990,6 +1012,48 @@ describe('Rule 5: credentials are stored hashed and never logged', () => {
     for (const token of [ana.token, ben.token, cy.token, anaAgent.token, benAgent.token])
       expect(stored.includes(token)).toBe(false)
     expect(stored).not.toMatch(/hb[har]_[A-Za-z0-9_-]{20,}/)
+  })
+
+  it('5: keeps a wake token sealed, out of every response, log line and audit entry, and deletes it when its person removes it', async () => {
+    const token = 'wake-token-5e1a7c0ffee'
+    const path = '/v1/claude_code/routines/trig_rule5marker/fire'
+    const service = fakeService()
+    const desk = await startCloudDeskServer(service)
+    const person = await desk.signIn('ana@example.com', 'Ana')
+    const colleague = await desk.signIn('ben@example.com', 'Ben')
+    await connectAgent(desk, person, { name: 'Cloud desk' })
+    const setup = routineSetup(await agentCredentialOf(person), {
+      url: `https://api.anthropic.com${path}`,
+      headers: [{ name: 'Authorization', value: `Bearer ${token}` }],
+    })
+    const answers = [JSON.stringify((await person.api('PUT', '/me/desk-wake', setup)).json)]
+    const running = T.runFork(desk.background, desk.env)
+    const draft = (await colleague.api('POST', '/drafts', { to: [person.me.member.id], body: 'Invoice?' }))
+      .json
+    await colleague.api('POST', `/drafts/${draft.id}/send`, await asShown(colleague, draft.id))
+    for (let waited = 0; service.wakes().length === 0 && waited < 60_000; waited += 5_000)
+      await desk.clock.advance(5_000)
+    expect(service.wakes()).toHaveLength(1)
+    service.answers.push(401)
+    answers.push(JSON.stringify((await person.api('POST', '/me/desk-wake/test', {})).json))
+    answers.push(JSON.stringify((await person.api('POST', '/me/desk-wake/test', {})).json))
+    answers.push(JSON.stringify((await person.api('GET', '/me/desk-wake')).json))
+    answers.push(JSON.stringify((await desk.request('GET', '/api/v1/info')).json))
+    await running.interrupt()
+    expect(service.wakes()).toHaveLength(3)
+    const kept = [
+      await everyStoredValue(desk),
+      JSON.stringify(await storedRows(desk, 'audit_events')),
+      desk.logged.join('\n'),
+      ...answers,
+    ]
+    for (const place of kept) {
+      expect(place).not.toContain(token)
+      expect(place).not.toContain('trig_rule5marker')
+    }
+    expect((await person.api('DELETE', '/me/desk-wake')).status).toBe(200)
+    expect(await storedRows(desk, 'desk_wakes')).toEqual([])
+    await desk.close()
   })
 
   it('never returns a token from any credential listing', async () => {
@@ -1491,6 +1555,18 @@ describe('Rule 6: a member sees only conversations they participate in', () => {
     )
     expect(failed.map((row) => JSON.parse(String(row.detail)))).toEqual([{ reason: 'not_a_person' }])
     expect((await ben.api('GET', '/channels/wiki/agent')).json.agent).toMatchObject({ id: agent.id, email })
+  })
+
+  it('shows how a channel’s agent is doing to its managers only, never to an administrator outside the group of an open channel', async () => {
+    const agent = await startChannelAgent()
+    const { draft } = await askAndAnswer(dee, agent)
+    await ben.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })
+    const figures = (person: Session) => person.api('GET', '/channels/wiki/agent/figures')
+    expect((await figures(ben)).status).toBe(200)
+    expect((await figures(cy)).status).toBe(200)
+    expect((await figures(ana)).status).toBe(404)
+    expect((await figures(dee)).status).toBe(404)
+    expect(JSON.stringify((await figures(ben)).json)).not.toContain(SECRET_ANSWER)
   })
 })
 

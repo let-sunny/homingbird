@@ -25,7 +25,7 @@ import {
   type Processes,
   type Programs,
 } from './environment.ts'
-import { type AgentErrors, nodeLauncher } from './node-launcher.ts'
+import { type AgentErrors, nodeLauncher, taskkillCommand } from './node-launcher.ts'
 
 export const nodeEnvironment = (stopped: AbortSignal, options: NodeEnvironmentOptions = {}): CliEnv => ({
   clock: systemClock,
@@ -158,12 +158,20 @@ const asCause = (cause: unknown): unknown => cause
 const PERMISSION_BITS = 0o777
 
 const nodeProcesses: Processes = {
-  run: (program, args) =>
+  run: (program, args, options = {}) =>
     new Promise((resolve) => {
-      execFile(
+      const child = execFile(
         program,
         [...args],
-        { timeout: PROCESS_TIMEOUT_MS, windowsHide: true, encoding: 'utf8' },
+        {
+          timeout: options.timeoutMs ?? PROCESS_TIMEOUT_MS,
+          killSignal: 'SIGKILL',
+          windowsHide: true,
+          encoding: 'utf8',
+          ...(options.environment !== undefined && { env: { ...options.environment } }),
+          ...(options.windowsVerbatimArguments === true && { windowsVerbatimArguments: true }),
+          ...(options.signal !== undefined && { signal: options.signal }),
+        },
         (error, stdout, stderr) => {
           const exitCode = error === null ? 0 : typeof error.code === 'number' ? error.code : null
           resolve({
@@ -172,7 +180,16 @@ const nodeProcesses: Processes = {
           })
         },
       )
+      if (process.platform === 'win32')
+        options.signal?.addEventListener('abort', () => endTree(child.pid), { once: true })
     }),
+}
+
+/** Node's own stop reaches only cmd.exe on Windows; taskkill also ends what it started. */
+const endTree = (pid: number | undefined): void => {
+  if (pid === undefined) return
+  const [program, args] = taskkillCommand(process.env.SystemRoot ?? 'C:\\Windows', pid)
+  execFile(program, args, { windowsHide: true }, () => {})
 }
 
 const nodePrograms: Programs = {

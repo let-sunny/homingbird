@@ -4,6 +4,7 @@ import {
   QUICK_WARNING_WEEKS,
   type QuickWeek,
 } from '@homingbird/protocol'
+import { isEnough, peopleOf } from './disclosure.ts'
 import type { MemberDraft, PrivacySettings } from './organization-figures.ts'
 import { TREND_WEEKS, type Window, isIn, isQuickApproval, weeksBefore } from './trust-figures.ts'
 
@@ -33,7 +34,7 @@ const quickWeekOf = (
 ): QuickWeek => {
   const decided = drafts.filter((draft) => draft.outcome !== null && isIn(week, draft.decidedAt))
   const asWritten = decided.filter((draft) => draft.outcome === 'as_written')
-  const shown = new Set(decided.map((draft) => draft.authorId)).size >= settings.minimumGroupSize
+  const shown = isEnough(peopleOf(decided.map((draft) => draft.authorId)).size, settings.minimumGroupSize)
   return {
     start: week.from,
     sentAsWritten: shown ? asWritten.length : null,

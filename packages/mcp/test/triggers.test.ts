@@ -18,7 +18,6 @@ import { describe, expect, it } from 'vitest'
 import { memberApiOf } from '../src/member-api.ts'
 import {
   type AnnouncedRequests,
-  WAKING_EVENTS,
   announcedRequests,
   freshTriggers,
   waitingNoteIds,
@@ -116,13 +115,6 @@ describe('freshTriggers', () => {
   it('reaches no human-only route', async () => {
     const { calls } = await fresh(inboxOf(noteOf()))
     expect(calls.filter((call) => humanOnlyRoutes.includes(call.name as RouteName))).toEqual([])
-  })
-
-  it('is woken by an arriving note, a draft request and a resync, not by presence', () => {
-    expect(WAKING_EVENTS).toContain('note.sent')
-    expect(WAKING_EVENTS).toContain('draft.requested')
-    expect(WAKING_EVENTS).toContain('resync')
-    expect(WAKING_EVENTS).not.toContain('presence')
   })
 })
 

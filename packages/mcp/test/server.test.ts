@@ -27,7 +27,12 @@ const ME = {
   contactMode: 'open',
 }
 
-const server = (stubs: Stubs = {}, webClientUrl?: string, desk?: boolean) => {
+const server = (
+  stubs: Stubs = {},
+  webClientUrl?: string,
+  desk?: boolean,
+  withheldTools?: ReadonlyArray<string>,
+) => {
   const fake = fakeApi({ 'me.get': () => ME as never, 'directory.list': () => DIRECTORY, ...stubs })
   const context = {
     api: fake.api,
@@ -35,6 +40,7 @@ const server = (stubs: Stubs = {}, webClientUrl?: string, desk?: boolean) => {
     nonce: sequentialNonce(),
     ...(webClientUrl !== undefined && { webClientUrl }),
     ...(desk !== undefined && { desk }),
+    ...(withheldTools !== undefined && { withheldTools }),
   }
   const send = (message: unknown) => T.runPromise(handleMcpMessage(message, context)) as Promise<any>
   const call = (method: string, params: Record<string, unknown> = {}) =>
@@ -165,6 +171,21 @@ describe('handleMcpMessage', () => {
       expect(tool.description.length).toBeGreaterThan(20)
       expect(tool.inputSchema.type).toBe('object')
     }
+  })
+
+  it('neither lists nor runs a tool it withholds', async () => {
+    const withholding = server({}, undefined, undefined, ['skip_note', 'wait_for_notes'])
+    const { result } = await withholding.call('tools/list')
+    const names = result.tools.map((tool: any) => tool.name)
+    expect(names).not.toContain('skip_note')
+    expect(names).not.toContain('wait_for_notes')
+    expect(names).toContain('draft_reply')
+    const { error } = await withholding.call('tools/call', {
+      name: 'skip_note',
+      arguments: { noteId: 'note_1' },
+    })
+    expect(error.message).toBe('Unknown tool: skip_note')
+    expect(withholding.calls.map((call: any) => call.name)).not.toContain('notes.release')
   })
 
   it('lists the debate tools only while the server has debate rooms switched on', async () => {

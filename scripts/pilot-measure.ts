@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 import { loadConfig } from '../packages/dovecote/src/config.ts'
 import { BROWSER_SIGN_IN_CLIENT, issueCredential } from '../packages/dovecote/src/domain/credentials.ts'
+import { type Contribution, teamsShown } from '../packages/dovecote/src/domain/disclosure.ts'
 import { signInMember } from '../packages/dovecote/src/domain/members.ts'
 import { startServer } from '../packages/dovecote/src/http/node-server.ts'
 import { buildRuntime } from '../packages/dovecote/src/runtime.ts'
@@ -120,6 +121,78 @@ export const planExchanges = (
   return exchanges
 }
 
+/** An organization of the pilot's size with teams that overlap, as an administrator makes them. */
+export const TEAM_SIZE = { members: 50, teams: 6, smallestTeam: 3, largestTeam: 12, minimum: 5 } as const
+
+export type TeamSize = typeof TEAM_SIZE
+
+/**
+ * Who is in which team: each team draws its size and its members at random, so people share teams the
+ * way they do when nobody plans it. With `primary`, every person is in one team at most.
+ */
+export const planTeams = (size: TeamSize, random: () => number, primary = false): number[][] => {
+  const free = Array.from({ length: size.members }, (_, member) => member)
+  return Array.from({ length: size.teams }, () => {
+    const wanted = size.smallestTeam + Math.floor(random() * (size.largestTeam - size.smallestTeam + 1))
+    if (!primary) return pick(size.members, wanted, random).sort((a, b) => a - b)
+    const members: number[] = []
+    while (members.length < wanted && free.length > 0)
+      members.push(free.splice(Math.floor(random() * free.length), 1)[0]!)
+    return members.sort((a, b) => a - b)
+  })
+}
+
+/** How many teams the cell rule shows, with every member active, over one organization per seed. */
+export const measureTeams = (
+  size: TeamSize,
+  seeds: ReadonlyArray<number>,
+  primary = false,
+): { readonly shown: number[]; readonly atBest: number[]; readonly largeEnough: number[] } => {
+  const results = seeds.map((seed) => {
+    const teams = planTeams(size, seededRandom(seed), primary)
+    const contributions: Contribution[] = Array.from({ length: size.members }, (_, member) => ({
+      person: `m${member}`,
+      teams: teams.flatMap((team, index) => (team.includes(member) ? [`t${index}`] : [])),
+    }))
+    return {
+      shown: teamsShown(contributions, size.minimum).shown.length,
+      atBest: mostTeamsShown(teams, size),
+      largeEnough: teams.filter((team) => team.length >= size.minimum).length,
+    }
+  })
+  return {
+    shown: results.map((result) => result.shown),
+    atBest: results.map((result) => result.atBest),
+    largeEnough: results.map((result) => result.largeEnough),
+  }
+}
+
+/** The most teams any choice could show under the cell rule, tried one subset at a time. */
+export const mostTeamsShown = (teams: ReadonlyArray<ReadonlyArray<number>>, size: TeamSize): number => {
+  let best = 0
+  for (let subset = 0; subset < 2 ** teams.length; subset++) {
+    const chosen = teams.filter((_, index) => (subset >> index) & 1)
+    if (chosen.length <= best || chosen.some((team) => team.length < size.minimum)) continue
+    const cells = Map.groupBy(
+      Array.from({ length: size.members }, (_, member) => member),
+      (member) => chosen.map((team) => (team.includes(member) ? 1 : 0)).join(''),
+    )
+    if ([...cells.values()].every((cell) => cell.length >= size.minimum)) best = chosen.length
+  }
+  return best
+}
+
+/** One line per number of teams shown: how many organizations showed that many. */
+export const teamTable = (measured: { readonly shown: ReadonlyArray<number> }, teams: number): string =>
+  [
+    '| Teams shown | Organizations |',
+    '| --- | --- |',
+    ...Array.from(
+      { length: teams + 1 },
+      (_, count) => `| ${count} | ${measured.shown.filter((shown) => shown === count).length} |`,
+    ),
+  ].join('\n')
+
 export const summarize = (durationsMs: ReadonlyArray<number>): Summary => {
   const sorted = [...durationsMs].sort((a, b) => a - b)
   const at = (fraction: number) =>
@@ -169,14 +242,32 @@ interface Seat {
   readonly agents: ReadonlyArray<{ readonly id: string; readonly token: string }>
 }
 
+const printTeams = (): void => {
+  const seeds = Array.from({ length: TEAM_SEEDS }, (_, index) => index + 1)
+  for (const primary of [false, true]) {
+    const measured = measureTeams(TEAM_SIZE, seeds, primary)
+    const total = (values: ReadonlyArray<number>) => values.reduce((sum, value) => sum + value, 0)
+    console.log(
+      `${primary ? 'One primary team per person' : 'Overlapping teams'}: ${TEAM_SIZE.teams} teams of ${TEAM_SIZE.smallestTeam}-${TEAM_SIZE.largestTeam} among ${TEAM_SIZE.members} people, minimum ${TEAM_SIZE.minimum}, ${seeds.length} organizations\n` +
+        `Teams large enough on their own: ${total(measured.largeEnough)} of ${seeds.length * TEAM_SIZE.teams}; shown: ${total(measured.shown)}; at best: ${total(measured.atBest)}\n` +
+        `Organizations showing at least half their teams: ${measured.shown.filter((shown) => 2 * shown >= TEAM_SIZE.teams).length}\n\n` +
+        `${teamTable(measured, TEAM_SIZE.teams)}\n`,
+    )
+  }
+}
+
+const TEAM_SEEDS = 1000
+
 async function measure(): Promise<void> {
   const { values: options } = parseArgs({
     options: {
       'database-url': { type: 'string', default: '' },
       port: { type: 'string', default: '8191' },
       seed: { type: 'string', default: '7' },
+      teams: { type: 'boolean', default: false },
     },
   })
+  if (options.teams) return printTeams()
   const port = Number(options.port)
   const serverUrl = `http://127.0.0.1:${port}`
   const sqliteFile = join(tmpdir(), `homingbird-pilot-${port}.sqlite`)

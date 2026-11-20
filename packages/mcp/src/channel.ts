@@ -1,7 +1,7 @@
 import { Task as T, makeMutex } from '@homingbird/kernel'
-import { ANSWER_RULE, type AsRead, LINKS_RULE } from '@homingbird/protocol'
+import { ANSWER_RULE, type AsRead, LINKS_RULE, isWakingEvent } from '@homingbird/protocol'
 import type { ToolContext } from './tools.ts'
-import { type Trigger, WAKING_EVENTS, freshTriggers } from './triggers.ts'
+import { type Trigger, freshTriggers } from './triggers.ts'
 
 export const CHANNEL_CAPABILITY = { 'claude/channel': {} } as const
 
@@ -34,7 +34,7 @@ export const makeChannel = (context: () => ToolContext, write: (line: string) =>
       isOpen = true
     }),
     online: pushWhenOpen,
-    received: (event) => (WAKING_EVENTS.includes(event.body.type) ? pushWhenOpen : T.unit),
+    received: (event) => (isWakingEvent(event.body, null) ? pushWhenOpen : T.unit),
   }
 }
 

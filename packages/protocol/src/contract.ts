@@ -29,11 +29,12 @@ import {
   DebateVisibility,
   DebateVote,
 } from './debates.ts'
+import { DeskWake, DeskWakeSetup, DeskWakeTest } from './desk-wake.ts'
 import type { ApiError } from './errors.ts'
 import { StreamEvent } from './events.ts'
 import { GROUP_MEMBERS_MAX, Group, GroupName } from './groups.ts'
 import { ConversationId, CredentialId, DraftRequestId, GroupId, MemberId, NoteId } from './ids.ts'
-import { AgentReport, OrganizationInsights, PlaceName } from './insights.ts'
+import { AgentReport, ChannelAgentReport, OrganizationInsights, PlaceName } from './insights.ts'
 import {
   AgentLabel,
   AnsweringFlowSetting,
@@ -118,6 +119,27 @@ export const contract = {
     access: 'human',
     body: S.struct({ notifications: S.literal(...NOTIFICATION_LEVELS) }),
     response: S.struct({ notifications: NotificationLevel }),
+  }),
+  'me.deskWake.get': route({
+    method: 'GET',
+    path: '/me/desk-wake',
+    access: 'human',
+    response: S.struct({ wake: S.nullable(DeskWake) }),
+  }),
+  'me.deskWake.set': route({
+    method: 'PUT',
+    path: '/me/desk-wake',
+    access: 'human',
+    body: DeskWakeSetup,
+    response: DeskWake,
+  }),
+  'me.deskWake.remove': route({ method: 'DELETE', path: '/me/desk-wake', access: 'human', response: Empty }),
+  'me.deskWake.test': route({
+    method: 'POST',
+    path: '/me/desk-wake/test',
+    access: 'human',
+    body: Empty,
+    response: DeskWakeTest,
   }),
 
   'directory.list': route({
@@ -242,6 +264,12 @@ export const contract = {
     path: '/channels/:slug/agent/credentials/:id',
     access: 'human',
     response: ChannelAgent,
+  }),
+  'channels.agent.figures': route({
+    method: 'GET',
+    path: '/channels/:slug/agent/figures',
+    access: 'human',
+    response: ChannelAgentReport,
   }),
   'channels.askPrivately': route({
     method: 'POST',

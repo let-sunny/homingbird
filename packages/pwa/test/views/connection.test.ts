@@ -6,7 +6,7 @@ import { connectionSection, deskRecommendation } from '../../src/views/connectio
 import { dialogHost } from '../../src/views/dialog.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
-import { ANA, channel, credential, entry, me, report } from '../support/fixtures.ts'
+import { ANA, channel, credential, entry, me, report, serverInfo } from '../support/fixtures.ts'
 
 usingFakeDom()
 
@@ -87,5 +87,17 @@ describe('connectionSection', () => {
     expect(textOf(shown)).toContain(strings.noChannelsHelped)
     context.state.channels.set([channel('billing', { answering: true })])
     expect(getByRole(shown, 'link', { name: '#billing' })).toBeTruthy()
+  })
+
+  it('offers a cloud desk only where the server has the feature on', () => {
+    const off = testContext()
+    const without = connectionSection(off.context, lifetime(), me())
+    expect(without.querySelector('.cloud-desk')).toBeNull()
+    expect(off.called('loadDeskWake')).toEqual([])
+    const on = testContext()
+    on.context.state.serverInfo.set(serverInfo({ cloudDesk: true }))
+    const shown = connectionSection(on.context, lifetime(), me())
+    expect(textOf(shown.querySelector('.cloud-desk')!)).toContain(strings.cloudDesk.legend)
+    expect(on.called('loadDeskWake')).toHaveLength(1)
   })
 })

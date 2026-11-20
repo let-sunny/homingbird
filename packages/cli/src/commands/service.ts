@@ -1,5 +1,7 @@
 import { Task as T } from '@homingbird/kernel'
-import { agentCommand, defaultReader } from '../agent-presets.ts'
+import { agentSearchPath } from '../agent-install-directories.ts'
+import { presetNotReady } from '../agent-launch.ts'
+import { agentCommand, defaultReader, presetCommandOf } from '../agent-presets.ts'
 import { credentialDirectory, credentialFor, readCredentialsFile, storedServers } from '../credentials.ts'
 import { isClaimLive } from '../desk-claim.ts'
 import type { CliEnv, ProcessRun } from '../environment.ts'
@@ -11,6 +13,7 @@ import {
   type ServiceManager,
   type ServicePaths,
   type ServiceSpec,
+  serviceAgentsPath,
   serviceMissingPath,
 } from '../service-definition.ts'
 import { serviceManagerFor, servicePlace } from '../service-managers.ts'
@@ -90,6 +93,7 @@ export const serviceStatus: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function
   const running = manager.stopsThroughRunner ? yield* isClaimLive(paths.lockPath) : (state?.running ?? false)
   const loaded = state?.loaded ?? false
   const waitingFor = running ? yield* missingProgramOf(paths) : null
+  const agents = running && waitingFor === null ? yield* agentsOf(paths) : []
   return outcome(
     {
       service: paths.name,
@@ -100,6 +104,7 @@ export const serviceStatus: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function
       running,
       lastExit: state?.lastExit ?? null,
       waitingFor,
+      agents,
       definition: paths.definitionPath,
       log: paths.logPath,
       signedIn: signInProblem === null,
@@ -111,6 +116,7 @@ export const serviceStatus: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function
         ? [
             `Running:     ${running ? (waitingFor === null ? 'yes' : 'yes, waiting for a missing program') : loaded ? 'no' : 'no, not loaded'}`,
             ...(waitingFor === null ? [] : [`Waiting:     ${waitingFor}`]),
+            ...agents.map((line) => `Agent:       ${line}`),
             ...(manager.stopsThroughRunner ? [] : [`Last exit:   ${state?.lastExit ?? 'none'}`]),
           ]
         : []),
@@ -180,6 +186,13 @@ const missingProgramOf = (paths: ServicePaths): T.Task<string | null, never, Cli
     const server = paths.server
     const written = yield* env.files.read(serviceMissingPath(credentialDirectory(env), server))
     return written?.trim() || null
+  })
+
+const agentsOf = (paths: ServicePaths): T.Task<string[], never, CliEnv> =>
+  T.gen(function* () {
+    const env = yield* T.ask<CliEnv>()
+    const written = yield* env.files.read(serviceAgentsPath(credentialDirectory(env), paths.server))
+    return (written ?? '').split('\n').filter((line) => line.trim() !== '')
   })
 
 /** Whether the service is installed, and, when asked or when only it can tell, what the platform says. */
@@ -286,9 +299,9 @@ const stableProgram = (
   T.gen(function* () {
     const env = yield* T.ask<CliEnv>()
     const program = yield* T.forEach(env.program, lastingPathOf)
-    const given = env.variables.PATH
+    const given = agentSearchPath(env.variables, env.platform)
     const searched = given === undefined ? undefined : yield* stablePath(given, env.platform)
-    const agent = agentCommand(options.agent)
+    const agent = agentCommand(options.agent, env.platform)
     const settings: RunnerSettings = {
       agent,
       timeoutSeconds: 0,
@@ -313,6 +326,14 @@ const stableProgram = (
     for (const [what, path] of checked) {
       const warning = path == null ? null : yield* unstablePathWarningFor(what, path)
       if (warning !== null) warnings.push(warning)
+    }
+    const commands = [agent, ...(settings.split === null ? [] : [settings.split.reader])]
+    const presets = new Set(
+      commands.flatMap((command) => presetCommandOf(command, env.platform)?.preset ?? []),
+    )
+    for (const preset of presets) {
+      const problem = yield* presetNotReady(preset)
+      if (problem !== null) warnings.push(`${problem} The service waits until then.`)
     }
     return { program, path: env.platform === 'win32' ? null : (searched ?? null), warnings }
   })

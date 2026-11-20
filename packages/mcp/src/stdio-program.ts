@@ -47,12 +47,24 @@ export const USAGE = [
   '             the agent command by default. Also HOMINGBIRD_READER.',
   '  --require-toolless-reader  Refuse to start when the reader is the agent command itself.',
   '',
+  'HOMINGBIRD_CREDENTIALS_FILE names the credential file of the runner that started this server for',
+  'one agent run, as homingbird run --attach-mcp does; it then only reads that file.',
+  '',
   'Signing in happens from the MCP client: ask your agent to log in.',
 ].join('\n')
+
+export const RUNNERS_SERVER_ONLY =
+  'HOMINGBIRD_CREDENTIALS_FILE is set: this server answers one agent run of homingbird run, so it takes no --run-agent, --desk or --channel.'
+
+/** The runner picks notes up, gives them back and waits for them; its agent only reads and drafts. */
+export const RUNNER_WITHHELD_TOOLS: ReadonlyArray<string> = ['skip_note', 'wait_for_notes']
 
 export const runStdioProgram = (program: StdioProgram): T.Task<void, ProgramFailed, HasClock> =>
   T.gen(function* () {
     const options = yield* T.fromResult(optionsFrom(program))
+    const runnerCredentialPath = program.environment.HOMINGBIRD_CREDENTIALS_FILE?.trim() || null
+    if (runnerCredentialPath !== null && (options.agent !== null || options.isChannel))
+      return yield* T.fail(ProgramFailed({ message: RUNNERS_SERVER_ONLY }))
     const deskEnv = program.deskEnv
     if (options.agent !== null && deskEnv === undefined)
       return yield* T.fail(ProgramFailed({ message: 'This build of homingbird-mcp cannot run a desk.' }))
@@ -84,6 +96,7 @@ export const runStdioProgram = (program: StdioProgram): T.Task<void, ProgramFail
           serverUrl: options.serverUrl,
           clientName: options.clientName,
           credentialPath: program.credentialPath,
+          runnerCredentialPath,
           scope,
           clock,
           ...fetching,
@@ -102,6 +115,7 @@ export const runStdioProgram = (program: StdioProgram): T.Task<void, ProgramFail
           local: localAdapterOf(session, desk),
           desk: options.isDesk,
           announced,
+          ...(runnerCredentialPath !== null && { withheldTools: RUNNER_WITHHELD_TOOLS }),
           ...opening,
           ...(channel !== null && {
             channel: {

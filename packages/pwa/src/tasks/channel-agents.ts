@@ -74,6 +74,15 @@ export const loadChannelAgent = (slug: string): Action<AsRead.ChannelAgent | nul
     return agent
   })
 
+/** How the channel's agent is doing, or null for anyone who does not manage the channel. */
+export const loadChannelAgentFigures = (slug: string): Action<AsRead.ChannelAgentReport | null> =>
+  T.gen(function* () {
+    const { api } = yield* T.ask<App>()
+    const read = yield* T.result(api['channels.agent.figures']({ params: { slug } }))
+    if (read._tag === 'Ok') return read.value
+    return read.error._tag === 'NotFound' ? null : yield* T.fail(read.error)
+  })
+
 export const createChannelAgent = (slug: string, name: string): Action =>
   T.gen(function* () {
     const { api } = yield* T.ask<App>()

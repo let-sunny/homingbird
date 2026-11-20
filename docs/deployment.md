@@ -30,6 +30,7 @@ move up one size for the large row.
 - [Insights](#insights)
 - [Features](#features)
 - [Web push](#web-push)
+- [Cloud desk](#cloud-desk)
 - [Connecting claude.ai](#connecting-claudeai)
 - [Running the desk runner on a server](#running-the-desk-runner-on-a-server)
 - [Run a channel's agent on a server](#run-a-channels-agent-on-a-server)
@@ -266,10 +267,22 @@ heartbeat and the events with it.
 
   Then move `backup.sqlite` off the machine. Copying the database file alone while the server runs is
   not a backup: recent writes sit in the `-wal` file beside it.
+
+  To restore it:
+
+  1. Stop Dovecote.
+  2. Delete `dovecote.sqlite-wal` and `dovecote.sqlite-shm` beside the database. Left in place, SQLite
+     replays the old write-ahead log onto the restored file: it then holds writes made after the
+     backup and fails its integrity check.
+  3. Replace `dovecote.sqlite` with the backup, keeping its name and owner.
+  4. Run `dovecote audit verify` with the server's settings; it says the chain holds.
+  5. Start Dovecote. Notes, members and sessions are as they were when the backup was taken; anything
+     written after it is gone, and people signed in since then sign in again.
 - **PostgreSQL and MySQL:** use the managed service's automated backups with point-in-time recovery.
   Both Terraform setups turn them on.
-- The database holds note content, the audit trail and hashed credentials. Encrypt backups and restrict
-  who can read them.
+- The database holds note content, the audit trail, hashed credentials and, with the cloud desk on,
+  wake tokens sealed with `HB_SECRETS_KEY`. Encrypt backups and restrict who can read them; keep the
+  key elsewhere.
 
 ## When someone leaves
 
@@ -304,13 +317,14 @@ and nothing reads your directory. Add it to your offboarding checklist next to b
 Deactivating, at once and in one change:
 
 - revokes every credential of that member: browser sessions, the claude.ai connector, whose refresh
-  stops from then on, and the agent credentials of the command line, the runner and the plugin. Their next request is refused, and an
-  open event stream ends at its next heartbeat, within 20 seconds;
+  stops from then on, and the agent credentials of the command line, the runner and the plugin. Their
+  next request is refused, and an open event stream ends at its next heartbeat, within 20 seconds;
 - takes them out of every group, so they manage no channel any more, and revokes every credential they
   had issued to a channel's agent;
 - removes them from the directory, so nobody can address a new note to them;
 - refuses their sign-in from then on, even while their company account still works. A sign-in or
-  connection they had started but not finished issues nothing usable.
+  connection they had started but not finished issues nothing usable;
+- deletes their cloud desk's wake address and token.
 
 **Reactivate** in the same place lets them sign in again; their agents must sign in again too,
 because revoked credentials stay revoked. Groups are not given back.
@@ -549,7 +563,8 @@ and totals per channel. When at least 25% of the drafts sent as written were qui
 the last two weeks, each with at least 10 such drafts, Insights show a warning that approving may be
 becoming a formality. Insights hold numbers only, never note content and never one person's figures:
 
-- A period in which fewer than `HB_INSIGHTS_MINIMUM_GROUP` people (5 by default) sent notes shows no
+- With the default `HB_INSIGHTS_MINIMUM_GROUP` of 1, nothing is hidden. Raised, it hides as follows.
+- A period in which fewer than `HB_INSIGHTS_MINIMUM_GROUP` people sent notes shows no
   numbers at all, and the block count is shown only as a number, and only once the organization has
   that many members.
 - A channel, or direct messages together, appears on its own only when at least that many people
@@ -571,11 +586,18 @@ times, not verdicts:
 
 - `HB_QUICK_APPROVAL_SECONDS` (default `3`): a draft sent as written within this many seconds of first
   appearing on its person's screen counts as a quick approval.
-- `HB_INSIGHTS_MINIMUM_GROUP` (default `5`): the smallest group whose numbers are shown. It can be
-  raised, never set below 5.
+- `HB_INSIGHTS_MINIMUM_GROUP` (default `1`): the smallest group whose numbers are shown. The default
+  shows every group, since Insights measure how agents are doing; raise it, for example to `5`, to hide
+  smaller groups and anything that would let the shown totals give one away. Raised, it also leaves out
+  noticeably more channel rows: when the left-out channels together are fewer people, or nobody known,
+  the next smallest is left out too.
 
 The figures are computed when the page is opened, from the last 60 days of notes, decisions and skips.
-Teams are not built yet, so only organization-wide numbers are shown.
+Teams get rows of their own, alphabetically: people who sent notes, notes sent, draft decisions,
+quick approvals, the typical decision time and skips, counting a person for a team on every UTC day
+they were in it. With a raised minimum, a team is left out when it, or a group of people who share the
+same teams, is smaller, and the page says how many teams were left out. With groups switched off, no
+team row is shown.
 
 ## Features
 
@@ -600,6 +622,7 @@ again. Every change is audited. `server.info` lists which features are on, so ev
 | `noteDetails` | on | Notes no longer show the model and program that wrote them |
 | `groups` | on | Groups are hidden and frozen: nobody creates, renames or changes a team or a channel's managers, nor adds a team to them; every channel keeps its managers, who still run it |
 | `debateRooms` | on | Debate rooms are hidden, agents take no turns and no room stops on time; the rooms stay |
+| `cloudDesk` | **off** | No cloud desk is woken and nobody can set one up; saved wakes are kept. Offered only with `HB_SECRETS_KEY` ([Cloud desk](#cloud-desk)) |
 | `analytics` | **off** | No usage counts leave the server ([Product analytics](#product-analytics)) |
 
 Notes, drafts, approval, direct messages, sign-in and the audit trail are the core and cannot be turned
@@ -619,6 +642,35 @@ fcm.googleapis.com, updates.push.services.mozilla.com, push.apple.com, notify.wi
 
 If your egress is filtered, allow those hosts (and their subdomains). Set `HB_PUSH_HOSTS` only to narrow
 the list.
+
+## Cloud desk
+
+Experimental. A person can run their desk in a cloud agent service, such as a Claude routine, and have
+Dovecote wake it when work waits ([guide](guide.md#wake-a-cloud-desk)). To offer it:
+
+1. Generate a key and give it to Dovecote as a secret, like `HB_OIDC_CLIENT_SECRET`:
+
+   ```sh
+   openssl rand -base64 32
+   ```
+
+   `HB_SECRETS_KEY` seals each person's wake address and token. It never appears in a log or in
+   `server.info`. Keep it outside the database and its backups: a backup alone does not open the tokens.
+   Losing or changing it makes every saved wake unreadable; people then set theirs up again. There is
+   no rotation tool yet.
+2. Turn on `cloudDesk` under **Administration → Settings → Features**, or with
+   `HB_FEATURES=cloudDesk=on`. Without a key the switch has no effect.
+3. Allow outbound HTTPS to the hosts in `HB_WAKE_HOSTS`, `api.anthropic.com` by default. A wake address
+   must be on one of them exactly, subdomains not included; `none` allows none.
+
+What the server does and keeps: each wake is one `POST` with a fixed body that says only that work
+waits and where, sent at most every five minutes for work and every three for a debate room, never while
+the person's agent is online, and never following a redirect. Each successful wake starts a new session
+at the service, which may be paid and is rate limited there (a Claude routine allows 30 an hour). Wakes
+go to the operational log as `desk_wake.fired` and `desk_wake.unanswered`, with the member id, host and
+status; the audit trail keeps `desk_wake.registered`, `desk_wake.removed` and `desk_wake.stopped` with
+the host only. Deactivating a member deletes their wake. The pending wakes live in memory, which fits
+[one instance](#one-instance-only).
 
 ## Connecting claude.ai
 
@@ -1021,7 +1073,14 @@ npm install -g @homingbird/cli
 starts the runner at once. The runner supervises itself: it starts again detached and hidden, so a
 console window flashes briefly at logon, keeps one copy per server, retries what fails and writes its
 own log. `service uninstall` deletes the value and asks the runner to stop. The agent command cannot
-contain `"` or `%` on Windows. None of this has been run on Windows yet.
+contain `"` or `%` on Windows, and `service install` refuses a command line longer than the 32,767
+characters Windows starts. At logon `PATH` may not yet hold where the agents' own installers put them,
+so the runner also looks in `%USERPROFILE%\.local\bin` (Claude Code),
+`%LOCALAPPDATA%\Programs\OpenAI\Codex\bin` (Codex), `%LOCALAPPDATA%\agy\bin` (Antigravity) and
+`%APPDATA%\npm`. Agent commands run through `cmd.exe /d /v:off /s /c`, so a `!` stays as written; a
+`%NAME%` in one is still replaced by that variable. File modes such as `0600` mean nothing on Windows:
+the agent credential is kept private by the access rules of the person's own profile folder. None of
+this has been run on Windows yet.
 
 ### Linux (onboarding script, or configuration management)
 
@@ -1051,6 +1110,24 @@ sudo -iu "$user" env XDG_RUNTIME_DIR="/run/user/$uid" \
 The unit is `~/.config/systemd/user/homingbird-runner-<server>.service`, enabled for
 `default.target`: it starts when the person logs in and stops when they log out.
 
+### Headless agents: what to expect
+
+- **One runner per person and server on a computer.** A second `homingbird run` for the same person
+  waits while the first holds the desk, and a second copy of the service exits; neither drafts twice.
+- **The service log says why an agent run failed** in one line: the exit code and the first line the
+  agent wrote to its error output, at most 160 characters, with the agent credential and the
+  credentials file's path withheld. Nothing else the agent writes reaches the log.
+- **Antigravity needs a sign-in it can reuse.** The runner asks `agy -p /usage` first and stops,
+  before any note waits, when agy does not answer within 20 seconds or is not signed in; sign in by
+  running `agy` once in a terminal as the same user. agy is reported to ignore a sign-in made on the
+  machine itself when `SSH_CONNECTION` is set, so a runner started over SSH may see it as signed out:
+  sign in inside that SSH session, or start the runner from a local login or the service. This has
+  not been checked with the real CLI. The runner switches agy's own updater off for its runs
+  (`AGY_CLI_DISABLE_AUTO_UPDATE=true`), so an update never takes a console or the focus.
+- **A tool the agent may not use is denied, never waited for.** Claude Code runs with
+  `--permission-prompts none`. Antigravity denies such a tool and still exits successfully; the runner
+  then logs the first line agy wrote about it beside the draft.
+
 ### What people do afterwards
 
 - `homingbird login --server <url>` once, approving the connection in the browser.
@@ -1079,13 +1156,15 @@ Every variable Dovecote reads. Blank values count as unset.
 | `HB_AGENT_CREDENTIAL_DAYS` | `90` | Days an agent credential lasts |
 | `HB_FEATURES` | all on | Starting feature switches, `name=on` or `name=off`, comma-separated ([Features](#features)). A starting value, like `HB_ALLOWED_DOMAINS` |
 | `HB_QUICK_APPROVAL_SECONDS` | `3` | A draft sent as written within this many seconds of appearing counts as a quick approval ([Insights](#insights)) |
-| `HB_INSIGHTS_MINIMUM_GROUP` | `5` | The smallest group whose numbers Insights shows; at least 5 ([Insights](#insights)) |
+| `HB_INSIGHTS_MINIMUM_GROUP` | `1` | The smallest group whose numbers Insights shows; 1 hides nothing ([Insights](#insights)) |
 | `HB_TRUST_PROXY` | `0` | Number of proxies in front that append to `X-Forwarded-For`; see [above](#behind-a-load-balancer) |
 | `HB_LOGS` | `audit=full,operational=info,requests=off,auditCopy=off` | What is recorded ([Logs](#logs)). The operator's only |
 | `HB_AUDIT_RETENTION_DAYS` | `400` | Days to keep audit rows, at least 90 |
 | `HB_AUDIT_STDOUT` | `0` | `1` means `HB_LOGS=auditCopy=on` |
 | `HB_ANALYTICS`, `HB_ANALYTICS_URL`, `HB_ANALYTICS_KEY` | `off` | Where product analytics go ([Product analytics](#product-analytics)) |
 | `HB_PUSH_HOSTS` | the four push services above | Push service hosts subscriptions may use |
+| `HB_SECRETS_KEY` | none | 32 random bytes in base64 that seal cloud desk wakes; the cloud desk is offered only with it ([Cloud desk](#cloud-desk)) |
+| `HB_WAKE_HOSTS` | `api.anthropic.com` | Hosts a cloud desk's wake address may use, matched exactly; `none` for none |
 | `HB_OAUTH_REDIRECT_HOSTS` | `claude.ai,claude.com` | Hosts, besides loopback, that OAuth clients may redirect to; `none` for no others |
 | `HB_OAUTH_CLIENT_METADATA_HOSTS` | `claude.ai,claude.com` | Hosts whose client metadata documents are fetched; `none` to fetch none |
 | `HB_OAUTH_CLIENTS` | none | Preregistered clients, `id\|Name\|redirect;redirect`, comma-separated |

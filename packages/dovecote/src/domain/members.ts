@@ -20,6 +20,7 @@ import type { AppEnv, Caller } from '../environment.ts'
 import type { RequestEnv } from '../events/events.ts'
 import { all, first, run } from '../sql/database.ts'
 import { containsIgnoringCase, insertInto, list, sql } from '../sql/query.ts'
+import { forgetDeskWake } from '../wake/desk-wakes.ts'
 import { agentIntroductionsOf } from './agent-introductions.ts'
 import { channelsHelpedBy, helpersOfChannelSeenBy } from './channels.ts'
 import { type Ties, tiesOf } from './contacts.ts'
@@ -176,7 +177,10 @@ export const chosenLocaleOf = (id: MemberId): T.Task<Locale | null, never, AppEn
     first<{ locale: unknown }>(sql`SELECT locale FROM members WHERE id = ${id}`),
   )
 
-/** Deactivating a member revokes their credentials and takes them out of every group at once. */
+/**
+ * Deactivating a member revokes their credentials, takes them out of every group and deletes their cloud
+ * desk wake at once.
+ */
 export const administerMember = (
   actor: Caller,
   id: MemberId,
@@ -197,6 +201,7 @@ export const administerMember = (
         sql`UPDATE credentials SET revoked_at = ${env.clock.now()} WHERE member_id = ${id} AND revoked_at IS NULL`,
       )
       if (before.status !== 'deactivated') yield* removeFromEveryGroup(actor, id)
+      yield* forgetDeskWake(actor, id)
     }
     return yield* memberById(id)
   })

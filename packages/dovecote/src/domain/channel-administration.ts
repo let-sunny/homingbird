@@ -25,6 +25,7 @@ import {
   visibilityOf,
 } from './channel-rows.ts'
 import { announceGroups, audienceOf, lockGroups } from './group-rows.ts'
+import { emptyGroup } from './group-spans.ts'
 import type { NoteRow } from './note-rows.ts'
 import { announceStatus } from './note-status.ts'
 import { renamePlace } from './principles.ts'
@@ -84,7 +85,7 @@ export const archiveChannel = (
     yield* stopDraftingIn(row.conversation_id)
     yield* run(sql`DELETE FROM channel_answerers WHERE conversation_id = ${row.conversation_id}`)
     yield* run(sql`DELETE FROM channels WHERE slug = ${slug}`)
-    yield* run(sql`DELETE FROM group_members WHERE group_id = ${row.manager_group_id}`)
+    yield* emptyGroup(row.manager_group_id)
     yield* run(sql`DELETE FROM member_groups WHERE id = ${row.manager_group_id}`)
     yield* announceGroups([row.manager_group_id], audienceOf(row, yield* membersOf(row.conversation_id)))
     yield* run(

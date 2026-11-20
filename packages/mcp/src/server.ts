@@ -4,7 +4,7 @@ import type { Api } from '@homingbird/protocol'
 import type { OpenInBrowser } from './browser-opener.ts'
 import { CHANNEL_CAPABILITY, CHANNEL_INSTRUCTIONS } from './channel.ts'
 import { DEBATE_TOOL_NAMES } from './debate-tools.ts'
-import { type RpcCall, RpcFailure, methodNotFound, serveJsonRpc } from './json-rpc.ts'
+import { type RpcCall, RpcFailure, invalidParams, methodNotFound, serveJsonRpc } from './json-rpc.ts'
 import type { LocalAdapter } from './local-tools.ts'
 import { memberApiOf } from './member-api.ts'
 import { PROMPTS, getPrompt, promptDefinitions } from './prompts.ts'
@@ -30,6 +30,8 @@ export interface McpContext {
   readonly channel?: { readonly opened: T.Task<void> }
   readonly desk?: boolean
   readonly announced?: AnnouncedRequests
+  /** Tools this server does not offer, as on a server a runner started for one agent run. */
+  readonly withheldTools?: ReadonlyArray<string>
 }
 
 export const handleMcpMessage = (message: unknown, context: McpContext): T.Task<unknown | null> =>
@@ -109,12 +111,18 @@ const METHODS: Readonly<Record<string, Method>> = {
     T.map((debates: boolean) => ({
       tools: [
         ...(context.local?.tools ?? []).map(localDefinition),
-        ...toolDefinitions().filter((tool) => debates || !DEBATE_TOOL_NAMES.includes(String(tool.name))),
+        ...toolDefinitions().filter(
+          (tool) =>
+            (debates || !DEBATE_TOOL_NAMES.includes(String(tool.name))) &&
+            !(context.withheldTools ?? []).includes(String(tool.name)),
+        ),
       ],
     }))((context.local?.blockedBecause() ?? null) === null ? offersDebates(context.api) : T.succeed(true)),
   'tools/call': (params, context) => {
     const local = context.local?.tools.find((each) => each.name === params.name)
     if (local !== undefined) return T.map(said)(local.run)
+    if ((context.withheldTools ?? []).includes(String(params.name)))
+      return T.fail(invalidParams(`Unknown tool: ${String(params.name)}`))
     const blocked = context.local?.blockedBecause() ?? null
     if (blocked !== null) return T.succeed(refused(blocked))
     return T.map((result: ToolResult) => {

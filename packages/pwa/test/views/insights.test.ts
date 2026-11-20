@@ -108,6 +108,35 @@ describe('insightsSection', () => {
     expect(allByRole(shown, 'heading', { name: strings.measures.quickTrendTitle })).toHaveLength(0)
   })
 
+  it('shows each team by name, and how many teams too small to show were left out', () => {
+    const { context, called } = testContext()
+    const shown = insightsSection(context, lifetime())
+    const team = {
+      team: 'Payments',
+      activeMembers: 2,
+      notesSent: 3,
+      sentAsWritten: 1,
+      sentAfterEdits: 0,
+      discarded: null,
+      quickApprovals: 0,
+      medianDecisionMs: 60_000,
+      skipped: 0,
+    }
+    called('loadInsights')[0]!.then!.done!({
+      generatedAt: 0,
+      quickApprovalSeconds: 3,
+      minimumGroupSize: 1,
+      blocks: 0,
+      periods: [{ days: 30, current: { ...organization, teams: [team], hiddenTeams: 2 }, previous: null }],
+    })
+    const section = getByRole(shown, 'heading', { name: strings.insights.teamsTitle }).parentElement!
+    expect(getByRole(section, 'rowheader', { name: 'Payments' })).toBeTruthy()
+    expect(textOf(section)).toContain(strings.insights.hiddenTeams({ count: 2 }))
+    expect(textOf(section)).toContain(strings.insights.teamsExplained)
+    expect(textOf(shown)).not.toContain(strings.insights.noTeams)
+    expect(textOf(shown)).toContain(strings.insights.privacyAll)
+  })
+
   it('says when no place has notes', () => {
     const { context, called } = testContext()
     const shown = insightsSection(context, lifetime())
