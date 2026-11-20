@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { type Agent, type Session, type TestServer, connectAgent, startTestServer } from './harness.ts'
+import {
+  type Agent,
+  type Session,
+  type TestServer,
+  asShown,
+  connectAgent,
+  startTestServer,
+} from './harness.ts'
 
 let server: TestServer
 let ana: Session
@@ -30,7 +37,7 @@ describe('the note handlers', () => {
 
   it('page a conversation backwards from a sent time, and list drafts and the inbox', async () => {
     const draft = (await ana.api('POST', '/drafts', { to: [ben.me.member.id], body: 'One' })).json
-    const sent = (await ana.api('POST', `/drafts/${draft.id}/send`, {})).json
+    const sent = (await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))).json
     const older = (await ben.api('GET', `/conversations/${sent.conversationId}/notes?before=${sent.sentAt}`))
       .json
     expect(older.notes).toEqual([])

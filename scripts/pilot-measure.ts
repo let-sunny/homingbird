@@ -301,12 +301,10 @@ async function measure(): Promise<void> {
       await call(asker.humanToken, 'POST', `/drafts/${question.id}/discard`)
       continue
     }
-    await call(
-      asker.humanToken,
-      'POST',
-      `/drafts/${question.id}/send`,
-      exchange.question === 'edited' ? { body: `${QUESTION} Thanks!` } : {},
-    )
+    await call(asker.humanToken, 'POST', `/drafts/${question.id}/send`, {
+      ...(exchange.question === 'edited' && { body: `${QUESTION} Thanks!` }),
+      expected: asShown(question),
+    })
     sentNotes++
     now += 4 * 60_000
     const answeringAgent = answerer.agents[(exchange.agent + 1) % size.agentsPerMember]!
@@ -328,12 +326,10 @@ async function measure(): Promise<void> {
     now += 60_000
     if (exchange.reply === 'discarded') await call(answerer.humanToken, 'POST', `/drafts/${reply.id}/discard`)
     else {
-      await call(
-        answerer.humanToken,
-        'POST',
-        `/drafts/${reply.id}/send`,
-        exchange.reply === 'edited' ? { body: `${ANSWER} Ask me again on Friday.` } : {},
-      )
+      await call(answerer.humanToken, 'POST', `/drafts/${reply.id}/send`, {
+        ...(exchange.reply === 'edited' && { body: `${ANSWER} Ask me again on Friday.` }),
+        expected: asShown(reply),
+      })
       sentNotes++
     }
   }
@@ -422,7 +418,7 @@ async function measure(): Promise<void> {
       const delivered = new Promise<void>((resolve) => {
         waitingFor = { id: draft.id, count: openStreams, resolve }
       })
-      await call(sender.humanToken, 'POST', `/drafts/${draft.id}/send`, {})
+      await call(sender.humanToken, 'POST', `/drafts/${draft.id}/send`, { expected: asShown(draft) })
       await delivered
       waitingFor = null
     })),
@@ -473,3 +469,8 @@ const PRINCIPLE_TOPICS = ['Release dates', 'Billing questions', 'Who owns what']
 const isRunDirectly = process.argv[1] !== undefined && import.meta.filename === process.argv[1]
 
 if (isRunDirectly) await measure()
+
+const asShown = (draft: { readonly body: string; readonly conversationId: string }) => ({
+  body: draft.body,
+  conversationId: draft.conversationId,
+})

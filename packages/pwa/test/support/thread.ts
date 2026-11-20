@@ -6,6 +6,7 @@ export const threadInput = (fields: Partial<ThreadInput> = {}): ThreadInput => (
   me: me(),
   conversationId: ROOM,
   thread: { notes: [], hasMore: false },
+  draftsRead: new Map(),
   conversations: [conversation()],
   channels: [],
   members: new Map([

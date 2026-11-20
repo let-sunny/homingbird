@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createState, signedIn } from '../src/state.ts'
-import { ANA, BEN, entry, me } from './support/fixtures.ts'
+import { ANA, BEN, ROOM, draft, entry, me } from './support/fixtures.ts'
 
 describe('createState', () => {
   it('starts on the route of the address, loading, with nothing known yet', () => {
@@ -9,6 +9,13 @@ describe('createState', () => {
     expect(state.session.get()).toBe('loading')
     expect(state.conversationsLoaded.get()).toBe(false)
     expect(state.connection.get()).toBe('connecting')
+  })
+
+  it('remembers each draft as it first reaches a thread, and keeps that version as it changes', () => {
+    const state = createState('')
+    state.threads.set(new Map([[ROOM, { notes: [draft('d1')], hasMore: false }]]))
+    state.threads.set(new Map([[ROOM, { notes: [draft('d1', { body: 'rewritten' })], hasMore: false }]]))
+    expect(state.draftsRead.get().get('d1' as never)).toEqual({ body: 'body of d1', conversationId: ROOM })
   })
 
   it('knows every member by id, the person signed in among them', () => {

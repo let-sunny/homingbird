@@ -2,7 +2,7 @@ import { Task as T } from '@homingbird/kernel'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { announceStatus, noteById } from '../src/domain/note-status.ts'
 import { transact } from '../src/events/events.ts'
-import { type Session, type TestServer, startTestServer } from './harness.ts'
+import { type Session, type TestServer, asShown, startTestServer } from './harness.ts'
 
 let server: TestServer
 let ana: Session
@@ -24,7 +24,7 @@ const statusEvents = async (session: Session) =>
 describe('the status of a note', () => {
   it('is announced with its receipts to every participant once the note is sent', async () => {
     const draft = (await ana.api('POST', '/drafts', { to: [ben.me.member.id], body: 'Lunch?' })).json
-    await ana.api('POST', `/drafts/${draft.id}/send`, {})
+    await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))
     await T.runPromise(transact(announceStatus(draft.id)), server.env)
     for (const session of [ana, ben])
       expect((await statusEvents(session)).at(-1)).toMatchObject({

@@ -8,7 +8,14 @@ import type { Connection, Database, Row } from '../src/sql/database.ts'
 import { raw } from '../src/sql/query.ts'
 import { tableNames } from '../src/sql/schema.ts'
 import { startDovecote } from '../src/startup.ts'
-import { type TestServer, keepAwake, openTestDatabase, startTestServer, testConfig } from './harness.ts'
+import {
+  type TestServer,
+  asShown,
+  keepAwake,
+  openTestDatabase,
+  startTestServer,
+  testConfig,
+} from './harness.ts'
 import { groupsAndManagers } from './migration-support.ts'
 import {
   FIRST_AUDIT_TABLE_ROW,
@@ -340,11 +347,13 @@ describe.each(DIALECTS)('Starting 0.3.0 on a database 0.2.0 left, on %s', (_, ur
       const draft = (await ana('POST', '/drafts', { to: [ID.ben], body: 'Then March it is.' })).json
       expect(draft.conversationId).toBe(ID.direct)
       await server.clock.advance(1_000)
-      const note = (await ana('POST', `/drafts/${draft.id}/send`, {})).json
+      const note = (await ana('POST', `/drafts/${draft.id}/send`, await asShown({ api: ana }, draft.id))).json
       expect((await as(TOKEN.benAgent)('POST', `/notes/${note.id}/pickup`)).status).toBe(200)
       const reply = (await as(TOKEN.benAgent)('POST', '/drafts', { inReplyTo: note.id, body: 'Agreed.' }))
         .json
-      expect((await ben('POST', `/drafts/${reply.id}/send`, {})).status).toBe(200)
+      expect(
+        (await ben('POST', `/drafts/${reply.id}/send`, await asShown({ api: ben }, reply.id))).status,
+      ).toBe(200)
       const thread = (await ana('GET', `/conversations/${ID.direct}/notes`)).json.notes
       expect(thread.map((entry: any) => entry.id)).toEqual(
         expect.arrayContaining([ID.hello, ID.reply, note.id, reply.id]),
@@ -362,7 +371,10 @@ describe.each(DIALECTS)('Starting 0.3.0 on a database 0.2.0 left, on %s', (_, ur
         events.events.map((_: unknown, index: number) => index + 1),
       )
       expect(events.cursor).toBeGreaterThan(2)
-      expect((await ana('POST', `/drafts/${ID.generalDraft}/send`, {})).json).toMatchObject({
+      expect(
+        (await ana('POST', `/drafts/${ID.generalDraft}/send`, await asShown({ api: ana }, ID.generalDraft)))
+          .json,
+      ).toMatchObject({
         status: 'sent',
         body: 'Not ready to share.',
       })

@@ -41,6 +41,7 @@ export const TASKS = {
   chooseReplyTarget: notes.chooseReplyTarget,
   approveDraft: drafts.approveDraft,
   saveDraft: drafts.saveDraft,
+  confirmDraftRead: drafts.confirmDraftRead,
   discardDraft: drafts.discardDraft,
   readdressDraft: drafts.readdressDraft,
   reportDraftSeen: drafts.reportDraftSeen,

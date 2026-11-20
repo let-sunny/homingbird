@@ -8,6 +8,9 @@ export const Conflict = tagged('Conflict')<{ readonly message: string }>()
 export const RateLimited = tagged('RateLimited')<{ readonly message: string }>()
 export const Unavailable = tagged('Unavailable')<{ readonly message: string }>()
 
+/** The refusal of a send whose draft differs from what the person read; clients match it exactly. */
+export const DRAFT_CHANGED = 'This draft changed; read it again.'
+
 export type Unauthorized = ReturnType<typeof Unauthorized>
 export type Forbidden = ReturnType<typeof Forbidden>
 export type NotFound = ReturnType<typeof NotFound>

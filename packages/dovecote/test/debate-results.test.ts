@@ -19,7 +19,7 @@ import {
   turnsRunOut,
   withStatedModels,
 } from './debate-support.ts'
-import { type TestServer, startTestServer, storedRows } from './harness.ts'
+import { type TestServer, asShown, startTestServer, storedRows } from './harness.ts'
 
 let server: TestServer
 let cast: Cast
@@ -456,14 +456,20 @@ describe('the settled result leaving the room', () => {
       .json
     expect((await cast.cy.api('GET', `/notes/${asWritten.id}`)).status).toBe(404)
     expect(JSON.stringify((await cast.cy.api('GET', '/events/poll?after=0')).json)).not.toContain(id)
-    const sent = (await cast.ana.api('POST', `/drafts/${asWritten.id}/send`, {})).json
+    const sent = (
+      await cast.ana.api('POST', `/drafts/${asWritten.id}/send`, await asShown(cast.ana, asWritten.id))
+    ).json
     expect(sent.origin).toBe('agent')
     const seen = (await cast.cy.api('GET', `/notes/${asWritten.id}`)).json
     expect(seen).toMatchObject({ origin: 'agent', fromDebate: { debateId: id } })
     const edited = (await cast.ben.api('POST', `/debates/${id}/result/post`, { to: cast.cy.me.member.id }))
       .json
     const changed = (
-      await cast.ben.api('POST', `/drafts/${edited.id}/send`, { body: `${edited.body}\n\nMy own words.` })
+      await cast.ben.api(
+        'POST',
+        `/drafts/${edited.id}/send`,
+        await asShown(cast.ben, edited.id, { body: `${edited.body}\n\nMy own words.` }),
+      )
     ).json
     expect(changed).toMatchObject({ origin: 'human_edited', fromDebate: { debateId: id } })
     expect(await storedRows(server, 'principle_offers')).toEqual([])
@@ -487,12 +493,16 @@ describe('the settled result leaving the room', () => {
     const before = await figures()
     const asWritten = (await cast.ana.api('POST', `/debates/${id}/result/post`, { to: cast.cy.me.member.id }))
       .json
-    await cast.ana.api('POST', `/drafts/${asWritten.id}/send`, {})
+    await cast.ana.api('POST', `/drafts/${asWritten.id}/send`, await asShown(cast.ana, asWritten.id))
     const edited = (await cast.ana.api('POST', `/debates/${id}/result/post`, { to: cast.ben.me.member.id }))
       .json
-    await cast.ana.api('POST', `/drafts/${edited.id}/send`, {
-      body: `${edited.body}\n\nAnd one more thing from me, about dates.`,
-    })
+    await cast.ana.api(
+      'POST',
+      `/drafts/${edited.id}/send`,
+      await asShown(cast.ana, edited.id, {
+        body: `${edited.body}\n\nAnd one more thing from me, about dates.`,
+      }),
+    )
     const discarded = (
       await cast.ana.api('POST', `/debates/${id}/result/post`, { to: cast.ben.me.member.id })
     ).json

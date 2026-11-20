@@ -126,6 +126,10 @@ describe('sending a note', () => {
     app.state.threads.set(new Map([[ROOM, { notes: [question], hasMore: false }]]))
     await app.run(sendNote(ROOM, 'Yes'))
     expect(app.sent[0]!.request).toEqual({ body: { body: 'Yes', conversationId: ROOM, inReplyTo: 'q' } })
+    expect(app.sent[1]!.request).toEqual({
+      params: { id: 'd1' },
+      body: { expected: { body: 'Yes', conversationId: ROOM } },
+    })
     expect(app.state.sendingIn.get().size).toBe(0)
     expect(
       app.state.threads

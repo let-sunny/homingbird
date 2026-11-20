@@ -13,6 +13,7 @@ import {
   newPage,
   overflowsSideways,
   screenshotCounter,
+  sendDraft,
   signInWith,
   startDovecote,
   submitDevelopmentLogin,
@@ -45,8 +46,7 @@ const scenario = async (): Promise<void> => {
     const to = [(await api(ana, 'GET', '/me')).member.id]
     const agentDraft = (body: string, labels: object = {}) =>
       benDesk.call('POST', '/drafts', { to, body, client: 'Claude Code 2.1.327', ...labels })
-    const send = (person: Person, id: string, body?: string) =>
-      api(person, 'POST', `/drafts/${id}/send`, body === undefined ? {} : { body })
+    const send = (person: Person, id: string, body?: string) => sendDraft(person, id, body)
 
     const first = await agentDraft('The export finished at 02:10.', { model: 'claude-opus-5-5' })
     await send(ben, first.id)

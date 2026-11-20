@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { type Agent, type Session, type TestServer, connectAgent, startTestServer } from './harness.ts'
+import {
+  type Agent,
+  type Session,
+  type TestServer,
+  asShown,
+  connectAgent,
+  startTestServer,
+} from './harness.ts'
 
 let server: TestServer
 let ana: Session
@@ -17,7 +24,7 @@ afterEach(() => server.close())
 
 const sentToBen = async (body: string) => {
   const draft = (await ana.api('POST', '/drafts', { to: [ben.me.member.id], body })).json
-  return (await ana.api('POST', `/drafts/${draft.id}/send`, {})).json
+  return (await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))).json
 }
 
 const noticesOf = async (who: Session, conversationId: string) =>
@@ -58,7 +65,7 @@ describe('notices', () => {
     await ana.api('POST', '/channels', { slug: 'refunds', description: 'Refunds' })
     await ben.api('PUT', '/channels/refunds/membership', { answering: true })
     const draft = (await ana.api('POST', '/drafts', { channel: 'billing', body: 'Who refunds?' })).json
-    const question = (await ana.api('POST', `/drafts/${draft.id}/send`, {})).json
+    const question = (await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))).json
     await benAgent.api('POST', `/notes/${question.id}/release`, { reason: 'Not billing.' })
     const moved = (await ana.api('POST', `/notes/${question.id}/move`, { channel: 'refunds' })).json
     expect((await noticesOf(ben, moved.conversationId)).map((one: any) => one.reason)).toEqual([

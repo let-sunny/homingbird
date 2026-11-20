@@ -107,7 +107,10 @@ export const askChannel = (slug: string, body: string): Action<ConversationId> =
   T.gen(function* () {
     const { api } = yield* T.ask<App>()
     const draft = yield* api['drafts.create']({ body: { body, channel: slug } })
-    yield* api['drafts.send']({ params: { id: draft.id }, body: {} })
+    yield* api['drafts.send']({
+      params: { id: draft.id },
+      body: { expected: { body, conversationId: draft.conversationId } },
+    })
     yield* loadConversations
     return draft.conversationId
   })

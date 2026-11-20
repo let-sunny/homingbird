@@ -1,4 +1,12 @@
-import type { AsRead, ConversationId, DraftRequest, MemberId, NoteId, Presence } from '@homingbird/protocol'
+import type {
+  AsRead,
+  ConversationId,
+  DraftAsShown,
+  DraftRequest,
+  MemberId,
+  NoteId,
+  Presence,
+} from '@homingbird/protocol'
 import { channelLabel, channelOfRoom } from '../channels.ts'
 import { featureOn } from '../features.ts'
 import type { ArchiveDiscard, Release, Thread } from '../state.ts'
@@ -10,6 +18,7 @@ export interface ThreadInput {
   readonly me: AsRead.Me
   readonly conversationId: ConversationId
   readonly thread: Thread | undefined
+  readonly draftsRead: ReadonlyMap<NoteId, DraftAsShown>
   readonly conversations: ReadonlyArray<AsRead.Conversation>
   readonly channels: ReadonlyArray<AsRead.Channel>
   readonly members: ReadonlyMap<MemberId, AsRead.Member>

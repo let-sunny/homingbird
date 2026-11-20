@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { type Agent, type Session, type TestServer, connectAgent, startTestServer } from './harness.ts'
+import {
+  type Agent,
+  type Session,
+  type TestServer,
+  asShown,
+  connectAgent,
+  startTestServer,
+} from './harness.ts'
 
 let server: TestServer
 let ana: Session
@@ -19,7 +26,7 @@ afterEach(() => server.close())
 
 const send = async (author: Session, to: Session, body: string) => {
   const draft = (await author.api('POST', '/drafts', { to: [to.me.member.id], body })).json
-  return (await author.api('POST', `/drafts/${draft.id}/send`, {})).json
+  return (await author.api('POST', `/drafts/${draft.id}/send`, await asShown(author, draft.id))).json
 }
 
 describe('drafting', () => {
@@ -105,7 +112,7 @@ describe('what wrote a note', () => {
       agentModel: 'claude-opus-5-5',
     })
     expect((await ben.api('GET', `/notes/${draft.id}`)).status).toBe(404)
-    await ana.api('POST', `/drafts/${draft.id}/send`, {})
+    await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))
     expect((await ben.api('GET', `/notes/${draft.id}`)).json).toMatchObject({
       agentClient: 'Claude Code 2.1.327',
       agentModel: 'claude-opus-5-5',
@@ -144,7 +151,7 @@ describe('what wrote a note', () => {
     expect(draft.agentName).toBe('Ana agent')
     expect(draft).not.toHaveProperty('agentClient')
     expect(draft).not.toHaveProperty('agentModel')
-    await ana.api('POST', `/drafts/${draft.id}/send`, {})
+    await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))
     for (const viewer of [ana, ben]) {
       const notes = (await viewer.api('GET', `/conversations/${draft.conversationId}/notes`)).json.notes
       expect(JSON.stringify(notes)).not.toContain('claude-opus-5-5')
@@ -161,7 +168,7 @@ describe('what wrote a note', () => {
     const tricky = await connectAgent(server, ana, { name: '\u202eedoC\u202c Bot\u0007' })
     const draft = (await tricky.api('POST', '/drafts', { to: [ben.me.member.id], body: 'Hi' })).json
     expect(draft.agentClient).toBe('edoC Bot')
-    await ana.api('POST', `/drafts/${draft.id}/send`, {})
+    await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))
     expect((await ben.api('GET', `/notes/${draft.id}`)).json.agentClient).toBe('edoC Bot')
   })
 

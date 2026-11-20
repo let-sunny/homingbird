@@ -1,4 +1,4 @@
-import type { ApiError } from '@homingbird/protocol'
+import { type ApiError, DRAFT_CHANGED } from '@homingbird/protocol'
 import { errorText, strings } from './strings.ts'
 
 export type Attempt =
@@ -13,6 +13,8 @@ export type Attempt =
 
 export const refusalText = (error: ApiError, attempt?: Attempt): string => {
   if (error._tag === 'Conflict' && ARCHIVED.test(error.message)) return strings.refusals.roomArchived
+  if (attempt === 'draft' && error._tag === 'Conflict' && error.message === DRAFT_CHANGED)
+    return strings.refusals.draftChanged
   if (attempt === 'device' && CODE_REFUSALS.has(error._tag)) return strings.refusals.connectionCode
   const known = attempt === undefined || error._tag !== 'Conflict' ? null : CONFLICTS[attempt]()
   return known ?? errorText(error)

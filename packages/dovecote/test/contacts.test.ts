@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { type Session, type TestServer, startTestServer } from './harness.ts'
+import { type Session, type TestServer, asShown, startTestServer } from './harness.ts'
 
 let server: TestServer
 afterEach(() => server.close())
@@ -74,7 +74,7 @@ describe('contacts mode', () => {
     const draft = (await ana.api('POST', '/drafts', { to: [ben.me.member.id], body: 'pending' })).json
     await ben.api('DELETE', `/contacts/${ana.me.member.id}`)
     expect((await ana.api('GET', '/contacts')).json.contacts).toEqual([])
-    expect((await ana.api('POST', `/drafts/${draft.id}/send`, {})).status).toBe(403)
+    expect((await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))).status).toBe(403)
   })
 
   it('refuses a request to oneself, to a stranger id and to someone unknown', async () => {
@@ -112,7 +112,7 @@ describe('blocking', () => {
     expect((await ana.api('PUT', `/blocks/${ana.me.member.id}`)).status).toBe(409)
     const draft = (await ana.api('POST', '/drafts', { to: [ben.me.member.id], body: 'pending' })).json
     await ben.api('PUT', `/blocks/${ana.me.member.id}`)
-    expect((await ana.api('POST', `/drafts/${draft.id}/send`, {})).status).toBe(403)
+    expect((await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))).status).toBe(403)
   })
 })
 

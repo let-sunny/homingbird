@@ -15,6 +15,7 @@ import {
   newPage,
   overflowsSideways,
   screenshotCounter,
+  sendDraft,
   signInWith,
   startDovecote,
   submitDevelopmentLogin,
@@ -86,7 +87,7 @@ const scenario = async (): Promise<void> => {
 
     const ask = async (person: Person, channel: string, body: string): Promise<string> => {
       const draft = await api(person, 'POST', '/drafts', { channel, body })
-      return (await api(person, 'POST', `/drafts/${draft.id}/send`, {})).id
+      return (await sendDraft(person, draft.id)).id
     }
     const answer = async (
       question: string,
@@ -108,8 +109,7 @@ const scenario = async (): Promise<void> => {
     ): Promise<void> => {
       await api(ana, 'POST', `/drafts/${id}/seen`)
       if (decide === 'discarded') await api(ana, 'POST', `/drafts/${id}/discard`)
-      else
-        await api(ana, 'POST', `/drafts/${id}/send`, decide === 'edited' ? { body: `${body} (checked)` } : {})
+      else await sendDraft(ana, id, decide === 'edited' ? `${body} (checked)` : undefined)
       timings.push({ id, decidedAgo, secondsToDecide, ...(question !== undefined && { question }) })
     }
 
@@ -152,11 +152,11 @@ const scenario = async (): Promise<void> => {
     await agent.call('POST', `/notes/${skippedToo}/release`, { reason: 'needs payroll system access' })
     for (const body of ['I will be out on Friday.', 'Lunch at noon?']) {
       const own = await api(ana, 'POST', '/drafts', { to: [await idOf(ben)], body })
-      await api(ana, 'POST', `/drafts/${own.id}/send`, {})
+      await sendDraft(ana, own.id)
     }
     for (const person of colleagues) {
       const note = await api(person, 'POST', '/drafts', { to: [anaId], body: 'Quick hello for the numbers.' })
-      await api(person, 'POST', `/drafts/${note.id}/send`, {})
+      await sendDraft(person, note.id)
     }
 
     // -- Earlier weeks for the trend: the share sent as written grew week by week -------------------

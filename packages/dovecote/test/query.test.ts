@@ -2,6 +2,7 @@ import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import {
   containsIgnoringCase,
+  equalsExactly,
   insertIgnoringConflict,
   insertInto,
   join,
@@ -58,6 +59,15 @@ describe('a query', () => {
       text: "LOWER(n.body) LIKE ? ESCAPE '!'",
       params: ['%ab!%!_!!c%'],
     })
+  })
+
+  it('compares text byte for byte on MySQL, whose collations ignore case, and plainly elsewhere', () => {
+    expect(equalsExactly('mysql', 'body', 'Ab')).toMatchObject({
+      text: 'CAST(body AS BINARY) = CAST(? AS BINARY)',
+      params: ['Ab'],
+    })
+    for (const dialect of ['sqlite', 'postgres'] as const)
+      expect(equalsExactly(dialect, 'body', 'Ab')).toMatchObject({ text: 'body = ?', params: ['Ab'] })
   })
 
   it('numbers placeholders for PostgreSQL in the order they appear', () => {

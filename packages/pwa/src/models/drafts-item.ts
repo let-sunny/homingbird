@@ -1,8 +1,10 @@
-import type { AsRead, MemberId } from '@homingbird/protocol'
+import type { AsRead, ConversationId, MemberId } from '@homingbird/protocol'
 import { agentNameOf } from '../agent-names.ts'
 import { approvesQuicklyOften, carefulReadingFor } from '../careful-reading.ts'
 import { channelLabel, channelOfRoom } from '../channels.ts'
 import { type DraftBasis, draftBasisOf } from '../draft-basis.ts'
+import { isChangedSinceRead } from '../drafts-read.ts'
+import type { Thread } from '../state.ts'
 import { listOf, strings } from '../strings.ts'
 import {
   type ThreadItem,
@@ -42,6 +44,45 @@ export const draftsItemModel = (
   }
 }
 
+/**
+ * After a send from the editor was refused, the draft as it stands now, for the editor to show beside
+ * the person's edit; null once it was sent or discarded, and the editor has nothing left to send. When
+ * the draft moved to another room, `moved` says where it goes now, and the editor sends nothing until
+ * the person confirms it.
+ */
+export const draftChangedWhileEditing = (input: EditorInput, read: AsRead.Note): EditorChange | null => {
+  const now = [...input.threads.values()]
+    .flatMap((thread) => thread.notes)
+    .find((note) => note.id === read.id && note.status === 'draft')
+  if (now === undefined) return null
+  if (now.conversationId === read.conversationId)
+    return { notice: strings.draftChangedWhileEditing, body: now.body, draft: now, moved: null }
+  const room = input.conversations.find((candidate) => candidate.id === now.conversationId)
+  const channel =
+    room?.kind === 'channel' && now.inReplyTo === null ? channelOfRoom(input.channels, room.id) : null
+  const destination =
+    room === undefined
+      ? null
+      : destinationOf({ ...input, thread: input.threads.get(room.id) }, now.authorId, now, room, channel)
+  return {
+    notice: strings.draftMovedWhileEditing,
+    body: now.body,
+    draft: now,
+    moved: { destination: destination?.text ?? null, confirm: strings.draftConfirmRoom },
+  }
+}
+
+export interface EditorInput extends Pick<ThreadInput, 'conversations' | 'channels' | 'members'> {
+  readonly threads: ReadonlyMap<ConversationId, Thread>
+}
+
+export interface EditorChange {
+  readonly notice: string
+  readonly body: string
+  readonly draft: AsRead.Note
+  readonly moved: { readonly destination: string | null; readonly confirm: string } | null
+}
+
 export interface DraftsItemModel {
   readonly avatar: AvatarModel
   readonly heading: string
@@ -62,6 +103,11 @@ export interface DraftCard {
     | { readonly kind: 'people'; readonly text: string }
     | null
   readonly careful: string | null
+  /**
+   * Set when an agent changed the text or the room after the person read the draft: the card says so
+   * and offers no way to send until the person has read it again.
+   */
+  readonly readAgain: { readonly notice: string; readonly confirm: string } | null
   /** Null in an archived room, where nothing is sent. */
   readonly actions: {
     readonly alternatives: ReadonlyArray<AsRead.Note>
@@ -85,9 +131,14 @@ const draftCard = (
     body: draft.body,
     basis: draftBasisOf(draft, showsAppliedMarkers(input.taught, teachingOn)),
     applied: appliedModel(draft, input.taught, teachingOn),
-    destination: archived || room === undefined ? null : destinationOf(input, draft, room, channel),
+    destination:
+      archived || room === undefined ? null : destinationOf(input, input.me.member.id, draft, room, channel),
     careful:
       !archived && isOn(input, 'agentFigures') && careful !== null ? strings.carefulReading[careful] : null,
+    readAgain:
+      !archived && isChangedSinceRead(input.draftsRead, draft)
+        ? { notice: strings.draftChangedSinceRead, confirm: strings.draftReadAgain }
+        : null,
     actions: archived
       ? null
       : {
@@ -105,14 +156,15 @@ const originText = (note: AsRead.Note): string => {
 }
 
 const destinationOf = (
-  input: ThreadInput,
+  input: Pick<ThreadInput, 'thread' | 'members'>,
+  meId: MemberId,
   draft: AsRead.Note,
   room: AsRead.Conversation,
   channel: AsRead.Channel | null,
 ): DraftCard['destination'] => {
   if (channel !== null)
     return { kind: 'channel', text: strings.sendsToChannel({ channel: channelLabel(channel.slug) }), channel }
-  const destination = draftDestination(room, draft, notesOf(input), input.me.member.id)
+  const destination = draftDestination(room, draft, notesOf(input), meId)
   const names = listOf(destination.memberIds.map((memberId: MemberId) => nameIn(input, memberId)))
   return {
     kind: 'people',
@@ -120,7 +172,7 @@ const destinationOf = (
       room.kind === 'channel'
         ? strings.sendsToInRoom({
             names,
-            room: conversationTitle(room, input.members, input.me.member.id, ''),
+            room: conversationTitle(room, input.members, meId, ''),
           })
         : strings.sendsTo({ names }),
   }

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { type Session, type TestServer, startTestServer, storedRows } from './harness.ts'
+import { type Session, type TestServer, asShown, startTestServer, storedRows } from './harness.ts'
 
 let server: TestServer
 let ana: Session
@@ -30,7 +30,7 @@ describe('direct conversations', () => {
 
   it('describes the conversation the same way to both sides, with their own counts', async () => {
     const draft = (await ana.api('POST', '/drafts', { to: [ben.me.member.id], body: 'hello' })).json
-    await ana.api('POST', `/drafts/${draft.id}/send`, {})
+    await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))
     await ana.api('POST', '/drafts', { conversationId: draft.conversationId, body: 'second, waiting' })
     const forAna = (await ana.api('GET', `/conversations/${draft.conversationId}`)).json
     const forBen = (await ben.api('GET', `/conversations/${draft.conversationId}`)).json
@@ -45,10 +45,10 @@ describe('direct conversations', () => {
 
   it('orders the list by latest activity', async () => {
     const toBen = (await ana.api('POST', '/drafts', { to: [ben.me.member.id], body: 'to ben' })).json
-    await ana.api('POST', `/drafts/${toBen.id}/send`, {})
+    await ana.api('POST', `/drafts/${toBen.id}/send`, await asShown(ana, toBen.id))
     await server.clock.advance(1_000)
     const toCy = (await ana.api('POST', '/drafts', { to: [cy.me.member.id], body: 'to cy' })).json
-    await ana.api('POST', `/drafts/${toCy.id}/send`, {})
+    await ana.api('POST', `/drafts/${toCy.id}/send`, await asShown(ana, toCy.id))
     const list = (await ana.api('GET', '/conversations')).json.conversations
     expect(list.map((conversation: any) => conversation.id)).toEqual([
       toCy.conversationId,
@@ -72,7 +72,7 @@ describe('group conversations', () => {
     ])
 
     const draft = (await ben.api('POST', '/drafts', { conversationId: group.id, body: 'to everyone' })).json
-    const sent = (await ben.api('POST', `/drafts/${draft.id}/send`, {})).json
+    const sent = (await ben.api('POST', `/drafts/${draft.id}/send`, await asShown(ben, draft.id))).json
     expect(sent.receipts.map((receipt: any) => receipt.memberId).sort()).toEqual(
       [ana.me.member.id, cy.me.member.id].sort(),
     )

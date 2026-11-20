@@ -4,6 +4,7 @@ import {
   type Agent,
   type Session,
   type TestServer,
+  asShown,
   connectAgent,
   startTestServer,
 } from '../../dovecote/test/harness.ts'
@@ -34,7 +35,7 @@ const tool = async (name: string, args: object = {}) => {
 
 const noteFromAna = async (body: string): Promise<string> => {
   const draft = (await ana.api('POST', '/drafts', { to: [ben.me.member.id], body })).json
-  await ana.api('POST', `/drafts/${draft.id}/send`, {})
+  await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))
   return draft.id
 }
 
@@ -142,7 +143,7 @@ describe('the MCP endpoint on a running server', () => {
     expect(revised.isError).toBe(false)
     expect((await ben.api('GET', `/notes/${draft.id}`)).json.status).toBe('draft')
 
-    await ben.api('POST', `/drafts/${draft.id}/send`, {})
+    await ben.api('POST', `/drafts/${draft.id}/send`, await asShown(ben, draft.id))
     const thread = (await ana.api('GET', `/conversations/${draft.conversationId}/notes`)).json.notes
     expect(thread.map((note: any) => note.body)).toEqual([
       'Is the migration safe?',
