@@ -12,6 +12,7 @@ import {
   type ServiceManager,
   type ServicePaths,
   type ServiceSpec,
+  serviceAgentsPath,
   serviceMissingPath,
 } from '../service-definition.ts'
 import { serviceManagerFor, servicePlace } from '../service-managers.ts'
@@ -91,6 +92,7 @@ export const serviceStatus: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function
   const running = manager.stopsThroughRunner ? yield* isClaimLive(paths.lockPath) : (state?.running ?? false)
   const loaded = state?.loaded ?? false
   const waitingFor = running ? yield* missingProgramOf(paths) : null
+  const agents = running && waitingFor === null ? yield* agentsOf(paths) : []
   return outcome(
     {
       service: paths.name,
@@ -101,6 +103,7 @@ export const serviceStatus: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function
       running,
       lastExit: state?.lastExit ?? null,
       waitingFor,
+      agents,
       definition: paths.definitionPath,
       log: paths.logPath,
       signedIn: signInProblem === null,
@@ -112,6 +115,7 @@ export const serviceStatus: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function
         ? [
             `Running:     ${running ? (waitingFor === null ? 'yes' : 'yes, waiting for a missing program') : loaded ? 'no' : 'no, not loaded'}`,
             ...(waitingFor === null ? [] : [`Waiting:     ${waitingFor}`]),
+            ...agents.map((line) => `Agent:       ${line}`),
             ...(manager.stopsThroughRunner ? [] : [`Last exit:   ${state?.lastExit ?? 'none'}`]),
           ]
         : []),
@@ -181,6 +185,13 @@ const missingProgramOf = (paths: ServicePaths): T.Task<string | null, never, Cli
     const server = paths.server
     const written = yield* env.files.read(serviceMissingPath(credentialDirectory(env), server))
     return written?.trim() || null
+  })
+
+const agentsOf = (paths: ServicePaths): T.Task<string[], never, CliEnv> =>
+  T.gen(function* () {
+    const env = yield* T.ask<CliEnv>()
+    const written = yield* env.files.read(serviceAgentsPath(credentialDirectory(env), paths.server))
+    return (written ?? '').split('\n').filter((line) => line.trim() !== '')
   })
 
 /** Whether the service is installed, and, when asked or when only it can tell, what the platform says. */

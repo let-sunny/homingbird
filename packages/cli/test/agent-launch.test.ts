@@ -19,7 +19,7 @@ describe('preparedLaunches', () => {
     const { w, exit } = await prepared({ agent: 'my-agent --fast', split: { reader: 'my-reader' } })
     expect(exit).toEqual({
       _tag: 'Ok',
-      value: { agent: plain('my-agent --fast'), reader: plain('my-reader') },
+      value: { agent: plain('my-agent --fast'), reader: plain('my-reader'), installed: [] },
     })
     expect(w.processRuns).toEqual([])
   })
@@ -30,6 +30,7 @@ describe('preparedLaunches', () => {
       { process: () => ({ exitCode: 0, output: '[{"name":"github"}]' }) },
     )
     expect(w.processRuns).toEqual([
+      ['codex', '--version'],
       ['codex', '-c', 'features.plugins=false', '-c', 'features.apps=false', 'mcp', 'list', '--json'],
     ])
     expect(exit._tag === 'Ok' && exit.value.reader?.command).toBe(
@@ -95,6 +96,7 @@ describe('preparedLaunches for Antigravity', () => {
       },
     })
     expect(runs.map(([argv]) => argv)).toEqual([
+      ['agy', '--version'],
       ['agy', '-p', '/usage', '--output-format', 'json', '--print-timeout', '15s'],
       ['agy', '--help'],
     ])
@@ -112,7 +114,7 @@ describe('preparedLaunches for Antigravity', () => {
     expect(exit).toMatchObject({
       error: { error: { message: expect.stringMatching(/^Antigravity did not answer within 20 seconds/) } },
     })
-    expect(w.processRuns).toHaveLength(1)
+    expect(w.processRuns).toHaveLength(2)
   })
 
   it('refuses the reader of an agy that offers no --settings', async () => {
@@ -123,11 +125,58 @@ describe('preparedLaunches for Antigravity', () => {
   })
 })
 
+describe('preparedLaunches and versions', () => {
+  const claude = {
+    agent: agentCommand('claude', 'linux'),
+    split: { reader: defaultReader('claude', 'linux') },
+  }
+
+  it('asks a preset’s program its version once, and says what is installed against what it needs', async () => {
+    const { w, exit } = await prepared(claude, {
+      process: () => ({ exitCode: 0, output: '2.1.329 (Claude Code)\n' }),
+    })
+    expect(w.processRuns).toEqual([['claude', '--version']])
+    expect(exit).toMatchObject({
+      _tag: 'Ok',
+      value: {
+        installed: [
+          'Claude Code: 2.1.329, needs 2.1.259 or later; verified with Claude Code 2.1.327; options seen in Claude Code 2.1.329 --help',
+        ],
+      },
+    })
+  })
+
+  it('refuses a program older than the preset works with, saying how to upgrade it', async () => {
+    const { exit } = await prepared(claude, {
+      process: () => ({ exitCode: 0, output: '2.0.76 (Claude Code)' }),
+    })
+    expect(exit).toMatchObject({
+      error: {
+        error: {
+          message:
+            'Claude Code 2.0.76 is older than 2.1.259, the oldest the claude preset works with. Upgrade it: claude update',
+        },
+      },
+    })
+  })
+
+  it('starts with a version it cannot read', async () => {
+    const { exit } = await prepared(claude, {
+      process: () => ({ exitCode: 0, output: 'Claude Code (dev build)' }),
+    })
+    expect(exit).toMatchObject({
+      _tag: 'Ok',
+      value: { installed: [expect.stringContaining('version not readable')] },
+    })
+  })
+})
+
 describe('launchesAsGiven', () => {
   it('launches the agent and the reader exactly as given', () => {
     expect(launchesAsGiven({ agent: 'claude -p', split: null })).toEqual({
       agent: plain('claude -p'),
       reader: null,
+      installed: [],
     })
   })
 })

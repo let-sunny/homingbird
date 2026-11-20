@@ -46,8 +46,11 @@ export const isPresetCommand = (command: string, platform: string): boolean =>
 export const presetNamed = (value: string): AgentPreset | null =>
   AGENT_PRESETS.find((preset) => preset.name === value.trim()) ?? null
 
-export const presetState = (preset: AgentPreset): string =>
-  preset.verifiedWith === null ? 'not yet tested with the real CLI' : `verified with ${preset.verifiedWith}`
+export const presetState = (preset: AgentPreset): string => {
+  const state =
+    preset.verifiedWith === null ? 'not yet tested with the real CLI' : `verified with ${preset.verifiedWith}`
+  return preset.optionsSeenIn === null ? state : `${state}; options seen in ${preset.optionsSeenIn} --help`
+}
 
 /**
  * One command line from its words, quoted for the shell that runs agent commands: sh, or cmd.exe on
@@ -69,6 +72,12 @@ export interface AgentPreset {
   readonly readerTools: 'none' | 'minimal' | null
   /** What the preset was run with; null while it is taken from the tool's source code only. */
   readonly verifiedWith: string | null
+  /** Whose `--help` listed every option the preset passes, when it has not been run yet with them all. */
+  readonly optionsSeenIn: string | null
+  /** The oldest version the preset's options work with; null when none is known. */
+  readonly minimumVersion: string | null
+  /** The command, or the step, that upgrades the program. */
+  readonly upgrade: string
   /** Variables both commands and every probe get, on top of the person's environment. */
   readonly environment: Readonly<Record<string, string>>
   readonly signInCheck: SignInCheck | null
@@ -134,6 +143,9 @@ export const AGENT_PRESETS: ReadonlyArray<AgentPreset> = [
     },
     readerTools: 'none',
     verifiedWith: 'Claude Code 2.1.327',
+    optionsSeenIn: 'Claude Code 2.1.329',
+    minimumVersion: '2.1.259',
+    upgrade: 'claude update',
     environment: {},
     signInCheck: null,
   },
@@ -169,6 +181,9 @@ export const AGENT_PRESETS: ReadonlyArray<AgentPreset> = [
     },
     readerTools: 'minimal',
     verifiedWith: null,
+    optionsSeenIn: null,
+    minimumVersion: null,
+    upgrade: 'npm install -g @openai/codex@latest',
     environment: {},
     signInCheck: null,
   },
@@ -184,6 +199,9 @@ export const AGENT_PRESETS: ReadonlyArray<AgentPreset> = [
     },
     readerTools: 'minimal',
     verifiedWith: null,
+    optionsSeenIn: null,
+    minimumVersion: '1.1.15',
+    upgrade: 'install the latest Antigravity CLI (agy)',
     environment: { AGY_CLI_DISABLE_AUTO_UPDATE: 'true' },
     signInCheck: {
       args: ['-p', '/usage', '--output-format', 'json', '--print-timeout', '15s'],
@@ -204,6 +222,9 @@ export const AGENT_PRESETS: ReadonlyArray<AgentPreset> = [
     reader: null,
     readerTools: null,
     verifiedWith: null,
+    optionsSeenIn: null,
+    minimumVersion: null,
+    upgrade: 'npm install -g @google/gemini-cli@latest',
     environment: {},
     signInCheck: null,
   },

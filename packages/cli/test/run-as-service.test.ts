@@ -70,6 +70,18 @@ describe('homingbird run --service', () => {
     await r.stop()
   })
 
+  it('writes down which version of each preset program it started with', async () => {
+    const r = runner({
+      argv: ['--service', '--server', SERVER, '--agent', 'claude'],
+      process: () => ({ exitCode: 0, output: '2.1.329 (Claude Code)' }),
+    })
+    await settle(() => r.w.lines.some((line) => line.includes('Answering notes')))
+    expect(r.w.files.get(`${HOME}/.config/homingbird/desks/service-https-hb-example-com.agents`)).toMatch(
+      /^Claude Code: 2\.1\.329, needs 2\.1\.259 or later; verified with/,
+    )
+    await r.stop()
+  })
+
   it('does not tell the service manager’s log to press Ctrl-C', async () => {
     const r = runner({ argv: ['--service', '--server', SERVER] })
     await settle(() => r.w.lines.some((line) => line.includes('Answering notes')))

@@ -70,7 +70,7 @@ const execute = (
     case 'analytics':
       return T.map(analyticsOutcome)(setAnalytics(invocation.action))
     case 'presets':
-      return T.map((env: CliEnv) => presets(env.platform))(T.ask<CliEnv>())
+      return presets
     case 'service':
       return invocation.action === 'install'
         ? installService(invocation)

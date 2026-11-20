@@ -11,7 +11,12 @@ import { DESK_HEARTBEAT_MS, claimDesk, releaseDeskClaim, renewDeskClaim } from '
 import type { CliEnv } from '../environment.ts'
 import { CliFailure, EXIT } from '../failure.ts'
 import { type Outcome, outcome } from '../outcome.ts'
-import { serviceLockPath, serviceMissingPath, serviceStopPath } from '../service-definition.ts'
+import {
+  serviceAgentsPath,
+  serviceLockPath,
+  serviceMissingPath,
+  serviceStopPath,
+} from '../service-definition.ts'
 import { apiFor } from '../session.ts'
 import { type RunnerSettings, missingCommandOf, runDesk } from './run.ts'
 
@@ -67,6 +72,9 @@ const serving = (
       settings,
       report,
     )
+    const agents = serviceAgentsPath(credentialDirectory(env), server)
+    if (launches.installed.length === 0) yield* env.files.remove(agents)
+    else yield* env.files.writePrivate(agents, launches.installed.join('\n'))
     let refused: string | null = null
     for (;;) {
       const credential: StoredCredential = yield* signedInTo(server, refused, report)

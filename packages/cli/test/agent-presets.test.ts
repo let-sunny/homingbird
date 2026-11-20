@@ -183,7 +183,7 @@ describe('agent presets', () => {
 
   it('are verified only when run with the real agent, and otherwise say they come from source', () => {
     expect(AGENT_PRESETS.map((preset) => [preset.name, presetState(preset)])).toEqual([
-      ['claude', 'verified with Claude Code 2.1.327'],
+      ['claude', 'verified with Claude Code 2.1.327; options seen in Claude Code 2.1.329 --help'],
       ['codex', 'not yet tested with the real CLI'],
       ['antigravity', 'not yet tested with the real CLI'],
       ['gemini', 'not yet tested with the real CLI'],

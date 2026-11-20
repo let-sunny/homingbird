@@ -23,6 +23,14 @@ describe('homingbird presets', () => {
       'gemini',
     ])
     expect(listed[1]).toMatchObject({ readerTools: 'minimal', state: 'not yet tested with the real CLI' })
+    expect(text).toContain('here:    installed, version not readable, needs 2.1.259 or later')
+    expect(w.processRuns.slice(0, 4).map(([program, flag]) => `${program} ${flag}`)).toEqual([
+      'claude --version',
+      'codex --version',
+      'agy --version',
+      'gemini --version',
+    ])
+    expect(listed[0]).toMatchObject({ minimumVersion: '2.1.259', installed: { status: 'unknown' } })
     expect(w.calls).toEqual([])
   })
 
