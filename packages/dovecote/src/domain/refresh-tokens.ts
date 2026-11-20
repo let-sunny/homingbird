@@ -1,18 +1,12 @@
 import { Task as T } from '@homingbird/kernel'
-import type { CredentialId, CredentialKind, MemberId, MemberStatus } from '@homingbird/protocol'
+import type { CredentialId, CredentialKind, MemberStatus } from '@homingbird/protocol'
 import type { AppEnv } from '../environment.ts'
 import type { RequestEnv } from '../events/events.ts'
 import { hashSecret } from '../random.ts'
 import { first, run } from '../sql/database.ts'
 import { insertInto, sql } from '../sql/query.ts'
 import { recordAudit } from './audit.ts'
-import {
-  ACCESS_TOKEN_LIFETIME_MS,
-  BROWSER_SIGN_IN_CLIENT,
-  type Issued,
-  REFRESH_PREFIX,
-  TOKEN_PREFIX,
-} from './credentials.ts'
+import { ACCESS_TOKEN_LIFETIME_MS, type Issued, REFRESH_PREFIX, TOKEN_PREFIX } from './credentials.ts'
 
 /** A replay's revocation must commit, so the caller refuses the client after the transaction. */
 export type Refresh =
@@ -27,14 +21,10 @@ export const refreshCredential = (refreshToken: string): T.Task<Refresh, never, 
     const now = env.clock.now()
     const hash = hashSecret(refreshToken)
     const row = yield* first<RefreshRow>(sql`
-      SELECT c.id, c.kind, c.member_id, c.expires_at, c.revoked_at, m.status
+      SELECT c.id, c.kind, c.expires_at, c.revoked_at, m.status
       FROM credentials c JOIN members m ON m.id = c.member_id WHERE c.refresh_hash = ${hash}`)
     if (row === null) return yield* spentOrUnknown(hash, now)
-    const usable =
-      row.revoked_at === null &&
-      row.expires_at > now &&
-      row.status === 'active' &&
-      (yield* lastSignedInAt(row.member_id)) > now - env.config.sessionDays * DAY_MS
+    const usable = row.revoked_at === null && row.expires_at > now && row.status === 'active'
     if (!usable) return REFUSED
     const issued: Issued = {
       credentialId: row.id,
@@ -70,7 +60,6 @@ export const deleteSpentRefreshTokens = (now: number): T.Task<void, never, AppEn
 interface RefreshRow {
   readonly id: CredentialId
   readonly kind: CredentialKind
-  readonly member_id: MemberId
   readonly expires_at: number
   readonly revoked_at: number | null
   readonly status: MemberStatus
@@ -85,7 +74,6 @@ interface SpentRow {
 const REFUSED: Refresh = { outcome: 'refused' }
 /** A client retrying a refresh whose answer it lost repeats the token the live one replaced. */
 const REFRESH_REPLAY_GRACE_MS = 10_000
-const DAY_MS = 24 * 60 * 60_000
 
 const spentOrUnknown = (hash: string, now: number): T.Task<Refresh, never, RequestEnv> =>
   T.gen(function* () {
@@ -112,12 +100,4 @@ const isLiveParent = (spent: SpentRow): T.Task<boolean, never, AppEnv> =>
     first(sql`
       SELECT id FROM credentials
       WHERE id = ${spent.credential_id} AND refresh_hash = ${spent.replaced_by} AND revoked_at IS NULL`),
-  )
-
-/** A browser sign-in is where the identity provider vouches for a person again. */
-const lastSignedInAt = (memberId: MemberId): T.Task<number, never, AppEnv> =>
-  T.map((row: { signed_in_at: unknown } | null) => Number(row?.signed_in_at ?? 0))(
-    first<{ signed_in_at: unknown }>(sql`
-      SELECT MAX(created_at) AS signed_in_at FROM credentials
-      WHERE member_id = ${memberId} AND kind = 'human' AND client = ${BROWSER_SIGN_IN_CLIENT}`),
   )

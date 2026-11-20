@@ -303,8 +303,8 @@ and nothing reads your directory. Add it to your offboarding checklist next to b
 
 Deactivating, at once and in one change:
 
-- revokes every credential of that member: browser sessions, the claude.ai connector, and the agent
-  credentials of the command line, the runner and the plugin. Their next request is refused, and an
+- revokes every credential of that member: browser sessions, the claude.ai connector, whose refresh
+  stops from then on, and the agent credentials of the command line, the runner and the plugin. Their next request is refused, and an
   open event stream ends at its next heartbeat, within 20 seconds;
 - takes them out of every group, so they manage no channel any more, and revokes every credential they
   had issued to a channel's agent;
@@ -327,11 +327,11 @@ blocked, that is refused, and what they already hold runs out on its own:
 | Credential | Stops working | Why |
 | --- | --- | --- |
 | Browser session | `HB_SESSION_DAYS` (30 days by default) after their last sign-in | A session is never renewed without signing in |
-| claude.ai connector | At most an hour after their last sign-in is `HB_SESSION_DAYS` old | Its token is refreshed only for a person who signed in within `HB_SESSION_DAYS` |
+| claude.ai connector | `HB_AGENT_CREDENTIAL_DAYS` after it was connected | Refreshing renews its hourly token, never the credential itself |
 | Command line, runner, plugin | `HB_AGENT_CREDENTIAL_DAYS` (90 days by default) after it was issued | It is never refreshed, and nothing asks the identity provider before then |
 | A channel's agent they connected | `HB_AGENT_CREDENTIAL_DAYS` after it was issued, or when they stop managing the channel | It belongs to the channel's agent, not to them |
 
-So the last two keep working for up to three months. Deactivating is the only way to end them at once.
+So the last three keep working for up to three months. Deactivating is the only way to end them at once.
 
 ### Checking for people who left
 
@@ -636,9 +636,8 @@ custom connector.
 5. Each person connects once, signs in, and consents. The connector gets an agent credential: it can
    read and draft, never send. Drafts wait for approval in the web client.
 
-The connector renews its access token every hour with a refresh token that works once, and only for a
-person who has signed in to the web client within `HB_SESSION_DAYS`; otherwise claude.ai asks them to
-connect again, which signs them in. If a refresh
+The connector renews its access token every hour with a refresh token that works once, and only while
+its person is an active member. If a refresh
 token that was already used comes back, Dovecote takes it as copied, unless it is the one just
 replaced and comes back within 10 seconds, as a client's retry does:
 it revokes that connection, writes `credential.revoked` with `because: refresh_replayed` to the audit
@@ -1076,7 +1075,7 @@ Every variable Dovecote reads. Blank values count as unset.
 | `HB_ALLOWED_DOMAINS` | none | Email domains allowed to sign in, comma-separated. A starting value: administrators change it in the web client |
 | `HB_CONTACT_MODE` | `open` | `open`, or `contacts` to require an accepted request before messaging. A starting value, like the one above |
 | `HB_CHANNELS` | none | Channels created on start, `slug` or `slug: description`, comma-separated. Exactly these are created, once, and nobody is joined to them |
-| `HB_SESSION_DAYS` | `30` | Days a sign-in lasts before the identity provider is asked again; the claude.ai connector stops refreshing for a person who has not signed in for this long |
+| `HB_SESSION_DAYS` | `30` | Days a sign-in lasts before the identity provider is asked again |
 | `HB_AGENT_CREDENTIAL_DAYS` | `90` | Days an agent credential lasts |
 | `HB_FEATURES` | all on | Starting feature switches, `name=on` or `name=off`, comma-separated ([Features](#features)). A starting value, like `HB_ALLOWED_DOMAINS` |
 | `HB_QUICK_APPROVAL_SECONDS` | `3` | A draft sent as written within this many seconds of appearing counts as a quick approval ([Insights](#insights)) |
