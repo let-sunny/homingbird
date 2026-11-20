@@ -1,0 +1,8 @@
+[
+  { "version": "0.1.0", "steps": 1 },
+  { "version": "0.1.1", "steps": 2 },
+  { "version": "0.1.2", "steps": 3 },
+  { "version": "0.1.3", "steps": 3 },
+  { "version": "0.2.0", "steps": 5 },
+  { "version": "0.3.0", "steps": 7 }
+]

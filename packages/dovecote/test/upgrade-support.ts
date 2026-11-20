@@ -1,45 +1,84 @@
 import { createHash } from 'node:crypto'
-import { Task as T } from '@homingbird/kernel'
+import { readFileSync } from 'node:fs'
+import { Schema as S, Task as T } from '@homingbird/kernel'
 import { hashSecret } from '../src/random.ts'
 import { type Database, type Row, sqlEnvironment } from '../src/sql/database.ts'
 import { MIGRATIONS } from '../src/sql/migrations.ts'
+import { AUDIT_TRAIL } from '../src/sql/migrations/audit-trail-step.ts'
+import { GROUPS } from '../src/sql/migrations/groups-step.ts'
 import { insertInto, raw } from '../src/sql/query.ts'
+import type { Migration } from '../src/sql/schema-steps.ts'
 import { migrateThrough } from '../src/sql/schema.ts'
+import { TEST_DIALECTS } from './dialect-support.ts'
 
 /**
- * A database as Dovecote 0.2.0 left it: its five schema steps, applied by the real step definitions, and
- * the rows an organization had made by then. Channel managers are the old `channel_managers` list:
- * general's are Ana, in its room, Dee, deactivated, and Eve, outside it; payroll's are Ben and Cy, in its
- * room, and Dee; retired's only manager is Dee; lobby, seeded by the operator, has none.
+ * Every final release of Dovecote, oldest first, with the number of schema steps it left a database at.
+ * `node scripts/release-version.ts prepare` adds each new release, and `check` fails a release without one.
  */
-export const databaseAt020 = async (database: Database): Promise<void> => {
-  const env = sqlEnvironment(database)
-  await T.runPromise(migrateThrough(MIGRATIONS.slice(0, STEPS_OF_020)), env)
-  for (const [table, row] of [...ROWS_OF_020, ...chainedAuditRows(AUDIT_OF_020)])
-    await T.runPromise(env.database.run(insertInto(table, row)), env)
-  await T.runPromise(
-    env.database.run(
-      insertInto('audit_head', { name: 'chain', last_id: AUDIT_OF_020.length, hash: HEAD_OF_020 }),
-    ),
-    env,
+export const RELEASES: ReadonlyArray<Release> = (() => {
+  const decoded = S.array(S.struct({ version: S.string(), steps: S.int({ min: 1 }) })).decode(
+    JSON.parse(readFileSync(new URL('./releases.json', import.meta.url), 'utf8')),
   )
+  if (decoded._tag === 'Err') throw new Error(`releases.json: ${S.formatIssues(decoded.error)}`)
+  return decoded.value
+})()
+
+export interface Release {
+  readonly version: string
+  readonly steps: number
 }
 
-/** Every row of every table 0.2.0 had, in the columns it had, in primary key order. */
-export const rowsOf020Tables = async (database: Database): Promise<Readonly<Record<string, Row[]>>> => {
+/** Every release on every database these tests run on: its version, the database, the release, the URL. */
+export const UPGRADES: ReadonlyArray<readonly [string, string, Release, string | undefined]> =
+  RELEASES.flatMap((release) =>
+    TEST_DIALECTS.map(([dialect, url]) => [release.version, dialect, release, url] as const),
+  )
+
+/**
+ * A database as a release left it: its schema steps, applied by the real step definitions, and the rows
+ * an organization had made by then, in the columns that release had. Channel managers are the old
+ * `channel_managers` list: general's are Ana, in its room, Dee, deactivated, and Eve, outside it;
+ * payroll's are Ben and Cy, in its room, and Dee; retired's only manager is Dee; lobby, seeded by the
+ * operator, has none. A release with groups also has the channel groups the groups step made of them,
+ * and a team.
+ */
+export const databaseAt = async (release: Release, database: Database): Promise<void> => {
+  const env = sqlEnvironment(database)
+  await T.runPromise(migrateThrough(MIGRATIONS.slice(0, release.steps)), env)
+  const tables = tablesAt(release.steps)
+  for (const [table, row] of rowsAt(release))
+    await T.runPromise(env.database.run(insertInto(table, projected(row, tables[table]!.columns))), env)
+}
+
+/** Every row of every table the release had, in the columns it had, in primary key order. */
+export const rowsOfReleaseTables = async (
+  release: Release,
+  database: Database,
+): Promise<Readonly<Record<string, Row[]>>> => {
   const tables: Record<string, Row[]> = {}
-  for (const [table, { columns, primaryKey }] of Object.entries(TABLES_OF_020))
-    tables[table] = [
-      ...(await T.runPromise(
-        database.all(raw(`SELECT ${columns.join(', ')} FROM ${table} ORDER BY ${primaryKey.join(', ')}`)),
-      )),
-    ]
+  for (const [table, { columns, primaryKey }] of Object.entries(tablesAt(release.steps)))
+    tables[table] = inKeyOrder(
+      await T.runPromise(database.all(raw(`SELECT ${columns.join(', ')} FROM ${table}`))),
+      primaryKey,
+    )
   return tables
 }
 
+/** Every row of every table this build has, in primary key order. */
+export const rowsOfEveryTable = (database: Database): Promise<Readonly<Record<string, Row[]>>> =>
+  rowsOfReleaseTables({ version: 'this build', steps: MIGRATIONS.length }, database)
+
+/** Whether a database the release left already has this schema step. */
+export const hasStep = (release: Release, migration: Migration): boolean =>
+  release.steps >= MIGRATIONS.indexOf(migration) + 1
+
+/** The steps a database the release left lacks, in the order they run. */
+export const stepsAfter = (release: Release): number[] =>
+  Array.from({ length: MIGRATIONS.length - release.steps }, (_, index) => release.steps + index + 1)
+
 /** The audit chain as 0.2.0 wrote it: each row's SHA-256 over the hash before it and its columns, in order. */
 export const chainedAuditRows = (
-  rows: ReadonlyArray<AuditRowOf020>,
+  rows: ReadonlyArray<AuditRow>,
 ): ReadonlyArray<readonly ['audit_events', Row]> => {
   let previous = '0'.repeat(64)
   return rows.map((row) => {
@@ -53,11 +92,7 @@ export const chainedAuditRows = (
   })
 }
 
-export type AuditRowOf020 = Readonly<
-  Record<Exclude<(typeof HASHED_COLUMNS)[number], 'previous_hash'>, unknown>
->
-
-export const STEPS_OF_020 = 5
+export type AuditRow = Readonly<Record<Exclude<(typeof HASHED_COLUMNS)[number], 'previous_hash'>, unknown>>
 
 export const T0 = 1_699_000_000_000
 export const MINUTE = 60_000
@@ -92,29 +127,47 @@ export const ROOM = {
   retired: 'conv_retired00000',
 } as const
 
-/** The tokens 0.2.0 issued, of which it stored only the hashes. */
+/** The tokens the release issued, of which it stored only the hashes. */
 export const TOKEN = {
-  anaBrowser: 'hbh_ana-browser-session-issued-by-0-2-0',
-  benBrowser: 'hbh_ben-browser-session-issued-by-0-2-0',
-  cyBrowser: 'hbh_cy-browser-session-issued-by-0-2-0',
-  deeBrowser: 'hbh_dee-browser-session-issued-by-0-2-0',
-  anaAgent: 'hba_ana-agent-issued-by-0-2-0',
-  benAgent: 'hba_ben-agent-issued-by-0-2-0',
-  cyAgent: 'hba_cy-agent-issued-by-0-2-0',
+  anaBrowser: 'hbh_ana-browser-session-issued-by-an-older-release',
+  benBrowser: 'hbh_ben-browser-session-issued-by-an-older-release',
+  cyBrowser: 'hbh_cy-browser-session-issued-by-an-older-release',
+  deeBrowser: 'hbh_dee-browser-session-issued-by-an-older-release',
+  anaAgent: 'hba_ana-agent-issued-by-an-older-release',
+  benAgent: 'hba_ben-agent-issued-by-an-older-release',
+  cyAgent: 'hba_cy-agent-issued-by-an-older-release',
 } as const
 
-/** The rows of the first audit table, which the audit trail step trimmed; this one is older than any retention. */
-export const FIRST_AUDIT_TABLE_ROW = {
-  created_at: T0 - 500 * DAY,
-  actor_id: ID.ana,
-  credential_id: ID.anaBrowser,
-  credential_kind: 'human',
-  action: 'drafts.send',
-  target: ID.hello,
-  detail: '{}',
-}
+/**
+ * Rows of the first audit table: one older than the saved retention, which the audit trail step removes
+ * when it runs, and one within it, which stays.
+ */
+export const AUDIT_TABLE_ROWS = {
+  old: {
+    created_at: T0 - 500 * DAY,
+    actor_id: ID.ana,
+    credential_id: ID.anaBrowser,
+    credential_kind: 'human',
+    action: 'drafts.send',
+    target: ID.hello,
+    detail: '{}',
+  },
+  recent: {
+    created_at: T0 + 11 * MINUTE,
+    actor_id: ID.ana,
+    credential_id: ID.anaBrowser,
+    credential_kind: 'human',
+    action: 'drafts.send',
+    target: ID.hello,
+    detail: '{}',
+  },
+} as const
 
-export const RETENTION_DAYS_OF_020 = 400
+/** The audit retention the administrator saved, in days. */
+export const RETENTION_DAYS = 400
+
+/** The team an administrator made in a release with groups. */
+export const TEAM = 'grp_release00000'
 
 const HASHED_COLUMNS = [
   'created_at',
@@ -133,18 +186,45 @@ const HASHED_COLUMNS = [
   'previous_hash',
 ] as const
 
-const TABLES_OF_020: Readonly<Record<string, { columns: string[]; primaryKey: ReadonlyArray<string> }>> =
-  (() => {
-    const tables: Record<string, { columns: string[]; primaryKey: ReadonlyArray<string> }> = {
-      schema_versions: { columns: ['version'], primaryKey: ['version'] },
-    }
-    for (const step of MIGRATIONS.slice(0, STEPS_OF_020).flat()) {
-      if ('primaryKey' in step)
-        tables[step.name] = { columns: Object.keys(step.columns), primaryKey: step.primaryKey }
-      if ('addTo' in step) tables[step.addTo]?.columns.push(step.name)
-    }
-    return tables
-  })()
+interface TableAt {
+  readonly columns: string[]
+  readonly primaryKey: ReadonlyArray<string>
+}
+
+const tablesAt = (steps: number): Readonly<Record<string, TableAt>> => {
+  const tables: Record<string, TableAt> = {
+    schema_versions: { columns: ['version'], primaryKey: ['version'] },
+  }
+  for (const step of MIGRATIONS.slice(0, steps).flat()) {
+    if ('primaryKey' in step)
+      tables[step.name] = { columns: Object.keys(step.columns), primaryKey: step.primaryKey }
+    if ('addTo' in step) tables[step.addTo]?.columns.push(step.name)
+  }
+  return tables
+}
+
+const EVERY_TABLE = tablesAt(MIGRATIONS.length)
+
+/** The rows of the tables the release had; a column no step ever added is a mistake in these rows. */
+const rowsAt = (release: Release): ReadonlyArray<readonly [string, Row]> => {
+  const tables = tablesAt(release.steps)
+  for (const [table, row] of ROWS)
+    for (const column of Object.keys(row))
+      if (!EVERY_TABLE[table]?.columns.includes(column)) throw new Error(`no step adds ${table}.${column}`)
+  return [
+    ...ROWS.filter(([table]) => table in tables),
+    ...(hasStep(release, AUDIT_TRAIL) ? auditChainAt(release) : []),
+  ]
+}
+
+const projected = (row: Row, columns: ReadonlyArray<string>): Row =>
+  Object.fromEntries(Object.entries(row).filter(([column]) => columns.includes(column)))
+
+/** Rows in the order of their primary key, compared the same way whatever the database's collation. */
+const inKeyOrder = (rows: ReadonlyArray<Row>, primaryKey: ReadonlyArray<string>): Row[] => {
+  const key = (row: Row) => primaryKey.map((column) => String(row[column]).padStart(20, '0')).join('\u0000')
+  return [...rows].sort((left, right) => (key(left) < key(right) ? -1 : key(left) > key(right) ? 1 : 0))
+}
 
 const member = (name: string, role: 'admin' | 'member', status: 'active' | 'deactivated', seq: number) => [
   'members',
@@ -161,6 +241,7 @@ const member = (name: string, role: 'admin' | 'member', status: 'active' | 'deac
     last_seen_at: T0 + 30 * MINUTE,
     locale: name === 'Cy' ? 'ko' : null,
     character_spec: null,
+    kind: 'person',
   },
 ]
 
@@ -211,9 +292,22 @@ const channel = (slug: string, createdBy: string | null, visibility: 'open' | 'p
       created_by: createdBy,
       created_at: T0 + minute * MINUTE,
       visibility,
+      manager_group_id: groupOf(slug),
+    },
+  ],
+  [
+    'member_groups',
+    {
+      id: groupOf(slug),
+      kind: 'channel',
+      name: null,
+      created_by: createdBy,
+      created_at: T0 + minute * MINUTE,
     },
   ],
 ]
+
+const groupOf = (slug: string): string => `grp_${slug.padEnd(12, '0')}`
 
 const pairs = (table: string, conversationId: string, memberIds: ReadonlyArray<string>) =>
   memberIds.map((memberId) => [table, { conversation_id: conversationId, member_id: memberId }])
@@ -246,6 +340,13 @@ const result = (conclusion: string) =>
   })
 
 const DEBATE_AT = T0 + 40 * MINUTE
+
+/** The model Cy's agent said it ran as, which a release with the debate model step stored. */
+const MODEL_OF: Readonly<Record<string, string | null>> = {
+  [ID.ana]: null,
+  [ID.ben]: null,
+  [ID.cy]: 'model-c',
+}
 
 const debateRows = [
   [
@@ -303,6 +404,7 @@ const debateRows = [
         agent_name: agentName,
         body,
         created_at: DEBATE_AT + (index + 1) * MINUTE,
+        agent_model: MODEL_OF[memberId],
       },
     ],
     [
@@ -314,8 +416,10 @@ const debateRows = [
         credential_id: credentialId,
         result: result(['The first week.', 'The second week of March.', '셋째 주.'][index]!),
         created_at: DEBATE_AT + 4 * MINUTE,
+        agent_model: MODEL_OF[memberId],
       },
     ],
+    ['debate_approvals', { debate_id: ID.debate, member_id: memberId, approved_at: DEBATE_AT + 5 * MINUTE }],
     [
       'debate_credits',
       { debate_id: ID.debate, member_id: memberId, kind: 'conclusion', created_at: DEBATE_AT },
@@ -335,6 +439,7 @@ const debateRows = [
       voter_id: voterId,
       draft_by: draftBy,
       created_at: DEBATE_AT + 5 * MINUTE,
+      agent_model: MODEL_OF[voterId],
     },
   ]),
   [
@@ -348,7 +453,7 @@ const debateRows = [
   ],
 ]
 
-const ROWS_OF_020 = [
+const ROWS = [
   member('Ana', 'admin', 'active', 0),
   member('Ben', 'member', 'active', 2),
   member('Cy', 'member', 'active', 0),
@@ -361,11 +466,10 @@ const ROWS_OF_020 = [
       value: JSON.stringify({
         allowedDomains: ['example.com'],
         contactMode: 'open',
-        auditRetentionDays: RETENTION_DAYS_OF_020,
+        auditRetentionDays: RETENTION_DAYS,
       }),
     },
   ],
-  ['settings', { name: 'analytics-key', value: JSON.stringify({ key: 'kept-analytics-key-of-0-2-0' }) }],
   credential(ID.anaBrowser, ID.ana, 'human', 'Browser', TOKEN.anaBrowser),
   credential(ID.benBrowser, ID.ben, 'human', 'Browser', TOKEN.benBrowser),
   credential(ID.cyBrowser, ID.cy, 'human', 'Browser', TOKEN.cyBrowser),
@@ -386,6 +490,18 @@ const ROWS_OF_020 = [
   ...pairs('channel_managers', ROOM.retired, [ID.dee]),
   ...pairs('channel_answerers', ROOM.general, [ID.ana]),
   ...pairs('channel_answerers', ROOM.payroll, [ID.ben]),
+  ...(
+    [
+      ['general', ID.ana],
+      ['payroll', ID.ben],
+      ['payroll', ID.cy],
+    ] as const
+  ).map(([slug, memberId]) => ['group_members', { group_id: groupOf(slug), member_id: memberId }]),
+  [
+    'member_groups',
+    { id: TEAM, kind: 'team', name: 'Release', created_by: ID.ana, created_at: T0 + 30 * MINUTE },
+  ],
+  ...[ID.ana, ID.ben].map((memberId) => ['group_members', { group_id: TEAM, member_id: memberId }]),
   [
     'conversations',
     {
@@ -547,7 +663,8 @@ const ROWS_OF_020 = [
     },
   ],
   ...debateRows,
-  ['audit_log', FIRST_AUDIT_TABLE_ROW],
+  ['audit_log', AUDIT_TABLE_ROWS.old],
+  ['audit_log', AUDIT_TABLE_ROWS.recent],
 ] as ReadonlyArray<readonly [string, Row]>
 
 const audited = (
@@ -556,7 +673,7 @@ const audited = (
   target: readonly [kind: string, id: string | null],
   by: readonly [actor: string | null, credential: string | null, kind: 'human' | 'agent' | null],
   detail: Readonly<Record<string, unknown>>,
-): AuditRowOf020 => ({
+): AuditRow => ({
   created_at: T0 + minute * MINUTE,
   event,
   outcome: 'success',
@@ -575,7 +692,7 @@ const audited = (
 const ANA_IN_BROWSER = [ID.ana, ID.anaBrowser, 'human'] as const
 const NOBODY = [null, null, null] as const
 
-const AUDIT_OF_020: ReadonlyArray<AuditRowOf020> = [
+const AUDIT_OF_020: ReadonlyArray<AuditRow> = [
   audited(0, 'system.migrated', ['none', null], NOBODY, { steps: [1, 2, 3, 4, 5] }),
   audited(0, 'credential.issued', ['credential', ID.anaBrowser], ANA_IN_BROWSER, {
     clientKind: 'browser',
@@ -608,4 +725,22 @@ const AUDIT_OF_020: ReadonlyArray<AuditRowOf020> = [
   }),
 ]
 
-const HEAD_OF_020 = String(chainedAuditRows(AUDIT_OF_020).at(-1)![1].hash)
+/** The audit rows 0.2.0 wrote, and the rows of a later upgrade and a team made with groups. */
+const auditChainAt = (release: Release): ReadonlyArray<readonly [string, Row]> => {
+  const later = release.steps > STEPS_OF_020 ? stepsBetween(STEPS_OF_020, release.steps) : []
+  const chain = chainedAuditRows([
+    ...AUDIT_OF_020,
+    ...(later.length > 0 ? [audited(55, 'system.migrated', ['none', null], NOBODY, { steps: later })] : []),
+    ...(hasStep(release, GROUPS)
+      ? [audited(56, 'group.created', ['group', TEAM], ANA_IN_BROWSER, { kind: 'team' })]
+      : []),
+  ])
+  const head = { name: 'chain', last_id: chain.length, hash: String(chain.at(-1)![1].hash) }
+  return [...chain, ['audit_head', head]]
+}
+
+/** The steps of 0.2.0, the first release with the audit trail. */
+const STEPS_OF_020 = MIGRATIONS.indexOf(AUDIT_TRAIL) + 1
+
+const stepsBetween = (after: number, through: number): number[] =>
+  Array.from({ length: through - after }, (_, index) => after + index + 1)
