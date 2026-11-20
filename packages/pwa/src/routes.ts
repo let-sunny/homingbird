@@ -2,7 +2,7 @@ import { CHARACTER_ROUTE } from '@homingbird/protocol'
 
 export type Route =
   | { readonly name: 'home' }
-  | { readonly name: 'conversation'; readonly id: string }
+  | { readonly name: 'conversation'; readonly id: string; readonly draft: string | null }
   | { readonly name: 'people' }
   | { readonly name: 'group'; readonly id: string }
   | { readonly name: 'channels' }
@@ -35,7 +35,8 @@ export const parseRoute = (hash: string): Route => {
     .map(decodeSegment)
   const parameters = new URLSearchParams(search)
   if (head === '') return { name: 'home' }
-  if (head === 'c' && second !== undefined) return { name: 'conversation', id: second }
+  if (head === 'c' && second !== undefined)
+    return { name: 'conversation', id: second, draft: parameters.get('draft') }
   if (head === 'people') return { name: 'people' }
   if (head === 'group' && second !== undefined) return { name: 'group', id: second }
   if (head === 'channels') return { name: 'channels' }
@@ -65,7 +66,9 @@ export const hrefFor = (route: Route): string => {
     case 'unknown':
       return '#/'
     case 'conversation':
-      return `#/c/${encodeURIComponent(route.id)}`
+      return route.draft === null
+        ? `#/c/${encodeURIComponent(route.id)}`
+        : `#/c/${encodeURIComponent(route.id)}?${new URLSearchParams({ draft: route.draft }).toString()}`
     case 'people':
       return '#/people'
     case 'group':

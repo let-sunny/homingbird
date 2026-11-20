@@ -94,7 +94,7 @@ export const askPrivately = (slug: string): Action =>
     const { api, page } = yield* T.ask<App>()
     const room = yield* api['channels.askPrivately']({ params: { slug } })
     yield* loadConversations
-    page.go(hrefFor({ name: 'conversation', id: room.id }))
+    page.go(hrefFor({ name: 'conversation', id: room.id, draft: null }))
   })
 
 const afterAgentChange = (slug: string): Action =>

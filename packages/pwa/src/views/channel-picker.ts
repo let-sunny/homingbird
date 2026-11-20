@@ -201,7 +201,10 @@ const announceMove = (context: ViewContext, slug: string): void => {
     kind: 'info',
     text: strings.questionMoved({ channel: channelLabel(slug) }),
     ...(channel !== null && {
-      link: { href: hrefFor({ name: 'conversation', id: channel.conversationId }), label: strings.openRoom },
+      link: {
+        href: hrefFor({ name: 'conversation', id: channel.conversationId, draft: null }),
+        label: strings.openRoom,
+      },
     }),
   })
 }

@@ -23,5 +23,6 @@ export const threadInput = (fields: Partial<ThreadInput> = {}): ThreadInput => (
   serverInfo: everything(),
   sending: false,
   now: 10,
+  focusedDraft: null,
   ...fields,
 })

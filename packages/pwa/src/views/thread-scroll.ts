@@ -6,7 +6,8 @@ import type { ViewContext } from './context.ts'
 
 /**
  * Keeps the view at the bottom while the person is there, and otherwise points at what arrived or
- * changed below that they have not seen; unread notes below count on opening.
+ * changed below that they have not seen; unread notes below count on opening. A card a link opened
+ * the page at is brought into view instead of the bottom.
  */
 export const followNewNotes = (
   context: Pick<ViewContext, 'page' | 'document'>,
@@ -61,6 +62,14 @@ export const followNewNotes = (
       drawn = now
       if (pinned) page.nextFrame(() => scroller.scrollTo({ top: scroller.scrollHeight }))
       update()
+    },
+    bringIntoView: (find: () => HTMLElement | null): void => {
+      pinned = false
+      page.nextFrame(() => {
+        const card = find()
+        card?.scrollIntoView({ block: 'center' })
+        card?.focus({ preventScroll: true })
+      })
     },
   }
 }

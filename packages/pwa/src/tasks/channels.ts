@@ -120,7 +120,7 @@ export const enterRoom = (conversationId: string): Action =>
   T.gen(function* () {
     const { page } = yield* T.ask<App>()
     yield* loadConversations
-    page.go(hrefFor({ name: 'conversation', id: conversationId }))
+    page.go(hrefFor({ name: 'conversation', id: conversationId, draft: null }))
   })
 
 export const moveQuestion = (note: AsRead.Note, slug: string): Action =>

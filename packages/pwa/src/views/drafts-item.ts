@@ -44,7 +44,11 @@ const draftCard = (context: ViewContext, card: DraftCard): HTMLElement => {
   const draft = card.draft
   return h(
     'article',
-    { class: 'draft', data: { draftId: draft.id } },
+    {
+      class: 'draft',
+      data: { draftId: draft.id },
+      ...(card.focused && { 'aria-current': 'true', tabindex: '-1' }),
+    },
     h('span', { class: card.origin.className }, card.origin.text),
     h('p', { class: 'note-body' }, linkedText(card.body)),
     card.basis !== null &&

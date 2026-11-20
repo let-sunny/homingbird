@@ -66,7 +66,7 @@ export const readdressDraft = (draft: AsRead.Note, slug: string): Action =>
     const moved = yield* api['drafts.update']({ params: { id: draft.id }, body: { channel: slug } })
     rememberOwnChange(state)(moved)
     yield* loadConversations
-    page.go(hrefFor({ name: 'conversation', id: moved.conversationId }))
+    page.go(hrefFor({ name: 'conversation', id: moved.conversationId, draft: null }))
   })
 
 /** Tells the server that a draft card is on a screen the person can see; a failure is dropped. */

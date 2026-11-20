@@ -176,7 +176,7 @@ test('the pane cannot approve: each draft waits for approval and opens in the we
     expect(await ui.find({ type: 'Text', text: /^Waiting for your approval$/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /only in the Homingbird web client/ })).toBeDefined()
     expect((await ui.find({ type: 'Link', text: /Open in web$/ }))?.props?.href).toBe(
-      `https://homingbird.example.com/#/c/${DRAFT.conversationId}`,
+      `https://homingbird.example.com/#/c/${DRAFT.conversationId}?draft=${DRAFT.id}`,
     )
     expect((await ui.find({ type: 'Link', text: /Open web$/ }))?.props?.href).toBe(
       'https://homingbird.example.com',
@@ -198,7 +198,7 @@ test('a channel agent’s desk sends each draft to its channel’s managers, on 
   expect(await ui.find({ type: 'Text', text: /^Waiting for the managers of #payments-wiki$/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /^Waiting for your approval$/ })).toBeUndefined()
   expect((await ui.find({ type: 'Link', text: /Open in web$/ }))?.props?.href).toBe(
-    'https://homingbird.example.com/#/channel/payments-wiki/agent',
+    `https://homingbird.example.com/#/channel/payments-wiki/agent?draft=${DRAFT.id}`,
   )
   expect((await ui.findAll({ type: 'Button' })).map((button) => button.key)).toEqual(['sign-out'])
   await ui.unmount()

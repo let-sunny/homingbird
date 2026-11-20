@@ -29,7 +29,7 @@ export const homeView = (context: ViewContext, life: Lifetime): HTMLElement => {
     })
     if (recent === null) return
     state.openedForThePerson.set(recent)
-    page.replace(hrefFor({ name: 'conversation', id: recent }))
+    page.replace(hrefFor({ name: 'conversation', id: recent, draft: null }))
   }
   life.add(state.conversations.subscribe(() => page.nextFrame(openMostRecent)))
   life.add(state.conversationsLoaded.subscribe(() => page.nextFrame(openMostRecent)))

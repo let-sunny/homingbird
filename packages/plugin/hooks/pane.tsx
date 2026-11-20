@@ -274,8 +274,8 @@ function draftRow(
         <Link
           href={
             reviewChannel === null
-              ? conversationUrl(latest.server, draft.conversationId)
-              : reviewUrl(latest.server, reviewChannel)
+              ? draftCardUrl(latest.server, draft)
+              : reviewCardUrl(latest.server, reviewChannel, draft)
           }
         >
           {text.openInWebClient}
@@ -287,11 +287,11 @@ function draftRow(
 
 const hostOf = (server: string): string => server.replace(/^https?:\/\//, '').replace(/\/.*$/, '')
 
-const reviewUrl = (server: string, slug: string): string =>
-  `${server.replace(/\/+$/, '')}/#/channel/${encodeURIComponent(slug)}/agent`
+const reviewCardUrl = (server: string, slug: string, draft: HomingbirdDraft): string =>
+  `${server.replace(/\/+$/, '')}/#/channel/${encodeURIComponent(slug)}/agent?draft=${encodeURIComponent(draft.id)}`
 
-const conversationUrl = (server: string, conversationId: string): string =>
-  `${server.replace(/\/+$/, '')}/#/c/${encodeURIComponent(conversationId)}`
+const draftCardUrl = (server: string, draft: HomingbirdDraft): string =>
+  `${server.replace(/\/+$/, '')}/#/c/${encodeURIComponent(draft.conversationId)}?draft=${encodeURIComponent(draft.id)}`
 
 const draftHeading = (text: PaneText, draft: HomingbirdDraft): string => {
   if (draft.agentName === null) return draft.inReplyTo === null ? text.newNote : text.reply

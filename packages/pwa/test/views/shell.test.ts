@@ -74,7 +74,7 @@ describe('shell', () => {
       conversation({ id: 'conv_old000000000' as never, kind: 'channel', title: 'old', archivedAt: 5 }),
     ])
     context.state.conversationsLoaded.set(true)
-    context.state.route.set({ name: 'conversation', id: ROOM })
+    context.state.route.set({ name: 'conversation', id: ROOM, draft: null })
     const row = getByRole(shown, 'link', { name: /Hello/ })
     expect(row.getAttribute('aria-current')).toBe('page')
     expect(getByRole(row, 'img', { name: strings.humanOnline })).toBeTruthy()

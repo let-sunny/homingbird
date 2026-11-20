@@ -18,7 +18,7 @@ import {
 
 describe('tabsModel', () => {
   it('marks the tab of the page shown, and offers Debates only where it is on', () => {
-    const tabs = tabsModel({ name: 'conversation', id: ROOM }, serverInfo())
+    const tabs = tabsModel({ name: 'conversation', id: ROOM, draft: null }, serverInfo())
     expect(tabs.map((tab) => tab.label)).toEqual([
       strings.navNotes,
       strings.navMyAgent,
@@ -98,7 +98,7 @@ describe('sidebarModel', () => {
     const model = sidebarModel(
       input({
         conversations: [direct],
-        route: { name: 'conversation', id: ROOM },
+        route: { name: 'conversation', id: ROOM, draft: null },
         directory: [entry(BEN, 'Ben', { presence: { humanOnline: true, agentOnline: false } })],
         arrived: new Set([ROOM]),
       }),
@@ -160,7 +160,7 @@ describe('sidebarModel', () => {
       input({
         conversations: [room, old],
         channels: [billing],
-        route: { name: 'conversation', id: 'conv_old000000000' },
+        route: { name: 'conversation', id: 'conv_old000000000', draft: null },
       }),
     )
     expect(model.channelRooms[0]).toMatchObject({ face: { kind: 'channel' }, channel: billing })

@@ -39,8 +39,8 @@ describe('parseArguments', () => {
     [['channels'], { command: 'channels', query: null }],
     [['channels', 'billing', 'refunds'], { command: 'channels', query: 'billing refunds' }],
     [['requests'], { command: 'requests' }],
-    [['open'], { command: 'open', conversationId: null }],
-    [['open', 'conv_1'], { command: 'open', conversationId: 'conv_1' }],
+    [['open'], { command: 'open', id: null }],
+    [['open', 'conv_1'], { command: 'open', id: 'conv_1' }],
     [
       ['run', '--agent', 'claude -p'],
       { command: 'run', agent: 'claude -p', timeoutSeconds: 300, split: null },

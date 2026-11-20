@@ -144,7 +144,7 @@ const conversationRow = (input: SidebarInput, conversation: AsRead.Conversation)
   const title = conversationTitle(conversation, input.members, viewerId, strings.formerMember)
   return {
     id: conversation.id,
-    href: hrefFor({ name: 'conversation', id: conversation.id }),
+    href: hrefFor({ name: 'conversation', id: conversation.id, draft: null }),
     current: isOpen(input.route, conversation),
     face:
       conversation.kind === 'channel' || archived ? { kind: 'channel' } : faceOf(input, conversation, others),

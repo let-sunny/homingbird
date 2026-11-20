@@ -42,7 +42,7 @@ const resultRow = (input: SearchInput, note: AsRead.Note): SearchRow => {
       ? ''
       : conversationTitle(conversation, input.members, input.viewerId, strings.formerMember)
   return {
-    href: hrefFor({ name: 'conversation', id: note.conversationId }),
+    href: hrefFor({ name: 'conversation', id: note.conversationId, draft: null }),
     author: input.members.get(note.authorId)?.name ?? strings.formerMember,
     title: title === '' ? null : title,
     time: timeShown(note.sentAt ?? note.createdAt, input.now),

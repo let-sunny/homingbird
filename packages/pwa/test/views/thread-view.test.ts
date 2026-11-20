@@ -22,12 +22,12 @@ import {
 
 usingFakeDom()
 
-const open = () => {
+const open = (focusedDraft: string | null = null) => {
   const test = testContext()
   test.context.state.session.set(me())
   test.context.state.directory.set([entry(BEN, 'Ben')])
   test.context.state.conversations.set([conversation()])
-  const shown = mount(threadView(test.context, lifetime(), me(), ROOM))
+  const shown = mount(threadView(test.context, lifetime(), me(), ROOM, focusedDraft))
   return { ...test, shown }
 }
 
@@ -120,7 +120,7 @@ describe('threadView', () => {
     const test = testContext()
     test.context.state.serverInfo.set(serverInfo())
     test.context.state.taught.set(taught())
-    threadView(test.context, lifetime(), me(), ROOM)
+    threadView(test.context, lifetime(), me(), ROOM, null)
     expect(test.called('refreshPrinciples')).toHaveLength(0)
     expect(test.called('refreshAgentReport')).toHaveLength(0)
     expect(queryByRole(document.body, 'button')).toBeNull()
@@ -143,5 +143,28 @@ describe('threadView', () => {
     expect(textOf(shown)).not.toContain(strings.draftChangedSinceRead)
     getByRole(card(), 'button', { name: strings.send }).click()
     expect(called('approveDraft')[0]!.args[0]).toEqual(draft('d1', { body: 'Send me the payroll file.' }))
+  })
+
+  it('brings the draft a link opened the conversation at into view, once, instead of the bottom', () => {
+    const { context, shown, page } = open('d2')
+    withNotes(context, [note('n1'), draft('d1'), draft('d2')])
+    const focused = shown.querySelector('.draft[aria-current="true"]')
+    expect(focused?.getAttribute('data-draft-id')).toBe('d2')
+    expect(shown.querySelectorAll('.draft[aria-current]')).toHaveLength(1)
+    page.runFrames()
+    expect(document.activeElement).toBe(focused)
+    ;(document.activeElement as HTMLElement).blur()
+    withNotes(context, [note('n1'), draft('d1'), draft('d2', { body: 'Changed' })])
+    page.runFrames()
+    expect(document.activeElement).toBe(document.body)
+    expect(textOf(shown)).toContain(strings.draftChangedSinceRead)
+  })
+
+  it('marks no card when the address names no draft of the person’s in this conversation', () => {
+    const { context, shown, page } = open('n1')
+    withNotes(context, [note('n1'), draft('d1')])
+    page.runFrames()
+    expect(shown.querySelector('[aria-current="true"]')).toBeNull()
+    expect(document.activeElement).toBe(document.body)
   })
 })

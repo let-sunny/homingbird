@@ -81,7 +81,7 @@ export const channelView = (context: ViewContext, life: Lifetime, slug: string):
   actions.loadKnownChannels()
   const enterRoomIfJoined = (): void => {
     const room = joinedRoom(state.channels.get(), state.conversations.get(), slug)
-    if (room !== null) context.page.replace(hrefFor({ name: 'conversation', id: room }))
+    if (room !== null) context.page.replace(hrefFor({ name: 'conversation', id: room, draft: null }))
   }
   life.add(state.channels.subscribe(enterRoomIfJoined))
   life.add(state.conversations.subscribe(enterRoomIfJoined))

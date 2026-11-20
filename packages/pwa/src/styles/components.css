@@ -492,6 +492,11 @@
   box-shadow: var(--hb-shadow);
 }
 
+.draft[aria-current="true"] {
+  border-color: var(--hb-color-accent-pressed);
+  border-inline-start-width: var(--hb-border-rule);
+}
+
 .draft-basis,
 .note-basis {
   display: grid;

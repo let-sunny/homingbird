@@ -64,7 +64,7 @@ const execute = (
     case 'debates':
       return debates
     case 'open':
-      return open(invocation.conversationId)
+      return open(invocation.id)
     case 'run':
       return T.as(null)(invocation.isService ? runAsService(invocation, print) : run(invocation, print))
     case 'analytics':

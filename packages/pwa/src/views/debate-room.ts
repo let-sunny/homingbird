@@ -257,7 +257,8 @@ const postForm = (
           const destination = resultDestination(channel.value, person.value)
           if (destination === null) return
           context.actions.postResult(debate.id, destination, {
-            done: (draft) => context.page.go(hrefFor({ name: 'conversation', id: draft.conversationId })),
+            done: (draft) =>
+              context.page.go(hrefFor({ name: 'conversation', id: draft.conversationId, draft: null })),
           })
         },
       },

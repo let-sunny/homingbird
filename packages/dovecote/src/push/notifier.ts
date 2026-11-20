@@ -1,6 +1,6 @@
 import { createECDH } from 'node:crypto'
 import { type Clock, Task as T, makeQueue } from '@homingbird/kernel'
-import type { ConversationId, Locale, MemberId, StreamEvent } from '@homingbird/protocol'
+import type { ConversationId, Locale, MemberId, NoteId, StreamEvent } from '@homingbird/protocol'
 import type { Fetch } from '../auth/identity-provider.ts'
 import { chosenLocaleOf, membersByIds } from '../domain/members.ts'
 import type { AppEnv } from '../environment.ts'
@@ -129,7 +129,7 @@ const noticeAbout = (memberId: MemberId, event: StreamEvent): T.Task<NoticeAbout
         notice: {
           about: { kind: 'draft' },
           body: preview(body.note.body),
-          url: `/#/c/${body.note.conversationId}`,
+          url: draftCardUrl(body.note.conversationId, body.note.id),
         },
       }
     return null
@@ -261,3 +261,7 @@ const send = (
     ),
   )
 }
+
+/** The web client's address of the person's own draft card in its conversation. */
+const draftCardUrl = (conversationId: ConversationId, noteId: NoteId): string =>
+  `/#/c/${encodeURIComponent(conversationId)}?draft=${encodeURIComponent(noteId)}`
