@@ -17,7 +17,9 @@ afterEach(async () => {
 const spans = (env: MigratedDatabase['env']) =>
   T.runPromise(
     all<Record<string, unknown>>(
-      raw('SELECT group_id, member_id, since, until FROM group_member_spans ORDER BY group_id, member_id'),
+      raw(
+        'SELECT group_id, member_id, joined_at, left_at FROM group_member_spans ORDER BY group_id, member_id',
+      ),
     ),
     env,
   )
@@ -38,8 +40,8 @@ describe('the insights step', () => {
     await database.execute(`INSERT INTO group_members (group_id, member_id) VALUES ('grp_team', 'mem_ben')`)
     expect(await database.migrate(MIGRATIONS)).toEqual([earlier + 1])
     const backfilled = [
-      { group_id: 'grp_team', member_id: 'mem_ana', since: 0, until: null },
-      { group_id: 'grp_team', member_id: 'mem_ben', since: 0, until: null },
+      { group_id: 'grp_team', member_id: 'mem_ana', joined_at: 0, left_at: null },
+      { group_id: 'grp_team', member_id: 'mem_ben', joined_at: 0, left_at: null },
     ]
     expect(await spans(database.env)).toEqual(backfilled)
     for (const step of INSIGHTS) if ('backfill' in step) await database.execute(step.backfill)

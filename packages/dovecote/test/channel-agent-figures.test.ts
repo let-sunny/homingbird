@@ -99,6 +99,7 @@ describe('channelAgentReportOf', () => {
       { memberId: 'mem_bea', name: 'bea', approved: 0 },
       { memberId: 'mem_zoe', name: 'Zoe', approved: 3 },
     ])
+    expect(report.periods[0]!.current.approvedByFormerManagers).toBe(1)
   })
 
   it('orders managers who share a name by their id', () => {
@@ -106,10 +107,12 @@ describe('channelAgentReportOf', () => {
       { id: 'mem_b' as MemberId, name: 'Kim' },
       { id: 'mem_a' as MemberId, name: 'Kim' },
     ]
-    const report = channelAgentReportOf('wiki', { drafts: [], waiting: 0, managers: twins }, NOW, {
-      ...SETTINGS,
-      minimumGroupSize: 2,
-    })
+    const report = channelAgentReportOf(
+      'wiki',
+      { drafts: [answer('as_written', 'mem_a'), answer('as_written', 'mem_b')], waiting: 0, managers: twins },
+      NOW,
+      { ...SETTINGS, minimumGroupSize: 2 },
+    )
     expect(report.periods[0]!.current.approvals!.map((manager) => manager.memberId)).toEqual([
       'mem_a',
       'mem_b',
@@ -141,13 +144,24 @@ describe('channelAgentReportOf', () => {
 })
 
 describe('channelAgentReportOf in a small group', () => {
-  it('shows each manager’s count only while the channel has the minimum of managers, the totals always', () => {
+  it('shows each manager’s count only while that many people sent an answer in the period, however many manage it', () => {
     const drafts = [answer('as_written', 'mem_ana'), answer('edited', 'mem_zoe')]
-    const small = channelAgentReportOf('wiki', activity(drafts), NOW, { ...SETTINGS, minimumGroupSize: 4 })
+    const small = channelAgentReportOf('wiki', activity(drafts), NOW, SETTINGS)
     expect(small.periods[0]!.current).toMatchObject({ approvals: null, sentAsWritten: 1, sentAfterEdits: 1 })
-    expect(small.minimumGroupSize).toBe(4)
-    const large = channelAgentReportOf('wiki', activity(drafts), NOW, SETTINGS)
+    expect(small.minimumGroupSize).toBe(3)
+    const busier = [...drafts, answer('as_written', 'mem_bea')]
+    const large = channelAgentReportOf('wiki', activity(busier), NOW, SETTINGS)
     expect(large.periods[0]!.current.approvals).toHaveLength(3)
+    const old = [...drafts, answer('as_written', 'mem_bea', { hoursAgo: 8 * 24 })]
+    expect(
+      channelAgentReportOf('wiki', activity(old), NOW, SETTINGS).periods[0]!.current.approvals,
+    ).toBeNull()
+  })
+
+  it('shows what people who no longer manage the channel sent as one total, even while each count is hidden', () => {
+    const drafts = [answer('as_written', 'mem_ana'), answer('edited', 'mem_left'), answer('discarded', null)]
+    const report = channelAgentReportOf('wiki', activity(drafts), NOW, { ...SETTINGS, minimumGroupSize: 5 })
+    expect(report.periods[0]!.current).toMatchObject({ approvals: null, approvedByFormerManagers: 1 })
   })
 })
 

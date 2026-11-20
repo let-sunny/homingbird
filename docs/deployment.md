@@ -523,7 +523,9 @@ times, not verdicts:
   appearing on its person's screen counts as a quick approval.
 - `HB_INSIGHTS_MINIMUM_GROUP` (default `1`): the smallest group whose numbers are shown. The default
   shows every group, since Insights measure how agents are doing; raise it, for example to `5`, to hide
-  smaller groups and anything that would let the shown totals give one away.
+  smaller groups and anything that would let the shown totals give one away. Raised, it also leaves out
+  noticeably more channel rows: when the left-out channels together are fewer people, or nobody known,
+  the next smallest is left out too.
 
 The figures are computed when the page is opened, from the last 60 days of notes, decisions and skips.
 Teams get rows of their own, alphabetically: people who sent notes, notes sent, draft decisions,

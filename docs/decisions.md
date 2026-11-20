@@ -307,13 +307,17 @@ states the decision first, then the reason. Add new entries at the top of their 
   made it.** `channels.agent.figures` is `human` and answers 404 to everyone outside the channel's
   group, administrators included (rule 6): its answers drafted, sent as written, after an edit,
   discarded and waiting, the typical decision time, quick approvals, and each current manager's count
-  of answers sent, alphabetically and never ranked, since a ranking would invite approving faster. A
+  of answers sent, alphabetically and never ranked, since a ranking would invite approving faster.
+  `channels.agent.figures` holds the current managers' ids and names and is shown only to that
+  channel's managers, who already see who manages it; answers sent by people who no longer manage it
+  are one total of their own, shown rather than left to be worked out by subtraction, and with a raised
+  minimum each manager's count needs that many people who sent an answer in the period. A
   reviewer's first sight of an answer is recorded by `drafts.seen` as an author's is. A sent note
   counts for `notes.approved_by` when it has one, so the organization's active people and deciders
   are people, never a channel's agent; a discard records nobody, so it is counted but adds no decider.
   A manager's approvals never mix into their own agent's figures; Your week shows them apart
   (`approvedForChannels`). Each manager's count is that manager's own figure, so it is shown only
-  while the channel has the minimum of managers; until then the managers see the totals alone.
+  while that many managers sent an answer in the period; until then the managers see the totals alone.
   Administrators get every channel agent's answers together only while that many managers sent one
   and that many people made the organization's other decisions, which the organization's total minus
   these would give away (`placesShown`, which also counts a hidden group nobody is known in), and only

@@ -22,8 +22,8 @@ export const removeFromGroup = (groupId: GroupId, memberId: MemberId): T.Task<nu
     const removed = yield* run(
       sql`DELETE FROM group_members WHERE group_id = ${groupId} AND member_id = ${memberId}`,
     )
-    yield* run(sql`UPDATE group_member_spans SET until = ${env.clock.now()}
-      WHERE group_id = ${groupId} AND member_id = ${memberId} AND until IS NULL`)
+    yield* run(sql`UPDATE group_member_spans SET left_at = ${env.clock.now()}
+      WHERE group_id = ${groupId} AND member_id = ${memberId} AND left_at IS NULL`)
     return removed
   })
 
@@ -33,7 +33,7 @@ export const emptyGroup = (groupId: GroupId): T.Task<void, never, AppEnv> =>
     const env = yield* T.ask<AppEnv>()
     yield* run(sql`DELETE FROM group_members WHERE group_id = ${groupId}`)
     yield* run(
-      sql`UPDATE group_member_spans SET until = ${env.clock.now()} WHERE group_id = ${groupId} AND until IS NULL`,
+      sql`UPDATE group_member_spans SET left_at = ${env.clock.now()} WHERE group_id = ${groupId} AND left_at IS NULL`,
     )
   })
 
@@ -41,14 +41,19 @@ export const emptyGroup = (groupId: GroupId): T.Task<void, never, AppEnv> =>
 const openSpan = (groupId: GroupId, memberId: MemberId): T.Task<void, never, AppEnv> =>
   T.gen(function* () {
     const now = (yield* T.ask<AppEnv>()).clock.now()
-    const same = yield* first(sql`SELECT since FROM group_member_spans
-      WHERE group_id = ${groupId} AND member_id = ${memberId} AND since = ${now}`)
+    const same = yield* first(sql`SELECT joined_at FROM group_member_spans
+      WHERE group_id = ${groupId} AND member_id = ${memberId} AND joined_at = ${now}`)
     if (same !== null)
       return yield* T.asUnit(
-        run(sql`UPDATE group_member_spans SET until = NULL
-          WHERE group_id = ${groupId} AND member_id = ${memberId} AND since = ${now}`),
+        run(sql`UPDATE group_member_spans SET left_at = NULL
+          WHERE group_id = ${groupId} AND member_id = ${memberId} AND joined_at = ${now}`),
       )
     yield* run(
-      insertInto('group_member_spans', { group_id: groupId, member_id: memberId, since: now, until: null }),
+      insertInto('group_member_spans', {
+        group_id: groupId,
+        member_id: memberId,
+        joined_at: now,
+        left_at: null,
+      }),
     )
   })

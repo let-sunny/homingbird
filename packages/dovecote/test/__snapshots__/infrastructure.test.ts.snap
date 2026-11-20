@@ -82,11 +82,11 @@ exports[`schema > generates stable DDL for mysql 1`] = `
   "CREATE INDEX conversations_channel_id_idx ON conversations (channel_id)",
   "ALTER TABLE participants ADD COLUMN muted_at BIGINT",
   "ALTER TABLE members ADD COLUMN notifications VARCHAR(400)",
-  "CREATE TABLE IF NOT EXISTS group_member_spans (group_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, since BIGINT NOT NULL, until BIGINT, PRIMARY KEY (group_id, member_id, since), INDEX group_member_spans_member_id_idx (member_id))",
-  "INSERT INTO group_member_spans (group_id, member_id, since, until)
+  "CREATE TABLE IF NOT EXISTS group_member_spans (group_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, joined_at BIGINT NOT NULL, left_at BIGINT, PRIMARY KEY (group_id, member_id, joined_at), INDEX group_member_spans_member_id_idx (member_id))",
+  "INSERT INTO group_member_spans (group_id, member_id, joined_at, left_at)
       SELECT g.group_id, g.member_id, 0, NULL FROM group_members g
       WHERE NOT EXISTS (SELECT 1 FROM group_member_spans s
-        WHERE s.group_id = g.group_id AND s.member_id = g.member_id AND s.until IS NULL)",
+        WHERE s.group_id = g.group_id AND s.member_id = g.member_id AND s.left_at IS NULL)",
 ]
 `;
 
@@ -213,12 +213,12 @@ exports[`schema > generates stable DDL for postgres 1`] = `
   "CREATE INDEX IF NOT EXISTS conversations_channel_id_idx ON conversations (channel_id)",
   "ALTER TABLE participants ADD COLUMN muted_at BIGINT",
   "ALTER TABLE members ADD COLUMN notifications VARCHAR(400)",
-  "CREATE TABLE IF NOT EXISTS group_member_spans (group_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, since BIGINT NOT NULL, until BIGINT, PRIMARY KEY (group_id, member_id, since))",
+  "CREATE TABLE IF NOT EXISTS group_member_spans (group_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, joined_at BIGINT NOT NULL, left_at BIGINT, PRIMARY KEY (group_id, member_id, joined_at))",
   "CREATE INDEX IF NOT EXISTS group_member_spans_member_id_idx ON group_member_spans (member_id)",
-  "INSERT INTO group_member_spans (group_id, member_id, since, until)
+  "INSERT INTO group_member_spans (group_id, member_id, joined_at, left_at)
       SELECT g.group_id, g.member_id, 0, NULL FROM group_members g
       WHERE NOT EXISTS (SELECT 1 FROM group_member_spans s
-        WHERE s.group_id = g.group_id AND s.member_id = g.member_id AND s.until IS NULL)",
+        WHERE s.group_id = g.group_id AND s.member_id = g.member_id AND s.left_at IS NULL)",
 ]
 `;
 
@@ -345,11 +345,11 @@ exports[`schema > generates stable DDL for sqlite 1`] = `
   "CREATE INDEX IF NOT EXISTS conversations_channel_id_idx ON conversations (channel_id)",
   "ALTER TABLE participants ADD COLUMN muted_at INTEGER",
   "ALTER TABLE members ADD COLUMN notifications TEXT",
-  "CREATE TABLE IF NOT EXISTS group_member_spans (group_id TEXT NOT NULL, member_id TEXT NOT NULL, since INTEGER NOT NULL, until INTEGER, PRIMARY KEY (group_id, member_id, since))",
+  "CREATE TABLE IF NOT EXISTS group_member_spans (group_id TEXT NOT NULL, member_id TEXT NOT NULL, joined_at INTEGER NOT NULL, left_at INTEGER, PRIMARY KEY (group_id, member_id, joined_at))",
   "CREATE INDEX IF NOT EXISTS group_member_spans_member_id_idx ON group_member_spans (member_id)",
-  "INSERT INTO group_member_spans (group_id, member_id, since, until)
+  "INSERT INTO group_member_spans (group_id, member_id, joined_at, left_at)
       SELECT g.group_id, g.member_id, 0, NULL FROM group_members g
       WHERE NOT EXISTS (SELECT 1 FROM group_member_spans s
-        WHERE s.group_id = g.group_id AND s.member_id = g.member_id AND s.until IS NULL)",
+        WHERE s.group_id = g.group_id AND s.member_id = g.member_id AND s.left_at IS NULL)",
 ]
 `;

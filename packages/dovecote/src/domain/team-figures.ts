@@ -50,10 +50,12 @@ export const teamRowsIn = (
       const theirs = inTeam(decided, (draft) => [draft.authorId, draft.decidedAt!])
       const withDecisions = draftsShown && (showsAll || decisionsShownFor.has(team.id))
       const timed = theirs.filter((draft) => decisionTime(draft) !== null)
+      const senders = peopleOf(notes.map((note) => note.authorId)).size
+      const notesShown = isEnough(senders, minimum)
       return {
         team: team.name,
-        activeMembers: peopleOf(notes.map((note) => note.authorId)).size,
-        notesSent: notes.length,
+        activeMembers: notesShown ? senders : null,
+        notesSent: notesShown ? notes.length : null,
         ...(withDecisions ? decisionsOf(theirs) : HIDDEN),
         quickApprovals: withDecisions
           ? theirs.filter((draft) => isQuickApproval(draft, settings.quickApprovalSeconds)).length
@@ -75,14 +77,14 @@ export interface TeamActivity {
   readonly skips: ReadonlyArray<MemberSkip>
 }
 
-/** The organization's teams and who was in each when: `since` 0 began before records, `until` null is now. */
+/** The organization's teams and who was in each when: `joinedAt` 0 began before records, `leftAt` null is now. */
 export interface TeamMembership {
   readonly teams: ReadonlyArray<{ readonly id: string; readonly name: string }>
   readonly spans: ReadonlyArray<{
     readonly teamId: string
     readonly memberId: string
-    readonly since: number
-    readonly until: number | null
+    readonly joinedAt: number
+    readonly leftAt: number | null
   }>
 }
 
@@ -93,7 +95,7 @@ const teamsOnDay = (membership: TeamMembership): ((person: string, at: number) =
   return (person, at) => {
     const day = Math.floor(at / DAY_MS) * DAY_MS
     return (byPerson.get(person) ?? [])
-      .filter((span) => span.since < day + DAY_MS && (span.until === null || span.until > day))
+      .filter((span) => span.joinedAt < day + DAY_MS && (span.leftAt === null || span.leftAt > day))
       .map((span) => span.teamId)
   }
 }

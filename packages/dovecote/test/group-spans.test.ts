@@ -20,8 +20,8 @@ const spansOf = async (groupId: string) =>
     .filter((row) => row.group_id === groupId)
     .map((row) => ({
       member: row.member_id,
-      since: Number(row.since),
-      until: row.until === null ? null : Number(row.until),
+      since: Number(row.joined_at),
+      until: row.left_at === null ? null : Number(row.left_at),
     }))
     .sort((a, b) => String(a.member).localeCompare(String(b.member)) || a.since - b.since)
 

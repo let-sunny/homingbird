@@ -219,17 +219,22 @@ const teamMembership: T.Task<TeamMembership, never, AppEnv> = T.gen(function* ()
   const teams = yield* all<{ id: string; name: string }>(
     sql`SELECT id, name FROM member_groups WHERE kind = 'team' AND name IS NOT NULL ORDER BY id`,
   )
-  const spans = yield* all<{ group_id: string; member_id: string; since: number; until: number | null }>(sql`
-    SELECT s.group_id, s.member_id, s.since, s.until FROM group_member_spans s
+  const spans = yield* all<{
+    group_id: string
+    member_id: string
+    joined_at: number
+    left_at: number | null
+  }>(sql`
+    SELECT s.group_id, s.member_id, s.joined_at, s.left_at FROM group_member_spans s
     JOIN member_groups g ON g.id = s.group_id AND g.kind = 'team'
-    ORDER BY s.group_id, s.member_id, s.since`)
+    ORDER BY s.group_id, s.member_id, s.joined_at`)
   return {
     teams,
     spans: spans.map((span) => ({
       teamId: span.group_id,
       memberId: span.member_id,
-      since: Number(span.since),
-      until: optionalNumber(span.until),
+      joinedAt: Number(span.joined_at),
+      leftAt: optionalNumber(span.left_at),
     })),
   }
 })

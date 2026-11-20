@@ -78,6 +78,19 @@ describe('channelAgentFiguresModel', () => {
     ])
   })
 
+  it('adds one line for the answers people who no longer manage the channel sent', () => {
+    const former = {
+      ...report,
+      periods: [
+        { days: 30, current: figures({ approvals: null, approvedByFormerManagers: 2 }), previous: figures() },
+      ],
+    }
+    const model = channelAgentFiguresModel(former, 'payments-wiki', 30)
+    expect(model.kind === 'figures' && model.approvals).toEqual([
+      'People who no longer manage the channel: 2 answers',
+    ])
+  })
+
   it('falls back to the first period when the one asked for is not there', () => {
     const model = channelAgentFiguresModel(report, 'payments-wiki', 90)
     expect(model.kind === 'figures' && model.rows[0]).toEqual([strings.channelAgent.figuresWritten, '2', '6'])

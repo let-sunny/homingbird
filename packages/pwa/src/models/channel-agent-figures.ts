@@ -41,9 +41,14 @@ export const channelAgentFiguresModel = (
       period.current.approvals === null
         ? labels.figuresApprovalsHidden({ minimum: report.minimumGroupSize })
         : labels.figuresApprovalsHint,
-    approvals: (period.current.approvals ?? []).map((manager) =>
-      labels.figuresApproved({ name: manager.name, count: manager.approved }),
-    ),
+    approvals: [
+      ...(period.current.approvals ?? []).map((manager) =>
+        labels.figuresApproved({ name: manager.name, count: manager.approved }),
+      ),
+      ...((period.current.approvedByFormerManagers ?? 0) > 0
+        ? [labels.figuresFormerManagers({ count: period.current.approvedByFormerManagers! })]
+        : []),
+    ],
     footnote: labels.figuresQuickExplained({ seconds: report.quickApprovalSeconds }),
   }
 }

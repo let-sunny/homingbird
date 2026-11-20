@@ -72,7 +72,11 @@ export const MEASURES = [
     fields: ['written', 'sentAsWritten', 'sentAfterEdits', 'discarded', 'waiting'],
   },
   { key: 'decisionTime', audience: 'managers', fields: ['medianDecisionMs', 'quickApprovals'] },
-  { key: 'approvals', audience: 'managers', fields: ['approvals.approved'] },
+  {
+    key: 'approvals',
+    audience: 'managers',
+    fields: ['approvals.approved', 'approvedByFormerManagers'],
+  },
   {
     key: 'activity',
     audience: 'administrators',

@@ -40,7 +40,7 @@ const people = (count: number, prefix: string): string[] =>
 const membership = (teams: Readonly<Record<string, ReadonlyArray<string>>>, since = 0): TeamMembership => ({
   teams: Object.keys(teams).map((name) => ({ id: `grp_${name}`, name })),
   spans: Object.entries(teams).flatMap(([name, members]) =>
-    members.map((memberId) => ({ teamId: `grp_${name}`, memberId, since, until: null })),
+    members.map((memberId) => ({ teamId: `grp_${name}`, memberId, joinedAt: since, leftAt: null })),
   ),
 })
 
@@ -112,8 +112,8 @@ describe('teamRowsIn', () => {
         { id: 'grp_b', name: 'B' },
       ],
       spans: [
-        { teamId: 'grp_a', memberId: 'ana', since: 0, until: today - DAY_MS + HOUR },
-        { teamId: 'grp_b', memberId: 'ana', since: today - DAY_MS + HOUR, until: null },
+        { teamId: 'grp_a', memberId: 'ana', joinedAt: 0, leftAt: today - DAY_MS + HOUR },
+        { teamId: 'grp_b', memberId: 'ana', joinedAt: today - DAY_MS + HOUR, leftAt: null },
       ],
     }
     const rows = teamRowsIn(
@@ -179,6 +179,26 @@ describe('teamRowsIn', () => {
       sentAsWritten: null,
       quickApprovals: null,
       medianDecisionMs: null,
+    })
+  })
+
+  it('hides a shown team’s notes while fewer than the minimum sent one, though skips made it large enough', () => {
+    const team = people(5, 'p')
+    const rows = teamRowsIn(
+      activity({
+        sent: [sent('p0'), ...people(5, 'x').map((id) => sent(id))],
+        skips: team.slice(1).map((memberId) => ({ memberId, place: null, at: NOW - HOUR })),
+      }),
+      membership({ Payments: team }),
+      lastWeek,
+      FIVE,
+      true,
+    )
+    expect(rows.teams[0]).toMatchObject({
+      team: 'Payments',
+      notesSent: null,
+      activeMembers: null,
+      skipped: 4,
     })
   })
 

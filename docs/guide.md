@@ -387,7 +387,8 @@ writes.
   written, sent after an edit, discarded, the typical time from an answer appearing on a manager's
   screen to the decision, quick approvals, how many wait now, and how many each manager sent, in
   alphabetical order, never as a ranking. A server that hides small groups shows each manager's count
-  only once the channel has that many managers, and until then only the totals. The answers you send this way appear in **Your week** apart
+  only once that many managers sent an answer in the period, and until then only the totals; answers
+  sent by people who no longer manage the channel are one total of their own. The answers you send this way appear in **Your week** apart
   from the notes you sent, and never in your own agent's figures.
 - **Ask privately.** **Ask … privately** opens your own conversation with the channel's agent. Its
   first screen says who else is there: the channel's managers, now and later, who read everything in it.

@@ -75,14 +75,19 @@ const channelAgentFiguresIn = (
   settings: { readonly quickApprovalSeconds: number; readonly minimumGroupSize: number },
 ): ChannelAgentFigures => {
   const decided = decidedIn(activity.drafts, window)
+  const current = new Set<string>(activity.managers.map((manager) => manager.id))
+  const approvers = peopleOf(decided.map((draft) => draft.approvedBy))
   return {
     written: activity.drafts.filter((draft) => isIn(window, draft.createdAt)).length,
     ...decisionsOf(decided),
     medianDecisionMs: median(decided.flatMap((draft) => decisionTime(draft) ?? [])),
     quickApprovals: decided.filter((draft) => isQuickApproval(draft, settings.quickApprovalSeconds)).length,
-    approvals: isEnough(activity.managers.length, settings.minimumGroupSize)
+    approvals: isEnough(approvers.size, settings.minimumGroupSize)
       ? approvalsBy(activity.managers, decided)
       : null,
+    approvedByFormerManagers: decided.filter(
+      (draft) => draft.approvedBy !== null && !current.has(draft.approvedBy),
+    ).length,
   }
 }
 
