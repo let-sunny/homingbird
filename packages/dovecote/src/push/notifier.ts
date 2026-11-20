@@ -6,6 +6,8 @@ import { chosenLocaleOf, membersByIds } from '../domain/members.ts'
 import type { AppEnv } from '../environment.ts'
 import { makeWorkTally } from '../work-tally.ts'
 import { encryptPushPayload } from './payload-encryption.ts'
+import { type PushWindow, makePushWindow } from './push-window.ts'
+import { reviewWaitingFor } from './review-notice.ts'
 import { type PushSubscription, pushSubscriptionsOf, removePushSubscription } from './subscriptions.ts'
 import { type PushTitles, pushTitlesIn } from './titles.ts'
 import { type VapidKeys, vapidAuthorization, vapidKeys } from './vapid.ts'
@@ -21,30 +23,35 @@ export interface PushNotice {
   readonly about:
     | { readonly kind: 'note'; readonly author: string | null }
     | { readonly kind: 'draft' }
+    | { readonly kind: 'review'; readonly channel: string }
     | { readonly kind: 'test'; readonly title: string }
   readonly body: string
   readonly url: string
 }
 
 export interface PushNotifier {
-  readonly consider: (memberId: MemberId, event: StreamEvent) => void
+  /** `isNewReview` marks the review event a channel's agent's new answer sends its reviewers. */
+  readonly consider: (memberId: MemberId, event: StreamEvent, isNewReview: boolean) => void
   readonly run: T.Task<never, never, AppEnv>
   readonly settled: T.Task<void>
 }
 
 export const makePushNotifier = (fetch: Fetch): PushNotifier => {
-  const pending = makeQueue<{ memberId: MemberId; event: StreamEvent }>(PENDING_LIMIT)
+  const pending = makeQueue<{ memberId: MemberId; event: StreamEvent; isNewReview: boolean }>(PENDING_LIMIT)
   const work = makeWorkTally()
+  const reviewWindow = makePushWindow(REVIEW_PUSH_WINDOW_MS)
   return {
-    consider: (memberId, event) => {
-      if (event.body.type !== 'note.sent' && event.body.type !== 'draft.saved') return
-      if (pending.tryOffer({ memberId, event })) work.started()
+    consider: (memberId, event, isNewReview) => {
+      if (!isPushable(event.body, isNewReview)) return
+      if (pending.tryOffer({ memberId, event, isNewReview })) work.started()
     },
     run: T.gen(function* () {
       for (;;) {
-        const { memberId, event } = yield* T.orDie(pending.take)
+        const { memberId, event, isNewReview } = yield* T.orDie(pending.take)
         try {
-          const notice = yield* pushNoticeFor(memberId, event)
+          const notice = isNewReview
+            ? yield* reviewNoticeFor(memberId, event, reviewWindow)
+            : yield* pushNoticeFor(memberId, event)
           if (notice !== null) yield* T.asUnit(deliverToMember(fetch, memberId, notice))
         } finally {
           work.finished()
@@ -55,6 +62,14 @@ export const makePushNotifier = (fetch: Fetch): PushNotifier => {
   }
 }
 
+/** How long a reviewer hears nothing more about a channel after one of its answers notified them. */
+export const REVIEW_PUSH_WINDOW_MS = 2 * 60 * 1000
+
+const isPushable = (body: StreamEvent['body'], isNewReview: boolean): boolean =>
+  isNewReview
+    ? body.type === 'review.changed' && body.noteId !== null
+    : body.type === 'note.sent' || body.type === 'draft.saved'
+
 const pushNoticeFor = (memberId: MemberId, event: StreamEvent): T.Task<PushNotice | null, never, AppEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
@@ -64,10 +79,33 @@ const pushNoticeFor = (memberId: MemberId, event: StreamEvent): T.Task<PushNotic
     return about.notice
   })
 
-const noticeAbout = (
+/**
+ * A review push needs both rooms to want it: a private question's own and its channel's, so muting the
+ * channel quiets its private questions' answers too.
+ */
+const reviewNoticeFor = (
   memberId: MemberId,
   event: StreamEvent,
-): T.Task<{ readonly conversationId: ConversationId; readonly notice: PushNotice } | null, never, AppEnv> =>
+  reviewWindow: PushWindow,
+): T.Task<PushNotice | null, never, AppEnv> =>
+  T.gen(function* () {
+    const env = yield* T.ask<AppEnv>()
+    const body = event.body
+    if (body.type !== 'review.changed' || body.noteId === null || env.hub.isLooking(memberId)) return null
+    const review = yield* reviewWaitingFor(memberId, body.noteId)
+    if (review === null) return null
+    if (!(yield* wantsPushAbout(memberId, review.conversationId))) return null
+    if (!(yield* wantsPushAbout(memberId, review.channelId))) return null
+    if (!reviewWindow.admits(`${memberId} ${review.channelId}`, env.clock.now())) return null
+    return { about: { kind: 'review', channel: review.slug }, body: preview(review.body), url: review.url }
+  })
+
+interface NoticeAbout {
+  readonly conversationId: ConversationId
+  readonly notice: PushNotice
+}
+
+const noticeAbout = (memberId: MemberId, event: StreamEvent): T.Task<NoticeAbout | null, never, AppEnv> =>
   T.gen(function* () {
     const body = event.body
     if (body.type === 'note.sent' && body.note.authorId !== memberId) {
@@ -169,6 +207,7 @@ const messageIn = (locale: Locale | null, notice: PushNotice): PushMessage => ({
 
 const titleOf = (titles: PushTitles, about: PushNotice['about']): string => {
   if (about.kind === 'draft') return titles.draftWaiting
+  if (about.kind === 'review') return titles.reviewWaiting(`#${about.channel}`)
   if (about.kind === 'test') return about.title
   return about.author === null ? titles.noteFromColleague : titles.noteFrom(about.author)
 }

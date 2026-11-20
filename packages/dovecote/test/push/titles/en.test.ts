@@ -10,4 +10,8 @@ describe('English push titles', () => {
   it('says a draft is waiting for approval', () => {
     expect(en.draftWaiting).toBe('A draft is waiting for your approval')
   })
+
+  it('names the channel whose agent’s answer waits for review', () => {
+    expect(en.reviewWaiting('#payments-wiki')).toBe('#payments-wiki · An answer waits for your review')
+  })
 })

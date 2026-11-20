@@ -4111,6 +4111,11 @@ textarea:disabled {
   background: var(--hb-color-surface);
 }
 
+.review-card[aria-current="true"] {
+  border-color: var(--hb-color-accent-pressed);
+  border-inline-start-width: var(--hb-border-rule);
+}
+
 .review-question {
   margin: 0;
   padding-inline-start: var(--hb-space-2);

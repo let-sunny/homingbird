@@ -7,7 +7,7 @@ export type Route =
   | { readonly name: 'group'; readonly id: string }
   | { readonly name: 'channels' }
   | { readonly name: 'channel'; readonly slug: string }
-  | { readonly name: 'channel-agent'; readonly slug: string }
+  | { readonly name: 'channel-agent'; readonly slug: string; readonly draft: string | null }
   | { readonly name: 'debates' }
   | { readonly name: 'debate'; readonly id: string }
   | { readonly name: 'search'; readonly query: string }
@@ -40,7 +40,7 @@ export const parseRoute = (hash: string): Route => {
   if (head === 'group' && second !== undefined) return { name: 'group', id: second }
   if (head === 'channels') return { name: 'channels' }
   if (head === 'channel' && second !== undefined && third === 'agent')
-    return { name: 'channel-agent', slug: second }
+    return { name: 'channel-agent', slug: second, draft: parameters.get('draft') }
   if ((head === 'channel' || head === LEGACY_CHANNEL_HEAD) && second !== undefined)
     return { name: 'channel', slug: second }
   if (head === 'debates') return { name: 'debates' }
@@ -75,7 +75,9 @@ export const hrefFor = (route: Route): string => {
     case 'channel':
       return `#/channel/${encodeURIComponent(route.slug)}`
     case 'channel-agent':
-      return `#/channel/${encodeURIComponent(route.slug)}/agent`
+      return route.draft === null
+        ? `#/channel/${encodeURIComponent(route.slug)}/agent`
+        : `#/channel/${encodeURIComponent(route.slug)}/agent?${new URLSearchParams({ draft: route.draft }).toString()}`
     case 'debates':
       return '#/debates'
     case 'debate':

@@ -11,6 +11,8 @@ export const EVERYONE = Symbol('everyone')
 export interface Delivery {
   readonly memberId: MemberId | typeof EVERYONE
   readonly event: StreamEvent
+  /** Set on the review event a channel's agent's new answer sends, the only one that pushes. */
+  readonly isNewReview?: boolean
 }
 
 export interface RequestEnv extends AppEnv {
@@ -31,7 +33,7 @@ export const transact = <A, E>(task: T.Task<A, E, RequestEnv>): T.Task<A, E, App
         continue
       }
       env.hub.publish(delivery.memberId, delivery.event)
-      if (pushes) env.pushSink(delivery.memberId, delivery.event)
+      if (pushes) env.pushSink(delivery.memberId, delivery.event, delivery.isNewReview === true)
     }
     if (env.config.logs.auditCopy)
       for (const copy of audited) env.log.emit({ name: 'audit.copy', attributes: copy }, env.requestId)

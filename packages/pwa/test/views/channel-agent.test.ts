@@ -135,7 +135,7 @@ describe('channelAgentView', () => {
   it('shows a manager the agent’s page and anyone else that only managers run it', () => {
     const { context, called } = testContext()
     context.state.serverInfo.set(everything())
-    const shown = mount(channelAgentView(context, lifetime(), 'payments-wiki'))
+    const shown = mount(channelAgentView(context, lifetime(), 'payments-wiki', null))
     expect(called('loadKnownChannels')).toHaveLength(1)
     expect(shown.querySelector('.loading')).not.toBeNull()
     context.state.channelsLoaded.set(true)
@@ -144,6 +144,24 @@ describe('channelAgentView', () => {
     expect(textOf(shown)).toContain('The agent of #payments-wiki')
     called('loadChannelAgent')[0]!.then!.failed!(new Error('down'))
     expect(textOf(shown)).toContain(strings.channelAgent.loadFailed)
+  })
+
+  it('brings the answer a notification opened into view, once', () => {
+    const { context, page } = testContext()
+    context.state.serverInfo.set(everything())
+    context.state.channelsLoaded.set(true)
+    context.state.channels.set([wiki])
+    const shown = mount(channelAgentView(context, lifetime(), 'payments-wiki', 'note_answer00000'))
+    context.state.reviews.set([review(), review({ note: draft('note_other000000', { authorId: AGENT }) })])
+    const focused = shown.querySelector('.review-card[aria-current="true"]')
+    expect(focused?.getAttribute('data-note')).toBe('note_answer00000')
+    expect(shown.querySelectorAll('.review-card[aria-current]')).toHaveLength(1)
+    page.runFrames()
+    expect(document.activeElement).toBe(focused)
+    ;(document.activeElement as HTMLElement).blur()
+    context.state.reviews.set([review()])
+    page.runFrames()
+    expect(document.activeElement).toBe(document.body)
   })
 })
 
