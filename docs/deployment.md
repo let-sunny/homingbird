@@ -18,6 +18,7 @@ move up one size for the large row.
 
 ## Contents
 
+- [Outside services](#outside-services)
 - [Measurements](#measurements)
 - [One instance only](#one-instance-only)
 - [Choosing a database](#choosing-a-database)
@@ -40,6 +41,27 @@ move up one size for the large row.
 
 **Experimental parts.** Experimental: tested automatically, not yet used in a real deployment. This applies to the A2A gateway (`/a2a`), the Terraform configurations
 for GCP and AWS, and MySQL support.
+
+## Outside services
+
+**A deployment needs one outside service: an OpenID Connect identity provider for sign-in.** Everything
+else runs in the one Dovecote process, on Node 22.18 or later or the container image.
+
+| Needed | What | When |
+| --- | --- | --- |
+| Always | Node, or the image | Dovecote is one process with no runtime dependencies |
+| Always | A database | SQLite is a file next to the process; no database server is needed |
+| Always, except development login | An OpenID Connect identity provider | Google by default, or any issuer in `HB_OIDC_ISSUER`. Development login (`HB_DEV_LOGIN=1`) needs none and is refused unless `HB_PUBLIC_URL` is a loopback address |
+| Recommended | TLS in front | Dovecote speaks plain HTTP; a load balancer or reverse proxy serves `https` ([Behind a load balancer](#behind-a-load-balancer)) |
+| Optional | PostgreSQL or MySQL | Instead of SQLite, when `HB_DATABASE_URL` names one ([Choosing a database](#choosing-a-database)) |
+| Optional, outbound | Browser push services | Only when people turn on phone notifications; only the hosts in `HB_PUSH_HOSTS` ([Web push](#web-push)) |
+| Optional, outbound | OAuth client metadata | Only when someone connects claude.ai; only the hosts in `HB_OAUTH_CLIENT_METADATA_HOSTS` ([Connecting claude.ai](#connecting-claudeai)) |
+| Optional, outbound | Cloud agent services | Only with the experimental cloud desk switched on; only the hosts in `HB_WAKE_HOSTS` ([Cloud desk](#cloud-desk)) |
+| Optional, outbound | An analytics endpoint | Off unless `HB_ANALYTICS` names one ([Product analytics](#product-analytics)) |
+
+No mail server, message broker, cache, object store, key management service or vendor account is
+needed, and Dovecote calls no model: agents run on people's own machines or runners, or, with the cloud
+desk, in a service the person woke.
 
 ## Measurements
 
@@ -286,32 +308,88 @@ heartbeat and the events with it.
 
 ## When someone leaves
 
-**Deactivate the member in Homingbird; blocking their company account is not enough.** An
-administrator opens **Administration**, **Members** in the web client and presses **Deactivate**
-(the API route `admin.members.update` with `status: deactivated`). At once:
+**Deactivate the member in Homingbird on their last day; blocking their company account is not
+enough.** Deactivation is always a person's action: nothing in Dovecote deactivates anyone by itself,
+and nothing reads your directory. Add it to your offboarding checklist next to blocking the account.
 
-- every credential of that member is revoked: browser sessions and agent credentials. Their next
-  request is refused, and an open event stream ends at its
-  next heartbeat, within 20 seconds;
+1. **Before**, if they manage a channel, check its managing group has someone else. Deactivating takes
+   them out of every group, even as a channel's last manager, and the dialog lists the groups they
+   leave so a colleague can be added first.
+2. **Deactivate.** An administrator opens **Administration**, **Members** in the web client and presses
+   **Deactivate** (the API route `admin.members.update` with `status: deactivated`).
+3. **Block the company account** at the identity provider as usual.
+4. **Verify**, with the member's id from the first query:
+
+   ```sql
+   SELECT id, status FROM members WHERE email = 'leaver@example.com';             -- deactivated
+   SELECT COUNT(*) FROM credentials WHERE member_id = 'mem_...' AND revoked_at IS NULL; -- 0
+   SELECT COUNT(*) FROM credentials WHERE issued_by = 'mem_...' AND revoked_at IS NULL; -- 0
+   SELECT COUNT(*) FROM group_members WHERE member_id = 'mem_...';                      -- 0
+   SELECT created_at, event, detail FROM audit_events
+   WHERE event IN ('member.access_changed', 'group.members_changed', 'credential.revoked')
+   ORDER BY id DESC LIMIT 20;
+   ```
+
+   The audit trail shows `member.access_changed` with the status change, `group.members_changed`
+   with `because: deactivated` for each group they left, and `credential.revoked` with
+   `because: issuer_left` for each credential they had issued to a channel's agent.
+5. **Reconnect channel agents** they had connected: another manager connects each one again
+   ([when a manager leaves](#rotate-disconnect-and-when-a-manager-leaves)).
+
+Deactivating, at once and in one change:
+
+- every credential of that member is revoked: browser sessions, and every agent credential, whether
+  it came from the command line, the runner, the Claude Code plugin, an MCP adapter or a connector such
+  as claude.ai. Their next request answers 401, refreshing a connector's token is refused, and an open
+  event stream ends at its next heartbeat, within 20 seconds;
+- a sign-in they approved that no program has finished yet, a device code or a connector's
+  authorization code, is refused when the program comes to collect it;
+- they leave every group, even as a channel's last manager, so they stop managing channels, and every
+  credential they issued to a channel's agent is revoked; a channel's agent itself keeps the
+  credentials its remaining managers issued;
 - they disappear from the directory, and nobody can address a new note to them;
 - signing in again is refused, even while their company account still works;
 - their cloud desk's wake address and token are deleted.
 
 **Reactivate** in the same place lets them sign in again; their agents must sign in again too,
-because revoked credentials stay revoked. The deactivation itself is audited.
+because revoked credentials stay revoked, and groups are not given back. The deactivation itself is
+audited. Rule 6 in `packages/dovecote/test/security-rules.test.ts` holds the credential points of this
+list for each kind of credential.
 
 What stays: notes they sent remain in their conversations for the other participants, and the audit
 trail keeps its rows about them, ids and outcomes only, until `HB_AUDIT_RETENTION_DAYS` removes them
 (400 days by default). Their unsent drafts stay in the database and no one else can see them.
 
-Limits:
+### If nobody deactivates them
 
-- Nothing syncs with the identity provider. There is no SCIM ([roadmap](roadmap.md#operations)), so
-  deactivation is a manual step in your offboarding.
-- Blocking the company account alone stops new sign-ins, but credentials already issued keep working
-  until they expire: a browser session after `HB_SESSION_DAYS` (30 days by default), an agent
-  credential after `HB_AGENT_CREDENTIAL_DAYS` (90 days by default). Refreshing an
-  agent's token does not extend that.
+Dovecote hears from the identity provider only when a person signs in. Once their company account is
+blocked, that is refused, and what they already hold runs out on its own:
+
+| Credential | Stops working | Why |
+| --- | --- | --- |
+| Browser session | `HB_SESSION_DAYS` (30 days by default) after their last sign-in | A session is never renewed without signing in |
+| claude.ai connector | `HB_AGENT_CREDENTIAL_DAYS` after it was connected | Refreshing renews its hourly token, never the credential itself |
+| Command line, runner, plugin | `HB_AGENT_CREDENTIAL_DAYS` (90 days by default) after it was issued | It is never refreshed, and nothing asks the identity provider before then |
+| A channel's agent they connected | `HB_AGENT_CREDENTIAL_DAYS` after it was issued, or when they stop managing the channel | It belongs to the channel's agent, not to them |
+
+So the last three keep working for up to three months. Deactivating is the only way to end them at once.
+
+### Checking for people who left
+
+Once a month, compare the active people with your identity provider's active users, and deactivate
+whoever is gone:
+
+```sql
+SELECT m.email, MAX(c.created_at) AS last_sign_in_ms
+FROM members m
+LEFT JOIN credentials c ON c.member_id = m.id AND c.kind = 'human' AND c.client = 'Web'
+WHERE m.status = 'active' AND m.kind = 'person'
+GROUP BY m.email ORDER BY last_sign_in_ms;
+```
+
+`last_sign_in_ms` is milliseconds since 1970. Someone active signs in at least every
+`HB_SESSION_DAYS`, because approving a note needs a browser session; an older last sign-in is the first
+place to look.
 
 ## Logs
 
@@ -389,6 +467,15 @@ first row follows 64 zeros. A one-row table, `audit_head`, holds the newest hash
 writers. Once a day the head goes to the operational log as `audit.chain_head`, so a copy lives
 outside the database. A retention purge removes the oldest rows as one piece, remembers the last hash
 it removed and records `audit.retention_purged`, so what is left still verifies.
+
+**This detects changes; it does not prevent them.** Whoever can write the database can change a row and
+recompute every hash after it, and `verify` will then say the chain holds. To detect that too, keep the
+latest hash somewhere the database's writers cannot reach: the daily `audit.chain_head` line in a log
+store they cannot edit, or the head `verify` prints, saved with each `export`. A head you kept must
+still appear in a later chain, or as a later purge's `lastRemovedHash`; if it does not, the trail was
+rewritten. After a retention purge the oldest remaining row links to the hash the purge remembered,
+so removed rows are no break; a writer who deletes the oldest rows and changes that memory too is
+caught only by a head or an export kept elsewhere.
 
 **Retention.** `HB_AUDIT_RETENTION_DAYS`, 400 days unless set, at least 90: a smaller value is raised
 to 90 with a warning at start. While it is unset, a longer retention an administrator saved before
@@ -512,7 +599,8 @@ and totals per channel. When at least 25% of the drafts sent as written were qui
 the last two weeks, each with at least 10 such drafts, Insights show a warning that approving may be
 becoming a formality. Insights hold numbers only, never note content and never one person's figures:
 
-- A period in which fewer than `HB_INSIGHTS_MINIMUM_GROUP` people (5 by default) sent notes shows no
+- With the default `HB_INSIGHTS_MINIMUM_GROUP` of 1, nothing is hidden. Raised, it hides as follows.
+- A period in which fewer than `HB_INSIGHTS_MINIMUM_GROUP` people sent notes shows no
   numbers at all, and the block count is shown only as a number, and only once the organization has
   that many members.
 - A channel, or direct messages together, appears on its own only when at least that many people
@@ -534,11 +622,18 @@ times, not verdicts:
 
 - `HB_QUICK_APPROVAL_SECONDS` (default `3`): a draft sent as written within this many seconds of first
   appearing on its person's screen counts as a quick approval.
-- `HB_INSIGHTS_MINIMUM_GROUP` (default `5`): the smallest group whose numbers are shown. It can be
-  raised, never set below 5.
+- `HB_INSIGHTS_MINIMUM_GROUP` (default `1`): the smallest group whose numbers are shown. The default
+  shows every group, since Insights measure how agents are doing; raise it, for example to `5`, to hide
+  smaller groups and anything that would let the shown totals give one away. Raised, it also leaves out
+  noticeably more channel rows: when the left-out channels together are fewer people, or nobody known,
+  the next smallest is left out too.
 
 The figures are computed when the page is opened, from the last 60 days of notes, decisions and skips.
-Teams are not built yet, so only organization-wide numbers are shown.
+Teams get rows of their own, alphabetically: people who sent notes, notes sent, draft decisions,
+quick approvals, the typical decision time and skips, counting a person for a team on every UTC day
+they were in it. With a raised minimum, a team is left out when it, or a group of people who share the
+same teams, is smaller, and the page says how many teams were left out. With groups switched off, no
+team row is shown.
 
 ## Features
 
@@ -629,6 +724,18 @@ custom connector.
    (`HB_OAUTH_REDIRECT_HOSTS`), so either works without a change.
 5. Each person connects once, signs in, and consents. The connector gets an agent credential: it can
    read and draft, never send. Drafts wait for approval in the web client.
+
+The connector renews its access token every hour with a refresh token that works once, and only while
+its person is an active member. If a refresh
+token that was already used comes back, Dovecote takes it as copied, unless it is the one just
+replaced and comes back within 10 seconds, as a client's retry does:
+it revokes that connection, writes `credential.revoked` with `because: refresh_replayed` to the audit
+trail, and the person has to connect again. To see whether it happened:
+
+```sql
+SELECT created_at, target_id FROM audit_events
+WHERE event = 'credential.revoked' AND detail LIKE '%refresh_replayed%' ORDER BY id DESC;
+```
 
 A client that cannot use metadata documents or dynamic registration can be registered up front with
 `HB_OAUTH_CLIENTS`.
@@ -1081,7 +1188,7 @@ Every variable Dovecote reads. Blank values count as unset.
 | `HB_AGENT_CREDENTIAL_DAYS` | `90` | Days an agent credential lasts |
 | `HB_FEATURES` | all on | Starting feature switches, `name=on` or `name=off`, comma-separated ([Features](#features)). A starting value, like `HB_ALLOWED_DOMAINS` |
 | `HB_QUICK_APPROVAL_SECONDS` | `3` | A draft sent as written within this many seconds of appearing counts as a quick approval ([Insights](#insights)) |
-| `HB_INSIGHTS_MINIMUM_GROUP` | `5` | The smallest group whose numbers Insights shows; at least 5 ([Insights](#insights)) |
+| `HB_INSIGHTS_MINIMUM_GROUP` | `1` | The smallest group whose numbers Insights shows; 1 hides nothing ([Insights](#insights)) |
 | `HB_TRUST_PROXY` | `0` | Number of proxies in front that append to `X-Forwarded-For`; see [above](#behind-a-load-balancer) |
 | `HB_LOGS` | `audit=full,operational=info,requests=off,auditCopy=off` | What is recorded ([Logs](#logs)). The operator's only |
 | `HB_AUDIT_RETENTION_DAYS` | `400` | Days to keep audit rows, at least 90 |

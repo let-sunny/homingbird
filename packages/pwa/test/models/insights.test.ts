@@ -50,6 +50,8 @@ describe('insightsModel', () => {
     const model = insightsModel(insights(), 30)
     if (model.kind !== 'insights') throw new Error('expected insights')
     expect(model.warnings).toEqual([strings.insights.noTeams, strings.insights.privacy({ minimum: 5 })])
+    const everyone = insightsModel(insights({ minimumGroupSize: 1 }), 30)
+    expect(everyone.kind === 'insights' && everyone.warnings[1]).toBe(strings.insights.privacyAll)
     expect(model.tooFew).toBeNull()
     expect(model.blocks).toBe(strings.insights.blocks({ count: 2 }))
     const table = figuresOf(model).table
@@ -62,6 +64,82 @@ describe('insightsModel', () => {
     expect(table.rows[8]![1]).toBe(strings.insights.partOf({ share: percentOf(0.25), count: 2, total: 8 }))
     expect(table.rows[9]![1]).toBe('1')
     expect(table.footnotes).toHaveLength(3)
+  })
+
+  it('adds every channel agent’s answers together where the server counts them, hidden for a period too small', () => {
+    const model = insightsModel(
+      insights({
+        periods: [
+          {
+            days: 30,
+            current: organization({
+              medianDecisionMs: 60_000,
+              channelAgents: { written: 9, sentAsWritten: 5, sentAfterEdits: 2, discarded: 1 },
+            }),
+            previous: organization({ channelAgents: null }),
+          },
+        ],
+      }),
+      30,
+    )
+    const table = figuresOf(model).table
+    const rows = strings.insights.rows
+    expect(table.rows.at(-5)).toEqual([
+      strings.measures.decisionTimeRow,
+      durationOf(60_000),
+      strings.insights.hidden,
+    ])
+    expect(table.rows.slice(-4)).toEqual([
+      [rows.channelAgentAnswers, '9', strings.insights.hidden],
+      [rows.channelAgentAsWritten, '5', strings.insights.hidden],
+      [rows.channelAgentEdited, '2', strings.insights.hidden],
+      [rows.channelAgentDiscarded, '1', strings.insights.hidden],
+    ])
+    expect(table.footnotes[0]).toBe(strings.insights.channelAgentsExplained({ minimum: 5 }))
+    const older = figuresOf(insightsModel(insights(), 30)).table
+    expect(older.rows.map((row) => row[0])).not.toContain(rows.channelAgentAnswers)
+  })
+
+  it('lists teams with hidden figures as hidden, says when none can be shown, and drops the no-teams warning', () => {
+    const team = {
+      team: 'Payments',
+      activeMembers: 5,
+      notesSent: 7,
+      sentAsWritten: null,
+      sentAfterEdits: null,
+      discarded: null,
+      quickApprovals: null,
+      medianDecisionMs: null,
+      skipped: 1,
+    }
+    const model = insightsModel(
+      insights({
+        periods: [{ days: 30, current: organization({ teams: [team], hiddenTeams: 0 }), previous: null }],
+      }),
+      30,
+    )
+    const teams = figuresOf(model).teams!
+    expect(teams.rows).toEqual([
+      ['Payments', '5', '7', ...Array.from({ length: 5 }, () => strings.insights.hidden), '1'],
+    ])
+    expect(teams.hidden).toBeNull()
+    expect(model.kind === 'insights' && model.warnings).not.toContain(strings.insights.noTeams)
+    const none = insightsModel(
+      insights({
+        periods: [{ days: 30, current: organization({ teams: [], hiddenTeams: 3 }), previous: null }],
+      }),
+      30,
+    )
+    expect(figuresOf(none).teams).toMatchObject({
+      none: strings.insights.noTeamRows,
+      hidden: strings.insights.hiddenTeams({ count: 3 }),
+    })
+    const empty = insightsModel(
+      insights({ periods: [{ days: 30, current: organization({ teams: [] }), previous: null }] }),
+      30,
+    )
+    expect(empty.kind === 'insights' && empty.warnings[0]).toBe(strings.insights.noTeams)
+    expect(figuresOf(insightsModel(insights(), 30)).teams).toBeNull()
   })
 
   it('falls back to the first period, and says when a period has too few people', () => {

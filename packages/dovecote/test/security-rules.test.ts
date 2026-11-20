@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { Task as T } from '@homingbird/kernel'
@@ -128,6 +129,42 @@ const askAndAnswer = async (asker: Session, agent: Agent) => {
   const question = (await asker.api('POST', `/drafts/${asked.id}/send`, { expected: asRead(asked) })).json
   const draft = (await agent.api('POST', '/drafts', { inReplyTo: question.id, body: SECRET_ANSWER })).json
   return { question, draft }
+}
+
+const connectConnector = async (): Promise<{ access_token: string; refresh_token: string }> => {
+  const redirect = 'https://claude.ai/api/mcp/auth_callback'
+  const verifier = 'v'.repeat(64)
+  const { client_id: clientId } = (
+    await server.request('POST', '/oauth/register', {
+      body: { client_name: 'Connector', redirect_uris: [redirect] },
+    })
+  ).json
+  const authorized = await server.request(
+    'GET',
+    `/oauth/authorize?${new URLSearchParams({
+      response_type: 'code',
+      client_id: clientId,
+      redirect_uri: redirect,
+      code_challenge: createHash('sha256').update(verifier).digest('base64url'),
+      code_challenge_method: 'S256',
+      state: 's',
+    })}`,
+    { cookie: ana.cookie },
+  )
+  const consentId = authorized.headers.location!.split('/#/consent/')[1]!
+  const decided = await ana.api('POST', `/consent/${consentId}`, { approve: true, name: 'Connector' })
+  const code = new URL(decided.json.redirectTo).searchParams.get('code')!
+  return (
+    await server.request('POST', '/oauth/token', {
+      form: {
+        grant_type: 'authorization_code',
+        code,
+        code_verifier: verifier,
+        client_id: clientId,
+        redirect_uri: redirect,
+      },
+    })
+  ).json
 }
 
 describe('Rule 1: only a human credential can approve a note', () => {
@@ -460,6 +497,26 @@ describe('Rule 2: drafts are invisible to recipients', () => {
     ).not.toContain(SECRET_ANSWER)
     expect(JSON.stringify((await ben.api('GET', '/search?q=secret')).json)).not.toContain(SECRET_ANSWER)
     expect((await ana.api('GET', `/reviews/${draft.id}`)).status).toBe(404)
+  })
+
+  it('hides a group message from its other members until a note in it is sent', async () => {
+    const group = (
+      await ana.api('POST', '/conversations', { participantIds: [ben.me.member.id, cy.me.member.id] })
+    ).json
+    const draft = (await ana.api('POST', '/drafts', { conversationId: group.id, body: SECRET_BODY })).json
+    for (const viewer of [ben, cy, benAgent]) {
+      expect(JSON.stringify((await viewer.api('GET', '/conversations')).json)).not.toContain(group.id)
+      expect((await viewer.api('GET', `/conversations/${group.id}`)).status).toBe(404)
+      expect((await viewer.api('GET', `/conversations/${group.id}/notes`)).status).toBe(404)
+      expect((await viewer.api('GET', '/search?q=7f3a')).json.notes).toEqual([])
+      expect(JSON.stringify((await viewer.api('GET', '/events/poll?after=0')).json)).not.toContain(group.id)
+    }
+    await ana.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })
+    for (const viewer of [ben, cy, benAgent]) {
+      expect(JSON.stringify((await viewer.api('GET', '/conversations')).json)).toContain(group.id)
+      expect((await viewer.api('GET', `/conversations/${group.id}`)).status).toBe(200)
+      expect((await viewer.api('GET', '/search?q=7f3a')).json.notes).toHaveLength(1)
+    }
   })
 })
 
@@ -1024,9 +1081,103 @@ describe('Rule 5: credentials are stored hashed and never logged', () => {
     expect(listing).not.toMatch(/hb[har]_/)
     expect(listing).not.toContain('hash')
   })
+
+  it('keeps a spent refresh token only as its hash, and nothing of any token after a replay', async () => {
+    const first = await connectConnector()
+    const refresh = (token: string) =>
+      server.request('POST', '/oauth/token', { form: { grant_type: 'refresh_token', refresh_token: token } })
+    const second = (await refresh(first.refresh_token)).json
+    await server.clock.advance(11_000)
+    expect((await refresh(first.refresh_token)).json.error).toBe('invalid_grant')
+    const stored = await everyStoredValue(server)
+    for (const token of [first.access_token, first.refresh_token, second.access_token, second.refresh_token])
+      expect(stored.includes(token)).toBe(false)
+    expect(stored).not.toMatch(/hb[har]_[A-Za-z0-9_-]{20,}/)
+    expect(stored).toContain(hashSecret(first.refresh_token))
+  })
+
+  it('records a refresh token replay with the credential and the reason only, and logs no token', async () => {
+    const first = await connectConnector()
+    const refresh = (token: string) =>
+      server.request('POST', '/oauth/token', { form: { grant_type: 'refresh_token', refresh_token: token } })
+    const second = (await refresh(first.refresh_token)).json
+    await server.clock.advance(11_000)
+    await refresh(first.refresh_token)
+    const replays = (await storedRows(server, 'audit_events')).filter(
+      (row) => row.event === 'credential.revoked' && String(row.detail).includes('refresh_replayed'),
+    )
+    expect(replays).toHaveLength(1)
+    expect(JSON.parse(String(replays[0]!.detail))).toEqual({ because: 'refresh_replayed' })
+    const written = [JSON.stringify(replays), ...server.logged].join('\n')
+    for (const token of [first.refresh_token, second.refresh_token, second.access_token])
+      for (const form of [token, hashSecret(token)]) expect(written).not.toContain(form)
+  })
 })
 
 describe('Rule 6: a member sees only conversations they participate in', () => {
+  it('stops every credential of a deactivated person at once, refreshing and unfinished sign-ins included', async () => {
+    const redirect = 'https://claude.ai/api/mcp/auth_callback'
+    const verifier = 'v'.repeat(64)
+    const token = (form: Record<string, string>) => server.request('POST', '/oauth/token', { form })
+    const { client_id: clientId } = (
+      await server.request('POST', '/oauth/register', {
+        body: { client_name: 'Connector', redirect_uris: [redirect] },
+      })
+    ).json
+    const approvedCode = async () => {
+      const started = await server.request(
+        'GET',
+        `/oauth/authorize?${new URLSearchParams({
+          response_type: 'code',
+          client_id: clientId,
+          redirect_uri: redirect,
+          code_challenge: createHash('sha256').update(verifier).digest('base64url'),
+          code_challenge_method: 'S256',
+          state: 'xyz',
+        })}`,
+        { cookie: ben.cookie },
+      )
+      const consentId = started.headers.location!.split('/#/consent/')[1]!
+      const decided = await ben.api('POST', `/consent/${consentId}`, { approve: true })
+      const code = new URL(decided.json.redirectTo).searchParams.get('code')!
+      return () =>
+        token({
+          grant_type: 'authorization_code',
+          code,
+          code_verifier: verifier,
+          client_id: clientId,
+          redirect_uri: redirect,
+        })
+    }
+    const connector = (await (await approvedCode())()).json
+    const unfinishedCode = await approvedCode()
+    const device = await server.request('POST', '/oauth/device_authorization', {
+      form: { client_name: 'Terminal', scope: 'notes' },
+    })
+    await ben.api('POST', `/device/${device.json.user_code}`, { approve: true })
+    const asConnector = () => server.request('GET', '/api/v1/me', { token: connector.access_token })
+    expect((await asConnector()).status).toBe(200)
+
+    await ana.api('PATCH', `/admin/members/${ben.me.member.id}`, { status: 'deactivated' })
+
+    expect((await ben.api('GET', '/me')).status).toBe(401)
+    expect((await benAgent.api('GET', '/me')).status).toBe(401)
+    expect((await asConnector()).status).toBe(401)
+    expect(
+      (await token({ grant_type: 'refresh_token', refresh_token: connector.refresh_token })).json.error,
+    ).toBe('invalid_grant')
+    expect((await unfinishedCode()).json.error).toBe('invalid_grant')
+    expect(
+      (
+        await token({
+          grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+          device_code: device.json.device_code,
+        })
+      ).json.error,
+    ).toBe('access_denied')
+    const held = (await storedRows(server, 'credentials')).filter((row) => row.member_id === ben.me.member.id)
+    expect(held.filter((row) => row.revoked_at === null)).toEqual([])
+  })
   it('keeps why an agent gave a note back to that note’s recipient alone, until a reply draft exists', async () => {
     const note = await sentFromAnaToBen('Is the export done?')
     await benAgent.api('POST', `/notes/${note.id}/pickup`)
@@ -1487,6 +1638,18 @@ describe('Rule 6: a member sees only conversations they participate in', () => {
     )
     expect(failed.map((row) => JSON.parse(String(row.detail)))).toEqual([{ reason: 'not_a_person' }])
     expect((await ben.api('GET', '/channels/wiki/agent')).json.agent).toMatchObject({ id: agent.id, email })
+  })
+
+  it('shows how a channel’s agent is doing to its managers only, never to an administrator outside the group of an open channel', async () => {
+    const agent = await startChannelAgent()
+    const { draft } = await askAndAnswer(dee, agent)
+    await ben.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })
+    const figures = (person: Session) => person.api('GET', '/channels/wiki/agent/figures')
+    expect((await figures(ben)).status).toBe(200)
+    expect((await figures(cy)).status).toBe(200)
+    expect((await figures(ana)).status).toBe(404)
+    expect((await figures(dee)).status).toBe(404)
+    expect(JSON.stringify((await figures(ben)).json)).not.toContain(SECRET_ANSWER)
   })
 })
 

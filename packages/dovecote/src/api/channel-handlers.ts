@@ -29,6 +29,7 @@ import {
   setAnswering,
 } from '../domain/channels.ts'
 import { addTeamToChannel } from '../domain/group-membership.ts'
+import { channelAgentInsights } from '../domain/insights.ts'
 import { askPrivately } from '../domain/private-questions.ts'
 import { reviewFor, reviewsFor } from '../domain/reviews.ts'
 import { viewerOf } from '../environment.ts'
@@ -75,6 +76,7 @@ export const channelHandlers = {
   'channels.agent.create': ({ params, body }, caller) => createChannelAgent(caller, params.slug, body.name),
   'channels.agent.rename': ({ params, body }, caller) => renameChannelAgent(caller, params.slug, body.name),
   'channels.agent.retire': ({ params }, caller) => T.as({})(retireChannelAgent(caller, params.slug)),
+  'channels.agent.figures': ({ params }, caller) => channelAgentInsights(caller, params.slug),
   'channels.agent.credentials.revoke': ({ params }, caller) =>
     T.flatMap((id: CredentialId) => revokeAgentCredential(caller, params.slug, id))(
       identifier(CredentialId, params.id),

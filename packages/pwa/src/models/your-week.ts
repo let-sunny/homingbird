@@ -5,6 +5,8 @@ import { durationOf, formats, strings } from '../strings.ts'
 export const yourWeekModel = (report: AsRead.AgentReport | 'failed' | null): YourWeekModel | null => {
   if (report === null || report === 'failed' || report.week === undefined) return null
   const { current, previous } = report.week
+  const approvedNow = current.approvedForChannels ?? 0
+  const approvedBefore = previous.approvedForChannels ?? 0
   const count = (value: number): string => formats.decimal.format(value)
   const time = (ms: number | null): string => (ms === null ? strings.trust.noneYet : durationOf(ms))
   const row = (label: string, now: string, before: string) => ({
@@ -22,6 +24,9 @@ export const yourWeekModel = (report: AsRead.AgentReport | 'failed' | null): You
         count(previous.repliesReceived),
       ),
       row(strings.measures.weekMedianReply, time(current.medianReplyMs), time(previous.medianReplyMs)),
+      ...(approvedNow + approvedBefore > 0
+        ? [row(strings.measures.weekApprovedForChannels, count(approvedNow), count(approvedBefore))]
+        : []),
     ],
     footnote: strings.measures.weekReplyExplained,
   }

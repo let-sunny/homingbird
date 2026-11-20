@@ -5,6 +5,17 @@ states the decision first, then the reason. Add new entries at the top of their 
 
 ## Product
 
+- **A group message is invisible to its other members until a note in it is sent, like a direct
+  message.** Starting a group in the web client creates its room before the first note is drafted;
+  showing it to everyone at once would tell them a note was on its way, and a discarded draft would leave
+  an empty room with its starter's name in their list. Until a note is sent, the room shows only to the
+  person who started it, who writes or approves that note and whom **Start group message** for the same
+  people brings back to it: not in the others' list, unread counts, event stream or search, and a lookup
+  by id answers 404. Visibility is derived from the notes; the starter is kept in `asked_by`, the column
+  that names who opened a private question, so no migration is needed. Groups started before this have
+  no starter recorded, so until a note in one is sent no one sees it, its starter included: they cannot
+  reopen that empty room, and **Start group message** in People makes a new one.
+  Channel rooms, private questions and archived rooms show to their participants as before.
 - **A channel's managers are notified when its agent's answer waits for their review, as the channel
   notifies them.** When a channel's agent writes a new draft, every person who may review it then gets a
   push titled with the channel ("#payments-wiki · An answer waits for your review"), with the same
@@ -130,7 +141,8 @@ states the decision first, then the reason. Add new entries at the top of their 
   as an agent draft, nor as a note the person wrote, nor in the organization's notes, replies or active
   people; My agent → How it is doing and the administrator's Insights each show "Debate results sent"
   as a separate line (`debateResultsSent`, optional on the wire), and Insights hide it while fewer
-  than `HB_INSIGHTS_MINIMUM_GROUP` people sent one in the period.
+  than `HB_INSIGHTS_MINIMUM_GROUP` people sent one in the period (1 by default, so never unless an
+  administrator raises it).
 - **Agents may read colleagues' agent introductions, always quoted.** The public sentences are written
   for colleagues and agents work for colleagues, so `find_people` and `homingbird directory` (text and
   `--json`) show them, where they were left out before, but only inside `wrapNote`
@@ -287,10 +299,13 @@ states the decision first, then the reason. Add new entries at the top of their 
   reaches them, and `drafts.seen`, which records when a draft card first appeared on a visible page, is
   `human` too, so an agent cannot fake its person having read a draft. `admin.insights` is `admin` and
   returns counts and medians only: never a member id, a name or note content, nothing for a period in
-  which fewer than `HB_INSIGHTS_MINIMUM_GROUP` people (at least 5) were active, and no channel whose
+  which fewer than `HB_INSIGHTS_MINIMUM_GROUP` people were active (1 by default, so nothing is hidden
+  unless an administrator raises it), and no channel whose
   contributors are fewer; when the hidden groups together are still fewer people, the next smallest is
   hidden too, so subtracting the shown ones from the totals never isolates a small group. Differences
-  between periods are not suppressed.
+  between periods are not suppressed. Insights measure how agents are doing, and must be useful to a
+  small team too, so the default hides nothing; an organization that wants small groups hidden raises
+  the minimum, and every rule above applies as written.
 - **Every newer organization figure needs its own contributors, and reply and pickup times come from
   the notes themselves.** The typical decision time needs `HB_INSIGHTS_MINIMUM_GROUP` people who decided
   a draft they had seen; who wrote what was sent is hidden whenever draft decisions are; a week of quick
@@ -305,6 +320,38 @@ states the decision first, then the reason. Add new entries at the top of their 
   row, each with at least 10) is a constant in `protocol` until it becomes a setting. **What is
   measured** is a catalogue in `protocol` (`MEASURES`), and a test fails for a response field it does
   not name, so a figure cannot be added without telling members.
+- **A channel's agent's figures belong to its channel's managers, and a decision belongs to whoever
+  made it.** `channels.agent.figures` is `human` and answers 404 to everyone outside the channel's
+  group, administrators included (rule 6): its answers drafted, sent as written, after an edit,
+  discarded and waiting, the typical decision time, quick approvals, and each current manager's count
+  of answers sent, alphabetically and never ranked, since a ranking would invite approving faster.
+  `channels.agent.figures` holds the current managers' ids and names and is shown only to that
+  channel's managers, who already see who manages it; answers sent by people who no longer manage it
+  are one total of their own, shown rather than left to be worked out by subtraction, and with a raised
+  minimum each manager's count needs that many people who sent an answer in the period. A
+  reviewer's first sight of an answer is recorded by `drafts.seen` as an author's is. A sent note
+  counts for `notes.approved_by` when it has one, so the organization's active people and deciders
+  are people, never a channel's agent; a discard records nobody, so it is counted but adds no decider.
+  A manager's approvals never mix into their own agent's figures; Your week shows them apart
+  (`approvedForChannels`). Each manager's count is that manager's own figure, so it is shown only
+  while that many managers sent an answer in the period; until then the managers see the totals alone.
+  Administrators get every channel agent's answers together only while that many managers sent one
+  and that many people made the organization's other decisions, which the organization's total minus
+  these would give away (`placesShown`, which also counts a hidden group nobody is known in), and only
+  from open channels and the private ones they are in. Every minimum counts the people active in the
+  period, never the size of a roster.
+- **Teams get rows of their own in Insights, counted by whole UTC days.** A person counts for a team on
+  every UTC day they were in it for any part of, from `group_member_spans` (since and until per
+  membership, written by every change to a group, deletion and deactivation included; a span from 0
+  began before records), so moving between teams moves their figures from that day, and someone in
+  two teams counts in both. Rows are alphabetical, never ranked, and never merged into an "others"
+  row. With a raised minimum a team is shown only while every cell of people who share the same shown
+  teams has that many (`teamsShown`), its decisions only while the cells of the people who decided
+  pass too, and its typical decision time, a median that no subtraction undoes, only while those
+  decisions are shown and that many people decided a draft they had seen; the rest are counted ("2
+  teams with too few people are not shown"). Overlapping teams make that rule hide most teams at a
+  minimum of 5 (measured: 23% shown, against 75% with one primary team per person,
+  `scripts/pilot-measure.ts --teams`), which is a reason the default is 1.
 - **The agent page says what the numbers mean in words, beside the numbers, and never collapses them
   into one score.** A single trust score hides which channel is trusted and why, invites chasing the
   number by approving faster, and grades the person rather than the agent. The server reads a verdict
@@ -599,6 +646,30 @@ states the decision first, then the reason. Add new entries at the top of their 
   first. Dovecote refuses to start without the variable. Development login keeps the first-member rule.
 - **Agent access tokens are opaque and stored as SHA-256 hashes.** Dovecote is both the authorization
   server and the resource server, so nothing needs a self-contained token.
+- **A refresh token is used once; presenting a spent one revokes its credential.** Every refresh issues a
+  new access token and refresh token and keeps the old refresh token's hash in `spent_refresh_tokens`
+  (OAuth 2.0 Security BCP, refresh token rotation). The OAuth connector is the only client with refresh
+  tokens, and a credential is one family: its id stays across refreshes and its row holds the one live
+  access token and refresh token, so revoking the row ends both. A spent token presented again means
+  two parties hold the chain, and Dovecote cannot tell which is the person, so it revokes the credential,
+  writes `credential.revoked` with `because: refresh_replayed` and the credential's id only, and answers
+  `invalid_grant`, as for any refused refresh; the person connects again. The revocation commits before
+  the refusal, so the refused request does not roll it back. **Grace: 10 seconds, for the token the live one replaced only.**
+  Within 10 seconds of a refresh, the refresh token it replaced is refused without revoking anything:
+  a client retrying a request whose answer it lost, or two refreshes in flight, must not cost the person
+  their connection. An older token, or the replaced one after 10 seconds, revokes. The repeat is
+  still refused rather than answered: Supabase Auth gives the live token back in the same case, but
+  Dovecote keeps only its hash, and a second new pair would make the winner's refresh token spent and
+  its next use a replay. A thief who replays within the grace gets nothing; the case missed is a thief
+  who refreshes first and the client following within 10 seconds, which a one-hour access token makes
+  rare. Two refreshes that
+  race are settled by the row: the update names the refresh token it replaces, so only one changes the
+  row, on every database. Each spent row keeps the hash of the token that replaced it, and the grace
+  holds only while that is the credential's live refresh token: the order of the clock decides nothing,
+  so two refreshes in one millisecond or a clock that steps back cannot move it. A client that lost
+  the answer to its refresh and retries within the grace is refused and cannot use that credential
+  again; it stays unusable until it expires, and the person connects again. Spent tokens are deleted
+  once their credential has expired or been revoked.
 - **The identity provider's discovery document is checked before anything is sent to it.** Its
   `issuer` must equal `HB_OIDC_ISSUER` exactly (trailing slashes aside), and its authorization, token
   and key endpoints must be https on a public host name (http only on loopback when Dovecote itself
@@ -611,7 +682,27 @@ states the decision first, then the reason. Add new entries at the top of their 
 - **Identity providers are OpenID Connect.** Google Workspace is the default issuer; for Google, the
   hosted-domain claim must match the email domain so personal accounts are refused.
 - **Access ends with the session.** Sessions expire after `HB_SESSION_DAYS` and renewing one requires
-  signing in with the identity provider again. Deactivating a member revokes every credential at once.
+  signing in with the identity provider again. Deactivating a member revokes every credential at once
+  and turns every sign-in they approved and no program has collected yet, a device code or an
+  authorization code, into a denied one, in the same transaction. Revoking alone left a gap: a code
+  approved a minute before could still be exchanged for a new, refreshable credential afterwards.
+  Authentication also requires an active member, so a credential that slipped past both still answers
+  401.
+- **Dovecote re-validates a person only when they sign in; a refresh checks the member, not a sign-in.**
+  The identity provider vouches for a person at sign-in, where the ID token, the allowed domains, the
+  hosted domain and the member's status are all checked again. Dovecote asks for `openid email
+  profile`, not `offline_access`, and keeps none of the provider's tokens, so it has no way to ask the
+  provider about someone between sign-ins; keeping a provider refresh token would be a new secret to
+  store encrypted, for one provider at a time. Browser sessions are never refreshed. The OAuth
+  connector's credential refreshes only while its member is active, so deactivation stops it at once,
+  as it does every other credential. Requiring a recent web sign-in for that refresh was considered and
+  left out: a deactivated member is already refused, and someone who works only through the connector
+  should not have to connect again every `HB_SESSION_DAYS`. Besides deactivation denying a code
+  they approved, the exchange itself refuses a code of a member who is no longer active, so no
+  credential is issued after deactivation. **Offboarding stays a person's action:** Dovecote reads no directory, so there is no
+  member sync command and no SCIM, as groups come from no directory import; an administrator
+  deactivates, and `docs/deployment.md` (When someone leaves) is the runbook, with what each credential
+  does when nobody does and a monthly query of last sign-ins.
 - **Cookie-authenticated writes need a custom header** and a matching `Origin`. Cross-origin requests
   are never allowed for cookie sessions.
 
@@ -658,6 +749,21 @@ timing people, the reason `drafts.seen` was already left out.
   last hash it removed. `dovecote audit verify` and `dovecote audit export` run against the database;
   the admin web view and its route are removed in one release, since only the bundled web client called
   that `human` route.
+- **Writers are ordered by a one-row head, not by locking the newest row.** Each writer reads
+  `audit_head` with `FOR UPDATE` on PostgreSQL and MySQL; SQLite's transactions are `BEGIN IMMEDIATE`,
+  so one writer already holds the database. Locking the newest `audit_events` row instead would lock
+  nothing while the table is empty or just purged, and MySQL's gap locks on `ORDER BY id DESC LIMIT 1`
+  differ by isolation level; one known row locks the same way on all three databases and keeps the head
+  readable without a scan. The cost is that every audited write waits on one row, which is fine at one
+  process and pilot size (see `scripts/pilot-measure.ts`).
+- **The row's `id` is not hashed.** The id is assigned by the database on insert, after the hash must be
+  known, and the chain already fixes the order: each row names the hash of the one before, so moving,
+  removing or inserting a row breaks the next link. Renumbering ids without changing content is not
+  detected and changes nothing an auditor reads.
+- **Tamper evidence, not tamper proofing.** Whoever can write the database can recompute the whole chain.
+  The documentation says so, and the head leaves the database daily in the operational log so a copy
+  kept elsewhere detects a rewrite. Signing the head with a key the database's writers lack would close
+  that gap, but needs key management a self-hoster must run; it waits for an organization that asks.
 - **The operator decides what is recorded, the administrator does not.** `HB_LOGS` and
   `HB_AUDIT_RETENTION_DAYS` (400 days, at least 90) are environment variables only and are not in
   `server.info`; the audited party cannot shorten its own trail. `audit=off` is allowed with one warning

@@ -1,5 +1,8 @@
 import { createHash } from 'node:crypto'
+import { Task as T } from '@homingbird/kernel'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { run } from '../src/sql/database.ts'
+import { sql } from '../src/sql/query.ts'
 import { type Session, type TestServer, startTestServer } from './harness.ts'
 
 const REDIRECT = 'https://client.example/callback'
@@ -16,6 +19,9 @@ beforeEach(async () => {
 })
 
 afterEach(() => server.close())
+
+const deactivateAna = () =>
+  T.runPromise(run(sql`UPDATE members SET status = 'deactivated' WHERE id = ${ana.me.member.id}`), server.env)
 
 const register = async (body: unknown = { client_name: 'Connector', redirect_uris: [REDIRECT] }) =>
   server.request('POST', '/oauth/register', { body })
@@ -59,6 +65,13 @@ describe('device authorization', () => {
   const start = (scope = 'notes') =>
     server.request('POST', '/oauth/device_authorization', { form: { client_name: 'Terminal', scope } })
   const poll = (deviceCode: string) => token({ grant_type: DEVICE_GRANT, device_code: deviceCode })
+
+  it('issues nothing for a request a person approved before they were deactivated', async () => {
+    const started = (await start()).json
+    await ana.api('POST', `/device/${started.user_code}`, { approve: true, name: 'My laptop' })
+    await deactivateAna()
+    expect((await poll(started.device_code)).json.error).toBe('invalid_grant')
+  })
 
   it('hands out a code to type in, and waits until the person decides', async () => {
     const started = (await start()).json

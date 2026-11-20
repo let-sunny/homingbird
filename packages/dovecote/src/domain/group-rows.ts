@@ -12,6 +12,7 @@ import {
   visibilityOf,
   visibleChannel,
 } from './channel-rows.ts'
+import { addToGroup, removeFromGroup } from './group-spans.ts'
 
 export interface GroupRow {
   readonly id: GroupId
@@ -121,8 +122,7 @@ export const storeGroup = (
       created_at: env.clock.now(),
     }
     yield* run(insertInto('member_groups', { ...row }))
-    for (const member_id of new Set(memberIds))
-      yield* run(insertInto('group_members', { group_id: row.id, member_id }))
+    for (const memberId of new Set(memberIds)) yield* addToGroup(row.id, memberId)
     return row
   })
 
@@ -158,9 +158,7 @@ export const leaveGroupOfEmptiedRoom = (
 ): T.Task<void, never, RequestEnv> =>
   T.gen(function* () {
     if ((yield* membersOf(row.conversation_id)).length > 0) return
-    const left = yield* run(
-      sql`DELETE FROM group_members WHERE group_id = ${row.manager_group_id} AND member_id = ${memberId}`,
-    )
+    const left = yield* removeFromGroup(row.manager_group_id, memberId)
     if (left > 0) yield* announceGroups([row.manager_group_id], audienceOf(row, [memberId]))
   })
 

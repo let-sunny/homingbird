@@ -71,6 +71,7 @@ export const FEATURES = {
       'channels.agent.rename',
       'channels.agent.retire',
       'channels.agent.credentials.revoke',
+      'channels.agent.figures',
       'channels.askPrivately',
       'reviews.list',
       'reviews.get',

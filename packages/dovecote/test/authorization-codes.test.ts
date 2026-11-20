@@ -1,5 +1,8 @@
 import { createHash } from 'node:crypto'
+import { Task as T } from '@homingbird/kernel'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { run } from '../src/sql/database.ts'
+import { sql } from '../src/sql/query.ts'
 import { type Session, type TestServer, startTestServer } from './harness.ts'
 
 const REDIRECT = 'https://client.example/callback'
@@ -16,6 +19,9 @@ beforeEach(async () => {
 })
 
 afterEach(() => server.close())
+
+const deactivateAna = () =>
+  T.runPromise(run(sql`UPDATE members SET status = 'deactivated' WHERE id = ${ana.me.member.id}`), server.env)
 
 const register = async (body: unknown = { client_name: 'Connector', redirect_uris: [REDIRECT] }) =>
   server.request('POST', '/oauth/register', { body })
@@ -56,6 +62,13 @@ const exchange = (clientId: string, code: string, overrides: Record<string, stri
   })
 
 describe('authorization code with PKCE', () => {
+  it('issues nothing for a code a person approved before they were deactivated', async () => {
+    const { client_id: clientId } = (await register()).json
+    const code = await codeFor(clientId)
+    await deactivateAna()
+    expect((await exchange(clientId, code)).json.error).toBe('invalid_grant')
+  })
+
   it('issues an agent credential with a refresh token after the person consents', async () => {
     const { client_id: clientId } = (await register()).json
     const started = await authorize(clientId)

@@ -65,6 +65,18 @@ export const MEASURES = [
     ],
   },
   { key: 'week', audience: 'you', fields: ['week.notesSent', 'week.repliesReceived', 'week.medianReplyMs'] },
+  { key: 'approvedForChannels', audience: 'you', fields: ['week.approvedForChannels'] },
+  {
+    key: 'decisions',
+    audience: 'managers',
+    fields: ['written', 'sentAsWritten', 'sentAfterEdits', 'discarded', 'waiting'],
+  },
+  { key: 'decisionTime', audience: 'managers', fields: ['medianDecisionMs', 'quickApprovals'] },
+  {
+    key: 'approvals',
+    audience: 'managers',
+    fields: ['approvals.approved', 'approvedByFormerManagers'],
+  },
   {
     key: 'activity',
     audience: 'administrators',
@@ -131,10 +143,35 @@ export const MEASURES = [
       'delivery.waitedWithoutAgent',
     ],
   },
+  {
+    key: 'channelAgents',
+    audience: 'administrators',
+    fields: [
+      'channelAgents.written',
+      'channelAgents.sentAsWritten',
+      'channelAgents.sentAfterEdits',
+      'channelAgents.discarded',
+    ],
+  },
+  {
+    key: 'teams',
+    audience: 'administrators',
+    fields: [
+      'teams.activeMembers',
+      'teams.notesSent',
+      'teams.sentAsWritten',
+      'teams.sentAfterEdits',
+      'teams.discarded',
+      'teams.quickApprovals',
+      'teams.medianDecisionMs',
+      'teams.skipped',
+      'hiddenTeams',
+    ],
+  },
   { key: 'blocks', audience: 'administrators', fields: ['blocks'] },
 ] as const satisfies ReadonlyArray<Measure>
 
-export type MeasureAudience = 'you' | 'administrators'
+export type MeasureAudience = 'you' | 'managers' | 'administrators'
 
 export interface Measure {
   readonly key: string
@@ -161,4 +198,8 @@ export const NOT_MEASURES: ReadonlyArray<string> = [
   'bucket',
   'agentName',
   'at',
+  'channel',
+  'team',
+  'memberId',
+  'name',
 ]

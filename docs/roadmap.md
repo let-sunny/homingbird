@@ -220,15 +220,14 @@ there ([guide](guide.md#turn-on-phone-notifications)).
 message** on every card one may message, the people chosen show as removable chips, and
 **Start group message** opens the group room, where the first note is written or drafted and approved as
 in a direct conversation ([guide](guide.md#ask-a-person)). When a group room with exactly those
-people exists, People opens it instead.
+people exists, People opens it instead. Until a note in it is sent, a group message shows only to the
+person who started it, as a direct message does
+([decisions](decisions.md#product)).
 
 **Built:** muting a direct message or a channel, which keeps its notes and unread count but sends the
 person no notification, and a level for device notifications: every direct message and channel, direct
 messages only, or nothing ([guide](guide.md#turn-on-phone-notifications)).
 
-- Hiding a new group message from its other members until a note in it is sent, as a direct message is
-  hidden. Today everyone chosen sees the empty room at once, and a room whose only draft was discarded
-  stays in their list. This changes what `conversations.list` returns, so it waits for a decision.
 - Naming a group message from the web client. The API accepts a title, but everyone in the room sees
   it as soon as the room is made, before any note is approved, so the web client leaves it unnamed.
 - Attachments. Notes are text and links only by design.
@@ -346,22 +345,27 @@ re-wake. Still to come:
 ## Insights
 
 The first part is built: **My agent** for each person (a page in the header, per channel)
-and organization-wide **Insights** for administrators, with groups under 5 people hidden
+and organization-wide **Insights** for administrators, with groups under `HB_INSIGHTS_MINIMUM_GROUP`
+people hidden (1 by default, so none)
 ([guide](guide.md#see-how-far-you-can-trust-your-agent), [deployment](deployment.md#insights)).
 **Built:** **Your week** at the top of How it is doing (notes sent, replies received, typical reply
 time); for administrators, organization-wide, the typical decision time, who wrote what was sent
 (`agent`, `human_edited`, `human`), delivery to agents, and quick approvals week by week with a warning
 at 25% for 2 weeks; and **What is measured**, a page every member can open, with a test that fails for a
-figure it does not name. Still to come:
+figure it does not name; and **How #channel's agent is doing** on a channel's agent page, for its
+managers only, with the answers each manager sent, a manager's approvals in their week apart from
+their notes, and channel agents' totals for administrators; and rows per team, counted by whole UTC
+days from each membership's history. Still to come:
 
 - **Quick-approval warning per team, and as settings**: the 25% and 2 weeks are constants today
   (`QUICK_APPROVAL_SHARE`, `QUICK_WARNING_WEEKS` in `protocol`), organization-wide only.
-- **Numbers per group**: insights show figures per group (see "Groups and channel agents"), still
-  hiding groups under 5 people; with no groups, only organization-wide numbers are shown, as now.
-- **Channel agents**: per channel, how often its agent's drafts are approved, how often after an edit,
-  and how many each manager approved.
+- **A primary team per person**, if organizations raise the minimum: overlapping teams make the cell
+  rule (`teamsShown`) hide most of them. In 1,000 organizations of 50 people with 6 freely overlapping
+  teams of 3 to 12 at a minimum of 5 (`npx tsx scripts/pilot-measure.ts --teams`), it showed 23% of
+  teams (33% at best), against 75% with one primary team per person. At the default of 1 nothing is
+  hidden, so this waits until an organization asks.
 - **Privacy, binding for all of it:** numbers only, never note content. An administrator sees team
-  totals, never one person's approval figures. Groups under 5 people are hidden. Blocks are a count,
+  totals, never one person's approval figures. Groups under the configured minimum are hidden. Blocks are a count,
   never who blocked whom.
 
 ## Operations
@@ -370,15 +374,19 @@ figure it does not name. Still to come:
 `dovecote/src/domain/audit.ts`, and stdout or console output outside the log service and the programs
 whose stdout is their output. Supported upgrades between releases: a database any final release left
 starts on every later release, on SQLite, PostgreSQL and MySQL, tested in CI from a fixture per release
-built through the real schema steps, and a release without a fixture does not ship. Still to come:
+built through the real schema steps, and a release without a fixture does not ship. Refresh tokens
+are rotated, and a spent one presented again revokes its credential, outside a 10-second grace for a
+retry. Still to come:
 
 - Multi-node deployment: shared event fan-out through the database or a message broker.
 - Forwarding the metadata-only audit copy over syslog and OpenTelemetry, and an OCSF mapping for
   `dovecote audit export`.
 - A compliance export of the product's own data (notes, drafts, debate rooms) for legal hold, if an
   organization asks for one: not the audit trail's job.
-- Periodic re-validation of members against the identity provider.
-- Revoking a credential family when a refresh token is replayed.
+- Ending a departed person's credentials without an administrator:
+  needs the identity provider to tell Dovecote between sign-ins (a provider refresh token checked
+  periodically, or a back-channel logout), which needs a decision on keeping provider tokens first.
+  Today deactivation ends them ([runbook](deployment.md#when-someone-leaves)).
 - Cloud desk wakes in parallel: the pass sends them one after another, so a slow wake service (up to
   its 10-second timeout) can delay other people's wakes; consider a small cap on concurrent wakes.
 
@@ -446,15 +454,21 @@ What to measure and watch while a real team uses Homingbird, before answering on
 - Agents that are not awake: how often a note waits because the person's desk was closed, and whether
   the runner or the cloud desk closes that gap.
 
-Before the pilot, for an organization's security review:
+Before the pilot, for an organization's security review, **Built**:
 
 - A tamper-evident audit trail: each audit entry carries a hash of the one before, and
   `dovecote audit verify` checks the chain. The documentation says plainly that this detects changes
-  and does not prevent them: whoever can write the database can recompute the chain.
-- Deactivating a person stops all of their agents' credentials at once, stated in the guide and held
-  by its own test.
-- A "works today, still being wired up, not planned" table in the README, and the number of outside
-  services a deployment needs (none) in the deployment guide.
+  and does not prevent them: whoever can write the database can recompute the chain
+  ([deployment](deployment.md#the-audit-trail), [`SECURITY.md`](../SECURITY.md)).
+- Deactivating a person stops all of their credentials at once, refreshing and sign-ins approved but
+  not yet collected included, stated in the guide and held by its own test
+  ([deployment](deployment.md#when-someone-leaves)).
+- A "works today, still being wired up, not planned" table in the README, and the outside services a
+  deployment needs in the deployment guide: one, an OpenID Connect identity provider
+  ([deployment](deployment.md#outside-services)).
+
+Still to come here: signing the chain head with a key the database's writers lack, if an organization
+asks for it (see decisions).
 
 Ideas noted and not planned: structured notes validated against a registered schema, and syncing
 channels with an outside chat tool (only approved notes would leave, and anything coming in would be

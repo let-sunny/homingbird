@@ -83,6 +83,12 @@ exports[`schema > generates stable DDL for mysql 1`] = `
   "ALTER TABLE participants ADD COLUMN muted_at BIGINT",
   "ALTER TABLE members ADD COLUMN notifications VARCHAR(400)",
   "CREATE TABLE IF NOT EXISTS desk_wakes (member_id VARCHAR(64) NOT NULL, credential_id VARCHAR(64) NOT NULL, host VARCHAR(400) NOT NULL, sealed MEDIUMTEXT NOT NULL, enabled BIGINT NOT NULL, last_wake_at BIGINT, last_status VARCHAR(400) NOT NULL, failures BIGINT NOT NULL, retry_at BIGINT, stopped_because VARCHAR(400), created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL, PRIMARY KEY (member_id), INDEX desk_wakes_credential_id_idx (credential_id))",
+  "CREATE TABLE IF NOT EXISTS group_member_spans (group_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, joined_at BIGINT NOT NULL, left_at BIGINT, PRIMARY KEY (group_id, member_id, joined_at), INDEX group_member_spans_member_id_idx (member_id))",
+  "INSERT INTO group_member_spans (group_id, member_id, joined_at, left_at)
+      SELECT g.group_id, g.member_id, 0, NULL FROM group_members g
+      WHERE NOT EXISTS (SELECT 1 FROM group_member_spans s
+        WHERE s.group_id = g.group_id AND s.member_id = g.member_id AND s.left_at IS NULL)",
+  "CREATE TABLE IF NOT EXISTS spent_refresh_tokens (refresh_hash VARCHAR(400) NOT NULL, credential_id VARCHAR(64) NOT NULL, spent_at BIGINT NOT NULL, replaced_by VARCHAR(400) NOT NULL, PRIMARY KEY (refresh_hash), INDEX spent_refresh_tokens_credential_id_idx (credential_id))",
 ]
 `;
 
@@ -211,6 +217,14 @@ exports[`schema > generates stable DDL for postgres 1`] = `
   "ALTER TABLE members ADD COLUMN notifications VARCHAR(400)",
   "CREATE TABLE IF NOT EXISTS desk_wakes (member_id VARCHAR(64) NOT NULL, credential_id VARCHAR(64) NOT NULL, host VARCHAR(400) NOT NULL, sealed TEXT NOT NULL, enabled BIGINT NOT NULL, last_wake_at BIGINT, last_status VARCHAR(400) NOT NULL, failures BIGINT NOT NULL, retry_at BIGINT, stopped_because VARCHAR(400), created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL, PRIMARY KEY (member_id))",
   "CREATE INDEX IF NOT EXISTS desk_wakes_credential_id_idx ON desk_wakes (credential_id)",
+  "CREATE TABLE IF NOT EXISTS group_member_spans (group_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, joined_at BIGINT NOT NULL, left_at BIGINT, PRIMARY KEY (group_id, member_id, joined_at))",
+  "CREATE INDEX IF NOT EXISTS group_member_spans_member_id_idx ON group_member_spans (member_id)",
+  "INSERT INTO group_member_spans (group_id, member_id, joined_at, left_at)
+      SELECT g.group_id, g.member_id, 0, NULL FROM group_members g
+      WHERE NOT EXISTS (SELECT 1 FROM group_member_spans s
+        WHERE s.group_id = g.group_id AND s.member_id = g.member_id AND s.left_at IS NULL)",
+  "CREATE TABLE IF NOT EXISTS spent_refresh_tokens (refresh_hash VARCHAR(400) NOT NULL, credential_id VARCHAR(64) NOT NULL, spent_at BIGINT NOT NULL, replaced_by VARCHAR(400) NOT NULL, PRIMARY KEY (refresh_hash))",
+  "CREATE INDEX IF NOT EXISTS spent_refresh_tokens_credential_id_idx ON spent_refresh_tokens (credential_id)",
 ]
 `;
 
@@ -339,5 +353,13 @@ exports[`schema > generates stable DDL for sqlite 1`] = `
   "ALTER TABLE members ADD COLUMN notifications TEXT",
   "CREATE TABLE IF NOT EXISTS desk_wakes (member_id TEXT NOT NULL, credential_id TEXT NOT NULL, host TEXT NOT NULL, sealed TEXT NOT NULL, enabled INTEGER NOT NULL, last_wake_at INTEGER, last_status TEXT NOT NULL, failures INTEGER NOT NULL, retry_at INTEGER, stopped_because TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (member_id))",
   "CREATE INDEX IF NOT EXISTS desk_wakes_credential_id_idx ON desk_wakes (credential_id)",
+  "CREATE TABLE IF NOT EXISTS group_member_spans (group_id TEXT NOT NULL, member_id TEXT NOT NULL, joined_at INTEGER NOT NULL, left_at INTEGER, PRIMARY KEY (group_id, member_id, joined_at))",
+  "CREATE INDEX IF NOT EXISTS group_member_spans_member_id_idx ON group_member_spans (member_id)",
+  "INSERT INTO group_member_spans (group_id, member_id, joined_at, left_at)
+      SELECT g.group_id, g.member_id, 0, NULL FROM group_members g
+      WHERE NOT EXISTS (SELECT 1 FROM group_member_spans s
+        WHERE s.group_id = g.group_id AND s.member_id = g.member_id AND s.left_at IS NULL)",
+  "CREATE TABLE IF NOT EXISTS spent_refresh_tokens (refresh_hash TEXT NOT NULL, credential_id TEXT NOT NULL, spent_at INTEGER NOT NULL, replaced_by TEXT NOT NULL, PRIMARY KEY (refresh_hash))",
+  "CREATE INDEX IF NOT EXISTS spent_refresh_tokens_credential_id_idx ON spent_refresh_tokens (credential_id)",
 ]
 `;

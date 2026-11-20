@@ -6,8 +6,11 @@ import type {
   PlaceName,
   PlaceTotals,
 } from '@homingbird/protocol'
+import { type ReviewedDraft, channelAgentTotalsIn } from './channel-agent-figures.ts'
 import { type ReceivedNote, deliveryIn } from './delivery-figures.ts'
+import { isEnough, peopleOf, placesShown } from './disclosure.ts'
 import { quickWeeksOf } from './quick-weeks.ts'
+import { type TeamMembership, teamRowsIn } from './team-figures.ts'
 import {
   type AgentDraft,
   type Decisions,
@@ -35,11 +38,14 @@ export interface SentNote {
 }
 
 export interface MemberDraft extends AgentDraft {
-  readonly authorId: string
+  /** Who decided it: its author, or the manager who sent a channel's agent's answer; null when nobody is known. */
+  readonly authorId: string | null
+  readonly id?: string
 }
 
 export interface MemberSkip {
-  readonly memberId: string
+  /** Null for a channel's agent, which is not a person. */
+  readonly memberId: string | null
   readonly place: PlaceName
   readonly at: number
 }
@@ -51,6 +57,9 @@ export interface OrganizationActivity {
   readonly received: ReadonlyArray<ReceivedNote>
   /** Sent debate results: neither agent drafts nor notes, so they count only here. */
   readonly debateResults?: ReadonlyArray<{ readonly authorId: string; readonly sentAt: number }>
+  readonly channelAgentDrafts?: ReadonlyArray<ReviewedDraft>
+  /** Absent while groups are switched off, so no team row is shown. */
+  readonly teams?: TeamMembership
 }
 
 export interface PrivacySettings {
@@ -67,7 +76,7 @@ export const organizationInsightsOf = (
   generatedAt: now,
   quickApprovalSeconds: settings.quickApprovalSeconds,
   minimumGroupSize: settings.minimumGroupSize,
-  blocks: people.members >= settings.minimumGroupSize ? people.blocks : null,
+  blocks: isEnough(people.members, settings.minimumGroupSize) ? people.blocks : null,
   periods: PERIOD_DAYS.map((days) => ({
     days,
     current: organizationFiguresIn(activity, periodEndingAt(now, days, 0), now, settings),
@@ -85,7 +94,7 @@ export const organizationFiguresIn = (
 ): OrganizationFigures | null => {
   const sent = activity.sent.filter((note) => isIn(window, note.sentAt))
   const activeMembers = new Set(sent.map((note) => note.authorId)).size
-  if (activeMembers < settings.minimumGroupSize) return null
+  if (!isEnough(activeMembers, settings.minimumGroupSize)) return null
   const decided = activity.drafts.filter((draft) => isIn(window, draft.decidedAt) && draft.outcome !== null)
   const skips = activity.skips.filter((skip) => isIn(window, skip.at))
   const newNotes = sent.filter((note) => note.inReplyTo === null)
@@ -99,12 +108,14 @@ export const organizationFiguresIn = (
     [...groups.values()].map((group) => ({ place: group.totals.place, people: group.people })),
     settings.minimumGroupSize,
   )
-  const decidedBy = new Set(decided.map((draft) => draft.authorId))
-  const draftsShown = decidedBy.size >= settings.minimumGroupSize
+  const draftsShown = isEnough(
+    peopleOf(decided.map((draft) => draft.authorId)).size,
+    settings.minimumGroupSize,
+  )
   const decidedPlaces = placesShown(
     [...Map.groupBy(decided, (draft) => draft.place)].map(([place, drafts]) => ({
       place,
-      people: new Set(drafts.map((draft) => draft.authorId)),
+      people: peopleOf(drafts.map((draft) => draft.authorId)),
     })),
     settings.minimumGroupSize,
   ).hidden
@@ -134,28 +145,16 @@ export const organizationFiguresIn = (
     medianDecisionMs: medianDecisionShown(decided, settings.minimumGroupSize),
     authorship: draftsShown ? authorshipOf(sent) : null,
     delivery: deliveryIn(activity.received, window, now, settings.minimumGroupSize),
+    ...(activity.teams === undefined
+      ? {}
+      : teamRowsIn(activity, activity.teams, window, settings, draftsShown)),
+    channelAgents: channelAgentTotalsIn(
+      activity.channelAgentDrafts ?? [],
+      decided,
+      window,
+      settings.minimumGroupSize,
+    ),
   }
-}
-
-/**
- * Which groups may be shown: each needs at least `minimum` people, and together the hidden ones must also
- * reach it, or none may be hidden at all, so that the organization's totals minus the shown groups never
- * give away a small group's figures.
- */
-export const placesShown = (
-  groups: ReadonlyArray<{ readonly place: PlaceName; readonly people: ReadonlySet<string> }>,
-  minimum: number,
-): { readonly shown: PlaceName[]; readonly hidden: PlaceName[] } => {
-  const large = groups.filter((group) => group.people.size >= minimum)
-  const hidden = groups.filter((group) => group.people.size < minimum)
-  const shown = [...large].sort((a, b) => b.people.size - a.people.size || byPlace(a.place, b.place))
-  const hiddenPeople = new Set(hidden.flatMap((group) => [...group.people]))
-  while (hiddenPeople.size > 0 && hiddenPeople.size < minimum && shown.length > 0) {
-    const smallest = shown.pop()!
-    hidden.push(smallest)
-    for (const person of smallest.people) hiddenPeople.add(person)
-  }
-  return { shown: shown.map((group) => group.place), hidden: hidden.map((group) => group.place) }
 }
 
 /** The sent debate results, or null while fewer people than the minimum sent one. */
@@ -165,7 +164,7 @@ const debateResultsShown = (
   minimum: number,
 ): number | null => {
   const sent = (activity.debateResults ?? []).filter((note) => isIn(window, note.sentAt))
-  return new Set(sent.map((note) => note.authorId)).size >= minimum ? sent.length : null
+  return isEnough(new Set(sent.map((note) => note.authorId)).size, minimum) ? sent.length : null
 }
 
 /** The typical decision time, or null while fewer people than the minimum have a decision with a time. */
@@ -174,7 +173,7 @@ const medianDecisionShown = (decided: ReadonlyArray<MemberDraft>, minimum: numbe
     const time = decisionTime(draft)
     return time === null ? [] : [{ authorId: draft.authorId, time }]
   })
-  return new Set(timed.map((draft) => draft.authorId)).size >= minimum
+  return isEnough(peopleOf(timed.map((draft) => draft.authorId)).size, minimum)
     ? median(timed.map((draft) => draft.time))
     : null
 }
@@ -206,7 +205,7 @@ const groupsByPlace = (
       const notes = notesBy.get(place) ?? []
       const drafts = draftsBy.get(place) ?? []
       const skipped = skipsBy.get(place) ?? []
-      const people = new Set([
+      const people = peopleOf([
         ...notes.map((note) => note.authorId),
         ...drafts.map((draft) => draft.authorId),
         ...skipped.map((skip) => skip.memberId),
@@ -247,7 +246,7 @@ const labelsShown = (
     const { shown, hidden } = placesShown(
       [...people].map(([label, group]) => ({
         place: label,
-        people: new Set(group.map((draft) => draft.authorId)),
+        people: peopleOf(group.map((draft) => draft.authorId)),
       })),
       minimum,
     )
@@ -255,7 +254,7 @@ const labelsShown = (
     const decisionsHidden = placesShown(
       [...Map.groupBy(decided, labelOf)].map(([label, group]) => ({
         place: label,
-        people: new Set(group.map((draft) => draft.authorId)),
+        people: peopleOf(group.map((draft) => draft.authorId)),
       })),
       minimum,
     ).hidden

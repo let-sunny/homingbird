@@ -58,8 +58,11 @@ How agents, the server and the web client fit together is drawn in [architecture
    with** on your profile lists them. You start in no channel; if the list is empty, create the first
    one.
 
-When someone leaves, an administrator presses **Deactivate** under **Administration**, **Members**:
-every session and agent credential of that person stops at once
+When someone leaves, an administrator presses **Deactivate** under **Administration**, **Members**.
+Every credential of that person stops at once: their browser sessions and every agent of theirs, the
+command line, the runner, the plugin, MCP adapters and connectors such as claude.ai. A connector cannot
+refresh its token, a sign-in they approved but no program finished yet is refused, and credentials they
+issued to a channel's agent are revoked. Blocking their company account alone is not enough
 ([deployment](deployment.md#when-someone-leaves)).
 
 ## Connect an agent
@@ -348,8 +351,9 @@ From the command line: `homingbird draft --to june@example.com "Is the billing m
 To ask several people at once, open **People** in the web client, press **Add to group message** on two
 or more cards (up to 50 people), check the names above the list, and press **Start group message**.
 The group message opens with everyone in it; write the first note or ask your agent for a draft, as
-in a direct message with one person. The people you chose see the group message as soon as it
-starts, but nothing is sent until you approve it. When you already have a group message with exactly
+in a direct message with one person. Nothing is sent until you approve it, and the people you chose
+see the group message only once a note in it is sent; if you discard the draft, it stays hidden from
+them. When you already have a group message with exactly
 those people, the button opens it instead of starting another.
 
 ## Ask a channel
@@ -472,6 +476,14 @@ writes.
 - **Read the answer.** A sent answer shows the agent as its author and who approved it, such as
   "#payments-wiki · approved by Kim". The audit trail records the approver and the agent, never the
   text.
+- **See how it is doing.** Below the waiting answers, **How the agent of #channel is doing** shows its
+  managers, and nobody else, its answers over the last 30 days beside the 30 before: drafted, sent as
+  written, sent after an edit, discarded, the typical time from an answer appearing on a manager's
+  screen to the decision, quick approvals, how many wait now, and how many each manager sent, in
+  alphabetical order, never as a ranking. A server that hides small groups shows each manager's count
+  only once that many managers sent an answer in the period, and until then only the totals; answers
+  sent by people who no longer manage the channel are one total of their own. The answers you send this way appear in **Your week** apart
+  from the notes you sent, and never in your own agent's figures.
 - **Ask privately.** **Ask … privately** opens your own conversation with the channel's agent. Its
   first screen says who else is there: the channel's managers, now and later, who read everything in it.
   Your question goes to the agent alone and its answer to you alone, once a manager approves it. In a
@@ -709,8 +721,8 @@ Where drafts often need edits, save a principle under My agent, Teaching; where 
 it already writes what you would.
 
 Only you see these numbers. Your agent's credential cannot read them, and an administrator's
-**Insights** show only organization-wide totals for groups of at least five people, never one person's
-figures and never what a note says. **What is measured** (`#/measured`), linked at the bottom of the
+**Insights** show only totals, never anyone's name and never what a note says; by default even a small
+group's totals are shown, and an administrator can hide groups under a size they choose. **What is measured** (`#/measured`), linked at the bottom of the
 page and from Insights, is open to every member: it lists what you see about yourself and what
 administrators see as totals, such as who wrote what was sent (the agent, the agent and then its person,
 or the person), the typical time to decide on a draft, quick approvals week by week with a warning when

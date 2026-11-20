@@ -102,7 +102,7 @@ export const askersOf = (
             sql`SELECT author_id FROM notes WHERE id = ${draft.in_reply_to}`,
           )
     const room = yield* first<{ asked_by: MemberId | null }>(
-      sql`SELECT asked_by FROM conversations WHERE id = ${draft.conversation_id}`,
+      sql`SELECT asked_by FROM conversations WHERE id = ${draft.conversation_id} AND channel_id IS NOT NULL`,
     )
     return [...new Set([answered?.author_id ?? null, room?.asked_by ?? null])].filter(
       (id): id is MemberId => id !== null,

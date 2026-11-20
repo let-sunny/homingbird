@@ -3,6 +3,7 @@ import type {
   OrganizationInsights,
   OrganizationPeriod,
   PlaceTotals,
+  TeamTotals,
 } from '@homingbird/protocol'
 import { durationOf, formats, percentOf, strings } from '../strings.ts'
 import {
@@ -37,7 +38,12 @@ export const insightsModel = (insights: OrganizationInsights | null, days: numbe
   const current = period.current
   return {
     kind: 'insights',
-    warnings: [strings.insights.noTeams, strings.insights.privacy({ minimum: insights.minimumGroupSize })],
+    warnings: [
+      ...(hasTeams(current) ? [] : [strings.insights.noTeams]),
+      insights.minimumGroupSize <= 1
+        ? strings.insights.privacyAll
+        : strings.insights.privacy({ minimum: insights.minimumGroupSize }),
+    ],
     quickWarning: quickWarningModel(insights),
     tooFew: current === null ? strings.insights.tooFew({ minimum: insights.minimumGroupSize }) : null,
     figures:
@@ -46,6 +52,7 @@ export const insightsModel = (insights: OrganizationInsights | null, days: numbe
         : {
             table: figuresTable(insights, period, current),
             places: placesTable(current),
+            teams: current.teams === undefined ? null : teamsTable(current.teams, current.hiddenTeams ?? 0),
             authorship: authorshipModel(current, insights.minimumGroupSize),
             delivery: deliveryModel(current, insights.minimumGroupSize),
             byClient: labelsTableModel(
@@ -84,6 +91,7 @@ export type InsightsModel =
       readonly figures: {
         readonly table: InsightsTable
         readonly places: InsightsPlaces
+        readonly teams: InsightsPlaces | null
         readonly authorship: AuthorshipModel
         readonly delivery: DeliveryModel
         readonly byClient: LabelsTable | null
@@ -108,6 +116,7 @@ export interface InsightsPlaces {
   readonly headings: ReadonlyArray<string>
   readonly rows: ReadonlyArray<ReadonlyArray<string>>
   readonly hidden: string | null
+  readonly footnote?: string
 }
 
 interface Decided {
@@ -177,8 +186,12 @@ const figuresTable = (
       line(strings.measures.decisionTimeRow, (figures) =>
         figures.medianDecisionMs == null ? strings.insights.hidden : durationOf(figures.medianDecisionMs),
       ),
+      ...(current.channelAgents === undefined ? [] : channelAgentRows(line)),
     ],
     footnotes: [
+      ...(current.channelAgents === undefined
+        ? []
+        : [strings.insights.channelAgentsExplained({ minimum: insights.minimumGroupSize })]),
       strings.insights.debateResultsExplained({ minimum: insights.minimumGroupSize }),
       strings.insights.quickExplained({ seconds: insights.quickApprovalSeconds }),
       strings.insights.skipExplained,
@@ -186,6 +199,74 @@ const figuresTable = (
         ? [strings.insights.draftsHidden({ minimum: insights.minimumGroupSize })]
         : []),
     ],
+  }
+}
+
+/** Every channel's agent's answers together; a period shows them only when enough managers sent one. */
+const channelAgentRows = (
+  line: (label: string, value: (figures: OrganizationFigures) => string) => readonly [string, string, string],
+) => {
+  const rows = strings.insights.rows
+  const shown =
+    (count: (totals: NonNullable<OrganizationFigures['channelAgents']>) => number) =>
+    (figures: OrganizationFigures) =>
+      figures.channelAgents == null
+        ? strings.insights.hidden
+        : formats.decimal.format(count(figures.channelAgents))
+  return [
+    line(
+      rows.channelAgentAnswers,
+      shown((totals) => totals.written),
+    ),
+    line(
+      rows.channelAgentAsWritten,
+      shown((totals) => totals.sentAsWritten),
+    ),
+    line(
+      rows.channelAgentEdited,
+      shown((totals) => totals.sentAfterEdits),
+    ),
+    line(
+      rows.channelAgentDiscarded,
+      shown((totals) => totals.discarded),
+    ),
+  ]
+}
+
+const hasTeams = (current: OrganizationFigures | null): boolean =>
+  current !== null && (current.teams ?? []).length + (current.hiddenTeams ?? 0) > 0
+
+/** Every team shown, alphabetically as the server sends them, never ranked. */
+const teamsTable = (teams: ReadonlyArray<TeamTotals>, hidden: number): InsightsPlaces => {
+  const labels = strings.insights
+  const count = (value: number | null) => (value === null ? labels.hidden : formats.decimal.format(value))
+  return {
+    title: labels.teamsTitle,
+    none: teams.length === 0 ? labels.noTeamRows : null,
+    headings: [
+      labels.teamColumn,
+      labels.peopleColumn,
+      labels.notesColumn,
+      labels.asWrittenColumn,
+      labels.editedColumn,
+      labels.discardedColumn,
+      labels.quickColumn,
+      labels.decisionTimeColumn,
+      labels.skippedColumn,
+    ],
+    rows: teams.map((team) => [
+      team.team,
+      count(team.activeMembers),
+      count(team.notesSent),
+      count(team.sentAsWritten),
+      count(team.sentAfterEdits),
+      count(team.discarded),
+      count(team.quickApprovals),
+      team.medianDecisionMs === null ? labels.hidden : durationOf(team.medianDecisionMs),
+      count(team.skipped),
+    ]),
+    hidden: hidden > 0 ? labels.hiddenTeams({ count: hidden }) : null,
+    footnote: labels.teamsExplained,
   }
 }
 

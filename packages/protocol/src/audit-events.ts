@@ -35,7 +35,7 @@ export const AUDIT_EVENTS = {
   }),
   'credential.renamed': event('security', 'credential', {}),
   'credential.revoked': event('security', 'credential', {
-    because: S.optional(S.literal('issuer_left', 'agent_retired')),
+    because: S.optional(S.literal('issuer_left', 'agent_retired', 'refresh_replayed')),
   }),
   'credential.device_decided': event('security', 'none', { approved: S.boolean }),
   'credential.join_code_created': event('security', 'member', { channel: S.optional(ChannelSlug) }),

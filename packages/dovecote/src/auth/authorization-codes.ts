@@ -3,6 +3,7 @@ import { Task as T } from '@homingbird/kernel'
 import { Conflict, type ConsentRequest, NotFound } from '@homingbird/protocol'
 import { recordAudit } from '../domain/audit.ts'
 import { issueCredential } from '../domain/credentials.ts'
+import { isActiveMember } from '../domain/members.ts'
 import type { AppEnv, Caller } from '../environment.ts'
 import type { RequestEnv } from '../events/events.ts'
 import { type RegisteredClient, hostOf, requireClient } from './oauth-clients.ts'
@@ -152,7 +153,7 @@ export const exchangeAuthorizationCode = (
       request.detail.redirectUri === exchange.redirect_uri &&
       challengeOf(exchange.code_verifier ?? '') === request.detail.codeChallenge
     const consumed = yield* advanceAuthRequest(request.id, { status: 'consumed', expectedStatus: 'approved' })
-    if (!matches || !consumed) return yield* T.fail(invalid)
+    if (!matches || !consumed || !(yield* isActiveMember(request.memberId))) return yield* T.fail(invalid)
     const issued = yield* issueCredential({
       memberId: request.memberId,
       kind: 'agent',

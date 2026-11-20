@@ -39,13 +39,13 @@ const agentView = (credentials: AsRead.ChannelAgent['credentials'] = []): AsRead
 })
 
 const opened = () => {
-  const { context, called } = testContext()
+  const { context, called, page } = testContext()
   context.state.serverInfo.set(everything())
   context.state.session.set(me())
   mount(dialogHost())
   const buttons = mount(h('div', {}, agentButtons(context, wiki)))
   getByRole(buttons, 'button', { name: strings.channelAgent.title }).click()
-  return { context, called, dialog: document.getElementById('dialog')!, buttons }
+  return { context, called, page, dialog: document.getElementById('dialog')!, buttons }
 }
 
 describe('agentButtons', () => {
@@ -144,6 +144,58 @@ describe('the agent panel', () => {
       review({ privately: true, question: null, note: draft('note_x', { basis: null }) }),
     ])
     expect(textOf(dialog)).toContain(strings.channelAgent.askedPrivately)
+  })
+})
+
+describe('how the agent is doing', () => {
+  const report = (): AsRead.ChannelAgentReport => {
+    const figures = (written: number): AsRead.ChannelAgentFigures => ({
+      written,
+      sentAsWritten: 2,
+      sentAfterEdits: 1,
+      discarded: 0,
+      medianDecisionMs: null,
+      quickApprovals: 1,
+      approvals: [{ memberId: ANA, name: 'Ana', approved: 3 }],
+    })
+    return {
+      generatedAt: 1,
+      channel: 'payments-wiki',
+      quickApprovalSeconds: 3,
+      minimumGroupSize: 5,
+      waiting: 2,
+      periods: [{ days: 30, current: figures(4), previous: figures(1) }],
+    }
+  }
+
+  it('shows the figures and each manager’s count beside the panel, once loaded', () => {
+    const { called, dialog } = opened()
+    expect(called('loadChannelAgentFigures')[0]!.args).toEqual(['payments-wiki'])
+    expect(dialog.querySelector('.channel-agent-figures')).toBeNull()
+    called('loadChannelAgentFigures')[0]!.then!.done!(report())
+    const section = dialog.querySelector<HTMLElement>('.channel-agent-figures')!
+    expect(getByRole(section, 'heading', { name: 'How the agent of #payments-wiki is doing' })).toBeTruthy()
+    expect(getByRole(section, 'table')).toBeTruthy()
+    expect(textOf(section)).toContain('Ana: 3 answers')
+    expect(textOf(section)).toContain('2 answers are waiting now.')
+  })
+
+  it('shows nothing to someone who does not manage the channel, and says when loading failed', () => {
+    const first = opened()
+    first.called('loadChannelAgentFigures')[0]!.then!.done!(null)
+    expect(first.dialog.querySelector('.channel-agent-figures')).toBeNull()
+    expect(textOf(first.dialog)).not.toContain(strings.channelAgent.figuresLoadFailed)
+    first.called('loadChannelAgentFigures')[0]!.then!.failed!(new Error('down') as never)
+    expect(textOf(first.dialog)).toContain(strings.channelAgent.figuresLoadFailed)
+  })
+
+  it('reports a waiting answer as seen once its card is on a visible page', () => {
+    const { context, called, page } = opened()
+    context.state.reviews.set([review()])
+    page.runFrames()
+    context.state.reviews.set([review()])
+    page.runFrames()
+    expect(called('reportDraftSeen').map((call) => call.args)).toEqual([['note_answer00000']])
   })
 })
 

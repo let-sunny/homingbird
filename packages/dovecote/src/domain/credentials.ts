@@ -104,27 +104,6 @@ export const authenticate = (token: string): T.Task<Caller, Unauthorized, AppEnv
     }
   })
 
-export const refreshCredential = (refreshToken: string): T.Task<Issued, Unauthorized, AppEnv> =>
-  T.gen(function* () {
-    const env = yield* T.ask<AppEnv>()
-    const now = env.clock.now()
-    const row = yield* first<CredentialRow>(
-      sql`SELECT * FROM credentials WHERE refresh_hash = ${hashSecret(refreshToken)}`,
-    )
-    if (row === null || row.revoked_at !== null || row.expires_at <= now)
-      return yield* T.fail(Unauthorized({ message: 'This refresh token is no longer valid.' }))
-    const issued: Issued = {
-      credentialId: row.id,
-      token: `${TOKEN_PREFIX[row.kind]}${env.random.secret()}`,
-      tokenExpiresAt: Math.min(row.expires_at, now + ACCESS_TOKEN_LIFETIME_MS),
-      refreshToken: `${REFRESH_PREFIX}${env.random.secret()}`,
-    }
-    yield* run(sql`
-      UPDATE credentials SET token_hash = ${hashSecret(issued.token)}, refresh_hash = ${hashSecret(issued.refreshToken!)},
-      token_expires_at = ${issued.tokenExpiresAt} WHERE id = ${row.id}`)
-    return issued
-  })
-
 export const listCredentials = (
   memberId: MemberId,
   currentId: CredentialId,
@@ -170,8 +149,9 @@ export const revokeByToken = (token: string): T.Task<void, never, AppEnv> =>
       WHERE (token_hash = ${hash} OR refresh_hash = ${hash}) AND revoked_at IS NULL`)
   })
 
-const TOKEN_PREFIX: Readonly<Record<CredentialKind, string>> = { human: 'hbh_', agent: 'hba_' }
-const REFRESH_PREFIX = 'hbr_'
+export const TOKEN_PREFIX: Readonly<Record<CredentialKind, string>> = { human: 'hbh_', agent: 'hba_' }
+export const REFRESH_PREFIX = 'hbr_'
+export const ACCESS_TOKEN_LIFETIME_MS = 60 * 60_000
 const LAST_USED_RESOLUTION_MS = 30_000
 
 interface CredentialRow {
@@ -201,5 +181,3 @@ const toCredential = (row: CredentialRow, currentId: CredentialId): Credential =
   revokedAt: row.revoked_at,
   current: row.id === currentId,
 })
-
-const ACCESS_TOKEN_LIFETIME_MS = 60 * 60_000

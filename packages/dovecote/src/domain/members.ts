@@ -76,6 +76,12 @@ export const memberById = (id: MemberId): T.Task<Member, NotFound, AppEnv> =>
     return row === null ? yield* T.fail(NotFound({ message: 'No such member.' })) : toMember(row)
   })
 
+/** A member who may hold a working credential: not deactivated, and not a retired channel's agent. */
+export const isActiveMember = (id: MemberId): T.Task<boolean, never, AppEnv> =>
+  T.map((row: { status: string } | null) => row?.status === 'active')(
+    first<{ status: string }>(sql`SELECT status FROM members WHERE id = ${id}`),
+  )
+
 export const membersByIds = (ids: ReadonlyArray<MemberId>): T.Task<Map<MemberId, Member>, never, AppEnv> =>
   T.gen(function* () {
     if (ids.length === 0) return new Map()
@@ -172,8 +178,8 @@ export const chosenLocaleOf = (id: MemberId): T.Task<Locale | null, never, AppEn
   )
 
 /**
- * Deactivating a member revokes their credentials, takes them out of every group and deletes their cloud
- * desk wake at once.
+ * Deactivating a member revokes their credentials, refuses a sign-in they approved and no program has
+ * finished yet, takes them out of every group and deletes their cloud desk wake at once.
  */
 export const administerMember = (
   actor: Caller,
@@ -193,6 +199,9 @@ export const administerMember = (
     if (changes.status === 'deactivated') {
       yield* run(
         sql`UPDATE credentials SET revoked_at = ${env.clock.now()} WHERE member_id = ${id} AND revoked_at IS NULL`,
+      )
+      yield* run(
+        sql`UPDATE auth_requests SET status = 'denied' WHERE member_id = ${id} AND status = 'approved'`,
       )
       if (before.status !== 'deactivated') yield* removeFromEveryGroup(actor, id)
       yield* forgetDeskWake(actor, id)

@@ -13,11 +13,12 @@ describe('yourWeekOf', () => {
       sent: [NOW - HOUR, NOW - 2 * HOUR, NOW - 8 * DAY_MS],
       repliesReceived: [NOW - HOUR, NOW - 9 * DAY_MS, NOW - 10 * DAY_MS],
       ownReplies: [],
+      approvedForChannels: [NOW - HOUR, NOW - 8 * DAY_MS, NOW - 9 * DAY_MS],
     }
     expect(yourWeekOf(activity, NOW)).toEqual({
       days: 7,
-      current: { notesSent: 2, repliesReceived: 1, medianReplyMs: null },
-      previous: { notesSent: 1, repliesReceived: 2, medianReplyMs: null },
+      current: { notesSent: 2, repliesReceived: 1, medianReplyMs: null, approvedForChannels: 1 },
+      previous: { notesSent: 1, repliesReceived: 2, medianReplyMs: null, approvedForChannels: 2 },
     })
   })
 })
@@ -46,6 +47,11 @@ describe('weekFiguresIn', () => {
   })
 
   it('shows nothing for an empty week', () => {
-    expect(weekFiguresIn(empty, thisWeek)).toEqual({ notesSent: 0, repliesReceived: 0, medianReplyMs: null })
+    expect(weekFiguresIn(empty, thisWeek)).toEqual({
+      notesSent: 0,
+      repliesReceived: 0,
+      medianReplyMs: null,
+      approvedForChannels: 0,
+    })
   })
 })
