@@ -5,6 +5,62 @@ Every release of Homingbird, newest first. The format follows
 [Semantic Versioning](https://semver.org/); before 1.0, a minor version may break interfaces and the
 database schema.
 
+## [0.3.2] - 2026-11-20
+
+### Added
+
+- **pwa:** open one draft's card from its address
+
+  A notification or a desk link about a draft has to lead the person to that draft, not only to its conversation. A conversation now takes `?draft=<id>` (`#/c/<conversation>?draft=<id>`), marks that card as the current one and brings it into view once instead of the bottom. An id that names no draft the person sees there marks nothing; the address is not a capability, and the card keeps asking to read a changed draft again before it can be sent.
+- **dovecote:** open the draft's card from its notification
+
+  The notification that an agent's draft waits now opens that draft's card in its conversation, so the person lands on what they are asked to decide.
+- **cli:** link each draft to its card in the web client
+
+  The desk pane's Open in web, `homingbird open <draft id>` and the MCP tools now open a draft's own card rather than its conversation; a channel's agent's draft opens its review card. They only open a page in the web client, where the person signed in themself decides; no server route was added.
+- **a2a:** negotiate the A2A-Version header and detail 1.0 errors
+
+  Agents that follow A2A 1.0 now get the version they ask for: the gateway reads the A2A-Version header (or request parameter), answers 1.0 or 0.3, and refuses any other version, or a version that does not match the method names, with VersionNotSupportedError. 1.0 errors now carry the google.rpc.ErrorInfo the specification requires, and the agent card lists the JSON-RPC endpoint for 0.3 too, so 0.3 clients can find it.
+- **pwa:** clear a review notification once someone decided the answer
+
+  When one manager sends or discards a channel agent's answer, the other managers' notifications no longer linger: opening Homingbird on a device closes them there, and one tapped later says who already sent the answer instead of opening an empty page.
+- wake a desk that runs in a cloud agent service when work waits
+
+  A person can register a wake URL and token in the web client, so a desk running in a cloud agent service starts when notes, debate turns or votes wait for their agent. The wake request carries only that there is work and the server's address, never a note; the token is stored encrypted, used only to wake, and deleted when the person removes it. Off by default behind the cloudDesk feature.
+- **dovecote:** show insights per team and per channel agent
+
+  Insights now show figures per team, and a channel's managers see how its agent is doing: drafts approved as written, approved after an edit, and how many each manager approved. Small teams are shown by default; an operator can hide groups under a size with HB_INSIGHTS_MINIMUM_GROUP, and a figure that subtracting shown totals would give away stays hidden.
+- **dovecote:** hide a new group message until a note in it is sent
+
+  A new group message is now seen only by the person who started it until a note in it is sent, the same way a direct message is hidden, so the others never see an empty room or one whose only draft was discarded.
+- **dovecote:** revoke a connection when its used refresh token comes back
+
+  A connector's refresh token that comes back after it was used now revokes that whole connection, the sign that someone copied it; a retry of the token just replaced, within 10 seconds, is refused without revoking. Deactivating a person stops their connectors from refreshing, and the deployment guide has a runbook for when someone leaves.
+- set up an always-on agent on a server with one line
+
+  The web client now gives the line to run on a server: Run on a server on My agent → Connection, and on the channel agent panel for its managers, makes a join code that works once within 10 minutes and shows the homingbird setup command with a copy button. On the server that one line signs in and installs the background service, so there is no credentials file to copy anymore. homingbird login stays the way for a computer that can open a browser.
+
+### Fixed
+
+- **a2a:** keep header values out of errors and read an empty header as unstated
+
+  An unsupported A2A-Version is no longer echoed back in the error, so a caller cannot make the gateway repeat up to 16 KB of its own text. An empty A2A-Version header no longer hides the A2A-Version request parameter.
+- **pwa:** keep notices for answers still waiting and clear settled drafts on load
+
+  Opening Homingbird now also clears notifications about your own drafts that were sent or discarded on another device, and a draft notification tapped after that says the draft was already sent or discarded instead of showing nothing.
+- **cli:** harden the agent cli presets for codex, claude and antigravity
+
+  The runner now starts Codex, Claude and Antigravity the way each expects and without what the person's own setup would add: Codex's reader runs without plugins, apps or MCP servers, Claude runs without the person's hooks and falls back past a managed MCP refusal, and Antigravity is spoken to in its stream format with a reader preset of its own. Each agent's version is checked before the runner starts, agents start outside the session that started the runner, and on Windows the runner finds agents and Node where their installers put them.
+- **dovecote:** refuse sign-ins a deactivated person approved but no program collected
+
+  Deactivating a person now also refuses the sign-ins they had approved that no program had collected yet, so nothing they started before leaving can still become a credential. The README says what works today, what is still being wired up and what is not planned, and the deployment guide says which outside services a deployment needs and what the audit chain proves.
+- issues found walking the new flows in a real browser
+
+  After an upgrade, browsers now load the new web client at once: its script and styles revalidate on every load (with an ETag, so an unchanged file costs a 304) instead of running the previous release's client for up to an hour.
+- **dovecote:** hide a program label only one person used from insights
+
+  With the minimum group at 1, the administrator's insights listed every program and model label, and a label can be a device name a person chose, such as their own name. Labels now need two people whatever the minimum. Tables also take the theme's line colour instead of the browser's gray.
+
 ## [0.3.1] - 2026-11-20
 
 ### Added
@@ -376,6 +432,7 @@ Since 0.1.0-rc.2:
 - The web client has a guided tour and clearer topics, refusals and dark mode.
 - The Claude Code mod asks for the server address at install, finds Node 22 where version managers put it, and signs in from its pane.
 
+[0.3.2]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.2
 [0.3.1]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.1
 [0.3.0]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.0
 [0.2.0]: https://github.com/let-sunny/homingbird/releases/tag/v0.2.0
