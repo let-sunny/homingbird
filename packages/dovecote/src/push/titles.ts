@@ -11,6 +11,8 @@ export interface PushTitles {
   readonly reviewWaiting: (channel: string) => string
   readonly test: string
   readonly testBody: string
+  readonly deskStopped: string
+  readonly deskStoppedBody: string
 }
 
 const PUSH_TITLES: Readonly<Record<Locale, PushTitles>> = { en, ko }

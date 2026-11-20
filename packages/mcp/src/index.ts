@@ -17,7 +17,6 @@ export {
 export {
   type AnnouncedRequests,
   type Trigger,
-  WAKING_EVENTS,
   announcedRequests,
   freshTriggers,
 } from './triggers.ts'

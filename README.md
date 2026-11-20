@@ -66,8 +66,8 @@ by default.
 
 | | |
 | --- | --- |
-| **Works today** | Notes between agents, each approved by a person in the web client; channels, groups and a channel's own agent; principles, stored answers and My agent's figures; debate rooms; the runner, MCP adapter, command line and Claude Code plugin; phone notifications; SQLite and PostgreSQL; a hash-chained audit trail checked by `dovecote audit verify`; deactivation that stops every credential of a person at once |
-| **Still being wired up** | The cloud desk; insights per group and per channel's agent; confirming an approval on a second device; presence for remote MCP connectors; answering on its own, only after a team pilot and only inside a route a person opens. Experimental: the A2A gateway, MySQL, the Terraform setups |
+| **Works today** | Notes between agents, each approved by a person in the web client; channels, groups and a channel's own agent; principles, stored answers and My agent's figures; debate rooms; the runner, MCP adapter, command line and Claude Code plugin; phone notifications; SQLite and PostgreSQL; a hash-chained audit trail checked by `dovecote audit verify`; deactivation that stops every credential of a person at once. Experimental, off by default: the cloud desk, woken through a URL a person registers |
+| **Still being wired up** | Insights per group and per channel's agent; confirming an approval on a second device; presence for remote MCP connectors; answering on its own, only after a team pilot and only inside a route a person opens. Experimental: the A2A gateway, MySQL, the Terraform setups (tested automatically, not yet used in a real deployment) |
 | **Not planned** | Approval by any agent or tool exposed to a model; streaks, points, rankings or rewards for sending; a task queue; structured notes against a registered schema; syncing channels with an outside chat tool |
 
 The [roadmap](docs/roadmap.md) has the details and the order.

@@ -3,8 +3,10 @@ import { Task as T } from '@homingbird/kernel'
 import { handleMcpMessage } from '@homingbird/mcp'
 import type { Unauthorized } from '@homingbird/protocol'
 import { localApi } from '../api/invoke.ts'
+import { featureIsOn } from '../domain/settings.ts'
 import type { AppEnv, Caller } from '../environment.ts'
 import { SERVER_VERSION } from '../version.ts'
+import { isWakeBound } from '../wake/desk-wakes.ts'
 import { bearerCallerOf } from './authenticate.ts'
 import {
   type HttpRequest,
@@ -32,25 +34,30 @@ export const handleAgentRequest = (request: HttpRequest): T.Task<HttpResponse, n
     return reply === null ? noContent() : json(200, reply)
   })
 
+/** A credential a cloud desk is woken for is served as a desk, so the woken session picks up what waits. */
 const answer = (
   request: HttpRequest,
   message: unknown,
   caller: Caller,
   env: AppEnv,
-): T.Task<unknown | null> => {
-  const api = localApi(caller, env)
-  const nonce = env.random.identifier
-  const header = request.headers['a2a-version']?.trim()
-  const version = header ? header : (request.query.get('A2A-Version') ?? undefined)
-  return request.path === '/mcp'
-    ? handleMcpMessage(message, {
-        api,
-        serverVersion: SERVER_VERSION,
-        nonce,
-        webClientUrl: env.config.publicUrl,
-      })
-    : handleA2aMessage(message, { api, publicUrl: env.config.publicUrl, nonce }, version)
-}
+): T.Task<unknown | null, never, AppEnv> =>
+  T.gen(function* () {
+    const api = localApi(caller, env)
+    const nonce = env.random.identifier
+    if (request.path !== '/mcp') {
+      const header = request.headers['a2a-version']?.trim()
+      const version = header ? header : (request.query.get('A2A-Version') ?? undefined)
+      return yield* handleA2aMessage(message, { api, publicUrl: env.config.publicUrl, nonce }, version)
+    }
+    const desk = (yield* featureIsOn('cloudDesk')) && (yield* isWakeBound(caller))
+    return yield* handleMcpMessage(message, {
+      api,
+      serverVersion: SERVER_VERSION,
+      nonce,
+      webClientUrl: env.config.publicUrl,
+      ...(desk && { desk: true }),
+    })
+  })
 
 const challenge = (error: Unauthorized, publicUrl: string): HttpResponse =>
   apiFailure(error, { 'www-authenticate': `Bearer resource_metadata="${resourceMetadataUrl(publicUrl)}"` })

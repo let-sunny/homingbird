@@ -60,12 +60,6 @@ export const waitingNoteIds = (context: TriggerContext): T.Task<ReadonlySet<Note
     ({ items }: { items: ReadonlyArray<AsRead.InboxItem> }) => new Set(items.map((item) => item.note.id)),
   )(context.api['inbox.list']({ query: {} }))
 
-export const WAKING_EVENTS: ReadonlyArray<AsRead.EventBody['type']> = [
-  'note.sent',
-  'draft.requested',
-  'resync',
-]
-
 export const announcedRequests = (): AnnouncedRequests => {
   const seen = new Set<DraftRequestId>()
   return { has: (id) => seen.has(id), add: (id) => void seen.add(id) }

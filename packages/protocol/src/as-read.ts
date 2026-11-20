@@ -13,6 +13,7 @@ import type {
   DebateStatus as DebateStatusSchema,
   DebateSummary as DebateSummarySchema,
 } from './debates.ts'
+import type { DeskWake as DeskWakeSchema, DeskWakeTest as DeskWakeTestSchema } from './desk-wake.ts'
 import type { StreamEvent as StreamEventSchema } from './events.ts'
 import type { Group as GroupSchema } from './groups.ts'
 import type {
@@ -77,3 +78,5 @@ export type AgentFigures = S.Read<typeof AgentFiguresSchema>
 export type ServerInfo = S.Read<typeof ServerInfoSchema>
 export type ChannelAgent = S.Read<typeof ChannelAgentSchema>
 export type Review = S.Read<typeof ReviewSchema>
+export type DeskWake = S.Read<typeof DeskWakeSchema>
+export type DeskWakeTest = S.Read<typeof DeskWakeTestSchema>

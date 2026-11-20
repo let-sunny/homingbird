@@ -31,6 +31,7 @@ export const LIMITS = {
   deviceStart: { max: 30, windowMs: 3_600_000 },
   drafting: { max: 120, windowMs: 60_000 },
   analytics: { max: 60, windowMs: 60_000 },
+  wakeTest: { max: 5, windowMs: 3_600_000 },
 } as const satisfies Readonly<Record<string, Limit>>
 
 const MAX_TRACKED_KEYS = 50_000

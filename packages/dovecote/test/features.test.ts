@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   type Agent,
   type Session,
+  TEST_SECRETS_KEY,
   type TestServer,
   asShown,
   connectAgent,
@@ -16,7 +17,7 @@ let ben: Session
 let anaAgent: Agent
 
 beforeEach(async () => {
-  server = await startTestServer()
+  server = await startTestServer({ HB_SECRETS_KEY: TEST_SECRETS_KEY })
   ana = await server.signIn('ana@example.com', 'Ana')
   ben = await server.signIn('ben@example.com', 'Ben')
   anaAgent = await connectAgent(server, ana, { name: 'Ana agent' })
@@ -46,15 +47,17 @@ const probes: Readonly<Record<string, (person: Session) => Promise<{ status: num
   debateRooms: (person) => person.api('GET', '/debates'),
   groups: (person) => person.api('GET', '/groups'),
   channelAgents: (person) => person.api('GET', '/reviews'),
+  cloudDesk: (person) => person.api('GET', '/me/desk-wake'),
 }
 
 describe('feature switches', () => {
-  it('are all on by default but analytics and channel agents, and server.info says which are on', async () => {
+  it('are all on by default but analytics, channel agents and the cloud desk, and server.info says which are on', async () => {
     const info = (await server.request('GET', '/api/v1/info')).json
     expect(info.features).toEqual({
       ...Object.fromEntries(FEATURE_NAMES.map((name) => [name, true])),
       analytics: false,
       channelAgents: false,
+      cloudDesk: false,
     })
     await switchTo({ teaching: false })
     expect((await server.request('GET', '/api/v1/info')).json.features.teaching).toBe(false)

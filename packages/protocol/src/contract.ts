@@ -29,6 +29,7 @@ import {
   DebateVisibility,
   DebateVote,
 } from './debates.ts'
+import { DeskWake, DeskWakeSetup, DeskWakeTest } from './desk-wake.ts'
 import type { ApiError } from './errors.ts'
 import { StreamEvent } from './events.ts'
 import { GROUP_MEMBERS_MAX, Group, GroupName } from './groups.ts'
@@ -118,6 +119,27 @@ export const contract = {
     access: 'human',
     body: S.struct({ notifications: S.literal(...NOTIFICATION_LEVELS) }),
     response: S.struct({ notifications: NotificationLevel }),
+  }),
+  'me.deskWake.get': route({
+    method: 'GET',
+    path: '/me/desk-wake',
+    access: 'human',
+    response: S.struct({ wake: S.nullable(DeskWake) }),
+  }),
+  'me.deskWake.set': route({
+    method: 'PUT',
+    path: '/me/desk-wake',
+    access: 'human',
+    body: DeskWakeSetup,
+    response: DeskWake,
+  }),
+  'me.deskWake.remove': route({ method: 'DELETE', path: '/me/desk-wake', access: 'human', response: Empty }),
+  'me.deskWake.test': route({
+    method: 'POST',
+    path: '/me/desk-wake/test',
+    access: 'human',
+    body: Empty,
+    response: DeskWakeTest,
   }),
 
   'directory.list': route({

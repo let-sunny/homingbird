@@ -34,8 +34,22 @@ export interface Launcher {
 }
 
 export interface Processes {
-  /** Runs a program directly, without a shell, and collects what it printed. */
-  readonly run: (program: string, args: ReadonlyArray<string>) => Promise<ProcessRun>
+  /** Runs a program directly, without a shell, and collects what it printed; one that runs too long is stopped. */
+  readonly run: (
+    program: string,
+    args: ReadonlyArray<string>,
+    options?: ProcessOptions,
+  ) => Promise<ProcessRun>
+}
+
+export interface ProcessOptions {
+  readonly timeoutMs?: number
+  /** The whole environment the program runs with, instead of this process's own. */
+  readonly environment?: Readonly<Record<string, string>>
+  /** Stops the program, and on Windows everything it started. */
+  readonly signal?: AbortSignal
+  /** The arguments are one command line already quoted for cmd.exe. */
+  readonly windowsVerbatimArguments?: boolean
 }
 
 export interface Programs {
@@ -53,6 +67,8 @@ export interface ProcessRun {
 export interface AgentRun {
   readonly exitCode: number | null
   readonly output: string
+  /** What the command wrote to its error output, never logged whole. */
+  readonly errors?: string
 }
 
 export interface Files {

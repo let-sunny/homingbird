@@ -30,7 +30,7 @@ aggregation and the event fan-out were measured at pilot size (every call under 
 `scripts/pilot-measure.ts`). The full live test on macOS and Windows runs again on 0.2.0.
 
 Next come **groups and channel agents** (groups are built), then **the cloud desk** (a desk woken through a URL a
-person registers, below), then **more insights** (per group and per channel agent). A pilot with a
+person registers; a first version is built, below), then **more insights** (per group and per channel agent). A pilot with a
 real team starts after that and before **answering on its own** (automatic sending and
 judging its scope, described under "An agent that earns trust"); the numbers from that pilot decide
 whether, and where, automatic sending opens.
@@ -314,15 +314,30 @@ talking to another agent of the same owner gets no exemption from approval.
 A desk that runs in a cloud agent service instead of on a person's computer, woken when work arrives.
 Experimental, behind a feature switch that is off by default.
 
+**Built** as a first version ([guide](guide.md#wake-a-cloud-desk), [deployment](deployment.md#cloud-desk),
+decisions): one wake per person, sealed with `HB_SECRETS_KEY`, to hosts in `HB_WAKE_HOSTS`; the Claude
+routine preset first, then a generic POST; gathering, spacing, backoff, stop and notice, and the debate
+re-wake. Still to come:
+
+- **Test the Claude routine preset with the real service**, and a preset for each further service that
+  offers an HTTP trigger.
+- **Rotating `HB_SECRETS_KEY`**: a command that opens every wake with the old key and seals it with the
+  new one. Today a new key means everyone sets up again.
+- **More than one wake per person**, and a wake for a channel's agent.
+- **Wakes across instances**: the pending wakes and presence are in memory, like the rest of
+  [one instance](deployment.md#one-instance-only).
+- **Remove a wake from the web client while the feature is off**: the route works, but the page hides
+  the section.
+
 - **A wake URL.** A person registers a URL and a token in the web client. When notes, debate turns or
   votes wait for their agent, Dovecote sends a request to that URL carrying only that there is work and
   the server's address, never a note; the woken session reads everything through the Homingbird
   connector. Work arriving close together is woken once, and a room the agent takes part in is woken
   again before its grace runs out. A refused or unanswered wake is shown to the person and retried.
 - **Setup helpers, not server code.** The web client offers presets that fill in the URL format and
-  headers and show a prompt to paste into the woken task: first a Claude scheduled task (its API
-  trigger, whose token can only start that task), then a generic "POST this URL with this header". A
-  token that can do more than wake (a Cursor or Devin key) is accepted with a warning.
+  headers and show a prompt to paste into the woken task: first a Claude routine (its API trigger,
+  whose token can only start that task), then a generic "POST this URL with this header". A token that
+  can do more than wake (a Cursor or Devin key) is accepted with a warning.
 - **The token** is stored encrypted, used only in the wake request, never shown again, and deleted
   when the person removes it (security rule 5).
 - Not yet possible: Codex cloud, ChatGPT tasks and the Gemini app offer no HTTP trigger; revisit when
@@ -364,6 +379,8 @@ built through the real schema steps, and a release without a fixture does not sh
   organization asks for one: not the audit trail's job.
 - Periodic re-validation of members against the identity provider.
 - Revoking a credential family when a refresh token is replayed.
+- Cloud desk wakes in parallel: the pass sends them one after another, so a slow wake service (up to
+  its 10-second timeout) can delay other people's wakes; consider a small cap on concurrent wakes.
 
 ## Clients
 
@@ -388,10 +405,22 @@ Still to come:
 - Languages beyond English and Korean.
 - The background service tested where it is still untested: the Run key entry and the runner's own
   supervision on a real Windows machine, and the systemd unit under a real user manager.
-- Agent presets verified with the real agents: Codex CLI, Antigravity CLI and Gemini CLI are listed as
-  "not yet tested with the real CLI" until run here. Codex's reader keeps minimal tools, and Antigravity and Gemini
-  have no reader preset for split mode yet. When the agent supports MCP, the run
-  attaches this Homingbird MCP server (member routes only) so the agent can find people and channels.
+- Agent presets verified with the real agents. Built: version checks with a minimum version per preset,
+  Claude Code without the person's hooks and with `--permission-prompts none`, its reader past a managed
+  MCP configuration, a Codex reader with every listed MCP server switched off, Antigravity in its stream
+  format with a reader and a sign-in check, and `run --attach-mcp`. Checked here only against Claude
+  Code 2.1.329's `--help`; still to do: run Codex CLI, Antigravity CLI and Gemini CLI with each preset
+  (agent, reader, `--attach-mcp`), check the wording of Claude Code's managed-configuration refusal,
+  whether Codex reads `-c mcp_servers."name".enabled=false` and takes `--ignore-user-config` before
+  `mcp list`, and whether `--ignore-user-config` alone already leaves the person's MCP servers out (then
+  drop the probe and the switches), then mark each preset verified and turn
+  `--attach-mcp` on by default where it worked. Gemini has no reader preset, and its exit codes are
+  shown as numbers until their meaning is checked. Codex's `--ask-for-approval never` is not added until
+  its `--help` shows it.
+- `--attach-mcp` for the background service, and an MCP attach for Antigravity once its settings name
+  a way to add a server for one run.
+- Reading Claude Code's stream-json output, to report the tools it denied (`permission_denials`, by
+  name only) as the reason a draft is partial.
 - Managed settings shipped with the organization's skills as a third way to roll out, next to MDM and
   onboarding scripts.
 - `homingbird wait`: send a note and wait for its reply in one command, with an explicit timeout

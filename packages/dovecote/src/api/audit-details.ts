@@ -24,6 +24,7 @@ import { type Caller, viewerOf } from '../environment.ts'
 import type { RequestEnv } from '../events/events.ts'
 import { all } from '../sql/database.ts'
 import { sql } from '../sql/query.ts'
+import { deskWakeHostOf } from '../wake/desk-wakes.ts'
 
 /**
  * What each audited route records, from its request and response only: which thing it is about and the
@@ -40,6 +41,12 @@ export const AUDIT_DETAILS: { readonly [N in AuditedRoute]: Describe<N> } = {
   'me.character.clear': (_, caller) => afterwards(() => ({ targetId: caller.member.id, detail: {} })),
   'me.notifications.set': ({ body }, caller) =>
     afterwards(() => ({ targetId: caller.member.id, detail: { notifications: body.notifications } })),
+  'me.deskWake.set': (_, caller) =>
+    afterwards((wake) => ({ targetId: caller.member.id, detail: { host: wake.host } })),
+  'me.deskWake.remove': (_, caller) =>
+    T.map((host: string) => () => ({ targetId: caller.member.id, detail: { host } }))(
+      deskWakeHostOf(caller.member.id),
+    ),
   'conversations.mute': ({ params }) => afterwards(() => ({ targetId: params.id, detail: { muted: true } })),
   'conversations.unmute': ({ params }) =>
     afterwards(() => ({ targetId: params.id, detail: { muted: false } })),

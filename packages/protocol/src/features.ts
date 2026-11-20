@@ -76,6 +76,10 @@ export const FEATURES = {
       'reviews.get',
     ],
   },
+  cloudDesk: {
+    default: false,
+    routes: ['me.deskWake.get', 'me.deskWake.set', 'me.deskWake.test'],
+  },
   analytics: { default: false, routes: ['analytics.track'] },
 } as const satisfies Readonly<
   Record<string, { readonly default: boolean; readonly routes: ReadonlyArray<RouteName> }>

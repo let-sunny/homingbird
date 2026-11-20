@@ -2,7 +2,7 @@ import { Task as T } from '@homingbird/kernel'
 import type { ServerInfo } from '@homingbird/protocol'
 import { ANALYTICS_AGENT_PRESETS } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
-import { AGENT_PRESETS } from '../src/agent-presets.ts'
+import { AGENT_PRESETS, agentCommand } from '../src/agent-presets.ts'
 import { ANALYTICS_NOTICE, countUsage, isDoNotTrack, presetLabel, setAnalytics } from '../src/analytics.ts'
 import { fakeApi, world } from './support.ts'
 
@@ -86,7 +86,9 @@ describe('anonymous usage counts from the command line', () => {
   })
 
   it('name a desk’s agent by its preset only, never by its command', () => {
-    expect(presetLabel('claude -p')).toBe('claude')
+    expect(presetLabel(agentCommand('claude', 'linux'))).toBe('claude')
+    expect(presetLabel(agentCommand('claude', 'win32'))).toBe('claude')
+    expect(presetLabel('claude -p')).toBe('custom')
     expect(presetLabel('codex')).toBe('codex')
     expect(presetLabel('/home/june/bin/my-agent --secret x')).toBe('custom')
   })

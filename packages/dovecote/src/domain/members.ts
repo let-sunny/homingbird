@@ -20,6 +20,7 @@ import type { AppEnv, Caller } from '../environment.ts'
 import type { RequestEnv } from '../events/events.ts'
 import { all, first, run } from '../sql/database.ts'
 import { containsIgnoringCase, insertInto, list, sql } from '../sql/query.ts'
+import { forgetDeskWake } from '../wake/desk-wakes.ts'
 import { agentIntroductionsOf } from './agent-introductions.ts'
 import { channelsHelpedBy, helpersOfChannelSeenBy } from './channels.ts'
 import { type Ties, tiesOf } from './contacts.ts'
@@ -172,7 +173,7 @@ export const chosenLocaleOf = (id: MemberId): T.Task<Locale | null, never, AppEn
 
 /**
  * Deactivating a member revokes their credentials, refuses a sign-in they approved and no program has
- * finished yet, and takes them out of every group at once.
+ * finished yet, takes them out of every group and deletes their cloud desk wake at once.
  */
 export const administerMember = (
   actor: Caller,
@@ -197,6 +198,7 @@ export const administerMember = (
         sql`UPDATE auth_requests SET status = 'denied' WHERE member_id = ${id} AND status = 'approved'`,
       )
       if (before.status !== 'deactivated') yield* removeFromEveryGroup(actor, id)
+      yield* forgetDeskWake(actor, id)
     }
     return yield* memberById(id)
   })
