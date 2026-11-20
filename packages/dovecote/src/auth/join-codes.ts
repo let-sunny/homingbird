@@ -47,7 +47,12 @@ export const createJoinCode = (
       lifetimeMs: JOIN_CODE_LIFETIME_SECONDS * 1000,
       detail: { createdBy: caller.member.id },
     })
-    return { code, serverUrl: env.config.publicUrl, expiresAt: opened.expiresAt }
+    return {
+      code,
+      serverUrl: env.config.publicUrl,
+      expiresAt: opened.expiresAt,
+      expiresInSeconds: JOIN_CODE_LIFETIME_SECONDS,
+    }
   })
 
 /** Exchanges a join code once for its agent credential; every refusal reads the same. */

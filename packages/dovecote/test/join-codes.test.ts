@@ -23,6 +23,7 @@ describe('join codes', () => {
       code: expect.stringMatching(/^hbj_[A-Za-z0-9_-]{43}$/),
       serverUrl: 'http://localhost:8080',
       expiresAt: server.clock.now() + 600_000,
+      expiresInSeconds: 600,
     })
     const code: string = created.json.code
     expect(await everyStoredValue(server)).not.toContain(code.slice(4))
@@ -139,5 +140,61 @@ describe('join codes', () => {
     expect((await redeem('hbj_guess')).status).toBe(429)
     await server.clock.advance(600_000)
     expect((await redeem('hbj_guess')).status).toBe(400)
+  })
+
+  it('refuse a channel’s code once the channel is archived, or channel agents are switched off', async () => {
+    const started = await startWithChannel()
+    server = started.server
+    const { root, ana } = started
+    await startAgent(server, ana)
+    const forArchived = (await ana.api('POST', '/join-codes', { channel: CHANNEL })).json.code
+    const forSwitchedOff = (await ana.api('POST', '/join-codes', { channel: CHANNEL })).json.code
+    const settings = (await root.api('GET', '/admin/settings')).json
+    await root.api('PUT', '/admin/settings', {
+      ...settings,
+      features: { ...settings.features, channelAgents: false },
+    })
+    expect((await redeem(forSwitchedOff)).json).toEqual(refused)
+    await root.api('PUT', '/admin/settings', {
+      ...settings,
+      features: { ...settings.features, channelAgents: true },
+    })
+    expect((await root.api('POST', `/admin/channels/${CHANNEL}/archive`, {})).status).toBe(200)
+    expect((await redeem(forArchived)).json).toEqual(refused)
+  })
+
+  it('issue one credential when the same code is redeemed twice at once', async () => {
+    server = await startTestServer()
+    const ana = await server.signIn('ana@example.com', 'Ana')
+    const { code } = (await ana.api('POST', '/join-codes', {})).json
+    const answers = await Promise.all([redeem(code), redeem(code)])
+    expect(answers.map((answer) => answer.status).sort()).toEqual([200, 400])
+    const agents = (await ana.api('GET', '/credentials')).json.credentials.filter(
+      (credential: { kind: string }) => credential.kind === 'agent',
+    )
+    expect(agents).toHaveLength(1)
+  })
+
+  it('issue an agent credential that cannot approve', async () => {
+    server = await startTestServer()
+    const ana = await server.signIn('ana@example.com', 'Ana')
+    const ben = await server.signIn('ben@example.com', 'Ben')
+    const { code } = (await ana.api('POST', '/join-codes', {})).json
+    const token: string = (await redeem(code)).json.access_token
+    const asAgent = (method: string, path: string, body?: unknown) =>
+      server.request(method, `/api/v1${path}`, { token, ...(body !== undefined && { body }) })
+    const draft = (await asAgent('POST', '/drafts', { to: [ben.me.member.id], body: 'Is the export done?' }))
+      .json
+    const sent = await asAgent('POST', `/drafts/${draft.id}/send`, {
+      expected: { body: draft.body, conversationId: draft.conversationId },
+    })
+    expect(sent.status).toBe(403)
+  })
+
+  it('refuse an administrator outside a channel’s managing group a code for its agent', async () => {
+    const started = await startWithChannel()
+    server = started.server
+    await startAgent(server, started.ana)
+    expect((await started.root.api('POST', '/join-codes', { channel: CHANNEL })).status).toBe(403)
   })
 })

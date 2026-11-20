@@ -42,6 +42,8 @@ export const JoinCode = S.struct({
   code: S.string(),
   serverUrl: S.string(),
   expiresAt: S.int({ min: 0 }),
+  /** How long it still works, so a client counts down from its own clock, not the server's. */
+  expiresInSeconds: S.optional(S.int({ min: 0 })),
 })
 export type JoinCode = S.Infer<typeof JoinCode>
 
