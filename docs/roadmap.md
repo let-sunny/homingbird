@@ -319,7 +319,8 @@ Experimental, behind a feature switch that is off by default.
 ## Insights
 
 The first part is built: **My agent** for each person (a page in the header, per channel)
-and organization-wide **Insights** for administrators, with groups under 5 people hidden
+and organization-wide **Insights** for administrators, with groups under `HB_INSIGHTS_MINIMUM_GROUP`
+people hidden (1 by default, so none)
 ([guide](guide.md#see-how-far-you-can-trust-your-agent), [deployment](deployment.md#insights)).
 **Built:** **Your week** at the top of How it is doing (notes sent, replies received, typical reply
 time); for administrators, organization-wide, the typical decision time, who wrote what was sent
@@ -343,7 +344,7 @@ their notes, and channel agents' totals for administrators. Still to come:
   per membership, written at every change and at deactivation); teams too small are left out with a
   count, never merged into an "others" row, and a team's medians need its cells to pass too.
 - **Privacy, binding for all of it:** numbers only, never note content. An administrator sees team
-  totals, never one person's approval figures. Groups under 5 people are hidden. Blocks are a count,
+  totals, never one person's approval figures. Groups under the configured minimum are hidden. Blocks are a count,
   never who blocked whom.
 
 ## Operations

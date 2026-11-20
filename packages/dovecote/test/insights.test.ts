@@ -19,7 +19,7 @@ let ben: Session
 let anaAgent: Agent
 
 beforeEach(async () => {
-  server = await startTestServer()
+  server = await startTestServer({ HB_INSIGHTS_MINIMUM_GROUP: '5' })
   ana = await server.signIn('ana@example.com', 'Ana')
   ben = await server.signIn('ben@example.com', 'Ben')
   anaAgent = await connectAgent(server, ana, { name: 'Ana agent' })
@@ -201,6 +201,36 @@ describe('your week', () => {
   it('leaves out drafts that were not sent', async () => {
     await ana.api('POST', '/drafts', { to: [ben.me.member.id], body: 'Not yet' })
     expect((await ana.api('GET', '/insights/me')).json.week.current.notesSent).toBe(0)
+  })
+})
+
+describe('admin.insights by default', () => {
+  it('shows the numbers of a two-person organization and channel, with no member id or name', async () => {
+    const small = await startTestServer()
+    try {
+      const first = await small.signIn('ana@example.com', 'Ana')
+      const second = await small.signIn('ben@example.com', 'Ben')
+      await first.api('POST', '/channels', { slug: 'pair', description: 'Two people' })
+      await second.api('PUT', '/channels/pair/membership', {})
+      for (const person of [first, second]) {
+        const draft = (await person.api('POST', '/drafts', { channel: 'pair', body: 'Hello' })).json
+        await person.api('POST', `/drafts/${draft.id}/send`, await asShown(person, draft.id))
+      }
+      const insights = (await first.api('GET', '/admin/insights')).json
+      expect(insights.minimumGroupSize).toBe(1)
+      expect(insights.blocks).toBe(0)
+      const current = insights.periods[0].current
+      expect(current).toMatchObject({ activeMembers: 2, notesSent: 2, hiddenPlaces: 0 })
+      expect(current.places.map((place: { place: string | null }) => place.place)).toEqual(['pair'])
+      const written = JSON.stringify(insights)
+      for (const person of [first, second]) {
+        expect(written).not.toContain(person.me.member.id)
+        expect(written).not.toContain(person.me.member.name)
+      }
+      expect(written).not.toContain('Hello')
+    } finally {
+      await small.close()
+    }
   })
 })
 

@@ -173,6 +173,31 @@ describe('placesShown', () => {
     expect(shown).toEqual({ shown: ['billing', null], hidden: ['payroll', 'security'] })
   })
 
+  it('hides nothing at a minimum of 1, not even beside a group nobody is known in', () => {
+    fc.assert(
+      fc.property(
+        fc.array(
+          fc.record({
+            place: fc.option(fc.string({ minLength: 1, maxLength: 3 })),
+            people: fc
+              .uniqueArray(fc.constantFrom(...people(6)), { maxLength: 4 })
+              .map((each) => new Set(each)),
+          }),
+          { maxLength: 6 },
+        ),
+        (all) => {
+          const { shown, hidden } = placesShown(all, 1)
+          expect(hidden).toEqual([])
+          expect(shown).toEqual(all.map((each) => each.place))
+        },
+      ),
+    )
+    expect(teamsShown([member('one', 'solo'), member('two', 'solo', 'pair')], 1)).toEqual({
+      shown: ['solo', 'pair'],
+      hidden: [],
+    })
+  })
+
   it('hides one more group for a hidden group nobody is known in, since the remainder still gives its count', () => {
     const shown = placesShown(
       [group('billing', people(9, 'b')), group('deploys', people(6, 'd')), group('gone', [])],

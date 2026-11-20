@@ -239,8 +239,10 @@ describe('channels.agent.figures', () => {
     await server.close()
   })
 
-  const start = async () => {
-    ;({ server, root, ana, ben, cy } = await startWithChannel())
+  const FIVE = { HB_INSIGHTS_MINIMUM_GROUP: '5' }
+
+  const start = async (overrides: Readonly<Record<string, string>> = {}) => {
+    ;({ server, root, ana, ben, cy } = await startWithChannel(overrides))
     agent = await startAgent(server, ana)
   }
 
@@ -255,7 +257,7 @@ describe('channels.agent.figures', () => {
   const figures = (person: Session | Agent) => person.api('GET', `/channels/${CHANNEL}/agent/figures`)
 
   it('shows the channel’s managers how its agent is doing, with no one’s count while they are fewer than the minimum', async () => {
-    await start()
+    await start(FIVE)
     await addManagers(ben)
     const first = await askAndDraft(cy, agent, 'One?', 'One.')
     await server.clock.advance(1_000)
@@ -279,6 +281,25 @@ describe('channels.agent.figures', () => {
     expect(report.periods[0].current.approvals).toBeNull()
     expect(report.minimumGroupSize).toBe(5)
     expect((await figures(ben)).status).toBe(200)
+  })
+
+  it('shows each manager’s count and the administrators’ totals for a single manager by default', async () => {
+    await start()
+    const { draft } = await askAndDraft(cy, agent)
+    await ana.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })
+    const report = (await figures(ana)).json
+    expect(report.minimumGroupSize).toBe(1)
+    expect(report.periods[0].current.approvals).toEqual([
+      { memberId: ana.me.member.id, name: 'Ana', approved: 1 },
+    ])
+    const organization = (await root.api('GET', '/admin/insights')).json.periods[0].current
+    expect(organization.channelAgents).toEqual({
+      written: 1,
+      sentAsWritten: 1,
+      sentAfterEdits: 0,
+      discarded: 0,
+    })
+    expect(JSON.stringify(organization)).not.toContain(ana.me.member.id)
   })
 
   it('answers as for nothing to a member who does not manage the channel and to an administrator outside its group', async () => {
@@ -325,7 +346,7 @@ describe('channels.agent.figures', () => {
 
   it('gives administrators every channel agent’s answers together, never those of a private channel they are not in', async () => {
     const managers = await (async () => {
-      await start()
+      await start(FIVE)
       const more: Session[] = []
       for (const name of ['Dee', 'Eve', 'Fay', 'Gus'])
         more.push(await server.signIn(`${name.toLowerCase()}@example.com`, name))

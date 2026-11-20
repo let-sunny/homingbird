@@ -81,9 +81,6 @@ export const loadConfig = (
         (host) =>
           `HB_OAUTH_CLIENT_METADATA_HOSTS: "${host}" must be a public host name, not an address or loopback`,
       ),
-    v.HB_INSIGHTS_MINIMUM_GROUP !== undefined && Number(v.HB_INSIGHTS_MINIMUM_GROUP) < SMALLEST_GROUP_SHOWN
-      ? `HB_INSIGHTS_MINIMUM_GROUP: must be at least ${SMALLEST_GROUP_SHOWN}; smaller groups would show one person's figures`
-      : null,
     ...features.unknown.map(
       (item) => `HB_FEATURES: "${item}" is not a feature switch; write name=on or name=off with a known name`,
     ),
@@ -128,7 +125,7 @@ export const loadConfig = (
     agentCredentialDays: Number(v.HB_AGENT_CREDENTIAL_DAYS ?? '90'),
     insights: {
       quickApprovalSeconds: Number(v.HB_QUICK_APPROVAL_SECONDS ?? '3'),
-      minimumGroupSize: Number(v.HB_INSIGHTS_MINIMUM_GROUP ?? String(SMALLEST_GROUP_SHOWN)),
+      minimumGroupSize: Number(v.HB_INSIGHTS_MINIMUM_GROUP ?? String(DEFAULT_MINIMUM_GROUP)),
     },
     oauth: { redirectHosts, clientMetadataHosts, clients: clients.value },
   })
@@ -147,7 +144,7 @@ const CHANNEL_LIST =
 
 const positiveInteger = S.string({ pattern: /^[1-9][0-9]{0,5}$/ })
 
-const SMALLEST_GROUP_SHOWN = 5
+const DEFAULT_MINIMUM_GROUP = 1
 
 const Variables = S.struct({
   HB_PUBLIC_URL: S.string({ pattern: /^https?:\/\/[^\s/]+(\/.*)?$/ }),

@@ -32,7 +32,7 @@ describe('the configuration', () => {
       agentCredentialDays: 90,
       auditRetentionDays: 400,
       analytics: { kind: 'off' },
-      insights: { quickApprovalSeconds: 3, minimumGroupSize: 5 },
+      insights: { quickApprovalSeconds: 3, minimumGroupSize: 1 },
       trustedProxies: 0,
     })
     expect(config.oauth.redirectHosts.length).toBeGreaterThan(0)
@@ -63,9 +63,17 @@ describe('the configuration', () => {
     })
   })
 
-  it('refuses settings that would show one person’s figures', () => {
-    const problems = problemsOf({ ...PRODUCTION, HB_INSIGHTS_MINIMUM_GROUP: '2' })
-    expect(problems.some((problem) => problem.startsWith('HB_INSIGHTS_MINIMUM_GROUP'))).toBe(true)
+  it('shows every group by default, takes any minimum from 1, refuses 0, and reads a blank as unset', () => {
+    expect(loaded(PRODUCTION).insights.minimumGroupSize).toBe(1)
+    expect(loaded({ ...PRODUCTION, HB_INSIGHTS_MINIMUM_GROUP: '1' }).insights.minimumGroupSize).toBe(1)
+    expect(loaded({ ...PRODUCTION, HB_INSIGHTS_MINIMUM_GROUP: '2' }).insights.minimumGroupSize).toBe(2)
+    for (const refused of ['0', '-1', 'five'])
+      expect(
+        problemsOf({ ...PRODUCTION, HB_INSIGHTS_MINIMUM_GROUP: refused }).some((problem) =>
+          problem.includes('HB_INSIGHTS_MINIMUM_GROUP'),
+        ),
+      ).toBe(true)
+    expect(loaded({ ...PRODUCTION, HB_INSIGHTS_MINIMUM_GROUP: '' }).insights.minimumGroupSize).toBe(1)
   })
 
   it('keeps the audit trail for the 90-day minimum when HB_AUDIT_RETENTION_DAYS asks for less', () => {

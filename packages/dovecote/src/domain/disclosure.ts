@@ -24,6 +24,7 @@ export const placesShown = (
   groups: ReadonlyArray<{ readonly place: PlaceName; readonly people: ReadonlySet<string> }>,
   minimum: number,
 ): { readonly shown: PlaceName[]; readonly hidden: PlaceName[] } => {
+  if (minimum <= 1) return { shown: groups.map((group) => group.place), hidden: [] }
   const large = groups.filter((group) => group.people.size >= minimum)
   const hidden = groups.filter((group) => group.people.size < minimum)
   const shown = [...large].sort((a, b) => b.people.size - a.people.size || byPlace(a.place, b.place))

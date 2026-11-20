@@ -886,6 +886,8 @@ export const ko: Translation<typeof en> = {
       '사람들이 Homingbird를 쓰는지, 승인이 형식이 되어 가지는 않는지 보여 줘요. 숫자만 보여 주고, 노트 내용이나 한 사람의 숫자는 보여 주지 않아요.',
     noTeams: '팀이 없으니 조직 전체 숫자만 보여 줘요.',
     privacy: '{minimum}명보다 적은 그룹은 빼요. 차단은 수만 세요.',
+    privacyAll:
+      '작은 그룹도 모두 보여 줘요. 관리자는 HB_INSIGHTS_MINIMUM_GROUP으로 작은 그룹을 숨길 수 있어요. 차단은 수만 세요.',
     tooFew: '이 기간에 노트를 보낸 사람이 {minimum}명보다 적어서 숫자를 보여 주지 않아요.',
     caption: '최근 {days}일 동안의 조직과 그 전 {days}일',
     rows: {

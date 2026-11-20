@@ -498,7 +498,8 @@ and totals per channel. When at least 25% of the drafts sent as written were qui
 the last two weeks, each with at least 10 such drafts, Insights show a warning that approving may be
 becoming a formality. Insights hold numbers only, never note content and never one person's figures:
 
-- A period in which fewer than `HB_INSIGHTS_MINIMUM_GROUP` people (5 by default) sent notes shows no
+- With the default `HB_INSIGHTS_MINIMUM_GROUP` of 1, nothing is hidden. Raised, it hides as follows.
+- A period in which fewer than `HB_INSIGHTS_MINIMUM_GROUP` people sent notes shows no
   numbers at all, and the block count is shown only as a number, and only once the organization has
   that many members.
 - A channel, or direct messages together, appears on its own only when at least that many people
@@ -520,8 +521,9 @@ times, not verdicts:
 
 - `HB_QUICK_APPROVAL_SECONDS` (default `3`): a draft sent as written within this many seconds of first
   appearing on its person's screen counts as a quick approval.
-- `HB_INSIGHTS_MINIMUM_GROUP` (default `5`): the smallest group whose numbers are shown. It can be
-  raised, never set below 5.
+- `HB_INSIGHTS_MINIMUM_GROUP` (default `1`): the smallest group whose numbers are shown. The default
+  shows every group, since Insights measure how agents are doing; raise it, for example to `5`, to hide
+  smaller groups and anything that would let the shown totals give one away.
 
 The figures are computed when the page is opened, from the last 60 days of notes, decisions and skips.
 Teams are not built yet, so only organization-wide numbers are shown.
@@ -1016,7 +1018,7 @@ Every variable Dovecote reads. Blank values count as unset.
 | `HB_AGENT_CREDENTIAL_DAYS` | `90` | Days an agent credential lasts |
 | `HB_FEATURES` | all on | Starting feature switches, `name=on` or `name=off`, comma-separated ([Features](#features)). A starting value, like `HB_ALLOWED_DOMAINS` |
 | `HB_QUICK_APPROVAL_SECONDS` | `3` | A draft sent as written within this many seconds of appearing counts as a quick approval ([Insights](#insights)) |
-| `HB_INSIGHTS_MINIMUM_GROUP` | `5` | The smallest group whose numbers Insights shows; at least 5 ([Insights](#insights)) |
+| `HB_INSIGHTS_MINIMUM_GROUP` | `1` | The smallest group whose numbers Insights shows; 1 hides nothing ([Insights](#insights)) |
 | `HB_TRUST_PROXY` | `0` | Number of proxies in front that append to `X-Forwarded-For`; see [above](#behind-a-load-balancer) |
 | `HB_LOGS` | `audit=full,operational=info,requests=off,auditCopy=off` | What is recorded ([Logs](#logs)). The operator's only |
 | `HB_AUDIT_RETENTION_DAYS` | `400` | Days to keep audit rows, at least 90 |

@@ -54,7 +54,7 @@ describe('configuration', () => {
         trustedProxies: 0,
         sessionDays: 30,
         agentCredentialDays: 90,
-        insights: { quickApprovalSeconds: 3, minimumGroupSize: 5 },
+        insights: { quickApprovalSeconds: 3, minimumGroupSize: 1 },
         logs: { audit: 'full', operational: 'info', requests: false, auditCopy: false },
         auditRetentionDays: 400,
         auditRetentionVariableDays: null,
@@ -189,7 +189,7 @@ describe('configuration', () => {
     [{ ...minimal, HB_TRUST_PROXY: '-1' }, /HB_TRUST_PROXY/],
     [{ ...minimal, HB_TRUST_PROXY: '10' }, /HB_TRUST_PROXY/],
     [{ ...minimal, HB_QUICK_APPROVAL_SECONDS: '0' }, /HB_QUICK_APPROVAL_SECONDS/],
-    [{ ...minimal, HB_INSIGHTS_MINIMUM_GROUP: '4' }, /HB_INSIGHTS_MINIMUM_GROUP: must be at least 5/],
+    [{ ...minimal, HB_INSIGHTS_MINIMUM_GROUP: '0' }, /HB_INSIGHTS_MINIMUM_GROUP/],
     [{ HB_PUBLIC_URL: 'https://hb.example.com', HB_DEV_LOGIN: '1' }, /loopback/],
     [
       { ...minimal, HB_OAUTH_REDIRECT_HOSTS: 'https://claude.ai' },

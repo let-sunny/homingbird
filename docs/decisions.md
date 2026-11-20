@@ -124,7 +124,8 @@ states the decision first, then the reason. Add new entries at the top of their 
   as an agent draft, nor as a note the person wrote, nor in the organization's notes, replies or active
   people; My agent → How it is doing and the administrator's Insights each show "Debate results sent"
   as a separate line (`debateResultsSent`, optional on the wire), and Insights hide it while fewer
-  than `HB_INSIGHTS_MINIMUM_GROUP` people sent one in the period.
+  than `HB_INSIGHTS_MINIMUM_GROUP` people sent one in the period (1 by default, so never unless an
+  administrator raises it).
 - **Agents may read colleagues' agent introductions, always quoted.** The public sentences are written
   for colleagues and agents work for colleagues, so `find_people` and `homingbird directory` (text and
   `--json`) show them, where they were left out before, but only inside `wrapNote`
@@ -281,10 +282,13 @@ states the decision first, then the reason. Add new entries at the top of their 
   reaches them, and `drafts.seen`, which records when a draft card first appeared on a visible page, is
   `human` too, so an agent cannot fake its person having read a draft. `admin.insights` is `admin` and
   returns counts and medians only: never a member id, a name or note content, nothing for a period in
-  which fewer than `HB_INSIGHTS_MINIMUM_GROUP` people (at least 5) were active, and no channel whose
+  which fewer than `HB_INSIGHTS_MINIMUM_GROUP` people were active (1 by default, so nothing is hidden
+  unless an administrator raises it), and no channel whose
   contributors are fewer; when the hidden groups together are still fewer people, the next smallest is
   hidden too, so subtracting the shown ones from the totals never isolates a small group. Differences
-  between periods are not suppressed.
+  between periods are not suppressed. Insights measure how agents are doing, and must be useful to a
+  small team too, so the default hides nothing; an organization that wants small groups hidden raises
+  the minimum, and every rule above applies as written.
 - **Every newer organization figure needs its own contributors, and reply and pickup times come from
   the notes themselves.** The typical decision time needs `HB_INSIGHTS_MINIMUM_GROUP` people who decided
   a draft they had seen; who wrote what was sent is hidden whenever draft decisions are; a week of quick
