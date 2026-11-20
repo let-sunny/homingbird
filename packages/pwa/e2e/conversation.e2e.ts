@@ -90,7 +90,7 @@ const scenario = async (): Promise<void> => {
     assert.equal(
       await ana.page
         .locator('.person', { hasText: 'nia@example.com' })
-        .getByRole('button', { name: 'Message' })
+        .getByRole('button', { name: 'Message', exact: true })
         .count(),
       0,
     )
@@ -124,7 +124,7 @@ const scenario = async (): Promise<void> => {
     // -- A conversation --------------------------------------------------------------------------
     await ana.page
       .locator('.person', { hasText: 'june@example.com' })
-      .getByRole('button', { name: 'Message' })
+      .getByRole('button', { name: 'Message', exact: true })
       .click()
     await ana.page.waitForSelector('.composer textarea')
     await capture(ana.page, 'starting-a-conversation')

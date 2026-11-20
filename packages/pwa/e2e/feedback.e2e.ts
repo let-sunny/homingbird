@@ -228,13 +228,15 @@ const scenario = async (): Promise<void> => {
     await ownRow.locator('.is-you:has-text("(you)")').waitFor()
     assert.equal(await ownRow.getByRole('button', { name: 'Remove' }).count(), 0)
     await ownRow
-      .locator('.disabled-control:has-text("Leave the group before you leave the channel")')
+      .locator('.disabled-control:has-text("Remove yourself as a manager before you leave it")')
       .waitFor()
     assert.equal(await ownRow.locator('button.leave-own').isDisabled(), true)
     await ben.page.waitForSelector('dialog[open] .managed-by:has-text("Managed by")')
     await inThemes(ben.page, 'a-manager-leaves-the-group-before-the-channel', false)
     await ben.page.keyboard.press('Escape')
-    await ben.page.waitForSelector('.room-actions .disabled-control:has-text("Leave the group before")')
+    await ben.page.waitForSelector(
+      '.room-actions .disabled-control:has-text("Remove yourself as a manager before")',
+    )
     assert.equal(await ben.page.locator('.room-actions button.leave-channel').isDisabled(), true)
     await api(ben, 'PUT', `/channels/billing/members/${ids.June}`).catch(() => undefined)
     await api(june, 'PUT', '/channels/billing/membership', {})
@@ -394,15 +396,39 @@ const scenario = async (): Promise<void> => {
       'details.have-a-code:not([open]) summary:has-text("a connection code instead of a link")',
     )
     await ben.page.waitForSelector('.not-set-up:has-text("Ask your administrator")')
-    for (const name of ['Claude', 'MCP', 'command line', 'connector'])
-      assert.equal(await ben.page.locator(`.stage :text("${name}")`).count(), 0, `no ${name} on the page`)
+    // The page names no tool and shows no command, except the line to run on a server, which
+    // appears only after the person asks for it.
+    await ben.page.waitForSelector('.join-code .join-code-create')
+    assert.equal(await ben.page.locator('.join-command').count(), 0, 'no server line before asking')
+    const outsideJoinCode = (text: string) =>
+      ben.page.evaluate(
+        (needle: string) =>
+          [...(globalThis as any).document.querySelectorAll('.stage *')].filter(
+            (element: any) =>
+              element.closest('.join-code') === null &&
+              [...element.childNodes].some(
+                (node: any) => node.nodeType === 3 && String(node.textContent).includes(needle),
+              ),
+          ).length,
+        text,
+      )
+    for (const name of [
+      'Claude',
+      'MCP',
+      'command line',
+      'connector',
+      'npx',
+      'npm',
+      '@homingbird/',
+      '/plugin',
+      base,
+    ])
+      assert.equal(await outsideJoinCode(name), 0, `no ${name} on the page`)
     assert.equal(
       await ben.page.locator('.stage pre, .stage code, .stage button.copy').count(),
       0,
       'the page shows no installation commands',
     )
-    for (const word of ['npx', 'npm', '@homingbird/', '/plugin', base])
-      assert.equal(await ben.page.locator(`.stage :text("${word}")`).count(), 0, `no ${word} on the page`)
     await inThemes(ben.page, 'connect-an-agent-page')
     const device = (await (
       await fetch(`${base}/oauth/device_authorization`, {

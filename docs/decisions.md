@@ -305,7 +305,9 @@ states the decision first, then the reason. Add new entries at the top of their 
   hidden too, so subtracting the shown ones from the totals never isolates a small group. Differences
   between periods are not suppressed. Insights measure how agents are doing, and must be useful to a
   small team too, so the default hides nothing; an organization that wants small groups hidden raises
-  the minimum, and every rule above applies as written.
+  the minimum, and every rule above applies as written. Program and model labels are the exception:
+  they are free text a person can set, such as a device name, so a label shows only once at least two
+  people used it, whatever the minimum.
 - **Every newer organization figure needs its own contributors, and reply and pickup times come from
   the notes themselves.** The typical decision time needs `HB_INSIGHTS_MINIMUM_GROUP` people who decided
   a draft they had seen; who wrote what was sent is hidden whenever draft decisions are; a week of quick

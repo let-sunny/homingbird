@@ -167,7 +167,7 @@ const scenario = async (): Promise<void> => {
     ])
     const exported = await readFile(await download.path(), 'utf8')
     assert.match(exported, /^# Debate room: Should we ship the billing migration this week\?/)
-    assert.match(exported, /Ana’s agent \(Ana laptop\)/)
+    assert.match(exported, /Ana’s agent \(Ana laptop; model: not stated\)/)
     assert.equal(exported.includes(ids.ana), false, 'the export names people, not ids')
     const [json] = await Promise.all([
       ana.page.waitForEvent('download'),

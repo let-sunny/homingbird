@@ -257,7 +257,7 @@ const scenario = async (): Promise<void> => {
     )
     const adminText = await ana.page.locator('.insights').innerText()
     for (const name of ['Ana', 'Ben', 'Cy', 'Dee', 'Eve', 'Fay', 'invoice', 'payslip'])
-      assert.equal(adminText.includes(name), false, `the admin view shows ${name}`)
+      assert.equal(new RegExp(`\\b${name}\\b`).test(adminText), false, `the admin view shows ${name}`)
     await capture(ana.page, 'admin-insights-wide-light')
     await ana.page.emulateMedia({ colorScheme: 'dark' })
     await capture(ana.page, 'admin-insights-wide-dark')
