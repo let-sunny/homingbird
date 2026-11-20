@@ -1,4 +1,5 @@
-import { fire, getByRole, textOf } from '@homingbird/ui/testing'
+import { DRAFT_CHANGED } from '@homingbird/protocol'
+import { fire, getByRole, queryByRole, textOf } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
 import { draftsItemModel } from '../../src/models/drafts-item.ts'
 import { strings } from '../../src/strings.ts'
@@ -40,10 +41,7 @@ describe('renderDraftsItem', () => {
     fire.submit(dialog.querySelector('form')!)
     called('approveDraft')[2]!.then!.failed!({ _tag: 'Unavailable', message: 'down' })
     expect(dialog.open).toBe(true)
-    called('approveDraft')[2]!.then!.failed!({
-      _tag: 'Conflict',
-      message: 'This draft changed; read it again.',
-    })
+    called('approveDraft')[2]!.then!.failed!({ _tag: 'Conflict', message: 'This draft was already sent.' })
     expect(dialog.open).toBe(false)
     getByRole(card, 'button', { name: strings.discard }).click()
     expect(called('discardDraft')[0]!.args).toEqual([a])
@@ -103,5 +101,47 @@ describe('renderDraftsItem', () => {
     )
     expect(shown.querySelector('.draft-actions')).toBeNull()
     expect(textOf(shown)).toContain(strings.archivedRoomNotice)
+  })
+})
+
+describe('a draft its agent changed after the person read it', () => {
+  it('offers no Send or Edit until the person has read it again, and lets them discard it', () => {
+    const { context, called } = testContext()
+    const read = new Map([['d1' as never, { body: 'what Ana read', conversationId: ROOM }]])
+    const changed = draft('d1', { body: 'rewritten by the agent' })
+    const shown = mount(
+      renderDraftsItem(context, draftsItemModel(threadInput({ draftsRead: read }), item([changed]))),
+    )
+    expect(textOf(getByRole(shown, 'alert'))).toBe(strings.draftChangedSinceRead)
+    expect(textOf(shown)).toContain('rewritten by the agent')
+    expect(queryByRole(shown, 'button', { name: strings.send })).toBeNull()
+    expect(queryByRole(shown, 'button', { name: strings.edit })).toBeNull()
+    getByRole(shown, 'button', { name: strings.draftReadAgain }).click()
+    expect(called('confirmDraftRead')[0]!.args).toEqual([changed])
+    getByRole(shown, 'button', { name: strings.discard }).click()
+    expect(called('discardDraft')[0]!.args).toEqual([changed])
+  })
+
+  it('keeps the person’s edit when the send is refused, shows the draft as it is now, and sends from that', () => {
+    const { context, called } = testContext()
+    const dialog = mount(dialogHost())
+    const read = draft('d1')
+    const shown = mount(renderDraftsItem(context, draftsItemModel(threadInput(), item([read]))))
+    getByRole(shown, 'button', { name: strings.edit }).click()
+    const text = getByRole(dialog, 'textbox', { name: strings.editDraftLabel }) as HTMLTextAreaElement
+    fire.type(text, 'Ana’s edit')
+    fire.submit(dialog.querySelector('form')!)
+    const now = draft('d1', { body: 'rewritten by the agent' })
+    context.state.threads.set(new Map([[ROOM, { notes: [now], hasMore: false }]]))
+    called('approveDraft')[0]!.then!.failed!({ _tag: 'Conflict', message: DRAFT_CHANGED })
+    expect(dialog.open).toBe(true)
+    expect(text.value).toBe('Ana’s edit')
+    expect(textOf(getByRole(dialog, 'alert'))).toBe(
+      `${strings.draftChangedWhileEditing}rewritten by the agent`,
+    )
+    fire.submit(dialog.querySelector('form')!)
+    expect(called('approveDraft')[1]!.args).toEqual([now, 'Ana’s edit', []])
+    getByRole(dialog, 'button', { name: strings.saveDraft }).click()
+    expect(called('saveDraft')[0]!.args).toEqual([now, 'Ana’s edit'])
   })
 })

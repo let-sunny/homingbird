@@ -935,3 +935,7 @@ changed the draft.
   changes the Rule 1 tests, which needs a maintainer's approval.
 - **The basis and model are not compared.** They describe the draft; the body and the room are what
   is sent and to whom.
+- **The card binds to what was read, not to what is on screen at the tap.** A change arriving on the
+  stream redraws the card, so the web client remembers each draft as it first reached the page
+  (`draftsRead`) and, when the text or room differs, hides Send and Edit until the person confirms
+  they read it again. Their own save or move counts as read; a change from anywhere else does not.

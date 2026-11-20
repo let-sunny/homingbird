@@ -1,6 +1,7 @@
 import { Task as T } from '@homingbird/kernel'
 import {
   Conflict,
+  DRAFT_CHANGED,
   type DraftAsShown,
   Forbidden,
   type MemberId,
@@ -69,10 +70,7 @@ export const discardDraft = (caller: Caller, id: NoteId): T.Task<Note, NoteFailu
 const refusalAfterMissedSend = (id: NoteId): T.Task<NoteFailure, never, RequestEnv> =>
   T.map((row: { status: string } | null) =>
     Conflict({
-      message:
-        row?.status === 'draft'
-          ? 'This draft changed; read it again.'
-          : 'This draft was already sent or discarded.',
+      message: row?.status === 'draft' ? DRAFT_CHANGED : 'This draft was already sent or discarded.',
     }),
   )(first<{ status: string }>(sql`SELECT status FROM notes WHERE id = ${id}`))
 

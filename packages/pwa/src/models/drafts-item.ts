@@ -1,8 +1,10 @@
-import type { AsRead, MemberId } from '@homingbird/protocol'
+import type { AsRead, ConversationId, MemberId, NoteId } from '@homingbird/protocol'
 import { agentNameOf } from '../agent-names.ts'
 import { approvesQuicklyOften, carefulReadingFor } from '../careful-reading.ts'
 import { channelLabel, channelOfRoom } from '../channels.ts'
 import { type DraftBasis, draftBasisOf } from '../draft-basis.ts'
+import { isChangedSinceRead } from '../drafts-read.ts'
+import type { Thread } from '../state.ts'
 import { listOf, strings } from '../strings.ts'
 import {
   type ThreadItem,
@@ -42,6 +44,21 @@ export const draftsItemModel = (
   }
 }
 
+/**
+ * After a send from the editor was refused, the draft as it stands now, for the editor to show beside
+ * the person's edit; null once it was sent or discarded, and the editor has nothing left to send.
+ */
+export const draftChangedWhileEditing = (
+  threads: ReadonlyMap<ConversationId, Thread>,
+  id: NoteId,
+): { readonly notice: string; readonly body: string; readonly draft: AsRead.Note } | null => {
+  for (const thread of threads.values())
+    for (const note of thread.notes)
+      if (note.id === id && note.status === 'draft')
+        return { notice: strings.draftChangedWhileEditing, body: note.body, draft: note }
+  return null
+}
+
 export interface DraftsItemModel {
   readonly avatar: AvatarModel
   readonly heading: string
@@ -62,6 +79,11 @@ export interface DraftCard {
     | { readonly kind: 'people'; readonly text: string }
     | null
   readonly careful: string | null
+  /**
+   * Set when an agent changed the text or the room after the person read the draft: the card says so
+   * and offers no way to send until the person has read it again.
+   */
+  readonly readAgain: { readonly notice: string; readonly confirm: string } | null
   /** Null in an archived room, where nothing is sent. */
   readonly actions: {
     readonly alternatives: ReadonlyArray<AsRead.Note>
@@ -88,6 +110,10 @@ const draftCard = (
     destination: archived || room === undefined ? null : destinationOf(input, draft, room, channel),
     careful:
       !archived && isOn(input, 'agentFigures') && careful !== null ? strings.carefulReading[careful] : null,
+    readAgain:
+      !archived && isChangedSinceRead(input.draftsRead, draft)
+        ? { notice: strings.draftChangedSinceRead, confirm: strings.draftReadAgain }
+        : null,
     actions: archived
       ? null
       : {

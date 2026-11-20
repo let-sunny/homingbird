@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { draftsItemModel } from '../../src/models/drafts-item.ts'
+import { draftChangedWhileEditing, draftsItemModel } from '../../src/models/drafts-item.ts'
 import { strings } from '../../src/strings.ts'
 import {
   ANA,
@@ -44,8 +44,24 @@ describe('draftsItemModel', () => {
       applied: [],
       destination: { kind: 'people', text: strings.sendsTo({ names: 'Ben' }) },
       careful: null,
+      readAgain: null,
       actions: { alternatives: [], changeChannel: null },
     })
+  })
+
+  it('asks the person to read a draft again once its agent changed the text or the room they read', () => {
+    const read = new Map([['d1' as never, { body: 'what Ana read', conversationId: ROOM }]])
+    const changed = draftsItemModel(threadInput({ draftsRead: read }), item([draft('d1')])).cards[0]!
+    expect(changed.readAgain).toEqual({
+      notice: strings.draftChangedSinceRead,
+      confirm: strings.draftReadAgain,
+    })
+    const same = new Map([['d1' as never, { body: 'body of d1', conversationId: ROOM }]])
+    expect(
+      draftsItemModel(threadInput({ draftsRead: same }), item([draft('d1')])).cards[0]!.readAgain,
+    ).toBeNull()
+    const archived = threadInput({ draftsRead: read, conversations: [conversation({ archivedAt: 5 })] })
+    expect(draftsItemModel(archived, item([draft('d1')])).cards[0]!.readAgain).toBeNull()
   })
 
   it('names the Claude Code desk and the runner on their drafts, apart, and without the desk’s host name', () => {
@@ -151,5 +167,22 @@ describe('draftsItemModel', () => {
     expect(
       draftsItemModel(threadInput({ conversations: [] }), item([draft('d1')])).cards[0]!.destination,
     ).toBeNull()
+  })
+})
+
+describe('draftChangedWhileEditing', () => {
+  it('finds the draft as it stands now in any room, and nothing once it was sent', () => {
+    const moved = draft('d1', { body: 'rewritten', conversationId: 'conv_other000000' as never })
+    const threads = new Map([
+      [ROOM, { notes: [note('n1')], hasMore: false }],
+      ['conv_other000000' as never, { notes: [moved], hasMore: false }],
+    ])
+    expect(draftChangedWhileEditing(threads, 'd1' as never)).toEqual({
+      notice: strings.draftChangedWhileEditing,
+      body: 'rewritten',
+      draft: moved,
+    })
+    expect(draftChangedWhileEditing(threads, 'n1' as never)).toBeNull()
+    expect(draftChangedWhileEditing(new Map(), 'd1' as never)).toBeNull()
   })
 })

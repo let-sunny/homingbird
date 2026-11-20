@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   type ApiError,
   Conflict,
+  DRAFT_CHANGED,
   ErrorBody,
   Forbidden,
   HTTP_STATUS,
@@ -22,6 +23,10 @@ const anyError: fc.Arbitrary<ApiError> = fc
   .map(([make, message]) => make({ message }))
 
 describe('api errors', () => {
+  it('words the refusal of a changed draft once, for the server to send and clients to match', () => {
+    expect(DRAFT_CHANGED).toBe('This draft changed; read it again.')
+  })
+
   it('maps each error to its own HTTP status', () => {
     expect(HTTP_STATUS).toEqual({
       Unauthorized: 401,

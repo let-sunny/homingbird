@@ -1,6 +1,6 @@
 import type { AsRead } from '@homingbird/protocol'
 import { type Child, h, linkedText } from '@homingbird/ui'
-import type { DraftCard, DraftsItemModel } from '../models/drafts-item.ts'
+import { type DraftCard, type DraftsItemModel, draftChangedWhileEditing } from '../models/drafts-item.ts'
 import { strings } from '../strings.ts'
 import { readdressForm } from './channel-picker.ts'
 import { renderAvatar } from './character-avatar.ts'
@@ -62,6 +62,16 @@ const draftCard = (context: ViewContext, card: DraftCard): HTMLElement => {
       ),
     card.careful !== null && h('p', { class: 'careful-reading', role: 'note' }, card.careful),
     card.actions !== null &&
+      card.readAgain !== null &&
+      h(
+        'div',
+        { class: 'draft-actions draft-changed' },
+        h('p', { role: 'alert' }, card.readAgain.notice),
+        button(card.readAgain.confirm, () => actions.confirmDraftRead(draft), { class: 'primary' }),
+        button(strings.discard, () => actions.discardDraft(draft, { attempt: 'draft' }), { class: 'danger' }),
+      ),
+    card.actions !== null &&
+      card.readAgain === null &&
       h(
         'div',
         { class: 'draft-actions' },
@@ -129,6 +139,17 @@ const draftEditor = (
     'aria-label': strings.editDraftLabel,
   })
   text.value = draft.body
+  let baseline = draft
+  const changed = h('div', { class: 'draft-changed', role: 'alert' })
+  const showChange = (): void => {
+    const now = draftChangedWhileEditing(context.state.threads.get(), draft.id)
+    if (now === null) {
+      closeDialog(context)
+      return
+    }
+    baseline = now.draft
+    changed.replaceChildren(h('p', {}, now.notice), h('p', { class: 'note-body' }, linkedText(now.body)))
+  }
   return h(
     'form',
     {
@@ -136,23 +157,27 @@ const draftEditor = (
       on: {
         submit: (event) => {
           event.preventDefault()
-          context.actions.approveDraft(draft, text.value, alternatives, {
+          context.actions.approveDraft(baseline, text.value, alternatives, {
             done: () => closeDialog(context),
             failed: (error) => {
-              if (error._tag === 'Conflict') closeDialog(context)
+              if (error._tag === 'Conflict') showChange()
             },
             attempt: 'draft',
           })
         },
       },
     },
+    changed,
     text,
     h(
       'div',
       { class: 'dialog-actions' },
       h('button', { type: 'button', ...closesDialog }, strings.cancel),
       button(strings.saveDraft, () =>
-        context.actions.saveDraft(draft, text.value, { done: () => closeDialog(context), attempt: 'draft' }),
+        context.actions.saveDraft(baseline, text.value, {
+          done: () => closeDialog(context),
+          attempt: 'draft',
+        }),
       ),
       h('button', { type: 'submit', class: 'primary' }, strings.sendEdited),
     ),

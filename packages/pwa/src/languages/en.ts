@@ -365,6 +365,10 @@ export const en = {
   sendsTo: 'Send delivers it to {names}.',
   sendsToInRoom: 'Send delivers it to {names}, in {room}.',
   sendsToChannel: 'Send posts it in {channel}:',
+  draftChangedSinceRead: 'Your agent changed this draft after you read it. Read it again before you send it.',
+  draftReadAgain: 'I have read it again',
+  draftChangedWhileEditing:
+    'Your agent changed this draft while you were editing it. Your edit is kept; the draft now reads:',
   refusals: {
     connectionCode: 'This connection code is unknown or has expired. Ask your agent for a new one.',
     roomArchived: 'This room is archived. You can read it, but no new notes can be written.',

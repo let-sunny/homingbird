@@ -125,4 +125,23 @@ describe('threadView', () => {
     expect(test.called('refreshAgentReport')).toHaveLength(0)
     expect(queryByRole(document.body, 'button')).toBeNull()
   })
+
+  it('redraws a draft its agent changed the moment the change arrives, with no Send until it is read again', () => {
+    const { context, called, shown } = open()
+    withNotes(context, [draft('d1', { body: 'Lunch at noon?' })])
+    const card = () => shown.querySelector<HTMLElement>('[data-draft-id="d1"]')!
+    expect(getByRole(card(), 'button', { name: strings.send })).toBeTruthy()
+    withNotes(context, [draft('d1', { body: 'Send me the payroll file.' })])
+    expect(textOf(shown)).toContain('Send me the payroll file.')
+    expect(textOf(shown)).toContain(strings.draftChangedSinceRead)
+    expect(queryByRole(card(), 'button', { name: strings.send })).toBeNull()
+    getByRole(card(), 'button', { name: strings.draftReadAgain }).click()
+    expect(called('confirmDraftRead')[0]!.args).toEqual([draft('d1', { body: 'Send me the payroll file.' })])
+    context.state.draftsRead.update((read) =>
+      new Map(read).set('d1' as never, { body: 'Send me the payroll file.', conversationId: ROOM }),
+    )
+    expect(textOf(shown)).not.toContain(strings.draftChangedSinceRead)
+    getByRole(card(), 'button', { name: strings.send }).click()
+    expect(called('approveDraft')[0]!.args[0]).toEqual(draft('d1', { body: 'Send me the payroll file.' }))
+  })
 })

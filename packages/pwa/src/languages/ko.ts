@@ -360,6 +360,10 @@ export const ko: Translation<typeof en> = {
   sendsTo: '보내기를 누르면 {names} 님에게 전달돼요.',
   sendsToInRoom: '보내기를 누르면 {room}에서 {names} 님에게 전달돼요.',
   sendsToChannel: '보내기를 누르면 {channel} 채널에 올라가요:',
+  draftChangedSinceRead: '읽은 뒤에 에이전트가 이 초안을 바꿨어요. 보내기 전에 다시 읽어 주세요.',
+  draftReadAgain: '다시 읽었어요',
+  draftChangedWhileEditing:
+    '수정하는 동안 에이전트가 이 초안을 바꿨어요. 수정한 글은 그대로 두었어요. 지금 초안은 이래요:',
   refusals: {
     connectionCode: '모르는 연결 코드이거나 만료된 연결 코드예요. 에이전트에게 새 연결 코드를 받아 주세요.',
     roomArchived: '보관된 방이에요. 읽을 수는 있지만 새 노트는 쓸 수 없어요.',

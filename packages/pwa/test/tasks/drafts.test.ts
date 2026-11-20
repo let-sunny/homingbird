@@ -1,7 +1,9 @@
+import { DRAFT_CHANGED } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import {
   approveDraft,
   askAgent,
+  confirmDraftRead,
   discardDraft,
   readdressDraft,
   reportDraftSeen,
@@ -66,7 +68,59 @@ describe('deciding on drafts', () => {
     })
     const exit = await run(approveDraft(draft('d1'), null, [draft('d2')]))
     expect(exit).toMatchObject({ _tag: 'Err' })
-    expect(sent.map((one) => one.route)).toEqual(['drafts.send', 'conversations.get', 'conversations.notes'])
+    expect(sent.map((one) => one.route)).toEqual([
+      'drafts.send',
+      'conversations.get',
+      'conversations.notes',
+      'notes.get',
+    ])
+  })
+
+  it('reads the draft’s new room too when its agent moved it, so the person finds it there', async () => {
+    const MOVED = 'conv_moved0000000' as never
+    const { run, sent, state } = testApp({
+      ...answers,
+      'drafts.send': () => fail({ _tag: 'Conflict', message: DRAFT_CHANGED }),
+      'notes.get': () => draft('d1', { conversationId: MOVED, body: 'elsewhere' }),
+      'conversations.notes': () => ({
+        notes: [draft('d1', { conversationId: MOVED, body: 'elsewhere' })],
+        hasMore: false,
+        notices: [],
+      }),
+    })
+    await run(approveDraft(draft('d1'), null, []))
+    expect(sent.filter((one) => one.route === 'conversations.get').map((one) => one.request)).toEqual([
+      { params: { id: ROOM } },
+      { params: { id: MOVED } },
+    ])
+    expect(state.threads.get().get(MOVED)!.notes[0]!.body).toBe('elsewhere')
+  })
+
+  it('reads nothing more when the draft was sent or discarded elsewhere, or stayed in its room', async () => {
+    for (const now of [note('d1'), draft('d1', { body: 'rewritten' })]) {
+      const { run, sent } = testApp({
+        ...answers,
+        'drafts.send': () => fail({ _tag: 'Conflict', message: DRAFT_CHANGED }),
+        'notes.get': () => now,
+      })
+      await run(approveDraft(draft('d1'), null, []))
+      expect(sent.filter((one) => one.route === 'conversations.get')).toHaveLength(1)
+    }
+  })
+
+  it('takes what the person saved or moved, and a draft they read again, as read', async () => {
+    const { run, state } = testApp({ ...answers, 'drafts.update': () => draft('d1', { body: 'Better' }) })
+    await run(saveDraft(draft('d1'), 'Better'))
+    expect(state.draftsRead.get().get('d1' as never)).toEqual({ body: 'Better', conversationId: ROOM })
+    const changed = draft('d1', { body: 'from the agent' })
+    await run(confirmDraftRead(changed))
+    expect(state.draftsRead.get().get('d1' as never)).toEqual({
+      body: 'from the agent',
+      conversationId: ROOM,
+    })
+    const moved = testApp(answers)
+    await moved.run(readdressDraft(draft('d1'), 'billing'))
+    expect(moved.state.draftsRead.get().get('d1' as never)!.conversationId).toBe('conv_moved0000000')
   })
 
   it('leaves the thread alone when sending fails for another reason', async () => {
