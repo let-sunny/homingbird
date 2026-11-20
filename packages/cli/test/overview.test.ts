@@ -1,22 +1,7 @@
 import { WRAPPER_TAG } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import { DRAFT, READING } from './command-fixtures.ts'
-import { AGENT_TOKEN, ANA, SERVER, world } from './support.ts'
-
-const channelNamed = (slug: string, agent: { readonly id: string; readonly name: string } | null) => ({
-  slug,
-  description: `About ${slug}`,
-  conversationId: `conv_${slug.replace(/-/g, '').padEnd(12, '0')}`,
-  visibility: 'open',
-  memberCount: 2,
-  helperCount: 1,
-  joined: true,
-  answering: true,
-  managing: false,
-  managedBy: `grp_${slug.replace(/-/g, '').padEnd(12, '0')}`,
-  agent,
-  createdAt: 1,
-})
+import { AGENT_TOKEN, ANA, SERVER, channelNamed, world } from './support.ts'
 
 describe('overview', () => {
   it('gathers who is signed in, conversations, waiting notes and drafts in one answer', async () => {
