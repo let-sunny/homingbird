@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -5,10 +6,13 @@ import {
   preReleaseOf,
   releaseNotes,
   releasePlan,
+  releasesWithoutUpgradeFixture,
+  schemaStepsIn,
   syncedFiles,
   versionPullRequest,
   versionsIn,
   withRelease,
+  withUpgradeFixture,
 } from '../release-version.ts'
 
 const root = join(import.meta.dirname, '..', '..')
@@ -178,5 +182,63 @@ describe('release.json', () => {
 
   it('is committed without a pre-release, so main releases final versions', () => {
     expect(preReleaseOf(read('release.json'))).toBeNull()
+  })
+})
+
+describe('the upgrade fixtures', () => {
+  const fixtures = '[\n  { "version": "0.1.0", "steps": 1 },\n  { "version": "0.2.0", "steps": 5 }\n]\n'
+
+  it('gain the final version being prepared, with the schema steps it leaves, in the form the file is kept in', () => {
+    expect(withUpgradeFixture(fixtures, '0.3.0', 7)).toBe(
+      '[\n  { "version": "0.1.0", "steps": 1 },\n  { "version": "0.2.0", "steps": 5 },\n  { "version": "0.3.0", "steps": 7 }\n]\n',
+    )
+  })
+
+  it('stay as they are for a pre-release or a version they already hold', () => {
+    expect(withUpgradeFixture(fixtures, '0.3.0-rc.1', 7)).toBe(fixtures)
+    expect(withUpgradeFixture(fixtures, '0.2.0', 7)).toBe(fixtures)
+  })
+
+  it('name every final tag and the final version being released that has none, and skip pre-releases', () => {
+    expect(releasesWithoutUpgradeFixture(['v0.1.0-rc.2', 'v0.1.0', 'v0.2.0', ''], '0.2.0', fixtures)).toEqual(
+      [],
+    )
+    expect(releasesWithoutUpgradeFixture(['v0.1.0', 'v0.1.1', 'v0.2.0'], '0.3.0', fixtures)).toEqual([
+      '0.1.1',
+      '0.3.0',
+    ])
+    expect(releasesWithoutUpgradeFixture(['v0.2.0'], '0.3.0-rc.1', fixtures)).toEqual([])
+  })
+
+  it('refuse a file whose entries are not a version and a positive number of steps', () => {
+    for (const broken of ['{}', '[{ "version": "0.1.0" }]', '[{ "version": "0.1.0", "steps": 0 }]', '[null]'])
+      expect(() => releasesWithoutUpgradeFixture([], '0.1.0', broken)).toThrow(/each entry must be/)
+  })
+
+  it('hold every release tagged in this checkout, and the version every package has', () => {
+    const tags = (() => {
+      try {
+        return execFileSync('git', ['tag', '--list', 'v*'], { cwd: root }).toString().split('\n')
+      } catch {
+        return []
+      }
+    })()
+    const version = JSON.parse(read('package.json')).version
+    expect(
+      releasesWithoutUpgradeFixture(tags, version, read('packages/dovecote/test/releases.json')),
+    ).toEqual([])
+  })
+})
+
+describe('the number of schema steps', () => {
+  it('counts the entries of the MIGRATIONS list, however they are laid out', () => {
+    expect(schemaStepsIn('export const MIGRATIONS: ReadonlyArray<Migration> = [BASELINE, GROUPS]')).toBe(2)
+    expect(
+      schemaStepsIn('export const MIGRATIONS: ReadonlyArray<Migration> = [\n  BASELINE,\n  GROUPS,\n]\n'),
+    ).toBe(2)
+  })
+
+  it('refuses a module without the list', () => {
+    expect(() => schemaStepsIn('export const STEPS = []')).toThrow(/has no MIGRATIONS list/)
   })
 })
