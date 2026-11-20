@@ -322,6 +322,17 @@ describe('admin.insights', () => {
     expect(insights.periods[0].current).toBeNull()
     expect((await ana.api('GET', '/admin/insights')).json.periods[0].current.activeMembers).toBe(5)
   })
+
+  it('counts only people towards the size that shows the block count, never a channel’s agent', async () => {
+    await team(4)
+    await T.runPromise(
+      run(sql`INSERT INTO members (id, email, subject, name, profile, role, status, kind, event_seq, created_at)
+        VALUES ('mem_agent0000000', 'mem_agent0000000@agents.invalid', 'agent:mem_agent0000000', 'Wiki', '',
+        'member', 'active', 'channel_agent', 0, 0)`),
+      server.env,
+    )
+    expect((await ana.api('GET', '/admin/insights')).json.blocks).toBeNull()
+  })
 })
 
 describe('session health', () => {

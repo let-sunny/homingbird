@@ -38,7 +38,7 @@ export const organizationInsights: T.Task<OrganizationInsights, never, AppEnv> =
   const now = env.clock.now()
   const activity = yield* organizationActivity(now - LOOKBACK_MS)
   const members = yield* first<{ total: number }>(
-    sql`SELECT COUNT(*) AS total FROM members WHERE status = 'active'`,
+    sql`SELECT COUNT(*) AS total FROM members WHERE status = 'active' AND kind = 'person'`,
   )
   const blocks = yield* first<{ total: number }>(sql`SELECT COUNT(*) AS total FROM blocks`)
   return organizationInsightsOf(

@@ -8,7 +8,7 @@ export const reviewerStanding = (facts: ReviewerFacts): ReviewerStanding =>
     ? 'not_a_person'
     : !facts.managers.includes(facts.reviewerId)
       ? 'not_a_manager'
-      : facts.reviewerId === facts.askerId
+      : facts.askers.includes(facts.reviewerId)
         ? 'asked_it'
         : 'reviewer'
 
@@ -16,13 +16,15 @@ export interface ReviewerFacts {
   readonly reviewerId: MemberId
   readonly isPerson: boolean
   readonly managers: ReadonlyArray<MemberId>
-  readonly askerId: MemberId | null
+  readonly askers: ReadonlyArray<MemberId>
 }
 
 export type ReviewerStanding = 'reviewer' | 'not_a_person' | 'not_a_manager' | 'asked_it'
 
-export const possibleReviewers = (managers: ReadonlyArray<MemberId>, askerId: MemberId | null): MemberId[] =>
-  managers.filter((id) => id !== askerId)
+export const possibleReviewers = (
+  managers: ReadonlyArray<MemberId>,
+  askers: ReadonlyArray<MemberId>,
+): MemberId[] => managers.filter((id) => !askers.includes(id))
 
 export const CHANNEL_AGENT_NAME_MAX = 80
 

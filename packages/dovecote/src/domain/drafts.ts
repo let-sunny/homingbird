@@ -29,7 +29,7 @@ import { announceStatus, noteById } from './note-status.ts'
 import { visibleNote } from './notes.ts'
 import { recordApplications } from './principle-applications.ts'
 import { announceReview } from './review-events.ts'
-import { reviewersOf } from './reviews.ts'
+import { askersOf, reviewersOf } from './reviews.ts'
 
 export interface DraftDestination {
   readonly conversationId?: ConversationId
@@ -202,7 +202,8 @@ const requireAgentMayAnswer = (caller: Caller, target: DraftTarget): T.Task<void
       return yield* T.fail(
         Conflict({ message: 'Too many answers are waiting for approval. The managers decide some first.' }),
       )
-    if (possibleReviewers(yield* managersOf(channel), question.authorId).length === 0)
+    const askers = yield* askersOf({ conversation_id: question.conversationId, in_reply_to: question.id })
+    if (possibleReviewers(yield* managersOf(channel), askers).length === 0)
       return yield* T.fail(Conflict({ message: NO_REVIEWER_MESSAGE }))
   })
 

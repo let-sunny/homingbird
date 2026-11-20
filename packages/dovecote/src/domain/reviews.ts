@@ -8,6 +8,7 @@ import {
   type NoteId,
   type Review,
   isPerson,
+  possibleReviewers,
   reviewerStanding,
 } from '@homingbird/protocol'
 import { type AppEnv, type Caller, isHuman } from '../environment.ts'
@@ -20,10 +21,7 @@ import { memberById } from './members.ts'
 import { type NoteRow, hydrateNotes } from './note-rows.ts'
 import { featureIsOn } from './settings.ts'
 
-/**
- * The drafts of channels' agents waiting for this person: in a channel they manage and are in, never one
- * answering their own question, which stays invisible to them like any draft to its recipient (rule 2).
- */
+/** The agents' drafts waiting for this person as a manager, never one meant for them (rule 2). */
 export const reviewsFor = (caller: Caller): T.Task<Review[], never, AppEnv> =>
   T.gen(function* () {
     const viewerId = caller.member.id
@@ -36,6 +34,7 @@ export const reviewsFor = (caller: Caller): T.Task<Review[], never, AppEnv> =>
       JOIN participants p ON p.conversation_id = t.conversation_id AND p.member_id = ${viewerId}
       WHERE n.status = 'draft'
         AND NOT EXISTS (SELECT 1 FROM notes q WHERE q.id = n.in_reply_to AND q.author_id = ${viewerId})
+        AND (c.asked_by IS NULL OR c.asked_by <> ${viewerId})
       ORDER BY n.created_at, n.id LIMIT ${REVIEWS_LIMIT}`)
     return yield* T.forEach(rows, toReview)
   })
@@ -68,28 +67,45 @@ export const reviewedDraft = (
     const channel = yield* channelOfAgentRoom(read.conversation_id)
     if (channel === null) return yield* T.fail(noSuchDraft)
     const managers = yield* managersOf(channel)
-    const askerId = yield* askerOf(read)
+    const askers = yield* askersOf(read)
     const standing = reviewerStanding({
       reviewerId: caller.member.id,
       isPerson: isHuman(caller) && isPerson(caller.member),
       managers,
-      askerId,
+      askers,
     })
     if (standing === 'not_a_person')
       return yield* T.fail(Forbidden({ message: 'Only a person can approve a note.' }))
     if (standing !== 'reviewer') return yield* T.fail(noSuchDraft)
     const draft = yield* agentDraft(id)
     if (draft.status !== 'draft') return yield* T.fail(yield* alreadyDecided(draft))
-    return { draft, channel, reviewers: managers.filter((memberId) => memberId !== askerId) }
+    return { draft, channel, reviewers: possibleReviewers(managers, askers) }
   })
 
-/** Who is told that a channel's agent's draft changed: the managers who may review it. */
 export const reviewersOf = (draft: NoteRow): T.Task<MemberId[], never, AppEnv> =>
   T.gen(function* () {
     const channel = yield* channelOfAgentRoom(draft.conversation_id)
     if (channel === null) return []
-    const askerId = yield* askerOf(draft)
-    return (yield* managersOf(channel)).filter((memberId) => memberId !== askerId)
+    return possibleReviewers(yield* managersOf(channel), yield* askersOf(draft))
+  })
+
+/** Whom a draft is for, so who may never see or send it: the note's author and a private question's asker. */
+export const askersOf = (
+  draft: Pick<NoteRow, 'conversation_id' | 'in_reply_to'>,
+): T.Task<MemberId[], never, AppEnv> =>
+  T.gen(function* () {
+    const answered =
+      draft.in_reply_to === null
+        ? null
+        : yield* first<{ author_id: MemberId }>(
+            sql`SELECT author_id FROM notes WHERE id = ${draft.in_reply_to}`,
+          )
+    const room = yield* first<{ asked_by: MemberId | null }>(
+      sql`SELECT asked_by FROM conversations WHERE id = ${draft.conversation_id}`,
+    )
+    return [...new Set([answered?.author_id ?? null, room?.asked_by ?? null])].filter(
+      (id): id is MemberId => id !== null,
+    )
   })
 
 const REVIEWS_LIMIT = 200
@@ -102,13 +118,6 @@ const agentDraft = (id: NoteId): T.Task<NoteRow, NotFound, AppEnv> =>
       SELECT n.* FROM notes n JOIN members a ON a.id = n.author_id AND a.kind = 'channel_agent'
       WHERE n.id = ${id}`),
   )
-
-const askerOf = (draft: Pick<NoteRow, 'in_reply_to'>): T.Task<MemberId | null, never, AppEnv> =>
-  draft.in_reply_to === null
-    ? T.succeed(null)
-    : T.map((row: { author_id: MemberId } | null) => row?.author_id ?? null)(
-        first<{ author_id: MemberId }>(sql`SELECT author_id FROM notes WHERE id = ${draft.in_reply_to}`),
-      )
 
 /** The first approval wins; the others, all of them reviewers, are told who sent it. */
 const alreadyDecided = (draft: NoteRow): T.Task<Conflict, never, AppEnv> =>

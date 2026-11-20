@@ -121,4 +121,61 @@ describe('asking a channel’s agent privately', () => {
     expect((await storedRows(server, 'notes')).find((row) => row.id === draft.id)?.status).toBe('discarded')
     expect((await cy.api('POST', '/drafts', { conversationId: room, body: 'Hello?' })).status).toBe(409)
   })
+
+  it('never lets the asker review an answer meant for them, even to a note another manager wrote', async () => {
+    await start()
+    await setManagers([ana, ben, cy])
+    const room = (await askPrivately(ana)).json.id
+    const bens = await send(ben, room, 'Ana, here is some context.')
+    const draft = (await agent.api('POST', '/drafts', { inReplyTo: bens.id, body: 'For Ana only.' })).json
+    expect((await ana.api('GET', '/reviews')).json.reviews).toEqual([])
+    expect((await ana.api('GET', `/reviews/${draft.id}`)).status).toBe(404)
+    expect((await ana.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })).status).toBe(404)
+    expect((await ben.api('GET', '/reviews')).json.reviews).toEqual([])
+    expect((await ben.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })).status).toBe(404)
+    expect((await cy.api('GET', '/reviews')).json.reviews.map((review: any) => review.note.id)).toEqual([
+      draft.id,
+    ])
+    expect(
+      (await cy.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })).json,
+    ).toMatchObject({
+      approvedBy: cy.me.member.id,
+      receipts: [{ memberId: ana.me.member.id }],
+    })
+  })
+
+  it('refuses the agent’s answer in a private question when nobody but its asker and the note’s author manages', async () => {
+    await start()
+    await setManagers([ana, ben])
+    const room = (await askPrivately(ana)).json.id
+    const bens = await send(ben, room, 'Ana, here is some context.')
+    const refused = await agent.api('POST', '/drafts', { inReplyTo: bens.id, body: 'For Ana only.' })
+    expect(refused.status).toBe(409)
+  })
+
+  it('closes the asker’s private questions when they leave the channel, discarding the answers waiting there', async () => {
+    await start()
+    const room = (await askPrivately(cy)).json.id
+    const question = await send(cy, room, 'Is my refund stuck?')
+    const draft = (await agent.api('POST', '/drafts', { inReplyTo: question.id, body: 'Processing.' })).json
+    expect((await cy.api('DELETE', `/channels/${CHANNEL}/membership`)).status).toBe(200)
+    expect((await ana.api('GET', `/conversations/${room}`)).json.archivedAt).not.toBeNull()
+    expect((await ana.api('GET', '/reviews')).json.reviews).toEqual([])
+    expect((await storedRows(server, 'notes')).find((row) => row.id === draft.id)?.status).toBe('discarded')
+    expect((await cy.api('POST', '/drafts', { conversationId: room, body: 'Hello?' })).status).toBe(409)
+    expect((await agent.api('POST', '/drafts', { inReplyTo: question.id, body: 'Again' })).status).toBe(409)
+    await cy.api('PUT', `/channels/${CHANNEL}/membership`, {})
+    expect((await askPrivately(cy)).json.id).not.toBe(room)
+  })
+
+  it('closes the private questions of someone a manager takes out of a private channel', async () => {
+    await start()
+    await ana.api('PUT', `/channels/${CHANNEL}/visibility`, { visibility: 'private' })
+    const room = (await askPrivately(cy)).json.id
+    await send(cy, room, 'Is my refund stuck?')
+    const other = (await askPrivately(ben)).json.id
+    expect((await ana.api('DELETE', `/channels/${CHANNEL}/members/${cy.me.member.id}`)).status).toBe(200)
+    expect((await ana.api('GET', `/conversations/${room}`)).json.archivedAt).not.toBeNull()
+    expect((await ana.api('GET', `/conversations/${other}`)).json.archivedAt).toBeNull()
+  })
 })

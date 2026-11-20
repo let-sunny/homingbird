@@ -21,6 +21,7 @@ import {
 } from './channel-rows.ts'
 import { conversationFor, participantsOf } from './conversations.ts'
 import { lockedChannel } from './group-rows.ts'
+import { announceReview } from './review-events.ts'
 
 /** The asker's own conversation with a channel's agent and its managers, now and later; one per asker. */
 export const askPrivately = (
@@ -100,18 +101,36 @@ export const privateQuestionRecipients = (
     return (yield* participantsOf(conversationId)).filter((id) => id !== authorId)
   })
 
+/** Someone who leaves a channel, or is taken out of it, leaves their private questions there closed. */
+export const closeQuestionsOf = (row: ChannelRow, askerId: MemberId): T.Task<void, never, RequestEnv> =>
+  closeRooms(
+    row,
+    sql`SELECT id FROM conversations WHERE channel_id = ${row.conversation_id} AND asked_by = ${askerId} AND archived_at IS NULL ORDER BY id`,
+    null,
+  )
+
 /** Archiving a channel closes its private questions: they stay readable to the asker and the managers. */
 export const closePrivateQuestions = (row: ChannelRow, slug: string): T.Task<void, never, RequestEnv> =>
+  closeRooms(
+    row,
+    sql`SELECT id FROM conversations WHERE channel_id = ${row.conversation_id} AND archived_at IS NULL ORDER BY id`,
+    slug,
+  )
+
+const closeRooms = (
+  row: ChannelRow,
+  rooms: ReturnType<typeof sql>,
+  archivedChannel: string | null,
+): T.Task<void, never, RequestEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
-    const rooms = yield* all<{ id: ConversationId }>(
-      sql`SELECT id FROM conversations WHERE channel_id = ${row.conversation_id} AND archived_at IS NULL ORDER BY id`,
-    )
-    for (const room of rooms) {
+    const closing = yield* all<{ id: ConversationId }>(rooms)
+    if (closing.length > 0) yield* announceReview(yield* managersOf(row), null)
+    for (const room of closing) {
       const drafts = yield* all<{ author_id: MemberId }>(
         sql`SELECT DISTINCT author_id FROM notes WHERE conversation_id = ${room.id} AND status = 'draft' ORDER BY author_id`,
       )
-      for (const draft of drafts) yield* abandonDraftsIn(room.id, draft.author_id, slug)
+      for (const draft of drafts) yield* abandonDraftsIn(room.id, draft.author_id, archivedChannel)
       yield* run(sql`UPDATE conversations SET archived_at = ${env.clock.now()} WHERE id = ${room.id}`)
     }
   })

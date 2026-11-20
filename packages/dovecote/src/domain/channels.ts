@@ -40,6 +40,7 @@ import {
   lockedChannel,
   storeGroup,
 } from './group-rows.ts'
+import { closeQuestionsOf } from './private-questions.ts'
 
 export const listChannels = (
   viewer: Viewer,
@@ -115,6 +116,7 @@ export const leaveChannel = (
       yield* requireOutsideManagingGroup(row, viewer.id)
       yield* depart(row, viewer.id)
       yield* leaveGroupOfEmptiedRoom(row, viewer.id)
+      yield* closeQuestionsOf(row, viewer.id)
       yield* followManagers(viewer.id, row)
     }
     return yield* describeChannel(viewer, row)

@@ -30,25 +30,31 @@ const memberIds = fc.uniqueArray(arbitrary(MemberId), { maxLength: 8 })
 
 describe('who may send a channel agent’s draft', () => {
   it('lets a current manager send an answer to someone else’s question', () => {
-    expect(reviewerStanding({ reviewerId: ana, isPerson: true, managers: [ana, ben], askerId: cy })).toBe(
+    expect(reviewerStanding({ reviewerId: ana, isPerson: true, managers: [ana, ben], askers: [cy] })).toBe(
       'reviewer',
     )
   })
 
   it('refuses an agent credential, even of a manager', () => {
-    expect(reviewerStanding({ reviewerId: ana, isPerson: false, managers: [ana], askerId: cy })).toBe(
+    expect(reviewerStanding({ reviewerId: ana, isPerson: false, managers: [ana], askers: [cy] })).toBe(
       'not_a_person',
     )
   })
 
   it('refuses a person who does not manage the channel', () => {
-    expect(reviewerStanding({ reviewerId: cy, isPerson: true, managers: [ana, ben], askerId: null })).toBe(
+    expect(reviewerStanding({ reviewerId: cy, isPerson: true, managers: [ana, ben], askers: [] })).toBe(
       'not_a_manager',
     )
   })
 
+  it('refuses everyone the draft is for: the author of the note it answers and a private question’s asker', () => {
+    expect(
+      reviewerStanding({ reviewerId: ben, isPerson: true, managers: [ana, ben, cy], askers: [ana, ben] }),
+    ).toBe('asked_it')
+  })
+
   it('refuses the manager who asked the question the draft answers', () => {
-    expect(reviewerStanding({ reviewerId: ana, isPerson: true, managers: [ana, ben], askerId: ana })).toBe(
+    expect(reviewerStanding({ reviewerId: ana, isPerson: true, managers: [ana, ben], askers: [ana] })).toBe(
       'asked_it',
     )
   })
@@ -59,11 +65,11 @@ describe('who may send a channel agent’s draft', () => {
         arbitrary(MemberId),
         fc.boolean(),
         memberIds,
-        fc.option(arbitrary(MemberId), { nil: null }),
-        (reviewerId, isPerson, managers, askerId) => {
-          const standing = reviewerStanding({ reviewerId, isPerson, managers, askerId })
+        memberIds,
+        (reviewerId, isPerson, managers, askers) => {
+          const standing = reviewerStanding({ reviewerId, isPerson, managers, askers })
           expect(standing === 'reviewer').toBe(
-            isPerson && possibleReviewers(managers, askerId).includes(reviewerId),
+            isPerson && possibleReviewers(managers, askers).includes(reviewerId),
           )
         },
       ),
@@ -71,9 +77,10 @@ describe('who may send a channel agent’s draft', () => {
   })
 
   it('finds no possible reviewer when the asker is the only manager', () => {
-    expect(possibleReviewers([ana], ana)).toEqual([])
-    expect(possibleReviewers([ana, ben], ana)).toEqual([ben])
-    expect(possibleReviewers([ana, ben], null)).toEqual([ana, ben])
+    expect(possibleReviewers([ana], [ana])).toEqual([])
+    expect(possibleReviewers([ana, ben], [ana])).toEqual([ben])
+    expect(possibleReviewers([ana, ben], [])).toEqual([ana, ben])
+    expect(possibleReviewers([ana, ben, cy], [ana, ben])).toEqual([cy])
     expect(NO_REVIEWER_MESSAGE).toMatch(/another manager/)
   })
 })

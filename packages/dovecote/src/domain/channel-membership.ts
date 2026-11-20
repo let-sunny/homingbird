@@ -31,6 +31,7 @@ import {
 } from './channel-rows.ts'
 import { leaveGroupOfEmptiedRoom, lockedChannel } from './group-rows.ts'
 import { requireNotAgent } from './member-kinds.ts'
+import { closeQuestionsOf } from './private-questions.ts'
 
 export const channelMembers = (
   viewer: Viewer,
@@ -85,6 +86,7 @@ export const removeChannelMember = (
     yield* requireOutsideManagingGroup(row, memberId)
     yield* depart(row, memberId)
     yield* leaveGroupOfEmptiedRoom(row, memberId)
+    yield* closeQuestionsOf(row, memberId)
     yield* followManagers(viewer.id, row)
     yield* tellAboutChannel(row, yield* managersOf(row))
     return yield* describeChannel(viewer, row)
