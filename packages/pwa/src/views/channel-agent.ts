@@ -126,10 +126,13 @@ const agentPanel = (
     },
   })
   const figures = signal<ChannelAgentFiguresState>('loading')
-  actions.loadChannelAgentFigures(channel.slug, {
-    done: (report) => figures.set(report),
-    failed: () => figures.set('failed'),
-  })
+  const loadFigures = (): void =>
+    actions.loadChannelAgentFigures(channel.slug, {
+      done: (report) => figures.set(report),
+      failed: () => figures.set('failed'),
+    })
+  loadFigures()
+  life.add(state.reviews.subscribe(loadFigures))
   const panel = h(
     'div',
     { class: 'dialog-body channel-agent-panel' },

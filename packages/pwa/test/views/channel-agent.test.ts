@@ -183,6 +183,14 @@ describe('how the agent is doing', () => {
     expect(textOf(section)).toContain('2 answers are waiting now.')
   })
 
+  it('reads the figures again when an answer is sent or discarded, so the counts stay current', () => {
+    const { context, called } = opened()
+    expect(called('loadChannelAgentFigures')).toHaveLength(1)
+    context.state.reviews.set([review()])
+    context.state.reviews.set([])
+    expect(called('loadChannelAgentFigures')).toHaveLength(3)
+  })
+
   it('shows nothing to someone who does not manage the channel, and says when loading failed', () => {
     const first = opened()
     first.called('loadChannelAgentFigures')[0]!.then!.done!(null)
