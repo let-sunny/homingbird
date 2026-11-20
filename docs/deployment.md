@@ -563,6 +563,7 @@ again. Every change is audited. `server.info` lists which features are on, so ev
 | `noteDetails` | on | Notes no longer show the model and program that wrote them |
 | `groups` | on | Groups are hidden and frozen: nobody creates, renames or changes a team or a channel's managers, nor adds a team to them; every channel keeps its managers, who still run it |
 | `debateRooms` | on | Debate rooms are hidden, agents take no turns and no room stops on time; the rooms stay |
+| `joinCodes` | on | Nobody can make a join code for **Run on a server**, and codes already made are refused; servers sign in with `homingbird login` ([A complete example](#a-complete-example-one-persons-runner-on-a-linux-server)) |
 | `cloudDesk` | **off** | No cloud desk is woken and nobody can set one up; saved wakes are kept. Offered only with `HB_SECRETS_KEY` ([Cloud desk](#cloud-desk)) |
 | `analytics` | **off** | No usage counts leave the server ([Product analytics](#product-analytics)) |
 
@@ -638,11 +639,12 @@ A client that cannot use metadata documents or dynamic registration can be regis
 team can keep desks for headless agents (Codex CLI, Gemini CLI, Cursor agent) running without a laptop.
 The agent command runs with the permissions of the OS user that runs the runner, so:
 
-- **Give each runner its own OS user or container**, with only that person's `homingbird login` in it.
+- **Give each runner its own OS user or container**, with only that person's sign-in in it.
   The agent command can read every file that user can read, including the runner's agent credential
   (`$XDG_CONFIG_HOME/homingbird` or `~/.config/homingbird`). With it, an agent can read that person's
   conversations and draft, never send: Dovecote refuses agent credentials on every approving route.
-- Nothing a runner signs in with can approve: a device sign-in issues an agent credential only, and
+- Nothing a runner signs in with can approve: a join code or a device sign-in issues an agent
+  credential only, and
   approval happens in the web client, where the person signs in themself.
 - **Never run it as the user that runs Dovecote**, which can read the database and `HB_*` secrets. The
   runner removes `HOMINGBIRD_*` and `HB_*` variables from the agent command's environment, but files are
@@ -651,30 +653,15 @@ The agent command runs with the permissions of the OS user that runs the runner,
 
 ### A complete example: one person's runner on a Linux server
 
-A server has no browser where the person can approve a sign-in, so the person signs in once on their
-own machine and hands the runner the credential as a file. The steps below set up one person's runner
-on a Linux server with systemd, as a dedicated OS user, `hb-ana` here, and Claude Code as the agent;
-replace the server address, the user and the agent with yours. Every command is meant to be copied as
-it is. The systemd unit passes `systemd-analyze verify` but has not yet been loaded by a real user
-manager in our tests, so check step 6 before you rely on it.
+A server has no browser where the person can approve a sign-in, so the web client gives them one line
+to paste there instead: `homingbird setup` with a join code, which signs the server in as their agent
+and installs the background service. The steps below set up one person's runner on a Linux server
+with systemd, as a dedicated OS user, `hb-ana` here, and Claude Code as the agent; replace the server
+address, the user and the agent with yours. Every command is meant to be copied as it is. The systemd
+unit passes `systemd-analyze verify` but has not yet been loaded by a real user manager in our tests,
+so check step 5 before you rely on it.
 
-**1. On your own machine, sign in to a file.** You approve in the web client as always. The agent
-credential (the server's address and the token) goes to that file only, readable by you only
-(`0600`); the command prints where it wrote it, never the token, and refuses to replace an existing
-file without `--force`. `--name` is what the web client calls this connection under **My agent** →
-**Connection**, and its drafts show as **Runner · build-1**.
-
-```sh
-homingbird login --server https://homingbird.example.com \
-  --credentials-file ./homingbird.json --name build-1
-scp ./homingbird.json admin@build-1:/tmp/homingbird.json
-rm ./homingbird.json
-```
-
-Or store the file as a secret, such as in GCP Secret Manager, and have the server's startup script
-fetch it; either way, delete your local copy.
-
-**2. On the server, as root: the runner's user, Node, the command line and the agent.** The user
+**1. On the server, as root: the runner's user, Node, the command line and the agent.** The user
 gets no password and no `sudo`. Lingering lets its own systemd user manager run without anyone
 logged in.
 
@@ -684,22 +671,11 @@ loginctl enable-linger hb-ana
 npm install -g @homingbird/cli @anthropic-ai/claude-code   # Node 22 or newer is already installed
 ```
 
-**3. Put the credential where the runner can read it and nothing can change it.** The file belongs to
-the runner's user and is read-only (`0400`) in a directory only root can write, so neither the runner
-nor its agent can replace or delete it. In a container, mount it read-only instead, such as
-`--mount type=bind,src=/etc/homingbird/hb-ana/homingbird.json,dst=/run/secrets/homingbird.json,readonly`.
-
-```sh
-install -d -o root -g root -m 0755 /etc/homingbird/hb-ana
-install -o hb-ana -g hb-ana -m 0400 /tmp/homingbird.json /etc/homingbird/hb-ana/homingbird.json
-shred -u /tmp/homingbird.json
-```
-
-**4. Give the agent its model key in an environment file only that user can read.** The runner passes
+**2. Give the agent its model key in an environment file only that user can read.** The runner passes
 its own environment to the agent command, except `HOMINGBIRD_*` and `HB_*` variables, so a systemd
-drop-in that loads the file gives the agent its key. The drop-in sits beside the unit that `service
-install` writes and survives a reinstall. The service's name is `homingbird-runner-` followed by the
-server address with its scheme, as `service install` prints it.
+drop-in that loads the file gives the agent its key. The drop-in sits beside the unit that `homingbird
+setup` writes and survives a reinstall. The service's name is `homingbird-runner-` followed by the
+server address with its scheme, as `setup` prints it.
 
 ```sh
 UNIT=homingbird-runner-https-homingbird-example-com.service
@@ -714,41 +690,71 @@ printf '[Service]\nEnvironmentFile=/home/hb-ana/model.env\n' |
 If your shell keeps a history of what you paste, write the key with an editor as `hb-ana` instead,
 and keep the file at mode `0600`.
 
-**5. Install the service as that user.** `service install` refuses to run as root. It writes the path
-of the credentials file, never its content, into the unit as `HOMINGBIRD_CREDENTIALS_FILE`, and starts
-the service.
+**3. In the web client, make a join code.** Under **My agent** → **Connection**, choose **Run on a
+server**. The web client shows one line, with a button to copy it and how long it still works:
+
+```sh
+homingbird setup --server https://homingbird.example.com --join hbj_… --agent claude
+```
+
+The code works once, for 10 minutes, and issues one agent credential for the person who made it: it
+can read and draft, never send. Dovecote keeps only its hash, and the code appears in that one response
+alone. Once it expires, the web client offers a new one.
+
+**4. On the server, paste the line as the runner's user.** `setup` refuses to install the service as
+root. It redeems the code, writes the agent credential where `homingbird login` would
+(`~/.config/homingbird/agents/`, mode `0600`), installs and starts the service, and prints the next
+step, never the token. `--name` is what the web client calls this connection under **My agent** →
+**Connection**, and its drafts show as **Runner · build-1**; without it, the computer's host name is
+used. It passes `--timeout`, `--workdir` and `--split` on to the service like `service install`.
 
 ```sh
 as_runner() { sudo -iu hb-ana env XDG_RUNTIME_DIR=/run/user/$(id -u hb-ana) "$@"; }
-as_runner homingbird service install --server https://homingbird.example.com --agent claude \
-  --credentials-file /etc/homingbird/hb-ana/homingbird.json
+as_runner homingbird setup --server https://homingbird.example.com --join hbj_… --agent claude \
+  --name build-1
 ```
 
-**6. Check that it runs.** `service status` says whether the service is installed and running, how it
+A code that was used already, expired, or whose maker has been deactivated is refused with one
+message, the same for each; make a new one. One address may try ten codes in ten minutes.
+
+**5. Check that it runs.** `service status` says whether the service is installed and running, how it
 last exited and where its log is; the log has one line per step, never note text or tokens. In the web
 client, the person's agent shows as **awake**.
 
 ```sh
-as_runner homingbird service status --server https://homingbird.example.com \
-  --credentials-file /etc/homingbird/hb-ana/homingbird.json
+as_runner homingbird service status --server https://homingbird.example.com
 as_runner tail -n 20 /home/hb-ana/.config/homingbird/logs/runner-https-homingbird-example-com.log
 ```
 
-**7. Rotate the credential** when the person leaves the machine, suspects it was copied, or on your own
-schedule. Sign in to a new file and copy it to `/tmp/homingbird.json` as in step 1, then on the
-server, as root:
+**6. Rotate the credential** when the person leaves the machine, suspects it was copied, or before
+`HB_AGENT_CREDENTIAL_DAYS` run out: make a new code as in step 3 and paste its line as in step 4. It
+replaces the stored credential and restarts the service. Then revoke the old connection under **My
+agent** → **Connection**; it is the older of the two with the same name. Rotate the model key by
+editing `/home/hb-ana/model.env` and restarting the service. To stop for good, run `as_runner
+homingbird service uninstall --server https://homingbird.example.com`, revoke the connection in the web
+client, and delete `/home/hb-ana/model.env`.
+
+### A credential the runner cannot change
+
+The credential `setup` writes belongs to the runner's user, so the agent command could delete it,
+though it can neither read more nor send with it. To keep it read-only, have `setup` only sign in, to
+a file, and move that file as root into a directory only root can write; then install the service
+with the file's path. In a container, mount the file read-only instead, such as
+`--mount type=bind,src=/etc/homingbird/hb-ana/homingbird.json,dst=/run/secrets/homingbird.json,readonly`.
 
 ```sh
-install -o hb-ana -g hb-ana -m 0400 /tmp/homingbird.json /etc/homingbird/hb-ana/homingbird.json
-shred -u /tmp/homingbird.json
-as_runner systemctl --user restart homingbird-runner-https-homingbird-example-com.service
+as_runner homingbird setup --server https://homingbird.example.com --join hbj_… --no-service \
+  --credentials-file /home/hb-ana/homingbird.json --name build-1
+install -d -o root -g root -m 0755 /etc/homingbird/hb-ana
+install -o hb-ana -g hb-ana -m 0400 /home/hb-ana/homingbird.json /etc/homingbird/hb-ana/homingbird.json
+shred -u /home/hb-ana/homingbird.json
+as_runner homingbird service install --server https://homingbird.example.com --agent claude \
+  --credentials-file /etc/homingbird/hb-ana/homingbird.json
 ```
 
-Then revoke the old connection under **My agent** → **Connection** in the web client; it is the older
-of the two with the same name. Rotate the model key the same way: edit `/home/hb-ana/model.env` and
-restart the service. To stop for good, run `as_runner homingbird service uninstall --server
-https://homingbird.example.com`, revoke the
-connection in the web client, and delete `/etc/homingbird/hb-ana` and the secret.
+`service install` writes the path of the credentials file, never its content, into the unit as
+`HOMINGBIRD_CREDENTIALS_FILE`. Pass the same `--credentials-file` to `service status`. To rotate, sign
+in to a new file the same way, put it in place, and restart the service.
 
 What the runner does with the file: it only reads it. It refuses a file that is missing, unreadable,
 not a credential or for another server than `--server`, and warns when the file's group or other users
@@ -769,11 +775,10 @@ with `homingbird run` on a server, as its own OS user, next to a checkout of wha
 as the team's wiki. It is the same runner as in [Running the desk runner on a
 server](#running-the-desk-runner-on-a-server), with three differences:
 
-- **A manager connects it, from their own browser, while the server waits.** `homingbird login` on the
-  server prints a link and a code. A manager of the channel opens the link in the web client, where
-  they are signed in, and under **Connect it as** chooses **Payments wiki, the agent of
-  #payments-wiki** instead of **My own agent**. Nothing has to be copied between machines: the
-  credential is written on the server, and it is the agent's, not the manager's.
+- **A manager connects it with a join code made for the agent.** In the channel's **Channel agent**
+  panel, a manager chooses **Run on a server** and pastes the line it shows on the server. Only the
+  channel's managers can make that code, and it issues the agent's credential, not the manager's.
+  Nothing has to be copied between machines: the credential is written on the server.
 - **What it can do is the channel's, not a person's.** The credential reads the channel's room and the
   private questions asked of the agent, and drafts replies there. It cannot send, approve, message
   anyone, or read any person's conversations, the managers' included; the server refuses all of that to
@@ -809,40 +814,29 @@ git clone https://git.example.com/payments/wiki.git /srv/payments-wiki
 chmod -R go-w /srv/payments-wiki
 ```
 
-**3. Connect the agent.** On the server, as the agent's user, sign in to a file in a directory only that
-user can read, and send the printed link to a manager of the channel. `--name` is what the managers see
-under **Desks connected as Payments wiki**, with who approved it.
+**3. Give the agent its model key**, as in step 2 of the person's example, in an environment file only
+`hb-payments-wiki` can read, loaded by a systemd drop-in.
+
+**4. Connect the agent and install the service.** A manager of the channel opens **Channel agent** in
+the channel's room, chooses **Run on a server** and copies the line it shows; it works once, for 10
+minutes, and only while that manager still manages the channel. On the server, paste it as the agent's
+user, with its `--agent claude` replaced by the options below: the checkout as the service's working
+directory and the agent limited to reading it. `--name` is what the managers see under **Desks
+connected as Payments wiki**, with the manager who made its code.
 
 ```sh
 as_agent() { sudo -iu hb-payments-wiki env XDG_RUNTIME_DIR=/run/user/$(id -u hb-payments-wiki) "$@"; }
-as_agent homingbird login --server https://homingbird.example.com --no-browser \
-  --credentials-file /home/hb-payments-wiki/.config/homingbird/payments-wiki.json --name wiki-server
-```
-
-The manager opens the link, checks the code, chooses the channel's agent under **Connect it as** and
-approves. The command then says `Signed in to https://homingbird.example.com as Payments wiki, the
-agent of #payments-wiki.` and where the managers review its answers. If it names a person instead, the
-manager chose **My own agent**: run `homingbird logout --credentials-file <the file>` and connect
-again.
-
-The file holds only the server's address and the agent's token, is created with mode `0600`, and is
-never replaced without `--force`; the command prints its path, never the token. To make it read-only
-for the runner as well, move it into a root-owned directory as in step 3 of [the person's
-example](#a-complete-example-one-persons-runner-on-a-linux-server).
-
-**4. Give the agent its model key**, as in step 4 of the person's example, in an environment file only
-`hb-payments-wiki` can read, loaded by a systemd drop-in.
-
-**5. Install the service**, with the checkout as its working directory and the agent limited to reading
-it. `service install` writes the credentials file's path into the unit, never its content.
-
-```sh
-as_agent homingbird service install --server https://homingbird.example.com \
-  --credentials-file /home/hb-payments-wiki/.config/homingbird/payments-wiki.json \
+as_agent homingbird setup --server https://homingbird.example.com --join hbj_… --name wiki-server \
   --workdir /srv/payments-wiki \
   --agent "claude -p --tools 'Read,Grep,Glob' --strict-mcp-config --no-session-persistence" \
   --split --reader "claude -p --tools '' --strict-mcp-config --no-session-persistence"
 ```
+
+It says `Signed in to https://homingbird.example.com as Payments wiki, the agent of #payments-wiki.`,
+that it installed the service, and where the managers review its answers. It writes the agent's
+credential with mode `0600` where `homingbird login` would, and never prints the token. To
+make it read-only for the runner as well, follow [A credential the runner cannot
+change](#a-credential-the-runner-cannot-change).
 
 - `--workdir` is the directory the agent command starts in, so the agent answers from the checkout.
 - `--tools 'Read,Grep,Glob'` gives Claude Code only its tools for reading files, and
@@ -860,22 +854,23 @@ as_agent homingbird service install --server https://homingbird.example.com \
 We checked these Claude Code options against `claude --help` of Claude Code 2.1.329; we have not yet run
 this exact command against a model in our tests.
 
-**6. Check that it runs.** `service status` and the log are as in the person's example; the log has one
+**5. Check that it runs.** `service status` and the log are as in the person's example; the log has one
 line per step, such as `Drafted note_… in reply to note_…`, never a question, an answer or a token. In
 the web client, a question asked in `#payments-wiki` shows **Drafting reply** to the person who asked,
 and the draft appears under **Answers waiting for you** for the other managers.
 
 ```sh
-as_agent homingbird service status --server https://homingbird.example.com \
-  --credentials-file /home/hb-payments-wiki/.config/homingbird/payments-wiki.json
+as_agent homingbird service status --server https://homingbird.example.com
 ```
 
 ### In a container
 
 The same holds in a container: one container per channel's agent, running as a user without
 privileges, with the credentials file and the checkout mounted read-only and the checkout as the
-working directory. Connect the agent once with `homingbird login --credentials-file` written to the
-host directory you mount, then start the runner with `HOMINGBIRD_CREDENTIALS_FILE` rather than
+working directory. On the host, as root, sign the agent in once to the file you mount with a code a
+manager made, `homingbird setup --server https://homingbird.example.com --join hbj_… --no-service
+--credentials-file /etc/homingbird/payments-wiki/homingbird.json`, and give the file to the
+container's user (`chown 10001 …`, mode `0400`); then start the runner with `HOMINGBIRD_CREDENTIALS_FILE` rather than
 `--credentials-file`, so the path stays off its command line. Use an image of your own with Node, the
 command line and the agent; we do not publish one.
 
@@ -898,15 +893,16 @@ new file. This example has not been run in our tests.
 ### Rotate, disconnect, and when a manager leaves
 
 - **Rotate** before `HB_AGENT_CREDENTIAL_DAYS` (90 by default) run out, since the agent's credential is
-  not refreshed, and whenever you suspect the file was copied: connect again to a new file as in step 3,
-  point the service at it (`service install` again with the new path, or replace the file and restart
-  the service), then disconnect the older desk of the same name.
+  not refreshed, and whenever you suspect the credential was copied: a manager makes a new code and
+  you paste its line as in step 4, which replaces the credential and restarts the service; then
+  disconnect the older desk of the same name.
 - **Disconnect** is open to any manager of the channel, under **Desks connected as …** on the channel's
   agent page, not only to the one who approved it. The runner's next request is refused; a service then
   waits for a new file, and its log says so.
-- **When the manager who approved it stops managing the channel**, or is deactivated, every credential
-  they approved for the agent is revoked at once. The agent stops answering until another manager
-  connects it again as in step 3. Retiring the agent or archiving the channel disconnects it as well.
+- **When the manager who made its code or approved it stops managing the channel**, or is deactivated,
+  every credential they issued for the agent is revoked at once, and a code they made and nobody used
+  yet is refused. The agent stops answering until another manager connects it again as in step 4.
+  Retiring the agent or archiving the channel disconnects it as well.
 - **To stop for good**, run `as_agent homingbird service uninstall --server
   https://homingbird.example.com`, disconnect the desk, and delete the credentials file and the model
   key.

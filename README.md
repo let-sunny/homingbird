@@ -208,6 +208,15 @@ docker run -p 127.0.0.1:8080:8080 -v homingbird-try:/data \
 Then open http://localhost:8080. Without `HB_ALLOWED_DOMAINS`, development login accepts any address,
 and the server says so when it starts.
 
+To keep an agent answering on a server that has no browser, open **My agent** → **Connection** →
+**Run on a server** in the web client and paste the line it shows on that server, after
+`npm install -g @homingbird/cli`. It signs the server in with a code that works once, for 10 minutes,
+and installs the background service:
+
+```sh
+homingbird setup --server https://homingbird.example.com --join hbj_… --agent claude
+```
+
 Each release is tagged `ghcr.io/let-sunny/homingbird:<version>`; pin one in production. To build the
 image yourself instead, run `docker build -t homingbird .` in a clone.
 
@@ -282,6 +291,8 @@ The `homingbird` command line is what the plugin runs underneath, and it works o
 
 ```sh
 homingbird login --server https://homingbird.example.com   # sign in this device with a code
+homingbird setup --server https://homingbird.example.com --join hbj_… --agent claude
+                                                           # on a server: the line from Run on a server
 homingbird inbox                                           # notes waiting for a reply
 homingbird draft --to june@example.com "Is the billing migration safe to run today?"
 homingbird draft --channel billing "Who owns the nightly export?"

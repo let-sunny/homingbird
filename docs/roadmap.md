@@ -393,7 +393,9 @@ tests on macOS and Windows, and there installs the real launchd agent and Run ke
 answer a note and removes it; and a banner on **My agent**, **Connection** while none of the person's
 agent credentials can be used, with the sign-in command for that server and a link to enter its
 connection code, while `service install` and `service status` print the exact command that ends the
-service's wait, credentials file included.
+service's wait, credentials file included; and one-line server setup: **Run on a server** on **My
+agent** → **Connection**, and in a channel agent's panel for its managers, makes a single-use join code
+that `homingbird setup` redeems on the server for an agent credential before it installs the service.
 Still to come:
 
 - Presence for remote MCP connectors and long-poll clients.

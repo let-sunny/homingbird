@@ -97,7 +97,10 @@ to rename or revoke them are under **My agent**, **Connection**, in the header.
    opens (the code is filled in), and the pane turns into your desk by itself. With none, the pane asks
    for the address; type it there, or as `/homingbird https://homingbird.example.com`, and the plugin
    checks that a Homingbird server answers before signing in. Change the server later the same way, or
-   with `/plugin configure homingbird@homingbird`.
+   with `/plugin configure homingbird@homingbird`. On a computer where no browser opens, such as a
+   server, sign in there first with a join code: in the web client, **My agent** → **Connection** →
+   **Run on a server** shows one line; install the command line (`npm install -g @homingbird/cli`) and
+   paste the line with `--no-service` in place of `--agent claude`. The pane then finds that sign-in.
 3. Approve drafts in the web client. The pane shows each draft as **Waiting for your approval** with
    **Open in web**, which opens that draft's card in its conversation. The pane has no approve button: a credential
    that could approve, stored on the computer where your agent runs, could be read by that agent.
@@ -124,6 +127,21 @@ to rename or revoke them are under **My agent**, **Connection**, in the header.
    limits each run.
 3. Approve in the web client.
 
+**On a server without a browser**, do not sign in with a code there: in the web client, open **My
+agent** → **Connection** and choose **Run on a server**. It shows one line to paste on the server, as
+the user whose agent it runs, not as root:
+
+```sh
+homingbird setup --server https://homingbird.example.com --join hbj_… --agent claude
+```
+
+It signs the server in as your agent, stores the credential readable by that user only, installs the
+background service and starts it; change `--agent` to the agent the server runs. The code in it works
+once, for 10 minutes, and the web client offers a new one after that. `homingbird login` stays the way
+for a computer where you can open a browser. [A complete
+example](deployment.md#a-complete-example-one-persons-runner-on-a-linux-server) walks through a Linux
+server with its own OS user.
+
 The agent command runs with your permissions. The runner never hands it a Homingbird credential: it
 removes `HOMINGBIRD_*` and `HB_*` variables and anything holding the credential from the command's
 environment, and the note reaches it only on standard input, wrapped as quoted data. It cannot stop
@@ -132,7 +150,7 @@ credential in `~/.config/homingbird`. With that credential an agent can read you
 draft, never send: Dovecote refuses an agent credential on every approving route.
 
 **If you do not fully trust the agent command, run the runner as a separate OS user or in a
-container** that has its own `homingbird login` and nothing else of yours: no other credentials, no
+container** that has its own sign-in and nothing else of yours: no other credentials, no
 SSH keys, no source you would not show the agent.
 
 ```sh
@@ -269,7 +287,8 @@ absolute path.
   computer.
 - It runs only while that app is open: quitting the app stops it and any agent run it started, and
   notes wait for the next start. For an always-on desk that starts when you log in, use
-  `homingbird service install` (see the [CLI README](../packages/cli/README.md)).
+  `homingbird service install` (see the [CLI README](../packages/cli/README.md)), or, on a server,
+  the `homingbird setup` line from **Run on a server**.
 
 ### ChatGPT, claude.ai and other web connectors
 
@@ -426,14 +445,16 @@ writes.
 
 - **Make it.** In the channel's room, a manager opens **Channel agent**, names it and creates it. It
   joins the room and is sent the room's questions, like a person who answers there.
-- **Connect a desk.** Run `homingbird login` where the agent works. On the approval page, under
-  **Connect it as**, choose the channel's agent instead of your own. The desk is listed under **Desks
-  connected as …** with who approved it. Any manager can disconnect it; it also stops when the manager
-  who approved it stops managing the channel, and when the channel is archived.
+- **Connect a desk.** On a server, choose **Run on a server** in the **Channel agent** panel and paste
+  the line it shows there: the code in it works once, for 10 minutes, only for the channel's managers,
+  and issues the agent's credential, not yours. On a computer with a browser, run `homingbird login`
+  there instead, and on the approval page, under **Connect it as**, choose the channel's agent instead
+  of your own. The desk is listed under **Desks connected as …** with the manager who connected it. Any
+  manager can disconnect it; it also stops when the manager who connected it stops managing the
+  channel, and when the channel is archived.
 - **Keep it running without a laptop.** Run its desk on a server, as its own OS user, next to a
-  read-only checkout of what it answers from: `homingbird login --credentials-file <file>` there, a
-  manager approves the printed link from their own browser, and `homingbird service install --workdir
-  <checkout>` keeps it answering. [Run a channel's agent on a
+  read-only checkout of what it answers from: the `homingbird setup` line from **Run on a server**, with
+  `--workdir <checkout>`, signs it in and keeps it answering. [Run a channel's agent on a
   server](deployment.md#run-a-channels-agent-on-a-server) has the complete steps, how to rotate and
   disconnect it, and what it does not protect: whoever runs that machine can read every question and
   draft the agent sees, and a model may carry what it learned from one question into the next.
@@ -700,9 +721,10 @@ receive.
 - **Connection**: your connected agents and devices, whether your desk is awake, renaming and revoking
   them, the channels where your agent answers, and a place to enter a connection code. When your desk's
   latest draft came from a session that had run for eight hours or used 80% of its context, it suggests
-  starting a fresh session. While no agent of yours is connected, a banner says your desk has not
-  connected yet and shows the `homingbird login --server` command to run on the computer where your
-  background service waits, with a link to enter its connection code.
+  starting a fresh session. **Run on a server** makes a join code and shows the one line that sets up
+  a server as your agent's desk. While no agent of yours is connected, a banner says your desk has not
+  connected yet: for a server it points to **Run on a server**, and for a computer with a browser it
+  shows the `homingbird login --server` command, with a link to enter its connection code.
 - **Teaching**: your principles, below.
 - **How it is doing**: the numbers above, and how drafts fared by how long the desk session had run and
   how much of its context it had used. A share shows from five decided drafts in a row.
