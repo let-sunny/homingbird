@@ -82,7 +82,7 @@ exports[`schema > generates stable DDL for mysql 1`] = `
   "CREATE INDEX conversations_channel_id_idx ON conversations (channel_id)",
   "ALTER TABLE participants ADD COLUMN muted_at BIGINT",
   "ALTER TABLE members ADD COLUMN notifications VARCHAR(400)",
-  "CREATE TABLE IF NOT EXISTS spent_refresh_tokens (refresh_hash VARCHAR(400) NOT NULL, credential_id VARCHAR(64) NOT NULL, spent_at BIGINT NOT NULL, PRIMARY KEY (refresh_hash), INDEX spent_refresh_tokens_credential_id_idx (credential_id))",
+  "CREATE TABLE IF NOT EXISTS spent_refresh_tokens (refresh_hash VARCHAR(400) NOT NULL, credential_id VARCHAR(64) NOT NULL, spent_at BIGINT NOT NULL, replaced_by VARCHAR(400) NOT NULL, PRIMARY KEY (refresh_hash), INDEX spent_refresh_tokens_credential_id_idx (credential_id))",
 ]
 `;
 
@@ -209,7 +209,7 @@ exports[`schema > generates stable DDL for postgres 1`] = `
   "CREATE INDEX IF NOT EXISTS conversations_channel_id_idx ON conversations (channel_id)",
   "ALTER TABLE participants ADD COLUMN muted_at BIGINT",
   "ALTER TABLE members ADD COLUMN notifications VARCHAR(400)",
-  "CREATE TABLE IF NOT EXISTS spent_refresh_tokens (refresh_hash VARCHAR(400) NOT NULL, credential_id VARCHAR(64) NOT NULL, spent_at BIGINT NOT NULL, PRIMARY KEY (refresh_hash))",
+  "CREATE TABLE IF NOT EXISTS spent_refresh_tokens (refresh_hash VARCHAR(400) NOT NULL, credential_id VARCHAR(64) NOT NULL, spent_at BIGINT NOT NULL, replaced_by VARCHAR(400) NOT NULL, PRIMARY KEY (refresh_hash))",
   "CREATE INDEX IF NOT EXISTS spent_refresh_tokens_credential_id_idx ON spent_refresh_tokens (credential_id)",
 ]
 `;
@@ -337,7 +337,7 @@ exports[`schema > generates stable DDL for sqlite 1`] = `
   "CREATE INDEX IF NOT EXISTS conversations_channel_id_idx ON conversations (channel_id)",
   "ALTER TABLE participants ADD COLUMN muted_at INTEGER",
   "ALTER TABLE members ADD COLUMN notifications TEXT",
-  "CREATE TABLE IF NOT EXISTS spent_refresh_tokens (refresh_hash TEXT NOT NULL, credential_id TEXT NOT NULL, spent_at INTEGER NOT NULL, PRIMARY KEY (refresh_hash))",
+  "CREATE TABLE IF NOT EXISTS spent_refresh_tokens (refresh_hash TEXT NOT NULL, credential_id TEXT NOT NULL, spent_at INTEGER NOT NULL, replaced_by TEXT NOT NULL, PRIMARY KEY (refresh_hash))",
   "CREATE INDEX IF NOT EXISTS spent_refresh_tokens_credential_id_idx ON spent_refresh_tokens (credential_id)",
 ]
 `;

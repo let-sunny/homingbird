@@ -42,13 +42,19 @@ export const refreshCredential = (refreshToken: string): T.Task<Refresh, never, 
       tokenExpiresAt: Math.min(row.expires_at, now + ACCESS_TOKEN_LIFETIME_MS),
       refreshToken: `${REFRESH_PREFIX}${env.random.secret()}`,
     }
+    const replacedBy = hashSecret(issued.refreshToken!)
     const rotated = yield* run(sql`
-      UPDATE credentials SET token_hash = ${hashSecret(issued.token)}, refresh_hash = ${hashSecret(issued.refreshToken!)},
+      UPDATE credentials SET token_hash = ${hashSecret(issued.token)}, refresh_hash = ${replacedBy},
       token_expires_at = ${issued.tokenExpiresAt}
       WHERE id = ${row.id} AND refresh_hash = ${hash} AND revoked_at IS NULL`)
     if (rotated === 0) return REFUSED
     yield* run(
-      insertInto('spent_refresh_tokens', { refresh_hash: hash, credential_id: row.id, spent_at: now }),
+      insertInto('spent_refresh_tokens', {
+        refresh_hash: hash,
+        credential_id: row.id,
+        spent_at: now,
+        replaced_by: replacedBy,
+      }),
     )
     return { outcome: 'issued', issued }
   })
@@ -58,7 +64,7 @@ export const deleteSpentRefreshTokens = (now: number): T.Task<void, never, AppEn
   T.asUnit(
     run(sql`
       DELETE FROM spent_refresh_tokens
-      WHERE credential_id IN (SELECT id FROM credentials WHERE expires_at <= ${now})`),
+      WHERE credential_id IN (SELECT id FROM credentials WHERE expires_at <= ${now} OR revoked_at IS NOT NULL)`),
   )
 
 interface RefreshRow {
@@ -70,6 +76,12 @@ interface RefreshRow {
   readonly status: MemberStatus
 }
 
+interface SpentRow {
+  readonly credential_id: CredentialId
+  readonly spent_at: number
+  readonly replaced_by: string
+}
+
 const REFUSED: Refresh = { outcome: 'refused' }
 /** A client retrying a refresh whose answer it lost repeats the token the live one replaced. */
 const REFRESH_REPLAY_GRACE_MS = 10_000
@@ -77,11 +89,11 @@ const DAY_MS = 24 * 60 * 60_000
 
 const spentOrUnknown = (hash: string, now: number): T.Task<Refresh, never, RequestEnv> =>
   T.gen(function* () {
-    const spent = yield* first<{ credential_id: CredentialId; spent_at: number }>(
-      sql`SELECT credential_id, spent_at FROM spent_refresh_tokens WHERE refresh_hash = ${hash}`,
+    const spent = yield* first<SpentRow>(
+      sql`SELECT credential_id, spent_at, replaced_by FROM spent_refresh_tokens WHERE refresh_hash = ${hash}`,
     )
     if (spent === null) return REFUSED
-    if (now - Number(spent.spent_at) <= REFRESH_REPLAY_GRACE_MS && (yield* isLatestSpent(hash, spent)))
+    if (now - Number(spent.spent_at) <= REFRESH_REPLAY_GRACE_MS && (yield* isLiveParent(spent)))
       return REFUSED
     const revoked = yield* run(
       sql`UPDATE credentials SET revoked_at = ${now} WHERE id = ${spent.credential_id} AND revoked_at IS NULL`,
@@ -94,14 +106,12 @@ const spentOrUnknown = (hash: string, now: number): T.Task<Refresh, never, Reque
     return { outcome: 'replayed' }
   })
 
-const isLatestSpent = (
-  hash: string,
-  spent: { readonly credential_id: CredentialId; readonly spent_at: number },
-): T.Task<boolean, never, AppEnv> =>
-  T.map((row: unknown) => row === null)(
+/** The token the live one replaced, judged by what was stored, not by the order of the clock. */
+const isLiveParent = (spent: SpentRow): T.Task<boolean, never, AppEnv> =>
+  T.map((row: unknown) => row !== null)(
     first(sql`
-      SELECT refresh_hash FROM spent_refresh_tokens
-      WHERE credential_id = ${spent.credential_id} AND spent_at >= ${spent.spent_at} AND refresh_hash <> ${hash}`),
+      SELECT id FROM credentials
+      WHERE id = ${spent.credential_id} AND refresh_hash = ${spent.replaced_by} AND revoked_at IS NULL`),
   )
 
 /** A browser sign-in is where the identity provider vouches for a person again. */

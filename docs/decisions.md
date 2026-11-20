@@ -617,7 +617,12 @@ states the decision first, then the reason. Add new entries at the top of their 
   who refreshes first and the client following within 10 seconds, which a one-hour access token makes
   rare. Two refreshes that
   race are settled by the row: the update names the refresh token it replaces, so only one changes the
-  row, on every database. Spent tokens are deleted once their credential has expired.
+  row, on every database. Each spent row keeps the hash of the token that replaced it, and the grace
+  holds only while that is the credential's live refresh token: the order of the clock decides nothing,
+  so two refreshes in one millisecond or a clock that steps back cannot move it. A client that lost
+  the answer to its refresh and retries within the grace is refused and cannot use that credential
+  again; it stays unusable until it expires, and the person connects again. Spent tokens are deleted
+  once their credential has expired or been revoked.
 - **The identity provider's discovery document is checked before anything is sent to it.** Its
   `issuer` must equal `HB_OIDC_ISSUER` exactly (trailing slashes aside), and its authorization, token
   and key endpoints must be https on a public host name (http only on loopback when Dovecote itself

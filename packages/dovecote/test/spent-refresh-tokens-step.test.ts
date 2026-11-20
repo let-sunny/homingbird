@@ -15,23 +15,23 @@ describe('the spent refresh tokens step', () => {
     expect(stepNumberOf(SPENT_REFRESH_TOKENS)).toBe(MIGRATIONS.length)
   })
 
-  it('adds a table of spent refresh tokens, one row per hash', async () => {
+  it('adds a table of spent refresh tokens and what replaced each, one row per hash', async () => {
     const earlier = MIGRATIONS.indexOf(SPENT_REFRESH_TOKENS)
     database = await migratedThrough(earlier)
     expect(await database.migrate([...MIGRATIONS.slice(0, earlier), SPENT_REFRESH_TOKENS])).toEqual([
       earlier + 1,
     ])
     expect(await database.columnsOf('spent_refresh_tokens')).toEqual(
-      expect.arrayContaining(['refresh_hash', 'credential_id', 'spent_at']),
+      expect.arrayContaining(['refresh_hash', 'credential_id', 'spent_at', 'replaced_by']),
     )
     expect(
       await database.execute(
-        `INSERT INTO spent_refresh_tokens (refresh_hash, credential_id, spent_at) VALUES ('h', 'cred_a', 1)`,
+        `INSERT INTO spent_refresh_tokens (refresh_hash, credential_id, spent_at, replaced_by) VALUES ('h', 'cred_a', 1, 'n')`,
       ),
     ).toBe(1)
     await expect(
       database.execute(
-        `INSERT INTO spent_refresh_tokens (refresh_hash, credential_id, spent_at) VALUES ('h', 'cred_b', 2)`,
+        `INSERT INTO spent_refresh_tokens (refresh_hash, credential_id, spent_at, replaced_by) VALUES ('h', 'cred_b', 2, 'm')`,
       ),
     ).rejects.toThrow()
   })

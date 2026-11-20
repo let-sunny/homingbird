@@ -160,6 +160,17 @@ describe('the grace for a client that repeats a refresh', () => {
     ])
   })
 
+  it('tells the token the live one replaced by what was stored, even when both refreshes share a millisecond', async () => {
+    const first = await connect()
+    const second = (await refresh(first.refresh_token)).json
+    const third = (await refresh(second.refresh_token)).json
+    expect((await refresh(second.refresh_token)).json.error).toBe('invalid_grant')
+    expect(await reads(third.access_token)).toBe(200)
+    expect(await revocations()).toEqual([])
+    expect((await refresh(first.refresh_token)).json.error).toBe('invalid_grant')
+    expect(await reads(third.access_token)).toBe(401)
+  })
+
   it('refuses the loser of two refreshes in flight at once without revoking the winner', async () => {
     const first = await connect()
     const winner = 'hbr_winner'
@@ -172,6 +183,20 @@ describe('the grace for a client that repeats a refresh', () => {
     expect(lost.json.error).toBe('invalid_grant')
     expect((await refresh(winner)).status).toBe(200)
     expect(await revocations()).toEqual([])
+  })
+  it('issues nothing when a replay revokes the credential while a refresh is rotating it', async () => {
+    const first = await connect()
+    const [credential] = (await storedRows(server, 'credentials')).filter((row) => row.client === 'Connector')
+    const race = meanwhile(server, /UPDATE credentials SET token_hash/, [
+      sql`UPDATE credentials SET revoked_at = ${server.clock.now()} WHERE id = ${String(credential!.id)}`,
+    ])
+    const lost = await race.request('POST', '/oauth/token', {
+      form: { grant_type: 'refresh_token', refresh_token: first.refresh_token },
+    })
+    expect(lost.json.error).toBe('invalid_grant')
+    expect(lost.json.access_token).toBeUndefined()
+    expect(await storedRows(server, 'spent_refresh_tokens')).toEqual([])
+    expect(await reads(first.access_token)).toBe(401)
   })
 })
 
@@ -201,6 +226,14 @@ describe('refreshing for a person the identity provider has not seen lately', ()
 })
 
 describe('deleting spent refresh tokens', () => {
+  it('deletes them once their credential is revoked', async () => {
+    const first = await connect()
+    const second = (await refresh(first.refresh_token)).json
+    await server.request('POST', '/oauth/revoke', { form: { token: second.access_token } })
+    await T.runPromise(deleteSpentRefreshTokens(server.clock.now()), server.env)
+    expect(await storedRows(server, 'spent_refresh_tokens')).toEqual([])
+  })
+
   it('keeps them while their credential is unexpired and deletes them after', async () => {
     const first = await connect()
     await refresh(first.refresh_token)
