@@ -79,9 +79,14 @@ describe('debateView', () => {
   it('waits for the result while the agents vote', () => {
     const { context } = testContext()
     const shown = debateView(context, lifetime(), me(), 'debate_1')
-    context.state.shownDebate.set(debate({ status: 'concluding', draftsCloseAt: 3, votingClosesAt: 4 }))
+    context.state.shownDebate.set(debate({ status: 'concluding', draftsCloseAt: 3 }))
     expect(textOf(shown)).toContain(strings.debates.waitingForResult)
     expect(shown.querySelector('.debate-collecting')).not.toBeNull()
+    expect(shown.querySelector('.debate-voting')).toBeNull()
+    context.state.shownDebate.set(debate({ status: 'concluding', votingClosesAt: 4 }))
+    expect(textOf(shown)).toContain(strings.debates.waitingForVotes)
+    expect(textOf(shown)).not.toContain(strings.debates.waitingForResult)
+    expect(shown.querySelector('.debate-collecting')).toBeNull()
     expect(shown.querySelector('.debate-voting')).not.toBeNull()
   })
 

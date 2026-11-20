@@ -7,7 +7,7 @@ const nameOf = (id: string) => (id === ANA ? 'Ana' : 'Ben')
 
 describe('resultModel', () => {
   it('waits while the agents settle the result, and shows who drafted it once settled', () => {
-    expect(resultModel(debate({ status: 'concluding' }), nameOf)).toEqual({
+    expect(resultModel(debate({ status: 'concluding' }), 'awaiting-result', nameOf)).toEqual({
       kind: 'waiting',
       text: strings.debates.waitingForResult,
       collecting: null,
@@ -18,6 +18,7 @@ describe('resultModel', () => {
         status: 'closed',
         result: { result: { kind: 'unknown' } as never, draftedBy: BEN, draftedAt: 1 },
       }),
+      'closed',
       nameOf,
     )
     expect(settled).toEqual({
@@ -25,6 +26,23 @@ describe('resultModel', () => {
       draftedBy: strings.debates.draftedBy({ person: 'Ben' }),
       body: { kind: 'unknown', text: strings.debates.unknownResult },
       voteRecord: null,
+    })
+  })
+
+  it('says what the room waits for in each phase, and nothing about the turns once it is closed', () => {
+    const textIn = (stage: 'awaiting-result' | 'voting' | 'closed', fields: Parameters<typeof debate>[0]) =>
+      resultModel(debate(fields), stage, nameOf)
+    expect(textIn('awaiting-result', { status: 'concluding', draftsCloseAt: 3 })).toMatchObject({
+      text: strings.debates.waitingForResult,
+    })
+    expect(textIn('voting', { status: 'concluding', votingClosesAt: 4 })).toMatchObject({
+      text: strings.debates.waitingForVotes,
+    })
+    expect(textIn('closed', { status: 'closed' })).toEqual({
+      kind: 'waiting',
+      text: null,
+      collecting: null,
+      voting: null,
     })
   })
 })

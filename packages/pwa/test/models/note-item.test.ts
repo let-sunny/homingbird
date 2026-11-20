@@ -112,11 +112,12 @@ describe('noteItemModel', () => {
     const model = noteItemModel(threadInput(), item(mine))
     expect(model.className).toBe('note is-mine leads-run is-agent')
     expect(model.author!.line).toBe(strings.authorship.agentYou)
-    expect(model.basis).toEqual({ kind: 'given', lines: ['Read the runbook.'] })
+    expect(model.basis).toEqual({ className: 'note-basis is-mine', lines: ['Read the runbook.'] })
     expect(model.actions).toEqual([])
     expect(model.meta!.mark).toMatchObject({ state: 'read', label: strings.status.read, count: null })
     expect(model.meta!.mark!.glyph).toBe('✓✓︎')
     expect(noteItemModel(threadInput(), item(note('n2', { authorId: ANA, basis: null }))).basis).toBeNull()
+    expect(noteItemModel(threadInput(), item(note('n5', { basis: 'Read the runbook.' }))).basis).toBeNull()
     expect(
       noteItemModel(threadInput(), item(note('n3', { authorId: ANA, origin: 'human_edited' }))).author!.line,
     ).toBe(strings.authorship.editedYou)

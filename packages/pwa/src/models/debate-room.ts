@@ -83,7 +83,7 @@ export const debateRoomModel = (input: DebateRoomInput): DebateRoomModel => {
     ended: stage === 'ended' ? strings.debates.ended[debate.endedBecause ?? 'no_turns'] : null,
     result:
       stage === 'awaiting-result' || stage === 'voting' || stage === 'closed'
-        ? resultModel(debate, nameOf)
+        ? resultModel(debate, stage, nameOf)
         : null,
     drafts:
       (debate.drafts ?? []).length === 0

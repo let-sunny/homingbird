@@ -1,13 +1,17 @@
 import { type AsRead, type MemberId, UNKNOWN } from '@homingbird/protocol'
-import { voteRecordLines } from '../debates.ts'
+import { type DebateStage, voteRecordLines } from '../debates.ts'
 import { formats, strings } from '../strings.ts'
 
 /** The room's result as it stands: waiting while drafts are collected and voted on, or settled. */
-export const resultModel = (debate: AsRead.Debate, nameOf: (id: MemberId) => string): ResultModel => {
+export const resultModel = (
+  debate: AsRead.Debate,
+  stage: ResultStage,
+  nameOf: (id: MemberId) => string,
+): ResultModel => {
   if (debate.result === null)
     return {
       kind: 'waiting',
-      text: strings.debates.waitingForResult,
+      text: waitingText(stage),
       collecting:
         debate.draftsCloseAt == null
           ? null
@@ -86,10 +90,13 @@ export const resultBody = (result: AsRead.DebateResult, nameOf: (id: MemberId) =
   }
 }
 
+/** The stages in which a room shows its result, settled or still to come. */
+export type ResultStage = Extract<DebateStage, 'awaiting-result' | 'voting' | 'closed'>
+
 export type ResultModel =
   | {
       readonly kind: 'waiting'
-      readonly text: string
+      readonly text: string | null
       readonly collecting: string | null
       readonly voting: string | null
     }
@@ -146,3 +153,10 @@ export type ResultBody =
     }
 
 const fullTime = (timestamp: number): string => formats.full.format(new Date(timestamp))
+
+const waitingText = (stage: ResultStage): string | null =>
+  stage === 'closed'
+    ? null
+    : stage === 'voting'
+      ? strings.debates.waitingForVotes
+      : strings.debates.waitingForResult

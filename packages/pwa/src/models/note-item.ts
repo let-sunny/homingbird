@@ -1,6 +1,6 @@
 import { type AsRead, type MemberId, type NoteId, summarize } from '@homingbird/protocol'
 import { authorshipOf, showsStateMark, stateMarkOf } from '../authorship.ts'
-import { type DraftBasis, draftBasisOf } from '../draft-basis.ts'
+import { draftBasisOf } from '../draft-basis.ts'
 import { spriteOwner } from '../sprite-owner.ts'
 import { formats, listOf, strings } from '../strings.ts'
 import {
@@ -37,9 +37,10 @@ export const noteItemModel = (
   const charactersOn = isOn(input, 'characters')
   const markShown = mine && showsStateMark(note, next)
   const basis = mine ? draftBasisOf(note) : null
+  const side = mine ? 'is-mine' : 'is-theirs'
   return {
     noteId: note.id,
-    className: `note ${mine ? 'is-mine' : 'is-theirs'} ${leadsRun ? 'leads-run' : 'follows-run'} is-${authorshipOf(note)}`,
+    className: `note ${side} ${leadsRun ? 'leads-run' : 'follows-run'} is-${authorshipOf(note)}`,
     unread: isUnreadBy(note, input.me.member.id),
     author: leadsRun ? authorModel(input, note, authorship, sentAt, charactersOn) : null,
     spokenAuthorship: leadsRun ? null : authorship,
@@ -48,7 +49,10 @@ export const noteItemModel = (
     bubbleTitle: next !== null && sentAt !== null ? sentAt : null,
     quote: quoted === null ? null : excerpt(quoted.body),
     body: note.body,
-    basis: basis === null || basis.kind === 'none' ? null : basis,
+    basis:
+      basis === null || basis.kind === 'none'
+        ? null
+        : { className: `note-basis ${side}`, lines: basis.lines },
     answeredBy:
       answerers.length === 0
         ? null
@@ -94,7 +98,7 @@ export interface NoteItemModel {
   readonly bubbleTitle: string | null
   readonly quote: string | null
   readonly body: string
-  readonly basis: Extract<DraftBasis, { kind: 'given' }> | null
+  readonly basis: { readonly className: string; readonly lines: ReadonlyArray<string> } | null
   readonly answeredBy: { readonly avatar: AvatarModel; readonly text: string } | null
   readonly release: { readonly text: string; readonly askAnyway: string | null } | null
   readonly meta: { readonly time: TimeShown | null; readonly mark: StateMarkModel | null } | null

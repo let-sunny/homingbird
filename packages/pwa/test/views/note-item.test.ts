@@ -64,7 +64,16 @@ describe('renderNoteItem', () => {
       ],
     })
     const shown = render(context, mine)
-    expect(textOf(shown.querySelector('.note-basis')!)).toContain('Read the runbook.')
+    const basis = shown.querySelector('.note-basis')!
+    expect(textOf(basis)).toContain('Read the runbook.')
+    expect(basis.classList.contains('is-mine')).toBe(true)
+    const column = shown.querySelector('.note-column')!
+    expect([...column.children].map((child) => child.getAttribute('class'))).toEqual([
+      'visually-hidden',
+      'bubble',
+      'note-basis is-mine',
+      'note-meta',
+    ])
     expect(getByRole(shown, 'img', { name: strings.status.read })).toBeTruthy()
     shown.classList.add('is-active')
     expect(render(context, mine).classList.contains('is-active')).toBe(true)

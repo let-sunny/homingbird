@@ -519,6 +519,20 @@
   color: var(--hb-color-muted);
 }
 
+.note-basis.is-mine {
+  justify-self: end;
+  max-inline-size: min(70cqi, 40rem);
+  border-inline-start: none;
+  border-inline-end: var(--hb-pixel) solid currentColor;
+  text-align: end;
+}
+
+@container stage (max-width: 30rem) {
+  .note-basis.is-mine {
+    max-inline-size: min(88cqi, 100%);
+  }
+}
+
 .basis-missing {
   font-style: italic;
 }

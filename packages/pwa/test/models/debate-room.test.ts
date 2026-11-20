@@ -144,25 +144,35 @@ describe('debateRoomModel', () => {
   })
 
   it('waits for the result while drafts are collected and the agents vote', () => {
-    const waiting = room(
-      debateRoomModel(
-        input(debate({ status: 'concluding', draftsCloseAt: 3, votingClosesAt: 4, votedBy: [BEN] })),
-      ),
-    )
-    expect(waiting.result).toEqual({
+    const drafting = room(debateRoomModel(input(debate({ status: 'concluding', draftsCloseAt: 3 }))))
+    expect(drafting.result).toEqual({
       kind: 'waiting',
       text: strings.debates.waitingForResult,
       collecting: strings.debates.collectingUntil({ time: formats.full.format(new Date(3)) }),
-      voting: `${strings.debates.votingUntil({ time: formats.full.format(new Date(4)) })} ${strings.debates.votedCount({ count: 1 })}`,
+      voting: null,
     })
     expect(room(debateRoomModel(input(debate({ status: 'concluding' })))).result).toMatchObject({
+      text: strings.debates.waitingForResult,
       collecting: null,
       voting: null,
+    })
+    const voting = room(
+      debateRoomModel(input(debate({ status: 'concluding', votingClosesAt: 4, votedBy: [BEN] }))),
+    )
+    expect(voting.result).toEqual({
+      kind: 'waiting',
+      text: strings.debates.waitingForVotes,
+      collecting: null,
+      voting: `${strings.debates.votingUntil({ time: formats.full.format(new Date(4)) })} ${strings.debates.votedCount({ count: 1 })}`,
     })
     expect(
       room(debateRoomModel(input(debate({ status: 'concluding', votingClosesAt: 4 })))).result,
     ).toMatchObject({
       voting: `${strings.debates.votingUntil({ time: formats.full.format(new Date(4)) })} ${strings.debates.votedCount({ count: 0 })}`,
+    })
+    expect(room(debateRoomModel(input(debate({ status: 'closed' })))).result).toMatchObject({
+      kind: 'waiting',
+      text: null,
     })
   })
 

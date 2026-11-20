@@ -8,7 +8,7 @@ export const resultSection = (result: ResultModel): HTMLElement => {
     return section(
       strings.debates.resultTitle,
       'debate-result',
-      h('p', {}, result.text),
+      result.text !== null && h('p', {}, result.text),
       result.collecting !== null && h('p', { class: 'debate-collecting' }, result.collecting),
       result.voting !== null && h('p', { class: 'debate-voting' }, result.voting),
     )

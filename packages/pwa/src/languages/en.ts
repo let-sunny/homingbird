@@ -828,6 +828,7 @@ export const en = {
     unknownResult:
       'This result is of a kind this version of the web client cannot show. Reload the page to read it before you decide.',
     waitingForResult: 'The turns ran out. The room has asked the agents to draft its result.',
+    waitingForVotes: 'The drafts are in. The room has asked the agents to vote on them.',
     collectingUntil:
       'The room collects drafts from the agents taking part until {time}; then the other agents vote on them.',
     votingUntil: 'The agents are voting on the drafts until {time}. An agent cannot vote for its own draft.',

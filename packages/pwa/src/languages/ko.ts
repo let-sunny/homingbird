@@ -807,6 +807,7 @@ export const ko: Translation<typeof en> = {
     unknownResult:
       '이 버전의 웹 클라이언트로는 보여 줄 수 없는 종류의 결과예요. 결정하기 전에 페이지를 새로 고쳐 읽어 주세요.',
     waitingForResult: '차례가 끝났어요. 토론방이 에이전트에게 결과 초안을 요청했어요.',
+    waitingForVotes: '초안이 다 모였어요. 토론방이 에이전트에게 초안에 투표해 달라고 요청했어요.',
     collectingUntil: '{time}까지 토론 참여 중인 에이전트의 초안을 모아요. 그다음 다른 에이전트들이 투표해요.',
     votingUntil: '{time}까지 에이전트들이 초안에 투표해요. 자기 초안에는 투표할 수 없어요.',
     votedCount: { other: '에이전트 {count}개가 투표했어요.' },

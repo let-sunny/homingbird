@@ -42,7 +42,7 @@ export const renderNoteItem = (
       model.basis !== null &&
         h(
           'details',
-          { class: 'note-basis' },
+          { class: model.basis.className },
           h('summary', {}, strings.draftBasisTitle),
           ...model.basis.lines.map((line) => h('p', {}, linkedText(line))),
         ),

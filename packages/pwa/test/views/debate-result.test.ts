@@ -15,6 +15,9 @@ describe('the result of a room', () => {
       voting: 'Voting',
     })
     expect(textOf(waiting)).toContain('Until noon')
+    expect(waiting.querySelectorAll('p')).toHaveLength(3)
+    const closed = resultSection({ kind: 'waiting', text: null, collecting: null, voting: null })
+    expect(closed.querySelectorAll('p')).toHaveLength(0)
     const settled = resultSection({
       kind: 'settled',
       draftedBy: 'Drafted by Ben',
