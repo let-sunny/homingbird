@@ -100,8 +100,10 @@ describe('setting who is in a group', () => {
       await cy.api('PATCH', `/groups/${payroll}`, { name: 'Mine' }),
     ])
       expect([response.status, response.json.error.message]).toEqual([404, 'No such group.'])
-    expect(await storedRows(server, 'group_members')).toEqual(
-      [ben, cy].map((member) => ({ group_id: payroll, member_id: member.me.member.id })),
+    const byMember = (rows: ReadonlyArray<Readonly<Record<string, unknown>>>) =>
+      [...rows].sort((left, right) => String(left.member_id).localeCompare(String(right.member_id)))
+    expect(byMember(await storedRows(server, 'group_members'))).toEqual(
+      byMember([ben, cy].map((member) => ({ group_id: payroll, member_id: member.me.member.id }))),
     )
   })
 
