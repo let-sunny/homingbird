@@ -1,7 +1,13 @@
 import type { AsRead, GroupId, MemberId } from '@homingbird/protocol'
-import { type Lifetime, h, region, signal } from '@homingbird/ui'
+import { type Lifetime, h, onAnyChange, region, signal } from '@homingbird/ui'
 import type { Actions } from '../actions.ts'
 import { featureOn } from '../features.ts'
+import {
+  type ChoiceToggle,
+  groupStartModel,
+  participantsToStart,
+  toggledChoice,
+} from '../models/group-start.ts'
 import {
   type FilterOption,
   type PeopleModel,
@@ -12,6 +18,7 @@ import {
 import { strings } from '../strings.ts'
 import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
+import { choiceToggle, groupStartPanel, reflectChoices } from './group-start.ts'
 import { button, channelChips, empty, field, loadFailed, loading, page, presenceBadges } from './parts.ts'
 
 /** People: everyone in the organization the person may see, and what they may do with each. */
@@ -59,7 +66,41 @@ export const peopleView = (context: ViewContext, life: Lifetime, me: AsRead.Me):
       groupFilter: groupFilter.get(),
       groupMembers: groupMembers.get(),
     })
+  const chosen = signal<ReadonlyArray<MemberId>>([])
+  const starting = signal(false)
+  const startInput = () => ({
+    directory: state.directory.get(),
+    conversations: state.conversations.get(),
+    viewerId: me.member.id,
+    chosen: chosen.get(),
+    starting: starting.get(),
+  })
+  const toggles = (): ReadonlyMap<MemberId, ChoiceToggle> =>
+    groupStartModel(startInput())?.toggles ?? new Map()
+  const choose = (memberId: MemberId): void => chosen.set(toggledChoice(chosen.get(), memberId))
+  const start = (): void => {
+    const memberIds = participantsToStart(startInput())
+    if (memberIds === null) return
+    starting.set(true)
+    actions.openConversationAmong(memberIds, { failed: () => starting.set(false) })
+  }
   const shown = model()
+  const list = region(
+    life,
+    [
+      state.directory,
+      state.directoryLoaded,
+      failed,
+      query,
+      channelFilter,
+      state.channels,
+      state.groups,
+      groupFilter,
+      groupMembers,
+    ],
+    () => renderPeople(model(), context, load, { toggles: toggles(), choose }),
+  )
+  life.add(onAnyChange([chosen, starting], () => reflectChoices(list, toggles())))
   return page(
     strings.people,
     shown.contactsNotice !== null && h('p', { class: 'banner' }, shown.contactsNotice),
@@ -87,28 +128,27 @@ export const peopleView = (context: ViewContext, life: Lifetime, me: AsRead.Me):
         },
       ),
     ),
-    region(
-      life,
-      [
-        state.directory,
-        state.directoryLoaded,
-        failed,
-        query,
-        channelFilter,
-        state.channels,
-        state.groups,
-        groupFilter,
-        groupMembers,
-      ],
-      () => renderPeople(model(), context, load),
+    region(life, [state.directory, state.conversations, chosen, starting], () =>
+      groupStartPanel(groupStartModel(startInput()), {
+        remove: choose,
+        clear: () => chosen.set([]),
+        start,
+      }),
     ),
+    list,
   )
+}
+
+interface Choices {
+  readonly toggles: ReadonlyMap<MemberId, ChoiceToggle>
+  readonly choose: (memberId: MemberId) => void
 }
 
 const renderPeople = (
   model: PeopleModel,
   context: Pick<ViewContext, 'actions' | 'clock' | 'page'>,
   retry: () => void,
+  choices: Choices,
 ): HTMLElement => {
   const list = model.list
   if (list.kind === 'loading') return loading()
@@ -117,13 +157,14 @@ const renderPeople = (
   return h(
     'ul',
     { class: 'people' },
-    list.people.map((person) => personCard(person, context)),
+    list.people.map((person) => personCard(person, context, choices)),
   )
 }
 
 const personCard = (
   person: PersonCard,
   context: Pick<ViewContext, 'actions' | 'clock' | 'page'>,
+  choices: Choices,
 ): HTMLElement =>
   h(
     'li',
@@ -186,10 +227,18 @@ const personCard = (
       h(
         'div',
         { class: 'person-actions' },
-        person.actions.map((one) => actionButton(one, person, context.actions)),
+        person.actions.map((one) => [
+          actionButton(one, person, context.actions),
+          one.kind === 'message' && choiceFor(person.memberId, choices),
+        ]),
       ),
     ),
   )
+
+const choiceFor = (memberId: MemberId, choices: Choices): HTMLElement | null => {
+  const toggle = choices.toggles.get(memberId)
+  return toggle === undefined ? null : choiceToggle(memberId, toggle, () => choices.choose(memberId))
+}
 
 const actionButton = (action: PersonAction, person: PersonCard, actions: Actions): HTMLElement => {
   const control = button(action.label, () => ACTIONS[action.kind](actions, person), {

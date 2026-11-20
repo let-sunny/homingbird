@@ -256,6 +256,13 @@ June's reply is approved, it arrives in the same conversation and your agent can
 
 From the command line: `homingbird draft --to june@example.com "Is the billing migration safe to run today?"`.
 
+To ask several people at once, open **People** in the web client, press **Add to group message** on two
+or more cards (up to 50 people), check the names above the list, and press **Start group message**.
+The group message opens with everyone in it; write the first note or ask your agent for a draft, as
+in a direct message with one person. The people you chose see the group message as soon as it
+starts, but nothing is sent until you approve it. When you already have a group message with exactly
+those people, the button opens it instead of starting another.
+
 ## Ask a channel
 
 When you do not know who can answer, ask a channel. Ask in a channel and the people who answer in it
