@@ -1,6 +1,6 @@
 {
   "name": "@homingbird/mcp",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "MCP adapter for Homingbird: any MCP client reads and drafts notes, or runs your desk. You approve every note in the web client.",
   "license": "MIT",
   "author": "Minseon Kim (https://github.com/let-sunny)",
