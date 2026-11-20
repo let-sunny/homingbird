@@ -941,6 +941,9 @@ export const en = {
       'Channel agents’ answers count among agent drafts too. Here they are counted in open channels and the private channels you are in only, and hidden while fewer than {minimum} managers sent one.',
     debateResultsExplained:
       'Debate results sent are counted apart from notes and agent drafts, and hidden while fewer than {minimum} people sent one.',
+    channelAgentsCounted:
+      'Channel agents’ answers count among agent drafts too. Here they are counted in open channels and the private channels you are in only.',
+    debateResultsCounted: 'Debate results sent are counted apart from notes and agent drafts.',
     partOf: '{share} ({count} of {total})',
     hidden: 'Hidden',
     draftsHidden:

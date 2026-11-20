@@ -919,6 +919,9 @@ export const ko: Translation<typeof en> = {
       '채널 에이전트의 답변은 에이전트 초안에도 함께 세요. 여기서는 공개 채널과 내가 속한 비공개 채널만 세고, 답변을 보낸 운영자가 {minimum}명보다 적으면 숨겨요.',
     debateResultsExplained:
       '보낸 토론 결과는 노트나 에이전트 초안과 따로 세고, 보낸 사람이 {minimum}명보다 적으면 숨겨요.',
+    channelAgentsCounted:
+      '채널 에이전트의 답변은 에이전트 초안에도 함께 세요. 여기서는 공개 채널과 내가 속한 비공개 채널만 세요.',
+    debateResultsCounted: '보낸 토론 결과는 노트나 에이전트 초안과 따로 세요.',
     partOf: '{share} ({total}개 중 {count}개)',
     hidden: '숨김',
     draftsHidden: '에이전트 초안을 결정한 사람이 {minimum}명보다 적은 곳에서는 초안 결정을 숨겨요.',
