@@ -355,7 +355,8 @@ figure it does not name. Still to come:
 `dovecote/src/domain/audit.ts`, and stdout or console output outside the log service and the programs
 whose stdout is their output. Supported upgrades between releases: a database any final release left
 starts on every later release, on SQLite, PostgreSQL and MySQL, tested in CI from a fixture per release
-built through the real schema steps, and a release without a fixture does not ship. Still to come:
+built through the real schema steps, and a release without a fixture does not ship. Refresh tokens
+are rotated, and a spent one presented again after a 30-second grace revokes its credential. Still to come:
 
 - Multi-node deployment: shared event fan-out through the database or a message broker.
 - Forwarding the metadata-only audit copy over syslog and OpenTelemetry, and an OCSF mapping for
@@ -363,7 +364,6 @@ built through the real schema steps, and a release without a fixture does not sh
 - A compliance export of the product's own data (notes, drafts, debate rooms) for legal hold, if an
   organization asks for one: not the audit trail's job.
 - Periodic re-validation of members against the identity provider.
-- Revoking a credential family when a refresh token is replayed.
 
 ## Clients
 

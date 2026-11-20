@@ -10,6 +10,7 @@ import { auditRetention } from './domain/audit-retention.ts'
 import { auditHead, purgeAuditBefore } from './domain/audit.ts'
 import { settleDebate, undecidedDebates } from './domain/debate-turns.ts'
 import { flushAttempts, makeAttemptWindows } from './domain/denied-attempts.ts'
+import { deleteSpentRefreshTokens } from './domain/refresh-tokens.ts'
 import { featureIsOn } from './domain/settings.ts'
 import type { AppEnv } from './environment.ts'
 import { deleteEventsBefore, transact } from './events/events.ts'
@@ -94,6 +95,7 @@ export const housekeepingPass: T.Task<void, never, AppEnv> = T.gen(function* () 
   const env = yield* T.ask<AppEnv>()
   const now = env.clock.now()
   yield* deleteExpiredAuthRequests(now)
+  yield* deleteSpentRefreshTokens(now)
   yield* deleteEventsBefore(now - EVENT_RETENTION_MS)
   const retention = yield* auditRetention
   if (retention !== 'forever') yield* transact(purgeAuditBefore(now - retention * DAY_MS))

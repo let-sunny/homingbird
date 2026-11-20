@@ -1,6 +1,8 @@
 import { Task as T, tagged } from '@homingbird/kernel'
-import { type Issued, refreshCredential, revokeByToken } from '../domain/credentials.ts'
+import { type Issued, revokeByToken } from '../domain/credentials.ts'
+import { refreshCredential } from '../domain/refresh-tokens.ts'
 import type { AppEnv } from '../environment.ts'
+import { transact } from '../events/events.ts'
 
 export const OAuthError = tagged('OAuthError')<{
   readonly code: OAuthErrorCode
@@ -31,10 +33,15 @@ export const AGENT_SCOPE = 'notes'
 export const exchangeRefreshToken = (refreshToken: string): T.Task<TokenResponse, OAuthError, AppEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
-    const issued = yield* T.mapError(() =>
-      OAuthError({ code: 'invalid_grant', description: 'The refresh token is invalid, expired or revoked.' }),
-    )(refreshCredential(refreshToken))
-    return tokenResponse(issued, env.clock.now(), AGENT_SCOPE)
+    const refresh = yield* transact(refreshCredential(refreshToken))
+    if (refresh.outcome !== 'issued')
+      return yield* T.fail(
+        OAuthError({
+          code: 'invalid_grant',
+          description: 'The refresh token is invalid, expired or revoked.',
+        }),
+      )
+    return tokenResponse(refresh.issued, env.clock.now(), AGENT_SCOPE)
   })
 
 export const revokeToken = revokeByToken

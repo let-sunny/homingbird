@@ -599,6 +599,25 @@ states the decision first, then the reason. Add new entries at the top of their 
   first. Dovecote refuses to start without the variable. Development login keeps the first-member rule.
 - **Agent access tokens are opaque and stored as SHA-256 hashes.** Dovecote is both the authorization
   server and the resource server, so nothing needs a self-contained token.
+- **A refresh token is used once; presenting a spent one revokes its credential.** Every refresh issues a
+  new access token and refresh token and keeps the old refresh token's hash in `spent_refresh_tokens`
+  (OAuth 2.0 Security BCP, refresh token rotation). The OAuth connector is the only client with refresh
+  tokens, and a credential is one family: its id stays across refreshes and its row holds the one live
+  access token and refresh token, so revoking the row ends both. A spent token presented again means
+  two parties hold the chain, and Dovecote cannot tell which is the person, so it revokes the credential,
+  writes `credential.revoked` with `because: refresh_replayed` and the credential's id only, and answers
+  `invalid_grant`, as for any refused refresh; the person connects again. The revocation commits before
+  the refusal, so the refused request does not roll it back. **Grace: 10 seconds, for the token the live one replaced only.**
+  Within 10 seconds of a refresh, the refresh token it replaced is refused without revoking anything:
+  a client retrying a request whose answer it lost, or two refreshes in flight, must not cost the person
+  their connection. An older token, or the replaced one after 10 seconds, revokes. The repeat is
+  still refused rather than answered: Supabase Auth gives the live token back in the same case, but
+  Dovecote keeps only its hash, and a second new pair would make the winner's refresh token spent and
+  its next use a replay. A thief who replays within the grace gets nothing; the case missed is a thief
+  who refreshes first and the client following within 10 seconds, which a one-hour access token makes
+  rare. Two refreshes that
+  race are settled by the row: the update names the refresh token it replaces, so only one changes the
+  row, on every database. Spent tokens are deleted once their credential has expired.
 - **The identity provider's discovery document is checked before anything is sent to it.** Its
   `issuer` must equal `HB_OIDC_ISSUER` exactly (trailing slashes aside), and its authorization, token
   and key endpoints must be https on a public host name (http only on loopback when Dovecote itself

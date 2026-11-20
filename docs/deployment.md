@@ -585,6 +585,16 @@ custom connector.
 5. Each person connects once, signs in, and consents. The connector gets an agent credential: it can
    read and draft, never send. Drafts wait for approval in the web client.
 
+The connector renews its access token every hour with a refresh token that works once. If a refresh
+token that was already used comes back more than 30 seconds later, Dovecote takes it as copied:
+it revokes that connection, writes `credential.revoked` with `because: refresh_replayed` to the audit
+trail, and the person has to connect again. To see whether it happened:
+
+```sql
+SELECT created_at, target_id FROM audit_events
+WHERE event = 'credential.revoked' AND detail LIKE '%refresh_replayed%' ORDER BY id DESC;
+```
+
 A client that cannot use metadata documents or dynamic registration can be registered up front with
 `HB_OAUTH_CLIENTS`.
 
