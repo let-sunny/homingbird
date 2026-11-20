@@ -7,7 +7,10 @@ export const Empty = S.struct({})
 export const Digits = S.string({ pattern: /^[0-9]{1,15}$/ })
 export const PageLimit = S.string({ pattern: /^[0-9]{1,3}$/ })
 
-export const Recipients = S.array(MemberId, { minItems: 1, maxItems: 50 })
+/** The most people one note or conversation names besides its author. */
+export const RECIPIENTS_MAX = 50
+
+export const Recipients = S.array(MemberId, { minItems: 1, maxItems: RECIPIENTS_MAX })
 
 export const InboxItem = S.struct({ note: Note, author: Member, conversation: Conversation })
 export type InboxItem = S.Infer<typeof InboxItem>
