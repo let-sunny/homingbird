@@ -1,12 +1,13 @@
-import type {
-  AgentFigures,
-  AgentReport,
-  LabelTotals,
-  PlaceName,
-  PlaceTrust,
-  SkipReason,
-  TrustVerdict,
-  TrustWeek,
+import {
+  type AgentFigures,
+  type AgentReport,
+  type LabelTotals,
+  type PlaceName,
+  type PlaceTrust,
+  QUICK_APPROVAL_SHARE,
+  type SkipReason,
+  type TrustVerdict,
+  type TrustWeek,
 } from '@homingbird/protocol'
 
 import { sessionHealthOf } from './session-figures.ts'
@@ -140,7 +141,13 @@ export const isQuickApproval = (draft: AgentDraft, quickApprovalSeconds: number)
 }
 
 export const isQuickApprovalFrequent = (quickApprovals: number, sentAsWritten: number): boolean =>
-  quickApprovals >= QUICK_NUDGE_COUNT && quickApprovals >= QUICK_NUDGE_SHARE * sentAsWritten
+  quickApprovals >= QUICK_NUDGE_COUNT && quickApprovals >= QUICK_APPROVAL_SHARE * sentAsWritten
+
+/** From the draft first appearing on its person's screen to their decision; null when either is unknown. */
+export const decisionTime = (draft: AgentDraft): number | null =>
+  draft.seenAt === null || draft.decidedAt === null || draft.outcome === null
+    ? null
+    : Math.max(0, draft.decidedAt - draft.seenAt)
 
 export const median = (values: ReadonlyArray<number>): number | null => {
   if (values.length === 0) return null
@@ -194,13 +201,7 @@ export const DAY_MS = 24 * 60 * 60_000
 const USUALLY = 0.7
 const OFTEN = 0.3
 const QUICK_NUDGE_COUNT = 3
-const QUICK_NUDGE_SHARE = 0.25
 const REASONS_SHOWN = 3
-
-const decisionTime = (draft: AgentDraft): number | null =>
-  draft.seenAt === null || draft.decidedAt === null || draft.outcome === null
-    ? null
-    : Math.max(0, draft.decidedAt - draft.seenAt)
 
 const weekOf = (drafts: ReadonlyArray<AgentDraft>, week: Window): TrustWeek => {
   const decisions = decisionsOf(

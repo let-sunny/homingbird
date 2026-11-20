@@ -13,6 +13,7 @@ import {
   TREND_WEEKS,
   agentReportOf,
 } from './trust-figures.ts'
+import { WEEK_DAYS, type WeekActivity, yourWeekOf } from './week-figures.ts'
 
 /** The member's own agent: drafts, decisions and skips over the periods the report compares. */
 export const agentReportFor = (memberId: MemberId): T.Task<AgentReport, never, AppEnv> =>
@@ -20,7 +21,11 @@ export const agentReportFor = (memberId: MemberId): T.Task<AgentReport, never, A
     const env = yield* T.ask<AppEnv>()
     const now = env.clock.now()
     const activity = yield* agentActivity(memberId, now - LOOKBACK_MS, now)
-    return agentReportOf(activity, now, env.config.insights.quickApprovalSeconds)
+    const week = yield* weekActivity(memberId, now - 2 * WEEK_DAYS * DAY_MS)
+    return {
+      ...agentReportOf(activity, now, env.config.insights.quickApprovalSeconds),
+      week: yourWeekOf(week, now),
+    }
   })
 
 /** Organization-wide totals for administrators, with every group under the minimum left out. */
@@ -80,10 +85,36 @@ const agentActivity = (
     }
   })
 
+const weekActivity = (memberId: MemberId, since: number): T.Task<WeekActivity, never, AppEnv> =>
+  T.gen(function* () {
+    const sent = yield* all<{ at: number }>(sql`
+      SELECT n.sent_at AS at FROM notes n
+      WHERE n.author_id = ${memberId} AND n.status = 'sent' AND n.debate_id IS NULL AND n.sent_at >= ${since}`)
+    const repliesReceived = yield* all<{ at: number }>(sql`
+      SELECT r.sent_at AS at FROM notes r JOIN notes o ON o.id = r.in_reply_to
+      WHERE o.author_id = ${memberId} AND o.status = 'sent' AND o.debate_id IS NULL
+      AND r.author_id <> ${memberId} AND r.status = 'sent' AND r.debate_id IS NULL AND r.sent_at >= ${since}`)
+    const ownReplies = yield* all<{ id: string; original_sent_at: number; replied_at: number }>(sql`
+      SELECT o.id, o.sent_at AS original_sent_at, r.sent_at AS replied_at FROM notes o
+      JOIN notes r ON r.in_reply_to = o.id
+      WHERE r.author_id = ${memberId} AND r.status = 'sent' AND r.debate_id IS NULL
+      AND o.author_id <> ${memberId} AND o.status = 'sent' AND o.debate_id IS NULL AND o.in_reply_to IS NULL
+      AND o.sent_at >= ${since}`)
+    return {
+      sent: sent.map((row) => Number(row.at)),
+      repliesReceived: repliesReceived.map((row) => Number(row.at)),
+      ownReplies: ownReplies.map((row) => ({
+        originalId: row.id,
+        originalSentAt: Number(row.original_sent_at),
+        repliedAt: Number(row.replied_at),
+      })),
+    }
+  })
+
 const organizationActivity = (since: number): T.Task<OrganizationActivity, never, AppEnv> =>
   T.gen(function* () {
     const sent = yield* all<SentRow>(sql`
-      SELECT n.id, n.author_id, n.in_reply_to, n.sent_at, ${PLACE_COLUMNS} FROM notes n ${PLACE_JOIN}
+      SELECT n.id, n.author_id, n.in_reply_to, n.sent_at, n.origin, ${PLACE_COLUMNS} FROM notes n ${PLACE_JOIN}
       WHERE n.status = 'sent' AND n.debate_id IS NULL AND n.sent_at >= ${since}`)
     const drafts = yield* all<DraftRow & { author_id: string }>(sql`
       SELECT n.author_id, n.created_at, n.seen_at, n.decided_at, n.status, n.origin, n.agent_client, n.agent_model, ${PLACE_COLUMNS}
@@ -95,6 +126,16 @@ const organizationActivity = (since: number): T.Task<OrganizationActivity, never
     const debateResults = yield* all<{ author_id: string; sent_at: number }>(sql`
       SELECT n.author_id, n.sent_at FROM notes n
       WHERE n.status = 'sent' AND n.debate_id IS NOT NULL AND n.sent_at >= ${since}`)
+    const received = yield* all<ReceivedRow>(sql`
+      SELECT r.member_id, n.sent_at,
+        CASE WHEN EXISTS (
+          SELECT 1 FROM credentials k WHERE k.member_id = r.member_id AND k.kind = 'agent'
+          AND k.created_at <= n.sent_at AND (k.revoked_at IS NULL OR k.revoked_at > n.sent_at)
+        ) THEN 1 ELSE 0 END AS has_agent,
+        (SELECT MIN(p.picked_at) FROM pickups p JOIN credentials k ON k.id = p.credential_id
+          WHERE p.note_id = n.id AND k.member_id = r.member_id AND k.kind = 'agent') AS picked_up_at
+      FROM receipts r JOIN notes n ON n.id = r.note_id
+      WHERE n.status = 'sent' AND n.debate_id IS NULL AND n.sent_at >= ${since} AND r.member_id <> n.author_id`)
     return {
       sent: sent.map((row) => ({
         id: row.id,
@@ -102,10 +143,17 @@ const organizationActivity = (since: number): T.Task<OrganizationActivity, never
         inReplyTo: row.in_reply_to,
         sentAt: Number(row.sent_at),
         place: placeOf(row),
+        origin: row.origin,
       })),
       drafts: drafts.map((row) => ({ ...toDraft(row), authorId: row.author_id })),
       skips: skips.map((row) => ({ ...toDated(row), memberId: row.member_id })),
       debateResults: debateResults.map((row) => ({ authorId: row.author_id, sentAt: Number(row.sent_at) })),
+      received: received.map((row) => ({
+        recipientId: row.member_id,
+        sentAt: Number(row.sent_at),
+        hasAgent: Number(row.has_agent) === 1,
+        pickedUpAt: optionalNumber(row.picked_up_at),
+      })),
     }
   })
 
@@ -135,6 +183,14 @@ interface SentRow extends PlaceRow {
   readonly author_id: string
   readonly in_reply_to: string | null
   readonly sent_at: number
+  readonly origin: string
+}
+
+interface ReceivedRow {
+  readonly member_id: string
+  readonly sent_at: number
+  readonly has_agent: number
+  readonly picked_up_at: number | null
 }
 
 const toDated = (row: DatedRow) => ({ place: placeOf(row), at: Number(row.at) })

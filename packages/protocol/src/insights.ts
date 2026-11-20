@@ -82,6 +82,18 @@ export type AgentPeriod = S.Infer<typeof AgentPeriod>
 export const TrustWeek = S.struct({ start: Timestamp, decided: count, sentAsWritten: count })
 export type TrustWeek = S.Infer<typeof TrustWeek>
 
+/** The person's own notes in one period, whoever wrote them: what they sent and the answers on both sides. */
+export const WeekFigures = S.struct({
+  notesSent: count,
+  repliesReceived: count,
+  /** The typical time from a colleague's new note to the person's first reply to it. */
+  medianReplyMs: S.nullable(count),
+})
+export type WeekFigures = S.Infer<typeof WeekFigures>
+
+export const YourWeek = S.struct({ days: S.int({ min: 1 }), current: WeekFigures, previous: WeekFigures })
+export type YourWeek = S.Infer<typeof YourWeek>
+
 /** The signed-in person's own agent, for the last 7 and 30 days and the 8 weeks before now. */
 export const AgentReport = S.struct({
   generatedAt: Timestamp,
@@ -90,6 +102,7 @@ export const AgentReport = S.struct({
   periods: S.array(AgentPeriod),
   weeks: S.array(TrustWeek),
   sessions: SessionHealth,
+  week: S.optional(YourWeek),
 })
 export type AgentReport = S.Infer<typeof AgentReport>
 
@@ -102,6 +115,18 @@ export const PlaceTotals = S.struct({
   skipped: count,
 })
 export type PlaceTotals = S.Infer<typeof PlaceTotals>
+
+export const Authorship = S.struct({ agent: count, humanEdited: count, human: count })
+export type Authorship = S.Infer<typeof Authorship>
+
+export const Delivery = S.struct({
+  received: count,
+  toAgents: count,
+  pickedUpQuickly: count,
+  medianPickupMs: S.nullable(count),
+  waitedWithoutAgent: count,
+})
+export type Delivery = S.Infer<typeof Delivery>
 
 /** Organization-wide counts only; draft decisions are null while too few people decided agent drafts. */
 export const OrganizationFigures = S.struct({
@@ -123,6 +148,9 @@ export const OrganizationFigures = S.struct({
   byClient: S.array(OrganizationLabelTotals),
   byModel: S.array(OrganizationLabelTotals),
   hiddenLabels: count,
+  medianDecisionMs: S.optional(S.nullable(count)),
+  authorship: S.optional(S.nullable(Authorship)),
+  delivery: S.optional(S.nullable(Delivery)),
 })
 export type OrganizationFigures = S.Infer<typeof OrganizationFigures>
 
@@ -133,11 +161,28 @@ export const OrganizationPeriod = S.struct({
 })
 export type OrganizationPeriod = S.Infer<typeof OrganizationPeriod>
 
+/** One week of drafts sent as written; both counts are null while fewer people than the minimum sent one. */
+export const QuickWeek = S.struct({
+  start: Timestamp,
+  sentAsWritten: S.nullable(count),
+  quickApprovals: S.nullable(count),
+})
+export type QuickWeek = S.Infer<typeof QuickWeek>
+
 export const OrganizationInsights = S.struct({
   generatedAt: Timestamp,
   quickApprovalSeconds: S.int({ min: 1 }),
   minimumGroupSize: S.int({ min: 1 }),
   blocks: S.nullable(count),
   periods: S.array(OrganizationPeriod),
+  weeks: S.optional(S.array(QuickWeek)),
+  quickWarning: S.optional(S.boolean),
 })
 export type OrganizationInsights = S.Infer<typeof OrganizationInsights>
+
+/** A person is nudged, and an organization warned, when this share of drafts sent as written was quick. */
+export const QUICK_APPROVAL_SHARE = 0.25
+export const QUICK_WARNING_WEEKS = 2
+export const QUICK_WARNING_MINIMUM_AS_WRITTEN = 10
+export const QUICK_PICKUP_MS = 5 * 60_000
+export const PICKUP_WAIT_MS = 24 * 60 * 60_000

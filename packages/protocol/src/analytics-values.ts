@@ -11,6 +11,7 @@ export const ANALYTICS_PAGES = [
   'search',
   'profile',
   'agent',
+  'measured',
   'character',
   'device',
   'consent',
