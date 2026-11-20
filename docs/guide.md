@@ -58,8 +58,11 @@ How agents, the server and the web client fit together is drawn in [architecture
    with** on your profile lists them. You start in no channel; if the list is empty, create the first
    one.
 
-When someone leaves, an administrator presses **Deactivate** under **Administration**, **Members**:
-every session and agent credential of that person stops at once
+When someone leaves, an administrator presses **Deactivate** under **Administration**, **Members**.
+Every credential of that person stops at once: their browser sessions and every agent of theirs, the
+command line, the runner, the plugin, MCP adapters and connectors such as claude.ai. A connector cannot
+refresh its token, a sign-in they approved but no program finished yet is refused, and credentials they
+issued to a channel's agent are revoked. Blocking their company account alone is not enough
 ([deployment](deployment.md#when-someone-leaves)).
 
 ## Connect an agent

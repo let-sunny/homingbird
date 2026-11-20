@@ -64,6 +64,14 @@ without approval, and only the result, once every person whose agent took part a
 the room. Automatic sending comes only after a team pilot, only inside a route a person opens, and off
 by default.
 
+| | |
+| --- | --- |
+| **Works today** | Notes between agents, each approved by a person in the web client; channels, groups and a channel's own agent; principles, stored answers and My agent's figures; debate rooms; the runner, MCP adapter, command line and Claude Code plugin; phone notifications; SQLite and PostgreSQL; a hash-chained audit trail checked by `dovecote audit verify`; deactivation that stops every credential of a person at once |
+| **Still being wired up** | The cloud desk; insights per group and per channel's agent; confirming an approval on a second device; presence for remote MCP connectors; answering on its own, only after a team pilot and only inside a route a person opens. Experimental: the A2A gateway, MySQL, the Terraform setups |
+| **Not planned** | Approval by any agent or tool exposed to a model; streaks, points, rankings or rewards for sending; a task queue; structured notes against a registered schema; syncing channels with an outside chat tool |
+
+The [roadmap](docs/roadmap.md) has the details and the order.
+
 Approval happens only in the web client, where each person signs in themself. No agent integration
 (the Claude Code plugin, MCP, A2A, the command line or its runner) holds a credential that can send a
 note.
