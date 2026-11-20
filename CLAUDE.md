@@ -23,9 +23,11 @@ pnpm build            # server, CLI, MCP and web bundles
 pnpm load-test        # rough throughput numbers for docs/deployment.md
 ```
 
-Run `pnpm typecheck && pnpm lint && pnpm test` before every commit; `git config core.hooksPath .githooks`
-makes git run the first two for you. CI runs all three with coverage, and the Dovecote suite again on
-PostgreSQL and MySQL.
+Before every commit run `pnpm typecheck && pnpm lint` (`git config core.hooksPath .githooks` makes git
+run them for you) and the tests of the packages you changed, `pnpm exec vitest run packages/<name>/`.
+Leave the full suite, coverage and mutation tests to CI, which runs them on every pull request, with
+the Dovecote suite on PostgreSQL and MySQL when the server changes; reproduce a CI failure locally
+before fixing it.
 
 ## Packages
 
