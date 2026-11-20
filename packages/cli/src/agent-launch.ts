@@ -8,8 +8,9 @@ import {
   shellCommand,
   withWords,
 } from './agent-presets.ts'
+import { presetAsked } from './agent-probe.ts'
 import { presetVersion, tooOldProblem, versionLine } from './agent-version.ts'
-import type { CliEnv, ProcessOptions, ProcessRun } from './environment.ts'
+import type { CliEnv } from './environment.ts'
 import { type CliFailure, failed } from './failure.ts'
 
 /**
@@ -61,7 +62,7 @@ export const presetNotReady = (preset: AgentPreset): T.Task<string | null, never
   T.gen(function* () {
     const check = preset.signInCheck
     if (check === null) return null
-    const printed = yield* asked(preset, check.args, check.timeoutMs)
+    const printed = yield* presetAsked(preset, check.args, check.timeoutMs)
     return printed.exitCode === 0 ? null : check.problem
   })
 
@@ -121,7 +122,9 @@ const preparedLaunch = (
     }
     let words = launch.words
     if (launch.probe !== null) {
-      const added = launch.probe.wordsFrom(yield* asked(preset, launch.probe.args))
+      const added = launch.probe.wordsFrom(
+        yield* presetAsked(preset, launch.probe.args, launch.probe.timeoutMs),
+      )
       if (added._tag === 'Err')
         return yield* T.fail(
           failed(
@@ -142,25 +145,4 @@ const preparedLaunch = (
     }
     const fallback = launch.withoutStrictMcp === null ? null : launchOf(launch.withoutStrictMcp, null)
     return launchOf(words, fallback)
-  })
-
-/** What a preset's program printed when run directly; a program that could not be started printed nothing. */
-const asked = (
-  preset: AgentPreset,
-  args: ReadonlyArray<string>,
-  timeoutMs?: number,
-): T.Task<ProcessRun, never, CliEnv> =>
-  T.gen(function* () {
-    const env = yield* T.ask<CliEnv>()
-    const options: ProcessOptions = {
-      environment: preset.environment,
-      ...(timeoutMs !== undefined && { timeoutMs }),
-    }
-    const finished = yield* T.result(
-      T.tryPromise(
-        () => env.processes.run(preset.agent.words[0]!, args, options),
-        () => null,
-      ),
-    )
-    return finished._tag === 'Ok' ? finished.value : { exitCode: null, output: '' }
   })

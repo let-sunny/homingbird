@@ -44,8 +44,12 @@ export interface Processes {
 
 export interface ProcessOptions {
   readonly timeoutMs?: number
-  /** Variables added to this process's own environment. */
+  /** The whole environment the program runs with, instead of this process's own. */
   readonly environment?: Readonly<Record<string, string>>
+  /** Stops the program, and on Windows everything it started. */
+  readonly signal?: AbortSignal
+  /** The arguments are one command line already quoted for cmd.exe. */
+  readonly windowsVerbatimArguments?: boolean
 }
 
 export interface Programs {

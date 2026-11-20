@@ -125,6 +125,7 @@ export interface SignInCheck {
 export interface LaunchProbe {
   /** The program's arguments, run directly, without a shell. */
   readonly args: ReadonlyArray<string>
+  readonly timeoutMs: number
   /** The words to add from what the program printed, or why the command cannot be used as intended. */
   readonly wordsFrom: (printed: ProcessRun) => Result.Result<ReadonlyArray<string>, string>
 }
@@ -206,7 +207,11 @@ export const AGENT_PRESETS: ReadonlyArray<AgentPreset> = [
         ...['-c', 'features.plugins=false', '-c', 'features.apps=false', '-'],
       ],
       probe: {
-        args: ['-c', 'features.plugins=false', '-c', 'features.apps=false', 'mcp', 'list', '--json'],
+        args: [
+          ...['--ignore-user-config', '-c', 'features.plugins=false', '-c', 'features.apps=false'],
+          ...['mcp', 'list', '--json'],
+        ],
+        timeoutMs: 15_000,
         wordsFrom: (printed) => codexServersSwitchedOff(printed),
       },
       format: 'text',
@@ -230,7 +235,11 @@ export const AGENT_PRESETS: ReadonlyArray<AgentPreset> = [
     agent: { words: ANTIGRAVITY_PRINT, probe: null, format: 'antigravity-stream', withoutStrictMcp: null },
     reader: {
       words: [...ANTIGRAVITY_PRINT, '--settings', JSON.stringify(ANTIGRAVITY_READER_SETTINGS)],
-      probe: { args: ['--help'], wordsFrom: (printed) => antigravitySettingsOffered(printed) },
+      probe: {
+        args: ['--help'],
+        timeoutMs: 10_000,
+        wordsFrom: (printed) => antigravitySettingsOffered(printed),
+      },
       format: 'antigravity-stream',
       withoutStrictMcp: null,
     },
@@ -289,16 +298,17 @@ const shellWord = (word: string, platform: string): string => {
 
 /**
  * Codex loads every MCP server its configuration names, also in a read-only sandbox, so the reader
- * switches off each one `codex mcp list --json` names.
+ * switches off each one `codex mcp list --json` names, asked with the reader's own configuration
+ * options. One `-c` per server changes only its `enabled`, keeping the rest of its entry.
  */
 const codexServersSwitchedOff = (printed: ProcessRun): Result.Result<ReadonlyArray<string>, string> => {
   if (printed.exitCode !== 0)
     return Result.err(`codex mcp list exited with code ${printed.exitCode ?? 'unknown'}`)
   const listed = CodexServers.read(jsonArrayIn(printed.output))
   if (listed._tag === 'Err') return Result.err('codex mcp list --json printed no list of servers')
-  if (listed.value.length === 0) return Result.ok([])
-  const off = listed.value.map((server) => `${JSON.stringify(server.name)}={enabled=false}`)
-  return Result.ok(['-c', `mcp_servers={${off.join(',')}}`])
+  return Result.ok(
+    listed.value.flatMap((server) => ['-c', `mcp_servers.${JSON.stringify(server.name)}.enabled=false`]),
+  )
 }
 
 /** One MCP server as an inline TOML table, which `-c` reads; a JSON string is a TOML string. */

@@ -1,5 +1,6 @@
 import { type ChildProcess, type SpawnOptions, spawn } from 'node:child_process'
 import type { AgentRun, Launcher } from './environment.ts'
+import { cmdCommand } from './windows-shell.ts'
 
 export type Spawn = (command: string, args: ReadonlyArray<string>, options: SpawnOptions) => ChildProcess
 
@@ -120,13 +121,3 @@ const stopProcessGroup = (pid: number | undefined, kill: Kill): void => {
 }
 
 const KILL_GRACE_MS = 2_000
-
-/**
- * cmd.exe runs an agent command on Windows as Node's own shell option would, with delayed expansion
- * switched off, so that a `!` in it stays as written whatever the computer's default. A `%NAME%` is
- * still replaced by that variable, which no switch of cmd.exe prevents.
- */
-const cmdCommand = (systemRoot: string, command: string): [string, string[]] => [
-  `${systemRoot}\\System32\\cmd.exe`,
-  ['/d', '/v:off', '/s', '/c', `"${command}"`],
-]

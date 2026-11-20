@@ -375,8 +375,10 @@ Still to come:
   MCP configuration, a Codex reader with every listed MCP server switched off, Antigravity in its stream
   format with a reader and a sign-in check, and `run --attach-mcp`. Checked here only against Claude
   Code 2.1.329's `--help`; still to do: run Codex CLI, Antigravity CLI and Gemini CLI with each preset
-  (agent, reader, `--attach-mcp`), check the wording of Claude Code's managed-configuration refusal and
-  whether Codex accepts `mcp_servers={"name"={enabled=false}}`, then mark each preset verified and turn
+  (agent, reader, `--attach-mcp`), check the wording of Claude Code's managed-configuration refusal,
+  whether Codex reads `-c mcp_servers."name".enabled=false` and takes `--ignore-user-config` before
+  `mcp list`, and whether `--ignore-user-config` alone already leaves the person's MCP servers out (then
+  drop the probe and the switches), then mark each preset verified and turn
   `--attach-mcp` on by default where it worked. Gemini has no reader preset, and its exit codes are
   shown as numbers until their meaning is checked. Codex's `--ask-for-approval never` is not added until
   its `--help` shows it.

@@ -7,7 +7,7 @@ import {
   launchesAsGiven,
   preparedLaunches,
 } from '../src/agent-launch.ts'
-import { agentCommand, defaultReader } from '../src/agent-presets.ts'
+import { agentCommand, defaultReader, presetNamed } from '../src/agent-presets.ts'
 import { type WorldOptions, world } from './support.ts'
 
 const prepared = async (
@@ -37,10 +37,10 @@ describe('preparedLaunches', () => {
     )
     expect(w.processRuns).toEqual([
       ['codex', '--version'],
-      ['codex', '-c', 'features.plugins=false', '-c', 'features.apps=false', 'mcp', 'list', '--json'],
+      ['codex', ...presetNamed('codex')!.reader!.probe!.args],
     ])
     expect(exit._tag === 'Ok' && exit.value.reader?.command).toBe(
-      `${defaultReader('codex', 'linux').slice(0, -2)} -c 'mcp_servers={"github"={enabled=false}}' -`,
+      `${defaultReader('codex', 'linux').slice(0, -2)} -c 'mcp_servers."github".enabled=false' -`,
     )
     expect(exit._tag === 'Ok' && exit.value.agent.command).toBe(agentCommand('codex', 'linux'))
   })
@@ -51,7 +51,7 @@ describe('preparedLaunches', () => {
       { platform: 'win32', process: () => ({ exitCode: 0, output: '[{"name":"github"}]' }) },
     )
     expect(exit._tag === 'Ok' && exit.value.reader?.command).toContain(
-      '-c "mcp_servers={\\"github\\"={enabled=false}}" -',
+      '-c "mcp_servers.\\"github\\".enabled=false" -',
     )
   })
 

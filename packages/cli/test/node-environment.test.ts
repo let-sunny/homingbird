@@ -67,6 +67,26 @@ describe('nodeEnvironment', () => {
     expect(platform).toBe(process.platform)
   })
 
+  it('runs a program with exactly the environment it is given, and stops it when asked', async () => {
+    const { processes } = nodeEnvironment(new AbortController().signal)
+    const printed = await processes.run(
+      process.execPath,
+      [
+        '-e',
+        'process.stdout.write(Object.keys(process.env).filter((name) => name.startsWith("HB_PROBE")).join(","))',
+      ],
+      { environment: { HB_PROBE_ONLY: '1', SystemRoot: process.env.SystemRoot ?? '' } },
+    )
+    expect(printed).toEqual({ exitCode: 0, output: 'HB_PROBE_ONLY' })
+    const stopping = new AbortController()
+    const waiting = processes.run(process.execPath, ['-e', 'setTimeout(() => {}, 60000)'], {
+      signal: stopping.signal,
+      timeoutMs: 60_000,
+    })
+    stopping.abort()
+    expect((await waiting).exitCode).toBeNull()
+  })
+
   it.skipIf(process.platform === 'win32')(
     'writes a service file only its owner can read, leaving the mode of a directory it shares alone',
     async () => {

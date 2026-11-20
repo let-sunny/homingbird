@@ -913,7 +913,7 @@ describe('homingbird run --split', () => {
         args.includes('mcp') ? { exitCode: 0, output: '[{"name":"github"}]' } : undefined,
     })
     await settle(() => r.created.length === 1)
-    expect(r.w.agentRuns[0]!.command).toContain(`-c 'mcp_servers={"github"={enabled=false}}' -`)
+    expect(r.w.agentRuns[0]!.command).toContain(`-c 'mcp_servers."github".enabled=false' -`)
     expect(r.w.agentRuns[1]!.command).not.toContain('mcp_servers')
     await r.stop()
   })

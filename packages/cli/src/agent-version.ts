@@ -1,5 +1,6 @@
 import { Task as T } from '@homingbird/kernel'
 import type { AgentPreset } from './agent-presets.ts'
+import { presetAsked } from './agent-probe.ts'
 import type { CliEnv } from './environment.ts'
 
 /**
@@ -8,19 +9,9 @@ import type { CliEnv } from './environment.ts'
  */
 export const presetVersion = (preset: AgentPreset): T.Task<VersionCheck, never, CliEnv> =>
   T.gen(function* () {
-    const env = yield* T.ask<CliEnv>()
-    const asked = yield* T.result(
-      T.tryPromise(
-        () =>
-          env.processes.run(preset.agent.words[0]!, ['--version'], {
-            timeoutMs: VERSION_TIMEOUT_MS,
-            environment: preset.environment,
-          }),
-        () => null,
-      ),
-    )
-    if (asked._tag === 'Err' || asked.value.exitCode === null) return { status: 'missing', version: null }
-    const version = asked.value.exitCode === 0 ? versionIn(asked.value.output) : null
+    const asked = yield* presetAsked(preset, ['--version'], VERSION_TIMEOUT_MS)
+    if (asked.exitCode === null) return { status: 'missing', version: null }
+    const version = asked.exitCode === 0 ? versionIn(asked.output) : null
     if (version === null) return { status: 'unknown', version: null }
     const minimum = preset.minimumVersion
     return minimum !== null && isOlder(version, minimum)

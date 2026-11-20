@@ -1015,8 +1015,11 @@ command through the injected process service.
 - **A preset is prepared before the first note, by asking its program.** A preset command is a list
   of words, quoted for sh or cmd.exe when it runs. Before the runner starts it asks the program for
   its `--version` and refuses one older than the preset's minimum, with the upgrade command; it runs
-  each probe the preset declares through the process service, without a shell, and what that prints
-  shapes the command (Codex's reader switches off each server `codex mcp list --json` names) or
+  each probe the preset declares through the process service, with the environment and PATH an agent
+  command would get, through cmd.exe only for a Windows batch file such as npm's `codex.cmd`, with a
+  time limit and stopped when the runner is, and what that prints
+  shapes the command (Codex's reader switches off each server `codex mcp list --json` names, one
+  `-c mcp_servers."<name>".enabled=false` each, so the rest of its entry stays) or
   refuses it (an `agy --help` without `--settings`); Antigravity is asked first whether it is signed
   in. A probe that fails stops the runner instead of starting a weaker command. Commands of one's own
   are never probed. `verifiedWith` still means a run with the real agent; `optionsSeenIn` only records

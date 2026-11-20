@@ -84,6 +84,7 @@ describe('agent presets', () => {
     expect(CODEX_READER).toContain('-c features.plugins=false -c features.apps=false -')
     expect(CODEX_READER.endsWith(' -')).toBe(true)
     expect(codexProbe.args).toEqual([
+      '--ignore-user-config',
       '-c',
       'features.plugins=false',
       '-c',
@@ -98,7 +99,7 @@ describe('agent presets', () => {
     const listed = '[{"name":"github","transport":{"type":"stdio"}},{"name":"my \\"docs\\""}]'
     expect(codexProbe.wordsFrom({ exitCode: 0, output: `warning: old config\n${listed}\n` })).toEqual({
       _tag: 'Ok',
-      value: ['-c', 'mcp_servers={"github"={enabled=false},"my \\"docs\\""={enabled=false}}'],
+      value: ['-c', 'mcp_servers."github".enabled=false', '-c', 'mcp_servers."my \\"docs\\"".enabled=false'],
     })
     expect(codexProbe.wordsFrom({ exitCode: 0, output: '[]' })).toEqual({ _tag: 'Ok', value: [] })
   })
