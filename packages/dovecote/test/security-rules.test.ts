@@ -957,6 +957,26 @@ describe('Rule 5: credentials are stored hashed and never logged', () => {
     expect(stored).not.toMatch(/hb[har]_[A-Za-z0-9_-]{20,}/)
   })
 
+  it('5: keeps a join code only as a hash, shows it in the one response that made it, and lets it issue once', async () => {
+    const made = await ana.api('POST', '/join-codes', {})
+    const code: string = made.json.code
+    const redeem = () => server.request('POST', '/oauth/join', { form: { code, client_name: 'build-1' } })
+    const first = await redeem()
+    const second = await redeem()
+    expect([first.status, second.status]).toEqual([200, 400])
+    const secret = code.slice('hbj_'.length)
+    const kept = [
+      await everyStoredValue(server),
+      JSON.stringify(await storedRows(server, 'audit_events')),
+      server.logged.join('\n'),
+      JSON.stringify(first.json),
+      JSON.stringify(second.json),
+      JSON.stringify((await ana.api('GET', '/credentials')).json),
+    ].join('\n')
+    expect(kept).not.toContain(secret)
+    expect(await everyStoredValue(server)).toContain(hashSecret(code))
+  })
+
   it('5: keeps a wake token sealed, out of every response, log line and audit entry, and deletes it when its person removes it', async () => {
     const token = 'wake-token-5e1a7c0ffee'
     const path = '/v1/claude_code/routines/trig_rule5marker/fire'
