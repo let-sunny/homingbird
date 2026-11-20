@@ -418,3 +418,22 @@ describe('parseArguments', () => {
     )
   })
 })
+
+describe('parseArguments for setup', () => {
+  const CODE = 'hbj_join-code'
+  it('reads the join code from HOMINGBIRD_JOIN_CODE when --join is not given, and prefers --join', () => {
+    const fromVariable = parseArguments(['setup', '--server', 'https://hb.test', '--no-service'], 'linux', {
+      HOMINGBIRD_JOIN_CODE: ` ${CODE} `,
+    })
+    expect(fromVariable).toMatchObject({ value: { invocation: { command: 'setup', code: CODE } } })
+    const both = parseArguments(
+      ['setup', '--server', 'https://hb.test', '--join', 'hbj_given', '--no-service'],
+      'linux',
+      {
+        HOMINGBIRD_JOIN_CODE: CODE,
+      },
+    )
+    expect(both).toMatchObject({ value: { invocation: { code: 'hbj_given' } } })
+    expect(parseArguments(['setup', '--server', 'https://hb.test', '--no-service'])._tag).toBe('Err')
+  })
+})

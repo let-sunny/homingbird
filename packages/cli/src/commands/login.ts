@@ -6,6 +6,7 @@ import { requireNewCredentialsFile, writeCredential, writeCredentialsFile } from
 import type { CliEnv } from '../environment.ts'
 import { CliFailure, EXIT, failed } from '../failure.ts'
 import { type Outcome, outcome } from '../outcome.ts'
+import { credentialToReplace, revokeReplaced } from '../replaced-credential.ts'
 import { apiFor, calling } from '../session.ts'
 import { openOnServer, reviewChannelOf, reviewLink } from '../web-client.ts'
 
@@ -52,7 +53,9 @@ export const login = (
     )
     const tokens = yield* T.mapError(toFailure)(awaitDeviceTokens(options, authorization))
     const agent = { serverUrl: invocation.server, token: tokens.access_token }
+    const previous = yield* credentialToReplace(invocation.server)
     yield* file === null ? writeCredential(agent) : writeCredentialsFile(file, agent, invocation.force)
+    yield* revokeReplaced(previous, agent)
     const api = apiFor(env, agent)
     const me = yield* calling(api['me.get']({}))
     yield* countUsage(api, 'sign_in_completed', { client: 'cli' })

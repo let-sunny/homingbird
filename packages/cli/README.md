@@ -204,6 +204,10 @@ homingbird setup --server https://<server> --join hbj_… --agent codex [--name 
   If the service cannot be installed, the credential stays, and it prints the `service install` command
   to run once the problem is fixed.
 - **`--no-service` only signs in**, for a desk you start yourself or a credentials file you move.
+- **The code can come from `HOMINGBIRD_JOIN_CODE`** when `--join` is left out. Once used or expired it
+  is useless, even where it stays in a shell's history or a process list.
+- **Signing in again revokes the credential it replaces**, as `login` does; when the server does not
+  confirm, it warns and goes on, and you revoke the older connection in the web client.
 
 ### Run it from a credentials file
 

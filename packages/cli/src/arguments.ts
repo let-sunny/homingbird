@@ -78,10 +78,14 @@ export interface Parsed {
   readonly credentialsFile: string | null
 }
 
-/** `platform` decides the preset readers, whose quoting differs on Windows. */
+/**
+ * `platform` decides the preset readers, whose quoting differs on Windows. `variables` gives what a
+ * flag may be read from instead, such as HOMINGBIRD_JOIN_CODE, which keeps a join code off the command line.
+ */
 export const parseArguments = (
   argv: ReadonlyArray<string>,
   platform = 'linux',
+  variables: Readonly<Record<string, string | undefined>> = {},
 ): Result.Result<Parsed, CliFailure> =>
   Result.gen(function* () {
     const { positionals, values, switches } = yield* tokenize(argv)
@@ -96,7 +100,7 @@ export const parseArguments = (
     if (!Object.hasOwn(BUILDERS, command)) return yield* usage(`Unknown command "${command}".`)
     if (switches.has('force') && command !== 'login' && command !== 'setup')
       return yield* usage('--force goes with login or setup.')
-    const invocation = yield* BUILDERS[command]!({ rest, values, switches, platform })
+    const invocation = yield* BUILDERS[command]!({ rest, values, switches, platform, variables })
     return { invocation, json, server, credentialsFile }
   })
 
@@ -107,6 +111,7 @@ export const USAGE = `Usage: homingbird <command> [options]
                                                on a server: sign in with a join code from the web
                                                client (My agent → Connection → Run on a server) and
                                                install the service; --no-service only signs in
+                                               (the code may come from HOMINGBIRD_JOIN_CODE instead)
   login --server <url> [--name <device name>] [--no-browser] [--credentials-file <path> [--force]]
                                                on a computer with a browser: sign in with a code you
                                                confirm in the web client; with --credentials-file,
@@ -160,6 +165,7 @@ interface Tokens {
   readonly values: ReadonlyMap<string, string>
   readonly switches: ReadonlySet<string>
   readonly platform: string
+  readonly variables: Readonly<Record<string, string | undefined>>
 }
 
 const VALUE_FLAGS = new Set([
@@ -351,10 +357,10 @@ const BUILDERS: Readonly<Record<string, (tokens: Tokens) => Result.Result<Invoca
         ...(yield* serviceOptions('service install', values, switches)),
       } as const
     }),
-  setup: ({ values, switches }) =>
+  setup: ({ values, switches, variables }) =>
     Result.gen(function* () {
       const server = values.get('server')?.replace(/\/+$/, '') ?? ''
-      const code = values.get('join')?.trim() ?? ''
+      const code = (values.get('join') ?? variables.HOMINGBIRD_JOIN_CODE)?.trim() ?? ''
       if (server === '' || code === '')
         return yield* usage(
           'setup needs --server <url> and --join <code>, from My agent → Connection in the web client.',

@@ -147,4 +147,32 @@ describe('homingbird setup', () => {
     ).toBe(EXIT.usage)
     expect(w.calls).toEqual([])
   })
+
+  it('refuses, before it spends the code, a relative credentials file for the service and --force without one', async () => {
+    const w = fresh()
+    const argv = ['setup', '--server', SERVER, '--join', CODE, '--agent', 'claude']
+    expect(await w.run(...argv, '--credentials-file', 'homingbird.json')).toBe(EXIT.usage)
+    expect(w.problems.at(-1)).toBe('--credentials-file needs an absolute path for the service.')
+    expect(await w.run(...argv, '--force')).toBe(EXIT.usage)
+    expect(w.problems.at(-1)).toBe('--force goes with --credentials-file.')
+    expect(w.calls.some((call) => call.path === '/oauth/join')).toBe(false)
+  })
+
+  it('revokes the credential it replaces, and goes on with a warning when the server does not confirm', async () => {
+    const OLD = 'hba_old-agent-token-0123456789abcdef'
+    const revoking = (status: number) => (call: Call) =>
+      call.path === '/oauth/revoke' ? json(status, {}) : joining()(call)
+    const old = JSON.stringify({ serverUrl: SERVER, token: OLD })
+    const confirmed = fresh({ files: { [AGENT_FILE]: old }, other: revoking(200) })
+    expect(await confirmed.run('setup', '--server', SERVER, '--join', CODE, '--no-service')).toBe(0)
+    const revoked = confirmed.calls.filter((call) => call.path === '/oauth/revoke')
+    expect(revoked.map((call) => new URLSearchParams(call.body).get('token'))).toEqual([OLD])
+    expect(confirmed.problems).toEqual([])
+    expect(JSON.parse(confirmed.files.get(AGENT_FILE)!).token).toBe(NEW_AGENT)
+
+    const refusing = fresh({ files: { [AGENT_FILE]: old }, other: revoking(500) })
+    expect(await refusing.run('setup', '--server', SERVER, '--join', CODE, '--no-service')).toBe(0)
+    expect(refusing.problems).toEqual([expect.stringMatching(/^Warning: the server did not confirm/)])
+    expect(everything(refusing)).not.toContain(OLD)
+  })
 })

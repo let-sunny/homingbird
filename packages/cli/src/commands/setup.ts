@@ -4,11 +4,12 @@ import { countUsage } from '../analytics.ts'
 import type { Invocation } from '../arguments.ts'
 import { requireNewCredentialsFile, writeCredential, writeCredentialsFile } from '../credentials.ts'
 import type { CliEnv } from '../environment.ts'
-import { type CliFailure, failed } from '../failure.ts'
+import { CliFailure, EXIT, failed } from '../failure.ts'
 import { type Outcome, outcome } from '../outcome.ts'
+import { credentialToReplace, revokeReplaced } from '../replaced-credential.ts'
 import { apiFor, calling } from '../session.ts'
 import { reviewChannelOf, reviewLink } from '../web-client.ts'
-import { AS_THE_PERSON, type ServiceOptions, installService } from './service.ts'
+import { AS_THE_PERSON, type ServiceOptions, installService, isAbsolute } from './service.ts'
 
 type Setup = Extract<Invocation, { command: 'setup' }>
 
@@ -22,7 +23,12 @@ export const setup = (invocation: Setup): T.Task<Outcome, CliFailure, CliEnv> =>
     const env = yield* T.ask<CliEnv>()
     const file = env.credentialsFile
     if (invocation.service !== null && env.userId === 0) return yield* T.fail(failed(AS_THE_PERSON))
+    if (file === null && invocation.force)
+      return yield* T.fail(usage('--force goes with --credentials-file.'))
+    if (invocation.service !== null && file !== null && !isAbsolute(file))
+      return yield* T.fail(usage('--credentials-file needs an absolute path for the service.'))
     if (file !== null) yield* requireNewCredentialsFile(file, invocation.force)
+    const previous = yield* credentialToReplace(invocation.server)
     const tokens = yield* T.mapError(refused)(
       redeemJoinCode({
         serverUrl: invocation.server,
@@ -34,6 +40,7 @@ export const setup = (invocation: Setup): T.Task<Outcome, CliFailure, CliEnv> =>
     )
     const agent = { serverUrl: invocation.server, token: tokens.access_token }
     yield* file === null ? writeCredential(agent) : writeCredentialsFile(file, agent, invocation.force)
+    yield* revokeReplaced(previous, agent)
     const api = apiFor(env, agent)
     const me = yield* calling(api['me.get']({}))
     yield* countUsage(api, 'sign_in_completed', { client: 'cli' })
@@ -81,3 +88,5 @@ const quoted = (agent: string): string =>
   /^[\w.-]+$/.test(agent) ? agent : `"${agent.replace(/"/g, '\\"')}"`
 
 const refused = (refusal: JoinCodeRefused): CliFailure => failed(refusal.message)
+
+const usage = (message: string): CliFailure => CliFailure({ message, exitCode: EXIT.usage })

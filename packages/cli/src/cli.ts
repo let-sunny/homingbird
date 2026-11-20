@@ -26,7 +26,7 @@ import { CLI_VERSION } from './version.ts'
 export const runCli = (argv: ReadonlyArray<string>): T.Task<number, never, CliEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<CliEnv>()
-    const parsed = parseArguments(argv, env.platform)
+    const parsed = parseArguments(argv, env.platform, env.variables)
     if (parsed._tag === 'Err') return report(env, parsed.error, argv.includes('--json'))
     const server =
       parsed.value.server ?? (env.variables.HOMINGBIRD_SERVER?.trim().replace(/\/+$/, '') || null)

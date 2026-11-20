@@ -137,7 +137,10 @@ homingbird setup --server https://homingbird.example.com --join hbj_… --agent 
 
 It signs the server in as your agent, stores the credential readable by that user only, installs the
 background service and starts it; change `--agent` to the agent the server runs. The code in it works
-once, for 10 minutes, and the web client offers a new one after that. `homingbird login` stays the way
+once, for 10 minutes, and the web client offers a new one after that. Once used or expired it is
+useless, even where it stays in a shell's history; the line starts with a space, which keeps it out of
+the history of a shell with `HISTCONTROL=ignorespace`, and `homingbird setup` also reads the code from
+`HOMINGBIRD_JOIN_CODE` when `--join` is left out. `homingbird login` stays the way
 for a computer where you can open a browser. [A complete
 example](deployment.md#a-complete-example-one-persons-runner-on-a-linux-server) walks through a Linux
 server with its own OS user.
