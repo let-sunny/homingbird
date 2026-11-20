@@ -43,7 +43,7 @@ export const accountHandlers = {
     T.tap((_: Member) => announceDirectoryChange(caller.member.id))(clearCharacter(caller.member.id)),
   'directory.list': ({ query }, caller) =>
     T.map((entries: Awaited<ResponseOf<Contract['directory.list']>>['entries']) => ({ entries }))(
-      directoryFor(viewerOf(caller), query.q, query.channel),
+      directoryFor(viewerOf(caller), query.q, { channel: query.channel, group: query.group }),
     ),
   'analytics.track': ({ body }, caller) => T.as({})(trackAnalytics(caller, body.events)),
 } satisfies Partial<Handlers>

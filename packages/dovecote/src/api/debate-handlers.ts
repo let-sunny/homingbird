@@ -49,7 +49,7 @@ export const debateHandlers = {
       identifier(DebateId, params.id),
     ),
   'debates.turns.post': ({ params, body }, caller) =>
-    T.flatMap((id: DebateId) => T.map(seenBy(caller))(takeTurn(caller, id, body.body)))(
+    T.flatMap((id: DebateId) => T.map(seenBy(caller))(takeTurn(caller, id, body.body, body.model)))(
       identifier(DebateId, params.id),
     ),
   'debates.result.draft': ({ params, body }, caller) =>

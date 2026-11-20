@@ -17,6 +17,7 @@ import {
   roomOfThree as roomOfThreeOf,
   threeResult as threeResultOf,
   turnsRunOut,
+  withStatedModels,
 } from './debate-support.ts'
 import { type TestServer, startTestServer, storedRows } from './harness.ts'
 
@@ -163,9 +164,9 @@ describe('settling the result by vote', () => {
     })
     expect(decided.voteRecord.votes).toEqual(
       expect.arrayContaining([
-        { voterId: ana, draftBy: ben },
-        { voterId: cy, draftBy: ben },
-        { voterId: ben, draftBy: ana },
+        { voterId: ana, draftBy: ben, agentModel: null },
+        { voterId: cy, draftBy: ben, agentModel: null },
+        { voterId: ben, draftBy: ana, agentModel: null },
       ]),
     )
     expect(decided.voteRecord.droppedOut).toEqual([])
@@ -176,6 +177,41 @@ describe('settling the result by vote', () => {
     const closed = (await storedRows(server, 'audit_events')).find((entry) => entry.event === 'debate.closed')
     expect(JSON.parse(String(closed?.detail))).toMatchObject({ draftedBy: ben, votes: 2, drafts: 3 })
     expect(String(closed?.detail)).not.toMatch(/summary|conclusion/i)
+  })
+
+  it('records the model each agent states with its draft and its vote, apart from the result', async () => {
+    await withStatedModels(server)
+    const id = await roomOfThree()
+    const ana = cast.ana.me.member.id
+    const ben = cast.ben.me.member.id
+    await cast.anaAgent.api('PUT', `/debates/${id}/result`, {
+      ...threeResult('Ana’s draft.'),
+      model: 'model-a',
+    })
+    await cast.benAgent.api('PUT', `/debates/${id}/result`, threeResult('Ben’s draft.'))
+    const voting = (await cast.cyAgent.api('PUT', `/debates/${id}/result`, threeResult('Cy’s draft.'))).json
+    const modelOf = Object.fromEntries(
+      voting.drafts.map((draft: { draftedBy: string; agentModel: string | null }) => [
+        draft.draftedBy,
+        draft.agentModel,
+      ]),
+    )
+    expect(modelOf).toEqual({ [ana]: 'model-a', [ben]: null, [cast.cy.me.member.id]: null })
+    for (const draft of voting.drafts) expect(draft.result).not.toHaveProperty('model')
+    const round = voting.resultRound
+    await cast.anaAgent.api('POST', `/debates/${id}/result/vote`, { round, draftBy: ben, model: 'model-a' })
+    await cast.cyAgent.api('POST', `/debates/${id}/result/vote`, { round, draftBy: ben })
+    const decided = (await cast.benAgent.api('POST', `/debates/${id}/result/vote`, { round, draftBy: ana }))
+      .json
+    expect(decided.voteRecord.votes).toEqual(
+      expect.arrayContaining([
+        { voterId: ana, draftBy: ben, agentModel: 'model-a' },
+        { voterId: cast.cy.me.member.id, draftBy: ben, agentModel: null },
+        { voterId: ben, draftBy: ana, agentModel: null },
+      ]),
+    )
+    expect(JSON.stringify(await storedRows(server, 'audit_events'))).not.toContain('model-a')
+    expect(server.logged.join('\n')).not.toContain('model-a')
   })
 
   it('breaks a tie by the earliest draft', async () => {
@@ -515,7 +551,7 @@ describe('the settled result leaving the room', () => {
     const id = await closedRoom()
     const markdown = (await cast.ben.api('POST', `/debates/${id}/export`, { format: 'markdown' })).json
     expect(markdown).toMatchObject({ mediaType: 'text/markdown', filename: expect.stringMatching(/\.md$/) })
-    expect(markdown.text).toContain('Ana’s agent (Ana agent)')
+    expect(markdown.text).toContain('Ana’s agent (Ana agent; model: not stated)')
     expect(markdown.text).not.toContain(cast.ana.me.member.id)
     const json = (await cast.cy.api('POST', `/debates/${id}/export`, { format: 'json' })).json
     expect(JSON.parse(json.text).participants).toEqual(

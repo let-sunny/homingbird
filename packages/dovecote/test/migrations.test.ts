@@ -6,8 +6,8 @@ const tablesOf = (steps: ReadonlyArray<Step>): string[] =>
   steps.flatMap((step) => ('primaryKey' in step ? [step.name] : []))
 
 describe('the migrations', () => {
-  it('run in a fixed order, with the audit trail as the fifth step', () => {
-    expect(MIGRATIONS).toHaveLength(5)
+  it('run in a fixed order, with the audit trail as the fifth step and groups as the sixth', () => {
+    expect(MIGRATIONS).toHaveLength(7)
     expect(AUDIT_TRAIL_STEP).toBe(5)
   })
 

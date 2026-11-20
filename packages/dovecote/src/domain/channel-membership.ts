@@ -20,14 +20,15 @@ import {
   enter,
   helpersOf,
   isMemberOf,
-  makeManager,
   managersOf,
   membersOf,
   requireManagerRemains,
+  requireOutsideManagingGroup,
   tellAboutChannel,
   visibilityOf,
   visibleChannel,
 } from './channel-rows.ts'
+import { leaveGroupOfEmptiedRoom, lockedChannel } from './group-rows.ts'
 
 export const channelMembers = (
   viewer: Viewer,
@@ -38,7 +39,7 @@ export const channelMembers = (
     if (!(yield* isMemberOf(row.conversation_id, viewer.id)) && viewer.role !== 'admin')
       return yield* T.fail(Forbidden({ message: 'Join the channel to see who is in it.' }))
     const helpers = yield* helpersOf(row.conversation_id)
-    const managers = yield* managersOf(row.conversation_id)
+    const managers = yield* managersOf(row)
     return (yield* membersOf(row.conversation_id)).map((memberId) => ({
       memberId,
       answering: helpers.includes(memberId),
@@ -60,7 +61,7 @@ export const addChannelMember = (
     )
     yield* requireActiveMember(memberId)
     yield* enter(row.conversation_id, memberId)
-    yield* tellAboutChannel(row, [memberId, ...(yield* managersOf(row.conversation_id))])
+    yield* tellAboutChannel(row, [memberId, ...(yield* managersOf(row))])
     return yield* describeChannel(viewer, row)
   })
 
@@ -78,39 +79,10 @@ export const removeChannelMember = (
     )
     if (!(yield* isMemberOf(row.conversation_id, memberId))) return yield* describeChannel(viewer, row)
     yield* requireManagerRemains(row, { leaving: memberId })
+    yield* requireOutsideManagingGroup(row, memberId)
     yield* depart(row, memberId)
-    yield* tellAboutChannel(row, yield* managersOf(row.conversation_id))
-    return yield* describeChannel(viewer, row)
-  })
-
-export const grantManager = (
-  viewer: Viewer,
-  slug: string,
-  memberId: MemberId,
-): T.Task<Channel, ChannelFailure, RequestEnv> =>
-  T.gen(function* () {
-    const row = yield* managedChannel(viewer, slug, 'add')
-    if (!(yield* isMemberOf(row.conversation_id, memberId)))
-      return yield* T.fail(Conflict({ message: 'Only a member of the channel can become its manager.' }))
-    yield* makeManager(row.conversation_id, memberId)
-    yield* tellAboutChannel(row, yield* managersOf(row.conversation_id))
-    return yield* describeChannel(viewer, row)
-  })
-
-export const revokeManager = (
-  viewer: Viewer,
-  slug: string,
-  memberId: MemberId,
-): T.Task<Channel, ChannelFailure, RequestEnv> =>
-  T.gen(function* () {
-    const row = yield* managedChannel(viewer, slug, 'remove')
-    const managers = yield* managersOf(row.conversation_id)
-    if (!managers.includes(memberId)) return yield* describeChannel(viewer, row)
-    yield* requireManagerRemains(row, { steppingDown: memberId })
-    yield* run(
-      sql`DELETE FROM channel_managers WHERE conversation_id = ${row.conversation_id} AND member_id = ${memberId}`,
-    )
-    yield* tellAboutChannel(row, managers)
+    yield* leaveGroupOfEmptiedRoom(row, memberId)
+    yield* tellAboutChannel(row, yield* managersOf(row))
     return yield* describeChannel(viewer, row)
   })
 
@@ -122,7 +94,7 @@ export const setVisibility = (
   T.gen(function* () {
     const row = yield* managedChannel(viewer, slug, 'add')
     if (visibilityOf(row) === visibility) return yield* describeChannel(viewer, row)
-    if (visibility === 'private' && (yield* managersOf(row.conversation_id)).length === 0)
+    if (visibility === 'private' && (yield* managersOf(row)).length === 0)
       return yield* T.fail(
         Conflict({ message: 'Make a member of this channel its manager before making it private.' }),
       )
@@ -145,14 +117,14 @@ const managedChannel = (
   change: 'add' | 'remove',
 ): T.Task<ChannelRow, ChannelFailure, AppEnv> =>
   T.gen(function* () {
-    const row = yield* visibleChannel(viewer, slug)
-    if ((yield* managersOf(row.conversation_id)).includes(viewer.id)) return row
+    const row = yield* lockedChannel(viewer, slug)
+    if ((yield* managersOf(row)).includes(viewer.id)) return row
     if (viewer.role === 'admin' && (visibilityOf(row) === 'open' || change === 'remove')) return row
     return yield* T.fail(
       Forbidden({
         message:
           visibilityOf(row) === 'private'
-            ? 'Only a manager of this private channel can add members or managers, or open it.'
+            ? 'Only a manager of this private channel can add members, change its managers, or open it.'
             : 'Only a manager of this channel can do this.',
       }),
     )

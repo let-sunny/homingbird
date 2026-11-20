@@ -54,6 +54,8 @@ export const moveDebate = (
 export interface DebateActor {
   readonly credentialId: CredentialId
   readonly agentName: string
+  /** The model the agent said it ran as, for a turn, a draft or a vote. */
+  readonly model?: string | undefined
 }
 
 /** Stores one way the room moved on, then audits and announces it, only when the update changed the room. */
@@ -132,6 +134,7 @@ const applyAction = (
             agent_name: actor!.agentName,
             body: effect.body,
             created_at: now,
+            ...statedModelOf(actor!),
           }),
         )
         if (taken !== 1)
@@ -149,6 +152,7 @@ const applyAction = (
             credential_id: actor!.credentialId,
             result: JSON.stringify(effect.result),
             created_at: now,
+            ...statedModelOf(actor!),
           }),
         )
         if (saved !== 1) return yield* T.fail(Conflict({ message: ALREADY_DRAFTED }))
@@ -162,6 +166,7 @@ const applyAction = (
             voter_id: effect.voterId,
             draft_by: effect.draftBy,
             created_at: now,
+            ...statedModelOf(actor!),
           }),
         )
         if (cast !== 1) return yield* T.fail(Conflict({ message: ALREADY_VOTED }))
@@ -169,6 +174,10 @@ const applyAction = (
       }
     }
   })
+
+/** The stated model's column, written only when the agent stated one. */
+const statedModelOf = (actor: DebateActor): { agent_model?: string } =>
+  actor.model === undefined ? {} : { agent_model: actor.model.trim() }
 
 /** Closes the room on the result it was read with; a room whose round or result changed since stays. */
 const close = (

@@ -49,3 +49,27 @@ describe('language on the profile', () => {
     expect((await ana.api('GET', '/me')).json).not.toHaveProperty('locale')
   })
 })
+
+describe('the directory', () => {
+  it('narrows to the active members of one team, never of a channel’s group', async () => {
+    const ben = await server.signIn('ben@example.com', 'Ben')
+    const cy = await server.signIn('cy@example.com', 'Cy')
+    const group = (
+      await ana.api('POST', '/admin/groups', {
+        name: 'Finance',
+        memberIds: [ben.me.member.id, cy.me.member.id],
+      })
+    ).json.id
+    const namesIn = async (id: string) =>
+      (await ben.api('GET', `/directory?group=${id}`)).json.entries.map((entry: any) => entry.member.name)
+    expect(await namesIn(group)).toEqual(['Ben', 'Cy'])
+    await ana.api('PATCH', `/admin/members/${cy.me.member.id}`, { status: 'deactivated' })
+    expect(await namesIn(group)).toEqual(['Ben'])
+    expect(await namesIn('grp_missing000000')).toEqual([])
+    const own = (
+      await ben.api('POST', '/channels', { slug: 'payroll', description: 'Salaries', visibility: 'private' })
+    ).json.managedBy
+    expect(await namesIn(own)).toEqual([])
+    expect((await ben.api('GET', '/directory')).json.entries).toHaveLength(2)
+  })
+})

@@ -6,8 +6,8 @@ import {
   type DebateExport,
   type DebateExportFormat,
   type DebateId,
-  type DebateResult,
   type DebateVote,
+  type DraftedResult,
   Forbidden,
   Invalid,
   type Locale,
@@ -20,6 +20,7 @@ import {
   debateMarkdown,
   debateResultText,
   exportLabelsIn,
+  resultOfDraft,
 } from '@homingbird/protocol'
 import { type Caller, isHuman, viewerOf } from '../environment.ts'
 import type { RequestEnv } from '../events/events.ts'
@@ -32,17 +33,18 @@ import { chosenLocaleOf, membersByIds } from './members.ts'
 export const draftResult = (
   caller: Caller,
   id: DebateId,
-  result: DebateResult,
+  drafted: DraftedResult,
 ): T.Task<Debate, NotFound | Forbidden | Conflict | Invalid, RequestEnv> =>
   T.gen(function* () {
     yield* visibleDebate(viewerOf(caller), id)
     const participant = isHuman(caller) ? null : yield* participantByAgent(id, caller.credential.id)
     if (participant === null)
       return yield* T.fail(Forbidden({ message: 'Only an agent opted in for this room drafts its result.' }))
+    const { result, model } = resultOfDraft(drafted)
     yield* moveDebate(
       yield* lockedDebate(id),
       { type: 'draft', memberId: participant.member_id, result },
-      { credentialId: caller.credential.id, agentName: participant.agent_name },
+      { credentialId: caller.credential.id, agentName: participant.agent_name, model: model ?? undefined },
     )
     return yield* describeDebate(yield* lockedDebate(id))
   })
@@ -63,7 +65,7 @@ export const voteForDraft = (
     yield* moveDebate(
       yield* lockedDebate(id),
       { type: 'vote', memberId: participant.member_id, vote },
-      { credentialId: caller.credential.id, agentName: participant.agent_name },
+      { credentialId: caller.credential.id, agentName: participant.agent_name, model: vote.model },
     )
     return yield* describeDebate(yield* lockedDebate(id))
   })

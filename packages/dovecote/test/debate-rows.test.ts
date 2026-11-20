@@ -9,6 +9,7 @@ import {
   openedRoom,
   resultFor,
   roomOfThree,
+  withStatedModels,
 } from './debate-support.ts'
 import { type TestServer, startTestServer, storedRows } from './harness.ts'
 
@@ -23,6 +24,18 @@ beforeEach(async () => {
 afterEach(() => server.close())
 
 describe('a room as it is shown', () => {
+  it('leaves out the model each agent stated while the organization keeps note details off', async () => {
+    const hidden = await startTestServer({ HB_FEATURES: 'noteDetails=off' })
+    const hiddenCast = await castOf(hidden)
+    await withStatedModels(hidden)
+    const id = await openedRoom(hiddenCast)
+    await hiddenCast.anaAgent.api('POST', `/debates/${id}/turns`, { body: 'A point.', model: 'model-a' })
+    const room = (await hiddenCast.ben.api('GET', `/debates/${id}`)).json
+    expect(room.turns[0]).not.toHaveProperty('agentModel')
+    expect((await storedRows(hidden, 'debate_turns'))[0]).toMatchObject({ agent_model: 'model-a' })
+    await hidden.close()
+  })
+
   it('is the same for every viewer, except that only a person sees which of their agents takes part', async () => {
     const id = await openedRoom(cast)
     const seenBy = async (who: Pick<Cast['ana'], 'api'>) => (await who.api('GET', `/debates/${id}`)).json

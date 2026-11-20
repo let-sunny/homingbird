@@ -7,6 +7,7 @@ import { contactHandlers } from '../src/api/contact-handlers.ts'
 import { credentialHandlers } from '../src/api/credential-handlers.ts'
 import { debateHandlers } from '../src/api/debate-handlers.ts'
 import { eventHandlers } from '../src/api/event-handlers.ts'
+import { groupHandlers } from '../src/api/group-handlers.ts'
 import { handlers } from '../src/api/handlers.ts'
 import { noteHandlers } from '../src/api/note-handlers.ts'
 import { teachingHandlers } from '../src/api/teaching-handlers.ts'
@@ -19,6 +20,7 @@ const GROUPS = {
   credentialHandlers,
   debateHandlers,
   eventHandlers,
+  groupHandlers,
   noteHandlers,
   teachingHandlers,
 }

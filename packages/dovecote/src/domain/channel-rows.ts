@@ -4,15 +4,17 @@ import {
   type ChannelVisibility,
   Conflict,
   type ConversationId,
+  type GroupId,
   type Member,
   type MemberId,
   NotFound,
 } from '@homingbird/protocol'
-import type { AppEnv } from '../environment.ts'
+import type { AppEnv, Caller } from '../environment.ts'
 import { type RequestEnv, emit } from '../events/events.ts'
 import { all, dialect, first, run } from '../sql/database.ts'
 import { insertIgnoringConflict, sql } from '../sql/query.ts'
 import { abandonDraftsIn } from './abandoned-drafts.ts'
+import { recordAudit } from './audit.ts'
 
 export type Viewer = Pick<Member, 'id' | 'role'>
 
@@ -22,6 +24,7 @@ export interface ChannelRow {
   readonly conversation_id: ConversationId
   readonly visibility: ChannelVisibility | null
   readonly created_at: number
+  readonly manager_group_id: GroupId
 }
 
 export const visibleChannel = (viewer: Viewer, slug: string): T.Task<ChannelRow, NotFound, AppEnv> =>
@@ -35,7 +38,7 @@ export const describeChannel = (viewer: Viewer, row: ChannelRow): T.Task<Channel
   T.gen(function* () {
     const members = yield* membersOf(row.conversation_id)
     const helpers = yield* helpersOf(row.conversation_id)
-    const managers = yield* managersOf(row.conversation_id)
+    const managers = yield* managersOf(row)
     const joined = members.includes(viewer.id)
     return {
       slug: row.slug,
@@ -48,6 +51,7 @@ export const describeChannel = (viewer: Viewer, row: ChannelRow): T.Task<Channel
       answering: helpers.includes(viewer.id),
       managing:
         (joined && managers.includes(viewer.id)) || (viewer.role === 'admin' && visibilityOf(row) === 'open'),
+      managedBy: row.manager_group_id,
       createdAt: Number(row.created_at),
     }
   })
@@ -94,30 +98,44 @@ export const helpersOf = (conversationId: ConversationId): T.Task<MemberId[], ne
     SELECT h.member_id FROM channel_answerers h JOIN members m ON m.id = h.member_id
     WHERE h.conversation_id = ${conversationId} AND m.status = 'active' ORDER BY h.member_id`)
 
-export const managersOf = (conversationId: ConversationId): T.Task<MemberId[], never, AppEnv> =>
+/** The active members of the channel's group, every one of them in its room. */
+export const managersOf = (
+  row: Pick<ChannelRow, 'conversation_id' | 'manager_group_id'>,
+): T.Task<MemberId[], never, AppEnv> =>
   idsOf(sql`
-    SELECT g.member_id FROM channel_managers g
-    JOIN participants p ON p.conversation_id = g.conversation_id AND p.member_id = g.member_id
-    WHERE g.conversation_id = ${conversationId} ORDER BY g.member_id`)
+    SELECT g.member_id FROM group_members g JOIN members m ON m.id = g.member_id
+    JOIN participants p ON p.conversation_id = ${row.conversation_id} AND p.member_id = g.member_id
+    WHERE g.group_id = ${row.manager_group_id} AND m.status = 'active' ORDER BY g.member_id`)
 
 export const enter = (conversationId: ConversationId, memberId: MemberId): T.Task<void, never, AppEnv> =>
   addTo('participants', conversationId, memberId)
+
+/**
+ * Puts people into the room on someone's behalf, as when they join its managing group, recording each
+ * one not in it yet as the route that adds a member does.
+ */
+export const admit = (
+  caller: Caller,
+  row: ChannelRow,
+  memberIds: Iterable<MemberId>,
+): T.Task<void, never, RequestEnv> =>
+  T.gen(function* () {
+    for (const memberId of new Set(memberIds)) {
+      if (yield* isMemberOf(row.conversation_id, memberId)) continue
+      yield* enter(row.conversation_id, memberId)
+      yield* recordAudit('channel.member_added', { caller, targetId: row.slug, detail: { memberId } })
+    }
+  })
 
 export const startAnswering = (
   conversationId: ConversationId,
   memberId: MemberId,
 ): T.Task<void, never, AppEnv> => addTo('channel_answerers', conversationId, memberId)
 
-export const makeManager = (
-  conversationId: ConversationId,
-  memberId: MemberId,
-): T.Task<void, never, AppEnv> => addTo('channel_managers', conversationId, memberId)
-
 export const depart = (row: ChannelRow, memberId: MemberId): T.Task<void, never, RequestEnv> =>
   T.gen(function* () {
     const room = row.conversation_id
     yield* run(sql`DELETE FROM channel_answerers WHERE conversation_id = ${room} AND member_id = ${memberId}`)
-    yield* run(sql`DELETE FROM channel_managers WHERE conversation_id = ${room} AND member_id = ${memberId}`)
     yield* run(sql`DELETE FROM participants WHERE conversation_id = ${room} AND member_id = ${memberId}`)
     yield* abandonDraftsIn(room, memberId)
     yield* emit([memberId], { type: 'channel.left', slug: row.slug, conversationId: room })
@@ -125,17 +143,33 @@ export const depart = (row: ChannelRow, memberId: MemberId): T.Task<void, never,
 
 export const requireManagerRemains = (
   row: ChannelRow,
-  change: { readonly leaving?: MemberId; readonly steppingDown?: MemberId },
+  change: { readonly leaving: MemberId },
 ): T.Task<void, Conflict, AppEnv> =>
   T.gen(function* () {
-    const managers = yield* managersOf(row.conversation_id)
+    const managers = yield* managersOf(row)
     if (managers.length === 0) return
     const members = (yield* membersOf(row.conversation_id)).filter((id) => id !== change.leaving)
-    const remaining = managers.filter((id) => id !== change.leaving && id !== change.steppingDown)
+    const remaining = managers.filter((id) => id !== change.leaving)
     if (members.length > 0 && remaining.length === 0)
       return yield* T.fail(
         Conflict({ message: 'Make another member a manager first: a channel with members keeps a manager.' }),
       )
+  })
+
+/** A member of the managing group stays in the room while anyone else is in it: they manage it. */
+export const requireOutsideManagingGroup = (
+  row: ChannelRow,
+  memberId: MemberId,
+): T.Task<void, Conflict, AppEnv> =>
+  T.gen(function* () {
+    if (!(yield* managersOf(row)).includes(memberId)) return
+    if ((yield* membersOf(row.conversation_id)).every((id) => id === memberId)) return
+    return yield* T.fail(
+      Conflict({
+        message:
+          'Members of the group that manages this channel stay in it: leave that group first, or take them out of it.',
+      }),
+    )
   })
 
 export const tellAboutChannel = (
@@ -151,7 +185,7 @@ export const tellAboutChannel = (
   })
 
 const addTo = (
-  table: 'participants' | 'channel_answerers' | 'channel_managers',
+  table: 'participants' | 'channel_answerers',
   conversationId: ConversationId,
   memberId: MemberId,
 ): T.Task<void, never, AppEnv> =>

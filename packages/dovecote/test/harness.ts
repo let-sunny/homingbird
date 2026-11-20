@@ -7,9 +7,9 @@ import { SAME_SITE_HEADER, SESSION_COOKIE } from '../src/http/authenticate.ts'
 import type { HttpResponse } from '../src/http/exchange.ts'
 import { prepareDatabase } from '../src/prepare-database.ts'
 import { type Runtime, buildRuntime } from '../src/runtime.ts'
-import { type Database, type Row, all } from '../src/sql/database.ts'
+import { type Connection, type Database, type Row, all } from '../src/sql/database.ts'
 import { openDatabase } from '../src/sql/open.ts'
-import { raw } from '../src/sql/query.ts'
+import { type Query, raw } from '../src/sql/query.ts'
 import { migrate, tableNames } from '../src/sql/schema.ts'
 import { openSqlite } from '../src/sql/sqlite.ts'
 
@@ -21,6 +21,8 @@ export interface TestServer {
   readonly logged: string[]
   readonly request: (method: string, url: string, options?: RequestOptions) => Promise<TestResponse>
   readonly requestWithSettings: (overrides: Readonly<Record<string, string>>) => TestServer['request']
+  /** Requests whose every statement, in or out of a transaction, goes through the connection given. */
+  readonly requestThrough: (wrap: (connection: Connection) => Connection) => TestServer['request']
   readonly signIn: (email: string, name?: string) => Promise<Session>
   /** The heartbeats of the desks `keepAwake` runs; each is sent after every advance of the clock. */
   readonly desks: Set<() => Promise<unknown>>
@@ -149,6 +151,36 @@ export const openTestDatabase = async (url: string | null = TEST_DATABASE_URL): 
 export const storedRows = async (server: TestServer, table: string): Promise<ReadonlyArray<Row>> =>
   T.runPromise(all(raw(`SELECT * FROM ${table}`)), server.env)
 
+/**
+ * Stands in for a transaction that commits while a request waits for a row lock: the statements given run
+ * just before the request's first statement that matches, in the request's own transaction. Every
+ * statement the request sends is kept, in order.
+ */
+export const meanwhile = (
+  server: TestServer,
+  when: RegExp,
+  committed: ReadonlyArray<Query>,
+): { readonly statements: string[]; readonly request: TestServer['request'] } => {
+  const statements: string[] = []
+  let pending = [...committed]
+  const request = server.requestThrough((connection) => {
+    const before = (query: Query): T.Task<void> =>
+      T.gen(function* () {
+        statements.push(query.text)
+        if (pending.length === 0 || !when.test(query.text)) return
+        const due = pending
+        pending = []
+        for (const statement of due) yield* connection.run(statement)
+      })
+    return {
+      dialect: connection.dialect,
+      all: (query) => T.flatMap(() => connection.all(query))(before(query)),
+      run: (query) => T.flatMap(() => connection.run(query))(before(query)),
+    }
+  })
+  return { statements, request }
+}
+
 export const everyStoredValue = async (server: TestServer): Promise<string> => {
   const dump: string[] = []
   for (const table of tableNames()) dump.push(`${table}: ${JSON.stringify(await storedRows(server, table))}`)
@@ -232,6 +264,16 @@ export const startTestServer = async (
     request,
     requestWithSettings: (changed) =>
       requestWith({ ...env, config: testConfig({ ...overrides, ...changed }) }),
+    requestThrough: (wrap) => {
+      const outside = wrap(database)
+      const through: Database = {
+        ...database,
+        all: outside.all,
+        run: outside.run,
+        transaction: (body) => database.transaction((connection) => body(wrap(connection))),
+      }
+      return requestWith({ ...env, database: through, connection: through })
+    },
     signIn,
     close: () => T.runPromise(database.close),
   }

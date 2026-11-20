@@ -7,7 +7,6 @@ import {
   type NotFound,
   type NoteId,
 } from '@homingbird/protocol'
-import type { AppEnv } from '../environment.ts'
 import type { RequestEnv } from '../events/events.ts'
 import { all, dialect, run } from '../sql/database.ts'
 import { insertIgnoringConflict, sql } from '../sql/query.ts'
@@ -22,6 +21,7 @@ import {
   membersOf,
   visibilityOf,
 } from './channel-rows.ts'
+import { announceGroups, audienceOf, lockGroups } from './group-rows.ts'
 import type { NoteRow } from './note-rows.ts'
 import { announceStatus } from './note-status.ts'
 import { renamePlace } from './principles.ts'
@@ -30,7 +30,7 @@ export const reviseChannel = (
   viewer: Viewer,
   slug: string,
   changes: { readonly slug?: string; readonly description?: string },
-): T.Task<Channel, NotFound | Conflict, AppEnv> =>
+): T.Task<Channel, NotFound | Conflict, RequestEnv> =>
   T.gen(function* () {
     const row = yield* existingChannel(slug)
     const renamed = changes.slug ?? slug
@@ -40,14 +40,17 @@ export const reviseChannel = (
       sql`UPDATE channels SET slug = ${renamed}, description = ${changes.description ?? row.description} WHERE slug = ${slug}`,
     )
     yield* run(sql`UPDATE conversations SET title = ${renamed} WHERE id = ${row.conversation_id}`)
-    if (renamed !== slug) yield* renamePlace(slug, renamed)
+    if (renamed !== slug) {
+      yield* renamePlace(slug, renamed)
+      yield* announceGroups([row.manager_group_id], audienceOf(row, yield* membersOf(row.conversation_id)))
+    }
     return yield* describeChannel(viewer, yield* existingChannel(renamed))
   })
 
 /**
  * Archives a channel: it leaves the list, its room becomes read-only and stays readable to its members,
  * its notes stay where they are and its waiting drafts are discarded. With a destination, its members
- * join that channel and keep answering if they did.
+ * join that channel and keep answering if they did. Its group of managers goes with it.
  */
 export const archiveChannel = (
   slug: string,
@@ -56,6 +59,7 @@ export const archiveChannel = (
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
     const row = yield* existingChannel(slug)
+    yield* lockGroups([row.manager_group_id])
     if (moveMembersTo !== null) yield* moveMembers(row, moveMembersTo)
     const drafts = yield* all<NoteRow>(
       sql`SELECT * FROM notes WHERE conversation_id = ${row.conversation_id} AND status = 'draft' ORDER BY id`,
@@ -63,8 +67,10 @@ export const archiveChannel = (
     for (const draft of drafts) yield* abandonDraft(draft, slug)
     yield* stopDraftingIn(row.conversation_id)
     yield* run(sql`DELETE FROM channel_answerers WHERE conversation_id = ${row.conversation_id}`)
-    yield* run(sql`DELETE FROM channel_managers WHERE conversation_id = ${row.conversation_id}`)
     yield* run(sql`DELETE FROM channels WHERE slug = ${slug}`)
+    yield* run(sql`DELETE FROM group_members WHERE group_id = ${row.manager_group_id}`)
+    yield* run(sql`DELETE FROM member_groups WHERE id = ${row.manager_group_id}`)
+    yield* announceGroups([row.manager_group_id], audienceOf(row, yield* membersOf(row.conversation_id)))
     yield* run(
       sql`UPDATE conversations SET kind = 'group', archived_at = ${env.clock.now()} WHERE id = ${row.conversation_id}`,
     )

@@ -430,8 +430,9 @@ describe('directory changes', () => {
 
   it('tells every connected client when someone helps with or leaves a channel, or an admin tidies channels', async () => {
     const { hangUp, iterator } = await listen(benAgent.token)
-    const typeAndMember = async () => {
+    const typeAndMember = async (): Promise<unknown[]> => {
       const event = JSON.parse(((await iterator.next()).value as string).split('data: ')[1]!)
+      if (event.body.type === 'group.changed') return typeAndMember()
       return [event.body.type, event.body.memberId]
     }
     const changed = ['directory.changed', ana.me.member.id]

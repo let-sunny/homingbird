@@ -38,3 +38,76 @@ export const migratedThrough = async (through: number): Promise<MigratedDatabase
 }
 
 export const stepNumberOf = (migration: Migration): number => MIGRATIONS.indexOf(migration) + 1
+
+/**
+ * Four channels before groups: payroll's managers are Ana, in the room, Cy, deactivated, and Dee, who
+ * left the room; billing's only manager is Cy; lobby's is Dee; quiet has none.
+ */
+export const CHANNELS_WITH_MANAGERS: ReadonlyArray<string> = [
+  ...(
+    [
+      ['ana', 'active'],
+      ['ben', 'active'],
+      ['cy', 'deactivated'],
+      ['dee', 'active'],
+    ] as const
+  ).map(
+    ([name, status]) =>
+      `INSERT INTO members (id, email, subject, name, profile, role, status, event_seq, created_at) VALUES ('mem_${name}', '${name}@example.com', 'dev:${name}', '${name}', '', 'member', '${status}', 0, 1)`,
+  ),
+  ...['payroll', 'billing', 'lobby', 'quiet'].flatMap((slug, index) => [
+    `INSERT INTO conversations (id, kind, title, created_at, last_activity_at) VALUES ('conv_${slug.padEnd(12, '0')}', 'channel', '${slug}', ${index + 10}, ${index + 10})`,
+    `INSERT INTO channels (slug, description, conversation_id, created_by, created_at, visibility) VALUES ('${slug}', 'About ${slug}', 'conv_${slug.padEnd(12, '0')}', 'mem_ana', ${index + 10}, 'private')`,
+  ]),
+  ...[
+    ['payroll', 'ana'],
+    ['payroll', 'ben'],
+    ['payroll', 'cy'],
+    ['billing', 'cy'],
+    ['billing', 'ben'],
+    ['lobby', 'ana'],
+  ].map(
+    ([slug, name]) =>
+      `INSERT INTO participants (conversation_id, member_id) VALUES ('conv_${slug!.padEnd(12, '0')}', 'mem_${name}')`,
+  ),
+  ...[
+    ['payroll', 'ana'],
+    ['payroll', 'cy'],
+    ['payroll', 'dee'],
+    ['billing', 'cy'],
+    ['lobby', 'dee'],
+  ].map(
+    ([slug, name]) =>
+      `INSERT INTO channel_managers (conversation_id, member_id) VALUES ('conv_${slug!.padEnd(12, '0')}', 'mem_${name}')`,
+  ),
+]
+
+/**
+ * What the groups step makes of `CHANNELS_WITH_MANAGERS`: a channel group for every channel, and Ana in
+ * payroll's, the one active manager still in a room.
+ */
+export const GROUPS_FROM_MANAGERS = {
+  groups: (['billing', 'lobby', 'payroll', 'quiet'] as const).map((slug) => ({
+    id: `grp_${slug.padEnd(12, '0')}`,
+    kind: 'channel',
+    name: null,
+    created_by: 'mem_ana',
+    created_at: { payroll: 10, billing: 11, lobby: 12, quiet: 13 }[slug],
+  })),
+  members: [{ group_id: 'grp_payroll00000', member_id: 'mem_ana' }],
+  channels: ['billing', 'lobby', 'payroll', 'quiet'].map((slug) => ({
+    slug,
+    manager_group_id: `grp_${slug.padEnd(12, '0')}`,
+  })),
+}
+
+/** Reads back what `GROUPS_FROM_MANAGERS` describes, numbers as numbers whatever the database. */
+export const groupsAndManagers = async (
+  read: (query: string) => Promise<ReadonlyArray<Record<string, unknown>>>,
+) => ({
+  groups: (await read('SELECT id, kind, name, created_by, created_at FROM member_groups ORDER BY id')).map(
+    (row) => ({ ...row, created_at: Number(row.created_at) }),
+  ),
+  members: await read('SELECT group_id, member_id FROM group_members ORDER BY group_id, member_id'),
+  channels: await read('SELECT slug, manager_group_id FROM channels ORDER BY slug'),
+})

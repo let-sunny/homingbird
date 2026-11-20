@@ -33,7 +33,7 @@ export interface Backfill {
 }
 
 export const id: Column = { type: 'id' }
-export const optionalId: Column = { type: 'id', nullable: true }
+export const optionalId = { type: 'id', nullable: true } as const satisfies Column
 export const string: Column = { type: 'string' }
 export const optionalString = { type: 'string', nullable: true } as const satisfies Column
 export const text: Column = { type: 'text' }

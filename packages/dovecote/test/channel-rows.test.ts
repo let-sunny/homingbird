@@ -50,9 +50,6 @@ describe('channel rows', () => {
       _tag: 'Err',
       error: { _tag: 'Conflict' },
     })
-    expect((await running(requireManagerRemains(row.value, { steppingDown: ben.me.member.id })))._tag).toBe(
-      'Err',
-    )
     expect((await running(requireManagerRemains(row.value, { leaving: cy.me.member.id })))._tag).toBe('Ok')
   })
 })

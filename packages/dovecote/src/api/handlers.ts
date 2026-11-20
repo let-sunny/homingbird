@@ -9,6 +9,7 @@ import { contactHandlers } from './contact-handlers.ts'
 import { credentialHandlers } from './credential-handlers.ts'
 import { debateHandlers } from './debate-handlers.ts'
 import { eventHandlers } from './event-handlers.ts'
+import { groupHandlers } from './group-handlers.ts'
 import { noteHandlers } from './note-handlers.ts'
 import { teachingHandlers } from './teaching-handlers.ts'
 
@@ -16,6 +17,7 @@ import { teachingHandlers } from './teaching-handlers.ts'
 export const handlers: Handlers = {
   ...accountHandlers,
   ...channelHandlers,
+  ...groupHandlers,
   ...contactHandlers,
   ...noteHandlers,
   ...teachingHandlers,

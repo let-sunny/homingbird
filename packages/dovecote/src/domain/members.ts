@@ -3,6 +3,7 @@ import {
   CharacterSpec,
   Conflict,
   type DirectoryEntry,
+  type GroupId,
   Locale,
   type Member,
   MemberId,
@@ -12,18 +13,20 @@ import {
   canMessage,
   relation,
 } from '@homingbird/protocol'
-import type { AppEnv } from '../environment.ts'
+import type { AppEnv, Caller } from '../environment.ts'
+import type { RequestEnv } from '../events/events.ts'
 import { all, first, run } from '../sql/database.ts'
 import { containsIgnoringCase, insertInto, list, sql } from '../sql/query.ts'
 import { agentIntroductionsOf } from './agent-introductions.ts'
 import { channelsHelpedBy, helpersOfChannelSeenBy } from './channels.ts'
 import { type Ties, tiesOf } from './contacts.ts'
+import { removeFromEveryGroup } from './group-membership.ts'
 import { featureIsOn, readSettings } from './settings.ts'
 
 export const directoryFor = (
   viewer: Pick<Member, 'id' | 'role'>,
   search: string | undefined,
-  channel?: string,
+  among: { readonly channel?: string | undefined; readonly group?: GroupId | undefined } = {},
 ): T.Task<DirectoryEntry[], never, AppEnv> =>
   T.gen(function* () {
     const viewerId = viewer.id
@@ -33,9 +36,15 @@ export const directoryFor = (
     const matching = search
       ? sql`AND (${containsIgnoringCase('name', search)} OR ${containsIgnoringCase('email', search)} OR ${containsIgnoringCase('profile', search)})`
       : sql``
-    const helping = channel ? sql`AND id IN (${helpersOfChannelSeenBy(viewerId, channel)})` : sql``
+    const helping = among.channel
+      ? sql`AND id IN (${helpersOfChannelSeenBy(viewerId, among.channel)})`
+      : sql``
+    const grouped = among.group
+      ? sql`AND id IN (SELECT g.member_id FROM group_members g JOIN member_groups r ON r.id = g.group_id
+          WHERE g.group_id = ${among.group} AND r.kind = 'team')`
+      : sql``
     const rows = yield* all<MemberRow>(
-      sql`SELECT * FROM members WHERE status = 'active' ${matching} ${helping} ORDER BY name LIMIT ${DIRECTORY_LIMIT}`,
+      sql`SELECT * FROM members WHERE status = 'active' ${matching} ${helping} ${grouped} ORDER BY name LIMIT ${DIRECTORY_LIMIT}`,
     )
     const channels = yield* channelsHelpedBy(
       viewer,
@@ -145,24 +154,27 @@ export const chosenLocaleOf = (id: MemberId): T.Task<Locale | null, never, AppEn
     first<{ locale: unknown }>(sql`SELECT locale FROM members WHERE id = ${id}`),
   )
 
+/** Deactivating a member revokes their credentials and takes them out of every group at once. */
 export const administerMember = (
-  actorId: MemberId,
+  actor: Caller,
   id: MemberId,
   changes: { readonly status?: MemberStatus; readonly role?: Role },
-): T.Task<Member, NotFound | Conflict, AppEnv> =>
+): T.Task<Member, NotFound | Conflict, RequestEnv> =>
   T.gen(function* () {
-    const env = yield* T.ask<AppEnv>()
-    yield* memberById(id)
-    if (id === actorId)
+    const env = yield* T.ask<RequestEnv>()
+    const before = yield* memberById(id)
+    if (id === actor.member.id)
       return yield* T.fail(Conflict({ message: 'Admins cannot change their own status or role.' }))
     if (changes.role !== undefined)
       yield* run(sql`UPDATE members SET role = ${changes.role} WHERE id = ${id}`)
     if (changes.status !== undefined)
       yield* run(sql`UPDATE members SET status = ${changes.status} WHERE id = ${id}`)
-    if (changes.status === 'deactivated')
+    if (changes.status === 'deactivated') {
       yield* run(
         sql`UPDATE credentials SET revoked_at = ${env.clock.now()} WHERE member_id = ${id} AND revoked_at IS NULL`,
       )
+      if (before.status !== 'deactivated') yield* removeFromEveryGroup(actor, id)
+    }
     return yield* memberById(id)
   })
 

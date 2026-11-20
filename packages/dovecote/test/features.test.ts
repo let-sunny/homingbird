@@ -42,6 +42,7 @@ const probes: Readonly<Record<string, (person: Session) => Promise<{ status: num
   agentFigures: (person) => person.api('GET', '/insights/me'),
   insights: (person) => person.api('GET', '/admin/insights'),
   debateRooms: (person) => person.api('GET', '/debates'),
+  groups: (person) => person.api('GET', '/groups'),
 }
 
 describe('feature switches', () => {
@@ -74,6 +75,29 @@ describe('feature switches', () => {
     for (const name of FEATURE_NAMES)
       if (FEATURES[name].routes.length > 0 && name !== 'analytics')
         expect(Object.keys(probes)).toContain(name)
+  })
+
+  it('refuses every route of groups while it is off, and keeps a channel’s managers and their members', async () => {
+    const channel = (await ana.api('POST', '/channels', { slug: 'payroll', description: 'Payroll' })).json
+    const group = channel.managedBy as string
+    await switchTo({ groups: false })
+    for (const [method, path, body] of [
+      ['GET', '/groups', undefined],
+      ['GET', `/groups/${group}`, undefined],
+      ['PATCH', `/groups/${group}`, { name: 'Payroll' }],
+      ['PUT', `/groups/${group}/members`, { memberIds: [ana.me.member.id, ben.me.member.id] }],
+      ['PUT', '/channels/payroll/managers/team', { groupId: group }],
+      ['POST', '/admin/groups', { name: 'Finance' }],
+      ['DELETE', `/admin/groups/${group}`, undefined],
+    ] as const) {
+      const refused = await ana.api(method, path, body)
+      expect([path, refused.status, refused.json?.error?.message]).toEqual([path, 404, FEATURE_OFF_MESSAGE])
+    }
+    expect((await ana.api('GET', '/channels/payroll')).json.managedBy).toBe(group)
+    expect((await ana.api('GET', '/channels/payroll/members')).json.members).toEqual([
+      { memberId: ana.me.member.id, answering: true, manager: true },
+    ])
+    expect((await ben.api('PUT', '/channels/payroll/visibility', { visibility: 'private' })).status).toBe(403)
   })
 
   it('keeps a principle while teaching is off, and gives it back when it is on again', async () => {

@@ -1,20 +1,28 @@
 import { Task as T } from '@homingbird/kernel'
-import type {
-  AuditDetail,
-  AuditEventName,
-  AuditedEventOf,
-  AuditedRoute,
-  Contract,
-  Member,
-  MemberId,
-  RequestOf,
-  ResponseOf,
-  Settings,
+import {
+  type AuditDetail,
+  type AuditEventName,
+  type AuditedEventOf,
+  type AuditedRoute,
+  type Channel,
+  type Contract,
+  type Group,
+  type GroupId,
+  type Member,
+  type MemberId,
+  type RequestOf,
+  type ResponseOf,
+  type Settings,
+  membershipChange,
 } from '@homingbird/protocol'
+import { teamToCopy } from '../domain/group-membership.ts'
+import { lockGroups } from '../domain/group-rows.ts'
 import { memberById } from '../domain/members.ts'
 import { readSettings } from '../domain/settings.ts'
-import type { Caller } from '../environment.ts'
+import { type Caller, viewerOf } from '../environment.ts'
 import type { RequestEnv } from '../events/events.ts'
+import { all } from '../sql/database.ts'
+import { sql } from '../sql/query.ts'
 
 /**
  * What each audited route records, from its request and response only: which thing it is about and the
@@ -41,8 +49,30 @@ export const AUDIT_DETAILS: { readonly [N in AuditedRoute]: Describe<N> } = {
     afterwards(() => ({ targetId: params.slug, detail: { visibility: body.visibility } })),
   'channels.members.add': ({ params }) => afterwards(() => onMember(params)),
   'channels.members.remove': ({ params }) => afterwards(() => onMember(params)),
-  'channels.managers.add': ({ params }) => afterwards(() => onMember(params)),
-  'channels.managers.remove': ({ params }) => afterwards(() => onMember(params)),
+  'channels.managers.addTeam': ({ params, body }, caller) =>
+    T.map(
+      (copied: { readonly added: MemberId[] } | null) =>
+        (channel: Channel): AuditFacts<'group.members_changed'> => ({
+          targetId: channel.managedBy,
+          detail: { added: copied?.added ?? [], removed: [] },
+        }),
+    )(T.catchAll(() => T.succeed(null))(teamToCopy(viewerOf(caller), params.slug, body.groupId))),
+  'groups.rename': ({ params }) => afterwards(() => ({ targetId: params.id, detail: {} })),
+  'groups.members.set': ({ params }) =>
+    T.map(
+      (before: ReadonlyArray<{ member_id: MemberId }>) =>
+        (after: Group): AuditFacts<'group.members_changed'> => ({
+          targetId: after.id,
+          detail: membershipChange(
+            before.map((row) => row.member_id),
+            after.memberIds,
+          ),
+        }),
+    )(
+      T.flatMap(() =>
+        all<{ member_id: MemberId }>(sql`SELECT member_id FROM group_members WHERE group_id = ${params.id}`),
+      )(lockGroups([params.id as GroupId])),
+    ),
   'contacts.request': ({ body }) => afterwards(() => ({ targetId: body.memberId, detail: {} })),
   'contacts.accept': ({ params }) => afterwards(() => ({ targetId: params.memberId, detail: {} })),
   'contacts.remove': ({ params }) => afterwards(() => ({ targetId: params.memberId, detail: {} })),
@@ -105,6 +135,9 @@ export const AUDIT_DETAILS: { readonly [N in AuditedRoute]: Describe<N> } = {
         }),
     )(T.catchAll(() => T.succeed(null))(memberById(params.id as MemberId))),
   'admin.members.resetCharacter': ({ params }) => afterwards(() => ({ targetId: params.id, detail: {} })),
+  'admin.groups.create': () =>
+    afterwards((group) => ({ targetId: group.id, detail: { memberCount: group.memberIds.length } })),
+  'admin.groups.delete': ({ params }) => afterwards(() => ({ targetId: params.id, detail: {} })),
   'admin.channels.update': ({ params, body }) =>
     afterwards(() => ({
       targetId: params.slug,

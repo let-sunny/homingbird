@@ -78,7 +78,7 @@ describe('preparing the database', () => {
       env,
     )
     expect(rows.map((row) => [row.event, JSON.parse(row.detail)])).toEqual([
-      ['system.migrated', { steps: [1, 2, 3, 4, 5] }],
+      ['system.migrated', { steps: [1, 2, 3, 4, 5, 6, 7] }],
     ])
   })
 
@@ -133,7 +133,7 @@ describe('preparing the database', () => {
       env,
     )
     expect(rows.map((row) => [row.event, JSON.parse(row.detail)])).toEqual([
-      ['system.migrated', { steps: [5] }],
+      ['system.migrated', { steps: [5, 6, 7] }],
       ['audit.legacy_purged', { removed: 1, because: 'upgrade' }],
     ])
   })
@@ -178,7 +178,7 @@ describe('preparing the database', () => {
       env,
     )
     expect(rows.map((row) => [row.event, JSON.parse(row.detail)])).toEqual([
-      ['system.migrated', { steps: [5] }],
+      ['system.migrated', { steps: [5, 6, 7] }],
     ])
   })
 })

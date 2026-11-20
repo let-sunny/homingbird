@@ -21,6 +21,7 @@ import { EVERYONE, type RequestEnv } from '../events/events.ts'
 import { all, dialect, first, run } from '../sql/database.ts'
 import { insertIgnoringConflict, sql } from '../sql/query.ts'
 import { type Viewer, isVisibleRoom } from './channel-rows.ts'
+import { featureIsOn } from './settings.ts'
 
 /** A private room shows to its members, and to an administrator's own sign-in only (rule 6). */
 export const visibleDebate = (viewer: Viewer, id: DebateId): T.Task<DebateRow, NotFound, AppEnv> =>
@@ -55,6 +56,9 @@ export const loadRoom = (row: DebateRow): T.Task<DebateFacts, never, AppEnv> =>
     const drafts = yield* draftsOf(id, round)
     const votes = yield* votesOf(id, round)
     const limits = limitsOf(row)
+    const statedModel = (yield* featureIsOn('noteDetails'))
+      ? (stated: { readonly agent_model?: string | null }) => ({ agentModel: stated.agent_model ?? null })
+      : () => ({})
     const graceMs = (limits.graceMinutes ?? DEFAULT_GRACE_MINUTES) * 60_000
     const takingPart = (memberId: MemberId) => {
       const agent = agents.find((one) => one.member_id === memberId)
@@ -88,6 +92,7 @@ export const loadRoom = (row: DebateRow): T.Task<DebateFacts, never, AppEnv> =>
         agentName: turn.agent_name,
         body: turn.body,
         at: Number(turn.created_at),
+        ...statedModel(turn),
       })),
       result: resultOf(row),
       resultRound: Number(row.result_round),
@@ -96,6 +101,7 @@ export const loadRoom = (row: DebateRow): T.Task<DebateFacts, never, AppEnv> =>
         draftedAt: Number(draft.created_at),
         result: JSON.parse(draft.result) as DebateResult,
         votes: row.result === null ? null : votes.filter((vote) => vote.draft_by === draft.member_id).length,
+        ...statedModel(draft),
       })),
       draftsCloseAt:
         deciding && firstDraftAt !== null && row.votes_open_at === null
@@ -107,7 +113,11 @@ export const loadRoom = (row: DebateRow): T.Task<DebateFacts, never, AppEnv> =>
       voteRecord:
         row.status === 'closed'
           ? {
-              votes: votes.map((vote) => ({ voterId: vote.voter_id, draftBy: vote.draft_by })),
+              votes: votes.map((vote) => ({
+                voterId: vote.voter_id,
+                draftBy: vote.draft_by,
+                ...statedModel(vote),
+              })),
               droppedOut: row.dropped_out === null ? [] : (JSON.parse(row.dropped_out) as MemberId[]),
             }
           : null,
@@ -263,12 +273,14 @@ export interface DraftRow {
   readonly credential_id: CredentialId
   readonly result: string
   readonly created_at: number
+  readonly agent_model?: string | null
 }
 
 export interface VoteRow {
   readonly voter_id: MemberId
   readonly draft_by: MemberId
   readonly created_at: number
+  readonly agent_model?: string | null
 }
 
 export interface ParticipantRow {
@@ -293,6 +305,7 @@ interface TurnRow {
   readonly agent_name: string
   readonly body: string
   readonly created_at: number
+  readonly agent_model?: string | null
 }
 
 /** The stored result passed `DebateResult` when it was drafted. */

@@ -21,7 +21,7 @@ export const adminHandlers = {
     ),
   'admin.members.update': ({ params, body }, caller) =>
     T.flatMap((id: MemberId) =>
-      T.tap((_: Member) => announceDirectoryChange(id))(administerMember(caller.member.id, id, body)),
+      T.tap((_: Member) => announceDirectoryChange(id))(administerMember(caller, id, body)),
     )(identifier(MemberId, params.id)),
   'admin.members.resetCharacter': ({ params }) =>
     T.flatMap((id: MemberId) => T.tap((_: Member) => announceDirectoryChange(id))(clearCharacter(id)))(

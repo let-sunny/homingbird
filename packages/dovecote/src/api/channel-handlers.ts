@@ -3,9 +3,7 @@ import { type Channel, type Contract, MemberId, type ResponseOf } from '@homingb
 import {
   addChannelMember,
   channelMembers,
-  grantManager,
   removeChannelMember,
-  revokeManager,
   setVisibility,
 } from '../domain/channel-membership.ts'
 import {
@@ -16,6 +14,7 @@ import {
   listChannels,
   setAnswering,
 } from '../domain/channels.ts'
+import { addTeamToChannel } from '../domain/group-membership.ts'
 import { viewerOf } from '../environment.ts'
 import { type RequestEnv, announceDirectoryChange } from '../events/events.ts'
 import type { Handlers } from './handlers.ts'
@@ -54,14 +53,8 @@ export const channelHandlers = {
     T.flatMap((memberId: MemberId) =>
       announcingChannel(memberId, removeChannelMember(viewerOf(caller), params.slug, memberId)),
     )(identifier(MemberId, params.memberId)),
-  'channels.managers.add': ({ params }, caller) =>
-    T.flatMap((memberId: MemberId) => grantManager(viewerOf(caller), params.slug, memberId))(
-      identifier(MemberId, params.memberId),
-    ),
-  'channels.managers.remove': ({ params }, caller) =>
-    T.flatMap((memberId: MemberId) => revokeManager(viewerOf(caller), params.slug, memberId))(
-      identifier(MemberId, params.memberId),
-    ),
+  'channels.managers.addTeam': ({ params, body }, caller) =>
+    announcingChannel(caller.member.id, addTeamToChannel(caller, params.slug, body.groupId)),
 } satisfies Partial<Handlers>
 
 const announcingChannel = <E>(

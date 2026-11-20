@@ -5,6 +5,7 @@ import {
   Conflict,
   ConversationId,
   Forbidden,
+  type GroupId,
   type MemberId,
   type NotFound,
 } from '@homingbird/protocol'
@@ -22,15 +23,22 @@ import {
   enter,
   existingChannel,
   isMemberOf,
-  makeManager,
   membersOf,
   noSuchChannel,
   requireManagerRemains,
+  requireOutsideManagingGroup,
   startAnswering,
   tellAboutChannel,
   visibilityOf,
   visibleChannel,
 } from './channel-rows.ts'
+import {
+  announceGroups,
+  audienceOf,
+  leaveGroupOfEmptiedRoom,
+  lockedChannel,
+  storeGroup,
+} from './group-rows.ts'
 
 export const listChannels = (
   viewer: Viewer,
@@ -59,17 +67,23 @@ export const listChannels = (
 export const channelNamed = (viewer: Viewer, slug: string): T.Task<Channel, NotFound, AppEnv> =>
   T.flatMap((row: ChannelRow) => describeChannel(viewer, row))(visibleChannel(viewer, slug))
 
+/** A new channel has its own group of managers, its creator alone at first. */
 export const createChannel = (
   creator: Viewer,
   channel: { readonly slug: string; readonly description: string; readonly visibility?: ChannelVisibility },
 ): T.Task<Channel, Conflict, RequestEnv> =>
   T.gen(function* () {
     if ((yield* channelRow(channel.slug)) !== null) return yield* T.fail(nameNotAvailable)
-    const row = yield* openRoom({ ...channel, visibility: channel.visibility ?? 'open' }, creator.id)
+    const room = {
+      slug: channel.slug,
+      description: channel.description,
+      visibility: channel.visibility ?? 'open',
+    }
+    const row = yield* openRoom(room, creator.id, [creator.id])
     yield* enter(row.conversation_id, creator.id)
     yield* startAnswering(row.conversation_id, creator.id)
-    yield* makeManager(row.conversation_id, creator.id)
     yield* tellAboutChannel(row, [creator.id])
+    yield* announceGroups([row.manager_group_id], audienceOf(row, [creator.id]))
     return yield* describeChannel(creator, row)
   })
 
@@ -94,10 +108,12 @@ export const leaveChannel = (
   slug: string,
 ): T.Task<Channel, NotFound | Conflict, RequestEnv> =>
   T.gen(function* () {
-    const row = yield* visibleChannel(viewer, slug)
+    const row = yield* lockedChannel(viewer, slug)
     if (yield* isMemberOf(row.conversation_id, viewer.id)) {
       yield* requireManagerRemains(row, { leaving: viewer.id })
+      yield* requireOutsideManagingGroup(row, viewer.id)
       yield* depart(row, viewer.id)
+      yield* leaveGroupOfEmptiedRoom(row, viewer.id)
     }
     return yield* describeChannel(viewer, row)
   })
@@ -182,14 +198,15 @@ export const seedChannels: T.Task<void, never, AppEnv> = T.gen(function* () {
   const env = yield* T.ask<AppEnv>()
   for (const channel of env.config.channels) {
     if ((yield* channelRow(channel.slug)) !== null) continue
-    yield* openRoom({ ...channel, visibility: 'open' }, null)
+    yield* openRoom({ ...channel, visibility: 'open' }, null, [])
   }
 })
 
-const nameNotAvailable = Conflict({ message: 'That name is not available.' })
-
-const visibleTo = (viewer: Viewer): ReturnType<typeof sql> =>
+/** Which rows of `channels t` the viewer may see: a private one only as its member or an administrator. */
+export const visibleTo = (viewer: Viewer): ReturnType<typeof sql> =>
   viewer.role === 'admin' ? sql`1 = 1` : sharedWith(viewer.id)
+
+const nameNotAvailable = Conflict({ message: 'That name is not available.' })
 
 const sharedWith = (
   viewerId: MemberId,
@@ -202,9 +219,11 @@ const sameSet = (a: ReadonlyArray<MemberId>, b: ReadonlyArray<MemberId>): boolea
 const openRoom = (
   channel: { readonly slug: string; readonly description: string; readonly visibility: ChannelVisibility },
   createdBy: MemberId | null,
+  managers: ReadonlyArray<MemberId>,
 ): T.Task<ChannelRow, never, AppEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
+    const group = yield* storeGroup({ kind: 'channel', name: null, createdBy }, managers)
     const now = env.clock.now()
     const conversationId = ConversationId.of(env.random.identifier())
     yield* run(
@@ -223,6 +242,7 @@ const openRoom = (
       conversation_id: conversationId,
       visibility: channel.visibility,
       created_at: now,
+      manager_group_id: group.id,
     }
     yield* run(insertInto('channels', { ...row, created_by: createdBy }))
     return row

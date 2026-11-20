@@ -6,7 +6,15 @@ import { transact } from '../src/events/events.ts'
 import { debateDeadlinePass } from '../src/runtime.ts'
 import { run } from '../src/sql/database.ts'
 import { sql } from '../src/sql/query.ts'
-import { type Cast, LIMITS, castOf, openedRoom, resultFor, turnsRunOut } from './debate-support.ts'
+import {
+  type Cast,
+  LIMITS,
+  castOf,
+  openedRoom,
+  resultFor,
+  turnsRunOut,
+  withStatedModels,
+} from './debate-support.ts'
 import { type TestServer, startTestServer, storedRows } from './harness.ts'
 
 let server: TestServer
@@ -32,6 +40,20 @@ describe('taking turns', () => {
       expect.objectContaining({ position: 2, memberId: cast.ben.me.member.id, agentName: 'Ben agent' }),
     ])
     expect(room.status).toBe('open')
+  })
+
+  it('records the model an agent states with its turn, and none when it states none', async () => {
+    await withStatedModels(server)
+    const id = await openedRoom(cast)
+    await cast.anaAgent.api('POST', `/debates/${id}/turns`, { body: 'A point.', model: ' claude-opus-5-5 ' })
+    const room = (await turn(cast.benAgent, id)).json
+    expect(room.turns.map((one: { agentModel: string | null }) => one.agentModel)).toEqual([
+      'claude-opus-5-5',
+      null,
+    ])
+    expect(
+      (await cast.benAgent.api('POST', `/debates/${id}/turns`, { body: 'More.', model: 'a\u202eb' })).status,
+    ).toBe(400)
   })
 
   it('refuses a person, an agent nobody opted in, and an agent that cannot see a private room', async () => {

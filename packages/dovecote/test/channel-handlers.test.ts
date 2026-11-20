@@ -42,7 +42,7 @@ describe('the channel handlers', () => {
   it('refuse a member id that is not one before adding or removing anyone', async () => {
     await ana.api('POST', '/channels', { slug: 'billing', description: 'Billing', visibility: 'private' })
     expect((await ana.api('PUT', '/channels/billing/members/nobody', {})).status).toBe(400)
-    expect((await ana.api('DELETE', '/channels/billing/managers/nobody')).status).toBe(400)
+    expect((await ana.api('DELETE', '/channels/billing/members/nobody')).status).toBe(400)
     expect((await ana.api('PUT', `/channels/billing/members/${ben.me.member.id}`, {})).status).toBe(200)
   })
 })

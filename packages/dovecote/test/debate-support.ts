@@ -1,4 +1,10 @@
+import { Task as T } from '@homingbird/kernel'
 import { RESULT_DRAFTING_WINDOW_MS } from '@homingbird/protocol'
+import { dialect, run } from '../src/sql/database.ts'
+import { MIGRATIONS } from '../src/sql/migrations.ts'
+import { DEBATE_MODEL } from '../src/sql/migrations/debate-model-step.ts'
+import { raw } from '../src/sql/query.ts'
+import { schemaStatements } from '../src/sql/schema.ts'
 import { type Agent, type Session, type TestServer, connectAgent, keepAwake } from './harness.ts'
 
 export interface Cast {
@@ -144,6 +150,14 @@ export const resultFor = (cast: Cast, kind: 'conclusion' | 'no_conclusion' = 'co
         contributions,
         nextSteps,
       }
+}
+
+/** Adds the columns for the model an agent states in a room, unless the migrations already did. */
+export const withStatedModels = async (server: TestServer): Promise<void> => {
+  if (MIGRATIONS.includes(DEBATE_MODEL)) return
+  const target = await T.runPromise(dialect, server.env)
+  for (const statement of schemaStatements(target, [DEBATE_MODEL]))
+    await T.runPromise(run(raw(statement)), server.env)
 }
 
 const agentOf = async (server: TestServer, owner: Session, name: string) => {

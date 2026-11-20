@@ -453,3 +453,35 @@ describe('joining a channel and answering in it', () => {
     ])
   })
 })
+
+describe('the managers of a new channel', () => {
+  it('are a channel group of its creator alone, and of nobody for a configured channel', async () => {
+    const made = (await ben.api('POST', '/channels', { slug: 'payroll', description: 'Salaries' })).json
+    const groups = await storedRows(server, 'member_groups')
+    expect(groups.find((row) => row.id === made.managedBy)).toMatchObject({
+      kind: 'channel',
+      name: null,
+      created_by: ben.me.member.id,
+    })
+    const lobby = (await ana.api('GET', '/channels/lobby')).json.managedBy
+    expect(groups.find((row) => row.id === lobby)).toMatchObject({ kind: 'channel', created_by: null })
+    expect((await storedRows(server, 'group_members')).filter((row) => row.group_id === lobby)).toEqual([])
+  })
+
+  it('lose their last member from the group too when that member leaves the room, so no one manages it from outside', async () => {
+    const made = (await ben.api('POST', '/channels', { slug: 'ops', description: 'Operations' })).json
+    const told: unknown[] = []
+    const { broadcast } = server.env.hub
+    ;(server.env.hub as { broadcast: typeof broadcast }).broadcast = (event) => {
+      if (event.body.type === 'group.changed') told.push(event.body)
+      broadcast(event)
+    }
+    expect((await ben.api('DELETE', '/channels/ops/membership')).json.joined).toBe(false)
+    expect(
+      (await storedRows(server, 'group_members')).filter((row) => row.group_id === made.managedBy),
+    ).toEqual([])
+    expect(told).toEqual([{ type: 'group.changed', groupId: made.managedBy }])
+    await cy.api('PUT', '/channels/ops/membership', {})
+    expect((await cy.api('DELETE', '/channels/ops/membership')).json.joined).toBe(false)
+  })
+})

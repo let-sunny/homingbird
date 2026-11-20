@@ -105,7 +105,7 @@ describe('dovecote audit', () => {
 
   it('refuses a database of another version, and migrates nothing', async () => {
     server = await startTestServer()
-    await T.runPromise(run(sql`DELETE FROM schema_versions WHERE version = 5`), server.env)
+    await T.runPromise(run(sql`DELETE FROM schema_versions WHERE version = 7`), server.env)
     expect(await command('verify')).toEqual({
       code: 3,
       lines: [
@@ -113,9 +113,9 @@ describe('dovecote audit', () => {
       ],
     })
     expect((await storedRows(server, 'schema_versions')).map((row) => Number(row.version))).toEqual([
-      1, 2, 3, 4,
+      1, 2, 3, 4, 5, 6,
     ])
-    await T.runPromise(run(sql`INSERT INTO schema_versions (version) VALUES (5), (9)`), server.env)
+    await T.runPromise(run(sql`INSERT INTO schema_versions (version) VALUES (7), (9)`), server.env)
     expect((await command('export')).code).toBe(3)
     await T.runPromise(run(sql`DROP TABLE schema_versions`), server.env)
     expect((await command('export')).code).toBe(3)

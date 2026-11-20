@@ -333,7 +333,7 @@ describe('schema', () => {
       for (const column of ['seen_at', 'decided_at', 'agent_body', 'agent_client', 'agent_model'])
         expect(notes).not.toContain(column)
       expect(created.some((statement) => statement.includes('principles'))).toBe(false)
-      expect(MIGRATIONS).toHaveLength(5)
+      expect(MIGRATIONS).toHaveLength(7)
       expect(
         schemaStatements(dialect, [[], third]).some((statement) => statement.includes('debate_votes')),
       ).toBe(false)

@@ -206,3 +206,47 @@ describe('an archived room', () => {
     expect(refused.status).toBe(409)
   })
 })
+
+describe('telling who manages a channel that it changed', () => {
+  const groupEvents = () => {
+    const told: Array<readonly [string, string]> = []
+    const hub = server.env.hub as {
+      broadcast: typeof server.env.hub.broadcast
+      publish: typeof server.env.hub.publish
+    }
+    const { broadcast, publish } = hub
+    hub.broadcast = (event) => {
+      if (event.body.type === 'group.changed') told.push(['everyone', event.body.groupId])
+      broadcast(event)
+    }
+    hub.publish = (memberId, event) => {
+      if (event.body.type === 'group.changed') told.push([memberId, event.body.groupId])
+      publish(memberId, event)
+    }
+    return told
+  }
+
+  it('tells everyone when an open channel is renamed or archived', async () => {
+    const group = (await ben.api('POST', '/channels', { slug: 'ops', description: 'Operations' })).json
+      .managedBy
+    const told = groupEvents()
+    await ana.api('PATCH', '/admin/channels/ops', { slug: 'operations' })
+    await ana.api('POST', '/admin/channels/operations/archive', {})
+    expect(told).toEqual([
+      ['everyone', group],
+      ['everyone', group],
+    ])
+  })
+
+  it('tells only the room of a private channel, so nobody else learns it changed', async () => {
+    const made = { slug: 'payroll', description: 'Salaries', visibility: 'private' }
+    const group = (await ben.api('POST', '/channels', made)).json.managedBy
+    const told = groupEvents()
+    await ana.api('PATCH', '/admin/channels/payroll', { slug: 'salaries' })
+    await ana.api('POST', '/admin/channels/salaries/archive', {})
+    expect(told).toEqual([
+      [ben.me.member.id, group],
+      [ben.me.member.id, group],
+    ])
+  })
+})

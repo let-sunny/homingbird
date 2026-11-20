@@ -52,6 +52,27 @@ exports[`schema > generates stable DDL for mysql 1`] = `
   "CREATE TABLE IF NOT EXISTS debate_votes (debate_id VARCHAR(64) NOT NULL, round BIGINT NOT NULL, voter_id VARCHAR(64) NOT NULL, draft_by VARCHAR(64) NOT NULL, created_at BIGINT NOT NULL, PRIMARY KEY (debate_id, round, voter_id))",
   "CREATE TABLE IF NOT EXISTS audit_events (id BIGINT AUTO_INCREMENT PRIMARY KEY, created_at BIGINT NOT NULL, event VARCHAR(400) NOT NULL, outcome VARCHAR(400) NOT NULL, actor_id VARCHAR(64), credential_id VARCHAR(64), credential_kind VARCHAR(400), client_id VARCHAR(400), target_kind VARCHAR(400) NOT NULL, target_id VARCHAR(400), request_id VARCHAR(400), client_address VARCHAR(400), user_agent VARCHAR(400), detail MEDIUMTEXT NOT NULL, previous_hash VARCHAR(400) NOT NULL, hash VARCHAR(400) NOT NULL, INDEX audit_events_created_at_idx (created_at), INDEX audit_events_actor_id_idx (actor_id), INDEX audit_events_target_id_idx (target_id), INDEX audit_events_event_idx (event))",
   "CREATE TABLE IF NOT EXISTS audit_head (name VARCHAR(400) NOT NULL, last_id BIGINT NOT NULL, hash VARCHAR(400) NOT NULL, PRIMARY KEY (name))",
+  "CREATE TABLE IF NOT EXISTS member_groups (id VARCHAR(64) NOT NULL, kind VARCHAR(400) NOT NULL, name VARCHAR(400), created_by VARCHAR(64), created_at BIGINT NOT NULL, PRIMARY KEY (id))",
+  "CREATE TABLE IF NOT EXISTS group_members (group_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, PRIMARY KEY (group_id, member_id), INDEX group_members_member_id_idx (member_id))",
+  "ALTER TABLE channels ADD COLUMN manager_group_id VARCHAR(64)",
+  "CREATE INDEX channels_manager_group_id_idx ON channels (manager_group_id)",
+  "INSERT INTO member_groups (id, kind, created_by, created_at)
+      SELECT REPLACE(c.conversation_id, 'conv_', 'grp_'), 'channel', c.created_by, c.created_at FROM channels c
+      WHERE NOT EXISTS (SELECT 1 FROM member_groups x WHERE x.id = REPLACE(c.conversation_id, 'conv_', 'grp_'))",
+  "INSERT INTO group_members (group_id, member_id)
+      SELECT REPLACE(g.conversation_id, 'conv_', 'grp_'), g.member_id FROM channel_managers g
+      JOIN participants p ON p.conversation_id = g.conversation_id AND p.member_id = g.member_id
+      JOIN members m ON m.id = g.member_id
+      WHERE m.status = 'active'
+        AND EXISTS (SELECT 1 FROM member_groups x WHERE x.id = REPLACE(g.conversation_id, 'conv_', 'grp_'))
+        AND NOT EXISTS (SELECT 1 FROM group_members y
+          WHERE y.group_id = REPLACE(g.conversation_id, 'conv_', 'grp_') AND y.member_id = g.member_id)",
+  "UPDATE channels SET manager_group_id = REPLACE(conversation_id, 'conv_', 'grp_')
+      WHERE manager_group_id IS NULL
+        AND EXISTS (SELECT 1 FROM member_groups x WHERE x.id = REPLACE(channels.conversation_id, 'conv_', 'grp_'))",
+  "ALTER TABLE debate_turns ADD COLUMN agent_model VARCHAR(400)",
+  "ALTER TABLE debate_drafts ADD COLUMN agent_model VARCHAR(400)",
+  "ALTER TABLE debate_votes ADD COLUMN agent_model VARCHAR(400)",
 ]
 `;
 
@@ -147,6 +168,28 @@ exports[`schema > generates stable DDL for postgres 1`] = `
   "CREATE INDEX IF NOT EXISTS audit_events_target_id_idx ON audit_events (target_id)",
   "CREATE INDEX IF NOT EXISTS audit_events_event_idx ON audit_events (event)",
   "CREATE TABLE IF NOT EXISTS audit_head (name VARCHAR(400) NOT NULL, last_id BIGINT NOT NULL, hash VARCHAR(400) NOT NULL, PRIMARY KEY (name))",
+  "CREATE TABLE IF NOT EXISTS member_groups (id VARCHAR(64) NOT NULL, kind VARCHAR(400) NOT NULL, name VARCHAR(400), created_by VARCHAR(64), created_at BIGINT NOT NULL, PRIMARY KEY (id))",
+  "CREATE TABLE IF NOT EXISTS group_members (group_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, PRIMARY KEY (group_id, member_id))",
+  "CREATE INDEX IF NOT EXISTS group_members_member_id_idx ON group_members (member_id)",
+  "ALTER TABLE channels ADD COLUMN manager_group_id VARCHAR(64)",
+  "CREATE INDEX IF NOT EXISTS channels_manager_group_id_idx ON channels (manager_group_id)",
+  "INSERT INTO member_groups (id, kind, created_by, created_at)
+      SELECT REPLACE(c.conversation_id, 'conv_', 'grp_'), 'channel', c.created_by, c.created_at FROM channels c
+      WHERE NOT EXISTS (SELECT 1 FROM member_groups x WHERE x.id = REPLACE(c.conversation_id, 'conv_', 'grp_'))",
+  "INSERT INTO group_members (group_id, member_id)
+      SELECT REPLACE(g.conversation_id, 'conv_', 'grp_'), g.member_id FROM channel_managers g
+      JOIN participants p ON p.conversation_id = g.conversation_id AND p.member_id = g.member_id
+      JOIN members m ON m.id = g.member_id
+      WHERE m.status = 'active'
+        AND EXISTS (SELECT 1 FROM member_groups x WHERE x.id = REPLACE(g.conversation_id, 'conv_', 'grp_'))
+        AND NOT EXISTS (SELECT 1 FROM group_members y
+          WHERE y.group_id = REPLACE(g.conversation_id, 'conv_', 'grp_') AND y.member_id = g.member_id)",
+  "UPDATE channels SET manager_group_id = REPLACE(conversation_id, 'conv_', 'grp_')
+      WHERE manager_group_id IS NULL
+        AND EXISTS (SELECT 1 FROM member_groups x WHERE x.id = REPLACE(channels.conversation_id, 'conv_', 'grp_'))",
+  "ALTER TABLE debate_turns ADD COLUMN agent_model VARCHAR(400)",
+  "ALTER TABLE debate_drafts ADD COLUMN agent_model VARCHAR(400)",
+  "ALTER TABLE debate_votes ADD COLUMN agent_model VARCHAR(400)",
 ]
 `;
 
@@ -242,5 +285,27 @@ exports[`schema > generates stable DDL for sqlite 1`] = `
   "CREATE INDEX IF NOT EXISTS audit_events_target_id_idx ON audit_events (target_id)",
   "CREATE INDEX IF NOT EXISTS audit_events_event_idx ON audit_events (event)",
   "CREATE TABLE IF NOT EXISTS audit_head (name TEXT NOT NULL, last_id INTEGER NOT NULL, hash TEXT NOT NULL, PRIMARY KEY (name))",
+  "CREATE TABLE IF NOT EXISTS member_groups (id TEXT NOT NULL, kind TEXT NOT NULL, name TEXT, created_by TEXT, created_at INTEGER NOT NULL, PRIMARY KEY (id))",
+  "CREATE TABLE IF NOT EXISTS group_members (group_id TEXT NOT NULL, member_id TEXT NOT NULL, PRIMARY KEY (group_id, member_id))",
+  "CREATE INDEX IF NOT EXISTS group_members_member_id_idx ON group_members (member_id)",
+  "ALTER TABLE channels ADD COLUMN manager_group_id TEXT",
+  "CREATE INDEX IF NOT EXISTS channels_manager_group_id_idx ON channels (manager_group_id)",
+  "INSERT INTO member_groups (id, kind, created_by, created_at)
+      SELECT REPLACE(c.conversation_id, 'conv_', 'grp_'), 'channel', c.created_by, c.created_at FROM channels c
+      WHERE NOT EXISTS (SELECT 1 FROM member_groups x WHERE x.id = REPLACE(c.conversation_id, 'conv_', 'grp_'))",
+  "INSERT INTO group_members (group_id, member_id)
+      SELECT REPLACE(g.conversation_id, 'conv_', 'grp_'), g.member_id FROM channel_managers g
+      JOIN participants p ON p.conversation_id = g.conversation_id AND p.member_id = g.member_id
+      JOIN members m ON m.id = g.member_id
+      WHERE m.status = 'active'
+        AND EXISTS (SELECT 1 FROM member_groups x WHERE x.id = REPLACE(g.conversation_id, 'conv_', 'grp_'))
+        AND NOT EXISTS (SELECT 1 FROM group_members y
+          WHERE y.group_id = REPLACE(g.conversation_id, 'conv_', 'grp_') AND y.member_id = g.member_id)",
+  "UPDATE channels SET manager_group_id = REPLACE(conversation_id, 'conv_', 'grp_')
+      WHERE manager_group_id IS NULL
+        AND EXISTS (SELECT 1 FROM member_groups x WHERE x.id = REPLACE(channels.conversation_id, 'conv_', 'grp_'))",
+  "ALTER TABLE debate_turns ADD COLUMN agent_model TEXT",
+  "ALTER TABLE debate_drafts ADD COLUMN agent_model TEXT",
+  "ALTER TABLE debate_votes ADD COLUMN agent_model TEXT",
 ]
 `;

@@ -301,13 +301,41 @@ describe('Rule 3: no model-facing credential can approve, change contacts, or re
       expect([path, (await anaAgent.api(method, path, body)).status]).toEqual([path, 403])
   })
 
-  it('marks every approving, contact, block, channel membership, credential and admin route as human-only in the contract', () => {
+  it('marks every approving, contact, block, channel membership, group, credential and admin route as human-only in the contract', () => {
     const mustBeGuarded = (Object.keys(contract) as RouteName[]).filter((name) =>
-      /^(drafts\.(send|discard)|contacts\.|blocks\.|credentials\.|device\.|consent\.|admin\.|push\.(un)?subscribe|me\.update|notes\.read|conversations\.create|channels\.(create|join|leave|answering\.|visibility\.|members\.(add|remove)|managers\.))/.test(
+      /^(drafts\.(send|discard)|contacts\.|blocks\.|credentials\.|device\.|consent\.|admin\.|push\.(un)?subscribe|me\.update|notes\.read|conversations\.create|channels\.(create|join|leave|answering\.|visibility\.|members\.(add|remove)|managers\.)|groups\.(rename|members\.))/.test(
         name,
       ),
     )
     expect(mustBeGuarded.filter((name) => !humanOnlyRoutes.includes(name))).toEqual([])
+  })
+
+  it('refuses an agent credential on every route that changes a group or who manages a channel, changing nothing', async () => {
+    const payroll = (
+      await ben.api('POST', '/channels', { slug: 'payroll', description: 'Salaries', visibility: 'private' })
+    ).json.managedBy
+    const bens = (await ana.api('POST', '/admin/groups', { name: 'Bens', memberIds: [ben.me.member.id] }))
+      .json.id
+    const anas = (await ana.api('POST', '/admin/groups', { name: 'Admins', memberIds: [ana.me.member.id] }))
+      .json.id
+    await ana.api('POST', '/channels', { slug: 'billing', description: 'Invoices' })
+    const before = await everyStoredValue(server)
+    const attempts: ReadonlyArray<readonly [Agent, string, string, unknown?]> = [
+      [benAgent, 'PATCH', `/groups/${payroll}`, { name: 'Renamed' }],
+      [benAgent, 'PUT', `/groups/${payroll}/members`, { memberIds: [ben.me.member.id, cy.me.member.id] }],
+      [benAgent, 'PUT', `/groups/${payroll}/members`, { memberIds: [] }],
+      [benAgent, 'PUT', '/channels/payroll/managers/team', { groupId: bens }],
+      [anaAgent, 'POST', '/admin/groups', { name: 'Agents', memberIds: [ana.me.member.id] }],
+      [anaAgent, 'DELETE', `/admin/groups/${anas}`],
+      [anaAgent, 'PATCH', `/groups/${anas}`, { name: 'Renamed' }],
+      [anaAgent, 'PUT', `/groups/${anas}/members`, { memberIds: [ana.me.member.id, cy.me.member.id] }],
+      [anaAgent, 'PUT', `/groups/${payroll}/members`, { memberIds: [ben.me.member.id, ana.me.member.id] }],
+      [anaAgent, 'PUT', '/channels/billing/managers/team', { groupId: bens }],
+      [anaAgent, 'PUT', '/channels/payroll/managers/team', { groupId: anas }],
+    ]
+    for (const [agent, method, path, body] of attempts)
+      expect([path, (await agent.api(method, path, body)).status]).toEqual([path, 403])
+    expect(stateOf(await everyStoredValue(server))).toBe(stateOf(before))
   })
 
   it('lets no model-facing credential or route set or change the answering flow', async () => {
@@ -762,19 +790,55 @@ describe('Rule 6: a member sees only conversations they participate in', () => {
     ).toBe(403)
   })
 
+  it('lets no one outside a private channel’s room read or change its group, nor an administrator take out its last manager in the room', async () => {
+    const dee = await server.signIn('dee@example.com', 'Dee')
+    await ben.api('POST', '/channels', { slug: 'ops', description: 'Operations' })
+    expect((await ben.api('DELETE', '/channels/ops/membership')).json.joined).toBe(false)
+    for (const person of [cy, dee]) await person.api('PUT', '/channels/ops/membership', {})
+    const ops = (await cy.api('GET', '/channels/ops')).json.managedBy
+    const current = (await ana.api('GET', `/groups/${ops}`)).json.memberIds
+    const made = await ana.api('PUT', `/groups/${ops}/members`, { memberIds: [...current, cy.me.member.id] })
+    expect(made.status).toBe(200)
+    expect((await cy.api('PUT', '/channels/ops/visibility', { visibility: 'private' })).status).toBe(200)
+    const list = (await cy.api('GET', `/groups/${ops}`)).json.memberIds
+    for (const stillInGroup of [false, true]) {
+      if (stillInGroup)
+        await T.runPromise(
+          run(insertInto('group_members', { group_id: ops, member_id: ben.me.member.id })),
+          server.env,
+        )
+      expect((await ben.api('GET', `/groups/${ops}`)).status).toBe(404)
+      for (const memberIds of [list, [ben.me.member.id]]) {
+        const changed = await ben.api('PUT', `/groups/${ops}/members`, { memberIds })
+        expect([changed.status, changed.json.memberIds]).toEqual([404, undefined])
+      }
+    }
+    const taken = await ana.api('PUT', `/groups/${ops}/members`, { memberIds: [ben.me.member.id] })
+    expect(taken.status).toBe(409)
+    expect((await cy.api('GET', '/channels/ops/members')).json.members).toContainEqual({
+      memberId: cy.me.member.id,
+      answering: false,
+      manager: true,
+    })
+  })
+
   describe('a private channel', () => {
     const NAME = 'payroll'
     const ABOUT = 'Salaries and bonuses 4d2c'
     const QUESTION = 'When do bonuses land? 8b1f'
     let dee: Session
     let room: string
+    let managing: string
     let question: { id: string }
 
     beforeEach(async () => {
       dee = await server.signIn('dee@example.com', 'Dee')
       await ana.api('POST', '/channels', { slug: 'lobby', description: 'Anything else' })
-      room = (await ben.api('POST', '/channels', { slug: NAME, description: ABOUT, visibility: 'private' }))
-        .json.conversationId
+      const made = (
+        await ben.api('POST', '/channels', { slug: NAME, description: ABOUT, visibility: 'private' })
+      ).json
+      room = made.conversationId
+      managing = made.managedBy
       await ben.api('PUT', `/channels/${NAME}/members/${dee.me.member.id}`)
       const draft = (await dee.api('POST', '/drafts', { channel: NAME, body: QUESTION })).json
       question = (await dee.api('POST', `/drafts/${draft.id}/send`, {})).json
@@ -782,6 +846,8 @@ describe('Rule 6: a member sees only conversations they participate in', () => {
 
     const leaks = (text: string): string[] =>
       [NAME, ABOUT, QUESTION, room, question.id].filter((secret) => text.includes(secret))
+
+    const shownToOutsider = (path: string): number => (path === `/groups/${managing}` ? 404 : 200)
 
     const surfacesOf = async (viewer: Session | Agent) => {
       const reads: Array<readonly [string, string]> = [
@@ -795,6 +861,8 @@ describe('Rule 6: a member sees only conversations they participate in', () => {
         ['GET', '/search?q=bonuses'],
         ['GET', '/drafts'],
         ['GET', '/events/poll?after=0'],
+        ['GET', '/groups'],
+        ['GET', `/groups/${managing}`],
       ]
       const answers: Array<readonly [string, number, string]> = []
       for (const [method, path] of reads) {
@@ -808,7 +876,7 @@ describe('Rule 6: a member sees only conversations they participate in', () => {
       const cyAgent = await connectAgent(server, cy, { name: 'Cy agent' })
       for (const outsider of [cy, cyAgent]) {
         for (const [path, status, text] of await surfacesOf(outsider))
-          expect([path, status, leaks(text)]).toEqual([path, 200, []])
+          expect([path, status, leaks(text)]).toEqual([path, shownToOutsider(path), []])
         const unknown = await outsider.api('GET', '/channels/nowhere')
         const hidden = await outsider.api('GET', `/channels/${NAME}`)
         expect([hidden.status, hidden.json.error.message]).toEqual([
@@ -860,7 +928,7 @@ describe('Rule 6: a member sees only conversations they participate in', () => {
       const stored = (await storedRows(server, 'events')).filter((row) => row.member_id === ana.me.member.id)
       expect(noteLeaks(JSON.stringify(stored))).toEqual([])
       for (const [path, status, text] of await surfacesOf(anaAgent))
-        expect([path, status, leaks(text)]).toEqual([path, 200, []])
+        expect([path, status, leaks(text)]).toEqual([path, shownToOutsider(path), []])
       expect((await anaAgent.api('GET', `/channels/${NAME}`)).status).toBe(404)
       expect((await anaAgent.api('GET', `/channels/${NAME}/members`)).status).toBe(404)
       expect((await anaAgent.api('GET', `/conversations/${room}/notes`)).status).toBe(404)
@@ -883,8 +951,17 @@ describe('Rule 6: a member sees only conversations they participate in', () => {
         expect(refused.status).toBe(403)
       }
       expect((await ana.api('PUT', `/channels/${NAME}/membership`, {})).status).toBe(403)
-      expect((await ana.api('PUT', `/channels/${NAME}/managers/${dee.me.member.id}`)).status).toBe(403)
-      expect((await ana.api('PUT', `/channels/${NAME}/managers/${ana.me.member.id}`)).status).not.toBe(200)
+      for (const added of [ana, cy]) {
+        const memberIds = [ben.me.member.id, added.me.member.id]
+        expect((await ana.api('PUT', `/groups/${managing}/members`, { memberIds })).status).toBe(403)
+      }
+      const own = (await ana.api('POST', '/admin/groups', { name: 'Admins', memberIds: [ana.me.member.id] }))
+        .json.id
+      const before = await everyStoredValue(server)
+      expect((await ana.api('PUT', `/channels/${NAME}/managers/team`, { groupId: own })).status).toBe(403)
+      expect(stateOf(await everyStoredValue(server))).toBe(stateOf(before))
+      expect((await ana.api('GET', `/groups/${managing}`)).json.memberIds).toEqual([ben.me.member.id])
+      expect((await ana.api('GET', `/channels/${NAME}`)).json.managedBy).toBe(managing)
       expect((await ana.api('PUT', `/channels/${NAME}/visibility`, { visibility: 'open' })).status).toBe(403)
       const members = (await ana.api('GET', `/channels/${NAME}/members`)).json.members
       expect(members.map((member: { memberId: string }) => member.memberId).sort()).toEqual(
@@ -898,6 +975,87 @@ describe('Rule 6: a member sees only conversations they participate in', () => {
       expect((await ana.api('GET', `/notes/${question.id}`)).status).toBe(404)
       expect((await cy.api('GET', `/conversations/${room}/notes`)).status).toBe(404)
       expect(JSON.stringify((await ana.api('GET', '/search?q=bonuses')).json)).not.toContain(question.id)
+      const both = [ben.me.member.id, dee.me.member.id]
+      expect((await ben.api('PUT', `/groups/${managing}/members`, { memberIds: both })).status).toBe(200)
+      const taken = await ana.api('PUT', `/groups/${managing}/members`, { memberIds: [ben.me.member.id] })
+      expect([taken.status, taken.json.memberIds]).toEqual([200, [ben.me.member.id]])
+      expect((await ana.api('DELETE', `/channels/${NAME}/members/${dee.me.member.id}`)).status).toBe(200)
+      expect((await ana.api('GET', `/channels/${NAME}`)).json).toMatchObject({
+        joined: false,
+        managing: false,
+      })
+    })
+
+    it('gives a member of its managing group who is not in its room, an administrator included, no right to add anyone', async () => {
+      await T.runPromise(
+        run(insertInto('group_members', { group_id: managing, member_id: ana.me.member.id })),
+        server.env,
+      )
+      expect((await ana.api('GET', `/groups/${managing}`)).json).toMatchObject({ mayAdd: false })
+      const memberIds = [ben.me.member.id, ana.me.member.id, cy.me.member.id]
+      expect((await ana.api('PUT', `/groups/${managing}/members`, { memberIds })).status).toBe(403)
+      expect((await ana.api('PATCH', `/groups/${managing}`, { name: 'Mine' })).status).toBe(403)
+      expect(
+        (await ana.api('GET', `/channels/${NAME}/members`)).json.members.map((m: any) => m.memberId).sort(),
+      ).toEqual([ben.me.member.id, dee.me.member.id].sort())
+    })
+
+    it('shows its group of managers only to people who can see it: never to an outsider or an administrator’s agent', async () => {
+      const cyAgent = await connectAgent(server, cy, { name: 'Cy agent' })
+      const seenBy = async (viewer: Session | Agent) => {
+        const one = await viewer.api('GET', `/groups/${managing}`)
+        const listed = (await viewer.api('GET', '/groups')).json.groups.find(
+          (group: { id: string }) => group.id === managing,
+        )
+        return [
+          one.status,
+          one.json.name ?? null,
+          one.json.memberIds ?? null,
+          one.json.channels ?? null,
+          listed?.channels ?? null,
+        ]
+      }
+      for (const viewer of [ben, dee, benAgent, ana])
+        expect(await seenBy(viewer)).toEqual([200, null, [ben.me.member.id], [NAME], [NAME]])
+      for (const viewer of [cy, cyAgent, anaAgent]) {
+        expect(await seenBy(viewer)).toEqual([404, null, null, null, null])
+        expect(leaks(JSON.stringify((await viewer.api('GET', '/groups')).json))).toEqual([])
+        expect(JSON.stringify((await viewer.api('GET', '/groups')).json)).not.toContain(managing)
+      }
+    })
+
+    it('removes a deactivated member from every group at once, so they manage no channel', async () => {
+      const both = [ben.me.member.id, dee.me.member.id]
+      await ben.api('PUT', `/groups/${managing}/members`, { memberIds: both })
+      const other = (
+        await ana.api('POST', '/admin/groups', {
+          name: 'Other',
+          memberIds: [ben.me.member.id, cy.me.member.id],
+        })
+      ).json.id
+      const deactivated = await ana.api('PATCH', `/admin/members/${ben.me.member.id}`, {
+        status: 'deactivated',
+      })
+      expect(deactivated.status).toBe(200)
+      const groups = (await ana.api('GET', '/groups')).json.groups
+      expect(groups.filter((group: any) => group.memberIds.includes(ben.me.member.id))).toEqual([])
+      expect(
+        (await storedRows(server, 'group_members')).filter((row) => row.member_id === ben.me.member.id),
+      ).toEqual([])
+      expect((await dee.api('GET', `/channels/${NAME}/members`)).json.members).toEqual([
+        { memberId: dee.me.member.id, answering: false, manager: true },
+      ])
+      expect((await dee.api('GET', `/channels/${NAME}`)).json.managing).toBe(true)
+      const audited = (await storedRows(server, 'audit_events'))
+        .filter((row) => row.event === 'group.members_changed' && String(row.detail).includes('deactivated'))
+        .map((row) => [row.target_id, JSON.parse(String(row.detail))])
+      const removal = { added: [], removed: [ben.me.member.id], because: 'deactivated' }
+      expect(audited.sort()).toEqual(
+        [
+          [managing, removal],
+          [other, removal],
+        ].sort(),
+      )
     })
 
     it('hides it from the model-facing tools of a non-member’s agent, and refuses to draft there', async () => {
@@ -977,7 +1135,7 @@ describe('Rule 6: a member sees only conversations they participate in', () => {
       for (const [path, status, text] of (await surfacesOf(dee)).filter(
         ([path]) => !path.startsWith('/events'),
       ))
-        expect([path, status, leaks(text)]).toEqual([path, 200, []])
+        expect([path, status, leaks(text)]).toEqual([path, shownToOutsider(path), []])
       expect((await dee.api('GET', `/channels/${NAME}`)).status).toBe(404)
       expect((await dee.api('GET', `/conversations/${room}/notes`)).status).toBe(404)
       expect((await dee.api('GET', `/notes/${question.id}`)).status).toBe(404)

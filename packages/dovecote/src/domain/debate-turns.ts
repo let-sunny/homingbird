@@ -20,6 +20,7 @@ export const takeTurn = (
   caller: Caller,
   id: DebateId,
   body: string,
+  model?: string,
 ): T.Task<Debate, NotFound | Forbidden | Conflict | Invalid, RequestEnv> =>
   T.gen(function* () {
     yield* visibleDebate(viewerOf(caller), id)
@@ -31,7 +32,7 @@ export const takeTurn = (
     yield* moveDebate(
       yield* lockedDebate(id),
       { type: 'turn', memberId: participant.member_id, body },
-      { credentialId: caller.credential.id, agentName: participant.agent_name },
+      { credentialId: caller.credential.id, agentName: participant.agent_name, model },
     )
     return yield* describeDebate(yield* lockedDebate(id))
   })

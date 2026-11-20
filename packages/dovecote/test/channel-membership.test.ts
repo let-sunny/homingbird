@@ -1,11 +1,16 @@
+import { Task as T } from '@homingbird/kernel'
+import { GROUP_MEMBERS_MAX } from '@homingbird/protocol'
 import fc from 'fast-check'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { loadConfig } from '../src/config.ts'
+import { run } from '../src/sql/database.ts'
+import { insertInto, sql } from '../src/sql/query.ts'
 import {
   type Agent,
   type Session,
   type TestServer,
   connectAgent,
+  meanwhile,
   startTestServer,
   storedRows,
 } from './harness.ts'
@@ -139,28 +144,29 @@ describe('private channels', () => {
     ).not.toContain('payroll')
   })
 
-  it('lets a manager make another member a manager or take that away, but never the last one', async () => {
+  it('keeps its last manager: they cannot leave while others stay, nor be removed', async () => {
     await create()
     await add(ben, cy)
-    expect((await cy.api('PUT', `/channels/payroll/managers/${cy.me.member.id}`)).status).toBe(403)
-    expect((await ben.api('PUT', `/channels/payroll/managers/${cy.me.member.id}`)).status).toBe(200)
-    expect((await cy.api('GET', '/channels/payroll')).json.managing).toBe(true)
-    expect((await cy.api('DELETE', `/channels/payroll/managers/${ben.me.member.id}`)).status).toBe(200)
-    const last = await cy.api('DELETE', `/channels/payroll/managers/${cy.me.member.id}`)
-    expect([last.status, last.json.error.message]).toEqual([
+    const leaving = await ben.api('DELETE', '/channels/payroll/membership')
+    expect([leaving.status, leaving.json.error.message]).toEqual([
       409,
       'Make another member a manager first: a channel with members keeps a manager.',
     ])
-    expect((await cy.api('DELETE', '/channels/payroll/membership')).status).toBe(409)
-    expect((await ana.api('DELETE', `/channels/payroll/members/${cy.me.member.id}`)).status).toBe(409)
-    const dee = await server.signIn('dee@example.com', 'Dee')
-    const outsider = await cy.api('PUT', `/channels/payroll/managers/${dee.me.member.id}`)
-    expect([outsider.status, outsider.json.error.message]).toEqual([
-      409,
-      'Only a member of the channel can become its manager.',
+    expect((await ana.api('DELETE', `/channels/payroll/members/${ben.me.member.id}`)).status).toBe(409)
+    await cy.api('DELETE', '/channels/payroll/membership')
+    expect((await ben.api('DELETE', '/channels/payroll/membership')).json.joined).toBe(false)
+  })
+
+  it('takes the last member an administrator removes out of its group too, and no one else', async () => {
+    const managing = (await create()).managedBy
+    await T.runPromise(
+      run(insertInto('group_members', { group_id: managing, member_id: cy.me.member.id })),
+      server.env,
+    )
+    expect((await ana.api('DELETE', `/channels/payroll/members/${ben.me.member.id}`)).status).toBe(200)
+    expect((await storedRows(server, 'group_members')).filter((row) => row.group_id === managing)).toEqual([
+      { group_id: managing, member_id: cy.me.member.id },
     ])
-    await ben.api('DELETE', '/channels/payroll/membership')
-    expect((await cy.api('DELETE', '/channels/payroll/membership')).json.joined).toBe(false)
   })
 
   it('lets an administrator manage an open channel, and only see who is in a private one', async () => {
@@ -173,7 +179,6 @@ describe('private channels', () => {
     expect((await ana.api('PUT', `/channels/payroll/members/${cy.me.member.id}`)).status).toBe(403)
     expect((await ana.api('PUT', `/channels/payroll/members/${ana.me.member.id}`)).status).toBe(403)
     await add(ben, cy)
-    expect((await ana.api('PUT', `/channels/payroll/managers/${cy.me.member.id}`)).status).toBe(403)
     expect((await ana.api('PUT', '/channels/payroll/visibility', { visibility: 'open' })).status).toBe(403)
     expect((await ana.api('GET', '/channels/payroll/members')).json.members).toHaveLength(2)
     expect((await ana.api('DELETE', `/channels/payroll/members/${cy.me.member.id}`)).status).toBe(200)
@@ -218,9 +223,8 @@ describe('private channels', () => {
       409,
       'Make a member of this channel its manager before making it private.',
     ])
-    await ben.api('PUT', '/channels/billing/membership', {})
-    await ana.api('PUT', `/channels/billing/managers/${ben.me.member.id}`)
-    expect((await ana.api('PUT', '/channels/billing/visibility', { visibility: 'private' })).status).toBe(200)
+    await ben.api('POST', '/channels', { slug: 'deploys', description: 'Releases' })
+    expect((await ana.api('PUT', '/channels/deploys/visibility', { visibility: 'private' })).status).toBe(200)
   })
 
   it('delivers its questions to its answering members only, and lets only members and their agents draft there', async () => {
@@ -244,7 +248,7 @@ describe('private channels', () => {
     const operation = fc.record({
       actor: fc.integer({ min: 0, max: 2 }),
       target: fc.integer({ min: 0, max: 2 }),
-      kind: fc.constantFrom('add', 'remove', 'grant', 'revoke', 'leave', 'join'),
+      kind: fc.constantFrom('add', 'remove', 'leave', 'join'),
     })
     await fc.assert(
       fc.asyncProperty(fc.array(operation, { maxLength: 12 }), async (operations) => {
@@ -256,8 +260,6 @@ describe('private channels', () => {
           const [method, path] = {
             add: ['PUT', `/channels/${slug}/members/${whom}`],
             remove: ['DELETE', `/channels/${slug}/members/${whom}`],
-            grant: ['PUT', `/channels/${slug}/managers/${whom}`],
-            revoke: ['DELETE', `/channels/${slug}/managers/${whom}`],
             leave: ['DELETE', `/channels/${slug}/membership`],
             join: ['PUT', `/channels/${slug}/membership`],
           }[kind] as [string, string]
@@ -317,5 +319,184 @@ describe('moving questions and private channels', () => {
     expect((await ana.api('PATCH', `/drafts/${own.id}`, { channel: 'payroll' })).status).toBe(404)
     const member = (await cyAgent.api('POST', '/drafts', { channel: 'lobby', body: 'Salary bands?' })).json
     expect((await cyAgent.api('PATCH', `/drafts/${member.id}`, { channel: 'payroll' })).status).toBe(200)
+  })
+})
+
+describe('the managers of a channel', () => {
+  const PRIVATE = { slug: 'payroll', description: 'Salaries', visibility: 'private' }
+  const GROUP_LOCK = /^UPDATE member_groups SET created_at = created_at/
+
+  const teamOf = async (name: string, ...members: Session[]) =>
+    (
+      await ana.api('POST', '/admin/groups', {
+        name,
+        memberIds: members.map((member) => member.me.member.id),
+      })
+    ).json.id as string
+
+  const addTeam = (by: Session, slug: string, groupId: string) =>
+    by.api('PUT', `/channels/${slug}/managers/team`, { groupId })
+
+  const managersOf = async (slug: string) =>
+    (await ana.api('GET', `/channels/${slug}/members`)).json.members
+      .filter((member: any) => member.manager)
+      .map((member: any) => member.memberId)
+      .sort()
+
+  it('are a group of the channel’s own, its creator alone at first, shown as a channel group', async () => {
+    const made = (await ben.api('POST', '/channels', PRIVATE)).json
+    expect(made).toMatchObject({ managing: true, memberCount: 1 })
+    expect((await ben.api('GET', `/groups/${made.managedBy}`)).json).toMatchObject({
+      kind: 'channel',
+      name: null,
+      memberIds: [ben.me.member.id],
+      channels: ['payroll'],
+    })
+    expect((await ana.api('GET', '/channels/billing')).json.managedBy).toMatch(/^grp_/)
+  })
+
+  it('take in the people of a team once, who join the room, and later changes to the team change nothing', async () => {
+    const own = (await ben.api('POST', '/channels', PRIVATE)).json.managedBy
+    const finance = await teamOf('Finance', cy, ben)
+    const cursor = (await cy.api('GET', '/events/poll')).json.cursor
+    const added = await addTeam(ben, 'payroll', finance)
+    expect(added.json).toMatchObject({ managedBy: own, memberCount: 2, managing: true })
+    expect(await managersOf('payroll')).toEqual([ben.me.member.id, cy.me.member.id].sort())
+    const told = (await cy.api('GET', `/events/poll?after=${cursor}`)).json.events.map((e: any) => e.body)
+    expect(told).toMatchObject([{ type: 'channel.changed', channel: { slug: 'payroll', managing: true } }])
+    await ana.api('PUT', `/groups/${finance}/members`, { memberIds: [] })
+    expect(await managersOf('payroll')).toEqual([ben.me.member.id, cy.me.member.id].sort())
+    expect((await ana.api('GET', `/groups/${finance}`)).json).toMatchObject({ kind: 'team', channels: [] })
+  })
+
+  it('records the team’s people as a change to the channel’s group and as added to the channel', async () => {
+    const own = (await ben.api('POST', '/channels', PRIVATE)).json.managedBy
+    const finance = await teamOf('Finance', ben, cy)
+    await addTeam(ben, 'payroll', finance)
+    const rows = await storedRows(server, 'audit_events')
+    const facts = (event: string) =>
+      rows
+        .filter((row) => row.event === event)
+        .map((row) => [row.actor_id, row.target_id, JSON.parse(String(row.detail))])
+    expect(facts('group.members_changed').at(-1)).toEqual([
+      ben.me.member.id,
+      own,
+      { added: [cy.me.member.id], removed: [] },
+    ])
+    expect(facts('channel.member_added')).toEqual([
+      [ben.me.member.id, 'payroll', { memberId: cy.me.member.id }],
+    ])
+  })
+
+  it('add a team only as someone who may add people to them, and only a team', async () => {
+    const made = (await ben.api('POST', '/channels', PRIVATE)).json
+    await ben.api('PUT', `/channels/payroll/members/${cy.me.member.id}`)
+    const finance = await teamOf('Finance', cy)
+    expect((await addTeam(cy, 'payroll', finance)).status).toBe(403)
+    expect((await addTeam(ana, 'payroll', finance)).status).toBe(403)
+    const billing = (await ana.api('GET', '/channels/billing')).json.managedBy
+    expect((await addTeam(ben, 'payroll', billing)).status).toBe(404)
+    expect((await addTeam(ben, 'payroll', made.managedBy)).status).toBe(404)
+    expect((await addTeam(ben, 'payroll', 'grp_missing000000')).status).toBe(404)
+    expect(await managersOf('payroll')).toEqual([ben.me.member.id])
+    expect((await addTeam(ana, 'billing', finance)).json).toMatchObject({ managing: true })
+    expect(await managersOf('billing')).toEqual([cy.me.member.id])
+  })
+
+  it('refuse a team that would give the channel more managers than a group holds, copying no one', async () => {
+    await ben.api('POST', '/channels', PRIVATE)
+    const many = Array.from(
+      { length: GROUP_MEMBERS_MAX },
+      (_, index) => `mem_many${String(index).padStart(8, '0')}`,
+    )
+    for (const id of many)
+      await T.runPromise(
+        run(
+          insertInto('members', {
+            id,
+            email: `${id}@example.com`,
+            subject: id,
+            name: id,
+            profile: '',
+            role: 'member',
+            status: 'active',
+            event_seq: 0,
+            created_at: 0,
+            last_seen_at: null,
+          }),
+        ),
+        server.env,
+      )
+    const crowd = (await ana.api('POST', '/admin/groups', { name: 'Everyone', memberIds: many })).json.id
+    const before = await storedRows(server, 'group_members')
+    const refused = await addTeam(ben, 'payroll', crowd)
+    expect([refused.status, refused.json.error.message]).toEqual([
+      409,
+      `Adding this team would give the channel more than ${GROUP_MEMBERS_MAX} managers.`,
+    ])
+    expect(await storedRows(server, 'group_members')).toEqual(before)
+    expect(await managersOf('payroll')).toEqual([ben.me.member.id])
+  })
+
+  it('lock the channel’s group and the team in id order before reading who is in them', async () => {
+    await ben.api('POST', '/channels', PRIVATE)
+    const finance = await teamOf('Finance', cy)
+    const { statements, request } = meanwhile(server, GROUP_LOCK, [
+      sql`DELETE FROM group_members WHERE group_id = ${finance}`,
+    ])
+    const added = await request('PUT', '/api/v1/channels/payroll/managers/team', {
+      cookie: ben.cookie,
+      body: { groupId: finance },
+    })
+    expect(added.status).toBe(200)
+    expect(await managersOf('payroll')).toEqual([ben.me.member.id])
+    const locks = statements.filter((text) => GROUP_LOCK.test(text))
+    expect(locks.length).toBeGreaterThanOrEqual(2)
+    expect(statements.findIndex((text) => GROUP_LOCK.test(text))).toBeLessThan(
+      statements.findIndex((text) => /FROM group_members/.test(text)),
+    )
+  })
+
+  it('stay in the room while anyone else is in it', async () => {
+    await ben.api('POST', '/channels', PRIVATE)
+    await addTeam(ben, 'payroll', await teamOf('Finance', cy))
+    const leaving = await cy.api('DELETE', '/channels/payroll/membership')
+    expect([leaving.status, leaving.json.error.message]).toEqual([
+      409,
+      'Members of the group that manages this channel stay in it: leave that group first, or take them out of it.',
+    ])
+    expect((await ben.api('DELETE', `/channels/payroll/members/${cy.me.member.id}`)).status).toBe(409)
+    const own = (await ana.api('GET', '/channels/payroll')).json.managedBy
+    await ana.api('PUT', `/groups/${own}/members`, { memberIds: [ben.me.member.id] })
+    expect((await cy.api('DELETE', '/channels/payroll/membership')).json.joined).toBe(false)
+  })
+
+  it('lock the channel’s group before a manager leaves, so someone added meanwhile keeps a manager in the room', async () => {
+    const room = (await ben.api('POST', '/channels', PRIVATE)).json.conversationId
+    const { statements, request } = meanwhile(server, GROUP_LOCK, [
+      sql`INSERT INTO participants (conversation_id, member_id) VALUES (${room}, ${cy.me.member.id})`,
+    ])
+    const leaving = await request('DELETE', '/api/v1/channels/payroll/membership', { cookie: ben.cookie })
+    expect(leaving.status).toBe(409)
+    expect(statements.findIndex((text) => GROUP_LOCK.test(text))).toBeLessThan(
+      statements.findIndex((text) => /SELECT p\.member_id FROM participants/.test(text)),
+    )
+    expect(await managersOf('payroll')).toEqual([ben.me.member.id])
+  })
+
+  it('lock the channel’s group before reading its managers, so someone taken out meanwhile adds no one', async () => {
+    const own = (await ben.api('POST', '/channels', PRIVATE)).json.managedBy
+    await addTeam(ben, 'payroll', await teamOf('Finance', cy))
+    const { statements, request } = meanwhile(server, GROUP_LOCK, [
+      sql`DELETE FROM group_members WHERE group_id = ${own} AND member_id = ${cy.me.member.id}`,
+    ])
+    const added = await request('PUT', `/api/v1/channels/payroll/members/${ana.me.member.id}`, {
+      cookie: cy.cookie,
+    })
+    expect(added.status).toBe(403)
+    expect(statements.findIndex((text) => GROUP_LOCK.test(text))).toBeLessThan(
+      statements.findIndex((text) => /FROM group_members/.test(text)),
+    )
+    expect((await ana.api('GET', '/channels/payroll')).json.joined).toBe(false)
   })
 })
