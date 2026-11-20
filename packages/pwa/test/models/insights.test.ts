@@ -105,6 +105,7 @@ describe('insightsModel', () => {
       strings.insights.hidden,
       strings.trust.noneYet,
       strings.insights.hidden,
+      strings.insights.hidden,
     ])
     expect(table.footnotes.at(-1)).toBe(strings.insights.draftsHidden({ minimum: 5 }))
     const shown = organization({ sentAsWritten: 0, sentAfterEdits: 0, discarded: 0, quickApprovals: 0 })

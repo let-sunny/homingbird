@@ -1,10 +1,13 @@
 import type {
+  Authorship,
   OrganizationFigures,
   OrganizationInsights,
   OrganizationLabelTotals,
   PlaceName,
   PlaceTotals,
 } from '@homingbird/protocol'
+import { type ReceivedNote, deliveryIn } from './delivery-figures.ts'
+import { quickWeeksOf } from './quick-weeks.ts'
 import {
   type AgentDraft,
   type Decisions,
@@ -12,6 +15,7 @@ import {
   type Window,
   byPlace,
   decidedCount,
+  decisionTime,
   decisionsOf,
   isIn,
   isQuickApproval,
@@ -26,6 +30,8 @@ export interface SentNote {
   readonly place: PlaceName
   readonly sentAt: number
   readonly inReplyTo: string | null
+  /** Who wrote what was sent: `agent`, `human_edited` or `human`. */
+  readonly origin: string
 }
 
 export interface MemberDraft extends AgentDraft {
@@ -42,6 +48,7 @@ export interface OrganizationActivity {
   readonly sent: ReadonlyArray<SentNote>
   readonly drafts: ReadonlyArray<MemberDraft>
   readonly skips: ReadonlyArray<MemberSkip>
+  readonly received: ReadonlyArray<ReceivedNote>
   /** Sent debate results: neither agent drafts nor notes, so they count only here. */
   readonly debateResults?: ReadonlyArray<{ readonly authorId: string; readonly sentAt: number }>
 }
@@ -63,15 +70,17 @@ export const organizationInsightsOf = (
   blocks: people.members >= settings.minimumGroupSize ? people.blocks : null,
   periods: PERIOD_DAYS.map((days) => ({
     days,
-    current: organizationFiguresIn(activity, periodEndingAt(now, days, 0), settings),
-    previous: organizationFiguresIn(activity, periodEndingAt(now, days, 1), settings),
+    current: organizationFiguresIn(activity, periodEndingAt(now, days, 0), now, settings),
+    previous: organizationFiguresIn(activity, periodEndingAt(now, days, 1), now, settings),
   })),
+  ...quickWeeksOf(activity.drafts, now, settings),
 })
 
 /** Totals for one period, or null when fewer people than the minimum were active in it. */
 export const organizationFiguresIn = (
   activity: OrganizationActivity,
   window: Window,
+  now: number,
   settings: PrivacySettings,
 ): OrganizationFigures | null => {
   const sent = activity.sent.filter((note) => isIn(window, note.sentAt))
@@ -122,6 +131,9 @@ export const organizationFiguresIn = (
         draftsShown && !decidedPlaces.includes(totals.place) ? totals : { ...totals, ...HIDDEN_DECISIONS },
       ),
     hiddenPlaces: hidden.length,
+    medianDecisionMs: medianDecisionShown(decided, settings.minimumGroupSize),
+    authorship: draftsShown ? authorshipOf(sent) : null,
+    delivery: deliveryIn(activity.received, window, now, settings.minimumGroupSize),
   }
 }
 
@@ -155,6 +167,23 @@ const debateResultsShown = (
   const sent = (activity.debateResults ?? []).filter((note) => isIn(window, note.sentAt))
   return new Set(sent.map((note) => note.authorId)).size >= minimum ? sent.length : null
 }
+
+/** The typical decision time, or null while fewer people than the minimum have a decision with a time. */
+const medianDecisionShown = (decided: ReadonlyArray<MemberDraft>, minimum: number): number | null => {
+  const timed = decided.flatMap((draft) => {
+    const time = decisionTime(draft)
+    return time === null ? [] : [{ authorId: draft.authorId, time }]
+  })
+  return new Set(timed.map((draft) => draft.authorId)).size >= minimum
+    ? median(timed.map((draft) => draft.time))
+    : null
+}
+
+const authorshipOf = (sent: ReadonlyArray<SentNote>): Authorship => ({
+  agent: sent.filter((note) => note.origin === 'agent').length,
+  humanEdited: sent.filter((note) => note.origin === 'human_edited').length,
+  human: sent.filter((note) => note.origin === 'human').length,
+})
 
 const HIDDEN_DECISIONS = { sentAsWritten: null, sentAfterEdits: null, discarded: null } as const
 

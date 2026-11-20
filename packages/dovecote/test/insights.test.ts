@@ -1,5 +1,8 @@
+import { Task as T } from '@homingbird/kernel'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { DRAFT_REQUEST_LIFETIME_MS } from '../src/domain/draft-requests.ts'
+import { run } from '../src/sql/database.ts'
+import { sql } from '../src/sql/query.ts'
 import {
   type Agent,
   type Session,
@@ -161,6 +164,40 @@ describe('insights.mine', () => {
   })
 })
 
+describe('your week', () => {
+  const send = async (author: Session, body: Record<string, unknown>) => {
+    const draft = (await author.api('POST', '/drafts', body)).json
+    return (await author.api('POST', `/drafts/${draft.id}/send`, await asShown(author, draft.id))).json
+  }
+
+  it('counts the notes a person sent, the replies they received and their typical time to reply', async () => {
+    const own = await send(ana, { to: [ben.me.member.id], body: 'Status?' })
+    const done = await send(ben, { inReplyTo: own.id, body: 'Done' })
+    await send(ana, { inReplyTo: own.id, body: 'Thanks' })
+    const asked = await send(ben, { to: [ana.me.member.id], body: 'Lunch?' })
+    await server.clock.advance(2 * 60 * 60_000)
+    const answer = await send(ana, { inReplyTo: asked.id, body: 'Yes' })
+    await server.clock.advance(60 * 60_000)
+    await send(ana, { inReplyTo: asked.id, body: 'At noon' })
+    const report = (await ana.api('GET', '/insights/me')).json
+    expect(report.week).toEqual({
+      days: 7,
+      current: { notesSent: 4, repliesReceived: 1, medianReplyMs: answer.sentAt - asked.sentAt },
+      previous: { notesSent: 0, repliesReceived: 0, medianReplyMs: null },
+    })
+    expect((await ben.api('GET', '/insights/me')).json.week.current).toEqual({
+      notesSent: 2,
+      repliesReceived: 2,
+      medianReplyMs: done.sentAt - own.sentAt,
+    })
+  })
+
+  it('leaves out drafts that were not sent', async () => {
+    await ana.api('POST', '/drafts', { to: [ben.me.member.id], body: 'Not yet' })
+    expect((await ana.api('GET', '/insights/me')).json.week.current.notesSent).toBe(0)
+  })
+})
+
 describe('admin.insights', () => {
   const team = async (count: number): Promise<Session[]> => {
     const people: Session[] = [ana, ben]
@@ -227,6 +264,53 @@ describe('admin.insights', () => {
     expect(figures.places).toEqual([])
     expect(figures.hiddenPlaces).toBe(2)
     expect(JSON.stringify(figures)).not.toContain('payroll')
+  })
+
+  it('shows who wrote what was sent and how received notes reached agents, never naming anyone', async () => {
+    const people = await team(5)
+    const agents = [anaAgent]
+    for (const person of people.slice(1)) agents.push(await connectAgent(server, person, { name: 'Agent' }))
+    for (const [index, person] of people.entries()) {
+      const next = people[(index + 1) % people.length]!
+      const draft = await agentDraft(agents[index]!, next, `From agent ${index}`)
+      await person.api('POST', `/drafts/${draft.id}/seen`)
+      await server.clock.advance(1_000)
+      await person.api('POST', `/drafts/${draft.id}/send`, await asShown(person, draft.id))
+    }
+    await sendBetween(ana, ben, 'By hand')
+    await server.clock.advance(60_000)
+    for (const [index, person] of people.entries()) {
+      const inbox = (await agents[index]!.api('GET', '/inbox')).json.items
+      for (const item of inbox) await agents[index]!.api('POST', `/notes/${item.note.id}/pickup`)
+      expect(inbox.length, person.me.member.name).toBeGreaterThan(0)
+    }
+    const figures = (await ana.api('GET', '/admin/insights')).json.periods[0].current
+    expect(figures.authorship).toEqual({ agent: 5, humanEdited: 0, human: 1 })
+    expect(figures.medianDecisionMs).toBe(1_000)
+    expect(figures.delivery).toMatchObject({
+      received: 6,
+      toAgents: 6,
+      pickedUpQuickly: 6,
+      waitedWithoutAgent: 0,
+    })
+    const text = JSON.stringify(figures)
+    for (const person of people) expect(text).not.toContain(person.me.member.id)
+  })
+
+  it('counts no agent for a recipient whose agent credential had expired when the note was sent', async () => {
+    const people = await team(5)
+    const agents = [anaAgent]
+    for (const person of people.slice(1)) agents.push(await connectAgent(server, person, { name: 'Agent' }))
+    const before = server.clock.now() - 1
+    await T.runPromise(
+      run(
+        sql`UPDATE credentials SET expires_at = ${before} WHERE member_id = ${ben.me.member.id} AND kind = 'agent'`,
+      ),
+      server.env,
+    )
+    for (const [index, person] of people.entries())
+      await sendBetween(person, people[(index + 1) % people.length]!, 'hello')
+    expect((await ana.api('GET', '/admin/insights')).json.periods[0].current.delivery).toBeNull()
   })
 
   it('raises the minimum group size from the setting', async () => {

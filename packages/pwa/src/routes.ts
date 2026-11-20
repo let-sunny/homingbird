@@ -12,6 +12,7 @@ export type Route =
   | { readonly name: 'search'; readonly query: string }
   | { readonly name: 'profile' }
   | { readonly name: 'agent'; readonly section: AgentSection | null }
+  | { readonly name: 'measured' }
   | { readonly name: 'character'; readonly draft: string | null; readonly from: string | null }
   | { readonly name: 'device'; readonly code: string | null }
   | { readonly name: 'consent'; readonly id: string }
@@ -44,6 +45,7 @@ export const parseRoute = (hash: string): Route => {
   if (head === 'search') return { name: 'search', query: parameters.get('q') ?? '' }
   if (head === 'me') return { name: 'profile' }
   if (head === 'agent') return { name: 'agent', section: isAgentSection(second) ? second : null }
+  if (head === 'measured') return { name: 'measured' }
   if (head === 'connect' || head === 'credentials') return { name: 'agent', section: 'connection' }
   if (head === CHARACTER_ROUTE)
     return { name: 'character', draft: second ?? null, from: parameters.get('from') }
@@ -79,6 +81,8 @@ export const hrefFor = (route: Route): string => {
       return '#/me'
     case 'agent':
       return route.section === null ? '#/agent' : `#/agent/${route.section}`
+    case 'measured':
+      return '#/measured'
     case 'character':
       return route.draft !== null
         ? `#/${CHARACTER_ROUTE}/${encodeURIComponent(route.draft)}`

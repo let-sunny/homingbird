@@ -250,6 +250,20 @@ states the decision first, then the reason. Add new entries at the top of their 
   contributors are fewer; when the hidden groups together are still fewer people, the next smallest is
   hidden too, so subtracting the shown ones from the totals never isolates a small group. Differences
   between periods are not suppressed.
+- **Every newer organization figure needs its own contributors, and reply and pickup times come from
+  the notes themselves.** The typical decision time needs `HB_INSIGHTS_MINIMUM_GROUP` people who decided
+  a draft they had seen; who wrote what was sent is hidden whenever draft decisions are; a week of quick
+  approvals is hidden as the draft decisions of the same days are, by the people who decided a draft,
+  so the last week never hides what the 7-day figures show; delivery needs that many people with an
+  agent connected who received a note, its typical pickup time that many whose agent picked one up,
+  and its received total that many people without an agent, or none, so subtracting the notes to agents
+  never gives one person's count. A person's own reply time runs from a colleague's new note to their first sent reply,
+  the definition of the organization's time to the first reply, never from `receipts.replied_at`, which
+  a later reply overwrites, nor `delivered_at`, since a channel note has receipts only for its helpers
+  and the person answered. The quick-approval warning (25% of drafts sent as written for 2 weeks in a
+  row, each with at least 10) is a constant in `protocol` until it becomes a setting. **What is
+  measured** is a catalogue in `protocol` (`MEASURES`), and a test fails for a response field it does
+  not name, so a figure cannot be added without telling members.
 - **The agent page says what the numbers mean in words, beside the numbers, and never collapses them
   into one score.** A single trust score hides which channel is trusted and why, invites chasing the
   number by approving faster, and grades the person rather than the agent. The server reads a verdict

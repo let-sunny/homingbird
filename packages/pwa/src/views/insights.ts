@@ -1,5 +1,6 @@
 import type { OrganizationInsights } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, region, signal } from '@homingbird/ui'
+import type { AuthorshipModel, DeliveryModel } from '../models/insights-sections.ts'
 import {
   type InsightsModel,
   type InsightsPlaces,
@@ -7,7 +8,7 @@ import {
   insightsModel,
 } from '../models/insights.ts'
 import { strings } from '../strings.ts'
-import { periodChoice, renderLabelsTable } from './agent-figures.ts'
+import { periodChoice, renderLabelsTable, renderTrend, shareBar } from './agent-figures.ts'
 import type { ViewContext } from './context.ts'
 import { loading } from './parts.ts'
 
@@ -33,17 +34,69 @@ const renderInsights = (model: InsightsModel): Child => {
       { class: 'flow-warning', role: 'note' },
       model.warnings.map((warning) => h('p', {}, warning)),
     ),
+    model.quickWarning !== null &&
+      h('p', { class: 'flow-warning insights-quick-warning', role: 'status' }, model.quickWarning),
     model.tooFew !== null && h('p', { class: 'insights-too-few' }, model.tooFew),
     model.figures !== null && [
       table(model.figures.table),
+      authorship(model.figures.authorship),
+      delivery(model.figures.delivery),
       places(model.figures.places),
       renderLabelsTable(model.figures.byClient),
       renderLabelsTable(model.figures.byModel),
       model.figures.hiddenLabels !== null && h('p', { class: 'trust-footnote' }, model.figures.hiddenLabels),
     ],
+    model.quickTrend !== null && renderTrend(model.quickTrend),
     h('p', { class: 'insights-blocks' }, model.blocks),
+    h('p', {}, h('a', { href: model.measured.href }, model.measured.label)),
   ]
 }
+
+const authorship = (model: AuthorshipModel): HTMLElement =>
+  h(
+    'section',
+    { class: 'trust-section', 'aria-labelledby': 'insights-authorship' },
+    h('h2', { id: 'insights-authorship' }, model.title),
+    model.hidden !== null
+      ? h('p', { class: 'trust-footnote' }, model.hidden)
+      : h(
+          'ul',
+          { class: 'trust-places' },
+          model.rows.map((row) =>
+            h(
+              'li',
+              { class: 'trust-place', data: { authorship: row.key } },
+              h('span', { class: 'trust-place-line' }, row.line),
+              shareBar(row.share),
+            ),
+          ),
+        ),
+  )
+
+const delivery = (model: DeliveryModel): HTMLElement =>
+  h(
+    'section',
+    { class: 'trust-section', 'aria-labelledby': 'insights-delivery' },
+    h('h2', { id: 'insights-delivery' }, model.title),
+    h('p', { class: 'trust-footnote' }, model.intro),
+    model.hidden !== null
+      ? h('p', { class: 'trust-footnote' }, model.hidden)
+      : h(
+          'div',
+          { class: 'table-scroll' },
+          h(
+            'table',
+            { class: 'trust-table' },
+            h(
+              'tbody',
+              {},
+              model.rows.map(([label, value]) =>
+                h('tr', {}, h('th', { scope: 'row' }, label), h('td', {}, value)),
+              ),
+            ),
+          ),
+        ),
+  )
 
 const table = (model: InsightsTable): HTMLElement =>
   h(

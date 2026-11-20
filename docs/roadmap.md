@@ -310,20 +310,22 @@ Experimental, behind a feature switch that is off by default.
 
 The first part is built: **My agent** for each person (a page in the header, per channel)
 and organization-wide **Insights** for administrators, with groups under 5 people hidden
-([guide](guide.md#see-how-far-you-can-trust-your-agent), [deployment](deployment.md#insights)). Still
-to come:
+([guide](guide.md#see-how-far-you-can-trust-your-agent), [deployment](deployment.md#insights)).
+**Built:** **Your week** at the top of How it is doing (notes sent, replies received, typical reply
+time); for administrators, organization-wide, the typical decision time, who wrote what was sent
+(`agent`, `human_edited`, `human`), delivery to agents, and quick approvals week by week with a warning
+at 25% for 2 weeks; and **What is measured**, a page every member can open, with a test that fails for a
+figure it does not name. Still to come:
 
-- **Your week, beyond the agent**: notes sent, replies received and my median reply time on the card.
-- **More for administrators**: decision time, the quick-approval rate with a warning when a team stays
-  above a threshold (25% over 2 weeks, as settings), who wrote what was sent (`agent`, `human_edited`,
-  `human`), and delivery health.
+- **Quick-approval warning per team, and as settings**: the 25% and 2 weeks are constants today
+  (`QUICK_APPROVAL_SHARE`, `QUICK_WARNING_WEEKS` in `protocol`), organization-wide only.
 - **Numbers per group**: insights show figures per group (see "Groups and channel agents"), still
   hiding groups under 5 people; with no groups, only organization-wide numbers are shown, as now.
 - **Channel agents**: per channel, how often its agent's drafts are approved, how often after an edit,
   and how many each manager approved.
 - **Privacy, binding for all of it:** numbers only, never note content. An administrator sees team
   totals, never one person's approval figures. Groups under 5 people are hidden. Blocks are a count,
-  never who blocked whom. Every member can see the list of what is measured.
+  never who blocked whom.
 
 ## Operations
 

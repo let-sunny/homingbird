@@ -24,12 +24,14 @@ const note = (
   place: string | null,
   hoursAgo: number,
   inReplyTo: string | null = null,
+  origin = 'human',
 ): SentNote => ({
   id: `n${++noteCount}`,
   authorId,
   place,
   sentAt: NOW - hoursAgo * HOUR,
   inReplyTo,
+  origin,
 })
 
 const draft = (
@@ -46,7 +48,7 @@ const draft = (
   outcome,
 })
 
-const empty: OrganizationActivity = { sent: [], drafts: [], skips: [] }
+const empty: OrganizationActivity = { sent: [], drafts: [], skips: [], received: [] }
 
 describe('placesShown', () => {
   const group = (place: string | null, members: ReadonlyArray<string>) => ({
@@ -105,7 +107,7 @@ describe('placesShown', () => {
 describe('organizationFiguresIn', () => {
   it('shows nothing at all while fewer people than the minimum were active', () => {
     const activity = { ...empty, sent: people(4).map((id) => note(id, 'billing', 1)) }
-    expect(organizationFiguresIn(activity, lastWeek, settings)).toBeNull()
+    expect(organizationFiguresIn(activity, lastWeek, NOW, settings)).toBeNull()
   })
 
   it('counts active members, notes, replies and the median time to the first reply from someone else', () => {
@@ -125,7 +127,7 @@ describe('organizationFiguresIn', () => {
         unanswered,
       ],
     }
-    expect(organizationFiguresIn(activity, lastWeek, settings)).toMatchObject({
+    expect(organizationFiguresIn(activity, lastWeek, NOW, settings)).toMatchObject({
       activeMembers: 5,
       notesSent: 7,
       newNotes: 3,
@@ -145,7 +147,7 @@ describe('organizationFiguresIn', () => {
         { authorId: team[0]!, sentAt: NOW - 30 * DAY_MS },
       ],
     }
-    expect(organizationFiguresIn(activity, lastWeek, settings)).toMatchObject({
+    expect(organizationFiguresIn(activity, lastWeek, NOW, settings)).toMatchObject({
       activeMembers: 5,
       notesSent: 5,
       debateResultsSent: 6,
@@ -159,8 +161,8 @@ describe('organizationFiguresIn', () => {
       ...noResults,
       debateResults: team.slice(0, 4).map((authorId) => ({ authorId, sentAt: NOW - HOUR })),
     }
-    expect(organizationFiguresIn(activity, lastWeek, settings)?.debateResultsSent).toBeNull()
-    expect(organizationFiguresIn(noResults, lastWeek, settings)?.debateResultsSent).toBeNull()
+    expect(organizationFiguresIn(activity, lastWeek, NOW, settings)?.debateResultsSent).toBeNull()
+    expect(organizationFiguresIn(noResults, lastWeek, NOW, settings)?.debateResultsSent).toBeNull()
   })
 
   it('counts the approval mix, quick approvals and skips across everyone', () => {
@@ -176,8 +178,9 @@ describe('organizationFiguresIn', () => {
         draft(team[4]!, 'billing', null),
       ],
       skips: [{ memberId: team[0]!, place: 'billing', at: NOW - HOUR }],
+      received: [],
     }
-    expect(organizationFiguresIn(activity, lastWeek, settings)).toMatchObject({
+    expect(organizationFiguresIn(activity, lastWeek, NOW, settings)).toMatchObject({
       agentDraftsWritten: 6,
       sentAsWritten: 2,
       sentAfterEdits: 1,
@@ -199,7 +202,7 @@ describe('organizationFiguresIn', () => {
       sent,
       drafts: team.slice(0, 4).map((id) => draft(id, 'billing', 'as_written', 1)),
     }
-    const hidden = organizationFiguresIn(fewDeciders, lastWeek, settings)!
+    const hidden = organizationFiguresIn(fewDeciders, lastWeek, NOW, settings)!
     expect(hidden).toMatchObject({
       sentAsWritten: null,
       sentAfterEdits: null,
@@ -215,7 +218,7 @@ describe('organizationFiguresIn', () => {
         draft(team[5]!, 'deploys', 'discarded'),
       ],
     }
-    const figures = organizationFiguresIn(oneSmallPlace, lastWeek, settings)!
+    const figures = organizationFiguresIn(oneSmallPlace, lastWeek, NOW, settings)!
     expect(figures).toMatchObject({ sentAsWritten: 5, discarded: 1 })
     expect(figures.places.map((place) => [place.place, place.sentAsWritten, place.discarded])).toEqual([
       ['billing', null, null],
@@ -227,7 +230,9 @@ describe('organizationFiguresIn', () => {
       drafts: team.map((id, index) => draft(id, index < 5 ? 'billing' : 'deploys', 'as_written')),
     }
     expect(
-      organizationFiguresIn(twoLargePlaces, lastWeek, settings)!.places.map((place) => place.sentAsWritten),
+      organizationFiguresIn(twoLargePlaces, lastWeek, NOW, settings)!.places.map(
+        (place) => place.sentAsWritten,
+      ),
     ).toEqual([5, 5])
   })
 
@@ -243,7 +248,7 @@ describe('organizationFiguresIn', () => {
         ...deploys.map((id) => note(id, 'deploys', 1)),
       ],
     }
-    const figures = organizationFiguresIn(activity, lastWeek, settings)!
+    const figures = organizationFiguresIn(activity, lastWeek, NOW, settings)!
     expect(figures.places.map((place) => place.place)).toEqual(['billing'])
     expect(figures.hiddenPlaces).toBe(2)
     expect(figures.notesSent).toBe(13)
@@ -255,6 +260,7 @@ describe('organizationFiguresIn', () => {
       sent: team.map((id, index) => note(id, index % 2 === 0 ? 'billing' : null, index + 1)),
       drafts: team.map((id) => draft(id, 'billing', 'as_written')),
       skips: team.map((id) => ({ memberId: id, place: null, at: NOW - HOUR })),
+      received: [],
     }
     const insights = organizationInsightsOf(activity, { members: 7, blocks: 2 }, NOW, settings)
     expect(JSON.stringify(insights)).not.toContain('mem_secret')
@@ -276,8 +282,9 @@ describe('drafts by program and model', () => {
         ...few.map((id) => ({ ...draft(id, null, 'edited'), client: 'Rare tool', model: 'rare-model' })),
       ],
       skips: [],
+      received: [],
     }
-    const figures = organizationFiguresIn(activity, lastWeek, settings)!
+    const figures = organizationFiguresIn(activity, lastWeek, NOW, settings)!
     expect(figures.byClient.map((each) => each.label)).toEqual([])
     expect(figures.hiddenLabels).toBe(4)
     const more = people(5, 'c')
@@ -289,7 +296,7 @@ describe('drafts by program and model', () => {
         ...more.map((id) => ({ ...draft(id, null, 'edited'), client: 'Rare tool', model: null })),
       ],
     }
-    const shown = organizationFiguresIn(wider, lastWeek, settings)!
+    const shown = organizationFiguresIn(wider, lastWeek, NOW, settings)!
     expect(shown.byClient.map((each) => [each.label, each.written])).toEqual([
       ['Rare tool', 7],
       ['Claude Code', 5],
@@ -307,8 +314,9 @@ describe('drafts by program and model', () => {
         model: 'claude-opus-5-5',
       })),
       skips: [],
+      received: [],
     }
-    const figures = organizationFiguresIn(activity, lastWeek, settings)!
+    const figures = organizationFiguresIn(activity, lastWeek, NOW, settings)!
     expect(figures.byClient).toEqual([
       { label: 'Claude Code', written: 5, sentAsWritten: null, sentAfterEdits: null, discarded: null },
     ])
@@ -325,15 +333,80 @@ describe('drafts by program and model', () => {
         ...people(5, 'x').map((id) => ({ ...draft(id, null, null), client: 'Claude Code' })),
       ],
       skips: [],
+      received: [],
     }
-    expect(organizationFiguresIn(activity, lastWeek, settings)!.byClient[0]?.sentAsWritten).toBe(5)
+    expect(organizationFiguresIn(activity, lastWeek, NOW, settings)!.byClient[0]?.sentAsWritten).toBe(5)
     const few = {
       ...activity,
       drafts: activity.drafts.map((each, index) =>
         index < 5 && index > 0 ? { ...each, outcome: null } : each,
       ),
     }
-    expect(organizationFiguresIn(few, lastWeek, settings)!.byClient[0]?.sentAsWritten).toBeNull()
+    expect(organizationFiguresIn(few, lastWeek, NOW, settings)!.byClient[0]?.sentAsWritten).toBeNull()
+  })
+})
+
+describe('the figures beside the approval mix', () => {
+  it('gives the typical decision time once enough people decided a draft they had seen', () => {
+    const team = people(5)
+    const activity: OrganizationActivity = {
+      ...empty,
+      sent: team.map((id) => note(id, null, 1)),
+      drafts: [
+        ...team.map((id, index) => draft(id, null, 'as_written', index + 1)),
+        { ...draft(team[0]!, null, 'edited'), seenAt: null },
+      ],
+    }
+    expect(organizationFiguresIn(activity, lastWeek, NOW, settings)?.medianDecisionMs).toBe(3_000)
+    const unseen: OrganizationActivity = {
+      ...activity,
+      drafts: activity.drafts.map((each) => (each.authorId === team[4] ? { ...each, seenAt: null } : each)),
+    }
+    expect(organizationFiguresIn(unseen, lastWeek, NOW, settings)?.medianDecisionMs).toBeNull()
+  })
+
+  it('splits what was sent by who wrote it, hidden together with the draft decisions', () => {
+    const team = people(5)
+    const sent = [
+      ...team.map((id) => note(id, null, 1, null, 'agent')),
+      note(team[0]!, null, 2, null, 'human_edited'),
+      note(team[1]!, null, 2),
+      note(team[2]!, null, 2),
+    ]
+    const decided: OrganizationActivity = {
+      ...empty,
+      sent,
+      drafts: team.map((id) => draft(id, null, 'as_written')),
+    }
+    expect(organizationFiguresIn(decided, lastWeek, NOW, settings)?.authorship).toEqual({
+      agent: 5,
+      humanEdited: 1,
+      human: 2,
+    })
+    const fewDeciders = { ...decided, drafts: decided.drafts.slice(0, 4) }
+    expect(organizationFiguresIn(fewDeciders, lastWeek, NOW, settings)?.authorship).toBeNull()
+  })
+
+  it('shows delivery once enough people with an agent received a note', () => {
+    const team = people(5)
+    const activity: OrganizationActivity = {
+      ...empty,
+      sent: team.map((id) => note(id, null, 1)),
+      received: team.map((recipientId) => ({
+        recipientId,
+        sentAt: NOW - HOUR,
+        hasAgent: true,
+        pickedUpAt: NOW - HOUR + 60_000,
+      })),
+    }
+    expect(organizationFiguresIn(activity, lastWeek, NOW, settings)?.delivery).toEqual({
+      received: 5,
+      toAgents: 5,
+      pickedUpQuickly: 5,
+      medianPickupMs: 60_000,
+      waitedWithoutAgent: 0,
+    })
+    expect(organizationFiguresIn({ ...activity, received: [] }, lastWeek, NOW, settings)?.delivery).toBeNull()
   })
 })
 
@@ -356,6 +429,8 @@ describe('organizationInsightsOf', () => {
     expect(insights.periods[1]!.current?.notesSent).toBe(10)
     expect(insights.periods[1]!.previous).toBeNull()
     expect(insights).toMatchObject({ generatedAt: NOW, quickApprovalSeconds: 3, minimumGroupSize: 5 })
+    expect(insights.weeks).toHaveLength(8)
+    expect(insights.quickWarning).toBe(false)
     expect(DAY_MS).toBe(24 * HOUR)
   })
 })

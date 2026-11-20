@@ -1,5 +1,5 @@
 import { lifetime } from '@homingbird/ui'
-import { getByRole, textOf } from '@homingbird/ui/testing'
+import { allByRole, getByRole, textOf } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
 import { strings } from '../../src/strings.ts'
 import { insightsSection } from '../../src/views/insights.ts'
@@ -48,6 +48,64 @@ describe('insightsSection', () => {
     expect(textOf(shown)).toContain(strings.insights.hiddenLabels({ count: 2 }))
     getByRole(shown, 'radio', { name: strings.trust.lastDays({ days: 7 }) }).click()
     expect(textOf(shown)).toContain(strings.insights.tooFew({ minimum: 5 }))
+  })
+
+  it('shows who wrote what was sent, delivery, the quick-approval weeks and a warning that is announced', () => {
+    const { context, called } = testContext()
+    const shown = insightsSection(context, lifetime())
+    called('loadInsights')[0]!.then!.done!({
+      generatedAt: 0,
+      quickApprovalSeconds: 3,
+      minimumGroupSize: 5,
+      blocks: 0,
+      quickWarning: true,
+      weeks: [{ start: 0, sentAsWritten: 10, quickApprovals: 4 }],
+      periods: [
+        {
+          days: 30,
+          current: {
+            ...organization,
+            medianDecisionMs: 5_000,
+            authorship: { agent: 2, humanEdited: 1, human: 1 },
+            delivery: {
+              received: 4,
+              toAgents: 4,
+              pickedUpQuickly: 3,
+              medianPickupMs: 60_000,
+              waitedWithoutAgent: 0,
+            },
+          },
+          previous: null,
+        },
+      ],
+    })
+    expect(getByRole(shown, 'status').textContent).toBe(
+      strings.measures.quickWarning({ weeks: 2, share: '25%', seconds: 3 }),
+    )
+    expect(getByRole(shown, 'heading', { name: strings.measures.authorshipTitle })).toBeTruthy()
+    expect(shown.querySelectorAll('[data-authorship] .share-bar')).toHaveLength(3)
+    expect(getByRole(shown, 'rowheader', { name: strings.measures.deliveryReceived })).toBeTruthy()
+    expect(getByRole(shown, 'rowheader', { name: strings.measures.decisionTimeRow })).toBeTruthy()
+    expect(getByRole(shown, 'heading', { name: strings.measures.quickTrendTitle })).toBeTruthy()
+    expect(getByRole(shown, 'link', { name: strings.measures.pageLink }).getAttribute('href')).toBe(
+      '#/measured',
+    )
+  })
+
+  it('says why authorship and delivery are hidden, with no warning', () => {
+    const { context, called } = testContext()
+    const shown = insightsSection(context, lifetime())
+    called('loadInsights')[0]!.then!.done!({
+      generatedAt: 0,
+      quickApprovalSeconds: 3,
+      minimumGroupSize: 5,
+      blocks: 0,
+      periods: [{ days: 30, current: { ...organization, authorship: null, delivery: null }, previous: null }],
+    })
+    expect(textOf(shown)).toContain(strings.measures.authorshipHidden({ minimum: 5 }))
+    expect(textOf(shown)).toContain(strings.measures.deliveryHidden({ minimum: 5 }))
+    expect(shown.querySelector('[role="status"]')).toBeNull()
+    expect(allByRole(shown, 'heading', { name: strings.measures.quickTrendTitle })).toHaveLength(0)
   })
 
   it('says when no place has notes', () => {

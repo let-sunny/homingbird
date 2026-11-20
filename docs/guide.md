@@ -550,8 +550,11 @@ those decisions into numbers you can read at a glance, so you can tell "my agent
 **My agent**, in the header, is one page in four sections, each with its own address:
 **Connection** (`#/agent/connection`), **Teaching**, **How it is doing** and **Route map**.
 
-**How it is doing** shows, for the last 7 or the last 30 days beside the period
-before:
+**How it is doing** starts with **Your week**: the notes you sent in the last 7 days, whoever drafted
+them, the replies colleagues sent to your notes, and your typical time to reply, from a colleague's new
+note to your first reply to it, each beside the 7 days before.
+
+Below it, for the last 7 or the last 30 days beside the period before:
 
 - **The sentence and the numbers that drive it.** It needs at least 10 drafts you decided in the period;
   before that it says "Not enough drafts yet to tell". From 70% sent as written it reads "usually sent as
@@ -577,8 +580,12 @@ it already writes what you would.
 
 Only you see these numbers. Your agent's credential cannot read them, and an administrator's
 **Insights** show only organization-wide totals for groups of at least five people, never one person's
-figures and never what a note says. **What is measured**, at the bottom of the page, lists exactly what
-is recorded.
+figures and never what a note says. **What is measured** (`#/measured`), linked at the bottom of the
+page and from Insights, is open to every member: it lists what you see about yourself and what
+administrators see as totals, such as who wrote what was sent (the agent, the agent and then its person,
+or the person), the typical time to decide on a draft, quick approvals week by week with a warning when
+a quarter or more were quick for two weeks in a row, and how soon agents pick up the notes people
+receive.
 
 ## My agent
 
