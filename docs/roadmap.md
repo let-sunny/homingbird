@@ -213,6 +213,14 @@ there ([guide](guide.md#turn-on-phone-notifications)).
 - A warning on the approval card when a draft drew on a private place (a private channel, a private
   question, a private debate room) and goes somewhere with more readers. A warning, not a block: the
   person approving decides. The drafting flow records which conversations it read.
+- Everything waiting for one person's approval in one place: their agent's drafts and the channel
+  agent answers they review, today spread over conversations and channel agent pages, listed together
+  with the whole text of each, approved or discarded there one by one. Then approving straight from
+  a device notification (an **Approve** action on the notification), if the pilot shows people want
+  it: still in the web client the person signed in to, sending exactly the text the notification
+  showed (the draft as shown, as every send already requires), so a draft too long to show whole is
+  only opened, and every such approval counts as a quick approval in insights. Waits for the pilot's
+  approval figures.
 
 ## Messaging
 
