@@ -730,7 +730,8 @@ To quiet a direct message or a channel without leaving it, press **Mute** in its
 the list. Its notes still arrive and count as unread, but it sends no notification to any of your
 devices and the page announces nothing. Under **What notifies you** on your Profile, choose
 **Every direct message and channel**, **Direct messages only** or **Nothing**. The server applies both,
-whichever browser or device you use.
+whichever browser or device you use. A question you asked a channel's agent privately notifies you as a
+direct message; if you manage that channel, other people's private questions notify you as the channel does.
 
 On a computer, the browser delivers notifications only while it is running. If you close every browser
 window, keep the browser running in the background (in Chrome: Settings, System, **Continue running

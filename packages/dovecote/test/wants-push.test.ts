@@ -143,6 +143,41 @@ describe('pushing about a private question to a channel’s agent', () => {
   })
 })
 
+describe('pushing to a channel’s manager about a private question', () => {
+  it('notifies a manager as the channel does: nothing at direct messages only, every note at all', async () => {
+    let deliveries = 0
+    const fetch = (async () => {
+      deliveries += 1
+      return new Response('', { status: 201 })
+    }) as never
+    const server = await startTestServer({ HB_FEATURES: 'channelAgents=on' }, { fetch })
+    const running = T.runFork(server.background, server.env)
+    try {
+      const ana = await server.signIn('ana@example.com', 'Ana')
+      const cy = await server.signIn('cy@example.com', 'Cy')
+      await ana.api('POST', '/channels', { slug: CHANNEL, description: 'Answers from the payments wiki' })
+      await cy.api('PUT', `/channels/${CHANNEL}/membership`, {})
+      await startAgent(server, ana)
+      const room: string = (await cy.api('POST', `/channels/${CHANNEL}/private-question`)).json.id
+      expect((await ana.api('POST', '/push/subscriptions', subscription())).status).toBe(200)
+      const ask = async (body: string) => {
+        const draft = (await cy.api('POST', '/drafts', { conversationId: room, body })).json
+        await cy.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })
+        await server.settled()
+      }
+      await ana.api('PUT', '/me/notifications', { notifications: 'direct' })
+      await ask('Where is the refund runbook?')
+      expect(deliveries).toBe(0)
+      await ana.api('PUT', '/me/notifications', { notifications: 'all' })
+      await ask('And the chargeback one?')
+      expect(deliveries).toBe(1)
+    } finally {
+      await running.interrupt()
+      await server.close()
+    }
+  })
+})
+
 const subscription = () => {
   const keys = createECDH('prime256v1')
   keys.generateKeys()

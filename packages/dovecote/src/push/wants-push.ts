@@ -13,14 +13,14 @@ export const wantsPushAbout = (
 ): T.Task<boolean, never, AppEnv> =>
   T.gen(function* () {
     const place = yield* first<PlaceRow>(sql`
-      SELECT c.kind, p.muted_at, m.notifications FROM participants p
+      SELECT c.kind, c.channel_id, c.asked_by, p.muted_at, m.notifications FROM participants p
       JOIN conversations c ON c.id = p.conversation_id
       JOIN members m ON m.id = p.member_id
       WHERE p.conversation_id = ${conversationId} AND p.member_id = ${memberId}`)
     if (place === null) return false
     if (!(yield* featureIsOn('mute'))) return true
     return isPushWanted({
-      kind: place.kind,
+      kind: kindFor(memberId, place),
       muted: place.muted_at !== null,
       level: levelIn(place.notifications),
     })
@@ -35,8 +35,14 @@ export const isPushWanted = (place: {
   return place.level === 'all' || place.kind !== 'channel'
 }
 
+/** A private question notifies its asker as their own conversation, and its managers as the channel. */
+const kindFor = (memberId: MemberId, place: PlaceRow): ConversationKind =>
+  place.channel_id !== null && place.asked_by !== memberId ? 'channel' : place.kind
+
 interface PlaceRow {
   readonly kind: ConversationKind
+  readonly channel_id: ConversationId | null
+  readonly asked_by: MemberId | null
   readonly muted_at: number | null
   readonly notifications: string | null
 }
