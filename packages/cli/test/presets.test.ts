@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { defaultReader } from '../src/agent-presets.ts'
 import { world } from './support.ts'
 
 describe('homingbird presets', () => {
@@ -10,7 +11,7 @@ describe('homingbird presets', () => {
     expect(text).toContain('codex  Codex CLI; not yet tested with the real CLI')
     expect(text).toContain('antigravity  Antigravity CLI (agy); not yet tested with the real CLI')
     expect(text).toContain('gemini  Gemini CLI, legacy')
-    expect(text).toContain("reader:  claude -p --tools '' --strict-mcp-config  (no tools)")
+    expect(text).toContain(`reader:  ${defaultReader('claude', 'linux')}  (no tools)`)
     expect(text).toMatch(/reader: {2}codex exec .* {2}\(minimal tools, not none\)/)
     expect(text).toContain('reader:  none known; with --split, give --reader yourself')
     await w.run('presets', '--json')
@@ -28,6 +29,6 @@ describe('homingbird presets', () => {
   it('shows the Windows form of the Claude Code reader on Windows', async () => {
     const w = world({ signedIn: 'none', platform: 'win32' })
     await w.run('presets', '--json')
-    expect(w.json().presets[0].reader).toBe('claude -p --tools "" --strict-mcp-config')
+    expect(w.json().presets[0].reader).toBe(defaultReader('claude', 'win32'))
   })
 })

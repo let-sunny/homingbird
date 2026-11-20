@@ -1,5 +1,5 @@
 import { eventStream } from '@homingbird/client'
-import { Stream, Task as T } from '@homingbird/kernel'
+import { type Result, Stream, Task as T } from '@homingbird/kernel'
 import {
   type AgentReply,
   type AsRead,
@@ -22,7 +22,8 @@ import {
   runnerRequestPrompt,
 } from '@homingbird/protocol'
 import { agentEnvironment } from '../agent-environment.ts'
-import { type Launches, launchesAsGiven, preparedLaunches } from '../agent-launch.ts'
+import { firstErrorLine, isManagedMcpRefusal } from '../agent-errors.ts'
+import { type Launch, type Launches, launchesAsGiven, preparedLaunches } from '../agent-launch.ts'
 import { isReaderWithSomeTools } from '../agent-presets.ts'
 import { countUsage, presetLabel } from '../analytics.ts'
 import { answeringFlowFor } from '../answering-flow.ts'
@@ -129,6 +130,7 @@ export const runDesk = (
           agent,
           split,
           launches: settings.launches ?? launchesAsGiven(settings),
+          credentialsFile: env.credentialsFile ?? '',
           isService: settings.isService === true,
           pause: deskPausePath(env, session.credential.serverUrl, member.id),
           timeoutMs: timeoutSeconds * 1000,
@@ -226,7 +228,8 @@ interface Runner {
   readonly member: AsRead.Member
   readonly agent: string
   readonly split: SplitMode | null
-  readonly launches: Launches
+  launches: Launches
+  readonly credentialsFile: string
   readonly isService: boolean
   readonly pause: string
   readonly timeoutMs: number
@@ -477,40 +480,66 @@ const outputOf = (
   what: string,
 ): T.Task<string | null, CliFailure, DeskEnv> =>
   T.gen(function* () {
-    const env = yield* T.ask<DeskEnv>()
     const launch = role === 'agent' ? runner.launches.agent : runner.launches.reader!
-    const { command } = launch
-    const environment = {
-      ...agentEnvironment(env.variables, [runner.session.credential.token, env.credentialsFile ?? '']),
-      ...launch.environment,
+    let finished = yield* launched(runner, launch, prompt)
+    const fallback = launch.withoutStrictMcp
+    if (finished._tag === 'Ok' && fallback !== null && isManagedMcpRefusal(finished.value)) {
+      yield* warn(MANAGED_MCP_WARNING)
+      runner.launches = { ...runner.launches, [role]: fallback }
+      finished = yield* launched(runner, fallback, prompt)
     }
-    const input = launch.format === 'antigravity-stream' ? antigravityInput(prompt) : prompt
-    const finished = yield* T.result(
-      T.timeout(runner.timeoutMs)(
-        T.tryPromise(
-          (signal: AbortSignal) => env.launcher.runAgent(command, input, environment, signal),
-          (cause) => failed(cause instanceof Error ? cause.message : String(cause)),
-        ),
-      ),
-    )
     const reason =
       finished._tag === 'Ok'
-        ? exitProblem(finished.value, command)
+        ? exitProblem(finished.value, launch.command, secretsOf(runner))
         : finished.error._tag === 'TimeoutError'
           ? `did not finish within ${runner.timeoutMs / 1000} seconds`
           : `could not be started (${finished.error.message})`
     if (reason !== null || finished._tag !== 'Ok')
       return yield* T.as(null)(warn(`The ${role} command ${reason}; nothing was drafted for ${what}.`))
     if (launch.format === 'text') return finished.value.output
+    const denied = firstErrorLine(finished.value, secretsOf(runner))
+    if (denied !== null)
+      yield* warn(`The ${role} command finished but reported, perhaps a tool it was denied: ${denied}`)
     const reply = antigravityOutput(finished.value.output)
     if (reply._tag === 'Ok') return reply.value
     return yield* T.as(null)(warn(`The ${role} command ${reply.error}; nothing was drafted for ${what}.`))
   })
 
-const exitProblem = (finished: AgentRun, command: string): string | null => {
+export const MANAGED_MCP_WARNING =
+  'Claude Code refused --strict-mcp-config because your organization manages its MCP configuration: the reader now runs without it, with every MCP tool denied.'
+
+const launched = (
+  runner: Runner,
+  launch: Launch,
+  prompt: string,
+): T.Task<Result.Result<AgentRun, CliFailure | T.TimeoutError>, never, DeskEnv> =>
+  T.gen(function* () {
+    const env = yield* T.ask<DeskEnv>()
+    const environment = {
+      ...agentEnvironment(env.variables, secretsOf(runner)),
+      ...launch.environment,
+    }
+    const input = launch.format === 'antigravity-stream' ? antigravityInput(prompt) : prompt
+    return yield* T.result(
+      T.timeout(runner.timeoutMs)(
+        T.tryPromise(
+          (signal: AbortSignal) => env.launcher.runAgent(launch.command, input, environment, signal),
+          (cause) => failed(cause instanceof Error ? cause.message : String(cause)),
+        ),
+      ),
+    )
+  })
+
+const secretsOf = (runner: Runner): ReadonlyArray<string> => [
+  runner.session.credential.token,
+  runner.credentialsFile,
+]
+
+const exitProblem = (finished: AgentRun, command: string, secrets: ReadonlyArray<string>): string | null => {
   if (finished.exitCode === 0) return null
   if (finished.exitCode === SHELL_COMMAND_NOT_FOUND) return notFound(command)
-  return `exited with code ${finished.exitCode ?? 'unknown'}`
+  const said = firstErrorLine(finished, secrets)
+  return `exited with code ${finished.exitCode ?? 'unknown'}${said === null ? '' : ` (${said})`}`
 }
 
 /** What the shell answers when the command's program is not on the PATH, as POSIX specifies. */

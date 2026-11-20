@@ -63,6 +63,8 @@ export interface ProcessRun {
 export interface AgentRun {
   readonly exitCode: number | null
   readonly output: string
+  /** What the command wrote to its error output, never logged whole. */
+  readonly errors?: string
 }
 
 export interface Files {

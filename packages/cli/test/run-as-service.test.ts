@@ -30,7 +30,7 @@ describe('homingbird run --service', () => {
   it('says once that a preset’s program is missing from its PATH, waits for no note, and starts once it is there', async () => {
     let installed = false
     const r = runner({
-      argv: ['--service', '--server', SERVER],
+      argv: ['--service', '--server', SERVER, '--agent', 'claude'],
       variables: { PATH: '/usr/local/bin' },
       runnable: (path) => installed && path === '/usr/local/bin/claude',
     })

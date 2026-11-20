@@ -19,7 +19,9 @@ const codexProbe = presetNamed('codex')!.reader!.probe!
 
 describe('agent presets', () => {
   it('stand for documented commands by their bare names', () => {
-    expect(agentCommand('claude', 'linux')).toBe('claude -p')
+    expect(agentCommand('claude', 'linux')).toBe(
+      `claude -p --permission-prompts none --settings '{"disableAllHooks":true}'`,
+    )
     expect(agentCommand(' codex ', 'linux')).toBe(
       'codex exec --skip-git-repo-check --ephemeral --sandbox workspace-write -',
     )
@@ -43,12 +45,28 @@ describe('agent presets', () => {
   })
 
   it('give Claude Code a reader without built-in tools or MCP servers for split mode', () => {
-    expect(defaultReader('claude', 'linux')).toBe("claude -p --tools '' --strict-mcp-config")
-    expect(defaultReader('claude', 'darwin')).toBe("claude -p --tools '' --strict-mcp-config")
+    const reader = `claude -p --tools '' --strict-mcp-config --permission-prompts none --settings '{"disableAllHooks":true}'`
+    expect(defaultReader('claude', 'linux')).toBe(reader)
+    expect(defaultReader('claude', 'darwin')).toBe(reader)
+  })
+
+  it('run Claude Code without the person’s hooks, and deny what would wait for a permission prompt', () => {
+    for (const command of [agentCommand('claude', 'linux'), defaultReader('claude', 'linux')])
+      expect(command).toContain(`--permission-prompts none --settings '{"disableAllHooks":true}'`)
+  })
+
+  it('give the Claude Code reader a way past a managed MCP configuration with every MCP tool denied', () => {
+    const fallback = presetNamed('claude')!.reader!.withoutStrictMcp!
+    expect(shellCommand(fallback, 'linux')).toBe(
+      `claude -p --tools '' --disallowedTools 'mcp__*' --permission-prompts none --settings '{"disableAllHooks":true}'`,
+    )
+    expect(presetNamed('claude')!.agent.withoutStrictMcp).toBeNull()
   })
 
   it('write the empty tool list as "" on Windows, where cmd.exe keeps single quotes', () => {
-    expect(defaultReader('claude', 'win32')).toBe('claude -p --tools "" --strict-mcp-config')
+    expect(defaultReader('claude', 'win32')).toBe(
+      'claude -p --tools "" --strict-mcp-config --permission-prompts none --settings "{\\"disableAllHooks\\":true}"',
+    )
     expect(presetReader(presetNamed('gemini')!, 'win32')).toBeNull()
   })
 

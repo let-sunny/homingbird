@@ -48,6 +48,8 @@ export interface Launch {
   readonly format: LaunchFormat
   /** Variables the command gets on top of the environment the runner passes on. */
   readonly environment: Readonly<Record<string, string>>
+  /** Run instead, from then on, once the command refuses `--strict-mcp-config` under a managed MCP configuration. */
+  readonly withoutStrictMcp: Launch | null
 }
 
 export interface LaunchSettings {
@@ -55,7 +57,12 @@ export interface LaunchSettings {
   readonly split: { readonly reader: string } | null
 }
 
-const launchAsGiven = (command: string): Launch => ({ command, format: 'text', environment: {} })
+const launchAsGiven = (command: string): Launch => ({
+  command,
+  format: 'text',
+  environment: {},
+  withoutStrictMcp: null,
+})
 
 const preparedLaunch = (
   command: string,
@@ -83,11 +90,14 @@ const preparedLaunch = (
         )
       words = withWords(words, added.value)
     }
-    return {
+    const launchOf = (words: ReadonlyArray<string>, fallback: Launch | null): Launch => ({
       command: shellCommand(words, env.platform),
       format: launch.format,
       environment: preset.environment,
-    }
+      withoutStrictMcp: fallback,
+    })
+    const fallback = launch.withoutStrictMcp === null ? null : launchOf(launch.withoutStrictMcp, null)
+    return launchOf(words, fallback)
   })
 
 /** What a preset's program printed when run directly; a program that could not be started printed nothing. */

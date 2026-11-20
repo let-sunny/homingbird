@@ -12,7 +12,7 @@ const prepared = async (
   return { w, exit: await T.run(preparedLaunches(settings), w.env) }
 }
 
-const plain = (command: string) => ({ command, format: 'text', environment: {} })
+const plain = (command: string) => ({ command, format: 'text', environment: {}, withoutStrictMcp: null })
 
 describe('preparedLaunches', () => {
   it('launches a command of one’s own as given, without asking any program', async () => {

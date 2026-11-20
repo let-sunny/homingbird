@@ -11,8 +11,9 @@ import {
 } from '@homingbird/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type Session, type TestServer, asShown, startTestServer } from '../../dovecote/test/harness.ts'
-import { presetNamed, presetReader } from '../src/agent-presets.ts'
+import { defaultReader, presetNamed, presetReader } from '../src/agent-presets.ts'
 import {
+  MANAGED_MCP_WARNING,
   MINIMAL_READER_REFUSED,
   MINIMAL_READER_WARNING,
   SAME_READER_REFUSED,
@@ -745,9 +746,12 @@ describe('homingbird run --split', () => {
       argv: ['--agent', 'antigravity'],
       stubs: { 'inbox.list': () => waitingQuestion },
       process: () => ({ exitCode: 0, output: '{}' }),
-      agent: () => ({ exitCode: 0, output: `{"event":"init"}\n${reply}\n` }),
+      agent: () => ({ exitCode: 0, output: `{"event":"init"}\n${reply}\n`, errors: 'denied: command(ls)\n' }),
     })
     await settle(() => r.created.length === 1)
+    expect(r.w.problems).toEqual([
+      'The agent command finished but reported, perhaps a tool it was denied: denied: command(ls)',
+    ])
     expect(r.created[0]).toMatchObject({ body: 'Thursday works.' })
     const [run] = r.w.agentRuns
     expect(run!.command).toBe('agy --print= --input-format=stream-json --output-format=stream-json --sandbox')
@@ -768,6 +772,41 @@ describe('homingbird run --split', () => {
       /^The agent command reported ERROR instead of a response; nothing was drafted/,
     )
     expect(r.created).toEqual([])
+    await r.stop()
+  })
+
+  it('runs the Claude Code reader once more without --strict-mcp-config when a managed MCP configuration refuses it, and from then on', async () => {
+    const refusal = 'Error: You cannot use --strict-mcp-config when an enterprise MCP config is present\n'
+    const answer = splitAgent()
+    const r = runner({
+      argv: ['--agent', 'claude', '--split'],
+      stubs: { 'inbox.list': () => waitingQuestion },
+      agent: (prompt) =>
+        r.w.agentRuns.at(-1)!.command.includes('--strict-mcp-config')
+          ? { exitCode: 1, output: '', errors: refusal }
+          : answer(prompt),
+    })
+    await settle(() => r.created.length === 1)
+    const commands = r.w.agentRuns.map((run) => run.command)
+    expect(commands[0]).toBe(defaultReader('claude', 'linux'))
+    expect(commands[1]).toContain(`--tools '' --disallowedTools 'mcp__*' --permission-prompts none`)
+    expect(commands[1]).not.toContain('--strict-mcp-config')
+    expect(r.w.problems).toEqual([MANAGED_MCP_WARNING])
+    await r.stop()
+  })
+
+  it('never runs the reader again after any other failure, and says the first line it wrote', async () => {
+    const r = runner({
+      argv: ['--agent', 'claude', '--split', '--service', '--server', SERVER],
+      stubs: { 'inbox.list': () => waitingQuestion },
+      agent: () => ({ exitCode: 1, output: '', errors: `Error: credential ${AGENT_TOKEN} expired\nstack` }),
+    })
+    await settle(() => r.w.problems.length > 0)
+    expect(r.w.agentRuns).toHaveLength(1)
+    expect(r.w.lines.join('\n')).not.toContain(AGENT_TOKEN)
+    const said = r.w.problems.join('\n')
+    expect(said).toContain('The reader command exited with code 1 (Error: credential [withheld] expired)')
+    expect(said).not.toContain(AGENT_TOKEN)
     await r.stop()
   })
 

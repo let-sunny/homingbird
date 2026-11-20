@@ -80,6 +80,11 @@ export interface PresetCommand {
   readonly probe: LaunchProbe | null
   /** `text`: the prompt goes in and the reply comes out as plain text; otherwise in the program's own stream. */
   readonly format: LaunchFormat
+  /**
+   * The words to run instead, from then on, once the program refuses `--strict-mcp-config` because an
+   * organization's managed MCP configuration is present.
+   */
+  readonly withoutStrictMcp: ReadonlyArray<string> | null
 }
 
 export type LaunchFormat = 'text' | 'antigravity-stream'
@@ -109,8 +114,24 @@ export const AGENT_PRESETS: ReadonlyArray<AgentPreset> = [
   {
     name: 'claude',
     program: 'Claude Code',
-    agent: { words: ['claude', '-p'], probe: null, format: 'text' },
-    reader: { words: ['claude', '-p', '--tools', '', '--strict-mcp-config'], probe: null, format: 'text' },
+    agent: {
+      words: ['claude', '-p', '--permission-prompts', 'none', '--settings', '{"disableAllHooks":true}'],
+      probe: null,
+      format: 'text',
+      withoutStrictMcp: null,
+    },
+    reader: {
+      words: [
+        ...['claude', '-p', '--tools', '', '--strict-mcp-config'],
+        ...['--permission-prompts', 'none', '--settings', '{"disableAllHooks":true}'],
+      ],
+      probe: null,
+      format: 'text',
+      withoutStrictMcp: [
+        ...['claude', '-p', '--tools', '', '--disallowedTools', 'mcp__*'],
+        ...['--permission-prompts', 'none', '--settings', '{"disableAllHooks":true}'],
+      ],
+    },
     readerTools: 'none',
     verifiedWith: 'Claude Code 2.1.327',
     environment: {},
@@ -123,6 +144,7 @@ export const AGENT_PRESETS: ReadonlyArray<AgentPreset> = [
       words: ['codex', 'exec', '--skip-git-repo-check', '--ephemeral', '--sandbox', 'workspace-write', '-'],
       probe: null,
       format: 'text',
+      withoutStrictMcp: null,
     },
     reader: {
       words: [
@@ -143,6 +165,7 @@ export const AGENT_PRESETS: ReadonlyArray<AgentPreset> = [
         wordsFrom: (printed) => codexServersSwitchedOff(printed),
       },
       format: 'text',
+      withoutStrictMcp: null,
     },
     readerTools: 'minimal',
     verifiedWith: null,
@@ -152,11 +175,12 @@ export const AGENT_PRESETS: ReadonlyArray<AgentPreset> = [
   {
     name: 'antigravity',
     program: 'Antigravity CLI (agy)',
-    agent: { words: ANTIGRAVITY_PRINT, probe: null, format: 'antigravity-stream' },
+    agent: { words: ANTIGRAVITY_PRINT, probe: null, format: 'antigravity-stream', withoutStrictMcp: null },
     reader: {
       words: [...ANTIGRAVITY_PRINT, '--settings', JSON.stringify(ANTIGRAVITY_READER_SETTINGS)],
       probe: { args: ['--help'], wordsFrom: (printed) => antigravitySettingsOffered(printed) },
       format: 'antigravity-stream',
+      withoutStrictMcp: null,
     },
     readerTools: 'minimal',
     verifiedWith: null,
@@ -175,6 +199,7 @@ export const AGENT_PRESETS: ReadonlyArray<AgentPreset> = [
       words: ['gemini', '-p', '', '--output-format', 'text', '--approval-mode', 'default'],
       probe: null,
       format: 'text',
+      withoutStrictMcp: null,
     },
     reader: null,
     readerTools: null,
