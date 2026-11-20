@@ -42,8 +42,9 @@ that depend on them (all of them when a shared file such as the lockfile changes
 that need them change, runs the Dovecote suite again against PostgreSQL and MySQL, the command line on
 macOS and Windows, the plugin tests, builds and starts the Docker image, and checks the Terraform
 setups with `terraform fmt -check`, `terraform init -backend=false` and `terraform validate`. The
-release pull request (from `release/main`) runs every job and the full suite with the coverage
-thresholds on Node 22 and 24, so coverage is checked once before each release. A push to `main`
+release workflow runs the full suite with the coverage thresholds, and the plugin tests, before it
+publishes, so coverage is checked once before each release; the version pull request it opens starts
+no CI of its own. A push to `main`
 type-checks, lints and builds. A pull request that lowers a threshold, disables a lint
 rule, or skips a test will not be merged.
 

@@ -110,7 +110,7 @@ jobs:
       # A pull request opened with GITHUB_TOKEN starts no CI of its own, so the checks run here.
       - run: pnpm typecheck
       - run: pnpm lint
-      - run: pnpm test
+      - run: pnpm test:coverage
       - run: pnpm build
       # The validator and the plugin test kit run offline against a mocked host: no API key is needed.
       - run: npm install --global @anthropic-ai/claude-code@2.1.328

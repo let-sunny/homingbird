@@ -27,7 +27,7 @@ Before every commit run `pnpm typecheck && pnpm lint` (`git config core.hooksPat
 run them for you) and the tests of the packages you changed, `pnpm exec vitest run packages/<name>/`.
 A pull request's CI runs the same: the tests of the changed packages and of the packages that depend
 on them, with the Dovecote suite on PostgreSQL and MySQL when the server changes. The full suite with
-coverage runs once, on the release pull request. A change to `kernel` or `protocol` also runs
+coverage runs once, in the release workflow before it publishes. A change to `kernel` or `protocol` also runs
 `pnpm test:mutation` locally. Reproduce a CI failure locally before fixing it.
 
 ## Packages

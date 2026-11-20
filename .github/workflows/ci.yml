@@ -14,9 +14,9 @@ permissions:
 
 jobs:
   # Decides what a pull request needs from the files it changes: the tests of the changed packages and
-  # their dependents, and the jobs those files touch. The release pull request (from release/main)
-  # runs everything with coverage, once before each release. A push to main was checked on its pull
-  # request, so it only type-checks, lints and builds.
+  # their dependents, and the jobs those files touch. The full suite with coverage runs in the release
+  # workflow before it publishes (a pull request opened with GITHUB_TOKEN starts no CI of its own). A
+  # push to main was checked on its pull request, so it only type-checks, lints and builds.
   changes:
     runs-on: ubuntu-latest
     outputs:
