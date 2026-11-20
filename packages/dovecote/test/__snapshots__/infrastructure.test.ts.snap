@@ -88,6 +88,7 @@ exports[`schema > generates stable DDL for mysql 1`] = `
       SELECT g.group_id, g.member_id, 0, NULL FROM group_members g
       WHERE NOT EXISTS (SELECT 1 FROM group_member_spans s
         WHERE s.group_id = g.group_id AND s.member_id = g.member_id AND s.left_at IS NULL)",
+  "CREATE TABLE IF NOT EXISTS spent_refresh_tokens (refresh_hash VARCHAR(400) NOT NULL, credential_id VARCHAR(64) NOT NULL, spent_at BIGINT NOT NULL, replaced_by VARCHAR(400) NOT NULL, PRIMARY KEY (refresh_hash), INDEX spent_refresh_tokens_credential_id_idx (credential_id))",
 ]
 `;
 
@@ -222,6 +223,8 @@ exports[`schema > generates stable DDL for postgres 1`] = `
       SELECT g.group_id, g.member_id, 0, NULL FROM group_members g
       WHERE NOT EXISTS (SELECT 1 FROM group_member_spans s
         WHERE s.group_id = g.group_id AND s.member_id = g.member_id AND s.left_at IS NULL)",
+  "CREATE TABLE IF NOT EXISTS spent_refresh_tokens (refresh_hash VARCHAR(400) NOT NULL, credential_id VARCHAR(64) NOT NULL, spent_at BIGINT NOT NULL, replaced_by VARCHAR(400) NOT NULL, PRIMARY KEY (refresh_hash))",
+  "CREATE INDEX IF NOT EXISTS spent_refresh_tokens_credential_id_idx ON spent_refresh_tokens (credential_id)",
 ]
 `;
 
@@ -356,5 +359,7 @@ exports[`schema > generates stable DDL for sqlite 1`] = `
       SELECT g.group_id, g.member_id, 0, NULL FROM group_members g
       WHERE NOT EXISTS (SELECT 1 FROM group_member_spans s
         WHERE s.group_id = g.group_id AND s.member_id = g.member_id AND s.left_at IS NULL)",
+  "CREATE TABLE IF NOT EXISTS spent_refresh_tokens (refresh_hash TEXT NOT NULL, credential_id TEXT NOT NULL, spent_at INTEGER NOT NULL, replaced_by TEXT NOT NULL, PRIMARY KEY (refresh_hash))",
+  "CREATE INDEX IF NOT EXISTS spent_refresh_tokens_credential_id_idx ON spent_refresh_tokens (credential_id)",
 ]
 `;

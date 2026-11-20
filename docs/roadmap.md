@@ -374,15 +374,19 @@ days from each membership's history. Still to come:
 `dovecote/src/domain/audit.ts`, and stdout or console output outside the log service and the programs
 whose stdout is their output. Supported upgrades between releases: a database any final release left
 starts on every later release, on SQLite, PostgreSQL and MySQL, tested in CI from a fixture per release
-built through the real schema steps, and a release without a fixture does not ship. Still to come:
+built through the real schema steps, and a release without a fixture does not ship. Refresh tokens
+are rotated, and a spent one presented again revokes its credential, outside a 10-second grace for a
+retry. Still to come:
 
 - Multi-node deployment: shared event fan-out through the database or a message broker.
 - Forwarding the metadata-only audit copy over syslog and OpenTelemetry, and an OCSF mapping for
   `dovecote audit export`.
 - A compliance export of the product's own data (notes, drafts, debate rooms) for legal hold, if an
   organization asks for one: not the audit trail's job.
-- Periodic re-validation of members against the identity provider.
-- Revoking a credential family when a refresh token is replayed.
+- Ending a departed person's credentials without an administrator:
+  needs the identity provider to tell Dovecote between sign-ins (a provider refresh token checked
+  periodically, or a back-channel logout), which needs a decision on keeping provider tokens first.
+  Today deactivation ends them ([runbook](deployment.md#when-someone-leaves)).
 - Cloud desk wakes in parallel: the pass sends them one after another, so a slow wake service (up to
   its 10-second timeout) can delay other people's wakes; consider a small cap on concurrent wakes.
 

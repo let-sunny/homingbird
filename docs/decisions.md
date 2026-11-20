@@ -646,6 +646,30 @@ states the decision first, then the reason. Add new entries at the top of their 
   first. Dovecote refuses to start without the variable. Development login keeps the first-member rule.
 - **Agent access tokens are opaque and stored as SHA-256 hashes.** Dovecote is both the authorization
   server and the resource server, so nothing needs a self-contained token.
+- **A refresh token is used once; presenting a spent one revokes its credential.** Every refresh issues a
+  new access token and refresh token and keeps the old refresh token's hash in `spent_refresh_tokens`
+  (OAuth 2.0 Security BCP, refresh token rotation). The OAuth connector is the only client with refresh
+  tokens, and a credential is one family: its id stays across refreshes and its row holds the one live
+  access token and refresh token, so revoking the row ends both. A spent token presented again means
+  two parties hold the chain, and Dovecote cannot tell which is the person, so it revokes the credential,
+  writes `credential.revoked` with `because: refresh_replayed` and the credential's id only, and answers
+  `invalid_grant`, as for any refused refresh; the person connects again. The revocation commits before
+  the refusal, so the refused request does not roll it back. **Grace: 10 seconds, for the token the live one replaced only.**
+  Within 10 seconds of a refresh, the refresh token it replaced is refused without revoking anything:
+  a client retrying a request whose answer it lost, or two refreshes in flight, must not cost the person
+  their connection. An older token, or the replaced one after 10 seconds, revokes. The repeat is
+  still refused rather than answered: Supabase Auth gives the live token back in the same case, but
+  Dovecote keeps only its hash, and a second new pair would make the winner's refresh token spent and
+  its next use a replay. A thief who replays within the grace gets nothing; the case missed is a thief
+  who refreshes first and the client following within 10 seconds, which a one-hour access token makes
+  rare. Two refreshes that
+  race are settled by the row: the update names the refresh token it replaces, so only one changes the
+  row, on every database. Each spent row keeps the hash of the token that replaced it, and the grace
+  holds only while that is the credential's live refresh token: the order of the clock decides nothing,
+  so two refreshes in one millisecond or a clock that steps back cannot move it. A client that lost
+  the answer to its refresh and retries within the grace is refused and cannot use that credential
+  again; it stays unusable until it expires, and the person connects again. Spent tokens are deleted
+  once their credential has expired or been revoked.
 - **The identity provider's discovery document is checked before anything is sent to it.** Its
   `issuer` must equal `HB_OIDC_ISSUER` exactly (trailing slashes aside), and its authorization, token
   and key endpoints must be https on a public host name (http only on loopback when Dovecote itself
@@ -664,6 +688,21 @@ states the decision first, then the reason. Add new entries at the top of their 
   approved a minute before could still be exchanged for a new, refreshable credential afterwards.
   Authentication also requires an active member, so a credential that slipped past both still answers
   401.
+- **Dovecote re-validates a person only when they sign in; a refresh checks the member, not a sign-in.**
+  The identity provider vouches for a person at sign-in, where the ID token, the allowed domains, the
+  hosted domain and the member's status are all checked again. Dovecote asks for `openid email
+  profile`, not `offline_access`, and keeps none of the provider's tokens, so it has no way to ask the
+  provider about someone between sign-ins; keeping a provider refresh token would be a new secret to
+  store encrypted, for one provider at a time. Browser sessions are never refreshed. The OAuth
+  connector's credential refreshes only while its member is active, so deactivation stops it at once,
+  as it does every other credential. Requiring a recent web sign-in for that refresh was considered and
+  left out: a deactivated member is already refused, and someone who works only through the connector
+  should not have to connect again every `HB_SESSION_DAYS`. Besides deactivation denying a code
+  they approved, the exchange itself refuses a code of a member who is no longer active, so no
+  credential is issued after deactivation. **Offboarding stays a person's action:** Dovecote reads no directory, so there is no
+  member sync command and no SCIM, as groups come from no directory import; an administrator
+  deactivates, and `docs/deployment.md` (When someone leaves) is the runbook, with what each credential
+  does when nobody does and a monthly query of last sign-ins.
 - **Cookie-authenticated writes need a custom header** and a matching `Origin`. Cross-origin requests
   are never allowed for cookie sessions.
 

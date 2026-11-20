@@ -38,7 +38,7 @@ describe('the insights step', () => {
     )
     await database.execute(`INSERT INTO group_members (group_id, member_id) VALUES ('grp_team', 'mem_ana')`)
     await database.execute(`INSERT INTO group_members (group_id, member_id) VALUES ('grp_team', 'mem_ben')`)
-    expect(await database.migrate(MIGRATIONS)).toEqual([earlier + 1])
+    expect(await database.migrate(MIGRATIONS.slice(0, earlier + 1))).toEqual([earlier + 1])
     const backfilled = [
       { group_id: 'grp_team', member_id: 'mem_ana', joined_at: 0, left_at: null },
       { group_id: 'grp_team', member_id: 'mem_ben', joined_at: 0, left_at: null },
