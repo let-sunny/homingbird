@@ -28,21 +28,28 @@ export const handleAgentRequest = (request: HttpRequest): T.Task<HttpResponse, n
     if (caller._tag === 'Err') return challenge(caller.error, env.config.publicUrl)
     const message = parseJson(request.body)
     if (message === INVALID_JSON) return json(400, PARSE_ERROR)
-    const reply = yield* answer(request.path, message, caller.value, env)
+    const reply = yield* answer(request, message, caller.value, env)
     return reply === null ? noContent() : json(200, reply)
   })
 
-const answer = (path: string, message: unknown, caller: Caller, env: AppEnv): T.Task<unknown | null> => {
+const answer = (
+  request: HttpRequest,
+  message: unknown,
+  caller: Caller,
+  env: AppEnv,
+): T.Task<unknown | null> => {
   const api = localApi(caller, env)
   const nonce = env.random.identifier
-  return path === '/mcp'
+  const header = request.headers['a2a-version']?.trim()
+  const version = header ? header : (request.query.get('A2A-Version') ?? undefined)
+  return request.path === '/mcp'
     ? handleMcpMessage(message, {
         api,
         serverVersion: SERVER_VERSION,
         nonce,
         webClientUrl: env.config.publicUrl,
       })
-    : handleA2aMessage(message, { api, publicUrl: env.config.publicUrl, nonce })
+    : handleA2aMessage(message, { api, publicUrl: env.config.publicUrl, nonce }, version)
 }
 
 const challenge = (error: Unauthorized, publicUrl: string): HttpResponse =>

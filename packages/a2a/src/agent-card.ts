@@ -1,3 +1,5 @@
+import { SUPPORTED } from './version.ts'
+
 export const A2A_PROTOCOL_VERSION = '1.0'
 
 export const agentCard = (publicUrl: string, version: string): Readonly<Record<string, unknown>> => ({
@@ -5,9 +7,11 @@ export const agentCard = (publicUrl: string, version: string): Readonly<Record<s
   description:
     'Passes notes between colleagues through their agents. A message sent here becomes a draft; it is delivered only after the sending member, a person, approves it.',
   version,
-  supportedInterfaces: [
-    { url: `${publicUrl}/a2a`, protocolBinding: 'JSONRPC', protocolVersion: A2A_PROTOCOL_VERSION },
-  ],
+  supportedInterfaces: SUPPORTED.map((dialect) => ({
+    url: `${publicUrl}/a2a`,
+    protocolBinding: 'JSONRPC',
+    protocolVersion: dialect.version,
+  })),
   capabilities: { streaming: false, pushNotifications: false, extendedAgentCard: false },
   defaultInputModes: ['text/plain'],
   defaultOutputModes: ['text/plain'],
