@@ -29,7 +29,7 @@ export const stageFor = (context: ViewContext, life: Lifetime, me: AsRead.Me, cu
     case 'home':
       return homeView(context, life)
     case 'conversation':
-      return threadView(context, life, me, current.id as ConversationId)
+      return threadView(context, life, me, current.id as ConversationId, current.draft)
     case 'people':
       return peopleView(context, life, me)
     case 'group':

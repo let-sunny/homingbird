@@ -12,7 +12,7 @@ usingFakeDom()
 
 const routes: ReadonlyArray<Route> = [
   { name: 'home' },
-  { name: 'conversation', id: ROOM },
+  { name: 'conversation', id: ROOM, draft: null },
   { name: 'people' },
   { name: 'group', id: 'grp_team00000000' },
   { name: 'channels' },

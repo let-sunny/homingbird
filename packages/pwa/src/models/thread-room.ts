@@ -34,6 +34,8 @@ export interface ThreadInput {
   readonly serverInfo: AsRead.ServerInfo | null
   readonly sending: boolean
   readonly now: number
+  /** The draft a link opened the conversation at; an id that names no draft shown here focuses nothing. */
+  readonly focusedDraft: string | null
 }
 
 /** The notes of the conversation shown. */

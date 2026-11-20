@@ -41,6 +41,7 @@ describe('draftsItemModel', () => {
     expect(model.avatar).toMatchObject({ state: 'awaiting-approval', label: null })
     expect(model.cards[0]).toEqual({
       draft: one,
+      focused: false,
       origin: { className: 'origin is-agent', text: strings.originNamed.agent({ agent: 'Laptop' }) },
       body: 'body of d1',
       basis: null,
@@ -50,6 +51,14 @@ describe('draftsItemModel', () => {
       readAgain: null,
       actions: { alternatives: [], changeChannel: null },
     })
+  })
+
+  it('focuses the card a link opened the conversation at, and no other', () => {
+    const model = draftsItemModel(threadInput({ focusedDraft: 'd2' }), item([draft('d1'), draft('d2')]))
+    expect(model.cards.map((card) => card.focused)).toEqual([false, true])
+    expect(draftsItemModel(threadInput({ focusedDraft: 'n1' }), item([draft('d1')])).cards[0]!.focused).toBe(
+      false,
+    )
   })
 
   it('asks the person to read a draft again once its agent changed the text or the room they read', () => {

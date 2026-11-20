@@ -18,7 +18,10 @@ import { type AvatarModel, memberAvatarOf } from './avatar.ts'
 import { type AppliedMarker, appliedModel, showsAppliedMarkers } from './teaching.ts'
 import { type ThreadInput, isOn, nameIn, noteIn, notesOf, roomOf } from './thread-room.ts'
 
-/** The drafts waiting for the person's approval in one place of the conversation, each as a card. */
+/**
+ * The drafts waiting for the person's approval in one place of the conversation, each as a card; the
+ * one a link opened the conversation at is the focused card.
+ */
 export const draftsItemModel = (
   input: ThreadInput,
   item: Extract<ThreadItem, { type: 'drafts' }>,
@@ -94,6 +97,7 @@ export interface DraftsItemModel {
 
 export interface DraftCard {
   readonly draft: AsRead.Note
+  readonly focused: boolean
   readonly origin: { readonly className: string; readonly text: string }
   readonly body: string
   readonly basis: DraftBasis | null
@@ -127,6 +131,7 @@ const draftCard = (
   const careful = carefulReadingFor(draft.body, approvesQuicklyOften(input.agentReport))
   return {
     draft,
+    focused: draft.id === input.focusedDraft,
     origin: { className: `origin is-${draft.origin}`, text: originText(draft) },
     body: draft.body,
     basis: draftBasisOf(draft, showsAppliedMarkers(input.taught, teachingOn)),

@@ -35,6 +35,7 @@ export const threadView = (
   life: Lifetime,
   me: AsRead.Me,
   id: ConversationId,
+  focusedDraft: string | null,
 ): HTMLElement => {
   const { state, actions } = context
   const missing = signal(false)
@@ -62,6 +63,7 @@ export const threadView = (
     serverInfo: state.serverInfo.get(),
     sending: state.sendingIn.get().has(id),
     now: context.clock.now(),
+    focusedDraft,
   })
   const items = (): ThreadItem[] =>
     threadItems(state.threads.get().get(id)?.notes ?? [], state.draftRequests.get())
@@ -76,6 +78,15 @@ export const threadView = (
   const follow = followNewNotes(context, life, scroller, newerBelow, () =>
     items().map((item) => [item.key, signatureOf(item)] as const),
   )
+  let broughtIntoView = false
+  const drafts = (item: Extract<ThreadItem, { type: 'drafts' }>): HTMLElement => {
+    const model = draftsItemModel(input(), item)
+    if (!broughtIntoView && model.cards.some((card) => card.focused)) {
+      broughtIntoView = true
+      follow.bringIntoView(() => list.querySelector<HTMLElement>(FOCUSED_DRAFT))
+    }
+    return renderDraftsItem(context, model)
+  }
   const seen = markReadWhenSeen(context, life, scroller, me.member.id, id, (noteId) =>
     noteIn(input(), noteId),
   )
@@ -106,7 +117,7 @@ export const threadView = (
           seen.watch(
             item.type === 'note'
               ? renderNoteItem(context, life, noteItemModel(input(), item), item.note, id)
-              : renderDraftsItem(context, draftsItemModel(input(), item)),
+              : drafts(item),
           ),
         ),
     },
@@ -168,6 +179,8 @@ export const threadView = (
     class: 'thread-host',
   })
 }
+
+const FOCUSED_DRAFT = '.draft[aria-current="true"]'
 
 const missingConversation = (): HTMLElement =>
   emptyWithPip(

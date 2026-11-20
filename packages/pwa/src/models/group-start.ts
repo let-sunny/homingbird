@@ -35,7 +35,7 @@ export const groupStartModel = (input: GroupStartInput): GroupStartModel | null 
         : {
             text: strings.groupStart.existing,
             label: strings.groupStart.open,
-            href: hrefFor({ name: 'conversation', id: existing.id }),
+            href: hrefFor({ name: 'conversation', id: existing.id, draft: null }),
           },
     clear: chosen.length === 0 ? null : strings.groupStart.clear,
     toggles: new Map(

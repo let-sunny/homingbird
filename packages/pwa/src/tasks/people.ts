@@ -17,7 +17,7 @@ export const openConversationAmong = (memberIds: ReadonlyArray<MemberId>): Actio
       state.conversations.update((list) =>
         list.some((c) => c.id === conversation.id) ? list : [conversation, ...list],
       )
-      page.go(hrefFor({ name: 'conversation', id: conversation.id }))
+      page.go(hrefFor({ name: 'conversation', id: conversation.id, draft: null }))
     })(api['conversations.create']({ body: { participantIds: [...memberIds] } })),
   )
 
