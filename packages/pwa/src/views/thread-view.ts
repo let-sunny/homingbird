@@ -11,6 +11,7 @@ import { noteItemModel } from '../models/note-item.ts'
 import {
   type ThreadInput,
   archiveDiscardLines,
+  isFocusedDraftOpen,
   noteIn,
   roomOf,
   settledDraftLine,
@@ -40,6 +41,7 @@ export const threadView = (
 ): HTMLElement => {
   const { state, actions } = context
   const missing = signal(false)
+  let focusedDraftShownOpen = false
   actions.openThread(id, { done: (found) => missing.set(found === MISSING) })
   actions.loadPeople()
   actions.loadKnownChannels()
@@ -136,7 +138,8 @@ export const threadView = (
       return top.kind === 'empty' && emptyWithPip('waving', top.text)
     }),
     region(life, [state.threads], () => {
-      const settled = settledDraftLine(input())
+      focusedDraftShownOpen ||= isFocusedDraftOpen(input())
+      const settled = settledDraftLine(input(), focusedDraftShownOpen)
       return settled !== null && h('p', { class: 'hint settled-draft', role: 'status' }, settled)
     }),
     list,

@@ -163,10 +163,15 @@ describe('threadView', () => {
   it('says a draft a notification opened was already sent or discarded, instead of an empty card', () => {
     const { context, shown } = open('d2')
     expect(shown.querySelector('.settled-draft')).toBeNull()
-    withNotes(context, [note('n1'), draft('d2')])
-    expect(shown.querySelector('.settled-draft')).toBeNull()
     withNotes(context, [note('n1'), note('d2')])
     expect(shown.querySelector('.settled-draft')?.textContent).toBe(strings.draftAlreadySettled)
+  })
+
+  it('says nothing when the person sends the draft the link opened, here on this page', () => {
+    const { context, shown } = open('d2')
+    withNotes(context, [note('n1'), draft('d2')])
+    withNotes(context, [note('n1'), note('d2')])
+    expect(shown.querySelector('.settled-draft')).toBeNull()
   })
 
   it('marks no card when the address names no draft of the person’s in this conversation', () => {
