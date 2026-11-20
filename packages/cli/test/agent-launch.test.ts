@@ -1,6 +1,11 @@
 import { Task as T } from '@homingbird/kernel'
 import { describe, expect, it } from 'vitest'
-import { launchesAsGiven, preparedLaunches } from '../src/agent-launch.ts'
+import {
+  ATTACH_NEEDS_PRESET,
+  isAttachingMcp,
+  launchesAsGiven,
+  preparedLaunches,
+} from '../src/agent-launch.ts'
 import { agentCommand, defaultReader } from '../src/agent-presets.ts'
 import { type WorldOptions, world } from './support.ts'
 
@@ -168,6 +173,55 @@ describe('preparedLaunches and versions', () => {
       _tag: 'Ok',
       value: { installed: [expect.stringContaining('version not readable')] },
     })
+  })
+})
+
+describe('preparedLaunches with the MCP server attached', () => {
+  const server = {
+    command: 'npx',
+    args: ['-y', '@homingbird/mcp@0.3.1', '--server', 'https://hb.example.com'],
+    environment: { HOMINGBIRD_CREDENTIALS_FILE: '/home/june/.config/homingbird/agents/hb.json' },
+  }
+  const attached = async (agent: string, reader: string | null = null) => {
+    const w = world({ signedIn: 'none' })
+    return T.run(preparedLaunches({ agent, split: reader === null ? null : { reader } }, server), w.env)
+  }
+
+  it('gives Claude Code only this server for the run, inline, and the agent alone', async () => {
+    const exit = await attached(agentCommand('claude', 'linux'), defaultReader('claude', 'linux'))
+    if (exit._tag !== 'Ok') throw new Error('not prepared')
+    const { agent, reader } = exit.value
+    const config = agent.command.match(/--mcp-config '([^']*)' --strict-mcp-config$/)![1]!
+    expect(JSON.parse(config)).toEqual({
+      mcpServers: {
+        homingbird: {
+          type: 'stdio',
+          command: 'npx',
+          args: server.args,
+          env: { HOMINGBIRD_CREDENTIALS_FILE: '/home/june/.config/homingbird/agents/hb.json' },
+        },
+      },
+    })
+    expect(agent.withoutStrictMcp?.command).toBe(agentCommand('claude', 'linux'))
+    expect(reader!.command).toBe(defaultReader('claude', 'linux'))
+  })
+
+  it('gives Codex the server as one -c table, before the - that reads the prompt', async () => {
+    const exit = await attached(agentCommand('codex', 'linux'))
+    expect(exit._tag === 'Ok' && exit.value.agent.command).toBe(
+      `${agentCommand('codex', 'linux').slice(0, -2)} -c 'mcp_servers.homingbird={command="npx",args=["-y","@homingbird/mcp@0.3.1","--server","https://hb.example.com"],env={HOMINGBIRD_CREDENTIALS_FILE="/home/june/.config/homingbird/agents/hb.json"}}' -`,
+    )
+    expect(exit._tag === 'Ok' && exit.value.agent.withoutStrictMcp).toBeNull()
+  })
+
+  it('refuses to attach to a command of one’s own or a preset with no known way', async () => {
+    for (const agent of ['my-agent', agentCommand('gemini', 'linux')])
+      expect(await attached(agent)).toMatchObject({ error: { error: { message: ATTACH_NEEDS_PRESET } } })
+  })
+
+  it('attaches only when asked, as no preset’s attaching has been run with the real agent yet', () => {
+    expect(isAttachingMcp({ agent: agentCommand('claude', 'linux'), split: null }, 'linux')).toBe(false)
+    expect(isAttachingMcp({ agent: 'my-agent', split: null, attachMcp: true }, 'linux')).toBe(true)
   })
 })
 

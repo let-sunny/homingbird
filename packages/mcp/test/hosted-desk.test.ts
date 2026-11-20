@@ -15,7 +15,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { asShown } from '../../dovecote/test/harness.ts'
 import { DESCRIPTIONS } from '../src/hosted-desk.ts'
 import { NO_DESK_RUNNER } from '../src/local-tools.ts'
-import { type StdioProgram, USAGE, runStdioProgram } from '../src/stdio-program.ts'
+import { RUNNERS_SERVER_ONLY, type StdioProgram, USAGE, runStdioProgram } from '../src/stdio-program.ts'
 import { ADAPTER_VERSION } from '../src/version.ts'
 import { type RunningServer, SERVER_URL, startRunningServer } from './running-server.ts'
 import { sequentialNonce } from './support.ts'
@@ -416,6 +416,19 @@ describe('a desk run inside the MCP server', () => {
       _tag: 'Err',
       error: { _tag: 'Fail', error: { message: `${message}\n\n${USAGE}` } },
     })
+  })
+
+  it('refuses a desk or a channel on a server a runner started for one agent run', async () => {
+    for (const args of [
+      ['--server', SERVER_URL, '--run-agent', AGENT],
+      ['--server', SERVER_URL, '--channel'],
+    ]) {
+      const { exit } = instance({
+        arguments: args,
+        environment: { HOMINGBIRD_CREDENTIALS_FILE: '/tmp/agent.json' },
+      })
+      expect(await exit).toMatchObject({ error: { error: { message: RUNNERS_SERVER_ONLY } } })
+    }
   })
 
   it('refuses to start a desk where no runner environment was given', async () => {

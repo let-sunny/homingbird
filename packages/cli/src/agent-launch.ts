@@ -1,6 +1,7 @@
 import { Task as T } from '@homingbird/kernel'
 import {
   type AgentPreset,
+  type AttachedServer,
   type LaunchFormat,
   presetCommandOf,
   presetState,
@@ -16,12 +17,15 @@ import { type CliFailure, failed } from './failure.ts'
  * can answer, each probe it declares asks it more, and what that prints shapes the command. Any other
  * command is launched as given.
  */
-export const preparedLaunches = (settings: LaunchSettings): T.Task<Launches, CliFailure, CliEnv> =>
+export const preparedLaunches = (
+  settings: LaunchSettings,
+  attached: AttachedServer | null = null,
+): T.Task<Launches, CliFailure, CliEnv> =>
   T.gen(function* () {
     const ready = new Map<string, string>()
-    const agent = yield* preparedLaunch(settings.agent, 'agent', ready)
+    const agent = yield* preparedLaunch(settings.agent, 'agent', ready, attached)
     const reader =
-      settings.split === null ? null : yield* preparedLaunch(settings.split.reader, 'reader', ready)
+      settings.split === null ? null : yield* preparedLaunch(settings.split.reader, 'reader', ready, null)
     return { agent, reader, installed: [...ready.values()] }
   })
 
@@ -31,6 +35,18 @@ export const launchesAsGiven = (settings: LaunchSettings): Launches => ({
   reader: settings.split === null ? null : launchAsGiven(settings.split.reader),
   installed: [],
 })
+
+/**
+ * Whether the agent command gets the Homingbird MCP server for its run: as asked with `--attach-mcp`,
+ * or else only for a preset whose attaching was run with the real agent.
+ */
+export const isAttachingMcp = (
+  settings: LaunchSettings & { readonly attachMcp?: boolean },
+  platform: string,
+) => settings.attachMcp ?? presetCommandOf(settings.agent, platform)?.preset.mcpAttach?.verified ?? false
+
+export const ATTACH_NEEDS_PRESET =
+  '--attach-mcp needs an agent preset that can take an MCP server for one run: --agent claude or --agent codex.'
 
 /** Why a preset's program cannot answer yet, such as not being signed in; null when it can. */
 export const presetNotReady = (preset: AgentPreset): T.Task<string | null, never, CliEnv> =>
@@ -73,10 +89,14 @@ const preparedLaunch = (
   command: string,
   role: 'agent' | 'reader',
   ready: Map<string, string>,
+  attached: AttachedServer | null,
 ): T.Task<Launch, CliFailure, CliEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<CliEnv>()
     const match = presetCommandOf(command, env.platform)
+    const attach = match?.preset.mcpAttach ?? null
+    if (attached !== null && (match === null || attach === null))
+      return yield* T.fail(failed(ATTACH_NEEDS_PRESET))
     if (match === null) return launchAsGiven(command)
     const { preset, launch } = match
     if (!ready.has(preset.name)) {
@@ -102,6 +122,10 @@ const preparedLaunch = (
       environment: preset.environment,
       withoutStrictMcp: fallback,
     })
+    if (attached !== null && attach !== null) {
+      const withServer = withWords(words, attach.words(attached))
+      return launchOf(withServer, withServer.includes('--strict-mcp-config') ? launchOf(words, null) : null)
+    }
     const fallback = launch.withoutStrictMcp === null ? null : launchOf(launch.withoutStrictMcp, null)
     return launchOf(words, fallback)
   })

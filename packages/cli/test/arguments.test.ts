@@ -204,6 +204,10 @@ describe('parseArguments', () => {
         isService: true,
       },
     ],
+    [
+      ['run', '--agent', 'claude', '--attach-mcp'],
+      { command: 'run', agent: CLAUDE_AGENT, timeoutSeconds: 300, split: null, attachMcp: true },
+    ],
     [['presets'], { command: 'presets' }],
     [
       ['service', 'install', '--agent', 'claude'],
@@ -345,6 +349,7 @@ describe('parseArguments', () => {
     [['service'], /service needs install, status, stop or uninstall/],
     [['service', 'start'], /service needs install, status, stop or uninstall/],
     [['run', '--agent', 'claude', '--workdir', '/w'], /--log and --workdir go with --service/],
+    [['run', '--agent', 'claude', '--service', '--attach-mcp'], /--attach-mcp is for run in a terminal/],
     [['service', 'install'], /service install needs --agent/],
     [['service', 'install', '--agent', 'claude', '--reader', 'r'], /go with --split/],
     [['service', 'install', '--agent', 'claude', '--require-toolless-reader'], /go with --split/],

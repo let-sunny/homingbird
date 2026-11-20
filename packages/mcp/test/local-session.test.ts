@@ -1,4 +1,5 @@
-import { readFile } from 'node:fs/promises'
+import { readFile, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import type { Fetch } from '@homingbird/client'
 import { Task as T } from '@homingbird/kernel'
 import { UPGRADE_SENTENCES } from '@homingbird/protocol'
@@ -9,6 +10,7 @@ import {
   type LocalSessionOptions,
   REMOVED_ONLY_HERE,
   REVOKED_AND_REMOVED,
+  RUNNERS_CREDENTIAL,
   makeLocalSession,
 } from '../src/local-session.ts'
 import { type RunningServer, SERVER_URL, startRunningServer } from './running-server.ts'
@@ -252,5 +254,61 @@ describe('makeLocalSession', () => {
     await running.owner.api('PATCH', '/me', { about: 'Release manager' })
     await running.until(() => seen.length > 1)
     expect(seen[0]).toBe('online')
+  })
+})
+
+describe('makeLocalSession on a runner’s credential', () => {
+  const runnerFile = () => join(dirname(running.credentialPath), 'runner-agent.json')
+
+  const runnersToken = async (): Promise<string> => {
+    const own = sessionWith()
+    await signIn(own)
+    return own.token()!
+  }
+
+  it('signs in with the runner’s credential file only, and never signs in or out itself', async () => {
+    const token = await runnersToken()
+    await writeFile(runnerFile(), JSON.stringify({ serverUrl: `${SERVER_URL}/`, token }))
+    const before = await readFile(running.credentialPath, 'utf8')
+    const session = sessionWith({ runnerCredentialPath: runnerFile() })
+    await T.runPromise(session.restore)
+    expect(session.state()).toEqual({ kind: 'signed_in' })
+    expect(session.token()).toBe(token)
+    expect(session.protocolProblem()).toBeNull()
+    expect(await T.runPromise(session.status)).toMatch(/^Signed in to .* with the runner’s credential "/)
+    expect(await T.runPromise(session.login)).toBe(RUNNERS_CREDENTIAL)
+    expect(await T.runPromise(session.logout)).toBe(RUNNERS_CREDENTIAL)
+    expect(session.token()).toBe(token)
+    expect(await readFile(runnerFile(), 'utf8')).toContain(token)
+    expect(await readFile(running.credentialPath, 'utf8')).toBe(before)
+  })
+
+  it('stays signed out on a missing file, or one for another server, and says so', async () => {
+    const missing = sessionWith({ runnerCredentialPath: runnerFile() })
+    await T.runPromise(missing.restore)
+    expect(missing.state().kind).toBe('signed_out')
+    expect(await T.runPromise(missing.status)).toContain('could not read the runner’s credential')
+    await writeFile(runnerFile(), JSON.stringify({ serverUrl: 'https://other.example.com', token: 'hba_x' }))
+    const other = sessionWith({ runnerCredentialPath: runnerFile() })
+    await T.runPromise(other.restore)
+    expect(other.token()).toBeNull()
+    await writeFile(runnerFile(), '{"token":')
+    const broken = sessionWith({ runnerCredentialPath: runnerFile() })
+    await T.runPromise(broken.restore)
+    expect(broken.token()).toBeNull()
+  })
+
+  it('stops using a credential the server refuses, and says to sign in again', async () => {
+    await writeFile(
+      runnerFile(),
+      JSON.stringify({ serverUrl: SERVER_URL, token: 'hba_refused-token-000000000000' }),
+    )
+    const session = sessionWith({ runnerCredentialPath: runnerFile() })
+    await T.runPromise(session.restore)
+    expect(await T.runPromise(session.status)).toContain('no longer accepts the runner’s credential')
+    expect(session.token()).toBeNull()
+    await T.runPromise(session.restore)
+    session.credentialWasRefused()
+    expect(session.state().kind).toBe('signed_out')
   })
 })

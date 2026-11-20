@@ -202,6 +202,12 @@ describe('shellCommand', () => {
     expect(shellCommand(['say', '{"a":1}', ''], 'win32')).toBe('say "{\\"a\\":1}" ""')
   })
 
+  it('doubles the backslashes before a quote and at the end, as Windows programs read them', () => {
+    expect(shellCommand(['x', 'C:\\dir\\', 'a\\"b', '{"p":"C:\\\\a"}'], 'win32')).toBe(
+      'x "C:\\dir\\\\" "a\\\\\\"b" "{\\"p\\":\\"C:\\\\a\\"}"',
+    )
+  })
+
   it('keeps the words, as sh reads them back', () => {
     fc.assert(
       fc.property(fc.array(fc.string({ unit: 'grapheme-ascii' })), (words) => {

@@ -54,7 +54,8 @@ export const presetState = (preset: AgentPreset): string => {
 
 /**
  * One command line from its words, quoted for the shell that runs agent commands: sh, or cmd.exe on
- * Windows, which keeps single quotes and reads `\"` inside double quotes as a quote.
+ * Windows, which keeps single quotes and leaves each program to split the line by the Microsoft C
+ * runtime's rules, where `\"` is a quote and backslashes before one are doubled.
  */
 export const shellCommand = (words: ReadonlyArray<string>, platform: string): string =>
   words.map((word) => shellWord(word, platform)).join(' ')
@@ -81,6 +82,21 @@ export interface AgentPreset {
   /** Variables both commands and every probe get, on top of the person's environment. */
   readonly environment: Readonly<Record<string, string>>
   readonly signInCheck: SignInCheck | null
+  /** How the agent command is given one MCP server for its own run only; null when no way is known. */
+  readonly mcpAttach: McpAttach | null
+}
+
+export interface McpAttach {
+  /** The words that give the agent command this server, without touching any configuration file. */
+  readonly words: (server: AttachedServer) => ReadonlyArray<string>
+  /** Whether attaching was run with the real agent; only then is it on without `--attach-mcp`. */
+  readonly verified: boolean
+}
+
+export interface AttachedServer {
+  readonly command: string
+  readonly args: ReadonlyArray<string>
+  readonly environment: Readonly<Record<string, string>>
 }
 
 export interface PresetCommand {
@@ -148,6 +164,23 @@ export const AGENT_PRESETS: ReadonlyArray<AgentPreset> = [
     upgrade: 'claude update',
     environment: {},
     signInCheck: null,
+    mcpAttach: {
+      words: (server) => [
+        '--mcp-config',
+        JSON.stringify({
+          mcpServers: {
+            homingbird: {
+              type: 'stdio',
+              command: server.command,
+              args: server.args,
+              env: server.environment,
+            },
+          },
+        }),
+        '--strict-mcp-config',
+      ],
+      verified: false,
+    },
   },
   {
     name: 'codex',
@@ -186,6 +219,10 @@ export const AGENT_PRESETS: ReadonlyArray<AgentPreset> = [
     upgrade: 'npm install -g @openai/codex@latest',
     environment: {},
     signInCheck: null,
+    mcpAttach: {
+      words: (server) => ['-c', `mcp_servers.homingbird=${codexServerTable(server)}`],
+      verified: false,
+    },
   },
   {
     name: 'antigravity',
@@ -209,6 +246,7 @@ export const AGENT_PRESETS: ReadonlyArray<AgentPreset> = [
       problem:
         'Antigravity did not answer within 20 seconds, or is not signed in on this computer. Sign in first: run `agy` in a terminal, then start this again.',
     },
+    mcpAttach: null,
   },
   {
     name: 'gemini',
@@ -227,6 +265,7 @@ export const AGENT_PRESETS: ReadonlyArray<AgentPreset> = [
     upgrade: 'npm install -g @google/gemini-cli@latest',
     environment: {},
     signInCheck: null,
+    mcpAttach: null,
   },
 ]
 
@@ -244,7 +283,7 @@ const PLAIN_WORD = /^[\w@+=:,./-]+$/
 
 const shellWord = (word: string, platform: string): string => {
   if (PLAIN_WORD.test(word)) return word
-  if (platform === 'win32') return `"${word.replace(/"/g, '\\"')}"`
+  if (platform === 'win32') return `"${word.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\+)$/, '$1$1')}"`
   return `'${word.replace(/'/g, `'\\''`)}'`
 }
 
@@ -260,6 +299,14 @@ const codexServersSwitchedOff = (printed: ProcessRun): Result.Result<ReadonlyArr
   if (listed.value.length === 0) return Result.ok([])
   const off = listed.value.map((server) => `${JSON.stringify(server.name)}={enabled=false}`)
   return Result.ok(['-c', `mcp_servers={${off.join(',')}}`])
+}
+
+/** One MCP server as an inline TOML table, which `-c` reads; a JSON string is a TOML string. */
+const codexServerTable = (server: AttachedServer): string => {
+  const variables = Object.entries(server.environment).map(
+    ([name, value]) => `${name}=${JSON.stringify(value)}`,
+  )
+  return `{command=${JSON.stringify(server.command)},args=[${server.args.map((arg) => JSON.stringify(arg)).join(',')}],env={${variables.join(',')}}}`
 }
 
 const CodexServers = S.array(S.struct({ name: S.string({ minLength: 1 }) }))

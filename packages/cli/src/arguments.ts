@@ -114,10 +114,12 @@ export const USAGE = `Usage: homingbird <command> [options]
   skip <noteId> [reason]                       give a picked-up note back without drafting
   stream [--after <sequence>]
   run --agent "<command>" [--timeout <seconds>] [--log-level error|warn|info|debug]
-      [--split [--reader "<command>"] [--require-toolless-reader]]
+      [--split [--reader "<command>"] [--require-toolless-reader]] [--attach-mcp]
                                                answer arriving notes and requests with a headless agent;
                                                with --split, a reader describes each note and the
-                                               agent drafts from that description, not the note
+                                               agent drafts from that description, not the note;
+                                               with --attach-mcp, the agent gets the Homingbird MCP
+                                               server for each run
   presets                                      agents --agent accepts by name: claude, codex,
                                                antigravity, gemini
   service install --server <url> --agent "<command>" [--timeout <seconds>] [--workdir <dir>]
@@ -168,6 +170,7 @@ const SWITCH_FLAGS = new Set([
   'help',
   'split',
   'require-toolless-reader',
+  'attach-mcp',
   'service',
   'version',
   'force',
@@ -273,6 +276,10 @@ const BUILDERS: Readonly<Record<string, (tokens: Tokens) => Result.Result<Invoca
         return yield* usage('--log-level needs error, warn, info or debug.')
       if ((values.has('log') || values.has('workdir')) && !switches.has('service'))
         return yield* usage('--log and --workdir go with --service.')
+      if (switches.has('attach-mcp') && switches.has('service'))
+        return yield* usage(
+          '--attach-mcp is for run in a terminal; the service does not attach the MCP server yet.',
+        )
       const reader = values.get('reader')?.trim() || defaultReader(given, platform)
       return {
         command: 'run',
@@ -280,6 +287,7 @@ const BUILDERS: Readonly<Record<string, (tokens: Tokens) => Result.Result<Invoca
         timeoutSeconds: timeoutSeconds ?? RUN_TIMEOUT_DEFAULT_SECONDS,
         split: isSplit ? { reader, requireToollessReader: switches.has('require-toolless-reader') } : null,
         ...(switches.has('service') && { isService: true }),
+        ...(switches.has('attach-mcp') && { attachMcp: true }),
         ...(values.has('log') && { logFile: values.get('log')! }),
         ...(logLevel !== undefined && { logLevel: logLevel as LogLevel }),
         ...(values.has('workdir') && { workdir: values.get('workdir')! }),

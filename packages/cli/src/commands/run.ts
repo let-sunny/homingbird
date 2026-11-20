@@ -24,11 +24,19 @@ import {
 import { agentEnvironment } from '../agent-environment.ts'
 import { firstErrorLine, isManagedMcpRefusal } from '../agent-errors.ts'
 import { agentSearchPath, withAgentInstallDirectories } from '../agent-install-directories.ts'
-import { type Launch, type Launches, launchesAsGiven, preparedLaunches } from '../agent-launch.ts'
+import {
+  type Launch,
+  type Launches,
+  isAttachingMcp,
+  launchesAsGiven,
+  preparedLaunches,
+} from '../agent-launch.ts'
+import type { AttachedServer } from '../agent-presets.ts'
 import { isReaderWithSomeTools } from '../agent-presets.ts'
 import { countUsage, presetLabel } from '../analytics.ts'
 import { answeringFlowFor } from '../answering-flow.ts'
 import { antigravityInput, antigravityOutput } from '../antigravity.ts'
+import { credentialPathFor } from '../credentials.ts'
 import { type DebateDesk, answerDebates } from '../debate-runner.ts'
 import {
   DESK_CLAIM_RETRY_MS,
@@ -44,6 +52,7 @@ import { CliFailure, EXIT, failed } from '../failure.ts'
 import { type Outcome, outcome } from '../outcome.ts'
 import { missingPresetCommand } from '../program-paths.ts'
 import { type Session, calling, openSession, requireReadable } from '../session.ts'
+import { CLI_VERSION } from '../version.ts'
 import { authorsOf } from './reading.ts'
 import { REQUESTS_OFF_TEXT, originalOf } from './requests.ts'
 
@@ -55,11 +64,28 @@ export const run = (
     T.gen(function* () {
       const missing = yield* missingCommandOf(settings)
       if (missing !== null) return yield* T.fail(failed(missing))
-      const launches = yield* preparedLaunches(settings)
       const session = yield* openSession
+      const env = yield* T.ask<CliEnv>()
+      const attached = isAttachingMcp(settings, env.platform) ? attachedServer(env, session) : null
+      const launches = yield* preparedLaunches(settings, attached)
       yield* runDesk(session, { ...settings, launches, countsUsage: true }, report)
     }),
   )
+
+/**
+ * The Homingbird MCP server for one agent run: the version that matches this command line, started
+ * by the agent with the runner's own credential file named in its environment, never the token.
+ */
+export const attachedServer = (env: CliEnv, session: Session): AttachedServer => {
+  const serverUrl = session.credential.serverUrl
+  const npx = ['npx', '-y', `@homingbird/mcp@${CLI_VERSION}`, '--server', serverUrl]
+  const [command, ...args] = env.platform === 'win32' ? ['cmd', '/c', ...npx] : npx
+  return {
+    command: command!,
+    args,
+    environment: { HOMINGBIRD_CREDENTIALS_FILE: env.credentialsFile ?? credentialPathFor(env, serverUrl) },
+  }
+}
 
 /** Runs a runner with the agents' Windows install directories on its PATH; elsewhere as it is. */
 export const withAgentDirectories = <A, E>(task: T.Task<A, E, CliEnv>): T.Task<A, E, CliEnv> =>
@@ -88,6 +114,8 @@ export interface RunnerSettings {
   readonly countsUsage?: boolean
   /** The commands as prepared from their presets; without them, the agent and reader run as given. */
   readonly launches?: Launches
+  /** Give the agent command, never the reader, the Homingbird MCP server for its run. */
+  readonly attachMcp?: boolean
 }
 
 export interface SplitMode {
@@ -495,7 +523,7 @@ const outputOf = (
     let finished = yield* launched(runner, launch, prompt)
     const fallback = launch.withoutStrictMcp
     if (finished._tag === 'Ok' && fallback !== null && isManagedMcpRefusal(finished.value)) {
-      yield* warn(MANAGED_MCP_WARNING)
+      yield* warn(role === 'reader' ? MANAGED_MCP_WARNING : MANAGED_MCP_AGENT_WARNING)
       runner.launches = { ...runner.launches, [role]: fallback }
       finished = yield* launched(runner, fallback, prompt)
     }
@@ -515,6 +543,9 @@ const outputOf = (
     if (reply._tag === 'Ok') return reply.value
     return yield* T.as(null)(warn(`The ${role} command ${reply.error}; nothing was drafted for ${what}.`))
   })
+
+export const MANAGED_MCP_AGENT_WARNING =
+  'Claude Code refused --strict-mcp-config because your organization manages its MCP configuration: the agent now runs without the Homingbird MCP server.'
 
 export const MANAGED_MCP_WARNING =
   'Claude Code refused --strict-mcp-config because your organization manages its MCP configuration: the reader now runs without it, with every MCP tool denied.'

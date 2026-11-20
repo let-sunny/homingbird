@@ -11,13 +11,16 @@ import {
 } from '@homingbird/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type Session, type TestServer, asShown, startTestServer } from '../../dovecote/test/harness.ts'
-import { defaultReader, presetNamed, presetReader } from '../src/agent-presets.ts'
+import { ATTACH_NEEDS_PRESET } from '../src/agent-launch.ts'
+import { agentCommand, defaultReader, presetNamed, presetReader } from '../src/agent-presets.ts'
 import {
+  MANAGED_MCP_AGENT_WARNING,
   MANAGED_MCP_WARNING,
   MINIMAL_READER_REFUSED,
   MINIMAL_READER_WARNING,
   SAME_READER_REFUSED,
   SAME_READER_WARNING,
+  attachedServer,
   runnerClient,
 } from '../src/commands/run.ts'
 import {
@@ -29,6 +32,7 @@ import {
 import { PAUSE_CHECK_MS, deskPausePath } from '../src/desk-pause.ts'
 import type { AgentRun } from '../src/environment.ts'
 import { EXIT } from '../src/failure.ts'
+import { CLI_VERSION } from '../src/version.ts'
 import {
   CLIENT,
   DRAFT,
@@ -822,6 +826,57 @@ describe('homingbird run --split', () => {
     expect(said).toContain('The reader command exited with code 1 (Error: credential [withheld] expired)')
     expect(said).not.toContain(AGENT_TOKEN)
     await r.stop()
+  })
+
+  it('attaches the Homingbird MCP server to the agent with --attach-mcp, naming the credential file and never the token', async () => {
+    const r = runner({
+      argv: ['--agent', 'claude', '--attach-mcp'],
+      stubs: { 'inbox.list': () => waitingQuestion },
+    })
+    await settle(() => r.created.length === 1)
+    const [run] = r.w.agentRuns
+    expect(run!.command).toContain(`"HOMINGBIRD_CREDENTIALS_FILE":"${AGENT_FILE}"`)
+    expect(run!.command).toContain(`"@homingbird/mcp@${CLI_VERSION}","--server","${SERVER}"`)
+    expect(run!.command).not.toContain(AGENT_TOKEN)
+    expect(run!.environment).not.toHaveProperty('HOMINGBIRD_CREDENTIALS_FILE')
+    await r.stop()
+  })
+
+  it('runs the agent without the MCP server once a managed MCP configuration refuses it', async () => {
+    const r = runner({
+      argv: ['--agent', 'claude', '--attach-mcp'],
+      stubs: { 'inbox.list': () => waitingQuestion },
+      agent: () =>
+        r.w.agentRuns.at(-1)!.command.includes('--strict-mcp-config')
+          ? {
+              exitCode: 1,
+              output: '',
+              errors: 'You cannot use --strict-mcp-config when an enterprise MCP config is present',
+            }
+          : { exitCode: 0, output: 'Yes.' },
+    })
+    await settle(() => r.created.length === 1)
+    expect(r.w.agentRuns[1]!.command).toBe(agentCommand('claude', 'linux'))
+    expect(r.w.problems).toEqual([MANAGED_MCP_AGENT_WARNING])
+    await r.stop()
+  })
+
+  it('starts the attached server through cmd on Windows, from the credentials file the runner was given', () => {
+    const env = { ...world().env, platform: 'win32', credentialsFile: 'C:\\creds\\agent.json' }
+    const session = { credential: { serverUrl: SERVER, token: AGENT_TOKEN } } as unknown as Parameters<
+      typeof attachedServer
+    >[1]
+    expect(attachedServer(env, session)).toEqual({
+      command: 'cmd',
+      args: ['/c', 'npx', '-y', `@homingbird/mcp@${CLI_VERSION}`, '--server', SERVER],
+      environment: { HOMINGBIRD_CREDENTIALS_FILE: 'C:\\creds\\agent.json' },
+    })
+  })
+
+  it('refuses --attach-mcp for an agent command of one’s own before any note waits', async () => {
+    const r = runner({ argv: ['--attach-mcp'] })
+    expect(await r.exit).toBe(EXIT.failed)
+    expect(r.w.problems).toEqual([ATTACH_NEEDS_PRESET])
   })
 
   it('runs the Codex preset reader with every MCP server Codex lists switched off', async () => {
