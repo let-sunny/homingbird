@@ -150,7 +150,11 @@ const agentPanel = (
         h(
           'ul',
           { class: 'review-cards' },
-          model.cards.map((card) => reviewCard(context, card)),
+          model.cards.map((card) =>
+            reviewCard(context, card, () => {
+              if (card.focused) askedWhatBecameOfFocus = true
+            }),
+          ),
         ),
       )
     }),
@@ -249,7 +253,8 @@ const nameForm = (label: string, value: string, save: (name: string) => void): H
   )
 }
 
-const reviewCard = (context: ViewContext, card: ReviewCard): HTMLElement =>
+/** `decides` runs before the person sends or discards, so their own decision is not told back to them. */
+const reviewCard = (context: ViewContext, card: ReviewCard, decides: () => void): HTMLElement =>
   h(
     'li',
     {
@@ -287,9 +292,21 @@ const reviewCard = (context: ViewContext, card: ReviewCard): HTMLElement =>
       : h(
           'div',
           { class: 'review-actions' },
-          button(card.discard, () => context.actions.discardReview(card.review), { class: 'danger' }),
-          button(card.send, () => context.actions.sendReview(card.review, null, { attempt: 'draft' }), {
-            class: 'primary',
-          }),
+          button(
+            card.discard,
+            () => {
+              decides()
+              context.actions.discardReview(card.review)
+            },
+            { class: 'danger' },
+          ),
+          button(
+            card.send,
+            () => {
+              decides()
+              context.actions.sendReview(card.review, null, { attempt: 'draft' })
+            },
+            { class: 'primary' },
+          ),
         ),
   )

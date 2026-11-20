@@ -92,14 +92,23 @@ describe('browserPage', () => {
 
   it('reads the notifications its service worker shows, and none without one', async () => {
     const close = vi.fn()
-    const registration = { getNotifications: () => Promise.resolve([{ tag: 'review:n1', close }]) }
+    const registration = {
+      getNotifications: () =>
+        Promise.resolve([
+          { tag: 'review:n1', timestamp: 5, close },
+          { tag: 'review:n2', close },
+        ]),
+    }
     const page = browserPage(
       fakeWindow({
         navigator: { languages: [], serviceWorker: { getRegistration: () => Promise.resolve(registration) } },
       }).window,
     )
     const shown = await page.shownNotifications()
-    expect(shown.map((one) => one.tag)).toEqual(['review:n1'])
+    expect(shown.map((one) => [one.tag, one.shownAt])).toEqual([
+      ['review:n1', 5],
+      ['review:n2', null],
+    ])
     shown[0]!.close()
     expect(close).toHaveBeenCalled()
     const unregistered = { getRegistration: () => Promise.resolve(undefined) }

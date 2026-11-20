@@ -9,10 +9,11 @@ import { loadConversations, loadKnownChannels } from './workspace.ts'
 
 /** The answers waiting for this person, read again whenever one changes; none while channel agents are off. */
 export const loadReviews: Action = T.gen(function* () {
-  const { api, state } = yield* T.ask<App>()
+  const { api, state, clock } = yield* T.ask<App>()
   if (!featureOn('channelAgents', state.serverInfo.get())) return
+  const requestedAt = clock.now()
   state.reviews.set((yield* api['reviews.list']({})).reviews)
-  yield* closeSettledReviewNotices
+  yield* closeSettledReviewNotices(requestedAt)
 })
 
 /**

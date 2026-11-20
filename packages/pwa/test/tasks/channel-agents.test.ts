@@ -29,10 +29,10 @@ describe('the channel agent tasks', () => {
     await run(tasks.loadReviews)
     expect(routes()).toEqual([])
     state.serverInfo.set(everything())
-    page.notifications.add(`review:${review().note.id}`).add('review:note_sent000000')
+    page.notifications.set(`review:${review().note.id}`, 0).set('review:note_sent000000', 0)
     await run(tasks.loadReviews)
     expect(state.reviews.get()).toEqual([review()])
-    expect([...page.notifications]).toEqual([`review:${review().note.id}`])
+    expect([...page.notifications.keys()]).toEqual([`review:${review().note.id}`])
     expect(state.reviewsRead.get().get(review().note.id)).toEqual({
       body: review().note.body,
       conversationId: review().note.conversationId,

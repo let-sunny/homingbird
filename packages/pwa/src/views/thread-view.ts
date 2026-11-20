@@ -13,6 +13,7 @@ import {
   archiveDiscardLines,
   noteIn,
   roomOf,
+  settledDraftLine,
   threadHeadModel,
   threadTopModel,
 } from '../models/thread-room.ts'
@@ -133,6 +134,10 @@ export const threadView = (
       if (top.kind === 'older')
         return button(top.label, () => actions.loadOlderNotes(id), { class: 'load-older' })
       return top.kind === 'empty' && emptyWithPip('waving', top.text)
+    }),
+    region(life, [state.threads], () => {
+      const settled = settledDraftLine(input())
+      return settled !== null && h('p', { class: 'hint settled-draft', role: 'status' }, settled)
     }),
     list,
     region(life, [state.archiveDiscards], () =>

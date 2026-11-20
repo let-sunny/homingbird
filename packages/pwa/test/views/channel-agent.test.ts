@@ -198,6 +198,17 @@ describe('the answer a stale notification opened', () => {
     expect(textOf(shown)).toContain(strings.channelAgent.decided.gone)
   })
 
+  it('tells nothing back to the person who sent or discarded the card themself', () => {
+    for (const choice of [strings.channelAgent.send, strings.channelAgent.discard]) {
+      const { context, called, shown } = openedFor('note_answer00000')
+      context.state.reviews.set([review()])
+      called('loadReviews')[0]!.then!.done!(undefined)
+      getByRole(shown, 'button', { name: choice }).click()
+      context.state.reviews.set([])
+      expect(called('loadDecidedAnswer')).toHaveLength(0)
+    }
+  })
+
   it('asks nothing when no notification opened the page', () => {
     const { context, called } = testContext()
     context.state.serverInfo.set(everything())

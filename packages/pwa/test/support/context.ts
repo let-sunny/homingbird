@@ -72,7 +72,7 @@ export const fakePage = (hash = '#/') => {
   }> = []
   const visited: string[] = []
   const downloads: Array<{ readonly filename: string }> = []
-  const notifications = new Set<string>()
+  const notifications = new Map<string, number | null>()
   const state = { hash, visible: true, reducedMotion: true, anchors: false, hint: true, push: false }
   const page: Page = {
     origin: 'http://localhost',
@@ -104,7 +104,11 @@ export const fakePage = (hash = '#/') => {
     supportsHintPopovers: () => state.hint,
     shownNotifications: () =>
       Promise.resolve(
-        [...notifications].map((tag) => ({ tag, close: () => void notifications.delete(tag) })),
+        [...notifications].map(([tag, shownAt]) => ({
+          tag,
+          shownAt,
+          close: () => void notifications.delete(tag),
+        })),
       ),
     storage: {
       local: (key) => local.get(key) ?? null,

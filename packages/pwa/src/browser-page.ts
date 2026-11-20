@@ -34,7 +34,13 @@ export const browserPage = (window: BrowserWindow): Page => {
       Promise.resolve()
         .then(() => window.navigator?.serviceWorker?.getRegistration?.())
         .then((registration) => registration?.getNotifications() ?? [])
-        .then((shown) => shown.map((one) => ({ tag: one.tag, close: () => one.close() })))
+        .then((shown) =>
+          shown.map((one) => ({
+            tag: one.tag,
+            shownAt: typeof one.timestamp === 'number' ? one.timestamp : null,
+            close: () => one.close(),
+          })),
+        )
         .catch(() => []),
     supportsHintPopovers: () => {
       const probe = document.createElement('div')
@@ -110,6 +116,8 @@ export interface Page {
 
 export interface ShownNotification {
   readonly tag: string
+  /** When the notification appeared, where the browser says. */
+  readonly shownAt: number | null
   readonly close: () => void
 }
 
@@ -168,7 +176,9 @@ export interface BrowserWindow {
 
 /** A service worker registration, as far as the page reads the notifications it shows. */
 export interface NotificationSource {
-  readonly getNotifications: () => Promise<ReadonlyArray<Pick<Notification, 'tag' | 'close'>>>
+  readonly getNotifications: () => Promise<
+    ReadonlyArray<{ readonly tag: string; readonly timestamp?: number; readonly close: () => void }>
+  >
 }
 
 /** Share of an item that must show for it to count as in view. */

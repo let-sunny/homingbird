@@ -311,6 +311,7 @@ export const en = {
   moveMembersTo: 'Move its members to another channel',
   moveMembersInto: 'Channel to move them to',
   draftDiscardedByArchive: 'Your draft in {channel} was discarded because the channel was archived.',
+  draftAlreadySettled: 'This draft was already sent or discarded.',
   allowedDomains: 'Allowed email domains',
   allowedDomainsHint: 'One per line. Only these domains can sign in.',
   contactMode: 'Who can message whom',
@@ -1271,7 +1272,7 @@ export const en = {
     decided: {
       sentBy: '{name} already sent this answer.',
       sentByYou: 'You already sent this answer.',
-      gone: 'This answer no longer waits for your review: it was discarded, or is no longer yours to decide.',
+      gone: 'This answer no longer waits for you.',
     },
     reviewsWaiting: {
       one: '{count} answer is waiting for you',
