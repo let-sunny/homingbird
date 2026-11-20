@@ -18,6 +18,7 @@ import {
   conversationTitle,
   draftDestination,
   excerpt,
+  groupWith,
   isArchived,
   isOpenQuestion,
   isUnreadBy,
@@ -237,6 +238,25 @@ describe('conversation titles', () => {
     const group = conversation({ kind: 'group', participantIds: [ana, june, cy] })
     expect(conversationTitle(group, members, ana, 'Former member')).toBe('June, Former member')
     expect(conversationTitle({ ...group, title: 'Billing' }, members, ana, 'x')).toBe('Billing')
+  })
+
+  it('finds the open group of exactly the viewer and the people chosen, in any order', () => {
+    const group = conversation({
+      id: 'conv_group0000000' as never,
+      kind: 'group',
+      participantIds: [cy, ana, june],
+    })
+    const rooms = [
+      conversation({ participantIds: [ana, june] }),
+      conversation({ kind: 'group', participantIds: [ana, june, cy, 'mem_dee000000000' as MemberId] }),
+      conversation({ kind: 'channel', participantIds: [ana, june, cy] }),
+      conversation({ kind: 'group', participantIds: [ana, june, cy], archivedAt: 5 }),
+      conversation({ kind: 'group', participantIds: [ana, june, 'mem_dee000000000' as MemberId] }),
+      group,
+    ]
+    expect(groupWith(rooms, ana, [june, cy])).toBe(group)
+    expect(groupWith(rooms, ana, [cy, june, ana])).toBe(group)
+    expect(groupWith(rooms.slice(0, -1), ana, [june, cy])).toBeUndefined()
   })
 
   it('shows a channel room as a hashtag, even with a single participant', () => {

@@ -5,14 +5,20 @@ import { hrefFor } from '../routes.ts'
 import { loadPeople } from './workspace.ts'
 
 /** Opens the direct conversation with a member, starting it when there is none yet. */
-export const openConversationWith = (memberId: MemberId): Action =>
+export const openConversationWith = (memberId: MemberId): Action => openConversationAmong([memberId])
+
+/**
+ * Starts a conversation with everyone chosen and opens it; with one person it is the direct
+ * conversation. Nothing is sent: the first note is drafted and approved there like any other.
+ */
+export const openConversationAmong = (memberIds: ReadonlyArray<MemberId>): Action =>
   withApp(({ api, state, page }) =>
     T.map((conversation: AsRead.Conversation) => {
       state.conversations.update((list) =>
         list.some((c) => c.id === conversation.id) ? list : [conversation, ...list],
       )
       page.go(hrefFor({ name: 'conversation', id: conversation.id }))
-    })(api['conversations.create']({ body: { participantIds: [memberId] } })),
+    })(api['conversations.create']({ body: { participantIds: [...memberIds] } })),
   )
 
 export const requestContact = (memberId: MemberId): Action =>
