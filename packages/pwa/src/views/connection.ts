@@ -1,9 +1,11 @@
 import type { AsRead } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, region, signal } from '@homingbird/ui'
+import { featureOn } from '../features.ts'
 import { type ConnectionModel, type CredentialRow, connectionModel } from '../models/connection.ts'
 import { serviceBannerModel } from '../models/service-banner.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
+import { cloudDeskSection } from './cloud-desk.ts'
 import type { ViewContext } from './context.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
 import { channelChips, field, loading, presenceBadges } from './parts.ts'
@@ -59,6 +61,7 @@ export const connectionSection = (context: ViewContext, life: Lifetime, me: AsRe
       region(life, [state.channels, state.directory], () => renderHelped(model())),
       h('a', { class: 'button', href: hrefFor({ name: 'channels' }) }, strings.browseChannels),
     ),
+    featureOn('cloudDesk', state.serverInfo.get()) && cloudDeskSection(context, life, credentials),
     h('details', { class: 'have-a-code' }, h('summary', {}, strings.codeFallback), codeForm(context)),
     h('p', { class: 'hint not-set-up' }, strings.notSetUp),
   )

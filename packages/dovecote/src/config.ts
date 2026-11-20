@@ -44,6 +44,10 @@ export interface Config {
     readonly clientMetadataHosts: ReadonlyArray<string>
     readonly clients: ReadonlyArray<RegisteredClient>
   }
+  /** The key that seals cloud desk wakes; the cloud desk is offered only with one. Never logged or shown. */
+  readonly secretsKey: Buffer | null
+  /** The hosts a cloud desk's wake may call, each matched exactly. */
+  readonly wakeHosts: ReadonlyArray<string>
 }
 
 export const loadConfig = (
@@ -58,6 +62,8 @@ export const loadConfig = (
   const clientMetadataHosts = hostListOf(v.HB_OAUTH_CLIENT_METADATA_HOSTS, DEFAULT_CLIENT_METADATA_HOSTS)
   const clients = parseConfiguredClients(v.HB_OAUTH_CLIENTS)
   const features = featureSwitchesFrom(v.HB_FEATURES ?? '')
+  const wakeHosts = hostListOf(v.HB_WAKE_HOSTS, DEFAULT_WAKE_HOSTS)
+  const secretsKey = v.HB_SECRETS_KEY === undefined ? null : secretsKeyOf(v.HB_SECRETS_KEY)
   const logs = logSettingsFrom(v.HB_LOGS ?? '', v.HB_AUDIT_STDOUT === '1')
   const analytics = analyticsDestinationOf(v.HB_ANALYTICS ?? 'off', v.HB_ANALYTICS_URL, v.HB_ANALYTICS_KEY)
   const problems = [
@@ -81,6 +87,12 @@ export const loadConfig = (
         (host) =>
           `HB_OAUTH_CLIENT_METADATA_HOSTS: "${host}" must be a public host name, not an address or loopback`,
       ),
+    secretsKey === 'malformed'
+      ? 'HB_SECRETS_KEY: must be 32 random bytes in base64, such as the output of `openssl rand -base64 32`'
+      : null,
+    ...wakeHosts
+      .filter((host) => !isFetchableHostName(host))
+      .map((host) => `HB_WAKE_HOSTS: "${host}" must be a public host name, not an address or loopback`),
     ...features.unknown.map(
       (item) => `HB_FEATURES: "${item}" is not a feature switch; write name=on or name=off with a known name`,
     ),
@@ -88,7 +100,12 @@ export const loadConfig = (
     ...logs.problems,
     ...(typeof analytics === 'string' ? [analytics] : []),
   ].filter((problem): problem is string => problem !== null)
-  if (problems.length > 0 || clients._tag === 'Err' || typeof analytics === 'string')
+  if (
+    problems.length > 0 ||
+    clients._tag === 'Err' ||
+    typeof analytics === 'string' ||
+    secretsKey === 'malformed'
+  )
     return Result.err(problems)
   return Result.ok({
     publicUrl: v.HB_PUBLIC_URL.replace(/\/+$/, ''),
@@ -128,6 +145,8 @@ export const loadConfig = (
       minimumGroupSize: Number(v.HB_INSIGHTS_MINIMUM_GROUP ?? String(DEFAULT_MINIMUM_GROUP)),
     },
     oauth: { redirectHosts, clientMetadataHosts, clients: clients.value },
+    secretsKey,
+    wakeHosts,
   })
 }
 
@@ -178,6 +197,8 @@ const Variables = S.struct({
   HB_OAUTH_CLIENT_METADATA_HOSTS: S.optional(S.string()),
   HB_OAUTH_CLIENTS: S.optional(S.string()),
   HB_FEATURES: S.optional(S.string()),
+  HB_SECRETS_KEY: S.optional(S.string({ maxLength: 200 })),
+  HB_WAKE_HOSTS: S.optional(S.string()),
 })
 
 const HOST_NAME = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/
@@ -205,6 +226,16 @@ const commaList = (value: string | undefined): string[] =>
 
 const hostListOf = (value: string | undefined, defaults: ReadonlyArray<string>): ReadonlyArray<string> =>
   value === undefined ? defaults : value.trim().toLowerCase() === 'none' ? [] : commaList(value)
+
+const DEFAULT_WAKE_HOSTS = ['api.anthropic.com']
+
+const secretsKeyOf = (text: string): Buffer | 'malformed' => {
+  if (!/^[A-Za-z0-9+/_-]{43}=?$/.test(text)) return 'malformed'
+  const key = Buffer.from(text.replace(/-/g, '+').replace(/_/g, '/'), 'base64')
+  return key.length === SECRETS_KEY_BYTES ? key : 'malformed'
+}
+
+const SECRETS_KEY_BYTES = 32
 
 const isLoopback = (url: string): boolean =>
   /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?(\/|$)/.test(url)

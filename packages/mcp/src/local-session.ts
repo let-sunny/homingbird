@@ -13,7 +13,7 @@ import { type Clock, Stream, Task as T } from '@homingbird/kernel'
 import { type AsRead, UPGRADE_SENTENCES, isFeatureOffered } from '@homingbird/protocol'
 import { ONE_DESK } from './answering.ts'
 import type { OpenInBrowser } from './browser-opener.ts'
-import { readCredential, removeCredential, storeCredential } from './credential-file.ts'
+import { readCredential, readRunnerCredential, removeCredential, storeCredential } from './credential-file.ts'
 
 export type SessionState =
   | { readonly kind: 'signed_out'; readonly note: string | null }
@@ -24,6 +24,11 @@ export interface LocalSessionOptions {
   readonly serverUrl: string
   readonly clientName: string
   readonly credentialPath: string
+  /**
+   * The runner's own agent credential file, when a runner started this server for one agent run: the
+   * session signs in with it only, and never signs in, out or removes anything itself.
+   */
+  readonly runnerCredentialPath?: string | null
   readonly scope: T.Scope
   readonly clock: Clock
   readonly fetch?: Fetch
@@ -63,6 +68,8 @@ export const ANALYTICS_NOTICE =
   'This Homingbird server counts anonymous usage from the web client and the command line, never notes, names or email addresses; this MCP adapter sends none. People turn it off with `homingbird analytics off` or DO_NOT_TRACK=1.'
 
 export const makeLocalSession = (options: LocalSessionOptions): LocalSession => {
+  const runnerCredential = options.runnerCredentialPath ?? null
+  if (runnerCredential !== null) return runnersSession(options, runnerCredential)
   const { serverUrl, credentialPath, scope, clock } = options
   const fetching = options.fetch !== undefined ? { fetch: options.fetch } : {}
   const flow: DeviceFlowOptions = {
@@ -222,6 +229,45 @@ export const makeLocalSession = (options: LocalSessionOptions): LocalSession => 
     }),
   }
 }
+
+/**
+ * A session on the runner's credential, for the one agent run that started this server: it reads the
+ * file once, and says so instead of signing in or out.
+ */
+const runnersSession = (options: LocalSessionOptions, path: string): LocalSession => {
+  const { serverUrl } = options
+  const fetching = options.fetch !== undefined ? { fetch: options.fetch } : {}
+  let token: string | null = null
+  let refused = false
+  const signedOutText = () =>
+    `Not signed in to ${serverUrl}: ${refused ? 'the server no longer accepts' : 'this server could not read'} the runner’s credential in ${path}. Sign in again with homingbird login.`
+  return {
+    state: () => (token === null ? { kind: 'signed_out', note: null } : { kind: 'signed_in' }),
+    token: () => token,
+    protocolProblem: () => null,
+    credentialWasRefused: () => {
+      token = null
+      refused = true
+    },
+    restore: T.map((read: string | null) => void (token = read))(readRunnerCredential(path, serverUrl)),
+    login: T.succeed(RUNNERS_CREDENTIAL),
+    logout: T.succeed(RUNNERS_CREDENTIAL),
+    status: T.gen(function* () {
+      if (token === null) return signedOutText()
+      const me = yield* T.result(httpApi({ serverUrl, token: () => token, ...fetching })['me.get']({}))
+      if (me._tag === 'Ok')
+        return `Signed in to ${serverUrl} as ${me.value.member.name} <${me.value.member.email}>, with the runner’s credential "${me.value.credential.name}".`
+      if (me.error._tag !== 'Unauthorized')
+        return `Signed in to ${serverUrl}, but it cannot be reached right now.`
+      token = null
+      refused = true
+      return signedOutText()
+    }),
+  }
+}
+
+export const RUNNERS_CREDENTIAL =
+  'This Homingbird server was started by homingbird run for one agent run, with the runner’s own credential: there is nothing to sign in or out of here.'
 
 export const REVOKED_AND_REMOVED =
   'Signed out of Homingbird. The server revoked the credential, and it was removed from this device.'

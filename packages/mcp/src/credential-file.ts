@@ -13,6 +13,22 @@ export const credentialFilePath = (
 ): string =>
   join(environment.XDG_CONFIG_HOME || join(homeDirectory, '.config'), 'homingbird', 'mcp-credentials.json')
 
+/**
+ * The agent credential a runner signed in with, in the file `homingbird login` writes, for one server:
+ * read only, never written or removed here. Null when the file is missing, unreadable or for another
+ * server.
+ */
+export const readRunnerCredential = (path: string, serverUrl: string): T.Task<string | null> =>
+  T.catchAll(() => T.succeed(null))(
+    T.gen(function* () {
+      const text = yield* T.tryPromise(() => readFile(path, 'utf8'), unreadable)
+      const parsed = yield* T.attempt((): unknown => JSON.parse(text), unreadable)
+      const decoded = RunnerCredential.decode(parsed)
+      if (decoded._tag === 'Err') return null
+      return sameServer(decoded.value.serverUrl, serverUrl) ? decoded.value.token : null
+    }),
+  )
+
 export const readCredential = (path: string, serverUrl: string): T.Task<StoredCredential | null> =>
   T.map((all: Readonly<Record<string, StoredCredential>>) => all[serverUrl] ?? null)(readAll(path))
 
@@ -52,3 +68,10 @@ const readAll = (path: string): T.Task<Readonly<Record<string, StoredCredential>
   )
 
 const unreadable = () => 'unreadable' as const
+
+const RunnerCredential = S.struct({
+  serverUrl: S.string({ pattern: /^https?:\/\// }),
+  token: S.string({ minLength: 1 }),
+})
+
+const sameServer = (a: string, b: string): boolean => a.replace(/\/+$/, '') === b.replace(/\/+$/, '')

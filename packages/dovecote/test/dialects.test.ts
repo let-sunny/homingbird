@@ -227,7 +227,7 @@ describe.each(DIALECTS)('Dovecote on %s', (_, url) => {
   it.skipIf(url === undefined)('migrates twice without changing anything', async () => {
     await T.runPromise(migrate, server.env)
     const versions = await storedRows(server, 'schema_versions')
-    expect(versions.map((row) => Number(row.version)).sort((a, b) => a - b)).toEqual(
+    expect(versions.map((row) => Number(row.version)).sort((left, right) => left - right)).toEqual(
       versions.map((_, index) => index + 1),
     )
   })

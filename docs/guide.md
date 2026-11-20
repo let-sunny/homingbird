@@ -141,6 +141,37 @@ sudo -iu homingbird-desk homingbird login --server https://homingbird.example.co
 sudo -iu homingbird-desk homingbird run --agent "codex exec"
 ```
 
+### Agent presets
+
+`--agent claude`, `--agent codex`, `--agent antigravity` and `--agent gemini` stand for tested command
+lines; `homingbird presets` prints them for this computer, with the version installed here. Before the
+first note the runner asks each preset's program for its `--version` and refuses one older than the
+preset works with, saying how to upgrade it. Any other `--agent` value runs exactly as written, without
+any of the preparation below.
+
+| Preset | What the runner adds | Reader for `--split` | Checked against the real CLI | Still assumed |
+| --- | --- | --- | --- | --- |
+| `claude` (Claude Code 2.1.259 or later) | `--permission-prompts none`, so a tool that needs approval is denied instead of waiting; `--settings '{"disableAllHooks":true}'`, so your hooks never run inside the runner | `--tools ''` and `--strict-mcp-config`: no tools and no MCP servers. Where your organization manages Claude Code's MCP configuration, Claude Code refuses `--strict-mcp-config`; the runner then runs the reader once more without it, with `--disallowedTools 'mcp__*'`, and keeps that for the rest of the run | Run with 2.1.327; every option seen in `claude --help` of 2.1.329 | The wording of the managed-configuration refusal, taken from another project's handling of it |
+| `codex` | `--ephemeral`, `--sandbox workspace-write` | Read-only sandbox, `--ignore-user-config`, plugins, apps, web search, shell and image tools off; before it starts the runner asks `codex mcp list --json` and switches off each server listed. Some tools remain | Nothing: Codex CLI was not installed where this was written | Every option; the reader refuses to start when the server list cannot be read |
+| `antigravity` (agy 1.1.15 or later) | `--print=` with stream-json in and out, `--sandbox`, and `AGY_CLI_DISABLE_AUTO_UPDATE=true`; before the first note, `agy -p /usage` with a 20-second limit checks it is signed in | `--settings` that denies writing, commands, MCP, reading and running URLs, and reading files; used only when `agy --help` lists `--settings`. Marked as keeping some tools, since a tool agy adds later would not be on the list | Nothing: agy was not installed where this was written | Every option and the stream format |
+| `gemini` | `-p ''`, `--approval-mode default`, text output | None known | Nothing | Every option; a failed run says only its exit code |
+
+`homingbird run --attach-mcp` also gives the agent, never the reader, the Homingbird MCP server for
+each run, so it can look up people and channels while drafting: Claude Code through an inline
+`--mcp-config` with `--strict-mcp-config`, Codex through one `-c mcp_servers.homingbird=…` table. No
+configuration file of yours is read or written. The server is the `@homingbird/mcp` installed beside
+the command line, run by the same Node, or else `npx -y @homingbird/mcp@<this version>`, signed in
+with the runner's own agent credential file, whose path it gets in its environment; the token
+never appears on a command line. It offers no `skip_note` or `wait_for_notes`, since the runner picks
+notes up and gives them back, and on Windows a server address or path holding `% & ^ | < >` is refused,
+as cmd.exe would read it. It is off unless you ask, until it has run with the real agents, and
+Antigravity and Gemini have no known way to take a server for one run.
+
+A runner started from inside Claude Code or Codex, such as a desk an MCP client runs, does not pass
+that session's own variables (`CLAUDECODE`, every `CLAUDE_CODE_` variable but the few you set yourself,
+such as `CLAUDE_CODE_USE_BEDROCK`, `CODEX_THREAD_ID` and the like) to the agent command, so each agent
+run is a session of its own.
+
 ### Keep the drafting agent away from the note's wording (split mode)
 
 A colleague's note may hide an instruction meant for your agent, such as "ignore previous instructions
@@ -150,17 +181,20 @@ topic, what it asks, the facts needed, a deadline, the language), and the agent 
 description and never the note's text.
 
 ```sh
-homingbird run --agent "claude -p" --split --reader "claude -p --tools '' --strict-mcp-config"
+homingbird run --agent claude --split
 ```
 
 In an MCP client, add `"--split", "--reader", "claude -p --tools '' --strict-mcp-config"` after
 `--run-agent` and its command.
 
 - **Give the reader no tools.** Homingbird cannot take tools away from a command. For Claude Code,
-  `--tools ''` turns off its built-in tools and `--strict-mcp-config` loads no MCP servers. For Codex,
-  Gemini CLI and others, use their own options; we have not verified any. Without `--reader`, the reader
+  `--tools ''` turns off its built-in tools and `--strict-mcp-config` loads no MCP servers. The `codex`
+  and `antigravity` presets bring readers with as few tools as those agents allow, not none, and the
+  runner says so; see [Agent presets](#agent-presets). Without `--reader`, the reader
   is your agent command, with all its tools, and the runner warns; add `--require-toolless-reader` to
   have it refuse to start then.
+- **No MCP server for the drafting agent.** `--attach-mcp` is refused with `--split`: the server's tools
+  would let the agent read the note itself.
 - **What you see.** Drafts say "Drafted from the extracted question (split mode)" in their basis. A
   note the reader cannot describe in the fixed form is given back, and you see why: "could not read the
   note safely".
@@ -242,7 +276,39 @@ absolute path.
 Add a custom connector with the URL `https://homingbird.example.com/mcp` (the address including
 `/mcp`), then sign in and consent when asked. A web connector cannot be woken by an arriving note, so
 turn on [phone notifications](#turn-on-phone-notifications) and say "check Homingbird" in the chat you
-picked.
+picked, or let Homingbird [wake a cloud desk](#wake-a-cloud-desk).
+
+### Wake a cloud desk
+
+Experimental, and only where your administrator turned it on. A cloud desk runs in a cloud agent
+service instead of on your computer. When a note, a draft request or a debate room waits for your agent
+and no desk of yours is online, Homingbird calls an address you give it. The call carries no note and no
+name, only that work waits; the woken session reads everything through the Homingbird connector, and
+every draft still waits for you.
+
+1. In the cloud service, connect the Homingbird connector (the URL ending in `/mcp`) and sign in, so the
+   session has an agent connection of its own.
+2. Make a task the service can start over HTTP. For a Claude routine, add an API trigger and copy its
+   URL and token. Save the prompt Homingbird shows as the routine's prompt: it tells the woken session to
+   check its inbox and debate rooms through the connector, draft what it can, and stop.
+3. Open **My agent → Connection → Cloud desk**, choose the preset, the agent connection the session
+   uses, the address and the token, and save. **Send a test wake** to check it; it starts a real
+   session.
+
+Homingbird gathers work that arrives close together into one wake, wakes at most every five minutes,
+and waits while your agent is online or has just been active. Each wake starts a new session at the
+service, which may count against its limits or cost money. The token is kept encrypted, used only to
+wake, never shown again, and deleted when you press **Remove**. If the service refuses the wake, the
+connection you chose is revoked, or five wakes in a row fail, Homingbird stops waking it, tells you on
+your devices and shows why under Connection; save it again to start. The Claude routine preset is not
+yet tested with the real service.
+
+A woken desk takes a few minutes to start, so in debate rooms it takes part in choose a grace of 10 or
+30 minutes; while a room asks your agent for a turn or a vote, Homingbird wakes it again two minutes
+before the grace runs out. A short grace opens a paid session as often as every three minutes.
+
+You can **Remove** a saved wake, and its token, even after your administrator turned the cloud desk off
+(through the API route `me.deskWake.remove`; the page hides the section while the feature is off).
 
 ## Ask a person
 

@@ -1061,6 +1061,42 @@ command through the injected process service.
   after a run with the real agent, and "not yet tested with the real CLI" when written from the tool's source code.
   A reader that keeps some tools, as Codex's does, is marked so and never passes
   `--require-toolless-reader`.
+- **A preset is prepared before the first note, by asking its program.** A preset command is a list
+  of words, quoted for sh or cmd.exe when it runs. Before the runner starts it asks the program for
+  its `--version` and refuses one older than the preset's minimum, with the upgrade command; it runs
+  each probe the preset declares through the process service, with the environment and PATH an agent
+  command would get, through cmd.exe only for a Windows batch file such as npm's `codex.cmd`, with a
+  time limit and stopped when the runner is, and what that prints
+  shapes the command (Codex's reader switches off each server `codex mcp list --json` names, one
+  `-c mcp_servers."<name>".enabled=false` each, so the rest of its entry stays) or
+  refuses it (an `agy --help` without `--settings`); Antigravity is asked first whether it is signed
+  in. A probe that fails stops the runner instead of starting a weaker command. Commands of one's own
+  are never probed. `verifiedWith` still means a run with the real agent; `optionsSeenIn` only records
+  whose `--help` listed every option.
+- **One retry, for one known refusal.** Claude Code refuses `--strict-mcp-config` under an
+  organization's managed MCP configuration. Only that sentence, in the error output of a failed run,
+  makes the runner run the reader again without it and with every MCP tool denied, or the agent
+  without its attached server, and keep that for the rest of the run, both runs within the one time
+  limit. No other failure is retried.
+- **One line of an agent's error output reaches the log.** The runner reads an agent command's error
+  output to recognise that refusal and to say why a run failed: its first line, at most 160
+  characters, without control characters and with the token and the credentials file's path
+  withheld, also in the service log. An agent could put its prompt there, which the log would then
+  carry in part; the alternative was a log that never says why every note failed.
+- **The MCP server is attached for one run, with the runner's credential file.** With
+  `--attach-mcp`, Claude Code gets the server as inline `--mcp-config` with `--strict-mcp-config`,
+  Codex as one `-c` table, and the person's configuration files stay untouched, as the service
+  writes nothing system-wide. The server, `@homingbird/mcp` at the command line's own version, reads
+  the agent credential from the file whose path is in `HOMINGBIRD_CREDENTIALS_FILE`, read only: the
+  agent command could already read that file, and the token itself never enters an environment or a
+  command line. Such a server takes no `--run-agent`, `--desk` or `--channel`. Attaching is off by
+  default until it has run with each real agent.
+- **An agent command is not part of the session that started the runner.** The variables by which
+  Claude Code and Codex mark their own children are removed from its environment, compared in
+  capitals as Windows reads names: every `CLAUDE_CODE_`, `CLAUDE_AGENT_SDK_` and `CLAUDE_PREVIEW_`
+  variable except the few a person sets themself (`CLAUDE_CODE_OAUTH_TOKEN`, `CLAUDE_CODE_USE_BEDROCK`,
+  `CLAUDE_CODE_USE_VERTEX`, `CLAUDE_CODE_GIT_BASH_PATH`, `CLAUDE_CODE_MAX_OUTPUT_TOKENS`,
+  `CLAUDE_CODE_SKIP_BEDROCK_AUTH`, `CLAUDE_CODE_SKIP_VERTEX_AUTH`), and Codex's session variables.
 - **Pausing is a file beside the desk claim.** `homingbird desk pause` writes
   `desks/<server>~<member>.paused`; every runner on the computer, CLI and MCP-hosted, checks it before
   each note and request and keeps its claim while paused, so pausing never hands the desk to another
@@ -1090,3 +1126,56 @@ again." without sending; the web client reads the thread again and says the draf
   and since the page cannot tell an agent from the person's other device, the words name no one.
 - **An editor whose draft moved holds Send and Save** until the person confirms the new destination,
   which it shows; their edit stays in place.
+
+## A cloud desk is woken by a content-free call to an address its person saved
+
+A desk can run in a cloud agent service instead of on the person's computer. Such a session cannot hold
+an event stream, so Dovecote calls an address the person registered when work waits for their agent. It
+is experimental, behind `cloudDesk`, off by default, and offered only when `HB_SECRETS_KEY` is set.
+
+- **The call says nothing but that work waits.** Its body is fixed, `{"text":"Homingbird: work is
+  waiting at <HB_PUBLIC_URL>."}`; no note, name or count. The woken session reads everything through the
+  Homingbird connector, as any desk does, and its notes still reach it through `wrapNote` (Rule 4). The
+  routine's saved prompt holds the instructions, because a service passes the text it is woken with to
+  the model as untrusted data.
+- **The token is the one secret Dovecote must use, so it is sealed, not hashed** (Rule 5's exception).
+  AES-256-GCM under `HB_SECRETS_KEY`, from `node:crypto`, with the member id as associated data so a
+  sealed value copied to another person's row does not open. It is used only in the wake request, never
+  shown again (reading the wake back gives the host and header names only), replaced in full on every
+  save, and deleted when the person removes the wake or is deactivated. There is no rotation tool yet:
+  a changed key makes every wake read as "set up again". The host stays in the clear to show it and to
+  audit it.
+- **Only addresses the operator allowed.** https, the default port, no user name or fragment, a public
+  host name that matches `HB_WAKE_HOSTS` exactly (`api.anthropic.com` by default, no subdomains). A
+  redirect is a failure, never followed, so the token goes only where the person sent it. The answer's
+  body is cancelled unread. Up to four headers; the ones the server sets or proxies read are refused.
+- **When to wake.** A pass every 15 seconds, fed by the same deliveries as push and by every enabled
+  wake at start. It wakes only when no agent of the person holds an event stream, the bound credential
+  has been silent for two minutes, and work really waits for it, asked as that credential: a fresh note,
+  an open draft request, or a debate room's ask or ballot. Work is gathered for 30 seconds and woken at
+  most every five minutes. While a wake waits for its desk to use the credential, nothing else is sent.
+- **Every successful wake starts a new paid session**, and the service has no idempotency. So a timeout
+  counts as sent and is not retried at once; refusals (400, 401, 403, 404) stop the wake; 429 waits for
+  Retry-After, up to an hour; anything else waits 5, 15, then 60 minutes; a desk that does not use its
+  credential within ten minutes counts as a failure; five in a row stop it. A stop is audited and told to
+  the person by push and on My agent → Connection.
+- **Debate rooms.** A room the bound credential opted into is woken two minutes before its grace would
+  drop the agent out, at least three minutes apart, but only while the room still asks that agent for a
+  turn or a vote: a wake only to stay counted would open a paid session for nothing. The web client
+  recommends a 10 or 30 minute grace.
+- **Removing a wake works with the feature off or without the key.** `me.deskWake.remove` is the one
+  cloud desk route outside the feature switch, an exception to "a switched-off feature answers 404", so
+  that a person can always delete their token (Rule 5). Turning the feature off deletes nothing: a
+  deployment that lost its key would otherwise wipe everyone's setup without a word.
+- **A late answer cannot change a newer setup.** Every write after a wake request matches the sealed
+  value it read; a fresh nonce makes each save's value new, so a wake replaced or removed while a request
+  was out is not stopped, audited or announced by that request.
+- **The bound credential is served as a desk on `/mcp`**, so a woken connector session picks up what
+  waits instead of only listing it. Revoking or letting it expire stops the wake (`credential_gone`).
+- **The candidates are in memory**, like presence, which fits the one instance Dovecote supports.
+- **Presets are web client data, not server code.** The Claude routine's API trigger comes first, with
+  the `anthropic-version` and `anthropic-beta` headers its documentation names, marked as not yet tested
+  with the real service, then a generic "POST this address with these headers". Both
+  show the prompt to save in the woken task. Only `member` routes are reachable by the woken session; the
+  four wake routes are `human` (Rule 3), and the audit keeps `desk_wake.registered`, `removed` and
+  `stopped` with the host only. Each wake goes to the operational log as `desk_wake.fired`.

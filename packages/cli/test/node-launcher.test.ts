@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
+  AGENT_ERRORS_MAX_BYTES,
   AGENT_OUTPUT_MAX_BYTES,
   type Spawn,
   nodeLauncher,
@@ -67,12 +68,14 @@ describe('nodeLauncher', () => {
     ).toEqual({
       exitCode: 0,
       output: 'Draft a reply.\nThanks',
+      errors: '',
     })
     expect(
       await launcher.runAgent(`${NODE} -e "process.exit(3)"`, '', PATH_ONLY, new AbortController().signal),
     ).toEqual({
       exitCode: 3,
       output: '',
+      errors: '',
     })
   })
 
@@ -100,28 +103,46 @@ describe('nodeLauncher', () => {
       handed,
       new AbortController().signal,
     )
-    expect(ran).toEqual({ exitCode: 0, output: 'ok' })
+    expect(ran).toEqual({ exitCode: 0, output: 'ok', errors: '' })
     expect(started).toEqual([{ command: 'codex exec', args: [], env: handed }])
   })
 
-  it('discards the agent’s own error output for the background service, and passes it on otherwise', async () => {
-    const seen: unknown[] = []
+  it('keeps the agent’s own error output for the runner, and passes it on only outside the service', async () => {
     const start: Spawn = (_command, _args, options) => {
-      seen.push((options.stdio as unknown[])[2])
+      expect((options.stdio as unknown[])[2]).toBe('pipe')
+      const stderr = new EventEmitter()
       const child = Object.assign(new EventEmitter(), {
         stdout: new EventEmitter(),
-        stdin: { on: () => {}, end: () => queueMicrotask(() => child.emit('close', 0)) },
+        stderr,
+        stdin: {
+          on: () => {},
+          end: () => {
+            stderr.emit('data', Buffer.from('Error: refused\n'))
+            stderr.emit('data', Buffer.alloc(AGENT_ERRORS_MAX_BYTES, 'x'))
+            queueMicrotask(() => child.emit('close', 1))
+          },
+        },
       })
       return child as unknown as ChildProcess
     }
-    await nodeLauncher('linux', start).runAgent('a', '', PATH_ONLY, new AbortController().signal)
-    await nodeLauncher('linux', start, undefined, 'ignore').runAgent(
+    const passedOn: string[] = []
+    const write = (chunk: Buffer) => void passedOn.push(chunk.toString('utf8'))
+    const shown = await nodeLauncher('linux', start, undefined, 'inherit', 'C:\\Windows', write).runAgent(
       'a',
       '',
       PATH_ONLY,
       new AbortController().signal,
     )
-    expect(seen).toEqual(['inherit', 'ignore'])
+    expect(shown.errors).toBe('Error: refused\n')
+    expect(passedOn).toHaveLength(2)
+    const kept = await nodeLauncher('linux', start, undefined, 'ignore', 'C:\\Windows', write).runAgent(
+      'a',
+      '',
+      PATH_ONLY,
+      new AbortController().signal,
+    )
+    expect(kept.errors).toBe('Error: refused\n')
+    expect(passedOn).toHaveLength(2)
   })
 
   it('on Windows, hides the command’s window and ends its whole process tree with taskkill when stopped', async () => {
@@ -144,7 +165,11 @@ describe('nodeLauncher', () => {
     )
     stopping.abort()
     await expect(running).rejects.toThrow('The agent command was stopped.')
-    expect(started[0]!.options).toMatchObject({ shell: true, windowsHide: true })
+    expect(started[0]).toMatchObject({
+      command: 'D:\\Windows\\System32\\cmd.exe',
+      args: ['/d', '/v:off', '/s', '/c', '"codex exec -"'],
+      options: { shell: false, windowsHide: true, windowsVerbatimArguments: true },
+    })
     expect(started[0]!.options).not.toHaveProperty('detached')
     expect(started[1]).toMatchObject({
       command: 'D:\\Windows\\System32\\taskkill.exe',

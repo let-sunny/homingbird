@@ -137,6 +137,19 @@ describe('homingbird service install', () => {
     expect(w.lines[0]).not.toContain('Warning')
   })
 
+  it('installs Antigravity before it is signed in, and says the service waits until it is', async () => {
+    const w = world({
+      platform: 'darwin',
+      userId: 501,
+      process: (program, args) => (program === 'agy' ? { exitCode: null, output: '' } : undefined),
+    })
+    expect(await w.run('service', 'install', '--server', SERVER, '--agent', 'antigravity')).toBe(0)
+    expect(w.lines[0]).toContain(
+      'Warning: Antigravity did not answer within 20 seconds, or is not signed in on this computer. Sign in first: run `agy` in a terminal, then start this again. The service waits until then.',
+    )
+    expect(w.processRuns.filter(([program]) => program === 'agy')).toHaveLength(1)
+  })
+
   it('refuses to install a preset whose program is not on the PATH the service would run with', async () => {
     const w = world({ variables: { PATH: '/usr/local/bin:/usr/bin' }, runnable: () => false })
     expect(await w.run('service', 'install', '--server', SERVER, '--agent', 'codex')).toBe(EXIT.failed)
@@ -259,6 +272,19 @@ describe('homingbird service status', () => {
       'homingbird-runner-https-hb-example-com.service',
       '--property=LoadState,ActiveState,SubState,ExecMainStatus,ExecMainExitTimestamp',
     ])
+  })
+
+  it('says which version of the agent’s program the running service started with', async () => {
+    const w = world({ process: () => ({ exitCode: 0, output: SHOWN_RUNNING }) })
+    await w.run('service', 'install', '--server', SERVER, '--agent', 'claude')
+    w.files.set(
+      `${HOME}/.config/homingbird/desks/service-https-hb-example-com.agents`,
+      'Claude Code: 2.1.329, needs 2.1.259 or later; verified with Claude Code 2.1.327\n',
+    )
+    expect(await w.run('service', 'status', '--server', SERVER)).toBe(0)
+    expect(w.lines.at(-1)).toContain(
+      'Running:     yes\nAgent:       Claude Code: 2.1.329, needs 2.1.259 or later; verified with Claude Code 2.1.327\n',
+    )
   })
 
   it('says when the running service waits for a missing program, as the service wrote it', async () => {

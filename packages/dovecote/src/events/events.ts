@@ -33,6 +33,7 @@ export const transact = <A, E>(task: T.Task<A, E, RequestEnv>): T.Task<A, E, App
         continue
       }
       env.hub.publish(delivery.memberId, delivery.event)
+      env.wakeSink(delivery.memberId, delivery.event)
       if (pushes) env.pushSink(delivery.memberId, delivery.event, delivery.isNewReview === true)
     }
     if (env.config.logs.auditCopy)

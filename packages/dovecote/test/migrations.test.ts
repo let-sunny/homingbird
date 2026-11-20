@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { AUDIT_TRAIL_STEP, MIGRATIONS } from '../src/sql/migrations.ts'
 import { CHANNEL_AGENTS } from '../src/sql/migrations/channel-agents-step.ts'
+import { CLOUD_DESK } from '../src/sql/migrations/cloud-desk-step.ts'
 import { INSIGHTS } from '../src/sql/migrations/insights-step.ts'
 import { MUTE } from '../src/sql/migrations/mute-step.ts'
 import type { Step } from '../src/sql/schema-steps.ts'
@@ -9,9 +10,10 @@ const tablesOf = (steps: ReadonlyArray<Step>): string[] =>
   steps.flatMap((step) => ('primaryKey' in step ? [step.name] : []))
 
 describe('the migrations', () => {
-  it('run in a fixed order, with the audit trail as the fifth step, groups as the sixth, channel agents as the eighth, mutes as the ninth and the insights step last', () => {
-    expect(MIGRATIONS).toHaveLength(10)
-    expect(MIGRATIONS.at(-1)).toBe(INSIGHTS)
+  it('run in a fixed order, with the audit trail as the fifth step, groups as the sixth, channel agents as the eighth, mutes as the ninth, the cloud desk as the tenth and insights as the eleventh', () => {
+    expect(MIGRATIONS).toHaveLength(11)
+    expect(MIGRATIONS.indexOf(CLOUD_DESK)).toBe(9)
+    expect(MIGRATIONS.indexOf(INSIGHTS)).toBe(10)
     expect(MIGRATIONS.indexOf(CHANNEL_AGENTS)).toBe(7)
     expect(MIGRATIONS.indexOf(MUTE)).toBe(8)
     expect(AUDIT_TRAIL_STEP).toBe(5)

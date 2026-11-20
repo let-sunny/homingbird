@@ -1,10 +1,11 @@
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { presetNamed } from '../src/agent-presets.ts'
+import { agentCommand, defaultReader, presetNamed, presetReader } from '../src/agent-presets.ts'
 import { type Invocation, USAGE, parseArguments } from '../src/arguments.ts'
 import { EXIT } from '../src/failure.ts'
 
-const CODEX_READER = presetNamed('codex')!.reader!
+const CLAUDE_AGENT = agentCommand('claude', 'linux')
+const CODEX_READER = presetReader(presetNamed('codex')!, 'linux')!
 
 const parsed = (...argv: string[]): Invocation => {
   const result = parseArguments(argv)
@@ -183,14 +184,14 @@ describe('parseArguments', () => {
         model: null,
       },
     ],
-    [['run', '--agent', 'claude'], { command: 'run', agent: 'claude -p', timeoutSeconds: 300, split: null }],
+    [['run', '--agent', 'claude'], { command: 'run', agent: CLAUDE_AGENT, timeoutSeconds: 300, split: null }],
     [
       ['run', '--agent', 'claude', '--split'],
       {
         command: 'run',
-        agent: 'claude -p',
+        agent: CLAUDE_AGENT,
         timeoutSeconds: 300,
-        split: { reader: "claude -p --tools '' --strict-mcp-config", requireToollessReader: false },
+        split: { reader: defaultReader('claude', 'linux'), requireToollessReader: false },
       },
     ],
     [
@@ -202,6 +203,10 @@ describe('parseArguments', () => {
         split: { reader: CODEX_READER, requireToollessReader: false },
         isService: true,
       },
+    ],
+    [
+      ['run', '--agent', 'claude', '--attach-mcp'],
+      { command: 'run', agent: CLAUDE_AGENT, timeoutSeconds: 300, split: null, attachMcp: true },
     ],
     [['presets'], { command: 'presets' }],
     [
@@ -247,7 +252,7 @@ describe('parseArguments', () => {
       ['run', '--agent', 'claude', '--service', '--log', '/l.log'],
       {
         command: 'run',
-        agent: 'claude -p',
+        agent: CLAUDE_AGENT,
         timeoutSeconds: 300,
         split: null,
         isService: true,
@@ -260,7 +265,7 @@ describe('parseArguments', () => {
       ['run', '--agent', 'claude', '--service', '--workdir', 'C:\\work'],
       {
         command: 'run',
-        agent: 'claude -p',
+        agent: CLAUDE_AGENT,
         timeoutSeconds: 300,
         split: null,
         isService: true,
@@ -277,7 +282,7 @@ describe('parseArguments', () => {
   it('gives the Claude Code preset reader the Windows quoting on Windows', () => {
     const result = parseArguments(['run', '--agent', 'claude', '--split'], 'win32')
     expect(result).toMatchObject({
-      value: { invocation: { split: { reader: 'claude -p --tools "" --strict-mcp-config' } } },
+      value: { invocation: { split: { reader: defaultReader('claude', 'win32') } } },
     })
   })
 
@@ -344,6 +349,8 @@ describe('parseArguments', () => {
     [['service'], /service needs install, status, stop or uninstall/],
     [['service', 'start'], /service needs install, status, stop or uninstall/],
     [['run', '--agent', 'claude', '--workdir', '/w'], /--log and --workdir go with --service/],
+    [['run', '--agent', 'claude', '--service', '--attach-mcp'], /--attach-mcp is for run in a terminal/],
+    [['run', '--agent', 'claude', '--split', '--attach-mcp'], /--attach-mcp and --split do not go together/],
     [['service', 'install'], /service install needs --agent/],
     [['service', 'install', '--agent', 'claude', '--reader', 'r'], /go with --split/],
     [['service', 'install', '--agent', 'claude', '--require-toolless-reader'], /go with --split/],

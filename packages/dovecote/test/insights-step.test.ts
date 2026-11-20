@@ -2,10 +2,10 @@ import { Task as T } from '@homingbird/kernel'
 import { afterEach, describe, expect, it } from 'vitest'
 import { all } from '../src/sql/database.ts'
 import { MIGRATIONS } from '../src/sql/migrations.ts'
+import { CLOUD_DESK } from '../src/sql/migrations/cloud-desk-step.ts'
 import { INSIGHTS } from '../src/sql/migrations/insights-step.ts'
-import { MUTE } from '../src/sql/migrations/mute-step.ts'
 import { raw } from '../src/sql/query.ts'
-import { type MigratedDatabase, migratedThrough } from './migration-support.ts'
+import { type MigratedDatabase, migratedThrough, stepNumberOf } from './migration-support.ts'
 
 let database: MigratedDatabase | undefined
 
@@ -25,9 +25,9 @@ const spans = (env: MigratedDatabase['env']) =>
   )
 
 describe('the insights step', () => {
-  it('is the last step, after mute', () => {
-    expect(MIGRATIONS.at(-1)).toBe(INSIGHTS)
-    expect(MIGRATIONS.indexOf(INSIGHTS)).toBeGreaterThan(MIGRATIONS.indexOf(MUTE))
+  it('is the eleventh step, after the cloud desk', () => {
+    expect(stepNumberOf(INSIGHTS)).toBe(11)
+    expect(MIGRATIONS.indexOf(INSIGHTS)).toBe(MIGRATIONS.indexOf(CLOUD_DESK) + 1)
   })
 
   it('opens a span from before records for everyone already in a group, once however often it runs', async () => {

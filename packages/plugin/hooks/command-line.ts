@@ -114,7 +114,7 @@ function resolveCommand($: BundleFinder, options: PluginOptions): T.Task<Command
     if (node.kind === 'no-node') return node
     // messageIn shows the first line of stderr, so a Node warning there would hide the command's own error.
     if (hasBundle) return { kind: 'ready', argv: [node.path, '--no-warnings', bundled] } as const
-    const npx = node.path === 'node' ? 'npx' : node.path.replace(/node(\.exe)?$/, 'npx$1')
+    const npx = npxBeside(node.path)
     return (yield* versionOf($, npx)) === null
       ? ({ kind: 'no-node', olderVersion: null } as const)
       : ({ kind: 'ready', argv: [npx, ...DEFAULT_COMMAND.split(' ').slice(1)] } as const)
@@ -137,7 +137,7 @@ function findNode($: BundleFinder): T.Task<FoundNode> {
 
 function nodeAt($: BundleFinder, path: string): T.Task<FoundNode> {
   return T.gen(function* () {
-    if (path.includes('/') && !(yield* hostOr(() => $.fs.exists(path), false)))
+    if (/[\\/]/.test(path) && !(yield* hostOr(() => $.fs.exists(path), false)))
       return { kind: 'no-node', olderVersion: null } as const
     const version = yield* versionOf($, path)
     if (version === null) return { kind: 'no-node', olderVersion: null } as const
@@ -149,9 +149,11 @@ function nodeAt($: BundleFinder, path: string): T.Task<FoundNode> {
 
 function nodeCandidates($: BundleFinder): T.Task<string[]> {
   return T.gen(function* () {
-    const home = (yield* host(() => $.env.get('HOME'))) ?? ''
+    const home =
+      (yield* host(() => $.env.get('HOME'))) || ((yield* host(() => $.env.get('USERPROFILE'))) ?? '')
     const nvm = (yield* host(() => $.env.get('NVM_DIR'))) || `${home}/.nvm`
     const fnm = (yield* host(() => $.env.get('FNM_DIR'))) || `${home}/.local/share/fnm`
+    const windows = yield* windowsNodeCandidates($)
     return [
       'node',
       ...(yield* nvmNodes($, `${nvm}/versions/node`)),
@@ -161,8 +163,32 @@ function nodeCandidates($: BundleFinder): T.Task<string[]> {
       `${home}/Library/Application Support/fnm/aliases/default/bin/node`,
       '/opt/homebrew/bin/node',
       '/usr/local/bin/node',
+      ...windows,
     ]
   })
+}
+
+/** Where Node lives on Windows: nvm-windows' link, Volta's shims and the installer's own folder. */
+function windowsNodeCandidates($: BundleFinder): T.Task<string[]> {
+  return T.gen(function* () {
+    const profile = yield* host(() => $.env.get('USERPROFILE'))
+    if (!profile) return []
+    const local = (yield* host(() => $.env.get('LOCALAPPDATA'))) || `${profile}\\AppData\\Local`
+    const nvmLink = yield* host(() => $.env.get('NVM_SYMLINK'))
+    const programFiles = (yield* host(() => $.env.get('ProgramFiles'))) || 'C:\\Program Files'
+    return [
+      ...(nvmLink ? [`${nvmLink}\\node.exe`] : []),
+      `${local}\\Volta\\bin\\node.exe`,
+      `${programFiles}\\nodejs\\node.exe`,
+    ]
+  })
+}
+
+/** npm's npx beside a node: on Windows the batch file npx.cmd, as npm installs no npx.exe. */
+function npxBeside(node: string): string {
+  if (node === 'node') return 'npx'
+  if (/node\.exe$/i.test(node)) return node.replace(/node\.exe$/i, 'npx.cmd')
+  return node.replace(/node$/, 'npx')
 }
 
 function nvmNodes($: BundleFinder, versions: string): T.Task<string[]> {
