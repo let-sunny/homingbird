@@ -32,6 +32,7 @@ move up one size for the large row.
 - [Web push](#web-push)
 - [Connecting claude.ai](#connecting-claudeai)
 - [Running the desk runner on a server](#running-the-desk-runner-on-a-server)
+- [Run a channel's agent on a server](#run-a-channels-agent-on-a-server)
 - [Roll out to an organization](#roll-out-to-an-organization)
 - [Configuration](#configuration)
 - [Ready-made setups](#ready-made-setups)
@@ -143,8 +144,7 @@ Horizontal scaling (shared fan-out through the database or a broker) is on the
   old `channel_managers` table stays and is no longer read. A channel's group is shown only to people
   who can see the channel; teams, which administrators make and name, are shown to everyone. Turn groups
   off with `HB_FEATURES=groups=off` ([Features](#features)); every channel keeps its managers.
-- The mechanism for later changes exists: a `schema_versions` table records which schema steps a
-  database has, and Dovecote applies the missing ones in order when it starts, each in its own
+- A `schema_versions` table records which schema steps a database has, and Dovecote applies the missing ones in order when it starts, each in its own
   transaction. There are no down-migrations.
 - Dovecote refuses to start on a database it did not make: one that records a version this build does
   not know, or that holds its tables with no version recorded. It says so in one sentence and changes
@@ -152,8 +152,28 @@ Horizontal scaling (shared fan-out through the database or a broker) is on the
   empty one.
 - A server rolled back to an older version refuses a database a newer one migrated, because it records
   a step that version does not know. Back up before upgrading, and restore that backup to roll back.
-- Upgrades between 0.x releases are not promised. [Back up](#backups) before every upgrade, and read
-  the [changelog](../CHANGELOG.md) first.
+
+**Supported upgrades:**
+
+- A database any final release left, from 0.1.0 on, upgrades to any later release: start the newer
+  Dovecote on it and it applies the steps it lacks, in order. Releases may be skipped; 0.1.0 straight to
+  the newest works. Release candidates are not covered.
+- Upgrade the server and the clients together ([Mixing versions](#mixing-versions)). The web client
+  comes with the server; update people's command lines and MCP adapters to the same release.
+- Every change is tested this way, so every release is: CI starts it on a database each earlier final
+  release left, on SQLite, PostgreSQL and MySQL, checks that every row stays and the audit chain
+  verifies, and starts it again after a start cut off halfway through the upgrade.
+
+**To upgrade:**
+
+1. Read the [changelog](../CHANGELOG.md) for every release you skip, for settings that changed.
+2. [Back up](#backups) the database, and check that the backup opens.
+3. Stop the old server, and start the new one on the same database. It upgrades the database before
+   it serves, and records the steps it applied in a `system.migrated` audit event.
+4. Run `dovecote audit verify` on the host ([Logs](#logs)); it says the chain holds.
+
+To roll back, stop the new server and restore the backup; the older server refuses the upgraded
+database.
 
 **Upgrading to the release with the new audit trail:**
 
@@ -697,6 +717,169 @@ Either way the agent command runs as the same OS user and can read the file, as 
 `~/.config/homingbird`: the credential can read and draft, never send. `homingbird logout
 --credentials-file <path>` revokes the credential and deletes the file only where it may; for the
 read-only file above it says so, and you delete it yourself.
+
+## Run a channel's agent on a server
+
+A [channel's agent](guide.md#a-channels-agent) should keep answering when nobody's laptop is on. Run it
+with `homingbird run` on a server, as its own OS user, next to a checkout of what it answers from, such
+as the team's wiki. It is the same runner as in [Running the desk runner on a
+server](#running-the-desk-runner-on-a-server), with three differences:
+
+- **A manager connects it, from their own browser, while the server waits.** `homingbird login` on the
+  server prints a link and a code. A manager of the channel opens the link in the web client, where
+  they are signed in, and under **Connect it as** chooses **Payments wiki, the agent of
+  #payments-wiki** instead of **My own agent**. Nothing has to be copied between machines: the
+  credential is written on the server, and it is the agent's, not the manager's.
+- **What it can do is the channel's, not a person's.** The credential reads the channel's room and the
+  private questions asked of the agent, and drafts replies there. It cannot send, approve, message
+  anyone, or read any person's conversations, the managers' included; the server refuses all of that to
+  every agent credential, and to a channel's agent in particular.
+- **Its answers wait for the channel's managers**, under **Answers waiting for you** on the channel's
+  agent page (`#/channel/<slug>/agent`). The person who asked never sees the draft, and a manager never
+  reviews the answer to their own question, so a pilot needs at least two managers.
+
+### A complete example: #payments-wiki answering from the wiki's repository
+
+The steps below run the agent of `#payments-wiki` on a Linux server with systemd, as the OS user
+`hb-payments-wiki`, with Claude Code as the agent and a read-only checkout of the wiki in
+`/srv/payments-wiki`. Replace the server address, the channel and the agent with yours. A channel's
+agent must already exist: a manager creates it under **Channel agent** in the channel's room, with
+channel agents switched on ([Features](#features)).
+
+**1. As root: the agent's own user, Node, the command line and the agent.** One OS user per channel's
+agent: the service's name comes from the server address, so one user runs one runner per server, and
+each agent can then read only its own credential and its own checkout.
+
+```sh
+useradd --create-home --shell /bin/bash hb-payments-wiki
+loginctl enable-linger hb-payments-wiki
+npm install -g @homingbird/cli @anthropic-ai/claude-code   # Node 22 or newer is already installed
+```
+
+**2. As root: the checkout, which the agent can read and not change.** It belongs to another user and
+is kept up to date by a timer of that user, or by your deployment; the agent only reads it.
+
+```sh
+install -d -o root -g root -m 0755 /srv/payments-wiki
+git clone https://git.example.com/payments/wiki.git /srv/payments-wiki
+chmod -R go-w /srv/payments-wiki
+```
+
+**3. Connect the agent.** On the server, as the agent's user, sign in to a file in a directory only that
+user can read, and send the printed link to a manager of the channel. `--name` is what the managers see
+under **Desks connected as Payments wiki**, with who approved it.
+
+```sh
+as_agent() { sudo -iu hb-payments-wiki env XDG_RUNTIME_DIR=/run/user/$(id -u hb-payments-wiki) "$@"; }
+as_agent homingbird login --server https://homingbird.example.com --no-browser \
+  --credentials-file /home/hb-payments-wiki/.config/homingbird/payments-wiki.json --name wiki-server
+```
+
+The manager opens the link, checks the code, chooses the channel's agent under **Connect it as** and
+approves. The command then says `Signed in to https://homingbird.example.com as Payments wiki, the
+agent of #payments-wiki.` and where the managers review its answers. If it names a person instead, the
+manager chose **My own agent**: run `homingbird logout --credentials-file <the file>` and connect
+again.
+
+The file holds only the server's address and the agent's token, is created with mode `0600`, and is
+never replaced without `--force`; the command prints its path, never the token. To make it read-only
+for the runner as well, move it into a root-owned directory as in step 3 of [the person's
+example](#a-complete-example-one-persons-runner-on-a-linux-server).
+
+**4. Give the agent its model key**, as in step 4 of the person's example, in an environment file only
+`hb-payments-wiki` can read, loaded by a systemd drop-in.
+
+**5. Install the service**, with the checkout as its working directory and the agent limited to reading
+it. `service install` writes the credentials file's path into the unit, never its content.
+
+```sh
+as_agent homingbird service install --server https://homingbird.example.com \
+  --credentials-file /home/hb-payments-wiki/.config/homingbird/payments-wiki.json \
+  --workdir /srv/payments-wiki \
+  --agent "claude -p --tools 'Read,Grep,Glob' --strict-mcp-config --no-session-persistence" \
+  --split --reader "claude -p --tools '' --strict-mcp-config --no-session-persistence"
+```
+
+- `--workdir` is the directory the agent command starts in, so the agent answers from the checkout.
+- `--tools 'Read,Grep,Glob'` gives Claude Code only its tools for reading files, and
+  `--strict-mcp-config` no MCP server: it cannot run commands, edit files or reach the web. With
+  `claude -p` nobody is there to grant a permission, so what needs one is refused anyway; limiting the
+  tools makes that explicit. `--no-session-persistence` keeps Claude Code from saving each run's
+  transcript, questions included, under the user's home directory.
+- `--split` keeps the questions' own words away from the agent that has tools: a reader without tools
+  describes each question first, and the agent drafts from that description ([split
+  mode](guide.md#keep-the-drafting-agent-away-from-the-notes-wording-split-mode)). A command of your own
+  needs `--reader`; without it the runner uses the agent command as the reader and warns.
+- The `codex` preset runs with `--sandbox workspace-write`. For a channel's agent give `--agent` a
+  Codex command with `--sandbox read-only` instead, or keep the checkout unwritable as above.
+
+We checked these Claude Code options against `claude --help` of Claude Code 2.1.329; we have not yet run
+this exact command against a model in our tests.
+
+**6. Check that it runs.** `service status` and the log are as in the person's example; the log has one
+line per step, such as `Drafted note_… in reply to note_…`, never a question, an answer or a token. In
+the web client, a question asked in `#payments-wiki` shows **Drafting reply** to the person who asked,
+and the draft appears under **Answers waiting for you** for the other managers.
+
+```sh
+as_agent homingbird service status --server https://homingbird.example.com \
+  --credentials-file /home/hb-payments-wiki/.config/homingbird/payments-wiki.json
+```
+
+### In a container
+
+The same holds in a container: one container per channel's agent, running as a user without
+privileges, with the credentials file and the checkout mounted read-only and the checkout as the
+working directory. Connect the agent once with `homingbird login --credentials-file` written to the
+host directory you mount, then start the runner with `HOMINGBIRD_CREDENTIALS_FILE` rather than
+`--credentials-file`, so the path stays off its command line. Use an image of your own with Node, the
+command line and the agent; we do not publish one.
+
+```sh
+docker run -d --name hb-payments-wiki --restart unless-stopped --user 10001:10001 \
+  --env-file /etc/homingbird/payments-wiki/model.env \
+  -e HOMINGBIRD_CREDENTIALS_FILE=/run/secrets/homingbird.json \
+  --mount type=bind,src=/etc/homingbird/payments-wiki/homingbird.json,dst=/run/secrets/homingbird.json,readonly \
+  --mount type=bind,src=/srv/payments-wiki,dst=/wiki,readonly \
+  --workdir /wiki registry.example.com/homingbird-agent:1 \
+  homingbird run --server https://homingbird.example.com \
+    --agent "claude -p --tools 'Read,Grep,Glob' --strict-mcp-config --no-session-persistence" \
+    --split --reader "claude -p --tools '' --strict-mcp-config --no-session-persistence"
+```
+
+`homingbird run` outside a service stops with exit code 3 when the server refuses its credential; the
+restart policy then starts it again, and each start says so in the container's log until you mount a
+new file. This example has not been run in our tests.
+
+### Rotate, disconnect, and when a manager leaves
+
+- **Rotate** before `HB_AGENT_CREDENTIAL_DAYS` (90 by default) run out, since the agent's credential is
+  not refreshed, and whenever you suspect the file was copied: connect again to a new file as in step 3,
+  point the service at it (`service install` again with the new path, or replace the file and restart
+  the service), then disconnect the older desk of the same name.
+- **Disconnect** is open to any manager of the channel, under **Desks connected as …** on the channel's
+  agent page, not only to the one who approved it. The runner's next request is refused; a service then
+  waits for a new file, and its log says so.
+- **When the manager who approved it stops managing the channel**, or is deactivated, every credential
+  they approved for the agent is revoked at once. The agent stops answering until another manager
+  connects it again as in step 3. Retiring the agent or archiving the channel disconnects it as well.
+- **To stop for good**, run `as_agent homingbird service uninstall --server
+  https://homingbird.example.com`, disconnect the desk, and delete the credentials file and the model
+  key.
+
+### What this does not protect
+
+- **Whoever runs the machine reads everything the agent reads.** The OS user's owner, and anyone with
+  root, can read the credential and so every question asked in the channel or asked of the agent
+  privately, and every draft the agent writes, before any manager approves it. The model's provider
+  receives the same text. Run the agent on a machine whose operators may read the channel, and tell the
+  people who ask privately: the private question's first screen names only the channel's managers.
+- **A model may carry knowledge from one question to the next.** Every run of the agent command is a new
+  process, and the server keeps the credential to this channel's rooms. What the agent itself keeps
+  between runs, in its own memory, files it may write or a provider's history, Homingbird cannot see.
+  Keep its tools read-only, give it no place to write, and run one agent per OS user.
+- **The checkout is what the agent knows.** Anything in it can end up in a draft; the managers' review
+  is the check before it reaches the person who asked.
 
 ## Roll out to an organization
 

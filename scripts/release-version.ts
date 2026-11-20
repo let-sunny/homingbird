@@ -104,6 +104,62 @@ export const versionsIn = (
     ].map((file) => [file, VERSION_IN.exec(read(file))?.[1] ?? '']),
   )
 
+/**
+ * The upgrade fixtures Dovecote's tests start from, one per final release with the schema steps it left,
+ * with this release added when it is final and missing.
+ */
+export const withUpgradeFixture = (fixturesJson: string, version: string, steps: number): string => {
+  const fixtures = upgradeFixturesIn(fixturesJson)
+  if (version.includes('-') || fixtures.some((fixture) => fixture.version === version)) return fixturesJson
+  return renderedFixtures([...fixtures, { version, steps }])
+}
+
+/** The final releases, from their tags and the version being released, that have no upgrade fixture. */
+export const releasesWithoutUpgradeFixture = (
+  tags: ReadonlyArray<string>,
+  version: string,
+  fixturesJson: string,
+): string[] => {
+  const fixtures = new Set(upgradeFixturesIn(fixturesJson).map((fixture) => fixture.version))
+  const released = tags.flatMap((tag) => (/^v\d+\.\d+\.\d+$/.test(tag) ? [tag.slice(1)] : []))
+  const releasing = version.includes('-') ? [] : [version]
+  return [...new Set([...released, ...releasing])].filter((release) => !fixtures.has(release))
+}
+
+/** How many schema steps Dovecote has: the entries of `MIGRATIONS` in its migrations module. */
+export const schemaStepsIn = (migrationsSource: string): number => {
+  const list = /export const MIGRATIONS: ReadonlyArray<Migration> = \[([^\]]*)\]/.exec(migrationsSource)
+  if (list === null) throw new Error(`${MIGRATIONS_FILE} has no MIGRATIONS list.`)
+  return list[1]!.split(',').filter((entry) => entry.trim() !== '').length
+}
+
+const UPGRADE_FIXTURES = 'packages/dovecote/test/releases.json'
+const MIGRATIONS_FILE = 'packages/dovecote/src/sql/migrations.ts'
+
+interface UpgradeFixture {
+  readonly version: string
+  readonly steps: number
+}
+
+const upgradeFixturesIn = (fixturesJson: string): ReadonlyArray<UpgradeFixture> => {
+  const fixtures: unknown = JSON.parse(fixturesJson)
+  if (!Array.isArray(fixtures) || !fixtures.every(isUpgradeFixture))
+    throw new Error(`${UPGRADE_FIXTURES}: each entry must be { "version": "x.y.z", "steps": n }.`)
+  return fixtures
+}
+
+const isUpgradeFixture = (fixture: unknown): fixture is UpgradeFixture =>
+  typeof fixture === 'object' &&
+  fixture !== null &&
+  'version' in fixture &&
+  typeof fixture.version === 'string' &&
+  'steps' in fixture &&
+  Number.isInteger(fixture.steps) &&
+  Number(fixture.steps) > 0
+
+const renderedFixtures = (fixtures: ReadonlyArray<UpgradeFixture>): string =>
+  `[\n${fixtures.map(({ version, steps }) => `  { "version": "${version}", "steps": ${steps} }`).join(',\n')}\n]\n`
+
 const UNRELEASED = '## [Unreleased]'
 const VERSION_IN = /(?:"version":\s*"|_VERSION = ')([^"']+)/
 const JSON_VERSION = /^(\s*"version":\s*)"[^"]*"/m
@@ -218,6 +274,10 @@ const prepareRelease = (): void => {
     writeFileSync(join(root, file), text)
   const date = new Date().toISOString().slice(0, 10)
   writeFileSync(join(root, 'CHANGELOG.md'), withRelease(read('CHANGELOG.md'), version, date, notes))
+  writeFileSync(
+    join(root, UPGRADE_FIXTURES),
+    withUpgradeFixture(read(UPGRADE_FIXTURES), version, schemaStepsIn(read(MIGRATIONS_FILE))),
+  )
   process.stdout.write(`Version ${version}.\n`)
 }
 
@@ -257,9 +317,23 @@ const planOnGitHub = (): void => {
 const checkVersions = (): void => {
   const versions = versionsIn(read, workspacePackages())
   const distinct = new Set(versions.values())
-  if (distinct.size === 1) return void process.stdout.write(`Every version is ${[...distinct][0]}.\n`)
-  for (const [file, version] of versions) process.stderr.write(`${file}: ${version}\n`)
-  process.exit(1)
+  if (distinct.size !== 1) {
+    for (const [file, version] of versions) process.stderr.write(`${file}: ${version}\n`)
+    process.exit(1)
+  }
+  const [version] = [...distinct] as [string]
+  const missing = releasesWithoutUpgradeFixture(
+    git('tag', '--list', 'v*').split('\n'),
+    version,
+    read(UPGRADE_FIXTURES),
+  )
+  if (missing.length > 0) {
+    process.stderr.write(
+      `${UPGRADE_FIXTURES} has no upgrade fixture for ${missing.join(', ')}: add each release with the number of schema steps it left.\n`,
+    )
+    process.exit(1)
+  }
+  process.stdout.write(`Every version is ${version}, and every release has an upgrade fixture.\n`)
 }
 
 const pullRequestOnGitHub = (bodyFile: string): void => {

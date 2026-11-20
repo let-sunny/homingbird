@@ -7,7 +7,7 @@ import type { CliEnv } from '../environment.ts'
 import { CliFailure, EXIT, failed } from '../failure.ts'
 import { type Outcome, outcome } from '../outcome.ts'
 import { apiFor, calling } from '../session.ts'
-import { openOnServer } from '../web-client.ts'
+import { openOnServer, reviewChannelOf, reviewLink } from '../web-client.ts'
 
 type Login = Extract<Invocation, { command: 'login' }>
 
@@ -56,6 +56,18 @@ export const login = (
     const api = apiFor(env, agent)
     const me = yield* calling(api['me.get']({}))
     yield* countUsage(api, 'sign_in_completed', { client: 'cli' })
+    const channel = yield* reviewChannelOf(api, me.member)
+    if (channel !== null)
+      return outcome(
+        {
+          step: 'signed_in',
+          server: invocation.server,
+          member: me.member,
+          channel,
+          ...(file !== null && { credentialsFile: file }),
+        },
+        channelAgentSignedIn(invocation.server, me.member.name, channel, file),
+      )
     const signedIn = `Signed in to ${invocation.server} as ${me.member.name} <${me.member.email}>.`
     if (file !== null)
       return outcome(
@@ -67,6 +79,18 @@ export const login = (
       `${signedIn}\n${ONE_DESK}`,
     )
   })
+
+const channelAgentSignedIn = (server: string, name: string, channel: string, file: string | null): string =>
+  [
+    `Signed in to ${server} as ${name}, the agent of #${channel}.`,
+    file === null
+      ? `Run one desk for it here with homingbird run. ${CHANNEL_AGENT_DRAFTS}`
+      : `Wrote its credential to ${file}, readable by you only. Give it to one runner with --credentials-file or HOMINGBIRD_CREDENTIALS_FILE; on another machine than the runner’s, move it there as a secret. ${CHANNEL_AGENT_DRAFTS}`,
+    `They review its answers at ${reviewLink(server, channel)}`,
+  ].join('\n')
+
+const CHANNEL_AGENT_DRAFTS =
+  'It can read its channel’s questions and draft answers, never send: one of the channel’s managers approves each.'
 
 const toFailure = (failure: DeviceFlowFailed): CliFailure => failed(failure.message)
 

@@ -336,7 +336,9 @@ figure it does not name. Still to come:
 
 **Built:** `scripts/check-style.ts` refuses writes to `audit_events` outside
 `dovecote/src/domain/audit.ts`, and stdout or console output outside the log service and the programs
-whose stdout is their output. Still to come:
+whose stdout is their output. Supported upgrades between releases: a database any final release left
+starts on every later release, on SQLite, PostgreSQL and MySQL, tested in CI from a fixture per release
+built through the real schema steps, and a release without a fixture does not ship. Still to come:
 
 - Multi-node deployment: shared event fan-out through the database or a message broker.
 - Forwarding the metadata-only audit copy over syslog and OpenTelemetry, and an OCSF mapping for
@@ -345,9 +347,6 @@ whose stdout is their output. Still to come:
   organization asks for one: not the audit trail's job.
 - Periodic re-validation of members against the identity provider.
 - Revoking a credential family when a refresh token is replayed.
-- Supported upgrades between releases. The mechanism exists (a schema version table, with steps
-  applied in order at start) and step 2 upgrades a 0.1.0 database, but upgrades between 0.x releases
-  are not yet promised or tested release by release.
 
 ## Clients
 

@@ -11,6 +11,7 @@ import { MUTE } from '../src/sql/migrations/mute-step.ts'
 import { raw } from '../src/sql/query.ts'
 import type { Migration } from '../src/sql/schema-steps.ts'
 import { migrate, migrateThrough, schemaStatements } from '../src/sql/schema.ts'
+import { TEST_DIALECTS, testDialects } from './dialect-support.ts'
 import {
   type Agent,
   type Session,
@@ -26,11 +27,35 @@ import { CHANNELS_WITH_MANAGERS, GROUPS_FROM_MANAGERS, groupsAndManagers } from 
 const stepsFrom = (first: number): number[] =>
   Array.from({ length: MIGRATIONS.length - first + 1 }, (_, index) => first + index)
 
-const DIALECTS = [
-  ['SQLite', 'sqlite::memory:'],
-  ['PostgreSQL', process.env.HB_TEST_POSTGRES_URL],
-  ['MySQL', process.env.HB_TEST_MYSQL_URL],
-] as const
+const DIALECTS = TEST_DIALECTS
+
+describe('The databases these tests run on', () => {
+  it('are SQLite always, and PostgreSQL and MySQL when their URL is set', () => {
+    expect(testDialects({})).toEqual([
+      ['SQLite', 'sqlite::memory:'],
+      ['PostgreSQL', undefined],
+      ['MySQL', undefined],
+    ])
+    expect(testDialects({ HB_TEST_POSTGRES_URL: 'postgres://pg', HB_TEST_MYSQL_URL: 'mysql://my' })).toEqual([
+      ['SQLite', 'sqlite::memory:'],
+      ['PostgreSQL', 'postgres://pg'],
+      ['MySQL', 'mysql://my'],
+    ])
+  })
+
+  it('refuse to skip PostgreSQL or MySQL silently in the run HB_TEST_DATABASE_URL names it for', () => {
+    expect(() => testDialects({ HB_TEST_DATABASE_URL: 'postgresql://pg' })).toThrow(
+      'HB_TEST_DATABASE_URL names PostgreSQL, but HB_TEST_POSTGRES_URL is not set: set it to run the PostgreSQL variants.',
+    )
+    expect(() =>
+      testDialects({ HB_TEST_DATABASE_URL: 'mysql://my', HB_TEST_POSTGRES_URL: 'postgres://pg' }),
+    ).toThrow(/names MySQL, but HB_TEST_MYSQL_URL is not set/)
+    expect(testDialects({ HB_TEST_DATABASE_URL: 'mysql://my', HB_TEST_MYSQL_URL: 'mysql://my' })[2]).toEqual([
+      'MySQL',
+      'mysql://my',
+    ])
+  })
+})
 
 describe.each(DIALECTS)('Dovecote on %s', (_, url) => {
   let server: TestServer

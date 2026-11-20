@@ -1,5 +1,6 @@
-import { WRAPPER_TAG } from '@homingbird/protocol'
+import { API_PREFIX, WRAPPER_TAG, contract, matchPath } from '@homingbird/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { CHANNEL, startWithChannel } from '../../dovecote/test/channel-agent-support.ts'
 import {
   type Session,
   type TestServer,
@@ -8,7 +9,7 @@ import {
   storedRows,
 } from '../../dovecote/test/harness.ts'
 import { EXIT } from '../src/failure.ts'
-import { SERVER_URL, fetchThrough } from './server-fetch.ts'
+import { type RecordedCall, SERVER_URL, fetchThrough } from './server-fetch.ts'
 import { INTERRUPTED, type World, agentFileFor, world } from './support.ts'
 
 const AGENT_FILE = agentFileFor(SERVER_URL)
@@ -153,3 +154,134 @@ describe('the homingbird command against a running server', () => {
     expect(await cli.run('inbox')).toBe(EXIT.signedOut)
   })
 })
+
+describe('a channel’s agent run on a server with a credentials file', () => {
+  const FILE = '/etc/homingbird/payments-wiki/homingbird.json'
+  let channel: Awaited<ReturnType<typeof startWithChannel>>
+  let recorded: RecordedCall[]
+
+  beforeEach(async () => {
+    channel = await startWithChannel()
+    recorded = []
+    await channel.ana.api('PUT', `/channels/${CHANNEL}/agent`, { name: 'Payments wiki' })
+  })
+
+  afterEach(() => channel.server.close())
+
+  const serverMachine = (): World =>
+    world({
+      signedIn: 'none',
+      fetch: fetchThrough(channel.server, recorded),
+      clock: channel.server.clock,
+      agent: () => ({ exitCode: 0, output: 'In the wiki under Refunds.\nBASIS: wiki/refunds.md' }),
+    })
+
+  const connect = async (machine: World): Promise<number> => {
+    const running = machine.run(
+      'login',
+      '--server',
+      SERVER_URL,
+      '--credentials-file',
+      FILE,
+      '--name',
+      'wiki-server',
+      '--no-browser',
+      '--json',
+    )
+    await settle(() => machine.lines.length > 0)
+    const { userCode } = JSON.parse(machine.lines[0]!)
+    const decided = await channel.ana.api('POST', `/device/${userCode}`, {
+      approve: true,
+      name: 'wiki-server',
+      channel: CHANNEL,
+    })
+    expect(decided.status).toBe(200)
+    await channel.server.clock.advance(5_000)
+    return running
+  }
+
+  const reviewsOf = async (viewer: Session): Promise<any[]> =>
+    (await viewer.api('GET', '/reviews')).json.reviews
+
+  it('signs in as the channel’s agent and writes its credential to the file alone', async () => {
+    const machine = serverMachine()
+    expect(await connect(machine)).toBe(0)
+    expect(machine.json()).toMatchObject({
+      step: 'signed_in',
+      member: { kind: 'channel_agent', name: 'Payments wiki' },
+      channel: CHANNEL,
+      credentialsFile: FILE,
+    })
+    expect([...machine.files.keys()]).toEqual([FILE])
+    expect(machine.privateWrites).toEqual([])
+    const stored = JSON.parse(machine.files.get(FILE)!)
+    expect(Object.keys(stored).sort()).toEqual(['serverUrl', 'token'])
+    expect([...machine.lines, ...machine.problems].join('\n')).not.toContain(stored.token)
+    const listed = (await channel.ana.api('GET', `/channels/${CHANNEL}/agent`)).json.credentials
+    expect(listed).toMatchObject([{ name: 'wiki-server' }])
+  })
+
+  it('drafts a reply to a question asked in its channel that only the channel’s managers see, and approves nothing', async () => {
+    const machine = serverMachine()
+    await connect(machine)
+    const running = machine.run('run', '--agent', 'claude -p', '--credentials-file', FILE)
+    const { cy, ana, ben } = channel
+    const asked = (
+      await cy.api('POST', '/drafts', { channel: CHANNEL, body: 'Where is the refund runbook?' })
+    ).json
+    const question = (await cy.api('POST', `/drafts/${asked.id}/send`, await asShown(cy, asked.id))).json
+    let reviews: any[] = []
+    for (let turn = 0; turn < 400 && reviews.length === 0; turn++) {
+      await new Promise((resolve) => setTimeout(resolve, 5))
+      reviews = await reviewsOf(ana)
+    }
+    expect(reviews).toMatchObject([
+      {
+        channel: CHANNEL,
+        privately: false,
+        question: { id: question.id },
+        note: { inReplyTo: question.id, body: 'In the wiki under Refunds.', status: 'draft' },
+      },
+    ])
+    const draftId: string = reviews[0].note.id
+    for (const viewer of [cy, ben]) {
+      const notes = (await viewer.api('GET', `/conversations/${question.conversationId}/notes`)).json.notes
+      expect(notes.map((note: any) => note.id)).toEqual([question.id])
+      expect((await viewer.api('GET', `/notes/${draftId}`)).status).toBe(404)
+    }
+    expect(await reviewsOf(cy)).toEqual([])
+
+    const room: string = (await cy.api('POST', `/channels/${CHANNEL}/private-question`)).json.id
+    const privateDraft = (
+      await cy.api('POST', '/drafts', { conversationId: room, body: 'Is my refund stuck?' })
+    ).json
+    const privateQuestion = (
+      await cy.api('POST', `/drafts/${privateDraft.id}/send`, await asShown(cy, privateDraft.id))
+    ).json
+    for (let turn = 0; turn < 400 && reviews.length < 2; turn++) {
+      await new Promise((resolve) => setTimeout(resolve, 5))
+      reviews = await reviewsOf(ana)
+    }
+    expect(reviews.find((review) => review.privately)).toMatchObject({
+      question: { id: privateQuestion.id },
+      note: { inReplyTo: privateQuestion.id, status: 'draft' },
+    })
+    expect(
+      (await cy.api('GET', `/conversations/${room}/notes`)).json.notes.map((note: any) => note.id),
+    ).toEqual([privateQuestion.id])
+
+    machine.stop.abort()
+    expect(await running).toBe(INTERRUPTED)
+    expect(machine.problems).toEqual([])
+    expect((await ana.api('GET', `/reviews/${draftId}`)).json.note.status).toBe('draft')
+    const token: string = JSON.parse(machine.files.get(FILE)!).token
+    const byTheAgent = recorded.filter((call) => call.headers.authorization === `Bearer ${token}`)
+    expect(byTheAgent.map((call) => call.path)).toContain('/api/v1/drafts')
+    expect(byTheAgent.filter((call) => ['human', 'admin'].includes(accessOf(call)))).toEqual([])
+  })
+})
+
+const accessOf = (call: RecordedCall): string =>
+  Object.values(contract).find(
+    (route) => route.method === call.method && matchPath(`${API_PREFIX}${route.path}`, call.path) !== null,
+  )?.access ?? 'outside the contract'
