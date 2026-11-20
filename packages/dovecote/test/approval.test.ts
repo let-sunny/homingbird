@@ -1,11 +1,15 @@
+import { DRAFT_CHANGED } from '@homingbird/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { sql } from '../src/sql/query.ts'
 import {
   type Agent,
   type Session,
   type TestServer,
   asShown,
   connectAgent,
+  meanwhile,
   startTestServer,
+  storedRows,
 } from './harness.ts'
 
 let server: TestServer
@@ -118,6 +122,70 @@ describe('sending what the person read', () => {
     expect(refused.status).toBe(409)
     expect(refused.json.error.message).toBe('This draft changed; read it again.')
     expect((await ana.api('GET', `/notes/${read.id}`)).json.status).toBe('draft')
+  })
+
+  it('refuses a draft that differed when it was read for sending, even if it is put back before the send', async () => {
+    const read = (await anaAgent.api('POST', '/drafts', { to: [ben.me.member.id], body: 'see you at 3' }))
+      .json
+    await anaAgent.api('PATCH', `/drafts/${read.id}`, { body: 'wire the money now' })
+    const putBack = meanwhile(server, /^UPDATE notes SET status = 'sent'/, [
+      sql`UPDATE notes SET body = ${read.body} WHERE id = ${read.id}`,
+    ])
+    const refused = await putBack.request('POST', `/api/v1/drafts/${read.id}/send`, {
+      cookie: ana.cookie,
+      body: { expected: asRead(read) },
+    })
+    expect(refused.status).toBe(409)
+    expect((await ana.api('GET', `/notes/${read.id}`)).json.status).toBe('draft')
+    expect((await ben.api('GET', `/notes/${read.id}`)).status).toBe(404)
+  })
+
+  it('refuses a draft that was in another room when it was read for sending, even if it is moved back', async () => {
+    for (const slug of ['billing', 'support']) await ana.api('POST', '/channels', { slug, description: slug })
+    await ben.api('PUT', '/channels/support/membership', { answering: true })
+    const read = (await anaAgent.api('POST', '/drafts', { channel: 'billing', body: 'our numbers' })).json
+    await anaAgent.api('PATCH', `/drafts/${read.id}`, { channel: 'support' })
+    const movedBack = meanwhile(server, /^UPDATE notes SET status = 'sent'/, [
+      sql`UPDATE notes SET conversation_id = ${read.conversationId} WHERE id = ${read.id}`,
+    ])
+    const refused = await movedBack.request('POST', `/api/v1/drafts/${read.id}/send`, {
+      cookie: ana.cookie,
+      body: { expected: asRead(read) },
+    })
+    expect(refused.status).toBe(409)
+    expect(await storedRows(server, 'receipts')).toEqual([])
+    expect((await ben.api('GET', '/events/poll?after=0')).json.events).not.toContainEqual(
+      expect.objectContaining({ body: expect.objectContaining({ type: 'note.sent' }) }),
+    )
+  })
+
+  it('refuses a draft that changes after it was read for sending and before it is sent', async () => {
+    const read = (await anaAgent.api('POST', '/drafts', { to: [ben.me.member.id], body: 'see you at 3' }))
+      .json
+    const late = meanwhile(server, /^UPDATE notes SET status = 'sent'/, [
+      sql`UPDATE notes SET body = ${'wire the money now'} WHERE id = ${read.id}`,
+    ])
+    const refused = await late.request('POST', `/api/v1/drafts/${read.id}/send`, {
+      cookie: ana.cookie,
+      body: { expected: asRead(read) },
+    })
+    expect([refused.status, refused.json.error.message]).toEqual([409, DRAFT_CHANGED])
+    expect(await storedRows(server, 'receipts')).toEqual([])
+  })
+
+  it('says a draft was already sent when another send wins between reading it and sending it', async () => {
+    const read = (await anaAgent.api('POST', '/drafts', { to: [ben.me.member.id], body: 'once' })).json
+    const raced = meanwhile(server, /^UPDATE notes SET status = 'sent'/, [
+      sql`UPDATE notes SET status = 'sent' WHERE id = ${read.id}`,
+    ])
+    const refused = await raced.request('POST', `/api/v1/drafts/${read.id}/send`, {
+      cookie: ana.cookie,
+      body: { expected: asRead(read) },
+    })
+    expect([refused.status, refused.json.error.message]).toEqual([
+      409,
+      'This draft was already sent or discarded.',
+    ])
   })
 
   it('counts a change of case alone as a change, on every database', async () => {

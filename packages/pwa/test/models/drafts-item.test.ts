@@ -1,4 +1,6 @@
+import type { ConversationId } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
+import { channelLabel } from '../../src/channels.ts'
 import { draftChangedWhileEditing, draftsItemModel } from '../../src/models/drafts-item.ts'
 import { strings } from '../../src/strings.ts'
 import {
@@ -10,6 +12,7 @@ import {
   conversation,
   draft,
   figures,
+  member,
   note,
   principle,
   report,
@@ -171,18 +174,57 @@ describe('draftsItemModel', () => {
 })
 
 describe('draftChangedWhileEditing', () => {
-  it('finds the draft as it stands now in any room, and nothing once it was sent', () => {
-    const moved = draft('d1', { body: 'rewritten', conversationId: 'conv_other000000' as never })
-    const threads = new Map([
-      [ROOM, { notes: [note('n1')], hasMore: false }],
-      ['conv_other000000' as never, { notes: [moved], hasMore: false }],
-    ])
-    expect(draftChangedWhileEditing(threads, 'd1' as never)).toEqual({
+  const ALL = channel('all-company')
+  const OTHER = 'conv_other000000' as never
+  const editor = (notes: ReturnType<typeof draft>[], room: ConversationId = ROOM) => ({
+    threads: new Map([[room, { notes, hasMore: false }]]),
+    conversations: [
+      conversation(),
+      conversation({ id: ALL.conversationId, kind: 'channel', participantIds: [ANA, BEN, CY] }),
+      conversation({ id: OTHER, participantIds: [ANA, CY] }),
+    ],
+    channels: [ALL],
+    members: new Map([...threadInput().members, [CY, member(CY, 'Cy')]]),
+  })
+
+  it('shows the new text of a draft that stayed in its room, with nothing to confirm', () => {
+    const now = draft('d1', { body: 'rewritten' })
+    expect(draftChangedWhileEditing(editor([note('n1'), now]), draft('d1'))).toEqual({
       notice: strings.draftChangedWhileEditing,
       body: 'rewritten',
-      draft: moved,
+      draft: now,
+      moved: null,
     })
-    expect(draftChangedWhileEditing(threads, 'n1' as never)).toBeNull()
-    expect(draftChangedWhileEditing(new Map(), 'd1' as never)).toBeNull()
+  })
+
+  it('says where a draft that moved goes now, and asks the person to confirm it', () => {
+    const toChannel = draft('d1', { conversationId: ALL.conversationId })
+    expect(draftChangedWhileEditing(editor([toChannel], ALL.conversationId), draft('d1'))).toEqual({
+      notice: strings.draftMovedWhileEditing,
+      body: 'body of d1',
+      draft: toChannel,
+      moved: {
+        destination: strings.sendsToChannel({ channel: channelLabel('all-company') }),
+        confirm: strings.draftConfirmRoom,
+      },
+    })
+    const toCy = draft('d1', { conversationId: OTHER })
+    expect(draftChangedWhileEditing(editor([toCy], OTHER), draft('d1'))!.moved!.destination).toBe(
+      strings.sendsTo({ names: 'Cy' }),
+    )
+  })
+
+  it('still asks for a confirmation when the new room is not known yet', () => {
+    const unknown = 'conv_unknown0000' as never
+    const moved = draft('d1', { conversationId: unknown })
+    expect(draftChangedWhileEditing(editor([moved], unknown), draft('d1'))!.moved).toEqual({
+      destination: null,
+      confirm: strings.draftConfirmRoom,
+    })
+  })
+
+  it('finds nothing to show once the draft was sent or discarded', () => {
+    expect(draftChangedWhileEditing(editor([note('d1')]), draft('d1'))).toBeNull()
+    expect(draftChangedWhileEditing(editor([]), draft('d1'))).toBeNull()
   })
 })

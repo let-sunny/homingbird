@@ -32,6 +32,7 @@ export const sendDraft = (
     if (!isHuman(caller)) return yield* T.fail(Forbidden({ message: 'Only a person can approve a note.' }))
     const authorId = caller.member.id
     const draft = yield* ownDraft(authorId, id)
+    if (!isAsShown(draft, expected)) return yield* T.fail(Conflict({ message: DRAFT_CHANGED }))
     const participants = yield* participantsOf(draft.conversation_id)
     const recipients = yield* recipientsOf(draft, participants)
     yield* requireMayMessageIn(authorId, draft.conversation_id)
@@ -65,6 +66,9 @@ export const discardDraft = (caller: Caller, id: NoteId): T.Task<Note, NoteFailu
     if (draft.in_reply_to !== null) yield* announceStatus(draft.in_reply_to)
     return yield* noteById(id, caller.member.id)
   })
+
+const isAsShown = (draft: NoteRow, shown: DraftAsShown): boolean =>
+  draft.body === shown.body && draft.conversation_id === shown.conversationId
 
 const refusalAfterMissedSend = (id: NoteId): T.Task<NoteFailure, never, RequestEnv> =>
   T.map((row: { status: string } | null) =>

@@ -1,6 +1,11 @@
 import type { AsRead } from '@homingbird/protocol'
 import { type Child, h, linkedText } from '@homingbird/ui'
-import { type DraftCard, type DraftsItemModel, draftChangedWhileEditing } from '../models/drafts-item.ts'
+import {
+  type DraftCard,
+  type DraftsItemModel,
+  type EditorInput,
+  draftChangedWhileEditing,
+} from '../models/drafts-item.ts'
 import { strings } from '../strings.ts'
 import { readdressForm } from './channel-picker.ts'
 import { renderAvatar } from './character-avatar.ts'
@@ -141,14 +146,35 @@ const draftEditor = (
   text.value = draft.body
   let baseline = draft
   const changed = h('div', { class: 'draft-changed', role: 'alert' })
+  const save = button(strings.saveDraft, () =>
+    context.actions.saveDraft(baseline, text.value, { done: () => closeDialog(context), attempt: 'draft' }),
+  )
+  const send = h('button', { type: 'submit', class: 'primary' }, strings.sendEdited)
+  const holdUntilConfirmed = (held: boolean): void => {
+    save.disabled = held
+    send.disabled = held
+  }
   const showChange = (): void => {
-    const now = draftChangedWhileEditing(context.state.threads.get(), draft.id)
+    const now = draftChangedWhileEditing(editorInputOf(context), baseline)
     if (now === null) {
       closeDialog(context)
       return
     }
-    baseline = now.draft
-    changed.replaceChildren(h('p', {}, now.notice), h('p', { class: 'note-body' }, linkedText(now.body)))
+    const shown = [h('p', {}, now.notice), h('p', { class: 'note-body' }, linkedText(now.body))]
+    if (now.moved === null) {
+      baseline = now.draft
+      changed.replaceChildren(...shown)
+      return
+    }
+    const confirm = button(now.moved.confirm, () => {
+      baseline = now.draft
+      holdUntilConfirmed(false)
+      confirm.remove()
+    })
+    holdUntilConfirmed(true)
+    const destination =
+      now.moved.destination === null ? [] : [h('p', { class: 'draft-destination' }, now.moved.destination)]
+    changed.replaceChildren(...shown, ...destination, confirm)
   }
   return h(
     'form',
@@ -173,13 +199,15 @@ const draftEditor = (
       'div',
       { class: 'dialog-actions' },
       h('button', { type: 'button', ...closesDialog }, strings.cancel),
-      button(strings.saveDraft, () =>
-        context.actions.saveDraft(baseline, text.value, {
-          done: () => closeDialog(context),
-          attempt: 'draft',
-        }),
-      ),
-      h('button', { type: 'submit', class: 'primary' }, strings.sendEdited),
+      save,
+      send,
     ),
   )
 }
+
+const editorInputOf = ({ state }: ViewContext): EditorInput => ({
+  threads: state.threads.get(),
+  conversations: state.conversations.get(),
+  channels: state.channels.get(),
+  members: state.members.get(),
+})

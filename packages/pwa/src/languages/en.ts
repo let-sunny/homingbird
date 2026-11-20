@@ -365,15 +365,18 @@ export const en = {
   sendsTo: 'Send delivers it to {names}.',
   sendsToInRoom: 'Send delivers it to {names}, in {room}.',
   sendsToChannel: 'Send posts it in {channel}:',
-  draftChangedSinceRead: 'Your agent changed this draft after you read it. Read it again before you send it.',
+  draftChangedSinceRead: 'This draft changed after you read it. Read it again before you send it.',
   draftReadAgain: 'I have read it again',
   draftChangedWhileEditing:
-    'Your agent changed this draft while you were editing it. Your edit is kept; the draft now reads:',
+    'This draft changed while you were editing it. Your edit is kept; the draft now reads:',
+  draftMovedWhileEditing:
+    'This draft moved to another room while you were editing it. Your edit is kept. Check where it goes now before you send or save it:',
+  draftConfirmRoom: 'I have checked where it goes',
   refusals: {
     connectionCode: 'This connection code is unknown or has expired. Ask your agent for a new one.',
     roomArchived: 'This room is archived. You can read it, but no new notes can be written.',
     draftHandled: 'This draft was already sent or discarded.',
-    draftChanged: 'Your agent changed this draft after you read it, so it was not sent. Read it again.',
+    draftChanged: 'This draft changed after you read it, so it was not sent. Read it again.',
     nameTaken: 'That name is not available.',
     lastManager: 'A channel with members keeps a manager. Add another manager first.',
     needsManagerInRoom: 'Add a manager who is in the channel before making it private.',

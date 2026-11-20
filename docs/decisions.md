@@ -923,12 +923,13 @@ command through the injected process service.
 An agent may change its own draft at any time (`drafts.update` is a `member` route), and the card a
 person reads can be seconds or minutes old when they tap Send. So `drafts.send` carries `expected`:
 the body and conversation the card showed, or, for an edited send, the ones the edit started from. The
-server's `UPDATE` sends only while the row still matches both, and otherwise answers 409 "This draft
-changed; read it again." without sending; the web client reads the thread again and says the agent
-changed the draft.
+server sends only while the row matches both, and otherwise answers 409 "This draft changed; read it
+again." without sending; the web client reads the thread again and says the draft changed.
 
-- **The comparison is in the `UPDATE`, not before it,** so a change that lands between reading the row
-  and writing it is caught too.
+- **The comparison runs twice.** The row `sendDraft` reads must match, because the recipients, the
+  room's checks and the sent text all come from it; the `UPDATE` must match again, so a change that
+  lands between reading the row and writing it is caught too. The read alone misses a change that lands
+  after it; the `UPDATE` alone misses one that is put back before it.
 - **`expected` is required.** A send that does not say which version the person read is refused as
   invalid, so no caller can send a draft without binding to one. Only the bundled web client calls
   `drafts.send` (Rule 3), so the route changed at once.
@@ -937,4 +938,7 @@ changed the draft.
 - **The card binds to what was read, not to what is on screen at the tap.** A change arriving on the
   stream redraws the card, so the web client remembers each draft as it first reached the page
   (`draftsRead`) and, when the text or room differs, hides Send and Edit until the person confirms
-  they read it again. Their own save or move counts as read; a change from anywhere else does not.
+  they read it again. Their own save or move counts as read; a change from anywhere else does not,
+  and since the page cannot tell an agent from the person's other device, the words name no one.
+- **An editor whose draft moved holds Send and Save** until the person confirms the new destination,
+  which it shows; their edit stays in place.
