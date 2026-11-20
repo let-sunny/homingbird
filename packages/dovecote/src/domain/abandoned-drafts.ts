@@ -37,10 +37,11 @@ export const abandonDraft = (
 export const abandonDraftsIn = (
   conversationId: ConversationId,
   authorId: MemberId,
+  archivedChannel: string | null = null,
 ): T.Task<void, never, RequestEnv> =>
   T.gen(function* () {
     const drafts = yield* all<NoteRow>(
       sql`SELECT * FROM notes WHERE conversation_id = ${conversationId} AND author_id = ${authorId} AND status = 'draft' ORDER BY id`,
     )
-    for (const draft of drafts) yield* abandonDraft(draft)
+    for (const draft of drafts) yield* abandonDraft(draft, archivedChannel)
   })

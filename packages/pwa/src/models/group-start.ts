@@ -1,4 +1,4 @@
-import { type AsRead, type MemberId, RECIPIENTS_MAX } from '@homingbird/protocol'
+import { type AsRead, type MemberId, RECIPIENTS_MAX, isPerson } from '@homingbird/protocol'
 import { hrefFor } from '../routes.ts'
 import { listOf, strings } from '../strings.ts'
 import { groupWith } from '../thread.ts'
@@ -8,7 +8,7 @@ import { groupWith } from '../thread.ts'
  * it, and whom each card may add. Null when fewer than two people may be messaged at all.
  */
 export const groupStartModel = (input: GroupStartInput): GroupStartModel | null => {
-  const choosable = input.directory.filter((entry) => entry.canMessage)
+  const choosable = input.directory.filter((entry) => entry.canMessage && isPerson(entry.member))
   if (choosable.length < 2) return null
   const names = new Map(choosable.map((entry) => [entry.member.id, entry.member.name]))
   const chosen = chosenIn(input)

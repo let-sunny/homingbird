@@ -17,6 +17,17 @@ export const withDraftsAsRead = (
     : new Map([...read, ...unknown.map((note) => [note.id, asRead(note)] as const)])
 }
 
+/** The same for the answers a manager reviews: each is remembered as it first reached the page. */
+export const withReviewsAsRead = (
+  read: ReadonlyMap<NoteId, DraftAsShown>,
+  reviews: ReadonlyArray<AsRead.Review>,
+): ReadonlyMap<NoteId, DraftAsShown> => {
+  const unknown = reviews.map((review) => review.note).filter((note) => !read.has(note.id))
+  return unknown.length === 0
+    ? read
+    : new Map([...read, ...unknown.map((note) => [note.id, asRead(note)] as const)])
+}
+
 /** Whether the text or the room of a draft is not what the person last read. */
 export const isChangedSinceRead = (read: ReadonlyMap<NoteId, DraftAsShown>, draft: AsRead.Note): boolean => {
   const known = read.get(draft.id)

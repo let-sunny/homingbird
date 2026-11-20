@@ -12,6 +12,7 @@ import {
   credential,
   draft,
   entry,
+  everything,
   me,
   member,
   note,
@@ -229,6 +230,16 @@ describe('liveEvents', () => {
     await clock.advance(1)
     await settle()
     expect(routes().filter((route) => route === 'groups.list')).toHaveLength(1)
+  })
+
+  it('reads the waiting answers again once a run of review changes settles', async () => {
+    const { apply, state, clock, routes } = live()
+    state.serverInfo.set(everything())
+    apply(event({ type: 'review.changed', noteId: 'note_answer00000' }))
+    apply(event({ type: 'review.changed', noteId: null }))
+    await clock.advance(DIRECTORY_SETTLE_MS)
+    await settle()
+    expect(routes().filter((route) => route === 'reviews.list')).toHaveLength(1)
   })
 
   it('reloads the groups on a resync, once they were loaded', async () => {

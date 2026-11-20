@@ -15,6 +15,7 @@ import type { RequestEnv } from '../events/events.ts'
 import { dialect, run } from '../sql/database.ts'
 import { insertIgnoringConflict, sql } from '../sql/query.ts'
 import { recordAudit } from './audit.ts'
+import { followManagers } from './channel-agents.ts'
 import {
   type ChannelRow,
   type Viewer,
@@ -133,6 +134,7 @@ export const removeFromEveryGroup = (actor: Caller, memberId: MemberId): T.Task<
       })
       const channel = yield* channelOfGroup(group)
       const room = channel === null ? [] : yield* membersOf(channel.conversation_id)
+      if (channel !== null) yield* followManagers(actor.member.id, channel)
       if (channel !== null) yield* tellAboutChannel(channel, room)
       yield* announceGroups([group.id], channel === null ? undefined : audienceOf(channel, room))
     }
@@ -154,6 +156,7 @@ const joinGroup = (
       yield* run(insertIgnoringConflict(target, 'group_members', { group_id: group.id, member_id }))
     if (channel === null) return yield* announceGroups([group.id])
     yield* admit(caller, channel, added)
+    yield* followManagers(caller.member.id, channel)
     yield* tellAboutChannel(channel, [...added, ...removed, ...(yield* managersOf(channel))])
     yield* announceGroups([group.id], audienceOf(channel, yield* membersOf(channel.conversation_id)))
   })

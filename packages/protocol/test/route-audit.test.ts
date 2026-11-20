@@ -8,6 +8,7 @@ const names = Object.keys(contract) as RouteName[]
 /** Every human or administrator route that changes something and keeps no row, with the reason reviewed. */
 const REVIEWED_WITHOUT_AN_EVENT = [
   'analytics.track',
+  'channels.askPrivately',
   'conversations.create',
   'draftRequests.cancel',
   'draftRequests.create',

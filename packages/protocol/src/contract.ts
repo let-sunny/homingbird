@@ -1,5 +1,6 @@
 import { Schema as S, type Task } from '@homingbird/kernel'
 import { AnalyticsBatch } from './analytics.ts'
+import { AgentListing, ChannelAgent, ChannelAgentName, Review } from './channel-agents.ts'
 import { CharacterSpec } from './character.ts'
 import {
   ConsentRequest,
@@ -201,6 +202,51 @@ export const contract = {
     body: S.struct({ groupId: GroupId }),
     response: Channel,
   }),
+  'channels.agent.get': route({
+    method: 'GET',
+    path: '/channels/:slug/agent',
+    access: 'human',
+    response: ChannelAgent,
+  }),
+  'channels.agent.create': route({
+    method: 'PUT',
+    path: '/channels/:slug/agent',
+    access: 'human',
+    body: S.struct({ name: ChannelAgentName }),
+    response: ChannelAgent,
+  }),
+  'channels.agent.rename': route({
+    method: 'PATCH',
+    path: '/channels/:slug/agent',
+    access: 'human',
+    body: S.struct({ name: ChannelAgentName }),
+    response: ChannelAgent,
+  }),
+  'channels.agent.retire': route({
+    method: 'DELETE',
+    path: '/channels/:slug/agent',
+    access: 'human',
+    response: Empty,
+  }),
+  'channels.agent.credentials.revoke': route({
+    method: 'DELETE',
+    path: '/channels/:slug/agent/credentials/:id',
+    access: 'human',
+    response: ChannelAgent,
+  }),
+  'channels.askPrivately': route({
+    method: 'POST',
+    path: '/channels/:slug/private-question',
+    access: 'human',
+    response: Conversation,
+  }),
+  'reviews.list': route({
+    method: 'GET',
+    path: '/reviews',
+    access: 'human',
+    response: S.struct({ reviews: S.array(Review) }),
+  }),
+  'reviews.get': route({ method: 'GET', path: '/reviews/:id', access: 'human', response: Review }),
 
   'groups.list': route({
     method: 'GET',
@@ -607,6 +653,8 @@ export const contract = {
     body: S.struct({
       approve: S.boolean,
       name: S.optional(S.string({ minLength: 1, maxLength: 200 })),
+      /** Issues the credential to this channel's agent instead of the person deciding. */
+      channel: S.optional(ChannelSlug),
     }),
     response: Empty,
   }),
@@ -703,7 +751,7 @@ export const contract = {
     method: 'GET',
     path: '/admin/members',
     access: 'admin',
-    response: S.struct({ members: S.array(Member) }),
+    response: S.struct({ members: S.array(Member), agents: S.optional(S.array(AgentListing)) }),
   }),
   'admin.members.update': route({
     method: 'PATCH',

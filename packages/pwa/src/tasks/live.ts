@@ -8,6 +8,7 @@ import { hrefFor } from '../routes.ts'
 import { signedIn } from '../state.ts'
 import { strings } from '../strings.ts'
 import { withPresence, withReceipts, withoutMovedQuestion } from '../thread.ts'
+import { loadReviews } from './channel-agents.ts'
 import { loadDebate, loadDebates } from './debates.ts'
 import { loadGroups } from './groups.ts'
 import { forgetNote, forgetRelease, loadThread, rememberNote } from './notes.ts'
@@ -28,6 +29,11 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
     if (!state.groupsLoaded.get()) return
     cancelGroupsReload()
     cancelGroupsReload = later(app.clock, DIRECTORY_SETTLE_MS, () => launch(loadGroups))
+  }
+  let cancelReviewsReload = (): void => {}
+  const reloadReviewsSoon = (): void => {
+    cancelReviewsReload()
+    cancelReviewsReload = later(app.clock, DIRECTORY_SETTLE_MS, () => launch(loadReviews))
   }
   const refreshAgentsIfNoneKnown = (): void => {
     if (state.agentCredentials.get().length === 0) launch(loadAgents)
@@ -117,6 +123,9 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
       case 'group.changed':
         reloadGroupsSoon()
         break
+      case 'review.changed':
+        reloadReviewsSoon()
+        break
       case 'debate.changed':
         reloadShownDebate(app, body.debateId)
         break
@@ -134,7 +143,7 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
   }
 }
 
-/** Several directory or group changes in a row are loaded once, after they settle. */
+/** Several directory, group or review changes in a row are loaded once, after they settle. */
 export const DIRECTORY_SETTLE_MS = 400
 
 const leaveRoomIfShown = (app: App, conversationId: string): void => {

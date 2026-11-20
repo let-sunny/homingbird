@@ -1,5 +1,6 @@
 import { Task as T } from '@homingbird/kernel'
 import {
+  type AgentListing,
   CharacterSpec,
   Conflict,
   type DirectoryEntry,
@@ -7,10 +8,12 @@ import {
   Locale,
   type Member,
   MemberId,
+  type MemberKind,
   type MemberStatus,
   NotFound,
   type Role,
   canMessage,
+  isPerson,
   relation,
 } from '@homingbird/protocol'
 import type { AppEnv, Caller } from '../environment.ts'
@@ -44,7 +47,7 @@ export const directoryFor = (
           WHERE g.group_id = ${among.group} AND r.kind = 'team')`
       : sql``
     const rows = yield* all<MemberRow>(
-      sql`SELECT * FROM members WHERE status = 'active' ${matching} ${helping} ${grouped} ORDER BY name LIMIT ${DIRECTORY_LIMIT}`,
+      sql`SELECT * FROM members WHERE status = 'active' AND kind = 'person' ${matching} ${helping} ${grouped} ORDER BY name LIMIT ${DIRECTORY_LIMIT}`,
     )
     const channels = yield* channelsHelpedBy(
       viewer,
@@ -80,10 +83,20 @@ export const membersByIds = (ids: ReadonlyArray<MemberId>): T.Task<Map<MemberId,
     return new Map(rows.map((row) => [row.id, characters ? toMember(row) : withoutCharacter(toMember(row))]))
   })
 
+/** Every person; channels' agents are listed apart, with `allAgents`. */
 export const allMembers: T.Task<Member[], never, AppEnv> = T.gen(function* () {
-  const rows = yield* all<MemberRow>(sql`SELECT * FROM members ORDER BY name`)
+  const rows = yield* all<MemberRow>(sql`SELECT * FROM members WHERE kind = 'person' ORDER BY name, id`)
   const characters = yield* featureIsOn('characters')
   return rows.map((row) => (characters ? toMember(row) : withoutCharacter(toMember(row))))
+})
+
+/** Every channel's agent, active or retired, with the channel it answers in while it is active. */
+export const allAgents: T.Task<AgentListing[], never, AppEnv> = T.gen(function* () {
+  const rows = yield* all<MemberRow & { channel_slug: string | null }>(sql`
+    SELECT m.*, (SELECT t.slug FROM channels t JOIN participants p ON p.conversation_id = t.conversation_id
+      WHERE p.member_id = m.id ORDER BY t.slug LIMIT 1) AS channel_slug
+    FROM members m WHERE m.kind = 'channel_agent' ORDER BY m.name, m.id`)
+  return rows.map(({ channel_slug, ...row }) => ({ member: toMember(row), channel: channel_slug }))
 })
 
 export interface Identity {
@@ -99,6 +112,7 @@ export const signInMember = (identity: Identity): T.Task<Member, never, AppEnv> 
     const existing = yield* first<MemberRow>(
       sql`SELECT * FROM members WHERE subject = ${identity.subject} OR email = ${email}`,
     )
+    if (existing !== null && existing.kind !== 'person') return toMember(existing)
     if (existing !== null) {
       const role = env.config.adminEmails.includes(email) ? 'admin' : existing.role
       yield* run(
@@ -115,6 +129,7 @@ export const signInMember = (identity: Identity): T.Task<Member, never, AppEnv> 
       profile: '',
       role: isFirstDevelopmentMember || env.config.adminEmails.includes(email) ? 'admin' : 'member',
       status: 'active',
+      kind: 'person',
       createdAt: env.clock.now(),
       character: null,
     }
@@ -127,6 +142,7 @@ export const signInMember = (identity: Identity): T.Task<Member, never, AppEnv> 
         profile: '',
         role: member.role,
         status: member.status,
+        kind: 'person',
         event_seq: 0,
         created_at: member.createdAt,
         last_seen_at: null,
@@ -163,6 +179,7 @@ export const administerMember = (
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
     const before = yield* memberById(id)
+    if (!isPerson(before)) return yield* T.fail(NotFound({ message: 'No such member.' }))
     if (id === actor.member.id)
       return yield* T.fail(Conflict({ message: 'Admins cannot change their own status or role.' }))
     if (changes.role !== undefined)
@@ -188,6 +205,7 @@ export const messagingFacts = (mode: 'open' | 'contacts', viewerId: MemberId, ot
   mode,
   isSelf: other.id === viewerId,
   recipientStatus: other.status,
+  recipientIsPerson: isPerson(other),
   blocked: ties.blockedByViewer.has(other.id) || ties.blockingViewer.has(other.id),
   contact: ties.contacts.get(other.id) === 'accepted',
 })
@@ -199,6 +217,8 @@ export interface MemberRow {
   readonly profile: string
   readonly role: Role
   readonly status: MemberStatus
+  /** Null only on a row written outside this code; it reads as not a person. */
+  readonly kind: MemberKind | null
   readonly created_at: number
   readonly last_seen_at: number | null
   readonly character_spec: string | null
@@ -214,6 +234,7 @@ export const toMember = (row: MemberRow): Member => ({
   profile: row.profile,
   role: row.role,
   status: row.status,
+  kind: row.kind === 'person' ? 'person' : 'channel_agent',
   createdAt: row.created_at,
   character: characterIn(row.character_spec),
 })

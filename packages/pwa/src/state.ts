@@ -7,8 +7,8 @@ import type {
   NoteId,
 } from '@homingbird/protocol'
 import { type ReadableSignal, type Signal, derived, signal } from '@homingbird/ui'
-import type { Roster } from './channels.ts'
-import { withDraftsAsRead } from './drafts-read.ts'
+import { type Roster, agentMembersOf } from './channels.ts'
+import { withDraftsAsRead, withReviewsAsRead } from './drafts-read.ts'
 import { type Route, parseRoute } from './routes.ts'
 import { type ChangeCounter, changeCounter } from './thread-changes.ts'
 
@@ -18,6 +18,10 @@ export const createState = (hash: string): AppState => {
   const directory = signal<ReadonlyArray<AsRead.DirectoryEntry>>([])
   const threads = signal<ReadonlyMap<ConversationId, Thread>>(new Map())
   const draftsRead = signal<ReadonlyMap<NoteId, DraftAsShown>>(new Map())
+  const channels = signal<ReadonlyArray<AsRead.Channel>>([])
+  const reviews = signal<ReadonlyArray<AsRead.Review>>([])
+  const reviewsRead = signal<ReadonlyMap<NoteId, DraftAsShown>>(new Map())
+  reviews.subscribe((all) => reviewsRead.update((read) => withReviewsAsRead(read, all)))
   threads.subscribe((all) => draftsRead.update((read) => withDraftsAsRead(read, all)))
   return {
     session,
@@ -37,7 +41,10 @@ export const createState = (hash: string): AppState => {
     sendingIn: signal<ReadonlySet<ConversationId>>(new Set()),
     draftRequests: signal<ReadonlyArray<DraftRequest>>([]),
     agentCredentials: signal<ReadonlyArray<AsRead.Credential>>([]),
-    channels: signal<ReadonlyArray<AsRead.Channel>>([]),
+    channels,
+    reviews,
+    reviewsRead,
+    channelAgents: signal<ReadonlyMap<string, AsRead.ChannelAgent>>(new Map()),
     channelsLoaded: signal(false),
     groups: signal<ReadonlyArray<AsRead.Group>>([]),
     groupsLoaded: signal(false),
@@ -53,9 +60,10 @@ export const createState = (hash: string): AppState => {
     debatesLoaded: signal(false),
     shownDebate: signal<AsRead.Debate | 'missing' | null>(null),
     members: derived(
-      [directory, session],
-      (entries, me): ReadonlyMap<MemberId, AsRead.Member> =>
+      [directory, session, channels],
+      (entries, me, known): ReadonlyMap<MemberId, AsRead.Member> =>
         new Map([
+          ...agentMembersOf(known),
           ...(me !== null && me !== 'loading' ? [[me.member.id, me.member] as const] : []),
           ...entries.map((entry) => [entry.member.id, entry.member] as const),
         ]),
@@ -91,6 +99,12 @@ export interface AppState {
   readonly draftRequests: Signal<ReadonlyArray<DraftRequest>>
   readonly agentCredentials: Signal<ReadonlyArray<AsRead.Credential>>
   readonly channels: Signal<ReadonlyArray<AsRead.Channel>>
+  /** The channels' agents' answers waiting for this person, a manager of their channels. */
+  readonly reviews: Signal<ReadonlyArray<AsRead.Review>>
+  /** Each answer's text and room as the person first read it, like `draftsRead`. */
+  readonly reviewsRead: Signal<ReadonlyMap<NoteId, DraftAsShown>>
+  /** The agents of the channels the person manages, as last loaded, by slug. */
+  readonly channelAgents: Signal<ReadonlyMap<string, AsRead.ChannelAgent>>
   readonly channelsLoaded: Signal<boolean>
   /** Every group, as the server shows them to the person; none while the organization has groups off. */
   readonly groups: Signal<ReadonlyArray<AsRead.Group>>

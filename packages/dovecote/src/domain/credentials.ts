@@ -4,6 +4,7 @@ import {
   CredentialId,
   type CredentialKind,
   type MemberId,
+  type MemberKind,
   NotFound,
   Unauthorized,
 } from '@homingbird/protocol'
@@ -12,6 +13,7 @@ import { hashSecret } from '../random.ts'
 import { all, first, run } from '../sql/database.ts'
 import { insertInto, sql } from '../sql/query.ts'
 import { type MemberRow, toMember } from './members.ts'
+import { featureIsOn } from './settings.ts'
 
 export interface IssueRequest {
   readonly memberId: MemberId
@@ -20,6 +22,8 @@ export interface IssueRequest {
   readonly client: string
   readonly lifetimeMs: number
   readonly refreshable: boolean
+  /** The manager who issued a channel's agent its credential. */
+  readonly issuedBy?: MemberId
 }
 
 export interface Issued {
@@ -56,6 +60,7 @@ export const issueCredential = (request: IssueRequest): T.Task<Issued, never, Ap
         created_at: now,
         last_used_at: null,
         revoked_at: null,
+        issued_by: request.issuedBy ?? null,
       }),
     )
     return issued
@@ -66,10 +71,16 @@ export const authenticate = (token: string): T.Task<Caller, Unauthorized, AppEnv
     const env = yield* T.ask<AppEnv>()
     const now = env.clock.now()
     const row = yield* first<
-      CredentialRow & MemberRow & { credential_id: CredentialId; credential_name: string }
+      Omit<CredentialRow, 'kind'> &
+        Omit<MemberRow, 'kind'> & {
+          credential_id: CredentialId
+          credential_name: string
+          credential_kind: CredentialKind
+          member_kind: MemberKind | null
+        }
     >(sql`
-      SELECT m.*, c.id AS credential_id, c.name AS credential_name, c.kind, c.client, c.token_expires_at, c.expires_at,
-             c.revoked_at, c.last_used_at
+      SELECT m.*, m.kind AS member_kind, c.id AS credential_id, c.name AS credential_name, c.kind AS credential_kind,
+             c.client, c.token_expires_at, c.expires_at, c.revoked_at, c.last_used_at
       FROM credentials c JOIN members m ON m.id = c.member_id
       WHERE c.token_hash = ${hashSecret(token)}`)
     const usable =
@@ -78,14 +89,18 @@ export const authenticate = (token: string): T.Task<Caller, Unauthorized, AppEnv
       row.expires_at > now &&
       row.token_expires_at > now &&
       row.status === 'active' &&
-      mayAuthenticate(row)
+      mayAuthenticate({ kind: row.credential_kind, client: row.client }) &&
+      (row.member_kind === 'person' ||
+        (row.member_kind === 'channel_agent' &&
+          row.credential_kind === 'agent' &&
+          (yield* featureIsOn('channelAgents'))))
     if (!usable)
       return yield* T.fail(Unauthorized({ message: 'This credential is missing, expired or revoked.' }))
     if (row.last_used_at === null || now - row.last_used_at > LAST_USED_RESOLUTION_MS)
       yield* run(sql`UPDATE credentials SET last_used_at = ${now} WHERE id = ${row.credential_id}`)
     return {
-      member: toMember(row),
-      credential: { id: row.credential_id, kind: row.kind, name: row.credential_name },
+      member: toMember({ ...row, kind: row.member_kind }),
+      credential: { id: row.credential_id, kind: row.credential_kind, name: row.credential_name },
     }
   })
 
@@ -172,7 +187,7 @@ interface CredentialRow {
   readonly revoked_at: number | null
 }
 
-const mayAuthenticate = (row: CredentialRow): boolean =>
+const mayAuthenticate = (row: Pick<CredentialRow, 'kind' | 'client'>): boolean =>
   row.kind === 'agent' || row.client === BROWSER_SIGN_IN_CLIENT
 
 const toCredential = (row: CredentialRow, currentId: CredentialId): Credential => ({

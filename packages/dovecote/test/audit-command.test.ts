@@ -4,6 +4,7 @@ import { runAuditCommand } from '../src/audit-command.ts'
 import { recordAudit } from '../src/domain/audit.ts'
 import { transact } from '../src/events/events.ts'
 import { run } from '../src/sql/database.ts'
+import { MIGRATIONS } from '../src/sql/migrations.ts'
 import { insertInto, sql } from '../src/sql/query.ts'
 import { type TestServer, connectAgent, startTestServer, storedRows } from './harness.ts'
 
@@ -105,17 +106,22 @@ describe('dovecote audit', () => {
 
   it('refuses a database of another version, and migrates nothing', async () => {
     server = await startTestServer()
-    await T.runPromise(run(sql`DELETE FROM schema_versions WHERE version = 7`), server.env)
+    await T.runPromise(run(sql`DELETE FROM schema_versions WHERE version = ${MIGRATIONS.length}`), server.env)
     expect(await command('verify')).toEqual({
       code: 3,
       lines: [
         'This database is older than this Dovecote: start the server once to upgrade it, then run the command again.',
       ],
     })
-    expect((await storedRows(server, 'schema_versions')).map((row) => Number(row.version))).toEqual([
-      1, 2, 3, 4, 5, 6,
-    ])
-    await T.runPromise(run(sql`INSERT INTO schema_versions (version) VALUES (7), (9)`), server.env)
+    expect((await storedRows(server, 'schema_versions')).map((row) => Number(row.version))).toEqual(
+      MIGRATIONS.slice(1).map((_, index) => index + 1),
+    )
+    await T.runPromise(
+      run(
+        sql`INSERT INTO schema_versions (version) VALUES (${MIGRATIONS.length}), (${MIGRATIONS.length + 2})`,
+      ),
+      server.env,
+    )
     expect((await command('export')).code).toBe(3)
     await T.runPromise(run(sql`DROP TABLE schema_versions`), server.env)
     expect((await command('export')).code).toBe(3)

@@ -139,14 +139,14 @@ export const requireAvailableGroupName = (
       return yield* T.fail(Conflict({ message: 'Another group already has that name.' }))
   })
 
-/** Reads under the members' row locks, so a deactivation still committing is waited for, not missed. */
+/** Only people join a group. Reads under the members' row locks, so a deactivation still committing is waited for, not missed. */
 export const requireActiveMembers = (memberIds: ReadonlyArray<MemberId>): T.Task<void, NotFound, AppEnv> =>
   T.gen(function* () {
     if (memberIds.length === 0) return
     const wanted = [...new Set(memberIds)].sort()
     yield* run(sql`UPDATE members SET status = status WHERE id IN ${list(wanted)}`)
     const found = yield* all<{ id: MemberId }>(
-      sql`SELECT id FROM members WHERE id IN ${list(wanted)} AND status = 'active'`,
+      sql`SELECT id FROM members WHERE id IN ${list(wanted)} AND status = 'active' AND kind = 'person'`,
     )
     if (found.length < wanted.length) return yield* T.fail(NotFound({ message: 'No such member.' }))
   })

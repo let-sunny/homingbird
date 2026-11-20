@@ -59,6 +59,19 @@ export const FEATURES = {
       'debates.export',
     ],
   },
+  channelAgents: {
+    default: false,
+    routes: [
+      'channels.agent.get',
+      'channels.agent.create',
+      'channels.agent.rename',
+      'channels.agent.retire',
+      'channels.agent.credentials.revoke',
+      'channels.askPrivately',
+      'reviews.list',
+      'reviews.get',
+    ],
+  },
   analytics: { default: false, routes: ['analytics.track'] },
 } as const satisfies Readonly<
   Record<string, { readonly default: boolean; readonly routes: ReadonlyArray<RouteName> }>

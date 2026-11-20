@@ -163,12 +163,12 @@ describe('handleA2aMessage', () => {
     expect([...reached].sort()).toEqual(['drafts.update', 'notes.get'])
   })
 
-  it('has no action that joins, leaves or answers a channel, or changes its members, managers or visibility', async () => {
+  it('has no action that joins, leaves or answers a channel, changes its members, managers or visibility, or runs its agent', async () => {
     const { call, calls } = gateway()
     const membership = (Object.keys(contract) as RouteName[]).filter(
       (name) => name.startsWith('channels.') && humanOnlyRoutes.includes(name),
     )
-    expect(membership).toHaveLength(9)
+    expect(membership).toHaveLength(15)
     for (const method of [
       ...CURRENT_METHODS,
       ...LEGACY_METHODS,

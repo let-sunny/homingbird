@@ -73,6 +73,13 @@ exports[`schema > generates stable DDL for mysql 1`] = `
   "ALTER TABLE debate_turns ADD COLUMN agent_model VARCHAR(400)",
   "ALTER TABLE debate_drafts ADD COLUMN agent_model VARCHAR(400)",
   "ALTER TABLE debate_votes ADD COLUMN agent_model VARCHAR(400)",
+  "ALTER TABLE members ADD COLUMN kind VARCHAR(400)",
+  "UPDATE members SET kind = 'person' WHERE kind IS NULL",
+  "ALTER TABLE notes ADD COLUMN approved_by VARCHAR(64)",
+  "ALTER TABLE credentials ADD COLUMN issued_by VARCHAR(64)",
+  "ALTER TABLE conversations ADD COLUMN channel_id VARCHAR(64)",
+  "ALTER TABLE conversations ADD COLUMN asked_by VARCHAR(64)",
+  "CREATE INDEX conversations_channel_id_idx ON conversations (channel_id)",
 ]
 `;
 
@@ -190,6 +197,13 @@ exports[`schema > generates stable DDL for postgres 1`] = `
   "ALTER TABLE debate_turns ADD COLUMN agent_model VARCHAR(400)",
   "ALTER TABLE debate_drafts ADD COLUMN agent_model VARCHAR(400)",
   "ALTER TABLE debate_votes ADD COLUMN agent_model VARCHAR(400)",
+  "ALTER TABLE members ADD COLUMN kind VARCHAR(400)",
+  "UPDATE members SET kind = 'person' WHERE kind IS NULL",
+  "ALTER TABLE notes ADD COLUMN approved_by VARCHAR(64)",
+  "ALTER TABLE credentials ADD COLUMN issued_by VARCHAR(64)",
+  "ALTER TABLE conversations ADD COLUMN channel_id VARCHAR(64)",
+  "ALTER TABLE conversations ADD COLUMN asked_by VARCHAR(64)",
+  "CREATE INDEX IF NOT EXISTS conversations_channel_id_idx ON conversations (channel_id)",
 ]
 `;
 
@@ -307,5 +321,12 @@ exports[`schema > generates stable DDL for sqlite 1`] = `
   "ALTER TABLE debate_turns ADD COLUMN agent_model TEXT",
   "ALTER TABLE debate_drafts ADD COLUMN agent_model TEXT",
   "ALTER TABLE debate_votes ADD COLUMN agent_model TEXT",
+  "ALTER TABLE members ADD COLUMN kind TEXT",
+  "UPDATE members SET kind = 'person' WHERE kind IS NULL",
+  "ALTER TABLE notes ADD COLUMN approved_by TEXT",
+  "ALTER TABLE credentials ADD COLUMN issued_by TEXT",
+  "ALTER TABLE conversations ADD COLUMN channel_id TEXT",
+  "ALTER TABLE conversations ADD COLUMN asked_by TEXT",
+  "CREATE INDEX IF NOT EXISTS conversations_channel_id_idx ON conversations (channel_id)",
 ]
 `;

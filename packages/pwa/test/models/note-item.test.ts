@@ -25,6 +25,14 @@ const receipt = (memberId: typeof ANA, fields: Partial<AsRead.Receipt> = {}): As
 })
 
 describe('noteItemModel', () => {
+  it('shows beside a channel agent’s answer where it answered and who approved it', () => {
+    const answer = note('n1', { authorId: CY, approvedBy: ANA })
+    const room = conversation({ kind: 'group', privateQuestionOf: 'wiki' })
+    const input = threadInput({ conversations: [room], thread: { notes: [answer], hasMore: false } })
+    expect(noteItemModel(input, item(answer)).approval).toBe('#wiki · approved by Ana')
+    expect(noteItemModel(input, item(note('n2'))).approval).toBeNull()
+  })
+
   it('shows a colleague’s note leading a run with its author, time, and ways to answer it', () => {
     const theirs = note('n1', { sentAt: 5, receipts: [receipt(ANA)] })
     const model = noteItemModel(threadInput({ thread: { notes: [theirs], hasMore: false } }), item(theirs))

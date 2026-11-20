@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { Task as T, tagged } from '@homingbird/kernel'
+import { isPerson } from '@homingbird/protocol'
 import { recordAudit } from '../domain/audit.ts'
 import { BROWSER_SIGN_IN_CLIENT, issueCredential } from '../domain/credentials.ts'
 import { signInMember } from '../domain/members.ts'
@@ -22,6 +23,7 @@ export type SignInFailure =
   | 'domain_refused'
   | 'personal_account'
   | 'deactivated'
+  | 'not_a_person'
 export type SignInRefused = ReturnType<typeof SignInRefused>
 
 export interface Session {
@@ -73,6 +75,8 @@ export const completeSignIn = (
     )
     yield* requireAllowed(identity)
     const member = yield* signInMember(identity)
+    if (!isPerson(member))
+      return yield* T.fail(SignInRefused({ message: 'This account cannot sign in.', reason: 'not_a_person' }))
     yield* announceDirectoryChange(member.id)
     if (member.status !== 'active')
       return yield* T.fail(

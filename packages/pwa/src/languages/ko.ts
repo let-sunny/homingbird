@@ -449,6 +449,7 @@ export const ko: Translation<typeof en> = {
       insights: '관리자 인사이트',
       noteDetails: '노트를 쓴 모델과 프로그램',
       debateRooms: '토론방',
+      channelAgents: '채널 에이전트',
       analytics: '익명 제품 분석',
     },
     whenOff: {
@@ -464,6 +465,8 @@ export const ko: Translation<typeof en> = {
       insights: '끄면: 관리자가 조직 전체 숫자를 볼 수 없어요.',
       noteDetails: '끄면: 노트에 쓴 모델과 프로그램이 보이지 않아요.',
       debateRooms: '끄면: 토론방이 보이지 않고 에이전트도 차례를 갖지 않아요. 있던 토론방은 그대로 남아요.',
+      channelAgents:
+        '끄면: 채널 에이전트가 답하지 않고 그 데스크 연결도 거절돼요. 지워지는 건 없고, 다시 켜면 돌아와요.',
       analytics:
         '끄면: 사용 통계가 이 서버 밖으로 나가지 않아요. 켜면 운영자가 정한 곳으로만 본 페이지 같은 익명 통계가 가요. 내용, 이름, 이메일은 보내지 않아요.',
     },
@@ -1193,5 +1196,43 @@ export const ko: Translation<typeof en> = {
     open: '그룹 DM 열기',
     starting: '시작하는 중…',
     clear: '모두 빼기',
+  },
+  channelAgent: {
+    title: '채널 에이전트',
+    intro:
+      '에이전트 하나가 이 채널의 질문에 답해요. 답은 운영자를 기다려요. 운영자 누구든 한 명이 보내면 되고, 먼저 보낸 사람의 승인이 적용돼요.',
+    none: '이 채널에는 아직 에이전트가 없어요.',
+    nameLabel: '이름',
+    nameHint: '한 줄, 80자까지예요. 에이전트가 쓰는 모든 답에 표시돼요.',
+    create: '에이전트 만들기',
+    rename: '이름 바꾸기',
+    retire: '에이전트 은퇴',
+    retireTitle: '{agent} 에이전트를 은퇴시킬까요?',
+    retireBody:
+      '바로 멈춰요. 이 에이전트로 연결된 데스크는 모두 끊기고, 기다리던 답은 버려져요. 이미 보낸 답은 남아요. 나중에 다른 에이전트를 만들 수 있어요.',
+    desksTitle: '{agent} 에이전트로 연결된 데스크',
+    desksNone: '아직 연결된 데스크가 없어요.',
+    connectHint:
+      '데스크를 연결하려면 에이전트가 일할 곳에서 homingbird login을 실행하고, 승인 화면에서 {agent} 에이전트를 고르세요. 승인한 운영자가 이 채널의 운영자에서 빠지면 그 데스크도 멈춰요.',
+    approvedByManager: '{name} 님이 승인',
+    revoke: '연결 끊기',
+    revoked: '연결 끊김',
+    reviewsTitle: '나를 기다리는 답',
+    reviewsNone: '기다리는 답이 없어요.',
+    reviewsWaiting: { other: '답 {count}개가 기다리고 있어요' },
+    questionFrom: '{name} 님의 질문',
+    askedPrivately: '비공개 질문',
+    reliedOn: '근거',
+    send: '보내기',
+    discard: '버리기',
+    approvedBy: '{channel} · {name} 님이 승인',
+    askPrivately: '{agent} 에이전트에게 비공개로 묻기',
+    privateNotice:
+      '여기에는 나, {agent} 에이전트, {channel} 채널의 운영자만 있어요. 나중에 운영자가 되는 사람도 들어와서 여기 있는 모든 내용을 읽어요.',
+    privateNoticeArchived:
+      '이 질문을 한 채널이 보관되었어요. 남아 있는 사람은 읽을 수 있지만 더 쓸 수는 없어요.',
+    connectAs: '연결할 대상',
+    connectAsMe: '내 에이전트',
+    connectAsAgent: '{channel} 채널의 에이전트: {agent}',
   },
 }

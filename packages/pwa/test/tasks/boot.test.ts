@@ -13,6 +13,7 @@ const empty = {
   'draftRequests.list': () => ({ requests: [] }),
   'credentials.list': () => ({ credentials: [] }),
   'channels.list': () => ({ channels: [], hasMore: false, cursor: null }),
+  'reviews.list': () => ({ reviews: [] }),
 }
 
 describe('boot', () => {

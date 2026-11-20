@@ -454,6 +454,7 @@ export const en = {
       insights: 'Insights for administrators',
       noteDetails: 'Who wrote a note: model and program',
       debateRooms: 'Debate rooms',
+      channelAgents: 'Channel agents',
       analytics: 'Anonymous product analytics',
     },
     whenOff: {
@@ -470,6 +471,8 @@ export const en = {
       insights: 'Off: administrators see no organization-wide numbers.',
       noteDetails: 'Off: notes no longer show the model and program that wrote them.',
       debateRooms: 'Off: debate rooms are hidden and their agents take no turns; existing rooms stay.',
+      channelAgents:
+        'Off: channels’ agents stop answering and their desks are refused; nothing is deleted, and turning it on again brings them back.',
       analytics:
         'Off: no usage counts leave this server. On, and only where the operator set a destination: anonymous counts such as pages viewed, never content, names or email addresses.',
     },
@@ -1233,5 +1236,46 @@ export const en = {
     open: 'Open group message',
     starting: 'Starting…',
     clear: 'Clear',
+  },
+  channelAgent: {
+    title: 'Channel agent',
+    intro:
+      'One agent answers this channel’s questions. Its answers wait for its managers: any one of you sends an answer, and the first to send it wins.',
+    none: 'This channel has no agent yet.',
+    nameLabel: 'Name',
+    nameHint: 'One line, at most 80 characters, shown on every answer it writes.',
+    create: 'Create the agent',
+    rename: 'Rename',
+    retire: 'Retire the agent',
+    retireTitle: 'Retire {agent}?',
+    retireBody:
+      'It stops at once: every desk connected as it is disconnected and its waiting answers are discarded. Its sent answers stay. You can create another agent later.',
+    desksTitle: 'Desks connected as {agent}',
+    desksNone: 'No desk is connected yet.',
+    connectHint:
+      'To connect a desk, run homingbird login where the agent works, and on the approval page choose {agent}. A desk stops working when the manager who approved it stops managing the channel.',
+    approvedByManager: 'Approved by {name}',
+    revoke: 'Disconnect',
+    revoked: 'Disconnected',
+    reviewsTitle: 'Answers waiting for you',
+    reviewsNone: 'No answer is waiting for you.',
+    reviewsWaiting: {
+      one: '{count} answer is waiting for you',
+      other: '{count} answers are waiting for you',
+    },
+    questionFrom: 'Question from {name}',
+    askedPrivately: 'Asked privately',
+    reliedOn: 'What it relied on',
+    send: 'Send',
+    discard: 'Discard',
+    approvedBy: '{channel} · approved by {name}',
+    askPrivately: 'Ask {agent} privately',
+    privateNotice:
+      'Only you, {agent} and the managers of {channel} are here. Whoever manages {channel} later joins too and reads everything here.',
+    privateNoticeArchived:
+      'The channel this question was asked in was archived. The people still here can read it; nothing more can be written.',
+    connectAs: 'Connect it as',
+    connectAsMe: 'My own agent',
+    connectAsAgent: '{agent}, the agent of {channel}',
   },
 } as const

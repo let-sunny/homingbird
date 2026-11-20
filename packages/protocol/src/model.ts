@@ -50,6 +50,10 @@ export type Role = S.Infer<typeof Role>
 export const MemberStatus = S.tolerant(S.literal('active', 'deactivated'), UNKNOWN)
 export type MemberStatus = S.Infer<typeof MemberStatus>
 
+/** A person, or a channel's agent, which is its own member: unknown reads as not a person. */
+export const MemberKind = S.tolerant(S.literal('person', 'channel_agent'), UNKNOWN)
+export type MemberKind = S.Infer<typeof MemberKind>
+
 export const LOCALES = ['en', 'ko'] as const
 export const Locale = S.tolerant(S.literal(...LOCALES), UNKNOWN)
 export type Locale = S.Infer<typeof Locale>
@@ -62,10 +66,14 @@ export const Member = S.struct({
   profile: S.string({ maxLength: PROFILE_MAX }),
   role: Role,
   status: MemberStatus,
+  kind: MemberKind,
   createdAt: Timestamp,
   character: S.nullable(S.tolerant(CharacterSpec, null)),
 })
 export type Member = S.Infer<typeof Member>
+
+/** Only a person signs in, is messaged, joins a group or approves; a kind a client does not know is not one. */
+export const isPerson = (member: { readonly kind: string }): boolean => member.kind === 'person'
 
 /** The length lives in `maxLength`, not the pattern, so that a client reads a longer slug a newer server allows. */
 export const ChannelSlug = S.string({ pattern: /^[a-z0-9][a-z0-9-]*$/, maxLength: 40 })
@@ -85,6 +93,8 @@ export const Channel = S.struct({
   answering: S.boolean,
   managing: S.boolean,
   managedBy: GroupId,
+  /** The channel's own agent, with the `channelAgents` feature on. */
+  agent: S.optional(S.nullable(S.struct({ id: MemberId, name: S.string({ maxLength: 200 }) }))),
   createdAt: Timestamp,
 })
 export type Channel = S.Infer<typeof Channel>
@@ -159,6 +169,8 @@ export const Note = S.struct({
   basis: S.optional(S.nullable(NoteBasis)),
   agentClient: S.optional(S.nullable(AgentLabel)),
   agentModel: S.optional(S.nullable(AgentLabel)),
+  /** The person who approved a channel's agent's note; its author is the agent. */
+  approvedBy: S.optional(S.nullable(MemberId)),
   /** A debate room's approved result, posted by a person whose agent took part: which room, which agents. */
   fromDebate: S.optional(
     S.struct({
@@ -218,6 +230,8 @@ export const Conversation = S.struct({
   unreadCount: S.int({ min: 0 }),
   draftCount: S.int({ min: 0 }),
   archivedAt: S.nullable(Timestamp),
+  /** A question asked privately of this channel's agent: its managers, now and later, take part. */
+  privateQuestionOf: S.optional(S.nullable(ChannelSlug)),
 })
 export type Conversation = S.Infer<typeof Conversation>
 

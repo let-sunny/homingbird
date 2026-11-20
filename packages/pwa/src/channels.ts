@@ -91,6 +91,34 @@ export const chipsForPerson = (
   return { first: ordered.slice(0, keep), rest: ordered.slice(keep) }
 }
 
+/**
+ * The channels' agents as members, so that a note one wrote shows its name: they are not in the directory,
+ * which lists people.
+ */
+export const agentMembersOf = (
+  channels: ReadonlyArray<AsRead.Channel>,
+): ReadonlyArray<readonly [MemberId, AsRead.Member]> =>
+  channels.flatMap(({ agent, createdAt }) =>
+    agent === undefined || agent === null
+      ? []
+      : [
+          [
+            agent.id,
+            {
+              id: agent.id,
+              email: '',
+              name: agent.name,
+              profile: '',
+              role: 'member',
+              status: 'active',
+              kind: 'channel_agent',
+              createdAt,
+              character: null,
+            },
+          ] as const,
+        ],
+  )
+
 export interface Roster {
   readonly memberCount: number
   readonly members: ReadonlyArray<ChannelMember>

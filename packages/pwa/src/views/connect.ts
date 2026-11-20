@@ -1,6 +1,7 @@
 import type { ConsentRequest } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, region, signal } from '@homingbird/ui'
 import { logoOf, wordmark } from '../models/branding.ts'
+import { type DeviceTargets, deviceTargetsModel } from '../models/channel-agent.ts'
 import {
   type ConnectModel,
   type DeviceStage,
@@ -25,17 +26,27 @@ export const deviceView = (context: ViewContext, life: Lifetime, code: string | 
       failed: () => stage.set({ step: 'ask' }),
       attempt: 'device',
     })
-  const decide = (approve: boolean, typed: string): void => {
+  actions.loadKnownChannels()
+  const decide = (approve: boolean, typed: string, channel: string): void => {
     const current = stage.get()
     if (current.step !== 'decide') return
-    actions.decideDevice(current.request.userCode, approve, connectionName(typed, current.request.client), {
+    const name = connectionName(typed, current.request.client)
+    actions.decideDevice(current.request.userCode, approve, name, channel, {
       done: () => stage.set({ step: 'done', approved: approve }),
     })
   }
+  const { state } = context
   return connectWindow(
     context,
     strings.deviceTitle,
-    region(life, [stage], () => renderConnect(deviceModel(stage.get()), context, decide)),
+    region(life, [stage, state.channels, state.serverInfo], () =>
+      renderConnect(
+        deviceModel(stage.get()),
+        context,
+        decide,
+        deviceTargetsModel(state.channels.get(), state.serverInfo.get()),
+      ),
+    ),
     true,
   )
 }
@@ -46,7 +57,7 @@ export const consentView = (context: ViewContext, life: Lifetime, id: string): H
   const request = signal<ConsentRequest | null>(null)
   const decided = signal<{ readonly approved: boolean } | null>(null)
   actions.lookUpConsent(id, { done: (loaded) => request.set(loaded) })
-  const decide = (approve: boolean, typed: string): void => {
+  const decide = (approve: boolean, typed: string, _channel: string): void => {
     const loaded = request.get()
     if (loaded === null) return
     actions.decideConsent(loaded.id, approve, connectionName(typed, loaded.client), {
@@ -68,7 +79,8 @@ export const consentView = (context: ViewContext, life: Lifetime, id: string): H
 const renderConnect = (
   model: ConnectModel,
   context: ViewContext,
-  decide: (approve: boolean, name: string) => void,
+  decide: (approve: boolean, name: string, channel: string) => void,
+  targets: DeviceTargets | null = null,
 ): HTMLElement => {
   switch (model.kind) {
     case 'code':
@@ -85,6 +97,11 @@ const renderConnect = (
       )
     case 'decide': {
       const name = h('input', { name: 'name', required: true, maxlength: '200', value: model.name })
+      const target = h(
+        'select',
+        { name: 'target' },
+        (targets?.choices ?? []).map((choice) => h('option', { value: choice.value }, choice.label)),
+      )
       return h(
         'form',
         {
@@ -92,16 +109,17 @@ const renderConnect = (
           on: {
             submit: (event) => {
               event.preventDefault()
-              decide(true, name.value)
+              decide(true, name.value, target.value)
             },
           },
         },
         model.lines.map((line) => h('p', line.style === null ? {} : { class: line.style }, line.text)),
         field(model.nameLabel, name),
+        targets !== null && field(targets.label, target),
         h(
           'div',
           { class: 'form-actions' },
-          button(strings.deny, () => decide(false, name.value)),
+          button(strings.deny, () => decide(false, name.value, '')),
           h('button', { type: 'submit', class: 'primary' }, strings.approve),
         ),
       )

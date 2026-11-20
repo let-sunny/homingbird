@@ -16,6 +16,7 @@ import {
   statusOf,
 } from '../thread.ts'
 import { type AvatarModel, memberAvatarOf } from './avatar.ts'
+import { approvalLine } from './channel-agent.ts'
 import { type ThreadInput, isOn, nameIn, noteIn, notesOf, roomOf } from './thread-room.ts'
 import { type TimeShown, timeShown } from './time.ts'
 
@@ -53,6 +54,7 @@ export const noteItemModel = (
       basis === null || basis.kind === 'none'
         ? null
         : { className: `note-basis ${side}`, lines: basis.lines },
+    approval: approvalLine(note, room, input.channels, input.members),
     answeredBy:
       answerers.length === 0
         ? null
@@ -99,6 +101,8 @@ export interface NoteItemModel {
   readonly quote: string | null
   readonly body: string
   readonly basis: { readonly className: string; readonly lines: ReadonlyArray<string> } | null
+  /** Where a channel's agent answered and who approved it, for everyone who reads the note. */
+  readonly approval: string | null
   readonly answeredBy: { readonly avatar: AvatarModel; readonly text: string } | null
   readonly release: { readonly text: string; readonly askAnyway: string | null } | null
   readonly meta: { readonly time: TimeShown | null; readonly mark: StateMarkModel | null } | null

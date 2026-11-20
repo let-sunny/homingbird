@@ -46,6 +46,7 @@ export const renderNoteItem = (
           h('summary', {}, strings.draftBasisTitle),
           ...model.basis.lines.map((line) => h('p', {}, linkedText(line))),
         ),
+      model.approval !== null && h('p', { class: 'note-approval' }, model.approval),
       model.answeredBy !== null &&
         h(
           'p',

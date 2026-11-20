@@ -3,6 +3,7 @@ import type { AsRead, DraftRequest } from '@homingbird/protocol'
 import { type Action, type App, withApp } from '../app.ts'
 import { featureOn } from '../features.ts'
 import type { Branding } from '../state.ts'
+import { loadReviews } from './channel-agents.ts'
 
 export const loadWorkspace: Action = T.gen(function* () {
   const { api, state } = yield* T.ask<App>()
@@ -18,6 +19,7 @@ export const loadWorkspace: Action = T.gen(function* () {
   state.contacts.set(ties.contacts)
   yield* loadAgents
   yield* loadKnownChannels
+  yield* loadReviews
 })
 
 export const loadAgents: Action = T.gen(function* () {

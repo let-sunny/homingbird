@@ -62,6 +62,7 @@ export const ANA: Member = {
   profile: 'Billing and migrations',
   role: 'admin',
   status: 'active',
+  kind: 'person',
   createdAt: 1,
   character: null,
 }

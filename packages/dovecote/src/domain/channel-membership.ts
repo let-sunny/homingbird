@@ -12,6 +12,7 @@ import type { AppEnv } from '../environment.ts'
 import type { RequestEnv } from '../events/events.ts'
 import { first, run } from '../sql/database.ts'
 import { sql } from '../sql/query.ts'
+import { followManagers } from './channel-agents.ts'
 import {
   type ChannelRow,
   type Viewer,
@@ -29,6 +30,7 @@ import {
   visibleChannel,
 } from './channel-rows.ts'
 import { leaveGroupOfEmptiedRoom, lockedChannel } from './group-rows.ts'
+import { requireNotAgent } from './member-kinds.ts'
 
 export const channelMembers = (
   viewer: Viewer,
@@ -77,11 +79,13 @@ export const removeChannelMember = (
       'People leave an open channel by themselves.',
       'remove',
     )
+    yield* requireNotAgent(memberId)
     if (!(yield* isMemberOf(row.conversation_id, memberId))) return yield* describeChannel(viewer, row)
     yield* requireManagerRemains(row, { leaving: memberId })
     yield* requireOutsideManagingGroup(row, memberId)
     yield* depart(row, memberId)
     yield* leaveGroupOfEmptiedRoom(row, memberId)
+    yield* followManagers(viewer.id, row)
     yield* tellAboutChannel(row, yield* managersOf(row))
     return yield* describeChannel(viewer, row)
   })
@@ -144,6 +148,8 @@ const managedPrivateChannel = (
 
 const requireActiveMember = (memberId: MemberId): T.Task<void, NotFound, AppEnv> =>
   T.gen(function* () {
-    const row = yield* first(sql`SELECT id FROM members WHERE id = ${memberId} AND status = 'active'`)
+    const row = yield* first(
+      sql`SELECT id FROM members WHERE id = ${memberId} AND status = 'active' AND kind = 'person'`,
+    )
     if (row === null) return yield* T.fail(NotFound({ message: 'No such member.' }))
   })

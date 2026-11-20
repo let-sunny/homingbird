@@ -12,7 +12,7 @@ import { type RequestEnv, emit } from '../events/events.ts'
 import { all, first, run } from '../sql/database.ts'
 import { insertInto, sql } from '../sql/query.ts'
 import { abandonDraft } from './abandoned-drafts.ts'
-import { helpersOf } from './channel-rows.ts'
+import { answerersOf } from './channel-rows.ts'
 import { roomForMovedQuestion } from './channels.ts'
 import { participantsOf, participatedConversation } from './conversations.ts'
 import type { NoteFailure } from './drafts.ts'
@@ -50,7 +50,7 @@ export const moveToChannel = (
     yield* run(sql`DELETE FROM receipts WHERE note_id = ${id}`)
     yield* run(sql`DELETE FROM pickups WHERE note_id = ${id}`)
     yield* moveNotices(id, to)
-    for (const memberId of (yield* helpersOf(to)).filter((helperId) => helperId !== note.authorId))
+    for (const memberId of (yield* answerersOf(to)).filter((helperId) => helperId !== note.authorId))
       yield* run(insertInto('receipts', { note_id: id, member_id: memberId, delivered_at: now }))
     yield* run(sql`UPDATE conversations SET last_activity_at = ${now} WHERE id = ${to}`)
     const moved = yield* noteById(id, null)
