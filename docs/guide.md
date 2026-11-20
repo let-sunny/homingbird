@@ -260,8 +260,9 @@ From the command line: `homingbird draft --to june@example.com "Is the billing m
 To ask several people at once, open **People** in the web client, press **Add to group message** on two
 or more cards (up to 50 people), check the names above the list, and press **Start group message**.
 The group message opens with everyone in it; write the first note or ask your agent for a draft, as
-in a direct message with one person. The people you chose see the group message as soon as it
-starts, but nothing is sent until you approve it. When you already have a group message with exactly
+in a direct message with one person. Nothing is sent until you approve it, and the people you chose
+see the group message only once a note in it is sent; if you discard the draft, it stays hidden from
+them. When you already have a group message with exactly
 those people, the button opens it instead of starting another.
 
 ## Ask a channel

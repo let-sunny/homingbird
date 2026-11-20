@@ -5,6 +5,16 @@ states the decision first, then the reason. Add new entries at the top of their 
 
 ## Product
 
+- **A group message is invisible to its other members until a note in it is sent, like a direct
+  message.** Starting a group in the web client creates its room before the first note is drafted;
+  showing it to everyone at once would tell them a note was on its way, and a discarded draft would leave
+  an empty room with its starter's name in their list. Until a note is sent, the room shows only to the
+  person who started it, who writes or approves that note and whom **Start group message** for the same
+  people brings back to it: not in the others' list, unread counts, event stream or search, and a lookup
+  by id answers 404. Visibility is derived from the notes; the starter is kept in `asked_by`, the column
+  that names who opened a private question, so no migration is needed. Groups started before this have
+  no starter recorded and show to their members only once a note is sent or while their own draft waits.
+  Channel rooms, private questions and archived rooms show to their participants as before.
 - **A channel's managers are notified when its agent's answer waits for their review, as the channel
   notifies them.** When a channel's agent writes a new draft, every person who may review it then gets a
   push titled with the channel ("#payments-wiki · An answer waits for your review"), with the same

@@ -12,7 +12,7 @@ import {
 } from '@homingbird/protocol'
 import type { AppEnv } from '../environment.ts'
 import { all, dialect, first, run } from '../sql/database.ts'
-import { insertIgnoringConflict, insertInto, sql } from '../sql/query.ts'
+import { type Query, insertIgnoringConflict, insertInto, sql } from '../sql/query.ts'
 import { tiesOf } from './contacts.ts'
 import { membersByIds, messagingFacts } from './members.ts'
 import { type NoteRow, hydrateNotes } from './note-rows.ts'
@@ -30,9 +30,7 @@ export const listConversations = (
     const rows = yield* all<ConversationRow>(sql`
       SELECT c.* FROM conversations c
       JOIN participants p ON p.conversation_id = c.id AND p.member_id = ${viewerId}
-      WHERE c.kind <> 'direct'
-         OR EXISTS (SELECT 1 FROM notes n WHERE n.conversation_id = c.id
-                    AND (n.status = 'sent' OR (n.status = 'draft' AND n.author_id = ${viewerId})))
+      WHERE ${isShownTo(viewerId)}
       ORDER BY c.last_activity_at DESC LIMIT ${CONVERSATION_LIMIT}`)
     const muting = yield* showsMute(forPerson)
     return yield* T.forEach(rows, (row) => describeConversation(viewerId, row, muting))
@@ -56,7 +54,7 @@ export const participatedConversation = (
     const row = yield* first<ConversationRow>(sql`
       SELECT c.* FROM conversations c
       JOIN participants p ON p.conversation_id = c.id AND p.member_id = ${viewerId}
-      WHERE c.id = ${id}`)
+      WHERE c.id = ${id} AND (c.kind = 'direct' OR ${isShownTo(viewerId)})`)
     return row ?? (yield* T.fail(NotFound({ message: 'No such conversation.' })))
   })
 
@@ -76,7 +74,7 @@ export const directConversationWith = (
       sql`SELECT * FROM conversations WHERE pair_key = ${pairKey}`,
     )
     if (existing !== null) return existing
-    const created = yield* insertConversation('direct', null, pairKey, [viewerId, otherId])
+    const created = yield* insertConversation('direct', null, pairKey, null, [viewerId, otherId])
     return (
       (yield* first<ConversationRow>(sql`SELECT * FROM conversations WHERE pair_key = ${pairKey}`)) ?? created
     )
@@ -99,7 +97,7 @@ export const createGroupConversation = (
         muting,
       )
     yield* requireMayMessage(viewerId, others)
-    const row = yield* insertConversation('group', title ?? null, null, [viewerId, ...others])
+    const row = yield* insertConversation('group', title ?? null, null, viewerId, [viewerId, ...others])
     return yield* describeConversation(viewerId, row, muting)
   })
 
@@ -147,6 +145,17 @@ const ARCHIVED = Conflict({
   message:
     'No reply is possible: this channel was archived. It can still be read, but nothing more can be written in it, here or in the web client.',
 })
+
+/**
+ * Whether the viewer may see this conversation. A direct or group conversation shows only once a note
+ * in it is sent, and before that to the author of a draft in it and to whoever started the group;
+ * channel rooms, private questions and archived rooms always show to their participants. `c` names
+ * the conversation in the query.
+ */
+const isShownTo = (viewerId: MemberId): Query => sql`(
+  c.kind = 'channel' OR c.channel_id IS NOT NULL OR c.archived_at IS NOT NULL OR c.asked_by = ${viewerId}
+  OR EXISTS (SELECT 1 FROM notes n WHERE n.conversation_id = c.id
+             AND (n.status = 'sent' OR (n.status = 'draft' AND n.author_id = ${viewerId}))))`
 
 const showsMute = (forPerson: boolean): T.Task<boolean, never, AppEnv> =>
   forPerson ? featureIsOn('mute') : T.succeed(false)
@@ -201,6 +210,7 @@ const insertConversation = (
   kind: ConversationKind,
   title: string | null,
   pairKey: string | null,
+  startedBy: MemberId | null,
   participantIds: ReadonlyArray<MemberId>,
 ): T.Task<ConversationRow, never, AppEnv> =>
   T.gen(function* () {
@@ -214,7 +224,11 @@ const insertConversation = (
       last_activity_at: now,
     }
     const inserted = yield* run(
-      insertIgnoringConflict(yield* dialect, 'conversations', { ...row, pair_key: pairKey }),
+      insertIgnoringConflict(yield* dialect, 'conversations', {
+        ...row,
+        pair_key: pairKey,
+        asked_by: startedBy,
+      }),
     )
     if (inserted === 0) return row
     for (const memberId of participantIds)

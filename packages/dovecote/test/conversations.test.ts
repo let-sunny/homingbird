@@ -58,7 +58,7 @@ describe('direct conversations', () => {
 })
 
 describe('group conversations', () => {
-  it('creates a group that every participant sees at once and can draft into', async () => {
+  it('creates a group that every participant can read once its first note is sent', async () => {
     const group = (
       await ana.api('POST', '/conversations', {
         participantIds: [ben.me.member.id, cy.me.member.id],
@@ -67,19 +67,65 @@ describe('group conversations', () => {
     ).json
     expect(group).toMatchObject({ kind: 'group', title: 'Launch', lastNote: null })
     expect(group.participantIds).toHaveLength(3)
-    expect((await cy.api('GET', '/conversations')).json.conversations.map((c: any) => c.id)).toEqual([
-      group.id,
-    ])
 
-    const draft = (await ben.api('POST', '/drafts', { conversationId: group.id, body: 'to everyone' })).json
-    const sent = (await ben.api('POST', `/drafts/${draft.id}/send`, await asShown(ben, draft.id))).json
+    const draft = (await ana.api('POST', '/drafts', { conversationId: group.id, body: 'to everyone' })).json
+    const sent = (await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))).json
     expect(sent.receipts.map((receipt: any) => receipt.memberId).sort()).toEqual(
-      [ana.me.member.id, cy.me.member.id].sort(),
+      [ben.me.member.id, cy.me.member.id].sort(),
     )
-    await ana.api('POST', `/notes/${sent.id}/read`)
+    await ben.api('POST', `/notes/${sent.id}/read`)
     const forCy = (await cy.api('GET', `/notes/${sent.id}`)).json.receipts
     expect(forCy.filter((receipt: any) => receipt.state === 'read')).toHaveLength(1)
-    expect(forCy).toEqual((await ben.api('GET', `/notes/${sent.id}`)).json.receipts)
+    expect(forCy).toEqual((await ana.api('GET', `/notes/${sent.id}`)).json.receipts)
+    const reply = (await cy.api('POST', '/drafts', { conversationId: group.id, body: 'got it' })).json
+    expect(reply.conversationId).toBe(group.id)
+  })
+
+  it('hides a new group from everyone but its starter until a note in it is sent', async () => {
+    const group = await startGroup()
+    expect(await sightings(ana, group.id)).toEqual(SEEN_EMPTY)
+    for (const other of [ben, cy]) expect(await sightings(other, group.id)).toEqual(UNSEEN)
+
+    const draft = (await ana.api('POST', '/drafts', { conversationId: group.id, body: 'quokka plan' })).json
+    for (const other of [ben, cy]) {
+      expect(await sightings(other, group.id)).toEqual(UNSEEN)
+      expect((await other.api('POST', '/drafts', { conversationId: group.id, body: 'me too' })).status).toBe(
+        404,
+      )
+    }
+
+    await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))
+    for (const other of [ben, cy])
+      expect(await sightings(other, group.id)).toEqual({
+        listed: true,
+        byId: 200,
+        unread: 1,
+        events: true,
+        found: 1,
+      })
+    expect(await sightings(ana, group.id)).toEqual({
+      listed: true,
+      byId: 200,
+      unread: 0,
+      events: true,
+      found: 1,
+    })
+  })
+
+  it('hides a group again from the others when its only draft is discarded, and keeps it for its starter', async () => {
+    const group = await startGroup()
+    const draft = (await ana.api('POST', '/drafts', { conversationId: group.id, body: 'quokka plan' })).json
+    await ana.api('POST', `/drafts/${draft.id}/discard`)
+    for (const other of [ben, cy]) expect(await sightings(other, group.id)).toEqual(UNSEEN)
+    expect(await sightings(ana, group.id)).toEqual(SEEN_EMPTY)
+    const again = (await ana.api('POST', '/drafts', { conversationId: group.id, body: 'second try' })).json
+    expect(again.conversationId).toBe(group.id)
+  })
+
+  it('keeps a direct conversation readable by id from both sides, as before', async () => {
+    const draft = (await ana.api('POST', '/drafts', { to: [ben.me.member.id], body: 'quokka plan' })).json
+    expect((await ben.api('GET', '/conversations')).json.conversations).toEqual([])
+    expect((await ben.api('GET', `/conversations/${draft.conversationId}`)).status).toBe(200)
   })
 
   it('turns a group of two into the direct conversation and refuses a group of one', async () => {
@@ -100,3 +146,24 @@ describe('group conversations', () => {
     expect(refused.status).toBe(403)
   })
 })
+
+const UNSEEN = { listed: false, byId: 404, unread: 0, events: false, found: 0 }
+const SEEN_EMPTY = { listed: true, byId: 200, unread: 0, events: false, found: 0 }
+
+const startGroup = async (): Promise<{ id: string }> =>
+  (await ana.api('POST', '/conversations', { participantIds: [ben.me.member.id, cy.me.member.id] })).json
+
+/** Every way a member could come across the group besides their own drafts' events. */
+const sightings = async (who: Session, groupId: string) => {
+  const list = (await who.api('GET', '/conversations')).json.conversations
+  const events = (await who.api('GET', '/events/poll?after=0')).json.events
+  return {
+    listed: list.some((conversation: any) => conversation.id === groupId),
+    byId: (await who.api('GET', `/conversations/${groupId}`)).status,
+    unread: list.reduce((total: number, conversation: any) => total + conversation.unreadCount, 0),
+    events: events.some(
+      (event: any) => !event.body.type.startsWith('draft.') && JSON.stringify(event).includes(groupId),
+    ),
+    found: (await who.api('GET', '/search?q=quokka')).json.notes.length,
+  }
+}
