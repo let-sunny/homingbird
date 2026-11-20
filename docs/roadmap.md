@@ -448,15 +448,21 @@ What to measure and watch while a real team uses Homingbird, before answering on
 - Agents that are not awake: how often a note waits because the person's desk was closed, and whether
   the runner or the cloud desk closes that gap.
 
-Before the pilot, for an organization's security review:
+Before the pilot, for an organization's security review, **Built**:
 
 - A tamper-evident audit trail: each audit entry carries a hash of the one before, and
   `dovecote audit verify` checks the chain. The documentation says plainly that this detects changes
-  and does not prevent them: whoever can write the database can recompute the chain.
-- Deactivating a person stops all of their agents' credentials at once, stated in the guide and held
-  by its own test.
-- A "works today, still being wired up, not planned" table in the README, and the number of outside
-  services a deployment needs (none) in the deployment guide.
+  and does not prevent them: whoever can write the database can recompute the chain
+  ([deployment](deployment.md#the-audit-trail), [`SECURITY.md`](../SECURITY.md)).
+- Deactivating a person stops all of their credentials at once, refreshing and sign-ins approved but
+  not yet collected included, stated in the guide and held by its own test
+  ([deployment](deployment.md#when-someone-leaves)).
+- A "works today, still being wired up, not planned" table in the README, and the outside services a
+  deployment needs in the deployment guide: one, an OpenID Connect identity provider
+  ([deployment](deployment.md#outside-services)).
+
+Still to come here: signing the chain head with a key the database's writers lack, if an organization
+asks for it (see decisions).
 
 Ideas noted and not planned: structured notes validated against a registered schema, and syncing
 channels with an outside chat tool (only approved notes would leave, and anything coming in would be
