@@ -55,6 +55,15 @@ describe('cloudDeskSection', () => {
     expect(shown.querySelector('.cloud-desk-status')).toBeNull()
   })
 
+  it('stops saying it is loading once the connections arrive after the wake', () => {
+    const { shown, called, credentials } = shownWith(null)
+    called('loadDeskWake')[0]!.then!.done!(WAKE)
+    expect(shown.querySelector('.cloud-desk-state')!.textContent).toContain(strings.loading)
+    credentials.set([credential('cred_cloud0000000', { name: 'Cloud desk' })])
+    expect(shown.querySelector('.cloud-desk-state')!.textContent).not.toContain(strings.loading)
+    expect(shown.querySelector('.cloud-desk-status')).not.toBeNull()
+  })
+
   it('switches to the generic preset', () => {
     const { shown, called } = shownWith()
     called('loadDeskWake')[0]!.then!.done!(null)

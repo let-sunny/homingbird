@@ -41,7 +41,9 @@ export const cloudDeskSection = (
     { class: 'appearance cloud-desk' },
     h('legend', {}, strings.cloudDesk.legend),
     h('p', { class: 'hint' }, strings.cloudDesk.intro),
-    region(life, [wake, tested], () => renderState(model(), context, actions), { class: 'cloud-desk-state' }),
+    region(life, [wake, tested, credentials], () => renderState(model(), context, actions), {
+      class: 'cloud-desk-state',
+    }),
     region(life, [wake, credentials, preset], () => renderForm(model(), context, actions), {
       class: 'cloud-desk-setup',
     }),
