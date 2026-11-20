@@ -1041,3 +1041,46 @@ again." without sending; the web client reads the thread again and says the draf
   and since the page cannot tell an agent from the person's other device, the words name no one.
 - **An editor whose draft moved holds Send and Save** until the person confirms the new destination,
   which it shows; their edit stays in place.
+
+## A cloud desk is woken by a content-free call to an address its person saved
+
+A desk can run in a cloud agent service instead of on the person's computer. Such a session cannot hold
+an event stream, so Dovecote calls an address the person registered when work waits for their agent. It
+is experimental, behind `cloudDesk`, off by default, and offered only when `HB_SECRETS_KEY` is set.
+
+- **The call says nothing but that work waits.** Its body is fixed, `{"text":"Homingbird: work is
+  waiting at <HB_PUBLIC_URL>."}`; no note, name or count. The woken session reads everything through the
+  Homingbird connector, as any desk does, and its notes still reach it through `wrapNote` (Rule 4). The
+  routine's saved prompt holds the instructions, because a service passes the text it is woken with to
+  the model as untrusted data.
+- **The token is the one secret Dovecote must use, so it is sealed, not hashed** (Rule 5's exception).
+  AES-256-GCM under `HB_SECRETS_KEY`, from `node:crypto`, with the member id as associated data so a
+  sealed value copied to another person's row does not open. It is used only in the wake request, never
+  shown again (reading the wake back gives the host and header names only), replaced in full on every
+  save, and deleted when the person removes the wake or is deactivated. There is no rotation tool yet:
+  a changed key makes every wake read as "set up again". The host stays in the clear to show it and to
+  audit it.
+- **Only addresses the operator allowed.** https, the default port, no user name or fragment, a public
+  host name that matches `HB_WAKE_HOSTS` exactly (`api.anthropic.com` by default, no subdomains). A
+  redirect is a failure, never followed, so the token goes only where the person sent it. The answer's
+  body is cancelled unread. Up to four headers; the ones the server sets or proxies read are refused.
+- **When to wake.** A pass every 15 seconds, fed by the same deliveries as push and by every enabled
+  wake at start. It wakes only when no agent of the person holds an event stream, the bound credential
+  has been silent for two minutes, and work really waits for it, asked as that credential: a fresh note,
+  an open draft request, or a debate room's ask or ballot. Work is gathered for 30 seconds and woken at
+  most every five minutes. While a wake waits for its desk to use the credential, nothing else is sent.
+- **Every successful wake starts a new paid session**, and the service has no idempotency. So a timeout
+  counts as sent and is not retried at once; refusals (400, 401, 403, 404) stop the wake; 429 waits for
+  Retry-After, up to an hour; anything else waits 5, 15, then 60 minutes; a desk that does not use its
+  credential within ten minutes counts as a failure; five in a row stop it. A stop is audited and told to
+  the person by push and on My agent → Connection.
+- **Debate rooms.** A room the bound credential opted into is woken two minutes before its grace would
+  drop the agent out, at least three minutes apart. The web client recommends a 10 or 30 minute grace.
+- **The bound credential is served as a desk on `/mcp`**, so a woken connector session picks up what
+  waits instead of only listing it. Revoking or letting it expire stops the wake (`credential_gone`).
+- **The candidates are in memory**, like presence, which fits the one instance Dovecote supports.
+- **Presets are web client data, not server code.** The Claude routine's API trigger comes first, marked
+  as not yet tested with the real service, then a generic "POST this address with these headers". Both
+  show the prompt to save in the woken task. Only `member` routes are reachable by the woken session; the
+  four wake routes are `human` (Rule 3), and the audit keeps `desk_wake.registered`, `removed` and
+  `stopped` with the host only. Each wake goes to the operational log as `desk_wake.fired`.
