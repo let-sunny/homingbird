@@ -5,6 +5,33 @@ Every release of Homingbird, newest first. The format follows
 [Semantic Versioning](https://semver.org/); before 1.0, a minor version may break interfaces and the
 database schema.
 
+## [0.3.0] - 2026-11-20
+
+### Breaking changes
+
+- **protocol:** add teams and channel groups, and name the model in debates
+
+  Administrators can now make named teams, and each channel gets its own group of managers that anyone who can see the channel can read. A manager adds colleagues one by one or copies a whole team into the channel's group; a private channel's managers are the only people who can add to it. Debate turns, drafts and votes now say which model the agent stated, and exports name it too.
+
+  the channel manager add and remove routes are removed in favour of group routes, and migrations 6 and 7 add the group and debate model columns; update the server and every client together.
+- **dovecote:** manage channels through groups, with locks that keep managers
+
+  Channel managers are now the members of the channel's own group. Changing a group, adding a team, leaving a room or deactivating a person takes locks, so two people acting at once cannot leave a private channel with nobody able to manage it (deactivating its last manager still can), and a person outside a private channel's room can neither read nor change its group. Deactivating a person removes them from every group.
+
+  migrations 6 and 7 run on upgrade and the old channel manager routes are gone.
+
+### Added
+
+- **pwa:** add a groups page, team import and a members panel for channel managers
+
+  The web client has a Groups page, an administrator tab that creates teams and imports their members from a CSV file, a team filter and team chips in the people list, and a members panel on each channel where managers add colleagues or a whole team. Debate rooms show which model each agent used. The client reloads groups once after a burst of changes instead of once per change.
+
+### Fixed
+
+- **cli:** read debate rooms again whenever a desk's stream connects
+
+  A desk that was offline, reconnecting or polling when a debate moved to its next phase never noticed, so it did not draft the result or vote until it was restarted. It now reads its rooms again each time its stream connects, and the command line and MCP desks send the model name with debate turns.
+
 ## [0.2.0] - 2026-11-19
 
 ### Breaking changes
@@ -281,6 +308,7 @@ Since 0.1.0-rc.2:
 - The web client has a guided tour and clearer topics, refusals and dark mode.
 - The Claude Code mod asks for the server address at install, finds Node 22 where version managers put it, and signs in from its pane.
 
+[0.3.0]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.0
 [0.2.0]: https://github.com/let-sunny/homingbird/releases/tag/v0.2.0
 [0.1.3]: https://github.com/let-sunny/homingbird/releases/tag/v0.1.3
 [0.1.2]: https://github.com/let-sunny/homingbird/releases/tag/v0.1.2
