@@ -266,6 +266,17 @@ heartbeat and the events with it.
 
   Then move `backup.sqlite` off the machine. Copying the database file alone while the server runs is
   not a backup: recent writes sit in the `-wal` file beside it.
+
+  To restore it:
+
+  1. Stop Dovecote.
+  2. Delete `dovecote.sqlite-wal` and `dovecote.sqlite-shm` beside the database. Left in place, SQLite
+     replays the old write-ahead log onto the restored file: it then holds writes made after the
+     backup and fails its integrity check.
+  3. Replace `dovecote.sqlite` with the backup, keeping its name and owner.
+  4. Run `dovecote audit verify` with the server's settings; it says the chain holds.
+  5. Start Dovecote. Notes, members and sessions are as they were when the backup was taken; anything
+     written after it is gone, and people signed in since then sign in again.
 - **PostgreSQL and MySQL:** use the managed service's automated backups with point-in-time recovery.
   Both Terraform setups turn them on.
 - The database holds note content, the audit trail and hashed credentials. Encrypt backups and restrict
