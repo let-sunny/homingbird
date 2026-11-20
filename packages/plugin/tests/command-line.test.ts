@@ -126,6 +126,37 @@ test('a plugin folder without its copy of the command line falls back to npx bes
   expect(await T.runPromise(commandOf(noNpm, {}))).toEqual({ kind: 'no-node', olderVersion: null })
 })
 
+test('on Windows, nvm-windows, Volta and the Node installer are tried, and npx is the npx.cmd beside node.exe', async () => {
+  const environment = {
+    USERPROFILE: 'C:\\Users\\ana',
+    LOCALAPPDATA: 'C:\\Users\\ana\\AppData\\Local',
+    NVM_SYMLINK: 'C:\\nvm4w\\nodejs',
+  }
+  for (const path of [
+    'C:\\nvm4w\\nodejs\\node.exe',
+    'C:\\Users\\ana\\AppData\\Local\\Volta\\bin\\node.exe',
+    'C:\\Program Files\\nodejs\\node.exe',
+  ]) {
+    const machine = machineWith({ environment, versions: { [path]: 'v22.1.0' } })
+    expect(await T.runPromise(commandOf(machine, {}))).toEqual({
+      kind: 'ready',
+      argv: [path, '--no-warnings', BUNDLED],
+    })
+  }
+  const npx = machineWith({
+    bundled: false,
+    environment,
+    versions: {
+      'C:\\Program Files\\nodejs\\node.exe': 'v22.1.0',
+      'C:\\Program Files\\nodejs\\npx.cmd': '10.0.0',
+    },
+  })
+  expect(await T.runPromise(commandOf(npx, {}))).toEqual({
+    kind: 'ready',
+    argv: ['C:\\Program Files\\nodejs\\npx.cmd', '-y', '@homingbird/cli'],
+  })
+})
+
 test('only the last line of output is read as JSON', () => {
   expect(lastJsonLine('progress\n{"ok":true}\n')).toEqual({ ok: true })
   expect(lastJsonLine('not json')).toBeNull()

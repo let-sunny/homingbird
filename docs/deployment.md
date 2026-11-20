@@ -1002,7 +1002,14 @@ npm install -g @homingbird/cli
 starts the runner at once. The runner supervises itself: it starts again detached and hidden, so a
 console window flashes briefly at logon, keeps one copy per server, retries what fails and writes its
 own log. `service uninstall` deletes the value and asks the runner to stop. The agent command cannot
-contain `"` or `%` on Windows. None of this has been run on Windows yet.
+contain `"` or `%` on Windows, and `service install` refuses a command line longer than the 32,767
+characters Windows starts. At logon `PATH` may not yet hold where the agents' own installers put them,
+so the runner also looks in `%USERPROFILE%\.local\bin` (Claude Code),
+`%LOCALAPPDATA%\Programs\OpenAI\Codex\bin` (Codex), `%LOCALAPPDATA%\agy\bin` (Antigravity) and
+`%APPDATA%\npm`. Agent commands run through `cmd.exe /d /v:off /s /c`, so a `!` stays as written; a
+`%NAME%` in one is still replaced by that variable. File modes such as `0600` mean nothing on Windows:
+the agent credential is kept private by the access rules of the person's own profile folder. None of
+this has been run on Windows yet.
 
 ### Linux (onboarding script, or configuration management)
 
@@ -1031,6 +1038,24 @@ sudo -iu "$user" env XDG_RUNTIME_DIR="/run/user/$uid" \
 
 The unit is `~/.config/systemd/user/homingbird-runner-<server>.service`, enabled for
 `default.target`: it starts when the person logs in and stops when they log out.
+
+### Headless agents: what to expect
+
+- **One runner per person and server on a computer.** A second `homingbird run` for the same person
+  waits while the first holds the desk, and a second copy of the service exits; neither drafts twice.
+- **The service log says why an agent run failed** in one line: the exit code and the first line the
+  agent wrote to its error output, at most 160 characters, with the agent credential and the
+  credentials file's path withheld. Nothing else the agent writes reaches the log.
+- **Antigravity needs a sign-in it can reuse.** The runner asks `agy -p /usage` first and stops,
+  before any note waits, when agy does not answer within 20 seconds or is not signed in; sign in by
+  running `agy` once in a terminal as the same user. agy is reported to ignore a sign-in made on the
+  machine itself when `SSH_CONNECTION` is set, so a runner started over SSH may see it as signed out:
+  sign in inside that SSH session, or start the runner from a local login or the service. This has
+  not been checked with the real CLI. The runner switches agy's own updater off for its runs
+  (`AGY_CLI_DISABLE_AUTO_UPDATE=true`), so an update never takes a console or the focus.
+- **A tool the agent may not use is denied, never waited for.** Claude Code runs with
+  `--permission-prompts none`. Antigravity denies such a tool and still exits successfully; the runner
+  then logs the first line agy wrote about it beside the draft.
 
 ### What people do afterwards
 

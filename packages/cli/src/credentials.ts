@@ -153,6 +153,12 @@ export const writeCredentialsFile = (
 export const removeCredential = (serverUrl: string): T.Task<void, never, CliEnv> =>
   T.flatMap((env: CliEnv) => env.files.remove(pathFor(env, serverUrl)))(T.ask<CliEnv>())
 
+/** The file `homingbird login` keeps one server's agent credential in. */
+export const credentialPathFor = (
+  env: Pick<CliEnv, 'variables' | 'homeDirectory'>,
+  serverUrl: string,
+): string => pathFor(env, serverUrl)
+
 export const credentialDirectory = (env: Pick<CliEnv, 'variables' | 'homeDirectory'>): string =>
   `${env.variables.XDG_CONFIG_HOME || `${env.homeDirectory}/.config`}/homingbird`
 

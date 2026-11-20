@@ -2,6 +2,7 @@ import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import {
   AS_THE_PERSON_ON_WINDOWS,
+  COMMAND_LINE_MAX,
   RUN_KEY,
   runKeyService,
   valueName,
@@ -83,6 +84,19 @@ describe('the Run key entry', () => {
     expect(
       runKeyService.definition(paths, { ...WINDOWS_SPEC, credentialsFile: 'C:\\100%\\secret.json' }),
     ).toMatchObject({ _tag: 'Err' })
+  })
+
+  it('refuses a command line longer than Windows starts', () => {
+    const agentOf = (length: number) => `my-agent ${'x'.repeat(length)}`
+    const fits = commandLine({ ...WINDOWS_SPEC, agent: agentOf(0) }).length
+    expect(
+      runKeyService.definition(paths, { ...WINDOWS_SPEC, agent: agentOf(COMMAND_LINE_MAX - fits) }),
+    ).toMatchObject({
+      _tag: 'Ok',
+    })
+    expect(
+      runKeyService.definition(paths, { ...WINDOWS_SPEC, agent: agentOf(COMMAND_LINE_MAX - fits + 1) }),
+    ).toMatchObject({ _tag: 'Err', error: expect.stringContaining('more than the 32767 Windows starts') })
   })
 
   it('hands the runner the credentials file’s path as an option, since a Run key sets no variable', () => {
