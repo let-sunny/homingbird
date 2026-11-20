@@ -30,7 +30,7 @@ export const login = (
     if (file !== null) yield* requireNewCredentialsFile(file, invocation.force)
     const options = {
       serverUrl: invocation.server,
-      clientName: invocation.name ?? `Homingbird CLI on ${env.hostName}`,
+      clientName: invocation.name ?? DEFAULT_DEVICE_NAME,
       clientKind: env.variables.HOMINGBIRD_CLIENT_KIND === 'plugin' ? ('plugin' as const) : ('cli' as const),
       fetch: env.fetch,
     }
@@ -102,3 +102,7 @@ const KEEP_THE_FILE =
 
 const ONE_DESK =
   'Keep one desk, the one session that answers arriving notes: a Claude Code session with the Homingbird plugin’s pane open, an MCP client started as the desk (homingbird-mcp with --desk or --run-agent), or homingbird run. Other sessions draft only what you ask.'
+
+// The computer's host name stays out of the default: the credential's name travels with every draft
+// the agent writes. A person names the device with --name or renames it in the web client.
+const DEFAULT_DEVICE_NAME = 'Homingbird CLI'

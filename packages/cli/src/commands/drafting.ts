@@ -24,7 +24,7 @@ export const draft = (
 ): T.Task<Outcome, CliFailure, CliEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<CliEnv>()
-    const client = agentLabelOf(env.variables[CLIENT_VARIABLE])
+    const client = agentLabelOf(env.variables[CLIENT_VARIABLE]) ?? UNNAMED_CLIENT
     const model = agentLabelOf(stated)
     const reported = sessionOf(env.variables[SESSION_VARIABLE])
     const session = yield* openSession
@@ -35,7 +35,7 @@ export const draft = (
           body: text,
           ...address,
           ...(basis !== null && { basis }),
-          ...(client !== null && { client }),
+          client,
           ...(model !== null && { model }),
           ...(reported !== null && { session: reported }),
         },
@@ -141,6 +141,10 @@ const addressOf = (
 
 /** Names the program for an integration that runs this command line, such as the mod; never a flag a model can pass. */
 const CLIENT_VARIABLE = 'HOMINGBIRD_CLIENT'
+
+// Without a label the server falls back to the credential's name, which a person may have set to
+// name their computer; the program label in insights should say the program, not the device.
+const UNNAMED_CLIENT = 'homingbird'
 
 /** The desk session's age in minutes and context use, "95" or "95,62", set by an integration that observes them. */
 const SESSION_VARIABLE = 'HOMINGBIRD_SESSION'

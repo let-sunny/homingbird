@@ -249,7 +249,6 @@ describe('nodeEnvironment', () => {
     expect(env.stopped).toBe(stopped)
     expect(env.fetch).toBe(globalThis.fetch)
     expect(env.homeDirectory.length).toBeGreaterThan(0)
-    expect(env.hostName.length).toBeGreaterThan(0)
     expect(env.nonce()).not.toBe(env.nonce())
     expect(() =>
       wrapNote({

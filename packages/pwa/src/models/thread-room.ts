@@ -72,13 +72,22 @@ export const threadTopModel = (input: ThreadInput): ThreadTop => {
   }
 }
 
-/** Why the draft a notification opened is not shown: it was sent or discarded, here or on another device. */
-export const settledDraftLine = (input: Pick<ThreadInput, 'thread' | 'focusedDraft'>): string | null => {
-  const isOpen = notesOf(input).some((note) => note.id === input.focusedDraft && note.status === 'draft')
-  return input.focusedDraft === null || input.thread === undefined || isOpen
+/**
+ * Why the draft a notification opened is not shown: it was sent or discarded on another device before
+ * this page opened. A draft this page showed open and that then went was settled here, so it says
+ * nothing.
+ */
+export const settledDraftLine = (
+  input: Pick<ThreadInput, 'thread' | 'focusedDraft'>,
+  wasShownOpen: boolean,
+): string | null =>
+  input.focusedDraft === null || input.thread === undefined || wasShownOpen || isFocusedDraftOpen(input)
     ? null
     : strings.draftAlreadySettled
-}
+
+/** Whether the draft a link opened is in the conversation, still waiting for the person. */
+export const isFocusedDraftOpen = (input: Pick<ThreadInput, 'thread' | 'focusedDraft'>): boolean =>
+  notesOf(input).some((note) => note.id === input.focusedDraft && note.status === 'draft')
 
 /** Below the notes: each draft that archiving the channel discarded, in the person's own words. */
 export const archiveDiscardLines = (

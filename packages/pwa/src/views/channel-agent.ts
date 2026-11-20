@@ -1,6 +1,6 @@
 import type { AsRead, NoteId } from '@homingbird/protocol'
 import { CHANNEL_AGENT_NAME_MAX } from '@homingbird/protocol'
-import { type Child, type Lifetime, h, region, signal } from '@homingbird/ui'
+import { type Child, type Lifetime, derived, h, region, signal } from '@homingbird/ui'
 import { featureOn } from '../features.ts'
 import {
   type ChannelAgentFiguresModel,
@@ -23,7 +23,7 @@ import type { ViewContext } from './context.ts'
 import { closeDialog, opensDialog } from './dialog.ts'
 import { reportWhenSeen } from './drafts-item.ts'
 import { joinCodeSection } from './join-code.ts'
-import { button, dialogActions, field, loading, page as pageOf } from './parts.ts'
+import { button, field, loading, page as pageOf } from './parts.ts'
 
 /** The agent's buttons among a channel's own controls: its panel for a manager, and asking it privately. */
 export const agentButtons = (context: ViewContext, channel: AsRead.Channel): Child => {
@@ -125,11 +125,24 @@ const agentPanel = (
       life.add(state.reviews.subscribe(learnWhatBecameOfFocus))
     },
   })
+  const retiring = { open: false }
   const figures = signal<ChannelAgentFiguresState>('loading')
-  actions.loadChannelAgentFigures(channel.slug, {
-    done: (report) => figures.set(report),
-    failed: () => figures.set('failed'),
-  })
+  let latestFigures = 0
+  const loadFigures = (): void => {
+    const asked = ++latestFigures
+    actions.loadChannelAgentFigures(channel.slug, {
+      done: (report) => asked === latestFigures && figures.set(report),
+      failed: () => asked === latestFigures && figures.set('failed'),
+    })
+  }
+  const waitingHere = derived([state.reviews], (reviews) =>
+    reviews
+      .filter((review) => review.channel === channel.slug)
+      .map((review) => review.note.id)
+      .join(' '),
+  )
+  loadFigures()
+  life.add(waitingHere.subscribe(loadFigures))
   const panel = h(
     'div',
     { class: 'dialog-body channel-agent-panel' },
@@ -142,6 +155,7 @@ const agentPanel = (
         context,
         channel,
         joinCodeFor,
+        retiring,
       ),
     ),
     region(life, [state.reviews, state.reviewsRead, state.members, decided], () => {
@@ -255,6 +269,7 @@ const renderPanel = (
   context: ViewContext,
   channel: AsRead.Channel,
   joinCodeFor: (name: string) => HTMLElement | null,
+  retiring: { open: boolean },
 ): Child => {
   if (model.kind === 'loading') return loading()
   if (model.kind === 'failed') return h('p', { class: 'hint', role: 'status' }, model.text)
@@ -291,19 +306,27 @@ const renderPanel = (
     h('p', { class: 'hint' }, model.connectHint),
     joinCodeFor(model.name),
     h(
-      'form',
+      'details',
       {
-        class: 'retire-agent',
-        on: {
-          submit: (event) => {
-            event.preventDefault()
-            context.actions.retireChannelAgent(channel.slug, { done: () => closeDialog(context) })
+        class: 'retire-agent-step',
+        open: retiring.open,
+        on: { toggle: (event) => (retiring.open = (event.currentTarget as HTMLDetailsElement).open) },
+      },
+      h('summary', {}, model.retireTitle),
+      h(
+        'form',
+        {
+          class: 'retire-agent',
+          on: {
+            submit: (event) => {
+              event.preventDefault()
+              context.actions.retireChannelAgent(channel.slug, { done: () => closeDialog(context) })
+            },
           },
         },
-      },
-      h('h3', {}, model.retireTitle),
-      h('p', {}, model.retireBody),
-      dialogActions(strings.channelAgent.retire, 'danger'),
+        h('p', {}, model.retireBody),
+        h('button', { type: 'submit', class: 'danger' }, strings.channelAgent.retire),
+      ),
     ),
   ]
 }

@@ -124,6 +124,19 @@ describe('deliveryModel', () => {
       strings.insights.hidden,
       strings.trust.noneYet,
     ])
+    const everyone = deliveryModel(
+      figures({
+        delivery: {
+          received: 0,
+          toAgents: 0,
+          pickedUpQuickly: 0,
+          medianPickupMs: null,
+          waitedWithoutAgent: 0,
+        },
+      }),
+      1,
+    )
+    expect(everyone.rows[3]![1]).toBe(strings.trust.noneYet)
   })
 
   it('hides the received total on its own, and shows the notes to agents as a count', () => {

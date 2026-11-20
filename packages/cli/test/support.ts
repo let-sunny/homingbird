@@ -163,7 +163,6 @@ export const world = (options: WorldOptions = {}): World => {
     output: { line: (text) => lines.push(text), problem: (text) => problems.push(text) },
     variables: options.variables ?? {},
     homeDirectory: HOME,
-    hostName: 'laptop',
     nonce: () => `nonce${String(nonces++).padStart(15, '0')}`,
     stopped: stop.signal,
     server: null,

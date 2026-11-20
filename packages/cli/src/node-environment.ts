@@ -13,7 +13,7 @@ import {
   stat,
   writeFile,
 } from 'node:fs/promises'
-import { homedir, hostname } from 'node:os'
+import { homedir } from 'node:os'
 import { dirname } from 'node:path'
 import { Task as T, systemClock } from '@homingbird/kernel'
 import {
@@ -34,7 +34,6 @@ export const nodeEnvironment = (stopped: AbortSignal, options: NodeEnvironmentOp
   output: options.logFile ? logFileOutput(options.logFile) : terminalOutput,
   variables: process.env,
   homeDirectory: homedir(),
-  hostName: hostname(),
   nonce: () => randomBytes(16).toString('hex'),
   stopped,
   launcher: nodeLauncher(process.platform, undefined, undefined, options.agentErrors ?? 'inherit'),

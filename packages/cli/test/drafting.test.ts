@@ -24,7 +24,7 @@ describe('draft', () => {
   it('drafts to a colleague by email with the agent credential, and says nothing was sent', async () => {
     const { w, bodies } = drafting()
     expect(await w.run('draft', '--to', 'Ben@Example.com', 'Is', 'it', 'safe?')).toBe(0)
-    expect(bodies).toEqual([{ body: 'Is it safe?', to: [BEN.id] }])
+    expect(bodies).toEqual([{ body: 'Is it safe?', to: [BEN.id], client: 'homingbird' }])
     expect(w.lines).toEqual([
       `Draft ${DRAFT.id} is waiting for a person to approve it. It has not been sent.`,
     ])
@@ -35,7 +35,7 @@ describe('draft', () => {
   it('drafts to a member id without looking anyone up', async () => {
     const { w, bodies } = drafting()
     await w.run('draft', '--to', BEN.id, 'hello')
-    expect(bodies).toEqual([{ body: 'hello', to: [BEN.id] }])
+    expect(bodies).toEqual([{ body: 'hello', to: [BEN.id], client: 'homingbird' }])
     expect(w.calls.map((call) => call.route)).toEqual(['drafts.create'])
   })
 
@@ -44,8 +44,8 @@ describe('draft', () => {
     await w.run('draft', '--reply', QUESTION.id, 'Yes.')
     await w.run('draft', '--conversation', CONVERSATION_ID, 'Hello', '--json')
     expect(bodies).toEqual([
-      { body: 'Yes.', inReplyTo: QUESTION.id },
-      { body: 'Hello', conversationId: CONVERSATION_ID },
+      { body: 'Yes.', inReplyTo: QUESTION.id, client: 'homingbird' },
+      { body: 'Hello', conversationId: CONVERSATION_ID, client: 'homingbird' },
     ])
     expect(w.json().draft).toMatchObject({ id: DRAFT.id, status: 'draft', body: 'Yes, after six.' })
   })
@@ -53,7 +53,9 @@ describe('draft', () => {
   it('passes what the draft relied on, for the person only', async () => {
     const { w, bodies } = drafting()
     await w.run('draft', '--reply', QUESTION.id, '--basis', 'Read the runbook', 'Yes.')
-    expect(bodies).toEqual([{ body: 'Yes.', inReplyTo: QUESTION.id, basis: 'Read the runbook' }])
+    expect(bodies).toEqual([
+      { body: 'Yes.', inReplyTo: QUESTION.id, basis: 'Read the runbook', client: 'homingbird' },
+    ])
   })
 
   it('labels the draft with the program an integration names, and a stated model, made printable', async () => {

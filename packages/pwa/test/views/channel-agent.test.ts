@@ -102,7 +102,14 @@ describe('the agent panel', () => {
     expect(called('renameChannelAgent')[0]!.args).toEqual(['payments-wiki', 'Refunds wiki'])
     getByRole(dialog, 'button', { name: strings.channelAgent.revoke }).click()
     expect(called('disconnectAgentDesk')[0]!.args).toEqual(['payments-wiki', 'cred_desk00000000'])
-    fire.submit(dialog.querySelector('form.retire-agent')!)
+    const retire = dialog.querySelector<HTMLDetailsElement>('details.retire-agent-step')!
+    expect(retire.open).toBe(false)
+    retire.open = true
+    fire.event(retire, 'toggle')
+    context.state.channelAgents.set(new Map(context.state.channelAgents.get()))
+    expect(dialog.querySelector<HTMLDetailsElement>('details.retire-agent-step')!.open).toBe(true)
+    expect(called('retireChannelAgent')).toEqual([])
+    fire.submit(retire.querySelector('form.retire-agent')!)
     expect(called('retireChannelAgent')[0]!.args).toEqual(['payments-wiki'])
   })
 
@@ -178,6 +185,27 @@ describe('how the agent is doing', () => {
     expect(getByRole(section, 'table')).toBeTruthy()
     expect(textOf(section)).toContain('Ana: 3 answers')
     expect(textOf(section)).toContain('2 answers are waiting now.')
+  })
+
+  it('reads the figures again when an answer is sent or discarded, so the counts stay current', () => {
+    const { context, called } = opened()
+    expect(called('loadChannelAgentFigures')).toHaveLength(1)
+    context.state.reviews.set([review()])
+    context.state.reviews.set([])
+    expect(called('loadChannelAgentFigures')).toHaveLength(3)
+    context.state.reviews.set([])
+    context.state.reviews.set([{ ...review(), channel: 'other-wiki' }])
+    expect(called('loadChannelAgentFigures')).toHaveLength(3)
+  })
+
+  it('keeps the figures of the latest request when an earlier one answers late', () => {
+    const { context, called, dialog } = opened()
+    context.state.reviews.set([review()])
+    const [first, second] = called('loadChannelAgentFigures')
+    second!.then!.done!(report())
+    first!.then!.done!(null)
+    first!.then!.failed!(new Error('late') as never)
+    expect(dialog.querySelector('.channel-agent-figures')).not.toBeNull()
   })
 
   it('shows nothing to someone who does not manage the channel, and says when loading failed', () => {

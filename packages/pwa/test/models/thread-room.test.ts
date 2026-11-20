@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   archiveDiscardLines,
+  isFocusedDraftOpen,
   isOn,
   mayMessageIn,
   nameIn,
@@ -71,12 +72,23 @@ describe('threadTopModel', () => {
 describe('settledDraftLine', () => {
   it('says the draft a notification opened was settled once the thread shows it is not open', () => {
     const shownWith = (notes: ReturnType<typeof note>[], focusedDraft: string | null = 'd1') =>
-      settledDraftLine(threadInput({ thread: { notes, hasMore: false }, focusedDraft }))
-    expect(settledDraftLine(threadInput({ thread: undefined, focusedDraft: 'd1' }))).toBeNull()
+      settledDraftLine(threadInput({ thread: { notes, hasMore: false }, focusedDraft }), false)
+    expect(settledDraftLine(threadInput({ thread: undefined, focusedDraft: 'd1' }), false)).toBeNull()
     expect(shownWith([draft('d1')])).toBeNull()
     expect(shownWith([draft('d2')], null)).toBeNull()
     expect(shownWith([note('d1')])).toBe(strings.draftAlreadySettled)
     expect(shownWith([draft('d2')])).toBe(strings.draftAlreadySettled)
+  })
+
+  it('says nothing once the page showed the draft open, since the person settled it here', () => {
+    const sent = threadInput({ thread: { notes: [note('d1')], hasMore: false }, focusedDraft: 'd1' })
+    expect(settledDraftLine(sent, true)).toBeNull()
+    expect(
+      isFocusedDraftOpen(
+        threadInput({ thread: { notes: [draft('d1')], hasMore: false }, focusedDraft: 'd1' }),
+      ),
+    ).toBe(true)
+    expect(isFocusedDraftOpen(sent)).toBe(false)
   })
 })
 

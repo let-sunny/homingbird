@@ -51,7 +51,6 @@ const program = (overrides: Partial<StdioProgram> = {}) => {
       arguments: ['--server', `${SERVER_URL}/`, '--name', 'Cursor'],
       environment: {},
       credentialPath: running.credentialPath,
-      hostName: 'laptop',
       version: ADAPTER_VERSION,
       input: feed.input,
       write: (line) => written.push(line),
@@ -302,7 +301,7 @@ describe('runStdioProgram', () => {
     const { exit, said, feed } = program({ arguments: [], environment: { HOMINGBIRD_SERVER: SERVER_URL } })
     await said('login')
     const started = running.recorded.find((call) => call.path === '/oauth/device_authorization')!
-    expect(new URLSearchParams(started.body).get('client_name')).toBe('MCP agent on laptop')
+    expect(new URLSearchParams(started.body).get('client_name')).toBe('MCP agent')
     feed.end()
     expect((await exit)._tag).toBe('Ok')
   })
@@ -332,7 +331,6 @@ describe('runStdioProgram', () => {
         arguments: ['--server', 'http://127.0.0.1:9'],
         environment: {},
         credentialPath: running.credentialPath,
-        hostName: 'laptop',
         version: ADAPTER_VERSION,
         input: feed.input,
         write: (line) => written.push(line),

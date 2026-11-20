@@ -14,7 +14,6 @@ export interface StdioProgram {
   readonly arguments: ReadonlyArray<string>
   readonly environment: Readonly<Record<string, string | undefined>>
   readonly credentialPath: string
-  readonly hostName: string
   readonly version: string
   readonly input: AsyncIterable<string | Uint8Array>
   readonly write: (line: string) => void
@@ -167,7 +166,7 @@ const optionsFrom = (program: StdioProgram) => {
         agent: agent === '' ? null : agent,
         split: isSplit ? { reader: reader === '' ? agent : reader, requireToollessReader } : null,
         serverUrl: serverUrl.replace(/\/+$/, ''),
-        clientName: flag('--name') ?? `MCP agent on ${program.hostName}`,
+        clientName: flag('--name') ?? 'MCP agent',
         isChannel: program.arguments.includes('--channel') || program.arguments.includes('--desk'),
         isDesk: program.arguments.includes('--desk'),
       })

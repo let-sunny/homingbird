@@ -52,7 +52,9 @@ export const insightsModel = (insights: OrganizationInsights | null, days: numbe
         : {
             table: figuresTable(insights, period, current),
             places: placesTable(current),
-            teams: current.teams === undefined ? null : teamsTable(current.teams, current.hiddenTeams ?? 0),
+            teams: hasTeams(current)
+              ? teamsTable(current.teams ?? [], current.hiddenTeams ?? 0, insights.minimumGroupSize)
+              : null,
             authorship: authorshipModel(current, insights.minimumGroupSize),
             delivery: deliveryModel(current, insights.minimumGroupSize),
             byClient: labelsTableModel(
@@ -184,15 +186,23 @@ const figuresTable = (
           : formats.decimal.format(figures.debateResultsSent),
       ),
       line(strings.measures.decisionTimeRow, (figures) =>
-        figures.medianDecisionMs == null ? strings.insights.hidden : durationOf(figures.medianDecisionMs),
+        figures.medianDecisionMs == null
+          ? missing(insights.minimumGroupSize)
+          : durationOf(figures.medianDecisionMs),
       ),
       ...(current.channelAgents === undefined ? [] : channelAgentRows(line)),
     ],
     footnotes: [
       ...(current.channelAgents === undefined
         ? []
-        : [strings.insights.channelAgentsExplained({ minimum: insights.minimumGroupSize })]),
-      strings.insights.debateResultsExplained({ minimum: insights.minimumGroupSize }),
+        : [
+            insights.minimumGroupSize <= 1
+              ? strings.insights.channelAgentsCounted
+              : strings.insights.channelAgentsExplained({ minimum: insights.minimumGroupSize }),
+          ]),
+      insights.minimumGroupSize <= 1
+        ? strings.insights.debateResultsCounted
+        : strings.insights.debateResultsExplained({ minimum: insights.minimumGroupSize }),
       strings.insights.quickExplained({ seconds: insights.quickApprovalSeconds }),
       strings.insights.skipExplained,
       ...(decisionsShown(current) === null
@@ -237,7 +247,7 @@ const hasTeams = (current: OrganizationFigures | null): boolean =>
   current !== null && (current.teams ?? []).length + (current.hiddenTeams ?? 0) > 0
 
 /** Every team shown, alphabetically as the server sends them, never ranked. */
-const teamsTable = (teams: ReadonlyArray<TeamTotals>, hidden: number): InsightsPlaces => {
+const teamsTable = (teams: ReadonlyArray<TeamTotals>, hidden: number, minimum: number): InsightsPlaces => {
   const labels = strings.insights
   const count = (value: number | null) => (value === null ? labels.hidden : formats.decimal.format(value))
   return {
@@ -262,7 +272,7 @@ const teamsTable = (teams: ReadonlyArray<TeamTotals>, hidden: number): InsightsP
       count(team.sentAfterEdits),
       count(team.discarded),
       count(team.quickApprovals),
-      team.medianDecisionMs === null ? labels.hidden : durationOf(team.medianDecisionMs),
+      team.medianDecisionMs === null ? missing(minimum) : durationOf(team.medianDecisionMs),
       count(team.skipped),
     ]),
     hidden: hidden > 0 ? labels.hiddenTeams({ count: hidden }) : null,
@@ -309,3 +319,6 @@ const decisionsShown = (figures: {
         sentAfterEdits: figures.sentAfterEdits,
         discarded: figures.discarded,
       }
+
+/** An empty median: hidden only when a minimum group could have hidden it, otherwise not measured yet. */
+const missing = (minimum: number): string => (minimum <= 1 ? strings.trust.noneYet : strings.insights.hidden)

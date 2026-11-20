@@ -169,7 +169,7 @@ describe('draft to a channel or for a request', () => {
   it('drafts a question into one channel room', async () => {
     const { w, bodies } = drafting()
     expect(await w.run('draft', '--channel', 'billing', 'Who', 'owns', 'refunds?')).toBe(0)
-    expect(bodies).toEqual([{ body: 'Who owns refunds?', channel: 'billing' }])
+    expect(bodies).toEqual([{ body: 'Who owns refunds?', channel: 'billing', client: 'homingbird' }])
     expect(w.lines).toEqual([
       `Draft ${DRAFT.id} is waiting for a person to approve it. It has not been sent.`,
     ])
@@ -179,7 +179,7 @@ describe('draft to a channel or for a request', () => {
     const { w, bodies } = drafting()
     const requestId = DraftRequestId.of('request00000')
     expect(await w.run('draft', '--request', requestId, 'Done after six.')).toBe(0)
-    expect(bodies).toEqual([{ body: 'Done after six.', requestId }])
+    expect(bodies).toEqual([{ body: 'Done after six.', requestId, client: 'homingbird' }])
     expect(w.calls.every((call) => call.authorization === `Bearer ${AGENT_TOKEN}`)).toBe(true)
   })
 

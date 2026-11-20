@@ -139,7 +139,52 @@ describe('insightsModel', () => {
       30,
     )
     expect(empty.kind === 'insights' && empty.warnings[0]).toBe(strings.insights.noTeams)
+    expect(figuresOf(empty).teams).toBeNull()
+    const onlyHidden = insightsModel(
+      insights({ periods: [{ days: 30, current: organization({ hiddenTeams: 2 }), previous: null }] }),
+      30,
+    )
+    expect(figuresOf(onlyHidden).teams).toMatchObject({ rows: [], none: strings.insights.noTeamRows })
     expect(figuresOf(insightsModel(insights(), 30)).teams).toBeNull()
+  })
+
+  it('hides nothing by default: no hiding sentence, and an empty median reads as none yet', () => {
+    const team = {
+      team: 'Payments',
+      activeMembers: 1,
+      notesSent: 2,
+      sentAsWritten: 0,
+      sentAfterEdits: 0,
+      discarded: 0,
+      quickApprovals: 0,
+      medianDecisionMs: null,
+      skipped: 0,
+    }
+    const model = insightsModel(
+      insights({
+        minimumGroupSize: 1,
+        periods: [
+          {
+            days: 30,
+            current: organization({
+              medianDecisionMs: null,
+              channelAgents: { written: 0, sentAsWritten: 0, sentAfterEdits: 0, discarded: 0 },
+              teams: [team, { ...team, team: 'Wiki', medianDecisionMs: 60_000 }],
+            }),
+            previous: null,
+          },
+        ],
+      }),
+      30,
+    )
+    const figures = figuresOf(model)
+    expect(figures.teams!.rows[1]![7]).toBe(durationOf(60_000))
+    const decisionTime = figures.table.rows.find((row) => row[0] === strings.measures.decisionTimeRow)!
+    expect(decisionTime[1]).toBe(strings.trust.noneYet)
+    expect(figures.teams!.rows[0]![7]).toBe(strings.trust.noneYet)
+    expect(figures.table.footnotes).toContain(strings.insights.channelAgentsCounted)
+    expect(figures.table.footnotes).toContain(strings.insights.debateResultsCounted)
+    expect(figures.table.footnotes).not.toContain(strings.insights.debateResultsExplained({ minimum: 1 }))
   })
 
   it('falls back to the first period, and says when a period has too few people', () => {

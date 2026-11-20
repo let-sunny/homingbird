@@ -60,7 +60,11 @@ export const deliveryModel = (figures: OrganizationFigures, minimum: number): De
       [strings.measures.deliveryQuickly, part(delivery.pickedUpQuickly, delivery.toAgents)],
       [
         strings.measures.deliveryMedian,
-        delivery.medianPickupMs === null ? strings.insights.hidden : durationOf(delivery.medianPickupMs),
+        delivery.medianPickupMs === null
+          ? minimum <= 1
+            ? strings.trust.noneYet
+            : strings.insights.hidden
+          : durationOf(delivery.medianPickupMs),
       ],
       [strings.measures.deliveryWaited, part(delivery.waitedWithoutAgent, delivery.toAgents)],
     ],

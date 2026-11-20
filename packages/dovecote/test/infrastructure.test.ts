@@ -431,13 +431,17 @@ describe('static files and branding', () => {
     const script = await server.request('GET', '/app.js')
     expect(script.headers).toMatchObject({
       'content-type': 'text/javascript; charset=utf-8',
-      'cache-control': 'public, max-age=3600',
+      'cache-control': 'no-cache',
       'x-content-type-options': 'nosniff',
       'referrer-policy': 'no-referrer',
     })
     expect(script.headers['content-security-policy']).toContain("script-src 'self'")
     expect(script.headers['content-security-policy']).toContain("frame-ancestors 'none'")
-    expect((await server.request('GET', '/assets/pip.png')).headers['content-type']).toBe('image/png')
+    const image = await server.request('GET', '/assets/pip.png')
+    expect([image.headers['content-type'], image.headers['cache-control']]).toEqual([
+      'image/png',
+      'public, max-age=3600',
+    ])
     expect((await server.request('GET', '/data.bin')).headers['content-type']).toBe(
       'application/octet-stream',
     )

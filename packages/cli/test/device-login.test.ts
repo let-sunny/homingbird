@@ -56,7 +56,7 @@ describe('login', () => {
     expect([...w.lines, ...w.problems].join('\n')).not.toContain(NEW_AGENT)
     const started = w.calls.find((call) => call.path === '/oauth/device_authorization')!
     expect(Object.fromEntries(new URLSearchParams(started.body))).toEqual({
-      client_name: 'Homingbird CLI on laptop',
+      client_name: 'Homingbird CLI',
       client_kind: 'cli',
       scope: 'notes',
     })

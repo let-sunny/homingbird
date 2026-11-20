@@ -7,7 +7,6 @@ export interface CliEnv extends HasClock {
   readonly output: Output
   readonly variables: Readonly<Record<string, string | undefined>>
   readonly homeDirectory: string
-  readonly hostName: string
   readonly nonce: () => string
   readonly stopped: AbortSignal
   readonly launcher: Launcher

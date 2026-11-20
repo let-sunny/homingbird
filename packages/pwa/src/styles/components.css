@@ -2763,8 +2763,13 @@ textarea:disabled {
   inline-size: 100%;
 }
 
+.join-command code {
+  overflow-wrap: anywhere;
+}
+
 .join-command pre {
   flex: 1 1 20rem;
+  min-inline-size: 0;
   margin: 0;
   padding: var(--hb-space-2) var(--hb-space-3);
   border: var(--hb-border);

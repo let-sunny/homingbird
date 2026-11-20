@@ -12,8 +12,14 @@ import { loadPeople } from './workspace.ts'
 
 export const loadSettings: Action<AsRead.Settings> = withApp(({ api }) => api['admin.settings.get']({}))
 
+/** Saves the settings, then reads the server's features again so a switch shows on this page at once. */
 export const saveSettings = (settings: Settings): Action =>
-  withApp(({ api }) => T.asUnit(api['admin.settings.put']({ body: settings })))
+  T.gen(function* () {
+    const { api, state } = yield* T.ask<App>()
+    yield* api['admin.settings.put']({ body: settings })
+    const info = yield* T.result(api['server.info']({}))
+    if (info._tag === 'Ok') state.serverInfo.set(info.value)
+  })
 
 export const listMembers: Action<ReadonlyArray<AsRead.Member>> = withApp(({ api }) =>
   T.map((listed: { members: ReadonlyArray<AsRead.Member> }) => listed.members)(api['admin.members.list']({})),
