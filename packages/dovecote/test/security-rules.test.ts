@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { Task as T } from '@homingbird/kernel'
@@ -126,6 +127,42 @@ const askAndAnswer = async (asker: Session, agent: Agent) => {
   const question = (await asker.api('POST', `/drafts/${asked.id}/send`, { expected: asRead(asked) })).json
   const draft = (await agent.api('POST', '/drafts', { inReplyTo: question.id, body: SECRET_ANSWER })).json
   return { question, draft }
+}
+
+const connectConnector = async (): Promise<{ access_token: string; refresh_token: string }> => {
+  const redirect = 'https://claude.ai/api/mcp/auth_callback'
+  const verifier = 'v'.repeat(64)
+  const { client_id: clientId } = (
+    await server.request('POST', '/oauth/register', {
+      body: { client_name: 'Connector', redirect_uris: [redirect] },
+    })
+  ).json
+  const authorized = await server.request(
+    'GET',
+    `/oauth/authorize?${new URLSearchParams({
+      response_type: 'code',
+      client_id: clientId,
+      redirect_uri: redirect,
+      code_challenge: createHash('sha256').update(verifier).digest('base64url'),
+      code_challenge_method: 'S256',
+      state: 's',
+    })}`,
+    { cookie: ana.cookie },
+  )
+  const consentId = authorized.headers.location!.split('/#/consent/')[1]!
+  const decided = await ana.api('POST', `/consent/${consentId}`, { approve: true, name: 'Connector' })
+  const code = new URL(decided.json.redirectTo).searchParams.get('code')!
+  return (
+    await server.request('POST', '/oauth/token', {
+      form: {
+        grant_type: 'authorization_code',
+        code,
+        code_verifier: verifier,
+        client_id: clientId,
+        redirect_uri: redirect,
+      },
+    })
+  ).json
 }
 
 describe('Rule 1: only a human credential can approve a note', () => {
@@ -959,6 +996,37 @@ describe('Rule 5: credentials are stored hashed and never logged', () => {
     const listing = JSON.stringify((await ana.api('GET', '/credentials')).json)
     expect(listing).not.toMatch(/hb[har]_/)
     expect(listing).not.toContain('hash')
+  })
+
+  it('keeps a spent refresh token only as its hash, and nothing of any token after a replay', async () => {
+    const first = await connectConnector()
+    const refresh = (token: string) =>
+      server.request('POST', '/oauth/token', { form: { grant_type: 'refresh_token', refresh_token: token } })
+    const second = (await refresh(first.refresh_token)).json
+    await server.clock.advance(11_000)
+    expect((await refresh(first.refresh_token)).json.error).toBe('invalid_grant')
+    const stored = await everyStoredValue(server)
+    for (const token of [first.access_token, first.refresh_token, second.access_token, second.refresh_token])
+      expect(stored.includes(token)).toBe(false)
+    expect(stored).not.toMatch(/hb[har]_[A-Za-z0-9_-]{20,}/)
+    expect(stored).toContain(hashSecret(first.refresh_token))
+  })
+
+  it('records a refresh token replay with the credential and the reason only, and logs no token', async () => {
+    const first = await connectConnector()
+    const refresh = (token: string) =>
+      server.request('POST', '/oauth/token', { form: { grant_type: 'refresh_token', refresh_token: token } })
+    const second = (await refresh(first.refresh_token)).json
+    await server.clock.advance(11_000)
+    await refresh(first.refresh_token)
+    const replays = (await storedRows(server, 'audit_events')).filter(
+      (row) => row.event === 'credential.revoked' && String(row.detail).includes('refresh_replayed'),
+    )
+    expect(replays).toHaveLength(1)
+    expect(JSON.parse(String(replays[0]!.detail))).toEqual({ because: 'refresh_replayed' })
+    const written = [JSON.stringify(replays), ...server.logged].join('\n')
+    for (const token of [first.refresh_token, second.refresh_token, second.access_token])
+      for (const form of [token, hashSecret(token)]) expect(written).not.toContain(form)
   })
 })
 
