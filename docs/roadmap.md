@@ -329,8 +329,17 @@ figure it does not name. Still to come:
 
 - **Quick-approval warning per team, and as settings**: the 25% and 2 weeks are constants today
   (`QUICK_APPROVAL_SHARE`, `QUICK_WARNING_WEEKS` in `protocol`), organization-wide only.
-- **Numbers per group**: insights show figures per group (see "Groups and channel agents"), still
-  hiding groups under 5 people; with no groups, only organization-wide numbers are shown, as now.
+- **Numbers per team, through a primary team per person.** Teams overlap, so a team's totals beside
+  another's and the organization's can give away the few people they share. The rule that keeps that
+  safe (`teamsShown` in `dovecote/src/domain/disclosure.ts`: every cell of people who share the same
+  shown teams has at least 5) hides most teams when they overlap freely: in 1,000 organizations of 50
+  people with 6 teams of 3 to 12 (`npx tsx scripts/pilot-measure.ts --teams`), 4,818 of 6,000 teams
+  had 5 people, the rule showed 1,373 (23%), the best possible choice 1,964 (33%), and only 24
+  organizations (113 at best) showed half their teams. With one primary team per person it showed
+  4,513 (75%), and 992 organizations showed half. So team figures wait for a primary team, chosen per
+  person by an administrator, with its own membership history (`group_member_spans`, since and until
+  per membership, written at every change and at deactivation); teams too small are left out with a
+  count, never merged into an "others" row, and a team's medians need its cells to pass too.
 - **Channel agents**: per channel, how often its agent's drafts are approved, how often after an edit,
   and how many each manager approved.
 - **Privacy, binding for all of it:** numbers only, never note content. An administrator sees team

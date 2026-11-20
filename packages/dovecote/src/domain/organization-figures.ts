@@ -7,6 +7,7 @@ import type {
   PlaceTotals,
 } from '@homingbird/protocol'
 import { type ReceivedNote, deliveryIn } from './delivery-figures.ts'
+import { placesShown } from './disclosure.ts'
 import { quickWeeksOf } from './quick-weeks.ts'
 import {
   type AgentDraft,
@@ -135,27 +136,6 @@ export const organizationFiguresIn = (
     authorship: draftsShown ? authorshipOf(sent) : null,
     delivery: deliveryIn(activity.received, window, now, settings.minimumGroupSize),
   }
-}
-
-/**
- * Which groups may be shown: each needs at least `minimum` people, and together the hidden ones must also
- * reach it, or none may be hidden at all, so that the organization's totals minus the shown groups never
- * give away a small group's figures.
- */
-export const placesShown = (
-  groups: ReadonlyArray<{ readonly place: PlaceName; readonly people: ReadonlySet<string> }>,
-  minimum: number,
-): { readonly shown: PlaceName[]; readonly hidden: PlaceName[] } => {
-  const large = groups.filter((group) => group.people.size >= minimum)
-  const hidden = groups.filter((group) => group.people.size < minimum)
-  const shown = [...large].sort((a, b) => b.people.size - a.people.size || byPlace(a.place, b.place))
-  const hiddenPeople = new Set(hidden.flatMap((group) => [...group.people]))
-  while (hiddenPeople.size > 0 && hiddenPeople.size < minimum && shown.length > 0) {
-    const smallest = shown.pop()!
-    hidden.push(smallest)
-    for (const person of smallest.people) hiddenPeople.add(person)
-  }
-  return { shown: shown.map((group) => group.place), hidden: hidden.map((group) => group.place) }
 }
 
 /** The sent debate results, or null while fewer people than the minimum sent one. */
