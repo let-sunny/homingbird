@@ -145,6 +145,19 @@ export const AUDIT_DETAILS: { readonly [N in AuditedRoute]: Describe<N> } = {
   'credentials.rename': ({ params }) => afterwards(() => ({ targetId: params.id, detail: {} })),
   'credentials.revoke': ({ params }) => afterwards(() => ({ targetId: params.id, detail: {} })),
   'device.decide': ({ body }) => afterwards(() => ({ targetId: null, detail: { approved: body.approve } })),
+  'joinCodes.create': ({ body: { channel } }, caller) =>
+    channel === undefined
+      ? afterwards(() => ({ targetId: caller.member.id, detail: {} }))
+      : T.map(
+          (agent: { readonly id: MemberId } | null) => (): AuditFacts<'credential.join_code_created'> => ({
+            targetId: agent?.id ?? null,
+            detail: { channel },
+          }),
+        )(
+          T.flatMap((row: ChannelRow | null) => (row === null ? T.succeed(null) : channelAgentOf(row)))(
+            channelRow(channel),
+          ),
+        ),
   'consent.decide': ({ params, body }) =>
     afterwards(() => ({ targetId: params.id, detail: { approved: body.approve } })),
   'admin.settings.put': () =>

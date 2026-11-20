@@ -29,6 +29,7 @@ export const LIMITS = {
   token: { max: 120, windowMs: 60_000 },
   registration: { max: 20, windowMs: 3_600_000 },
   deviceStart: { max: 30, windowMs: 3_600_000 },
+  joinRedeem: { max: 10, windowMs: 600_000 },
   drafting: { max: 120, windowMs: 60_000 },
   analytics: { max: 60, windowMs: 60_000 },
   wakeTest: { max: 5, windowMs: 3_600_000 },

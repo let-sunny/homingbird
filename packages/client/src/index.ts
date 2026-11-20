@@ -15,5 +15,11 @@ export {
   awaitDeviceTokens,
   beginDeviceFlow,
 } from './device-flow.ts'
+export {
+  type JoinCodeOptions,
+  JoinCodeRefused,
+  type JoinTokens,
+  redeemJoinCode,
+} from './join-code.ts'
 export { requireReadableServer } from './protocol-check.ts'
 export { isRevokedOnServer } from './revocation.ts'

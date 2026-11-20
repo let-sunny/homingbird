@@ -9,6 +9,7 @@ import {
   DraftAsShown,
   Empty,
   InboxItem,
+  JoinCode,
   Me,
   PageLimit,
   Recipients,
@@ -700,6 +701,16 @@ export const contract = {
       channel: S.optional(ChannelSlug),
     }),
     response: Empty,
+  }),
+  'joinCodes.create': route({
+    method: 'POST',
+    path: '/join-codes',
+    access: 'human',
+    body: S.struct({
+      /** Issues the credential to this channel's agent instead of the person creating the code. */
+      channel: S.optional(ChannelSlug),
+    }),
+    response: JoinCode,
   }),
   'consent.get': route({ method: 'GET', path: '/consent/:id', access: 'human', response: ConsentRequest }),
   'consent.decide': route({

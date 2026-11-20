@@ -137,6 +137,7 @@ describe('contract', () => {
         'credentials.revoke',
         'device.get',
         'device.decide',
+        'joinCodes.create',
         'consent.get',
         'consent.decide',
         'push.subscribe',

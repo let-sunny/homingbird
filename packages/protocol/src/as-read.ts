@@ -2,6 +2,7 @@ import type { Schema as S } from '@homingbird/kernel'
 import type { ChannelAgent as ChannelAgentSchema, Review as ReviewSchema } from './channel-agents.ts'
 import type {
   InboxItem as InboxItemSchema,
+  JoinCode as JoinCodeSchema,
   Me as MeSchema,
   ServerInfo as ServerInfoSchema,
 } from './contract-schemas.ts'
@@ -80,3 +81,4 @@ export type ChannelAgent = S.Read<typeof ChannelAgentSchema>
 export type Review = S.Read<typeof ReviewSchema>
 export type DeskWake = S.Read<typeof DeskWakeSchema>
 export type DeskWakeTest = S.Read<typeof DeskWakeTestSchema>
+export type JoinCode = S.Read<typeof JoinCodeSchema>
