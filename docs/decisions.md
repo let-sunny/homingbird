@@ -498,8 +498,15 @@ states the decision first, then the reason. Add new entries at the top of their 
   releases tables. A new database runs every step at once; a 0.1.0 database runs only the steps it
   lacks. Steps only add nullable columns, tables and indexes, so an upgrade keeps every row.
   A database that records versions this build does not know, or holds its tables with no version, is
-  refused at start with one sentence and left as it is, rather than guessed at. Upgrades between 0.x
-  versions are not promised, and a database from a 0.1.0 release candidate is recreated.
+  refused at start with one sentence and left as it is, rather than guessed at. A database from a
+  0.1.0 release candidate is recreated.
+- **An upgrade from every final release is promised, and tested release by release.** Each final
+  release has an upgrade fixture: its database built through the real schema steps it had, with rows for
+  the features it had. One set of checks starts the current server on each of them on SQLite,
+  PostgreSQL and MySQL: only the missing steps run, old rows stay, the audit chain verifies, the core
+  flows work, a second start changes nothing, and a start cut off midway is finished by the next. The
+  release workflow adds the fixture of a new release and refuses one without it. Pre-releases are not
+  covered.
 - **Source runs as TypeScript; deliverables are bundles.** Packages export their `.ts` sources to each
   other. `esbuild` produces the server, CLI and web bundles.
 

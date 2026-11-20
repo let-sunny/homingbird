@@ -143,8 +143,7 @@ Horizontal scaling (shared fan-out through the database or a broker) is on the
   old `channel_managers` table stays and is no longer read. A channel's group is shown only to people
   who can see the channel; teams, which administrators make and name, are shown to everyone. Turn groups
   off with `HB_FEATURES=groups=off` ([Features](#features)); every channel keeps its managers.
-- The mechanism for later changes exists: a `schema_versions` table records which schema steps a
-  database has, and Dovecote applies the missing ones in order when it starts, each in its own
+- A `schema_versions` table records which schema steps a database has, and Dovecote applies the missing ones in order when it starts, each in its own
   transaction. There are no down-migrations.
 - Dovecote refuses to start on a database it did not make: one that records a version this build does
   not know, or that holds its tables with no version recorded. It says so in one sentence and changes
@@ -152,8 +151,28 @@ Horizontal scaling (shared fan-out through the database or a broker) is on the
   empty one.
 - A server rolled back to an older version refuses a database a newer one migrated, because it records
   a step that version does not know. Back up before upgrading, and restore that backup to roll back.
-- Upgrades between 0.x releases are not promised. [Back up](#backups) before every upgrade, and read
-  the [changelog](../CHANGELOG.md) first.
+
+**Supported upgrades:**
+
+- A database any final release left, from 0.1.0 on, upgrades to any later release: start the newer
+  Dovecote on it and it applies the steps it lacks, in order. Releases may be skipped; 0.1.0 straight to
+  the newest works. Release candidates are not covered.
+- Upgrade the server and the clients together ([Mixing versions](#mixing-versions)). The web client
+  comes with the server; update people's command lines and MCP adapters to the same release.
+- Every change is tested this way, so every release is: CI starts it on a database each earlier final
+  release left, on SQLite, PostgreSQL and MySQL, checks that every row stays and the audit chain
+  verifies, and starts it again after a start cut off halfway through the upgrade.
+
+**To upgrade:**
+
+1. Read the [changelog](../CHANGELOG.md) for every release you skip, for settings that changed.
+2. [Back up](#backups) the database, and check that the backup opens.
+3. Stop the old server, and start the new one on the same database. It upgrades the database before
+   it serves, and records the steps it applied in a `system.migrated` audit event.
+4. Run `dovecote audit verify` on the host ([Logs](#logs)); it says the chain holds.
+
+To roll back, stop the new server and restore the backup; the older server refuses the upgraded
+database.
 
 **Upgrading to the release with the new audit trail:**
 
