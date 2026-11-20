@@ -1,4 +1,5 @@
 import { Task as T } from '@homingbird/kernel'
+import { agentSearchPath } from '../agent-install-directories.ts'
 import { presetNotReady } from '../agent-launch.ts'
 import { agentCommand, defaultReader, presetCommandOf } from '../agent-presets.ts'
 import { credentialDirectory, credentialFor, readCredentialsFile, storedServers } from '../credentials.ts'
@@ -298,7 +299,7 @@ const stableProgram = (
   T.gen(function* () {
     const env = yield* T.ask<CliEnv>()
     const program = yield* T.forEach(env.program, lastingPathOf)
-    const given = env.variables.PATH
+    const given = agentSearchPath(env.variables, env.platform)
     const searched = given === undefined ? undefined : yield* stablePath(given, env.platform)
     const agent = agentCommand(options.agent, env.platform)
     const settings: RunnerSettings = {

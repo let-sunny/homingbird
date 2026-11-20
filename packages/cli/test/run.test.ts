@@ -295,6 +295,20 @@ describe('homingbird run', () => {
     expect(await own.stop()).toBe(INTERRUPTED)
   })
 
+  it('says on Windows when cmd.exe cannot find the agent’s program, with a Windows path', async () => {
+    const r = runner({
+      platform: 'win32',
+      argv: ['--agent', 'my-agent --fast'],
+      stubs: { 'inbox.list': () => waitingQuestion },
+      agent: () => ({ exitCode: 9009, output: '' }),
+    })
+    await settle(() => r.w.problems.length === 1)
+    expect(r.w.problems[0]).toContain(
+      'The agent command could not be found: "my-agent" is not on the PATH this runs with; give its absolute path, such as C:\\Users\\you\\AppData\\Roaming\\npm\\my-agent.cmd, or set PATH;',
+    )
+    await r.stop()
+  })
+
   it('says when the agent command is not on the PATH, naming only its program', async () => {
     const r = runner({
       stubs: { 'inbox.list': once(waitingQuestion, { items: [] }) },

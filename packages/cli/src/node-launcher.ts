@@ -33,11 +33,12 @@ export const nodeLauncher = (
   runAgent: (command, prompt, environment, signal) =>
     new Promise<AgentRun>((resolve, reject) => {
       const isWindows = platform === 'win32'
-      const child = start(command, [], {
+      const [program, args] = isWindows ? cmdCommand(systemRoot, command) : [command, []]
+      const child = start(program, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
-        shell: true,
+        shell: !isWindows,
         env: { ...environment },
-        ...(isWindows ? { windowsHide: true } : { detached: true }),
+        ...(isWindows ? { windowsHide: true, windowsVerbatimArguments: true } : { detached: true }),
       })
       const chunks: Buffer[] = []
       const errorChunks: Buffer[] = []
@@ -119,3 +120,13 @@ const stopProcessGroup = (pid: number | undefined, kill: Kill): void => {
 }
 
 const KILL_GRACE_MS = 2_000
+
+/**
+ * cmd.exe runs an agent command on Windows as Node's own shell option would, with delayed expansion
+ * switched off, so that a `!` in it stays as written whatever the computer's default. A `%NAME%` is
+ * still replaced by that variable, which no switch of cmd.exe prevents.
+ */
+const cmdCommand = (systemRoot: string, command: string): [string, string[]] => [
+  `${systemRoot}\\System32\\cmd.exe`,
+  ['/d', '/v:off', '/s', '/c', `"${command}"`],
+]

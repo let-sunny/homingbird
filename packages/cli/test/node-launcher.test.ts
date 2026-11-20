@@ -165,7 +165,11 @@ describe('nodeLauncher', () => {
     )
     stopping.abort()
     await expect(running).rejects.toThrow('The agent command was stopped.')
-    expect(started[0]!.options).toMatchObject({ shell: true, windowsHide: true })
+    expect(started[0]).toMatchObject({
+      command: 'D:\\Windows\\System32\\cmd.exe',
+      args: ['/d', '/v:off', '/s', '/c', '"codex exec -"'],
+      options: { shell: false, windowsHide: true, windowsVerbatimArguments: true },
+    })
     expect(started[0]!.options).not.toHaveProperty('detached')
     expect(started[1]).toMatchObject({
       command: 'D:\\Windows\\System32\\taskkill.exe',

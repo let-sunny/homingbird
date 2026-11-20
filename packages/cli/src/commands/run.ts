@@ -23,6 +23,7 @@ import {
 } from '@homingbird/protocol'
 import { agentEnvironment } from '../agent-environment.ts'
 import { firstErrorLine, isManagedMcpRefusal } from '../agent-errors.ts'
+import { agentSearchPath, withAgentInstallDirectories } from '../agent-install-directories.ts'
 import { type Launch, type Launches, launchesAsGiven, preparedLaunches } from '../agent-launch.ts'
 import { isReaderWithSomeTools } from '../agent-presets.ts'
 import { countUsage, presetLabel } from '../analytics.ts'
@@ -50,22 +51,30 @@ export const run = (
   settings: RunnerSettings,
   report: (step: Outcome) => void,
 ): T.Task<void, CliFailure, CliEnv> =>
-  T.gen(function* () {
-    const missing = yield* missingCommandOf(settings)
-    if (missing !== null) return yield* T.fail(failed(missing))
-    const launches = yield* preparedLaunches(settings)
-    const session = yield* openSession
-    yield* runDesk(session, { ...settings, launches, countsUsage: true }, report)
-  })
+  withAgentDirectories(
+    T.gen(function* () {
+      const missing = yield* missingCommandOf(settings)
+      if (missing !== null) return yield* T.fail(failed(missing))
+      const launches = yield* preparedLaunches(settings)
+      const session = yield* openSession
+      yield* runDesk(session, { ...settings, launches, countsUsage: true }, report)
+    }),
+  )
+
+/** Runs a runner with the agents' Windows install directories on its PATH; elsewhere as it is. */
+export const withAgentDirectories = <A, E>(task: T.Task<A, E, CliEnv>): T.Task<A, E, CliEnv> =>
+  T.flatMap((env: CliEnv) =>
+    T.provide({ variables: withAgentInstallDirectories(env.variables, env.platform) })(task),
+  )(T.ask<CliEnv>())
 
 /** Says which preset command is not on this PATH, before any note waits on it; null when all are. */
 export const missingCommandOf = (settings: RunnerSettings): T.Task<string | null, never, CliEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<CliEnv>()
     const commands = [settings.agent, ...(settings.split === null ? [] : [settings.split.reader])]
-    const missing = yield* missingPresetCommand(commands, env.variables.PATH)
+    const missing = yield* missingPresetCommand(commands, agentSearchPath(env.variables, env.platform))
     if (missing === null) return null
-    return `The ${missing === settings.agent ? 'agent' : 'reader'} command ${notFound(missing)}.`
+    return `The ${missing === settings.agent ? 'agent' : 'reader'} command ${notFound(missing, env.platform)}.`
   })
 
 export interface RunnerSettings {
@@ -91,7 +100,7 @@ export type DeskEnv = Pick<
   CliEnv,
   'clock' | 'fetch' | 'files' | 'output' | 'variables' | 'homeDirectory' | 'nonce' | 'stopped' | 'launcher'
 > &
-  Partial<Pick<CliEnv, 'credentialsFile'>>
+  Partial<Pick<CliEnv, 'credentialsFile' | 'platform'>>
 
 /**
  * Answers the member's waiting notes and draft requests with the agent command, then each one that
@@ -131,6 +140,7 @@ export const runDesk = (
           split,
           launches: settings.launches ?? launchesAsGiven(settings),
           credentialsFile: env.credentialsFile ?? '',
+          platform: env.platform ?? 'linux',
           isService: settings.isService === true,
           pause: deskPausePath(env, session.credential.serverUrl, member.id),
           timeoutMs: timeoutSeconds * 1000,
@@ -230,6 +240,7 @@ interface Runner {
   readonly split: SplitMode | null
   launches: Launches
   readonly credentialsFile: string
+  readonly platform: string
   readonly isService: boolean
   readonly pause: string
   readonly timeoutMs: number
@@ -490,7 +501,7 @@ const outputOf = (
     }
     const reason =
       finished._tag === 'Ok'
-        ? exitProblem(finished.value, launch.command, secretsOf(runner))
+        ? exitProblem(finished.value, launch.command, secretsOf(runner), runner.platform)
         : finished.error._tag === 'TimeoutError'
           ? `did not finish within ${runner.timeoutMs / 1000} seconds`
           : `could not be started (${finished.error.message})`
@@ -535,19 +546,27 @@ const secretsOf = (runner: Runner): ReadonlyArray<string> => [
   runner.credentialsFile,
 ]
 
-const exitProblem = (finished: AgentRun, command: string, secrets: ReadonlyArray<string>): string | null => {
+const exitProblem = (
+  finished: AgentRun,
+  command: string,
+  secrets: ReadonlyArray<string>,
+  platform: string,
+): string | null => {
   if (finished.exitCode === 0) return null
-  if (finished.exitCode === SHELL_COMMAND_NOT_FOUND) return notFound(command)
+  if (SHELL_COMMAND_NOT_FOUND.includes(finished.exitCode ?? 0)) return notFound(command, platform)
   const said = firstErrorLine(finished, secrets)
   return `exited with code ${finished.exitCode ?? 'unknown'}${said === null ? '' : ` (${said})`}`
 }
 
-/** What the shell answers when the command's program is not on the PATH, as POSIX specifies. */
-const SHELL_COMMAND_NOT_FOUND = 127
+/** What the shell answers when the command's program is not on the PATH: 127 as POSIX specifies, 9009 from cmd.exe. */
+const SHELL_COMMAND_NOT_FOUND: ReadonlyArray<number> = [127, 9009]
 
-const notFound = (command: string): string => {
+const notFound = (command: string, platform: string): string => {
   const program = command.trim().split(/\s+/)[0] ?? command
-  return `could not be found: "${program}" is not on the PATH this runs with; give its absolute path, such as /usr/local/bin/${program.replace(/^.*\//, '')}, or set PATH`
+  const name = program.replace(/^.*[\\/]/, '')
+  const example =
+    platform === 'win32' ? `C:\\Users\\you\\AppData\\Roaming\\npm\\${name}.cmd` : `/usr/local/bin/${name}`
+  return `could not be found: "${program}" is not on the PATH this runs with; give its absolute path, such as ${example}, or set PATH`
 }
 
 const labelsOf = (runner: Runner, reply: DraftReply) => ({

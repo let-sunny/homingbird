@@ -18,7 +18,7 @@ import {
   serviceStopPath,
 } from '../service-definition.ts'
 import { apiFor } from '../session.ts'
-import { type RunnerSettings, missingCommandOf, runDesk } from './run.ts'
+import { type RunnerSettings, missingCommandOf, runDesk, withAgentDirectories } from './run.ts'
 
 /**
  * `homingbird run --service`, as the background service starts it. It holds one lock per server on
@@ -28,6 +28,11 @@ import { type RunnerSettings, missingCommandOf, runDesk } from './run.ts'
  * waits the same way until that file holds a credential the server accepts.
  */
 export const runAsService = (
+  settings: RunnerSettings,
+  report: (step: Outcome) => void,
+): T.Task<void, CliFailure, CliEnv> => withAgentDirectories(servingAsService(settings, report))
+
+const servingAsService = (
   settings: RunnerSettings,
   report: (step: Outcome) => void,
 ): T.Task<void, CliFailure, CliEnv> =>

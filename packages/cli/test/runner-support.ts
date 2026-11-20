@@ -64,6 +64,7 @@ export const runner = (
     readonly files?: Readonly<Record<string, string>>
     readonly modes?: Readonly<Record<string, number>>
     readonly process?: (program: string, args: ReadonlyArray<string>) => ProcessRun | undefined
+    readonly platform?: string
   } = {},
 ): Runner => {
   const created: unknown[] = []
@@ -103,6 +104,7 @@ export const runner = (
     ...(options.files !== undefined && { files: options.files }),
     ...(options.modes !== undefined && { modes: options.modes }),
     process: options.process ?? noMcpServers,
+    ...(options.platform !== undefined && { platform: options.platform }),
   })
   const exit = w.run('run', '--agent', 'claude -p', ...(options.argv ?? []))
   return {
