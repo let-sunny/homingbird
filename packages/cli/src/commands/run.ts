@@ -7,11 +7,11 @@ import {
   type DraftReply,
   type DraftRequest,
   type DraftRequestId,
-  type MemberId,
   UNREADABLE_NOTE,
   agentLabelOf,
   describedForWriter,
   extractionIn,
+  isWakingEvent,
   quotedNote,
   readerPrompt,
   replyProblem,
@@ -22,9 +22,21 @@ import {
   runnerRequestPrompt,
 } from '@homingbird/protocol'
 import { agentEnvironment } from '../agent-environment.ts'
+import { firstErrorLine, isManagedMcpRefusal } from '../agent-errors.ts'
+import { agentSearchPath, withAgentInstallDirectories } from '../agent-install-directories.ts'
+import {
+  type Launch,
+  type Launches,
+  isAttachingMcp,
+  launchesAsGiven,
+  preparedLaunches,
+} from '../agent-launch.ts'
+import type { AttachedServer } from '../agent-presets.ts'
 import { isReaderWithSomeTools } from '../agent-presets.ts'
 import { countUsage, presetLabel } from '../analytics.ts'
 import { answeringFlowFor } from '../answering-flow.ts'
+import { antigravityInput, antigravityOutput } from '../antigravity.ts'
+import { credentialPathFor } from '../credentials.ts'
 import { type DebateDesk, answerDebates } from '../debate-runner.ts'
 import {
   DESK_CLAIM_RETRY_MS,
@@ -40,6 +52,7 @@ import { CliFailure, EXIT, failed } from '../failure.ts'
 import { type Outcome, outcome } from '../outcome.ts'
 import { missingPresetCommand } from '../program-paths.ts'
 import { type Session, calling, openSession, requireReadable } from '../session.ts'
+import { CLI_VERSION } from '../version.ts'
 import { authorsOf } from './reading.ts'
 import { REQUESTS_OFF_TEXT, originalOf } from './requests.ts'
 
@@ -47,21 +60,76 @@ export const run = (
   settings: RunnerSettings,
   report: (step: Outcome) => void,
 ): T.Task<void, CliFailure, CliEnv> =>
+  withAgentDirectories(
+    T.gen(function* () {
+      const missing = yield* missingCommandOf(settings)
+      if (missing !== null) return yield* T.fail(failed(missing))
+      const session = yield* openSession
+      const env = yield* T.ask<CliEnv>()
+      const attached = isAttachingMcp(settings, env.platform) ? yield* attachedServer(session) : null
+      const launches = yield* preparedLaunches(settings, attached)
+      yield* runDesk(session, { ...settings, launches, countsUsage: true }, report)
+    }),
+  )
+
+/**
+ * The Homingbird MCP server for one agent run, started by the agent with the runner's own credential
+ * file named in its environment, never the token: the `@homingbird/mcp` installed beside this command
+ * line, run by the same Node, or else that release through npx.
+ */
+export const attachedServer = (session: Session): T.Task<AttachedServer, CliFailure, CliEnv> =>
   T.gen(function* () {
-    const missing = yield* missingCommandOf(settings)
-    if (missing !== null) return yield* T.fail(failed(missing))
-    const session = yield* openSession
-    yield* runDesk(session, { ...settings, countsUsage: true }, report)
+    const env = yield* T.ask<CliEnv>()
+    const serverUrl = session.credential.serverUrl
+    const environment = {
+      HOMINGBIRD_CREDENTIALS_FILE: env.credentialsFile ?? credentialPathFor(env, serverUrl),
+    }
+    const installed = yield* installedMcpServer
+    const npx = ['npx', '-y', `@homingbird/mcp@${CLI_VERSION}`, '--server', serverUrl]
+    const [command, ...args] =
+      installed !== null
+        ? [...installed, '--server', serverUrl]
+        : env.platform === 'win32'
+          ? ['cmd', '/c', ...npx]
+          : npx
+    const unsafe = [command!, ...args, ...Object.values(environment)].find((value) => CMD_SPECIAL.test(value))
+    if (env.platform === 'win32' && unsafe !== undefined)
+      return yield* T.fail(
+        failed(
+          `--attach-mcp cannot pass ${unsafe} to cmd.exe on Windows, which reads % & ^ | < > in it. Use a server address and credentials file path without them.`,
+        ),
+      )
+    return { command: command!, args, environment }
   })
+
+/** The MCP adapter's bundle where npm installs it next to this command line's own package. */
+const installedMcpServer: T.Task<string[] | null, never, CliEnv> = T.gen(function* () {
+  const env = yield* T.ask<CliEnv>()
+  const [node, script] = env.program
+  if (node === undefined || script === undefined) return null
+  const bundle = script.replace(/[\\/]cli[\\/]dist[\\/][^\\/]+$/, (found) =>
+    found.replace(/cli([\\/])dist\1[^\\/]+$/, 'mcp$1dist$1homingbird-mcp.mjs'),
+  )
+  if (bundle === script || !(yield* env.files.exists(bundle))) return null
+  return [node, bundle]
+})
+
+const CMD_SPECIAL = /[%&^|<>]/
+
+/** Runs a runner with the agents' Windows install directories on its PATH; elsewhere as it is. */
+export const withAgentDirectories = <A, E>(task: T.Task<A, E, CliEnv>): T.Task<A, E, CliEnv> =>
+  T.flatMap((env: CliEnv) =>
+    T.provide({ variables: withAgentInstallDirectories(env.variables, env.platform) })(task),
+  )(T.ask<CliEnv>())
 
 /** Says which preset command is not on this PATH, before any note waits on it; null when all are. */
 export const missingCommandOf = (settings: RunnerSettings): T.Task<string | null, never, CliEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<CliEnv>()
     const commands = [settings.agent, ...(settings.split === null ? [] : [settings.split.reader])]
-    const missing = yield* missingPresetCommand(commands, env.variables.PATH)
+    const missing = yield* missingPresetCommand(commands, agentSearchPath(env.variables, env.platform))
     if (missing === null) return null
-    return `The ${missing === settings.agent ? 'agent' : 'reader'} command ${notFound(missing)}.`
+    return `The ${missing === settings.agent ? 'agent' : 'reader'} command ${notFound(missing, env.platform)}.`
   })
 
 export interface RunnerSettings {
@@ -73,6 +141,10 @@ export interface RunnerSettings {
   readonly isService?: boolean
   /** `homingbird run` counts that a desk started, when the server asks for anonymous usage counts. */
   readonly countsUsage?: boolean
+  /** The commands as prepared from their presets; without them, the agent and reader run as given. */
+  readonly launches?: Launches
+  /** Give the agent command, never the reader, the Homingbird MCP server for its run. */
+  readonly attachMcp?: boolean
 }
 
 export interface SplitMode {
@@ -85,7 +157,7 @@ export type DeskEnv = Pick<
   CliEnv,
   'clock' | 'fetch' | 'files' | 'output' | 'variables' | 'homeDirectory' | 'nonce' | 'stopped' | 'launcher'
 > &
-  Partial<Pick<CliEnv, 'credentialsFile'>>
+  Partial<Pick<CliEnv, 'credentialsFile' | 'platform'>>
 
 /**
  * Answers the member's waiting notes and draft requests with the agent command, then each one that
@@ -123,6 +195,9 @@ export const runDesk = (
           member,
           agent,
           split,
+          launches: settings.launches ?? launchesAsGiven(settings, env.platform ?? 'linux'),
+          credentialsFile: env.credentialsFile ?? '',
+          platform: env.platform ?? 'linux',
           isService: settings.isService === true,
           pause: deskPausePath(env, session.credential.serverUrl, member.id),
           timeoutMs: timeoutSeconds * 1000,
@@ -162,7 +237,7 @@ const answering = (runner: Runner): T.Task<void, CliFailure, DeskEnv> =>
     )
     yield* T.ensuring(T.sync(() => stopping.abort()))(
       Stream.forEach((event: AsRead.StreamEvent) =>
-        isWaking(event, member.id) ? answerWaitingOrStop(runner) : T.unit,
+        isWakingEvent(event.body, member.id) ? answerWaitingOrStop(runner) : T.unit,
       )(events),
     )
   })
@@ -220,6 +295,9 @@ interface Runner {
   readonly member: AsRead.Member
   readonly agent: string
   readonly split: SplitMode | null
+  launches: Launches
+  readonly credentialsFile: string
+  readonly platform: string
   readonly isService: boolean
   readonly pause: string
   readonly timeoutMs: number
@@ -231,18 +309,6 @@ interface Runner {
 }
 
 const STOPPING: ReadonlyArray<number> = [EXIT.signedOut]
-
-const WAKING: ReadonlyArray<AsRead.StreamEvent['body']['type']> = [
-  'note.sent',
-  'draft.requested',
-  'debate.changed',
-  'resync',
-]
-
-const isWaking = (event: AsRead.StreamEvent, viewerId: MemberId): boolean =>
-  WAKING.includes(event.body.type) &&
-  !(event.body.type === 'note.sent' && event.body.note.authorId === viewerId) &&
-  !(event.body.type === 'debate.changed' && !event.body.participantIds.includes(viewerId))
 
 const answerWaiting = (runner: Runner): T.Task<void, CliFailure, DeskEnv> =>
   T.gen(function* () {
@@ -298,8 +364,7 @@ const debateDeskOf = (runner: Runner): DebateDesk<DeskEnv> => ({
   tried: runner.triedDebates,
   told: runner.told,
   report: runner.report,
-  run: (role, prompt, what) =>
-    outputOf(runner, role === 'agent' ? runner.agent : runner.split!.reader, role, prompt, what),
+  run: (role, prompt, what) => outputOf(runner, role, prompt, what),
   warn,
 })
 
@@ -422,7 +487,7 @@ const draftedBy = (
   what: string,
 ): T.Task<AgentReply | null, CliFailure, DeskEnv> =>
   T.gen(function* () {
-    const output = yield* outputOf(runner, runner.agent, 'agent', prompt, what)
+    const output = yield* outputOf(runner, 'agent', prompt, what)
     if (output === null) return null
     const reply = runnerReplyIn(output)
     const problem = replyProblem(reply)
@@ -440,7 +505,7 @@ const extractedFrom = (
   T.gen(function* () {
     const env = yield* T.ask<DeskEnv>()
     const prompt = readerPrompt(quotedNote(note, { authors, nonce: env.nonce }))
-    const output = yield* outputOf(runner, runner.split!.reader, 'reader', prompt, what)
+    const output = yield* outputOf(runner, 'reader', prompt, what)
     const extracted = output === null ? null : extractionIn(output)
     if (extracted === null) {
       if (output !== null)
@@ -466,47 +531,87 @@ const extractedOriginalOf = (
 
 const outputOf = (
   runner: Runner,
-  command: string,
   role: 'agent' | 'reader',
   prompt: string,
   what: string,
 ): T.Task<string | null, CliFailure, DeskEnv> =>
   T.gen(function* () {
-    const env = yield* T.ask<DeskEnv>()
-    const environment = agentEnvironment(env.variables, [
-      runner.session.credential.token,
-      env.credentialsFile ?? '',
-    ])
+    const launch = role === 'agent' ? runner.launches.agent : runner.launches.reader!
     const finished = yield* T.result(
       T.timeout(runner.timeoutMs)(
-        T.tryPromise(
-          (signal: AbortSignal) => env.launcher.runAgent(command, prompt, environment, signal),
-          (cause) => failed(cause instanceof Error ? cause.message : String(cause)),
-        ),
+        T.gen(function* () {
+          const first = yield* launched(runner, launch, prompt)
+          const fallback = launch.withoutStrictMcp
+          if (fallback === null || !isManagedMcpRefusal(first)) return first
+          yield* warn(role === 'reader' ? MANAGED_MCP_WARNING : MANAGED_MCP_AGENT_WARNING)
+          runner.launches = { ...runner.launches, [role]: fallback }
+          return yield* launched(runner, fallback, prompt)
+        }),
       ),
     )
     const reason =
       finished._tag === 'Ok'
-        ? exitProblem(finished.value, command)
+        ? exitProblem(finished.value, launch.command, secretsOf(runner), runner.platform)
         : finished.error._tag === 'TimeoutError'
           ? `did not finish within ${runner.timeoutMs / 1000} seconds`
           : `could not be started (${finished.error.message})`
-    if (reason === null && finished._tag === 'Ok') return finished.value.output
-    return yield* T.as(null)(warn(`The ${role} command ${reason}; nothing was drafted for ${what}.`))
+    if (reason !== null || finished._tag !== 'Ok')
+      return yield* T.as(null)(warn(`The ${role} command ${reason}; nothing was drafted for ${what}.`))
+    if (launch.format === 'text') return finished.value.output
+    const denied = firstErrorLine(finished.value, secretsOf(runner))
+    if (denied !== null)
+      yield* warn(`The ${role} command finished but reported, perhaps a tool it was denied: ${denied}`)
+    const reply = antigravityOutput(finished.value.output)
+    if (reply._tag === 'Ok') return reply.value
+    return yield* T.as(null)(warn(`The ${role} command ${reply.error}; nothing was drafted for ${what}.`))
   })
 
-const exitProblem = (finished: AgentRun, command: string): string | null => {
+export const MANAGED_MCP_AGENT_WARNING =
+  'Claude Code refused --strict-mcp-config because your organization manages its MCP configuration: the agent now runs without the Homingbird MCP server.'
+
+export const MANAGED_MCP_WARNING =
+  'Claude Code refused --strict-mcp-config because your organization manages its MCP configuration: the reader now runs without it, with every MCP tool denied.'
+
+const launched = (runner: Runner, launch: Launch, prompt: string): T.Task<AgentRun, CliFailure, DeskEnv> =>
+  T.gen(function* () {
+    const env = yield* T.ask<DeskEnv>()
+    const environment = {
+      ...agentEnvironment(env.variables, secretsOf(runner)),
+      ...launch.environment,
+    }
+    const input = launch.format === 'antigravity-stream' ? antigravityInput(prompt) : prompt
+    return yield* T.tryPromise(
+      (signal: AbortSignal) => env.launcher.runAgent(launch.command, input, environment, signal),
+      (cause) => failed(cause instanceof Error ? cause.message : String(cause)),
+    )
+  })
+
+const secretsOf = (runner: Runner): ReadonlyArray<string> => [
+  runner.session.credential.token,
+  runner.credentialsFile,
+]
+
+const exitProblem = (
+  finished: AgentRun,
+  command: string,
+  secrets: ReadonlyArray<string>,
+  platform: string,
+): string | null => {
   if (finished.exitCode === 0) return null
-  if (finished.exitCode === SHELL_COMMAND_NOT_FOUND) return notFound(command)
-  return `exited with code ${finished.exitCode ?? 'unknown'}`
+  if (SHELL_COMMAND_NOT_FOUND.includes(finished.exitCode ?? 0)) return notFound(command, platform)
+  const said = firstErrorLine(finished, secrets)
+  return `exited with code ${finished.exitCode ?? 'unknown'}${said === null ? '' : ` (${said})`}`
 }
 
-/** What the shell answers when the command's program is not on the PATH, as POSIX specifies. */
-const SHELL_COMMAND_NOT_FOUND = 127
+/** What the shell answers when the command's program is not on the PATH: 127 as POSIX specifies, 9009 from cmd.exe. */
+const SHELL_COMMAND_NOT_FOUND: ReadonlyArray<number> = [127, 9009]
 
-const notFound = (command: string): string => {
+const notFound = (command: string, platform: string): string => {
   const program = command.trim().split(/\s+/)[0] ?? command
-  return `could not be found: "${program}" is not on the PATH this runs with; give its absolute path, such as /usr/local/bin/${program.replace(/^.*\//, '')}, or set PATH`
+  const name = program.replace(/^.*[\\/]/, '')
+  const example =
+    platform === 'win32' ? `C:\\Users\\you\\AppData\\Roaming\\npm\\${name}.cmd` : `/usr/local/bin/${name}`
+  return `could not be found: "${program}" is not on the PATH this runs with; give its absolute path, such as ${example}, or set PATH`
 }
 
 const labelsOf = (runner: Runner, reply: DraftReply) => ({

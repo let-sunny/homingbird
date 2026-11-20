@@ -42,7 +42,12 @@ export const runKeyService: ServiceManager = {
         return Result.err(
           `A Windows service cannot hold a value with " or %: ${unsafe}. Give the agent command without them.`,
         )
-      return Result.ok(commandLine(runnerCommand(paths.logPath, checked)))
+      const line = commandLine(runnerCommand(paths.logPath, checked))
+      if (line.length > COMMAND_LINE_MAX)
+        return Result.err(
+          `The service's command line would be ${line.length} characters, more than the ${COMMAND_LINE_MAX} Windows starts. Give shorter paths or a shorter agent command.`,
+        )
+      return Result.ok(line)
     })(requirePrintable(spec)),
   install: (paths, definition, spec) => {
     const [program, ...args] = runnerCommand(paths.logPath, spec)
@@ -78,6 +83,9 @@ const runnerCommand = (logPath: string, spec: ServiceSpec): string[] => [
     credentialsFile: spec.credentialsFile,
   }),
 ]
+
+/** The longest command line Windows' CreateProcess accepts, which also starts a Run key value. */
+export const COMMAND_LINE_MAX = 32_767
 
 const commandLine = (words: ReadonlyArray<string>): string => words.map(windowsArgument).join(' ')
 

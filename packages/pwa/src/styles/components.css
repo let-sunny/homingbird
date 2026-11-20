@@ -4172,3 +4172,51 @@ textarea:disabled {
   margin: 0;
   font-weight: 700;
 }
+
+.cloud-desk {
+  display: grid;
+  gap: var(--hb-space-3);
+}
+
+.cloud-desk-status {
+  margin: 0;
+  padding: var(--hb-space-2);
+  border: var(--hb-border);
+  font-weight: 700;
+}
+
+.cloud-desk-status.is-ok {
+  background: var(--hb-color-success);
+  color: var(--hb-color-on-success);
+}
+
+.cloud-desk-status.is-waiting {
+  background: var(--hb-color-pending-wash);
+}
+
+.cloud-desk-status.is-stopped {
+  background: var(--hb-color-danger);
+  color: var(--hb-color-on-danger);
+}
+
+.cloud-desk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hb-space-2);
+}
+
+.cloud-desk-headers {
+  display: grid;
+  gap: var(--hb-space-2);
+}
+
+.cloud-desk-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: var(--hb-space-2);
+}
+
+.cloud-desk-prompt {
+  width: 100%;
+  font: var(--hb-text-small) / 1.6 var(--hb-font-mono);
+}

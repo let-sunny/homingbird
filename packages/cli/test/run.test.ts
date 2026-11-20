@@ -1,3 +1,4 @@
+import { Task as T } from '@homingbird/kernel'
 import {
   DraftRequestId,
   NOTES_ARE_NOT_COMMANDS,
@@ -11,12 +12,16 @@ import {
 } from '@homingbird/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type Session, type TestServer, asShown, startTestServer } from '../../dovecote/test/harness.ts'
-import { presetNamed } from '../src/agent-presets.ts'
+import { ATTACH_NEEDS_PRESET } from '../src/agent-launch.ts'
+import { agentCommand, defaultReader, presetNamed, presetReader } from '../src/agent-presets.ts'
 import {
+  MANAGED_MCP_AGENT_WARNING,
+  MANAGED_MCP_WARNING,
   MINIMAL_READER_REFUSED,
   MINIMAL_READER_WARNING,
   SAME_READER_REFUSED,
   SAME_READER_WARNING,
+  attachedServer,
   runnerClient,
 } from '../src/commands/run.ts'
 import {
@@ -28,6 +33,7 @@ import {
 import { PAUSE_CHECK_MS, deskPausePath } from '../src/desk-pause.ts'
 import type { AgentRun } from '../src/environment.ts'
 import { EXIT } from '../src/failure.ts'
+import { CLI_VERSION } from '../src/version.ts'
 import {
   CLIENT,
   DRAFT,
@@ -268,7 +274,14 @@ describe('homingbird run', () => {
       runnable: (path) => path === '/usr/bin/my-agent',
     })
     expect(
-      await w.run('run', '--agent', 'my-agent', '--split', '--reader', presetNamed('codex')!.reader!),
+      await w.run(
+        'run',
+        '--agent',
+        'my-agent',
+        '--split',
+        '--reader',
+        presetReader(presetNamed('codex')!, 'linux')!,
+      ),
     ).toBe(EXIT.failed)
     expect(w.problems[0]).toMatch(/^The reader command could not be found: "codex"/)
   })
@@ -285,6 +298,20 @@ describe('homingbird run', () => {
     await settle(() => own.w.lines.some((line) => line.includes('Answering notes')))
     expect(own.w.problems).toEqual([])
     expect(await own.stop()).toBe(INTERRUPTED)
+  })
+
+  it('says on Windows when cmd.exe cannot find the agent’s program, with a Windows path', async () => {
+    const r = runner({
+      platform: 'win32',
+      argv: ['--agent', 'my-agent --fast'],
+      stubs: { 'inbox.list': () => waitingQuestion },
+      agent: () => ({ exitCode: 9009, output: '' }),
+    })
+    await settle(() => r.w.problems.length === 1)
+    expect(r.w.problems[0]).toContain(
+      'The agent command could not be found: "my-agent" is not on the PATH this runs with; give its absolute path, such as C:\\Users\\you\\AppData\\Roaming\\npm\\my-agent.cmd, or set PATH;',
+    )
+    await r.stop()
   })
 
   it('says when the agent command is not on the PATH, naming only its program', async () => {
@@ -727,6 +754,175 @@ describe('homingbird run --split', () => {
     expect(await strict.exit).toBe(EXIT.usage)
     expect(strict.w.problems).toEqual([MINIMAL_READER_REFUSED])
     expect(strict.w.calls).toEqual([])
+  })
+
+  it('talks to the Antigravity preset in its stream, with its updater switched off', async () => {
+    const reply = JSON.stringify({
+      event: 'result',
+      result: { status: 'SUCCESS', response: 'Thursday works.' },
+    })
+    const r = runner({
+      argv: ['--agent', 'antigravity'],
+      stubs: { 'inbox.list': () => waitingQuestion },
+      process: () => ({ exitCode: 0, output: '{}' }),
+      agent: () => ({ exitCode: 0, output: `{"event":"init"}\n${reply}\n`, errors: 'denied: command(ls)\n' }),
+    })
+    await settle(() => r.created.length === 1)
+    expect(r.w.problems).toEqual([
+      'The agent command finished but reported, perhaps a tool it was denied: denied: command(ls)',
+    ])
+    expect(r.created[0]).toMatchObject({ body: 'Thursday works.' })
+    const [run] = r.w.agentRuns
+    expect(run!.command).toBe('agy --print= --input-format=stream-json --output-format=stream-json --sandbox')
+    expect(JSON.parse(run!.prompt)).toMatchObject({ event: 'user', message: { role: 'user' } })
+    expect(run!.environment.AGY_CLI_DISABLE_AUTO_UPDATE).toBe('true')
+    await r.stop()
+  })
+
+  it('drafts nothing when Antigravity reports no response', async () => {
+    const r = runner({
+      argv: ['--agent', 'antigravity'],
+      stubs: { 'inbox.list': () => waitingQuestion },
+      process: () => ({ exitCode: 0, output: '{}' }),
+      agent: () => ({ exitCode: 0, output: '{"event":"result","result":{"status":"ERROR"}}\n' }),
+    })
+    await settle(() => r.w.problems.length === 1)
+    expect(r.w.problems[0]).toMatch(
+      /^The agent command reported ERROR instead of a response; nothing was drafted/,
+    )
+    expect(r.created).toEqual([])
+    await r.stop()
+  })
+
+  it('runs the Claude Code reader once more without --strict-mcp-config when a managed MCP configuration refuses it, and from then on', async () => {
+    const refusal = 'Error: You cannot use --strict-mcp-config when an enterprise MCP config is present\n'
+    const answer = splitAgent()
+    const r = runner({
+      argv: ['--agent', 'claude', '--split'],
+      stubs: { 'inbox.list': () => waitingQuestion },
+      agent: (prompt) =>
+        r.w.agentRuns.at(-1)!.command.includes('--strict-mcp-config')
+          ? { exitCode: 1, output: '', errors: refusal }
+          : answer(prompt),
+    })
+    await settle(() => r.created.length === 1)
+    const commands = r.w.agentRuns.map((run) => run.command)
+    expect(commands[0]).toBe(defaultReader('claude', 'linux'))
+    expect(commands[1]).toContain(`--tools '' --disallowedTools 'mcp__*' --permission-prompts none`)
+    expect(commands[1]).not.toContain('--strict-mcp-config')
+    expect(r.w.problems).toEqual([MANAGED_MCP_WARNING])
+    await r.stop()
+  })
+
+  it('never runs the reader again after any other failure, and says the first line it wrote', async () => {
+    const r = runner({
+      argv: ['--agent', 'claude', '--split', '--service', '--server', SERVER],
+      stubs: { 'inbox.list': () => waitingQuestion },
+      agent: () => ({ exitCode: 1, output: '', errors: `Error: credential ${AGENT_TOKEN} expired\nstack` }),
+    })
+    await settle(() => r.w.problems.length > 0)
+    expect(r.w.agentRuns).toHaveLength(1)
+    expect(r.w.lines.join('\n')).not.toContain(AGENT_TOKEN)
+    const said = r.w.problems.join('\n')
+    expect(said).toContain('The reader command exited with code 1 (Error: credential [withheld] expired)')
+    expect(said).not.toContain(AGENT_TOKEN)
+    await r.stop()
+  })
+
+  it('attaches the Homingbird MCP server to the agent with --attach-mcp, naming the credential file and never the token', async () => {
+    const r = runner({
+      argv: ['--agent', 'claude', '--attach-mcp'],
+      stubs: { 'inbox.list': () => waitingQuestion },
+    })
+    await settle(() => r.created.length === 1)
+    const [run] = r.w.agentRuns
+    expect(run!.command).toContain(`"HOMINGBIRD_CREDENTIALS_FILE":"${AGENT_FILE}"`)
+    expect(run!.command).toContain(`"@homingbird/mcp@${CLI_VERSION}","--server","${SERVER}"`)
+    expect(run!.command).not.toContain(AGENT_TOKEN)
+    expect(run!.environment).not.toHaveProperty('HOMINGBIRD_CREDENTIALS_FILE')
+    await r.stop()
+  })
+
+  it('runs the agent without the MCP server once a managed MCP configuration refuses it', async () => {
+    const r = runner({
+      argv: ['--agent', 'claude', '--attach-mcp'],
+      stubs: { 'inbox.list': () => waitingQuestion },
+      agent: () =>
+        r.w.agentRuns.at(-1)!.command.includes('--strict-mcp-config')
+          ? {
+              exitCode: 1,
+              output: '',
+              errors: 'You cannot use --strict-mcp-config when an enterprise MCP config is present',
+            }
+          : { exitCode: 0, output: 'Yes.' },
+    })
+    await settle(() => r.created.length === 1)
+    expect(r.w.agentRuns[1]!.command).toBe(agentCommand('claude', 'linux'))
+    expect(r.w.problems).toEqual([MANAGED_MCP_AGENT_WARNING])
+    await r.stop()
+  })
+
+  describe('the attached MCP server', () => {
+    const session = { credential: { serverUrl: SERVER, token: AGENT_TOKEN } } as unknown as Parameters<
+      typeof attachedServer
+    >[0]
+    const served = async (options: Parameters<typeof world>[0], credentialsFile: string | null) => {
+      const w = world(options)
+      return T.run(attachedServer(session), { ...w.env, credentialsFile })
+    }
+
+    it('starts through cmd and npx on Windows, from the credentials file the runner was given', async () => {
+      expect(await served({ platform: 'win32' }, 'C:\\creds\\agent.json')).toEqual({
+        _tag: 'Ok',
+        value: {
+          command: 'cmd',
+          args: ['/c', 'npx', '-y', `@homingbird/mcp@${CLI_VERSION}`, '--server', SERVER],
+          environment: { HOMINGBIRD_CREDENTIALS_FILE: 'C:\\creds\\agent.json' },
+        },
+      })
+    })
+
+    it('runs the MCP adapter installed beside this command line with the same Node, before npx', async () => {
+      const bundle = '/usr/lib/node_modules/@homingbird/mcp/dist/homingbird-mcp.mjs'
+      expect(await served({ files: { [bundle]: '' } }, null)).toMatchObject({
+        _tag: 'Ok',
+        value: { command: '/usr/bin/node', args: [bundle, '--server', SERVER] },
+      })
+    })
+
+    it('refuses on Windows a value that cmd.exe would read, such as a % in the credentials file path', async () => {
+      expect(await served({ platform: 'win32' }, 'C:\\100%\\agent.json')).toMatchObject({
+        error: { error: { message: expect.stringContaining('cannot pass C:\\100%\\agent.json to cmd.exe') } },
+      })
+      expect(await served({}, '/home/june/100%/agent.json')).toMatchObject({ _tag: 'Ok' })
+    })
+  })
+
+  it('refuses --attach-mcp for an agent command of one’s own before any note waits', async () => {
+    const r = runner({ argv: ['--attach-mcp'] })
+    expect(await r.exit).toBe(EXIT.failed)
+    expect(r.w.problems).toEqual([ATTACH_NEEDS_PRESET])
+  })
+
+  it('runs the Codex preset reader with every MCP server Codex lists switched off', async () => {
+    const r = runner({
+      argv: ['--agent', 'codex', '--split'],
+      agent: splitAgent(),
+      stubs: { 'inbox.list': () => waitingQuestion },
+      process: (_program, args) =>
+        args.includes('mcp') ? { exitCode: 0, output: '[{"name":"github"}]' } : undefined,
+    })
+    await settle(() => r.created.length === 1)
+    expect(r.w.agentRuns[0]!.command).toContain(`-c 'mcp_servers."github".enabled=false' -`)
+    expect(r.w.agentRuns[1]!.command).not.toContain('mcp_servers')
+    await r.stop()
+  })
+
+  it('starts no desk when the Codex preset reader cannot be prepared', async () => {
+    const r = runner({ argv: ['--agent', 'codex', '--split'], process: () => ({ exitCode: 1, output: '' }) })
+    expect(await r.exit).toBe(EXIT.failed)
+    expect(r.w.problems[0]).toMatch(/^The reader command was not started: codex mcp list exited with code 1/)
+    expect(r.w.calls).toEqual([])
   })
 })
 

@@ -1,4 +1,5 @@
 import { type Result, Task as T } from '@homingbird/kernel'
+import { type Launches, preparedLaunches } from '../agent-launch.ts'
 import {
   type StoredCredential,
   credentialDirectory,
@@ -10,9 +11,14 @@ import { DESK_HEARTBEAT_MS, claimDesk, releaseDeskClaim, renewDeskClaim } from '
 import type { CliEnv } from '../environment.ts'
 import { CliFailure, EXIT } from '../failure.ts'
 import { type Outcome, outcome } from '../outcome.ts'
-import { serviceLockPath, serviceMissingPath, serviceStopPath } from '../service-definition.ts'
+import {
+  serviceAgentsPath,
+  serviceLockPath,
+  serviceMissingPath,
+  serviceStopPath,
+} from '../service-definition.ts'
 import { apiFor } from '../session.ts'
-import { type RunnerSettings, missingCommandOf, runDesk } from './run.ts'
+import { type RunnerSettings, missingCommandOf, runDesk, withAgentDirectories } from './run.ts'
 
 /**
  * `homingbird run --service`, as the background service starts it. It holds one lock per server on
@@ -22,6 +28,11 @@ import { type RunnerSettings, missingCommandOf, runDesk } from './run.ts'
  * waits the same way until that file holds a credential the server accepts.
  */
 export const runAsService = (
+  settings: RunnerSettings,
+  report: (step: Outcome) => void,
+): T.Task<void, CliFailure, CliEnv> => withAgentDirectories(servingAsService(settings, report))
+
+const servingAsService = (
   settings: RunnerSettings,
   report: (step: Outcome) => void,
 ): T.Task<void, CliFailure, CliEnv> =>
@@ -61,12 +72,19 @@ const serving = (
 ): T.Task<void, never, CliEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<CliEnv>()
-    yield* untilCommandsFound(serviceMissingPath(credentialDirectory(env), server), settings, report)
+    const launches = yield* untilCommandsReady(
+      serviceMissingPath(credentialDirectory(env), server),
+      settings,
+      report,
+    )
+    const agents = serviceAgentsPath(credentialDirectory(env), server)
+    if (launches.installed.length === 0) yield* env.files.remove(agents)
+    else yield* env.files.writePrivate(agents, launches.installed.join('\n'))
     let refused: string | null = null
     for (;;) {
       const credential: StoredCredential = yield* signedInTo(server, refused, report)
       const session = { credential, api: apiFor(env, credential) }
-      const ended = yield* T.exit(runDesk(session, { ...settings, isService: true }, report))
+      const ended = yield* T.exit(runDesk(session, { ...settings, launches, isService: true }, report))
       if (ended._tag === 'Ok') return
       const failure = ended.error._tag === 'Fail' ? ended.error.error : null
       if (failure?.exitCode === EXIT.signedOut) {
@@ -80,25 +98,28 @@ const serving = (
   })
 
 /**
- * Waits, saying so once, while a preset's program is missing from the PATH the service runs with. The
- * reason stays in a file beside the lock until the program is found or the service stops.
+ * Waits, saying so once, while a preset's program is missing from the PATH the service runs with or
+ * cannot be prepared. The reason stays in a file beside the lock until the commands are ready or the
+ * service stops.
  */
-const untilCommandsFound = (
+const untilCommandsReady = (
   marker: string,
   settings: RunnerSettings,
   report: (step: Outcome) => void,
-): T.Task<void, never, CliEnv> =>
+): T.Task<Launches, never, CliEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<CliEnv>()
-    yield* T.ensuring(env.files.remove(marker))(
+    return yield* T.ensuring(env.files.remove(marker))(
       T.gen(function* () {
         let told = false
         for (;;) {
           const missing = yield* missingCommandOf(settings)
-          if (missing === null) return
+          const prepared = missing === null ? yield* T.result(preparedLaunches(settings)) : null
+          if (prepared?._tag === 'Ok') return prepared.value
+          const problem = missing ?? (prepared?._tag === 'Err' ? prepared.error.message : '')
           if (!told) {
-            report(outcome({ step: 'command_missing' }, `${missing} The service looks again every minute.`))
-            yield* env.files.writePrivate(marker, missing)
+            report(outcome({ step: 'command_missing' }, `${problem} The service looks again every minute.`))
+            yield* env.files.writePrivate(marker, problem)
           }
           told = true
           yield* T.sleep(SERVICE_RETRY_MS)

@@ -13,6 +13,7 @@ const REVIEWED_WITHOUT_AN_EVENT = [
   'draftRequests.cancel',
   'draftRequests.create',
   'drafts.seen',
+  'me.deskWake.test',
   'notes.move',
   'notes.read',
   'presence.visibility',

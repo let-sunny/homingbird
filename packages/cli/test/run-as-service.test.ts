@@ -30,7 +30,7 @@ describe('homingbird run --service', () => {
   it('says once that a preset’s program is missing from its PATH, waits for no note, and starts once it is there', async () => {
     let installed = false
     const r = runner({
-      argv: ['--service', '--server', SERVER],
+      argv: ['--service', '--server', SERVER, '--agent', 'claude'],
       variables: { PATH: '/usr/local/bin' },
       runnable: (path) => installed && path === '/usr/local/bin/claude',
     })
@@ -48,6 +48,37 @@ describe('homingbird run --service', () => {
     await r.w.clock.advance(SERVICE_RETRY_MS)
     await settle(() => r.w.lines.some((line) => line.includes('Answering notes')))
     expect(r.w.files.has(marker)).toBe(false)
+    await r.stop()
+  })
+
+  it('waits, saying why, while a preset command cannot be prepared, and starts once it can', async () => {
+    let listed = false
+    const r = runner({
+      argv: ['--service', '--server', SERVER, '--agent', 'codex', '--split'],
+      process: () => (listed ? { exitCode: 0, output: '[]' } : { exitCode: 1, output: '' }),
+    })
+    await settle(() => r.w.lines.length === 1)
+    expect(r.w.lines[0]).toContain(
+      'The reader command was not started: codex mcp list exited with code 1, so it could not be prepared as the codex preset intends. Give --reader a command of your own to run it anyway. The service looks again every minute.',
+    )
+    const marker = serviceMissingPath(`${HOME}/.config/homingbird`, SERVER)
+    await settle(() => r.w.files.has(marker))
+    listed = true
+    await r.w.clock.advance(SERVICE_RETRY_MS)
+    await settle(() => r.w.lines.some((line) => line.includes('Answering notes')))
+    expect(r.w.files.has(marker)).toBe(false)
+    await r.stop()
+  })
+
+  it('writes down which version of each preset program it started with', async () => {
+    const r = runner({
+      argv: ['--service', '--server', SERVER, '--agent', 'claude'],
+      process: () => ({ exitCode: 0, output: '2.1.329 (Claude Code)' }),
+    })
+    await settle(() => r.w.lines.some((line) => line.includes('Answering notes')))
+    expect(r.w.files.get(`${HOME}/.config/homingbird/desks/service-https-hb-example-com.agents`)).toMatch(
+      /^Claude Code: 2\.1\.329, needs 2\.1\.259 or later; verified with/,
+    )
     await r.stop()
   })
 

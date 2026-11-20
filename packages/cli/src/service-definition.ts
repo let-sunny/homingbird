@@ -129,6 +129,10 @@ export const serviceStopPath = (configDirectory: string, server: string): string
 export const serviceMissingPath = (configDirectory: string, server: string): string =>
   `${configDirectory}/desks/service-${serviceSlug(server)}.missing`
 
+/** Which version of each preset program the running service started with, for `service status`. */
+export const serviceAgentsPath = (configDirectory: string, server: string): string =>
+  `${configDirectory}/desks/service-${serviceSlug(server)}.agents`
+
 /**
  * One server's address, scheme included, as a name that every service manager accepts. A long address
  * is cut, and a short hash of the whole address keeps two that share a beginning apart.
