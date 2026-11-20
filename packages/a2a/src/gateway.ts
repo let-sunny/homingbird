@@ -70,14 +70,9 @@ const negotiate = (
   const method = Object.hasOwn(METHODS, call.method) ? METHODS[call.method] : undefined
   if (requested.kind === 'unsupported')
     return T.fail(
-      rpcFailureOf(CURRENT)(
-        versionNotSupported(`A2A-Version ${requested.version} is not supported. ${SUPPORTED_SENTENCE}`),
-      ),
+      rpcFailureOf(CURRENT)(versionNotSupported(`This A2A-Version is not supported. ${SUPPORTED_SENTENCE}`)),
     )
-  if (method === undefined)
-    return T.fail(
-      rpcFailureOf(requested.kind === 'supported' ? requested.dialect : LEGACY)(methodNotFound(call.method)),
-    )
+  if (method === undefined) return T.fail(methodNotFound(call.method))
   if (requested.kind === 'supported' && requested.dialect !== method.dialect)
     return T.fail(
       rpcFailureOf(requested.dialect)(

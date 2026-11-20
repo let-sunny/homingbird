@@ -87,6 +87,9 @@ describe('the A2A gateway on a running server', () => {
     expect((await versioned('/a2a?A2A-Version=0.3', 'SendMessage')).error.code).toBe(
       A2A_CODE.versionNotSupported,
     )
+    expect((await versioned('/a2a?A2A-Version=0.3', 'SendMessage', { 'a2a-version': '' })).error.code).toBe(
+      A2A_CODE.versionNotSupported,
+    )
     const accepted = await versioned('/a2a', 'SendMessage', { 'a2a-version': '1.0' })
     expect(accepted.result.task.status.state).toBe('TASK_STATE_INPUT_REQUIRED')
   })

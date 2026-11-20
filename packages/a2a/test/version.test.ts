@@ -21,7 +21,7 @@ describe('requestedVersionOf', () => {
   it.each(['2.0', '1.1', '1', '0.2', '1.0.x', '1.0.', '1.0.0.0', '10.0', 'v1.0', '1x0'])(
     'reads %j as unsupported',
     (header) => {
-      expect(requestedVersionOf(header)).toEqual({ kind: 'unsupported', version: header })
+      expect(requestedVersionOf(header)).toEqual({ kind: 'unsupported' })
     },
   )
 
@@ -31,11 +31,14 @@ describe('requestedVersionOf', () => {
 
   it('never reads a version outside 1.0 and 0.3 as supported', () => {
     fc.assert(
-      fc.property(fc.string(), (header) => {
-        const requested = requestedVersionOf(header)
-        if (requested.kind !== 'supported') return
-        expect(header.trim()).toMatch(/^(1\.0|0\.3)(\.\d+)?$/)
-      }),
+      fc.property(
+        fc.tuple(fc.constantFrom('1.0', '0.3', '1', '0'), fc.string()).map(([prefix, rest]) => prefix + rest),
+        (header) => {
+          const requested = requestedVersionOf(header)
+          if (requested.kind !== 'supported') return
+          expect(header.trim()).toMatch(/^(1\.0|0\.3)(\.\d+)?$/)
+        },
+      ),
     )
   })
 })

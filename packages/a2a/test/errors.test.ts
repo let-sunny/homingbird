@@ -53,6 +53,11 @@ describe('rpcFailureOf', () => {
     )
   })
 
+  it('passes a plain JSON-RPC failure through unchanged in the 1.0 dialect', () => {
+    const failure = RpcFailure({ code: RPC_CODE.invalidParams, message: 'm' })
+    expect(rpcFailureOf(CURRENT)(failure)).toBe(failure)
+  })
+
   it.each(SPEC_REASONS)('leaves error %i without details in the 0.3 dialect', (code) => {
     expect(rpcFailureOf(LEGACY)(RpcFailure({ code, message: 'm' }))).toEqual(
       RpcFailure({ code, message: 'm' }),

@@ -14,7 +14,7 @@ describe('agentCard', () => {
     expect(card.name).toBe('Homingbird')
   })
 
-  it('carries only the top-level fields of the 1.0 AgentCard, which allows no others', () => {
+  it('carries only fields the 1.0 AgentCard defines', () => {
     const allowed = [
       'capabilities',
       'defaultInputModes',

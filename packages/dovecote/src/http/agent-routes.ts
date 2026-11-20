@@ -40,6 +40,8 @@ const answer = (
 ): T.Task<unknown | null> => {
   const api = localApi(caller, env)
   const nonce = env.random.identifier
+  const header = request.headers['a2a-version']?.trim()
+  const version = header ? header : (request.query.get('A2A-Version') ?? undefined)
   return request.path === '/mcp'
     ? handleMcpMessage(message, {
         api,
@@ -47,11 +49,7 @@ const answer = (
         nonce,
         webClientUrl: env.config.publicUrl,
       })
-    : handleA2aMessage(
-        message,
-        { api, publicUrl: env.config.publicUrl, nonce },
-        request.headers['a2a-version'] ?? request.query.get('A2A-Version') ?? undefined,
-      )
+    : handleA2aMessage(message, { api, publicUrl: env.config.publicUrl, nonce }, version)
 }
 
 const challenge = (error: Unauthorized, publicUrl: string): HttpResponse =>

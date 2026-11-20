@@ -236,13 +236,28 @@ describe('A2A-Version negotiation', () => {
         const answer = await call(method, MESSAGE, version)
         expect(answer.error).toEqual({
           code: A2A_CODE.versionNotSupported,
-          message: `A2A-Version ${version} is not supported. Send A2A-Version 1.0 or 0.3.`,
+          message: 'This A2A-Version is not supported. Send A2A-Version 1.0 or 0.3.',
           data: ERROR_INFO('VERSION_NOT_SUPPORTED'),
         })
       }
       expect(calls).toEqual([])
     },
   )
+
+  it('never repeats the version it was sent in the error', async () => {
+    const version = `9.${'9'.repeat(10_000)}`
+    const { message } = (await gateway().call('SendMessage', MESSAGE, version)).error
+    expect(message).not.toContain('999')
+    expect(message.length).toBeLessThan(100)
+  })
+
+  it('answers nothing to a notification with an unsupported version', async () => {
+    const { context, calls } = gateway()
+    expect(
+      await T.runPromise(handleA2aMessage({ jsonrpc: '2.0', method: 'GetTask', params: {} }, context, '2.0')),
+    ).toBeNull()
+    expect(calls).toEqual([])
+  })
 
   it.each([
     ['1.0', 'message/send', 'tasks/get'],

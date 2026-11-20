@@ -3,13 +3,13 @@ import { CURRENT, type Dialect, LEGACY } from './dialect.ts'
 export type RequestedVersion =
   | { readonly kind: 'unstated' }
   | { readonly kind: 'supported'; readonly dialect: Dialect }
-  | { readonly kind: 'unsupported'; readonly version: string }
+  | { readonly kind: 'unsupported' }
 
 export const requestedVersionOf = (header: string | undefined): RequestedVersion => {
   const version = header?.trim() ?? ''
   if (version === '') return { kind: 'unstated' }
   const dialect = SUPPORTED.find((one) => isSameMinor(version, one.version))
-  return dialect === undefined ? { kind: 'unsupported', version } : { kind: 'supported', dialect }
+  return dialect === undefined ? { kind: 'unsupported' } : { kind: 'supported', dialect }
 }
 
 export const SUPPORTED: ReadonlyArray<Dialect> = [CURRENT, LEGACY]
