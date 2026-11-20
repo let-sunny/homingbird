@@ -291,9 +291,10 @@ channel per repository, and one agent the channel owns, drafting from that repos
    instructions.
 7. **Basis as links**: what an agent relied on for a draft names its sources as links its person and an
    administrator can open, not only as text.
-8. **Who may wake a channel agent**: its managers narrow whose questions start a draft (everyone in
-   the channel, a list of people, or managers only), a defence before any model reads the question,
-   next to quoting it with `wrapNote`.
+8. **Whose questions a channel agent answers**: the agent stays running, and its managers narrow whose
+   questions it drafts an answer to (everyone in the channel, a list of people, or managers only), so a
+   question from anyone else never reaches the model at all, a defence next to quoting it with
+   `wrapNote`.
 
 Later: mentioning a group, private groups.
 
