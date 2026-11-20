@@ -174,6 +174,7 @@ const signedOutText = (
     return refused === null
       ? `${signInFirst(server)}. This service starts answering once you have.`
       : `The server refused the credential. Sign in again: homingbird login --server ${server}`
-  if (problem !== null) return `${problem} This service starts answering once it can use the file.`
-  return `The server refused the credential in ${file}. Sign in again on your own computer with homingbird login --server ${server} --credentials-file <path>, and replace the file.`
+  if (problem !== null)
+    return `This service starts answering once it can use the credentials file. ${problem}`
+  return `The server refused the credential in ${file}. Sign in again where you can approve it, and replace the file: homingbird login --server ${server} --credentials-file ${file}`
 }

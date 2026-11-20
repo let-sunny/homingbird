@@ -68,9 +68,7 @@ export const installService = (options: ServiceOptions): T.Task<Outcome, CliFail
         `Definition:  ${paths.definitionPath}`,
         `Log:         ${paths.logPath}`,
         ...(credentialsFile === null ? [] : [`Credential:  read from ${credentialsFile}`]),
-        ...(signInProblem === null
-          ? []
-          : [`${signInProblem.replace(/\.?$/, '.')} Until then the service waits.`]),
+        ...(signInProblem === null ? [] : [waitingText(credentialsFile, signInProblem, paths.server)]),
         ...warnings.map((warning) => `Warning: ${warning}`),
       ].join('\n'),
     )
@@ -223,6 +221,12 @@ const signInProblemOf = (server: string): T.Task<string | null, never, CliEnv> =
     const read = yield* T.result(readCredentialsFile(env.credentialsFile, server))
     return read._tag === 'Ok' ? null : read.error.message
   })
+
+/** What the installer says the service waits for, ending with the command or fix that ends the wait. */
+const waitingText = (credentialsFile: string | null, problem: string, server: string): string =>
+  credentialsFile === null
+    ? `The service waits until you sign in: homingbird login --server ${server}`
+    : `The service waits until it can use the credentials file. ${problem}`
 
 const onlyServer: T.Task<string, CliFailure, CliEnv> = T.gen(function* () {
   const servers = yield* storedServers

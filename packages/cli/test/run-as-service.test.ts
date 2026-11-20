@@ -197,7 +197,7 @@ describe('homingbird run --service as its own supervisor', () => {
       const r = runner({ argv })
       await settle(() => r.w.lines.length === 1)
       expect(r.w.lines[0]).toContain(
-        `The credentials file ${FILE} does not exist. Create it on a computer where you can approve the sign-in: homingbird login --server <url> --credentials-file <path> This service starts answering once it can use the file.`,
+        `This service starts answering once it can use the credentials file. The credentials file ${FILE} does not exist. Create it on a computer where you can approve the sign-in: homingbird login --server ${SERVER} --credentials-file ${FILE}`,
       )
       await r.w.clock.advance(SIGN_IN_CHECK_MS * 2)
       expect(r.w.lines).toHaveLength(1)
@@ -233,7 +233,7 @@ describe('homingbird run --service as its own supervisor', () => {
       })
       await settle(() => r.w.lines.some((line) => line.includes('refused')))
       expect(r.w.lines.at(-1)).toContain(
-        `The server refused the credential in ${FILE}. Sign in again on your own computer with homingbird login --server ${SERVER} --credentials-file <path>, and replace the file.`,
+        `The server refused the credential in ${FILE}. Sign in again where you can approve it, and replace the file: homingbird login --server ${SERVER} --credentials-file ${FILE}`,
       )
       await r.w.clock.advance(SIGN_IN_CHECK_MS * 3)
       expect(r.w.calls.filter((call) => call.route === 'me.get')).toHaveLength(1)

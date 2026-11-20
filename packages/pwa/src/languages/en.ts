@@ -380,6 +380,11 @@ export const en = {
   noAgentsYet: 'No agent is connected yet. Once one is, replies are drafted for you as notes arrive.',
   codeFallback: 'Did your agent show you a connection code instead of a link? Enter it here.',
   notSetUp: 'Your agent is not set up yet? Ask your administrator.',
+  serviceBanner: {
+    title: 'Your desk has not connected yet.',
+    body: 'A background service you installed waits until you run this command on its computer and confirm the code it shows.',
+    enterCode: 'Enter a connection code',
+  },
   backToHomingbird: 'Back to Homingbird',
   backToConnect: 'Back to My agent',
   answeringFlow: {

@@ -89,7 +89,7 @@ export const readCredentialsFile = (
     if ((yield* env.files.mode(path)) === null)
       return yield* T.fail(
         CliFailure({
-          message: `The credentials file ${path} does not exist. ${CREATE_CREDENTIALS_FILE}`,
+          message: `The credentials file ${path} does not exist. ${createCredentialsFile(path, server)}`,
           exitCode: EXIT.signedOut,
         }),
       )
@@ -101,7 +101,9 @@ export const readCredentialsFile = (
     const decoded = StoredCredential.decode(parseJson(content))
     if (decoded._tag === 'Err')
       return yield* T.fail(
-        failed(`The credentials file ${path} does not hold an agent credential. ${CREATE_CREDENTIALS_FILE}`),
+        failed(
+          `The credentials file ${path} does not hold an agent credential. ${createCredentialsFile(path, server)}`,
+        ),
       )
     if (server !== null && serverKey(decoded.value.serverUrl) !== serverKey(server))
       return yield* T.fail(
@@ -168,8 +170,8 @@ const SUFFIX = '.json'
 
 const SHARED_READ_BITS = 0o044
 
-const CREATE_CREDENTIALS_FILE =
-  'Create it on a computer where you can approve the sign-in: homingbird login --server <url> --credentials-file <path>'
+const createCredentialsFile = (path: string, server: string | null): string =>
+  `Create it on a computer where you can approve the sign-in: homingbird login --server ${server ?? '<url>'} --credentials-file ${path}`
 
 const alreadyThere = (path: string): CliFailure =>
   CliFailure({

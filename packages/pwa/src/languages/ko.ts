@@ -375,6 +375,11 @@ export const ko: Translation<typeof en> = {
   noAgentsYet: '아직 연결된 에이전트가 없어요. 연결하면 노트가 도착할 때마다 답장 초안을 써 줘요.',
   codeFallback: '에이전트가 링크 대신 연결 코드를 보여 줬나요? 여기에 입력하세요.',
   notSetUp: '아직 에이전트가 준비되지 않았나요? 관리자에게 문의하세요.',
+  serviceBanner: {
+    title: '데스크가 아직 연결되지 않았어요.',
+    body: '설치한 백그라운드 서비스는 그 컴퓨터에서 이 명령을 실행하고 표시된 연결 코드를 확인할 때까지 기다려요.',
+    enterCode: '연결 코드 입력',
+  },
   backToHomingbird: 'Homingbird로 돌아가기',
   backToConnect: '내 에이전트로 돌아가기',
   answeringFlow: {

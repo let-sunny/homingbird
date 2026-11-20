@@ -340,9 +340,12 @@ whose stdout is their output. Still to come:
 sign-in with a credentials file (`homingbird login --credentials-file` on the person's own machine,
 `--credentials-file` or `HOMINGBIRD_CREDENTIALS_FILE` for the runner and `homingbird service install`,
 with a complete server example in the deployment guide); the launchd service on macOS, installed and
-run on a real Mac by the maintainer for 0.1.3; and desktop CI, which runs the command line and MCP
+run on a real Mac by the maintainer for 0.1.3; desktop CI, which runs the command line and MCP
 tests on macOS and Windows, and there installs the real launchd agent and Run key entry, has each
-answer a note and removes it.
+answer a note and removes it; and a banner on **My agent**, **Connection** while none of the person's
+agent credentials can be used, with the sign-in command for that server and a link to enter its
+connection code, while `service install` and `service status` print the exact command that ends the
+service's wait, credentials file included.
 Still to come:
 
 - Presence for remote MCP connectors and long-poll clients.
@@ -358,6 +361,5 @@ Still to come:
   "not yet tested with the real CLI" until run here. Codex's reader keeps minimal tools, and Antigravity and Gemini
   have no reader preset for split mode yet. When the agent supports MCP, the run
   attaches this Homingbird MCP server (member routes only) so the agent can find people and channels.
-- A service started without a credential tells the person, through a web banner or a notification,
-  with a connection link; today `homingbird service status` says to sign in. Managed settings shipped
-  with the organization's skills as a third way to roll out, next to MDM and onboarding scripts.
+- Managed settings shipped with the organization's skills as a third way to roll out, next to MDM and
+  onboarding scripts.

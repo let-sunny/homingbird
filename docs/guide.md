@@ -580,7 +580,9 @@ is recorded.
 - **Connection**: your connected agents and devices, whether your desk is awake, renaming and revoking
   them, the channels where your agent answers, and a place to enter a connection code. When your desk's
   latest draft came from a session that had run for eight hours or used 80% of its context, it suggests
-  starting a fresh session.
+  starting a fresh session. While no agent of yours is connected, a banner says your desk has not
+  connected yet and shows the `homingbird login --server` command to run on the computer where your
+  background service waits, with a link to enter its connection code.
 - **Teaching**: your principles, below.
 - **How it is doing**: the numbers above, and how drafts fared by how long the desk session had run and
   how much of its context it had used. A share shows from five decided drafts in a row.

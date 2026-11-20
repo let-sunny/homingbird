@@ -2609,6 +2609,12 @@ textarea:disabled {
   gap: var(--hb-space-1);
 }
 
+.service-banner pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .flow-tools {
   display: flex;
   flex-wrap: wrap;

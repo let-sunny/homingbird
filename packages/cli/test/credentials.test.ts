@@ -176,7 +176,7 @@ describe('a credentials file', () => {
         { files: {} },
         [],
         EXIT.signedOut,
-        `The credentials file ${FILE} does not exist. Create it on a computer where you can approve the sign-in: homingbird login --server <url> --credentials-file <path>`,
+        `The credentials file ${FILE} does not exist. Create it on a computer where you can approve the sign-in: homingbird login --server <url> --credentials-file ${FILE}`,
       ],
       [
         { unreadable: [FILE] },
@@ -188,7 +188,7 @@ describe('a credentials file', () => {
         { files: { [FILE]: `{"token":"${FILE_TOKEN}"}` } },
         [],
         EXIT.failed,
-        `The credentials file ${FILE} does not hold an agent credential. Create it on a computer where you can approve the sign-in: homingbird login --server <url> --credentials-file <path>`,
+        `The credentials file ${FILE} does not hold an agent credential. Create it on a computer where you can approve the sign-in: homingbird login --server <url> --credentials-file ${FILE}`,
       ],
       [
         { files: { [FILE]: `token=${FILE_TOKEN}` } },

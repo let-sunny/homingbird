@@ -145,7 +145,9 @@ of this has been run on Windows yet.
   service uses the agent credential you signed in with for that server, so it can draft and skip but
   never approve.
 - **Sign in once.** If you have not signed in to that server yet, the service starts anyway and waits;
-  `service status` says `Sign in first: homingbird login --server <url>`. If the server later refuses
+  `service install` and `service status` print the command that ends the wait, `homingbird login
+  --server <url>`, with `--credentials-file <path>` when the service reads one, and **My agent**,
+  **Connection** in the web client shows it while no agent of yours is connected. If the server later refuses
   the credential, it waits for a new sign-in. Other failures are retried after a minute.
 - **The log** is `~/.config/homingbird/logs/runner-<server>.log`, one timestamped line per step: note
   and draft ids, never note text, an agent's skip reasons or tokens. The agent's own error output is

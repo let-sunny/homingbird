@@ -69,6 +69,18 @@ describe('connectionSection', () => {
     expect(page.visited).toEqual(['assign /'])
   })
 
+  it('shows the sign-in command for this server until an agent credential can be used', () => {
+    const { context, called, clock } = testContext()
+    const shown = mount(connectionSection(context, lifetime(), me()))
+    expect(shown.querySelector('.service-banner')).toBeNull()
+    called('listCredentials')[0]!.then!.done!([credential('cred_web', { kind: 'human', current: true })])
+    expect(textOf(shown.querySelector('.service-banner')!)).toContain(
+      `${strings.serviceBanner.title}${strings.serviceBanner.body}homingbird login --server http://localhost`,
+    )
+    called('listCredentials')[0]!.then!.done!([credential('cred_desk', { expiresAt: clock.now() + 1 })])
+    expect(shown.querySelector('.service-banner')).toBeNull()
+  })
+
   it('names the channels the agent answers in, and none', () => {
     const { context } = testContext()
     const shown = connectionSection(context, lifetime(), me())

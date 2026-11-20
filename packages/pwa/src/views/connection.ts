@@ -1,11 +1,13 @@
 import type { AsRead } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, region, signal } from '@homingbird/ui'
 import { type ConnectionModel, type CredentialRow, connectionModel } from '../models/connection.ts'
+import { serviceBannerModel } from '../models/service-banner.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
 import { channelChips, field, loading, presenceBadges } from './parts.ts'
+import { serviceBanner } from './service-banner.ts'
 import { freshSessionSuggestions } from './session-health-view.ts'
 
 /** "Connection": the person's devices and agents, whether the desk is awake, and how to connect one. */
@@ -28,6 +30,15 @@ export const connectionSection = (context: ViewContext, life: Lifetime, me: AsRe
   return h(
     'div',
     { class: 'agent-connection' },
+    region(life, [credentials], () =>
+      serviceBanner(
+        serviceBannerModel({
+          credentials: credentials.get(),
+          origin: context.page.origin,
+          now: context.clock.now(),
+        }),
+      ),
+    ),
     deskRecommendation(),
     region(life, [state.agentReport], () => {
       const report = state.agentReport.get()

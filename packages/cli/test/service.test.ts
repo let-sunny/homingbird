@@ -75,7 +75,7 @@ describe('homingbird service install', () => {
     const text = world({ signedIn: 'none' })
     await text.run('service', 'install', '--server', SERVER, '--agent', 'codex')
     expect(text.lines[0]).toContain(
-      `Sign in first: homingbird login --server ${SERVER}. Until then the service waits.`,
+      `The service waits until you sign in: homingbird login --server ${SERVER}`,
     )
   })
 
@@ -490,11 +490,13 @@ describe('homingbird service with a credentials file', () => {
       await w.run('service', 'install', '--server', SERVER, '--agent', 'claude', '--credentials-file', FILE),
     ).toBe(0)
     expect(w.lines[0]).toContain(
-      `The credentials file ${FILE} does not exist. Create it on a computer where you can approve the sign-in: homingbird login --server <url> --credentials-file <path>. Until then the service waits.`,
+      `The service waits until it can use the credentials file. The credentials file ${FILE} does not exist. Create it on a computer where you can approve the sign-in: homingbird login --server ${SERVER} --credentials-file ${FILE}`,
     )
     const status = world({ signedIn: 'none', files: { [FILE]: '{}' } })
     expect(await status.run('service', 'status', '--server', SERVER, '--credentials-file', FILE)).toBe(0)
-    expect(status.lines[0]).toContain(`The credentials file ${FILE} does not hold an agent credential.`)
+    expect(status.lines[0]).toContain(
+      `The credentials file ${FILE} does not hold an agent credential. Create it on a computer where you can approve the sign-in: homingbird login --server ${SERVER} --credentials-file ${FILE}`,
+    )
     const fine = world({ signedIn: 'none', files: mounted })
     await fine.run('service', 'status', '--server', SERVER, '--credentials-file', FILE, '--json')
     expect(fine.json()).toMatchObject({ signedIn: true })
