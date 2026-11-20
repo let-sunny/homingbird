@@ -4,8 +4,9 @@ import { featureOn } from '../features.ts'
 import { type Route, hrefFor } from '../routes.ts'
 import { spriteOwner } from '../sprite-owner.ts'
 import { strings } from '../strings.ts'
-import { conversationTitle, excerpt, otherParticipants } from '../thread.ts'
+import { conversationTitle, excerpt, isMuted, otherParticipants } from '../thread.ts'
 import { type AvatarModel, groupAvatarOf, memberAvatarOf } from './avatar.ts'
+import { type MuteToggle, muteToggleModel } from './mute-toggle.ts'
 import { type TimeShown, timeShown } from './time.ts'
 
 /** The header's tabs, the current one marked; Debates only where the organization has it. */
@@ -84,8 +85,9 @@ export interface SidebarInput {
   readonly channels: ReadonlyArray<AsRead.Channel>
   readonly agentCount: number
   readonly charactersOn: boolean
+  readonly muteOn: boolean
   readonly now: number
-  /** The conversations whose row plays a note's arrival now. */
+  /** The conversations whose row plays a note's arrival now; a muted one never does. */
   readonly arrived: ReadonlySet<string>
 }
 
@@ -119,6 +121,7 @@ export interface ConversationRow {
   readonly time: TimeShown | null
   readonly unread: { readonly count: number; readonly label: string } | null
   readonly drafts: { readonly text: string; readonly label: string } | null
+  readonly mute: MuteToggle | null
 }
 
 const tab = (
@@ -138,13 +141,14 @@ const conversationRow = (input: SidebarInput, conversation: AsRead.Conversation)
   const archived = conversation.archivedAt !== null
   const channel = conversation.kind === 'channel' ? channelOfRoom(input.channels, conversation.id) : null
   const last = conversation.lastNote
+  const title = conversationTitle(conversation, input.members, viewerId, strings.formerMember)
   return {
     id: conversation.id,
     href: hrefFor({ name: 'conversation', id: conversation.id }),
     current: isOpen(input.route, conversation),
     face:
       conversation.kind === 'channel' || archived ? { kind: 'channel' } : faceOf(input, conversation, others),
-    title: conversationTitle(conversation, input.members, viewerId, strings.formerMember),
+    title,
     presence:
       conversation.kind === 'direct'
         ? (input.directory.find((entry) => entry.member.id === others[0])?.presence ?? null)
@@ -169,6 +173,7 @@ const conversationRow = (input: SidebarInput, conversation: AsRead.Conversation)
             label: strings.draftsWaiting({ count: conversation.draftCount }),
           }
         : null,
+    mute: muteToggleModel(conversation, title, input.muteOn),
   }
 }
 
@@ -180,7 +185,7 @@ const faceOf = (
   const people = others.map((id) => input.members.get(id))
   if (conversation.kind !== 'direct' && people.length > 1)
     return { kind: 'group', faces: groupAvatarOf(people, input.charactersOn) }
-  const arrived = input.arrived.has(conversation.id)
+  const arrived = input.arrived.has(conversation.id) && !isMuted(conversation)
   const owner = spriteOwner({
     kind: 'conversation',
     viewerId: input.me.member.id,

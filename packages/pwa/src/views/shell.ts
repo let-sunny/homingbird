@@ -19,6 +19,7 @@ import { reviewsWaiting } from './channel-agent.ts'
 import { renderAvatar, renderGroupAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
 import { startingPoints } from './home.ts'
+import { muteButton, mutedMark } from './mute-toggle.ts'
 import { archivedMark, channelCounts, empty, loading, presenceBadges, timeLabel } from './parts.ts'
 
 /** The app around a page: the header with its tabs, the connection, the sidebar and the user menu. */
@@ -173,6 +174,7 @@ const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLEleme
       channels: state.channels.get(),
       agentCount: state.agentCredentials.get().length,
       charactersOn: featureOn('characters', state.serverInfo.get()),
+      muteOn: featureOn('mute', state.serverInfo.get()),
       now: context.clock.now(),
       arrived: new Set(
         withArrivals
@@ -267,7 +269,7 @@ const onboarding = (): HTMLElement =>
 const conversationRow = (context: ViewContext, row: ConversationRow): HTMLElement =>
   h(
     'li',
-    {},
+    { class: 'conversation-item' },
     h(
       'a',
       { class: 'conversation', href: row.href, 'aria-current': row.current && 'page' },
@@ -285,6 +287,7 @@ const conversationRow = (context: ViewContext, row: ConversationRow): HTMLElemen
           row.title,
           row.presence !== null && presenceBadges(row.presence),
           row.archived && archivedMark(),
+          row.mute?.mark != null && mutedMark(row.mute.mark),
         ),
         row.channel !== null && h('span', { class: 'conversation-counts' }, channelCounts(row.channel)),
         h('span', { class: 'conversation-preview' }, row.preview),
@@ -299,4 +302,5 @@ const conversationRow = (context: ViewContext, row: ConversationRow): HTMLElemen
           h('span', { class: 'count drafts', 'aria-label': row.drafts.label }, row.drafts.text),
       ),
     ),
+    row.mute !== null && muteButton(context, row.mute),
   )

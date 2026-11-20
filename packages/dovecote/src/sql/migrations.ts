@@ -4,6 +4,7 @@ import { CHANNEL_AGENTS } from './migrations/channel-agents-step.ts'
 import { DEBATE_MODEL } from './migrations/debate-model-step.ts'
 import { DEBATES } from './migrations/debates-step.ts'
 import { GROUPS } from './migrations/groups-step.ts'
+import { MUTE } from './migrations/mute-step.ts'
 import { RESULT_VOTES } from './migrations/result-votes-step.ts'
 import { TEACHING_AND_FIGURES } from './migrations/teaching-and-figures-step.ts'
 import type { Migration } from './schema-steps.ts'
@@ -17,6 +18,7 @@ export const MIGRATIONS: ReadonlyArray<Migration> = [
   GROUPS,
   DEBATE_MODEL,
   CHANNEL_AGENTS,
+  MUTE,
 ]
 
 /** The step that added the audit trail; when it runs, the first audit table's old rows go. */

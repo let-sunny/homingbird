@@ -2272,6 +2272,52 @@
   vertical-align: middle;
 }
 
+.muted-mark {
+  display: inline-block;
+  margin-inline-start: var(--hb-space-2);
+  padding: 0 var(--hb-space-2);
+  border: var(--hb-border-hairline) dotted var(--hb-color-line);
+  color: var(--hb-color-muted);
+  font: 600 var(--hb-text-small) / 1.6 var(--hb-font-body);
+  letter-spacing: 0;
+  vertical-align: middle;
+}
+
+.conversation-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  border-block-end: var(--hb-border-divider);
+}
+
+.conversation-item > .conversation {
+  border-block-end: none;
+}
+
+.mute-toggle {
+  padding: var(--hb-space-1) var(--hb-space-2);
+  font-size: var(--hb-text-small);
+}
+
+.conversation-item > .mute-toggle {
+  margin-inline-end: var(--hb-space-2);
+}
+
+.thread-head > .mute-toggle {
+  margin-inline-start: auto;
+}
+
+@media (hover: hover) {
+  .conversation-item > .mute-toggle {
+    opacity: 0;
+  }
+
+  .conversation-item:hover > .mute-toggle,
+  .conversation-item:focus-within > .mute-toggle {
+    opacity: 1;
+  }
+}
+
 .archived-rooms {
   margin-block-start: var(--hb-space-4);
   border-block-start: var(--hb-border-divider);

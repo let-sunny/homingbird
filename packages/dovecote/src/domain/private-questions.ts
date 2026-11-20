@@ -39,7 +39,7 @@ export const askPrivately = (
     const existing = yield* first<{ id: ConversationId }>(sql`
       SELECT id FROM conversations WHERE channel_id = ${row.conversation_id} AND asked_by = ${askerId}
       AND archived_at IS NULL ORDER BY id LIMIT 1`)
-    if (existing !== null) return yield* T.orDie(conversationFor(askerId, existing.id))
+    if (existing !== null) return yield* T.orDie(conversationFor(askerId, existing.id, true))
     const now = env.clock.now()
     const id = ConversationId.of(env.random.identifier())
     yield* run(
@@ -55,7 +55,7 @@ export const askPrivately = (
       }),
     )
     yield* syncPrivateQuestionRooms(row)
-    return yield* T.orDie(conversationFor(askerId, id))
+    return yield* T.orDie(conversationFor(askerId, id, true))
   })
 
 /** Each open private question holds exactly its asker, the channel's agent and its current managers. */

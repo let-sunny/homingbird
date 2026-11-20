@@ -150,6 +150,7 @@ export const everything = (): AsRead.ServerInfo =>
         'noteDetails',
         'webPush',
         'channelAgents',
+        'mute',
         'analytics',
       ].map((name) => [name, true]),
     ),

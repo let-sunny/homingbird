@@ -37,6 +37,7 @@ const probes: Readonly<Record<string, (person: Session) => Promise<{ status: num
     person.api('POST', '/channels', { slug: `billing-${++created}`, description: 'Billing' }),
   draftRequests: (person) => person.api('GET', '/draft-requests'),
   characters: (person) => person.api('DELETE', '/me/character'),
+  mute: (person) => person.api('PUT', '/me/notifications', { notifications: 'all' }),
   webPush: (person) => person.api('GET', '/push/key'),
   answeringFlow: (person) => person.api('GET', '/answering-flow'),
   teaching: (person) => person.api('GET', '/principles'),

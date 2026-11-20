@@ -611,7 +611,8 @@ sequenceDiagram
 - **Overflow.** A live subscriber whose buffer of 2048 events fills, also while it is still replaying,
   is closed after a `resync`.
 - **Web Push.** The notifier considers only `note.sent` from someone else and a new agent draft, and
-  sends nothing while the member has a human stream open.
+  sends nothing while the member has a human stream open, nor about a conversation they muted or one
+  their notification level leaves out (`push/wants-push.ts`).
 - **One instance.** The hub lives in one process, so a deployment runs exactly one Dovecote process
   (`docs/deployment.md`). Multi-node fan-out is on the roadmap.
 
@@ -636,6 +637,7 @@ erDiagram
     integer last_seen_at
     string locale
     text character_spec
+    string notifications
   }
   CREDENTIALS {
     id id PK
@@ -660,6 +662,7 @@ erDiagram
   PARTICIPANTS {
     id conversation_id PK
     id member_id PK
+    integer muted_at
   }
   NOTES {
     id id PK

@@ -3,7 +3,15 @@ import { CLIENT_KIND } from './client-kinds.ts'
 import { DebateExportFormat, DebateLimits, DebateVisibility } from './debates.ts'
 import { GROUP_MEMBERS_MAX } from './groups.ts'
 import { ConversationId, CredentialId, GroupId, MemberId, NoteId } from './ids.ts'
-import { ChannelSlug, ChannelVisibility, ContactMode, CredentialKind, MemberStatus, Role } from './model.ts'
+import {
+  ChannelSlug,
+  ChannelVisibility,
+  ContactMode,
+  CredentialKind,
+  MemberStatus,
+  NOTIFICATION_LEVELS,
+  Role,
+} from './model.ts'
 import { PrincipleKind } from './principles.ts'
 
 /**
@@ -76,6 +84,9 @@ export const AUDIT_EVENTS = {
   'member.profile_changed': event('full', 'member', {
     fields: S.array(S.literal('name', 'profile', 'locale'), { maxItems: 3 }),
   }),
+  'member.notifications_changed': event('full', 'member', {
+    notifications: S.literal(...NOTIFICATION_LEVELS),
+  }),
   'character.set': event('full', 'member', {}),
   'character.cleared': event('full', 'member', {}),
   'character.reset': event('full', 'member', {}),
@@ -103,6 +114,7 @@ export const AUDIT_EVENTS = {
     slug: S.optional(change(ChannelSlug)),
   }),
   'channel.archived': event('full', 'channel', { moveMembersTo: S.optional(ChannelSlug) }),
+  'conversation.mute_changed': event('full', 'conversation', { muted: S.boolean }),
   'contact.requested': event('full', 'member', {}),
   'contact.accepted': event('full', 'member', {}),
   'contact.removed': event('full', 'member', {}),
@@ -159,6 +171,7 @@ export type AuditTargetKind =
   | 'auth_request'
   | 'oauth_client'
   | 'note'
+  | 'conversation'
   | 'channel'
   | 'group'
   | 'principle'

@@ -38,6 +38,11 @@ export const AUDIT_DETAILS: { readonly [N in AuditedRoute]: Describe<N> } = {
     })),
   'me.character.set': (_, caller) => afterwards(() => ({ targetId: caller.member.id, detail: {} })),
   'me.character.clear': (_, caller) => afterwards(() => ({ targetId: caller.member.id, detail: {} })),
+  'me.notifications.set': ({ body }, caller) =>
+    afterwards(() => ({ targetId: caller.member.id, detail: { notifications: body.notifications } })),
+  'conversations.mute': ({ params }) => afterwards(() => ({ targetId: params.id, detail: { muted: true } })),
+  'conversations.unmute': ({ params }) =>
+    afterwards(() => ({ targetId: params.id, detail: { muted: false } })),
   'channels.create': () =>
     afterwards((channel) => ({ targetId: channel.slug, detail: { visibility: channel.visibility } })),
   'channels.join': ({ params }) => afterwards(() => ({ targetId: params.slug, detail: {} })),

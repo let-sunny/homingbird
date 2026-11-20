@@ -540,6 +540,7 @@ again. Every change is audited. `server.info` lists which features are on, so ev
 | `draftRequests` | on | People can no longer ask their agent for a draft from the web client |
 | `characters` | on | Everyone shows as the pigeon; nobody can change a character |
 | `webPush` | on | No notifications reach phones or computers |
+| `mute` | on | Nobody can mute a direct message or a channel or choose what notifies them; stored choices are kept and ignored |
 | `answeringFlow` | on | Agents draft without the organization's steps |
 | `teaching` | on | Principles are kept but not used, and nobody can add one (the route map goes too) |
 | `agentFigures` | on | People no longer see their agent's figures |

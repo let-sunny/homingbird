@@ -1,6 +1,6 @@
 import { createECDH } from 'node:crypto'
 import { type Clock, Task as T, makeQueue } from '@homingbird/kernel'
-import type { Locale, MemberId, StreamEvent } from '@homingbird/protocol'
+import type { ConversationId, Locale, MemberId, StreamEvent } from '@homingbird/protocol'
 import type { Fetch } from '../auth/identity-provider.ts'
 import { chosenLocaleOf, membersByIds } from '../domain/members.ts'
 import type { AppEnv } from '../environment.ts'
@@ -9,6 +9,7 @@ import { encryptPushPayload } from './payload-encryption.ts'
 import { type PushSubscription, pushSubscriptionsOf, removePushSubscription } from './subscriptions.ts'
 import { type PushTitles, pushTitlesIn } from './titles.ts'
 import { type VapidKeys, vapidAuthorization, vapidKeys } from './vapid.ts'
+import { wantsPushAbout } from './wants-push.ts'
 
 export interface PushMessage {
   readonly title: string
@@ -58,13 +59,26 @@ const pushNoticeFor = (memberId: MemberId, event: StreamEvent): T.Task<PushNotic
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
     if (env.hub.isLooking(memberId)) return null
+    const about = yield* noticeAbout(memberId, event)
+    if (about === null || !(yield* wantsPushAbout(memberId, about.conversationId))) return null
+    return about.notice
+  })
+
+const noticeAbout = (
+  memberId: MemberId,
+  event: StreamEvent,
+): T.Task<{ readonly conversationId: ConversationId; readonly notice: PushNotice } | null, never, AppEnv> =>
+  T.gen(function* () {
     const body = event.body
     if (body.type === 'note.sent' && body.note.authorId !== memberId) {
       const author = (yield* membersByIds([body.note.authorId])).get(body.note.authorId)
       return {
-        about: { kind: 'note', author: author?.name ?? null },
-        body: preview(body.note.body),
-        url: `/#/c/${body.note.conversationId}`,
+        conversationId: body.note.conversationId,
+        notice: {
+          about: { kind: 'note', author: author?.name ?? null },
+          body: preview(body.note.body),
+          url: `/#/c/${body.note.conversationId}`,
+        },
       }
     }
     const isNewAgentDraft =
@@ -73,9 +87,12 @@ const pushNoticeFor = (memberId: MemberId, event: StreamEvent): T.Task<PushNotic
       body.note.createdAt === body.note.updatedAt
     if (isNewAgentDraft)
       return {
-        about: { kind: 'draft' },
-        body: preview(body.note.body),
-        url: `/#/c/${body.note.conversationId}`,
+        conversationId: body.note.conversationId,
+        notice: {
+          about: { kind: 'draft' },
+          body: preview(body.note.body),
+          url: `/#/c/${body.note.conversationId}`,
+        },
       }
     return null
   })

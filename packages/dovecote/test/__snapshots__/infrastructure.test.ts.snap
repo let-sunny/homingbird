@@ -80,6 +80,8 @@ exports[`schema > generates stable DDL for mysql 1`] = `
   "ALTER TABLE conversations ADD COLUMN channel_id VARCHAR(64)",
   "ALTER TABLE conversations ADD COLUMN asked_by VARCHAR(64)",
   "CREATE INDEX conversations_channel_id_idx ON conversations (channel_id)",
+  "ALTER TABLE participants ADD COLUMN muted_at BIGINT",
+  "ALTER TABLE members ADD COLUMN notifications VARCHAR(400)",
 ]
 `;
 
@@ -204,6 +206,8 @@ exports[`schema > generates stable DDL for postgres 1`] = `
   "ALTER TABLE conversations ADD COLUMN channel_id VARCHAR(64)",
   "ALTER TABLE conversations ADD COLUMN asked_by VARCHAR(64)",
   "CREATE INDEX IF NOT EXISTS conversations_channel_id_idx ON conversations (channel_id)",
+  "ALTER TABLE participants ADD COLUMN muted_at BIGINT",
+  "ALTER TABLE members ADD COLUMN notifications VARCHAR(400)",
 ]
 `;
 
@@ -328,5 +332,7 @@ exports[`schema > generates stable DDL for sqlite 1`] = `
   "ALTER TABLE conversations ADD COLUMN channel_id TEXT",
   "ALTER TABLE conversations ADD COLUMN asked_by TEXT",
   "CREATE INDEX IF NOT EXISTS conversations_channel_id_idx ON conversations (channel_id)",
+  "ALTER TABLE participants ADD COLUMN muted_at INTEGER",
+  "ALTER TABLE members ADD COLUMN notifications TEXT",
 ]
 `;

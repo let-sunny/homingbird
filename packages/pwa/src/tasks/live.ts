@@ -7,7 +7,7 @@ import { upsertRequest } from '../draft-requests.ts'
 import { hrefFor } from '../routes.ts'
 import { signedIn } from '../state.ts'
 import { strings } from '../strings.ts'
-import { withPresence, withReceipts, withoutMovedQuestion } from '../thread.ts'
+import { isMuted, withPresence, withReceipts, withoutMovedQuestion } from '../thread.ts'
 import { loadReviews } from './channel-agents.ts'
 import { loadDebate, loadDebates } from './debates.ts'
 import { loadGroups } from './groups.ts'
@@ -155,7 +155,8 @@ const leaveRoomIfShown = (app: App, conversationId: string): void => {
 const announceIfFresh = (app: App, note: AsRead.Note): void => {
   const isMine = note.authorId === signedIn(app.state)?.member.id
   const isFresh = app.clock.now() - (note.sentAt ?? 0) < FRESH_MS
-  if (isMine || !isFresh) return
+  const room = app.state.conversations.get().find((conversation) => conversation.id === note.conversationId)
+  if (isMine || !isFresh || (room !== undefined && isMuted(room))) return
   app.state.announcement.set(
     strings.incomingNote({ name: app.state.members.get().get(note.authorId)?.name ?? strings.formerMember }),
   )

@@ -8,6 +8,7 @@ import * as channels from './tasks/channels.ts'
 import * as debates from './tasks/debates.ts'
 import * as drafts from './tasks/drafts.ts'
 import * as groups from './tasks/groups.ts'
+import * as mutes from './tasks/mutes.ts'
 import * as notes from './tasks/notes.ts'
 import * as people from './tasks/people.ts'
 import * as teaching from './tasks/teaching.ts'
@@ -40,6 +41,8 @@ export const TASKS = {
   sendNote: notes.sendNote,
   markRead: notes.markRead,
   chooseReplyTarget: notes.chooseReplyTarget,
+  setMuted: mutes.setMuted,
+  chooseNotificationLevel: mutes.chooseNotificationLevel,
   approveDraft: drafts.approveDraft,
   saveDraft: drafts.saveDraft,
   confirmDraftRead: drafts.confirmDraftRead,

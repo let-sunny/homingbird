@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   languageChoicesFor,
   myGroupsModel,
+  notificationLevelModel,
   notificationsModel,
   profileModel,
 } from '../../src/models/account.ts'
@@ -63,6 +64,39 @@ describe('notificationsModel', () => {
       disabled: true,
       mayTest: false,
     })
+  })
+})
+
+describe('notificationLevelModel', () => {
+  it('offers every level with the chosen one checked, and explains direct messages only', () => {
+    const model = notificationLevelModel({
+      me: me({ notifications: 'direct' }),
+      muteOn: true,
+      webPushOn: true,
+    })
+    expect(model).toEqual({
+      legend: strings.mute.levelLegend,
+      hint: strings.mute.levelHint,
+      options: [
+        { value: 'all', label: strings.mute.all, hint: null, checked: false },
+        { value: 'direct', label: strings.mute.direct, hint: strings.mute.directHint, checked: true },
+        { value: 'none', label: strings.mute.none, hint: null, checked: false },
+      ],
+    })
+  })
+
+  it('checks nothing for a level this client does not know', () => {
+    const model = notificationLevelModel({
+      me: me({ notifications: 'unknown' }),
+      muteOn: true,
+      webPushOn: true,
+    })
+    expect(model!.options.filter((option) => option.checked)).toEqual([])
+  })
+
+  it('offers nothing while muting or device notifications are off', () => {
+    expect(notificationLevelModel({ me: me(), muteOn: false, webPushOn: true })).toBeNull()
+    expect(notificationLevelModel({ me: me(), muteOn: true, webPushOn: false })).toBeNull()
   })
 })
 

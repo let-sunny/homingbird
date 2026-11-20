@@ -70,6 +70,22 @@ describe('profileView', () => {
     expect(textOf(shown)).toContain(strings.notificationsUnavailable)
   })
 
+  it('saves which direct messages and channels notify the person, and offers no choice while muting is off', () => {
+    const { context, called } = testContext()
+    const shown = profileView(context, lifetime(), me({ notifications: 'all' }))
+    expect(getByRole(shown, 'group', { name: strings.mute.levelLegend })).toBeTruthy()
+    expect((getByRole(shown, 'radio', { name: strings.mute.all }) as HTMLInputElement).checked).toBe(true)
+    getByRole(shown, 'radio', { name: new RegExp(strings.mute.direct) }).click()
+    const [chosen] = called('chooseNotificationLevel')
+    expect(chosen!.args).toEqual(['direct'])
+    chosen!.then!.done!(undefined)
+    expect(context.state.notice.get()).toEqual({ kind: 'info', text: strings.saved })
+    context.state.session.set(me({ notifications: 'none' }))
+    expect((getByRole(shown, 'radio', { name: strings.mute.none }) as HTMLInputElement).checked).toBe(true)
+    context.state.serverInfo.set(serverInfo({ webPush: true }))
+    expect(queryByRole(shown, 'group', { name: strings.mute.levelLegend })).toBeNull()
+  })
+
   it('turns notifications on and off, tests them, and says when the browser refused', () => {
     const { context, called, page } = testContext()
     page.state.push = true

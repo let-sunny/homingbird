@@ -234,8 +234,14 @@ export const Conversation = S.struct({
   archivedAt: S.nullable(Timestamp),
   /** A question asked privately of this channel's agent: its managers, now and later, take part. */
   privateQuestionOf: S.optional(S.nullable(ChannelSlug)),
+  muted: S.optional(S.boolean),
 })
 export type Conversation = S.Infer<typeof Conversation>
+
+/** Which conversations may send a person push notifications: every one, those outside channels, or none. */
+export const NOTIFICATION_LEVELS = ['all', 'direct', 'none'] as const
+export const NotificationLevel = S.tolerant(S.literal(...NOTIFICATION_LEVELS), UNKNOWN)
+export type NotificationLevel = S.Infer<typeof NotificationLevel>
 
 export const CredentialKind = S.tolerant(S.literal('human', 'agent'), UNKNOWN)
 export type CredentialKind = S.Infer<typeof CredentialKind>
