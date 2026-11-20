@@ -95,6 +95,7 @@ export const ROUTE_AUDIT = {
   'credentials.revoke': { event: 'credential.revoked', target: 'credential' },
   'device.get': read(),
   'device.decide': { event: 'credential.device_decided', target: 'none' },
+  'joinCodes.create': { event: 'credential.join_code_created', target: 'member' },
   'consent.get': read(),
   'consent.decide': { event: 'credential.consent_decided', target: 'auth_request' },
   'push.key': read(),

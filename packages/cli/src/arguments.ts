@@ -23,6 +23,16 @@ export type Invocation =
       /** Replace an existing credentials file. */
       readonly force: boolean
     }
+  | {
+      readonly command: 'setup'
+      readonly server: string
+      readonly code: string
+      readonly name: string | null
+      /** Replace an existing credentials file. */
+      readonly force: boolean
+      /** The background service to install; null with --no-service, which only signs in. */
+      readonly service: ServiceOptions | null
+    }
   | { readonly command: 'logout' }
   | { readonly command: 'status' }
   | { readonly command: 'directory'; readonly query: string | null; readonly channel: string | null }
@@ -68,10 +78,14 @@ export interface Parsed {
   readonly credentialsFile: string | null
 }
 
-/** `platform` decides the preset readers, whose quoting differs on Windows. */
+/**
+ * `platform` decides the preset readers, whose quoting differs on Windows. `variables` gives what a
+ * flag may be read from instead, such as HOMINGBIRD_JOIN_CODE, which keeps a join code off the command line.
+ */
 export const parseArguments = (
   argv: ReadonlyArray<string>,
   platform = 'linux',
+  variables: Readonly<Record<string, string | undefined>> = {},
 ): Result.Result<Parsed, CliFailure> =>
   Result.gen(function* () {
     const { positionals, values, switches } = yield* tokenize(argv)
@@ -84,16 +98,24 @@ export const parseArguments = (
     if (command === undefined || switches.has('help'))
       return { invocation: { command: 'help' }, json, server, credentialsFile }
     if (!Object.hasOwn(BUILDERS, command)) return yield* usage(`Unknown command "${command}".`)
-    if (switches.has('force') && command !== 'login') return yield* usage('--force goes with login.')
-    const invocation = yield* BUILDERS[command]!({ rest, values, switches, platform })
+    if (switches.has('force') && command !== 'login' && command !== 'setup')
+      return yield* usage('--force goes with login or setup.')
+    const invocation = yield* BUILDERS[command]!({ rest, values, switches, platform, variables })
     return { invocation, json, server, credentialsFile }
   })
 
 export const USAGE = `Usage: homingbird <command> [options]
 
+  setup --server <url> --join <code> --agent "<command>" [--name <name>] [--timeout <seconds>]
+      [--workdir <dir>] [--split [--reader "<command>"] [--require-toolless-reader]] [--no-service]
+                                               on a server: sign in with a join code from the web
+                                               client (My agent → Connection → Run on a server) and
+                                               install the service; --no-service only signs in
+                                               (the code may come from HOMINGBIRD_JOIN_CODE instead)
   login --server <url> [--name <device name>] [--no-browser] [--credentials-file <path> [--force]]
-                                               with --credentials-file, write the agent credential to
-                                               that file instead, for a runner on another machine
+                                               on a computer with a browser: sign in with a code you
+                                               confirm in the web client; with --credentials-file,
+                                               write the agent credential to that file instead
   logout
   status
   version                                      also --version or -v
@@ -143,6 +165,7 @@ interface Tokens {
   readonly values: ReadonlyMap<string, string>
   readonly switches: ReadonlySet<string>
   readonly platform: string
+  readonly variables: Readonly<Record<string, string | undefined>>
 }
 
 const VALUE_FLAGS = new Set([
@@ -163,6 +186,7 @@ const VALUE_FLAGS = new Set([
   'log',
   'log-level',
   'credentials-file',
+  'join',
 ])
 const SWITCH_FLAGS = new Set([
   'json',
@@ -175,6 +199,7 @@ const SWITCH_FLAGS = new Set([
   'service',
   'version',
   'force',
+  'no-service',
 ])
 
 export const RUN_TIMEOUT_DEFAULT_SECONDS = 300
@@ -242,6 +267,30 @@ const joined = (rest: ReadonlyArray<string>): string | null => (rest.length > 0 
 const required = (rest: ReadonlyArray<string>, what: string): Result.Result<string, CliFailure> =>
   rest[0] === undefined ? usage(`Missing ${what}.`) : Result.ok(rest[0])
 
+const SERVICE_FLAGS = ['agent', 'timeout', 'split', 'reader', 'require-toolless-reader', 'workdir']
+
+const serviceOptions = (
+  command: string,
+  values: ReadonlyMap<string, string>,
+  switches: ReadonlySet<string>,
+): Result.Result<ServiceOptions, CliFailure> =>
+  Result.gen(function* () {
+    const agent = values.get('agent')?.trim() ?? ''
+    if (agent === '')
+      return yield* usage(`${command} needs --agent "<command>" or a preset, such as --agent claude.`)
+    const timeoutSeconds = yield* timeoutOf(values)
+    if (!switches.has('split') && (values.has('reader') || switches.has('require-toolless-reader')))
+      return yield* usage('--reader and --require-toolless-reader go with --split.')
+    return {
+      agent,
+      timeoutSeconds,
+      split: switches.has('split'),
+      reader: values.get('reader')?.trim() || null,
+      requireToollessReader: switches.has('require-toolless-reader'),
+      workdir: values.get('workdir')?.trim() || null,
+    }
+  })
+
 const BUILDERS: Readonly<Record<string, (tokens: Tokens) => Result.Result<Invocation, CliFailure>>> = {
   help: () => Result.ok({ command: 'help' }),
   version: () => Result.ok({ command: 'version' }),
@@ -302,21 +351,34 @@ const BUILDERS: Readonly<Record<string, (tokens: Tokens) => Result.Result<Invoca
       if (action === 'status' || action === 'stop' || action === 'uninstall')
         return { command: 'service', action } as const
       if (action !== 'install') return yield* usage('service needs install, status, stop or uninstall.')
-      const agent = values.get('agent')?.trim() ?? ''
-      if (agent === '')
-        return yield* usage('service install needs --agent "<command>" or a preset, such as --agent claude.')
-      const timeoutSeconds = yield* timeoutOf(values)
-      if (!switches.has('split') && (values.has('reader') || switches.has('require-toolless-reader')))
-        return yield* usage('--reader and --require-toolless-reader go with --split.')
       return {
         command: 'service',
         action,
-        agent,
-        timeoutSeconds,
-        split: switches.has('split'),
-        reader: values.get('reader')?.trim() || null,
-        requireToollessReader: switches.has('require-toolless-reader'),
-        workdir: values.get('workdir')?.trim() || null,
+        ...(yield* serviceOptions('service install', values, switches)),
+      } as const
+    }),
+  setup: ({ values, switches, variables }) =>
+    Result.gen(function* () {
+      const server = values.get('server')?.replace(/\/+$/, '') ?? ''
+      const code = (values.get('join') ?? variables.HOMINGBIRD_JOIN_CODE)?.trim() ?? ''
+      if (server === '' || code === '')
+        return yield* usage(
+          'setup needs --server <url> and --join <code>, from My agent → Connection in the web client.',
+        )
+      if (!code.startsWith('hbj_'))
+        return yield* usage(
+          'That is not a join code. Copy the whole command from My agent → Connection in the web client.',
+        )
+      const isServiceSkipped = switches.has('no-service')
+      if (isServiceSkipped && SERVICE_FLAGS.some((flag) => values.has(flag) || switches.has(flag)))
+        return yield* usage('--no-service only signs in: leave out --agent and the other service options.')
+      return {
+        command: 'setup',
+        server,
+        code,
+        name: values.get('name') ?? null,
+        force: switches.has('force'),
+        service: isServiceSkipped ? null : yield* serviceOptions('setup', values, switches),
       } as const
     }),
   analytics: ({ rest }) => {

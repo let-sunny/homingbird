@@ -257,7 +257,7 @@ const workdirOf = (workdir: string | null): T.Task<string, CliFailure, CliEnv> =
     return workdir
   })
 
-const isAbsolute = (path: string): boolean => /^(\/|[A-Za-z]:[\\/])/.test(path)
+export const isAbsolute = (path: string): boolean => /^(\/|[A-Za-z]:[\\/])/.test(path)
 
 const ran = (step: ServiceCommand, paths: ServicePaths): T.Task<ProcessRun, CliFailure, CliEnv> =>
   T.gen(function* () {

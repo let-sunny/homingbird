@@ -58,6 +58,10 @@ export const renameCredential = (id: CredentialId, name: string): Action =>
 export const revokeCredential = (id: CredentialId): Action =>
   withApp(({ api }) => T.asUnit(api['credentials.revoke']({ params: { id } })))
 
+/** A join code for `homingbird setup` on a server: for the person's own agent, or for a channel's they manage. */
+export const createJoinCode = (channel: string | null): Action<AsRead.JoinCode> =>
+  withApp(({ api }) => api['joinCodes.create']({ body: channel === null ? {} : { channel } }))
+
 export const lookUpDevice = (userCode: string): Action<DeviceRequest> =>
   withApp(({ api }) => api['device.get']({ params: { userCode } }))
 

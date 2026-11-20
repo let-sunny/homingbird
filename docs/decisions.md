@@ -1249,3 +1249,37 @@ is experimental, behind `cloudDesk`, off by default, and offered only when `HB_S
   show the prompt to save in the woken task. Only `member` routes are reachable by the woken session; the
   four wake routes are `human` (Rule 3), and the audit keeps `desk_wake.registered`, `removed` and
   `stopped` with the host only. Each wake goes to the operational log as `desk_wake.fired`.
+
+## A server joins with a single-use code made in the web client
+
+Getting an agent credential onto a server meant a device sign-in there, with a link opened elsewhere,
+or a credentials file signed in on another machine and copied over. Now the web client makes a join
+code and shows the one line to paste on the server, `homingbird setup --server <url> --join <code>
+--agent <command>`, which redeems it and installs the background service.
+
+- **Why a code made by the person, not by the server's request.** The device flow starts on the
+  device and waits for a person to approve a code they read off it; on a server that means carrying a
+  link and a code to a browser and back. A join code starts where the person is already signed in, in
+  the web client (Rule 3: only there), so the server needs nothing but the pasted line.
+- **What it can issue.** One agent credential, the same as a device sign-in: not refreshable, lasting
+  `HB_AGENT_CREDENTIAL_DAYS`, able to read and draft, never to send (Rule 1). It is bound when made,
+  either to the person who made it or, from a channel agent's panel, to that channel's agent, which
+  only the channel's managers may ask for (`managersOf`, as for the device flow's **Connect it as**).
+  The credential records the manager as its issuer, so it goes when they stop managing the channel.
+- **Single use, ten minutes.** Long enough to open a terminal and paste, short enough that a code
+  left in a scrollback or a chat is useless soon. Redeeming moves it from pending to consumed in the
+  same statement that checks it, so two pastes cannot both win. At redemption the maker must still be
+  active, and for a channel's agent still manage the channel; a deactivated maker's code is refused.
+- **Stored like a token (Rule 5).** The code is 32 random bytes with an `hbj_` prefix; Dovecote keeps
+  its SHA-256 hash in `auth_requests`, the table that already holds the device flow's and sign-in's
+  secrets with their expiry, so it needs no migration step and expired codes go with the same sweep.
+  The code is in the one response that creates it and nowhere else: not in a log line, not in the
+  audit trail, which records `credential.join_code_created` and `credential.issued` (grant
+  `join_code`) by member and credential id.
+- **One refusal for everything.** Unknown, expired, used, or a maker who can no longer issue it: all
+  answer `invalid_grant` with the same sentence, so a guess learns nothing. Redemption is rate limited
+  per address, ten in ten minutes, on top of the code's 256 bits.
+- **A switch, on by default.** `joinCodes` turns the route off and refuses redemption with 404; the
+  device flow stays the way for a computer with a browser.
+- **`setup` refuses root before it spends the code**, as `service install` does, and keeps the
+  credential when the service cannot be installed, printing the one command left.

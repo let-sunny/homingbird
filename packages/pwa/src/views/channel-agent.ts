@@ -1,6 +1,7 @@
 import type { AsRead, NoteId } from '@homingbird/protocol'
 import { CHANNEL_AGENT_NAME_MAX } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, region, signal } from '@homingbird/ui'
+import { featureOn } from '../features.ts'
 import {
   type ChannelAgentFiguresModel,
   type ChannelAgentFiguresState,
@@ -21,6 +22,7 @@ import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
 import { closeDialog, opensDialog } from './dialog.ts'
 import { reportWhenSeen } from './drafts-item.ts'
+import { joinCodeSection } from './join-code.ts'
 import { button, dialogActions, field, loading, page as pageOf } from './parts.ts'
 
 /** The agent's buttons among a channel's own controls: its panel for a manager, and asking it privately. */
@@ -106,6 +108,13 @@ const agentPanel = (
     askedWhatBecameOfFocus = true
     actions.loadDecidedAnswer(focus as NoteId, { done: (note) => decided.set({ note }) })
   }
+  let joinSection: { readonly name: string; readonly element: HTMLElement } | null = null
+  const joinCodeFor = (name: string): HTMLElement | null => {
+    if (!featureOn('joinCodes', state.serverInfo.get())) return null
+    if (joinSection?.name !== name)
+      joinSection = { name, element: joinCodeSection(context, life, { channel: channel.slug, name }) }
+    return joinSection.element
+  }
   actions.loadChannelAgent(channel.slug, {
     done: () => loaded.set('loaded'),
     failed: () => loaded.set('failed'),
@@ -132,6 +141,7 @@ const agentPanel = (
         ),
         context,
         channel,
+        joinCodeFor,
       ),
     ),
     region(life, [state.reviews, state.reviewsRead, state.members, decided], () => {
@@ -239,7 +249,13 @@ const agentState = (
 ): AsRead.ChannelAgent | null | 'loading' | 'failed' =>
   loaded === 'loaded' ? (agents.get(slug) ?? null) : loaded
 
-const renderPanel = (model: AgentPanel, context: ViewContext, channel: AsRead.Channel): Child => {
+/** The section that makes a join code stays the same element across renders, so a shown code survives them. */
+const renderPanel = (
+  model: AgentPanel,
+  context: ViewContext,
+  channel: AsRead.Channel,
+  joinCodeFor: (name: string) => HTMLElement | null,
+): Child => {
   if (model.kind === 'loading') return loading()
   if (model.kind === 'failed') return h('p', { class: 'hint', role: 'status' }, model.text)
   if (model.kind === 'none')
@@ -273,6 +289,7 @@ const renderPanel = (model: AgentPanel, context: ViewContext, channel: AsRead.Ch
       ),
     ),
     h('p', { class: 'hint' }, model.connectHint),
+    joinCodeFor(model.name),
     h(
       'form',
       {

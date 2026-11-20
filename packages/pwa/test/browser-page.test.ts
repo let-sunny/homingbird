@@ -171,4 +171,17 @@ describe('browserPage', () => {
     const { window } = fakeWindow()
     expect(await browserPage(window).readText(new Blob(['ana@example.com']))).toBe('ana@example.com')
   })
+
+  it('copies text to the clipboard, and says when the browser refuses or has none', async () => {
+    const writeText = vi.fn(() => Promise.resolve())
+    const allowed = fakeWindow({ navigator: { languages: [], clipboard: { writeText } } }).window
+    expect(await browserPage(allowed).copyText('homingbird setup')).toBe(true)
+    expect(writeText).toHaveBeenCalledWith('homingbird setup')
+    const refusing = fakeWindow({
+      navigator: { languages: [], clipboard: { writeText: () => Promise.reject(new Error('denied')) } },
+    }).window
+    expect(await browserPage(refusing).copyText('x')).toBe(false)
+    expect(await browserPage(fakeWindow().window).copyText('x')).toBe(false)
+    expect(await browserPage(fakeWindow({ navigator: undefined }).window).copyText('x')).toBe(false)
+  })
 })

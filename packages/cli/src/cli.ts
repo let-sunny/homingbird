@@ -15,6 +15,7 @@ import { requests } from './commands/requests.ts'
 import { runAsService } from './commands/run-as-service.ts'
 import { run } from './commands/run.ts'
 import { installService, serviceStatus, stopService, uninstallService } from './commands/service.ts'
+import { setup } from './commands/setup.ts'
 import { status } from './commands/status.ts'
 import { stream } from './commands/stream.ts'
 import type { CliEnv } from './environment.ts'
@@ -25,7 +26,7 @@ import { CLI_VERSION } from './version.ts'
 export const runCli = (argv: ReadonlyArray<string>): T.Task<number, never, CliEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<CliEnv>()
-    const parsed = parseArguments(argv, env.platform)
+    const parsed = parseArguments(argv, env.platform, env.variables)
     if (parsed._tag === 'Err') return report(env, parsed.error, argv.includes('--json'))
     const server =
       parsed.value.server ?? (env.variables.HOMINGBIRD_SERVER?.trim().replace(/\/+$/, '') || null)
@@ -51,6 +52,8 @@ const execute = (
       return T.succeed(outcome({ version: CLI_VERSION }, `homingbird ${CLI_VERSION}`))
     case 'login':
       return login(invocation, print)
+    case 'setup':
+      return setup(invocation)
     case 'logout':
       return logout
     case 'status':

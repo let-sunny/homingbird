@@ -81,6 +81,7 @@ export const FEATURES = {
     default: false,
     routes: ['me.deskWake.get', 'me.deskWake.set', 'me.deskWake.test'],
   },
+  joinCodes: { default: true, routes: ['joinCodes.create'] },
   analytics: { default: false, routes: ['analytics.track'] },
 } as const satisfies Readonly<
   Record<string, { readonly default: boolean; readonly routes: ReadonlyArray<RouteName> }>

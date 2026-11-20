@@ -115,6 +115,7 @@ export const TASKS = {
   listCredentials: () => account.listCredentials,
   renameCredential: account.renameCredential,
   revokeCredential: account.revokeCredential,
+  createJoinCode: account.createJoinCode,
   lookUpDevice: account.lookUpDevice,
   decideDevice: account.decideDevice,
   lookUpConsent: account.lookUpConsent,

@@ -380,13 +380,15 @@ export const ko: Translation<typeof en> = {
   },
   deskTitle: '에이전트 세션 하나를 데스크로 열어 두세요.',
   deskBody:
-    '데스크는 도착한 노트에 답장 초안을 쓰고, 초안은 여기서 승인해요. 다른 세션은 요청할 때만 써요. 데스크를 항상 켜 두려면 사용자 가이드의 “Connect an agent”를 보고 러너를 설치하세요.',
+    '데스크는 도착한 노트에 답장 초안을 쓰고, 초안은 여기서 승인해요. 다른 세션은 요청할 때만 써요. 데스크를 항상 켜 두려면 아래 “서버에서 돌리기”를 쓰거나 사용자 가이드의 “Connect an agent”를 보세요.',
   noAgentsYet: '아직 연결된 에이전트가 없어요. 연결하면 노트가 도착할 때마다 답장 초안을 써 줘요.',
   codeFallback: '에이전트가 링크 대신 연결 코드를 보여 줬나요? 여기에 입력하세요.',
   notSetUp: '아직 에이전트가 준비되지 않았나요? 관리자에게 문의하세요.',
   serviceBanner: {
     title: '데스크가 아직 연결되지 않았어요.',
     body: '설치한 백그라운드 서비스는 그 컴퓨터에서 이 명령을 실행하고 표시된 연결 코드를 확인할 때까지 기다려요.',
+    bodyWithJoin:
+      '서버라면 아래 “서버에서 돌리기”가 가장 간단해요. 서버에 한 줄만 붙여 넣으면 돼요. 브라우저가 있는 컴퓨터라면 이 명령을 실행하고 표시된 연결 코드를 확인하세요.',
     enterCode: '연결 코드 입력',
   },
   backToHomingbird: 'Homingbird로 돌아가기',
@@ -453,6 +455,7 @@ export const ko: Translation<typeof en> = {
       debateRooms: '토론방',
       channelAgents: '채널 에이전트',
       cloudDesk: '클라우드 데스크 (실험 기능)',
+      joinCodes: '서버 연결 코드 (서버에서 에이전트 돌리기)',
       analytics: '익명 제품 분석',
     },
     whenOff: {
@@ -473,6 +476,8 @@ export const ko: Translation<typeof en> = {
         '끄면: 채널 에이전트가 답하지 않고 그 데스크 연결도 거절돼요. 지워지는 건 없고, 다시 켜면 돌아와요.',
       cloudDesk:
         '끄면: 클라우드 데스크를 깨우지 않고 아무도 설정할 수 없어요. 저장된 설정은 남아요. 서버에 HB_SECRETS_KEY도 있어야 해요.',
+      joinCodes:
+        '끄면: 아무도 서버 연결 코드를 만들 수 없고, 이미 만든 서버 연결 코드도 거절돼요. 서버는 homingbird login으로 로그인해요.',
       analytics:
         '끄면: 사용 통계가 이 서버 밖으로 나가지 않아요. 켜면 운영자가 정한 곳으로만 본 페이지 같은 익명 통계가 가요. 내용, 이름, 이메일은 보내지 않아요.',
     },
@@ -1259,7 +1264,7 @@ export const ko: Translation<typeof en> = {
     desksTitle: '이 에이전트로 연결된 데스크 · {agent}',
     desksNone: '아직 연결된 데스크가 없어요.',
     connectHint:
-      '데스크를 연결하려면 에이전트가 일할 곳에서 homingbird login을 실행하고, 승인 화면의 "연결할 대상"에서 이 채널의 에이전트({agent})를 고르세요. 승인한 운영자가 이 채널의 운영자에서 빠지면 그 데스크도 멈춰요.',
+      '서버에 데스크를 연결하려면 아래 “서버에서 돌리기”를 쓰세요. 브라우저가 있는 컴퓨터라면 그곳에서 homingbird login을 실행하고, 승인 화면의 "연결할 대상"에서 이 채널의 에이전트({agent})를 고르세요. 서버 연결 코드를 만들거나 승인한 운영자가 이 채널의 운영자에서 빠지면 그 데스크도 멈춰요.',
     approvedByManager: '{name} 님이 승인',
     revoke: '연결 끊기',
     revoked: '연결 끊김',
@@ -1316,6 +1321,26 @@ export const ko: Translation<typeof en> = {
     direct: 'DM만',
     directHint: '채널 알림은 오지 않아요.',
     none: '받지 않기',
+  },
+  joinCode: {
+    title: '서버에서 돌리기',
+    intro:
+      '브라우저가 없는 서버에서 에이전트를 계속 돌리려면, 여기서 서버 연결 코드를 만들고 서버에 한 줄만 붙여 넣으세요. 서버에는 먼저 명령줄 도구를 설치하세요: npm install -g @homingbird/cli',
+    introAgent:
+      '이 채널의 에이전트({agent})를 브라우저가 없는 서버에서 돌리려면, 여기서 서버 연결 코드를 만들고 서버에 한 줄만 붙여 넣으세요. 서버에는 먼저 명령줄 도구를 설치하세요: npm install -g @homingbird/cli',
+    create: '서버에서 돌리기',
+    creating: '서버 연결 코드를 만드는 중…',
+    explanation:
+      'root가 아니라 에이전트를 돌릴 사람의 계정으로 서버에 붙여 넣으세요. 그 서버가 내 에이전트로 로그인하고 백그라운드에서 시작돼요. 에이전트는 초안만 쓰고 보내지는 않아요. 서버에서 codex, gemini, antigravity를 쓴다면 --agent를 바꾸세요.',
+    explanationAgent:
+      'root가 아니라 이 채널의 에이전트({agent})를 돌릴 계정으로 서버에 붙여 넣으세요. 그 서버가 이 에이전트로 로그인하고 백그라운드에서 시작돼요. 에이전트의 답은 이 채널 운영자의 승인을 기다려요. 서버에서 codex, gemini, antigravity를 쓴다면 --agent를 바꾸세요.',
+    expiresIn: '한 번만, {time} 동안 쓸 수 있어요.',
+    copy: '복사',
+    copied: '복사했어요',
+    copyFailed: '이 브라우저에서는 복사되지 않았어요. 줄을 선택해 직접 복사하세요.',
+    expired: '이 서버 연결 코드는 쓰이기 전에 만료됐어요.',
+    again: '새 서버 연결 코드 만들기',
+    failed: '지금은 서버 연결 코드를 만들 수 없어요. 잠시 후 다시 시도하세요.',
   },
   cloudDesk: {
     legend: '클라우드 데스크',

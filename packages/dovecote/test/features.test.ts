@@ -48,6 +48,7 @@ const probes: Readonly<Record<string, (person: Session) => Promise<{ status: num
   groups: (person) => person.api('GET', '/groups'),
   channelAgents: (person) => person.api('GET', '/reviews'),
   cloudDesk: (person) => person.api('GET', '/me/desk-wake'),
+  joinCodes: (person) => person.api('POST', '/join-codes', {}),
 }
 
 describe('feature switches', () => {

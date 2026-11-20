@@ -34,6 +34,19 @@ export const DeviceRequest = S.struct({
 })
 export type DeviceRequest = S.Infer<typeof DeviceRequest>
 
+/** How long a join code can be redeemed, once, by `homingbird setup` on another computer. */
+export const JOIN_CODE_LIFETIME_SECONDS = 600
+
+/** A join code, shown once to the person who created it, and the server address to redeem it at. */
+export const JoinCode = S.struct({
+  code: S.string(),
+  serverUrl: S.string(),
+  expiresAt: S.int({ min: 0 }),
+  /** How long it still works, so a client counts down from its own clock, not the server's. */
+  expiresInSeconds: S.optional(S.int({ min: 0 })),
+})
+export type JoinCode = S.Infer<typeof JoinCode>
+
 export const ConsentRequest = S.struct({
   id: S.string(),
   client: S.string(),

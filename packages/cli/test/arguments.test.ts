@@ -299,7 +299,7 @@ describe('parseArguments', () => {
     })
   })
 
-  it('reads --credentials-file for every command, and --force for login alone', () => {
+  it('reads --credentials-file for every command, and --force for login and setup alone', () => {
     expect(parseArguments(['inbox', '--credentials-file', ' /run/secret.json '])).toMatchObject({
       value: { credentialsFile: '/run/secret.json', invocation: { command: 'inbox' } },
     })
@@ -312,7 +312,7 @@ describe('parseArguments', () => {
     })
     expect(parseArguments(['inbox', '--force'])).toMatchObject({
       _tag: 'Err',
-      error: { message: expect.stringContaining('--force goes with login.') },
+      error: { message: expect.stringContaining('--force goes with login or setup.') },
     })
     expect(parseArguments(['inbox', '--credentials-file'])._tag).toBe('Err')
   })
@@ -416,5 +416,24 @@ describe('parseArguments', () => {
         expect(['Ok', 'Err']).toContain(parseArguments(argv)._tag)
       }),
     )
+  })
+})
+
+describe('parseArguments for setup', () => {
+  const CODE = 'hbj_join-code'
+  it('reads the join code from HOMINGBIRD_JOIN_CODE when --join is not given, and prefers --join', () => {
+    const fromVariable = parseArguments(['setup', '--server', 'https://hb.test', '--no-service'], 'linux', {
+      HOMINGBIRD_JOIN_CODE: ` ${CODE} `,
+    })
+    expect(fromVariable).toMatchObject({ value: { invocation: { command: 'setup', code: CODE } } })
+    const both = parseArguments(
+      ['setup', '--server', 'https://hb.test', '--join', 'hbj_given', '--no-service'],
+      'linux',
+      {
+        HOMINGBIRD_JOIN_CODE: CODE,
+      },
+    )
+    expect(both).toMatchObject({ value: { invocation: { code: 'hbj_given' } } })
+    expect(parseArguments(['setup', '--server', 'https://hb.test', '--no-service'])._tag).toBe('Err')
   })
 })

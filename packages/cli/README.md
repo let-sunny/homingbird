@@ -20,6 +20,17 @@ homingbird login --server https://<server>
 `login` shows a code and opens the browser, where you confirm it. The agent credential it stores can
 read and draft, never send.
 
+On a server without a browser, use the line the web client gives you instead: **My agent** →
+**Connection** → **Run on a server** (or **Run on a server** in a channel agent's panel, for its
+managers). It signs the server in and installs the background service in one step:
+
+```sh
+homingbird setup --server https://<server> --join hbj_… --agent claude
+```
+
+The join code in it works once, for 10 minutes. See [Set up a server with a join
+code](#set-up-a-server-with-a-join-code).
+
 ## Commands
 
 ```sh
@@ -46,8 +57,8 @@ Every command accepts `--json`; `homingbird --help` lists the options.
 Each server you sign in to keeps its own credential, in `~/.config/homingbird/agents/`. Every command
 takes `--server <url>` (or `HOMINGBIRD_SERVER`) to say which one; without it the command uses the only
 server you are signed in to, and asks when there are several. `homingbird logout --server <url>` signs
-out of that server alone. `--credentials-file <path>` reads the credential from one file instead,
-for a runner on a server; see [Run it on a server](#run-it-on-a-server-from-a-credentials-file).
+out of that server alone. `--credentials-file <path>` reads the credential from one file instead;
+see [Run it from a credentials file](#run-it-from-a-credentials-file).
 
 ## Be the desk
 
@@ -146,7 +157,7 @@ of this has been run on Windows yet.
   never approve.
 - **Sign in once.** If you have not signed in to that server yet, the service starts anyway and waits;
   `service install` and `service status` print the command that ends the wait, `homingbird login
-  --server <url>`, with `--credentials-file <path>` when the service reads one, and **My agent**,
+  --server <url>` (on a server, the `homingbird setup` line from the web client does both), with `--credentials-file <path>` when the service reads one, and **My agent**,
   **Connection** in the web client shows it while no agent of yours is connected. If the server later refuses
   the credential, it waits for a new sign-in. Other failures are retried after a minute.
 - **The log** is `~/.config/homingbird/logs/runner-<server>.log`, one timestamped line per step: note
@@ -172,14 +183,42 @@ of this has been run on Windows yet.
   Run `service install` again to get rotation for a service installed by an earlier version.
 - Each note starts a fresh agent run, with the tools that command loads, not your interactive session.
 
-### Run it on a server, from a credentials file
+### Set up a server with a join code
 
-A server has no browser to approve a sign-in in, so sign in on your own machine and give the runner
-the credential as a file:
+A server has no browser to approve a sign-in in, so the web client makes a join code instead and
+shows the whole line to paste there, as the user whose agent it runs:
 
 ```sh
-homingbird login --server https://<server> --credentials-file ./homingbird.json   # on your machine
-homingbird run --agent codex --credentials-file /run/secrets/homingbird.json       # on the server
+homingbird setup --server https://<server> --join hbj_… --agent codex [--name build-1]
+```
+
+- **It redeems the code once** for an agent credential, the same kind `login` gets: it can read and
+  draft, never send, and lasts as long. A code that was used, expired after its 10 minutes, or whose
+  maker was deactivated or no longer manages the channel is refused, with one message for all of
+  them; make a new one in the web client.
+- **It stores the credential where `login` would**, readable by you only, or in the file
+  `--credentials-file <path>` names, which it never replaces without `--force`. It never prints the
+  token.
+- **It installs and starts the service**, as `service install` would, with the same `--agent`,
+  `--timeout`, `--workdir` and `--split` options, and refuses to run as root before it spends the code.
+  If the service cannot be installed, the credential stays, and it prints the `service install` command
+  to run once the problem is fixed.
+- **`--no-service` only signs in**, for a desk you start yourself or a credentials file you move.
+- **The code can come from `HOMINGBIRD_JOIN_CODE`** when `--join` is left out. Once used or expired it
+  is useless, even where it stays in a shell's history or a process list.
+- **Signing in again revokes the credential it replaces**, as `login` does; when the server does not
+  confirm, it warns and goes on, and you revoke the older connection in the web client.
+
+### Run it from a credentials file
+
+To keep the credential in a file the runner can read and not change, or in a secret store, sign in to
+a file, with `setup --no-service` on the server or `login` on a computer with a browser, and give the
+runner that file:
+
+```sh
+homingbird setup --server https://<server> --join hbj_… --no-service \
+                 --credentials-file ./homingbird.json                          # on the server
+homingbird run --agent codex --credentials-file /run/secrets/homingbird.json
 homingbird service install --server https://<server> --agent codex \
                            --credentials-file /run/secrets/homingbird.json
 ```

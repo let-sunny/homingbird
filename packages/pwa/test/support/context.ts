@@ -72,8 +72,17 @@ export const fakePage = (hash = '#/') => {
   }> = []
   const visited: string[] = []
   const downloads: Array<{ readonly filename: string }> = []
+  const copied: string[] = []
   const notifications = new Map<string, number | null>()
-  const state = { hash, visible: true, reducedMotion: true, anchors: false, hint: true, push: false }
+  const state = {
+    hash,
+    visible: true,
+    reducedMotion: true,
+    anchors: false,
+    hint: true,
+    push: false,
+    clipboard: true,
+  }
   const page: Page = {
     origin: 'http://localhost',
     hash: () => state.hash,
@@ -118,6 +127,10 @@ export const fakePage = (hash = '#/') => {
       setSession: (key, value) => void session.set(key, value),
     },
     download: (file) => void downloads.push(file),
+    copyText: (text) => {
+      copied.push(text)
+      return Promise.resolve(state.clipboard)
+    },
     readText: (file) => file.text(),
     watchInView: (root, onChange): InViewWatch => {
       const watch = { root, observed: new Set<HTMLElement>(), onChange, disconnected: false }
@@ -136,6 +149,7 @@ export const fakePage = (hash = '#/') => {
     state,
     visited,
     downloads,
+    copied,
     notifications,
     local,
     session,

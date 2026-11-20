@@ -1,7 +1,8 @@
 import { type Result, Task as T } from '@homingbird/kernel'
-import { deviceClientKindOf } from '@homingbird/protocol'
+import { FEATURE_OFF_MESSAGE, deviceClientKindOf } from '@homingbird/protocol'
 import { exchangeAuthorizationCode, openConsent, requireAuthorization } from '../auth/authorization-codes.ts'
 import { beginDeviceAuthorization, exchangeDeviceCode } from '../auth/device-authorization.ts'
+import { redeemJoinCode } from '../auth/join-codes.ts'
 import { registerClient } from '../auth/oauth-clients.ts'
 import {
   AGENT_SCOPE,
@@ -11,6 +12,7 @@ import {
   revokeToken,
 } from '../auth/oauth.ts'
 import { authenticate } from '../domain/credentials.ts'
+import { featureIsOn } from '../domain/settings.ts'
 import { type AppEnv, type Caller, isHuman } from '../environment.ts'
 import { transact } from '../events/events.ts'
 import { sessionToken } from './authenticate.ts'
@@ -39,6 +41,7 @@ export const handleOAuthRequest = (request: HttpRequest): T.Task<HttpResponse, n
     if (route === 'POST /oauth/token') return yield* limited(request, 'token', token(request))
     if (route === 'POST /oauth/device_authorization')
       return yield* limited(request, 'deviceStart', startDevice(request))
+    if (route === 'POST /oauth/join') return yield* limited(request, 'joinRedeem', join(request))
     if (route === 'POST /oauth/revoke') return yield* revoke(request)
     return text(404, 'Not found.')
   })
@@ -121,6 +124,19 @@ const startDevice = (request: HttpRequest): T.Task<HttpResponse, never, AppEnv> 
     ),
   )
 }
+
+/** Redeems a join code from the web client: no session, the code alone, once. */
+const join = (request: HttpRequest): T.Task<HttpResponse, never, AppEnv> =>
+  T.gen(function* () {
+    if (!(yield* featureIsOn('joinCodes')))
+      return json(404, { error: 'not_found', error_description: FEATURE_OFF_MESSAGE })
+    const fields = formFields(request)
+    return yield* T.fold(failure, (tokens: object) => json(200, tokens))(
+      transact(
+        redeemJoinCode(fields.code ?? '', fields.client_name ?? '', deviceClientKindOf(fields.client_kind)),
+      ),
+    )
+  })
 
 const revoke = (request: HttpRequest): T.Task<HttpResponse, never, AppEnv> =>
   T.as(json(200, {}))(revokeToken(formFields(request).token ?? ''))

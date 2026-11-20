@@ -5,7 +5,7 @@ import { hashSecret } from '../random.ts'
 import { first, run } from '../sql/database.ts'
 import { insertInto, sql } from '../sql/query.ts'
 
-export type AuthRequestKind = 'sign_in' | 'authorize' | 'device'
+export type AuthRequestKind = 'sign_in' | 'authorize' | 'device' | 'join'
 export type AuthRequestStatus = 'pending' | 'approved' | 'denied' | 'consumed'
 
 export interface AuthRequest<Detail> {
@@ -25,6 +25,7 @@ export interface NewAuthRequest<Detail> {
   readonly id?: string
   readonly secret?: string
   readonly userCode?: string
+  readonly memberId?: MemberId
 }
 
 export const openAuthRequest = <Detail>(
@@ -38,7 +39,7 @@ export const openAuthRequest = <Detail>(
       kind: request.kind,
       status: 'pending',
       userCode: request.userCode ?? null,
-      memberId: null,
+      memberId: request.memberId ?? null,
       detail: request.detail,
       expiresAt: now + request.lifetimeMs,
     }
@@ -49,7 +50,7 @@ export const openAuthRequest = <Detail>(
         status: opened.status,
         secret_hash: request.secret === undefined ? null : hashSecret(request.secret),
         user_code: opened.userCode,
-        member_id: null,
+        member_id: opened.memberId,
         detail: JSON.stringify(opened.detail),
         created_at: now,
         expires_at: opened.expiresAt,

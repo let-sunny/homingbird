@@ -65,6 +65,13 @@ export const browserPage = (window: BrowserWindow): Page => {
       link.remove()
       window.requestAnimationFrame(() => window.URL.revokeObjectURL(url))
     },
+    copyText: (text) =>
+      window.navigator?.clipboard === undefined
+        ? Promise.resolve(false)
+        : window.navigator.clipboard.writeText(text).then(
+            () => true,
+            () => false,
+          ),
     readText: (file) => file.text(),
     watchInView: (root, onChange) => {
       const observer = new window.IntersectionObserver(
@@ -109,6 +116,8 @@ export interface Page {
   readonly supportsHintPopovers: () => boolean
   readonly storage: PageStorage
   readonly download: (file: DownloadedFile) => void
+  /** Copies text to the clipboard; false where the browser refuses or has no clipboard. */
+  readonly copyText: (text: string) => Promise<boolean>
   /** The text of a file the person chose, read in this browser only. */
   readonly readText: (file: Blob) => Promise<string>
   readonly watchInView: (root: HTMLElement, onChange: (entries: ReadonlyArray<InView>) => void) => InViewWatch
@@ -159,6 +168,7 @@ export interface BrowserWindow {
   readonly history: Pick<History, 'replaceState'>
   readonly navigator?: Pick<Navigator, 'languages'> & {
     readonly serviceWorker?: { readonly getRegistration?: () => Promise<NotificationSource | undefined> }
+    readonly clipboard?: { readonly writeText: (text: string) => Promise<void> }
   }
   readonly fetch: Fetch
   readonly addEventListener: (type: string, listener: () => void) => void

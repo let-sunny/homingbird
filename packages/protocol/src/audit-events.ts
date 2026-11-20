@@ -29,7 +29,7 @@ export const AUDIT_EVENTS = {
   }),
   'credential.issued': event('security', 'credential', {
     kind: CredentialKind,
-    grant: S.literal('browser', 'device_code', 'authorization_code'),
+    grant: S.literal('browser', 'device_code', 'authorization_code', 'join_code'),
     clientKind: CLIENT_KIND,
     channelAgent: S.optional(MemberId),
   }),
@@ -38,6 +38,7 @@ export const AUDIT_EVENTS = {
     because: S.optional(S.literal('issuer_left', 'agent_retired', 'refresh_replayed')),
   }),
   'credential.device_decided': event('security', 'none', { approved: S.boolean }),
+  'credential.join_code_created': event('security', 'member', { channel: S.optional(ChannelSlug) }),
   'credential.consent_decided': event('security', 'auth_request', { approved: S.boolean }),
   'oauth.client_registered': event('security', 'oauth_client', { redirectHosts: hostList() }),
   'oauth.client_resolved': event('security', 'oauth_client', { redirectHosts: hostList() }),
