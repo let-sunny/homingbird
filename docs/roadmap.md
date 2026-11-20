@@ -208,6 +208,11 @@ there ([guide](guide.md#turn-on-phone-notifications)).
   signed-in browser from another, and an "ask my phone" route a model could call would ring a person's
   phone at will. It waits for pilot demand; approval in the plugin was removed in 0.1.0 because a
   credential stored next to the agent cannot be protected.
+- A review request in the chat tool the team already uses: a Slack or similar notification that only
+  links to the draft's card. Approval stays in the web client; the message carries no note content.
+- A warning on the approval card when a draft drew on a private place (a private channel, a private
+  question, a private debate room) and goes somewhere with more readers. A warning, not a block: the
+  person approving decides. The drafting flow records which conversations it read.
 
 ## Messaging
 
@@ -231,6 +236,9 @@ messages only, or nothing ([guide](guide.md#turn-on-phone-notifications)).
   questions that raises (who may write them, and how members see what applies).
 - Command steps for the runner: `homingbird run` runs commands a person names before drafting and as
   checks on the draft, passing their output to the agent as quoted data.
+- Why a channel is or is not visible: for a person, the reason their access rests on (a member, a
+  manager through a group, an administrator seeing that it exists), so "why can't I see it" has an
+  answer without asking an administrator. The policy returns a tagged reason instead of a boolean.
 
 ## Groups and channel agents
 
@@ -283,6 +291,10 @@ channel per repository, and one agent the channel owns, drafting from that repos
    instructions.
 7. **Basis as links**: what an agent relied on for a draft names its sources as links its person and an
    administrator can open, not only as text.
+8. **Whose questions a channel agent answers**: the agent stays running, and its managers narrow whose
+   questions it drafts an answer to (everyone in the channel, a list of people, or managers only), so a
+   question from anyone else never reaches the model at all, a defence next to quoting it with
+   `wrapNote`.
 
 Later: mentioning a group, private groups.
 
@@ -387,3 +399,37 @@ Still to come:
   attaches this Homingbird MCP server (member routes only) so the agent can find people and channels.
 - Managed settings shipped with the organization's skills as a third way to roll out, next to MDM and
   onboarding scripts.
+- `homingbird wait`: send a note and wait for its reply in one command, with an explicit timeout
+  and an exit code that tells a timeout from a reply, for agents that have a shell but no MCP.
+- The command line as complete as the MCP tools for agents: `--json` on every command, and each
+  failure naming its reason and the next step to take, derived from the tagged failures.
+- A getting-started guide written for the agent to read: read the channel's norms first, answer in the
+  existing thread, lead with the conclusion. The plugin and every agent preset point at the same file.
+- Several agents per person (a Claude desk and a Codex reader at once): each draft names the agent
+  that wrote it, for display and for insights per agent, never for permissions; check that two
+  desks do not pick up the same note twice.
+
+## The pilot
+
+What to measure and watch while a real team uses Homingbird, before answering on its own:
+
+- Approval load: approvals per person per day and the time a draft waits. Approving every note is the
+  product's promise and its likeliest bottleneck.
+- Whether notes become task requests: if people start asking "who took this" and "is it done", a
+  taken and done mark on a note may be needed. A task queue stays out of scope.
+- Agents that are not awake: how often a note waits because the person's desk was closed, and whether
+  the runner or the cloud desk closes that gap.
+
+Before the pilot, for an organization's security review:
+
+- A tamper-evident audit trail: each audit entry carries a hash of the one before, and
+  `dovecote audit verify` checks the chain. The documentation says plainly that this detects changes
+  and does not prevent them: whoever can write the database can recompute the chain.
+- Deactivating a person stops all of their agents' credentials at once, stated in the guide and held
+  by its own test.
+- A "works today, still being wired up, not planned" table in the README, and the number of outside
+  services a deployment needs (none) in the deployment guide.
+
+Ideas noted and not planned: structured notes validated against a registered schema, and syncing
+channels with an outside chat tool (only approved notes would leave, and anything coming in would be
+wrapped like any note).

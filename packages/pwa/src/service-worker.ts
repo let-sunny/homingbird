@@ -52,14 +52,14 @@ worker.addEventListener('fetch', (event) => {
 
 worker.addEventListener('push', (event) => {
   const payload = pushPayload(event.data)
-  event.waitUntil(
-    worker.registration.showNotification(payload.title, {
-      body: payload.body,
-      icon: '/icons/icon-192.png',
-      badge: '/icons/mark-64.png',
-      data: { url: payload.url },
-    }),
-  )
+  const options: NotificationOptions & { readonly renotify?: boolean } = {
+    body: payload.body,
+    icon: '/icons/icon-192.png',
+    badge: '/icons/mark-64.png',
+    data: { url: payload.url },
+    ...(payload.tag !== null && { tag: payload.tag, renotify: false }),
+  }
+  event.waitUntil(worker.registration.showNotification(payload.title, options))
 })
 
 worker.addEventListener('notificationclick', (event) => {
@@ -78,19 +78,32 @@ worker.addEventListener('notificationclick', (event) => {
   )
 })
 
-const pushPayload = (data: PushMessageData | null): { title: string; body: string; url: string } => {
+/**
+ * A push about one draft carries its tag, so a repeat replaces the notification instead of adding one, and
+ * an open page closes it once someone decided the draft. A push must always show a notification
+ * (`userVisibleOnly`), so no push ever arrives only to close one.
+ */
+const pushPayload = (data: PushMessageData | null): PushPayload => {
   useLanguage(preferredLanguage(undefined, worker.navigator.languages))
-  const fallback = { title: strings.appName, body: strings.pushFallback, url: '/' }
+  const fallback: PushPayload = { title: strings.appName, body: strings.pushFallback, url: '/', tag: null }
   try {
-    const parsed = data?.json() as Partial<typeof fallback> | undefined
+    const parsed = data?.json() as Partial<Record<keyof PushPayload, unknown>> | undefined
     return {
       title: typeof parsed?.title === 'string' ? parsed.title : fallback.title,
       body: typeof parsed?.body === 'string' ? parsed.body : fallback.body,
       url: typeof parsed?.url === 'string' ? parsed.url : fallback.url,
+      tag: typeof parsed?.tag === 'string' && parsed.tag !== '' ? parsed.tag : null,
     }
   } catch {
     return fallback
   }
+}
+
+interface PushPayload {
+  readonly title: string
+  readonly body: string
+  readonly url: string
+  readonly tag: string | null
 }
 
 const networkFirst = (request: Request): Promise<Response> =>

@@ -115,6 +115,7 @@ describe('a push when a channel’s agent’s answer waits for review', () => {
       title: '#payments-wiki · An answer waits for your review',
       body: 'Refunds live in the wiki, under Payments.',
       url: `/#/channel/payments-wiki/agent?draft=${draft.id}`,
+      tag: `review:${draft.id}`,
     }
     expect(pushedTo('ana')).toEqual([expected])
     expect(pushedTo('ben')).toEqual([expected])
@@ -212,6 +213,7 @@ describe('a push when a channel’s agent’s answer waits for review', () => {
         title: '#payments-wiki · An answer waits for your review',
         body: 'Privately, yes.',
         url: `/#/channel/payments-wiki/agent?draft=${draft.id}`,
+        tag: `review:${draft.id}`,
       },
     ])
     expect(pushedTo('ben')).toEqual([])

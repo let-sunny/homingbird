@@ -1,17 +1,32 @@
 import { Task as T } from '@homingbird/kernel'
-import type { ApiError, AsRead, CredentialId } from '@homingbird/protocol'
+import type { ApiError, AsRead, CredentialId, NoteId } from '@homingbird/protocol'
 import { type Action, type App, withApp } from '../app.ts'
 import { withDraftRead } from '../drafts-read.ts'
 import { featureOn } from '../features.ts'
 import { hrefFor } from '../routes.ts'
+import { closeSettledReviewNotices } from './notifications.ts'
 import { loadConversations, loadKnownChannels } from './workspace.ts'
 
 /** The answers waiting for this person, read again whenever one changes; none while channel agents are off. */
 export const loadReviews: Action = T.gen(function* () {
-  const { api, state } = yield* T.ask<App>()
+  const { api, state, clock } = yield* T.ask<App>()
   if (!featureOn('channelAgents', state.serverInfo.get())) return
+  const requestedAt = clock.now()
   state.reviews.set((yield* api['reviews.list']({})).reviews)
+  yield* closeSettledReviewNotices(requestedAt)
 })
+
+/**
+ * What became of an answer that a notification opened and that no longer waits: the note once someone
+ * sent it, or null when the person cannot read it, as when it was discarded (rule 2).
+ */
+export const loadDecidedAnswer = (id: NoteId): Action<AsRead.Note | null> =>
+  T.gen(function* () {
+    const { api } = yield* T.ask<App>()
+    const read = yield* T.result(api['notes.get']({ params: { id } }))
+    if (read._tag === 'Ok') return read.value
+    return read.error._tag === 'NotFound' ? null : yield* T.fail(read.error)
+  })
 
 /**
  * Sends an answer as the manager read it, or as they edited it; a refusal because the agent changed it

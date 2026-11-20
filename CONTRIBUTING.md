@@ -33,12 +33,15 @@ git config core.hooksPath .githooks
 ## The checks
 
 ```sh
-pnpm typecheck && pnpm lint && pnpm test
+pnpm typecheck && pnpm lint && pnpm exec vitest run packages/<name>/
 ```
 
-CI runs these with the coverage thresholds on Node 22 and 24, runs the Dovecote suite again against
-PostgreSQL and MySQL, builds and starts the Docker image, and checks the Terraform setups with
-`terraform fmt -check`, `terraform init -backend=false` and `terraform validate`. A pull request that lowers a threshold, disables a lint
+Run the tests of the packages you changed; `pnpm test` runs them all. On every pull request CI runs
+the full suite with the coverage thresholds on Node 22 and 24, and, when the files that need them
+change, runs the Dovecote suite again against PostgreSQL and MySQL, the command line on macOS and
+Windows, the plugin tests, builds and starts the Docker image, and checks the Terraform setups with
+`terraform fmt -check`, `terraform init -backend=false` and `terraform validate`. A push to `main` runs
+the main check once on Node 24. A pull request that lowers a threshold, disables a lint
 rule, or skips a test will not be merged.
 
 Changes to `kernel` or `protocol` also need `pnpm test:mutation` to stay at a score of 90 or more.

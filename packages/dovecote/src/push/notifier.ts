@@ -1,6 +1,13 @@
 import { createECDH } from 'node:crypto'
 import { type Clock, Task as T, makeQueue } from '@homingbird/kernel'
-import type { ConversationId, Locale, MemberId, NoteId, StreamEvent } from '@homingbird/protocol'
+import {
+  type ConversationId,
+  type Locale,
+  type MemberId,
+  type NoteId,
+  type StreamEvent,
+  noticeTag,
+} from '@homingbird/protocol'
 import type { Fetch } from '../auth/identity-provider.ts'
 import { chosenLocaleOf, membersByIds } from '../domain/members.ts'
 import type { AppEnv } from '../environment.ts'
@@ -17,6 +24,8 @@ export interface PushMessage {
   readonly title: string
   readonly body: string
   readonly url: string
+  /** One draft's notifications share it, so a repeat replaces the last and a page can close it. */
+  readonly tag?: string
 }
 
 export interface PushNotice {
@@ -27,6 +36,7 @@ export interface PushNotice {
     | { readonly kind: 'test'; readonly title: string }
   readonly body: string
   readonly url: string
+  readonly tag?: string
 }
 
 export interface PushNotifier {
@@ -97,7 +107,12 @@ const reviewNoticeFor = (
     if (!(yield* wantsPushAbout(memberId, review.conversationId))) return null
     if (!(yield* wantsPushAbout(memberId, review.channelId))) return null
     if (!reviewWindow.admits(`${memberId} ${review.channelId}`, env.clock.now())) return null
-    return { about: { kind: 'review', channel: review.slug }, body: preview(review.body), url: review.url }
+    return {
+      about: { kind: 'review', channel: review.slug },
+      body: preview(review.body),
+      url: review.url,
+      tag: noticeTag('review', body.noteId),
+    }
   })
 
 interface NoticeAbout {
@@ -130,6 +145,7 @@ const noticeAbout = (memberId: MemberId, event: StreamEvent): T.Task<NoticeAbout
           about: { kind: 'draft' },
           body: preview(body.note.body),
           url: draftCardUrl(body.note.conversationId, body.note.id),
+          tag: noticeTag('draft', body.note.id),
         },
       }
     return null
@@ -203,6 +219,7 @@ const messageIn = (locale: Locale | null, notice: PushNotice): PushMessage => ({
   title: titleOf(pushTitlesIn(locale), notice.about),
   body: notice.body,
   url: notice.url,
+  ...(notice.tag !== undefined && { tag: notice.tag }),
 })
 
 const titleOf = (titles: PushTitles, about: PushNotice['about']): string => {

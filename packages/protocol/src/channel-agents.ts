@@ -36,6 +36,9 @@ export const ChannelAgentName = S.refine<string>(
 
 export const AGENT_OPEN_DRAFTS_MAX = 50
 
+/** The most answers a reviewer's list holds, oldest first; a full list may leave newer ones out. */
+export const REVIEWS_LIMIT = 200
+
 export const NO_REVIEWER_MESSAGE =
   'Nobody can approve this answer: the person who asked is this channel’s only manager. A manager adds another manager first.'
 

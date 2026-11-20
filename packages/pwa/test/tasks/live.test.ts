@@ -153,6 +153,16 @@ describe('liveEvents', () => {
     })
   })
 
+  it('closes the notification about the person’s own draft once it was sent or discarded', async () => {
+    const { apply, page, clock } = live()
+    for (const tag of ['draft:d1', 'draft:n9', 'draft:n1', 'review:d1']) page.notifications.set(tag, 0)
+    apply(event({ type: 'draft.discarded', noteId: 'd1', conversationId: ROOM }))
+    apply(event({ type: 'note.sent', note: note('n9', { authorId: ANA, sentAt: clock.now() }) }))
+    apply(event({ type: 'note.sent', note: note('n1', { authorId: BEN, sentAt: clock.now() }) }))
+    await settle()
+    expect([...page.notifications.keys()]).toEqual(['draft:n1', 'review:d1'])
+  })
+
   it('remembers a release and its reason, and keeps draft requests up to date', async () => {
     const { apply, state, routes } = live()
     apply(
