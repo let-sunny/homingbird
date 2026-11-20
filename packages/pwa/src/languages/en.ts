@@ -1322,6 +1322,8 @@ export const en = {
     },
     figuresApprovalsTitle: 'Sent by each manager in the last {days} days',
     figuresApprovalsHint: 'A count for each manager, in alphabetical order. It is not a ranking.',
+    figuresApprovalsHidden:
+      'Each manager’s count is shown once the channel has {minimum} managers; until then only the totals above.',
     figuresApproved: { one: '{name}: {count} answer', other: '{name}: {count} answers' },
     figuresLoadFailed: 'How the agent is doing could not be loaded. Try again in a moment.',
   },

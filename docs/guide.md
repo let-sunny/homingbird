@@ -386,7 +386,8 @@ writes.
   managers, and nobody else, its answers over the last 30 days beside the 30 before: drafted, sent as
   written, sent after an edit, discarded, the typical time from an answer appearing on a manager's
   screen to the decision, quick approvals, how many wait now, and how many each manager sent, in
-  alphabetical order, never as a ranking. The answers you send this way appear in **Your week** apart
+  alphabetical order, never as a ranking; each manager's count appears once the channel has five
+  managers (the server's minimum), and until then only the totals. The answers you send this way appear in **Your week** apart
   from the notes you sent, and never in your own agent's figures.
 - **Ask privately.** **Ask … privately** opens your own conversation with the channel's agent. Its
   first screen says who else is there: the channel's managers, now and later, who read everything in it.

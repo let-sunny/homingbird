@@ -146,6 +146,7 @@ describe('how the agent is doing', () => {
       generatedAt: 1,
       channel: 'payments-wiki',
       quickApprovalSeconds: 3,
+      minimumGroupSize: 5,
       waiting: 2,
       periods: [{ days: 30, current: figures(4), previous: figures(1) }],
     }

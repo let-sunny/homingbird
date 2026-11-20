@@ -14,12 +14,16 @@ import { type Agent, type Session, type TestServer, connectAgent, storedRows } f
 const NOW = 1_700_000_000_000
 const HOUR = 60 * 60_000
 const lastWeek = periodEndingAt(NOW, 7, 0)
+const SETTINGS = { quickApprovalSeconds: 3, minimumGroupSize: 3 }
+
+let answers = 0
 
 const answer = (
   outcome: ReviewedDraft['outcome'],
   approvedBy: string | null,
   { hoursAgo = 1, seconds = 30 }: { readonly hoursAgo?: number; readonly seconds?: number } = {},
 ): ReviewedDraft => ({
+  id: `note_${++answers}`,
   place: 'payments-wiki',
   createdAt: NOW - (hoursAgo + 1) * HOUR,
   seenAt: NOW - hoursAgo * HOUR - seconds * 1000,
@@ -55,9 +59,10 @@ describe('channelAgentReportOf', () => {
         1,
       ),
       NOW,
-      3,
+      SETTINGS,
     )
     expect(report).toMatchObject({
+      minimumGroupSize: 3,
       generatedAt: NOW,
       channel: 'payments-wiki',
       quickApprovalSeconds: 3,
@@ -87,7 +92,7 @@ describe('channelAgentReportOf', () => {
         answer('as_written', 'mem_gone'),
       ]),
       NOW,
-      3,
+      SETTINGS,
     )
     expect(report.periods[0]!.current.approvals).toEqual([
       { memberId: 'mem_ana', name: 'Ana', approved: 1 },
@@ -101,8 +106,11 @@ describe('channelAgentReportOf', () => {
       { id: 'mem_b' as MemberId, name: 'Kim' },
       { id: 'mem_a' as MemberId, name: 'Kim' },
     ]
-    const report = channelAgentReportOf('wiki', { drafts: [], waiting: 0, managers: twins }, NOW, 3)
-    expect(report.periods[0]!.current.approvals.map((manager) => manager.memberId)).toEqual([
+    const report = channelAgentReportOf('wiki', { drafts: [], waiting: 0, managers: twins }, NOW, {
+      ...SETTINGS,
+      minimumGroupSize: 2,
+    })
+    expect(report.periods[0]!.current.approvals!.map((manager) => manager.memberId)).toEqual([
       'mem_a',
       'mem_b',
     ])
@@ -118,7 +126,7 @@ describe('channelAgentReportOf', () => {
         unseen,
       ]),
       NOW,
-      3,
+      SETTINGS,
     )
     expect(report.periods[0]!.current.quickApprovals).toBe(1)
     expect(report.periods[0]!.current.medianDecisionMs).toBe(2_000)
@@ -126,9 +134,20 @@ describe('channelAgentReportOf', () => {
 
   it('shows no typical decision time before any answer was decided', () => {
     expect(
-      channelAgentReportOf('wiki', activity([answer(null, null)]), NOW, 3).periods[0]!.current
+      channelAgentReportOf('wiki', activity([answer(null, null)]), NOW, SETTINGS).periods[0]!.current
         .medianDecisionMs,
     ).toBeNull()
+  })
+})
+
+describe('channelAgentReportOf in a small group', () => {
+  it('shows each manager’s count only while the channel has the minimum of managers, the totals always', () => {
+    const drafts = [answer('as_written', 'mem_ana'), answer('edited', 'mem_zoe')]
+    const small = channelAgentReportOf('wiki', activity(drafts), NOW, { ...SETTINGS, minimumGroupSize: 4 })
+    expect(small.periods[0]!.current).toMatchObject({ approvals: null, sentAsWritten: 1, sentAfterEdits: 1 })
+    expect(small.minimumGroupSize).toBe(4)
+    const large = channelAgentReportOf('wiki', activity(drafts), NOW, SETTINGS)
+    expect(large.periods[0]!.current.approvals).toHaveLength(3)
   })
 })
 
@@ -138,7 +157,7 @@ describe('channelAgentTotalsIn', () => {
 
   it('gives every channel agent’s answers together once enough managers sent one', () => {
     expect(
-      channelAgentTotalsIn([...sentBy(5), answer('discarded', null), answer(null, null)], lastWeek, 5),
+      channelAgentTotalsIn([...sentBy(5), answer('discarded', null), answer(null, null)], [], lastWeek, 5),
     ).toEqual({
       written: 7,
       sentAsWritten: 5,
@@ -155,8 +174,46 @@ describe('channelAgentTotalsIn', () => {
           ...sentBy(people),
           ...Array.from({ length: discards }, () => answer('discarded', null)),
         ]
-        expect(channelAgentTotalsIn(drafts, lastWeek, 5)).toBeNull()
+        expect(channelAgentTotalsIn(drafts, [], lastWeek, 5)).toBeNull()
       }),
+    )
+  })
+
+  it('hides the totals when the organization’s other decisions, which subtracting them would give, have too few people', () => {
+    const answers = sentBy(5)
+    const ownDecisions = (people: number, unknown = 0) => [
+      ...answers.map((draft) => ({ id: draft.id, authorId: draft.approvedBy })),
+      ...Array.from({ length: people }, (_, index) => ({ id: `own${index}`, authorId: `mem_own${index}` })),
+      ...Array.from({ length: unknown }, (_, index) => ({ id: `gone${index}`, authorId: null })),
+    ]
+    expect(channelAgentTotalsIn(answers, ownDecisions(0), lastWeek, 5)).not.toBeNull()
+    expect(channelAgentTotalsIn(answers, ownDecisions(2), lastWeek, 5)).toBeNull()
+    expect(channelAgentTotalsIn(answers, ownDecisions(0, 3), lastWeek, 5)).toBeNull()
+    expect(channelAgentTotalsIn(answers, ownDecisions(5), lastWeek, 5)).not.toBeNull()
+  })
+
+  it('never lets the organization’s decisions minus the totals give fewer than the minimum of people', () => {
+    const person = fc.constantFrom(...Array.from({ length: 9 }, (_, index) => `mem_${index}`), null)
+    fc.assert(
+      fc.property(
+        fc.array(person, { maxLength: 12 }),
+        fc.array(person, { maxLength: 12 }),
+        fc.integer({ min: 2, max: 6 }),
+        (approvers, others, minimum) => {
+          const drafts = approvers.map((approvedBy) =>
+            answer(approvedBy === null ? 'discarded' : 'as_written', approvedBy),
+          )
+          const organization = [
+            ...drafts.map((draft) => ({ id: draft.id, authorId: draft.approvedBy })),
+            ...others.map((authorId, index) => ({ id: `own${index}`, authorId })),
+          ]
+          const totals = channelAgentTotalsIn(drafts, organization, lastWeek, minimum)
+          if (totals === null) return
+          const known = (ids: ReadonlyArray<string | null>) => new Set(ids.filter((id) => id !== null)).size
+          expect(known(approvers)).toBeGreaterThanOrEqual(minimum)
+          if (others.length > 0) expect(known(others)).toBeGreaterThanOrEqual(minimum)
+        },
+      ),
     )
   })
 
@@ -164,8 +221,8 @@ describe('channelAgentTotalsIn', () => {
     const old = Array.from({ length: 5 }, (_, index) =>
       answer('as_written', `mem_${index}`, { hoursAgo: 8 * 24 }),
     )
-    expect(channelAgentTotalsIn(old, lastWeek, 5)).toBeNull()
-    expect(channelAgentTotalsIn(old, periodEndingAt(NOW, 7, 1), 5)).toMatchObject({ sentAsWritten: 5 })
+    expect(channelAgentTotalsIn(old, [], lastWeek, 5)).toBeNull()
+    expect(channelAgentTotalsIn(old, [], periodEndingAt(NOW, 7, 1), 5)).toMatchObject({ sentAsWritten: 5 })
     expect(DAY_MS).toBe(24 * HOUR)
   })
 })
@@ -197,7 +254,7 @@ describe('channels.agent.figures', () => {
 
   const figures = (person: Session | Agent) => person.api('GET', `/channels/${CHANNEL}/agent/figures`)
 
-  it('shows the channel’s managers how its agent is doing, and how many answers each sent', async () => {
+  it('shows the channel’s managers how its agent is doing, with no one’s count while they are fewer than the minimum', async () => {
     await start()
     await addManagers(ben)
     const first = await askAndDraft(cy, agent, 'One?', 'One.')
@@ -219,10 +276,8 @@ describe('channels.agent.figures', () => {
       sentAfterEdits: 1,
       discarded: 1,
     })
-    expect(report.periods[0].current.approvals).toEqual([
-      { memberId: ana.me.member.id, name: 'Ana', approved: 1 },
-      { memberId: ben.me.member.id, name: 'Ben', approved: 1 },
-    ])
+    expect(report.periods[0].current.approvals).toBeNull()
+    expect(report.minimumGroupSize).toBe(5)
     expect((await figures(ben)).status).toBe(200)
   })
 
@@ -282,6 +337,11 @@ describe('channels.agent.figures', () => {
       const { draft } = await askAndDraft(cy, agent, `Question for ${manager.me.member.name}?`, 'Answer.')
       await manager.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })
     }
+    const approvals = (await ana.api('GET', `/channels/${CHANNEL}/agent/figures`)).json.periods[0].current
+      .approvals
+    expect(approvals.map((manager: any) => [manager.name, manager.approved])).toEqual(
+      ['Ana', 'Ben', 'Dee', 'Eve', 'Fay', 'Gus'].map((name) => [name, 1]),
+    )
     const organization = async () => (await root.api('GET', '/admin/insights')).json.periods[0].current
     expect((await organization()).channelAgents).toEqual({
       written: 6,

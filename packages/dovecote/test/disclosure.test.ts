@@ -173,6 +173,14 @@ describe('placesShown', () => {
     expect(shown).toEqual({ shown: ['billing', null], hidden: ['payroll', 'security'] })
   })
 
+  it('hides one more group for a hidden group nobody is known in, since the remainder still gives its count', () => {
+    const shown = placesShown(
+      [group('billing', people(9, 'b')), group('deploys', people(6, 'd')), group('gone', [])],
+      5,
+    )
+    expect(shown).toEqual({ shown: ['billing'], hidden: ['gone', 'deploys'] })
+  })
+
   it('hides one more group when the hidden ones together are still too few, so no remainder gives one away', () => {
     const shown = placesShown(
       [group('billing', people(9, 'b')), group('deploys', people(6, 'd')), group('payroll', people(2, 'p'))],
@@ -198,7 +206,7 @@ describe('placesShown', () => {
           all.filter((each) => hidden.includes(each.place)).flatMap((each) => [...each.people]),
         )
         expect(shown.length + hidden.length).toBe(all.length)
-        expect(hiddenPeople.size === 0 || hiddenPeople.size >= minimum || shown.length === 0).toBe(true)
+        expect(hidden.length === 0 || hiddenPeople.size >= minimum || shown.length === 0).toBe(true)
         for (const each of all.filter(
           (candidate) => shown.includes(candidate.place) && !hidden.includes(candidate.place),
         ))

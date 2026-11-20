@@ -5,6 +5,7 @@ import type {
   ManagerApprovals,
   MemberId,
 } from '@homingbird/protocol'
+import { peopleOf, placesShown } from './disclosure.ts'
 import {
   type AgentDraft,
   PERIOD_DAYS,
@@ -22,35 +23,42 @@ export const channelAgentReportOf = (
   channel: string,
   activity: ChannelAgentActivity,
   now: number,
-  quickApprovalSeconds: number,
+  settings: { readonly quickApprovalSeconds: number; readonly minimumGroupSize: number },
 ): ChannelAgentReport => ({
   generatedAt: now,
   channel,
-  quickApprovalSeconds,
+  quickApprovalSeconds: settings.quickApprovalSeconds,
+  minimumGroupSize: settings.minimumGroupSize,
   waiting: activity.waiting,
   periods: PERIOD_DAYS.map((days) => ({
     days,
-    current: channelAgentFiguresIn(activity, periodEndingAt(now, days, 0), quickApprovalSeconds),
-    previous: channelAgentFiguresIn(activity, periodEndingAt(now, days, 1), quickApprovalSeconds),
+    current: channelAgentFiguresIn(activity, periodEndingAt(now, days, 0), settings),
+    previous: channelAgentFiguresIn(activity, periodEndingAt(now, days, 1), settings),
   })),
 })
 
-/**
- * Every channel agent's answers together, for administrators: shown only while the people who sent
- * them reach the minimum, since a discard records no one and so cannot count as a decider.
- */
+/** Every channel agent's answers, hidden unless they and the organization's other decisions each have the minimum. */
 export const channelAgentTotalsIn = (
   drafts: ReadonlyArray<ReviewedDraft>,
+  organizationDecided: ReadonlyArray<{ readonly id?: string; readonly authorId: string | null }>,
   window: Window,
   minimum: number,
 ): ChannelAgentTotals | null => {
   const decided = decidedIn(drafts, window)
-  const approvers = new Set(decided.flatMap((draft) => draft.approvedBy ?? []))
-  if (approvers.size < minimum) return null
+  const counted = new Set<string | undefined>(decided.map((draft) => draft.id))
+  const others = organizationDecided.filter((draft) => !counted.has(draft.id))
+  const groups = [
+    { place: ANSWERS, people: peopleOf(decided.map((draft) => draft.approvedBy)) },
+    ...(others.length === 0
+      ? []
+      : [{ place: OTHERS, people: peopleOf(others.map((draft) => draft.authorId)) }]),
+  ]
+  if (!placesShown(groups, minimum).shown.includes(ANSWERS)) return null
   return { written: drafts.filter((draft) => isIn(window, draft.createdAt)).length, ...decisionsOf(decided) }
 }
 
 export interface ReviewedDraft extends AgentDraft {
+  readonly id: string
   /** The manager who sent it; null while it waits and when it was discarded. */
   readonly approvedBy: string | null
 }
@@ -64,17 +72,21 @@ export interface ChannelAgentActivity {
 const channelAgentFiguresIn = (
   activity: ChannelAgentActivity,
   window: Window,
-  quickApprovalSeconds: number,
+  settings: { readonly quickApprovalSeconds: number; readonly minimumGroupSize: number },
 ): ChannelAgentFigures => {
   const decided = decidedIn(activity.drafts, window)
   return {
     written: activity.drafts.filter((draft) => isIn(window, draft.createdAt)).length,
     ...decisionsOf(decided),
     medianDecisionMs: median(decided.flatMap((draft) => decisionTime(draft) ?? [])),
-    quickApprovals: decided.filter((draft) => isQuickApproval(draft, quickApprovalSeconds)).length,
-    approvals: approvalsBy(activity.managers, decided),
+    quickApprovals: decided.filter((draft) => isQuickApproval(draft, settings.quickApprovalSeconds)).length,
+    approvals:
+      activity.managers.length >= settings.minimumGroupSize ? approvalsBy(activity.managers, decided) : null,
   }
 }
+
+const ANSWERS = 'channel agents'
+const OTHERS = 'other decisions'
 
 const decidedIn = (drafts: ReadonlyArray<ReviewedDraft>, window: Window): ReviewedDraft[] =>
   drafts.filter((draft) => isIn(window, draft.decidedAt) && draft.outcome !== null)

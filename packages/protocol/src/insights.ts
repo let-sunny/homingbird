@@ -206,7 +206,7 @@ export const ChannelAgentFigures = S.struct({
   discarded: count,
   medianDecisionMs: S.nullable(count),
   quickApprovals: count,
-  approvals: S.array(ManagerApprovals),
+  approvals: S.nullable(S.array(ManagerApprovals)),
 })
 export type ChannelAgentFigures = S.Infer<typeof ChannelAgentFigures>
 
@@ -222,6 +222,7 @@ export const ChannelAgentReport = S.struct({
   generatedAt: Timestamp,
   channel: ChannelSlug,
   quickApprovalSeconds: S.int({ min: 1 }),
+  minimumGroupSize: S.int({ min: 1 }),
   waiting: count,
   periods: S.array(ChannelAgentPeriod),
 })

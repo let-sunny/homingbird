@@ -37,8 +37,11 @@ export const channelAgentFiguresModel = (
     ],
     waiting: labels.figuresWaiting({ count: report.waiting }),
     approvalsTitle: labels.figuresApprovalsTitle({ days: period.days }),
-    approvalsHint: labels.figuresApprovalsHint,
-    approvals: period.current.approvals.map((manager) =>
+    approvalsHint:
+      period.current.approvals === null
+        ? labels.figuresApprovalsHidden({ minimum: report.minimumGroupSize })
+        : labels.figuresApprovalsHint,
+    approvals: (period.current.approvals ?? []).map((manager) =>
       labels.figuresApproved({ name: manager.name, count: manager.approved }),
     ),
     footnote: labels.figuresQuickExplained({ seconds: report.quickApprovalSeconds }),

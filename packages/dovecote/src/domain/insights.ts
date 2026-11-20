@@ -60,7 +60,7 @@ export const channelAgentInsights = (
       )
     const now = env.clock.now()
     const activity = yield* channelAgentActivity(row.conversation_id, managers, now - LOOKBACK_MS)
-    return channelAgentReportOf(row.slug, activity, now, env.config.insights.quickApprovalSeconds)
+    return channelAgentReportOf(row.slug, activity, now, env.config.insights)
   })
 
 /**
@@ -163,8 +163,8 @@ const organizationActivity = (
       SELECT n.id, COALESCE(n.approved_by, n.author_id) AS author_id, n.in_reply_to, n.sent_at, n.origin, ${PLACE_COLUMNS}
       FROM notes n ${PLACE_JOIN}
       WHERE n.status = 'sent' AND n.debate_id IS NULL AND n.sent_at >= ${since}`)
-    const drafts = yield* all<DraftRow & { author_id: string | null }>(sql`
-      SELECT ${DECIDER} AS author_id, n.created_at, n.seen_at, n.decided_at, n.status, n.origin, n.agent_client, n.agent_model, ${PLACE_COLUMNS}
+    const drafts = yield* all<DraftRow & { id: string; author_id: string | null }>(sql`
+      SELECT n.id, ${DECIDER} AS author_id, n.created_at, n.seen_at, n.decided_at, n.status, n.origin, n.agent_client, n.agent_model, ${PLACE_COLUMNS}
       FROM notes n ${PLACE_JOIN} JOIN members a ON a.id = n.author_id
       WHERE n.agent_name IS NOT NULL AND n.debate_id IS NULL AND (n.created_at >= ${since} OR n.decided_at >= ${since})`)
     const channelAgentDrafts = yield* reviewedDrafts(
@@ -199,7 +199,7 @@ const organizationActivity = (
         place: placeOf(row),
         origin: row.origin,
       })),
-      drafts: drafts.map((row) => ({ ...toDraft(row), authorId: row.author_id })),
+      drafts: drafts.map((row) => ({ ...toDraft(row), id: row.id, authorId: row.author_id })),
       channelAgentDrafts,
       skips: skips.map((row) => ({ ...toDated(row), memberId: row.member_id })),
       debateResults: debateResults.map((row) => ({ authorId: row.author_id, sentAt: Number(row.sent_at) })),
@@ -235,6 +235,7 @@ const channelAgentActivity = (
 const reviewedDrafts = (inChannel: Query, since: number): T.Task<ReviewedDraft[], never, AppEnv> =>
   T.map((rows: ReadonlyArray<ReviewedRow>) =>
     rows.map((row) => ({
+      id: row.id,
       place: row.slug,
       createdAt: Number(row.created_at),
       seenAt: optionalNumber(row.seen_at),
@@ -244,7 +245,7 @@ const reviewedDrafts = (inChannel: Query, since: number): T.Task<ReviewedDraft[]
     })),
   )(
     all<ReviewedRow>(sql`
-      SELECT n.created_at, n.seen_at, n.decided_at, n.status, n.origin, n.approved_by, t.slug
+      SELECT n.id, n.created_at, n.seen_at, n.decided_at, n.status, n.origin, n.approved_by, t.slug
       FROM notes n JOIN members a ON a.id = n.author_id AND a.kind = 'channel_agent'
       JOIN conversations c ON c.id = n.conversation_id
       JOIN channels t ON t.conversation_id = COALESCE(c.channel_id, c.id)
@@ -255,6 +256,7 @@ const reviewedDrafts = (inChannel: Query, since: number): T.Task<ReviewedDraft[]
 const DECIDER: Query = raw("CASE WHEN a.kind = 'channel_agent' THEN n.approved_by ELSE n.author_id END")
 
 interface ReviewedRow {
+  readonly id: string
   readonly created_at: number
   readonly seen_at: number | null
   readonly decided_at: number | null

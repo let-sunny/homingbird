@@ -8,7 +8,7 @@ import type {
 } from '@homingbird/protocol'
 import { type ReviewedDraft, channelAgentTotalsIn } from './channel-agent-figures.ts'
 import { type ReceivedNote, deliveryIn } from './delivery-figures.ts'
-import { placesShown } from './disclosure.ts'
+import { peopleOf, placesShown } from './disclosure.ts'
 import { quickWeeksOf } from './quick-weeks.ts'
 import {
   type AgentDraft,
@@ -39,6 +39,7 @@ export interface SentNote {
 export interface MemberDraft extends AgentDraft {
   /** Who decided it: its author, or the manager who sent a channel's agent's answer; null when nobody is known. */
   readonly authorId: string | null
+  readonly id?: string
 }
 
 export interface MemberSkip {
@@ -138,13 +139,14 @@ export const organizationFiguresIn = (
     medianDecisionMs: medianDecisionShown(decided, settings.minimumGroupSize),
     authorship: draftsShown ? authorshipOf(sent) : null,
     delivery: deliveryIn(activity.received, window, now, settings.minimumGroupSize),
-    channelAgents: channelAgentTotalsIn(activity.channelAgentDrafts ?? [], window, settings.minimumGroupSize),
+    channelAgents: channelAgentTotalsIn(
+      activity.channelAgentDrafts ?? [],
+      decided,
+      window,
+      settings.minimumGroupSize,
+    ),
   }
 }
-
-/** The people among some contributors, leaving out those nobody knows. */
-export const peopleOf = (ids: Iterable<string | null>): Set<string> =>
-  new Set([...ids].filter((id): id is string => id !== null))
 
 /** The sent debate results, or null while fewer people than the minimum sent one. */
 const debateResultsShown = (

@@ -1274,6 +1274,8 @@ export const ko: Translation<typeof en> = {
     figuresWaiting: { other: '지금 답변 {count}개가 기다리고 있어요.' },
     figuresApprovalsTitle: '최근 {days}일 동안 관리자마다 보낸 답변',
     figuresApprovalsHint: '관리자마다 센 수를 이름순으로 보여 줘요. 순위가 아니에요.',
+    figuresApprovalsHidden:
+      '관리자가 {minimum}명 이상이 되면 관리자마다 센 수를 보여 줘요. 그전에는 위의 합계만 보여 줘요.',
     figuresApproved: { other: '{name}: 답변 {count}개' },
     figuresLoadFailed: '에이전트가 어떻게 하고 있는지 불러오지 못했어요. 잠시 뒤에 다시 해 보세요.',
   },

@@ -104,6 +104,7 @@ describe('the channel agent tasks', () => {
       generatedAt: 1,
       channel: 'payments-wiki',
       quickApprovalSeconds: 3,
+      minimumGroupSize: 5,
       waiting: 0,
       periods: [],
     } satisfies AsRead.ChannelAgentReport

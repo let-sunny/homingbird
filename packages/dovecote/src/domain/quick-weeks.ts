@@ -4,7 +4,8 @@ import {
   QUICK_WARNING_WEEKS,
   type QuickWeek,
 } from '@homingbird/protocol'
-import { type MemberDraft, type PrivacySettings, peopleOf } from './organization-figures.ts'
+import { peopleOf } from './disclosure.ts'
+import type { MemberDraft, PrivacySettings } from './organization-figures.ts'
 import { TREND_WEEKS, type Window, isIn, isQuickApproval, weeksBefore } from './trust-figures.ts'
 
 /**

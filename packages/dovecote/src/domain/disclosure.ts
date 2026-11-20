@@ -19,7 +19,7 @@ export const teamsShown = (
   return { shown, hidden: teams.filter((team) => !shown.includes(team)).sort((a, b) => a.localeCompare(b)) }
 }
 
-/** Which disjoint groups may be shown: each needs `minimum` people, and so do the hidden ones together. */
+/** Disjoint groups shown only while each, and the hidden ones together, have `minimum` people. */
 export const placesShown = (
   groups: ReadonlyArray<{ readonly place: PlaceName; readonly people: ReadonlySet<string> }>,
   minimum: number,
@@ -28,7 +28,7 @@ export const placesShown = (
   const hidden = groups.filter((group) => group.people.size < minimum)
   const shown = [...large].sort((a, b) => b.people.size - a.people.size || byPlace(a.place, b.place))
   const hiddenPeople = new Set(hidden.flatMap((group) => [...group.people]))
-  while (hiddenPeople.size > 0 && hiddenPeople.size < minimum && shown.length > 0) {
+  while (hidden.length > 0 && hiddenPeople.size < minimum && shown.length > 0) {
     const smallest = shown.pop()!
     hidden.push(smallest)
     for (const person of smallest.people) hiddenPeople.add(person)
@@ -71,3 +71,7 @@ const contributorsByTeam = (contributions: ReadonlyArray<Contribution>): Map<str
     }
   return people
 }
+
+/** The people among some contributors, leaving out those nobody knows. */
+export const peopleOf = (ids: Iterable<string | null>): Set<string> =>
+  new Set([...ids].filter((id): id is string => id !== null))

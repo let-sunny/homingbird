@@ -21,6 +21,7 @@ const report: AsRead.ChannelAgentReport = {
   generatedAt: 1,
   channel: 'payments-wiki',
   quickApprovalSeconds: 3,
+  minimumGroupSize: 5,
   waiting: 1,
   periods: [
     { days: 7, current: figures({ written: 2 }), previous: figures() },
@@ -63,6 +64,18 @@ describe('channelAgentFiguresModel', () => {
       approvals: ['Ana: 3 answers', 'Ben: 1 answer'],
       footnote: strings.channelAgent.figuresQuickExplained({ seconds: 3 }),
     })
+  })
+
+  it('says each manager’s count waits for the minimum of managers when the server leaves it out', () => {
+    const small = {
+      ...report,
+      periods: [{ days: 30, current: figures({ approvals: null }), previous: figures() }],
+    }
+    const model = channelAgentFiguresModel(small, 'payments-wiki', 30)
+    expect(model.kind === 'figures' && [model.approvals, model.approvalsHint]).toEqual([
+      [],
+      strings.channelAgent.figuresApprovalsHidden({ minimum: 5 }),
+    ])
   })
 
   it('falls back to the first period when the one asked for is not there', () => {

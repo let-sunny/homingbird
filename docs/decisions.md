@@ -308,8 +308,13 @@ states the decision first, then the reason. Add new entries at the top of their 
   counts for `notes.approved_by` when it has one, so the organization's active people and deciders
   are people, never a channel's agent; a discard records nobody, so it is counted but adds no decider.
   A manager's approvals never mix into their own agent's figures; Your week shows them apart
-  (`approvedForChannels`). Administrators get every channel agent's answers together only while that
-  many managers sent one, and only from open channels and the private ones they are in.
+  (`approvedForChannels`). Each manager's count is that manager's own figure, so it is shown only
+  while the channel has the minimum of managers; until then the managers see the totals alone.
+  Administrators get every channel agent's answers together only while that many managers sent one
+  and that many people made the organization's other decisions, which the organization's total minus
+  these would give away (`placesShown`, which also counts a hidden group nobody is known in), and only
+  from open channels and the private ones they are in. Every minimum counts the people active in the
+  period, never the size of a roster.
 - **Team figures wait for a primary team per person.** Teams overlap, and a team's totals beside the
   others' and the organization's isolate the few people two teams share unless every cell of people
   who share the same shown teams has the minimum (`teamsShown`). Measured on 1,000 organizations of 50
