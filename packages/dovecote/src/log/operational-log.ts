@@ -36,6 +36,9 @@ export interface LogOptions {
   readonly version: string
 }
 
+/** Where the operational log writes outside tests. */
+export const writeToStandardOutput = (line: string): void => void process.stdout.write(`${line}\n`)
+
 /** Writes a line with the request id of the request it belongs to, if any. */
 export const logEvent = (
   event: OperationalEvent,

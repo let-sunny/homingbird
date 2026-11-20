@@ -15,7 +15,7 @@ import type { AppEnv } from './environment.ts'
 import { deleteEventsBefore, transact } from './events/events.ts'
 import { PRESENCE_FLUSH_INTERVAL_MS, makeHub } from './events/hub.ts'
 import { makeRateLimiter } from './http/rate-limiter.ts'
-import { makeLog } from './log/operational-log.ts'
+import { makeLog, writeToStandardOutput } from './log/operational-log.ts'
 import { makePushNotifier, sendTestPush } from './push/notifier.ts'
 import { cryptoRandom } from './random.ts'
 import { type Database, sqlEnvironment } from './sql/database.ts'
@@ -39,7 +39,7 @@ export interface RuntimeParts {
 export const buildRuntime = (parts: RuntimeParts): Runtime => {
   const clock = parts.clock ?? systemClock
   const fetch = parts.fetch ?? globalThis.fetch
-  const write = parts.write ?? ((line: string) => process.stdout.write(`${line}\n`))
+  const write = parts.write ?? writeToStandardOutput
   const log = makeLog({
     level: parts.config.logs.operational,
     write,

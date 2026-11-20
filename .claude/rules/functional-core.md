@@ -15,6 +15,8 @@ or utility library, and none may be added.
   expected failure; a throw is a defect.
 - Services come from the environment `R`. Never call `Date.now()`, `setTimeout`, `Math.random()`,
   `crypto.random*` or `fetch` directly; use the clock, random and fetch services so tests control them.
+- Output goes through the log service or a program's own output, and `audit_events` is written only in
+  `dovecote/src/domain/audit.ts`; `scripts/check-style.ts` lists the files allowed each and why.
 
 ## Async control
 

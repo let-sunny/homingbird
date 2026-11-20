@@ -1,6 +1,6 @@
 import { Task as T } from '@homingbird/kernel'
 import fc from 'fast-check'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   defectNameOf,
   logDefect,
@@ -8,6 +8,7 @@ import {
   makeLog,
   makeTestLog,
   redact,
+  writeToStandardOutput,
 } from '../src/log/operational-log.ts'
 
 describe('the operational log', () => {
@@ -108,5 +109,15 @@ describe('the operational log', () => {
       }),
     )
     expect(redact('ab '.repeat(2000))).toHaveLength(4000)
+  })
+
+  it('writes each line to stdout, ended by a newline', () => {
+    const out = vi.spyOn(process.stdout, 'write').mockReturnValue(true)
+    try {
+      writeToStandardOutput('{"eventName":"system.started"}')
+      expect(out).toHaveBeenCalledWith('{"eventName":"system.started"}\n')
+    } finally {
+      out.mockRestore()
+    }
   })
 })

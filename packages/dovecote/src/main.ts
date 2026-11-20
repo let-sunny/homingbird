@@ -3,7 +3,7 @@ import { logBackgroundEnded } from './background-pass.ts'
 import { loadConfig } from './config.ts'
 import { flushAttempts } from './domain/denied-attempts.ts'
 import { startServer } from './http/node-server.ts'
-import { makeLog } from './log/operational-log.ts'
+import { makeLog, writeToStandardOutput } from './log/operational-log.ts'
 import { logUnexpectedStop } from './log/unexpected-stop.ts'
 import { buildRuntime } from './runtime.ts'
 import { openDatabase } from './sql/open.ts'
@@ -73,7 +73,7 @@ const ended = await T.run(program, {})
 if (ended._tag === 'Err') {
   const log = makeLog({
     level: config.value.logs.operational,
-    write: (line) => process.stdout.write(`${line}\n`),
+    write: writeToStandardOutput,
     now: systemClock.now,
     version: SERVER_VERSION,
   })

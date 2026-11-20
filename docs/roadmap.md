@@ -319,13 +319,15 @@ to come:
 
 ## Operations
 
+**Built:** `scripts/check-style.ts` refuses writes to `audit_events` outside
+`dovecote/src/domain/audit.ts`, and stdout or console output outside the log service and the programs
+whose stdout is their output. Still to come:
+
 - Multi-node deployment: shared event fan-out through the database or a message broker.
 - Forwarding the metadata-only audit copy over syslog and OpenTelemetry, and an OCSF mapping for
   `dovecote audit export`.
 - A compliance export of the product's own data (notes, drafts, debate rooms) for legal hold, if an
   organization asks for one: not the audit trail's job.
-- A check in `scripts/check-style.ts` that refuses `UPDATE` and `DELETE` on `audit_events` outside
-  `dovecote/src/domain/audit.ts`, and `process.stdout.write` outside the log service.
 - Periodic re-validation of members against the identity provider.
 - Revoking a credential family when a refresh token is replayed.
 - Supported upgrades between releases. The mechanism exists (a schema version table, with steps

@@ -64,6 +64,20 @@ const BANNED_GLOBAL_CALLS: ReadonlyArray<readonly [string, string]> = [
   ['fetch', 'use the injected fetch'],
 ]
 
+/** The only sources that may write `audit_events`, each with its reason. */
+const AUDIT_WRITERS: Readonly<Record<string, string>> = {
+  'packages/dovecote/src/domain/audit.ts':
+    'records each row chained to the head and purges the oldest prefix for retention',
+}
+
+/** The only sources that may write to stdout or the console, each with its reason. */
+const STANDARD_OUTPUT_WRITERS: Readonly<Record<string, string>> = {
+  'packages/dovecote/src/log/operational-log.ts': 'the operational log is JSON lines on stdout',
+  'packages/dovecote/src/main.ts': 'prints what `dovecote audit verify` and `dovecote audit export` answer',
+  'packages/cli/src/node-environment.ts': "the command line's terminal output",
+  'packages/mcp/src/stdio.ts': 'the MCP stdio transport, whose stdout carries JSON-RPC',
+}
+
 export interface Violation {
   readonly file: string
   readonly line: number
@@ -85,7 +99,20 @@ export const checkSource = (file: string, text: string): Violation[] => {
     ...(isAdapter(file) ? [] : bannedCalls(source, at)),
     ...(mayDeclareClasses(file) ? [] : classesIn(source, at)),
     ...asyncIn(file, source, at),
+    ...auditWritesIn(file, source, at),
+    ...standardOutputIn(file, source, at),
   ]
+}
+
+/** Writes to `audit_events` and to stdout or the console outside the files listed for them. */
+export const checkAuditAndOutput = (file: string, text: string): Violation[] => {
+  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true)
+  const at = (position: number, message: string): Violation => ({
+    file,
+    line: source.getLineAndCharacterOfPosition(position).line + 1,
+    message,
+  })
+  return [...auditWritesIn(file, source, at), ...standardOutputIn(file, source, at)]
 }
 
 /** `async` and `await` outside the kernel, but for one top-level `await T.run(...)` in a program entry file. */
@@ -356,6 +383,79 @@ const isTaskRun = (node: ts.AwaitExpression): boolean =>
 const mayUseAsync = (file: string): boolean =>
   PACKAGES_WITH_ASYNC.some((name) => file.startsWith(`packages/${name}/`))
 
+const auditWritesIn = (
+  file: string,
+  source: ts.SourceFile,
+  at: (position: number, message: string) => Violation,
+): Violation[] => {
+  if (!isPackageSource(file) || Object.hasOwn(AUDIT_WRITERS, file)) return []
+  const found: Violation[] = []
+  const visit = (node: ts.Node): void => {
+    const literal = literalTextOf(node)
+    if ((literal !== null && AUDIT_WRITE_STATEMENT.test(literal)) || isAuditWriteHelperCall(node))
+      found.push(
+        at(node.getStart(source), `audit_events is written only in ${Object.keys(AUDIT_WRITERS).join(', ')}`),
+      )
+    node.forEachChild(visit)
+  }
+  visit(source)
+  return found
+}
+
+const AUDIT_WRITE_STATEMENT =
+  /\b(?:insert(?:\s+ignore)?(?:\s+into)?|replace(?:\s+into)?|update(?:\s+only)?|delete(?:\s+from)?|truncate(?:\s+table)?|drop\s+table(?:\s+if\s+exists)?)\s+[`"[]?audit_events\b/i
+
+const literalTextOf = (node: ts.Node): string | null => {
+  if (ts.isStringLiteralLike(node)) return node.text
+  if (ts.isTemplateExpression(node))
+    return [node.head.text, ...node.templateSpans.map((span) => span.literal.text)].join(' ? ')
+  return null
+}
+
+const isAuditWriteHelperCall = (node: ts.Node): boolean => {
+  if (!ts.isCallExpression(node)) return false
+  const table = node.arguments[0]
+  const callee = ts.isPropertyAccessExpression(node.expression) ? node.expression.name : node.expression
+  return (
+    table !== undefined &&
+    ts.isStringLiteralLike(table) &&
+    table.text === 'audit_events' &&
+    ts.isIdentifier(callee) &&
+    /^(insert|replace|upsert|update|delete|truncate|drop)/i.test(callee.text)
+  )
+}
+
+const standardOutputIn = (
+  file: string,
+  source: ts.SourceFile,
+  at: (position: number, message: string) => Violation,
+): Violation[] => {
+  if (!isPackageSource(file) || Object.hasOwn(STANDARD_OUTPUT_WRITERS, file)) return []
+  const found: Violation[] = []
+  const visit = (node: ts.Node): void => {
+    if (ts.isPropertyAccessExpression(node)) {
+      const name = node
+        .getText(source)
+        .replace(/[\s?]/g, '')
+        .replace(/^globalThis\./, '')
+      if (STANDARD_OUTPUT.test(name))
+        found.push(
+          at(
+            node.getStart(source),
+            `${name} is not allowed here; log through the Log service, print through the program's output`,
+          ),
+        )
+    }
+    node.forEachChild(visit)
+  }
+  visit(source)
+  return found
+}
+
+const STANDARD_OUTPUT = /^(process\.stdout\.write|console\.(log|info|warn|error|debug))$/
+
+const isPackageSource = (file: string): boolean => /^packages\/[^/]+\/src\//.test(file)
+
 const isAdapter = (file: string): boolean => ADAPTER_FILES.includes(file) || /\/bin\//.test(file)
 
 const mayDeclareClasses = (file: string): boolean =>
@@ -554,12 +654,14 @@ if (isRunDirectly) {
     ...sourcesOf('scripts'),
   ]
   const layout = moduleLayoutOf(manifests.slice(1))
-  const isPackageSource = (file: string): boolean => /^packages\/[^/]+\/src\//.test(file)
   const unimported =
     requested.length > 0 ? [] : unimportedExports(wholeRepository.map(read), isPackageSource, layout)
   const violations = [
     ...files.flatMap((path) => checkSource(toRepositoryPath(path), readFileSync(path, 'utf8'))),
-    ...unenforced.flatMap((file) => checkAsync(file, read(file).text)),
+    ...unenforced.flatMap((file) => {
+      const { text } = read(file)
+      return [...checkAsync(file, text), ...checkAuditAndOutput(file, text)]
+    }),
     ...checkPackageNames(manifests.map(({ file, manifest }) => ({ file, name: manifest.name }))),
     ...(requested.length > 0
       ? []
