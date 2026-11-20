@@ -138,13 +138,17 @@ jobs:
       - run: pnpm test:plugin
 
   database:
-    name: dovecote on ${{ matrix.database }}
+    name: dovecote on ${{ matrix.database }} (${{ matrix.shard }}/3)
     needs: changes
     if: needs.changes.outputs.database == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      # Each shard is its own job with its own database, so the files of one shard still run one at a
+      # time while the three shards run side by side.
       matrix:
+        database: [postgres, mysql]
+        shard: [1, 2, 3]
         include:
           - database: postgres
             image: postgres:16
@@ -183,7 +187,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       # Every test drops and recreates the tables of the one shared database, so files must run one at a time.
-      - run: ${{ matrix.url_variable }}=${{ matrix.url }} npx vitest run packages/dovecote/ --no-file-parallelism
+      - run: ${{ matrix.url_variable }}=${{ matrix.url }} npx vitest run packages/dovecote/ --no-file-parallelism --shard=${{ matrix.shard }}/3
 
   commits:
     name: commit messages
