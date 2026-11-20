@@ -30,7 +30,7 @@ describe('deliveryIn', () => {
       received('f', HOUR, null, false),
     ]
     expect(deliveryIn(notes, thisWeek, NOW, 5)).toEqual({
-      received: 8,
+      received: null,
       toAgents: 7,
       pickedUpQuickly: 6,
       medianPickupMs: MINUTE,
@@ -47,6 +47,18 @@ describe('deliveryIn', () => {
       received('d', HOUR, null),
     ]
     expect(deliveryIn(notes, thisWeek, NOW, 5)?.waitedWithoutAgent).toBe(2)
+  })
+
+  it('shows the received total only when no one or at least the minimum without an agent received a note', () => {
+    const withoutAgent = (count: number) =>
+      ['p', 'q', 'r', 's', 't'].slice(0, count).map((id) => received(id, HOUR, null, false))
+    expect(deliveryIn(five(MINUTE), thisWeek, NOW, 5)?.received).toBe(5)
+    expect(deliveryIn([...five(MINUTE), ...withoutAgent(1)], thisWeek, NOW, 5)?.received).toBeNull()
+    expect(deliveryIn([...five(MINUTE), ...withoutAgent(4)], thisWeek, NOW, 5)?.received).toBeNull()
+    expect(deliveryIn([...five(MINUTE), ...withoutAgent(5)], thisWeek, NOW, 5)).toMatchObject({
+      received: 10,
+      toAgents: 5,
+    })
   })
 
   it('shows nothing while fewer people than the minimum with an agent received a note', () => {

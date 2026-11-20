@@ -126,6 +126,25 @@ describe('deliveryModel', () => {
     ])
   })
 
+  it('hides the received total on its own, and shows the notes to agents as a count', () => {
+    const model = deliveryModel(
+      figures({
+        delivery: {
+          received: null,
+          toAgents: 8,
+          pickedUpQuickly: 6,
+          medianPickupMs: null,
+          waitedWithoutAgent: 0,
+        },
+      }),
+      5,
+    )
+    expect(model.rows.slice(0, 2)).toEqual([
+      [strings.measures.deliveryReceived, strings.insights.hidden],
+      [strings.measures.deliveryToAgents, '8'],
+    ])
+  })
+
   it('says why delivery is hidden', () => {
     expect(deliveryModel(figures({ delivery: null }), 5)).toEqual({
       title: strings.measures.deliveryTitle,

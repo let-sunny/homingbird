@@ -34,14 +34,19 @@ describe('quickWeeksOf', () => {
     expect(quickWeeksOf([...week(1, 3), ...week(15, 3)], NOW, settings).quickWarning).toBe(false)
   })
 
-  it('hides a week in which fewer people than the minimum sent a draft as written', () => {
+  it('hides a week as the draft decisions of the same days are hidden: by the people who decided a draft', () => {
     const fewPeople = week(1, 5).map((draft) => ({
       ...draft,
       authorId: draft.authorId === 'm4' ? 'm0' : draft.authorId,
     }))
     expect(quickWeeksOf(fewPeople, NOW, settings).weeks[7]).toMatchObject({ sentAsWritten: null })
+    const oneDiscarded = [...fewPeople, { ...sentAsWritten('m4', 1, 30), outcome: 'discarded' as const }]
+    expect(quickWeeksOf(oneDiscarded, NOW, settings).weeks[7]).toEqual({
+      start: NOW - 7 * DAY_MS,
+      sentAsWritten: 10,
+      quickApprovals: 5,
+    })
   })
-
   it('counts only drafts sent as written', () => {
     const edited = week(1, 10).map((draft) => ({ ...draft, outcome: 'edited' as const }))
     expect(quickWeeksOf([...week(1, 0), ...edited], NOW, settings).weeks[7]).toMatchObject({

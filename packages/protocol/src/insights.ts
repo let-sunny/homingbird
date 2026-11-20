@@ -120,7 +120,7 @@ export const Authorship = S.struct({ agent: count, humanEdited: count, human: co
 export type Authorship = S.Infer<typeof Authorship>
 
 export const Delivery = S.struct({
-  received: count,
+  received: S.nullable(count),
   toAgents: count,
   pickedUpQuickly: count,
   medianPickupMs: S.nullable(count),
@@ -161,7 +161,7 @@ export const OrganizationPeriod = S.struct({
 })
 export type OrganizationPeriod = S.Infer<typeof OrganizationPeriod>
 
-/** One week of drafts sent as written; both counts are null while fewer people than the minimum sent one. */
+/** One week of drafts sent as written; both counts are null while too few people decided a draft that week. */
 export const QuickWeek = S.struct({
   start: Timestamp,
   sentAsWritten: S.nullable(count),

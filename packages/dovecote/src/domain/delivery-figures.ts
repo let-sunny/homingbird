@@ -9,7 +9,7 @@ export interface ReceivedNote {
   readonly pickedUpAt: number | null
 }
 
-/** Null while fewer than the minimum people with an agent received a note; the median needs as many pickups. */
+/** Each figure hides while too few people stand behind it, so no subtraction isolates one person. */
 export const deliveryIn = (
   received: ReadonlyArray<ReceivedNote>,
   window: Window,
@@ -21,8 +21,9 @@ export const deliveryIn = (
   if (peopleIn(toAgents) < minimum) return null
   const pickedUp = toAgents.filter((note) => note.pickedUpAt !== null)
   const waits = pickedUp.map(waitOf)
+  const withoutAgents = peopleIn(inWindow.filter((note) => !note.hasAgent))
   return {
-    received: inWindow.length,
+    received: withoutAgents === 0 || withoutAgents >= minimum ? inWindow.length : null,
     toAgents: toAgents.length,
     pickedUpQuickly: waits.filter((wait) => wait <= QUICK_PICKUP_MS).length,
     medianPickupMs: peopleIn(pickedUp) >= minimum ? median(waits) : null,

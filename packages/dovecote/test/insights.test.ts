@@ -1,5 +1,8 @@
+import { Task as T } from '@homingbird/kernel'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { DRAFT_REQUEST_LIFETIME_MS } from '../src/domain/draft-requests.ts'
+import { run } from '../src/sql/database.ts'
+import { sql } from '../src/sql/query.ts'
 import {
   type Agent,
   type Session,
@@ -287,6 +290,22 @@ describe('admin.insights', () => {
     })
     const text = JSON.stringify(figures)
     for (const person of people) expect(text).not.toContain(person.me.member.id)
+  })
+
+  it('counts no agent for a recipient whose agent credential had expired when the note was sent', async () => {
+    const people = await team(5)
+    const agents = [anaAgent]
+    for (const person of people.slice(1)) agents.push(await connectAgent(server, person, { name: 'Agent' }))
+    const before = server.clock.now() - 1
+    await T.runPromise(
+      run(
+        sql`UPDATE credentials SET expires_at = ${before} WHERE member_id = ${ben.me.member.id} AND kind = 'agent'`,
+      ),
+      server.env,
+    )
+    for (const [index, person] of people.entries())
+      await sendBetween(person, people[(index + 1) % people.length]!, 'hello')
+    expect((await ana.api('GET', '/admin/insights')).json.periods[0].current.delivery).toBeNull()
   })
 
   it('raises the minimum group size from the setting', async () => {

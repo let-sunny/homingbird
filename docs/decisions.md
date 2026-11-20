@@ -253,9 +253,11 @@ states the decision first, then the reason. Add new entries at the top of their 
 - **Every newer organization figure needs its own contributors, and reply and pickup times come from
   the notes themselves.** The typical decision time needs `HB_INSIGHTS_MINIMUM_GROUP` people who decided
   a draft they had seen; who wrote what was sent is hidden whenever draft decisions are; a week of quick
-  approvals needs that many people who sent a draft as written that week; delivery needs that many
-  people with an agent connected who received a note, and its typical pickup time that many whose agent
-  picked one up. A person's own reply time runs from a colleague's new note to their first sent reply,
+  approvals is hidden as the draft decisions of the same days are, by the people who decided a draft,
+  so the last week never hides what the 7-day figures show; delivery needs that many people with an
+  agent connected who received a note, its typical pickup time that many whose agent picked one up,
+  and its received total that many people without an agent, or none, so subtracting the notes to agents
+  never gives one person's count. A person's own reply time runs from a colleague's new note to their first sent reply,
   the definition of the organization's time to the first reply, never from `receipts.replied_at`, which
   a later reply overwrites, nor `delivered_at`, since a channel note has receipts only for its helpers
   and the person answered. The quick-approval warning (25% of drafts sent as written for 2 weeks in a

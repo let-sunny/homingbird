@@ -47,8 +47,16 @@ export const deliveryModel = (figures: OrganizationFigures, minimum: number): De
   return {
     ...base,
     rows: [
-      [strings.measures.deliveryReceived, formats.decimal.format(delivery.received)],
-      [strings.measures.deliveryToAgents, part(delivery.toAgents, delivery.received)],
+      [
+        strings.measures.deliveryReceived,
+        delivery.received === null ? strings.insights.hidden : formats.decimal.format(delivery.received),
+      ],
+      [
+        strings.measures.deliveryToAgents,
+        delivery.received === null
+          ? formats.decimal.format(delivery.toAgents)
+          : part(delivery.toAgents, delivery.received),
+      ],
       [strings.measures.deliveryQuickly, part(delivery.pickedUpQuickly, delivery.toAgents)],
       [
         strings.measures.deliveryMedian,

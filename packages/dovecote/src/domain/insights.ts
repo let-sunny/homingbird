@@ -21,11 +21,15 @@ export const agentReportFor = (memberId: MemberId): T.Task<AgentReport, never, A
     const env = yield* T.ask<AppEnv>()
     const now = env.clock.now()
     const activity = yield* agentActivity(memberId, now - LOOKBACK_MS, now)
-    const week = yield* weekActivity(memberId, now - 2 * WEEK_DAYS * DAY_MS)
-    return {
-      ...agentReportOf(activity, now, env.config.insights.quickApprovalSeconds),
-      week: yourWeekOf(week, now),
-    }
+    return agentReportOf(activity, now, env.config.insights.quickApprovalSeconds)
+  })
+
+/** The member's own report with their week of notes beyond the agent, as `insights.mine` answers it. */
+export const myInsights = (memberId: MemberId): T.Task<AgentReport, never, AppEnv> =>
+  T.gen(function* () {
+    const report = yield* agentReportFor(memberId)
+    const week = yield* weekActivity(memberId, report.generatedAt - 2 * WEEK_DAYS * DAY_MS)
+    return { ...report, week: yourWeekOf(week, report.generatedAt) }
   })
 
 /** Organization-wide totals for administrators, with every group under the minimum left out. */
@@ -130,7 +134,8 @@ const organizationActivity = (since: number): T.Task<OrganizationActivity, never
       SELECT r.member_id, n.sent_at,
         CASE WHEN EXISTS (
           SELECT 1 FROM credentials k WHERE k.member_id = r.member_id AND k.kind = 'agent'
-          AND k.created_at <= n.sent_at AND (k.revoked_at IS NULL OR k.revoked_at > n.sent_at)
+          AND k.created_at <= n.sent_at AND k.expires_at > n.sent_at
+          AND (k.revoked_at IS NULL OR k.revoked_at > n.sent_at)
         ) THEN 1 ELSE 0 END AS has_agent,
         (SELECT MIN(p.picked_at) FROM pickups p JOIN credentials k ON k.id = p.credential_id
           WHERE p.note_id = n.id AND k.member_id = r.member_id AND k.kind = 'agent') AS picked_up_at

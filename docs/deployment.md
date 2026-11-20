@@ -487,9 +487,9 @@ becoming a formality. Insights hold numbers only, never note content and never o
 - Debate results sent are shown only once at least that many people sent one in the period.
 - Each newer figure needs its own people: the typical decision time needs that many people who decided
   a draft they had seen; who wrote what is hidden whenever draft decisions are; a week of quick
-  approvals needs that many people who sent a draft as written that week; delivery needs that many
-  people with an agent connected who received a note, and its typical pickup time that many whose agent
-  picked one up.
+  approvals is hidden as the draft decisions of the same days are; delivery needs that many people
+  with an agent connected who received a note, its typical pickup time that many whose agent picked
+  one up, and its total of notes received that many people without an agent, or none.
 - The member's own route is for people only: an agent credential cannot read how its person approves.
 
 Principles that members teach their agents ([guide](guide.md#my-agent)) are private to each member and
