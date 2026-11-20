@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { extname, join, normalize, sep } from 'node:path'
 import { Task as T } from '@homingbird/kernel'
@@ -17,9 +18,9 @@ export const handleStaticRequest = (request: HttpRequest): T.Task<HttpResponse, 
       )
     if (env.config.webDirectory === null) return text(404, 'The web client is not installed on this server.')
     const asset = yield* fileWithin(env.config.webDirectory, request.path)
-    if (asset !== null) return asset
+    if (asset !== null) return unchangedSince(request, asset)
     const shell = yield* fileWithin(env.config.webDirectory, '/index.html')
-    return shell ?? text(404, 'Not found.')
+    return shell === null ? text(404, 'Not found.') : unchangedSince(request, shell)
   })
 
 export const SECURITY_HEADERS: Readonly<Record<string, string>> = {
@@ -70,19 +71,40 @@ const fileWithin = (directory: string, requestPath: string): T.Task<HttpResponse
   const relative = normalize(decodeURIComponentSafely(requestPath)).replace(/^([/\\])+/, '')
   const path = join(directory, relative === '' ? 'index.html' : relative)
   if (!path.startsWith(join(directory, sep)) || extname(path) === '') return T.succeed(null)
-  const isShell = path.endsWith('index.html') || path.endsWith('service-worker.js')
+  const extension = extname(path).toLowerCase()
   return T.map((file: Buffer | null) =>
     file === null
       ? null
-      : served(file, extname(path).toLowerCase(), isShell ? 'no-cache' : 'public, max-age=3600'),
+      : served(
+          file,
+          extension,
+          CHANGES_EACH_RELEASE.includes(extension) ? 'no-cache' : 'public, max-age=3600',
+        ),
   )(read(path))
 }
+
+/** A 304 when the browser already holds this exact file, so revalidating the web client costs no download. */
+const unchangedSince = (request: HttpRequest, response: HttpResponse): HttpResponse => {
+  const tag = response.headers.etag
+  return tag !== undefined && request.headers['if-none-match'] === tag
+    ? {
+        status: 304,
+        headers: { etag: tag, 'cache-control': response.headers['cache-control'] ?? 'no-cache' },
+        body: '',
+      }
+    : response
+}
+
+// The web client's files keep their names from one release to the next, so the browser must ask
+// again each time; otherwise it would run the previous release's script against the new server.
+const CHANGES_EACH_RELEASE: ReadonlyArray<string> = ['.html', '.js', '.css', '.webmanifest', '.json']
 
 const served = (file: Buffer, extension: string, cacheControl: string): HttpResponse => ({
   status: 200,
   headers: {
     'content-type': CONTENT_TYPES[extension] ?? 'application/octet-stream',
     'cache-control': cacheControl,
+    etag: `"${createHash('sha256').update(file).digest('base64url').slice(0, 27)}"`,
     ...SECURITY_HEADERS,
   },
   body: file,

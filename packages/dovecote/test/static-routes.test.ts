@@ -39,6 +39,31 @@ describe('the static files', () => {
     expect((await server.request('POST', '/app.js')).status).toBe(405)
   })
 
+  it('make the browser ask again for the web client’s own files, and answer 304 while they are unchanged', async () => {
+    const web = folder({
+      'index.html': '<main>app</main>',
+      'app.js': 'start()',
+      'app.css': 'main{}',
+      'font.woff2': 'f',
+    })
+    server = await startTestServer({ HB_WEB_DIR: web })
+    for (const path of ['/', '/app.js', '/app.css'])
+      expect((await server.request('GET', path)).headers['cache-control']).toBe('no-cache')
+    expect((await server.request('GET', '/font.woff2')).headers['cache-control']).toBe('public, max-age=3600')
+    const first = await server.request('GET', '/app.js')
+    const etag = first.headers.etag!
+    const again = await server.request('GET', '/app.js', { headers: { 'if-none-match': etag } })
+    expect([again.status, body(again)]).toEqual([304, ''])
+    writeFileSync(join(web, 'app.js'), 'startNextRelease()')
+    const changed = await server.request('GET', '/app.js', { headers: { 'if-none-match': etag } })
+    expect([changed.status, body(changed)]).toEqual([200, 'startNextRelease()'])
+    expect(changed.headers.etag).not.toBe(etag)
+    const page = await server.request('GET', '/c/conv_1', {
+      headers: { 'if-none-match': (await server.request('GET', '/')).headers.etag! },
+    })
+    expect(page.status).toBe(304)
+  })
+
   it('say the web client is missing when the server has none', async () => {
     server = await startTestServer()
     const missing = await server.request('GET', '/')
