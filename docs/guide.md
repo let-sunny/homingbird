@@ -99,7 +99,7 @@ to rename or revoke them are under **My agent**, **Connection**, in the header.
    checks that a Homingbird server answers before signing in. Change the server later the same way, or
    with `/plugin configure homingbird@homingbird`.
 3. Approve drafts in the web client. The pane shows each draft as **Waiting for your approval** with
-   **Open in web**, which opens its conversation there. The pane has no approve button: a credential
+   **Open in web**, which opens that draft's card in its conversation. The pane has no approve button: a credential
    that could approve, stored on the computer where your agent runs, could be read by that agent.
 4. The pane is bound to one server and signs you out of that server alone with **Sign out**. If the
    account or server it shows ever changes, the desk stops and says so; run `/homingbird` again.
@@ -722,7 +722,8 @@ shown to the people concerned and nobody else. Apart from that, whoever runs you
 3. Allow notifications when the browser asks.
 
 You are notified when a note arrives and when a draft waits for your approval, unless a Homingbird
-page is on screen: a minimised window, a background tab or a closed app counts as not looking. To check
+page is on screen: a minimised window, a background tab or a closed app counts as not looking. A
+draft's notification opens that draft's card, as `homingbird open <draft id>` does. To check
 that notifications reach this device, press **Send a test notification** under the switch; it says what
 the browser's push service answered for each of your devices.
 

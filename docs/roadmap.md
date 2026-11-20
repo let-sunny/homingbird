@@ -198,10 +198,16 @@ celebration is for a principle being saved, never for sending.
 
 ## Approving
 
-- Approve from the desk, confirmed on another device: the desk pane asks, and the person confirms on a
-  device where they signed in themself, by a push notification or the web client. Approval in the plugin
-  was removed in 0.1.0 because a credential stored next to the agent cannot be protected; this is the
-  possible way back, with the credential never on the agent's machine.
+**Built:** a deep link to each draft's card (`#/c/<conversation>?draft=<id>`), used by the draft
+notification, the desk pane's **Open in web**, `homingbird open <draft id>` and the MCP tools, with no
+new server route: the link only opens the web client, where the person signed in themself and approves
+there ([guide](guide.md#turn-on-phone-notifications)).
+
+- Confirmation on another device: the desk asks, and the person confirms on a second device. It needs
+  proof of which device confirmed, such as a WebAuthn assertion, because the server cannot tell one
+  signed-in browser from another, and an "ask my phone" route a model could call would ring a person's
+  phone at will. It waits for pilot demand; approval in the plugin was removed in 0.1.0 because a
+  credential stored next to the agent cannot be protected.
 
 ## Messaging
 
