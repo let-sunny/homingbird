@@ -1,6 +1,7 @@
 import { Schema as S } from '@homingbird/kernel'
 import { UNKNOWN } from './compatibility.ts'
 import { MemberId } from './ids.ts'
+import { AgentLabel } from './model.ts'
 
 /** Why the agents did not agree on one point: what a person does next depends on which it is. */
 export const DisagreementCategory = S.tolerant(
@@ -49,25 +50,40 @@ export type DisagreementPoint = S.Infer<typeof DisagreementPoint>
 const contributions = S.array(Contribution, { maxItems: DEBATE_PARTICIPANTS_MAX })
 const nextSteps = S.array(NextStep, { maxItems: 8 })
 
+const conclusionFields = {
+  conclusion: S.string({ minLength: 1, maxLength: 1500 }),
+  reasons: S.array(S.string({ minLength: 1, maxLength: 400 }), { minItems: 1, maxItems: 8 }),
+  contributions,
+  nextSteps,
+}
+
+const noConclusionFields = {
+  summary: S.string({ minLength: 1, maxLength: 1500 }),
+  points: S.array(DisagreementPoint, { minItems: 1, maxItems: 12 }),
+  contributions,
+  nextSteps,
+}
+
 export const UNKNOWN_RESULT = { kind: UNKNOWN } as const
 
 /** The one result of a room: a conclusion when the agents agreed, else where and why they did not. */
 export const DebateResult = S.openVariants(
   'kind',
-  {
-    conclusion: {
-      conclusion: S.string({ minLength: 1, maxLength: 1500 }),
-      reasons: S.array(S.string({ minLength: 1, maxLength: 400 }), { minItems: 1, maxItems: 8 }),
-      contributions,
-      nextSteps,
-    },
-    no_conclusion: {
-      summary: S.string({ minLength: 1, maxLength: 1500 }),
-      points: S.array(DisagreementPoint, { minItems: 1, maxItems: 12 }),
-      contributions,
-      nextSteps,
-    },
-  },
+  { conclusion: conclusionFields, no_conclusion: noConclusionFields },
   UNKNOWN_RESULT,
 )
 export type DebateResult = S.Infer<typeof DebateResult>
+
+/** A draft of the result as an agent sends it: the result, and the model the agent says it ran as. */
+export const DraftedResult = S.variants('kind', {
+  conclusion: { ...conclusionFields, model: S.optional(AgentLabel) },
+  no_conclusion: { ...noConclusionFields, model: S.optional(AgentLabel) },
+})
+export type DraftedResult = S.Infer<typeof DraftedResult>
+
+export const resultOfDraft = (
+  drafted: DraftedResult,
+): { readonly result: DebateResult; readonly model: string | null } => {
+  const { model = null, ...result } = drafted
+  return { result, model }
+}

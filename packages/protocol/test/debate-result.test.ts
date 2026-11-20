@@ -1,7 +1,7 @@
 import { arbitrary } from '@homingbird/kernel/testing'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { DebateResult } from '../src/debate-result.ts'
+import { DebateResult, DraftedResult, resultOfDraft } from '../src/debate-result.ts'
 
 describe('a debate result', () => {
   it('round-trips both kinds through JSON', () => {
@@ -41,5 +41,21 @@ describe('a debate result', () => {
     expect(DebateResult.is(withCredit('gap_filled'))).toBe(true)
     expect(DebateResult.is(withCredit('conclusion'))).toBe(false)
     expect(DebateResult.is(withCredit('won'))).toBe(false)
+  })
+
+  it('takes a drafted result apart from the model its agent stated, which only a label may be', () => {
+    fc.assert(
+      fc.property(arbitrary(DraftedResult), (drafted) => {
+        const { result, model } = resultOfDraft(drafted)
+        expect(result).not.toHaveProperty('model')
+        expect(DebateResult.decode(result)).toEqual({ _tag: 'Ok', value: result })
+        expect(model).toBe(drafted.model ?? null)
+      }),
+      { numRuns: 60 },
+    )
+    const result = { kind: 'no_conclusion', summary: 'S', points: [], contributions: [], nextSteps: [] }
+    const point = { point: 'P', category: 'goals', explanation: 'E' }
+    expect(DraftedResult.is({ ...result, points: [point], model: 'gpt-6' })).toBe(true)
+    expect(DraftedResult.is({ ...result, points: [point], model: 'gpt\n6' })).toBe(false)
   })
 })

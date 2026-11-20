@@ -1,3 +1,4 @@
+import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import { SPLIT_BASIS } from '../../src/drafting/note-reader.ts'
 import {
@@ -5,9 +6,11 @@ import {
   replyProblem,
   runnerBasisOf,
   runnerReplyIn,
+  statedModelIn,
   voteIn,
 } from '../../src/drafting/runner-reply.ts'
 import { MemberId } from '../../src/ids.ts'
+import { AGENT_LABEL_MAX } from '../../src/model.ts'
 
 describe('reading what the agent command printed', () => {
   it('reads a MODEL line, in either order with BASIS, and keeps a lone MODEL line as text', () => {
@@ -101,6 +104,60 @@ describe('reading a drafted result', () => {
     expect(debateResultIn(`\`\`\`json\n${JSON.stringify(RESULT)}\n\`\`\``)).toEqual(RESULT)
     expect(debateResultIn('{"kind":"won"}')).toBeNull()
     expect(debateResultIn('not json')).toBeNull()
+  })
+})
+
+describe('reading the model an agent stated in a debate room', () => {
+  it('splits off a last line with the exact MODEL marker and one name, cleaned to a label', () => {
+    expect(statedModelIn('My turn.\nMore of it.\nMODEL:  claude-opus-5-5 \n')).toEqual({
+      answer: 'My turn.\nMore of it.',
+      model: 'claude-opus-5-5',
+    })
+    expect(statedModelIn(`${BEN}\nMODEL: gpt\u202e-6`)).toEqual({ answer: BEN, model: 'gpt-6' })
+    expect(statedModelIn(`${BEN}\nMODEL:llama3.1:70b`)).toEqual({ answer: BEN, model: 'llama3.1:70b' })
+    expect(statedModelIn(`${BEN}\nMODEL: x`)).toEqual({ answer: BEN, model: 'x' })
+    const longest = 'm'.repeat(AGENT_LABEL_MAX)
+    expect(statedModelIn(`${BEN}\nMODEL: ${longest}`)).toEqual({ answer: BEN, model: longest })
+  })
+
+  it('keeps a last line that is not one short model name as part of the answer', () => {
+    for (const last of [
+      'Model: the hub-and-spoke one fits our traffic best.',
+      'model: claude-opus-5-5',
+      'MODEL: the hub-and-spoke one fits…',
+      'MODEL: gpt-6.',
+      'MODEL: -gpt',
+      'MODEL:',
+      'MODEL: \u0007',
+      `MODEL: ${'m'.repeat(AGENT_LABEL_MAX + 1)}`,
+    ])
+      expect(statedModelIn(`My turn.\n${last}`)).toEqual({ answer: `My turn.\n${last}`, model: null })
+  })
+
+  it('keeps a lone MODEL line, and a MODEL line before the end, as the answer', () => {
+    expect(statedModelIn('  MODEL: x  ')).toEqual({ answer: 'MODEL: x', model: null })
+    expect(statedModelIn('MODEL: x\nMy turn.')).toEqual({ answer: 'MODEL: x\nMy turn.', model: null })
+  })
+
+  it('never drops a word of a last line that has a space in what follows the marker', () => {
+    const word = fc.stringMatching(/^[A-Za-z0-9-]{1,12}$/)
+    fc.assert(
+      fc.property(fc.string(), word, fc.array(word, { minLength: 1, maxLength: 6 }), (turn, first, rest) => {
+        const output = `${turn.trim() || 'My turn.'}\nMODEL: ${[first, ...rest].join(' ')}`
+        expect(statedModelIn(output)).toEqual({ answer: output.trim(), model: null })
+      }),
+    )
+  })
+
+  it('splits off every model name that is one label of letters, digits and joining marks', () => {
+    const name = fc
+      .stringMatching(/^[a-z0-9][a-z0-9._:/@+-]{0,60}[a-z0-9]$/)
+      .filter((text) => text.length <= AGENT_LABEL_MAX)
+    fc.assert(
+      fc.property(name, (model) => {
+        expect(statedModelIn(`${BEN}\nMODEL: ${model}`)).toEqual({ answer: BEN, model })
+      }),
+    )
   })
 })
 

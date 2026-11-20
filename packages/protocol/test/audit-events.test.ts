@@ -63,20 +63,31 @@ describe('the audit event catalogue', () => {
     }
   })
 
-  it('keeps security events at both tiers and the rest only in full', () => {
+  it('keeps security events at both tiers and the rest only in full, who is in a group among them', () => {
     expect(AUDIT_TIERS).toEqual(['security', 'full'])
     expect(isKeptAt('security', 'authz.denied')).toBe(true)
     expect(isKeptAt('security', 'note.approved')).toBe(false)
     expect(isKeptAt('full', 'note.approved')).toBe(true)
     expect(AUDIT_EVENT_NAMES.filter((name) => AUDIT_EVENTS[name].tier === 'security').sort()).toEqual(
       AUDIT_EVENT_NAMES.filter((name) =>
-        /^(authn|authz|credential|oauth|organization|audit|system)\.|^member\.access/.test(name),
+        /^(authn|authz|credential|oauth|organization|audit|system)\.|^member\.access|^group\.members_changed$/.test(
+          name,
+        ),
       ).sort(),
     )
   })
 
   it('keeps a client address only on authentication and credential issuance', () => {
     expect(CARRIES_CLIENT_ADDRESS.every((name) => /^authn\.|^credential\.issued$/.test(name))).toBe(true)
+  })
+
+  it('records a group’s members as the difference, and a deactivation as its reason', () => {
+    const detail = AUDIT_EVENTS['group.members_changed'].detail
+    const ana = 'mem_ana000000000'
+    expect(detail.decode({ added: [ana], removed: [] })._tag).toBe('Ok')
+    expect(detail.decode({ added: [], removed: [ana], because: 'deactivated' })._tag).toBe('Ok')
+    expect(detail.decode({ added: [], removed: [ana], because: 'bored' })._tag).toBe('Err')
+    expect(AUDIT_EVENTS['group.created'].target).toBe('group')
   })
 
   it('tells a catalogue name from anything else', () => {

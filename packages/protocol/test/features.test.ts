@@ -21,12 +21,17 @@ describe('feature switches', () => {
   it('gives each switchable route one feature, and the core none', () => {
     expect(featureOfRoute('principles.create')).toBe('teaching')
     expect(featureOfRoute('push.subscribe')).toBe('webPush')
+    expect(featureOfRoute('groups.members.set')).toBe('groups')
+    expect(featureOfRoute('admin.groups.create')).toBe('groups')
+    expect(featureOfRoute('channels.managers.addTeam')).toBe('groups')
     for (const core of [
       'drafts.send',
       'drafts.create',
       'notes.read',
       'me.get',
       'admin.settings.put',
+      'channels.members.add',
+      'directory.list',
     ] as const)
       expect(featureOfRoute(core)).toBeNull()
     for (const name of FEATURE_NAMES)

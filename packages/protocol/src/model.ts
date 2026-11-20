@@ -2,7 +2,16 @@ import { Schema as S } from '@homingbird/kernel'
 import { ANSWERING_FLOW_MAX_CHARACTERS } from './answering-flow.ts'
 import { CharacterSpec } from './character.ts'
 import { UNKNOWN } from './compatibility.ts'
-import { ConversationId, CredentialId, DebateId, DraftRequestId, MemberId, NoteId, Timestamp } from './ids.ts'
+import {
+  ConversationId,
+  CredentialId,
+  DebateId,
+  DraftRequestId,
+  GroupId,
+  MemberId,
+  NoteId,
+  Timestamp,
+} from './ids.ts'
 
 export const NOTE_BODY_MAX = 16_000
 export const NoteBody = S.refine<string>(
@@ -75,6 +84,7 @@ export const Channel = S.struct({
   joined: S.boolean,
   answering: S.boolean,
   managing: S.boolean,
+  managedBy: GroupId,
   createdAt: Timestamp,
 })
 export type Channel = S.Infer<typeof Channel>

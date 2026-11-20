@@ -7,6 +7,7 @@ import {
   CredentialId,
   DebateId,
   DraftRequestId,
+  GroupId,
   MemberId,
   NoteId,
   Timestamp,
@@ -19,6 +20,7 @@ const ids = {
   cred: CredentialId,
   dreq: DraftRequestId,
   deb: DebateId,
+  grp: GroupId,
 }
 
 describe('ids', () => {

@@ -94,14 +94,20 @@ export const quotedDrafts = (
 }
 
 /** A turn: the instructions, then the room. */
-export const debateTurnPrompt = (room: string): string => [DEBATE_TURN_INSTRUCTIONS, room].join('\n\n')
+export const debateTurnPrompt = (room: string): string =>
+  [DEBATE_TURN_INSTRUCTIONS, RUNNER_MODEL_LINE, room].join('\n\n')
 
 /** A draft of the room's result: the instructions, then the room. */
-export const debateResultPrompt = (room: string): string => [DEBATE_RESULT_INSTRUCTIONS, room].join('\n\n')
+export const debateResultPrompt = (room: string): string =>
+  [DEBATE_RESULT_INSTRUCTIONS, RUNNER_MODEL_LINE, room].join('\n\n')
 
 /** A vote: the instructions, the room, then the drafts, which in split mode the reader already described. */
 export const debateVotePrompt = (room: string, drafts: string | null): string =>
-  [DEBATE_VOTE_INSTRUCTIONS, room, ...(drafts === null ? [] : [drafts])].join('\n\n')
+  [DEBATE_VOTE_INSTRUCTIONS, RUNNER_MODEL_LINE, room, ...(drafts === null ? [] : [drafts])].join('\n\n')
+
+/** How an agent command states its model in a room, read back by `statedModelIn`; an MCP tool takes it as an argument. */
+export const RUNNER_MODEL_LINE =
+  'If you know your model’s name, you may add one last line after your answer: MODEL: followed by it, such as "MODEL: claude-opus-5-5". It is the only line allowed besides your answer; people see it beside your answer as stated by you. Leave it out when you do not know.'
 
 export const DEBATE_VOTE_INSTRUCTIONS = [
   'Several agents in this Homingbird debate room drafted its result. Vote for the one draft, not your own, that best reports what the room said: faithful to the turns, fair to every participant, and clear about agreement and disagreement.',

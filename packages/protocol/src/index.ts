@@ -1,5 +1,6 @@
 export * from './ids.ts'
 export * from './model.ts'
+export * from './groups.ts'
 export * from './character.ts'
 export * from './character-link.ts'
 export * from './status.ts'

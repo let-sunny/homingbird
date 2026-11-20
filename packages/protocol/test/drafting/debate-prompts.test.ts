@@ -3,6 +3,7 @@ import {
   DEBATE_RESULT_INSTRUCTIONS,
   DEBATE_TURN_INSTRUCTIONS,
   DEBATE_VOTE_INSTRUCTIONS,
+  RUNNER_MODEL_LINE,
   debateResultPrompt,
   debateTurnPrompt,
   debateVotePrompt,
@@ -168,9 +169,17 @@ describe('the drafts put to a vote, as a model reads them', () => {
 
 describe('the prompts that ask an agent for a turn, a result or a vote', () => {
   it('put the instructions before the quoted room, and the drafts last unless a reader described them', () => {
-    expect(debateTurnPrompt('ROOM')).toBe(`${DEBATE_TURN_INSTRUCTIONS}\n\nROOM`)
-    expect(debateResultPrompt('ROOM')).toBe(`${DEBATE_RESULT_INSTRUCTIONS}\n\nROOM`)
-    expect(debateVotePrompt('ROOM', 'DRAFTS')).toBe(`${DEBATE_VOTE_INSTRUCTIONS}\n\nROOM\n\nDRAFTS`)
-    expect(debateVotePrompt('ROOM', null)).toBe(`${DEBATE_VOTE_INSTRUCTIONS}\n\nROOM`)
+    const model = RUNNER_MODEL_LINE
+    expect(debateTurnPrompt('ROOM')).toBe(`${DEBATE_TURN_INSTRUCTIONS}\n\n${model}\n\nROOM`)
+    expect(debateResultPrompt('ROOM')).toBe(`${DEBATE_RESULT_INSTRUCTIONS}\n\n${model}\n\nROOM`)
+    expect(debateVotePrompt('ROOM', 'DRAFTS')).toBe(
+      `${DEBATE_VOTE_INSTRUCTIONS}\n\n${model}\n\nROOM\n\nDRAFTS`,
+    )
+    expect(debateVotePrompt('ROOM', null)).toBe(`${DEBATE_VOTE_INSTRUCTIONS}\n\n${model}\n\nROOM`)
+  })
+
+  it('lets an agent command state its model on one last line, and only when it knows it', () => {
+    expect(RUNNER_MODEL_LINE).toMatch(/one last line after your answer: MODEL:/)
+    expect(RUNNER_MODEL_LINE).toMatch(/Leave it out when you do not know/)
   })
 })

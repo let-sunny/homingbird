@@ -24,9 +24,12 @@ export interface ExportLabels {
   readonly none: string
   readonly turns: string
   readonly noTurns: string
-  readonly turnHeading: (position: number, person: string, agent: string, at: string) => string
+  readonly turnHeading: (position: number, person: string, agent: string, model: string, at: string) => string
+  /** A model the agent did not state. */
+  readonly modelNotStated: string
   readonly result: string
   readonly noResult: string
+  readonly draftedBy: (person: string, model: string) => string
   readonly conclusion: string
   readonly noConclusion: string
   readonly reasons: string
@@ -40,7 +43,8 @@ export interface ExportLabels {
   readonly credits: Readonly<Record<ClaimedCredit, string>>
   readonly listSeparator: string
   readonly vote: string
-  readonly votedFor: (voter: string, author: string) => string
+  /** With the model the voter stated, in an export; without it, for a model reading the room. */
+  readonly votedFor: (voter: string, author: string, model?: string) => string
   readonly droppedOutWithoutVote: (person: string) => string
   readonly didNotVote: (person: string) => string
   readonly noVote: string
@@ -67,9 +71,12 @@ const en: ExportLabels = {
   none: 'none',
   turns: 'Turns',
   noTurns: 'No turns were taken.',
-  turnHeading: (position, person, agent, at) => `${position}. ${person}’s agent (${agent}), ${at}`,
+  turnHeading: (position, person, agent, model, at) =>
+    `${position}. ${person}’s agent (${agent}; model: ${model}), ${at}`,
+  modelNotStated: 'not stated',
   result: 'Result',
   noResult: 'No result was drafted.',
+  draftedBy: (person, model) => `Drafted by ${person}’s agent (model: ${model})`,
   conclusion: 'Result: conclusion',
   noConclusion: 'Result: no conclusion',
   reasons: 'Reasons',
@@ -92,7 +99,10 @@ const en: ExportLabels = {
   },
   listSeparator: ', ',
   vote: 'Vote',
-  votedFor: (voter, author) => `${voter}’s agent voted for ${author}’s draft`,
+  votedFor: (voter, author, model) =>
+    model === undefined
+      ? `${voter}’s agent voted for ${author}’s draft`
+      : `${voter}’s agent (model: ${model}) voted for ${author}’s draft`,
   droppedOutWithoutVote: (person) => `${person}’s agent dropped out of the debate and did not vote`,
   didNotVote: (person) => `${person}’s agent did not vote in time`,
   noVote: 'No vote was held: the result was the only draft.',
@@ -119,9 +129,12 @@ const ko: ExportLabels = {
   none: '없음',
   turns: '차례',
   noTurns: '차례가 없었어요.',
-  turnHeading: (position, person, agent, at) => `${position}. ${person} 님의 에이전트 (${agent}), ${at}`,
+  turnHeading: (position, person, agent, model, at) =>
+    `${position}. ${person} 님의 에이전트 (${agent}; 모델: ${model}), ${at}`,
+  modelNotStated: '밝히지 않음',
   result: '결과',
   noResult: '작성된 결과가 없어요.',
+  draftedBy: (person, model) => `${person} 님의 에이전트가 쓴 초안 (모델: ${model})`,
   conclusion: '결과: 결론',
   noConclusion: '결과: 결론 없음',
   reasons: '이유',
@@ -144,7 +157,10 @@ const ko: ExportLabels = {
   },
   listSeparator: ', ',
   vote: '투표',
-  votedFor: (voter, author) => `${voter} 님의 에이전트가 ${author} 님의 초안에 투표했어요`,
+  votedFor: (voter, author, model) =>
+    model === undefined
+      ? `${voter} 님의 에이전트가 ${author} 님의 초안에 투표했어요`
+      : `${voter} 님의 에이전트(모델: ${model})가 ${author} 님의 초안에 투표했어요`,
   droppedOutWithoutVote: (person) => `${person} 님의 에이전트는 토론에서 이탈해 투표하지 않았어요`,
   didNotVote: (person) => `${person} 님의 에이전트는 시간 안에 투표하지 않았어요`,
   noVote: '초안이 하나뿐이라 투표하지 않았어요.',

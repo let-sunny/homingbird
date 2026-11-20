@@ -66,7 +66,7 @@ describe('contract', () => {
       if (route.query !== undefined) expect(Schema.struct(route.query).decode({}).constructor).toBeDefined()
   })
 
-  it('reserves approval, contacts, blocks, channel membership, credentials and administration for people', () => {
+  it('reserves approval, contacts, blocks, channel membership, groups, credentials and administration for people', () => {
     expect([...humanOnlyRoutes].sort()).toEqual(
       [
         'me.update',
@@ -80,8 +80,11 @@ describe('contract', () => {
         'channels.visibility.set',
         'channels.members.add',
         'channels.members.remove',
-        'channels.managers.add',
-        'channels.managers.remove',
+        'channels.managers.addTeam',
+        'groups.rename',
+        'groups.members.set',
+        'admin.groups.create',
+        'admin.groups.delete',
         'admin.channels.update',
         'admin.channels.archive',
         'contacts.list',
@@ -141,6 +144,8 @@ describe('contract', () => {
         'channels.list',
         'channels.get',
         'channels.members.list',
+        'groups.list',
+        'groups.get',
         'conversations.list',
         'conversations.get',
         'conversations.notes',

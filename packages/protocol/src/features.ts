@@ -4,6 +4,18 @@ import type { RouteName } from './contract.ts'
 /** Optional features, their defaults and routes. Notes, drafts, approval, sign-in and audit have no switch. */
 export const FEATURES = {
   channels: { default: true, routes: ['channels.create'] },
+  groups: {
+    default: true,
+    routes: [
+      'groups.list',
+      'groups.get',
+      'groups.rename',
+      'groups.members.set',
+      'channels.managers.addTeam',
+      'admin.groups.create',
+      'admin.groups.delete',
+    ],
+  },
   draftRequests: {
     default: true,
     routes: ['draftRequests.create', 'draftRequests.cancel', 'draftRequests.list'],

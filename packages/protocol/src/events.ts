@@ -1,6 +1,6 @@
 import { Schema as S } from '@homingbird/kernel'
 import { UNKNOWN } from './compatibility.ts'
-import { ConversationId, DebateId, MemberId, NoteId } from './ids.ts'
+import { ConversationId, DebateId, GroupId, MemberId, NoteId } from './ids.ts'
 import { Channel, ChannelSlug, DraftRequest, Note, RELEASE_REASON_MAX, Receipt } from './model.ts'
 
 /** What a client reads in place of an event of a kind that a newer server added; a client skips it. */
@@ -35,6 +35,7 @@ export const EventBody = S.openVariants(
     'channel.changed': { channel: Channel },
     'channel.left': { slug: ChannelSlug, conversationId: ConversationId },
     'debate.changed': { debateId: DebateId, participantIds: S.array(MemberId, { maxItems: 8 }) },
+    'group.changed': { groupId: GroupId },
     resync: {},
   },
   UNKNOWN_EVENT,
@@ -49,8 +50,14 @@ export const StreamEvent = S.struct({
 })
 export type StreamEvent = S.Infer<typeof StreamEvent>
 
-/** A room's change carries no content and is not stored: a client reads the room through the API. */
-const EPHEMERAL: ReadonlyArray<EventType> = ['presence', 'directory.changed', 'debate.changed', 'resync']
+/** A room's or a group's change carries no content and is not stored: a client reads it through the API. */
+const EPHEMERAL: ReadonlyArray<EventType> = [
+  'presence',
+  'directory.changed',
+  'debate.changed',
+  'group.changed',
+  'resync',
+]
 
 export const isDurable = (type: EventType): boolean => !EPHEMERAL.includes(type)
 

@@ -14,6 +14,8 @@ export const debateMarkdown = (
   labels: ExportLabels = exportLabelsIn(null),
 ): string => {
   const name = (id: MemberId) => MARKDOWN.inline(nameOf(id))
+  const model = (stated: string | null | undefined) =>
+    stated == null ? labels.modelNotStated : MARKDOWN.inline(stated)
   const ending = debate.endedBecause === null ? '' : ` (${labels.endings[debate.endedBecause]})`
   return [
     `# ${labels.title(MARKDOWN.inline(debate.question))}`,
@@ -34,14 +36,17 @@ export const debateMarkdown = (
       ? [labels.noTurns]
       : debate.turns.map(
           (turn) =>
-            `### ${labels.turnHeading(turn.position, name(turn.memberId), MARKDOWN.inline(turn.agentName), isoOf(turn.at))}\n\n${MARKDOWN.block(turn.body)}`,
+            `### ${labels.turnHeading(turn.position, name(turn.memberId), MARKDOWN.inline(turn.agentName), model(turn.agentModel), isoOf(turn.at))}\n\n${MARKDOWN.block(turn.body)}`,
         )),
     ...(debate.result === null
       ? [`## ${labels.result}`, labels.noResult]
-      : resultIn(MARKDOWN, labels, debate.result.result, nameOf)),
+      : draftedResultIn(debate, debate.result, nameOf, labels, model)),
     ...(debate.voteRecord == null
       ? []
-      : [`## ${labels.vote}`, voteLines(debate.voteRecord, debate, name, labels)]),
+      : [
+          `## ${labels.vote}`,
+          voteLines(debate.voteRecord, debate, name, labels, (vote) => model(vote.agentModel)),
+        ]),
   ].join('\n\n')
 }
 
@@ -54,9 +59,12 @@ export const voteLines = (
   },
   name: (id: MemberId) => string,
   labels: ExportLabels,
+  modelOf?: (vote: DebateVoteRecord['votes'][number]) => string,
 ): string => {
   if (record.votes.length === 0 && (debate.drafts ?? []).length <= 1) return labels.noVote
-  const voted = record.votes.map((vote) => `- ${labels.votedFor(name(vote.voterId), name(vote.draftBy))}`)
+  const voted = record.votes.map(
+    (vote) => `- ${labels.votedFor(name(vote.voterId), name(vote.draftBy), modelOf?.(vote))}`,
+  )
   const silent = debate.participants
     .map((one) => one.memberId)
     .filter((id) => !record.votes.some((vote) => vote.voterId === id))
@@ -84,16 +92,25 @@ export const debateJson = (debate: Debate, nameOf: (id: MemberId) => string): st
         position: turn.position,
         participant: nameOf(turn.memberId),
         agent: turn.agentName,
+        model: turn.agentModel ?? null,
         at: isoOf(turn.at),
         text: turn.body,
       })),
-      result: debate.result === null ? null : namedResult(debate.result.result, nameOf),
+      result:
+        debate.result === null
+          ? null
+          : {
+              draftedBy: nameOf(debate.result.draftedBy),
+              model: winningDraftOf(debate, debate.result)?.agentModel ?? null,
+              ...namedResult(debate.result.result, nameOf),
+            },
       vote:
         debate.voteRecord == null
           ? null
           : {
               votes: debate.voteRecord.votes.map((vote) => ({
                 voter: nameOf(vote.voterId),
+                model: vote.agentModel ?? null,
                 votedFor: nameOf(vote.draftBy),
               })),
               droppedOut: debate.voteRecord.droppedOut.map(nameOf),
@@ -137,7 +154,7 @@ const oneLine = (text: string): string => text.replace(/\s+/g, ' ').trim()
 
 const MARKDOWN: Style = {
   heading: (level, text) => `${'#'.repeat(level)} ${text}`,
-  inline: (text) => escapeMarkdown(oneLine(text)),
+  inline: (text) => escapeMarkdown(oneLine(text)).replace(/^-/, '\\-'),
   block: (text) =>
     text
       .replace(LINE_BREAKS, '\n')
@@ -198,6 +215,26 @@ const resultIn = (
       .join('\n')}`,
   ]
 }
+
+/** The result's sections, its heading first and then which agent drafted it with the model it stated. */
+const draftedResultIn = (
+  debate: Debate,
+  settled: NonNullable<Debate['result']>,
+  nameOf: (id: MemberId) => string,
+  labels: ExportLabels,
+  model: (stated: string | null | undefined) => string,
+): string[] => {
+  const [heading, ...sections] = resultIn(MARKDOWN, labels, settled.result, nameOf)
+  const drafted = labels.draftedBy(
+    MARKDOWN.inline(nameOf(settled.draftedBy)),
+    model(winningDraftOf(debate, settled)?.agentModel),
+  )
+  return [heading!, drafted, ...sections]
+}
+
+/** The draft the result was chosen from, among this round's drafts. */
+const winningDraftOf = (debate: Debate, settled: NonNullable<Debate['result']>) =>
+  (debate.drafts ?? []).find((draft) => draft.draftedBy === settled.draftedBy)
 
 const namedResult = (result: DebateResult, nameOf: (id: MemberId) => string) => ({
   ...result,

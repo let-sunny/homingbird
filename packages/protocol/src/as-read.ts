@@ -13,6 +13,7 @@ import type {
   DebateSummary as DebateSummarySchema,
 } from './debates.ts'
 import type { StreamEvent as StreamEventSchema } from './events.ts'
+import type { Group as GroupSchema } from './groups.ts'
 import type {
   AgentFigures as AgentFiguresSchema,
   AgentPeriod as AgentPeriodSchema,
@@ -52,6 +53,7 @@ export type DirectoryEntry = S.Read<typeof DirectoryEntrySchema>
 export type Contact = S.Read<typeof ContactSchema>
 export type Credential = S.Read<typeof CredentialSchema>
 export type Channel = S.Read<typeof ChannelSchema>
+export type Group = S.Read<typeof GroupSchema>
 export type Settings = S.Read<typeof SettingsSchema>
 export type StreamEvent = S.Read<typeof StreamEventSchema>
 export type EventBody = StreamEvent['body']

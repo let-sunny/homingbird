@@ -3,6 +3,7 @@ import { UNKNOWN } from './compatibility.ts'
 import { DEBATE_GRACE_MINUTES } from './debate-grace.ts'
 import { DEBATE_PARTICIPANTS_MAX, DebateResult } from './debate-result.ts'
 import { CredentialId, DebateId, MemberId, Timestamp } from './ids.ts'
+import { AgentLabel } from './model.ts'
 
 export const DEBATE_QUESTION_MAX = 500
 export const DebateQuestion = S.string({ minLength: 1, maxLength: DEBATE_QUESTION_MAX })
@@ -56,6 +57,8 @@ export const DebateTurn = S.struct({
   agentName: S.string({ maxLength: 200 }),
   body: S.string({ maxLength: DEBATE_TURN_MAX }),
   at: Timestamp,
+  /** The model the agent said it ran as, shown to people as stated; null when it said none. */
+  agentModel: S.optional(S.nullable(AgentLabel)),
 })
 export type DebateTurn = S.Infer<typeof DebateTurn>
 
@@ -70,7 +73,10 @@ export type DebateEndingDetail = Extract<DebateEnding, 'one_agent_left' | 'no_ag
 
 /** Shown once the room closed: who voted for whose draft, and who had dropped out. */
 export const DebateVoteRecord = S.struct({
-  votes: S.array(S.struct({ voterId: MemberId, draftBy: MemberId }), { maxItems: DEBATE_PARTICIPANTS_MAX }),
+  votes: S.array(
+    S.struct({ voterId: MemberId, draftBy: MemberId, agentModel: S.optional(S.nullable(AgentLabel)) }),
+    { maxItems: DEBATE_PARTICIPANTS_MAX },
+  ),
   droppedOut: S.array(MemberId, { maxItems: DEBATE_PARTICIPANTS_MAX }),
 })
 export type DebateVoteRecord = S.Infer<typeof DebateVoteRecord>
@@ -80,6 +86,7 @@ export const DebateResultDraft = S.struct({
   draftedAt: Timestamp,
   result: DebateResult,
   votes: S.nullable(S.int({ min: 0 })),
+  agentModel: S.optional(S.nullable(AgentLabel)),
 })
 export type DebateResultDraft = S.Infer<typeof DebateResultDraft>
 
@@ -131,7 +138,12 @@ export type DebateAsk = S.Infer<typeof DebateAsk>
 export const DebateEnded = S.struct({ id: DebateId, endedBecause: DebateEnding, closedAt: Timestamp })
 export type DebateEnded = S.Infer<typeof DebateEnded>
 
-export const DebateVote = S.struct({ round: S.int({ min: 0 }), draftBy: MemberId })
+/** A vote as an agent casts it, with the model it says it ran as. */
+export const DebateVote = S.struct({
+  round: S.int({ min: 0 }),
+  draftBy: MemberId,
+  model: S.optional(AgentLabel),
+})
 export type DebateVote = S.Infer<typeof DebateVote>
 
 export const DebateExportFormat = S.literal('markdown', 'json')

@@ -1,7 +1,8 @@
 import { Schema as S } from '@homingbird/kernel'
 import { CLIENT_KIND } from './client-kinds.ts'
 import { DebateExportFormat, DebateLimits, DebateVisibility } from './debates.ts'
-import { ConversationId, CredentialId, MemberId, NoteId } from './ids.ts'
+import { GROUP_MEMBERS_MAX } from './groups.ts'
+import { ConversationId, CredentialId, GroupId, MemberId, NoteId } from './ids.ts'
 import { ChannelSlug, ChannelVisibility, ContactMode, CredentialKind, MemberStatus, Role } from './model.ts'
 import { PrincipleKind } from './principles.ts'
 
@@ -57,6 +58,11 @@ export const AUDIT_EVENTS = {
   'system.migrated': event('security', 'none', {
     steps: S.array(S.int({ min: 1 }), { maxItems: 100 }),
   }),
+  'group.members_changed': event('security', 'group', {
+    added: S.array(MemberId, { maxItems: GROUP_MEMBERS_MAX }),
+    removed: S.array(MemberId, { maxItems: GROUP_MEMBERS_MAX }),
+    because: S.optional(S.literal('deactivated')),
+  }),
 
   'note.approved': event('full', 'note', { conversationId: ConversationId, edited: S.boolean }),
   'note.discarded': event('full', 'note', { conversationId: ConversationId }),
@@ -72,8 +78,12 @@ export const AUDIT_EVENTS = {
   'channel.left': event('full', 'channel', {}),
   'channel.member_added': event('full', 'channel', { memberId: MemberId }),
   'channel.member_removed': event('full', 'channel', { memberId: MemberId }),
+  /** Recorded by no route: kept so that rows already in the trail still read. */
   'channel.manager_added': event('full', 'channel', { memberId: MemberId }),
   'channel.manager_removed': event('full', 'channel', { memberId: MemberId }),
+  'group.created': event('full', 'group', { memberCount: S.int({ min: 0 }) }),
+  'group.renamed': event('full', 'group', {}),
+  'group.deleted': event('full', 'group', {}),
   'channel.answering_changed': event('full', 'channel', { on: S.boolean }),
   'channel.renamed': event('full', 'channel', {
     fields: S.array(S.literal('slug', 'description'), { maxItems: 2 }),
@@ -137,6 +147,7 @@ export type AuditTargetKind =
   | 'oauth_client'
   | 'note'
   | 'channel'
+  | 'group'
   | 'principle'
   | 'debate'
   | 'organization'

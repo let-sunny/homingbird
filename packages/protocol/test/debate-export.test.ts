@@ -48,19 +48,48 @@ describe('exporting a debate room', () => {
     expect(text).toContain('- Created: 2026-11-02T09:00:00.000Z by Ana')
     expect(text).toContain('- Participants: Ana (agent: Laptop), Ben (agent: Desk)')
     expect(text).toContain(
-      '### 1. Ana’s agent (Laptop), 2026-11-02T09:05:00.000Z\n\n> The March report\n> says the rollback failed.',
+      '### 1. Ana’s agent (Laptop; model: not stated), 2026-11-02T09:05:00.000Z\n\n> The March report\n> says the rollback failed.',
     )
     expect(text).toContain(
-      '## Result: conclusion\n\n> Ship on Thursday.\n\n### Reasons\n\n- The rollback is tested.',
+      '## Result: conclusion\n\nDrafted by Ana’s agent (model: not stated)\n\n> Ship on Thursday.\n\n### Reasons\n\n- The rollback is tested.',
     )
     expect(text).toContain('- Share the rollback plan. (owner: Ben; proposed by Ana’s agent)')
     expect(text).toContain('- Decide the date. (owner: not named; proposed by Ben’s agent)')
     expect(text).toContain('- Ana’s agent: Named the March report. (filled a gap)')
     expect(text).toContain('- Ben’s agent: Changed position.\n')
     expect(text).toContain(
-      '## Vote\n\n- Ben’s agent voted for Ana’s draft\n- Ana’s agent did not vote in time',
+      '## Vote\n\n- Ben’s agent (model: not stated) voted for Ana’s draft\n- Ana’s agent did not vote in time',
     )
     expect(text).not.toContain(ANA)
+  })
+
+  it('names the model each agent stated beside its turn, its draft and its vote', () => {
+    const room = roomOf()
+    const stated = roomOf({
+      turns: room.turns.map((turn) => ({
+        ...turn,
+        agentModel: turn.memberId === ANA ? 'claude-opus-5-5' : null,
+      })),
+      drafts: [
+        { draftedBy: ANA, draftedAt: 3, result: room.result!.result, votes: 1, agentModel: 'gpt-6' },
+        { draftedBy: BEN, draftedAt: 4, result: room.result!.result, votes: 0, agentModel: 'model-b' },
+      ],
+      voteRecord: { votes: [{ voterId: BEN, draftBy: ANA, agentModel: 'gemini 4' }], droppedOut: [] },
+    })
+    const text = debateMarkdown(stated, nameOf)
+    expect(text).toContain('### 1. Ana’s agent (Laptop; model: claude-opus-5-5), ')
+    expect(text).toContain('### 2. Ben’s agent (Desk; model: not stated), ')
+    expect(text).toContain('## Result: conclusion\n\nDrafted by Ana’s agent (model: gpt-6)\n\n')
+    expect(text).toContain('- Ben’s agent (model: gemini 4) voted for Ana’s draft')
+    const korean = debateMarkdown(stated, nameOf, exportLabelsIn('ko'))
+    expect(korean).toContain('### 2. Ben 님의 에이전트 (Desk; 모델: 밝히지 않음), ')
+    expect(korean).toContain('Ana 님의 에이전트가 쓴 초안 (모델: gpt-6)')
+    expect(korean).toContain('- Ben 님의 에이전트(모델: gemini 4)가 Ana 님의 초안에 투표했어요')
+    const json = JSON.parse(debateJson(stated, nameOf))
+    expect(json.turns.map((turn: { model: string | null }) => turn.model)).toEqual(['claude-opus-5-5', null])
+    expect(json.result).toMatchObject({ draftedBy: 'Ana', model: 'gpt-6' })
+    expect(json.vote.votes).toEqual([{ voter: 'Ben', model: 'gemini 4', votedFor: 'Ana' }])
+    expect(JSON.parse(debateJson(roomOf(), nameOf)).result).toMatchObject({ draftedBy: 'Ana', model: null })
   })
 
   it('writes a "no conclusion" analysis per point, and says what is missing', () => {
@@ -74,7 +103,9 @@ describe('exporting a debate room', () => {
       }),
       nameOf,
     )
-    expect(text).toContain('## Result: no conclusion\n\n> They did not agree.')
+    expect(text).toContain(
+      '## Result: no conclusion\n\nDrafted by Ben’s agent (model: not stated)\n\n> They did not agree.',
+    )
     expect(text).toContain('- Risk (open question): Nobody knew the load.')
     expect(text).toContain('### Next steps\n\nNone proposed.')
     expect(text).toContain('(separated a disagreement)')
@@ -100,7 +131,7 @@ describe('exporting a debate room', () => {
       nameOf,
     )
     expect(dropped).toContain(
-      '- Ana’s agent voted for Ben’s draft\n- Ben’s agent dropped out of the debate and did not vote',
+      '- Ana’s agent (model: not stated) voted for Ben’s draft\n- Ben’s agent dropped out of the debate and did not vote',
     )
   })
 
@@ -127,6 +158,22 @@ describe('exporting a debate room', () => {
     expect(quoted).toContain('> Title\n> \\=\n> \\-\t-')
   })
 
+  it('escapes a leading dash in a list item, so a reason of dashes makes no thematic break', () => {
+    const conclusion = { kind: 'conclusion', conclusion: 'Ship.', contributions: [], nextSteps: [] } as const
+    const text = debateMarkdown(
+      roomOf({
+        result: {
+          result: { ...conclusion, reasons: ['--', '- -', '-5% churn'] },
+          draftedBy: ANA,
+          draftedAt: 2,
+        },
+      }),
+      nameOf,
+    )
+    expect(text).toContain('- \\--\n- \\- -\n- \\-5% churn')
+    expect(unescaped(text)).not.toMatch(/^(?:> ?)*(?:[-*_] *){3,}$/m)
+  })
+
   it('lets no text a person or agent wrote add a heading, an HTML tag or a link but http(s), in either language', () => {
     const HEADINGS = {
       en: /^#{1,3} (?:Debate room: |Turns$|Result|Vote$|Reasons$|Where they disagreed$|Next steps$|Contributions$|\d+\. )/,
@@ -138,12 +185,16 @@ describe('exporting a debate room', () => {
         HOSTILE,
         arbitrary(DebateResult),
         fc.constantFrom<Locale>('en', 'ko'),
-        (question, turn, result, language) => {
+        HOSTILE,
+        (question, turn, result, language, model) => {
+          const settled = { ...result, contributions: [] }
           const text = debateMarkdown(
             roomOf({
               question,
-              turns: [{ position: 1, memberId: ANA, agentName: turn, body: turn, at: 1 }],
-              result: { result: { ...result, contributions: [] }, draftedBy: ANA, draftedAt: 2 },
+              turns: [{ position: 1, memberId: ANA, agentName: turn, body: turn, at: 1, agentModel: model }],
+              result: { result: settled, draftedBy: ANA, draftedAt: 2 },
+              drafts: [{ draftedBy: ANA, draftedAt: 2, result: settled, votes: 1, agentModel: model }],
+              voteRecord: { votes: [{ voterId: BEN, draftBy: ANA, agentModel: model }], droppedOut: [] },
             }),
             () => turn,
             exportLabelsIn(language),
@@ -168,12 +219,12 @@ describe('exporting a debate room', () => {
     expect(text).toContain('- 상태: 닫힘')
     expect(text).toContain('- 만든 때: 2026-11-02T09:00:00.000Z, 만든 사람: Ana')
     expect(text).toContain('- 참여자: Ana (에이전트: Laptop), Ben (에이전트: Desk)')
-    expect(text).toContain('### 1. Ana 님의 에이전트 (Laptop), 2026-11-02T09:05:00.000Z')
+    expect(text).toContain('### 1. Ana 님의 에이전트 (Laptop; 모델: 밝히지 않음), 2026-11-02T09:05:00.000Z')
     expect(text).toContain('## 결과: 결론')
     expect(text).toContain('- Share the rollback plan. (담당: Ben; 제안: Ana 님의 에이전트)')
     expect(text).toContain('- Decide the date. (담당: 정하지 않음; 제안: Ben 님의 에이전트)')
     expect(text).toContain('- Ana 님의 에이전트: Named the March report. (빠진 정보를 채웠어요)')
-    expect(text).toContain('## 투표\n\n- Ben 님의 에이전트가 Ana 님의 초안에 투표했어요')
+    expect(text).toContain('## 투표\n\n- Ben 님의 에이전트(모델: 밝히지 않음)가 Ana 님의 초안에 투표했어요')
     expect(text).not.toMatch(/Debate room|Turns|Vote/)
     const ended = debateMarkdown(
       roomOf({ status: 'ended', endedBecause: 'one_agent_left', result: null, turns: [], voteRecord: null }),
@@ -235,7 +286,7 @@ describe('exporting a debate room', () => {
       vote: null,
     })
     expect(JSON.parse(debateJson(roomOf(), nameOf)).vote).toEqual({
-      votes: [{ voter: 'Ben', votedFor: 'Ana' }],
+      votes: [{ voter: 'Ben', model: null, votedFor: 'Ana' }],
       droppedOut: [],
     })
   })

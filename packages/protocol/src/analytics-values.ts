@@ -3,6 +3,7 @@ export const ANALYTICS_PAGES = [
   'home',
   'conversation',
   'people',
+  'group',
   'channels',
   'channel',
   'debates',

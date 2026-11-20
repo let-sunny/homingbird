@@ -1,5 +1,5 @@
 import { DebateResult } from '../debate-result.ts'
-import { NOTE_BASIS_MAX, NoteBody, RELEASE_REASON_MAX, agentLabelOf } from '../model.ts'
+import { AGENT_LABEL_MAX, NOTE_BASIS_MAX, NoteBody, RELEASE_REASON_MAX, agentLabelOf } from '../model.ts'
 import { APPLIED_PREFIX } from '../principles.ts'
 import { jsonIn } from './debate-reader.ts'
 import { SPLIT_BASIS } from './note-reader.ts'
@@ -56,6 +56,15 @@ export const runnerBasisOf = (reply: DraftReply, isSplit: boolean): { basis?: st
   return reply.basis === null ? {} : { basis: reply.basis }
 }
 
+/** A room answer apart from a last line of exactly `MODEL:` and one name, as `RUNNER_MODEL_LINE` asks. */
+export const statedModelIn = (output: string): { readonly answer: string; readonly model: string | null } => {
+  const lines = output.trim().split('\n')
+  const stated = lines.length > 1 ? /^MODEL:(.*)$/.exec(lines.at(-1)!.trim()) : null
+  const model = stated === null ? null : modelNameIn(stated[1]!)
+  if (model === null) return { answer: output.trim(), model: null }
+  return { answer: lines.slice(0, -1).join('\n').trim(), model }
+}
+
 /** The result an agent printed, or null for anything but one JSON object in a result's shape. */
 export const debateResultIn = (output: string): DebateResult | null => {
   const decoded = DebateResult.decode(jsonIn(output))
@@ -67,3 +76,10 @@ export const voteIn = <C extends string>(output: string, choices: ReadonlyArray<
   const chosen = output.trim().replace(/^["'`]+|["'`.]+$/g, '')
   return choices.find((choice) => choice === chosen) ?? null
 }
+
+const modelNameIn = (text: string): string | null => {
+  const name = text.replace(/[\p{Cc}\p{Cf}]/gu, '').trim()
+  return name.length <= AGENT_LABEL_MAX && MODEL_NAME.test(name) ? name : null
+}
+
+const MODEL_NAME = /^[\p{L}\p{N}](?:[\p{L}\p{N}._:/@+-]*[\p{L}\p{N}])?$/u

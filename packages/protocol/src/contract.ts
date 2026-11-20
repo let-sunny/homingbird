@@ -12,7 +12,7 @@ import {
   Recipients,
   ServerInfo,
 } from './contract-schemas.ts'
-import { DebateResult } from './debate-result.ts'
+import { DraftedResult } from './debate-result.ts'
 import {
   DEBATE_INVITEES_MAX,
   DEBATE_TURN_MAX,
@@ -29,7 +29,8 @@ import {
 } from './debates.ts'
 import type { ApiError } from './errors.ts'
 import { StreamEvent } from './events.ts'
-import { ConversationId, CredentialId, DraftRequestId, MemberId, NoteId } from './ids.ts'
+import { GROUP_MEMBERS_MAX, Group, GroupName } from './groups.ts'
+import { ConversationId, CredentialId, DraftRequestId, GroupId, MemberId, NoteId } from './ids.ts'
 import { AgentReport, OrganizationInsights, PlaceName } from './insights.ts'
 import {
   AgentLabel,
@@ -83,6 +84,7 @@ export const PushSubscription = S.struct({
 export type PushSubscription = S.Infer<typeof PushSubscription>
 
 const ChannelDescription = S.string({ minLength: 1, maxLength: CHANNEL_DESCRIPTION_MAX })
+const GroupMembers = S.array(MemberId, { maxItems: GROUP_MEMBERS_MAX })
 
 export const contract = {
   'server.info': route({ method: 'GET', path: '/info', access: 'public', response: ServerInfo }),
@@ -111,7 +113,11 @@ export const contract = {
     method: 'GET',
     path: '/directory',
     access: 'member',
-    query: { q: S.optional(S.string({ maxLength: 200 })), channel: S.optional(ChannelSlug) },
+    query: {
+      q: S.optional(S.string({ maxLength: 200 })),
+      channel: S.optional(ChannelSlug),
+      group: S.optional(GroupId),
+    },
     response: S.struct({ entries: S.array(DirectoryEntry) }),
   }),
   'channels.list': route({
@@ -187,18 +193,36 @@ export const contract = {
     access: 'human',
     response: Channel,
   }),
-  'channels.managers.add': route({
+  'channels.managers.addTeam': route({
     method: 'PUT',
-    path: '/channels/:slug/managers/:memberId',
+    path: '/channels/:slug/managers/team',
     access: 'human',
+    body: S.struct({ groupId: GroupId }),
     response: Channel,
   }),
-  'channels.managers.remove': route({
-    method: 'DELETE',
-    path: '/channels/:slug/managers/:memberId',
-    access: 'human',
-    response: Channel,
+
+  'groups.list': route({
+    method: 'GET',
+    path: '/groups',
+    access: 'member',
+    response: S.struct({ groups: S.array(Group) }),
   }),
+  'groups.get': route({ method: 'GET', path: '/groups/:id', access: 'member', response: Group }),
+  'groups.rename': route({
+    method: 'PATCH',
+    path: '/groups/:id',
+    access: 'human',
+    body: S.struct({ name: GroupName }),
+    response: Group,
+  }),
+  'groups.members.set': route({
+    method: 'PUT',
+    path: '/groups/:id/members',
+    access: 'human',
+    body: S.struct({ memberIds: GroupMembers }),
+    response: Group,
+  }),
+
   'contacts.list': route({
     method: 'GET',
     path: '/contacts',
@@ -513,14 +537,17 @@ export const contract = {
     method: 'POST',
     path: '/debates/:id/turns',
     access: 'member',
-    body: S.struct({ body: S.string({ minLength: 1, maxLength: DEBATE_TURN_MAX }) }),
+    body: S.struct({
+      body: S.string({ minLength: 1, maxLength: DEBATE_TURN_MAX }),
+      model: S.optional(AgentLabel),
+    }),
     response: Debate,
   }),
   'debates.result.draft': route({
     method: 'PUT',
     path: '/debates/:id/result',
     access: 'member',
-    body: DebateResult,
+    body: DraftedResult,
     response: Debate,
   }),
   'debates.result.vote': route({
@@ -699,6 +726,19 @@ export const contract = {
     path: '/admin/channels/:slug/archive',
     access: 'admin',
     body: S.struct({ moveMembersTo: S.optional(ChannelSlug) }),
+    response: Empty,
+  }),
+  'admin.groups.create': route({
+    method: 'POST',
+    path: '/admin/groups',
+    access: 'admin',
+    body: S.struct({ name: GroupName, memberIds: S.optional(GroupMembers) }),
+    response: Group,
+  }),
+  'admin.groups.delete': route({
+    method: 'DELETE',
+    path: '/admin/groups/:id',
+    access: 'admin',
     response: Empty,
   }),
   'admin.insights': route({

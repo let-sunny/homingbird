@@ -25,6 +25,7 @@ const types: EventType[] = [
   'channel.changed',
   'channel.left',
   'debate.changed',
+  'group.changed',
   'note.released',
   'resync',
 ]
@@ -44,11 +45,12 @@ describe('stream events', () => {
     expect([...seen].sort()).toEqual([...types].sort())
   })
 
-  it('treats presence, directory and debate room changes and resync as ephemeral, and everything else as durable', () => {
+  it('treats presence, directory, debate room and group changes and resync as ephemeral, and everything else as durable', () => {
     expect(types.filter((type) => !isDurable(type))).toEqual([
       'presence',
       'directory.changed',
       'debate.changed',
+      'group.changed',
       'resync',
     ])
   })

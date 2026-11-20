@@ -23,8 +23,11 @@ export const ROUTE_AUDIT = {
   'channels.members.list': read(),
   'channels.members.add': { event: 'channel.member_added', target: 'channel' },
   'channels.members.remove': { event: 'channel.member_removed', target: 'channel' },
-  'channels.managers.add': { event: 'channel.manager_added', target: 'channel' },
-  'channels.managers.remove': { event: 'channel.manager_removed', target: 'channel' },
+  'channels.managers.addTeam': { event: 'group.members_changed', target: 'group' },
+  'groups.list': read(),
+  'groups.get': read(),
+  'groups.rename': { event: 'group.renamed', target: 'group' },
+  'groups.members.set': { event: 'group.members_changed', target: 'group' },
   'contacts.list': read(),
   'contacts.request': { event: 'contact.requested', target: 'member' },
   'contacts.accept': { event: 'contact.accepted', target: 'member' },
@@ -98,6 +101,8 @@ export const ROUTE_AUDIT = {
   'admin.members.resetCharacter': { event: 'character.reset', target: 'member' },
   'admin.channels.update': { event: 'channel.renamed', target: 'channel' },
   'admin.channels.archive': { event: 'channel.archived', target: 'channel' },
+  'admin.groups.create': { event: 'group.created', target: 'group' },
+  'admin.groups.delete': { event: 'group.deleted', target: 'group' },
   'admin.insights': read(),
 } as const satisfies { readonly [N in RouteName]: AuditDecision }
 
