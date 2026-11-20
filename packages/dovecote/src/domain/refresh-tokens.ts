@@ -6,7 +6,13 @@ import { hashSecret } from '../random.ts'
 import { first, run } from '../sql/database.ts'
 import { insertInto, sql } from '../sql/query.ts'
 import { recordAudit } from './audit.ts'
-import { ACCESS_TOKEN_LIFETIME_MS, type Issued, REFRESH_PREFIX, TOKEN_PREFIX } from './credentials.ts'
+import {
+  ACCESS_TOKEN_LIFETIME_MS,
+  BROWSER_SIGN_IN_CLIENT,
+  type Issued,
+  REFRESH_PREFIX,
+  TOKEN_PREFIX,
+} from './credentials.ts'
 
 /** A replay's revocation must commit, so the caller refuses the client after the transaction. */
 export type Refresh =
@@ -24,7 +30,11 @@ export const refreshCredential = (refreshToken: string): T.Task<Refresh, never, 
       SELECT c.id, c.kind, c.member_id, c.expires_at, c.revoked_at, m.status
       FROM credentials c JOIN members m ON m.id = c.member_id WHERE c.refresh_hash = ${hash}`)
     if (row === null) return yield* spentOrUnknown(hash, now)
-    const usable = row.revoked_at === null && row.expires_at > now && row.status === 'active'
+    const usable =
+      row.revoked_at === null &&
+      row.expires_at > now &&
+      row.status === 'active' &&
+      (yield* lastSignedInAt(row.member_id)) > now - env.config.sessionDays * DAY_MS
     if (!usable) return REFUSED
     const issued: Issued = {
       credentialId: row.id,
@@ -63,6 +73,7 @@ interface RefreshRow {
 const REFUSED: Refresh = { outcome: 'refused' }
 /** A client retrying a refresh whose answer it lost repeats the token the live one replaced. */
 const REFRESH_REPLAY_GRACE_MS = 10_000
+const DAY_MS = 24 * 60 * 60_000
 
 const spentOrUnknown = (hash: string, now: number): T.Task<Refresh, never, RequestEnv> =>
   T.gen(function* () {
@@ -91,4 +102,12 @@ const isLatestSpent = (
     first(sql`
       SELECT refresh_hash FROM spent_refresh_tokens
       WHERE credential_id = ${spent.credential_id} AND spent_at >= ${spent.spent_at} AND refresh_hash <> ${hash}`),
+  )
+
+/** A browser sign-in is where the identity provider vouches for a person again. */
+const lastSignedInAt = (memberId: MemberId): T.Task<number, never, AppEnv> =>
+  T.map((row: { signed_in_at: unknown } | null) => Number(row?.signed_in_at ?? 0))(
+    first<{ signed_in_at: unknown }>(sql`
+      SELECT MAX(created_at) AS signed_in_at FROM credentials
+      WHERE member_id = ${memberId} AND kind = 'human' AND client = ${BROWSER_SIGN_IN_CLIENT}`),
   )

@@ -586,7 +586,8 @@ custom connector.
    read and draft, never send. Drafts wait for approval in the web client.
 
 The connector renews its access token every hour with a refresh token that works once. If a refresh
-token that was already used comes back more than 30 seconds later, Dovecote takes it as copied:
+token that was already used comes back, Dovecote takes it as copied, unless it is the one just
+replaced and comes back within 10 seconds, as a client's retry does:
 it revokes that connection, writes `credential.revoked` with `because: refresh_replayed` to the audit
 trail, and the person has to connect again. To see whether it happened:
 

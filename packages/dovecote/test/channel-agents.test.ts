@@ -144,6 +144,29 @@ describe('an agent’s credentials', () => {
     expect((await agent.api('GET', '/me')).status).toBe(401)
   })
 
+  it('leave nothing of a deactivated issuer that the offboarding checks in the deployment guide look for', async () => {
+    await start()
+    await startAgent(server, ana)
+    const group = (await ana.api('GET', `/channels/${CHANNEL}`)).json.managedBy
+    await ana.api('PUT', `/groups/${group}/members`, { memberIds: [ana.me.member.id, ben.me.member.id] })
+    const id = ana.me.member.id
+    const live = async () => ({
+      own: (await storedRows(server, 'credentials')).filter(
+        (row) => row.member_id === id && row.revoked_at === null,
+      ),
+      issued: (await storedRows(server, 'credentials')).filter(
+        (row) => row.issued_by === id && row.revoked_at === null,
+      ),
+      groups: (await storedRows(server, 'group_members')).filter((row) => row.member_id === id),
+    })
+    const before = await live()
+    expect([before.own.length, before.issued.length, before.groups.length].every((count) => count > 0)).toBe(
+      true,
+    )
+    await root.api('PATCH', `/admin/members/${id}`, { status: 'deactivated' })
+    expect(await live()).toEqual({ own: [], issued: [], groups: [] })
+  })
+
   it('may be revoked by any manager, and only one of this agent’s', async () => {
     await start()
     const agent = await startAgent(server, ana)

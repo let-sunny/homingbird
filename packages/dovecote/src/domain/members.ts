@@ -75,6 +75,12 @@ export const memberById = (id: MemberId): T.Task<Member, NotFound, AppEnv> =>
     return row === null ? yield* T.fail(NotFound({ message: 'No such member.' })) : toMember(row)
   })
 
+/** A member who may hold a working credential: not deactivated, and not a retired channel's agent. */
+export const isActiveMember = (id: MemberId): T.Task<boolean, never, AppEnv> =>
+  T.map((row: { status: string } | null) => row?.status === 'active')(
+    first<{ status: string }>(sql`SELECT status FROM members WHERE id = ${id}`),
+  )
+
 export const membersByIds = (ids: ReadonlyArray<MemberId>): T.Task<Map<MemberId, Member>, never, AppEnv> =>
   T.gen(function* () {
     if (ids.length === 0) return new Map()

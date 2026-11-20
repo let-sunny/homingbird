@@ -175,7 +175,21 @@ describe('the grace for a client that repeats a refresh', () => {
   })
 })
 
-describe('refreshing for a member who left', () => {
+describe('refreshing for a person the identity provider has not seen lately', () => {
+  it('refuses once their last sign-in is older than the session lifetime, and works again after they sign in', async () => {
+    const first = await connect()
+    await server.clock.advance(30 * DAY_MS - 60_000)
+    const lastDay = (await refresh(first.refresh_token)).json
+    expect(lastDay.refresh_token).toMatch(/^hbr_/)
+    await server.clock.advance(60_000)
+    expect((await refresh(lastDay.refresh_token)).json.error).toBe('invalid_grant')
+    await server.signIn('ana@example.com', 'Ana')
+    const renewed = await refresh(lastDay.refresh_token)
+    expect(renewed.status).toBe(200)
+    expect(await reads(renewed.json.access_token)).toBe(200)
+    expect(await revocations()).toEqual([])
+  })
+
   it('refuses for a member who is no longer active, even with a credential left unrevoked', async () => {
     const first = await connect()
     await T.runPromise(

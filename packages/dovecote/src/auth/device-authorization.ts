@@ -11,6 +11,7 @@ import {
 import { recordAudit } from '../domain/audit.ts'
 import { agentToIssue, mayStillIssue } from '../domain/channel-agents.ts'
 import { issueCredential } from '../domain/credentials.ts'
+import { isActiveMember } from '../domain/members.ts'
 import { featureIsOn } from '../domain/settings.ts'
 import type { AppEnv, Caller } from '../environment.ts'
 import type { RequestEnv } from '../events/events.ts'
@@ -121,6 +122,10 @@ export const exchangeDeviceCode = (deviceCode: string): T.Task<TokenResponse, OA
     if (!consumed || request.memberId === null)
       return yield* T.fail(
         OAuthError({ code: 'invalid_grant', description: 'The device code was already used.' }),
+      )
+    if (!(yield* isActiveMember(request.memberId)))
+      return yield* T.fail(
+        OAuthError({ code: 'invalid_grant', description: 'This account can no longer be signed in to.' }),
       )
     const issuedBy = request.detail.issuedBy ?? null
     if (issuedBy !== null && !(yield* mayStillIssue(request.memberId, issuedBy)))

@@ -631,6 +631,24 @@ states the decision first, then the reason. Add new entries at the top of their 
   hosted-domain claim must match the email domain so personal accounts are refused.
 - **Access ends with the session.** Sessions expire after `HB_SESSION_DAYS` and renewing one requires
   signing in with the identity provider again. Deactivating a member revokes every credential at once.
+- **Dovecote re-validates a person only when they sign in, and a refresh needs a recent sign-in.** The
+  identity provider vouches for a person at sign-in, where the ID token, the allowed domains, the hosted
+  domain and the member's status are all checked again. Dovecote asks for `openid email profile`, not
+  `offline_access`, and keeps none of the provider's tokens, so it has no way to ask the provider
+  about someone between sign-ins; keeping a provider refresh token would be a new secret to store
+  encrypted, for one provider at a time, and is not worth it while sign-in already happens every
+  `HB_SESSION_DAYS`. Browser sessions are never refreshed. The one credential that is, the OAuth
+  connector's, refreshes only while its person is active and has signed in within `HB_SESSION_DAYS`
+  (their latest browser credential's `created_at`); after that the refresh is refused without
+  revoking, the client connects again, and connecting needs a sign-in. A person approves notes only in a
+  browser session, so anyone still working signs in that often. An authorization code or device code a
+  person approved is refused at exchange once they are deactivated, so no credential is issued after
+  deactivation. Command line, runner and plugin credentials are not refreshed and are not bound to a
+  sign-in: binding them would stop a server's runner whenever its person is away longer than a session,
+  and a departed person is ended by deactivation. **Offboarding stays a person's action:** Dovecote reads
+  no directory, so there is no member sync command and no SCIM, as groups come from no directory
+  import; an administrator deactivates, and `docs/deployment.md` (When someone leaves) is the runbook,
+  with what each credential does when nobody does and a monthly query of last sign-ins.
 - **Cookie-authenticated writes need a custom header** and a matching `Origin`. Cross-origin requests
   are never allowed for cookie sessions.
 
