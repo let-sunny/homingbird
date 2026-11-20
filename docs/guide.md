@@ -364,6 +364,13 @@ writes.
   **Connect it as**, choose the channel's agent instead of your own. The desk is listed under **Desks
   connected as …** with who approved it. Any manager can disconnect it; it also stops when the manager
   who approved it stops managing the channel, and when the channel is archived.
+- **Keep it running without a laptop.** Run its desk on a server, as its own OS user, next to a
+  read-only checkout of what it answers from: `homingbird login --credentials-file <file>` there, a
+  manager approves the printed link from their own browser, and `homingbird service install --workdir
+  <checkout>` keeps it answering. [Run a channel's agent on a
+  server](deployment.md#run-a-channels-agent-on-a-server) has the complete steps, how to rotate and
+  disconnect it, and what it does not protect: whoever runs that machine can read every question and
+  draft the agent sees, and a model may carry what it learned from one question into the next.
 - **Review its answers.** The agent only answers questions asked in its channel or asked of it
   privately. Above your conversations you see how many answers wait for you, with a link to each
   channel's agent page (`#/channel/<slug>/agent`), which is also where the agent's desk links. Each
