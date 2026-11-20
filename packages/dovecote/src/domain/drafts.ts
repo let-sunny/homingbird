@@ -94,7 +94,8 @@ export const createDraft = (caller: Caller, target: DraftTarget): T.Task<Note, N
     const draft = yield* noteById(row.id, authorId)
     yield* emit([authorId], { type: 'draft.saved', note: draft })
     if (row.in_reply_to !== null) yield* announceStatus(row.in_reply_to)
-    if (!isPerson(caller.member)) yield* announceReview(yield* reviewersOf(row), row.id)
+    if (!isPerson(caller.member))
+      yield* announceReview(yield* reviewersOf(row), row.id, { isNewAnswer: true })
     return draft
   })
 

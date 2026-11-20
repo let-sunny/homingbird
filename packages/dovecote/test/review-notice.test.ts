@@ -218,6 +218,29 @@ describe('a push when a channel’s agent’s answer waits for review', () => {
     expect(pushedTo('cy')).toEqual([])
   })
 
+  it('sends nothing about an answer to a private question once the manager muted the channel', async () => {
+    startPushing()
+    const channelRoom = (await ana.api('GET', `/channels/${CHANNEL}`)).json.conversationId
+    await ben.api('PUT', `/conversations/${channelRoom}/mute`)
+    const room = (await cy.api('POST', `/channels/${CHANNEL}/private-question`)).json.id
+    const asked = (await cy.api('POST', '/drafts', { conversationId: room, body: 'Privately?' })).json
+    const question = (await cy.api('POST', `/drafts/${asked.id}/send`, { expected: asRead(asked) })).json
+    await answer(question, 'Privately, yes.')
+    await server.settled()
+    expect(pushedTo('ana')).toHaveLength(1)
+    expect(pushedTo('ben')).toEqual([])
+  })
+
+  it('still tells reviewers about a new answer the agent changed before the push went out, as it reads then', async () => {
+    const draft = await askAndAnswer(cy, 'First wording.')
+    await server.clock.advance(1_000)
+    await agent.api('PATCH', `/drafts/${draft.id}`, { body: 'Second wording.' })
+    startPushing()
+    await server.settled()
+    expect(pushedTo('ana').map((message) => message.body)).toEqual(['Second wording.'])
+    expect(pushedTo('ben').map((message) => message.body)).toEqual(['Second wording.'])
+  })
+
   it('stays quiet while the manager has a Homingbird page on screen', async () => {
     startPushing()
     await ana.api('POST', '/presence/visibility', { page: 'page-0001', visible: true })

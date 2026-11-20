@@ -8,7 +8,7 @@ import type { AppEnv } from '../environment.ts'
 import { first } from '../sql/database.ts'
 import { sql } from '../sql/query.ts'
 
-/** A channel's agent's new draft as one of its reviewers is told, read again as the push goes out (rule 2). */
+/** A channel's agent's waiting draft as one of its reviewers is told, read again as the push goes out (rule 2). */
 export const reviewWaitingFor = (
   memberId: MemberId,
   noteId: NoteId,
@@ -18,7 +18,7 @@ export const reviewWaitingFor = (
     const draft = yield* first<NoteRow>(sql`
       SELECT n.* FROM notes n JOIN members a ON a.id = n.author_id AND a.kind = 'channel_agent'
       WHERE n.id = ${noteId} AND n.status = 'draft'`)
-    if (draft === null || Number(draft.updated_at) !== Number(draft.created_at)) return null
+    if (draft === null) return null
     const channel = yield* channelOfAgentRoom(draft.conversation_id)
     if (channel === null || !(yield* reviewersOf(draft)).includes(memberId)) return null
     return {

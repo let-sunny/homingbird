@@ -21,7 +21,7 @@ export interface AppEnv extends HasSql, HasClock {
   readonly rateLimiter: RateLimiter
   readonly attempts: AttemptWindows
   readonly analytics: AnalyticsForwarder
-  readonly pushSink: (memberId: MemberId, event: StreamEvent) => void
+  readonly pushSink: (memberId: MemberId, event: StreamEvent, isNewReview: boolean) => void
   readonly pushTest: (memberId: MemberId) => T.Task<ReadonlyArray<PushOutcome>, never, AppEnv>
   readonly log: Log
   readonly requestId: string | null
