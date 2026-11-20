@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { agentEnvironment } from '../src/agent-environment.ts'
+import { PARENT_SESSION_VARIABLES, agentEnvironment } from '../src/agent-environment.ts'
 import { AGENT_TOKEN } from './support.ts'
 
 describe('agentEnvironment', () => {
@@ -21,5 +21,24 @@ describe('agentEnvironment', () => {
         [AGENT_TOKEN, '', '/run/secrets/homingbird.json'],
       ),
     ).toEqual({ PATH: '/usr/bin', LANG: 'C', HBX_KEEP: 'kept' })
+  })
+
+  it('drops what marks a Claude Code or Codex session that started the runner, in any letter case', () => {
+    expect(
+      agentEnvironment(
+        {
+          PATH: '/usr/bin',
+          CLAUDECODE: '1',
+          CLAUDE_CODE_SESSION_ID: 'session',
+          CLAUDE_CODE_MESSAGING_SOCKET: '/tmp/socket',
+          claude_code_messaging_token: 'token',
+          Codex_Thread_Id: 'thread',
+          CLAUDE_CONFIG_DIR: '/home/june/.claude',
+          CODEX_HOME: '/home/june/.codex',
+        },
+        [],
+      ),
+    ).toEqual({ PATH: '/usr/bin', CLAUDE_CONFIG_DIR: '/home/june/.claude', CODEX_HOME: '/home/june/.codex' })
+    for (const name of PARENT_SESSION_VARIABLES) expect(name).toBe(name.toUpperCase())
   })
 })
