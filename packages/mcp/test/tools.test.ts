@@ -783,8 +783,35 @@ describe('draft_note', () => {
   it('tells the model where the human approves when it knows the address', async () => {
     const { text } = await call('draft_note', { body: 'Hello', to: BEN.id }, HAPPY, 'https://hb.example.com')
     expect(text).toContain(
-      `in the Homingbird web client at https://hb.example.com/#/c/${DRAFT.conversationId}.`,
+      `in the Homingbird web client at https://hb.example.com/#/c/${DRAFT.conversationId}?draft=${DRAFT.id}.`,
     )
+  })
+
+  it('opens a waiting draft at its card, and a note sent since at its conversation', async () => {
+    const url = 'https://hb.example.com'
+    const card = await call(
+      'open_homingbird',
+      { draftId: DRAFT.id },
+      { ...HAPPY, 'notes.get': () => DRAFT },
+      url,
+    )
+    expect(card.text).toContain(`${url}/#/c/${DRAFT.conversationId}?draft=${DRAFT.id}`)
+    const sent = noteOf()
+    const room = await call(
+      'open_homingbird',
+      { draftId: sent.id },
+      { ...HAPPY, 'notes.get': () => sent },
+      url,
+    )
+    expect(room.text).toContain(`${url}/#/c/${sent.conversationId}\n`)
+    const named = await call(
+      'open_homingbird',
+      { conversationId: CONVERSATION_ID, draftId: DRAFT.id },
+      HAPPY,
+      url,
+    )
+    expect(named.calls).toEqual([])
+    expect(named.text).toContain(`${url}/#/c/${CONVERSATION_ID}\n`)
   })
 
   it('drafts a question into one channel room', async () => {

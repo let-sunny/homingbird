@@ -1,5 +1,5 @@
 import { Task as T } from '@homingbird/kernel'
-import type { Api, ConversationId, MemberId } from '@homingbird/protocol'
+import type { Api, ConversationId, MemberId, NoteId } from '@homingbird/protocol'
 import type { CliEnv } from './environment.ts'
 
 export const webClientLink = (serverUrl: string, conversationId: ConversationId | null): string => {
@@ -7,9 +7,21 @@ export const webClientLink = (serverUrl: string, conversationId: ConversationId 
   return conversationId === null ? `${base}/` : `${base}/#/c/${conversationId}`
 }
 
-/** Where a channel's managers review its agent's answers, which no conversation shows them. */
-export const reviewLink = (serverUrl: string, slug: string): string =>
-  `${serverUrl.replace(/\/+$/, '')}/#/channel/${encodeURIComponent(slug)}/agent`
+/** One of the person's own drafts, as its card in its conversation. */
+export const draftLink = (
+  serverUrl: string,
+  draft: { readonly id: NoteId; readonly conversationId: ConversationId },
+): string =>
+  `${serverUrl.replace(/\/+$/, '')}/#/c/${encodeURIComponent(draft.conversationId)}?draft=${encodeURIComponent(draft.id)}`
+
+/**
+ * Where a channel's managers review its agent's answers, which no conversation shows them; with a
+ * draft, that answer's card.
+ */
+export const reviewLink = (serverUrl: string, slug: string, draftId: NoteId | null = null): string => {
+  const page = `${serverUrl.replace(/\/+$/, '')}/#/channel/${encodeURIComponent(slug)}/agent`
+  return draftId === null ? page : `${page}?draft=${encodeURIComponent(draftId)}`
+}
 
 /** The channel whose agent this credential is, or null for a person's own agent or when it cannot be read. */
 export const reviewChannelOf = (

@@ -28,7 +28,7 @@ export type Invocation =
   | { readonly command: 'channels'; readonly query: string | null }
   | { readonly command: 'requests' }
   | { readonly command: 'debates' }
-  | { readonly command: 'open'; readonly conversationId: string | null }
+  | { readonly command: 'open'; readonly id: string | null }
   | ({
       readonly command: 'run'
       readonly logFile?: string
@@ -96,7 +96,7 @@ export const USAGE = `Usage: homingbird <command> [options]
   logout
   status
   version                                      also --version or -v
-  open [conversationId]                        open the web client, where drafts are approved
+  open [conversationId | draftId]              open the web client, where drafts are approved
   directory [query] [--channel <slug>]
   channels [query]
   inbox [--fresh]
@@ -258,7 +258,7 @@ const BUILDERS: Readonly<Record<string, (tokens: Tokens) => Result.Result<Invoca
   channels: ({ rest }) => Result.ok({ command: 'channels', query: joined(rest) }),
   requests: () => Result.ok({ command: 'requests' }),
   debates: () => Result.ok({ command: 'debates' }),
-  open: ({ rest }) => Result.ok({ command: 'open', conversationId: rest[0] ?? null }),
+  open: ({ rest }) => Result.ok({ command: 'open', id: rest[0] ?? null }),
   run: ({ values, switches, platform }) =>
     Result.gen(function* () {
       const given = values.get('agent')?.trim() ?? ''

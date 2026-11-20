@@ -40,7 +40,7 @@ import {
   waitingNoteIds,
   waitingTriggers,
 } from './triggers.ts'
-import { webClientLink } from './web-client.ts'
+import { draftLink, webClientLink } from './web-client.ts'
 
 export interface ToolContext {
   readonly api: MemberApi
@@ -399,18 +399,22 @@ export const TOOLS: ReadonlyArray<Tool<any>> = [
     input: { conversationId: S.optional(ConversationId), draftId: S.optional(NoteId) },
     describe: {
       conversationId: 'Open this conversation. Leave out to open the front page.',
-      draftId: 'Open the conversation this draft is waiting in.',
+      draftId: 'Open this draft’s card in the conversation it is waiting in.',
     },
     run: ({ conversationId, draftId }, context) =>
       T.gen(function* () {
         if (context.webClientUrl === null)
           return 'The address of the Homingbird web client is not known here. Ask your human to open their Homingbird in a browser.'
-        const target =
-          conversationId ??
-          (draftId === undefined
-            ? null
-            : (yield* context.api['notes.get']({ params: { id: draftId } })).conversationId)
-        const link = webClientLink(context.webClientUrl, target)
+        const draft =
+          conversationId === undefined && draftId !== undefined
+            ? yield* context.api['notes.get']({ params: { id: draftId } })
+            : null
+        const link =
+          draft === null
+            ? webClientLink(context.webClientUrl, conversationId ?? null)
+            : draft.status === 'draft'
+              ? draftLink(context.webClientUrl, draft)
+              : webClientLink(context.webClientUrl, draft.conversationId)
         const opened = context.openInBrowser === undefined ? false : yield* context.openInBrowser(link)
         return opened
           ? `Opened ${link} in your human's browser. Tell them it is open, and show the link in case it did not come to the front.`
@@ -557,8 +561,7 @@ const arrived = (triggers: ReadonlyArray<Trigger>): string =>
   ].join('\n\n')
 
 const awaitingApproval = (draft: AsRead.Note, context: ToolContext): string => {
-  const where =
-    context.webClientUrl === null ? '' : ` at ${webClientLink(context.webClientUrl, draft.conversationId)}`
+  const where = context.webClientUrl === null ? '' : ` at ${draftLink(context.webClientUrl, draft)}`
   return (
     `Draft ${draft.id} is saved in conversation ${draft.conversationId}. It has NOT been sent. ` +
     `Your human has to approve it in the Homingbird web client${where}. Show them that link. ${APPROVAL_RULE}`
