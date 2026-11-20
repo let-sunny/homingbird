@@ -1109,4 +1109,22 @@ export const ko: Translation<typeof en> = {
     unmanage: '운영자에서 제외',
     deactivateLeaves: '{name} 님을 비활성화하면 모든 그룹에서 빠져요: {groups}.',
   },
+  groupStart: {
+    title: '그룹 DM 시작하기',
+    intro:
+      '아래에서 두 사람 이상을 골라요. 시작하면 고른 사람들에게 이 그룹 DM이 바로 보여요. 다른 DM처럼 첫 노트를 직접 쓰거나 에이전트에게 초안을 부탁해요. 승인하기 전에는 아무것도 보내지 않아요.',
+    choose: '그룹 DM에 추가',
+    chooseName: '{name} 님을 그룹 DM에 추가',
+    remove: '{name} 님 빼기',
+    chosen: { other: '{count}명 골랐어요' },
+    none: '아직 아무도 고르지 않았어요.',
+    needMore: '한 사람만 더 고르면 시작할 수 있어요.',
+    with: '함께할 사람: {names}',
+    full: { other: '그룹 DM에는 나 말고 최대 {count}명까지 들어갈 수 있어요.' },
+    start: '그룹 DM 시작',
+    existing: '이 사람들과만 하는 그룹 DM이 이미 있어요.',
+    open: '그룹 DM 열기',
+    starting: '시작하는 중…',
+    clear: '모두 빼기',
+  },
 }

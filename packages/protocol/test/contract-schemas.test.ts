@@ -19,6 +19,8 @@ describe('shared contract schemas', () => {
     const id = 'mem_abcdefghijkl'
     expect(shared.Recipients.is([])).toBe(false)
     expect(shared.Recipients.is([id])).toBe(true)
+    expect(shared.RECIPIENTS_MAX).toBe(50)
+    expect(shared.Recipients.is(Array.from({ length: 50 }, () => id))).toBe(true)
     expect(shared.Recipients.is(Array.from({ length: 51 }, () => id))).toBe(false)
   })
 

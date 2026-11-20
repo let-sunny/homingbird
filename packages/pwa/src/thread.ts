@@ -148,6 +148,22 @@ export const conversationTitle = (
 export const isArchived = (conversation: AsRead.Conversation | undefined): boolean =>
   conversation !== undefined && conversation.archivedAt !== null
 
+/** The open group conversation of exactly the viewer and these people, if there is one. */
+export const groupWith = (
+  conversations: ReadonlyArray<AsRead.Conversation>,
+  viewerId: MemberId,
+  memberIds: ReadonlyArray<MemberId>,
+): AsRead.Conversation | undefined => {
+  const wanted = new Set([viewerId, ...memberIds])
+  return conversations.find(
+    (conversation) =>
+      conversation.kind === 'group' &&
+      !isArchived(conversation) &&
+      conversation.participantIds.length === wanted.size &&
+      conversation.participantIds.every((memberId) => wanted.has(memberId)),
+  )
+}
+
 export type Destination =
   | { readonly kind: 'people'; readonly memberIds: ReadonlyArray<MemberId> }
   | { readonly kind: 'channel'; readonly memberIds: ReadonlyArray<MemberId> }

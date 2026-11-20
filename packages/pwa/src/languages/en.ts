@@ -1140,4 +1140,25 @@ export const en = {
     unmanage: 'Remove as manager',
     deactivateLeaves: 'Deactivating {name} removes them from every group: {groups}.',
   },
+  groupStart: {
+    title: 'Start a group message',
+    intro:
+      'Choose two or more people below. Everyone you choose sees the group message as soon as you start it. Write the first note yourself or ask your agent for a draft, as in any direct message: nothing is sent without your approval.',
+    choose: 'Add to group message',
+    chooseName: 'Add {name} to the group message',
+    remove: 'Remove {name}',
+    chosen: { one: '{count} person chosen', other: '{count} people chosen' },
+    none: 'Nobody chosen yet.',
+    needMore: 'Choose one more person to start.',
+    with: 'A group message with {names}.',
+    full: {
+      one: 'A group message holds at most {count} other person.',
+      other: 'A group message holds at most {count} other people.',
+    },
+    start: 'Start group message',
+    existing: 'You already have a group message with exactly these people.',
+    open: 'Open group message',
+    starting: 'Starting…',
+    clear: 'Clear',
+  },
 } as const

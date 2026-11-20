@@ -85,6 +85,7 @@ export const TASKS = {
   listPeopleInGroup: groups.listPeopleInGroup,
   readImportFile: groups.readImportFile,
   openConversationWith: people.openConversationWith,
+  openConversationAmong: people.openConversationAmong,
   requestContact: people.requestContact,
   acceptContact: people.acceptContact,
   removeContact: people.removeContact,

@@ -122,4 +122,38 @@ describe('peopleView', () => {
     expect(shown.querySelector('select[name="group"]')).toBeNull()
     expect(shown.querySelector('.group-chips')).toBeNull()
   })
+
+  it('starts a conversation with the people chosen on their cards, keeping focus on the toggle', () => {
+    const { context, called } = testContext()
+    const shown = peopleView(context, lifetime(), me())
+    expect(shown.querySelector('.group-start')).toBeNull()
+    loaded(context, [
+      entry(ANA, 'Ana', { relation: 'self', canMessage: false }),
+      entry(BEN, 'Ben'),
+      entry(CY, 'Cy'),
+    ])
+    expect(shown.querySelector(`[data-member-id="${ANA}"] .choose-toggle`)).toBeNull()
+    const start = () => getByRole(shown, 'button', { name: strings.groupStart.start })
+    expect(start().hasAttribute('disabled')).toBe(true)
+    const ben = getByRole(shown, 'button', { name: 'Add Ben to the group message' })
+    ben.click()
+    expect(getByRole(shown, 'button', { name: 'Add Ben to the group message' })).toBe(ben)
+    expect(ben.getAttribute('aria-pressed')).toBe('true')
+    getByRole(shown, 'button', { name: 'Add Cy to the group message' }).click()
+    expect(textOf(shown)).toContain('A group message with Ben and Cy.')
+    start().click()
+    expect(called('openConversationAmong').map((call) => call.args[0])).toEqual([[BEN, CY]])
+    expect(getByRole(shown, 'button', { name: strings.groupStart.starting }).hasAttribute('disabled')).toBe(
+      true,
+    )
+    expect(ben.hasAttribute('disabled')).toBe(true)
+    called('openConversationAmong')[0]!.then!.failed!({ _tag: 'Forbidden', message: 'no' })
+    expect(start().hasAttribute('disabled')).toBe(false)
+    getByRole(shown, 'button', { name: 'Remove Ben' }).click()
+    expect(ben.getAttribute('aria-pressed')).toBe('false')
+    start().click()
+    expect(called('openConversationAmong')).toHaveLength(1)
+    getByRole(shown, 'button', { name: strings.groupStart.clear }).click()
+    expect(shown.querySelector('.group-start-chip')).toBeNull()
+  })
 })

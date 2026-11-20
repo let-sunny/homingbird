@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import * as tasks from '../../src/tasks/people.ts'
 import { testApp } from '../support/app.ts'
-import { BEN, ROOM, conversation, note } from '../support/fixtures.ts'
+import { BEN, CY, ROOM, conversation, note } from '../support/fixtures.ts'
 
 const answers = {
   'directory.list': () => ({ entries: [] }),
@@ -17,6 +17,15 @@ describe('people tasks', () => {
     await run(tasks.openConversationWith(BEN))
     expect(state.conversations.get()).toHaveLength(1)
     expect(page.visited).toEqual([`go #/c/${ROOM}`, `go #/c/${ROOM}`])
+  })
+
+  it('starts a conversation with everyone chosen and opens it, sending nothing', async () => {
+    const { run, state, page, sent, routes } = testApp(answers)
+    await run(tasks.openConversationAmong([BEN, CY]))
+    expect(sent.map((one) => one.request)).toEqual([{ body: { participantIds: [BEN, CY] } }])
+    expect(routes()).toEqual(['conversations.create'])
+    expect(state.conversations.get()).toHaveLength(1)
+    expect(page.visited).toEqual([`go #/c/${ROOM}`])
   })
 
   it('changes contacts and blocks, reloading people after each', async () => {
