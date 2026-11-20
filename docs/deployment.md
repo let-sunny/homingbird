@@ -273,31 +273,82 @@ heartbeat and the events with it.
 
 ## When someone leaves
 
-**Deactivate the member in Homingbird; blocking their company account is not enough.** An
-administrator opens **Administration**, **Members** in the web client and presses **Deactivate**
-(the API route `admin.members.update` with `status: deactivated`). At once:
+**Deactivate the member in Homingbird on their last day; blocking their company account is not
+enough.** Deactivation is always a person's action: nothing in Dovecote deactivates anyone by itself,
+and nothing reads your directory. Add it to your offboarding checklist next to blocking the account.
 
-- every credential of that member is revoked: browser sessions and agent credentials. Their next
-  request is refused, and an open event stream ends at its
-  next heartbeat, within 20 seconds;
-- they disappear from the directory, and nobody can address a new note to them;
-- signing in again is refused, even while their company account still works.
+1. **Before**, if they manage a channel, check its managing group has someone else. Deactivating takes
+   them out of every group, even as a channel's last manager, and the dialog lists the groups they
+   leave so a colleague can be added first.
+2. **Deactivate.** An administrator opens **Administration**, **Members** in the web client and presses
+   **Deactivate** (the API route `admin.members.update` with `status: deactivated`).
+3. **Block the company account** at the identity provider as usual.
+4. **Verify**, with the member's id from the first query:
+
+   ```sql
+   SELECT id, status FROM members WHERE email = 'leaver@example.com';             -- deactivated
+   SELECT COUNT(*) FROM credentials WHERE member_id = 'mem_...' AND revoked_at IS NULL; -- 0
+   SELECT COUNT(*) FROM credentials WHERE issued_by = 'mem_...' AND revoked_at IS NULL; -- 0
+   SELECT COUNT(*) FROM group_members WHERE member_id = 'mem_...';                      -- 0
+   SELECT created_at, event, detail FROM audit_events
+   WHERE event IN ('member.access_changed', 'group.members_changed', 'credential.revoked')
+   ORDER BY id DESC LIMIT 20;
+   ```
+
+   The audit trail shows `member.access_changed` with the status change, `group.members_changed`
+   with `because: deactivated` for each group they left, and `credential.revoked` with
+   `because: issuer_left` for each credential they had issued to a channel's agent.
+5. **Reconnect channel agents** they had connected: another manager connects each one again
+   ([when a manager leaves](#rotate-disconnect-and-when-a-manager-leaves)).
+
+Deactivating, at once and in one change:
+
+- revokes every credential of that member: browser sessions, the claude.ai connector, and the agent
+  credentials of the command line, the runner and the plugin. Their next request is refused, and an
+  open event stream ends at its next heartbeat, within 20 seconds;
+- takes them out of every group, so they manage no channel any more, and revokes every credential they
+  had issued to a channel's agent;
+- removes them from the directory, so nobody can address a new note to them;
+- refuses their sign-in from then on, even while their company account still works. A sign-in or
+  connection they had started but not finished issues nothing usable.
 
 **Reactivate** in the same place lets them sign in again; their agents must sign in again too,
-because revoked credentials stay revoked. The deactivation itself is audited.
+because revoked credentials stay revoked. Groups are not given back.
 
 What stays: notes they sent remain in their conversations for the other participants, and the audit
 trail keeps its rows about them, ids and outcomes only, until `HB_AUDIT_RETENTION_DAYS` removes them
 (400 days by default). Their unsent drafts stay in the database and no one else can see them.
 
-Limits:
+### If nobody deactivates them
 
-- Nothing syncs with the identity provider. There is no SCIM ([roadmap](roadmap.md#operations)), so
-  deactivation is a manual step in your offboarding.
-- Blocking the company account alone stops new sign-ins, but credentials already issued keep working
-  until they expire: a browser session after `HB_SESSION_DAYS` (30 days by default), an agent
-  credential after `HB_AGENT_CREDENTIAL_DAYS` (90 days by default). Refreshing an
-  agent's token does not extend that.
+Dovecote hears from the identity provider only when a person signs in. Once their company account is
+blocked, that is refused, and what they already hold runs out on its own:
+
+| Credential | Stops working | Why |
+| --- | --- | --- |
+| Browser session | `HB_SESSION_DAYS` (30 days by default) after their last sign-in | A session is never renewed without signing in |
+| claude.ai connector | At most an hour after their last sign-in is `HB_SESSION_DAYS` old | Its token is refreshed only for a person who signed in within `HB_SESSION_DAYS` |
+| Command line, runner, plugin | `HB_AGENT_CREDENTIAL_DAYS` (90 days by default) after it was issued | It is never refreshed, and nothing asks the identity provider before then |
+| A channel's agent they connected | `HB_AGENT_CREDENTIAL_DAYS` after it was issued, or when they stop managing the channel | It belongs to the channel's agent, not to them |
+
+So the last two keep working for up to three months. Deactivating is the only way to end them at once.
+
+### Checking for people who left
+
+Once a month, compare the active people with your identity provider's active users, and deactivate
+whoever is gone:
+
+```sql
+SELECT m.email, MAX(c.created_at) AS last_sign_in_ms
+FROM members m
+LEFT JOIN credentials c ON c.member_id = m.id AND c.kind = 'human' AND c.client = 'Web'
+WHERE m.status = 'active' AND m.kind = 'person'
+GROUP BY m.email ORDER BY last_sign_in_ms;
+```
+
+`last_sign_in_ms` is milliseconds since 1970. Someone active signs in at least every
+`HB_SESSION_DAYS`, because approving a note needs a browser session; an older last sign-in is the first
+place to look.
 
 ## Logs
 
@@ -585,7 +636,9 @@ custom connector.
 5. Each person connects once, signs in, and consents. The connector gets an agent credential: it can
    read and draft, never send. Drafts wait for approval in the web client.
 
-The connector renews its access token every hour with a refresh token that works once. If a refresh
+The connector renews its access token every hour with a refresh token that works once, and only for a
+person who has signed in to the web client within `HB_SESSION_DAYS`; otherwise claude.ai asks them to
+connect again, which signs them in. If a refresh
 token that was already used comes back, Dovecote takes it as copied, unless it is the one just
 replaced and comes back within 10 seconds, as a client's retry does:
 it revokes that connection, writes `credential.revoked` with `because: refresh_replayed` to the audit
@@ -1023,7 +1076,7 @@ Every variable Dovecote reads. Blank values count as unset.
 | `HB_ALLOWED_DOMAINS` | none | Email domains allowed to sign in, comma-separated. A starting value: administrators change it in the web client |
 | `HB_CONTACT_MODE` | `open` | `open`, or `contacts` to require an accepted request before messaging. A starting value, like the one above |
 | `HB_CHANNELS` | none | Channels created on start, `slug` or `slug: description`, comma-separated. Exactly these are created, once, and nobody is joined to them |
-| `HB_SESSION_DAYS` | `30` | Days a sign-in lasts before the identity provider is asked again |
+| `HB_SESSION_DAYS` | `30` | Days a sign-in lasts before the identity provider is asked again; the claude.ai connector stops refreshing for a person who has not signed in for this long |
 | `HB_AGENT_CREDENTIAL_DAYS` | `90` | Days an agent credential lasts |
 | `HB_FEATURES` | all on | Starting feature switches, `name=on` or `name=off`, comma-separated ([Features](#features)). A starting value, like `HB_ALLOWED_DOMAINS` |
 | `HB_QUICK_APPROVAL_SECONDS` | `3` | A draft sent as written within this many seconds of appearing counts as a quick approval ([Insights](#insights)) |
