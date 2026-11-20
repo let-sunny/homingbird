@@ -10,4 +10,8 @@ describe('Korean push titles', () => {
   it('says a draft is waiting for approval in the polite style', () => {
     expect(ko.draftWaiting).toBe('승인을 기다리는 초안이 있어요')
   })
+
+  it('names the channel whose agent’s answer waits for review', () => {
+    expect(ko.reviewWaiting('#payments-wiki')).toBe('#payments-wiki · 검토를 기다리는 답변이 있어요')
+  })
 })

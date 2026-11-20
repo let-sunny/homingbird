@@ -8,6 +8,7 @@ export interface PushTitles {
   readonly noteFrom: (author: string) => string
   readonly noteFromColleague: string
   readonly draftWaiting: string
+  readonly reviewWaiting: (channel: string) => string
   readonly test: string
   readonly testBody: string
 }

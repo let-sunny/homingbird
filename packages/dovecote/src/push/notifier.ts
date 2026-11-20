@@ -6,6 +6,8 @@ import { chosenLocaleOf, membersByIds } from '../domain/members.ts'
 import type { AppEnv } from '../environment.ts'
 import { makeWorkTally } from '../work-tally.ts'
 import { encryptPushPayload } from './payload-encryption.ts'
+import { type PushWindow, makePushWindow } from './push-window.ts'
+import { reviewWaitingFor } from './review-notice.ts'
 import { type PushSubscription, pushSubscriptionsOf, removePushSubscription } from './subscriptions.ts'
 import { type PushTitles, pushTitlesIn } from './titles.ts'
 import { type VapidKeys, vapidAuthorization, vapidKeys } from './vapid.ts'
@@ -21,6 +23,7 @@ export interface PushNotice {
   readonly about:
     | { readonly kind: 'note'; readonly author: string | null }
     | { readonly kind: 'draft' }
+    | { readonly kind: 'review'; readonly channel: string }
     | { readonly kind: 'test'; readonly title: string }
   readonly body: string
   readonly url: string
@@ -35,16 +38,17 @@ export interface PushNotifier {
 export const makePushNotifier = (fetch: Fetch): PushNotifier => {
   const pending = makeQueue<{ memberId: MemberId; event: StreamEvent }>(PENDING_LIMIT)
   const work = makeWorkTally()
+  const reviewWindow = makePushWindow(REVIEW_PUSH_WINDOW_MS)
   return {
     consider: (memberId, event) => {
-      if (event.body.type !== 'note.sent' && event.body.type !== 'draft.saved') return
+      if (!isPushable(event.body)) return
       if (pending.tryOffer({ memberId, event })) work.started()
     },
     run: T.gen(function* () {
       for (;;) {
         const { memberId, event } = yield* T.orDie(pending.take)
         try {
-          const notice = yield* pushNoticeFor(memberId, event)
+          const notice = yield* pushNoticeFor(memberId, event, reviewWindow)
           if (notice !== null) yield* T.asUnit(deliverToMember(fetch, memberId, notice))
         } finally {
           work.finished()
@@ -55,25 +59,57 @@ export const makePushNotifier = (fetch: Fetch): PushNotifier => {
   }
 }
 
-const pushNoticeFor = (memberId: MemberId, event: StreamEvent): T.Task<PushNotice | null, never, AppEnv> =>
+/** How long a reviewer hears nothing more about a channel after one of its answers notified them. */
+export const REVIEW_PUSH_WINDOW_MS = 2 * 60 * 1000
+
+const isPushable = (body: StreamEvent['body']): boolean =>
+  body.type === 'note.sent' ||
+  body.type === 'draft.saved' ||
+  (body.type === 'review.changed' && body.noteId !== null)
+
+const pushNoticeFor = (
+  memberId: MemberId,
+  event: StreamEvent,
+  reviewWindow: PushWindow,
+): T.Task<PushNotice | null, never, AppEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
     if (env.hub.isLooking(memberId)) return null
     const about = yield* noticeAbout(memberId, event)
     if (about === null || !(yield* wantsPushAbout(memberId, about.conversationId))) return null
+    if (about.coalesce !== null && !reviewWindow.admits(`${memberId} ${about.coalesce}`, env.clock.now()))
+      return null
     return about.notice
   })
 
-const noticeAbout = (
-  memberId: MemberId,
-  event: StreamEvent,
-): T.Task<{ readonly conversationId: ConversationId; readonly notice: PushNotice } | null, never, AppEnv> =>
+interface NoticeAbout {
+  readonly conversationId: ConversationId
+  /** Notices with the same key reach a person once per window; null for one that always goes. */
+  readonly coalesce: string | null
+  readonly notice: PushNotice
+}
+
+const noticeAbout = (memberId: MemberId, event: StreamEvent): T.Task<NoticeAbout | null, never, AppEnv> =>
   T.gen(function* () {
     const body = event.body
+    if (body.type === 'review.changed' && body.noteId !== null) {
+      const review = yield* reviewWaitingFor(memberId, body.noteId)
+      if (review === null) return null
+      return {
+        conversationId: review.conversationId,
+        coalesce: review.channelId,
+        notice: {
+          about: { kind: 'review', channel: review.slug },
+          body: preview(review.body),
+          url: review.url,
+        },
+      }
+    }
     if (body.type === 'note.sent' && body.note.authorId !== memberId) {
       const author = (yield* membersByIds([body.note.authorId])).get(body.note.authorId)
       return {
         conversationId: body.note.conversationId,
+        coalesce: null,
         notice: {
           about: { kind: 'note', author: author?.name ?? null },
           body: preview(body.note.body),
@@ -88,6 +124,7 @@ const noticeAbout = (
     if (isNewAgentDraft)
       return {
         conversationId: body.note.conversationId,
+        coalesce: null,
         notice: {
           about: { kind: 'draft' },
           body: preview(body.note.body),
@@ -169,6 +206,7 @@ const messageIn = (locale: Locale | null, notice: PushNotice): PushMessage => ({
 
 const titleOf = (titles: PushTitles, about: PushNotice['about']): string => {
   if (about.kind === 'draft') return titles.draftWaiting
+  if (about.kind === 'review') return titles.reviewWaiting(`#${about.channel}`)
   if (about.kind === 'test') return about.title
   return about.author === null ? titles.noteFromColleague : titles.noteFrom(about.author)
 }

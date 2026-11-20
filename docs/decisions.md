@@ -5,6 +5,22 @@ states the decision first, then the reason. Add new entries at the top of their 
 
 ## Product
 
+- **A channel's managers are notified when its agent's answer waits for their review, as the channel
+  notifies them.** When a channel's agent writes a new draft, every person who may review it then gets
+  a push titled with the channel ("#payments-wiki · An answer waits for your review"), with the same
+  140-character encrypted preview a person gets of their own agent's draft, opening the card on the
+  agent's page (`#/channel/<slug>/agent?draft=<id>`). The notifier reads it all again when the push
+  goes out: the draft must still wait, unchanged since it was written, and the person must still be a
+  reviewer by `possibleReviewers`, so the person whose question it answers, an administrator outside
+  the managing group and the agent itself never get one (rule 2), and neither does a manager taken out
+  in between or anyone once the answer is sent or discarded. A reviewer gets one such push per channel
+  in two minutes; the rest of a burst waits on the same page. The push follows the room the draft is
+  in as the channel: a muted channel, or a muted private question, sends none, and so do `direct` and
+  `none`. Reviewing is channel work, and a level that let review notices through would be the one
+  setting a manager could not quiet without leaving the group; the count above the conversation list
+  still shows what waits. An agent's later edits notify nobody: the server does not know who has read
+  a card, and the card already asks to read a changed answer again. Like every push, nothing is
+  audited and `push.delivered` logs carry no content.
 - **Muting belongs to one person and one conversation, and the server decides every push.** A person
   mutes a direct message or a channel (`conversations.mute`, `conversations.unmute`) and chooses which
   conversations may notify their devices (`me.notifications.set`: `all`, `direct` or `none`). All three

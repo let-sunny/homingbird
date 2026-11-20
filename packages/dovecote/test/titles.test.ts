@@ -12,6 +12,7 @@ describe('push notification titles', () => {
     expect(titles.noteFrom('Ana')).toContain('Ana')
     expect(titles.noteFromColleague).not.toBe('')
     expect(titles.draftWaiting).not.toBe('')
+    expect(titles.reviewWaiting('#payments-wiki')).toContain('#payments-wiki')
   })
 
   it('writes the Korean titles with the product words from the decisions', () => {
