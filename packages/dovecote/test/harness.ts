@@ -183,9 +183,17 @@ export const meanwhile = (
 
 export const everyStoredValue = async (server: TestServer): Promise<string> => {
   const dump: string[] = []
-  for (const table of tableNames()) dump.push(`${table}: ${JSON.stringify(await storedRows(server, table))}`)
+  for (const table of tableNames())
+    dump.push(`${table}: ${JSON.stringify(inStableOrder(await storedRows(server, table)))}`)
   return dump.join('\n')
 }
+
+/** A database returns rows in the order it stored them, which a changed row can alter; compare them in one order. */
+const inStableOrder = (rows: ReadonlyArray<unknown>): ReadonlyArray<unknown> =>
+  rows
+    .map((row) => [JSON.stringify(row).replace(/"last_used_at":(\d+|null)/g, ''), row] as const)
+    .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+    .map(([, row]) => row)
 
 export const startTestServer = async (
   overrides: Readonly<Record<string, string>> = {},
