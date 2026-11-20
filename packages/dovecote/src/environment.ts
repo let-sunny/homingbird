@@ -1,5 +1,14 @@
 import type { HasClock, Task as T } from '@homingbird/kernel'
-import type { CredentialId, CredentialKind, Member, MemberId, StreamEvent } from '@homingbird/protocol'
+import type {
+  Conflict,
+  CredentialId,
+  CredentialKind,
+  DeskWakeTest,
+  Member,
+  MemberId,
+  NotFound,
+  StreamEvent,
+} from '@homingbird/protocol'
 import type { AnalyticsForwarder } from './analytics/forward.ts'
 import type { ClientMetadataDocuments } from './auth/client-metadata.ts'
 import type { IdentityProvider } from './auth/identity-provider.ts'
@@ -23,6 +32,8 @@ export interface AppEnv extends HasSql, HasClock {
   readonly analytics: AnalyticsForwarder
   readonly pushSink: (memberId: MemberId, event: StreamEvent, isNewReview: boolean) => void
   readonly pushTest: (memberId: MemberId) => T.Task<ReadonlyArray<PushOutcome>, never, AppEnv>
+  readonly wakeSink: (memberId: MemberId, event: StreamEvent) => void
+  readonly wakeTest: (memberId: MemberId) => T.Task<DeskWakeTest, NotFound | Conflict, AppEnv>
   readonly log: Log
   readonly requestId: string | null
   readonly client: RequestClient | null

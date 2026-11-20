@@ -82,6 +82,7 @@ exports[`schema > generates stable DDL for mysql 1`] = `
   "CREATE INDEX conversations_channel_id_idx ON conversations (channel_id)",
   "ALTER TABLE participants ADD COLUMN muted_at BIGINT",
   "ALTER TABLE members ADD COLUMN notifications VARCHAR(400)",
+  "CREATE TABLE IF NOT EXISTS desk_wakes (member_id VARCHAR(64) NOT NULL, credential_id VARCHAR(64) NOT NULL, host VARCHAR(400) NOT NULL, sealed MEDIUMTEXT NOT NULL, enabled BIGINT NOT NULL, last_wake_at BIGINT, last_status VARCHAR(400) NOT NULL, failures BIGINT NOT NULL, retry_at BIGINT, stopped_because VARCHAR(400), created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL, PRIMARY KEY (member_id), INDEX desk_wakes_credential_id_idx (credential_id))",
 ]
 `;
 
@@ -208,6 +209,8 @@ exports[`schema > generates stable DDL for postgres 1`] = `
   "CREATE INDEX IF NOT EXISTS conversations_channel_id_idx ON conversations (channel_id)",
   "ALTER TABLE participants ADD COLUMN muted_at BIGINT",
   "ALTER TABLE members ADD COLUMN notifications VARCHAR(400)",
+  "CREATE TABLE IF NOT EXISTS desk_wakes (member_id VARCHAR(64) NOT NULL, credential_id VARCHAR(64) NOT NULL, host VARCHAR(400) NOT NULL, sealed TEXT NOT NULL, enabled BIGINT NOT NULL, last_wake_at BIGINT, last_status VARCHAR(400) NOT NULL, failures BIGINT NOT NULL, retry_at BIGINT, stopped_because VARCHAR(400), created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL, PRIMARY KEY (member_id))",
+  "CREATE INDEX IF NOT EXISTS desk_wakes_credential_id_idx ON desk_wakes (credential_id)",
 ]
 `;
 
@@ -334,5 +337,7 @@ exports[`schema > generates stable DDL for sqlite 1`] = `
   "CREATE INDEX IF NOT EXISTS conversations_channel_id_idx ON conversations (channel_id)",
   "ALTER TABLE participants ADD COLUMN muted_at INTEGER",
   "ALTER TABLE members ADD COLUMN notifications TEXT",
+  "CREATE TABLE IF NOT EXISTS desk_wakes (member_id TEXT NOT NULL, credential_id TEXT NOT NULL, host TEXT NOT NULL, sealed TEXT NOT NULL, enabled INTEGER NOT NULL, last_wake_at INTEGER, last_status TEXT NOT NULL, failures INTEGER NOT NULL, retry_at INTEGER, stopped_because TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (member_id))",
+  "CREATE INDEX IF NOT EXISTS desk_wakes_credential_id_idx ON desk_wakes (credential_id)",
 ]
 `;

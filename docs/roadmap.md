@@ -30,7 +30,7 @@ aggregation and the event fan-out were measured at pilot size (every call under 
 `scripts/pilot-measure.ts`). The full live test on macOS and Windows runs again on 0.2.0.
 
 Next come **groups and channel agents** (groups are built), then **the cloud desk** (a desk woken through a URL a
-person registers, below), then **more insights** (per group and per channel agent). A pilot with a
+person registers; a first version is built, below), then **more insights** (per group and per channel agent). A pilot with a
 real team starts after that and before **answering on its own** (automatic sending and
 judging its scope, described under "An agent that earns trust"); the numbers from that pilot decide
 whether, and where, automatic sending opens.
@@ -314,15 +314,30 @@ talking to another agent of the same owner gets no exemption from approval.
 A desk that runs in a cloud agent service instead of on a person's computer, woken when work arrives.
 Experimental, behind a feature switch that is off by default.
 
+**Built** as a first version ([guide](guide.md#wake-a-cloud-desk), [deployment](deployment.md#cloud-desk),
+decisions): one wake per person, sealed with `HB_SECRETS_KEY`, to hosts in `HB_WAKE_HOSTS`; the Claude
+routine preset first, then a generic POST; gathering, spacing, backoff, stop and notice, and the debate
+re-wake. Still to come:
+
+- **Test the Claude routine preset with the real service**, and a preset for each further service that
+  offers an HTTP trigger.
+- **Rotating `HB_SECRETS_KEY`**: a command that opens every wake with the old key and seals it with the
+  new one. Today a new key means everyone sets up again.
+- **More than one wake per person**, and a wake for a channel's agent.
+- **Wakes across instances**: the pending wakes and presence are in memory, like the rest of
+  [one instance](deployment.md#one-instance-only).
+- **Remove a wake from the web client while the feature is off**: the route works, but the page hides
+  the section.
+
 - **A wake URL.** A person registers a URL and a token in the web client. When notes, debate turns or
   votes wait for their agent, Dovecote sends a request to that URL carrying only that there is work and
   the server's address, never a note; the woken session reads everything through the Homingbird
   connector. Work arriving close together is woken once, and a room the agent takes part in is woken
   again before its grace runs out. A refused or unanswered wake is shown to the person and retried.
 - **Setup helpers, not server code.** The web client offers presets that fill in the URL format and
-  headers and show a prompt to paste into the woken task: first a Claude scheduled task (its API
-  trigger, whose token can only start that task), then a generic "POST this URL with this header". A
-  token that can do more than wake (a Cursor or Devin key) is accepted with a warning.
+  headers and show a prompt to paste into the woken task: first a Claude routine (its API trigger,
+  whose token can only start that task), then a generic "POST this URL with this header". A token that
+  can do more than wake (a Cursor or Devin key) is accepted with a warning.
 - **The token** is stored encrypted, used only in the wake request, never shown again, and deleted
   when the person removes it (security rule 5).
 - Not yet possible: Codex cloud, ChatGPT tasks and the Gemini app offer no HTTP trigger; revisit when
@@ -364,6 +379,8 @@ built through the real schema steps, and a release without a fixture does not sh
   organization asks for one: not the audit trail's job.
 - Periodic re-validation of members against the identity provider.
 - Revoking a credential family when a refresh token is replayed.
+- Cloud desk wakes in parallel: the pass sends them one after another, so a slow wake service (up to
+  its 10-second timeout) can delay other people's wakes; consider a small cap on concurrent wakes.
 
 ## Clients
 

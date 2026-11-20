@@ -7,11 +7,11 @@ import {
   type DraftReply,
   type DraftRequest,
   type DraftRequestId,
-  type MemberId,
   UNREADABLE_NOTE,
   agentLabelOf,
   describedForWriter,
   extractionIn,
+  isWakingEvent,
   quotedNote,
   readerPrompt,
   replyProblem,
@@ -162,7 +162,7 @@ const answering = (runner: Runner): T.Task<void, CliFailure, DeskEnv> =>
     )
     yield* T.ensuring(T.sync(() => stopping.abort()))(
       Stream.forEach((event: AsRead.StreamEvent) =>
-        isWaking(event, member.id) ? answerWaitingOrStop(runner) : T.unit,
+        isWakingEvent(event.body, member.id) ? answerWaitingOrStop(runner) : T.unit,
       )(events),
     )
   })
@@ -231,18 +231,6 @@ interface Runner {
 }
 
 const STOPPING: ReadonlyArray<number> = [EXIT.signedOut]
-
-const WAKING: ReadonlyArray<AsRead.StreamEvent['body']['type']> = [
-  'note.sent',
-  'draft.requested',
-  'debate.changed',
-  'resync',
-]
-
-const isWaking = (event: AsRead.StreamEvent, viewerId: MemberId): boolean =>
-  WAKING.includes(event.body.type) &&
-  !(event.body.type === 'note.sent' && event.body.note.authorId === viewerId) &&
-  !(event.body.type === 'debate.changed' && !event.body.participantIds.includes(viewerId))
 
 const answerWaiting = (runner: Runner): T.Task<void, CliFailure, DeskEnv> =>
   T.gen(function* () {

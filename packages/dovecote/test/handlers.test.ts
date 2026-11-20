@@ -6,6 +6,7 @@ import { channelHandlers } from '../src/api/channel-handlers.ts'
 import { contactHandlers } from '../src/api/contact-handlers.ts'
 import { credentialHandlers } from '../src/api/credential-handlers.ts'
 import { debateHandlers } from '../src/api/debate-handlers.ts'
+import { deskWakeHandlers } from '../src/api/desk-wake-handlers.ts'
 import { eventHandlers } from '../src/api/event-handlers.ts'
 import { groupHandlers } from '../src/api/group-handlers.ts'
 import { handlers } from '../src/api/handlers.ts'
@@ -19,6 +20,7 @@ const GROUPS = {
   contactHandlers,
   credentialHandlers,
   debateHandlers,
+  deskWakeHandlers,
   eventHandlers,
   groupHandlers,
   noteHandlers,

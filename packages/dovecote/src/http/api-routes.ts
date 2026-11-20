@@ -14,7 +14,7 @@ import { invokeRaw } from '../api/invoke.ts'
 import type { AppEnv, Caller } from '../environment.ts'
 import { callerOf } from './authenticate.ts'
 import { type HttpRequest, type HttpResponse, INVALID_JSON, apiFailure, json, parseJson } from './exchange.ts'
-import { LIMITS } from './rate-limiter.ts'
+import { LIMITS, type Limit } from './rate-limiter.ts'
 
 export const handleApiRequest = (request: HttpRequest): T.Task<HttpResponse, never, AppEnv> =>
   T.fold(
@@ -55,10 +55,30 @@ export const routeFor = (
 const BODY_LIMITS: Partial<Record<RouteName, number>> = { 'me.character.set': CHARACTER_BYTES_MAX }
 
 const requireWithinLimits = (name: RouteName, caller: Caller | null): T.Task<void, RateLimited, AppEnv> =>
-  T.flatMap((env: AppEnv) =>
-    name === 'drafts.create' &&
-    caller !== null &&
-    !env.rateLimiter.allow(`draft:${caller.credential.id}`, LIMITS.drafting)
-      ? T.fail(RateLimited({ message: 'Too many drafts in a short time. Try again in a minute.' }))
-      : T.unit,
-  )(T.ask<AppEnv>())
+  T.flatMap((env: AppEnv) => {
+    const limited = ROUTE_LIMITS[name]
+    return limited !== undefined &&
+      caller !== null &&
+      !env.rateLimiter.allow(limited.key(caller), limited.limit)
+      ? T.fail(RateLimited({ message: limited.message }))
+      : T.unit
+  })(T.ask<AppEnv>())
+
+/** Each test wake starts a session the person pays for, so a few an hour are enough to check a setup. */
+const ROUTE_LIMITS: Partial<
+  Record<
+    RouteName,
+    { readonly limit: Limit; readonly key: (caller: Caller) => string; readonly message: string }
+  >
+> = {
+  'drafts.create': {
+    limit: LIMITS.drafting,
+    key: (caller) => `draft:${caller.credential.id}`,
+    message: 'Too many drafts in a short time. Try again in a minute.',
+  },
+  'me.deskWake.test': {
+    limit: LIMITS.wakeTest,
+    key: (caller) => `wake-test:${caller.member.id}`,
+    message: 'Too many test wakes in an hour. Try again later.',
+  },
+}

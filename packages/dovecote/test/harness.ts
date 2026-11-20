@@ -18,6 +18,8 @@ export interface TestServer {
   readonly clock: TestClock
   readonly background: Runtime['background']
   readonly settled: () => Promise<void>
+  /** Runs one cloud desk wake pass to its end, whatever the database driver. */
+  readonly wakePass: () => Promise<void>
   readonly logged: string[]
   readonly request: (method: string, url: string, options?: RequestOptions) => Promise<TestResponse>
   readonly requestWithSettings: (overrides: Readonly<Record<string, string>>) => TestServer['request']
@@ -104,6 +106,9 @@ export const keepAwake = (
 }
 
 export const PUBLIC_URL = 'http://localhost:8080'
+
+/** A key for HB_SECRETS_KEY that only tests use. */
+export const TEST_SECRETS_KEY = Buffer.alloc(32, 7).toString('base64')
 
 export const testConfig = (overrides: Readonly<Record<string, string>> = {}): Config => {
   const loaded = loadConfig({
@@ -209,7 +214,7 @@ export const startTestServer = async (
   const database = parts.database ?? (await openTestDatabase(databaseUrl))
   const logged: string[] = []
   const desks: TestServer['desks'] = new Set()
-  const { env, background, settled } = buildRuntime({
+  const { env, background, settled, wakePass } = buildRuntime({
     config: testConfig(overrides),
     database,
     clock,
@@ -273,6 +278,7 @@ export const startTestServer = async (
     desks,
     background,
     settled: () => T.runPromise(settled, env),
+    wakePass: () => T.runPromise(wakePass, env),
     logged,
     request,
     requestWithSettings: (changed) =>

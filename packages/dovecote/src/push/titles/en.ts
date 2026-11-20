@@ -7,4 +7,6 @@ export const en: PushTitles = {
   reviewWaiting: (channel) => `${channel} · An answer waits for your review`,
   test: 'Homingbird test notification',
   testBody: 'Notifications reach this device.',
+  deskStopped: 'Your cloud desk is no longer woken',
+  deskStoppedBody: 'Homingbird stopped waking it. Open My agent → Connection to see why and set it up again.',
 }

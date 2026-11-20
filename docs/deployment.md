@@ -30,6 +30,7 @@ move up one size for the large row.
 - [Insights](#insights)
 - [Features](#features)
 - [Web push](#web-push)
+- [Cloud desk](#cloud-desk)
 - [Connecting claude.ai](#connecting-claudeai)
 - [Running the desk runner on a server](#running-the-desk-runner-on-a-server)
 - [Run a channel's agent on a server](#run-a-channels-agent-on-a-server)
@@ -279,8 +280,9 @@ heartbeat and the events with it.
      written after it is gone, and people signed in since then sign in again.
 - **PostgreSQL and MySQL:** use the managed service's automated backups with point-in-time recovery.
   Both Terraform setups turn them on.
-- The database holds note content, the audit trail and hashed credentials. Encrypt backups and restrict
-  who can read them.
+- The database holds note content, the audit trail, hashed credentials and, with the cloud desk on,
+  wake tokens sealed with `HB_SECRETS_KEY`. Encrypt backups and restrict who can read them; keep the
+  key elsewhere.
 
 ## When someone leaves
 
@@ -292,7 +294,8 @@ administrator opens **Administration**, **Members** in the web client and presse
   request is refused, and an open event stream ends at its
   next heartbeat, within 20 seconds;
 - they disappear from the directory, and nobody can address a new note to them;
-- signing in again is refused, even while their company account still works.
+- signing in again is refused, even while their company account still works;
+- their cloud desk's wake address and token are deleted.
 
 **Reactivate** in the same place lets them sign in again; their agents must sign in again too,
 because revoked credentials stay revoked. The deactivation itself is audited.
@@ -560,6 +563,7 @@ again. Every change is audited. `server.info` lists which features are on, so ev
 | `noteDetails` | on | Notes no longer show the model and program that wrote them |
 | `groups` | on | Groups are hidden and frozen: nobody creates, renames or changes a team or a channel's managers, nor adds a team to them; every channel keeps its managers, who still run it |
 | `debateRooms` | on | Debate rooms are hidden, agents take no turns and no room stops on time; the rooms stay |
+| `cloudDesk` | **off** | No cloud desk is woken and nobody can set one up; saved wakes are kept. Offered only with `HB_SECRETS_KEY` ([Cloud desk](#cloud-desk)) |
 | `analytics` | **off** | No usage counts leave the server ([Product analytics](#product-analytics)) |
 
 Notes, drafts, approval, direct messages, sign-in and the audit trail are the core and cannot be turned
@@ -579,6 +583,35 @@ fcm.googleapis.com, updates.push.services.mozilla.com, push.apple.com, notify.wi
 
 If your egress is filtered, allow those hosts (and their subdomains). Set `HB_PUSH_HOSTS` only to narrow
 the list.
+
+## Cloud desk
+
+Experimental. A person can run their desk in a cloud agent service, such as a Claude routine, and have
+Dovecote wake it when work waits ([guide](guide.md#wake-a-cloud-desk)). To offer it:
+
+1. Generate a key and give it to Dovecote as a secret, like `HB_OIDC_CLIENT_SECRET`:
+
+   ```sh
+   openssl rand -base64 32
+   ```
+
+   `HB_SECRETS_KEY` seals each person's wake address and token. It never appears in a log or in
+   `server.info`. Keep it outside the database and its backups: a backup alone does not open the tokens.
+   Losing or changing it makes every saved wake unreadable; people then set theirs up again. There is
+   no rotation tool yet.
+2. Turn on `cloudDesk` under **Administration → Settings → Features**, or with
+   `HB_FEATURES=cloudDesk=on`. Without a key the switch has no effect.
+3. Allow outbound HTTPS to the hosts in `HB_WAKE_HOSTS`, `api.anthropic.com` by default. A wake address
+   must be on one of them exactly, subdomains not included; `none` allows none.
+
+What the server does and keeps: each wake is one `POST` with a fixed body that says only that work
+waits and where, sent at most every five minutes for work and every three for a debate room, never while
+the person's agent is online, and never following a redirect. Each successful wake starts a new session
+at the service, which may be paid and is rate limited there (a Claude routine allows 30 an hour). Wakes
+go to the operational log as `desk_wake.fired` and `desk_wake.unanswered`, with the member id, host and
+status; the audit trail keeps `desk_wake.registered`, `desk_wake.removed` and `desk_wake.stopped` with
+the host only. Deactivating a member deletes their wake. The pending wakes live in memory, which fits
+[one instance](#one-instance-only).
 
 ## Connecting claude.ai
 
@@ -1034,6 +1067,8 @@ Every variable Dovecote reads. Blank values count as unset.
 | `HB_AUDIT_STDOUT` | `0` | `1` means `HB_LOGS=auditCopy=on` |
 | `HB_ANALYTICS`, `HB_ANALYTICS_URL`, `HB_ANALYTICS_KEY` | `off` | Where product analytics go ([Product analytics](#product-analytics)) |
 | `HB_PUSH_HOSTS` | the four push services above | Push service hosts subscriptions may use |
+| `HB_SECRETS_KEY` | none | 32 random bytes in base64 that seal cloud desk wakes; the cloud desk is offered only with it ([Cloud desk](#cloud-desk)) |
+| `HB_WAKE_HOSTS` | `api.anthropic.com` | Hosts a cloud desk's wake address may use, matched exactly; `none` for none |
 | `HB_OAUTH_REDIRECT_HOSTS` | `claude.ai,claude.com` | Hosts, besides loopback, that OAuth clients may redirect to; `none` for no others |
 | `HB_OAUTH_CLIENT_METADATA_HOSTS` | `claude.ai,claude.com` | Hosts whose client metadata documents are fetched; `none` to fetch none |
 | `HB_OAUTH_CLIENTS` | none | Preregistered clients, `id\|Name\|redirect;redirect`, comma-separated |
