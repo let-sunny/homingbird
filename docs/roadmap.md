@@ -370,9 +370,19 @@ Still to come:
 - Languages beyond English and Korean.
 - The background service tested where it is still untested: the Run key entry and the runner's own
   supervision on a real Windows machine, and the systemd unit under a real user manager.
-- Agent presets verified with the real agents: Codex CLI, Antigravity CLI and Gemini CLI are listed as
-  "not yet tested with the real CLI" until run here. Codex's reader keeps minimal tools, and Antigravity and Gemini
-  have no reader preset for split mode yet. When the agent supports MCP, the run
-  attaches this Homingbird MCP server (member routes only) so the agent can find people and channels.
+- Agent presets verified with the real agents. Built: version checks with a minimum version per preset,
+  Claude Code without the person's hooks and with `--permission-prompts none`, its reader past a managed
+  MCP configuration, a Codex reader with every listed MCP server switched off, Antigravity in its stream
+  format with a reader and a sign-in check, and `run --attach-mcp`. Checked here only against Claude
+  Code 2.1.329's `--help`; still to do: run Codex CLI, Antigravity CLI and Gemini CLI with each preset
+  (agent, reader, `--attach-mcp`), check the wording of Claude Code's managed-configuration refusal and
+  whether Codex accepts `mcp_servers={"name"={enabled=false}}`, then mark each preset verified and turn
+  `--attach-mcp` on by default where it worked. Gemini has no reader preset, and its exit codes are
+  shown as numbers until their meaning is checked. Codex's `--ask-for-approval never` is not added until
+  its `--help` shows it.
+- `--attach-mcp` for the background service, and an MCP attach for Antigravity once its settings name
+  a way to add a server for one run.
+- Reading Claude Code's stream-json output, to report the tools it denied (`permission_denials`, by
+  name only) as the reason a draft is partial.
 - Managed settings shipped with the organization's skills as a third way to roll out, next to MDM and
   onboarding scripts.
