@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { runCli } from '../src/cli.ts'
 import { EXIT } from '../src/failure.ts'
 import { ME } from './runner-support.ts'
-import { AGENT_FILE, AGENT_TOKEN, type Call, SERVER, world } from './support.ts'
+import { AGENT_FILE, AGENT_TOKEN, ANA, type Call, SERVER, channelNamed, world } from './support.ts'
 
 const NEW_AGENT = 'hba_new-agent-token-0123456789abcdef'
 
@@ -45,6 +45,41 @@ describe('login --credentials-file', () => {
       `Signed in to ${SERVER} as Ana <ana@example.com>.\nWrote the agent credential to ${FILE}, readable by you only. Store it as a secret, give it to one runner with --credentials-file or HOMINGBIRD_CREDENTIALS_FILE, and delete this copy; it can read and draft as you, never send.`,
     )
     expect([...w.lines, ...w.problems].join('\n')).not.toContain(NEW_AGENT)
+  })
+
+  it('says when it signed in as a channel’s agent, which channel, and where its managers review', async () => {
+    const w = asTheChannelAgent()
+    const running = w.run('login', '--server', SERVER, '--credentials-file', FILE, '--no-browser')
+    await w.clock.advance(5_000)
+    expect(await running).toBe(0)
+    expect(w.lines.at(-1)).toBe(
+      [
+        `Signed in to ${SERVER} as Payments wiki, the agent of #payments-wiki.`,
+        `Wrote its credential to ${FILE}, readable by you only. Give it to one runner with --credentials-file or HOMINGBIRD_CREDENTIALS_FILE; on another machine than the runner’s, move it there as a secret. ${CHANNEL_AGENT_DRAFTS}`,
+        REVIEWED_AT,
+      ].join('\n'),
+    )
+    expect([...w.lines, ...w.problems].join('\n')).not.toContain(NEW_AGENT)
+  })
+
+  it('tells a channel’s agent signed in to this device to run one desk here', async () => {
+    const w = asTheChannelAgent()
+    const running = w.run('login', '--server', SERVER, '--no-browser', '--json')
+    await w.clock.advance(5_000)
+    expect(await running).toBe(0)
+    expect(w.json()).toMatchObject({ step: 'signed_in', channel: 'payments-wiki' })
+    expect(w.json()).not.toHaveProperty('credentialsFile')
+    const again = asTheChannelAgent()
+    const second = again.run('login', '--server', SERVER, '--no-browser')
+    await again.clock.advance(5_000)
+    expect(await second).toBe(0)
+    expect(again.lines.at(-1)).toBe(
+      [
+        `Signed in to ${SERVER} as Payments wiki, the agent of #payments-wiki.`,
+        `Run one desk for it here with homingbird run. ${CHANNEL_AGENT_DRAFTS}`,
+        REVIEWED_AT,
+      ].join('\n'),
+    )
   })
 
   it('reports the file it wrote as JSON, and takes it from HOMINGBIRD_CREDENTIALS_FILE too', async () => {
@@ -119,3 +154,23 @@ describe('login --credentials-file', () => {
     expect(full.w.files.has(FILE)).toBe(false)
   })
 })
+
+const CHANNEL_AGENT_DRAFTS =
+  'It can read its channel’s questions and draft answers, never send: one of the channel’s managers approves each.'
+const REVIEWED_AT = `They review its answers at ${SERVER}/#/channel/payments-wiki/agent`
+
+const asTheChannelAgent = () =>
+  world({
+    signedIn: 'none',
+    stubs: {
+      'me.get': () =>
+        ({ ...(ME as object), member: { ...ANA, kind: 'channel_agent', name: 'Payments wiki' } }) as never,
+      'channels.list': () =>
+        ({
+          channels: [channelNamed('payments-wiki', { id: ANA.id, name: 'Payments wiki' })],
+          hasMore: false,
+          cursor: null,
+        }) as never,
+    },
+    other: approvedAtOnce,
+  })

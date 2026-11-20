@@ -8,6 +8,7 @@ import {
   DIRECTORY,
   SERVER,
   type Stubs,
+  channelNamed,
   conversationOf,
   noteOf,
   requestOf,
@@ -23,21 +24,6 @@ const DRAFT = noteOf({
   status: 'draft',
   sentAt: null,
   receipts: [],
-})
-
-const channelNamed = (slug: string, agent: { readonly id: string; readonly name: string } | null) => ({
-  slug,
-  description: `About ${slug}`,
-  conversationId: `conv_${slug.replace(/-/g, '').padEnd(12, '0')}`,
-  visibility: 'open',
-  memberCount: 2,
-  helperCount: 1,
-  joined: true,
-  answering: true,
-  managing: false,
-  managedBy: `grp_${slug.replace(/-/g, '').padEnd(12, '0')}`,
-  agent,
-  createdAt: 1,
 })
 
 describe('open', () => {

@@ -28,6 +28,22 @@ export const AGENT_FILE = agentFileFor(SERVER)
 
 export const INTERRUPTED = -1
 
+/** A channel as `channels.list` lists it, with its agent or none. */
+export const channelNamed = (slug: string, agent: { readonly id: string; readonly name: string } | null) => ({
+  slug,
+  description: `About ${slug}`,
+  conversationId: `conv_${slug.replace(/-/g, '').padEnd(12, '0')}`,
+  visibility: 'open',
+  memberCount: 2,
+  helperCount: 1,
+  joined: true,
+  answering: true,
+  managing: false,
+  managedBy: `grp_${slug.replace(/-/g, '').padEnd(12, '0')}`,
+  agent,
+  createdAt: 1,
+})
+
 export interface Call {
   readonly method: string
   readonly path: string
