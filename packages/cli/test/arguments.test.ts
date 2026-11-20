@@ -299,7 +299,7 @@ describe('parseArguments', () => {
     })
   })
 
-  it('reads --credentials-file for every command, and --force for login alone', () => {
+  it('reads --credentials-file for every command, and --force for login and setup alone', () => {
     expect(parseArguments(['inbox', '--credentials-file', ' /run/secret.json '])).toMatchObject({
       value: { credentialsFile: '/run/secret.json', invocation: { command: 'inbox' } },
     })
@@ -312,7 +312,7 @@ describe('parseArguments', () => {
     })
     expect(parseArguments(['inbox', '--force'])).toMatchObject({
       _tag: 'Err',
-      error: { message: expect.stringContaining('--force goes with login.') },
+      error: { message: expect.stringContaining('--force goes with login or setup.') },
     })
     expect(parseArguments(['inbox', '--credentials-file'])._tag).toBe('Err')
   })
