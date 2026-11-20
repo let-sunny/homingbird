@@ -34,8 +34,18 @@ export interface Launcher {
 }
 
 export interface Processes {
-  /** Runs a program directly, without a shell, and collects what it printed. */
-  readonly run: (program: string, args: ReadonlyArray<string>) => Promise<ProcessRun>
+  /** Runs a program directly, without a shell, and collects what it printed; one that runs too long is stopped. */
+  readonly run: (
+    program: string,
+    args: ReadonlyArray<string>,
+    options?: ProcessOptions,
+  ) => Promise<ProcessRun>
+}
+
+export interface ProcessOptions {
+  readonly timeoutMs?: number
+  /** Variables added to this process's own environment. */
+  readonly environment?: Readonly<Record<string, string>>
 }
 
 export interface Programs {

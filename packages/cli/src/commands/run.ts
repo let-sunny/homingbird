@@ -26,6 +26,7 @@ import { type Launches, launchesAsGiven, preparedLaunches } from '../agent-launc
 import { isReaderWithSomeTools } from '../agent-presets.ts'
 import { countUsage, presetLabel } from '../analytics.ts'
 import { answeringFlowFor } from '../answering-flow.ts'
+import { antigravityInput, antigravityOutput } from '../antigravity.ts'
 import { type DebateDesk, answerDebates } from '../debate-runner.ts'
 import {
   DESK_CLAIM_RETRY_MS,
@@ -477,15 +478,17 @@ const outputOf = (
 ): T.Task<string | null, CliFailure, DeskEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<DeskEnv>()
-    const { command } = role === 'agent' ? runner.launches.agent : runner.launches.reader!
-    const environment = agentEnvironment(env.variables, [
-      runner.session.credential.token,
-      env.credentialsFile ?? '',
-    ])
+    const launch = role === 'agent' ? runner.launches.agent : runner.launches.reader!
+    const { command } = launch
+    const environment = {
+      ...agentEnvironment(env.variables, [runner.session.credential.token, env.credentialsFile ?? '']),
+      ...launch.environment,
+    }
+    const input = launch.format === 'antigravity-stream' ? antigravityInput(prompt) : prompt
     const finished = yield* T.result(
       T.timeout(runner.timeoutMs)(
         T.tryPromise(
-          (signal: AbortSignal) => env.launcher.runAgent(command, prompt, environment, signal),
+          (signal: AbortSignal) => env.launcher.runAgent(command, input, environment, signal),
           (cause) => failed(cause instanceof Error ? cause.message : String(cause)),
         ),
       ),
@@ -496,8 +499,12 @@ const outputOf = (
         : finished.error._tag === 'TimeoutError'
           ? `did not finish within ${runner.timeoutMs / 1000} seconds`
           : `could not be started (${finished.error.message})`
-    if (reason === null && finished._tag === 'Ok') return finished.value.output
-    return yield* T.as(null)(warn(`The ${role} command ${reason}; nothing was drafted for ${what}.`))
+    if (reason !== null || finished._tag !== 'Ok')
+      return yield* T.as(null)(warn(`The ${role} command ${reason}; nothing was drafted for ${what}.`))
+    if (launch.format === 'text') return finished.value.output
+    const reply = antigravityOutput(finished.value.output)
+    if (reply._tag === 'Ok') return reply.value
+    return yield* T.as(null)(warn(`The ${role} command ${reply.error}; nothing was drafted for ${what}.`))
   })
 
 const exitProblem = (finished: AgentRun, command: string): string | null => {

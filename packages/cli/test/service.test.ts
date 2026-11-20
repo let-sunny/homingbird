@@ -137,6 +137,19 @@ describe('homingbird service install', () => {
     expect(w.lines[0]).not.toContain('Warning')
   })
 
+  it('installs Antigravity before it is signed in, and says the service waits until it is', async () => {
+    const w = world({
+      platform: 'darwin',
+      userId: 501,
+      process: (program, args) => (program === 'agy' ? { exitCode: null, output: '' } : undefined),
+    })
+    expect(await w.run('service', 'install', '--server', SERVER, '--agent', 'antigravity')).toBe(0)
+    expect(w.lines[0]).toContain(
+      'Warning: Antigravity did not answer within 20 seconds, or is not signed in on this computer. Sign in first: run `agy` in a terminal, then start this again. The service waits until then.',
+    )
+    expect(w.processRuns.filter(([program]) => program === 'agy')).toHaveLength(1)
+  })
+
   it('refuses to install a preset whose program is not on the PATH the service would run with', async () => {
     const w = world({ variables: { PATH: '/usr/local/bin:/usr/bin' }, runnable: () => false })
     expect(await w.run('service', 'install', '--server', SERVER, '--agent', 'codex')).toBe(EXIT.failed)

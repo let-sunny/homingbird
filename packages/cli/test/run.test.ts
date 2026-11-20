@@ -736,6 +736,41 @@ describe('homingbird run --split', () => {
     expect(strict.w.calls).toEqual([])
   })
 
+  it('talks to the Antigravity preset in its stream, with its updater switched off', async () => {
+    const reply = JSON.stringify({
+      event: 'result',
+      result: { status: 'SUCCESS', response: 'Thursday works.' },
+    })
+    const r = runner({
+      argv: ['--agent', 'antigravity'],
+      stubs: { 'inbox.list': () => waitingQuestion },
+      process: () => ({ exitCode: 0, output: '{}' }),
+      agent: () => ({ exitCode: 0, output: `{"event":"init"}\n${reply}\n` }),
+    })
+    await settle(() => r.created.length === 1)
+    expect(r.created[0]).toMatchObject({ body: 'Thursday works.' })
+    const [run] = r.w.agentRuns
+    expect(run!.command).toBe('agy --print= --input-format=stream-json --output-format=stream-json --sandbox')
+    expect(JSON.parse(run!.prompt)).toMatchObject({ event: 'user', message: { role: 'user' } })
+    expect(run!.environment.AGY_CLI_DISABLE_AUTO_UPDATE).toBe('true')
+    await r.stop()
+  })
+
+  it('drafts nothing when Antigravity reports no response', async () => {
+    const r = runner({
+      argv: ['--agent', 'antigravity'],
+      stubs: { 'inbox.list': () => waitingQuestion },
+      process: () => ({ exitCode: 0, output: '{}' }),
+      agent: () => ({ exitCode: 0, output: '{"event":"result","result":{"status":"ERROR"}}\n' }),
+    })
+    await settle(() => r.w.problems.length === 1)
+    expect(r.w.problems[0]).toMatch(
+      /^The agent command reported ERROR instead of a response; nothing was drafted/,
+    )
+    expect(r.created).toEqual([])
+    await r.stop()
+  })
+
   it('runs the Codex preset reader with every MCP server Codex lists switched off', async () => {
     const r = runner({
       argv: ['--agent', 'codex', '--split'],

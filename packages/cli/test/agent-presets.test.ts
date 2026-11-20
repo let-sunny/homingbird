@@ -23,7 +23,9 @@ describe('agent presets', () => {
     expect(agentCommand(' codex ', 'linux')).toBe(
       'codex exec --skip-git-repo-check --ephemeral --sandbox workspace-write -',
     )
-    expect(agentCommand('antigravity', 'linux')).toBe('agy -p --mode default --output-format text')
+    expect(agentCommand('antigravity', 'linux')).toBe(
+      'agy --print= --input-format=stream-json --output-format=stream-json --sandbox',
+    )
     expect(agentCommand('gemini', 'linux')).toBe("gemini -p '' --output-format text --approval-mode default")
     expect(agentCommand('gemini', 'win32')).toBe('gemini -p "" --output-format text --approval-mode default')
   })
@@ -98,8 +100,55 @@ describe('agent presets', () => {
       })
   })
 
+  it('give Antigravity a reader that denies every tool, and only where agy offers --settings', () => {
+    const antigravity = presetNamed('antigravity')!
+    const reader = defaultReader('antigravity', 'linux')
+    expect(reader).toMatch(
+      /^agy --print= --input-format=stream-json --output-format=stream-json --sandbox --settings '/,
+    )
+    const settings = JSON.parse(reader.slice(reader.indexOf("'") + 1, -1))
+    expect(settings.permissions.deny).toEqual([
+      'read_file(*)',
+      'write_file(*)',
+      'command(*)',
+      'mcp(*)',
+      'read_url(*)',
+      'execute_url(*)',
+    ])
+    expect(antigravity.readerTools).toBe('minimal')
+    expect(isReaderWithSomeTools(reader)).toBe(true)
+    const probe = antigravity.reader!.probe!
+    expect(probe.args).toEqual(['--help'])
+    expect(probe.wordsFrom({ exitCode: 0, output: 'Options:\n  --settings <json>  Settings\n' })).toEqual({
+      _tag: 'Ok',
+      value: [],
+    })
+    expect(probe.wordsFrom({ exitCode: 0, output: '  --settings=<file>\n' })._tag).toBe('Ok')
+    for (const printed of [
+      { exitCode: 0, output: '  --settings-file <path>\n  see --settings in the docs\n' },
+      { exitCode: 1, output: '  --settings <json>\n' },
+    ])
+      expect(probe.wordsFrom(printed)).toEqual({
+        _tag: 'Err',
+        error: 'agy --help does not list --settings, which the reader needs to deny every tool',
+      })
+  })
+
+  it('keep Antigravity from updating itself, and ask it first whether it is signed in', () => {
+    const antigravity = presetNamed('antigravity')!
+    expect(antigravity.environment).toEqual({ AGY_CLI_DISABLE_AUTO_UPDATE: 'true' })
+    expect(antigravity.agent.format).toBe('antigravity-stream')
+    expect(antigravity.signInCheck).toMatchObject({
+      args: ['-p', '/usage', '--output-format', 'json', '--print-timeout', '15s'],
+      timeoutMs: 20_000,
+    })
+    for (const preset of AGENT_PRESETS.filter((each) => each.name !== 'antigravity')) {
+      expect(preset.signInCheck).toBeNull()
+      expect(preset.agent.format).toBe('text')
+    }
+  })
+
   it('fall back to the agent itself as the reader when no reader is known', () => {
-    expect(defaultReader('antigravity', 'linux')).toBe(agentCommand('antigravity', 'linux'))
     expect(defaultReader('gemini', 'linux')).toBe(agentCommand('gemini', 'linux'))
     expect(defaultReader('my-agent --fast', 'win32')).toBe('my-agent --fast')
   })

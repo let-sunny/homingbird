@@ -1,4 +1,5 @@
 import { Result, Schema as S } from '@homingbird/kernel'
+import { ANTIGRAVITY_PRINT, ANTIGRAVITY_READER_SETTINGS } from './antigravity.ts'
 import type { ProcessRun } from './environment.ts'
 
 /** A bare preset name stands for the preset's command; any other value is the command itself. */
@@ -68,12 +69,27 @@ export interface AgentPreset {
   readonly readerTools: 'none' | 'minimal' | null
   /** What the preset was run with; null while it is taken from the tool's source code only. */
   readonly verifiedWith: string | null
+  /** Variables both commands and every probe get, on top of the person's environment. */
+  readonly environment: Readonly<Record<string, string>>
+  readonly signInCheck: SignInCheck | null
 }
 
 export interface PresetCommand {
   readonly words: ReadonlyArray<string>
   /** Asked of the program before the runner starts; what it prints adds words to the command. */
   readonly probe: LaunchProbe | null
+  /** `text`: the prompt goes in and the reply comes out as plain text; otherwise in the program's own stream. */
+  readonly format: LaunchFormat
+}
+
+export type LaunchFormat = 'text' | 'antigravity-stream'
+
+/** Asked once before the runner starts, so that no note waits on a program that cannot answer. */
+export interface SignInCheck {
+  readonly args: ReadonlyArray<string>
+  readonly timeoutMs: number
+  /** Why the runner does not start when the program does not answer in time with exit code 0. */
+  readonly problem: string
 }
 
 export interface LaunchProbe {
@@ -93,10 +109,12 @@ export const AGENT_PRESETS: ReadonlyArray<AgentPreset> = [
   {
     name: 'claude',
     program: 'Claude Code',
-    agent: { words: ['claude', '-p'], probe: null },
-    reader: { words: ['claude', '-p', '--tools', '', '--strict-mcp-config'], probe: null },
+    agent: { words: ['claude', '-p'], probe: null, format: 'text' },
+    reader: { words: ['claude', '-p', '--tools', '', '--strict-mcp-config'], probe: null, format: 'text' },
     readerTools: 'none',
     verifiedWith: 'Claude Code 2.1.327',
+    environment: {},
+    signInCheck: null,
   },
   {
     name: 'codex',
@@ -104,6 +122,7 @@ export const AGENT_PRESETS: ReadonlyArray<AgentPreset> = [
     agent: {
       words: ['codex', 'exec', '--skip-git-repo-check', '--ephemeral', '--sandbox', 'workspace-write', '-'],
       probe: null,
+      format: 'text',
     },
     reader: {
       words: [
@@ -123,17 +142,31 @@ export const AGENT_PRESETS: ReadonlyArray<AgentPreset> = [
         args: ['-c', 'features.plugins=false', '-c', 'features.apps=false', 'mcp', 'list', '--json'],
         wordsFrom: (printed) => codexServersSwitchedOff(printed),
       },
+      format: 'text',
     },
     readerTools: 'minimal',
     verifiedWith: null,
+    environment: {},
+    signInCheck: null,
   },
   {
     name: 'antigravity',
     program: 'Antigravity CLI (agy)',
-    agent: { words: ['agy', '-p', '--mode', 'default', '--output-format', 'text'], probe: null },
-    reader: null,
-    readerTools: null,
+    agent: { words: ANTIGRAVITY_PRINT, probe: null, format: 'antigravity-stream' },
+    reader: {
+      words: [...ANTIGRAVITY_PRINT, '--settings', JSON.stringify(ANTIGRAVITY_READER_SETTINGS)],
+      probe: { args: ['--help'], wordsFrom: (printed) => antigravitySettingsOffered(printed) },
+      format: 'antigravity-stream',
+    },
+    readerTools: 'minimal',
     verifiedWith: null,
+    environment: { AGY_CLI_DISABLE_AUTO_UPDATE: 'true' },
+    signInCheck: {
+      args: ['-p', '/usage', '--output-format', 'json', '--print-timeout', '15s'],
+      timeoutMs: 20_000,
+      problem:
+        'Antigravity did not answer within 20 seconds, or is not signed in on this computer. Sign in first: run `agy` in a terminal, then start this again.',
+    },
   },
   {
     name: 'gemini',
@@ -141,14 +174,23 @@ export const AGENT_PRESETS: ReadonlyArray<AgentPreset> = [
     agent: {
       words: ['gemini', '-p', '', '--output-format', 'text', '--approval-mode', 'default'],
       probe: null,
+      format: 'text',
     },
     reader: null,
     readerTools: null,
     verifiedWith: null,
+    environment: {},
+    signInCheck: null,
   },
 ]
 
 const ROLES = ['agent', 'reader'] as const
+
+/** Without `--settings` an older Antigravity CLI would run the reader with every tool. */
+const antigravitySettingsOffered = (printed: ProcessRun): Result.Result<ReadonlyArray<string>, string> =>
+  printed.exitCode === 0 && /^\s*--settings(?:[= \t]|$)/m.test(printed.output)
+    ? Result.ok([])
+    : Result.err('agy --help does not list --settings, which the reader needs to deny every tool')
 
 const SHELLS = ['linux', 'win32']
 

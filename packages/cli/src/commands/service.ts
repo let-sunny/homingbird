@@ -1,5 +1,6 @@
 import { Task as T } from '@homingbird/kernel'
-import { agentCommand, defaultReader } from '../agent-presets.ts'
+import { presetNotReady } from '../agent-launch.ts'
+import { agentCommand, defaultReader, presetCommandOf } from '../agent-presets.ts'
 import { credentialDirectory, credentialFor, readCredentialsFile, storedServers } from '../credentials.ts'
 import { isClaimLive } from '../desk-claim.ts'
 import type { CliEnv, ProcessRun } from '../environment.ts'
@@ -313,6 +314,14 @@ const stableProgram = (
     for (const [what, path] of checked) {
       const warning = path == null ? null : yield* unstablePathWarningFor(what, path)
       if (warning !== null) warnings.push(warning)
+    }
+    const commands = [agent, ...(settings.split === null ? [] : [settings.split.reader])]
+    const presets = new Set(
+      commands.flatMap((command) => presetCommandOf(command, env.platform)?.preset ?? []),
+    )
+    for (const preset of presets) {
+      const problem = yield* presetNotReady(preset)
+      if (problem !== null) warnings.push(`${problem} The service waits until then.`)
     }
     return { program, path: env.platform === 'win32' ? null : (searched ?? null), warnings }
   })

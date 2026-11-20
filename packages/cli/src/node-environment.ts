@@ -158,12 +158,17 @@ const asCause = (cause: unknown): unknown => cause
 const PERMISSION_BITS = 0o777
 
 const nodeProcesses: Processes = {
-  run: (program, args) =>
+  run: (program, args, options = {}) =>
     new Promise((resolve) => {
       execFile(
         program,
         [...args],
-        { timeout: PROCESS_TIMEOUT_MS, windowsHide: true, encoding: 'utf8' },
+        {
+          timeout: options.timeoutMs ?? PROCESS_TIMEOUT_MS,
+          windowsHide: true,
+          encoding: 'utf8',
+          ...(options.environment !== undefined && { env: { ...process.env, ...options.environment } }),
+        },
         (error, stdout, stderr) => {
           const exitCode = error === null ? 0 : typeof error.code === 'number' ? error.code : null
           resolve({

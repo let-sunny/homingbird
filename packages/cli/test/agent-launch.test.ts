@@ -12,12 +12,14 @@ const prepared = async (
   return { w, exit: await T.run(preparedLaunches(settings), w.env) }
 }
 
+const plain = (command: string) => ({ command, format: 'text', environment: {} })
+
 describe('preparedLaunches', () => {
   it('launches a command of one’s own as given, without asking any program', async () => {
     const { w, exit } = await prepared({ agent: 'my-agent --fast', split: { reader: 'my-reader' } })
     expect(exit).toEqual({
       _tag: 'Ok',
-      value: { agent: { command: 'my-agent --fast' }, reader: { command: 'my-reader' } },
+      value: { agent: plain('my-agent --fast'), reader: plain('my-reader') },
     })
     expect(w.processRuns).toEqual([])
   })
@@ -76,10 +78,55 @@ describe('preparedLaunches', () => {
   })
 })
 
+describe('preparedLaunches for Antigravity', () => {
+  const antigravity = {
+    agent: agentCommand('antigravity', 'linux'),
+    split: { reader: defaultReader('antigravity', 'linux') },
+  }
+  const answering = (help: string) => (_program: string, args: ReadonlyArray<string>) =>
+    args[0] === '--help' ? { exitCode: 0, output: help } : { exitCode: 0, output: '{"usage":{}}' }
+
+  it('asks once whether agy is signed in, without updating itself, before launching its stream', async () => {
+    const runs: Array<[ReadonlyArray<string>, unknown]> = []
+    const { exit } = await prepared(antigravity, {
+      process: (program, args) => {
+        runs.push([[program, ...args], null])
+        return answering('  --settings <json>\n')(program, args)
+      },
+    })
+    expect(runs.map(([argv]) => argv)).toEqual([
+      ['agy', '-p', '/usage', '--output-format', 'json', '--print-timeout', '15s'],
+      ['agy', '--help'],
+    ])
+    expect(exit).toMatchObject({
+      _tag: 'Ok',
+      value: {
+        agent: { format: 'antigravity-stream', environment: { AGY_CLI_DISABLE_AUTO_UPDATE: 'true' } },
+        reader: { command: antigravity.split.reader, format: 'antigravity-stream' },
+      },
+    })
+  })
+
+  it('starts nothing when agy is not signed in or does not answer in time', async () => {
+    const { w, exit } = await prepared(antigravity, { process: () => ({ exitCode: null, output: '' }) })
+    expect(exit).toMatchObject({
+      error: { error: { message: expect.stringMatching(/^Antigravity did not answer within 20 seconds/) } },
+    })
+    expect(w.processRuns).toHaveLength(1)
+  })
+
+  it('refuses the reader of an agy that offers no --settings', async () => {
+    const { exit } = await prepared(antigravity, { process: answering('Usage: agy [options]\n') })
+    expect(exit).toMatchObject({
+      error: { error: { message: expect.stringContaining('does not list --settings') } },
+    })
+  })
+})
+
 describe('launchesAsGiven', () => {
   it('launches the agent and the reader exactly as given', () => {
     expect(launchesAsGiven({ agent: 'claude -p', split: null })).toEqual({
-      agent: { command: 'claude -p' },
+      agent: plain('claude -p'),
       reader: null,
     })
   })
