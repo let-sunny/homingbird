@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { joinCodeModel, joinCommand } from '../../src/models/join-code.ts'
+import { joinCodeModel, joinCommand, localExpiry } from '../../src/models/join-code.ts'
 import { strings } from '../../src/strings.ts'
 
 const NOW = 1_000_000
 const code = { code: 'hbj_secret', serverUrl: 'https://hb.example.com', expiresAt: NOW + 600_000 }
-const made = { kind: 'made' as const, code, copied: 'not yet' as const }
+const made = { kind: 'made' as const, code, expiresAt: code.expiresAt, copied: 'not yet' as const }
 
 describe('joinCodeModel', () => {
   it('offers to make a code for the person’s own agent, or for a channel’s', () => {
@@ -37,7 +37,7 @@ describe('joinCodeModel', () => {
     expect(joinCodeModel({ state: made, now: NOW, agent: null })).toEqual({
       kind: 'code',
       title: strings.joinCode.title,
-      command: 'homingbird setup --server https://hb.example.com --join hbj_secret --agent claude',
+      command: ' homingbird setup --server https://hb.example.com --join hbj_secret --agent claude',
       explanation: strings.joinCode.explanation,
       countdown: strings.joinCode.expiresIn({ time: '10:00' }),
       copy: strings.joinCode.copy,
@@ -72,9 +72,14 @@ describe('joinCodeModel', () => {
     })
   })
 
-  it('builds the line from the address the server gave', () => {
+  it('builds the line from the address the server gave, with a space first so the shell can leave it out of its history', () => {
     expect(joinCommand({ ...code, serverUrl: 'https://relay.example/hb' })).toBe(
-      'homingbird setup --server https://relay.example/hb --join hbj_secret --agent claude',
+      ' homingbird setup --server https://relay.example/hb --join hbj_secret --agent claude',
     )
+  })
+
+  it('counts from this browser’s clock when the server says how long the code works, else from its expiry', () => {
+    expect(localExpiry({ ...code, expiresAt: 5, expiresInSeconds: 600 }, NOW)).toBe(NOW + 600_000)
+    expect(localExpiry(code, NOW)).toBe(code.expiresAt)
   })
 })

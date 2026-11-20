@@ -13,7 +13,7 @@ const madeFor = (now: number) => ({
   serverUrl: 'https://hb.example.com',
   expiresAt: now + 600_000,
 })
-const COMMAND = 'homingbird setup --server https://hb.example.com --join hbj_secret --agent claude'
+const COMMAND = ' homingbird setup --server https://hb.example.com --join hbj_secret --agent claude'
 
 describe('joinCodeSection', () => {
   it('makes a code, shows the line to paste, copies it, and counts down until it offers a new one', async () => {
@@ -57,6 +57,29 @@ describe('joinCodeSection', () => {
     getByRole(shown, 'button', { name: strings.joinCode.copy }).click()
     await Promise.resolve()
     expect(textOf(shown)).toContain(strings.joinCode.copyFailed)
+  })
+
+  it('counts down from ten minutes even when this browser’s clock is far from the server’s', () => {
+    const { context, called } = testContext()
+    const shown = mount(joinCodeSection(context, lifetime(), null))
+    getByRole(shown, 'button', { name: strings.joinCode.create }).click()
+    called('createJoinCode')[0]!.then!.done!({
+      code: 'hbj_secret',
+      serverUrl: 'https://hb.example.com',
+      expiresAt: context.clock.now() - 3_600_000,
+      expiresInSeconds: 600,
+    })
+    expect(textOf(shown)).toContain(strings.joinCode.expiresIn({ time: '10:00' }))
+  })
+
+  it('names each section by its own title, so two on one page stay apart', () => {
+    const { context } = testContext()
+    let ids = 0
+    const numbered = { ...context, random: { ...context.random, id: () => `id-${++ids}` } }
+    const first = joinCodeSection(numbered, lifetime(), null)
+    const second = joinCodeSection(numbered, lifetime(), { channel: 'payments-wiki', name: 'Wiki' })
+    expect(first.getAttribute('aria-labelledby')).not.toBe(second.getAttribute('aria-labelledby'))
+    expect(first.querySelector('h3')!.id).toBe(first.getAttribute('aria-labelledby'))
   })
 
   it('stops counting once its page is gone', async () => {

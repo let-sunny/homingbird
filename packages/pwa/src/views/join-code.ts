@@ -1,5 +1,5 @@
 import { type Child, type Lifetime, h, later, region, signal } from '@homingbird/ui'
-import { type JoinCodeModel, type JoinCodeState, joinCodeModel } from '../models/join-code.ts'
+import { type JoinCodeModel, type JoinCodeState, joinCodeModel, localExpiry } from '../models/join-code.ts'
 import type { ViewContext } from './context.ts'
 import { button } from './parts.ts'
 
@@ -20,7 +20,7 @@ export const joinCodeSection = (
   const tick = (): void => {
     now.set(context.clock.now())
     const current = state.get()
-    if (current.kind === 'made' && current.code.expiresAt > now.get())
+    if (current.kind === 'made' && current.expiresAt > now.get())
       cancelTick = later(context.clock, TICK_MS, tick)
   }
   const create = (): void => {
@@ -28,7 +28,12 @@ export const joinCodeSection = (
     state.set({ kind: 'creating' })
     context.actions.createJoinCode(agent?.channel ?? null, {
       done: (code) => {
-        state.set({ kind: 'made', code, copied: 'not yet' })
+        state.set({
+          kind: 'made',
+          code,
+          expiresAt: localExpiry(code, context.clock.now()),
+          copied: 'not yet',
+        })
         tick()
       },
       failed: () => state.set({ kind: 'failed' }),
@@ -40,19 +45,30 @@ export const joinCodeSection = (
       if (current.kind === 'made') state.set({ ...current, copied: isCopied ? 'copied' : 'refused' })
     })
   }
+  const titleId = `join-code-title-${context.random.id()}`
   return h(
     'section',
-    { class: 'join-code', 'aria-labelledby': 'join-code-title' },
+    { class: 'join-code', 'aria-labelledby': titleId },
     region(life, [state, now], () =>
-      render(joinCodeModel({ state: state.get(), now: now.get(), agent: agent?.name ?? null }), create, copy),
+      render(
+        joinCodeModel({ state: state.get(), now: now.get(), agent: agent?.name ?? null }),
+        titleId,
+        create,
+        copy,
+      ),
     ),
   )
 }
 
 const TICK_MS = 1_000
 
-const render = (model: JoinCodeModel, create: () => void, copy: (command: string) => void): Child => {
-  const title = h('h3', { id: 'join-code-title' }, model.title)
+const render = (
+  model: JoinCodeModel,
+  titleId: string,
+  create: () => void,
+  copy: (command: string) => void,
+): Child => {
+  const title = h('h3', { id: titleId }, model.title)
   if (model.kind === 'offer')
     return [
       title,

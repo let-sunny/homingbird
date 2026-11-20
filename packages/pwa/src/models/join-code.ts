@@ -10,7 +10,7 @@ export const joinCodeModel = (input: JoinCodeInput): JoinCodeModel => {
   const { state, agent } = input
   const title = strings.joinCode.title
   if (state.kind === 'made') {
-    const remainingSeconds = Math.ceil((state.code.expiresAt - input.now) / 1000)
+    const remainingSeconds = Math.ceil((state.expiresAt - input.now) / 1000)
     if (remainingSeconds <= 0)
       return { kind: 'expired', title, text: strings.joinCode.expired, button: strings.joinCode.again }
     return {
@@ -34,9 +34,12 @@ export const joinCodeModel = (input: JoinCodeInput): JoinCodeModel => {
   }
 }
 
-/** The line to paste on the server: it redeems the code and installs the background service. */
+/**
+ * The line to paste on the server: it redeems the code and installs the background service. Its leading
+ * space keeps it out of the history of a shell with `HISTCONTROL=ignorespace`.
+ */
 export const joinCommand = (code: AsRead.JoinCode): string =>
-  `homingbird setup --server ${code.serverUrl} --join ${code.code} --agent ${DEFAULT_AGENT}`
+  ` homingbird setup --server ${code.serverUrl} --join ${code.code} --agent ${DEFAULT_AGENT}`
 
 export type JoinCodeState =
   | { readonly kind: 'idle' }
@@ -45,8 +48,14 @@ export type JoinCodeState =
   | {
       readonly kind: 'made'
       readonly code: AsRead.JoinCode
+      /** When it expires on this browser's clock, from how long the server said it still works. */
+      readonly expiresAt: number
       readonly copied: 'not yet' | 'copied' | 'refused'
     }
+
+/** When a code expires on this browser's clock; a server that does not say how long it works gives its own time. */
+export const localExpiry = (code: AsRead.JoinCode, now: number): number =>
+  code.expiresInSeconds === undefined ? code.expiresAt : now + code.expiresInSeconds * 1000
 
 export interface JoinCodeInput {
   readonly state: JoinCodeState
