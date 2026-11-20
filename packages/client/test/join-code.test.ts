@@ -1,5 +1,5 @@
 import { Task as T } from '@homingbird/kernel'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Fetch } from '../src/http-api.ts'
 import { redeemJoinCode } from '../src/join-code.ts'
 
@@ -23,6 +23,10 @@ const options = (fetch: Fetch) => ({
 const refusal = async (status: number, body: unknown) =>
   T.run(redeemJoinCode(options(answering(status, body).fetch)))
 
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
+
 describe('redeemJoinCode', () => {
   it('sends the code, the name and the kind of program, and returns the tokens', async () => {
     const { fetch, calls } = answering(200, { access_token: 'hba_token', expires_in: 60 })
@@ -33,6 +37,14 @@ describe('redeemJoinCode', () => {
     expect(calls).toEqual([
       { url: 'https://hb.test/oauth/join', body: 'code=hbj_code&client_name=build-1&client_kind=cli' },
     ])
+  })
+
+  it('uses the platform fetch when it is given none', async () => {
+    const { fetch, calls } = answering(200, { access_token: 'hba_token', expires_in: 60 })
+    vi.stubGlobal('fetch', fetch)
+    const { fetch: _, ...withoutFetch } = options(fetch)
+    expect((await T.run(redeemJoinCode(withoutFetch)))._tag).toBe('Ok')
+    expect(calls.map((call) => call.url)).toEqual(['https://hb.test/oauth/join'])
   })
 
   it('leaves out the kind of program when it is not told', async () => {
