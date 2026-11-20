@@ -682,7 +682,12 @@ states the decision first, then the reason. Add new entries at the top of their 
 - **Identity providers are OpenID Connect.** Google Workspace is the default issuer; for Google, the
   hosted-domain claim must match the email domain so personal accounts are refused.
 - **Access ends with the session.** Sessions expire after `HB_SESSION_DAYS` and renewing one requires
-  signing in with the identity provider again. Deactivating a member revokes every credential at once.
+  signing in with the identity provider again. Deactivating a member revokes every credential at once
+  and turns every sign-in they approved and no program has collected yet, a device code or an
+  authorization code, into a denied one, in the same transaction. Revoking alone left a gap: a code
+  approved a minute before could still be exchanged for a new, refreshable credential afterwards.
+  Authentication also requires an active member, so a credential that slipped past both still answers
+  401.
 - **Dovecote re-validates a person only when they sign in; a refresh checks the member, not a sign-in.**
   The identity provider vouches for a person at sign-in, where the ID token, the allowed domains, the
   hosted domain and the member's status are all checked again. Dovecote asks for `openid email
@@ -692,9 +697,9 @@ states the decision first, then the reason. Add new entries at the top of their 
   connector's credential refreshes only while its member is active, so deactivation stops it at once,
   as it does every other credential. Requiring a recent web sign-in for that refresh was considered and
   left out: a deactivated member is already refused, and someone who works only through the connector
-  should not have to connect again every `HB_SESSION_DAYS`. An authorization code or device code a
-  person approved is refused at exchange once they are deactivated, so no credential is issued after
-  deactivation. **Offboarding stays a person's action:** Dovecote reads no directory, so there is no
+  should not have to connect again every `HB_SESSION_DAYS`. Besides deactivation denying a code
+  they approved, the exchange itself refuses a code of a member who is no longer active, so no
+  credential is issued after deactivation. **Offboarding stays a person's action:** Dovecote reads no directory, so there is no
   member sync command and no SCIM, as groups come from no directory import; an administrator
   deactivates, and `docs/deployment.md` (When someone leaves) is the runbook, with what each credential
   does when nobody does and a monthly query of last sign-ins.
@@ -744,6 +749,21 @@ timing people, the reason `drafts.seen` was already left out.
   last hash it removed. `dovecote audit verify` and `dovecote audit export` run against the database;
   the admin web view and its route are removed in one release, since only the bundled web client called
   that `human` route.
+- **Writers are ordered by a one-row head, not by locking the newest row.** Each writer reads
+  `audit_head` with `FOR UPDATE` on PostgreSQL and MySQL; SQLite's transactions are `BEGIN IMMEDIATE`,
+  so one writer already holds the database. Locking the newest `audit_events` row instead would lock
+  nothing while the table is empty or just purged, and MySQL's gap locks on `ORDER BY id DESC LIMIT 1`
+  differ by isolation level; one known row locks the same way on all three databases and keeps the head
+  readable without a scan. The cost is that every audited write waits on one row, which is fine at one
+  process and pilot size (see `scripts/pilot-measure.ts`).
+- **The row's `id` is not hashed.** The id is assigned by the database on insert, after the hash must be
+  known, and the chain already fixes the order: each row names the hash of the one before, so moving,
+  removing or inserting a row breaks the next link. Renumbering ids without changing content is not
+  detected and changes nothing an auditor reads.
+- **Tamper evidence, not tamper proofing.** Whoever can write the database can recompute the whole chain.
+  The documentation says so, and the head leaves the database daily in the operational log so a copy
+  kept elsewhere detects a rewrite. Signing the head with a key the database's writers lack would close
+  that gap, but needs key management a self-hoster must run; it waits for an organization that asks.
 - **The operator decides what is recorded, the administrator does not.** `HB_LOGS` and
   `HB_AUDIT_RETENTION_DAYS` (400 days, at least 90) are environment variables only and are not in
   `server.info`; the audited party cannot shorten its own trail. `audit=off` is allowed with one warning

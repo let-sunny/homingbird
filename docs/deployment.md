@@ -18,6 +18,7 @@ move up one size for the large row.
 
 ## Contents
 
+- [Outside services](#outside-services)
 - [Measurements](#measurements)
 - [One instance only](#one-instance-only)
 - [Choosing a database](#choosing-a-database)
@@ -40,6 +41,27 @@ move up one size for the large row.
 
 **Experimental parts.** Experimental: tested automatically, not yet used in a real deployment. This applies to the A2A gateway (`/a2a`), the Terraform configurations
 for GCP and AWS, and MySQL support.
+
+## Outside services
+
+**A deployment needs one outside service: an OpenID Connect identity provider for sign-in.** Everything
+else runs in the one Dovecote process, on Node 22.18 or later or the container image.
+
+| Needed | What | When |
+| --- | --- | --- |
+| Always | Node, or the image | Dovecote is one process with no runtime dependencies |
+| Always | A database | SQLite is a file next to the process; no database server is needed |
+| Always, except development login | An OpenID Connect identity provider | Google by default, or any issuer in `HB_OIDC_ISSUER`. Development login (`HB_DEV_LOGIN=1`) needs none and is refused unless `HB_PUBLIC_URL` is a loopback address |
+| Recommended | TLS in front | Dovecote speaks plain HTTP; a load balancer or reverse proxy serves `https` ([Behind a load balancer](#behind-a-load-balancer)) |
+| Optional | PostgreSQL or MySQL | Instead of SQLite, when `HB_DATABASE_URL` names one ([Choosing a database](#choosing-a-database)) |
+| Optional, outbound | Browser push services | Only when people turn on phone notifications; only the hosts in `HB_PUSH_HOSTS` ([Web push](#web-push)) |
+| Optional, outbound | OAuth client metadata | Only when someone connects claude.ai; only the hosts in `HB_OAUTH_CLIENT_METADATA_HOSTS` ([Connecting claude.ai](#connecting-claudeai)) |
+| Optional, outbound | Cloud agent services | Only with the experimental cloud desk switched on; only the hosts in `HB_WAKE_HOSTS` ([Cloud desk](#cloud-desk)) |
+| Optional, outbound | An analytics endpoint | Off unless `HB_ANALYTICS` names one ([Product analytics](#product-analytics)) |
+
+No mail server, message broker, cache, object store, key management service or vendor account is
+needed, and Dovecote calls no model: agents run on people's own machines or runners, or, with the cloud
+desk, in a service the person woke.
 
 ## Measurements
 
@@ -316,18 +338,23 @@ and nothing reads your directory. Add it to your offboarding checklist next to b
 
 Deactivating, at once and in one change:
 
-- revokes every credential of that member: browser sessions, the claude.ai connector, whose refresh
-  stops from then on, and the agent credentials of the command line, the runner and the plugin. Their
-  next request is refused, and an open event stream ends at its next heartbeat, within 20 seconds;
-- takes them out of every group, so they manage no channel any more, and revokes every credential they
-  had issued to a channel's agent;
-- removes them from the directory, so nobody can address a new note to them;
-- refuses their sign-in from then on, even while their company account still works. A sign-in or
-  connection they had started but not finished issues nothing usable;
-- deletes their cloud desk's wake address and token.
+- every credential of that member is revoked: browser sessions, and every agent credential, whether
+  it came from the command line, the runner, the Claude Code plugin, an MCP adapter or a connector such
+  as claude.ai. Their next request answers 401, refreshing a connector's token is refused, and an open
+  event stream ends at its next heartbeat, within 20 seconds;
+- a sign-in they approved that no program has finished yet, a device code or a connector's
+  authorization code, is refused when the program comes to collect it;
+- they leave every group, even as a channel's last manager, so they stop managing channels, and every
+  credential they issued to a channel's agent is revoked; a channel's agent itself keeps the
+  credentials its remaining managers issued;
+- they disappear from the directory, and nobody can address a new note to them;
+- signing in again is refused, even while their company account still works;
+- their cloud desk's wake address and token are deleted.
 
 **Reactivate** in the same place lets them sign in again; their agents must sign in again too,
-because revoked credentials stay revoked. Groups are not given back.
+because revoked credentials stay revoked, and groups are not given back. The deactivation itself is
+audited. Rule 6 in `packages/dovecote/test/security-rules.test.ts` holds the credential points of this
+list for each kind of credential.
 
 What stays: notes they sent remain in their conversations for the other participants, and the audit
 trail keeps its rows about them, ids and outcomes only, until `HB_AUDIT_RETENTION_DAYS` removes them
@@ -440,6 +467,15 @@ first row follows 64 zeros. A one-row table, `audit_head`, holds the newest hash
 writers. Once a day the head goes to the operational log as `audit.chain_head`, so a copy lives
 outside the database. A retention purge removes the oldest rows as one piece, remembers the last hash
 it removed and records `audit.retention_purged`, so what is left still verifies.
+
+**This detects changes; it does not prevent them.** Whoever can write the database can change a row and
+recompute every hash after it, and `verify` will then say the chain holds. To detect that too, keep the
+latest hash somewhere the database's writers cannot reach: the daily `audit.chain_head` line in a log
+store they cannot edit, or the head `verify` prints, saved with each `export`. A head you kept must
+still appear in a later chain, or as a later purge's `lastRemovedHash`; if it does not, the trail was
+rewritten. After a retention purge the oldest remaining row links to the hash the purge remembered,
+so removed rows are no break; a writer who deletes the oldest rows and changes that memory too is
+caught only by a head or an export kept elsewhere.
 
 **Retention.** `HB_AUDIT_RETENTION_DAYS`, 400 days unless set, at least 90: a smaller value is raised
 to 90 with a warning at start. While it is unset, a longer retention an administrator saved before
