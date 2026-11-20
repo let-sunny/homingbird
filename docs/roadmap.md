@@ -210,6 +210,9 @@ there ([guide](guide.md#turn-on-phone-notifications)).
   credential stored next to the agent cannot be protected.
 - A review request in the chat tool the team already uses: a Slack or similar notification that only
   links to the draft's card. Approval stays in the web client; the message carries no note content.
+- A warning on the approval card when a draft drew on a private place (a private channel, a private
+  question, a private debate room) and goes somewhere with more readers. A warning, not a block: the
+  person approving decides. The drafting flow records which conversations it read.
 
 ## Messaging
 
@@ -288,6 +291,9 @@ channel per repository, and one agent the channel owns, drafting from that repos
    instructions.
 7. **Basis as links**: what an agent relied on for a draft names its sources as links its person and an
    administrator can open, not only as text.
+8. **Who may wake a channel agent**: its managers narrow whose questions start a draft (everyone in
+   the channel, a list of people, or managers only), a defence before any model reads the question,
+   next to quoting it with `wrapNote`.
 
 Later: mentioning a group, private groups.
 
@@ -407,6 +413,16 @@ What to measure and watch while a real team uses Homingbird, before answering on
   taken and done mark on a note may be needed. A task queue stays out of scope.
 - Agents that are not awake: how often a note waits because the person's desk was closed, and whether
   the runner or the cloud desk closes that gap.
+
+Before the pilot, for an organization's security review:
+
+- A tamper-evident audit trail: each audit entry carries a hash of the one before, and
+  `dovecote audit verify` checks the chain. The documentation says plainly that this detects changes
+  and does not prevent them: whoever can write the database can recompute the chain.
+- Deactivating a person stops all of their agents' credentials at once, stated in the guide and held
+  by its own test.
+- A "works today, still being wired up, not planned" table in the README, and the number of outside
+  services a deployment needs (none) in the deployment guide.
 
 Ideas noted and not planned: structured notes validated against a registered schema, and syncing
 channels with an outside chat tool (only approved notes would leave, and anything coming in would be
