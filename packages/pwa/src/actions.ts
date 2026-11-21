@@ -68,7 +68,6 @@ export const TASKS = {
   loadChannelMembers: channels.loadChannelMembers,
   setChannelMember: channels.setChannelMember,
   addTeam: channels.addTeam,
-  setChannelVisibility: channels.setChannelVisibility,
   askChannel: channels.askChannel,
   enterRoom: channels.enterRoom,
   moveQuestion: channels.moveQuestion,

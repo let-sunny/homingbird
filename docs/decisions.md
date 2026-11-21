@@ -880,12 +880,18 @@ without answering in it, and a team can keep a room to itself.
   more than that. Any person may create one. Private means hidden from other members, not from the
   organization: administrators can manage every channel and the audit log still holds note content.
 - **A channel's own group manages it** ([below](#groups-replace-channel-managers)). Its members are
-  the channel's managers: they add and remove members of a private channel and change the visibility;
-  nobody joins a private channel by themselves, not even an administrator. A new channel's managers are
-  its creator alone. A channel with members keeps a manager in the room, and a channel needs one before
-  it can become private.
-- **Open → private keeps everyone in the room; private → open is allowed and audited.** Every
-  membership, answering, manager and visibility change is a `human` route, so it is audited and never
+  the channel's managers: they add and remove members of a private channel; nobody joins a private
+  channel by themselves, not even an administrator. A new channel's managers are its creator alone. A
+  channel with members keeps a manager in the room.
+- **Visibility is chosen once, when the channel is created, and never changed.** People join an open
+  channel and write in it expecting that anyone may read it, now and later; people added to a private
+  channel write expecting that only its members ever will. Opening a private channel would show its whole
+  history to everyone, and closing an open one would hide from the organization what was written for it
+  and keep inside people who joined on their own, with no manager ever choosing them. Neither change can
+  keep both expectations, so there is no route for it; someone who needs the other kind creates a new
+  channel. The create form says so. `channels.visibility` stays a column, set only by `channels.create`,
+  and the `channel.visibility_changed` audit event is recorded by nothing but still reads in old trails.
+  Every membership, answering and manager change is a `human` route, so it is audited and never
   reachable by a model.
 - **A private room keeps its questions.** A question in a private channel moves only to another
   private channel with the same members; one moves into a private channel only when the mover and the
@@ -920,7 +926,7 @@ private channel was just made. The same groups can later own a channel's agent
   add either.
 - **Every change to a group locks it first.** Dovecote runs PostgreSQL and MySQL at READ COMMITTED, so
   a check read before a concurrent change commits can pass twice: two removals could empty a channel's
-  managers. Each change to a group, and to a channel's members, managers or visibility, takes the
+  managers. Each change to a group, and to a channel's members or managers, takes the
   channel group's row lock with a no-op `UPDATE`, as a debate room does, in id order when it touches
   two groups, and reads the channel and what it checks after the lock. SQLite runs one
   transaction at a time and needs nothing more.

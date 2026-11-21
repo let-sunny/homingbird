@@ -39,8 +39,7 @@ describe('Korean', () => {
 
   it('asks for a manager to be added, never for a managing group to be chosen', () => {
     expect(texts(ko).join(' ')).not.toMatch(/운영 그룹을 정해|운영 그룹 변경|운영 그룹에 다른/)
-    for (const text of [ko.privateNeedsManager, ko.refusals.needsManagerInRoom, ko.refusals.lastManager])
-      expect(text).toContain('운영자')
+    expect(ko.refusals.lastManager).toContain('운영자')
   })
 
   it('calls a group 그룹, never 팀, and the server’s operator 서버 운영자, apart from a channel’s 운영자', () => {

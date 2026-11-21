@@ -58,8 +58,6 @@ export const AUDIT_DETAILS: { readonly [N in AuditedRoute]: Describe<N> } = {
     afterwards(() => ({ targetId: params.slug, detail: { on: true } })),
   'channels.answering.off': ({ params }) =>
     afterwards(() => ({ targetId: params.slug, detail: { on: false } })),
-  'channels.visibility.set': ({ params, body }) =>
-    afterwards(() => ({ targetId: params.slug, detail: { visibility: body.visibility } })),
   'channels.members.add': ({ params }) => afterwards(() => onMember(params)),
   'channels.members.remove': ({ params }) => afterwards(() => onMember(params)),
   'channels.managers.addTeam': ({ params, body }, caller) =>

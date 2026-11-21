@@ -2,7 +2,6 @@ import { Task as T } from '@homingbird/kernel'
 import {
   type Channel,
   type ChannelMember,
-  type ChannelVisibility,
   Conflict,
   Forbidden,
   type MemberId,
@@ -92,30 +91,12 @@ export const removeChannelMember = (
     return yield* describeChannel(viewer, row)
   })
 
-export const setVisibility = (
-  viewer: Viewer,
-  slug: string,
-  visibility: ChannelVisibility,
-): T.Task<Channel, ChannelFailure, RequestEnv> =>
-  T.gen(function* () {
-    const row = yield* managedChannel(viewer, slug, 'add')
-    if (visibilityOf(row) === visibility) return yield* describeChannel(viewer, row)
-    if (visibility === 'private' && (yield* managersOf(row)).length === 0)
-      return yield* T.fail(
-        Conflict({ message: 'Make a member of this channel its manager before making it private.' }),
-      )
-    yield* run(sql`UPDATE channels SET visibility = ${visibility} WHERE slug = ${row.slug}`)
-    const changed: ChannelRow = { ...row, visibility }
-    yield* tellAboutChannel(changed, yield* membersOf(row.conversation_id))
-    return yield* describeChannel(viewer, changed)
-  })
-
 export type ChannelFailure = NotFound | Forbidden | Conflict
 
 /**
  * A channel the viewer may change: its managers may do anything, and an administrator may manage an open
  * channel. In a private channel an administrator who is not its manager may only take people and roles
- * away, never give them: adding a member, making a manager, or opening the channel would let them in.
+ * away, never give them: adding a member or making a manager would let them in.
  */
 const managedChannel = (
   viewer: Viewer,
@@ -130,7 +111,7 @@ const managedChannel = (
       Forbidden({
         message:
           visibilityOf(row) === 'private'
-            ? 'Only a manager of this private channel can add members, change its managers, or open it.'
+            ? 'Only a manager of this private channel can add members or change its managers.'
             : 'Only a manager of this channel can do this.',
       }),
     )

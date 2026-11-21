@@ -15,8 +15,7 @@ describe('English', () => {
 
   it('asks for a manager, never for a managing group to be chosen, as no screen chooses one', () => {
     for (const text of texts(en)) expect(text).not.toMatch(/managing group/i)
-    expect(en.privateNeedsManager).toContain('Add a manager')
-    expect(en.refusals.needsManagerInRoom).toContain('Add a manager')
+    expect(en.refusals.lastManager).toContain('Add another manager')
   })
 
   it('calls a group a group, never a team', () => {
