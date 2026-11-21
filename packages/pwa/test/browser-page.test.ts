@@ -76,7 +76,8 @@ describe('browserPage', () => {
       page.pixelRatio(),
       page.supportsAnchors(),
       page.supportsHintPopovers(),
-    ]).toEqual([false, 2, true, false])
+      page.isCoarsePointer(),
+    ]).toEqual([false, 2, true, false, false])
     expect(page.supportsPush()).toBe(false)
     const pushing = fakeWindow({
       navigator: { languages: [], serviceWorker: {} },
@@ -94,7 +95,8 @@ describe('browserPage', () => {
       bare.pixelRatio(),
       bare.supportsAnchors(),
       bare.supportsPush(),
-    ]).toEqual([[], true, 1, false, false])
+      bare.isCoarsePointer(),
+    ]).toEqual([[], true, 1, false, false, false])
   })
 
   it('reads the notifications its service worker shows, and none without one', async () => {

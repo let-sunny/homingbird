@@ -703,11 +703,57 @@
 }
 
 .quote {
+  display: block;
   margin-block-end: var(--hb-space-2);
   padding-inline-start: var(--hb-space-2);
   border-inline-start: var(--hb-border-quote);
   color: var(--hb-color-muted);
   font-size: var(--hb-text-small);
+  text-decoration: none;
+}
+
+a.quote:hover {
+  color: var(--hb-color-text);
+  text-decoration: underline;
+}
+
+.note-body.is-collapsed {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 16;
+  line-clamp: 16;
+}
+
+.note-more-text {
+  margin-block-start: var(--hb-space-1);
+  font-size: var(--hb-text-small);
+}
+
+.thread-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--hb-space-2);
+  margin-block: var(--hb-space-3);
+  color: var(--hb-color-muted);
+  font-size: var(--hb-text-small);
+  list-style: none;
+}
+
+.thread-divider::before,
+.thread-divider::after {
+  flex: 1;
+  border-block-start: var(--hb-border-divider);
+  content: "";
+}
+
+.thread-divider.is-unread {
+  color: var(--hb-color-danger-text);
+}
+
+.thread-divider.is-unread::before,
+.thread-divider.is-unread::after {
+  border-block-start-color: var(--hb-color-danger-text);
 }
 
 .note-meta {

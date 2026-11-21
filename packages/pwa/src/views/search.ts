@@ -1,12 +1,12 @@
 import type { AsRead } from '@homingbird/protocol'
-import { type Lifetime, h, region, signal } from '@homingbird/ui'
+import { type Lifetime, h, later, region, signal } from '@homingbird/ui'
 import { type SearchModel, searchModel } from '../models/search.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
 import { empty, emptyWithPip, loading, page, timeLabel } from './parts.ts'
 
-/** Search: a field, and the notes found for what was typed. */
+/** Search: a field, and the notes found for what was typed, searched again once the person pauses. */
 export const searchView = (
   context: ViewContext,
   life: Lifetime,
@@ -34,11 +34,20 @@ export const searchView = (
     value: initialQuery,
   })
   if (initialQuery === '') context.page.nextFrame(() => input.focus())
+  let cancelPause = (): void => {}
   const submit = (): void => {
+    cancelPause()
     const query = input.value.trim()
     context.page.replaceAddress(hrefFor({ name: 'search', query }))
     run(query)
   }
+  input.addEventListener('input', () => {
+    cancelPause()
+    cancelPause = later(context.clock, TYPING_PAUSE_MS, () => {
+      if (input.value.trim() !== searched.get()) submit()
+    })
+  })
+  life.add(() => cancelPause())
   return page(
     strings.search,
     h(
@@ -108,3 +117,5 @@ const renderResults = (model: SearchModel): HTMLElement => {
       )
   }
 }
+
+const TYPING_PAUSE_MS = 400

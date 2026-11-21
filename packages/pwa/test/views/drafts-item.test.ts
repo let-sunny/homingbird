@@ -20,6 +20,20 @@ const item = (drafts: ReturnType<typeof draft>[]) => ({
 })
 
 describe('renderDraftsItem', () => {
+  it('names each draft by what waits and where it came from, for a screen reader', () => {
+    const { context } = testContext()
+    const [a, b] = [draft('d1'), draft('d2')]
+    const model = draftsItemModel(threadInput(), item([a, b]))
+    const shown = mount(renderDraftsItem(context, model))
+    for (const [index, card] of [...shown.querySelectorAll('article.draft')].entries()) {
+      const names = card
+        .getAttribute('aria-labelledby')!
+        .split(' ')
+        .map((id) => textOf(document.getElementById(id)!))
+      expect(names).toEqual([model.heading, model.cards[index]!.origin.text])
+    }
+  })
+
   it('holds a send, edited or as written, and a discard, Send first and Discard set apart at the end', () => {
     const { context, called } = testContext()
     const dialog = mount(dialogHost())

@@ -11,6 +11,7 @@ import {
   roomOf,
   settledDraftLine,
   threadHeadModel,
+  threadNotesLabel,
   threadTopModel,
 } from '../../src/models/thread-room.ts'
 import { strings } from '../../src/strings.ts'
@@ -109,6 +110,15 @@ describe('archiveDiscardLines', () => {
     expect(archiveDiscardLines([{ noteId: 'n1' as never, channel: 'billing' }])).toEqual([
       { noteId: 'n1', text: strings.draftDiscardedByArchive({ channel: '#billing' }) },
     ])
+  })
+})
+
+describe('threadNotesLabel', () => {
+  it('names the notes by the conversation, while it loads too', () => {
+    expect(threadNotesLabel(threadInput())).toBe(strings.threadNotes({ title: 'Ben' }))
+    expect(threadNotesLabel(threadInput({ conversations: [] }))).toBe(
+      strings.threadNotes({ title: strings.loading }),
+    )
   })
 })
 

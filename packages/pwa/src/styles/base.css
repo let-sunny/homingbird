@@ -222,3 +222,14 @@ small {
   padding: var(--hb-space-6);
   color: var(--hb-color-muted);
 }
+
+.skip-link.visually-hidden:focus {
+  position: fixed;
+  inset-block-start: var(--hb-space-2);
+  inset-inline-start: var(--hb-space-2);
+  z-index: 10;
+  inline-size: auto;
+  block-size: auto;
+  overflow: visible;
+  clip-path: none;
+}

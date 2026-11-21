@@ -1,4 +1,4 @@
-import type { AsRead, ConversationId, MemberId } from '@homingbird/protocol'
+import type { AsRead, ConversationId, MemberId, NoteId } from '@homingbird/protocol'
 import { type Lifetime, h, keyedRegion, region, signal, slice } from '@homingbird/ui'
 import { approvesQuicklyOften } from '../careful-reading.ts'
 import { channelOfRoom } from '../channels.ts'
@@ -10,6 +10,7 @@ import { type RoomReview, reviewsInRoomModel } from '../models/channel-agent.ts'
 import { type ComposerModel, composerModel } from '../models/composer.ts'
 import { draftsItemModel } from '../models/drafts-item.ts'
 import { noteItemModel } from '../models/note-item.ts'
+import { type ThreadDivider, firstUnreadIn, withDividers } from '../models/thread-dividers.ts'
 import {
   type ThreadInput,
   archiveDiscardLines,
@@ -18,6 +19,7 @@ import {
   roomOf,
   settledDraftLine,
   threadHeadModel,
+  threadNotesLabel,
   threadTopModel,
 } from '../models/thread-room.ts'
 import { hrefFor } from '../routes.ts'
@@ -35,9 +37,11 @@ import { renderThreadHead } from './thread-head.ts'
 import { followNewNotes, markReadWhenSeen } from './thread-scroll.ts'
 
 /**
- * A conversation: its head, its notes and drafts as they come, the answers of a channel's agent the
- * person reviews under their questions, the chances to teach, and the composer. A link may name a
- * draft, an answer to review or a sent note to open the conversation at.
+ * A conversation: its head, its notes and drafts as they come with a heading for each day and a line
+ * over what was unread on opening, the answers of a channel's agent the person reviews under their
+ * questions, the chances to teach, and the composer. A link may name a draft, an answer to review or a
+ * sent note to open the conversation at; otherwise the composer takes the focus where there is a
+ * keyboard.
  */
 export const threadView = (
   context: ViewContext,
@@ -78,33 +82,43 @@ export const threadView = (
     now: context.clock.now(),
     focusedDraft,
   })
-  const items = (): ReadonlyArray<RoomItem> =>
-    reviewsInRoomModel(
-      threadItems(
-        withoutHeld(state.threads.get().get(id)?.notes ?? [], state.held.get(), (note) => note.id),
-        state.draftRequests.get(),
+  let unreadFrom: NoteId | null | undefined
+  const unreadOnOpening = (): NoteId | null => {
+    const thread = state.threads.get().get(id)
+    if (unreadFrom === undefined && thread !== undefined)
+      unreadFrom = firstUnreadIn(thread.notes, me.member.id)
+    return unreadFrom ?? null
+  }
+  const items = (): ReadonlyArray<ShownItem> =>
+    withDividers(
+      reviewsInRoomModel(
+        threadItems(
+          withoutHeld(state.threads.get().get(id)?.notes ?? [], state.held.get(), (note) => note.id),
+          state.draftRequests.get(),
+        ),
+        reviewsWithoutHeld(state.reviews.get(), state.held.get()),
+        { conversationId: id, viewerId: me.member.id },
+        state.reviewsRead.get(),
+        state.members.get(),
+        focusedReview,
       ),
-      reviewsWithoutHeld(state.reviews.get(), state.held.get()),
-      { conversationId: id, viewerId: me.member.id },
-      state.reviewsRead.get(),
-      state.members.get(),
-      focusedReview,
+      { now: context.clock.now(), unreadFrom: unreadOnOpening() },
     )
-  const scroller = h('div', { class: 'thread-scroll', tabindex: '0' })
-  const list = h('ol', { class: 'notes', 'aria-live': 'polite', 'aria-relevant': 'additions' })
+  const scroller = h('div', { class: 'thread-scroll', tabindex: '0', role: 'region' })
+  const list = h('ol', { class: 'notes' })
   const newerBelow = h(
     'button',
     { type: 'button', class: 'newer-below', hidden: true },
     `↓ ${strings.newerBelow}`,
   )
-  const signatureOf = (item: RoomItem): string => {
-    if (item.type === 'review') return JSON.stringify(item)
+  const signatureOf = (item: ShownItem): string => {
+    if (item.type === 'review' || item.type === 'divider') return JSON.stringify(item)
     const shown = input()
     const drawn = item.type === 'note' ? noteItemModel(shown, item) : item
     return JSON.stringify([drawn, ...signatureParts(shown, item)])
   }
   const follow = followNewNotes(context, life, scroller, newerBelow, () =>
-    items().map((item) => [item.key, signatureOf(item)] as const),
+    items().flatMap((item) => (item.type === 'divider' ? [] : [[item.key, signatureOf(item)] as const])),
   )
   let broughtIntoView = false
   const drafts = (item: Extract<ThreadItem, { type: 'drafts' }>): HTMLElement => {
@@ -163,12 +177,14 @@ export const threadView = (
       key: (item) => item.key,
       signature: signatureOf,
       render: (item) =>
-        follow.track(
-          item.key,
-          seen.watch(
-            item.type === 'note' ? sentNote(item) : item.type === 'drafts' ? drafts(item) : review(item),
-          ),
-        ),
+        item.type === 'divider'
+          ? renderDivider(item)
+          : follow.track(
+              item.key,
+              seen.watch(
+                item.type === 'note' ? sentNote(item) : item.type === 'drafts' ? drafts(item) : review(item),
+              ),
+            ),
     },
   )
   life.add(state.threads.subscribe(follow.afterDraw))
@@ -216,6 +232,19 @@ export const threadView = (
     [state.conversations, state.members, state.directory, state.channels, state.rosters],
     () => threadHeadModel(input()),
   )
+  const notesLabel = slice([state.conversations, state.members, state.channels], () =>
+    threadNotesLabel(input()),
+  )
+  const nameScroller = (): void => scroller.setAttribute('aria-label', notesLabel.get())
+  nameScroller()
+  life.add(notesLabel.subscribe(nameScroller))
+  if (
+    focusedDraft === null &&
+    focusedReview === null &&
+    focusedNote === null &&
+    !context.page.isCoarsePointer()
+  )
+    state.composerFocus.set(id)
   const composerKind = slice([state.conversations], () => composerShape(composerModel(input())))
   const thread = h(
     'section',
@@ -227,7 +256,7 @@ export const threadView = (
     region(
       life,
       [composerKind],
-      (drawing) => composer(context, drawing, id, () => composerModel(input()), composerSources),
+      (drawing) => composer(context, drawing, id, () => composerModel(input()), composerSources, follow.pin),
       { class: 'composer-host' },
     ),
   )
@@ -238,12 +267,18 @@ export const threadView = (
 
 type RoomItem = ThreadItem | RoomReview
 
+type ShownItem = RoomItem | ThreadDivider
+
 const FOCUSED_DRAFT = '.draft[aria-current="true"]'
 const FOCUSED_REVIEW = '.review-card[aria-current="true"]'
 
 /** What decides which composer is built: the person writes in an open room, and may ask their agent. */
 const composerShape = (model: ComposerModel): unknown =>
   model.kind === 'archived' ? model : { kind: model.kind, asksAgent: model.asksAgent }
+
+/** A day's heading or the line over what was unread, between the notes it divides. */
+const renderDivider = (divider: ThreadDivider): HTMLElement =>
+  h('li', { class: `thread-divider is-${divider.kind}` }, h('span', {}, divider.text))
 
 const missingConversation = (): HTMLElement =>
   emptyWithPip(
