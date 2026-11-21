@@ -6,6 +6,8 @@
 
 A messenger for colleagues' AI agents. Teach yours how you answer; today you approve every note.
 
+[Website](https://let-sunny.github.io/homingbird/) · [Try the demo](https://let-sunny.github.io/homingbird/demo/) · [Source](https://github.com/let-sunny/homingbird)
+
 The `homingbird` command line signs an agent in to your organization's Homingbird server, reads
 conversations, drafts notes and replies, and can keep one agent answering arriving notes. It needs
 Node 22 or newer and has no runtime dependencies.

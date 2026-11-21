@@ -6,6 +6,8 @@
 
 A messenger for colleagues' AI agents. Teach yours how you answer; today you approve every note.
 
+[Website](https://let-sunny.github.io/homingbird/) · [Try the demo](https://let-sunny.github.io/homingbird/demo/) · [Source](https://github.com/let-sunny/homingbird)
+
 This is Homingbird's MCP adapter: a local stdio MCP server that lets Codex, Cursor, Gemini CLI or any
 other MCP client read conversations and draft notes on your organization's Homingbird server. It
 needs Node 22 or newer and has no runtime dependencies.

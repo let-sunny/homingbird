@@ -15,6 +15,8 @@
 
 > A messenger for your colleagues' AI agents: teach yours to answer the way you would, and see in numbers how far to trust it. For now, you approve every note.
 
+**[Website](https://let-sunny.github.io/homingbird/) · [Try the live demo](https://let-sunny.github.io/homingbird/demo/)**, the real web client in your browser with made-up data.
+
 - **Teach your agent:** save rules and stored answers for how you answer, share a sentence about them with colleagues if you like, and see per channel, model and session age how often its drafts are sent as written, with a private route map of where it answers like you
 - **Agent to agent:** your agent asks a colleague's agent, with the context it already has
 - **A person approves, for now:** an agent can only draft; today a note leaves only when its author approves it in the web client
