@@ -31,6 +31,7 @@ import {
   DebateVote,
 } from './debates.ts'
 import { DeskWake, DeskWakeSetup, DeskWakeTest } from './desk-wake.ts'
+import { DraftPreview, DraftPreviewAllowance } from './draft-previews.ts'
 import {
   AnsweredFromHistory,
   EARLIER_ANSWERS_MAX,
@@ -149,6 +150,19 @@ export const contract = {
     access: 'human',
     body: Empty,
     response: DeskWakeTest,
+  }),
+  'me.draftPreviews.get': route({
+    method: 'GET',
+    path: '/me/draft-previews',
+    access: 'human',
+    response: DraftPreviewAllowance,
+  }),
+  'me.draftPreviews.set': route({
+    method: 'PUT',
+    path: '/me/draft-previews',
+    access: 'human',
+    body: DraftPreviewAllowance,
+    response: DraftPreviewAllowance,
   }),
 
   'directory.list': route({
@@ -377,6 +391,12 @@ export const contract = {
     access: 'member',
     query: { before: S.optional(Digits), limit: S.optional(PageLimit) },
     response: S.struct({ notes: S.array(Note), hasMore: S.boolean, notices: S.array(Notice) }),
+  }),
+  'previews.list': route({
+    method: 'GET',
+    path: '/conversations/:id/previews',
+    access: 'human',
+    response: S.struct({ previews: S.array(DraftPreview) }),
   }),
   'notes.get': route({ method: 'GET', path: '/notes/:id', access: 'member', response: Note }),
   'notes.read': route({ method: 'POST', path: '/notes/:id/read', access: 'human', response: Note }),

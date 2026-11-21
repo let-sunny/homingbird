@@ -205,7 +205,10 @@ there ([guide](guide.md#turn-on-phone-notifications)). The activity panel behind
 (`#/activity`): the person's own agent's drafts with Send, Edit and Discard, the channel agent answers
 they review, notes their agent skipped, their agent being unable to answer and debate rooms that need
 them, newest first by kind, live from the event stream and from existing routes only
-([guide](guide.md#activity-everything-that-waits-for-you)).
+([guide](guide.md#activity-everything-that-waits-for-you)). Early previews, behind the `draftPreviews`
+feature: a person lets chosen people and channels see their own agent's unconfirmed drafts, marked as
+unconfirmed and withdrawn when discarded, through a person's route only
+([guide](guide.md#let-colleagues-see-your-agents-drafts-early)).
 
 - Confirmation on another device: the desk asks, and the person confirms on a second device. It needs
   proof of which device confirmed, such as a WebAuthn assertion, because the server cannot tell one
@@ -225,6 +228,10 @@ them, newest first by kind, live from the event stream and from existing routes 
 - A route that lists the notes a person's agent skipped across every conversation, so that the activity
   panel shows a skip after a reload even in a conversation with no unread note, draft or note waiting
   for a reply; today it reads skips from the conversations it loads.
+- A conversation that holds only an allowed preview, shown to the allowed person: today a direct or
+  group conversation appears only once a note in it is sent, so a preview shows only where the two
+  already talk.
+- Early previews in the activity panel, so a colleague sees there that an answer is on its way.
 - Whether a person already posted a closed debate room's result, from the server, so that the activity
   panel drops the room once it was sent; today it drops it once the person's draft of it is known, or
   after a week.

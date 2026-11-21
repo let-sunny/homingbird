@@ -707,6 +707,7 @@ again. Every change is audited. `server.info` lists which features are on, so ev
 | `invites` | on | Nobody can make an invite link, and links already made are refused; only allowed domains and `HB_ADMIN_EMAILS` sign in ([Who can sign in](#who-can-sign-in)) |
 | `cloudDesk` | **off** | No cloud desk is woken and nobody can set one up; saved wakes are kept. Offered only with `HB_SECRETS_KEY` ([Cloud desk](#cloud-desk)) |
 | `analytics` | **off** | No usage counts leave the server ([Product analytics](#product-analytics)) |
+| `draftPreviews` | **off** | Nobody sees a colleague's agent's draft before its person checks it; on, each person chooses who may under **My agent → Early previews** ([guide](guide.md#let-colleagues-see-your-agents-drafts-early)) |
 
 Notes, drafts, approval, direct messages, sign-in and the audit trail are the core and cannot be turned
 off. `HB_FEATURES` seeds the switches at first start, such as `HB_FEATURES="teaching=off,characters=on"`;

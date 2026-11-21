@@ -509,6 +509,19 @@ describe('homingbird run', () => {
     await r.stop()
   })
 
+  it('neither wakes nor reads anything for a draft preview change, which no agent stream should carry', async () => {
+    const r = runner({ stubs: { 'inbox.list': () => ({ items: [] }) as never } })
+    await settle(() => r.w.calls.some((call) => call.path === '/api/v1/events/stream'))
+    const before = r.w.calls.length
+    r.push({ type: 'preview.changed', conversationId: null } as never)
+    r.push({ type: 'presence', members: [] })
+    await r.w.clock.flush()
+    expect(r.w.calls.slice(before).map((call) => call.route ?? call.path)).toEqual([])
+    expect(r.w.calls.some((call) => String(call.path).includes('/previews'))).toBe(false)
+    expect(r.w.agentRuns).toEqual([])
+    await r.stop()
+  })
+
   it('runs one command at a time', async () => {
     let running = 0
     let most = 0

@@ -571,6 +571,7 @@ export const ko: Translation<typeof en> = {
       deskAvailability: '에이전트가 답할 수 없을 때 알리기',
       invites: '초대 링크',
       analytics: '익명 제품 분석',
+      draftPreviews: '에이전트 초안 미리 보여 주기',
     },
     whenOff: {
       channels: '끄면: 새 채널을 만들 수 없어요. 있는 채널은 그대로예요.',
@@ -599,6 +600,8 @@ export const ko: Translation<typeof en> = {
         '끄면: 아무도 초대 링크를 만들 수 없고, 이미 만든 초대 링크도 거절돼요. 허용한 도메인과 서버가 지정한 관리자만 로그인할 수 있어요.',
       analytics:
         '끄면: 사용 통계가 이 서버 밖으로 나가지 않아요. 켜면 서버 운영자가 정한 곳으로만 본 페이지 같은 익명 통계가 가요. 내용, 이름, 이메일은 보내지 않아요.',
+      draftPreviews:
+        '끄면: 본인이 확인하기 전에는 아무도 동료 에이전트의 초안을 볼 수 없어요. 켜면: 각자 내 에이전트에서 누가 볼지 골라요. 고르기 전에는 아무도 볼 수 없어요.',
     },
   },
   todo: {
@@ -638,6 +641,7 @@ export const ko: Translation<typeof en> = {
       teaching: '가르치기',
       doing: '현황',
       routes: '경로 지도',
+      previews: '미리 보여 주기',
     },
     tabsLabel: '내 에이전트 메뉴',
     sectionHints: {
@@ -648,6 +652,7 @@ export const ko: Translation<typeof en> = {
         '이 숫자는 내가 아니라 에이전트 초안에 관한 거예요. 초안이 어디서 이미 내 뜻대로 나가고, 어디서 아직 내 손이 필요한지 보여 줘요.',
       routes:
         '에이전트가 이미 나처럼 답하는 곳이에요. 초안을 쓰는 곳마다 원칙이 얼마나 도움이 되는지 보여 줘요.',
+      previews: '내가 확인하기 전에 에이전트 초안을 읽을 수 있는 사람이에요.',
     },
     verdict: {
       unknown: '이 버전에서는 아직 이 숫자를 설명할 수 없어요',
@@ -1545,6 +1550,28 @@ export const ko: Translation<typeof en> = {
     expired: '이 서버 연결 코드는 쓰이기 전에 만료됐어요.',
     again: '새 서버 연결 코드 만들기',
     failed: '지금은 서버 연결 코드를 만들 수 없어요. 잠시 후 다시 시도하세요.',
+  },
+  draftPreviews: {
+    intro:
+      '내가 확인하기 전에도 고른 동료가 에이전트 초안을 볼 수 있게 해요. 동료는 나를 기다리지 않아도 돼요. 동료에게는 확인 전 초안으로 표시되고, 답장하거나 인용할 수 없으며, 내가 버리면 사라져요. 내가 직접 쓴 초안과 채널 에이전트의 답은 보여 주지 않아요.',
+    people: '사람',
+    peopleHint: '나와 주고받는 DM과 그룹 DM에서 에이전트 초안을 볼 수 있어요.',
+    channels: '채널',
+    channelsHint: '채널 방에 있는 모두가 그 방의 에이전트 초안을 볼 수 있어요.',
+    noPeople: '아직 다른 사람이 없어요.',
+    noChannels: '채널에 들어가면 여기서 고를 수 있어요.',
+    nobody: '내가 확인하기 전에는 아무도 에이전트 초안을 볼 수 없어요.',
+    somebody: '{people}명과 채널 {channels}곳에 미리 보여 줘요.',
+    save: '저장',
+    saved: '저장했어요.',
+    cardTitle: '{name}님의 에이전트가 쓴 확인 전 초안',
+    cardNote: '{name}님이 아직 확인하지 않았어요. 바뀌거나 철회될 수 있어요.',
+    withdrawn: '{name}님이 이 초안을 철회했어요',
+    withdrawnNote: '보내지 않았어요.',
+    ownNotice: '내가 확인하기 전에도 {names}님이 여기서 에이전트 초안을 볼 수 있어요.',
+    ownNoticeRoom: '내가 확인하기 전에도 이 방의 모두가 에이전트 초안을 볼 수 있어요.',
+    confirmed: '{name}님이 미리 본 초안을 확인하고 보냈어요.',
+    confirmedEdited: '{name}님이 미리 본 초안을 고친 뒤 보냈어요.',
   },
   cloudDesk: {
     legend: '클라우드 데스크',

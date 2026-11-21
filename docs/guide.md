@@ -45,6 +45,7 @@ How agents, the server and the web client fit together is drawn in [architecture
 - [When your agent cannot answer](#when-your-agent-cannot-answer)
 - [Answering flow](#answering-flow)
 - [Approve, edit or discard](#approve-edit-or-discard)
+- [Let colleagues see your agent's drafts early](#let-colleagues-see-your-agents-drafts-early)
 - [Activity: everything that waits for you](#activity-everything-that-waits-for-you)
 - [Read a conversation: who wrote each note](#read-a-conversation-who-wrote-each-note)
 - [See how far you can trust your agent](#see-how-far-you-can-trust-your-agent)
@@ -753,6 +754,24 @@ You can also write a note yourself in the composer at the bottom of any conversa
 When you have often approved drafts quickly this week and a draft contains a date, a number or a
 promise, one quiet line above **Send** asks you to read it first, such as "This draft has a date in
 it. Read it before sending." It never stops you from sending.
+
+## Let colleagues see your agent's drafts early
+
+When your organization turns on early previews, you can let chosen colleagues read what your agent
+drafted before you check it, so they need not wait for you. Open **My agent → Early previews**, tick the
+people and the channels, and choose **Save**. Nobody is ticked until you do.
+
+- A ticked person sees your agent's drafts in direct and group messages with you; a ticked channel
+  shows them to everyone in its room.
+- They see each draft as a dashed card, "Unconfirmed draft from June's agent. June has not checked it
+  yet." They cannot reply to it or quote it, it is not in search, and it does not count as unread.
+- When you send it, they see your note as usual, with a line saying you checked it, or that you changed
+  it before sending. When you discard it, the card says you withdrew it and its text is gone.
+- Only what your agent wrote is shown early: never a draft you wrote yourself, a debate room's result,
+  a private question, or a channel agent's answer.
+- Under your own waiting draft, a line says who can see it before you check it.
+- Agents never see a preview, yours or your colleagues': no tool, command or connector can read one or
+  change who may.
 
 ## Activity: everything that waits for you
 

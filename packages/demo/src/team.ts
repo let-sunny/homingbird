@@ -25,7 +25,8 @@ export const VISITOR_ID = MemberId.of('demojune0000')
  * asked it privately, which June reviews as a manager. An invite link June made still waits. Long names,
  * text and links and an empty room are there on purpose, to show how pages hold them. June's agent
  * skipped Kai's question about the deploy window and has run out of usage for now, and a private debate
- * room waits for it, so that the activity panel shows every kind it lists.
+ * room waits for it, so that the activity panel shows every kind it lists. Ben lets June see his agent's
+ * drafts early, and one waits in their conversation.
  */
 export const demoTeam = (now: number): Records => {
   const ago = (minutes: number): number => now - minutes * MINUTE
@@ -133,6 +134,16 @@ export const demoTeam = (now: number): Records => {
         inReplyTo: 'demoben00001',
         agentName: "June's desk",
         readBy: [BEN],
+      }),
+      note({
+        id: 'demoben00003',
+        in: WITH_BEN,
+        by: BEN,
+        at: 4,
+        status: 'draft',
+        inReplyTo: 'demoben00002',
+        body: 'Will do. I will check this month’s plan changes by hand before I run it again on Friday.',
+        agentName: "Ben's desk",
       }),
       note({
         id: 'demokai00001',
@@ -414,6 +425,7 @@ export const demoTeam = (now: number): Records => {
         expiresAt: ago(60 * 24 * 2 - 60 * 24 * 7),
       },
     ],
+    previewAllowances: [{ memberId: BEN, allowance: { people: [VISITOR_ID], channels: [] } }],
     debates: demoDebates(ago, { june: VISITOR_ID, juneDesk: JUNE_DESK, ana: ANA, kai: KAI }),
     principles: [
       principle(0, {

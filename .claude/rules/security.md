@@ -8,7 +8,9 @@ These nine rules are never broken. Each has a test; keep it passing and keep it 
    its channel when they send it and did not ask the question it answers, and the note records who.
 2. Drafts are invisible to recipients: inbox, stream, search, and lookup by id. A channel's agent's
    draft is shown only through the review routes, to the managers of its channel, never to the person
-   whose question it answers, a manager included.
+   whose question it answers, a manager included. A person may let chosen people or channels see their
+   own agent's unconfirmed drafts, in the web client; such a preview is shown as unconfirmed, cannot be
+   replied to or quoted, and disappears when the draft is discarded.
 3. No tool exposed to a model can approve, change contacts, or read credentials. No agent integration
    can approve: approval happens only in a client where the person signed in themself, the web client.
    No tool exposed to a model can create, rename, retire or connect a channel's agent, ask it
@@ -47,6 +49,7 @@ When adding a route, a tool, or a query:
   changes a principle or a profile character, or touches credentials is `human`.
 - New model-facing tool (MCP, plugin, A2A): it may only call `member` routes, and note content it returns
   must come through `wrapNote`. A character tool may check and preview, never save.
-- New note query: filter by participation, and by `status = 'sent' OR author_id = viewer`.
+- New note query: filter by participation, and by `status = 'sent' OR author_id = viewer`, OR an
+  allowed preview for the viewer.
 - Never write a token, authorization header, cookie, or secret into a log line, an audit entry, or an
   error message.

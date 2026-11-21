@@ -7,6 +7,7 @@ import { featureOn } from '../features.ts'
 import { MISSING } from '../missing.ts'
 import { type RoomReview, reviewsInRoomModel } from '../models/channel-agent.ts'
 import { type ComposerModel, composerModel } from '../models/composer.ts'
+import { draftPreviewsModel } from '../models/draft-previews.ts'
 import { draftsItemModel } from '../models/drafts-item.ts'
 import { noteItemModel } from '../models/note-item.ts'
 import {
@@ -26,6 +27,7 @@ import { type ThreadItem, threadItems } from '../thread.ts'
 import { reviewCard } from './channel-agent.ts'
 import { composer } from './composer.ts'
 import type { ViewContext } from './context.ts'
+import { renderDraftPreviews } from './draft-previews.ts'
 import { renderDraftsItem, reportWhenSeen } from './drafts-item.ts'
 import { renderNoteItem } from './note-item.ts'
 import { button, emptyWithPip, loading } from './parts.ts'
@@ -55,6 +57,10 @@ export const threadView = (
     actions.refreshPrinciples()
   if (featureOn('agentFigures', state.serverInfo.get())) actions.refreshAgentReport()
   if (focusedReview !== null && featureOn('channelAgents', state.serverInfo.get())) actions.loadReviews()
+  if (featureOn('draftPreviews', state.serverInfo.get())) {
+    actions.loadPreviews(id)
+    if (state.previewAllowance.get() === null) actions.loadPreviewAllowance()
+  }
   const input = (): ThreadInput => ({
     me,
     conversationId: id,
@@ -74,6 +80,7 @@ export const threadView = (
     sending: state.sendingIn.get().has(id),
     now: context.clock.now(),
     focusedDraft,
+    previewedBodies: state.previewedBodies.get(),
   })
   const items = (): ReadonlyArray<RoomItem> =>
     reviewsInRoomModel(
@@ -140,6 +147,7 @@ export const threadView = (
       state.serverInfo,
       state.reviews,
       state.reviewsRead,
+      state.previewedBodies,
     ],
     items,
     {
@@ -180,6 +188,26 @@ export const threadView = (
       return settled !== null && h('p', { class: 'hint settled-draft', role: 'status' }, settled)
     }),
     list,
+    region(
+      life,
+      [
+        state.previews,
+        state.previewAllowance,
+        state.threads,
+        state.members,
+        state.conversations,
+        state.channels,
+      ],
+      () =>
+        renderDraftPreviews(
+          draftPreviewsModel({
+            ...input(),
+            previews: state.previews.get().get(id) ?? [],
+            allowance: state.previewAllowance.get(),
+          }),
+        ),
+      { class: 'draft-previews' },
+    ),
     region(life, [state.archiveDiscards], () =>
       archiveDiscardLines(input().archiveDiscards).map((line) =>
         h(

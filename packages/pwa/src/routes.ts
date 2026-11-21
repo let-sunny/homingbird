@@ -33,9 +33,15 @@ export type Route =
   | { readonly name: 'invite-refused' }
   | { readonly name: 'unknown' }
 
-export type AgentSection = 'connection' | 'teaching' | 'doing' | 'routes'
+export type AgentSection = 'connection' | 'teaching' | 'doing' | 'routes' | 'previews'
 
-export const AGENT_SECTIONS: ReadonlyArray<AgentSection> = ['connection', 'teaching', 'doing', 'routes']
+export const AGENT_SECTIONS: ReadonlyArray<AgentSection> = [
+  'connection',
+  'teaching',
+  'doing',
+  'routes',
+  'previews',
+]
 
 export type DebateTab = 'result' | 'votes' | 'credit' | 'turns'
 

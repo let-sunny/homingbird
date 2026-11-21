@@ -9,13 +9,14 @@ import { periodChoice, renderFigures } from './agent-figures.ts'
 import { connectionSection } from './connection.ts'
 import type { ViewContext } from './context.ts'
 import { page } from './parts.ts'
+import { previewSettingsSection } from './preview-settings.ts'
 import { routeMapSection } from './route-map-view.ts'
 import { taughtSection } from './teaching.ts'
 import { renderYourWeek } from './your-week.ts'
 
 /**
- * "My agent": connection, teaching, how it is doing and the route map, one tab at a time, each tab its
- * own address.
+ * "My agent": connection, teaching, how it is doing, the route map and who sees its drafts early, one
+ * tab at a time, each tab its own address.
  */
 export const agentTrustView = (
   context: ViewContext,
@@ -69,6 +70,8 @@ const sectionContent = (
       return [taughtSection(context, life)]
     case 'routes':
       return [routeMapSection(context, life)]
+    case 'previews':
+      return [previewSettingsSection(context, life, me)]
     case 'doing': {
       const days = signal(7)
       return [

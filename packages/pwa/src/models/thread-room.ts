@@ -37,6 +37,8 @@ export interface ThreadInput {
   readonly now: number
   /** The draft a link opened the conversation at; an id that names no draft shown here focuses nothing. */
   readonly focusedDraft: string | null
+  /** The words of others' agents' drafts this page showed early, by note. */
+  readonly previewedBodies: ReadonlyMap<NoteId, string>
 }
 
 /** The notes of the conversation shown. */

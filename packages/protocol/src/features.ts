@@ -86,6 +86,10 @@ export const FEATURES = {
   deskAvailability: { default: true, routes: ['me.desk.unavailable', 'me.desk.available'] },
   invites: { default: true, routes: ['invites.list', 'invites.create', 'invites.revoke'] },
   analytics: { default: false, routes: ['analytics.track'] },
+  draftPreviews: {
+    default: false,
+    routes: ['me.draftPreviews.get', 'me.draftPreviews.set', 'previews.list'],
+  },
 } as const satisfies Readonly<
   Record<string, { readonly default: boolean; readonly routes: ReadonlyArray<RouteName> }>
 >

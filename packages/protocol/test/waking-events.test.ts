@@ -20,6 +20,11 @@ const noteBy = (authorId: MemberId) =>
     }))[0] as EventBody
 
 describe('which events may mean work waits for an agent', () => {
+  it('never wakes for a colleague’s draft preview changing', () => {
+    expect(isWakingEvent({ type: 'preview.changed', conversationId: null }, ANA)).toBe(false)
+    expect(isWakingEvent({ type: 'preview.changed', conversationId: null }, null)).toBe(false)
+  })
+
   it('wakes for a colleague’s note, never for the person’s own', () => {
     expect(isWakingEvent(noteBy(BEN), ANA)).toBe(true)
     expect(isWakingEvent(noteBy(ANA), ANA)).toBe(false)

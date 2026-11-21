@@ -52,16 +52,18 @@ const probes: Readonly<Record<string, (person: Session) => Promise<{ status: num
   joinCodes: (person) => person.api('POST', '/join-codes', {}),
   deskAvailability: (person) => person.api('POST', '/me/desk/available', {}),
   invites: (person) => person.api('GET', '/invites'),
+  draftPreviews: (person) => person.api('GET', '/me/draft-previews'),
 }
 
 describe('feature switches', () => {
-  it('are all on by default but analytics, channel agents and the cloud desk, and server.info says which are on', async () => {
+  it('are all on by default but analytics, channel agents, the cloud desk and draft previews, and server.info says which are on', async () => {
     const info = (await server.request('GET', '/api/v1/info')).json
     expect(info.features).toEqual({
       ...Object.fromEntries(FEATURE_NAMES.map((name) => [name, true])),
       analytics: false,
       channelAgents: false,
       cloudDesk: false,
+      draftPreviews: false,
     })
     await switchTo({ teaching: false })
     expect((await server.request('GET', '/api/v1/info')).json.features.teaching).toBe(false)

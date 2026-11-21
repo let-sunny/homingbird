@@ -96,6 +96,10 @@ export const AUDIT_EVENTS = {
     agentId: S.optional(MemberId),
   }),
   'note.discarded': event('full', 'note', { conversationId: ConversationId }),
+  'draft_preview.allowed_changed': event('full', 'member', {
+    people: S.int({ min: 0 }),
+    channels: S.int({ min: 0 }),
+  }),
   'member.profile_changed': event('full', 'member', {
     fields: S.array(S.literal('name', 'profile', 'locale'), { maxItems: 3 }),
   }),

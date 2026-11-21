@@ -24,5 +24,6 @@ export const threadInput = (fields: Partial<ThreadInput> = {}): ThreadInput => (
   sending: false,
   now: 10,
   focusedDraft: null,
+  previewedBodies: new Map(),
   ...fields,
 })
