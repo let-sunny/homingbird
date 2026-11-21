@@ -205,6 +205,7 @@ describe('activityModel', () => {
         body: 'Does the window clash?',
         reason: strings.agentReleased({ reason: 'I cannot see the calendar.' }),
         reply: strings.activity.replyYourself,
+        replyTo: { conversationId: ROOM, noteId: asked.id },
       },
     ])
     const answered = note('note_reply', { authorId: ANA, inReplyTo: asked.id })

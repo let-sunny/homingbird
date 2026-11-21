@@ -669,7 +669,14 @@ const makeElement = (owner: FakeDocument, localName: string, namespaceURI: strin
         return popover.open
       },
     },
-    showModal: { value: () => setAttribute('open', '') },
+    showModal: {
+      value: () => {
+        setAttribute('open', '')
+        descendants(element)
+          .find((each) => each.hasAttribute('autofocus'))
+          ?.focus()
+      },
+    },
     show: { value: () => setAttribute('open', '') },
     close: {
       value: () => {

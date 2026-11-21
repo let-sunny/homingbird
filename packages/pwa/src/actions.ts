@@ -46,6 +46,8 @@ export const TASKS = {
   sendNote: notes.sendNote,
   markRead: notes.markRead,
   chooseReplyTarget: notes.chooseReplyTarget,
+  replyTo: notes.replyTo,
+  keepComposerText: notes.keepComposerText,
   findEarlierAnswers: earlierAnswers.findEarlierAnswers,
   markAnsweredFromHistory: earlierAnswers.markAnsweredFromHistory,
   setMuted: mutes.setMuted,

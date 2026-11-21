@@ -35,7 +35,8 @@ import { followNewNotes, markReadWhenSeen } from './thread-scroll.ts'
 
 /**
  * A conversation: its head, its notes and drafts as they come, the answers of a channel's agent the
- * person reviews under their questions, the chances to teach, and the composer.
+ * person reviews under their questions, the chances to teach, and the composer. A link may name a
+ * draft, an answer to review or a sent note to open the conversation at.
  */
 export const threadView = (
   context: ViewContext,
@@ -44,6 +45,7 @@ export const threadView = (
   id: ConversationId,
   focusedDraft: string | null,
   focusedReview: string | null = null,
+  focusedNote: string | null = null,
 ): HTMLElement => {
   const { state, actions } = context
   const missing = signal(false)
@@ -109,6 +111,16 @@ export const threadView = (
     }
     return renderDraftsItem(context, model)
   }
+  const sentNote = (item: Extract<ThreadItem, { type: 'note' }>): HTMLElement => {
+    const element = renderNoteItem(context, life, noteItemModel(input(), item), item.note, id)
+    if (item.note.id !== focusedNote) return element
+    element.classList.add('is-active')
+    if (!broughtIntoView) {
+      broughtIntoView = true
+      follow.bringIntoView(() => list.querySelector<HTMLElement>(`.note[data-note-id="${item.note.id}"]`))
+    }
+    return element
+  }
   const review = (item: RoomReview): HTMLElement => {
     if (!broughtIntoView && item.card.focused) {
       broughtIntoView = true
@@ -149,11 +161,7 @@ export const threadView = (
         follow.track(
           item.key,
           seen.watch(
-            item.type === 'note'
-              ? renderNoteItem(context, life, noteItemModel(input(), item), item.note, id)
-              : item.type === 'drafts'
-                ? drafts(item)
-                : review(item),
+            item.type === 'note' ? sentNote(item) : item.type === 'drafts' ? drafts(item) : review(item),
           ),
         ),
     },

@@ -79,8 +79,10 @@ describe('noteItemModel', () => {
         id: 'note-menu-n1',
         label: strings.noteMore,
         items: [
-          { kind: 'ask-agent', label: strings.askAgentToReply },
-          { kind: 'copy', label: strings.copyNote },
+          { kind: 'reply', label: strings.reply, reason: null },
+          { kind: 'ask-agent', label: strings.askAgentToReply, reason: null },
+          { kind: 'copy', label: strings.copyNote, reason: null },
+          { kind: 'copy-link', label: strings.copyNoteLink, reason: null },
         ],
       },
     })
@@ -168,7 +170,7 @@ describe('noteItemModel', () => {
     expect(model.className).toBe('note is-mine leads-run is-agent')
     expect(model.author!.line).toBe(strings.authorship.agentYou)
     expect(model.basis).toEqual({ className: 'note-basis is-mine', lines: ['Read the runbook.'] })
-    expect([model.reply, model.menu.items.map((one) => one.kind)]).toEqual([null, ['copy']])
+    expect([model.reply, model.menu.items.map((one) => one.kind)]).toEqual([null, ['copy', 'copy-link']])
     expect(model.meta!.mark).toMatchObject({ state: 'read', label: strings.status.read, count: null })
     expect(model.meta!.mark!.glyph).toBe('✓✓︎')
     expect(noteItemModel(threadInput(), item(note('n2', { authorId: ANA, basis: null }))).basis).toBeNull()
@@ -277,16 +279,34 @@ describe('noteItemModel', () => {
       item(answered),
     )
     expect(model.answeredBy!.text).toBe(strings.answeredBy({ names: `${strings.formerMember} and Ben` }))
-    expect(model.menu.items.map((one) => one.kind)).toEqual(['ask-agent', 'copy'])
+    expect(model.menu.items.map((one) => one.kind)).toEqual(['reply', 'ask-agent', 'copy', 'copy-link'])
     const open = note('q2')
     const withoutRequests = noteItemModel(
       threadInput({ conversations: [room], serverInfo: serverInfo() }),
       item(open),
     )
-    expect([withoutRequests.reply, withoutRequests.menu.items.map((one) => one.kind)]).toEqual([
+    expect([withoutRequests.reply, withoutRequests.menu.items[1]]).toEqual([
       strings.reply,
-      ['copy'],
+      { kind: 'ask-agent', label: strings.askAgentToReply, reason: strings.askAgentOff },
     ])
+  })
+
+  it('says why the person’s agent cannot be asked while their desk runs but it cannot answer', () => {
+    const theirs = note('n1')
+    const unavailable = entry(ANA, 'Ana', {
+      presence: {
+        humanOnline: true,
+        agentOnline: true,
+        agentUnavailable: { kind: 'usage_limit', until: null },
+      },
+    })
+    const model = noteItemModel(
+      threadInput({ thread: { notes: [theirs], hasMore: false }, directory: [unavailable] }),
+      item(theirs),
+    )
+    expect(model.menu.items.find((one) => one.kind === 'ask-agent')?.reason).toBe(
+      strings.deskUnavailableReason.usage_limit,
+    )
   })
 
   it('says why the person’s agent let a note go, and offers to ask it anyway', () => {
@@ -318,7 +338,7 @@ describe('noteItemModel', () => {
       }),
       item(note('n1')),
     )
-    expect([model.reply, model.menu.items.map((one) => one.kind)]).toEqual([null, ['copy']])
+    expect([model.reply, model.menu.items.map((one) => one.kind)]).toEqual([null, ['copy', 'copy-link']])
     expect(model.release).toBeNull()
     expect(ROOM).toBe(archived.id)
   })

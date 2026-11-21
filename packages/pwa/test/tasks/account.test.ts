@@ -96,8 +96,11 @@ describe('account tasks', () => {
     await back
     expect(page.visited).toEqual(['assign https://desk.example.com'])
     Object.assign(page.page, { fetch: () => Promise.resolve(new Response('')) })
+    app.state.session.set(me())
+    page.local.set(`homingbird.composer.${ANA}`, '{"c":"Typed"}')
     await run(tasks.signOut)
     expect(page.visited.at(-1)).toBe('assign /')
+    expect(page.local.has(`homingbird.composer.${ANA}`)).toBe(false)
     Object.assign(page.page, { fetch: () => Promise.reject(new Error('offline')) })
     expect((await run(tasks.signOut))._tag).toBe('Err')
     expect(app.state).toBeTruthy()

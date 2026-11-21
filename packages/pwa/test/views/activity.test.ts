@@ -200,9 +200,6 @@ describe('activityPanel', () => {
     state.debates.set([summary({ participantIds: [BEN] })])
     panel.showPopover()
     expect(textOf(panel)).toContain(strings.agentReleased({ reason: 'No calendar.' }))
-    expect(getByRole(panel, 'link', { name: strings.activity.replyYourself }).getAttribute('href')).toBe(
-      `#/c/${ROOM}`,
-    )
     expect(textOf(panel)).toContain(strings.deskUnavailableReason.failed)
     expect(getByRole(panel, 'link', { name: strings.activity.openConnection }).getAttribute('href')).toBe(
       '#/agent/connection',
@@ -210,6 +207,22 @@ describe('activityPanel', () => {
     expect(textOf(panel)).toContain(strings.activity.debateAsks)
     getByRole(panel, 'link', { name: strings.activity.openRoom }).click()
     expect(isPopoverOpen(panel as never)).toBe(false)
+  })
+
+  it('closes before “Reply yourself” opens the conversation, with the note as the reply target', () => {
+    const { panel, state, called, page } = shown()
+    const asked = note('note_asked', { authorId: BEN, body: 'Does it clash?' })
+    state.conversations.set([conversation()])
+    state.threads.set(new Map([[ROOM, { notes: [asked], hasMore: false }]]))
+    state.releases.set(new Map([[asked.id, { reason: 'No calendar.', agentName: null }]]))
+    panel.showPopover()
+    const order: string[] = []
+    panel.addEventListener('toggle', () => order.push(`closed at ${page.page.hash()}`))
+    getByRole(panel, 'button', { name: strings.activity.replyYourself }).click()
+    expect(order).toEqual(['closed at #/'])
+    expect(isPopoverOpen(panel as never)).toBe(false)
+    expect(called('replyTo')[0]!.args).toEqual([ROOM, asked.id])
+    expect(page.page.hash()).toBe(`#/c/${ROOM}`)
   })
 
   it('closes when the page moves on, and when its life ends', () => {

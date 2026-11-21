@@ -31,6 +31,7 @@ describe('renderDraftsItem', () => {
     expect(called('approveDraft')[0]!.args).toEqual([a, null, [b]])
     expect(called('approveDraft')[0]!.then!.attempt).toBe('draft')
     getByRole(card, 'button', { name: strings.edit }).click()
+    expect(document.activeElement).toBe(getByRole(dialog, 'textbox', { name: strings.editDraftLabel }))
     fire.type(getByRole(dialog, 'textbox', { name: strings.editDraftLabel }), 'Edited')
     getByRole(dialog, 'button', { name: strings.saveDraft }).click()
     expect(called('saveDraft')[0]!.args).toEqual([a, 'Edited'])

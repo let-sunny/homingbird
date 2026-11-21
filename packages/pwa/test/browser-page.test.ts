@@ -5,7 +5,13 @@ import { type BrowserWindow, IN_VIEW_SHARE, browserPage } from '../src/browser-p
 const fakeWindow = (fields: Partial<Record<keyof BrowserWindow, unknown>> = {}) => {
   const document = fakeDocument()
   const listeners = new Map<string, () => void>()
-  const location = { origin: 'https://homingbird.example', hash: '#/', replace: vi.fn(), assign: vi.fn() }
+  const location = {
+    origin: 'https://homingbird.example',
+    href: 'https://homingbird.example/app/#/',
+    hash: '#/',
+    replace: vi.fn(),
+    assign: vi.fn(),
+  }
   const observed: unknown[] = []
   const window = {
     document,
@@ -56,6 +62,7 @@ describe('browserPage', () => {
     expect(location.replace).toHaveBeenCalledWith('#/a')
     expect(location.assign).toHaveBeenCalledWith('/')
     expect(window.history.replaceState).toHaveBeenCalledWith(null, '', '#/search?q=x')
+    expect(page.linkTo('#/c/conv_1?note=n1')).toBe('https://homingbird.example/app/#/c/conv_1?note=n1')
   })
 
   it('fetches, reads the languages, the visibility and the person’s preferences', async () => {

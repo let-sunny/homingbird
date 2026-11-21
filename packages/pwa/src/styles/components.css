@@ -471,6 +471,11 @@
   background: var(--hb-color-pending);
 }
 
+.typed-mark {
+  color: var(--hb-color-muted);
+  font: 700 var(--hb-text-small) var(--hb-font-mono);
+}
+
 .presence {
   display: inline-flex;
   align-items: center;
@@ -869,6 +874,18 @@
   max-block-size: 12rem;
   resize: none;
   field-sizing: content;
+}
+
+.ask-agent-toggle {
+  white-space: nowrap;
+}
+
+.composer .ask-agent > summary {
+  display: none;
+}
+
+.composer .ask-agent-row {
+  margin-block-start: 0;
 }
 
 .composer:has(textarea:placeholder-shown) .send {
@@ -1674,6 +1691,22 @@
   inset: auto var(--hb-space-4) var(--hb-space-4) auto;
   z-index: 10;
   max-inline-size: min(28rem, calc(100% - 2rem));
+}
+
+:root:has(.composer) .toast-host {
+  inset-block-end: 9rem;
+}
+
+@supports (anchor-name: --a) {
+  .composer {
+    anchor-name: --composer;
+  }
+
+  :root:has(.composer) .toast-host {
+    position-anchor: --composer;
+    inset-block-end: calc(anchor(top) + var(--hb-space-2));
+    inset-inline-end: calc(anchor(right) + var(--hb-space-4));
+  }
 }
 
 .toast {
@@ -4302,8 +4335,8 @@ textarea:disabled {
 
 .note-toolbar {
   position: absolute;
-  inset-block-start: calc(-1 * var(--hb-space-4));
-  inset-inline-end: calc(-1 * var(--hb-space-2));
+  inset-block-start: 0;
+  inset-inline-start: calc(100% + var(--hb-space-1));
   z-index: 1;
   display: flex;
   border: var(--hb-border);
@@ -4312,7 +4345,15 @@ textarea:disabled {
 }
 
 .note.is-mine .note-toolbar {
-  inset-inline: calc(-1 * var(--hb-space-2)) auto;
+  inset-inline: auto calc(100% + var(--hb-space-1));
+}
+
+@container stage (max-width: 30rem) {
+  .note-toolbar,
+  .note.is-mine .note-toolbar {
+    inset-block: auto calc(100% + var(--hb-space-1));
+    inset-inline: auto 0;
+  }
 }
 
 .note-toolbar > button {
@@ -4336,7 +4377,9 @@ textarea:disabled {
   box-shadow: none;
 }
 
-.note:not(:hover, :focus-within, .is-active) .note-toolbar {
+.note:not(:hover, :focus-within, .is-active) .note-toolbar,
+.notes:has(.note:hover) .note:not(:hover) .note-toolbar,
+.notes:not(:has(.note:hover)):has(.note:focus-within) .note:not(:focus-within) .note-toolbar {
   opacity: 0;
   pointer-events: none;
 }
@@ -4346,10 +4389,28 @@ textarea:disabled {
     -webkit-touch-callout: none;
   }
 
-  .note-toolbar > button {
-    min-inline-size: 2.5rem;
-    min-block-size: 2.5rem;
-    justify-content: center;
+  .note-toolbar {
+    display: none;
+  }
+
+  .note-menu.menu,
+  .note-menu.menu.is-at-point {
+    position-area: none;
+    inset: auto 0 0;
+    inline-size: 100%;
+    max-inline-size: none;
+    margin: 0;
+    padding: var(--hb-space-2) var(--hb-space-2) calc(var(--hb-space-2) + env(safe-area-inset-bottom));
+    border-inline: 0;
+    border-block-end: 0;
+  }
+
+  .note-menu::backdrop {
+    background: var(--hb-color-backdrop);
+  }
+
+  .note-menu .menu-item {
+    min-block-size: 3rem;
   }
 
   .note[data-menu-owner] .bubble {
