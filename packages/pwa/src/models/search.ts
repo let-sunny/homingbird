@@ -19,6 +19,8 @@ export interface SearchInput {
   readonly members: ReadonlyMap<MemberId, AsRead.Member>
   readonly viewerId: MemberId
   readonly now: number
+  /** What was searched for, marked wherever an excerpt contains it. */
+  readonly query: string
 }
 
 export type SearchModel =
@@ -32,7 +34,12 @@ export interface SearchRow {
   readonly author: string
   readonly title: string | null
   readonly time: TimeShown
-  readonly excerpt: string
+  readonly excerpt: ReadonlyArray<ExcerptPart>
+}
+
+export interface ExcerptPart {
+  readonly text: string
+  readonly isMatch: boolean
 }
 
 const resultRow = (input: SearchInput, note: AsRead.Note): SearchRow => {
@@ -41,11 +48,22 @@ const resultRow = (input: SearchInput, note: AsRead.Note): SearchRow => {
     conversation === undefined
       ? ''
       : conversationTitle(conversation, input.members, input.viewerId, strings.formerMember)
+  const author = input.members.get(note.authorId)?.name ?? strings.formerMember
   return {
     href: hrefFor({ name: 'conversation', id: note.conversationId, draft: null }),
-    author: input.members.get(note.authorId)?.name ?? strings.formerMember,
-    title: title === '' ? null : title,
+    author,
+    title: title === '' || title === author ? null : title,
     time: timeShown(note.sentAt ?? note.createdAt, input.now),
-    excerpt: excerpt(note.body, 240),
+    excerpt: matchedParts(excerpt(note.body, 240), input.query.trim()),
   }
+}
+
+/** The text cut where it contains the needle, ignoring case, as the server matched it. */
+const matchedParts = (text: string, needle: string): ReadonlyArray<ExcerptPart> => {
+  if (needle === '') return [{ text, isMatch: false }]
+  const pattern = new RegExp(`(${needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'giu')
+  return text
+    .split(pattern)
+    .map((part, index) => ({ text: part, isMatch: index % 2 === 1 }))
+    .filter((part) => part.text !== '')
 }

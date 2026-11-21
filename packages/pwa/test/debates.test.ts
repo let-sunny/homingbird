@@ -197,6 +197,7 @@ describe('the list of rooms', () => {
     deadlineAt: 9,
     participantIds: [],
     turnCount: 0,
+    totalTurns: 4,
     resultDrafted: false,
     joined: false,
   })

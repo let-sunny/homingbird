@@ -49,7 +49,7 @@ export const accountHandlers = (world: World): Handlers => {
     'me.get': (_, viewerId) =>
       T.map((member: Member) => ({
         member,
-        credential: { id: VISITOR_SESSION, kind: 'human' as const, name: 'This browser' },
+        credential: { id: VISITOR_SESSION, kind: 'human' as const, name: 'Chrome on macOS' },
         contactMode: 'open' as const,
         notifications,
       }))(memberOf(world.records(), viewerId)),

@@ -22,6 +22,7 @@ import {
   renderFrame,
   statesFor,
 } from '@homingbird/sprites'
+import { strings } from './strings.ts'
 
 /** The character a member is drawn as: the one they saved while characters are on, or the pigeon. */
 export const characterOf = (
@@ -78,13 +79,13 @@ export interface Layer {
 
 export const workbenchFor = (current: CharacterSpec): Workbench => {
   const builtIn = builtInIdOf(current)
-  if (builtIn === 'pigeon') return { editor: emptyEditor(), layer: null }
+  if (builtIn === 'pigeon') return { editor: blankEditor(), layer: null }
   if (builtIn !== null) return workbenchFromBuiltIn(builtIn)!
   return withLayer(editorFromSpec(current), 'saved')
 }
 
 export const workbenchFromBuiltIn = (id: string): Workbench | null => {
-  if (id === PIGEON.id) return { editor: emptyEditor(), layer: null }
+  if (id === PIGEON.id) return { editor: blankEditor(), layer: null }
   const editor = editorFromPreset(id)
   return editor === undefined ? null : withLayer(editor, 'built-in', id)
 }
@@ -232,3 +233,5 @@ const PIXELS = new Map<string, Pixels>()
 const PIXELS_CACHED = 2000
 const STATES = new Map<string, ReturnType<typeof statesFor>>()
 const STATES_CACHED = 600
+
+const blankEditor = (): EditorState => ({ ...emptyEditor(), name: strings.character.defaultName })

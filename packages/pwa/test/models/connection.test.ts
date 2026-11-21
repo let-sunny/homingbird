@@ -6,12 +6,12 @@ import { ANA, channel, credential, entry } from '../support/fixtures.ts'
 
 describe('connectionModel', () => {
   it('waits for the credentials, then marks the current one, the revoked ones and when each was used', () => {
-    const base = { viewerId: ANA, directory: [], channels: [] }
+    const base = { viewerId: ANA, directory: [], channels: [], joinCodes: false }
     expect(connectionModel({ ...base, credentials: null }).credentials).toBeNull()
     const model = connectionModel({
       ...base,
       credentials: [
-        credential('cred_web', { kind: 'human', current: true, lastUsedAt: 5 }),
+        credential('cred_web', { kind: 'human', current: true, lastUsedAt: 5, client: 'Web' }),
         credential('cred_old', { revokedAt: 3 }),
       ],
     })
@@ -28,6 +28,7 @@ describe('connectionModel', () => {
     expect(old!.marks.map((mark) => mark.text)).toEqual([strings.credentialRevoked])
     expect(old!.facts[0]!.value).toBe(strings.credentialNeverUsed)
     expect(old!.revokeBody).toBe(strings.revokeBody({ name: 'cred_old' }))
+    expect(web!.client).toBe(strings.clients.web)
     expect(connectionModel({ ...base, credentials: [credential('cred_agent')] }).credentials!.noAgents).toBe(
       false,
     )
@@ -41,10 +42,12 @@ describe('connectionModel', () => {
         directory: [entry(ANA, 'Ana', { presence })],
         channels: [],
         credentials: null,
+        joinCodes: false,
       }).presence,
     ).toEqual(presence)
     expect(
-      connectionModel({ viewerId: ANA, directory: [], channels: [], credentials: null }).presence,
+      connectionModel({ viewerId: ANA, directory: [], channels: [], credentials: null, joinCodes: false })
+        .presence,
     ).toBeNull()
   })
 
@@ -57,6 +60,7 @@ describe('connectionModel', () => {
         ],
         channels: [],
         credentials: null,
+        joinCodes: false,
       }).unavailable
     const until = new Date(2026, 10, 21, 15, 0).getTime()
     expect(shown({ until, kind: 'usage_limit' })).toEqual([
@@ -66,8 +70,31 @@ describe('connectionModel', () => {
     expect(shown({ until: null, kind: 'signed_out' })).toEqual([strings.deskUnavailableReason.signed_out])
     expect(shown({ until: null })).toEqual([strings.deskUnavailableReason.unknown])
     expect(
-      connectionModel({ viewerId: ANA, directory: [], channels: [], credentials: null }).unavailable,
+      connectionModel({ viewerId: ANA, directory: [], channels: [], credentials: null, joinCodes: false })
+        .unavailable,
     ).toEqual([])
+  })
+})
+
+describe('the desk recommendation', () => {
+  const recommendation = (agentOnline: boolean, joinCodes: boolean) =>
+    connectionModel({
+      viewerId: ANA,
+      directory: [entry(ANA, 'Ana', { presence: { humanOnline: true, agentOnline } })],
+      channels: [],
+      credentials: null,
+      joinCodes,
+    }).recommendation
+
+  it('is gone once the desk is awake', () => {
+    expect(recommendation(true, true)).toBeNull()
+  })
+
+  it('says drafts are approved in their direct message or channel, and points to Run on a server only when it is offered', () => {
+    expect(recommendation(false, true)).toEqual({ title: strings.deskTitle, body: strings.deskBodyWithJoin })
+    expect(recommendation(false, false)).toEqual({ title: strings.deskTitle, body: strings.deskBody })
+    expect(strings.deskBody).not.toContain('Run on a server')
+    expect(strings.deskBody).toContain('in its direct message or channel')
   })
 })
 

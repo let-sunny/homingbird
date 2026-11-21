@@ -1,4 +1,5 @@
 import type { ConsentRequest, DeviceRequest } from '@homingbird/protocol'
+import { clientLabel } from '../client-labels.ts'
 import { strings } from '../strings.ts'
 import type { PipState } from '../views/pip.ts'
 
@@ -21,7 +22,7 @@ export const deviceModel = (stage: DeviceStage): ConnectModel => {
       return {
         kind: 'decide',
         lines: [
-          { text: strings.deviceAsks({ client: stage.request.client }), style: 'ask' },
+          { text: strings.deviceAsks({ client: clientLabel(stage.request.client) }), style: 'ask' },
           { text: stage.request.userCode, style: 'code-shown' },
           { text: strings.deviceAgentGrant, style: null },
         ],

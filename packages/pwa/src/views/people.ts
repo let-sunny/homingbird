@@ -76,6 +76,7 @@ export const peopleView = (context: ViewContext, life: Lifetime, me: AsRead.Me):
     viewerId: me.member.id,
     chosen: chosen.get(),
     starting: starting.get(),
+    draftRequests: featureOn('draftRequests', state.serverInfo.get()),
   })
   const toggles = (): ReadonlyMap<MemberId, ChoiceToggle> =>
     groupStartModel(startInput())?.toggles ?? new Map()

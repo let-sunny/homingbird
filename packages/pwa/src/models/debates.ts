@@ -31,7 +31,7 @@ export const debateListModel = (input: DebateListInput): DebateListModel => {
         isPrivate: summary.visibility === 'private',
         counts: [
           strings.debates.agentCount({ count: summary.participantIds.length }),
-          strings.debates.turnCount({ count: summary.turnCount }),
+          strings.debates.turnProgress({ count: summary.turnCount, total: summary.totalTurns }),
         ],
         time: timeShown(summary.createdAt, input.now),
       }

@@ -21,7 +21,14 @@ const directory = [
   entry(EVE, 'Eve', { relation: 'blocked', canMessage: false }),
 ]
 
-const base: GroupStartInput = { directory, conversations: [], viewerId: ANA, chosen: [], starting: false }
+const base: GroupStartInput = {
+  directory,
+  conversations: [],
+  viewerId: ANA,
+  chosen: [],
+  starting: false,
+  draftRequests: true,
+}
 
 const many = (count: number): MemberId[] =>
   Array.from({ length: count }, (_, index) => `mem_many${String(index).padStart(8, '0')}` as MemberId)
@@ -29,6 +36,14 @@ const many = (count: number): MemberId[] =>
 afterEach(() => useLanguage('en'))
 
 describe('groupStartModel', () => {
+  it('offers asking one’s agent for a draft only while the server lets people ask', () => {
+    expect(groupStartModel(base)!.intro).toBe(strings.groupStart.intro)
+    expect(groupStartModel({ ...base, draftRequests: false })!.intro).toBe(
+      strings.groupStart.introWithoutRequests,
+    )
+    expect(strings.groupStart.introWithoutRequests).not.toMatch(/agent/)
+  })
+
   it('offers nothing when fewer than two people may be messaged', () => {
     expect(groupStartModel({ ...base, directory: directory.slice(0, 2) })).toBeNull()
     expect(groupStartModel({ ...base, directory: [] })).toBeNull()

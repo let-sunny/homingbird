@@ -1,8 +1,21 @@
 import { describe, expect, it } from 'vitest'
 import { agentReportOf, channelAgentReportOf } from '../src/insights.ts'
+import { verdictOf } from '../src/trust-verdict.ts'
 import { demoApi, noteStarting, succeeded } from './support/demo.ts'
 
 describe('agentReportOf', () => {
+  it('reads the same numbers the same way, overall and in every place', () => {
+    const { world, viewerId } = demoApi()
+    const report = agentReportOf(world.records(), viewerId, world.startedAt, world.clock.now())
+    for (const { current } of report.periods) {
+      expect(current.verdict).toBe(
+        verdictOf(current.sentAsWritten, current.sentAfterEdits, current.discarded),
+      )
+      for (const place of current.places)
+        expect(place.verdict).toBe(verdictOf(place.sentAsWritten, place.sentAfterEdits, place.discarded))
+    }
+  })
+
   it('reports the seeded week and month, and counts each draft the visitor decides on top', async () => {
     const { api, world, viewerId } = demoApi()
     const before = agentReportOf(world.records(), viewerId, world.startedAt, world.clock.now())

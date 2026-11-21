@@ -43,6 +43,21 @@ describe('Korean', () => {
       expect(text).toContain('운영자')
   })
 
+  it('calls a group 그룹, never 팀, and the server’s operator 서버 운영자, apart from a channel’s 운영자', () => {
+    expect(texts(ko).join(' ')).not.toContain('팀')
+    expect(ko.features.whenOff.analytics).toContain('서버 운영자')
+    expect(ko.managerLabel).toBe('운영자')
+  })
+
+  it('discards a draft with 버리기, whoever wrote it', () => {
+    expect(ko.discard).toBe('버리기')
+    expect(ko.channelAgent.discard).toBe('버리기')
+  })
+
+  it('shows a debate’s turns as progress toward its limit, never as a turn number', () => {
+    expect(ko.debates.turnProgress).toBe('{count}/{total} 차례')
+  })
+
   it('has its own text for the error kinds that always mean the same thing', () => {
     for (const kind of ['Unauthorized', 'RateLimited', 'Unavailable'] as const)
       expect(ko.errors[kind]).not.toBe('')
