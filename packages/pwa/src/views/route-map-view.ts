@@ -4,15 +4,15 @@ import type { ViewContext } from './context.ts'
 import { teachButton } from './teaching.ts'
 
 /** "Where it answers like me": the person in the middle, a point per place, lines grown by teaching. */
-export const routeMapSection = (context: ViewContext, life: Lifetime): HTMLElement =>
-  region(
+export const routeMapSection = (context: ViewContext, life: Lifetime): HTMLElement => {
+  context.actions.refreshPrinciples()
+  return region(
     life,
     [context.state.taught],
     () => renderRouteMap(routeMapModel(context.state.taught.get()), context),
-    {
-      class: 'routes',
-    },
+    { class: 'routes' },
   )
+}
 
 const renderRouteMap = (model: RouteMapModel | null, context: ViewContext): Child => {
   if (model === null) return null

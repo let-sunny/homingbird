@@ -14,8 +14,8 @@ import { taughtSection } from './teaching.ts'
 import { renderYourWeek } from './your-week.ts'
 
 /**
- * "My agent": one page in four headed sections, connection, teaching, how it is doing and the route
- * map, each reachable by its own address.
+ * "My agent": connection, teaching, how it is doing and the route map, one tab at a time, each tab its
+ * own address.
  */
 export const agentTrustView = (
   context: ViewContext,
@@ -24,15 +24,11 @@ export const agentTrustView = (
   section: AgentSection | null,
 ): HTMLElement => {
   const model = myAgentModel(context.state.serverInfo.get(), section)
-  if (model.loadsFigures) context.actions.refreshAgentReport()
+  if (model.loadsReport) context.actions.refreshAgentReport()
   const view = renderMyAgent(model, (shown) => sectionContent(context, life, me, shown))
-  if (model.focus !== null) {
-    const focus = model.focus
-    context.page.nextFrame(() => {
-      const heading = view.ownerDocument.getElementById(`agent-${focus}`)
-      heading?.scrollIntoView({ block: 'start' })
-      heading?.focus({ preventScroll: true })
-    })
+  if (model.focusesHeading) {
+    const id = headingId(model.shown.section)
+    context.page.nextFrame(() => view.ownerDocument.getElementById(id)?.focus({ preventScroll: true }))
   }
   return view
 }
@@ -45,22 +41,17 @@ const renderMyAgent = (
     model.title,
     h(
       'nav',
-      { class: 'my-agent-nav', 'aria-label': strings.trust.onThisPage },
-      h(
-        'ol',
-        {},
-        model.navigation.map((link) =>
-          h('li', {}, h('a', { href: link.href, 'aria-current': link.current && 'location' }, link.label)),
-        ),
-      ),
+      { class: 'subtabs my-agent-tabs', 'aria-label': strings.trust.tabsLabel },
+      model.tabs.map((tab) => h('a', { href: tab.href, 'aria-current': tab.current && 'page' }, tab.label)),
     ),
-    model.sections.map(({ section, title }) =>
-      h(
-        'section',
-        { class: `my-agent-section is-${section}`, 'aria-labelledby': `agent-${section}` },
-        h('h2', { id: `agent-${section}`, tabindex: '-1' }, title),
-        ...content(section),
-      ),
+    h(
+      'section',
+      {
+        class: `my-agent-section is-${model.shown.section}`,
+        'aria-labelledby': headingId(model.shown.section),
+      },
+      h('h2', { id: headingId(model.shown.section), tabindex: '-1' }, model.shown.title),
+      ...content(model.shown.section),
     ),
   )
 
@@ -97,3 +88,5 @@ const sectionContent = (
     }
   }
 }
+
+const headingId = (section: AgentSection): string => `agent-${section}`

@@ -3129,27 +3129,6 @@ textarea:disabled {
   margin: 0;
 }
 
-.my-agent-nav {
-  display: none;
-  font-weight: 600;
-  font-size: var(--hb-text-small);
-}
-
-.my-agent-nav ol {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--hb-space-2) var(--hb-space-4);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-@container stage (min-width: 40rem) {
-  .my-agent-nav {
-    display: block;
-  }
-}
-
 .agent-connection {
   display: grid;
   gap: var(--hb-space-3);
@@ -3179,8 +3158,6 @@ textarea:disabled {
   display: grid;
   gap: var(--hb-space-4);
   max-inline-size: 48rem;
-  padding-block-start: var(--hb-space-4);
-  border-block-start: var(--hb-border);
 }
 
 .my-agent-section > h2 {

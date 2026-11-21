@@ -548,7 +548,7 @@ export const ko: Translation<typeof en> = {
       doing: '현황',
       routes: '경로 지도',
     },
-    onThisPage: '이 페이지에서',
+    tabsLabel: '내 에이전트 메뉴',
     intro:
       '이 숫자는 내가 아니라 에이전트 초안에 관한 거예요. 초안이 어디서 이미 내 뜻대로 나가고, 어디서 아직 내 손이 필요한지 보여 줘요.',
     verdict: {

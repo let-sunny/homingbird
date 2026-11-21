@@ -755,8 +755,8 @@ Every draft you decide shows how close your agent came to what you would have se
 those decisions into numbers you can read at a glance, so you can tell "my agent is doing fine" from
 "not there yet", channel by channel. The numbers are about your agent's drafts, not about you.
 
-**My agent**, in the header, is one page in four sections, each with its own address:
-**Connection** (`#/agent/connection`), **Teaching**, **How it is doing** and **Route map**.
+**My agent**, in the header, has four tabs, each with its own address: **Connection**
+(`#/agent/connection`), **Teaching**, **How it is doing** (`#/agent/doing`) and **Route map**.
 
 **How it is doing** starts with **Your week**: the notes you sent in the last 7 days, whoever drafted
 them, the replies colleagues sent to your notes, and your typical time to reply, from a colleague's new
@@ -797,7 +797,7 @@ receive.
 
 ## My agent
 
-**My agent** (in the header) is one page in four sections:
+**My agent** (in the header) shows one tab at a time, Connection first:
 
 - **Connection**: your connected agents and devices, whether your desk is awake, renaming and revoking
   them, the channels where your agent answers, and a place to enter a connection code. When your desk's

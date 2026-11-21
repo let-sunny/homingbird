@@ -1,30 +1,54 @@
 import { describe, expect, it } from 'vitest'
 import { myAgentModel } from '../../src/models/my-agent.ts'
+import { AGENT_SECTIONS } from '../../src/routes.ts'
 import { strings } from '../../src/strings.ts'
 import { everything, serverInfo } from '../support/fixtures.ts'
 
 describe('myAgentModel', () => {
-  it('shows every section whose feature is on, marks the one asked for, and focuses it', () => {
+  it('offers a tab for every section whose feature is on and shows only the one asked for', () => {
     const model = myAgentModel(everything(), 'doing')
-    expect(model.sections.map((section) => section.section)).toEqual([
-      'connection',
-      'teaching',
-      'doing',
-      'routes',
+    expect(model.tabs.map((tab) => tab.href)).toEqual([
+      '#/agent/connection',
+      '#/agent/teaching',
+      '#/agent/doing',
+      '#/agent/routes',
     ])
-    expect(model.navigation.find((link) => link.current)?.href).toBe('#/agent/doing')
-    expect(model.loadsFigures).toBe(true)
-    expect(model.focus).toBe('doing')
+    expect(model.tabs.filter((tab) => tab.current).map((tab) => tab.section)).toEqual(['doing'])
+    expect(model.shown).toEqual({ section: 'doing', title: strings.trust.sections.doing })
+    expect(model.loadsReport).toBe(true)
+    expect(model.focusesHeading).toBe(true)
     expect(model.title).toBe(strings.trust.pageTitle)
   })
 
+  it('shows the first tab without moving focus when no section was asked for', () => {
+    const model = myAgentModel(everything(), null)
+    expect(model.shown.section).toBe('connection')
+    expect(model.tabs.find((tab) => tab.current)?.section).toBe('connection')
+    expect(model.focusesHeading).toBe(false)
+  })
+
+  it('loads the report only on How it is doing and Connection, and only with figures on', () => {
+    for (const section of AGENT_SECTIONS)
+      expect(myAgentModel(everything(), section).loadsReport).toBe(
+        section === 'doing' || section === 'connection',
+      )
+    expect(myAgentModel(serverInfo({ teaching: true }), 'connection').loadsReport).toBe(false)
+  })
+
   it('keeps Connection when everything else is off, and the route map only with teaching', () => {
-    expect(myAgentModel(serverInfo(), null).sections.map((section) => section.section)).toEqual([
+    expect(myAgentModel(serverInfo(), null).tabs.map((tab) => tab.section)).toEqual(['connection'])
+    expect(myAgentModel(serverInfo({ routeMap: true }), null).tabs.map((tab) => tab.section)).toEqual([
       'connection',
     ])
     expect(
-      myAgentModel(serverInfo({ routeMap: true }), null).sections.map((section) => section.section),
-    ).toEqual(['connection'])
-    expect(myAgentModel(serverInfo({ routeMap: true }), null).loadsFigures).toBe(false)
+      myAgentModel(serverInfo({ teaching: true, routeMap: true }), null).tabs.map((tab) => tab.section),
+    ).toEqual(['connection', 'teaching', 'routes'])
+  })
+
+  it('falls back to Connection when the section asked for is switched off', () => {
+    const model = myAgentModel(serverInfo({ teaching: true }), 'doing')
+    expect(model.shown.section).toBe('connection')
+    expect(model.loadsReport).toBe(false)
+    expect(model.tabs.find((tab) => tab.current)?.section).toBe('connection')
   })
 })
