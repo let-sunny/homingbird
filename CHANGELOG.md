@@ -5,6 +5,53 @@ Every release of Homingbird, newest first. The format follows
 [Semantic Versioning](https://semver.org/); before 1.0, a minor version may break interfaces and the
 database schema.
 
+## [0.3.4] - 2026-11-21
+
+### Added
+
+- **demo:** let a visiting agent look around the demo through WebMCP
+
+  An agent in a browser with WebMCP can now explore the live demo as June: list her conversations, read a conversation's sent notes, see the drafts waiting for her approval, read her My agent figures and list channels with the answers waiting for review. Every tool only reads, every note comes quoted through wrapNote, and approving stays a person's click in the page.
+- **pwa:** show my agent one tab at a time
+
+  My agent now shows Connection, Teaching, How it is doing and Route map as tabs instead of one long page, so each part is found without scrolling. Each tab keeps its own address, so back, forward and shared links work, and only the open tab loads its data.
+- **pwa:** review a channel agent's answer in its channel's room
+
+  "Review in #billing" now opens the #billing room at the question whose answer waits for you, and the answer sits right under that question with Send and Discard, instead of sending you to the agent's page, which read as settings. Only the channel's managers who did not ask see the card; nobody else in the room sees anything new.
+
+### Fixed
+
+- **pwa:** mute with a bell icon in the thread header, not on every row
+
+  Every conversation in the sidebar carried its own "Mute" button: invisible until hovered on a desktop but still taking room from the name and preview, and shown on every row on a phone. Muting now lives in the conversation's header as a bell, struck through while muted, named for the action it takes; a muted conversation shows the struck bell beside its name in the list.
+- **pwa:** give every dialog room to breathe and keep its title in view
+
+  Some dialogs, such as Teach your agent a principle, put their form straight against the dialog's edges, because only the ones that wrapped themselves in a padded body got space. Every dialog's content now gets the same padding, its title bar stays at the top while a long dialog scrolls, and a channel member's Remove as manager button no longer stretches to the height of the note beside it.
+- **demo:** keep the demo's agent tools to member routes
+
+  The demo should show exactly what an agent could do on a real Dovecote, so its tools follow the same rule as every model-facing tool: member routes only. My agent figures and the count of a channel agent's waiting answers come from human routes, so the tools no longer read them.
+- **pwa:** open a debate room from anywhere on its card
+
+  Only the room's title was a link, so clicking the stage, the counts or the blank space beside them did nothing. The title stays the card's one link for screen readers, and its hit area now covers the whole card, which rises on hover and shows the focus ring around itself.
+- **demo:** show insights with the default minimum group of one
+
+  The demo set the insights minimum group to 3, so administrators saw "groups under 3 are left out" and empty team and per-manager figures, although a server hides nothing by default. The demo now uses the default of 1 and fills in the team totals, each manager's channel-agent answers, every channel's totals and debate results sent.
+- **pwa:** drop the small-group notices when insights show every group
+
+  With the default minimum group of one, Insights still showed a highlighted box telling administrators how to hide small groups, and empty sections said they were hidden "while fewer than 1 people" took part. Neither says anything useful at one: the box is gone and an empty section now reads "None yet". The demo also gets delivery figures, so that section is no longer empty.
+- **pwa:** keep the conversation in place when a note is sent
+
+  Sending a note no longer makes the conversation and the sidebar flash. The composer keeps what you are typing, its focus and an IME composition when a note is sent or a colleague's note arrives, and only the parts that changed are drawn again.
+- **pwa:** keep a Korean insights footnote from breaking mid-word
+
+  On a narrow phone the team footnote broke "잠깐이라도)마다" in the middle, because a particle followed a closing parenthesis. The sentence now puts the parenthesis where a line can break.
+- **pwa:** shorten the channel agent dialog and split a closed debate's actions
+
+  The channel agent dialog now holds only the agent's setup: its name, its desks and retiring it, with a link to the agent's page, where its waiting answers and its 30-day figures are. Rename is a secondary button, and the retire step is headed "Retire the agent".
+- **pwa:** make groups, people and channel cards do what they look like
+
+  Administrators now edit a group from Administration › Groups: its name opens an editor with Rename, its members, Import from CSV and Delete, instead of jumping to the public group page. On a group's page each member's tile opens a direct message, and a group of three or more offers one group message with everyone in it. A whole channel card opens the channel, with a single Join button and Join and answer in its ⋯ menu. On People, a colleague's card says "About" rather than "About me and my agent", Block moves into the card's ⋯ menu, and the group-message box stays one line until someone is added. Administration › Settings shows a save bar at the bottom of the page as soon as something differs from what was saved.
+
 ## [0.3.3] - 2026-11-21
 
 ### Added
@@ -452,6 +499,7 @@ Since 0.1.0-rc.2:
 - The web client has a guided tour and clearer topics, refusals and dark mode.
 - The Claude Code mod asks for the server address at install, finds Node 22 where version managers put it, and signs in from its pane.
 
+[0.3.4]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.4
 [0.3.3]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.3
 [0.3.2]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.2
 [0.3.1]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.1
