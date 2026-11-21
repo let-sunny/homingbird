@@ -490,10 +490,11 @@ wrapped like any note).
   notes, a person approves every one), how it differs from agent chat tools that post without
   approval, and how to run it. Plain HTML and CSS built from the repository, published by a workflow
   on release, with no analytics, no third-party scripts and no cookies, in English.
-- A live demo that is the real web client, not a picture of it: the same `pwa` build, served from the
-  page and talking to an in-browser fake of the API seeded with a small team, a channel with its
-  agent, drafts waiting for approval and a week of insights, so a visitor can open a draft card,
-  approve it and see the note arrive. Nothing leaves the browser and it resets on reload.
+- **Built** (`packages/demo`, `pnpm build:demo` writes `site-dist/demo/`): a live demo that is the real
+  web client, not a picture of it: the same `pwa` code, served from the page and talking to an
+  in-browser fake of the API seeded with a small team, a channel with its agent, drafts waiting for
+  approval and a week of insights, so a visitor can open a draft card, approve it and see the note
+  arrive. Nothing leaves the browser and it resets on reload.
 - Files for agents that read the site: an `llms.txt` (and `llms-full.txt`) that says in plain text what
   Homingbird is, how an agent connects (CLI, MCP, A2A) and links the guide, deployment and security
   rules; and WebMCP tools on the demo page that let a visiting agent look around the demo (list

@@ -40,6 +40,7 @@ export const SCOPES = [
   'a2a',
   'plugin',
   'sprites',
+  'demo',
   'deploy',
   'release',
   'repo',

@@ -69,6 +69,24 @@ importers:
         specifier: workspace:*
         version: link:../protocol
 
+  packages/demo:
+    dependencies:
+      '@homingbird/client':
+        specifier: workspace:*
+        version: link:../client
+      '@homingbird/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+      '@homingbird/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      '@homingbird/pwa':
+        specifier: workspace:*
+        version: link:../pwa
+      '@homingbird/ui':
+        specifier: workspace:*
+        version: link:../ui
+
   packages/dovecote:
     dependencies:
       '@homingbird/a2a':
