@@ -51,7 +51,7 @@ describe('insightsModel', () => {
     if (model.kind !== 'insights') throw new Error('expected insights')
     expect(model.warnings).toEqual([strings.insights.noTeams, strings.insights.privacy({ minimum: 5 })])
     const everyone = insightsModel(insights({ minimumGroupSize: 1 }), 30)
-    expect(everyone.kind === 'insights' && everyone.warnings[1]).toBe(strings.insights.privacyAll)
+    expect(everyone.kind === 'insights' && everyone.warnings).toEqual([strings.insights.noTeams])
     expect(model.tooFew).toBeNull()
     expect(model.blocks).toBe(strings.insights.blocks({ count: 2 }))
     const table = figuresOf(model).table

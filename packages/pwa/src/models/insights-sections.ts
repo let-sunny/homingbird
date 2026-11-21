@@ -15,7 +15,7 @@ export const authorshipModel = (figures: OrganizationFigures, minimum: number): 
     return {
       title: strings.measures.authorshipTitle,
       rows: [],
-      hidden: strings.measures.authorshipHidden({ minimum }),
+      hidden: minimum <= 1 ? strings.trust.noneYet : strings.measures.authorshipHidden({ minimum }),
     }
   const total = authorship.agent + authorship.humanEdited + authorship.human
   const row = (key: string, count: number, line: (values: { share: string; count: number }) => string) => {
@@ -37,7 +37,12 @@ export const authorshipModel = (figures: OrganizationFigures, minimum: number): 
 export const deliveryModel = (figures: OrganizationFigures, minimum: number): DeliveryModel => {
   const delivery = figures.delivery ?? null
   const base = { title: strings.measures.deliveryTitle, intro: strings.measures.deliveryIntro }
-  if (delivery === null) return { ...base, rows: [], hidden: strings.measures.deliveryHidden({ minimum }) }
+  if (delivery === null)
+    return {
+      ...base,
+      rows: [],
+      hidden: minimum <= 1 ? strings.trust.noneYet : strings.measures.deliveryHidden({ minimum }),
+    }
   const part = (count: number, total: number): string => {
     const share = shareOf(count, total)
     return share === null
