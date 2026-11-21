@@ -155,6 +155,15 @@ describe('liveEvents', () => {
     expect([...page.notifications.keys()]).toEqual(['draft:n1', 'review:d1'])
   })
 
+  it('takes a recalled note out of the thread and reads the thread again, so its author sees it recalled', async () => {
+    const { apply, state, routes } = live()
+    state.threads.set(new Map([[ROOM, { notes: [note('n1')], hasMore: false }]]))
+    apply(event({ type: 'note.withdrawn', noteId: 'n1', conversationId: ROOM }))
+    expect(state.threads.get().get(ROOM)!.notes).toEqual([])
+    await settle()
+    expect(routes()).toEqual(expect.arrayContaining(['conversations.notes', 'conversations.list']))
+  })
+
   it('remembers a release and its reason, and keeps draft requests up to date', async () => {
     const { apply, state, routes } = live()
     apply(

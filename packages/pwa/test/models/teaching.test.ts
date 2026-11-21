@@ -47,6 +47,22 @@ describe('taughtModel', () => {
     })
   })
 
+  it('offers a saved answer with its own text a way to send itself, says where it does, and offers a rule none', () => {
+    const answer = principle('Office hours', {
+      kind: 'answer',
+      rule: 'Nine to five.',
+      autoSend: { enabled: true, places: ['conv_room00000000' as never] },
+    })
+    const model = taughtModel(taught({ principles: [answer, principle('Tone')] }))
+    if (model.kind !== 'taught') throw new Error('expected the principles')
+    expect(model.principles[0]!.autoSend).toEqual({
+      menu: strings.autoSend.menu,
+      title: strings.autoSend.dialogTitle({ name: 'Office hours' }),
+    })
+    expect(model.principles[0]!.details).toContain(strings.autoSend.sendsIn({ count: 1 }))
+    expect(model.principles[1]!.autoSend).toBeNull()
+  })
+
   it('lists principles in the person’s order with where they apply and how they held up', () => {
     const model = taughtModel(
       taught({

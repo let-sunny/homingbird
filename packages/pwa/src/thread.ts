@@ -28,7 +28,7 @@ export const threadItems = (
   notes: ReadonlyArray<AsRead.Note>,
   requests: ReadonlyArray<DraftRequest> = [],
 ): ThreadItem[] => {
-  const sent = notes.filter((note) => note.status === 'sent').sort(bySentTime)
+  const sent = notes.filter(isShownAsSent).sort(bySentTime)
   const drafts = notes.filter((note) => note.status === 'draft').sort(byCreatedTime)
   const groups = Map.groupBy(
     drafts,
@@ -262,3 +262,6 @@ const byCreatedTime = (a: AsRead.Note, b: AsRead.Note): number =>
  */
 const isSameRun = (a: AsRead.Note, b: AsRead.Note): boolean =>
   a.authorId === b.authorId && a.origin === b.origin
+
+/** A sent note, or one its author recalled, which only its author still reads. */
+const isShownAsSent = (note: AsRead.Note): boolean => note.status === 'sent' || note.status === 'withdrawn'

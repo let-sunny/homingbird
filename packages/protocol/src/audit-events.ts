@@ -1,4 +1,5 @@
 import { Schema as S } from '@homingbird/kernel'
+import { AUTO_SEND_PLACES_MAX } from './auto-send.ts'
 import { CLIENT_KIND } from './client-kinds.ts'
 import { DebateExportFormat, DebateLimits, DebateVisibility } from './debates.ts'
 import { GROUP_MEMBERS_MAX } from './groups.ts'
@@ -13,7 +14,7 @@ import {
   Role,
   WhoCanInvite,
 } from './model.ts'
-import { PrincipleKind } from './principles.ts'
+import { PrincipleId, PrincipleKind } from './principles.ts'
 
 /**
  * Every event the audit trail can hold, its tier and what its detail may contain. The detail schema is
@@ -96,6 +97,8 @@ export const AUDIT_EVENTS = {
     agentId: S.optional(MemberId),
   }),
   'note.discarded': event('full', 'note', { conversationId: ConversationId }),
+  'note.auto_sent': event('full', 'note', { conversationId: ConversationId, principleId: PrincipleId }),
+  'note.recalled': event('full', 'note', { conversationId: ConversationId }),
   'member.profile_changed': event('full', 'member', {
     fields: S.array(S.literal('name', 'profile', 'locale'), { maxItems: 3 }),
   }),
@@ -140,6 +143,10 @@ export const AUDIT_EVENTS = {
   'principle.changed': event('full', 'principle', {
     fields: S.array(S.literal('kind', 'topic', 'rule', 'source', 'enabled', 'publicText'), { maxItems: 6 }),
     enabled: S.optional(S.boolean),
+  }),
+  'principle.auto_send_changed': event('full', 'principle', {
+    enabled: S.boolean,
+    places: S.int({ min: 0, max: AUTO_SEND_PLACES_MAX }),
   }),
   'principle.deleted': event('full', 'principle', {}),
   'principle.reordered': event('full', 'none', { count: S.int({ min: 0 }) }),

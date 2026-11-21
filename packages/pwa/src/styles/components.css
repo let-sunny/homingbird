@@ -5070,6 +5070,28 @@ textarea:disabled {
   font: var(--hb-text-small) / 1.6 var(--hb-font-mono);
 }
 
+.note-auto-sent {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--hb-space-2);
+  margin: var(--hb-space-1) 0 0;
+  font: var(--hb-text-small) / 1.6 var(--hb-font-mono);
+}
+
+.note.is-withdrawn .bubble {
+  opacity: 0.6;
+}
+
+.note.is-withdrawn .note-body {
+  text-decoration: line-through;
+}
+
+.auto-send-places {
+  display: grid;
+  gap: var(--hb-space-2);
+}
+
 .cloud-desk {
   display: grid;
   gap: var(--hb-space-3);

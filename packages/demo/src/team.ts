@@ -232,6 +232,27 @@ export const demoTeam = (now: number): Records => {
         readBy: [VISITOR_ID, ANA],
       }),
       note({
+        id: 'demobil00005',
+        in: BILLING_ROOM,
+        by: KAI,
+        at: 4,
+        body: 'Quick one: how are annual plans refunded if a customer cancels early?',
+        readBy: [VISITOR_ID],
+        repliedBy: [VISITOR_ID],
+      }),
+      note({
+        id: 'demobil00006',
+        in: BILLING_ROOM,
+        by: VISITOR_ID,
+        at: 2,
+        body: 'Annual plans are refunded pro rata for the unused full months.',
+        inReplyTo: 'demobil00005',
+        agentName: "June's desk",
+        basis: 'Principles applied: Annual refunds',
+        autoSent: true,
+        readBy: [KAI],
+      }),
+      note({
         id: 'demodep00001',
         in: DEPLOYS_ROOM,
         by: KAI,
@@ -433,7 +454,8 @@ export const demoTeam = (now: number): Records => {
         rule: 'Annual plans are refunded pro rata for the unused full months.',
         place: 'billing',
         publicText: null,
-        applied: 4,
+        applied: 5,
+        autoSentIn: [BILLING_ROOM],
         at: ago(60 * 24 * 9),
       }),
     ],
@@ -548,6 +570,8 @@ interface NoteFields {
   readonly agentName?: string
   readonly basis?: string
   readonly approvedBy?: MemberId
+  /** Sent by the visitor's saved answer without a click. */
+  readonly autoSent?: boolean
   readonly readBy?: ReadonlyArray<MemberId>
   readonly repliedBy?: ReadonlyArray<MemberId>
 }
@@ -584,6 +608,7 @@ const noteOf = (
       : [],
     basis: fields.basis ?? null,
     approvedBy: fields.approvedBy ?? null,
+    ...(fields.autoSent === true && { autoSent: true }),
   }
 }
 
@@ -611,6 +636,8 @@ interface PrincipleFields {
   readonly place: string | null
   readonly publicText: string | null
   readonly applied: number
+  /** The rooms where this saved answer sends itself; it sent one note there. */
+  readonly autoSentIn?: ReadonlyArray<ConversationId>
   readonly at: number
 }
 
@@ -628,5 +655,13 @@ const principle = (position: number, fields: PrincipleFields): Principle => ({
   updatedAt: fields.at,
   lastAppliedAt: fields.at,
   publicText: fields.publicText,
-  counts: { applied: fields.applied, sentAsWritten: fields.applied - 1, edited: 1, discarded: 0, missed: 0 },
+  counts: {
+    applied: fields.applied,
+    sentAsWritten: fields.applied - 1 - (fields.autoSentIn === undefined ? 0 : 1),
+    edited: 1,
+    discarded: 0,
+    missed: 0,
+    ...(fields.autoSentIn !== undefined && { autoSent: 1 }),
+  },
+  autoSend: { enabled: fields.autoSentIn !== undefined, places: [...(fields.autoSentIn ?? [])] },
 })

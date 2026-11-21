@@ -169,7 +169,13 @@ celebration is for a principle being saved, never for sending.
   human-only route, and private channels have no door at all.
 - **The first automatic step re-sends only an answer the person already approved, to a question in the
   same channel room, so the audience is the same.** It never sends newly composed content and never to a
-  different audience.
+  different audience. **Built** in its narrowest form: a saved answer its person switched on sends itself
+  only when the draft is exactly its text and goes to a direct message or open channel the person
+  ticked, recallable for five minutes, behind `autoSend`, off by default
+  ([decisions](decisions.md#a-saved-answer-may-send-itself-word-for-word-where-its-person-allowed),
+  [guide](guide.md#let-a-saved-answer-send-itself)). Still to come for it: per-recipient rate limits,
+  the deterministic boundaries below (sender, hours, links), a list of what was just sent alone with a
+  daily digest, and closing the answer's switch in one action from a recall.
 - **A controlled runner before anything newly composed goes out unapproved.** It works only in a runner
   where Homingbird controls the tools, never an interactive session whose agent has other tools,
   because the server cannot verify what a free agent read. The model that reads an incoming note has

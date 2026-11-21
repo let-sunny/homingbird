@@ -273,7 +273,9 @@ states the decision first, then the reason. Add new entries at the top of their 
   characters, or the text left empty and a source to take it from). Answers share the list, its order,
   the 50-item and 1,500-character caps, rule 8 and every guard; a source is linked material read as
   data. The save dialog's "looks like a stored answer" warning offers to switch a rule to an answer. The
-  basis names an applied answer by its title, as for a rule. A person still approves every draft.
+  basis names an applied answer by its title, as for a rule. A person still approves every draft,
+  unless they switch the answer to send itself word for word
+  ([below](#a-saved-answer-may-send-itself-word-for-word-where-its-person-allowed)).
 - **Principles are a person's rules for their own agent, saved only by that person in the web client
   (security rule 8).** Saving, changing, turning off, deleting and "wrong here" are `human` routes;
   the only route an agent reaches is `principles.drafting` (`member`, read-only, own principles only),
@@ -1478,3 +1480,65 @@ already answer it.
   place and in total, under the same minimum group size as every other place figure; nobody is listed.
   An agent that answers its person from history is not counted.
 - **Behind a switch.** The routes are the `earlierAnswers` feature, on by default.
+
+## A saved answer may send itself, word for word, where its person allowed
+
+Approval is the product's bottleneck: a person who saved "Annual plans are refunded pro rata for the
+unused full months" still had to click Send each time their agent drafted exactly that. The narrowest
+automatic path is the one where nothing new is said: the text is the person's own, written and saved by
+them in the web client, and it goes only where they said it may. So security rule 1 gains one sentence:
+a saved answer its person switched to send automatically, in the web client, counts as that person's
+approval for a draft whose text is exactly that answer, sent where they allowed.
+
+- **The switch belongs to the person, per saved answer.** "Send automatically when it fits" and the
+  places it may send itself are set by `principles.autoSend.set`, a `human` route; no model-facing tool,
+  MCP, A2A, the command line or the plugin can call it (rules 3 and 8), and `principles.update` cannot
+  carry it. A new item starts switched off. Only an answer with its own text can be switched on; a rule,
+  or an answer taken only from a source, cannot. Turning an answer into a rule, or deleting it, takes the
+  switch and its places away.
+- **The places are chosen one by one, at most 20:** direct messages and the rooms of open channels the
+  person is in. A private channel, a group message, a private question and an archived room have no
+  door, both when the switch is saved and again when a draft would be sent.
+- **The server sends a draft without a click only when all of these hold**, checked on `drafts.create`
+  and on `drafts.update`, in the same transaction as the send: the organization has `autoSend` on (off
+  by default; administrators switch it in Settings) and `teaching` on; the draft comes from the person's
+  own agent credential, not from the person, a channel's agent or a debate room; its basis says it
+  applied that saved answer by title, the same "Principles applied:" match every draft gets; the answer
+  is enabled and switched on; the draft's text equals the answer's text exactly, ignoring only the
+  whitespace around either (`isSavedAnswerText` in `protocol`), so one character more, less or changed,
+  case included, keeps it on the card; the draft's conversation is one of the answer's places and still
+  allowed; and the person may still message there. The send goes through the same `deliverDraft` as a
+  click, so the `UPDATE` matches the text and room just checked. Anything else is an ordinary draft on
+  the approval card, as before.
+- **What is never sent automatically:** a draft that adds, removes or changes anything; one that did not
+  say it applied the answer; one going anywhere the person did not tick; a channel agent's answer; a
+  debate room's result; a note the person writes themself; anything while the feature is off. Matching by
+  meaning, by model or by similarity was left out on purpose: the roadmap's route-based automatic
+  sending, which composes, still waits for the pilot.
+- **The note says how it was sent.** It records the person as `approved_by` and the answer that sent it
+  as `auto_principle_id`; on the wire it carries `autoSent: true` and no `approvedBy`, which keeps
+  meaning "the person who approved a channel's agent's note". Recipients read "Sent automatically from
+  June's saved answer"; the author reads "from your saved answer". The answer's title and text stay
+  private, as every principle does. Agent integrations say the note was sent and that only the person
+  can recall it.
+- **Recall: five minutes, the author only, a `human` route (`notes.recall`).** Recalling moves the note
+  from `sent` to a new status, `withdrawn`; its receipts go, so recipients stop seeing it on every
+  surface (lookup, thread, inbox, search, stream), because every note query already shows a recipient
+  only `status = 'sent'`. Each participant's stream gets `note.withdrawn` with the ids only; the author
+  keeps the note, marked as recalled. A reply it was settles back to waiting unless another reply was
+  sent. The window runs from `sentAt`. A note the person sent with a click cannot be recalled: it was
+  read before it went. A push notification that already reached a phone cannot be taken back, and a
+  recipient may have read the note in the meantime; recall hides, it does not unsay.
+- **Audited, never with text:** `principle.auto_send_changed` (on or off, and how many places) and
+  `note.auto_sent` (the conversation and the answer's id, with the agent credential that drafted it),
+  and `note.recalled`.
+- **Counted apart.** An automatically sent note is not a decided draft: it is left out of drafts
+  written, sent as written, quick approvals and the typical decision time, for the person, for teams
+  and for the organization, and counted on its own line ("Sent by your saved answers", and for
+  administrators "Sent by saved answers", hidden below the minimum group like debate results). A saved
+  answer's own counts show how often it sent itself. The lines appear only while the feature is on.
+- **Compatibility.** `withdrawn` is a new note status: an older client reads it as unknown, which
+  means not sent. `note.withdrawn` is a new event, which an older client skips. `autoSend` on a
+  principle, `autoSent` on a note and the new figures are optional on the wire. The schema step adds
+  `principles.auto_send`, `principle_auto_send_places`, `notes.auto_principle_id` and
+  `notes.withdrawn_at`.

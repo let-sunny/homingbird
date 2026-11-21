@@ -13,6 +13,7 @@ import { earlierAnswers, recordAnsweredFromHistory } from '../domain/earlier-ans
 import { notesAwaitingReply } from '../domain/inbox.ts'
 import { setMuted } from '../domain/mutes.ts'
 import { draftsOf, notesInConversation, searchNotes, visibleNote } from '../domain/notes.ts'
+import { recallNote } from '../domain/recalls.ts'
 import { markRead, pickUp, release } from '../domain/receipts.ts'
 import { isHuman } from '../environment.ts'
 import type { Handlers } from './handlers.ts'
@@ -53,6 +54,8 @@ export const noteHandlers = {
     T.flatMap((id: NoteId) => pickUp(caller, id))(identifier(NoteId, params.id)),
   'notes.release': ({ params, body }, caller) =>
     T.flatMap((id: NoteId) => release(caller, id, body.reason))(identifier(NoteId, params.id)),
+  'notes.recall': ({ params }, caller) =>
+    T.flatMap((id: NoteId) => recallNote(caller, id))(identifier(NoteId, params.id)),
   'inbox.list': ({ query }, caller) =>
     T.map((items: Awaited<ResponseOf<Contract['inbox.list']>>['items']) => ({ items }))(
       notesAwaitingReply(caller, query.fresh === '1'),

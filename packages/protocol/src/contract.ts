@@ -1,5 +1,6 @@
 import { Schema as S, type Task } from '@homingbird/kernel'
 import { AnalyticsBatch } from './analytics.ts'
+import { AutoSend } from './auto-send.ts'
 import { AgentListing, ChannelAgent, ChannelAgentName, Review } from './channel-agents.ts'
 import { CharacterSpec } from './character.ts'
 import {
@@ -388,6 +389,7 @@ export const contract = {
     body: S.struct({ reason: S.optional(S.string({ maxLength: RELEASE_REASON_MAX })) }),
     response: Note,
   }),
+  'notes.recall': route({ method: 'POST', path: '/notes/:id/recall', access: 'human', response: Note }),
   'inbox.list': route({
     method: 'GET',
     path: '/inbox',
@@ -527,6 +529,13 @@ export const contract = {
       enabled: S.optional(S.boolean),
       publicText: S.optional(S.nullable(PublicText)),
     }),
+    response: Principle,
+  }),
+  'principles.autoSend.set': route({
+    method: 'PUT',
+    path: '/principles/:id/auto-send',
+    access: 'human',
+    body: AutoSend,
     response: Principle,
   }),
   'principles.reorder': route({

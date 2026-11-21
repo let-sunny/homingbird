@@ -413,7 +413,8 @@ those people, the button opens it instead of starting another.
 ## Ask a channel
 
 When you do not know who can answer, ask a channel. Ask in a channel and the people who answer in it
-reply; every note is approved by a person first. A channel is a room; the question reaches the people
+reply; every note is approved by a person first, unless they let a
+[saved answer send itself](#let-a-saved-answer-send-itself). A channel is a room; the question reaches the people
 who answer questions there, and their agents draft the replies.
 
 ```
@@ -899,7 +900,7 @@ An item in the same list can instead be an **answer**: **When asked about** "Off
 with** "We are open 9 to 5, Monday to Friday", up to 300 characters with its title, the same as a rule,
 or with the text left empty and a source to take the answer from; anything longer belongs in a source.
 An answer saved longer before this limit keeps working, and must be shortened to 300 when you edit it. Your agent uses it when it fits the question and says so in the basis.
-You still approve every draft: an answer is never sent on its own.
+You still approve every draft, unless you let the answer send itself, below.
 
 - Your principles are a list you keep like a to-do list: a switch on each row turns a principle on or
   off, the title and the rule are edited in place, the up and down buttons set the order, and the order
@@ -941,6 +942,30 @@ Your principles are private: colleagues see only the public sentences you wrote,
 their sources, and administrators' Insights do not include them. Your organization's audit trail
 records that you saved, changed or deleted a principle, never its text.
 
+### Let a saved answer send itself
+
+When your organization allows it (an administrator turns on **Saved answers that send themselves** in
+**Administration**, **Settings**, or starts the server with `HB_FEATURES=autoSend=on`; it is off by
+default), a saved answer with its own text has **Send automatically…** in its
+row's **⋯** menu. Turn on **Send automatically when it fits** and tick where it may: your direct
+messages and the open channels you are in, up to 20. From then on, when your agent drafts a reply that
+is exactly that answer, word for word, says in its basis that it applied it, and goes to a place you
+ticked, Homingbird sends it without waiting for you. Everything else still waits on the approval card:
+a draft with one character more, less or changed, a draft somewhere you did not tick, a private
+channel, a group message and anything your agent composed itself.
+
+- The recipient sees **Sent automatically from June's saved answer**, never the answer's title. You see
+  **Sent automatically from your saved answer** and, for five minutes, **Recall**. Recalling takes the
+  note away from everyone else on every surface; you still see it, marked as recalled. A phone
+  notification that already arrived cannot be taken back, and a colleague may have read it already.
+- How it is doing counts these notes on their own line, **Sent by your saved answers**, and the answer's
+  row says how often it sent itself. They are not decisions, so they never count as quick approvals or
+  in your decision time.
+- Only you can turn it on or off, in the web client. No agent, tool or command can, and your
+  organization's audit trail records that you did and in how many places, never the answer.
+- Turning the answer into a rule, or deleting it, turns sending automatically off. Editing its text
+  keeps the switch: the new text is what it sends.
+
 ## What is recorded about you
 
 Homingbird keeps what you and your agent do in the product itself: your notes, drafts and principles,
@@ -949,7 +974,8 @@ shown to the people concerned and nobody else. Apart from that, whoever runs you
 - **An audit trail** of who changed what: that you signed in or out (with the address and browser you
   used), approved or discarded a draft, connected or removed an agent, changed which parts of your
   profile, joined or left a channel, added a contact or blocked someone, and saved, changed or deleted
-  a principle. It holds ids and outcomes, never the text of a note, a draft, what a draft was based on,
+  a principle, switched a saved answer to send itself, or recalled a note it sent. It holds ids and
+  outcomes, never the text of a note, a draft, what a draft was based on,
   a principle or a debate turn. It does not record when you read a note or first saw a draft. It is kept
   400 days unless your organization chose otherwise, and read on the server, not in the web client.
 - **An operational log** of the server's health: which kind of request was answered and how fast,

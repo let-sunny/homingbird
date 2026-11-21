@@ -108,6 +108,20 @@ describe('renderNoteItem', () => {
     expect(render(context, mine).classList.contains('is-active')).toBe(true)
   })
 
+  it('says a saved answer sent the note, and recalls it on its author’s click', () => {
+    const { context, called } = testContext()
+    const mine = note('n1', { authorId: ANA, autoSent: true, origin: 'agent', agentName: 'Desk', sentAt: 10 })
+    const shown = render(context, mine)
+    expect(shown.querySelector('.note-auto-sent')!.textContent).toContain(strings.autoSend.sentByYours)
+    getByRole(shown, 'button', { name: strings.autoSend.recall }).click()
+    const [recall] = called('recallNote')
+    expect(recall!.args).toEqual([mine])
+    recall!.then!.done!(undefined)
+    expect(context.state.notice.get()).toEqual({ kind: 'info', text: strings.autoSend.recalled })
+    const theirs = render(context, note('n2', { autoSent: true }))
+    expect(theirs.querySelector('.recall-note')).toBeNull()
+  })
+
   it('asks the agent anyway after it let a note go', () => {
     const { context, called } = testContext()
     mount(dialogHost())

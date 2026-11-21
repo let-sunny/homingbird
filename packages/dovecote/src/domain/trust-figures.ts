@@ -47,6 +47,8 @@ export interface AgentActivity {
   readonly handWritten: ReadonlyArray<Dated>
   /** Debate results the person sent, counted apart from their agent's drafts and their own notes. */
   readonly debateResults?: ReadonlyArray<Dated>
+  /** Notes the person's saved answers sent without a click: never decisions, so counted on their own. */
+  readonly autoSent?: ReadonlyArray<Dated>
 }
 
 export interface Window {
@@ -97,6 +99,9 @@ export const agentFiguresIn = (
     quickApprovalsFrequent: isQuickApprovalFrequent(quickApprovals, decisions.sentAsWritten),
     wroteYourself: activity.handWritten.filter((note) => isIn(window, note.at)).length,
     debateResultsSent: (activity.debateResults ?? []).filter((note) => isIn(window, note.at)).length,
+    ...(activity.autoSent !== undefined && {
+      autoSent: activity.autoSent.filter((note) => isIn(window, note.at)).length,
+    }),
     verdict: verdictOf(decisions),
     places: placesIn(activity, window),
     byClient: clientTotals(activity.drafts, window),

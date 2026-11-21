@@ -23,6 +23,7 @@ import {
 import type { AppEnv } from '../environment.ts'
 import { first, inTransaction, run } from '../sql/database.ts'
 import { sql } from '../sql/query.ts'
+import { clearAutoSend } from './auto-send-settings.ts'
 import { participatedConversation } from './conversations.ts'
 import { myPrinciples } from './my-principles.ts'
 import { placeOfConversation } from './places.ts'
@@ -114,6 +115,7 @@ export const updatePrinciple = (
     if (isEdit(change)) yield* requireSavable({ kind, topic, rule, source, place: current.place }, publicText)
     yield* requireUniqueTitle(yield* principlesOf(memberId), topic, current.id)
     const enabled = change.enabled ?? current.enabled
+    if (kind !== 'answer') yield* clearAutoSend(current.id)
     yield* run(sql`UPDATE principles SET kind = ${kind}, topic = ${topic}, rule = ${rule}, source = ${source},
       enabled = ${enabled ? 1 : 0}, public_text = ${publicText}, updated_at = ${env.clock.now()}
       WHERE id = ${id} AND member_id = ${memberId}`)
@@ -143,6 +145,7 @@ export const deletePrinciple = (memberId: MemberId, id: string): T.Task<Principl
   T.gen(function* () {
     const principle = yield* ownPrinciple(memberId, id)
     yield* run(sql`DELETE FROM principle_applications WHERE principle_id = ${id}`)
+    yield* clearAutoSend(principle.id)
     yield* run(sql`DELETE FROM principles WHERE id = ${id} AND member_id = ${memberId}`)
     return yield* withFigures(principle)
   })

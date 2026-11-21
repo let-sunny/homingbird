@@ -1,6 +1,7 @@
 import { eventStream } from '@homingbird/client'
 import { Result, Stream, Task as T } from '@homingbird/kernel'
 import {
+  AUTO_SENT_NOTICE,
   type AgentReply,
   type AsRead,
   type Authors,
@@ -807,5 +808,7 @@ const warn = (message: string): T.Task<void, never, DeskEnv> =>
 const drafted = (draft: AsRead.Note, answering: Readonly<Record<string, string>>, what: string): Outcome =>
   outcome(
     { step: 'drafted', draftId: draft.id, conversationId: draft.conversationId, ...answering },
-    `Drafted ${draft.id} ${what}. It has not been sent: it waits for approval.`,
+    draft.status === 'sent'
+      ? `Drafted ${draft.id} ${what}. ${AUTO_SENT_NOTICE}`
+      : `Drafted ${draft.id} ${what}. It has not been sent: it waits for approval.`,
   )

@@ -1,4 +1,4 @@
-import { type AsRead, type MemberId, type NoteId, summarize } from '@homingbird/protocol'
+import { type AsRead, type MemberId, type NoteId, mayRecall, summarize } from '@homingbird/protocol'
 import { authorshipOf, showsStateMark, stateMarkOf } from '../authorship.ts'
 import { type AnswerersLine, questionWaits } from '../channel-answerers.ts'
 import { draftBasisOf } from '../draft-basis.ts'
@@ -37,12 +37,13 @@ export const noteItemModel = (
   const sentAt = note.sentAt === null ? null : formats.full.format(new Date(note.sentAt))
   const authorship = authorshipLine(input, note, mine)
   const charactersOn = isOn(input, 'characters')
-  const markShown = mine && showsStateMark(note, next)
+  const withdrawn = note.status === 'withdrawn'
+  const markShown = mine && !withdrawn && showsStateMark(note, next)
   const basis = mine ? draftBasisOf(note) : null
   const side = mine ? 'is-mine' : 'is-theirs'
   return {
     noteId: note.id,
-    className: `note ${side} ${leadsRun ? 'leads-run' : 'follows-run'} is-${authorshipOf(note)}`,
+    className: `note ${side} ${leadsRun ? 'leads-run' : 'follows-run'} is-${authorshipOf(note)}${withdrawn ? ' is-withdrawn' : ''}`,
     unread: isUnreadBy(note, input.me.member.id),
     author: leadsRun ? authorModel(input, note, authorship, sentAt, charactersOn) : null,
     spokenAuthorship: leadsRun ? null : authorship,
@@ -56,6 +57,7 @@ export const noteItemModel = (
         ? null
         : { className: `note-basis ${side}`, lines: basis.lines },
     approval: approvalLine(note, room, input.channels, input.members),
+    autoSent: autoSentModel(input, note, mine),
     answeredBy:
       answerers.length === 0
         ? null
@@ -107,6 +109,8 @@ export interface NoteItemModel {
   readonly basis: { readonly className: string; readonly lines: ReadonlyArray<string> } | null
   /** Where a channel's agent answered and who approved it, for everyone who reads the note. */
   readonly approval: string | null
+  /** That a saved answer sent the note without a click, and the author's Recall while it may still be taken back. */
+  readonly autoSent: { readonly text: string; readonly recall: string | null } | null
   readonly answeredBy: { readonly avatar: AvatarModel; readonly text: string } | null
   readonly release: { readonly text: string; readonly askAnyway: string | null } | null
   /** Under the person's latest question in a channel while no answer came: who answers, then drafting. */
@@ -119,6 +123,18 @@ export interface NoteItemModel {
     readonly id: string
     readonly label: string
     readonly items: ReadonlyArray<{ readonly kind: 'ask-agent' | 'copy'; readonly label: string }>
+  }
+}
+
+/** Whether a saved answer sent this note, said to everyone who reads it; recalled, said to its author. */
+const autoSentModel = (input: ThreadInput, note: AsRead.Note, mine: boolean): NoteItemModel['autoSent'] => {
+  if (note.autoSent !== true) return null
+  if (note.status === 'withdrawn') return { text: strings.autoSend.recalledLine, recall: null }
+  return {
+    text: mine
+      ? strings.autoSend.sentByYours
+      : strings.autoSend.sentByTheirs({ name: nameIn(input, note.authorId) }),
+    recall: mayRecall(note, input.me.member.id, input.now) ? strings.autoSend.recall : null,
   }
 }
 

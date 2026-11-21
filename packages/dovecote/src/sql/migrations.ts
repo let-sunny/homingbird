@@ -1,4 +1,5 @@
 import { AUDIT_TRAIL } from './migrations/audit-trail-step.ts'
+import { AUTO_SEND } from './migrations/auto-send-step.ts'
 import { BASELINE } from './migrations/baseline-step.ts'
 import { CHANNEL_AGENTS } from './migrations/channel-agents-step.ts'
 import { CLOUD_DESK } from './migrations/cloud-desk-step.ts'
@@ -27,6 +28,7 @@ export const MIGRATIONS: ReadonlyArray<Migration> = [
   INSIGHTS,
   SPENT_REFRESH_TOKENS,
   HISTORY_ANSWERS,
+  AUTO_SEND,
 ]
 
 /** The step that added the audit trail; when it runs, the first audit table's old rows go. */

@@ -1,5 +1,6 @@
 import { Schema as S, Task as T } from '@homingbird/kernel'
 import {
+  AUTO_SENT_NOTICE,
   AgentLabel,
   type ApiError,
   type AsRead,
@@ -617,6 +618,8 @@ const arrived = (triggers: ReadonlyArray<Trigger>): string =>
   ].join('\n\n')
 
 const awaitingApproval = (draft: AsRead.Note, context: ToolContext): string => {
+  if (draft.status === 'sent')
+    return `Note ${draft.id} was sent in conversation ${draft.conversationId}. ${AUTO_SENT_NOTICE}`
   const where = context.webClientUrl === null ? '' : ` at ${draftLink(context.webClientUrl, draft)}`
   return (
     `Draft ${draft.id} is saved in conversation ${draft.conversationId}. It has NOT been sent. ` +

@@ -89,6 +89,11 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
         }
         launch(loadConversations)
         break
+      case 'note.withdrawn':
+        forgetNote(state, body.conversationId, body.noteId)
+        if (state.threads.get().has(body.conversationId)) launch(loadThread(body.conversationId))
+        launch(loadConversations)
+        break
       case 'note.released':
         state.releases.update((all) =>
           new Map(all).set(body.noteId, { reason: body.reason, agentName: body.agentName }),

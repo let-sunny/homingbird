@@ -152,7 +152,7 @@ export type DirectoryEntry = S.Infer<typeof DirectoryEntry>
 export const ContactMode = S.tolerant(S.literal('open', 'contacts'), UNKNOWN)
 export type ContactMode = S.Infer<typeof ContactMode>
 
-export const NoteStatus = S.tolerant(S.literal('draft', 'sent', 'discarded'), UNKNOWN)
+export const NoteStatus = S.tolerant(S.literal('draft', 'sent', 'discarded', 'withdrawn'), UNKNOWN)
 export type NoteStatus = S.Infer<typeof NoteStatus>
 
 export const Origin = S.tolerant(S.literal('agent', 'human_edited', 'human'), UNKNOWN)
@@ -189,6 +189,8 @@ export const Note = S.struct({
   agentModel: S.optional(S.nullable(AgentLabel)),
   /** The person who approved a channel's agent's note; its author is the agent. */
   approvedBy: S.optional(S.nullable(MemberId)),
+  /** Sent by its person's saved answer without a click, under the switch they set for it. */
+  autoSent: S.optional(S.boolean),
   /** A debate room's approved result, posted by a person whose agent took part: which room, which agents. */
   fromDebate: S.optional(
     S.struct({

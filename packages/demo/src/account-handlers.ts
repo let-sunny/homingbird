@@ -35,6 +35,7 @@ export const DEMO_FEATURES: ReadonlyArray<FeatureName> = [
   'invites',
   'joinCodes',
   'deskAvailability',
+  'autoSend',
 ]
 
 /** The server, the visitor's own account and agent, the directory, and what the visitor taught. */
@@ -142,6 +143,7 @@ export const accountHandlers = (world: World): Handlers => {
           lastAppliedAt: null,
           publicText: body.publicText ?? null,
           counts: null,
+          autoSend: { enabled: false, places: [] },
         }
         world.update((records) => ({ ...records, principles: [...records.principles, created] }))
         return created
@@ -189,6 +191,11 @@ export const accountHandlers = (world: World): Handlers => {
           principle.counts === null ? null : { ...principle.counts, missed: principle.counts.missed + 1 },
       })),
     'principles.offers.dismiss': () => T.succeed({}),
+    'principles.autoSend.set': ({ params, body }) =>
+      changePrinciple(world, params.id, (principle) => ({
+        ...principle,
+        autoSend: { enabled: body.enabled, places: [...new Set(body.places)] },
+      })),
   }
 }
 

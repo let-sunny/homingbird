@@ -589,6 +589,7 @@ export const en = {
       deskAvailability: 'Showing when an agent can’t answer',
       invites: 'Invite links',
       analytics: 'Anonymous product analytics',
+      autoSend: 'Saved answers that send themselves',
     },
     whenOff: {
       channels: 'Off: people can no longer create channels; existing channels stay.',
@@ -617,6 +618,8 @@ export const en = {
         'Off: the programs that run agents no longer say when their agent can’t answer; colleagues see only whether it is awake, and notes show as drafting reply until it gives up.',
       invites:
         'Off: nobody can make an invite link and links already made are refused; only allowed domains and the administrators the server names can sign in.',
+      autoSend:
+        'Off: no saved answer sends itself; every draft waits for its person’s approval. On: a person may switch a saved answer to send itself, but only its exact text, only where they allow it.',
       analytics:
         'Off: no usage counts leave this server. On, and only where the server operator set a destination: anonymous counts such as pages viewed, never content, names or email addresses.',
     },
@@ -711,6 +714,7 @@ export const en = {
       quickApprovals: 'Quick approvals',
       wroteYourself: 'Notes you wrote yourself',
       debateResultsSent: 'Debate results you sent',
+      autoSent: 'Sent by your saved answers',
     },
     debateResultsExplained:
       'Debate results are counted on their own line: they are neither your agent’s drafts nor notes you wrote.',
@@ -1105,6 +1109,7 @@ export const en = {
       skipShare: 'Notes agents skipped',
       debateResultsSent: 'Debate results sent',
       answeredFromHistory: 'Questions answered from history, not sent',
+      autoSent: 'Sent by saved answers',
       channelAgentAnswers: 'Answers by channel agents',
       channelAgentAsWritten: 'Channel agents’ answers sent as written',
       channelAgentEdited: 'Channel agents’ answers edited, then sent',
@@ -1117,6 +1122,10 @@ export const en = {
     channelAgentsCounted:
       'Channel agents’ answers count among agent drafts too. Here they are counted in open channels and the private channels you are in only.',
     debateResultsCounted: 'Debate results sent are counted apart from notes and agent drafts.',
+    autoSentExplained:
+      'Notes saved answers sent on their own are counted apart: never as agent drafts, quick approvals or decision times, and hidden while fewer than {minimum} people had one sent.',
+    autoSentCounted:
+      'Notes saved answers sent on their own are counted apart: never as agent drafts, quick approvals or decision times.',
     partOf: '{share} ({count} of {total})',
     hidden: 'Hidden',
     draftsHidden:
@@ -1415,6 +1424,7 @@ export const en = {
       skips:
         'Notes your agent skipped, with the reason it gave, and draft requests that ran out without a draft.',
       ownNotes: 'How many notes you wrote yourself, and the debate results you sent.',
+      autoSent: 'How many notes your saved answers sent on their own, counted apart from your decisions.',
       places: 'The channel of each draft, with direct messages counted together.',
       labels: 'The program that wrote each draft, and the model your agent says it used.',
       sessions: 'How long the agent session had run and how much of its context it had used, for each draft.',
@@ -1440,6 +1450,7 @@ export const en = {
       debateResults: 'How many debate results were sent.',
       answeredFromHistory:
         'How many questions people found answered by an earlier answer and did not send, for each channel.',
+      autoSent: 'How many notes saved answers sent on their own.',
       places: 'The same counts for each channel used by enough people, with direct messages together.',
       labels: 'The same counts for each program and model used by enough people.',
       delivery:
@@ -1681,5 +1692,25 @@ export const en = {
       unreachable: 'The service did not take the test wake ({status}).',
       unknown: 'The test wake was sent.',
     },
+  },
+  autoSend: {
+    sentByTheirs: 'Sent automatically from {name}’s saved answer',
+    sentByYours: 'Sent automatically from your saved answer',
+    recalledLine: 'You recalled this note. Nobody else sees it any more.',
+    recall: 'Recall',
+    recalled: 'Recalled. Nobody else sees this note now.',
+    menu: 'Send automatically…',
+    dialogTitle: 'Send “{name}” automatically',
+    switchLabel: 'Send automatically when it fits',
+    hint: 'When your agent’s draft is exactly this answer, word for word, and goes to a place you choose below, it is sent without waiting for you. Anything else still waits for your approval. For five minutes after it is sent, you can recall it.',
+    placesLabel: 'Where it may send itself',
+    placesHint: 'Direct messages, and open channels you are in.',
+    noPlaces: 'Join an open channel or send a direct message first.',
+    needsPlace: 'Choose at least one place where it may send itself.',
+    save: 'Save',
+    saved: 'Saved. Your saved answer sends itself where you chose.',
+    turnedOff: 'Saved. Every draft waits for your approval again.',
+    sendsIn: { one: 'Sends itself in {count} place', other: 'Sends itself in {count} places' },
+    sentCount: { one: 'Sent automatically {count} time', other: 'Sent automatically {count} times' },
   },
 } as const
