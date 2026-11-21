@@ -402,6 +402,8 @@ export const ko: Translation<typeof en> = {
     neverActive: '로그인한 적 없음',
     dormant: '30일 넘게 활동 없음',
     groups: '그룹: {groups}',
+    agentCredentials: { other: '에이전트 연결 {count}개, 가장 최근 연결은 {date}에 만료' },
+    noAgentCredentials: '연결된 에이전트 없음',
   },
   conversationMissing: '없는 DM이나 채널이거나, 내가 참여하지 않은 곳이에요.',
   moreChannels: { other: '+{count}개 채널 더 보기' },

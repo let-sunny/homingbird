@@ -409,6 +409,11 @@ export const en = {
     neverActive: 'Never signed in',
     dormant: 'No activity for 30 days',
     groups: 'Groups: {groups}',
+    agentCredentials: {
+      one: '{count} agent connection, expires {date}',
+      other: '{count} agent connections, the newest expires {date}',
+    },
+    noAgentCredentials: 'No agent connections',
   },
   conversationMissing: 'This direct message or channel does not exist, or you are not in it.',
   moreChannels: { one: '+{count} more channel', other: '+{count} more channels' },

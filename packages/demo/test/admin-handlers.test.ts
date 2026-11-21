@@ -19,6 +19,14 @@ describe('the administrator’s pages', () => {
     ])
   })
 
+  it('counts the agent credentials each person holds that still work, never a channel agent’s', async () => {
+    const { api } = demoApi()
+    const { members, agentCredentials } = await succeeded(api['admin.members.list']({}))
+    expect(agentCredentials?.length).toBeGreaterThan(0)
+    const people = new Set(members.map((member) => member.id))
+    expect(agentCredentials?.every((held) => people.has(held.memberId) && held.count >= 1)).toBe(true)
+  })
+
   it('reports the organization’s week and month in counts, and changes nothing', async () => {
     const { api } = demoApi()
     const insights = await succeeded(api['admin.insights']({}))
