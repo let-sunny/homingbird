@@ -194,9 +194,11 @@ describe('labelsTableModel', () => {
       [
         { label: 'x'.repeat(40), written: 3, sentAsWritten: 1, sentAfterEdits: 1, discarded: 1 },
         { label: null, written: 2, sentAsWritten: null, sentAfterEdits: null, discarded: null },
+        { label: 'Web', written: 1, sentAsWritten: 1, sentAfterEdits: 0, discarded: 0 },
       ],
       'Unknown',
     )!
+    expect(table.rows[2]).toMatchObject({ title: strings.clients.web, label: strings.clients.web })
     expect(table.rows[0]!.title).toBe('x'.repeat(40))
     expect(table.rows[0]!.label).toHaveLength(32)
     expect(table.rows[1]).toEqual({

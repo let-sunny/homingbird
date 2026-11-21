@@ -117,7 +117,7 @@ export const ko: Translation<typeof en> = {
   waitingForApproval: '승인을 기다리고 있어요',
   draftBasisTitle: '이 초안의 근거',
   draftBasisMissing: '에이전트가 이 초안의 근거를 남기지 않았어요.',
-  chooseOne: { other: '초안이 {count}개 있어요. 하나를 보내면 나머지는 삭제돼요.' },
+  chooseOne: { other: '초안이 {count}개 있어요. 하나를 보내면 나머지는 버려져요.' },
   readBy: '{of}명 중 {read}명 읽음',
   readCount: '{read}/{of}',
   readByWhileDrafting: '{of}명 중 {read}명 읽음, {drafting}명 답장 작성 중',
@@ -151,9 +151,9 @@ export const ko: Translation<typeof en> = {
   leaveChannel: '채널 나가기',
   leaveChannelTitle: '{channel} 채널에서 나갈까요?',
   leaveChannelBody:
-    '이 채널의 질문이 더 이상 보이지 않고, 여기서 승인을 기다리던 초안은 삭제돼요. 언제든 다시 참여할 수 있어요.',
+    '이 채널의 질문이 더 이상 보이지 않고, 여기서 승인을 기다리던 초안은 버려져요. 언제든 다시 참여할 수 있어요.',
   leavePrivateChannelBody:
-    '{channel} 채널은 비공개라서 운영자만 다시 추가할 수 있어요. 여기서 승인을 기다리던 초안은 삭제돼요.',
+    '{channel} 채널은 비공개라서 운영자만 다시 추가할 수 있어요. 여기서 승인을 기다리던 초안은 버려져요.',
   channelVisibility: '누가 찾을 수 있나요',
   visibilityOpen: '공개: 조직의 누구나 찾아서 읽고 참여할 수 있어요',
   visibilityPrivate: '비공개: 운영자가 추가한 사람만 볼 수 있어요',
@@ -199,7 +199,7 @@ export const ko: Translation<typeof en> = {
   draftReplyTo: '“{excerpt}”에 대한 답장 초안',
   newNoteDraft: '노트 초안',
   edit: '수정',
-  discard: '삭제',
+  discard: '버리기',
   editDraftTitle: '초안 수정',
   editDraftLabel: '초안 내용',
   saveDraft: '초안 저장',
@@ -321,12 +321,12 @@ export const ko: Translation<typeof en> = {
   archiveLeavesList: '채널이 목록에서 사라지고, 더는 아무도 여기서 답하지 않아요.',
   archiveRoomReadOnly: '방은 읽기 전용이 되고, 멤버는 보관됨에서 계속 읽을 수 있어요.',
   archiveNotesStay: '노트는 어디로도 옮겨지지 않아요.',
-  archiveDraftsDiscarded: '방에서 기다리던 초안은 삭제되고, 작성자에게 이유를 알려요.',
+  archiveDraftsDiscarded: '방에서 기다리던 초안은 버려지고, 작성자에게 이유를 알려요.',
   archiveMembersMove:
     '아래에서 채널을 고르면 멤버가 그 채널에 들어가고, 여기서 답하던 사람은 그곳에서도 계속 답해요.',
   moveMembersTo: '멤버를 다른 채널로 옮기기',
   moveMembersInto: '옮길 채널',
-  draftDiscardedByArchive: '{channel} 채널이 보관되어 그곳의 초안이 삭제됐어요.',
+  draftDiscardedByArchive: '{channel} 채널이 보관되어 그곳의 초안이 버려졌어요.',
   draftAlreadySettled: '이 초안은 이미 보내졌거나 버려졌어요.',
   allowedDomains: '허용할 이메일 도메인',
   allowedDomainsHint:
@@ -370,6 +370,7 @@ export const ko: Translation<typeof en> = {
   privateNeedsManager: '방에 운영자가 있어야 비공개로 바꿀 수 있어요. 먼저 운영자를 추가해 주세요.',
   youMark: '(나)',
   cannotChangeOwnRole: '내 역할이나 상태는 직접 바꿀 수 없어요. 다른 관리자에게 부탁해 주세요.',
+  clients: { web: '웹 클라이언트', cli: 'Homingbird 명령줄 도구' },
   credentialThisBrowser: '(이 브라우저)',
   revokeCurrentTitle: '이 브라우저에서 로그아웃할까요?',
   revokeCurrentBody: '“{name}” 연결은 지금 이 브라우저예요. 해제하면 여기서 바로 로그아웃돼요.',
@@ -396,7 +397,7 @@ export const ko: Translation<typeof en> = {
   refusals: {
     connectionCode: '모르는 연결 코드이거나 만료된 연결 코드예요. 에이전트에게 새 연결 코드를 받아 주세요.',
     roomArchived: '보관된 방이에요. 읽을 수는 있지만 새 노트는 쓸 수 없어요.',
-    draftHandled: '이 초안은 이미 보냈거나 삭제했어요.',
+    draftHandled: '이 초안은 이미 보냈거나 버렸어요.',
     draftChanged: '읽은 뒤에 이 초안이 바뀌어서 보내지 않았어요. 다시 읽어 주세요.',
     nameTaken: '쓸 수 없는 이름이에요.',
     lastManager: '멤버가 있는 채널에는 운영자가 있어야 해요. 먼저 다른 운영자를 추가해 주세요.',
@@ -405,7 +406,9 @@ export const ko: Translation<typeof en> = {
   },
   deskTitle: '에이전트 세션 하나를 데스크로 열어 두세요.',
   deskBody:
-    '데스크는 도착한 노트에 답장 초안을 쓰고, 초안은 여기서 승인해요. 다른 세션은 요청할 때만 써요. 데스크를 항상 켜 두려면 아래 “서버에서 돌리기”를 쓰거나 사용자 가이드의 “Connect an agent”를 보세요.',
+    '데스크는 도착한 노트에 답장 초안을 쓰고, 초안은 그 DM이나 채널에서 승인해요. 다른 세션은 요청할 때만 써요. 데스크를 항상 켜 두려면 사용자 가이드의 “에이전트 연결”을 보세요.',
+  deskBodyWithJoin:
+    '데스크는 도착한 노트에 답장 초안을 쓰고, 초안은 그 DM이나 채널에서 승인해요. 다른 세션은 요청할 때만 써요. 데스크를 항상 켜 두려면 아래 “서버에서 돌리기”를 쓰거나 사용자 가이드의 “에이전트 연결”을 보세요.',
   noAgentsYet: '아직 연결된 에이전트가 없어요. 연결하면 노트가 도착할 때마다 답장 초안을 써 줘요.',
   codeFallback: '에이전트가 링크 대신 연결 코드를 보여 줬나요? 여기에 입력하세요.',
   notSetUp: '아직 에이전트가 준비되지 않았나요? 관리자에게 문의하세요.',
@@ -447,7 +450,7 @@ export const ko: Translation<typeof en> = {
     notesBody: '동료 에이전트가 보낸 노트가 여기에 도착해요. 내가 승인하기 전에는 아무것도 보내지 않아요.',
     connectTitle: '에이전트 연결',
     connectBody:
-      '내 에이전트에서 에이전트를 연결하고 세션 하나를 열어 두거나, 항상 켜져 있는 러너를 설치하세요. 답장 초안은 여기서 승인해요.',
+      '내 에이전트에서 에이전트를 연결하고 세션 하나를 열어 두거나, 항상 켜져 있는 러너를 설치하세요. 초안은 그 DM이나 채널에서 승인해요.',
     connectAction: '내 에이전트 열기',
     channelsTitle: '채널',
     channelsBody:
@@ -510,7 +513,7 @@ export const ko: Translation<typeof en> = {
       invites:
         '끄면: 아무도 초대 링크를 만들 수 없고, 이미 만든 초대 링크도 거절돼요. 허용한 도메인과 서버가 지정한 관리자만 로그인할 수 있어요.',
       analytics:
-        '끄면: 사용 통계가 이 서버 밖으로 나가지 않아요. 켜면 운영자가 정한 곳으로만 본 페이지 같은 익명 통계가 가요. 내용, 이름, 이메일은 보내지 않아요.',
+        '끄면: 사용 통계가 이 서버 밖으로 나가지 않아요. 켜면 서버 운영자가 정한 곳으로만 본 페이지 같은 익명 통계가 가요. 내용, 이름, 이메일은 보내지 않아요.',
     },
   },
   todo: {
@@ -681,6 +684,7 @@ export const ko: Translation<typeof en> = {
     sourceHost: '연결되는 곳: {host}',
     place: '먼저 따를 채널',
     placeAnywhere: '모든 곳에서 내가 정한 순서대로',
+    anywhere: '모든 곳',
     kindLabel: '종류',
     kinds: { rule: '규칙: 답을 찾는 방법', answer: '답: 그대로 할 말' },
     kindBadge: { unknown: '원칙', rule: '규칙', answer: '답' },
@@ -829,7 +833,7 @@ export const ko: Translation<typeof en> = {
     private: '비공개',
     privateSeenBy: '참여한 사람, 그리고 직접 로그인한 조직의 관리자만 볼 수 있어요.',
     agentCount: { other: '에이전트 {count}개' },
-    turnCount: { other: '차례 {count}번' },
+    turnProgress: '{count}/{total} 차례',
     closesAt: '{time}까지 차례가 이어져요',
     limitsSummary: '에이전트별 {perAgent}번, 전체 {total}번, {minutes}분, 차례당 {characters}자',
     changeLimits: '제한 바꾸기',
@@ -943,7 +947,7 @@ export const ko: Translation<typeof en> = {
     title: '인사이트',
     intro:
       '사람들이 Homingbird를 쓰는지, 승인이 형식이 되어 가지는 않는지 보여 줘요. 숫자만 보여 주고, 노트 내용이나 한 사람의 숫자는 보여 주지 않아요.',
-    noTeams: '팀이 없으니 조직 전체 숫자만 보여 줘요.',
+    noTeams: '그룹이 없으니 조직 전체 숫자만 보여 줘요.',
     privacy: '{minimum}명보다 적은 그룹은 빼요. 차단은 수만 세요.',
     tooFew: '이 기간에 노트를 보낸 사람이 {minimum}명보다 적어서 숫자를 보여 주지 않아요.',
     caption: '최근 {days}일 동안의 조직과 그 전 {days}일',
@@ -988,17 +992,17 @@ export const ko: Translation<typeof en> = {
     skippedColumn: '건너뜀',
     noPlaces: '따로 보여 줄 만큼 사람이 많은 채널이 없어요.',
     hiddenPlaces: { other: '사람이 적은 그룹 {count}개는 보여 주지 않아요.' },
-    teamsTitle: '팀별',
-    teamColumn: '팀',
+    teamsTitle: '그룹별',
+    teamColumn: '그룹',
     peopleColumn: '노트를 보낸 사람',
     editedColumn: '수정 후 보냄',
     discardedColumn: '버림',
     quickColumn: '빠른 승인',
     decisionTimeColumn: '결정하기까지 보통 걸린 시간',
-    noTeamRows: '따로 보여 줄 만큼 사람이 많은 팀이 없어요.',
-    hiddenTeams: { other: '사람이 적은 팀 {count}개는 보여 주지 않아요.' },
+    noTeamRows: '따로 보여 줄 만큼 사람이 많은 그룹이 없어요.',
+    hiddenTeams: { other: '사람이 적은 그룹 {count}개는 보여 주지 않아요.' },
     teamsExplained:
-      '하루 중 잠깐이라도 팀에 속해 있던 날(UTC 기준)은 모두 그 팀에 세요. 두 팀에 속한 사람은 두 팀 모두에 세요.',
+      '하루 중 잠깐이라도 그룹에 속해 있던 날(UTC 기준)은 모두 그 그룹에 세요. 두 그룹에 속한 사람은 두 그룹 모두에 세요.',
   },
   start: {
     title: '여기서 시작해 보세요',
@@ -1012,6 +1016,7 @@ export const ko: Translation<typeof en> = {
   },
   character: {
     title: '내 캐릭터',
+    defaultName: '내 캐릭터',
     intro: '캐릭터는 이름 옆에서 나를 나타내요. 기본 캐릭터를 고르거나 직접 만들어 보세요.',
     current: '지금 캐릭터: {character}',
     avatarLabel: '{person}: {character}',
@@ -1188,7 +1193,7 @@ export const ko: Translation<typeof en> = {
     importNothing: '이 파일로 바뀌는 구성원이 없어요.',
     managedBy: '운영: {group}',
     addManager: '운영자 추가',
-    addTeam: '팀 추가',
+    addTeam: '그룹 추가',
     addTeamHint: '그룹에 있는 사람들을 운영자로 한 번 추가해요. 나중에 그룹이 바뀌어도 여기는 바뀌지 않아요.',
     unmanage: '운영자에서 제외',
     deactivateLeaves: '{name} 님을 비활성화하면 모든 그룹에서 빠져요: {groups}.',
@@ -1275,7 +1280,7 @@ export const ko: Translation<typeof en> = {
       delivery: '받은 노트 중 에이전트를 연결한 사람에게 간 노트 수와, 에이전트가 얼마나 빨리 가져갔는지.',
       channelAgents:
         '관리자가 볼 수 있는 채널에서 채널 에이전트가 쓴 답변 합계와, 그대로 보낸 것, 수정 후 보낸 것, 버린 것의 수.',
-      teams: '팀마다 같은 수를 이름순으로 보여 주고, 보여 주기에 너무 작은 팀은 빼요.',
+      teams: '그룹마다 같은 수를 이름순으로 보여 주고, 보여 주기에 너무 작은 그룹은 빼요.',
       blocks: '사람 사이의 차단 수. 누가 누구를 차단했는지는 보여 주지 않아요.',
     },
   },
@@ -1284,6 +1289,8 @@ export const ko: Translation<typeof en> = {
     collapsed: '아래에서 두 사람 이상을 추가해요.',
     intro:
       '아래에서 두 사람 이상을 골라요. 고른 사람들은 노트가 보내진 뒤에야 이 그룹 DM을 볼 수 있어요. 다른 DM처럼 첫 노트를 직접 쓰거나 에이전트에게 초안을 부탁해요. 승인하기 전에는 아무것도 보내지 않아요.',
+    introWithoutRequests:
+      '아래에서 두 사람 이상을 골라요. 고른 사람들은 노트가 보내진 뒤에야 이 그룹 DM을 볼 수 있어요. 다른 DM처럼 첫 노트를 직접 써요. 승인하기 전에는 아무것도 보내지 않아요.',
     choose: '그룹 DM에 추가',
     chooseName: '{name} 님을 그룹 DM에 추가',
     remove: '{name} 님 빼기',
@@ -1323,6 +1330,8 @@ export const ko: Translation<typeof en> = {
     desksTitle: '이 에이전트로 연결된 데스크 · {agent}',
     desksNone: '아직 연결된 데스크가 없어요.',
     connectHint:
+      '데스크를 연결하려면 그 컴퓨터에서 homingbird login을 실행하고, 승인 화면의 "연결할 대상"에서 이 채널의 에이전트 ({agent})를 고르세요. 데스크를 승인한 운영자가 이 채널의 운영자에서 빠지면 그 데스크도 멈춰요.',
+    connectHintWithJoin:
       '서버에 데스크를 연결하려면 아래 “서버에서 돌리기”를 쓰세요. 브라우저가 있는 컴퓨터라면 그곳에서 homingbird login을 실행하고, 승인 화면의 "연결할 대상"에서 이 채널의 에이전트 ({agent})를 고르세요. 서버 연결 코드를 만들거나 승인한 운영자가 이 채널의 운영자에서 빠지면 그 데스크도 멈춰요.',
     approvedByManager: '{name} 님이 승인',
     revoke: '연결 끊기',

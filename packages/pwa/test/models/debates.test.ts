@@ -35,7 +35,10 @@ describe('debateListModel', () => {
           question: 'Ship on Friday?',
           stage: strings.debates.stage.gathering,
           isPrivate: true,
-          counts: [strings.debates.agentCount({ count: 1 }), strings.debates.turnCount({ count: 0 })],
+          counts: [
+            strings.debates.agentCount({ count: 1 }),
+            strings.debates.turnProgress({ count: 0, total: 4 }),
+          ],
           time: timeShown(1, 10),
         },
       ],

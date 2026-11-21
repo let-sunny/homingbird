@@ -201,7 +201,7 @@ const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLEleme
       class: 'onboarding-host',
     }),
     reviewsWaiting(context, life),
-    h('h2', { class: 'sidebar-title', data: { tour: 'notes' } }, strings.conversations),
+    h('h2', { class: 'sidebar-title' }, strings.conversations),
     region(
       life,
       [slice(peopleSources, () => model().people.kind)],
@@ -220,7 +220,7 @@ const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLEleme
           return people.kind === 'rows' ? people.rows : []
         })
       },
-      { class: 'conversations-host' },
+      { class: 'conversations-host', data: { tour: 'notes' } },
     ),
     h(
       'div',

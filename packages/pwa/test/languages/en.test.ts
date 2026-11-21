@@ -19,6 +19,14 @@ describe('English', () => {
     expect(en.refusals.needsManagerInRoom).toContain('Add a manager')
   })
 
+  it('calls a group a group, never a team', () => {
+    for (const text of texts(en)) expect(text).not.toMatch(/\bteams?\b/i)
+  })
+
+  it('shows a debate’s turns as progress toward its limit', () => {
+    expect(en.debates.turnProgress).toBe('{count}/{total} turns')
+  })
+
   it('leaves server error messages as the server wrote them', () => {
     expect(Object.values(en.errors).every((text) => text === '')).toBe(true)
   })

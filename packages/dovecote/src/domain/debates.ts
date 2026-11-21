@@ -118,6 +118,7 @@ export const listDebates = (viewer: Viewer): T.Task<DebateSummary[], never, Requ
       deadlineAt: Number(row.deadline_at),
       participantIds: participants.filter((one) => one.debate_id === row.id).map((one) => one.member_id),
       turnCount: Number(row.turn_count),
+      totalTurns: Number(row.total_turns),
       resultDrafted: row.result !== null,
       joined: Boolean(Number(row.joined)),
     }))

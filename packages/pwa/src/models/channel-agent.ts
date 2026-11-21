@@ -53,6 +53,7 @@ export const agentPanelModel = (
   agent: AsRead.ChannelAgent | null | 'loading' | 'failed',
   members: ReadonlyMap<MemberId, AsRead.Member>,
   place: AgentPanelPlace,
+  joinCodes: boolean,
 ): AgentPanel => {
   if (agent === 'loading') return { kind: 'loading' }
   if (agent === 'failed') return { kind: 'failed', text: strings.channelAgent.loadFailed }
@@ -82,7 +83,9 @@ export const agentPanelModel = (
       state: credential.revokedAt === null ? null : strings.channelAgent.revoked,
     })),
     desksNone: agent.credentials.length === 0 ? strings.channelAgent.desksNone : null,
-    connectHint: strings.channelAgent.connectHint({ agent: name }),
+    connectHint: joinCodes
+      ? strings.channelAgent.connectHintWithJoin({ agent: name })
+      : strings.channelAgent.connectHint({ agent: name }),
     retireTitle: strings.channelAgent.retireTitle,
     retireBody: strings.channelAgent.retireBody,
     retire: strings.channelAgent.retire({ agent: name }),
