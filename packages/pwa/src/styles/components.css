@@ -3818,12 +3818,21 @@ textarea:disabled {
 }
 
 .debate-card {
+  position: relative;
   display: grid;
   gap: var(--hb-space-2);
   padding: var(--hb-space-3);
   border: var(--hb-border);
   background: var(--hb-color-surface);
   min-inline-size: 0;
+  transition:
+    translate var(--hb-duration-fast) var(--hb-ease-pixel),
+    box-shadow var(--hb-duration-fast) var(--hb-ease-pixel);
+}
+
+.debate-card:hover {
+  translate: -1px -1px;
+  box-shadow: var(--hb-shadow-hover);
 }
 
 .debate-card.is-debating,
@@ -3842,6 +3851,23 @@ textarea:disabled {
 
 .debate-question a {
   text-decoration: none;
+}
+
+/* The title stays the card's one link; its hit area stretches over the whole card. */
+.debate-question a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.debate-question a:focus-visible {
+  outline: none;
+}
+
+.debate-question a:focus-visible::after {
+  outline: var(--hb-focus-ring);
+  outline-color: var(--hb-color-focus);
+  outline-offset: var(--hb-pixel);
 }
 
 .debate-meta {
