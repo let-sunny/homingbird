@@ -29,5 +29,6 @@ paths:
 - Never concatenate translated fragments. Write whole sentences with named placeholders
   (`'Ask {channel}'`), let a language declare only the plural forms it needs, and format dates, numbers
   and lists with `Intl`.
-- Note bodies are rendered as text. Only `http:` and `https:` URLs become links, with
+- Note bodies are rendered as text. Only `http:` and `https:` URLs, addresses that start with `www.`
+  (opened with `https:`) and mail addresses (opened with `mailto:`) become links; web links get
   `rel="noopener noreferrer"`. Never assign note content to `innerHTML`.

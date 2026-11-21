@@ -696,7 +696,7 @@ const makeElement = (owner: FakeDocument, localName: string, namespaceURI: strin
       },
     },
     scrollIntoView: { value: () => undefined },
-    scrollTo: { value: () => undefined },
+    scrollTo: { value: () => undefined, writable: true },
     getContext: { value: () => null },
   })
   popoverState.set(element, isPopoverOpen)
