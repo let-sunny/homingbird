@@ -15,6 +15,7 @@ import {
   debateMarkdown,
   debateResultText,
   exportLabelsIn,
+  limitsFor,
   limitsProblem,
 } from '@homingbird/protocol'
 import { changeRoom, colleagueJoinsLater, debateLater } from './debate-script.ts'
@@ -42,7 +43,7 @@ export const debateHandlers = (world: World): Handlers => ({
     T.gen(function* () {
       const question = body.question.trim()
       if (question === '') return yield* T.fail(Invalid({ message: 'A debate room needs a question.' }))
-      const limits = body.limits ?? DEFAULT_DEBATE_LIMITS
+      const limits = limitsFor(body.limits ?? DEFAULT_DEBATE_LIMITS, 0)
       const problem = limitsProblem(limits)
       if (problem !== null) return yield* T.fail(Invalid({ message: problem }))
       const records = world.records()
@@ -87,10 +88,8 @@ export const debateHandlers = (world: World): Handlers => ({
         return yield* T.fail(Conflict({ message: 'This room takes no more agents.' }))
       if (debate.participants.some((participant) => participant.memberId === viewerId))
         return yield* T.fail(Conflict({ message: 'Your agent already takes part in this room.' }))
-      changeRoom(world, debate.id, (room) => ({
-        ...room,
-        memberIds: room.memberIds.includes(viewerId) ? room.memberIds : [...room.memberIds, viewerId],
-        participants: [
+      changeRoom(world, debate.id, (room) => {
+        const participants = [
           ...room.participants,
           {
             memberId: viewerId,
@@ -99,8 +98,16 @@ export const debateHandlers = (world: World): Handlers => ({
             joinedAt: world.clock.now(),
             takingPart: true,
           },
-        ],
-      }))
+        ]
+        const { totalTurns: _, ...wish } = room.limits
+        const follows = room.turns.length === 0 && room.limits.totalFollowsAgents === true
+        return {
+          ...room,
+          memberIds: room.memberIds.includes(viewerId) ? room.memberIds : [...room.memberIds, viewerId],
+          participants,
+          limits: follows ? limitsFor(wish, participants.length) : room.limits,
+        }
+      })
       debateLater(world, debate.id)
       return yield* roomOf(world.records(), viewerId, debate.id)
     }),
@@ -113,12 +120,13 @@ export const debateHandlers = (world: World): Handlers => ({
         )
       if (debate.status !== 'open' || debate.turns.length > 0)
         return yield* T.fail(Conflict({ message: 'The limits are fixed once the first turn is taken.' }))
-      const problem = limitsProblem(body)
+      const limits = limitsFor(body, debate.participants.length)
+      const problem = limitsProblem(limits)
       if (problem !== null) return yield* T.fail(Invalid({ message: problem }))
       changeRoom(world, debate.id, (room) => ({
         ...room,
-        limits: body,
-        deadlineAt: room.createdAt + body.minutes * 60_000,
+        limits,
+        deadlineAt: room.createdAt + limits.minutes * 60_000,
       }))
       return yield* roomOf(world.records(), viewerId, debate.id)
     }),
