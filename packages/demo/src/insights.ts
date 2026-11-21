@@ -26,18 +26,16 @@ export const agentReportOf = (
   startedAt: number,
   now: number,
 ): AgentReport => {
-  const decided = decisionsSince(
-    records,
-    startedAt,
-    (note) => note.authorId === viewerId && note.origin !== 'human',
-  )
+  const isAgentDraft = (note: Note): boolean => note.authorId === viewerId && note.origin !== 'human'
+  const decided = decisionsSince(records, startedAt, isAgentDraft)
+  const written = { ...decided, waiting: waitingOf(records, isAgentDraft) }
   return {
     generatedAt: now,
     quickApprovalSeconds: QUICK_APPROVAL_SECONDS,
     minimumDecided: TRUST_MINIMUM_DECIDED,
     periods: [
-      { days: 7, current: withDecisions(WEEK, decided), previous: WEEK_BEFORE },
-      { days: 30, current: withDecisions(MONTH, decided), previous: MONTH_BEFORE },
+      { days: 7, current: withDecisions(WEEK, written), previous: WEEK_BEFORE },
+      { days: 30, current: withDecisions(MONTH, written), previous: MONTH_BEFORE },
     ],
     weeks: WEEKLY_AS_WRITTEN.map(([decidedThatWeek, sentAsWritten], index) => ({
       start: now - (WEEKLY_AS_WRITTEN.length - index) * WEEK_MS,
@@ -107,14 +105,20 @@ export const channelAgentReportOf = (
   startedAt: number,
   now: number,
 ): ChannelAgentReport => {
-  const decided = decisionsSince(records, startedAt, (note) => note.authorId === agentId)
-  const waiting = records.notes.filter((note) => note.authorId === agentId && note.status === 'draft').length
+  const isAgentDraft = (note: Note): boolean => note.authorId === agentId
+  const decided = decisionsSince(records, startedAt, isAgentDraft)
+  const waiting = waitingOf(records, isAgentDraft)
   const approvals = (base: ChannelAgentFigures): ChannelAgentFigures => ({
     ...base,
-    written: base.written + decided.total,
+    written: base.written + waiting + decided.total,
     sentAsWritten: base.sentAsWritten + decided.asWritten,
     sentAfterEdits: base.sentAfterEdits + decided.edited,
     discarded: base.discarded + decided.discarded,
+    approvals:
+      base.approvals?.map((approver) => ({
+        ...approver,
+        approved: approver.approved + approvedSince(records, startedAt, approver.memberId, agentId),
+      })) ?? null,
   })
   return {
     generatedAt: now,
@@ -152,13 +156,23 @@ const decisionsSince = (
   return { total: decided.length, asWritten, edited, discarded: decided.length - asWritten - edited }
 }
 
-const withDecisions = (base: AgentFigures, decided: Decisions): AgentFigures => {
+/**
+ * Drafts still waiting, which a server counts as written when they were made; with the decisions since
+ * the demo started, so that deciding one moves it from waiting to decided and leaves written as it was.
+ */
+const waitingOf = (records: Records, isCounted: (note: Note) => boolean): number =>
+  records.notes.filter((note) => isCounted(note) && note.status === 'draft').length
+
+const withDecisions = (
+  base: AgentFigures,
+  decided: Decisions & { readonly waiting: number },
+): AgentFigures => {
   const sentAsWritten = base.sentAsWritten + decided.asWritten
   const sentAfterEdits = base.sentAfterEdits + decided.edited
   const discarded = base.discarded + decided.discarded
   return {
     ...base,
-    written: base.written + decided.total,
+    written: base.written + decided.waiting + decided.total,
     sentAsWritten,
     sentAfterEdits,
     discarded,
@@ -171,8 +185,18 @@ const sentSince = (records: Records, startedAt: number, viewerId: MemberId): num
     (note) => note.authorId === viewerId && note.status === 'sent' && (note.sentAt ?? 0) >= startedAt,
   ).length
 
-const approvedSince = (records: Records, startedAt: number, viewerId: MemberId): number =>
-  records.notes.filter((note) => note.approvedBy === viewerId && (note.sentAt ?? 0) >= startedAt).length
+const approvedSince = (
+  records: Records,
+  startedAt: number,
+  viewerId: MemberId,
+  authorId: MemberId | null = null,
+): number =>
+  records.notes.filter(
+    (note) =>
+      note.approvedBy === viewerId &&
+      (authorId === null || note.authorId === authorId) &&
+      (note.sentAt ?? 0) >= startedAt,
+  ).length
 
 const MINUTE = 60_000
 const WEEK_MS = 7 * 24 * 60 * MINUTE

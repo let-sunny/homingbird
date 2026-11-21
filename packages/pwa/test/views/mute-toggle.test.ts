@@ -28,7 +28,9 @@ describe('the mute button', () => {
     expect(shown.dataset.muted).toBe('true')
     shown.click()
     host.replaceChildren(muteButton(context, { ...MUTED, muted: false, label: 'Mute Ben' }))
-    getByRole(host, 'button', { name: 'Mute Ben' }).click()
+    const unmuted = getByRole(host, 'button', { name: 'Mute Ben' })
+    expect(unmuted.querySelector('svg.bell.is-ringing')?.querySelectorAll('path')).toHaveLength(3)
+    unmuted.click()
     expect(called('setMuted').map((call) => call.args)).toEqual([
       [ROOM, false],
       [ROOM, true],

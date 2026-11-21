@@ -12,6 +12,7 @@ import {
 import { answerLater } from './colleagues.ts'
 import { type Handlers, found } from './handlers.ts'
 import { offerAfterDecision } from './offers.ts'
+import { cancelDraftRequest, openDraftRequests, requestDraft } from './own-agent.ts'
 import {
   conversationAsSeen,
   conversationsOf,
@@ -140,6 +141,10 @@ export const noteHandlers = (world: World): Handlers => ({
       } else world.emit(reviewers, { type: 'review.changed', noteId: discarded.id })
       return discarded
     }),
+  'draftRequests.list': (_, viewerId) =>
+    T.sync(() => ({ requests: openDraftRequests(world.records(), viewerId, world.clock.now()) })),
+  'draftRequests.create': ({ body }, viewerId) => requestDraft(world, viewerId, body),
+  'draftRequests.cancel': ({ params }, viewerId) => cancelDraftRequest(world, viewerId, params.id),
   'drafts.seen': ({ params }, viewerId) =>
     T.map(() => ({}))(draftToDecide(world.records(), viewerId, params.id)),
   'search.notes': ({ query }, viewerId) =>

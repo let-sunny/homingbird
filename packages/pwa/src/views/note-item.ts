@@ -56,8 +56,14 @@ export const renderNoteItem = (
         h(
           'div',
           { class: 'bubble', ...(model.bubbleTitle !== null && { title: model.bubbleTitle }) },
-          model.quote !== null && h('blockquote', { class: 'quote' }, model.quote),
-          noteBody(context, model.body),
+          model.quote !== null &&
+            h(
+              'a',
+              { class: 'quote', href: model.quote.href, title: model.quote.label },
+              h('span', { class: 'visually-hidden' }, `${model.quote.label}: `),
+              model.quote.text,
+            ),
+          collapsibleBody(context, model),
         ),
         h(
           'div',
@@ -142,6 +148,31 @@ export const renderNoteItem = (
     li.classList.toggle('is-active')
   })
   return li
+}
+
+/**
+ * The note's text; a long one shows its start, and a button opens the rest in place. A note drawn again
+ * while the person had it open stays open.
+ */
+const collapsibleBody = (context: ViewContext, model: NoteItemModel): Child => {
+  const id = `note-body-${model.noteId}`
+  const body = noteBody(context, model.body)
+  body.id = id
+  const long = model.longBody
+  if (long === null) return body
+  const toggle: HTMLButtonElement = h('button', {
+    type: 'button',
+    class: 'link note-more-text',
+    'aria-controls': id,
+    on: { click: () => show(!body.classList.contains('is-collapsed')) },
+  })
+  const show = (collapsed: boolean): void => {
+    body.classList.toggle('is-collapsed', collapsed)
+    toggle.setAttribute('aria-expanded', String(!collapsed))
+    toggle.textContent = collapsed ? long.more : long.less
+  }
+  show(context.document.find(`.note-body[id="${id}"]:not(.is-collapsed)`) === null)
+  return [body, toggle]
 }
 
 const menuItem = (menuId: string, item: NoteMenuItem, choose: () => void): Child => {

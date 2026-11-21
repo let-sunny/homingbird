@@ -22,6 +22,7 @@ import type { World } from './world.ts'
 export const DEMO_FEATURES: ReadonlyArray<FeatureName> = [
   'channels',
   'groups',
+  'draftRequests',
   'characters',
   'mute',
   'answeringFlow',

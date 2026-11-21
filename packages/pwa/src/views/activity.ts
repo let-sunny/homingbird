@@ -64,11 +64,19 @@ export const activityBell = (context: ViewContext, life: Lifetime, me: AsRead.Me
 
 /**
  * The activity panel the bell opens: anchored below it on a wide screen, a full-height sheet on a
- * narrow one. Its items are drawn only while it is open, so that a draft counts as seen only then.
+ * narrow one. Its items are drawn only while it is open, so that a draft counts as seen only then. It
+ * takes the focus when it opens, and gives it back to the bell when it closes without leading elsewhere.
  */
 export const activityPanel = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
   const body = h('div', { class: 'activity-panel-body' })
   let open: Lifetime | null = null
+  const giveFocusBack = (): void => {
+    const leaving = panel.dataset.leaving === 'true'
+    delete panel.dataset.leaving
+    const focused = context.document.focused()
+    const lost = focused === null || focused.matches('body') || panel.contains(focused)
+    if (!leaving && lost) context.document.find('.activity-bell')?.focus()
+  }
   const close = (): void => {
     open?.end()
     open = null
@@ -81,17 +89,22 @@ export const activityPanel = (context: ViewContext, life: Lifetime, me: AsRead.M
       popover: 'auto',
       class: 'activity-panel',
       role: 'dialog',
+      tabindex: '-1',
       'aria-labelledby': `${ACTIVITY_PANEL_ID}-title`,
       on: {
         toggle: (event) => {
-          if ((event as ToggleEvent).newState !== 'open') return close()
+          if ((event as ToggleEvent).newState !== 'open') {
+            close()
+            return giveFocusBack()
+          }
           close()
           open = lifetime()
           body.replaceChildren(activityContent(context, open, me))
           context.actions.loadActivity()
+          panel.focus()
         },
         click: (event) => {
-          if ((event.target as Element | null)?.closest?.('a[href]') != null) panel.hidePopover()
+          if ((event.target as Element | null)?.closest?.('a[href]') != null) hideLeaving(panel)
         },
       },
     },
@@ -117,7 +130,7 @@ export const activityPanel = (context: ViewContext, life: Lifetime, me: AsRead.M
   life.add(() => close())
   life.add(
     context.state.route.subscribe(() => {
-      if (hasPopover(panel) && panel.matches(':popover-open')) panel.hidePopover()
+      if (hasPopover(panel) && panel.matches(':popover-open')) hideLeaving(panel)
     }),
   )
   return panel
@@ -235,6 +248,12 @@ const renderItem = (context: ViewContext, item: ActivityItem): HTMLElement => {
   }
 }
 
+/** Closes the panel for another place, which then decides where the focus goes. */
+const hideLeaving = (panel: HTMLElement): void => {
+  panel.dataset.leaving = 'true'
+  panel.hidePopover()
+}
+
 /**
  * Closes the panel before the conversation opens, so the page underneath never shows through, sets
  * the reply target and leaves the focus to the composer.
@@ -245,7 +264,7 @@ const replyYourself = (
   target: { readonly conversationId: ConversationId; readonly noteId: NoteId },
 ): void => {
   const panel = context.document.byId(ACTIVITY_PANEL_ID)
-  if (panel !== null && hasPopover(panel) && panel.matches(':popover-open')) panel.hidePopover()
+  if (panel !== null && hasPopover(panel) && panel.matches(':popover-open')) hideLeaving(panel)
   context.actions.replyTo(target.conversationId, target.noteId)
   context.page.go(href)
 }

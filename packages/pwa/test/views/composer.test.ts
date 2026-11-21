@@ -65,6 +65,53 @@ describe('composer', () => {
     expect(called('sendNote')).toHaveLength(2)
   })
 
+  it('brings the thread back to the bottom once a note is sent, and asks the keyboard for Send', () => {
+    const test = testContext()
+    test.context.state.conversations.set([conversation()])
+    let sent = 0
+    const shown = composer(
+      test.context,
+      lifetime(),
+      ROOM,
+      () => composerModel(threadInput()),
+      [],
+      () => void sent++,
+    )
+    const text = getByRole(shown, 'textbox', { name: strings.composerLabel }) as HTMLTextAreaElement
+    expect(text.getAttribute('enterkeyhint')).toBe('send')
+    fire.key(text, 'Enter')
+    expect(sent).toBe(0)
+    text.value = 'Hello'
+    fire.key(text, 'Enter')
+    expect(sent).toBe(1)
+  })
+
+  it('on a touch screen adds a line with the return key and sends only with Send', () => {
+    const test = testContext()
+    test.page.state.coarsePointer = true
+    test.context.state.conversations.set([conversation()])
+    const shown = composer(test.context, lifetime(), ROOM, () => composerModel(threadInput()), [])
+    const text = getByRole(shown, 'textbox', { name: strings.composerLabel }) as HTMLTextAreaElement
+    expect(text.getAttribute('enterkeyhint')).toBe('enter')
+    text.value = 'Two\nlines'
+    fire.key(text, 'Enter')
+    expect(test.called('sendNote')).toHaveLength(0)
+    fire.submit(shown)
+    expect(test.called('sendNote')[0]!.args).toEqual([ROOM, 'Two\nlines'])
+  })
+
+  it('stops replying to a note with Escape, and leaves Escape alone when it replies to none', () => {
+    const { context, shown, called } = setup()
+    const text = getByRole(shown, 'textbox', { name: strings.composerLabel }) as HTMLTextAreaElement
+    fire.key(text, 'Escape')
+    expect(called('chooseReplyTarget')).toHaveLength(0)
+    context.state.replyTargets.set(new Map([[ROOM, 'n1' as never]]))
+    fire.key(text, 'Escape', { isComposing: true })
+    expect(called('chooseReplyTarget')).toHaveLength(0)
+    fire.key(text, 'Escape')
+    expect(called('chooseReplyTarget')[0]!.args).toEqual([ROOM, null])
+  })
+
   it('looks up earlier answers to what is typed, and stops once the note is sent', () => {
     const { shown, called } = setup()
     const text = getByRole(shown, 'textbox', { name: strings.composerLabel }) as HTMLTextAreaElement
