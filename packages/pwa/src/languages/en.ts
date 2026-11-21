@@ -1394,8 +1394,6 @@ export const en = {
     figuresLoadFailed: 'How the agent is doing could not be loaded. Try again in a moment.',
   },
   mute: {
-    mute: 'Mute',
-    unmute: 'Unmute',
     muteName: 'Mute {name}',
     unmuteName: 'Unmute {name}',
     muted: 'Muted',

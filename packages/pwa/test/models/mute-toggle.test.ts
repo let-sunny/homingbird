@@ -8,7 +8,6 @@ describe('muteToggleModel', () => {
     expect(muteToggleModel(conversation(), 'Ben', true)).toEqual({
       conversationId: ROOM,
       muted: false,
-      text: strings.mute.mute,
       label: 'Mute Ben',
       mark: null,
       hint: strings.mute.hint,
@@ -19,7 +18,6 @@ describe('muteToggleModel', () => {
     expect(muteToggleModel(conversation({ muted: true }), '#billing', true)).toEqual({
       conversationId: ROOM,
       muted: true,
-      text: strings.mute.unmute,
       label: 'Unmute #billing',
       mark: strings.mute.muted,
       hint: strings.mute.hint,
