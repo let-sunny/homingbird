@@ -29,11 +29,12 @@ export const insightsSection = (context: ViewContext, life: Lifetime): HTMLEleme
 const renderInsights = (model: InsightsModel): Child => {
   if (model.kind === 'loading') return loading()
   return [
-    h(
-      'div',
-      { class: 'flow-warning', role: 'note' },
-      model.warnings.map((warning) => h('p', {}, warning)),
-    ),
+    model.warnings.length > 0 &&
+      h(
+        'div',
+        { class: 'flow-warning', role: 'note' },
+        model.warnings.map((warning) => h('p', {}, warning)),
+      ),
     model.quickWarning !== null &&
       h('p', { class: 'flow-warning insights-quick-warning', role: 'status' }, model.quickWarning),
     model.tooFew !== null && h('p', { class: 'insights-too-few' }, model.tooFew),
