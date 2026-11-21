@@ -1,0 +1,117 @@
+@font-face {
+  font-family: "Inter";
+  src: url("fonts/inter-latin-wght-normal.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2190-2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("fonts/inter-latin-ext-wght-normal.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113,
+    U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("fonts/bricolage-grotesque-latin-wght-normal.woff2") format("woff2");
+  font-weight: 200 800;
+  font-display: swap;
+}
+
+:root {
+  --hb-pip-blue: #8da4cb;
+  --hb-wing: #6d86b0;
+  --hb-ink: #1b2333;
+  --hb-beak: #f4a259;
+  --hb-night: #22324e;
+  --hb-mist: #f2f5fa;
+  --hb-envelope: #ffd879;
+  --hb-sparkle: #3fbfa6;
+
+  --hb-color-page: var(--hb-mist);
+  --hb-color-surface: #ffffff;
+  --hb-color-sunken: #e3e9f3;
+  --hb-color-text: var(--hb-ink);
+  --hb-color-muted: #55617a;
+  --hb-color-line: var(--hb-ink);
+  --hb-color-accent: var(--hb-pip-blue);
+  --hb-color-action: var(--hb-beak);
+  --hb-color-on-action: var(--hb-ink);
+  --hb-color-pending: var(--hb-envelope);
+  --hb-color-on-pending: var(--hb-ink);
+  --hb-color-success: var(--hb-sparkle);
+  --hb-color-titlebar: var(--hb-night);
+  --hb-color-on-titlebar: var(--hb-mist);
+  --hb-color-link: #3b5a8f;
+  --hb-color-focus: #b45309;
+  --hb-color-code: #e3e9f3;
+  --hb-color-stripe: color-mix(in srgb, var(--hb-color-on-titlebar) 8%, transparent);
+  --hb-color-pending-wash: color-mix(in srgb, var(--hb-color-pending) 35%, var(--hb-color-surface));
+  --hb-border-pending: 2px dashed var(--hb-color-line);
+
+  --hb-font-body: "Inter", system-ui, sans-serif;
+  --hb-font-display: "Bricolage Grotesque", "Inter", system-ui, sans-serif;
+  --hb-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --hb-text-small: 0.875rem;
+  --hb-text-body: 1rem;
+  --hb-text-lead: 1.1875rem;
+  --hb-text-title: 1.5rem;
+  --hb-text-hero: clamp(2.125rem, 6cqi, 3.5rem);
+  --hb-tracking-display: -0.02em;
+
+  --hb-border: 2px solid var(--hb-color-line);
+  --hb-focus-ring: 3px solid var(--hb-color-focus);
+  --hb-radius: 0px;
+  --hb-shadow: 4px 4px 0 var(--hb-color-line);
+  --hb-shadow-raised: 8px 8px 0 var(--hb-color-line);
+  --hb-shadow-hover: 2px 2px 0 var(--hb-color-line);
+  --hb-texture-titlebar: repeating-linear-gradient(to bottom, transparent 0 3px, var(--hb-color-stripe) 3px 5px);
+
+  --hb-space-1: 0.25rem;
+  --hb-space-2: 0.5rem;
+  --hb-space-3: 0.75rem;
+  --hb-space-4: 1rem;
+  --hb-space-6: 1.5rem;
+  --hb-space-8: 2.5rem;
+  --hb-space-12: 4rem;
+  --hb-measure: 68rem;
+
+  --hb-duration-fast: 120ms;
+
+  color-scheme: light dark;
+}
+
+:root:lang(ko) {
+  --hb-font-body: "Inter", "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
+  --hb-font-display: "Bricolage Grotesque", "Inter", "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR",
+    "Malgun Gothic", system-ui, sans-serif;
+  --hb-tracking-display: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --hb-color-page: #141c2c;
+    --hb-color-surface: var(--hb-night);
+    --hb-color-sunken: #1a2740;
+    --hb-color-text: var(--hb-mist);
+    --hb-color-muted: #a9b7d1;
+    --hb-color-line: var(--hb-pip-blue);
+    --hb-color-titlebar: #1a2740;
+    --hb-color-link: #b4c6e6;
+    --hb-color-focus: var(--hb-envelope);
+    --hb-color-code: #101726;
+    --hb-color-pending-wash: var(--hb-color-surface);
+    --hb-border-pending: 2px dashed var(--hb-envelope);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --hb-duration-fast: 0ms;
+  }
+}

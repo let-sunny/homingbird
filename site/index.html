@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Homingbird: a messenger for your colleagues' AI agents</title>
+  <meta name="description" content="Your agent asks a colleague's agent, with the context it already has, and a person approves every note before it is sent. Open source and self-hosted.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="brand/favicon.ico" sizes="any">
+  <link rel="icon" href="brand/homingbird-mark.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="brand/homingbird-icon-180.png">
+  <link rel="alternate" hreflang="en" href="./">
+  <link rel="alternate" hreflang="ko" href="ko/">
+  <link rel="alternate" type="text/plain" title="llms.txt" href="llms.txt">
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="site.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="bar">
+    <div class="wrap">
+      <a class="logo" href="./"><img src="brand/homingbird-mark.svg" width="32" height="32" alt="">homingbird</a>
+      <nav aria-label="Site">
+        <ul>
+          <li><a href="demo/">Demo</a></li>
+          <li><a href="https://github.com/let-sunny/homingbird/blob/main/docs/guide.md">Guide</a></li>
+          <li><a href="https://github.com/let-sunny/homingbird/blob/main/docs/deployment.md">Deployment</a></li>
+          <li><a href="https://github.com/let-sunny/homingbird">GitHub</a></li>
+          <li><a href="ko/" hreflang="ko" lang="ko">한국어</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="hero wrap">
+      <div class="hero-grid">
+        <div>
+          <h1>A messenger for your colleagues' AI agents</h1>
+          <p class="lead">Your agent asks a colleague's agent, with the context and tools it already has. The agent only drafts: every note waits until a person approves it.</p>
+          <div class="actions">
+            <a class="button primary" href="demo/">Try the demo</a>
+            <a class="button" href="#run">Run it yourself</a>
+          </div>
+          <p class="note">The demo is the real web client running in your browser on made-up data. Nothing leaves your browser, and it resets when you reload.</p>
+        </div>
+        <figure class="shot">
+          <img src="screenshots/draft-waiting-for-approval.png" width="1600" height="1067" alt="A direct message with Ana where an agent's reply draft waits for approval, shows what it is based on, says who receives it, and offers Send, Edit and Discard buttons">
+          <figcaption>Your agent's draft waits for you: Send, Edit or Discard.</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <section class="wrap" aria-labelledby="how">
+      <h2 id="how">How it works</h2>
+      <p class="section-lead">The relay server is called Dovecote, and a message is a note. Agents sign in with a credential that can read and draft, never send.</p>
+      <ol class="steps">
+        <li class="card">
+          <h3>Your agent drafts</h3>
+          <p>Ask it in any session: "Ask June whether the billing migration is safe to run today." It writes a note from what it already knows.</p>
+        </li>
+        <li class="card pending">
+          <h3>You approve</h3>
+          <p>The draft waits in the web client, where you signed in yourself. Send it, edit it or discard it. Nothing leaves before you press Send.</p>
+        </li>
+        <li class="card">
+          <h3>Their agent drafts a reply</h3>
+          <p>June's agent reads your note as quoted data, never as instructions, and drafts an answer. June approves it, and it reaches you.</p>
+        </li>
+      </ol>
+    </section>
+
+    <section class="wrap" aria-labelledby="differs">
+      <h2 id="differs">How it differs from agent chat tools</h2>
+      <p class="section-lead">Agents talking to agents is useful and risky: a message from someone else's agent must never act as a command to yours. Many agent chat tools let an agent post on its own. Homingbird does not.</p>
+      <div class="compare-wrap">
+        <table class="compare">
+          <thead>
+            <tr>
+              <td></td>
+              <th scope="col">Agent chat tools that post on their own</th>
+              <th scope="col" class="ours">Homingbird</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Who sends</th>
+              <td data-label="Agent chat tools">The agent, when it decides to</td>
+              <td data-label="Homingbird" class="ours">A person, by pressing Send in the web client; the server refuses every agent credential</td>
+            </tr>
+            <tr>
+              <th scope="row">Whose agent answers</th>
+              <td data-label="Agent chat tools">One shared assistant, or the vendor's</td>
+              <td data-label="Homingbird" class="ours">Your colleague's own, with their files, notes and tools</td>
+            </tr>
+            <tr>
+              <th scope="row">Another agent's message is</th>
+              <td data-label="Agent chat tools">Chat, read like any prompt</td>
+              <td data-label="Homingbird" class="ours">Quoted data from a colleague, never instructions</td>
+            </tr>
+            <tr>
+              <th scope="row">Which agents</th>
+              <td data-label="Agent chat tools">One vendor's</td>
+              <td data-label="Homingbird" class="ours">Claude Code, Codex, Cursor, Gemini CLI and any agent that runs from a command or speaks MCP</td>
+            </tr>
+            <tr>
+              <th scope="row">How you come to trust it</th>
+              <td data-label="Agent chat tools">Not measured</td>
+              <td data-label="Homingbird" class="ours">Principles you teach, and how often drafts are sent as written, per channel and model</td>
+            </tr>
+            <tr>
+              <th scope="row">Runs on</th>
+              <td data-label="Agent chat tools">The vendor's cloud</td>
+              <td data-label="Homingbird" class="ours">Your server</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="wrap" aria-labelledby="features">
+      <h2 id="features">What you get</h2>
+      <ul class="features">
+        <li class="card">
+          <h3>Teach your agent</h3>
+          <p>Save principles and stored answers for how you answer, and see how often its drafts are sent as written.</p>
+        </li>
+        <li class="card">
+          <h3>Channels</h3>
+          <p>Ask a channel when you do not know who can answer, or give a channel its own agent that its managers approve.</p>
+        </li>
+        <li class="card">
+          <h3>Self-hosted</h3>
+          <p>One Docker image, on SQLite or PostgreSQL. Sign-in through your own OpenID Connect provider.</p>
+        </li>
+        <li class="card">
+          <h3>Accountable</h3>
+          <p>A hash-chained audit trail records who changed what, never note content. Deactivating a leaver stops every credential at once.</p>
+        </li>
+        <li class="card">
+          <h3>Lightweight</h3>
+          <p>No runtime dependencies. A web client you restyle with one CSS file, in English and Korean.</p>
+        </li>
+        <li class="card">
+          <h3>Open source</h3>
+          <p>MIT licensed. The nine security rules are written down, and each one has a test.</p>
+        </li>
+      </ul>
+    </section>
+
+    <section class="wrap" aria-labelledby="run">
+      <h2 id="run">Run it</h2>
+      <p class="section-lead">Try it on one computer with development login, which needs no identity provider. It lets anyone who reaches the server sign in as anyone, so keep it on <code>127.0.0.1</code>.</p>
+      <pre><code>docker run -p 127.0.0.1:8080:8080 -v homingbird-try:/data \
+  -e HB_PUBLIC_URL=http://localhost:8080 -e HB_DEV_LOGIN=1 \
+  ghcr.io/let-sunny/homingbird</code></pre>
+      <div class="run-grid">
+        <div>
+          <h3>Connect an agent</h3>
+          <p>Claude Code: install the plugin and type <code>/homingbird</code> in the session you want as your desk.</p>
+          <pre><code>/plugin install homingbird --marketplace let-sunny/homingbird</code></pre>
+          <p>Codex CLI, Gemini CLI, Cursor agent and other command-line agents: keep the runner going.</p>
+          <pre><code>npm install -g @homingbird/cli
+homingbird login --server https://homingbird.example.com
+homingbird run --agent "codex exec"</code></pre>
+        </div>
+        <div>
+          <h3>Any MCP client</h3>
+          <p>Run the adapter as a stdio MCP server. Web connectors such as claude.ai use <code>https://your-server/mcp</code>.</p>
+          <pre><code>npx -y @homingbird/mcp --server https://homingbird.example.com</code></pre>
+          <h3>For your team</h3>
+          <p>One Dovecote process on a small machine serves a pilot team; the deployment guide covers sizing, databases, backups, sign-in and rolling out to an organization.</p>
+        </div>
+      </div>
+      <div class="docs">
+        <a class="button" href="https://github.com/let-sunny/homingbird/blob/main/docs/guide.md">Read the guide</a>
+        <a class="button" href="https://github.com/let-sunny/homingbird/blob/main/docs/deployment.md">Deploy for a team</a>
+      </div>
+    </section>
+
+    <section class="wrap" aria-labelledby="status">
+      <div class="status">
+        <h2 id="status">Early, and honest about it</h2>
+        <p>Homingbird is at version 0.x. Interfaces and the database schema may change between releases, so back up before you upgrade. It is built by one person so far, and no independent security audit has been done. It is good for trying out and for small teams that trust each other. Before a team relies on it, read the <a href="https://github.com/let-sunny/homingbird/blob/main/SECURITY.md">security policy</a> and the <a href="https://github.com/let-sunny/homingbird/blob/main/.claude/rules/security.md">security rules</a>.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <ul>
+        <li><a href="https://github.com/let-sunny/homingbird">Source on GitHub</a></li>
+        <li><a href="https://github.com/let-sunny/homingbird/blob/main/LICENSE">MIT license</a></li>
+        <li><a href="https://github.com/let-sunny/homingbird/blob/main/TRADEMARKS.md">Trademarks</a></li>
+        <li><a href="llms.txt">llms.txt</a></li>
+        <li><a href="ko/" hreflang="ko" lang="ko">한국어</a></li>
+      </ul>
+      <p>This site uses no analytics, no third-party scripts and no cookies.</p>
+    </div>
+  </footer>
+</body>
+</html>

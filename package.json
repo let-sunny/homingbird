@@ -18,6 +18,7 @@
     "test:plugin": "claude plugin validate packages/plugin && claude plugin test packages/plugin",
     "test:mutation": "stryker run",
     "build": "pnpm -r --if-present run build && tsx packages/dovecote/build.ts",
+    "build:site": "node scripts/build-site.ts",
     "dev": "pnpm --filter @homingbird/pwa run build && HB_PUBLIC_URL=http://localhost:8080 HB_DEV_LOGIN=1 HB_ALLOWED_DOMAINS=example.com HB_WEB_DIR=packages/pwa/dist tsx packages/dovecote/src/main.ts",
     "start": "node packages/dovecote/dist/dovecote.mjs",
     "load-test": "tsx scripts/load-test.ts",
