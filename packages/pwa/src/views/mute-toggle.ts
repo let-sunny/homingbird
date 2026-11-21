@@ -3,8 +3,8 @@ import type { MuteToggle } from '../models/mute-toggle.ts'
 import type { ViewContext } from './context.ts'
 
 /**
- * The button that mutes a conversation or lifts its mute: a bell, struck through while muted, named
- * for the action it takes.
+ * The button that mutes a conversation or lifts its mute: a ringing bell, struck through while muted,
+ * named for the action it takes. It rings so that it does not read as a second activity bell.
  */
 export const muteButton = (context: ViewContext, model: MuteToggle): HTMLElement =>
   h(
@@ -17,7 +17,7 @@ export const muteButton = (context: ViewContext, model: MuteToggle): HTMLElement
       data: { muted: String(model.muted) },
       on: { click: () => context.actions.setMuted(model.conversationId, !model.muted) },
     },
-    bellIcon(model.muted),
+    model.muted ? bellIcon(true) : ringingBellIcon(),
   )
 
 /** The struck-through bell beside a muted conversation's name, with its word for screen readers. */
@@ -52,3 +52,22 @@ export const bellIcon = (struck: boolean): SVGElement =>
         ]
       : []),
   )
+
+/** A bell with a sound line on either side: notifications for this conversation are on. */
+const ringingBellIcon = (): SVGElement => {
+  const icon = bellIcon(false)
+  icon.setAttribute('viewBox', '-3 0 22 16')
+  icon.setAttribute('width', '22')
+  icon.classList.add('is-ringing')
+  for (const d of ['M-1 4q-1.5 2.5 0 5', 'M17 4q1.5 2.5 0 5'])
+    icon.append(
+      svg('path', {
+        d,
+        fill: 'none',
+        stroke: 'currentColor',
+        'stroke-width': 1.5,
+        'stroke-linecap': 'round',
+      }),
+    )
+  return icon
+}
