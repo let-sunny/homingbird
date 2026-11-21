@@ -25,15 +25,23 @@ describe('groupStartPanel', () => {
     expect(groupStartPanel(null, handlers())).toBeNull()
   })
 
-  it('names the panel, says how many are chosen, and holds the start until two are', () => {
+  it('keeps the panel to one named line until someone is added', () => {
     const panel = groupStartPanel(modelWith([]), handlers())!
     const heading = getByRole(panel, 'heading', { name: strings.groupStart.title })
     expect(panel.getAttribute('aria-labelledby')).toBe(heading.id)
-    expect(textOf(panel)).toContain('0 people chosen')
-    expect(textOf(panel)).toContain(strings.groupStart.none)
-    expect(panel.querySelector('.group-start-chips')).toBeNull()
+    expect(panel.classList.contains('is-collapsed')).toBe(true)
+    expect(textOf(panel)).toContain(strings.groupStart.collapsed)
+    expect(textOf(panel)).not.toContain(strings.groupStart.intro)
+    expect(panel.querySelectorAll('button')).toHaveLength(0)
+  })
+
+  it('says how many are chosen and holds the start until two are', () => {
+    const panel = groupStartPanel(modelWith([BEN]), handlers())!
+    expect(panel.classList.contains('is-collapsed')).toBe(false)
+    expect(textOf(panel)).toContain('1 person chosen')
+    expect(textOf(panel)).toContain(strings.groupStart.intro)
+    expect(textOf(panel)).toContain(strings.groupStart.needMore)
     expect(getByRole(panel, 'button', { name: strings.groupStart.start }).hasAttribute('disabled')).toBe(true)
-    expect(panel.querySelectorAll('button')).toHaveLength(1)
   })
 
   it('shows each person chosen as a chip that takes them out, and starts or clears on request', () => {

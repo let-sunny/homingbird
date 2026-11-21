@@ -1,11 +1,14 @@
-import type { AsRead, MemberId } from '@homingbird/protocol'
+import { type AsRead, type MemberId, RECIPIENTS_MAX, isPerson } from '@homingbird/protocol'
 import { groupById, groupLabel } from '../groups.ts'
+import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
+import { groupWith } from '../thread.ts'
 import { type AvatarModel, memberAvatarOf } from './avatar.ts'
 
 /**
- * A team's page: its name, who is in it, and, only where the person may change it, renaming it and adding
- * or removing people. A channel's managers are shown with the channel instead.
+ * A team's page: its name, who is in it, writing to one of them or to all of them at once, and, only where
+ * the person may change it, renaming it and adding or removing people. A channel's managers are shown with
+ * the channel instead.
  */
 export const groupPageModel = (input: GroupPageInput): GroupPageModel => {
   if (!input.loaded) return input.failed ? { kind: 'failed' } : { kind: 'loading' }
@@ -16,14 +19,24 @@ export const groupPageModel = (input: GroupPageInput): GroupPageModel => {
   const candidates = input.directory.filter(
     (entry) => !inside.has(entry.member.id) && entry.member.status === 'active',
   )
+  const messageable = new Set(
+    input.directory
+      .filter((entry) => entry.canMessage && isPerson(entry.member) && entry.member.id !== input.viewerId)
+      .map((entry) => entry.member.id),
+  )
   return {
     kind: 'group',
     group,
     title,
     membersHeading: strings.groups.membersOf({ group: title }),
     members: group.memberIds
-      .map((memberId) => memberRow(input, group, memberId))
+      .map((memberId) => memberRow(input, group, memberId, messageable))
       .sort((a, b) => a.name.localeCompare(b.name)),
+    groupMessage: groupMessage(
+      input,
+      title,
+      group.memberIds.filter((memberId) => messageable.has(memberId)),
+    ),
     rename: group.mayAdd ? { label: strings.groups.rename, value: group.name ?? '' } : null,
     addMember:
       !group.mayAdd || candidates.length === 0
@@ -48,6 +61,7 @@ export interface GroupPageInput {
   readonly failed: boolean
   readonly members: ReadonlyMap<MemberId, AsRead.Member>
   readonly directory: ReadonlyArray<AsRead.DirectoryEntry>
+  readonly conversations: ReadonlyArray<AsRead.Conversation>
   readonly viewerId: MemberId
   readonly charactersOn: boolean
 }
@@ -62,6 +76,8 @@ export type GroupPageModel =
       readonly title: string
       readonly membersHeading: string
       readonly members: ReadonlyArray<GroupMemberRow>
+      /** Writing to everyone else in the team at once: the group message there is, or a new one. */
+      readonly groupMessage: GroupMessage | null
       readonly rename: { readonly label: string; readonly value: string } | null
       readonly addMember: {
         readonly label: string
@@ -74,16 +90,47 @@ export interface GroupMemberRow {
   readonly avatar: AvatarModel
   readonly name: string
   readonly isYou: boolean
+  /** The label of the tile's button that opens a direct message, where the person may write to them. */
+  readonly message: string | null
   readonly remove: string | null
 }
 
-const memberRow = (input: GroupPageInput, group: AsRead.Group, memberId: MemberId): GroupMemberRow => {
+export interface GroupMessage {
+  readonly label: string
+  readonly memberIds: ReadonlyArray<MemberId>
+  readonly href: string | null
+}
+
+const memberRow = (
+  input: GroupPageInput,
+  group: AsRead.Group,
+  memberId: MemberId,
+  messageable: ReadonlySet<MemberId>,
+): GroupMemberRow => {
   const member = input.members.get(memberId)
+  const name = member?.name ?? strings.formerMember
   return {
     memberId,
     avatar: memberAvatarOf(member, input.charactersOn),
-    name: member?.name ?? strings.formerMember,
+    name,
     isYou: memberId === input.viewerId,
+    message: messageable.has(memberId) ? strings.groups.writeTo({ name }) : null,
     remove: group.mayRemove ? strings.removeMember : null,
   }
+}
+
+const groupMessage = (
+  input: GroupPageInput,
+  title: string,
+  memberIds: ReadonlyArray<MemberId>,
+): GroupMessage | null => {
+  if (memberIds.length < 2 || memberIds.length > RECIPIENTS_MAX) return null
+  const existing = groupWith(input.conversations, input.viewerId, memberIds)
+  return existing === undefined
+    ? { label: strings.groups.messageGroup({ group: title }), memberIds, href: null }
+    : {
+        label: strings.groups.openGroupMessage({ group: title }),
+        memberIds,
+        href: hrefFor({ name: 'conversation', id: existing.id, draft: null }),
+      }
 }

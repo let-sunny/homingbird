@@ -32,7 +32,7 @@ export const showApp = (
     stageLife.end()
     stageLife = lifetime()
     replaceChildren(stage, stageFor(context, stageLife, me, state.route.get()))
-    launch(track('page_viewed', { page: state.route.get().name }))
+    launch(track('page_viewed', { page: analyticsPageOf(state.route.get()) }))
   }
   const draw = (): void => {
     appLife.end()
@@ -137,3 +137,7 @@ const liveAnnouncer = (context: ViewContext, life: Lifetime): HTMLElement =>
 const inTransition = (context: ViewContext, change: () => void): void => {
   if (context.page.prefersReducedMotion() || !context.document.inTransition(change)) change()
 }
+
+/** A group's editor counts as the administration's page, so analytics keeps one value per area. */
+const analyticsPageOf = (route: Route): Exclude<Route['name'], 'admin-group'> =>
+  route.name === 'admin-group' ? 'admin' : route.name

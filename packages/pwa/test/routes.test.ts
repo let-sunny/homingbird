@@ -39,6 +39,7 @@ const routes: fc.Arbitrary<Route> = fc.oneof(
   fc
     .constantFrom<AdminSection>('settings', 'members', 'groups', 'channels', 'insights')
     .map((section): Route => ({ name: 'admin', section })),
+  segment.map((id): Route => ({ name: 'admin-group', id })),
   fc
     .option(fc.string({ maxLength: 60 }), { nil: null })
     .map((reason): Route => ({ name: 'signed-out', reason })),
@@ -81,6 +82,7 @@ describe('routes', () => {
     ['#/t', { name: 'unknown' }],
     ['#/admin/channels', { name: 'admin', section: 'channels' }],
     ['#/admin/groups', { name: 'admin', section: 'groups' }],
+    ['#/admin/groups/grp_team00000000', { name: 'admin-group', id: 'grp_team00000000' }],
     ['#/group/grp_team00000000', { name: 'group', id: 'grp_team00000000' }],
     ['#/group', { name: 'unknown' }],
     ['#/admin/insights', { name: 'admin', section: 'insights' }],

@@ -38,6 +38,7 @@ describe('groupStartModel', () => {
     const model = groupStartModel(base)!
     expect(model).toMatchObject({
       title: strings.groupStart.title,
+      collapsed: strings.groupStart.collapsed,
       intro: strings.groupStart.intro,
       count: '0 people chosen',
       status: strings.groupStart.none,

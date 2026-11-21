@@ -3,7 +3,7 @@ import { type Lifetime, h } from '@homingbird/ui'
 import { adminModel } from '../models/admin.ts'
 import type { AdminSection } from '../routes.ts'
 import { adminChannelsSection } from './admin-channels.ts'
-import { adminGroupsSection } from './admin-groups.ts'
+import { adminGroupEditor, adminGroupsSection } from './admin-groups.ts'
 import { adminMembersSection } from './admin-members.ts'
 import { settingsSection } from './admin-settings.ts'
 import type { ViewContext } from './context.ts'
@@ -16,6 +16,7 @@ export const adminView = (
   life: Lifetime,
   me: AsRead.Me,
   section: AdminSection,
+  groupId: string | null = null,
 ): HTMLElement => {
   const model = adminModel(context.state.serverInfo.get(), section)
   return page(
@@ -25,7 +26,9 @@ export const adminView = (
       { class: 'subtabs' },
       model.tabs.map((tab) => h('a', { href: tab.href, 'aria-current': tab.current && 'page' }, tab.label)),
     ),
-    SECTIONS[model.shown](context, life, me),
+    model.shown === 'groups' && groupId !== null
+      ? adminGroupEditor(context, life, me.member.id, groupId)
+      : SECTIONS[model.shown](context, life, me),
   )
 }
 

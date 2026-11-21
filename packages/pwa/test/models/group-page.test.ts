@@ -1,8 +1,20 @@
+import type { MemberId } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import { memberAvatarOf } from '../../src/models/avatar.ts'
 import { type GroupPageInput, groupNameFrom, groupPageModel } from '../../src/models/group-page.ts'
 import { strings } from '../../src/strings.ts'
-import { ANA, BEN, CY, TEAM, entry, group, managersOf, member } from '../support/fixtures.ts'
+import {
+  ANA,
+  BEN,
+  CY,
+  ROOM,
+  TEAM,
+  conversation,
+  entry,
+  group,
+  managersOf,
+  member,
+} from '../support/fixtures.ts'
 
 const members = new Map([
   [ANA, member(ANA, 'Ana')],
@@ -16,6 +28,7 @@ const input = (fields: Partial<GroupPageInput> = {}): GroupPageInput => ({
   failed: false,
   members,
   directory: [entry(ANA, 'Ana'), entry(BEN, 'Ben'), entry(CY, 'Cy')],
+  conversations: [],
   viewerId: ANA,
   charactersOn: false,
   ...fields,
@@ -44,6 +57,7 @@ describe('groupPageModel', () => {
       membersHeading: strings.groups.membersOf({ group: 'Finance' }),
       rename: null,
       addMember: null,
+      groupMessage: null,
     })
     expect(model.kind === 'group' && model.members).toEqual([
       {
@@ -51,6 +65,7 @@ describe('groupPageModel', () => {
         avatar: memberAvatarOf(members.get(ANA), false),
         name: 'Ana',
         isYou: true,
+        message: null,
         remove: null,
       },
       {
@@ -58,6 +73,7 @@ describe('groupPageModel', () => {
         avatar: memberAvatarOf(members.get(BEN), false),
         name: 'Ben',
         isYou: false,
+        message: strings.groups.writeTo({ name: 'Ben' }),
         remove: null,
       },
     ])
@@ -86,6 +102,43 @@ describe('groupPageModel', () => {
     expect(model.kind === 'group' && model.members.map((row) => [row.name, row.remove])).toEqual([
       ['Ben', strings.removeMember],
       [strings.formerMember, strings.removeMember],
+    ])
+  })
+})
+
+describe('writing to a team', () => {
+  const finance = [group(TEAM, { name: 'Finance', memberIds: [ANA, BEN, CY] })]
+
+  it('offers a group message with everyone else in it once there are two to write to', () => {
+    expect(groupPageModel(input({ groups: finance }))).toMatchObject({
+      groupMessage: {
+        label: strings.groups.messageGroup({ group: 'Finance' }),
+        memberIds: [BEN, CY],
+        href: null,
+      },
+    })
+    const viewerOutside = groupPageModel(input({ groups: finance, viewerId: 'mem_dee000000000' as MemberId }))
+    expect(viewerOutside).toMatchObject({ groupMessage: { memberIds: [ANA, BEN, CY] } })
+  })
+
+  it('opens the group message there already is with exactly them', () => {
+    const room = conversation({ id: ROOM, kind: 'group', participantIds: [CY, ANA, BEN] })
+    expect(groupPageModel(input({ groups: finance, conversations: [room] }))).toMatchObject({
+      groupMessage: {
+        label: strings.groups.openGroupMessage({ group: 'Finance' }),
+        href: `#/c/${ROOM}`,
+      },
+    })
+  })
+
+  it('writes to nobody the person may not message', () => {
+    const directory = [entry(ANA, 'Ana'), entry(BEN, 'Ben'), entry(CY, 'Cy', { canMessage: false })]
+    const model = groupPageModel(input({ groups: finance, directory }))
+    expect(model).toMatchObject({ groupMessage: null })
+    expect(model.kind === 'group' && model.members.map((row) => row.message)).toEqual([
+      null,
+      strings.groups.writeTo({ name: 'Ben' }),
+      null,
     ])
   })
 })

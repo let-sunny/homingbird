@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { adminGroupsModel, importModel } from '../../src/models/admin-groups.ts'
+import { adminGroupModel, adminGroupsModel, importModel } from '../../src/models/admin-groups.ts'
+import { type GroupPageInput, groupPageModel } from '../../src/models/group-page.ts'
 import { strings } from '../../src/strings.ts'
 import { ANA, BEN, CY, OPS, TEAM, group, managersOf, member } from '../support/fixtures.ts'
 
@@ -15,7 +16,7 @@ describe('adminGroupsModel', () => {
     })
   })
 
-  it('lists every team by name with its members, to import into and delete, and no channel’s managers', () => {
+  it('lists every team by name with its members, each opening its editor, and no channel’s managers', () => {
     const model = adminGroupsModel(
       [
         group(TEAM, { name: 'Zeta', memberIds: [ANA] }),
@@ -26,24 +27,52 @@ describe('adminGroupsModel', () => {
       false,
     )
     expect(model.kind === 'groups' && model.rows.map(({ group: _, ...row }) => row)).toEqual([
-      {
-        label: 'Alpha',
-        href: '#/group/grp_ops000000000',
-        members: strings.memberCount({ count: 0 }),
-        deleteTitle: strings.groups.deleteTitle({ group: 'Alpha' }),
-        importCsv: strings.groups.importCsv,
-      },
-      {
-        label: 'Zeta',
-        href: '#/group/grp_team00000000',
-        members: strings.memberCount({ count: 1 }),
-        deleteTitle: strings.groups.deleteTitle({ group: 'Zeta' }),
-        importCsv: null,
-      },
+      { label: 'Alpha', href: '#/admin/groups/grp_ops000000000', members: strings.memberCount({ count: 0 }) },
+      { label: 'Zeta', href: '#/admin/groups/grp_team00000000', members: strings.memberCount({ count: 1 }) },
     ])
     expect(adminGroupsModel([managersOf('billing')], true, false)).toMatchObject({
       empty: strings.groups.none,
     })
+  })
+})
+
+describe('adminGroupModel', () => {
+  const back = { label: strings.groups.backToGroups, href: '#/admin/groups' }
+  const page = (fields: Partial<GroupPageInput> = {}) =>
+    groupPageModel({
+      id: TEAM,
+      groups: [group(TEAM, { name: 'Finance', memberIds: [ANA], mayAdd: true })],
+      loaded: true,
+      failed: false,
+      members: new Map(),
+      directory: [],
+      conversations: [],
+      viewerId: ANA,
+      charactersOn: false,
+      ...fields,
+    })
+
+  it('waits, fails or misses the group with the way back to every group', () => {
+    expect(adminGroupModel(page({ loaded: false }))).toEqual({ kind: 'loading', back })
+    expect(adminGroupModel(page({ loaded: false, failed: true }))).toEqual({ kind: 'failed', back })
+    expect(adminGroupModel(page({ groups: [] }))).toEqual({ kind: 'missing', back })
+  })
+
+  it('edits the team, imports into it only where the administrator may add, and deletes it', () => {
+    const shown = adminGroupModel(page())
+    expect(shown).toMatchObject({
+      kind: 'group',
+      back,
+      page: { title: 'Finance', rename: { value: 'Finance' } },
+      importCsv: strings.groups.importCsv,
+      remove: {
+        label: strings.groups.delete,
+        title: strings.groups.deleteTitle({ group: 'Finance' }),
+        hint: strings.groups.deleteHint,
+      },
+    })
+    const frozen = adminGroupModel(page({ groups: [group(TEAM, { name: 'Finance' })] }))
+    expect(frozen).toMatchObject({ importCsv: null, page: { rename: null } })
   })
 })
 

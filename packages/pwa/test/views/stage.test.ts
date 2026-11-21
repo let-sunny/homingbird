@@ -27,6 +27,7 @@ const routes: ReadonlyArray<Route> = [
   { name: 'device', code: null },
   { name: 'consent', id: 'consent_1' },
   { name: 'admin', section: 'settings' },
+  { name: 'admin-group', id: 'grp_team00000000' },
 ]
 
 const shows = (child: unknown): string => textOf(child)
@@ -41,6 +42,9 @@ describe('stageFor', () => {
     expect(shows(stageFor(context, lifetime(), me(), { name: 'admin', section: 'settings' }))).toContain(
       strings.notFound,
     )
+    expect(
+      shows(stageFor(context, lifetime(), me(), { name: 'admin-group', id: 'grp_team00000000' })),
+    ).toContain(strings.notFound)
     expect(shows(stageFor(context, lifetime(), me(), { name: 'unknown' }))).toContain(strings.notFound)
     expect(shows(stageFor(context, lifetime(), me(), { name: 'signed-out', reason: null }))).toContain(
       strings.notFound,

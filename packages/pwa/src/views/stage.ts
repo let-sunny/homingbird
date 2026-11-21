@@ -69,6 +69,8 @@ export const stageFor = (context: ViewContext, life: Lifetime, me: AsRead.Me, cu
       return consentView(context, life, current.id)
     case 'admin':
       return me.member.role === 'admin' ? adminView(context, life, me, current.section) : notFound()
+    case 'admin-group':
+      return me.member.role === 'admin' ? adminView(context, life, me, 'groups', current.id) : notFound()
     case 'invite':
       return emptyWithPip(
         'sign-in',

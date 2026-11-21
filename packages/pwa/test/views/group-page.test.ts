@@ -6,7 +6,7 @@ import { dialogHost } from '../../src/views/dialog.ts'
 import { groupPageView } from '../../src/views/group-page.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
-import { ANA, BEN, CY, TEAM, entry, group } from '../support/fixtures.ts'
+import { ANA, BEN, CY, ROOM, TEAM, conversation, entry, group } from '../support/fixtures.ts'
 
 usingFakeDom()
 
@@ -77,5 +77,26 @@ describe('groupPageView', () => {
     expect(shown.querySelector('form.add-member')).toBeNull()
     expect(queryByRole(shown, 'button', { name: strings.groups.rename })).toBeNull()
     expect(getByRole(shown, 'heading', { name: strings.groups.unnamed })).toBeTruthy()
+  })
+
+  it('loads the people, opens a direct message from a member’s tile, and starts a group message', () => {
+    const { context, called } = testContext()
+    context.state.directory.set([entry(ANA, 'Ana'), entry(BEN, 'Ben'), entry(CY, 'Cy')])
+    context.state.groups.set([group(TEAM, { name: 'Finance', memberIds: [ANA, BEN, CY] })])
+    context.state.groupsLoaded.set(true)
+    const shown = groupPageView(context, lifetime(), ANA, TEAM)
+    expect(called('loadPeople')).toHaveLength(1)
+    const ana = shown.querySelector(`[data-member-id="${ANA}"]`) as HTMLElement
+    expect(ana.querySelector('button')).toBeNull()
+    getByRole(shown, 'button', { name: strings.groups.writeTo({ name: 'Ben' }) }).click()
+    expect(called('openConversationWith')[0]!.args).toEqual([BEN])
+    getByRole(shown, 'button', { name: strings.groups.messageGroup({ group: 'Finance' }) }).click()
+    expect(called('openConversationAmong')[0]!.args).toEqual([[BEN, CY]])
+    context.state.conversations.set([conversation({ kind: 'group', participantIds: [ANA, BEN, CY] })])
+    expect(
+      getByRole(shown, 'link', { name: strings.groups.openGroupMessage({ group: 'Finance' }) }).getAttribute(
+        'href',
+      ),
+    ).toBe(`#/c/${ROOM}`)
   })
 })

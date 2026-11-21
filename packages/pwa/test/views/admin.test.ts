@@ -5,7 +5,7 @@ import { strings } from '../../src/strings.ts'
 import { adminView } from '../../src/views/admin.ts'
 import { testContext } from '../support/context.ts'
 import { usingFakeDom } from '../support/dom.ts'
-import { everything, me } from '../support/fixtures.ts'
+import { everything, me, serverInfo } from '../support/fixtures.ts'
 
 usingFakeDom()
 
@@ -28,5 +28,18 @@ describe('adminView', () => {
     }
     const shown = adminView(context, lifetime(), admin, 'members')
     expect(getByRole(shown, 'link', { name: strings.adminMembers }).getAttribute('aria-current')).toBe('page')
+  })
+
+  it('opens a team’s editor under the Groups tab, and settings where groups are off', () => {
+    const { context } = testContext()
+    context.state.serverInfo.set(everything())
+    const admin = me({}, { role: 'admin' })
+    const shown = adminView(context, lifetime(), admin, 'groups', 'grp_team00000000')
+    expect(shown.querySelector('.admin-group')).not.toBeNull()
+    expect(getByRole(shown, 'link', { name: strings.groups.title }).getAttribute('aria-current')).toBe('page')
+    context.state.serverInfo.set(serverInfo())
+    expect(
+      adminView(context, lifetime(), admin, 'groups', 'grp_team00000000').querySelector('.admin-group'),
+    ).toBeNull()
   })
 })

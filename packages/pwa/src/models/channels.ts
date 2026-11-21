@@ -128,8 +128,8 @@ export interface ChannelCard {
   readonly label: string
   readonly href: string
   readonly status: { readonly text: string; readonly className: string } | null
-  readonly mayJoin: boolean
-  readonly open: { readonly text: string; readonly primary: boolean }
+  /** Joining an open channel the person is not in: one button, answering there too in its menu. */
+  readonly join: { readonly label: string; readonly more: string; readonly joinAndAnswer: string } | null
 }
 
 export interface AskPageModel {
@@ -158,9 +158,12 @@ const channelCard = (channel: AsRead.Channel): ChannelCard => ({
     : channel.joined
       ? { text: strings.inRoom, className: 'kind is-joined' }
       : null,
-  mayJoin: !channel.joined && !isPrivate(channel),
-  open: {
-    text: channel.joined || isPrivate(channel) ? strings.openRoom : strings.askChannel,
-    primary: channel.joined,
-  },
+  join:
+    channel.joined || isPrivate(channel)
+      ? null
+      : {
+          label: strings.join,
+          more: strings.channelMore({ channel: channelLabel(channel.slug) }),
+          joinAndAnswer: strings.joinAndAnswer,
+        },
 })

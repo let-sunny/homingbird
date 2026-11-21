@@ -103,14 +103,18 @@ describe('peopleModel', () => {
       rest: ['f', 'g'],
       more: strings.moreChannels({ count: 2 }),
     })
-    expect(person!.profile).toEqual({ open: false, text: strings.noProfile })
+    expect(person!.profile).toEqual({
+      open: false,
+      summary: strings.profileAboutOther,
+      text: strings.noProfile,
+    })
     expect(person!.agentIntroduction).toEqual(['Answers billing questions.'])
     const [plain] = list({
       directory: [entry(BEN, 'Ben', { member: { ...entry(BEN, 'Ben').member, profile: 'Hi' } })],
     })
     expect(plain!.relation).toBeNull()
     expect(plain!.channels).toBeNull()
-    expect(plain!.profile).toEqual({ open: true, text: 'Hi' })
+    expect(plain!.profile).toEqual({ open: true, summary: strings.profileAboutOther, text: 'Hi' })
     expect(plain!.agentIntroduction).toEqual([])
   })
 
@@ -125,11 +129,20 @@ describe('peopleModel', () => {
     expect(states).toEqual(['blocked', 'idle', 'offline'])
   })
 
-  it('offers what each relation allows', () => {
-    const actionsFor = (relation: Relation, mode: PeopleInput['contactMode'], canMessage = true) =>
-      list({ contactMode: mode, directory: [entry(BEN, 'Ben', { relation, canMessage })] })[0]!.actions.map(
-        (action) => action.kind,
-      )
+  it('offers what each relation allows, blocking behind the card’s menu', () => {
+    const actionsFor = (relation: Relation, mode: PeopleInput['contactMode'], canMessage = true) => {
+      const [card] = list({ contactMode: mode, directory: [entry(BEN, 'Ben', { relation, canMessage })] })
+      return [...card!.actions, ...(card!.more?.actions ?? [])].map((action) => action.kind)
+    }
+    const [ben] = list({ directory: [entry(BEN, 'Ben')] })
+    expect(ben!.actions.map((action) => action.kind)).toEqual(['message'])
+    expect(ben!.more).toEqual({
+      label: strings.personMore({ name: 'Ben' }),
+      actions: [{ kind: 'block', label: strings.block, style: 'danger', hint: null }],
+    })
+    const [self] = list({ directory: [entry(BEN, 'Ben', { relation: 'self' })] })
+    expect(self!.more).toBeNull()
+    expect(self!.profile.summary).toBe(strings.profileAbout)
     expect(actionsFor('self', 'open')).toEqual([])
     expect(actionsFor('blocked', 'open')).toEqual(['unblock'])
     expect(actionsFor('none', 'open')).toEqual(['message', 'block'])

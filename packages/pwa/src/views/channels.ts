@@ -23,7 +23,7 @@ import { agentAsk } from './agent-ask.ts'
 import { joinButtons, privateMark, roomControls } from './channel-membership.ts'
 import type { ViewContext } from './context.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
-import { channelChips, channelCounts, empty, emptyWithPip, field, loading, page } from './parts.ts'
+import { button, channelChips, channelCounts, empty, emptyWithPip, field, loading, page } from './parts.ts'
 
 /** Channels: every channel the person may see, searchable, a page at a time. */
 export const channelsView = (context: ViewContext, life: Lifetime): HTMLElement => {
@@ -124,13 +124,33 @@ const channelCard = (card: ChannelCard, context: ViewContext): HTMLElement =>
         card.status !== null && h('span', { class: card.status.className }, card.status.text),
       ),
     ),
+    card.join !== null && joinActions(context, card.channel, card.join),
+  )
+
+const joinActions = (
+  context: ViewContext,
+  channel: AsRead.Channel,
+  join: NonNullable<ChannelCard['join']>,
+): HTMLElement => {
+  const menuId = `channel-menu-${channel.slug}`
+  return h(
+    'div',
+    { class: 'channel-actions' },
+    button(join.label, () => context.actions.joinChannel(channel.slug, false), { class: 'join' }),
+    h(
+      'button',
+      { type: 'button', class: 'channel-more', popovertarget: menuId, 'aria-label': join.more },
+      '⋯',
+    ),
     h(
       'div',
-      { class: 'channel-actions' },
-      card.mayJoin && joinButtons(context, card.channel),
-      h('a', { class: `button ${card.open.primary ? 'primary' : ''}`, href: card.href }, card.open.text),
+      { id: menuId, class: 'menu channel-menu', popover: 'auto' },
+      button(join.joinAndAnswer, () => context.actions.joinChannel(channel.slug, true), {
+        class: 'menu-item join-and-answer',
+      }),
     ),
   )
+}
 
 const createForm = (context: ViewContext, life: Lifetime): HTMLElement => {
   const { state, actions } = context

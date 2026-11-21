@@ -212,7 +212,7 @@ const personCard = (
         h(
           'details',
           { class: 'person-profile', open: person.profile.open },
-          h('summary', {}, strings.profileAbout),
+          h('summary', {}, person.profile.summary),
           h('p', {}, person.profile.text),
         ),
         person.agentIntroduction.length > 0 &&
@@ -234,9 +234,34 @@ const personCard = (
           actionButton(one, person, context.actions),
           one.kind === 'message' && choiceFor(person.memberId, choices),
         ]),
+        person.more !== null && moreMenu(person, person.more, context.actions),
       ),
     ),
   )
+
+const moreMenu = (
+  person: PersonCard,
+  more: NonNullable<PersonCard['more']>,
+  actions: Actions,
+): HTMLElement[] => {
+  const menuId = `person-menu-${person.memberId}`
+  return [
+    h(
+      'button',
+      { type: 'button', class: 'person-more', popovertarget: menuId, 'aria-label': more.label },
+      '⋯',
+    ),
+    h(
+      'div',
+      { id: menuId, class: 'menu person-menu', popover: 'auto' },
+      more.actions.map((one) =>
+        button(one.label, () => ACTIONS[one.kind](actions, person), {
+          class: `menu-item${one.style === null ? '' : ` ${one.style}`}`,
+        }),
+      ),
+    ),
+  ]
+}
 
 const choiceFor = (memberId: MemberId, choices: Choices): HTMLElement | null => {
   const toggle = choices.toggles.get(memberId)
