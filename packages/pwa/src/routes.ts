@@ -8,6 +8,8 @@ export type Route =
       readonly draft: string | null
       /** A channel's agent's answer the person reviews, shown under its question in the room. */
       readonly review?: string
+      /** A sent note a copied link points at, brought into view when the conversation opens. */
+      readonly note?: string
     }
   | { readonly name: 'people' }
   | { readonly name: 'group'; readonly id: string }
@@ -48,11 +50,13 @@ export const parseRoute = (hash: string): Route => {
   if (head === '') return { name: 'home' }
   if (head === 'c' && second !== undefined) {
     const review = parameters.get('review')
+    const note = parameters.get('note')
     return {
       name: 'conversation',
       id: second,
       draft: parameters.get('draft'),
       ...(review !== null && { review }),
+      ...(note !== null && { note }),
     }
   }
   if (head === 'people') return { name: 'people' }
@@ -92,6 +96,7 @@ export const hrefFor = (route: Route): string => {
       return withQuery(`#/c/${encodeURIComponent(route.id)}`, {
         ...(route.draft !== null && { draft: route.draft }),
         ...(route.review !== undefined && { review: route.review }),
+        ...(route.note !== undefined && { note: route.note }),
       })
     case 'people':
       return '#/people'

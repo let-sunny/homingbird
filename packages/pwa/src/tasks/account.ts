@@ -9,6 +9,7 @@ import type {
   Locale,
 } from '@homingbird/protocol'
 import { type Action, type App, withApp } from '../app.ts'
+import { forgetComposerTexts } from '../composer-texts.ts'
 import { preferredLanguage } from '../languages.ts'
 import { signedIn } from '../state.ts'
 import { strings, useLanguage } from '../strings.ts'
@@ -107,7 +108,9 @@ export const returnAfterAMoment = (url: string): Action =>
   })
 
 export const signOut: Action = T.gen(function* () {
-  const { page } = yield* T.ask<App>()
+  const { page, state } = yield* T.ask<App>()
+  const me = signedIn(state)
+  if (me !== null) forgetComposerTexts(page.storage, me.member.id)
   yield* T.tryPromise(
     (signal) =>
       page.fetch('/auth/logout', { method: 'POST', headers: { 'x-homingbird-request': '1' }, signal }),

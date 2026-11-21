@@ -1,9 +1,10 @@
 import { Task as T } from '@homingbird/kernel'
 import type { AsRead, ConversationId, NoteId } from '@homingbird/protocol'
-import { batch } from '@homingbird/ui'
+import { batch, isSameData } from '@homingbird/ui'
 import { type Action, type App, withApp } from '../app.ts'
+import { keepComposerTexts, withComposerText } from '../composer-texts.ts'
 import { type MISSING, orMissing } from '../missing.ts'
-import type { AppState } from '../state.ts'
+import { type AppState, signedIn } from '../state.ts'
 import { withNoteFiled, withoutNote } from '../thread.ts'
 import { loadConversations } from './workspace.ts'
 
@@ -48,6 +49,29 @@ export const markRead = (note: AsRead.Note): Action =>
 export const chooseReplyTarget = (conversationId: ConversationId, noteId: NoteId | null): Action =>
   withApp(({ state }) =>
     T.sync(() => state.replyTargets.update((targets) => new Map(targets).set(conversationId, noteId))),
+  )
+
+/** Answers a note: it becomes the reply target, and the conversation's composer takes the focus. */
+export const replyTo = (conversationId: ConversationId, noteId: NoteId): Action =>
+  withApp(({ state }) =>
+    T.sync(() =>
+      batch(() => {
+        state.replyTargets.update((targets) => new Map(targets).set(conversationId, noteId))
+        state.composerFocus.set(conversationId)
+      }),
+    ),
+  )
+
+/** Keeps what the person typed in a conversation and has not sent, in memory and in this browser. */
+export const keepComposerText = (conversationId: ConversationId, text: string): Action =>
+  withApp(({ state, page }) =>
+    T.sync(() => {
+      const me = signedIn(state)
+      const texts = withComposerText(state.composerTexts.get(), conversationId, text)
+      if (isSameData(texts, state.composerTexts.get())) return
+      state.composerTexts.set(texts)
+      if (me !== null) keepComposerTexts(page.storage, me.member.id, texts)
+    }),
   )
 
 /** The note a new note answers: only the one the person chose with a note's Reply button. */

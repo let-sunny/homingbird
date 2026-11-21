@@ -26,12 +26,18 @@ import {
 
 usingFakeDom()
 
-const open = (focusedDraft: string | null = null, focusedReview: string | null = null) => {
+const open = (
+  focusedDraft: string | null = null,
+  focusedReview: string | null = null,
+  focusedNote: string | null = null,
+) => {
   const test = testContext()
   test.context.state.session.set(me())
   test.context.state.directory.set([entry(BEN, 'Ben')])
   test.context.state.conversations.set([conversation()])
-  const shown = mount(threadView(test.context, lifetime(), me(), ROOM, focusedDraft, focusedReview))
+  const shown = mount(
+    threadView(test.context, lifetime(), me(), ROOM, focusedDraft, focusedReview, focusedNote),
+  )
   return { ...test, shown }
 }
 
@@ -162,6 +168,16 @@ describe('threadView', () => {
     page.runFrames()
     expect(document.activeElement).toBe(document.body)
     expect(textOf(shown)).toContain(strings.draftChangedSinceRead)
+  })
+
+  it('brings the sent note a copied link points at into view, marked as the one looked at', () => {
+    const { context, shown, page } = open(null, null, 'n2')
+    withNotes(context, [note('n1'), note('n2'), note('n3')])
+    const pointed = shown.querySelector<HTMLElement>('.note[data-note-id="n2"]')!
+    expect(pointed.classList.contains('is-active')).toBe(true)
+    expect(shown.querySelector('.note[data-note-id="n1"]')!.classList.contains('is-active')).toBe(false)
+    page.runFrames()
+    expect(document.activeElement).toBe(pointed)
   })
 
   it('says a draft a notification opened was already sent or discarded, instead of an empty card', () => {

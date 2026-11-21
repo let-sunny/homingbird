@@ -196,7 +196,7 @@ const scenario = async (): Promise<void> => {
     await june.page.locator('.asked-chip').getByRole('button', { name: 'Withdraw' }).click()
     await june.page.waitForSelector('.asked-chip', { state: 'detached' })
 
-    await june.page.click('.ask-agent summary')
+    await june.page.click('.composer .ask-agent-toggle')
     await june.page.fill('.ask-agent input[name=instruction]', 'Tell Ana the export finishes at 1:40am')
     assert.equal(await june.page.locator('.ask-agent select[name=agent] option').count(), 3)
     await capture(june.page, 'let-my-agent-write-it-with-instruction-and-agent-picker')

@@ -96,6 +96,7 @@ export const fakePage = (hash = '#/') => {
     },
     assign: (url) => void visited.push(`assign ${url}`),
     replaceAddress: (href) => void visited.push(`address ${href}`),
+    linkTo: (href) => `http://localhost/${href}`,
     fetch: () => Promise.reject(new Error('no network in unit tests')),
     languages: () => ['en-GB'],
     isVisible: () => state.visible,

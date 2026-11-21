@@ -96,6 +96,7 @@ describe('sidebarModel', () => {
     muteOn: true,
     now: 10,
     arrived: new Set(),
+    typedIn: new Set(),
     ...fields,
   })
 
@@ -121,6 +122,7 @@ describe('sidebarModel', () => {
         route: { name: 'conversation', id: ROOM, draft: null },
         directory: [entry(BEN, 'Ben', { presence: { humanOnline: true, agentOnline: false } })],
         arrived: new Set([ROOM]),
+        typedIn: new Set([ROOM]),
       }),
     )
     if (model.people.kind !== 'rows') throw new Error('expected rows')
@@ -137,6 +139,7 @@ describe('sidebarModel', () => {
       time: timeShown(9, 10),
       unread: { count: 2, label: strings.unread({ count: 2 }) },
       drafts: { text: '✎1', label: strings.draftsWaiting({ count: 1 }) },
+      typed: { text: '✎', label: strings.unsentText },
     })
     expect(row!.face).toMatchObject({
       kind: 'member',

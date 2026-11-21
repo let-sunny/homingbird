@@ -1,4 +1,4 @@
-import type { AsRead } from '@homingbird/protocol'
+import type { AsRead, ConversationId, NoteId } from '@homingbird/protocol'
 import { type Lifetime, h, keyedRegion, lifetime, onAnyChange, region, slice } from '@homingbird/ui'
 import { featureOn } from '../features.ts'
 import {
@@ -14,7 +14,7 @@ import { reviewCard } from './channel-agent.ts'
 import type { ViewContext } from './context.ts'
 import { renderDraftsItem, reportWhenSeen } from './drafts-item.ts'
 import { bellIcon } from './mute-toggle.ts'
-import { timeLabel } from './parts.ts'
+import { button, timeLabel } from './parts.ts'
 
 /**
  * The header's bell: how many things wait for the person. It opens the activity panel where popovers
@@ -201,7 +201,7 @@ const renderItem = (context: ViewContext, item: ActivityItem): HTMLElement => {
         head,
         h('blockquote', { class: 'activity-quote' }, h('small', {}, item.from), h('p', {}, item.body)),
         h('p', { class: 'released' }, item.reason),
-        h('a', { class: 'button', href: item.place.href }, item.reply),
+        button(item.reply, () => replyYourself(context, item.place.href, item.replyTo)),
       )
     case 'unavailable':
       return h(
@@ -220,6 +220,21 @@ const renderItem = (context: ViewContext, item: ActivityItem): HTMLElement => {
         h('a', { class: 'button', href: item.place.href }, item.place.label),
       )
   }
+}
+
+/**
+ * Closes the panel before the conversation opens, so the page underneath never shows through, sets
+ * the reply target and leaves the focus to the composer.
+ */
+const replyYourself = (
+  context: ViewContext,
+  href: string,
+  target: { readonly conversationId: ConversationId; readonly noteId: NoteId },
+): void => {
+  const panel = context.document.byId(ACTIVITY_PANEL_ID)
+  if (panel !== null && hasPopover(panel) && panel.matches(':popover-open')) panel.hidePopover()
+  context.actions.replyTo(target.conversationId, target.noteId)
+  context.page.go(href)
 }
 
 const placeLine = (place: ActivityPlace): HTMLElement =>

@@ -354,6 +354,16 @@ describe('events', () => {
     expect(dialog.open).toBe(false)
   })
 
+  it('gives the focus to the field marked autofocus when a dialog opens as a modal', () => {
+    const dialog = document.createElement('dialog')
+    const field = document.createElement('textarea')
+    field.setAttribute('autofocus', '')
+    dialog.append(document.createElement('button'), field)
+    document.body.append(dialog)
+    dialog.showModal()
+    expect(document.activeElement).toBe(field)
+  })
+
   it('moves focus, and a changed control dispatches change as it loses it', () => {
     document.body.append(document.createElement('input'), document.createElement('input'))
     const [first, second] = document.querySelectorAll('input') as [

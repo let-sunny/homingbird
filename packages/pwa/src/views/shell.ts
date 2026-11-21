@@ -221,6 +221,7 @@ const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLEleme
       charactersOn: featureOn('characters', state.serverInfo.get()),
       muteOn: featureOn('mute', state.serverInfo.get()),
       now: context.clock.now(),
+      typedIn: state.typedIn.get(),
       arrived: new Set(
         withArrivals
           ? peopleConversations(conversations)
@@ -231,13 +232,14 @@ const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLEleme
     })
   }
   const peopleSources = [
+    state.typedIn,
     state.conversations,
     state.members,
     state.directory,
     state.route,
     state.conversationsLoaded,
   ]
-  const roomSources = [state.conversations, state.route, state.channels, state.reviews]
+  const roomSources = [state.conversations, state.route, state.channels, state.reviews, state.typedIn]
   const archivedSources = [state.conversations, state.route, state.members]
   return h(
     'aside',
@@ -379,6 +381,12 @@ const conversationRow = (context: ViewContext, row: ConversationRow): HTMLElemen
       h(
         'span',
         { class: 'conversation-side' },
+        row.typed !== null &&
+          h(
+            'span',
+            { class: 'typed-mark', role: 'img', 'aria-label': row.typed.label, title: row.typed.label },
+            row.typed.text,
+          ),
         row.time !== null && timeLabel(row.time),
         row.unread !== null &&
           h('span', { class: 'count unread', 'aria-label': row.unread.label }, row.unread.count),

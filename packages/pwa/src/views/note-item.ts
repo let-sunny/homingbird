@@ -1,6 +1,7 @@
 import type { AsRead, ConversationId } from '@homingbird/protocol'
-import { type Lifetime, h, linkedText } from '@homingbird/ui'
-import type { NoteItemModel } from '../models/note-item.ts'
+import { type Child, type Lifetime, h, linkedText } from '@homingbird/ui'
+import type { NoteItemModel, NoteMenuItem } from '../models/note-item.ts'
+import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 import { authorButton } from './author-details.ts'
 import { renderAvatar } from './character-avatar.ts'
@@ -19,18 +20,19 @@ export const renderNoteItem = (
   const { actions } = context
   const askAgent = (): void =>
     actions.askAgent({ destination: { inReplyTo: note.id }, instruction: '', agentId: null })
-  const ACTIONS: Readonly<Record<NoteItemModel['menu']['items'][number]['kind'], () => void>> = {
+  const reply = (): void => actions.replyTo(conversationId, note.id)
+  const ACTIONS: Readonly<Record<NoteMenuItem['kind'], () => void>> = {
+    reply,
     'ask-agent': askAgent,
-    copy: () => copyNote(context, note.body),
+    copy: () => copyText(context, note.body, strings.noteCopied),
+    'copy-link': () => copyText(context, noteLink(context, conversationId, note), strings.noteLinkCopied),
   }
   const more = actionMenu(context, {
     id: model.menu.id,
     label: model.menu.label,
     triggerClass: 'note-more',
     menuClass: 'note-menu',
-    items: model.menu.items.map((item) =>
-      button(item.label, ACTIONS[item.kind], { class: `menu-item ${ITEM_CLASSES[item.kind]}` }),
-    ),
+    items: model.menu.items.map((item) => menuItem(model.menu.id, item, ACTIONS[item.kind])),
   })
   const li = h(
     'li',
@@ -59,7 +61,7 @@ export const renderNoteItem = (
           'div',
           { class: 'note-toolbar' },
           model.reply !== null &&
-            button(model.reply, () => actions.chooseReplyTarget(conversationId, note.id), {
+            button(model.reply, reply, {
               class: 'note-reply',
             }),
           more.trigger,
@@ -123,19 +125,37 @@ export const renderNoteItem = (
   return li
 }
 
-const copyNote = (context: ViewContext, body: string): void => {
+const menuItem = (menuId: string, item: NoteMenuItem, choose: () => void): Child => {
+  const className = `menu-item ${ITEM_CLASSES[item.kind]}`
+  if (item.reason === null) return button(item.label, choose, { class: className })
+  const reasonId = `${menuId}-${item.kind}-reason`
+  return [
+    h(
+      'button',
+      { type: 'button', class: className, disabled: true, 'aria-describedby': reasonId },
+      item.label,
+    ),
+    h('small', { id: reasonId, class: 'menu-reason' }, item.reason),
+  ]
+}
+
+const copyText = (context: ViewContext, text: string, copied: string): void => {
   void context.page
-    .copyText(body)
+    .copyText(text)
     .then((isCopied) =>
       context.state.notice.set(
-        isCopied
-          ? { kind: 'info', text: strings.noteCopied }
-          : { kind: 'error', text: strings.noteNotCopied },
+        isCopied ? { kind: 'info', text: copied } : { kind: 'error', text: strings.noteNotCopied },
       ),
     )
 }
 
-const ITEM_CLASSES: Readonly<Record<NoteItemModel['menu']['items'][number]['kind'], string>> = {
+/** The address that opens the conversation at this note, for pasting elsewhere. */
+const noteLink = (context: ViewContext, conversationId: ConversationId, note: AsRead.Note): string =>
+  context.page.linkTo(hrefFor({ name: 'conversation', id: conversationId, draft: null, note: note.id }))
+
+const ITEM_CLASSES: Readonly<Record<NoteMenuItem['kind'], string>> = {
+  reply: 'reply-note',
   'ask-agent': 'ask-reply',
   copy: 'copy-note',
+  'copy-link': 'copy-note-link',
 }

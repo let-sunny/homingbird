@@ -99,7 +99,14 @@ export type ActivityItem =
   | ActivityEntry<'review', { readonly card: ReviewCard }>
   | ActivityEntry<
       'skipped',
-      { readonly from: string; readonly body: string; readonly reason: string; readonly reply: string }
+      {
+        readonly from: string
+        readonly body: string
+        readonly reason: string
+        readonly reply: string
+        /** The note “Reply yourself” answers, in the conversation it opens. */
+        readonly replyTo: { readonly conversationId: ConversationId; readonly noteId: NoteId }
+      }
     >
   | ActivityEntry<'unavailable', { readonly heading: string; readonly lines: ReadonlyArray<string> }>
   | ActivityEntry<'debate', { readonly text: string }>
@@ -227,6 +234,7 @@ const skippedItems = (input: ActivityInput): ActivityItem[] =>
             ? strings.agentReleasedWithoutReason
             : strings.agentReleased({ reason: release.reason }),
         reply: strings.activity.replyYourself,
+        replyTo: { conversationId: room.id, noteId },
       },
     ]
   })
