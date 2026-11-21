@@ -7,6 +7,7 @@ import type {
   StatusSummary,
 } from '@homingbird/protocol'
 import { requestAnsweredBy } from './draft-requests.ts'
+import { formats, strings } from './strings.ts'
 
 export type ThreadItem =
   | {
@@ -111,18 +112,6 @@ export const withPresence = (
   })
 }
 
-export const noteAwaitingReply = (
-  notes: ReadonlyArray<AsRead.Note>,
-  viewerId: MemberId,
-): AsRead.Note | null =>
-  notes
-    .filter((note) => note.status === 'sent' && note.authorId !== viewerId)
-    .filter((note) =>
-      note.receipts.some((receipt) => receipt.memberId === viewerId && receipt.repliedAt === null),
-    )
-    .sort(bySentTime)
-    .at(-1) ?? null
-
 export const isUnreadBy = (note: AsRead.Note, viewerId: MemberId): boolean =>
   note.status === 'sent' &&
   note.authorId !== viewerId &&
@@ -140,9 +129,17 @@ export const conversationTitle = (
   const archived = isArchived(conversation)
   const title = archived ? (conversation.title?.replace(ARCHIVED_SUFFIX, '') ?? null) : conversation.title
   if (title !== null) return conversation.kind === 'channel' || archived ? `#${title}` : title
-  return otherParticipants(conversation, viewerId)
-    .map((memberId) => members.get(memberId)?.name ?? unknownName)
-    .join(', ')
+  return namesInBrief(
+    otherParticipants(conversation, viewerId).map((memberId) => members.get(memberId)?.name ?? unknownName),
+  )
+}
+
+/** Names on one line: the first two, then how many more, as in "Ana, Kai +2". */
+export const namesInBrief = (names: ReadonlyArray<string>): string => {
+  const listed = formats.names.format(names.slice(0, NAMES_IN_BRIEF))
+  return names.length <= NAMES_IN_BRIEF
+    ? listed
+    : strings.namesAndMore({ names: listed, count: names.length - NAMES_IN_BRIEF })
 }
 
 /** Whether the person muted this conversation: it raises no notification, in the page or on a device. */
@@ -245,6 +242,8 @@ const presenceAfter = (before: AsRead.Presence, change: PresenceChange): AsRead.
 }
 
 const ARCHIVED_SUFFIX = / \(archived\)$/
+
+const NAMES_IN_BRIEF = 2
 
 const bySentTime = (a: AsRead.Note, b: AsRead.Note): number =>
   (a.sentAt ?? 0) - (b.sentAt ?? 0) || a.id.localeCompare(b.id)

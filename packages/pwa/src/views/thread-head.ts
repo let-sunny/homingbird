@@ -1,12 +1,12 @@
 import type { Child } from '@homingbird/ui'
 import { h } from '@homingbird/ui'
-import type { ThreadHead } from '../models/thread-room.ts'
-import { privateMark, roomControls } from './channel-membership.ts'
+import type { GroupPeople, ThreadHead } from '../models/thread-room.ts'
+import { answeringChip, privateMark, roomMenu } from './channel-membership.ts'
 import type { ViewContext } from './context.ts'
 import { muteButton, mutedMark } from './mute-toggle.ts'
-import { archivedMark, backLink, channelCounts, presenceBadges } from './parts.ts'
+import { archivedMark, backLink, channelCounts, presenceBadges, youMark } from './parts.ts'
 
-/** The head of a conversation: who it is with, or the channel with its counts and controls. */
+/** The head of a conversation on one line: who it is with, or the channel with its counts and controls. */
 export const renderThreadHead = (context: ViewContext, model: ThreadHead): Child => {
   if (model.kind === 'loading') return [backLink(), h('h1', {}, model.title)]
   if (model.kind === 'people')
@@ -18,7 +18,8 @@ export const renderThreadHead = (context: ViewContext, model: ThreadHead): Child
         h('h1', {}, model.title, model.mute?.mark != null && mutedMark(model.mute.mark)),
         model.profile !== null && h('p', { class: 'thread-profile' }, model.profile),
       ),
-      model.presence !== null && presenceBadges(model.presence, true),
+      model.people !== null && groupPeople(model.people),
+      model.presence !== null && presenceBadges(model.presence),
       model.mute !== null && muteButton(context, model.mute),
     ]
   const channel = model.channel
@@ -36,15 +37,27 @@ export const renderThreadHead = (context: ViewContext, model: ThreadHead): Child
         model.archived && archivedMark(),
         model.mute?.mark != null && mutedMark(model.mute.mark),
       ),
-      channel !== null &&
-        h(
-          'div',
-          { class: 'thread-profile channel-head-meta' },
-          channelCounts(channel),
-          h('span', { class: 'channel-head-description' }, channel.description),
-        ),
+      channel !== null && h('div', { class: 'thread-profile channel-head-meta' }, channelCounts(channel)),
     ),
+    channel !== null && answeringChip(context, channel),
     model.mute !== null && muteButton(context, model.mute),
-    channel !== null && roomControls(context, channel),
+    channel !== null && roomMenu(context, channel),
   ]
 }
+
+/** How many people are in a group message, and a button that lists them. */
+const groupPeople = (model: GroupPeople): Child => [
+  h('button', { type: 'button', class: 'group-people-open', popovertarget: GROUP_PEOPLE_ID }, model.label),
+  h(
+    'div',
+    { id: GROUP_PEOPLE_ID, class: 'menu group-people', popover: 'auto', 'aria-label': model.title },
+    h('p', { class: 'menu-who' }, h('strong', {}, model.title)),
+    h(
+      'ul',
+      {},
+      model.people.map((person) => h('li', {}, person.name, person.you && [' ', youMark()])),
+    ),
+  ),
+]
+
+const GROUP_PEOPLE_ID = 'group-people'

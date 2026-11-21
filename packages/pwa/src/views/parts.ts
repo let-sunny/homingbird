@@ -35,32 +35,48 @@ export const field = (label: string, control: HTMLElement, hint?: string): HTMLE
     hint && h('small', {}, hint),
   )
 
-export const presenceBadges = (presence: AsRead.Presence, inWords = false): HTMLElement => {
-  const shown = presenceShown(presence, inWords)
-  const personDot = h('span', {
-    class: `human-dot ${shown.person.isOn ? 'is-on' : 'is-off'}`,
-    role: 'img',
-    'aria-label': shown.person.label,
-    title: shown.person.label,
-  })
-  const agent = h(
+/** Whether the person and their agent are there, in words. */
+export const presenceBadges = (presence: AsRead.Presence): HTMLElement => {
+  const shown = presenceShown(presence, true)
+  return h(
     'span',
-    { class: `agent-light ${shown.agent.isOn ? 'is-on' : 'is-off'}`, title: shown.agent.title },
-    shown.agent.words,
+    { class: 'presence is-in-words' },
+    h(
+      'span',
+      { class: `human-state ${shown.person.isOn ? 'is-on' : 'is-off'}` },
+      h('span', { class: `human-dot ${shown.person.isOn ? 'is-on' : 'is-off'}`, 'aria-hidden': 'true' }),
+      shown.person.words,
+    ),
+    h(
+      'span',
+      { class: `agent-light ${shown.agent.isOn ? 'is-on' : 'is-off'}`, title: shown.agent.title },
+      shown.agent.words,
+    ),
   )
-  return shown.person.words === null
-    ? h('span', { class: 'presence' }, agent, personDot)
-    : h(
-        'span',
-        { class: 'presence is-in-words' },
-        h(
-          'span',
-          { class: `human-state ${shown.person.isOn ? 'is-on' : 'is-off'}` },
-          h('span', { class: `human-dot ${shown.person.isOn ? 'is-on' : 'is-off'}`, 'aria-hidden': 'true' }),
-          shown.person.words,
-        ),
-        agent,
-      )
+}
+
+/** A row's presence, small enough to sit on its avatar: a dot while the agent is awake or cannot answer. */
+export const agentDot = (presence: AsRead.Presence): HTMLElement | null => {
+  const { agent } = presenceShown(presence, false)
+  return agent.words === null
+    ? null
+    : h('span', {
+        class: `agent-dot ${agent.isOn ? 'is-on' : 'is-off'}`,
+        role: 'img',
+        'aria-label': agent.words,
+        title: agent.title,
+      })
+}
+
+/** Whether the person is online, as a dot beside their name. */
+export const humanDot = (presence: AsRead.Presence): HTMLElement => {
+  const { person } = presenceShown(presence, false)
+  return h('span', {
+    class: `human-dot ${person.isOn ? 'is-on' : 'is-off'}`,
+    role: 'img',
+    'aria-label': person.label,
+    title: person.label,
+  })
 }
 
 export const timeLabel = (shown: TimeShown): HTMLElement =>

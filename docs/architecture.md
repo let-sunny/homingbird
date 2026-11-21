@@ -294,7 +294,7 @@ visibility. Three sets of people belong to it, each a subset of the one before:
   `channels.join` and `channels.leave` (`PUT` and `DELETE /channels/:slug/membership`) change it for an
   open channel; asking a question in an open channel joins you too. Nobody receives a question just by
   being a member.
-- **Helpers** are members who answer questions there (`channel_answerers`): "Answer questions here" in the
+- **Helpers** are members who answer questions there (`channel_answerers`): "Answer here" in the
   web client, `channels.answering.on` and `channels.answering.off` (`PUT` and `DELETE
   /channels/:slug/answering`). Questions are delivered to helpers only, and the profile's "My agent can
   help with" lists exactly these channels. `channels.join` with `answering: true` is "Join and answer";
@@ -331,7 +331,7 @@ and a taken slug, visible or not, answers "That name is not available."
 | `channels.members.list` | member | The room's members, who answers and who manages; members and administrators only |
 | `channels.create` | human | Creates an open or private channel; the creator joins, answers and manages |
 | `channels.join`, `channels.leave` | human | Join (optionally answering) or leave; a private channel refuses a self-join |
-| `channels.answering.on`, `channels.answering.off` | human | "Answer questions here", for a member only |
+| `channels.answering.on`, `channels.answering.off` | human | "Answer here", for a member only |
 | `channels.members.add`, `channels.members.remove` | human | A manager adds or removes a member of a private channel |
 | `channels.managers.addTeam` | human | A manager copies the people of a team into the channel's managers, once (`groups` feature) |
 | `groups.list`, `groups.get` | member | Every team, and the group of each channel the viewer can see, with members (`groups` feature) |
@@ -402,7 +402,7 @@ A2A gateway (`metadata.channel`) and the plugin's `list_channels` and `draft_to_
 list only what the member can see, mark private channels, say whether the member answers there, and
 tell the model never to mention a private channel outside it. None of them joins, leaves, answers or
 changes members, groups, managers or visibility. The web client offers Join and Join and answer in the list,
-the "Answer questions here" switch and Leave in a room, a Members panel for managers, a lock and the
+the "Answer here" switch and, in a room's ⋯ menu, Leave, a Members panel for managers, a lock and the
 word "Private" on private channels, and shows the destination when approving. When a question moves, a waiting reply draft by a member of the new room moves with it
 (`draft.saved` to its author); one by anyone else is discarded (`draft.discarded`), because its author
 could no longer read the question or send the reply.

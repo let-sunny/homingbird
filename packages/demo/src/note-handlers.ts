@@ -259,6 +259,7 @@ const newRoom = (
     createdAt: now,
     lastActivityAt: now,
     mutedBy: [],
+    ...(participantIds.length > 2 && { startedBy: participantIds[0]! }),
   }
 }
 

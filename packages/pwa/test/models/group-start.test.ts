@@ -56,6 +56,15 @@ describe('groupStartModel', () => {
     })
   })
 
+  it('says a person is added, and how to remove them, once chosen', () => {
+    expect(groupStartModel({ ...base, chosen: [BEN] })!.toggles.get(BEN)).toEqual({
+      text: strings.groupStart.added,
+      label: 'Ben added (remove)',
+      pressed: true,
+      disabled: false,
+    })
+  })
+
   it('never offers a channel’s agent, even one the server said may be messaged', () => {
     const agent = entry('mem_agent0000000' as MemberId, 'Payments wiki')
     const shown = [...directory, { ...agent, member: { ...agent.member, kind: 'channel_agent' as const } }]

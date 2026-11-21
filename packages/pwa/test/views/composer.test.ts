@@ -87,7 +87,7 @@ describe('composer', () => {
     shown.querySelector<HTMLElement>('summary')!.click()
     getByRole(shown, 'button', { name: strings.askAgent }).click()
     expect(called('askAgent')[0]!.args[0]).toMatchObject({ destination: { conversationId: ROOM } })
-    context.state.replyTargets.set(new Map([[ROOM, 'q']]))
+    context.state.replyTargets.set(new Map([[ROOM, 'q' as never]]))
     getByRole(shown, 'button', { name: strings.askAgent }).click()
     expect(called('askAgent')[1]!.args[0]).toMatchObject({ destination: { inReplyTo: 'q' } })
   })

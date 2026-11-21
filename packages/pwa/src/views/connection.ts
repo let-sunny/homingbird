@@ -229,7 +229,7 @@ const renderDeskState = (model: ConnectionModel): HTMLElement | null =>
     : h(
         'div',
         { class: 'desk-state' },
-        h('p', {}, presenceBadges(model.presence, true)),
+        h('p', {}, presenceBadges(model.presence)),
         ...model.unavailable.map((line) => h('p', { class: 'hint', role: 'status' }, line)),
       )
 

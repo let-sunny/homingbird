@@ -39,6 +39,7 @@ export interface Formats {
   readonly day: Intl.DateTimeFormat
   readonly full: Intl.DateTimeFormat
   readonly list: Intl.ListFormat
+  readonly names: Intl.ListFormat
   readonly percent: Intl.NumberFormat
   readonly decimal: Intl.NumberFormat
 }
@@ -53,6 +54,7 @@ function formatsFor(next: Locale): Formats {
     day: new Intl.DateTimeFormat(next, { month: 'short', day: 'numeric' }),
     full: new Intl.DateTimeFormat(next, { dateStyle: 'medium', timeStyle: 'short' }),
     list: new Intl.ListFormat(next, { type: 'conjunction' }),
+    names: new Intl.ListFormat(next, { type: 'unit', style: 'short' }),
     percent: new Intl.NumberFormat(next, { style: 'percent', maximumFractionDigits: 0 }),
     decimal: new Intl.NumberFormat(next, { maximumFractionDigits: 1 }),
   }

@@ -138,7 +138,7 @@ Your agent's draft waits for you: **Send**, **Edit** or **Discard**.
   </tr>
   <tr>
     <td width="50%" align="center" valign="top"><a href="docs/screenshots/phone-conversation.png"><img src="docs/screenshots/phone-conversation.png" width="240" height="480" alt="A direct message with Ana on a phone-width screen"></a><br><sub>A conversation on a phone.</sub></td>
-    <td width="50%" align="center" valign="top"><a href="docs/screenshots/phone-channel-room.png"><img src="docs/screenshots/phone-channel-room.png" width="240" height="480" alt="A channel room with the Answer questions here switch on a phone-width screen"></a><br><sub>A channel room on a phone.</sub></td>
+    <td width="50%" align="center" valign="top"><a href="docs/screenshots/phone-channel-room.png"><img src="docs/screenshots/phone-channel-room.png" width="240" height="480" alt="A channel room with the Answer here switch on a phone-width screen"></a><br><sub>A channel room on a phone.</sub></td>
   </tr>
 </table>
 

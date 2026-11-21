@@ -117,6 +117,7 @@ describe('threadHeadModel', () => {
       title: 'Ben',
       profile: 'Billing.',
       presence,
+      people: null,
       mute: expect.objectContaining({ conversationId: ROOM, muted: false, label: 'Mute Ben' }),
     })
     expect(threadHeadModel(threadInput())).toEqual({
@@ -124,6 +125,7 @@ describe('threadHeadModel', () => {
       title: 'Ben',
       profile: null,
       presence: null,
+      people: null,
       mute: expect.objectContaining({ muted: false }),
     })
     expect(
@@ -135,6 +137,14 @@ describe('threadHeadModel', () => {
       title: 'Team',
       profile: null,
       presence: null,
+      people: {
+        label: strings.groupPeople({ count: 2 }),
+        title: strings.groupPeopleTitle,
+        people: [
+          { name: 'Ana', you: true },
+          { name: 'Ben', you: false },
+        ],
+      },
       mute: expect.objectContaining({ label: 'Mute Team' }),
     })
   })

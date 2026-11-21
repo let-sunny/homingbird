@@ -39,9 +39,12 @@ describe('renderAvatar', () => {
     expect(clock.pending()).toBe(0)
   })
 
-  it('draws a group as two small faces side by side', () => {
+  it('draws a group as two small faces side by side, with how many more as a badge', () => {
     const { context } = testContext()
-    const group = renderGroupAvatar(context, [avatarOf(owl, { scale: 1 }), avatarOf(owl, { scale: 1 })])
+    const faces = [avatarOf(owl, { scale: 1 }), avatarOf(owl, { scale: 1 })]
+    const group = renderGroupAvatar(context, { faces, more: '+2' })
     expect(group.querySelectorAll('canvas')).toHaveLength(2)
+    expect(group.querySelector('.group-more')?.textContent).toBe('+2')
+    expect(renderGroupAvatar(context, { faces, more: null }).querySelector('.group-more')).toBeNull()
   })
 })

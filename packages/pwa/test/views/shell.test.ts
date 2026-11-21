@@ -103,6 +103,10 @@ describe('shell', () => {
     const row = getByRole(shown, 'link', { name: /Hello/ })
     expect(row.getAttribute('aria-current')).toBe('page')
     expect(getByRole(row, 'img', { name: strings.humanOnline })).toBeTruthy()
+    expect(row.querySelector('.conversation-face > .agent-dot')!.getAttribute('aria-label')).toBe(
+      strings.agentOnline,
+    )
+    expect(row.querySelector('.conversation-title')!.getAttribute('title')).toBe('Ben')
     expect(row.querySelector('.count.unread')!.getAttribute('aria-label')).toBe(strings.unread({ count: 2 }))
     expect(row.querySelector('.count.drafts')!.textContent).toBe('✎1')
     expect(shown.querySelector('.character-group')).not.toBeNull()

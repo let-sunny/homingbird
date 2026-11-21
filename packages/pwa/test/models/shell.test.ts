@@ -124,7 +124,7 @@ describe('sidebarModel', () => {
     })
   })
 
-  it('shows a group with two faces, a quiet conversation by its drafts or as empty', () => {
+  it('shows a group with two faces, kept as a draft until a note is sent, a quiet conversation by its drafts or as empty', () => {
     const group = conversation({
       kind: 'group',
       participantIds: [ANA, BEN, CY],
@@ -132,13 +132,15 @@ describe('sidebarModel', () => {
       draftCount: 2,
     })
     const quiet = conversation({ id: 'conv_quiet0000000' as never })
-    const model = sidebarModel(input({ conversations: [group, quiet] }))
+    const drafting = conversation({ id: 'conv_drafting0000' as never, draftCount: 1 })
+    const model = sidebarModel(input({ conversations: [group, quiet, drafting] }))
     if (model.people.kind !== 'rows') throw new Error('expected rows')
-    const [team, empty] = model.people.rows
-    expect(team!.face.kind).toBe('group')
-    expect(team!.preview).toBe(strings.draftsWaiting({ count: 2 }))
+    const [team, empty, waiting] = model.people.rows
+    expect(team!.face).toMatchObject({ kind: 'group', more: null })
+    expect(team!.preview).toBe(strings.groupNotSentYet)
     expect(team!.presence).toBeNull()
     expect(empty!.preview).toBe(strings.noNotesYet)
+    expect(waiting!.preview).toBe(strings.draftsWaiting({ count: 1 }))
     expect(empty!.face).toMatchObject({ kind: 'member', avatar: { state: 'idle', motion: 'still' } })
     expect(empty!.time).toBeNull()
     const arrived = sidebarModel(input({ conversations: [quiet], arrived: new Set([quiet.id]) }))

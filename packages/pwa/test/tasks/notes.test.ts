@@ -109,7 +109,7 @@ describe('loading a conversation', () => {
 })
 
 describe('sending a note', () => {
-  it('writes and sends it as a reply to the note awaiting one, then forgets the reply target', async () => {
+  it('writes and sends it as a reply to the note chosen, then forgets the reply target', async () => {
     const question = note('q', {
       authorId: BEN,
       receipts: [
@@ -124,6 +124,7 @@ describe('sending a note', () => {
     app.state.session.set(me())
     app.state.conversations.set([conversation()])
     app.state.threads.set(new Map([[ROOM, { notes: [question], hasMore: false }]]))
+    await app.run(chooseReplyTarget(ROOM, 'q' as never))
     await app.run(sendNote(ROOM, 'Yes'))
     expect(app.sent[0]!.request).toEqual({ body: { body: 'Yes', conversationId: ROOM, inReplyTo: 'q' } })
     expect(app.sent[1]!.request).toEqual({
@@ -141,7 +142,7 @@ describe('sending a note', () => {
 
   it('lets go of the sending mark after a failure, and sends a new note where no reply is chosen', async () => {
     const app = testApp({ 'drafts.create': () => fail({ _tag: 'Forbidden', message: 'no' }) })
-    app.state.replyTargets.set(new Map([[ROOM, null]]))
+    app.state.threads.set(new Map([[ROOM, { notes: [note('q', { authorId: BEN })], hasMore: false }]]))
     await app.run(sendNote(ROOM, 'Hi'))
     expect(app.sent[0]!.request).toEqual({ body: { body: 'Hi', conversationId: ROOM } })
     expect(app.state.sendingIn.get().size).toBe(0)
@@ -149,14 +150,22 @@ describe('sending a note', () => {
 })
 
 describe('the reply target', () => {
-  it('is the note chosen, none in a channel or while signed out, else the one awaiting a reply', async () => {
+  it('is none until the person chooses a note, even when a note waits for their reply', async () => {
     const app = testApp()
-    expect(replyTargetIn(app.state, ROOM)).toBeNull()
     app.state.session.set(me())
-    app.state.conversations.set([conversation({ kind: 'channel' })])
+    app.state.conversations.set([conversation()])
+    const waiting = note('q', {
+      authorId: BEN,
+      receipts: [
+        { memberId: ANA, state: 'read', deliveredAt: 1, readAt: 1, draftingAt: null, repliedAt: null },
+      ],
+    })
+    app.state.threads.set(new Map([[ROOM, { notes: [waiting], hasMore: false }]]))
     expect(replyTargetIn(app.state, ROOM)).toBeNull()
-    await app.run(chooseReplyTarget(ROOM, 'n1' as never))
-    expect(replyTargetIn(app.state, ROOM)).toBe('n1')
+    await app.run(chooseReplyTarget(ROOM, 'q' as never))
+    expect(replyTargetIn(app.state, ROOM)).toBe('q')
+    await app.run(chooseReplyTarget(ROOM, null))
+    expect(replyTargetIn(app.state, ROOM)).toBeNull()
   })
 })
 
