@@ -9,6 +9,7 @@ import {
 } from '../models/channel-agent-figures.ts'
 import {
   type AgentPanel,
+  type AgentPanelPlace,
   type ReviewCard,
   agentControlsModel,
   agentPanelModel,
@@ -35,7 +36,7 @@ export const agentButtons = (context: ViewContext, channel: AsRead.Channel): Chi
         {
           type: 'button',
           class: 'channel-agent-open',
-          ...opensDialog(context, model.manage, (life) => agentPanel(context, life, channel, null)),
+          ...opensDialog(context, model.manage, (life) => agentPanel(context, life, channel, null, 'dialog')),
         },
         model.manage,
       ),
@@ -85,29 +86,24 @@ export const channelAgentView = (
       const page = channelAgentPageModel(state.channels.get(), state.channelsLoaded.get(), slug)
       if (page.kind === 'loading') return loading()
       if (page.kind === 'missing') return h('p', { class: 'hint' }, page.text)
-      return pageOf(page.title, agentPanel(context, life, page.channel, focus))
+      return pageOf(page.title, agentPanel(context, life, page.channel, focus, 'page'))
     }),
   )
 }
 
-/** The answers waiting first, then the agent of a channel the person manages and its desks: in a dialog or on its own page. */
+/**
+ * The agent of a channel the person manages: in the dialog its name, desks and retiring it, with a way to
+ * its page; on its page the answers waiting first, then the same, then how it is doing.
+ */
 const agentPanel = (
   context: ViewContext,
   life: Lifetime,
   channel: AsRead.Channel,
   focus: string | null,
+  place: AgentPanelPlace,
 ): HTMLElement => {
   const { state, actions } = context
   const loaded = signal<'loading' | 'loaded' | 'failed'>('loading')
-  const decided = signal<{ readonly note: AsRead.Note | null } | null>(null)
-  let broughtIntoView = false
-  let askedWhatBecameOfFocus = false
-  const learnWhatBecameOfFocus = (): void => {
-    const isWaiting = state.reviews.get().some((review) => review.note.id === focus)
-    if (focus === null || isWaiting || askedWhatBecameOfFocus) return
-    askedWhatBecameOfFocus = true
-    actions.loadDecidedAnswer(focus as NoteId, { done: (note) => decided.set({ note }) })
-  }
   let joinSection: { readonly name: string; readonly element: HTMLElement } | null = null
   const joinCodeFor = (name: string): HTMLElement | null => {
     if (!featureOn('joinCodes', state.serverInfo.get())) return null
@@ -119,13 +115,97 @@ const agentPanel = (
     done: () => loaded.set('loaded'),
     failed: () => loaded.set('failed'),
   })
+  const retiring = { open: false }
+  const setup = region(life, [loaded, state.channelAgents, state.members], () =>
+    renderPanel(
+      agentPanelModel(
+        agentState(loaded.get(), state.channelAgents.get(), channel.slug),
+        state.members.get(),
+        place,
+      ),
+      context,
+      channel,
+      joinCodeFor,
+      retiring,
+    ),
+  )
+  if (place === 'dialog') return h('div', { class: 'dialog-body channel-agent-panel' }, setup)
+  const panel: HTMLElement = h(
+    'div',
+    { class: 'channel-agent-panel' },
+    waitingAnswers(context, life, channel, focus, (): HTMLElement => panel),
+    setup,
+    agentFigures(context, life, channel),
+  )
+  return panel
+}
+
+/** The answers waiting in the channel; the one a notification opened is brought into view, once. */
+const waitingAnswers = (
+  context: ViewContext,
+  life: Lifetime,
+  channel: AsRead.Channel,
+  focus: string | null,
+  host: () => HTMLElement,
+): HTMLElement => {
+  const { state, actions } = context
+  const decided = signal<{ readonly note: AsRead.Note | null } | null>(null)
+  let broughtIntoView = false
+  let askedWhatBecameOfFocus = false
+  const learnWhatBecameOfFocus = (): void => {
+    const isWaiting = state.reviews.get().some((review) => review.note.id === focus)
+    if (focus === null || isWaiting || askedWhatBecameOfFocus) return
+    askedWhatBecameOfFocus = true
+    actions.loadDecidedAnswer(focus as NoteId, { done: (note) => decided.set({ note }) })
+  }
   actions.loadReviews({
     done: () => {
       learnWhatBecameOfFocus()
       life.add(state.reviews.subscribe(learnWhatBecameOfFocus))
     },
   })
-  const retiring = { open: false }
+  return region(life, [state.reviews, state.reviewsRead, state.members, decided], () => {
+    const settled = decided.get()
+    const model = reviewCardsModel(
+      state.reviews.get(),
+      channel.slug,
+      state.reviewsRead.get(),
+      state.members.get(),
+      focus,
+    )
+    if (!broughtIntoView && model.cards.some((card) => card.focused)) {
+      broughtIntoView = true
+      context.page.nextFrame(() => bringIntoView(host().querySelector(FOCUSED_CARD)))
+    }
+    return h(
+      'section',
+      { class: 'reviews' },
+      h('h3', {}, model.title),
+      settled !== null &&
+        h(
+          'p',
+          { class: 'hint review-decided', role: 'status' },
+          decidedAnswerModel(settled.note, signedIn(state)?.member.id ?? null, state.members.get()),
+        ),
+      model.none !== null && h('p', { class: 'hint' }, model.none),
+      h(
+        'ul',
+        { class: 'review-cards' },
+        model.cards.map((card) => {
+          const element = reviewCard(context, card, () => {
+            if (card.focused) askedWhatBecameOfFocus = true
+          })
+          reportWhenSeen(context, element, card.review.note)
+          return element
+        }),
+      ),
+    )
+  })
+}
+
+/** How the agent is doing, read again whenever an answer in the channel is sent or discarded. */
+const agentFigures = (context: ViewContext, life: Lifetime, channel: AsRead.Channel): HTMLElement => {
+  const { state, actions } = context
   const figures = signal<ChannelAgentFiguresState>('loading')
   let latestFigures = 0
   const loadFigures = (): void => {
@@ -143,63 +223,9 @@ const agentPanel = (
   )
   loadFigures()
   life.add(waitingHere.subscribe(loadFigures))
-  const panel = h(
-    'div',
-    { class: 'dialog-body channel-agent-panel' },
-    region(life, [state.reviews, state.reviewsRead, state.members, decided], () => {
-      const settled = decided.get()
-      const model = reviewCardsModel(
-        state.reviews.get(),
-        channel.slug,
-        state.reviewsRead.get(),
-        state.members.get(),
-        focus,
-      )
-      if (!broughtIntoView && model.cards.some((card) => card.focused)) {
-        broughtIntoView = true
-        context.page.nextFrame(() => bringIntoView(panel.querySelector(FOCUSED_CARD)))
-      }
-      return h(
-        'section',
-        { class: 'reviews' },
-        h('h3', {}, model.title),
-        settled !== null &&
-          h(
-            'p',
-            { class: 'hint review-decided', role: 'status' },
-            decidedAnswerModel(settled.note, signedIn(state)?.member.id ?? null, state.members.get()),
-          ),
-        model.none !== null && h('p', { class: 'hint' }, model.none),
-        h(
-          'ul',
-          { class: 'review-cards' },
-          model.cards.map((card) => {
-            const element = reviewCard(context, card, () => {
-              if (card.focused) askedWhatBecameOfFocus = true
-            })
-            reportWhenSeen(context, element, card.review.note)
-            return element
-          }),
-        ),
-      )
-    }),
-    region(life, [loaded, state.channelAgents, state.members], () =>
-      renderPanel(
-        agentPanelModel(
-          agentState(loaded.get(), state.channelAgents.get(), channel.slug),
-          state.members.get(),
-        ),
-        context,
-        channel,
-        joinCodeFor,
-        retiring,
-      ),
-    ),
-    region(life, [figures], () =>
-      renderFigures(channelAgentFiguresModel(figures.get(), channel.slug, FIGURES_DAYS)),
-    ),
+  return region(life, [figures], () =>
+    renderFigures(channelAgentFiguresModel(figures.get(), channel.slug, FIGURES_DAYS)),
   )
-  return panel
 }
 
 const FIGURES_DAYS = 30
@@ -277,12 +303,26 @@ const renderPanel = (
     return [
       h('p', {}, model.intro),
       h('p', { class: 'hint' }, model.text),
-      nameForm(model.create, '', (name) => context.actions.createChannelAgent(channel.slug, name)),
+      nameForm(model.create, '', (name) => context.actions.createChannelAgent(channel.slug, name), 'primary'),
     ]
   return [
     h('p', {}, model.intro),
-    nameForm(strings.channelAgent.rename, model.name, (name) =>
-      context.actions.renameChannelAgent(channel.slug, name),
+    model.page !== null &&
+      h(
+        'p',
+        { class: 'channel-agent-page-link' },
+        h(
+          'a',
+          { class: 'button', href: model.page.href, on: { click: () => closeDialog(context) } },
+          model.page.label,
+        ),
+        h('small', { class: 'hint' }, model.page.hint),
+      ),
+    nameForm(
+      strings.channelAgent.rename,
+      model.name,
+      (name) => context.actions.renameChannelAgent(channel.slug, name),
+      'secondary',
     ),
     h('h3', {}, model.desksTitle),
     model.desksNone !== null && h('p', { class: 'hint' }, model.desksNone),
@@ -325,13 +365,18 @@ const renderPanel = (
           },
         },
         h('p', {}, model.retireBody),
-        h('button', { type: 'submit', class: 'danger' }, strings.channelAgent.retire),
+        h('button', { type: 'submit', class: 'danger' }, model.retire),
       ),
     ),
   ]
 }
 
-const nameForm = (label: string, value: string, save: (name: string) => void): HTMLElement => {
+const nameForm = (
+  label: string,
+  value: string,
+  save: (name: string) => void,
+  emphasis: 'primary' | 'secondary',
+): HTMLElement => {
   const name = h('input', {
     name: 'name',
     required: true,
@@ -352,7 +397,7 @@ const nameForm = (label: string, value: string, save: (name: string) => void): H
       },
     },
     field(strings.channelAgent.nameLabel, name, strings.channelAgent.nameHint),
-    h('button', { type: 'submit', class: 'primary' }, label),
+    h('button', { type: 'submit', ...(emphasis === 'primary' && { class: 'primary' }) }, label),
   )
 }
 

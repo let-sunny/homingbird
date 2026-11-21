@@ -12,7 +12,13 @@ import {
 } from '../debates.ts'
 import { formats, strings } from '../strings.ts'
 import { debateAuthorModel } from './debate-author.ts'
-import { type ResultBody, type ResultModel, resultBody, resultModel } from './debate-result.ts'
+import {
+  type ResultBody,
+  type ResultModel,
+  type RoomPeople,
+  resultBody,
+  resultModel,
+} from './debate-result.ts'
 import type { AuthorModel } from './note-item.ts'
 import { type TimeShown, timeShown } from './time.ts'
 
@@ -23,6 +29,11 @@ export const debateRoomModel = (input: DebateRoomInput): DebateRoomModel => {
   if (debate === 'missing') return { kind: 'missing', text: strings.debates.notFound }
   const stage = debateStage(debate)
   const nameOf = (id: MemberId): string => input.members.get(id)?.name ?? strings.formerMember
+  const people: RoomPeople = { nameOf, viewerId }
+  const agentOf = (agent: string, memberId: MemberId): string =>
+    memberId === viewerId
+      ? strings.debates.mine.agentOf({ agent })
+      : strings.debates.agentOf({ agent, person: nameOf(memberId) })
   return {
     kind: 'room',
     debate,
@@ -43,7 +54,7 @@ export const debateRoomModel = (input: DebateRoomInput): DebateRoomModel => {
     limitsFixed: debate.status === 'open' && debate.turns.length > 0 && debate.createdBy === viewerId,
     participants: debate.participants.map((participant) => ({
       memberId: participant.memberId,
-      name: strings.debates.agentOf({ agent: participant.agentName, person: nameOf(participant.memberId) }),
+      name: agentOf(participant.agentName, participant.memberId),
       turnsLeft:
         debate.status === 'open'
           ? strings.debates.turnsLeft({ count: turnsLeftFor(debate, participant.memberId) })
@@ -69,7 +80,7 @@ export const debateRoomModel = (input: DebateRoomInput): DebateRoomModel => {
             turns: debate.turns.map((turn) => ({
               position: turn.position,
               mine: turn.memberId === viewerId,
-              author: strings.debates.agentOf({ agent: turn.agentName, person: nameOf(turn.memberId) }),
+              author: agentOf(turn.agentName, turn.memberId),
               details: debateAuthorModel(input, {
                 id: `${debate.id}-turn-${turn.position}`,
                 memberId: turn.memberId,
@@ -83,7 +94,7 @@ export const debateRoomModel = (input: DebateRoomInput): DebateRoomModel => {
     ended: stage === 'ended' ? strings.debates.ended[debate.endedBecause ?? 'no_turns'] : null,
     result:
       stage === 'awaiting-result' || stage === 'voting' || stage === 'closed'
-        ? resultModel(debate, stage, nameOf)
+        ? resultModel(debate, stage, people)
         : null,
     drafts:
       (debate.drafts ?? []).length === 0
@@ -91,7 +102,10 @@ export const debateRoomModel = (input: DebateRoomInput): DebateRoomModel => {
         : draftsOf(debate).map(({ draft, chosen }) => ({
             memberId: draft.draftedBy,
             chosen,
-            title: strings.debates.draftOf({ person: nameOf(draft.draftedBy) }),
+            title:
+              draft.draftedBy === viewerId
+                ? strings.debates.mine.draftOf
+                : strings.debates.draftOf({ person: nameOf(draft.draftedBy) }),
             details: debateAuthorModel(input, {
               id: `${debate.id}-draft-${draft.draftedBy}`,
               memberId: draft.draftedBy,
@@ -101,7 +115,7 @@ export const debateRoomModel = (input: DebateRoomInput): DebateRoomModel => {
             }),
             votes: draft.votes === null ? null : strings.debates.votes({ count: draft.votes }),
             time: timeShown(draft.draftedAt, input.now),
-            body: resultBody(draft.result, nameOf),
+            body: resultBody(draft.result, people),
           })),
     closed:
       stage === 'closed'

@@ -1,13 +1,16 @@
+import type { MemberId } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import { resultBody, resultModel } from '../../src/models/debate-result.ts'
 import { strings } from '../../src/strings.ts'
-import { ANA, BEN, debate } from '../support/fixtures.ts'
+import { ANA, BEN, CY, debate } from '../support/fixtures.ts'
 
-const nameOf = (id: string) => (id === ANA ? 'Ana' : 'Ben')
+const nameOf = (id: MemberId) => (id === ANA ? 'Ana' : id === BEN ? 'Ben' : 'Cy')
+const someone = { nameOf, viewerId: 'mem_viewer000000' as MemberId }
+const ana = { nameOf, viewerId: ANA }
 
 describe('resultModel', () => {
   it('waits while the agents settle the result, and shows who drafted it once settled', () => {
-    expect(resultModel(debate({ status: 'concluding' }), 'awaiting-result', nameOf)).toEqual({
+    expect(resultModel(debate({ status: 'concluding' }), 'awaiting-result', someone)).toEqual({
       kind: 'waiting',
       text: strings.debates.waitingForResult,
       collecting: null,
@@ -19,7 +22,7 @@ describe('resultModel', () => {
         result: { result: { kind: 'unknown' } as never, draftedBy: BEN, draftedAt: 1 },
       }),
       'closed',
-      nameOf,
+      someone,
     )
     expect(settled).toEqual({
       kind: 'settled',
@@ -31,7 +34,7 @@ describe('resultModel', () => {
 
   it('says what the room waits for in each phase, and nothing about the turns once it is closed', () => {
     const textIn = (stage: 'awaiting-result' | 'voting' | 'closed', fields: Parameters<typeof debate>[0]) =>
-      resultModel(debate(fields), stage, nameOf)
+      resultModel(debate(fields), stage, someone)
     expect(textIn('awaiting-result', { status: 'concluding', draftsCloseAt: 3 })).toMatchObject({
       text: strings.debates.waitingForResult,
     })
@@ -57,14 +60,106 @@ describe('resultBody', () => {
         nextSteps: [{ step: 'Tag', owner: ANA, proposedBy: BEN }],
         contributions: [{ memberId: ANA, summary: 'Tested.', credits: ['gap_filled'] }],
       } as never,
-      nameOf,
+      someone,
     )
     expect(body).toMatchObject({
       kind: 'known',
       heading: strings.debates.conclusion,
       reasons: ['Ready.'],
-      nextSteps: { steps: [{ step: 'Tag', owner: strings.debates.owner({ person: 'Ana' }) }] },
-      contributions: { rows: [{ name: 'Ana', credits: [strings.debates.credit.gap_filled] }] },
+      nextSteps: {
+        steps: [
+          {
+            step: 'Tag',
+            owner: strings.debates.owner({ person: 'Ana' }),
+            proposedBy: strings.debates.proposedBy({ person: 'Ben' }),
+          },
+        ],
+      },
+      contributions: {
+        rows: [
+          {
+            name: 'Ana',
+            credits: [
+              { text: strings.debates.credit.gap_filled, hint: strings.debates.creditHint.gap_filled },
+            ],
+          },
+        ],
+      },
+    })
+  })
+
+  it('calls the viewer’s own agent theirs, never by the viewer’s name', () => {
+    const body = resultBody(
+      {
+        kind: 'conclusion',
+        conclusion: 'Ship.',
+        reasons: [],
+        nextSteps: [{ step: 'Tag', owner: ANA, proposedBy: ANA }],
+        contributions: [{ memberId: ANA, summary: 'Tested.', credits: [] }],
+      } as never,
+      ana,
+    )
+    expect(body).toMatchObject({
+      nextSteps: {
+        steps: [{ owner: strings.debates.mine.owner, proposedBy: strings.debates.mine.proposedBy }],
+      },
+      contributions: { rows: [{ name: strings.debates.mine.agent }] },
+    })
+  })
+})
+
+describe('the vote record', () => {
+  const voted = (viewer: typeof someone, droppedOut: ReadonlyArray<MemberId> = []) =>
+    resultModel(
+      debate({
+        status: 'closed',
+        participants: [ANA, BEN, CY].map((memberId) => ({ memberId, agentName: 'Desk' })) as never,
+        drafts: [
+          { draftedBy: ANA, draftedAt: 1, result: { kind: 'unknown' }, votes: 1 },
+          { draftedBy: BEN, draftedAt: 2, result: { kind: 'unknown' }, votes: 1 },
+        ] as never,
+        voteRecord: {
+          votes: [
+            { voterId: ANA, draftBy: BEN },
+            { voterId: BEN, draftBy: ANA },
+          ],
+          droppedOut,
+        } as never,
+        result: { result: { kind: 'unknown' } as never, draftedBy: ANA, draftedAt: 1 },
+      }),
+      'closed',
+      viewer,
+    )
+
+  it('names everyone when the viewer took no part', () => {
+    expect(voted(someone)).toMatchObject({
+      draftedBy: strings.debates.draftedBy({ person: 'Ana' }),
+      voteRecord: {
+        lines: [
+          { text: strings.debates.votedFor({ voter: 'Ana', author: 'Ben' }) },
+          { text: strings.debates.votedFor({ voter: 'Ben', author: 'Ana' }) },
+          { text: strings.debates.didNotVote({ person: 'Cy' }) },
+        ],
+      },
+    })
+  })
+
+  it('says “your agent” for the viewer’s own vote and draft', () => {
+    expect(voted(ana)).toMatchObject({
+      draftedBy: strings.debates.mine.draftedBy,
+      voteRecord: {
+        lines: [
+          { text: strings.debates.mine.votedFor({ author: 'Ben' }) },
+          { text: strings.debates.mine.votedForMine({ voter: 'Ben' }) },
+          { text: strings.debates.didNotVote({ person: 'Cy' }) },
+        ],
+      },
+    })
+    expect(voted({ nameOf, viewerId: CY })).toMatchObject({
+      voteRecord: { lines: [{}, {}, { text: strings.debates.mine.didNotVote }] },
+    })
+    expect(voted({ nameOf, viewerId: CY }, [CY])).toMatchObject({
+      voteRecord: { lines: [{}, {}, { text: strings.debates.mine.droppedOutWithoutVote }] },
     })
   })
 })

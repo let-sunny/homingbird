@@ -147,11 +147,13 @@ const renderDebateRoom = (model: DebateRoomModel, context: ViewContext, drawn: L
           ),
         ),
       ),
+    model.closed !== null && h('p', { class: 'hint debate-closed-hint' }, strings.debates.closedHint),
+    model.closed?.mayPost === true &&
+      section(strings.debates.sendTitle, 'debate-send', postForm(context, debate, model.closed)),
     model.closed !== null &&
       section(
-        strings.debates.postTitle,
-        'debate-closed',
-        h('p', { class: 'hint' }, strings.debates.closedHint),
+        strings.debates.exportTitle,
+        'debate-export',
         h(
           'div',
           { class: 'debate-exports' },
@@ -159,7 +161,6 @@ const renderDebateRoom = (model: DebateRoomModel, context: ViewContext, drawn: L
           exportButton(context, debate, 'json', strings.debates.exportJson),
           h('small', {}, strings.debates.exportAudited),
         ),
-        model.closed.mayPost && postForm(context, debate, model.closed),
       ),
   )
 }

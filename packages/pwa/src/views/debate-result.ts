@@ -92,7 +92,9 @@ export const renderResultBody = (body: ResultBody): Child[] => {
           {},
           h('strong', {}, row.name),
           h('span', {}, row.summary),
-          ...row.credits.map((credit) => h('span', { class: 'debate-credit' }, credit)),
+          ...row.credits.map((credit) =>
+            h('span', { class: 'debate-credit', title: credit.hint }, credit.text),
+          ),
         ),
       ),
     ),

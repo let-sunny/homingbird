@@ -45,10 +45,14 @@ export const channelAgentPageModel = (
   }
 }
 
-/** The agent panel of a channel's manager: making the agent, or naming it, its desks and retiring it. */
+/**
+ * The agent panel of a channel's manager: making the agent, or naming it, its desks and retiring it. In
+ * the dialog it leads to the agent's page, where its waiting answers and figures are.
+ */
 export const agentPanelModel = (
   agent: AsRead.ChannelAgent | null | 'loading' | 'failed',
   members: ReadonlyMap<MemberId, AsRead.Member>,
+  place: AgentPanelPlace,
 ): AgentPanel => {
   if (agent === 'loading') return { kind: 'loading' }
   if (agent === 'failed') return { kind: 'failed', text: strings.channelAgent.loadFailed }
@@ -79,8 +83,17 @@ export const agentPanelModel = (
     })),
     desksNone: agent.credentials.length === 0 ? strings.channelAgent.desksNone : null,
     connectHint: strings.channelAgent.connectHint({ agent: name }),
-    retireTitle: strings.channelAgent.retireTitle({ agent: name }),
+    retireTitle: strings.channelAgent.retireTitle,
     retireBody: strings.channelAgent.retireBody,
+    retire: strings.channelAgent.retire({ agent: name }),
+    page:
+      place === 'dialog'
+        ? {
+            href: hrefFor({ name: 'channel-agent', slug: agent.channel, draft: null }),
+            label: strings.channelAgent.openPage,
+            hint: strings.channelAgent.openPageHint,
+          }
+        : null,
   }
 }
 
@@ -298,7 +311,12 @@ export type AgentPanel =
       readonly connectHint: string
       readonly retireTitle: string
       readonly retireBody: string
+      readonly retire: string
+      readonly page: { readonly href: string; readonly label: string; readonly hint: string } | null
     }
+
+/** Where the panel is shown: the dialog a channel's controls open, or the agent's own page. */
+export type AgentPanelPlace = 'dialog' | 'page'
 
 export interface ReviewCards {
   readonly title: string

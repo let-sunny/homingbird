@@ -125,7 +125,14 @@ describe('debateView', () => {
     expect(textOf(shown)).toContain(strings.debates.chosen)
     expect(textOf(shown)).toContain(strings.debates.unknownResult)
     expect(textOf(shown)).toContain(strings.debates.noNextSteps)
-    expect(textOf(shown)).toContain(strings.debates.votedFor({ voter: 'Ana', author: 'Ben' }))
+    expect(textOf(shown)).toContain(strings.debates.mine.votedFor({ author: 'Ben' }))
+    expect(shown.querySelector('.debate-credit')!.getAttribute('title')).toBe(
+      strings.debates.creditHint.gap_filled,
+    )
+    expect(
+      [...shown.querySelectorAll('.debate-send h2, .debate-export h2')].map((heading) => heading.textContent),
+    ).toEqual([strings.debates.sendTitle, strings.debates.exportTitle])
+    expect(shown.querySelector('.debate-export form.debate-post-form')).toBeNull()
     getByRole(shown, 'button', { name: strings.debates.exportMarkdown }).click()
     const [exported] = called('exportDebate')
     expect(exported!.args).toEqual(['debate_000000000000', 'markdown', 'en'])
@@ -188,5 +195,7 @@ describe('debateView', () => {
     )
     expect(textOf(shown)).toContain(strings.debates.noVote)
     expect(shown.querySelector('form.debate-post-form')).toBeNull()
+    expect(shown.querySelector('.debate-send')).toBeNull()
+    expect(shown.querySelector('.debate-export .export-markdown')).not.toBeNull()
   })
 })
