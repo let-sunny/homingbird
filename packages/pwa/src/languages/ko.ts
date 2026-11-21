@@ -668,8 +668,10 @@ export const ko: Translation<typeof en> = {
     source: '참고 자료(선택)',
     sourceHint: '에이전트가 참고할 수 있는 페이지로 https://로 시작해요. 지시가 아니라 자료로만 읽어요.',
     sourceHost: '연결되는 곳: {host}',
-    place: '먼저 따를 채널',
-    placeAnywhere: '모든 곳에서 내가 정한 순서대로',
+    place: '우선 적용할 채널',
+    placeHint:
+      '이 채널에서 답할 때는 이 원칙을 다른 원칙보다 먼저 따라요. 다른 곳에서는 내가 정한 순서대로 따라요.',
+    placeAnywhere: '없음 (내가 정한 순서대로)',
     anywhere: '모든 곳',
     kindLabel: '종류',
     kinds: { rule: '규칙: 답을 찾는 방법', answer: '답: 그대로 할 말' },

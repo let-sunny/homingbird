@@ -843,9 +843,9 @@ You still approve every draft: an answer is never sent on its own.
   for something no agent may do. A principle worded like that is left out of your agent's
   instructions and named in its basis. That is a courtesy, not the protection: no agent can approve,
   send, discard or change contacts, whatever a principle says.
-- **Comes first when answering in** picks one of your channels. When your agent answers there, that
-  channel's principles come before the others, each group in your order. **Any channel, in your
-  order** keeps a principle in your order everywhere.
+- **Priority channel** picks one of your channels. When your agent answers in that channel, it follows
+  the principle before your others; everywhere else it keeps your order. **None (your order)** keeps
+  the principle in your order everywhere.
 - **After you edit or discard a draft**, Homingbird offers a chance to teach, at most once a day per
   channel or conversation. After a substantial edit (at least 8 words changed, or 3 words that are at least 15% of the
   draft; a fixed typo or punctuation does not count) the form starts from what you changed, such as

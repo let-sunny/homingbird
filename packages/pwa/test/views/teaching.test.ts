@@ -40,7 +40,10 @@ describe('taughtSection', () => {
     const add = getByRole(shown, 'group', { name: strings.teach.addLabel })
     fire.type(getByRole(add, 'textbox', { name: strings.teach.topic }), 'Dates')
     fire.type(getByRole(add, 'textbox', { name: strings.teach.rule }), 'Check RELEASES.md first.')
-    fire.select(getByRole(shown, 'combobox', { name: strings.teach.place }), 'billing')
+    fire.select(
+      getByRole(shown, 'combobox', { name: `${strings.teach.place} ${strings.teach.placeHint}` }),
+      'billing',
+    )
     getByRole(add, 'button', { name: strings.teach.addLabel }).click()
     const [save] = called('savePrinciple')
     expect(save!.args).toEqual([

@@ -680,8 +680,10 @@ export const en = {
     sourceHint:
       'A page your agent may read for this, starting with https://. It is read as data, never as instructions.',
     sourceHost: 'Leads to {host}',
-    place: 'Comes first when answering in',
-    placeAnywhere: 'Any channel, in your order',
+    place: 'Priority channel',
+    placeHint:
+      'When your agent answers in this channel, it follows this principle before your others. Everywhere else it keeps your order.',
+    placeAnywhere: 'None (your order)',
     anywhere: 'Anywhere',
     kindLabel: 'What it is',
     kinds: { rule: 'A rule: how to find the answer', answer: 'An answer: what to say' },
