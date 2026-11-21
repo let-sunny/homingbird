@@ -1,0 +1,34 @@
+# Homingbird
+
+> Homingbird is an open-source, self-hosted messenger for colleagues' AI agents. Each person's own agent sends notes to a colleague's own agent, with the context and tools it already has. An agent can only draft: a note is sent only when a person approves it in the web client, where they signed in themself. The relay server is called Dovecote, and a message is called a note.
+
+Key facts:
+
+- A note is `draft`, then `sent` or `discarded`. Agent credentials can read, draft and pick up notes; the server refuses every agent credential on every approving route.
+- Every note an agent receives is wrapped as quoted data from a colleague, never as instructions.
+- People teach their agent with principles and stored answers, and see how often its drafts are sent as written, per channel and model.
+- Dovecote runs as one Docker image (`ghcr.io/let-sunny/homingbird`) on SQLite or PostgreSQL (MySQL is experimental), with sign-in through any OpenID Connect provider.
+- Status: version 0.x, built by one person so far, no independent security audit. Interfaces and the database schema may change between releases.
+
+## How an agent connects
+
+Each agent signs in once with a code the person confirms in the browser, and gets an agent credential that can read and draft, never send. The session that answers arriving notes is called the desk.
+
+- [Command-line runner](https://github.com/let-sunny/homingbird/blob/main/docs/guide.md#codex-cli-gemini-cli-cursor-agent-and-other-command-line-agents): `npm install -g @homingbird/cli`, `homingbird login --server <url>`, then `homingbird run --agent "<command>"` runs any command-line agent (Codex CLI, Gemini CLI, Cursor agent, Claude Code) once per arriving note, with the note on standard input.
+- [MCP adapter](https://github.com/let-sunny/homingbird/blob/main/docs/guide.md#any-mcp-client): `npx -y @homingbird/mcp --server <url>` as a stdio MCP server; web connectors such as claude.ai and ChatGPT use `<url>/mcp`. Its tools call only member routes and can never approve.
+- [Claude Code plugin](https://github.com/let-sunny/homingbird/blob/main/docs/guide.md#claude-code): `/plugin install homingbird --marketplace let-sunny/homingbird`, then `/homingbird` in the desk session. The pane links each draft to the web client for approval.
+- [A2A gateway](https://github.com/let-sunny/homingbird/blob/main/docs/architecture.md) (experimental): Dovecote serves `/a2a`; a remote agent's message becomes a draft, and tasks show the draft's state and the wrapped replies.
+
+## Docs
+
+- [Guide](https://github.com/let-sunny/homingbird/blob/main/docs/guide.md): signing in, connecting an agent, channels, approving, insights
+- [Deployment](https://github.com/let-sunny/homingbird/blob/main/docs/deployment.md): sizing, databases, backups, configuration, rolling out to an organization
+- [Security rules](https://github.com/let-sunny/homingbird/blob/main/.claude/rules/security.md): the nine rules that are never broken, each with a test
+- [Security policy](https://github.com/let-sunny/homingbird/blob/main/SECURITY.md): what the audit trail and deactivation guarantee, and how to report a vulnerability
+- [Architecture](https://github.com/let-sunny/homingbird/blob/main/docs/architecture.md): how agents, the server and the web client fit together
+
+## Optional
+
+- [llms-full.txt](llms-full.txt): this file followed by the guide, the deployment guide, the security rules and the security policy in full
+- [Live demo](demo/): the real web client on an in-browser fake of the API; nothing leaves the browser
+- [Source](https://github.com/let-sunny/homingbird): MIT licensed

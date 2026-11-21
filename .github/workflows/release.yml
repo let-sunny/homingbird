@@ -3,7 +3,8 @@ name: Release
 # Every push to main runs this. When the version in package.json is not released yet (the "Version
 # Packages" pull request was just merged), the publish jobs check, publish @homingbird/cli,
 # @homingbird/mcp and @homingbird/mod to npm with provenance, tag v<version>, create the GitHub release
-# from that version's CHANGELOG.md section, and push ghcr.io/let-sunny/homingbird. Otherwise, when the
+# from that version's CHANGELOG.md section, push ghcr.io/let-sunny/homingbird, and deploy the project site
+# through pages.yml. Otherwise, when the
 # Conventional Commits since the last v* tag hold a feat, fix, perf or breaking change, the version job
 # rebuilds the branch release/main from main with the next version and its CHANGELOG.md section, and
 # opens or updates the "Version Packages" pull request with gh. CONTRIBUTING.md#releasing has the setup.
@@ -211,3 +212,11 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+  pages:
+    needs: [plan, github-release]
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages.yml

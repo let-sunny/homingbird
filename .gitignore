@@ -11,3 +11,4 @@ reports/
 packages/plugin/cli/
 release/
 .claude/worktrees/
+site-dist/
