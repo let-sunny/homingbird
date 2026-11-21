@@ -134,6 +134,22 @@ describe('renderDraftsItem', () => {
     expect(dialog.open).toBe(true)
   })
 
+  it('links a debate room’s result to its room instead of a basis', () => {
+    const { context } = testContext()
+    const fromDebate = { debateId: 'deb_room00000000' as never, question: 'Ship?', agents: [] }
+    const shown = mount(
+      renderDraftsItem(
+        context,
+        draftsItemModel(threadInput(), item([draft('d1', { agentName: null, basis: null, fromDebate })])),
+      ),
+    )
+    expect(shown.querySelector('.draft-basis')).toBeNull()
+    expect(textOf(shown)).not.toContain(strings.draftBasisMissing)
+    expect(getByRole(shown, 'link', { name: strings.debateNote.openRoom }).getAttribute('href')).toBe(
+      '#/debate/deb_room00000000/result',
+    )
+  })
+
   it('reports each draft seen once, waiting while the page is hidden', () => {
     const { context, called, page } = testContext()
     const one = draft('d1')

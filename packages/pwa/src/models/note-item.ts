@@ -1,6 +1,7 @@
 import { type AsRead, type MemberId, type NoteId, summarize } from '@homingbird/protocol'
 import { authorshipOf, showsStateMark, stateMarkOf } from '../authorship.ts'
 import { type AnswerersLine, questionWaits } from '../channel-answerers.ts'
+import { debateNoteParts } from '../debate-note.ts'
 import { type SourceShown, draftBasisOf } from '../draft-basis.ts'
 import { unavailableOf } from '../presence.ts'
 import { hrefFor } from '../routes.ts'
@@ -34,14 +35,16 @@ export const noteItemModel = (
   const room = roomOf(input)
   const archived = isArchived(room)
   const inRoom = showsAuthors(room)
-  const isChannelQuestion = room?.kind === 'channel' && note.inReplyTo === null
+  const isChannelQuestion =
+    room?.kind === 'channel' && note.inReplyTo === null && note.fromDebate === undefined
   const answerers = isChannelQuestion ? answeredBy(note) : []
   const sentAt = note.sentAt === null ? null : formats.full.format(new Date(note.sentAt))
   const authorship = authorshipLine(input, note, mine)
   const charactersOn = isOn(input, 'characters')
   const markShown = mine && showsStateMark(note, next)
   const basis = mine ? draftBasisOf(note) : null
-  const waits = mine && answerers.length === 0 ? questionLine(input, note) : null
+  const waits =
+    mine && answerers.length === 0 && note.fromDebate === undefined ? questionLine(input, note) : null
   const side = mine ? 'is-mine' : 'is-theirs'
   return {
     noteId: note.id,
@@ -61,6 +64,7 @@ export const noteItemModel = (
             label: strings.quotedNote,
           },
     body: note.body,
+    debateResult: debateResultOf(note),
     longBody: isLongBody(note.body) ? { more: strings.showMoreNote, less: strings.showLessNote } : null,
     basis:
       basis === null || basis.kind === 'none'
@@ -125,6 +129,11 @@ export interface NoteItemModel {
   /** The excerpt of the note this one replies to, as a link that opens the thread at it. */
   readonly quote: { readonly text: string; readonly href: string; readonly label: string } | null
   readonly body: string
+  /**
+   * A debate room's posted result, read first for what the agents settled and what happens next, with the
+   * whole note folded and a way into the room. A result is not a question: nobody is asked to answer it.
+   */
+  readonly debateResult: DebateResultNote | null
   /** A body long enough to be shown collapsed, with the words of the button that opens and closes it. */
   readonly longBody: { readonly more: string; readonly less: string } | null
   /** What the person's own sent note rested on, collapsed under "Based on". */
@@ -151,6 +160,18 @@ export interface NoteItemModel {
     readonly label: string
     readonly items: ReadonlyArray<NoteMenuItem>
   }
+}
+
+export interface DebateResultNote {
+  /** The conclusion and next steps; null when the note is not in the shape the server writes. */
+  readonly parts: {
+    readonly heading: string
+    readonly summary: string
+    readonly nextStepsHeading: string
+    readonly nextSteps: ReadonlyArray<string>
+  } | null
+  readonly whole: string
+  readonly room: { readonly href: string; readonly label: string }
 }
 
 /** One of a note's menu actions; one the person cannot take now says why. */
@@ -202,6 +223,26 @@ const menuItems = (
   ]
 }
 
+const debateResultOf = (note: AsRead.Note): DebateResultNote | null => {
+  if (note.fromDebate === undefined) return null
+  const parts = debateNoteParts(note.body)
+  return {
+    parts:
+      parts === null
+        ? null
+        : {
+            heading: parts.agreed ? strings.debateNote.agreed : strings.debateNote.disagreed,
+            summary: parts.summary,
+            nextStepsHeading: strings.debateNote.nextSteps,
+            nextSteps: parts.nextSteps,
+          },
+    whole: strings.debateNote.whole,
+    room: {
+      href: hrefFor({ name: 'debate', id: note.fromDebate.debateId, tab: 'result' }),
+      label: strings.debateNote.openRoom,
+    },
+  }
+}
 /** A body past this many characters or lines is shown collapsed, about a screen of a bubble. */
 const LONG_BODY_CHARACTERS = 1200
 const LONG_BODY_LINES = 16

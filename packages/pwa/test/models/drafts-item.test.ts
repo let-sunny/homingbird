@@ -46,6 +46,7 @@ describe('draftsItemModel', () => {
       origin: { className: 'origin is-agent', text: strings.originNamed.agent({ agent: 'Laptop' }) },
       body: 'body of d1',
       basis: null,
+      room: null,
       applied: [],
       destination: { kind: 'people', text: strings.sendsTo({ names: 'Ben' }) },
       careful: null,
@@ -59,6 +60,21 @@ describe('draftsItemModel', () => {
       },
       keptEdit: null,
     })
+  })
+
+  it('says a debate room’s result came from the room and links to it, and claims no agent basis for it or for a person’s words', () => {
+    const fromDebate = { debateId: 'deb_room00000000' as never, question: 'Ship?', agents: [] }
+    const result = draft('d1', { origin: 'agent', agentName: null, basis: null, fromDebate })
+    const own = draft('d2', { origin: 'human', agentName: null, basis: null })
+    const agent = draft('d3', { basis: null })
+    const [posted, typed, drafted] = draftsItemModel(threadInput(), item([result, own, agent])).cards
+    expect(posted).toMatchObject({
+      origin: { className: 'origin is-debate', text: strings.debateNote.origin({ question: 'Ship?' }) },
+      basis: null,
+      room: { href: '#/debate/deb_room00000000/result', label: strings.debateNote.openRoom },
+    })
+    expect([typed!.basis, typed!.room]).toEqual([null, null])
+    expect(drafted!.basis).toEqual({ kind: 'none' })
   })
 
   it('opens Edit with the person’s kept edit and says the card holds one, never in an archived room', () => {

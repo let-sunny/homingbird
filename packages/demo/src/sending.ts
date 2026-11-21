@@ -45,7 +45,7 @@ export const saveDraft = (world: World, fields: DraftFields): Note => {
     status: 'draft',
     body: fields.body,
     inReplyTo: fields.inReplyTo,
-    origin: fields.agentName === null ? 'human' : 'agent',
+    origin: fields.agentName === null && fields.fromDebate === undefined ? 'human' : 'agent',
     agentName: fields.agentName,
     createdAt: now,
     updatedAt: now,
@@ -53,6 +53,7 @@ export const saveDraft = (world: World, fields: DraftFields): Note => {
     receipts: [],
     basis: fields.basis,
     approvedBy: null,
+    ...(fields.fromDebate !== undefined && { fromDebate: fields.fromDebate }),
   }
   world.update((records) => ({ ...records, notes: [...records.notes, draft] }))
   if (memberById(world.records(), draft.authorId)?.kind === 'channel_agent')
@@ -69,6 +70,8 @@ export interface DraftFields {
   /** The agent that wrote it; null for a person's own words. */
   readonly agentName: string | null
   readonly basis: string | null
+  /** The debate room whose result this is: written by its agents, as Dovecote records it. */
+  readonly fromDebate?: Note['fromDebate']
 }
 
 /** The managers who may send a channel's agent's answer: all of its channel's, except the person who asked. */

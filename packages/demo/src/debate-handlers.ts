@@ -149,13 +149,19 @@ export const debateHandlers = (world: World): Handlers => ({
         ...(body.to !== undefined && { to: [body.to] }),
         ...(body.channel !== undefined && { channel: body.channel }),
       })
+      const nameOf = nameIn(world.records())
       return saveDraft(world, {
         conversationId: room.id,
         authorId: viewerId,
-        body: debateResultText(debate, debate.result.result, nameIn(world.records())),
+        body: debateResultText(debate, debate.result.result, nameOf),
         inReplyTo: null,
         agentName: null,
         basis: null,
+        fromDebate: {
+          debateId: debate.id,
+          question: debate.question,
+          agents: debate.participants.map((one) => ({ agent: one.agentName, person: nameOf(one.memberId) })),
+        },
       })
     }),
   'debates.export': ({ params, body }, viewerId) =>
