@@ -22,6 +22,8 @@ export interface ThreadInput {
   readonly conversationId: ConversationId
   readonly thread: Thread | undefined
   readonly draftsRead: ReadonlyMap<NoteId, DraftAsShown>
+  /** The edits the person made to drafts and did not send, by draft. */
+  readonly draftEdits: ReadonlyMap<NoteId, string>
   readonly conversations: ReadonlyArray<AsRead.Conversation>
   readonly channels: ReadonlyArray<AsRead.Channel>
   readonly members: ReadonlyMap<MemberId, AsRead.Member>

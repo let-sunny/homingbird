@@ -1,6 +1,7 @@
 import type { AsRead, ConversationId, MemberId, NoteId } from '@homingbird/protocol'
 import fc from 'fast-check'
 import { afterEach, describe, expect, it } from 'vitest'
+import { heldWordsFor } from '../../src/held-decisions.ts'
 import {
   agentAuthorshipLine,
   agentControlsModel,
@@ -191,6 +192,7 @@ describe('reviewCardsModel', () => {
       'payments-wiki',
       new Map(),
       members,
+      new Map(),
       'note_two',
     )
     expect(model.none).toBeNull()
@@ -209,26 +211,29 @@ describe('reviewCardsModel', () => {
     })
   })
 
-  it('says why the manager sees each answer, whom a send goes to, and keeps a discard’s reason from the asker', () => {
+  it('says why the manager sees each answer, that a send goes to the room or a private asker, and keeps a discard’s reason from the asker', () => {
     const [asked, privately] = reviewCardsModel(
       [review(), review({ privately: true, question: null })],
       'payments-wiki',
       new Map(),
       members,
+      new Map(),
       null,
     ).cards
     expect(asked).toMatchObject({
       why: strings.channelAgent.whyYouReview({ channel: '#payments-wiki' }),
       send: strings.channelAgent.send,
       edit: strings.channelAgent.edit,
-      held: { sent: strings.heldSent({ names: 'Cy' }), discarded: strings.heldDiscarded },
+      held: heldWordsFor('#payments-wiki'),
+      editText: review().note.body,
+      keptEdit: null,
       discarding: {
         hint: strings.channelAgent.discardReasonHint({ channel: '#payments-wiki', name: 'Cy' }),
         confirm: strings.channelAgent.discardConfirm,
       },
     })
     expect(privately).toMatchObject({
-      held: { sent: strings.heldSent({ names: '#payments-wiki' }) },
+      held: heldWordsFor('#payments-wiki'),
       discarding: { hint: strings.channelAgent.discardReasonHintPrivately({ channel: '#payments-wiki' }) },
     })
     const unknownAsker = reviewCardsModel(
@@ -236,9 +241,23 @@ describe('reviewCardsModel', () => {
       'payments-wiki',
       new Map(),
       members,
+      new Map(),
       null,
     ).cards[0]!
-    expect(unknownAsker.held.sent).toBe(strings.heldSent({ names: '#payments-wiki' }))
+    expect(unknownAsker.held.send.pending).toBe(strings.heldSending({ names: '#payments-wiki' }))
+    const askedPrivately = reviewCardsModel(
+      [review({ privately: true })],
+      'payments-wiki',
+      new Map(),
+      members,
+      new Map([[review().note.id, 'my words']]),
+      null,
+    ).cards[0]!
+    expect(askedPrivately).toMatchObject({
+      held: heldWordsFor('Cy'),
+      editText: 'my words',
+      keptEdit: strings.draftEditKept,
+    })
   })
 
   it('asks the manager to read an answer again when the agent changed it, and names a former asker', () => {
@@ -250,6 +269,7 @@ describe('reviewCardsModel', () => {
       'payments-wiki',
       read,
       members,
+      new Map(),
       null,
     )
     expect(changed.cards[0]!.readAgain).toEqual({
@@ -257,7 +277,7 @@ describe('reviewCardsModel', () => {
       confirm: strings.draftReadAgain,
     })
     expect(changed.cards[0]!.question!.from).toBe(`Question from ${strings.formerMember}`)
-    expect(reviewCardsModel([], 'payments-wiki', new Map(), members, null).none).toBe(
+    expect(reviewCardsModel([], 'payments-wiki', new Map(), members, new Map(), null).none).toBe(
       strings.channelAgent.reviewsNone,
     )
   })
@@ -302,6 +322,7 @@ describe('reviewsInRoomModel', () => {
       { conversationId: ROOM, viewerId },
       new Map(),
       members,
+      new Map(),
       focus,
     )
   const question = note('note_question000', { authorId: CY, body: 'Where is the runbook?', sentAt: 2 })
