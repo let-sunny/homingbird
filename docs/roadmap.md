@@ -495,9 +495,12 @@ wrapped like any note).
   in-browser fake of the API seeded with a small team, a channel with its agent, drafts waiting for
   approval and a week of insights, so a visitor can open a draft card, approve it and see the note
   arrive. Nothing leaves the browser and it resets on reload.
-- Files for agents that read the site: an `llms.txt` (and `llms-full.txt`) that says in plain text what
-  Homingbird is, how an agent connects (CLI, MCP, A2A) and links the guide, deployment and security
-  rules; and WebMCP tools on the demo page that let a visiting agent look around the demo (list
-  conversations, read a note, read insights) through the browser. The demo's tools follow the same
-  rule as every model-facing tool (security rule 3): none can approve, so approving in the demo stays
-  a click.
+- **Built**: files for agents that read the site: an `llms.txt` (and `llms-full.txt`) that says in
+  plain text what Homingbird is, how an agent connects (CLI, MCP, A2A) and links the guide, deployment
+  and security rules.
+- **Built** (`packages/demo/src/demo-tools.ts`): WebMCP tools on the demo page that let a visiting
+  agent look around the demo as June through the browser: list conversations, read a conversation's
+  sent notes, list the drafts waiting for June, list channels, and what the demo is. They follow the
+  same rule as every model-facing tool (security rule 3): every one calls only `member` routes that
+  read, so the demo shows exactly what an agent could do on a real server, and none can approve, so
+  approving in the demo stays a click. Registered only where the browser has WebMCP.
