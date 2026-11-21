@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { type Config, loadConfig } from '../src/config.ts'
 
@@ -128,5 +130,35 @@ describe('the configuration', () => {
       loaded({ ...PRODUCTION, HB_AUDIT_WEBHOOK_URL: 'https://hook.example.com' }).ignoredVariables,
     ).toEqual(['HB_AUDIT_WEBHOOK_URL'])
     expect(problemsOf({ ...PRODUCTION, HB_FEATURES: 'telepathy=on' })[0]).toContain('is not a feature switch')
+  })
+})
+
+describe('the Docker Compose setup', () => {
+  const root = join(import.meta.dirname, '..', '..', '..')
+  const read = (file: string): string => readFileSync(join(root, file), 'utf8').replace(/\r\n/g, '\n')
+
+  it('lists every documented variable in .env.example, which compose passes to the server whole', () => {
+    const guide = read('docs/deployment.md')
+    const table = guide.slice(
+      guide.indexOf('## Configuration'),
+      guide.indexOf('### Trying it on one computer'),
+    )
+    const documented = new Set([...table.matchAll(/`(HB_[A-Z_]+)`/g)].map((match) => match[1]!))
+    const listed = new Set([...read('.env.example').matchAll(/^(HB_[A-Z_]+)=/gm)].map((match) => match[1]!))
+    expect(documented.size).toBeGreaterThan(20)
+    expect([...documented].filter((name) => !listed.has(name))).toEqual([])
+    expect(read('docker-compose.yml')).toMatch(/env_file:\n\s+- path: \.env\n/)
+  })
+
+  it('starts from .env.example with the server’s own defaults and nothing it refuses', () => {
+    const example = Object.fromEntries(
+      [...read('.env.example').matchAll(/^(HB_[A-Z_]+)=(.*)$/gm)].map((match) => [match[1]!, match[2]!]),
+    )
+    expect(loaded({ ...example, ...PRODUCTION })).toEqual(loaded(PRODUCTION))
+  })
+
+  it('publishes the plain HTTP port on this host only', () => {
+    expect(read('docker-compose.yml')).toContain('- "127.0.0.1:8080:8080"')
+    expect(read('docker-compose.yml')).not.toMatch(/- "8080:8080"/)
   })
 })

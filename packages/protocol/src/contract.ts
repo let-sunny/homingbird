@@ -44,6 +44,7 @@ import { ConversationId, CredentialId, DraftRequestId, GroupId, MemberId, NoteId
 import { AgentReport, ChannelAgentReport, OrganizationInsights, PlaceName } from './insights.ts'
 import { Invite, InviteEmail, InviteLink } from './invites.ts'
 import {
+  AgentCredentialsHeld,
   AgentLabel,
   AnsweringFlowSetting,
   CHANNEL_DESCRIPTION_MAX,
@@ -866,7 +867,12 @@ export const contract = {
     method: 'GET',
     path: '/admin/members',
     access: 'admin',
-    response: S.struct({ members: S.array(Member), agents: S.optional(S.array(AgentListing)) }),
+    response: S.struct({
+      members: S.array(Member),
+      agents: S.optional(S.array(AgentListing)),
+      /** Only people who hold one are listed; absent from a server that does not say. */
+      agentCredentials: S.optional(S.array(AgentCredentialsHeld)),
+    }),
   }),
   'admin.members.update': route({
     method: 'PATCH',

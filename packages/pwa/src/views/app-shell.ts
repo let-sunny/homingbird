@@ -1,11 +1,13 @@
 import type { AsRead } from '@homingbird/protocol'
 import { type Lifetime, h, later, lifetime, region, replaceChildren } from '@homingbird/ui'
 import { track } from '../analytics.ts'
-import { HOLD_MS, NOTICE_MS, heldToastModel, toastModel } from '../models/toast.ts'
+import { NOTICE_MS, toastModel } from '../models/toast.ts'
 import { type Route, arrivedToConnect, currentHashFor, hrefFor, parseRoute, signInHref } from '../routes.ts'
+import type { Notice } from '../state.ts'
 import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
-import { dialogHost } from './dialog.ts'
+import { DIALOG_ID, dialogHost } from './dialog.ts'
+import { heldToast } from './held-toast.ts'
 import { button } from './parts.ts'
 import { shell } from './shell.ts'
 import { signInView } from './sign-in.ts'
@@ -93,17 +95,26 @@ const refusalIn = (current: Route): string | null => {
 
 const inviteIn = (current: Route): string | null => (current.name === 'invite' ? current.code : null)
 
+/**
+ * The notice of the moment, closed after a while; one already shown when the page is drawn again gets
+ * its time too. While a dialog is open it is shown inside it, since the dialog's backdrop covers the page.
+ */
 const toast = (context: ViewContext, life: Lifetime): HTMLElement => {
   const { notice } = context.state
   let cancel = (): void => {}
+  const time = (current: Notice | null): void => {
+    cancel()
+    cancel = current === null ? () => {} : later(context.clock, NOTICE_MS, () => notice.set(null))
+  }
+  time(notice.get())
   life.add(
     notice.subscribe((current) => {
-      cancel()
-      if (current !== null) cancel = later(context.clock, NOTICE_MS, () => notice.set(null))
+      time(current)
+      placeNotice(context, host, current !== null)
     }),
   )
   life.add(() => cancel())
-  return region(
+  const host = region(
     life,
     [notice],
     () => {
@@ -131,48 +142,27 @@ const toast = (context: ViewContext, life: Lifetime): HTMLElement => {
     },
     { class: 'toast-host' },
   )
+  return host
 }
 
 /**
- * The send or discard the person just made, with Undo, while it waits: it is asked of the server when its
- * moment is over, when the person dismisses the toast, and when the page is hidden or closed, so leaving
- * never loses it.
+ * Moves the notice into the open dialog while there is one, and back beside it once the dialog closes or
+ * new content replaced it there.
  */
-const heldToast = (context: ViewContext, life: Lifetime): HTMLElement => {
-  const { state, actions, page } = context
-  const commit = (): void => actions.commitHeld(HELD)
-  let cancel = (): void => {}
-  life.add(
-    state.held.subscribe((current) => {
-      cancel()
-      cancel = current === null ? () => {} : later(context.clock, HOLD_MS, commit)
-    }),
-  )
-  life.add(() => cancel())
-  life.add(page.on('pagehide', commit))
-  life.add(page.on('visibilitychange', () => !page.isVisible() && commit()))
-  return region(
-    life,
-    [state.held],
-    () => {
-      const model = heldToastModel(state.held.get())
-      return (
-        model !== null &&
-        h(
-          'div',
-          { class: model.className, role: 'status' },
-          h('span', {}, model.text),
-          button(model.undo, () => actions.undoHeld(), { class: 'held-undo' }),
-          button(model.dismiss, commit, { class: 'held-dismiss' }),
-        )
-      )
-    },
-    { class: 'toast-host held-host' },
-  )
+const placeNotice = (context: ViewContext, host: HTMLElement, shown: boolean): void => {
+  const dialog = context.document.byId(DIALOG_ID) as HTMLDialogElement | null
+  if (dialog === null) return
+  const putBack = (): void => {
+    if (host.parentElement === dialog || !host.isConnected)
+      dialog.parentNode?.insertBefore(host, dialog.nextSibling)
+  }
+  if (!shown || !dialog.open) {
+    putBack()
+    return
+  }
+  dialog.append(host)
+  dialog.addEventListener('close', putBack, { once: true })
 }
-
-/** A held decision reports a refusal as a draft's, once it reaches the server. */
-const HELD = { attempt: 'draft' } as const
 
 const liveAnnouncer = (context: ViewContext, life: Lifetime): HTMLElement =>
   h(

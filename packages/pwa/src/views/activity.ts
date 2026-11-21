@@ -1,6 +1,5 @@
 import type { AsRead, ConversationId, NoteId } from '@homingbird/protocol'
 import { type Lifetime, h, keyedRegion, lifetime, onAnyChange, region, slice } from '@homingbird/ui'
-import { reviewsWithoutHeld, threadsWithoutHeld } from '../held-decisions.ts'
 import {
   type ActivityInput,
   type ActivityItem,
@@ -13,6 +12,7 @@ import { strings } from '../strings.ts'
 import { reviewCard } from './channel-agent.ts'
 import type { ViewContext } from './context.ts'
 import { renderDraftsItem, reportWhenSeen } from './drafts-item.ts'
+import { heldToastInPanel, placeHeldToast, renderHeldLine } from './held-toast.ts'
 import { bellIcon } from './mute-toggle.ts'
 import { button, timeLabel } from './parts.ts'
 
@@ -63,15 +63,26 @@ export const activityBell = (context: ViewContext, life: Lifetime, me: AsRead.Me
 
 /**
  * The activity panel the bell opens: anchored below it on a wide screen, a full-height sheet on a
- * narrow one. Its items are drawn only while it is open, so that a draft counts as seen only then.
+ * narrow one. Its items are drawn only while it is open, so that a draft counts as seen only then. It
+ * takes the focus when it opens, and gives it back to the bell when it closes without leading elsewhere.
  */
 export const activityPanel = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
   const body = h('div', { class: 'activity-panel-body' })
+  const foot = h('div', { class: 'activity-panel-foot' })
   let open: Lifetime | null = null
+  const giveFocusBack = (): void => {
+    const leaving = panel.dataset.leaving === 'true'
+    delete panel.dataset.leaving
+    const focused = context.document.focused()
+    const lost = focused === null || focused.matches('body') || panel.contains(focused)
+    if (!leaving && lost) context.document.find('.activity-bell')?.focus()
+  }
   const close = (): void => {
     open?.end()
     open = null
     body.replaceChildren()
+    foot.replaceChildren()
+    placeHeldToast(context, false)
   }
   const panel: HTMLElement = h(
     'div',
@@ -80,17 +91,24 @@ export const activityPanel = (context: ViewContext, life: Lifetime, me: AsRead.M
       popover: 'auto',
       class: 'activity-panel',
       role: 'dialog',
+      tabindex: '-1',
       'aria-labelledby': `${ACTIVITY_PANEL_ID}-title`,
       on: {
         toggle: (event) => {
-          if ((event as ToggleEvent).newState !== 'open') return close()
+          if ((event as ToggleEvent).newState !== 'open') {
+            close()
+            return giveFocusBack()
+          }
           close()
           open = lifetime()
           body.replaceChildren(activityContent(context, open, me))
+          foot.replaceChildren(heldToastInPanel(context, open))
+          placeHeldToast(context, true)
           context.actions.loadActivity()
+          panel.focus()
         },
         click: (event) => {
-          if ((event.target as Element | null)?.closest?.('a[href]') != null) panel.hidePopover()
+          if ((event.target as Element | null)?.closest?.('a[href]') != null) hideLeaving(panel)
         },
       },
     },
@@ -112,11 +130,12 @@ export const activityPanel = (context: ViewContext, life: Lifetime, me: AsRead.M
       ),
     ),
     body,
+    foot,
   )
   life.add(() => close())
   life.add(
     context.state.route.subscribe(() => {
-      if (hasPopover(panel) && panel.matches(':popover-open')) panel.hidePopover()
+      if (hasPopover(panel) && panel.matches(':popover-open')) hideLeaving(panel)
     }),
   )
   return panel
@@ -207,6 +226,12 @@ const renderItem = (context: ViewContext, item: ActivityItem): HTMLElement => {
       reportWhenSeen(context, element, item.card.review.note)
       return element
     }
+    case 'held': {
+      const element = renderHeldLine(context, item.line)
+      element.classList.add('activity-item')
+      element.prepend(head)
+      return element
+    }
     case 'drafts-loading':
       return h('li', { class: 'activity-item' }, head, h('p', { class: 'loading' }, item.text))
     case 'skipped':
@@ -229,6 +254,12 @@ const renderItem = (context: ViewContext, item: ActivityItem): HTMLElement => {
   }
 }
 
+/** Closes the panel for another place, which then decides where the focus goes. */
+const hideLeaving = (panel: HTMLElement): void => {
+  panel.dataset.leaving = 'true'
+  panel.hidePopover()
+}
+
 /**
  * Closes the panel before the conversation opens, so the page underneath never shows through, sets
  * the reply target and leaves the focus to the composer.
@@ -239,7 +270,7 @@ const replyYourself = (
   target: { readonly conversationId: ConversationId; readonly noteId: NoteId },
 ): void => {
   const panel = context.document.byId(ACTIVITY_PANEL_ID)
-  if (panel !== null && hasPopover(panel) && panel.matches(':popover-open')) panel.hidePopover()
+  if (panel !== null && hasPopover(panel) && panel.matches(':popover-open')) hideLeaving(panel)
   context.actions.replyTo(target.conversationId, target.noteId)
   context.page.go(href)
 }
@@ -254,15 +285,17 @@ const placeLine = (place: ActivityPlace): HTMLElement =>
 
 const activityInputOf = ({ state, clock }: ViewContext, me: AsRead.Me): ActivityInput => ({
   me,
-  threads: threadsWithoutHeld(state.threads.get(), state.held.get()),
+  threads: state.threads.get(),
   conversations: state.conversations.get(),
   channels: state.channels.get(),
   members: state.members.get(),
   directory: state.directory.get(),
   draftsRead: state.draftsRead.get(),
+  draftEdits: state.draftEdits.get(),
   draftRequests: state.draftRequests.get(),
   releases: state.releases.get(),
-  reviews: reviewsWithoutHeld(state.reviews.get(), state.held.get()),
+  reviews: state.reviews.get(),
+  held: state.held.get(),
   reviewsRead: state.reviewsRead.get(),
   debates: state.debates.get(),
   taught: state.taught.get(),
@@ -287,6 +320,7 @@ const sourcesOf = ({ state }: ViewContext) => [
   state.agentReport,
   state.serverInfo,
   state.held,
+  state.draftEdits,
 ]
 
 const hasPopover = (element: HTMLElement): boolean =>

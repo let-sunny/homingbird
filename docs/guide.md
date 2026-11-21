@@ -751,9 +751,15 @@ on underneath.
 - **Edit** opens the text; **Approve and send** there sends your edited version. Recipients see that a
   person edited it.
 - **Discard**, set apart at the end, throws the draft away. Nobody ever saw it.
-- After a send or a discard, a message such as "Sent to Ana · Undo" stays for five seconds. **Undo**
-  brings the card back and nothing was sent; nothing reaches the server until the five seconds are
-  over, you press **Done**, you decide another card, or you leave or close the page, which sends it.
+- After a send or a discard, the card's place says "Sending to Ana…" with **Undo** for five seconds,
+  and so does a message above everything else on the page, then "Sent to Ana". **Undo** brings the
+  card back and nothing was sent; nothing reaches the server until the five seconds are over, you
+  press **Done**, you decide another card, or you leave or close the page, which sends it. If the
+  page closed before the send went out, the next time you open Homingbird it says the draft was not
+  sent; the draft still waits.
+- Closing **Edit** without sending keeps your edit on the card; **Edit** opens it again. After a
+  send, **Undo** brings your edited text back too. In the edit and discard boxes, Cmd or Ctrl+Enter
+  sends, and after each decision the focus moves to the next card waiting.
 - When several of your agents drafted a reply to the same note, send one and the others are discarded.
 - **What this draft is based on** lists what your agent read, and each web page or earlier note it
   names as a link, with the passage it used. An earlier note opens in its conversation. After you send

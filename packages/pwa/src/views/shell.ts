@@ -1,8 +1,18 @@
 import type { AsRead } from '@homingbird/protocol'
-import { type Lifetime, type ReadableSignal, h, keyedRegion, region, slice, svg } from '@homingbird/ui'
+import {
+  type Child,
+  type Lifetime,
+  type ReadableSignal,
+  h,
+  keyedRegion,
+  region,
+  slice,
+  svg,
+} from '@homingbird/ui'
 import { peopleConversations } from '../channels.ts'
 import { connectionShown } from '../connection-status.ts'
 import { featureOn } from '../features.ts'
+import { conversationsWithoutHeld, reviewsWithoutHeld } from '../held-decisions.ts'
 import { agentNotice } from '../models/activity.ts'
 import { memberAvatarOf } from '../models/avatar.ts'
 import { logoOf, wordmark } from '../models/branding.ts'
@@ -12,6 +22,7 @@ import {
   paneFor,
   searchLinkModel,
   sidebarModel,
+  skipLinkModel,
   tabsModel,
   userMenuModel,
 } from '../models/shell.ts'
@@ -57,8 +68,32 @@ export const shell = (
   }
   showPane()
   life.add(state.route.subscribe(showPane))
-  return h('div', { class: 'viewport' }, app, userMenu(context, me), activityPanel(context, life, me))
+  return h(
+    'div',
+    { class: 'viewport' },
+    skipLink(context, life),
+    app,
+    userMenu(context, me),
+    activityPanel(context, life, me),
+  )
 }
+
+/** Shown only once focused: in a conversation, the first Tab offers to go straight to writing a note. */
+const skipLink = (context: ViewContext, life: Lifetime): HTMLElement =>
+  region(
+    life,
+    [context.state.route],
+    () => {
+      const label = skipLinkModel(context.state.route.get())
+      return (
+        label !== null &&
+        button(label, () => context.document.find('.composer textarea:not([disabled])')?.focus(), {
+          class: 'skip-link visually-hidden',
+        })
+      )
+    },
+    { class: 'skip-link-host' },
+  )
 
 const USER_MENU_ID = 'user-menu'
 
@@ -122,8 +157,12 @@ const titleBar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElem
   )
 }
 
-/** The tabs on one row; where the row scrolls sideways, the current tab is scrolled into view. */
-const tabs = (context: ViewContext, agentUnavailable: string | null): HTMLElement => {
+/**
+ * The tabs on one row; where the row scrolls sideways, the current tab is scrolled into view, and a
+ * chevron at either end that has more scrolls the row that way. The chevrons repeat what a swipe or
+ * the Tab key already does, so they stay out of the keyboard order and away from screen readers.
+ */
+const tabs = (context: ViewContext, agentUnavailable: string | null): Child => {
   const { state } = context
   const shown = tabsModel(state.route.get(), state.serverInfo.get(), agentUnavailable).map((tab) => ({
     tab,
@@ -147,8 +186,26 @@ const tabs = (context: ViewContext, agentUnavailable: string | null): HTMLElemen
   )
   const current = shown.find(({ tab }) => tab.current)?.link
   if (current !== undefined) context.page.nextFrame(() => scrollTabIntoView(nav, current))
-  return nav
+  return [tabsScroller(nav, -1), nav, tabsScroller(nav, 1)]
 }
+
+const tabsScroller = (nav: HTMLElement, direction: 1 | -1): HTMLElement =>
+  h(
+    'button',
+    {
+      type: 'button',
+      class: `tabs-scroll ${direction === 1 ? 'is-later' : 'is-earlier'}`,
+      tabindex: '-1',
+      'aria-hidden': 'true',
+      on: {
+        click: () => {
+          const inline = nav.closest('[dir="rtl"]') === null ? 1 : -1
+          nav.scrollLeft += direction * inline * Math.round(nav.clientWidth * TABS_SCROLL_SHARE)
+        },
+      },
+    },
+    direction === 1 ? '›' : '‹',
+  )
 
 const searchLink = (context: ViewContext): HTMLElement => {
   const model = searchLinkModel(context.state.route.get())
@@ -220,12 +277,12 @@ const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLEleme
     return sidebarModel({
       me,
       route: state.route.get(),
-      conversations,
+      conversations: conversationsWithoutHeld(conversations, state.held.get()),
       loaded: state.conversationsLoaded.get(),
       members: state.members.get(),
       directory: state.directory.get(),
       channels: state.channels.get(),
-      reviews: state.reviews.get(),
+      reviews: reviewsWithoutHeld(state.reviews.get(), state.held.get()),
       agentCount: state.agentCredentials.get().length,
       charactersOn: featureOn('characters', state.serverInfo.get()),
       muteOn: featureOn('mute', state.serverInfo.get()),
@@ -247,8 +304,16 @@ const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLEleme
     state.directory,
     state.route,
     state.conversationsLoaded,
+    state.held,
   ]
-  const roomSources = [state.conversations, state.route, state.channels, state.reviews, state.typedIn]
+  const roomSources = [
+    state.conversations,
+    state.route,
+    state.channels,
+    state.reviews,
+    state.typedIn,
+    state.held,
+  ]
   const archivedSources = [state.conversations, state.route, state.members]
   return h(
     'aside',
@@ -449,6 +514,9 @@ const rowMenu = (context: ViewContext, menu: NonNullable<ConversationRow['menu']
 }
 
 /** Scrolls only the tab row, so the page itself never jumps. */
+/** How much of the visible tab row one press of a chevron scrolls past. */
+const TABS_SCROLL_SHARE = 0.75
+
 const scrollTabIntoView = (nav: HTMLElement, tab: HTMLElement): void => {
   const start = tab.offsetLeft - nav.offsetLeft
   const end = start + tab.offsetWidth

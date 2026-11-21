@@ -23,9 +23,12 @@ export interface EventStreamOptions extends HttpApiOptions {
   readonly heartbeat?: boolean
   /** Also delivers `resync` on each stream connect and on the first poll that answers after a failure. */
   readonly resyncOnConnect?: boolean
+  readonly onRevoked?: () => void
 }
 
 export const FAILED_STREAMS_BEFORE_POLLING = 3
+
+export const REFUSALS_BEFORE_REVOKED = 3
 
 /**
  * How often a client holding the stream sends `presence.heartbeat`: the server counts an agent as taking
@@ -61,6 +64,7 @@ const deliverEvents = (
     let failedStreams = 0
     let backoff = reconnectDelays()
     let isResyncDue = true
+    let refusedInRow = 0
     for (;;) {
       const transport: Transport = failedStreams >= FAILED_STREAMS_BEFORE_POLLING ? 'poll' : 'sse'
       options.onTransport?.(transport)
@@ -88,7 +92,10 @@ const deliverEvents = (
               if (polled.cursor !== null) cursor = polled.cursor
               yield* connected
             })
-      const failed = !isOk(yield* T.exit(attempt))
+      const exit = yield* T.exit(attempt)
+      const failed = !isOk(exit)
+      refusedInRow = isUnauthorized(exit) ? refusedInRow + 1 : 0
+      if (refusedInRow === REFUSALS_BEFORE_REVOKED) options.onRevoked?.()
       if (failed) isResyncDue = true
       if (delivered) backoff = reconnectDelays()
       if (transport === 'sse') failedStreams = delivered ? 0 : failed ? failedStreams + 1 : failedStreams
@@ -128,6 +135,9 @@ const reconnectDelays = () => Schedule.exponential(500, 2, 30_000)
 
 const StreamRefused = tagged('StreamRefused')<{ readonly status: number }>()
 type StreamRefused = ReturnType<typeof StreamRefused>
+
+const isUnauthorized = (exit: T.Exit<unknown, StreamRefused>): boolean =>
+  exit._tag === 'Err' && exit.error._tag === 'Fail' && exit.error.error.status === 401
 
 const streamOnce = (
   options: EventStreamOptions,

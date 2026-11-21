@@ -37,6 +37,9 @@ export type Strings = Compiled<typeof en>
 export interface Formats {
   readonly time: Intl.DateTimeFormat
   readonly day: Intl.DateTimeFormat
+  readonly dayTime: Intl.DateTimeFormat
+  readonly date: Intl.DateTimeFormat
+  readonly dateWithYear: Intl.DateTimeFormat
   readonly full: Intl.DateTimeFormat
   readonly list: Intl.ListFormat
   readonly names: Intl.ListFormat
@@ -52,6 +55,14 @@ function formatsFor(next: Locale): Formats {
   return {
     time: new Intl.DateTimeFormat(next, { hour: 'numeric', minute: '2-digit' }),
     day: new Intl.DateTimeFormat(next, { month: 'short', day: 'numeric' }),
+    dayTime: new Intl.DateTimeFormat(next, {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    }),
+    date: new Intl.DateTimeFormat(next, { weekday: 'long', month: 'long', day: 'numeric' }),
+    dateWithYear: new Intl.DateTimeFormat(next, { dateStyle: 'full' }),
     full: new Intl.DateTimeFormat(next, { dateStyle: 'medium', timeStyle: 'short' }),
     list: new Intl.ListFormat(next, { type: 'conjunction' }),
     names: new Intl.ListFormat(next, { type: 'unit', style: 'short' }),

@@ -1,6 +1,7 @@
 import type { ConversationId } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import { channelLabel } from '../../src/channels.ts'
+import { heldWordsFor } from '../../src/held-decisions.ts'
 import { draftChangedWhileEditing, draftsItemModel } from '../../src/models/drafts-item.ts'
 import { strings } from '../../src/strings.ts'
 import {
@@ -53,9 +54,20 @@ describe('draftsItemModel', () => {
         send: strings.approveAndSend,
         alternatives: [],
         changeChannel: null,
-        held: { sent: strings.heldSent({ names: 'Ben' }), discarded: strings.heldDiscarded },
+        held: heldWordsFor('Ben'),
+        editText: 'body of d1',
       },
+      keptEdit: null,
     })
+  })
+
+  it('opens Edit with the person’s kept edit and says the card holds one, never in an archived room', () => {
+    const edits = new Map([['d1' as never, 'my words']])
+    const card = draftsItemModel(threadInput({ draftEdits: edits }), item([draft('d1')])).cards[0]!
+    expect(card.actions?.editText).toBe('my words')
+    expect(card.keptEdit).toBe(strings.draftEditKept)
+    const archived = threadInput({ draftEdits: edits, conversations: [conversation({ archivedAt: 5 })] })
+    expect(draftsItemModel(archived, item([draft('d1')])).cards[0]!.keptEdit).toBeNull()
   })
 
   it('focuses the card a link opened the conversation at, and no other', () => {

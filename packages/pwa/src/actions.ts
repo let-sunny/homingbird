@@ -61,6 +61,8 @@ export const TASKS = {
   holdDiscard: drafts.holdDiscard,
   commitHeld: () => held.commitHeld,
   undoHeld: () => held.undoHeld,
+  forgetSettled: () => held.forgetSettled,
+  keepDraftEdit: held.keepDraftEdit,
   readdressDraft: drafts.readdressDraft,
   reportDraftSeen: drafts.reportDraftSeen,
   askAgent: drafts.askAgent,

@@ -119,30 +119,25 @@ describe('showApp', () => {
     expect(textOf(root)).toContain('A note from Ben')
   })
 
-  it('holds a decision with Undo, and carries it out when its time is up, when dismissed, or when the page goes', async () => {
-    const { context, root, clock, called, page } = start()
+  it('shows a refusal inside the open dialog, puts it back once the dialog closes, and closes it in time after a redraw', async () => {
+    const { context, root, clock } = start()
     context.state.session.set(me())
-    const hold = (text: string) => context.state.held.set({ noteId: 'n1' as never, text, run: null as never })
-    hold('Sent to Ben')
-    const toast = root.querySelector('.toast.is-held')!
-    expect(textOf(toast)).toContain('Sent to Ben')
-    getByRole(root, 'button', { name: strings.undo }).click()
-    expect(called('undoHeld')).toHaveLength(1)
-    context.state.held.set(null)
-    expect(root.querySelector('.toast.is-held')).toBeNull()
-    hold('Discarded')
-    await clock.advance(4999)
-    expect(called('commitHeld')).toHaveLength(0)
-    await clock.advance(1)
-    expect(called('commitHeld')).toHaveLength(1)
-    expect(called('commitHeld')[0]!.then!.attempt).toBe('draft')
-    getByRole(root, 'button', { name: strings.heldDismiss }).click()
-    expect(called('commitHeld')).toHaveLength(2)
-    page.emit('pagehide')
-    page.state.visible = false
-    page.emit('visibilitychange')
-    page.state.visible = true
-    page.emit('visibilitychange')
-    expect(called('commitHeld')).toHaveLength(4)
+    const dialog = root.querySelector('dialog') as HTMLDialogElement
+    dialog.showModal()
+    context.state.notice.set({ kind: 'error', text: 'The demo does not do this.' })
+    expect(dialog.querySelector('.toast-host [role="alert"]')?.textContent).toContain('The demo does not')
+    dialog.close()
+    expect(dialog.querySelector('.toast-host')).toBeNull()
+    expect(root.querySelector('.toast-host [role="alert"]')).not.toBeNull()
+    context.state.serverInfo.set(serverInfo())
+    expect(getByRole(root, 'alert').textContent).toContain('The demo does not')
+    await clock.advance(6000)
+    expect(context.state.notice.get()).toBeNull()
+  })
+
+  it('draws the held toast in the top layer beside the notice toast', () => {
+    const { context, root } = start()
+    context.state.session.set(me())
+    expect(root.querySelector('#held-toast[popover="manual"]')).not.toBeNull()
   })
 })

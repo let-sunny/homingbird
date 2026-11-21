@@ -3,7 +3,7 @@ import type { AsRead, DraftRequest } from '@homingbird/protocol'
 import { type Action, type App, withApp } from '../app.ts'
 import { featureOn } from '../features.ts'
 import type { Branding } from '../state.ts'
-import { loadReviews } from './channel-agents.ts'
+import { loadActivity } from './activity.ts'
 import { closeSettledDraftNotices } from './notifications.ts'
 
 export const loadWorkspace: Action = T.gen(function* () {
@@ -20,7 +20,7 @@ export const loadWorkspace: Action = T.gen(function* () {
   state.contacts.set(ties.contacts)
   yield* loadAgents
   yield* loadKnownChannels
-  yield* T.result(loadReviews)
+  yield* T.result(loadActivity)
   yield* T.result(closeNoticesOfSettledDrafts)
 })
 

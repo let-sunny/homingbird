@@ -3,7 +3,7 @@ import { CHANNEL_AGENT_NAME_MAX, DISCARD_REASON_MAX } from '@homingbird/protocol
 import { type Child, type Lifetime, derived, h, linkedText, region, signal } from '@homingbird/ui'
 import type { ChannelAgentState } from '../channel-answerers.ts'
 import { featureOn } from '../features.ts'
-import { reviewsWithoutHeld } from '../held-decisions.ts'
+import { heldLineFor } from '../held-decisions.ts'
 import {
   type ChannelAgentFiguresModel,
   type ChannelAgentFiguresState,
@@ -22,8 +22,10 @@ import {
 import { signedIn } from '../state.ts'
 import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
-import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
+import { cardOf, focusAfterDecision } from './decision-focus.ts'
+import { closeDialog, closesDialog, opensDialog, submitOnModifierEnter } from './dialog.ts'
 import { reportWhenSeen } from './drafts-item.ts'
+import { renderHeldLine } from './held-toast.ts'
 import { joinCodeSection } from './join-code.ts'
 import { button, field, loading, page as pageOf, sourceList } from './parts.ts'
 
@@ -151,13 +153,15 @@ const waitingAnswers = (
       life.add(state.reviews.subscribe(learnWhatBecameOfFocus))
     },
   })
-  return region(life, [state.reviews, state.reviewsRead, state.members, decided, state.held], () => {
+  const sources = [state.reviews, state.reviewsRead, state.members, decided, state.held, state.draftEdits]
+  return region(life, sources, () => {
     const settled = decided.get()
     const model = reviewCardsModel(
-      reviewsWithoutHeld(state.reviews.get(), state.held.get()),
+      state.reviews.get(),
       channel.slug,
       state.reviewsRead.get(),
       state.members.get(),
+      state.draftEdits.get(),
       focus,
     )
     if (!broughtIntoView && model.cards.some((card) => card.focused)) {
@@ -179,6 +183,8 @@ const waitingAnswers = (
         'ul',
         { class: 'review-cards' },
         model.cards.map((card) => {
+          const line = heldLineFor(state.held.get(), [card.review.note.id])
+          if (line !== null) return renderHeldLine(context, line)
           const element = reviewCard(context, card, () => {
             if (card.focused) askedWhatBecameOfFocus = true
           })
@@ -401,8 +407,9 @@ export const reviewCard = (
     'li',
     {
       class: 'review-card',
-      data: { note: card.review.note.id },
-      ...(card.focused && { 'aria-current': 'true', tabindex: '-1' }),
+      data: { note: card.review.note.id, decides: card.review.note.id, decisionUnit: '' },
+      tabindex: '-1',
+      ...(card.focused && { 'aria-current': 'true' }),
     },
     card.heading !== null && h('p', { class: 'review-heading hint' }, card.heading),
     h('p', { class: 'review-why hint' }, card.why),
@@ -428,6 +435,7 @@ export const reviewCard = (
           ),
         sourceList(card.basis.sources),
       ),
+    card.keptEdit !== null && h('p', { class: 'kept-edit hint', role: 'note' }, card.keptEdit),
     reviewActions(context, card, decides),
   )
 
@@ -445,12 +453,19 @@ export const channelAgentStateLine = (state: ChannelAgentState): HTMLElement =>
  * can undo either, and Discard first asks why, for the managers alone.
  */
 const reviewActions = (context: ViewContext, card: ReviewCard, decides: () => void): HTMLElement => {
+  const id = card.review.note.id
+  const decide = (from: Element | null): void => {
+    decides()
+    focusAfterDecision(context, from, id)
+  }
   const discard = h(
     'button',
     {
       type: 'button',
       class: 'danger review-discard',
-      ...opensDialog(context, card.discarding.title, () => discardForm(context, card, decides)),
+      ...opensDialog(context, card.discarding.title, () =>
+        discardForm(context, card, decide, cardOf(context, id)),
+      ),
     },
     card.discard,
   )
@@ -469,9 +484,9 @@ const reviewActions = (context: ViewContext, card: ReviewCard, decides: () => vo
     { class: 'review-actions' },
     button(
       card.send,
-      () => {
-        decides()
-        context.actions.holdReviewSend(card.review, null, card.held.sent, HELD)
+      (event) => {
+        decide((event.target as Element | null)?.closest('[data-decides]') ?? null)
+        context.actions.holdReviewSend(card.review, null, card.held.send, HELD)
       },
       { class: 'primary review-send' },
     ),
@@ -480,7 +495,9 @@ const reviewActions = (context: ViewContext, card: ReviewCard, decides: () => vo
       {
         type: 'button',
         class: 'review-edit',
-        ...opensDialog(context, strings.channelAgent.editTitle, () => answerEditor(context, card, decides)),
+        ...opensDialog(context, strings.channelAgent.editTitle, (life) =>
+          answerEditor(context, life, card, decide, cardOf(context, id)),
+        ),
       },
       card.edit,
     ),
@@ -488,15 +505,27 @@ const reviewActions = (context: ViewContext, card: ReviewCard, decides: () => vo
   )
 }
 
-/** A manager's own wording of the answer, sent as the agent's answer edited by them. */
-const answerEditor = (context: ViewContext, card: ReviewCard, decides: () => void): Child => {
+/**
+ * A manager's own wording of the answer, sent as the agent's answer edited by them. Closing it any way
+ * keeps the edit on the card; it is let go once the answer is sent or discarded.
+ */
+const answerEditor = (
+  context: ViewContext,
+  life: Lifetime,
+  card: ReviewCard,
+  decide: (from: Element | null) => void,
+  from: Element | null,
+): Child => {
   const text = h('textarea', {
     name: 'body',
     rows: '6',
     required: true,
+    autofocus: true,
     'aria-label': strings.channelAgent.editLabel,
+    on: { keydown: submitOnModifierEnter },
   })
-  text.value = card.body
+  text.value = card.editText
+  life.add(() => context.actions.keepDraftEdit(card.review.note.id, card.body, text.value))
   return h(
     'form',
     {
@@ -504,8 +533,8 @@ const answerEditor = (context: ViewContext, card: ReviewCard, decides: () => voi
       on: {
         submit: (event) => {
           event.preventDefault()
-          decides()
-          context.actions.holdReviewSend(card.review, text.value, card.held.sent, HELD)
+          decide(from)
+          context.actions.holdReviewSend(card.review, text.value, card.held.send, HELD)
           closeDialog(context)
         },
       },
@@ -521,8 +550,19 @@ const answerEditor = (context: ViewContext, card: ReviewCard, decides: () => voi
 }
 
 /** Why the manager discards the answer, if they say: kept for the managers, never shown to the asker. */
-const discardForm = (context: ViewContext, card: ReviewCard, decides: () => void): Child => {
-  const reason = h('textarea', { name: 'reason', rows: '3', maxlength: String(DISCARD_REASON_MAX) })
+const discardForm = (
+  context: ViewContext,
+  card: ReviewCard,
+  decide: (from: Element | null) => void,
+  from: Element | null,
+): Child => {
+  const reason = h('textarea', {
+    name: 'reason',
+    rows: '3',
+    maxlength: String(DISCARD_REASON_MAX),
+    autofocus: true,
+    on: { keydown: submitOnModifierEnter },
+  })
   return h(
     'form',
     {
@@ -530,8 +570,8 @@ const discardForm = (context: ViewContext, card: ReviewCard, decides: () => void
       on: {
         submit: (event) => {
           event.preventDefault()
-          decides()
-          context.actions.holdReviewDiscard(card.review, reason.value, card.held.discarded, HELD)
+          decide(from)
+          context.actions.holdReviewDiscard(card.review, reason.value, card.held.discard, HELD)
           closeDialog(context)
         },
       },

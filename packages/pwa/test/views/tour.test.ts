@@ -61,10 +61,14 @@ describe('createTour', () => {
 
   it('names the place it cannot point at, finishes on the last step, and closes on Escape', () => {
     const fake = fakePage()
-    const tour = createTour(
-      fake.page,
-      browserDocument(() => document),
-    )
+    const scrolled: unknown[] = []
+    const currentTab = { scrollIntoView: (options: unknown) => void scrolled.push(options) }
+    const page = browserDocument(() => document)
+    const tour = createTour(fake.page, {
+      ...page,
+      find: (selector: string) =>
+        selector === '.tabs .tab[aria-current="page"]' ? (currentTab as never) : page.find(selector),
+    })
     tour.start()
     const callout = document.getElementById('tour')!
     expect(textOf(callout)).toContain(strings.tour.lookFor({ place: strings.conversations }))
@@ -75,6 +79,10 @@ describe('createTour', () => {
     fire.key(document.body, 'a')
     fire.key(document.body, 'Escape')
     expect(document.getElementById('tour')).toBeNull()
+    expect(scrolled).toEqual([
+      { block: 'nearest', inline: 'nearest' },
+      { block: 'nearest', inline: 'nearest' },
+    ])
   })
 
   it('moves to a control that appears when the window changes size, and starts again from the profile', () => {
