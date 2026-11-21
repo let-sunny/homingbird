@@ -134,7 +134,7 @@ describe('insightsSection', () => {
     expect(textOf(section)).toContain(strings.insights.hiddenTeams({ count: 2 }))
     expect(textOf(section)).toContain(strings.insights.teamsExplained)
     expect(textOf(shown)).not.toContain(strings.insights.noTeams)
-    expect(textOf(shown)).toContain(strings.insights.privacyAll)
+    expect(shown.querySelector('.flow-warning[role="note"]')).toBeNull()
   })
 
   it('says when no place has notes', () => {

@@ -66,6 +66,7 @@ describe('authorshipModel', () => {
       hidden: strings.measures.authorshipHidden({ minimum: 5 }),
     })
     expect(authorshipModel(figures(), 6).hidden).toBe(strings.measures.authorshipHidden({ minimum: 6 }))
+    expect(authorshipModel(figures({ authorship: null }), 1).hidden).toBe(strings.trust.noneYet)
     const none = authorshipModel(figures({ authorship: { agent: 0, humanEdited: 0, human: 0 } }), 5)
     expect(none.rows.map((row) => row.share)).toEqual([0, 0, 0])
   })
@@ -165,6 +166,7 @@ describe('deliveryModel', () => {
       rows: [],
       hidden: strings.measures.deliveryHidden({ minimum: 5 }),
     })
+    expect(deliveryModel(figures({ delivery: null }), 1).hidden).toBe(strings.trust.noneYet)
   })
 })
 

@@ -945,8 +945,6 @@ export const en = {
       'Whether people use Homingbird, and whether approving is becoming a formality. Numbers only: never what a note says, never one person’s figures.',
     noTeams: 'With no teams, only organization-wide numbers are shown.',
     privacy: 'Any group under {minimum} people is left out. Blocks are a count only.',
-    privacyAll:
-      'Every group is shown, however small; an administrator can hide small groups with HB_INSIGHTS_MINIMUM_GROUP. Blocks are a count only.',
     tooFew: 'Fewer than {minimum} people sent notes in this period, so no numbers are shown.',
     caption: 'The organization in the last {days} days, beside the {days} days before',
     rows: {

@@ -40,9 +40,9 @@ export const insightsModel = (insights: OrganizationInsights | null, days: numbe
     kind: 'insights',
     warnings: [
       ...(hasTeams(current) ? [] : [strings.insights.noTeams]),
-      insights.minimumGroupSize <= 1
-        ? strings.insights.privacyAll
-        : strings.insights.privacy({ minimum: insights.minimumGroupSize }),
+      ...(insights.minimumGroupSize <= 1
+        ? []
+        : [strings.insights.privacy({ minimum: insights.minimumGroupSize })]),
     ],
     quickWarning: quickWarningModel(insights),
     tooFew: current === null ? strings.insights.tooFew({ minimum: insights.minimumGroupSize }) : null,

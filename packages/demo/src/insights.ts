@@ -282,6 +282,13 @@ const organization = (activeMembers: number, notesSent: number, scale: number): 
     humanEdited: Math.round(9 * scale),
     human: Math.round(notesSent * 0.4),
   },
+  delivery: {
+    received: Math.round(notesSent * 0.9),
+    toAgents: Math.round(notesSent * 0.7),
+    pickedUpQuickly: Math.round(notesSent * 0.6),
+    medianPickupMs: 40_000,
+    waitedWithoutAgent: Math.round(notesSent * 0.1),
+  },
   channelAgents: {
     written: Math.round(9 * scale),
     sentAsWritten: Math.round(6 * scale),
