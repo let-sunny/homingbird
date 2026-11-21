@@ -24,6 +24,7 @@ move up one size for the large row.
 - [Choosing a database](#choosing-a-database)
 - [Behind a load balancer](#behind-a-load-balancer)
 - [Backups](#backups)
+- [Who can sign in](#who-can-sign-in)
 - [When someone leaves](#when-someone-leaves)
 - [Logs](#logs)
 - [Product analytics](#product-analytics)
@@ -305,6 +306,48 @@ heartbeat and the events with it.
 - The database holds note content, the audit trail, hashed credentials and, with the cloud desk on,
   wake tokens sealed with `HB_SECRETS_KEY`. Encrypt backups and restrict who can read them; keep the
   key elsewhere.
+
+## Who can sign in
+
+Everyone signs in with the identity provider and needs a verified email address. After that:
+
+- **A member signs in again whatever their domain**, until an administrator deactivates them.
+- **`HB_ADMIN_EMAILS`** are always let in, as administrators.
+- **Allowed domains** (`HB_ALLOWED_DOMAINS`, then **Administration → Settings**) let anyone from those
+  domains in without an invite. With Google, an address in an allowed domain must come from that
+  domain's Google Workspace, not a personal account carrying the company address. Leave them empty to
+  admit only invited people.
+- **Invite links** let one person in each, whatever their address ([guide](guide.md#invite-people)).
+  Administrators make them; set **Who can make invite links** to **Every member** to let anyone invite.
+
+No domain is needed: with `HB_ALLOWED_DOMAINS` unset a production server starts, and only invited
+people and `HB_ADMIN_EMAILS` get in.
+
+### A complete example: a server for friends
+
+Friends on personal Gmail addresses, with one of them running the server at `https://hb.example.net`:
+
+1. In the Google Cloud console, under **Google Auth Platform**, set the **Audience** to **External** and
+   publish the app (or, while testing, add each friend as a test user). An **Internal** app admits only
+   one Workspace organization's accounts, which personal Gmail is not.
+2. Add a **Web application** client with the authorized redirect URI
+   `https://hb.example.net/auth/callback`, and keep its client ID and secret.
+3. Start Dovecote without allowed domains, naming yourself as the administrator:
+
+   ```sh
+   docker run -p 8080:8080 -v homingbird:/data \
+     -e HB_PUBLIC_URL=https://hb.example.net \
+     -e HB_OIDC_CLIENT_ID=... -e HB_OIDC_CLIENT_SECRET=... \
+     -e HB_ADMIN_EMAILS=you@gmail.com \
+     ghcr.io/let-sunny/homingbird
+   ```
+
+4. Sign in, open **Administration → Settings**, set **Who can make invite links** to **Every member** if
+   your friends should invite each other, and make an invite link for each friend under
+   **Administration → Members**.
+
+The scopes Dovecote asks for are `openid email profile`, which Google does not treat as sensitive, so
+publishing the app needs no verification review.
 
 ## When someone leaves
 
@@ -660,6 +703,7 @@ again. Every change is audited. `server.info` lists which features are on, so ev
 | `debateRooms` | on | Debate rooms are hidden, agents take no turns and no room stops on time; the rooms stay |
 | `joinCodes` | on | Nobody can make a join code for **Run on a server**, and codes already made are refused; servers sign in with `homingbird login` ([A complete example](#a-complete-example-one-persons-runner-on-a-linux-server)) |
 | `deskAvailability` | on | Desks no longer say when their agent can't answer; colleagues see only whether it is awake |
+| `invites` | on | Nobody can make an invite link, and links already made are refused; only allowed domains and `HB_ADMIN_EMAILS` sign in ([Who can sign in](#who-can-sign-in)) |
 | `cloudDesk` | **off** | No cloud desk is woken and nobody can set one up; saved wakes are kept. Offered only with `HB_SECRETS_KEY` ([Cloud desk](#cloud-desk)) |
 | `analytics` | **off** | No usage counts leave the server ([Product analytics](#product-analytics)) |
 
@@ -1192,8 +1236,8 @@ Every variable Dovecote reads. Blank values count as unset.
 | `HB_OIDC_ISSUER` | `https://accounts.google.com` | Any OpenID Connect issuer. Its discovery document must name exactly this issuer, and its endpoints must be public https hosts; otherwise sign-in is unavailable and says why |
 | `HB_OIDC_CLIENT_ID`, `HB_OIDC_CLIENT_SECRET` | required | From your identity provider. The redirect URI is `<HB_PUBLIC_URL>/auth/callback` |
 | `HB_OIDC_LABEL` | `Google` | Name on the sign-in button, at most 40 characters |
-| `HB_ADMIN_EMAILS` | required | Administrators, comma-separated. Nobody becomes one implicitly, except with `HB_DEV_LOGIN=1`: there it is optional, and while it is unset the first member to sign in becomes an administrator (the startup warning says so) |
-| `HB_ALLOWED_DOMAINS` | none | Email domains allowed to sign in, comma-separated. A starting value: administrators change it in the web client |
+| `HB_ADMIN_EMAILS` | required | Administrators, comma-separated, let in whatever their domain. Nobody becomes one implicitly, except with `HB_DEV_LOGIN=1`: there it is optional, and while it is unset the first member to sign in becomes an administrator (the startup warning says so) |
+| `HB_ALLOWED_DOMAINS` | none | Email domains whose people may sign in without an invite, comma-separated. Unset, only invited people and `HB_ADMIN_EMAILS` get in ([Who can sign in](#who-can-sign-in)). A starting value: administrators change it in the web client |
 | `HB_CONTACT_MODE` | `open` | `open`, or `contacts` to require an accepted request before messaging. A starting value, like the one above |
 | `HB_CHANNELS` | none | Channels created on start, `slug` or `slug: description`, comma-separated. Exactly these are created, once, and nobody is joined to them |
 | `HB_SESSION_DAYS` | `30` | Days a sign-in lasts before the identity provider is asked again |

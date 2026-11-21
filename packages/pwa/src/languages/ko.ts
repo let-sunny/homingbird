@@ -326,7 +326,11 @@ export const ko: Translation<typeof en> = {
   draftDiscardedByArchive: '{channel} 채널이 보관되어 그곳의 초안이 삭제됐어요.',
   draftAlreadySettled: '이 초안은 이미 보내졌거나 버려졌어요.',
   allowedDomains: '허용할 이메일 도메인',
-  allowedDomainsHint: '한 줄에 하나씩 적어 주세요. 이 도메인만 로그인할 수 있어요.',
+  allowedDomainsHint:
+    '한 줄에 하나씩 적어 주세요. 이 도메인의 사람은 초대 없이 로그인할 수 있어요. 비워 두면 초대받은 사람과 서버가 지정한 관리자만 들어올 수 있어요.',
+  whoCanInvite: '초대 링크를 만들 수 있는 사람',
+  whoCanInviteAdmins: '관리자',
+  whoCanInviteMembers: '모든 멤버',
   contactMode: '노트를 주고받을 수 있는 사람',
   contactModeOpen: '공개: 조직의 누구나',
   contactModeContacts: '연락처: 받는 사람이 먼저 수락',
@@ -475,6 +479,7 @@ export const ko: Translation<typeof en> = {
       cloudDesk: '클라우드 데스크 (실험 기능)',
       joinCodes: '서버 연결 코드 (서버에서 에이전트 돌리기)',
       deskAvailability: '에이전트가 답할 수 없을 때 알리기',
+      invites: '초대 링크',
       analytics: '익명 제품 분석',
     },
     whenOff: {
@@ -499,6 +504,8 @@ export const ko: Translation<typeof en> = {
         '끄면: 아무도 서버 연결 코드를 만들 수 없고, 이미 만든 서버 연결 코드도 거절돼요. 서버는 homingbird login으로 로그인해요.',
       deskAvailability:
         '끄면: 데스크가 에이전트가 답할 수 없다는 사실을 알리지 않아요. 동료에게는 깨어 있는지만 보이고, 노트는 에이전트가 포기할 때까지 답장 작성 중으로 보여요.',
+      invites:
+        '끄면: 아무도 초대 링크를 만들 수 없고, 이미 만든 초대 링크도 거절돼요. 허용한 도메인과 서버가 지정한 관리자만 로그인할 수 있어요.',
       analytics:
         '끄면: 사용 통계가 이 서버 밖으로 나가지 않아요. 켜면 운영자가 정한 곳으로만 본 페이지 같은 익명 통계가 가요. 내용, 이름, 이메일은 보내지 않아요.',
     },
@@ -1345,6 +1352,31 @@ export const ko: Translation<typeof en> = {
     direct: 'DM만',
     directHint: '채널 알림은 오지 않아요.',
     none: '받지 않기',
+  },
+  invites: {
+    title: '사람 초대하기',
+    intro:
+      '초대 링크로 한 사람이 7일 안에 한 번 로그인할 수 있어요. 이메일 주소는 상관없어요. 링크는 직접 보내 주세요.',
+    email: '이 주소만 허용 (선택)',
+    emailHint: '비워 두면 링크를 먼저 연 사람이 들어올 수 있어요.',
+    create: '초대 링크 만들기',
+    creating: '초대 링크를 만드는 중…',
+    made: '초대할 사람에게 이 링크를 보내 주세요. 링크는 지금만 보여요.',
+    madeFor: '{email} 님에게 이 링크를 보내 주세요. 링크는 지금만 보이고, 그 주소로만 쓸 수 있어요.',
+    copy: '복사',
+    copied: '복사했어요',
+    copyFailed: '이 브라우저에서는 복사되지 않았어요. 링크를 선택해 직접 복사하세요.',
+    failed: '지금은 초대 링크를 만들 수 없어요. 잠시 후 다시 시도하세요.',
+    pending: '기다리는 초대',
+    none: '기다리는 초대가 없어요.',
+    anyone: '먼저 연 사람',
+    expires: '{date}까지 쓸 수 있어요',
+    revoke: '취소',
+    revoked: '그 초대 링크는 이제 쓸 수 없어요.',
+    invitedTitle: '초대받았어요',
+    invitedBody: '로그인하고 {name}에 들어오세요.',
+    refused: '알 수 없거나, 만료됐거나, 이미 쓴 초대 링크예요. 보낸 사람에게 새 링크를 부탁하세요.',
+    alreadyIn: '이미 여기에 로그인되어 있어서 이 초대 링크는 필요 없어요.',
   },
   joinCode: {
     title: '서버에서 돌리기',

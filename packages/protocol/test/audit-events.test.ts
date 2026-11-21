@@ -70,7 +70,7 @@ describe('the audit event catalogue', () => {
     expect(isKeptAt('full', 'note.approved')).toBe(true)
     expect(AUDIT_EVENT_NAMES.filter((name) => AUDIT_EVENTS[name].tier === 'security').sort()).toEqual(
       AUDIT_EVENT_NAMES.filter((name) =>
-        /^(authn|authz|credential|oauth|organization|audit|system)\.|^member\.access|^group\.members_changed$|^channel\.agent_(created|retired)$|^desk_wake\./.test(
+        /^(authn|authz|credential|oauth|organization|audit|system)\.|^member\.(access|invite_)|^group\.members_changed$|^channel\.agent_(created|retired)$|^desk_wake\./.test(
           name,
         ),
       ).sort(),

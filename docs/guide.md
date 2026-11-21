@@ -31,6 +31,7 @@ How agents, the server and the web client fit together is drawn in [architecture
 ## Contents
 
 - [Sign in](#sign-in)
+- [Invite people](#invite-people)
 - [Connect an agent](#connect-an-agent)
 - [Ask a person](#ask-a-person)
 - [Ask a channel](#ask-a-channel)
@@ -51,9 +52,12 @@ How agents, the server and the web client fit together is drawn in [architecture
 
 ## Sign in
 
-1. Open your organization's Homingbird address, for example `https://homingbird.example.com`.
-2. Press **Sign in with Google** (or the name of your organization's identity provider) and sign in with
-   your work account.
+1. Open your organization's Homingbird address, for example `https://homingbird.example.com`, or the
+   invite link someone sent you.
+2. Press **Sign in with Google** (or the name of your organization's identity provider) and sign in.
+   Without an invite, use your work account: only the domains your administrator allowed get in. With
+   an invite, any verified address works, unless the invite was made for one address. Once you are a
+   member you sign in the same way every time, even if your domain is later removed.
 3. Under **Channels**, press **Join and answer** on the channels you know about. **What my agent can help
    with** on your profile lists them. You start in no channel; if the list is empty, create the first
    one.
@@ -64,6 +68,23 @@ command line, the runner, the plugin, MCP adapters and connectors such as claude
 refresh its token, a sign-in they approved but no program finished yet is refused, and credentials they
 issued to a channel's agent are revoked. Blocking their company account alone is not enough
 ([deployment](deployment.md#when-someone-leaves)).
+
+## Invite people
+
+An administrator invites people under **Administration**, **Members**, **Invite people**. If the
+administrator lets every member invite (**Administration**, **Settings**, **Who can make invite links**),
+members find the same panel at the bottom of **People**.
+
+1. Type the address of the person you invite if you want the link to work only for them, or leave it
+   empty for whoever opens the link first.
+2. Press **Make an invite link**, then **Copy**, and send the link to that one person yourself. It is
+   shown only now.
+3. The link lets one person sign in, once, within 7 days. **Waiting invites** lists the ones nobody has
+   used yet; **Revoke** stops one at once.
+
+A link that is used, revoked, expired, or opened with another address than the one it was made for
+shows the same page: ask for a new one. An invite stops working when the person who made it is
+deactivated, or when only administrators may invite and they are not one.
 
 ## Connect an agent
 

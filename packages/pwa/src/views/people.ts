@@ -8,6 +8,7 @@ import {
   participantsToStart,
   toggledChoice,
 } from '../models/group-start.ts'
+import { showsInvites } from '../models/invites.ts'
 import {
   type FilterOption,
   type PeopleModel,
@@ -19,6 +20,7 @@ import { strings } from '../strings.ts'
 import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
 import { choiceToggle, groupStartPanel, reflectChoices } from './group-start.ts'
+import { invitesSection } from './invites.ts'
 import { button, channelChips, empty, field, loadFailed, loading, page, presenceBadges } from './parts.ts'
 
 /** People: everyone in the organization the person may see, and what they may do with each. */
@@ -136,6 +138,7 @@ export const peopleView = (context: ViewContext, life: Lifetime, me: AsRead.Me):
       }),
     ),
     list,
+    showsInvites('people', me, state.serverInfo.get()) && invitesSection(context, life),
   )
 }
 

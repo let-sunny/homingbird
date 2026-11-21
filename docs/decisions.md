@@ -681,8 +681,10 @@ states the decision first, then the reason. Add new entries at the top of their 
   A document that fails is not cached, sign-in says it is unavailable, and the server log says why. An
   ID token must carry an `iat` no later than the clock-skew allowance, and its `nbf` is honoured. As
   for push and client metadata, host names are checked, DNS answers are not.
-- **Identity providers are OpenID Connect.** Google Workspace is the default issuer; for Google, the
-  hosted-domain claim must match the email domain so personal accounts are refused.
+- **Identity providers are OpenID Connect.** Google is the default issuer. For Google, an address in an
+  allowed domain must come with a matching hosted-domain claim, so a personal account carrying a company
+  address is refused; people admitted by an invite or by name in `HB_ADMIN_EMAILS` may use any verified
+  address ([A person joins with an invite link](#a-person-joins-with-an-invite-link-an-allowed-domain-is-optional)).
 - **Access ends with the session.** Sessions expire after `HB_SESSION_DAYS` and renewing one requires
   signing in with the identity provider again. Deactivating a member revokes every credential at once
   and turns every sign-in they approved and no program has collected yet, a device code or an
@@ -1344,3 +1346,46 @@ nothing. Now the desk says its agent cannot answer, and everyone sees that hones
   `me.desk.available`; a desk whose stream reconnects, after a drop or a server restart, says it again. The routes
   are `member`, called by the desk itself and by no model-facing tool, and the feature
   `deskAvailability`, on by default, turns them off.
+
+## A person joins with an invite link; an allowed domain is optional
+
+Admitting only the email domains in `allowedDomains` shut out every server that is not one company's:
+friends on personal Gmail, a few people from different organizations, a company that wants one
+contractor in. Now an invite link is the general way in, and allowed domains stay as open admission for
+an organization that wants anyone with a company address to sign in.
+
+- **Who gets in.** A verified email is required for everyone. A member the identity provider already
+  knows by subject signs in whatever their domain; only a deactivated one is refused, so removing a
+  domain no longer locks out the people already in. Anyone else is admitted by an allowed domain (with
+  Google's hosted-domain check), by name in `HB_ADMIN_EMAILS`, or, failing those, by a valid invite.
+  With no domain set, only invites and `HB_ADMIN_EMAILS` get in, and production starts as before.
+- **An invite is spent only when it is needed.** Someone an allowed domain already admits leaves the
+  invite unspent. Admitting the person and moving the invite from pending to consumed happen in the
+  transaction that signs them in, so a refusal later in sign-in (a deactivated member with that
+  address, say) leaves the invite as it was, and two sign-ins cannot both spend it.
+- **What an invite is.** Single use, seven days, made in the web client by an administrator, or by any
+  member when `whoCanInvite` is `members` (the default is `admins`), so a group of friends can let
+  anyone invite. It may be bound to one address, compared with the verified email in lower case. At
+  sign-in its maker must still be active and still allowed to invite; deactivating the maker denies
+  their pending invites at once, as it does their join codes.
+- **No hosted-domain check for an invited person.** The check exists so that an allowed domain cannot
+  be claimed by a personal account; an invite names who is welcome instead, and a bound invite names
+  the address too. An unbound invite admits whoever opens it first, which is why it lasts a week, not
+  longer, and why the guide says to send it to one person.
+- **Stored like a token (Rule 5).** The link carries `hbi_` and 32 random bytes; Dovecote keeps the
+  SHA-256 hash in `auth_requests` (kind `invite`, `member_id` its maker, the bound address in the
+  detail), so no migration step is needed and expired invites go with the same sweep. The link is in
+  the one response that creates it. The audit trail records `member.invite_created` (whether it is
+  bound, not the address), `member.invite_revoked` and `member.invite_redeemed` (the new member's id)
+  by invite id only.
+- **The code stays out of addresses the server sees.** The link opens the web client at
+  `#/invite/<code>`, a fragment browsers never send; the sign-in page posts the code to `/auth/invite`,
+  which checks it, limited to ten tries per address in ten minutes on top of its 256 bits, and starts
+  the usual sign-in carrying the invite's id, not its code. Every bad case (unknown, malformed,
+  expired, revoked, used, wrong address, a maker who may no longer invite) lands on one page,
+  `#/invite-refused`, explained in the person's language. That post carries no session, so the custom
+  header that cookie-authenticated writes need does not apply.
+- **Who sees which invites.** An administrator lists and revokes every pending invite, a member only
+  their own; the routes are `human`, so no agent credential or tool makes or reads one (Rule 3).
+- **A switch, on by default.** `invites` turns the routes and `/auth/invite` off with 404 and makes a
+  pending invite admit no one; allowed domains and `HB_ADMIN_EMAILS` keep working.

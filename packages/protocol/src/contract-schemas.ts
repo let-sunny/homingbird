@@ -71,5 +71,6 @@ export const Me = S.struct({
   contactMode: ContactMode,
   locale: S.optional(Locale),
   notifications: S.optional(NotificationLevel),
+  canInvite: S.optional(S.boolean),
 })
 export type Me = S.Infer<typeof Me>

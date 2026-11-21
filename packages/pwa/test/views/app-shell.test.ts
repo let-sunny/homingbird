@@ -33,6 +33,18 @@ describe('showApp', () => {
     expect(getByRole(out.root, 'alert')).toBeTruthy()
   })
 
+  it('offers an invite to accept from its link, and explains a refused one', () => {
+    const invited = start('#/invite/hbi_secret')
+    invited.context.state.session.set(null)
+    expect((invited.root.querySelector('input[name="code"]') as HTMLInputElement).value).toBe('hbi_secret')
+    const refused = start('#/invite-refused')
+    refused.context.state.session.set(null)
+    expect(getByRole(refused.root, 'alert').textContent).toBe(strings.invites.refused)
+    expect(refused.root.querySelector('form')).toBeNull()
+    refused.context.state.route.set({ name: 'invite', code: 'hbi_other' })
+    expect((refused.root.querySelector('input[name="code"]') as HTMLInputElement).value).toBe('hbi_other')
+  })
+
   it('shows the shell around the page the route shows, counts each page, and starts the tour on home', () => {
     const { context, root, launched, page, tour } = start()
     context.state.session.set(me())

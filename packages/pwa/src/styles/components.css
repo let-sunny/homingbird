@@ -2755,6 +2755,21 @@ textarea:disabled {
   justify-items: start;
 }
 
+.admin-members,
+.invites {
+  display: grid;
+  gap: var(--hb-space-3);
+}
+
+.invites {
+  justify-items: start;
+}
+
+.invites > *,
+.invite-form {
+  inline-size: 100%;
+}
+
 .join-command {
   display: flex;
   flex-wrap: wrap;

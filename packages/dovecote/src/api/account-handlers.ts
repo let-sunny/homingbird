@@ -1,5 +1,6 @@
 import { Task as T } from '@homingbird/kernel'
 import { type Contract, type Member, PROTOCOL_VERSION, type ResponseOf } from '@homingbird/protocol'
+import { mayInvite } from '../auth/invites.ts'
 import { trackAnalytics } from '../domain/analytics.ts'
 import { clearCharacter, saveCharacter } from '../domain/characters.ts'
 import { chosenLocaleOf, directoryFor, updateOwnProfile } from '../domain/members.ts'
@@ -31,10 +32,13 @@ export const accountHandlers = {
       const locale = yield* chosenLocaleOf(caller.member.id)
       const notifications =
         isHuman(caller) && (yield* featureIsOn('mute')) ? yield* notificationLevelOf(caller.member.id) : null
+      const canInvite =
+        isHuman(caller) && (yield* featureIsOn('invites')) && mayInvite(caller.member, settings)
       return {
         member: caller.member,
         credential: caller.credential,
         contactMode: settings.contactMode,
+        canInvite,
         ...(locale !== null && { locale }),
         ...(notifications !== null && { notifications }),
       }

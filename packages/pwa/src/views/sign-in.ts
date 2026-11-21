@@ -3,10 +3,15 @@ import { type SignInModel, signInModel } from '../models/sign-in.ts'
 import type { ViewContext } from './context.ts'
 import { pip } from './pip.ts'
 
-export const signInView = (context: ViewContext, refusal: string | null): HTMLElement =>
+export const signInView = (
+  context: ViewContext,
+  refusal: string | null,
+  invite: string | null,
+): HTMLElement =>
   renderSignIn(
     signInModel({
       refusal,
+      invite,
       brandingName: context.state.branding.get().name,
       signInWith: context.state.serverInfo.get()?.signInWith ?? null,
       hash: context.page.hash(),
@@ -28,7 +33,14 @@ const renderSignIn = (model: SignInModel): HTMLElement =>
         h('h1', { class: 'wordmark' }, model.wordmark),
         h('p', { class: 'tagline' }, model.tagline),
         model.refusal !== null && h('p', { class: 'refusal', role: 'alert' }, model.refusal),
-        h('a', { class: 'button primary', href: model.signIn.href }, model.signIn.label),
+        model.signIn.kind === 'link'
+          ? h('a', { class: 'button primary', href: model.signIn.href }, model.signIn.label)
+          : h(
+              'form',
+              { method: 'post', action: model.signIn.action, class: 'invite-accept' },
+              h('input', { type: 'hidden', name: 'code', value: model.signIn.code }),
+              h('button', { type: 'submit', class: 'primary' }, model.signIn.label),
+            ),
       ),
     ),
   )

@@ -331,7 +331,11 @@ export const en = {
   draftDiscardedByArchive: 'Your draft in {channel} was discarded because the channel was archived.',
   draftAlreadySettled: 'This draft was already sent or discarded.',
   allowedDomains: 'Allowed email domains',
-  allowedDomainsHint: 'One per line. Only these domains can sign in.',
+  allowedDomainsHint:
+    'One per line. People from these domains can sign in without an invite. Leave it empty to let in only invited people and the administrators the server names.',
+  whoCanInvite: 'Who can make invite links',
+  whoCanInviteAdmins: 'Administrators',
+  whoCanInviteMembers: 'Every member',
   contactMode: 'Who can message whom',
   contactModeOpen: 'Open: anyone in the organization',
   contactModeContacts: 'Contacts: the recipient accepts first',
@@ -480,6 +484,7 @@ export const en = {
       cloudDesk: 'Cloud desk (experimental)',
       joinCodes: 'Join codes for running an agent on a server',
       deskAvailability: 'Showing when an agent can’t answer',
+      invites: 'Invite links',
       analytics: 'Anonymous product analytics',
     },
     whenOff: {
@@ -505,6 +510,8 @@ export const en = {
         'Off: nobody can make a join code and codes already made are refused; people sign in servers with homingbird login instead.',
       deskAvailability:
         'Off: desks no longer say when their agent can’t answer; colleagues see only whether it is awake, and notes show as drafting reply until it gives up.',
+      invites:
+        'Off: nobody can make an invite link and links already made are refused; only allowed domains and the administrators the server names can sign in.',
       analytics:
         'Off: no usage counts leave this server. On, and only where the operator set a destination: anonymous counts such as pages viewed, never content, names or email addresses.',
     },
@@ -1399,6 +1406,32 @@ export const en = {
     direct: 'Direct messages only',
     directHint: 'Channels send no notifications.',
     none: 'Nothing',
+  },
+  invites: {
+    title: 'Invite people',
+    intro:
+      'An invite link lets one person sign in once within 7 days, whatever their email address. Send it to them yourself.',
+    email: 'Only for this address (optional)',
+    emailHint: 'Leave it empty and whoever opens the link first can join.',
+    create: 'Make an invite link',
+    creating: 'Making a link…',
+    made: 'Send this link to the person you invite. It is shown only now.',
+    madeFor: 'Send this link to {email}. It is shown only now, and works only for that address.',
+    copy: 'Copy',
+    copied: 'Copied',
+    copyFailed: 'This browser did not copy it. Select the link and copy it yourself.',
+    failed: 'No invite link could be made just now. Try again in a moment.',
+    pending: 'Waiting invites',
+    none: 'No invite is waiting.',
+    anyone: 'Whoever opens it first',
+    expires: 'Works until {date}',
+    revoke: 'Revoke',
+    revoked: 'That invite link no longer works.',
+    invitedTitle: 'You are invited',
+    invitedBody: 'Sign in to join {name}.',
+    refused:
+      'This invite link is unknown, expired or already used. Ask the person who sent it for a new one.',
+    alreadyIn: 'You are already signed in here, so this invite link is not needed.',
   },
   joinCode: {
     title: 'Run on a server',

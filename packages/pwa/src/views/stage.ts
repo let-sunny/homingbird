@@ -62,6 +62,18 @@ export const stageFor = (context: ViewContext, life: Lifetime, me: AsRead.Me, cu
       return consentView(context, life, current.id)
     case 'admin':
       return me.member.role === 'admin' ? adminView(context, life, me, current.section) : notFound()
+    case 'invite':
+      return emptyWithPip(
+        'sign-in',
+        strings.invites.alreadyIn,
+        h('a', { class: 'button', href: '#/' }, strings.backHome),
+      )
+    case 'invite-refused':
+      return emptyWithPip(
+        'failed',
+        strings.invites.refused,
+        h('a', { class: 'button', href: '#/' }, strings.backHome),
+      )
     case 'signed-out':
     case 'unknown':
       return notFound()

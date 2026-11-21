@@ -5,7 +5,7 @@ import { hashSecret } from '../random.ts'
 import { first, run } from '../sql/database.ts'
 import { insertInto, sql } from '../sql/query.ts'
 
-export type AuthRequestKind = 'sign_in' | 'authorize' | 'device' | 'join'
+export type AuthRequestKind = 'sign_in' | 'authorize' | 'device' | 'join' | 'invite'
 export type AuthRequestStatus = 'pending' | 'approved' | 'denied' | 'consumed'
 
 export interface AuthRequest<Detail> {

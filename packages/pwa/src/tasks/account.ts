@@ -62,6 +62,18 @@ export const revokeCredential = (id: CredentialId): Action =>
 export const createJoinCode = (channel: string | null): Action<AsRead.JoinCode> =>
   withApp(({ api }) => api['joinCodes.create']({ body: channel === null ? {} : { channel } }))
 
+/** The invites still waiting: all of them for an administrator, the person's own otherwise. */
+export const listInvites: Action<ReadonlyArray<AsRead.Invite>> = withApp(({ api }) =>
+  T.map((listed: { invites: ReadonlyArray<AsRead.Invite> }) => listed.invites)(api['invites.list']({})),
+)
+
+/** A new invite link, bound to one address when given; the link is in this answer alone. */
+export const createInvite = (email: string | null): Action<AsRead.InviteLink> =>
+  withApp(({ api }) => api['invites.create']({ body: email === null ? {} : { email } }))
+
+export const revokeInvite = (id: string): Action =>
+  withApp(({ api }) => T.asUnit(api['invites.revoke']({ params: { id } })))
+
 export const lookUpDevice = (userCode: string): Action<DeviceRequest> =>
   withApp(({ api }) => api['device.get']({ params: { userCode } }))
 

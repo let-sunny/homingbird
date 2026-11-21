@@ -112,13 +112,19 @@ export interface Identity {
   readonly name: string
 }
 
+/** Whether the identity provider's subject already belongs to a member, who signs in whatever their domain. */
+export const isKnownSubject = (subject: string): T.Task<boolean, never, AppEnv> =>
+  T.map((row: { id: string } | null) => row !== null)(
+    first<{ id: string }>(sql`SELECT id FROM members WHERE subject = ${subject}`),
+  )
+
 export const signInMember = (identity: Identity): T.Task<Member, never, AppEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
     const email = identity.email.toLowerCase()
-    const existing = yield* first<MemberRow>(
-      sql`SELECT * FROM members WHERE subject = ${identity.subject} OR email = ${email}`,
-    )
+    const existing =
+      (yield* first<MemberRow>(sql`SELECT * FROM members WHERE subject = ${identity.subject}`)) ??
+      (yield* first<MemberRow>(sql`SELECT * FROM members WHERE email = ${email}`))
     if (existing !== null && existing.kind !== 'person') return toMember(existing)
     if (existing !== null) {
       const role = env.config.adminEmails.includes(email) ? 'admin' : existing.role
@@ -201,7 +207,7 @@ export const administerMember = (
         sql`UPDATE credentials SET revoked_at = ${env.clock.now()} WHERE member_id = ${id} AND revoked_at IS NULL`,
       )
       yield* run(
-        sql`UPDATE auth_requests SET status = 'denied' WHERE member_id = ${id} AND (status = 'approved' OR (kind = 'join' AND status = 'pending'))`,
+        sql`UPDATE auth_requests SET status = 'denied' WHERE member_id = ${id} AND (status = 'approved' OR (kind IN ('join', 'invite') AND status = 'pending'))`,
       )
       if (before.status !== 'deactivated') yield* removeFromEveryGroup(actor, id)
       yield* forgetDeskWake(actor, id)

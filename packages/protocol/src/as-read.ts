@@ -24,6 +24,7 @@ import type {
   ChannelAgentFigures as ChannelAgentFiguresSchema,
   ChannelAgentReport as ChannelAgentReportSchema,
 } from './insights.ts'
+import type { InviteLink as InviteLinkSchema, Invite as InviteSchema } from './invites.ts'
 import type {
   Channel as ChannelSchema,
   Contact as ContactSchema,
@@ -88,3 +89,5 @@ export type Review = S.Read<typeof ReviewSchema>
 export type DeskWake = S.Read<typeof DeskWakeSchema>
 export type DeskWakeTest = S.Read<typeof DeskWakeTestSchema>
 export type JoinCode = S.Read<typeof JoinCodeSchema>
+export type Invite = S.Read<typeof InviteSchema>
+export type InviteLink = S.Read<typeof InviteLinkSchema>

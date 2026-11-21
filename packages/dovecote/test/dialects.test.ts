@@ -350,11 +350,13 @@ describe.each(DIALECTS)('Dovecote on %s', (_, url) => {
         ...settings,
         answeringFlow: null,
         features: featureSwitches({}),
+        whoCanInvite: 'admins',
       })
       expect((await ana.api('PUT', '/admin/settings', settings)).json).toEqual({
         ...settings,
         answeringFlow: null,
         features: featureSwitches({}),
+        whoCanInvite: 'admins',
       })
       await ana.api('PATCH', `/admin/members/${cy.me.member.id}`, { status: 'deactivated' })
       expect((await cy.api('GET', '/me')).status).toBe(401)

@@ -158,6 +158,12 @@ export const AUDIT_DETAILS: { readonly [N in AuditedRoute]: Describe<N> } = {
             channelRow(channel),
           ),
         ),
+  'invites.create': () =>
+    afterwards((link) => ({
+      targetId: link.invite.id,
+      detail: { boundToEmail: link.invite.email !== null },
+    })),
+  'invites.revoke': ({ params }) => afterwards(() => ({ targetId: params.id, detail: {} })),
   'consent.decide': ({ params, body }) =>
     afterwards(() => ({ targetId: params.id, detail: { approved: body.approve } })),
   'admin.settings.put': () =>
@@ -223,9 +229,9 @@ function onMember(params: { readonly slug: string; readonly memberId: string }) 
 }
 
 function settingsChange(before: Settings, after: Settings): AuditDetail<'organization.settings_changed'> {
-  const changed = (['allowedDomains', 'contactMode', 'answeringFlow', 'features'] as const).filter(
-    (key) => JSON.stringify(before[key] ?? null) !== JSON.stringify(after[key] ?? null),
-  )
+  const changed = (
+    ['allowedDomains', 'contactMode', 'answeringFlow', 'features', 'whoCanInvite'] as const
+  ).filter((key) => JSON.stringify(before[key] ?? null) !== JSON.stringify(after[key] ?? null))
   return {
     changed,
     ...(changed.includes('contactMode') && {
@@ -236,6 +242,9 @@ function settingsChange(before: Settings, after: Settings): AuditDetail<'organiz
     }),
     ...(changed.includes('features') && {
       features: { from: before.features ?? {}, to: after.features ?? {} },
+    }),
+    ...(changed.includes('whoCanInvite') && {
+      whoCanInvite: { from: before.whoCanInvite ?? 'admins', to: after.whoCanInvite ?? 'admins' },
     }),
   }
 }

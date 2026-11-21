@@ -50,6 +50,7 @@ const probes: Readonly<Record<string, (person: Session) => Promise<{ status: num
   cloudDesk: (person) => person.api('GET', '/me/desk-wake'),
   joinCodes: (person) => person.api('POST', '/join-codes', {}),
   deskAvailability: (person) => person.api('POST', '/me/desk/available', {}),
+  invites: (person) => person.api('GET', '/invites'),
 }
 
 describe('feature switches', () => {

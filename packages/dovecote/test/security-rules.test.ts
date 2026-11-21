@@ -1034,6 +1034,30 @@ describe('Rule 5: credentials are stored hashed and never logged', () => {
     expect(await everyStoredValue(server)).toContain(hashSecret(code))
   })
 
+  it('5: keeps an invite link only as a hash, shows it in the one response that made it, and lets it admit once', async () => {
+    const made = await ana.api('POST', '/invites', {})
+    const code = (made.json.url as string).split('#/invite/')[1]!
+    const accept = async (email: string) => {
+      const opened = await server.request('POST', '/auth/invite', { form: { code } })
+      const location = opened.headers.location!
+      if (location.startsWith('/#/')) return location
+      const state = new URL(location, 'http://localhost:8080').searchParams.get('state')!
+      const submitted = await server.request('POST', '/auth/dev', { form: { email, name: email, state } })
+      return (await server.request('GET', submitted.headers.location!)).headers.location!
+    }
+    expect(await accept('guest@elsewhere.test')).toBe('/')
+    expect(await accept('second@elsewhere.test')).toBe('/#/invite-refused')
+    const secret = code.slice('hbi_'.length)
+    const kept = [
+      await everyStoredValue(server),
+      JSON.stringify(await storedRows(server, 'audit_events')),
+      server.logged.join('\n'),
+      JSON.stringify((await ana.api('GET', '/invites')).json),
+    ].join('\n')
+    expect(kept).not.toContain(secret)
+    expect(await everyStoredValue(server)).toContain(hashSecret(code))
+  })
+
   it('5: keeps a wake token sealed, out of every response, log line and audit entry, and deletes it when its person removes it', async () => {
     const token = 'wake-token-5e1a7c0ffee'
     const path = '/v1/claude_code/routines/trig_rule5marker/fire'

@@ -147,6 +147,7 @@ describe('administration', () => {
       contactMode: 'open',
       answeringFlow: null,
       features: featureSwitches({}),
+      whoCanInvite: 'admins',
     })
     const next = {
       allowedDomains: ['example.com', 'partner.org'],
@@ -156,6 +157,7 @@ describe('administration', () => {
       ...next,
       answeringFlow: null,
       features: featureSwitches({}),
+      whoCanInvite: 'admins',
     })
     expect((await ben.api('GET', '/me')).json.contactMode).toBe('contacts')
     expect((await server.request('GET', '/api/v1/info')).json).toMatchObject({
