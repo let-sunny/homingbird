@@ -110,7 +110,7 @@ const createForm = (context: ViewContext, me: AsRead.Me): HTMLElement => {
             {
               done: (created) => {
                 closeDialog(context)
-                context.page.go(hrefFor({ name: 'debate', id: created.id }))
+                context.page.go(hrefFor({ name: 'debate', id: created.id, tab: null }))
               },
             },
           )

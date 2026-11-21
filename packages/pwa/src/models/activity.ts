@@ -282,7 +282,7 @@ const debateItems = (input: ActivityInput): ActivityItem[] => {
         weight: 1,
         place: {
           text: room.question,
-          href: hrefFor({ name: 'debate', id: room.id }),
+          href: hrefFor({ name: 'debate', id: room.id, tab: asks ? 'turns' : 'result' }),
           label: strings.activity.openRoom,
           time: timeShown(at, input.now),
         },

@@ -1,40 +1,56 @@
 import type { AsRead, CredentialId, DebateExportFormat } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, lifetime, linkedText, region } from '@homingbird/ui'
-import { type DebateRoomModel, debateRoomModel, resultDestination } from '../models/debate-room.ts'
-import { hrefFor } from '../routes.ts'
+import { type DebateRoomModel, type Turn, debateRoomModel, resultDestination } from '../models/debate-room.ts'
+import { type DebateTab, hrefFor } from '../routes.ts'
 import { locale, strings } from '../strings.ts'
 import { authorButton } from './author-details.ts'
 import type { ViewContext } from './context.ts'
-import { renderResultBody, resultSection, section } from './debate-result.ts'
+import { renderResultBody, renderVoteRecord, resultSection, section } from './debate-result.ts'
 import { limitFields, limitsTypedIn } from './debates.ts'
 import { emptyWithPip, field, loading, page, privateMarkOf, timeLabel } from './parts.ts'
 
-/** One debate room: its question, its agents and turns as they come, and the result the agents settled. */
-export const debateView = (context: ViewContext, life: Lifetime, me: AsRead.Me, id: string): HTMLElement => {
+/**
+ * One debate room, one short tab at a time, each its own address: the result the agents settled, how they
+ * voted, what each contributed, and the turns as they come. Changing tabs keeps the room drawn while it is read again.
+ */
+export const debateView = (
+  context: ViewContext,
+  life: Lifetime,
+  me: AsRead.Me,
+  id: string,
+  tab: DebateTab | null,
+): HTMLElement => {
   const { state, actions } = context
-  state.shownDebate.set(null)
+  const held = state.shownDebate.get()
+  if (held === null || held === 'missing' || held.id !== id) state.shownDebate.set(null)
   actions.loadDebate(id)
   const drawn = lifetime()
   life.add(drawn.end)
+  let focusPending = true
   return region(
     life,
     [state.shownDebate, state.members, state.agentCredentials, state.serverInfo],
     () => {
       drawn.end()
-      return renderDebateRoom(
-        debateRoomModel({
-          debate: state.shownDebate.get(),
-          viewerId: me.member.id,
-          members: state.members.get(),
-          agents: state.agentCredentials.get(),
-          channels: state.channels.get(),
-          directory: state.directory.get(),
-          serverInfo: state.serverInfo.get(),
-          now: context.clock.now(),
-        }),
-        context,
-        drawn,
-      )
+      const model = debateRoomModel({
+        debate: state.shownDebate.get(),
+        tab,
+        viewerId: me.member.id,
+        members: state.members.get(),
+        agents: state.agentCredentials.get(),
+        channels: state.channels.get(),
+        directory: state.directory.get(),
+        serverInfo: state.serverInfo.get(),
+        now: context.clock.now(),
+      })
+      const view = renderDebateRoom(model, context, drawn)
+      if (model.kind === 'room' && model.focusesTab && focusPending) {
+        focusPending = false
+        context.page.nextFrame(() =>
+          view.ownerDocument.querySelector<HTMLElement>(CURRENT_TAB)?.focus({ preventScroll: true }),
+        )
+      }
+      return view
     },
     { class: 'debate-room-host' },
   )
@@ -48,7 +64,6 @@ const renderDebateRoom = (model: DebateRoomModel, context: ViewContext, drawn: L
       model.text,
       h('a', { class: 'button', href: hrefFor({ name: 'debates' }) }, strings.debates.allRooms),
     )
-  const { debate } = model
   return page(
     model.question,
     h(
@@ -59,111 +74,203 @@ const renderDebateRoom = (model: DebateRoomModel, context: ViewContext, drawn: L
       model.isPrivate && h('span', { class: 'hint' }, strings.debates.privateSeenBy),
       model.closesAt !== null && h('span', {}, model.closesAt),
     ),
-    h('p', { class: 'debate-limits-summary' }, model.limits),
-    h('p', { class: 'debate-grace-summary' }, model.grace),
-    model.mayChangeLimits && limitsForm(context, debate),
-    model.limitsFixed && h('p', { class: 'hint debate-limits-fixed' }, strings.debates.limitsFixed),
-    section(
-      strings.debates.participantsTitle,
-      'debate-participants',
-      model.participants.length === 0
-        ? h('p', {}, strings.debates.noParticipants)
-        : h(
-            'ul',
-            {},
-            model.participants.map((participant) =>
-              h(
-                'li',
-                { data: { member: participant.memberId } },
-                h('span', {}, participant.name),
-                participant.turnsLeft !== null && h('small', {}, participant.turnsLeft),
-                participant.droppedOut !== null &&
-                  h('small', { class: 'debate-dropped-out' }, participant.droppedOut),
-              ),
-            ),
-          ),
-    ),
-    model.optIn !== null && optInSection(context, debate, model.optIn),
-    section(
-      strings.debates.turnsTitle,
-      'debate-turns',
-      model.turns.kind === 'none'
-        ? h('p', {}, model.turns.text)
-        : h(
-            'ol',
-            { class: 'debate-turn-list', 'aria-live': 'polite' },
-            model.turns.turns.map((turn) =>
-              h(
-                'li',
-                {
-                  class: `debate-turn ${turn.mine ? 'is-mine' : ''}`,
-                  data: { position: String(turn.position) },
-                },
-                h(
-                  'header',
-                  { class: 'debate-turn-head' },
-                  h(
-                    'span',
-                    { class: 'debate-turn-author' },
-                    authorButton(context, drawn, turn.details),
-                    h('strong', {}, turn.author),
-                  ),
-                  timeLabel(turn.time),
-                ),
-                h('p', { class: 'debate-turn-body' }, ...linkedText(turn.body)),
-              ),
-            ),
-          ),
-    ),
-    model.ended !== null && section(strings.debates.resultTitle, 'debate-result', h('p', {}, model.ended)),
-    model.result !== null && resultSection(model.result),
-    model.drafts !== null &&
-      section(
-        strings.debates.draftsTitle,
-        'debate-drafts',
-        h(
-          'ol',
-          { class: 'debate-draft-list' },
-          model.drafts.map((draft) =>
-            h(
-              'li',
-              { class: `debate-draft ${draft.chosen ? 'is-chosen' : ''}`, data: { member: draft.memberId } },
-              h(
-                'details',
-                { open: draft.chosen },
-                h(
-                  'summary',
-                  { class: 'debate-draft-head' },
-                  h('strong', {}, draft.title),
-                  draft.votes !== null && h('span', { class: 'debate-draft-votes' }, draft.votes),
-                  draft.chosen && h('span', { class: 'debate-draft-chosen' }, strings.debates.chosen),
-                  timeLabel(draft.time),
-                ),
-                h('div', { class: 'debate-draft-author' }, authorButton(context, drawn, draft.details)),
-                draft.chosen && h('p', { class: 'hint' }, strings.debates.chosenHint),
-                ...renderResultBody(draft.body),
-              ),
-            ),
+    model.tabs.length > 1 &&
+      h(
+        'nav',
+        { class: 'subtabs debate-tabs', 'aria-label': strings.debates.tabsLabel },
+        model.tabs.map((tab) =>
+          h(
+            'a',
+            { href: tab.href, 'aria-current': tab.current && 'page', data: { tab: tab.tab } },
+            tab.label,
           ),
         ),
       ),
-    model.closed !== null && h('p', { class: 'hint debate-closed-hint' }, strings.debates.closedHint),
-    model.closed?.mayPost === true &&
-      section(strings.debates.sendTitle, 'debate-send', postForm(context, debate, model.closed)),
-    model.closed !== null &&
-      section(
-        strings.debates.exportTitle,
-        'debate-export',
-        h(
-          'div',
-          { class: 'debate-exports' },
-          exportButton(context, debate, 'markdown', strings.debates.exportMarkdown),
-          exportButton(context, debate, 'json', strings.debates.exportJson),
-          h('small', {}, strings.debates.exportAudited),
-        ),
-      ),
+    h('div', { class: `debate-tab is-${model.shown}` }, ...tabContent(model, context, drawn)),
   )
 }
+
+const tabContent = (model: Room, context: ViewContext, drawn: Lifetime): ReadonlyArray<Child> => {
+  switch (model.shown) {
+    case 'result':
+      return resultTab(model, context, drawn)
+    case 'votes':
+      return votesTab(model)
+    case 'credit':
+      return creditTab(model)
+    case 'turns':
+      return turnsTab(model, context, drawn)
+  }
+}
+
+const resultTab = (model: Room, context: ViewContext, drawn: Lifetime): ReadonlyArray<Child> => [
+  model.ended !== null && section(strings.debates.resultTitle, 'debate-result', h('p', {}, model.ended)),
+  model.result !== null && resultSection(model.result),
+  model.closed !== null && h('p', { class: 'hint debate-closed-hint' }, strings.debates.closedHint),
+  model.closed?.mayPost === true &&
+    section(strings.debates.sendTitle, 'debate-send', postForm(context, model.debate, model.closed)),
+  model.closed !== null &&
+    section(
+      strings.debates.exportTitle,
+      'debate-export',
+      h(
+        'div',
+        { class: 'debate-exports' },
+        exportButton(context, model.debate, 'markdown', strings.debates.exportMarkdown),
+        exportButton(context, model.debate, 'json', strings.debates.exportJson),
+        h('small', {}, strings.debates.exportAudited),
+      ),
+    ),
+  model.drafts !== null &&
+    section(
+      strings.debates.draftsTitle,
+      'debate-drafts',
+      h(
+        'ol',
+        { class: 'debate-draft-list' },
+        model.drafts.map((draft) =>
+          h(
+            'li',
+            { class: `debate-draft ${draft.chosen ? 'is-chosen' : ''}`, data: { member: draft.memberId } },
+            h(
+              'details',
+              {},
+              h(
+                'summary',
+                { class: 'debate-draft-head' },
+                h('strong', {}, draft.title),
+                draft.votes !== null && h('span', { class: 'debate-draft-votes' }, draft.votes),
+                draft.chosen && h('span', { class: 'debate-draft-chosen' }, strings.debates.chosen),
+                timeLabel(draft.time),
+              ),
+              h('div', { class: 'debate-draft-author' }, authorButton(context, drawn, draft.details)),
+              draft.chosen && h('p', { class: 'hint' }, strings.debates.chosenHint),
+              ...renderResultBody(draft.body, { contributions: true }),
+            ),
+          ),
+        ),
+      ),
+    ),
+]
+
+const votesTab = ({ votes }: Room): ReadonlyArray<Child> => [
+  section(
+    strings.debates.voteRecordTitle,
+    'debate-votes',
+    votes.voting !== null && h('p', { class: 'debate-voting' }, votes.voting),
+    votes.record !== null && renderVoteRecord(votes.record),
+  ),
+]
+
+const creditTab = ({ credit }: Room): ReadonlyArray<Child> => [
+  section(
+    strings.debates.contributions,
+    'debate-credit-list',
+    h(
+      'ul',
+      { class: 'debate-contributions' },
+      (credit ?? []).map((row) =>
+        h(
+          'li',
+          { data: { member: row.memberId } },
+          h('strong', {}, row.name),
+          row.summary !== null && h('span', {}, row.summary),
+          ...row.credits.map((one) => h('span', { class: 'debate-credit', title: one.hint }, one.text)),
+          row.keptSteps.length > 0 &&
+            h(
+              'div',
+              { class: 'debate-kept-steps' },
+              h('small', {}, strings.debates.keptSteps),
+              h(
+                'ul',
+                {},
+                row.keptSteps.map((step) => h('li', {}, step)),
+              ),
+            ),
+        ),
+      ),
+    ),
+  ),
+]
+
+const turnsTab = (model: Room, context: ViewContext, drawn: Lifetime): ReadonlyArray<Child> => [
+  model.optIn !== null && optInSection(context, model.debate, model.optIn),
+  section(
+    strings.debates.participantsTitle,
+    'debate-participants',
+    model.participants.length === 0
+      ? h('p', {}, strings.debates.noParticipants)
+      : h(
+          'ul',
+          {},
+          model.participants.map((participant) =>
+            h(
+              'li',
+              { data: { member: participant.memberId } },
+              h('span', {}, participant.name),
+              participant.turnsLeft !== null && h('small', {}, participant.turnsLeft),
+              participant.droppedOut !== null &&
+                h('small', { class: 'debate-dropped-out' }, participant.droppedOut),
+            ),
+          ),
+        ),
+    h('p', { class: 'debate-limits-summary' }, model.limits),
+    h('p', { class: 'debate-grace-summary' }, model.grace),
+    model.mayChangeLimits && limitsForm(context, model.debate),
+    model.limitsFixed && h('p', { class: 'hint debate-limits-fixed' }, strings.debates.limitsFixed),
+  ),
+  section(
+    strings.debates.turnsTitle,
+    'debate-turns',
+    ...(model.turns.kind === 'none'
+      ? [h('p', {}, model.turns.text)]
+      : [
+          h(
+            'p',
+            { class: 'debate-turn-times' },
+            h('span', { class: 'debate-turns-taken' }, model.turns.taken),
+            h('span', {}, model.turns.timing),
+          ),
+          model.turns.earlier !== null &&
+            h(
+              'details',
+              { class: 'debate-earlier-turns' },
+              h('summary', {}, model.turns.earlier.label),
+              turnList(model.turns.earlier.turns, context, drawn, false),
+            ),
+          turnList(model.turns.latest, context, drawn, true),
+        ]),
+  ),
+]
+
+const turnList = (
+  turns: ReadonlyArray<Turn>,
+  context: ViewContext,
+  drawn: Lifetime,
+  isLive: boolean,
+): HTMLElement =>
+  h(
+    'ol',
+    { class: 'debate-turn-list', ...(isLive && { 'aria-live': 'polite' }) },
+    turns.map((turn) =>
+      h(
+        'li',
+        { class: `debate-turn ${turn.mine ? 'is-mine' : ''}`, data: { position: String(turn.position) } },
+        h(
+          'header',
+          { class: 'debate-turn-head' },
+          h(
+            'span',
+            { class: 'debate-turn-author' },
+            authorButton(context, drawn, turn.details),
+            h('strong', {}, turn.author),
+          ),
+          timeLabel(turn.time),
+        ),
+        h('p', { class: 'debate-turn-body' }, ...linkedText(turn.body)),
+      ),
+    ),
+  )
 
 const limitsForm = (context: ViewContext, debate: AsRead.Debate): HTMLElement => {
   const form: HTMLFormElement = h(
@@ -188,7 +295,7 @@ const limitsForm = (context: ViewContext, debate: AsRead.Debate): HTMLElement =>
 const optInSection = (
   context: ViewContext,
   debate: AsRead.Debate,
-  optIn: NonNullable<Extract<DebateRoomModel, { kind: 'room' }>['optIn']>,
+  optIn: NonNullable<Room['optIn']>,
 ): HTMLElement => {
   if (optIn.kind === 'no-agent')
     return section(strings.debates.optInTitle, 'debate-opt-in', h('p', {}, optIn.text))
@@ -240,7 +347,7 @@ const exportButton = (
 const postForm = (
   context: ViewContext,
   debate: AsRead.Debate,
-  closed: NonNullable<Extract<DebateRoomModel, { kind: 'room' }>['closed']>,
+  closed: NonNullable<Room['closed']>,
 ): HTMLElement => {
   const choices = (options: ReadonlyArray<{ readonly value: string; readonly label: string }>) => [
     h('option', { value: '' }, strings.debates.choose),
@@ -270,3 +377,7 @@ const postForm = (
     h('button', { type: 'submit', class: 'primary' }, strings.debates.post),
   )
 }
+
+const CURRENT_TAB = '.debate-tabs [aria-current="page"]'
+
+type Room = Extract<DebateRoomModel, { kind: 'room' }>

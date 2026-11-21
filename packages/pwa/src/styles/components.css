@@ -4603,6 +4603,43 @@ textarea:disabled {
   font-size: var(--hb-text-small);
 }
 
+.debate-tab {
+  display: grid;
+  gap: var(--hb-space-4);
+  min-inline-size: 0;
+}
+
+.debate-turn-times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hb-space-1) var(--hb-space-3);
+  color: var(--hb-color-muted);
+  font-size: var(--hb-text-small);
+}
+
+.debate-tabs + .debate-tab > .debate-section:first-child {
+  padding-block-start: 0;
+  border-block-start: 0;
+}
+
+.debate-credit-list .debate-contributions {
+  gap: var(--hb-space-3);
+}
+
+.debate-kept-steps {
+  flex-basis: 100%;
+}
+
+.debate-earlier-turns > summary {
+  cursor: pointer;
+  color: var(--hb-color-muted);
+  font-size: var(--hb-text-small);
+}
+
+.debate-earlier-turns[open] > summary {
+  margin-block-end: var(--hb-space-3);
+}
+
 .debate-section {
   display: grid;
   gap: var(--hb-space-3);
@@ -4616,6 +4653,7 @@ textarea:disabled {
 }
 
 .debate-participants ul,
+.debate-kept-steps ul,
 .debate-approvals ul,
 .debate-next-steps,
 .debate-contributions,
@@ -4636,6 +4674,7 @@ textarea:disabled {
 }
 
 .debate-participants small,
+.debate-kept-steps small,
 .debate-next-steps small,
 .debate-approvals small {
   color: var(--hb-color-muted);
