@@ -299,6 +299,24 @@ describe('reviewsInRoomModel', () => {
     })
   })
 
+  it('places an answer by the question it carries when it names no note it replies to', () => {
+    const unlinked = review({ note: draft('note_answer00000', { authorId: AGENT, inReplyTo: null }) })
+    expect(inRoom([unlinked], notes).map((item) => item.key)).toEqual([
+      'note_before',
+      'note_question000',
+      'review:note_answer00000',
+      'note_after',
+    ])
+    const orphan = review({
+      note: draft('note_orphan', { authorId: AGENT, inReplyTo: null }),
+      question: null,
+    })
+    expect(inRoom([orphan], notes).map((item) => item.key)).toEqual([
+      ...notes.map((one) => one.id),
+      'review:note_orphan',
+    ])
+  })
+
   it('shows nothing new to the person who asked, or for answers waiting in another room', () => {
     expect(inRoom([review()], notes, CY).map((item) => item.key)).toEqual(notes.map((one) => one.id))
     const elsewhere = review({ note: draft('note_away', { conversationId: 'conv_away0000000' as never }) })
