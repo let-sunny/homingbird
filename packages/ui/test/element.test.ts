@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { append, h, linkedText, replaceChildren, svg } from '../src/element.ts'
+import { append, h, linkedText, noteText, replaceChildren, svg } from '../src/element.ts'
 import { installFakeDom, uninstallFakeDom } from '../src/testing/index.ts'
 
 beforeEach(() => installFakeDom())
@@ -66,6 +66,33 @@ describe('linkedText', () => {
       '_blank',
     ])
     expect(after.textContent).toBe('. Thanks')
+  })
+})
+
+describe('noteText', () => {
+  it('shows inline code and fenced blocks as code, beside linked prose, with what a block adds', () => {
+    const body = h(
+      'div',
+      {},
+      noteText(
+        'See https://example.com and run `ls -la`:\n```sh\nrm -rf <b>x</b>\n```\n```\nplain\n```',
+        (code) => h('button', { type: 'button' }, `copy ${code.length}`),
+      ),
+    )
+    expect(body.querySelector('a')?.getAttribute('href')).toBe('https://example.com')
+    expect(body.querySelector('code')?.textContent).toBe('ls -la')
+    const [shell, plain] = [...body.querySelectorAll('.code-block')]
+    expect(shell?.querySelector('pre')?.getAttribute('tabindex')).toBe('0')
+    expect(shell?.querySelector('pre > code')?.textContent).toBe('rm -rf <b>x</b>')
+    expect(shell?.querySelector('pre > code')?.getAttribute('data-language')).toBe('sh')
+    expect(shell?.querySelector('b')).toBeNull()
+    expect(shell?.querySelector('button')?.textContent).toBe('copy 15')
+    expect(plain?.querySelector('code')?.hasAttribute('data-language')).toBe(false)
+  })
+
+  it('adds nothing beside a block when asked for nothing', () => {
+    const body = h('div', {}, noteText('```\nx\n```'))
+    expect(body.querySelector('.code-block')?.children.length).toBe(1)
   })
 })
 

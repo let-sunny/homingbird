@@ -13,6 +13,7 @@ import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
 import { cardOf, focusAfterDecision } from './decision-focus.ts'
 import { closeDialog, closesDialog, opensDialog, submitOnModifierEnter } from './dialog.ts'
+import { noteBody } from './note-body.ts'
 import { button, channelCounts, sourceList } from './parts.ts'
 import { renderAppliedMarkers } from './teaching.ts'
 
@@ -59,7 +60,7 @@ const draftCard = (context: ViewContext, card: DraftCard, headingId: string): HT
       ...(card.focused && { 'aria-current': 'true' }),
     },
     h('span', { class: card.origin.className, id: `draft-origin-${draft.id}` }, card.origin.text),
-    h('p', { class: 'note-body' }, linkedText(card.body)),
+    noteBody(context, card.body),
     card.room !== null && h('a', { class: 'debate-note-room', href: card.room.href }, card.room.label),
     card.basis !== null &&
       h(
@@ -230,7 +231,7 @@ const draftEditor = (
       closeDialog(context)
       return
     }
-    const shown = [h('p', {}, now.notice), h('p', { class: 'note-body' }, linkedText(now.body))]
+    const shown = [h('p', {}, now.notice), noteBody(context, now.body)]
     if (now.moved === null) {
       baseline = now.draft
       changed.replaceChildren(...shown)

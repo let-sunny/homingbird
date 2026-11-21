@@ -1,3 +1,4 @@
+import type { AsRead } from '@homingbird/protocol'
 import { lifetime } from '@homingbird/ui'
 import { fire, getByRole, queryByRole, textOf } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
@@ -18,7 +19,7 @@ const offer = {
   place: null,
   suggestion: null,
   createdAt: 1,
-} as never
+} as AsRead.PrincipleOffer
 
 describe('taughtSection', () => {
   it('loads the principles, and says when they could not load', () => {
@@ -47,10 +48,36 @@ describe('taughtSection', () => {
     getByRole(add, 'button', { name: strings.teach.addLabel }).click()
     const [save] = called('savePrinciple')
     expect(save!.args).toEqual([
-      { topic: 'Dates', rule: 'Check RELEASES.md first.', source: null, place: 'billing' },
+      { kind: 'rule', topic: 'Dates', rule: 'Check RELEASES.md first.', source: null, place: 'billing' },
     ])
     save!.then!.done!(undefined)
     expect(context.state.notice.get()).toEqual({ kind: 'info', text: strings.teach.saved })
+  })
+
+  it('saves an answer from the list once the person chooses Answer, and warns as for an answer', () => {
+    const { context, called } = testContext()
+    const shown = mount(taughtSection(context, lifetime()))
+    context.state.taught.set(taught())
+    const add = getByRole(shown, 'group', { name: strings.teach.addLabel })
+    fire.type(getByRole(add, 'textbox', { name: strings.teach.topic }), 'Release calendar')
+    fire.type(getByRole(add, 'textbox', { name: strings.teach.rule }), 'The calendar is the infra wiki page')
+    expect(textOf(add)).toContain(strings.teach.advice.stored_answer)
+    const answer = getByRole(add, 'radio', { name: strings.teach.kindBadge.answer }) as HTMLInputElement
+    answer.checked = true
+    fire.event(answer, 'change')
+    expect(textOf(add)).not.toContain(strings.teach.advice.stored_answer)
+    const text = getByRole(add, 'textbox', { name: strings.teach.answer }) as HTMLTextAreaElement
+    expect(text.placeholder).toBe(strings.teach.answer)
+    getByRole(add, 'button', { name: strings.teach.addLabel }).click()
+    expect(called('savePrinciple')[0]!.args).toEqual([
+      {
+        kind: 'answer',
+        topic: 'Release calendar',
+        rule: 'The calendar is the infra wiki page',
+        source: null,
+        place: null,
+      },
+    ])
   })
 
   it('switches, edits, moves, deletes and makes public or private each principle', () => {
@@ -89,11 +116,23 @@ describe('taughtSection', () => {
 })
 
 describe('chancesIn', () => {
-  it('shows this conversation’s chances to teach, while teaching is on', () => {
-    const { context } = testContext()
-    const shown = chancesIn(context, lifetime(), ROOM)
-    context.state.taught.set(taught({ offers: [offer] }))
-    expect(textOf(shown)).toContain(strings.teach.chanceEdit({ place: strings.trust.directMessages }))
+  it('shows this conversation’s chances to teach as one line each, while teaching is on', () => {
+    mount(dialogHost())
+    const { context, called } = testContext()
+    const shown = mount(chancesIn(context, lifetime(), ROOM))
+    context.state.taught.set(
+      taught({ offers: [offer, { ...offer, id: 'offer_bbbbbbbbbbbb', kind: 'discard' }] }),
+    )
+    expect(textOf(shown)).toContain(strings.teach.chanceHereEdit)
+    expect(textOf(shown)).toContain(strings.teach.chanceHereDiscard)
+    getByRole(shown, 'button', { name: strings.teach.teachFromDiscard })
+    const first = shown.querySelector<HTMLElement>(`[data-offer="${offer.id}"]`)!
+    getByRole(first, 'button', { name: strings.teach.notNow }).click()
+    expect(called('dismissOffer')[0]!.args).toEqual([offer.id, false])
+    getByRole(first, 'button', { name: strings.teach.stopAsking }).click()
+    expect(called('dismissOffer')[1]!.args).toEqual([offer.id, true])
+    getByRole(shown, 'button', { name: strings.teach.teachFromEdit }).click()
+    expect(document.querySelector('dialog')?.textContent).toContain(strings.teach.save)
     context.state.serverInfo.set(serverInfo())
     context.state.taught.set(taught({ offers: [offer] }))
     expect(shown.childNodes).toHaveLength(0)

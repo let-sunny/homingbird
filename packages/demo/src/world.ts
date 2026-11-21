@@ -16,6 +16,7 @@ import type {
   Notice,
   Presence,
   Principle,
+  PrincipleOffer,
   StreamEvent,
 } from '@homingbird/protocol'
 import { demoTeam } from './team.ts'
@@ -88,6 +89,8 @@ export interface Records {
   readonly groups: ReadonlyArray<GroupRecord>
   readonly credentials: ReadonlyArray<CredentialRecord>
   readonly principles: ReadonlyArray<Principle>
+  /** Chances to teach still open, each after an edit or a discard, as Dovecote keeps them. */
+  readonly offers: ReadonlyArray<PrincipleOffer>
   readonly debates: ReadonlyArray<Debate>
   /** What happened to a person's notes that they alone see, as a server keeps it across reloads. */
   readonly notices: ReadonlyArray<NoticeRecord>

@@ -20,6 +20,7 @@ import type { StreamEvent as StreamEventSchema } from './events.ts'
 import type { Group as GroupSchema } from './groups.ts'
 import type {
   AgentFigures as AgentFiguresSchema,
+  AgentMiss as AgentMissSchema,
   AgentPeriod as AgentPeriodSchema,
   AgentReport as AgentReportSchema,
   ChannelAgentFigures as ChannelAgentFiguresSchema,
@@ -86,6 +87,7 @@ export type AgentReport = S.Read<typeof AgentReportSchema>
 export type ChannelAgentReport = S.Read<typeof ChannelAgentReportSchema>
 export type ChannelAgentFigures = S.Read<typeof ChannelAgentFiguresSchema>
 export type AgentPeriod = S.Read<typeof AgentPeriodSchema>
+export type AgentMiss = S.Read<typeof AgentMissSchema>
 export type AgentFigures = S.Read<typeof AgentFiguresSchema>
 export type ServerInfo = S.Read<typeof ServerInfoSchema>
 export type ChannelAgent = S.Read<typeof ChannelAgentSchema>

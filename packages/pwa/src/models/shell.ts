@@ -7,7 +7,7 @@ import { strings } from '../strings.ts'
 import { conversationTitle, excerpt, isMuted, otherParticipants } from '../thread.ts'
 import { type AvatarModel, type GroupAvatarModel, groupAvatarOf, memberAvatarOf } from './avatar.ts'
 import { reviewBadgeOf } from './channel-agent.ts'
-import { leaveConsequence } from './channel-membership.ts'
+import { leaveConsequence, leaveRefusal } from './channel-membership.ts'
 import { type MuteToggle, muteToggleModel } from './mute-toggle.ts'
 import { type TimeShown, timeShown } from './time.ts'
 
@@ -231,11 +231,12 @@ const rowMenu = (
   channel: AsRead.Channel | null,
   mute: MuteToggle | null,
 ): ConversationRow['menu'] => {
+  const refusal = channel === null ? null : leaveRefusal(channel, null, null)
   const leave: RowLeave | null =
     channel === null || !channel.joined || conversation.archivedAt !== null
       ? null
-      : channel.managing
-        ? { kind: 'blocked', slug: channel.slug, reason: strings.managerCannotLeave }
+      : refusal !== null
+        ? { kind: 'blocked', slug: channel.slug, reason: refusal }
         : {
             kind: 'allowed',
             slug: channel.slug,

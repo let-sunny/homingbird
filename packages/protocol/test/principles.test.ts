@@ -70,9 +70,46 @@ describe('principleAdvice', () => {
     ).toEqual([])
   })
 
-  it('does not take a number in a method for a stored answer, nor a fact without digits', () => {
+  it('does not take a number in a method for a stored answer, nor a phrase that states nothing', () => {
     expect(principleAdvice({ topic: 'Plan', rule: 'check the 2027 calendar first' })).toEqual([])
     expect(principleAdvice({ topic: 'Plan', rule: 'tuesdays only, as agreed' })).toEqual([])
+  })
+
+  it.each([
+    ['The release calendar is the infra wiki page under Deploys', true],
+    ['Refunds over 200 EUR need Ana', true],
+    ['Our support hours were moved to the afternoon shift', true],
+    ['The status page lives on the ops wiki for everyone', true],
+    ['Annual plans are refunded pro rata for the unused months', true],
+    ['릴리스 캘린더는 인프라 위키 페이지입니다', true],
+    ['환불 규정은 결제 위키에 있습니다.', true],
+    ['check whether the release calendar is current', false],
+    ['say the release calendar is on the infra wiki', false],
+    ['be clear when the customer is upset', false],
+    ['The tone in this channel is friendly', false],
+    ['Refunds that are late go to the queue until Friday morning', false],
+    ['tuesdays only, as agreed with the team', false],
+  ])('offers to save “%s” as an answer: %s', (rule, offered) => {
+    expect(principleAdvice({ topic: 'Facts', rule }).includes('stored_answer')).toBe(offered)
+  })
+
+  it('takes a statement with no method for a stored answer, and never a rule that names a method', () => {
+    const noun = fc.constantFrom('release calendar', 'refund rule', 'status page', 'on-call rota', 'wiki')
+    const place = fc.constantFrom('the infra wiki', 'the billing FAQ', 'the ops channel', 'a shared drive')
+    const verb = fc.constantFrom('is', 'are', 'was', 'lives in', 'sits in')
+    const method = fc.constantFrom('check', 'look up', 'ask', 'link', 'say', 'point to')
+    fc.assert(
+      fc.property(noun, verb, place, (subject, is, where) => {
+        const rule = `The ${subject} ${is} ${where} for the whole team`
+        expect(principleAdvice({ topic: 'Facts', rule })).toContain('stored_answer')
+      }),
+    )
+    fc.assert(
+      fc.property(method, noun, verb, place, (how, subject, is, where) => {
+        const rule = `${how} whether the ${subject} ${is} ${where} before answering`
+        expect(principleAdvice({ topic: 'Facts', rule })).not.toContain('stored_answer')
+      }),
+    )
   })
 
   it('calls a rule vague under four words or when it ends in a wish, unless it names a method', () => {

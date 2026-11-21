@@ -181,7 +181,7 @@ describe('threadView', () => {
         ],
       }),
     )
-    expect(textOf(shown)).toContain(strings.teach.chanceDiscard({ place: strings.trust.directMessages }))
+    expect(textOf(shown)).toContain(strings.teach.chanceHereDiscard)
   })
 
   it('closes the composer in an archived room, and shows a channel’s head', () => {

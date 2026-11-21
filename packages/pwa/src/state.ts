@@ -61,6 +61,7 @@ export const createState = (hash: string): AppState => {
     composerFocus: signal<ConversationId | null>(null),
     releases: signal<ReadonlyMap<NoteId, Release>>(new Map()),
     archiveDiscards: signal<ReadonlyMap<ConversationId, ReadonlyArray<ArchiveDiscard>>>(new Map()),
+    discardedAnswers: signal<ReadonlyMap<NoteId, string>>(new Map()),
     openedForThePerson: signal<ConversationId | null>(null),
     agentReport: signal<AsRead.AgentReport | 'failed' | null>(null),
     taught: signal<AsRead.MyPrinciples | 'failed' | null>(null),
@@ -139,6 +140,8 @@ export interface AppState {
   readonly composerFocus: Signal<ConversationId | null>
   readonly releases: Signal<ReadonlyMap<NoteId, Release>>
   readonly archiveDiscards: Signal<ReadonlyMap<ConversationId, ReadonlyArray<ArchiveDiscard>>>
+  /** Questions whose channel agent's answer this manager discarded here, with the agent's name. */
+  readonly discardedAnswers: Signal<ReadonlyMap<NoteId, string>>
   readonly openedForThePerson: Signal<ConversationId | null>
   readonly agentReport: Signal<AsRead.AgentReport | 'failed' | null>
   readonly taught: Signal<AsRead.MyPrinciples | 'failed' | null>

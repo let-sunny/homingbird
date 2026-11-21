@@ -10,6 +10,7 @@ import {
   CHANNEL_ROOM,
   CY,
   ROOM,
+  channel,
   conversation,
   draft,
   entry,
@@ -255,7 +256,28 @@ describe('activityModel', () => {
         reason: strings.agentReleased({ reason: 'I cannot see the calendar.' }),
         reply: strings.activity.replyYourself,
         replyTo: { conversationId: ROOM, noteId: asked.id },
+        teach: { label: strings.teach.add, seed: { topic: 'Does the window clash', place: null } },
       },
+    ])
+    const withoutTeaching = activityModel(
+      input({
+        threads: new Map([[ROOM, thread(asked)]]),
+        releases: new Map([[asked.id, release]]),
+        serverInfo: serverInfo(),
+      }),
+    )
+    expect(itemsOf(withoutTeaching, 'skipped')).toEqual([expect.objectContaining({ teach: null })])
+    const inChannel = activityModel(
+      input({
+        threads: new Map([[ROOM, thread(asked)]]),
+        releases: new Map([[asked.id, release]]),
+        channels: [channel('deploys', { conversationId: ROOM })],
+      }),
+    )
+    expect(itemsOf(inChannel, 'skipped')).toEqual([
+      expect.objectContaining({
+        teach: expect.objectContaining({ seed: expect.objectContaining({ place: 'deploys' }) }),
+      }),
     ])
     const answered = note('note_reply', { authorId: ANA, inReplyTo: asked.id })
     const replied = activityModel(

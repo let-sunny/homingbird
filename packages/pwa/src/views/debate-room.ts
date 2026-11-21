@@ -16,6 +16,7 @@ import {
   section,
 } from './debate-result.ts'
 import { limitFields, limitsTypedIn } from './debates.ts'
+import { citedBody } from './note-body.ts'
 import { emptyWithPip, field, loading, page, privateMarkOf, timeLabel } from './parts.ts'
 
 /**
@@ -343,7 +344,7 @@ const turnItem = (turn: Turn, context: ViewContext, drawn: Lifetime): HTMLElemen
       turn.filler !== null && h('span', { class: 'debate-turn-mark' }, turn.filler),
       timeLabel(turn.time),
     ),
-    h('p', { class: 'debate-turn-body' }, ...citedText(turn.body)),
+    citedBody(context, turn.body, 'debate-turn-body'),
   )
 
 const limitsForm = (context: ViewContext, debate: AsRead.Debate): HTMLElement => {

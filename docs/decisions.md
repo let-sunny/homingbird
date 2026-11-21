@@ -1581,4 +1581,63 @@ already answer it.
   (`answers.used`, a `human` route: a model cannot inflate it). Organization insights show the count per
   place and in total, under the same minimum group size as every other place figure; nobody is listed.
   An agent that answers its person from history is not counted.
+- **Open questions too.** In a channel's room, the web client also matches the room's questions that
+  have no sent answer yet, by the same rule, from the notes it already shows: "Asked 40 minutes ago by
+  Ben Okafor, no answer yet", and for a manager whose review the answer waits for, that it does. A
+  duplicate question is one more review for a manager; this needs no new route and shows nothing the
+  person could not already read.
 - **Behind a switch.** The routes are the `earlierAnswers` feature, on by default.
+
+## Code in a note is shown as code; nothing else of Markdown is
+
+Engineering answers are commands, queries, stack traces and diffs, and agents write them in fenced
+blocks by default. Shown as running text, the backticks are printed and the alignment is lost, so a
+note that a team chat would show as code was harder to read in Homingbird.
+
+- **What is rendered.** A fenced block (a line of three or more backticks, closed by a line of at least
+  as many, indented up to three spaces) becomes `<pre><code>` in the monospace token, scrolling sideways
+  inside its bubble, with a **Copy** button that copies the block's text. The word after the opening
+  fence is kept as `data-language` and nothing more: there is no syntax highlighting. A run of
+  backticks closed by a run of the same length on the same line becomes `<code>`. An unclosed fence is
+  shown as it was typed, so a stray fence never swallows the rest of a note.
+- **Nothing else.** No headings, emphasis, lists, tables, images or HTML. Notes stay text and links by
+  design; code is still text, shown as text, and the other Markdown forms read well enough as typed.
+- **Built from text nodes.** `codeSpans` in `packages/ui/src/code-spans.ts` cuts the text, and
+  `noteText` builds every element with the DOM API; a note is never assigned to `innerHTML`. Links are
+  made only outside code, by the same rule as before (`http:` and `https:`, `rel="noopener noreferrer"`).
+- **The same everywhere a note is read:** sent notes, draft cards, a channel agent's answer under
+  review and debate turns. Model-facing tools are unchanged: they pass the text through `wrapNote`, which
+  never interprets it.
+
+## A chance to teach is offered where the agent missed, and the figures open into the drafts behind them
+
+Offers after an edit or a discard were listed only under My agent, Teaching, which a person had no
+reason to open at the moment they knew what their agent should have done. Teaching is what raises the
+share sent as written, so the offer comes to the place of the miss.
+
+- **In the conversation.** Once the moment to undo a rewritten or discarded draft is over, the chance
+  to teach is one line above the composer: "You rewrote your agent's draft. Teach your agent from this
+  edit · Not now · Don't ask in this channel", under the same once-a-day limit per place.
+- **On a skipped note.** **Teach my agent** sits beside **Ask anyway** in the thread and beside **Reply
+  yourself** in the activity panel, and opens the guided form with a title from the note's first line
+  and the channel it was asked in.
+- **Behind the figures.** `insights.mine` adds `misses`: the drafts the person edited or discarded and
+  the notes their agent skipped in the last 30 days, newest first, at most 100, each by note id,
+  conversation, place and time only, never what it says. How it is doing lists them under the numbers,
+  one folded list per count, each with a way to where it happened and **Teach my agent**. The route
+  map's "2 chances to teach" leads to the Teaching tab.
+- **Saving stays a person's click** (rule 8): every way in opens the same guided form in the web
+  client, filled in, and nothing is saved until the person saves it.
+- The add row on the Teaching tab offers Rule or Answer, as the guided form does, and the hint that a
+  rule reads as a stored answer also fires on a statement ("X is Y") with no method, condition or wish,
+  not only on a number.
+
+## A manager stays in a channel while others are in it, and the client says so before it fails
+
+The server keeps a manager in a room while anyone else is in it, and a channel with people keeps at
+least one manager. The room menu offered **Leave channel** to a manager and promised they could join
+again, then failed. The client now applies the same rule: a manager who is not alone in the room sees
+**Leave channel** disabled, with what to do first (remove themself as a manager, or, as the only one,
+add another manager first). Removing someone as a manager is confirmed, and warns when one manager would
+be left; when that is the person themself, it says that answers to their own questions will wait for
+another manager (rule 1).

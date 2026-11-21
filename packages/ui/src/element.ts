@@ -1,3 +1,4 @@
+import { codeSpans } from './code-spans.ts'
 import { textSegments } from './linkify.ts'
 
 export type Child = Node | string | number | null | undefined | false | ReadonlyArray<Child>
@@ -53,6 +54,27 @@ export const linkedText = (text: string): Node[] =>
       ? document.createTextNode(segment.value)
       : h('a', { href: segment.value, rel: 'noopener noreferrer', target: '_blank' }, segment.value),
   )
+
+/**
+ * A note's text: links as `linkedText` makes them, inline code as `<code>`, and each fenced block as a
+ * `<pre><code>` that scrolls on its own, with what `blockExtra` adds beside it, such as a copy button.
+ * Built from text nodes only.
+ */
+export const noteText = (text: string, blockExtra?: (code: string) => Child): Child[] =>
+  Array.from(codeSpans(text), (span): Child => {
+    if (span.type === 'text') return linkedText(span.value)
+    if (span.type === 'code') return h('code', {}, span.value)
+    return h(
+      'div',
+      { class: 'code-block' },
+      h(
+        'pre',
+        { tabindex: '0' },
+        h('code', span.language === null ? {} : { data: { language: span.language } }, span.value),
+      ),
+      blockExtra?.(span.value),
+    )
+  })
 
 const isChildList = (children: Child): children is ReadonlyArray<Child> => Array.isArray(children)
 

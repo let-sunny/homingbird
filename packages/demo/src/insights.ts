@@ -1,8 +1,11 @@
 import {
+  AGENT_MISSES_MAX,
   type AgentFigures,
+  type AgentMiss,
   type AgentReport,
   type ChannelAgentFigures,
   type ChannelAgentReport,
+  type ConversationId,
   MemberId,
   type Note,
   type OrganizationFigures,
@@ -50,7 +53,48 @@ export const agentReportOf = (
       },
       previous: { notesSent: 11, repliesReceived: 8, medianReplyMs: 41 * MINUTE, approvedForChannels: 1 },
     },
+    misses: missesOf(records, viewerId),
   }
+}
+
+/** The visitor's drafts they edited or discarded and the notes their agent skipped, newest first. */
+const missesOf = (records: Records, viewerId: MemberId): AgentMiss[] => {
+  const placeOf = (conversationId: ConversationId): string | null =>
+    records.channels.find((channel) => channel.conversationId === conversationId)?.slug ?? null
+  const decided = records.notes.flatMap((note): AgentMiss[] => {
+    if (note.authorId !== viewerId || note.origin === 'human') return []
+    const outcome =
+      note.status === 'discarded'
+        ? 'discarded'
+        : note.status === 'sent' && note.origin === 'human_edited'
+          ? 'edited'
+          : null
+    if (outcome === null) return []
+    const at = outcome === 'edited' ? (note.sentAt ?? note.updatedAt) : note.updatedAt
+    return [
+      {
+        outcome,
+        noteId: note.id,
+        conversationId: note.conversationId,
+        place: placeOf(note.conversationId),
+        at,
+      },
+    ]
+  })
+  const skipped = records.notices.flatMap(({ notice, memberId }): AgentMiss[] =>
+    memberId === viewerId && notice.kind === 'released'
+      ? [
+          {
+            outcome: 'skipped',
+            noteId: notice.noteId,
+            conversationId: notice.conversationId,
+            place: placeOf(notice.conversationId),
+            at: notice.at,
+          },
+        ]
+      : [],
+  )
+  return [...decided, ...skipped].sort((a, b) => b.at - a.at).slice(0, AGENT_MISSES_MAX)
 }
 
 /** How a channel's agent is doing, for its managers: seeded weeks and the answers decided since. */

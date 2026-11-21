@@ -7,7 +7,9 @@ import { authorButton } from './author-details.ts'
 import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
 import { actionMenu } from './menu.ts'
+import { noteBody } from './note-body.ts'
 import { button, sourceList, timeLabel } from './parts.ts'
+import { teachFromMiss } from './teaching.ts'
 
 /** One sent note in the thread; a click on it, away from its controls, marks it as the one looked at. */
 export const renderNoteItem = (
@@ -62,7 +64,7 @@ export const renderNoteItem = (
               model.quote.text,
             ),
           model.debateResult === null
-            ? noteBody(context, model)
+            ? collapsibleBody(context, model)
             : debateResultBody(context, model, model.debateResult),
         ),
         h(
@@ -99,6 +101,13 @@ export const renderNoteItem = (
           model.waits.text,
         ),
       model.noAnswer !== null && h('p', { class: 'no-answer hint' }, model.noAnswer),
+      model.answerDiscarded !== null &&
+        h(
+          'p',
+          { class: 'answer-discarded', role: 'status' },
+          h('span', {}, model.answerDiscarded.text),
+          button(model.answerDiscarded.reply, reply, { class: 'reply-yourself' }),
+        ),
       model.release !== null &&
         h(
           'p',
@@ -106,6 +115,8 @@ export const renderNoteItem = (
           h('span', {}, model.release.text),
           model.release.askAnyway !== null &&
             button(model.release.askAnyway, askAgent, { class: 'ask-anyway' }),
+          model.release.teach !== null &&
+            teachFromMiss(context, model.release.teach.label, model.release.teach.seed),
         ),
       model.meta !== null &&
         h(
@@ -145,9 +156,10 @@ export const renderNoteItem = (
  * The note's text; a long one shows its start, and a button opens the rest in place. A note drawn again
  * while the person had it open stays open.
  */
-const noteBody = (context: ViewContext, model: NoteItemModel): Child => {
+const collapsibleBody = (context: ViewContext, model: NoteItemModel): Child => {
   const id = `note-body-${model.noteId}`
-  const body = h('p', { class: 'note-body', id }, linkedText(model.body))
+  const body = noteBody(context, model.body)
+  body.id = id
   const long = model.longBody
   if (long === null) return body
   const toggle: HTMLButtonElement = h('button', {
@@ -186,10 +198,10 @@ const debateResultBody = (
   result: DebateResultNote,
 ): ReadonlyArray<Child> => [
   ...(result.parts === null
-    ? [noteBody(context, model)]
+    ? [collapsibleBody(context, model)]
     : [
         h('p', { class: 'debate-note-heading' }, h('strong', {}, result.parts.heading)),
-        h('p', { class: 'note-body' }, linkedText(result.parts.summary)),
+        noteBody(context, result.parts.summary),
         result.parts.nextSteps.length > 0 &&
           h('p', { class: 'debate-note-heading' }, result.parts.nextStepsHeading),
         result.parts.nextSteps.length > 0 &&
@@ -202,7 +214,7 @@ const debateResultBody = (
           'details',
           { class: 'debate-note-whole' },
           h('summary', {}, result.whole),
-          h('p', { class: 'note-body' }, linkedText(model.body)),
+          noteBody(context, model.body),
         ),
       ]),
   h('a', { class: 'debate-note-room', href: result.room.href }, result.room.label),

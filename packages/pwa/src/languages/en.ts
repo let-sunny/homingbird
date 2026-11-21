@@ -74,6 +74,11 @@ export const en = {
     thisAnswersIt: 'This answers it',
     keepWriting: 'Keep writing',
     answered: 'Glad it was answered. Nothing was sent.',
+    askedTitle: 'Asked already',
+    askedLead: 'Someone asked this here and is still waiting. Sending stays up to you.',
+    askedBy: 'Asked {elapsed} ago by {name}, no answer yet',
+    waitsForYourReview: 'Its answer waits for your review.',
+    openQuestion: 'Open the question',
   },
   send: 'Send',
   replyingTo: 'Replying to “{excerpt}”',
@@ -92,6 +97,8 @@ export const en = {
   noteMore: 'More for this note',
   copyNote: 'Copy text',
   noteCopied: 'Copied the note.',
+  copyCode: 'Copy',
+  codeCopied: 'Copied the code.',
   noteNotCopied: 'This browser did not let Homingbird copy. Select the text and copy it yourself.',
   copyNoteLink: 'Copy link to the note',
   noteLinkCopied: 'Copied the link to the note.',
@@ -449,7 +456,10 @@ export const en = {
   addContactHint: 'Sends {name} a contact request. Once they accept, you can exchange notes.',
   switchOn: 'On',
   switchOff: 'Off',
-  managerCannotLeave: 'You manage this channel. Remove yourself as a manager before you leave it.',
+  managerCannotLeave:
+    'You manage this channel, so you stay in it while others are here. Remove yourself as a manager under Members first.',
+  onlyManagerCannotLeave:
+    'You are this channel’s only manager. Add another manager under Members, then remove yourself as a manager, before you leave.',
   youMark: '(you)',
   cannotChangeOwnRole: 'You cannot change your own role or status. Ask another administrator.',
   clients: { web: 'Web client', cli: 'Homingbird CLI' },
@@ -480,6 +490,8 @@ export const en = {
     draftChanged: 'This draft changed after you read it, so it was not sent. Read it again.',
     nameTaken: 'That name is not available.',
     lastManager: 'A channel with members keeps a manager. Add another manager first.',
+    managerStays:
+      'A manager stays in the channel while others are here. Remove yourself as a manager first, after adding another manager if you are the only one.',
     requestNotWaiting: 'This request is no longer waiting.',
   },
   deskTitle: 'Keep one agent session open for Homingbird: your desk.',
@@ -920,6 +932,19 @@ export const en = {
     chanceDiscard: 'You discarded a draft in {place}. What should your agent have done?',
     notNow: 'Not now',
     stopAsking: 'Don’t ask in this channel',
+    chanceHereEdit: 'You rewrote your agent’s draft.',
+    chanceHereDiscard: 'You discarded your agent’s draft.',
+    teachFromEdit: 'Teach your agent from this edit',
+    teachFromDiscard: 'Teach your agent what to do next time',
+    behindTitle: 'The drafts behind these figures',
+    behindIntro:
+      'Each one is a chance to teach. Open where it happened to see what you sent, or teach your agent what it missed.',
+    behind: {
+      edited: 'Edited, then sent: {count}',
+      discarded: 'Discarded: {count}',
+      skipped: 'Notes your agent skipped: {count}',
+    },
+    openConversation: 'Open where it happened',
     applied: 'Your agent says it applied: {title}',
     wrongHere: 'This principle was wrong here',
     wrongRecorded: 'Recorded: this principle was wrong here.',
@@ -1431,6 +1456,15 @@ export const en = {
     addTeamHint:
       'Adds the people in a group as managers, once: later changes to the group change nothing here.',
     unmanage: 'Remove as manager',
+    unmanageTitle: 'Remove {name} as a manager?',
+    unmanageBody:
+      '{name} stays in the channel, and no longer reviews its agent’s answers or adds people to it.',
+    unmanageSelfTitle: 'Stop managing {channel}?',
+    unmanageSelfBody:
+      'You stay in the channel, and no longer review its agent’s answers or add people to it.',
+    onlyManagerYou:
+      'You will be its only manager: when its agent answers a question of yours, the answer waits until you add another manager.',
+    onlyManagerOther: '{name} will be its only manager.',
     deactivateLeaves: 'Deactivating {name} removes them from every group: {groups}.',
     writeTo: 'Write to {name}',
     messageGroup: 'Group message with {group}',
@@ -1500,6 +1534,8 @@ export const en = {
       week: 'How many notes you sent, how many replies you received, and your typical time to reply.',
       approvedForChannels:
         'How many answers of a channel’s agent you sent as one of its managers, counted apart from your own notes.',
+      misses:
+        'Which drafts you edited or discarded and which notes your agent skipped, by where and when, so that you can open them and teach.',
     },
     managers: {
       decisions:
@@ -1556,6 +1592,9 @@ export const en = {
     clear: 'Clear',
   },
   channelAgent: {
+    discardedReplyYourself:
+      'You discarded {agent}’s answer. Reply yourself, or leave the question for the others who answer here.',
+    answerDiscarded: 'You discarded {agent}’s answer. Nobody has answered yet.',
     title: 'Channel agent',
     intro:
       'One agent answers this channel’s questions. Its answers wait for its managers: any one of you sends an answer, and the first to send it wins.',

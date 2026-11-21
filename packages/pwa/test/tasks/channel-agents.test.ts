@@ -2,6 +2,7 @@ import type { AsRead, MemberId, NoteId } from '@homingbird/protocol'
 import { Conflict, Forbidden, NotFound } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import { heldWordsFor } from '../../src/held-decisions.ts'
+import { strings } from '../../src/strings.ts'
 import * as tasks from '../../src/tasks/channel-agents.ts'
 import { fail, testApp } from '../support/app.ts'
 import { CY, conversation, draft, everything, member, note, serverInfo } from '../support/fixtures.ts'
@@ -78,7 +79,7 @@ describe('the channel agent tasks', () => {
     expect(other.routes()).toEqual(['drafts.send'])
   })
 
-  it('discard an answer, and remember one the manager read again', async () => {
+  it('discard an answer, offer the manager to reply themself, and remember one they read again', async () => {
     const { run, state, routes, sent } = testApp({ 'reviews.list': () => ({ reviews: [] }) })
     const bodies = (route: string) =>
       sent.filter((one) => one.route === route).map((one) => (one.request as { body: unknown }).body)
@@ -87,6 +88,18 @@ describe('the channel agent tasks', () => {
     await run(tasks.discardReview(review(), ' Out of date. '))
     expect(routes()).toEqual(['drafts.discard', 'reviews.list', 'drafts.discard', 'reviews.list'])
     expect(bodies('drafts.discard')).toEqual([{}, { reason: 'Out of date.' }])
+    expect(state.discardedAnswers.get().get('note_question000' as NoteId)).toBe('Payments wiki')
+    expect(state.notice.get()).toEqual({
+      kind: 'info',
+      text: strings.channelAgent.discardedReplyYourself({ agent: 'Payments wiki' }),
+      link: {
+        href: `#/c/${review().note.conversationId}?note=note_question000`,
+        label: strings.activity.replyYourself,
+      },
+    })
+    state.notice.set(null)
+    await run(tasks.discardReview(review({ note: { ...review().note, inReplyTo: null } }), ''))
+    expect(state.notice.get()).toBeNull()
     const changed = review({ note: { ...review().note, body: 'New' } })
     await run(tasks.confirmReviewRead(changed))
     expect(state.reviewsRead.get().get(changed.note.id)?.body).toBe('New')

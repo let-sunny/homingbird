@@ -141,6 +141,7 @@ export const demoTeam = (now: number): Records => {
         body: 'Glad it helped! It skips plans changed this month, so check those by hand.',
         inReplyTo: 'demoben00001',
         agentName: "June's laptop",
+        origin: 'human_edited',
         readBy: [BEN],
       }),
       note({
@@ -428,6 +429,17 @@ export const demoTeam = (now: number): Records => {
           channel: null,
           at: ago(60 * 3 - 2),
         },
+      },
+    ],
+    offers: [
+      {
+        id: 'offer_demoedit000001',
+        kind: 'edit',
+        noteId: NoteId.of('demoben00002'),
+        conversationId: WITH_BEN,
+        place: null,
+        suggestion: { added: 'check those by hand', removed: null },
+        createdAt: ago(60 * 20),
       },
     ],
     invites: [

@@ -167,7 +167,7 @@ describe('renderNoteItem', () => {
     expect(render(context, mine).classList.contains('is-active')).toBe(true)
   })
 
-  it('asks the agent anyway after it let a note go', () => {
+  it('asks the agent anyway after it let a note go, or opens teaching it with a title filled in', () => {
     const { context, called } = testContext()
     mount(dialogHost())
     const question = note('q')
@@ -182,6 +182,26 @@ describe('renderNoteItem', () => {
     )
     getByRole(shown, 'button', { name: strings.askAnyway }).click()
     expect(called('askAgent')).toHaveLength(1)
+    getByRole(shown, 'button', { name: strings.teach.add }).click()
+    const topic = document.querySelector<HTMLInputElement>('dialog input[name="topic"]')
+    expect(topic?.value).toBe('body of q')
+  })
+
+  it('offers a manager who discarded the agent’s answer to reply to the question themself', () => {
+    const { context, called } = testContext()
+    const question = note('q', { authorId: BEN })
+    const shown = render(
+      context,
+      question,
+      threadInput({
+        conversations: [conversation({ kind: 'channel' })],
+        thread: { notes: [question], hasMore: false },
+        discardedAnswers: new Map([[question.id, 'Billing helper']]),
+      }),
+    )
+    expect(textOf(shown)).toContain(strings.channelAgent.answerDiscarded({ agent: 'Billing helper' }))
+    getByRole(shown, 'button', { name: strings.activity.replyYourself }).click()
+    expect(called('replyTo')[0]!.args).toEqual([ROOM, question.id])
   })
 
   it('names who answered a question', () => {

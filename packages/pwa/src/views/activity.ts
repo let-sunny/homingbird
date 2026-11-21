@@ -15,6 +15,7 @@ import { renderDraftsItem, reportWhenSeen } from './drafts-item.ts'
 import { heldToastInPanel, placeHeldToast, renderHeldLine } from './held-toast.ts'
 import { bellIcon } from './mute-toggle.ts'
 import { button, timeLabel } from './parts.ts'
+import { teachFromMiss } from './teaching.ts'
 
 /**
  * The header's bell: how many things wait for the person. It opens the activity panel where popovers
@@ -241,7 +242,12 @@ const renderItem = (context: ViewContext, item: ActivityItem): HTMLElement => {
         head,
         h('blockquote', { class: 'activity-quote' }, h('small', {}, item.from), h('p', {}, item.body)),
         h('p', { class: 'released' }, item.reason),
-        button(item.reply, () => replyYourself(context, item.place.href, item.replyTo)),
+        h(
+          'div',
+          { class: 'activity-actions' },
+          button(item.reply, () => replyYourself(context, item.place.href, item.replyTo)),
+          item.teach !== null && teachFromMiss(context, item.teach.label, item.teach.seed),
+        ),
       )
     case 'debate':
       return h(

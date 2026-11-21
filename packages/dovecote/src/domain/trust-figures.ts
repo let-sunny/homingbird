@@ -1,7 +1,11 @@
 import {
+  AGENT_MISSES_MAX,
   type AgentFigures,
+  type AgentMiss,
   type AgentReport,
+  type ConversationId,
   type LabelTotals,
+  type NoteId,
   type PlaceName,
   type PlaceTrust,
   QUICK_APPROVAL_SHARE,
@@ -27,12 +31,17 @@ export interface AgentDraft {
   readonly agentName?: string | null
   readonly sessionMinutes?: number | null
   readonly contextPercent?: number | null
+  /** Where the draft is, for the list behind the figures; left out where only totals are kept. */
+  readonly noteId?: NoteId
+  readonly conversationId?: ConversationId
 }
 
 export interface Skip {
   readonly place: PlaceName
   readonly at: number
   readonly reason: string | null
+  readonly noteId?: NoteId
+  readonly conversationId?: ConversationId
 }
 
 export interface Dated {
@@ -75,7 +84,47 @@ export const agentReportOf = (
   })),
   weeks: weeksBefore(now, TREND_WEEKS).map((week) => weekOf(activity.drafts, week)),
   sessions: sessionHealthOf(activity.drafts, now),
+  misses: missesOf(activity, periodEndingAt(now, Math.max(...PERIOD_DAYS), 0)),
 })
+
+/**
+ * The drafts edited or discarded and the notes skipped in a window, newest first and at most
+ * `AGENT_MISSES_MAX`: the person's own, by id, so that their figures open into the conversations.
+ */
+export const missesOf = (activity: AgentActivity, window: Window): AgentMiss[] =>
+  [
+    ...activity.drafts.flatMap((draft): AgentMiss[] =>
+      (draft.outcome === 'edited' || draft.outcome === 'discarded') &&
+      isIn(window, draft.decidedAt) &&
+      draft.noteId !== undefined &&
+      draft.conversationId !== undefined
+        ? [
+            {
+              outcome: draft.outcome,
+              noteId: draft.noteId,
+              conversationId: draft.conversationId,
+              place: draft.place,
+              at: draft.decidedAt!,
+            },
+          ]
+        : [],
+    ),
+    ...activity.skips.flatMap((skip): AgentMiss[] =>
+      isIn(window, skip.at) && skip.noteId !== undefined && skip.conversationId !== undefined
+        ? [
+            {
+              outcome: 'skipped',
+              noteId: skip.noteId,
+              conversationId: skip.conversationId,
+              place: skip.place,
+              at: skip.at,
+            },
+          ]
+        : [],
+    ),
+  ]
+    .sort((a, b) => b.at - a.at)
+    .slice(0, AGENT_MISSES_MAX)
 
 export const agentFiguresIn = (
   activity: AgentActivity,

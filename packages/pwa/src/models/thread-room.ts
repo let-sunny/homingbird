@@ -30,6 +30,8 @@ export interface ThreadInput {
   readonly directory: ReadonlyArray<AsRead.DirectoryEntry>
   readonly releases: ReadonlyMap<NoteId, Release>
   readonly archiveDiscards: ReadonlyArray<ArchiveDiscard>
+  /** Questions whose channel agent's answer this manager discarded, with the agent's name. */
+  readonly discardedAnswers?: ReadonlyMap<NoteId, string>
   readonly replyTarget: NoteId | null
   readonly draftRequests: ReadonlyArray<DraftRequest>
   readonly taught: AsRead.MyPrinciples | 'failed' | null

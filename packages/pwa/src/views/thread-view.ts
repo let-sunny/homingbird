@@ -75,6 +75,7 @@ export const threadView = (
     directory: state.directory.get(),
     releases: state.releases.get(),
     archiveDiscards: state.archiveDiscards.get().get(id) ?? [],
+    discardedAnswers: state.discardedAnswers.get(),
     replyTarget: replyTargetIn(state, id),
     draftRequests: state.draftRequests.get(),
     taught: state.taught.get(),
@@ -174,6 +175,7 @@ export const threadView = (
       state.reviews,
       state.reviewsRead,
       state.held,
+      state.discardedAnswers,
       state.draftEdits,
     ],
     items,
@@ -315,6 +317,7 @@ const signatureParts = (input: ThreadInput, item: ThreadItem): unknown[] => [
   taughtTitles(input.taught),
   approvesQuicklyOften(input.agentReport),
   featureOn('noteDetails', input.serverInfo),
+  item.type === 'note' ? (input.discardedAnswers?.get(item.note.id) ?? null) : null,
 ]
 
 const peopleIn = (input: ThreadInput, item: ThreadItem): unknown[] => {

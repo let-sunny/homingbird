@@ -6,7 +6,7 @@ import { strings } from '../../src/strings.ts'
 import { answeredBefore } from '../../src/views/answered-before.ts'
 import { testContext } from '../support/context.ts'
 import { usingFakeDom } from '../support/dom.ts'
-import { ANA, BEN, ROOM, entry, note } from '../support/fixtures.ts'
+import { ANA, BEN, ROOM, conversation, entry, note } from '../support/fixtures.ts'
 
 usingFakeDom()
 
@@ -33,6 +33,20 @@ const setup = (replying = false) => {
 }
 
 describe('answeredBefore', () => {
+  it('shows a question still open in a channel’s room as the person types the same one, and nowhere else', () => {
+    const { shown, typed, context } = setup()
+    const asked = note('q9', { authorId: BEN, body: 'What is the refund rule for annual plans?', sentAt: 1 })
+    context.state.threads.set(new Map([[ROOM, { notes: [asked], hasMore: false }]]))
+    context.state.conversations.set([conversation({ kind: 'direct' })])
+    typed.set('Refund rule for annual plans?')
+    expect(textOf(shown)).not.toContain(strings.answeredBefore.askedTitle)
+    context.state.conversations.set([conversation({ kind: 'channel' })])
+    expect(getByRole(shown, 'region', { name: strings.answeredBefore.askedTitle })).toBeDefined()
+    expect(getByRole(shown, 'link', { name: strings.answeredBefore.openQuestion }).getAttribute('href')).toBe(
+      `#/c/${ROOM}?note=q9`,
+    )
+  })
+
   it('looks up the question being typed and shows what was found, without touching Send', () => {
     const { shown, typed, called } = setup()
     typed.set('Where is the release calendar kept?')

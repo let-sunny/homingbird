@@ -1,6 +1,7 @@
 import type { AsRead } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, region, signal } from '@homingbird/ui'
 import { figuresModel } from '../models/agent-figures.ts'
+import { draftsBehindModel } from '../models/drafts-behind.ts'
 import { type MyAgentModel, myAgentModel } from '../models/my-agent.ts'
 import { yourWeekModel } from '../models/your-week.ts'
 import type { AgentSection } from '../routes.ts'
@@ -8,6 +9,7 @@ import { strings } from '../strings.ts'
 import { periodChoice, renderFigures } from './agent-figures.ts'
 import { connectionSection } from './connection.ts'
 import type { ViewContext } from './context.ts'
+import { renderDraftsBehind } from './drafts-behind.ts'
 import { page } from './parts.ts'
 import { routeMapSection } from './route-map-view.ts'
 import { taughtSection } from './teaching.ts'
@@ -79,7 +81,11 @@ const sectionContent = (
         region(
           life,
           [context.state.agentReport, days],
-          () => renderFigures(figuresModel(context.state.agentReport.get(), days.get())),
+          () =>
+            renderFigures(
+              figuresModel(context.state.agentReport.get(), days.get()),
+              renderDraftsBehind(context, draftsBehindModel(context.state.agentReport.get(), days.get())),
+            ),
           {
             class: 'trust-page',
           },

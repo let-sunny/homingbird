@@ -126,7 +126,7 @@ describe('undoing a decision in the demo', () => {
     expect(noteStarting(world, 'Yes. I checked').status).toBe('draft')
   })
 
-  it('discards a channel agent’s answer with a reason and then shows the question without an answer', async () => {
+  it('discards a channel agent’s answer with a reason, then offers the manager to answer the question themself', async () => {
     const { root, settle, world, open, clock } = await startDemo()
     await open('#/channel/billing/agent')
     const card = [...root.querySelectorAll('.review-card')].find((each) =>
@@ -140,7 +140,8 @@ describe('undoing a decision in the demo', () => {
     await settle()
     expect(noteStarting(world, 'Annual plans are refunded').status).toBe('discarded')
     await open(`#/c/${noteStarting(world, 'Who can explain the refund rule').conversationId}`)
-    expect(root.textContent).toContain('No answer yet')
+    expect(root.textContent).toContain('You discarded Billing helper’s answer. Nobody has answered yet.')
+    expect(getByRole(root, 'button', { name: 'Reply yourself' })).toBeDefined()
   })
 })
 

@@ -1,4 +1,4 @@
-import type { AsRead } from '@homingbird/protocol'
+import type { AsRead, NoteId } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import { noteItemModel } from '../../src/models/note-item.ts'
 import { timeShown } from '../../src/models/time.ts'
@@ -73,6 +73,7 @@ describe('noteItemModel', () => {
       basis: null,
       answeredBy: null,
       release: null,
+      answerDiscarded: null,
       waits: null,
       meta: { time: timeShown(5, 10), mark: null },
       reply: strings.reply,
@@ -377,6 +378,30 @@ describe('noteItemModel', () => {
     expect(noAnswerFor(note('q'), [conversation()])).toBeNull()
   })
 
+  it('offers a manager who discarded the channel agent’s answer to reply themself, until someone answers', () => {
+    const room = conversation({ kind: 'channel', participantIds: [ANA, BEN] })
+    const discardedAnswers = new Map([['q' as NoteId, 'Billing helper']])
+    const modelOf = (notes: ReadonlyArray<ReturnType<typeof note>>, conversations = [room]) =>
+      noteItemModel(
+        threadInput({ conversations, thread: { notes, hasMore: false }, discardedAnswers }),
+        item(notes[0]!),
+      )
+    const open = modelOf([note('q')])
+    expect([open.noAnswer, open.answerDiscarded]).toEqual([
+      null,
+      {
+        text: strings.channelAgent.answerDiscarded({ agent: 'Billing helper' }),
+        reply: strings.activity.replyYourself,
+      },
+    ])
+    expect(modelOf([note('q'), note('a', { inReplyTo: 'q' as never })]).answerDiscarded).toBeNull()
+    expect(modelOf([note('q')], [{ ...room, archivedAt: 5 }]).answerDiscarded).toBeNull()
+    expect(
+      modelOf([note('q', { receipts: [receipt(BEN, { state: 'replied', repliedAt: 3 })] })]).answerDiscarded,
+    ).toBeNull()
+    expect(modelOf([note('other')]).answerDiscarded).toBeNull()
+  })
+
   it('names who answered a channel question, and offers to move one nobody answered', () => {
     const room = conversation({ kind: 'channel', participantIds: [ANA, BEN] })
     const answered = note('q', {
@@ -420,12 +445,13 @@ describe('noteItemModel', () => {
     )
   })
 
-  it('says why the person’s agent let a note go, and offers to ask it anyway', () => {
+  it('says why the person’s agent let a note go, and offers to ask it anyway or to teach it', () => {
     const theirs = note('n1')
     const releases = new Map([[theirs.id, { reason: 'Out of scope', agentName: 'Desk' }]])
     expect(noteItemModel(threadInput({ releases }), item(theirs)).release).toEqual({
       text: strings.agentReleased({ reason: 'Out of scope' }),
       askAnyway: strings.askAnyway,
+      teach: { label: strings.teach.add, seed: { topic: 'body of n1', place: null } },
     })
     const silent = new Map([[theirs.id, { reason: '  ', agentName: null }]])
     expect(
@@ -433,7 +459,17 @@ describe('noteItemModel', () => {
     ).toEqual({
       text: strings.agentReleasedWithoutReason,
       askAnyway: null,
+      teach: null,
     })
+    const inDeploys = noteItemModel(
+      threadInput({
+        releases,
+        conversations: [conversation({ kind: 'channel' })],
+        channels: [channel('deploys', { conversationId: ROOM })],
+      }),
+      item(theirs),
+    )
+    expect(inDeploys.release!.teach!.seed).toEqual({ topic: 'body of n1', place: 'deploys' })
     const none = new Map([[theirs.id, { reason: null, agentName: null }]])
     expect(noteItemModel(threadInput({ releases: none }), item(theirs)).release!.text).toBe(
       strings.agentReleasedWithoutReason,
