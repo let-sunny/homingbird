@@ -5,6 +5,7 @@ import { CLOUD_DESK } from '../src/sql/migrations/cloud-desk-step.ts'
 import { HISTORY_ANSWERS } from '../src/sql/migrations/history-answers-step.ts'
 import { INSIGHTS } from '../src/sql/migrations/insights-step.ts'
 import { MUTE } from '../src/sql/migrations/mute-step.ts'
+import { SOURCES_AND_REASONS } from '../src/sql/migrations/sources-and-reasons-step.ts'
 import { SPENT_REFRESH_TOKENS } from '../src/sql/migrations/spent-refresh-tokens-step.ts'
 import type { Step } from '../src/sql/schema-steps.ts'
 
@@ -12,14 +13,15 @@ const tablesOf = (steps: ReadonlyArray<Step>): string[] =>
   steps.flatMap((step) => ('primaryKey' in step ? [step.name] : []))
 
 describe('the migrations', () => {
-  it('run in a fixed order, with the audit trail as the fifth step, groups as the sixth, channel agents as the eighth, mutes as the ninth, the cloud desk as the tenth, insights as the eleventh, spent refresh tokens as the twelfth and answers from history as the thirteenth', () => {
-    expect(MIGRATIONS).toHaveLength(13)
+  it('run in a fixed order, with the audit trail as the fifth step, groups as the sixth, channel agents as the eighth, mutes as the ninth, the cloud desk as the tenth, insights as the eleventh, spent refresh tokens as the twelfth answers from history as the thirteenth and sources and reasons as the fourteenth', () => {
+    expect(MIGRATIONS).toHaveLength(14)
     expect(MIGRATIONS.indexOf(CLOUD_DESK)).toBe(9)
     expect(MIGRATIONS.indexOf(INSIGHTS)).toBe(10)
     expect(MIGRATIONS.indexOf(SPENT_REFRESH_TOKENS)).toBe(11)
     expect(MIGRATIONS.indexOf(CHANNEL_AGENTS)).toBe(7)
     expect(MIGRATIONS.indexOf(MUTE)).toBe(8)
-    expect(MIGRATIONS.at(-1)).toBe(HISTORY_ANSWERS)
+    expect(MIGRATIONS.indexOf(HISTORY_ANSWERS)).toBe(12)
+    expect(MIGRATIONS.at(-1)).toBe(SOURCES_AND_REASONS)
     expect(AUDIT_TRAIL_STEP).toBe(5)
   })
 

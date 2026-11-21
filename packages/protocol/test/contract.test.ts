@@ -198,20 +198,29 @@ describe('contract', () => {
     expect(names.filter((name) => contract[name].access === 'public')).toEqual(['server.info'])
   })
 
-  it('changes a draft only when given a new body, a new channel, a new basis, a model, or several', () => {
+  it('changes a draft only when given a new body, a new channel, a new basis, new sources, a model, or several', () => {
     const change = contract['drafts.update'].body
     expect(change.decode({ body: 'New text' })._tag).toBe('Ok')
     expect(change.decode({ channel: 'design' })._tag).toBe('Ok')
     expect(change.decode({ basis: 'Read the runbook' })._tag).toBe('Ok')
     expect(change.decode({ body: 'New text', channel: 'design' })._tag).toBe('Ok')
     expect(change.decode({ model: 'claude-opus-5-5' })._tag).toBe('Ok')
+    expect(change.decode({ sources: [{ url: 'https://wiki.example.com' }] })._tag).toBe('Ok')
+    expect(change.decode({ sources: [{ url: 'mailto:ana@example.com' }] })._tag).toBe('Err')
     expect(change.decode({ model: 'bad\u0007model' })._tag).toBe('Err')
     expect(change.decode({})).toMatchObject({
       _tag: 'Err',
-      error: [{ message: 'Give a new body, a new channel, a new basis, a model, or several.' }],
+      error: [{ message: 'Give a new body, a new channel, a new basis, new sources, a model, or several.' }],
     })
     expect(change.decode({ basis: 'x'.repeat(1001) })._tag).toBe('Err')
     expect(change.decode({ channel: 'Not a slug' })._tag).toBe('Err')
+  })
+
+  it('discards a draft with an optional reason of at most 500 characters', () => {
+    const discard = contract['drafts.discard'].body
+    expect(discard.decode({})._tag).toBe('Ok')
+    expect(discard.decode({ reason: 'The runbook moved.' })._tag).toBe('Ok')
+    expect(discard.decode({ reason: 'x'.repeat(501) })._tag).toBe('Err')
   })
 
   it('releases a note with an optional reason of at most 500 characters', () => {

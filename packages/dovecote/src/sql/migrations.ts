@@ -9,6 +9,7 @@ import { HISTORY_ANSWERS } from './migrations/history-answers-step.ts'
 import { INSIGHTS } from './migrations/insights-step.ts'
 import { MUTE } from './migrations/mute-step.ts'
 import { RESULT_VOTES } from './migrations/result-votes-step.ts'
+import { SOURCES_AND_REASONS } from './migrations/sources-and-reasons-step.ts'
 import { SPENT_REFRESH_TOKENS } from './migrations/spent-refresh-tokens-step.ts'
 import { TEACHING_AND_FIGURES } from './migrations/teaching-and-figures-step.ts'
 import type { Migration } from './schema-steps.ts'
@@ -27,6 +28,7 @@ export const MIGRATIONS: ReadonlyArray<Migration> = [
   INSIGHTS,
   SPENT_REFRESH_TOKENS,
   HISTORY_ANSWERS,
+  SOURCES_AND_REASONS,
 ]
 
 /** The step that added the audit trail; when it runs, the first audit table's old rows go. */

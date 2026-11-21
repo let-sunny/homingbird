@@ -57,7 +57,10 @@ import {
   DRAFT_INSTRUCTION_MAX,
   DeskUnavailableKind,
   DirectoryEntry,
+  DiscardReason,
   DraftRequest,
+  type DraftSource,
+  DraftSources,
   Locale,
   Member,
   MemberStatus,
@@ -435,6 +438,7 @@ export const contract = {
       inReplyTo: S.optional(NoteId),
       requestId: S.optional(DraftRequestId),
       basis: S.optional(NoteBasis),
+      sources: S.optional(DraftSources),
       client: S.optional(AgentLabel),
       model: S.optional(AgentLabel),
       session: S.optional(DeskSession),
@@ -451,18 +455,21 @@ export const contract = {
         readonly body?: string
         readonly channel?: string
         readonly basis?: string
+        readonly sources?: ReadonlyArray<DraftSource>
         readonly model?: string
       }) =>
         change.body !== undefined ||
         change.channel !== undefined ||
         change.basis !== undefined ||
+        change.sources !== undefined ||
         change.model !== undefined,
-      'Give a new body, a new channel, a new basis, a model, or several.',
+      'Give a new body, a new channel, a new basis, new sources, a model, or several.',
     )(
       S.struct({
         body: S.optional(NoteBody),
         channel: S.optional(ChannelSlug),
         basis: S.optional(NoteBasis),
+        sources: S.optional(DraftSources),
         model: S.optional(AgentLabel),
       }),
     ),
@@ -478,7 +485,13 @@ export const contract = {
     }),
     response: Note,
   }),
-  'drafts.discard': route({ method: 'POST', path: '/drafts/:id/discard', access: 'human', response: Note }),
+  'drafts.discard': route({
+    method: 'POST',
+    path: '/drafts/:id/discard',
+    access: 'human',
+    body: S.struct({ reason: S.optional(DiscardReason) }),
+    response: Note,
+  }),
   'drafts.seen': route({
     method: 'POST',
     path: '/drafts/:id/seen',

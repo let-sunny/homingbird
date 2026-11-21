@@ -11,8 +11,8 @@ afterEach(async () => {
 })
 
 describe('the answers from history step', () => {
-  it('is the last step', () => {
-    expect(stepNumberOf(HISTORY_ANSWERS)).toBe(MIGRATIONS.length)
+  it('is the thirteenth step, after spent refresh tokens', () => {
+    expect(stepNumberOf(HISTORY_ANSWERS)).toBe(13)
   })
 
   it('adds a table of questions answered from history, one row per person, room and answer', async () => {
