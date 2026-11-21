@@ -63,6 +63,16 @@ describe('the focus after a decision', () => {
     expect(document.activeElement).toBe(composer.querySelector('textarea'))
   })
 
+  it('goes to the composer when the next place holds no card to decide', () => {
+    const { context, page } = testContext()
+    const composer = h('div', { class: 'composer' }, h('textarea', {}))
+    const empty = h('li', { data: { decisionUnit: '' } })
+    const stage = mount(h('main', { class: 'stage' }, h('ul', {}, card('a1'), empty), composer))
+    focusAfterDecision(context, stage.querySelector('[data-decides="a1"]'), 'a1' as never)
+    page.runFrames()
+    expect(document.activeElement).toBe(composer.querySelector('textarea'))
+  })
+
   it('finds the card a dialog decides by the focus, else the first on the page', () => {
     const { context } = testContext()
     const stage = mount(h('main', { class: 'stage' }, card('a1')))

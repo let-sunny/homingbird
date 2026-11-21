@@ -152,8 +152,11 @@ describe('a decision the page never saw carried out', () => {
   })
 
   it('tells of an answer only while it still waits for review, and of nothing the server cannot find', async () => {
-    const { run, state } = signedInApp({ 'notes.get': () => fail({ _tag: 'NotFound' } as never) })
+    const { run, state, routes } = signedInApp({ 'notes.get': () => fail({ _tag: 'NotFound' } as never) })
     await run(holdDecision(decision('gone', T.unit)))
+    await run(reportUnsettled)
+    expect([routes(), state.notice.get()]).toEqual([['notes.get'], null])
+    await run(undoHeld)
     await run(
       holdDecision(
         decision('a1', T.unit, { review: true, kind: 'discard', words: heldWordsFor('x').discard }),
