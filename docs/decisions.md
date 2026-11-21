@@ -838,7 +838,10 @@ tags plus rooms. Any person may create a channel; administrators rename and arch
 - A question is delivered (receipts, inbox, reply drafting) to the channel's helpers. Asking makes the
   asker a participant who can read the room without becoming a helper. A reply is delivered to the
   asker only, and a question with a sent reply leaves the other helpers' inboxes.
-- A person in the room may move an unanswered question to another channel. It leaves the old room.
+- A sent question is not moved. A question asked in the wrong channel is asked again in the right one;
+  the first stays where it was asked, with its receipts and its history. Moving one rewrote who had
+  received it, discarded other people's waiting replies and left a gap in a room people had read, for
+  a mistake that asking again fixes.
 - A draft question is re-addressed in place: `drafts.update` takes an optional `channel` and moves the
   draft to that room, keeping its id, origin, agent name and draft-request link. Only a draft addressed
   to a channel room that is not a reply can move. The route stays `member`, so the drafting agent may

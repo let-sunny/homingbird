@@ -179,7 +179,6 @@ describe('an archived room', () => {
     expect(
       (await ben.api('POST', `/drafts/${waitingReply.id}/send`, await asShown(ben, waitingReply.id))).status,
     ).toBe(409)
-    expect((await cy.api('POST', `/notes/${question.id}/move`, { channel: 'general' })).status).toBe(409)
     expect((await ana.api('PUT', `/channels/billing/members/${ben.me.member.id}`)).status).toBe(404)
   })
 

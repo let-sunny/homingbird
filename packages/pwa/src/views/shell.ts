@@ -15,12 +15,23 @@ import {
 } from '../models/shell.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
-import { reviewsWaiting } from './channel-agent.ts'
+import { leaveForm } from './channel-membership.ts'
 import { renderAvatar, renderGroupAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
+import { opensDialog } from './dialog.ts'
 import { startingPoints } from './home.ts'
+import { type MenuParts, actionMenu } from './menu.ts'
 import { mutedMark } from './mute-toggle.ts'
-import { agentDot, archivedMark, channelCounts, empty, humanDot, loading, timeLabel } from './parts.ts'
+import {
+  agentDot,
+  archivedMark,
+  button,
+  channelCounts,
+  empty,
+  humanDot,
+  loading,
+  timeLabel,
+} from './parts.ts'
 
 /** The app around a page: the header with its tabs, the connection, the sidebar and the user menu. */
 export const shell = (
@@ -172,6 +183,7 @@ const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLEleme
       members: state.members.get(),
       directory: state.directory.get(),
       channels: state.channels.get(),
+      reviews: state.reviews.get(),
       agentCount: state.agentCredentials.get().length,
       charactersOn: featureOn('characters', state.serverInfo.get()),
       muteOn: featureOn('mute', state.serverInfo.get()),
@@ -192,7 +204,7 @@ const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLEleme
     state.route,
     state.conversationsLoaded,
   ]
-  const roomSources = [state.conversations, state.route, state.channels]
+  const roomSources = [state.conversations, state.route, state.channels, state.reviews]
   const archivedSources = [state.conversations, state.route, state.members]
   return h(
     'aside',
@@ -200,7 +212,6 @@ const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLEleme
     region(life, [state.agentCredentials, state.session], () => model().onboarding && onboarding(), {
       class: 'onboarding-host',
     }),
-    reviewsWaiting(context, life),
     h('h2', { class: 'sidebar-title' }, strings.conversations),
     region(
       life,
@@ -300,8 +311,9 @@ const rowList = (
     render: (row) => conversationRow(context, row),
   })
 
-const conversationRow = (context: ViewContext, row: ConversationRow): HTMLElement =>
-  h(
+const conversationRow = (context: ViewContext, row: ConversationRow): HTMLElement => {
+  const more = row.menu === null ? null : rowMenu(context, row.menu)
+  const item = h(
     'li',
     { class: 'conversation-item' },
     h(
@@ -339,6 +351,49 @@ const conversationRow = (context: ViewContext, row: ConversationRow): HTMLElemen
           h('span', { class: 'count unread', 'aria-label': row.unread.label }, row.unread.count),
         row.drafts !== null &&
           h('span', { class: 'count drafts', 'aria-label': row.drafts.label }, row.drafts.text),
+        row.review !== null &&
+          h('span', { class: 'count drafts reviews', 'aria-label': row.review.label }, row.review.text),
       ),
     ),
+    more?.trigger,
+    more?.menu,
   )
+  more?.opensFrom(item)
+  return item
+}
+
+const rowMenu = (context: ViewContext, menu: NonNullable<ConversationRow['menu']>): MenuParts => {
+  const { mute, leave } = menu
+  const reasonId = `${menu.id}-reason`
+  return actionMenu(context, {
+    id: menu.id,
+    label: menu.label,
+    triggerClass: 'conversation-more',
+    menuClass: 'conversation-menu',
+    items: [
+      mute !== null &&
+        button(mute.label, () => context.actions.setMuted(mute.conversationId, !mute.muted), {
+          class: 'menu-item mute-row',
+          title: mute.hint,
+        }),
+      leave?.kind === 'allowed' &&
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'menu-item danger leave-channel',
+            ...opensDialog(context, leave.title, () => leaveForm(context, leave.slug, leave.body)),
+          },
+          strings.leaveChannel,
+        ),
+      leave?.kind === 'blocked' && [
+        h(
+          'button',
+          { type: 'button', class: 'menu-item leave-channel', disabled: true, 'aria-describedby': reasonId },
+          strings.leaveChannel,
+        ),
+        h('small', { id: reasonId, class: 'menu-reason' }, leave.reason),
+      ],
+    ],
+  })
+}

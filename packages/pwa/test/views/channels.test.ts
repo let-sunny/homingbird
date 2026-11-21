@@ -34,7 +34,7 @@ describe('channelsView', () => {
 
   it('shows each card, the hint for the only channel, more on request, and joins one', () => {
     const { context, called } = testContext()
-    const shown = channelsView(context, lifetime())
+    const shown = mount(channelsView(context, lifetime()))
     called('loadChannelPage')[0]!.then!.done!(page([channel('billing')]))
     expect(textOf(shown)).toContain(strings.onlyOneChannel)
     expect(getByRole(shown, 'link', { name: '#billing' }).getAttribute('href')).toBe('#/channel/billing')
@@ -43,7 +43,10 @@ describe('channelsView', () => {
     const more = getByRole(shown, 'button', { name: strings.channelMore({ channel: '#billing' }) })
     const menu = shown.querySelector<HTMLElement>(`#${more.getAttribute('popovertarget')}`)!
     expect(menu.getAttribute('popover')).toBe('auto')
-    getByRole(menu, 'button', { name: strings.joinAndAnswer }).click()
+    fire.event(shown.querySelector('[data-slug="billing"] .channel-description'), 'contextmenu')
+    expect(menu.matches(':popover-open')).toBe(true)
+    getByRole(menu, 'menuitem', { name: strings.joinAndAnswer }).click()
+    expect(menu.matches(':popover-open')).toBe(false)
     expect(called('joinChannel')[1]!.args).toEqual(['billing', true])
     called('loadChannelPage')[0]!.then!.done!(page([channel('billing')], true))
     getByRole(shown, 'button', { name: strings.showMoreChannels }).click()

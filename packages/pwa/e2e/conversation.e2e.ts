@@ -186,11 +186,10 @@ const scenario = async (): Promise<void> => {
     await capture(june.page, 'replied-seen-by-recipient-alternatives-discarded')
 
     // -- Draft requests --------------------------------------------------------------------------
-    await june.page
-      .locator('.note.is-theirs')
-      .first()
-      .getByRole('button', { name: 'Ask my agent to draft a reply' })
-      .click()
+    const theirs = june.page.locator('.note.is-theirs').first()
+    await theirs.locator('.bubble').hover()
+    await theirs.getByRole('button', { name: 'More for this note' }).click()
+    await theirs.getByRole('menuitem', { name: 'Ask my agent to draft a reply' }).click()
     await june.page.waitForSelector('.asked-chip')
     await june.page.waitForSelector('.no-agent:has-text("desk session or runner is running")')
     await capture(june.page, 'draft-request-waiting-while-the-desk-session-is-offline')
@@ -314,10 +313,9 @@ const scenario = async (): Promise<void> => {
     await capture(ana.page, 'new-channel-room-in-the-sidebar')
 
     await june.page.goto(`${base}/#/channels`)
-    await june.page
-      .locator('.channel-card[data-slug="billing"]')
-      .getByRole('button', { name: 'Join and answer', exact: true })
-      .click()
+    const billingCard = june.page.locator('.channel-card[data-slug="billing"]')
+    await billingCard.getByRole('button', { name: 'More for #billing' }).click()
+    await billingCard.getByRole('menuitem', { name: 'Join and answer', exact: true }).click()
     await june.page.waitForSelector('.channel-card.is-helping[data-slug="billing"]')
     await june.page.fill('input[name=q]', 'refund')
     await june.page.waitForFunction(
@@ -335,7 +333,10 @@ const scenario = async (): Promise<void> => {
 
     const asker = await signIn('lee@example.com', 'Lee')
     await asker.page.goto(`${base}/#/channels`)
-    await asker.page.locator('.channel-card[data-slug="billing"]').getByRole('link', { name: 'Ask' }).click()
+    await asker.page
+      .locator('.channel-card[data-slug="billing"]')
+      .getByRole('link', { name: '#billing' })
+      .click()
     await asker.page.waitForSelector('.ask-channel textarea')
     await asker.page.fill('.ask-channel textarea', 'Who can explain the refund rule for annual plans?')
     await capture(asker.page, 'asking-a-channel')
@@ -349,29 +350,16 @@ const scenario = async (): Promise<void> => {
     ).conversationId as string
     await june.page.goto(`${base}/#/c/${billingRoom}`)
     await june.page.waitForSelector('.note-author:has-text("Lee")')
-    await june.page.waitForSelector('.move-question')
+    await june.page.waitForSelector('.note:has-text("refund rule") .note-reply')
     await capture(june.page, 'helper-sees-the-question-with-its-author')
-    await june.page
-      .locator('.note', { hasText: 'refund rule' })
-      .getByRole('button', { name: 'Reply', exact: true })
-      .click()
+    const refundQuestion = june.page.locator('.note', { hasText: 'refund rule' })
+    await refundQuestion.locator('.bubble').hover()
+    await refundQuestion.getByRole('button', { name: 'Reply', exact: true }).click()
     await june.page.fill('.composer textarea', 'Annual plans are refunded pro rata for the unused months.')
     await june.page.click('.composer button[type=submit]')
     await asker.page.waitForSelector('.answered-by:has-text("Answered by June")')
     await capture(asker.page, 'question-answered-by-a-helper')
 
-    await sendThroughApi(asker, { channel: 'billing', body: 'Where do I find the release calendar?' })
-    await june.page.waitForSelector('.note:has-text("release calendar") .move-question')
-    assert.equal(
-      await june.page.locator('.note', { hasText: 'refund rule' }).locator('.move-question').count(),
-      0,
-    )
-    await june.page.locator('.note', { hasText: 'release calendar' }).locator('.move-question').click()
-    await june.page.check('dialog[open] input[name=destination][value=releases]')
-    await capture(june.page, 'move-question-to-another-channel')
-    await june.page.click('dialog[open] button[type=submit]')
-    await june.page.waitForSelector('.note:has-text("release calendar")', { state: 'detached' })
-    await capture(june.page, 'question-moved-out-of-the-room')
     await asker.context.close()
 
     await anaAgent.call('POST', '/drafts', {

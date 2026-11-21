@@ -98,13 +98,6 @@ describe('asking a channel’s agent privately', () => {
     expect((await askPrivately(cy, 'quiet')).status).toBe(409)
   })
 
-  it('keeps its questions where they are: none moves out of it', async () => {
-    await start()
-    const room = (await askPrivately(cy)).json.id
-    const question = await send(cy, room, 'Is my refund stuck?')
-    expect((await cy.api('POST', `/notes/${question.id}/move`, { channel: CHANNEL })).status).toBe(409)
-  })
-
   it('stays readable to the asker and the managers when the channel is archived, without the agent', async () => {
     await start()
     const room = (await askPrivately(cy)).json.id

@@ -22,7 +22,6 @@ import {
   groupWith,
   isArchived,
   isMuted,
-  isOpenQuestion,
   isUnreadBy,
   myNoteState,
   namesInBrief,
@@ -35,7 +34,6 @@ import {
   withNoteFiled,
   withPresence,
   withReceipts,
-  withoutMovedQuestion,
   withoutNote,
 } from '../src/thread.ts'
 
@@ -341,28 +339,6 @@ describe('rooms', () => {
       ],
     })
     expect(answeredBy(question)).toEqual([june])
-  })
-
-  it('treats a sent question without a reply as open, and nothing else', () => {
-    const question = note('q')
-    expect(isOpenQuestion(question, [question])).toBe(true)
-    expect(isOpenQuestion(question, [question, note('r', { inReplyTo: 'q' as NoteId })])).toBe(false)
-    expect(isOpenQuestion(question, [question, draft('d', { inReplyTo: 'q' as NoteId })])).toBe(true)
-    expect(isOpenQuestion(note('r', { inReplyTo: 'x' as NoteId }), [])).toBe(false)
-    expect(isOpenQuestion(draft('d'), [])).toBe(false)
-    expect(
-      isOpenQuestion(note('q', { receipts: [receipt(june, { repliedAt: 3, state: 'replied' })] }), []),
-    ).toBe(false)
-  })
-
-  it('removes a moved question and its replies from the room it left', () => {
-    const from = 'conv_from' as never
-    const kept = note('kept')
-    const threads = new Map([
-      [from, { notes: [note('q'), note('r', { inReplyTo: 'q' as NoteId }), kept], hasMore: false }],
-    ])
-    expect(withoutMovedQuestion(threads, from, 'q' as NoteId).get(from)?.notes).toEqual([kept])
-    expect(withoutMovedQuestion(threads, 'conv_other' as never, 'q' as NoteId)).toBe(threads)
   })
 })
 

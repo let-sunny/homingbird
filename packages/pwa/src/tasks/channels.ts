@@ -12,7 +12,6 @@ import { type Action, type App, withApp } from '../app.ts'
 import { withChannel } from '../channels.ts'
 import { hrefFor } from '../routes.ts'
 import { loadGroups } from './groups.ts'
-import { forgetNote } from './notes.ts'
 import { loadConversations, loadKnownChannels, loadPeople } from './workspace.ts'
 
 export interface ChannelPage {
@@ -114,14 +113,6 @@ export const enterRoom = (conversationId: string): Action =>
     const { page } = yield* T.ask<App>()
     yield* loadConversations
     page.go(hrefFor({ name: 'conversation', id: conversationId, draft: null }))
-  })
-
-export const moveQuestion = (note: AsRead.Note, slug: string): Action =>
-  T.gen(function* () {
-    const { api, state } = yield* T.ask<App>()
-    yield* api['notes.move']({ params: { id: note.id }, body: { channel: slug } })
-    forgetNote(state, note.conversationId, note.id)
-    yield* afterChannelChange
   })
 
 /** Opens a channel and takes the next step there; the channel stays open even when the step fails. */

@@ -14,7 +14,6 @@ const REVIEWED_WITHOUT_AN_EVENT = [
   'draftRequests.create',
   'drafts.seen',
   'me.deskWake.test',
-  'notes.move',
   'notes.read',
   'presence.visibility',
   'principles.miss',
@@ -54,10 +53,9 @@ describe('the audit decision of each route', () => {
     }
   })
 
-  it('keeps activity out: reading, moving, picking up, drafting and debate turns record nothing', () => {
+  it('keeps activity out: reading, picking up, drafting and debate turns record nothing', () => {
     for (const name of [
       'notes.read',
-      'notes.move',
       'notes.pickup',
       'notes.release',
       'drafts.create',

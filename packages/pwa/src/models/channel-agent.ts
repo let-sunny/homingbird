@@ -12,7 +12,7 @@ import { draftBasisOf } from '../draft-basis.ts'
 import { isChangedSinceRead } from '../drafts-read.ts'
 import { featureOn } from '../features.ts'
 import { hrefFor } from '../routes.ts'
-import { strings } from '../strings.ts'
+import { formats, strings } from '../strings.ts'
 
 /** What a channel's own controls offer about its agent: running it, for a manager, and asking it privately. */
 export const agentControlsModel = (
@@ -180,22 +180,20 @@ export const decidedAnswerModel = (
 }
 
 /**
- * How many answers wait for the person, and a way into each channel's room, at the first question whose
- * answer waits there; a channel whose answers all wait in private questions leads to the first of those.
+ * How many of a channel's agent's answers wait for the person, for the badge on the channel's row, and
+ * where the row then leads: the first question whose answer waits there, or, when all of them wait in
+ * private questions, the first of those.
  */
-export const reviewsWaitingModel = (reviews: ReadonlyArray<AsRead.Review>): ReviewsWaiting | null =>
-  reviews.length === 0
-    ? null
-    : {
-        text: strings.channelAgent.reviewsWaiting({ count: reviews.length }),
-        links: [...new Set(reviews.map((review) => review.channel))].map((slug) => {
-          const first = firstWaitingIn(reviews, slug)
-          return {
-            href: hrefFor({ name: 'conversation', id: first.conversationId, draft: null, review: first.id }),
-            label: strings.channelAgent.reviewIn({ channel: channelLabel(slug) }),
-          }
-        }),
-      }
+export const reviewBadgeOf = (reviews: ReadonlyArray<AsRead.Review>, slug: string): ReviewBadge | null => {
+  const count = reviews.filter((review) => review.channel === slug).length
+  if (count === 0) return null
+  const first = firstWaitingIn(reviews, slug)
+  return {
+    text: strings.channelAgent.reviewBadge({ count: formats.decimal.format(count) }),
+    label: strings.channelAgent.reviewBadgeLabel({ count }),
+    href: hrefFor({ name: 'conversation', id: first.conversationId, draft: null, review: first.id }),
+  }
+}
 
 /** Beside a channel's agent's sent answer: where it answered and who approved it ("#payments-wiki · approved by Kim"). */
 export const approvalLine = (
@@ -284,9 +282,10 @@ export type ChannelAgentPage =
   | { readonly kind: 'missing'; readonly text: string }
   | { readonly kind: 'channel'; readonly title: string; readonly channel: AsRead.Channel }
 
-export interface ReviewsWaiting {
+export interface ReviewBadge {
   readonly text: string
-  readonly links: ReadonlyArray<{ readonly href: string; readonly label: string }>
+  readonly label: string
+  readonly href: string
 }
 
 export interface AgentControls {

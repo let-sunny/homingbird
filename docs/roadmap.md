@@ -278,7 +278,7 @@ channel per repository, and one agent the channel owns, drafting from that repos
    channel's managers see it too, because they take part in it.
 4. **Where to ask**: the list of channel descriptions tells people which channel to ask, rather than an
    agent that forwards questions, which would need an approval at every hop. A question asked in the
-   wrong place is moved with the existing move.
+   wrong place is asked again in the right one.
 
 5. **Decision rules.** One rule says who decides, how many of them must agree, and what is decided:
    a group, a number, and either sending a draft or settling a proposal in a channel. One approver is

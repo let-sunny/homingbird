@@ -183,7 +183,7 @@ const principleList = (rows: ReadonlyArray<PrincipleRow>, context: ViewContext):
           wide: true,
         },
       ],
-      extra: field(strings.teach.place, place),
+      extra: field(strings.teach.place, place, strings.teach.placeHint),
       warnings: addRowWarnings,
       submit: (values, done) =>
         actions.savePrinciple(

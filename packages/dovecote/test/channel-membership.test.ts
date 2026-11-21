@@ -252,42 +252,11 @@ describe('private channels', () => {
   })
 })
 
-describe('moving questions and private channels', () => {
+describe('private channels', () => {
   beforeEach(async () => {
     for (const slug of ['payroll', 'bonuses'])
       await ben.api('POST', '/channels', { slug, description: 'Money', visibility: 'private' })
     await ben.api('PUT', `/channels/payroll/members/${cy.me.member.id}`)
-  })
-
-  it('refuses to move a question out of a private channel into an open one', async () => {
-    const question = await ask(cy, 'payroll', 'Bonus dates?')
-    const refused = await ben.api('POST', `/notes/${question.id}/move`, { channel: 'billing' })
-    expect([refused.status, refused.json.error.message]).toEqual([
-      409,
-      'A question in a private channel can move only to another private channel with the same members.',
-    ])
-    expect((await cy.api('GET', `/notes/${question.id}`)).json.conversationId).toBe(question.conversationId)
-  })
-
-  it('refuses to move a question to a private channel whose members differ, and allows it when they match', async () => {
-    const question = await ask(cy, 'payroll', 'Bonus dates?')
-    expect((await ben.api('POST', `/notes/${question.id}/move`, { channel: 'bonuses' })).status).toBe(409)
-    await ben.api('PUT', `/channels/bonuses/members/${cy.me.member.id}`)
-    const moved = await ben.api('POST', `/notes/${question.id}/move`, { channel: 'bonuses' })
-    expect(moved.status).toBe(200)
-    expect((await cy.api('GET', `/notes/${question.id}`)).json.conversationId).toBe(moved.json.conversationId)
-  })
-
-  it('moves an open question into a private channel only when the person who asked is a member there', async () => {
-    const outsider = await ask(ana, 'lobby', 'Where are the salary bands?')
-    const refused = await ben.api('POST', `/notes/${outsider.id}/move`, { channel: 'payroll' })
-    expect([refused.status, refused.json.error.message]).toEqual([
-      409,
-      'The person who asked is not a member of that private channel.',
-    ])
-    expect((await ana.api('POST', `/notes/${outsider.id}/move`, { channel: 'payroll' })).status).toBe(404)
-    const member = await ask(cy, 'lobby', 'Where are the salary bands?')
-    expect((await ben.api('POST', `/notes/${member.id}/move`, { channel: 'payroll' })).status).toBe(200)
   })
 
   it('re-addresses a draft into a private channel only for its members', async () => {

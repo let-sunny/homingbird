@@ -1,11 +1,13 @@
 import type { AsRead, MemberId } from '@homingbird/protocol'
-import { archivedRooms, channelOfRoom, channelRooms, peopleConversations } from '../channels.ts'
+import { archivedRooms, channelLabel, channelOfRoom, channelRooms, peopleConversations } from '../channels.ts'
 import { featureOn } from '../features.ts'
 import { type Route, hrefFor } from '../routes.ts'
 import { spriteOwner } from '../sprite-owner.ts'
 import { strings } from '../strings.ts'
 import { conversationTitle, excerpt, isMuted, otherParticipants } from '../thread.ts'
 import { type AvatarModel, type GroupAvatarModel, groupAvatarOf, memberAvatarOf } from './avatar.ts'
+import { reviewBadgeOf } from './channel-agent.ts'
+import { leaveConsequence } from './channel-membership.ts'
 import { type MuteToggle, muteToggleModel } from './mute-toggle.ts'
 import { type TimeShown, timeShown } from './time.ts'
 
@@ -83,6 +85,8 @@ export interface SidebarInput {
   readonly members: ReadonlyMap<MemberId, AsRead.Member>
   readonly directory: ReadonlyArray<AsRead.DirectoryEntry>
   readonly channels: ReadonlyArray<AsRead.Channel>
+  /** The answers of channels' agents waiting for the person's review, from `reviews.list`. */
+  readonly reviews: ReadonlyArray<AsRead.Review>
   readonly agentCount: number
   readonly charactersOn: boolean
   readonly muteOn: boolean
@@ -121,8 +125,21 @@ export interface ConversationRow {
   readonly time: TimeShown | null
   readonly unread: { readonly count: number; readonly label: string } | null
   readonly drafts: { readonly text: string; readonly label: string } | null
+  /** The channel's agent's answers waiting for the person's review; the row then opens at the first. */
+  readonly review: { readonly text: string; readonly label: string } | null
   readonly mute: MuteToggle | null
+  readonly menu: {
+    readonly id: string
+    readonly label: string
+    readonly mute: MuteToggle | null
+    readonly leave: RowLeave | null
+  } | null
 }
+
+/** Leaving a channel from its row: confirmed in a dialog, or refused with the reason. */
+export type RowLeave =
+  | { readonly kind: 'allowed'; readonly slug: string; readonly title: string; readonly body: string }
+  | { readonly kind: 'blocked'; readonly slug: string; readonly reason: string }
 
 const tab = (
   label: string,
@@ -142,9 +159,11 @@ const conversationRow = (input: SidebarInput, conversation: AsRead.Conversation)
   const channel = conversation.kind === 'channel' ? channelOfRoom(input.channels, conversation.id) : null
   const last = conversation.lastNote
   const title = conversationTitle(conversation, input.members, viewerId, strings.formerMember)
+  const mute = muteToggleModel(conversation, title, input.muteOn)
+  const review = channel === null || archived ? null : reviewBadgeOf(input.reviews, channel.slug)
   return {
     id: conversation.id,
-    href: hrefFor({ name: 'conversation', id: conversation.id, draft: null }),
+    href: review?.href ?? hrefFor({ name: 'conversation', id: conversation.id, draft: null }),
     current: isOpen(input.route, conversation),
     face:
       conversation.kind === 'channel' || archived ? { kind: 'channel' } : faceOf(input, conversation, others),
@@ -175,8 +194,32 @@ const conversationRow = (input: SidebarInput, conversation: AsRead.Conversation)
             label: strings.draftsWaiting({ count: conversation.draftCount }),
           }
         : null,
-    mute: muteToggleModel(conversation, title, input.muteOn),
+    review: review === null ? null : { text: review.text, label: review.label },
+    mute,
+    menu: rowMenu(conversation, title, channel, mute),
   }
+}
+
+/** A row's own menu: muting it, and leaving a channel the person joined; none when it offers nothing. */
+const rowMenu = (
+  conversation: AsRead.Conversation,
+  title: string,
+  channel: AsRead.Channel | null,
+  mute: MuteToggle | null,
+): ConversationRow['menu'] => {
+  const leave: RowLeave | null =
+    channel === null || !channel.joined || conversation.archivedAt !== null
+      ? null
+      : channel.managing
+        ? { kind: 'blocked', slug: channel.slug, reason: strings.managerCannotLeave }
+        : {
+            kind: 'allowed',
+            slug: channel.slug,
+            title: strings.leaveChannelTitle({ channel: channelLabel(channel.slug) }),
+            body: leaveConsequence(channel),
+          }
+  if (mute === null && leave === null) return null
+  return { id: `row-menu-${conversation.id}`, label: strings.conversationMore({ name: title }), mute, leave }
 }
 
 const faceOf = (

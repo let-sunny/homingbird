@@ -11,7 +11,6 @@ export const EventBody = S.openVariants(
   {
     'note.sent': { note: Note },
     'note.status': { noteId: NoteId, conversationId: ConversationId, receipts: S.array(Receipt) },
-    'note.moved': { noteId: NoteId, fromConversationId: ConversationId, toConversationId: ConversationId },
     'draft.saved': { note: Note },
     'draft.discarded': {
       noteId: NoteId,

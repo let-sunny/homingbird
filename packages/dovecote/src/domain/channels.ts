@@ -150,37 +150,6 @@ export const channelRoomFor = (askerId: MemberId, slug: string): T.Task<Conversa
     return row.conversation_id
   })
 
-export const roomForMovedQuestion = (
-  moverId: MemberId,
-  askerId: MemberId,
-  from: ConversationId,
-  slug: string,
-): T.Task<ConversationId, NotFound | Conflict, AppEnv> =>
-  T.gen(function* () {
-    const destination = yield* existingChannel(slug)
-    const origin = yield* channelOfRoom(from)
-    const isPrivate = visibilityOf(destination) === 'private'
-    if (isPrivate && !(yield* isMemberOf(destination.conversation_id, moverId)))
-      return yield* T.fail(noSuchChannel(slug))
-    if (origin !== null && visibilityOf(origin) === 'private' && destination.conversation_id !== from) {
-      const sameMembers =
-        isPrivate &&
-        sameSet(yield* membersOf(origin.conversation_id), yield* membersOf(destination.conversation_id))
-      if (!sameMembers)
-        return yield* T.fail(
-          Conflict({
-            message:
-              'A question in a private channel can move only to another private channel with the same members.',
-          }),
-        )
-    }
-    if (isPrivate && !(yield* isMemberOf(destination.conversation_id, askerId)))
-      return yield* T.fail(
-        Conflict({ message: 'The person who asked is not a member of that private channel.' }),
-      )
-    return yield* channelRoomFor(askerId, slug)
-  })
-
 export const channelsHelpedBy = (
   viewer: Viewer,
   memberIds: ReadonlyArray<MemberId>,
@@ -216,9 +185,6 @@ const sharedWith = (
   viewerId: MemberId,
 ): ReturnType<typeof sql> => sql`(t.visibility IS NULL OR t.visibility <> 'private'
   OR EXISTS (SELECT 1 FROM participants v WHERE v.conversation_id = t.conversation_id AND v.member_id = ${viewerId}))`
-
-const sameSet = (a: ReadonlyArray<MemberId>, b: ReadonlyArray<MemberId>): boolean =>
-  a.length === b.length && a.every((id) => b.includes(id))
 
 const openRoom = (
   channel: { readonly slug: string; readonly description: string; readonly visibility: ChannelVisibility },

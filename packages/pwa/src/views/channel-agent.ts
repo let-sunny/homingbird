@@ -16,7 +16,6 @@ import {
   channelAgentPageModel,
   decidedAnswerModel,
   reviewCardsModel,
-  reviewsWaitingModel,
 } from '../models/channel-agent.ts'
 import { signedIn } from '../state.ts'
 import { strings } from '../strings.ts'
@@ -48,25 +47,6 @@ export const agentButtons = (context: ViewContext, channel: AsRead.Channel): Chi
 }
 
 /** Beside the conversations: how many answers wait for the person to review, and where. */
-export const reviewsWaiting = (context: ViewContext, life: Lifetime): HTMLElement =>
-  region(
-    life,
-    [context.state.reviews],
-    () => {
-      const model = reviewsWaitingModel(context.state.reviews.get())
-      return (
-        model !== null &&
-        h(
-          'div',
-          { class: 'reviews-waiting', role: 'status' },
-          h('p', {}, model.text),
-          model.links.map((link) => h('a', { class: 'button', href: link.href }, link.label)),
-        )
-      )
-    },
-    { class: 'reviews-waiting-host' },
-  )
-
 /**
  * The page of a channel's agent, where a desk connected as it sends its managers to review its answers,
  * and a review notification opens one answer's card.

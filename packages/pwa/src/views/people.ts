@@ -21,6 +21,7 @@ import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
 import { choiceToggle, groupStartPanel, reflectChoices } from './group-start.ts'
 import { invitesSection } from './invites.ts'
+import { type MenuParts, actionMenu } from './menu.ts'
 import { button, channelChips, empty, field, loadFailed, loading, page, presenceBadges } from './parts.ts'
 
 /** People: everyone in the organization the person may see, and what they may do with each. */
@@ -150,7 +151,7 @@ interface Choices {
 
 const renderPeople = (
   model: PeopleModel,
-  context: Pick<ViewContext, 'actions' | 'clock' | 'page'>,
+  context: Pick<ViewContext, 'actions' | 'clock' | 'page' | 'document'>,
   retry: () => void,
   choices: Choices,
 ): HTMLElement => {
@@ -167,10 +168,11 @@ const renderPeople = (
 
 const personCard = (
   person: PersonCard,
-  context: Pick<ViewContext, 'actions' | 'clock' | 'page'>,
+  context: Pick<ViewContext, 'actions' | 'clock' | 'page' | 'document'>,
   choices: Choices,
-): HTMLElement =>
-  h(
+): HTMLElement => {
+  const more = person.more === null ? null : moreMenu(person, person.more, context)
+  const card = h(
     'li',
     { class: 'person', data: { memberId: person.memberId } },
     h(
@@ -235,34 +237,31 @@ const personCard = (
           actionButton(one, person, context.actions),
           one.kind === 'message' && choiceFor(person.memberId, choices),
         ]),
-        person.more !== null && moreMenu(person, person.more, context.actions),
+        more?.trigger,
+        more?.menu,
       ),
     ),
   )
+  more?.opensFrom(card)
+  return card
+}
 
 const moreMenu = (
   person: PersonCard,
   more: NonNullable<PersonCard['more']>,
-  actions: Actions,
-): HTMLElement[] => {
-  const menuId = `person-menu-${person.memberId}`
-  return [
-    h(
-      'button',
-      { type: 'button', class: 'person-more', popovertarget: menuId, 'aria-label': more.label },
-      '⋯',
+  context: Pick<ViewContext, 'actions' | 'clock' | 'page' | 'document'>,
+): MenuParts =>
+  actionMenu(context, {
+    id: `person-menu-${person.memberId}`,
+    label: more.label,
+    triggerClass: 'person-more',
+    menuClass: 'person-menu',
+    items: more.actions.map((one) =>
+      button(one.label, () => ACTIONS[one.kind](context.actions, person), {
+        class: `menu-item${one.style === null ? '' : ` ${one.style}`}`,
+      }),
     ),
-    h(
-      'div',
-      { id: menuId, class: 'menu person-menu', popover: 'auto' },
-      more.actions.map((one) =>
-        button(one.label, () => ACTIONS[one.kind](actions, person), {
-          class: `menu-item${one.style === null ? '' : ` ${one.style}`}`,
-        }),
-      ),
-    ),
-  ]
-}
+  })
 
 const choiceFor = (memberId: MemberId, choices: Choices): HTMLElement | null => {
   const toggle = choices.toggles.get(memberId)

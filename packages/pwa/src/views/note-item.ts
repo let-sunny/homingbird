@@ -3,10 +3,9 @@ import { type Lifetime, h, linkedText } from '@homingbird/ui'
 import type { NoteItemModel } from '../models/note-item.ts'
 import { strings } from '../strings.ts'
 import { authorButton } from './author-details.ts'
-import { moveForm } from './channel-picker.ts'
 import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
-import { opensDialog } from './dialog.ts'
+import { actionMenu } from './menu.ts'
 import { button, timeLabel } from './parts.ts'
 
 /** One sent note in the thread; a click on it, away from its controls, marks it as the one looked at. */
@@ -18,14 +17,28 @@ export const renderNoteItem = (
   conversationId: ConversationId,
 ): HTMLElement => {
   const { actions } = context
-  const ACTIONS = {
-    reply: () => actions.chooseReplyTarget(conversationId, note.id),
-    'ask-agent': () =>
-      actions.askAgent({ destination: { inReplyTo: note.id }, instruction: '', agentId: null }),
+  const askAgent = (): void =>
+    actions.askAgent({ destination: { inReplyTo: note.id }, instruction: '', agentId: null })
+  const ACTIONS: Readonly<Record<NoteItemModel['menu']['items'][number]['kind'], () => void>> = {
+    'ask-agent': askAgent,
+    copy: () => copyNote(context, note.body),
   }
+  const more = actionMenu(context, {
+    id: model.menu.id,
+    label: model.menu.label,
+    triggerClass: 'note-more',
+    menuClass: 'note-menu',
+    items: model.menu.items.map((item) =>
+      button(item.label, ACTIONS[item.kind], { class: `menu-item ${ITEM_CLASSES[item.kind]}` }),
+    ),
+  })
   const li = h(
     'li',
-    { class: model.className, data: { noteId: model.noteId, unread: String(model.unread) } },
+    {
+      class: model.className,
+      tabindex: '-1',
+      data: { noteId: model.noteId, unread: String(model.unread) },
+    },
     h('span', { class: 'note-face' }, model.author !== null && authorButton(context, life, model.author)),
     h(
       'div',
@@ -35,9 +48,23 @@ export const renderNoteItem = (
       model.authorName !== null && h('span', { class: 'note-author' }, model.authorName),
       h(
         'div',
-        { class: 'bubble', ...(model.bubbleTitle !== null && { title: model.bubbleTitle }) },
-        model.quote !== null && h('blockquote', { class: 'quote' }, model.quote),
-        h('p', { class: 'note-body' }, linkedText(model.body)),
+        { class: 'bubble-row' },
+        h(
+          'div',
+          { class: 'bubble', ...(model.bubbleTitle !== null && { title: model.bubbleTitle }) },
+          model.quote !== null && h('blockquote', { class: 'quote' }, model.quote),
+          h('p', { class: 'note-body' }, linkedText(model.body)),
+        ),
+        h(
+          'div',
+          { class: 'note-toolbar' },
+          model.reply !== null &&
+            button(model.reply, () => actions.chooseReplyTarget(conversationId, note.id), {
+              class: 'note-reply',
+            }),
+          more.trigger,
+        ),
+        more.menu,
       ),
       model.basis !== null &&
         h(
@@ -60,7 +87,7 @@ export const renderNoteItem = (
           { class: 'released', role: 'status' },
           h('span', {}, model.release.text),
           model.release.askAnyway !== null &&
-            button(model.release.askAnyway, ACTIONS['ask-agent'], { class: 'ask-anyway' }),
+            button(model.release.askAnyway, askAgent, { class: 'ask-anyway' }),
         ),
       model.meta !== null &&
         h(
@@ -82,30 +109,9 @@ export const renderNoteItem = (
                 h('span', { class: 'state-count', 'aria-hidden': 'true' }, model.meta.mark.count),
             ),
         ),
-      model.actions.length > 0 &&
-        h(
-          'div',
-          { class: 'note-actions' },
-          model.actions.map((action) =>
-            action.kind === 'move'
-              ? h(
-                  'button',
-                  {
-                    type: 'button',
-                    class: 'link move-question',
-                    ...opensDialog(context, strings.moveTitle, (dialogLife) =>
-                      moveForm(context, dialogLife, note, conversationId),
-                    ),
-                  },
-                  action.label,
-                )
-              : button(action.label, ACTIONS[action.kind], {
-                  class: action.kind === 'reply' ? 'link' : 'link ask-reply',
-                }),
-          ),
-        ),
     ),
   )
+  more.opensFrom(li)
   if (context.document.find(`.notes .is-active[data-note-id="${model.noteId}"]`) !== null)
     li.classList.add('is-active')
   li.addEventListener('click', (event) => {
@@ -115,4 +121,21 @@ export const renderNoteItem = (
     li.classList.toggle('is-active')
   })
   return li
+}
+
+const copyNote = (context: ViewContext, body: string): void => {
+  void context.page
+    .copyText(body)
+    .then((isCopied) =>
+      context.state.notice.set(
+        isCopied
+          ? { kind: 'info', text: strings.noteCopied }
+          : { kind: 'error', text: strings.noteNotCopied },
+      ),
+    )
+}
+
+const ITEM_CLASSES: Readonly<Record<NoteItemModel['menu']['items'][number]['kind'], string>> = {
+  'ask-agent': 'ask-reply',
+  copy: 'copy-note',
 }

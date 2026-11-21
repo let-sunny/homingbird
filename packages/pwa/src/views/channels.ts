@@ -23,6 +23,7 @@ import { agentAsk } from './agent-ask.ts'
 import { joinButtons, privateMark, roomControls } from './channel-membership.ts'
 import type { ViewContext } from './context.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
+import { type MenuParts, actionMenu } from './menu.ts'
 import { button, channelChips, channelCounts, empty, emptyWithPip, field, loading, page } from './parts.ts'
 
 /** Channels: every channel the person may see, searchable, a page at a time. */
@@ -108,8 +109,9 @@ export const channelView = (context: ViewContext, life: Lifetime, slug: string):
   )
 }
 
-const channelCard = (card: ChannelCard, context: ViewContext): HTMLElement =>
-  h(
+const channelCard = (card: ChannelCard, context: ViewContext): HTMLElement => {
+  const more = card.join === null ? null : joinMenu(context, card.channel, card.join)
+  const item = h(
     'li',
     { class: card.className, data: { slug: card.channel.slug } },
     h(
@@ -124,33 +126,38 @@ const channelCard = (card: ChannelCard, context: ViewContext): HTMLElement =>
         card.status !== null && h('span', { class: card.status.className }, card.status.text),
       ),
     ),
-    card.join !== null && joinActions(context, card.channel, card.join),
+    card.join !== null &&
+      more !== null &&
+      h(
+        'div',
+        { class: 'channel-actions' },
+        button(card.join.label, () => context.actions.joinChannel(card.channel.slug, false), {
+          class: 'join',
+        }),
+        more.trigger,
+        more.menu,
+      ),
   )
+  more?.opensFrom(item)
+  return item
+}
 
-const joinActions = (
+const joinMenu = (
   context: ViewContext,
   channel: AsRead.Channel,
   join: NonNullable<ChannelCard['join']>,
-): HTMLElement => {
-  const menuId = `channel-menu-${channel.slug}`
-  return h(
-    'div',
-    { class: 'channel-actions' },
-    button(join.label, () => context.actions.joinChannel(channel.slug, false), { class: 'join' }),
-    h(
-      'button',
-      { type: 'button', class: 'channel-more', popovertarget: menuId, 'aria-label': join.more },
-      '⋯',
-    ),
-    h(
-      'div',
-      { id: menuId, class: 'menu channel-menu', popover: 'auto' },
+): MenuParts =>
+  actionMenu(context, {
+    id: `channel-menu-${channel.slug}`,
+    label: join.more,
+    triggerClass: 'channel-more',
+    menuClass: 'channel-menu',
+    items: [
       button(join.joinAndAnswer, () => context.actions.joinChannel(channel.slug, true), {
         class: 'menu-item join-and-answer',
       }),
-    ),
-  )
-}
+    ],
+  })
 
 const createForm = (context: ViewContext, life: Lifetime): HTMLElement => {
   const { state, actions } = context

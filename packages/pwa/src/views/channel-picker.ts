@@ -1,12 +1,7 @@
-import {
-  type ApiError,
-  type AsRead,
-  CHANNEL_DESCRIPTION_MAX,
-  type ConversationId,
-} from '@homingbird/protocol'
+import { type ApiError, type AsRead, CHANNEL_DESCRIPTION_MAX } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, region, signal } from '@homingbird/ui'
 import type { Then } from '../app.ts'
-import { channelLabel, channelNamed, channelOfRoom, slugFrom } from '../channels.ts'
+import { channelLabel, channelNamed, slugFrom } from '../channels.ts'
 import { featureOn } from '../features.ts'
 import { NEW_CHANNEL, newChannelFrom, pickerModel } from '../models/channel-picker.ts'
 import { refusalText } from '../refusals.ts'
@@ -15,26 +10,6 @@ import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
 import { closeDialog, closesDialog } from './dialog.ts'
 import { channelCounts, field } from './parts.ts'
-
-/** Moving a channel question to another channel, an existing one or one made on the way. */
-export const moveForm = (
-  context: ViewContext,
-  life: Lifetime,
-  note: AsRead.Note,
-  conversationId: ConversationId,
-): Child => {
-  const here = channelOfRoom(context.state.channels.get(), conversationId)
-  return pickerForm(context, life, {
-    intro: strings.moveIntro,
-    quoted: note.body,
-    here,
-    movingFrom: here,
-    submitLabel: strings.move,
-    move: (slug, then) => context.actions.moveQuestion(note, slug, then),
-    createThenMove: (channel, then) => context.actions.createChannelThenMove(channel, note, then),
-    after: (slug) => announceMove(context, slug),
-  })
-}
 
 /** Sending a channel draft to another channel instead. */
 export const readdressForm = (
@@ -47,32 +22,27 @@ export const readdressForm = (
     intro: strings.changeChannelLabel,
     quoted: draft.body,
     here: channelNamed(context.state.channels.get(), currentSlug),
-    movingFrom: null,
     submitLabel: strings.changeChannel,
     move: (slug, then) => context.actions.readdressDraft(draft, slug, then),
     createThenMove: (channel, then) => context.actions.createChannelThenReaddress(channel, draft, then),
-    after: () => {},
   })
 
 interface Picker {
   readonly intro: string
   readonly quoted: string
   readonly here: AsRead.Channel | null
-  readonly movingFrom: AsRead.Channel | null
   readonly submitLabel: string
   readonly move: (slug: string, then: Then<void>) => void
   readonly createThenMove: (
     channel: { readonly slug: string; readonly description: string },
     then: Then<{ readonly created: AsRead.Channel; readonly failure: ApiError | null }>,
   ) => void
-  readonly after: (slug: string) => void
 }
 
 const pickerForm = (context: ViewContext, life: Lifetime, picker: Picker): HTMLElement => {
   const model = pickerModel({
     channels: context.state.channels.get(),
     here: picker.here,
-    movingFrom: picker.movingFrom,
     quoted: picker.quoted,
     channelsOn: featureOn('channels', context.state.serverInfo.get()),
   })
@@ -112,10 +82,7 @@ const pickerForm = (context: ViewContext, life: Lifetime, picker: Picker): HTMLE
     const target = chosen.get()
     if (target !== NEW_CHANNEL) {
       picker.move(target, {
-        done: () => {
-          closeDialog(context)
-          picker.after(target)
-        },
+        done: () => closeDialog(context),
         attempt: 'move',
       })
       return
@@ -123,7 +90,7 @@ const pickerForm = (context: ViewContext, life: Lifetime, picker: Picker): HTMLE
     const wanted = newChannelFrom(slug.value, description.value)
     if (wanted === null) return void slug.reportValidity()
     picker.createThenMove(wanted, {
-      done: (outcome) => afterCreating(context, picker, outcome),
+      done: (outcome) => afterCreating(context, outcome),
       attempt: 'channel-name',
     })
   }
@@ -177,34 +144,16 @@ const pickerForm = (context: ViewContext, life: Lifetime, picker: Picker): HTMLE
 
 const afterCreating = (
   context: ViewContext,
-  picker: Picker,
   outcome: { readonly created: AsRead.Channel; readonly failure: ApiError | null },
 ): void => {
   closeDialog(context)
-  if (outcome.failure === null) {
-    picker.after(outcome.created.slug)
-    return
-  }
+  if (outcome.failure === null) return
   context.state.notice.set({
     kind: 'error',
-    text: strings.createdButNotMoved({
+    text: strings.createdButNotReaddressed({
       channel: channelLabel(outcome.created.slug),
       reason: refusalText(outcome.failure, 'move'),
     }),
     link: { href: hrefFor({ name: 'channel', slug: outcome.created.slug }), label: strings.openRoom },
-  })
-}
-
-const announceMove = (context: ViewContext, slug: string): void => {
-  const channel = channelNamed(context.state.channels.get(), slug)
-  context.state.notice.set({
-    kind: 'info',
-    text: strings.questionMoved({ channel: channelLabel(slug) }),
-    ...(channel !== null && {
-      link: {
-        href: hrefFor({ name: 'conversation', id: channel.conversationId, draft: null }),
-        label: strings.openRoom,
-      },
-    }),
   })
 }

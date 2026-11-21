@@ -47,9 +47,6 @@ export const keepNotice = (notice: {
 export const forgetNotice = (memberId: MemberId, noteId: NoteId): T.Task<void, never, AppEnv> =>
   T.asUnit(run(sql`DELETE FROM notices WHERE member_id = ${memberId} AND note_id = ${noteId}`))
 
-export const moveNotices = (noteId: NoteId, to: ConversationId): T.Task<void, never, AppEnv> =>
-  T.asUnit(run(sql`UPDATE notices SET conversation_id = ${to} WHERE note_id = ${noteId}`))
-
 interface NoticeRow {
   readonly member_id: MemberId
   readonly note_id: NoteId

@@ -133,7 +133,7 @@ export const principleForm = (
     advice,
     field(strings.teach.source, source, strings.teach.sourceHint),
     host,
-    field(strings.teach.place, place),
+    field(strings.teach.place, place, strings.teach.placeHint),
     h('label', { class: 'choice' }, publicBox, strings.teach.publicToggle),
     publicPart,
     confirm,
