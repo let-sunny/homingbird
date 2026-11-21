@@ -588,8 +588,8 @@ export const ko: Translation<typeof en> = {
     debateResultsExplained: '토론 결과는 따로 세요. 에이전트 초안도, 내가 직접 쓴 노트도 아니에요.',
     countAndShare: '{count} ({share})',
     noneYet: '아직 없어요',
-    shareUp: '그대로 보낸 비율: {share}, 전 기간 {before}보다 올랐어요.',
-    shareDown: '그대로 보낸 비율: {share}, 전 기간 {before}보다 내려갔어요.',
+    shareUp: '그대로 보낸 비율: {share}, 전 기간 {before} 대비 올랐어요.',
+    shareDown: '그대로 보낸 비율: {share}, 전 기간 {before} 대비 내려갔어요.',
     shareSame: '그대로 보낸 비율: {share}, 전과 비슷해요.',
     shareNew: '그대로 보낸 비율: {share}. 아직 비교할 기간이 없어요.',
     skipsTitle: '에이전트가 노트를 건너뛴 이유',
@@ -1272,8 +1272,8 @@ export const ko: Translation<typeof en> = {
     none: '이 채널에는 아직 에이전트가 없어요.',
     loadFailed: '채널 에이전트를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.',
     pageTitle: '{channel} 채널의 에이전트',
-    writtenBy: '{channel} 채널의 에이전트({agent})가 작성',
-    writtenByEdited: '{channel} 채널의 에이전트({agent})가 작성, {name} 님이 수정',
+    writtenBy: '{channel} 채널 에이전트 {agent} 작성',
+    writtenByEdited: '{channel} 채널 에이전트 {agent} 작성, {name} 님이 수정',
     someChannel: '어느',
     notYours: '이 채널의 운영자만 에이전트를 운영하고 그 답을 검토할 수 있어요.',
     reviewIn: '{channel} 채널에서 검토하기',
@@ -1288,7 +1288,7 @@ export const ko: Translation<typeof en> = {
     desksTitle: '이 에이전트로 연결된 데스크 · {agent}',
     desksNone: '아직 연결된 데스크가 없어요.',
     connectHint:
-      '서버에 데스크를 연결하려면 아래 “서버에서 돌리기”를 쓰세요. 브라우저가 있는 컴퓨터라면 그곳에서 homingbird login을 실행하고, 승인 화면의 "연결할 대상"에서 이 채널의 에이전트({agent})를 고르세요. 서버 연결 코드를 만들거나 승인한 운영자가 이 채널의 운영자에서 빠지면 그 데스크도 멈춰요.',
+      '서버에 데스크를 연결하려면 아래 “서버에서 돌리기”를 쓰세요. 브라우저가 있는 컴퓨터라면 그곳에서 homingbird login을 실행하고, 승인 화면의 "연결할 대상"에서 이 채널의 에이전트 ({agent})를 고르세요. 서버 연결 코드를 만들거나 승인한 운영자가 이 채널의 운영자에서 빠지면 그 데스크도 멈춰요.',
     approvedByManager: '{name} 님이 승인',
     revoke: '연결 끊기',
     revoked: '연결 끊김',
@@ -1308,7 +1308,7 @@ export const ko: Translation<typeof en> = {
     approvedBy: '{channel} · {name} 님이 승인',
     askPrivately: '채널 에이전트에게 비공개로 묻기 · {agent}',
     privateNotice:
-      '여기에는 나, 채널 에이전트({agent}), {channel} 채널의 운영자만 있어요. 나중에 운영자가 되는 사람도 들어와서 여기 있는 모든 내용을 읽어요.',
+      '여기에는 나, 채널 에이전트 {agent}, {channel} 채널의 운영자만 있어요. 나중에 운영자가 되는 사람도 들어와서 여기 있는 모든 내용을 읽어요.',
     privateNoticeArchived:
       '이 질문을 한 채널이 보관되었어요. 남아 있는 사람은 읽을 수 있지만 더 쓸 수는 없어요.',
     connectAs: '연결할 대상',
@@ -1351,13 +1351,13 @@ export const ko: Translation<typeof en> = {
     intro:
       '브라우저가 없는 서버에서 에이전트를 계속 돌리려면, 여기서 서버 연결 코드를 만들고 서버에 한 줄만 붙여 넣으세요. 서버에는 먼저 명령줄 도구를 설치하세요: npm install -g @homingbird/cli',
     introAgent:
-      '이 채널의 에이전트({agent})를 브라우저가 없는 서버에서 돌리려면, 여기서 서버 연결 코드를 만들고 서버에 한 줄만 붙여 넣으세요. 서버에는 먼저 명령줄 도구를 설치하세요: npm install -g @homingbird/cli',
+      '이 채널의 에이전트 ({agent})를 브라우저가 없는 서버에서 돌리려면, 여기서 서버 연결 코드를 만들고 서버에 한 줄만 붙여 넣으세요. 서버에는 먼저 명령줄 도구를 설치하세요: npm install -g @homingbird/cli',
     create: '서버에서 돌리기',
     creating: '서버 연결 코드를 만드는 중…',
     explanation:
       'root가 아니라 에이전트를 돌릴 사람의 계정으로 서버에 붙여 넣으세요. 그 서버가 내 에이전트로 로그인하고 백그라운드에서 시작돼요. 에이전트는 초안만 쓰고 보내지는 않아요. 서버에서 codex, gemini, antigravity를 쓴다면 --agent를 바꾸세요.',
     explanationAgent:
-      'root가 아니라 이 채널의 에이전트({agent})를 돌릴 계정으로 서버에 붙여 넣으세요. 그 서버가 이 에이전트로 로그인하고 백그라운드에서 시작돼요. 에이전트의 답은 이 채널 운영자의 승인을 기다려요. 서버에서 codex, gemini, antigravity를 쓴다면 --agent를 바꾸세요.',
+      'root가 아니라 이 채널의 에이전트 ({agent})를 돌릴 계정으로 서버에 붙여 넣으세요. 그 서버가 이 에이전트로 로그인하고 백그라운드에서 시작돼요. 에이전트의 답은 이 채널 운영자의 승인을 기다려요. 서버에서 codex, gemini, antigravity를 쓴다면 --agent를 바꾸세요.',
     expiresIn: '한 번만, {time} 동안 쓸 수 있어요.',
     copy: '복사',
     copied: '복사했어요',
