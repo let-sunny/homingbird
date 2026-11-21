@@ -74,11 +74,11 @@ const scenario = async (): Promise<void> => {
       agent.call('POST', '/drafts', { inReplyTo: question, body, ...(basis !== undefined && { basis }) })
 
     // -- Nothing taught yet: both new sections say how to start ------------------------------------
-    await ana.page.goto(`${base}/#/agent`)
+    await ana.page.goto(`${base}/#/agent/routes`)
+    await ana.page.waitForSelector('.routes .teach-empty:has-text("Teach your agent its first principle")')
+    await ana.page.goto(`${base}/#/agent/teaching`)
     await ana.page.waitForSelector('#agent-teaching')
     await ana.page.waitForSelector('.taught .teach-empty:has-text("Teach your agent its first principle")')
-    await ana.page.waitForSelector('.routes .teach-empty:has-text("Teach your agent its first principle")')
-    await scrollTo(ana.page, '#agent-teaching')
     await capture(ana.page, 'nothing-taught-yet')
 
     // -- Teach a principle by hand, with warnings while typing ---------------------------------------
@@ -208,20 +208,23 @@ const scenario = async (): Promise<void> => {
     })
     await api(ana, 'POST', `/drafts/${dm.id}/discard`)
 
-    // -- My agent, all three sections -----------------------------------------------------------------
+    // -- My agent, one tab at a time ------------------------------------------------------------------
     const pageShots = async (person: Person, prefix: string): Promise<void> => {
       await person.page.goto(`${base}/#/agent`)
-      await person.page.waitForSelector('.taught .todo-row')
-      await person.page.waitForSelector('.route-map svg')
       await person.page.waitForSelector('.connected-agents .credential')
-      await toTop(person.page)
       await capture(person.page, `${prefix}-connection`)
-      for (const section of ['teaching', 'doing', 'routes']) {
-        await scrollTo(person.page, `#agent-${section}`)
+      for (const [section, ready] of [
+        ['teaching', '.taught .todo-row'],
+        ['doing', '#trust-verdict'],
+        ['routes', '.route-map svg'],
+      ] as const) {
+        await person.page.click(`.my-agent-tabs a[href="#/agent/${section}"]`)
+        await person.page.waitForSelector(ready)
+        await toTop(person.page)
         await capture(person.page, `${prefix}-${section}`)
       }
     }
-    await ana.page.goto(`${base}/#/agent`)
+    await ana.page.goto(`${base}/#/agent/teaching`)
     await ana.page.waitForSelector(
       '.todo-row[data-name="Release dates"]:has-text("Applied 7 times: 6 sent as written, 1 edited, 0 discarded")',
     )
@@ -229,8 +232,14 @@ const scenario = async (): Promise<void> => {
     await ana.page.waitForSelector('.todo-row[data-name="Release dates"]:has-text("Marked wrong once")')
     await ana.page.waitForSelector('.teach-audit:has-text("audit trail records that you saved")')
     await ana.page.waitForSelector('.milestone:has-text("First principle saved")')
+    await ana.page.click('.my-agent-tabs a[href="#/agent/routes"]')
     await ana.page.waitForSelector('.route-item[data-place="releases"]')
     await ana.page.waitForSelector('.route-item[data-place="direct"] .route-item-chances')
+    await ana.page.click('.route-table summary')
+    assert.equal(await overflowsSideways(ana.page), false)
+    assert.deepEqual(await clippedText(ana.page), [])
+    assert.deepEqual(await crowdedFields(ana.page), [])
+    await ana.page.click('.my-agent-tabs a[href="#/agent/teaching"]')
     await ana.page
       .locator(
         '.teach-chances .chance:has-text("Direct messages") button:has-text("Don’t ask in this channel")',
@@ -239,10 +248,6 @@ const scenario = async (): Promise<void> => {
     await ana.page.waitForSelector('.teach-chances .chance:has-text("Direct messages")', {
       state: 'detached',
     })
-    await ana.page.click('.route-table summary')
-    assert.equal(await overflowsSideways(ana.page), false)
-    assert.deepEqual(await clippedText(ana.page), [])
-    assert.deepEqual(await crowdedFields(ana.page), [])
     await pageShots(ana, 'wide-light')
     await ana.page.emulateMedia({ colorScheme: 'dark' })
     await pageShots(ana, 'wide-dark')
@@ -255,7 +260,7 @@ const scenario = async (): Promise<void> => {
     await ana.page.setViewportSize(VIEWPORT)
 
     // -- Ben never sees Ana's principles ----------------------------------------------------------------
-    await ben.page.goto(`${base}/#/agent`)
+    await ben.page.goto(`${base}/#/agent/teaching`)
     await ben.page.waitForSelector('.taught .teach-empty')
     assert.equal(await ben.page.locator('text=RELEASES.md').count(), 0)
 
@@ -307,6 +312,7 @@ const scenario = async (): Promise<void> => {
     await ana.page.waitForSelector('.fresh-session:has-text("Ana desk has run for long")')
     await scrollTo(ana.page, '#agent-connection')
     await capture(ana.page, 'connection-suggests-a-fresh-session')
+    await ana.page.goto(`${base}/#/agent/doing`)
     await ana.page.waitForSelector('#trust-sessions')
     await scrollTo(ana.page, '#trust-sessions')
     await capture(ana.page, 'how-it-is-doing-by-session')
@@ -336,7 +342,7 @@ const scenario = async (): Promise<void> => {
     const korean: Person = await newPage(browser, base, 'ko-KR')
     await submitDevelopmentLogin(korean.page, 'ana@example.com', 'Ana')
     await korean.page.waitForSelector('.app')
-    await korean.page.goto(`${base}/#/agent`)
+    await korean.page.goto(`${base}/#/agent/teaching`)
     await korean.page.waitForSelector('#agent-teaching:has-text("가르치기")')
     await korean.page.waitForSelector('.taught .todo-row')
     assert.deepEqual(await clippedText(korean.page), [])

@@ -554,7 +554,7 @@ export const en = {
       doing: 'How it is doing',
       routes: 'Route map',
     },
-    onThisPage: 'On this page',
+    tabsLabel: 'My agent sections',
     intro:
       'These numbers are about your agent’s drafts, not about you: where they already go out as you would write them, and where they still need you.',
     verdict: {

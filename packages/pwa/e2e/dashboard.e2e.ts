@@ -204,7 +204,7 @@ const scenario = async (): Promise<void> => {
 
     // -- The page, from the header: verdict, numbers, channels, trend, what is measured ----------------
     await ana.page.click('.tab:has-text("My agent")')
-    await ana.page.click('.my-agent-nav a:has-text("How it is doing")')
+    await ana.page.click('.my-agent-tabs a:has-text("How it is doing")')
     await ana.page.waitForFunction(() => (globalThis as any).location.hash === '#/agent/doing')
     await ana.page.waitForSelector('#trust-verdict:has-text("usually sent as written")')
     await ana.page.waitForSelector(

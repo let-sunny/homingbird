@@ -227,9 +227,11 @@ states the decision first, then the reason. Add new entries at the top of their 
   what their agent writes and an organization can see what happened. Later features (debate rooms,
   stored answers, automatic sending, the last off by default) register a switch in the same table.
 - **Everything about a person's agent lives on one page, My agent, in the header; the profile is about
-  the person.** The page has four headed sections in a fixed order, Connection (agents and devices, the
-  desk, renaming and revoking, a connection code), Teaching, How it is doing and Route map, each at its
-  own address (`#/agent/connection` and so on); `#/connect` and `#/credentials` lead to Connection. The
+  the person.** The page has four tabs in a fixed order, Connection (agents and devices, the desk,
+  renaming and revoking, a connection code), Teaching, How it is doing and Route map, each at its own
+  address (`#/agent/connection` and so on) and shown alone, because the four on one page made a scroll
+  too long to find anything in; `#/agent` shows the first, and `#/connect` and `#/credentials` lead to
+  Connection. The
   profile keeps the name, character, language, notifications and the line colleagues see. A summary
   card above the conversation list repeated the page and pushed the list down, so there is none; the
   quick-approval nudge moved to where it matters: a draft card shows one quiet line above Send when the

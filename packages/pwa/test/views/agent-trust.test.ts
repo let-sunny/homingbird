@@ -10,20 +10,25 @@ import { everything, me, report, serverInfo } from '../support/fixtures.ts'
 usingFakeDom()
 
 describe('agentTrustView', () => {
-  it('shows every section whose feature is on, loads the figures, and focuses the section asked for', () => {
+  it('shows only the tab asked for, loads its figures, and focuses its heading', () => {
     const { context, called, page } = testContext()
     context.state.serverInfo.set(everything())
     const shown = mount(agentTrustView(context, lifetime(), me(), 'doing'))
     expect(called('refreshAgentReport')).toHaveLength(1)
-    expect(allByRole(getByRole(shown, 'navigation'), 'link').map((link) => link.textContent)).toEqual([
+    const tabs = getByRole(shown, 'navigation', { name: strings.trust.tabsLabel })
+    expect(allByRole(tabs, 'link').map((link) => link.textContent)).toEqual([
       strings.trust.sections.connection,
       strings.trust.sections.teaching,
       strings.trust.sections.doing,
       strings.trust.sections.routes,
     ])
+    expect(getByRole(tabs, 'link', { name: strings.trust.sections.doing }).getAttribute('aria-current')).toBe(
+      'page',
+    )
     expect(
-      getByRole(shown, 'link', { name: strings.trust.sections.doing }).getAttribute('aria-current'),
-    ).toBe('location')
+      getByRole(tabs, 'link', { name: strings.trust.sections.teaching }).getAttribute('aria-current'),
+    ).toBeNull()
+    expect(allByRole(shown, 'heading', { name: strings.trust.sections.teaching })).toHaveLength(0)
     page.runFrames()
     expect(document.activeElement).toBe(document.getElementById('agent-doing'))
     expect(textOf(shown)).toContain(strings.loading)
@@ -40,13 +45,29 @@ describe('agentTrustView', () => {
     expect(getByRole(shown, 'table', { name: strings.trust.caption({ days: 30 }) })).toBeTruthy()
   })
 
-  it('keeps Connection alone where the rest is off, and moves nowhere without a section', () => {
-    const { context, called, page } = testContext()
-    context.state.serverInfo.set(serverInfo())
-    const shown = agentTrustView(context, lifetime(), me(), null)
-    expect(allByRole(shown, 'heading', { name: strings.trust.sections.connection })).toHaveLength(1)
-    expect(called('refreshAgentReport')).toHaveLength(0)
+  it('shows Connection without moving focus when no tab was asked for', () => {
+    const { context, page } = testContext()
+    context.state.serverInfo.set(everything())
+    const shown = mount(agentTrustView(context, lifetime(), me(), null))
+    expect(getByRole(shown, 'heading', { name: strings.trust.sections.connection })).toBeTruthy()
+    expect(allByRole(shown, 'heading', { name: strings.trust.sections.doing })).toHaveLength(0)
     page.runFrames()
     expect(document.activeElement).toBe(document.body)
+  })
+
+  it('loads no report on Teaching', () => {
+    const { context, called } = testContext()
+    context.state.serverInfo.set(everything())
+    agentTrustView(context, lifetime(), me(), 'teaching')
+    expect(called('refreshAgentReport')).toHaveLength(0)
+    expect(called('refreshPrinciples')).toHaveLength(1)
+  })
+
+  it('keeps Connection alone where the rest is off', () => {
+    const { context } = testContext()
+    context.state.serverInfo.set(serverInfo())
+    const shown = agentTrustView(context, lifetime(), me(), 'teaching')
+    expect(allByRole(shown, 'link').filter((link) => link.closest('.my-agent-tabs'))).toHaveLength(1)
+    expect(allByRole(shown, 'heading', { name: strings.trust.sections.connection })).toHaveLength(1)
   })
 })

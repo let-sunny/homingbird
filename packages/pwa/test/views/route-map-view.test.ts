@@ -10,9 +10,10 @@ import { taught } from '../support/fixtures.ts'
 usingFakeDom()
 
 describe('routeMapSection', () => {
-  it('shows nothing until principles load, then invites teaching', () => {
-    const { context } = testContext()
+  it('loads the principles, shows nothing until they arrive, then invites teaching', () => {
+    const { context, called } = testContext()
     const shown = routeMapSection(context, lifetime())
+    expect(called('refreshPrinciples')).toHaveLength(1)
     expect(shown.childNodes).toHaveLength(0)
     context.state.taught.set(taught({ debateCredits: ['gap_filled'] }))
     expect(getByRole(shown, 'button', { name: strings.teach.add })).toBeTruthy()
