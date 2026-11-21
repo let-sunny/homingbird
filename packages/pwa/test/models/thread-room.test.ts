@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   archiveDiscardLines,
+  channelAskedIn,
   isFocusedDraftOpen,
   isOn,
   mayMessageIn,
@@ -67,6 +68,16 @@ describe('threadTopModel', () => {
     const notice = strings.channelAgent.privateNotice({ agent: '#wiki', channel: '#wiki' })
     expect(threadTopModel(input)).toEqual({ kind: 'empty', text: notice })
     expect(threadHeadModel(input)).toMatchObject({ kind: 'people', profile: notice })
+  })
+})
+
+describe('channelAskedIn', () => {
+  it('finds the channel a private question asks, and none for a direct room or a channel no longer listed', () => {
+    const wiki = channel('wiki')
+    const asked = conversation({ kind: 'group', privateQuestionOf: 'wiki', participantIds: [ANA, BEN] })
+    expect(channelAskedIn(threadInput({ conversations: [asked], channels: [wiki] }))).toBe(wiki)
+    expect(channelAskedIn(threadInput({ conversations: [asked], channels: [] }))).toBeNull()
+    expect(channelAskedIn(threadInput({ channels: [wiki] }))).toBeNull()
   })
 })
 

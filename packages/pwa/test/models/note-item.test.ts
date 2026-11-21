@@ -270,6 +270,8 @@ describe('noteItemModel', () => {
     const answer = note('a1', { authorId: CY, inReplyTo: latest.id, sentAt: 4 })
     expect(waits([latest, answer], latest)).toBeNull()
     expect(waits([latest], note('t1', { authorId: BEN }))).toBeNull()
+    const ownReply = note('r1', { authorId: ANA, inReplyTo: answer.id, sentAt: 5 })
+    expect(waits([latest, answer, ownReply], ownReply)).toBeNull()
     const mine = noteItemModel(
       threadInput({
         conversations: [room],
