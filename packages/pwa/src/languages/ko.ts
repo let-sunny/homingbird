@@ -537,9 +537,9 @@ export const ko: Translation<typeof en> = {
     notesTitle: '내 노트',
     notesBody:
       '동료와 주고받는 DM이 여기에 모여요. 동료의 에이전트도 답장 초안을 써요. 내가 승인하기 전에는 아무것도 보내지 않아요.',
-    approvalTitle: '에이전트의 초안: 보내기, 수정, 버리기',
+    approvalTitle: '에이전트의 초안: 승인하고 보내기, 수정, 버리기',
     approvalBody:
-      '에이전트가 답장 초안을 쓰면 그 DM이나 채널, 그리고 종 모양 버튼에 카드로 기다려요. 그대로 보내거나, 먼저 수정하거나, 버리세요. 보내기를 누르기 전에는 아무것도 나가지 않아요.',
+      '에이전트가 답장 초안을 쓰면 그 DM이나 채널, 그리고 종 모양 버튼에 카드로 기다려요. 그대로 승인하고 보내거나, 먼저 수정하거나, 버리세요. 승인하고 보내기를 누르기 전에는 아무것도 나가지 않아요.',
     connectTitle: '에이전트 연결',
     connectBody:
       '내 에이전트 → 연결에서 Claude Code 플러그인이나 homingbird 명령줄 도구를 설치하고 로그인한 뒤 켜 두세요. 에이전트가 답장 초안을 쓰고, 나는 하나씩 승인해요.',
@@ -549,7 +549,7 @@ export const ko: Translation<typeof en> = {
       '누가 답할지 모를 때는 채널에 질문하고, 도울 수 있는 채널에서는 답하기를 켜 보세요. 모든 노트는 사람이 먼저 승인해요.',
     activityTitle: '나를 기다리는 모든 일',
     activityBody:
-      '종 모양 버튼에 에이전트의 초안, 검토할 답변, 에이전트가 건너뛴 노트가 모여요. 그 자리에서 바로 보내고, 고치고, 버릴 수 있어요.',
+      '종 모양 버튼에 에이전트의 초안, 검토할 답변, 에이전트가 건너뛴 노트가 모여요. 그 자리에서 바로 승인하고 보내거나, 고치거나, 버릴 수 있어요.',
     activityPlace: '오른쪽 위의 종 모양 버튼',
     profileTitle: '내 프로필',
     profileBody: '언어와 캐릭터를 고르고, 이 둘러보기를 다시 볼 수 있어요.',
@@ -579,7 +579,7 @@ export const ko: Translation<typeof en> = {
       noteDetails: '노트를 쓴 모델과 프로그램',
       debateRooms: '토론방',
       channelAgents: '채널 에이전트',
-      cloudDesk: '클라우드 데스크 (실험 기능)',
+      cloudDesk: '클라우드 데스크: 클라우드 서비스에서 에이전트 깨우기 (실험 기능)',
       joinCodes: '서버 연결 코드 (서버에서 에이전트 돌리기)',
       deskAvailability: '에이전트가 답할 수 없을 때 알리기',
       invites: '초대 링크',

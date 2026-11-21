@@ -1,4 +1,5 @@
 import type { MemberId, Note } from '@homingbird/protocol'
+import { replyLater } from './own-agent.ts'
 import { memberById } from './reads.ts'
 import { announceStatus, changeNote, reviewersOf, saveDraft, sendDraft } from './sending.ts'
 import { VISITOR_ID } from './team.ts'
@@ -8,7 +9,9 @@ import type { Records, World } from './world.ts'
  * What the demo's colleagues do after someone sends a note: a few seconds later the colleague's agent
  * starts drafting, then its answer arrives as that colleague approved it. A channel's agent's answer
  * waits for a manager who did not ask; when the visitor is one of them it waits for the visitor's click,
- * otherwise another manager approves it. Nothing is ever sent as the visitor: only their click sends.
+ * otherwise another manager approves it. A colleague answers the visitor's reply once with a question
+ * back, which the visitor's own agent drafts a reply to. Nothing is ever sent as the visitor: only their
+ * click sends.
  */
 export const answerLater = (world: World, question: Note): void => {
   const responder = responderTo(world.records(), question)
@@ -21,6 +24,10 @@ export const answerLater = (world: World, question: Note): void => {
 export const DRAFTING_AFTER_MS = 2_000
 export const ANSWER_AFTER_MS = 6_000
 export const APPROVAL_AFTER_MS = 5_000
+
+/** What a colleague asks back the first time the visitor replies to them. */
+export const PERSON_FOLLOW_UP =
+  'Thanks, that helps. One more thing: whom do I tell if something goes wrong while it runs?'
 
 interface Responder {
   readonly id: MemberId
@@ -59,7 +66,7 @@ const responderTo = (records: Records, note: Note): Responder | null => {
     : {
         id: colleague.id,
         kind: 'person',
-        agentName: `${colleague.name.split(' ')[0]}'s desk`,
+        agentName: `${colleague.name.split(' ')[0]}'s laptop`,
         channel: room.kind === 'channel' ? (channel?.slug ?? null) : null,
       }
 }
@@ -87,13 +94,15 @@ const answer = (world: World, question: Note, responder: Responder): void => {
   const draft = saveDraft(world, {
     conversationId: question.conversationId,
     authorId: responder.id,
-    body: answerText(responder, question),
+    body: answerText(world.records(), responder, question),
     inReplyTo: question.id,
     agentName: responder.agentName,
     basis: responder.kind === 'channel_agent' ? `Past answers in #${responder.channel}.` : null,
   })
   if (responder.kind === 'person') {
-    sendDraft(world, draft, { body: draft.body, approvedBy: null })
+    const sent = sendDraft(world, draft, { body: draft.body, approvedBy: null })
+    if (sent.body === PERSON_FOLLOW_UP && question.authorId === VISITOR_ID)
+      replyLater(world, sent, VISITOR_ID)
     return
   }
   const reviewers = reviewersOf(world.records(), draft)
@@ -105,12 +114,19 @@ const answer = (world: World, question: Note, responder: Responder): void => {
   })
 }
 
-const answerText = (responder: Responder, question: Note): string =>
-  responder.kind === 'person'
-    ? question.inReplyTo === null
-      ? PERSON_ANSWER
-      : PERSON_THANKS
-    : (CHANNEL_ANSWERS[responder.channel ?? ''] ?? CHANNEL_ANSWER(responder.channel ?? ''))
+/** A person answers a new note, asks back once when a reply comes, then thanks; a channel's agent answers from its room. */
+const answerText = (records: Records, responder: Responder, question: Note): string => {
+  if (responder.kind !== 'person')
+    return CHANNEL_ANSWERS[responder.channel ?? ''] ?? CHANNEL_ANSWER(responder.channel ?? '')
+  if (question.inReplyTo === null) return PERSON_ANSWER
+  const askedBack = records.notes.some(
+    (note) =>
+      note.conversationId === question.conversationId &&
+      note.authorId === responder.id &&
+      note.body === PERSON_FOLLOW_UP,
+  )
+  return askedBack ? PERSON_THANKS : PERSON_FOLLOW_UP
+}
 
 const PERSON_ANSWER =
   'Thanks, I have this. I will look at it this afternoon and write back here if anything is unclear.'

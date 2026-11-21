@@ -1788,6 +1788,13 @@
   }
 }
 
+/* A notice inside an open modal dialog sits at its foot: the dialog's backdrop covers the page. */
+:root .dialog > .toast-host {
+  position: static;
+  max-inline-size: none;
+  margin-block-start: var(--hb-space-3);
+}
+
 .toast {
   display: flex;
   align-items: center;
