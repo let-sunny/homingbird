@@ -29,6 +29,27 @@ const auditEvents = async (event: string) =>
     .map((row) => ({ actor: row.actor_id, target: row.target_id, detail: JSON.parse(String(row.detail)) }))
 
 describe('a channel’s agent', () => {
+  it('is shown on its channel as awake while its desk runs, and unable to answer when it cannot', async () => {
+    await start()
+    const agent = await startAgent(server, ana)
+    const stream = new AbortController()
+    server.env.hub.subscribe(agent.id as never, 'agent', stream.signal)
+    expect((await cy.api('GET', `/channels/${CHANNEL}`)).json.agent.presence).toEqual({
+      humanOnline: false,
+      agentOnline: true,
+    })
+    server.env.hub.markUnavailable(agent.id as never, { kind: 'usage_limit', until: 9 })
+    expect((await cy.api('GET', `/channels/${CHANNEL}`)).json.agent.presence.agentUnavailable).toEqual({
+      until: 9,
+    })
+    expect((await ana.api('GET', `/channels/${CHANNEL}`)).json.agent.presence.agentUnavailable).toEqual({
+      until: 9,
+      kind: 'usage_limit',
+    })
+    stream.abort()
+    expect((await cy.api('GET', `/channels/${CHANNEL}`)).json.agent.presence.agentOnline).toBe(false)
+  })
+
   it('is a member of its own kind in the channel’s room, shown on the channel and listed apart from people', async () => {
     await start()
     const made = await ana.api('PUT', `/channels/${CHANNEL}/agent`, { name: 'Payments wiki' })
@@ -43,6 +64,7 @@ describe('a channel’s agent', () => {
     expect((await cy.api('GET', `/channels/${CHANNEL}`)).json.agent).toEqual({
       id: agentId,
       name: 'Payments wiki',
+      presence: { humanOnline: false, agentOnline: false },
     })
     expect((await cy.api('GET', `/channels/${CHANNEL}`)).json.memberCount).toBe(3)
     expect((await ana.api('GET', `/channels/${CHANNEL}`)).json.runsAgent).toBe(true)

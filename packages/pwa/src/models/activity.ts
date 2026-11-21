@@ -20,29 +20,45 @@ import { type TimeShown, timeShown } from './time.ts'
 
 /**
  * Everything that waits for the person, by kind, newest first in each: their own agent's drafts, the
- * channel agents' answers they review, notes their agent skipped, their agent being unable to answer,
- * and debate rooms that need them. Only the person's own drafts are listed, and never an answer to a
- * question they asked (rule 2); a kind whose feature is off is left out.
+ * channel agents' answers they review, notes their agent skipped and debate rooms that need them. The
+ * bell counts exactly what the groups list. Their agent being unable to answer is a state, not a thing
+ * to do: it is told apart and never counted. Only the person's own drafts are listed, and never an
+ * answer to a question they asked (rule 2); a kind whose feature is off is left out.
  */
 export const activityModel = (input: ActivityInput): ActivityModel => {
   const groups = [
     group('drafts', draftItems(input)),
     group('reviews', featureOn('channelAgents', input.serverInfo) ? reviewItems(input) : []),
     group('skipped', skippedItems(input)),
-    group('unavailable', unavailableItems(input)),
     group('debates', featureOn('debateRooms', input.serverInfo) ? debateItems(input) : []),
   ].filter((shown) => shown.items.length > 0)
   const count = groups.reduce(
     (sum, shown) => sum + shown.items.reduce((all, item) => all + item.weight, 0),
     0,
   )
+  const agent = agentNotice(input)
   return {
     title: strings.activity.title,
     count,
-    label: count === 0 ? strings.activity.bellNone : strings.activity.bell({ count }),
-    empty: groups.length === 0 ? strings.activity.empty : null,
+    label: bellLabel(count, agent !== null),
+    agent,
+    empty: groups.length === 0 && agent === null ? strings.activity.empty : null,
     groups,
   }
+}
+
+/** Why the person's own agent cannot answer now, for the bell's and the My agent tab's small mark. */
+export const agentNotice = (input: Pick<ActivityInput, 'me' | 'directory'>): AgentNotice | null => {
+  const presence = input.directory.find((entry) => entry.member.id === input.me.member.id)?.presence ?? null
+  const lines = deskUnavailableReason(presence)
+  return lines.length === 0
+    ? null
+    : {
+        heading: strings.activity.unavailableTitle,
+        lines,
+        href: hrefFor({ name: 'agent', section: 'connection' }),
+        label: strings.activity.openConnection,
+      }
 }
 
 /** How long a closed room's result stays listed for a person whose agent helped reach it. */
@@ -69,15 +85,24 @@ export interface ActivityInput {
 
 export interface ActivityModel {
   readonly title: string
-  /** How many things wait: each draft, answer, skipped note and room once. */
+  /** How many things wait: each draft, answer, skipped note and room the groups list, once. */
   readonly count: number
-  /** The bell's name, with the count in words. */
+  /** The bell's name, with the count in words, and that the agent cannot answer when it cannot. */
   readonly label: string
+  /** The person's own agent cannot answer now; shown apart from the groups and never counted. */
+  readonly agent: AgentNotice | null
   readonly empty: string | null
   readonly groups: ReadonlyArray<ActivityGroup>
 }
 
-export type ActivityKind = 'drafts' | 'reviews' | 'skipped' | 'unavailable' | 'debates'
+export interface AgentNotice {
+  readonly heading: string
+  readonly lines: ReadonlyArray<string>
+  readonly href: string
+  readonly label: string
+}
+
+export type ActivityKind = 'drafts' | 'reviews' | 'skipped' | 'debates'
 
 export interface ActivityGroup {
   readonly kind: ActivityKind
@@ -101,7 +126,6 @@ export type ActivityItem =
       'skipped',
       { readonly from: string; readonly body: string; readonly reason: string; readonly reply: string }
     >
-  | ActivityEntry<'unavailable', { readonly heading: string; readonly lines: ReadonlyArray<string> }>
   | ActivityEntry<'debate', { readonly text: string }>
 
 type ActivityEntry<Type extends string, Fields> = {
@@ -206,13 +230,10 @@ const skippedItems = (input: ActivityInput): ActivityItem[] =>
     const found = noteInThreads(input.threads, noteId)
     if (found === null || found.note.authorId === input.me.member.id) return []
     const { note, thread } = found
-    const answered = thread.notes.some(
-      (other) =>
-        other.inReplyTo === noteId && other.authorId === input.me.member.id && other.status !== 'discarded',
-    )
-    const room = input.conversations.find((candidate) => candidate.id === note.conversationId)
-    if (answered || room === undefined || isArchived(room)) return []
     const at = note.sentAt ?? note.createdAt
+    const room = input.conversations.find((candidate) => candidate.id === note.conversationId)
+    if (isAnswered(thread, noteId, at, input.me.member.id) || room === undefined || isArchived(room))
+      return []
     return [
       {
         type: 'skipped',
@@ -232,29 +253,6 @@ const skippedItems = (input: ActivityInput): ActivityItem[] =>
       },
     ]
   })
-
-const unavailableItems = (input: ActivityInput): ActivityItem[] => {
-  const presence = input.directory.find((entry) => entry.member.id === input.me.member.id)?.presence ?? null
-  const lines = deskUnavailableReason(presence)
-  return lines.length === 0
-    ? []
-    : [
-        {
-          type: 'unavailable',
-          key: 'unavailable',
-          at: input.now,
-          weight: 1,
-          place: {
-            text: strings.navMyAgent,
-            href: hrefFor({ name: 'agent', section: 'connection' }),
-            label: strings.activity.openConnection,
-            time: null,
-          },
-          heading: strings.activity.unavailableTitle,
-          lines,
-        },
-      ]
-}
 
 const debateItems = (input: ActivityInput): ActivityItem[] => {
   const me = input.me.member.id
@@ -295,6 +293,27 @@ const debateItems = (input: ActivityInput): ActivityItem[] => {
     ]
   })
 }
+
+/**
+ * Whether the person answered a note: a reply to it that is not discarded, or any note they sent in
+ * the conversation after it, since a note written below one answers it whether or not it quotes it.
+ */
+const isAnswered = (thread: Thread, noteId: NoteId, at: number, viewerId: MemberId): boolean =>
+  thread.notes.some(
+    (other) =>
+      other.authorId === viewerId &&
+      ((other.inReplyTo === noteId && other.status !== 'discarded') ||
+        (other.status === 'sent' && (other.sentAt ?? other.createdAt) > at)),
+  )
+
+const bellLabel = (count: number, agentUnavailable: boolean): string =>
+  agentUnavailable
+    ? count === 0
+      ? strings.activity.bellNoneAgentUnavailable
+      : strings.activity.bellAgentUnavailable({ count })
+    : count === 0
+      ? strings.activity.bellNone
+      : strings.activity.bell({ count })
 
 const placeOf = (
   input: ActivityInput,

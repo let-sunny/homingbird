@@ -1,11 +1,12 @@
 import type { AsRead, DraftRequest } from '@homingbird/protocol'
+import { type AnswerersLine, whoAnswers } from '../channel-answerers.ts'
 import { waitingRequests } from '../draft-requests.ts'
 import { theirAgentUnavailable } from '../presence.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 import { excerpt, isArchived, otherParticipants } from '../thread.ts'
 import { type AvatarModel, memberAvatarOf } from './avatar.ts'
-import { type ThreadInput, isOn, mayMessageIn, noteIn, roomOf } from './thread-room.ts'
+import { type ThreadInput, channelAskedIn, isOn, mayMessageIn, noteIn, roomOf } from './thread-room.ts'
 
 /** Where the person writes: sending, what they asked their agent for, what they answer, and whether they may. */
 export const composerModel = (input: ThreadInput): ComposerModel => {
@@ -42,6 +43,7 @@ export const composerModel = (input: ThreadInput): ComposerModel => {
           }
         : null,
     theirAgent: theirAgentUnavailable(recipientPresence(input)),
+    answers: answerersIn(input),
     replyingTo: target === null ? null : strings.replyingTo({ excerpt: excerpt(target.body, 60) }),
     asksAgent: draftRequestsOn,
   }
@@ -67,9 +69,23 @@ export type ComposerModel =
       readonly noAgent: { readonly text: string; readonly href: string; readonly link: string } | null
       /** Said before sending when the one recipient's desk runs but their agent cannot answer. */
       readonly theirAgent: string | null
+      /** In a channel, who answers a question asked there, and a warning when nobody can now. */
+      readonly answers: AnswerersLine | null
       readonly replyingTo: string | null
       readonly asksAgent: boolean
     }
+
+const answerersIn = (input: ThreadInput): AnswerersLine | null => {
+  const channel = channelAskedIn(input)
+  return channel === null
+    ? null
+    : whoAnswers({
+        channel,
+        directory: input.directory,
+        viewerId: input.me.member.id,
+        agentsOn: isOn(input, 'channelAgents'),
+      })
+}
 
 const recipientPresence = (input: ThreadInput): AsRead.Presence | undefined => {
   const room = roomOf(input)

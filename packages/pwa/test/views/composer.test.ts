@@ -6,7 +6,7 @@ import { strings } from '../../src/strings.ts'
 import { composer } from '../../src/views/composer.ts'
 import { testContext } from '../support/context.ts'
 import { usingFakeDom } from '../support/dom.ts'
-import { ANA, BEN, ROOM, conversation, entry, me, note } from '../support/fixtures.ts'
+import { ANA, BEN, ROOM, channel, conversation, entry, me, note } from '../support/fixtures.ts'
 import { threadInput } from '../support/thread.ts'
 
 usingFakeDom()
@@ -28,6 +28,25 @@ const setup = (input: Parameters<typeof threadInput>[0] = {}) => {
 }
 
 describe('composer', () => {
+  it('says in a channel who answers, and marks a warning when nobody can now', () => {
+    const room = conversation({ kind: 'channel', title: 'billing' })
+    const { shown, update } = setup({
+      conversations: [room],
+      channels: [channel('billing', { conversationId: ROOM, helperCount: 2 })],
+    })
+    expect(textOf(shown.querySelector('.channel-answers')!)).toBe(
+      strings.channelAnswer.peopleAnswer({ count: 2 }),
+    )
+    expect(shown.querySelector('.channel-answers.no-agent')).toBeNull()
+    update({
+      conversations: [room],
+      channels: [channel('billing', { conversationId: ROOM, helperCount: 0 })],
+    })
+    expect(textOf(shown.querySelector('.channel-answers.no-agent')!)).toBe(
+      strings.channelAnswer.nobodyAnswers,
+    )
+  })
+
   it('sends with Enter, adds a line with Shift+Enter, and sends nothing blank', () => {
     const { shown, called } = setup()
     const text = getByRole(shown, 'textbox', { name: strings.composerLabel }) as HTMLTextAreaElement

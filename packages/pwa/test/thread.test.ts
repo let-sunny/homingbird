@@ -1,4 +1,5 @@
 import type {
+  AsRead,
   Conversation,
   ConversationId,
   DirectoryEntry,
@@ -31,6 +32,7 @@ import {
   statusOf,
   threadItems,
   upsertNote,
+  withAgentPresence,
   withNoteFiled,
   withPresence,
   withReceipts,
@@ -474,5 +476,20 @@ describe('my note’s pose', () => {
     expect(myNoteState('read')).toBe('read')
     expect(myNoteState('drafting')).toBe('drafting')
     expect(myNoteState('replied')).toBe('returning')
+  })
+})
+
+describe('withAgentPresence', () => {
+  const channel = (slug: string, agent: { id: MemberId; name: string } | null) =>
+    ({ slug, agent }) as unknown as AsRead.Channel
+
+  it('applies a presence change to the channel whose own agent it is about, leaving the rest as they are', () => {
+    const channels = [channel('billing', { id: june, name: 'Helper' }), channel('wiki', null)]
+    const changed = withAgentPresence(channels, [{ memberId: june, humanOnline: false, agentOnline: true }])
+    expect(changed[0]!.agent?.presence).toEqual({ humanOnline: false, agentOnline: true })
+    expect(changed[1]).toBe(channels[1])
+    expect(withAgentPresence(channels, [{ memberId: ana, humanOnline: true, agentOnline: true }])).toBe(
+      channels,
+    )
   })
 })

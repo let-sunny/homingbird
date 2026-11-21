@@ -6,8 +6,10 @@ import type {
   MemberId,
   NoteId,
 } from '@homingbird/protocol'
+import { type ChannelAgentState, channelAgentState } from '../channel-answerers.ts'
 import { channelLabel, channelOfRoom } from '../channels.ts'
 import { featureOn } from '../features.ts'
+import { type PresenceMarks, presenceMarks } from '../presence.ts'
 import type { ArchiveDiscard, Release, Thread } from '../state.ts'
 import { strings } from '../strings.ts'
 import { conversationTitle, isArchived, otherParticipants } from '../thread.ts'
@@ -97,6 +99,17 @@ export const archiveDiscardLines = (
     text: strings.draftDiscardedByArchive({ channel: channelLabel(discard.channel) }),
   }))
 
+/** The channel a question here is asked of: the channel's own room, or a question asked of its agent privately. */
+export const channelAskedIn = (
+  input: Pick<ThreadInput, 'conversations' | 'conversationId' | 'channels'>,
+): AsRead.Channel | null => {
+  const room = roomOf(input)
+  if (room === undefined || isArchived(room)) return null
+  if (room.kind === 'channel') return channelOfRoom(input.channels, room.id)
+  const slug = room.privateQuestionOf ?? null
+  return slug === null ? null : (input.channels.find((channel) => channel.slug === slug) ?? null)
+}
+
 /** The head of a conversation: who it is with, or the channel with its counts and controls. */
 export const threadHeadModel = (input: ThreadInput): ThreadHead => {
   const conversation = roomOf(input)
@@ -104,14 +117,18 @@ export const threadHeadModel = (input: ThreadInput): ThreadHead => {
   const title = conversationTitle(conversation, input.members, input.me.member.id, strings.formerMember)
   const archived = isArchived(conversation)
   const mute = muteToggleModel(conversation, title, isOn(input, 'mute'))
-  if (conversation.kind === 'channel' || archived)
+  if (conversation.kind === 'channel' || archived) {
+    const channel = archived ? null : channelOfRoom(input.channels, conversation.id)
+    const agent = isOn(input, 'channelAgents') ? (channel?.agent ?? null) : null
     return {
       kind: 'channel',
       title,
       archived,
-      channel: archived ? null : channelOfRoom(input.channels, conversation.id),
+      channel,
+      agentState: agent === null ? null : channelAgentState(agent),
       mute,
     }
+  }
   const others = otherParticipants(conversation, input.me.member.id)
   const entry =
     conversation.kind === 'direct'
@@ -121,7 +138,7 @@ export const threadHeadModel = (input: ThreadInput): ThreadHead => {
     kind: 'people',
     title,
     profile: privateQuestionNotice(conversation, input.channels) ?? entry?.member.profile ?? null,
-    presence: entry?.presence ?? null,
+    presence: entry === undefined ? null : presenceMarks(entry.presence, entry.member.name),
     people:
       conversation.kind === 'group' && conversation.privateQuestionOf === undefined
         ? peopleIn(input, conversation)
@@ -165,13 +182,16 @@ export type ThreadHead =
       readonly title: string
       readonly archived: boolean
       readonly channel: AsRead.Channel | null
+      /** The channel's agent's state, as a person's agent is shown. */
+      readonly agentState: ChannelAgentState | null
       readonly mute: MuteToggle | null
     }
   | {
       readonly kind: 'people'
       readonly title: string
       readonly profile: string | null
-      readonly presence: AsRead.Presence | null
+      /** A direct message's colleague and their agent, each named, as small marks. */
+      readonly presence: PresenceMarks | null
       /** A group message's people, listed behind its head; null for a direct message. */
       readonly people: GroupPeople | null
       readonly mute: MuteToggle | null

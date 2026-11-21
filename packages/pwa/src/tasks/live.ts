@@ -7,7 +7,7 @@ import { upsertRequest } from '../draft-requests.ts'
 import { hrefFor } from '../routes.ts'
 import { signedIn } from '../state.ts'
 import { strings } from '../strings.ts'
-import { isMuted, withPresence, withReceipts } from '../thread.ts'
+import { isMuted, withAgentPresence, withPresence, withReceipts } from '../thread.ts'
 import { loadReviews } from './channel-agents.ts'
 import { loadDebate, loadDebates } from './debates.ts'
 import { loadGroups } from './groups.ts'
@@ -134,6 +134,7 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
         break
       case 'presence': {
         state.directory.update((entries) => withPresence(entries, body.members))
+        state.channels.update((channels) => withAgentPresence(channels, body.members))
         const mine = body.members.find((change) => change.memberId === signedIn(state)?.member.id)
         if (mine?.agentOnline === true) refreshAgentsIfNoneKnown()
         if (mine?.agentUnavailable !== undefined) reloadDirectorySoon()

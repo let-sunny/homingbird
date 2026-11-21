@@ -87,7 +87,8 @@ export const channelAsSeen = (records: Records, viewerId: MemberId, channel: Cha
   const room = records.conversations.find((each) => each.id === channel.conversationId)
   const participants = room?.participantIds ?? []
   const managing = managersOf(records, channel).includes(viewerId)
-  const agent = channel.agentId === null ? null : memberById(records, channel.agentId)
+  const agent =
+    channel.agentId === null ? null : records.members.find((each) => each.member.id === channel.agentId)
   return {
     slug: channel.slug,
     description: channel.description,
@@ -99,7 +100,10 @@ export const channelAsSeen = (records: Records, viewerId: MemberId, channel: Cha
     answering: channel.answering.includes(viewerId),
     managing,
     managedBy: channel.managedBy,
-    agent: agent === null ? null : { id: agent.id, name: agent.name },
+    agent:
+      agent === undefined || agent === null
+        ? null
+        : { id: agent.member.id, name: agent.member.name, presence: agent.presence },
     runsAgent: managing,
     createdAt: channel.createdAt,
   }

@@ -28,13 +28,21 @@ describe('renderThreadHead', () => {
         kind: 'people',
         title: 'Ben',
         profile: 'Billing',
-        presence: { humanOnline: true, agentOnline: false },
+        presence: {
+          person: { isOn: true, label: strings.presenceOf.online({ name: 'Ben' }) },
+          agent: { state: 'on', label: strings.presenceOf.agentAwake({ name: 'Ben' }) },
+        },
         people: null,
         mute: null,
       }),
     )
     expect(textOf(shown)).toContain('Billing')
-    expect(textOf(shown)).toContain(strings.humanOnline)
+    expect(getByRole(shown, 'img', { name: strings.presenceOf.online({ name: 'Ben' }) })).toBeTruthy()
+    expect(
+      getByRole(shown, 'img', { name: strings.presenceOf.agentAwake({ name: 'Ben' }) }).className,
+    ).toContain('is-on')
+    expect(getByRole(shown, 'heading').className).toContain('is-whole')
+    expect(getByRole(shown, 'heading').querySelector('.presence-dots')).toBeNull()
     expect(
       textOf(
         host(
@@ -59,9 +67,11 @@ describe('renderThreadHead', () => {
         title: '#billing',
         archived: false,
         channel: channel('billing', { joined: true }),
+        agentState: { state: 'off', until: null, label: 'Billing helper: not connected' },
         mute: null,
       }),
     )
+    expect(getByRole(shown, 'status').textContent).toBe('Billing helper: not connected')
     expect(getByRole(shown, 'switch', { name: strings.answerHere })).toBeTruthy()
     expect(getByRole(shown, 'heading').textContent).toBe('#billing')
     expect(queryByRole(shown, 'button', { name: strings.leaveChannel })).toBeNull()
@@ -73,6 +83,7 @@ describe('renderThreadHead', () => {
         title: '#old',
         archived: true,
         channel: null,
+        agentState: null,
         mute: null,
       }),
     )
@@ -135,6 +146,7 @@ describe('renderThreadHead', () => {
         title: '#billing',
         archived: false,
         channel: channel('billing', { joined: true }),
+        agentState: null,
         mute: { ...mute, muted: false, label: 'Mute #billing', mark: null },
       }),
     )
