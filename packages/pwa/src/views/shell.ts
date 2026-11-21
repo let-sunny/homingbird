@@ -1,5 +1,5 @@
 import type { AsRead } from '@homingbird/protocol'
-import { type Lifetime, type ReadableSignal, h, keyedRegion, region, slice } from '@homingbird/ui'
+import { type Lifetime, type ReadableSignal, h, keyedRegion, region, slice, svg } from '@homingbird/ui'
 import { peopleConversations } from '../channels.ts'
 import { connectionShown } from '../connection-status.ts'
 import { featureOn } from '../features.ts'
@@ -9,6 +9,7 @@ import {
   type ConversationRow,
   type SidebarModel,
   paneFor,
+  searchLinkModel,
   sidebarModel,
   tabsModel,
   userMenuModel,
@@ -83,28 +84,7 @@ const titleBar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElem
       h('img', { class: 'mark', src: logoOf(branding.logo), alt: '', width: '32', height: '32' }),
       h('span', { class: 'wordmark' }, wordmark(branding.name)),
     ),
-    region(
-      life,
-      [state.route],
-      () =>
-        h(
-          'nav',
-          { class: 'tabs', 'aria-label': strings.sections },
-          tabsModel(state.route.get(), state.serverInfo.get()).map((tab) =>
-            h(
-              'a',
-              {
-                href: tab.href,
-                class: 'tab',
-                'aria-current': tab.current && 'page',
-                ...(tab.tour !== null && { data: { tour: tab.tour } }),
-              },
-              tab.label,
-            ),
-          ),
-        ),
-      { class: 'tabs-host' },
-    ),
+    region(life, [state.route], () => tabs(context), { class: 'tabs-host' }),
     region(
       life,
       [state.connection],
@@ -125,7 +105,54 @@ const titleBar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElem
       },
       { class: 'connection-host' },
     ),
-    h('div', { class: 'header-actions' }, activityBell(context, life, me), userButton(context, life, me)),
+    h(
+      'div',
+      { class: 'header-actions' },
+      region(life, [state.route], () => searchLink(context), { class: 'search-link-host' }),
+      activityBell(context, life, me),
+      userButton(context, life, me),
+    ),
+  )
+}
+
+/** The tabs on one row; where the row scrolls sideways, the current tab is scrolled into view. */
+const tabs = (context: ViewContext): HTMLElement => {
+  const { state } = context
+  const shown = tabsModel(state.route.get(), state.serverInfo.get()).map((tab) => ({
+    tab,
+    link: h(
+      'a',
+      {
+        href: tab.href,
+        class: 'tab',
+        'aria-current': tab.current && 'page',
+        ...(tab.tour !== null && { data: { tour: tab.tour } }),
+      },
+      tab.label,
+    ),
+  }))
+  const nav = h(
+    'nav',
+    { class: 'tabs', 'aria-label': strings.sections },
+    shown.map(({ link }) => link),
+  )
+  const current = shown.find(({ tab }) => tab.current)?.link
+  if (current !== undefined) context.page.nextFrame(() => scrollTabIntoView(nav, current))
+  return nav
+}
+
+const searchLink = (context: ViewContext): HTMLElement => {
+  const model = searchLinkModel(context.state.route.get())
+  return h(
+    'a',
+    {
+      class: 'search-link',
+      href: model.href,
+      'aria-label': model.label,
+      title: model.label,
+      'aria-current': model.current && 'page',
+    },
+    searchIcon(),
   )
 }
 
@@ -403,3 +430,31 @@ const rowMenu = (context: ViewContext, menu: NonNullable<ConversationRow['menu']
     ],
   })
 }
+
+/** Scrolls only the tab row, so the page itself never jumps. */
+const scrollTabIntoView = (nav: HTMLElement, tab: HTMLElement): void => {
+  const start = tab.offsetLeft - nav.offsetLeft
+  const end = start + tab.offsetWidth
+  if (start < nav.scrollLeft) nav.scrollLeft = start
+  else if (end > nav.scrollLeft + nav.clientWidth) nav.scrollLeft = end - nav.clientWidth
+}
+
+const searchIcon = (): SVGElement =>
+  svg(
+    'svg',
+    {
+      class: 'search-icon',
+      viewBox: '0 0 16 16',
+      width: 16,
+      height: 16,
+      'aria-hidden': 'true',
+      focusable: 'false',
+    },
+    svg('circle', { cx: 6.5, cy: 6.5, r: 4.5, fill: 'none', stroke: 'currentColor', 'stroke-width': 1.5 }),
+    svg('path', {
+      d: 'M10 10l4.5 4.5',
+      stroke: 'currentColor',
+      'stroke-width': 1.5,
+      'stroke-linecap': 'round',
+    }),
+  )

@@ -20,8 +20,11 @@ export const tabsModel = (route: Route, info: AsRead.ServerInfo | null): Readonl
   ...(featureOn('debateRooms', info)
     ? [tab(strings.navDebates, { name: 'debates' }, ['debates', 'debate'], route)]
     : []),
-  tab(strings.navSearch, { name: 'search', query: '' }, ['search'], route),
 ]
+
+/** Search, offered as an icon beside the activity bell so the tabs stay short. */
+export const searchLinkModel = (route: Route): Tab =>
+  tab(strings.search, { name: 'search', query: '' }, ['search'], route)
 
 /** The user menu: who is signed in, the profile, administration for an administrator, and signing out. */
 export const userMenuModel = (me: AsRead.Me): UserMenu => ({

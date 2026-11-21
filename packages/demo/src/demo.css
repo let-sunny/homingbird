@@ -1,4 +1,5 @@
 body {
+  container: demo / inline-size;
   display: flex;
   flex-direction: column;
   block-size: 100dvh;
@@ -22,4 +23,16 @@ body {
 
 .demo-banner a {
   color: var(--hb-color-accent);
+}
+
+/* On a phone the banner keeps one line. */
+@container demo (max-width: 40rem) {
+  .demo-banner {
+    padding-block: var(--hb-space-1);
+    white-space: nowrap;
+  }
+
+  .demo-detail {
+    display: none;
+  }
 }

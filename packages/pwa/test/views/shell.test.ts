@@ -42,6 +42,31 @@ describe('shell', () => {
     expect(textOf(shown)).toContain(strings.loading)
   })
 
+  it('offers search beside the bell and scrolls the current tab into the tab row', () => {
+    const { context, page } = testContext()
+    context.state.session.set(me())
+    const shown = mount(shell(context, lifetime(), me(), document.createElement('main')))
+    const search = getByRole(shown, 'link', { name: strings.search })
+    expect(search.closest('.header-actions')).not.toBeNull()
+    expect(search.getAttribute('href')).toBe('#/search?q=')
+    expect(queryByRole(shown.querySelector('.tabs')!, 'link', { name: strings.navSearch })).toBeNull()
+    context.state.route.set({ name: 'search', query: '' })
+    expect(getByRole(shown, 'link', { name: strings.search }).getAttribute('aria-current')).toBe('page')
+    context.state.route.set({ name: 'channels' })
+    const nav = shown.querySelector<HTMLElement>('.tabs')!
+    const current = getByRole(nav, 'link', { name: strings.channels })
+    measure(nav, { offsetLeft: 0, clientWidth: 100, scrollLeft: 0 })
+    measure(current, { offsetLeft: 250, offsetWidth: 60 })
+    page.runFrames()
+    expect(nav.scrollLeft).toBe(210)
+    context.state.route.set({ name: 'home' })
+    const back = shown.querySelector<HTMLElement>('.tabs')!
+    measure(back, { offsetLeft: 0, clientWidth: 100, scrollLeft: 200 })
+    measure(getByRole(back, 'link', { name: strings.navNotes }), { offsetLeft: 0, offsetWidth: 50 })
+    page.runFrames()
+    expect(back.scrollLeft).toBe(0)
+  })
+
   it('mutes a row and leaves a channel from the row’s menu, or says why the person cannot leave', () => {
     const { context, called } = testContext()
     mount(dialogHost())
@@ -174,3 +199,8 @@ describe('shell', () => {
     expect(textOf(shown.querySelector('.archived-rooms')!)).toContain(strings.archivedGroup({ count: 1 }))
   })
 })
+
+const measure = (element: HTMLElement, sizes: Readonly<Record<string, number>>): void => {
+  for (const [name, value] of Object.entries(sizes))
+    Object.defineProperty(element, name, { value, configurable: true, writable: true })
+}
