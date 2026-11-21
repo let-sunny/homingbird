@@ -252,7 +252,7 @@ const posixWords = (line: string): string[] => {
 
 describe('the preset table in the command line’s README', () => {
   it('is the table the presets themselves give, with the commands `homingbird presets` prints', () => {
-    const readme = readFileSync(join(import.meta.dirname, '..', 'README.md'), 'utf8')
+    const readme = readFileSync(join(import.meta.dirname, '..', 'README.md'), 'utf8').replace(/\r\n/g, '\n')
     const start = readme.indexOf(TABLE_START)
     const end = readme.indexOf(TABLE_END)
     expect(start).toBeGreaterThan(-1)
@@ -262,7 +262,10 @@ describe('the preset table in the command line’s README', () => {
 
 describe('the agents table in the repository’s README', () => {
   it('says for each preset how far it is tested, as `homingbird presets` does', () => {
-    const readme = readFileSync(join(import.meta.dirname, '..', '..', '..', 'README.md'), 'utf8')
+    const readme = readFileSync(join(import.meta.dirname, '..', '..', '..', 'README.md'), 'utf8').replace(
+      /\r\n/g,
+      '\n',
+    )
     for (const preset of AGENT_PRESETS) {
       const row = readme.split('\n').find((line) => line.includes(`| \`--agent ${preset.name}\` |`))
       expect(row, preset.name).toBeDefined()

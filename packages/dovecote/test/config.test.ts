@@ -135,7 +135,7 @@ describe('the configuration', () => {
 
 describe('the Docker Compose setup', () => {
   const root = join(import.meta.dirname, '..', '..', '..')
-  const read = (file: string): string => readFileSync(join(root, file), 'utf8')
+  const read = (file: string): string => readFileSync(join(root, file), 'utf8').replace(/\r\n/g, '\n')
 
   it('lists every documented variable in .env.example, which compose passes to the server whole', () => {
     const guide = read('docs/deployment.md')
