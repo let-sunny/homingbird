@@ -69,6 +69,7 @@ describe('routes', () => {
     ['#/c/conv_1', { name: 'conversation', id: 'conv_1', draft: null }],
     ['#/c/conv_1?draft=note_1', { name: 'conversation', id: 'conv_1', draft: 'note_1' }],
     ['#/c/conv_1?review=note_2', { name: 'conversation', id: 'conv_1', draft: null, review: 'note_2' }],
+    ['#/c/conv_1?note=note_3', { name: 'conversation', id: 'conv_1', draft: null, note: 'note_3' }],
     ['#/device', { name: 'device', code: null }],
     ['#/invite/hbi_abc', { name: 'invite', code: 'hbi_abc' }],
     ['#/invite', { name: 'unknown' }],

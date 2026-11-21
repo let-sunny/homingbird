@@ -49,7 +49,12 @@ describe('draftsItemModel', () => {
       destination: { kind: 'people', text: strings.sendsTo({ names: 'Ben' }) },
       careful: null,
       readAgain: null,
-      actions: { alternatives: [], changeChannel: null },
+      actions: {
+        send: strings.approveAndSend,
+        alternatives: [],
+        changeChannel: null,
+        held: { sent: strings.heldSent({ names: 'Ben' }), discarded: strings.heldDiscarded },
+      },
     })
   })
 
@@ -112,7 +117,7 @@ describe('draftsItemModel', () => {
       threadInput({ taught: taught({ principles }) }),
       item([draft('d1', { basis: 'Read RELEASES.md.\nPrinciples applied: Billing dates; Tone' })]),
     ).cards[0]!
-    expect(card.basis).toEqual({ kind: 'given', lines: ['Read RELEASES.md.'] })
+    expect(card.basis).toEqual({ kind: 'given', lines: ['Read RELEASES.md.'], sources: [] })
     expect(card.applied.map((marker) => marker.text)).toEqual([
       strings.teach.applied({ title: 'Billing dates' }),
       strings.teach.applied({ title: 'Tone' }),
@@ -121,7 +126,11 @@ describe('draftsItemModel', () => {
       threadInput(),
       item([draft('d1', { basis: 'Read it.\nPrinciples applied: Tone' })]),
     ).cards[0]!
-    expect(untaught.basis).toEqual({ kind: 'given', lines: ['Read it.', 'Principles applied: Tone'] })
+    expect(untaught.basis).toEqual({
+      kind: 'given',
+      lines: ['Read it.', 'Principles applied: Tone'],
+      sources: [],
+    })
     expect(untaught.applied).toEqual([])
   })
 

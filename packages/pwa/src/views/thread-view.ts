@@ -4,6 +4,7 @@ import { approvesQuicklyOften } from '../careful-reading.ts'
 import { channelOfRoom } from '../channels.ts'
 import { characterOf } from '../characters.ts'
 import { featureOn } from '../features.ts'
+import { reviewsWithoutHeld, withoutHeld } from '../held-decisions.ts'
 import { MISSING } from '../missing.ts'
 import { type RoomReview, reviewsInRoomModel } from '../models/channel-agent.ts'
 import { type ComposerModel, composerModel } from '../models/composer.ts'
@@ -44,6 +45,7 @@ export const threadView = (
   id: ConversationId,
   focusedDraft: string | null,
   focusedReview: string | null = null,
+  focusedNote: string | null = null,
 ): HTMLElement => {
   const { state, actions } = context
   const missing = signal(false)
@@ -77,8 +79,11 @@ export const threadView = (
   })
   const items = (): ReadonlyArray<RoomItem> =>
     reviewsInRoomModel(
-      threadItems(state.threads.get().get(id)?.notes ?? [], state.draftRequests.get()),
-      state.reviews.get(),
+      threadItems(
+        withoutHeld(state.threads.get().get(id)?.notes ?? [], state.held.get(), (note) => note.id),
+        state.draftRequests.get(),
+      ),
+      reviewsWithoutHeld(state.reviews.get(), state.held.get()),
       { conversationId: id, viewerId: me.member.id },
       state.reviewsRead.get(),
       state.members.get(),
@@ -108,6 +113,16 @@ export const threadView = (
       follow.bringIntoView(() => list.querySelector<HTMLElement>(FOCUSED_DRAFT))
     }
     return renderDraftsItem(context, model)
+  }
+  /** A sent note a draft's source opened the conversation at: brought into view once and marked. */
+  const sentNote = (item: Extract<ThreadItem, { type: 'note' }>): HTMLElement => {
+    const element = renderNoteItem(context, life, noteItemModel(input(), item), item.note, id)
+    if (!broughtIntoView && item.note.id === focusedNote) {
+      broughtIntoView = true
+      element.classList.add('is-active')
+      follow.bringIntoView(() => element)
+    }
+    return element
   }
   const review = (item: RoomReview): HTMLElement => {
     if (!broughtIntoView && item.card.focused) {
@@ -140,6 +155,7 @@ export const threadView = (
       state.serverInfo,
       state.reviews,
       state.reviewsRead,
+      state.held,
     ],
     items,
     {
@@ -149,11 +165,7 @@ export const threadView = (
         follow.track(
           item.key,
           seen.watch(
-            item.type === 'note'
-              ? renderNoteItem(context, life, noteItemModel(input(), item), item.note, id)
-              : item.type === 'drafts'
-                ? drafts(item)
-                : review(item),
+            item.type === 'note' ? sentNote(item) : item.type === 'drafts' ? drafts(item) : review(item),
           ),
         ),
     },

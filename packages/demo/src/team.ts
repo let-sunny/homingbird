@@ -8,6 +8,7 @@ import {
   MemberId,
   type Note,
   NoteId,
+  type NoteSource,
   type Principle,
   type PrincipleId,
   type Receipt,
@@ -114,6 +115,13 @@ export const demoTeam = (now: number): Records => {
         body: "Yes. I checked the lock ordering and the batch size against Tuesday's plan. Run it after the nightly export finishes, around 02:30, so the two don't compete for the ledger tables.",
         agentName: "June's desk",
         basis: "Tuesday's migration plan and last night's export log.",
+        sources: [
+          {
+            url: 'https://example.com/plans/billing-migration',
+            quote: 'Run after the nightly export; both write to the ledger tables.',
+          },
+          { noteId: NoteId.of('demoana00003'), conversationId: WITH_ANA },
+        ],
       }),
       note({
         id: 'demoben00001',
@@ -163,6 +171,7 @@ export const demoTeam = (now: number): Records => {
         at: 60 * 28,
         body: 'Which invoices does the nightly export skip?',
         readBy: [VISITOR_ID],
+        repliedBy: [BILLING_AGENT],
       }),
       note({
         id: 'demobil00002',
@@ -193,6 +202,12 @@ export const demoTeam = (now: number): Records => {
         body: 'Annual plans are refunded pro rata for the unused full months, minus the discount that came with paying yearly. Halfway through the year that is about five months back; the calculator is on the billing page under Refunds.',
         agentName: 'Billing helper',
         basis: 'The refund policy page and two answers Ana approved last month.',
+        sources: [
+          {
+            url: 'https://example.com/billing/refunds',
+            quote: 'Annual plans are refunded pro rata for the unused full months.',
+          },
+        ],
       }),
       note({
         id: 'demopqb00001',
@@ -547,6 +562,7 @@ interface NoteFields {
   readonly inReplyTo?: string
   readonly agentName?: string
   readonly basis?: string
+  readonly sources?: ReadonlyArray<NoteSource>
   readonly approvedBy?: MemberId
   readonly readBy?: ReadonlyArray<MemberId>
   readonly repliedBy?: ReadonlyArray<MemberId>
@@ -583,6 +599,7 @@ const noteOf = (
         )
       : [],
     basis: fields.basis ?? null,
+    ...(fields.sources !== undefined && { sources: fields.sources }),
     approvedBy: fields.approvedBy ?? null,
   }
 }

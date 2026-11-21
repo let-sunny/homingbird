@@ -2,6 +2,7 @@ import type { AsRead, ConversationId, MemberId, NoteId } from '@homingbird/proto
 import { lifetime } from '@homingbird/ui'
 import {
   fakeEvent,
+  fire,
   getByRole,
   installFakeDom,
   isPopoverOpen,
@@ -143,16 +144,18 @@ describe('activityPanel', () => {
     panel.showPopover()
     const card = panel.querySelector('[data-draft-id="note_d1"]')!
     expect(textOf(card)).toContain(one.body)
-    getByRole(card, 'button', { name: strings.send }).click()
-    expect(called('approveDraft')[0]!.args).toEqual([one, null, []])
-    expect(called('approveDraft')[0]!.then!.attempt).toBe('draft')
+    getByRole(card, 'button', { name: strings.approveAndSend }).click()
+    expect(called('holdSend')[0]!.args.slice(0, 3)).toEqual([one, null, []])
+    expect(called('holdSend')[0]!.then!.attempt).toBe('draft')
     getByRole(card, 'button', { name: strings.edit }).click()
     expect(dialog.open).toBe(true)
     getByRole(card, 'button', { name: strings.discard }).click()
-    expect(called('discardDraft')[0]!.args).toEqual([one])
+    expect(called('holdDiscard')[0]!.args).toEqual([one, strings.heldDiscarded])
     expect(
       getByRole(panel, 'link', { name: strings.activity.withPeople({ names: 'Ben' }) }).getAttribute('href'),
     ).toBe(`#/c/${ROOM}?draft=note_d1`)
+    state.held.set({ noteId: one.id, text: strings.heldDiscarded, run: null as never })
+    expect(panel.querySelector('[data-draft-id="note_d1"]')).toBeNull()
   })
 
   it('asks to read a changed draft again before it can be sent', () => {
@@ -161,22 +164,23 @@ describe('activityPanel', () => {
     state.draftsRead.set(new Map([[changed.id, { body: 'Lunch?', conversationId: ROOM }]]))
     state.threads.set(new Map([[ROOM, { notes: [changed], hasMore: false }]]))
     panel.showPopover()
-    expect(queryByRole(panel, 'button', { name: strings.send })).toBeNull()
+    expect(queryByRole(panel, 'button', { name: strings.approveAndSend })).toBeNull()
     getByRole(panel, 'button', { name: strings.draftReadAgain }).click()
     expect(called('confirmDraftRead')[0]!.args).toEqual([changed])
   })
 
   it('sends or discards an answer to review, and redraws only what changed', () => {
-    const { state, panel, called } = shown()
+    const { state, panel, called, dialog } = shown()
     state.threads.set(new Map([[ROOM, { notes: [draft('note_d1')], hasMore: false }]]))
     state.reviews.set([review()])
     panel.showPopover()
     const card = panel.querySelector('.review-card')!
     const draftCard = panel.querySelector('.pending')!
     getByRole(card, 'button', { name: strings.channelAgent.send }).click()
-    expect(called('sendReview')[0]!.args).toEqual([review(), null])
+    expect(called('holdReviewSend')[0]!.args.slice(0, 2)).toEqual([review(), null])
     getByRole(card, 'button', { name: strings.channelAgent.discard }).click()
-    expect(called('discardReview')[0]!.args).toEqual([review()])
+    fire.submit(dialog.querySelector('form')!)
+    expect(called('holdReviewDiscard')[0]!.args.slice(0, 2)).toEqual([review(), ''])
     state.reviews.set([])
     expect(panel.querySelector('.review-card')).toBeNull()
     expect(panel.querySelector('.pending')).toBe(draftCard)

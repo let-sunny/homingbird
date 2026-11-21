@@ -130,7 +130,7 @@ export interface ShownNotification {
   readonly close: () => void
 }
 
-export type PageEvent = 'online' | 'offline' | 'visibilitychange' | 'hashchange' | 'resize'
+export type PageEvent = 'online' | 'offline' | 'visibilitychange' | 'hashchange' | 'resize' | 'pagehide'
 
 /** Kept in this browser only; every call is safe when storage is blocked. */
 export interface PageStorage {

@@ -6,7 +6,7 @@ import { authorButton } from './author-details.ts'
 import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
 import { actionMenu } from './menu.ts'
-import { button, timeLabel } from './parts.ts'
+import { button, sourceList, timeLabel } from './parts.ts'
 
 /** One sent note in the thread; a click on it, away from its controls, marks it as the one looked at. */
 export const renderNoteItem = (
@@ -70,8 +70,9 @@ export const renderNoteItem = (
         h(
           'details',
           { class: model.basis.className },
-          h('summary', {}, strings.draftBasisTitle),
+          h('summary', {}, model.basis.title),
           ...model.basis.lines.map((line) => h('p', {}, linkedText(line))),
+          sourceList(model.basis.sources),
         ),
       model.approval !== null && h('p', { class: 'note-approval' }, model.approval),
       model.answeredBy !== null &&
@@ -87,6 +88,7 @@ export const renderNoteItem = (
           { class: model.waits.warning ? 'question-waits is-warning' : 'question-waits', role: 'status' },
           model.waits.text,
         ),
+      model.noAnswer !== null && h('p', { class: 'no-answer hint' }, model.noAnswer),
       model.release !== null &&
         h(
           'p',

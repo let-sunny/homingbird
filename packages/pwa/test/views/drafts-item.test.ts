@@ -1,4 +1,3 @@
-import { DRAFT_CHANGED } from '@homingbird/protocol'
 import { fire, getByRole, queryByRole, textOf } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
 import { channelLabel } from '../../src/channels.ts'
@@ -21,31 +20,35 @@ const item = (drafts: ReturnType<typeof draft>[]) => ({
 })
 
 describe('renderDraftsItem', () => {
-  it('sends, edits, saves and discards a draft, discarding the alternatives of the one sent', () => {
+  it('holds a send, edited or as written, and a discard, Send first and Discard set apart at the end', () => {
     const { context, called } = testContext()
     const dialog = mount(dialogHost())
     const [a, b] = [draft('d1'), draft('d2')]
-    const shown = mount(renderDraftsItem(context, draftsItemModel(threadInput(), item([a, b]))))
+    context.state.threads.set(new Map([[ROOM, { notes: [a, b], hasMore: false }]]))
+    const model = draftsItemModel(threadInput(), item([a, b]))
+    const held = model.cards[0]!.actions!.held
+    const shown = mount(renderDraftsItem(context, model))
     const card = shown.querySelector('[data-draft-id="d1"]')!
-    getByRole(card, 'button', { name: strings.send }).click()
-    expect(called('approveDraft')[0]!.args).toEqual([a, null, [b]])
-    expect(called('approveDraft')[0]!.then!.attempt).toBe('draft')
+    const buttons = [...card.querySelectorAll('.draft-actions button')]
+    expect(buttons.map((button) => textOf(button))).toEqual([
+      strings.approveAndSend,
+      strings.edit,
+      strings.discard,
+    ])
+    expect(buttons.at(-1)!.classList.contains('draft-discard')).toBe(true)
+    getByRole(card, 'button', { name: strings.approveAndSend }).click()
+    expect(called('holdSend')[0]!.args).toEqual([a, null, [b], held.sent])
+    expect(called('holdSend')[0]!.then!.attempt).toBe('draft')
     getByRole(card, 'button', { name: strings.edit }).click()
     fire.type(getByRole(dialog, 'textbox', { name: strings.editDraftLabel }), 'Edited')
     getByRole(dialog, 'button', { name: strings.saveDraft }).click()
     expect(called('saveDraft')[0]!.args).toEqual([a, 'Edited'])
     fire.submit(dialog.querySelector('form')!)
-    expect(called('approveDraft')[1]!.args).toEqual([a, 'Edited', [b]])
-    called('approveDraft')[1]!.then!.done!(undefined)
-    expect(dialog.open).toBe(false)
-    getByRole(card, 'button', { name: strings.edit }).click()
-    fire.submit(dialog.querySelector('form')!)
-    called('approveDraft')[2]!.then!.failed!({ _tag: 'Unavailable', message: 'down' })
-    expect(dialog.open).toBe(true)
-    called('approveDraft')[2]!.then!.failed!({ _tag: 'Conflict', message: 'This draft was already sent.' })
+    expect(called('holdSend')[1]!.args).toEqual([a, 'Edited', [b], held.sent])
     expect(dialog.open).toBe(false)
     getByRole(card, 'button', { name: strings.discard }).click()
-    expect(called('discardDraft')[0]!.args).toEqual([a])
+    expect(called('holdDiscard')[0]!.args).toEqual([a, held.discarded])
+    expect(held).toEqual({ sent: strings.heldSent({ names: 'Ben' }), discarded: strings.heldDiscarded })
   })
 
   it('shows its basis, what it applied, a missing basis, and sends a channel question elsewhere', () => {
@@ -94,6 +97,32 @@ describe('renderDraftsItem', () => {
     expect(called('reportDraftSeen')).toHaveLength(1)
   })
 
+  it('closes the editor without sending once the draft it started from was sent or discarded elsewhere', () => {
+    const { context, called } = testContext()
+    const dialog = mount(dialogHost())
+    const shown = mount(renderDraftsItem(context, draftsItemModel(threadInput(), item([draft('d1')]))))
+    getByRole(shown, 'button', { name: strings.edit }).click()
+    fire.submit(dialog.querySelector('form')!)
+    expect([dialog.open, called('holdSend').length]).toEqual([false, 0])
+  })
+
+  it('shows each source as a link, a jump to an earlier note, or words, with the passage it used', () => {
+    const { context } = testContext()
+    const sources = [
+      { url: 'https://wiki.example.com/refunds', quote: 'Five days.' },
+      { noteId: 'note_earlier0000' as never, conversationId: ROOM },
+    ]
+    const shown = mount(
+      renderDraftsItem(context, draftsItemModel(threadInput(), item([draft('d1', { basis: '', sources })]))),
+    )
+    const links = [...shown.querySelectorAll('.draft-sources a')] as HTMLAnchorElement[]
+    expect(links.map((link) => [textOf(link), link.getAttribute('href'), link.getAttribute('rel')])).toEqual([
+      ['https://wiki.example.com/refunds', 'https://wiki.example.com/refunds', 'noopener noreferrer'],
+      [strings.sourceNote, `#/c/${ROOM}?note=note_earlier0000`, null],
+    ])
+    expect(textOf(shown.querySelector('.source-quote')!)).toBe('Five days.')
+  })
+
   it('offers nothing to decide in an archived room', () => {
     const { context } = testContext()
     const shown = renderDraftsItem(
@@ -115,15 +144,15 @@ describe('a draft its agent changed after the person read it', () => {
     )
     expect(textOf(getByRole(shown, 'alert'))).toBe(strings.draftChangedSinceRead)
     expect(textOf(shown)).toContain('rewritten by the agent')
-    expect(queryByRole(shown, 'button', { name: strings.send })).toBeNull()
+    expect(queryByRole(shown, 'button', { name: strings.approveAndSend })).toBeNull()
     expect(queryByRole(shown, 'button', { name: strings.edit })).toBeNull()
     getByRole(shown, 'button', { name: strings.draftReadAgain }).click()
     expect(called('confirmDraftRead')[0]!.args).toEqual([changed])
     getByRole(shown, 'button', { name: strings.discard }).click()
-    expect(called('discardDraft')[0]!.args).toEqual([changed])
+    expect(called('holdDiscard')[0]!.args).toEqual([changed, strings.heldDiscarded])
   })
 
-  it('keeps the person’s edit when the send is refused, shows the draft as it is now, and sends from that', () => {
+  it('keeps the person’s edit when the agent changed the draft meanwhile, shows it as it is now, and sends from that', () => {
     const { context, called } = testContext()
     const dialog = mount(dialogHost())
     const read = draft('d1')
@@ -131,17 +160,18 @@ describe('a draft its agent changed after the person read it', () => {
     getByRole(shown, 'button', { name: strings.edit }).click()
     const text = getByRole(dialog, 'textbox', { name: strings.editDraftLabel }) as HTMLTextAreaElement
     fire.type(text, 'Ana’s edit')
-    fire.submit(dialog.querySelector('form')!)
     const now = draft('d1', { body: 'rewritten by the agent' })
     context.state.threads.set(new Map([[ROOM, { notes: [now], hasMore: false }]]))
-    called('approveDraft')[0]!.then!.failed!({ _tag: 'Conflict', message: DRAFT_CHANGED })
+    fire.submit(dialog.querySelector('form')!)
+    expect(called('holdSend')).toHaveLength(0)
     expect(dialog.open).toBe(true)
     expect(text.value).toBe('Ana’s edit')
     expect(textOf(getByRole(dialog, 'alert'))).toBe(
       `${strings.draftChangedWhileEditing}rewritten by the agent`,
     )
     fire.submit(dialog.querySelector('form')!)
-    expect(called('approveDraft')[1]!.args).toEqual([now, 'Ana’s edit', []])
+    expect(called('holdSend')[0]!.args.slice(0, 3)).toEqual([now, 'Ana’s edit', []])
+    expect(dialog.open).toBe(false)
     getByRole(dialog, 'button', { name: strings.saveDraft }).click()
     expect(called('saveDraft')[0]!.args).toEqual([now, 'Ana’s edit'])
   })
@@ -154,12 +184,11 @@ describe('a draft its agent changed after the person read it', () => {
     getByRole(shown, 'button', { name: strings.edit }).click()
     const text = getByRole(dialog, 'textbox', { name: strings.editDraftLabel }) as HTMLTextAreaElement
     fire.type(text, 'Ana’s edit')
-    fire.submit(dialog.querySelector('form')!)
     const moved = draft('d1', { conversationId: all.conversationId })
     context.state.channels.set([all])
     context.state.conversations.set([conversation({ id: all.conversationId, kind: 'channel' })])
     context.state.threads.set(new Map([[all.conversationId, { notes: [moved], hasMore: false }]]))
-    called('approveDraft')[0]!.then!.failed!({ _tag: 'Conflict', message: DRAFT_CHANGED })
+    fire.submit(dialog.querySelector('form')!)
     expect(dialog.open).toBe(true)
     expect(text.value).toBe('Ana’s edit')
     const alert = getByRole(dialog, 'alert')
@@ -172,7 +201,7 @@ describe('a draft its agent changed after the person read it', () => {
     expect([send.disabled, save.disabled]).toEqual([false, false])
     expect(queryByRole(dialog, 'button', { name: strings.draftConfirmRoom })).toBeNull()
     fire.submit(dialog.querySelector('form')!)
-    expect(called('approveDraft')[1]!.args).toEqual([moved, 'Ana’s edit', []])
+    expect(called('holdSend')[0]!.args.slice(0, 3)).toEqual([moved, 'Ana’s edit', []])
   })
 
   it('confirms a move to a room the page does not know yet without naming where it goes', () => {
@@ -180,12 +209,11 @@ describe('a draft its agent changed after the person read it', () => {
     const dialog = mount(dialogHost())
     const shown = mount(renderDraftsItem(context, draftsItemModel(threadInput(), item([draft('d1')]))))
     getByRole(shown, 'button', { name: strings.edit }).click()
-    fire.submit(dialog.querySelector('form')!)
     const unknown = 'conv_unknown0000' as never
     context.state.threads.set(
       new Map([[unknown, { notes: [draft('d1', { conversationId: unknown })], hasMore: false }]]),
     )
-    called('approveDraft')[0]!.then!.failed!({ _tag: 'Conflict', message: DRAFT_CHANGED })
+    fire.submit(dialog.querySelector('form')!)
     expect(dialog.querySelector('.draft-changed .draft-destination')).toBeNull()
     getByRole(dialog, 'button', { name: strings.draftConfirmRoom }).click()
     getByRole(dialog, 'button', { name: strings.saveDraft }).click()

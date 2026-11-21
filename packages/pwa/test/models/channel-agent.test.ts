@@ -209,6 +209,38 @@ describe('reviewCardsModel', () => {
     })
   })
 
+  it('says why the manager sees each answer, whom a send goes to, and keeps a discard’s reason from the asker', () => {
+    const [asked, privately] = reviewCardsModel(
+      [review(), review({ privately: true, question: null })],
+      'payments-wiki',
+      new Map(),
+      members,
+      null,
+    ).cards
+    expect(asked).toMatchObject({
+      why: strings.channelAgent.whyYouReview({ channel: '#payments-wiki' }),
+      send: strings.channelAgent.send,
+      edit: strings.channelAgent.edit,
+      held: { sent: strings.heldSent({ names: 'Cy' }), discarded: strings.heldDiscarded },
+      discarding: {
+        hint: strings.channelAgent.discardReasonHint({ channel: '#payments-wiki', name: 'Cy' }),
+        confirm: strings.channelAgent.discardConfirm,
+      },
+    })
+    expect(privately).toMatchObject({
+      held: { sent: strings.heldSent({ names: '#payments-wiki' }) },
+      discarding: { hint: strings.channelAgent.discardReasonHintPrivately({ channel: '#payments-wiki' }) },
+    })
+    const unknownAsker = reviewCardsModel(
+      [review({ question: note('note_q', { authorId: 'mem_gone00000000' as MemberId }) })],
+      'payments-wiki',
+      new Map(),
+      members,
+      null,
+    ).cards[0]!
+    expect(unknownAsker.held.sent).toBe(strings.heldSent({ names: '#payments-wiki' }))
+  })
+
   it('asks the manager to read an answer again when the agent changed it, and names a former asker', () => {
     const read = new Map([
       [review().note.id, { body: 'What it said first', conversationId: review().note.conversationId }],

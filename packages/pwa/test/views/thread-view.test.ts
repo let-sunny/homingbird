@@ -26,12 +26,18 @@ import {
 
 usingFakeDom()
 
-const open = (focusedDraft: string | null = null, focusedReview: string | null = null) => {
+const open = (
+  focusedDraft: string | null = null,
+  focusedReview: string | null = null,
+  focusedNote: string | null = null,
+) => {
   const test = testContext()
   test.context.state.session.set(me())
   test.context.state.directory.set([entry(BEN, 'Ben')])
   test.context.state.conversations.set([conversation()])
-  const shown = mount(threadView(test.context, lifetime(), me(), ROOM, focusedDraft, focusedReview))
+  const shown = mount(
+    threadView(test.context, lifetime(), me(), ROOM, focusedDraft, focusedReview, focusedNote),
+  )
   return { ...test, shown }
 }
 
@@ -42,6 +48,15 @@ const withNotes = (
 ) => context.state.threads.set(new Map([[ROOM, { notes, hasMore }]]))
 
 describe('threadView', () => {
+  it('brings the earlier note a draft’s source jumps to into view, once, and marks it', () => {
+    const { context, shown, page } = open(null, null, 'n2')
+    withNotes(context, [note('n1', { sentAt: 1 }), note('n2', { sentAt: 2 })])
+    page.runFrames()
+    const marked = shown.querySelector<HTMLElement>('[data-note-id="n2"]')!
+    expect(marked.classList.contains('is-active')).toBe(true)
+    expect(document.activeElement).toBe(marked)
+  })
+
   it('loads the conversation and what it shows, and says when the person may not see it', () => {
     const { context, called, shown } = open()
     expect(called('openThread')[0]!.args).toEqual([ROOM])
@@ -134,19 +149,19 @@ describe('threadView', () => {
     const { context, called, shown } = open()
     withNotes(context, [draft('d1', { body: 'Lunch at noon?' })])
     const card = () => shown.querySelector<HTMLElement>('[data-draft-id="d1"]')!
-    expect(getByRole(card(), 'button', { name: strings.send })).toBeTruthy()
+    expect(getByRole(card(), 'button', { name: strings.approveAndSend })).toBeTruthy()
     withNotes(context, [draft('d1', { body: 'Send me the payroll file.' })])
     expect(textOf(shown)).toContain('Send me the payroll file.')
     expect(textOf(shown)).toContain(strings.draftChangedSinceRead)
-    expect(queryByRole(card(), 'button', { name: strings.send })).toBeNull()
+    expect(queryByRole(card(), 'button', { name: strings.approveAndSend })).toBeNull()
     getByRole(card(), 'button', { name: strings.draftReadAgain }).click()
     expect(called('confirmDraftRead')[0]!.args).toEqual([draft('d1', { body: 'Send me the payroll file.' })])
     context.state.draftsRead.update((read) =>
       new Map(read).set('d1' as never, { body: 'Send me the payroll file.', conversationId: ROOM }),
     )
     expect(textOf(shown)).not.toContain(strings.draftChangedSinceRead)
-    getByRole(card(), 'button', { name: strings.send }).click()
-    expect(called('approveDraft')[0]!.args[0]).toEqual(draft('d1', { body: 'Send me the payroll file.' }))
+    getByRole(card(), 'button', { name: strings.approveAndSend }).click()
+    expect(called('holdSend')[0]!.args[0]).toEqual(draft('d1', { body: 'Send me the payroll file.' }))
   })
 
   it('brings the draft a link opened the conversation at into view, once, instead of the bottom', () => {
@@ -218,9 +233,9 @@ describe('threadView', () => {
       page.runFrames()
       expect(document.activeElement).toBe(card)
       getByRole(card, 'button', { name: strings.channelAgent.send }).click()
-      expect(called('sendReview')[0]!.args).toEqual([review(), null])
-      getByRole(card, 'button', { name: strings.channelAgent.discard }).click()
-      expect(called('discardReview')[0]!.args).toEqual([review()])
+      expect(called('holdReviewSend')[0]!.args.slice(0, 2)).toEqual([review(), null])
+      context.state.held.set({ noteId: review().note.id, text: strings.heldDiscarded, run: null as never })
+      expect(shown.querySelector('.review-card')).toBeNull()
     })
 
     it('asks to read an answer again that the agent changed since the person read it', () => {

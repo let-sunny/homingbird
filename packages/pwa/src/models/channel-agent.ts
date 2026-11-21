@@ -9,7 +9,7 @@ import {
 } from '@homingbird/protocol'
 import { type ChannelAgentState, channelAgentState } from '../channel-answerers.ts'
 import { channelLabel, channelOfRoom, isPrivate } from '../channels.ts'
-import { draftBasisOf } from '../draft-basis.ts'
+import { type SourceShown, draftBasisOf } from '../draft-basis.ts'
 import { isChangedSinceRead } from '../drafts-read.ts'
 import { featureOn } from '../features.ts'
 import { hrefFor } from '../routes.ts'
@@ -130,10 +130,13 @@ export const reviewCardModel = (
   question: 'quoted' | 'above',
 ): ReviewCard => {
   const basis = draftBasisOf(review.note)
+  const channel = channelLabel(review.channel)
+  const asker = review.question === null ? null : (members.get(review.question.authorId)?.name ?? null)
   return {
     review,
     focused: review.note.id === focus,
     heading: null,
+    why: strings.channelAgent.whyYouReview({ channel }),
     question:
       review.question === null || question === 'above'
         ? null
@@ -145,12 +148,29 @@ export const reviewCardModel = (
           },
     privately: review.privately ? strings.channelAgent.askedPrivately : null,
     body: review.note.body,
-    basis: basis?.kind === 'given' ? { title: strings.channelAgent.reliedOn, lines: basis.lines } : null,
+    basis:
+      basis?.kind === 'given'
+        ? { title: strings.channelAgent.reliedOn, lines: basis.lines, sources: basis.sources }
+        : null,
     readAgain: isChangedSinceRead(read, review.note)
       ? { notice: strings.draftChangedSinceRead, confirm: strings.draftReadAgain }
       : null,
     send: strings.channelAgent.send,
+    edit: strings.channelAgent.edit,
     discard: strings.channelAgent.discard,
+    discarding: {
+      title: strings.channelAgent.discardTitle,
+      label: strings.channelAgent.discardReason,
+      hint:
+        asker === null
+          ? strings.channelAgent.discardReasonHintPrivately({ channel })
+          : strings.channelAgent.discardReasonHint({ channel, name: asker }),
+      confirm: strings.channelAgent.discardConfirm,
+    },
+    held: {
+      sent: strings.heldSent({ names: asker ?? channel }),
+      discarded: strings.heldDiscarded,
+    },
   }
 }
 
@@ -371,13 +391,28 @@ export interface ReviewCard {
   readonly review: AsRead.Review
   readonly focused: boolean
   readonly heading: string | null
+  /** Why this person is shown the answer: they manage its channel. */
+  readonly why: string
   readonly question: { readonly from: string; readonly body: string } | null
   readonly privately: string | null
   readonly body: string
-  readonly basis: { readonly title: string; readonly lines: ReadonlyArray<string> } | null
+  readonly basis: {
+    readonly title: string
+    readonly lines: ReadonlyArray<string>
+    readonly sources: ReadonlyArray<SourceShown>
+  } | null
   readonly readAgain: { readonly notice: string; readonly confirm: string } | null
   readonly send: string
+  readonly edit: string
   readonly discard: string
+  /** Asking why before a discard; the reason is the managers' alone. */
+  readonly discarding: {
+    readonly title: string
+    readonly label: string
+    readonly hint: string
+    readonly confirm: string
+  }
+  readonly held: { readonly sent: string; readonly discarded: string }
 }
 
 /** What a room's list needs of an item to place an answer under its question. */

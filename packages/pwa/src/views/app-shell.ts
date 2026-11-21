@@ -1,11 +1,12 @@
 import type { AsRead } from '@homingbird/protocol'
 import { type Lifetime, h, later, lifetime, region, replaceChildren } from '@homingbird/ui'
 import { track } from '../analytics.ts'
-import { NOTICE_MS, toastModel } from '../models/toast.ts'
+import { HOLD_MS, NOTICE_MS, heldToastModel, toastModel } from '../models/toast.ts'
 import { type Route, arrivedToConnect, currentHashFor, hrefFor, parseRoute, signInHref } from '../routes.ts'
 import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
 import { dialogHost } from './dialog.ts'
+import { button } from './parts.ts'
 import { shell } from './shell.ts'
 import { signInView } from './sign-in.ts'
 import { stageFor } from './stage.ts'
@@ -69,6 +70,7 @@ export const showApp = (
       focused ? stage : shell(context, appLife, me, stage),
       dialogHost(),
       toast(context, appLife),
+      heldToast(context, appLife),
       liveAnnouncer(context, appLife),
     )
   }
@@ -130,6 +132,47 @@ const toast = (context: ViewContext, life: Lifetime): HTMLElement => {
     { class: 'toast-host' },
   )
 }
+
+/**
+ * The send or discard the person just made, with Undo, while it waits: it is asked of the server when its
+ * moment is over, when the person dismisses the toast, and when the page is hidden or closed, so leaving
+ * never loses it.
+ */
+const heldToast = (context: ViewContext, life: Lifetime): HTMLElement => {
+  const { state, actions, page } = context
+  const commit = (): void => actions.commitHeld(HELD)
+  let cancel = (): void => {}
+  life.add(
+    state.held.subscribe((current) => {
+      cancel()
+      cancel = current === null ? () => {} : later(context.clock, HOLD_MS, commit)
+    }),
+  )
+  life.add(() => cancel())
+  life.add(page.on('pagehide', commit))
+  life.add(page.on('visibilitychange', () => !page.isVisible() && commit()))
+  return region(
+    life,
+    [state.held],
+    () => {
+      const model = heldToastModel(state.held.get())
+      return (
+        model !== null &&
+        h(
+          'div',
+          { class: model.className, role: 'status' },
+          h('span', {}, model.text),
+          button(model.undo, () => actions.undoHeld(), { class: 'held-undo' }),
+          button(model.dismiss, commit, { class: 'held-dismiss' }),
+        )
+      )
+    },
+    { class: 'toast-host held-host' },
+  )
+}
+
+/** A held decision reports a refusal as a draft's, once it reaches the server. */
+const HELD = { attempt: 'draft' } as const
 
 const liveAnnouncer = (context: ViewContext, life: Lifetime): HTMLElement =>
   h(

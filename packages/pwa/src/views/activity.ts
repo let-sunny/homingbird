@@ -1,5 +1,6 @@
 import type { AsRead } from '@homingbird/protocol'
 import { type Lifetime, h, keyedRegion, lifetime, onAnyChange, region, slice } from '@homingbird/ui'
+import { reviewsWithoutHeld, threadsWithoutHeld } from '../held-decisions.ts'
 import {
   type ActivityInput,
   type ActivityItem,
@@ -238,7 +239,7 @@ const placeLine = (place: ActivityPlace): HTMLElement =>
 
 const activityInputOf = ({ state, clock }: ViewContext, me: AsRead.Me): ActivityInput => ({
   me,
-  threads: state.threads.get(),
+  threads: threadsWithoutHeld(state.threads.get(), state.held.get()),
   conversations: state.conversations.get(),
   channels: state.channels.get(),
   members: state.members.get(),
@@ -246,7 +247,7 @@ const activityInputOf = ({ state, clock }: ViewContext, me: AsRead.Me): Activity
   draftsRead: state.draftsRead.get(),
   draftRequests: state.draftRequests.get(),
   releases: state.releases.get(),
-  reviews: state.reviews.get(),
+  reviews: reviewsWithoutHeld(state.reviews.get(), state.held.get()),
   reviewsRead: state.reviewsRead.get(),
   debates: state.debates.get(),
   taught: state.taught.get(),
@@ -270,6 +271,7 @@ const sourcesOf = ({ state }: ViewContext) => [
   state.taught,
   state.agentReport,
   state.serverInfo,
+  state.held,
 ]
 
 const hasPopover = (element: HTMLElement): boolean =>
