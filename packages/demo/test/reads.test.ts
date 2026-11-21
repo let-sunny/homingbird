@@ -80,7 +80,13 @@ describe('conversationsOf', () => {
     const listed = conversationsOf(records, june)
     expect(listed[0]?.participantIds).toContain(memberNamed(createWorld(makeTestClock(NOW)), 'Ana Silva'))
     expect(listed[0]?.draftCount).toBe(1)
-    expect(listed.find((room) => room.lastNote?.body.startsWith('Heads up'))?.unreadCount).toBe(1)
+    expect(
+      listed.find(
+        (room) =>
+          room.kind === 'direct' &&
+          room.participantIds.includes(memberNamed(createWorld(makeTestClock(NOW)), 'Kai Lin')),
+      )?.unreadCount,
+    ).toBe(2)
     expect(listed.every((room) => room.participantIds.includes(june))).toBe(true)
     expect(conversationsOf(records, ben).some((room) => room.draftCount > 0)).toBe(false)
   })
@@ -137,6 +143,7 @@ describe('directoryOf', () => {
       'Ben Okafor',
       'June Park',
       'Kai Lin',
+      'Maximiliana Konstantinopoulou-Vanderbilt-Oyelaran',
     ])
     expect(everyone.find((entry) => entry.member.id === june)).toMatchObject({
       relation: 'self',

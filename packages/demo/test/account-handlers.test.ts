@@ -143,3 +143,19 @@ describe('the visitor’s agent', () => {
     expect(drafting.principles.map((each) => each.topic)).toEqual(['Annual refunds'])
   })
 })
+
+describe('connecting an agent', () => {
+  it('shows a sign-in code and an app asking for access, and leaves deciding to a real server', async () => {
+    const { api } = demoApi()
+    expect(await succeeded(api['device.get']({ params: { userCode: 'ABCD-EFGH' } }))).toMatchObject({
+      userCode: 'ABCD-EFGH',
+      client: 'Homingbird CLI',
+    })
+    expect(await succeeded(api['consent.get']({ params: { id: 'consent_1' } }))).toMatchObject({
+      redirectHost: 'notes.example.com',
+    })
+    expect(
+      await refused(api['device.decide']({ params: { userCode: 'ABCD-EFGH' }, body: { approve: true } })),
+    ).toMatchObject({ _tag: 'Forbidden' })
+  })
+})

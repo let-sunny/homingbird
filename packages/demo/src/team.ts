@@ -12,15 +12,17 @@ import {
   type PrincipleId,
   type Receipt,
 } from '@homingbird/protocol'
+import { demoDebates } from './debate-rooms.ts'
 import type { ConversationRecord, MemberRecord, Records } from './world.ts'
 
 /** The person a visitor is signed in as. */
 export const VISITOR_ID = MemberId.of('demojune0000')
 
 /**
- * A small team as it stands `now`: June (the visitor), Ana, Ben and Kai, the #billing channel with its
- * agent, and two drafts waiting for June: her own agent's reply to Ana, and #billing's agent's answer
- * to Ben, which June reviews as one of the channel's managers.
+ * A small team as it stands `now`: June (the visitor, an administrator), Ana, Ben, Kai and a colleague
+ * with a very long name, #billing with its agent, and two drafts waiting for June: her own agent's
+ * reply to Ana, and #billing's agent's answer to Ben, which June reviews as a manager. Long names,
+ * text and links and an empty room are there on purpose, to show how pages hold them.
  */
 export const demoTeam = (now: number): Records => {
   const ago = (minutes: number): number => now - minutes * MINUTE
@@ -31,6 +33,13 @@ export const demoTeam = (now: number): Records => {
       person(ANA, 'Ana Silva', 'Billing lead. Invoices, refunds and the ledger.', 1, ago),
       person(BEN, 'Ben Okafor', 'Customer support, mostly refunds and plan changes.', 2, ago),
       person(KAI, 'Kai Lin', 'Infrastructure: deploys, the release train and on-call.', 3, ago),
+      person(
+        LONG_NAME,
+        'Maximiliana Konstantinopoulou-Vanderbilt-Oyelaran',
+        'Security and compliance reviews for every vendor contract, data processing agreement and audit request across the organization.',
+        5,
+        ago,
+      ),
       {
         member: {
           ...memberOf(BILLING_AGENT, 'Billing helper', '', null, ago(60 * 24 * 40)),
@@ -48,7 +57,16 @@ export const demoTeam = (now: number): Records => {
       room(WITH_KAI, null, [VISITOR_ID, KAI], ago(60 * 24 * 30), ago(60 * 3)),
       room(BILLING_ROOM, 'billing', [VISITOR_ID, ANA, BEN, KAI, BILLING_AGENT], ago(60 * 24 * 40), ago(40)),
       room(DEPLOYS_ROOM, 'deploys', [VISITOR_ID, KAI, ANA], ago(60 * 24 * 35), ago(60 * 5)),
-      room(ONBOARDING_ROOM, 'onboarding', [BEN, ANA], ago(60 * 24 * 10), ago(60 * 26)),
+      room(ONBOARDING_ROOM, 'onboarding', [BEN, ANA, LONG_NAME], ago(60 * 24 * 10), ago(60 * 26)),
+      room(
+        DESIGN_ROOM,
+        'design-reviews-for-the-customer-portal',
+        [VISITOR_ID, KAI],
+        ago(60 * 24 * 2),
+        ago(60 * 24 * 2),
+      ),
+      room(PAYROLL_ROOM, 'payroll', [ANA], ago(60 * 24 * 50), ago(60 * 24)),
+      room(WITH_LONG_NAME, null, [VISITOR_ID, LONG_NAME], ago(60 * 24 * 6), ago(60 * 30)),
     ],
     notes: [
       note({
@@ -114,6 +132,21 @@ export const demoTeam = (now: number): Records => {
         by: KAI,
         at: 60 * 3,
         body: 'Heads up: the deploy window moves to 16:00 tomorrow. Does that clash with the migration?',
+      }),
+      note({
+        id: 'demokai00002',
+        in: WITH_KAI,
+        by: KAI,
+        at: 60 * 3 - 1,
+        body: 'The failing run, in case it helps: https://ci.example.com/homingbird/pipelines/8f3c2a9e1b7d4c6f0a5e9d8c7b6a5f4e3d2c1b0a/jobs/deploy-production-eu-west-1/artifacts/logs/full-output-with-every-retry-and-timing.txt?attempt=3&highlight=migration-lock-timeout',
+      }),
+      note({
+        id: 'demolon00001',
+        in: WITH_LONG_NAME,
+        by: LONG_NAME,
+        at: 60 * 30,
+        body: 'Could your agent stop quoting customer email addresses in #billing answers? Our retention policy treats them as personal data.',
+        readBy: [VISITOR_ID],
       }),
       note({
         id: 'demobil00001',
@@ -192,7 +225,8 @@ export const demoTeam = (now: number): Records => {
       },
       {
         slug: 'onboarding',
-        description: 'Questions from people in their first weeks.',
+        description:
+          'Questions from people in their first weeks: accounts, laptops, the expense tool, the on-call rota, where the handbooks live, and whom to ask about anything not written down yet.',
         conversationId: ONBOARDING_ROOM,
         visibility: 'open',
         answering: [ANA],
@@ -200,8 +234,36 @@ export const demoTeam = (now: number): Records => {
         agentId: null,
         createdAt: ago(60 * 24 * 10),
       },
+      {
+        slug: 'design-reviews-for-the-customer-portal',
+        description: 'Screens and words for the customer portal, before they ship.',
+        conversationId: DESIGN_ROOM,
+        visibility: 'open',
+        answering: [],
+        managedBy: DESIGN_MANAGERS,
+        agentId: null,
+        createdAt: ago(60 * 24 * 2),
+      },
+      {
+        slug: 'payroll',
+        description: 'Salaries and pay slips. Only the people a manager adds.',
+        conversationId: PAYROLL_ROOM,
+        visibility: 'private',
+        answering: [ANA],
+        managedBy: PAYROLL_MANAGERS,
+        agentId: null,
+        createdAt: ago(60 * 24 * 50),
+      },
     ],
     groups: [
+      {
+        id: DESIGN_MANAGERS,
+        kind: 'channel',
+        name: null,
+        memberIds: [VISITOR_ID],
+        createdAt: ago(60 * 24 * 2),
+      },
+      { id: PAYROLL_MANAGERS, kind: 'channel', name: null, memberIds: [ANA], createdAt: ago(60 * 24 * 50) },
       {
         id: BILLING_MANAGERS,
         kind: 'channel',
@@ -231,6 +293,13 @@ export const demoTeam = (now: number): Records => {
         memberIds: [ANA, BEN],
         createdAt: ago(60 * 24 * 60),
       },
+      {
+        id: COMPLIANCE_TEAM,
+        kind: 'team',
+        name: 'Security, Privacy, Compliance and Vendor Risk Management',
+        memberIds: [LONG_NAME],
+        createdAt: ago(60 * 24 * 30),
+      },
     ],
     credentials: [
       {
@@ -249,7 +318,7 @@ export const demoTeam = (now: number): Records => {
       },
       {
         credential: {
-          id: CredentialId.of('demojunedesk'),
+          id: JUNE_DESK,
           kind: 'agent',
           name: "June's desk",
           client: 'Homingbird CLI',
@@ -276,6 +345,7 @@ export const demoTeam = (now: number): Records => {
         issuedBy: ANA,
       },
     ],
+    debates: demoDebates(ago, { june: VISITOR_ID, juneDesk: JUNE_DESK, ana: ANA, kai: KAI }),
     principles: [
       principle(0, {
         id: 'demoprin0001',
@@ -309,6 +379,8 @@ const MINUTE = 60_000
 const ANA = MemberId.of('demoana00000')
 const BEN = MemberId.of('demoben00000')
 const KAI = MemberId.of('demokai00000')
+const JUNE_DESK = CredentialId.of('demojunedesk')
+const LONG_NAME = MemberId.of('demolongname')
 const BILLING_AGENT = MemberId.of('demobillagnt')
 
 const WITH_ANA = ConversationId.of('demowithana0')
@@ -317,18 +389,25 @@ const WITH_KAI = ConversationId.of('demowithkai0')
 const BILLING_ROOM = ConversationId.of('demobilling0')
 const DEPLOYS_ROOM = ConversationId.of('demodeploys0')
 const ONBOARDING_ROOM = ConversationId.of('demoonboard0')
+const DESIGN_ROOM = ConversationId.of('demodesign00')
+const PAYROLL_ROOM = ConversationId.of('demopayroll0')
+const WITH_LONG_NAME = ConversationId.of('demowithlong')
 
 const DIRECT_PARTNERS: ReadonlyMap<ConversationId, ReadonlyArray<MemberId>> = new Map([
   [WITH_ANA, [VISITOR_ID, ANA]],
   [WITH_BEN, [VISITOR_ID, BEN]],
   [WITH_KAI, [VISITOR_ID, KAI]],
+  [WITH_LONG_NAME, [VISITOR_ID, LONG_NAME]],
 ])
 
 const BILLING_MANAGERS = GroupId.of('demobillmgrs')
 const DEPLOYS_MANAGERS = GroupId.of('demodeplmgrs')
 const ONBOARDING_MANAGERS = GroupId.of('demoonbdmgrs')
+const DESIGN_MANAGERS = GroupId.of('demodsgnmgrs')
+const PAYROLL_MANAGERS = GroupId.of('demopaylmgrs')
 const PLATFORM_TEAM = GroupId.of('demoplatform')
 const CUSTOMER_TEAM = GroupId.of('democustomer')
+const COMPLIANCE_TEAM = GroupId.of('democomplian')
 
 const characterAt = (index: number): CharacterSpec | null => BUILT_IN_CHARACTERS[index] ?? null
 
@@ -357,7 +436,10 @@ const person = (
   character: number,
   ago: (minutes: number) => number,
 ): MemberRecord => ({
-  member: memberOf(id, name, profile, characterAt(character), ago(60 * 24 * 60)),
+  member: {
+    ...memberOf(id, name, profile, characterAt(character), ago(60 * 24 * 60)),
+    role: id === VISITOR_ID ? 'admin' : 'member',
+  },
   presence: { humanOnline: id === VISITOR_ID || id === ANA, agentOnline: id !== BEN },
   lastSeenAt: id === VISITOR_ID ? null : ago(id === BEN ? 60 * 2 : 1),
 })

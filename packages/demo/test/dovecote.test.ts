@@ -46,14 +46,19 @@ describe('fakeDovecote', () => {
     const { api } = demoApi()
     const info = await succeeded(api['server.info']({}))
     expect(isFeatureOffered(info, 'channelAgents')).toBe(true)
-    expect(isFeatureOffered(info, 'debateRooms')).toBe(false)
-    expect(await refused(api['debates.list']({}))).toEqual({ _tag: 'NotFound', message: FEATURE_OFF_MESSAGE })
+    expect(isFeatureOffered(info, 'cloudDesk')).toBe(false)
+    expect(await refused(api['me.deskWake.get']({}))).toEqual({
+      _tag: 'NotFound',
+      message: FEATURE_OFF_MESSAGE,
+    })
     expect(await refused(api['draftRequests.list']({}))).toMatchObject({ _tag: 'NotFound' })
   })
 
-  it('refuses what only an administrator does, and says the demo does not do what it leaves out', async () => {
-    const { api } = demoApi()
-    expect(await refused(api['admin.insights']({}))).toMatchObject({ _tag: 'Forbidden' })
+  it('refuses a member what only an administrator does, and says the demo does not do what it leaves out', async () => {
+    const { api, world } = demoApi()
+    const kai = demoApi(memberNamed(world, 'Kai Lin'), world)
+    expect(await refused(kai.api['admin.insights']({}))).toMatchObject({ _tag: 'Forbidden' })
+    expect(await refused(api['admin.insights']({}))).toBeNull()
     expect(await refused(api['channels.askPrivately']({ params: { slug: 'billing' } }))).toEqual(DEMO_REFUSAL)
     expect(await refused(api['blocks.add']({ params: { memberId: 'mem_demoana00000' } }))).toEqual(
       DEMO_REFUSAL,

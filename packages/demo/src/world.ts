@@ -4,6 +4,7 @@ import type {
   ConversationId,
   ConversationKind,
   Credential,
+  Debate,
   EventBody,
   GroupId,
   GroupKind,
@@ -74,6 +75,7 @@ export interface Records {
   readonly groups: ReadonlyArray<GroupRecord>
   readonly credentials: ReadonlyArray<CredentialRecord>
   readonly principles: ReadonlyArray<Principle>
+  readonly debates: ReadonlyArray<Debate>
 }
 
 export interface MemberRecord {

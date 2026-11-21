@@ -1,5 +1,4 @@
 import { httpApi } from '@homingbird/client'
-import { systemClock } from '@homingbird/kernel'
 import { createApp } from '@homingbird/pwa/src/app.ts'
 import { applyAppearance, currentAppearance } from '@homingbird/pwa/src/appearance.ts'
 import { browserPage } from '@homingbird/pwa/src/browser-page.ts'
@@ -14,20 +13,24 @@ import { showApp } from '@homingbird/pwa/src/views/app-shell.ts'
 import { createViewContext } from '@homingbird/pwa/src/views/context.ts'
 import { demoPage } from './demo-page.ts'
 import { fakeDovecote } from './dovecote.ts'
+import { clockFor, demoOptions } from './options.ts'
 import { createWorld } from './world.ts'
 
-const dovecote = fakeDovecote(createWorld(systemClock))
-const page = demoPage(browserPage(window), dovecote, () => location.reload())
+const options = demoOptions(location.search)
+const clock = clockFor(options)
+const dovecote = fakeDovecote(createWorld(clock))
+const page = demoPage(browserPage(window), dovecote, () => location.reload(), options)
+let draws = 0
 const app = createApp(
   {
-    clock: systemClock,
+    clock,
     api: httpApi({ serverUrl: location.origin, fetch: dovecote }),
     state: createState(location.hash),
     page,
-    random: {
-      id: () => crypto.randomUUID(),
-      seed: () => crypto.getRandomValues(new Uint32Array(1))[0]!,
-    },
+    random:
+      options.at === null
+        ? { id: () => crypto.randomUUID(), seed: () => crypto.getRandomValues(new Uint32Array(1))[0]! }
+        : { id: () => `demo-page-${++draws}`, seed: () => ++draws },
   },
   loadConversations,
 )

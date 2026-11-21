@@ -29,6 +29,8 @@ export const DEMO_FEATURES: ReadonlyArray<FeatureName> = [
   'routeMap',
   'noteDetails',
   'channelAgents',
+  'debateRooms',
+  'insights',
 ]
 
 /** The server, the visitor's own account and agent, the directory, and what the visitor taught. */
@@ -75,6 +77,19 @@ export const accountHandlers = (world: World): Handlers => {
         }),
       })),
     'contacts.list': () => T.succeed({ contacts: [], blocked: [] }),
+    'device.get': ({ params }) =>
+      T.sync(() => ({
+        userCode: params.userCode,
+        client: 'Homingbird CLI',
+        expiresAt: world.clock.now() + TEN_MINUTES,
+      })),
+    'consent.get': ({ params }) =>
+      T.sync(() => ({
+        id: params.id,
+        client: 'Example notes app',
+        redirectHost: 'notes.example.com',
+        expiresAt: world.clock.now() + TEN_MINUTES,
+      })),
     'credentials.list': (_, viewerId) =>
       T.sync(() => ({
         credentials: world
@@ -171,6 +186,8 @@ export const accountHandlers = (world: World): Handlers => {
     'principles.offers.dismiss': () => T.succeed({}),
   }
 }
+
+const TEN_MINUTES = 10 * 60_000
 
 const memberOf = (records: Records, id: MemberId) => found(memberById(records, id), 'No such member.')
 

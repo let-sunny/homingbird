@@ -184,9 +184,10 @@ export const channelHandlers = (world: World): Handlers => ({
     }),
 })
 
-/** An open channel shows to everyone; a private one only to the people in its room. */
+/** An open channel shows to everyone; a private one to the people in its room, and that it exists to an administrator (rule 6). */
 const isVisible = (records: Records, viewerId: MemberId, channel: ChannelRecord): boolean =>
   channel.visibility === 'open' ||
+  memberById(records, viewerId)?.role === 'admin' ||
   records.conversations.some(
     (room) => room.id === channel.conversationId && room.participantIds.includes(viewerId),
   )

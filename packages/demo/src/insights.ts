@@ -5,6 +5,8 @@ import type {
   ChannelAgentReport,
   MemberId,
   Note,
+  OrganizationFigures,
+  OrganizationInsights,
 } from '@homingbird/protocol'
 import type { Records } from './world.ts'
 
@@ -204,3 +206,91 @@ const CHANNEL_WEEK = channelFigures(9, 6, 2, 1)
 const CHANNEL_WEEK_BEFORE = channelFigures(7, 4, 2, 1)
 const CHANNEL_MONTH = channelFigures(31, 20, 7, 4)
 const CHANNEL_MONTH_BEFORE = channelFigures(22, 13, 6, 3)
+
+/** The organization's week and month for its administrator: counts only, never a person's. */
+export const organizationInsightsOf = (now: number): OrganizationInsights => ({
+  generatedAt: now,
+  quickApprovalSeconds: QUICK_APPROVAL_SECONDS,
+  minimumGroupSize: MINIMUM_GROUP_SIZE,
+  blocks: 0,
+  periods: [
+    { days: 7, current: organization(5, 61, 1), previous: organization(5, 48, 0.8) },
+    { days: 30, current: organization(5, 214, 3.5), previous: organization(4, 170, 2.8) },
+  ],
+  weeks: WEEKLY_AS_WRITTEN.map(([decided, sentAsWritten], index) => ({
+    start: now - (WEEKLY_AS_WRITTEN.length - index) * WEEK_MS,
+    sentAsWritten: sentAsWritten * 3,
+    quickApprovals: Math.round(decided / 5),
+  })),
+  quickWarning: false,
+})
+
+const organization = (activeMembers: number, notesSent: number, scale: number): OrganizationFigures => ({
+  activeMembers,
+  notesSent,
+  newNotes: Math.round(notesSent * 0.45),
+  answered: Math.round(notesSent * 0.4),
+  medianFirstReplyMs: 26 * MINUTE,
+  agentDraftsWritten: Math.round(40 * scale),
+  sentAsWritten: Math.round(26 * scale),
+  sentAfterEdits: Math.round(9 * scale),
+  discarded: Math.round(5 * scale),
+  quickApprovals: Math.round(2 * scale),
+  skipped: Math.round(2 * scale),
+  places: [
+    {
+      place: 'billing',
+      notesSent: Math.round(notesSent * 0.4),
+      sentAsWritten: Math.round(14 * scale),
+      sentAfterEdits: Math.round(4 * scale),
+      discarded: Math.round(2 * scale),
+      skipped: 0,
+    },
+    {
+      place: null,
+      notesSent: Math.round(notesSent * 0.5),
+      sentAsWritten: Math.round(12 * scale),
+      sentAfterEdits: Math.round(5 * scale),
+      discarded: Math.round(3 * scale),
+      skipped: Math.round(2 * scale),
+    },
+  ],
+  hiddenPlaces: 1,
+  byClient: [
+    {
+      label: 'Homingbird CLI',
+      written: Math.round(40 * scale),
+      sentAsWritten: Math.round(26 * scale),
+      sentAfterEdits: Math.round(9 * scale),
+      discarded: Math.round(5 * scale),
+    },
+  ],
+  byModel: [],
+  hiddenLabels: 0,
+  medianDecisionMs: 4 * MINUTE,
+  authorship: {
+    agent: Math.round(26 * scale),
+    humanEdited: Math.round(9 * scale),
+    human: Math.round(notesSent * 0.4),
+  },
+  channelAgents: {
+    written: Math.round(9 * scale),
+    sentAsWritten: Math.round(6 * scale),
+    sentAfterEdits: Math.round(2 * scale),
+    discarded: Math.round(1 * scale),
+  },
+  teams: [
+    {
+      team: 'Platform',
+      activeMembers: null,
+      notesSent: null,
+      sentAsWritten: null,
+      sentAfterEdits: null,
+      discarded: null,
+      quickApprovals: null,
+      medianDecisionMs: null,
+      skipped: 0,
+    },
+  ],
+  hiddenTeams: 1,
+})

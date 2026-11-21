@@ -10,14 +10,18 @@ import {
 } from '@homingbird/protocol'
 import type { MemberId } from '@homingbird/protocol'
 import { accountHandlers } from './account-handlers.ts'
+import { adminHandlers } from './admin-handlers.ts'
 import { channelHandlers } from './channel-handlers.ts'
+import { debateHandlers } from './debate-handlers.ts'
 import { noteHandlers } from './note-handlers.ts'
 import type { World } from './world.ts'
 
 /** The routes the demo answers; any other refuses with `DEMO_REFUSAL`. */
 export const handlersOf = (world: World): Handlers => ({
   ...accountHandlers(world),
+  ...adminHandlers(world),
   ...channelHandlers(world),
+  ...debateHandlers(world),
   ...noteHandlers(world),
 })
 

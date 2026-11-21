@@ -1,6 +1,7 @@
 import {
   ConversationId,
   CredentialId,
+  Debate,
   GroupId,
   Member,
   MemberId,
@@ -45,5 +46,18 @@ describe('demoTeam', () => {
     const own = team.credentials.filter((each) => each.memberId === VISITOR_ID)
     expect(own.map((each) => each.credential.kind)).toEqual(['human', 'agent'])
     expect(own[0]!.credential.id).toBe(VISITOR_SESSION)
+  })
+
+  it('makes the visitor an administrator, and keeps the long names, text and links and the empty room that test a layout', () => {
+    const visitor = team.members.find((each) => each.member.id === VISITOR_ID)!.member
+    expect(visitor.role).toBe('admin')
+    expect(Math.max(...team.members.map((each) => each.member.name.length))).toBeGreaterThan(40)
+    expect(team.notes.some((note) => /https:\/\/\S{150,}/.test(note.body))).toBe(true)
+    expect(Math.max(...team.channels.map((channel) => channel.description.length))).toBeGreaterThan(150)
+    const empty = team.channels.filter(
+      (channel) => !team.notes.some((note) => note.conversationId === channel.conversationId),
+    )
+    expect(empty.map((channel) => channel.slug)).toContain('design-reviews-for-the-customer-portal')
+    for (const debate of team.debates) expect(Debate.decode(debate)._tag).toBe('Ok')
   })
 })

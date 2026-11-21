@@ -158,12 +158,16 @@ describe('reading', () => {
   it('marks a note read once, and tells the room the new receipts', async () => {
     const { api, world, viewerId } = demoApi()
     const heads = noteStarting(world, 'Heads up')
+    const unread = async () =>
+      (await succeeded(api['conversations.list']({}))).conversations.find(
+        (room) => room.id === heads.conversationId,
+      )?.unreadCount
+    const before = await unread()
     const read = await succeeded(api['notes.read']({ params: { id: heads.id } }))
     expect(read.receipts.find((receipt) => receipt.memberId === viewerId)).toMatchObject({ state: 'read' })
     await succeeded(api['notes.read']({ params: { id: heads.id } }))
     expect(world.eventsAfter(viewerId, 0).map((event) => event.body.type)).toEqual(['note.status'])
-    const listed = await succeeded(api['conversations.list']({}))
-    expect(listed.conversations.find((room) => room.id === heads.conversationId)?.unreadCount).toBe(0)
+    expect(await unread()).toBe(before! - 1)
   })
 
   it('reads a conversation it takes part in, page by page, and no other', async () => {

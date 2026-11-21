@@ -5,7 +5,13 @@ describe('channels', () => {
   it('lists every open channel by name, and finds them by their words', async () => {
     const { api } = demoApi()
     const listed = await succeeded(api['channels.list']({ query: { limit: '200' } }))
-    expect(listed.channels.map((channel) => channel.slug)).toEqual(['billing', 'deploys', 'onboarding'])
+    expect(listed.channels.map((channel) => channel.slug)).toEqual([
+      'billing',
+      'deploys',
+      'design-reviews-for-the-customer-portal',
+      'onboarding',
+      'payroll',
+    ])
     expect(listed).toMatchObject({ hasMore: false, cursor: null })
     const found = await succeeded(api['channels.list']({ query: { q: 'release' } }))
     expect(found.channels.map((channel) => channel.slug)).toEqual(['deploys'])
@@ -16,7 +22,7 @@ describe('channels', () => {
     const joined = await succeeded(
       api['channels.join']({ params: { slug: 'onboarding' }, body: { answering: true } }),
     )
-    expect(joined).toMatchObject({ joined: true, answering: true, memberCount: 3 })
+    expect(joined).toMatchObject({ joined: true, answering: true, memberCount: 4 })
     expect(
       (await succeeded(api['channels.answering.off']({ params: { slug: 'onboarding' } }))).answering,
     ).toBe(false)
@@ -61,16 +67,16 @@ describe('channels', () => {
     ).toMatchObject({ _tag: 'Conflict' })
   })
 
-  it('hides a private channel from the people outside its room', async () => {
+  it('hides a private channel from the people outside its room, but not that it exists from an administrator', async () => {
     const { api, world } = demoApi()
     await succeeded(
-      api['channels.create']({ body: { slug: 'payroll', description: 'Pay.', visibility: 'private' } }),
+      api['channels.create']({ body: { slug: 'salaries', description: 'Pay.', visibility: 'private' } }),
     )
     const kai = demoApi(memberNamed(world, 'Kai Lin'), world)
     expect(
       (await succeeded(kai.api['channels.list']({ query: {} }))).channels.map((channel) => channel.slug),
-    ).not.toContain('payroll')
-    expect(await refused(kai.api['channels.get']({ params: { slug: 'payroll' } }))).toMatchObject({
+    ).not.toContain('salaries')
+    expect(await refused(kai.api['channels.get']({ params: { slug: 'salaries' } }))).toMatchObject({
       _tag: 'NotFound',
     })
   })
@@ -138,13 +144,16 @@ describe('groups', () => {
     const { api } = demoApi()
     const { groups } = await succeeded(api['groups.list']({}))
     expect(groups.map((group) => group.name ?? group.channels[0])).toEqual([
+      'design-reviews-for-the-customer-portal',
+      'payroll',
       'billing',
       'deploys',
       'onboarding',
       'Platform',
       'Customer',
+      'Security, Privacy, Compliance and Vendor Risk Management',
     ])
-    expect(await succeeded(api['groups.get']({ params: { id: groups[3]!.id } }))).toEqual(groups[3])
+    expect(await succeeded(api['groups.get']({ params: { id: groups[5]!.id } }))).toEqual(groups[5])
     expect(await refused(api['groups.get']({ params: { id: 'grp_demonothing0' } }))).toMatchObject({
       _tag: 'NotFound',
     })
@@ -152,9 +161,11 @@ describe('groups', () => {
 
   it('lets a manager add a person to the group that manages their channel, and keeps at least one', async () => {
     const { api, world } = demoApi()
-    const billing = (await succeeded(api['groups.list']({}))).groups[0]!
+    const billing = (await succeeded(api['groups.list']({}))).groups.find((group) =>
+      group.channels.includes('billing'),
+    )!
     const kai = memberNamed(world, 'Kai Lin')
-    const agent = world.records().channels[0]!.agentId!
+    const agent = world.records().channels.find((channel) => channel.agentId !== null)!.agentId!
     const changed = await succeeded(
       api['groups.members.set']({
         params: { id: billing.id },
@@ -166,7 +177,7 @@ describe('groups', () => {
     expect(
       await refused(api['groups.members.set']({ params: { id: billing.id }, body: { memberIds: [agent] } })),
     ).toMatchObject({ _tag: 'Conflict' })
-    const team = (await succeeded(api['groups.list']({}))).groups[3]!
+    const team = (await succeeded(api['groups.list']({}))).groups.find((group) => group.kind === 'team')!
     expect(
       await refused(api['groups.members.set']({ params: { id: team.id }, body: { memberIds: [kai] } })),
     ).toMatchObject({ _tag: 'NotFound' })

@@ -20,6 +20,7 @@ import {
 } from '@homingbird/protocol'
 import { DEMO_FEATURES } from './account-handlers.ts'
 import { DEMO_REFUSAL, type Handlers, handlersOf } from './handlers.ts'
+import { memberById } from './reads.ts'
 import { VISITOR_ID } from './team.ts'
 import type { World } from './world.ts'
 
@@ -41,7 +42,7 @@ export const fakeDovecote = (world: World, viewerId: MemberId = VISITOR_ID): Fet
       : null
     if (match === null) return Promise.resolve(refusal(NotFound({ message: 'No such route.' })))
     const raw = { params: match.params, query: Object.fromEntries(target.searchParams), body: init?.body }
-    return T.run(answer(handlers, match.name, raw, viewerId)).then((exit) =>
+    return T.run(answer(world, handlers, match.name, raw, viewerId)).then((exit) =>
       exit._tag === 'Ok'
         ? json(200, exit.value)
         : refusal(
@@ -61,6 +62,7 @@ interface RawRequest {
 }
 
 const answer = (
+  world: World,
   handlers: Handlers,
   name: RouteName,
   raw: RawRequest,
@@ -68,7 +70,7 @@ const answer = (
 ): T.Task<unknown, ApiError> =>
   T.gen(function* () {
     const route = contract[name]
-    if (route.access === 'admin')
+    if (route.access === 'admin' && memberById(world.records(), viewerId)?.role !== 'admin')
       return yield* T.fail(Forbidden({ message: 'Only an administrator can do this.' }))
     const feature = featureOfRoute(name)
     if (feature !== null && !DEMO_FEATURES.includes(feature))
