@@ -3,6 +3,7 @@ import type {
   Conflict,
   CredentialId,
   CredentialKind,
+  DeskUnavailableKind,
   DeskWakeTest,
   Member,
   MemberId,
@@ -32,6 +33,7 @@ export interface AppEnv extends HasSql, HasClock {
   readonly analytics: AnalyticsForwarder
   readonly pushSink: (memberId: MemberId, event: StreamEvent, isNewReview: boolean) => void
   readonly pushTest: (memberId: MemberId) => T.Task<ReadonlyArray<PushOutcome>, never, AppEnv>
+  readonly pushDeskUnavailable: (memberId: MemberId, kind: DeskUnavailableKind) => T.Task<void, never, AppEnv>
   readonly wakeSink: (memberId: MemberId, event: StreamEvent) => void
   readonly wakeTest: (memberId: MemberId) => T.Task<DeskWakeTest, NotFound | Conflict, AppEnv>
   readonly log: Log

@@ -44,6 +44,54 @@ describe('the hub', () => {
     hidden.abort()
   })
 
+  it('keeps that an agent cannot answer only while one of its desks streams, and says why to its person alone', () => {
+    const hub = makeHub(() => 0)
+    expect(hub.markUnavailable(ana, { kind: 'failed', until: null })).toBe(false)
+    expect(hub.presenceOf(ana).agentUnavailable).toBeUndefined()
+    const desk = new AbortController()
+    hub.subscribe(ana, 'agent', desk.signal)
+    expect(hub.markUnavailable(ana, { kind: 'signed_out', until: null })).toBe(true)
+    expect(hub.markUnavailable(ana, { kind: 'usage_limit', until: 7 })).toBe(false)
+    expect(hub.presenceOf(ana)).toEqual({
+      humanOnline: false,
+      agentOnline: true,
+      agentUnavailable: { until: 7 },
+    })
+    expect(hub.presenceOf(ana, ana).agentUnavailable).toEqual({ until: 7, kind: 'usage_limit' })
+    expect(hub.presenceOf(ana, ben).agentUnavailable).toEqual({ until: 7 })
+    hub.markAvailable(ana)
+    expect(hub.presenceOf(ana).agentUnavailable).toBeUndefined()
+    expect(hub.markUnavailable(ana, { kind: 'failed', until: null })).toBe(true)
+    desk.abort()
+    const again = new AbortController()
+    hub.subscribe(ana, 'agent', again.signal)
+    expect(hub.presenceOf(ana).agentUnavailable).toBeUndefined()
+    again.abort()
+  })
+
+  it('announces that an agent cannot answer, and that it can again, on the next flush', async () => {
+    const hub = makeHub(() => 5)
+    const open = new AbortController()
+    const watcher = hub.subscribe(ben, 'hidden', open.signal)
+    hub.subscribe(ana, 'agent', open.signal)
+    hub.flushPresence()
+    await nextOf(watcher)
+    hub.markUnavailable(ana, { kind: 'failed', until: null })
+    hub.flushPresence()
+    expect((await nextOf(watcher)).body).toEqual({
+      type: 'presence',
+      members: [{ memberId: ana, humanOnline: false, agentOnline: true, agentUnavailable: { until: null } }],
+    })
+    hub.markAvailable(ana)
+    hub.markAvailable(ana)
+    hub.flushPresence()
+    expect((await nextOf(watcher)).body).toEqual({
+      type: 'presence',
+      members: [{ memberId: ana, humanOnline: false, agentOnline: true }],
+    })
+    open.abort()
+  })
+
   it('announces presence changes together on the next flush, to every open stream', async () => {
     const hub = makeHub(() => 5)
     const open = new AbortController()

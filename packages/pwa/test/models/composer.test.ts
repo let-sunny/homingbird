@@ -1,7 +1,7 @@
-import type { DraftRequest } from '@homingbird/protocol'
+import type { AsRead, DraftRequest } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import { bodyToSend, composerModel } from '../../src/models/composer.ts'
-import { strings } from '../../src/strings.ts'
+import { formats, strings } from '../../src/strings.ts'
 import { ANA, BEN, ROOM, conversation, entry, note, serverInfo } from '../support/fixtures.ts'
 import { threadInput } from '../support/thread.ts'
 
@@ -33,9 +33,42 @@ describe('composerModel', () => {
       sending: null,
       asked: [],
       noAgent: null,
+      theirAgent: null,
       replyingTo: null,
       asksAgent: true,
     })
+  })
+
+  it('says before sending that the other person’s agent cannot answer, and until when when that is known', () => {
+    const theirAgent = (presence: AsRead.Presence) => {
+      const model = composerModel(threadInput({ directory: [entry(BEN, 'Ben', { presence })] }))
+      return model.kind === 'open' ? model.theirAgent : 'archived'
+    }
+    expect(theirAgent({ humanOnline: true, agentOnline: true, agentUnavailable: { until: null } })).toBe(
+      strings.theirAgentUnavailable,
+    )
+    const until = new Date(2026, 10, 21, 15, 0).getTime()
+    expect(theirAgent({ humanOnline: false, agentOnline: true, agentUnavailable: { until } })).toBe(
+      strings.theirAgentUnavailableUntil({ time: formats.time.format(new Date(until)) }),
+    )
+    expect(
+      theirAgent({ humanOnline: true, agentOnline: false, agentUnavailable: { until: null } }),
+    ).toBeNull()
+    expect(theirAgent({ humanOnline: true, agentOnline: true })).toBeNull()
+  })
+
+  it('says nothing about agents that cannot answer in a group conversation', () => {
+    const model = composerModel(
+      threadInput({
+        conversations: [conversation({ kind: 'group', participantIds: [ANA, BEN] })],
+        directory: [
+          entry(BEN, 'Ben', {
+            presence: { humanOnline: true, agentOnline: true, agentUnavailable: { until: null } },
+          }),
+        ],
+      }),
+    )
+    expect(model.kind === 'open' && model.theirAgent).toBeNull()
   })
 
   it('shows a note on its way, the request to the agent, and that the agent is not awake', () => {

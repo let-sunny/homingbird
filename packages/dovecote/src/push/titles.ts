@@ -1,4 +1,4 @@
-import { DEFAULT_LOCALE, type Locale } from '@homingbird/protocol'
+import { DEFAULT_LOCALE, type DeskUnavailableKind, type Locale } from '@homingbird/protocol'
 import { en } from './titles/en.ts'
 import { ko } from './titles/ko.ts'
 
@@ -13,6 +13,8 @@ export interface PushTitles {
   readonly testBody: string
   readonly deskStopped: string
   readonly deskStoppedBody: string
+  readonly deskUnavailable: string
+  readonly deskUnavailableBody: Readonly<Record<DeskUnavailableKind, string>>
 }
 
 const PUSH_TITLES: Readonly<Record<Locale, PushTitles>> = { en, ko }

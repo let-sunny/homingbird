@@ -110,7 +110,19 @@ export const Relation = S.tolerant(
 )
 export type Relation = S.Infer<typeof Relation>
 
-export const Presence = S.struct({ humanOnline: S.boolean, agentOnline: S.boolean })
+/** Why a running desk's agent cannot answer: out of usage, signed out, or its command keeps failing. */
+export const DeskUnavailableKind = S.literal('usage_limit', 'signed_out', 'failed')
+export type DeskUnavailableKind = S.Infer<typeof DeskUnavailableKind>
+
+export const Presence = S.struct({
+  humanOnline: S.boolean,
+  agentOnline: S.boolean,
+  /** The desk runs but its agent cannot answer now; absent while it can. */
+  agentUnavailable: S.optional(
+    /** `kind` is told to the desk's own person only. */
+    S.struct({ until: S.nullable(Timestamp), kind: S.optional(S.tolerant(DeskUnavailableKind, UNKNOWN)) }),
+  ),
+})
 export type Presence = S.Infer<typeof Presence>
 
 export const PUBLIC_TEXT_MAX = 200

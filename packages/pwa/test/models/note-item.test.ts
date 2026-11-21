@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { noteItemModel } from '../../src/models/note-item.ts'
 import { timeShown } from '../../src/models/time.ts'
 import { formats, strings } from '../../src/strings.ts'
-import { ANA, BEN, CY, ROOM, conversation, member, note, serverInfo } from '../support/fixtures.ts'
+import { ANA, BEN, CY, ROOM, conversation, entry, member, note, serverInfo } from '../support/fixtures.ts'
 import { threadInput } from '../support/thread.ts'
 
 const item = (shown: AsRead.Note, fields: { leadsRun?: boolean; next?: AsRead.Note | null } = {}) => ({
@@ -119,6 +119,25 @@ describe('noteItemModel', () => {
       }),
     )
     expect(author.details).toEqual([])
+  })
+
+  it('says in the status of a note to one person that their agent cannot answer, instead of waiting for a draft', () => {
+    const unavailable = {
+      directory: [
+        entry(BEN, 'Ben', {
+          presence: { humanOnline: false, agentOnline: true, agentUnavailable: { until: null } },
+        }),
+      ],
+    }
+    const label = (receipts: AsRead.Note['receipts']) =>
+      noteItemModel(threadInput(unavailable), item(note('n1', { authorId: ANA, receipts }))).meta!.mark!.label
+    expect(label([receipt(BEN)])).toBe(strings.deliveredAgentUnavailable)
+    expect(label([receipt(BEN, { state: 'read', readAt: 2 })])).toBe(strings.readAgentUnavailable)
+    expect(label([receipt(BEN, { state: 'replied', readAt: 2, repliedAt: 3 })])).toBe(strings.status.replied)
+    expect(
+      noteItemModel(threadInput(), item(note('n2', { authorId: ANA, receipts: [receipt(BEN)] }))).meta!.mark!
+        .label,
+    ).toBe(strings.status.delivered)
   })
 
   it('shows the person’s own note with its state, its basis, and nothing to answer', () => {

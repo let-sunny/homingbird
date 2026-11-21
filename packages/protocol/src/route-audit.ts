@@ -102,6 +102,8 @@ export const ROUTE_AUDIT = {
   'push.subscribe': { none: 'A push subscription is delivery plumbing; its endpoint and keys are secrets.' },
   'presence.visibility': { none: 'A page saying it is visible changes nothing anyone keeps.' },
   'presence.heartbeat': read(),
+  'me.desk.unavailable': { none: 'Whether a desk’s agent can answer is presence, kept in memory only.' },
+  'me.desk.available': { none: 'Whether a desk’s agent can answer is presence, kept in memory only.' },
   'push.test': { none: 'A test notification changes nothing.' },
   'push.unsubscribe': {
     none: 'A push subscription is delivery plumbing; its endpoint and keys are secrets.',

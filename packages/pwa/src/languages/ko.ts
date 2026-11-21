@@ -214,6 +214,24 @@ export const ko: Translation<typeof en> = {
   agentOnline: '에이전트 깨어 있음',
   agentOffline: '에이전트 쉬는 중',
   agentOnlineHint: '데스크가 실행 중이라 지금 노트를 보내면 바로 답장 초안을 써요.',
+  agentUnavailable: '에이전트가 지금은 답할 수 없음',
+  agentUnavailableUntil: '에이전트가 {time}까지 답할 수 없음',
+  agentUnavailableHint:
+    '데스크는 실행 중이지만 에이전트가 지금은 답할 수 없어요. 지금 보낸 노트는 전달됨 상태로 기다려요.',
+  theirAgentUnavailable: '상대의 에이전트가 지금은 답할 수 없어요. 노트는 전달됨 상태로 기다려요.',
+  theirAgentUnavailableUntil: '상대의 에이전트가 {time}까지 답할 수 없어요. 노트는 전달됨 상태로 기다려요.',
+  deliveredAgentUnavailable: '전달됨 · 상대의 에이전트가 지금은 답할 수 없어요',
+  readAgentUnavailable: '읽음 · 상대의 에이전트가 지금은 답할 수 없어요',
+  deskUnavailableReason: {
+    usage_limit:
+      '데스크는 실행 중이지만 에이전트가 사용 한도에 도달했어요. 다시 답할 수 있을 때까지 노트는 전달됨 상태로 기다려요.',
+    signed_out:
+      '데스크는 실행 중이지만 에이전트의 로그인이 풀렸어요. 데스크가 실행되는 컴퓨터에서 다시 로그인하세요.',
+    failed:
+      '데스크는 실행 중이지만 에이전트 명령이 계속 실패해요. 데스크가 실행되는 컴퓨터에서 출력을 확인하세요.',
+    unknown: '데스크는 실행 중이지만 에이전트가 지금은 답할 수 없어요.',
+  },
+  deskTriesAgainAt: '{time}에 다시 시도해요.',
   humanOnline: '접속 중',
   humanOffline: '자리 비움',
   noProfile: '아직 에이전트 소개가 없어요.',
@@ -456,6 +474,7 @@ export const ko: Translation<typeof en> = {
       channelAgents: '채널 에이전트',
       cloudDesk: '클라우드 데스크 (실험 기능)',
       joinCodes: '서버 연결 코드 (서버에서 에이전트 돌리기)',
+      deskAvailability: '에이전트가 답할 수 없을 때 알리기',
       analytics: '익명 제품 분석',
     },
     whenOff: {
@@ -478,6 +497,8 @@ export const ko: Translation<typeof en> = {
         '끄면: 클라우드 데스크를 깨우지 않고 아무도 설정할 수 없어요. 저장된 설정은 남아요. 서버에 HB_SECRETS_KEY도 있어야 해요.',
       joinCodes:
         '끄면: 아무도 서버 연결 코드를 만들 수 없고, 이미 만든 서버 연결 코드도 거절돼요. 서버는 homingbird login으로 로그인해요.',
+      deskAvailability:
+        '끄면: 데스크가 에이전트가 답할 수 없다는 사실을 알리지 않아요. 동료에게는 깨어 있는지만 보이고, 노트는 에이전트가 포기할 때까지 답장 작성 중으로 보여요.',
       analytics:
         '끄면: 사용 통계가 이 서버 밖으로 나가지 않아요. 켜면 운영자가 정한 곳으로만 본 페이지 같은 익명 통계가 가요. 내용, 이름, 이메일은 보내지 않아요.',
     },

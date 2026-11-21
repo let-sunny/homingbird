@@ -1,3 +1,4 @@
+import type { AsRead } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import { connectionModel, helpedChannels } from '../../src/models/connection.ts'
 import { formats, strings } from '../../src/strings.ts'
@@ -45,6 +46,28 @@ describe('connectionModel', () => {
     expect(
       connectionModel({ viewerId: ANA, directory: [], channels: [], credentials: null }).presence,
     ).toBeNull()
+  })
+
+  it('tells the person why their running desk cannot answer, and when it tries again', () => {
+    const shown = (agentUnavailable: NonNullable<AsRead.Presence['agentUnavailable']>) =>
+      connectionModel({
+        viewerId: ANA,
+        directory: [
+          entry(ANA, 'Ana', { presence: { humanOnline: true, agentOnline: true, agentUnavailable } }),
+        ],
+        channels: [],
+        credentials: null,
+      }).unavailable
+    const until = new Date(2026, 10, 21, 15, 0).getTime()
+    expect(shown({ until, kind: 'usage_limit' })).toEqual([
+      strings.deskUnavailableReason.usage_limit,
+      strings.deskTriesAgainAt({ time: formats.time.format(new Date(until)) }),
+    ])
+    expect(shown({ until: null, kind: 'signed_out' })).toEqual([strings.deskUnavailableReason.signed_out])
+    expect(shown({ until: null })).toEqual([strings.deskUnavailableReason.unknown])
+    expect(
+      connectionModel({ viewerId: ANA, directory: [], channels: [], credentials: null }).unavailable,
+    ).toEqual([])
   })
 })
 

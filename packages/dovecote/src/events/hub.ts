@@ -1,5 +1,11 @@
 import { type PubSub, type Subscription, makePubSub } from '@homingbird/kernel'
-import type { CredentialKind, MemberId, Presence, StreamEvent } from '@homingbird/protocol'
+import type {
+  CredentialKind,
+  DeskUnavailableKind,
+  MemberId,
+  Presence,
+  StreamEvent,
+} from '@homingbird/protocol'
 
 export interface Hub {
   readonly publish: (memberId: MemberId, event: StreamEvent) => void
@@ -8,7 +14,14 @@ export interface Hub {
     shownAs: CredentialKind | 'hidden',
     signal: AbortSignal,
   ) => Subscription<StreamEvent>
-  readonly presenceOf: (memberId: MemberId) => Presence
+  /** A member's presence; only the member themself, as `viewerId`, is told why their agent cannot answer. */
+  readonly presenceOf: (memberId: MemberId, viewerId?: MemberId) => Presence
+  /**
+   * A running desk says its agent cannot answer; true when that starts an episode, which is told to the
+   * person once. Kept only while one of the member's agents holds a stream.
+   */
+  readonly markUnavailable: (memberId: MemberId, unavailable: DeskUnavailable) => boolean
+  readonly markAvailable: (memberId: MemberId) => void
   /** When this server started: what happened before it, such as requests made, is not counted yet. */
   readonly startedAt: number
   readonly flushPresence: () => void
@@ -19,14 +32,29 @@ export interface Hub {
   readonly isLooking: (memberId: MemberId) => boolean
 }
 
+export interface DeskUnavailable {
+  readonly kind: DeskUnavailableKind
+  readonly until: number | null
+}
+
 export const PRESENCE_FLUSH_INTERVAL_MS = 1_000
 export const makeHub = (now: () => number): Hub => {
   const channels = new Map<MemberId, Channel>()
   const startedAt = now()
 
-  const presenceOf = (memberId: MemberId): Presence => {
+  const unavailable = new Map<MemberId, DeskUnavailable>()
+
+  const presenceOf = (memberId: MemberId, viewerId?: MemberId): Presence => {
     const connections = channels.get(memberId)?.connections
-    return { humanOnline: (connections?.human ?? 0) > 0, agentOnline: (connections?.agent ?? 0) > 0 }
+    const agentOnline = (connections?.agent ?? 0) > 0
+    const cannot = agentOnline ? unavailable.get(memberId) : undefined
+    return {
+      humanOnline: (connections?.human ?? 0) > 0,
+      agentOnline,
+      ...(cannot !== undefined && {
+        agentUnavailable: { until: cannot.until, ...(viewerId === memberId && { kind: cannot.kind }) },
+      }),
+    }
   }
 
   const visiblePages = new Map<MemberId, Map<string, number>>()
@@ -52,6 +80,16 @@ export const makeHub = (now: () => number): Hub => {
 
   return {
     presenceOf,
+    markUnavailable: (memberId, state) => {
+      if ((channels.get(memberId)?.connections.agent ?? 0) === 0) return false
+      const before = unavailable.get(memberId)
+      unavailable.set(memberId, state)
+      if (before?.kind !== state.kind || before.until !== state.until) announce(memberId)
+      return before === undefined
+    },
+    markAvailable: (memberId) => {
+      if (unavailable.delete(memberId)) announce(memberId)
+    },
     startedAt,
     flushPresence,
     isLooking,
@@ -82,6 +120,7 @@ export const makeHub = (now: () => number): Hub => {
         const stillShown = --channel.connections[shownAs] > 0
         const { human, agent, hidden } = channel.connections
         if (human + agent + hidden === 0) channels.delete(memberId)
+        if (agent === 0) unavailable.delete(memberId)
         if (!stillShown && shownAs !== 'hidden') announce(memberId)
       }
       signal.addEventListener('abort', close, { once: true })

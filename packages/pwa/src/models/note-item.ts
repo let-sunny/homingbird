@@ -1,6 +1,7 @@
 import { type AsRead, type MemberId, type NoteId, summarize } from '@homingbird/protocol'
 import { authorshipOf, showsStateMark, stateMarkOf } from '../authorship.ts'
 import { draftBasisOf } from '../draft-basis.ts'
+import { unavailableOf } from '../presence.ts'
 import { spriteOwner } from '../sprite-owner.ts'
 import { formats, listOf, strings } from '../strings.ts'
 import {
@@ -74,7 +75,7 @@ export const noteItemModel = (
       next === null || markShown
         ? {
             time: next === null && note.sentAt !== null ? timeShown(note.sentAt, input.now) : null,
-            mark: markShown ? stateMarkModel(note, inRoom) : null,
+            mark: markShown ? stateMarkModel(input, note, inRoom) : null,
           }
         : null,
     actions: [
@@ -225,11 +226,11 @@ const releaseModel = (input: ThreadInput, note: AsRead.Note): NoteItemModel['rel
   }
 }
 
-const stateMarkModel = (note: AsRead.Note, inRoom: boolean): StateMarkModel => {
+const stateMarkModel = (input: ThreadInput, note: AsRead.Note, inRoom: boolean): StateMarkModel => {
   const mark = stateMarkOf(note.receipts)
   return {
     state: mark.state,
-    label: inRoom ? roomStatus(note) : dmStatus(note),
+    label: inRoom ? roomStatus(note) : dmStatus(input, note),
     glyph: `${STATE_GLYPHS[mark.state]}${TEXT_PRESENTATION}`,
     count:
       mark.count === null
@@ -241,10 +242,20 @@ const stateMarkModel = (note: AsRead.Note, inRoom: boolean): StateMarkModel => {
   }
 }
 
-const dmStatus = (note: AsRead.Note): string => {
+const dmStatus = (input: ThreadInput, note: AsRead.Note): string => {
   const summary = summarize(note.receipts)
   if (summary.recipients > 1) return roomStatus(note)
-  return strings.status[statusOf(summary)]
+  const status = statusOf(summary)
+  if ((status === 'delivered' || status === 'read') && isUnavailableRecipient(input, note))
+    return status === 'read' ? strings.readAgentUnavailable : strings.deliveredAgentUnavailable
+  return strings.status[status]
+}
+
+/** Whether the one person a note went to runs a desk whose agent cannot answer now. */
+const isUnavailableRecipient = (input: ThreadInput, note: AsRead.Note): boolean => {
+  const [receipt] = note.receipts
+  const entry = input.directory.find((candidate) => candidate.member.id === receipt?.memberId)
+  return unavailableOf(entry?.presence) !== null
 }
 
 const roomStatus = (note: AsRead.Note): string => {

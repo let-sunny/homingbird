@@ -17,7 +17,7 @@ import { deleteEventsBefore, transact } from './events/events.ts'
 import { PRESENCE_FLUSH_INTERVAL_MS, makeHub } from './events/hub.ts'
 import { makeRateLimiter } from './http/rate-limiter.ts'
 import { makeLog, writeToStandardOutput } from './log/operational-log.ts'
-import { makePushNotifier, sendTestPush } from './push/notifier.ts'
+import { makePushNotifier, sendDeskUnavailablePush, sendTestPush } from './push/notifier.ts'
 import { cryptoRandom } from './random.ts'
 import { type Database, sqlEnvironment } from './sql/database.ts'
 import { SERVER_VERSION } from './version.ts'
@@ -73,6 +73,7 @@ export const buildRuntime = (parts: RuntimeParts): Runtime => {
     analytics,
     pushSink: push.consider,
     pushTest: (memberId) => sendTestPush(fetch, memberId),
+    pushDeskUnavailable: (memberId, kind) => T.asUnit(sendDeskUnavailablePush(fetch, memberId, kind)),
     wakeSink: waker.consider,
     wakeTest: waker.test,
     log,

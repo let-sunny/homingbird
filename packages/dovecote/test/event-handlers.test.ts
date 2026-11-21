@@ -1,3 +1,4 @@
+import { Task as T } from '@homingbird/kernel'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   type Agent,
@@ -39,6 +40,35 @@ describe('the event handlers', () => {
     await ana.api('POST', '/presence/visibility', { page: 'inbox-page', visible: false })
     expect(server.env.hub.isLooking(ana.me.member.id)).toBe(false)
     expect((await anaAgent.api('GET', '/presence/heartbeat')).json).toEqual({})
+  })
+
+  it('let a running desk say its agent cannot answer, tell its person once, and show colleagues only until when', async () => {
+    const pushed: string[] = []
+    ;(server.env as { pushDeskUnavailable: unknown }).pushDeskUnavailable = (_: unknown, kind: string) =>
+      T.sync(() => void pushed.push(kind))
+    const desk = new AbortController()
+    server.env.hub.subscribe(ana.me.member.id, 'agent', desk.signal)
+    const said = await anaAgent.api('POST', '/me/desk/unavailable', { kind: 'usage_limit', until: 5_000 })
+    expect(said.json).toEqual({})
+    await anaAgent.api('POST', '/me/desk/unavailable', { kind: 'usage_limit', until: 9_000 })
+    expect(pushed).toEqual(['usage_limit'])
+    const seenBy = async (viewer: Session) =>
+      (await viewer.api('GET', '/directory')).json.entries.find(
+        (entry: any) => entry.member.id === ana.me.member.id,
+      ).presence
+    expect(await seenBy(ben)).toEqual({
+      humanOnline: false,
+      agentOnline: true,
+      agentUnavailable: { until: 9_000 },
+    })
+    expect((await seenBy(ana)).agentUnavailable).toEqual({ until: 9_000, kind: 'usage_limit' })
+    await anaAgent.api('POST', '/me/desk/available', {})
+    expect((await seenBy(ben)).agentUnavailable).toBeUndefined()
+    desk.abort()
+  })
+
+  it('refuse a kind of unavailability the server does not know', async () => {
+    expect((await anaAgent.api('POST', '/me/desk/unavailable', { kind: 'bored' })).status).toBe(400)
   })
 
   it('give out the public push key, the same every time', async () => {

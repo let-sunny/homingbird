@@ -1,4 +1,4 @@
-import type { AsRead, MemberId, Presence } from '@homingbird/protocol'
+import type { AsRead, MemberId } from '@homingbird/protocol'
 import { archivedRooms, channelOfRoom, channelRooms, peopleConversations } from '../channels.ts'
 import { featureOn } from '../features.ts'
 import { type Route, hrefFor } from '../routes.ts'
@@ -114,7 +114,7 @@ export interface ConversationRow {
     | { readonly kind: 'group'; readonly faces: ReadonlyArray<AvatarModel> }
     | { readonly kind: 'member'; readonly avatar: AvatarModel }
   readonly title: string
-  readonly presence: Presence | null
+  readonly presence: AsRead.Presence | null
   readonly archived: boolean
   readonly channel: { readonly memberCount: number; readonly helperCount: number } | null
   readonly preview: string

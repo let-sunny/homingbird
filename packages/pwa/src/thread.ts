@@ -96,8 +96,10 @@ export interface PresenceChange {
   readonly memberId: MemberId
   readonly humanOnline: boolean
   readonly agentOnline: boolean
+  readonly agentUnavailable?: { readonly until: number | null }
 }
 
+/** Presence as it changed; the reason the person's own agent cannot answer is kept until the directory reloads. */
 export const withPresence = (
   entries: ReadonlyArray<AsRead.DirectoryEntry>,
   changes: ReadonlyArray<PresenceChange>,
@@ -105,9 +107,7 @@ export const withPresence = (
   const changed = new Map(changes.map((change) => [change.memberId, change]))
   return entries.map((entry) => {
     const presence = changed.get(entry.member.id)
-    return presence === undefined
-      ? entry
-      : { ...entry, presence: { humanOnline: presence.humanOnline, agentOnline: presence.agentOnline } }
+    return presence === undefined ? entry : { ...entry, presence: presenceAfter(entry.presence, presence) }
   })
 }
 
@@ -231,6 +231,17 @@ export const alternativesLeftAfterSending = (
 export const excerpt = (text: string, length = 80): string => {
   const singleLine = text.replace(/\s+/g, ' ').trim()
   return singleLine.length <= length ? singleLine : `${singleLine.slice(0, length - 1)}…`
+}
+
+const presenceAfter = (before: AsRead.Presence, change: PresenceChange): AsRead.Presence => {
+  const { humanOnline, agentOnline, agentUnavailable } = change
+  if (agentUnavailable === undefined) return { humanOnline, agentOnline }
+  const kind = before.agentUnavailable?.kind
+  return {
+    humanOnline,
+    agentOnline,
+    agentUnavailable: { ...agentUnavailable, ...(kind !== undefined && { kind }) },
+  }
 }
 
 const ARCHIVED_SUFFIX = / \(archived\)$/

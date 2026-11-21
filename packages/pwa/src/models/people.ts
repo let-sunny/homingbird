@@ -1,4 +1,4 @@
-import type { AsRead, MemberId, Presence, Relation } from '@homingbird/protocol'
+import type { AsRead, MemberId, Relation } from '@homingbird/protocol'
 import { channelLabel, chipsForPerson } from '../channels.ts'
 import { groupLabel, teamsByLabel, teamsOf } from '../groups.ts'
 import { shownRelation } from '../relations.ts'
@@ -75,7 +75,7 @@ export interface PersonCard {
   readonly name: string
   readonly relation: { readonly kind: Relation; readonly text: string } | null
   readonly email: string
-  readonly presence: Presence
+  readonly presence: AsRead.Presence
   readonly channels: {
     readonly first: ReadonlyArray<string>
     readonly rest: ReadonlyArray<string>

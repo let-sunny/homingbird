@@ -1,21 +1,13 @@
-import type { AsRead, MemberId, Presence } from '@homingbird/protocol'
+import type { AsRead, MemberId } from '@homingbird/protocol'
+import { deskUnavailableReason } from '../presence.ts'
 import { strings } from '../strings.ts'
 import { dateTimeText } from './time.ts'
 
 /** Connection: whether the desk is awake, the person's credentials, and the channels its agent answers. */
-export const connectionModel = (input: ConnectionInput): ConnectionModel => ({
-  presence: input.directory.find((entry) => entry.member.id === input.viewerId)?.presence ?? null,
-  credentials:
-    input.credentials === null
-      ? null
-      : {
-          noAgents: !input.credentials.some(
-            (credential) => credential.kind === 'agent' && credential.revokedAt === null,
-          ),
-          rows: input.credentials.map(credentialRow),
-        },
-  helped: helpedChannels(input),
-})
+export const connectionModel = (input: ConnectionInput): ConnectionModel => {
+  const presence = input.directory.find((entry) => entry.member.id === input.viewerId)?.presence ?? null
+  return { presence, unavailable: deskUnavailableReason(presence), ...credentialsAndChannels(input) }
+}
 
 /** The channels where the person's agent answers, as colleagues see them. */
 export const helpedChannels = (
@@ -34,7 +26,9 @@ export interface ConnectionInput {
 }
 
 export interface ConnectionModel {
-  readonly presence: Presence | null
+  readonly presence: AsRead.Presence | null
+  /** Why the person's running desk cannot answer, and when it tries again; empty while it can. */
+  readonly unavailable: ReadonlyArray<string>
   readonly credentials: { readonly noAgents: boolean; readonly rows: ReadonlyArray<CredentialRow> } | null
   readonly helped: ReadonlyArray<string>
 }
@@ -78,4 +72,17 @@ const credentialRow = (credential: AsRead.Credential): CredentialRow => ({
   revokeBody: credential.current
     ? strings.revokeCurrentBody({ name: credential.name })
     : strings.revokeBody({ name: credential.name }),
+})
+
+const credentialsAndChannels = (input: ConnectionInput) => ({
+  credentials:
+    input.credentials === null
+      ? null
+      : {
+          noAgents: !input.credentials.some(
+            (credential) => credential.kind === 'agent' && credential.revokedAt === null,
+          ),
+          rows: input.credentials.map(credentialRow),
+        },
+  helped: helpedChannels(input),
 })

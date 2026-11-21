@@ -21,10 +21,10 @@ import {
   MINIMAL_READER_WARNING,
   SAME_READER_REFUSED,
   SAME_READER_WARNING,
-  UNABLE_TO_ANSWER,
   attachedServer,
   runnerClient,
 } from '../src/commands/run.ts'
+import { ANSWERS_AGAIN, RETRY_UNAVAILABLE_MS, unavailableLine } from '../src/desk-availability.ts'
 import {
   DESK_CLAIM_RETRY_MS,
   DESK_CLAIM_STALE_MS,
@@ -60,6 +60,7 @@ import {
   type Stubs,
   type World,
   conversationOf,
+  currentServer,
   noteOf,
   requestOf,
   textOutsideWrappers,
@@ -388,26 +389,108 @@ describe('homingbird run', () => {
     await r.stop()
   })
 
-  it('says once that the agent seems unable to answer when 3 runs fail in a row, and again after one answers', async () => {
-    const notes = Array.from({ length: 6 }, (_, index) => noteOf({ id: NoteId.of(`question000${index}`) }))
+  it('stops picking up notes after 3 failures in a row, says so once, and tries again on a note 15 minutes later', async () => {
+    const notes = questions(5)
     const r = runner({
-      stubs: {
-        'inbox.list': once(
-          { items: notes.map((note) => ({ note, author: BEN, conversation: conversationOf() })) },
-          { items: [] },
-        ),
-      },
+      stubs: freshInbox(notes),
       agent: () =>
-        r.w.agentRuns.length === 5 ? { exitCode: 0, output: 'Yes.' } : { exitCode: 1, output: '' },
+        r.w.agentRuns.length === 4 ? { exitCode: 0, output: 'Yes.' } : { exitCode: 1, output: '' },
     })
-    await settle(() => r.w.agentRuns.length === 6 && r.released.length === 5)
+    await settle(() => r.released.length === 3 && r.availability.length === 1)
     expect(r.w.problems).toEqual([
       `The agent command exited with code 1; nothing was drafted for the note ${notes[0]!.id}.`,
       `The agent command exited with code 1; nothing was drafted for the note ${notes[1]!.id}.`,
-      UNABLE_TO_ANSWER,
-      `The agent command exited with code 1; nothing was drafted for the note ${notes[5]!.id}.`,
+      unavailableLine({ kind: 'failed', until: null, triedAt: 0 }, String),
     ])
+    expect(r.availability).toEqual([{ kind: 'failed' }])
+    r.push({ type: 'note.sent', note: notes[3]! })
+    await settle(() => r.w.calls.filter((call) => call.route === 'inbox.list').length === 2)
+    expect(r.w.agentRuns).toHaveLength(3)
+    await r.w.clock.advance(RETRY_UNAVAILABLE_MS)
+    r.push({ type: 'note.sent', note: notes[3]! })
+    await settle(() => r.w.agentRuns.length === 5)
+    expect(r.released).toHaveLength(4)
     expect(r.created).toHaveLength(1)
+    expect(r.availability).toEqual([{ kind: 'failed' }, 'available'])
+    expect(r.w.lines).toContain(ANSWERS_AGAIN)
+    expect(r.w.problems.slice(3)).toEqual([
+      `The agent command exited with code 1; nothing was drafted for the note ${notes[4]!.id}.`,
+    ])
+    await r.stop()
+  })
+
+  it('says at once when the agent reached its usage limit, gives the note back saying so, and tries again when it resets', async () => {
+    const resets = 1_700_003_600
+    const notes = questions(2)
+    const r = runner({
+      stubs: freshInbox(notes),
+      agent: () =>
+        r.w.agentRuns.length === 1
+          ? { exitCode: 1, output: '', errors: `Claude AI usage limit reached|${resets}` }
+          : { exitCode: 0, output: 'Yes.' },
+    })
+    await settle(() => r.availability.length === 1)
+    expect(r.availability).toEqual([{ kind: 'usage_limit', until: resets * 1000 }])
+    expect(r.released).toEqual([{ reason: 'the agent command reached its usage limit' }])
+    expect(r.w.agentRuns).toHaveLength(1)
+    await r.w.clock.advance(resets * 1000 - r.w.clock.now() + 60_000)
+    await settle(() => r.created.length === 1)
+    expect(r.availability).toEqual([{ kind: 'usage_limit', until: resets * 1000 }, 'available'])
+    await r.stop()
+  })
+
+  it('says again that its agent cannot answer when its stream reconnects, since the server forgot', async () => {
+    const r = runner({
+      stubs: freshInbox(questions(1)),
+      agent: () => ({ exitCode: 1, output: '', errors: 'Error: not logged in' }),
+    })
+    await settle(() => r.availability.length === 1)
+    r.push({ type: 'resync' })
+    await settle(() => r.availability.length === 2)
+    expect(r.availability).toEqual([{ kind: 'signed_out' }, { kind: 'signed_out' }])
+    expect(r.w.agentRuns).toHaveLength(1)
+    await r.stop()
+  })
+
+  it('takes the agent at its word when its limit resets and no note waits to try', async () => {
+    const resets = 1_700_003_600
+    const r = runner({
+      stubs: freshInbox(questions(1)),
+      agent: () => ({ exitCode: 1, output: '', errors: `Claude AI usage limit reached|${resets}` }),
+    })
+    await settle(() => r.availability.length === 1)
+    await r.w.clock.advance(resets * 1000 - r.w.clock.now() + 60_000)
+    await settle(() => r.availability.length === 2)
+    expect(r.availability.at(-1)).toBe('available')
+    await r.stop()
+  })
+
+  it('never drafts a usage-limit notice printed in place of an answer', async () => {
+    const r = runner({
+      stubs: freshInbox(questions(1)),
+      agent: () => ({ exitCode: 0, output: 'Claude AI usage limit reached|1700003600\n' }),
+    })
+    await settle(() => r.released.length === 1)
+    expect(r.created).toEqual([])
+    expect(r.released).toEqual([{ reason: 'the agent command reached its usage limit' }])
+    await r.stop()
+  })
+
+  it('tells nothing to a server that does not show whether an agent can answer', async () => {
+    const r = runner({
+      stubs: {
+        ...freshInbox(questions(1)),
+        'server.info': () => ({
+          ...currentServer(),
+          features: { ...currentServer().features, deskAvailability: false },
+        }),
+      },
+      agent: () => ({ exitCode: 1, output: '', errors: 'Error: not logged in' }),
+    })
+    await settle(() => r.released.length === 1)
+    expect(r.released).toEqual([{ reason: 'the agent command is signed out' }])
+    expect(r.w.problems.at(-1)).toBe(unavailableLine({ kind: 'signed_out', until: null, triedAt: 0 }, String))
+    expect(r.availability).toEqual([])
     await r.stop()
   })
 
@@ -1023,3 +1106,22 @@ describe('homingbird run on a paused desk', () => {
     await r.stop()
   })
 })
+
+const questions = (count: number) =>
+  Array.from({ length: count }, (_, index) => noteOf({ id: NoteId.of(`question000${index}`) }))
+
+/** The inbox as the server shows a desk with `fresh`: the notes it has not picked up yet. */
+const freshInbox = (notes: ReadonlyArray<ReturnType<typeof noteOf>>) => {
+  const picked = new Set<string>()
+  return {
+    'inbox.list': () => ({
+      items: notes
+        .filter((note) => !picked.has(note.id))
+        .map((note) => ({ note, author: BEN, conversation: conversationOf() })),
+    }),
+    'notes.pickup': (request: { params: { id: string } }) => {
+      picked.add(request.params.id)
+      return QUESTION
+    },
+  } as never as Stubs
+}

@@ -1311,3 +1311,36 @@ several people. So Homingbird stays on the side that runs the vendor's own progr
   server would be sharing that account.
 - **Not a legal opinion.** Terms change; the guide links each vendor's own page, and a person checks
   their plan's terms before running a desk around the clock.
+
+## A running desk whose agent cannot answer is a third state, not offline
+
+When a person's model plan ran out or their agent program signed out, the desk kept running: it showed
+as awake, picked up every arriving note and gave each back. Colleagues saw "drafting reply" and then
+nothing. Now the desk says its agent cannot answer, and everyone sees that honestly.
+
+- **A third state, because neither existing one is true.** "Not awake" means no desk runs, and a person
+  fixes it by starting one; here the desk runs and only the model is unusable, so starting it again
+  changes nothing. "Awake" promises a draft right away. So presence carries `agentUnavailable` beside
+  `agentOnline`, read only while an agent holds a stream: when the desk stops, the ordinary "not awake"
+  applies.
+- **The desk decides, best effort.** `homingbird run` reads what a failed run wrote, its error output
+  and what it printed, for each vendor's wording: Claude Code's "usage limit reached|<epoch>" and
+  "resets 3pm", Codex's "You've hit your usage limit", a 429 or a rate limit for API keys, and the
+  sign-in failures (`agent-availability.ts`). Vendors change their wording, so the dependable rule is
+  the count: three failed runs in a row mean the agent cannot answer, with kind `failed`. A usage-limit
+  notice printed in place of an answer, which some programs exit cleanly with, is a failure too, so it
+  never becomes a draft.
+- **While unavailable, the desk leaves notes delivered.** It picks up nothing, so a colleague's note
+  waits as `delivered` instead of showing "drafting reply" for a draft that will not come. It tries once
+  at the reset time when the agent said one, and otherwise on the next arriving note at most every 15
+  minutes; a run that answers clears the state. With nothing waiting at the reset time, the desk takes
+  the agent at its word and clears it. A draft request is always tried, since the person asked.
+- **What colleagues see is only that, and until when.** The `me.desk.unavailable` body names the kind
+  and the time; Dovecote shows colleagues `{ until }` only, and the kind (usage limit, signed out,
+  command failing) only to the person themself, in the directory entry they read about themself. Never
+  the vendor, the program, or anything the command wrote. The person gets one push when it starts.
+- **In memory, beside presence.** The state lives in the hub, like presence and the visible pages, which
+  fits the one instance Dovecote supports. It goes when the member's last agent stream closes and on
+  `me.desk.available`; a desk whose stream reconnects, after a drop or a server restart, says it again. The routes
+  are `member`, called by the desk itself and by no model-facing tool, and the feature
+  `deskAvailability`, on by default, turns them off.

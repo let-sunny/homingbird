@@ -34,7 +34,7 @@ import { DeskWake, DeskWakeSetup, DeskWakeTest } from './desk-wake.ts'
 import type { ApiError } from './errors.ts'
 import { StreamEvent } from './events.ts'
 import { GROUP_MEMBERS_MAX, Group, GroupName } from './groups.ts'
-import { ConversationId, CredentialId, DraftRequestId, GroupId, MemberId, NoteId } from './ids.ts'
+import { ConversationId, CredentialId, DraftRequestId, GroupId, MemberId, NoteId, Timestamp } from './ids.ts'
 import { AgentReport, ChannelAgentReport, OrganizationInsights, PlaceName } from './insights.ts'
 import {
   AgentLabel,
@@ -48,6 +48,7 @@ import {
   Conversation,
   Credential,
   DRAFT_INSTRUCTION_MAX,
+  DeskUnavailableKind,
   DirectoryEntry,
   DraftRequest,
   Locale,
@@ -755,6 +756,21 @@ export const contract = {
     method: 'GET',
     path: '/presence/heartbeat',
     access: 'member',
+    response: Empty,
+  }),
+  /** A running desk says its agent cannot answer now; colleagues see only that, and until when. */
+  'me.desk.unavailable': route({
+    method: 'POST',
+    path: '/me/desk/unavailable',
+    access: 'member',
+    body: S.struct({ kind: DeskUnavailableKind, until: S.optional(Timestamp) }),
+    response: Empty,
+  }),
+  'me.desk.available': route({
+    method: 'POST',
+    path: '/me/desk/available',
+    access: 'member',
+    body: Empty,
     response: Empty,
   }),
   'push.test': route({

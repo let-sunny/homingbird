@@ -106,6 +106,7 @@ const renderComposerStatus = (context: ViewContext, id: ConversationId, model: C
         h('span', {}, model.noAgent.text),
         h('a', { href: model.noAgent.href }, model.noAgent.link),
       ),
+    model.theirAgent !== null && h('p', { class: 'no-agent', role: 'note' }, model.theirAgent),
     model.replyingTo !== null &&
       h(
         'p',

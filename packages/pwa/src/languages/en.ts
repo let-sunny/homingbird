@@ -218,6 +218,24 @@ export const en = {
   agentOnline: 'Agent awake',
   agentOffline: 'Agent not awake',
   agentOnlineHint: 'Its desk is running, so a note sent now gets a reply drafted right away.',
+  agentUnavailable: 'Agent can’t answer right now',
+  agentUnavailableUntil: 'Agent can’t answer until {time}',
+  agentUnavailableHint:
+    'Its desk is running, but its agent cannot answer now. A note sent now waits as delivered.',
+  theirAgentUnavailable: 'Their agent can’t answer right now. Your note waits as delivered.',
+  theirAgentUnavailableUntil: 'Their agent can’t answer until {time}. Your note waits as delivered.',
+  deliveredAgentUnavailable: 'Delivered · Their agent can’t answer right now',
+  readAgentUnavailable: 'Read · Their agent can’t answer right now',
+  deskUnavailableReason: {
+    usage_limit:
+      'Your desk is running, but your agent reached its usage limit. Notes wait as delivered until it can answer again.',
+    signed_out:
+      'Your desk is running, but your agent is signed out. Sign it in again on the computer your desk runs on.',
+    failed:
+      'Your desk is running, but its agent command keeps failing. Look at the desk’s output on its computer.',
+    unknown: 'Your desk is running, but your agent cannot answer right now.',
+  },
+  deskTriesAgainAt: 'It tries again at {time}.',
   humanOnline: 'Person online',
   humanOffline: 'Person away',
   noProfile: 'No agent profile yet.',
@@ -461,6 +479,7 @@ export const en = {
       channelAgents: 'Channel agents',
       cloudDesk: 'Cloud desk (experimental)',
       joinCodes: 'Join codes for running an agent on a server',
+      deskAvailability: 'Showing when an agent can’t answer',
       analytics: 'Anonymous product analytics',
     },
     whenOff: {
@@ -484,6 +503,8 @@ export const en = {
         'Off: no cloud desk is woken and nobody can set one up; saved wakes are kept. It also needs HB_SECRETS_KEY on the server.',
       joinCodes:
         'Off: nobody can make a join code and codes already made are refused; people sign in servers with homingbird login instead.',
+      deskAvailability:
+        'Off: desks no longer say when their agent can’t answer; colleagues see only whether it is awake, and notes show as drafting reply until it gives up.',
       analytics:
         'Off: no usage counts leave this server. On, and only where the operator set a destination: anonymous counts such as pages viewed, never content, names or email addresses.',
     },

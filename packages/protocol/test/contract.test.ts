@@ -187,6 +187,8 @@ describe('contract', () => {
         'push.key',
         'analytics.track',
         'presence.heartbeat',
+        'me.desk.unavailable',
+        'me.desk.available',
         'events.poll',
       ].sort(),
     )
