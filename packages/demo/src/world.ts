@@ -5,6 +5,7 @@ import type {
   ConversationKind,
   Credential,
   Debate,
+  DraftRequest,
   EventBody,
   GroupId,
   GroupKind,
@@ -92,6 +93,13 @@ export interface Records {
   readonly notices: ReadonlyArray<NoticeRecord>
   /** Invite links still waiting; nobody can redeem one in a demo that lives in a single page. */
   readonly invites: ReadonlyArray<Invite>
+  /** What people asked their own agent to draft from the web client. */
+  readonly draftRequests: ReadonlyArray<DraftRequestRecord>
+}
+
+export interface DraftRequestRecord {
+  readonly request: DraftRequest
+  readonly memberId: MemberId
 }
 
 export interface NoticeRecord {
