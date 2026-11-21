@@ -215,6 +215,19 @@ describe('liveEvents', () => {
     expect(page.visited).toHaveLength(1)
   })
 
+  it('tells the page of everything one event changed at once', () => {
+    const { apply, state } = live()
+    state.conversations.set([conversation()])
+    state.threads.set(new Map([[ROOM, { notes: [], hasMore: false }]]))
+    const heard: string[] = []
+    const redraw = (): void =>
+      void heard.push(`${state.conversations.get().length} ${state.threads.get().size}`)
+    state.conversations.subscribe(redraw)
+    state.threads.subscribe(redraw)
+    apply(event({ type: 'channel.left', slug: 'billing', conversationId: ROOM }))
+    expect(heard).toEqual(['0 0'])
+  })
+
   it('reloads a debate room shown, or the list', async () => {
     const { apply, state, routes } = live()
     apply(event({ type: 'debate.changed', debateId: 'd1', participantIds: [] }))

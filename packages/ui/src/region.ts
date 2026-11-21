@@ -15,16 +15,26 @@ export const lifetime = (): Lifetime => {
   }
 }
 
+/**
+ * An element whose content is drawn again whenever one of its sources changes. Each drawing gets a
+ * lifetime of its own that ends when it is replaced, so what it subscribes to goes with it.
+ */
 export const region = (
   life: Lifetime,
   sources: ReadonlyArray<ReadableSignal<unknown>>,
-  render: () => Child,
+  render: (drawing: Lifetime) => Child,
   properties: { readonly class?: string; readonly data?: Readonly<Record<string, string>> } = {},
 ): HTMLElement => {
   const host = h('div', { ...properties, class: properties.class ?? 'region' })
-  const draw = (): void => replaceChildren(host, render())
+  let drawing = lifetime()
+  const draw = (): void => {
+    drawing.end()
+    drawing = lifetime()
+    replaceChildren(host, render(drawing))
+  }
   draw()
   life.add(onAnyChange(sources, draw))
+  life.add(() => drawing.end())
   return host
 }
 

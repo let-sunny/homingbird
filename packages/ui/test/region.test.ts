@@ -32,6 +32,22 @@ describe('region', () => {
     expect(host.textContent).toBe('count 2')
     expect(region(lifetime(), [], () => null, { class: 'x' }).className).toBe('x')
   })
+
+  it('ends each drawing’s lifetime when it is drawn again, and the last one with its own', () => {
+    const life = lifetime()
+    const count = signal(1)
+    const ended: number[] = []
+    region(life, [count], (drawing) => {
+      const shown = count.get()
+      drawing.add(() => ended.push(shown))
+      return String(shown)
+    })
+    count.set(2)
+    count.set(3)
+    expect(ended).toEqual([1, 2])
+    life.end()
+    expect(ended).toEqual([1, 2, 3])
+  })
 })
 
 describe('keyedRegion', () => {

@@ -1,12 +1,12 @@
 import type { AsRead, ConversationId, MemberId } from '@homingbird/protocol'
-import { type Lifetime, h, keyedRegion, region, signal } from '@homingbird/ui'
+import { type Lifetime, h, keyedRegion, region, signal, slice } from '@homingbird/ui'
 import { approvesQuicklyOften } from '../careful-reading.ts'
 import { channelOfRoom } from '../channels.ts'
 import { characterOf } from '../characters.ts'
 import { featureOn } from '../features.ts'
 import { MISSING } from '../missing.ts'
 import { type RoomReview, reviewsInRoomModel } from '../models/channel-agent.ts'
-import { composerModel } from '../models/composer.ts'
+import { type ComposerModel, composerModel } from '../models/composer.ts'
 import { draftsItemModel } from '../models/drafts-item.ts'
 import { noteItemModel } from '../models/note-item.ts'
 import {
@@ -91,8 +91,12 @@ export const threadView = (
     { type: 'button', class: 'newer-below', hidden: true },
     `↓ ${strings.newerBelow}`,
   )
-  const signatureOf = (item: RoomItem): string =>
-    JSON.stringify(item.type === 'review' ? item : [item, ...signatureParts(input(), item)])
+  const signatureOf = (item: RoomItem): string => {
+    if (item.type === 'review') return JSON.stringify(item)
+    const shown = input()
+    const drawn = item.type === 'note' ? noteItemModel(shown, item) : item
+    return JSON.stringify([drawn, ...signatureParts(shown, item)])
+  }
   const follow = followNewNotes(context, life, scroller, newerBelow, () =>
     items().map((item) => [item.key, signatureOf(item)] as const),
   )
@@ -158,17 +162,21 @@ export const threadView = (
   life.add(state.channels.subscribe(follow.afterDraw))
   life.add(state.members.subscribe(follow.afterDraw))
 
+  const threadTop = slice([state.threads], () => threadTopModel(input()))
+  const settledLine = slice([state.threads], () => {
+    focusedDraftShownOpen ||= isFocusedDraftOpen(input())
+    return settledDraftLine(input(), focusedDraftShownOpen)
+  })
   scroller.append(
-    region(life, [state.threads], () => {
-      const top = threadTopModel(input())
+    region(life, [threadTop], () => {
+      const top = threadTop.get()
       if (top.kind === 'loading') return loading()
       if (top.kind === 'older')
         return button(top.label, () => actions.loadOlderNotes(id), { class: 'load-older' })
       return top.kind === 'empty' && emptyWithPip('waving', top.text)
     }),
-    region(life, [state.threads], () => {
-      focusedDraftShownOpen ||= isFocusedDraftOpen(input())
-      const settled = settledDraftLine(input(), focusedDraftShownOpen)
+    region(life, [settledLine], () => {
+      const settled = settledLine.get()
       return settled !== null && h('p', { class: 'hint settled-draft', role: 'status' }, settled)
     }),
     list,
@@ -191,25 +199,23 @@ export const threadView = (
     state.draftRequests,
     state.members,
   ]
+  const head = slice(
+    [state.conversations, state.members, state.directory, state.channels, state.rosters],
+    () => threadHeadModel(input()),
+  )
+  const composerKind = slice([state.conversations], () => composerShape(composerModel(input())))
   const thread = h(
     'section',
     { class: 'thread' },
-    region(
-      life,
-      [state.conversations, state.members, state.directory, state.channels, state.rosters],
-      () => renderThreadHead(context, threadHeadModel(input())),
-      { class: 'thread-head' },
-    ),
+    region(life, [head], () => renderThreadHead(context, head.get()), { class: 'thread-head' }),
     scroller,
     newerBelow,
     featureOn('teaching', state.serverInfo.get()) && chancesIn(context, life, id),
     region(
       life,
-      [state.conversations],
-      () => composer(context, life, id, () => composerModel(input()), composerSources),
-      {
-        class: 'composer-host',
-      },
+      [composerKind],
+      (drawing) => composer(context, drawing, id, () => composerModel(input()), composerSources),
+      { class: 'composer-host' },
     ),
   )
   return region(life, [missing], () => (missing.get() ? missingConversation() : thread), {
@@ -221,6 +227,10 @@ type RoomItem = ThreadItem | RoomReview
 
 const FOCUSED_DRAFT = '.draft[aria-current="true"]'
 const FOCUSED_REVIEW = '.review-card[aria-current="true"]'
+
+/** What decides which composer is built: the person writes in an open room, and may ask their agent. */
+const composerShape = (model: ComposerModel): unknown =>
+  model.kind === 'archived' ? model : { kind: model.kind, asksAgent: model.asksAgent }
 
 const missingConversation = (): HTMLElement =>
   emptyWithPip(
@@ -234,7 +244,6 @@ const signatureParts = (input: ThreadInput, item: ThreadItem): unknown[] => [
   item.type === 'drafts' ? item.drafts.map((draft) => input.draftsRead.get(draft.id) ?? null) : null,
   peopleIn(input, item),
   roomState(input),
-  input.replyTarget,
   taughtTitles(input.taught),
   approvesQuicklyOften(input.agentReport),
   featureOn('noteDetails', input.serverInfo),

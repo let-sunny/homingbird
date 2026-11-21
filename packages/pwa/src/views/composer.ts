@@ -1,6 +1,6 @@
 import type { ConversationId } from '@homingbird/protocol'
 import type { ReadableSignal } from '@homingbird/ui'
-import { type Lifetime, h, region } from '@homingbird/ui'
+import { type Lifetime, h, region, slice } from '@homingbird/ui'
 import { type ComposerModel, bodyToSend } from '../models/composer.ts'
 import { strings } from '../strings.ts'
 import { replyTargetIn } from '../tasks/notes.ts'
@@ -50,6 +50,7 @@ export const composer = (
     }
   }
   reflectReachability()
+  const status = slice(sources, model)
   life.add(context.state.directory.subscribe(reflectReachability))
   life.add(context.state.conversations.subscribe(reflectReachability))
   return h(
@@ -63,7 +64,7 @@ export const composer = (
         },
       },
     },
-    region(life, sources, () => renderComposerStatus(context, id, model())),
+    region(life, [status], () => renderComposerStatus(context, id, status.get())),
     h('div', { class: 'composer-row' }, text, sendButton),
     h('small', { class: 'composer-hint' }, strings.composerHint),
     shown.asksAgent &&
