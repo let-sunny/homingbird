@@ -76,6 +76,10 @@ export const sidebarModel = (input: SidebarInput): SidebarModel => {
 /** Whether the list or the stage is shown on a narrow screen: the list only on home. */
 export const paneFor = (route: Route): 'list' | 'stage' => (route.name === 'home' ? 'list' : 'stage')
 
+/** The words of the link that skips past the header and the list to the composer, in a conversation. */
+export const skipLinkModel = (route: Route): string | null =>
+  route.name === 'conversation' ? strings.skipToComposer : null
+
 export interface Tab {
   readonly label: string
   readonly href: string

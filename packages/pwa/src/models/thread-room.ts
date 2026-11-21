@@ -110,6 +110,10 @@ export const channelAskedIn = (
   return slug === null ? null : (input.channels.find((channel) => channel.slug === slug) ?? null)
 }
 
+/** The name of the scrolling list of a conversation's notes, for a screen reader: whose notes they are. */
+export const threadNotesLabel = (input: ThreadInput): string =>
+  strings.threadNotes({ title: threadHeadModel(input).title })
+
 /** The head of a conversation: who it is with, or the channel with its counts and controls. */
 export const threadHeadModel = (input: ThreadInput): ThreadHead => {
   const conversation = roomOf(input)

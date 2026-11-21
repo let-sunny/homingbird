@@ -4,7 +4,10 @@ import { strings } from '../strings.ts'
 import { conversationTitle, excerpt } from '../thread.ts'
 import { type TimeShown, timeShown } from './time.ts'
 
-/** Search: a prompt before the first search, then what was found, newest as the server ordered it. */
+/**
+ * Search: a prompt before the first search, then what was found, newest as the server ordered it; each
+ * result opens its conversation at the note.
+ */
 export const searchModel = (input: SearchInput): SearchModel => {
   const found = input.results
   if (found === null) return { kind: 'prompt', text: strings.searchPrompt }
@@ -50,7 +53,7 @@ const resultRow = (input: SearchInput, note: AsRead.Note): SearchRow => {
       : conversationTitle(conversation, input.members, input.viewerId, strings.formerMember)
   const author = input.members.get(note.authorId)?.name ?? strings.formerMember
   return {
-    href: hrefFor({ name: 'conversation', id: note.conversationId, draft: null }),
+    href: hrefFor({ name: 'conversation', id: note.conversationId, draft: null, note: note.id }),
     author,
     title: title === '' || title === author ? null : title,
     time: timeShown(note.sentAt ?? note.createdAt, input.now),

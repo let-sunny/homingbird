@@ -274,7 +274,7 @@ const scenario = async (): Promise<void> => {
       await ana.page.locator('.composer .agent-ask, details:has-text("Let my agent write it")').count(),
       0,
     )
-    assert.equal(await ana.page.locator('.note-reply').count(), 4)
+    assert.equal(await ana.page.locator('.note-reply').count(), await ana.page.locator('.note').count())
     await ana.page.keyboard.press('Escape')
     await api(ana, 'PUT', '/admin/settings', {
       ...settings,

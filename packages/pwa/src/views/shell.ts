@@ -21,6 +21,7 @@ import {
   paneFor,
   searchLinkModel,
   sidebarModel,
+  skipLinkModel,
   tabsModel,
   userMenuModel,
 } from '../models/shell.ts'
@@ -66,8 +67,32 @@ export const shell = (
   }
   showPane()
   life.add(state.route.subscribe(showPane))
-  return h('div', { class: 'viewport' }, app, userMenu(context, me), activityPanel(context, life, me))
+  return h(
+    'div',
+    { class: 'viewport' },
+    skipLink(context, life),
+    app,
+    userMenu(context, me),
+    activityPanel(context, life, me),
+  )
 }
+
+/** Shown only once focused: in a conversation, the first Tab offers to go straight to writing a note. */
+const skipLink = (context: ViewContext, life: Lifetime): HTMLElement =>
+  region(
+    life,
+    [context.state.route],
+    () => {
+      const label = skipLinkModel(context.state.route.get())
+      return (
+        label !== null &&
+        button(label, () => context.document.find('.composer textarea:not([disabled])')?.focus(), {
+          class: 'skip-link visually-hidden',
+        })
+      )
+    },
+    { class: 'skip-link-host' },
+  )
 
 const USER_MENU_ID = 'user-menu'
 
