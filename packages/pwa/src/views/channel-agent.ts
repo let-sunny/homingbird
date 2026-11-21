@@ -90,7 +90,7 @@ export const channelAgentView = (
   )
 }
 
-/** The agent of a channel the person manages, its desks and the answers waiting: in a dialog or on its own page. */
+/** The answers waiting first, then the agent of a channel the person manages and its desks: in a dialog or on its own page. */
 const agentPanel = (
   context: ViewContext,
   life: Lifetime,
@@ -146,18 +146,6 @@ const agentPanel = (
   const panel = h(
     'div',
     { class: 'dialog-body channel-agent-panel' },
-    region(life, [loaded, state.channelAgents, state.members], () =>
-      renderPanel(
-        agentPanelModel(
-          agentState(loaded.get(), state.channelAgents.get(), channel.slug),
-          state.members.get(),
-        ),
-        context,
-        channel,
-        joinCodeFor,
-        retiring,
-      ),
-    ),
     region(life, [state.reviews, state.reviewsRead, state.members, decided], () => {
       const settled = decided.get()
       const model = reviewCardsModel(
@@ -195,6 +183,18 @@ const agentPanel = (
         ),
       )
     }),
+    region(life, [loaded, state.channelAgents, state.members], () =>
+      renderPanel(
+        agentPanelModel(
+          agentState(loaded.get(), state.channelAgents.get(), channel.slug),
+          state.members.get(),
+        ),
+        context,
+        channel,
+        joinCodeFor,
+        retiring,
+      ),
+    ),
     region(life, [figures], () =>
       renderFigures(channelAgentFiguresModel(figures.get(), channel.slug, FIGURES_DAYS)),
     ),
@@ -356,8 +356,15 @@ const nameForm = (label: string, value: string, save: (name: string) => void): H
   )
 }
 
-/** `decides` runs before the person sends or discards, so their own decision is not told back to them. */
-const reviewCard = (context: ViewContext, card: ReviewCard, decides: () => void): HTMLElement =>
+/**
+ * One answer waiting for review, on the agent's page or under its question in the room. `decides` runs
+ * before the person sends or discards, so their own decision is not told back to them.
+ */
+export const reviewCard = (
+  context: ViewContext,
+  card: ReviewCard,
+  decides: () => void = () => {},
+): HTMLElement =>
   h(
     'li',
     {
@@ -365,6 +372,7 @@ const reviewCard = (context: ViewContext, card: ReviewCard, decides: () => void)
       data: { note: card.review.note.id },
       ...(card.focused && { 'aria-current': 'true', tabindex: '-1' }),
     },
+    card.heading !== null && h('p', { class: 'review-heading hint' }, card.heading),
     card.privately !== null && h('span', { class: 'review-private' }, card.privately),
     card.question !== null &&
       h(

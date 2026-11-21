@@ -1,5 +1,6 @@
 import {
   type AsRead,
+  type ConversationId,
   type CredentialId,
   type DraftAsShown,
   type MemberId,
@@ -98,31 +99,53 @@ export const reviewCardsModel = (
   return {
     title: strings.channelAgent.reviewsTitle,
     none: shown.length === 0 ? strings.channelAgent.reviewsNone : null,
-    cards: shown.map((review) => {
-      const basis = draftBasisOf(review.note)
-      return {
-        review,
-        focused: review.note.id === focus,
-        question:
-          review.question === null
-            ? null
-            : {
-                from: strings.channelAgent.questionFrom({
-                  name: members.get(review.question.authorId)?.name ?? strings.formerMember,
-                }),
-                body: review.question.body,
-              },
-        privately: review.privately ? strings.channelAgent.askedPrivately : null,
-        body: review.note.body,
-        basis: basis?.kind === 'given' ? { title: strings.channelAgent.reliedOn, lines: basis.lines } : null,
-        readAgain: isChangedSinceRead(read, review.note)
-          ? { notice: strings.draftChangedSinceRead, confirm: strings.draftReadAgain }
-          : null,
-        send: strings.channelAgent.send,
-        discard: strings.channelAgent.discard,
-      }
-    }),
+    cards: shown.map((review) => reviewCardModel(review, read, members, focus, 'quoted')),
   }
+}
+
+/**
+ * The answers waiting for the person in one room, each under the question it answers. Only a reviewer
+ * holds them, as `reviews.list` gave them; one whose question the person asked is never shown to them.
+ * A question not loaded here keeps the answer at the end, quoted on its card.
+ */
+export const reviewsInRoomModel = <Item extends RoomItem>(
+  items: ReadonlyArray<Item>,
+  reviews: ReadonlyArray<AsRead.Review>,
+  room: { readonly conversationId: ConversationId; readonly viewerId: MemberId },
+  read: ReadonlyMap<NoteId, DraftAsShown>,
+  members: ReadonlyMap<MemberId, AsRead.Member>,
+  focus: string | null,
+): ReadonlyArray<Item | RoomReview> => {
+  const here = reviews.filter(
+    (review) =>
+      review.note.conversationId === room.conversationId &&
+      review.note.authorId !== room.viewerId &&
+      review.question?.authorId !== room.viewerId,
+  )
+  const questions = new Set(items.flatMap((item) => (item.type === 'note' ? [item.note.id] : [])))
+  const placed = Map.groupBy(
+    here.filter((review) => questions.has(questionOf(review) as NoteId)),
+    (review) => questionOf(review) as NoteId,
+  )
+  const asItem = (review: AsRead.Review, question: 'quoted' | 'above'): RoomReview => ({
+    type: 'review',
+    key: `review:${review.note.id}`,
+    card: {
+      ...reviewCardModel(review, read, members, focus, question),
+      heading: strings.channelAgent.waitsInRoom({ agent: review.agent.name }),
+    },
+  })
+  return [
+    ...items.flatMap(
+      (item): Array<Item | RoomReview> =>
+        item.type === 'note'
+          ? [item, ...(placed.get(item.note.id) ?? []).map((review) => asItem(review, 'above'))]
+          : [item],
+    ),
+    ...here
+      .filter((review) => !questions.has(questionOf(review) as NoteId))
+      .map((review) => asItem(review, 'quoted')),
+  ]
 }
 
 /**
@@ -140,16 +163,22 @@ export const decidedAnswerModel = (
   return strings.channelAgent.decided.sentBy({ name: members.get(approvedBy)?.name ?? strings.formerMember })
 }
 
-/** How many answers wait for the person, and a way to each channel they wait in; null for none. */
+/**
+ * How many answers wait for the person, and a way into each channel's room, at the first question whose
+ * answer waits there; a channel whose answers all wait in private questions leads to the first of those.
+ */
 export const reviewsWaitingModel = (reviews: ReadonlyArray<AsRead.Review>): ReviewsWaiting | null =>
   reviews.length === 0
     ? null
     : {
         text: strings.channelAgent.reviewsWaiting({ count: reviews.length }),
-        links: [...new Set(reviews.map((review) => review.channel))].map((slug) => ({
-          href: hrefFor({ name: 'channel-agent', slug, draft: null }),
-          label: strings.channelAgent.reviewIn({ channel: channelLabel(slug) }),
-        })),
+        links: [...new Set(reviews.map((review) => review.channel))].map((slug) => {
+          const first = firstWaitingIn(reviews, slug)
+          return {
+            href: hrefFor({ name: 'conversation', id: first.conversationId, draft: null, review: first.id }),
+            label: strings.channelAgent.reviewIn({ channel: channelLabel(slug) }),
+          }
+        }),
       }
 
 /** Beside a channel's agent's sent answer: where it answered and who approved it ("#payments-wiki · approved by Kim"). */
@@ -280,6 +309,7 @@ export interface ReviewCards {
 export interface ReviewCard {
   readonly review: AsRead.Review
   readonly focused: boolean
+  readonly heading: string | null
   readonly question: { readonly from: string; readonly body: string } | null
   readonly privately: string | null
   readonly body: string
@@ -289,7 +319,64 @@ export interface ReviewCard {
   readonly discard: string
 }
 
+/** What a room's list needs of an item to place an answer under its question. */
+export type RoomItem =
+  | { readonly type: 'note'; readonly key: string; readonly note: Pick<AsRead.Note, 'id'> }
+  | { readonly type: 'drafts'; readonly key: string }
+
+export interface RoomReview {
+  readonly type: 'review'
+  readonly key: string
+  readonly card: ReviewCard
+}
+
 export interface DeviceTargets {
   readonly label: string
   readonly choices: ReadonlyArray<{ readonly value: string; readonly label: string }>
+}
+
+const questionOf = (review: AsRead.Review): NoteId | null =>
+  review.note.inReplyTo ?? review.question?.id ?? null
+
+const firstWaitingIn = (reviews: ReadonlyArray<AsRead.Review>, slug: string): AsRead.Note => {
+  const inChannel = reviews
+    .filter((review) => review.channel === slug)
+    .sort(
+      (one, other) =>
+        Number(one.privately) - Number(other.privately) || one.note.createdAt - other.note.createdAt,
+    )
+  return inChannel[0]!.note
+}
+
+/** One answer waiting for review; its question is quoted on the card unless the card sits right under it. */
+const reviewCardModel = (
+  review: AsRead.Review,
+  read: ReadonlyMap<NoteId, DraftAsShown>,
+  members: ReadonlyMap<MemberId, AsRead.Member>,
+  focus: string | null,
+  question: 'quoted' | 'above',
+): ReviewCard => {
+  const basis = draftBasisOf(review.note)
+  return {
+    review,
+    focused: review.note.id === focus,
+    heading: null,
+    question:
+      review.question === null || question === 'above'
+        ? null
+        : {
+            from: strings.channelAgent.questionFrom({
+              name: members.get(review.question.authorId)?.name ?? strings.formerMember,
+            }),
+            body: review.question.body,
+          },
+    privately: review.privately ? strings.channelAgent.askedPrivately : null,
+    body: review.note.body,
+    basis: basis?.kind === 'given' ? { title: strings.channelAgent.reliedOn, lines: basis.lines } : null,
+    readAgain: isChangedSinceRead(read, review.note)
+      ? { notice: strings.draftChangedSinceRead, confirm: strings.draftReadAgain }
+      : null,
+    send: strings.channelAgent.send,
+    discard: strings.channelAgent.discard,
+  }
 }

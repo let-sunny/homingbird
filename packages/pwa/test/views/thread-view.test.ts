@@ -1,3 +1,4 @@
+import type { AsRead, MemberId } from '@homingbird/protocol'
 import { lifetime } from '@homingbird/ui'
 import { fire, getByRole, queryByRole, textOf } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
@@ -9,12 +10,15 @@ import { mount, usingFakeDom } from '../support/dom.ts'
 import {
   ANA,
   BEN,
+  CY,
   ROOM,
   channel,
   conversation,
   draft,
   entry,
+  everything,
   me,
+  member,
   note,
   serverInfo,
   taught,
@@ -22,12 +26,12 @@ import {
 
 usingFakeDom()
 
-const open = (focusedDraft: string | null = null) => {
+const open = (focusedDraft: string | null = null, focusedReview: string | null = null) => {
   const test = testContext()
   test.context.state.session.set(me())
   test.context.state.directory.set([entry(BEN, 'Ben')])
   test.context.state.conversations.set([conversation()])
-  const shown = mount(threadView(test.context, lifetime(), me(), ROOM, focusedDraft))
+  const shown = mount(threadView(test.context, lifetime(), me(), ROOM, focusedDraft, focusedReview))
   return { ...test, shown }
 }
 
@@ -180,5 +184,71 @@ describe('threadView', () => {
     page.runFrames()
     expect(shown.querySelector('[aria-current="true"]')).toBeNull()
     expect(document.activeElement).toBe(document.body)
+  })
+
+  describe('an answer of a channel’s agent waiting for the person’s review', () => {
+    const AGENT = 'mem_agent0000000' as MemberId
+    const question = note('note_q', { authorId: CY, body: 'Where is the runbook?', sentAt: 2 })
+    const review = (fields: Partial<AsRead.Review> = {}): AsRead.Review => ({
+      note: draft('note_answer', { authorId: AGENT, inReplyTo: question.id, body: 'In the wiki.' }),
+      question,
+      channel: 'payments-wiki',
+      agent: member(AGENT, 'Payments wiki', { kind: 'channel_agent' }),
+      privately: false,
+      ...fields,
+    })
+
+    it('sits under its question with Send and Discard, and is brought into view when a link opened it', () => {
+      const { context, called, shown, page } = open(null, 'note_answer')
+      context.state.serverInfo.set(serverInfo())
+      withNotes(context, [note('n1', { sentAt: 1 }), question, note('n3', { sentAt: 3 })])
+      context.state.reviews.set([review()])
+      const items = [...shown.querySelectorAll('.notes > li')]
+      expect(items.map((item) => item.getAttribute('data-note') ?? item.className.split(' ')[0])).toEqual([
+        'note',
+        'note',
+        'note_answer',
+        'note',
+      ])
+      const card = items[2] as HTMLElement
+      expect(card.classList.contains('room-review')).toBe(true)
+      expect(card.getAttribute('aria-current')).toBe('true')
+      expect(textOf(card)).toContain(strings.channelAgent.waitsInRoom({ agent: 'Payments wiki' }))
+      expect(textOf(card)).not.toContain('Where is the runbook?')
+      page.runFrames()
+      expect(document.activeElement).toBe(card)
+      getByRole(card, 'button', { name: strings.channelAgent.send }).click()
+      expect(called('sendReview')[0]!.args).toEqual([review(), null])
+      getByRole(card, 'button', { name: strings.channelAgent.discard }).click()
+      expect(called('discardReview')[0]!.args).toEqual([review()])
+    })
+
+    it('asks to read an answer again that the agent changed since the person read it', () => {
+      const { context, called, shown } = open()
+      withNotes(context, [question])
+      context.state.reviews.set([review()])
+      context.state.reviewsRead.set(new Map([[review().note.id, { body: 'Older', conversationId: ROOM }]]))
+      const card = shown.querySelector<HTMLElement>('.review-card')!
+      expect(queryByRole(card, 'button', { name: strings.channelAgent.send })).toBeNull()
+      getByRole(card, 'button', { name: strings.draftReadAgain }).click()
+      expect(called('confirmReviewRead')).toHaveLength(1)
+    })
+
+    it('shows nothing to the person who asked, and nothing when no answer waits for them', () => {
+      const { context, shown } = open()
+      withNotes(context, [note('mine', { authorId: ANA, sentAt: 2 })])
+      context.state.reviews.set([review({ question: note('mine', { authorId: ANA }) })])
+      expect(shown.querySelector('.review-card')).toBeNull()
+      context.state.reviews.set([])
+      expect(shown.querySelector('.review-card')).toBeNull()
+    })
+
+    it('loads the answers waiting when a link opened one of them', () => {
+      const test = testContext()
+      test.context.state.serverInfo.set(everything())
+      test.context.state.session.set(me())
+      mount(threadView(test.context, lifetime(), me(), ROOM, null, 'note_answer'))
+      expect(test.called('loadReviews')).toHaveLength(1)
+    })
   })
 })

@@ -144,6 +144,19 @@ describe('the agent panel', () => {
     expect(called('confirmReviewRead')).toHaveLength(1)
   })
 
+  it('lists the answers waiting before the agent’s setup', () => {
+    const { context, called, dialog } = opened()
+    called('loadChannelAgent')[0]!.then!.done!(undefined)
+    context.state.channelAgents.set(new Map([['payments-wiki', agentView()]]))
+    context.state.reviews.set([review()])
+    const sections = [...dialog.querySelectorAll('.reviews, .agent-name, .agent-desks')]
+    expect(sections.map((element) => element.className.split(' ').at(-1))).toEqual([
+      'reviews',
+      'agent-name',
+      'agent-desks',
+    ])
+  })
+
   it('says when nothing waits, and marks a private question', () => {
     const { context, dialog } = opened()
     expect(textOf(dialog)).toContain(strings.channelAgent.reviewsNone)
@@ -317,14 +330,14 @@ describe('the answer a stale notification opened', () => {
 })
 
 describe('reviewsWaiting', () => {
-  it('says how many answers wait and links to each channel’s page, and nothing when none waits', () => {
+  it('says how many answers wait and links into each channel’s room, and nothing when none waits', () => {
     const { context } = testContext()
     const shown = mount(reviewsWaiting(context, lifetime()))
     expect(textOf(shown)).toBe('')
     context.state.reviews.set([review()])
     expect(textOf(shown)).toContain('1 answer is waiting for you')
     expect(getByRole(shown, 'link', { name: 'Review in #payments-wiki' }).getAttribute('href')).toBe(
-      '#/channel/payments-wiki/agent',
+      '#/c/conv_room00000000?review=note_answer00000',
     )
   })
 })

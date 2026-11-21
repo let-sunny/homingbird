@@ -1356,6 +1356,8 @@ export const en = {
       other: '{count} answers are waiting for you',
     },
     questionFrom: 'Question from {name}',
+    waitsInRoom:
+      'Answer by {agent}, waiting for review. Only this channel’s managers see it until one of them sends it.',
     askedPrivately: 'Asked privately',
     reliedOn: 'What it relied on',
     send: 'Send',

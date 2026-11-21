@@ -5,6 +5,7 @@ import { channelOfRoom } from '../channels.ts'
 import { characterOf } from '../characters.ts'
 import { featureOn } from '../features.ts'
 import { MISSING } from '../missing.ts'
+import { type RoomReview, reviewsInRoomModel } from '../models/channel-agent.ts'
 import { composerModel } from '../models/composer.ts'
 import { draftsItemModel } from '../models/drafts-item.ts'
 import { noteItemModel } from '../models/note-item.ts'
@@ -22,22 +23,27 @@ import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 import { replyTargetIn } from '../tasks/notes.ts'
 import { type ThreadItem, threadItems } from '../thread.ts'
+import { reviewCard } from './channel-agent.ts'
 import { composer } from './composer.ts'
 import type { ViewContext } from './context.ts'
-import { renderDraftsItem } from './drafts-item.ts'
+import { renderDraftsItem, reportWhenSeen } from './drafts-item.ts'
 import { renderNoteItem } from './note-item.ts'
 import { button, emptyWithPip, loading } from './parts.ts'
 import { chancesIn } from './teaching.ts'
 import { renderThreadHead } from './thread-head.ts'
 import { followNewNotes, markReadWhenSeen } from './thread-scroll.ts'
 
-/** A conversation: its head, its notes and drafts as they come, the chances to teach, and the composer. */
+/**
+ * A conversation: its head, its notes and drafts as they come, the answers of a channel's agent the
+ * person reviews under their questions, the chances to teach, and the composer.
+ */
 export const threadView = (
   context: ViewContext,
   life: Lifetime,
   me: AsRead.Me,
   id: ConversationId,
   focusedDraft: string | null,
+  focusedReview: string | null = null,
 ): HTMLElement => {
   const { state, actions } = context
   const missing = signal(false)
@@ -48,6 +54,7 @@ export const threadView = (
   if (featureOn('teaching', state.serverInfo.get()) && state.taught.get() === null)
     actions.refreshPrinciples()
   if (featureOn('agentFigures', state.serverInfo.get())) actions.refreshAgentReport()
+  if (focusedReview !== null && featureOn('channelAgents', state.serverInfo.get())) actions.loadReviews()
   const input = (): ThreadInput => ({
     me,
     conversationId: id,
@@ -68,8 +75,15 @@ export const threadView = (
     now: context.clock.now(),
     focusedDraft,
   })
-  const items = (): ThreadItem[] =>
-    threadItems(state.threads.get().get(id)?.notes ?? [], state.draftRequests.get())
+  const items = (): ReadonlyArray<RoomItem> =>
+    reviewsInRoomModel(
+      threadItems(state.threads.get().get(id)?.notes ?? [], state.draftRequests.get()),
+      state.reviews.get(),
+      { conversationId: id, viewerId: me.member.id },
+      state.reviewsRead.get(),
+      state.members.get(),
+      focusedReview,
+    )
   const scroller = h('div', { class: 'thread-scroll', tabindex: '0' })
   const list = h('ol', { class: 'notes', 'aria-live': 'polite', 'aria-relevant': 'additions' })
   const newerBelow = h(
@@ -77,7 +91,8 @@ export const threadView = (
     { type: 'button', class: 'newer-below', hidden: true },
     `↓ ${strings.newerBelow}`,
   )
-  const signatureOf = (item: ThreadItem): string => JSON.stringify([item, ...signatureParts(input(), item)])
+  const signatureOf = (item: RoomItem): string =>
+    JSON.stringify(item.type === 'review' ? item : [item, ...signatureParts(input(), item)])
   const follow = followNewNotes(context, life, scroller, newerBelow, () =>
     items().map((item) => [item.key, signatureOf(item)] as const),
   )
@@ -89,6 +104,16 @@ export const threadView = (
       follow.bringIntoView(() => list.querySelector<HTMLElement>(FOCUSED_DRAFT))
     }
     return renderDraftsItem(context, model)
+  }
+  const review = (item: RoomReview): HTMLElement => {
+    if (!broughtIntoView && item.card.focused) {
+      broughtIntoView = true
+      follow.bringIntoView(() => list.querySelector<HTMLElement>(FOCUSED_REVIEW))
+    }
+    const element = reviewCard(context, item.card)
+    element.classList.add('room-review')
+    reportWhenSeen(context, element, item.card.review.note)
+    return element
   }
   const seen = markReadWhenSeen(context, life, scroller, me.member.id, id, (noteId) =>
     noteIn(input(), noteId),
@@ -109,6 +134,8 @@ export const threadView = (
       state.taught,
       state.agentReport,
       state.serverInfo,
+      state.reviews,
+      state.reviewsRead,
     ],
     items,
     {
@@ -120,7 +147,9 @@ export const threadView = (
           seen.watch(
             item.type === 'note'
               ? renderNoteItem(context, life, noteItemModel(input(), item), item.note, id)
-              : drafts(item),
+              : item.type === 'drafts'
+                ? drafts(item)
+                : review(item),
           ),
         ),
     },
@@ -188,7 +217,10 @@ export const threadView = (
   })
 }
 
+type RoomItem = ThreadItem | RoomReview
+
 const FOCUSED_DRAFT = '.draft[aria-current="true"]'
+const FOCUSED_REVIEW = '.review-card[aria-current="true"]'
 
 const missingConversation = (): HTMLElement =>
   emptyWithPip(

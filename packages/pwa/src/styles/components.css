@@ -4171,6 +4171,15 @@ textarea:disabled {
   background: var(--hb-color-surface);
 }
 
+.notes .room-review {
+  margin-inline-start: calc(2.5rem + var(--hb-space-2));
+  list-style: none;
+}
+
+.review-heading {
+  margin: 0;
+}
+
 .review-card[aria-current="true"] {
   border-color: var(--hb-color-accent-pressed);
   border-inline-start-width: var(--hb-border-rule);

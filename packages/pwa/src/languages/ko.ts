@@ -1308,6 +1308,8 @@ export const ko: Translation<typeof en> = {
     },
     reviewsWaiting: { other: '답 {count}개가 기다리고 있어요' },
     questionFrom: '{name} 님의 질문',
+    waitsInRoom:
+      '에이전트 {agent}의 답이 검토를 기다리고 있어요. 운영자 중 한 명이 보내기 전까지는 이 채널의 운영자만 볼 수 있어요.',
     askedPrivately: '비공개 질문',
     reliedOn: '근거',
     send: '보내기',
