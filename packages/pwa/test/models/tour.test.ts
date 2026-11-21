@@ -8,7 +8,7 @@ describe('tourStepModel', () => {
     expect(model).toMatchObject({
       id: 'notes',
       placement: 'beside',
-      progress: strings.tour.progress({ step: 1, total: 5 }),
+      progress: strings.tour.progress({ step: 1, total: 6 }),
       title: strings.tour.notesTitle,
       lookFor: null,
       connect: null,
@@ -17,14 +17,19 @@ describe('tourStepModel', () => {
     })
   })
 
-  it('offers to connect an agent on that step and names the place when the callout cannot point at it', () => {
+  it('shows the approval card second, and names the bell when it cannot point at a draft', () => {
     const model = tourStepModel(1, false)
-    expect(model.connect).toEqual({ href: '#/agent/connection', label: strings.tour.connectAction })
-    expect(model.lookFor).toBe(strings.tour.lookFor({ place: strings.navMyAgent }))
-    expect(model.back).toBe(strings.tour.back)
+    expect(model).toMatchObject({
+      id: 'approval',
+      title: strings.tour.approvalTitle,
+      body: strings.tour.approvalBody,
+      lookFor: strings.tour.lookFor({ place: strings.tour.activityPlace }),
+      connect: null,
+      back: strings.tour.back,
+    })
   })
 
-  it('names every step’s place and finishes on the last', () => {
+  it('names every step’s place and finishes by offering to connect an agent', () => {
     expect(tourStepModel(2, false).lookFor).toBe(strings.tour.lookFor({ place: strings.channels }))
     expect(tourStepModel(3, false)).toMatchObject({
       id: 'activity',
@@ -32,8 +37,10 @@ describe('tourStepModel', () => {
       title: strings.tour.activityTitle,
       lookFor: strings.tour.lookFor({ place: strings.tour.activityPlace }),
     })
-    const last = tourStepModel(4, false)
-    expect(last.lookFor).toBe(strings.tour.lookFor({ place: strings.tour.menuPlace }))
+    expect(tourStepModel(4, false).lookFor).toBe(strings.tour.lookFor({ place: strings.tour.menuPlace }))
+    const last = tourStepModel(5, false)
+    expect(last.connect).toEqual({ href: '#/agent/connection', label: strings.tour.connectAction })
+    expect(last.lookFor).toBe(strings.tour.lookFor({ place: strings.navMyAgent }))
     expect(last.next).toBe(strings.tour.done)
   })
 })

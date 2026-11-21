@@ -6,6 +6,7 @@ import {
   type PrincipleProblem,
   type PublicTextProblem,
   type SuggestedChange,
+  TRUST_MINIMUM_DECIDED,
   appliedTitlesIn,
   isSameTitle,
   isUnchangedSuggestion,
@@ -43,7 +44,7 @@ export const countsShown = (
   counts: PrincipleCounts,
 ): PrincipleCounts & { readonly sentAsWrittenShare: number | null } => ({
   ...counts,
-  sentAsWrittenShare: counts.applied >= SHARE_FROM ? counts.sentAsWritten / counts.applied : null,
+  sentAsWrittenShare: counts.applied >= TRUST_MINIMUM_DECIDED ? counts.sentAsWritten / counts.applied : null,
 })
 
 /** The host a source points to, shown beside it so a person sees where it leads. */
@@ -83,5 +84,3 @@ export const problemText = (problem: PrincipleProblem | PublicTextProblem | null
       : problem === 'rule_too_long'
         ? strings.teach.problems.rule_too_long({ max: PRINCIPLE_TEXT_MAX })
         : strings.teach.problems[problem]
-
-const SHARE_FROM = 5

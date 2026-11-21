@@ -253,6 +253,9 @@ messages only, or nothing ([guide](guide.md#turn-on-phone-notifications)).
 - Why a channel is or is not visible: for a person, the reason their access rests on (a member, a
   manager through a group, an administrator seeing that it exists), so "why can't I see it" has an
   answer without asking an administrator. The policy returns a tagged reason instead of a boolean.
+- Unanswered questions: a per-channel list of questions with no answer, reassigning a question to a
+  named person, and notifying managers when a review waits too long. Pilot evaluators found that a
+  question nobody answers, or an answer that waits for review, disappears from view today.
 
 ## Groups and channel agents
 
@@ -398,8 +401,10 @@ retry. Still to come:
 - Multi-node deployment: shared event fan-out through the database or a message broker.
 - Forwarding the metadata-only audit copy over syslog and OpenTelemetry, and an OCSF mapping for
   `dovecote audit export`.
-- A compliance export of the product's own data (notes, drafts, debate rooms) for legal hold, if an
-  organization asks for one: not the audit trail's job.
+- Note retention, export and erasure: a retention setting for notes and drafts, a person's export,
+  erasure of a leaver's notes, and an administrator's legal-hold export of the product's own data
+  (notes, drafts, debate rooms; not the audit trail's job). Pilot evaluators' legal review blocks a
+  rollout without them.
 - Ending a departed person's credentials without an administrator:
   needs the identity provider to tell Dovecote between sign-ins (a provider refresh token checked
   periodically, or a back-channel logout), which needs a decision on keeping provider tokens first.

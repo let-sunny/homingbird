@@ -92,7 +92,7 @@ describe('activityModel', () => {
       weight: 2,
       at: 7,
       place: {
-        text: strings.activity.inPlace({ place: 'Ben' }),
+        text: strings.activity.withPeople({ names: 'Ben' }),
         href: `#/c/${ROOM}?draft=note_d1`,
         label: strings.activity.openConversation,
       },

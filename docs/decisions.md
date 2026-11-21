@@ -174,6 +174,13 @@ states the decision first, then the reason. Add new entries at the top of their 
   pane and the docs, matching "desk" in English; 전용 세션 read as a description rather than a name
   and grew long in every sentence that used it. The other product words stay as recorded there, with
   principle → 원칙 and debate room → 토론방 added, and a person's name takes 님 ("Ana 님").
+- **The web client says "the program that runs your agent", not desk, except where it defines the
+  word; this narrows the entry above, which stays as history.** First-time evaluators read desk,
+  runner and always-on runner as three unexplained products, and a colleague's presence hint ("Its
+  desk is running") named something they had never set up. Desk (데스크) stays the term of the guide,
+  the plugin pane and the docs, defined once on My agent → Connection ("Your desk is the program that
+  runs your agent for Homingbird") and in the guide's first paragraph; the runner is named by its
+  command, `homingbird run`.
 - **Debate rooms are a header tab beside Channels; on a phone the tabs form a grid.** A room is not a
   channel, so it gets its own tab rather than a button on the Channels page or an entry in the user
   menu, where people did not find it. The tab reads "Debates" (토론방) to keep the row short; the

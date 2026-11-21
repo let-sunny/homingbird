@@ -37,6 +37,7 @@ export interface TourStepModel {
 
 const PLACEMENT: Readonly<Record<TourStepId, 'beside' | 'below'>> = {
   notes: 'beside',
+  approval: 'below',
   connect: 'below',
   channels: 'below',
   activity: 'below',
@@ -50,6 +51,11 @@ const STEP_TEXT: Readonly<
     title: strings.tour.notesTitle,
     body: strings.tour.notesBody,
     place: strings.conversations,
+  }),
+  approval: () => ({
+    title: strings.tour.approvalTitle,
+    body: strings.tour.approvalBody,
+    place: strings.tour.activityPlace,
   }),
   connect: () => ({
     title: strings.tour.connectTitle,

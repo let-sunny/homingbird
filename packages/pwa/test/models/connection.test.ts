@@ -1,6 +1,6 @@
 import type { AsRead } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
-import { connectionModel, helpedChannels } from '../../src/models/connection.ts'
+import { connectionModel, firstStepsModel, helpedChannels } from '../../src/models/connection.ts'
 import { formats, strings } from '../../src/strings.ts'
 import { ANA, channel, credential, entry } from '../support/fixtures.ts'
 
@@ -106,5 +106,34 @@ describe('helpedChannels', () => {
     ).toEqual(['billing'])
     expect(helpedChannels({ viewerId: ANA, directory, channels: [channel('billing')] })).toEqual(['ops'])
     expect(helpedChannels({ viewerId: ANA, directory: [], channels: [] })).toEqual([])
+  })
+})
+
+describe('firstStepsModel', () => {
+  it('lists how to connect a first agent until one is connected, and waits for the list', () => {
+    expect(
+      firstStepsModel({ credentials: null, origin: 'https://hb.example.com', joinCodes: true }),
+    ).toBeNull()
+    const steps = firstStepsModel({ credentials: [], origin: 'https://hb.example.com', joinCodes: true })!
+    expect(steps.title).toBe(strings.firstSteps.title)
+    expect(steps.steps.map((step) => step.text)).toEqual([
+      strings.firstSteps.plugin,
+      strings.firstSteps.commandLine,
+      strings.firstSteps.run,
+    ])
+    expect(steps.steps[1]!.command).toContain('homingbird login --server https://hb.example.com')
+    expect(steps.joinHint).toBe(strings.firstSteps.joinHint)
+    expect(steps.guide.href).toMatch(/^https:\/\/.*guide\.md#connect-an-agent$/)
+    expect(
+      firstStepsModel({ credentials: [], origin: 'https://hb.example.com', joinCodes: false })!.joinHint,
+    ).toBeNull()
+  })
+
+  it('counts a revoked agent as none, and stops once an agent is connected', () => {
+    const revoked = [credential('cred_old', { revokedAt: 3 }), credential('cred_web', { kind: 'human' })]
+    expect(firstStepsModel({ credentials: revoked, origin: 'x', joinCodes: false })).not.toBeNull()
+    expect(
+      firstStepsModel({ credentials: [credential('cred_agent')], origin: 'x', joinCodes: false }),
+    ).toBeNull()
   })
 })

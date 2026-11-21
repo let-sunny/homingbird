@@ -84,6 +84,7 @@ export interface PersonCard {
   readonly groups: ReadonlyArray<{ readonly label: string; readonly href: string }>
   readonly profile: { readonly open: boolean; readonly summary: string; readonly text: string }
   readonly agentIntroduction: ReadonlyArray<string>
+  readonly agentIntroductionTitle: string
   readonly actions: ReadonlyArray<PersonAction>
   /** What stays behind the card's ⋯ menu, blocking among it, so it never sits beside writing a note. */
   readonly more: { readonly label: string; readonly actions: ReadonlyArray<PersonAction> } | null
@@ -165,6 +166,7 @@ const personCard = (
       text: entry.member.profile || strings.noProfile,
     },
     agentIntroduction: entry.agentIntroduction ?? [],
+    agentIntroductionTitle: relation === 'self' ? strings.ownAgentIntroduction : strings.agentIntroduction,
     actions: actions.filter((one) => !IN_MENU.has(one.kind)),
     more:
       menu.length === 0 ? null : { label: strings.personMore({ name: entry.member.name }), actions: menu },

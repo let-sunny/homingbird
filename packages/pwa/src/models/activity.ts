@@ -179,12 +179,10 @@ const reviewItems = (input: ActivityInput): ActivityItem[] =>
         at: review.note.updatedAt,
         weight: 1,
         place: {
-          text: strings.activity.inPlace({
-            place:
-              room === undefined
-                ? channelLabel(review.channel)
-                : conversationTitle(room, input.members, input.me.member.id, strings.formerMember),
-          }),
+          text:
+            room === undefined
+              ? strings.activity.inPlace({ place: channelLabel(review.channel) })
+              : placeText(input, room),
           href: hrefFor({
             name: 'conversation',
             id: review.note.conversationId,
@@ -302,13 +300,19 @@ const placeOf = (
   href: string,
   at: number | null,
 ): ActivityPlace => ({
-  text: strings.activity.inPlace({
-    place: conversationTitle(room, input.members, input.me.member.id, strings.formerMember),
-  }),
+  text: placeText(input, room),
   href,
   label: strings.activity.openConversation,
   time: at === null ? null : timeShown(at, input.now),
 })
+
+/** "In #billing" for a channel, "With Kai Lin" for a direct or group message. */
+const placeText = (input: ActivityInput, room: AsRead.Conversation): string => {
+  const title = conversationTitle(room, input.members, input.me.member.id, strings.formerMember)
+  return room.kind === 'channel'
+    ? strings.activity.inPlace({ place: title })
+    : strings.activity.withPeople({ names: title })
+}
 
 const threadInputOf = (
   input: ActivityInput,

@@ -1,12 +1,13 @@
+import { TRUST_MINIMUM_DECIDED } from '@homingbird/protocol'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import {
   type AgentActivity,
   type AgentDraft,
   DAY_MS,
-  MINIMUM_DECIDED,
   agentFiguresIn,
   agentReportOf,
+  clientTotals,
   commonReasons,
   isQuickApproval,
   isQuickApprovalFrequent,
@@ -47,7 +48,7 @@ describe('verdictOf', () => {
     fc.assert(
       fc.property(counts, (decisions) => {
         const total = decisions.sentAsWritten + decisions.sentAfterEdits + decisions.discarded
-        expect(verdictOf(decisions) === 'too_few').toBe(total < MINIMUM_DECIDED)
+        expect(verdictOf(decisions) === 'too_few').toBe(total < TRUST_MINIMUM_DECIDED)
       }),
     )
   })
@@ -55,7 +56,9 @@ describe('verdictOf', () => {
   it('reads the same at any scale, because it depends on shares only', () => {
     fc.assert(
       fc.property(counts, fc.integer({ min: 2, max: 9 }), (decisions, factor) => {
-        fc.pre(decisions.sentAsWritten + decisions.sentAfterEdits + decisions.discarded >= MINIMUM_DECIDED)
+        fc.pre(
+          decisions.sentAsWritten + decisions.sentAfterEdits + decisions.discarded >= TRUST_MINIMUM_DECIDED,
+        )
         const scaled = {
           sentAsWritten: decisions.sentAsWritten * factor,
           sentAfterEdits: decisions.sentAfterEdits * factor,
@@ -338,12 +341,36 @@ describe('labelTotals', () => {
     ]
     const figures = agentFiguresIn({ ...nothing, drafts }, lastWeek, 3)
     expect(figures.byClient).toEqual([
-      { label: 'Claude Code', written: 2, sentAsWritten: 1, sentAfterEdits: 1, discarded: 0 },
+      {
+        label: 'Claude Code',
+        written: 2,
+        sentAsWritten: 1,
+        sentAfterEdits: 1,
+        discarded: 0,
+        models: ['claude-opus-5-5'],
+      },
       { label: 'codex via homingbird run', written: 1, sentAsWritten: 0, sentAfterEdits: 0, discarded: 1 },
     ])
     expect(figures.byModel.map((each) => [each.label, each.written])).toEqual([
       [null, 2],
       ['claude-opus-5-5', 1],
+    ])
+  })
+})
+
+describe('clientTotals', () => {
+  it('names the models stated for each program, most drafts first, and none where none was stated', () => {
+    const drafts: AgentDraft[] = [
+      { ...decided('as_written', null, 1), client: 'Claude Code', model: 'claude-sonnet-5-5' },
+      { ...decided('as_written', null, 2), client: 'Claude Code', model: 'claude-opus-5-5' },
+      { ...decided('edited', null, 3), client: 'Claude Code', model: 'claude-opus-5-5' },
+      { ...decided('edited', null, 4), client: 'Claude Code', model: 'claude-fable-5-2' },
+      { ...decided('discarded', null, 5), client: null, model: null },
+      { ...decided('discarded', null, 24 * 30), client: 'Claude Code', model: 'claude-haiku-5-5' },
+    ]
+    expect(clientTotals(drafts, lastWeek).map((each) => [each.label, each.models])).toEqual([
+      ['Claude Code', ['claude-opus-5-5', 'claude-fable-5-2', 'claude-sonnet-5-5']],
+      [null, undefined],
     ])
   })
 })

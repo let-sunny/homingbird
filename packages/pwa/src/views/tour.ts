@@ -12,6 +12,7 @@ import {
   mayStartTour,
   rememberTourSeen,
   stepAfter,
+  tourTargets,
 } from '../tour.ts'
 import type { Tour } from './context.ts'
 import { pip } from './pip.ts'
@@ -117,8 +118,11 @@ const tourCallout = (
 }
 
 const visibleTarget = (document: PageDocument, id: TourStepId): HTMLElement | null => {
-  const found = document.find(`[data-tour="${id}"]`)
-  return found?.checkVisibility() === true ? found : null
+  for (const target of tourTargets(id)) {
+    const found = document.find(`[data-tour="${target}"]`)
+    if (found?.checkVisibility() === true) return found
+  }
+  return null
 }
 
 const stepContent = (

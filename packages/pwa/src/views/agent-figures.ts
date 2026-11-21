@@ -141,7 +141,12 @@ export const renderLabelsTable = (table: LabelsTable | null): HTMLElement | null
                 h(
                   'tr',
                   {},
-                  h('th', { scope: 'row', title: row.title }, row.label),
+                  h(
+                    'th',
+                    { scope: 'row', title: row.title },
+                    row.label,
+                    row.models !== null && h('span', { class: 'label-models' }, row.models),
+                  ),
                   row.cells.map((cell) => h('td', {}, cell)),
                 ),
               ),

@@ -38,12 +38,11 @@ export const insightsModel = (insights: OrganizationInsights | null, days: numbe
   const current = period.current
   return {
     kind: 'insights',
-    warnings: [
-      ...(hasTeams(current) ? [] : [strings.insights.noTeams]),
-      ...(insights.minimumGroupSize <= 1
-        ? []
-        : [strings.insights.privacy({ minimum: insights.minimumGroupSize })]),
-    ],
+    groupRule:
+      insights.minimumGroupSize <= 1
+        ? strings.insights.minimumOne
+        : strings.insights.privacy({ minimum: insights.minimumGroupSize }),
+    warnings: hasTeams(current) ? [] : [strings.insights.noTeams],
     quickWarning: quickWarningModel(insights),
     tooFew: current === null ? strings.insights.tooFew({ minimum: insights.minimumGroupSize }) : null,
     figures:
@@ -87,6 +86,8 @@ export type InsightsModel =
   | { readonly kind: 'loading' }
   | {
       readonly kind: 'insights'
+      /** Which minimum group is in force, and what it means for one person's figures. */
+      readonly groupRule: string
       readonly warnings: ReadonlyArray<string>
       readonly quickWarning: string | null
       readonly tooFew: string | null

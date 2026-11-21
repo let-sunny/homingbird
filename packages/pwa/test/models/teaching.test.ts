@@ -54,7 +54,7 @@ describe('taughtModel', () => {
           principle('Release dates', {
             place: 'billing',
             source: 'https://wiki.example.com/releases',
-            counts: { applied: 6, sentAsWritten: 3, edited: 2, discarded: 1, missed: 2 },
+            counts: { applied: 12, sentAsWritten: 6, edited: 4, discarded: 2, missed: 2 },
             publicText: 'Knows release dates.',
           }),
           principle('Tone', { kind: 'answer', counts: null, origin: 'edit' }),
@@ -70,7 +70,7 @@ describe('taughtModel', () => {
       '#billing',
       strings.teach.origin.manual,
       strings.teach.sourceHost({ host: 'wiki.example.com' }),
-      strings.teach.appliedCounts({ count: 6, asWritten: 3, edited: 2, discarded: 1 }),
+      strings.teach.appliedCounts({ count: 12, asWritten: 6, edited: 4, discarded: 2 }),
       strings.teach.share({ share: '50%' }),
       strings.teach.missed({ count: 2 }),
     ])

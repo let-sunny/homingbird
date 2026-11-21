@@ -1,7 +1,13 @@
 import type { AsRead } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, region, signal } from '@homingbird/ui'
 import { featureOn } from '../features.ts'
-import { type ConnectionModel, type CredentialRow, connectionModel } from '../models/connection.ts'
+import {
+  type ConnectionModel,
+  type CredentialRow,
+  type FirstStepsModel,
+  connectionModel,
+  firstStepsModel,
+} from '../models/connection.ts'
 import { serviceBannerModel } from '../models/service-banner.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
@@ -34,16 +40,21 @@ export const connectionSection = (context: ViewContext, life: Lifetime, me: AsRe
   return h(
     'div',
     { class: 'agent-connection' },
-    region(life, [credentials], () =>
-      serviceBanner(
-        serviceBannerModel({
-          credentials: credentials.get(),
-          origin: context.page.origin,
-          now: context.clock.now(),
-          joinCodes: featureOn('joinCodes', state.serverInfo.get()),
-        }),
-      ),
-    ),
+    region(life, [credentials], () => {
+      const joinCodes = featureOn('joinCodes', state.serverInfo.get())
+      const origin = context.page.origin
+      const firstSteps = firstStepsModel({ credentials: credentials.get(), origin, joinCodes })
+      return firstSteps !== null
+        ? renderFirstSteps(firstSteps)
+        : serviceBanner(
+            serviceBannerModel({
+              credentials: credentials.get(),
+              origin,
+              now: context.clock.now(),
+              joinCodes,
+            }),
+          )
+    }),
     region(life, [state.directory], () => renderRecommendation(model())),
     featureOn('joinCodes', state.serverInfo.get()) && joinCodeSection(context, life, null),
     region(life, [state.agentReport], () => {
@@ -67,7 +78,6 @@ export const connectionSection = (context: ViewContext, life: Lifetime, me: AsRe
     ),
     featureOn('cloudDesk', state.serverInfo.get()) && cloudDeskSection(context, life, credentials),
     h('details', { class: 'have-a-code' }, h('summary', {}, strings.codeFallback), codeForm(context)),
-    h('p', { class: 'hint not-set-up' }, strings.notSetUp),
   )
 }
 
@@ -97,6 +107,22 @@ export const codeForm = (context: Pick<ViewContext, 'page'>): HTMLElement => {
     h('button', { type: 'submit', class: 'primary' }, strings.deviceContinue),
   )
 }
+
+const renderFirstSteps = (model: FirstStepsModel): HTMLElement =>
+  h(
+    'section',
+    { class: 'first-steps', 'aria-labelledby': 'first-steps' },
+    h('h3', { id: 'first-steps' }, model.title),
+    h(
+      'ol',
+      {},
+      model.steps.map((step) =>
+        h('li', {}, h('p', {}, step.text), h('pre', {}, h('code', {}, step.command))),
+      ),
+    ),
+    model.joinHint !== null && h('p', {}, model.joinHint),
+    h('a', { href: model.guide.href, target: '_blank', rel: 'noopener noreferrer' }, model.guide.label),
+  )
 
 const renderCredentials = (model: ConnectionModel, context: ViewContext, reload: () => void): Child => {
   if (model.credentials === null) return loading()

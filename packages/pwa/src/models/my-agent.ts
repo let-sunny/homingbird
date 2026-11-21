@@ -18,7 +18,7 @@ export const myAgentModel = (info: AsRead.ServerInfo | null, asked: AgentSection
       label: strings.trust.sections[section],
       current: section === shown,
     })),
-    shown: { section: shown, title: strings.trust.sections[shown] },
+    shown: { section: shown, title: strings.trust.sections[shown], hint: strings.trust.sectionHints[shown] },
     loadsReport: featureOn('agentFigures', info) && SECTIONS_READING_THE_REPORT.includes(shown),
     focusesHeading: asked !== null,
   }
@@ -32,7 +32,12 @@ export interface MyAgentModel {
     readonly label: string
     readonly current: boolean
   }>
-  readonly shown: { readonly section: AgentSection; readonly title: string }
+  readonly shown: {
+    readonly section: AgentSection
+    readonly title: string
+    /** One line under the heading that says what the section is for. */
+    readonly hint: string
+  }
   /** How it is doing draws the report, and Connection suggests a fresh session from it. */
   readonly loadsReport: boolean
   /** Whether the shown section's heading takes focus once drawn, as it does after choosing a tab. */

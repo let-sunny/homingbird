@@ -51,6 +51,7 @@ const renderMyAgent = (
         'aria-labelledby': headingId(model.shown.section),
       },
       h('h2', { id: headingId(model.shown.section), tabindex: '-1' }, model.shown.title),
+      h('p', { class: 'section-hint' }, model.shown.hint),
       ...content(model.shown.section),
     ),
   )
@@ -74,7 +75,6 @@ const sectionContent = (
         region(life, [context.state.agentReport], () =>
           renderYourWeek(yourWeekModel(context.state.agentReport.get())),
         ),
-        h('p', { class: 'trust-intro' }, strings.trust.intro),
         periodChoice('trust-period', days),
         region(
           life,

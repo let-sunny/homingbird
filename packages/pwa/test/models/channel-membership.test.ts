@@ -65,6 +65,7 @@ describe('answeringModel', () => {
       hintId: 'answering-billing',
       label: strings.answerHere,
       hint: strings.answerHereHint,
+      helpLabel: strings.answerHereHelp,
       checked: true,
       state: strings.switchOn,
     })

@@ -6,6 +6,7 @@ import {
   type PlaceTrust,
   QUICK_APPROVAL_SHARE,
   type SkipReason,
+  TRUST_MINIMUM_DECIDED,
   type TrustVerdict,
   type TrustWeek,
 } from '@homingbird/protocol'
@@ -66,7 +67,7 @@ export const agentReportOf = (
 ): AgentReport => ({
   generatedAt: now,
   quickApprovalSeconds,
-  minimumDecided: MINIMUM_DECIDED,
+  minimumDecided: TRUST_MINIMUM_DECIDED,
   periods: PERIOD_DAYS.map((days) => ({
     days,
     current: agentFiguresIn(activity, periodEndingAt(now, days, 0), quickApprovalSeconds),
@@ -98,7 +99,7 @@ export const agentFiguresIn = (
     debateResultsSent: (activity.debateResults ?? []).filter((note) => isIn(window, note.at)).length,
     verdict: verdictOf(decisions),
     places: placesIn(activity, window),
-    byClient: labelTotals(activity.drafts, window, (draft) => draft.client ?? null),
+    byClient: clientTotals(activity.drafts, window),
     byModel: labelTotals(activity.drafts, window, (draft) => draft.model ?? null),
   }
 }
@@ -124,10 +125,19 @@ export const labelTotals = <D extends AgentDraft>(
     .sort((a, b) => b.written - a.written || byPlace(a.label, b.label))
 }
 
+/** Drafts by the program that wrote them, each with the models its agents stated, most drafts first. */
+export const clientTotals = <D extends AgentDraft>(drafts: ReadonlyArray<D>, window: Window): LabelTotals[] =>
+  labelTotals(drafts, window, (draft) => draft.client ?? null).map((totals) => {
+    const models = modelsStated(
+      drafts.filter((draft) => (draft.client ?? null) === totals.label && isIn(window, draft.createdAt)),
+    )
+    return models.length === 0 ? totals : { ...totals, models }
+  })
+
 /** Plain-language reading of the decisions: never a score, and nothing until enough drafts were decided. */
 export const verdictOf = (decisions: Decisions): TrustVerdict => {
   const decided = decidedCount(decisions)
-  if (decided < MINIMUM_DECIDED) return 'too_few'
+  if (decided < TRUST_MINIMUM_DECIDED) return 'too_few'
   if (decisions.sentAsWritten >= USUALLY * decided) return 'usually_as_written'
   if (decisions.discarded >= OFTEN * decided && decisions.discarded >= decisions.sentAfterEdits)
     return 'often_discarded'
@@ -193,7 +203,6 @@ export const isIn = (window: Window, at: number | null): boolean =>
 export const byPlace = (a: PlaceName, b: PlaceName): number =>
   a === b ? 0 : a === null ? 1 : b === null ? -1 : a.localeCompare(b)
 
-export const MINIMUM_DECIDED = 10
 export const PERIOD_DAYS: ReadonlyArray<number> = [7, 30]
 export const TREND_WEEKS = 8
 export const DAY_MS = 24 * 60 * 60_000
@@ -237,3 +246,13 @@ const placeTrust = (activity: AgentActivity, window: Window, place: PlaceName): 
     verdict: verdictOf(decisions),
   }
 }
+
+const modelsStated = (drafts: ReadonlyArray<AgentDraft>): string[] =>
+  [
+    ...Map.groupBy(
+      drafts.flatMap((draft) => draft.model ?? []),
+      (model) => model,
+    ),
+  ]
+    .sort(([a, first], [b, second]) => second.length - first.length || a.localeCompare(b))
+    .map(([model]) => model)

@@ -245,9 +245,17 @@ describe('the marks of a channel', () => {
       strings.privateChannel,
     )
     expect(answeringChip(context, channel('billing'))).toBeNull()
-    const on = answeringChip(context, channel('billing', { joined: true, answering: true })) as HTMLElement
-    expect(on.getAttribute('title')).toBe(strings.answerHereHint)
-    expect(getByRole(on, 'switch').getAttribute('aria-checked')).toBe('true')
-    expect(textOf(on)).toContain(strings.switchOn)
+    const [on, help, explained] = (
+      answeringChip(context, channel('billing', { joined: true, answering: true })) as ReadonlyArray<
+        HTMLElement | ReadonlyArray<HTMLElement>
+      >
+    ).flat() as HTMLElement[]
+    expect(on!.getAttribute('title')).toBe(strings.answerHereHint)
+    expect(on!.getAttribute('role')).toBe('switch')
+    expect(on!.getAttribute('aria-checked')).toBe('true')
+    expect(textOf(on!)).toContain(strings.switchOn)
+    expect(help!.getAttribute('aria-label')).toBe(strings.answerHereHelp)
+    expect(help!.getAttribute('popovertarget')).toBe(explained!.id)
+    expect(textOf(explained!)).toBe(strings.answerHereHint)
   })
 })

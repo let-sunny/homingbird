@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { figuresModel, labelsTableModel, periodChoices } from '../../src/models/agent-figures.ts'
-import { durationOf, formats, percentOf, strings } from '../../src/strings.ts'
+import { durationOf, formats, listOf, percentOf, strings } from '../../src/strings.ts'
 import { figures, report } from '../support/fixtures.ts'
 
 const shown = (model: ReturnType<typeof figuresModel>) => {
@@ -192,7 +192,14 @@ describe('labelsTableModel', () => {
       'id',
       'Title',
       [
-        { label: 'x'.repeat(40), written: 3, sentAsWritten: 1, sentAfterEdits: 1, discarded: 1 },
+        {
+          label: 'x'.repeat(40),
+          written: 3,
+          sentAsWritten: 1,
+          sentAfterEdits: 1,
+          discarded: 1,
+          models: ['claude-opus-5-5', 'claude-sonnet-5-5'],
+        },
         { label: null, written: 2, sentAsWritten: null, sentAfterEdits: null, discarded: null },
         { label: 'Web', written: 1, sentAsWritten: 1, sentAfterEdits: 0, discarded: 0 },
       ],
@@ -201,9 +208,14 @@ describe('labelsTableModel', () => {
     expect(table.rows[2]).toMatchObject({ title: strings.clients.web, label: strings.clients.web })
     expect(table.rows[0]!.title).toBe('x'.repeat(40))
     expect(table.rows[0]!.label).toHaveLength(32)
+    expect(table.rows[0]!.models).toBe(
+      strings.trust.modelsUsed({ models: listOf(['claude-opus-5-5', 'claude-sonnet-5-5']) }),
+    )
+    expect(table.rows[2]!.models).toBeNull()
     expect(table.rows[1]).toEqual({
       title: 'Unknown',
       label: 'Unknown',
+      models: null,
       cells: ['2', strings.insights.hidden, strings.insights.hidden, strings.insights.hidden],
     })
   })

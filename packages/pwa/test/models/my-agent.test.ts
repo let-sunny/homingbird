@@ -14,7 +14,11 @@ describe('myAgentModel', () => {
       '#/agent/routes',
     ])
     expect(model.tabs.filter((tab) => tab.current).map((tab) => tab.section)).toEqual(['doing'])
-    expect(model.shown).toEqual({ section: 'doing', title: strings.trust.sections.doing })
+    expect(model.shown).toEqual({
+      section: 'doing',
+      title: strings.trust.sections.doing,
+      hint: strings.trust.sectionHints.doing,
+    })
     expect(model.loadsReport).toBe(true)
     expect(model.focusesHeading).toBe(true)
     expect(model.title).toBe(strings.trust.pageTitle)

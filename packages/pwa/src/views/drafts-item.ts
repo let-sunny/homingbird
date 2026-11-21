@@ -46,7 +46,7 @@ const draftCard = (context: ViewContext, card: DraftCard): HTMLElement => {
     'article',
     {
       class: 'draft',
-      data: { draftId: draft.id },
+      data: { draftId: draft.id, tour: 'approval' },
       ...(card.focused && { 'aria-current': 'true', tabindex: '-1' }),
     },
     h('span', { class: card.origin.className }, card.origin.text),
