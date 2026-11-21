@@ -71,7 +71,6 @@ export const membersPanelModel = (input: MembersPanelInput): MembersPanelModel =
   const facts = rosterFacts({ memberCount: roster.length, members: roster }, input.viewerId)
   const inside = new Set(roster.map((member) => member.memberId))
   const candidates = input.directory.filter((entry) => !inside.has(entry.member.id))
-  const toPrivate = !isPrivate(input.channel)
   return {
     managedByAdmin,
     managedBy,
@@ -93,15 +92,7 @@ export const membersPanelModel = (input: MembersPanelInput): MembersPanelModel =
               label: `${entry.member.name} · ${entry.member.email}`,
             })),
           },
-    visibility: {
-      current: isPrivate(input.channel) ? strings.visibilityPrivate : strings.visibilityOpen,
-      change: isPrivate(input.channel)
-        ? { kind: 'allowed', label: strings.makeOpen }
-        : facts.hasManager
-          ? { kind: 'allowed', label: strings.makePrivate }
-          : { kind: 'blocked', label: strings.makePrivate, reason: strings.privateNeedsManager },
-      confirmation: visibilityConfirmation(input, toPrivate),
-    },
+    visibility: isPrivate(input.channel) ? strings.visibilityPrivate : strings.visibilityOpen,
   }
 }
 
@@ -157,13 +148,7 @@ export interface MembersPanelModel {
         readonly choices: ReadonlyArray<{ readonly value: MemberId; readonly label: string }>
       }
     | null
-  readonly visibility: {
-    readonly current: string
-    readonly change:
-      | { readonly kind: 'allowed'; readonly label: string }
-      | { readonly kind: 'blocked'; readonly label: string; readonly reason: string }
-    readonly confirmation: Confirmation
-  } | null
+  readonly visibility: string | null
 }
 
 export type MemberRow =
@@ -316,19 +301,3 @@ const unmanageModel = (member: ChannelMember, managers: AsRead.Group | null): Un
         groupId: managers.id,
         memberIds: managers.memberIds.filter((memberId) => memberId !== member.memberId),
       }
-
-const visibilityConfirmation = (input: MembersPanelInput, toPrivate: boolean): Confirmation => {
-  const channel = input.channel
-  const label = channelLabel(channel.slug)
-  return toPrivate
-    ? {
-        title: strings.makePrivateTitle({ channel: label }),
-        body: strings.makePrivateBody({ count: channel.memberCount, channel: label }),
-        confirm: strings.confirmMakePrivate,
-      }
-    : {
-        title: strings.makeOpenTitle({ channel: label }),
-        body: strings.makeOpenBody({ channel: label }),
-        confirm: strings.confirmMakeOpen,
-      }
-}

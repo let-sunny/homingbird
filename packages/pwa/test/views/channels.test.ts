@@ -85,6 +85,7 @@ describe('channelsView', () => {
     expect(called('createChannel')).toHaveLength(0)
     fire.type(slug, 'ops')
     fire.type(getByRole(dialog, 'textbox', { name: strings.channelDescriptionLabel }), ' Operations ')
+    expect(textOf(dialog)).toContain(strings.visibilityFixed)
     getByRole(dialog, 'radio', { name: strings.visibilityPrivate }).click()
     fire.submit(dialog.querySelector('form')!)
     const [create] = called('createChannel')

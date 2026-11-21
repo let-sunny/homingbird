@@ -3,7 +3,7 @@ import { MemberId, type RouteName, contract } from '@homingbird/protocol'
 import { afterEach, describe, expect, it } from 'vitest'
 import { requireNotAgent } from '../src/domain/member-kinds.ts'
 import { CHANNEL, startAgent, startWithChannel } from './channel-agent-support.ts'
-import type { Session, TestServer } from './harness.ts'
+import { type Session, type TestServer, storeChannelAsPrivate } from './harness.ts'
 
 let server: TestServer | undefined
 
@@ -109,7 +109,7 @@ describe('the routes that name a member', () => {
     server = started.server
     const { ana, root } = started
     const agent = await startAgent(started.server, ana)
-    await ana.api('PUT', `/channels/${CHANNEL}/visibility`, { visibility: 'private' })
+    await storeChannelAsPrivate(started.server, CHANNEL)
     const group = (await ana.api('GET', `/channels/${CHANNEL}`)).json.managedBy
     for (const [name, { status: expected, probe }] of Object.entries(PROBES))
       expect([name, await probe({ ana, root }, agent.id, group!)]).toEqual([name, expected])

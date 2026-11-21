@@ -83,7 +83,6 @@ describe('contract', () => {
         'channels.leave',
         'channels.answering.on',
         'channels.answering.off',
-        'channels.visibility.set',
         'channels.members.add',
         'channels.members.remove',
         'channels.managers.addTeam',

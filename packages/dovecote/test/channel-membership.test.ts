@@ -11,6 +11,7 @@ import {
   type TestServer,
   asShown,
   connectAgent,
+  everyStoredValue,
   meanwhile,
   startTestServer,
   storedRows,
@@ -182,7 +183,6 @@ describe('private channels', () => {
     expect((await ana.api('PUT', `/channels/payroll/members/${cy.me.member.id}`)).status).toBe(403)
     expect((await ana.api('PUT', `/channels/payroll/members/${ana.me.member.id}`)).status).toBe(403)
     await add(ben, cy)
-    expect((await ana.api('PUT', '/channels/payroll/visibility', { visibility: 'open' })).status).toBe(403)
     expect((await ana.api('GET', '/channels/payroll/members')).json.members).toHaveLength(2)
     expect((await ana.api('DELETE', `/channels/payroll/members/${cy.me.member.id}`)).status).toBe(200)
     expect(
@@ -190,44 +190,17 @@ describe('private channels', () => {
     ).not.toContain('payroll')
   })
 
-  it('keeps everyone in the room when an open channel becomes private, and opens again only by a manager', async () => {
-    const deploys = (await ben.api('POST', '/channels', { slug: 'deploys', description: 'Releases' })).json
-    await cy.api('PUT', '/channels/deploys/membership', {})
-    const dee = await server.signIn('dee@example.com', 'Dee')
-    expect((await cy.api('PUT', '/channels/deploys/visibility', { visibility: 'private' })).status).toBe(403)
-    const cursor = (await cy.api('GET', '/events/poll')).json.cursor
-    const closed = (await ben.api('PUT', '/channels/deploys/visibility', { visibility: 'private' })).json
-    expect(closed).toMatchObject({ visibility: 'private', memberCount: 2 })
-    const told = (await cy.api('GET', `/events/poll?after=${cursor}`)).json.events.map(
-      (event: any) => event.body,
-    )
-    expect(told).toMatchObject([
-      { type: 'channel.changed', channel: { slug: 'deploys', visibility: 'private' } },
-    ])
-    expect((await cy.api('GET', `/conversations/${deploys.conversationId}`)).status).toBe(200)
-    expect((await channels(dee)).map((channel) => channel.slug)).not.toContain('deploys')
-    expect((await cy.api('PUT', '/channels/deploys/visibility', { visibility: 'open' })).status).toBe(403)
-    expect(
-      (await ben.api('PUT', '/channels/deploys/visibility', { visibility: 'open' })).json.visibility,
-    ).toBe('open')
-    expect((await channels(dee)).map((channel) => channel.slug)).toContain('deploys')
-    const audited = (await storedRows(server, 'audit_events')).filter(
-      (row) => row.event === 'channel.visibility_changed',
-    )
-    expect(audited.map((row) => [row.actor_id, row.target_id, JSON.parse(String(row.detail))])).toEqual([
-      [ben.me.member.id, 'deploys', { visibility: 'private' }],
-      [ben.me.member.id, 'deploys', { visibility: 'open' }],
-    ])
-  })
-
-  it('needs a manager in the room before a channel goes private', async () => {
-    const seeded = await ana.api('PUT', '/channels/billing/visibility', { visibility: 'private' })
-    expect([seeded.status, seeded.json.error.message]).toEqual([
-      409,
-      'Make a member of this channel its manager before making it private.',
-    ])
+  it('keeps the visibility a channel was created with, as no route changes it', async () => {
+    await create()
     await ben.api('POST', '/channels', { slug: 'deploys', description: 'Releases' })
-    expect((await ana.api('PUT', '/channels/deploys/visibility', { visibility: 'private' })).status).toBe(200)
+    const before = await everyStoredValue(server)
+    for (const [slug, visibility] of [
+      ['deploys', 'private'],
+      ['payroll', 'open'],
+    ] as const)
+      expect((await ben.api('PUT', `/channels/${slug}/visibility`, { visibility })).status).toBe(404)
+    expect(await everyStoredValue(server)).toBe(before)
+    expect((await ben.api('GET', '/channels/deploys')).json.visibility).toBe('open')
   })
 
   it('delivers its questions to its answering members only, and lets only members and their agents draft there', async () => {

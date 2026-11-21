@@ -24,7 +24,6 @@ export const ROUTE_AUDIT = {
   'channels.leave': { event: 'channel.left', target: 'channel' },
   'channels.answering.on': { event: 'channel.answering_changed', target: 'channel' },
   'channels.answering.off': { event: 'channel.answering_changed', target: 'channel' },
-  'channels.visibility.set': { event: 'channel.visibility_changed', target: 'channel' },
   'channels.members.list': read(),
   'channels.members.add': { event: 'channel.member_added', target: 'channel' },
   'channels.members.remove': { event: 'channel.member_removed', target: 'channel' },

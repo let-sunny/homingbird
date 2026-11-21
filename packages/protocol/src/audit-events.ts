@@ -106,6 +106,7 @@ export const AUDIT_EVENTS = {
   'character.cleared': event('full', 'member', {}),
   'character.reset': event('full', 'member', {}),
   'channel.created': event('full', 'channel', { visibility: ChannelVisibility }),
+  /** Recorded by no route: kept so that rows already in the trail still read. */
   'channel.visibility_changed': event('full', 'channel', { visibility: ChannelVisibility }),
   'channel.joined': event('full', 'channel', {}),
   'channel.left': event('full', 'channel', {}),
