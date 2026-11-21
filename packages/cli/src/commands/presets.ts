@@ -22,6 +22,7 @@ export const presets: T.Task<Outcome, never, CliEnv> = T.gen(function* () {
         minimumVersion: preset.minimumVersion,
         installed: installed[index]!,
         state: presetState(preset),
+        accountRisk: preset.accountRisk,
       })),
     },
     [
@@ -32,6 +33,7 @@ export const presets: T.Task<Outcome, never, CliEnv> = T.gen(function* () {
         `    here:    ${versionLine(preset, installed[index]!)}`,
         `    agent:   ${presetAgent(preset, platform)}`,
         `    reader:  ${readerLine(preset, platform)}`,
+        ...(preset.accountRisk === null ? [] : [`    account: ${preset.accountRisk}`]),
       ]),
       '',
       'Any other --agent value is run as the command it is.',

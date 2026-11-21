@@ -166,6 +166,17 @@ describe('preparedLaunches and versions', () => {
     })
   })
 
+  it('says what the vendor’s terms put at risk for a preset that warns about its account', async () => {
+    const { exit } = await prepared(
+      { agent: agentCommand('gemini', 'linux'), split: null },
+      { process: () => ({ exitCode: 0, output: '0.9.0\n' }) },
+    )
+    expect(exit).toMatchObject({
+      _tag: 'Ok',
+      value: { installed: [expect.stringContaining('Account: Google may treat a desk on a Google sign-in')] },
+    })
+  })
+
   it('starts with a version it cannot read', async () => {
     const { exit } = await prepared(claude, {
       process: () => ({ exitCode: 0, output: 'Claude Code (dev build)' }),

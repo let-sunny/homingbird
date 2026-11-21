@@ -753,6 +753,16 @@ The agent command runs with the permissions of the OS user that runs the runner,
 - Nothing a runner signs in with can approve: a join code or a device sign-in issues an agent
   credential only, and
   approval happens in the web client, where the person signs in themself.
+- **Give the agent a key, not a person's subscription sign-in.** Use an API key or the vendor's
+  organization or service account, in an environment file only that user reads, as in the example
+  below. Never copy someone's personal sign-in (a `claude setup-token` token, Codex's `auth.json`, a
+  Google sign-in) to a server you run, and never collect them as an operator: vendors forbid sharing a
+  personal account ([the guide](guide.md#your-agents-account-and-its-vendors-terms)).
+- **Whoever has root on that server can read every runner's key and agent credential.** Separate OS
+  users keep the people on it from reading each other's files, not the administrator. Give each
+  runner a key of its own with a spending limit, so it can be revoked alone and costs at most that
+  limit; a person who does not trust the server's administrator keeps their desk on their own
+  computer.
 - **Never run it as the user that runs Dovecote**, which can read the database and `HB_*` secrets. The
   runner removes `HOMINGBIRD_*` and `HB_*` variables from the agent command's environment, but files are
   another matter.
@@ -921,7 +931,8 @@ git clone https://git.example.com/payments/wiki.git /srv/payments-wiki
 chmod -R go-w /srv/payments-wiki
 ```
 
-**3. Give the agent its model key**, as in step 2 of the person's example, in an environment file only
+**3. Give the agent its model key**, an API key or your vendor's organization or service account, never
+a manager's personal plan, as in step 2 of the person's example, in an environment file only
 `hb-payments-wiki` can read, loaded by a systemd drop-in.
 
 **4. Connect the agent and install the service.** A manager of the channel opens **Channel agent** in

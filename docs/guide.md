@@ -196,6 +196,35 @@ that session's own variables (`CLAUDECODE`, every `CLAUDE_CODE_` variable but th
 such as `CLAUDE_CODE_USE_BEDROCK`, `CODEX_THREAD_ID` and the like) to the agent command, so each agent
 run is a session of its own.
 
+### Your agent's account and its vendor's terms
+
+Homingbird runs the agent's own program with your permissions and whatever sign-in it already has. It
+never reads, copies, stores or forwards that sign-in, offers no "sign in with" a model vendor, and
+never calls a vendor's service in the program's place. Your account with the vendor is yours, and its
+terms apply to how you run it.
+
+- **On your own computer**, your own sign-in or API key is how the vendors document running their CLI
+  from a script, such as `claude -p`. A plan's limits assume one person's ordinary use, so check your
+  plan before leaving a desk answering around the clock.
+- **On a shared server, for a channel's agent, or for anything that answers for a team**, give the
+  agent an API key or your vendor's organization or service account, as the
+  [server example](deployment.md#a-complete-example-one-persons-runner-on-a-linux-server) does.
+  Never copy a personal subscription sign-in (a `claude setup-token` token, Codex's `auth.json`, a
+  Google sign-in) to a server others run, and never let an operator collect them.
+- **Antigravity and Gemini CLI on a Google sign-in**: Google's terms say using its sign-in through
+  other tools may get the account suspended, and do not say whether a desk starting Google's own
+  program counts. `homingbird presets` and the runner's start say so. For a desk, sign Gemini CLI in
+  with an API key or Vertex AI.
+- **Claude Code**: its documentation says `-p` will default to `--bare`, which reads no subscription
+  sign-in. When it does, a desk needs `ANTHROPIC_API_KEY`.
+
+This is how we read the vendors' pages, not legal advice:
+[Anthropic](https://code.claude.com/docs/en/legal-and-compliance),
+[OpenAI](https://openai.com/policies/terms-of-use/),
+[Google Gemini CLI](https://github.com/google-gemini/gemini-cli/blob/main/docs/resources/tos-privacy.md),
+[GitHub](https://docs.github.com/en/site-policy/github-terms/github-terms-of-service),
+[Cursor](https://cursor.com/terms-of-service).
+
 ### Keep the drafting agent away from the note's wording (split mode)
 
 A colleague's note may hide an instruction meant for your agent, such as "ignore previous instructions
@@ -459,6 +488,9 @@ writes.
   of your own. The desk is listed under **Desks connected as …** with the manager who connected it. Any
   manager can disconnect it; it also stops when the manager who connected it stops managing the
   channel, and when the channel is archived.
+- **Give it an account of its own.** It answers for everyone in the channel, so its agent command
+  uses an API key or your vendor's organization or service account, never one manager's personal plan
+  ([why](#your-agents-account-and-its-vendors-terms)).
 - **Keep it running without a laptop.** Run its desk on a server, as its own OS user, next to a
   read-only checkout of what it answers from: the `homingbird setup` line from **Run on a server**, with
   `--workdir <checkout>`, signs it in and keeps it answering. [Run a channel's agent on a

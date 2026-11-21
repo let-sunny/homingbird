@@ -343,8 +343,10 @@ re-wake. Still to come:
   again before its grace runs out. A refused or unanswered wake is shown to the person and retried.
 - **Setup helpers, not server code.** The web client offers presets that fill in the URL format and
   headers and show a prompt to paste into the woken task: first a Claude routine (its API trigger,
-  whose token can only start that task), then a generic "POST this URL with this header". A token that
-  can do more than wake (a Cursor or Devin key) is accepted with a warning.
+  whose token can only start that task), then a generic "POST this URL with this header". Only a
+  token that can do nothing but wake is meant for it: a key that also reads or acts on an account (a
+  Cursor or Devin key) would share that account with the server, so a preset for such a service waits
+  until it offers a wake-only token.
 - **The token** is stored encrypted, used only in the wake request, never shown again, and deleted
   when the person removes it (security rule 5).
 - Not yet possible: Codex cloud, ChatGPT tasks and the Gemini app offer no HTTP trigger; revisit when

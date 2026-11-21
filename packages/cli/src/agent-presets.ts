@@ -84,6 +84,8 @@ export interface AgentPreset {
   readonly signInCheck: SignInCheck | null
   /** How the agent command is given one MCP server for its own run only; null when no way is known. */
   readonly mcpAttach: McpAttach | null
+  /** What the vendor's terms put at risk when a desk runs the program on a personal sign-in; null when nothing known. */
+  readonly accountRisk: string | null
 }
 
 export interface McpAttach {
@@ -182,6 +184,7 @@ export const AGENT_PRESETS: ReadonlyArray<AgentPreset> = [
       ],
       verified: false,
     },
+    accountRisk: null,
   },
   {
     name: 'codex',
@@ -228,6 +231,7 @@ export const AGENT_PRESETS: ReadonlyArray<AgentPreset> = [
       words: (server) => ['-c', `mcp_servers.homingbird=${codexServerTable(server)}`],
       verified: false,
     },
+    accountRisk: null,
   },
   {
     name: 'antigravity',
@@ -256,6 +260,8 @@ export const AGENT_PRESETS: ReadonlyArray<AgentPreset> = [
         'Antigravity did not answer within 20 seconds, or is not signed in on this computer. Sign in first: run `agy` in a terminal, then start this again.',
     },
     mcpAttach: null,
+    accountRisk:
+      'Google’s terms bar other tools from using an Antigravity sign-in and suspensions have been reported; whether a desk starting agy counts is not settled, so run it only on an account you can afford to lose.',
   },
   {
     name: 'gemini',
@@ -275,6 +281,8 @@ export const AGENT_PRESETS: ReadonlyArray<AgentPreset> = [
     environment: {},
     signInCheck: null,
     mcpAttach: null,
+    accountRisk:
+      'Google may treat a desk on a Google sign-in as third-party access and suspend the account; sign Gemini CLI in with an API key or Vertex AI for a desk.',
   },
 ]
 

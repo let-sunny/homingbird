@@ -87,6 +87,11 @@ export interface LaunchSettings {
   readonly split: { readonly reader: string } | null
 }
 
+const installedLine = (preset: AgentPreset, version: string): string => {
+  const line = `${preset.program}: ${version}; ${presetState(preset)}`
+  return preset.accountRisk === null ? line : `${line}. Account: ${preset.accountRisk}`
+}
+
 const unprobed = (command: string, platform: string): Launch => {
   const match = presetCommandOf(command, platform)
   if (match === null) return launchAsGiven(command)
@@ -118,7 +123,7 @@ const preparedLaunch = (
       const version = yield* presetVersion(preset)
       const problem = tooOldProblem(preset, version) ?? (yield* presetNotReady(preset))
       if (problem !== null) return yield* T.fail(failed(problem))
-      ready.set(preset.name, `${preset.program}: ${versionLine(preset, version)}; ${presetState(preset)}`)
+      ready.set(preset.name, installedLine(preset, versionLine(preset, version)))
     }
     let words = launch.words
     if (launch.probe !== null) {
