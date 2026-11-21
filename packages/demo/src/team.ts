@@ -257,6 +257,38 @@ export const demoTeam = (now: number): Records => {
         managedBy: BILLING_MANAGERS,
         agentId: BILLING_AGENT,
         createdAt: ago(60 * 24 * 40),
+        teaching: {
+          instruction:
+            'Answer from the refund policy and past answers in this channel, and say which one you used. Leave anything about a single customer to a manager.',
+          sources: ['https://example.com/policies/refunds'],
+          updatedAt: ago(60 * 24 * 6),
+          principles: [
+            channelPrinciple(
+              'demorefund01',
+              'answer',
+              'Refund window',
+              'Refunds are possible within 14 days of payment; after that, a manager decides.',
+              {
+                position: 0,
+                origin: 'manual',
+                at: ago(60 * 24 * 12),
+                counts: { applied: 9, sentAsWritten: 7, edited: 2, discarded: 0, missed: 0 },
+              },
+            ),
+            channelPrinciple(
+              'demoannual01',
+              'rule',
+              'Annual plans',
+              'link the refund calculator on the billing page and never quote an amount yourself',
+              {
+                position: 1,
+                origin: 'edit',
+                at: ago(60 * 24 * 3),
+                counts: { applied: 3, sentAsWritten: 3, edited: 0, discarded: 0, missed: 0 },
+              },
+            ),
+          ],
+        },
       },
       {
         slug: 'deploys',
@@ -441,6 +473,35 @@ export const demoTeam = (now: number): Records => {
 }
 
 /** The visitor's own web session, which the credentials page marks as current. */
+/** A principle the managers of #billing taught its agent. */
+const channelPrinciple = (
+  id: string,
+  kind: 'rule' | 'answer',
+  topic: string,
+  rule: string,
+  fields: {
+    readonly position: number
+    readonly origin: 'manual' | 'edit'
+    readonly at: number
+    readonly counts: Principle['counts']
+  },
+): Principle => ({
+  id: `prin_${id}` as PrincipleId,
+  kind,
+  topic,
+  rule,
+  source: null,
+  place: null,
+  enabled: true,
+  origin: fields.origin,
+  position: fields.position,
+  createdAt: fields.at,
+  updatedAt: fields.at,
+  lastAppliedAt: fields.at,
+  publicText: null,
+  counts: fields.counts,
+})
+
 export const VISITOR_SESSION = CredentialId.of('demojuneweb0')
 
 const MINUTE = 60_000
