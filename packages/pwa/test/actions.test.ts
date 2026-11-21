@@ -20,13 +20,12 @@ describe('createActions', () => {
     expect(sent.map((one) => one.route)).toEqual(['conversations.list', 'search.notes'])
   })
 
-  it('creates a channel on the way to moving a question or a draft there', async () => {
+  it('creates a channel on the way to sending a draft there', async () => {
     const { app, routes } = testApp({ 'channels.create': () => ({ slug: 'ops' }) })
     const actions = createActions(app.launch)
-    actions.createChannelThenMove({ slug: 'ops', description: 'Ops' }, { id: 'q' } as never)
     actions.createChannelThenReaddress({ slug: 'ops', description: 'Ops' }, { id: 'd' } as never)
     await settle()
-    expect(routes()).toEqual(expect.arrayContaining(['notes.move', 'drafts.update']))
+    expect(routes()).toEqual(expect.arrayContaining(['drafts.update']))
   })
 
   it('makes every task from its name', () => {

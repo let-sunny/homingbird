@@ -9,7 +9,6 @@ describe('pickerModel', () => {
     const model = pickerModel({
       channels: [here, channel('b'), channel('a', { joined: true })],
       here,
-      movingFrom: here,
       quoted: 'x'.repeat(200),
       channelsOn: true,
     })
@@ -20,20 +19,15 @@ describe('pickerModel', () => {
     expect(model.quote).toHaveLength(140)
   })
 
-  it('says when there is nowhere else to go, from an open or a private channel', () => {
-    expect(
-      pickerModel({ channels: [], here: null, movingFrom: null, quoted: '', channelsOn: true }),
-    ).toMatchObject({
+  it('says when there is nowhere else to go', () => {
+    expect(pickerModel({ channels: [], here: null, quoted: '', channelsOn: true })).toMatchObject({
       none: strings.noOtherChannel,
       first: NEW_CHANNEL,
     })
-    const secret = channel('secret', { visibility: 'private', joined: true })
-    expect(
-      pickerModel({ channels: [secret], here: secret, movingFrom: secret, quoted: '', channelsOn: true }),
-    ).toMatchObject({
-      none: strings.noOtherPrivateChannel,
-      mayCreate: false,
-    })
+  })
+
+  it('offers no new channel where channels are off', () => {
+    expect(pickerModel({ channels: [], here: null, quoted: '', channelsOn: false }).mayCreate).toBe(false)
   })
 })
 

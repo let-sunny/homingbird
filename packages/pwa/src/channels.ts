@@ -46,17 +46,14 @@ export const peopleConversations = (
 export const joinedFirst = (a: AsRead.Channel, b: AsRead.Channel): number =>
   Number(b.joined) - Number(a.joined) || b.memberCount - a.memberCount || a.slug.localeCompare(b.slug)
 
+/** Where a draft can go instead: every other open channel, and the private ones the person is in. */
 export const destinationsFrom = (
   channels: ReadonlyArray<AsRead.Channel>,
   here: AsRead.Channel | null,
-  movingFrom: AsRead.Channel | null,
 ): AsRead.Channel[] =>
   channels
-    .filter((channel) => channel.slug !== here?.slug && mayMoveBetween(movingFrom, channel))
+    .filter((channel) => channel.slug !== here?.slug && (!isPrivate(channel) || channel.joined))
     .sort(joinedFirst)
-
-export const mayMoveBetween = (from: AsRead.Channel | null, to: AsRead.Channel): boolean =>
-  from !== null && isPrivate(from) ? isPrivate(to) && to.joined : !isPrivate(to) || to.joined
 
 export const isPrivate = (channel: AsRead.Channel): boolean => channel.visibility === 'private'
 

@@ -10,7 +10,6 @@ import {
   answeredBy,
   excerpt,
   isArchived,
-  isOpenQuestion,
   isUnreadBy,
   readProgress,
   showsAuthors,
@@ -18,7 +17,7 @@ import {
 } from '../thread.ts'
 import { type AvatarModel, memberAvatarOf } from './avatar.ts'
 import { agentAuthorshipLine, approvalLine } from './channel-agent.ts'
-import { type ThreadInput, isOn, nameIn, noteIn, notesOf, roomOf } from './thread-room.ts'
+import { type ThreadInput, isOn, nameIn, noteIn, roomOf } from './thread-room.ts'
 import { type TimeShown, timeShown } from './time.ts'
 
 /** One sent note: who wrote it and how, what it answers, how far it got, and what the person may do. */
@@ -83,9 +82,6 @@ export const noteItemModel = (
       ...(!mine && !archived && isOn(input, 'draftRequests')
         ? [{ kind: 'ask-agent' as const, label: strings.askAgentToReply }]
         : []),
-      ...(isChannelQuestion && !archived && isOn(input, 'channels') && isOpenQuestion(note, notesOf(input))
-        ? [{ kind: 'move' as const, label: strings.moveToChannel }]
-        : []),
     ],
   }
 }
@@ -107,7 +103,7 @@ export interface NoteItemModel {
   readonly answeredBy: { readonly avatar: AvatarModel; readonly text: string } | null
   readonly release: { readonly text: string; readonly askAnyway: string | null } | null
   readonly meta: { readonly time: TimeShown | null; readonly mark: StateMarkModel | null } | null
-  readonly actions: ReadonlyArray<{ readonly kind: 'reply' | 'ask-agent' | 'move'; readonly label: string }>
+  readonly actions: ReadonlyArray<{ readonly kind: 'reply' | 'ask-agent'; readonly label: string }>
 }
 
 /** The author's character as a button, and the details it opens: who or what wrote the note, and when. */

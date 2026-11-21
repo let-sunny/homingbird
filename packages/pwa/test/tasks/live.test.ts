@@ -82,7 +82,7 @@ describe('liveEvents', () => {
     expect(state.announcement.get()).toBe(strings.incomingNote({ name: 'Ben' }))
   })
 
-  it('updates receipts, moves a question away, and keeps a saved draft', async () => {
+  it('updates receipts and keeps a saved draft', async () => {
     const { apply, state } = live()
     apply(event({ type: 'note.status', noteId: 'n1', conversationId: ROOM, receipts: [] }))
     state.threads.set(new Map([[ROOM, { notes: [note('n1')], hasMore: false }]]))
@@ -91,15 +91,6 @@ describe('liveEvents', () => {
     ]
     apply(event({ type: 'note.status', noteId: 'n1', conversationId: ROOM, receipts }))
     expect(state.threads.get().get(ROOM)!.notes[0]!.receipts).toEqual(receipts)
-    apply(
-      event({
-        type: 'note.moved',
-        noteId: 'n1',
-        fromConversationId: ROOM,
-        toConversationId: 'conv_other0000000',
-      }),
-    )
-    expect(state.threads.get().get(ROOM)!.notes).toEqual([])
     state.releases.set(new Map([['q' as never, { reason: null, agentName: null }]]))
     state.agentCredentials.set([credential('cred_agent')])
     state.threads.set(new Map([[ROOM, { notes: [], hasMore: false }]]))

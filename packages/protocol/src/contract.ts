@@ -374,13 +374,6 @@ export const contract = {
   }),
   'notes.get': route({ method: 'GET', path: '/notes/:id', access: 'member', response: Note }),
   'notes.read': route({ method: 'POST', path: '/notes/:id/read', access: 'human', response: Note }),
-  'notes.move': route({
-    method: 'POST',
-    path: '/notes/:id/move',
-    access: 'human',
-    body: S.struct({ channel: ChannelSlug }),
-    response: Note,
-  }),
   'notes.pickup': route({ method: 'POST', path: '/notes/:id/pickup', access: 'member', response: Note }),
   'notes.release': route({
     method: 'POST',

@@ -12,7 +12,6 @@ import {
   isPrivate,
   isValidSlug,
   joinedFirst,
-  mayMoveBetween,
   peopleConversations,
   rosterFacts,
   similarChannels,
@@ -147,8 +146,8 @@ describe('archived rooms', () => {
   })
 })
 
-describe('where a question may move', () => {
-  it('moves an open question to any open channel or a private one I am in, never to where it is', () => {
+describe('where a draft may go instead', () => {
+  it('goes to any other open channel or a private one I am in, never to where it is', () => {
     const here = channel('billing')
     const all = [
       here,
@@ -156,18 +155,12 @@ describe('where a question may move', () => {
       channel('secret', { visibility: 'private' }),
       channel('mine', { visibility: 'private', joined: true }),
     ]
-    expect(destinationsFrom(all, here, here).map((each) => each.slug)).toEqual(['mine', 'deploys'])
-  })
-
-  it('keeps a private question among private channels I am in', () => {
-    const here = channel('payroll', { visibility: 'private', joined: true })
-    expect(mayMoveBetween(here, channel('billing'))).toBe(false)
-    expect(mayMoveBetween(here, channel('hr', { visibility: 'private', joined: true }))).toBe(true)
+    expect(destinationsFrom(all, here).map((each) => each.slug)).toEqual(['mine', 'deploys'])
   })
 
   it('offers no destination when the only channel is the one it is in', () => {
     const here = channel('billing')
-    expect(destinationsFrom([here], here, here)).toEqual([])
+    expect(destinationsFrom([here], here)).toEqual([])
   })
 })
 

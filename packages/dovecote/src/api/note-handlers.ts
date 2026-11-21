@@ -11,7 +11,6 @@ import {
 import { createDraft, markDraftSeen, updateDraft } from '../domain/drafts.ts'
 import { notesAwaitingReply } from '../domain/inbox.ts'
 import { setMuted } from '../domain/mutes.ts'
-import { moveToChannel } from '../domain/note-moves.ts'
 import { draftsOf, notesInConversation, searchNotes, visibleNote } from '../domain/notes.ts'
 import { markRead, pickUp, release } from '../domain/receipts.ts'
 import { isHuman } from '../environment.ts'
@@ -49,8 +48,6 @@ export const noteHandlers = {
     T.flatMap((id: NoteId) => visibleNote(caller.member.id, id))(identifier(NoteId, params.id)),
   'notes.read': ({ params }, caller) =>
     T.flatMap((id: NoteId) => markRead(caller, id))(identifier(NoteId, params.id)),
-  'notes.move': ({ params, body }, caller) =>
-    T.flatMap((id: NoteId) => moveToChannel(caller, id, body.channel))(identifier(NoteId, params.id)),
   'notes.pickup': ({ params }, caller) =>
     T.flatMap((id: NoteId) => pickUp(caller, id))(identifier(NoteId, params.id)),
   'notes.release': ({ params, body }, caller) =>

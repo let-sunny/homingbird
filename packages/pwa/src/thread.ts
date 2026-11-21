@@ -82,17 +82,6 @@ export const withReceipts = (
   receipts: ReadonlyArray<AsRead.Receipt>,
 ): AsRead.Note[] => notes.map((note) => (note.id === id ? { ...note, receipts } : note))
 
-export const withoutMovedQuestion = <Thread extends { readonly notes: ReadonlyArray<AsRead.Note> }>(
-  threads: ReadonlyMap<ConversationId, Thread>,
-  from: ConversationId,
-  questionId: NoteId,
-): ReadonlyMap<ConversationId, Thread> => {
-  const thread = threads.get(from)
-  if (thread === undefined) return threads
-  const notes = thread.notes.filter((note) => note.id !== questionId && note.inReplyTo !== questionId)
-  return new Map(threads).set(from, { ...thread, notes })
-}
-
 export interface PresenceChange {
   readonly memberId: MemberId
   readonly humanOnline: boolean
@@ -192,12 +181,6 @@ export const showsAuthors = (conversation: AsRead.Conversation | undefined): boo
 
 export const answeredBy = (note: AsRead.Note): MemberId[] =>
   note.receipts.filter((receipt) => receipt.state === 'replied').map((receipt) => receipt.memberId)
-
-export const isOpenQuestion = (note: AsRead.Note, notes: ReadonlyArray<AsRead.Note>): boolean =>
-  note.status === 'sent' &&
-  note.inReplyTo === null &&
-  answeredBy(note).length === 0 &&
-  !notes.some((other) => other.status === 'sent' && other.inReplyTo === note.id)
 
 export interface ReadProgress {
   readonly read: number

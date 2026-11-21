@@ -59,18 +59,4 @@ describe('notices', () => {
     )
     expect(older.json.notices).toEqual([])
   })
-
-  it('follows a question moved to another channel', async () => {
-    await ben.api('PUT', '/channels/billing/membership', { answering: true })
-    await ana.api('POST', '/channels', { slug: 'refunds', description: 'Refunds' })
-    await ben.api('PUT', '/channels/refunds/membership', { answering: true })
-    const draft = (await ana.api('POST', '/drafts', { channel: 'billing', body: 'Who refunds?' })).json
-    const question = (await ana.api('POST', `/drafts/${draft.id}/send`, await asShown(ana, draft.id))).json
-    await benAgent.api('POST', `/notes/${question.id}/release`, { reason: 'Not billing.' })
-    const moved = (await ana.api('POST', `/notes/${question.id}/move`, { channel: 'refunds' })).json
-    expect((await noticesOf(ben, moved.conversationId)).map((one: any) => one.reason)).toEqual([
-      'Not billing.',
-    ])
-    expect(await noticesOf(ben, question.conversationId)).toEqual([])
-  })
 })

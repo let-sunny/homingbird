@@ -235,11 +235,6 @@ describe('noteItemModel', () => {
     expect(model.answeredBy!.text).toBe(strings.answeredBy({ names: `${strings.formerMember} and Ben` }))
     expect(model.actions.map((action) => action.kind)).toEqual(['reply', 'ask-agent'])
     const open = note('q2')
-    const asked = noteItemModel(
-      threadInput({ conversations: [room], thread: { notes: [open], hasMore: false } }),
-      item(open),
-    )
-    expect(asked.actions.map((action) => action.kind)).toEqual(['reply', 'ask-agent', 'move'])
     expect(
       noteItemModel(threadInput({ conversations: [room], serverInfo: serverInfo() }), item(open)).actions.map(
         (action) => action.kind,

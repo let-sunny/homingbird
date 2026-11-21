@@ -79,7 +79,7 @@ describe('renderNoteItem', () => {
     expect(render(context, mine).classList.contains('is-active')).toBe(true)
   })
 
-  it('asks the agent anyway after it let a note go, and moves an open channel question', () => {
+  it('asks the agent anyway after it let a note go', () => {
     const { context, called } = testContext()
     mount(dialogHost())
     const question = note('q')
@@ -94,8 +94,6 @@ describe('renderNoteItem', () => {
     )
     getByRole(shown, 'button', { name: strings.askAnyway }).click()
     expect(called('askAgent')).toHaveLength(1)
-    getByRole(shown, 'button', { name: strings.moveToChannel }).click()
-    expect((document.getElementById('dialog') as HTMLDialogElement).open).toBe(true)
   })
 
   it('names who answered a question', () => {

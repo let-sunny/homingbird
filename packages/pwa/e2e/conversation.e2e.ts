@@ -349,7 +349,7 @@ const scenario = async (): Promise<void> => {
     ).conversationId as string
     await june.page.goto(`${base}/#/c/${billingRoom}`)
     await june.page.waitForSelector('.note-author:has-text("Lee")')
-    await june.page.waitForSelector('.move-question')
+    await june.page.waitForSelector('.note:has-text("refund rule") .note-reply')
     await capture(june.page, 'helper-sees-the-question-with-its-author')
     await june.page
       .locator('.note', { hasText: 'refund rule' })
@@ -360,18 +360,6 @@ const scenario = async (): Promise<void> => {
     await asker.page.waitForSelector('.answered-by:has-text("Answered by June")')
     await capture(asker.page, 'question-answered-by-a-helper')
 
-    await sendThroughApi(asker, { channel: 'billing', body: 'Where do I find the release calendar?' })
-    await june.page.waitForSelector('.note:has-text("release calendar") .move-question')
-    assert.equal(
-      await june.page.locator('.note', { hasText: 'refund rule' }).locator('.move-question').count(),
-      0,
-    )
-    await june.page.locator('.note', { hasText: 'release calendar' }).locator('.move-question').click()
-    await june.page.check('dialog[open] input[name=destination][value=releases]')
-    await capture(june.page, 'move-question-to-another-channel')
-    await june.page.click('dialog[open] button[type=submit]')
-    await june.page.waitForSelector('.note:has-text("release calendar")', { state: 'detached' })
-    await capture(june.page, 'question-moved-out-of-the-room')
     await asker.context.close()
 
     await anaAgent.call('POST', '/drafts', {

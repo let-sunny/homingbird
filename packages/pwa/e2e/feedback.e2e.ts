@@ -258,21 +258,8 @@ const scenario = async (): Promise<void> => {
     await ana.page.waitForSelector(`.member[data-member-id="${ids.Ana}"] .own-row-reason`)
     await inThemes(ana.page, 'admin-members-marks-my-own-row', false)
 
-    // -- 11b: moving a question when only one other place exists ---------------------------------
     await api(ana, 'PUT', '/channels/billing/membership', { answering: true }).catch(() => undefined)
-    await sendThroughApi(june, { channel: 'billing', body: 'Who can refund invoice 4411?' })
-    await ben.page.goto(`${base}/#/c/${billing}`)
-    await ben.page.locator('.note:has-text("invoice 4411") .move-question').click()
-    await ben.page.waitForSelector('dialog[open] .channel-option:has-text("A new channel")')
-    await ben.page.check('dialog[open] input[name=destination][value=""]')
-    await ben.page.fill('dialog[open] input[name=slug]', 'refunds')
-    await ben.page.fill('dialog[open] input[name=description]', 'Refunds and chargebacks.')
-    await inThemes(ben.page, 'move-picker-creates-a-channel-inline', false)
-    await ben.page.locator('dialog[open]').getByRole('button', { name: 'Move' }).click()
-    await ben.page.waitForSelector('.toast:has-text("The question is now in #refunds") a:has-text("Open")')
-    await shot(ben.page, 'question-moved-says-where-with-a-link')
-    await ben.page.click('.toast a:has-text("Open")')
-    await ben.page.waitForSelector('.thread-head h1:has-text("#refunds")')
+    await api(ben, 'POST', '/channels', { slug: 'refunds', description: 'Refunds and chargebacks.' })
 
     // -- 6: characters in the thread, live --------------------------------------------------------
     await api(ben, 'PUT', '/me/character', FOX)
@@ -355,7 +342,7 @@ const scenario = async (): Promise<void> => {
       await ben.page.locator('.composer textarea').getAttribute('aria-describedby'),
       await ben.page.locator('.composer .archived-notice').getAttribute('id'),
     )
-    assert.equal(await ben.page.locator('.note .move-question, .note .ask-reply').count(), 0)
+    assert.equal(await ben.page.locator('.note .note-reply').count(), 0)
     await ben.page.waitForSelector('.sidebar details.archived-rooms summary:has-text("Archived (1)")')
     await ben.page.reload()
     await ben.page.waitForSelector(

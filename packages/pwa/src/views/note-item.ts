@@ -3,10 +3,8 @@ import { type Lifetime, h, linkedText } from '@homingbird/ui'
 import type { NoteItemModel } from '../models/note-item.ts'
 import { strings } from '../strings.ts'
 import { authorButton } from './author-details.ts'
-import { moveForm } from './channel-picker.ts'
 import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
-import { opensDialog } from './dialog.ts'
 import { button, timeLabel } from './parts.ts'
 
 /** One sent note in the thread; a click on it, away from its controls, marks it as the one looked at. */
@@ -87,21 +85,9 @@ export const renderNoteItem = (
           'div',
           { class: 'note-actions' },
           model.actions.map((action) =>
-            action.kind === 'move'
-              ? h(
-                  'button',
-                  {
-                    type: 'button',
-                    class: 'link move-question',
-                    ...opensDialog(context, strings.moveTitle, (dialogLife) =>
-                      moveForm(context, dialogLife, note, conversationId),
-                    ),
-                  },
-                  action.label,
-                )
-              : button(action.label, ACTIONS[action.kind], {
-                  class: action.kind === 'reply' ? 'link' : 'link ask-reply',
-                }),
+            button(action.label, ACTIONS[action.kind], {
+              class: action.kind === 'reply' ? 'link' : 'link ask-reply',
+            }),
           ),
         ),
     ),

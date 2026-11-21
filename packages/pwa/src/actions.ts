@@ -70,11 +70,6 @@ export const TASKS = {
   addTeam: channels.addTeam,
   askChannel: channels.askChannel,
   enterRoom: channels.enterRoom,
-  moveQuestion: channels.moveQuestion,
-  createChannelThenMove: (
-    channel: { readonly slug: string; readonly description: string },
-    note: Parameters<typeof channels.moveQuestion>[0],
-  ) => channels.createChannelThen(channel, (slug) => channels.moveQuestion(note, slug)),
   createChannelThenReaddress: (
     channel: { readonly slug: string; readonly description: string },
     draft: Parameters<typeof drafts.readdressDraft>[0],

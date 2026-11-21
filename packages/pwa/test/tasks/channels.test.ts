@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { moveQuestion as move } from '../../src/tasks/channels.ts'
 import * as tasks from '../../src/tasks/channels.ts'
 import { fail, testApp } from '../support/app.ts'
 import { BEN, ROOM, TEAM, channel, conversation, group, note } from '../support/fixtures.ts'
@@ -90,8 +89,8 @@ describe('channel tasks', () => {
     })
   })
 
-  it('asks a channel, enters its room, and moves a question', async () => {
-    const { run, page, state, sent } = testApp(answers)
+  it('asks a channel and enters its room', async () => {
+    const { run, page, sent } = testApp(answers)
     expect(await run(tasks.askChannel('billing', 'When?'))).toEqual({ _tag: 'Ok', value: ROOM })
     expect(sent.find((one) => one.route === 'drafts.send')!.request).toEqual({
       params: { id: 'd1' },
@@ -99,9 +98,6 @@ describe('channel tasks', () => {
     })
     await run(tasks.enterRoom(ROOM))
     expect(page.visited).toEqual([`go #/c/${ROOM}`])
-    state.threads.set(new Map([[ROOM, { notes: [note('q')], hasMore: false }]]))
-    await run(move(note('q'), 'ops'))
-    expect(state.threads.get().get(ROOM)!.notes).toEqual([])
   })
 
   it('opens a channel and takes the next step, keeping the channel when the step fails', async () => {
@@ -112,9 +108,12 @@ describe('channel tasks', () => {
       ),
     )
     expect(moved).toEqual({ _tag: 'Ok', value: { created: channel('ops'), failure: null } })
-    const failing = testApp({ ...answers, 'notes.move': () => fail({ _tag: 'Forbidden', message: 'no' }) })
+    const failing = testApp({
+      ...answers,
+      'channels.leave': () => fail({ _tag: 'Forbidden', message: 'no' }),
+    })
     const outcome = await failing.run(
-      tasks.createChannelThen({ slug: 'ops', description: 'Ops' }, (slug) => move(note('q'), slug)),
+      tasks.createChannelThen({ slug: 'ops', description: 'Ops' }, (slug) => tasks.leaveChannel(slug)),
     )
     expect(outcome).toEqual({
       _tag: 'Ok',

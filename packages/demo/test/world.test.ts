@@ -6,11 +6,11 @@ import { NOW } from './support/demo.ts'
 
 const ana = MemberId.of('demoana00000')
 const ben = MemberId.of('demoben00000')
-const moved = (seq: number) => ({
-  type: 'note.moved' as const,
+const statusOf = (seq: number) => ({
+  type: 'note.status' as const,
   noteId: NoteId.of(`demonote${String(seq).padStart(4, '0')}`),
-  fromConversationId: ConversationId.of('demowithana0'),
-  toConversationId: ConversationId.of('demowithben0'),
+  conversationId: ConversationId.of('demowithana0'),
+  receipts: [],
 })
 
 describe('createWorld', () => {
@@ -26,14 +26,14 @@ describe('createWorld', () => {
     const world = createWorld(makeTestClock(NOW))
     const heard: number[] = []
     const stop = world.listen(ana, (event) => heard.push(event.seq))
-    world.emit([ana], moved(1))
-    world.emit([ben], moved(2))
+    world.emit([ana], statusOf(1))
+    world.emit([ben], statusOf(2))
     stop()
-    world.emit([ana], moved(3))
+    world.emit([ana], statusOf(3))
     expect(heard).toEqual([1])
     expect(world.eventsAfter(ana, 0).map((event) => event.seq)).toEqual([1, 3])
     expect(world.eventsAfter(ana, 1).map((event) => event.seq)).toEqual([3])
-    expect(world.eventsAfter(ben, 0)).toEqual([{ seq: 2, at: NOW, body: moved(2) }])
+    expect(world.eventsAfter(ben, 0)).toEqual([{ seq: 2, at: NOW, body: statusOf(2) }])
   })
 
   it('makes new identifiers that read as their kind and never repeat', () => {

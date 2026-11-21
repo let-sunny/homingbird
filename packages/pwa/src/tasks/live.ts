@@ -7,7 +7,7 @@ import { upsertRequest } from '../draft-requests.ts'
 import { hrefFor } from '../routes.ts'
 import { signedIn } from '../state.ts'
 import { strings } from '../strings.ts'
-import { isMuted, withPresence, withReceipts, withoutMovedQuestion } from '../thread.ts'
+import { isMuted, withPresence, withReceipts } from '../thread.ts'
 import { loadReviews } from './channel-agents.ts'
 import { loadDebate, loadDebates } from './debates.ts'
 import { loadGroups } from './groups.ts'
@@ -59,12 +59,6 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
                 notes: withReceipts(thread.notes, body.noteId, body.receipts),
               })
         })
-        break
-      case 'note.moved':
-        state.changes.count(body.fromConversationId)
-        state.changes.count(body.toConversationId)
-        state.threads.update((all) => withoutMovedQuestion(all, body.fromConversationId, body.noteId))
-        launch(loadConversations)
         break
       case 'draft.saved':
         rememberNote(state)(body.note)

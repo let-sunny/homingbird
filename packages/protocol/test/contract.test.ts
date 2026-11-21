@@ -111,7 +111,6 @@ describe('contract', () => {
         'conversations.mute',
         'conversations.unmute',
         'notes.read',
-        'notes.move',
         'drafts.send',
         'drafts.discard',
         'drafts.seen',
