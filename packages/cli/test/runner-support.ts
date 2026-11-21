@@ -49,6 +49,7 @@ export interface Runner {
   readonly w: World
   readonly exit: Promise<number>
   readonly created: unknown[]
+  readonly released: unknown[]
   readonly push: (body: StreamEvent['body']) => void
   readonly stop: () => Promise<number>
 }
@@ -68,6 +69,7 @@ export const runner = (
   } = {},
 ): Runner => {
   const created: unknown[] = []
+  const released: unknown[] = []
   let sequence = 0
   let controller: ReadableStreamDefaultController<Uint8Array> | null = null
   const w = world({
@@ -79,6 +81,10 @@ export const runner = (
       'draftRequests.list': () => ({ requests: [] }),
       'debates.waiting': () => ({ asks: [] }),
       'notes.pickup': () => QUESTION,
+      'notes.release': (request) => {
+        released.push(request.body)
+        return QUESTION
+      },
       'drafts.create': (request) => {
         created.push(request.body)
         return DRAFT
@@ -111,6 +117,7 @@ export const runner = (
     w,
     exit,
     created,
+    released,
     push: (body) =>
       controller?.enqueue(new TextEncoder().encode(frame({ seq: ++sequence, at: 1_700_000_000_000, body }))),
     stop: async () => {

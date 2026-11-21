@@ -21,6 +21,7 @@ import {
   MINIMAL_READER_WARNING,
   SAME_READER_REFUSED,
   SAME_READER_WARNING,
+  UNABLE_TO_ANSWER,
   attachedServer,
   runnerClient,
 } from '../src/commands/run.ts'
@@ -324,6 +325,8 @@ describe('homingbird run', () => {
       `The agent command could not be found: "claude" is not on the PATH this runs with; give its absolute path, such as /usr/local/bin/claude, or set PATH; nothing was drafted for the note ${QUESTION.id}.`,
     )
     expect(r.created).toEqual([])
+    await settle(() => r.released.length === 1)
+    expect(r.released).toEqual([{ reason: "the agent command could not be found on the desk's computer" }])
     await r.stop()
   })
 
@@ -348,6 +351,63 @@ describe('homingbird run', () => {
     )
     expect(aborted).toBe(true)
     expect(r.created).toEqual([])
+    await settle(() => r.released.length === 1)
+    expect(r.released).toEqual([{ reason: 'the agent command did not finish within 30 seconds' }])
+    await r.stop()
+  })
+
+  it('gives a note back when the agent command fails, with a reason that never holds what it wrote', async () => {
+    const r = runner({
+      stubs: { 'inbox.list': once(waitingQuestion, { items: [] }) },
+      agent: () => ({
+        exitCode: 1,
+        output: `token ${AGENT_TOKEN}`,
+        errors: `Error: ${AGENT_TOKEN} is out of usage`,
+      }),
+    })
+    await settle(() => r.released.length === 1)
+    expect(r.released).toEqual([
+      { reason: 'the agent command failed (exit 1); it may be out of usage or signed out' },
+    ])
+    expect(r.created).toEqual([])
+    expect(r.w.problems).toEqual([
+      `The agent command exited with code 1 (Error: [withheld] is out of usage); nothing was drafted for the note ${QUESTION.id}.`,
+    ])
+    expect(r.w.lines.some((line) => line.startsWith('Gave '))).toBe(false)
+    expect(r.w.calls.map((call) => call.body).join('\n')).not.toContain(AGENT_TOKEN)
+    await r.stop()
+  })
+
+  it('gives a note back when the agent prints nothing it can draft', async () => {
+    const r = runner({
+      stubs: { 'inbox.list': once(waitingQuestion, { items: [] }) },
+      agent: () => ({ exitCode: 0, output: '  ' }),
+    })
+    await settle(() => r.released.length === 1)
+    expect(r.released).toEqual([{ reason: 'the agent command printed nothing' }])
+    await r.stop()
+  })
+
+  it('says once that the agent seems unable to answer when 3 runs fail in a row, and again after one answers', async () => {
+    const notes = Array.from({ length: 6 }, (_, index) => noteOf({ id: NoteId.of(`question000${index}`) }))
+    const r = runner({
+      stubs: {
+        'inbox.list': once(
+          { items: notes.map((note) => ({ note, author: BEN, conversation: conversationOf() })) },
+          { items: [] },
+        ),
+      },
+      agent: () =>
+        r.w.agentRuns.length === 5 ? { exitCode: 0, output: 'Yes.' } : { exitCode: 1, output: '' },
+    })
+    await settle(() => r.w.agentRuns.length === 6 && r.released.length === 5)
+    expect(r.w.problems).toEqual([
+      `The agent command exited with code 1; nothing was drafted for the note ${notes[0]!.id}.`,
+      `The agent command exited with code 1; nothing was drafted for the note ${notes[1]!.id}.`,
+      UNABLE_TO_ANSWER,
+      `The agent command exited with code 1; nothing was drafted for the note ${notes[5]!.id}.`,
+    ])
+    expect(r.created).toHaveLength(1)
     await r.stop()
   })
 
@@ -826,6 +886,10 @@ describe('homingbird run --split', () => {
     const said = r.w.problems.join('\n')
     expect(said).toContain('The reader command exited with code 1 (Error: credential [withheld] expired)')
     expect(said).not.toContain(AGENT_TOKEN)
+    await settle(() => r.released.length === 1)
+    expect(r.released).toEqual([
+      { reason: 'the reader command failed (exit 1); it may be out of usage or signed out' },
+    ])
     await r.stop()
   })
 

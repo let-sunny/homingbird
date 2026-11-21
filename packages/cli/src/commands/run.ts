@@ -1,5 +1,5 @@
 import { eventStream } from '@homingbird/client'
-import { Stream, Task as T } from '@homingbird/kernel'
+import { Result, Stream, Task as T } from '@homingbird/kernel'
 import {
   type AgentReply,
   type AsRead,
@@ -205,6 +205,7 @@ export const runDesk = (
           tried: new Set(),
           triedDebates: new Set(),
           told: new Set(),
+          failuresInRow: 0,
         }),
         keptUntilLost(claim, holder),
       ]),
@@ -306,6 +307,8 @@ interface Runner {
   readonly triedDebates: Set<string>
   /** Notices said once per run, such as draft requests being switched off. */
   readonly told: Set<string>
+  /** Agent runs that failed since the last one that answered. */
+  failuresInRow: number
 }
 
 const STOPPING: ReadonlyArray<number> = [EXIT.signedOut]
@@ -364,7 +367,7 @@ const debateDeskOf = (runner: Runner): DebateDesk<DeskEnv> => ({
   tried: runner.triedDebates,
   told: runner.told,
   report: runner.report,
-  run: (role, prompt, what) => outputOf(runner, role, prompt, what),
+  run: (role, prompt, what) => answeredBy(runner, role, prompt, what),
   warn,
 })
 
@@ -390,7 +393,9 @@ const answerNote = (runner: Runner, item: AsRead.InboxItem): T.Task<void, CliFai
     const flow = yield* answeringFlowFor(runner.session.api, note.conversationId)
     const what = `the note ${note.id}`
     const extracted = runner.split === null ? null : yield* extractedFrom(runner, note, authors, what)
-    if (runner.split !== null && extracted === null) {
+    if (extracted !== null && extracted._tag === 'Err') {
+      if (extracted.error !== UNREADABLE_NOTE)
+        return yield* releasedAfterFailure(runner, note.id, extracted.error)
       yield* calling(
         runner.session.api['notes.release']({ params: { id: note.id }, body: { reason: UNREADABLE_NOTE } }),
       )
@@ -399,9 +404,10 @@ const answerNote = (runner: Runner, item: AsRead.InboxItem): T.Task<void, CliFai
     const prompt =
       extracted === null
         ? runnerNotePrompt(runner.member, flow, quotedNote(note, { authors, nonce: env.nonce }))
-        : runnerExtractedNotePrompt(runner.member, flow, extracted)
-    const reply = yield* draftedBy(runner, prompt, what)
-    if (reply === null) return
+        : runnerExtractedNotePrompt(runner.member, flow, extracted.value)
+    const answered = yield* draftedBy(runner, prompt, what)
+    if (answered._tag === 'Err') return yield* releasedAfterFailure(runner, note.id, answered.error)
+    const reply = answered.value
     if (reply.kind === 'skip') {
       yield* calling(
         runner.session.api['notes.release']({
@@ -442,8 +448,9 @@ const answerRequest = (runner: Runner, request: DraftRequest): T.Task<void, CliF
       original,
       runner.split !== null,
     )
-    const reply = yield* draftedBy(runner, prompt, `the draft request ${request.id}`)
-    if (reply === null) return
+    const answered = yield* draftedBy(runner, prompt, `the draft request ${request.id}`)
+    if (answered._tag === 'Err') return
+    const reply = answered.value
     if (reply.kind === 'skip')
       return yield* warn(
         `The agent did not draft for the draft request ${request.id}${runner.isService ? '.' : `: ${reply.reason}`}`,
@@ -481,19 +488,61 @@ const withoutOptions = (words: ReadonlyArray<string>): ReadonlyArray<string> => 
 
 const LAUNCHERS = new Set(['env', 'npx', 'bunx'])
 
+/** The agent's usable reply, or the reason the person sees after the runner told why it has none. */
 const draftedBy = (
   runner: Runner,
   prompt: string,
   what: string,
-): T.Task<AgentReply | null, CliFailure, DeskEnv> =>
+): T.Task<Result.Result<AgentReply, string>, CliFailure, DeskEnv> =>
   T.gen(function* () {
-    const output = yield* outputOf(runner, 'agent', prompt, what)
-    if (output === null) return null
-    const reply = runnerReplyIn(output)
-    const problem = replyProblem(reply)
-    if (problem === null) return reply
-    return yield* T.as(null)(warn(`The agent command ${problem}; nothing was drafted for ${what}.`))
+    const output = yield* outputOf(runner, 'agent', prompt)
+    const reply = output._tag === 'Ok' ? runnerReplyIn(output.value) : null
+    const problem = reply === null ? null : replyProblem(reply)
+    if (output._tag === 'Err' || problem !== null) {
+      const failure = output._tag === 'Err' ? output.error : outputFailure('agent', problem!)
+      return Result.err(yield* toldFailure(runner, failure, what))
+    }
+    runner.failuresInRow = 0
+    return Result.ok(reply!)
   })
+
+/** A debate turn's output, or null after the runner told why there is none. */
+const answeredBy = (
+  runner: Runner,
+  role: 'agent' | 'reader',
+  prompt: string,
+  what: string,
+): T.Task<string | null, CliFailure, DeskEnv> =>
+  T.gen(function* () {
+    const output = yield* outputOf(runner, role, prompt)
+    if (output._tag === 'Err') return yield* T.as(null)(toldFailure(runner, output.error, what))
+    if (role === 'agent') runner.failuresInRow = 0
+    return output.value
+  })
+
+/**
+ * A failed run ends like a skip, with a reason the person sees that never holds the command's output.
+ * The note stays picked up, so it is not tried again until the person asks for a draft.
+ */
+const releasedAfterFailure = (
+  runner: Runner,
+  noteId: AsRead.Note['id'],
+  reason: string,
+): T.Task<void, CliFailure, DeskEnv> =>
+  T.asUnit(calling(runner.session.api['notes.release']({ params: { id: noteId }, body: { reason } })))
+
+/** Says why a run failed, or once that the agent seems unable to answer when several fail in a row. */
+const toldFailure = (runner: Runner, failure: RunFailure, what: string): T.Task<string, never, DeskEnv> =>
+  T.gen(function* () {
+    runner.failuresInRow += 1
+    if (runner.failuresInRow < FAILURES_BEFORE_UNABLE)
+      yield* warn(`${failure.detail}; nothing was drafted for ${what}.`)
+    else if (runner.failuresInRow === FAILURES_BEFORE_UNABLE) yield* warn(UNABLE_TO_ANSWER)
+    return failure.reason
+  })
+
+export const UNABLE_TO_ANSWER =
+  'The agent command failed 3 times in a row: it seems unable to answer, perhaps out of usage or signed out. Each note it fails on goes back to you with the reason; every new note and draft request is still tried.'
 
 /** The reader's checked description of a note, wrapped like the note itself would be; null when it gave none. */
 const extractedFrom = (
@@ -501,18 +550,20 @@ const extractedFrom = (
   note: AsRead.Note,
   authors: Authors,
   what: string,
-): T.Task<string | null, CliFailure, DeskEnv> =>
+): T.Task<Result.Result<string, string>, CliFailure, DeskEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<DeskEnv>()
     const prompt = readerPrompt(quotedNote(note, { authors, nonce: env.nonce }))
-    const output = yield* outputOf(runner, 'reader', prompt, what)
-    const extracted = output === null ? null : extractionIn(output)
+    const output = yield* outputOf(runner, 'reader', prompt)
+    if (output._tag === 'Err') return Result.err(yield* toldFailure(runner, output.error, what))
+    const extracted = extractionIn(output.value)
     if (extracted === null) {
-      if (output !== null)
-        yield* warn(`The reader command did not describe ${what} in the expected form; nothing was drafted.`)
-      return null
+      yield* warn(`The reader command did not describe ${what} in the expected form; nothing was drafted.`)
+      return Result.err(UNREADABLE_NOTE)
     }
-    return quotedNote({ ...note, body: describedForWriter(extracted) }, { authors, nonce: env.nonce })
+    return Result.ok(
+      quotedNote({ ...note, body: describedForWriter(extracted) }, { authors, nonce: env.nonce }),
+    )
   })
 
 const UNREADABLE = Symbol('unreadable')
@@ -526,15 +577,16 @@ const extractedOriginalOf = (
     if (request.inReplyTo === null) return null
     const note = yield* T.result(runner.session.api['notes.get']({ params: { id: request.inReplyTo } }))
     if (note._tag === 'Err') return `(The note ${request.inReplyTo} could not be loaded.)`
-    return (yield* extractedFrom(runner, note.value, authors, `the note ${note.value.id}`)) ?? UNREADABLE
+    const extracted = yield* extractedFrom(runner, note.value, authors, `the note ${note.value.id}`)
+    return extracted._tag === 'Ok' ? extracted.value : UNREADABLE
   })
 
+/** What a command printed, or why it failed: in detail for the terminal, and in short for the person. */
 const outputOf = (
   runner: Runner,
   role: 'agent' | 'reader',
   prompt: string,
-  what: string,
-): T.Task<string | null, CliFailure, DeskEnv> =>
+): T.Task<Result.Result<string, RunFailure>, CliFailure, DeskEnv> =>
   T.gen(function* () {
     const launch = role === 'agent' ? runner.launches.agent : runner.launches.reader!
     const finished = yield* T.result(
@@ -549,22 +601,35 @@ const outputOf = (
         }),
       ),
     )
-    const reason =
-      finished._tag === 'Ok'
-        ? exitProblem(finished.value, launch.command, secretsOf(runner), runner.platform)
-        : finished.error._tag === 'TimeoutError'
-          ? `did not finish within ${runner.timeoutMs / 1000} seconds`
-          : `could not be started (${finished.error.message})`
-    if (reason !== null || finished._tag !== 'Ok')
-      return yield* T.as(null)(warn(`The ${role} command ${reason}; nothing was drafted for ${what}.`))
-    if (launch.format === 'text') return finished.value.output
+    if (finished._tag === 'Err') {
+      const timedOut = finished.error._tag === 'TimeoutError'
+      const said = timedOut
+        ? `did not finish within ${runner.timeoutMs / 1000} seconds`
+        : 'could not be started'
+      const detail = timedOut ? said : `${said} (${finished.error.message})`
+      return Result.err({ detail: `The ${role} command ${detail}`, reason: `the ${role} command ${said}` })
+    }
+    const failed = exitFailure(role, finished.value, launch.command, secretsOf(runner), runner.platform)
+    if (failed !== null) return Result.err(failed)
+    if (launch.format === 'text') return Result.ok(finished.value.output)
     const denied = firstErrorLine(finished.value, secretsOf(runner))
     if (denied !== null)
       yield* warn(`The ${role} command finished but reported, perhaps a tool it was denied: ${denied}`)
     const reply = antigravityOutput(finished.value.output)
-    if (reply._tag === 'Ok') return reply.value
-    return yield* T.as(null)(warn(`The ${role} command ${reply.error}; nothing was drafted for ${what}.`))
+    return reply._tag === 'Ok' ? reply : Result.err(outputFailure(role, reply.error))
   })
+
+/** A failed run: `detail` for the terminal, `reason` for the person, which never quotes what the command wrote. */
+interface RunFailure {
+  readonly detail: string
+  readonly reason: string
+}
+
+/** A failure the runner names itself, such as "printed nothing", which holds nothing the command wrote. */
+const outputFailure = (role: 'agent' | 'reader', problem: string): RunFailure => ({
+  detail: `The ${role} command ${problem}`,
+  reason: `the ${role} command ${problem}`,
+})
 
 export const MANAGED_MCP_AGENT_WARNING =
   'Claude Code refused --strict-mcp-config because your organization manages its MCP configuration: the agent now runs without the Homingbird MCP server.'
@@ -591,16 +656,25 @@ const secretsOf = (runner: Runner): ReadonlyArray<string> => [
   runner.credentialsFile,
 ]
 
-const exitProblem = (
+const exitFailure = (
+  role: 'agent' | 'reader',
   finished: AgentRun,
   command: string,
   secrets: ReadonlyArray<string>,
   platform: string,
-): string | null => {
+): RunFailure | null => {
   if (finished.exitCode === 0) return null
-  if (SHELL_COMMAND_NOT_FOUND.includes(finished.exitCode ?? 0)) return notFound(command, platform)
+  if (SHELL_COMMAND_NOT_FOUND.includes(finished.exitCode ?? 0))
+    return {
+      detail: `The ${role} command ${notFound(command, platform)}`,
+      reason: `the ${role} command could not be found on the desk's computer`,
+    }
   const said = firstErrorLine(finished, secrets)
-  return `exited with code ${finished.exitCode ?? 'unknown'}${said === null ? '' : ` (${said})`}`
+  const code = finished.exitCode ?? 'unknown'
+  return {
+    detail: `The ${role} command exited with code ${code}${said === null ? '' : ` (${said})`}`,
+    reason: `the ${role} command failed (exit ${code}); it may be out of usage or signed out`,
+  }
 }
 
 /** What the shell answers when the command's program is not on the PATH: 127 as POSIX specifies, 9009 from cmd.exe. */
@@ -633,3 +707,5 @@ const drafted = (draft: AsRead.Note, answering: Readonly<Record<string, string>>
     { step: 'drafted', draftId: draft.id, conversationId: draft.conversationId, ...answering },
     `Drafted ${draft.id} ${what}. It has not been sent: it waits for approval.`,
   )
+
+const FAILURES_BEFORE_UNABLE = 3
