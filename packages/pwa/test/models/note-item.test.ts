@@ -3,7 +3,18 @@ import { describe, expect, it } from 'vitest'
 import { noteItemModel } from '../../src/models/note-item.ts'
 import { timeShown } from '../../src/models/time.ts'
 import { formats, strings } from '../../src/strings.ts'
-import { ANA, BEN, CY, ROOM, conversation, entry, member, note, serverInfo } from '../support/fixtures.ts'
+import {
+  ANA,
+  BEN,
+  CY,
+  ROOM,
+  channel,
+  conversation,
+  entry,
+  member,
+  note,
+  serverInfo,
+} from '../support/fixtures.ts'
 import { threadInput } from '../support/thread.ts'
 
 const item = (shown: AsRead.Note, fields: { leadsRun?: boolean; next?: AsRead.Note | null } = {}) => ({
@@ -61,6 +72,7 @@ describe('noteItemModel', () => {
       basis: null,
       answeredBy: null,
       release: null,
+      waits: null,
       meta: { time: timeShown(5, 10), mark: null },
       reply: strings.reply,
       menu: {
@@ -225,6 +237,33 @@ describe('noteItemModel', () => {
       noteItemModel(threadInput({ thread: { notes: [question, answer], hasMore: false } }), item(answer))
         .quote,
     ).toBe('When do we ship?')
+  })
+
+  it('says under the person’s latest unanswered question in a channel who answers, then that it is drafted', () => {
+    const room = conversation({ kind: 'channel', participantIds: [ANA, BEN, CY] })
+    const billing = {
+      ...channel('billing', { conversationId: ROOM }),
+      agent: { id: CY, name: 'Billing helper', presence: { humanOnline: false, agentOnline: true } },
+    }
+    const older = note('q1', { authorId: ANA, sentAt: 1 })
+    const latest = note('q2', { authorId: ANA, sentAt: 2, receipts: [receipt(CY)] })
+    const waits = (notes: AsRead.Note[], shown: AsRead.Note) =>
+      noteItemModel(
+        threadInput({ conversations: [room], channels: [billing], thread: { notes, hasMore: false } }),
+        item(shown),
+      ).waits
+    expect(waits([older, latest], latest)).toEqual({
+      text: strings.channelAnswer.agentDrafts({ agent: 'Billing helper' }),
+      warning: false,
+    })
+    expect(waits([older, latest], older)).toBeNull()
+    const picked = { ...latest, receipts: [receipt(CY, { state: 'drafting', draftingAt: 3 })] }
+    expect(waits([older, picked], picked)?.text).toBe(
+      strings.channelAnswer.agentDrafting({ agent: 'Billing helper' }),
+    )
+    const answer = note('a1', { authorId: CY, inReplyTo: latest.id, sentAt: 4 })
+    expect(waits([latest, answer], latest)).toBeNull()
+    expect(waits([latest], note('t1', { authorId: BEN }))).toBeNull()
   })
 
   it('names who answered a channel question, and offers to move one nobody answered', () => {

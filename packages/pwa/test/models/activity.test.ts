@@ -74,6 +74,7 @@ describe('activityModel', () => {
       title: strings.activity.title,
       count: 0,
       label: strings.activity.bellNone,
+      agent: null,
       empty: strings.activity.empty,
       groups: [],
     })
@@ -260,28 +261,70 @@ describe('activityModel', () => {
     ).toEqual([])
   })
 
-  it('says when the person’s running desk cannot answer, and leads to Connection', () => {
+  it('tells apart that the person’s running desk cannot answer, never counting it, and leads to Connection', () => {
     const presence = {
       humanOnline: true,
       agentOnline: true,
       agentUnavailable: { until: null, kind: 'signed_out' },
     }
     const model = activityModel(input({ directory: [entry(ANA, 'Ana', { presence } as never)] }))
-    expect(itemsOf(model, 'unavailable')).toEqual([
-      expect.objectContaining({
-        heading: strings.activity.unavailableTitle,
-        lines: [strings.deskUnavailableReason.signed_out],
-        place: expect.objectContaining({
-          href: '#/agent/connection',
-          label: strings.activity.openConnection,
-        }),
+    expect(model.agent).toEqual({
+      heading: strings.activity.unavailableTitle,
+      lines: [strings.deskUnavailableReason.signed_out],
+      href: '#/agent/connection',
+      label: strings.activity.openConnection,
+    })
+    expect(model.count).toBe(0)
+    expect(model.groups).toEqual([])
+    expect(model.empty).toBeNull()
+    expect(model.label).toBe(strings.activity.bellNoneAgentUnavailable)
+    const withDraft = activityModel(
+      input({
+        directory: [entry(ANA, 'Ana', { presence } as never)],
+        threads: new Map([[ROOM, thread(draft('note_d1'))]]),
       }),
-    ])
+    )
+    expect(withDraft.count).toBe(1)
+    expect(withDraft.label).toBe(strings.activity.bellAgentUnavailable({ count: 1 }))
     const asleep = { humanOnline: true, agentOnline: false, agentUnavailable: { until: null } }
-    expect(activityModel(input({ directory: [entry(ANA, 'Ana', { presence: asleep })] })).groups).toEqual([])
+    expect(activityModel(input({ directory: [entry(ANA, 'Ana', { presence: asleep })] })).agent).toBeNull()
   })
 
-  it('lists a room that asks the person’s agent and a closed room whose result they may post', () => {
+  it('clears a skipped note once the person writes below it, quoting it or not, but not before', () => {
+    const asked = note('note_asked', { authorId: BEN, sentAt: 40 })
+    const releases = new Map([[asked.id, { reason: null, agentName: null }]])
+    const withNotes = (...others: AsRead.Note[]) =>
+      kinds(activityModel(input({ threads: new Map([[ROOM, thread(asked, ...others)]]), releases })))
+    expect(withNotes(note('note_later', { authorId: ANA, sentAt: 41 }))).toEqual([])
+    expect(withNotes(note('note_earlier', { authorId: ANA, sentAt: 39 }))).toEqual(['skipped'])
+    expect(withNotes(note('note_theirs', { authorId: BEN, sentAt: 41 }))).toEqual(['skipped'])
+    expect(
+      withNotes(draft('note_gone', { status: 'discarded', inReplyTo: asked.id, createdAt: 50 })),
+    ).toEqual(['skipped'])
+  })
+
+  it('counts exactly the things its groups list', () => {
+    fc.assert(
+      fc.property(fc.integer({ min: 0, max: 4 }), fc.boolean(), (drafts, skipped) => {
+        const asked = note('note_asked', { authorId: BEN, sentAt: 1 })
+        const own = Array.from({ length: drafts }, (_, index) =>
+          draft(`note_d${index}`, { inReplyTo: null, updatedAt: 2 + index }),
+        )
+        const model = activityModel(
+          input({
+            threads: new Map([[ROOM, thread(asked, ...own)]]),
+            releases: skipped ? new Map([[asked.id, { reason: null, agentName: null }]]) : new Map(),
+          }),
+        )
+        const listed = model.groups
+          .flatMap((group) => group.items)
+          .reduce((sum, item) => sum + (item.type === 'drafts' ? item.drafts.cards.length : 1), 0)
+        expect(model.count).toBe(listed)
+      }),
+    )
+  })
+
+  it('lists a room that asks the person’s agent and a closed room whose result they may post, each opening on its tab', () => {
     const asks = summary({ id: 'debate_asks0000000' as DebateId, createdAt: 30, participantIds: [BEN] })
     const result = summary({
       id: 'debate_result00000' as DebateId,
@@ -297,9 +340,10 @@ describe('activityModel', () => {
     ])
     expect(itemsOf(model, 'debates')[0]!.place).toMatchObject({
       text: result.question,
-      href: '#/debate/debate_result00000',
+      href: '#/debate/debate_result00000/result',
       label: strings.activity.openRoom,
     })
+    expect(itemsOf(model, 'debates')[1]!.place.href).toBe('#/debate/debate_asks0000000/turns')
   })
 
   it('leaves out rooms that need nothing of the person', () => {

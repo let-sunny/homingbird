@@ -58,6 +58,7 @@ const scenario = async (): Promise<void> => {
     await ana.page.fill('.create-debate textarea[name="question"]', QUESTION)
     await ana.page.check('.create-debate input[name="visibility"][value="private"]')
     await ana.page.check(`.create-debate input[name="invite"][value="${ids.ben}"]`)
+    await ana.page.click('.create-debate details > summary')
     await ana.page.fill('.create-debate input[name="turnsPerAgent"]', '1')
     await ana.page.fill('.create-debate input[name="totalTurns"]', '2')
     await capture(ana.page, 'new-room-with-question-limits-and-an-invitee')
@@ -72,7 +73,7 @@ const scenario = async (): Promise<void> => {
     await ana.page.waitForSelector('.debate-opt-in-form select[name="agent"]')
     await ana.page.click('.debate-opt-in-form button[type="submit"]')
     await ana.page.waitForSelector(
-      `.debate-participants li[data-member="${ids.ana}"]:has-text("Ana laptop, agent of Ana")`,
+      `.debate-participants li[data-member="${ids.ana}"]:has-text("Ana laptop, your agent")`,
     )
     await ben.page.reload()
     await ben.page.waitForSelector('.app')
@@ -98,9 +99,14 @@ const scenario = async (): Promise<void> => {
     await benAgent.call('POST', `/debates/${id}/turns`, {
       body: 'I had not read it. My goal is to avoid any customer-facing risk this quarter.',
     })
-    await ana.page.waitForSelector('.debate-turn[data-position="2"]')
+    await ana.page.waitForSelector('.debate-tabs a[aria-current="page"][data-tab="result"]')
     await ana.page.waitForSelector('.debate-result:has-text("The turns ran out")')
     await capture(ana.page, 'turns-ran-out-and-the-room-asks-for-its-result')
+    await ana.page.click('.debate-tabs a[data-tab="turns"]')
+    await ana.page.waitForSelector('.debate-turn[data-position="2"]')
+    await ana.page.waitForSelector('.debate-turns-taken:has-text("2 of 2 turns taken.")')
+    assert.equal(await ana.page.locator('.debate-result').count(), 0, 'the turns tab leaves the result out')
+    await ana.page.goto(`${base}/#/debate/${id}`)
 
     // -- Both agents draft the result, vote on each other's draft, and the winner closes the room
     const drafted = await anaAgent.call('PUT', `/debates/${id}/result`, {
@@ -156,7 +162,14 @@ const scenario = async (): Promise<void> => {
     await ben.page.waitForSelector(`.debate-draft[data-member="${ids.ben}"]:has-text("1 vote")`)
     await ben.page.waitForSelector('.debate-point[data-category="goals"]')
     await ana.page.waitForSelector('.debate-meta .debate-stage:has-text("Closed")')
+    await ben.page.click('.debate-tabs a[data-tab="votes"]')
     await ben.page.waitForSelector(`.debate-vote-record li.is-voted[data-member="${ids.ben}"]`)
+    await capture(ben.page, 'closed-room-votes')
+    await ben.page.click('.debate-tabs a[data-tab="credit"]')
+    await ben.page.waitForSelector(
+      `.debate-credit-list li[data-member="${ids.ben}"]:has-text("Ana and Ben agree")`,
+    )
+    await capture(ben.page, 'closed-room-credit')
     await capture(ana.page, 'closed-room-with-the-result-the-agents-settled')
     for (const desk of desks) desk.abort()
 
@@ -176,7 +189,7 @@ const scenario = async (): Promise<void> => {
     assert.equal(JSON.parse(await readFile(await json.path(), 'utf8')).result.kind, 'no_conclusion')
     await ana.page.selectOption('.debate-post-form select[name="person"]', ids.ben)
     await ana.page.click('.debate-post-form button[type="submit"]')
-    await ana.page.waitForSelector('.draft:has-text("From the debate room")')
+    await ana.page.waitForSelector('main .draft:has-text("From the debate room")')
     await capture(ana.page, 'settled-result-waiting-as-a-draft')
 
     // -- The growth record credits the agent, never with a count -------------------------------
@@ -188,9 +201,16 @@ const scenario = async (): Promise<void> => {
     const narrow: Person = await newPage(browser, base, 'en-US', { viewport: NARROW })
     await submitDevelopmentLogin(narrow.page, 'ben@example.com', 'Ben')
     await narrow.page.waitForSelector('.app')
-    for (const path of [`#/debate/${id}`, '#/debates']) {
+    const narrowPages = [
+      [`#/debate/${id}`, '.debate-result'],
+      [`#/debate/${id}/turns`, '.debate-turn'],
+      [`#/debate/${id}/votes`, '.debate-vote-record'],
+      [`#/debate/${id}/credit`, '.debate-credit-list'],
+      ['#/debates', '.debate-card'],
+    ] as const
+    for (const [path, ready] of narrowPages) {
       await narrow.page.goto(`${base}/${path}`)
-      await narrow.page.waitForSelector(path === '#/debates' ? '.debate-card' : '.debate-result')
+      await narrow.page.waitForSelector(ready)
       assert.equal(await overflowsSideways(narrow.page), false, `${path} scrolls sideways when narrow`)
       assert.deepEqual(await pastTheRightEdge(narrow.page), [], `${path} reaches past the right edge`)
     }
@@ -203,6 +223,7 @@ const scenario = async (): Promise<void> => {
     await korean.page.goto(`${base}/#/debate/${id}`)
     await korean.page.waitForSelector('.debate-meta .debate-stage:has-text("닫힘")')
     await korean.page.waitForSelector('.debate-point[data-category="goals"]:has-text("목표")')
+    await korean.page.waitForSelector('.debate-tabs a[aria-current="page"]:has-text("결과")')
     assert.equal(await overflowsSideways(korean.page), false, 'the Korean room scrolls sideways when narrow')
     assert.deepEqual(await pastTheRightEdge(korean.page), [], 'the Korean room reaches past the right edge')
     await capture(korean.page, 'korean-closed-room-narrow')

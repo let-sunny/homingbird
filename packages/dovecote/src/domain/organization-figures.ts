@@ -54,6 +54,8 @@ export interface OrganizationActivity {
   readonly sent: ReadonlyArray<SentNote>
   readonly drafts: ReadonlyArray<MemberDraft>
   readonly skips: ReadonlyArray<MemberSkip>
+  /** Questions a person found answered by an earlier answer, by the place they were going to. */
+  readonly answeredFromHistory?: ReadonlyArray<MemberSkip>
   readonly received: ReadonlyArray<ReceivedNote>
   /** Sent debate results: neither agent drafts nor notes, so they count only here. */
   readonly debateResults?: ReadonlyArray<{ readonly authorId: string; readonly sentAt: number }>
@@ -97,13 +99,14 @@ export const organizationFiguresIn = (
   if (!isEnough(activeMembers, settings.minimumGroupSize)) return null
   const decided = activity.drafts.filter((draft) => isIn(window, draft.decidedAt) && draft.outcome !== null)
   const skips = activity.skips.filter((skip) => isIn(window, skip.at))
+  const deflections = (activity.answeredFromHistory ?? []).filter((each) => isIn(window, each.at))
   const newNotes = sent.filter((note) => note.inReplyTo === null)
   const firstReplies = firstRepliesOf(activity.sent)
   const replyTimes = newNotes.flatMap((note) => {
     const first = firstReplies.get(note.id)
     return first === undefined ? [] : [first - note.sentAt]
   })
-  const groups = groupsByPlace(sent, decided, skips)
+  const groups = groupsByPlace(sent, decided, skips, deflections)
   const { shown, hidden } = placesShown(
     [...groups.values()].map((group) => ({ place: group.totals.place, people: group.people })),
     settings.minimumGroupSize,
@@ -131,6 +134,7 @@ export const organizationFiguresIn = (
       ? decided.filter((draft) => isQuickApproval(draft, settings.quickApprovalSeconds)).length
       : null,
     skipped: skips.length,
+    answeredFromHistory: deflections.length,
     debateResultsSent: debateResultsShown(activity, window, settings.minimumGroupSize),
     ...labelsShown(activity.drafts, window, Math.max(settings.minimumGroupSize, LABEL_MINIMUM), draftsShown),
     places: shown
@@ -195,22 +199,37 @@ const groupsByPlace = (
   sent: ReadonlyArray<SentNote>,
   decided: ReadonlyArray<MemberDraft>,
   skips: ReadonlyArray<MemberSkip>,
+  deflections: ReadonlyArray<MemberSkip>,
 ): Map<PlaceName, PlaceGroup> => {
   const notesBy = Map.groupBy(sent, (note) => note.place)
   const draftsBy = Map.groupBy(decided, (draft) => draft.place)
   const skipsBy = Map.groupBy(skips, (skip) => skip.place)
-  const places = new Set<PlaceName>([...notesBy.keys(), ...draftsBy.keys(), ...skipsBy.keys()])
+  const deflectionsBy = Map.groupBy(deflections, (each) => each.place)
+  const places = new Set<PlaceName>([
+    ...notesBy.keys(),
+    ...draftsBy.keys(),
+    ...skipsBy.keys(),
+    ...deflectionsBy.keys(),
+  ])
   return new Map(
     [...places].map((place) => {
       const notes = notesBy.get(place) ?? []
       const drafts = draftsBy.get(place) ?? []
       const skipped = skipsBy.get(place) ?? []
+      const answered = deflectionsBy.get(place) ?? []
       const people = peopleOf([
         ...notes.map((note) => note.authorId),
         ...drafts.map((draft) => draft.authorId),
         ...skipped.map((skip) => skip.memberId),
+        ...answered.map((each) => each.memberId),
       ])
-      const totals = { place, notesSent: notes.length, ...decisionsOf(drafts), skipped: skipped.length }
+      const totals = {
+        place,
+        notesSent: notes.length,
+        ...decisionsOf(drafts),
+        skipped: skipped.length,
+        answeredFromHistory: answered.length,
+      }
       return [place, { totals, people }]
     }),
   )

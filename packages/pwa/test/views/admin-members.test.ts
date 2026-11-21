@@ -2,12 +2,12 @@ import { presetById } from '@homingbird/sprites'
 import { lifetime } from '@homingbird/ui'
 import { fire, getByRole, textOf } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
-import { strings } from '../../src/strings.ts'
+import { formats, strings } from '../../src/strings.ts'
 import { adminMembersSection } from '../../src/views/admin-members.ts'
 import { dialogHost } from '../../src/views/dialog.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
-import { ANA, BEN, CY, TEAM, group, me, member } from '../support/fixtures.ts'
+import { ANA, BEN, CY, TEAM, entry, group, me, member } from '../support/fixtures.ts'
 
 usingFakeDom()
 
@@ -63,5 +63,46 @@ describe('adminMembersSection', () => {
     expect((dialog as HTMLDialogElement).open).toBe(false)
     expect(called('listMembers')).toHaveLength(2)
     expect(called('loadGroups')).toHaveLength(2)
+  })
+
+  it('shows each member’s last activity, agent, groups and a 30-day flag, and filters by the search', () => {
+    const { context, called, clock } = testContext()
+    const now = clock.now()
+    const day = 24 * 60 * 60 * 1000
+    context.state.groups.set([group(TEAM, { name: 'Finance', memberIds: [CY] })])
+    const shown = mount(adminMembersSection(context, lifetime(), me({}, { role: 'admin' })))
+    expect(called('loadPeople')).toHaveLength(1)
+    called('listMembers')[0]!.then!.done!([
+      member(ANA, 'Ana', { role: 'admin' }),
+      member(BEN, 'Ben', { createdAt: now - 90 * day }),
+      member(CY, 'Cy'),
+    ])
+    const ben = (): Element => shown.querySelector(`[data-member-id="${BEN}"]`)!
+    const cy = (): Element => shown.querySelector(`[data-member-id="${CY}"]`)!
+    expect(textOf(ben())).not.toContain(strings.adminMemberList.neverActive)
+    context.state.directory.set([
+      entry(ANA, 'Ana', { lastSeenAt: now }),
+      entry(BEN, 'Ben', { lastSeenAt: null }),
+      entry(CY, 'Cy', {
+        lastSeenAt: now - day,
+        presence: { humanOnline: true, agentOnline: true },
+      }),
+    ])
+    expect(textOf(ben())).toContain(strings.adminMemberList.neverActive)
+    expect(textOf(ben())).toContain(strings.adminMemberList.dormant)
+    expect(ben().classList.contains('is-dormant')).toBe(true)
+    expect(textOf(ben())).toContain(strings.agentOffline)
+    expect(textOf(cy())).toContain(strings.agentOnline)
+    expect(textOf(cy())).toContain(strings.adminMemberList.groups({ groups: 'Finance' }))
+    expect(textOf(cy())).not.toContain(strings.adminMemberList.dormant)
+    expect(cy().querySelector('.member-last-active')!.getAttribute('title')).toBe(
+      strings.adminMemberList.lastActiveTitle({ time: formats.full.format(new Date(now - day)) }),
+    )
+    fire.type(getByRole(shown, 'searchbox'), 'finance')
+    expect(shown.querySelectorAll('[data-member-id]')).toHaveLength(1)
+    expect(cy().isConnected).toBe(true)
+    fire.type(getByRole(shown, 'searchbox'), 'nobody')
+    expect(shown.querySelectorAll('[data-member-id]')).toHaveLength(0)
+    expect(textOf(shown)).toContain(strings.adminMemberList.noMatch({ query: 'nobody' }))
   })
 })

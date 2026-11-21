@@ -14,26 +14,40 @@ import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
 import { closeDialog, showDialog } from './dialog.ts'
 import { invitesSection } from './invites.ts'
-import { button, dialogActions, loading, youMark } from './parts.ts'
+import { button, dialogActions, field, loading, youMark } from './parts.ts'
 
-/** Administration → Members: every member, and their role and status to change. */
+/** Administration → Members: every member, how recently they were active, and their role and status to change. */
 export const adminMembersSection = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
   const members = signal<ReadonlyArray<AsRead.Member> | null>(null)
+  const query = signal('')
   const reload = (): void => context.actions.listMembers({ done: (listed) => members.set(listed) })
   reload()
   context.actions.loadGroups()
+  context.actions.loadPeople()
   const charactersOn = (): boolean => featureOn('characters', context.state.serverInfo.get())
+  const model = (): AdminMembersModel =>
+    adminMembersModel({
+      members: members.get(),
+      viewerId: me.member.id,
+      charactersOn: charactersOn(),
+      directory: context.state.directory.get(),
+      groups: context.state.groups.get(),
+      query: query.get(),
+      now: context.clock.now(),
+    })
+  const search = h('input', {
+    type: 'search',
+    class: 'admin-member-search',
+    placeholder: strings.adminMemberList.searchPlaceholder,
+    on: { input: () => query.set(search.value) },
+  })
   return h(
     'div',
     { class: 'admin-members' },
     showsInvites('admin', me, context.state.serverInfo.get()) && invitesSection(context, life),
-    region(life, [members], () =>
-      renderAdminMembers(
-        adminMembersModel(members.get(), me.member.id, charactersOn()),
-        context,
-        reload,
-        charactersOn(),
-      ),
+    field(strings.adminMemberList.searchLabel, search),
+    region(life, [members, query, context.state.directory, context.state.groups], () =>
+      renderAdminMembers(model(), context, reload, charactersOn()),
     ),
   )
 }
@@ -45,24 +59,38 @@ const renderAdminMembers = (
   charactersOn: boolean,
 ): HTMLElement => {
   if (model === null) return loading()
+  if (model.noMatch !== null) return h('p', { class: 'hint admin-member-none' }, model.noMatch)
   return h(
     'ul',
     { class: 'members admin-member-list' },
-    model.map((row) =>
+    model.rows.map((row) =>
       h(
         'li',
-        { class: `member is-${row.member.status}`, data: { memberId: row.member.id } },
+        {
+          class: `member is-${row.member.status}${row.dormant === null ? '' : ' is-dormant'}`,
+          data: { memberId: row.member.id },
+        },
         renderAvatar(context, memberAvatarOf(row.member, charactersOn)),
         h(
           'div',
           { class: 'member-main' },
-          h('strong', {}, row.member.name, row.isYou && youMark()),
+          h('strong', { class: 'member-name' }, row.member.name, row.isYou && youMark()),
           h('span', { class: 'member-email' }, row.member.email),
           h(
             'span',
             { class: 'member-tags' },
             h('span', { class: row.role.className }, row.role.text),
             h('span', { class: row.status.className }, row.status.text),
+            row.dormant !== null && h('span', { class: 'kind is-dormant' }, row.dormant),
+            row.agent !== null &&
+              h('span', { class: row.agent.className, title: row.agent.title }, row.agent.text),
+            row.lastActive !== null &&
+              h(
+                'span',
+                { class: 'member-last-active', title: row.lastActive.title ?? undefined },
+                row.lastActive.text,
+              ),
+            row.groups !== null && h('span', { class: 'member-groups' }, row.groups),
           ),
         ),
         row.isYou

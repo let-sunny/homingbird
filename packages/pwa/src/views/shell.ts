@@ -3,6 +3,7 @@ import { type Lifetime, type ReadableSignal, h, keyedRegion, region, slice, svg 
 import { peopleConversations } from '../channels.ts'
 import { connectionShown } from '../connection-status.ts'
 import { featureOn } from '../features.ts'
+import { agentNotice } from '../models/activity.ts'
 import { memberAvatarOf } from '../models/avatar.ts'
 import { logoOf, wordmark } from '../models/branding.ts'
 import {
@@ -75,6 +76,10 @@ const connectionNotice = (context: ViewContext, life: Lifetime): HTMLElement =>
 const titleBar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
   const { state } = context
   const branding = state.branding.get()
+  const agentUnavailable = slice(
+    [state.directory],
+    () => agentNotice({ me, directory: state.directory.get() })?.heading ?? null,
+  )
   return h(
     'header',
     { class: 'titlebar' },
@@ -84,7 +89,9 @@ const titleBar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElem
       h('img', { class: 'mark', src: logoOf(branding.logo), alt: '', width: '32', height: '32' }),
       h('span', { class: 'wordmark' }, wordmark(branding.name)),
     ),
-    region(life, [state.route], () => tabs(context), { class: 'tabs-host' }),
+    region(life, [state.route, agentUnavailable], () => tabs(context, agentUnavailable.get()), {
+      class: 'tabs-host',
+    }),
     region(
       life,
       [state.connection],
@@ -116,9 +123,9 @@ const titleBar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElem
 }
 
 /** The tabs on one row; where the row scrolls sideways, the current tab is scrolled into view. */
-const tabs = (context: ViewContext): HTMLElement => {
+const tabs = (context: ViewContext, agentUnavailable: string | null): HTMLElement => {
   const { state } = context
-  const shown = tabsModel(state.route.get(), state.serverInfo.get()).map((tab) => ({
+  const shown = tabsModel(state.route.get(), state.serverInfo.get(), agentUnavailable).map((tab) => ({
     tab,
     link: h(
       'a',
@@ -129,6 +136,8 @@ const tabs = (context: ViewContext): HTMLElement => {
         ...(tab.tour !== null && { data: { tour: tab.tour } }),
       },
       tab.label,
+      tab.mark !== null &&
+        h('span', { class: 'agent-mark', role: 'img', 'aria-label': tab.mark, title: tab.mark }),
     ),
   }))
   const nav = h(

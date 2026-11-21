@@ -1,10 +1,11 @@
 import type { ConversationId } from '@homingbird/protocol'
 import type { ReadableSignal } from '@homingbird/ui'
-import { type Lifetime, h, region, slice } from '@homingbird/ui'
+import { type Lifetime, h, region, signal, slice } from '@homingbird/ui'
 import { type ComposerModel, bodyToSend } from '../models/composer.ts'
 import { strings } from '../strings.ts'
 import { replyTargetIn } from '../tasks/notes.ts'
 import { agentAsk } from './agent-ask.ts'
+import { answeredBefore } from './answered-before.ts'
 import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
 import { button } from './parts.ts'
@@ -29,11 +30,16 @@ export const composer = (
     maxlength: '16000',
   })
   text.value = state.composerTexts.get().get(id) ?? ''
-  text.addEventListener('input', () => actions.keepComposerText(id, text.value))
+  const typed = signal(text.value)
+  text.addEventListener('input', () => {
+    typed.set(text.value)
+    actions.keepComposerText(id, text.value)
+  })
   const send = (): void => {
     const body = bodyToSend(text.value)
     if (body === null) return
     text.value = ''
+    typed.set('')
     actions.keepComposerText(id, '')
     actions.sendNote(id, body, { attempt: 'draft' })
     text.focus()
@@ -89,6 +95,16 @@ export const composer = (
       },
     },
     region(life, [status], () => renderComposerStatus(context, id, status.get())),
+    shown.lookUpEarlierAnswers &&
+      answeredBefore(context, life, id, {
+        typed,
+        isReplying: () => replyTargetIn(context.state, id) !== null,
+        clear: () => {
+          text.value = ''
+          typed.set('')
+          actions.keepComposerText(id, '')
+        },
+      }),
     h('div', { class: 'composer-row' }, text, askButton?.toggle, sendButton),
     askButton?.reason,
     h('small', { class: 'composer-hint' }, strings.composerHint),
@@ -175,6 +191,12 @@ const renderComposerStatus = (context: ViewContext, id: ConversationId, model: C
         h('a', { href: model.noAgent.href }, model.noAgent.link),
       ),
     model.theirAgent !== null && h('p', { class: 'no-agent', role: 'note' }, model.theirAgent),
+    model.answers !== null &&
+      h(
+        'p',
+        { class: model.answers.warning ? 'channel-answers no-agent' : 'channel-answers', role: 'note' },
+        model.answers.text,
+      ),
     model.replyingTo !== null &&
       h(
         'p',

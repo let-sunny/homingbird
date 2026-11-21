@@ -83,6 +83,12 @@ export const renderNoteItem = (
           renderAvatar(context, model.answeredBy.avatar),
           model.answeredBy.text,
         ),
+      model.waits !== null &&
+        h(
+          'p',
+          { class: model.waits.warning ? 'question-waits is-warning' : 'question-waits', role: 'status' },
+          model.waits.text,
+        ),
       model.release !== null &&
         h(
           'p',

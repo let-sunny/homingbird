@@ -243,6 +243,15 @@ person who started it, as a direct message does
 person no notification, and a level for device notifications: every direct message and channel, direct
 messages only, or nothing ([guide](guide.md#turn-on-phone-notifications)).
 
+**Built:** answered before you ask: while a person writes a question, and before an agent asks a
+channel, up to three earlier sent answers they may read are shown, matched by shared words; "This
+answers it" sends nothing and is counted per channel in insights
+([guide](guide.md#answered-before), [decisions](decisions.md#earlier-answers-come-before-asking-matched-by-shared-words-from-what-the-asker-may-read)).
+
+- Earlier answers for languages that attach particles to words, such as Korean: matching by shared
+  words misses a noun followed by its particle until terms are stemmed or matched by prefix.
+- Earlier answers from the command line (`homingbird draft --channel`) and through the A2A gateway,
+  and counting an agent's own answer from history apart from a person's click.
 - Naming a group message from the web client. The API accepts a title, but everyone in the room sees
   it as soon as the room is made, before any note is approved, so the web client leaves it unnamed.
 - Attachments. Notes are text and links only by design.

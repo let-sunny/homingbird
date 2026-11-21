@@ -178,6 +178,9 @@ const organizationActivity = (
       SELECT CASE WHEN a.kind = 'channel_agent' THEN NULL ELSE n.member_id END AS member_id, n.created_at AS at, ${PLACE_COLUMNS}
       FROM releases n ${PLACE_JOIN} JOIN members a ON a.id = n.member_id
       WHERE n.created_at >= ${since}`)
+    const answeredFromHistory = yield* all<DatedRow & { member_id: string }>(sql`
+      SELECT n.member_id, n.answered_at AS at, ${PLACE_COLUMNS}
+      FROM history_answers n ${PLACE_JOIN} WHERE n.answered_at >= ${since}`)
     const debateResults = yield* all<{ author_id: string; sent_at: number }>(sql`
       SELECT n.author_id, n.sent_at FROM notes n
       WHERE n.status = 'sent' AND n.debate_id IS NOT NULL AND n.sent_at >= ${since}`)
@@ -205,6 +208,7 @@ const organizationActivity = (
       drafts: drafts.map((row) => ({ ...toDraft(row), id: row.id, authorId: row.author_id })),
       channelAgentDrafts,
       skips: skips.map((row) => ({ ...toDated(row), memberId: row.member_id })),
+      answeredFromHistory: answeredFromHistory.map((row) => ({ ...toDated(row), memberId: row.member_id })),
       debateResults: debateResults.map((row) => ({ authorId: row.author_id, sentAt: Number(row.sent_at) })),
       received: received.map((row) => ({
         recipientId: row.member_id,

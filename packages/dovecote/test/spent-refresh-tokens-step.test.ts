@@ -11,8 +11,8 @@ afterEach(async () => {
 })
 
 describe('the spent refresh tokens step', () => {
-  it('is the last step', () => {
-    expect(stepNumberOf(SPENT_REFRESH_TOKENS)).toBe(MIGRATIONS.length)
+  it('is the twelfth step', () => {
+    expect(stepNumberOf(SPENT_REFRESH_TOKENS)).toBe(12)
   })
 
   it('adds a table of spent refresh tokens and what replaced each, one row per hash', async () => {

@@ -1,10 +1,10 @@
 import { lifetime } from '@homingbird/ui'
-import { fire, getByRole, textOf } from '@homingbird/ui/testing'
+import { allByRole, fire, getByRole, textOf } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
 import { strings } from '../../src/strings.ts'
 import { debateView } from '../../src/views/debate-room.ts'
 import { testContext } from '../support/context.ts'
-import { usingFakeDom } from '../support/dom.ts'
+import { mount, usingFakeDom } from '../support/dom.ts'
 import { ANA, BEN, CY, channel, credential, debate, entry, me } from '../support/fixtures.ts'
 
 usingFakeDom()
@@ -28,7 +28,7 @@ const conclusion = {
 describe('debateView', () => {
   it('loads the room, and says when the person may not see it', () => {
     const { context, called } = testContext()
-    const shown = debateView(context, lifetime(), me(), 'debate_1')
+    const shown = debateView(context, lifetime(), me(), 'debate_1', null)
     expect(called('loadDebate')[0]!.args).toEqual(['debate_1'])
     expect(textOf(shown)).toContain(strings.loading)
     context.state.shownDebate.set('missing')
@@ -39,10 +39,10 @@ describe('debateView', () => {
 
   it('lets its opener change the limits before the first turn, and opts an agent in', () => {
     const { context, called } = testContext()
-    const other = debateView(context, lifetime(), me(), 'debate_2')
+    const other = debateView(context, lifetime(), me(), 'debate_2', null)
     context.state.shownDebate.set(debate({ createdBy: BEN }))
     expect(textOf(other)).toContain(strings.debates.noAgent)
-    const shown = debateView(context, lifetime(), me(), 'debate_1')
+    const shown = debateView(context, lifetime(), me(), 'debate_1', null)
     context.state.agentCredentials.set([credential('cred_desk')])
     context.state.shownDebate.set(debate({ visibility: 'private' }))
     expect(textOf(shown)).toContain(strings.debates.privateSeenBy)
@@ -61,7 +61,7 @@ describe('debateView', () => {
 
   it('shows the agents, their turns, and who dropped out', () => {
     const { context } = testContext()
-    const shown = debateView(context, lifetime(), me(), 'debate_1')
+    const shown = debateView(context, lifetime(), me(), 'debate_1', null)
     context.state.shownDebate.set(
       debate({
         createdBy: BEN,
@@ -73,12 +73,15 @@ describe('debateView', () => {
     expect(getByRole(shown, 'link', { name: 'https://example.com' })).toBeTruthy()
     context.state.shownDebate.set(debate({ status: 'ended', endedBecause: 'no_turns' }))
     expect(textOf(shown)).toContain(strings.debates.ended.no_turns)
-    expect(textOf(shown)).toContain(strings.debates.noParticipants)
+    expect(textOf(shown)).not.toContain(strings.debates.noParticipants)
+    const content = debateView(context, lifetime(), me(), 'debate_000000000000', 'turns')
+    expect(textOf(content)).toContain(strings.debates.noParticipants)
+    expect(textOf(content)).not.toContain(strings.debates.ended.no_turns)
   })
 
   it('waits for the result while the agents vote', () => {
     const { context } = testContext()
-    const shown = debateView(context, lifetime(), me(), 'debate_1')
+    const shown = debateView(context, lifetime(), me(), 'debate_1', null)
     context.state.shownDebate.set(debate({ status: 'concluding', draftsCloseAt: 3 }))
     expect(textOf(shown)).toContain(strings.debates.waitingForResult)
     expect(shown.querySelector('.debate-collecting')).not.toBeNull()
@@ -95,7 +98,7 @@ describe('debateView', () => {
     context.state.session.set(me())
     context.state.channels.set([channel('billing', { joined: true })])
     context.state.directory.set([entry(BEN, 'Ben'), entry(CY, 'Cy')])
-    const shown = debateView(context, lifetime(), me(), 'debate_1')
+    const shown = debateView(context, lifetime(), me(), 'debate_1', null)
     context.state.shownDebate.set(
       debate({
         status: 'closed',
@@ -125,7 +128,19 @@ describe('debateView', () => {
     expect(textOf(shown)).toContain(strings.debates.chosen)
     expect(textOf(shown)).toContain(strings.debates.unknownResult)
     expect(textOf(shown)).toContain(strings.debates.noNextSteps)
-    expect(textOf(shown)).toContain(strings.debates.mine.votedFor({ author: 'Ben' }))
+    expect(textOf(shown)).not.toContain(strings.debates.mine.votedFor({ author: 'Ben' }))
+    const votes = debateView(context, lifetime(), me(), 'debate_000000000000', 'votes')
+    expect(textOf(votes)).toContain(strings.debates.mine.votedFor({ author: 'Ben' }))
+    expect(votes.querySelector('.debate-send')).toBeNull()
+    const credit = debateView(context, lifetime(), me(), 'debate_000000000000', 'credit')
+    expect(textOf(credit.querySelector(`.debate-credit-list li[data-member="${BEN}"]`)!)).toContain(
+      'Checked.',
+    )
+    expect(credit.querySelector('.debate-credit')!.getAttribute('title')).toBe(
+      strings.debates.creditHint.gap_filled,
+    )
+    expect(textOf(credit.querySelector(`.debate-credit-list li[data-member="${ANA}"]`)!)).toContain('Tag it')
+    expect(credit.querySelector('.debate-vote-record')).toBeNull()
     expect(shown.querySelector('.debate-credit')!.getAttribute('title')).toBe(
       strings.debates.creditHint.gap_filled,
     )
@@ -151,7 +166,7 @@ describe('debateView', () => {
   it('opens the details of who wrote a turn or a draft, with the model its agent stated', () => {
     const { context } = testContext()
     context.state.directory.set([entry(BEN, 'Ben')])
-    const shown = debateView(context, lifetime(), me(), 'debate_1')
+    const shown = debateView(context, lifetime(), me(), 'debate_1', null)
     context.state.shownDebate.set(
       debate({
         status: 'closed',
@@ -166,16 +181,18 @@ describe('debateView', () => {
       }),
     )
     const line = strings.authorship.agent({ name: 'Ben' })
-    const buttons = shown.querySelectorAll(
-      '.debate-turn-head .author-button, .debate-draft-author .author-button',
+    const content = debateView(context, lifetime(), me(), 'debate_000000000000', 'turns')
+    const stats = debateView(context, lifetime(), me(), 'debate_000000000000', 'votes')
+    const buttons = [content, shown].map((tab) =>
+      tab.querySelector('.debate-turn-head .author-button, .debate-draft-author .author-button'),
     )
-    expect(buttons).toHaveLength(2)
     expect(buttons[0]!.getAttribute('aria-label')).toBe(strings.debates.authorWho({ authorship: line }))
-    const turnDetails = shown.querySelector('.debate-turn-head .author-details')!
+    expect(buttons[1]).not.toBeNull()
+    const turnDetails = content.querySelector('.debate-turn-head .author-details')!
     expect(textOf(turnDetails)).toContain(strings.authorship.model({ model: 'gpt-6' }))
     expect(textOf(turnDetails)).toContain(strings.authorship.connection({ name: 'Desk' }))
     expect(textOf(shown.querySelector('.debate-draft-author')!)).toContain(strings.authorship.modelNotStated)
-    expect(textOf(shown.querySelector('.debate-vote-record')!)).toContain(
+    expect(textOf(stats.querySelector('.debate-vote-record')!)).toContain(
       strings.authorship.model({ model: 'claude-opus-5-5' }),
     )
     context.state.shownDebate.set(debate({ status: 'ended', endedBecause: 'no_turns' }))
@@ -184,7 +201,7 @@ describe('debateView', () => {
 
   it('shows a vote record without votes', () => {
     const { context } = testContext()
-    const shown = debateView(context, lifetime(), me(), 'debate_1')
+    const shown = debateView(context, lifetime(), me(), 'debate_1', null)
     context.state.shownDebate.set(
       debate({
         status: 'closed',
@@ -193,9 +210,92 @@ describe('debateView', () => {
         voteRecord: { votes: [], droppedOut: [] },
       }),
     )
-    expect(textOf(shown)).toContain(strings.debates.noVote)
+    expect(textOf(debateView(context, lifetime(), me(), 'debate_000000000000', 'votes'))).toContain(
+      strings.debates.noVote,
+    )
     expect(shown.querySelector('form.debate-post-form')).toBeNull()
     expect(shown.querySelector('.debate-send')).toBeNull()
     expect(shown.querySelector('.debate-export .export-markdown')).not.toBeNull()
+  })
+
+  it('opens an open room on its turns alone and a later one on its result, each tab its own address', () => {
+    const { context, page } = testContext()
+    context.state.agentCredentials.set([credential('cred_desk')])
+    const shown = mount(debateView(context, lifetime(), me(), 'debate_1', null))
+    context.state.shownDebate.set(debate({ createdBy: BEN }))
+    expect(shown.querySelector('.debate-tabs')).toBeNull()
+    expect(
+      shown.querySelector('.debate-tab.is-turns > .debate-section')?.classList.contains('debate-opt-in'),
+    ).toBe(true)
+    page.runFrames()
+    expect(document.activeElement).toBe(document.body)
+    context.state.shownDebate.set(
+      debate({
+        status: 'closed',
+        createdBy: BEN,
+        result: { result: conclusion, draftedBy: BEN, draftedAt: 4 },
+        voteRecord: { votes: [], droppedOut: [] },
+      }),
+    )
+    const tabs = getByRole(shown, 'navigation', { name: strings.debates.tabsLabel })
+    expect(allByRole(tabs, 'link').map((link) => [link.textContent, link.getAttribute('href')])).toEqual([
+      [strings.debates.tabs.result, '#/debate/debate_000000000000/result'],
+      [strings.debates.tabs.votes, '#/debate/debate_000000000000/votes'],
+      [strings.debates.tabs.credit, '#/debate/debate_000000000000/credit'],
+      [strings.debates.tabs.turns, '#/debate/debate_000000000000/turns'],
+    ])
+    expect(getByRole(tabs, 'link', { name: strings.debates.tabs.result }).getAttribute('aria-current')).toBe(
+      'page',
+    )
+    expect(shown.querySelector('.debate-turns')).toBeNull()
+    expect(shown.querySelector('.debate-export')).not.toBeNull()
+  })
+
+  it('keeps the room drawn when another tab is chosen, and focuses that tab once', () => {
+    const { context, page, called } = testContext()
+    context.state.shownDebate.set(debate({ status: 'ended', createdBy: BEN }))
+    const shown = mount(debateView(context, lifetime(), me(), 'debate_000000000000', 'turns'))
+    expect(called('loadDebate')[0]!.args).toEqual(['debate_000000000000'])
+    expect(shown.querySelector('.debate-turns')).not.toBeNull()
+    page.runFrames()
+    const current = getByRole(shown, 'link', { name: strings.debates.tabs.turns })
+    expect(document.activeElement).toBe(current)
+    current.blur()
+    context.state.shownDebate.set(debate({ status: 'ended', createdBy: BEN, turns: [] }))
+    page.runFrames()
+    expect(document.activeElement).toBe(document.body)
+    debateView(context, lifetime(), me(), 'debate_other', null)
+    expect(context.state.shownDebate.get()).toBeNull()
+  })
+
+  it('says how many turns were taken and when, and folds away all but the latest', () => {
+    const { context } = testContext()
+    context.state.shownDebate.set(
+      debate({
+        createdBy: BEN,
+        participants: [participant(ANA), participant(BEN)],
+        turns: Array.from({ length: 7 }, (_, index) => ({
+          position: index + 1,
+          memberId: index % 2 === 0 ? BEN : ANA,
+          agentName: 'Desk',
+          body: `Turn ${index + 1}`,
+          at: index + 3,
+        })),
+      }),
+    )
+    const shown = debateView(context, lifetime(), me(), 'debate_000000000000', null)
+    expect(textOf(shown.querySelector('.debate-turns-taken')!)).toBe(
+      strings.debates.turnsTaken({ count: 7, total: 4 }),
+    )
+    const earlier = shown.querySelector('details.debate-earlier-turns')!
+    expect(textOf(earlier.querySelector('summary')!)).toBe(strings.debates.earlierTurns({ count: 1 }))
+    expect(
+      [...earlier.querySelectorAll('.debate-turn')].map((turn) => turn.getAttribute('data-position')),
+    ).toEqual(['1'])
+    expect(earlier.querySelector('ol')!.hasAttribute('aria-live')).toBe(false)
+    const latest = shown.querySelectorAll('.debate-turns > ol.debate-turn-list')
+    expect(latest).toHaveLength(1)
+    expect(latest[0]!.getAttribute('aria-live')).toBe('polite')
+    expect(latest[0]!.querySelectorAll('.debate-turn')).toHaveLength(6)
   })
 })

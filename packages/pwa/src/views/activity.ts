@@ -1,6 +1,5 @@
 import type { AsRead, ConversationId, NoteId } from '@homingbird/protocol'
 import { type Lifetime, h, keyedRegion, lifetime, onAnyChange, region, slice } from '@homingbird/ui'
-import { featureOn } from '../features.ts'
 import {
   type ActivityInput,
   type ActivityItem,
@@ -22,17 +21,17 @@ import { button, timeLabel } from './parts.ts'
  */
 export const activityBell = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
   const { state, actions } = context
-  if (featureOn('debateRooms', state.serverInfo.get()) && !state.debatesLoaded.get()) actions.loadDebates()
+  actions.loadActivity()
   const shown = slice(sourcesOf(context), () => {
     const model = activityModel(activityInputOf(context, me))
-    return { count: model.count, label: model.label }
+    return { count: model.count, label: model.label, agent: model.agent?.heading ?? null }
   })
   const onPage = slice([state.route], () => state.route.get().name === 'activity')
   return region(
     life,
     [shown, onPage],
     () => {
-      const { count, label } = shown.get()
+      const { count, label, agent } = shown.get()
       return h(
         'a',
         {
@@ -54,6 +53,7 @@ export const activityBell = (context: ViewContext, life: Lifetime, me: AsRead.Me
         },
         bellIcon(false),
         count > 0 && h('span', { class: 'count activity-count', 'aria-hidden': 'true' }, String(count)),
+        agent !== null && h('span', { class: 'agent-mark', 'aria-hidden': 'true', title: agent }),
       )
     },
     { class: 'activity-bell-host' },
@@ -145,12 +145,26 @@ const activityContent = (context: ViewContext, life: Lifetime, me: AsRead.Me): H
   const model = () => activityModel(activityInputOf(context, me))
   life.add(state.conversations.subscribe(() => actions.loadDraftThreads()))
   const empty = slice(sources, () => model().empty)
+  const agent = slice(sources, () => model().agent)
   return h(
     'div',
     { class: 'activity' },
     region(life, [empty], () => {
       const text = empty.get()
       return text !== null && h('p', { class: 'activity-empty' }, text)
+    }),
+    region(life, [agent], () => {
+      const notice = agent.get()
+      return (
+        notice !== null &&
+        h(
+          'div',
+          { class: 'activity-unavailable', role: 'status' },
+          h('strong', {}, notice.heading),
+          notice.lines.map((line) => h('p', {}, line)),
+          h('a', { class: 'button', href: notice.href }, notice.label),
+        )
+      )
     }),
     ACTIVITY_KINDS.map((kind) => {
       const items = () => model().groups.find((group) => group.kind === kind)?.items ?? []
@@ -174,7 +188,7 @@ const activityContent = (context: ViewContext, life: Lifetime, me: AsRead.Me): H
   )
 }
 
-const ACTIVITY_KINDS: ReadonlyArray<ActivityKind> = ['drafts', 'reviews', 'skipped', 'unavailable', 'debates']
+const ACTIVITY_KINDS: ReadonlyArray<ActivityKind> = ['drafts', 'reviews', 'skipped', 'debates']
 
 const renderItem = (context: ViewContext, item: ActivityItem): HTMLElement => {
   const head = placeLine(item.place)
@@ -202,14 +216,6 @@ const renderItem = (context: ViewContext, item: ActivityItem): HTMLElement => {
         h('blockquote', { class: 'activity-quote' }, h('small', {}, item.from), h('p', {}, item.body)),
         h('p', { class: 'released' }, item.reason),
         button(item.reply, () => replyYourself(context, item.place.href, item.replyTo)),
-      )
-    case 'unavailable':
-      return h(
-        'li',
-        { class: 'activity-item activity-unavailable', role: 'status' },
-        h('strong', {}, item.heading),
-        item.lines.map((line) => h('p', {}, line)),
-        h('a', { class: 'button', href: item.place.href }, item.place.label),
       )
     case 'debate':
       return h(

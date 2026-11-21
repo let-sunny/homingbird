@@ -186,6 +186,7 @@ const figuresTable = (
           ? strings.insights.hidden
           : formats.decimal.format(figures.debateResultsSent),
       ),
+      line(rows.answeredFromHistory, (figures) => formats.decimal.format(figures.answeredFromHistory ?? 0)),
       line(strings.measures.decisionTimeRow, (figures) =>
         figures.medianDecisionMs == null
           ? missing(insights.minimumGroupSize)
@@ -290,6 +291,7 @@ const placesTable = (current: OrganizationFigures): InsightsPlaces => ({
     strings.insights.decidedColumn,
     strings.insights.asWrittenColumn,
     strings.insights.skippedColumn,
+    strings.insights.answeredFromHistoryColumn,
   ],
   rows: current.places.map(placeRow),
   hidden: current.hiddenPlaces > 0 ? strings.insights.hiddenPlaces({ count: current.hiddenPlaces }) : null,
@@ -304,6 +306,7 @@ const placeRow = (place: PlaceTotals): ReadonlyArray<string> => {
     shown === null ? strings.insights.hidden : formats.decimal.format(decidedOf(shown)),
     shown === null ? strings.insights.hidden : share === null ? strings.trust.noneYet : percentOf(share),
     formats.decimal.format(place.skipped),
+    formats.decimal.format(place.answeredFromHistory ?? 0),
   ]
 }
 

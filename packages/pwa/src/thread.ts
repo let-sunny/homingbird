@@ -101,6 +101,28 @@ export const withPresence = (
   })
 }
 
+/** Channels whose own agent's presence changed, with the change applied; the rest stay as they are. */
+export const withAgentPresence = (
+  channels: ReadonlyArray<AsRead.Channel>,
+  changes: ReadonlyArray<PresenceChange>,
+): ReadonlyArray<AsRead.Channel> => {
+  const changed = new Map(changes.map((change) => [change.memberId, change]))
+  if (!channels.some((channel) => channel.agent != null && changed.has(channel.agent.id))) return channels
+  return channels.map((channel) => {
+    const agent = channel.agent
+    const presence = agent == null ? undefined : changed.get(agent.id)
+    return agent == null || presence === undefined
+      ? channel
+      : {
+          ...channel,
+          agent: {
+            ...agent,
+            presence: presenceAfter(agent.presence ?? { humanOnline: false, agentOnline: false }, presence),
+          },
+        }
+  })
+}
+
 export const isUnreadBy = (note: AsRead.Note, viewerId: MemberId): boolean =>
   note.status === 'sent' &&
   note.authorId !== viewerId &&

@@ -434,6 +434,14 @@ describe('channelAgentPageModel', () => {
       kind: 'channel',
       title: 'The agent of #payments-wiki',
       channel: managed,
+      agentState: null,
+    })
+    const awake = {
+      ...managed,
+      agent: { id: AGENT, name: 'Payments wiki', presence: { humanOnline: false, agentOnline: true } },
+    }
+    expect(channelAgentPageModel([awake], true, 'payments-wiki')).toMatchObject({
+      agentState: { state: 'on', label: strings.channelAgentState.awake({ agent: 'Payments wiki' }) },
     })
   })
 })

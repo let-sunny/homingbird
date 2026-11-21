@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   type AdminSection,
   type AgentSection,
+  type DebateTab,
   type Route,
   currentHashFor,
   hrefFor,
@@ -23,6 +24,10 @@ const routes: fc.Arbitrary<Route> = fc.oneof(
   fc.constant<Route>({ name: 'profile' }),
   fc.constant<Route>({ name: 'measured' }),
   fc.constant<Route>({ name: 'activity' }),
+  fc.constant<Route>({ name: 'debates' }),
+  fc
+    .tuple(segment, fc.constantFrom<DebateTab | null>(null, 'result', 'votes', 'credit', 'turns'))
+    .map(([id, tab]): Route => ({ name: 'debate', id, tab })),
   fc
     .constantFrom<AgentSection | null>(null, 'connection', 'teaching', 'doing', 'routes')
     .map((section): Route => ({ name: 'agent', section })),
@@ -91,6 +96,9 @@ describe('routes', () => {
     ['#/group', { name: 'unknown' }],
     ['#/admin/insights', { name: 'admin', section: 'insights' }],
     ['#/agent', { name: 'agent', section: null }],
+    ['#/debate/d1', { name: 'debate', id: 'd1', tab: null }],
+    ['#/debate/d1/votes', { name: 'debate', id: 'd1', tab: 'votes' }],
+    ['#/debate/d1/nonsense', { name: 'debate', id: 'd1', tab: null }],
     ['#/measured', { name: 'measured' }],
     ['#/agent/teaching', { name: 'agent', section: 'teaching' }],
     ['#/agent/nonsense', { name: 'agent', section: null }],

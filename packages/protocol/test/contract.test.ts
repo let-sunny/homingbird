@@ -70,6 +70,7 @@ describe('contract', () => {
   it('reserves approval, contacts, blocks, channel membership, groups, credentials and administration for people', () => {
     expect([...humanOnlyRoutes].sort()).toEqual(
       [
+        'answers.used',
         'me.update',
         'me.character.set',
         'me.character.clear',
@@ -158,6 +159,7 @@ describe('contract', () => {
     const forAgents = names.filter((name) => contract[name].access === 'member')
     expect(forAgents.sort()).toEqual(
       [
+        'answers.earlier',
         'me.get',
         'directory.list',
         'channels.list',

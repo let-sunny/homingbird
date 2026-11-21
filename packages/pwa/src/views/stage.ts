@@ -52,7 +52,7 @@ export const stageFor = (context: ViewContext, life: Lifetime, me: AsRead.Me, cu
     case 'debates':
       return on('debateRooms') ? debatesView(context, life, me) : notFound()
     case 'debate':
-      return on('debateRooms') ? debateView(context, life, me, current.id) : notFound()
+      return on('debateRooms') ? debateView(context, life, me, current.id, current.tab) : notFound()
     case 'activity':
       return activityView(context, life, me)
     case 'search':

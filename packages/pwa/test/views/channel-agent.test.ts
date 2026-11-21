@@ -58,6 +58,25 @@ const onPage = () => {
   return { context, called, page, dialog: shown }
 }
 
+describe('channelAgentView', () => {
+  it('shows the agent’s state on its page, as a person’s agent is shown', () => {
+    const { context } = testContext()
+    context.state.serverInfo.set(everything())
+    context.state.session.set(me())
+    context.state.channelsLoaded.set(true)
+    context.state.channels.set([
+      {
+        ...wiki,
+        agent: { id: AGENT, name: 'Payments wiki', presence: { humanOnline: false, agentOnline: false } },
+      },
+    ])
+    const shown = mount(channelAgentView(context, lifetime(), 'payments-wiki', null))
+    expect(textOf(shown.querySelector('.channel-agent-state')!)).toBe(
+      strings.channelAgentState.notConnected({ agent: 'Payments wiki' }),
+    )
+  })
+})
+
 describe('agentButtons', () => {
   it('asks the agent privately from the room', () => {
     const { called, buttons } = opened()

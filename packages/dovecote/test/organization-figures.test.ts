@@ -424,3 +424,41 @@ describe('organizationInsightsOf', () => {
     expect(DAY_MS).toBe(24 * HOUR)
   })
 })
+
+describe('questions answered from history', () => {
+  it('counts them for the period and for each place shown, as numbers only', () => {
+    const team = people(5)
+    const figures = organizationFiguresIn(
+      {
+        ...empty,
+        sent: team.map((id) => note(id, 'deploys', 1)),
+        answeredFromHistory: [
+          ...team.map((id) => ({ memberId: id, place: 'deploys', at: NOW - HOUR })),
+          { memberId: team[0]!, place: 'deploys', at: NOW - 30 * DAY_MS },
+        ],
+      },
+      lastWeek,
+      NOW,
+      settings,
+    )!
+    expect(figures.answeredFromHistory).toBe(5)
+    expect(figures.places).toEqual([expect.objectContaining({ place: 'deploys', answeredFromHistory: 5 })])
+  })
+
+  it('hides a place where too few people answered from history, as it hides any small place', () => {
+    const team = people(5)
+    const figures = organizationFiguresIn(
+      {
+        ...empty,
+        sent: team.map((id) => note(id, 'deploys', 1)),
+        answeredFromHistory: [{ memberId: team[0]!, place: 'secrets', at: NOW - HOUR }],
+      },
+      lastWeek,
+      NOW,
+      settings,
+    )!
+    expect(figures.places.map((place) => place.place)).not.toContain('secrets')
+    expect(figures.hiddenPlaces).toBeGreaterThan(0)
+    expect(figures.answeredFromHistory).toBe(1)
+  })
+})

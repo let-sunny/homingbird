@@ -18,7 +18,7 @@ const routes: ReadonlyArray<Route> = [
   { name: 'channels' },
   { name: 'channel', slug: 'billing' },
   { name: 'debates' },
-  { name: 'debate', id: 'debate_1' },
+  { name: 'debate', id: 'debate_1', tab: null },
   { name: 'search', query: '' },
   { name: 'profile' },
   { name: 'agent', section: null },

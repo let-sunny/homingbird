@@ -5,7 +5,7 @@ import { type Action, type App, withApp } from '../app.ts'
 import { keepComposerTexts, withComposerText } from '../composer-texts.ts'
 import { type MISSING, orMissing } from '../missing.ts'
 import { type AppState, signedIn } from '../state.ts'
-import { withNoteFiled, withoutNote } from '../thread.ts'
+import { isUnreadBy, withNoteFiled, withoutNote } from '../thread.ts'
 import { loadConversations } from './workspace.ts'
 
 export const openThread = (id: ConversationId): Action<void | typeof MISSING> => orMissing(loadThread(id))
@@ -43,8 +43,18 @@ export const sendNote = (conversationId: ConversationId, body: string): Action =
     )(deliverNote(conversationId, body)),
   )
 
+/** Marks a note read and lowers its conversation's unread count at once, as the server now counts it. */
 export const markRead = (note: AsRead.Note): Action =>
-  withApp(({ api, state }) => T.map(rememberNote(state))(api['notes.read']({ params: { id: note.id } })))
+  withApp(({ api, state }) =>
+    T.map((read: AsRead.Note) => {
+      const viewer = signedIn(state)?.member.id
+      batch(() => {
+        rememberNote(state)(read)
+        if (viewer !== undefined && isUnreadBy(note, viewer) && !isUnreadBy(read, viewer))
+          lowerUnread(state, read.conversationId)
+      })
+    })(api['notes.read']({ params: { id: note.id } })),
+  )
 
 export const chooseReplyTarget = (conversationId: ConversationId, noteId: NoteId | null): Action =>
   withApp(({ state }) =>
@@ -175,3 +185,10 @@ const withoutKey = <K, V>(map: ReadonlyMap<K, V>, key: K): ReadonlyMap<K, V> => 
   copy.delete(key)
   return copy
 }
+
+const lowerUnread = (state: AppState, id: ConversationId): void =>
+  state.conversations.update((all) =>
+    all.map((room) =>
+      room.id === id && room.unreadCount > 0 ? { ...room, unreadCount: room.unreadCount - 1 } : room,
+    ),
+  )

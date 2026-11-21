@@ -41,6 +41,7 @@ const probes: Readonly<Record<string, (person: Session) => Promise<{ status: num
   mute: (person) => person.api('PUT', '/me/notifications', { notifications: 'all' }),
   webPush: (person) => person.api('GET', '/push/key'),
   answeringFlow: (person) => person.api('GET', '/answering-flow'),
+  earlierAnswers: (person) => person.api('POST', '/answers/earlier', { question: 'release calendar' }),
   teaching: (person) => person.api('GET', '/principles'),
   agentFigures: (person) => person.api('GET', '/insights/me'),
   insights: (person) => person.api('GET', '/admin/insights'),

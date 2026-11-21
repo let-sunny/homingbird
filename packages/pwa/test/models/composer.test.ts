@@ -2,7 +2,7 @@ import type { AsRead, DraftRequest } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import { bodyToSend, composerModel } from '../../src/models/composer.ts'
 import { formats, strings } from '../../src/strings.ts'
-import { ANA, BEN, ROOM, conversation, entry, note, serverInfo } from '../support/fixtures.ts'
+import { ANA, BEN, ROOM, channel, conversation, entry, note, serverInfo } from '../support/fixtures.ts'
 import { threadInput } from '../support/thread.ts'
 
 const request = (fields: Partial<DraftRequest> = {}): DraftRequest => ({
@@ -34,8 +34,10 @@ describe('composerModel', () => {
       asked: [],
       noAgent: null,
       theirAgent: null,
+      answers: null,
       replyingTo: null,
       asksAgent: true,
+      lookUpEarlierAnswers: true,
       askAgentReason: null,
     })
   })
@@ -56,6 +58,37 @@ describe('composerModel', () => {
       asksAgent: false,
       askAgentReason: null,
     })
+  })
+
+  it('says in a channel who answers before the question is sent, and warns when nobody can now', () => {
+    const answers = (fields: Partial<AsRead.Channel>, directory: AsRead.DirectoryEntry[] = []) => {
+      const model = composerModel(
+        threadInput({
+          conversations: [conversation({ kind: 'channel', title: 'billing' })],
+          channels: [channel('billing', { conversationId: ROOM, ...fields })],
+          directory,
+        }),
+      )
+      return model.kind === 'open' ? model.answers : 'archived'
+    }
+    const helper = (presence: AsRead.Presence) => ({ id: BEN, name: 'Billing helper', presence })
+    expect(answers({ agent: helper({ humanOnline: false, agentOnline: true }) })).toEqual({
+      text: strings.channelAnswer.agentDrafts({ agent: 'Billing helper' }),
+      warning: false,
+    })
+    expect(answers({ agent: helper({ humanOnline: false, agentOnline: false }) })).toEqual({
+      text: strings.channelAnswer.agentNotConnected({ agent: 'Billing helper' }),
+      warning: true,
+    })
+    expect(answers({ helperCount: 2 })).toEqual({
+      text: strings.channelAnswer.peopleAnswer({ count: 2 }),
+      warning: false,
+    })
+    const away = { humanOnline: false, agentOnline: false }
+    expect(
+      answers({ helperCount: 1 }, [entry(BEN, 'Ben', { presence: away, channels: ['billing'] })]),
+    ).toEqual({ text: strings.channelAnswer.everyoneAway, warning: true })
+    expect(answers({ helperCount: 0 })).toEqual({ text: strings.channelAnswer.nobodyAnswers, warning: true })
   })
 
   it('says before sending that the other person’s agent cannot answer, and until when when that is known', () => {

@@ -79,37 +79,6 @@ export const isPerson = (member: { readonly kind: string }): boolean => member.k
 export const ChannelSlug = S.string({ pattern: /^[a-z0-9][a-z0-9-]*$/, maxLength: 40 })
 export const CHANNEL_DESCRIPTION_MAX = 200
 
-export const ChannelVisibility = S.tolerant(S.literal('open', 'private'), UNKNOWN)
-export type ChannelVisibility = S.Infer<typeof ChannelVisibility>
-
-export const Channel = S.struct({
-  slug: ChannelSlug,
-  description: S.string({ maxLength: CHANNEL_DESCRIPTION_MAX }),
-  conversationId: ConversationId,
-  visibility: ChannelVisibility,
-  memberCount: S.int({ min: 0 }),
-  helperCount: S.int({ min: 0 }),
-  joined: S.boolean,
-  answering: S.boolean,
-  managing: S.boolean,
-  managedBy: GroupId,
-  /** The channel's own agent, with the `channelAgents` feature on. */
-  agent: S.optional(S.nullable(S.struct({ id: MemberId, name: S.string({ maxLength: 200 }) }))),
-  /** Whether the viewer manages the channel themself, and so runs its agent and reviews its answers. */
-  runsAgent: S.optional(S.boolean),
-  createdAt: Timestamp,
-})
-export type Channel = S.Infer<typeof Channel>
-
-export const ChannelMember = S.struct({ memberId: MemberId, answering: S.boolean, manager: S.boolean })
-export type ChannelMember = S.Infer<typeof ChannelMember>
-
-export const Relation = S.tolerant(
-  S.literal('self', 'contact', 'request_sent', 'request_received', 'blocked', 'none'),
-  UNKNOWN,
-)
-export type Relation = S.Infer<typeof Relation>
-
 /** Why a running desk's agent cannot answer: out of usage, signed out, or its command keeps failing. */
 export const DeskUnavailableKind = S.literal('usage_limit', 'signed_out', 'failed')
 export type DeskUnavailableKind = S.Infer<typeof DeskUnavailableKind>
@@ -124,6 +93,41 @@ export const Presence = S.struct({
   ),
 })
 export type Presence = S.Infer<typeof Presence>
+
+export const ChannelVisibility = S.tolerant(S.literal('open', 'private'), UNKNOWN)
+export type ChannelVisibility = S.Infer<typeof ChannelVisibility>
+
+export const Channel = S.struct({
+  slug: ChannelSlug,
+  description: S.string({ maxLength: CHANNEL_DESCRIPTION_MAX }),
+  conversationId: ConversationId,
+  visibility: ChannelVisibility,
+  memberCount: S.int({ min: 0 }),
+  helperCount: S.int({ min: 0 }),
+  joined: S.boolean,
+  answering: S.boolean,
+  managing: S.boolean,
+  managedBy: GroupId,
+  /** The channel's own agent, with the `channelAgents` feature on, and whether it is there to answer. */
+  agent: S.optional(
+    S.nullable(
+      S.struct({ id: MemberId, name: S.string({ maxLength: 200 }), presence: S.optional(Presence) }),
+    ),
+  ),
+  /** Whether the viewer manages the channel themself, and so runs its agent and reviews its answers. */
+  runsAgent: S.optional(S.boolean),
+  createdAt: Timestamp,
+})
+export type Channel = S.Infer<typeof Channel>
+
+export const ChannelMember = S.struct({ memberId: MemberId, answering: S.boolean, manager: S.boolean })
+export type ChannelMember = S.Infer<typeof ChannelMember>
+
+export const Relation = S.tolerant(
+  S.literal('self', 'contact', 'request_sent', 'request_received', 'blocked', 'none'),
+  UNKNOWN,
+)
+export type Relation = S.Infer<typeof Relation>
 
 export const PUBLIC_TEXT_MAX = 200
 

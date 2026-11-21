@@ -34,11 +34,26 @@ describe('tabsModel', () => {
       strings.channels,
     ])
     expect(tabs.filter((tab) => tab.current).map((tab) => tab.label)).toEqual([strings.navNotes])
-    expect(tabs[1]).toEqual({ label: strings.navMyAgent, href: '#/agent', current: false, tour: 'connect' })
+    expect(tabs[1]).toEqual({
+      label: strings.navMyAgent,
+      href: '#/agent',
+      current: false,
+      tour: 'connect',
+      mark: null,
+    })
+    expect(tabs.every((tab) => tab.mark === null)).toBe(true)
     expect(
-      tabsModel({ name: 'debate', id: 'x' }, serverInfo({ debateRooms: true })).find((tab) => tab.current)
-        ?.label,
+      tabsModel({ name: 'debate', id: 'x', tab: null }, serverInfo({ debateRooms: true })).find(
+        (tab) => tab.current,
+      )?.label,
     ).toBe(strings.navDebates)
+  })
+
+  it('marks My agent, and only My agent, while the person’s agent cannot answer', () => {
+    const tabs = tabsModel({ name: 'home' }, serverInfo(), strings.activity.unavailableTitle)
+    expect(tabs.filter((tab) => tab.mark !== null)).toEqual([
+      expect.objectContaining({ label: strings.navMyAgent, mark: strings.activity.unavailableTitle }),
+    ])
   })
 })
 
@@ -49,6 +64,7 @@ describe('searchLinkModel', () => {
       href: '#/search?q=',
       current: false,
       tour: null,
+      mark: null,
     })
     expect(searchLinkModel({ name: 'search', query: 'refund' }).current).toBe(true)
   })

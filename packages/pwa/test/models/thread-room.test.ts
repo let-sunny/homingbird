@@ -22,6 +22,7 @@ import {
   conversation,
   draft,
   entry,
+  everything,
   note,
   serverInfo,
 } from '../support/fixtures.ts'
@@ -116,7 +117,10 @@ describe('threadHeadModel', () => {
       kind: 'people',
       title: 'Ben',
       profile: 'Billing.',
-      presence,
+      presence: {
+        person: { isOn: true, label: strings.presenceOf.online({ name: 'Ben' }) },
+        agent: { state: 'on', label: strings.presenceOf.agentAwake({ name: 'Ben' }) },
+      },
       people: null,
       mute: expect.objectContaining({ conversationId: ROOM, muted: false, label: 'Mute Ben' }),
     })
@@ -173,8 +177,32 @@ describe('threadHeadModel', () => {
       title: '#billing',
       archived: false,
       channel: billing,
+      agentState: null,
       mute: expect.objectContaining({ label: 'Mute #billing' }),
     })
+    const helped = channel('billing', {
+      conversationId: ROOM,
+      agent: {
+        id: BEN,
+        name: 'Billing helper',
+        presence: { humanOnline: false, agentOnline: true, agentUnavailable: { until: null } },
+      },
+    })
+    const withAgent = (info: ReturnType<typeof everything>) =>
+      threadHeadModel(
+        threadInput({
+          conversations: [conversation({ kind: 'channel', title: 'billing' })],
+          channels: [helped],
+          serverInfo: info,
+        }),
+      )
+    expect(withAgent(everything())).toMatchObject({
+      agentState: {
+        state: 'unavailable',
+        label: strings.channelAgentState.unavailable({ agent: 'Billing helper' }),
+      },
+    })
+    expect(withAgent(serverInfo())).toMatchObject({ agentState: null })
     expect(
       threadHeadModel(threadInput({ conversations: [conversation({ archivedAt: 5 })], channels: [billing] })),
     ).toMatchObject({

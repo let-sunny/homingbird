@@ -43,6 +43,8 @@ export const describeChannel = (viewer: Viewer, row: ChannelRow): T.Task<Channel
     const joined = members.includes(viewer.id)
     const agentsOn = yield* featureIsOn('channelAgents')
     const agent = agentsOn ? yield* channelAgentOf(row) : null
+    const runsAgent = agentsOn && joined && managers.includes(viewer.id)
+    const { hub } = yield* T.ask<AppEnv>()
     return {
       slug: row.slug,
       description: row.description,
@@ -55,8 +57,15 @@ export const describeChannel = (viewer: Viewer, row: ChannelRow): T.Task<Channel
       managing:
         (joined && managers.includes(viewer.id)) || (viewer.role === 'admin' && visibilityOf(row) === 'open'),
       managedBy: row.manager_group_id,
-      agent: agent === null ? null : { id: agent.id, name: agent.name },
-      runsAgent: agentsOn && joined && managers.includes(viewer.id),
+      agent:
+        agent === null
+          ? null
+          : {
+              id: agent.id,
+              name: agent.name,
+              presence: hub.presenceOf(agent.id, runsAgent ? agent.id : viewer.id),
+            },
+      runsAgent,
       createdAt: Number(row.created_at),
     }
   })

@@ -1,10 +1,12 @@
 import type { Child } from '@homingbird/ui'
 import { h } from '@homingbird/ui'
 import type { GroupPeople, ThreadHead } from '../models/thread-room.ts'
+import type { PresenceMarks } from '../presence.ts'
+import { channelAgentStateLine } from './channel-agent.ts'
 import { answeringChip, privateMark, roomMenu } from './channel-membership.ts'
 import type { ViewContext } from './context.ts'
 import { muteButton, mutedMark } from './mute-toggle.ts'
-import { archivedMark, backLink, channelCounts, presenceBadges, youMark } from './parts.ts'
+import { archivedMark, backLink, channelCounts, youMark } from './parts.ts'
 
 /** The head of a conversation on one line: who it is with, or the channel with its counts and controls. */
 export const renderThreadHead = (context: ViewContext, model: ThreadHead): Child => {
@@ -15,11 +17,16 @@ export const renderThreadHead = (context: ViewContext, model: ThreadHead): Child
       h(
         'div',
         { class: 'thread-who' },
-        h('h1', {}, model.title, model.mute?.mark != null && mutedMark(model.mute.mark)),
-        model.profile !== null && h('p', { class: 'thread-profile' }, model.profile),
+        h('h1', { class: 'is-whole' }, model.title, model.mute?.mark != null && mutedMark(model.mute.mark)),
+        (model.presence !== null || model.profile !== null) &&
+          h(
+            'p',
+            { class: 'thread-profile' },
+            model.presence !== null && presenceDots(model.presence),
+            model.profile !== null && h('span', { class: 'thread-profile-text' }, model.profile),
+          ),
       ),
       model.people !== null && groupPeople(model.people),
-      model.presence !== null && presenceBadges(model.presence),
       model.mute !== null && muteButton(context, model.mute),
     ]
   const channel = model.channel
@@ -37,7 +44,13 @@ export const renderThreadHead = (context: ViewContext, model: ThreadHead): Child
         model.archived && archivedMark(),
         model.mute?.mark != null && mutedMark(model.mute.mark),
       ),
-      channel !== null && h('div', { class: 'thread-profile channel-head-meta' }, channelCounts(channel)),
+      channel !== null &&
+        h(
+          'div',
+          { class: 'thread-profile channel-head-meta' },
+          channelCounts(channel),
+          model.agentState !== null && channelAgentStateLine(model.agentState),
+        ),
     ),
     channel !== null && answeringChip(context, channel),
     model.mute !== null && muteButton(context, model.mute),
@@ -59,5 +72,24 @@ const groupPeople = (model: GroupPeople): Child => [
     ),
   ),
 ]
+
+/** The colleague and their agent as two dots, each named for assistive technology and on hover. */
+const presenceDots = (marks: PresenceMarks): HTMLElement =>
+  h(
+    'span',
+    { class: 'presence-dots' },
+    h('span', {
+      class: `human-dot ${marks.person.isOn ? 'is-on' : 'is-off'}`,
+      role: 'img',
+      'aria-label': marks.person.label,
+      title: marks.person.label,
+    }),
+    h('span', {
+      class: `agent-mark-dot is-${marks.agent.state}`,
+      role: 'img',
+      'aria-label': marks.agent.label,
+      title: marks.agent.label,
+    }),
+  )
 
 const GROUP_PEOPLE_ID = 'group-people'
