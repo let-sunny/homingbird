@@ -122,7 +122,24 @@ export const threadHeadModel = (input: ThreadInput): ThreadHead => {
     title,
     profile: privateQuestionNotice(conversation, input.channels) ?? entry?.member.profile ?? null,
     presence: entry?.presence ?? null,
+    people:
+      conversation.kind === 'group' && conversation.privateQuestionOf === undefined
+        ? peopleIn(input, conversation)
+        : null,
     mute,
+  }
+}
+
+/** Who is in a group message: how many, and each by name, the person first. */
+const peopleIn = (input: ThreadInput, conversation: AsRead.Conversation): GroupPeople => {
+  const viewerId = input.me.member.id
+  return {
+    label: strings.groupPeople({ count: conversation.participantIds.length }),
+    title: strings.groupPeopleTitle,
+    people: [viewerId, ...otherParticipants(conversation, viewerId)].map((memberId) => ({
+      name: nameIn(input, memberId),
+      you: memberId === viewerId,
+    })),
   }
 }
 
@@ -155,5 +172,13 @@ export type ThreadHead =
       readonly title: string
       readonly profile: string | null
       readonly presence: AsRead.Presence | null
+      /** A group message's people, listed behind its head; null for a direct message. */
+      readonly people: GroupPeople | null
       readonly mute: MuteToggle | null
     }
+
+export interface GroupPeople {
+  readonly label: string
+  readonly title: string
+  readonly people: ReadonlyArray<{ readonly name: string; readonly you: boolean }>
+}

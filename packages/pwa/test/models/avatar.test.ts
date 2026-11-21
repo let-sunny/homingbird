@@ -60,9 +60,11 @@ describe('avatars', () => {
     )
   })
 
-  it('shows the first two people of a group side by side, small and unlabelled', () => {
-    const faces = groupAvatarOf([member(ANA, 'Ana'), member(BEN, 'Ben'), member(CY, 'Cy')], true)
-    expect(faces).toHaveLength(2)
-    expect(faces.every((face) => face.scale === 1 && face.label === null)).toBe(true)
+  it('shows the first two people of a group side by side, small and unlabelled, and how many more', () => {
+    const group = groupAvatarOf([member(ANA, 'Ana'), member(BEN, 'Ben'), member(CY, 'Cy')], true)
+    expect(group.faces).toHaveLength(2)
+    expect(group.faces.every((face) => face.scale === 1 && face.label === null)).toBe(true)
+    expect(group.more).toBe(strings.moreFaces({ count: 1 }))
+    expect(groupAvatarOf([member(ANA, 'Ana'), member(BEN, 'Ben')], true).more).toBeNull()
   })
 })

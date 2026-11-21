@@ -20,7 +20,7 @@ import { renderAvatar, renderGroupAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
 import { startingPoints } from './home.ts'
 import { mutedMark } from './mute-toggle.ts'
-import { archivedMark, channelCounts, empty, loading, presenceBadges, timeLabel } from './parts.ts'
+import { agentDot, archivedMark, channelCounts, empty, humanDot, loading, timeLabel } from './parts.ts'
 
 /** The app around a page: the header with its tabs, the connection, the sidebar and the user menu. */
 export const shell = (
@@ -307,19 +307,24 @@ const conversationRow = (context: ViewContext, row: ConversationRow): HTMLElemen
     h(
       'a',
       { class: 'conversation', href: row.href, 'aria-current': row.current && 'page' },
-      row.face.kind === 'channel'
-        ? h('span', { class: 'avatar is-channel', 'aria-hidden': 'true' }, '#')
-        : row.face.kind === 'group'
-          ? renderGroupAvatar(context, row.face.faces)
-          : renderAvatar(context, row.face.avatar),
+      h(
+        'span',
+        { class: 'conversation-face' },
+        row.face.kind === 'channel'
+          ? h('span', { class: 'avatar is-channel', 'aria-hidden': 'true' }, '#')
+          : row.face.kind === 'group'
+            ? renderGroupAvatar(context, row.face)
+            : renderAvatar(context, row.face.avatar),
+        row.presence !== null && agentDot(row.presence),
+      ),
       h(
         'span',
         { class: 'conversation-main' },
         h(
           'span',
           { class: 'conversation-name' },
-          row.title,
-          row.presence !== null && presenceBadges(row.presence),
+          h('span', { class: 'conversation-title', title: row.title }, row.title),
+          row.presence !== null && humanDot(row.presence),
           row.archived && archivedMark(),
           row.mute?.mark != null && mutedMark(row.mute.mark),
         ),

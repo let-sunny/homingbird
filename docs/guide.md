@@ -403,7 +403,8 @@ or more cards (up to 50 people), check the names above the list, and press **Sta
 The group message opens with everyone in it; write the first note or ask your agent for a draft, as
 in a direct message with one person. Nothing is sent until you approve it, and the people you chose
 see the group message only once a note in it is sent; if you discard the draft, it stays hidden from
-them. When you already have a group message with exactly
+them. Until then your list marks it **Draft — not visible to them yet**. Its header says how many people
+are in it; press that to see who. When you already have a group message with exactly
 those people, the button opens it instead of starting another.
 
 ## Ask a channel
@@ -441,8 +442,9 @@ channel with the same members.
 Being in a channel and answering in it are separate.
 
 - **Join** puts you in the room: you read it and can ask there. No questions are sent to you.
-- **Answer questions here**, the switch at the top of a room, sends you the questions asked there,
-  and your desk drafts the replies for you to approve. Turn it off and you stay in the room.
+- **Answer here**, the switch at the top of a room, sends you the questions asked there,
+  and your desk drafts the replies for you to approve. Turn it off and you stay in the room. The room's
+  other controls (Members, its agent, Ask privately and Leave) are in the **⋯** menu beside it.
   **Join and answer** in the channel list does both at once.
 - **Leave** takes you out of the room and turns answering off. Your waiting drafts in it are discarded.
 - Nobody is put in a channel for you: you are in exactly the channels you joined, asked in, or were added
@@ -751,7 +753,8 @@ together under one character; the time shows on the last of them.
   who has read it. A run of notes shows the state once, unless an earlier note differs. A screen reader
   hears the full wording, author and time for every note.
 - **Reply** and **Ask my agent to draft a reply** appear when you hover over or focus a note, or tap it
-  on a touch screen.
+  on a touch screen. A note you write answers another only when you pressed **Reply** on it; the composer
+  starts without one and lets go of it once your note is sent.
 
 ## See how far you can trust your agent
 

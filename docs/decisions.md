@@ -5,6 +5,11 @@ states the decision first, then the reason. Add new entries at the top of their 
 
 ## Product
 
+- **A note written in the composer answers another only when the person chose Reply on that note.**
+  The composer opens with no reply target and forgets the one chosen once the note is sent. Choosing the
+  latest note waiting for the person's reply on their behalf made a first note silently quote something
+  they had not picked, and jumped to the next waiting note after each send. A note sent without a target
+  leaves the receipts of the notes before it unanswered, which is what the person did.
 - **A group message is invisible to its other members until a note in it is sent, like a direct
   message.** Starting a group in the web client creates its room before the first note is drafted;
   showing it to everyone at once would tell them a note was on its way, and a discarded draft would leave

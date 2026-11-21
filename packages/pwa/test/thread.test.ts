@@ -12,6 +12,7 @@ import type {
 import { describeStatus, summarize } from '@homingbird/protocol'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
+import { strings } from '../src/strings.ts'
 import {
   alternativesLeftAfterSending,
   answeredBy,
@@ -24,7 +25,7 @@ import {
   isOpenQuestion,
   isUnreadBy,
   myNoteState,
-  noteAwaitingReply,
+  namesInBrief,
   otherParticipants,
   readProgress,
   showsAuthors,
@@ -233,14 +234,6 @@ describe('presence', () => {
 describe('what needs the viewer', () => {
   const question = note('q', { receipts: [receipt(june)] })
 
-  it('finds the latest note from someone else that the viewer has not answered', () => {
-    const later = note('q2', { sentAt: 9, receipts: [receipt(june)] })
-    expect(noteAwaitingReply([question, later], june)?.id).toBe('q2')
-    expect(noteAwaitingReply([question], ana)).toBeNull()
-    expect(noteAwaitingReply([note('q', { receipts: [receipt(june, { repliedAt: 3 })] })], june)).toBeNull()
-    expect(noteAwaitingReply([draft('d')], june)).toBeNull()
-  })
-
   it('counts a note as unread only for a recipient who has not opened it', () => {
     expect(isUnreadBy(question, june)).toBe(true)
     expect(isUnreadBy(question, ana)).toBe(false)
@@ -258,10 +251,20 @@ describe('conversation titles', () => {
     expect(otherParticipants(conversation({}), ana)).toEqual([june])
   })
 
-  it('prefers a group title and otherwise lists everyone else', () => {
+  it('prefers a group title and otherwise names the first two others and how many more', () => {
     const group = conversation({ kind: 'group', participantIds: [ana, june, cy] })
     expect(conversationTitle(group, members, ana, 'Former member')).toBe('June, Former member')
     expect(conversationTitle({ ...group, title: 'Billing' }, members, ana, 'x')).toBe('Billing')
+    const larger = { ...group, participantIds: [ana, june, cy, 'mem_dee' as MemberId, 'mem_eve' as MemberId] }
+    expect(conversationTitle(larger, members, ana, 'Gone')).toBe(
+      strings.namesAndMore({ names: 'June, Gone', count: 2 }),
+    )
+  })
+
+  it('names people on one line: the first two, then how many more', () => {
+    expect(namesInBrief(['Ana'])).toBe('Ana')
+    expect(namesInBrief(['Ana', 'Kai'])).toBe('Ana, Kai')
+    expect(namesInBrief(['Ana', 'Kai', 'Ben', 'Cy'])).toBe('Ana, Kai +2')
   })
 
   it('finds the open group of exactly the viewer and the people chosen, in any order', () => {

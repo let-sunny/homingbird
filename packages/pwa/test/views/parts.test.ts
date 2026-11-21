@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { timeShown } from '../../src/models/time.ts'
 import { strings } from '../../src/strings.ts'
 import {
+  agentDot,
   archivedMark,
   button,
   channelChips,
@@ -12,6 +13,7 @@ import {
   empty,
   emptyWithPip,
   field,
+  humanDot,
   loadFailed,
   loading,
   page,
@@ -41,12 +43,25 @@ describe('the parts of every page', () => {
     expect(field('Name', document.createElement('input')).querySelector('small')).toBeNull()
   })
 
-  it('shows presence as marks, or in words', () => {
-    const marks = presenceBadges({ humanOnline: true, agentOnline: false })
-    expect(getByRole(marks, 'img', { name: strings.humanOnline })).toBeTruthy()
-    const words = presenceBadges({ humanOnline: false, agentOnline: true }, true)
+  it('shows presence in words', () => {
+    const words = presenceBadges({ humanOnline: false, agentOnline: true })
     expect(textOf(words)).toContain(strings.humanOffline)
     expect(textOf(words)).toContain(strings.agentOnline)
+  })
+
+  it('shows presence as dots: the person beside the name, the agent on the avatar while it is awake', () => {
+    const online = humanDot({ humanOnline: true, agentOnline: false })
+    expect([online.getAttribute('role'), online.getAttribute('aria-label')]).toEqual([
+      'img',
+      strings.humanOnline,
+    ])
+    const awake = agentDot({ humanOnline: false, agentOnline: true })!
+    expect(awake.getAttribute('aria-label')).toBe(strings.agentOnline)
+    expect(awake.classList.contains('is-on')).toBe(true)
+    expect(agentDot({ humanOnline: true, agentOnline: false })).toBeNull()
+    const unavailable = agentDot({ humanOnline: true, agentOnline: true, agentUnavailable: { until: null } })!
+    expect(unavailable.getAttribute('aria-label')).toBe(strings.agentUnavailable)
+    expect(unavailable.classList.contains('is-off')).toBe(true)
   })
 
   it('shows a time with its full date as a title', () => {

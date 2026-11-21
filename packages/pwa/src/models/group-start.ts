@@ -45,8 +45,10 @@ export const groupStartModel = (input: GroupStartInput): GroupStartModel | null 
         return [
           entry.member.id,
           {
-            text: strings.groupStart.choose,
-            label: strings.groupStart.chooseName({ name: entry.member.name }),
+            text: pressed ? strings.groupStart.added : strings.groupStart.choose,
+            label: (pressed ? strings.groupStart.addedName : strings.groupStart.chooseName)({
+              name: entry.member.name,
+            }),
             pressed,
             disabled: input.starting || (full && !pressed),
           },

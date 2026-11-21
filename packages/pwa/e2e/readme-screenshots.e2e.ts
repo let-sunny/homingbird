@@ -146,7 +146,7 @@ const scenario = async (): Promise<void> => {
     await phone.page.waitForSelector('.note.is-mine')
     await shot(phone, 'phone-conversation')
     await phone.page.goto(`${base}/#/c/${billing}`)
-    await phone.page.waitForSelector('.answering-toggle')
+    await phone.page.waitForSelector('.answering-chip')
     await shot(phone, 'phone-channel-room')
     await phone.context.close()
   } finally {

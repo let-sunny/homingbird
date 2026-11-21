@@ -5,7 +5,7 @@ import { type Route, hrefFor } from '../routes.ts'
 import { spriteOwner } from '../sprite-owner.ts'
 import { strings } from '../strings.ts'
 import { conversationTitle, excerpt, isMuted, otherParticipants } from '../thread.ts'
-import { type AvatarModel, groupAvatarOf, memberAvatarOf } from './avatar.ts'
+import { type AvatarModel, type GroupAvatarModel, groupAvatarOf, memberAvatarOf } from './avatar.ts'
 import { type MuteToggle, muteToggleModel } from './mute-toggle.ts'
 import { type TimeShown, timeShown } from './time.ts'
 
@@ -111,7 +111,7 @@ export interface ConversationRow {
   readonly current: boolean
   readonly face:
     | { readonly kind: 'channel' }
-    | { readonly kind: 'group'; readonly faces: ReadonlyArray<AvatarModel> }
+    | ({ readonly kind: 'group' } & GroupAvatarModel)
     | { readonly kind: 'member'; readonly avatar: AvatarModel }
   readonly title: string
   readonly presence: AsRead.Presence | null
@@ -158,9 +158,11 @@ const conversationRow = (input: SidebarInput, conversation: AsRead.Conversation)
     preview:
       last !== null
         ? excerpt(last.body, 60)
-        : conversation.draftCount > 0
-          ? strings.draftsWaiting({ count: conversation.draftCount })
-          : strings.noNotesYet,
+        : conversation.kind === 'group'
+          ? strings.groupNotSentYet
+          : conversation.draftCount > 0
+            ? strings.draftsWaiting({ count: conversation.draftCount })
+            : strings.noNotesYet,
     time: last?.sentAt != null ? timeShown(last.sentAt, input.now) : null,
     unread:
       conversation.unreadCount > 0
@@ -184,7 +186,7 @@ const faceOf = (
 ): ConversationRow['face'] => {
   const people = others.map((id) => input.members.get(id))
   if (conversation.kind !== 'direct' && people.length > 1)
-    return { kind: 'group', faces: groupAvatarOf(people, input.charactersOn) }
+    return { kind: 'group', ...groupAvatarOf(people, input.charactersOn) }
   const arrived = input.arrived.has(conversation.id) && !isMuted(conversation)
   const owner = spriteOwner({
     kind: 'conversation',

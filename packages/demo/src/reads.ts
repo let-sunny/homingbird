@@ -31,6 +31,7 @@ export const conversationsOf = (records: Records, viewerId: MemberId): Conversat
       (room) =>
         room.participantIds.includes(viewerId) &&
         (room.kind === 'channel' ||
+          room.startedBy === viewerId ||
           records.notes.some(
             (note) =>
               note.conversationId === room.id &&

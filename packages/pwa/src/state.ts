@@ -50,7 +50,7 @@ export const createState = (hash: string): AppState => {
     groupsLoaded: signal(false),
     rosters: signal<ReadonlyMap<string, Roster>>(new Map()),
     rostersLoading: new Set(),
-    replyTargets: signal<ReadonlyMap<ConversationId, string | null>>(new Map()),
+    replyTargets: signal<ReadonlyMap<ConversationId, NoteId | null>>(new Map()),
     releases: signal<ReadonlyMap<NoteId, Release>>(new Map()),
     archiveDiscards: signal<ReadonlyMap<ConversationId, ReadonlyArray<ArchiveDiscard>>>(new Map()),
     openedForThePerson: signal<ConversationId | null>(null),
@@ -113,7 +113,7 @@ export interface AppState {
   readonly rosters: Signal<ReadonlyMap<string, Roster>>
   /** Rosters on their way, by slug and member count, so that each is asked for once. */
   readonly rostersLoading: Set<string>
-  readonly replyTargets: Signal<ReadonlyMap<ConversationId, string | null>>
+  readonly replyTargets: Signal<ReadonlyMap<ConversationId, NoteId | null>>
   readonly releases: Signal<ReadonlyMap<NoteId, Release>>
   readonly archiveDiscards: Signal<ReadonlyMap<ConversationId, ReadonlyArray<ArchiveDiscard>>>
   readonly openedForThePerson: Signal<ConversationId | null>

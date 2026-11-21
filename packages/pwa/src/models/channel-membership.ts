@@ -15,6 +15,11 @@ export const roomControlsModel = (
   const seesMembers = channel.managing || (viewerIsAdmin && isPrivate(channel))
   return {
     answering: channel.joined ? answeringModel(channel) : null,
+    more: {
+      id: `room-menu-${channel.slug}`,
+      label: strings.roomMore({ channel: channelLabel(channel.slug) }),
+    },
+    description: channel.description,
     manage: seesMembers ? strings.membersTitle({ channel: channelLabel(channel.slug) }) : null,
     leave: !channel.joined
       ? null
@@ -39,6 +44,8 @@ export const rosterNeed = (
 export const answeringModel = (channel: AsRead.Channel): AnsweringModel => ({
   labelId: `answering-label-${channel.slug}`,
   hintId: `answering-${channel.slug}`,
+  label: strings.answerHere,
+  hint: strings.answerHereHint,
   checked: channel.answering,
   state: channel.answering ? strings.switchOn : strings.switchOff,
 })
@@ -113,6 +120,9 @@ export const leaveConsequence = (channel: AsRead.Channel): string =>
 
 export interface RoomControls {
   readonly answering: AnsweringModel | null
+  /** The ⋯ menu that holds the room's other controls, beginning with what the channel is for. */
+  readonly more: { readonly id: string; readonly label: string }
+  readonly description: string
   readonly manage: string | null
   readonly leave:
     | { readonly kind: 'allowed'; readonly title: string }
@@ -124,6 +134,8 @@ export interface RoomControls {
 export interface AnsweringModel {
   readonly labelId: string
   readonly hintId: string
+  readonly label: string
+  readonly hint: string
   readonly checked: boolean
   readonly state: string
 }

@@ -3,7 +3,7 @@ import type { StateName } from '@homingbird/sprites'
 import { h, later } from '@homingbird/ui'
 import type { Page } from '../browser-page.ts'
 import { framePixels, frameTimings } from '../characters.ts'
-import type { AvatarModel } from '../models/avatar.ts'
+import type { AvatarModel, GroupAvatarModel } from '../models/avatar.ts'
 
 /**
  * A character on a canvas, drawn by `packages/sprites` at a whole-number scale and shown with
@@ -36,11 +36,12 @@ export const renderAvatar = (screen: AvatarScreen, avatar: AvatarModel): HTMLCan
   return canvas
 }
 
-export const renderGroupAvatar = (screen: AvatarScreen, faces: ReadonlyArray<AvatarModel>): HTMLElement =>
+export const renderGroupAvatar = (screen: AvatarScreen, group: GroupAvatarModel): HTMLElement =>
   h(
     'span',
     { class: 'character-group', 'aria-hidden': 'true' },
-    faces.map((face) => renderAvatar(screen, face)),
+    group.faces.map((face) => renderAvatar(screen, face)),
+    group.more !== null && h('span', { class: 'group-more' }, group.more),
   )
 
 /** What drawing a character needs from its surroundings. */

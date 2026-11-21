@@ -112,6 +112,10 @@ describe('drafts.create and drafts.update', () => {
     expect(room).toMatchObject({ kind: 'group', title: 'Refunds', participantIds: [viewerId, ben, kai] })
     const again = await succeeded(api['conversations.create']({ body: { participantIds: [ben, kai] } }))
     expect(again.id).toBe(room.id)
+    const listed = await succeeded(api['conversations.list']({}))
+    expect(listed.conversations.some((one) => one.id === room.id)).toBe(true)
+    const asBen = await succeeded(demoApi(ben, world).api['conversations.list']({}))
+    expect(asBen.conversations.some((one) => one.id === room.id)).toBe(false)
     const draft = await succeeded(api['drafts.create']({ body: { body: 'Lunch?', conversationId: room.id } }))
     expect(draft).toMatchObject({ status: 'draft', origin: 'human' })
     const sent = await succeeded(
