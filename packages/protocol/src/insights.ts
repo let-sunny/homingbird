@@ -38,6 +38,7 @@ export const LabelTotals = S.struct({
   sentAsWritten: count,
   sentAfterEdits: count,
   discarded: count,
+  models: S.optional(S.array(S.string({ maxLength: 80 }))),
 })
 export type LabelTotals = S.Infer<typeof LabelTotals>
 
@@ -249,5 +250,6 @@ export type ChannelAgentReport = S.Infer<typeof ChannelAgentReport>
 export const QUICK_APPROVAL_SHARE = 0.25
 export const QUICK_WARNING_WEEKS = 2
 export const QUICK_WARNING_MINIMUM_AS_WRITTEN = 10
+export const TRUST_MINIMUM_DECIDED = 10
 export const QUICK_PICKUP_MS = 5 * 60_000
 export const PICKUP_WAIT_MS = 24 * 60 * 60_000

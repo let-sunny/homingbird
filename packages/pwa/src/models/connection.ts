@@ -15,6 +15,27 @@ export const connectionModel = (input: ConnectionInput): ConnectionModel => {
   }
 }
 
+/** With no agent connected yet: how to connect the first one, step by step, and where the guide says more. */
+export const firstStepsModel = (input: FirstStepsInput): FirstStepsModel | null => {
+  if (input.credentials === null) return null
+  if (input.credentials.some((credential) => credential.kind === 'agent' && credential.revokedAt === null))
+    return null
+  const words = strings.firstSteps
+  return {
+    title: words.title,
+    steps: [
+      { text: words.plugin, command: PLUGIN_INSTALL },
+      {
+        text: words.commandLine,
+        command: `npm install -g @homingbird/cli\nhomingbird login --server ${input.origin}`,
+      },
+      { text: words.run, command: 'homingbird run --agent "codex exec"' },
+    ],
+    joinHint: input.joinCodes ? words.joinHint : null,
+    guide: { href: GUIDE_CONNECT_URL, label: words.guide },
+  }
+}
+
 /** The channels where the person's agent answers, as colleagues see them. */
 export const helpedChannels = (
   input: Pick<ConnectionInput, 'channels' | 'directory' | 'viewerId'>,
@@ -31,6 +52,20 @@ export interface ConnectionInput {
   readonly channels: ReadonlyArray<AsRead.Channel>
   /** Whether the server offers join codes, which the recommendation then points to. */
   readonly joinCodes: boolean
+}
+
+export interface FirstStepsInput {
+  readonly credentials: ReadonlyArray<AsRead.Credential> | null
+  readonly origin: string
+  readonly joinCodes: boolean
+}
+
+export interface FirstStepsModel {
+  readonly title: string
+  readonly steps: ReadonlyArray<{ readonly text: string; readonly command: string }>
+  /** Where join codes are offered, the way to set up a server without a browser. */
+  readonly joinHint: string | null
+  readonly guide: { readonly href: string; readonly label: string }
 }
 
 export interface ConnectionModel {
@@ -103,3 +138,6 @@ const recommendationOf = (joinCodes: boolean): ConnectionModel['recommendation']
   title: strings.deskTitle,
   body: joinCodes ? strings.deskBodyWithJoin : strings.deskBody,
 })
+
+const PLUGIN_INSTALL = '/plugin install homingbird --marketplace let-sunny/homingbird'
+const GUIDE_CONNECT_URL = 'https://github.com/let-sunny/homingbird/blob/main/docs/guide.md#connect-an-agent'

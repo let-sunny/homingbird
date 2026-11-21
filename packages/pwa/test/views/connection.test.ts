@@ -70,11 +70,21 @@ describe('connectionSection', () => {
     expect(page.visited).toEqual(['assign /'])
   })
 
-  it('shows the sign-in command for this server until an agent credential can be used', () => {
+  it('lists the first steps with no agent, then the sign-in command until an agent credential can be used', () => {
     const { context, called, clock } = testContext()
     const shown = mount(connectionSection(context, lifetime(), me()))
-    expect(shown.querySelector('.service-banner')).toBeNull()
+    expect(shown.querySelector('.first-steps')).toBeNull()
     called('listCredentials')[0]!.then!.done!([credential('cred_web', { kind: 'human', current: true })])
+    const steps = shown.querySelector('.first-steps')!
+    expect(textOf(steps)).toContain(strings.firstSteps.title)
+    expect(textOf(steps)).toContain('homingbird login --server http://localhost')
+    expect(getByRole(steps, 'link', { name: strings.firstSteps.guide }).getAttribute('rel')).toBe(
+      'noopener noreferrer',
+    )
+    expect(shown.querySelector('.service-banner')).toBeNull()
+    expect(textOf(shown)).not.toContain('administrator')
+    called('listCredentials')[0]!.then!.done!([credential('cred_old', { expiresAt: clock.now() - 1 })])
+    expect(shown.querySelector('.first-steps')).toBeNull()
     expect(textOf(shown.querySelector('.service-banner')!)).toContain(
       `${strings.serviceBanner.title}${strings.serviceBanner.bodyWithJoin}homingbird login --server http://localhost`,
     )
@@ -107,12 +117,12 @@ describe('connectionSection', () => {
     const shown = connectionSection(on.context, lifetime(), me())
     expect(textOf(shown.querySelector('.join-code')!)).toContain(strings.joinCode.title)
     on.called('listCredentials')[0]!.then!.done!([])
-    expect(textOf(shown.querySelector('.service-banner')!)).toContain(strings.serviceBanner.bodyWithJoin)
+    expect(textOf(shown.querySelector('.first-steps')!)).toContain(strings.firstSteps.joinHint)
     const off = testContext()
     off.context.state.serverInfo.set(serverInfo({ joinCodes: false }))
     const without = connectionSection(off.context, lifetime(), me())
     expect(without.querySelector('.join-code')).toBeNull()
     off.called('listCredentials')[0]!.then!.done!([])
-    expect(textOf(without.querySelector('.service-banner')!)).toContain(strings.serviceBanner.body)
+    expect(textOf(without.querySelector('.first-steps')!)).not.toContain(strings.firstSteps.joinHint)
   })
 })

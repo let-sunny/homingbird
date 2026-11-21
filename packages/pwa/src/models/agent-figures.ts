@@ -2,7 +2,7 @@ import type { AsRead, LabelTotals, OrganizationLabelTotals } from '@homingbird/p
 import { shortLabel } from '../authorship.ts'
 import { clientLabel } from '../client-labels.ts'
 import { hrefFor } from '../routes.ts'
-import { durationOf, formats, percentOf, strings } from '../strings.ts'
+import { durationOf, formats, listOf, percentOf, strings } from '../strings.ts'
 import { PERIODS, compareSentAsWritten, decidedOf, periodOf, shareOf, trendBars } from '../trust.ts'
 import { placeName } from './places.ts'
 
@@ -69,6 +69,10 @@ export const labelsTableModel = (
         rows: rows.map((row) => ({
           title: row.label === null ? unknown : clientLabel(row.label),
           label: row.label === null ? unknown : shortLabel(clientLabel(row.label)),
+          models:
+            'models' in row && row.models !== undefined && row.models.length > 0
+              ? strings.trust.modelsUsed({ models: listOf(row.models) })
+              : null,
           cells: [row.written, row.sentAsWritten, row.sentAfterEdits, row.discarded].map((value) =>
             value === null ? strings.insights.hidden : formats.decimal.format(value),
           ),
@@ -154,6 +158,8 @@ export interface LabelsTable {
   readonly rows: ReadonlyArray<{
     readonly title: string
     readonly label: string
+    /** On a program's row, the models its agents stated. */
+    readonly models: string | null
     readonly cells: ReadonlyArray<string>
   }>
 }

@@ -7,6 +7,7 @@ import {
   mayStartTour,
   rememberTourSeen,
   stepAfter,
+  tourTargets,
 } from '../src/tour.ts'
 
 const memory = (): TourStorage => {
@@ -23,8 +24,13 @@ const broken = (): TourStorage => {
 }
 
 describe('the tour', () => {
-  it('walks five steps: notes, connecting an agent, channels, the activity bell, the profile', () => {
-    expect(TOUR_STEPS).toEqual(['notes', 'connect', 'channels', 'activity', 'profile'])
+  it('walks six steps: notes, the approval card, channels, the activity bell, the profile, connecting an agent', () => {
+    expect(TOUR_STEPS).toEqual(['notes', 'approval', 'channels', 'activity', 'profile', 'connect'])
+  })
+
+  it('points the approval step at a waiting draft, else at the bell that lists drafts', () => {
+    expect(tourTargets('approval')).toEqual(['approval', 'activity'])
+    expect(tourTargets('notes')).toEqual(['notes'])
   })
 
   it('is shown once, then remembered on this device, and forgotten when asked again', () => {

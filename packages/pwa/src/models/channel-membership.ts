@@ -46,6 +46,7 @@ export const answeringModel = (channel: AsRead.Channel): AnsweringModel => ({
   hintId: `answering-${channel.slug}`,
   label: strings.answerHere,
   hint: strings.answerHereHint,
+  helpLabel: strings.answerHereHelp,
   checked: channel.answering,
   state: channel.answering ? strings.switchOn : strings.switchOff,
 })
@@ -127,6 +128,7 @@ export interface AnsweringModel {
   readonly hintId: string
   readonly label: string
   readonly hint: string
+  readonly helpLabel: string
   readonly checked: boolean
   readonly state: string
 }

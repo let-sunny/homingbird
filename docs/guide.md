@@ -1,7 +1,9 @@
 # Using Homingbird
 
-**Keep one agent session open for Homingbird: your desk. It drafts replies to notes that arrive, and
-you approve them in the web client.** Approval happens only there, where you signed in yourself: no
+**Keep one agent session open for Homingbird: your desk, the program that runs your agent for
+Homingbird. It drafts replies to notes that arrive, and you approve them in the web client.** The web
+client says "the program that runs your agent" where this guide says desk, and "homingbird run" for the
+runner. Approval happens only there, where you signed in yourself: no
 agent, plugin, command line or runner can send a note. Every other session drafts only when you ask it to,
 and writing by hand works in the web client too. Teach it your principles under My agent, and its
 numbers show where it already answers the way you would.
@@ -444,7 +446,8 @@ Being in a channel and answering in it are separate.
 
 - **Join** puts you in the room: you read it and can ask there. No questions are sent to you.
 - **Answer here**, the switch at the top of a room, sends you the questions asked there,
-  and your desk drafts the replies for you to approve. Turn it off and you stay in the room. The room's
+  and your desk drafts the replies for you to approve; the **?** beside it says so. Turn it off and you
+  stay in the room and only read. The room's
   other controls (Members, its agent, Ask privately and Leave) are in the **⋯** menu beside it.
   **Join and answer**, in a channel's **⋯** menu in the channel list, does both at once.
 - **Leave** takes you out of the room and turns answering off. Your waiting drafts in it are discarded.
@@ -820,13 +823,17 @@ Below it, for the last 7 or the last 30 days beside the period before:
 - **Where your agent is trusted**: the same breakdown per channel, with direct messages together, such as
   "#billing: 9 of 10 sent as written" next to "#payroll: 2 of 6 sent as written".
 - **Sent as written, week by week** over the last 8 weeks, as a chart and as a table.
+- **By program** and **By model**: the same counts for each program that drafted, with the models its
+  agents stated beside it, and for each model the agent stated.
 
 Where drafts often need edits, save a principle under My agent, Teaching; where they go out as written,
 it already writes what you would.
 
 Only you see these numbers. Your agent's credential cannot read them, and an administrator's
-**Insights** show only totals, never anyone's name and never what a note says; by default even a small
-group's totals are shown, and an administrator can hide groups under a size they choose. **What is measured** (`#/measured`), linked at the bottom of the
+**Insights** show only totals, never anyone's name and never what a note says. Totals are shown per
+group, and Insights say which minimum group is in force: at the default of 1 every group is shown, so
+a group with one member shows that person's figures; the server's operator can raise the minimum with
+`HB_INSIGHTS_MINIMUM_GROUP`. **What is measured** (`#/measured`), linked at the bottom of the
 page and from Insights, is open to every member: it lists what you see about yourself and what
 administrators see as totals, such as who wrote what was sent (the agent, the agent and then its person,
 or the person), the typical time to decide on a draft, quick approvals week by week with a warning when
@@ -841,13 +848,18 @@ receive.
   them, the channels where your agent answers, and a place to enter a connection code. When your desk's
   latest draft came from a session that had run for eight hours or used 80% of its context, it suggests
   starting a fresh session. **Run on a server** makes a join code and shows the one line that sets up
-  a server as your agent's desk. While no agent of yours is connected, a banner says your desk has not
-  connected yet: for a server it points to **Run on a server**, and for a computer with a browser it
-  shows the `homingbird login --server` command, with a link to enter its connection code.
-- **Teaching**: your principles, below.
+  a server as your agent's desk. While no agent of yours is connected, **Connect your first agent**
+  lists the steps: install the Claude Code plugin and type `/homingbird`, or install the command line
+  and run `homingbird login --server` with this server's address, then keep `homingbird run` going; on
+  a server it points to **Run on a server**, and it links to [Connect an agent](#connect-an-agent).
+  Once an agent was connected but none can sign in any more, a banner says the program that runs your
+  agent has not connected yet, shows the `homingbird login --server` command, and links to entering
+  its connection code.
+- **Teaching**: your principles, below. A principle is a rule or saved answer your agent follows.
 - **How it is doing**: the numbers above, and how drafts fared by how long the desk session had run and
   how much of its context it had used. A share shows from five decided drafts in a row.
-- **Route map**: where your agent answers like you.
+- **Route map**: where your agent already answers like you, place by place, and how far your
+  principles carry it there.
 
 When you approve drafts within a few seconds often, a draft that contains a date, a number or a promise
 shows one quiet line above **Send**, such as "This draft has a date in it. Read it before sending." It
@@ -887,14 +899,15 @@ You still approve every draft: an answer is never sent on its own.
   flow, which always comes first. When the draft follows one, its card says **Your agent says it
   applied: Release dates**; if it was wrong for that draft, press **This principle was wrong here**.
 - Each principle shows, on a quiet second line, how often it was applied and what became of those drafts;
-  a share appears only from five applications. You can keep 50.
+  a share appears only from ten applications, the same minimum as every verdict under **How it is
+  doing**; below it the row shows the counts alone. You can keep 50.
 - The map has a point for each channel where your agent drafts, and one for direct messages. A line
   grows with the principles you saved there and the drafts sent as written with them. Edits and
   discards never thin it: they appear as chances to teach.
 
 - **Public** on a row lets you write one sentence about that item for colleagues, up to 200 characters,
   such as "My agent can tell you our release dates." Colleagues see these sentences under **About their
-  agent** in the people list, and their agents may read them too (MCP `find_people`, `homingbird
+  agent** in the people list (on your own card, **About my agent**), and their agents may read them too (MCP `find_people`, `homingbird
   directory`), always quoted as a colleague's text, never as instructions. The sentence may not repeat
   four words in a row of the private text, its source or the channel's name, and the form warns that
   it can still reveal what the principle says.

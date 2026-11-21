@@ -3,6 +3,7 @@ import { type Child, type Lifetime, h, region, replaceChildren, signal } from '@
 import { isPrivate } from '../channels.ts'
 import { featureOn } from '../features.ts'
 import {
+  type AnsweringModel,
   type Choice,
   type Confirmation,
   type MemberRow,
@@ -24,11 +25,15 @@ import { button, dialogActions, disabledWithReason, loading, privateMarkOf, youM
 export const roomControls = (context: ViewContext, channel: AsRead.Channel): HTMLElement =>
   h('div', { class: 'room-controls' }, answeringChip(context, channel), roomMenu(context, channel))
 
-/** The answering switch of a channel the person is in, as a chip; what it means is in its title. */
+/** The answering switch of a channel the person is in, as a chip, and a "?" that explains it underneath. */
 export const answeringChip = (context: ViewContext, channel: AsRead.Channel): Child => {
   if (!channel.joined) return null
   const model = answeringModel(channel)
-  return h(
+  return [answeringSwitch(context, channel, model), answeringHelp(model)]
+}
+
+const answeringSwitch = (context: ViewContext, channel: AsRead.Channel, model: AnsweringModel): HTMLElement =>
+  h(
     'button',
     {
       type: 'button',
@@ -45,6 +50,17 @@ export const answeringChip = (context: ViewContext, channel: AsRead.Channel): Ch
     h('span', { class: 'switch-state', 'aria-hidden': 'true' }, model.state),
     h('span', { id: model.hintId, hidden: true }, model.hint),
   )
+
+const answeringHelp = (model: AnsweringModel): Child => {
+  const id = `${model.hintId}-help`
+  return [
+    h(
+      'button',
+      { type: 'button', class: 'answering-help', popovertarget: id, 'aria-label': model.helpLabel },
+      '?',
+    ),
+    h('div', { id, class: 'menu answering-explained', popover: 'auto' }, h('p', {}, model.hint)),
+  ]
 }
 
 /** A channel's other controls behind ⋯: managing its members, its agent, and leaving it. */

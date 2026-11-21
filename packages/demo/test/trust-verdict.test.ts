@@ -1,10 +1,11 @@
+import { TRUST_MINIMUM_DECIDED } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
-import { MINIMUM_DECIDED, verdictOf } from '../src/trust-verdict.ts'
+import { verdictOf } from '../src/trust-verdict.ts'
 
 describe('verdictOf', () => {
   it('tells nothing until enough drafts were decided', () => {
     expect(verdictOf(6, 2, 1)).toBe('too_few')
-    expect(MINIMUM_DECIDED).toBe(10)
+    expect(TRUST_MINIMUM_DECIDED).toBe(10)
   })
 
   it('reads the same numbers the same way wherever they come from', () => {

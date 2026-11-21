@@ -36,7 +36,7 @@ export type Handler<N extends RouteName> = (
 
 /** What the demo answers for something only a real Dovecote does. */
 export const DEMO_REFUSAL = Forbidden({
-  message: 'The demo does not do this. Run your own Dovecote to try it with your team.',
+  message: 'The demo does not do this. Run your own Homingbird server to try it with your team.',
 })
 
 /** A value a handler found, or a 404 that says what was missing. */

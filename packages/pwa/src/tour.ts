@@ -1,6 +1,17 @@
-export type TourStepId = 'notes' | 'connect' | 'channels' | 'activity' | 'profile'
+export type TourStepId = 'notes' | 'approval' | 'channels' | 'activity' | 'profile' | 'connect'
 
-export const TOUR_STEPS: ReadonlyArray<TourStepId> = ['notes', 'connect', 'channels', 'activity', 'profile']
+export const TOUR_STEPS: ReadonlyArray<TourStepId> = [
+  'notes',
+  'approval',
+  'channels',
+  'activity',
+  'profile',
+  'connect',
+]
+
+/** The controls a step points at, the first one shown: a waiting draft's card, else the bell that lists drafts. */
+export const tourTargets = (id: TourStepId): ReadonlyArray<string> =>
+  id === 'approval' ? ['approval', 'activity'] : [id]
 
 export interface TourStorage {
   readonly getItem: (key: string) => string | null

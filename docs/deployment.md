@@ -640,7 +640,8 @@ received by someone with an agent connected, picked up within 5 minutes, the typ
 those that waited a day without an agent picking them up), quick approvals week by week over 8 weeks,
 and totals per channel. When at least 25% of the drafts sent as written were quick approvals in each of
 the last two weeks, each with at least 10 such drafts, Insights show a warning that approving may be
-becoming a formality. Insights hold numbers only, never note content and never one person's figures:
+becoming a formality. Insights hold numbers only, never note content, and say which minimum group is in
+force. Figures are per group, so at a minimum of 1 a group with one member shows that person's figures:
 
 - With the default `HB_INSIGHTS_MINIMUM_GROUP` of 1, nothing is hidden. Raised, it hides as follows.
 - A period in which fewer than `HB_INSIGHTS_MINIMUM_GROUP` people sent notes shows no

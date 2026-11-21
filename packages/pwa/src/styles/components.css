@@ -2072,6 +2072,21 @@ button.group-member-name:focus-visible::after {
 }
 
 .room-more,
+.answering-help {
+  flex: none;
+  min-inline-size: 2em;
+  padding: var(--hb-space-1);
+}
+
+.answering-explained {
+  max-inline-size: min(20rem, calc(100vi - var(--hb-space-4)));
+}
+
+.answering-explained p {
+  margin: 0;
+  padding: var(--hb-space-2);
+}
+
 .group-people-open {
   flex: none;
   padding: var(--hb-space-1) var(--hb-space-2);
@@ -3265,6 +3280,27 @@ textarea:disabled {
   overflow-wrap: anywhere;
 }
 
+.first-steps {
+  display: grid;
+  gap: var(--hb-space-2);
+}
+
+.first-steps ol {
+  display: grid;
+  gap: var(--hb-space-3);
+  margin: 0;
+  padding-inline-start: var(--hb-space-6);
+}
+
+.first-steps pre {
+  margin: var(--hb-space-1) 0 0;
+  padding: var(--hb-space-2);
+  border: var(--hb-border);
+  background: var(--hb-color-sunken);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .join-code {
   display: grid;
   gap: var(--hb-space-2);
@@ -3359,8 +3395,10 @@ textarea:disabled {
   margin: var(--hb-space-1) 0 0;
 }
 
-.trust-intro {
+.section-hint,
+.insights-group-rule {
   max-inline-size: 48rem;
+  color: var(--hb-color-muted);
 }
 
 .your-week {
@@ -3490,6 +3528,12 @@ textarea:disabled {
 
 .trust-table td {
   font-variant-numeric: tabular-nums;
+}
+
+.label-models {
+  display: block;
+  color: var(--hb-color-muted);
+  font-weight: 400;
 }
 
 .trust-reasons {

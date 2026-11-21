@@ -29,6 +29,7 @@ export const insightsSection = (context: ViewContext, life: Lifetime): HTMLEleme
 const renderInsights = (model: InsightsModel): Child => {
   if (model.kind === 'loading') return loading()
   return [
+    h('p', { class: 'insights-group-rule' }, model.groupRule),
     model.warnings.length > 0 &&
       h(
         'div',

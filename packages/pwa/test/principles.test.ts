@@ -1,4 +1,4 @@
-import type { Principle, PrincipleOffer } from '@homingbird/protocol'
+import { type Principle, type PrincipleOffer, TRUST_MINIMUM_DECIDED } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import {
   appliedPrinciples,
@@ -49,12 +49,13 @@ describe('appliedPrinciples', () => {
 })
 
 describe('countsShown', () => {
-  it('shows no share below five applications', () => {
+  it('shows no share below the minimum that every trust verdict uses', () => {
+    expect(TRUST_MINIMUM_DECIDED).toBe(10)
     expect(
-      countsShown({ applied: 4, sentAsWritten: 4, edited: 0, discarded: 0, missed: 0 }).sentAsWrittenShare,
+      countsShown({ applied: 9, sentAsWritten: 8, edited: 1, discarded: 0, missed: 0 }).sentAsWrittenShare,
     ).toBeNull()
     expect(
-      countsShown({ applied: 5, sentAsWritten: 4, edited: 1, discarded: 0, missed: 0 }).sentAsWrittenShare,
+      countsShown({ applied: 10, sentAsWritten: 8, edited: 2, discarded: 0, missed: 0 }).sentAsWrittenShare,
     ).toBe(0.8)
   })
 })

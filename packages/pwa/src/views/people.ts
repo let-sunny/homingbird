@@ -221,8 +221,8 @@ const personCard = (
         person.agentIntroduction.length > 0 &&
           h(
             'section',
-            { class: 'person-agent', 'aria-label': strings.agentIntroduction },
-            h('strong', {}, strings.agentIntroduction),
+            { class: 'person-agent', 'aria-label': person.agentIntroductionTitle },
+            h('strong', {}, person.agentIntroductionTitle),
             h(
               'ul',
               { class: 'agent-introduction' },

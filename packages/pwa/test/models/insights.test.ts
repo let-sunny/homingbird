@@ -49,9 +49,11 @@ describe('insightsModel', () => {
   it('shows the period chosen, hides an earlier period too small to show, and counts blocks', () => {
     const model = insightsModel(insights(), 30)
     if (model.kind !== 'insights') throw new Error('expected insights')
-    expect(model.warnings).toEqual([strings.insights.noTeams, strings.insights.privacy({ minimum: 5 })])
+    expect(model.warnings).toEqual([strings.insights.noTeams])
+    expect(model.groupRule).toBe(strings.insights.privacy({ minimum: 5 }))
     const everyone = insightsModel(insights({ minimumGroupSize: 1 }), 30)
-    expect(everyone.kind === 'insights' && everyone.warnings).toEqual([strings.insights.noTeams])
+    expect(everyone.kind === 'insights' && everyone.groupRule).toBe(strings.insights.minimumOne)
+    expect(strings.insights.intro).not.toMatch(/one person/)
     expect(model.tooFew).toBeNull()
     expect(model.blocks).toBe(strings.insights.blocks({ count: 2 }))
     const table = figuresOf(model).table

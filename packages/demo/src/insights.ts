@@ -7,9 +7,10 @@ import {
   type Note,
   type OrganizationFigures,
   type OrganizationInsights,
+  TRUST_MINIMUM_DECIDED,
 } from '@homingbird/protocol'
 import { VISITOR_ID } from './team.ts'
-import { MINIMUM_DECIDED, verdictOf } from './trust-verdict.ts'
+import { verdictOf } from './trust-verdict.ts'
 import type { Records } from './world.ts'
 
 /**
@@ -30,7 +31,7 @@ export const agentReportOf = (
   return {
     generatedAt: now,
     quickApprovalSeconds: QUICK_APPROVAL_SECONDS,
-    minimumDecided: MINIMUM_DECIDED,
+    minimumDecided: TRUST_MINIMUM_DECIDED,
     periods: [
       { days: 7, current: withDecisions(WEEK, decided), previous: WEEK_BEFORE },
       { days: 30, current: withDecisions(MONTH, decided), previous: MONTH_BEFORE },

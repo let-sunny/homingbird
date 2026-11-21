@@ -136,7 +136,7 @@ describe('activityPanel', () => {
     getByRole(card, 'button', { name: strings.discard }).click()
     expect(called('discardDraft')[0]!.args).toEqual([one])
     expect(
-      getByRole(panel, 'link', { name: strings.activity.inPlace({ place: 'Ben' }) }).getAttribute('href'),
+      getByRole(panel, 'link', { name: strings.activity.withPeople({ names: 'Ben' }) }).getAttribute('href'),
     ).toBe(`#/c/${ROOM}?draft=note_d1`)
   })
 
