@@ -5,6 +5,53 @@ Every release of Homingbird, newest first. The format follows
 [Semantic Versioning](https://semver.org/); before 1.0, a minor version may break interfaces and the
 database schema.
 
+## [0.3.5] - 2026-11-21
+
+### Added
+
+- **pwa:** open a note's or a row's actions from a toolbar and a menu
+
+  Hovering over, focusing or tapping a note shows a small toolbar with Reply and ⋯; ⋯ opens the note's menu with Ask my agent to draft a reply and Copy text. A right-click, a long press on a touch screen, or the menu key (Shift+F10) opens the same menu; arrow keys move in it, Escape closes it and the focus goes back where it was. Rows in the list get the same menu to mute a conversation or leave a channel, and the ⋯ menus on People and Channels cards now open the same ways.
+- **pwa:** count answers waiting for review on the channel's row
+
+  The banner above the conversations is gone. A channel's row in the list shows how many of its agent's answers wait for your review, like the drafts count ("Review 1"), and opens the room at the first question whose answer waits for you. Only a reviewer sees it, never the person who asked.
+- **pwa:** add an activity panel for everything that waits for you
+
+  A bell in the header counts what waits for you and opens one list of it: your agent's drafts with Send, Edit and Discard, the channel agent answers you review, notes your agent skipped with its reason, your agent being unable to answer, and debate rooms that ask your agent or whose result you may post.
+- **demo:** let colleagues answer and turn on invites and join codes (#71)
+
+  In the live demo a note sent to a colleague or a channel now gets an answer: a few seconds later the colleague's agent starts drafting and its answer arrives as that colleague approved it. A channel agent's answer waits for a manager who did not ask; another manager approves it, and when June may review it, it waits for her click. Invite links, the "Run on a server" join code, private questions to a channel's agent and "Put into a draft" for a debate result work as on a server, and the switches the demo offers match what it shows, including when an agent cannot answer.
+- **pwa:** fit the web client to a phone's screen and fingertip (#72)
+
+  Every small control in the header, thread head, rows, dialogs and the activity panel now takes a tap of at least 44 by 44 pixels without looking any bigger. Search sits as an icon beside the activity bell, and arriving there puts the cursor in the field. The tabs keep one row on narrow screens, show a fade and a chevron where more of them are hidden, and keep the current one in view.
+- **pwa:** show counts and states that match what waits (#75)
+
+  The bell now counts exactly the things the activity panel lists, loads them when the page starts so opening a thread no longer changes it, and clears a skipped note once you write below it. Your agent being unable to answer is a small mark on the bell and the My agent tab instead of a counted item. Reading a thread clears its unread badge right away.
+- show earlier answers before a question is asked (#77)
+
+  While you write a question to a channel or a person, "Answered before" shows up to three earlier questions that were answered, with the answer, who approved it, when and a link to the thread. "This answers it" sends nothing and is counted for the channel; Send works as always. Before your agent asks a channel, it reads the same earlier answers and may answer you from them instead.
+- **pwa:** split a debate room into result, votes, credit and turns tabs (#78)
+
+  A debate room no longer stacks everything in one long column. Its page has short tabs, each at its own address: Result (the settled result, sending and exporting it, the drafts folded), Votes (who voted for which draft, who dropped out), Credit (what each agent contributed and the next steps it proposed that the result kept) and Turns (who takes part, the limits, and the conversation with all but the latest turns folded). A tab appears only once the room has something for it. A room still taking turns opens on Turns, with opting your agent in at the top; a later one opens on Result. The activity panel opens a room on the tab that waits for you.
+- **pwa:** keep unsent text and focus the composer when you reply (#76)
+
+  Reply on a note, and Reply yourself in the activity panel, now put the cursor in the composer with that note as the reply target; the panel closes first. Text you type and do not send stays with its conversation, through a reload, and a pencil on the sidebar row shows where it waits. After sending, the cursor stays in the composer, so a phone's keyboard stays open.
+- approval cards in one order, with undo, edits, reasons and linked sources (#82)
+
+  * feat: let agents report linked sources and managers say why they discard
+
+### Fixed
+
+- **pwa:** name the principle field that pins a principle to a channel
+
+  The field is now called Priority channel, with a hint that says what it does: when your agent answers in that channel, it follows the principle before your others, and everywhere else it keeps your order. Its empty choice reads None (your order).
+- **pwa:** let the header's stripes run behind the logo (#73)
+
+  The logo sat on a solid patch cut out of the title bar's stripes, which read as a box behind it. The brand now has no background of its own.
+- **pwa:** explain the words a first-time person meets (#74)
+
+  The web client now says "the program that runs your agent" where it said desk, and names the runner by its command, homingbird run. My agent › Connection lists the steps to connect a first agent, with the commands for this server and a link to the guide, instead of "Ask your administrator". The tour shows the approval card second and ends with connecting an agent; "Answer here" has a "?" that explains it; each My agent tab says what it is for, so a principle is "a rule or saved answer your agent follows".
+
 ## [0.3.4] - 2026-11-21
 
 ### Added
@@ -511,6 +558,7 @@ Since 0.1.0-rc.2:
 - The web client has a guided tour and clearer topics, refusals and dark mode.
 - The Claude Code mod asks for the server address at install, finds Node 22 where version managers put it, and signs in from its pane.
 
+[0.3.5]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.5
 [0.3.4]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.4
 [0.3.3]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.3
 [0.3.2]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.2
