@@ -5,6 +5,7 @@ import { CLOUD_DESK } from './migrations/cloud-desk-step.ts'
 import { DEBATE_MODEL } from './migrations/debate-model-step.ts'
 import { DEBATES } from './migrations/debates-step.ts'
 import { GROUPS } from './migrations/groups-step.ts'
+import { HISTORY_ANSWERS } from './migrations/history-answers-step.ts'
 import { INSIGHTS } from './migrations/insights-step.ts'
 import { MUTE } from './migrations/mute-step.ts'
 import { RESULT_VOTES } from './migrations/result-votes-step.ts'
@@ -25,6 +26,7 @@ export const MIGRATIONS: ReadonlyArray<Migration> = [
   CLOUD_DESK,
   INSIGHTS,
   SPENT_REFRESH_TOKENS,
+  HISTORY_ANSWERS,
 ]
 
 /** The step that added the audit trail; when it runs, the first audit table's old rows go. */

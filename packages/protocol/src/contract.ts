@@ -31,6 +31,12 @@ import {
   DebateVote,
 } from './debates.ts'
 import { DeskWake, DeskWakeSetup, DeskWakeTest } from './desk-wake.ts'
+import {
+  AnsweredFromHistory,
+  EARLIER_ANSWERS_MAX,
+  EarlierAnswer,
+  EarlierAnswersAsk,
+} from './earlier-answers.ts'
 import type { ApiError } from './errors.ts'
 import { StreamEvent } from './events.ts'
 import { GROUP_MEMBERS_MAX, Group, GroupName } from './groups.ts'
@@ -395,6 +401,20 @@ export const contract = {
     access: 'member',
     query: { q: S.string({ minLength: 1, maxLength: 200 }), limit: S.optional(PageLimit) },
     response: S.struct({ notes: S.array(Note) }),
+  }),
+  'answers.earlier': route({
+    method: 'POST',
+    path: '/answers/earlier',
+    access: 'member',
+    body: EarlierAnswersAsk,
+    response: S.struct({ answers: S.array(EarlierAnswer, { maxItems: EARLIER_ANSWERS_MAX }) }),
+  }),
+  'answers.used': route({
+    method: 'POST',
+    path: '/answers/:id/used',
+    access: 'human',
+    body: AnsweredFromHistory,
+    response: Empty,
   }),
 
   'drafts.list': route({

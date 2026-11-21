@@ -500,6 +500,54 @@ describe('Rule 2: drafts are invisible to recipients', () => {
     expect((await ana.api('GET', `/reviews/${draft.id}`)).status).toBe(404)
   })
 
+  it('offers as an earlier answer only a sent reply to a sent question, both in conversations the asker is in', async () => {
+    const earlier = (who: Session | Agent) =>
+      who.api('POST', '/answers/earlier', { question: 'Where is the release calendar kept? 7f3a' })
+    const question = await sentFromAnaToBen('Where is the release calendar kept? 7f3a')
+    const reply = (await benAgent.api('POST', '/drafts', { inReplyTo: question.id, body: SECRET_BODY })).json
+    for (const viewer of [ana, anaAgent, ben, benAgent, cy])
+      expect((await earlier(viewer)).json.answers).toEqual([])
+    await ben.api('POST', `/drafts/${reply.id}/send`, { expected: asRead(reply) })
+    for (const viewer of [ana, anaAgent, ben, benAgent])
+      expect(
+        (await earlier(viewer)).json.answers.map((each: { answer: { id: string } }) => each.answer.id),
+      ).toEqual([reply.id])
+    expect(JSON.stringify((await earlier(cy)).json)).not.toContain('7f3a')
+    const agent = await startChannelAgent()
+    const asked = (
+      await dee.api('POST', '/drafts', { channel: 'wiki', body: 'Where is the release calendar kept?' })
+    ).json
+    const sent = (await dee.api('POST', `/drafts/${asked.id}/send`, { expected: asRead(asked) })).json
+    await agent.api('POST', '/drafts', { inReplyTo: sent.id, body: SECRET_ANSWER })
+    for (const viewer of [ana, ben, cy, dee])
+      expect(JSON.stringify((await earlier(viewer)).json)).not.toContain(SECRET_ANSWER)
+  })
+
+  it('counts an earlier answer as answering a question only when the person may read it and is in the room', async () => {
+    const question = await sentFromAnaToBen('Where is the release calendar kept?')
+    const reply = (await ben.api('POST', '/drafts', { inReplyTo: question.id, body: 'In Drive.' })).json
+    const lobby = (await cy.api('PUT', '/channels/lobby/membership', {})).json
+    expect(
+      (await cy.api('POST', `/answers/${reply.id}/used`, { conversationId: question.conversationId })).status,
+    ).toBe(404)
+    await ben.api('POST', `/drafts/${reply.id}/send`, { expected: asRead(reply) })
+    expect(
+      (await cy.api('POST', `/answers/${reply.id}/used`, { conversationId: lobby.conversationId })).status,
+    ).toBe(404)
+    expect(
+      (await anaAgent.api('POST', `/answers/${reply.id}/used`, { conversationId: question.conversationId }))
+        .status,
+    ).toBe(403)
+    expect(
+      (await ana.api('POST', `/answers/${question.id}/used`, { conversationId: question.conversationId }))
+        .status,
+    ).toBe(404)
+    expect(
+      (await ana.api('POST', `/answers/${reply.id}/used`, { conversationId: question.conversationId }))
+        .status,
+    ).toBe(200)
+  })
+
   it('hides a group message from its other members until a note in it is sent', async () => {
     const group = (
       await ana.api('POST', '/conversations', { participantIds: [ben.me.member.id, cy.me.member.id] })
@@ -922,6 +970,33 @@ describe('Rule 4: a received note reaches a model only inside wrapNote', () => {
     expectOnlyWrapped(await callTool('check_inbox'), note, ANA)
     expect(new Set(nonces).size).toBe(nonces.length)
     expect(nonces).toHaveLength(7)
+  })
+
+  it('wraps a hostile earlier question in the tools that show earlier answers before asking a channel', async () => {
+    nonces.length = 0
+    const note: Quoted = await sentFromAnaToBen(HOSTILE)
+    const reply = (await ben.api('POST', '/drafts', { inReplyTo: note.id, body: 'Safe after the backup.' }))
+      .json
+    await ben.api('POST', `/drafts/${reply.id}/send`, { expected: asRead(reply) })
+    const withoutReply = (text: string) => {
+      const opening = `<${WRAPPER_TAG} id="${reply.id}" `
+      expect(text).toContain(opening)
+      return text.replace(
+        new RegExp(`${opening}[\\s\\S]*?Safe after the backup\\.\\n.*\\n</${WRAPPER_TAG}>`),
+        '',
+      )
+    }
+    const found = await callTool('find_asked_before', { question: 'Is the migration safe?' })
+    expectOnlyWrapped(withoutReply(found), note, ANA)
+    const asked = await callTool('draft_note', {
+      body: 'Is the migration safe?',
+      channel: 'lobby',
+      sessionMinutes: 5,
+    })
+    expectOnlyWrapped(withoutReply(asked), note, ANA)
+    expect(asked).not.toContain('has NOT been sent')
+    expect((await ben.api('GET', '/drafts')).json.drafts).toEqual([])
+    expect(nonces).toHaveLength(2)
   })
 
   it('wraps a hostile note that arrives while wait_for_notes is waiting', async () => {

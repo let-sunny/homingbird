@@ -59,6 +59,8 @@ export const ROUTE_AUDIT = {
   'notes.release': activity(),
   'inbox.list': read(),
   'search.notes': read(),
+  'answers.earlier': read(),
+  'answers.used': activity(),
   'drafts.list': read(),
   'drafts.create': activity(),
   'drafts.update': activity(),

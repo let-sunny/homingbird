@@ -4,10 +4,13 @@ import {
   Conflict,
   ConversationId,
   DraftRequestId,
+  EARLIER_ANSWERS_FIRST,
   Forbidden,
   GroupId,
+  NO_EARLIER_ANSWERS,
   NoteId,
   type RouteName,
+  Unavailable,
   contract,
   humanOnlyRoutes,
 } from '@homingbird/protocol'
@@ -58,6 +61,25 @@ const BILLING: Channel = {
 
 const REQUEST_ID = DraftRequestId.of('request00000')
 
+const SERVER_WITH_EARLIER_ANSWERS = {
+  name: 'dovecote' as const,
+  version: '1.0.0',
+  contactMode: 'open' as const,
+  signInWith: 'Google',
+  features: { earlierAnswers: true },
+  protocolVersion: 1,
+}
+
+const EARLIER = {
+  question: noteOf({ id: NoteId.of('question0000'), authorId: ANA.id, body: 'Who owns refunds?' }),
+  answer: noteOf({
+    id: NoteId.of('answer000000'),
+    inReplyTo: NoteId.of('question0000'),
+    body: 'Billing does.',
+  }),
+  channel: 'billing',
+}
+
 const OTTER = {
   version: 1,
   base: 'bubble-16',
@@ -81,6 +103,8 @@ const HAPPY: Stubs = {
   'notes.release': () => noteOf(),
   'notes.get': () => noteOf(),
   'search.notes': () => ({ notes: [noteOf()] }),
+  'server.info': () => SERVER_WITH_EARLIER_ANSWERS,
+  'answers.earlier': () => ({ answers: [] }),
   'drafts.list': () => ({ drafts: [DRAFT] }),
   'drafts.create': () => DRAFT,
   'drafts.update': () => DRAFT,
@@ -98,6 +122,7 @@ const SAMPLE_ARGUMENTS: Readonly<Record<string, unknown>> = {
   whoami: {},
   find_people: { query: 'ben' },
   find_channels: { query: 'bill' },
+  find_asked_before: { question: 'Who owns refunds?', channel: 'billing' },
   list_conversations: {},
   read_conversation: { conversationId: CONVERSATION_ID, limit: 10 },
   check_inbox: {},
@@ -195,6 +220,7 @@ describe('the tool table', () => {
           reached.add(each.name)
     expect([...reached].sort()).toEqual([
       'answeringFlow.get',
+      'answers.earlier',
       'channels.list',
       'conversations.list',
       'conversations.notes',
@@ -216,6 +242,7 @@ describe('the tool table', () => {
       'notes.release',
       'principles.drafting',
       'search.notes',
+      'server.info',
     ])
   })
 
@@ -814,11 +841,51 @@ describe('draft_note', () => {
     expect(named.text).toContain(`${url}/#/c/${CONVERSATION_ID}\n`)
   })
 
-  it('drafts a question into one channel room', async () => {
+  it('drafts a question into one channel room once no earlier answer matches', async () => {
     const { calls } = await call('draft_note', { body: 'Who owns refunds?', channel: 'billing' })
     expect(calls).toEqual([
+      { name: 'server.info', request: {} },
+      { name: 'answers.earlier', request: { body: { question: 'Who owns refunds?', channel: 'billing' } } },
       { name: 'drafts.create', request: { body: { body: 'Who owns refunds?', channel: 'billing' } } },
     ])
+  })
+
+  it('shows earlier answers, quoted, instead of drafting a question to a channel they may answer', async () => {
+    const { calls, text } = await call(
+      'draft_note',
+      { body: 'Who owns refunds?', channel: 'billing' },
+      { ...HAPPY, 'answers.earlier': () => ({ answers: [EARLIER] }) },
+    )
+    expect(calls.map((each) => each.name)).not.toContain('drafts.create')
+    expect(text).toContain(EARLIER_ANSWERS_FIRST)
+    expect(text).toContain('Earlier answer 1, in #billing')
+    expect(text).toContain('note note_answer000000 in conversation')
+    expect(textOutsideWrappers(text)).not.toContain('Billing does.')
+    expect(text.match(/<colleague-note /g)).toHaveLength(2)
+  })
+
+  it('drafts the question anyway when asked to, looking up nothing', async () => {
+    const { calls } = await call(
+      'draft_note',
+      { body: 'Who owns refunds?', channel: 'billing', askAnyway: true },
+      { ...HAPPY, 'answers.earlier': () => ({ answers: [EARLIER] }) },
+    )
+    expect(calls.map((each) => each.name)).toEqual(['drafts.create'])
+  })
+
+  it('drafts without looking up earlier answers on a server that does not offer them, or when the lookup fails', async () => {
+    const off = await call(
+      'draft_note',
+      { body: 'Who owns refunds?', channel: 'billing' },
+      { ...HAPPY, 'server.info': () => ({ ...SERVER_WITH_EARLIER_ANSWERS, features: {} }) },
+    )
+    expect(off.calls.map((each) => each.name)).toEqual(['server.info', 'drafts.create'])
+    const failed = await call(
+      'draft_note',
+      { body: 'Who owns refunds?', channel: 'billing' },
+      { ...HAPPY, 'answers.earlier': () => Unavailable({ message: 'down' }) },
+    )
+    expect(failed.calls.map((each) => each.name)).toEqual(['server.info', 'answers.earlier', 'drafts.create'])
   })
 
   it('answers a draft request, leaving the destination to the request', async () => {
@@ -909,5 +976,28 @@ describe('skipping a note and saying what a draft relied on', () => {
     expect((await call('draft_reply', { noteId: noteOf().id, body: 'Yes' })).calls[0]!.request).toEqual({
       body: { body: 'Yes', inReplyTo: noteOf().id },
     })
+  })
+})
+
+describe('find_asked_before', () => {
+  it('returns earlier questions and answers quoted, with what to do with them', async () => {
+    const { calls, text } = await call(
+      'find_asked_before',
+      { question: 'Who owns refunds?', channel: 'billing' },
+      { ...HAPPY, 'answers.earlier': () => ({ answers: [EARLIER] }) },
+    )
+    expect(calls.find((each) => each.name === 'answers.earlier')!.request).toEqual({
+      body: { question: 'Who owns refunds?', channel: 'billing' },
+    })
+    expect(text).toContain(EARLIER_ANSWERS_FIRST)
+    expect(textOutsideWrappers(text)).not.toContain('Billing does.')
+  })
+
+  it('says when nothing matches, and asks without a channel', async () => {
+    const { calls, text } = await call('find_asked_before', { question: 'Who owns refunds?' })
+    expect(calls.find((each) => each.name === 'answers.earlier')!.request).toEqual({
+      body: { question: 'Who owns refunds?' },
+    })
+    expect(text).toBe(NO_EARLIER_ANSWERS)
   })
 })

@@ -9,6 +9,7 @@ import {
   requestDraft,
 } from '../domain/draft-requests.ts'
 import { createDraft, markDraftSeen, updateDraft } from '../domain/drafts.ts'
+import { earlierAnswers, recordAnsweredFromHistory } from '../domain/earlier-answers.ts'
 import { notesAwaitingReply } from '../domain/inbox.ts'
 import { setMuted } from '../domain/mutes.ts'
 import { draftsOf, notesInConversation, searchNotes, visibleNote } from '../domain/notes.ts'
@@ -59,6 +60,14 @@ export const noteHandlers = {
   'search.notes': ({ query }, caller) =>
     T.map((notes: Awaited<ResponseOf<Contract['search.notes']>>['notes']) => ({ notes }))(
       searchNotes(caller.member.id, query.q, pageSize(query.limit)),
+    ),
+  'answers.earlier': ({ body }, caller) =>
+    T.map((answers: Awaited<ResponseOf<Contract['answers.earlier']>>['answers']) => ({ answers }))(
+      earlierAnswers(caller.member.id, body),
+    ),
+  'answers.used': ({ params, body }, caller) =>
+    T.flatMap((id: NoteId) => recordAnsweredFromHistory(caller.member.id, id, body.conversationId))(
+      identifier(NoteId, params.id),
     ),
 
   'drafts.list': (_, caller) =>

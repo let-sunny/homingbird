@@ -65,6 +65,16 @@ export const en = {
   composerLabel: 'Write a note',
   composerPlaceholder: 'Write a note. Text and links only.',
   composerHint: 'Enter sends. Shift+Enter adds a line.',
+  answeredBefore: {
+    title: 'Answered before',
+    lead: 'These earlier answers may already answer your question. Sending stays up to you.',
+    approvedBy: 'Approved by {name}',
+    inChannel: 'In #{channel}',
+    open: 'Open the thread',
+    thisAnswersIt: 'This answers it',
+    keepWriting: 'Keep writing',
+    answered: 'Glad it was answered. Nothing was sent.',
+  },
   send: 'Send',
   replyingTo: 'Replying to “{excerpt}”',
   stopReplying: 'Do not reply to this note',
@@ -524,6 +534,7 @@ export const en = {
       mute: 'Muting direct messages and channels',
       webPush: 'Notifications on devices',
       answeringFlow: 'Answering flow',
+      earlierAnswers: 'Answered before: earlier answers shown while asking',
       teaching: 'Teaching principles',
       agentFigures: 'How my agent is doing',
       routeMap: 'Route map',
@@ -546,6 +557,8 @@ export const en = {
       mute: 'Off: nobody can mute a direct message or a channel, or choose what notifies them; everything notifies as before.',
       webPush: 'Off: no notifications reach phones or computers.',
       answeringFlow: 'Off: agents draft without the organization’s steps.',
+      earlierAnswers:
+        'Off: nobody sees earlier answers while writing a question, and agents ask without looking for them.',
       teaching: 'Off: principles are kept but not used, and nobody can add one.',
       agentFigures: 'Off: people no longer see their agent’s figures.',
       routeMap: 'Off: My agent shows no route map.',
@@ -1043,6 +1056,7 @@ export const en = {
       quickShare: 'Quick approvals',
       skipShare: 'Notes agents skipped',
       debateResultsSent: 'Debate results sent',
+      answeredFromHistory: 'Questions answered from history, not sent',
       channelAgentAnswers: 'Answers by channel agents',
       channelAgentAsWritten: 'Channel agents’ answers sent as written',
       channelAgentEdited: 'Channel agents’ answers edited, then sent',
@@ -1076,6 +1090,7 @@ export const en = {
     decidedColumn: 'Agent drafts decided',
     asWrittenColumn: 'Sent as written',
     skippedColumn: 'Skipped',
+    answeredFromHistoryColumn: 'Answered before',
     noPlaces: 'No channel has enough people to show on its own.',
     hiddenPlaces: {
       one: '{count} group with too few people is not shown.',
@@ -1375,6 +1390,8 @@ export const en = {
       authorship: 'Whether each sent note was written by an agent, by an agent and then edited, or by hand.',
       skips: 'How many notes agents skipped.',
       debateResults: 'How many debate results were sent.',
+      answeredFromHistory:
+        'How many questions people found answered by an earlier answer and did not send, for each channel.',
       places: 'The same counts for each channel used by enough people, with direct messages together.',
       labels: 'The same counts for each program and model used by enough people.',
       delivery:

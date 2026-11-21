@@ -147,6 +147,7 @@ export const everything = (): AsRead.ServerInfo =>
         'debateRooms',
         'insights',
         'answeringFlow',
+        'earlierAnswers',
         'noteDetails',
         'webPush',
         'channelAgents',
