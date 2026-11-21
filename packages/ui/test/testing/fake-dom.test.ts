@@ -285,6 +285,13 @@ describe('events', () => {
       true,
       inner,
     ])
+    const shortcut = fakeEvent('keydown', { key: 'Enter', ctrlKey: true, metaKey: true })
+    expect([shortcut.ctrlKey, shortcut.metaKey, event.ctrlKey, event.metaKey]).toEqual([
+      true,
+      true,
+      false,
+      false,
+    ])
   })
 
   it('carries where a pointer pressed, and bubbles a context menu request', () => {

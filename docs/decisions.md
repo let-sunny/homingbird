@@ -7,11 +7,14 @@ states the decision first, then the reason. Add new entries at the top of their 
 
 - **Send and Discard wait five seconds on the page before the server hears of them, so either can be
   undone.** An approval card is decided at speed, and a decision a person regrets the moment they tap
-  it should cost one more tap, not a note to apologise for. The web client hides the card, shows "Sent
-  to Ana · Undo" or "Discarded · Undo", and makes the request when the five seconds are over, when the
-  person dismisses the toast, when they decide another card, or when the page is hidden or closed; the
-  write is sent with `keepalive`, so closing the tab does not lose it. Undo forgets the decision and the
-  card is back. Nothing changes on the server: no route, no state, and the send still carries
+  it should cost one more tap, not a note to apologise for. The web client keeps a line in the card's
+  place and a toast in the top layer, both saying "Sending to Ana… · Undo" or "Discarding… · Undo"
+  until the server has it and "Sent to Ana" after, and makes the request when the five seconds are
+  over, when the person dismisses the toast, when they decide another card, or when the page is hidden
+  or closed; the write is sent with `keepalive`, so closing the tab does not lose it. A page that dies
+  first keeps the decision in the browser and, on the next load, says the draft was not sent when it
+  still waits. Undo forgets the decision and the card is back, with an edit the person sent still kept
+  for Edit. Nothing changes on the server: no route, no state, and the send still carries
   `expected` as the card showed it at the tap, so an agent's change during the five seconds is refused
   as before and the card asks to read it again. The alternative, a server-side undo window, would have
   delivered a note and then taken it back, which a recipient's push or open page may already show.

@@ -11,7 +11,7 @@ import { fail, testApp } from '../support/app.ts'
 import { BEN, channel, conversation, credential, draft, entry, serverInfo } from '../support/fixtures.ts'
 
 describe('loading the workspace', () => {
-  it('loads conversations, people, contacts, agents and channels, and marks them loaded', async () => {
+  it('loads conversations, people, contacts, agents, channels and what the bell counts, and marks them loaded', async () => {
     const { run, state, routes } = testApp({
       'conversations.list': () => ({ conversations: [conversation()] }),
       'directory.list': () => ({ entries: [entry(BEN, 'Ben')] }),
@@ -25,6 +25,8 @@ describe('loading the workspace', () => {
         ],
       }),
       'channels.list': () => ({ channels: [channel('billing')], hasMore: false, cursor: null }),
+      'inbox.list': () => ({ items: [] }),
+      'debates.list': () => ({ debates: [] }),
     })
     await run(loadWorkspace)
     expect(state.conversationsLoaded.get()).toBe(true)
@@ -37,10 +39,29 @@ describe('loading the workspace', () => {
         'contacts.list',
         'conversations.list',
         'credentials.list',
+        'debates.list',
         'directory.list',
         'draftRequests.list',
+        'inbox.list',
       ].sort(),
     )
+  })
+
+  it('loads at start the conversations whose notes the bell counts, so its count never grows on opening one', async () => {
+    const released = { kind: 'released', noteId: 'n_skipped', reason: null, agentName: null }
+    const { run, state } = testApp({
+      'conversations.list': () => ({ conversations: [conversation({ unreadCount: 1 })] }),
+      'directory.list': () => ({ entries: [] }),
+      'contacts.list': () => ({ contacts: [] }),
+      'credentials.list': () => ({ credentials: [] }),
+      'channels.list': () => ({ channels: [], hasMore: false, cursor: null }),
+      'inbox.list': () => ({ items: [] }),
+      'debates.list': () => ({ debates: [] }),
+      'conversations.get': () => conversation({ unreadCount: 1 }),
+      'conversations.notes': () => ({ notes: [], hasMore: false, notices: [released] }),
+    })
+    await run(loadWorkspace)
+    expect([...state.releases.get().keys()]).toEqual(['n_skipped'])
   })
 
   it('closes the notifications of drafts sent or discarded elsewhere, where the browser has push', async () => {
@@ -51,6 +72,7 @@ describe('loading the workspace', () => {
       'credentials.list': () => ({ credentials: [] }),
       'channels.list': () => ({ channels: [], hasMore: false, cursor: null }),
       'drafts.list': () => ({ drafts: [draft('d_open')] }),
+      'inbox.list': () => ({ items: [] }),
     })
     page.notifications.set('draft:d_open', 0).set('draft:d_sent', 0)
     await run(loadWorkspace)

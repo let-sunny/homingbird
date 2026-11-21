@@ -23,6 +23,7 @@ import {
   serverInfo,
   taught,
 } from '../support/fixtures.ts'
+import { heldDecision } from '../support/held.ts'
 
 usingFakeDom()
 
@@ -235,8 +236,11 @@ describe('threadView', () => {
       expect(document.activeElement).toBe(card)
       getByRole(card, 'button', { name: strings.channelAgent.send }).click()
       expect(called('holdReviewSend')[0]!.args.slice(0, 2)).toEqual([review(), null])
-      context.state.held.set({ noteId: review().note.id, text: strings.heldDiscarded, run: null as never })
+      context.state.held.set([heldDecision(review().note.id, { review: true, settles: 0 })])
       expect(shown.querySelector('.review-card')).toBeNull()
+      const placed = [...shown.querySelectorAll('.notes > li')]
+      expect(placed[2]!.classList.contains('held-line')).toBe(true)
+      expect(textOf(placed[2]!)).toContain(strings.heldSending({ names: 'Ben' }))
     })
 
     it('asks to read an answer again that the agent changed since the person read it', () => {

@@ -12,6 +12,7 @@ import { channelLabel, channelOfRoom, isPrivate } from '../channels.ts'
 import { type SourceShown, draftBasisOf } from '../draft-basis.ts'
 import { isChangedSinceRead } from '../drafts-read.ts'
 import { featureOn } from '../features.ts'
+import { type HeldChoices, heldWordsFor, keptEditLine } from '../held-decisions.ts'
 import { hrefFor } from '../routes.ts'
 import { formats, strings } from '../strings.ts'
 
@@ -111,13 +112,14 @@ export const reviewCardsModel = (
   slug: string,
   read: ReadonlyMap<NoteId, DraftAsShown>,
   members: ReadonlyMap<MemberId, AsRead.Member>,
+  edits: ReadonlyMap<NoteId, string>,
   focus: string | null,
 ): ReviewCards => {
   const shown = reviews.filter((review) => review.channel === slug)
   return {
     title: strings.channelAgent.reviewsTitle,
     none: shown.length === 0 ? strings.channelAgent.reviewsNone : null,
-    cards: shown.map((review) => reviewCardModel(review, read, members, focus, 'quoted')),
+    cards: shown.map((review) => reviewCardModel(review, read, members, edits, focus, 'quoted')),
   }
 }
 
@@ -126,6 +128,7 @@ export const reviewCardModel = (
   review: AsRead.Review,
   read: ReadonlyMap<NoteId, DraftAsShown>,
   members: ReadonlyMap<MemberId, AsRead.Member>,
+  edits: ReadonlyMap<NoteId, string>,
   focus: string | null,
   question: 'quoted' | 'above',
 ): ReviewCard => {
@@ -167,10 +170,9 @@ export const reviewCardModel = (
           : strings.channelAgent.discardReasonHint({ channel, name: asker }),
       confirm: strings.channelAgent.discardConfirm,
     },
-    held: {
-      sent: strings.heldSent({ names: asker ?? channel }),
-      discarded: strings.heldDiscarded,
-    },
+    held: heldWordsFor(review.privately ? (asker ?? channel) : channel),
+    editText: edits.get(review.note.id) ?? review.note.body,
+    keptEdit: keptEditLine(edits, review.note.id),
   }
 }
 
@@ -185,6 +187,7 @@ export const reviewsInRoomModel = <Item extends RoomItem>(
   room: { readonly conversationId: ConversationId; readonly viewerId: MemberId },
   read: ReadonlyMap<NoteId, DraftAsShown>,
   members: ReadonlyMap<MemberId, AsRead.Member>,
+  edits: ReadonlyMap<NoteId, string>,
   focus: string | null,
 ): ReadonlyArray<Item | RoomReview> => {
   const here = reviews.filter(
@@ -202,7 +205,7 @@ export const reviewsInRoomModel = <Item extends RoomItem>(
     type: 'review',
     key: `review:${review.note.id}`,
     card: {
-      ...reviewCardModel(review, read, members, focus, question),
+      ...reviewCardModel(review, read, members, edits, focus, question),
       heading: strings.channelAgent.waitsInRoom({ agent: review.agent.name }),
     },
   })
@@ -412,7 +415,12 @@ export interface ReviewCard {
     readonly hint: string
     readonly confirm: string
   }
-  readonly held: { readonly sent: string; readonly discarded: string }
+  /** What the card's place and the toast say while a send or discard is held, and after. */
+  readonly held: HeldChoices
+  /** The text Edit opens with: the manager's kept edit, or the answer as it stands. */
+  readonly editText: string
+  /** Said when the manager edited the answer and did not send the edit. */
+  readonly keptEdit: string | null
 }
 
 /** What a room's list needs of an item to place an answer under its question. */

@@ -20,6 +20,7 @@ import {
   member,
   note,
 } from '../support/fixtures.ts'
+import { heldDecision } from '../support/held.ts'
 
 usingFakeDom()
 
@@ -107,6 +108,11 @@ describe('shell', () => {
       strings.channelAgent.reviewBadgeLabel({ count: 1 }),
     )
     expect(billingRow.querySelector('a')!.getAttribute('href')).toContain('?review=note_waiting')
+    context.state.held.set([heldDecision('note_waiting', { review: true, settles: 0 })])
+    expect(
+      [...shown.querySelectorAll<HTMLElement>('.conversation-item')][1]!.querySelector('.count.reviews'),
+    ).toBeNull()
+    context.state.held.set([])
     fire.event(rows[2]!, 'contextmenu')
     const blocked = getByRole(rows[2]!, 'menuitem', { name: strings.leaveChannel }) as HTMLButtonElement
     expect(blocked.disabled).toBe(true)
@@ -211,6 +217,9 @@ describe('shell', () => {
     expect(row.querySelector('.conversation-title')!.getAttribute('title')).toBe('Ben')
     expect(row.querySelector('.count.unread')!.getAttribute('aria-label')).toBe(strings.unread({ count: 2 }))
     expect(row.querySelector('.count.drafts')!.textContent).toBe('✎1')
+    context.state.held.set([heldDecision('d1')])
+    expect(getByRole(shown, 'link', { name: /Hello/ }).querySelector('.count.drafts')).toBeNull()
+    context.state.held.set([])
     expect(shown.querySelector('.character-group')).not.toBeNull()
     expect(textOf(shown.querySelector('.channel-rooms')!)).toContain('#billing')
     expect(textOf(shown.querySelector('.archived-rooms')!)).toContain(strings.archivedGroup({ count: 1 }))

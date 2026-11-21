@@ -5,7 +5,7 @@ import { type Action, type App, withApp } from '../app.ts'
 import { type AgentAsk, requestBody, upsertRequest } from '../draft-requests.ts'
 import { asRead, withDraftRead } from '../drafts-read.ts'
 import { hrefFor } from '../routes.ts'
-import type { AppState } from '../state.ts'
+import type { AppState, HeldWords } from '../state.ts'
 import { holdDecision } from './held.ts'
 import { forgetNote, forgetRelease, loadThread, rememberNote } from './notes.ts'
 import { refreshAgentReport, refreshPrinciples } from './teaching.ts'
@@ -41,17 +41,34 @@ export const approveDraft = (
     yield* loadConversations
   })
 
-/** Sends a draft once the moment to undo it is over; until then the toast says so and its card is hidden. */
+/** Sends a draft once the moment to undo it is over; until it is sent its card says so in its place. */
 export const holdSend = (
   draft: AsRead.Note,
   editedBody: string | null,
   alternatives: ReadonlyArray<AsRead.Note>,
-  text: string,
-): Action => holdDecision({ noteId: draft.id, text, run: approveDraft(draft, editedBody, alternatives) })
+  words: HeldWords,
+): Action =>
+  holdDecision({
+    noteId: draft.id,
+    conversationId: draft.conversationId,
+    kind: 'send',
+    review: false,
+    settles: 1 + alternatives.length,
+    words,
+    run: approveDraft(draft, editedBody, alternatives),
+  })
 
 /** Discards a draft once the moment to undo it is over. */
-export const holdDiscard = (draft: AsRead.Note, text: string): Action =>
-  holdDecision({ noteId: draft.id, text, run: discardDraft(draft) })
+export const holdDiscard = (draft: AsRead.Note, words: HeldWords): Action =>
+  holdDecision({
+    noteId: draft.id,
+    conversationId: draft.conversationId,
+    kind: 'discard',
+    review: false,
+    settles: 1,
+    words,
+    run: discardDraft(draft),
+  })
 
 export const saveDraft = (draft: AsRead.Note, body: string): Action =>
   withApp(({ api, state }) =>

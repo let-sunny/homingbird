@@ -224,7 +224,7 @@
   min-inline-size: 0;
 }
 
-.activity-item:not(.pending, .review-card) {
+.activity-item:not(.pending, .review-card, .held-line) {
   display: grid;
   gap: var(--hb-space-2);
   padding: var(--hb-space-3);
@@ -1772,7 +1772,54 @@
 }
 
 .held-host {
-  inset: auto auto var(--hb-space-4) var(--hb-space-4);
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.activity-panel-foot {
+  position: sticky;
+  inset-block-end: 0;
+  z-index: 1;
+}
+
+.activity-panel-foot .toast {
+  margin: 0 var(--hb-space-3) var(--hb-space-3);
+}
+
+.held-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--hb-space-3);
+  padding: var(--hb-space-2) var(--hb-space-3);
+  border: var(--hb-pixel) dashed var(--hb-color-line);
+  background: var(--hb-color-pending-wash);
+  list-style: none;
+}
+
+.held-line > span {
+  flex: 1;
+}
+
+.held-line > .activity-place {
+  flex-basis: 100%;
+}
+
+.held-line.is-discard {
+  background: var(--hb-color-sunken);
+}
+
+.held-line .held-undo {
+  min-block-size: var(--hb-target-size);
+  min-inline-size: var(--hb-target-size);
+}
+
+.kept-edit {
+  margin: 0;
 }
 
 .toast.is-held span {
