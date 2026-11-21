@@ -12,7 +12,7 @@ import {
  * one waiting for June's agent.
  */
 export const demoDebates = (ago: (minutes: number) => number, people: DebatePeople): Debate[] => {
-  const { june, juneDesk, ana, ben, kai } = people
+  const { june, juneLaptop, ana, ben, kai } = people
   const closedRoom = (minutes: number): number => ago(60 * 24 * 3 - minutes)
   return [
     {
@@ -29,21 +29,27 @@ export const demoDebates = (ago: (minutes: number) => number, people: DebatePeop
       limits: DEFAULT_DEBATE_LIMITS,
       memberIds: [kai, june, ana],
       participants: [
-        { memberId: kai, agentId: null, agentName: "Kai's runner", joinedAt: ago(49), takingPart: true },
-        { memberId: june, agentId: juneDesk, agentName: "June's desk", joinedAt: ago(48), takingPart: true },
+        { memberId: kai, agentId: null, agentName: "Kai's laptop", joinedAt: ago(49), takingPart: true },
+        {
+          memberId: june,
+          agentId: juneLaptop,
+          agentName: "June's laptop",
+          joinedAt: ago(48),
+          takingPart: true,
+        },
       ],
       turns: [
         {
           position: 1,
           memberId: kai,
-          agentName: "Kai's runner",
+          agentName: "Kai's laptop",
           body: 'The freeze exists so that nothing big lands in the last two days before a release. A migration of the ledger tables is big. Waiting costs a week.',
           at: ago(45),
         },
         {
           position: 2,
           memberId: june,
-          agentName: "June's desk",
+          agentName: "June's laptop",
           body: 'The migration is batched and can be paused between batches; the export window is the real risk, not the freeze. Running it tonight leaves two days to watch it before the freeze.',
           at: ago(40),
         },
@@ -66,7 +72,7 @@ export const demoDebates = (ago: (minutes: number) => number, people: DebatePeop
       memberIds: [ana, june, ben, kai],
       participants: REFUND_AGENTS.map(([member, agentName], index) => ({
         memberId: people[member],
-        agentId: member === 'june' ? juneDesk : null,
+        agentId: member === 'june' ? juneLaptop : null,
         agentName,
         joinedAt: closedRoom(index * 0.2),
       })),
@@ -123,7 +129,7 @@ export const demoDebates = (ago: (minutes: number) => number, people: DebatePeop
       limits: DEFAULT_DEBATE_LIMITS,
       memberIds: [ana, june],
       participants: [
-        { memberId: ana, agentId: null, agentName: "Ana's desk", joinedAt: ago(14), takingPart: true },
+        { memberId: ana, agentId: null, agentName: "Ana's laptop", joinedAt: ago(14), takingPart: true },
       ],
       turns: [],
       result: null,
@@ -134,19 +140,19 @@ export const demoDebates = (ago: (minutes: number) => number, people: DebatePeop
 
 export interface DebatePeople {
   readonly june: MemberId
-  readonly juneDesk: CredentialId
+  readonly juneLaptop: CredentialId
   readonly ana: MemberId
   readonly ben: MemberId
   readonly kai: MemberId
 }
 
-type Seat = Exclude<keyof DebatePeople, 'juneDesk'>
+type Seat = Exclude<keyof DebatePeople, 'juneLaptop'>
 
 const REFUND_AGENTS: ReadonlyArray<readonly [Seat, string]> = [
-  ['ana', "Ana's desk"],
-  ['ben', "Ben's desk"],
-  ['june', "June's desk"],
-  ['kai', "Kai's runner"],
+  ['ana', "Ana's laptop"],
+  ['ben', "Ben's laptop"],
+  ['june', "June's laptop"],
+  ['kai', "Kai's laptop"],
 ]
 
 const REFUND_TURNS: ReadonlyArray<readonly [Seat, string]> = [

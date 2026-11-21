@@ -54,10 +54,16 @@ export const renderNoteItem = (
         h(
           'div',
           { class: 'bubble', ...(model.bubbleTitle !== null && { title: model.bubbleTitle }) },
-          model.quote !== null && h('blockquote', { class: 'quote' }, model.quote),
-          ...(model.debateResult === null
-            ? [h('p', { class: 'note-body' }, linkedText(model.body))]
-            : debateResultBody(model.debateResult, model.body)),
+          model.quote !== null &&
+            h(
+              'a',
+              { class: 'quote', href: model.quote.href, title: model.quote.label },
+              h('span', { class: 'visually-hidden' }, `${model.quote.label}: `),
+              model.quote.text,
+            ),
+          model.debateResult === null
+            ? noteBody(context, model)
+            : debateResultBody(context, model, model.debateResult),
         ),
         h(
           'div',
@@ -135,6 +141,30 @@ export const renderNoteItem = (
   return li
 }
 
+/**
+ * The note's text; a long one shows its start, and a button opens the rest in place. A note drawn again
+ * while the person had it open stays open.
+ */
+const noteBody = (context: ViewContext, model: NoteItemModel): Child => {
+  const id = `note-body-${model.noteId}`
+  const body = h('p', { class: 'note-body', id }, linkedText(model.body))
+  const long = model.longBody
+  if (long === null) return body
+  const toggle: HTMLButtonElement = h('button', {
+    type: 'button',
+    class: 'link note-more-text',
+    'aria-controls': id,
+    on: { click: () => show(!body.classList.contains('is-collapsed')) },
+  })
+  const show = (collapsed: boolean): void => {
+    body.classList.toggle('is-collapsed', collapsed)
+    toggle.setAttribute('aria-expanded', String(!collapsed))
+    toggle.textContent = collapsed ? long.more : long.less
+  }
+  show(context.document.find(`.note-body[id="${id}"]:not(.is-collapsed)`) === null)
+  return [body, toggle]
+}
+
 const menuItem = (menuId: string, item: NoteMenuItem, choose: () => void): Child => {
   const className = `menu-item ${ITEM_CLASSES[item.kind]}`
   if (item.reason === null) return button(item.label, choose, { class: className })
@@ -150,9 +180,13 @@ const menuItem = (menuId: string, item: NoteMenuItem, choose: () => void): Child
 }
 
 /** A posted debate result: what the agents settled and the next steps, the whole note folded, the room a link away. */
-const debateResultBody = (result: DebateResultNote, body: string): ReadonlyArray<Child> => [
+const debateResultBody = (
+  context: ViewContext,
+  model: NoteItemModel,
+  result: DebateResultNote,
+): ReadonlyArray<Child> => [
   ...(result.parts === null
-    ? [h('p', { class: 'note-body' }, linkedText(body))]
+    ? [noteBody(context, model)]
     : [
         h('p', { class: 'debate-note-heading' }, h('strong', {}, result.parts.heading)),
         h('p', { class: 'note-body' }, linkedText(result.parts.summary)),
@@ -168,7 +202,7 @@ const debateResultBody = (result: DebateResultNote, body: string): ReadonlyArray
           'details',
           { class: 'debate-note-whole' },
           h('summary', {}, result.whole),
-          h('p', { class: 'note-body' }, linkedText(body)),
+          h('p', { class: 'note-body' }, linkedText(model.body)),
         ),
       ]),
   h('a', { class: 'debate-note-room', href: result.room.href }, result.room.label),

@@ -202,7 +202,7 @@ describe('noteItemModel', () => {
     ).toBe(strings.status.delivered)
   })
 
-  it('shows the person’s own note with its state, its basis, and nothing to answer', () => {
+  it('shows the person’s own note with its state and its basis, to reply to but not to ask their agent about', () => {
     const mine = note('n1', {
       authorId: ANA,
       origin: 'agent',
@@ -218,7 +218,10 @@ describe('noteItemModel', () => {
       lines: ['Read the runbook.'],
       sources: [],
     })
-    expect([model.reply, model.menu.items.map((one) => one.kind)]).toEqual([null, ['copy', 'copy-link']])
+    expect([model.reply, model.menu.items.map((one) => one.kind)]).toEqual([
+      strings.reply,
+      ['reply', 'copy', 'copy-link'],
+    ])
     expect(model.meta!.mark).toMatchObject({ state: 'read', label: strings.status.read, count: null })
     expect(model.meta!.mark!.glyph).toBe('✓✓︎')
     expect(noteItemModel(threadInput(), item(note('n2', { authorId: ANA, basis: null }))).basis).toBeNull()
@@ -278,13 +281,30 @@ describe('noteItemModel', () => {
     expect(noteItemModel(threadInput(), item(theirs)).spokenSent).toBeNull()
   })
 
-  it('quotes the note it answers', () => {
+  it('quotes the note it answers, as a link that opens the thread at it', () => {
     const question = note('q', { body: 'When do we ship?' })
     const answer = note('a', { inReplyTo: 'q' as never })
     expect(
       noteItemModel(threadInput({ thread: { notes: [question, answer], hasMore: false } }), item(answer))
         .quote,
-    ).toBe('When do we ship?')
+    ).toEqual({ text: 'When do we ship?', href: `#/c/${ROOM}?note=q`, label: strings.quotedNote })
+  })
+
+  it('collapses a body past about a screen of characters or lines, and leaves a short one whole', () => {
+    const shown = (body: string) => noteItemModel(threadInput(), item(note('n1', { body }))).longBody
+    expect(shown('short')).toBeNull()
+    expect(shown('x'.repeat(1200))).toBeNull()
+    expect(shown('x'.repeat(1201))).toEqual({ more: strings.showMoreNote, less: strings.showLessNote })
+    expect(shown(Array(16).fill('line').join('\n'))).toBeNull()
+    expect(shown(Array(17).fill('line').join('\n'))).not.toBeNull()
+  })
+
+  it('shows the time of a note sent today, and the day with the time of an earlier one', () => {
+    const today = Date.UTC(2026, 10, 19, 12)
+    const sent = (sentAt: number) =>
+      noteItemModel(threadInput({ now: today }), item(note('n1', { sentAt }))).meta!.time!.text
+    expect(sent(today - 60_000)).toBe(formats.time.format(new Date(today - 60_000)))
+    expect(sent(today - 3 * 86_400_000)).toBe(formats.dayTime.format(new Date(today - 3 * 86_400_000)))
   })
 
   it('says under the person’s latest unanswered question in a channel who answers, then that it is drafted', () => {

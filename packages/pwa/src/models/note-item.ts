@@ -22,7 +22,7 @@ import { agentAskReach } from './agent-ask.ts'
 import { type AvatarModel, memberAvatarOf } from './avatar.ts'
 import { agentAuthorshipLine, approvalLine } from './channel-agent.ts'
 import { type ThreadInput, channelAskedIn, isOn, nameIn, noteIn, notesOf, roomOf } from './thread-room.ts'
-import { type TimeShown, timeShown } from './time.ts'
+import { type TimeShown, noteTimeShown } from './time.ts'
 
 /** One sent note: who wrote it and how, what it answers, how far it got, and what the person may do. */
 export const noteItemModel = (
@@ -55,9 +55,17 @@ export const noteItemModel = (
     spokenSent: sentAt === null ? null : strings.authorship.sent({ time: sentAt }),
     authorName: inRoom && leadsRun ? (mine ? strings.you : nameIn(input, note.authorId)) : null,
     bubbleTitle: next !== null && sentAt !== null ? sentAt : null,
-    quote: quoted === null ? null : excerpt(quoted.body),
+    quote:
+      quoted === null
+        ? null
+        : {
+            text: excerpt(quoted.body),
+            href: hrefFor({ name: 'conversation', id: input.conversationId, draft: null, note: quoted.id }),
+            label: strings.quotedNote,
+          },
     body: note.body,
     debateResult: debateResultOf(note),
+    longBody: isLongBody(note.body) ? { more: strings.showMoreNote, less: strings.showLessNote } : null,
     basis:
       basis === null || basis.kind === 'none'
         ? null
@@ -96,15 +104,15 @@ export const noteItemModel = (
     meta:
       next === null || markShown
         ? {
-            time: next === null && note.sentAt !== null ? timeShown(note.sentAt, input.now) : null,
+            time: next === null && note.sentAt !== null ? noteTimeShown(note.sentAt, input.now) : null,
             mark: markShown ? stateMarkModel(input, note, inRoom) : null,
           }
         : null,
-    reply: !mine && !archived ? strings.reply : null,
+    reply: archived ? null : strings.reply,
     menu: {
       id: `note-menu-${note.id}`,
       label: strings.noteMore,
-      items: menuItems(input, !mine && !archived),
+      items: menuItems(input, { reply: !archived, askAgent: !mine && !archived }),
     },
   }
 }
@@ -118,13 +126,16 @@ export interface NoteItemModel {
   readonly spokenSent: string | null
   readonly authorName: string | null
   readonly bubbleTitle: string | null
-  readonly quote: string | null
+  /** The excerpt of the note this one replies to, as a link that opens the thread at it. */
+  readonly quote: { readonly text: string; readonly href: string; readonly label: string } | null
   readonly body: string
   /**
    * A debate room's posted result, read first for what the agents settled and what happens next, with the
    * whole note folded and a way into the room. A result is not a question: nobody is asked to answer it.
    */
   readonly debateResult: DebateResultNote | null
+  /** A body long enough to be shown collapsed, with the words of the button that opens and closes it. */
+  readonly longBody: { readonly more: string; readonly less: string } | null
   /** What the person's own sent note rested on, collapsed under "Based on". */
   readonly basis: {
     readonly className: string
@@ -190,13 +201,16 @@ export interface StateMarkModel {
   readonly count: string | null
 }
 
-const menuItems = (input: ThreadInput, answerable: boolean): ReadonlyArray<NoteMenuItem> => {
+const menuItems = (
+  input: ThreadInput,
+  may: { readonly reply: boolean; readonly askAgent: boolean },
+): ReadonlyArray<NoteMenuItem> => {
   const mine = input.directory.find((entry) => entry.member.id === input.me.member.id)
   const reach = agentAskReach(isOn(input, 'draftRequests'), mine?.presence)
   return [
-    ...(answerable
+    ...(may.reply ? [{ kind: 'reply' as const, label: strings.reply, reason: null }] : []),
+    ...(may.askAgent
       ? [
-          { kind: 'reply' as const, label: strings.reply, reason: null },
           {
             kind: 'ask-agent' as const,
             label: strings.askAgentToReply,
@@ -229,6 +243,12 @@ const debateResultOf = (note: AsRead.Note): DebateResultNote | null => {
     },
   }
 }
+/** A body past this many characters or lines is shown collapsed, about a screen of a bubble. */
+const LONG_BODY_CHARACTERS = 1200
+const LONG_BODY_LINES = 16
+
+const isLongBody = (body: string): boolean =>
+  body.length > LONG_BODY_CHARACTERS || body.split('\n').length > LONG_BODY_LINES
 
 /** Asks for the text form of a glyph, so that no platform swaps in a coloured emoji. */
 const TEXT_PRESENTATION = '︎'

@@ -10,17 +10,23 @@ import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
 import { button } from './parts.ts'
 
-/** Where the person writes a note, or why they cannot in an archived room. */
+/**
+ * Where the person writes a note, or why they cannot in an archived room. Enter sends where there is a
+ * keyboard; on a touch screen the return key starts a new line and Send sends, as in other messengers.
+ * Escape stops replying to a note. Once a note is sent, `sent` brings the thread back to the bottom.
+ */
 export const composer = (
   context: ViewContext,
   life: Lifetime,
   id: ConversationId,
   model: () => ComposerModel,
   sources: ReadonlyArray<ReadableSignal<unknown>>,
+  sent: () => void = () => {},
 ): HTMLElement => {
   const shown = model()
   if (shown.kind === 'archived') return archivedComposer(shown.notice)
   const { actions, state } = context
+  const enterSends = !context.page.isCoarsePointer()
   const text = h('textarea', {
     name: 'body',
     rows: '1',
@@ -28,6 +34,7 @@ export const composer = (
     placeholder: strings.composerPlaceholder,
     'aria-label': strings.composerLabel,
     maxlength: '16000',
+    enterkeyhint: enterSends ? 'send' : 'enter',
   })
   text.value = state.composerTexts.get().get(id) ?? ''
   const typed = signal(text.value)
@@ -42,10 +49,17 @@ export const composer = (
     typed.set('')
     actions.keepComposerText(id, '')
     actions.sendNote(id, body, { attempt: 'draft' })
+    sent()
     text.focus()
   }
   text.addEventListener('keydown', (event) => {
-    if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return
+    if (event.isComposing) return
+    if (event.key === 'Escape' && replyTargetIn(state, id) !== null) {
+      event.preventDefault()
+      actions.chooseReplyTarget(id, null)
+      return
+    }
+    if (event.key !== 'Enter' || event.shiftKey || !enterSends) return
     event.preventDefault()
     send()
   })

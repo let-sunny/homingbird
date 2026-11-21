@@ -43,6 +43,21 @@ describe('shell', () => {
     expect(textOf(shown)).toContain(strings.loading)
   })
 
+  it('offers, in a conversation, a first link that skips to writing a note', () => {
+    const { context } = testContext()
+    context.state.session.set(me())
+    const shown = mount(shell(context, lifetime(), me(), document.createElement('main')))
+    expect(queryByRole(shown, 'button', { name: strings.skipToComposer })).toBeNull()
+    context.state.route.set({ name: 'conversation', id: ROOM, draft: null })
+    const skip = getByRole(shown, 'button', { name: strings.skipToComposer })
+    expect(shown.children[0]!.contains(skip)).toBe(true)
+    const composer = mount(document.createElement('form'))
+    composer.className = 'composer'
+    const field = composer.appendChild(document.createElement('textarea'))
+    skip.click()
+    expect(document.activeElement).toBe(field)
+  })
+
   it('offers search beside the bell and scrolls the current tab into the tab row', () => {
     const { context, page } = testContext()
     context.state.session.set(me())
@@ -65,6 +80,12 @@ describe('shell', () => {
     measure(back, { offsetLeft: 0, clientWidth: 100, scrollLeft: 200 })
     measure(getByRole(back, 'link', { name: strings.navNotes }), { offsetLeft: 0, offsetWidth: 50 })
     page.runFrames()
+    expect(back.scrollLeft).toBe(0)
+    const later = shown.querySelector<HTMLElement>('.tabs-scroll.is-later')!
+    expect([later.getAttribute('aria-hidden'), later.getAttribute('tabindex')]).toEqual(['true', '-1'])
+    later.click()
+    expect(back.scrollLeft).toBe(75)
+    shown.querySelector<HTMLElement>('.tabs-scroll.is-earlier')!.click()
     expect(back.scrollLeft).toBe(0)
   })
 

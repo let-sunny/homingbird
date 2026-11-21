@@ -2,24 +2,32 @@ import { Task as T } from '@homingbird/kernel'
 import {
   type ApiError,
   Conflict,
+  DEFAULT_DEBATE_LIMITS,
   type Debate,
+  type DebateId,
   type DebateSummary,
   Forbidden,
   Invalid,
-  type MemberId,
+  MemberId,
+  NotFound,
   debateFilename,
   debateJson,
   debateMarkdown,
   debateResultText,
   exportLabelsIn,
+  limitsProblem,
 } from '@homingbird/protocol'
+import { changeRoom, colleagueJoinsLater, debateLater } from './debate-script.ts'
 import { type Handlers, found } from './handlers.ts'
-import { memberById } from './reads.ts'
+import { connectedAgentOf, memberById } from './reads.ts'
 import { destinationOf } from './rooms.ts'
 import { saveDraft } from './sending.ts'
 import type { Records, World } from './world.ts'
 
-/** Debate rooms to read and export, and a closed room's result put into the visitor's draft; opening a room and taking part stay with a real server. */
+/**
+ * Debate rooms to open, read and export, the visitor's agent opted in, and a closed room's result put
+ * into the visitor's draft. Colleagues' agents and the debate itself are scripted on the world's clock.
+ */
 export const debateHandlers = (world: World): Handlers => ({
   'debates.list': (_, viewerId) =>
     T.sync(() => ({
@@ -30,6 +38,90 @@ export const debateHandlers = (world: World): Handlers => ({
     })),
   'debates.get': ({ params }, viewerId) => roomOf(world.records(), viewerId, params.id),
   'debates.waiting': () => T.succeed({ asks: [] }),
+  'debates.create': ({ body }, viewerId) =>
+    T.gen(function* () {
+      const question = body.question.trim()
+      if (question === '') return yield* T.fail(Invalid({ message: 'A debate room needs a question.' }))
+      const limits = body.limits ?? DEFAULT_DEBATE_LIMITS
+      const problem = limitsProblem(limits)
+      if (problem !== null) return yield* T.fail(Invalid({ message: problem }))
+      const records = world.records()
+      const invited = (body.memberIds ?? []).filter(
+        (id) => id !== viewerId && memberById(records, id)?.kind === 'person',
+      )
+      const visibility = body.visibility === 'private' ? 'private' : 'open'
+      const now = world.clock.now()
+      const debate: Debate = {
+        id: world.nextId('deb') as DebateId,
+        question,
+        visibility,
+        status: 'open',
+        createdBy: viewerId,
+        createdAt: now,
+        deadlineAt: now + limits.minutes * 60_000,
+        concludedAt: null,
+        closedAt: null,
+        endedBecause: null,
+        limits,
+        memberIds: [viewerId, ...invited],
+        participants: [],
+        turns: [],
+        result: null,
+        resultRound: 0,
+      }
+      world.update((current) => ({ ...current, debates: [debate, ...current.debates] }))
+      changeRoom(world, debate.id, (room) => room)
+      colleagueJoinsLater(
+        world,
+        debate.id,
+        invited[0] ?? (visibility === 'open' ? OPEN_ROOM_COLLEAGUE : null),
+      )
+      return yield* roomOf(world.records(), viewerId, debate.id)
+    }),
+  'debates.optIn': ({ params, body }, viewerId) =>
+    T.gen(function* () {
+      const debate = yield* roomOf(world.records(), viewerId, params.id)
+      const agent = connectedAgentOf(world.records(), viewerId, body.agentId)
+      if (agent === null) return yield* T.fail(NotFound({ message: 'No such connected agent.' }))
+      if (debate.status !== 'open')
+        return yield* T.fail(Conflict({ message: 'This room takes no more agents.' }))
+      if (debate.participants.some((participant) => participant.memberId === viewerId))
+        return yield* T.fail(Conflict({ message: 'Your agent already takes part in this room.' }))
+      changeRoom(world, debate.id, (room) => ({
+        ...room,
+        memberIds: room.memberIds.includes(viewerId) ? room.memberIds : [...room.memberIds, viewerId],
+        participants: [
+          ...room.participants,
+          {
+            memberId: viewerId,
+            agentId: agent.id,
+            agentName: agent.name,
+            joinedAt: world.clock.now(),
+            takingPart: true,
+          },
+        ],
+      }))
+      debateLater(world, debate.id)
+      return yield* roomOf(world.records(), viewerId, debate.id)
+    }),
+  'debates.limits.set': ({ params, body }, viewerId) =>
+    T.gen(function* () {
+      const debate = yield* roomOf(world.records(), viewerId, params.id)
+      if (debate.createdBy !== viewerId)
+        return yield* T.fail(
+          Forbidden({ message: 'Only the person who opened this room can change its limits.' }),
+        )
+      if (debate.status !== 'open' || debate.turns.length > 0)
+        return yield* T.fail(Conflict({ message: 'The limits are fixed once the first turn is taken.' }))
+      const problem = limitsProblem(body)
+      if (problem !== null) return yield* T.fail(Invalid({ message: problem }))
+      changeRoom(world, debate.id, (room) => ({
+        ...room,
+        limits: body,
+        deadlineAt: room.createdAt + body.minutes * 60_000,
+      }))
+      return yield* roomOf(world.records(), viewerId, debate.id)
+    }),
   'debates.result.post': ({ params, body }, viewerId) =>
     T.gen(function* () {
       const debate = yield* roomOf(world.records(), viewerId, params.id)
@@ -80,6 +172,9 @@ export const debateHandlers = (world: World): Handlers => ({
           }
     })(roomOf(world.records(), viewerId, params.id)),
 })
+
+/** Whose agent joins an open room the visitor opened without inviting anyone. */
+const OPEN_ROOM_COLLEAGUE = MemberId.of('demoana00000')
 
 const nameIn =
   (records: Records) =>

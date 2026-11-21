@@ -34,10 +34,47 @@ const render = (
 }
 
 describe('renderNoteItem', () => {
+  it('links the quote of the note it answers to that note', () => {
+    const { context } = testContext()
+    const question = note('q', { body: 'When do we ship?', authorId: ANA })
+    const answer = note('a', { inReplyTo: 'q' as never })
+    const shown = render(
+      context,
+      answer,
+      threadInput({ thread: { notes: [question, answer], hasMore: false } }),
+    )
+    const quote = getByRole(shown, 'link', { name: /When do we ship\?/ })
+    expect(quote.getAttribute('href')).toBe(`#/c/${ROOM}?note=q`)
+    expect(textOf(quote)).toContain(strings.quotedNote)
+  })
+
+  it('shows the start of a long note and opens the rest in place, kept open when drawn again', () => {
+    const { context } = testContext()
+    const long = note('n1', { body: 'word '.repeat(400) })
+    const shown = render(context, long)
+    const body = shown.querySelector('.note-body')!
+    const more = getByRole(shown, 'button', { name: strings.showMoreNote })
+    expect([body.classList.contains('is-collapsed'), more.getAttribute('aria-expanded')]).toEqual([
+      true,
+      'false',
+    ])
+    expect(more.getAttribute('aria-controls')).toBe(body.id)
+    more.click()
+    expect([body.classList.contains('is-collapsed'), more.getAttribute('aria-expanded')]).toEqual([
+      false,
+      'true',
+    ])
+    expect(textOf(more)).toBe(strings.showLessNote)
+    const again = render(context, long)
+    expect(again.querySelector('.note-body')!.classList.contains('is-collapsed')).toBe(false)
+    getByRole(again, 'button', { name: strings.showLessNote }).click()
+    expect(again.querySelector('.note-body')!.classList.contains('is-collapsed')).toBe(true)
+    expect(render(context, note('n2')).querySelector('.note-more-text')).toBeNull()
+  })
+
   it('copies the note’s text from its menu, and says whether the browser let it', async () => {
     const { context, page } = testContext()
     const shown = render(context, note('n1', { authorId: ANA }))
-    expect(shown.querySelector('.note-reply')).toBeNull()
     getByRole(shown, 'button', { name: strings.noteMore }).click()
     getByRole(shown, 'menuitem', { name: strings.copyNote }).click()
     await Promise.resolve()

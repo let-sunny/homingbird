@@ -24,6 +24,7 @@ export const browserPage = (window: BrowserWindow): Page => {
     },
     nextFrame: (run) => void window.requestAnimationFrame(() => run()),
     prefersReducedMotion: () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? true,
+    isCoarsePointer: () => window.matchMedia?.('(pointer: coarse)').matches ?? false,
     pixelRatio: () => window.devicePixelRatio ?? 1,
     supportsAnchors: () => window.CSS?.supports?.('anchor-name: --a') === true,
     supportsPush: () =>
@@ -109,6 +110,8 @@ export interface Page {
   readonly on: (event: PageEvent, listener: () => void) => Unsubscribe
   readonly nextFrame: (run: () => void) => void
   readonly prefersReducedMotion: () => boolean
+  /** Whether the main pointer is a finger, where a touch keyboard's return key starts a new line. */
+  readonly isCoarsePointer: () => boolean
   readonly pixelRatio: () => number
   readonly supportsAnchors: () => boolean
   /** Whether this browser can subscribe to push notifications. */
