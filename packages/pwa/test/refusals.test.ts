@@ -38,7 +38,7 @@ describe('refusalText', () => {
   })
 
   it('shows the server’s own words for a conflict the client cannot name', () => {
-    const message = 'Make a member of this channel its manager before making it private.'
+    const message = 'People leave an open channel by themselves.'
     expect(refusalText(conflict(message))).toBe(message)
     expect(refusalText(conflict(message), 'move')).toBe(message)
   })
@@ -48,7 +48,6 @@ describe('refusalText', () => {
     expect(refusalText(conflict('Make another member a manager first.'), 'managers')).toBe(
       strings.refusals.lastManager,
     )
-    expect(refusalText(conflict('x'), 'visibility')).toBe(strings.refusals.needsManagerInRoom)
     expect(refusalText(conflict('That name is not available.'), 'channel-name')).toBe(
       strings.refusals.nameTaken,
     )

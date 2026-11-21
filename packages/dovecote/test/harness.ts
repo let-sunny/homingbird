@@ -7,9 +7,9 @@ import { SAME_SITE_HEADER, SESSION_COOKIE } from '../src/http/authenticate.ts'
 import type { HttpResponse } from '../src/http/exchange.ts'
 import { prepareDatabase } from '../src/prepare-database.ts'
 import { type Runtime, buildRuntime } from '../src/runtime.ts'
-import { type Connection, type Database, type Row, all } from '../src/sql/database.ts'
+import { type Connection, type Database, type Row, all, run } from '../src/sql/database.ts'
 import { openDatabase } from '../src/sql/open.ts'
-import { type Query, raw } from '../src/sql/query.ts'
+import { type Query, raw, sql } from '../src/sql/query.ts'
 import { migrate, tableNames } from '../src/sql/schema.ts'
 import { openSqlite } from '../src/sql/sqlite.ts'
 
@@ -155,6 +155,14 @@ export const openTestDatabase = async (url: string | null = TEST_DATABASE_URL): 
 
 export const storedRows = async (server: TestServer, table: string): Promise<ReadonlyArray<Row>> =>
   T.runPromise(all(raw(`SELECT * FROM ${table}`)), server.env)
+
+/**
+ * Makes a channel private with the people already in its room. No route changes a channel's visibility, so a
+ * test that needs a private channel with members who joined it while it was open stores it this way.
+ */
+export const storeChannelAsPrivate = async (server: TestServer, slug: string): Promise<void> => {
+  await T.runPromise(run(sql`UPDATE channels SET visibility = 'private' WHERE slug = ${slug}`), server.env)
+}
 
 /**
  * Stands in for a transaction that commits while a request waits for a row lock: the statements given run

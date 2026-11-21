@@ -9,7 +9,14 @@ import {
 } from '../src/domain/channel-agent-figures.ts'
 import { DAY_MS, periodEndingAt } from '../src/domain/trust-figures.ts'
 import { CHANNEL, asRead, askAndDraft, startAgent, startWithChannel } from './channel-agent-support.ts'
-import { type Agent, type Session, type TestServer, connectAgent, storedRows } from './harness.ts'
+import {
+  type Agent,
+  type Session,
+  type TestServer,
+  connectAgent,
+  storeChannelAsPrivate,
+  storedRows,
+} from './harness.ts'
 
 const NOW = 1_700_000_000_000
 const HOUR = 60 * 60_000
@@ -321,7 +328,7 @@ describe('channels.agent.figures', () => {
     await askAndDraft(cy, agent)
     expect((await figures(cy)).status).toBe(404)
     expect((await figures(root)).status).toBe(404)
-    await ana.api('PUT', `/channels/${CHANNEL}/visibility`, { visibility: 'private' })
+    await storeChannelAsPrivate(server, CHANNEL)
     expect((await figures(root)).status).toBe(404)
     expect((await figures(cy)).status).toBe(404)
     expect((await root.api('GET', '/channels/nowhere/agent/figures')).status).toBe(404)
@@ -385,7 +392,7 @@ describe('channels.agent.figures', () => {
       discarded: 0,
     })
     expect((await organization()).activeMembers).toBe(7)
-    await ana.api('PUT', `/channels/${CHANNEL}/visibility`, { visibility: 'private' })
+    await storeChannelAsPrivate(server, CHANNEL)
     expect((await organization()).channelAgents).toBeNull()
   })
 })

@@ -166,7 +166,6 @@ describe('the tool table', () => {
         'channels.managers.addTeam',
         'channels.members.add',
         'channels.members.remove',
-        'channels.visibility.set',
       ].sort(),
     )
     for (const tool of TOOLS) {

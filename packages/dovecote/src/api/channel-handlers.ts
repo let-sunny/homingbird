@@ -14,12 +14,7 @@ import {
   retireChannelAgent,
   revokeAgentCredential,
 } from '../domain/channel-agents.ts'
-import {
-  addChannelMember,
-  channelMembers,
-  removeChannelMember,
-  setVisibility,
-} from '../domain/channel-membership.ts'
+import { addChannelMember, channelMembers, removeChannelMember } from '../domain/channel-membership.ts'
 import {
   channelNamed,
   createChannel,
@@ -56,8 +51,6 @@ export const channelHandlers = {
     announcingChannel(caller.member.id, setAnswering(viewerOf(caller), params.slug, true)),
   'channels.answering.off': ({ params }, caller) =>
     announcingChannel(caller.member.id, setAnswering(viewerOf(caller), params.slug, false)),
-  'channels.visibility.set': ({ params, body }, caller) =>
-    announcingChannel(caller.member.id, setVisibility(viewerOf(caller), params.slug, body.visibility)),
   'channels.members.list': ({ params }, caller) =>
     T.map((members: Awaited<ResponseOf<Contract['channels.members.list']>>['members']) => ({ members }))(
       channelMembers(viewerOf(caller), params.slug),

@@ -170,7 +170,7 @@ describe('handleA2aMessage', () => {
     const membership = (Object.keys(contract) as RouteName[]).filter(
       (name) => name.startsWith('channels.') && humanOnlyRoutes.includes(name),
     )
-    expect(membership).toHaveLength(16)
+    expect(membership).toHaveLength(15)
     for (const method of [
       ...CURRENT_METHODS,
       ...LEGACY_METHODS,
@@ -178,7 +178,6 @@ describe('handleA2aMessage', () => {
       'channels/join',
       'JoinChannel',
       'channels.members.add',
-      'channels.visibility.set',
     ])
       await call(method, {
         ...MESSAGE,

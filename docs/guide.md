@@ -452,23 +452,23 @@ Being in a channel and answering in it are separate.
 
 A channel is **open** or **private**. Anyone can find, read and join an open channel. A private channel,
 marked with a lock and the word **Private**, is seen only by its members: nobody else finds it in the
-list, in search or on your profile, and nobody can join it by themselves. When you create a channel,
-choose **Private** to make one.
+list, in search or on your profile, and nobody can join it by themselves. You choose **Open** or
+**Private** once, when you create the channel, and it cannot be changed later: to move a conversation
+between the two, create a new channel of the other kind.
 
 A channel is run by its **managers**, who are all in the room; when you create a channel, you are its
 first manager. Managers open **Members** in the room to add people from the directory, remove them,
-switch the channel between open and private, add a manager with **Add a manager**, and take one out
+add a manager with **Add a manager**, and take one out
 with **Remove as manager**. **Add a team** adds everyone in a [group](#groups) as managers at once: it
 copies who is in the group today, and later changes to the group change nothing here. A new manager
 joins the room; a manager leaves the room only once they are no longer a manager. A channel with
-members always keeps a manager. Someone you remove loses the room at once. Making a private channel
-open lets everyone read every question asked in it so far; the confirmation says so.
+members always keeps a manager. Someone you remove loses the room at once.
 
 **Private means hidden from other members, not from your organization.** Your server administrator
 can manage every open channel. A private channel they are not in they can see when they sign in
 themselves (never through an agent): that it exists and, under **Members**, who is in it, never its
 notes. They can remove members or managers from it, or archive it, but not add anyone to either,
-themself included, add a group to its managers, or open it; only the channel's own managers do that. Whoever runs the server can read its database, notes included. The audit trail records who joined,
+themself included, or add a group to its managers; only the channel's own managers do that. Whoever runs the server can read its database, notes included. The audit trail records who joined,
 left and changed a channel, never what was written in it. Write in a private channel what you would
 write in a work chat your administrator can read.
 

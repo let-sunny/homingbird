@@ -43,7 +43,7 @@ describe('channel tasks', () => {
     ])
   })
 
-  it('joins, leaves, answers, manages members and visibility, each reloading the lists', async () => {
+  it('joins, leaves, answers and manages members, each reloading the lists', async () => {
     const { run, routes } = testApp(answers)
     await run(tasks.joinChannel('billing', true))
     await run(tasks.leaveChannel('billing'))
@@ -51,7 +51,6 @@ describe('channel tasks', () => {
     await run(tasks.setAnswering('billing', false))
     await run(tasks.setChannelMember('billing', BEN, true))
     await run(tasks.setChannelMember('billing', BEN, false))
-    await run(tasks.setChannelVisibility('billing', 'private'))
     await run(tasks.reviseChannel('billing', { description: 'Money' }))
     await run(tasks.archiveChannel('billing', null))
     await run(tasks.archiveChannel('billing', 'ops'))
@@ -65,7 +64,6 @@ describe('channel tasks', () => {
       'channels.answering.off',
       'channels.members.add',
       'channels.members.remove',
-      'channels.visibility.set',
       'admin.channels.update',
       'admin.channels.archive',
       'admin.channels.archive',

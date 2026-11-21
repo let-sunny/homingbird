@@ -2115,19 +2115,11 @@ button.group-member-name:focus-visible::after {
   color: var(--hb-color-muted);
 }
 
-.visibility-switch {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--hb-space-2);
+.visibility {
+  margin: 0;
   padding-block-start: var(--hb-space-3);
   border-block-start: var(--hb-border-hairline) dashed var(--hb-color-line);
-}
-
-.visibility-confirmation {
-  display: grid;
-  gap: var(--hb-space-3);
+  color: var(--hb-color-muted);
 }
 
 .answered-by {
