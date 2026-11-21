@@ -11,13 +11,16 @@ const people = {
 }
 
 describe('demoDebates', () => {
-  it('seeds one open room with turns still coming and one closed with its conclusion, as the contract reads them', () => {
+  it('seeds an open room with turns still coming, a closed one with its conclusion and a private one waiting for June’s agent, as the contract reads them', () => {
     const rooms = demoDebates((minutes) => NOW - minutes * 60_000, people)
     for (const room of rooms) expect(Debate.decode(room)._tag).toBe('Ok')
     expect(rooms.map((room) => [room.status, room.result === null])).toEqual([
       ['open', true],
       ['closed', false],
+      ['open', true],
     ])
+    expect(rooms[2]!.participants.map((one) => one.memberId)).toEqual([people.ana])
+    expect(rooms[2]!.memberIds).toContain(people.june)
     expect(rooms[0]!.deadlineAt).toBeGreaterThan(NOW)
   })
 })

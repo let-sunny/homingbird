@@ -61,7 +61,7 @@ describe('createTour', () => {
     tour.start()
     const callout = document.getElementById('tour')!
     expect(textOf(callout)).toContain(strings.tour.lookFor({ place: strings.conversations }))
-    for (let step = 0; step < 3; step++) getByRole(callout, 'button', { name: strings.tour.next }).click()
+    for (let step = 0; step < 4; step++) getByRole(callout, 'button', { name: strings.tour.next }).click()
     getByRole(callout, 'button', { name: strings.tour.done }).click()
     expect(document.getElementById('tour')).toBeNull()
     tour.start()

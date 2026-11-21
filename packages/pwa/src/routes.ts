@@ -17,6 +17,8 @@ export type Route =
   | { readonly name: 'debates' }
   | { readonly name: 'debate'; readonly id: string }
   | { readonly name: 'search'; readonly query: string }
+  /** Everything waiting for the person, as a page: what the header's bell opens without popovers. */
+  | { readonly name: 'activity' }
   | { readonly name: 'profile' }
   | { readonly name: 'agent'; readonly section: AgentSection | null }
   | { readonly name: 'measured' }
@@ -62,6 +64,7 @@ export const parseRoute = (hash: string): Route => {
     return { name: 'channel', slug: second }
   if (head === 'debates') return { name: 'debates' }
   if (head === 'debate' && second !== undefined) return { name: 'debate', id: second }
+  if (head === 'activity') return { name: 'activity' }
   if (head === 'search') return { name: 'search', query: parameters.get('q') ?? '' }
   if (head === 'me') return { name: 'profile' }
   if (head === 'agent') return { name: 'agent', section: isAgentSection(second) ? second : null }
@@ -106,6 +109,8 @@ export const hrefFor = (route: Route): string => {
       return '#/debates'
     case 'debate':
       return `#/debate/${encodeURIComponent(route.id)}`
+    case 'activity':
+      return '#/activity'
     case 'search':
       return `#/search?${new URLSearchParams({ q: route.query }).toString()}`
     case 'profile':

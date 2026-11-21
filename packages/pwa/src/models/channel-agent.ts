@@ -119,6 +119,39 @@ export const reviewCardsModel = (
   }
 }
 
+/** One answer waiting for review; its question is quoted on the card unless the card sits right under it. */
+export const reviewCardModel = (
+  review: AsRead.Review,
+  read: ReadonlyMap<NoteId, DraftAsShown>,
+  members: ReadonlyMap<MemberId, AsRead.Member>,
+  focus: string | null,
+  question: 'quoted' | 'above',
+): ReviewCard => {
+  const basis = draftBasisOf(review.note)
+  return {
+    review,
+    focused: review.note.id === focus,
+    heading: null,
+    question:
+      review.question === null || question === 'above'
+        ? null
+        : {
+            from: strings.channelAgent.questionFrom({
+              name: members.get(review.question.authorId)?.name ?? strings.formerMember,
+            }),
+            body: review.question.body,
+          },
+    privately: review.privately ? strings.channelAgent.askedPrivately : null,
+    body: review.note.body,
+    basis: basis?.kind === 'given' ? { title: strings.channelAgent.reliedOn, lines: basis.lines } : null,
+    readAgain: isChangedSinceRead(read, review.note)
+      ? { notice: strings.draftChangedSinceRead, confirm: strings.draftReadAgain }
+      : null,
+    send: strings.channelAgent.send,
+    discard: strings.channelAgent.discard,
+  }
+}
+
 /**
  * The answers waiting for the person in one room, each under the question it answers. Only a reviewer
  * holds them, as `reviews.list` gave them; one whose question the person asked is never shown to them.
@@ -366,37 +399,4 @@ const firstWaitingIn = (reviews: ReadonlyArray<AsRead.Review>, slug: string): As
         Number(one.privately) - Number(other.privately) || one.note.createdAt - other.note.createdAt,
     )
   return inChannel[0]!.note
-}
-
-/** One answer waiting for review; its question is quoted on the card unless the card sits right under it. */
-const reviewCardModel = (
-  review: AsRead.Review,
-  read: ReadonlyMap<NoteId, DraftAsShown>,
-  members: ReadonlyMap<MemberId, AsRead.Member>,
-  focus: string | null,
-  question: 'quoted' | 'above',
-): ReviewCard => {
-  const basis = draftBasisOf(review.note)
-  return {
-    review,
-    focused: review.note.id === focus,
-    heading: null,
-    question:
-      review.question === null || question === 'above'
-        ? null
-        : {
-            from: strings.channelAgent.questionFrom({
-              name: members.get(review.question.authorId)?.name ?? strings.formerMember,
-            }),
-            body: review.question.body,
-          },
-    privately: review.privately ? strings.channelAgent.askedPrivately : null,
-    body: review.note.body,
-    basis: basis?.kind === 'given' ? { title: strings.channelAgent.reliedOn, lines: basis.lines } : null,
-    readAgain: isChangedSinceRead(read, review.note)
-      ? { notice: strings.draftChangedSinceRead, confirm: strings.draftReadAgain }
-      : null,
-    send: strings.channelAgent.send,
-    discard: strings.channelAgent.discard,
-  }
 }

@@ -435,6 +435,38 @@ export const en = {
     example:
       '## Before drafting\n1. Look for an existing answer in the organization’s knowledge base.\n\n## Check the draft\n1. Nothing confidential or secret leaves the organization.\n2. The tone is polite and direct.',
   },
+  activity: {
+    title: 'Activity',
+    bell: {
+      one: 'Activity: {count} thing waits for you',
+      other: 'Activity: {count} things wait for you',
+    },
+    bellNone: 'Activity: nothing waits for you',
+    empty:
+      'Nothing waits for you. Your agent’s drafts, answers to review, notes your agent skipped and debate rooms that need you show here.',
+    openPage: 'Open as a page',
+    groups: {
+      drafts: 'Drafts from your agent',
+      reviews: 'Answers to review',
+      skipped: 'Notes your agent skipped',
+      unavailable: 'Your agent',
+      debates: 'Debate rooms',
+    },
+    inPlace: 'In {place}',
+    openConversation: 'Open where it waits',
+    draftsLoading: {
+      one: '{count} draft waits here. Loading it…',
+      other: '{count} drafts wait here. Loading them…',
+    },
+    skippedFrom: 'From {name}',
+    replyYourself: 'Reply yourself',
+    unavailableTitle: 'Your agent cannot answer right now',
+    openConnection: 'Open Connection',
+    debateAsks: 'This room asks your agent to take part. Opt it in from the room.',
+    debateResult:
+      'The room has a result your agent helped reach. Post it to a channel or a person; nothing is sent until you approve it.',
+    openRoom: 'Open the room',
+  },
   tour: {
     progress: 'Step {step} of {total}',
     skip: 'Skip the tour',
@@ -450,6 +482,10 @@ export const en = {
     channelsTitle: 'Channels',
     channelsBody:
       'Ask a channel when you do not know who can answer, or turn on answering where you can help. A person approves every note.',
+    activityTitle: 'Everything that waits for you',
+    activityBody:
+      'The bell lists your agent’s drafts, answers to review and notes your agent skipped. Send, edit or discard each one right there.',
+    activityPlace: 'the bell, top right',
     profileTitle: 'Your profile',
     profileBody: 'Choose your language and your character here, and start this tour again.',
     lookFor: 'Look for “{place}”.',

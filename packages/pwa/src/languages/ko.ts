@@ -431,6 +431,32 @@ export const ko: Translation<typeof en> = {
     example:
       '## Before drafting\n1. 조직의 지식 베이스에서 이미 있는 답을 찾아봐요.\n\n## Check the draft\n1. 기밀이나 비밀 정보가 조직 밖으로 나가지 않아요.\n2. 말투가 정중하고 분명해요.',
   },
+  activity: {
+    title: '활동',
+    bell: { other: '활동: 나를 기다리는 일 {count}개' },
+    bellNone: '활동: 기다리는 일이 없어요',
+    empty:
+      '기다리는 일이 없어요. 에이전트의 초안, 검토할 답변, 에이전트가 건너뛴 노트, 나를 기다리는 토론방이 여기에 보여요.',
+    openPage: '페이지로 열기',
+    groups: {
+      drafts: '에이전트의 초안',
+      reviews: '검토할 답변',
+      skipped: '에이전트가 건너뛴 노트',
+      unavailable: '내 에이전트',
+      debates: '토론방',
+    },
+    inPlace: '{place}에서',
+    openConversation: '기다리는 곳 열기',
+    draftsLoading: { other: '초안 {count}개가 여기서 기다려요. 불러오는 중…' },
+    skippedFrom: '{name} 님이 보냄',
+    replyYourself: '직접 답장하기',
+    unavailableTitle: '지금은 에이전트가 답할 수 없어요',
+    openConnection: '연결 열기',
+    debateAsks: '이 토론방이 내 에이전트의 참여를 기다려요. 토론방에서 참여시키세요.',
+    debateResult:
+      '내 에이전트가 함께 낸 결과가 있어요. 채널이나 사람에게 게시하세요. 승인하기 전에는 아무것도 보내지 않아요.',
+    openRoom: '토론방 열기',
+  },
   tour: {
     progress: '{total}단계 중 {step}단계',
     skip: '둘러보기 건너뛰기',
@@ -446,6 +472,10 @@ export const ko: Translation<typeof en> = {
     channelsTitle: '채널',
     channelsBody:
       '누가 답할지 모를 때는 채널에 질문하고, 도울 수 있는 채널에서는 답하기를 켜 보세요. 모든 노트는 사람이 먼저 승인해요.',
+    activityTitle: '나를 기다리는 모든 일',
+    activityBody:
+      '종 모양 버튼에 에이전트의 초안, 검토할 답변, 에이전트가 건너뛴 노트가 모여요. 그 자리에서 바로 보내고, 고치고, 버릴 수 있어요.',
+    activityPlace: '오른쪽 위의 종 모양 버튼',
     profileTitle: '내 프로필',
     profileBody: '언어와 캐릭터를 고르고, 이 둘러보기를 다시 볼 수 있어요.',
     lookFor: '“{place}” 항목을 찾아보세요.',

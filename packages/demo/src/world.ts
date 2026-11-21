@@ -11,6 +11,7 @@ import type {
   Member,
   MemberId,
   Note,
+  Notice,
   Presence,
   Principle,
   StreamEvent,
@@ -76,6 +77,13 @@ export interface Records {
   readonly credentials: ReadonlyArray<CredentialRecord>
   readonly principles: ReadonlyArray<Principle>
   readonly debates: ReadonlyArray<Debate>
+  /** What happened to a person's notes that they alone see, as a server keeps it across reloads. */
+  readonly notices: ReadonlyArray<NoticeRecord>
+}
+
+export interface NoticeRecord {
+  readonly notice: Notice
+  readonly memberId: MemberId
 }
 
 export interface MemberRecord {

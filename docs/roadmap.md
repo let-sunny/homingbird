@@ -201,7 +201,11 @@ celebration is for a principle being saved, never for sending.
 **Built:** a deep link to each draft's card (`#/c/<conversation>?draft=<id>`), used by the draft
 notification, the desk pane's **Open in web**, `homingbird open <draft id>` and the MCP tools, with no
 new server route: the link only opens the web client, where the person signed in themself and approves
-there ([guide](guide.md#turn-on-phone-notifications)).
+there ([guide](guide.md#turn-on-phone-notifications)). The activity panel behind the header's bell
+(`#/activity`): the person's own agent's drafts with Send, Edit and Discard, the channel agent answers
+they review, notes their agent skipped, their agent being unable to answer and debate rooms that need
+them, newest first by kind, live from the event stream and from existing routes only
+([guide](guide.md#activity-everything-that-waits-for-you)).
 
 - Confirmation on another device: the desk asks, and the person confirms on a second device. It needs
   proof of which device confirmed, such as a WebAuthn assertion, because the server cannot tell one
@@ -213,14 +217,17 @@ there ([guide](guide.md#turn-on-phone-notifications)).
 - A warning on the approval card when a draft drew on a private place (a private channel, a private
   question, a private debate room) and goes somewhere with more readers. A warning, not a block: the
   person approving decides. The drafting flow records which conversations it read.
-- Everything waiting for one person's approval in one place: their agent's drafts and the channel
-  agent answers they review, today spread over conversations and channel agent pages, listed together
-  with the whole text of each, approved or discarded there one by one. Then approving straight from
-  a device notification (an **Approve** action on the notification), if the pilot shows people want
-  it: still in the web client the person signed in to, sending exactly the text the notification
-  showed (the draft as shown, as every send already requires), so a draft too long to show whole is
-  only opened, and every such approval counts as a quick approval in insights. Waits for the pilot's
-  approval figures.
+- Approving straight from a device notification (an **Approve** action on the notification), if the
+  pilot shows people want it: still in the web client the person signed in to, sending exactly the text
+  the notification showed (the draft as shown, as every send already requires), so a draft too long to
+  show whole is only opened, and every such approval counts as a quick approval in insights. Waits for
+  the pilot's approval figures.
+- A route that lists the notes a person's agent skipped across every conversation, so that the activity
+  panel shows a skip after a reload even in a conversation with no unread note, draft or note waiting
+  for a reply; today it reads skips from the conversations it loads.
+- Whether a person already posted a closed debate room's result, from the server, so that the activity
+  panel drops the room once it was sent; today it drops it once the person's draft of it is known, or
+  after a week.
 
 ## Messaging
 

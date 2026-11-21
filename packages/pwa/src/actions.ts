@@ -2,6 +2,7 @@ import type { Task as T } from '@homingbird/kernel'
 import type { Action, Launch, Then } from './app.ts'
 import { pushIsOn, testPush, turnPushOff, turnPushOn } from './push.ts'
 import * as account from './tasks/account.ts'
+import * as activity from './tasks/activity.ts'
 import * as admin from './tasks/admin.ts'
 import * as channelAgents from './tasks/channel-agents.ts'
 import * as channels from './tasks/channels.ts'
@@ -35,6 +36,8 @@ export const TASKS = {
   loadWorkspace: () => workspace.loadWorkspace,
   loadAgents: () => workspace.loadAgents,
   loadConversations: () => workspace.loadConversations,
+  loadActivity: () => activity.loadActivity,
+  loadDraftThreads: () => activity.loadDraftThreads,
   loadPeople: () => workspace.loadPeople,
   loadKnownChannels: () => workspace.loadKnownChannels,
   openThread: notes.openThread,

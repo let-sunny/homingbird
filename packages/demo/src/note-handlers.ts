@@ -56,7 +56,16 @@ export const noteHandlers = (world: World): Handlers => ({
       const notes = notesSeenIn(world.records(), viewerId, params.id).filter(
         (note) => before === null || (note.status === 'sent' && (note.sentAt ?? 0) < before),
       )
-      return { notes, hasMore: false, notices: [] }
+      const notices =
+        before === null
+          ? world
+              .records()
+              .notices.filter(
+                (kept) => kept.memberId === viewerId && kept.notice.conversationId === params.id,
+              )
+              .map((kept) => kept.notice)
+          : []
+      return { notes, hasMore: false, notices }
     })(roomOf(world.records(), viewerId, params.id)),
   'notes.get': ({ params }, viewerId) => readableNote(world.records(), viewerId, params.id),
   'notes.read': ({ params }, viewerId) =>

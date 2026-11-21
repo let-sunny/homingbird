@@ -17,14 +17,20 @@ export const muteButton = (context: ViewContext, model: MuteToggle): HTMLElement
       data: { muted: String(model.muted) },
       on: { click: () => context.actions.setMuted(model.conversationId, !model.muted) },
     },
-    bell(model.muted),
+    bellIcon(model.muted),
   )
 
 /** The struck-through bell beside a muted conversation's name, with its word for screen readers. */
 export const mutedMark = (text: string): HTMLElement =>
-  h('span', { class: 'muted-mark', title: text }, bell(true), h('span', { class: 'visually-hidden' }, text))
+  h(
+    'span',
+    { class: 'muted-mark', title: text },
+    bellIcon(true),
+    h('span', { class: 'visually-hidden' }, text),
+  )
 
-const bell = (struck: boolean): SVGElement =>
+/** A bell drawn in the text colour, struck through for a muted conversation. */
+export const bellIcon = (struck: boolean): SVGElement =>
   svg(
     'svg',
     { class: 'bell', viewBox: '0 0 16 16', width: 16, height: 16, 'aria-hidden': 'true', focusable: 'false' },

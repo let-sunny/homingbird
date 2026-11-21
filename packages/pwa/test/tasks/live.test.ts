@@ -231,6 +231,20 @@ describe('liveEvents', () => {
     expect(routes().filter((route) => route.startsWith('debates.'))).toEqual(['debates.list', 'debates.get'])
   })
 
+  it('reads the list of rooms again once changes settle, for the activity panel, once it was loaded', async () => {
+    const { apply, state, clock, routes } = live()
+    apply(event({ type: 'debate.changed', debateId: 'd1', participantIds: [] }))
+    await clock.advance(DIRECTORY_SETTLE_MS)
+    await settle()
+    expect(routes()).not.toContain('debates.list')
+    state.debatesLoaded.set(true)
+    for (const debateId of ['d1', 'd2'])
+      apply(event({ type: 'debate.changed', debateId, participantIds: [] }))
+    await clock.advance(DIRECTORY_SETTLE_MS)
+    await settle()
+    expect(routes().filter((route) => route === 'debates.list')).toHaveLength(1)
+  })
+
   it('shows presence, loads agents when the person’s own agent comes online, and reloads everything on resync', async () => {
     const { apply, state, routes } = live()
     apply(event({ type: 'presence', members: [{ memberId: BEN, humanOnline: true, agentOnline: true }] }))

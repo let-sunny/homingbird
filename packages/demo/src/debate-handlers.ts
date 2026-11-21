@@ -70,5 +70,7 @@ const summaryOf = (debate: Debate, viewerId: MemberId): DebateSummary => ({
   turnCount: debate.turns.length,
   totalTurns: debate.limits.totalTurns,
   resultDrafted: debate.result !== null,
-  joined: debate.participants.some((participant) => participant.memberId === viewerId),
+  joined:
+    debate.memberIds.includes(viewerId) ||
+    debate.participants.some((participant) => participant.memberId === viewerId),
 })

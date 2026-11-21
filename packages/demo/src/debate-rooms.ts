@@ -103,6 +103,26 @@ export const demoDebates = (ago: (minutes: number) => number, people: DebatePeop
       resultRound: 1,
       voteRecord: { votes: [{ voterId: ana, draftBy: june }], droppedOut: [] },
     },
+    {
+      id: DebateId.of('demodebate03'),
+      question: 'Should refunds over 500 EUR need a second approver?',
+      visibility: 'private',
+      status: 'open',
+      createdBy: ana,
+      createdAt: ago(15),
+      deadlineAt: ago(-120),
+      concludedAt: null,
+      closedAt: null,
+      endedBecause: null,
+      limits: DEFAULT_DEBATE_LIMITS,
+      memberIds: [ana, june],
+      participants: [
+        { memberId: ana, agentId: null, agentName: "Ana's desk", joinedAt: ago(14), takingPart: true },
+      ],
+      turns: [],
+      result: null,
+      resultRound: 0,
+    },
   ]
 }
 

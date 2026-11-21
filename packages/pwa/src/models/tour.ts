@@ -39,6 +39,7 @@ const PLACEMENT: Readonly<Record<TourStepId, 'beside' | 'below'>> = {
   notes: 'beside',
   connect: 'below',
   channels: 'below',
+  activity: 'below',
   profile: 'below',
 }
 
@@ -59,6 +60,11 @@ const STEP_TEXT: Readonly<
     title: strings.tour.channelsTitle,
     body: strings.tour.channelsBody,
     place: strings.channels,
+  }),
+  activity: () => ({
+    title: strings.tour.activityTitle,
+    body: strings.tour.activityBody,
+    place: strings.tour.activityPlace,
   }),
   profile: () => ({
     title: strings.tour.profileTitle,

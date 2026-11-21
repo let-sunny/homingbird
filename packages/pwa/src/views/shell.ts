@@ -15,6 +15,7 @@ import {
 } from '../models/shell.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
+import { activityBell, activityPanel } from './activity.ts'
 import { leaveForm } from './channel-membership.ts'
 import { renderAvatar, renderGroupAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
@@ -54,7 +55,7 @@ export const shell = (
   }
   showPane()
   life.add(state.route.subscribe(showPane))
-  return h('div', { class: 'viewport' }, app, userMenu(context, me))
+  return h('div', { class: 'viewport' }, app, userMenu(context, me), activityPanel(context, life, me))
 }
 
 const USER_MENU_ID = 'user-menu'
@@ -124,32 +125,37 @@ const titleBar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElem
       },
       { class: 'connection-host' },
     ),
-    region(
-      life,
-      [state.members],
-      () =>
-        h(
-          'button',
-          {
-            type: 'button',
-            class: 'user-button',
-            popovertarget: USER_MENU_ID,
-            'aria-label': strings.menu,
-            data: { tour: 'profile' },
-          },
-          renderAvatar(
-            context,
-            memberAvatarOf(
-              state.members.get().get(me.member.id) ?? me.member,
-              featureOn('characters', state.serverInfo.get()),
-              {
-                labelled: false,
-              },
-            ),
+    h('div', { class: 'header-actions' }, activityBell(context, life, me), userButton(context, life, me)),
+  )
+}
+
+const userButton = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
+  const { state } = context
+  return region(
+    life,
+    [state.members],
+    () =>
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'user-button',
+          popovertarget: USER_MENU_ID,
+          'aria-label': strings.menu,
+          data: { tour: 'profile' },
+        },
+        renderAvatar(
+          context,
+          memberAvatarOf(
+            state.members.get().get(me.member.id) ?? me.member,
+            featureOn('characters', state.serverInfo.get()),
+            {
+              labelled: false,
+            },
           ),
         ),
-      { class: 'user-button-host' },
-    ),
+      ),
+    { class: 'user-button-host' },
   )
 }
 

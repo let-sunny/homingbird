@@ -4,6 +4,7 @@ import { featureOn } from '../features.ts'
 import type { Route } from '../routes.ts'
 import { strings } from '../strings.ts'
 import { profileView } from './account.ts'
+import { activityView } from './activity.ts'
 import { adminView } from './admin.ts'
 import { agentTrustView } from './agent-trust.ts'
 import { channelAgentView } from './channel-agent.ts'
@@ -51,6 +52,8 @@ export const stageFor = (context: ViewContext, life: Lifetime, me: AsRead.Me, cu
       return on('debateRooms') ? debatesView(context, life, me) : notFound()
     case 'debate':
       return on('debateRooms') ? debateView(context, life, me, current.id) : notFound()
+    case 'activity':
+      return activityView(context, life, me)
     case 'search':
       return searchView(context, life, me, current.query)
     case 'profile':
