@@ -28,6 +28,7 @@ body {
 
 #app {
   block-size: 100dvh;
+  overflow: clip;
 }
 
 h1,
@@ -147,6 +148,18 @@ select {
   border: var(--hb-border);
   border-radius: var(--hb-radius);
   background: var(--hb-color-surface);
+}
+
+/* The native chevron sits against the border; drawn in currentColor, it keeps the text's padding. */
+select:not([multiple], [size]) {
+  appearance: none;
+  padding-inline-end: calc(var(--hb-space-2) * 2 + 1em);
+  background-image: var(--hb-texture-select-chevron);
+  background-position:
+    right calc(var(--hb-space-3) + 0.3em) center,
+    right var(--hb-space-3) center;
+  background-size: 0.3em 0.3em;
+  background-repeat: no-repeat;
 }
 
 input[type="checkbox"],

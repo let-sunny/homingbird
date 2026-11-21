@@ -1003,6 +1003,51 @@
   justify-items: start;
 }
 
+.member-main {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.member-actions button {
+  white-space: nowrap;
+}
+
+.admin-channels .member-actions,
+.admin-member-list .member-actions {
+  flex: none;
+}
+
+.admin-member-list {
+  gap: var(--hb-space-2);
+}
+
+.admin-member-list .member {
+  padding-block: var(--hb-space-2);
+}
+
+.admin-member-list .member-main {
+  grid-template-columns: fit-content(70%) minmax(0, 1fr);
+  column-gap: var(--hb-space-2);
+  row-gap: 0;
+  align-items: baseline;
+}
+
+.member-email {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-inline-size: 100%;
+  color: var(--hb-color-muted);
+  font-size: var(--hb-text-small);
+}
+
+.member-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hb-space-1);
+  grid-column: 1 / -1;
+}
+
 .credential-name {
   display: flex;
   flex-wrap: wrap;
@@ -2122,14 +2167,19 @@ button.group-member-name:focus-visible::after {
     grid-area: tabs;
   }
 
+  /* One row that scrolls sideways: every tab stays reachable without a second header row. */
   .tabs {
-    display: grid;
-    grid-template-columns: repeat(3, auto);
+    flex-wrap: nowrap;
     gap: var(--hb-pixel);
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    scroll-padding-inline: var(--hb-space-2);
   }
 
   .tab {
-    padding-inline: var(--hb-space-1);
+    flex: none;
+    padding-inline: var(--hb-space-2);
   }
 
   .connection-host {
@@ -4247,9 +4297,24 @@ textarea:disabled {
   gap: var(--hb-space-2) var(--hb-space-3);
 }
 
-.debate-change-limits > summary {
+.debate-change-limits > summary,
+.debate-default-limits > summary {
   cursor: pointer;
   font-weight: 600;
+}
+
+.debate-default-limits > .debate-limits {
+  margin-block-start: var(--hb-space-2);
+}
+
+/* The summary already names the fieldset; its legend stays for screen readers only. */
+.debate-default-limits > .debate-limits > legend {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .route-debates {

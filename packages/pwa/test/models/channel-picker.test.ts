@@ -38,9 +38,9 @@ describe('pickerModel', () => {
 })
 
 describe('newChannelFrom', () => {
-  it('needs a valid name and a description', () => {
+  it('needs a valid name, and takes the description as optional', () => {
     expect(newChannelFrom(' Ops- ', ' Operations ')).toEqual({ slug: 'ops', description: 'Operations' })
     expect(newChannelFrom('---', 'Operations')).toBeNull()
-    expect(newChannelFrom('ops', '  ')).toBeNull()
+    expect(newChannelFrom('ops', '  ')).toEqual({ slug: 'ops', description: '' })
   })
 })

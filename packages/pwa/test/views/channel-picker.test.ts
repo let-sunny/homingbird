@@ -52,8 +52,6 @@ describe('moveForm', () => {
     }) as HTMLInputElement
     fire.type(slug, 'New Room')
     expect(slug.value).toBe('new-room')
-    fire.submit(dialog.querySelector('form')!)
-    expect(called('createChannelThenMove')).toHaveLength(0)
     fire.type(getByRole(dialog, 'textbox', { name: strings.channelDescriptionLabel }), 'Somewhere new')
     fire.submit(dialog.querySelector('form')!)
     const [create] = called('createChannelThenMove')

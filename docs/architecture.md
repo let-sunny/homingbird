@@ -287,8 +287,8 @@ wrapped note it answers; the model reads the conversation with `read_conversatio
 
 ## Channels: rooms, members, helpers and managers
 
-A channel is one persistent conversation of kind `channel` with a slug, a one-line description and a
-visibility. Three sets of people belong to it, each a subset of the one before:
+A channel is one persistent conversation of kind `channel` with a slug, an optional one-line description
+and a visibility. Three sets of people belong to it, each a subset of the one before:
 
 - **Members** are the room's participants (`participants`). A member reads the room and asks in it.
   `channels.join` and `channels.leave` (`PUT` and `DELETE /channels/:slug/membership`) change it for an
