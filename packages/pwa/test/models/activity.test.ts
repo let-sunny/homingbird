@@ -1,6 +1,7 @@
 import type { AsRead, ConversationId, DebateId, MemberId, NoteId } from '@homingbird/protocol'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
+import { heldWordsFor } from '../../src/held-decisions.ts'
 import { type ActivityInput, RESULT_LISTED_MS, activityModel } from '../../src/models/activity.ts'
 import { strings } from '../../src/strings.ts'
 import {
@@ -36,6 +37,8 @@ const input = (fields: Partial<ActivityInput> = {}): ActivityInput => ({
   ]),
   directory: [],
   draftsRead: new Map(),
+  draftEdits: new Map(),
+  held: [],
   draftRequests: [],
   releases: new Map(),
   reviews: [],
@@ -101,6 +104,52 @@ describe('activityModel', () => {
     if (item?.type !== 'drafts') throw new Error('expected drafts')
     expect(item.drafts.cards.map((card) => card.draft.id)).toEqual(['note_d1', 'note_d2'])
     expect(item.drafts.replyTo).toBe(strings.draftReplyTo({ excerpt: 'Lunch?' }))
+  })
+
+  it('keeps a decided draft or answer in its place while it is held, saying so, and no longer counts it', () => {
+    const question = note('note_q', { authorId: BEN, body: 'Lunch?' })
+    const first = draft('note_d1', { inReplyTo: question.id, updatedAt: 5 })
+    const second = draft('note_d2', { inReplyTo: question.id, updatedAt: 7 })
+    const held = [
+      {
+        noteId: second.id,
+        kind: 'send' as const,
+        phase: 'waiting' as const,
+        words: heldWordsFor('Ben').send,
+      },
+      {
+        noteId: review().note.id,
+        kind: 'discard' as const,
+        phase: 'committing' as const,
+        words: heldWordsFor('#payments').discard,
+      },
+    ]
+    const model = activityModel(
+      input({
+        threads: new Map([[ROOM, thread(question, first, second)]]),
+        reviews: [review()],
+        serverInfo: everything(),
+        held,
+      }),
+    )
+    expect(model.count).toBe(0)
+    expect(model.empty).toBeNull()
+    expect(itemsOf(model, 'drafts')).toMatchObject([
+      {
+        type: 'held',
+        weight: 0,
+        place: { href: `#/c/${ROOM}?draft=note_d1` },
+        line: { noteId: second.id, text: strings.heldSending({ names: 'Ben' }), undo: strings.undo },
+      },
+    ])
+    expect(itemsOf(model, 'reviews')).toMatchObject([
+      {
+        type: 'held',
+        key: `review:${review().note.id}`,
+        weight: 0,
+        line: { text: strings.heldDiscarding, undo: null },
+      },
+    ])
   })
 
   it('keeps a draft an agent changed since the person read it from being sent until they read it again', () => {

@@ -1,6 +1,7 @@
 import { fire, getByRole, queryByRole, textOf } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
 import { channelLabel } from '../../src/channels.ts'
+import { heldWordsFor } from '../../src/held-decisions.ts'
 import { draftsItemModel } from '../../src/models/drafts-item.ts'
 import { strings } from '../../src/strings.ts'
 import { dialogHost } from '../../src/views/dialog.ts'
@@ -51,7 +52,7 @@ describe('renderDraftsItem', () => {
     ])
     expect(buttons.at(-1)!.classList.contains('draft-discard')).toBe(true)
     getByRole(card, 'button', { name: strings.approveAndSend }).click()
-    expect(called('holdSend')[0]!.args).toEqual([a, null, [b], held.sent])
+    expect(called('holdSend')[0]!.args).toEqual([a, null, [b], held.send])
     expect(called('holdSend')[0]!.then!.attempt).toBe('draft')
     getByRole(card, 'button', { name: strings.edit }).click()
     expect(document.activeElement).toBe(getByRole(dialog, 'textbox', { name: strings.editDraftLabel }))
@@ -59,11 +60,50 @@ describe('renderDraftsItem', () => {
     getByRole(dialog, 'button', { name: strings.saveDraft }).click()
     expect(called('saveDraft')[0]!.args).toEqual([a, 'Edited'])
     fire.submit(dialog.querySelector('form')!)
-    expect(called('holdSend')[1]!.args).toEqual([a, 'Edited', [b], held.sent])
+    expect(called('holdSend')[1]!.args).toEqual([a, 'Edited', [b], held.send])
     expect(dialog.open).toBe(false)
+    expect(called('keepDraftEdit').map((call) => call.args)).toEqual([['d1', a.body, 'Edited']])
     getByRole(card, 'button', { name: strings.discard }).click()
-    expect(called('holdDiscard')[0]!.args).toEqual([a, held.discarded])
-    expect(held).toEqual({ sent: strings.heldSent({ names: 'Ben' }), discarded: strings.heldDiscarded })
+    expect(called('holdDiscard')[0]!.args).toEqual([a, held.discard])
+    expect(held).toEqual(heldWordsFor('Ben'))
+  })
+
+  it('keeps an edit closed without sending, opens Edit with it, says so on the card, and sends it on Cmd or Ctrl+Enter', () => {
+    const { context, called } = testContext()
+    const dialog = mount(dialogHost())
+    const a = draft('d1')
+    context.state.threads.set(new Map([[ROOM, { notes: [a], hasMore: false }]]))
+    const plain = mount(renderDraftsItem(context, draftsItemModel(threadInput(), item([a]))))
+    getByRole(plain, 'button', { name: strings.edit }).click()
+    const text = getByRole(dialog, 'textbox', { name: strings.editDraftLabel }) as HTMLTextAreaElement
+    fire.type(text, 'Half an edit')
+    getByRole(dialog, 'button', { name: strings.cancel }).click()
+    expect(called('keepDraftEdit').map((call) => call.args)).toEqual([['d1', a.body, 'Half an edit']])
+    const edits = new Map([['d1' as never, 'Half an edit']])
+    const kept = mount(
+      renderDraftsItem(context, draftsItemModel(threadInput({ draftEdits: edits }), item([a]))),
+    )
+    expect(textOf(kept)).toContain(strings.draftEditKept)
+    getByRole(kept, 'button', { name: strings.edit }).click()
+    const again = getByRole(dialog, 'textbox', { name: strings.editDraftLabel }) as HTMLTextAreaElement
+    expect(again.value).toBe('Half an edit')
+    fire.key(again, 'Enter')
+    expect(called('holdSend')).toHaveLength(0)
+    fire.key(again, 'Enter', { ctrlKey: true })
+    expect(called('holdSend')[0]!.args[1]).toBe('Half an edit')
+  })
+
+  it('lets a saved edit go, as the draft now holds it', () => {
+    const { context, called } = testContext()
+    const dialog = mount(dialogHost())
+    const a = draft('d1')
+    const shown = mount(renderDraftsItem(context, draftsItemModel(threadInput(), item([a]))))
+    getByRole(shown, 'button', { name: strings.edit }).click()
+    fire.type(getByRole(dialog, 'textbox', { name: strings.editDraftLabel }), 'Saved words')
+    getByRole(dialog, 'button', { name: strings.saveDraft }).click()
+    called('saveDraft')[0]!.then!.done!(undefined)
+    expect(dialog.open).toBe(false)
+    expect(called('keepDraftEdit').map((call) => call.args)).toEqual([['d1', 'Saved words', 'Saved words']])
   })
 
   it('shows its basis, what it applied, a missing basis, and sends a channel question elsewhere', () => {
@@ -180,7 +220,7 @@ describe('a draft its agent changed after the person read it', () => {
     getByRole(shown, 'button', { name: strings.draftReadAgain }).click()
     expect(called('confirmDraftRead')[0]!.args).toEqual([changed])
     getByRole(shown, 'button', { name: strings.discard }).click()
-    expect(called('holdDiscard')[0]!.args).toEqual([changed, strings.heldDiscarded])
+    expect(called('holdDiscard')[0]!.args).toEqual([changed, heldWordsFor('Ben').discard])
   })
 
   it('keeps the person’s edit when the agent changed the draft meanwhile, shows it as it is now, and sends from that', () => {

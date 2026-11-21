@@ -10,25 +10,40 @@ import {
 import { strings } from '../strings.ts'
 import { periodChoice, renderLabelsTable, renderTrend, shareBar } from './agent-figures.ts'
 import type { ViewContext } from './context.ts'
-import { loading } from './parts.ts'
+import { button, loading } from './parts.ts'
 
 /** Organization-wide numbers for administrators, over the period they choose. */
 export const insightsSection = (context: ViewContext, life: Lifetime): HTMLElement => {
   const loaded = signal<OrganizationInsights | null>(null)
   const days = signal(30)
+  const { storage } = context.page
+  const noticeDismissed = signal(storage.local(MINIMUM_NOTICE_KEY) === DISMISSED)
+  const dismissNotice = (): void => {
+    storage.setLocal(MINIMUM_NOTICE_KEY, DISMISSED)
+    noticeDismissed.set(true)
+  }
   context.actions.loadInsights({ done: (insights) => loaded.set(insights) })
   return h(
     'div',
     { class: 'insights' },
     h('p', {}, strings.insights.intro),
     periodChoice('insights-period', days),
-    region(life, [loaded, days], () => renderInsights(insightsModel(loaded.get(), days.get()))),
+    region(life, [loaded, days, noticeDismissed], () =>
+      renderInsights(insightsModel(loaded.get(), days.get(), noticeDismissed.get()), dismissNotice),
+    ),
   )
 }
 
-const renderInsights = (model: InsightsModel): Child => {
+const renderInsights = (model: InsightsModel, dismissNotice: () => void): Child => {
   if (model.kind === 'loading') return loading()
   return [
+    model.minimumNotice !== null &&
+      h(
+        'div',
+        { class: 'flow-warning insights-minimum-notice', role: 'note' },
+        h('p', {}, model.minimumNotice.text),
+        button(model.minimumNotice.dismiss, dismissNotice),
+      ),
     h('p', { class: 'insights-group-rule' }, model.groupRule),
     model.warnings.length > 0 &&
       h(
@@ -168,3 +183,6 @@ const places = (model: InsightsPlaces, id = 'insights-places'): HTMLElement =>
     model.hidden !== null && h('p', { class: 'trust-footnote' }, model.hidden),
     model.footnote !== undefined && h('p', { class: 'trust-footnote' }, model.footnote),
   )
+
+const MINIMUM_NOTICE_KEY = 'homingbird.insights-minimum-notice'
+const DISMISSED = 'dismissed'

@@ -68,6 +68,8 @@ export const runner = (
     readonly modes?: Readonly<Record<string, number>>
     readonly process?: (program: string, args: ReadonlyArray<string>) => ProcessRun | undefined
     readonly platform?: string
+    /** Answers the event stream instead of an open stream the test pushes events into. */
+    readonly stream?: () => Response
   } = {},
 ): Runner => {
   const created: unknown[] = []
@@ -103,17 +105,19 @@ export const runner = (
       ...options.stubs,
     },
     other: (call: Call) =>
-      call.path === '/api/v1/events/stream'
-        ? new Response(
-            new ReadableStream<Uint8Array>({
-              start: (opened) => {
-                controller = opened
-                w.stop.signal.addEventListener('abort', () => opened.error(new Error('aborted')))
-              },
-            }),
-            { status: 200 },
-          )
-        : undefined,
+      call.path === '/api/v1/events/stream' && options.stream !== undefined
+        ? options.stream()
+        : call.path === '/api/v1/events/stream'
+          ? new Response(
+              new ReadableStream<Uint8Array>({
+                start: (opened) => {
+                  controller = opened
+                  w.stop.signal.addEventListener('abort', () => opened.error(new Error('aborted')))
+                },
+              }),
+              { status: 200 },
+            )
+          : undefined,
     ...(options.agent !== undefined && { agent: options.agent }),
     ...(options.variables !== undefined && { variables: options.variables }),
     ...(options.signedIn !== undefined && { signedIn: options.signedIn }),

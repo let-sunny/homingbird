@@ -35,6 +35,8 @@ export interface FakeEventInit {
   readonly bubbles?: boolean
   readonly key?: string
   readonly shiftKey?: boolean
+  readonly ctrlKey?: boolean
+  readonly metaKey?: boolean
   readonly isComposing?: boolean
   readonly isTrusted?: boolean
   readonly pointerType?: string
@@ -66,6 +68,8 @@ export const fakeEvent = (type: string, init: FakeEventInit = {}): FakeEvent => 
     bubbles: init.bubbles ?? BUBBLING.has(type),
     key: init.key ?? '',
     shiftKey: init.shiftKey ?? false,
+    ctrlKey: init.ctrlKey ?? false,
+    metaKey: init.metaKey ?? false,
     isComposing: init.isComposing ?? false,
     isTrusted: init.isTrusted ?? true,
     pointerType: init.pointerType ?? 'mouse',

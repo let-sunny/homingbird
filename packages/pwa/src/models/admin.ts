@@ -9,7 +9,7 @@ import {
 import { flowSize, mayInsertExample } from '../answering-flow.ts'
 import { channelLabel } from '../channels.ts'
 import { featureOn } from '../features.ts'
-import { groupLabel, groupsOf } from '../groups.ts'
+import { channelList, channelsManagedBy, groupLabel, groupsOf, teamsOf } from '../groups.ts'
 import { presenceShown, unavailableOf } from '../presence.ts'
 import { type AdminSection, hrefFor } from '../routes.ts'
 import { formats, listOf, locale, strings } from '../strings.ts'
@@ -89,14 +89,19 @@ export const flowToolsModel = (steps: ReadonlyArray<FlowStep>): FlowTools => {
 }
 
 /**
- * Administration → Members: each member's role, status, last activity, agent and groups, flagged when
- * they have shown no activity for 30 days, filtered by a search over name, email and group.
+ * Administration → Members: each member's role, status, last activity, agent, agent connections, teams
+ * and the channels they manage, flagged when they have shown no activity for 30 days, filtered by a
+ * search over name, email and group.
  */
 export const adminMembersModel = (input: AdminMembersInput): AdminMembersModel => {
   if (input.members === null) return null
   const entries = new Map(input.directory.map((entry) => [entry.member.id, entry]))
+  const held =
+    input.agentCredentials === null
+      ? null
+      : new Map(input.agentCredentials.map((each) => [each.memberId, each]))
   const rows = input.members
-    .map((member) => memberRow(input, member, entries.get(member.id)))
+    .map((member) => memberRow(input, member, entries.get(member.id), held))
     .filter((row) => matchesSearch(row, input.query))
   const query = input.query.trim()
   return {
@@ -218,6 +223,8 @@ export interface AdminMembersInput {
   readonly charactersOn: boolean
   readonly directory: ReadonlyArray<AsRead.DirectoryEntry>
   readonly groups: ReadonlyArray<AsRead.Group>
+  /** Null from a server that does not say. */
+  readonly agentCredentials: ReadonlyArray<AsRead.AgentCredentialsHeld> | null
   readonly query: string
   readonly now: number
 }
@@ -236,8 +243,13 @@ export interface AdminMemberRow {
   readonly lastActive: { readonly text: string; readonly title: string | null } | null
   readonly agent: { readonly className: string; readonly text: string | null; readonly title: string } | null
   readonly dormant: string | null
+  /** Every group's label, teams and channels' managers, for the search. */
   readonly groupNames: ReadonlyArray<string>
+  /** The teams they are in; a channel's managers are named in `manages` instead. */
   readonly groups: string | null
+  readonly manages: string | null
+  /** Null where the server does not say. */
+  readonly agentCredentials: string | null
   readonly actions: ReadonlyArray<{
     readonly kind: MemberActionKind
     readonly label: string
@@ -274,8 +286,11 @@ const memberRow = (
   input: AdminMembersInput,
   member: AsRead.Member,
   entry: AsRead.DirectoryEntry | undefined,
+  held: ReadonlyMap<string, AsRead.AgentCredentialsHeld> | null,
 ): AdminMemberRow => {
   const groupNames = groupsOf(input.groups, member.id).map(groupLabel)
+  const teams = teamsOf(input.groups, member.id).map(groupLabel)
+  const managed = channelsManagedBy(input.groups, member.id)
   return {
     member,
     isYou: member.id === input.viewerId,
@@ -289,9 +304,9 @@ const memberRow = (
         : null,
     groupNames,
     groups:
-      groupNames.length === 0
-        ? null
-        : strings.adminMemberList.groups({ groups: formats.names.format(groupNames) }),
+      teams.length === 0 ? null : strings.adminMemberList.groups({ groups: formats.names.format(teams) }),
+    manages: managed.length === 0 ? null : strings.groups.manages({ channels: channelList(managed) }),
+    agentCredentials: held === null ? null : agentCredentialsOf(held.get(member.id)),
     actions: member.id === input.viewerId ? [] : memberActions(member, input.charactersOn),
   }
 }
@@ -323,6 +338,14 @@ const lastActiveOf = (lastSeenAt: number | null, now: number): NonNullable<Admin
         text: strings.adminMemberList.lastActive({ when: timeSince(lastSeenAt, now) }),
         title: strings.adminMemberList.lastActiveTitle({ time: formats.full.format(new Date(lastSeenAt)) }),
       }
+
+const agentCredentialsOf = (held: AsRead.AgentCredentialsHeld | undefined): string =>
+  held === undefined
+    ? strings.adminMemberList.noAgentCredentials
+    : strings.adminMemberList.agentCredentials({
+        count: held.count,
+        date: formats.day.format(new Date(held.newestExpiresAt)),
+      })
 
 const agentOf = (presence: AsRead.Presence): NonNullable<AdminMemberRow['agent']> => {
   const shown = presenceShown(presence, true).agent

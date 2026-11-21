@@ -224,7 +224,7 @@
   min-inline-size: 0;
 }
 
-.activity-item:not(.pending, .review-card) {
+.activity-item:not(.pending, .review-card, .held-line) {
   display: grid;
   gap: var(--hb-space-2);
   padding: var(--hb-space-3);
@@ -1516,59 +1516,49 @@ a.quote:hover {
 }
 
 .admin-member-list .member-main {
-  grid-template-columns: fit-content(70%) minmax(0, 1fr);
-  column-gap: var(--hb-space-2);
-  row-gap: 0;
-  align-items: baseline;
+  gap: var(--hb-space-1);
+  justify-items: stretch;
 }
 
-.member-email {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-inline-size: 100%;
-  color: var(--hb-color-muted);
-  font-size: var(--hb-text-small);
-}
-
-.member-tags {
+.member-identity {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--hb-space-1);
-  grid-column: 1 / -1;
+  align-items: baseline;
+  column-gap: var(--hb-space-2);
+  min-inline-size: 0;
 }
 
 .admin-member-list .member-tags {
   align-items: center;
-}
-
-.admin-member-list .member-last-active,
-.admin-member-list .member-groups {
   min-inline-size: 0;
-  max-inline-size: 100%;
-  color: var(--hb-color-muted);
-  font-size: var(--hb-text-small);
-  overflow-wrap: anywhere;
-}
-
-.admin-member-list .member-tags {
-  flex-wrap: wrap;
-  min-inline-size: 0;
-}
-
-.admin-member-list .member-tags > * {
-  max-inline-size: 100%;
 }
 
 .admin-member-list .agent-light,
 .admin-member-list .kind {
-  white-space: normal;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
 }
 
 .admin-member-list .agent-light.is-unavailable {
   color: var(--hb-color-danger-text);
   border-style: dashed;
+}
+
+.member-meta {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--hb-space-3);
+  min-inline-size: 0;
+  color: var(--hb-color-muted);
+  font-size: var(--hb-text-small);
+}
+
+.member-meta:empty {
+  display: none;
+}
+
+.member-meta > * {
+  min-inline-size: 0;
+  overflow-wrap: break-word;
 }
 
 .kind.is-dormant {
@@ -1580,29 +1570,24 @@ a.quote:hover {
   margin: 0;
 }
 
+@container stage (max-width: 20rem) {
+  .admin-member-list .agent-light,
+  .admin-member-list .kind {
+    white-space: normal;
+  }
+}
+
 @container stage (min-width: 30rem) {
   .admin-member-list .member {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: center;
-  }
-}
-
-@container stage (min-width: 56rem) {
-  .admin-member-list .member-main {
-    grid-template-columns: 10rem 14rem minmax(0, 1fr);
-    align-items: center;
+    align-items: start;
   }
 
-  .admin-member-list .member-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-inline-size: 100%;
-  }
-
-  .admin-member-list .member-tags {
-    grid-column: auto;
+  .admin-member-list .own-row-reason {
+    grid-column: 2 / -1;
+    max-inline-size: none;
+    margin: 0;
   }
 }
 
@@ -1852,7 +1837,54 @@ a.quote:hover {
 }
 
 .held-host {
-  inset: auto auto var(--hb-space-4) var(--hb-space-4);
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.activity-panel-foot {
+  position: sticky;
+  inset-block-end: 0;
+  z-index: 1;
+}
+
+.activity-panel-foot .toast {
+  margin: 0 var(--hb-space-3) var(--hb-space-3);
+}
+
+.held-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--hb-space-3);
+  padding: var(--hb-space-2) var(--hb-space-3);
+  border: var(--hb-pixel) dashed var(--hb-color-line);
+  background: var(--hb-color-pending-wash);
+  list-style: none;
+}
+
+.held-line > span {
+  flex: 1;
+}
+
+.held-line > .activity-place {
+  flex-basis: 100%;
+}
+
+.held-line.is-discard {
+  background: var(--hb-color-sunken);
+}
+
+.held-line .held-undo {
+  min-block-size: var(--hb-target-size);
+  min-inline-size: var(--hb-target-size);
+}
+
+.kept-edit {
+  margin: 0;
 }
 
 .toast.is-held span {
@@ -3818,6 +3850,14 @@ textarea:disabled {
 .insights-group-rule {
   max-inline-size: 48rem;
   color: var(--hb-color-muted);
+}
+
+.insights-minimum-notice {
+  justify-items: start;
+}
+
+.insights-minimum-notice p {
+  margin: 0;
 }
 
 .your-week {

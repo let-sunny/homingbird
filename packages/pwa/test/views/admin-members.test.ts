@@ -1,3 +1,4 @@
+import type { AsRead } from '@homingbird/protocol'
 import { presetById } from '@homingbird/sprites'
 import { lifetime } from '@homingbird/ui'
 import { fire, getByRole, textOf } from '@homingbird/ui/testing'
@@ -7,20 +8,27 @@ import { adminMembersSection } from '../../src/views/admin-members.ts'
 import { dialogHost } from '../../src/views/dialog.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
-import { ANA, BEN, CY, TEAM, entry, group, me, member } from '../support/fixtures.ts'
+import { ANA, BEN, CY, TEAM, entry, group, managersOf, me, member } from '../support/fixtures.ts'
 
 usingFakeDom()
+
+const listing = (
+  members: ReadonlyArray<AsRead.Member>,
+  agentCredentials: ReadonlyArray<AsRead.AgentCredentialsHeld> | null = null,
+) => ({ members, agentCredentials })
 
 describe('adminMembersSection', () => {
   it('changes roles and statuses, resets a character, and reloads after each', () => {
     const { context, called } = testContext()
     const shown = adminMembersSection(context, lifetime(), me({}, { role: 'admin' }))
     expect(textOf(shown)).toContain(strings.loading)
-    called('listMembers')[0]!.then!.done!([
-      member(ANA, 'Ana', { role: 'admin' }),
-      member(BEN, 'Ben', { role: 'admin', status: 'deactivated', character: presetById('owl')! }),
-      member(CY, 'Cy'),
-    ])
+    called('listMembers')[0]!.then!.done!(
+      listing([
+        member(ANA, 'Ana', { role: 'admin' }),
+        member(BEN, 'Ben', { role: 'admin', status: 'deactivated', character: presetById('owl')! }),
+        member(CY, 'Cy'),
+      ]),
+    )
     expect(textOf(shown)).toContain(strings.cannotChangeOwnRole)
     const ben = shown.querySelector(`[data-member-id="${BEN}"]`)!
     const cy = shown.querySelector(`[data-member-id="${CY}"]`)!
@@ -51,7 +59,7 @@ describe('adminMembersSection', () => {
     context.state.groups.set([group(TEAM, { name: 'Finance', memberIds: [CY] })])
     const shown = mount(adminMembersSection(context, lifetime(), me({}, { role: 'admin' })))
     expect(called('loadGroups')).toHaveLength(1)
-    called('listMembers')[0]!.then!.done!([member(ANA, 'Ana', { role: 'admin' }), member(CY, 'Cy')])
+    called('listMembers')[0]!.then!.done!(listing([member(ANA, 'Ana', { role: 'admin' }), member(CY, 'Cy')]))
     getByRole(shown, 'button', { name: strings.deactivate }).click()
     expect(called('updateMember')).toHaveLength(0)
     const dialog = document.getElementById('dialog')!
@@ -72,11 +80,13 @@ describe('adminMembersSection', () => {
     context.state.groups.set([group(TEAM, { name: 'Finance', memberIds: [CY] })])
     const shown = mount(adminMembersSection(context, lifetime(), me({}, { role: 'admin' })))
     expect(called('loadPeople')).toHaveLength(1)
-    called('listMembers')[0]!.then!.done!([
-      member(ANA, 'Ana', { role: 'admin' }),
-      member(BEN, 'Ben', { createdAt: now - 90 * day }),
-      member(CY, 'Cy'),
-    ])
+    called('listMembers')[0]!.then!.done!(
+      listing([
+        member(ANA, 'Ana', { role: 'admin' }),
+        member(BEN, 'Ben', { createdAt: now - 90 * day }),
+        member(CY, 'Cy'),
+      ]),
+    )
     const ben = (): Element => shown.querySelector(`[data-member-id="${BEN}"]`)!
     const cy = (): Element => shown.querySelector(`[data-member-id="${CY}"]`)!
     expect(textOf(ben())).not.toContain(strings.adminMemberList.neverActive)
@@ -104,5 +114,48 @@ describe('adminMembersSection', () => {
     fire.type(getByRole(shown, 'searchbox'), 'nobody')
     expect(shown.querySelectorAll('[data-member-id]')).toHaveLength(0)
     expect(textOf(shown)).toContain(strings.adminMemberList.noMatch({ query: 'nobody' }))
+  })
+
+  it('lays each row out as identity, a line of badges and one line of facts, with your own reason under the row', () => {
+    const { context, called, clock } = testContext()
+    const now = clock.now()
+    const channels = ['billing', 'billing-team', 'payroll', 'procurement', 'security-review']
+    context.state.groups.set([
+      group(TEAM, { name: 'Security, Privacy, Compliance and Vendor Risk Management', memberIds: [ANA] }),
+      ...channels.map((slug) => managersOf(slug, { memberIds: [ANA] })),
+    ])
+    const shown = mount(adminMembersSection(context, lifetime(), me({}, { role: 'admin' })))
+    context.state.directory.set([entry(ANA, 'Ana', { lastSeenAt: null })])
+    called('listMembers')[0]!.then!.done!(
+      listing(
+        [member(ANA, 'Ana', { role: 'admin', createdAt: now - 60 * 24 * 60 * 60 * 1000 })],
+        [{ memberId: ANA, count: 2, newestExpiresAt: now + 1000 }],
+      ),
+    )
+    const row = shown.querySelector(`[data-member-id="${ANA}"]`)!
+    expect([...row.children].map((child) => child.className)).toEqual([
+      expect.stringContaining('character'),
+      'member-main',
+      'hint own-row-reason',
+    ])
+    const main = row.querySelector('.member-main')!
+    expect([...main.children].map((child) => child.className)).toEqual([
+      'member-identity',
+      'member-tags',
+      'member-meta',
+    ])
+    expect([...main.querySelector('.member-tags')!.children].map((badge) => textOf(badge))).toEqual([
+      strings.memberRole.admin,
+      strings.memberStatus.active,
+      strings.adminMemberList.dormant,
+      strings.agentOffline,
+    ])
+    const meta = main.querySelector('.member-meta')!
+    expect(textOf(meta)).toContain(strings.adminMemberList.neverActive)
+    expect(textOf(meta.querySelector('.member-agent-credentials')!)).toContain('2')
+    expect(textOf(meta.querySelector('.member-groups')!)).toBe(
+      strings.adminMemberList.groups({ groups: 'Security, Privacy, Compliance and Vendor Risk Management' }),
+    )
+    expect(textOf(meta.querySelector('.member-manages')!)).toContain('#security-review')
   })
 })

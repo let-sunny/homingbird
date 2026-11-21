@@ -193,7 +193,7 @@ const importForm = (context: ViewContext, life: Lifetime, group: AsRead.Group): 
   const { actions } = context
   const members = signal<ReadonlyArray<AsRead.Member> | null>(null)
   const typed = signal('')
-  actions.listMembers({ done: (listed) => members.set(listed) })
+  actions.listMembers({ done: (listed) => members.set(listed.members) })
   const text = h('textarea', {
     name: 'emails',
     rows: '6',

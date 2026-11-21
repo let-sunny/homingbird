@@ -4,6 +4,7 @@ import { approvesQuicklyOften, carefulReadingFor } from '../careful-reading.ts'
 import { channelLabel, channelOfRoom } from '../channels.ts'
 import { type DraftBasis, draftBasisOf } from '../draft-basis.ts'
 import { isChangedSinceRead } from '../drafts-read.ts'
+import { type HeldChoices, heldWordsFor, keptEditLine } from '../held-decisions.ts'
 import { hrefFor } from '../routes.ts'
 import type { Thread } from '../state.ts'
 import { listOf, strings } from '../strings.ts'
@@ -136,9 +137,13 @@ export interface DraftCard {
     readonly send: string
     readonly alternatives: ReadonlyArray<AsRead.Note>
     readonly changeChannel: string | null
-    /** What the toast says while a send or discard can still be undone. */
-    readonly held: { readonly sent: string; readonly discarded: string }
+    /** What the card's place and the toast say while a send or discard is held, and after. */
+    readonly held: HeldChoices
+    /** The text Edit opens with: the person's kept edit, or the draft as it stands. */
+    readonly editText: string
   } | null
+  /** Said when the person edited the draft and did not send the edit; Approve and send sends the draft as shown. */
+  readonly keptEdit: string | null
 }
 
 const draftCard = (
@@ -183,11 +188,10 @@ const draftCard = (
           send: strings.approveAndSend,
           alternatives: alternativesLeftAfterSending(item, draft.id),
           changeChannel: channel === null ? null : channel.slug,
-          held: {
-            sent: strings.heldSent({ names: destination?.names ?? strings.formerMember }),
-            discarded: strings.heldDiscarded,
-          },
+          held: heldWordsFor(destination?.names ?? strings.formerMember),
+          editText: input.draftEdits.get(draft.id) ?? draft.body,
         },
+    keptEdit: archived ? null : keptEditLine(input.draftEdits, draft.id),
   }
 }
 

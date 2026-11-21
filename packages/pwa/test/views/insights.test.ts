@@ -50,6 +50,30 @@ describe('insightsSection', () => {
     expect(textOf(shown)).toContain(strings.insights.tooFew({ minimum: 5 }))
   })
 
+  it('tells an administrator at a minimum of 1 that figures may describe one person, until they dismiss it in this browser', () => {
+    const { context, called } = testContext()
+    const loaded = {
+      generatedAt: 0,
+      quickApprovalSeconds: 3,
+      minimumGroupSize: 1,
+      blocks: 1,
+      periods: [{ days: 30, current: organization, previous: null }],
+    }
+    const shown = insightsSection(context, lifetime())
+    called('loadInsights')[0]!.then!.done!(loaded)
+    const notice = shown.querySelector('.insights-minimum-notice')!
+    expect(notice.getAttribute('role')).toBe('note')
+    expect(textOf(notice)).toContain(strings.insights.minimumNotice)
+    expect(textOf(shown)).toContain(strings.insights.hiddenLabelsOnePerson({ count: 2 }))
+    expect(textOf(shown)).not.toContain(strings.insights.hiddenLabels({ count: 2 }))
+    getByRole(shown, 'button', { name: strings.insights.minimumNoticeDismiss }).click()
+    expect(textOf(shown)).not.toContain(strings.insights.minimumNotice)
+    const again = insightsSection(context, lifetime())
+    called('loadInsights')[1]!.then!.done!(loaded)
+    expect(textOf(again)).not.toContain(strings.insights.minimumNotice)
+    expect(textOf(again)).toContain(strings.insights.minimumOne)
+  })
+
   it('shows who wrote what was sent, delivery, the quick-approval weeks and a warning that is announced', () => {
     const { context, called } = testContext()
     const shown = insightsSection(context, lifetime())
@@ -134,7 +158,7 @@ describe('insightsSection', () => {
     expect(textOf(section)).toContain(strings.insights.hiddenTeams({ count: 2 }))
     expect(textOf(section)).toContain(strings.insights.teamsExplained)
     expect(textOf(shown)).not.toContain(strings.insights.noTeams)
-    expect(shown.querySelector('.flow-warning[role="note"]')).toBeNull()
+    expect(shown.querySelector('.flow-warning[role="note"]:not(.insights-minimum-notice)')).toBeNull()
   })
 
   it('says when no place has notes', () => {

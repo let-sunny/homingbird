@@ -4,7 +4,7 @@ import { approvesQuicklyOften } from '../careful-reading.ts'
 import { channelOfRoom } from '../channels.ts'
 import { characterOf } from '../characters.ts'
 import { featureOn } from '../features.ts'
-import { reviewsWithoutHeld, withoutHeld } from '../held-decisions.ts'
+import { type HeldLine, heldLineFor } from '../held-decisions.ts'
 import { MISSING } from '../missing.ts'
 import { type RoomReview, reviewsInRoomModel } from '../models/channel-agent.ts'
 import { type ComposerModel, composerModel } from '../models/composer.ts'
@@ -30,6 +30,7 @@ import { reviewCard } from './channel-agent.ts'
 import { composer } from './composer.ts'
 import type { ViewContext } from './context.ts'
 import { renderDraftsItem, reportWhenSeen } from './drafts-item.ts'
+import { renderHeldLine } from './held-toast.ts'
 import { renderNoteItem } from './note-item.ts'
 import { button, emptyWithPip, loading } from './parts.ts'
 import { chancesIn } from './teaching.ts'
@@ -67,6 +68,7 @@ export const threadView = (
     conversationId: id,
     thread: state.threads.get().get(id),
     draftsRead: state.draftsRead.get(),
+    draftEdits: state.draftEdits.get(),
     conversations: state.conversations.get(),
     channels: state.channels.get(),
     members: state.members.get(),
@@ -92,16 +94,17 @@ export const threadView = (
   const items = (): ReadonlyArray<ShownItem> =>
     withDividers(
       reviewsInRoomModel(
-        threadItems(
-          withoutHeld(state.threads.get().get(id)?.notes ?? [], state.held.get(), (note) => note.id),
-          state.draftRequests.get(),
-        ),
-        reviewsWithoutHeld(state.reviews.get(), state.held.get()),
+        threadItems(state.threads.get().get(id)?.notes ?? [], state.draftRequests.get()),
+        state.reviews.get(),
         { conversationId: id, viewerId: me.member.id },
         state.reviewsRead.get(),
         state.members.get(),
+        state.draftEdits.get(),
         focusedReview,
-      ),
+      ).map((item): RoomItem => {
+        const line = item.type === 'note' ? null : heldLineFor(state.held.get(), decidedBy(item))
+        return line === null ? item : { type: 'held', key: item.key, line }
+      }),
       { now: context.clock.now(), unreadFrom: unreadOnOpening() },
     )
   const scroller = h('div', { class: 'thread-scroll', tabindex: '0', role: 'region' })
@@ -112,7 +115,7 @@ export const threadView = (
     `↓ ${strings.newerBelow}`,
   )
   const signatureOf = (item: ShownItem): string => {
-    if (item.type === 'review' || item.type === 'divider') return JSON.stringify(item)
+    if (item.type === 'review' || item.type === 'divider' || item.type === 'held') return JSON.stringify(item)
     const shown = input()
     const drawn = item.type === 'note' ? noteItemModel(shown, item) : item
     return JSON.stringify([drawn, ...signatureParts(shown, item)])
@@ -171,6 +174,7 @@ export const threadView = (
       state.reviews,
       state.reviewsRead,
       state.held,
+      state.draftEdits,
     ],
     items,
     {
@@ -182,7 +186,13 @@ export const threadView = (
           : follow.track(
               item.key,
               seen.watch(
-                item.type === 'note' ? sentNote(item) : item.type === 'drafts' ? drafts(item) : review(item),
+                item.type === 'note'
+                  ? sentNote(item)
+                  : item.type === 'drafts'
+                    ? drafts(item)
+                    : item.type === 'held'
+                      ? renderHeldLine(context, item.line)
+                      : review(item),
               ),
             ),
     },
@@ -265,7 +275,17 @@ export const threadView = (
   })
 }
 
-type RoomItem = ThreadItem | RoomReview
+type RoomItem = ThreadItem | RoomReview | HeldItem
+
+/** A draft or answer decided a moment ago, in its place until it is carried out. */
+interface HeldItem {
+  readonly type: 'held'
+  readonly key: string
+  readonly line: HeldLine
+}
+
+const decidedBy = (item: Exclude<ThreadItem | RoomReview, { type: 'note' }>): ReadonlyArray<NoteId> =>
+  item.type === 'review' ? [item.card.review.note.id] : item.drafts.map((draft) => draft.id)
 
 type ShownItem = RoomItem | ThreadDivider
 

@@ -27,6 +27,7 @@ import type {
 } from './insights.ts'
 import type { InviteLink as InviteLinkSchema, Invite as InviteSchema } from './invites.ts'
 import type {
+  AgentCredentialsHeld as AgentCredentialsHeldSchema,
   Channel as ChannelSchema,
   Contact as ContactSchema,
   Conversation as ConversationSchema,
@@ -57,6 +58,7 @@ export type Conversation = S.Read<typeof ConversationSchema>
 export type InboxItem = S.Read<typeof InboxItemSchema>
 export type Notice = S.Read<typeof NoticeSchema>
 export type Member = S.Read<typeof MemberSchema>
+export type AgentCredentialsHeld = S.Read<typeof AgentCredentialsHeldSchema>
 export type Me = S.Read<typeof MeSchema>
 export type DirectoryEntry = S.Read<typeof DirectoryEntrySchema>
 export type Presence = S.Read<typeof PresenceSchema>
