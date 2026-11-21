@@ -7,6 +7,7 @@ import { shell } from '../../src/views/shell.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
 import {
+  ANA,
   BEN,
   CY,
   ROOM,
@@ -112,6 +113,22 @@ describe('shell', () => {
     expect(document.getElementById(blocked.getAttribute('aria-describedby')!)!.textContent).toBe(
       strings.managerCannotLeave,
     )
+  })
+
+  it('marks the My agent tab while the person’s agent cannot answer, and clears it once it can', () => {
+    const { context } = testContext()
+    context.state.session.set(me())
+    const shown = mount(shell(context, lifetime(), me(), document.createElement('main')))
+    const tab = () => shown.querySelector('.tabs .tab[data-tour="connect"]')!
+    expect(tab().querySelector('.agent-mark')).toBeNull()
+    context.state.directory.set([
+      entry(ANA, 'Ana', {
+        presence: { humanOnline: true, agentOnline: true, agentUnavailable: { until: null, kind: 'failed' } },
+      }),
+    ])
+    expect(getByRole(tab() as HTMLElement, 'img', { name: strings.activity.unavailableTitle })).toBeTruthy()
+    context.state.directory.set([entry(ANA, 'Ana')])
+    expect(tab().querySelector('.agent-mark')).toBeNull()
   })
 
   it('says how it is connected, and tells when it is offline', () => {

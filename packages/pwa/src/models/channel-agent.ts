@@ -7,6 +7,7 @@ import {
   type NoteId,
   isPerson,
 } from '@homingbird/protocol'
+import { type ChannelAgentState, channelAgentState } from '../channel-answerers.ts'
 import { channelLabel, channelOfRoom, isPrivate } from '../channels.ts'
 import { draftBasisOf } from '../draft-basis.ts'
 import { isChangedSinceRead } from '../drafts-read.ts'
@@ -42,6 +43,7 @@ export const channelAgentPageModel = (
     kind: 'channel',
     title: strings.channelAgent.pageTitle({ channel: channelLabel(slug) }),
     channel,
+    agentState: channel.agent == null ? null : channelAgentState(channel.agent),
   }
 }
 
@@ -313,7 +315,13 @@ export const deviceTargetsModel = (
 export type ChannelAgentPage =
   | { readonly kind: 'loading' }
   | { readonly kind: 'missing'; readonly text: string }
-  | { readonly kind: 'channel'; readonly title: string; readonly channel: AsRead.Channel }
+  | {
+      readonly kind: 'channel'
+      readonly title: string
+      readonly channel: AsRead.Channel
+      /** Whether the agent is there to answer, as a person's agent is shown. */
+      readonly agentState: ChannelAgentState | null
+    }
 
 export interface ReviewBadge {
   readonly text: string

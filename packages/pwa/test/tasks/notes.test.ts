@@ -1,3 +1,4 @@
+import type { ConversationId } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import { MISSING } from '../../src/missing.ts'
 import {
@@ -15,6 +16,17 @@ import {
 } from '../../src/tasks/notes.ts'
 import { fail, testApp } from '../support/app.ts'
 import { ANA, BEN, ROOM, conversation, me, note } from '../support/fixtures.ts'
+
+const OTHER = 'conv_other0000000' as ConversationId
+
+const receipt = (readAt: number | null) => ({
+  memberId: ANA,
+  state: readAt === null ? ('delivered' as const) : ('read' as const),
+  deliveredAt: 1,
+  readAt,
+  draftingAt: null,
+  repliedAt: null,
+})
 
 const page = (notes: ReturnType<typeof note>[], hasMore = false, notices: unknown[] = []) => ({
   notes,
@@ -179,6 +191,31 @@ describe('keeping notes', () => {
     forgetNote(state, ROOM, 'n1' as never)
     forgetNote(state, 'conv_none00000000' as never, 'n1' as never)
     expect(state.threads.get().get(ROOM)?.notes ?? []).toEqual([])
+  })
+
+  it('lowers the conversation’s unread count once a note it counted is read', async () => {
+    const unread = note('n1', { authorId: BEN, receipts: [receipt(null)] })
+    const read = note('n1', { authorId: BEN, receipts: [receipt(5)] })
+    const { run, state } = testApp({ 'notes.read': () => read })
+    state.session.set(me())
+    state.conversations.set([conversation({ unreadCount: 2 }), conversation({ id: OTHER, unreadCount: 1 })])
+    await run(markRead(unread))
+    expect(state.conversations.get().map((room) => room.unreadCount)).toEqual([1, 1])
+    await run(markRead(read))
+    expect(state.conversations.get().map((room) => room.unreadCount)).toEqual([1, 1])
+  })
+
+  it('never lowers an unread count below none, nor while nobody is signed in', async () => {
+    const unread = note('n1', { authorId: BEN, receipts: [receipt(null)] })
+    const read = note('n1', { authorId: BEN, receipts: [receipt(5)] })
+    const { run, state } = testApp({ 'notes.read': () => read })
+    state.conversations.set([conversation({ unreadCount: 1 })])
+    await run(markRead(unread))
+    expect(state.conversations.get()[0]!.unreadCount).toBe(1)
+    state.session.set(me())
+    state.conversations.set([conversation({ unreadCount: 0 })])
+    await run(markRead(unread))
+    expect(state.conversations.get()[0]!.unreadCount).toBe(0)
   })
 
   it('marks a note read, and forgets a release once a draft answers it', async () => {

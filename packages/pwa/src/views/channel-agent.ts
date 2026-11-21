@@ -1,6 +1,7 @@
 import type { AsRead, NoteId } from '@homingbird/protocol'
 import { CHANNEL_AGENT_NAME_MAX } from '@homingbird/protocol'
 import { type Child, type Lifetime, derived, h, region, signal } from '@homingbird/ui'
+import type { ChannelAgentState } from '../channel-answerers.ts'
 import { featureOn } from '../features.ts'
 import {
   type ChannelAgentFiguresModel,
@@ -66,7 +67,11 @@ export const channelAgentView = (
       const page = channelAgentPageModel(state.channels.get(), state.channelsLoaded.get(), slug)
       if (page.kind === 'loading') return loading()
       if (page.kind === 'missing') return h('p', { class: 'hint' }, page.text)
-      return pageOf(page.title, agentPanel(context, life, page.channel, focus, 'page'))
+      return pageOf(
+        page.title,
+        page.agentState !== null && channelAgentStateLine(page.agentState),
+        agentPanel(context, life, page.channel, focus, 'page'),
+      )
     }),
   )
 }
@@ -446,4 +451,13 @@ export const reviewCard = (
             { class: 'primary' },
           ),
         ),
+  )
+
+/** A channel's agent's state as a dot and its words, as a person's agent is shown. */
+export const channelAgentStateLine = (state: ChannelAgentState): HTMLElement =>
+  h(
+    'p',
+    { class: 'channel-agent-state', role: 'status' },
+    h('span', { class: `agent-mark-dot is-${state.state}`, 'aria-hidden': 'true' }),
+    state.label,
   )

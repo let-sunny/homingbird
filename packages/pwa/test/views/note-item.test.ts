@@ -7,7 +7,7 @@ import { dialogHost } from '../../src/views/dialog.ts'
 import { renderNoteItem } from '../../src/views/note-item.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
-import { ANA, BEN, ROOM, conversation, note } from '../support/fixtures.ts'
+import { ANA, BEN, ROOM, channel, conversation, note } from '../support/fixtures.ts'
 import { threadInput } from '../support/thread.ts'
 
 usingFakeDom()
@@ -138,5 +138,22 @@ describe('renderNoteItem', () => {
       threadInput({ conversations: [conversation({ kind: 'channel' })] }),
     )
     expect(textOf(shown)).toContain(strings.answeredBy({ names: 'Ben' }))
+  })
+
+  it('says under the person’s waiting question who answers, as a warning when nobody can now', () => {
+    const { context } = testContext()
+    const asked = note('q', { authorId: ANA })
+    const shown = render(
+      context,
+      asked,
+      threadInput({
+        conversations: [conversation({ kind: 'channel' })],
+        channels: [channel('billing', { conversationId: ROOM, helperCount: 0 })],
+        thread: { notes: [asked], hasMore: false },
+      }),
+    )
+    const line = getByRole(shown, 'status')
+    expect(textOf(line)).toBe(strings.channelAnswer.nobodyAnswers)
+    expect(line.className).toContain('is-warning')
   })
 })

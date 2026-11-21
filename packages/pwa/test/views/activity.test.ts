@@ -73,7 +73,7 @@ describe('activityBell', () => {
     expect(textOf(bell.querySelector('.activity-count')!)).toBe('2')
     expect(link().getAttribute('href')).toBe('#/activity')
     expect(link().dataset.tour).toBe('activity')
-    expect(called('loadDebates')).toHaveLength(1)
+    expect(called('loadActivity')).toHaveLength(1)
     const click = fakeEvent('click') as unknown as Event
     link().dispatchEvent(click)
     expect(click.defaultPrevented).toBe(true)
@@ -95,6 +95,20 @@ describe('activityBell', () => {
     expect(isPopoverOpen(panel as never)).toBe(false)
   })
 
+  it('marks apart, and never counts, that the person’s agent cannot answer', () => {
+    const { state, bell, link } = shown()
+    state.conversations.set([])
+    expect(bell.querySelector('.agent-mark')).toBeNull()
+    state.directory.set([
+      entry(ANA, 'Ana', {
+        presence: { humanOnline: true, agentOnline: true, agentUnavailable: { until: null, kind: 'failed' } },
+      }),
+    ])
+    expect(bell.querySelector('.agent-mark')).not.toBeNull()
+    expect(bell.querySelector('.activity-count')).toBeNull()
+    expect(link().getAttribute('aria-label')).toBe(strings.activity.bellNoneAgentUnavailable)
+  })
+
   it('leads to the activity page in a browser without popovers', () => {
     installFakeDom({ popovers: false })
     const { link } = shown()
@@ -109,8 +123,9 @@ describe('activityPanel', () => {
     const { state, panel, called } = shown()
     state.threads.set(new Map([[ROOM, { notes: [draft('note_d1')], hasMore: false }]]))
     expect(panel.querySelector('.activity-item')).toBeNull()
-    panel.showPopover()
     expect(called('loadActivity')).toHaveLength(1)
+    panel.showPopover()
+    expect(called('loadActivity')).toHaveLength(2)
     expect(getByRole(panel, 'heading', { name: strings.activity.title })).toBeTruthy()
     expect(textOf(panel)).toContain(strings.activity.groups.drafts)
     state.conversations.update((all) => [...all])

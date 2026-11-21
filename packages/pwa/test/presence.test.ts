@@ -2,6 +2,7 @@ import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import {
   deskUnavailableReason,
+  presenceMarks,
   presenceShown,
   theirAgentUnavailable,
   unavailableOf,
@@ -65,5 +66,33 @@ describe('an agent that cannot answer', () => {
     ).toBeNull()
     expect(theirAgentUnavailable(undefined)).toBeNull()
     expect(deskUnavailableReason(null)).toEqual([])
+  })
+})
+
+describe('presenceMarks', () => {
+  it('names whose each mark is: the colleague and the colleague’s agent', () => {
+    expect(presenceMarks({ humanOnline: true, agentOnline: true }, 'Kai')).toEqual({
+      person: { isOn: true, label: strings.presenceOf.online({ name: 'Kai' }) },
+      agent: { state: 'on', label: strings.presenceOf.agentAwake({ name: 'Kai' }) },
+    })
+    expect(presenceMarks({ humanOnline: false, agentOnline: false }, 'Kai')).toEqual({
+      person: { isOn: false, label: strings.presenceOf.away({ name: 'Kai' }) },
+      agent: { state: 'off', label: strings.presenceOf.agentAsleep({ name: 'Kai' }) },
+    })
+  })
+
+  it('says when the colleague’s running agent cannot answer, and until when if known', () => {
+    const until = presenceMarks(
+      { humanOnline: false, agentOnline: true, agentUnavailable: { until: 0 } },
+      'Kai',
+    ).agent
+    expect(until.state).toBe('unavailable')
+    expect(until.label).toBe(
+      strings.presenceOf.agentUnavailableUntil({ name: 'Kai', time: formats.time.format(new Date(0)) }),
+    )
+    expect(
+      presenceMarks({ humanOnline: false, agentOnline: true, agentUnavailable: { until: null } }, 'Kai')
+        .agent,
+    ).toEqual({ state: 'unavailable', label: strings.presenceOf.agentUnavailable({ name: 'Kai' }) })
   })
 })

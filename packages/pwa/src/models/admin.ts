@@ -10,8 +10,9 @@ import { flowSize, mayInsertExample } from '../answering-flow.ts'
 import { channelLabel } from '../channels.ts'
 import { featureOn } from '../features.ts'
 import { groupLabel, groupsOf } from '../groups.ts'
+import { presenceShown, unavailableOf } from '../presence.ts'
 import { type AdminSection, hrefFor } from '../routes.ts'
-import { listOf, strings } from '../strings.ts'
+import { formats, listOf, locale, strings } from '../strings.ts'
 
 /** Administration: its tabs, the one shown, and Groups and Insights only where the organization has them. */
 export const adminModel = (info: AsRead.ServerInfo | null, section: AdminSection): AdminModel => {
@@ -87,34 +88,26 @@ export const flowToolsModel = (steps: ReadonlyArray<FlowStep>): FlowTools => {
   }
 }
 
-/** Administration → Members: each member's role and status, and what may be changed for them. */
-export const adminMembersModel = (
-  members: ReadonlyArray<AsRead.Member> | null,
-  viewerId: string,
-  charactersOn: boolean,
-): AdminMembersModel =>
-  members === null
-    ? null
-    : members.map((member) => ({
-        member,
-        isYou: member.id === viewerId,
-        role: { className: `kind is-${member.role}`, text: strings.memberRole[member.role] },
-        status: { className: `kind is-${member.status}`, text: strings.memberStatus[member.status] },
-        actions:
-          member.id === viewerId
-            ? []
-            : [
-                ...(member.role === 'admin' ? [memberAction('make-member', strings.makeMember)] : []),
-                ...(member.role === 'member' ? [memberAction('make-admin', strings.makeAdmin)] : []),
-                ...(member.status === 'active'
-                  ? [memberAction('deactivate', strings.deactivate, 'danger')]
-                  : []),
-                ...(member.status === 'deactivated' ? [memberAction('reactivate', strings.reactivate)] : []),
-                ...(member.character != null && charactersOn
-                  ? [memberAction('reset-character', strings.character.resetMember)]
-                  : []),
-              ],
-      }))
+/**
+ * Administration → Members: each member's role, status, last activity, agent and groups, flagged when
+ * they have shown no activity for 30 days, filtered by a search over name, email and group.
+ */
+export const adminMembersModel = (input: AdminMembersInput): AdminMembersModel => {
+  if (input.members === null) return null
+  const entries = new Map(input.directory.map((entry) => [entry.member.id, entry]))
+  const rows = input.members
+    .map((member) => memberRow(input, member, entries.get(member.id)))
+    .filter((row) => matchesSearch(row, input.query))
+  const query = input.query.trim()
+  return {
+    rows,
+    noMatch: rows.length === 0 && query !== '' ? strings.adminMemberList.noMatch({ query }) : null,
+  }
+}
+
+/** Whether a member has shown no activity for 30 days: their last connection, or their joining if none. */
+export const isDormant = (member: AsRead.Member, lastSeenAt: number | null, now: number): boolean =>
+  member.status === 'active' && now - (lastSeenAt ?? member.createdAt) > DORMANT_AFTER_MS
 
 /**
  * What deactivating a member does to their groups: it removes them from every one, so the dialog names
@@ -219,17 +212,38 @@ export interface FlowTools {
 
 export type MemberActionKind = 'make-member' | 'make-admin' | 'deactivate' | 'reactivate' | 'reset-character'
 
-export type AdminMembersModel = ReadonlyArray<{
+export interface AdminMembersInput {
+  readonly members: ReadonlyArray<AsRead.Member> | null
+  readonly viewerId: string
+  readonly charactersOn: boolean
+  readonly directory: ReadonlyArray<AsRead.DirectoryEntry>
+  readonly groups: ReadonlyArray<AsRead.Group>
+  readonly query: string
+  readonly now: number
+}
+
+export type AdminMembersModel = {
+  readonly rows: ReadonlyArray<AdminMemberRow>
+  readonly noMatch: string | null
+} | null
+
+export interface AdminMemberRow {
   readonly member: AsRead.Member
   readonly isYou: boolean
   readonly role: { readonly className: string; readonly text: string }
   readonly status: { readonly className: string; readonly text: string }
+  /** Null where the directory has no entry for them, as for a deactivated member. */
+  readonly lastActive: { readonly text: string; readonly title: string | null } | null
+  readonly agent: { readonly className: string; readonly text: string; readonly title: string } | null
+  readonly dormant: string | null
+  readonly groupNames: ReadonlyArray<string>
+  readonly groups: string | null
   readonly actions: ReadonlyArray<{
     readonly kind: MemberActionKind
     readonly label: string
     readonly danger: boolean
   }>
-}> | null
+}
 
 export type AdminChannelsModel =
   | { readonly kind: 'loading' }
@@ -256,9 +270,87 @@ const memberAction = (kind: MemberActionKind, label: string, style?: 'danger') =
   danger: style === 'danger',
 })
 
+const memberRow = (
+  input: AdminMembersInput,
+  member: AsRead.Member,
+  entry: AsRead.DirectoryEntry | undefined,
+): AdminMemberRow => {
+  const groupNames = groupsOf(input.groups, member.id).map(groupLabel)
+  return {
+    member,
+    isYou: member.id === input.viewerId,
+    role: { className: `kind is-${member.role}`, text: strings.memberRole[member.role] },
+    status: { className: `kind is-${member.status}`, text: strings.memberStatus[member.status] },
+    lastActive: entry === undefined ? null : lastActiveOf(entry.lastSeenAt, input.now),
+    agent: entry === undefined ? null : agentOf(entry.presence),
+    dormant:
+      entry !== undefined && isDormant(member, entry.lastSeenAt, input.now)
+        ? strings.adminMemberList.dormant
+        : null,
+    groupNames,
+    groups:
+      groupNames.length === 0
+        ? null
+        : strings.adminMemberList.groups({ groups: formats.names.format(groupNames) }),
+    actions: member.id === input.viewerId ? [] : memberActions(member, input.charactersOn),
+  }
+}
+
+const memberActions = (member: AsRead.Member, charactersOn: boolean): AdminMemberRow['actions'] => [
+  ...(member.role === 'admin' ? [memberAction('make-member', strings.makeMember)] : []),
+  ...(member.role === 'member' ? [memberAction('make-admin', strings.makeAdmin)] : []),
+  ...(member.status === 'active' ? [memberAction('deactivate', strings.deactivate, 'danger')] : []),
+  ...(member.status === 'deactivated' ? [memberAction('reactivate', strings.reactivate)] : []),
+  ...(member.character != null && charactersOn
+    ? [memberAction('reset-character', strings.character.resetMember)]
+    : []),
+]
+
+const matchesSearch = (row: AdminMemberRow, query: string): boolean => {
+  const wanted = query.trim().toLocaleLowerCase()
+  return (
+    wanted === '' ||
+    [row.member.name, row.member.email, ...row.groupNames].some((text) =>
+      text.toLocaleLowerCase().includes(wanted),
+    )
+  )
+}
+
+const lastActiveOf = (lastSeenAt: number | null, now: number): NonNullable<AdminMemberRow['lastActive']> =>
+  lastSeenAt === null
+    ? { text: strings.adminMemberList.neverActive, title: null }
+    : {
+        text: strings.adminMemberList.lastActive({ when: timeSince(lastSeenAt, now) }),
+        title: strings.adminMemberList.lastActiveTitle({ time: formats.full.format(new Date(lastSeenAt)) }),
+      }
+
+const agentOf = (presence: AsRead.Presence): NonNullable<AdminMemberRow['agent']> => {
+  const shown = presenceShown(presence, true).agent
+  const state = shown.isOn ? 'is-on' : unavailableOf(presence) === null ? 'is-off' : 'is-unavailable'
+  return { className: `agent-light ${state}`, text: shown.words ?? '', title: shown.title }
+}
+
+const timeSince = (then: number, now: number): string => {
+  const elapsed = Math.max(0, now - then)
+  const [unit, size] = SINCE_UNITS.find(([, size]) => elapsed >= size) ?? SECOND
+  const relative = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
+  return relative.format(-Math.floor(elapsed / size), unit)
+}
+
 const isSameSettings = (a: SettingsEdit, b: SettingsEdit): boolean =>
   a.allowedDomains.join('\n') === b.allowedDomains.join('\n') &&
   a.contactMode === b.contactMode &&
   a.answeringFlow === b.answeringFlow &&
   a.whoCanInvite === b.whoCanInvite &&
   FEATURE_NAMES.every((name) => a.features[name] === b.features[name])
+
+const MINUTE_MS = 60_000
+const HOUR_MS = 60 * MINUTE_MS
+const DAY_MS = 24 * HOUR_MS
+const DORMANT_AFTER_MS = 30 * DAY_MS
+const SECOND: readonly [Intl.RelativeTimeFormatUnit, number] = ['second', 1000]
+const SINCE_UNITS: ReadonlyArray<readonly [Intl.RelativeTimeFormatUnit, number]> = [
+  ['day', DAY_MS],
+  ['hour', HOUR_MS],
+  ['minute', MINUTE_MS],
+]

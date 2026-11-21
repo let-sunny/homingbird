@@ -11,10 +11,20 @@ import { leaveConsequence } from './channel-membership.ts'
 import { type MuteToggle, muteToggleModel } from './mute-toggle.ts'
 import { type TimeShown, timeShown } from './time.ts'
 
-/** The header's tabs, the current one marked; Debates only where the organization has it. */
-export const tabsModel = (route: Route, info: AsRead.ServerInfo | null): ReadonlyArray<Tab> => [
+/**
+ * The header's tabs, the current one marked; Debates only where the organization has it. My agent
+ * carries a mark while the person's agent cannot answer, named by `agentUnavailable`.
+ */
+export const tabsModel = (
+  route: Route,
+  info: AsRead.ServerInfo | null,
+  agentUnavailable: string | null = null,
+): ReadonlyArray<Tab> => [
   tab(strings.navNotes, { name: 'home' }, ['home', 'conversation'], route),
-  tab(strings.navMyAgent, { name: 'agent', section: null }, ['agent'], route, 'connect'),
+  {
+    ...tab(strings.navMyAgent, { name: 'agent', section: null }, ['agent'], route, 'connect'),
+    mark: agentUnavailable,
+  },
   tab(strings.navPeople, { name: 'people' }, ['people', 'group'], route),
   tab(strings.channels, { name: 'channels' }, ['channels', 'channel', 'channel-agent'], route, 'channels'),
   ...(featureOn('debateRooms', info)
@@ -71,6 +81,8 @@ export interface Tab {
   readonly href: string
   readonly current: boolean
   readonly tour: string | null
+  /** A state the tab's page tells about, as a small mark with these words for assistive technology. */
+  readonly mark: string | null
 }
 
 export interface UserMenu {
@@ -150,7 +162,7 @@ const tab = (
   activeFor: ReadonlyArray<Route['name']>,
   route: Route,
   tour: string | null = null,
-): Tab => ({ label, href: hrefFor(target), current: activeFor.includes(route.name), tour })
+): Tab => ({ label, href: hrefFor(target), current: activeFor.includes(route.name), tour, mark: null })
 
 const isOpen = (route: Route, conversation: AsRead.Conversation): boolean =>
   route.name === 'conversation' && route.id === conversation.id

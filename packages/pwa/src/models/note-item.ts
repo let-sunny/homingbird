@@ -1,5 +1,6 @@
 import { type AsRead, type MemberId, type NoteId, summarize } from '@homingbird/protocol'
 import { authorshipOf, showsStateMark, stateMarkOf } from '../authorship.ts'
+import { type AnswerersLine, questionWaits } from '../channel-answerers.ts'
 import { draftBasisOf } from '../draft-basis.ts'
 import { unavailableOf } from '../presence.ts'
 import { spriteOwner } from '../sprite-owner.ts'
@@ -17,7 +18,7 @@ import {
 } from '../thread.ts'
 import { type AvatarModel, memberAvatarOf } from './avatar.ts'
 import { agentAuthorshipLine, approvalLine } from './channel-agent.ts'
-import { type ThreadInput, isOn, nameIn, noteIn, roomOf } from './thread-room.ts'
+import { type ThreadInput, channelAskedIn, isOn, nameIn, noteIn, notesOf, roomOf } from './thread-room.ts'
 import { type TimeShown, timeShown } from './time.ts'
 
 /** One sent note: who wrote it and how, what it answers, how far it got, and what the person may do. */
@@ -70,6 +71,7 @@ export const noteItemModel = (
             text: strings.answeredBy({ names: listOf(answerers.map((memberId) => nameIn(input, memberId))) }),
           },
     release: !mine && !archived ? releaseModel(input, note) : null,
+    waits: mine && answerers.length === 0 ? questionLine(input, note) : null,
     meta:
       next === null || markShown
         ? {
@@ -107,6 +109,8 @@ export interface NoteItemModel {
   readonly approval: string | null
   readonly answeredBy: { readonly avatar: AvatarModel; readonly text: string } | null
   readonly release: { readonly text: string; readonly askAnyway: string | null } | null
+  /** Under the person's latest question in a channel while no answer came: who answers, then drafting. */
+  readonly waits: AnswerersLine | null
   readonly meta: { readonly time: TimeShown | null; readonly mark: StateMarkModel | null } | null
   /** The toolbar's Reply, where the person may answer the note. */
   readonly reply: string | null
@@ -220,6 +224,27 @@ const authorModel = (
         : [],
     sent: showsDetails && sentAt !== null ? strings.authorship.sent({ time: sentAt }) : null,
   }
+}
+
+const questionLine = (input: ThreadInput, note: AsRead.Note): AnswerersLine | null => {
+  const channel = note.inReplyTo === null && note.status === 'sent' ? channelAskedIn(input) : null
+  if (channel === null) return null
+  const notes = notesOf(input)
+  const latest = notes.findLast(
+    (other) => other.authorId === note.authorId && other.inReplyTo === null && other.status === 'sent',
+  )
+  const answered = notes.some((other) => other.inReplyTo === note.id && other.status === 'sent')
+  return answered || latest?.id !== note.id
+    ? null
+    : questionWaits(
+        {
+          channel,
+          directory: input.directory,
+          viewerId: input.me.member.id,
+          agentsOn: isOn(input, 'channelAgents'),
+        },
+        note,
+      )
 }
 
 const releaseModel = (input: ThreadInput, note: AsRead.Note): NoteItemModel['release'] => {

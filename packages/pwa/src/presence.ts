@@ -14,6 +14,34 @@ export const presenceShown = (presence: AsRead.Presence, inWords: boolean): Pres
   }
 }
 
+/** A colleague's presence as two small marks, each named for whom it is about: them and their agent. */
+export interface PresenceMarks {
+  readonly person: { readonly isOn: boolean; readonly label: string }
+  readonly agent: { readonly state: 'on' | 'off' | 'unavailable'; readonly label: string }
+}
+
+export const presenceMarks = (presence: AsRead.Presence, name: string): PresenceMarks => {
+  const unavailable = unavailableOf(presence)
+  return {
+    person: {
+      isOn: presence.humanOnline,
+      label: presence.humanOnline ? strings.presenceOf.online({ name }) : strings.presenceOf.away({ name }),
+    },
+    agent:
+      unavailable !== null
+        ? {
+            state: 'unavailable',
+            label:
+              unavailable.until === null
+                ? strings.presenceOf.agentUnavailable({ name })
+                : strings.presenceOf.agentUnavailableUntil({ name, time: timeOf(unavailable.until) }),
+          }
+        : presence.agentOnline
+          ? { state: 'on', label: strings.presenceOf.agentAwake({ name }) }
+          : { state: 'off', label: strings.presenceOf.agentAsleep({ name }) },
+  }
+}
+
 /** What a colleague's composer says before sending to someone whose desk runs but whose agent cannot answer. */
 export const theirAgentUnavailable = (presence: AsRead.Presence | undefined): string | null => {
   const unavailable = unavailableOf(presence)

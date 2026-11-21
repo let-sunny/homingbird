@@ -6,6 +6,7 @@ import { settle, testApp } from '../support/app.ts'
 import {
   ANA,
   BEN,
+  CY,
   ROOM,
   channel,
   conversation,
@@ -249,6 +250,9 @@ describe('liveEvents', () => {
     const { apply, state, routes } = live()
     apply(event({ type: 'presence', members: [{ memberId: BEN, humanOnline: true, agentOnline: true }] }))
     expect(state.directory.get()[0]!.presence).toEqual({ humanOnline: true, agentOnline: true })
+    state.channels.set([channel('billing', { agent: { id: CY, name: 'Helper' } })])
+    apply(event({ type: 'presence', members: [{ memberId: CY, humanOnline: false, agentOnline: true }] }))
+    expect(state.channels.get()[0]!.agent?.presence).toEqual({ humanOnline: false, agentOnline: true })
     apply(event({ type: 'presence', members: [{ memberId: ANA, humanOnline: true, agentOnline: false }] }))
     apply(event({ type: 'presence', members: [{ memberId: ANA, humanOnline: true, agentOnline: true }] }))
     state.route.set({ name: 'conversation', id: ROOM, draft: null })
