@@ -500,7 +500,7 @@ wrapped like any note).
   and security rules.
 - **Built** (`packages/demo/src/demo-tools.ts`): WebMCP tools on the demo page that let a visiting
   agent look around the demo as June through the browser: list conversations, read a conversation's
-  sent notes, list the drafts waiting for June, read My agent figures, list channels with the answers
-  waiting for review, and what the demo is. They follow the same rule as every model-facing tool
-  (security rule 3): every one only reads and none can approve, so approving in the demo stays a click.
-  Registered only where the browser has WebMCP.
+  sent notes, list the drafts waiting for June, list channels, and what the demo is. They follow the
+  same rule as every model-facing tool (security rule 3): every one calls only `member` routes that
+  read, so the demo shows exactly what an agent could do on a real server, and none can approve, so
+  approving in the demo stays a click. Registered only where the browser has WebMCP.

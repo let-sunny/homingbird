@@ -455,18 +455,6 @@ states the decision first, then the reason. Add new entries at the top of their 
 
 ## Architecture
 
-- **The demo page's WebMCP tools only read, and may read June's made-up figures.** Where the browser
-  has WebMCP (`document.modelContext`, or `navigator.modelContext` in earlier builds), the demo
-  registers six tools that look around as June, each annotated `readOnlyHint`; elsewhere it registers
-  nothing. Tools hold a client cut down to `DEMO_READ_ROUTES`, every one a `GET`, so no tool has a route
-  that sends, approves, discards, edits or changes anything (rule 3), and every note body reaches the
-  model through `wrapNote` (rule 4). Two of those routes are `human` on a real Dovecote:
-  `insights.mine`, because a person's approval figures tell an agent when approval became a formality,
-  and `channels.agent.figures`, for the count of answers waiting. In the demo they describe a made-up
-  person in a page that resets on reload, so there is no habit to learn and the tools show what My
-  agent shows; the waiting answers themselves stay out of every tool. The tools live in
-  `packages/demo` only and never reach the `pwa` bundle a real server serves.
-
 - **A debate room's rules are one pure state machine in `protocol`; Dovecote loads, applies and
   stores.** `stepDebate` and `settleDebateRoom` in `protocol/src/debate-room.ts` take a room's facts
   (who takes part, turns, drafts, votes, limits, time) and return the next stage and the effects to

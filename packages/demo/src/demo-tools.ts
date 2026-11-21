@@ -117,63 +117,17 @@ export const DEMO_TOOLS: ReadonlyArray<DemoTool<any>> = [
       }),
   }),
   tool({
-    name: 'read_my_agent_figures',
-    title: 'Read how June’s agent is doing',
-    description: `Reads June’s My agent figures for the last 7 and 30 days: drafts written, sent as written, sent after edits, discarded, and the notes June sent this week. The figures are made up for the demo, plus whatever is decided in this page. ${DEMO_NOTICE}`,
-    quotesColleagues: false,
-    input: {},
-    describe: {},
-    run: (_, { api }) =>
-      T.map((report: AsRead.AgentReport) =>
-        [
-          `How June's agent is doing, as of ${isoTime(report.generatedAt)}. ${READ_ONLY}`,
-          ...report.periods.map((period) =>
-            JSON.stringify({
-              lastDays: period.days,
-              written: period.current.written,
-              sentAsWritten: period.current.sentAsWritten,
-              sentAfterEdits: period.current.sentAfterEdits,
-              discarded: period.current.discarded,
-              wroteThemself: period.current.wroteYourself,
-              previous: {
-                written: period.previous.written,
-                sentAsWritten: period.previous.sentAsWritten,
-                sentAfterEdits: period.previous.sentAfterEdits,
-                discarded: period.previous.discarded,
-              },
-            }),
-          ),
-          ...(report.week === undefined
-            ? []
-            : [
-                JSON.stringify({
-                  thisWeek: {
-                    notesSent: report.week.current.notesSent,
-                    repliesReceived: report.week.current.repliesReceived,
-                    approvedForChannels: report.week.current.approvedForChannels,
-                  },
-                }),
-              ]),
-        ].join('\n'),
-      )(api['insights.mine']({})),
-  }),
-  tool({
     name: 'list_channels',
     title: 'List channels',
-    description: `Lists the channels June can see: what each is for, how many people are in it, whether June joined or manages it, its agent, and for a channel June manages, how many of its agent’s answers wait for a manager. The answers themselves are not shown; a manager reviews them in the page. ${DEMO_NOTICE}`,
+    description: `Lists the channels June can see: what each is for, how many people are in it, whether June joined or manages it, and its agent. A channel agent’s answers are reviewed by its managers in the page, never through a tool. ${DEMO_NOTICE}`,
     quotesColleagues: true,
     input: {},
     describe: {},
     run: (_, { api }) =>
-      T.gen(function* () {
-        const { channels } = yield* api['channels.list']({ query: { limit: '200' } })
-        const rows: string[] = []
-        for (const channel of channels) {
-          const waiting =
-            channel.managing && typeof channel.agent === 'object' && channel.agent !== null
-              ? (yield* api['channels.agent.figures']({ params: { slug: channel.slug } })).waiting
-              : null
-          rows.push(
+      T.map(({ channels }: { channels: ReadonlyArray<AsRead.Channel> }) =>
+        [
+          `${channels.length} channels June can see. ${READ_ONLY}`,
+          ...channels.map((channel) =>
             JSON.stringify({
               channel: channel.slug,
               description: channel.description,
@@ -182,19 +136,16 @@ export const DEMO_TOOLS: ReadonlyArray<DemoTool<any>> = [
               joined: channel.joined,
               managing: channel.managing,
               agent: channel.agent?.name ?? null,
-              ...(waiting !== null && { agentAnswersWaiting: waiting }),
             }),
-          )
-        }
-        return [`${channels.length} channels June can see. ${READ_ONLY}`, ...rows].join('\n')
-      }),
+          ),
+        ].join('\n'),
+      )(api['channels.list']({ query: { limit: '200' } })),
   }),
 ]
 
 /**
- * The only routes a demo tool can call, every one of them a read. `insights.mine` and
- * `channels.agent.figures` are `human` on a real Dovecote; here they return made-up counts about a
- * made-up person, so a visiting agent may see what My agent shows (decisions.md).
+ * The only routes a demo tool can call: `member` reads, the same an agent could call on a real
+ * Dovecote, so the demo shows exactly what an agent can do there (rule 3).
  */
 export const DEMO_READ_ROUTES = [
   'conversations.list',
@@ -203,8 +154,6 @@ export const DEMO_READ_ROUTES = [
   'drafts.list',
   'directory.list',
   'channels.list',
-  'channels.agent.figures',
-  'insights.mine',
 ] as const
 
 export type DemoReads = Pick<Api, (typeof DEMO_READ_ROUTES)[number]>

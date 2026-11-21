@@ -23,8 +23,9 @@ describe('DEMO_TOOLS', () => {
     expect(world.records()).toBe(before)
   })
 
-  it('reaches only routes that read, and only those its list names', () => {
-    for (const name of DEMO_READ_ROUTES) expect(contract[name].method).toBe('GET')
+  it('reaches only member routes that read, as an agent could on a real Dovecote', () => {
+    for (const name of DEMO_READ_ROUTES)
+      expect(contract[name]).toMatchObject({ method: 'GET', access: 'member' })
     const { api } = demoApi()
     expect(Object.keys(demoReadsOf(api)).sort()).toEqual([...DEMO_READ_ROUTES].sort())
     expect(Object.keys(demoReadsOf(api))).not.toContain('drafts.send')
@@ -128,34 +129,38 @@ describe('DEMO_TOOLS', () => {
     for (const draft of others) expect(text).not.toContain(draft.body)
   })
 
-  it('reads June’s My agent figures for the last 7 and 30 days', async () => {
-    const { world } = countingWorld()
-    const rows = linesAfterHeading(await answerOf(toolNamed('read_my_agent_figures'), {}, contextOf(world)))
-    expect(rows[0]).toMatchObject({
-      lastDays: 7,
-      written: 18,
-      sentAsWritten: 12,
-      sentAfterEdits: 4,
-      discarded: 2,
-    })
-    expect(rows[1]).toMatchObject({ lastDays: 30, written: 64 })
-    expect(rows[2]).toMatchObject({ thisWeek: { notesSent: 14 } })
-  })
-
-  it('lists channels, and how many of its agent’s answers wait only where June manages the channel', async () => {
+  it('lists the channels June sees, and never a channel agent’s answers waiting for review', async () => {
     const { world } = countingWorld()
     const text = await answerOf(toolNamed('list_channels'), {}, contextOf(world))
-    const rows = linesAfterHeading(text)
-    expect(rows.find((row) => row.channel === 'billing')).toMatchObject({
+    expect(linesAfterHeading(text).find((row) => row.channel === 'billing')).toEqual({
+      channel: 'billing',
+      description: 'Invoices, refunds and the payments database.',
+      visibility: 'open',
+      people: 4,
+      joined: true,
       managing: true,
-      agentAnswersWaiting: 1,
+      agent: 'Billing helper',
     })
-    for (const row of rows.filter((each) => each.managing !== true))
-      expect(row).not.toHaveProperty('agentAnswersWaiting')
-    const answer = world
-      .records()
-      .notes.find((note) => note.authorId === memberNamed(world, 'Billing helper'))
-    if (answer !== undefined) expect(text).not.toContain(answer.body)
+    const agent = memberNamed(world, 'Billing helper')
+    const answers = world.records().notes.filter((note) => note.authorId === agent && note.status === 'draft')
+    expect(answers.length).toBeGreaterThan(0)
+    for (const answer of answers) expect(text).not.toContain(answer.body)
+  })
+
+  it('calls only member routes from every tool, whatever it reads', async () => {
+    const { world } = countingWorld()
+    const called = new Set<string>()
+    const full = demoApi(VISITOR_ID, world).api as Api
+    const recording = new Proxy(full, {
+      get: (target, name) => {
+        called.add(String(name))
+        return target[name as keyof Api]
+      },
+    })
+    const context = { ...contextOf(world), api: recording }
+    for (const each of DEMO_TOOLS) await answerOf(each, validInputOf(each, world), context)
+    expect(called.size).toBeGreaterThan(0)
+    for (const name of called) expect(contract[name as keyof typeof contract]?.access).toBe('member')
   })
 
   it('says what the demo is and that tools only read', async () => {
