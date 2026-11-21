@@ -75,15 +75,8 @@ export const joinButtons = (context: ViewContext, channel: AsRead.Channel): HTML
     }),
   )
 
-const refreshRoster = (context: ViewContext, channel: AsRead.Channel): void => {
-  const key = `${channel.slug}:${channel.memberCount}`
-  const loading = context.state.rostersLoading
-  if (loading.has(key)) return
-  loading.add(key)
-  context.actions.loadChannelMembers(channel.slug, { done: () => loading.delete(key) })
-}
-
-const leaveForm = (context: ViewContext, channel: AsRead.Channel, body: string): Child =>
+/** Confirms leaving a channel, from its room's menu or its row's. */
+export const leaveForm = (context: ViewContext, slug: string, body: string): Child =>
   h(
     'form',
     {
@@ -91,7 +84,7 @@ const leaveForm = (context: ViewContext, channel: AsRead.Channel, body: string):
       on: {
         submit: (event) => {
           event.preventDefault()
-          context.actions.leaveChannel(channel.slug, {
+          context.actions.leaveChannel(slug, {
             done: () => closeDialog(context),
             attempt: 'managers',
           })
@@ -101,6 +94,14 @@ const leaveForm = (context: ViewContext, channel: AsRead.Channel, body: string):
     h('p', {}, body),
     dialogActions(strings.leaveChannel, 'danger'),
   )
+
+const refreshRoster = (context: ViewContext, channel: AsRead.Channel): void => {
+  const key = `${channel.slug}:${channel.memberCount}`
+  const loading = context.state.rostersLoading
+  if (loading.has(key)) return
+  loading.add(key)
+  context.actions.loadChannelMembers(channel.slug, { done: () => loading.delete(key) })
+}
 
 const membersPanel = (context: ViewContext, life: Lifetime, channel: AsRead.Channel): Child => {
   const { state, actions } = context
@@ -350,7 +351,7 @@ const renderRoomMenu = (model: RoomControls, channel: AsRead.Channel, context: V
         {
           type: 'button',
           class: 'menu-item danger leave-channel',
-          ...opensDialog(context, model.leave.title, () => leaveForm(context, channel, model.leaveBody)),
+          ...opensDialog(context, model.leave.title, () => leaveForm(context, channel.slug, model.leaveBody)),
         },
         strings.leaveChannel,
       ),

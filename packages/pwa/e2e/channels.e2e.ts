@@ -57,14 +57,15 @@ const scenario = async (): Promise<void> => {
     await ben.page.goto(`${base}/#/channels`)
     const billingCard = ben.page.locator('.channel-card[data-slug="billing"]')
     await billingCard.getByRole('button', { name: 'Join', exact: true }).waitFor()
-    await billingCard.getByRole('button', { name: 'Join and answer', exact: true }).waitFor()
+    await billingCard.getByRole('button', { name: 'More for #billing' }).click()
+    await billingCard.getByRole('menuitem', { name: 'Join and answer', exact: true }).waitFor()
     await capture(ben.page, 'browse-offers-join-and-join-and-answer')
+    await ben.page.keyboard.press('Escape')
     await billingCard.getByRole('button', { name: 'Join', exact: true }).click()
     await ben.page.waitForSelector('.channel-card[data-slug="billing"] .kind.is-joined')
-    await ben.page
-      .locator('.channel-card[data-slug="deploys"]')
-      .getByRole('button', { name: 'Join and answer', exact: true })
-      .click()
+    const deploysCard = ben.page.locator('.channel-card[data-slug="deploys"]')
+    await deploysCard.getByRole('button', { name: 'More for #deploys' }).click()
+    await deploysCard.getByRole('menuitem', { name: 'Join and answer', exact: true }).click()
     await ben.page.waitForSelector('.channel-card.is-helping[data-slug="deploys"]')
     await capture(ben.page, 'joined-one-channel-answering-in-another')
 
@@ -151,7 +152,7 @@ const scenario = async (): Promise<void> => {
     )
     await cy.page
       .locator('.channel-card[data-slug="billing"]')
-      .getByRole('button', { name: 'Join and answer', exact: true })
+      .getByRole('button', { name: 'More for #billing' })
       .waitFor()
     await capture(cy.page, 'a-member-browses-open-channels-and-a-private-one')
 

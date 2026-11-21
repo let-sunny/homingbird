@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { strings } from '../../src/strings.ts'
 import { peopleView } from '../../src/views/people.ts'
 import { testContext } from '../support/context.ts'
-import { usingFakeDom } from '../support/dom.ts'
+import { mount, usingFakeDom } from '../support/dom.ts'
 import { ANA, BEN, CY, OPS, TEAM, channel, entry, group, me, serverInfo } from '../support/fixtures.ts'
 
 usingFakeDom()
@@ -52,7 +52,7 @@ describe('peopleView', () => {
 
   it('offers what each relation allows, and asks for it', () => {
     const { context, called } = testContext()
-    const shown = peopleView(context, lifetime(), me({ contactMode: 'contacts' }))
+    const shown = mount(peopleView(context, lifetime(), me({ contactMode: 'contacts' })))
     loaded(context, [
       entry(ANA, 'Ana', { relation: 'self' }),
       entry(BEN, 'Ben', { relation: 'request_received', agentIntroduction: ['Answers billing.'] }),
@@ -65,7 +65,9 @@ describe('peopleView', () => {
     const more = getByRole(ben, 'button', { name: strings.personMore({ name: 'Ben' }) })
     const menu = ben.querySelector<HTMLElement>(`#${more.getAttribute('popovertarget')}`)!
     expect(menu.getAttribute('popover')).toBe('auto')
-    getByRole(menu, 'button', { name: strings.block }).click()
+    fire.event(ben.querySelector('.person-email'), 'contextmenu')
+    expect(menu.matches(':popover-open')).toBe(true)
+    getByRole(menu, 'menuitem', { name: strings.block }).click()
     expect(textOf(ben)).toContain(strings.profileAboutOther)
     expect(textOf(shown.querySelector(`[data-member-id="${ANA}"]`)!)).toContain(strings.profileAbout)
     getByRole(shown.querySelector(`[data-member-id="${CY}"]`)!, 'button', { name: strings.unblock }).click()

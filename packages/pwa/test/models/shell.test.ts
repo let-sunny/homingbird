@@ -184,5 +184,36 @@ describe('sidebarModel', () => {
     expect(row!.face).toMatchObject({ kind: 'member', avatar: { state: 'idle', motion: 'still' } })
     const off = sidebarModel(input({ conversations: [conversation()], muteOn: false }))
     expect(off.people.kind === 'rows' && off.people.rows[0]!.mute).toBeNull()
+    expect(off.people.kind === 'rows' && off.people.rows[0]!.menu).toBeNull()
+  })
+
+  it('gives each row a menu to mute it, and to leave a joined channel unless the person manages it', () => {
+    const joined = channel('billing', { joined: true })
+    const managed = channel('ops', { joined: true, managing: true })
+    const room = (of: ReturnType<typeof channel>, archivedAt: number | null = null) =>
+      conversation({ id: of.conversationId, kind: 'channel', title: of.slug, archivedAt })
+    const model = sidebarModel(
+      input({ conversations: [conversation(), room(joined), room(managed)], channels: [joined, managed] }),
+    )
+    if (model.people.kind !== 'rows') throw new Error('expected rows')
+    expect(model.people.rows[0]!.menu).toMatchObject({
+      id: `row-menu-${ROOM}`,
+      label: strings.conversationMore({ name: 'Ben' }),
+      mute: { muted: false },
+      leave: null,
+    })
+    expect(model.channelRooms.map((row) => row.menu?.leave)).toEqual([
+      {
+        kind: 'allowed',
+        slug: 'billing',
+        title: strings.leaveChannelTitle({ channel: '#billing' }),
+        body: strings.leaveChannelBody,
+      },
+      { kind: 'blocked', slug: 'ops', reason: strings.managerCannotLeave },
+    ])
+    const outside = sidebarModel(
+      input({ conversations: [room(channel('billing'))], channels: [channel('billing')], muteOn: false }),
+    )
+    expect(outside.channelRooms[0]!.menu).toBeNull()
   })
 })

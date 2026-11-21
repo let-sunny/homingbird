@@ -62,10 +62,15 @@ describe('noteItemModel', () => {
       answeredBy: null,
       release: null,
       meta: { time: timeShown(5, 10), mark: null },
-      actions: [
-        { kind: 'reply', label: strings.reply },
-        { kind: 'ask-agent', label: strings.askAgentToReply },
-      ],
+      reply: strings.reply,
+      menu: {
+        id: 'note-menu-n1',
+        label: strings.noteMore,
+        items: [
+          { kind: 'ask-agent', label: strings.askAgentToReply },
+          { kind: 'copy', label: strings.copyNote },
+        ],
+      },
     })
     expect(model.author).toMatchObject({
       id: 'author-n1',
@@ -151,7 +156,7 @@ describe('noteItemModel', () => {
     expect(model.className).toBe('note is-mine leads-run is-agent')
     expect(model.author!.line).toBe(strings.authorship.agentYou)
     expect(model.basis).toEqual({ className: 'note-basis is-mine', lines: ['Read the runbook.'] })
-    expect(model.actions).toEqual([])
+    expect([model.reply, model.menu.items.map((one) => one.kind)]).toEqual([null, ['copy']])
     expect(model.meta!.mark).toMatchObject({ state: 'read', label: strings.status.read, count: null })
     expect(model.meta!.mark!.glyph).toBe('✓✓︎')
     expect(noteItemModel(threadInput(), item(note('n2', { authorId: ANA, basis: null }))).basis).toBeNull()
@@ -233,13 +238,16 @@ describe('noteItemModel', () => {
       item(answered),
     )
     expect(model.answeredBy!.text).toBe(strings.answeredBy({ names: `${strings.formerMember} and Ben` }))
-    expect(model.actions.map((action) => action.kind)).toEqual(['reply', 'ask-agent'])
+    expect(model.menu.items.map((one) => one.kind)).toEqual(['ask-agent', 'copy'])
     const open = note('q2')
-    expect(
-      noteItemModel(threadInput({ conversations: [room], serverInfo: serverInfo() }), item(open)).actions.map(
-        (action) => action.kind,
-      ),
-    ).toEqual(['reply'])
+    const withoutRequests = noteItemModel(
+      threadInput({ conversations: [room], serverInfo: serverInfo() }),
+      item(open),
+    )
+    expect([withoutRequests.reply, withoutRequests.menu.items.map((one) => one.kind)]).toEqual([
+      strings.reply,
+      ['copy'],
+    ])
   })
 
   it('says why the person’s agent let a note go, and offers to ask it anyway', () => {
@@ -271,7 +279,7 @@ describe('noteItemModel', () => {
       }),
       item(note('n1')),
     )
-    expect(model.actions).toEqual([])
+    expect([model.reply, model.menu.items.map((one) => one.kind)]).toEqual([null, ['copy']])
     expect(model.release).toBeNull()
     expect(ROOM).toBe(archived.id)
   })

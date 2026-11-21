@@ -163,8 +163,8 @@ const scenario = async (): Promise<void> => {
     assert.equal(await ana.page.locator(`${OPEN}:has-text("Model")`).count(), 0)
     await ana.page.keyboard.press('Escape')
 
-    // Reply actions wait for hover or focus.
-    const actions = ana.page.locator(`[data-note-id="${byHand.id}"] .note-actions`)
+    // The toolbar with Reply and ⋯ waits for hover or focus.
+    const actions = ana.page.locator(`[data-note-id="${byHand.id}"] .note-toolbar`)
     await ana.page.locator('.thread-scroll').focus()
     await ana.page.mouse.move(5, 790)
     assert.equal(
@@ -175,7 +175,7 @@ const scenario = async (): Promise<void> => {
     await ana.page.waitForFunction(
       (id: string) =>
         (globalThis as any).getComputedStyle(
-          (globalThis as any).document.querySelector(`[data-note-id="${id}"] .note-actions`),
+          (globalThis as any).document.querySelector(`[data-note-id="${id}"] .note-toolbar`),
         ).opacity === '1',
       byHand.id,
     )
@@ -200,14 +200,19 @@ const scenario = async (): Promise<void> => {
     await phone.page.waitForSelector('.app')
     await phone.page.goto(`${base}/#/c/${conversation}`)
     await phone.page.waitForSelector('.note.is-theirs.is-person')
-    const tapActions = phone.page.locator(`[data-note-id="${second.id}"] .note-actions`)
-    assert.equal(
-      await tapActions.evaluate((element: any) => element.getBoundingClientRect().width <= 1),
-      true,
-    )
+    const tapActions = phone.page.locator(`[data-note-id="${second.id}"] .note-toolbar`)
+    const opacity = () =>
+      tapActions.evaluate((element: any) => (globalThis as any).getComputedStyle(element).opacity)
+    assert.equal(await opacity(), '0')
     await phone.page.locator(`[data-note-id="${second.id}"] .note-body`).tap()
-    await phone.page.waitForSelector(`[data-note-id="${second.id}"].is-active .note-actions`)
-    assert.ok((await tapActions.boundingBox()).width > 1)
+    await phone.page.waitForSelector(`[data-note-id="${second.id}"].is-active .note-toolbar`)
+    await phone.page.waitForFunction(
+      (id: string) =>
+        (globalThis as any).getComputedStyle(
+          (globalThis as any).document.querySelector(`[data-note-id="${id}"] .note-toolbar`),
+        ).opacity === '1',
+      second.id,
+    )
     await phone.page.locator(`[data-note-id="${byHand.id}"] .note-body`).tap()
     await phone.page.waitForSelector(`[data-note-id="${byHand.id}"].is-active`)
     assert.equal(await phone.page.locator('.note.is-active').count(), 1)
@@ -259,7 +264,7 @@ const scenario = async (): Promise<void> => {
       await ana.page.locator('.composer .agent-ask, details:has-text("Let my agent write it")').count(),
       0,
     )
-    assert.equal(await ana.page.locator('.note-actions button:has-text("Reply")').count(), 4)
+    assert.equal(await ana.page.locator('.note-reply').count(), 4)
     await ana.page.keyboard.press('Escape')
     await api(ana, 'PUT', '/admin/settings', {
       ...settings,

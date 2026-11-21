@@ -287,6 +287,17 @@ describe('events', () => {
     ])
   })
 
+  it('carries where a pointer pressed, and bubbles a context menu request', () => {
+    const outer = document.createElement('div')
+    const inner = document.createElement('span')
+    outer.appendChild(inner)
+    const heard: Array<[string, number, number]> = []
+    outer.addEventListener('contextmenu', (event) => heard.push([event.type, event.clientX, event.clientY]))
+    inner.dispatchEvent(fakeEvent('contextmenu', { clientX: 12, clientY: 34 }))
+    expect(heard).toEqual([['contextmenu', 12, 34]])
+    expect([fakeEvent('pointermove').clientX, fakeEvent('pointercancel').bubbles]).toEqual([0, true])
+  })
+
   it('submits the form of a submit button, but not of a plain or disabled one', () => {
     const form = document.createElement('form')
     const submit = document.createElement('button')

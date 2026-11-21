@@ -58,7 +58,7 @@ How agents, the server and the web client fit together is drawn in [architecture
    Without an invite, use your work account: only the domains your administrator allowed get in. With
    an invite, any verified address works, unless the invite was made for one address. Once you are a
    member you sign in the same way every time, even if your domain is later removed.
-3. Under **Channels**, press **Join and answer** on the channels you know about. **What my agent can help
+3. Under **Channels**, choose **Join and answer** from the **⋯** menu of the channels you know about. **What my agent can help
    with** on your profile lists them. You start in no channel; if the list is empty, create the first
    one.
 
@@ -445,7 +445,7 @@ Being in a channel and answering in it are separate.
 - **Answer here**, the switch at the top of a room, sends you the questions asked there,
   and your desk drafts the replies for you to approve. Turn it off and you stay in the room. The room's
   other controls (Members, its agent, Ask privately and Leave) are in the **⋯** menu beside it.
-  **Join and answer** in the channel list does both at once.
+  **Join and answer**, in a channel's **⋯** menu in the channel list, does both at once.
 - **Leave** takes you out of the room and turns answering off. Your waiting drafts in it are discarded.
 - Nobody is put in a channel for you: you are in exactly the channels you joined, asked in, or were added
   to.
@@ -553,8 +553,8 @@ writes.
 
 ## Ask your agent for a draft from the web
 
-In a conversation in the web client, press **Ask my agent** (or **Ask my agent to draft a reply** on a
-note), optionally say what it should say, and choose an agent or leave **Any agent**. Your desk picks
+In a conversation in the web client, press **Ask my agent** (or choose **Ask my agent to draft a reply**
+in a note's menu), optionally say what it should say, and choose an agent or leave **Any agent**. Your desk picks
 the request up and drafts. If your agent is offline, the request waits until your desk is running.
 
 On the command line, `homingbird requests` lists what you asked for.
@@ -752,9 +752,14 @@ together under one character; the time shows on the last of them.
   your device to reduce motion), and a reply arrow once they replied. In a channel or group, "2/5" counts
   who has read it. A run of notes shows the state once, unless an earlier note differs. A screen reader
   hears the full wording, author and time for every note.
-- **Reply** and **Ask my agent to draft a reply** appear when you hover over or focus a note, or tap it
-  on a touch screen. A note you write answers another only when you pressed **Reply** on it; the composer
-  starts without one and lets go of it once your note is sent.
+- **Reply** and **⋯** appear over a note when you hover over or focus it, or tap it on a touch screen.
+  **⋯** opens the note's menu: **Ask my agent to draft a reply** and **Copy text**. A right-click on the
+  note, a long press on a touch screen, or the menu key (Shift+F10) opens the same menu; arrow keys move
+  in it and Escape closes it. A note you write answers another only when you pressed **Reply** on it; the
+  composer starts without one and lets go of it once your note is sent.
+- **Rows in the list have a menu too.** Hover over a direct message or a channel in the list, or
+  right-click or long-press it, for **⋯**: mute it, or leave a channel you joined. A person's card on
+  People keeps **Block** there, and a channel's card keeps **Join and answer**.
 
 ## See how far you can trust your agent
 
@@ -905,8 +910,8 @@ says who already sent the answer. To check
 that notifications reach this device, press **Send a test notification** under the switch; it says what
 the browser's push service answered for each of your devices.
 
-To quiet a direct message or a channel without leaving it, press **Mute** in its header or beside it in
-the list. Its notes still arrive and count as unread, but it sends no notification to any of your
+To quiet a direct message or a channel without leaving it, press **Mute** in its header or choose it in
+the row's **⋯** menu in the list. Its notes still arrive and count as unread, but it sends no notification to any of your
 devices and the page announces nothing. Under **What notifies you** on your Profile, choose
 **Every direct message and channel**, **Direct messages only** or **Nothing**. The server applies both,
 whichever browser or device you use. A question you asked a channel's agent privately notifies you as a

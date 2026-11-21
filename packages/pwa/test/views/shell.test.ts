@@ -1,7 +1,8 @@
 import { lifetime } from '@homingbird/ui'
-import { getByRole, queryByRole, textOf } from '@homingbird/ui/testing'
+import { fire, getByRole, queryByRole, textOf } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
 import { strings } from '../../src/strings.ts'
+import { dialogHost } from '../../src/views/dialog.ts'
 import { shell } from '../../src/views/shell.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
@@ -27,6 +28,39 @@ describe('shell', () => {
     getByRole(shown, 'button', { name: strings.menuSignOut }).click()
     expect(called('signOut')).toHaveLength(1)
     expect(textOf(shown)).toContain(strings.loading)
+  })
+
+  it('mutes a row and leaves a channel from the row’s menu, or says why the person cannot leave', () => {
+    const { context, called } = testContext()
+    mount(dialogHost())
+    context.state.session.set(me())
+    context.state.directory.set([entry(BEN, 'Ben')])
+    const billing = channel('billing', { joined: true })
+    const ops = channel('ops', { joined: true, managing: true })
+    context.state.channels.set([billing, ops])
+    const shown = mount(shell(context, lifetime(), me(), document.createElement('main')))
+    context.state.conversations.set([
+      conversation(),
+      conversation({ id: billing.conversationId, kind: 'channel', title: 'billing' }),
+      conversation({ id: ops.conversationId, kind: 'channel', title: 'ops' }),
+    ])
+    context.state.conversationsLoaded.set(true)
+    const rows = [...shown.querySelectorAll<HTMLElement>('.conversation-item')]
+    getByRole(rows[0]!, 'button', { name: strings.conversationMore({ name: 'Ben' }) }).click()
+    getByRole(rows[0]!, 'menuitem', { name: strings.mute.muteName({ name: 'Ben' }) }).click()
+    expect(called('setMuted')[0]!.args).toEqual([ROOM, true])
+    expect(fire.event(rows[1]!.querySelector('.conversation-title'), 'contextmenu')).toBe(false)
+    getByRole(rows[1]!, 'menuitem', { name: strings.leaveChannel }).click()
+    const dialog = document.getElementById('dialog') as HTMLDialogElement
+    expect(dialog.open).toBe(true)
+    fire.submit(dialog.querySelector('form')!)
+    expect(called('leaveChannel')[0]!.args).toEqual(['billing'])
+    fire.event(rows[2]!, 'contextmenu')
+    const blocked = getByRole(rows[2]!, 'menuitem', { name: strings.leaveChannel }) as HTMLButtonElement
+    expect(blocked.disabled).toBe(true)
+    expect(document.getElementById(blocked.getAttribute('aria-describedby')!)!.textContent).toBe(
+      strings.managerCannotLeave,
+    )
   })
 
   it('says how it is connected, and tells when it is offline', () => {

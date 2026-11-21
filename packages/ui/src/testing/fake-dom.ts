@@ -38,6 +38,8 @@ export interface FakeEventInit {
   readonly isComposing?: boolean
   readonly isTrusted?: boolean
   readonly pointerType?: string
+  readonly clientX?: number
+  readonly clientY?: number
   readonly newState?: 'open' | 'closed'
   readonly relatedTarget?: FakeNode | null
 }
@@ -67,6 +69,8 @@ export const fakeEvent = (type: string, init: FakeEventInit = {}): FakeEvent => 
     isComposing: init.isComposing ?? false,
     isTrusted: init.isTrusted ?? true,
     pointerType: init.pointerType ?? 'mouse',
+    clientX: init.clientX ?? 0,
+    clientY: init.clientY ?? 0,
     newState: init.newState ?? 'closed',
     relatedTarget: init.relatedTarget ?? null,
     get target() {
@@ -252,6 +256,9 @@ const BUBBLING = new Set([
   'keyup',
   'pointerdown',
   'pointerup',
+  'pointermove',
+  'pointercancel',
+  'contextmenu',
   'focusin',
   'focusout',
   'wheel',

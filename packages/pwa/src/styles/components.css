@@ -132,6 +132,16 @@
   }
 }
 
+.menu.is-at-point {
+  position-area: none;
+  inset: var(--hb-menu-y) auto auto var(--hb-menu-x);
+  margin: 0;
+}
+
+.menu-item:focus-visible {
+  outline-offset: calc(-1 * var(--hb-pixel) * 2);
+}
+
 .menu-who {
   display: grid;
   padding: var(--hb-space-2);
@@ -2620,6 +2630,49 @@ button.group-member-name:focus-visible::after {
   border-block-end: none;
 }
 
+.conversation-item {
+  position: relative;
+}
+
+.conversation-more {
+  position: absolute;
+  inset-block-start: var(--hb-space-2);
+  inset-inline-end: var(--hb-space-2);
+  padding: var(--hb-space-1) var(--hb-space-2);
+  line-height: 1;
+}
+
+.conversation-item:not(:hover, :focus-within) .conversation-more {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.conversation-item:is(:hover, :focus-within):has(.conversation-more) .conversation-side time {
+  visibility: hidden;
+}
+
+.conversation-menu,
+.note-menu {
+  max-inline-size: min(20rem, calc(100vi - var(--hb-space-4)));
+}
+
+.menu-reason {
+  display: block;
+  padding: 0 var(--hb-space-2) var(--hb-space-2);
+  color: var(--hb-color-muted);
+  font-size: var(--hb-text-tiny);
+}
+
+.menu-item:disabled {
+  color: var(--hb-color-muted);
+  cursor: not-allowed;
+}
+
+.menu-item:disabled:hover {
+  background: none;
+  color: var(--hb-color-muted);
+}
+
 .mute-toggle {
   display: inline-grid;
   place-items: center;
@@ -3850,33 +3903,76 @@ textarea:disabled {
   font-weight: 700;
 }
 
-.note-actions {
+.bubble-row {
+  position: relative;
+  display: grid;
+  max-inline-size: 100%;
+}
+
+.note:focus-visible {
+  outline: none;
+}
+
+.note:focus-visible .bubble {
+  outline: var(--hb-focus-ring);
+  outline-color: var(--hb-color-focus);
+}
+
+.note-toolbar {
+  position: absolute;
+  inset-block-start: calc(-1 * var(--hb-space-4));
+  inset-inline-end: calc(-1 * var(--hb-space-2));
+  z-index: 1;
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--hb-space-2);
+  border: var(--hb-border);
+  background: var(--hb-color-surface);
+  box-shadow: var(--hb-shadow);
+}
+
+.note.is-mine .note-toolbar {
+  inset-inline: calc(-1 * var(--hb-space-2)) auto;
+}
+
+.note-toolbar > button {
+  padding: var(--hb-space-1) var(--hb-space-2);
+  border: 0;
+  background: none;
+  box-shadow: none;
   font-size: var(--hb-text-small);
+  line-height: 1;
 }
 
-@media (hover: hover) {
-  .note .note-actions {
-    opacity: 0;
-  }
-
-  .note:hover .note-actions,
-  .note:focus-within .note-actions,
-  .note.is-active .note-actions {
-    opacity: 1;
-  }
+.note-toolbar > button + button {
+  border-inline-start: var(--hb-border-divider);
 }
 
-@media (hover: none) {
-  .note:not(.is-active, :focus-within) .note-actions {
-    position: absolute;
-    inline-size: 1px;
-    block-size: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
+.note-toolbar > button:hover,
+.note-toolbar > button[aria-expanded="true"] {
+  translate: none;
+  background: var(--hb-color-accent);
+  color: var(--hb-color-on-accent);
+  box-shadow: none;
+}
+
+.note:not(:hover, :focus-within, .is-active) .note-toolbar {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (pointer: coarse) {
+  [data-menu-owner] {
+    -webkit-touch-callout: none;
+  }
+
+  .note-toolbar > button {
+    min-inline-size: 2.5rem;
+    min-block-size: 2.5rem;
+    justify-content: center;
+  }
+
+  .note[data-menu-owner] .bubble {
+    -webkit-user-select: none;
+    user-select: none;
   }
 }
 
