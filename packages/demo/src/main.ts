@@ -12,19 +12,23 @@ import { loadConversations } from '@homingbird/pwa/src/tasks/workspace.ts'
 import { showApp } from '@homingbird/pwa/src/views/app-shell.ts'
 import { createViewContext } from '@homingbird/pwa/src/views/context.ts'
 import { demoPage } from './demo-page.ts'
+import { DEMO_TOOLS, demoReadsOf } from './demo-tools.ts'
 import { fakeDovecote } from './dovecote.ts'
 import { clockFor, demoOptions } from './options.ts'
+import { VISITOR_ID } from './team.ts'
+import { modelContextOf, offerDemoTools } from './web-mcp.ts'
 import { createWorld } from './world.ts'
 
 const options = demoOptions(location.search)
 const clock = clockFor(options)
 const dovecote = fakeDovecote(createWorld(clock))
+const api = httpApi({ serverUrl: location.origin, fetch: dovecote })
 const page = demoPage(browserPage(window), dovecote, () => location.reload(), options)
 let draws = 0
 const app = createApp(
   {
     clock,
-    api: httpApi({ serverUrl: location.origin, fetch: dovecote }),
+    api,
     state: createState(location.hash),
     page,
     random:
@@ -47,3 +51,17 @@ app.state.branding.subscribe((current) => {
 })
 showApp(context, document.getElementById('app') as HTMLElement, app.launch)
 app.launch(boot)
+offerDemoTools(
+  modelContextOf(window),
+  DEMO_TOOLS,
+  {
+    api,
+    viewerId: VISITOR_ID,
+    nonce: () => Array.from(crypto.getRandomValues(new Uint8Array(16)), hex).join(''),
+  },
+  new AbortController().signal,
+)
+
+function hex(byte: number): string {
+  return byte.toString(16).padStart(2, '0')
+}
