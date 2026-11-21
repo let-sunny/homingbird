@@ -17,6 +17,7 @@ export default defineConfig({
         'packages/dovecote/src/**': { statements: 96, branches: 92, functions: 96, lines: 96 },
         'packages/cli/src/**': { statements: 95, branches: 95, functions: 95, lines: 95 },
         'packages/mcp/src/**': { statements: 95, branches: 95, functions: 95, lines: 95 },
+        'packages/demo/src/**': { statements: 95, branches: 90, functions: 95, lines: 95 },
         'packages/pwa/src/models/**': { statements: 100, branches: 100, functions: 100, lines: 100 },
         'packages/pwa/src/**': { statements: 95, branches: 95, functions: 95, lines: 95 },
         'packages/ui/src/**': { statements: 95, branches: 95, functions: 95, lines: 95 },

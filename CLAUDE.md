@@ -20,6 +20,7 @@ pnpm test:plugin      # the Claude Code plugin's own tests, under Claude Code's 
 pnpm test:mutation    # stryker, kernel and protocol; fails under a score of 90
 pnpm dev              # Dovecote with development login on http://localhost:8080
 pnpm build            # server, CLI, MCP and web bundles
+pnpm build:demo       # the live demo for the project site, into site-dist/demo/
 pnpm load-test        # rough throughput numbers for docs/deployment.md
 ```
 
@@ -41,6 +42,7 @@ coverage runs once, in the release workflow before it publishes. A change to `ke
 | `ui`, `pwa` | Dependency-free web client. |
 | `cli`, `mcp`, `a2a` | Command line, MCP adapter, A2A gateway. |
 | `plugin` | The Claude Code plugin: the desk pane, which links each draft to the web client for approval. |
+| `demo` | The live demo: the web client against an in-browser fake of Dovecote, published only on the project site. |
 
 ## Rules
 

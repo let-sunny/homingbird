@@ -3,6 +3,7 @@
   "files": {
     "ignore": [
       "**/dist",
+      "site-dist",
       "**/coverage",
       "**/reports",
       "**/.stryker-tmp",

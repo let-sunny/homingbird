@@ -1,0 +1,25 @@
+body {
+  display: flex;
+  flex-direction: column;
+  block-size: 100dvh;
+}
+
+#app {
+  flex: 1 1 0;
+  block-size: auto;
+  min-block-size: 0;
+}
+
+.demo-banner {
+  margin: 0;
+  padding: 0.35rem 1rem;
+  background: var(--hb-color-pending-wash);
+  color: var(--hb-color-text);
+  font-size: var(--hb-text-small);
+  text-align: center;
+  border-block-end: 1px solid var(--hb-color-line);
+}
+
+.demo-banner a {
+  color: var(--hb-color-accent);
+}

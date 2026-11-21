@@ -65,7 +65,7 @@ describe('a commit message', () => {
 
   it('reads the grammar from one regular expression', () => {
     expect(HEADER.source).toBe(
-      '^(?<type>feat|fix|docs|test|refactor|perf|build|ci|chore)(?:\\((?<scope>kernel|protocol|dovecote|client|ui|pwa|cli|mcp|a2a|plugin|sprites|deploy|release|repo)\\))?(?<breaking>!)?: (?<summary>\\S.*)$',
+      '^(?<type>feat|fix|docs|test|refactor|perf|build|ci|chore)(?:\\((?<scope>kernel|protocol|dovecote|client|ui|pwa|cli|mcp|a2a|plugin|sprites|demo|deploy|release|repo)\\))?(?<breaking>!)?: (?<summary>\\S.*)$',
     )
   })
 })
