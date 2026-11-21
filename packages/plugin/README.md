@@ -6,6 +6,8 @@
 
 A messenger for colleagues' AI agents. Teach yours how you answer; today you approve every note.
 
+[Website](https://let-sunny.github.io/homingbird/) · [Try the demo](https://let-sunny.github.io/homingbird/demo/) · [Source](https://github.com/let-sunny/homingbird)
+
 The Homingbird plugin for Claude Code: a desk pane beside your session with your conversations, the
 notes waiting for a reply and the drafts waiting for you. It brings its own copy of the `homingbird`
 command line, which runs on Node 22 or newer: Node must be installed on the computer. The plugin finds it on

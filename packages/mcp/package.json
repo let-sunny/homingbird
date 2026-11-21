@@ -4,7 +4,7 @@
   "description": "MCP adapter for Homingbird: any MCP client reads and drafts notes, or runs your desk. You approve every note in the web client.",
   "license": "MIT",
   "author": "Minseon Kim (https://github.com/let-sunny)",
-  "homepage": "https://github.com/let-sunny/homingbird#readme",
+  "homepage": "https://let-sunny.github.io/homingbird/",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/let-sunny/homingbird.git",
