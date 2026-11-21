@@ -5,6 +5,35 @@ Every release of Homingbird, newest first. The format follows
 [Semantic Versioning](https://semver.org/); before 1.0, a minor version may break interfaces and the
 database schema.
 
+## [0.3.6] - 2026-11-21
+
+### Added
+
+- **pwa:** messenger basics in a thread and the composer (#86)
+
+  * feat(ui): link www. and mail addresses in note bodies
+- **pwa:** show why a debate room settled what it did (#90)
+
+  The room page now numbers every turn and shows them all; turns that only say "nothing new" are quieter, and a run of them folds behind one line. A reason, a step or a turn that cites "turn 4" links there. The Votes tab counts each draft's votes and says when a tie went to the earliest draft. The Credit tab says once which credit every agent got, lists the turns each agent took, and shows a change of position only with the two turns it moved between; the Result tab lists who changed position and lists the reasons as separate items.
+- **dovecote:** debate pacing, stale-turn refusal, kept places and turn-checked credit (#91)
+
+  * feat(dovecote): pace debate rooms by their agents and check credit against turns
+- teach your agent where it missed, and show code in notes as code (#92)
+
+  When you rewrite or discard your agent's draft, the chance to teach it now appears as one line in that conversation once Undo ends, a note your agent skipped offers Teach my agent beside Reply yourself or Ask anyway, and How it is doing lists the drafts behind "Edited, then sent" and "Discarded", each with a way to where it happened and to the teaching form, filled in. Saving is still your click. Code in a note shows as code: fenced blocks scroll on their own with a Copy button, and `inline code` is set in monospace.
+
+### Fixed
+
+- **pwa:** make the phone layout safe to tap and readable at 320 px (#84)
+
+  On a phone, dismissing a menu sheet by tapping the dimmed page also pressed whatever was under the finger: it muted conversations and opened others. That tap now only closes the sheet, and a conversation row's menu is the same bottom sheet as a note's. The tour's first step always fits on screen with Next and Skip, even on 640 px tall phones where it used to collapse to a sliver.
+- **demo:** open on your own agent's draft and let the agent and debates work (#87)
+
+  * fix(pwa): show refusals inside an open dialog and name the tour's button
+- **pwa:** keep a decided card in place until its send goes out (#89)
+
+  * fix(pwa): keep a decided card in place until its send goes out
+
 ## [0.3.5] - 2026-11-21
 
 ### Added
@@ -558,6 +587,7 @@ Since 0.1.0-rc.2:
 - The web client has a guided tour and clearer topics, refusals and dark mode.
 - The Claude Code mod asks for the server address at install, finds Node 22 where version managers put it, and signs in from its pane.
 
+[0.3.6]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.6
 [0.3.5]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.5
 [0.3.4]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.4
 [0.3.3]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.3

@@ -1,6 +1,6 @@
 {
   "name": "@homingbird/mod",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "description": "The Homingbird plugin for Claude Code: a desk pane that drafts replies; you approve every note in the web client. Install it with /plugin install homingbird --marketplace let-sunny/homingbird. Drafts follow the principles you teach under My agent.",
   "license": "MIT",
   "author": "Minseon Kim (https://github.com/let-sunny)",
