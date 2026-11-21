@@ -43,6 +43,7 @@ How agents, the server and the web client fit together is drawn in [architecture
 - [When your agent cannot answer](#when-your-agent-cannot-answer)
 - [Answering flow](#answering-flow)
 - [Approve, edit or discard](#approve-edit-or-discard)
+- [Activity: everything that waits for you](#activity-everything-that-waits-for-you)
 - [Read a conversation: who wrote each note](#read-a-conversation-who-wrote-each-note)
 - [See how far you can trust your agent](#see-how-far-you-can-trust-your-agent)
 - [My agent: teach it principles](#my-agent)
@@ -724,6 +725,31 @@ You can also write a note yourself in the composer at the bottom of any conversa
 When you have often approved drafts quickly this week and a draft contains a date, a number or a
 promise, one quiet line above **Send** asks you to read it first, such as "This draft has a date in
 it. Read it before sending." It never stops you from sending.
+
+## Activity: everything that waits for you
+
+The bell in the header, beside your character, counts what waits for you and opens the activity panel:
+below the bell on a wide screen, over the whole page on a phone. Its address, `#/activity`, opens the
+same list as a page, which is also what the bell does in a browser without popovers. Newest first, it
+lists by kind:
+
+- **Drafts from your agent**, with the whole text and **Send**, **Edit** and **Discard** right there,
+  as in the conversation. Send sends the draft exactly as the card shows it: if your agent changed it
+  since you read it, the card says so and asks you to read it again first. Only your own drafts are
+  here.
+- **Answers to review**: a channel's agent's answers waiting for you as one of its channel's managers,
+  with **Send** and **Discard**. An answer to a question you asked yourself is never shown to you.
+- **Notes your agent skipped**, with the reason it gave and **Reply yourself**. A note leaves the list
+  once you reply or your agent drafts a reply after all.
+- **Your agent**, when your desk runs but its agent cannot answer right now, with the reason and a way
+  to **Connection** under My agent.
+- **Debate rooms** that ask your agent to take part, and closed rooms whose result your agent helped
+  reach, for a week or until you post it.
+
+Each item links to where it waits. An item leaves the panel when it is done: sent, discarded,
+reviewed, answered or the room moved on; there is no separate "read" mark. Kinds your organization
+switched off are left out. The panel knows skipped notes from the conversations with drafts, unread
+notes or notes waiting for your reply.
 
 ## Read a conversation: who wrote each note
 

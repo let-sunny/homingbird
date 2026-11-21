@@ -36,6 +36,11 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
     cancelReviewsReload()
     cancelReviewsReload = later(app.clock, DIRECTORY_SETTLE_MS, () => launch(loadReviews))
   }
+  let cancelDebatesReload = (): void => {}
+  const reloadDebatesSoon = (): void => {
+    cancelDebatesReload()
+    cancelDebatesReload = later(app.clock, DIRECTORY_SETTLE_MS, () => launch(loadDebates))
+  }
   const refreshAgentsIfNoneKnown = (): void => {
     if (state.agentCredentials.get().length === 0) launch(loadAgents)
   }
@@ -125,6 +130,7 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
         break
       case 'debate.changed':
         reloadShownDebate(app, body.debateId)
+        if (state.route.get().name !== 'debates' && state.debatesLoaded.get()) reloadDebatesSoon()
         break
       case 'presence': {
         state.directory.update((entries) => withPresence(entries, body.members))
@@ -141,7 +147,7 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
   return (event) => batch(() => apply(event))
 }
 
-/** Several directory, group or review changes in a row are loaded once, after they settle. */
+/** Several directory, group, review or debate room changes in a row are loaded once, after they settle. */
 export const DIRECTORY_SETTLE_MS = 400
 
 const leaveRoomIfShown = (app: App, conversationId: string): void => {

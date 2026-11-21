@@ -93,6 +93,187 @@
   font-weight: 600;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--hb-space-2);
+}
+
+.activity-bell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--hb-space-1);
+  min-block-size: 2.25rem;
+  padding: var(--hb-space-1) var(--hb-space-2);
+  border: var(--hb-border);
+  background: var(--hb-color-surface);
+  color: var(--hb-color-text);
+  text-decoration: none;
+  anchor-name: --hb-activity-bell;
+}
+
+.activity-bell[aria-current="page"] {
+  background: var(--hb-color-accent);
+  color: var(--hb-color-on-accent);
+}
+
+.activity-bell .bell {
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+}
+
+.activity-count {
+  background: var(--hb-color-pending);
+  color: var(--hb-color-on-pending);
+}
+
+.activity-panel {
+  inset: 3.75rem var(--hb-space-2) auto auto;
+  margin: 0;
+  inline-size: min(28rem, calc(100% - 2 * var(--hb-space-2)));
+  max-block-size: min(40rem, calc(100dvh - 5rem));
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: var(--hb-border);
+  background: var(--hb-color-surface);
+  color: var(--hb-color-text);
+  box-shadow: var(--hb-shadow-raised);
+}
+
+@supports (position-area: block-end span-inline-start) {
+  .activity-panel {
+    inset: auto;
+    margin-block-start: var(--hb-space-2);
+    position-anchor: --hb-activity-bell;
+    position-area: block-end span-inline-start;
+    position-try-fallbacks: flip-block;
+  }
+}
+
+.activity-panel-head {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--hb-space-2);
+  padding: var(--hb-space-2) var(--hb-space-3);
+  border-block-end: var(--hb-border);
+  background: var(--hb-color-surface);
+}
+
+.activity-panel-head h2 {
+  flex: 1;
+  margin: 0;
+  font-size: var(--hb-text-body);
+}
+
+.activity-page-link {
+  font-size: var(--hb-text-small);
+}
+
+.activity-panel-body {
+  padding: var(--hb-space-3);
+}
+
+.activity {
+  display: grid;
+  gap: var(--hb-space-4);
+}
+
+.activity-group {
+  display: grid;
+  gap: var(--hb-space-2);
+}
+
+.activity-group[hidden] {
+  display: none;
+}
+
+.activity-group h3 {
+  margin: 0;
+  font-size: var(--hb-text-small);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.activity-list {
+  display: grid;
+  gap: var(--hb-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.activity-item {
+  min-inline-size: 0;
+}
+
+.activity-item:not(.pending, .review-card) {
+  display: grid;
+  gap: var(--hb-space-2);
+  padding: var(--hb-space-3);
+  border: var(--hb-border);
+  background: var(--hb-color-surface);
+}
+
+.activity-item > .button {
+  justify-self: start;
+}
+
+.activity-place {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--hb-space-1) var(--hb-space-2);
+  margin: 0;
+  font-size: var(--hb-text-small);
+}
+
+.activity-place a {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
+.activity-quote {
+  display: grid;
+  gap: var(--hb-space-1);
+  margin: 0;
+  padding-inline-start: var(--hb-space-3);
+  border-inline-start: var(--hb-border);
+}
+
+.activity-quote p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.activity-unavailable p {
+  margin: 0;
+}
+
+.activity-empty {
+  margin: 0;
+  color: var(--hb-color-muted);
+}
+
+/* On a narrow screen the panel is a sheet over the whole page, so long drafts read whole. */
+@container app (max-width: 46rem) {
+  .activity-panel {
+    position-area: none;
+    inset: 0;
+    margin: 0;
+    inline-size: 100%;
+    max-inline-size: none;
+    block-size: 100%;
+    max-block-size: none;
+    box-shadow: none;
+  }
+}
+
 .user-button {
   padding: 0;
   border: 0;
@@ -2245,7 +2426,7 @@ button.group-member-name:focus-visible::after {
     justify-self: end;
   }
 
-  .user-button-host {
+  .header-actions {
     grid-area: user;
   }
 
@@ -2301,7 +2482,7 @@ button.group-member-name:focus-visible::after {
     justify-self: start;
   }
 
-  .user-button-host {
+  .header-actions {
     grid-area: user;
   }
 }

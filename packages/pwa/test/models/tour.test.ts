@@ -8,7 +8,7 @@ describe('tourStepModel', () => {
     expect(model).toMatchObject({
       id: 'notes',
       placement: 'beside',
-      progress: strings.tour.progress({ step: 1, total: 4 }),
+      progress: strings.tour.progress({ step: 1, total: 5 }),
       title: strings.tour.notesTitle,
       lookFor: null,
       connect: null,
@@ -26,7 +26,13 @@ describe('tourStepModel', () => {
 
   it('names every step’s place and finishes on the last', () => {
     expect(tourStepModel(2, false).lookFor).toBe(strings.tour.lookFor({ place: strings.channels }))
-    const last = tourStepModel(3, false)
+    expect(tourStepModel(3, false)).toMatchObject({
+      id: 'activity',
+      placement: 'below',
+      title: strings.tour.activityTitle,
+      lookFor: strings.tour.lookFor({ place: strings.tour.activityPlace }),
+    })
+    const last = tourStepModel(4, false)
     expect(last.lookFor).toBe(strings.tour.lookFor({ place: strings.tour.menuPlace }))
     expect(last.next).toBe(strings.tour.done)
   })

@@ -1405,3 +1405,30 @@ an organization that wants anyone with a company address to sign in.
   their own; the routes are `human`, so no agent credential or tool makes or reads one (Rule 3).
 - **A switch, on by default.** `invites` turns the routes and `/auth/invite` off with 404 and makes a
   pending invite admit no one; allowed domains and `HB_ADMIN_EMAILS` keep working.
+
+## One activity panel, built from routes that already exist
+
+What waited for a person was spread over five places: their agent's drafts in each conversation, a
+channel agent's answers in the channel room, skipped notes in their thread, the desk that cannot answer
+under My agent, and debate rooms under Debates. A messenger keeps one list of what needs you, so the
+header has a bell that opens it.
+
+- **No new route, so no new rule.** The panel reads what the web client already reads: conversations
+  and their notes for drafts and skips, `reviews.list` for answers to review, the person's own
+  directory entry for the desk, `debates.list` for rooms, and `inbox.list` to find conversations where
+  a skip may sit. A draft is shown with the same card model as in its conversation, so Send still binds
+  to the draft as shown and an agent's change still asks the person to read it again (rule 1); an
+  answer is shown with the same review card, only to its channel's managers, never to its asker (rule 2).
+  Approval stays a click in the web client.
+- **Drafts come from loaded conversations.** `drafts.list` would give the text, but a card needs the
+  note it replies to and who it goes to, and the read-again check is kept per loaded conversation. So
+  the panel loads the conversations whose `draftCount` is above zero when it opens and whenever one
+  gets a draft, and counts a conversation not loaded yet by its `draftCount`.
+- **Skips are as complete as the conversations loaded.** A released notice comes only with a
+  conversation's notes; the panel loads those with unread notes or notes waiting for a reply. A route
+  listing every skip waits on the roadmap.
+- **Done means gone.** An item leaves once it is sent, discarded, reviewed, answered or the room moved
+  on. There is no read state to keep in step across devices.
+- **A popover, a page as the fallback.** The bell is a link to `#/activity` that opens a `popover`
+  anchored to it where popovers exist; on a narrow screen the same popover is a full-height sheet. Its
+  items are drawn only while it is open, so a draft is reported as seen only then.

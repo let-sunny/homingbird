@@ -22,7 +22,9 @@ export const VISITOR_ID = MemberId.of('demojune0000')
  * A small team as it stands `now`: June (the visitor, an administrator), Ana, Ben, Kai and a colleague
  * with a very long name, #billing with its agent, and two drafts waiting for June: her own agent's
  * reply to Ana, and #billing's agent's answer to Ben, which June reviews as a manager. Long names,
- * text and links and an empty room are there on purpose, to show how pages hold them.
+ * text and links and an empty room are there on purpose, to show how pages hold them. June's agent
+ * skipped Kai's question about the deploy window and has run out of usage for now, and a private debate
+ * room waits for it, so that the activity panel shows every kind it lists.
  */
 export const demoTeam = (now: number): Records => {
   const ago = (minutes: number): number => now - minutes * MINUTE
@@ -345,6 +347,21 @@ export const demoTeam = (now: number): Records => {
         issuedBy: ANA,
       },
     ],
+    notices: [
+      {
+        memberId: VISITOR_ID,
+        notice: {
+          kind: 'released',
+          noteId: NoteId.of('demokai00001'),
+          conversationId: WITH_KAI,
+          reason:
+            'It asks whether tomorrow’s deploy window clashes with the migration, and I cannot see the release calendar.',
+          agentName: "June's desk",
+          channel: null,
+          at: ago(60 * 3 - 2),
+        },
+      },
+    ],
     debates: demoDebates(ago, { june: VISITOR_ID, juneDesk: JUNE_DESK, ana: ANA, kai: KAI }),
     principles: [
       principle(0, {
@@ -440,7 +457,11 @@ const person = (
     ...memberOf(id, name, profile, characterAt(character), ago(60 * 24 * 60)),
     role: id === VISITOR_ID ? 'admin' : 'member',
   },
-  presence: { humanOnline: id === VISITOR_ID || id === ANA, agentOnline: id !== BEN },
+  presence: {
+    humanOnline: id === VISITOR_ID || id === ANA,
+    agentOnline: id !== BEN,
+    ...(id === VISITOR_ID && { agentUnavailable: { until: ago(-40), kind: 'usage_limit' as const } }),
+  },
   lastSeenAt: id === VISITOR_ID ? null : ago(id === BEN ? 60 * 2 : 1),
 })
 

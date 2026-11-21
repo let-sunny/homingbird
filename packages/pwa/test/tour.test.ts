@@ -23,8 +23,8 @@ const broken = (): TourStorage => {
 }
 
 describe('the tour', () => {
-  it('walks four steps: notes, connecting an agent, channels, the profile', () => {
-    expect(TOUR_STEPS).toEqual(['notes', 'connect', 'channels', 'profile'])
+  it('walks five steps: notes, connecting an agent, channels, the activity bell, the profile', () => {
+    expect(TOUR_STEPS).toEqual(['notes', 'connect', 'channels', 'activity', 'profile'])
   })
 
   it('is shown once, then remembered on this device, and forgotten when asked again', () => {

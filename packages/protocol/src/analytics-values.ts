@@ -10,6 +10,7 @@ export const ANALYTICS_PAGES = [
   'debates',
   'debate',
   'search',
+  'activity',
   'profile',
   'agent',
   'measured',

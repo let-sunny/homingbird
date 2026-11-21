@@ -25,7 +25,8 @@
   }
 
   .dialog,
-  .menu {
+  .menu,
+  .activity-panel {
     opacity: 0;
     translate: 0 -8px;
     transition:
@@ -36,7 +37,8 @@
   }
 
   .dialog[open],
-  .menu:popover-open {
+  .menu:popover-open,
+  .activity-panel:popover-open {
     opacity: 1;
     translate: 0 0;
 

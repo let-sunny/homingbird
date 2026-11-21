@@ -22,6 +22,7 @@ const routes: fc.Arbitrary<Route> = fc.oneof(
   segment.map((id): Route => ({ name: 'group', id })),
   fc.constant<Route>({ name: 'profile' }),
   fc.constant<Route>({ name: 'measured' }),
+  fc.constant<Route>({ name: 'activity' }),
   fc
     .constantFrom<AgentSection | null>(null, 'connection', 'teaching', 'doing', 'routes')
     .map((section): Route => ({ name: 'agent', section })),
@@ -70,6 +71,7 @@ describe('routes', () => {
     ['#/device/BCDF-GHJK', { name: 'device', code: 'BCDF-GHJK' }],
     ['#/admin', { name: 'admin', section: 'settings' }],
     ['#/admin/nonsense', { name: 'admin', section: 'settings' }],
+    ['#/activity', { name: 'activity' }],
     ['#/search?q=billing', { name: 'search', query: 'billing' }],
     ['#/search', { name: 'search', query: '' }],
     ['#/channels', { name: 'channels' }],

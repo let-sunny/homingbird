@@ -4,12 +4,13 @@ import { DEMO_REFUSAL } from '../src/handlers.ts'
 import { demoApi, memberNamed, refused, succeeded } from './support/demo.ts'
 
 describe('debate rooms', () => {
-  it('lists the rooms a member may enter, and whether their agent takes part', async () => {
+  it('lists the rooms a member may enter, a private one only to its members, and whether they were asked', async () => {
     const { api, world } = demoApi()
     const { debates } = await succeeded(api['debates.list']({}))
     expect(debates.map((room) => [room.status, room.joined, room.turnCount, room.resultDrafted])).toEqual([
       ['open', true, 2, false],
       ['closed', true, 2, true],
+      ['open', true, 0, false],
     ])
     const ben = demoApi(memberNamed(world, 'Ben Okafor'), world)
     expect((await succeeded(ben.api['debates.list']({}))).debates.map((room) => room.joined)).toEqual([
