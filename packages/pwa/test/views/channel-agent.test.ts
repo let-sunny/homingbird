@@ -70,7 +70,7 @@ describe('channelAgentView', () => {
         agent: { id: AGENT, name: 'Payments wiki', presence: { humanOnline: false, agentOnline: false } },
       },
     ])
-    const shown = mount(channelAgentView(context, lifetime(), 'payments-wiki', null))
+    const shown = mount(channelAgentView(context, lifetime(), 'payments-wiki', null, 'answers'))
     expect(textOf(shown.querySelector('.channel-agent-state')!)).toBe(
       strings.channelAgentState.notConnected({ agent: 'Payments wiki' }),
     )
