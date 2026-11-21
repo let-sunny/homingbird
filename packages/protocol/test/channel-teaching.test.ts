@@ -39,6 +39,21 @@ describe('channelInstructionProblem', () => {
         channelInstructionProblem({ instruction: '', sources: ['https://wiki.example/a', second] }),
       ).toBe('sources_repeated')
   })
+
+  it('tells apart sources that differ only after their scheme', () => {
+    expect(
+      channelInstructionProblem({
+        instruction: '',
+        sources: ['https://wiki.example/a', 'https://wiki.example/https://wiki.example/a'],
+      }),
+    ).toBeNull()
+    expect(
+      channelInstructionProblem({
+        instruction: '',
+        sources: ['https://wiki.example/a', 'https://a.example/'],
+      }),
+    ).toBeNull()
+  })
 })
 
 describe('channelInstructionMessage', () => {
