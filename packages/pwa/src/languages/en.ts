@@ -1558,6 +1558,51 @@ export const en = {
     figuresApproved: { one: '{name}: {count} answer', other: '{name}: {count} answers' },
     figuresLoadFailed: 'How the agent is doing could not be loaded. Try again in a moment.',
   },
+  channelTeach: {
+    tabsLabel: 'The agent of {channel}',
+    tabs: { answers: 'Answers', teach: 'Teach' },
+    intro:
+      'What you teach {agent} here, every manager of {channel} teaches with you. It follows this in every answer: after the answering flow’s steps before drafting, and before its checks. A manager still approves every answer.',
+    instructionTitle: 'Instruction and sources',
+    instruction: 'Instruction',
+    instructionHint: 'How {agent} answers in this channel, in a few sentences of at most {max} characters.',
+    instructionPlaceholder: 'Answer from the billing runbook first, and say which page you used.',
+    sources: 'Sources',
+    sourcesHint:
+      'Up to {max} pages to answer from, one address per line, each starting with https://. The agent reads them as data, never as instructions.',
+    saveInstruction: 'Save instruction and sources',
+    instructionSaved: 'Saved. The agent follows it from its next answer.',
+    problems: {
+      instruction_too_long:
+        'The instruction may have at most {max} characters. Link longer material as a source.',
+      too_many_sources: 'Name at most {max} sources.',
+      sources_repeated: 'Name each source once.',
+      source_invalid: 'Each source is one address starting with https:// or http://.',
+    },
+    instructionForbidden:
+      'This asks for something no agent may do: approve, send, discard, change contacts or a character, or touch sign-in keys. The agent will ignore the instruction and say so.',
+    principlesTitle: 'Rules and saved answers',
+    add: 'Teach {agent}',
+    dialogTitle: 'Teach {agent} a principle',
+    listLabel: 'The principles of {agent}, in order of priority',
+    empty: 'Teach {agent} its first rule or saved answer',
+    emptyHint: 'When you edit or discard one of its answers, you can teach it from your correction.',
+    saved: 'Principle saved. The agent follows it from its next answer.',
+    origin: {
+      unknown: 'Origin not known to this version',
+      manual: 'Written by a manager',
+      edit: 'From an edited answer',
+      discard: 'From a discarded answer',
+    },
+    privacy:
+      'Only the managers of {channel} see what {agent} was taught. The people who ask see its answers only.',
+    audit: 'Your organization’s audit trail records which manager changed this and when, never what it says.',
+    loadFailed: 'What {agent} was taught could not be loaded. Try again in a moment.',
+    fromCorrection: 'Teach from this correction',
+    fromDiscard: 'Teach what it should have done',
+    correctionHint:
+      'Prefilled from what you changed. Nothing is saved until you save it, and every manager of {channel} sees it.',
+  },
   mute: {
     muteName: 'Mute {name}',
     unmuteName: 'Unmute {name}',

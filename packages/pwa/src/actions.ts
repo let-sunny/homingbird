@@ -5,6 +5,7 @@ import * as account from './tasks/account.ts'
 import * as activity from './tasks/activity.ts'
 import * as admin from './tasks/admin.ts'
 import * as channelAgents from './tasks/channel-agents.ts'
+import * as channelTeaching from './tasks/channel-teaching.ts'
 import * as channels from './tasks/channels.ts'
 import * as cloudDesk from './tasks/cloud-desk.ts'
 import * as debates from './tasks/debates.ts'
@@ -94,6 +95,12 @@ export const TASKS = {
   retireChannelAgent: channelAgents.retireChannelAgent,
   disconnectAgentDesk: channelAgents.disconnectAgentDesk,
   askPrivately: channelAgents.askPrivately,
+  loadChannelTeaching: channelTeaching.loadChannelTeaching,
+  saveChannelInstruction: channelTeaching.saveChannelInstruction,
+  saveChannelPrinciple: channelTeaching.saveChannelPrinciple,
+  changeChannelPrinciple: channelTeaching.changeChannelPrinciple,
+  reorderChannelPrinciples: channelTeaching.reorderChannelPrinciples,
+  deleteChannelPrinciple: channelTeaching.deleteChannelPrinciple,
   loadGroups: () => groups.loadGroups,
   renameGroup: groups.renameGroup,
   setGroupMembers: groups.setGroupMembers,

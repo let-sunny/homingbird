@@ -6,6 +6,7 @@ import {
   type PrincipleKind,
 } from '@homingbird/protocol'
 import { type Child, h } from '@homingbird/ui'
+import type { CorrectionPrefill } from '../models/channel-teaching.ts'
 import {
   type PrincipleFormState,
   principleFormModel,
@@ -18,14 +19,21 @@ import { closeDialog } from './dialog.ts'
 import { button, field } from './parts.ts'
 import { placeSelect } from './teaching.ts'
 
-/** The guided form: what it is, a short title, how to answer, an optional source, warnings while typing. */
+/**
+ * The guided form: what it is, a short title, how to answer, an optional source, warnings while typing.
+ * For a channel's agent it has no place and no public sentence, and may start from a manager's correction.
+ */
 export const principleForm = (
   context: ViewContext,
   offer: AsRead.PrincipleOffer | null,
   editing: AsRead.Principle | null,
   showingPublic: boolean,
+  target: PrincipleTarget = OWN_AGENT,
 ): Child => {
-  const start = principleFormStart(offer, editing, showingPublic)
+  const forChannel = target.kind === 'channel' ? target : null
+  const prefill = forChannel?.prefill ?? null
+  const begun = principleFormStart(offer, editing, showingPublic)
+  const start = prefill !== null && editing === null ? { ...begun, rule: prefill.rule } : begun
   const kindChoice = (kind: PrincipleKind): HTMLInputElement =>
     h('input', { type: 'radio', name: 'kind', value: kind, checked: (editing?.kind ?? 'rule') === kind })
   const asRule = kindChoice('rule')
@@ -99,7 +107,10 @@ export const principleForm = (
   reflect()
   const done = (): void => {
     closeDialog(context)
-    context.state.notice.set({ kind: 'info', text: strings.teach.saved })
+    context.state.notice.set({
+      kind: 'info',
+      text: forChannel === null ? strings.teach.saved : strings.channelTeach.saved,
+    })
   }
   const submit = (): void => {
     const outcome = principleToSave(typed(), editing)
@@ -107,7 +118,22 @@ export const principleForm = (
     problem.hidden = !('problem' in outcome)
     if ('problem' in outcome) return
     const saving = outcome.save
-    if (saving.kind === 'change') context.actions.changePrinciple(saving.id, saving.change, { done })
+    if (forChannel !== null) {
+      const { kind, topic, rule, source } = saving.kind === 'change' ? saving.change : saving.input
+      if (saving.kind === 'change')
+        context.actions.changeChannelPrinciple(
+          forChannel.slug,
+          saving.id,
+          { kind, topic, rule, source },
+          { done },
+        )
+      else
+        context.actions.saveChannelPrinciple(
+          forChannel.slug,
+          { kind, topic, rule, source, ...(prefill !== null && { taughtFrom: prefill.taughtFrom }) },
+          { done },
+        )
+    } else if (saving.kind === 'change') context.actions.changePrinciple(saving.id, saving.change, { done })
     else context.actions.savePrinciple(saving.input, { done })
   }
   return h(
@@ -128,17 +154,32 @@ export const principleForm = (
       h('label', { class: 'choice' }, asRule, strings.teach.kinds.rule),
       h('label', { class: 'choice' }, asAnswer, strings.teach.kinds.answer),
     ),
+    prefill !== null && h('p', { class: 'hint principle-prefill', role: 'note' }, prefill.hint),
     field(strings.teach.topic, topic, strings.teach.topicHint),
     h('label', { class: 'field' }, ruleLabel, rule, ruleHint),
     advice,
     field(strings.teach.source, source, strings.teach.sourceHint),
     host,
-    field(strings.teach.place, place, strings.teach.placeHint),
-    h('label', { class: 'choice' }, publicBox, strings.teach.publicToggle),
-    publicPart,
+    forChannel === null && [
+      field(strings.teach.place, place, strings.teach.placeHint),
+      h('label', { class: 'choice' }, publicBox, strings.teach.publicToggle),
+      publicPart,
+    ],
     confirm,
     confirmHint,
     problem,
     save,
   )
 }
+
+/** Whose agent the form teaches: the person's own, or the agent of a channel they manage. */
+export type PrincipleTarget =
+  | { readonly kind: 'own' }
+  | {
+      readonly kind: 'channel'
+      readonly slug: string
+      readonly agent: string
+      readonly prefill: CorrectionPrefill | null
+    }
+
+const OWN_AGENT: PrincipleTarget = { kind: 'own' }

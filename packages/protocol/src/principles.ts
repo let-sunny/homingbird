@@ -1,10 +1,12 @@
 import { Schema as S } from '@homingbird/kernel'
 import type * as AsRead from './as-read.ts'
+import { ChannelDrafting } from './channel-drafting.ts'
 import { UNKNOWN } from './compatibility.ts'
 import { DebateCredit } from './debate-result.ts'
 import { ConversationId, NoteId, Timestamp } from './ids.ts'
 import { PlaceName } from './insights.ts'
 import { PublicText } from './model.ts'
+import { PrincipleSource } from './principle-source.ts'
 
 /** The titles a basis says were applied, from its "Principles applied:" line. */
 export const appliedTitlesIn = (basis: string | null | undefined): string[] => {
@@ -108,7 +110,6 @@ export const PRINCIPLE_TEXT_MAX = 300
 export const ANSWER_TEXT_MAX = PRINCIPLE_TEXT_MAX
 /** What a stored answer may hold when read; a save or an edit must fit `ANSWER_TEXT_MAX`. */
 export const STORED_RULE_MAX = 600
-export const PRINCIPLE_SOURCE_MAX = 500
 export const PRINCIPLES_PER_PERSON = 50
 export const APPLIED_PREFIX = 'Principles applied:'
 
@@ -126,11 +127,6 @@ export const PrincipleRule = S.refine<string>(
 
 export const PrincipleKind = S.tolerant(S.literal('rule', 'answer'), UNKNOWN)
 export type PrincipleKind = S.Infer<typeof PrincipleKind>
-
-export const PrincipleSource = S.string({
-  maxLength: PRINCIPLE_SOURCE_MAX,
-  pattern: /^https?:\/\/[^\s/]+(\/\S*)?$/,
-})
 
 export const PrincipleId = S.brand<'PrincipleId'>()(
   S.string({ pattern: /^prin_[0-9a-z]{12,}$/, maxLength: 45 }),
@@ -181,6 +177,7 @@ export const DraftingPrinciples = S.struct({
   leftOut: S.int({ min: 0 }),
   ignored: S.array(S.string({ maxLength: PRINCIPLE_TOPIC_MAX })),
   ignoredLeftOut: S.int({ min: 0 }),
+  channel: S.optional(ChannelDrafting),
 })
 export type DraftingPrinciples = S.Infer<typeof DraftingPrinciples>
 

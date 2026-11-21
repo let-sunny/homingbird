@@ -47,7 +47,15 @@ export const stageFor = (context: ViewContext, life: Lifetime, me: AsRead.Me, cu
     case 'channel':
       return channelView(context, life, current.slug)
     case 'channel-agent':
-      return on('channelAgents') ? channelAgentView(context, life, current.slug, current.draft) : notFound()
+      return on('channelAgents')
+        ? channelAgentView(
+            context,
+            life,
+            current.slug,
+            current.draft,
+            current.teach === true ? 'teach' : 'answers',
+          )
+        : notFound()
     case 'debates':
       return on('debateRooms') ? debatesView(context, life, me) : notFound()
     case 'debate':

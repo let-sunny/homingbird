@@ -13,6 +13,7 @@ import {
   type PrincipleId,
   type PrincipleKind,
   type PrincipleOrigin,
+  type TaughtFrom,
   isSameTitle,
   isUnchangedSuggestion,
   principleProblem,
@@ -38,6 +39,7 @@ export interface PrincipleDraft {
   readonly publicText?: string | null | undefined
   readonly offerId?: string | undefined
   readonly confirmed?: boolean | undefined
+  readonly taughtFrom?: TaughtFrom | undefined
 }
 
 /**
@@ -69,7 +71,8 @@ export const createPrinciple = (
         )
       const now = env.clock.now()
       const id = `prin_${env.random.identifier()}` as PrincipleId
-      const origin: PrincipleOrigin = offer === null ? 'manual' : offer.kind === 'edit' ? 'edit' : 'discard'
+      const origin: PrincipleOrigin =
+        offer === null ? (draft.taughtFrom ?? 'manual') : offer.kind === 'edit' ? 'edit' : 'discard'
       const inserted = yield* run(sql`
         INSERT INTO principles (id, member_id, kind, topic, rule, source, place, enabled, origin, position,
           created_at, updated_at, last_applied_at, public_text)
@@ -125,6 +128,13 @@ export const reorderPrinciples = (
   memberId: MemberId,
   ids: ReadonlyArray<string>,
 ): T.Task<MyPrinciples, Invalid, AppEnv> =>
+  T.flatMap(() => myPrinciples(memberId))(orderPrinciples(memberId, ids))
+
+/** Gives a member's principles the positions of `ids`, which must name each of them once. */
+export const orderPrinciples = (
+  memberId: MemberId,
+  ids: ReadonlyArray<string>,
+): T.Task<void, Invalid, AppEnv> =>
   T.gen(function* () {
     const existing = yield* principlesOf(memberId)
     const known = new Set(existing.map((principle) => principle.id as string))
@@ -136,7 +146,6 @@ export const reorderPrinciples = (
       yield* run(
         sql`UPDATE principles SET position = ${position} WHERE id = ${id} AND member_id = ${memberId}`,
       )
-    return yield* myPrinciples(memberId)
   })
 
 export const deletePrinciple = (memberId: MemberId, id: string): T.Task<Principle, NotFound, AppEnv> =>
