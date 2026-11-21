@@ -2,7 +2,7 @@ import type { AsRead } from '@homingbird/protocol'
 import { type Lifetime, h, later, lifetime, region, replaceChildren } from '@homingbird/ui'
 import { track } from '../analytics.ts'
 import { NOTICE_MS, toastModel } from '../models/toast.ts'
-import { type Route, arrivedToConnect, currentHashFor, parseRoute, signInHref } from '../routes.ts'
+import { type Route, arrivedToConnect, currentHashFor, hrefFor, parseRoute, signInHref } from '../routes.ts'
 import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
 import { dialogHost } from './dialog.ts'
@@ -28,10 +28,14 @@ export const showApp = (
   const appLife = lifetime()
   let stageLife = lifetime()
   const stage = h('main', { class: 'stage' })
+  let shownHref: string | null = null
   const drawStage = (me: AsRead.Me): void => {
     stageLife.end()
     stageLife = lifetime()
+    const href = hrefFor(state.route.get())
     replaceChildren(stage, stageFor(context, stageLife, me, state.route.get()))
+    if (href !== shownHref) stage.scrollTop = 0
+    shownHref = href
     launch(track('page_viewed', { page: analyticsPageOf(state.route.get()) }))
   }
   const draw = (): void => {

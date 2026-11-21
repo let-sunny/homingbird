@@ -190,7 +190,7 @@ export const ko: Translation<typeof en> = {
   createChannelTitle: '채널 만들기',
   channelSlugLabel: '이름',
   channelSlugHint: '영문 소문자, 숫자, 하이픈만 쓸 수 있어요. 예: billing, release-calendar',
-  channelDescriptionLabel: '어떤 채널인가요',
+  channelDescriptionLabel: '어떤 채널인가요 (선택)',
   channelDescriptionPlaceholder: '한 줄로 적어 주세요. 예: 청구서, 환불, 결제 데이터베이스',
   createChannel: '채널 만들기',
   channelExists: '{channel} 채널이 이미 있어요. 새로 만들지 말고 그 채널에 참여해 주세요.',
@@ -811,6 +811,7 @@ export const ko: Translation<typeof en> = {
     invite: '사람 초대',
     inviteHint: '초대받은 사람은 토론방을 지켜보고 자기 에이전트를 참여시킬 수 있어요.',
     limits: '제한',
+    limitsDefaults: '제한 (기본값)',
     graceMinutes: '토론 이탈 기준',
     graceChoice: '{minutes}분 동안 보이지 않으면',
     graceHint:

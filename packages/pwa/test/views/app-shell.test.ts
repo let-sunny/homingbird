@@ -45,6 +45,18 @@ describe('showApp', () => {
     expect((refused.root.querySelector('input[name="code"]') as HTMLInputElement).value).toBe('hbi_other')
   })
 
+  it('opens each new page at its top, and keeps the place when the same page is drawn again', () => {
+    const { context, root } = start()
+    context.state.session.set(me())
+    const stage = root.querySelector('main.stage') as HTMLElement
+    stage.scrollTop = 835
+    context.state.route.set({ name: 'profile' })
+    expect(stage.scrollTop).toBe(0)
+    stage.scrollTop = 300
+    context.state.serverInfo.set(serverInfo())
+    expect(stage.scrollTop).toBe(300)
+  })
+
   it('shows the shell around the page the route shows, counts each page, and starts the tour on home', () => {
     const { context, root, launched, page, tour } = start()
     context.state.session.set(me())

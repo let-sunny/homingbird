@@ -36,6 +36,11 @@ describe('debatesView', () => {
     fire.type(getByRole(dialog, 'textbox', { name: strings.debates.question }), ' Ship? ')
     getByRole(dialog, 'radio', { name: strings.debates.visibilityPrivate }).click()
     getByRole(dialog, 'checkbox', { name: 'Ben' }).click()
+    const defaults = dialog.querySelector('details.debate-default-limits') as HTMLDetailsElement
+    expect([defaults.open, defaults.querySelector('summary')!.textContent]).toEqual([
+      false,
+      strings.debates.limitsDefaults,
+    ])
     fire.submit(dialog.querySelector('form')!)
     const [create] = called('createDebate')
     expect(create!.args[0]).toEqual({

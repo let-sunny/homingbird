@@ -18,15 +18,13 @@ export const pickerModel = (input: PickerInput): PickerModel => {
   }
 }
 
-/** The channel to create from what was typed, or null until both the name and a description are valid. */
+/** The channel to create from what was typed, or null until the name is valid; the description may be empty. */
 export const newChannelFrom = (
   slug: string,
   description: string,
 ): { readonly slug: string; readonly description: string } | null => {
   const wanted = slugFrom(slug).replace(/-+$/, '')
-  return !isValidSlug(wanted) || description.trim() === ''
-    ? null
-    : { slug: wanted, description: description.trim() }
+  return isValidSlug(wanted) ? { slug: wanted, description: description.trim() } : null
 }
 
 export interface PickerInput {

@@ -127,6 +127,11 @@ describe('channels', () => {
     expect(room).toMatchObject({ kind: 'channel', title: 'deploys', participantIds: [ben.me.member.id] })
   })
 
+  it('creates a channel without a description', async () => {
+    const created = await ben.api('POST', '/channels', { slug: 'oncall', description: '' })
+    expect([created.status, created.json.description]).toEqual([200, ''])
+  })
+
   it('shows on a profile which channels a member helps with, and filters the directory by channel', async () => {
     await ben.api('PUT', '/channels/billing/membership', { answering: true })
     const entries = (await ana.api('GET', '/directory')).json.entries
