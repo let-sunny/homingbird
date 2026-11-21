@@ -198,11 +198,41 @@
 
 .conversation-name {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: var(--hb-space-2);
+  min-inline-size: 0;
   font-weight: 600;
-  overflow-wrap: anywhere;
+}
+
+.conversation-name > :not(.conversation-title) {
+  flex: none;
+}
+
+.conversation-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conversation-face {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+
+.agent-dot {
+  position: absolute;
+  inset-block-end: calc(var(--hb-space-1) * -1);
+  inset-inline-end: calc(var(--hb-space-1) * -1);
+  inline-size: 10px;
+  block-size: 10px;
+  border: var(--hb-border);
+  background: var(--hb-color-success);
+}
+
+.agent-dot.is-off {
+  border-style: dashed;
+  background: var(--hb-color-surface);
 }
 
 .conversation-preview {
@@ -326,7 +356,13 @@
 
 .thread-who {
   flex: 1;
-  min-inline-size: 0;
+  min-inline-size: 4rem;
+}
+
+.thread-who > h1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .thread-profile {
@@ -1738,17 +1774,11 @@ button.group-member-name:focus-visible::after {
   gap: var(--hb-space-2);
 }
 
-.thread-head:has(.room-controls) {
-  flex-wrap: wrap;
-}
-
 .room-controls {
   display: flex;
-  flex: 1 1 100%;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--hb-space-2) var(--hb-space-4);
+  gap: var(--hb-space-2);
 }
 
 .page-body > .room-controls {
@@ -1757,24 +1787,101 @@ button.group-member-name:focus-visible::after {
   background: var(--hb-color-surface);
 }
 
-.room-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: start;
+.switch.answering-chip {
+  flex: none;
+  flex-wrap: nowrap;
   gap: var(--hb-space-2);
-  margin-inline-start: auto;
+  padding: var(--hb-space-1) var(--hb-space-2);
+  border: var(--hb-border-thin);
+  font-size: var(--hb-text-small);
+  white-space: nowrap;
 }
 
-.answering-toggle {
-  display: grid;
-  gap: var(--hb-space-1);
-  flex: 1 1 18rem;
+.switch.answering-chip .switch-track {
+  inline-size: 2rem;
+  block-size: 1rem;
+}
+
+.switch.answering-chip .switch-thumb {
+  inline-size: 0.75rem;
+}
+
+.switch.answering-chip .switch-state {
   min-inline-size: 0;
+  font-size: var(--hb-text-tiny);
 }
 
-.answering-toggle small {
+.switch.answering-chip[aria-checked="true"] .switch-thumb {
+  inset-inline-start: calc(100% - 0.75rem - var(--hb-pixel));
+}
+
+@container stage (max-width: 30rem) {
+  .thread-head {
+    gap: var(--hb-space-2);
+  }
+
+  .thread-head > .avatar.is-channel,
+  .switch.answering-chip .switch-label {
+    display: none;
+  }
+}
+
+.switch.answering-chip:focus-visible {
+  outline: var(--hb-focus-ring);
+  outline-color: var(--hb-color-focus);
+}
+
+.room-more,
+.group-people-open {
+  flex: none;
+  padding: var(--hb-space-1) var(--hb-space-2);
+  white-space: nowrap;
+}
+
+.room-menu,
+.group-people {
+  max-inline-size: min(20rem, calc(100vi - var(--hb-space-4)));
+}
+
+.room-menu > button,
+.room-menu .disabled-control > button {
+  display: block;
+  inline-size: 100%;
+  padding: var(--hb-space-2);
+  border: 0;
+  background: none;
+  box-shadow: none;
+  font-weight: 500;
+  font-size: var(--hb-text-body);
+  text-align: start;
+}
+
+.room-menu > button:hover {
+  translate: none;
+  background: var(--hb-color-accent);
+  color: var(--hb-color-on-accent);
+  box-shadow: none;
+}
+
+.room-menu .disabled-control {
+  display: grid;
+  max-inline-size: none;
+  padding-block-end: var(--hb-space-2);
+}
+
+.room-menu .disabled-control small,
+.room-description {
+  padding-inline: var(--hb-space-2);
   color: var(--hb-color-muted);
   font-size: var(--hb-text-small);
+}
+
+.group-people ul {
+  display: grid;
+  gap: var(--hb-space-1);
+  margin: 0;
+  padding: var(--hb-space-2);
+  list-style: none;
 }
 
 
@@ -2165,12 +2272,24 @@ button.group-member-name:focus-visible::after {
 
 
 .character-group {
+  position: relative;
   display: inline-flex;
   flex: none;
   align-items: end;
   justify-content: center;
   inline-size: 2.25rem;
   block-size: 2.25rem;
+}
+
+.group-more {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: calc(var(--hb-space-1) * -1);
+  padding: 0 var(--hb-space-1);
+  border: var(--hb-border-thin);
+  background: var(--hb-color-surface);
+  color: var(--hb-color-text);
+  font: 700 var(--hb-text-tiny) / 1.4 var(--hb-font-mono);
 }
 
 .user-button .character {
@@ -2404,10 +2523,15 @@ button.group-member-name:focus-visible::after {
   margin-inline-start: var(--hb-space-1);
 }
 
-.channel-head-meta {
-  display: grid;
-  justify-items: start;
-  white-space: normal;
+.channel-head-meta > .channel-counts {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.channel-head-meta > .channel-counts > span:not(:last-child)::after {
+  margin-inline-end: var(--hb-space-1);
 }
 
 .conversation-counts {
@@ -2458,6 +2582,7 @@ button.group-member-name:focus-visible::after {
 }
 
 .thread-head > .mute-toggle {
+  flex: none;
   margin-inline-start: auto;
 }
 

@@ -204,26 +204,27 @@ const scenario = async (): Promise<void> => {
     // -- 7: the answering switch, by keyboard, in both themes, and contrast ---------------------
     const billing = (await api(ben, 'GET', '/channels/billing')).conversationId as string
     await ben.page.goto(`${base}/#/c/${billing}`)
-    const toggle = ben.page.locator('.answering-toggle [role=switch]')
+    const toggle = ben.page.locator('[role=switch].answering-chip')
     await toggle.waitFor()
     await ben.page.waitForSelector('.thread-head .channel-counts:has-text("1 member")')
-    await ben.page.waitForSelector('.answering-toggle .switch-state:has-text("On")')
+    await ben.page.waitForSelector('.answering-chip .switch-state:has-text("On")')
     await toggle.focus()
     await ben.page.keyboard.press('Enter')
     await ben.page.waitForSelector(
-      '.answering-toggle [role=switch][aria-checked="false"] .switch-state:has-text("Off")',
+      '[role=switch].answering-chip[aria-checked="false"] .switch-state:has-text("Off")',
     )
     await inThemes(ben.page, 'answer-questions-here-off', false)
     await toggle.focus()
     await ben.page.keyboard.press('Enter')
     await ben.page.waitForSelector(
-      '.answering-toggle [role=switch][aria-checked="true"] .switch-state:has-text("On")',
+      '[role=switch].answering-chip[aria-checked="true"] .switch-state:has-text("On")',
     )
     await inThemes(ben.page, 'answer-questions-here-on-with-focus')
     await contrastIsFine(ben.page, 'channel room')
 
     // -- 8: my own row in the members panel ------------------------------------------------------
-    await ben.page.locator('.room-actions').getByRole('button', { name: 'Members' }).click()
+    await ben.page.locator('.room-more').click()
+    await ben.page.locator('.room-menu').getByRole('button', { name: 'Members' }).click()
     const ownRow = ben.page.locator(`dialog[open] .channel-member[data-member="${ids.Ben}"]`)
     await ownRow.locator('.is-you:has-text("(you)")').waitFor()
     assert.equal(await ownRow.getByRole('button', { name: 'Remove' }).count(), 0)
@@ -234,17 +235,20 @@ const scenario = async (): Promise<void> => {
     await ben.page.waitForSelector('dialog[open] .managed-by:has-text("Managed by")')
     await inThemes(ben.page, 'a-manager-leaves-the-group-before-the-channel', false)
     await ben.page.keyboard.press('Escape')
+    await ben.page.locator('.room-more').click()
     await ben.page.waitForSelector(
-      '.room-actions .disabled-control:has-text("Remove yourself as a manager before")',
+      '.room-menu .disabled-control:has-text("Remove yourself as a manager before")',
     )
-    assert.equal(await ben.page.locator('.room-actions button.leave-channel').isDisabled(), true)
+    assert.equal(await ben.page.locator('.room-menu button.leave-channel').isDisabled(), true)
+    await ben.page.keyboard.press('Escape')
     await api(ben, 'PUT', `/channels/billing/members/${ids.June}`).catch(() => undefined)
     await api(june, 'PUT', '/channels/billing/membership', {})
 
     // -- 10: a refusal the client can foresee is shown disabled with its reason ------------------
     await api(ana, 'DELETE', '/channels/area-03/membership')
     await ana.page.goto(`${base}/#/channel/area-03`)
-    await ana.page.locator('.room-actions').getByRole('button', { name: 'Members' }).click()
+    await ana.page.locator('.room-more').click()
+    await ana.page.locator('.room-menu').getByRole('button', { name: 'Members' }).click()
     await ana.page.waitForSelector('dialog[open] .disabled-control:has-text("Only a channel with a manager")')
     assert.equal(await ana.page.locator('dialog[open] button.make-private').isDisabled(), true)
     await inThemes(ana.page, 'make-private-disabled-with-the-reason', false)
@@ -766,7 +770,7 @@ const scenario = async (): Promise<void> => {
     await korean.page.waitForSelector('.draft .draft-destination')
     await inThemes(korean.page, 'korean-draft-waiting', false)
     await korean.page.goto(`${base}/#/c/${billing}`)
-    await korean.page.waitForSelector('.answering-toggle .switch-state:has-text("켜짐")')
+    await korean.page.waitForSelector('.answering-chip .switch-state:has-text("켜짐")')
     await korean.page.waitForSelector('.thread-head .channel-counts:has-text("답변자")')
     await inThemes(korean.page, 'korean-channel-room')
     await korean.page.goto(`${base}/#/connect`)
@@ -810,7 +814,7 @@ const themeScenario = async (): Promise<void> => {
     await sendThroughApi(person, { channel: 'billing', body: 'Is the theme applied everywhere?' })
     const room = (await api(person, 'GET', '/channels/billing')).conversationId as string
     for (const [path, ready] of [
-      [`/#/c/${room}`, '.answering-toggle'],
+      [`/#/c/${room}`, '.answering-chip'],
       ['/#/people', '.person'],
       ['/#/channels', '.channel-card'],
       ['/#/connect', '.desk-recommendation'],

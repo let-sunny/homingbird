@@ -23,6 +23,8 @@ describe('roomControlsModel', () => {
     const billing = channel('billing', { joined: true, managing: true })
     expect(roomControlsModel(billing, roster(one(ANA), one(BEN, true)), ANA)).toEqual({
       answering: answeringModel(billing),
+      more: { id: 'room-menu-billing', label: strings.roomMore({ channel: '#billing' }) },
+      description: billing.description,
       manage: strings.membersTitle({ channel: '#billing' }),
       leave: { kind: 'allowed', title: strings.leaveChannelTitle({ channel: '#billing' }) },
       leaveBody: strings.leaveChannelBody,
@@ -61,6 +63,8 @@ describe('answeringModel', () => {
     expect(answeringModel(channel('billing', { answering: true }))).toEqual({
       labelId: 'answering-label-billing',
       hintId: 'answering-billing',
+      label: strings.answerHere,
+      hint: strings.answerHereHint,
       checked: true,
       state: strings.switchOn,
     })

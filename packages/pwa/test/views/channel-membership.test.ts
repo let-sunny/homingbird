@@ -1,7 +1,7 @@
-import { fire, getByRole, queryByRole, textOf } from '@homingbird/ui/testing'
+import { fire, getByRole, installFakeDom, queryByRole, textOf } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
 import { strings } from '../../src/strings.ts'
-import { answeringToggle, privateMark, roomControls } from '../../src/views/channel-membership.ts'
+import { answeringChip, privateMark, roomControls } from '../../src/views/channel-membership.ts'
 import { dialogHost } from '../../src/views/dialog.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
@@ -26,6 +26,14 @@ const signedIn = (context: ReturnType<typeof testContext>['context'], admin = fa
   context.state.directory.set([entry(BEN, 'Ben'), entry(CY, 'Cy')])
 }
 
+const openMenu = (shown: HTMLElement): void => (shown.querySelector('.room-more') as HTMLElement).click()
+
+/** Opens the room's ⋯ menu and chooses one of its items. */
+const choose = (shown: HTMLElement, name: string): void => {
+  openMenu(shown)
+  getByRole(shown, 'button', { name }).click()
+}
+
 describe('roomControls', () => {
   it('switches answering, and leaves a channel after confirming', () => {
     const { context, called } = testContext()
@@ -34,11 +42,14 @@ describe('roomControls', () => {
     const shown = mount(roomControls(context, billing))
     getByRole(shown, 'switch', { name: strings.answerHere }).click()
     expect(called('setAnswering')[0]!.args).toEqual(['billing', true])
-    getByRole(shown, 'button', { name: strings.leaveChannel }).click()
+    choose(shown, strings.leaveChannel)
     const dialog = document.getElementById('dialog')!
     expect(textOf(dialog)).toContain(strings.leaveChannelBody)
     fire.submit(dialog.querySelector('form')!)
     expect(called('leaveChannel')[0]!.then!.attempt).toBe('managers')
+    expect(shown.querySelector('.room-menu')!.matches(':popover-open')).toBe(false)
+    openMenu(shown)
+    expect(textOf(shown)).toContain(billing.description)
     expect(queryByRole(shown, 'button', { name: strings.manageMembers })).toBeNull()
   })
 
@@ -64,7 +75,8 @@ describe('roomControls', () => {
         ],
       ]),
     )
-    const shown = roomControls(context, managed)
+    const shown = mount(roomControls(context, managed))
+    openMenu(shown)
     expect((getByRole(shown, 'button', { name: strings.leaveChannel }) as HTMLButtonElement).disabled).toBe(
       true,
     )
@@ -79,7 +91,7 @@ describe('roomControls', () => {
     mount(dialogHost())
     const secret = channel('secret', { joined: true, managing: true, visibility: 'private', memberCount: 2 })
     const shown = mount(roomControls(context, secret))
-    getByRole(shown, 'button', { name: strings.manageMembers }).click()
+    choose(shown, strings.manageMembers)
     const dialog = document.getElementById('dialog')!
     expect(textOf(dialog)).toContain(strings.loading)
     expect(called('loadGroups')).toHaveLength(1)
@@ -130,7 +142,7 @@ describe('roomControls', () => {
     context.state.groups.set([managersOf('billing', { memberIds: [ANA], mayAdd: true, mayRemove: true })])
     mount(dialogHost())
     const shown = mount(roomControls(context, channel('billing', { joined: true, managing: true })))
-    getByRole(shown, 'button', { name: strings.manageMembers }).click()
+    choose(shown, strings.manageMembers)
     const dialog = document.getElementById('dialog')!
     called('loadChannelMembers').at(-1)!.then!.done!([{ memberId: ANA, manager: true, answering: false }])
     expect(dialog.querySelector('form.add-manager')).toBeNull()
@@ -145,7 +157,7 @@ describe('roomControls', () => {
     const billing = channel('billing', { joined: true, managing: true, memberCount: 2 })
     context.state.groups.set([managersOf('billing', { memberIds: [BEN] })])
     const shown = mount(roomControls(context, billing))
-    getByRole(shown, 'button', { name: strings.manageMembers }).click()
+    choose(shown, strings.manageMembers)
     const dialog = document.getElementById('dialog')!
     called('loadChannelMembers').at(-1)!.then!.done!([
       { memberId: ANA, manager: false, answering: false },
@@ -156,7 +168,7 @@ describe('roomControls', () => {
     fire.submit(dialog.querySelector('form.visibility-confirmation')!)
     expect(called('setChannelVisibility')[0]!.args).toEqual(['billing', 'private'])
     expect(called('setChannelVisibility')[0]!.then!.attempt).toBe('visibility')
-    getByRole(shown, 'button', { name: strings.manageMembers }).click()
+    choose(shown, strings.manageMembers)
     called('loadChannelMembers').at(-1)!.then!.done!([{ memberId: ANA, manager: false, answering: false }])
     getByRole(dialog, 'button', { name: strings.leaveChannel }).click()
     fire.submit(dialog.querySelector('form.self-confirmation')!)
@@ -169,7 +181,7 @@ describe('roomControls', () => {
     context.state.directory.set([])
     mount(dialogHost())
     const shown = mount(roomControls(context, channel('ops', { managing: true })))
-    getByRole(shown, 'button', { name: strings.manageMembers }).click()
+    choose(shown, strings.manageMembers)
     const dialog = document.getElementById('dialog')!
     expect(textOf(dialog)).toContain(strings.managedByAdmin)
     called('loadChannelMembers').at(-1)!.then!.done!([{ memberId: BEN, manager: false, answering: false }])
@@ -178,7 +190,7 @@ describe('roomControls', () => {
     )
     expect(textOf(dialog)).toContain(strings.formerMember)
     const secret = mount(roomControls(context, channel('hidden', { managing: true, visibility: 'private' })))
-    getByRole(secret, 'button', { name: strings.manageMembers }).click()
+    choose(secret, strings.manageMembers)
     called('loadChannelMembers').at(-1)!.then!.done!([{ memberId: BEN, manager: true, answering: false }])
     expect(textOf(dialog)).toContain(strings.nobodyToAdd)
     getByRole(dialog, 'button', { name: strings.makeOpen }).click()
@@ -202,7 +214,7 @@ describe('an administrator outside a private channel', () => {
     })
     const shown = mount(roomControls(context, secret))
     expect(queryByRole(shown, 'switch', { name: strings.answerHere })).toBeNull()
-    getByRole(shown, 'button', { name: strings.manageMembers }).click()
+    choose(shown, strings.manageMembers)
     const dialog = document.getElementById('dialog')!
     called('loadChannelMembers').at(-1)!.then!.done!([
       { memberId: BEN, manager: true, answering: false },
@@ -218,6 +230,22 @@ describe('an administrator outside a private channel', () => {
   })
 })
 
+describe('the room menu without the Popover API', () => {
+  it('shows its items in place, and a choice still works', () => {
+    installFakeDom({ popovers: false })
+    const { context, called } = testContext()
+    signedIn(context)
+    context.state.serverInfo.set(everything())
+    const shown = mount(roomControls(context, channel('billing', { joined: true, agent: null })))
+    mount(dialogHost())
+    const menu = shown.querySelector<HTMLElement>('.room-menu')!
+    expect('hidePopover' in menu).toBe(false)
+    menu.querySelector<HTMLElement>('.leave-channel')!.click()
+    expect(textOf(document.getElementById('dialog')!)).toContain(strings.leaveChannelBody)
+    expect(called('leaveChannel')).toHaveLength(0)
+  })
+})
+
 describe('the marks of a channel', () => {
   it('marks a private channel, and says whether the person answers there', () => {
     const { context } = testContext()
@@ -225,7 +253,9 @@ describe('the marks of a channel', () => {
     expect(textOf(privateMark(channel('secret', { visibility: 'private' })) as HTMLElement)).toBe(
       strings.privateChannel,
     )
-    const on = answeringToggle(context, channel('billing', { answering: true }))
+    expect(answeringChip(context, channel('billing'))).toBeNull()
+    const on = answeringChip(context, channel('billing', { joined: true, answering: true })) as HTMLElement
+    expect(on.getAttribute('title')).toBe(strings.answerHereHint)
     expect(getByRole(on, 'switch').getAttribute('aria-checked')).toBe('true')
     expect(textOf(on)).toContain(strings.switchOn)
   })

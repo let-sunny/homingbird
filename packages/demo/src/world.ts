@@ -92,6 +92,8 @@ export interface ConversationRecord {
   readonly createdAt: number
   readonly lastActivityAt: number
   readonly mutedBy: ReadonlyArray<MemberId>
+  /** Who started a group message: it is listed for them before any note in it is sent, as on a server. */
+  readonly startedBy?: MemberId
 }
 
 export interface ChannelRecord {

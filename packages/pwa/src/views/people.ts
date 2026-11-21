@@ -187,7 +187,7 @@ const personCard = (
             h('span', { class: `relation is-${person.relation.kind}` }, person.relation.text),
         ),
         h('span', { class: 'person-email', title: person.email }, person.email),
-        presenceBadges(person.presence, true),
+        presenceBadges(person.presence),
         person.channels !== null &&
           h(
             'div',

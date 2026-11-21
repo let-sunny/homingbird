@@ -3,8 +3,8 @@ import type { AsRead, ConversationId, NoteId } from '@homingbird/protocol'
 import { batch } from '@homingbird/ui'
 import { type Action, type App, withApp } from '../app.ts'
 import { type MISSING, orMissing } from '../missing.ts'
-import { type AppState, signedIn } from '../state.ts'
-import { noteAwaitingReply, withNoteFiled, withoutNote } from '../thread.ts'
+import type { AppState } from '../state.ts'
+import { withNoteFiled, withoutNote } from '../thread.ts'
 import { loadConversations } from './workspace.ts'
 
 export const openThread = (id: ConversationId): Action<void | typeof MISSING> => orMissing(loadThread(id))
@@ -32,7 +32,7 @@ export const loadOlderNotes = (id: ConversationId): Action =>
     })
   })
 
-/** Writes and sends a note in one step, as a reply to the chosen note or the one awaiting a reply. */
+/** Writes and sends a note in one step, as a reply to the note the person chose, if any. */
 export const sendNote = (conversationId: ConversationId, body: string): Action =>
   withApp(({ state }) =>
     T.ensuring(
@@ -50,15 +50,9 @@ export const chooseReplyTarget = (conversationId: ConversationId, noteId: NoteId
     T.sync(() => state.replyTargets.update((targets) => new Map(targets).set(conversationId, noteId))),
   )
 
-/** The note a new note answers: the one the person chose, else the latest one waiting for their reply. */
-export const replyTargetIn = (state: AppState, conversationId: ConversationId): NoteId | null => {
-  const chosen = state.replyTargets.get().get(conversationId)
-  if (chosen !== undefined) return chosen as NoteId | null
-  const me = signedIn(state)
-  const notes = state.threads.get().get(conversationId)?.notes ?? []
-  const kind = state.conversations.get().find((conversation) => conversation.id === conversationId)?.kind
-  return me === null || kind === 'channel' ? null : (noteAwaitingReply(notes, me.member.id)?.id ?? null)
-}
+/** The note a new note answers: only the one the person chose with a note's Reply button. */
+export const replyTargetIn = (state: AppState, conversationId: ConversationId): NoteId | null =>
+  state.replyTargets.get().get(conversationId) ?? null
 
 /** Files a note where it belongs, counting the change for every conversation that showed it. */
 export const rememberNote =

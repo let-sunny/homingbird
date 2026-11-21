@@ -20,21 +20,45 @@ import type { ViewContext } from './context.ts'
 import { closeDialog, opensDialog } from './dialog.ts'
 import { button, dialogActions, disabledWithReason, loading, privateMarkOf, youMark } from './parts.ts'
 
-/** A channel's own controls: answering there, managing its members, and leaving it. */
-export const roomControls = (context: ViewContext, channel: AsRead.Channel): HTMLElement => {
+/** A channel's own controls on its page: answering there, and the menu of the rest. */
+export const roomControls = (context: ViewContext, channel: AsRead.Channel): HTMLElement =>
+  h('div', { class: 'room-controls' }, answeringChip(context, channel), roomMenu(context, channel))
+
+/** The answering switch of a channel the person is in, as a chip; what it means is in its title. */
+export const answeringChip = (context: ViewContext, channel: AsRead.Channel): Child => {
+  if (!channel.joined) return null
+  const model = answeringModel(channel)
+  return h(
+    'button',
+    {
+      type: 'button',
+      class: 'switch answering-chip',
+      role: 'switch',
+      title: model.hint,
+      'aria-checked': String(model.checked),
+      'aria-labelledby': model.labelId,
+      'aria-describedby': model.hintId,
+      on: { click: () => context.actions.setAnswering(channel.slug, !channel.answering) },
+    },
+    h('span', { class: 'switch-track', 'aria-hidden': 'true' }, h('span', { class: 'switch-thumb' })),
+    h('span', { class: 'switch-label', id: model.labelId }, model.label),
+    h('span', { class: 'switch-state', 'aria-hidden': 'true' }, model.state),
+    h('span', { id: model.hintId, hidden: true }, model.hint),
+  )
+}
+
+/** A channel's other controls behind ⋯: managing its members, its agent, and leaving it. */
+export const roomMenu = (context: ViewContext, channel: AsRead.Channel): Child => {
   const { state } = context
   const need = rosterNeed(channel, state.rosters.get())
   if (need.stale) refreshRoster(context, channel)
-  return renderRoomControls(
-    roomControlsModel(
-      channel,
-      need.roster,
-      signedIn(state)?.member.id ?? null,
-      signedIn(state)?.member.role === 'admin',
-    ),
+  const model = roomControlsModel(
     channel,
-    context,
+    need.roster,
+    signedIn(state)?.member.id ?? null,
+    signedIn(state)?.member.role === 'admin',
   )
+  return renderRoomMenu(model, channel, context)
 }
 
 /** The lock beside a private channel's name. */
@@ -50,30 +74,6 @@ export const joinButtons = (context: ViewContext, channel: AsRead.Channel): HTML
       class: 'primary join-and-answer',
     }),
   )
-
-export const answeringToggle = (context: ViewContext, channel: AsRead.Channel): HTMLElement => {
-  const model = answeringModel(channel)
-  return h(
-    'div',
-    { class: 'answering-toggle' },
-    h(
-      'button',
-      {
-        type: 'button',
-        class: 'switch',
-        role: 'switch',
-        'aria-checked': String(model.checked),
-        'aria-labelledby': model.labelId,
-        'aria-describedby': model.hintId,
-        on: { click: () => context.actions.setAnswering(channel.slug, !channel.answering) },
-      },
-      h('span', { class: 'switch-track', 'aria-hidden': 'true' }, h('span', { class: 'switch-thumb' })),
-      h('span', { class: 'switch-label', id: model.labelId }, strings.answerHere),
-      h('span', { class: 'switch-state', 'aria-hidden': 'true' }, model.state),
-    ),
-    h('small', { id: model.hintId }, strings.answerHereHint),
-  )
-}
 
 const refreshRoster = (context: ViewContext, channel: AsRead.Channel): void => {
   const key = `${channel.slug}:${channel.memberCount}`
@@ -342,40 +342,54 @@ const addMemberForm = (
   )
 }
 
-const renderRoomControls = (
-  model: RoomControls,
-  channel: AsRead.Channel,
-  context: ViewContext,
-): HTMLElement =>
-  h(
+const renderRoomMenu = (model: RoomControls, channel: AsRead.Channel, context: ViewContext): Child => {
+  const menu = h(
     'div',
-    { class: 'room-controls' },
-    model.answering !== null && answeringToggle(context, channel),
-    h(
-      'div',
-      { class: 'room-actions' },
-      model.manage !== null &&
-        h(
-          'button',
-          {
-            type: 'button',
-            class: 'manage-members',
-            ...opensDialog(context, model.manage, (life) => membersPanel(context, life, channel)),
-          },
-          strings.manageMembers,
-        ),
-      agentButtons(context, channel),
-      model.leave?.kind === 'blocked' &&
-        disabledWithReason(strings.leaveChannel, model.leave.reason, 'leave-channel'),
-      model.leave?.kind === 'allowed' &&
-        h(
-          'button',
-          {
-            type: 'button',
-            class: 'leave-channel',
-            ...opensDialog(context, model.leave.title, () => leaveForm(context, channel, model.leaveBody)),
-          },
-          strings.leaveChannel,
-        ),
-    ),
+    {
+      id: model.more.id,
+      class: 'menu room-menu',
+      popover: 'auto',
+      'aria-label': model.more.label,
+      on: { click: (event) => closeAfterChoice(menu, event) },
+    },
+    h('p', { class: 'menu-who room-description' }, model.description),
+    model.manage !== null &&
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'menu-item manage-members',
+          ...opensDialog(context, model.manage, (life) => membersPanel(context, life, channel)),
+        },
+        strings.manageMembers,
+      ),
+    agentButtons(context, channel),
+    model.leave?.kind === 'blocked' &&
+      disabledWithReason(strings.leaveChannel, model.leave.reason, 'leave-channel'),
+    model.leave?.kind === 'allowed' &&
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'menu-item danger leave-channel',
+          ...opensDialog(context, model.leave.title, () => leaveForm(context, channel, model.leaveBody)),
+        },
+        strings.leaveChannel,
+      ),
   )
+  return [
+    h(
+      'button',
+      { type: 'button', class: 'room-more', popovertarget: model.more.id, 'aria-label': model.more.label },
+      '⋯',
+    ),
+    menu,
+  ]
+}
+
+/** A choice in the menu closes it; a dialog it opens closes it anyway, an action that goes elsewhere does not. */
+const closeAfterChoice = (menu: HTMLElement, event: Event): void => {
+  const chosen = (event.target as Element).closest('button')
+  if (chosen === null || chosen.disabled || !('hidePopover' in menu)) return
+  if (menu.matches(':popover-open')) menu.hidePopover()
+}

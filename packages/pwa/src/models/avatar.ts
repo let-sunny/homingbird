@@ -38,12 +38,22 @@ export const characterName = (spec: CharacterSpec): string => {
     : ((strings.character.names as Readonly<Record<string, string>>)[builtIn] ?? spec.name)
 }
 
-/** A group conversation: the first two other people side by side, at the smallest scale. */
+/** A group conversation: the first two other people side by side, at the smallest scale, and how many more. */
 export const groupAvatarOf = (
   people: ReadonlyArray<Pick<AsRead.Member, 'name' | 'character'> | undefined>,
   charactersOn: boolean,
-): ReadonlyArray<AvatarModel> =>
-  people.slice(0, 2).map((person) => memberAvatarOf(person, charactersOn, { scale: 1, labelled: false }))
+): GroupAvatarModel => ({
+  faces: people
+    .slice(0, FACES_IN_GROUP)
+    .map((person) => memberAvatarOf(person, charactersOn, { scale: 1, labelled: false })),
+  more: people.length > FACES_IN_GROUP ? strings.moreFaces({ count: people.length - FACES_IN_GROUP }) : null,
+})
+
+export interface GroupAvatarModel {
+  readonly faces: ReadonlyArray<AvatarModel>
+  /** How many people the faces leave out, as a badge; null when every one is shown. */
+  readonly more: string | null
+}
 
 export type CharacterScale = 1 | 2 | 3 | 4
 
@@ -65,3 +75,5 @@ export interface AvatarModel {
   readonly settle: StateName
   readonly label: string | null
 }
+
+const FACES_IN_GROUP = 2
