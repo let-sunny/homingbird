@@ -1,13 +1,14 @@
-import type {
-  AgentFigures,
-  AgentReport,
-  ChannelAgentFigures,
-  ChannelAgentReport,
+import {
+  type AgentFigures,
+  type AgentReport,
+  type ChannelAgentFigures,
+  type ChannelAgentReport,
   MemberId,
-  Note,
-  OrganizationFigures,
-  OrganizationInsights,
+  type Note,
+  type OrganizationFigures,
+  type OrganizationInsights,
 } from '@homingbird/protocol'
+import { VISITOR_ID } from './team.ts'
 import type { Records } from './world.ts'
 
 /**
@@ -125,7 +126,7 @@ const MINUTE = 60_000
 const WEEK_MS = 7 * 24 * 60 * MINUTE
 const QUICK_APPROVAL_SECONDS = 3
 const MINIMUM_DECIDED = 10
-const MINIMUM_GROUP_SIZE = 3
+const MINIMUM_GROUP_SIZE = 1
 
 const figures = (
   written: number,
@@ -199,7 +200,14 @@ const channelFigures = (
   discarded,
   medianDecisionMs: 6 * MINUTE,
   quickApprovals: 0,
-  approvals: null,
+  approvals: [
+    {
+      memberId: MemberId.of('demoana00000'),
+      name: 'Ana Silva',
+      approved: Math.floor((sentAsWritten + sentAfterEdits) / 2),
+    },
+    { memberId: VISITOR_ID, name: 'June Park', approved: Math.ceil((sentAsWritten + sentAfterEdits) / 2) },
+  ],
 })
 
 const CHANNEL_WEEK = channelFigures(9, 6, 2, 1)
@@ -237,6 +245,7 @@ const organization = (activeMembers: number, notesSent: number, scale: number): 
   discarded: Math.round(5 * scale),
   quickApprovals: Math.round(2 * scale),
   skipped: Math.round(2 * scale),
+  debateResultsSent: Math.round(1 * scale),
   places: [
     {
       place: 'billing',
@@ -255,7 +264,7 @@ const organization = (activeMembers: number, notesSent: number, scale: number): 
       skipped: Math.round(2 * scale),
     },
   ],
-  hiddenPlaces: 1,
+  hiddenPlaces: 0,
   byClient: [
     {
       label: 'Homingbird CLI',
@@ -281,16 +290,38 @@ const organization = (activeMembers: number, notesSent: number, scale: number): 
   },
   teams: [
     {
+      team: 'Customer',
+      activeMembers: 2,
+      notesSent: Math.round(notesSent * 0.35),
+      sentAsWritten: Math.round(10 * scale),
+      sentAfterEdits: Math.round(3 * scale),
+      discarded: Math.round(2 * scale),
+      quickApprovals: Math.round(1 * scale),
+      medianDecisionMs: 5 * MINUTE,
+      skipped: Math.round(1 * scale),
+    },
+    {
       team: 'Platform',
-      activeMembers: null,
-      notesSent: null,
-      sentAsWritten: null,
-      sentAfterEdits: null,
-      discarded: null,
-      quickApprovals: null,
-      medianDecisionMs: null,
+      activeMembers: 2,
+      notesSent: Math.round(notesSent * 0.45),
+      sentAsWritten: Math.round(12 * scale),
+      sentAfterEdits: Math.round(4 * scale),
+      discarded: Math.round(2 * scale),
+      quickApprovals: Math.round(1 * scale),
+      medianDecisionMs: 3 * MINUTE,
+      skipped: Math.round(1 * scale),
+    },
+    {
+      team: 'Security, Privacy, Compliance and Vendor Risk Management',
+      activeMembers: 1,
+      notesSent: Math.round(notesSent * 0.2),
+      sentAsWritten: Math.round(4 * scale),
+      sentAfterEdits: Math.round(2 * scale),
+      discarded: Math.round(1 * scale),
+      quickApprovals: 0,
+      medianDecisionMs: 6 * MINUTE,
       skipped: 0,
     },
   ],
-  hiddenTeams: 1,
+  hiddenTeams: 0,
 })
