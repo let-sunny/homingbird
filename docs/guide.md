@@ -519,17 +519,21 @@ writes.
   disconnect it, and what it does not protect: whoever runs that machine can read every question and
   draft the agent sees, and a model may carry what it learned from one question into the next.
 - **Review its answers.** The agent only answers questions asked in its channel or asked of it
-  privately. Above your conversations you see how many answers wait for you, with a link to each
-  channel's agent page (`#/channel/<slug>/agent`), which is also where the agent's desk links. Each
-  answer waits there under **Answers waiting for you**, with the question and what it relied on. Any one manager sends or discards it; the first to send it wins, and a second
-  manager is told who already sent it. If the agent changes an answer after you read it, the card says
-  so and asks you to read it again before you can send it. The person who asked sees only that an
-  answer is being drafted, never the draft, so a manager never reviews the answer to their own question:
-  if you are the only manager, add another first.
+  privately. Above your conversations you see how many answers wait for you, with **Review in
+  #channel**, which opens the channel's room at the first question whose answer waits for you. There
+  the answer sits right under its question, with what it relied on, as a card only the channel's
+  managers see: nobody else in the room, and never the person who asked, sees anything new. The
+  agent's page (`#/channel/<slug>/agent`, **Channel agent** in the room's header, and where the agent's
+  desk links) lists every waiting answer at the top, under **Answers waiting for you**, with its
+  question. Any one manager sends or discards it; the first to send it wins, and a second manager is
+  told who already sent it. If the agent changes an answer after you read it, the card says so and asks
+  you to read it again before you can send it. The person who asked sees only that an answer is being
+  drafted, never the draft, so a manager never reviews the answer to their own question: if you are the
+  only manager, add another first.
 - **Read the answer.** A sent answer shows the agent as its author and who approved it, such as
   "#payments-wiki · approved by Kim". The audit trail records the approver and the agent, never the
   text.
-- **See how it is doing.** Below the waiting answers, **How the agent of #channel is doing** shows its
+- **See how it is doing.** On the agent's page, below its setup, **How the agent of #channel is doing** shows its
   managers, and nobody else, its answers over the last 30 days beside the 30 before: drafted, sent as
   written, sent after an edit, discarded, the typical time from an answer appearing on a manager's
   screen to the decision, quick approvals, how many wait now, and how many each manager sent, in

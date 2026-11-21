@@ -1,4 +1,5 @@
-import type { AsRead, MemberId, NoteId } from '@homingbird/protocol'
+import type { AsRead, ConversationId, MemberId, NoteId } from '@homingbird/protocol'
+import fc from 'fast-check'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   agentAuthorshipLine,
@@ -10,13 +11,16 @@ import {
   deviceTargetsModel,
   privateQuestionNotice,
   reviewCardsModel,
+  reviewsInRoomModel,
   reviewsWaitingModel,
 } from '../../src/models/channel-agent.ts'
 import { strings, useLanguage } from '../../src/strings.ts'
+import { threadItems } from '../../src/thread.ts'
 import {
   ANA,
   BEN,
   CY,
+  ROOM,
   channel,
   conversation,
   draft,
@@ -192,17 +196,89 @@ describe('reviewCardsModel', () => {
     )
   })
 
-  it('counts the answers waiting and leads to each channel they wait in', () => {
+  it('counts the answers waiting and leads into each channel’s room at its first question waiting', () => {
+    const OPS_ROOM = 'conv_ops00000000' as ConversationId
     expect(reviewsWaitingModel([])).toBeNull()
-    expect(reviewsWaitingModel([review(), review(), review({ channel: 'ops' })])).toEqual({
-      text: '3 answers are waiting for you',
+    expect(
+      reviewsWaitingModel([
+        review({ note: draft('note_later', { authorId: AGENT, createdAt: 9 }) }),
+        review({ note: draft('note_private', { conversationId: OPS_ROOM, createdAt: 1 }), privately: true }),
+        review({ note: draft('note_first', { authorId: AGENT, createdAt: 5 }) }),
+        review({ channel: 'ops', privately: true, note: draft('note_ops', { conversationId: OPS_ROOM }) }),
+      ]),
+    ).toEqual({
+      text: '4 answers are waiting for you',
       links: [
-        { href: '#/channel/payments-wiki/agent', label: 'Review in #payments-wiki' },
-        { href: '#/channel/ops/agent', label: 'Review in #ops' },
+        { href: `#/c/${ROOM}?review=note_first`, label: 'Review in #payments-wiki' },
+        { href: `#/c/${OPS_ROOM}?review=note_ops`, label: 'Review in #ops' },
       ],
     })
     useLanguage('ko')
     expect(reviewsWaitingModel([review()])?.text).toBe('답 1개가 기다리고 있어요')
+  })
+})
+
+describe('reviewsInRoomModel', () => {
+  const inRoom = (
+    reviews: ReadonlyArray<AsRead.Review>,
+    notes: ReadonlyArray<AsRead.Note>,
+    viewerId: MemberId = ANA,
+    focus: string | null = null,
+  ) =>
+    reviewsInRoomModel(
+      threadItems(notes),
+      reviews,
+      { conversationId: ROOM, viewerId },
+      new Map(),
+      members,
+      focus,
+    )
+  const question = note('note_question000', { authorId: CY, body: 'Where is the runbook?', sentAt: 2 })
+  const notes = [note('note_before', { sentAt: 1 }), question, note('note_after', { sentAt: 3 })]
+
+  it('places a waiting answer right under the question it answers, without quoting it again', () => {
+    const items = inRoom([review()], notes, ANA, 'note_answer00000')
+    expect(items.map((item) => item.key)).toEqual([
+      'note_before',
+      'note_question000',
+      'review:note_answer00000',
+      'note_after',
+    ])
+    const placed = items[2]!
+    expect(placed.type === 'review' && placed.card).toMatchObject({
+      focused: true,
+      question: null,
+      heading: strings.channelAgent.waitsInRoom({ agent: 'Payments wiki' }),
+      basis: { lines: ['wiki/refunds.md'] },
+      send: strings.channelAgent.send,
+      discard: strings.channelAgent.discard,
+    })
+  })
+
+  it('keeps an answer whose question is not loaded at the end, quoting its question', () => {
+    const items = inRoom([review()], [note('note_before')])
+    expect(items.map((item) => item.key)).toEqual(['note_before', 'review:note_answer00000'])
+    const last = items[1]!
+    expect(last.type === 'review' && last.card.question).toEqual({
+      from: 'Question from Cy',
+      body: 'Where is the runbook?',
+    })
+  })
+
+  it('shows nothing new to the person who asked, or for answers waiting in another room', () => {
+    expect(inRoom([review()], notes, CY).map((item) => item.key)).toEqual(notes.map((one) => one.id))
+    const elsewhere = review({ note: draft('note_away', { conversationId: 'conv_away0000000' as never }) })
+    expect(inRoom([elsewhere], notes).every((item) => item.type === 'note')).toBe(true)
+  })
+
+  it('shows nothing to a person who reviews nothing, whatever the room holds', () => {
+    fc.assert(
+      fc.property(fc.array(fc.integer({ min: 1, max: 50 }), { maxLength: 8 }), (times) => {
+        const room = times.map((sentAt, index) => note(`note_${index}`, { sentAt }))
+        const items = inRoom([], room)
+        expect(items.map((item) => item.key)).toEqual(threadItems(room).map((item) => item.key))
+      }),
+    )
   })
 })
 

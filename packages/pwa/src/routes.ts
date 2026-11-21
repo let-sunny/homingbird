@@ -2,7 +2,13 @@ import { CHARACTER_ROUTE } from '@homingbird/protocol'
 
 export type Route =
   | { readonly name: 'home' }
-  | { readonly name: 'conversation'; readonly id: string; readonly draft: string | null }
+  | {
+      readonly name: 'conversation'
+      readonly id: string
+      readonly draft: string | null
+      /** A channel's agent's answer the person reviews, shown under its question in the room. */
+      readonly review?: string
+    }
   | { readonly name: 'people' }
   | { readonly name: 'group'; readonly id: string }
   | { readonly name: 'channels' }
@@ -37,8 +43,15 @@ export const parseRoute = (hash: string): Route => {
     .map(decodeSegment)
   const parameters = new URLSearchParams(search)
   if (head === '') return { name: 'home' }
-  if (head === 'c' && second !== undefined)
-    return { name: 'conversation', id: second, draft: parameters.get('draft') }
+  if (head === 'c' && second !== undefined) {
+    const review = parameters.get('review')
+    return {
+      name: 'conversation',
+      id: second,
+      draft: parameters.get('draft'),
+      ...(review !== null && { review }),
+    }
+  }
   if (head === 'people') return { name: 'people' }
   if (head === 'group' && second !== undefined) return { name: 'group', id: second }
   if (head === 'channels') return { name: 'channels' }
@@ -70,9 +83,10 @@ export const hrefFor = (route: Route): string => {
     case 'unknown':
       return '#/'
     case 'conversation':
-      return route.draft === null
-        ? `#/c/${encodeURIComponent(route.id)}`
-        : `#/c/${encodeURIComponent(route.id)}?${new URLSearchParams({ draft: route.draft }).toString()}`
+      return withQuery(`#/c/${encodeURIComponent(route.id)}`, {
+        ...(route.draft !== null && { draft: route.draft }),
+        ...(route.review !== undefined && { review: route.review }),
+      })
     case 'people':
       return '#/people'
     case 'group':
@@ -148,4 +162,9 @@ const decodeSegment = (segment: string): string => {
   } catch {
     return segment
   }
+}
+
+const withQuery = (path: string, query: Readonly<Record<string, string>>): string => {
+  const search = new URLSearchParams(query).toString()
+  return search === '' ? path : `${path}?${search}`
 }
