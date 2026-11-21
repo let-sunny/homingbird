@@ -123,6 +123,38 @@ describe('actionMenu', () => {
     expect(isOpen()).toBe(false)
   })
 
+  it('swallows the tap that closes it on a touch screen, so the tap does not press what is under it', () => {
+    const { trigger, isOpen } = setup()
+    const under = mount(h('button', { type: 'button' }, 'Mute'))
+    let pressed = 0
+    under.addEventListener('click', () => void pressed++)
+    trigger.click()
+    fire.event(under, 'pointerdown', { pointerType: 'touch' })
+    expect(isOpen()).toBe(false)
+    expect(fire.event(under, 'click')).toBe(false)
+    expect(pressed).toBe(0)
+    expect(fire.event(under, 'click')).toBe(true)
+    expect(pressed).toBe(1)
+  })
+
+  it('stops waiting for the swallowed tap once the next press starts', () => {
+    const { trigger } = setup()
+    const under = mount(h('button', { type: 'button' }, 'Mute'))
+    trigger.click()
+    fire.event(under, 'pointerdown', { pointerType: 'touch' })
+    fire.event(under, 'pointerdown', { pointerType: 'touch' })
+    expect(fire.event(under, 'click')).toBe(true)
+  })
+
+  it('lets a mouse press outside it close it and still reach what it pressed', () => {
+    const { trigger, isOpen } = setup()
+    const under = mount(h('button', { type: 'button' }, 'Mute'))
+    trigger.click()
+    fire.event(under, 'pointerdown', { pointerType: 'mouse' })
+    expect(isOpen()).toBe(false)
+    expect(fire.event(under, 'click')).toBe(true)
+  })
+
   it('opens where the person right-clicked, instead of the browser’s menu, and returns the focus to the row', () => {
     const { owner, menu, isOpen, item } = setup()
     const label = owner.appendChild(h('span', {}, 'Ana'))

@@ -43,6 +43,9 @@ export const createTour = (page: Page, document: PageDocument): Tour => {
 
 const TOUR_ID = 'tour'
 
+/** The tour scrolls the tab row to the tabs it points at; at its end the person's own tab comes back. */
+const CURRENT_TAB = '.tabs .tab[aria-current="page"]'
+
 interface Running {
   readonly show: (step: number) => void
   readonly finish: (remember: boolean) => void
@@ -89,6 +92,7 @@ const tourCallout = (
     callout.hidePopover?.()
     callout.remove()
     ended()
+    document.find(CURRENT_TAB)?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
     returnTo?.focus?.()
   }
   const show = (step: number, moveFocus = true): void => {
