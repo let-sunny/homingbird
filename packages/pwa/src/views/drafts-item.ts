@@ -1,5 +1,5 @@
 import type { AsRead } from '@homingbird/protocol'
-import { type Child, h, linkedText } from '@homingbird/ui'
+import { type Child, type Lifetime, h, linkedText } from '@homingbird/ui'
 import {
   type DraftCard,
   type DraftsItemModel,
@@ -11,7 +11,8 @@ import { strings } from '../strings.ts'
 import { readdressForm } from './channel-picker.ts'
 import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
-import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
+import { cardOf, focusAfterDecision } from './decision-focus.ts'
+import { closeDialog, closesDialog, opensDialog, submitOnModifierEnter } from './dialog.ts'
 import { noteBody } from './note-body.ts'
 import { button, channelCounts, sourceList } from './parts.ts'
 import { renderAppliedMarkers } from './teaching.ts'
@@ -24,7 +25,7 @@ export const renderDraftsItem = (context: ViewContext, model: DraftsItemModel): 
   const headingId = `pending-heading-${model.cards[0]?.draft.id ?? ''}`
   return h(
     'li',
-    { class: 'pending' },
+    { class: 'pending', data: { decisionUnit: '' } },
     h(
       'div',
       { class: 'pending-head' },
@@ -54,8 +55,9 @@ const draftCard = (context: ViewContext, card: DraftCard, headingId: string): HT
     {
       class: 'draft',
       'aria-labelledby': `${headingId} draft-origin-${draft.id}`,
-      data: { draftId: draft.id, tour: 'approval' },
-      ...(card.focused && { 'aria-current': 'true', tabindex: '-1' }),
+      data: { draftId: draft.id, decides: draft.id, tour: 'approval' },
+      tabindex: '-1',
+      ...(card.focused && { 'aria-current': 'true' }),
     },
     h('span', { class: card.origin.className, id: `draft-origin-${draft.id}` }, card.origin.text),
     noteBody(context, card.body),
@@ -81,6 +83,7 @@ const draftCard = (context: ViewContext, card: DraftCard, headingId: string): HT
           : card.destination.text,
       ),
     card.careful !== null && h('p', { class: 'careful-reading', role: 'note' }, card.careful),
+    card.keptEdit !== null && h('p', { class: 'kept-edit hint', role: 'note' }, card.keptEdit),
     card.actions !== null && draftActions(context, card, card.actions),
   )
 }
@@ -97,9 +100,16 @@ const draftActions = (
 ): HTMLElement => {
   const { actions } = context
   const draft = card.draft
-  const discard = button(strings.discard, () => actions.holdDiscard(draft, shown.held.discarded, HELD), {
-    class: 'danger draft-discard',
-  })
+  const decide = (event: Event): void =>
+    focusAfterDecision(context, (event.target as Element | null)?.closest('[data-decides]') ?? null, draft.id)
+  const discard = button(
+    strings.discard,
+    (event) => {
+      decide(event)
+      actions.holdDiscard(draft, shown.held.discard, HELD)
+    },
+    { class: 'danger draft-discard' },
+  )
   if (card.readAgain !== null)
     return h(
       'div',
@@ -111,15 +121,22 @@ const draftActions = (
   return h(
     'div',
     { class: 'draft-actions' },
-    button(shown.send, () => actions.holdSend(draft, null, shown.alternatives, shown.held.sent, HELD), {
-      class: 'primary draft-send',
-    }),
+    button(
+      shown.send,
+      (event) => {
+        decide(event)
+        actions.holdSend(draft, null, shown.alternatives, shown.held.send, HELD)
+      },
+      { class: 'primary draft-send' },
+    ),
     h(
       'button',
       {
         type: 'button',
         class: 'draft-edit',
-        ...opensDialog(context, strings.editDraftTitle, () => draftEditor(context, draft, shown)),
+        ...opensDialog(context, strings.editDraftTitle, (life) =>
+          draftEditor(context, life, draft, shown, cardOf(context, draft.id)),
+        ),
       },
       strings.edit,
     ),
@@ -166,10 +183,16 @@ export const reportWhenSeen = (
   })
 }
 
+/**
+ * The person's own wording of a draft. Closing it any way keeps the edit on the card, as the composer
+ * keeps unsent text; saving or sending the draft lets the kept edit go once the server has it.
+ */
 const draftEditor = (
   context: ViewContext,
+  life: Lifetime,
   draft: AsRead.Note,
   offered: NonNullable<DraftCard['actions']>,
+  card: Element | null,
 ): Child => {
   const text = h('textarea', {
     name: 'body',
@@ -177,12 +200,24 @@ const draftEditor = (
     required: true,
     autofocus: true,
     'aria-label': strings.editDraftLabel,
+    on: { keydown: submitOnModifierEnter },
   })
-  text.value = draft.body
+  text.value = offered.editText
   let baseline = draft
+  let saved = false
+  life.add(() => {
+    if (!saved) context.actions.keepDraftEdit(draft.id, baseline.body, text.value)
+  })
   const changed = h('div', { class: 'draft-changed', role: 'alert' })
   const save = button(strings.saveDraft, () =>
-    context.actions.saveDraft(baseline, text.value, { done: () => closeDialog(context), attempt: 'draft' }),
+    context.actions.saveDraft(baseline, text.value, {
+      done: () => {
+        saved = true
+        context.actions.keepDraftEdit(draft.id, text.value, text.value)
+        closeDialog(context)
+      },
+      attempt: 'draft',
+    }),
   )
   const send = h('button', { type: 'submit', class: 'primary' }, strings.sendEdited)
   const holdUntilConfirmed = (held: boolean): void => {
@@ -222,7 +257,8 @@ const draftEditor = (
             showChange()
             return
           }
-          context.actions.holdSend(baseline, text.value, offered.alternatives, offered.held.sent, HELD)
+          focusAfterDecision(context, card, draft.id)
+          context.actions.holdSend(baseline, text.value, offered.alternatives, offered.held.send, HELD)
           closeDialog(context)
         },
       },

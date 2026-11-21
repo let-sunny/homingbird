@@ -4,9 +4,10 @@ import { type Action, type App, withApp } from '../app.ts'
 import { withDraftRead } from '../drafts-read.ts'
 import { featureOn } from '../features.ts'
 import { hrefFor } from '../routes.ts'
-import type { AppState } from '../state.ts'
+import type { AppState, HeldWords } from '../state.ts'
 import { strings } from '../strings.ts'
 import { holdDecision } from './held.ts'
+import { loadThread } from './notes.ts'
 import { closeSettledReviewNotices } from './notifications.ts'
 import { loadConversations, loadKnownChannels } from './workspace.ts'
 
@@ -49,6 +50,7 @@ export const sendReview = (review: AsRead.Review, editedBody: string | null): Ac
       }),
     )
     yield* loadReviews
+    if (state.threads.get().has(review.note.conversationId)) yield* loadThread(review.note.conversationId)
   })
 
 /** Discards an answer, with why when the manager said: kept for the agent's managers, never told to the asker. */
@@ -62,12 +64,28 @@ export const discardReview = (review: AsRead.Review, reason: string): Action =>
   })
 
 /** Sends an answer, as read or as edited, once the moment to undo it is over. */
-export const holdReviewSend = (review: AsRead.Review, editedBody: string | null, text: string): Action =>
-  holdDecision({ noteId: review.note.id, text, run: sendReview(review, editedBody) })
+export const holdReviewSend = (review: AsRead.Review, editedBody: string | null, words: HeldWords): Action =>
+  holdDecision({
+    noteId: review.note.id,
+    conversationId: review.note.conversationId,
+    kind: 'send',
+    review: true,
+    settles: 0,
+    words,
+    run: sendReview(review, editedBody),
+  })
 
 /** Discards an answer once the moment to undo it is over. */
-export const holdReviewDiscard = (review: AsRead.Review, reason: string, text: string): Action =>
-  holdDecision({ noteId: review.note.id, text, run: discardReview(review, reason) })
+export const holdReviewDiscard = (review: AsRead.Review, reason: string, words: HeldWords): Action =>
+  holdDecision({
+    noteId: review.note.id,
+    conversationId: review.note.conversationId,
+    kind: 'discard',
+    review: true,
+    settles: 0,
+    words,
+    run: discardReview(review, reason),
+  })
 
 /** The manager read an answer again after the agent changed it, and may send it now. */
 export const confirmReviewRead = (review: AsRead.Review): Action =>

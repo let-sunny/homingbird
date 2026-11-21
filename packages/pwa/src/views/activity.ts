@@ -1,6 +1,5 @@
 import type { AsRead, ConversationId, NoteId } from '@homingbird/protocol'
 import { type Lifetime, h, keyedRegion, lifetime, onAnyChange, region, slice } from '@homingbird/ui'
-import { reviewsWithoutHeld, threadsWithoutHeld } from '../held-decisions.ts'
 import {
   type ActivityInput,
   type ActivityItem,
@@ -13,6 +12,7 @@ import { strings } from '../strings.ts'
 import { reviewCard } from './channel-agent.ts'
 import type { ViewContext } from './context.ts'
 import { renderDraftsItem, reportWhenSeen } from './drafts-item.ts'
+import { heldToastInPanel, placeHeldToast, renderHeldLine } from './held-toast.ts'
 import { bellIcon } from './mute-toggle.ts'
 import { button, timeLabel } from './parts.ts'
 import { teachFromMiss } from './teaching.ts'
@@ -69,6 +69,7 @@ export const activityBell = (context: ViewContext, life: Lifetime, me: AsRead.Me
  */
 export const activityPanel = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
   const body = h('div', { class: 'activity-panel-body' })
+  const foot = h('div', { class: 'activity-panel-foot' })
   let open: Lifetime | null = null
   const giveFocusBack = (): void => {
     const leaving = panel.dataset.leaving === 'true'
@@ -81,6 +82,8 @@ export const activityPanel = (context: ViewContext, life: Lifetime, me: AsRead.M
     open?.end()
     open = null
     body.replaceChildren()
+    foot.replaceChildren()
+    placeHeldToast(context, false)
   }
   const panel: HTMLElement = h(
     'div',
@@ -100,6 +103,8 @@ export const activityPanel = (context: ViewContext, life: Lifetime, me: AsRead.M
           close()
           open = lifetime()
           body.replaceChildren(activityContent(context, open, me))
+          foot.replaceChildren(heldToastInPanel(context, open))
+          placeHeldToast(context, true)
           context.actions.loadActivity()
           panel.focus()
         },
@@ -126,6 +131,7 @@ export const activityPanel = (context: ViewContext, life: Lifetime, me: AsRead.M
       ),
     ),
     body,
+    foot,
   )
   life.add(() => close())
   life.add(
@@ -221,6 +227,12 @@ const renderItem = (context: ViewContext, item: ActivityItem): HTMLElement => {
       reportWhenSeen(context, element, item.card.review.note)
       return element
     }
+    case 'held': {
+      const element = renderHeldLine(context, item.line)
+      element.classList.add('activity-item')
+      element.prepend(head)
+      return element
+    }
     case 'drafts-loading':
       return h('li', { class: 'activity-item' }, head, h('p', { class: 'loading' }, item.text))
     case 'skipped':
@@ -279,15 +291,17 @@ const placeLine = (place: ActivityPlace): HTMLElement =>
 
 const activityInputOf = ({ state, clock }: ViewContext, me: AsRead.Me): ActivityInput => ({
   me,
-  threads: threadsWithoutHeld(state.threads.get(), state.held.get()),
+  threads: state.threads.get(),
   conversations: state.conversations.get(),
   channels: state.channels.get(),
   members: state.members.get(),
   directory: state.directory.get(),
   draftsRead: state.draftsRead.get(),
+  draftEdits: state.draftEdits.get(),
   draftRequests: state.draftRequests.get(),
   releases: state.releases.get(),
-  reviews: reviewsWithoutHeld(state.reviews.get(), state.held.get()),
+  reviews: state.reviews.get(),
+  held: state.held.get(),
   reviewsRead: state.reviewsRead.get(),
   debates: state.debates.get(),
   taught: state.taught.get(),
@@ -312,6 +326,7 @@ const sourcesOf = ({ state }: ViewContext) => [
   state.agentReport,
   state.serverInfo,
   state.held,
+  state.draftEdits,
 ]
 
 const hasPopover = (element: HTMLElement): boolean =>

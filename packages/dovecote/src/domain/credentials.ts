@@ -1,5 +1,6 @@
 import { Task as T } from '@homingbird/kernel'
 import {
+  type AgentCredentialsHeld,
   type Credential,
   CredentialId,
   type CredentialKind,
@@ -103,6 +104,21 @@ export const authenticate = (token: string): T.Task<Caller, Unauthorized, AppEnv
       credential: { id: row.credential_id, kind: row.credential_kind, name: row.credential_name },
     }
   })
+
+/** Each person's agent credentials that still work, for administrators: counts and expiry only, never a token. */
+export const agentCredentialsHeld: T.Task<AgentCredentialsHeld[], never, AppEnv> = T.gen(function* () {
+  const env = yield* T.ask<AppEnv>()
+  const rows = yield* all<{ member_id: MemberId; held: number | string; newest: number | string }>(sql`
+    SELECT c.member_id, COUNT(*) AS held, MAX(c.expires_at) AS newest
+    FROM credentials c JOIN members m ON m.id = c.member_id
+    WHERE c.kind = 'agent' AND c.revoked_at IS NULL AND c.expires_at > ${env.clock.now()} AND m.kind = 'person'
+    GROUP BY c.member_id ORDER BY c.member_id`)
+  return rows.map((row) => ({
+    memberId: row.member_id,
+    count: Number(row.held),
+    newestExpiresAt: Number(row.newest),
+  }))
+})
 
 export const listCredentials = (
   memberId: MemberId,

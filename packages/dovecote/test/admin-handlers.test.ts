@@ -25,6 +25,23 @@ describe('the administration handlers', () => {
     )
   })
 
+  it('say how many agent credentials each person holds and when the newest expires, never a token', async () => {
+    const second = await connectAgent(server, ana, { name: 'Ana laptop' })
+    await connectAgent(server, ben, { name: 'Ben agent' })
+    const listed = (await ana.api('GET', '/admin/members')).json
+    expect(listed.agentCredentials).toEqual(
+      [
+        { memberId: ana.me.member.id, count: 2, newestExpiresAt: expect.any(Number) },
+        { memberId: ben.me.member.id, count: 1, newestExpiresAt: expect.any(Number) },
+      ].sort((a, b) => a.memberId.localeCompare(b.memberId)),
+    )
+    expect(JSON.stringify(listed)).not.toContain(second.token)
+    expect(JSON.stringify(listed)).not.toContain(anaAgent.token)
+    await ana.api('PATCH', `/admin/members/${ben.me.member.id}`, { status: 'deactivated' })
+    const after = (await ana.api('GET', '/admin/members')).json.agentCredentials
+    expect(after.map((held: any) => held.memberId)).toEqual([ana.me.member.id])
+  })
+
   it('are for administrators only, never for an agent or a member', async () => {
     expect((await anaAgent.api('GET', '/admin/members')).status).toBe(403)
     expect((await ben.api('GET', '/admin/insights')).status).toBe(403)

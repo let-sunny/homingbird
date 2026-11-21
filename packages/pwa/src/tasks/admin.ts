@@ -21,9 +21,20 @@ export const saveSettings = (settings: Settings): Action =>
     if (info._tag === 'Ok') state.serverInfo.set(info.value)
   })
 
-export const listMembers: Action<ReadonlyArray<AsRead.Member>> = withApp(({ api }) =>
-  T.map((listed: { members: ReadonlyArray<AsRead.Member> }) => listed.members)(api['admin.members.list']({})),
+/** Every person, with the agent credentials each holds; null credentials from a server that does not say. */
+export const listMembers: Action<MemberListing> = withApp(({ api }) =>
+  T.map(
+    (listed: {
+      members: ReadonlyArray<AsRead.Member>
+      agentCredentials?: ReadonlyArray<AsRead.AgentCredentialsHeld> | undefined
+    }): MemberListing => ({ members: listed.members, agentCredentials: listed.agentCredentials ?? null }),
+  )(api['admin.members.list']({})),
 )
+
+export interface MemberListing {
+  readonly members: ReadonlyArray<AsRead.Member>
+  readonly agentCredentials: ReadonlyArray<AsRead.AgentCredentialsHeld> | null
+}
 
 export const updateMember = (
   id: MemberId,

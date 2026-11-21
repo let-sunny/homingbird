@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import {
@@ -6,6 +8,7 @@ import {
   defaultReader,
   isPresetCommand,
   isReaderWithSomeTools,
+  presetAgent,
   presetCommandOf,
   presetNamed,
   presetReader,
@@ -246,3 +249,50 @@ const posixWords = (line: string): string[] => {
   if (current !== null) words.push(current)
   return words
 }
+
+describe('the preset table in the command line’s README', () => {
+  it('is the table the presets themselves give, with the commands `homingbird presets` prints', () => {
+    const readme = readFileSync(join(import.meta.dirname, '..', 'README.md'), 'utf8').replace(/\r\n/g, '\n')
+    const start = readme.indexOf(TABLE_START)
+    const end = readme.indexOf(TABLE_END)
+    expect(start).toBeGreaterThan(-1)
+    expect(readme.slice(start + TABLE_START.length, end).trim()).toBe(presetTable())
+  })
+})
+
+describe('the agents table in the repository’s README', () => {
+  it('says for each preset how far it is tested, as `homingbird presets` does', () => {
+    const readme = readFileSync(join(import.meta.dirname, '..', '..', '..', 'README.md'), 'utf8').replace(
+      /\r\n/g,
+      '\n',
+    )
+    for (const preset of AGENT_PRESETS) {
+      const row = readme.split('\n').find((line) => line.includes(`| \`--agent ${preset.name}\` |`))
+      expect(row, preset.name).toBeDefined()
+      expect(row).toContain(
+        preset.verifiedWith === null
+          ? 'Not yet tested with the real CLI'
+          : `Verified with ${preset.verifiedWith}`,
+      )
+    }
+  })
+})
+
+const TABLE_START = '<!-- presets:start -->'
+const TABLE_END = '<!-- presets:end -->'
+
+/** The table as the README must hold it: regenerate it from this when a preset changes. */
+const presetTable = (): string =>
+  [
+    '| Preset | Runs | Reader for `--split` | Status |',
+    '| --- | --- | --- | --- |',
+    ...AGENT_PRESETS.map((preset) => {
+      const reader = presetReader(preset, 'linux')
+      const readerCell =
+        reader === null
+          ? 'none: give `--reader` yourself'
+          : `\`${reader}\`: ${preset.readerTools === 'none' ? 'no tools' : 'minimal tools, not none'}`
+      const state = presetState(preset)
+      return `| \`${preset.name}\` | \`${presetAgent(preset, 'linux')}\` | ${readerCell} | ${state[0]!.toUpperCase()}${state.slice(1)} |`
+    }),
+  ].join('\n')

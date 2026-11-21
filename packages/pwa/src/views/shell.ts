@@ -12,6 +12,7 @@ import {
 import { peopleConversations } from '../channels.ts'
 import { connectionShown } from '../connection-status.ts'
 import { featureOn } from '../features.ts'
+import { conversationsWithoutHeld, reviewsWithoutHeld } from '../held-decisions.ts'
 import { agentNotice } from '../models/activity.ts'
 import { memberAvatarOf } from '../models/avatar.ts'
 import { logoOf, wordmark } from '../models/branding.ts'
@@ -276,12 +277,12 @@ const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLEleme
     return sidebarModel({
       me,
       route: state.route.get(),
-      conversations,
+      conversations: conversationsWithoutHeld(conversations, state.held.get()),
       loaded: state.conversationsLoaded.get(),
       members: state.members.get(),
       directory: state.directory.get(),
       channels: state.channels.get(),
-      reviews: state.reviews.get(),
+      reviews: reviewsWithoutHeld(state.reviews.get(), state.held.get()),
       agentCount: state.agentCredentials.get().length,
       charactersOn: featureOn('characters', state.serverInfo.get()),
       muteOn: featureOn('mute', state.serverInfo.get()),
@@ -303,8 +304,16 @@ const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLEleme
     state.directory,
     state.route,
     state.conversationsLoaded,
+    state.held,
   ]
-  const roomSources = [state.conversations, state.route, state.channels, state.reviews, state.typedIn]
+  const roomSources = [
+    state.conversations,
+    state.route,
+    state.channels,
+    state.reviews,
+    state.typedIn,
+    state.held,
+  ]
   const archivedSources = [state.conversations, state.route, state.members]
   return h(
     'aside',

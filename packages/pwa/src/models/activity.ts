@@ -8,6 +8,7 @@ import type {
 } from '@homingbird/protocol'
 import { channelLabel, channelOfRoom } from '../channels.ts'
 import { featureOn } from '../features.ts'
+import { type HeldLine, type HeldShown, heldLineFor } from '../held-decisions.ts'
 import { deskUnavailableReason } from '../presence.ts'
 import { hrefFor } from '../routes.ts'
 import type { Release, Thread } from '../state.ts'
@@ -73,6 +74,9 @@ export interface ActivityInput {
   readonly members: ReadonlyMap<MemberId, AsRead.Member>
   readonly directory: ReadonlyArray<AsRead.DirectoryEntry>
   readonly draftsRead: ReadonlyMap<NoteId, DraftAsShown>
+  readonly draftEdits: ReadonlyMap<NoteId, string>
+  /** The sends and discards held a moment: their items stay in place, say so, and are no longer counted. */
+  readonly held: ReadonlyArray<HeldShown>
   readonly draftRequests: ReadonlyArray<DraftRequest>
   readonly releases: ReadonlyMap<NoteId, Release>
   readonly reviews: ReadonlyArray<AsRead.Review>
@@ -137,6 +141,7 @@ export type ActivityItem =
       }
     >
   | ActivityEntry<'debate', { readonly text: string }>
+  | ActivityEntry<'held', { readonly line: HeldLine }>
 
 type ActivityEntry<Type extends string, Fields> = {
   readonly type: Type
@@ -181,18 +186,26 @@ const draftItems = (input: ActivityInput): ActivityItem[] =>
         const own = item.drafts.filter((draft) => draft.authorId === input.me.member.id)
         if (own.length === 0) return []
         const latest = Math.max(...own.map((draft) => draft.updatedAt))
+        const entry = {
+          key: `drafts:${room.id}:${item.key}`,
+          at: latest,
+          place: placeOf(
+            input,
+            room,
+            hrefFor({ name: 'conversation', id: room.id, draft: own[0]!.id }),
+            latest,
+          ),
+        }
+        const line = heldLineFor(
+          input.held,
+          own.map((draft) => draft.id),
+        )
+        if (line !== null) return [{ ...entry, type: 'held', weight: 0, line }]
         return [
           {
+            ...entry,
             type: 'drafts',
-            key: `drafts:${room.id}:${item.key}`,
-            at: latest,
             weight: own.length,
-            place: placeOf(
-              input,
-              room,
-              hrefFor({ name: 'conversation', id: room.id, draft: own[0]!.id }),
-              latest,
-            ),
             drafts: draftsItemModel(threadInputOf(input, room.id, thread), { ...item, drafts: own }),
           },
         ]
@@ -205,13 +218,11 @@ const reviewItems = (input: ActivityInput): ActivityItem[] =>
       (review) =>
         review.note.authorId !== input.me.member.id && review.question?.authorId !== input.me.member.id,
     )
-    .map((review) => {
+    .map((review): ActivityItem => {
       const room = input.conversations.find((candidate) => candidate.id === review.note.conversationId)
-      return {
-        type: 'review',
+      const entry = {
         key: `review:${review.note.id}`,
         at: review.note.updatedAt,
-        weight: 1,
         place: {
           text:
             room === undefined
@@ -226,8 +237,15 @@ const reviewItems = (input: ActivityInput): ActivityItem[] =>
           label: strings.activity.openConversation,
           time: timeShown(review.note.updatedAt, input.now),
         },
+      }
+      const line = heldLineFor(input.held, [review.note.id])
+      if (line !== null) return { ...entry, type: 'held', weight: 0, line }
+      return {
+        ...entry,
+        type: 'review',
+        weight: 1,
         card: {
-          ...reviewCardModel(review, input.reviewsRead, input.members, null, 'quoted'),
+          ...reviewCardModel(review, input.reviewsRead, input.members, input.draftEdits, null, 'quoted'),
           heading: strings.channelAgent.waitsInRoom({ agent: review.agent.name }),
         },
       }
@@ -359,6 +377,7 @@ const threadInputOf = (
   conversationId,
   thread,
   draftsRead: input.draftsRead,
+  draftEdits: input.draftEdits,
   conversations: input.conversations,
   channels: input.channels,
   members: input.members,

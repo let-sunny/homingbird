@@ -20,6 +20,7 @@ describe('wire model', () => {
   it('exports the schemas the product needs', () => {
     expect(schemas.map(([name]) => name).sort()).toEqual(
       [
+        'AgentCredentialsHeld',
         'AgentLabel',
         'AnsweringFlowSetting',
         'Contact',

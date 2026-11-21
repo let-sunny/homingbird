@@ -39,7 +39,8 @@ export const createState = (hash: string): AppState => {
     contacts: signal<ReadonlyArray<AsRead.Contact>>([]),
     connection: signal<Connection>('connecting'),
     notice: signal<Notice | null>(null),
-    held: signal<HeldDecision | null>(null),
+    held: signal<ReadonlyArray<HeldDecision>>([]),
+    draftEdits: signal<ReadonlyMap<NoteId, string>>(new Map()),
     announcement: signal(''),
     sendingIn: signal<ReadonlySet<ConversationId>>(new Set()),
     draftRequests: signal<ReadonlyArray<DraftRequest>>([]),
@@ -102,8 +103,13 @@ export interface AppState {
   readonly contacts: Signal<ReadonlyArray<AsRead.Contact>>
   readonly connection: Signal<Connection>
   readonly notice: Signal<Notice | null>
-  /** A send or discard the person just made, not yet asked of the server, so that they can undo it. */
-  readonly held: Signal<HeldDecision | null>
+  /**
+   * The sends and discards the person just made, oldest first: at most one still waits and can be undone,
+   * the others are on their way to the server or just carried out, so their cards stay in place meanwhile.
+   */
+  readonly held: Signal<ReadonlyArray<HeldDecision>>
+  /** Each card's edit the person made and has not sent, by draft or answer, like unsent composer text. */
+  readonly draftEdits: Signal<ReadonlyMap<NoteId, string>>
   readonly announcement: Signal<string>
   readonly sendingIn: Signal<ReadonlySet<ConversationId>>
   readonly draftRequests: Signal<ReadonlyArray<DraftRequest>>
@@ -155,11 +161,26 @@ export interface Thread {
   readonly hasMore: boolean
 }
 
-/** What a held decision does once it is no longer undone, and what the toast says of it meanwhile. */
+/** What a held decision does once it is no longer undone, and what its card and the toast say of it. */
 export interface HeldDecision {
   readonly noteId: NoteId
-  readonly text: string
+  readonly conversationId: ConversationId
+  readonly kind: 'send' | 'discard'
+  /** A channel's agent's answer the person reviews, rather than their own agent's draft. */
+  readonly review: boolean
+  /** How many of the person's own drafts it settles: the draft, and the alternatives a send discards. */
+  readonly settles: number
+  readonly words: HeldWords
   readonly run: Action
+  /** Waiting can still be undone; committing is on its way to the server; done is carried out. */
+  readonly phase: 'waiting' | 'committing' | 'done'
+}
+
+/** What a held decision is called while it waits, once it is carried out, and when the page closed first. */
+export interface HeldWords {
+  readonly pending: string
+  readonly done: string
+  readonly notDone: string
 }
 
 export interface Notice {

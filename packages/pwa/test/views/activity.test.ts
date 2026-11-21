@@ -10,6 +10,7 @@ import {
   textOf,
 } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
+import { heldWordsFor } from '../../src/held-decisions.ts'
 import { strings } from '../../src/strings.ts'
 import { ACTIVITY_PANEL_ID, activityBell, activityPanel, activityView } from '../../src/views/activity.ts'
 import { dialogHost } from '../../src/views/dialog.ts'
@@ -30,6 +31,7 @@ import {
   note,
   summary,
 } from '../support/fixtures.ts'
+import { heldDecision } from '../support/held.ts'
 
 usingFakeDom()
 
@@ -174,12 +176,27 @@ describe('activityPanel', () => {
     getByRole(card, 'button', { name: strings.edit }).click()
     expect(dialog.open).toBe(true)
     getByRole(card, 'button', { name: strings.discard }).click()
-    expect(called('holdDiscard')[0]!.args).toEqual([one, strings.heldDiscarded])
+    expect(called('holdDiscard')[0]!.args).toEqual([one, heldWordsFor('Ben').discard])
     expect(
       getByRole(panel, 'link', { name: strings.activity.withPeople({ names: 'Ben' }) }).getAttribute('href'),
     ).toBe(`#/c/${ROOM}?draft=note_d1`)
-    state.held.set({ noteId: one.id, text: strings.heldDiscarded, run: null as never })
+  })
+
+  it('keeps a decided draft in its place with Undo while it is held, and shows the toast at its foot', () => {
+    const { state, panel, called } = shown()
+    const one = draft('note_d1')
+    state.threads.set(new Map([[ROOM, { notes: [one], hasMore: false }]]))
+    panel.showPopover()
+    state.held.set([heldDecision(one.id, { kind: 'discard' })])
     expect(panel.querySelector('[data-draft-id="note_d1"]')).toBeNull()
+    const line = panel.querySelector('.activity-list .held-line')!
+    expect(textOf(line)).toContain(strings.heldDiscarding)
+    expect(textOf(line)).toContain(strings.activity.withPeople({ names: 'Ben' }))
+    expect(textOf(panel.querySelector('.activity-panel-foot')!)).toContain(strings.heldDiscarding)
+    getByRole(line, 'button', { name: strings.undo }).click()
+    expect(called('undoHeld')).toHaveLength(1)
+    panel.hidePopover()
+    expect(panel.querySelector('.activity-panel-foot')!.childNodes).toHaveLength(0)
   })
 
   it('asks to read a changed draft again before it can be sent', () => {

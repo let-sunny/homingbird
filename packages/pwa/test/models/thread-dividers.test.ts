@@ -41,6 +41,14 @@ describe('withDividers', () => {
     expect(withDividers([noteItem('a', NOW - 60_000)], { now: NOW, unreadFrom: null })).toHaveLength(1)
   })
 
+  it('places a note not sent yet by when it was written', () => {
+    const written = { type: 'note', key: 'w', note: note('w', { sentAt: null, createdAt: NOW - 2 * DAY }) }
+    expect(withDividers([written], { now: NOW, unreadFrom: null }).map((item) => item.key)).toEqual([
+      `day:${new Date(NOW - 2 * DAY).toDateString()}`,
+      'w',
+    ])
+  })
+
   it('draws the unread line over the note that was unread on opening, below its day', () => {
     const shown = withDividers([noteItem('a', NOW - DAY), noteItem('b', NOW - 60_000)], {
       now: NOW,

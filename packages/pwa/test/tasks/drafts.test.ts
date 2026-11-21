@@ -1,5 +1,6 @@
 import { DRAFT_CHANGED } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
+import { heldWordsFor } from '../../src/held-decisions.ts'
 import {
   approveDraft,
   askAgent,
@@ -160,12 +161,18 @@ describe('deciding on drafts', () => {
 
   it('holds a send and a discard until they are carried out, and carries out a held one first', async () => {
     const { run, routes, state } = testApp(answers)
-    await run(holdSend(draft('d1'), null, [], 'Sent to Ben'))
+    const words = heldWordsFor('Ben')
+    await run(holdSend(draft('d1'), null, [draft('d3')], words.send))
     expect(routes()).toEqual([])
-    expect(state.held.get()).toMatchObject({ noteId: 'd1', text: 'Sent to Ben' })
-    await run(holdDiscard(draft('d2'), 'Discarded'))
+    expect(state.held.get()).toMatchObject([
+      { noteId: 'd1', conversationId: ROOM, kind: 'send', review: false, settles: 2, words: words.send },
+    ])
+    await run(holdDiscard(draft('d2'), words.discard))
     expect(routes()[0]).toBe('drafts.send')
-    expect(state.held.get()).toMatchObject({ noteId: 'd2', text: 'Discarded' })
+    expect(state.held.get()).toMatchObject([
+      { noteId: 'd1', phase: 'done' },
+      { noteId: 'd2', kind: 'discard', settles: 1, phase: 'waiting', words: words.discard },
+    ])
   })
 
   it('asks the agent for a draft and forgets the release it answers, and withdraws a request', async () => {

@@ -14,6 +14,8 @@ const empty = {
   'credentials.list': () => ({ credentials: [] }),
   'channels.list': () => ({ channels: [], hasMore: false, cursor: null }),
   'reviews.list': () => ({ reviews: [] }),
+  'inbox.list': () => ({ items: [] }),
+  'debates.list': () => ({ debates: [] }),
 }
 
 describe('boot', () => {
