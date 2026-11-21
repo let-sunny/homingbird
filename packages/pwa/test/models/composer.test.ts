@@ -37,6 +37,7 @@ describe('composerModel', () => {
       answers: null,
       replyingTo: null,
       asksAgent: true,
+      lookUpEarlierAnswers: true,
     })
   })
 

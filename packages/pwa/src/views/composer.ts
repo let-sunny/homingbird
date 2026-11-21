@@ -1,10 +1,11 @@
 import type { ConversationId } from '@homingbird/protocol'
 import type { ReadableSignal } from '@homingbird/ui'
-import { type Lifetime, h, region, slice } from '@homingbird/ui'
+import { type Lifetime, h, region, signal, slice } from '@homingbird/ui'
 import { type ComposerModel, bodyToSend } from '../models/composer.ts'
 import { strings } from '../strings.ts'
 import { replyTargetIn } from '../tasks/notes.ts'
 import { agentAsk } from './agent-ask.ts'
+import { answeredBefore } from './answered-before.ts'
 import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
 import { button } from './parts.ts'
@@ -28,10 +29,13 @@ export const composer = (
     'aria-label': strings.composerLabel,
     maxlength: '16000',
   })
+  const typed = signal('')
+  text.addEventListener('input', () => typed.set(text.value))
   const send = (): void => {
     const body = bodyToSend(text.value)
     if (body === null) return
     text.value = ''
+    typed.set('')
     actions.sendNote(id, body, { attempt: 'draft' })
   }
   text.addEventListener('keydown', (event) => {
@@ -65,6 +69,15 @@ export const composer = (
       },
     },
     region(life, [status], () => renderComposerStatus(context, id, status.get())),
+    shown.lookUpEarlierAnswers &&
+      answeredBefore(context, life, id, {
+        typed,
+        isReplying: () => replyTargetIn(context.state, id) !== null,
+        clear: () => {
+          text.value = ''
+          typed.set('')
+        },
+      }),
     h('div', { class: 'composer-row' }, text, sendButton),
     h('small', { class: 'composer-hint' }, strings.composerHint),
     shown.asksAgent &&

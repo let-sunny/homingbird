@@ -15,6 +15,7 @@ import type {
   DebateSummary as DebateSummarySchema,
 } from './debates.ts'
 import type { DeskWake as DeskWakeSchema, DeskWakeTest as DeskWakeTestSchema } from './desk-wake.ts'
+import type { EarlierAnswer as EarlierAnswerSchema } from './earlier-answers.ts'
 import type { StreamEvent as StreamEventSchema } from './events.ts'
 import type { Group as GroupSchema } from './groups.ts'
 import type {
@@ -49,6 +50,7 @@ import type {
 
 /** Responses as a client reads them: an enum value or an event a newer server added reads as "unknown". */
 export type Note = S.Read<typeof NoteSchema>
+export type EarlierAnswer = S.Read<typeof EarlierAnswerSchema>
 export type NoteStatus = S.Read<typeof NoteStatusSchema>
 export type Receipt = S.Read<typeof ReceiptSchema>
 export type Conversation = S.Read<typeof ConversationSchema>

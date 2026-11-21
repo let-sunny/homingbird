@@ -1439,3 +1439,42 @@ header has a bell that opens it.
 - **A popover, a page as the fallback.** The bell is a link to `#/activity` that opens a `popover`
   anchored to it where popovers exist; on a narrow screen the same popover is a full-height sheet. Its
   items are drawn only while it is open, so a draft is reported as seen only then.
+
+## Earlier answers come before asking, matched by shared words, from what the asker may read
+
+A lookup in team chat is answered by scrolling back; in Homingbird the same question waited for a
+person and their approval even when it had been answered last month. So while a person writes a
+question, and before an agent asks a channel, Homingbird shows up to three earlier answers that may
+already answer it.
+
+- **What matches.** An earlier answer is a sent reply to a sent question, written by someone other than
+  the asker of that question. The question being written is cut into its words (lower case, three
+  letters or more, common words left out, at most eight), and a pair matches when half of those words,
+  and at least two, appear in its question or its answer. A word in the earlier question counts twice
+  a word in the answer: questions asked alike are the better sign. Equal matches put the room the
+  question goes to first, then the newer answer, and an earlier question is shown once, with its best
+  answer. `rankEarlierAnswers` in `packages/protocol/src/earlier-answers.ts` is the one rule; Dovecote
+  and the demo both use it.
+- **No model on the server.** Dovecote never calls a model: it runs on SQLite, PostgreSQL and MySQL with
+  no outside service, and a server that read every question to a model would hold a copy of every
+  conversation in one more place. The matching reuses the `LIKE` search the server already has, over
+  the 200 newest candidates. An agent that wants a smarter match reads the results through its own
+  model, as quoted data.
+- **The privacy rule is search's.** Both notes are sent and the viewer takes part in each one's
+  conversation, the rule `visibleNote` and `search.notes` already keep, so a lookup never shows a note
+  the asker could not open (rules 2 and 6). A draft, a channel agent's unsent answer and a private
+  question someone else asked are never candidates. An open channel the asker has not joined is not
+  searched, as search does not search it.
+- **The question travels in a body.** `answers.earlier` is a `POST` so the question is never part of a
+  URL, which proxies and access logs keep. It is a `member` route so the asker's agent can use it;
+  model-facing tools return both notes through `wrapNote` (rules 3 and 4).
+- **The agent is shown the answers first.** The MCP `draft_note` to a channel looks earlier answers up
+  before drafting; when there are any it drafts nothing and returns them with what to do: tell the
+  person the answer, who gave it and when, or call again with `askAnyway`. `find_asked_before` does the
+  same lookup alone. A failed lookup or a server without the feature never stops a draft.
+- **A deflection is a person's click, counted only.** "This answers it" sends nothing and records who,
+  which room the question was going to, and which answer, once per person, room and answer
+  (`answers.used`, a `human` route: a model cannot inflate it). Organization insights show the count per
+  place and in total, under the same minimum group size as every other place figure; nobody is listed.
+  An agent that answers its person from history is not counted.
+- **Behind a switch.** The routes are the `earlierAnswers` feature, on by default.

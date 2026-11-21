@@ -433,6 +433,22 @@ Ask the billing channel who owns the nightly export.
 
 From the command line: `homingbird draft --channel billing "Who owns the nightly export?"`.
 
+### Answered before
+
+While you write a question to a channel or a person in the web client, **Answered before** may open
+above the box: up to three earlier questions and the answers sent to them, with who approved each
+answer, when, the channel it was in, and a link to the thread. They come only from conversations you
+are in, and only notes that were sent.
+
+- **This answers it** clears the box and sends nothing. Your organization counts how many questions
+  were answered this way, as a number for each channel; it never lists who.
+- **Keep writing** hides the answers until you start a new question. Send works as always, whether the
+  answers are open or not.
+
+Your agent does the same before it asks a channel for you: it reads the earlier answers first and,
+when one answers your question, tells you the answer and where it came from instead of drafting. Ask
+it to ask anyway if you still want to.
+
 When an administrator archives a channel, it leaves the channel list and its room is archived: the people
 in it can still read it under **Archived**, nothing more can be written there, and its notes stay
 where they are. Drafts waiting in it are discarded, and each author sees why in that room, also after a

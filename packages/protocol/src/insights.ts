@@ -116,6 +116,7 @@ export const PlaceTotals = S.struct({
   sentAfterEdits: S.nullable(count),
   discarded: S.nullable(count),
   skipped: count,
+  answeredFromHistory: S.optional(count),
 })
 export type PlaceTotals = S.Infer<typeof PlaceTotals>
 
@@ -166,6 +167,7 @@ export const OrganizationFigures = S.struct({
   discarded: S.nullable(count),
   quickApprovals: S.nullable(count),
   skipped: count,
+  answeredFromHistory: S.optional(count),
   /** Debate results sent, apart from notes and drafts; null while fewer people than the minimum sent one. */
   debateResultsSent: S.optional(S.nullable(count)),
   places: S.array(PlaceTotals),

@@ -6,6 +6,8 @@ import {
   Forbidden,
   type MemberId,
   type Note,
+  questionTerms,
+  rankEarlierAnswers,
 } from '@homingbird/protocol'
 import { answerLater } from './colleagues.ts'
 import { type Handlers, found } from './handlers.ts'
@@ -152,6 +154,27 @@ export const noteHandlers = (world: World): Handlers => ({
           .slice(0, Number(query.limit ?? SEARCH_LIMIT)),
       }
     }),
+  'answers.earlier': ({ body }, viewerId) =>
+    T.sync(() => {
+      const records = world.records()
+      const isSentHere = (note: Note | undefined): note is Note =>
+        note !== undefined && note.status === 'sent' && isParticipant(records, viewerId, note.conversationId)
+      const candidates = records.notes.flatMap((answer) => {
+        const question = records.notes.find((note) => note.id === answer.inReplyTo)
+        if (!isSentHere(answer) || !isSentHere(question) || question.authorId === answer.authorId) return []
+        const channel = records.channels.find((each) => each.conversationId === answer.conversationId)
+        return [{ question, answer, channel: channel?.slug ?? null }]
+      })
+      const destination =
+        body.conversationId ??
+        records.channels.find((each) => each.slug === body.channel)?.conversationId ??
+        null
+      return { answers: rankEarlierAnswers(candidates, questionTerms(body.question), destination) }
+    }),
+  'answers.used': ({ params, body }, viewerId) =>
+    T.flatMap(() => T.map(() => ({}))(roomOf(world.records(), viewerId, body.conversationId)))(
+      readableNote(world.records(), viewerId, params.id),
+    ),
 })
 
 const SEARCH_LIMIT = 20

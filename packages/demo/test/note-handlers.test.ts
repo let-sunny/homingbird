@@ -220,3 +220,75 @@ describe('reading', () => {
     )
   })
 })
+
+describe('earlier answers', () => {
+  it('shows the release calendar answered in #deploys before the visitor asks again', async () => {
+    const { api, world } = demoApi()
+    const deploys = world.records().channels.find((channel) => channel.slug === 'deploys')!.conversationId
+    const { answers } = await succeeded(
+      api['answers.earlier']({
+        body: { question: 'Where is the release calendar kept?', channel: 'deploys' },
+      }),
+    )
+    expect(
+      answers.map((each) => [each.question.body.slice(0, 33), each.answer.authorId, each.channel]),
+    ).toEqual([['Where do we keep the release cale', memberNamed(world, 'Kai Lin'), 'deploys']])
+    expect(answers[0]!.answer.conversationId).toBe(deploys)
+    expect(
+      await succeeded(
+        api['answers.used']({ params: { id: answers[0]!.answer.id }, body: { conversationId: deploys } }),
+      ),
+    ).toEqual({})
+  })
+
+  it('offers nothing the viewer may not read, no unanswered question and nothing for common words', async () => {
+    const { api, world } = demoApi()
+    const ben = demoApi(memberNamed(world, 'Ben Okafor'), world)
+    const question = { body: { question: 'Where is the release calendar kept?' } }
+    expect((await succeeded(ben.api['answers.earlier'](question))).answers).toEqual([])
+    expect((await succeeded(api['answers.earlier']({ body: { question: 'Where is it?' } }))).answers).toEqual(
+      [],
+    )
+    const nightly = await succeeded(
+      api['answers.earlier']({ body: { question: 'Which invoices does the nightly export skip?' } }),
+    )
+    expect(nightly.answers.map((each) => each.channel)).toContain('billing')
+    const refundRule = await succeeded(
+      api['answers.earlier']({
+        body: {
+          question: 'refund rule for annual plans',
+          conversationId: world.records().channels.find((channel) => channel.slug === 'billing')!
+            .conversationId,
+        },
+      }),
+    )
+    expect(refundRule.answers.length).toBeGreaterThan(0)
+    expect(refundRule.answers.every((each) => each.answer.status === 'sent')).toBe(true)
+    expect(refundRule.answers.map((each) => each.question.body)).not.toContain(
+      noteStarting(world, 'Who can explain the refund rule').body,
+    )
+  })
+
+  it('refuses to count an answer the viewer cannot read, or a room they are not in', async () => {
+    const { api, world } = demoApi()
+    const answer = noteStarting(world, 'It lives in the infrastructure wiki')
+    const ben = demoApi(memberNamed(world, 'Ben Okafor'), world)
+    expect(
+      await refused(
+        ben.api['answers.used']({
+          params: { id: answer.id },
+          body: { conversationId: answer.conversationId },
+        }),
+      ),
+    ).toMatchObject({ _tag: 'NotFound' })
+    const onboarding = world.records().channels.find((channel) => channel.slug === 'onboarding')!
+    expect(
+      await refused(
+        api['answers.used']({
+          params: { id: answer.id },
+          body: { conversationId: onboarding.conversationId },
+        }),
+      ),
+    ).toMatchObject({ _tag: 'NotFound' })
+  })
+})

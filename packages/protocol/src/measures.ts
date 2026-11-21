@@ -106,6 +106,11 @@ export const MEASURES = [
   { key: 'skips', audience: 'administrators', fields: ['skipped'] },
   { key: 'debateResults', audience: 'administrators', fields: ['debateResultsSent'] },
   {
+    key: 'answeredFromHistory',
+    audience: 'administrators',
+    fields: ['answeredFromHistory', 'places.answeredFromHistory'],
+  },
+  {
     key: 'places',
     audience: 'administrators',
     fields: [

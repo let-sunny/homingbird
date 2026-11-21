@@ -24,6 +24,7 @@ export const DEMO_FEATURES: ReadonlyArray<FeatureName> = [
   'characters',
   'mute',
   'answeringFlow',
+  'earlierAnswers',
   'teaching',
   'agentFigures',
   'routeMap',

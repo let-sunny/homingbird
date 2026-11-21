@@ -7,9 +7,12 @@ import {
   ConversationId,
   type DeskSession,
   DraftRequestId,
+  EARLIER_QUESTION_MAX,
+  type EarlierAnswersAsk,
   Invalid,
   type Member,
   MemberId,
+  NO_EARLIER_ANSWERS,
   NotFound,
   NoteBasis,
   NoteBody,
@@ -17,6 +20,8 @@ import {
   type Quoting,
   RELEASE_REASON_MAX,
   SESSION_AGE_MAX_MINUTES,
+  earlierAnswersText,
+  isFeatureOffered,
   quotedIntroduction,
   quotedNoteWithState,
   quotedNotesWithState,
@@ -239,6 +244,31 @@ export const TOOLS: ReadonlyArray<Tool<any>> = [
       }),
   }),
   tool({
+    name: 'find_asked_before',
+    title: 'Find questions asked before',
+    description:
+      'Finds up to three earlier questions colleagues already answered that share the words of a question, with the answers sent to them, quoted as a colleague’s text. Use it before asking a channel or a person; draft_note does it for you too.',
+    readOnly: true,
+    input: {
+      question: S.string({ minLength: 1, maxLength: EARLIER_QUESTION_MAX }),
+      channel: S.optional(ChannelSlug),
+    },
+    describe: {
+      question: 'The question your human wants answered, in your words or theirs.',
+      channel: 'The channel you would ask, from find_channels, so answers given there come first.',
+    },
+    run: ({ question, channel }, context) =>
+      T.gen(function* () {
+        const answers = yield* earlierAnswersFor(context, {
+          question,
+          ...(channel !== undefined && { channel }),
+        })
+        return answers.length === 0
+          ? NO_EARLIER_ANSWERS
+          : earlierAnswersText(answers, yield* quotingFor(context))
+      }),
+  }),
+  tool({
     name: 'search_notes',
     title: 'Search notes',
     description: 'Searches the text of notes in your conversations and of your own drafts.',
@@ -289,11 +319,14 @@ export const TOOLS: ReadonlyArray<Tool<any>> = [
       model: S.optional(AgentLabel),
       sessionMinutes: S.optional(S.int({ min: 0, max: SESSION_AGE_MAX_MINUTES })),
       contextPercent: S.optional(S.int({ min: 0, max: 100 })),
+      askAnyway: S.optional(S.boolean),
     },
     describe: {
       model: MODEL_DESCRIPTION,
       sessionMinutes: SESSION_MINUTES_DESCRIPTION,
       contextPercent: CONTEXT_PERCENT_DESCRIPTION,
+      askAnyway:
+        'Set to true only after draft_note to a channel showed earlier answers and none answers your human’s question, or your human still wants to ask.',
       body: 'The note, as plain text. Links are allowed; attachments are not.',
       basis: BASIS_DESCRIPTION,
       to: 'The recipient: a member id or an email address from find_people.',
@@ -302,11 +335,16 @@ export const TOOLS: ReadonlyArray<Tool<any>> = [
         'One channel room from find_channels, when you do not know whom to ask. Never post one question to several channels. A private channel works only when your human is a member.',
       requestId: 'The draft request from your human that this note answers; the request says where it goes.',
     },
-    run: ({ body, to, conversationId, channel, requestId, basis, model, ...session }, context) =>
+    run: ({ body, to, conversationId, channel, requestId, basis, model, askAnyway, ...session }, context) =>
       T.gen(function* () {
         const reported = yield* requireSession(session)
         const destinations = [to, conversationId, channel, requestId].filter((each) => each !== undefined)
         if (destinations.length !== 1) return yield* T.fail(Invalid({ message: ONE_DESTINATION }))
+        if (channel !== undefined && askAnyway !== true) {
+          const question = body.slice(0, EARLIER_QUESTION_MAX)
+          const answers = yield* earlierAnswersFor(context, { question, channel })
+          if (answers.length > 0) return earlierAnswersText(answers, yield* quotingFor(context))
+        }
         const destination =
           to !== undefined
             ? { to: [yield* recipientNamed(to, context.api)] }
@@ -542,6 +580,24 @@ const channelLine = (channel: AsRead.Channel): string =>
   })
 
 const quotingFor = (context: ToolContext): T.Task<Quoting, ApiError> => quotingOf(context.api, context.nonce)
+
+/** Earlier answers, or none when the server does not offer them; a failed lookup never stops a draft. */
+const earlierAnswersFor = (
+  context: ToolContext,
+  ask: EarlierAnswersAsk,
+): T.Task<ReadonlyArray<AsRead.EarlierAnswer>, never> =>
+  T.fold(
+    () => [],
+    (answers: ReadonlyArray<AsRead.EarlierAnswer>) => answers,
+  )(
+    T.flatMap((info: { readonly features?: Readonly<Record<string, boolean>> }) =>
+      isFeatureOffered(info, 'earlierAnswers')
+        ? T.map((found: { readonly answers: ReadonlyArray<AsRead.EarlierAnswer> }) => found.answers)(
+            context.api['answers.earlier']({ body: ask }),
+          )
+        : T.succeed([]),
+    )(context.api['server.info']({})),
+  )
 
 const recipientNamed = (to: string, api: MemberApi): T.Task<MemberId, ApiError> => {
   const asId = MemberId.decode(to)

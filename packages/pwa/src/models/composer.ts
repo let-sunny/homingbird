@@ -46,6 +46,7 @@ export const composerModel = (input: ThreadInput): ComposerModel => {
     answers: answerersIn(input),
     replyingTo: target === null ? null : strings.replyingTo({ excerpt: excerpt(target.body, 60) }),
     asksAgent: draftRequestsOn,
+    lookUpEarlierAnswers: isOn(input, 'earlierAnswers') && mayMessageIn(input),
   }
 }
 
@@ -73,6 +74,8 @@ export type ComposerModel =
       readonly answers: AnswerersLine | null
       readonly replyingTo: string | null
       readonly asksAgent: boolean
+      /** Whether "Answered before" looks up earlier answers to the question being written here. */
+      readonly lookUpEarlierAnswers: boolean
     }
 
 const answerersIn = (input: ThreadInput): AnswerersLine | null => {

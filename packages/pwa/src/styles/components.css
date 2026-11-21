@@ -893,6 +893,69 @@
   white-space: nowrap;
 }
 
+.answered-before {
+  display: grid;
+  gap: var(--hb-space-2);
+  max-block-size: 18rem;
+  overflow-y: auto;
+  padding: var(--hb-space-2);
+  border: var(--hb-border);
+  background: var(--hb-color-surface);
+  font-size: var(--hb-text-small);
+}
+
+.answered-before-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--hb-space-2);
+}
+
+.answered-before-head span {
+  flex: 1 1 12rem;
+  color: var(--hb-color-muted);
+}
+
+.answered-before-list {
+  display: grid;
+  gap: var(--hb-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.answered-before-item {
+  display: grid;
+  gap: var(--hb-space-1);
+  padding-inline-start: var(--hb-space-2);
+  border-inline-start: var(--hb-border-quote);
+}
+
+.answered-before-item p {
+  margin: 0;
+}
+
+.answered-before-question {
+  font-weight: 600;
+}
+
+.answered-before-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hb-space-2);
+  color: var(--hb-color-muted);
+}
+
+.answered-before-item > button {
+  justify-self: start;
+}
+
+.answered-before-done {
+  margin: 0;
+  color: var(--hb-color-muted);
+  font-size: var(--hb-text-small);
+}
+
 .composer-blocked {
   color: var(--hb-color-danger-text);
   font-weight: 600;

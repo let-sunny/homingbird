@@ -230,6 +230,7 @@ describe('insightsModel', () => {
       strings.insights.hidden,
       strings.trust.noneYet,
       strings.insights.hidden,
+      '0',
       strings.insights.hidden,
     ])
     expect(table.footnotes.at(-1)).toBe(strings.insights.draftsHidden({ minimum: 5 }))
@@ -244,7 +245,15 @@ describe('insightsModel', () => {
   it('lists places with their decisions, hidden where too few decided, and counts hidden places and labels', () => {
     const current = organization({
       places: [
-        { place: 'billing', notesSent: 4, sentAsWritten: 1, sentAfterEdits: 1, discarded: 0, skipped: 1 },
+        {
+          place: 'billing',
+          notesSent: 4,
+          sentAsWritten: 1,
+          sentAfterEdits: 1,
+          discarded: 0,
+          skipped: 1,
+          answeredFromHistory: 3,
+        },
         { place: null, notesSent: 2, sentAsWritten: null, sentAfterEdits: null, discarded: null, skipped: 0 },
         { place: 'ops', notesSent: 1, sentAsWritten: 0, sentAfterEdits: 0, discarded: 0, skipped: 0 },
       ],
@@ -255,9 +264,9 @@ describe('insightsModel', () => {
     const shown = figuresOf(insightsModel(insights({ periods: [{ days: 7, current, previous: null }] }), 7))
     expect(shown.places.none).toBeNull()
     expect(shown.places.rows).toEqual([
-      ['#billing', '4', '2', percentOf(0.5), '1'],
-      [strings.trust.directMessages, '2', strings.insights.hidden, strings.insights.hidden, '0'],
-      ['#ops', '1', '0', strings.trust.noneYet, '0'],
+      ['#billing', '4', '2', percentOf(0.5), '1', '3'],
+      [strings.trust.directMessages, '2', strings.insights.hidden, strings.insights.hidden, '0', '0'],
+      ['#ops', '1', '0', strings.trust.noneYet, '0', '0'],
     ])
     expect(shown.places.hidden).toBe(strings.insights.hiddenPlaces({ count: 2 }))
     expect(shown.hiddenLabels).toBe(strings.insights.hiddenLabels({ count: 3 }))

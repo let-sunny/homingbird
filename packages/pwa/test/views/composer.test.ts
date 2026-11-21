@@ -65,6 +65,44 @@ describe('composer', () => {
     expect(called('sendNote')).toHaveLength(2)
   })
 
+  it('looks up earlier answers to what is typed, and stops once the note is sent', () => {
+    const { shown, called } = setup()
+    const text = getByRole(shown, 'textbox', { name: strings.composerLabel }) as HTMLTextAreaElement
+    fire.type(text, 'Where is the release calendar kept?')
+    expect(called('findEarlierAnswers')[0]!.args.slice(0, 2)).toEqual([
+      'Where is the release calendar kept?',
+      ROOM,
+    ])
+    called('findEarlierAnswers')[0]!.then!.done!([
+      {
+        question: note('q1', { body: 'Release calendar?' }),
+        answer: note('a1', { body: 'In Drive.' }),
+        channel: null,
+      },
+    ])
+    expect(textOf(shown)).toContain(strings.answeredBefore.title)
+    fire.key(text, 'Enter')
+    expect(called('sendNote')[0]!.args).toEqual([ROOM, 'Where is the release calendar kept?'])
+    expect(textOf(shown)).not.toContain(strings.answeredBefore.title)
+    getByRole(shown, 'textbox', { name: strings.composerLabel })
+  })
+
+  it('clears what was typed when an earlier answer answers it, sending nothing', () => {
+    const { shown, called } = setup()
+    const text = getByRole(shown, 'textbox', { name: strings.composerLabel }) as HTMLTextAreaElement
+    fire.type(text, 'Where is the release calendar kept?')
+    called('findEarlierAnswers')[0]!.then!.done!([
+      {
+        question: note('q1', { body: 'Release calendar?' }),
+        answer: note('a1', { body: 'In Drive.' }),
+        channel: null,
+      },
+    ])
+    getByRole(shown, 'button', { name: strings.answeredBefore.thisAnswersIt }).click()
+    expect(text.value).toBe('')
+    expect(called('sendNote')).toHaveLength(0)
+  })
+
   it('withdraws a request to the agent, stops replying, and says why the person cannot write', () => {
     const { shown, called, update, context } = setup()
     const question = note('q', { body: 'When?' })
