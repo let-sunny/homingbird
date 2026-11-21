@@ -1,8 +1,10 @@
 import { type AsRead, type MemberId, type NoteId, summarize } from '@homingbird/protocol'
 import { authorshipOf, showsStateMark, stateMarkOf } from '../authorship.ts'
 import { type AnswerersLine, questionWaits } from '../channel-answerers.ts'
+import { debateNoteParts } from '../debate-note.ts'
 import { type SourceShown, draftBasisOf } from '../draft-basis.ts'
 import { unavailableOf } from '../presence.ts'
+import { hrefFor } from '../routes.ts'
 import { spriteOwner } from '../sprite-owner.ts'
 import { formats, listOf, strings } from '../strings.ts'
 import {
@@ -33,14 +35,16 @@ export const noteItemModel = (
   const room = roomOf(input)
   const archived = isArchived(room)
   const inRoom = showsAuthors(room)
-  const isChannelQuestion = room?.kind === 'channel' && note.inReplyTo === null
+  const isChannelQuestion =
+    room?.kind === 'channel' && note.inReplyTo === null && note.fromDebate === undefined
   const answerers = isChannelQuestion ? answeredBy(note) : []
   const sentAt = note.sentAt === null ? null : formats.full.format(new Date(note.sentAt))
   const authorship = authorshipLine(input, note, mine)
   const charactersOn = isOn(input, 'characters')
   const markShown = mine && showsStateMark(note, next)
   const basis = mine ? draftBasisOf(note) : null
-  const waits = mine && answerers.length === 0 ? questionLine(input, note) : null
+  const waits =
+    mine && answerers.length === 0 && note.fromDebate === undefined ? questionLine(input, note) : null
   const side = mine ? 'is-mine' : 'is-theirs'
   return {
     noteId: note.id,
@@ -53,6 +57,7 @@ export const noteItemModel = (
     bubbleTitle: next !== null && sentAt !== null ? sentAt : null,
     quote: quoted === null ? null : excerpt(quoted.body),
     body: note.body,
+    debateResult: debateResultOf(note),
     basis:
       basis === null || basis.kind === 'none'
         ? null
@@ -115,6 +120,11 @@ export interface NoteItemModel {
   readonly bubbleTitle: string | null
   readonly quote: string | null
   readonly body: string
+  /**
+   * A debate room's posted result, read first for what the agents settled and what happens next, with the
+   * whole note folded and a way into the room. A result is not a question: nobody is asked to answer it.
+   */
+  readonly debateResult: DebateResultNote | null
   /** What the person's own sent note rested on, collapsed under "Based on". */
   readonly basis: {
     readonly className: string
@@ -139,6 +149,18 @@ export interface NoteItemModel {
     readonly label: string
     readonly items: ReadonlyArray<NoteMenuItem>
   }
+}
+
+export interface DebateResultNote {
+  /** The conclusion and next steps; null when the note is not in the shape the server writes. */
+  readonly parts: {
+    readonly heading: string
+    readonly summary: string
+    readonly nextStepsHeading: string
+    readonly nextSteps: ReadonlyArray<string>
+  } | null
+  readonly whole: string
+  readonly room: { readonly href: string; readonly label: string }
 }
 
 /** One of a note's menu actions; one the person cannot take now says why. */
@@ -185,6 +207,27 @@ const menuItems = (input: ThreadInput, answerable: boolean): ReadonlyArray<NoteM
     { kind: 'copy', label: strings.copyNote, reason: null },
     { kind: 'copy-link', label: strings.copyNoteLink, reason: null },
   ]
+}
+
+const debateResultOf = (note: AsRead.Note): DebateResultNote | null => {
+  if (note.fromDebate === undefined) return null
+  const parts = debateNoteParts(note.body)
+  return {
+    parts:
+      parts === null
+        ? null
+        : {
+            heading: parts.agreed ? strings.debateNote.agreed : strings.debateNote.disagreed,
+            summary: parts.summary,
+            nextStepsHeading: strings.debateNote.nextSteps,
+            nextSteps: parts.nextSteps,
+          },
+    whole: strings.debateNote.whole,
+    room: {
+      href: hrefFor({ name: 'debate', id: note.fromDebate.debateId, tab: 'result' }),
+      label: strings.debateNote.openRoom,
+    },
+  }
 }
 
 /** Asks for the text form of a glyph, so that no platform swaps in a coloured emoji. */

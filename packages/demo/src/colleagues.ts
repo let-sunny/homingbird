@@ -31,10 +31,12 @@ interface Responder {
 }
 
 /**
- * Who answers a note: a channel's agent a new question in its room or asked privately of it, else the first
- * colleague whose agent answers in the channel, else the first other person in the conversation.
+ * Who answers a note: nobody for a debate room's result, which is not a question; else a channel's agent
+ * a new question in its room or asked privately of it, else the first colleague whose agent answers in
+ * the channel, else the first other person in the conversation.
  */
 const responderTo = (records: Records, note: Note): Responder | null => {
+  if (note.fromDebate !== undefined) return null
   const room = records.conversations.find((each) => each.id === note.conversationId)
   if (room === undefined) return null
   const channel = records.channels.find((each) =>

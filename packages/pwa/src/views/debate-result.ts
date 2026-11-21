@@ -1,5 +1,5 @@
-import { type Child, h } from '@homingbird/ui'
-import type { ResultBody, ResultModel } from '../models/debate-result.ts'
+import { type Child, h, linkedText } from '@homingbird/ui'
+import type { CitedText, ResultBody, ResultModel } from '../models/debate-result.ts'
 import { strings } from '../strings.ts'
 
 /** The room's result: waiting with its deadlines, or settled with who drafted it and its words. */
@@ -20,13 +20,33 @@ export const resultSection = (result: ResultModel): HTMLElement => {
   )
 }
 
-/** How each agent voted on the drafts, with the model it stated beside its vote. */
+/** The votes each draft got and how a tie was settled, then how each agent voted, with the model it stated. */
 export const renderVoteRecord = (
   voteRecord: NonNullable<Extract<ResultModel, { kind: 'settled' }>['voteRecord']>,
 ): HTMLElement =>
   h(
     'div',
     { class: 'debate-vote-record' },
+    voteRecord.tally.length > 0 &&
+      h(
+        'section',
+        { class: 'debate-tally', 'aria-label': strings.debates.tallyTitle },
+        h('h3', {}, strings.debates.tallyTitle),
+        h(
+          'ul',
+          {},
+          voteRecord.tally.map((line) =>
+            h(
+              'li',
+              { class: line.chosen ? 'is-chosen' : '', data: { member: line.memberId } },
+              h('span', {}, line.draft),
+              h('strong', { class: 'debate-tally-votes' }, line.votes),
+              line.chosen && h('span', { class: 'debate-draft-chosen' }, strings.debates.chosen),
+            ),
+          ),
+        ),
+        voteRecord.tie !== null && h('p', { class: 'debate-tie' }, voteRecord.tie),
+      ),
     voteRecord.none !== null
       ? h('p', { class: 'hint' }, voteRecord.none)
       : h(
@@ -36,7 +56,7 @@ export const renderVoteRecord = (
             h(
               'li',
               { class: `is-${line.kind}`, data: { member: line.memberId } },
-              line.text,
+              h('span', {}, line.text),
               line.model !== null && h('small', { class: 'debate-vote-model' }, line.model),
             ),
           ),
@@ -48,13 +68,13 @@ export const renderResultBody = (body: ResultBody, shows: { readonly contributio
   if (body.kind === 'unknown') return [h('p', { class: 'hint' }, body.text)]
   return [
     h('h3', {}, body.heading),
-    h('p', { class: 'debate-conclusion' }, body.summary),
+    h('p', { class: 'debate-conclusion' }, citedText(body.summary)),
     h('h4', {}, body.listHeading),
     body.reasons !== null
       ? h(
           'ul',
-          {},
-          body.reasons.map((reason) => h('li', {}, reason)),
+          { class: 'debate-reasons' },
+          body.reasons.map((reason) => h('li', {}, citedText(reason))),
         )
       : h(
           'ul',
@@ -65,7 +85,7 @@ export const renderResultBody = (body: ResultBody, shows: { readonly contributio
               { class: 'debate-point', data: { category: point.category } },
               h('strong', {}, point.point),
               h('span', { class: 'debate-category' }, point.categoryText),
-              h('p', {}, point.explanation),
+              h('p', {}, citedText(point.explanation)),
             ),
           ),
         ),
@@ -79,7 +99,7 @@ export const renderResultBody = (body: ResultBody, shows: { readonly contributio
             h(
               'li',
               {},
-              h('span', {}, step.step),
+              h('span', {}, citedText(step.step)),
               step.owner !== null && h('small', {}, step.owner),
               h('small', {}, step.proposedBy),
             ),
@@ -89,6 +109,14 @@ export const renderResultBody = (body: ResultBody, shows: { readonly contributio
     shows.contributions && renderContributions(body.contributions),
   ]
 }
+
+/** Words with the turns they cite as links to those turns, and web addresses as links. */
+export const citedText = (parts: CitedText): Child[] =>
+  parts.flatMap((part) =>
+    part.kind === 'turn'
+      ? [h('a', { class: 'turn-cite', href: part.href }, part.text)]
+      : linkedText(part.text),
+  )
 
 /** One headed section of a room's page. */
 export const section = (title: string, className: string, ...children: ReadonlyArray<Child>): HTMLElement =>
@@ -104,7 +132,7 @@ const renderContributions = (contributions: KnownBody['contributions']): HTMLEle
         'li',
         {},
         h('strong', {}, row.name),
-        h('span', {}, row.summary),
+        h('span', {}, citedText(row.summary)),
         ...row.credits.map((credit) =>
           h('span', { class: 'debate-credit', title: credit.hint }, credit.text),
         ),

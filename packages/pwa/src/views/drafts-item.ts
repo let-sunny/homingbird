@@ -52,6 +52,7 @@ const draftCard = (context: ViewContext, card: DraftCard): HTMLElement => {
     },
     h('span', { class: card.origin.className }, card.origin.text),
     h('p', { class: 'note-body' }, linkedText(card.body)),
+    card.room !== null && h('a', { class: 'debate-note-room', href: card.room.href }, card.room.label),
     card.basis !== null &&
       h(
         'section',

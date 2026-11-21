@@ -156,6 +156,7 @@ describe('debateView', () => {
     const form = shown.querySelector('form.debate-post-form')!
     fire.submit(form)
     expect(called('postResult')).toHaveLength(0)
+    expect(textOf(form.querySelector('[role="alert"]')!)).toBe(strings.debates.chooseDestination)
     fire.select(getByRole(shown, 'combobox', { name: strings.debates.postToPerson }), BEN)
     fire.submit(form)
     expect(called('postResult')[0]!.args).toEqual(['debate_000000000000', { to: BEN }])
@@ -268,34 +269,102 @@ describe('debateView', () => {
     expect(context.state.shownDebate.get()).toBeNull()
   })
 
-  it('says how many turns were taken and when, and folds away all but the latest', () => {
-    const { context } = testContext()
+  it('numbers every turn, folds a run of turns that add nothing, links cited turns and brings a named turn into view', () => {
+    const { context, page } = testContext()
+    const bodies = [
+      'Ship Thursday.',
+      'Friday is safer.',
+      'Turn 2 moved me: I now agree with Friday.',
+      'Nothing new; ready to vote.',
+      'Nothing new from me either; ready to vote.',
+    ]
     context.state.shownDebate.set(
       debate({
         createdBy: BEN,
         participants: [participant(ANA), participant(BEN)],
-        turns: Array.from({ length: 7 }, (_, index) => ({
+        turns: bodies.map((body, index) => ({
           position: index + 1,
           memberId: index % 2 === 0 ? BEN : ANA,
           agentName: 'Desk',
-          body: `Turn ${index + 1}`,
+          body,
           at: index + 3,
         })),
       }),
     )
-    const shown = debateView(context, lifetime(), me(), 'debate_000000000000', null)
+    const shown = mount(debateView(context, lifetime(), me(), 'debate_000000000000', 'turns', 5))
     expect(textOf(shown.querySelector('.debate-turns-taken')!)).toBe(
-      strings.debates.turnsTaken({ count: 7, total: 4 }),
+      strings.debates.turnsTaken({ count: 5, total: 4 }),
     )
-    const earlier = shown.querySelector('details.debate-earlier-turns')!
-    expect(textOf(earlier.querySelector('summary')!)).toBe(strings.debates.earlierTurns({ count: 1 }))
+    const list = shown.querySelector('.debate-turns > ol.debate-turn-list')!
+    expect(list.getAttribute('aria-live')).toBe('polite')
+    expect([...list.querySelectorAll('.debate-turn-number')].map((number) => number.textContent)).toEqual(
+      [1, 2, 3, 4, 5].map((position) => strings.debates.turnLabel({ position })),
+    )
+    const moved = list.querySelector('.debate-turn[data-position="3"]')!
+    expect(textOf(moved)).toContain(strings.debates.changedPositionMark)
+    expect(moved.querySelector('a.turn-cite')!.getAttribute('href')).toBe(
+      '#/debate/debate_000000000000/turns?turn=2',
+    )
+    const quiet = list.querySelector('.debate-quiet-turns details')!
+    expect(quiet.hasAttribute('open')).toBe(true)
+    expect(textOf(quiet.querySelector('summary')!)).toBe(
+      strings.debates.quietTurns({ count: 2, first: 4, last: 5 }),
+    )
+    expect(quiet.querySelectorAll('.debate-turn.is-filler')).toHaveLength(2)
+    page.runFrames()
+    expect(document.activeElement).toBe(shown.querySelector('.debate-turn[data-position="5"]'))
+  })
+
+  it('shows who changed position between which turns, and what sets each agent’s contribution apart', () => {
+    const { context } = testContext()
+    const credited = {
+      ...conclusion,
+      reasons: ['Turn 3 settled it.'],
+      contributions: [
+        { memberId: BEN, summary: 'Checked.', credits: ['gap_filled' as const] },
+        { memberId: ANA, summary: 'Moved.', credits: ['gap_filled' as const, 'position_changed' as const] },
+      ],
+    }
+    context.state.shownDebate.set(
+      debate({
+        status: 'closed',
+        createdBy: BEN,
+        participants: [participant(ANA), participant(BEN)],
+        turns: [
+          { position: 1, memberId: ANA, agentName: 'Desk', body: 'Thursday.', at: 3 },
+          { position: 2, memberId: BEN, agentName: 'Desk', body: 'Friday.', at: 4 },
+          { position: 3, memberId: ANA, agentName: 'Desk', body: 'That moved me: Friday.', at: 5 },
+        ],
+        result: { result: credited, draftedBy: BEN, draftedAt: 6 },
+        voteRecord: { votes: [], droppedOut: [] },
+      }),
+    )
+    const result = debateView(context, lifetime(), me(), 'debate_000000000000', 'result')
+    const moves = result.querySelector('.debate-moved')!
+    expect(textOf(moves)).toContain(
+      strings.debates.movedLine({ agent: strings.debates.mine.agent, from: 1, to: 3 }),
+    )
+    expect([...moves.querySelectorAll('dd')].map((quote) => quote.textContent)).toEqual([
+      'Thursday.',
+      'That moved me: Friday.',
+    ])
+    expect(result.querySelector('.debate-reasons a.turn-cite')!.getAttribute('href')).toBe(
+      '#/debate/debate_000000000000/turns?turn=3',
+    )
+    const credit = debateView(context, lifetime(), me(), 'debate_000000000000', 'credit')
+    expect(textOf(credit.querySelector('.debate-shared-credits')!)).toBe(
+      strings.debates.sharedCredits({ credits: strings.debates.credit.gap_filled }),
+    )
+    expect(credit.querySelector('.debate-credit')).toBeNull()
+    const mine = credit.querySelector(`.debate-credit-row[data-member="${ANA}"]`)!
+    expect(textOf(mine.querySelector('.debate-position-change p')!)).toBe(
+      strings.debates.positionChange({ from: 1, to: 3 }),
+    )
     expect(
-      [...earlier.querySelectorAll('.debate-turn')].map((turn) => turn.getAttribute('data-position')),
-    ).toEqual(['1'])
-    expect(earlier.querySelector('ol')!.hasAttribute('aria-live')).toBe(false)
-    const latest = shown.querySelectorAll('.debate-turns > ol.debate-turn-list')
-    expect(latest).toHaveLength(1)
-    expect(latest[0]!.getAttribute('aria-live')).toBe('polite')
-    expect(latest[0]!.querySelectorAll('.debate-turn')).toHaveLength(6)
+      [...mine.querySelectorAll('.debate-credit-turns a.turn-cite')].map((link) => link.textContent),
+    ).toEqual(['1', '3'])
+    expect(
+      credit.querySelector(`.debate-credit-row[data-member="${BEN}"] .debate-position-change`),
+    ).toBeNull()
   })
 })

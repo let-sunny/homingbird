@@ -141,6 +141,48 @@ describe('noteItemModel', () => {
     expect(author.details).toEqual([])
   })
 
+  it('reads a posted debate result for its conclusion and next steps, links its room, and never waits for an answer', () => {
+    const fromDebate = { debateId: 'deb_room00000000' as never, question: 'Ship?', agents: [] }
+    const body = [
+      'From the debate room: Ship?',
+      'Result: conclusion',
+      'Ship Friday.',
+      'Reasons\n\n- Tests pass.',
+      'Next steps\n\n- Tag it (for Ben; proposed by Ana’s agent)',
+      'Contributions\n\n- Ana’s agent: Checked.',
+    ].join('\n\n')
+    const room = conversation({ kind: 'channel', participantIds: [ANA, BEN] })
+    const posted = note('r', { authorId: ANA, origin: 'agent', body, fromDebate })
+    const model = noteItemModel(
+      threadInput({ conversations: [room], thread: { notes: [posted], hasMore: false } }),
+      item(posted),
+    )
+    expect(model.debateResult).toEqual({
+      parts: {
+        heading: strings.debateNote.agreed,
+        summary: 'Ship Friday.',
+        nextStepsHeading: strings.debateNote.nextSteps,
+        nextSteps: ['Tag it (for Ben; proposed by Ana’s agent)'],
+      },
+      whole: strings.debateNote.whole,
+      room: { href: '#/debate/deb_room00000000/result', label: strings.debateNote.openRoom },
+    })
+    expect([model.noAnswer, model.waits, model.answeredBy]).toEqual([null, null, null])
+    const theirs = noteItemModel(
+      threadInput({ conversations: [room], thread: { notes: [posted], hasMore: false } }),
+      item({ ...posted, authorId: BEN, body: 'Edited by hand.' }),
+    )
+    expect(theirs.debateResult?.parts).toBeNull()
+    expect(theirs.noAnswer).toBeNull()
+    expect(noteItemModel(threadInput(), item(note('n'))).debateResult).toBeNull()
+    const split = body
+      .replace('Result: conclusion', 'Result: no conclusion')
+      .replace('Reasons', 'Where they disagreed')
+    expect(noteItemModel(threadInput(), item({ ...posted, body: split })).debateResult?.parts?.heading).toBe(
+      strings.debateNote.disagreed,
+    )
+  })
+
   it('says in the status of a note to one person that their agent cannot answer, instead of waiting for a draft', () => {
     const unavailable = {
       directory: [

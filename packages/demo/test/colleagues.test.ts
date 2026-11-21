@@ -101,6 +101,22 @@ describe('answerLater', () => {
     })
   })
 
+  it('treats a posted debate result as no question: nobody drafts an answer to it', async () => {
+    const { june, clock, world } = started()
+    const closed = world.records().debates.find((debate) => debate.status === 'closed')!
+    const draft = await succeeded(
+      june.api['debates.result.post']({ params: { id: closed.id }, body: { channel: 'deploys' } }),
+    )
+    await succeeded(
+      june.api['drafts.send']({
+        params: { id: draft.id },
+        body: { expected: { body: draft.body, conversationId: draft.conversationId } },
+      }),
+    )
+    await clock.advance(ANSWER_AFTER_MS * 10)
+    expect(world.records().notes.some((note) => note.inReplyTo === draft.id)).toBe(false)
+  })
+
   it('never answers as the visitor, and stays silent where nobody else answers', async () => {
     const { june, clock, world } = started()
     const ben = demoApi(memberNamed(world, 'Ben Okafor'), world)

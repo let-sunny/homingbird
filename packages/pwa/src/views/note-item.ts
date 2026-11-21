@@ -1,6 +1,6 @@
 import type { AsRead, ConversationId } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, linkedText } from '@homingbird/ui'
-import type { NoteItemModel, NoteMenuItem } from '../models/note-item.ts'
+import type { DebateResultNote, NoteItemModel, NoteMenuItem } from '../models/note-item.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 import { authorButton } from './author-details.ts'
@@ -55,7 +55,9 @@ export const renderNoteItem = (
           'div',
           { class: 'bubble', ...(model.bubbleTitle !== null && { title: model.bubbleTitle }) },
           model.quote !== null && h('blockquote', { class: 'quote' }, model.quote),
-          h('p', { class: 'note-body' }, linkedText(model.body)),
+          ...(model.debateResult === null
+            ? [h('p', { class: 'note-body' }, linkedText(model.body))]
+            : debateResultBody(model.debateResult, model.body)),
         ),
         h(
           'div',
@@ -146,6 +148,31 @@ const menuItem = (menuId: string, item: NoteMenuItem, choose: () => void): Child
     h('small', { id: reasonId, class: 'menu-reason' }, item.reason),
   ]
 }
+
+/** A posted debate result: what the agents settled and the next steps, the whole note folded, the room a link away. */
+const debateResultBody = (result: DebateResultNote, body: string): ReadonlyArray<Child> => [
+  ...(result.parts === null
+    ? [h('p', { class: 'note-body' }, linkedText(body))]
+    : [
+        h('p', { class: 'debate-note-heading' }, h('strong', {}, result.parts.heading)),
+        h('p', { class: 'note-body' }, linkedText(result.parts.summary)),
+        result.parts.nextSteps.length > 0 &&
+          h('p', { class: 'debate-note-heading' }, result.parts.nextStepsHeading),
+        result.parts.nextSteps.length > 0 &&
+          h(
+            'ul',
+            { class: 'debate-note-steps' },
+            result.parts.nextSteps.map((step) => h('li', {}, linkedText(step))),
+          ),
+        h(
+          'details',
+          { class: 'debate-note-whole' },
+          h('summary', {}, result.whole),
+          h('p', { class: 'note-body' }, linkedText(body)),
+        ),
+      ]),
+  h('a', { class: 'debate-note-room', href: result.room.href }, result.room.label),
+]
 
 const copyText = (context: ViewContext, text: string, copied: string): void => {
   void context.page

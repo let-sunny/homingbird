@@ -429,7 +429,7 @@ export const demoTeam = (now: number): Records => {
         expiresAt: ago(60 * 24 * 2 - 60 * 24 * 7),
       },
     ],
-    debates: demoDebates(ago, { june: VISITOR_ID, juneDesk: JUNE_DESK, ana: ANA, kai: KAI }),
+    debates: demoDebates(ago, { june: VISITOR_ID, juneDesk: JUNE_DESK, ana: ANA, ben: BEN, kai: KAI }),
     principles: [
       principle(0, {
         id: 'demoprin0001',
