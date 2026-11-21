@@ -81,6 +81,12 @@ describe('shell', () => {
     measure(getByRole(back, 'link', { name: strings.navNotes }), { offsetLeft: 0, offsetWidth: 50 })
     page.runFrames()
     expect(back.scrollLeft).toBe(0)
+    const later = shown.querySelector<HTMLElement>('.tabs-scroll.is-later')!
+    expect([later.getAttribute('aria-hidden'), later.getAttribute('tabindex')]).toEqual(['true', '-1'])
+    later.click()
+    expect(back.scrollLeft).toBe(75)
+    shown.querySelector<HTMLElement>('.tabs-scroll.is-earlier')!.click()
+    expect(back.scrollLeft).toBe(0)
   })
 
   it('mutes a row and leaves a channel from the row’s menu, or says why the person cannot leave', () => {
