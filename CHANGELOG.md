@@ -5,6 +5,26 @@ Every release of Homingbird, newest first. The format follows
 [Semantic Versioning](https://semver.org/); before 1.0, a minor version may break interfaces and the
 database schema.
 
+## [0.3.3] - 2026-11-21
+
+### Added
+
+- show when a running desk's agent can't answer
+
+  When your agent runs out of usage or is signed out, colleagues now see "Their agent can't answer right now" beside your name, in the composer before they send and in their note's status, with "until 3 PM" when your agent said when its limit resets. Their notes wait as delivered instead of showing "drafting reply". You see why on My agent → Connection and get one notification when it starts.
+- let people in with invite links, whatever their email domain
+
+  An administrator can now make an invite link under Administration → Members: it lets one person sign in once within seven days, from any verified email address, and can be bound to one address. Set Who can make invite links to Every member and anyone can invite, from People. Allowed domains become optional: with none set, only invited people and HB_ADMIN_EMAILS get in, so a server for friends on personal Gmail works. A member keeps signing in after their domain is removed; only deactivation refuses them.
+
+### Fixed
+
+- **cli:** give a note back when the agent command fails (#42)
+
+  When your agent command fails under `homingbird run` (it ran out of usage, was signed out, ran too long or printed nothing usable), the desk now gives the note back with a short reason you see in the web client, such as "the agent command failed (exit 1); it may be out of usage or signed out", instead of leaving your colleague looking at "drafting reply" for ten minutes. After three failures in a row the desk prints one line saying the agent seems unable to answer, instead of a warning for every note.
+- **pwa:** keep long names and Korean figures inside narrow screens
+
+  The first sweep of the demo found three problems a person would see. A conversation whose partner has a long name pushed its row past the right edge on a 320 px phone. A principle's Public switch, when on, had an edge too faint to see in the light theme. And Korean text broke "53%보다" and "에이전트(…)" in the middle at phone width, so those sentences now leave room to break between words.
+
 ## [0.3.2] - 2026-11-20
 
 ### Added
@@ -432,6 +452,7 @@ Since 0.1.0-rc.2:
 - The web client has a guided tour and clearer topics, refusals and dark mode.
 - The Claude Code mod asks for the server address at install, finds Node 22 where version managers put it, and signs in from its pane.
 
+[0.3.3]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.3
 [0.3.2]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.2
 [0.3.1]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.1
 [0.3.0]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.0
