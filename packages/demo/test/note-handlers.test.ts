@@ -59,7 +59,9 @@ describe('drafts.send', () => {
     expect(sent).toMatchObject({ status: 'sent', approvedBy: viewerId, authorId: answer.authorId })
     expect(sent.receipts.map((receipt) => receipt.memberId)).toEqual([ben])
     expect(world.eventsAfter(ana, 0).map((event) => event.body.type)).toContain('review.changed')
-    expect((await succeeded(api['reviews.list']({}))).reviews).toEqual([])
+    expect((await succeeded(api['reviews.list']({}))).reviews.map((review) => review.note.id)).not.toContain(
+      answer.id,
+    )
   })
 
   it('finds no draft for anyone but its author or a reviewer, so no one else can send or discard it (rule 1)', async () => {

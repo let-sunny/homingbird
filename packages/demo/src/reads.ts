@@ -32,6 +32,7 @@ export const conversationsOf = (records: Records, viewerId: MemberId): Conversat
         room.participantIds.includes(viewerId) &&
         (room.kind === 'channel' ||
           room.startedBy === viewerId ||
+          room.privateQuestionOf?.askedBy === viewerId ||
           records.notes.some(
             (note) =>
               note.conversationId === room.id &&
@@ -66,6 +67,7 @@ export const conversationAsSeen = (
     ).length,
     draftCount: inRoom.filter((note) => note.status === 'draft' && note.authorId === viewerId).length,
     archivedAt: null,
+    privateQuestionOf: room.privateQuestionOf?.slug ?? null,
     muted: room.mutedBy.includes(viewerId),
   }
 }
@@ -192,7 +194,10 @@ export const reviewOf = (records: Records, viewerId: MemberId, note: Note): Revi
     managers: managersOf(records, channel),
     askers: question === null ? [] : [question.authorId],
   })
-  return standing === 'reviewer' ? { note, question, channel: channel.slug, agent, privately: false } : null
+  const privately = records.conversations.some(
+    (room) => room.id === note.conversationId && room.privateQuestionOf !== undefined,
+  )
+  return standing === 'reviewer' ? { note, question, channel: channel.slug, agent, privately } : null
 }
 
 export const memberById = (records: Records, id: MemberId): Member | null =>

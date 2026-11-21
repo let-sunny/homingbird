@@ -21,7 +21,9 @@ import { createWorld } from './world.ts'
 
 const options = demoOptions(location.search)
 const clock = clockFor(options)
-const dovecote = fakeDovecote(createWorld(clock))
+const dovecote = fakeDovecote(
+  createWorld(clock, undefined, new URL('.', location.href).href.replace(/\/$/, '')),
+)
 const api = httpApi({ serverUrl: location.origin, fetch: dovecote })
 const page = demoPage(browserPage(window), dovecote, () => location.reload(), options)
 let draws = 0

@@ -34,12 +34,21 @@ describe('demoTeam', () => {
     }
   })
 
-  it('leaves two drafts waiting: the visitor’s agent’s reply, and a channel’s agent’s answer to review', () => {
+  it('leaves three drafts waiting: the visitor’s agent’s reply, and a channel’s agent’s answers to review', () => {
     const drafts = team.notes.filter((note) => note.status === 'draft')
-    expect(drafts.map((note) => note.authorId === VISITOR_ID)).toEqual([true, false])
+    expect(drafts.map((note) => note.authorId === VISITOR_ID)).toEqual([true, false, false])
     const agent = team.members.find((each) => each.member.id === drafts[1]!.authorId)!.member
     expect(isPerson(agent)).toBe(false)
+    expect(drafts[2]!.authorId).toBe(agent.id)
     expect(team.channels.find((channel) => channel.agentId === agent.id)?.slug).toBe('billing')
+  })
+
+  it('keeps a question asked privately of #billing’s agent, which the visitor reviews, and an invite link', () => {
+    const asked = team.conversations.find((room) => room.privateQuestionOf !== undefined)
+    expect(asked?.privateQuestionOf?.slug).toBe('billing')
+    expect(asked?.participantIds).toContain(VISITOR_ID)
+    expect(asked?.privateQuestionOf?.askedBy).not.toBe(VISITOR_ID)
+    expect(team.invites.map((invite) => invite.createdBy)).toEqual([VISITOR_ID])
   })
 
   it('signs the visitor in with a session of their own, beside the agent they connected', () => {

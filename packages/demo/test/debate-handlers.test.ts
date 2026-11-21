@@ -68,3 +68,55 @@ describe('debate rooms', () => {
     expect(await refused(api['debates.create']({ body: { question: 'Lunch?' } }))).toEqual(DEMO_REFUSAL)
   })
 })
+
+describe('debates.result.post', () => {
+  it('puts a closed room’s result into the visitor’s own draft in the chosen conversation, and tells their stream', async () => {
+    const { api, world, viewerId } = demoApi()
+    const closed = world.records().debates.find((debate) => debate.status === 'closed')!
+    const ana = memberNamed(world, 'Ana Silva')
+    const draft = await succeeded(
+      api['debates.result.post']({ params: { id: closed.id }, body: { to: ana } }),
+    )
+    expect(draft).toMatchObject({ authorId: viewerId, status: 'draft', origin: 'human' })
+    expect(draft.body).toContain('A refund for an annual plan covers the unused full months')
+    const room = world.records().conversations.find((each) => each.id === draft.conversationId)
+    expect(room?.kind).toBe('direct')
+    expect(room?.participantIds).toContain(ana)
+    expect((await succeeded(api['drafts.list']({}))).drafts.map((each) => each.id)).toContain(draft.id)
+    expect(world.eventsAfter(viewerId, 0).map((event) => event.body)).toContainEqual({
+      type: 'draft.saved',
+      note: draft,
+    })
+    const inChannel = await succeeded(
+      api['debates.result.post']({ params: { id: closed.id }, body: { channel: 'billing' } }),
+    )
+    expect(inChannel.conversationId).toBe(
+      world.records().channels.find((channel) => channel.slug === 'billing')!.conversationId,
+    )
+    expect(await refused(asAna(world).api['notes.get']({ params: { id: draft.id } }))).toMatchObject({
+      _tag: 'NotFound',
+    })
+  })
+
+  it('refuses an open room, two places at once, and a person whose agent took no turn', async () => {
+    const { api, world } = demoApi()
+    const [open, closed] = world.records().debates
+    const kai = memberNamed(world, 'Kai Lin')
+    expect(
+      await refused(api['debates.result.post']({ params: { id: open!.id }, body: { to: kai } })),
+    ).toMatchObject({ _tag: 'Conflict' })
+    expect(
+      await refused(
+        api['debates.result.post']({ params: { id: closed!.id }, body: { to: kai, channel: 'billing' } }),
+      ),
+    ).toMatchObject({ _tag: 'Invalid' })
+    const asKai = demoApi(kai, world)
+    expect(
+      await refused(
+        asKai.api['debates.result.post']({ params: { id: closed!.id }, body: { channel: 'billing' } }),
+      ),
+    ).toMatchObject({ _tag: 'Forbidden' })
+  })
+})
+
+const asAna = (world: ReturnType<typeof demoApi>['world']) => demoApi(memberNamed(world, 'Ana Silva'), world)

@@ -10,11 +10,11 @@ import {
 } from '@homingbird/protocol'
 import { type Handlers, found } from './handlers.ts'
 import { channelAgentReportOf } from './insights.ts'
-import { channelAsSeen, groupsOf, managersOf, memberById, reviewsOf } from './reads.ts'
-import type { ChannelRecord, Records } from './world.ts'
+import { channelAsSeen, conversationAsSeen, groupsOf, managersOf, memberById, reviewsOf } from './reads.ts'
+import type { ChannelRecord, ConversationRecord, Records } from './world.ts'
 import type { World } from './world.ts'
 
-/** Channels, the groups that manage them, and the answers of a channel's agent waiting for review. */
+/** Channels, the groups that manage them, private questions to a channel's agent, and its answers waiting for review. */
 export const channelHandlers = (world: World): Handlers => ({
   'channels.list': ({ query }, viewerId) =>
     T.sync(() => {
@@ -151,6 +151,16 @@ export const channelHandlers = (world: World): Handlers => ({
       const agentId = yield* found(channel.agentId, 'This channel has no agent.')
       return channelAgentReportOf(records, channel.slug, agentId, world.startedAt, world.clock.now())
     }),
+  'channels.askPrivately': ({ params }, viewerId) =>
+    T.gen(function* () {
+      const channel = yield* channelOf(world.records(), viewerId, params.slug)
+      if (channel.visibility === 'private' && !isInRoom(world.records(), viewerId, channel))
+        return yield* T.fail(NotFound({ message: 'No such channel.' }))
+      const agentId = channel.agentId
+      if (agentId === null) return yield* T.fail(Conflict({ message: 'This channel has no agent to ask.' }))
+      const room = privateQuestionOf(world, viewerId, channel, agentId)
+      return conversationAsSeen(world.records(), viewerId, room)
+    }),
   'reviews.list': (_, viewerId) => T.sync(() => ({ reviews: reviewsOf(world.records(), viewerId) })),
   'reviews.get': ({ params }, viewerId) =>
     found(
@@ -212,9 +222,40 @@ export const channelHandlers = (world: World): Handlers => ({
 const isVisible = (records: Records, viewerId: MemberId, channel: ChannelRecord): boolean =>
   channel.visibility === 'open' ||
   memberById(records, viewerId)?.role === 'admin' ||
+  isInRoom(records, viewerId, channel)
+
+const isInRoom = (records: Records, viewerId: MemberId, channel: ChannelRecord): boolean =>
   records.conversations.some(
     (room) => room.id === channel.conversationId && room.participantIds.includes(viewerId),
   )
+
+/** The asker's one conversation with a channel's agent and its managers; only they, the agent and the managers take part (rule 6). */
+const privateQuestionOf = (
+  world: World,
+  askerId: MemberId,
+  channel: ChannelRecord,
+  agentId: MemberId,
+): ConversationRecord => {
+  const existing = world
+    .records()
+    .conversations.find(
+      (room) => room.privateQuestionOf?.slug === channel.slug && room.privateQuestionOf.askedBy === askerId,
+    )
+  if (existing !== undefined) return existing
+  const now = world.clock.now()
+  const room: ConversationRecord = {
+    id: world.nextId('conv') as ConversationId,
+    kind: 'group',
+    title: null,
+    participantIds: [...new Set([askerId, agentId, ...managersOf(world.records(), channel)])],
+    createdAt: now,
+    lastActivityAt: now,
+    mutedBy: [],
+    privateQuestionOf: { slug: channel.slug, askedBy: askerId },
+  }
+  world.update((records) => ({ ...records, conversations: [...records.conversations, room] }))
+  return room
+}
 
 const channelOf = (records: Records, viewerId: MemberId, slug: string): T.Task<ChannelRecord, ApiError> =>
   found(

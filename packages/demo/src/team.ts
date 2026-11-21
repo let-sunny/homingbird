@@ -20,8 +20,9 @@ export const VISITOR_ID = MemberId.of('demojune0000')
 
 /**
  * A small team as it stands `now`: June (the visitor, an administrator), Ana, Ben, Kai and a colleague
- * with a very long name, #billing with its agent, and two drafts waiting for June: her own agent's
- * reply to Ana, and #billing's agent's answer to Ben, which June reviews as a manager. Long names,
+ * with a very long name, #billing with its agent, and three drafts waiting for June: her own agent's
+ * reply to Ana, and #billing's agent's answers to Ben, one in the channel and one to the question he
+ * asked it privately, which June reviews as a manager. An invite link June made still waits. Long names,
  * text and links and an empty room are there on purpose, to show how pages hold them. June's agent
  * skipped Kai's question about the deploy window and has run out of usage for now, and a private debate
  * room waits for it, so that the activity panel shows every kind it lists.
@@ -69,6 +70,11 @@ export const demoTeam = (now: number): Records => {
       ),
       room(PAYROLL_ROOM, 'payroll', [ANA], ago(60 * 24 * 50), ago(60 * 24)),
       room(WITH_LONG_NAME, null, [VISITOR_ID, LONG_NAME], ago(60 * 24 * 6), ago(60 * 30)),
+      {
+        ...room(BEN_ASKS_BILLING, null, [BEN, BILLING_AGENT, VISITOR_ID, ANA], ago(14), ago(12)),
+        kind: 'group',
+        privateQuestionOf: { slug: 'billing', askedBy: BEN },
+      },
     ],
     notes: [
       note({
@@ -187,6 +193,25 @@ export const demoTeam = (now: number): Records => {
         body: 'Annual plans are refunded pro rata for the unused full months, minus the discount that came with paying yearly. Halfway through the year that is about five months back; the calculator is on the billing page under Refunds.',
         agentName: 'Billing helper',
         basis: 'The refund policy page and two answers Ana approved last month.',
+      }),
+      note({
+        id: 'demopqb00001',
+        in: BEN_ASKS_BILLING,
+        by: BEN,
+        at: 12,
+        body: 'A customer was charged twice for November. Can I refund the second payment myself, or does that need Ana?',
+        readBy: [ANA, BILLING_AGENT],
+      }),
+      note({
+        id: 'demopqb00002',
+        in: BEN_ASKS_BILLING,
+        by: BILLING_AGENT,
+        at: 11,
+        status: 'draft',
+        inReplyTo: 'demopqb00001',
+        body: 'You can refund a duplicate payment yourself: open the invoice, choose Refund duplicate, and the second payment goes back within five working days. Only a partial refund needs a manager.',
+        agentName: 'Billing helper',
+        basis: 'The refund policy page, on duplicate payments.',
       }),
       note({
         id: 'demodep00001',
@@ -362,6 +387,15 @@ export const demoTeam = (now: number): Records => {
         },
       },
     ],
+    invites: [
+      {
+        id: 'inv_demoinvite1',
+        email: 'lena@example.com',
+        createdBy: VISITOR_ID,
+        createdAt: ago(60 * 24 * 2),
+        expiresAt: ago(60 * 24 * 2 - 60 * 24 * 7),
+      },
+    ],
     debates: demoDebates(ago, { june: VISITOR_ID, juneDesk: JUNE_DESK, ana: ANA, kai: KAI }),
     principles: [
       principle(0, {
@@ -409,6 +443,7 @@ const ONBOARDING_ROOM = ConversationId.of('demoonboard0')
 const DESIGN_ROOM = ConversationId.of('demodesign00')
 const PAYROLL_ROOM = ConversationId.of('demopayroll0')
 const WITH_LONG_NAME = ConversationId.of('demowithlong')
+const BEN_ASKS_BILLING = ConversationId.of('demobenasks0')
 
 const DIRECT_PARTNERS: ReadonlyMap<ConversationId, ReadonlyArray<MemberId>> = new Map([
   [WITH_ANA, [VISITOR_ID, ANA]],

@@ -62,7 +62,7 @@ describe('reviewOf', () => {
       notes: records.notes.map((note) => (note.id === answer.inReplyTo ? { ...note, authorId: ana } : note)),
     }
     expect(reviewOf(askedByAna, ana, answer)).toBeNull()
-    expect(reviewsOf(records, ana).map((review) => review.note.id)).toEqual([answer.id])
+    expect(reviewsOf(records, ana).map((review) => review.note.id)).toContain(answer.id)
   })
 
   it('reads the question with the answer, and nothing for a person’s own draft', () => {
@@ -78,8 +78,13 @@ describe('conversationsOf', () => {
   it('lists the viewer’s conversations, the most recent first, with their unread notes and own drafts', () => {
     const { records, june, ben } = fresh()
     const listed = conversationsOf(records, june)
-    expect(listed[0]?.participantIds).toContain(memberNamed(createWorld(makeTestClock(NOW)), 'Ana Silva'))
-    expect(listed[0]?.draftCount).toBe(1)
+    expect(listed.map((room) => room.lastActivityAt)).toEqual(
+      listed.map((room) => room.lastActivityAt).sort((a, b) => b - a),
+    )
+    const ana = memberNamed(createWorld(makeTestClock(NOW)), 'Ana Silva')
+    expect(
+      listed.find((room) => room.kind === 'direct' && room.participantIds.includes(ana))?.draftCount,
+    ).toBe(1)
     expect(
       listed.find(
         (room) =>

@@ -63,7 +63,7 @@ describe('channelAgentReportOf', () => {
     const report = () =>
       channelAgentReportOf(world.records(), 'billing', answer.authorId, world.startedAt, world.clock.now())
     const before = report()
-    expect(before.waiting).toBe(1)
+    expect(before.waiting).toBe(2)
     await succeeded(
       api['drafts.send']({
         params: { id: answer.id },
@@ -71,7 +71,7 @@ describe('channelAgentReportOf', () => {
       }),
     )
     const after = report()
-    expect(after.waiting).toBe(0)
+    expect(after.waiting).toBe(1)
     expect(after.periods[0]!.current.sentAsWritten - before.periods[0]!.current.sentAsWritten).toBe(1)
   })
 })

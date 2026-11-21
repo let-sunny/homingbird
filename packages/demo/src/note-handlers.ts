@@ -2,25 +2,23 @@ import { Task as T } from '@homingbird/kernel'
 import {
   type ApiError,
   Conflict,
-  type ConversationId,
   DRAFT_CHANGED,
   Forbidden,
-  Invalid,
   type MemberId,
   type Note,
-  type NoteId,
-  type Receipt,
 } from '@homingbird/protocol'
+import { answerLater } from './colleagues.ts'
 import { type Handlers, found } from './handlers.ts'
 import {
   conversationAsSeen,
   conversationsOf,
   isParticipant,
-  managersOf,
   mayRead,
   notesSeenIn,
   reviewOf,
 } from './reads.ts'
+import { destinationOf, roomOf, roomWith } from './rooms.ts'
+import { announceStatus, changeNote, reviewersOf, saveDraft, sendDraft } from './sending.ts'
 import type { ConversationRecord, Records } from './world.ts'
 import type { World } from './world.ts'
 
@@ -34,18 +32,7 @@ export const noteHandlers = (world: World): Handlers => ({
     ),
   'conversations.create': ({ body }, viewerId) =>
     T.sync(() => {
-      const participantIds = [viewerId, ...body.participantIds.filter((id) => id !== viewerId)]
-      const existing = world
-        .records()
-        .conversations.find(
-          (room) =>
-            room.kind !== 'channel' &&
-            room.participantIds.length === participantIds.length &&
-            participantIds.every((id) => room.participantIds.includes(id)),
-        )
-      const room = existing ?? newRoom(world, participantIds, body.title ?? null)
-      if (existing === undefined)
-        world.update((records) => ({ ...records, conversations: [...records.conversations, room] }))
+      const room = roomWith(world, viewerId, body.participantIds, body.title ?? null)
       return conversationAsSeen(world.records(), viewerId, room)
     }),
   'conversations.mute': ({ params }, viewerId) => muting(world, viewerId, params.id, true),
@@ -89,29 +76,16 @@ export const noteHandlers = (world: World): Handlers => ({
       drafts: world.records().notes.filter((note) => note.status === 'draft' && note.authorId === viewerId),
     })),
   'drafts.create': ({ body }, viewerId) =>
-    T.gen(function* () {
-      const room = yield* destinationOf(world, viewerId, body)
-      const now = world.clock.now()
-      const draft: Note = {
-        id: world.nextId('note') as NoteId,
+    T.map((room: ConversationRecord) =>
+      saveDraft(world, {
         conversationId: room.id,
         authorId: viewerId,
-        status: 'draft',
         body: body.body,
         inReplyTo: body.inReplyTo ?? null,
-        origin: 'human',
         agentName: null,
-        createdAt: now,
-        updatedAt: now,
-        sentAt: null,
-        receipts: [],
         basis: null,
-        approvedBy: null,
-      }
-      world.update((records) => ({ ...records, notes: [...records.notes, draft] }))
-      world.emit([viewerId], { type: 'draft.saved', note: draft })
-      return draft
-    }),
+      }),
+    )(destinationOf(world, viewerId, body)),
   'drafts.update': ({ params, body }, viewerId) =>
     T.gen(function* () {
       const draft = yield* ownDraft(world.records(), viewerId, params.id)
@@ -130,35 +104,15 @@ export const noteHandlers = (world: World): Handlers => ({
     }),
   'drafts.send': ({ params, body }, viewerId) =>
     T.gen(function* () {
-      const records = world.records()
-      const draft = yield* draftToDecide(records, viewerId, params.id)
+      const draft = yield* draftToDecide(world.records(), viewerId, params.id)
       if (draft.body !== body.expected.body || draft.conversationId !== body.expected.conversationId)
         return yield* T.fail(Conflict({ message: DRAFT_CHANGED }))
       const isReview = draft.authorId !== viewerId
-      const now = world.clock.now()
-      const text = body.body ?? draft.body
-      const sent = changeNote(world, draft.id, (current) => ({
-        ...current,
-        status: 'sent',
-        body: text,
-        origin: text !== current.body && current.origin === 'agent' ? 'human_edited' : current.origin,
-        sentAt: now,
-        updatedAt: now,
+      const sent = sendDraft(world, draft, {
+        body: body.body ?? draft.body,
         approvedBy: isReview ? viewerId : null,
-        receipts: recipientsOf(records, draft).map((memberId) => delivered(memberId, now)),
-      }))
-      world.update((current) => ({
-        ...current,
-        conversations: current.conversations.map((room) =>
-          room.id === sent.conversationId ? { ...room, lastActivityAt: now } : room,
-        ),
-      }))
-      const question = settleQuestion(world, sent, now)
-      const participants = participantsOf(world.records(), sent.conversationId)
-      world.emit(participants, { type: 'note.sent', note: sent })
-      if (question !== null) announceStatus(world, question)
-      if (isReview)
-        world.emit(reviewersOf(world.records(), sent), { type: 'review.changed', noteId: sent.id })
+      })
+      if (!isReview) answerLater(world, sent)
       return sent
     }),
   'drafts.discard': ({ params }, viewerId) =>
@@ -204,12 +158,6 @@ const SEARCH_LIMIT = 20
 
 const MOVING_REFUSED = 'In the demo a draft stays in its conversation.'
 
-const roomOf = (records: Records, viewerId: MemberId, id: string): T.Task<ConversationRecord, ApiError> =>
-  found(
-    records.conversations.find((room) => room.id === id && room.participantIds.includes(viewerId)),
-    'No such conversation.',
-  )
-
 const readableNote = (records: Records, viewerId: MemberId, id: string): T.Task<Note, ApiError> =>
   found(
     records.notes.find((note) => note.id === id && mayRead(records, viewerId, note)),
@@ -234,44 +182,6 @@ const draftToDecide = (records: Records, viewerId: MemberId, id: string): T.Task
     'No such draft.',
   )
 
-const destinationOf = (
-  world: World,
-  viewerId: MemberId,
-  body: {
-    readonly conversationId?: ConversationId
-    readonly to?: ReadonlyArray<MemberId>
-    readonly channel?: string
-  },
-): T.Task<ConversationRecord, ApiError> => {
-  const records = world.records()
-  if (body.conversationId !== undefined) return roomOf(records, viewerId, body.conversationId)
-  if (body.channel !== undefined) {
-    const channel = records.channels.find((each) => each.slug === body.channel)
-    return channel === undefined
-      ? T.fail(Invalid({ message: 'No such channel.' }))
-      : roomOf(records, viewerId, channel.conversationId)
-  }
-  return T.fail(Invalid({ message: 'Say which conversation the draft is for.' }))
-}
-
-const newRoom = (
-  world: World,
-  participantIds: ReadonlyArray<MemberId>,
-  title: string | null,
-): ConversationRecord => {
-  const now = world.clock.now()
-  return {
-    id: world.nextId('conv') as ConversationId,
-    kind: participantIds.length === 2 ? 'direct' : 'group',
-    title,
-    participantIds,
-    createdAt: now,
-    lastActivityAt: now,
-    mutedBy: [],
-    ...(participantIds.length > 2 && { startedBy: participantIds[0]! }),
-  }
-}
-
 const muting = (world: World, viewerId: MemberId, id: string, muted: boolean) =>
   T.map((room: ConversationRecord) => {
     const changed = {
@@ -286,80 +196,3 @@ const muting = (world: World, viewerId: MemberId, id: string, muted: boolean) =>
     }))
     return conversationAsSeen(world.records(), viewerId, changed)
   })(roomOf(world.records(), viewerId, id))
-
-const changeNote = (world: World, id: NoteId, change: (note: Note) => Note): Note => {
-  let changed: Note | undefined
-  world.update((records) => ({
-    ...records,
-    notes: records.notes.map((note) => {
-      if (note.id !== id) return note
-      changed = change(note)
-      return changed
-    }),
-  }))
-  return changed!
-}
-
-/**
- * Who a sent note reaches: everyone else in a direct or group conversation; in a channel's room, the
- * person whose question it answers, or for a new question the people whose agents answer there.
- */
-const recipientsOf = (records: Records, draft: Note): MemberId[] => {
-  const room = records.conversations.find((each) => each.id === draft.conversationId)
-  const others = (room?.participantIds ?? []).filter((id) => id !== draft.authorId)
-  if (room?.kind !== 'channel') return others
-  const answered = records.notes.find((note) => note.id === draft.inReplyTo)
-  if (answered !== undefined && answered.authorId !== draft.authorId)
-    return others.filter((id) => id === answered.authorId)
-  const helpers = records.channels.find((channel) => channel.conversationId === room.id)?.answering ?? []
-  return others.filter((id) => helpers.includes(id))
-}
-
-const delivered = (memberId: MemberId, at: number): Receipt => ({
-  memberId,
-  state: 'delivered',
-  deliveredAt: at,
-  readAt: null,
-  draftingAt: null,
-  repliedAt: null,
-})
-
-/** The question a sent reply answers, marked replied by the reply's author, and their other drafts for it discarded. */
-const settleQuestion = (world: World, reply: Note, now: number): Note | null => {
-  if (reply.inReplyTo === null) return null
-  const question = world.records().notes.find((note) => note.id === reply.inReplyTo)
-  if (question === undefined) return null
-  world.update((records) => ({
-    ...records,
-    notes: records.notes.map((note) =>
-      note.status === 'draft' && note.inReplyTo === question.id && note.authorId === reply.authorId
-        ? { ...note, status: 'discarded', updatedAt: now }
-        : note,
-    ),
-  }))
-  return changeNote(world, question.id, (current) => ({
-    ...current,
-    receipts: current.receipts.map((receipt) =>
-      receipt.memberId === reply.authorId || receipt.memberId === reply.approvedBy
-        ? { ...receipt, state: 'replied', readAt: receipt.readAt ?? now, repliedAt: now }
-        : receipt,
-    ),
-  }))
-}
-
-const announceStatus = (world: World, note: Note): void =>
-  world.emit(participantsOf(world.records(), note.conversationId), {
-    type: 'note.status',
-    noteId: note.id,
-    conversationId: note.conversationId,
-    receipts: note.receipts,
-  })
-
-const participantsOf = (records: Records, conversationId: string): ReadonlyArray<MemberId> =>
-  records.conversations.find((room) => room.id === conversationId)?.participantIds ?? []
-
-const reviewersOf = (records: Records, note: Note): MemberId[] => {
-  const channel = records.channels.find((each) => each.agentId === note.authorId)
-  const question = records.notes.find((each) => each.id === note.inReplyTo)
-  return channel === undefined ? [] : managersOf(records, channel).filter((id) => id !== question?.authorId)
-}

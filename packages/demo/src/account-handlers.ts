@@ -31,6 +31,9 @@ export const DEMO_FEATURES: ReadonlyArray<FeatureName> = [
   'channelAgents',
   'debateRooms',
   'insights',
+  'invites',
+  'joinCodes',
+  'deskAvailability',
 ]
 
 /** The server, the visitor's own account and agent, the directory, and what the visitor taught. */
@@ -52,6 +55,7 @@ export const accountHandlers = (world: World): Handlers => {
         credential: { id: VISITOR_SESSION, kind: 'human' as const, name: 'Chrome on macOS' },
         contactMode: 'open' as const,
         notifications,
+        canInvite: true,
       }))(memberOf(world.records(), viewerId)),
     'me.update': ({ body }, viewerId) =>
       changeMember(world, viewerId, (member) => ({
