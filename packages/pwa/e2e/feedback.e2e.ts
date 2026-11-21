@@ -387,7 +387,7 @@ const scenario = async (): Promise<void> => {
 
     // -- 11a: from the My agent tab to its Connection section, and back --------------------------
     await ben.page.click('.tab:has-text("My agent")')
-    await ben.page.click('.my-agent-nav a:has-text("Connection")')
+    await ben.page.click('.my-agent-tabs a:has-text("Connection")')
     await ben.page.waitForFunction(() => (globalThis as any).location.hash === '#/agent/connection')
     await ben.page.waitForSelector('.desk-recommendation:has-text("Keep one agent session open")')
     await ben.page.waitForSelector('.connected-agents .credential:has-text("Ben desk")')
