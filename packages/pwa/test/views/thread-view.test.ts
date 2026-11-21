@@ -3,6 +3,7 @@ import { lifetime } from '@homingbird/ui'
 import { fire, getByRole, queryByRole, textOf } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
 import { MISSING } from '../../src/missing.ts'
+import { dayHeading } from '../../src/models/time.ts'
 import { strings } from '../../src/strings.ts'
 import { threadView } from '../../src/views/thread-view.ts'
 import { testContext } from '../support/context.ts'
@@ -70,10 +71,78 @@ describe('threadView', () => {
       [note('n1', { sentAt: 1 }), note('n2', { sentAt: 2, authorId: ANA }), draft('d1')],
       true,
     )
-    const items = shown.querySelectorAll('.notes > li')
+    const items = shown.querySelectorAll('.notes > li:not(.thread-divider)')
     expect([...items].map((item) => item.className.split(' ')[0])).toEqual(['note', 'note', 'pending'])
     getByRole(shown, 'button', { name: strings.loadOlder }).click()
     expect(called('loadOlderNotes')[0]!.args).toEqual([ROOM])
+  })
+
+  it('heads earlier days and draws the unread line where the person stopped, kept while they read', () => {
+    const { context, shown, clock } = open()
+    const now = clock.now()
+    const unread = {
+      memberId: ANA,
+      state: 'delivered' as const,
+      deliveredAt: 1,
+      readAt: null,
+      draftingAt: null,
+      repliedAt: null,
+    }
+    withNotes(context, [
+      note('n1', { sentAt: now - 3 * 86_400_000 }),
+      note('n2', { sentAt: now - 60_000, receipts: [unread] }),
+    ])
+    const dividers = () => [...shown.querySelectorAll('.thread-divider')].map((divider) => textOf(divider))
+    expect(dividers()).toEqual([dayHeading(now - 3 * 86_400_000, now), strings.today, strings.unreadFromHere])
+    withNotes(context, [
+      note('n1', { sentAt: now - 3 * 86_400_000 }),
+      note('n2', { sentAt: now - 60_000, receipts: [{ ...unread, state: 'read', readAt: now }] }),
+      note('n3', { sentAt: now, receipts: [unread] }),
+    ])
+    expect(dividers()).toEqual([dayHeading(now - 3 * 86_400_000, now), strings.today, strings.unreadFromHere])
+    const order = [...shown.querySelectorAll('.notes > li')].map(
+      (item) => item.getAttribute('data-note-id') ?? item.className,
+    )
+    expect(order).toEqual([
+      'thread-divider is-day',
+      'n1',
+      'thread-divider is-day',
+      'thread-divider is-unread',
+      'n2',
+      'n3',
+    ])
+  })
+
+  it('names the scrolling notes for a screen reader and leaves announcing arrivals to the page', () => {
+    const { shown } = open()
+    const scroller = getByRole(shown, 'region', { name: strings.threadNotes({ title: 'Ben' }) })
+    expect(scroller.classList.contains('thread-scroll')).toBe(true)
+    expect(shown.querySelector('.notes')!.hasAttribute('aria-live')).toBe(false)
+  })
+
+  it('gives the composer the focus on opening where there is a keyboard', () => {
+    expect(open().context.state.composerFocus.get()).toBe(ROOM)
+    expect(open('d1').context.state.composerFocus.get()).toBeNull()
+    expect(open(null, null, 'n1').context.state.composerFocus.get()).toBeNull()
+    const touch = testContext()
+    touch.page.state.coarsePointer = true
+    touch.context.state.conversations.set([conversation()])
+    threadView(touch.context, lifetime(), me(), ROOM, null)
+    expect(touch.context.state.composerFocus.get()).toBeNull()
+  })
+
+  it('goes back to the bottom when the person sends while scrolled up', () => {
+    const { context, shown } = open()
+    withNotes(context, [note('n1')])
+    const scroller = shown.querySelector<HTMLElement>('.thread-scroll')!
+    const scrolled: unknown[] = []
+    scroller.scrollTo = ((options: unknown) => void scrolled.push(options)) as typeof scroller.scrollTo
+    Object.assign(scroller, { scrollHeight: 3000, scrollTop: 0, clientHeight: 500 })
+    fire.event(scroller, 'scroll')
+    const text = getByRole(shown, 'textbox', { name: strings.composerLabel }) as HTMLTextAreaElement
+    text.value = 'Sent from above'
+    fire.key(text, 'Enter')
+    expect(scrolled).toEqual([{ top: 3000, behavior: 'instant' }])
   })
 
   it('redraws only the items that changed, and points at news below while the person reads above', () => {
@@ -220,7 +289,7 @@ describe('threadView', () => {
       context.state.serverInfo.set(serverInfo())
       withNotes(context, [note('n1', { sentAt: 1 }), question, note('n3', { sentAt: 3 })])
       context.state.reviews.set([review()])
-      const items = [...shown.querySelectorAll('.notes > li')]
+      const items = [...shown.querySelectorAll('.notes > li:not(.thread-divider)')]
       expect(items.map((item) => item.getAttribute('data-note') ?? item.className.split(' ')[0])).toEqual([
         'note',
         'note',
@@ -238,7 +307,7 @@ describe('threadView', () => {
       expect(called('holdReviewSend')[0]!.args.slice(0, 2)).toEqual([review(), null])
       context.state.held.set([heldDecision(review().note.id, { review: true, settles: 0 })])
       expect(shown.querySelector('.review-card')).toBeNull()
-      const placed = [...shown.querySelectorAll('.notes > li')]
+      const placed = [...shown.querySelectorAll('.notes > li:not(.thread-divider)')]
       expect(placed[2]!.classList.contains('held-line')).toBe(true)
       expect(textOf(placed[2]!)).toContain(strings.heldSending({ names: 'Ben' }))
     })

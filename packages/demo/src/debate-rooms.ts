@@ -8,7 +8,7 @@ import {
 
 /** Two debate rooms: one open with turns still coming, one closed with the conclusion its agents settled. */
 export const demoDebates = (ago: (minutes: number) => number, people: DebatePeople): Debate[] => {
-  const { june, juneDesk, ana, kai } = people
+  const { june, juneLaptop, ana, kai } = people
   return [
     {
       id: DebateId.of('demodebate01'),
@@ -24,21 +24,27 @@ export const demoDebates = (ago: (minutes: number) => number, people: DebatePeop
       limits: DEFAULT_DEBATE_LIMITS,
       memberIds: [kai, june, ana],
       participants: [
-        { memberId: kai, agentId: null, agentName: "Kai's runner", joinedAt: ago(49), takingPart: true },
-        { memberId: june, agentId: juneDesk, agentName: "June's desk", joinedAt: ago(48), takingPart: true },
+        { memberId: kai, agentId: null, agentName: "Kai's laptop", joinedAt: ago(49), takingPart: true },
+        {
+          memberId: june,
+          agentId: juneLaptop,
+          agentName: "June's laptop",
+          joinedAt: ago(48),
+          takingPart: true,
+        },
       ],
       turns: [
         {
           position: 1,
           memberId: kai,
-          agentName: "Kai's runner",
+          agentName: "Kai's laptop",
           body: 'The freeze exists so that nothing big lands in the last two days before a release. A migration of the ledger tables is big. Waiting costs a week.',
           at: ago(45),
         },
         {
           position: 2,
           memberId: june,
-          agentName: "June's desk",
+          agentName: "June's laptop",
           body: 'The migration is batched and can be paused between batches; the export window is the real risk, not the freeze. Running it tonight leaves two days to watch it before the freeze.',
           at: ago(40),
         },
@@ -60,21 +66,21 @@ export const demoDebates = (ago: (minutes: number) => number, people: DebatePeop
       limits: DEFAULT_DEBATE_LIMITS,
       memberIds: [ana, june],
       participants: [
-        { memberId: ana, agentId: null, agentName: "Ana's desk", joinedAt: ago(60 * 24 * 3) },
-        { memberId: june, agentId: juneDesk, agentName: "June's desk", joinedAt: ago(60 * 24 * 3) },
+        { memberId: ana, agentId: null, agentName: "Ana's laptop", joinedAt: ago(60 * 24 * 3) },
+        { memberId: june, agentId: juneLaptop, agentName: "June's laptop", joinedAt: ago(60 * 24 * 3) },
       ],
       turns: [
         {
           position: 1,
           memberId: ana,
-          agentName: "Ana's desk",
+          agentName: "Ana's laptop",
           body: 'The terms say the discount is for committing to a year. A refund ends the commitment, so the discount goes too.',
           at: ago(60 * 24 * 3 - 10),
         },
         {
           position: 2,
           memberId: june,
-          agentName: "June's desk",
+          agentName: "June's laptop",
           body: 'Agreed, and the invoice already lists the discount as its own line, so taking it back is one subtraction.',
           at: ago(60 * 24 * 3 - 20),
         },
@@ -117,7 +123,7 @@ export const demoDebates = (ago: (minutes: number) => number, people: DebatePeop
       limits: DEFAULT_DEBATE_LIMITS,
       memberIds: [ana, june],
       participants: [
-        { memberId: ana, agentId: null, agentName: "Ana's desk", joinedAt: ago(14), takingPart: true },
+        { memberId: ana, agentId: null, agentName: "Ana's laptop", joinedAt: ago(14), takingPart: true },
       ],
       turns: [],
       result: null,
@@ -128,7 +134,7 @@ export const demoDebates = (ago: (minutes: number) => number, people: DebatePeop
 
 export interface DebatePeople {
   readonly june: MemberId
-  readonly juneDesk: CredentialId
+  readonly juneLaptop: CredentialId
   readonly ana: MemberId
   readonly kai: MemberId
 }

@@ -703,11 +703,57 @@
 }
 
 .quote {
+  display: block;
   margin-block-end: var(--hb-space-2);
   padding-inline-start: var(--hb-space-2);
   border-inline-start: var(--hb-border-quote);
   color: var(--hb-color-muted);
   font-size: var(--hb-text-small);
+  text-decoration: none;
+}
+
+a.quote:hover {
+  color: var(--hb-color-text);
+  text-decoration: underline;
+}
+
+.note-body.is-collapsed {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 16;
+  line-clamp: 16;
+}
+
+.note-more-text {
+  margin-block-start: var(--hb-space-1);
+  font-size: var(--hb-text-small);
+}
+
+.thread-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--hb-space-2);
+  margin-block: var(--hb-space-3);
+  color: var(--hb-color-muted);
+  font-size: var(--hb-text-small);
+  list-style: none;
+}
+
+.thread-divider::before,
+.thread-divider::after {
+  flex: 1;
+  border-block-start: var(--hb-border-divider);
+  content: "";
+}
+
+.thread-divider.is-unread {
+  color: var(--hb-color-danger-text);
+}
+
+.thread-divider.is-unread::before,
+.thread-divider.is-unread::after {
+  border-block-start-color: var(--hb-color-danger-text);
 }
 
 .note-meta {
@@ -866,6 +912,19 @@
   margin-inline-start: auto;
 }
 
+/* On a phone the three decisions keep to one row: tighter buttons and gaps, Discard still at the end. */
+@container stage (max-width: 30rem) {
+  .draft-actions,
+  .review-actions {
+    gap: var(--hb-space-2);
+  }
+
+  .draft-actions > button,
+  .review-actions > button {
+    padding-inline: var(--hb-space-2);
+  }
+}
+
 .draft-sources {
   display: grid;
   gap: var(--hb-space-1);
@@ -926,6 +985,20 @@
   max-block-size: 12rem;
   resize: none;
   field-sizing: content;
+}
+
+/* A field that grows with its content would grow with a wrapped placeholder too; it keeps one line. */
+.composer textarea::placeholder {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@container stage (max-width: 30rem) {
+  .composer .channel-answers {
+    font-size: var(--hb-text-tiny);
+    line-height: 1.3;
+  }
 }
 
 .ask-agent-toggle {
@@ -1761,6 +1834,13 @@
   }
 }
 
+/* A notice inside an open modal dialog sits at its foot: the dialog's backdrop covers the page. */
+:root .dialog > .toast-host {
+  position: static;
+  max-inline-size: none;
+  margin-block-start: var(--hb-space-3);
+}
+
 .toast {
   display: flex;
   align-items: center;
@@ -2385,10 +2465,13 @@ button.group-member-name:focus-visible::after {
     gap: var(--hb-space-2);
   }
 
-  .thread-head > .avatar.is-channel,
-  .switch.answering-chip .switch-label {
+  .thread-head > .avatar.is-channel {
     display: none;
   }
+}
+
+.thread-answering {
+  display: contents;
 }
 
 .switch.answering-chip:focus-visible {
@@ -2797,6 +2880,51 @@ button.group-member-name:focus-visible::after {
   .connection-host {
     justify-self: start;
   }
+
+  /* On a phone the tabs get the width: a smaller mark, and the bell's count as a badge on its corner. */
+  .titlebar {
+    padding-inline: var(--hb-space-1);
+  }
+
+  .titlebar,
+  .header-actions {
+    column-gap: var(--hb-space-1);
+  }
+
+  .titlebar .tab {
+    padding-inline: calc(1.5 * var(--hb-space-1));
+  }
+
+  .titlebar .mark {
+    inline-size: 1.5rem;
+    block-size: 1.5rem;
+  }
+
+  .activity-bell {
+    position: relative;
+    justify-content: center;
+    min-inline-size: var(--hb-target-size);
+    padding-inline: var(--hb-space-1);
+  }
+
+  .activity-count {
+    position: absolute;
+    inset-block-start: calc(-1 * var(--hb-space-1));
+    inset-inline-end: calc(-1 * var(--hb-space-1));
+    z-index: 1;
+    min-inline-size: 1.25rem;
+    padding-inline: var(--hb-space-1);
+    border: var(--hb-border-thin);
+    font-size: var(--hb-text-tiny);
+    line-height: 1.25;
+    text-align: center;
+  }
+
+  .activity-bell > .agent-mark {
+    position: absolute;
+    inset-block-end: var(--hb-space-1);
+    inset-inline-end: var(--hb-space-1);
+  }
 }
 
 .character {
@@ -3110,6 +3238,10 @@ button.group-member-name:focus-visible::after {
 .bell {
   inline-size: 1em;
   block-size: 1em;
+}
+
+.bell.is-ringing {
+  inline-size: 1.375em;
 }
 
 .conversation-item {
@@ -3427,8 +3559,9 @@ button:disabled {
     margin: var(--hb-space-2);
     position-anchor: --hb-tour-target;
     position-area: block-end span-inline-end;
-    position-try-fallbacks: --hb-tour-below, --hb-tour-above;
+    position-try-fallbacks: --hb-tour-below, --hb-tour-above, --hb-tour-on-screen;
     position-visibility: always;
+    min-inline-size: min(18rem, 100vi - 2 * var(--hb-space-4));
     max-block-size: min(30rem, 70dvh);
   }
 
@@ -3446,7 +3579,7 @@ button:disabled {
     inset-block-start: calc(anchor(--hb-tour-header bottom) + var(--hb-space-2));
     inset-inline-end: anchor(--hb-tour-target end);
     margin: 0;
-    position-try-fallbacks: flip-inline, --hb-tour-under-header;
+    position-try-fallbacks: flip-inline, --hb-tour-under-header, --hb-tour-on-screen;
   }
 
   @position-try --hb-tour-under-header {
@@ -3468,6 +3601,14 @@ button:disabled {
     justify-self: stretch;
     inline-size: auto;
     margin: 0 var(--hb-space-4) var(--hb-space-2);
+  }
+
+  /* Where the control leaves no room on any side, as on a short phone: along the bottom of the screen. */
+  @position-try --hb-tour-on-screen {
+    position-area: none;
+    inset: auto var(--hb-space-4) var(--hb-space-4);
+    inline-size: auto;
+    margin: 0;
   }
 }
 
@@ -3849,6 +3990,18 @@ textarea:disabled {
 
 .trust-table thead th {
   background: var(--hb-color-sunken);
+}
+
+/* On a phone a table's columns share the width: tighter cells, and long headings break between words. */
+@container stage (max-width: 30rem) {
+  .trust-table th,
+  .trust-table td {
+    padding-inline: var(--hb-space-1);
+  }
+
+  .trust-table thead th {
+    hyphens: auto;
+  }
 }
 
 .trust-table td {
@@ -4500,8 +4653,9 @@ textarea:disabled {
     display: none;
   }
 
-  .note-menu.menu,
-  .note-menu.menu.is-at-point {
+  /* On a touch screen every row's and note's menu is the same sheet along the bottom edge. */
+  .action-menu.menu,
+  .action-menu.menu.is-at-point {
     position-area: none;
     inset: auto 0 0;
     inline-size: 100%;
@@ -4512,11 +4666,11 @@ textarea:disabled {
     border-block-end: 0;
   }
 
-  .note-menu::backdrop {
+  .action-menu::backdrop {
     background: var(--hb-color-backdrop);
   }
 
-  .note-menu .menu-item {
+  .action-menu .menu-item {
     min-block-size: 3rem;
   }
 
@@ -5317,6 +5471,17 @@ textarea:disabled {
     .search-link,
     .activity-page-link,
     .answering-chip,
+    .answering-help,
+    .author-button,
+    .todo-switch,
+    .todo-move,
+    .todo-more,
+    .todo-public,
+    .brand,
+    .browse-channels,
+    .channel-chip,
+    .group-chip,
+    button.link,
     button.icon
   ) {
   position: relative;
@@ -5334,6 +5499,17 @@ textarea:disabled {
     .search-link,
     .activity-page-link,
     .answering-chip,
+    .answering-help,
+    .author-button,
+    .todo-switch,
+    .todo-move,
+    .todo-more,
+    .todo-public,
+    .brand,
+    .browse-channels,
+    .channel-chip,
+    .group-chip,
+    button.link,
     button.icon
   )::after {
   content: "";
@@ -5345,7 +5521,7 @@ textarea:disabled {
   display: inline-block;
 }
 
-/* Where the tab row scrolls sideways, a fade and a chevron show which end has more. */
+/* The row of tabs is the scroller the chevrons follow. */
 .tabs-host {
   position: relative;
   timeline-scope: --hb-tabs;
@@ -5355,32 +5531,45 @@ textarea:disabled {
   scroll-timeline: --hb-tabs inline;
 }
 
+.tabs-scroll {
+  display: none;
+}
+
+/* Where the tab row scrolls sideways, a chevron at the end that has more scrolls it that way. */
 @supports (animation-timeline: scroll()) {
-  .tabs-host::before,
-  .tabs-host::after {
+  .tabs-scroll {
     position: absolute;
     inset-block: 0;
+    z-index: 1;
     display: grid;
     place-items: center;
-    inline-size: var(--hb-space-6);
+    inline-size: calc(2 * var(--hb-space-4));
+    padding: 0;
+    border: 0;
+    box-shadow: none;
     color: var(--hb-color-on-titlebar);
     font-weight: 800;
-    pointer-events: none;
     opacity: 0;
+    visibility: hidden;
     animation: linear both;
     animation-timeline: --hb-tabs;
   }
 
-  .tabs-host::before {
-    content: "‹" / "";
+  .tabs-scroll:hover {
+    translate: none;
+    box-shadow: none;
+  }
+
+  .tabs-scroll.is-earlier {
     inset-inline-start: 0;
+    justify-items: start;
     background: var(--hb-texture-more-before);
     animation-name: tabs-more-before;
   }
 
-  .tabs-host::after {
-    content: "›" / "";
+  .tabs-scroll.is-later {
     inset-inline-end: 0;
+    justify-items: end;
     background: var(--hb-texture-more-after);
     animation-name: tabs-more-after;
   }
@@ -5389,10 +5578,12 @@ textarea:disabled {
 @keyframes tabs-more-before {
   from {
     opacity: 0;
+    visibility: hidden;
   }
   5%,
   to {
     opacity: 1;
+    visibility: visible;
   }
 }
 
@@ -5400,24 +5591,31 @@ textarea:disabled {
   from,
   95% {
     opacity: 1;
+    visibility: visible;
   }
   to {
     opacity: 0;
+    visibility: hidden;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tabs {
+    scroll-behavior: smooth;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   /* The cue follows the person's own scrolling and moves nothing by itself. */
-  .tabs-host::before {
+  .tabs-scroll.is-earlier {
     animation: tabs-more-before linear both !important;
   }
 
-  .tabs-host::after {
+  .tabs-scroll.is-later {
     animation: tabs-more-after linear both !important;
   }
 
-  .tabs-host::before,
-  .tabs-host::after {
+  .tabs-scroll {
     animation-timeline: --hb-tabs !important;
   }
 }
@@ -5444,6 +5642,40 @@ textarea:disabled {
     place-items: center;
     min-inline-size: var(--hb-target-size);
     min-block-size: var(--hb-target-size);
+  }
+
+  /*
+   * Every other control a finger aims at is at least a fingertip tall: buttons with words, menu items
+   * and section tabs grow to it. The small ones listed above keep their look and take the taps with
+   * the invisible layer around them instead.
+   */
+  :where(button, .button):where(
+      :not(
+          .link,
+          .icon,
+          .switch,
+          .answering-help,
+          .author-button,
+          .todo-switch,
+          .todo-move,
+          .todo-more,
+          .todo-public,
+          .tabs-scroll,
+          .user-button
+        )
+    ),
+  :where(.menu-item, .subtabs a) {
+    min-block-size: var(--hb-target-size);
+  }
+
+  :where(.subtabs a) {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .menu-item {
+    display: flex;
+    align-items: center;
   }
 
   /* A touch keyboard sends with its own key; the hint about Enter and Shift+Enter does not apply. */
@@ -5483,6 +5715,22 @@ textarea:disabled {
 
   .thread-head > .thread-who {
     grid-column: 2;
+    margin-inline-start: 0;
+  }
+
+  /* A channel's name wraps rather than shrink to a few letters beside its controls. */
+  .thread-who > h1 {
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+
+  /* The answering switch, with its words, and its "?" take the row under the channel's name. */
+  .thread-head > .thread-answering {
+    display: flex;
+    align-items: center;
+    gap: var(--hb-space-2);
+    grid-row: 2;
+    grid-column: 2 / span 3;
     margin-inline-start: 0;
   }
 }

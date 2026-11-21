@@ -139,6 +139,30 @@ describe('activityPanel', () => {
     expect(called('loadDraftThreads')).toHaveLength(1)
   })
 
+  it('takes the focus when it opens, and gives it back to the bell when it closes by itself', () => {
+    const { panel, link } = shown()
+    panel.showPopover()
+    expect(document.activeElement).toBe(panel)
+    panel.hidePopover()
+    expect(document.activeElement).toBe(link())
+    const elsewhere = mount(document.createElement('button'))
+    panel.showPopover()
+    elsewhere.focus()
+    panel.hidePopover()
+    expect(document.activeElement).toBe(elsewhere)
+  })
+
+  it('leaves the focus alone when it closes for the place a link in it leads to', () => {
+    const { state, panel, link } = shown()
+    state.threads.set(new Map([[ROOM, { notes: [draft('note_d1')], hasMore: false }]]))
+    panel.showPopover()
+    const away = panel.querySelector<HTMLElement>('a[href]')!
+    away.focus()
+    away.click()
+    expect(document.activeElement).not.toBe(link())
+    expect(panel.dataset.leaving).toBeUndefined()
+  })
+
   it('sends, edits and discards a draft through the same actions as its conversation', () => {
     const { state, panel, dialog, called } = shown()
     const one = draft('note_d1')

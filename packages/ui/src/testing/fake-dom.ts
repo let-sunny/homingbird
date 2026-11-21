@@ -124,9 +124,13 @@ export interface FakeNode {
   readonly addEventListener: (
     type: string,
     listener: Listener,
-    options?: { readonly once?: boolean } | boolean,
+    options?: { readonly once?: boolean; readonly capture?: boolean } | boolean,
   ) => void
-  readonly removeEventListener: (type: string, listener: Listener) => void
+  readonly removeEventListener: (
+    type: string,
+    listener: Listener,
+    options?: { readonly capture?: boolean } | boolean,
+  ) => void
   readonly dispatchEvent: (event: FakeEvent) => boolean
 }
 
@@ -280,7 +284,10 @@ const focusOf = new WeakMap<FakeNode, { active: FakeElement | null }>()
 
 const optionsOf = new WeakMap<FakeNode, FakeDomOptions>()
 
-const listenersOf = new WeakMap<FakeNode, Map<string, Array<{ listener: Listener; once: boolean }>>>()
+const listenersOf = new WeakMap<
+  FakeNode,
+  Map<string, Array<{ listener: Listener; once: boolean; capture: boolean }>>
+>()
 
 const baseNode = (nodeType: number, nodeName: string, owner: FakeDocument | null): FakeNode & Internal => {
   const node = {
@@ -383,22 +390,28 @@ const baseNode = (nodeType: number, nodeName: string, owner: FakeDocument | null
       },
     },
     addEventListener: {
-      value: (type: string, listener: Listener, options?: { readonly once?: boolean } | boolean) => {
+      value: (
+        type: string,
+        listener: Listener,
+        options?: { readonly once?: boolean; readonly capture?: boolean } | boolean,
+      ) => {
         const all = listenersOf.get(node) ?? new Map()
         listenersOf.set(node, all)
         const list = all.get(type) ?? []
-        if (list.some((entry: { listener: Listener }) => entry.listener === listener)) return
-        list.push({ listener, once: typeof options === 'object' && options.once === true })
+        const capture = isCapture(options)
+        if (list.some((entry: Entry) => entry.listener === listener && entry.capture === capture)) return
+        list.push({ listener, once: typeof options === 'object' && options.once === true, capture })
         all.set(type, list)
       },
     },
     removeEventListener: {
-      value: (type: string, listener: Listener) => {
+      value: (type: string, listener: Listener, options?: { readonly capture?: boolean } | boolean) => {
         const list = listenersOf.get(node)?.get(type)
         if (list === undefined) return
+        const capture = isCapture(options)
         listenersOf.get(node)!.set(
           type,
-          list.filter((entry) => entry.listener !== listener),
+          list.filter((entry) => entry.listener !== listener || entry.capture !== capture),
         )
       },
     },
@@ -406,6 +419,11 @@ const baseNode = (nodeType: number, nodeName: string, owner: FakeDocument | null
   })
   return node
 }
+
+type Entry = { readonly listener: Listener; readonly once: boolean; readonly capture: boolean }
+
+const isCapture = (options: { readonly capture?: boolean } | boolean | undefined): boolean =>
+  typeof options === 'boolean' ? options : options?.capture === true
 
 const siblingAt = (node: FakeNode & Internal, offset: number): FakeNode | null => {
   const parent = node.parent as (FakeNode & Internal) | null
@@ -422,11 +440,15 @@ const dispatch = (target: FakeNode, event: FakeEvent): boolean => {
   const path: FakeNode[] = []
   for (let current: FakeNode | null = target; current !== null; current = current.parentNode)
     path.push(current)
-  for (const current of event.bubbles ? path : [target]) {
+  const phases: ReadonlyArray<readonly [FakeNode, boolean]> = [
+    ...path.toReversed().map((current) => [current, true] as const),
+    ...(event.bubbles ? path : [target]).map((current) => [current, false] as const),
+  ]
+  for (const [current, capture] of phases) {
     state.current = current
     const list = listenersOf.get(current)?.get(event.type) ?? []
-    for (const entry of [...list]) {
-      if (entry.once) current.removeEventListener(event.type, entry.listener)
+    for (const entry of list.filter((listed) => listed.capture === capture)) {
+      if (entry.once) current.removeEventListener(event.type, entry.listener, { capture })
       entry.listener(event)
     }
     if (state.stopped) break
@@ -700,7 +722,7 @@ const makeElement = (owner: FakeDocument, localName: string, namespaceURI: strin
       },
     },
     scrollIntoView: { value: () => undefined },
-    scrollTo: { value: () => undefined },
+    scrollTo: { value: () => undefined, writable: true },
     getContext: { value: () => null },
   })
   popoverState.set(element, isPopoverOpen)

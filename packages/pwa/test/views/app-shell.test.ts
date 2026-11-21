@@ -119,6 +119,22 @@ describe('showApp', () => {
     expect(textOf(root)).toContain('A note from Ben')
   })
 
+  it('shows a refusal inside the open dialog, puts it back once the dialog closes, and closes it in time after a redraw', async () => {
+    const { context, root, clock } = start()
+    context.state.session.set(me())
+    const dialog = root.querySelector('dialog') as HTMLDialogElement
+    dialog.showModal()
+    context.state.notice.set({ kind: 'error', text: 'The demo does not do this.' })
+    expect(dialog.querySelector('.toast-host [role="alert"]')?.textContent).toContain('The demo does not')
+    dialog.close()
+    expect(dialog.querySelector('.toast-host')).toBeNull()
+    expect(root.querySelector('.toast-host [role="alert"]')).not.toBeNull()
+    context.state.serverInfo.set(serverInfo())
+    expect(getByRole(root, 'alert').textContent).toContain('The demo does not')
+    await clock.advance(6000)
+    expect(context.state.notice.get()).toBeNull()
+  })
+
   it('draws the held toast in the top layer beside the notice toast', () => {
     const { context, root } = start()
     context.state.session.set(me())

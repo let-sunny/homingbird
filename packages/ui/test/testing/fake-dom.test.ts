@@ -268,6 +268,28 @@ describe('events', () => {
     expect(seen).toHaveLength(7)
   })
 
+  it('runs capturing listeners from the top down before the target, and a stop there ends the path', () => {
+    const outer = document.createElement('div')
+    const inner = document.createElement('button')
+    outer.appendChild(inner)
+    const seen: string[] = []
+    const stopper = (event: ReturnType<typeof fakeEvent>) => event.stopPropagation()
+    outer.addEventListener('click', () => seen.push('outer bubbling'))
+    outer.addEventListener('click', () => seen.push('outer capturing'), { capture: true })
+    inner.addEventListener('click', () => seen.push('inner'))
+    inner.click()
+    expect(seen).toEqual(['outer capturing', 'inner', 'outer bubbling'])
+    outer.addEventListener('click', stopper, true)
+    inner.click()
+    expect(seen).toHaveLength(4)
+    outer.removeEventListener('click', stopper)
+    inner.click()
+    expect(seen).toHaveLength(5)
+    outer.removeEventListener('click', stopper, { capture: true })
+    inner.click()
+    expect(seen).toHaveLength(8)
+  })
+
   it('does not bubble events that do not bubble, and reports a prevented default', () => {
     const outer = document.createElement('div')
     const inner = document.createElement('span')

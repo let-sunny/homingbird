@@ -4,6 +4,7 @@ import {
   paneFor,
   searchLinkModel,
   sidebarModel,
+  skipLinkModel,
   tabsModel,
   userMenuModel,
 } from '../../src/models/shell.ts'
@@ -89,6 +90,13 @@ describe('paneFor', () => {
   it('shows the list on home and the page everywhere else', () => {
     expect(paneFor({ name: 'home' })).toBe('list')
     expect(paneFor({ name: 'people' })).toBe('stage')
+  })
+})
+
+describe('skipLinkModel', () => {
+  it('offers to skip to the composer in a conversation only', () => {
+    expect(skipLinkModel({ name: 'conversation', id: ROOM, draft: null })).toBe(strings.skipToComposer)
+    expect(skipLinkModel({ name: 'people' })).toBeNull()
   })
 })
 

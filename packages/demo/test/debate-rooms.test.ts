@@ -5,7 +5,7 @@ import { NOW } from './support/demo.ts'
 
 const people = {
   june: MemberId.of('demojune0000'),
-  juneDesk: CredentialId.of('demojunedesk'),
+  juneLaptop: CredentialId.of('demojunelapt'),
   ana: MemberId.of('demoana00000'),
   kai: MemberId.of('demokai00000'),
 }

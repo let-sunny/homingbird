@@ -32,7 +32,7 @@ describe('agentReportOf', () => {
       }),
     )
     const after = agentReportOf(world.records(), viewerId, world.startedAt, world.clock.now())
-    expect(after.periods[0]!.current.written - before.periods[0]!.current.written).toBe(1)
+    expect(after.periods[0]!.current.written).toBe(before.periods[0]!.current.written)
     expect(after.periods[0]!.current.sentAfterEdits - before.periods[0]!.current.sentAfterEdits).toBe(1)
     expect(after.weeks.at(-1)!.decided - before.weeks.at(-1)!.decided).toBe(1)
     expect(after.week!.current.notesSent - before.week!.current.notesSent).toBe(1)
@@ -75,5 +75,33 @@ describe('channelAgentReportOf', () => {
     const after = report()
     expect(after.waiting).toBe(1)
     expect(after.periods[0]!.current.sentAsWritten - before.periods[0]!.current.sentAsWritten).toBe(1)
+    const approvedByJune = (figures: typeof after) =>
+      figures.periods[1]!.current.approvals?.find(
+        (each) => each.memberId === world.records().members[0]!.member.id,
+      )?.approved
+    expect(approvedByJune(after)! - approvedByJune(before)!).toBe(1)
+  })
+
+  it('counts a waiting answer as written, so the figures add up before and after it is decided', async () => {
+    const { api, world } = demoApi()
+    const answer = noteStarting(world, 'Annual plans are refunded')
+    const report = () =>
+      channelAgentReportOf(world.records(), 'billing', answer.authorId, world.startedAt, world.clock.now())
+    const addsUp = (figures: ReturnType<typeof report>) =>
+      figures.periods.every(
+        ({ current }) =>
+          current.written ===
+          current.sentAsWritten + current.sentAfterEdits + current.discarded + figures.waiting,
+      )
+    const before = report()
+    expect(addsUp(before)).toBe(true)
+    await succeeded(
+      api['drafts.send']({
+        params: { id: answer.id },
+        body: { expected: { body: answer.body, conversationId: answer.conversationId } },
+      }),
+    )
+    expect(addsUp(report())).toBe(true)
+    expect(report().periods[1]!.current.written).toBe(before.periods[1]!.current.written)
   })
 })

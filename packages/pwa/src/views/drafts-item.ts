@@ -16,16 +16,20 @@ import { closeDialog, closesDialog, opensDialog, submitOnModifierEnter } from '.
 import { button, channelCounts, sourceList } from './parts.ts'
 import { renderAppliedMarkers } from './teaching.ts'
 
-/** The drafts waiting in one place of the conversation; each card reports once that the person saw it. */
-export const renderDraftsItem = (context: ViewContext, model: DraftsItemModel): HTMLElement =>
-  h(
+/**
+ * The drafts waiting in one place of the conversation; each card reports once that the person saw it,
+ * and is named by the heading and its origin.
+ */
+export const renderDraftsItem = (context: ViewContext, model: DraftsItemModel): HTMLElement => {
+  const headingId = `pending-heading-${model.cards[0]?.draft.id ?? ''}`
+  return h(
     'li',
     { class: 'pending', data: { decisionUnit: '' } },
     h(
       'div',
       { class: 'pending-head' },
       renderAvatar(context, model.avatar),
-      h('strong', {}, model.heading),
+      h('strong', { id: headingId }, model.heading),
       h('span', {}, model.replyTo),
     ),
     model.choose !== null && h('p', { class: 'pending-choose' }, model.choose),
@@ -34,25 +38,27 @@ export const renderDraftsItem = (context: ViewContext, model: DraftsItemModel): 
       'div',
       { class: 'alternatives' },
       model.cards.map((card) => {
-        const shown = draftCard(context, card)
+        const shown = draftCard(context, card, headingId)
         reportWhenSeen(context, shown, card.draft)
         return shown
       }),
     ),
   )
+}
 
-const draftCard = (context: ViewContext, card: DraftCard): HTMLElement => {
+const draftCard = (context: ViewContext, card: DraftCard, headingId: string): HTMLElement => {
   const { actions } = context
   const draft = card.draft
   return h(
     'article',
     {
       class: 'draft',
+      'aria-labelledby': `${headingId} draft-origin-${draft.id}`,
       data: { draftId: draft.id, decides: draft.id, tour: 'approval' },
       tabindex: '-1',
       ...(card.focused && { 'aria-current': 'true' }),
     },
-    h('span', { class: card.origin.className }, card.origin.text),
+    h('span', { class: card.origin.className, id: `draft-origin-${draft.id}` }, card.origin.text),
     h('p', { class: 'note-body' }, linkedText(card.body)),
     card.basis !== null &&
       h(

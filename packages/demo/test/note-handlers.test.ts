@@ -128,7 +128,7 @@ describe('drafts.create and drafts.update', () => {
     expect(sent.receipts.map((receipt) => receipt.memberId)).toEqual([ben, kai])
   })
 
-  it('asks a channel’s answerers a question written in its room, and refuses a draft with no destination', async () => {
+  it('asks a channel’s answerers and its agent a question written in its room, and refuses a draft with no destination', async () => {
     const { api, world } = demoApi()
     const asked = await succeeded(
       api['drafts.create']({ body: { body: 'Who owns the ledger?', channel: 'billing' } }),
@@ -136,7 +136,10 @@ describe('drafts.create and drafts.update', () => {
     const sent = await succeeded(
       api['drafts.send']({ params: { id: asked.id }, body: { expected: asShown(asked) } }),
     )
-    expect(sent.receipts.map((receipt) => receipt.memberId)).toEqual([memberNamed(world, 'Ana Silva')])
+    expect(sent.receipts.map((receipt) => receipt.memberId)).toEqual([
+      memberNamed(world, 'Ana Silva'),
+      memberNamed(world, 'Billing helper'),
+    ])
     expect(await refused(api['drafts.create']({ body: { body: 'Hello' } }))).toMatchObject({
       _tag: 'Invalid',
     })
