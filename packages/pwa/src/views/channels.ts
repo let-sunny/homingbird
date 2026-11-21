@@ -257,6 +257,7 @@ const visibilityChoice = (): HTMLFieldSetElement =>
         strings.visibilityPrivate,
       ),
     ),
+    h('p', { class: 'hint' }, strings.visibilityFixed),
   )
 
 const askPage = (context: ViewContext, life: Lifetime, channel: AsRead.Channel): Child => {

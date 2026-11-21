@@ -8,6 +8,7 @@ import {
   asShown,
   connectAgent,
   startTestServer,
+  storeChannelAsPrivate,
   storedRows,
 } from './harness.ts'
 
@@ -115,7 +116,7 @@ describe('tidying channels', () => {
   it('never moves the members of a private channel, or anyone into one, unless both have the same members', async () => {
     await ana.api('POST', '/channels', { slug: 'secret', description: 'Private' })
     await ana.api('PUT', `/channels/secret/members/${ben.me.member.id}`)
-    await ana.api('PUT', '/channels/secret/visibility', { visibility: 'private' })
+    await storeChannelAsPrivate(server, 'secret')
     await cy.api('PUT', '/channels/general/membership', { answering: false })
     for (const [from, to] of [
       ['secret', 'general'],

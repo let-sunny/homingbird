@@ -95,13 +95,6 @@ export const addTeam = (slug: string, groupId: GroupId): Action =>
     ),
   )
 
-export const setChannelVisibility = (slug: string, visibility: ChannelVisibility): Action =>
-  withApp(({ api }) =>
-    T.flatMap(() => afterChannelChange)(
-      api['channels.visibility.set']({ params: { slug }, body: { visibility } }),
-    ),
-  )
-
 /** Asks a channel a question in one step and returns the room it went to. */
 export const askChannel = (slug: string, body: string): Action<ConversationId> =>
   T.gen(function* () {

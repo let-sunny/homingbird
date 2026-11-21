@@ -35,6 +35,7 @@ import {
   everyStoredValue,
   keepAwake,
   startTestServer,
+  storeChannelAsPrivate,
   storedRows,
 } from './harness.ts'
 
@@ -540,7 +541,7 @@ describe('Rule 3: no model-facing credential can approve, change contacts, or re
 
   it('marks every approving, contact, block, channel membership, group, credential and admin route as human-only in the contract', () => {
     const mustBeGuarded = (Object.keys(contract) as RouteName[]).filter((name) =>
-      /^(drafts\.(send|discard)|contacts\.|blocks\.|credentials\.|device\.|consent\.|admin\.|push\.(un)?subscribe|me\.update|notes\.read|conversations\.create|channels\.(create|join|leave|answering\.|visibility\.|members\.(add|remove)|managers\.)|groups\.(rename|members\.))/.test(
+      /^(drafts\.(send|discard)|contacts\.|blocks\.|credentials\.|device\.|consent\.|admin\.|push\.(un)?subscribe|me\.update|notes\.read|conversations\.create|channels\.(create|join|leave|answering\.|members\.(add|remove)|managers\.)|groups\.(rename|members\.))/.test(
         name,
       ),
     )
@@ -1282,7 +1283,7 @@ describe('Rule 6: a member sees only conversations they participate in', () => {
     const current = (await ana.api('GET', `/groups/${ops}`)).json.memberIds
     const made = await ana.api('PUT', `/groups/${ops}/members`, { memberIds: [...current, cy.me.member.id] })
     expect(made.status).toBe(200)
-    expect((await cy.api('PUT', '/channels/ops/visibility', { visibility: 'private' })).status).toBe(200)
+    await storeChannelAsPrivate(server, 'ops')
     const list = (await cy.api('GET', `/groups/${ops}`)).json.memberIds
     for (const stillInGroup of [false, true]) {
       if (stillInGroup)
@@ -1427,7 +1428,7 @@ describe('Rule 6: a member sees only conversations they participate in', () => {
         expect([name, leaks(JSON.stringify(await callMcp(anaAgent, name, args)))]).toEqual([name, []])
     })
 
-    it('refuses an administrator outside it who adds themself or anyone else, makes a manager or opens it', async () => {
+    it('refuses an administrator outside it who adds themself or anyone else or makes a manager, and opens it for no one', async () => {
       expect(ana.me.member.role).toBe('admin')
       for (const added of [ana, cy]) {
         const refused = await ana.api('PUT', `/channels/${NAME}/members/${added.me.member.id}`)
@@ -1445,7 +1446,7 @@ describe('Rule 6: a member sees only conversations they participate in', () => {
       expect(stateOf(await everyStoredValue(server))).toBe(stateOf(before))
       expect((await ana.api('GET', `/groups/${managing}`)).json.memberIds).toEqual([ben.me.member.id])
       expect((await ana.api('GET', `/channels/${NAME}`)).json.managedBy).toBe(managing)
-      expect((await ana.api('PUT', `/channels/${NAME}/visibility`, { visibility: 'open' })).status).toBe(403)
+      expect((await ana.api('PUT', `/channels/${NAME}/visibility`, { visibility: 'open' })).status).toBe(404)
       const members = (await ana.api('GET', `/channels/${NAME}/members`)).json.members
       expect(members.map((member: { memberId: string }) => member.memberId).sort()).toEqual(
         [ben.me.member.id, dee.me.member.id].sort(),

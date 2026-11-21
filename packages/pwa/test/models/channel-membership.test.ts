@@ -163,11 +163,7 @@ describe('membersPanelModel', () => {
     })
     expect(cy).toMatchObject({ name: strings.formerMember, remove: null })
     expect(model.addMember).toBeNull()
-    expect(model.visibility).toMatchObject({
-      current: strings.visibilityOpen,
-      change: { kind: 'allowed', label: strings.makePrivate },
-      confirmation: { confirm: strings.confirmMakePrivate },
-    })
+    expect(model.visibility).toBe(strings.visibilityOpen)
   })
 
   it('keeps a manager in the room while they are in its managing group, and says why', () => {
@@ -238,7 +234,7 @@ describe('membersPanelModel', () => {
     expect(membersPanelModel(input({ groups: barred, roster })).rows![1]!.unmanage).toBeNull()
   })
 
-  it('adds and removes members of a private channel, and makes it open again', () => {
+  it('adds and removes members of a private channel, and says it is private', () => {
     const secret = channel('secret', { joined: true, managing: true, visibility: 'private', memberCount: 2 })
     const model = membersPanelModel(
       input({
@@ -252,31 +248,11 @@ describe('membersPanelModel', () => {
       kind: 'choose',
       choices: [{ value: CY, label: 'Cy · cy@example.com' }],
     })
-    expect(model.visibility).toMatchObject({
-      current: strings.visibilityPrivate,
-      change: { kind: 'allowed', label: strings.makeOpen },
-      confirmation: {
-        title: strings.makeOpenTitle({ channel: '#secret' }),
-        body: strings.makeOpenBody({ channel: '#secret' }),
-        confirm: strings.confirmMakeOpen,
-      },
-    })
+    expect(model.visibility).toBe(strings.visibilityPrivate)
     expect(
       membersPanelModel(input({ channel: secret, roster: [one(ANA, true)], directory: [entry(ANA, 'Ana')] }))
         .addMember,
     ).toEqual({ kind: 'nobody', text: strings.nobodyToAdd })
-  })
-
-  it('needs a manager before a channel turns private', () => {
-    const model = membersPanelModel(input({ roster: [one(ANA), one(BEN)] }))
-    expect(model.visibility!.change).toEqual({
-      kind: 'blocked',
-      label: strings.makePrivate,
-      reason: strings.privateNeedsManager,
-    })
-    expect(model.visibility!.confirmation.body).toBe(
-      strings.makePrivateBody({ count: 3, channel: '#billing' }),
-    )
   })
 })
 

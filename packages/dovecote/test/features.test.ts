@@ -108,7 +108,6 @@ describe('feature switches', () => {
     expect((await ana.api('GET', '/channels/payroll/members')).json.members).toEqual([
       { memberId: ana.me.member.id, answering: true, manager: true },
     ])
-    expect((await ben.api('PUT', '/channels/payroll/visibility', { visibility: 'private' })).status).toBe(403)
   })
 
   it('keeps a principle while teaching is off, and gives it back when it is on again', async () => {

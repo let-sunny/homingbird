@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { CHANNEL, asRead, startAgent, startWithChannel } from './channel-agent-support.ts'
-import { type Agent, type Session, type TestServer, storedRows } from './harness.ts'
+import { type Agent, type Session, type TestServer, storeChannelAsPrivate, storedRows } from './harness.ts'
 
 let server: TestServer
 let root: Session
@@ -87,7 +87,7 @@ describe('asking a channel’s agent privately', () => {
 
   it('is open in a private channel only to its members, administrators included', async () => {
     await start()
-    await ana.api('PUT', `/channels/${CHANNEL}/visibility`, { visibility: 'private' })
+    await storeChannelAsPrivate(server, CHANNEL)
     expect((await askPrivately(cy)).status).toBe(200)
     expect((await askPrivately(root)).status).toBe(404)
   })
@@ -170,7 +170,7 @@ describe('asking a channel’s agent privately', () => {
 
   it('closes the private questions of someone a manager takes out of a private channel', async () => {
     await start()
-    await ana.api('PUT', `/channels/${CHANNEL}/visibility`, { visibility: 'private' })
+    await storeChannelAsPrivate(server, CHANNEL)
     const room = (await askPrivately(cy)).json.id
     await send(cy, room, 'Is my refund stuck?')
     const other = (await askPrivately(ben)).json.id

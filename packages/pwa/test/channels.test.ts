@@ -180,15 +180,15 @@ describe('rosterFacts', () => {
 
   it('says whether the viewer manages the room, which keeps them in it', () => {
     const roster = { memberCount: 2, members: [member('me', true), member('you', false)] }
-    expect(rosterFacts(roster, 'me' as never)).toEqual({ hasManager: true, viewerIsManager: true })
+    expect(rosterFacts(roster, 'me' as never)).toEqual({ viewerIsManager: true })
     expect(rosterFacts(roster, 'you' as never).viewerIsManager).toBe(false)
   })
 
   it('knows when nobody in the room manages it', () => {
-    expect(rosterFacts({ memberCount: 1, members: [member('me', false)] }, 'me' as never).hasManager).toBe(
-      false,
-    )
-    expect(rosterFacts(null, null)).toEqual({ hasManager: false, viewerIsManager: false })
+    expect(rosterFacts({ memberCount: 1, members: [member('me', false)] }, 'me' as never)).toEqual({
+      viewerIsManager: false,
+    })
+    expect(rosterFacts(null, null)).toEqual({ viewerIsManager: false })
   })
 })
 

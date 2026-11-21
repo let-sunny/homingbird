@@ -204,13 +204,6 @@ export const contract = {
     access: 'human',
     response: Channel,
   }),
-  'channels.visibility.set': route({
-    method: 'PUT',
-    path: '/channels/:slug/visibility',
-    access: 'human',
-    body: S.struct({ visibility: ChannelVisibility }),
-    response: Channel,
-  }),
   'channels.members.list': route({
     method: 'GET',
     path: '/channels/:slug/members',

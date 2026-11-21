@@ -163,7 +163,6 @@ const renderMembers = (
 ): Child => {
   const managing = model.managedBy !== null && h('p', { class: 'managed-by' }, model.managedBy.text)
   if (model.rows === null) return [managing, loading()]
-  const visibility = model.visibility
   const addManager = model.addManager
   return [
     managing,
@@ -182,28 +181,7 @@ const renderMembers = (
     ),
     model.addMember?.kind === 'nobody' && h('p', { class: 'hint' }, model.addMember.text),
     model.addMember?.kind === 'choose' && addMemberForm(model.addMember.choices, panel),
-    visibility !== null &&
-      h(
-        'div',
-        { class: 'visibility-switch' },
-        h('p', {}, visibility.current),
-        visibility.change.kind === 'blocked'
-          ? disabledWithReason(visibility.change.label, visibility.change.reason, 'make-private')
-          : button(visibility.change.label, () =>
-              panel.confirm(
-                confirmation('visibility-confirmation', visibility.confirmation, () =>
-                  context.actions.setChannelVisibility(
-                    channel.slug,
-                    isPrivate(channel) ? 'open' : 'private',
-                    {
-                      done: () => closeDialog(context),
-                      attempt: 'visibility',
-                    },
-                  ),
-                ),
-              ),
-            ),
-      ),
+    model.visibility !== null && h('p', { class: 'visibility' }, model.visibility),
   ]
 }
 
