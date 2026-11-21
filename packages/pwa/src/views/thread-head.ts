@@ -52,7 +52,7 @@ export const renderThreadHead = (context: ViewContext, model: ThreadHead): Child
           model.agentState !== null && channelAgentStateLine(model.agentState),
         ),
     ),
-    channel !== null && answeringChip(context, channel),
+    channel !== null && h('span', { class: 'thread-answering' }, answeringChip(context, channel)),
     model.mute !== null && muteButton(context, model.mute),
     channel !== null && roomMenu(context, channel),
   ]

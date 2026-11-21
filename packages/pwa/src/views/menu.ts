@@ -23,7 +23,13 @@ export const actionMenu = (context: MenuContext, spec: ActionMenu): MenuParts =>
   )
   const menu = h(
     'div',
-    { id: spec.id, class: `menu ${spec.menuClass}`, popover: 'auto', role: 'menu', 'aria-label': spec.label },
+    {
+      id: spec.id,
+      class: `menu action-menu ${spec.menuClass}`,
+      popover: 'auto',
+      role: 'menu',
+      'aria-label': spec.label,
+    },
     spec.items,
   )
   for (const item of menu.querySelectorAll('button')) {
@@ -102,10 +108,16 @@ const menuControl = (
     if (!opened) return
     if (!menu.classList.contains('is-at-point')) place(context, menu, null, trigger)
     items()[0]?.focus()
-    stopListening = context.document.listen('pointerdown', (press) => {
-      const target = press.target as Node | null
-      if (!menu.contains(target) && !trigger.contains(target)) close()
-    })
+    stopListening = context.document.listen(
+      'pointerdown',
+      (press) => {
+        const target = press.target as Node | null
+        if (menu.contains(target) || trigger.contains(target)) return
+        if ((press as PointerEvent).pointerType === 'touch') swallowTheTap(context)
+        close()
+      },
+      { capture: true },
+    )
   })
   menu.addEventListener('keydown', (event) => {
     const step = STEPS.get(event.key)
@@ -199,6 +211,28 @@ const longPress = (
     { capture: true },
   )
   return { isTouching: () => touching }
+}
+
+/**
+ * On a touch screen the menu is a sheet over a dimmed page, and a tap on the dimmed part only closes
+ * it: the click that tap would make is swallowed, so it does not also press what was under the finger.
+ * The next press ends the wait, in case the finger scrolled and no click came.
+ */
+const swallowTheTap = (context: MenuContext): void => {
+  const stop = (): void => {
+    stopClick()
+    stopNextPress()
+  }
+  const stopClick = context.document.listen(
+    'click',
+    (click) => {
+      click.preventDefault()
+      click.stopPropagation()
+      stop()
+    },
+    { capture: true },
+  )
+  const stopNextPress = context.document.listen('pointerdown', stop, { capture: true })
 }
 
 /** Puts a menu at a point or under its button, where the browser cannot anchor it itself. */
