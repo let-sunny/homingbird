@@ -192,14 +192,17 @@
 .conversation-main {
   display: grid;
   flex: 1;
+  grid-template-columns: minmax(0, 1fr);
   min-inline-size: 0;
 }
 
 .conversation-name {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--hb-space-2);
   font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .conversation-preview {
@@ -3713,8 +3716,8 @@ textarea:disabled {
 }
 
 .todo-public[aria-pressed="true"] {
-  border-color: var(--hb-color-accent);
-  color: var(--hb-color-text);
+  background: var(--hb-color-accent);
+  color: var(--hb-color-on-accent);
 }
 
 .principle-kind {
