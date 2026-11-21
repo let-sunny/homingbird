@@ -15,7 +15,8 @@ export type Route =
   | { readonly name: 'channel'; readonly slug: string }
   | { readonly name: 'channel-agent'; readonly slug: string; readonly draft: string | null }
   | { readonly name: 'debates' }
-  | { readonly name: 'debate'; readonly id: string }
+  /** A debate room, on one of its tabs; none asked for shows the tab its state calls for. */
+  | { readonly name: 'debate'; readonly id: string; readonly tab: DebateTab | null }
   | { readonly name: 'search'; readonly query: string }
   /** Everything waiting for the person, as a page: what the header's bell opens without popovers. */
   | { readonly name: 'activity' }
@@ -35,6 +36,10 @@ export type Route =
 export type AgentSection = 'connection' | 'teaching' | 'doing' | 'routes'
 
 export const AGENT_SECTIONS: ReadonlyArray<AgentSection> = ['connection', 'teaching', 'doing', 'routes']
+
+export type DebateTab = 'result' | 'votes' | 'credit' | 'turns'
+
+export const DEBATE_TABS: ReadonlyArray<DebateTab> = ['result', 'votes', 'credit', 'turns']
 
 export type AdminSection = 'settings' | 'members' | 'groups' | 'channels' | 'insights'
 
@@ -63,7 +68,8 @@ export const parseRoute = (hash: string): Route => {
   if ((head === 'channel' || head === LEGACY_CHANNEL_HEAD) && second !== undefined)
     return { name: 'channel', slug: second }
   if (head === 'debates') return { name: 'debates' }
-  if (head === 'debate' && second !== undefined) return { name: 'debate', id: second }
+  if (head === 'debate' && second !== undefined)
+    return { name: 'debate', id: second, tab: isDebateTab(third) ? third : null }
   if (head === 'activity') return { name: 'activity' }
   if (head === 'search') return { name: 'search', query: parameters.get('q') ?? '' }
   if (head === 'me') return { name: 'profile' }
@@ -108,7 +114,9 @@ export const hrefFor = (route: Route): string => {
     case 'debates':
       return '#/debates'
     case 'debate':
-      return `#/debate/${encodeURIComponent(route.id)}`
+      return route.tab === null
+        ? `#/debate/${encodeURIComponent(route.id)}`
+        : `#/debate/${encodeURIComponent(route.id)}/${route.tab}`
     case 'activity':
       return '#/activity'
     case 'search':
@@ -162,6 +170,9 @@ const ADMIN_SECTIONS: ReadonlyArray<AdminSection> = ['settings', 'members', 'gro
 
 const isAgentSection = (value: string | undefined): value is AgentSection =>
   AGENT_SECTIONS.includes(value as AgentSection)
+
+const isDebateTab = (value: string | undefined): value is DebateTab =>
+  DEBATE_TABS.includes(value as DebateTab)
 
 const isAdminSection = (value: string | undefined): value is AdminSection =>
   ADMIN_SECTIONS.includes(value as AdminSection)

@@ -1038,6 +1038,12 @@ export const ko: Translation<typeof en> = {
     post: '초안으로 넣기',
     notFound: '없는 토론방이거나 볼 수 없는 토론방이에요.',
     allRooms: '모든 토론방',
+    tabsLabel: '토론방 메뉴',
+    tabs: { result: '결과', votes: '투표', credit: '기여', turns: '차례' },
+    turnsTaken: '전체 {total}차례 중 {count}차례를 썼어요.',
+    turnTimes: '첫 차례 {first}, 마지막 차례 {last}.',
+    earlierTurns: { other: '이전 차례 {count}개 보기' },
+    keptSteps: '이 에이전트가 제안해 결과에 남은 다음 단계',
   },
   insights: {
     title: '인사이트',

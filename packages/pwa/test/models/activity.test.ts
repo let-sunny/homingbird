@@ -323,7 +323,7 @@ describe('activityModel', () => {
     )
   })
 
-  it('lists a room that asks the person’s agent and a closed room whose result they may post', () => {
+  it('lists a room that asks the person’s agent and a closed room whose result they may post, each opening on its tab', () => {
     const asks = summary({ id: 'debate_asks0000000' as DebateId, createdAt: 30, participantIds: [BEN] })
     const result = summary({
       id: 'debate_result00000' as DebateId,
@@ -339,9 +339,10 @@ describe('activityModel', () => {
     ])
     expect(itemsOf(model, 'debates')[0]!.place).toMatchObject({
       text: result.question,
-      href: '#/debate/debate_result00000',
+      href: '#/debate/debate_result00000/result',
       label: strings.activity.openRoom,
     })
+    expect(itemsOf(model, 'debates')[1]!.place.href).toBe('#/debate/debate_asks0000000/turns')
   })
 
   it('leaves out rooms that need nothing of the person', () => {

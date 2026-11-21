@@ -43,8 +43,9 @@ describe('tabsModel', () => {
     })
     expect(tabs.every((tab) => tab.mark === null)).toBe(true)
     expect(
-      tabsModel({ name: 'debate', id: 'x' }, serverInfo({ debateRooms: true })).find((tab) => tab.current)
-        ?.label,
+      tabsModel({ name: 'debate', id: 'x', tab: null }, serverInfo({ debateRooms: true })).find(
+        (tab) => tab.current,
+      )?.label,
     ).toBe(strings.navDebates)
   })
 

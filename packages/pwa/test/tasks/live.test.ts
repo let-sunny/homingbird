@@ -225,7 +225,7 @@ describe('liveEvents', () => {
     apply(event({ type: 'debate.changed', debateId: 'd1', participantIds: [] }))
     state.route.set({ name: 'debates' })
     apply(event({ type: 'debate.changed', debateId: 'd1', participantIds: [] }))
-    state.route.set({ name: 'debate', id: 'd1' })
+    state.route.set({ name: 'debate', id: 'd1', tab: null })
     apply(event({ type: 'debate.changed', debateId: 'd2', participantIds: [] }))
     apply(event({ type: 'debate.changed', debateId: 'd1', participantIds: [] }))
     await settle()

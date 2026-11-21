@@ -1075,6 +1075,12 @@ export const en = {
     post: 'Put into a draft',
     notFound: 'This debate room does not exist, or you cannot see it.',
     allRooms: 'All debate rooms',
+    tabsLabel: 'Debate room sections',
+    tabs: { result: 'Result', votes: 'Votes', credit: 'Credit', turns: 'Turns' },
+    turnsTaken: '{count} of {total} turns taken.',
+    turnTimes: 'First turn {first}; latest {last}.',
+    earlierTurns: { one: 'Show {count} earlier turn', other: 'Show {count} earlier turns' },
+    keptSteps: 'Next steps it proposed that the result kept',
   },
   insights: {
     title: 'Insights',

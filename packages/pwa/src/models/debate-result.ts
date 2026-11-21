@@ -33,7 +33,6 @@ export const resultModel = (debate: AsRead.Debate, stage: ResultStage, people: R
       debate.voteRecord == null
         ? null
         : {
-            title: strings.debates.voteRecordTitle,
             none: lines.length === 0 ? strings.debates.noVote : null,
             lines: lines.map((line) => ({
               kind: line.kind,
@@ -121,7 +120,6 @@ export type ResultModel =
       readonly draftedBy: string
       readonly body: ResultBody
       readonly voteRecord: {
-        readonly title: string
         readonly none: string | null
         readonly lines: ReadonlyArray<VoteLine>
       } | null

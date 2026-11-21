@@ -25,7 +25,7 @@ export const debateListModel = (input: DebateListInput): DebateListModel => {
       return {
         id: summary.id,
         className: `debate-card is-${stage}`,
-        href: hrefFor({ name: 'debate', id: summary.id }),
+        href: hrefFor({ name: 'debate', id: summary.id, tab: null }),
         question: summary.question,
         stage: strings.debates.stage[stage],
         isPrivate: summary.visibility === 'private',
