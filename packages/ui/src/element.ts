@@ -51,9 +51,7 @@ export const linkedText = (text: string): Node[] =>
   Array.from(textSegments(text), (segment) =>
     segment.type === 'text'
       ? document.createTextNode(segment.value)
-      : segment.kind === 'mail'
-        ? h('a', { href: segment.href }, segment.value)
-        : h('a', { href: segment.href, rel: 'noopener noreferrer', target: '_blank' }, segment.value),
+      : h('a', { href: segment.value, rel: 'noopener noreferrer', target: '_blank' }, segment.value),
   )
 
 const isChildList = (children: Child): children is ReadonlyArray<Child> => Array.isArray(children)

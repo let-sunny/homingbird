@@ -67,24 +67,6 @@ describe('linkedText', () => {
     ])
     expect(after.textContent).toBe('. Thanks')
   })
-
-  it('opens www. addresses over https and mail addresses in the mail program, in place', () => {
-    const [web, , mail] = linkedText('www.example.com or ana@example.com') as unknown as [
-      HTMLAnchorElement,
-      Node,
-      HTMLAnchorElement,
-    ]
-    expect([web.getAttribute('href'), web.getAttribute('rel'), web.textContent]).toEqual([
-      'https://www.example.com',
-      'noopener noreferrer',
-      'www.example.com',
-    ])
-    expect([mail.getAttribute('href'), mail.getAttribute('target'), mail.textContent]).toEqual([
-      'mailto:ana@example.com',
-      null,
-      'ana@example.com',
-    ])
-  })
 })
 
 describe('svg', () => {

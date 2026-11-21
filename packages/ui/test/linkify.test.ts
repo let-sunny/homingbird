@@ -14,9 +14,9 @@ describe('textSegments', () => {
   it('splits out http and https addresses', () => {
     expect([...textSegments('see https://example.com/a?b=1 and http://x.test now')]).toEqual([
       { type: 'text', value: 'see ' },
-      { type: 'link', value: 'https://example.com/a?b=1', href: 'https://example.com/a?b=1', kind: 'web' },
+      { type: 'link', value: 'https://example.com/a?b=1' },
       { type: 'text', value: ' and ' },
-      { type: 'link', value: 'http://x.test', href: 'http://x.test', kind: 'web' },
+      { type: 'link', value: 'http://x.test' },
       { type: 'text', value: ' now' },
     ])
   })
@@ -24,26 +24,21 @@ describe('textSegments', () => {
   it('leaves trailing punctuation and a closing bracket outside the link', () => {
     expect([...textSegments('(https://example.com/docs). Done')]).toEqual([
       { type: 'text', value: '(' },
-      { type: 'link', value: 'https://example.com/docs', href: 'https://example.com/docs', kind: 'web' },
+      { type: 'link', value: 'https://example.com/docs' },
       { type: 'text', value: '). Done' },
     ])
   })
 
   it('keeps balanced brackets inside the link', () => {
     expect([...textSegments('https://example.com/a_(b)')]).toEqual([
-      { type: 'link', value: 'https://example.com/a_(b)', href: 'https://example.com/a_(b)', kind: 'web' },
+      { type: 'link', value: 'https://example.com/a_(b)' },
     ])
   })
 
   it('drops a closing bracket that closes text around a link whose own brackets balance', () => {
     expect([...textSegments('(https://en.wikipedia.org/wiki/Foo_(bar))')]).toEqual([
       { type: 'text', value: '(' },
-      {
-        type: 'link',
-        value: 'https://en.wikipedia.org/wiki/Foo_(bar)',
-        href: 'https://en.wikipedia.org/wiki/Foo_(bar)',
-        kind: 'web',
-      },
+      { type: 'link', value: 'https://en.wikipedia.org/wiki/Foo_(bar)' },
       { type: 'text', value: ')' },
     ])
   })
@@ -51,12 +46,7 @@ describe('textSegments', () => {
   it('drops an unopened closing bracket after a link that holds a balanced pair', () => {
     expect([...textSegments('see https://example.com/a_(b)_c)')]).toEqual([
       { type: 'text', value: 'see ' },
-      {
-        type: 'link',
-        value: 'https://example.com/a_(b)_c',
-        href: 'https://example.com/a_(b)_c',
-        kind: 'web',
-      },
+      { type: 'link', value: 'https://example.com/a_(b)_c' },
       { type: 'text', value: ')' },
     ])
   })
@@ -64,9 +54,9 @@ describe('textSegments', () => {
   it('treats square brackets and braces the same way', () => {
     expect([...textSegments('[https://example.com/x_[1]] {https://example.com/y_{2}}.')]).toEqual([
       { type: 'text', value: '[' },
-      { type: 'link', value: 'https://example.com/x_[1]', href: 'https://example.com/x_[1]', kind: 'web' },
+      { type: 'link', value: 'https://example.com/x_[1]' },
       { type: 'text', value: '] {' },
-      { type: 'link', value: 'https://example.com/y_{2}', href: 'https://example.com/y_{2}', kind: 'web' },
+      { type: 'link', value: 'https://example.com/y_{2}' },
       { type: 'text', value: '}.' },
     ])
   })
@@ -74,7 +64,7 @@ describe('textSegments', () => {
   it('strips punctuation and brackets in any order', () => {
     expect([...textSegments('(see https://example.com/a).')]).toEqual([
       { type: 'text', value: '(see ' },
-      { type: 'link', value: 'https://example.com/a', href: 'https://example.com/a', kind: 'web' },
+      { type: 'link', value: 'https://example.com/a' },
       { type: 'text', value: ').' },
     ])
   })
@@ -104,54 +94,9 @@ describe('textSegments', () => {
 
   it('never links other schemes', () => {
     const segments = [
-      ...textSegments(
-        'javascript:alert(1) data:text/html,x ftp://files.test ftp://me@files.test mailto:a@b.test',
-      ),
+      ...textSegments('javascript:alert(1) data:text/html,x ftp://files.test mailto:a@b.test'),
     ]
     expect(segments.every((segment) => segment.type === 'text')).toBe(true)
-  })
-
-  it('opens an address that starts with www. over https', () => {
-    expect([...textSegments('See www.example.com/a, or WWW.x.test.')]).toEqual([
-      { type: 'text', value: 'See ' },
-      { type: 'link', value: 'www.example.com/a', href: 'https://www.example.com/a', kind: 'web' },
-      { type: 'text', value: ', or ' },
-      { type: 'link', value: 'WWW.x.test', href: 'https://WWW.x.test', kind: 'web' },
-      { type: 'text', value: '.' },
-    ])
-  })
-
-  it('leaves www. text that names no host, and www. inside another word or address', () => {
-    for (const text of ['go to www. now', 'www.example', 'awww.example.com', 'me@www.example.com'])
-      expect(
-        [...textSegments(text)].filter((segment) => segment.type === 'link' && segment.kind === 'web'),
-      ).toEqual([])
-    expect([...textSegments('https://www.example.com')]).toEqual([
-      { type: 'link', value: 'https://www.example.com', href: 'https://www.example.com', kind: 'web' },
-    ])
-  })
-
-  it('opens a mail address with mailto, outside a web address', () => {
-    expect([...textSegments('Write to ana.silva+hb@mail.example.org. Thanks')]).toEqual([
-      { type: 'text', value: 'Write to ' },
-      {
-        type: 'link',
-        value: 'ana.silva+hb@mail.example.org',
-        href: 'mailto:ana.silva+hb@mail.example.org',
-        kind: 'mail',
-      },
-      { type: 'text', value: '. Thanks' },
-    ])
-    expect([...textSegments('https://x.test/a@b.test')]).toEqual([
-      { type: 'link', value: 'https://x.test/a@b.test', href: 'https://x.test/a@b.test', kind: 'web' },
-    ])
-    expect([...textSegments('a@b and @handle')]).toEqual([{ type: 'text', value: 'a@b and @handle' }])
-  })
-
-  it('skips a www. address the platform cannot parse', () => {
-    expect([...textSegments('www.example.com:99999')]).toEqual([
-      { type: 'text', value: 'www.example.com:99999' },
-    ])
   })
 
   it('skips text that only looks like an address', () => {
@@ -165,7 +110,7 @@ describe('textSegments', () => {
         const segments = [...textSegments(text)]
         expect(segments.map((segment) => segment.value).join('')).toBe(text)
         for (const segment of segments)
-          if (segment.type === 'link') expect(segment.href).toMatch(/^(https?:\/\/|mailto:)/)
+          if (segment.type === 'link') expect(segment.value).toMatch(/^https?:\/\//)
       }),
     )
   })
