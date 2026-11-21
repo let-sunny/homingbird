@@ -216,6 +216,14 @@ describe('activityModel', () => {
       }),
     )
     expect(kinds(replied)).toEqual([])
+    const laterWithoutStamp = note('note_later', { authorId: ANA, sentAt: null, createdAt: 50 })
+    const spokeLater = activityModel(
+      input({
+        threads: new Map([[ROOM, thread(asked, laterWithoutStamp)]]),
+        releases: new Map([[asked.id, release]]),
+      }),
+    )
+    expect(kinds(spokeLater)).toEqual([])
   })
 
   it('moves a skipped note to the drafts once the person’s agent drafts a reply after all', () => {

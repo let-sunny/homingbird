@@ -234,7 +234,7 @@ export interface AdminMemberRow {
   readonly status: { readonly className: string; readonly text: string }
   /** Null where the directory has no entry for them, as for a deactivated member. */
   readonly lastActive: { readonly text: string; readonly title: string | null } | null
-  readonly agent: { readonly className: string; readonly text: string; readonly title: string } | null
+  readonly agent: { readonly className: string; readonly text: string | null; readonly title: string } | null
   readonly dormant: string | null
   readonly groupNames: ReadonlyArray<string>
   readonly groups: string | null
@@ -327,7 +327,7 @@ const lastActiveOf = (lastSeenAt: number | null, now: number): NonNullable<Admin
 const agentOf = (presence: AsRead.Presence): NonNullable<AdminMemberRow['agent']> => {
   const shown = presenceShown(presence, true).agent
   const state = shown.isOn ? 'is-on' : unavailableOf(presence) === null ? 'is-off' : 'is-unavailable'
-  return { className: `agent-light ${state}`, text: shown.words ?? '', title: shown.title }
+  return { className: `agent-light ${state}`, text: shown.words, title: shown.title }
 }
 
 const timeSince = (then: number, now: number): string => {
