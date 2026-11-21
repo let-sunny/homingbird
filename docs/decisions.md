@@ -1285,3 +1285,29 @@ code and shows the one line to paste on the server, `homingbird setup --server <
   device flow stays the way for a computer with a browser.
 - **`setup` refuses root before it spends the code**, as `service install` does, and keeps the
   credential when the service cannot be installed, printing the one command left.
+
+## Homingbird runs a vendor's agent as its person; it never signs in as one
+
+A desk starts an agent command (`claude -p`, `codex exec`, `agy`, `gemini`) with the permissions and
+the sign-in its OS user already has. Vendors draw their line at third-party tools that take over a
+subscription sign-in or call the service behind the CLI directly, and at one account shared by
+several people. So Homingbird stays on the side that runs the vendor's own program, and says so.
+
+- **What Homingbird never does.** It offers no "sign in with" a model vendor, never calls a vendor's
+  subscription backend itself, never reads, copies, stores or forwards a CLI's credential files
+  (`~/.claude`, `~/.codex/auth.json`, keychains, OAuth tokens), and never patches a vendor's binary.
+  Dovecote calls no model at all. A change that needs any of these needs a new entry here first.
+- **Whose account.** On a person's own computer the agent uses that person's sign-in or key. A desk on
+  a shared server, a channel's agent, or anything answering for a team uses an API key or the
+  vendor's organization or service account, never one member's personal plan: every vendor whose terms
+  we read forbids sharing a personal account, and a channel's agent answers for everyone in its
+  channel. Homingbird cannot check which sign-in a command uses, so the guide and deployment pages say
+  it where a person sets one up, and an operator never collects people's subscription sign-ins.
+- **A preset that risks its person's account says so.** `homingbird presets` and the runner's start
+  print a preset's `accountRisk`: today Antigravity and Gemini CLI on a Google sign-in, which Google
+  says it may suspend when other tools use it.
+- **A cloud desk stores only a token that can do nothing but wake.** A key that also reads or acts on
+  an account (a Cursor or Devin API key) is not a wake token, and storing it on an organization's
+  server would be sharing that account.
+- **Not a legal opinion.** Terms change; the guide links each vendor's own page, and a person checks
+  their plan's terms before running a desk around the clock.
