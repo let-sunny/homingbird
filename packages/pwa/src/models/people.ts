@@ -82,9 +82,11 @@ export interface PersonCard {
     readonly more: string
   } | null
   readonly groups: ReadonlyArray<{ readonly label: string; readonly href: string }>
-  readonly profile: { readonly open: boolean; readonly text: string }
+  readonly profile: { readonly open: boolean; readonly summary: string; readonly text: string }
   readonly agentIntroduction: ReadonlyArray<string>
   readonly actions: ReadonlyArray<PersonAction>
+  /** What stays behind the card's ⋯ menu, blocking among it, so it never sits beside writing a note. */
+  readonly more: { readonly label: string; readonly actions: ReadonlyArray<PersonAction> } | null
 }
 
 export type PersonActionKind =
@@ -138,6 +140,8 @@ const personCard = (
   const mode = input.contactMode
   const relation = shownRelation(entry, mode)
   const chips = chipsForPerson(entry.channels, mine)
+  const actions = actionsFor(entry, relation, mode)
+  const menu = actions.filter((one) => IN_MENU.has(one.kind))
   return {
     memberId: entry.member.id,
     avatar: memberAvatarOf(entry.member, input.charactersOn, { state: personPip(entry) }),
@@ -155,9 +159,15 @@ const personCard = (
           href: hrefFor({ name: 'group', id: group.id }),
         }))
       : [],
-    profile: { open: entry.member.profile !== '', text: entry.member.profile || strings.noProfile },
+    profile: {
+      open: entry.member.profile !== '',
+      summary: relation === 'self' ? strings.profileAbout : strings.profileAboutOther,
+      text: entry.member.profile || strings.noProfile,
+    },
     agentIntroduction: entry.agentIntroduction ?? [],
-    actions: actionsFor(entry, relation, mode),
+    actions: actions.filter((one) => !IN_MENU.has(one.kind)),
+    more:
+      menu.length === 0 ? null : { label: strings.personMore({ name: entry.member.name }), actions: menu },
   }
 }
 
@@ -196,3 +206,5 @@ const action = (
   style: PersonAction['style'] = null,
   hint: string | null = null,
 ): PersonAction => ({ kind, label, style, hint })
+
+const IN_MENU: ReadonlySet<PersonActionKind> = new Set(['block'])

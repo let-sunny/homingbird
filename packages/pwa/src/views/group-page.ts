@@ -1,7 +1,12 @@
 import { type AsRead, GROUP_NAME_MAX, type MemberId } from '@homingbird/protocol'
-import { type Child, type Lifetime, h, region, signal } from '@homingbird/ui'
+import { type Child, type Lifetime, type ReadableSignal, h, region, signal } from '@homingbird/ui'
 import { featureOn } from '../features.ts'
-import { type GroupPageModel, groupNameFrom, groupPageModel } from '../models/group-page.ts'
+import {
+  type GroupMessage,
+  type GroupPageModel,
+  groupNameFrom,
+  groupPageModel,
+} from '../models/group-page.ts'
 import { strings } from '../strings.ts'
 import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
@@ -15,27 +20,44 @@ export const groupPageView = (
   viewerId: MemberId,
   id: string,
 ): HTMLElement => {
+  const shown = loadedGroup(context, viewerId, id)
+  return region(life, shown.sources, () => renderGroupPage(shown.model(), context, shown.retry))
+}
+
+/** Loads the groups and the people a team's page needs, and the page's model over them as they change. */
+export const loadedGroup = (
+  context: ViewContext,
+  viewerId: MemberId,
+  id: string,
+): {
+  readonly model: () => GroupPageModel
+  readonly sources: ReadonlyArray<ReadableSignal<unknown>>
+  readonly retry: () => void
+} => {
   const { state, actions } = context
   const failed = signal(false)
-  const load = (): void => {
+  const retry = (): void => {
     failed.set(false)
     actions.loadGroups({ failed: () => failed.set(true) })
   }
-  load()
-  const model = (): GroupPageModel =>
-    groupPageModel({
-      id,
-      groups: state.groups.get(),
-      loaded: state.groupsLoaded.get(),
-      failed: failed.get(),
-      members: state.members.get(),
-      directory: state.directory.get(),
-      viewerId,
-      charactersOn: featureOn('characters', state.serverInfo.get()),
-    })
-  return region(life, [state.groups, state.groupsLoaded, failed, state.members, state.directory], () =>
-    renderGroupPage(model(), context, load),
-  )
+  retry()
+  actions.loadPeople()
+  return {
+    model: () =>
+      groupPageModel({
+        id,
+        groups: state.groups.get(),
+        loaded: state.groupsLoaded.get(),
+        failed: failed.get(),
+        members: state.members.get(),
+        directory: state.directory.get(),
+        conversations: state.conversations.get(),
+        viewerId,
+        charactersOn: featureOn('characters', state.serverInfo.get()),
+      }),
+    sources: [state.groups, state.groupsLoaded, failed, state.members, state.directory, state.conversations],
+    retry,
+  }
 }
 
 const renderGroupPage = (model: GroupPageModel, context: ViewContext, retry: () => void): Child => {
@@ -51,29 +73,34 @@ const renderGroupPage = (model: GroupPageModel, context: ViewContext, retry: () 
   }
 }
 
-const groupPage = (model: Extract<GroupPageModel, { kind: 'group' }>, context: ViewContext): HTMLElement => {
+const groupPage = (model: GroupModel, context: ViewContext): HTMLElement =>
+  page(model.title, groupEditor(model, context))
+
+/**
+ * A team's members and what the person may do with them: write to one or all of them, rename the team, add
+ * or remove people. `more` goes beside renaming; the group page and the administration's editor share this.
+ */
+export const groupEditor = (model: GroupModel, context: ViewContext, more: Child = null): Child => {
   const group = model.group
   const changes = { attempt: 'managers' as const }
   const setMembers = (memberIds: ReadonlyArray<MemberId>): void =>
     context.actions.setGroupMembers(group.id, memberIds, changes)
-  return page(
-    model.title,
+  const actions = [
+    model.groupMessage !== null && groupMessageAction(model.groupMessage, context),
     model.rename !== null &&
       h(
-        'div',
-        { class: 'group-actions' },
-        h(
-          'button',
-          {
-            type: 'button',
-            class: 'rename-group',
-            ...opensDialog(context, model.rename.label, () =>
-              renameForm(context, group, model.rename!.value),
-            ),
-          },
-          model.rename.label,
-        ),
+        'button',
+        {
+          type: 'button',
+          class: 'rename-group',
+          ...opensDialog(context, model.rename.label, () => renameForm(context, group, model.rename!.value)),
+        },
+        model.rename.label,
       ),
+    more,
+  ]
+  return [
+    actions.some((one) => one !== null && one !== false) && h('div', { class: 'group-actions' }, actions),
     h('h2', {}, model.membersHeading),
     h(
       'ul',
@@ -81,9 +108,24 @@ const groupPage = (model: Extract<GroupPageModel, { kind: 'group' }>, context: V
       model.members.map((row) =>
         h(
           'li',
-          { class: 'group-member', data: { memberId: row.memberId } },
+          {
+            class: `group-member${row.message === null ? '' : ' is-messageable'}`,
+            data: { memberId: row.memberId },
+          },
           renderAvatar(context, row.avatar),
-          h('span', { class: 'group-member-name' }, row.name, row.isYou && youMark()),
+          row.message === null
+            ? h('span', { class: 'group-member-name' }, row.name, row.isYou && youMark())
+            : h(
+                'button',
+                {
+                  type: 'button',
+                  class: 'group-member-name',
+                  title: row.message,
+                  'aria-label': row.message,
+                  on: { click: () => context.actions.openConversationWith(row.memberId) },
+                },
+                row.name,
+              ),
           row.remove !== null &&
             button(row.remove, () => setMembers(group.memberIds.filter((one) => one !== row.memberId)), {
               class: 'danger',
@@ -93,8 +135,17 @@ const groupPage = (model: Extract<GroupPageModel, { kind: 'group' }>, context: V
     ),
     model.addMember !== null &&
       addMemberForm(model.addMember, (memberId) => setMembers([...group.memberIds, memberId])),
-  )
+  ]
 }
+
+const groupMessageAction = (message: GroupMessage, context: ViewContext): HTMLElement =>
+  message.href !== null
+    ? h('a', { class: 'button primary group-message', href: message.href }, message.label)
+    : button(message.label, () => context.actions.openConversationAmong(message.memberIds), {
+        class: 'primary group-message',
+      })
+
+type GroupModel = Extract<GroupPageModel, { kind: 'group' }>
 
 const renameForm = (context: ViewContext, group: AsRead.Group, value: string): HTMLElement => {
   const name = h('input', {

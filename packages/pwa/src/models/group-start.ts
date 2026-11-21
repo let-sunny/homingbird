@@ -16,6 +16,7 @@ export const groupStartModel = (input: GroupStartInput): GroupStartModel | null 
   const existing = chosen.length < 2 ? undefined : groupWith(input.conversations, input.viewerId, chosen)
   return {
     title: strings.groupStart.title,
+    collapsed: chosen.length === 0 ? strings.groupStart.collapsed : null,
     intro: strings.groupStart.intro,
     count: strings.groupStart.chosen({ count: chosen.length }),
     status: statusOf(chosen.map((memberId) => names.get(memberId)!)),
@@ -83,6 +84,8 @@ export interface GroupStartInput {
 
 export interface GroupStartModel {
   readonly title: string
+  /** Until someone is added the box is one line, so the people list starts high on the page. */
+  readonly collapsed: string | null
   readonly intro: string
   readonly count: string
   readonly status: string

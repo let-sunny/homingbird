@@ -141,6 +141,7 @@ export const ko: Translation<typeof en> = {
     '아직 참여한 채널이 없어요. 채널을 둘러보고 참여하거나 새로 만들어 보세요. 채널에서도 모든 노트는 사람이 먼저 승인해요.',
   join: '참여하기',
   joinAndAnswer: '참여하고 답하기',
+  channelMore: '{channel} 더 보기',
   helpingHere: '여기서 답하는 중',
   inRoom: '참여 중',
   memberCount: { other: '멤버 {count}명' },
@@ -179,7 +180,6 @@ export const ko: Translation<typeof en> = {
   managedByAdmin: '관리자라서 이 채널을 운영할 수 있어요.',
   seenByAdmin:
     '관리자라서 이 비공개 채널에 누가 있는지 볼 수 있어요. 멤버 추가, 운영자 추가, 공개 전환은 채널 운영자만 할 수 있어요.',
-  askChannel: '질문하기',
   openRoom: '열기',
   createChannelTitle: '채널 만들기',
   channelSlugLabel: '이름',
@@ -261,9 +261,12 @@ export const ko: Translation<typeof en> = {
   profileAgent: '내 에이전트가 도울 수 있는 일',
   noChannelsHelped: '아직 질문에 답하는 채널이 없어요.',
   profileAbout: '나와 내 에이전트 소개',
+  profileAboutOther: '소개',
+  personMore: '{name} 더 보기',
   agentIntroduction: '에이전트 소개',
   profileAgentHint: '동료가 사람 목록에서 보는 한두 줄 소개예요.',
   save: '저장',
+  unsavedSettings: '저장하지 않은 변경 사항이 있어요.',
   saved: '저장했어요.',
   appearance: '화면 모드',
   appearanceAuto: '시스템 설정 따르기',
@@ -1170,6 +1173,11 @@ export const ko: Translation<typeof en> = {
     addTeamHint: '그룹에 있는 사람들을 운영자로 한 번 추가해요. 나중에 그룹이 바뀌어도 여기는 바뀌지 않아요.',
     unmanage: '운영자에서 제외',
     deactivateLeaves: '{name} 님을 비활성화하면 모든 그룹에서 빠져요: {groups}.',
+    writeTo: '{name} 님에게 쓰기',
+    messageGroup: '{group} 그룹 DM 보내기',
+    openGroupMessage: '{group} 그룹 DM 열기',
+    backToGroups: '모든 그룹',
+    deleteHint: '그룹을 삭제해도 채널에서 빠지는 사람은 없고, 채널 운영자도 바뀌지 않아요.',
   },
   measures: {
     weekTitle: '나의 한 주',
@@ -1254,6 +1262,7 @@ export const ko: Translation<typeof en> = {
   },
   groupStart: {
     title: '그룹 DM 시작하기',
+    collapsed: '아래에서 두 사람 이상을 추가해요.',
     intro:
       '아래에서 두 사람 이상을 골라요. 고른 사람들은 노트가 보내진 뒤에야 이 그룹 DM을 볼 수 있어요. 다른 DM처럼 첫 노트를 직접 쓰거나 에이전트에게 초안을 부탁해요. 승인하기 전에는 아무것도 보내지 않아요.',
     choose: '그룹 DM에 추가',

@@ -177,11 +177,15 @@ describe('directoryOf', () => {
 })
 
 describe('groupsOf', () => {
-  it('names each channel a group manages, and lets only its own members change it', () => {
+  it('names each channel a group manages, lets only its own members change it, and an administrator a team', () => {
     const { records, june, kai } = fresh()
     const billing = groupsOf(records, june).find((group) => group.channels.includes('billing'))
     expect(billing).toMatchObject({ kind: 'channel', mayAdd: true, mayRemove: true })
     expect(groupsOf(records, kai).find((group) => group.id === billing?.id)).toMatchObject({ mayAdd: false })
-    expect(groupsOf(records, june).find((group) => group.kind === 'team')?.mayAdd).toBe(false)
+    expect(groupsOf(records, june).find((group) => group.kind === 'team')).toMatchObject({
+      mayAdd: true,
+      mayRemove: true,
+    })
+    expect(groupsOf(records, kai).find((group) => group.kind === 'team')?.mayAdd).toBe(false)
   })
 })

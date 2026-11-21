@@ -163,6 +163,30 @@ export const channelHandlers = (world: World): Handlers => ({
       groupsOf(world.records(), viewerId).find((group) => group.id === params.id),
       'No such group.',
     ),
+  'groups.rename': ({ params, body }, viewerId) =>
+    T.gen(function* () {
+      const group = yield* found(
+        groupsOf(world.records(), viewerId).find(
+          (each) => each.id === params.id && each.kind === 'team' && each.mayAdd,
+        ),
+        'No such group.',
+      )
+      const name = body.name
+      if (world.records().groups.some((each) => each.id !== group.id && each.name === name))
+        return yield* T.fail(Conflict({ message: 'Another group has this name.' }))
+      world.update((records) => ({
+        ...records,
+        groups: records.groups.map((each) => (each.id === group.id ? { ...each, name } : each)),
+      }))
+      world.emit(
+        world.records().members.map(({ member }) => member.id),
+        { type: 'group.changed', groupId: group.id },
+      )
+      return yield* found(
+        groupsOf(world.records(), viewerId).find((each) => each.id === group.id),
+        'No such group.',
+      )
+    }),
   'groups.members.set': ({ params, body }, viewerId) =>
     T.gen(function* () {
       const group = yield* found(
@@ -170,7 +194,7 @@ export const channelHandlers = (world: World): Handlers => ({
         'No such group.',
       )
       const people = body.memberIds.filter((id) => memberById(world.records(), id)?.kind === 'person')
-      if (people.length === 0)
+      if (people.length === 0 && group.kind === 'channel')
         return yield* T.fail(Conflict({ message: 'A channel keeps at least one manager.' }))
       world.update((records) => ({
         ...records,

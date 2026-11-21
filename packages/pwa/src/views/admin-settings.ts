@@ -1,9 +1,24 @@
 import { type AsRead, type FeatureName, type FlowStep, featureSwitches } from '@homingbird/protocol'
-import { type Lifetime, type Signal, h, region, signal } from '@homingbird/ui'
+import {
+  type Lifetime,
+  type ReadableSignal,
+  type Signal,
+  h,
+  onAnyChange,
+  region,
+  signal,
+} from '@homingbird/ui'
 import { flowToSave, moveStep, stepsFrom } from '../answering-flow.ts'
 import { contactModeChoices, contactModeToSave } from '../contact-mode.ts'
 import { featureOn } from '../features.ts'
-import { domainsFrom, featureRows, flowToolsModel, whoCanInviteChoices } from '../models/admin.ts'
+import {
+  type SettingsEdit,
+  domainsFrom,
+  featureRows,
+  flowToolsModel,
+  saveBarModel,
+  whoCanInviteChoices,
+} from '../models/admin.ts'
 import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
 import { field, loading } from './parts.ts'
@@ -48,11 +63,29 @@ const settingsForm = (context: ViewContext, life: Lifetime, settings: AsRead.Set
   save.disabled = contactModeToSave(mode.value) === null
   const flow = answeringFlowEditor(life, settings.answeringFlow ?? null, problem)
   const features = featureSwitchesEditor(life, settings.features ?? {})
+  const edited = (): SettingsEdit => ({
+    allowedDomains: domainsFrom(domains.value),
+    contactMode: mode.value,
+    ...(flowOn && { answeringFlow: flow.value() }),
+    ...(invitesOn && { whoCanInvite: inviters.value }),
+    features: features.value(),
+  })
+  let saved = edited()
+  const shownBar = saveBarModel(saved, saved)
+  save.textContent = shownBar.save
+  const bar = h('div', { class: 'settings-save' }, h('p', { role: 'status' }, shownBar.text), save)
+  const showBar = (): void => {
+    bar.hidden = !saveBarModel(saved, edited()).shown
+  }
+  showBar()
+  life.add(onAnyChange([features.changes, flow.changes], showBar))
   return h(
     'form',
     {
       class: 'form',
       on: {
+        input: showBar,
+        change: showBar,
         submit: (event) => {
           event.preventDefault()
           const contactMode = contactModeToSave(mode.value)
@@ -67,7 +100,11 @@ const settingsForm = (context: ViewContext, life: Lifetime, settings: AsRead.Set
               features: features.value(),
             },
             {
-              done: () => state.notice.set({ kind: 'info', text: strings.saved }),
+              done: () => {
+                saved = edited()
+                showBar()
+                state.notice.set({ kind: 'info', text: strings.saved })
+              },
               failed: (error) => problem.set(error.message),
             },
           )
@@ -79,7 +116,7 @@ const settingsForm = (context: ViewContext, life: Lifetime, settings: AsRead.Set
     field(strings.contactMode, mode),
     flowOn && flow.section,
     features.section,
-    save,
+    bar,
   )
 }
 
@@ -87,7 +124,11 @@ const settingsForm = (context: ViewContext, life: Lifetime, settings: AsRead.Set
 const featureSwitchesEditor = (
   life: Lifetime,
   saved: Readonly<Record<string, boolean>>,
-): { readonly section: HTMLElement; readonly value: () => Record<string, boolean> } => {
+): {
+  readonly section: HTMLElement
+  readonly value: () => Record<string, boolean>
+  readonly changes: ReadableSignal<unknown>
+} => {
   const switches = signal<Readonly<Record<FeatureName, boolean>>>(featureSwitches(saved))
   const section = h(
     'fieldset',
@@ -126,7 +167,7 @@ const featureSwitchesEditor = (
     ),
     h('p', { class: 'trust-footnote' }, strings.features.core),
   )
-  return { section, value: () => ({ ...switches.get() }) }
+  return { section, value: () => ({ ...switches.get() }), changes: switches }
 }
 
 /** The answering flow as two to-do lists: steps before drafting and checks on the draft, each switchable. */
@@ -134,7 +175,11 @@ const answeringFlowEditor = (
   life: Lifetime,
   saved: string | null,
   problem: Signal<string | null>,
-): { readonly section: HTMLElement; readonly value: () => string | null } => {
+): {
+  readonly section: HTMLElement
+  readonly value: () => string | null
+  readonly changes: ReadableSignal<unknown>
+} => {
   const steps = signal<ReadonlyArray<FlowStep>>(stepsFrom(saved))
   const keys = new WeakMap<FlowStep, string>()
   let next = 0
@@ -236,5 +281,5 @@ const answeringFlowEditor = (
       ]
     }),
   )
-  return { section, value: () => flowToSave(steps.get()) }
+  return { section, value: () => flowToSave(steps.get()), changes: steps }
 }

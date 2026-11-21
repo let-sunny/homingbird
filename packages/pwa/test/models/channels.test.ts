@@ -28,7 +28,7 @@ describe('channelListModel', () => {
     expect(channelListModel(listed({ query: 'x' }))).toEqual({ kind: 'no-match', text: strings.noChannels })
   })
 
-  it('shows each card with where the person stands, a hint for the only channel, and more to load', () => {
+  it('shows each card with where the person stands, joining only an open channel, a hint and more to load', () => {
     const only = channelListModel(
       listed({ channels: [channel('billing', { answering: true, joined: true })] }),
     )
@@ -40,8 +40,7 @@ describe('channelListModel', () => {
       label: '#billing',
       href: '#/channel/billing',
       status: { text: strings.helpingHere, className: 'kind is-helping' },
-      mayJoin: false,
-      open: { text: strings.openRoom, primary: true },
+      join: null,
     })
     const many = channelListModel(
       listed({
@@ -52,12 +51,18 @@ describe('channelListModel', () => {
     if (many.kind !== 'channels') throw new Error('expected channels')
     expect(many.onlyOne).toBeNull()
     expect(many.more).toBe(strings.showMoreChannels)
-    expect(
-      many.cards.map((card) => [card.status?.text ?? null, card.mayJoin, card.open.text, card.className]),
-    ).toEqual([
-      [strings.inRoom, false, strings.openRoom, 'channel-card  '],
-      [null, false, strings.openRoom, 'channel-card  is-private'],
-      [null, true, strings.askChannel, 'channel-card  '],
+    expect(many.cards.map((card) => [card.status?.text ?? null, card.join, card.className])).toEqual([
+      [strings.inRoom, null, 'channel-card  '],
+      [null, null, 'channel-card  is-private'],
+      [
+        null,
+        {
+          label: strings.join,
+          more: strings.channelMore({ channel: '#c' }),
+          joinAndAnswer: strings.joinAndAnswer,
+        },
+        'channel-card  ',
+      ],
     ])
   })
 })

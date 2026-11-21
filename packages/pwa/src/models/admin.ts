@@ -36,6 +36,16 @@ export const adminModel = (info: AsRead.ServerInfo | null, section: AdminSection
   }
 }
 
+/**
+ * The bar that saves the settings: shown, and sticking to the bottom of the page, only once something
+ * differs from what was last saved, so a change far down the page is never left behind unsaved.
+ */
+export const saveBarModel = (saved: SettingsEdit, edited: SettingsEdit): SaveBarModel => ({
+  shown: !isSameSettings(saved, edited),
+  text: strings.unsavedSettings,
+  save: strings.save,
+})
+
 /** The allowed sign-in domains as typed: one per line or comma, lower case, without blanks. */
 export const domainsFrom = (typed: string): string[] =>
   typed
@@ -176,6 +186,21 @@ export interface Confirmation {
   readonly confirm: string
 }
 
+/** The settings as the form holds them: what a save would send, before the contact mode is checked. */
+export interface SettingsEdit {
+  readonly allowedDomains: ReadonlyArray<string>
+  readonly contactMode: string
+  readonly answeringFlow?: string | null
+  readonly whoCanInvite?: string
+  readonly features: Readonly<Record<string, boolean>>
+}
+
+export interface SaveBarModel {
+  readonly shown: boolean
+  readonly text: string
+  readonly save: string
+}
+
 export interface FeatureRow {
   readonly name: FeatureName
   readonly on: boolean
@@ -230,3 +255,10 @@ const memberAction = (kind: MemberActionKind, label: string, style?: 'danger') =
   label,
   danger: style === 'danger',
 })
+
+const isSameSettings = (a: SettingsEdit, b: SettingsEdit): boolean =>
+  a.allowedDomains.join('\n') === b.allowedDomains.join('\n') &&
+  a.contactMode === b.contactMode &&
+  a.answeringFlow === b.answeringFlow &&
+  a.whoCanInvite === b.whoCanInvite &&
+  FEATURE_NAMES.every((name) => a.features[name] === b.features[name])

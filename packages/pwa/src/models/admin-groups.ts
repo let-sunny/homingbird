@@ -3,10 +3,11 @@ import { emailsFromCsv, importPreview } from '../group-import.ts'
 import { groupLabel, teamsByLabel } from '../groups.ts'
 import { hrefFor } from '../routes.ts'
 import { listOf, strings } from '../strings.ts'
+import type { GroupPageModel } from './group-page.ts'
 
 /**
- * Administration → Groups: every team with its members, made, imported and deleted here. A channel's
- * managers are changed with the channel and go when it is archived.
+ * Administration → Groups: every team with its members, each opening its editor. A channel's managers are
+ * changed with the channel and go when it is archived.
  */
 export const adminGroupsModel = (
   groups: ReadonlyArray<AsRead.Group>,
@@ -24,12 +25,30 @@ export const adminGroupsModel = (
       return {
         group,
         label,
-        href: hrefFor({ name: 'group', id: group.id }),
+        href: hrefFor({ name: 'admin-group', id: group.id }),
         members: strings.memberCount({ count: group.memberIds.length }),
-        deleteTitle: strings.groups.deleteTitle({ group: label }),
-        importCsv: group.mayAdd ? strings.groups.importCsv : null,
       }
     }),
+  }
+}
+
+/**
+ * Administration → one team: the team's page, which renames it and changes its members where the
+ * administrator may, with importing members from a file, deleting it, and the way back to every group.
+ */
+export const adminGroupModel = (shown: GroupPageModel): AdminGroupModel => {
+  const back = { label: strings.groups.backToGroups, href: hrefFor({ name: 'admin', section: 'groups' }) }
+  if (shown.kind !== 'group') return { kind: shown.kind, back }
+  return {
+    kind: 'group',
+    back,
+    page: shown,
+    importCsv: shown.group.mayAdd ? strings.groups.importCsv : null,
+    remove: {
+      label: strings.groups.delete,
+      title: strings.groups.deleteTitle({ group: shown.title }),
+      hint: strings.groups.deleteHint,
+    },
   }
 }
 
@@ -80,8 +99,21 @@ export interface AdminGroupRow {
   readonly label: string
   readonly href: string
   readonly members: string
-  readonly deleteTitle: string
-  readonly importCsv: string | null
+}
+
+export type AdminGroupModel =
+  | { readonly kind: 'loading' | 'failed' | 'missing'; readonly back: BackLink }
+  | {
+      readonly kind: 'group'
+      readonly back: BackLink
+      readonly page: Extract<GroupPageModel, { kind: 'group' }>
+      readonly importCsv: string | null
+      readonly remove: { readonly label: string; readonly title: string; readonly hint: string }
+    }
+
+export interface BackLink {
+  readonly label: string
+  readonly href: string
 }
 
 export interface ImportInput {

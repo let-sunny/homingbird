@@ -60,8 +60,14 @@ describe('peopleView', () => {
     ])
     const ben = shown.querySelector(`[data-member-id="${BEN}"]`)!
     expect(getByText(ben, 'Answers billing.')).toBeTruthy()
-    for (const label of [strings.message, strings.acceptContact, strings.declineRequest, strings.block])
-      getByRole(ben, 'button', { name: label }).click()
+    for (const label of [strings.message, strings.acceptContact, strings.declineRequest])
+      getByRole(ben.querySelector('.person-actions')!, 'button', { name: label }).click()
+    const more = getByRole(ben, 'button', { name: strings.personMore({ name: 'Ben' }) })
+    const menu = ben.querySelector<HTMLElement>(`#${more.getAttribute('popovertarget')}`)!
+    expect(menu.getAttribute('popover')).toBe('auto')
+    getByRole(menu, 'button', { name: strings.block }).click()
+    expect(textOf(ben)).toContain(strings.profileAboutOther)
+    expect(textOf(shown.querySelector(`[data-member-id="${ANA}"]`)!)).toContain(strings.profileAbout)
     getByRole(shown.querySelector(`[data-member-id="${CY}"]`)!, 'button', { name: strings.unblock }).click()
     expect(shown.querySelector(`[data-member-id="${ANA}"] .person-actions`)!.children).toHaveLength(0)
     const asked = [
@@ -134,9 +140,10 @@ describe('peopleView', () => {
     ])
     expect(shown.querySelector(`[data-member-id="${ANA}"] .choose-toggle`)).toBeNull()
     const start = () => getByRole(shown, 'button', { name: strings.groupStart.start })
-    expect(start().hasAttribute('disabled')).toBe(true)
+    expect(shown.querySelector('.group-start.is-collapsed')).not.toBeNull()
     const ben = getByRole(shown, 'button', { name: 'Add Ben to the group message' })
     ben.click()
+    expect(start().hasAttribute('disabled')).toBe(true)
     expect(getByRole(shown, 'button', { name: 'Add Ben to the group message' })).toBe(ben)
     expect(ben.getAttribute('aria-pressed')).toBe('true')
     getByRole(shown, 'button', { name: 'Add Cy to the group message' }).click()

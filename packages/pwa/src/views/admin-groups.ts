@@ -1,10 +1,13 @@
 import { type AsRead, GROUP_NAME_MAX } from '@homingbird/protocol'
+import type { MemberId } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, region, signal } from '@homingbird/ui'
 import {
+  type AdminGroupModel,
   type AdminGroupRow,
   type AdminGroupsModel,
   type ImportChange,
   type ImportModel,
+  adminGroupModel,
   adminGroupsModel,
   importModel,
 } from '../models/admin-groups.ts'
@@ -13,9 +16,10 @@ import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
+import { groupEditor, loadedGroup } from './group-page.ts'
 import { dialogActions, empty, field, loadFailed, loading } from './parts.ts'
 
-/** Administration → Groups: create a group, import its members from a file, or delete it. */
+/** Administration → Groups: every team, each opening its editor, and creating one. */
 export const adminGroupsSection = (context: ViewContext, life: Lifetime): HTMLElement => {
   const { state, actions } = context
   const failed = signal(false)
@@ -30,6 +34,22 @@ export const adminGroupsSection = (context: ViewContext, life: Lifetime): HTMLEl
       context,
       load,
     ),
+  )
+}
+
+/** Administration → one team: rename it, change and import its members, or delete it. */
+export const adminGroupEditor = (
+  context: ViewContext,
+  life: Lifetime,
+  viewerId: MemberId,
+  id: string,
+): HTMLElement => {
+  const shown = loadedGroup(context, viewerId, id)
+  return region(
+    life,
+    shown.sources,
+    () => renderAdminGroup(adminGroupModel(shown.model()), context, shown.retry),
+    { class: 'admin-group' },
   )
 }
 
@@ -51,48 +71,68 @@ const renderAdminGroups = (model: AdminGroupsModel, context: ViewContext, retry:
       ),
     ),
     model.empty !== null && empty(model.empty),
-    h(
-      'ul',
-      { class: 'members admin-groups' },
-      model.rows.map((row) => groupRow(row, context)),
-    ),
+    h('ul', { class: 'members admin-groups' }, model.rows.map(groupRow)),
   ]
 }
 
-const groupRow = (row: AdminGroupRow, context: ViewContext): HTMLElement =>
+const groupRow = (row: AdminGroupRow): HTMLElement =>
   h(
     'li',
-    { class: 'member', data: { groupId: row.group.id } },
+    { class: 'member admin-group-row', data: { groupId: row.group.id } },
     h(
       'div',
       { class: 'member-main' },
       h('strong', {}, h('a', { href: row.href }, row.label)),
       h('span', {}, row.members),
     ),
-    h(
-      'div',
-      { class: 'member-actions' },
-      row.importCsv !== null &&
+  )
+
+const renderAdminGroup = (model: AdminGroupModel, context: ViewContext, retry: () => void): Child => {
+  const back = h('a', { class: 'admin-group-back', href: model.back.href }, `← ${model.back.label}`)
+  if (model.kind !== 'group')
+    return [
+      back,
+      model.kind === 'loading'
+        ? loading()
+        : model.kind === 'failed'
+          ? loadFailed(retry)
+          : empty(strings.notFound),
+    ]
+  const group = model.page.group
+  return [
+    back,
+    h('h2', { class: 'admin-group-title' }, model.page.title),
+    groupEditor(
+      model.page,
+      context,
+      model.importCsv !== null &&
         h(
           'button',
           {
             type: 'button',
             class: 'import-group',
-            ...opensDialog(context, row.importCsv, (life) => importForm(context, life, row.group)),
+            ...opensDialog(context, model.importCsv, (dialogLife) => importForm(context, dialogLife, group)),
           },
-          row.importCsv,
+          model.importCsv,
         ),
+    ),
+    h(
+      'div',
+      { class: 'admin-group-delete' },
       h(
         'button',
         {
           type: 'button',
           class: 'danger delete-group',
-          ...opensDialog(context, row.deleteTitle, () => deleteForm(context, row)),
+          ...opensDialog(context, model.remove.title, () =>
+            deleteForm(context, group.id, model.remove, model.back.href),
+          ),
         },
-        strings.groups.delete,
+        model.remove.label,
       ),
     ),
-  )
+  ]
+}
 
 const createForm = (context: ViewContext): HTMLElement => {
   const name = h('input', {
@@ -111,7 +151,7 @@ const createForm = (context: ViewContext): HTMLElement => {
           context.actions.createGroup(groupNameFrom(name.value), {
             done: (created) => {
               closeDialog(context)
-              context.page.go(hrefFor({ name: 'group', id: created.id }))
+              context.page.go(hrefFor({ name: 'admin-group', id: created.id }))
             },
             attempt: 'channel-name',
           })
@@ -123,7 +163,12 @@ const createForm = (context: ViewContext): HTMLElement => {
   )
 }
 
-const deleteForm = (context: ViewContext, row: AdminGroupRow): HTMLElement =>
+const deleteForm = (
+  context: ViewContext,
+  id: AsRead.Group['id'],
+  remove: Extract<AdminGroupModel, { kind: 'group' }>['remove'],
+  back: string,
+): HTMLElement =>
   h(
     'form',
     {
@@ -131,11 +176,17 @@ const deleteForm = (context: ViewContext, row: AdminGroupRow): HTMLElement =>
       on: {
         submit: (event) => {
           event.preventDefault()
-          context.actions.deleteGroup(row.group.id, { done: () => closeDialog(context) })
+          context.actions.deleteGroup(id, {
+            done: () => {
+              closeDialog(context)
+              context.page.go(back)
+            },
+          })
         },
       },
     },
-    dialogActions(strings.groups.delete, 'danger'),
+    h('p', { class: 'hint' }, remove.hint),
+    dialogActions(remove.label, 'danger'),
   )
 
 const importForm = (context: ViewContext, life: Lifetime, group: AsRead.Group): HTMLElement => {

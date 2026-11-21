@@ -143,6 +143,7 @@ export const en = {
     'You are in no channel yet. Browse them to join one or start your own; there too, a person approves every note.',
   join: 'Join',
   joinAndAnswer: 'Join and answer',
+  channelMore: 'More for {channel}',
   helpingHere: 'You answer here',
   inRoom: 'You are in',
   memberCount: { one: '{count} member', other: '{count} members' },
@@ -182,7 +183,6 @@ export const en = {
   managedByAdmin: 'You can manage this channel because you are an administrator.',
   seenByAdmin:
     'You see who is in this private channel because you are an administrator. Only its managers add members, add managers or open it.',
-  askChannel: 'Ask',
   openRoom: 'Open',
   createChannelTitle: 'Create a channel',
   channelSlugLabel: 'Name',
@@ -265,9 +265,12 @@ export const en = {
   profileAgent: 'What my agent can help with',
   noChannelsHelped: 'Not answering questions in any channel yet.',
   profileAbout: 'About me and my agent',
+  profileAboutOther: 'About',
+  personMore: 'More for {name}',
   agentIntroduction: 'About their agent',
   profileAgentHint: 'One or two lines colleagues see under People.',
   save: 'Save',
+  unsavedSettings: 'You have unsaved changes.',
   saved: 'Saved.',
   appearance: 'Appearance',
   appearanceAuto: 'Match system',
@@ -1204,6 +1207,11 @@ export const en = {
       'Adds the people in a group as managers, once: later changes to the group change nothing here.',
     unmanage: 'Remove as manager',
     deactivateLeaves: 'Deactivating {name} removes them from every group: {groups}.',
+    writeTo: 'Write to {name}',
+    messageGroup: 'Group message with {group}',
+    openGroupMessage: 'Open the group message with {group}',
+    backToGroups: 'All groups',
+    deleteHint: 'Deleting a group takes nobody out of a channel and changes no channel’s managers.',
   },
   measures: {
     weekTitle: 'Your week',
@@ -1296,6 +1304,7 @@ export const en = {
   },
   groupStart: {
     title: 'Start a group message',
+    collapsed: 'Add two or more people below.',
     intro:
       'Choose two or more people below. The people you choose see it only once a note in it is sent. Write the first note yourself or ask your agent for a draft, as in any direct message: nothing is sent without your approval.',
     choose: 'Add to group message',

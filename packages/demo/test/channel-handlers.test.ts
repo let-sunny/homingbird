@@ -177,9 +177,28 @@ describe('groups', () => {
     expect(
       await refused(api['groups.members.set']({ params: { id: billing.id }, body: { memberIds: [agent] } })),
     ).toMatchObject({ _tag: 'Conflict' })
-    const team = (await succeeded(api['groups.list']({}))).groups.find((group) => group.kind === 'team')!
+  })
+
+  it('lets the administrator rename a team and change its members, even to nobody', async () => {
+    const { api, world } = demoApi()
+    const kai = memberNamed(world, 'Kai Lin')
+    const groups = (await succeeded(api['groups.list']({}))).groups
+    const [team, other] = groups.filter((group) => group.kind === 'team')
+    const billing = groups.find((group) => group.channels.includes('billing'))!
     expect(
-      await refused(api['groups.members.set']({ params: { id: team.id }, body: { memberIds: [kai] } })),
+      await succeeded(api['groups.members.set']({ params: { id: team!.id }, body: { memberIds: [kai] } })),
+    ).toMatchObject({ memberIds: [kai] })
+    expect(
+      await succeeded(api['groups.members.set']({ params: { id: team!.id }, body: { memberIds: [] } })),
+    ).toMatchObject({ memberIds: [] })
+    expect(
+      await succeeded(api['groups.rename']({ params: { id: team!.id }, body: { name: 'Money' } })),
+    ).toMatchObject({ name: 'Money' })
+    expect(
+      await refused(api['groups.rename']({ params: { id: team!.id }, body: { name: other!.name! } })),
+    ).toMatchObject({ _tag: 'Conflict' })
+    expect(
+      await refused(api['groups.rename']({ params: { id: billing.id }, body: { name: 'Billing' } })),
     ).toMatchObject({ _tag: 'NotFound' })
   })
 })

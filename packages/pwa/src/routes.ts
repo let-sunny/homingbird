@@ -24,6 +24,7 @@ export type Route =
   | { readonly name: 'device'; readonly code: string | null }
   | { readonly name: 'consent'; readonly id: string }
   | { readonly name: 'admin'; readonly section: AdminSection }
+  | { readonly name: 'admin-group'; readonly id: string }
   | { readonly name: 'signed-out'; readonly reason: string | null }
   | { readonly name: 'invite'; readonly code: string }
   | { readonly name: 'invite-refused' }
@@ -70,6 +71,8 @@ export const parseRoute = (hash: string): Route => {
     return { name: 'character', draft: second ?? null, from: parameters.get('from') }
   if (head === 'device') return { name: 'device', code: second ?? null }
   if (head === 'consent' && second !== undefined) return { name: 'consent', id: second }
+  if (head === 'admin' && second === 'groups' && third !== undefined)
+    return { name: 'admin-group', id: third }
   if (head === 'admin') return { name: 'admin', section: isAdminSection(second) ? second : 'settings' }
   if (head === 'signed-out') return { name: 'signed-out', reason: parameters.get('reason') }
   if (head === 'invite' && second !== undefined) return { name: 'invite', code: second }
@@ -123,6 +126,8 @@ export const hrefFor = (route: Route): string => {
       return `#/consent/${encodeURIComponent(route.id)}`
     case 'admin':
       return `#/admin/${route.section}`
+    case 'admin-group':
+      return `#/admin/groups/${encodeURIComponent(route.id)}`
     case 'signed-out':
       return route.reason === null
         ? '#/signed-out'

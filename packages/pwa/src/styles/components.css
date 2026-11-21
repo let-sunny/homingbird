@@ -826,6 +826,34 @@
   background: var(--hb-color-surface);
 }
 
+.settings-save {
+  position: sticky;
+  inset-block-end: 0;
+  z-index: 1;
+  justify-self: stretch;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hb-space-2);
+  padding: var(--hb-space-2) var(--hb-space-3);
+  border: var(--hb-border);
+  background: var(--hb-color-surface);
+  box-shadow: var(--hb-shadow-raised);
+}
+
+.settings-save[hidden] {
+  display: none;
+}
+
+.settings-save p {
+  margin: 0;
+}
+
+.group-start.is-collapsed {
+  padding-block: var(--hb-space-2);
+}
+
 .group-start-head {
   display: flex;
   flex-wrap: wrap;
@@ -1344,6 +1372,36 @@
   overflow-wrap: anywhere;
 }
 
+.admin-group {
+  display: grid;
+  gap: var(--hb-space-3);
+}
+
+.admin-group-back {
+  justify-self: start;
+  font-size: var(--hb-text-small);
+}
+
+.admin-group-title {
+  margin: 0;
+}
+
+.admin-group-delete {
+  padding-block-start: var(--hb-space-3);
+  border-block-start: var(--hb-border-thin);
+}
+
+.admin-group-row {
+  position: relative;
+}
+
+/* The group's name stays the row's one link; its hit area covers the row. */
+.admin-group-row a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
 .group-actions,
 .admin-groups-head {
   display: flex;
@@ -1380,6 +1438,56 @@
   min-inline-size: 0;
   font-weight: 600;
   overflow-wrap: anywhere;
+}
+
+/* A member one may write to is a tile: the name's button stretches over it, the remove button stays above. */
+.group-member.is-messageable {
+  position: relative;
+  transition:
+    translate var(--hb-duration-fast) var(--hb-ease-pixel),
+    box-shadow var(--hb-duration-fast) var(--hb-ease-pixel);
+}
+
+.group-member.is-messageable:hover {
+  translate: -1px -1px;
+  box-shadow: var(--hb-shadow-hover);
+}
+
+button.group-member-name {
+  justify-content: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-align: start;
+}
+
+button.group-member-name:hover {
+  translate: none;
+  box-shadow: none;
+}
+
+button.group-member-name::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+button.group-member-name:focus-visible {
+  outline: none;
+}
+
+button.group-member-name:focus-visible::after {
+  outline: var(--hb-focus-ring);
+  outline-color: var(--hb-color-focus);
+  outline-offset: var(--hb-pixel);
+}
+
+.group-member.is-messageable > button:not(.group-member-name) {
+  position: relative;
 }
 
 .group-member-name .is-you {
@@ -1426,6 +1534,7 @@
 }
 
 .channel-card {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1434,6 +1543,31 @@
   padding: var(--hb-space-3);
   border: var(--hb-border);
   background: var(--hb-color-surface);
+  transition:
+    translate var(--hb-duration-fast) var(--hb-ease-pixel),
+    box-shadow var(--hb-duration-fast) var(--hb-ease-pixel);
+}
+
+.channel-card:hover {
+  translate: -1px -1px;
+  box-shadow: var(--hb-shadow-hover);
+}
+
+/* The name stays the card's one link; its hit area stretches over the whole card. */
+.channel-name a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.channel-name a:focus-visible {
+  outline: none;
+}
+
+.channel-name a:focus-visible::after {
+  outline: var(--hb-focus-ring);
+  outline-color: var(--hb-color-focus);
+  outline-offset: var(--hb-pixel);
 }
 
 .channel-card.is-helping {
@@ -1467,9 +1601,16 @@
 }
 
 .channel-actions {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   gap: var(--hb-space-2);
+}
+
+.channel-more,
+.person-more {
+  min-inline-size: 2rem;
+  padding-inline: var(--hb-space-1);
 }
 
 .kind.is-helping {

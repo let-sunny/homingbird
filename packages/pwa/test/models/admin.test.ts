@@ -9,6 +9,7 @@ import {
   domainsFrom,
   featureRows,
   flowToolsModel,
+  saveBarModel,
   whoCanInviteChoices,
 } from '../../src/models/admin.ts'
 import { strings } from '../../src/strings.ts'
@@ -67,6 +68,35 @@ describe('deactivationModel', () => {
       confirm: strings.deactivate,
     })
     expect(deactivationModel(member(ANA, 'Ana'), groups)).toBeNull()
+  })
+})
+
+describe('saveBarModel', () => {
+  const saved = {
+    allowedDomains: ['example.com'],
+    contactMode: 'open',
+    answeringFlow: null,
+    whoCanInvite: 'admins',
+    features: { teaching: true, groups: true },
+  }
+
+  it('hides the bar while nothing differs from what was saved', () => {
+    expect(saveBarModel(saved, { ...saved, features: { ...saved.features } })).toEqual({
+      shown: false,
+      text: strings.unsavedSettings,
+      save: strings.save,
+    })
+  })
+
+  it('shows it once any one setting differs', () => {
+    for (const change of [
+      { allowedDomains: ['example.com', 'acme.io'] },
+      { contactMode: 'contacts' },
+      { answeringFlow: 'Check the dates.' },
+      { whoCanInvite: 'members' },
+      { features: { ...saved.features, teaching: false } },
+    ])
+      expect(saveBarModel(saved, { ...saved, ...change }).shown).toBe(true)
   })
 })
 

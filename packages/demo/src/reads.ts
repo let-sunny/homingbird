@@ -146,19 +146,25 @@ export const directoryOf = (
     })
 }
 
-/** The groups the viewer may see: every team, and the managing group of each channel they can see. */
+/**
+ * The groups the viewer may see: every team, which an administrator changes, and the managing group of
+ * each channel they can see, which its own members change.
+ */
 export const groupsOf = (records: Records, viewerId: MemberId): Group[] =>
   records.groups.map((group) => {
     const channels = records.channels.filter((channel) => channel.managedBy === group.id)
-    const isMember = group.memberIds.includes(viewerId)
+    const mayChange =
+      group.kind === 'team'
+        ? memberById(records, viewerId)?.role === 'admin'
+        : group.memberIds.includes(viewerId)
     return {
       id: group.id,
       kind: group.kind,
       name: group.name,
       memberIds: [...group.memberIds],
       channels: channels.map((channel) => channel.slug),
-      mayAdd: group.kind === 'channel' && isMember,
-      mayRemove: group.kind === 'channel' && isMember,
+      mayAdd: mayChange,
+      mayRemove: mayChange,
       createdAt: group.createdAt,
     }
   })

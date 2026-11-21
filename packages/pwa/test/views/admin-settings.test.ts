@@ -45,16 +45,43 @@ describe('settingsSection', () => {
     expect(getByRole(shown, 'alert').textContent).toBe('Too long.')
   })
 
+  it('shows the save bar only while something differs from what was last saved', () => {
+    const { context, called } = testContext()
+    context.state.serverInfo.set(everything())
+    const shown = mount(settingsSection(context, lifetime()))
+    called('loadSettings')[0]!.then!.done!(settings)
+    const bar = shown.querySelector<HTMLElement>('.settings-save')!
+    expect(bar.hidden).toBe(true)
+    expect(textOf(bar)).toContain(strings.unsavedSettings)
+    const teaching = getByRole(shown, 'switch', { name: strings.features.names.teaching })
+    teaching.click()
+    expect(bar.hidden).toBe(false)
+    getByRole(shown, 'switch', { name: strings.features.names.teaching }).click()
+    expect(bar.hidden).toBe(true)
+    fire.type(
+      getByRole(shown, 'textbox', { name: `${strings.allowedDomains} ${strings.allowedDomainsHint}` }),
+      'acme.io',
+    )
+    expect(bar.hidden).toBe(false)
+    getByRole(shown, 'button', { name: strings.answeringFlow.insertExample }).click()
+    fire.submit(shown.querySelector('form')!)
+    called('saveSettings')[0]!.then!.done!(undefined)
+    expect(bar.hidden).toBe(true)
+    fire.select(getByRole(shown, 'combobox', { name: strings.contactMode }), 'contacts')
+    expect(bar.hidden).toBe(false)
+  })
+
   it('keeps an unknown contact mode from being saved until a known one is chosen', () => {
     const { context, called } = testContext()
     context.state.serverInfo.set(serverInfo())
     const shown = settingsSection(context, lifetime())
     called('loadSettings')[0]!.then!.done!({ ...settings, contactMode: 'unknown' })
-    expect((getByRole(shown, 'button', { name: strings.save }) as HTMLButtonElement).disabled).toBe(true)
+    expect(shown.querySelector<HTMLButtonElement>('.settings-save button')!.disabled).toBe(true)
     fire.submit(shown.querySelector('form')!)
     expect(called('saveSettings')).toHaveLength(0)
     expect(queryByRole(shown, 'group', { name: strings.answeringFlow.title })).toBeNull()
     fire.select(getByRole(shown, 'combobox', { name: strings.contactMode }), 'open')
+    expect(getByRole(shown, 'button', { name: strings.save }).hasAttribute('disabled')).toBe(false)
     fire.submit(shown.querySelector('form')!)
     expect(called('saveSettings')[0]!.args[0]).not.toHaveProperty('answeringFlow')
     expect(called('saveSettings')[0]!.args[0]).not.toHaveProperty('whoCanInvite')
