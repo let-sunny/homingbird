@@ -60,7 +60,7 @@ export const directoryFor = (
       const member = characters || row.id === viewerId ? toMember(row) : withoutCharacter(toMember(row))
       return {
         member,
-        presence: env.hub.presenceOf(member.id),
+        presence: env.hub.presenceOf(member.id, viewerId),
         lastSeenAt: row.last_seen_at,
         relation: relation(relationFacts(viewerId, member.id, ties)),
         canMessage: canMessage(messagingFacts(settings.contactMode, viewerId, member, ties)),

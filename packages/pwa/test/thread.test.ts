@@ -186,6 +186,29 @@ describe('presence', () => {
   const entry = (memberId: MemberId): DirectoryEntry =>
     ({ member: { id: memberId }, presence: { humanOnline: false, agentOnline: false } }) as DirectoryEntry
 
+  it('shows that an agent cannot answer, keeping why for the person themself until the directory reloads', () => {
+    const before = {
+      ...entry(ana),
+      presence: { humanOnline: true, agentOnline: true, agentUnavailable: { until: null, kind: 'failed' } },
+    } as DirectoryEntry
+    const [kept] = withPresence(
+      [before],
+      [{ memberId: ana, humanOnline: true, agentOnline: true, agentUnavailable: { until: 5 } }],
+    )
+    expect(kept!.presence).toEqual({
+      humanOnline: true,
+      agentOnline: true,
+      agentUnavailable: { until: 5, kind: 'failed' },
+    })
+    const [cleared] = withPresence([before], [{ memberId: ana, humanOnline: true, agentOnline: true }])
+    expect(cleared!.presence).toEqual({ humanOnline: true, agentOnline: true })
+    const [colleague] = withPresence(
+      [entry(june)],
+      [{ memberId: june, humanOnline: false, agentOnline: true, agentUnavailable: { until: null } }],
+    )
+    expect(colleague!.presence.agentUnavailable).toEqual({ until: null })
+  })
+
   it('applies a batch of presence changes and leaves everyone else as they were', () => {
     const updated = withPresence(
       [entry(ana), entry(june), entry(cy)],

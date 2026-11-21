@@ -264,10 +264,10 @@ const isApiError = (value: unknown): value is ApiError =>
   (value as { _tag: string })._tag in HTTP_STATUS
 
 /** A server of this client's protocol that offers every feature, for a test that does not ask otherwise. */
-const currentServer = () => ({
-  name: 'dovecote',
+export const currentServer = () => ({
+  name: 'dovecote' as const,
   version: '0.1.3',
-  contactMode: 'open',
+  contactMode: 'open' as const,
   signInWith: 'Development login',
   features: Object.fromEntries(FEATURE_NAMES.map((name) => [name, FEATURES[name].default])),
   protocolVersion: PROTOCOL_VERSION,

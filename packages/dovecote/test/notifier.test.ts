@@ -196,6 +196,21 @@ describe('push notifications', () => {
     })
   })
 
+  it('tells the person once, on their devices, that their running desk’s agent cannot answer, and why', async () => {
+    const desk = new AbortController()
+    server.env.hub.subscribe(ben.me.member.id, 'agent', desk.signal)
+    await benAgent.api('POST', '/me/desk/unavailable', { kind: 'signed_out' })
+    await benAgent.api('POST', '/me/desk/unavailable', { kind: 'signed_out' })
+    expect(deliveries).toHaveLength(1)
+    expect(JSON.parse(decrypt(deliveries[0]!.body, benDevice))).toEqual({
+      title: 'Your agent cannot answer right now',
+      body: 'It is signed out. Sign it in again on the computer your desk runs on.',
+      url: '/#/agent/connection',
+      tag: 'desk-unavailable',
+    })
+    desk.abort()
+  })
+
   it('names a VAPID subject push services accept: the https address, else an administrator’s mailto', () => {
     expect(vapidSubject({ publicUrl: 'https://hb.example.com', adminEmails: ['root@example.com'] })).toBe(
       'https://hb.example.com',

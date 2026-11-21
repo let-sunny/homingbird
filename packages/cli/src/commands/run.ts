@@ -11,6 +11,7 @@ import {
   agentLabelOf,
   describedForWriter,
   extractionIn,
+  isFeatureOffered,
   isWakingEvent,
   quotedNote,
   readerPrompt,
@@ -21,6 +22,7 @@ import {
   runnerReplyIn,
   runnerRequestPrompt,
 } from '@homingbird/protocol'
+import { type Unavailability, isUsageLimitNotice, unavailabilityIn } from '../agent-availability.ts'
 import { agentEnvironment } from '../agent-environment.ts'
 import { firstErrorLine, isManagedMcpRefusal } from '../agent-errors.ts'
 import { agentSearchPath, withAgentInstallDirectories } from '../agent-install-directories.ts'
@@ -38,6 +40,15 @@ import { answeringFlowFor } from '../answering-flow.ts'
 import { antigravityInput, antigravityOutput } from '../antigravity.ts'
 import { credentialPathFor } from '../credentials.ts'
 import { type DebateDesk, answerDebates } from '../debate-runner.ts'
+import {
+  ANSWERS_AGAIN,
+  type DeskAvailability,
+  isNewlyUnavailable,
+  isRetryDue,
+  mayTryNow,
+  unavailableAfterFailure,
+  unavailableLine,
+} from '../desk-availability.ts'
 import {
   DESK_CLAIM_RETRY_MS,
   DESK_HEARTBEAT_MS,
@@ -182,6 +193,7 @@ export const runDesk = (
       yield* warn(MINIMAL_READER_WARNING)
     }
     yield* requireReadable(session.api)
+    const info = yield* T.result(session.api['server.info']({}))
     const { member } = yield* calling(session.api['me.get']({}))
     if (settings.countsUsage === true)
       yield* countUsage(session.api, 'desk_started', { agentPreset: presetLabel(agent) })
@@ -206,6 +218,8 @@ export const runDesk = (
           triedDebates: new Set(),
           told: new Set(),
           failuresInRow: 0,
+          availability: null,
+          reportsAvailability: info._tag === 'Ok' && isFeatureOffered(info.value, 'deskAvailability'),
         }),
         keptUntilLost(claim, holder),
       ]),
@@ -236,12 +250,34 @@ const answering = (runner: Runner): T.Task<void, CliFailure, DeskEnv> =>
       },
       AbortSignal.any([stopping.signal, env.stopped]),
     )
+    const ticks = Stream.interval(env.clock, RETRY_CHECK_MS, AbortSignal.any([stopping.signal, env.stopped]))
     yield* T.ensuring(T.sync(() => stopping.abort()))(
-      Stream.forEach((event: AsRead.StreamEvent) =>
-        isWakingEvent(event.body, member.id) ? answerWaitingOrStop(runner) : T.unit,
-      )(events),
+      Stream.forEach((event: AsRead.StreamEvent | number) =>
+        typeof event === 'number'
+          ? retriedWhenDue(runner)
+          : isWakingEvent(event.body, member.id)
+            ? T.flatMap(() => answerWaitingOrStop(runner))(
+                event.body.type === 'resync' ? reported(runner) : T.unit,
+              )
+            : T.unit,
+      )(Stream.merge<AsRead.StreamEvent | number>(events, ticks)),
     )
   })
+
+/**
+ * At the time the agent said it could answer again, the desk tries the waiting notes once. With none
+ * waiting it takes the agent at its word, so colleagues are not told it cannot answer past that time.
+ */
+const retriedWhenDue = (runner: Runner): T.Task<void, CliFailure, DeskEnv> =>
+  T.gen(function* () {
+    const env = yield* T.ask<DeskEnv>()
+    const before = runner.availability
+    if (!isRetryDue(before, env.clock.now())) return
+    yield* answerWaitingOrStop(runner)
+    if (runner.availability !== null && runner.availability === before) yield* answersAgain(runner)
+  })
+
+const RETRY_CHECK_MS = 60_000
 
 /** Only a failure stops the desk; a defect in one round leaves it listening, as the next event retries. */
 const answerWaitingOrStop = (runner: Runner): T.Task<void, CliFailure, DeskEnv> =>
@@ -309,6 +345,10 @@ interface Runner {
   readonly told: Set<string>
   /** Agent runs that failed since the last one that answered. */
   failuresInRow: number
+  /** Why the agent cannot answer now, and when it was last tried; null while it can. */
+  availability: DeskAvailability | null
+  /** The server takes `me.desk.unavailable`, so colleagues see when this agent cannot answer. */
+  readonly reportsAvailability: boolean
 }
 
 const STOPPING: ReadonlyArray<number> = [EXIT.signedOut]
@@ -329,8 +369,10 @@ const answerWaiting = (runner: Runner): T.Task<void, CliFailure, DeskEnv> =>
 /** Answers what waits, one by one, until done or until the desk is paused before the next one. */
 const answerEach = (runner: Runner): T.Task<'answered' | 'paused', CliFailure, DeskEnv> =>
   T.gen(function* () {
+    const env = yield* T.ask<DeskEnv>()
     const { items } = yield* calling(runner.session.api['inbox.list']({ query: { fresh: '1' } }))
     for (const item of items) {
+      if (!mayTryNow(runner.availability, env.clock.now())) break
       if (yield* isDeskPaused(runner.pause)) return 'paused'
       yield* answerNote(runner, item)
     }
@@ -502,7 +544,7 @@ const draftedBy = (
       const failure = output._tag === 'Err' ? output.error : outputFailure('agent', problem!)
       return Result.err(yield* toldFailure(runner, failure, what))
     }
-    runner.failuresInRow = 0
+    yield* answersAgain(runner)
     return Result.ok(reply!)
   })
 
@@ -516,7 +558,7 @@ const answeredBy = (
   T.gen(function* () {
     const output = yield* outputOf(runner, role, prompt)
     if (output._tag === 'Err') return yield* T.as(null)(toldFailure(runner, output.error, what))
-    if (role === 'agent') runner.failuresInRow = 0
+    if (role === 'agent') yield* answersAgain(runner)
     return output.value
   })
 
@@ -531,18 +573,54 @@ const releasedAfterFailure = (
 ): T.Task<void, CliFailure, DeskEnv> =>
   T.asUnit(calling(runner.session.api['notes.release']({ params: { id: noteId }, body: { reason } })))
 
-/** Says why a run failed, or once that the agent seems unable to answer when several fail in a row. */
+/**
+ * Says why a run failed, until the agent seems unable to answer: then it says that once, tells the
+ * server so colleagues see it, and the desk stops picking up notes until it is time to try again.
+ */
 const toldFailure = (runner: Runner, failure: RunFailure, what: string): T.Task<string, never, DeskEnv> =>
   T.gen(function* () {
+    const env = yield* T.ask<DeskEnv>()
     runner.failuresInRow += 1
-    if (runner.failuresInRow < FAILURES_BEFORE_UNABLE)
-      yield* warn(`${failure.detail}; nothing was drafted for ${what}.`)
-    else if (runner.failuresInRow === FAILURES_BEFORE_UNABLE) yield* warn(UNABLE_TO_ANSWER)
+    const before = runner.availability
+    const after = unavailableAfterFailure(
+      before,
+      failure.unavailability,
+      runner.failuresInRow,
+      env.clock.now(),
+    )
+    runner.availability = after
+    const isNew = after !== null && isNewlyUnavailable(before, after)
+    if (before === null && !isNew) yield* warn(`${failure.detail}; nothing was drafted for ${what}.`)
+    if (after === null || !isNew) return failure.reason
+    if (before === null) yield* warn(unavailableLine(after, timeOfDay))
+    yield* reported(runner)
     return failure.reason
   })
 
-export const UNABLE_TO_ANSWER =
-  'The agent command failed 3 times in a row: it seems unable to answer, perhaps out of usage or signed out. Each note it fails on goes back to you with the reason; every new note and draft request is still tried.'
+/** Tells the server the agent cannot answer, and again when the stream reconnects, since the server forgets it then. */
+const reported = (runner: Runner): T.Task<void, never, DeskEnv> =>
+  T.gen(function* () {
+    const state = runner.availability
+    if (state === null || !runner.reportsAvailability) return
+    yield* T.result(
+      runner.session.api['me.desk.unavailable']({
+        body: { kind: state.kind, ...(state.until !== null && { until: state.until }) },
+      }),
+    )
+  })
+
+/** A run answered: the agent can again, so the desk says so once, to the person and the server. */
+const answersAgain = (runner: Runner): T.Task<void, never, DeskEnv> =>
+  T.gen(function* () {
+    runner.failuresInRow = 0
+    if (runner.availability === null) return
+    runner.availability = null
+    runner.report(outcome({ step: 'answering-again' }, ANSWERS_AGAIN))
+    if (runner.reportsAvailability) yield* T.result(runner.session.api['me.desk.available']({ body: {} }))
+  })
+
+const timeOfDay = (timestamp: number): string =>
+  new Date(timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
 
 /** The reader's checked description of a note, wrapped like the note itself would be; null when it gave none. */
 const extractedFrom = (
@@ -607,15 +685,27 @@ const outputOf = (
         ? `did not finish within ${runner.timeoutMs / 1000} seconds`
         : 'could not be started'
       const detail = timedOut ? said : `${said} (${finished.error.message})`
-      return Result.err({ detail: `The ${role} command ${detail}`, reason: `the ${role} command ${said}` })
+      return Result.err({
+        detail: `The ${role} command ${detail}`,
+        reason: `the ${role} command ${said}`,
+        unavailability: null,
+      })
     }
-    const failed = exitFailure(role, finished.value, launch.command, secretsOf(runner), runner.platform)
+    const env = yield* T.ask<DeskEnv>()
+    const run = finished.value
+    const failed = exitFailure(role, run, launch.command, secretsOf(runner), runner.platform, env.clock.now())
     if (failed !== null) return Result.err(failed)
-    if (launch.format === 'text') return Result.ok(finished.value.output)
-    const denied = firstErrorLine(finished.value, secretsOf(runner))
+    if (isUsageLimitNotice(run.output))
+      return Result.err({
+        detail: `The ${role} command printed a usage-limit notice instead of an answer`,
+        reason: `the ${role} command reached its usage limit`,
+        unavailability: unavailabilityIn(run, env.clock.now()),
+      })
+    if (launch.format === 'text') return Result.ok(run.output)
+    const denied = firstErrorLine(run, secretsOf(runner))
     if (denied !== null)
       yield* warn(`The ${role} command finished but reported, perhaps a tool it was denied: ${denied}`)
-    const reply = antigravityOutput(finished.value.output)
+    const reply = antigravityOutput(run.output)
     return reply._tag === 'Ok' ? reply : Result.err(outputFailure(role, reply.error))
   })
 
@@ -623,12 +713,15 @@ const outputOf = (
 interface RunFailure {
   readonly detail: string
   readonly reason: string
+  /** What the agent program said about being unable to answer at all, when it said it. */
+  readonly unavailability: Unavailability | null
 }
 
 /** A failure the runner names itself, such as "printed nothing", which holds nothing the command wrote. */
 const outputFailure = (role: 'agent' | 'reader', problem: string): RunFailure => ({
   detail: `The ${role} command ${problem}`,
   reason: `the ${role} command ${problem}`,
+  unavailability: null,
 })
 
 export const MANAGED_MCP_AGENT_WARNING =
@@ -662,18 +755,27 @@ const exitFailure = (
   command: string,
   secrets: ReadonlyArray<string>,
   platform: string,
+  now: number,
 ): RunFailure | null => {
   if (finished.exitCode === 0) return null
   if (SHELL_COMMAND_NOT_FOUND.includes(finished.exitCode ?? 0))
     return {
       detail: `The ${role} command ${notFound(command, platform)}`,
       reason: `the ${role} command could not be found on the desk's computer`,
+      unavailability: null,
     }
   const said = firstErrorLine(finished, secrets)
   const code = finished.exitCode ?? 'unknown'
+  const unavailability = unavailabilityIn(finished, now)
   return {
     detail: `The ${role} command exited with code ${code}${said === null ? '' : ` (${said})`}`,
-    reason: `the ${role} command failed (exit ${code}); it may be out of usage or signed out`,
+    reason:
+      unavailability?.kind === 'usage_limit'
+        ? `the ${role} command reached its usage limit`
+        : unavailability?.kind === 'signed_out'
+          ? `the ${role} command is signed out`
+          : `the ${role} command failed (exit ${code}); it may be out of usage or signed out`,
+    unavailability,
   }
 }
 
@@ -707,5 +809,3 @@ const drafted = (draft: AsRead.Note, answering: Readonly<Record<string, string>>
     { step: 'drafted', draftId: draft.id, conversationId: draft.conversationId, ...answering },
     `Drafted ${draft.id} ${what}. It has not been sent: it waits for approval.`,
   )
-
-const FAILURES_BEFORE_UNABLE = 3

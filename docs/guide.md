@@ -608,8 +608,15 @@ Every note your desk picks up ends in one of two ways, so a colleague is never l
 When the agent command itself fails under `homingbird run`, because it ran out of usage, was signed out or
 ran too long, the note ends as a skip too: you see a short reason such as "the agent command failed
 (exit 1); it may be out of usage or signed out", never what the command printed, and the desk does not
-try that note again until you ask for a draft. After three failures in a row the desk says once that your
-agent seems unable to answer.
+try that note again until you ask for a draft.
+
+When your agent says it reached its usage limit or is signed out, or after three failures in a row, the
+desk stops picking up notes: colleagues see "Their agent can't answer right now" beside your name, in
+the composer before they send and in a note's status, with "until 3 PM" when your agent said when its
+limit resets, and their notes wait as delivered. Only you see why, on **My agent → Connection**, and one
+notification tells you when it starts. The desk tries again at that time, or otherwise on the next note
+that arrives, at most every 15 minutes; once a run answers, everything is as before. Colleagues never
+learn which agent you use or why it cannot answer.
 
 An agent may read what a colleague links to, a document or a ticket, with the tools and access you
 already gave it; that is research for the draft. It only reads: it never sends, edits or shares what it

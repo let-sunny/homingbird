@@ -2,6 +2,7 @@ import { createECDH } from 'node:crypto'
 import { type Clock, Task as T, makeQueue } from '@homingbird/kernel'
 import {
   type ConversationId,
+  type DeskUnavailableKind,
   type Locale,
   type MemberId,
   type NoteId,
@@ -35,6 +36,7 @@ export interface PushNotice {
     | { readonly kind: 'review'; readonly channel: string }
     | { readonly kind: 'test'; readonly title: string }
     | { readonly kind: 'deskStopped'; readonly title: string }
+    | { readonly kind: 'deskUnavailable'; readonly title: string }
   readonly body: string
   readonly url: string
   readonly tag?: string
@@ -212,6 +214,22 @@ export const sendDeskStoppedPush = (fetch: Fetch, memberId: MemberId): T.Task<Pu
     })
   })
 
+/** Tells the person once, when it starts, that their running desk's agent cannot answer, and why. */
+export const sendDeskUnavailablePush = (
+  fetch: Fetch,
+  memberId: MemberId,
+  kind: DeskUnavailableKind,
+): T.Task<PushOutcome[], never, AppEnv> =>
+  T.gen(function* () {
+    const titles = pushTitlesIn(yield* chosenLocaleOf(memberId))
+    return yield* deliverToMember(fetch, memberId, {
+      about: { kind: 'deskUnavailable', title: titles.deskUnavailable },
+      body: titles.deskUnavailableBody[kind],
+      url: '/#/agent/connection',
+      tag: 'desk-unavailable',
+    })
+  })
+
 /**
  * The VAPID subject must be an https URL or a mailto: address (RFC 8292); push services refuse
  * anything else, so a server on plain http names an administrator's address instead.
@@ -237,7 +255,8 @@ const messageIn = (locale: Locale | null, notice: PushNotice): PushMessage => ({
 const titleOf = (titles: PushTitles, about: PushNotice['about']): string => {
   if (about.kind === 'draft') return titles.draftWaiting
   if (about.kind === 'review') return titles.reviewWaiting(`#${about.channel}`)
-  if (about.kind === 'test' || about.kind === 'deskStopped') return about.title
+  if (about.kind === 'test' || about.kind === 'deskStopped' || about.kind === 'deskUnavailable')
+    return about.title
   return about.author === null ? titles.noteFromColleague : titles.noteFrom(about.author)
 }
 

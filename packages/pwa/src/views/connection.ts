@@ -224,7 +224,14 @@ const revokeForm = (row: CredentialRow, context: ViewContext, reload: () => void
   )
 
 const renderDeskState = (model: ConnectionModel): HTMLElement | null =>
-  model.presence === null ? null : h('p', { class: 'desk-state' }, presenceBadges(model.presence, true))
+  model.presence === null
+    ? null
+    : h(
+        'div',
+        { class: 'desk-state' },
+        h('p', {}, presenceBadges(model.presence, true)),
+        ...model.unavailable.map((line) => h('p', { class: 'hint', role: 'status' }, line)),
+      )
 
 const renderHelped = (model: ConnectionModel): HTMLElement =>
   model.helped.length === 0 ? h('p', {}, strings.noChannelsHelped) : channelChips(model.helped)

@@ -29,6 +29,7 @@ describe('wire model', () => {
         'ConversationKind',
         'Credential',
         'CredentialKind',
+        'DeskUnavailableKind',
         'DirectoryEntry',
         'DraftRequest',
         'Locale',

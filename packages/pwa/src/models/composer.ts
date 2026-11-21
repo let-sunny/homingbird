@@ -1,8 +1,9 @@
-import type { DraftRequest } from '@homingbird/protocol'
+import type { AsRead, DraftRequest } from '@homingbird/protocol'
 import { waitingRequests } from '../draft-requests.ts'
+import { theirAgentUnavailable } from '../presence.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
-import { excerpt, isArchived } from '../thread.ts'
+import { excerpt, isArchived, otherParticipants } from '../thread.ts'
 import { type AvatarModel, memberAvatarOf } from './avatar.ts'
 import { type ThreadInput, isOn, mayMessageIn, noteIn, roomOf } from './thread-room.ts'
 
@@ -40,6 +41,7 @@ export const composerModel = (input: ThreadInput): ComposerModel => {
             link: strings.connectAgent,
           }
         : null,
+    theirAgent: theirAgentUnavailable(recipientPresence(input)),
     replyingTo: target === null ? null : strings.replyingTo({ excerpt: excerpt(target.body, 60) }),
     asksAgent: draftRequestsOn,
   }
@@ -63,6 +65,15 @@ export type ComposerModel =
         readonly text: string
       }>
       readonly noAgent: { readonly text: string; readonly href: string; readonly link: string } | null
+      /** Said before sending when the one recipient's desk runs but their agent cannot answer. */
+      readonly theirAgent: string | null
       readonly replyingTo: string | null
       readonly asksAgent: boolean
     }
+
+const recipientPresence = (input: ThreadInput): AsRead.Presence | undefined => {
+  const room = roomOf(input)
+  if (room?.kind !== 'direct') return undefined
+  const [other] = otherParticipants(room, input.me.member.id)
+  return input.directory.find((entry) => entry.member.id === other)?.presence
+}

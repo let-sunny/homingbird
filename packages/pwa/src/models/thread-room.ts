@@ -5,7 +5,6 @@ import type {
   DraftRequest,
   MemberId,
   NoteId,
-  Presence,
 } from '@homingbird/protocol'
 import { channelLabel, channelOfRoom } from '../channels.ts'
 import { featureOn } from '../features.ts'
@@ -155,6 +154,6 @@ export type ThreadHead =
       readonly kind: 'people'
       readonly title: string
       readonly profile: string | null
-      readonly presence: Presence | null
+      readonly presence: AsRead.Presence | null
       readonly mute: MuteToggle | null
     }

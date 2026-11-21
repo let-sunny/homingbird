@@ -1,7 +1,12 @@
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { presenceShown } from '../src/presence.ts'
-import { strings } from '../src/strings.ts'
+import {
+  deskUnavailableReason,
+  presenceShown,
+  theirAgentUnavailable,
+  unavailableOf,
+} from '../src/presence.ts'
+import { formats, strings } from '../src/strings.ts'
 
 describe('presenceShown', () => {
   it('reads "Person online · Agent not awake" in words where the agent’s status is in words', () => {
@@ -28,5 +33,37 @@ describe('presenceShown', () => {
         expect(shown.person.label).toBe(shown.person.words)
       }),
     )
+  })
+})
+
+describe('an agent that cannot answer', () => {
+  it('reads "can’t answer right now" while its desk runs, with the time when known, and never as awake', () => {
+    const now = presenceShown(
+      { humanOnline: true, agentOnline: true, agentUnavailable: { until: null } },
+      false,
+    )
+    expect(now.agent).toEqual({
+      isOn: false,
+      title: strings.agentUnavailableHint,
+      words: strings.agentUnavailable,
+    })
+    const until = new Date(2026, 10, 21, 15, 0).getTime()
+    const later = presenceShown({ humanOnline: true, agentOnline: true, agentUnavailable: { until } }, true)
+    expect(later.agent.words).toBe(
+      strings.agentUnavailableUntil({ time: formats.time.format(new Date(until)) }),
+    )
+  })
+
+  it('falls back to "not awake" once the desk itself stopped', () => {
+    const stopped = presenceShown(
+      { humanOnline: true, agentOnline: false, agentUnavailable: { until: null } },
+      true,
+    )
+    expect(stopped.agent.words).toBe(strings.agentOffline)
+    expect(
+      unavailableOf({ humanOnline: true, agentOnline: false, agentUnavailable: { until: null } }),
+    ).toBeNull()
+    expect(theirAgentUnavailable(undefined)).toBeNull()
+    expect(deskUnavailableReason(null)).toEqual([])
   })
 })

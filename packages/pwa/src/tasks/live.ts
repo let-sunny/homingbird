@@ -132,13 +132,13 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
       case 'debate.changed':
         reloadShownDebate(app, body.debateId)
         break
-      case 'presence':
+      case 'presence': {
         state.directory.update((entries) => withPresence(entries, body.members))
-        if (
-          body.members.some((change) => change.memberId === signedIn(state)?.member.id && change.agentOnline)
-        )
-          refreshAgentsIfNoneKnown()
+        const mine = body.members.find((change) => change.memberId === signedIn(state)?.member.id)
+        if (mine?.agentOnline === true) refreshAgentsIfNoneKnown()
+        if (mine?.agentUnavailable !== undefined) reloadDirectorySoon()
         break
+      }
       case 'resync':
         reloadEverything(app)
         break

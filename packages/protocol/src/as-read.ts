@@ -34,6 +34,7 @@ import type {
   Note as NoteSchema,
   NoteStatus as NoteStatusSchema,
   Notice as NoticeSchema,
+  Presence as PresenceSchema,
   Receipt as ReceiptSchema,
   Settings as SettingsSchema,
 } from './model.ts'
@@ -55,6 +56,7 @@ export type Notice = S.Read<typeof NoticeSchema>
 export type Member = S.Read<typeof MemberSchema>
 export type Me = S.Read<typeof MeSchema>
 export type DirectoryEntry = S.Read<typeof DirectoryEntrySchema>
+export type Presence = S.Read<typeof PresenceSchema>
 export type Contact = S.Read<typeof ContactSchema>
 export type Credential = S.Read<typeof CredentialSchema>
 export type Channel = S.Read<typeof ChannelSchema>

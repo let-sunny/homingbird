@@ -1,4 +1,4 @@
-import type { Presence } from '@homingbird/protocol'
+import type { AsRead } from '@homingbird/protocol'
 import { type Child, type Properties, h } from '@homingbird/ui'
 import { channelLabel } from '../channels.ts'
 import type { TimeShown } from '../models/time.ts'
@@ -35,7 +35,7 @@ export const field = (label: string, control: HTMLElement, hint?: string): HTMLE
     hint && h('small', {}, hint),
   )
 
-export const presenceBadges = (presence: Presence, inWords = false): HTMLElement => {
+export const presenceBadges = (presence: AsRead.Presence, inWords = false): HTMLElement => {
   const shown = presenceShown(presence, inWords)
   const personDot = h('span', {
     class: `human-dot ${shown.person.isOn ? 'is-on' : 'is-off'}`,

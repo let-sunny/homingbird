@@ -50,6 +50,8 @@ export interface Runner {
   readonly exit: Promise<number>
   readonly created: unknown[]
   readonly released: unknown[]
+  /** What the desk told the server about whether its agent can answer, in order. */
+  readonly availability: unknown[]
   readonly push: (body: StreamEvent['body']) => void
   readonly stop: () => Promise<number>
 }
@@ -70,6 +72,7 @@ export const runner = (
 ): Runner => {
   const created: unknown[] = []
   const released: unknown[] = []
+  const availability: unknown[] = []
   let sequence = 0
   let controller: ReadableStreamDefaultController<Uint8Array> | null = null
   const w = world({
@@ -84,6 +87,14 @@ export const runner = (
       'notes.release': (request) => {
         released.push(request.body)
         return QUESTION
+      },
+      'me.desk.unavailable': (request) => {
+        availability.push(request.body)
+        return {}
+      },
+      'me.desk.available': () => {
+        availability.push('available')
+        return {}
       },
       'drafts.create': (request) => {
         created.push(request.body)
@@ -118,6 +129,7 @@ export const runner = (
     exit,
     created,
     released,
+    availability,
     push: (body) =>
       controller?.enqueue(new TextEncoder().encode(frame({ seq: ++sequence, at: 1_700_000_000_000, body }))),
     stop: async () => {

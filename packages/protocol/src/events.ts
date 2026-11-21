@@ -1,6 +1,6 @@
 import { Schema as S } from '@homingbird/kernel'
 import { UNKNOWN } from './compatibility.ts'
-import { ConversationId, DebateId, GroupId, MemberId, NoteId } from './ids.ts'
+import { ConversationId, DebateId, GroupId, MemberId, NoteId, Timestamp } from './ids.ts'
 import { Channel, ChannelSlug, DraftRequest, Note, RELEASE_REASON_MAX, Receipt } from './model.ts'
 
 /** What a client reads in place of an event of a kind that a newer server added; a client skips it. */
@@ -29,7 +29,14 @@ export const EventBody = S.openVariants(
     'draft.request.changed': { request: DraftRequest },
     'contact.changed': { memberId: MemberId },
     presence: {
-      members: S.array(S.struct({ memberId: MemberId, humanOnline: S.boolean, agentOnline: S.boolean })),
+      members: S.array(
+        S.struct({
+          memberId: MemberId,
+          humanOnline: S.boolean,
+          agentOnline: S.boolean,
+          agentUnavailable: S.optional(S.struct({ until: S.nullable(Timestamp) })),
+        }),
+      ),
     },
     'directory.changed': { memberId: MemberId },
     'channel.changed': { channel: Channel },

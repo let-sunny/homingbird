@@ -1,5 +1,6 @@
 import { Task as T } from '@homingbird/kernel'
 import { POLL_WAIT_MAX_SECONDS } from '@homingbird/protocol'
+import { featureIsOn } from '../domain/settings.ts'
 import { type RequestEnv, waitForEvents } from '../events/events.ts'
 import { removeOwnPushSubscription, savePushSubscription } from '../push/subscriptions.ts'
 import { vapidKeys } from '../push/vapid.ts'
@@ -19,6 +20,19 @@ export const eventHandlers = {
       return {}
     })(T.ask<RequestEnv>()),
   'presence.heartbeat': () => T.succeed({}),
+  'me.desk.unavailable': ({ body }, caller) =>
+    T.gen(function* () {
+      const env = yield* T.ask<RequestEnv>()
+      const kind = body.kind
+      const starts = env.hub.markUnavailable(caller.member.id, { kind, until: body.until ?? null })
+      if (starts && (yield* featureIsOn('webPush'))) yield* env.pushDeskUnavailable(caller.member.id, kind)
+      return {}
+    }),
+  'me.desk.available': (_, caller) =>
+    T.map((env: RequestEnv) => {
+      env.hub.markAvailable(caller.member.id)
+      return {}
+    })(T.ask<RequestEnv>()),
   'push.key': () => T.map((keys: { publicKey: string }) => ({ publicKey: keys.publicKey }))(vapidKeys),
   'push.subscribe': ({ body }, caller) => T.as({})(savePushSubscription(caller.member.id, body)),
   'push.unsubscribe': ({ body }, caller) =>
