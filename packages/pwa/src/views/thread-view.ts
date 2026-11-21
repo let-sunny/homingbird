@@ -36,7 +36,8 @@ import { followNewNotes, markReadWhenSeen } from './thread-scroll.ts'
 
 /**
  * A conversation: its head, its notes and drafts as they come, the answers of a channel's agent the
- * person reviews under their questions, the chances to teach, and the composer.
+ * person reviews under their questions, the chances to teach, and the composer. A link may name a
+ * draft, an answer to review or a sent note to open the conversation at.
  */
 export const threadView = (
   context: ViewContext,
@@ -114,13 +115,13 @@ export const threadView = (
     }
     return renderDraftsItem(context, model)
   }
-  /** A sent note a draft's source opened the conversation at: brought into view once and marked. */
   const sentNote = (item: Extract<ThreadItem, { type: 'note' }>): HTMLElement => {
     const element = renderNoteItem(context, life, noteItemModel(input(), item), item.note, id)
-    if (!broughtIntoView && item.note.id === focusedNote) {
+    if (item.note.id !== focusedNote) return element
+    element.classList.add('is-active')
+    if (!broughtIntoView) {
       broughtIntoView = true
-      element.classList.add('is-active')
-      follow.bringIntoView(() => element)
+      follow.bringIntoView(() => list.querySelector<HTMLElement>(`.note[data-note-id="${item.note.id}"]`))
     }
     return element
   }

@@ -38,6 +38,25 @@ describe('composerModel', () => {
       replyingTo: null,
       asksAgent: true,
       lookUpEarlierAnswers: true,
+      askAgentReason: null,
+    })
+  })
+
+  it('says why the person’s agent cannot be asked while their desk runs but it cannot answer', () => {
+    const unavailable = entry(ANA, 'Ana', {
+      presence: {
+        humanOnline: true,
+        agentOnline: true,
+        agentUnavailable: { until: null, kind: 'signed_out' },
+      },
+    })
+    expect(composerModel(threadInput({ directory: [unavailable] }))).toMatchObject({
+      asksAgent: true,
+      askAgentReason: strings.deskUnavailableReason.signed_out,
+    })
+    expect(composerModel(threadInput({ serverInfo: serverInfo() }))).toMatchObject({
+      asksAgent: false,
+      askAgentReason: null,
     })
   })
 

@@ -5,8 +5,8 @@ import { composerModel } from '../../src/models/composer.ts'
 import { strings } from '../../src/strings.ts'
 import { composer } from '../../src/views/composer.ts'
 import { testContext } from '../support/context.ts'
-import { usingFakeDom } from '../support/dom.ts'
-import { ANA, BEN, ROOM, channel, conversation, entry, me, note } from '../support/fixtures.ts'
+import { mount, usingFakeDom } from '../support/dom.ts'
+import { ANA, BEN, ROOM, channel, conversation, entry, me, note, serverInfo } from '../support/fixtures.ts'
 import { threadInput } from '../support/thread.ts'
 
 usingFakeDom()
@@ -139,14 +139,86 @@ describe('composer', () => {
     expect(text.disabled).toBe(false)
   })
 
-  it('asks the agent to reply to the note answered, or to write a new one', () => {
+  it('asks the agent to reply to the note answered, or to write a new one, from beside Send', () => {
     const { shown, called, context } = setup()
-    shown.querySelector<HTMLElement>('summary')!.click()
-    getByRole(shown, 'button', { name: strings.askAgent }).click()
+    mount(shown)
+    const toggle = shown.querySelector<HTMLButtonElement>('.composer-row .ask-agent-toggle')!
+    const ask = shown.querySelector<HTMLDetailsElement>('.ask-agent')!
+    toggle.click()
+    expect([ask.open, toggle.getAttribute('aria-expanded')]).toEqual([true, 'true'])
+    expect(context.document.focused()?.getAttribute('name')).toBe('instruction')
+    const request = () => ask.querySelector<HTMLButtonElement>('.ask-agent-row button')!
+    request().click()
     expect(called('askAgent')[0]!.args[0]).toMatchObject({ destination: { conversationId: ROOM } })
     context.state.replyTargets.set(new Map([[ROOM, 'q' as never]]))
-    getByRole(shown, 'button', { name: strings.askAgent }).click()
+    request().click()
     expect(called('askAgent')[1]!.args[0]).toMatchObject({ destination: { inReplyTo: 'q' } })
+    toggle.click()
+    expect([ask.open, toggle.getAttribute('aria-expanded')]).toEqual([false, 'false'])
+  })
+
+  it('says why the agent cannot be asked, and offers nothing where the server takes no requests', () => {
+    const unavailable = entry(ANA, 'Ana', {
+      presence: { humanOnline: true, agentOnline: true, agentUnavailable: { until: null, kind: 'failed' } },
+    })
+    const { shown, update } = setup({ directory: [unavailable] })
+    const toggle = shown.querySelector<HTMLButtonElement>('.ask-agent-toggle')!
+    expect([toggle.disabled, toggle.title]).toEqual([true, strings.deskUnavailableReason.failed])
+    expect(textOf(shown.querySelector(`#${toggle.getAttribute('aria-describedby')}`)!)).toBe(
+      strings.deskUnavailableReason.failed,
+    )
+    update({})
+    expect([toggle.disabled, toggle.hasAttribute('title'), toggle.hasAttribute('aria-describedby')]).toEqual([
+      false,
+      false,
+      false,
+    ])
+    const off = testContext()
+    off.context.state.serverInfo.set(serverInfo())
+    const plain = composer(
+      off.context,
+      lifetime(),
+      ROOM,
+      () => composerModel(threadInput({ serverInfo: serverInfo() })),
+      [],
+    )
+    expect(plain.querySelector('.ask-agent-toggle')).toBeNull()
+  })
+
+  it('keeps unsent text per conversation, gives it back when drawn again, and forgets it once sent', () => {
+    const { shown, called, context } = setup()
+    const text = getByRole(shown, 'textbox', { name: strings.composerLabel }) as HTMLTextAreaElement
+    fire.type(text, 'Half a thought')
+    expect(called('keepComposerText')[0]!.args).toEqual([ROOM, 'Half a thought'])
+    context.state.composerTexts.set(new Map([[ROOM, 'Half a thought']]))
+    const again = composer(context, lifetime(), ROOM, () => composerModel(threadInput()), [])
+    expect((getByRole(again, 'textbox', { name: strings.composerLabel }) as HTMLTextAreaElement).value).toBe(
+      'Half a thought',
+    )
+    fire.key(text, 'Enter')
+    expect(called('keepComposerText').at(-1)!.args).toEqual([ROOM, ''])
+    expect(called('sendNote')[0]!.args).toEqual([ROOM, 'Half a thought'])
+  })
+
+  it('takes the focus when a reply asks for it, and keeps it after sending', () => {
+    const { shown, context, page } = setup()
+    mount(shown)
+    const text = getByRole(shown, 'textbox', { name: strings.composerLabel }) as HTMLTextAreaElement
+    context.state.composerTexts.set(new Map())
+    text.value = 'Typed'
+    context.state.composerFocus.set(ROOM)
+    expect(context.document.focused()).not.toBe(text)
+    page.runFrames()
+    expect(context.document.focused()).toBe(text)
+    expect(context.state.composerFocus.get()).toBeNull()
+    const send = getByRole(shown, 'button', { name: strings.send })
+    expect(fire.event(send, 'pointerdown')).toBe(false)
+    send.focus()
+    fire.submit(shown)
+    expect(context.document.focused()).toBe(text)
+    context.state.composerFocus.set('elsewhere' as never)
+    page.runFrames()
+    expect(context.state.composerFocus.get()).toBe('elsewhere')
   })
 
   it('shows a closed composer in an archived room', () => {

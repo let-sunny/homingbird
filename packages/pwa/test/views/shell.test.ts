@@ -214,6 +214,10 @@ describe('shell', () => {
     expect(shown.querySelector('.character-group')).not.toBeNull()
     expect(textOf(shown.querySelector('.channel-rooms')!)).toContain('#billing')
     expect(textOf(shown.querySelector('.archived-rooms')!)).toContain(strings.archivedGroup({ count: 1 }))
+    expect(row.querySelector('.typed-mark')).toBeNull()
+    context.state.composerTexts.set(new Map([[ROOM, 'Half a thought']]))
+    const typed = getByRole(shown, 'link', { name: /Hello/ }).querySelector('.typed-mark')!
+    expect([typed.textContent, typed.getAttribute('aria-label')]).toEqual(['✎', strings.unsentText])
   })
 })
 

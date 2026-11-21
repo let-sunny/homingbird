@@ -6,7 +6,7 @@ import type {
   MemberId,
   NoteId,
 } from '@homingbird/protocol'
-import { type ReadableSignal, type Signal, derived, signal } from '@homingbird/ui'
+import { type ReadableSignal, type Signal, derived, isSameData, signal } from '@homingbird/ui'
 import type { Action } from './app.ts'
 import { type Roster, agentMembersOf } from './channels.ts'
 import { withDraftsAsRead, withReviewsAsRead } from './drafts-read.ts'
@@ -24,6 +24,7 @@ export const createState = (hash: string): AppState => {
   const reviewsRead = signal<ReadonlyMap<NoteId, DraftAsShown>>(new Map())
   reviews.subscribe((all) => reviewsRead.update((read) => withReviewsAsRead(read, all)))
   threads.subscribe((all) => draftsRead.update((read) => withDraftsAsRead(read, all)))
+  const composerTexts = signal<ReadonlyMap<ConversationId, string>>(new Map())
   return {
     session,
     serverInfo: signal<AsRead.ServerInfo | null>(null),
@@ -54,6 +55,9 @@ export const createState = (hash: string): AppState => {
     rostersLoading: new Set(),
     threadsLoading: new Set(),
     replyTargets: signal<ReadonlyMap<ConversationId, NoteId | null>>(new Map()),
+    composerTexts,
+    typedIn: derived([composerTexts], (texts) => new Set(texts.keys()), isSameData),
+    composerFocus: signal<ConversationId | null>(null),
     releases: signal<ReadonlyMap<NoteId, Release>>(new Map()),
     archiveDiscards: signal<ReadonlyMap<ConversationId, ReadonlyArray<ArchiveDiscard>>>(new Map()),
     openedForThePerson: signal<ConversationId | null>(null),
@@ -121,6 +125,12 @@ export interface AppState {
   /** Conversations the activity panel is loading, so that each is asked for once. */
   readonly threadsLoading: Set<ConversationId>
   readonly replyTargets: Signal<ReadonlyMap<ConversationId, NoteId | null>>
+  /** What the person typed in each conversation's composer and has not sent, kept in this browser too. */
+  readonly composerTexts: Signal<ReadonlyMap<ConversationId, string>>
+  /** The conversations whose composer holds unsent text; changes only when one starts or stops. */
+  readonly typedIn: ReadableSignal<ReadonlySet<ConversationId>>
+  /** The conversation whose composer should take the focus once it is drawn. */
+  readonly composerFocus: Signal<ConversationId | null>
   readonly releases: Signal<ReadonlyMap<NoteId, Release>>
   readonly archiveDiscards: Signal<ReadonlyMap<ConversationId, ReadonlyArray<ArchiveDiscard>>>
   readonly openedForThePerson: Signal<ConversationId | null>

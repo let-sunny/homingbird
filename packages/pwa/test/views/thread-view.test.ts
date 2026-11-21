@@ -48,15 +48,6 @@ const withNotes = (
 ) => context.state.threads.set(new Map([[ROOM, { notes, hasMore }]]))
 
 describe('threadView', () => {
-  it('brings the earlier note a draft’s source jumps to into view, once, and marks it', () => {
-    const { context, shown, page } = open(null, null, 'n2')
-    withNotes(context, [note('n1', { sentAt: 1 }), note('n2', { sentAt: 2 })])
-    page.runFrames()
-    const marked = shown.querySelector<HTMLElement>('[data-note-id="n2"]')!
-    expect(marked.classList.contains('is-active')).toBe(true)
-    expect(document.activeElement).toBe(marked)
-  })
-
   it('loads the conversation and what it shows, and says when the person may not see it', () => {
     const { context, called, shown } = open()
     expect(called('openThread')[0]!.args).toEqual([ROOM])
@@ -177,6 +168,16 @@ describe('threadView', () => {
     page.runFrames()
     expect(document.activeElement).toBe(document.body)
     expect(textOf(shown)).toContain(strings.draftChangedSinceRead)
+  })
+
+  it('brings the sent note a copied link points at into view, marked as the one looked at', () => {
+    const { context, shown, page } = open(null, null, 'n2')
+    withNotes(context, [note('n1'), note('n2'), note('n3')])
+    const pointed = shown.querySelector<HTMLElement>('.note[data-note-id="n2"]')!
+    expect(pointed.classList.contains('is-active')).toBe(true)
+    expect(shown.querySelector('.note[data-note-id="n1"]')!.classList.contains('is-active')).toBe(false)
+    page.runFrames()
+    expect(document.activeElement).toBe(pointed)
   })
 
   it('says a draft a notification opened was already sent or discarded, instead of an empty card', () => {

@@ -32,6 +32,21 @@ states the decision first, then the reason. Add new entries at the top of their 
   the asker or anyone else yet; it is kept for the channel's figures and for teaching its agent. A
   reviewer's discard also clears the agent's drafting state on the question's receipt, so the room
   shows "No answer yet" under it until someone replies, instead of "drafting" for ten more minutes.
+- **Unsent text in a composer is kept per conversation, in this browser only.** What a person typed and
+  did not send stays when they open another conversation and comes back when they return, and a reload
+  keeps it: it lives in memory and in `localStorage` under a key named for the person, read once at
+  sign-in and removed at sign-out, and a conversation's entry is dropped once its note is sent or the
+  field is emptied. It never reaches the server: a draft there is something the person's agent wrote and
+  the person approves, and unsent text is neither. A row in the sidebar shows a small pencil while text is
+  kept, so the person knows where they left something half-written.
+- **A note's menu shows “Ask my agent to draft a reply” even where it cannot work, disabled with the
+  reason.** Where the server takes no draft requests, or the person's own desk runs but its agent cannot
+  answer, the item stays in the menu, disabled, with one sentence saying why. A person who reads about
+  asking their agent elsewhere finds where it would be and why it is not there; the menu never calls the
+  switched-off routes. The composer's **Ask my agent**, beside Send, follows the usual rule instead and is
+  absent where requests are off, so the place a person writes stays as small as it can be. On a touch
+  screen the note's toolbar is not drawn over the text: a long press opens the same menu as a sheet at
+  the bottom of the screen, which is why Reply is in the menu too.
 - **A note written in the composer answers another only when the person chose Reply on that note.**
   The composer opens with no reply target and forgets the one chosen once the note is sent. Choosing the
   latest note waiting for the person's reply on their behalf made a first note silently quote something

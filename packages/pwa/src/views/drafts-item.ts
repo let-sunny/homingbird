@@ -168,6 +168,7 @@ const draftEditor = (
     name: 'body',
     rows: '6',
     required: true,
+    autofocus: true,
     'aria-label': strings.editDraftLabel,
   })
   text.value = draft.body

@@ -7,7 +7,7 @@ import { dialogHost } from '../../src/views/dialog.ts'
 import { renderNoteItem } from '../../src/views/note-item.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
-import { ANA, BEN, ROOM, channel, conversation, note } from '../support/fixtures.ts'
+import { ANA, BEN, ROOM, channel, conversation, note, serverInfo } from '../support/fixtures.ts'
 import { threadInput } from '../support/thread.ts'
 
 usingFakeDom()
@@ -48,6 +48,23 @@ describe('renderNoteItem', () => {
     getByRole(shown, 'menuitem', { name: strings.copyNote }).click()
     await Promise.resolve()
     expect(context.state.notice.get()).toEqual({ kind: 'error', text: strings.noteNotCopied })
+    page.state.clipboard = true
+    getByRole(shown, 'button', { name: strings.noteMore }).click()
+    getByRole(shown, 'menuitem', { name: strings.copyNoteLink }).click()
+    await Promise.resolve()
+    expect(page.copied.at(-1)).toBe(`http://localhost/#/c/${ROOM}?note=n1`)
+    expect(context.state.notice.get()).toEqual({ kind: 'info', text: strings.noteLinkCopied })
+  })
+
+  it('shows Ask my agent disabled with the reason where the server takes no draft requests', () => {
+    const { context, called } = testContext()
+    const shown = render(context, note('n1'), threadInput({ serverInfo: serverInfo() }))
+    getByRole(shown, 'button', { name: strings.noteMore }).click()
+    const ask = getByRole(shown, 'menuitem', { name: strings.askAgentToReply }) as HTMLButtonElement
+    expect(ask.disabled).toBe(true)
+    expect(textOf(shown.querySelector(`#${ask.getAttribute('aria-describedby')}`)!)).toBe(strings.askAgentOff)
+    ask.click()
+    expect(called('askAgent')).toHaveLength(0)
   })
 
   it('opens the same menu on a right-click on the note, and gives the focus back to the note', () => {
@@ -68,7 +85,12 @@ describe('renderNoteItem', () => {
     getByRole(toolbar, 'button', { name: strings.reply }).click()
     getByRole(toolbar, 'button', { name: strings.noteMore }).click()
     getByRole(shown, 'menuitem', { name: strings.askAgentToReply }).click()
-    expect(called('chooseReplyTarget')[0]!.args).toEqual([ROOM, 'n1'])
+    getByRole(toolbar, 'button', { name: strings.noteMore }).click()
+    getByRole(shown, 'menuitem', { name: strings.reply }).click()
+    expect(called('replyTo').map((call) => call.args)).toEqual([
+      [ROOM, 'n1'],
+      [ROOM, 'n1'],
+    ])
     expect(called('askAgent')[0]!.args).toEqual([
       { destination: { inReplyTo: 'n1' }, instruction: '', agentId: null },
     ])

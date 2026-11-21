@@ -16,6 +16,7 @@ import {
   showsAuthors,
   statusOf,
 } from '../thread.ts'
+import { agentAskReach } from './agent-ask.ts'
 import { type AvatarModel, memberAvatarOf } from './avatar.ts'
 import { agentAuthorshipLine, approvalLine } from './channel-agent.ts'
 import { type ThreadInput, channelAskedIn, isOn, nameIn, noteIn, notesOf, roomOf } from './thread-room.ts'
@@ -98,12 +99,7 @@ export const noteItemModel = (
     menu: {
       id: `note-menu-${note.id}`,
       label: strings.noteMore,
-      items: [
-        ...(!mine && !archived && isOn(input, 'draftRequests')
-          ? [{ kind: 'ask-agent' as const, label: strings.askAgentToReply }]
-          : []),
-        { kind: 'copy' as const, label: strings.copyNote },
-      ],
+      items: menuItems(input, !mine && !archived),
     },
   }
 }
@@ -141,8 +137,15 @@ export interface NoteItemModel {
   readonly menu: {
     readonly id: string
     readonly label: string
-    readonly items: ReadonlyArray<{ readonly kind: 'ask-agent' | 'copy'; readonly label: string }>
+    readonly items: ReadonlyArray<NoteMenuItem>
   }
+}
+
+/** One of a note's menu actions; one the person cannot take now says why. */
+export interface NoteMenuItem {
+  readonly kind: 'reply' | 'ask-agent' | 'copy' | 'copy-link'
+  readonly label: string
+  readonly reason: string | null
 }
 
 /** The author's character as a button, and the details it opens: who or what wrote the note, and when. */
@@ -163,6 +166,25 @@ export interface StateMarkModel {
   readonly label: string
   readonly glyph: string
   readonly count: string | null
+}
+
+const menuItems = (input: ThreadInput, answerable: boolean): ReadonlyArray<NoteMenuItem> => {
+  const mine = input.directory.find((entry) => entry.member.id === input.me.member.id)
+  const reach = agentAskReach(isOn(input, 'draftRequests'), mine?.presence)
+  return [
+    ...(answerable
+      ? [
+          { kind: 'reply' as const, label: strings.reply, reason: null },
+          {
+            kind: 'ask-agent' as const,
+            label: strings.askAgentToReply,
+            reason: reach.may ? null : reach.reason,
+          },
+        ]
+      : []),
+    { kind: 'copy', label: strings.copyNote, reason: null },
+    { kind: 'copy-link', label: strings.copyNoteLink, reason: null },
+  ]
 }
 
 /** Asks for the text form of a glyph, so that no platform swaps in a coloured emoji. */

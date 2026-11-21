@@ -5,6 +5,7 @@ import {
   chooseReplyTarget,
   forgetNote,
   forgetRelease,
+  keepComposerText,
   loadOlderNotes,
   loadThread,
   markRead,
@@ -12,6 +13,7 @@ import {
   rememberNote,
   rememberNotices,
   replyTargetIn,
+  replyTo,
   sendNote,
 } from '../../src/tasks/notes.ts'
 import { fail, testApp } from '../support/app.ts'
@@ -178,6 +180,33 @@ describe('the reply target', () => {
     expect(replyTargetIn(app.state, ROOM)).toBe('q')
     await app.run(chooseReplyTarget(ROOM, null))
     expect(replyTargetIn(app.state, ROOM)).toBeNull()
+  })
+
+  it('answers a note by making it the reply target and asking the composer to take the focus', async () => {
+    const app = testApp({})
+    await app.run(replyTo(ROOM, 'q' as never))
+    expect(replyTargetIn(app.state, ROOM)).toBe('q')
+    expect(app.state.composerFocus.get()).toBe(ROOM)
+  })
+
+  it('keeps unsent text in memory, and in this browser once signed in, and forgets it once cleared', async () => {
+    const app = testApp({})
+    const key = `homingbird.composer.${ANA}`
+    await app.run(keepComposerText(ROOM, 'Typed'))
+    expect(app.page.local.has(key)).toBe(false)
+    await app.run(keepComposerText(ROOM, ''))
+    app.state.session.set(me())
+    const typed: unknown[] = []
+    app.state.typedIn.subscribe((ids) => typed.push([...ids]))
+    await app.run(keepComposerText(ROOM, 'Typed'))
+    await app.run(keepComposerText(ROOM, 'Typed more'))
+    expect(app.state.composerTexts.get()).toEqual(new Map([[ROOM, 'Typed more']]))
+    expect(JSON.parse(app.page.local.get(key)!)).toEqual({ [ROOM]: 'Typed more' })
+    await app.run(keepComposerText(ROOM, 'Typed more'))
+    await app.run(keepComposerText(ROOM, '  '))
+    expect(app.state.composerTexts.get().size).toBe(0)
+    expect(app.page.local.has(key)).toBe(false)
+    expect(typed).toEqual([[ROOM], []])
   })
 })
 

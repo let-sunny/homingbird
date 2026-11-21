@@ -39,6 +39,7 @@ const routes: fc.Arbitrary<Route> = fc.oneof(
   fc
     .tuple(segment, fc.option(segment, { nil: null }), segment)
     .map(([id, draft, review]): Route => ({ name: 'conversation', id, draft, review })),
+  fc.tuple(segment, segment).map(([id, note]): Route => ({ name: 'conversation', id, draft: null, note })),
   segment.map((id): Route => ({ name: 'consent', id })),
   fc.option(segment, { nil: null }).map((code): Route => ({ name: 'device', code })),
   fc.string({ maxLength: 40 }).map((query): Route => ({ name: 'search', query })),

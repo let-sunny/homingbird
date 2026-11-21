@@ -13,6 +13,7 @@ export const browserPage = (window: BrowserWindow): Page => {
     replace: (href) => location.replace(href),
     assign: (url) => location.assign(url),
     replaceAddress: (href) => window.history.replaceState(null, '', href),
+    linkTo: (href) => new URL(href, location.href).href,
     fetch: (url, init) => window.fetch(url, init),
     languages: () => window.navigator?.languages ?? [],
     isVisible: () => document.visibilityState === 'visible',
@@ -100,6 +101,8 @@ export interface Page {
   /** Loads another page, such as a sign-out or an agent's return address. */
   readonly assign: (url: string) => void
   readonly replaceAddress: (href: string) => void
+  /** The full address of a place in the app, for a link the person copies elsewhere. */
+  readonly linkTo: (href: string) => string
   readonly fetch: Fetch
   readonly languages: () => ReadonlyArray<string>
   readonly isVisible: () => boolean
@@ -164,7 +167,7 @@ export interface BrowserWindow {
     Document,
     'visibilityState' | 'createElement' | 'body' | 'addEventListener' | 'removeEventListener'
   >
-  readonly location: Pick<Location, 'origin' | 'hash' | 'replace' | 'assign'>
+  readonly location: Pick<Location, 'origin' | 'href' | 'hash' | 'replace' | 'assign'>
   readonly history: Pick<History, 'replaceState'>
   readonly navigator?: Pick<Navigator, 'languages'> & {
     readonly serviceWorker?: { readonly getRegistration?: () => Promise<NotificationSource | undefined> }
