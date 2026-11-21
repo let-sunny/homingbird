@@ -10,9 +10,9 @@ import {
   decidedAnswerModel,
   deviceTargetsModel,
   privateQuestionNotice,
+  reviewBadgeOf,
   reviewCardsModel,
   reviewsInRoomModel,
-  reviewsWaitingModel,
 } from '../../src/models/channel-agent.ts'
 import { strings, useLanguage } from '../../src/strings.ts'
 import { threadItems } from '../../src/thread.ts'
@@ -230,25 +230,30 @@ describe('reviewCardsModel', () => {
     )
   })
 
-  it('counts the answers waiting and leads into each channel’s room at its first question waiting', () => {
+  it('counts a channel’s answers waiting and leads into its room at the first question waiting', () => {
     const OPS_ROOM = 'conv_ops00000000' as ConversationId
-    expect(reviewsWaitingModel([])).toBeNull()
-    expect(
-      reviewsWaitingModel([
-        review({ note: draft('note_later', { authorId: AGENT, createdAt: 9 }) }),
-        review({ note: draft('note_private', { conversationId: OPS_ROOM, createdAt: 1 }), privately: true }),
-        review({ note: draft('note_first', { authorId: AGENT, createdAt: 5 }) }),
-        review({ channel: 'ops', privately: true, note: draft('note_ops', { conversationId: OPS_ROOM }) }),
-      ]),
-    ).toEqual({
-      text: '4 answers are waiting for you',
-      links: [
-        { href: `#/c/${ROOM}?review=note_first`, label: 'Review in #payments-wiki' },
-        { href: `#/c/${OPS_ROOM}?review=note_ops`, label: 'Review in #ops' },
-      ],
+    const reviews = [
+      review({ note: draft('note_later', { authorId: AGENT, createdAt: 9 }) }),
+      review({ note: draft('note_private', { conversationId: OPS_ROOM, createdAt: 1 }), privately: true }),
+      review({ note: draft('note_first', { authorId: AGENT, createdAt: 5 }) }),
+      review({ channel: 'ops', privately: true, note: draft('note_ops', { conversationId: OPS_ROOM }) }),
+    ]
+    expect(reviewBadgeOf(reviews, 'payments-wiki')).toEqual({
+      text: 'Review 3',
+      label: '3 answers wait for your review',
+      href: `#/c/${ROOM}?review=note_first`,
     })
+    expect(reviewBadgeOf(reviews, 'ops')).toEqual({
+      text: 'Review 1',
+      label: '1 answer waits for your review',
+      href: `#/c/${OPS_ROOM}?review=note_ops`,
+    })
+    expect(reviewBadgeOf(reviews, 'billing')).toBeNull()
     useLanguage('ko')
-    expect(reviewsWaitingModel([review()])?.text).toBe('답 1개가 기다리고 있어요')
+    expect(reviewBadgeOf([review()], 'payments-wiki')).toMatchObject({
+      text: '검토 1',
+      label: '답 1개가 검토를 기다려요',
+    })
   })
 })
 

@@ -3,7 +3,7 @@ import { h, lifetime } from '@homingbird/ui'
 import { fire, getByRole, queryByRole, textOf } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
 import { strings } from '../../src/strings.ts'
-import { agentButtons, channelAgentView, reviewsWaiting } from '../../src/views/channel-agent.ts'
+import { agentButtons, channelAgentView } from '../../src/views/channel-agent.ts'
 import { dialogHost } from '../../src/views/dialog.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
@@ -364,18 +364,5 @@ describe('the answer a stale notification opened', () => {
     mount(channelAgentView(context, lifetime(), 'payments-wiki', null))
     called('loadReviews')[0]!.then!.done!(undefined)
     expect(called('loadDecidedAnswer')).toHaveLength(0)
-  })
-})
-
-describe('reviewsWaiting', () => {
-  it('says how many answers wait and links into each channel’s room, and nothing when none waits', () => {
-    const { context } = testContext()
-    const shown = mount(reviewsWaiting(context, lifetime()))
-    expect(textOf(shown)).toBe('')
-    context.state.reviews.set([review()])
-    expect(textOf(shown)).toContain('1 answer is waiting for you')
-    expect(getByRole(shown, 'link', { name: 'Review in #payments-wiki' }).getAttribute('href')).toBe(
-      '#/c/conv_room00000000?review=note_answer00000',
-    )
   })
 })

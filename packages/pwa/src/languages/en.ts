@@ -1357,7 +1357,6 @@ export const en = {
     writtenByEdited: 'Written by {agent}, the agent of {channel}, edited by {name}',
     someChannel: 'a channel',
     notYours: 'Only the managers of this channel run its agent and review its answers.',
-    reviewIn: 'Review in {channel}',
     nameLabel: 'Name',
     nameHint: 'One line, at most 80 characters, shown on every answer it writes.',
     create: 'Create the agent',
@@ -1384,9 +1383,10 @@ export const en = {
       sentByYou: 'You already sent this answer.',
       gone: 'This answer no longer waits for you.',
     },
-    reviewsWaiting: {
-      one: '{count} answer is waiting for you',
-      other: '{count} answers are waiting for you',
+    reviewBadge: 'Review {count}',
+    reviewBadgeLabel: {
+      one: '{count} answer waits for your review',
+      other: '{count} answers wait for your review',
     },
     questionFrom: 'Question from {name}',
     waitsInRoom:

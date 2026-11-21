@@ -4649,22 +4649,6 @@ textarea:disabled {
   font: var(--hb-text-small) / 1.6 var(--hb-font-mono);
 }
 
-.reviews-waiting {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--hb-space-2);
-  margin: var(--hb-space-2);
-  padding: var(--hb-space-2);
-  border: var(--hb-border);
-  background: var(--hb-color-surface);
-}
-
-.reviews-waiting p {
-  margin: 0;
-  font-weight: 700;
-}
-
 .cloud-desk {
   display: grid;
   gap: var(--hb-space-3);

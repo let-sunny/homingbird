@@ -15,7 +15,6 @@ import {
 } from '../models/shell.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
-import { reviewsWaiting } from './channel-agent.ts'
 import { leaveForm } from './channel-membership.ts'
 import { renderAvatar, renderGroupAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
@@ -184,6 +183,7 @@ const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLEleme
       members: state.members.get(),
       directory: state.directory.get(),
       channels: state.channels.get(),
+      reviews: state.reviews.get(),
       agentCount: state.agentCredentials.get().length,
       charactersOn: featureOn('characters', state.serverInfo.get()),
       muteOn: featureOn('mute', state.serverInfo.get()),
@@ -204,7 +204,7 @@ const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLEleme
     state.route,
     state.conversationsLoaded,
   ]
-  const roomSources = [state.conversations, state.route, state.channels]
+  const roomSources = [state.conversations, state.route, state.channels, state.reviews]
   const archivedSources = [state.conversations, state.route, state.members]
   return h(
     'aside',
@@ -212,7 +212,6 @@ const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLEleme
     region(life, [state.agentCredentials, state.session], () => model().onboarding && onboarding(), {
       class: 'onboarding-host',
     }),
-    reviewsWaiting(context, life),
     h('h2', { class: 'sidebar-title' }, strings.conversations),
     region(
       life,
@@ -352,6 +351,8 @@ const conversationRow = (context: ViewContext, row: ConversationRow): HTMLElemen
           h('span', { class: 'count unread', 'aria-label': row.unread.label }, row.unread.count),
         row.drafts !== null &&
           h('span', { class: 'count drafts', 'aria-label': row.drafts.label }, row.drafts.text),
+        row.review !== null &&
+          h('span', { class: 'count drafts reviews', 'aria-label': row.review.label }, row.review.text),
       ),
     ),
     more?.trigger,

@@ -1312,7 +1312,6 @@ export const ko: Translation<typeof en> = {
     writtenByEdited: '{channel} 채널 에이전트 {agent} 작성, {name} 님이 수정',
     someChannel: '어느',
     notYours: '이 채널의 운영자만 에이전트를 운영하고 그 답을 검토할 수 있어요.',
-    reviewIn: '{channel} 채널에서 검토하기',
     nameLabel: '이름',
     nameHint: '한 줄, 80자까지예요. 에이전트가 쓰는 모든 답에 표시돼요.',
     create: '에이전트 만들기',
@@ -1339,7 +1338,8 @@ export const ko: Translation<typeof en> = {
       sentByYou: '이 답은 이미 보냈어요.',
       gone: '이 답은 더 이상 당신을 기다리지 않아요.',
     },
-    reviewsWaiting: { other: '답 {count}개가 기다리고 있어요' },
+    reviewBadge: '검토 {count}',
+    reviewBadgeLabel: { other: '답 {count}개가 검토를 기다려요' },
     questionFrom: '{name} 님의 질문',
     waitsInRoom:
       '에이전트 {agent}의 답이 검토를 기다리고 있어요. 운영자 중 한 명이 보내기 전까지는 이 채널의 운영자만 볼 수 있어요.',

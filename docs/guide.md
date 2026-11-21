@@ -521,8 +521,8 @@ writes.
   disconnect it, and what it does not protect: whoever runs that machine can read every question and
   draft the agent sees, and a model may carry what it learned from one question into the next.
 - **Review its answers.** The agent only answers questions asked in its channel or asked of it
-  privately. Above your conversations you see how many answers wait for you, with **Review in
-  #channel**, which opens the channel's room at the first question whose answer waits for you. There
+  privately. The channel's row in your list shows how many answers wait for your review
+  (**Review 2**), and opens the channel's room at the first question whose answer waits for you. There
   the answer sits right under its question, with what it relied on, as a card only the channel's
   managers see: nobody else in the room, and never the person who asked, sees anything new. The
   agent's page (`#/channel/<slug>/agent`, **Channel agent** in the room's header, and where the agent's

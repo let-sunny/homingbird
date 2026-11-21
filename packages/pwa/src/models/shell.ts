@@ -6,6 +6,7 @@ import { spriteOwner } from '../sprite-owner.ts'
 import { strings } from '../strings.ts'
 import { conversationTitle, excerpt, isMuted, otherParticipants } from '../thread.ts'
 import { type AvatarModel, type GroupAvatarModel, groupAvatarOf, memberAvatarOf } from './avatar.ts'
+import { reviewBadgeOf } from './channel-agent.ts'
 import { leaveConsequence } from './channel-membership.ts'
 import { type MuteToggle, muteToggleModel } from './mute-toggle.ts'
 import { type TimeShown, timeShown } from './time.ts'
@@ -84,6 +85,8 @@ export interface SidebarInput {
   readonly members: ReadonlyMap<MemberId, AsRead.Member>
   readonly directory: ReadonlyArray<AsRead.DirectoryEntry>
   readonly channels: ReadonlyArray<AsRead.Channel>
+  /** The answers of channels' agents waiting for the person's review, from `reviews.list`. */
+  readonly reviews: ReadonlyArray<AsRead.Review>
   readonly agentCount: number
   readonly charactersOn: boolean
   readonly muteOn: boolean
@@ -122,6 +125,8 @@ export interface ConversationRow {
   readonly time: TimeShown | null
   readonly unread: { readonly count: number; readonly label: string } | null
   readonly drafts: { readonly text: string; readonly label: string } | null
+  /** The channel's agent's answers waiting for the person's review; the row then opens at the first. */
+  readonly review: { readonly text: string; readonly label: string } | null
   readonly mute: MuteToggle | null
   readonly menu: {
     readonly id: string
@@ -155,9 +160,10 @@ const conversationRow = (input: SidebarInput, conversation: AsRead.Conversation)
   const last = conversation.lastNote
   const title = conversationTitle(conversation, input.members, viewerId, strings.formerMember)
   const mute = muteToggleModel(conversation, title, input.muteOn)
+  const review = channel === null || archived ? null : reviewBadgeOf(input.reviews, channel.slug)
   return {
     id: conversation.id,
-    href: hrefFor({ name: 'conversation', id: conversation.id, draft: null }),
+    href: review?.href ?? hrefFor({ name: 'conversation', id: conversation.id, draft: null }),
     current: isOpen(input.route, conversation),
     face:
       conversation.kind === 'channel' || archived ? { kind: 'channel' } : faceOf(input, conversation, others),
@@ -188,6 +194,7 @@ const conversationRow = (input: SidebarInput, conversation: AsRead.Conversation)
             label: strings.draftsWaiting({ count: conversation.draftCount }),
           }
         : null,
+    review: review === null ? null : { text: review.text, label: review.label },
     mute,
     menu: rowMenu(conversation, title, channel, mute),
   }

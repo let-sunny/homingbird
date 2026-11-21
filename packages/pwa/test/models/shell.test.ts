@@ -9,6 +9,7 @@ import {
   ROOM,
   channel,
   conversation,
+  draft,
   entry,
   me,
   member,
@@ -71,6 +72,7 @@ describe('sidebarModel', () => {
     members,
     directory: [],
     channels: [],
+    reviews: [],
     agentCount: 1,
     charactersOn: true,
     muteOn: true,
@@ -185,6 +187,25 @@ describe('sidebarModel', () => {
     const off = sidebarModel(input({ conversations: [conversation()], muteOn: false }))
     expect(off.people.kind === 'rows' && off.people.rows[0]!.mute).toBeNull()
     expect(off.people.kind === 'rows' && off.people.rows[0]!.menu).toBeNull()
+  })
+
+  it('counts on a channel’s row the answers waiting for the person’s review, and opens the row at the first', () => {
+    const billing = channel('billing', { joined: true })
+    const room = conversation({ id: billing.conversationId, kind: 'channel', title: 'billing' })
+    const waiting = {
+      note: draft('note_waiting', { conversationId: billing.conversationId }),
+      question: note('note_question'),
+      channel: 'billing',
+      agent: member(CY, 'Billing helper'),
+      privately: false,
+    }
+    const [row] = sidebarModel(
+      input({ conversations: [room], channels: [billing], reviews: [waiting] }),
+    ).channelRooms
+    expect(row!.review).toEqual({ text: 'Review 1', label: '1 answer waits for your review' })
+    expect(row!.href).toBe(`#/c/${billing.conversationId}?review=note_waiting`)
+    const [quiet] = sidebarModel(input({ conversations: [room], channels: [billing] })).channelRooms
+    expect([quiet!.review, quiet!.href]).toEqual([null, `#/c/${billing.conversationId}`])
   })
 
   it('gives each row a menu to mute it, and to leave a joined channel unless the person manages it', () => {

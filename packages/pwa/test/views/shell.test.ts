@@ -6,7 +6,19 @@ import { dialogHost } from '../../src/views/dialog.ts'
 import { shell } from '../../src/views/shell.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
-import { BEN, CY, ROOM, channel, conversation, credential, entry, me, note } from '../support/fixtures.ts'
+import {
+  BEN,
+  CY,
+  ROOM,
+  channel,
+  conversation,
+  credential,
+  draft,
+  entry,
+  me,
+  member,
+  note,
+} from '../support/fixtures.ts'
 
 usingFakeDom()
 
@@ -55,6 +67,20 @@ describe('shell', () => {
     expect(dialog.open).toBe(true)
     fire.submit(dialog.querySelector('form')!)
     expect(called('leaveChannel')[0]!.args).toEqual(['billing'])
+    context.state.reviews.set([
+      {
+        note: draft('note_waiting', { conversationId: billing.conversationId }),
+        question: note('note_question'),
+        channel: 'billing',
+        agent: member(CY, 'Billing helper'),
+        privately: false,
+      },
+    ])
+    const billingRow = [...shown.querySelectorAll<HTMLElement>('.conversation-item')][1]!
+    expect(billingRow.querySelector('.count.reviews')!.getAttribute('aria-label')).toBe(
+      strings.channelAgent.reviewBadgeLabel({ count: 1 }),
+    )
+    expect(billingRow.querySelector('a')!.getAttribute('href')).toContain('?review=note_waiting')
     fire.event(rows[2]!, 'contextmenu')
     const blocked = getByRole(rows[2]!, 'menuitem', { name: strings.leaveChannel }) as HTMLButtonElement
     expect(blocked.disabled).toBe(true)
