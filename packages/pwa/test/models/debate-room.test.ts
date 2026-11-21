@@ -274,7 +274,13 @@ describe('debateRoomModel', () => {
         memberId: BEN,
         name: 'Ben',
         summary: 'Checked the tests.',
-        credits: [{ text: strings.debates.credit.gap_filled, hint: strings.debates.creditHint.gap_filled }],
+        credits: [
+          {
+            text: strings.debates.credit.gap_filled,
+            hint: strings.debates.creditHint.gap_filled,
+            turn: null,
+          },
+        ],
         keptSteps: ['Tell support'],
       },
       { memberId: ANA, name: strings.debates.mine.agent, summary: null, credits: [], keptSteps: ['Tag it'] },

@@ -46,6 +46,36 @@ describe('the result of a room', () => {
     )
   })
 
+  it('shows what changed minds, what is still open, where they differed, and the turn behind a credit', () => {
+    const host = section('Result', 'debate-result')
+    const body: ResultBody = {
+      kind: 'known',
+      heading: 'Conclusion',
+      summary: 'Ship.',
+      listHeading: 'Reasons',
+      reasons: ['Ready.'],
+      points: null,
+      differences: {
+        heading: 'Differed',
+        points: [{ category: 'goals', point: 'Date', categoryText: 'Goals', explanation: 'Friday' }],
+      },
+      changedMinds: { heading: 'Changed', items: [{ turn: 'Turn 2', line: 'The rehearsal failed.' }] },
+      stillOpen: { heading: 'Open', items: ['Who tells support?'] },
+      nextSteps: { heading: 'Next', none: 'None.', steps: [] },
+      contributions: {
+        heading: 'Who',
+        rows: [
+          { name: 'Ben', summary: 'Moved.', credits: [{ text: 'Changed', hint: 'Why', turn: 'turn 3' }] },
+        ],
+      },
+    }
+    host.append(...(renderResultBody(body, { contributions: true }) as Node[]))
+    expect(textOf(host)).toContain('DifferedDateGoalsFriday')
+    expect(textOf(host.querySelector('.debate-changed-minds')!)).toBe('Turn 2 The rehearsal failed.')
+    expect(textOf(host.querySelector('.debate-still-open')!)).toBe('Who tells support?')
+    expect(host.querySelector('.debate-credit-turn')!.textContent).toBe('turn 3')
+  })
+
   it('shows points of disagreement and owned steps, and heads a section', () => {
     const host = section('Result', 'debate-result')
     const body: ResultBody = {
@@ -55,6 +85,9 @@ describe('the result of a room', () => {
       listHeading: 'Where',
       reasons: null,
       points: [{ category: 'goals', point: 'Risk', categoryText: 'Goals', explanation: 'Why' }],
+      differences: null,
+      changedMinds: null,
+      stillOpen: null,
       nextSteps: {
         heading: 'Next',
         none: null,
@@ -62,7 +95,7 @@ describe('the result of a room', () => {
       },
       contributions: {
         heading: 'Who',
-        rows: [{ name: 'Ben', summary: 'Checked.', credits: [{ text: 'Gap', hint: 'Filled' }] }],
+        rows: [{ name: 'Ben', summary: 'Checked.', credits: [{ text: 'Gap', hint: 'Filled', turn: null }] }],
       },
     }
     host.append(...(renderResultBody(body, { contributions: true }) as Node[]))

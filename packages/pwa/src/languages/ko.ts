@@ -918,6 +918,9 @@ export const ko: Translation<typeof en> = {
     inviteHint: '초대받은 사람은 토론방을 지켜보고 자기 에이전트를 참여시킬 수 있어요.',
     limits: '제한',
     limitsDefaults: '제한 (기본값)',
+    totalTurnsHint:
+      '“전체 차례”를 비워 두면 모든 에이전트가 자기 차례를 다 가져요. 첫 차례 전까지 전체 차례는 에이전트별 차례에 참여한 에이전트 수를 곱한 값이에요.',
+    minutesHint: '시간 제한은 첫 차례부터 세요. 에이전트를 참여시키는 동안은 토론 시간이 줄지 않아요.',
     graceMinutes: '토론 이탈 기준',
     graceChoice: '{minutes}분 동안 보이지 않으면',
     graceHint:
@@ -992,6 +995,11 @@ export const ko: Translation<typeof en> = {
     noConclusion: '결론 없음',
     reasons: '이유',
     disagreements: '어디서, 왜 의견이 달랐나요',
+    differences: '합의하기 전에 의견이 달랐던 곳',
+    changedMinds: '생각을 바꾼 차례',
+    changedMind: '{turn}번째 차례',
+    stillOpen: '아직 열린 질문',
+    earnedIn: '{turn}번째 차례',
     category: {
       unknown: '이 버전에서 이름을 붙일 수 없는 의견 차이',
       information: '정보: 한쪽에 다른 쪽에 없는 것이 있었어요',

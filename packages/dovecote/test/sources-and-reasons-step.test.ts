@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { MIGRATIONS } from '../src/sql/migrations.ts'
+import { HISTORY_ANSWERS } from '../src/sql/migrations/history-answers-step.ts'
 import { SOURCES_AND_REASONS } from '../src/sql/migrations/sources-and-reasons-step.ts'
 import { type MigratedDatabase, migratedThrough, stepNumberOf } from './migration-support.ts'
 
@@ -11,8 +12,8 @@ afterEach(async () => {
 })
 
 describe('the sources and reasons step', () => {
-  it('is the last step', () => {
-    expect(stepNumberOf(SOURCES_AND_REASONS)).toBe(MIGRATIONS.length)
+  it('comes after the history answers step', () => {
+    expect(stepNumberOf(SOURCES_AND_REASONS)).toBe(MIGRATIONS.indexOf(HISTORY_ANSWERS) + 2)
   })
 
   it('adds a draft’s sources and a discard’s reason to every note, keeping the notes', async () => {

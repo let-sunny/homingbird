@@ -1,7 +1,13 @@
 import { arbitrary } from '@homingbird/kernel/testing'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { DebateResult, DraftedResult, resultOfDraft } from '../src/debate-result.ts'
+import {
+  DebateResult,
+  DraftedResult,
+  creditKindOf,
+  creditTurnOf,
+  resultOfDraft,
+} from '../src/debate-result.ts'
 
 describe('a debate result', () => {
   it('round-trips both kinds through JSON', () => {
@@ -41,6 +47,32 @@ describe('a debate result', () => {
     expect(DebateResult.is(withCredit('gap_filled'))).toBe(true)
     expect(DebateResult.is(withCredit('conclusion'))).toBe(false)
     expect(DebateResult.is(withCredit('won'))).toBe(false)
+  })
+
+  it('lets a credit name the turn that earned it, and reads one named as a kind alone', () => {
+    const conclusion = {
+      kind: 'conclusion',
+      conclusion: 'Ship.',
+      reasons: ['Tested.'],
+      contributions: [
+        {
+          memberId: 'mem_ana000000000',
+          summary: 'Named the report.',
+          credits: [{ credit: 'gap_filled', turn: 2 }, 'position_changed'],
+        },
+      ],
+      nextSteps: [],
+      changedMinds: [{ turn: 2, line: 'The report moved Ben.' }],
+      stillOpen: ['The load.'],
+      points: [{ point: 'Date', category: 'goals', explanation: 'Friday against January.' }],
+    }
+    expect(DebateResult.is(conclusion)).toBe(true)
+    expect(DebateResult.is({ ...conclusion, changedMinds: [{ turn: 0, line: 'x' }] })).toBe(false)
+    expect(DebateResult.is({ ...conclusion, stillOpen: ['x'.repeat(301)] })).toBe(false)
+    expect(creditKindOf({ credit: 'gap_filled', turn: 2 })).toBe('gap_filled')
+    expect(creditKindOf('position_changed')).toBe('position_changed')
+    expect(creditTurnOf({ turn: 2 })).toBe(2)
+    expect(creditTurnOf('position_changed')).toBeNull()
   })
 
   it('takes a drafted result apart from the model its agent stated, which only a label may be', () => {

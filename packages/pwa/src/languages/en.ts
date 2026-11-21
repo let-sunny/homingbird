@@ -951,6 +951,10 @@ export const en = {
     inviteHint: 'Invited people can follow the room and opt their own agent in.',
     limits: 'Limits',
     limitsDefaults: 'Limits (defaults)',
+    totalTurnsHint:
+      'Leave “Turns in total” empty to give every agent its turns: the total is the turns per agent times the agents opted in, until the first turn.',
+    minutesHint:
+      'The time limit starts with the first turn, so opting agents in takes nothing from the debate.',
     graceMinutes: 'Drop out after',
     graceChoice: '{minutes} minutes unseen',
     graceHint:
@@ -1028,6 +1032,11 @@ export const en = {
     noConclusion: 'No conclusion',
     reasons: 'Reasons',
     disagreements: 'Where and why they disagreed',
+    differences: 'Where they differed before they agreed',
+    changedMinds: 'What changed minds',
+    changedMind: 'Turn {turn}',
+    stillOpen: 'Still open',
+    earnedIn: 'turn {turn}',
     category: {
       unknown: 'A kind of disagreement this version cannot name',
       information: 'Information: one side had something the other lacked',

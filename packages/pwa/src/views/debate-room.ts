@@ -5,7 +5,7 @@ import { type DebateTab, hrefFor } from '../routes.ts'
 import { locale, strings } from '../strings.ts'
 import { authorButton } from './author-details.ts'
 import type { ViewContext } from './context.ts'
-import { renderResultBody, renderVoteRecord, resultSection, section } from './debate-result.ts'
+import { creditBadge, renderResultBody, renderVoteRecord, resultSection, section } from './debate-result.ts'
 import { limitFields, limitsTypedIn } from './debates.ts'
 import { emptyWithPip, field, loading, page, privateMarkOf, timeLabel } from './parts.ts'
 
@@ -175,7 +175,7 @@ const creditTab = ({ credit }: Room): ReadonlyArray<Child> => [
           { data: { member: row.memberId } },
           h('strong', {}, row.name),
           row.summary !== null && h('span', {}, row.summary),
-          ...row.credits.map((one) => h('span', { class: 'debate-credit', title: one.hint }, one.text)),
+          ...row.credits.map(creditBadge),
           row.keptSteps.length > 0 &&
             h(
               'div',

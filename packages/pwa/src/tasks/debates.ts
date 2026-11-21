@@ -6,7 +6,7 @@ import type {
   CredentialId,
   DebateExportFormat,
   DebateId,
-  DebateLimits,
+  DebateLimitsWish,
   DebateVisibility,
   Locale,
   MemberId,
@@ -33,7 +33,7 @@ export const loadDebate = (id: string): Action =>
 export interface DebateWish {
   readonly question: string
   readonly visibility: DebateVisibility
-  readonly limits: DebateLimits
+  readonly limits: DebateLimitsWish
   readonly memberIds: ReadonlyArray<MemberId>
 }
 
@@ -47,7 +47,7 @@ export const createDebate = (wish: DebateWish): Action<AsRead.Debate> =>
 export const optInAgent = (id: DebateId, agentId: CredentialId): Action =>
   withApp(({ api, state }) => shown(state, api['debates.optIn']({ params: { id }, body: { agentId } })))
 
-export const changeLimits = (id: DebateId, limits: DebateLimits): Action =>
+export const changeLimits = (id: DebateId, limits: DebateLimitsWish): Action =>
   withApp(({ api, state }) => shown(state, api['debates.limits.set']({ params: { id }, body: limits })))
 
 export type ResultDestination =

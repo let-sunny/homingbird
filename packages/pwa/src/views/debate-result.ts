@@ -1,5 +1,5 @@
 import { type Child, h } from '@homingbird/ui'
-import type { ResultBody, ResultModel } from '../models/debate-result.ts'
+import type { CreditBadge, ResultBody, ResultModel, ResultPoint } from '../models/debate-result.ts'
 import { strings } from '../strings.ts'
 
 /** The room's result: waiting with its deadlines, or settled with who drafted it and its words. */
@@ -56,19 +56,18 @@ export const renderResultBody = (body: ResultBody, shows: { readonly contributio
           {},
           body.reasons.map((reason) => h('li', {}, reason)),
         )
-      : h(
-          'ul',
-          { class: 'debate-points' },
-          (body.points ?? []).map((point) =>
-            h(
-              'li',
-              { class: 'debate-point', data: { category: point.category } },
-              h('strong', {}, point.point),
-              h('span', { class: 'debate-category' }, point.categoryText),
-              h('p', {}, point.explanation),
-            ),
-          ),
-        ),
+      : h('ul', { class: 'debate-points' }, (body.points ?? []).map(pointItem)),
+    ...pointsSection(body.differences),
+    ...listSection(
+      body.changedMinds?.heading,
+      'debate-changed-minds',
+      (body.changedMinds?.items ?? []).map((item) => h('li', {}, h('strong', {}, item.turn), ' ', item.line)),
+    ),
+    ...listSection(
+      body.stillOpen?.heading,
+      'debate-still-open',
+      (body.stillOpen?.items ?? []).map((item) => h('li', {}, item)),
+    ),
     h('h4', {}, body.nextSteps.heading),
     body.nextSteps.none !== null
       ? h('p', {}, body.nextSteps.none)
@@ -100,16 +99,37 @@ const renderContributions = (contributions: KnownBody['contributions']): HTMLEle
     'ul',
     { class: 'debate-contributions' },
     contributions.rows.map((row) =>
-      h(
-        'li',
-        {},
-        h('strong', {}, row.name),
-        h('span', {}, row.summary),
-        ...row.credits.map((credit) =>
-          h('span', { class: 'debate-credit', title: credit.hint }, credit.text),
-        ),
-      ),
+      h('li', {}, h('strong', {}, row.name), h('span', {}, row.summary), ...row.credits.map(creditBadge)),
     ),
   )
 
+/** A credit's badge, with the turn that earned it beside it when the draft named one. */
+export const creditBadge = (credit: CreditBadge): HTMLElement =>
+  h(
+    'span',
+    { class: 'debate-credit', title: credit.hint },
+    credit.text,
+    credit.turn !== null && h('small', { class: 'debate-credit-turn' }, credit.turn),
+  )
+
 type KnownBody = Extract<ResultBody, { kind: 'known' }>
+
+const pointItem = (point: ResultPoint): HTMLElement =>
+  h(
+    'li',
+    { class: 'debate-point', data: { category: point.category } },
+    h('strong', {}, point.point),
+    h('span', { class: 'debate-category' }, point.categoryText),
+    h('p', {}, point.explanation),
+  )
+
+const pointsSection = (differences: KnownBody['differences']): Child[] =>
+  differences === null
+    ? []
+    : [
+        h('h4', {}, differences.heading),
+        h('ul', { class: 'debate-points' }, differences.points.map(pointItem)),
+      ]
+
+const listSection = (heading: string | undefined, className: string, items: ReadonlyArray<Child>): Child[] =>
+  heading === undefined ? [] : [h('h4', {}, heading), h('ul', { class: className }, items)]

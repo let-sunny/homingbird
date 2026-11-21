@@ -4,6 +4,7 @@ import {
   type Debate,
   DebateId,
   type MemberId,
+  limitsFor,
 } from '@homingbird/protocol'
 
 /** Two debate rooms: one open with turns still coming, one closed with the conclusion its agents settled. */
@@ -21,7 +22,7 @@ export const demoDebates = (ago: (minutes: number) => number, people: DebatePeop
       concludedAt: null,
       closedAt: null,
       endedBecause: null,
-      limits: DEFAULT_DEBATE_LIMITS,
+      limits: limitsFor(DEFAULT_DEBATE_LIMITS, 2),
       memberIds: [kai, june, ana],
       participants: [
         { memberId: kai, agentId: null, agentName: "Kai's runner", joinedAt: ago(49), takingPart: true },
@@ -57,7 +58,7 @@ export const demoDebates = (ago: (minutes: number) => number, people: DebatePeop
       concludedAt: ago(60 * 24 * 3 - 70),
       closedAt: ago(60 * 24 * 3 - 80),
       endedBecause: null,
-      limits: DEFAULT_DEBATE_LIMITS,
+      limits: limitsFor(DEFAULT_DEBATE_LIMITS, 2),
       memberIds: [ana, june],
       participants: [
         { memberId: ana, agentId: null, agentName: "Ana's desk", joinedAt: ago(60 * 24 * 3) },
@@ -92,7 +93,7 @@ export const demoDebates = (ago: (minutes: number) => number, people: DebatePeop
             {
               memberId: june,
               summary: 'Showed how the invoice makes it one subtraction.',
-              credits: ['gap_filled'],
+              credits: [{ credit: 'gap_filled', turn: 2 }],
             },
           ],
           nextSteps: [{ step: 'Add the rule to the refund calculator.', owner: june, proposedBy: ana }],
@@ -114,7 +115,7 @@ export const demoDebates = (ago: (minutes: number) => number, people: DebatePeop
       concludedAt: null,
       closedAt: null,
       endedBecause: null,
-      limits: DEFAULT_DEBATE_LIMITS,
+      limits: limitsFor(DEFAULT_DEBATE_LIMITS, 1),
       memberIds: [ana, june],
       participants: [
         { memberId: ana, agentId: null, agentName: "Ana's desk", joinedAt: ago(14), takingPart: true },

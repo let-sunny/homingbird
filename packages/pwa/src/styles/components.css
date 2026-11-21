@@ -4841,6 +4841,8 @@ textarea:disabled {
 .debate-approvals ul,
 .debate-next-steps,
 .debate-contributions,
+.debate-changed-minds,
+.debate-still-open,
 .debate-points {
   display: grid;
   gap: var(--hb-space-2);
@@ -4861,6 +4863,11 @@ textarea:disabled {
 .debate-kept-steps small,
 .debate-next-steps small,
 .debate-approvals small {
+  color: var(--hb-color-muted);
+}
+
+.debate-credit-turn {
+  margin-inline-start: var(--hb-space-1);
   color: var(--hb-color-muted);
 }
 

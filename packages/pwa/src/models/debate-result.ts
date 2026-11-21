@@ -1,4 +1,4 @@
-import { type AsRead, type MemberId, UNKNOWN } from '@homingbird/protocol'
+import { type AsRead, type MemberId, UNKNOWN, creditKindOf, creditTurnOf } from '@homingbird/protocol'
 import { type DebateStage, type VoteRecordLine, voteRecordLines } from '../debates.ts'
 import { formats, strings } from '../strings.ts'
 
@@ -60,14 +60,25 @@ export const resultBody = (result: AsRead.DebateResult, people: RoomPeople): Res
     summary: conclusion ? result.conclusion : result.summary,
     listHeading: conclusion ? strings.debates.reasons : strings.debates.disagreements,
     reasons: conclusion ? result.reasons : null,
-    points: conclusion
-      ? null
-      : result.points.map((point) => ({
-          category: point.category,
-          point: point.point,
-          categoryText: strings.debates.category[point.category],
-          explanation: point.explanation,
-        })),
+    points: conclusion ? null : result.points.map(pointOf),
+    differences:
+      conclusion && (result.points ?? []).length > 0
+        ? { heading: strings.debates.differences, points: (result.points ?? []).map(pointOf) }
+        : null,
+    changedMinds:
+      conclusion && (result.changedMinds ?? []).length > 0
+        ? {
+            heading: strings.debates.changedMinds,
+            items: (result.changedMinds ?? []).map((one) => ({
+              turn: strings.debates.changedMind({ turn: one.turn }),
+              line: one.line,
+            })),
+          }
+        : null,
+    stillOpen:
+      conclusion && (result.stillOpen ?? []).length > 0
+        ? { heading: strings.debates.stillOpen, items: result.stillOpen ?? [] }
+        : null,
     nextSteps: {
       heading: strings.debates.nextSteps,
       none: result.nextSteps.length === 0 ? strings.debates.noNextSteps : null,
@@ -90,13 +101,27 @@ export const resultBody = (result: AsRead.DebateResult, people: RoomPeople): Res
       rows: result.contributions.map((contribution) => ({
         name: contribution.memberId === viewerId ? strings.debates.mine.agent : nameOf(contribution.memberId),
         summary: contribution.summary,
-        credits: contribution.credits.map((credit) => ({
-          text: strings.debates.credit[credit],
-          hint: strings.debates.creditHint[credit],
-        })),
+        credits: contribution.credits.map(creditBadgeOf),
       })),
     },
   }
+}
+
+/** A credit as a badge: its name, what it means, and the turn that earned it when the draft named one. */
+export const creditBadgeOf = (credit: ResultCredit): CreditBadge => {
+  const kind = creditKindOf(credit)
+  const turn = creditTurnOf(credit)
+  return {
+    text: strings.debates.credit[kind],
+    hint: strings.debates.creditHint[kind],
+    turn: turn === null ? null : strings.debates.earnedIn({ turn }),
+  }
+}
+
+export interface CreditBadge {
+  readonly text: string
+  readonly hint: string
+  readonly turn: string | null
 }
 
 /** How a room names people: by name, except the viewer, whose agent is called theirs. */
@@ -141,12 +166,14 @@ export type ResultBody =
       readonly summary: string
       readonly listHeading: string
       readonly reasons: ReadonlyArray<string> | null
-      readonly points: ReadonlyArray<{
-        readonly category: string
-        readonly point: string
-        readonly categoryText: string
-        readonly explanation: string
-      }> | null
+      readonly points: ReadonlyArray<ResultPoint> | null
+      /** On a conclusion: where the agents differed before they agreed. */
+      readonly differences: { readonly heading: string; readonly points: ReadonlyArray<ResultPoint> } | null
+      readonly changedMinds: {
+        readonly heading: string
+        readonly items: ReadonlyArray<{ readonly turn: string; readonly line: string }>
+      } | null
+      readonly stillOpen: { readonly heading: string; readonly items: ReadonlyArray<string> } | null
       readonly nextSteps: {
         readonly heading: string
         readonly none: string | null
@@ -162,10 +189,28 @@ export type ResultBody =
           readonly name: string
           readonly summary: string
           /** Each credit's name, and what it means, shown beside it on request. */
-          readonly credits: ReadonlyArray<{ readonly text: string; readonly hint: string }>
+          readonly credits: ReadonlyArray<CreditBadge>
         }>
       }
     }
+
+type KnownResult = Exclude<AsRead.DebateResult, { readonly kind: typeof UNKNOWN }>
+
+type ResultCredit = KnownResult['contributions'][number]['credits'][number]
+
+export interface ResultPoint {
+  readonly category: string
+  readonly point: string
+  readonly categoryText: string
+  readonly explanation: string
+}
+
+const pointOf = (point: Extract<KnownResult, { kind: 'no_conclusion' }>['points'][number]): ResultPoint => ({
+  category: point.category,
+  point: point.point,
+  categoryText: strings.debates.category[point.category],
+  explanation: point.explanation,
+})
 
 const voteLineText = (line: VoteRecordLine, { nameOf, viewerId }: RoomPeople): string => {
   const mine = line.memberId === viewerId

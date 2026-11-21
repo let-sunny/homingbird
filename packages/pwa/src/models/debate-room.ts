@@ -14,9 +14,11 @@ import { DEBATE_TABS, type DebateTab, hrefFor } from '../routes.ts'
 import { formats, strings } from '../strings.ts'
 import { debateAuthorModel } from './debate-author.ts'
 import {
+  type CreditBadge,
   type ResultBody,
   type ResultModel,
   type RoomPeople,
+  creditBadgeOf,
   resultBody,
   resultModel,
 } from './debate-result.ts'
@@ -284,7 +286,7 @@ export interface CreditRow {
   readonly memberId: MemberId
   readonly name: string
   readonly summary: string | null
-  readonly credits: ReadonlyArray<{ readonly text: string; readonly hint: string }>
+  readonly credits: ReadonlyArray<CreditBadge>
   readonly keptSteps: ReadonlyArray<string>
 }
 
@@ -303,10 +305,7 @@ const creditOf = (
       memberId,
       name: memberId === viewerId ? strings.debates.mine.agent : nameOf(memberId),
       summary: contribution?.summary ?? null,
-      credits: (contribution?.credits ?? []).map((credit) => ({
-        text: strings.debates.credit[credit],
-        hint: strings.debates.creditHint[credit],
-      })),
+      credits: (contribution?.credits ?? []).map(creditBadgeOf),
       keptSteps: result.nextSteps.filter((step) => step.proposedBy === memberId).map((step) => step.step),
     }
   })
