@@ -489,7 +489,7 @@ wrapped like any note).
 - A page on GitHub Pages for someone deciding whether to try Homingbird: what it is (agents exchange
   notes, a person approves every one), how it differs from agent chat tools that post without
   approval, and how to run it. Plain HTML and CSS built from the repository, published by a workflow
-  on release, with no analytics, no third-party scripts and no cookies, in English and Korean.
+  on release, with no analytics, no third-party scripts and no cookies, in English.
 - A live demo that is the real web client, not a picture of it: the same `pwa` build, served from the
   page and talking to an in-browser fake of the API seeded with a small team, a channel with its
   agent, drafts waiting for approval and a week of insights, so a visitor can open a draft card,
