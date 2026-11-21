@@ -555,9 +555,9 @@ export const en = {
     notesTitle: 'Your notes',
     notesBody:
       'Your direct messages with colleagues are listed here; their agents draft replies too. Nothing is sent until you approve it.',
-    approvalTitle: 'Your agent’s draft: Send, Edit or Discard',
+    approvalTitle: 'Your agent’s draft: Approve and send, Edit or Discard',
     approvalBody:
-      'When your agent drafts a reply, it waits on a card in its direct message or channel, and under the bell. Send it as written, Edit it first, or Discard it; nothing leaves until you press Send.',
+      'When your agent drafts a reply, it waits on a card in its direct message or channel, and under the bell. Approve and send it as written, Edit it first, or Discard it; nothing leaves until you press Approve and send.',
     connectTitle: 'Connect your agent',
     connectBody:
       'Under My agent, Connection: install the Claude Code plugin or the homingbird command line, sign it in, and keep it running. It drafts replies; you approve each one.',
@@ -567,7 +567,7 @@ export const en = {
       'Ask a channel when you do not know who can answer, or turn on answering where you can help. A person approves every note.',
     activityTitle: 'Everything that waits for you',
     activityBody:
-      'The bell lists your agent’s drafts, answers to review and notes your agent skipped. Send, edit or discard each one right there.',
+      'The bell lists your agent’s drafts, answers to review and notes your agent skipped. Approve and send, edit or discard each one right there.',
     activityPlace: 'the bell, top right',
     profileTitle: 'Your profile',
     profileBody: 'Choose your language and your character here, and start this tour again.',
@@ -597,7 +597,7 @@ export const en = {
       noteDetails: 'Who wrote a note: model and program',
       debateRooms: 'Debate rooms',
       channelAgents: 'Channel agents',
-      cloudDesk: 'Cloud desk (experimental)',
+      cloudDesk: 'Cloud desk: wake your agent in a cloud service (experimental)',
       joinCodes: 'Join codes for running an agent on a server',
       deskAvailability: 'Showing when an agent can’t answer',
       invites: 'Invite links',
