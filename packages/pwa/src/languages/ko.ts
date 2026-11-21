@@ -976,7 +976,7 @@ export const ko: Translation<typeof en> = {
     noTeamRows: '따로 보여 줄 만큼 사람이 많은 팀이 없어요.',
     hiddenTeams: { other: '사람이 적은 팀 {count}개는 보여 주지 않아요.' },
     teamsExplained:
-      '사람은 팀에 속해 있던 날(UTC 기준, 하루 중 잠깐이라도)마다 그 팀에 세요. 두 팀에 속한 사람은 두 팀 모두에 세요.',
+      '하루 중 잠깐이라도 팀에 속해 있던 날(UTC 기준)은 모두 그 팀에 세요. 두 팀에 속한 사람은 두 팀 모두에 세요.',
   },
   start: {
     title: '여기서 시작해 보세요',
