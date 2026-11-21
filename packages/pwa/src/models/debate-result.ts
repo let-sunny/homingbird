@@ -1,13 +1,13 @@
 import { type AsRead, type MemberId, UNKNOWN } from '@homingbird/protocol'
-import { type DebateStage, voteRecordLines } from '../debates.ts'
+import { type DebateStage, type VoteRecordLine, voteRecordLines } from '../debates.ts'
 import { formats, strings } from '../strings.ts'
 
-/** The room's result as it stands: waiting while drafts are collected and voted on, or settled. */
-export const resultModel = (
-  debate: AsRead.Debate,
-  stage: ResultStage,
-  nameOf: (id: MemberId) => string,
-): ResultModel => {
+/**
+ * The room's result as it stands: waiting while drafts are collected and voted on, or settled. The
+ * viewer's own agent is called theirs, never by the viewer's name.
+ */
+export const resultModel = (debate: AsRead.Debate, stage: ResultStage, people: RoomPeople): ResultModel => {
+  const { nameOf, viewerId } = people
   if (debate.result === null)
     return {
       kind: 'waiting',
@@ -24,8 +24,11 @@ export const resultModel = (
   const lines = voteRecordLines(debate)
   return {
     kind: 'settled',
-    draftedBy: strings.debates.draftedBy({ person: nameOf(debate.result.draftedBy) }),
-    body: resultBody(debate.result.result, nameOf),
+    draftedBy:
+      debate.result.draftedBy === viewerId
+        ? strings.debates.mine.draftedBy
+        : strings.debates.draftedBy({ person: nameOf(debate.result.draftedBy) }),
+    body: resultBody(debate.result.result, people),
     voteRecord:
       debate.voteRecord == null
         ? null
@@ -35,12 +38,7 @@ export const resultModel = (
             lines: lines.map((line) => ({
               kind: line.kind,
               memberId: line.memberId,
-              text:
-                line.kind === 'voted'
-                  ? strings.debates.votedFor({ voter: nameOf(line.memberId), author: nameOf(line.draftBy!) })
-                  : line.kind === 'dropped-out'
-                    ? strings.debates.droppedOutWithoutVote({ person: nameOf(line.memberId) })
-                    : strings.debates.didNotVote({ person: nameOf(line.memberId) }),
+              text: voteLineText(line, people),
               model:
                 line.agentModel === undefined
                   ? null
@@ -53,7 +51,8 @@ export const resultModel = (
 }
 
 /** A result's words: a conclusion with its reasons, or the points of disagreement, then next steps. */
-export const resultBody = (result: AsRead.DebateResult, nameOf: (id: MemberId) => string): ResultBody => {
+export const resultBody = (result: AsRead.DebateResult, people: RoomPeople): ResultBody => {
+  const { nameOf, viewerId } = people
   if (result.kind === UNKNOWN) return { kind: 'unknown', text: strings.debates.unknownResult }
   const conclusion = result.kind === 'conclusion'
   return {
@@ -75,19 +74,36 @@ export const resultBody = (result: AsRead.DebateResult, nameOf: (id: MemberId) =
       none: result.nextSteps.length === 0 ? strings.debates.noNextSteps : null,
       steps: result.nextSteps.map((step) => ({
         step: step.step,
-        owner: step.owner === null ? null : strings.debates.owner({ person: nameOf(step.owner) }),
-        proposedBy: strings.debates.proposedBy({ person: nameOf(step.proposedBy) }),
+        owner:
+          step.owner === null
+            ? null
+            : step.owner === viewerId
+              ? strings.debates.mine.owner
+              : strings.debates.owner({ person: nameOf(step.owner) }),
+        proposedBy:
+          step.proposedBy === viewerId
+            ? strings.debates.mine.proposedBy
+            : strings.debates.proposedBy({ person: nameOf(step.proposedBy) }),
       })),
     },
     contributions: {
       heading: strings.debates.contributions,
       rows: result.contributions.map((contribution) => ({
-        name: nameOf(contribution.memberId),
+        name: contribution.memberId === viewerId ? strings.debates.mine.agent : nameOf(contribution.memberId),
         summary: contribution.summary,
-        credits: contribution.credits.map((credit) => strings.debates.credit[credit]),
+        credits: contribution.credits.map((credit) => ({
+          text: strings.debates.credit[credit],
+          hint: strings.debates.creditHint[credit],
+        })),
       })),
     },
   }
+}
+
+/** How a room names people: by name, except the viewer, whose agent is called theirs. */
+export interface RoomPeople {
+  readonly nameOf: (id: MemberId) => string
+  readonly viewerId: MemberId
 }
 
 /** The stages in which a room shows its result, settled or still to come. */
@@ -147,10 +163,27 @@ export type ResultBody =
         readonly rows: ReadonlyArray<{
           readonly name: string
           readonly summary: string
-          readonly credits: ReadonlyArray<string>
+          /** Each credit's name, and what it means, shown beside it on request. */
+          readonly credits: ReadonlyArray<{ readonly text: string; readonly hint: string }>
         }>
       }
     }
+
+const voteLineText = (line: VoteRecordLine, { nameOf, viewerId }: RoomPeople): string => {
+  const mine = line.memberId === viewerId
+  if (line.kind === 'dropped-out')
+    return mine
+      ? strings.debates.mine.droppedOutWithoutVote
+      : strings.debates.droppedOutWithoutVote({ person: nameOf(line.memberId) })
+  if (line.kind === 'silent')
+    return mine
+      ? strings.debates.mine.didNotVote
+      : strings.debates.didNotVote({ person: nameOf(line.memberId) })
+  const author = line.draftBy!
+  if (mine) return strings.debates.mine.votedFor({ author: nameOf(author) })
+  if (author === viewerId) return strings.debates.mine.votedForMine({ voter: nameOf(line.memberId) })
+  return strings.debates.votedFor({ voter: nameOf(line.memberId), author: nameOf(author) })
+}
 
 const fullTime = (timestamp: number): string => formats.full.format(new Date(timestamp))
 

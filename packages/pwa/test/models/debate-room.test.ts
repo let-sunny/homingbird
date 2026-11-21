@@ -98,7 +98,7 @@ describe('debateRoomModel', () => {
     expect(model.participants).toEqual([
       {
         memberId: ANA,
-        name: strings.debates.agentOf({ agent: `${ANA} desk`, person: 'Ana' }),
+        name: strings.debates.mine.agentOf({ agent: `${ANA} desk` }),
         turnsLeft: strings.debates.turnsLeft({ count: 1 }),
         droppedOut: null,
       },
@@ -115,7 +115,7 @@ describe('debateRoomModel', () => {
         {
           position: 1,
           mine: true,
-          author: strings.debates.agentOf({ agent: 'Ana desk', person: 'Ana' }),
+          author: strings.debates.mine.agentOf({ agent: 'Ana desk' }),
           details: expect.objectContaining({ line: strings.authorship.agentYou }),
           time: timeShown(5, 10),
           body: 'We should.',
@@ -214,14 +214,20 @@ describe('debateRoomModel', () => {
             {
               step: 'Tag it',
               owner: strings.debates.owner({ person: 'Ben' }),
-              proposedBy: strings.debates.proposedBy({ person: 'Ana' }),
+              proposedBy: strings.debates.mine.proposedBy,
             },
             { step: 'Tell support', owner: null, proposedBy: strings.debates.proposedBy({ person: 'Ben' }) },
           ],
         },
         contributions: {
           rows: [
-            { name: 'Ben', summary: 'Checked the tests.', credits: [strings.debates.credit.gap_filled] },
+            {
+              name: 'Ben',
+              summary: 'Checked the tests.',
+              credits: [
+                { text: strings.debates.credit.gap_filled, hint: strings.debates.creditHint.gap_filled },
+              ],
+            },
           ],
         },
       },
@@ -229,7 +235,7 @@ describe('debateRoomModel', () => {
         title: strings.debates.voteRecordTitle,
         none: null,
         lines: [
-          { kind: 'voted', memberId: ANA, text: strings.debates.votedFor({ voter: 'Ana', author: 'Ben' }) },
+          { kind: 'voted', memberId: ANA, text: strings.debates.mine.votedFor({ author: 'Ben' }) },
           { kind: 'silent', memberId: BEN, text: strings.debates.didNotVote({ person: 'Ben' }) },
           {
             kind: 'dropped-out',

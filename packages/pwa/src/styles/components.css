@@ -4137,6 +4137,13 @@ textarea:disabled {
   margin: var(--hb-space-3) 0 var(--hb-space-1);
 }
 
+.channel-agent-page-link {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--hb-space-2);
+}
+
 .agent-desks,
 .review-cards {
   display: grid;

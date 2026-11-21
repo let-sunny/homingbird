@@ -80,12 +80,12 @@ describe('agentControlsModel', () => {
 
 describe('agentPanelModel', () => {
   it('waits, then offers making an agent when there is none, or says it could not be loaded', () => {
-    expect(agentPanelModel('loading', members)).toEqual({ kind: 'loading' })
-    expect(agentPanelModel('failed', members)).toEqual({
+    expect(agentPanelModel('loading', members, 'page')).toEqual({ kind: 'loading' })
+    expect(agentPanelModel('failed', members, 'page')).toEqual({
       kind: 'failed',
       text: strings.channelAgent.loadFailed,
     })
-    expect(agentPanelModel(null, members)).toMatchObject({
+    expect(agentPanelModel(null, members, 'dialog')).toMatchObject({
       kind: 'none',
       create: strings.channelAgent.create,
     })
@@ -118,10 +118,14 @@ describe('agentPanelModel', () => {
         ],
       },
       members,
+      'page',
     )
     expect(panel).toMatchObject({
       kind: 'agent',
       name: 'Payments wiki',
+      retireTitle: strings.channelAgent.retireTitle,
+      retire: 'Retire Payments wiki',
+      page: null,
       desksNone: null,
       desks: [
         {
@@ -141,8 +145,24 @@ describe('agentPanelModel', () => {
     const empty = agentPanelModel(
       { agent: member(AGENT, 'Payments wiki'), channel: 'payments-wiki', credentials: [] },
       members,
+      'page',
     )
     expect(empty).toMatchObject({ desksNone: strings.channelAgent.desksNone })
+  })
+
+  it('leads from the dialog to the agent’s page, where its answers and figures are', () => {
+    const panel = agentPanelModel(
+      { agent: member(AGENT, 'Payments wiki'), channel: 'payments-wiki', credentials: [] },
+      members,
+      'dialog',
+    )
+    expect(panel).toMatchObject({
+      page: {
+        href: '#/channel/payments-wiki/agent',
+        label: strings.channelAgent.openPage,
+        hint: strings.channelAgent.openPageHint,
+      },
+    })
   })
 })
 

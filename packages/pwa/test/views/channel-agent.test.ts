@@ -48,6 +48,16 @@ const opened = () => {
   return { context, called, page, dialog: document.getElementById('dialog')!, buttons }
 }
 
+const onPage = () => {
+  const { context, called, page } = testContext()
+  context.state.serverInfo.set(everything())
+  context.state.session.set(me())
+  context.state.channelsLoaded.set(true)
+  context.state.channels.set([wiki])
+  const shown = mount(channelAgentView(context, lifetime(), 'payments-wiki', null))
+  return { context, called, page, dialog: shown }
+}
+
 describe('agentButtons', () => {
   it('asks the agent privately from the room', () => {
     const { called, buttons } = opened()
@@ -113,6 +123,34 @@ describe('the agent panel', () => {
     expect(called('retireChannelAgent')[0]!.args).toEqual(['payments-wiki'])
   })
 
+  it('keeps the dialog to the agent’s setup, with rename secondary and a way to its page', () => {
+    const { context, called, dialog } = opened()
+    context.state.channelAgents.set(new Map([['payments-wiki', agentView()]]))
+    called('loadChannelAgent')[0]!.then!.done!(null)
+    context.state.reviews.set([review()])
+    expect(called('loadReviews')).toEqual([])
+    expect(called('loadChannelAgentFigures')).toEqual([])
+    expect(dialog.querySelector('.reviews, .channel-agent-figures')).toBeNull()
+    expect(getByRole(dialog, 'button', { name: strings.channelAgent.rename }).className).not.toContain(
+      'primary',
+    )
+    expect(dialog.querySelector('details.retire-agent-step summary')!.textContent).toBe(
+      strings.channelAgent.retireTitle,
+    )
+    const link = getByRole(dialog, 'link', { name: strings.channelAgent.openPage })
+    expect(link.getAttribute('href')).toBe('#/channel/payments-wiki/agent')
+    const host = document.getElementById('dialog') as HTMLDialogElement
+    host.showModal()
+    link.click()
+    expect(host.open).toBe(false)
+  })
+
+  it('makes a new agent with a primary button', () => {
+    const { called, dialog } = opened()
+    called('loadChannelAgent')[0]!.then!.done!(null)
+    expect(getByRole(dialog, 'button', { name: strings.channelAgent.create }).className).toContain('primary')
+  })
+
   it('lets a manager make a join code for the agent, which a new render keeps', () => {
     const { context, called, dialog } = opened()
     context.state.channelAgents.set(new Map([['payments-wiki', agentView()]]))
@@ -130,7 +168,7 @@ describe('the agent panel', () => {
   })
 
   it('sends or discards a waiting answer, and asks to read one again that the agent changed', () => {
-    const { context, called, dialog } = opened()
+    const { context, called, dialog } = onPage()
     context.state.reviews.set([review()])
     expect(textOf(dialog)).toContain('Where is the runbook?')
     expect(textOf(dialog)).toContain('wiki/refunds.md')
@@ -144,8 +182,8 @@ describe('the agent panel', () => {
     expect(called('confirmReviewRead')).toHaveLength(1)
   })
 
-  it('lists the answers waiting before the agent’s setup', () => {
-    const { context, called, dialog } = opened()
+  it('lists the answers waiting on the agent’s page before its setup', () => {
+    const { context, called, dialog } = onPage()
     called('loadChannelAgent')[0]!.then!.done!(undefined)
     context.state.channelAgents.set(new Map([['payments-wiki', agentView()]]))
     context.state.reviews.set([review()])
@@ -158,7 +196,7 @@ describe('the agent panel', () => {
   })
 
   it('says when nothing waits, and marks a private question', () => {
-    const { context, dialog } = opened()
+    const { context, dialog } = onPage()
     expect(textOf(dialog)).toContain(strings.channelAgent.reviewsNone)
     context.state.reviews.set([
       review({ privately: true, question: null, note: draft('note_x', { basis: null }) }),
@@ -189,7 +227,7 @@ describe('how the agent is doing', () => {
   }
 
   it('shows the figures and each manager’s count beside the panel, once loaded', () => {
-    const { called, dialog } = opened()
+    const { called, dialog } = onPage()
     expect(called('loadChannelAgentFigures')[0]!.args).toEqual(['payments-wiki'])
     expect(dialog.querySelector('.channel-agent-figures')).toBeNull()
     called('loadChannelAgentFigures')[0]!.then!.done!(report())
@@ -201,7 +239,7 @@ describe('how the agent is doing', () => {
   })
 
   it('reads the figures again when an answer is sent or discarded, so the counts stay current', () => {
-    const { context, called } = opened()
+    const { context, called } = onPage()
     expect(called('loadChannelAgentFigures')).toHaveLength(1)
     context.state.reviews.set([review()])
     context.state.reviews.set([])
@@ -212,7 +250,7 @@ describe('how the agent is doing', () => {
   })
 
   it('keeps the figures of the latest request when an earlier one answers late', () => {
-    const { context, called, dialog } = opened()
+    const { context, called, dialog } = onPage()
     context.state.reviews.set([review()])
     const [first, second] = called('loadChannelAgentFigures')
     second!.then!.done!(report())
@@ -222,7 +260,7 @@ describe('how the agent is doing', () => {
   })
 
   it('shows nothing to someone who does not manage the channel, and says when loading failed', () => {
-    const first = opened()
+    const first = onPage()
     first.called('loadChannelAgentFigures')[0]!.then!.done!(null)
     expect(first.dialog.querySelector('.channel-agent-figures')).toBeNull()
     expect(textOf(first.dialog)).not.toContain(strings.channelAgent.figuresLoadFailed)
@@ -231,7 +269,7 @@ describe('how the agent is doing', () => {
   })
 
   it('reports a waiting answer as seen once its card is on a visible page', () => {
-    const { context, called, page } = opened()
+    const { context, called, page } = onPage()
     context.state.reviews.set([review()])
     page.runFrames()
     context.state.reviews.set([review()])
