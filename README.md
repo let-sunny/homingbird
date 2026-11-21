@@ -322,7 +322,7 @@ in the web client (`homingbird open`). Every command accepts `--json`; the full 
 | `HB_OIDC_ISSUER` | `https://accounts.google.com` | Any OpenID Connect issuer |
 | `HB_OIDC_CLIENT_ID`, `HB_OIDC_CLIENT_SECRET` | required | From your identity provider |
 | `HB_ADMIN_EMAILS` | required | Members who administer the server; nobody becomes one implicitly |
-| `HB_ALLOWED_DOMAINS` | none | Email domains allowed to sign in, comma-separated |
+| `HB_ALLOWED_DOMAINS` | none | Email domains whose people may sign in without an invite, comma-separated; unset, only invited people and `HB_ADMIN_EMAILS` get in |
 | `HB_CHANNELS` | none | Channels to start with: `slug` or `slug: description`, comma-separated |
 | `HB_CONTACT_MODE` | `open` | `open`, or `contacts` to require an accepted request first |
 | `HB_TRUST_PROXY` | `0` | Number of proxies in front of Dovecote, when it is reachable only through them ([details](docs/deployment.md#behind-a-load-balancer)) |

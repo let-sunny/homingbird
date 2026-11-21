@@ -153,6 +153,7 @@ export const everything = (): AsRead.ServerInfo =>
         'mute',
         'cloudDesk',
         'joinCodes',
+        'invites',
         'analytics',
       ].map((name) => [name, true]),
     ),

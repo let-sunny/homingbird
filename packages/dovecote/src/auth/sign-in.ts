@@ -3,11 +3,12 @@ import { Task as T, tagged } from '@homingbird/kernel'
 import { isPerson } from '@homingbird/protocol'
 import { recordAudit } from '../domain/audit.ts'
 import { BROWSER_SIGN_IN_CLIENT, issueCredential } from '../domain/credentials.ts'
-import { signInMember } from '../domain/members.ts'
-import { isAllowedEmail, readSettings } from '../domain/settings.ts'
+import { isKnownSubject, signInMember } from '../domain/members.ts'
+import { featureIsOn, isAllowedEmail, readSettings } from '../domain/settings.ts'
 import type { AppEnv } from '../environment.ts'
 import { type RequestEnv, announceDirectoryChange } from '../events/events.ts'
 import type { VerifiedIdentity } from './identity-provider.ts'
+import { INVITE_REFUSED_MESSAGE, recordInviteRedeemed, redeemInvite } from './invites.ts'
 import { advanceAuthRequest, authRequestById, openAuthRequest } from './requests.ts'
 
 export const SignInRefused = tagged('SignInRefused')<{
@@ -21,6 +22,7 @@ export type SignInFailure =
   | 'identity_provider'
   | 'unverified_email'
   | 'domain_refused'
+  | 'invite_refused'
   | 'personal_account'
   | 'deactivated'
   | 'not_a_person'
@@ -32,14 +34,23 @@ export interface Session {
   readonly returnTo: string
 }
 
-export const beginSignIn = (returnTo: string | undefined): T.Task<string, SignInRefused, AppEnv> =>
+/** Starts a sign-in at the identity provider; `inviteId` names the invite link it was opened from. */
+export const beginSignIn = (
+  returnTo: string | undefined,
+  inviteId?: string,
+): T.Task<string, SignInRefused, AppEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
     const codeVerifier = env.random.secret()
     const request = yield* openAuthRequest<SignInDetail>({
       kind: 'sign_in',
       lifetimeMs: SIGN_IN_LIFETIME_MS,
-      detail: { nonce: env.random.secret(), codeVerifier, returnTo: localPath(returnTo) },
+      detail: {
+        nonce: env.random.secret(),
+        codeVerifier,
+        returnTo: localPath(returnTo),
+        ...(inviteId !== undefined && { inviteId }),
+      },
     })
     return yield* T.mapError(refuse)(
       env.identityProvider.authorizationUrl({
@@ -73,7 +84,7 @@ export const completeSignIn = (
         redirectUri: callbackUrl(env.config.publicUrl),
       }),
     )
-    yield* requireAllowed(identity)
+    const invited = yield* requireAdmitted(identity, request.detail.inviteId)
     const member = yield* signInMember(identity)
     if (!isPerson(member))
       return yield* T.fail(SignInRefused({ message: 'This account cannot sign in.', reason: 'not_a_person' }))
@@ -102,6 +113,7 @@ export const completeSignIn = (
       targetId: issued.credentialId,
       detail: { kind: 'human', grant: 'browser', clientKind: 'browser' },
     })
+    if (invited !== null) yield* recordInviteRedeemed(invited, member)
     yield* recordAudit('authn.signed_in', { caller, targetId: member.id, detail: {} })
     return { token: issued.token, expiresAt: issued.tokenExpiresAt, returnTo: request.detail.returnTo }
   })
@@ -119,6 +131,7 @@ interface SignInDetail {
   readonly nonce: string
   readonly codeVerifier: string
   readonly returnTo: string
+  readonly inviteId?: string
 }
 
 const SIGN_IN_LIFETIME_MS = 10 * 60_000
@@ -142,11 +155,17 @@ const PLATFORMS: ReadonlyArray<readonly [RegExp, string]> = [
 const refuse = (error: { readonly message: string }): SignInRefused =>
   SignInRefused({ message: error.message, reason: 'identity_provider' })
 
-const requireAllowed = (identity: VerifiedIdentity): T.Task<void, SignInRefused, AppEnv> =>
+/**
+ * Lets a verified email in and says which invite it spent, if any. A member the provider already knows
+ * by subject comes back whatever their domain; deactivation is checked once the member is read. Anyone
+ * else needs an allowed domain or a place in `HB_ADMIN_EMAILS`, and failing those a valid invite, which
+ * is spent only then.
+ */
+const requireAdmitted = (
+  identity: VerifiedIdentity,
+  inviteId: string | undefined,
+): T.Task<string | null, SignInRefused, RequestEnv> =>
   T.gen(function* () {
-    const env = yield* T.ask<AppEnv>()
-    const settings = yield* readSettings
-    const domain = identity.email.toLowerCase().split('@').at(-1) ?? ''
     if (!identity.emailVerified)
       return yield* T.fail(
         SignInRefused({
@@ -154,15 +173,35 @@ const requireAllowed = (identity: VerifiedIdentity): T.Task<void, SignInRefused,
           reason: 'unverified_email',
         }),
       )
+    if (yield* isKnownSubject(identity.subject)) return null
+    const allowed = yield* T.result(requireAllowed(identity))
+    if (allowed._tag === 'Ok') return null
+    if (inviteId === undefined) return yield* T.fail(allowed.error)
+    if ((yield* featureIsOn('invites')) && (yield* redeemInvite(inviteId, identity.email))) return inviteId
+    return yield* T.fail(SignInRefused({ message: INVITE_REFUSED_MESSAGE, reason: 'invite_refused' }))
+  })
+
+/**
+ * An address in an allowed domain must come from that organization's account where the provider can
+ * tell: a personal Google account can carry a company address.
+ */
+const requireAllowed = (identity: VerifiedIdentity): T.Task<void, SignInRefused, AppEnv> =>
+  T.gen(function* () {
+    const env = yield* T.ask<AppEnv>()
+    const settings = yield* readSettings
+    const email = identity.email.toLowerCase()
+    const domain = email.split('@').at(-1) ?? ''
+    const inAllowedDomain = isAllowedEmail(settings, email)
+    const isNamedAdministrator = env.config.adminEmails.includes(email)
     const acceptsAnyone = env.config.identity.devLogin && settings.allowedDomains.length === 0
-    if (!acceptsAnyone && !isAllowedEmail(settings, identity.email))
+    if (!acceptsAnyone && !inAllowedDomain && !isNamedAdministrator)
       return yield* T.fail(
         SignInRefused({
           message: `Accounts from ${domain || 'this domain'} are not allowed here.`,
           reason: 'domain_refused',
         }),
       )
-    if (env.identityProvider.requiresHostedDomain && identity.hostedDomain !== domain)
+    if (inAllowedDomain && env.identityProvider.requiresHostedDomain && identity.hostedDomain !== domain)
       return yield* T.fail(
         SignInRefused({
           message: 'Sign in with your organization account, not a personal one.',

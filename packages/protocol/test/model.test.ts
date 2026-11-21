@@ -55,6 +55,7 @@ describe('wire model', () => {
         'ChannelMember',
         'ChannelSlug',
         'ChannelVisibility',
+        'WhoCanInvite',
       ].sort(),
     )
   })

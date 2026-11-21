@@ -8,10 +8,12 @@ import {
   deactivationModel,
 } from '../models/admin.ts'
 import { memberAvatarOf } from '../models/avatar.ts'
+import { showsInvites } from '../models/invites.ts'
 import { strings } from '../strings.ts'
 import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
 import { closeDialog, showDialog } from './dialog.ts'
+import { invitesSection } from './invites.ts'
 import { button, dialogActions, loading, youMark } from './parts.ts'
 
 /** Administration → Members: every member, and their role and status to change. */
@@ -21,12 +23,17 @@ export const adminMembersSection = (context: ViewContext, life: Lifetime, me: As
   reload()
   context.actions.loadGroups()
   const charactersOn = (): boolean => featureOn('characters', context.state.serverInfo.get())
-  return region(life, [members], () =>
-    renderAdminMembers(
-      adminMembersModel(members.get(), me.member.id, charactersOn()),
-      context,
-      reload,
-      charactersOn(),
+  return h(
+    'div',
+    { class: 'admin-members' },
+    showsInvites('admin', me, context.state.serverInfo.get()) && invitesSection(context, life),
+    region(life, [members], () =>
+      renderAdminMembers(
+        adminMembersModel(members.get(), me.member.id, charactersOn()),
+        context,
+        reload,
+        charactersOn(),
+      ),
     ),
   )
 }

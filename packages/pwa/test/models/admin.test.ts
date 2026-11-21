@@ -9,6 +9,7 @@ import {
   domainsFrom,
   featureRows,
   flowToolsModel,
+  whoCanInviteChoices,
 } from '../../src/models/admin.ts'
 import { strings } from '../../src/strings.ts'
 import {
@@ -72,6 +73,22 @@ describe('deactivationModel', () => {
 describe('domainsFrom', () => {
   it('takes one domain per line or comma, in lower case', () => {
     expect(domainsFrom(' Example.com,\nacme.io  , \n')).toEqual(['example.com', 'acme.io'])
+  })
+})
+
+describe('whoCanInviteChoices', () => {
+  it.each([
+    [undefined, 'admins'],
+    ['admins', 'admins'],
+    ['members', 'members'],
+    ['unknown', 'admins'],
+  ] as const)('selects %s as %s', (saved, selected) => {
+    const choices = whoCanInviteChoices(saved)
+    expect(choices.map((choice) => [choice.value, choice.label])).toEqual([
+      ['admins', strings.whoCanInviteAdmins],
+      ['members', strings.whoCanInviteMembers],
+    ])
+    expect(choices.find((choice) => choice.selected)?.value).toBe(selected)
   })
 })
 

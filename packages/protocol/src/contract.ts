@@ -36,6 +36,7 @@ import { StreamEvent } from './events.ts'
 import { GROUP_MEMBERS_MAX, Group, GroupName } from './groups.ts'
 import { ConversationId, CredentialId, DraftRequestId, GroupId, MemberId, NoteId, Timestamp } from './ids.ts'
 import { AgentReport, ChannelAgentReport, OrganizationInsights, PlaceName } from './insights.ts'
+import { Invite, InviteEmail, InviteLink } from './invites.ts'
 import {
   AgentLabel,
   AnsweringFlowSetting,
@@ -719,6 +720,23 @@ export const contract = {
     }),
     response: JoinCode,
   }),
+  'invites.list': route({
+    method: 'GET',
+    path: '/invites',
+    access: 'human',
+    response: S.struct({ invites: S.array(Invite) }),
+  }),
+  'invites.create': route({
+    method: 'POST',
+    path: '/invites',
+    access: 'human',
+    body: S.struct({
+      /** Admits only this address; without it, whoever opens the link first. */
+      email: S.optional(InviteEmail),
+    }),
+    response: InviteLink,
+  }),
+  'invites.revoke': route({ method: 'DELETE', path: '/invites/:id', access: 'human', response: Empty }),
   'consent.get': route({ method: 'GET', path: '/consent/:id', access: 'human', response: ConsentRequest }),
   'consent.decide': route({
     method: 'POST',

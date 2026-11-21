@@ -23,6 +23,7 @@ describe('settingsSection', () => {
       'Example.com, acme.io',
     )
     fire.select(getByRole(shown, 'combobox', { name: strings.contactMode }), 'contacts')
+    fire.select(getByRole(shown, 'combobox', { name: strings.whoCanInvite }), 'members')
     getByRole(shown, 'switch', { name: strings.features.names.teaching }).click()
     getByRole(shown, 'button', { name: strings.answeringFlow.insertExample }).click()
     expect(
@@ -35,6 +36,7 @@ describe('settingsSection', () => {
       allowedDomains: ['example.com', 'acme.io'],
       contactMode: 'contacts',
       features: { teaching: false },
+      whoCanInvite: 'members',
     })
     expect(typeof (save!.args[0] as { answeringFlow: unknown }).answeringFlow).toBe('string')
     save!.then!.done!(undefined)
@@ -55,6 +57,8 @@ describe('settingsSection', () => {
     fire.select(getByRole(shown, 'combobox', { name: strings.contactMode }), 'open')
     fire.submit(shown.querySelector('form')!)
     expect(called('saveSettings')[0]!.args[0]).not.toHaveProperty('answeringFlow')
+    expect(called('saveSettings')[0]!.args[0]).not.toHaveProperty('whoCanInvite')
+    expect(queryByRole(shown, 'combobox', { name: strings.whoCanInvite })).toBeNull()
   })
 
   it('edits the answering flow as two lists of steps', () => {

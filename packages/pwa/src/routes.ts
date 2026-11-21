@@ -19,6 +19,8 @@ export type Route =
   | { readonly name: 'consent'; readonly id: string }
   | { readonly name: 'admin'; readonly section: AdminSection }
   | { readonly name: 'signed-out'; readonly reason: string | null }
+  | { readonly name: 'invite'; readonly code: string }
+  | { readonly name: 'invite-refused' }
   | { readonly name: 'unknown' }
 
 export type AgentSection = 'connection' | 'teaching' | 'doing' | 'routes'
@@ -57,6 +59,8 @@ export const parseRoute = (hash: string): Route => {
   if (head === 'consent' && second !== undefined) return { name: 'consent', id: second }
   if (head === 'admin') return { name: 'admin', section: isAdminSection(second) ? second : 'settings' }
   if (head === 'signed-out') return { name: 'signed-out', reason: parameters.get('reason') }
+  if (head === 'invite' && second !== undefined) return { name: 'invite', code: second }
+  if (head === 'invite-refused') return { name: 'invite-refused' }
   return { name: 'unknown' }
 }
 
@@ -109,6 +113,10 @@ export const hrefFor = (route: Route): string => {
       return route.reason === null
         ? '#/signed-out'
         : `#/signed-out?${new URLSearchParams({ reason: route.reason }).toString()}`
+    case 'invite':
+      return `#/invite/${encodeURIComponent(route.code)}`
+    case 'invite-refused':
+      return '#/invite-refused'
   }
 }
 

@@ -277,6 +277,10 @@ export type ContactState = S.Infer<typeof ContactState>
 export const Contact = S.struct({ memberId: MemberId, state: ContactState, since: Timestamp })
 export type Contact = S.Infer<typeof Contact>
 
+/** Who may make an invite link: administrators only, or every active member. Unknown reads as admins. */
+export const WhoCanInvite = S.tolerant(S.literal('admins', 'members'), UNKNOWN)
+export type WhoCanInvite = S.Infer<typeof WhoCanInvite>
+
 export const Settings = S.struct({
   allowedDomains: S.array(S.string({ minLength: 1, maxLength: 253, pattern: /^[a-z0-9.-]+$/ }), {
     maxItems: 100,
@@ -285,6 +289,7 @@ export const Settings = S.struct({
   auditRetentionDays: S.optional(S.nullable(S.int({ min: 1, max: 36_500 }))),
   answeringFlow: S.optional(S.nullable(S.string({ maxLength: ANSWERING_FLOW_MAX_CHARACTERS }))),
   features: S.optional(S.record(S.boolean)),
+  whoCanInvite: S.optional(WhoCanInvite),
 })
 export type Settings = S.Infer<typeof Settings>
 

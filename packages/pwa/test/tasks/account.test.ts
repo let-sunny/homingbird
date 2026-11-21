@@ -6,6 +6,8 @@ import { ANA, credential, me, member } from '../support/fixtures.ts'
 
 afterEach(() => useLanguage('en'))
 
+const INVITE = { id: 'inv_1', email: null, createdBy: ANA, createdAt: 0, expiresAt: 1 }
+
 const answers = {
   'me.update': () => member(ANA, 'Ana B'),
   'me.character.set': () => member(ANA, 'Ana', { character: { id: 'owl' } as never }),
@@ -16,9 +18,26 @@ const answers = {
   'device.get': () => ({ userCode: 'ABCD', client: 'Desk' }),
   'consent.get': () => ({ id: 'c1' }),
   'consent.decide': () => ({ redirectTo: 'https://desk.example.com' }),
+  'invites.list': () => ({ invites: [INVITE] }),
+  'invites.create': () => ({ invite: INVITE, url: 'https://hb.example.com/#/invite/hbi_x' }),
+  'invites.revoke': () => ({}),
 }
 
 describe('account tasks', () => {
+  it('lists, makes and revokes invite links', async () => {
+    const { run, sent } = testApp(answers)
+    expect(await run(tasks.listInvites)).toEqual({ _tag: 'Ok', value: [INVITE] })
+    expect(await run(tasks.createInvite('friend@gmail.com'))).toMatchObject({ _tag: 'Ok' })
+    await run(tasks.createInvite(null))
+    await run(tasks.revokeInvite('inv_1'))
+    expect(sent.filter((call) => call.route.startsWith('invites.'))).toEqual([
+      { route: 'invites.list', request: {} },
+      { route: 'invites.create', request: { body: { email: 'friend@gmail.com' } } },
+      { route: 'invites.create', request: { body: {} } },
+      { route: 'invites.revoke', request: { params: { id: 'inv_1' } } },
+    ])
+  })
+
   it('updates the profile and the character of the person signed in', async () => {
     const { run, state } = testApp(answers)
     await run(tasks.updateProfile('Ana B', ''))

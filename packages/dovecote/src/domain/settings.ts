@@ -25,6 +25,7 @@ export const readSettings: T.Task<Settings, never, AppEnv> = T.gen(function* () 
     ...withoutFlow(organization),
     answeringFlow: flow,
     features: featureSwitches(organization.features ?? env.config.initial.features),
+    whoCanInvite: organization.whoCanInvite === 'members' ? 'members' : 'admins',
   }
 })
 
@@ -48,6 +49,7 @@ export const writeSettings = (settings: Settings): T.Task<Settings, Invalid, App
     const { auditRetentionDays: _, ...kept } = withoutFlow(settings)
     yield* store(SETTINGS_ROW, {
       ...kept,
+      whoCanInvite: settings.whoCanInvite ?? current.whoCanInvite,
       features: featureSwitches({ ...current.features, ...settings.features }),
       ...(savedRetention !== null && {
         auditRetentionDays: savedRetention === 'forever' ? null : savedRetention,

@@ -3,7 +3,7 @@ import { type Lifetime, type Signal, h, region, signal } from '@homingbird/ui'
 import { flowToSave, moveStep, stepsFrom } from '../answering-flow.ts'
 import { contactModeChoices, contactModeToSave } from '../contact-mode.ts'
 import { featureOn } from '../features.ts'
-import { domainsFrom, featureRows, flowToolsModel } from '../models/admin.ts'
+import { domainsFrom, featureRows, flowToolsModel, whoCanInviteChoices } from '../models/admin.ts'
 import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
 import { field, loading } from './parts.ts'
@@ -22,6 +22,14 @@ export const settingsSection = (context: ViewContext, life: Lifetime): HTMLEleme
 const settingsForm = (context: ViewContext, life: Lifetime, settings: AsRead.Settings): HTMLElement => {
   const { state, actions } = context
   const flowOn = featureOn('answeringFlow', state.serverInfo.get())
+  const invitesOn = featureOn('invites', state.serverInfo.get())
+  const inviters = h(
+    'select',
+    { name: 'whoCanInvite' },
+    whoCanInviteChoices(settings.whoCanInvite).map((choice) =>
+      h('option', { value: choice.value, selected: choice.selected }, choice.label),
+    ),
+  )
   const problem = signal<string | null>(null)
   const domains = h('textarea', { name: 'domains', rows: '4' })
   domains.value = settings.allowedDomains.join('\n')
@@ -55,6 +63,7 @@ const settingsForm = (context: ViewContext, life: Lifetime, settings: AsRead.Set
               allowedDomains: domainsFrom(domains.value),
               contactMode,
               ...(flowOn && { answeringFlow: flow.value() }),
+              ...(invitesOn && { whoCanInvite: inviters.value === 'members' ? 'members' : 'admins' }),
               features: features.value(),
             },
             {
@@ -66,6 +75,7 @@ const settingsForm = (context: ViewContext, life: Lifetime, settings: AsRead.Set
       },
     },
     field(strings.allowedDomains, domains, strings.allowedDomainsHint),
+    invitesOn && field(strings.whoCanInvite, inviters),
     field(strings.contactMode, mode),
     flowOn && flow.section,
     features.section,

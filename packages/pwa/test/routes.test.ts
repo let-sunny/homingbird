@@ -39,6 +39,8 @@ const routes: fc.Arbitrary<Route> = fc.oneof(
   fc
     .option(fc.string({ maxLength: 60 }), { nil: null })
     .map((reason): Route => ({ name: 'signed-out', reason })),
+  segment.map((code): Route => ({ name: 'invite', code })),
+  fc.constant<Route>({ name: 'invite-refused' }),
 )
 
 describe('routes', () => {
@@ -57,6 +59,9 @@ describe('routes', () => {
     ['#/c/conv_1', { name: 'conversation', id: 'conv_1', draft: null }],
     ['#/c/conv_1?draft=note_1', { name: 'conversation', id: 'conv_1', draft: 'note_1' }],
     ['#/device', { name: 'device', code: null }],
+    ['#/invite/hbi_abc', { name: 'invite', code: 'hbi_abc' }],
+    ['#/invite', { name: 'unknown' }],
+    ['#/invite-refused', { name: 'invite-refused' }],
     ['#/device/BCDF-GHJK', { name: 'device', code: 'BCDF-GHJK' }],
     ['#/admin', { name: 'admin', section: 'settings' }],
     ['#/admin/nonsense', { name: 'admin', section: 'settings' }],

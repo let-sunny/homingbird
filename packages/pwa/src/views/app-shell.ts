@@ -46,7 +46,8 @@ export const showApp = (
       return
     }
     if (me === null) {
-      replaceChildren(root, signInView(context, refusalIn(state.route.get())))
+      replaceChildren(root, signInView(context, refusalIn(state.route.get()), inviteIn(state.route.get())))
+      appLife.add(state.route.subscribe(draw))
       return
     }
     const focused = arrivedToConnect(state.route.get())
@@ -79,7 +80,12 @@ const replaceOldAddress = (context: ViewContext): boolean => {
   return true
 }
 
-const refusalIn = (current: Route): string | null => (current.name === 'signed-out' ? current.reason : null)
+const refusalIn = (current: Route): string | null => {
+  if (current.name === 'invite-refused') return strings.invites.refused
+  return current.name === 'signed-out' ? current.reason : null
+}
+
+const inviteIn = (current: Route): string | null => (current.name === 'invite' ? current.code : null)
 
 const toast = (context: ViewContext, life: Lifetime): HTMLElement => {
   const { notice } = context.state

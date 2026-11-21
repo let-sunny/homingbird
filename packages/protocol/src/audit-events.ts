@@ -11,6 +11,7 @@ import {
   MemberStatus,
   NOTIFICATION_LEVELS,
   Role,
+  WhoCanInvite,
 } from './model.ts'
 import { PrincipleKind } from './principles.ts'
 
@@ -47,11 +48,15 @@ export const AUDIT_EVENTS = {
     role: S.optional(change(Role)),
     status: S.optional(change(MemberStatus)),
   }),
+  'member.invite_created': event('security', 'auth_request', { boundToEmail: S.boolean }),
+  'member.invite_redeemed': event('security', 'auth_request', { memberId: MemberId }),
+  'member.invite_revoked': event('security', 'auth_request', {}),
   'organization.settings_changed': event('security', 'organization', {
     changed: S.array(S.literal(...settingKeys()), { maxItems: 10 }),
     contactMode: S.optional(change(ContactMode)),
     allowedDomains: S.optional(change(S.array(S.string({ maxLength: 253 }), { maxItems: 100 }))),
     features: S.optional(change(S.record(S.boolean))),
+    whoCanInvite: S.optional(change(WhoCanInvite)),
   }),
   'audit.legacy_purged': event('security', 'none', {
     removed: S.int({ min: 0 }),
@@ -234,5 +239,5 @@ function hostList() {
 }
 
 function settingKeys() {
-  return ['allowedDomains', 'contactMode', 'answeringFlow', 'features'] as const
+  return ['allowedDomains', 'contactMode', 'answeringFlow', 'features', 'whoCanInvite'] as const
 }

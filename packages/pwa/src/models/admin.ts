@@ -43,6 +43,18 @@ export const domainsFrom = (typed: string): string[] =>
     .map((domain) => domain.trim().toLowerCase())
     .filter((domain) => domain !== '')
 
+/** The choices for who makes invite links, the saved one selected; unknown reads as administrators. */
+export const whoCanInviteChoices = (
+  saved: AsRead.Settings['whoCanInvite'],
+): ReadonlyArray<{
+  readonly value: 'admins' | 'members'
+  readonly label: string
+  readonly selected: boolean
+}> => [
+  { value: 'admins', label: strings.whoCanInviteAdmins, selected: saved !== 'members' },
+  { value: 'members', label: strings.whoCanInviteMembers, selected: saved === 'members' },
+]
+
 /** One row per optional feature, with its switch and what people lose without it. */
 export const featureRows = (switches: Readonly<Record<FeatureName, boolean>>): ReadonlyArray<FeatureRow> =>
   FEATURE_NAMES.map((name) => ({

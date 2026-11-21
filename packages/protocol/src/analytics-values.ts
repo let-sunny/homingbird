@@ -18,6 +18,8 @@ export const ANALYTICS_PAGES = [
   'consent',
   'admin',
   'signed-out',
+  'invite',
+  'invite-refused',
   'unknown',
 ] as const
 
