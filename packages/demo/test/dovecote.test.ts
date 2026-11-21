@@ -47,6 +47,9 @@ describe('fakeDovecote', () => {
     const info = await succeeded(api['server.info']({}))
     expect(isFeatureOffered(info, 'channelAgents')).toBe(true)
     expect(isFeatureOffered(info, 'cloudDesk')).toBe(false)
+    for (const shown of ['invites', 'joinCodes', 'deskAvailability'] as const)
+      expect(isFeatureOffered(info, shown)).toBe(true)
+    expect((await succeeded(api['me.get']({}))).canInvite).toBe(true)
     expect(await refused(api['me.deskWake.get']({}))).toEqual({
       _tag: 'NotFound',
       message: FEATURE_OFF_MESSAGE,
@@ -59,7 +62,6 @@ describe('fakeDovecote', () => {
     const kai = demoApi(memberNamed(world, 'Kai Lin'), world)
     expect(await refused(kai.api['admin.insights']({}))).toMatchObject({ _tag: 'Forbidden' })
     expect(await refused(api['admin.insights']({}))).toBeNull()
-    expect(await refused(api['channels.askPrivately']({ params: { slug: 'billing' } }))).toEqual(DEMO_REFUSAL)
     expect(await refused(api['blocks.add']({ params: { memberId: 'mem_demoana00000' } }))).toEqual(
       DEMO_REFUSAL,
     )

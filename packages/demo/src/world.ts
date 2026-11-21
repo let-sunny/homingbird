@@ -1,4 +1,4 @@
-import type { Clock } from '@homingbird/kernel'
+import { type Clock, Task as T } from '@homingbird/kernel'
 import type {
   ChannelVisibility,
   ConversationId,
@@ -8,6 +8,7 @@ import type {
   EventBody,
   GroupId,
   GroupKind,
+  Invite,
   Member,
   MemberId,
   Note,
@@ -19,7 +20,11 @@ import type {
 import { demoTeam } from './team.ts'
 
 /** The demo's Dovecote state and live events, in memory only: a new world is a fresh demo. */
-export const createWorld = (clock: Clock, seed: Records = demoTeam(clock.now())): World => {
+export const createWorld = (
+  clock: Clock,
+  seed: Records = demoTeam(clock.now()),
+  publicUrl: string = DEMO_URL,
+): World => {
   let records = seed
   let lastSeq = 0
   let lastId = 0
@@ -28,6 +33,7 @@ export const createWorld = (clock: Clock, seed: Records = demoTeam(clock.now()))
   return {
     clock,
     startedAt: clock.now(),
+    publicUrl,
     records: () => records,
     update: (change) => {
       records = change(records)
@@ -50,6 +56,7 @@ export const createWorld = (clock: Clock, seed: Records = demoTeam(clock.now()))
       return () => void set.delete(listener)
     },
     nextId: (prefix) => `${prefix}_demonew${String(++lastId).padStart(5, '0')}`,
+    after: (ms, act) => void T.runFork(T.map(act)(T.sleep(ms)), { clock }),
   }
 }
 
@@ -57,6 +64,8 @@ export interface World {
   readonly clock: Clock
   /** When this demo started; figures count the decisions made since on top of the seeded weeks. */
   readonly startedAt: number
+  /** Where the demo page is, without a trailing slash: the server address its links and codes name. */
+  readonly publicUrl: string
   readonly records: () => Records
   readonly update: (change: (records: Records) => Records) => void
   /** Delivers an event to these members' streams, and keeps it for a stream that reconnects. */
@@ -65,6 +74,8 @@ export interface World {
   readonly listen: (memberId: MemberId, listener: (event: StreamEvent) => void) => () => void
   /** A new identifier with the prefix its schema asks for, unique in this world. */
   readonly nextId: (prefix: string) => string
+  /** Does `act` once, `ms` from now on the world's clock: what the demo's colleagues do while the visitor waits. */
+  readonly after: (ms: number, act: () => void) => void
 }
 
 /** Everything the demo's Dovecote keeps in memory; a reload of the page starts from the seed again. */
@@ -79,6 +90,8 @@ export interface Records {
   readonly debates: ReadonlyArray<Debate>
   /** What happened to a person's notes that they alone see, as a server keeps it across reloads. */
   readonly notices: ReadonlyArray<NoticeRecord>
+  /** Invite links still waiting; nobody can redeem one in a demo that lives in a single page. */
+  readonly invites: ReadonlyArray<Invite>
 }
 
 export interface NoticeRecord {
@@ -102,6 +115,8 @@ export interface ConversationRecord {
   readonly mutedBy: ReadonlyArray<MemberId>
   /** Who started a group message: it is listed for them before any note in it is sent, as on a server. */
   readonly startedBy?: MemberId
+  /** A question asked privately of this channel's agent: its asker, the agent and the managers take part. */
+  readonly privateQuestionOf?: { readonly slug: string; readonly askedBy: MemberId }
 }
 
 export interface ChannelRecord {
@@ -130,3 +145,6 @@ export interface CredentialRecord {
   readonly memberId: MemberId
   readonly issuedBy: MemberId | null
 }
+
+/** The server address of a world made outside a page, as in tests. */
+const DEMO_URL = 'https://demo.homingbird.invalid'

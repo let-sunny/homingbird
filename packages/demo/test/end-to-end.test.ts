@@ -56,7 +56,7 @@ const startDemo = async (hash = '#/') => {
     browser.emit('hashchange')
     await settle()
   }
-  return { root, world, app, settle, open }
+  return { root, world, app, settle, open, browser }
 }
 
 describe('the demo', () => {
@@ -70,7 +70,7 @@ describe('the demo', () => {
     await open(`#/c/${room}`)
     const draft = root.querySelector('.pending .draft')
     expect(draft?.textContent).toContain('Yes. I checked the lock ordering')
-    expect(app.state.reviews.get()).toHaveLength(1)
+    expect(app.state.reviews.get()).toHaveLength(2)
   })
 
   it('sends the draft on a click, and the note arrives in the conversation', async () => {
@@ -88,10 +88,14 @@ describe('the demo', () => {
   it('lets a manager send the channel’s agent’s answer from the review page, and records who approved it', async () => {
     const { root, settle, world, app, open } = await startDemo()
     await open('#/channel/billing/agent')
-    expect(root.textContent).toContain('Annual plans are refunded pro rata')
-    fire.click(getByRole(root.querySelector('main') as HTMLElement, 'button', { name: 'Send' }))
+    const card = [...root.querySelectorAll('.review-card')].find((each) =>
+      each.textContent?.includes('Annual plans are refunded pro rata'),
+    ) as HTMLElement
+    fire.click(getByRole(card, 'button', { name: 'Send' }))
     await settle()
-    expect(app.state.reviews.get()).toEqual([])
+    expect(app.state.reviews.get().map((review) => review.note.body)).not.toContain(
+      noteStarting(world, 'Annual plans are refunded').body,
+    )
     expect(noteStarting(world, 'Annual plans are refunded')).toMatchObject({
       status: 'sent',
       approvedBy: VISITOR_ID,
@@ -138,6 +142,60 @@ describe('sending a note in the demo', () => {
     expect(after.text.value).toBe('Half a thou')
     expect(keptParts(before, after)).toEqual({ ...allKept(before), notes: before.notes.length - 1 })
     expect(after.notes).not.toContain(before.notes.at(-1))
+  })
+})
+
+describe('what the demo does beyond notes', () => {
+  it('lists the invite June made in Administration, and makes a new link to copy', async () => {
+    const { root, open, settle, world } = await startDemo()
+    await open('#/admin/members')
+    const main = root.querySelector('main') as HTMLElement
+    expect(main.textContent).toContain('lena@example.com')
+    fire.click(getByRole(main, 'button', { name: 'Make an invite link' }))
+    await settle()
+    expect(world.records().invites).toHaveLength(2)
+    expect(main.textContent).toContain('https://demo.homingbird.invalid/#/invite/hbi_')
+  })
+
+  it('shows the one line that runs June’s agent on a server', async () => {
+    const { root, open, settle } = await startDemo()
+    await open('#/agent/connection')
+    const main = root.querySelector('main') as HTMLElement
+    fire.click(getByRole(main, 'button', { name: 'Run on a server' }))
+    await settle()
+    expect(main.textContent).toContain(
+      'homingbird setup --server https://demo.homingbird.invalid --join hbj_',
+    )
+  })
+
+  it('opens June’s private question to #billing’s agent and goes there', async () => {
+    const { root, open, settle, world, browser } = await startDemo()
+    await open('#/channel/billing')
+    fire.click(root.querySelector('main button.ask-privately') as HTMLElement)
+    await settle()
+    const asked = world.records().conversations.find((room) => room.privateQuestionOf?.askedBy === VISITOR_ID)
+    expect(asked).toBeDefined()
+    expect(browser.state.hash).toBe(`#/c/${asked!.id}`)
+  })
+
+  it('puts a closed debate’s result into June’s draft for Ana, shown in their conversation and among what waits', async () => {
+    const { root, open, settle, world } = await startDemo()
+    await open('#/debate/deb_demodebate02')
+    const form = root.querySelector('form.debate-post-form') as HTMLFormElement
+    const person = form.querySelector('select[name=person]') as HTMLSelectElement
+    person.value = memberNamed(world, 'Ana Silva')
+    fire.submit(form)
+    await settle()
+    const draft = world
+      .records()
+      .notes.find(
+        (note) => note.status === 'draft' && note.body.includes('A refund for an annual plan covers'),
+      )
+    expect(draft?.conversationId).toBe(noteStarting(world, 'Yes. I checked').conversationId)
+    await open(`#/c/${draft!.conversationId}`)
+    expect([...root.querySelectorAll('.pending .draft')].map((each) => each.textContent).join(' ')).toContain(
+      'A refund for an annual plan covers',
+    )
   })
 })
 

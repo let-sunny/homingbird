@@ -9,7 +9,7 @@ describe('handlersOf', () => {
     const handlers = handlersOf(createWorld(makeTestClock(NOW)))
     for (const name of ['drafts.send', 'reviews.list', 'me.get'] as const)
       expect(handlers[name]).toBeTypeOf('function')
-    expect(handlers['channels.askPrivately']).toBeUndefined()
+    expect(handlers['debates.create']).toBeUndefined()
     expect(DEMO_REFUSAL).toMatchObject({
       _tag: 'Forbidden',
       message: expect.stringMatching(/^The demo does not/),

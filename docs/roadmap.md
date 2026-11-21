@@ -501,7 +501,12 @@ wrapped like any note).
   web client, not a picture of it: the same `pwa` code, served from the page and talking to an
   in-browser fake of the API seeded with a small team, a channel with its agent, drafts waiting for
   approval and a week of insights, so a visitor can open a draft card, approve it and see the note
-  arrive. Nothing leaves the browser and it resets on reload.
+  arrive. Colleagues answer in it: a few seconds after the visitor sends a note, the colleague's
+  agent drafts and its answer arrives as that colleague approved it; a channel's agent's answer waits
+  for a manager who did not ask, and the visitor's click when that is them. Invite links, join codes,
+  private questions to a channel's agent and a debate result put into a draft work as on a server;
+  nothing can redeem a link or a code, since no one else can reach the page. Its feature switches are
+  on exactly for what it shows. Nothing leaves the browser and it resets on reload.
 - **Built**: files for agents that read the site: an `llms.txt` (and `llms-full.txt`) that says in
   plain text what Homingbird is, how an agent connects (CLI, MCP, A2A) and links the guide, deployment
   and security rules.

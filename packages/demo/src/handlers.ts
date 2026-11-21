@@ -13,6 +13,7 @@ import { accountHandlers } from './account-handlers.ts'
 import { adminHandlers } from './admin-handlers.ts'
 import { channelHandlers } from './channel-handlers.ts'
 import { debateHandlers } from './debate-handlers.ts'
+import { inviteHandlers } from './invite-handlers.ts'
 import { noteHandlers } from './note-handlers.ts'
 import type { World } from './world.ts'
 
@@ -22,6 +23,7 @@ export const handlersOf = (world: World): Handlers => ({
   ...adminHandlers(world),
   ...channelHandlers(world),
   ...debateHandlers(world),
+  ...inviteHandlers(world),
   ...noteHandlers(world),
 })
 

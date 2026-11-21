@@ -103,7 +103,7 @@ describe('a channel’s agent', () => {
       expect.objectContaining({ issuedBy: memberNamed(world, 'Ana Silva') }),
     ])
     const figures = await succeeded(api['channels.agent.figures']({ params: { slug: 'billing' } }))
-    expect(figures).toMatchObject({ channel: 'billing', waiting: 1 })
+    expect(figures).toMatchObject({ channel: 'billing', waiting: 2 })
     const kai = demoApi(memberNamed(world, 'Kai Lin'), world)
     expect(await refused(kai.api['channels.agent.get']({ params: { slug: 'billing' } }))).toMatchObject({
       _tag: 'NotFound',
