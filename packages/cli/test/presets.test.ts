@@ -14,6 +14,8 @@ describe('homingbird presets', () => {
     expect(text).toContain(`reader:  ${defaultReader('claude', 'linux')}  (no tools)`)
     expect(text).toMatch(/reader: {2}codex exec .* {2}\(minimal tools, not none\)/)
     expect(text).toContain('reader:  none known; with --split, give --reader yourself')
+    expect(text).toContain('    account: Google’s terms bar other tools from using an Antigravity sign-in')
+    expect(text.match(/ {4}account: /g)).toHaveLength(2)
     await w.run('presets', '--json')
     const listed = w.json().presets
     expect(listed.map((preset: { name: string }) => preset.name)).toEqual([
@@ -31,6 +33,8 @@ describe('homingbird presets', () => {
       'gemini --version',
     ])
     expect(listed[0]).toMatchObject({ minimumVersion: '2.1.259', installed: { status: 'unknown' } })
+    expect(listed[0].accountRisk).toBeNull()
+    expect(listed[3].accountRisk).toContain('API key or Vertex AI')
     expect(w.calls).toEqual([])
   })
 

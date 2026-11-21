@@ -120,6 +120,11 @@ state.
 - **Gemini CLI** stays for Code Assist Standard or Enterprise and API-key setups.
 - Without a reader preset, `--split` without `--reader` uses the agent itself as the reader and the
   runner warns, as with any command.
+- **Your vendor account**: the runner starts the program with the sign-in it already has and never
+  reads or stores it. On a shared server or for a channel's agent use an API key or an organization
+  account, never a personal plan. For Antigravity and Gemini CLI on a Google sign-in, `homingbird
+  presets` says what Google's terms put at risk. See [the
+  guide](https://github.com/let-sunny/homingbird/blob/main/docs/guide.md#your-agents-account-and-its-vendors-terms).
 
 ### Keep it running in the background
 
