@@ -1,4 +1,4 @@
-import { type AsRead, type MemberId, UNKNOWN } from '@homingbird/protocol'
+import { type AsRead, type MemberId, UNKNOWN, creditKindOf, creditTurnOf } from '@homingbird/protocol'
 import { type DebateStage, type VoteRecordLine, draftsOf, voteRecordLines } from '../debates.ts'
 import { formats, strings } from '../strings.ts'
 
@@ -62,14 +62,22 @@ export const resultBody = (result: AsRead.DebateResult, people: RoomPeople): Res
     summary: cite(conclusion ? result.conclusion : result.summary),
     listHeading: conclusion ? strings.debates.reasons : strings.debates.disagreements,
     reasons: conclusion ? result.reasons.map(cite) : null,
-    points: conclusion
-      ? null
-      : result.points.map((point) => ({
-          category: point.category,
-          point: point.point,
-          categoryText: strings.debates.category[point.category],
-          explanation: cite(point.explanation),
-        })),
+    points: conclusion ? null : result.points.map(pointOf(cite)),
+    differences: listOrNull(conclusion ? result.points : undefined, (points) => ({
+      heading: strings.debates.differences,
+      points: points.map(pointOf(cite)),
+    })),
+    changedMinds: listOrNull(conclusion ? result.changedMinds : undefined, (changed) => ({
+      heading: strings.debates.changedMinds,
+      items: changed.map((one) => ({
+        turn: cite(strings.debates.changedMind({ turn: one.turn })),
+        line: cite(one.line),
+      })),
+    })),
+    stillOpen: listOrNull(conclusion ? result.stillOpen : undefined, (open) => ({
+      heading: strings.debates.stillOpen,
+      items: open.map(cite),
+    })),
     nextSteps: {
       heading: strings.debates.nextSteps,
       none: result.nextSteps.length === 0 ? strings.debates.noNextSteps : null,
@@ -102,12 +110,24 @@ export const resultBody = (result: AsRead.DebateResult, people: RoomPeople): Res
  * A credit as the room shows it, with what it means on request. "Changed position" alone says nothing a
  * reader can check, so it is shown only where the room can name the turns it changed between.
  */
-export const creditShown = (credit: Credit): { readonly text: string; readonly hint: string } => ({
-  text: strings.debates.credit[credit],
-  hint: strings.debates.creditHint[credit],
-})
+export const creditShown = (credit: Credit): CreditBadge => {
+  const kind = creditKindOf(credit)
+  const turn = creditTurnOf(credit)
+  return {
+    text: strings.debates.credit[kind],
+    hint: strings.debates.creditHint[kind],
+    turn: turn === null ? null : strings.debates.earnedIn({ turn }),
+  }
+}
 
-export const isShownAlone = (credit: Credit): boolean => credit !== 'position_changed'
+export const isShownAlone = (credit: Credit): boolean => creditKindOf(credit) !== 'position_changed'
+
+/** A credit's name, what it means, and the turn that earned it when the draft named one. */
+export interface CreditBadge {
+  readonly text: string
+  readonly hint: string
+  readonly turn: string | null
+}
 
 export type Credit = Extract<
   AsRead.DebateResult,
@@ -177,12 +197,14 @@ export type ResultBody =
       readonly summary: CitedText
       readonly listHeading: string
       readonly reasons: ReadonlyArray<CitedText> | null
-      readonly points: ReadonlyArray<{
-        readonly category: string
-        readonly point: string
-        readonly categoryText: string
-        readonly explanation: CitedText
-      }> | null
+      readonly points: ReadonlyArray<ResultPoint> | null
+      /** On a conclusion: where the agents differed before they agreed. */
+      readonly differences: { readonly heading: string; readonly points: ReadonlyArray<ResultPoint> } | null
+      readonly changedMinds: {
+        readonly heading: string
+        readonly items: ReadonlyArray<{ readonly turn: CitedText; readonly line: CitedText }>
+      } | null
+      readonly stillOpen: { readonly heading: string; readonly items: ReadonlyArray<CitedText> } | null
       readonly nextSteps: {
         readonly heading: string
         readonly none: string | null
@@ -198,10 +220,32 @@ export type ResultBody =
           readonly name: string
           readonly summary: CitedText
           /** Each credit's name, and what it means, shown beside it on request. */
-          readonly credits: ReadonlyArray<{ readonly text: string; readonly hint: string }>
+          readonly credits: ReadonlyArray<CreditBadge>
         }>
       }
     }
+
+export interface ResultPoint {
+  readonly category: string
+  readonly point: string
+  readonly categoryText: string
+  readonly explanation: CitedText
+}
+
+const pointOf =
+  (cite: (text: string) => CitedText) =>
+  (point: Extract<AsRead.DebateResult, { kind: 'no_conclusion' }>['points'][number]): ResultPoint => ({
+    category: point.category,
+    point: point.point,
+    categoryText: strings.debates.category[point.category],
+    explanation: cite(point.explanation),
+  })
+
+/** A section for an optional list, or null when the result has none. */
+const listOrNull = <Item, Section>(
+  items: ReadonlyArray<Item> | undefined,
+  section: (items: ReadonlyArray<Item>) => Section,
+): Section | null => (items === undefined || items.length === 0 ? null : section(items))
 
 const tallyOf = (
   debate: AsRead.Debate,

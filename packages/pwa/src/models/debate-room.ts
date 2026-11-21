@@ -1,6 +1,6 @@
 import type { AsRead, MemberId } from '@homingbird/protocol'
 import { channelLabel } from '../channels.ts'
-import { citedTurns, positionMoveOf } from '../debate-turns.ts'
+import { citedTurns } from '../debate-turns.ts'
 import {
   type DebateStage,
   debateStage,
@@ -14,7 +14,14 @@ import {
 import { DEBATE_TABS, type DebateTab, hrefFor } from '../routes.ts'
 import { formats, strings } from '../strings.ts'
 import { debateAuthorModel } from './debate-author.ts'
-import { type CreditModel, type QuotedTurn, creditModel, turnQuoted } from './debate-credit.ts'
+import {
+  type CreditModel,
+  type QuotedTurn,
+  creditModel,
+  creditedChanges,
+  positionMoveIn,
+  turnQuoted,
+} from './debate-credit.ts'
 import {
   type CitedText,
   type ResultBody,
@@ -67,6 +74,7 @@ export const debateRoomModel = (input: DebateRoomInput): DebateRoomModel => {
         : 'turns'
   const turns = turnListModel(debate.turns, {
     viewerId,
+    changedPositions: creditedChanges(debate),
     now: input.now,
     focus: focusTurn,
     agentOf,
@@ -309,7 +317,7 @@ const movesIn = (
   { nameOf, viewerId, cite }: Required<RoomPeople>,
 ): ReadonlyArray<Moved> =>
   debate.participants.flatMap(({ memberId }) => {
-    const move = positionMoveOf(debate.turns, memberId)
+    const move = positionMoveIn(debate, memberId)
     if (move === null) return []
     const agent =
       memberId === viewerId

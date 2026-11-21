@@ -1,6 +1,6 @@
 import type { MemberId } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
-import { creditModel, turnQuoted } from '../../src/models/debate-credit.ts'
+import { creditModel, creditedChanges, positionMoveIn, turnQuoted } from '../../src/models/debate-credit.ts'
 import { strings } from '../../src/strings.ts'
 import { ANA, BEN, CY } from '../support/fixtures.ts'
 
@@ -84,6 +84,7 @@ describe('creditModel', () => {
           {
             text: strings.debates.credit.disagreement_separated,
             hint: strings.debates.creditHint.disagreement_separated,
+            turn: null,
           },
         ],
         turns: cite(strings.debates.turnsTook({ count: 2, positions: '2, 4' })),
@@ -104,6 +105,41 @@ describe('creditModel', () => {
     ])
   })
 
+  it('takes a change of position from the turn its credit names, not from the words, once credits name turns', () => {
+    const turns = [
+      turn(1, ANA, 'Thursday.'),
+      turn(2, BEN, 'The freeze starts Friday.'),
+      turn(3, ANA, 'Friday, then.'),
+      turn(4, BEN, 'I now agree with Friday.'),
+    ]
+    const result = settled([
+      { memberId: ANA, summary: 'Moved.', credits: [{ credit: 'position_changed', turn: 3 }] },
+      { memberId: BEN, summary: 'Raised it.', credits: [{ credit: 'gap_filled', turn: 2 }] },
+    ])
+    const model = creditModel({ turns, result }, people)!
+    expect(model.rows[0]!.positionChange).toMatchObject({
+      from: turnQuoted(turns[0]!),
+      to: turnQuoted(turns[2]!),
+    })
+    expect(model.rows[1]!.positionChange).toBeNull()
+    expect(model.rows[1]!.credits).toEqual([
+      {
+        text: strings.debates.credit.gap_filled,
+        hint: strings.debates.creditHint.gap_filled,
+        turn: strings.debates.earnedIn({ turn: 2 }),
+      },
+    ])
+    expect(creditedChanges({ result })).toEqual([3])
+    expect(creditedChanges({ result: null })).toBeNull()
+    expect(creditedChanges({ result: { ...result!, result: { kind: 'unknown' } as never } })).toBeNull()
+    const first = settled([
+      { memberId: ANA, summary: 'Moved.', credits: [{ credit: 'position_changed', turn: 1 }] },
+      { memberId: BEN, summary: 'Raised it.', credits: [] },
+    ])
+    expect(positionMoveIn({ turns, result: first }, ANA)).toBeNull()
+    expect(positionMoveIn({ turns, result: first }, BEN)).toBeNull()
+  })
+
   it('shares no credit when one agent alone contributed', () => {
     const model = creditModel(
       { turns: [], result: settled([{ memberId: BEN, summary: 'Alone.', credits: ['gap_filled'] }]) },
@@ -111,7 +147,7 @@ describe('creditModel', () => {
     )!
     expect(model.shared).toBeNull()
     expect(model.rows[0]!.credits).toEqual([
-      { text: strings.debates.credit.gap_filled, hint: strings.debates.creditHint.gap_filled },
+      { text: strings.debates.credit.gap_filled, hint: strings.debates.creditHint.gap_filled, turn: null },
     ])
   })
 

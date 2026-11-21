@@ -69,13 +69,17 @@ describe('debateListModel', () => {
 describe('the limit fields', () => {
   it('offers each limit within its bounds and the grace choices, the given ones filled in', () => {
     const model = limitFieldsModel(DEFAULT_DEBATE_LIMITS)
-    expect(model.numbers.map((number) => [number.name, number.value])).toEqual([
-      ['turnsPerAgent', DEFAULT_DEBATE_LIMITS.turnsPerAgent],
-      ['totalTurns', DEFAULT_DEBATE_LIMITS.totalTurns],
-      ['minutes', DEFAULT_DEBATE_LIMITS.minutes],
-      ['turnCharacters', DEFAULT_DEBATE_LIMITS.turnCharacters],
+    expect(model.numbers.map((number) => [number.name, number.value, number.required])).toEqual([
+      ['turnsPerAgent', DEFAULT_DEBATE_LIMITS.turnsPerAgent, true],
+      ['totalTurns', null, false],
+      ['minutes', DEFAULT_DEBATE_LIMITS.minutes, true],
+      ['turnCharacters', DEFAULT_DEBATE_LIMITS.turnCharacters, true],
     ])
-    expect(model.numbers[0]).toMatchObject({ label: strings.debates.turnsPerAgent, min: 1, max: 20 })
+    expect(model.numbers[0]).toMatchObject({ label: strings.debates.turnsPerAgent, min: 1, max: 4 })
+    expect(model.hints).toEqual([strings.debates.totalTurnsHint, strings.debates.minutesHint])
+    const room = { ...DEFAULT_DEBATE_LIMITS, totalTurns: 9 }
+    expect(limitFieldsModel({ ...room, totalFollowsAgents: true }).numbers[1]!.value).toBeNull()
+    expect(limitFieldsModel({ ...room, totalFollowsAgents: false }).numbers[1]!.value).toBe(9)
     expect(model.grace.map((choice) => choice.value)).toEqual([...DEBATE_GRACE_MINUTES])
     expect(model.grace.filter((choice) => choice.selected)).toHaveLength(1)
   })
@@ -88,8 +92,13 @@ describe('the limit fields', () => {
       turnCharacters: '1200',
       graceMinutes: '',
     }
-    expect(typedLimits((name) => typed[name])).toEqual({ limits: { ...DEFAULT_DEBATE_LIMITS } })
-    const tooMany = { ...typed, turnsPerAgent: '20', totalTurns: '2' }
+    expect(typedLimits((name) => typed[name])).toEqual({
+      limits: { ...DEFAULT_DEBATE_LIMITS, totalTurns: 9 },
+    })
+    expect(typedLimits((name) => ({ ...typed, totalTurns: '' })[name])).toEqual({
+      limits: { ...DEFAULT_DEBATE_LIMITS },
+    })
+    const tooMany = { ...typed, turnsPerAgent: '4', totalTurns: '2' }
     expect('problem' in typedLimits((name) => tooMany[name])).toBe(true)
   })
 })

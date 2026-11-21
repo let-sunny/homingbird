@@ -15,6 +15,7 @@ import {
   NotFound,
   RESULT_DRAFTING_WINDOW_MS,
   RESULT_VOTING_WINDOW_MS,
+  type TurnHold,
 } from '@homingbird/protocol'
 import { type AppEnv, type Caller, isHuman } from '../environment.ts'
 import { EVERYONE, type RequestEnv } from '../events/events.ts'
@@ -93,6 +94,7 @@ export const loadRoom = (row: DebateRow): T.Task<DebateFacts, never, AppEnv> =>
         body: turn.body,
         at: Number(turn.created_at),
         ...statedModel(turn),
+        afterTurn: numberOrNull(turn.after_turn),
       })),
       result: resultOf(row),
       resultRound: Number(row.result_round),
@@ -122,7 +124,7 @@ export const loadRoom = (row: DebateRow): T.Task<DebateFacts, never, AppEnv> =>
             }
           : null,
     }
-    return { debate, room: roomOf(row, debate, votes) }
+    return { debate, room: roomOf(row, debate, votes, env.turnHolds.of(id)) }
   })
 
 /**
@@ -251,6 +253,7 @@ export interface DebateRow {
   readonly created_by: MemberId
   readonly turns_per_agent: number
   readonly total_turns: number
+  readonly total_follows_agents: number | null
   readonly minutes: number
   readonly turn_characters: number
   readonly created_at: number
@@ -306,6 +309,7 @@ interface TurnRow {
   readonly body: string
   readonly created_at: number
   readonly agent_model?: string | null
+  readonly after_turn?: number | null
 }
 
 /** The stored result passed `DebateResult` when it was drafted. */
@@ -318,7 +322,12 @@ const resultOf = (row: DebateRow): Debate['result'] =>
         draftedAt: Number(row.result_at),
       }
 
-const roomOf = (row: DebateRow, debate: Debate, votes: ReadonlyArray<VoteRow>): DebateRoom => ({
+const roomOf = (
+  row: DebateRow,
+  debate: Debate,
+  votes: ReadonlyArray<VoteRow>,
+  holds: ReadonlyArray<TurnHold>,
+): DebateRoom => ({
   stage: stageOf(row, debate),
   createdAt: debate.createdAt,
   deadlineAt: debate.deadlineAt,
@@ -328,6 +337,7 @@ const roomOf = (row: DebateRow, debate: Debate, votes: ReadonlyArray<VoteRow>): 
   round: debate.resultRound,
   drafts: debate.drafts ?? [],
   votes: votes.map((vote) => ({ voterId: vote.voter_id, draftBy: vote.draft_by })),
+  holds,
 })
 
 const stageOf = (row: DebateRow, debate: Debate): DebateStage => {
@@ -362,6 +372,7 @@ const limitsOf = (row: DebateRow): Debate['limits'] => ({
   totalTurns: Number(row.total_turns),
   minutes: Number(row.minutes),
   turnCharacters: Number(row.turn_characters),
+  totalFollowsAgents: Number(row.total_follows_agents) === 1,
   graceMinutes:
     DEBATE_GRACE_MINUTES.find((minutes) => minutes === Number(row.grace_minutes)) ?? DEFAULT_GRACE_MINUTES,
 })

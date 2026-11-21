@@ -25,8 +25,13 @@ export const turnListModel = (
       time: timeShown(turn.at, input.now),
       body: input.cite(turn.body),
       filler: filler ? strings.debates.fillerMark : null,
-      changedPosition:
-        !opening && !filler && changesPosition(turn.body) ? strings.debates.changedPositionMark : null,
+      changedPosition: (
+        input.changedPositions === null
+          ? !opening && !filler && changesPosition(turn.body)
+          : input.changedPositions.includes(turn.position)
+      )
+        ? strings.debates.changedPositionMark
+        : null,
       focused: turn.position === input.focus,
     }
   })
@@ -52,6 +57,8 @@ export const turnListModel = (
 export interface TurnListInput {
   readonly viewerId: MemberId
   readonly now: number
+  /** The turns the result credits with a change of position; null to tell from the turns' words. */
+  readonly changedPositions: ReadonlyArray<number> | null
   /** The turn the person jumped to, or null. */
   readonly focus: number | null
   readonly agentOf: (agent: string, memberId: MemberId) => string

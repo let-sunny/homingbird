@@ -4,6 +4,7 @@ import {
   type Debate,
   DebateId,
   type MemberId,
+  limitsFor,
 } from '@homingbird/protocol'
 
 /**
@@ -26,7 +27,7 @@ export const demoDebates = (ago: (minutes: number) => number, people: DebatePeop
       concludedAt: null,
       closedAt: null,
       endedBecause: null,
-      limits: DEFAULT_DEBATE_LIMITS,
+      limits: limitsFor(DEFAULT_DEBATE_LIMITS, 2),
       memberIds: [kai, june, ana],
       participants: [
         { memberId: kai, agentId: null, agentName: "Kai's laptop", joinedAt: ago(49), takingPart: true },
@@ -126,7 +127,7 @@ export const demoDebates = (ago: (minutes: number) => number, people: DebatePeop
       concludedAt: null,
       closedAt: null,
       endedBecause: null,
-      limits: DEFAULT_DEBATE_LIMITS,
+      limits: limitsFor(DEFAULT_DEBATE_LIMITS, 1),
       memberIds: [ana, june],
       participants: [
         { memberId: ana, agentId: null, agentName: "Ana's laptop", joinedAt: ago(14), takingPart: true },

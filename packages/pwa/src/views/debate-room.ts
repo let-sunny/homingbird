@@ -7,7 +7,14 @@ import { type DebateTab, hrefFor } from '../routes.ts'
 import { locale, strings } from '../strings.ts'
 import { authorButton } from './author-details.ts'
 import type { ViewContext } from './context.ts'
-import { citedText, renderResultBody, renderVoteRecord, resultSection, section } from './debate-result.ts'
+import {
+  citedText,
+  creditBadge,
+  renderResultBody,
+  renderVoteRecord,
+  resultSection,
+  section,
+} from './debate-result.ts'
 import { limitFields, limitsTypedIn } from './debates.ts'
 import { emptyWithPip, field, loading, page, privateMarkOf, timeLabel } from './parts.ts'
 
@@ -201,7 +208,7 @@ const creditTab = ({ credit }: Room): ReadonlyArray<Child> => [
           { class: 'debate-credit-row', data: { member: row.memberId } },
           h('strong', {}, row.name),
           row.summary !== null && h('span', {}, citedText(row.summary)),
-          ...row.credits.map((one) => h('span', { class: 'debate-credit', title: one.hint }, one.text)),
+          ...row.credits.map(creditBadge),
           h(
             'p',
             { class: 'debate-credit-turns' },

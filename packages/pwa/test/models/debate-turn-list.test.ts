@@ -15,6 +15,7 @@ const turn = (position: number, memberId: MemberId, body: string) => ({
 const input = (fields: Partial<TurnListInput> = {}): TurnListInput => ({
   viewerId: ANA,
   now: 10,
+  changedPositions: null,
   focus: null,
   agentOf: (agent, memberId) => `${agent} of ${memberId}`,
   details: (shown) => ({ id: `author-${shown.position}` }) as never,
@@ -63,6 +64,13 @@ describe('turnListModel', () => {
       (group.kind === 'turn' ? [group.turn] : group.turns).map((one) => one.changedPosition),
     )
     expect(marks).toEqual([null, null, strings.debates.changedPositionMark, null, null, null, null])
+  })
+
+  it('marks the turns the result credits with a change of position instead, when its credits name turns', () => {
+    const marks = turnListModel(turns, input({ changedPositions: [1] })).flatMap((group) =>
+      (group.kind === 'turn' ? [group.turn] : group.turns).map((one) => one.changedPosition),
+    )
+    expect(marks).toEqual([strings.debates.changedPositionMark, null, null, null, null, null, null])
   })
 
   it('opens the fold that holds the turn the person jumped to and marks that turn', () => {

@@ -39,15 +39,20 @@ export const debateListModel = (input: DebateListInput): DebateListModel => {
   }
 }
 
-/** The four limits as number fields and the grace as a choice, filled with the given values. */
-export const limitFieldsModel = (limits: AsRead.Debate['limits']): LimitFieldsModel => ({
+/**
+ * The four limits as number fields and the grace as a choice, filled with the given values; a total that
+ * follows the agents is left empty, and may be.
+ */
+export const limitFieldsModel = (limits: ShownLimits): LimitFieldsModel => ({
   numbers: (Object.keys(LIMIT_BOUNDS) as Array<NumberLimit>).map((name) => ({
     name,
     label: strings.debates[name],
     min: LIMIT_BOUNDS[name][0],
     max: LIMIT_BOUNDS[name][1],
-    value: limits[name],
+    value: name === 'totalTurns' && limits.totalFollowsAgents === true ? null : (limits[name] ?? null),
+    required: name !== 'totalTurns',
   })),
+  hints: [strings.debates.totalTurnsHint, strings.debates.minutesHint],
   grace: DEBATE_GRACE_MINUTES.map((minutes) => ({
     value: minutes,
     label: strings.debates.graceChoice({ minutes }),
@@ -96,14 +101,23 @@ export interface DebateCard {
   readonly time: TimeShown
 }
 
+/** Limits as a room shows them, or as a new room starts: without a total, which then follows the agents. */
+export type ShownLimits = Readonly<Partial<Record<NumberLimit, number>>> & {
+  readonly graceMinutes?: AsRead.Debate['limits']['graceMinutes']
+  readonly totalFollowsAgents?: boolean
+}
+
 export interface LimitFieldsModel {
   readonly numbers: ReadonlyArray<{
     readonly name: NumberLimit
     readonly label: string
     readonly min: number
     readonly max: number
-    readonly value: number
+    /** Null for a field left empty. */
+    readonly value: number | null
+    readonly required: boolean
   }>
+  readonly hints: ReadonlyArray<string>
   readonly grace: ReadonlyArray<{
     readonly value: number
     readonly label: string

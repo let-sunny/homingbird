@@ -56,6 +56,52 @@ describe('the result of a room', () => {
     expect(none.querySelector('.debate-tally')).toBeNull()
   })
 
+  it('shows what changed minds, what is still open, where they differed, and the turn behind a credit', () => {
+    const text = (value: string) => [{ kind: 'text' as const, text: value }]
+    const host = section('Result', 'debate-result')
+    const body: ResultBody = {
+      kind: 'known',
+      heading: 'Conclusion',
+      summary: text('Ship.'),
+      listHeading: 'Reasons',
+      reasons: [text('Ready.')],
+      points: null,
+      differences: {
+        heading: 'Differed',
+        points: [{ category: 'goals', point: 'Date', categoryText: 'Goals', explanation: text('Friday') }],
+      },
+      changedMinds: {
+        heading: 'Changed',
+        items: [
+          {
+            turn: [{ kind: 'turn', text: 'Turn 2', href: '#/debate/d/turns?turn=2' }],
+            line: text('The rehearsal failed.'),
+          },
+        ],
+      },
+      stillOpen: { heading: 'Open', items: [text('Who tells support?')] },
+      nextSteps: { heading: 'Next', none: 'None.', steps: [] },
+      contributions: {
+        heading: 'Who',
+        rows: [
+          {
+            name: 'Ben',
+            summary: text('Moved.'),
+            credits: [{ text: 'Changed', hint: 'Why', turn: 'turn 3' }],
+          },
+        ],
+      },
+    }
+    host.append(...(renderResultBody(body, { contributions: true }) as Node[]))
+    expect(textOf(host)).toContain('DifferedDateGoalsFriday')
+    expect(textOf(host.querySelector('.debate-changed-minds')!)).toBe('Turn 2 The rehearsal failed.')
+    expect(host.querySelector('.debate-changed-minds a.turn-cite')!.getAttribute('href')).toBe(
+      '#/debate/d/turns?turn=2',
+    )
+    expect(textOf(host.querySelector('.debate-still-open')!)).toBe('Who tells support?')
+    expect(host.querySelector('.debate-credit-turn')!.textContent).toBe('turn 3')
+  })
+
   it('shows points of disagreement and owned steps, and heads a section', () => {
     const host = section('Result', 'debate-result')
     const body: ResultBody = {
@@ -75,6 +121,9 @@ describe('the result of a room', () => {
           ],
         },
       ],
+      differences: null,
+      changedMinds: null,
+      stillOpen: null,
       nextSteps: {
         heading: 'Next',
         none: null,
@@ -86,7 +135,7 @@ describe('the result of a room', () => {
           {
             name: 'Ben',
             summary: [{ kind: 'text', text: 'Checked.' }],
-            credits: [{ text: 'Gap', hint: 'Filled' }],
+            credits: [{ text: 'Gap', hint: 'Filled', turn: null }],
           },
         ],
       },

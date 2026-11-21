@@ -14,6 +14,7 @@ import type { AnalyticsForwarder } from './analytics/forward.ts'
 import type { ClientMetadataDocuments } from './auth/client-metadata.ts'
 import type { IdentityProvider } from './auth/identity-provider.ts'
 import type { Config } from './config.ts'
+import type { TurnHolds } from './domain/debate-turn-holds.ts'
 import type { AttemptWindows } from './domain/denied-attempts.ts'
 import type { Hub } from './events/hub.ts'
 import type { RateLimiter } from './http/rate-limiter.ts'
@@ -30,6 +31,7 @@ export interface AppEnv extends HasSql, HasClock {
   readonly clientMetadata: ClientMetadataDocuments
   readonly rateLimiter: RateLimiter
   readonly attempts: AttemptWindows
+  readonly turnHolds: TurnHolds
   readonly analytics: AnalyticsForwarder
   readonly pushSink: (memberId: MemberId, event: StreamEvent, isNewReview: boolean) => void
   readonly pushTest: (memberId: MemberId) => T.Task<ReadonlyArray<PushOutcome>, never, AppEnv>

@@ -242,7 +242,11 @@ describe('debateRoomModel', () => {
               name: 'Ben',
               summary: [{ kind: 'text', text: 'Checked the tests.' }],
               credits: [
-                { text: strings.debates.credit.gap_filled, hint: strings.debates.creditHint.gap_filled },
+                {
+                  text: strings.debates.credit.gap_filled,
+                  hint: strings.debates.creditHint.gap_filled,
+                  turn: null,
+                },
               ],
             },
           ],
@@ -302,7 +306,13 @@ describe('debateRoomModel', () => {
           memberId: BEN,
           name: 'Ben',
           summary: [{ kind: 'text', text: 'Checked the tests.' }],
-          credits: [{ text: strings.debates.credit.gap_filled, hint: strings.debates.creditHint.gap_filled }],
+          credits: [
+            {
+              text: strings.debates.credit.gap_filled,
+              hint: strings.debates.creditHint.gap_filled,
+              turn: null,
+            },
+          ],
           turns: [{ kind: 'text', text: strings.debates.noTurnTaken }],
           filler: null,
           positionChange: null,

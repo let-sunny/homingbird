@@ -88,6 +88,72 @@ describe('resultBody', () => {
     })
   })
 
+  it('words what changed minds, what is still open, where the agents differed and the turn behind each credit', () => {
+    const body = resultBody(
+      {
+        kind: 'conclusion',
+        conclusion: 'Ship.',
+        reasons: ['Ready.'],
+        nextSteps: [],
+        contributions: [{ memberId: ANA, summary: 'Tested.', credits: [{ credit: 'gap_filled', turn: 3 }] }],
+        changedMinds: [{ turn: 2, line: 'The rehearsal failed.' }],
+        stillOpen: ['Who tells support?'],
+        points: [{ point: 'Date', category: 'goals', explanation: 'Friday or January.' }],
+      } as never,
+      someone,
+    )
+    expect(body).toMatchObject({
+      points: null,
+      differences: {
+        heading: strings.debates.differences,
+        points: [{ point: 'Date', categoryText: strings.debates.category.goals }],
+      },
+      changedMinds: {
+        heading: strings.debates.changedMinds,
+        items: [
+          {
+            turn: [{ kind: 'text', text: strings.debates.changedMind({ turn: 2 }) }],
+            line: [{ kind: 'text', text: 'The rehearsal failed.' }],
+          },
+        ],
+      },
+      stillOpen: {
+        heading: strings.debates.stillOpen,
+        items: [[{ kind: 'text', text: 'Who tells support?' }]],
+      },
+      contributions: {
+        rows: [
+          {
+            credits: [
+              { text: strings.debates.credit.gap_filled, turn: strings.debates.earnedIn({ turn: 3 }) },
+            ],
+          },
+        ],
+      },
+    })
+    const plain = resultBody(
+      { kind: 'conclusion', conclusion: 'Ship.', reasons: [], nextSteps: [], contributions: [] } as never,
+      someone,
+    )
+    expect(plain).toMatchObject({ differences: null, changedMinds: null, stillOpen: null })
+    const none = resultBody(
+      {
+        kind: 'no_conclusion',
+        summary: 'Split.',
+        points: [{ point: 'Date', category: 'goals', explanation: 'Why' }],
+        nextSteps: [],
+        contributions: [],
+      } as never,
+      someone,
+    )
+    expect(none).toMatchObject({
+      differences: null,
+      changedMinds: null,
+      stillOpen: null,
+      points: [{ point: 'Date' }],
+    })
+  })
+
   it('calls the viewer’s own agent theirs, never by the viewer’s name', () => {
     const body = resultBody(
       {

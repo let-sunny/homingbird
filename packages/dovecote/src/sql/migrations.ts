@@ -3,6 +3,7 @@ import { BASELINE } from './migrations/baseline-step.ts'
 import { CHANNEL_AGENTS } from './migrations/channel-agents-step.ts'
 import { CLOUD_DESK } from './migrations/cloud-desk-step.ts'
 import { DEBATE_MODEL } from './migrations/debate-model-step.ts'
+import { DEBATE_PACING } from './migrations/debate-pacing-step.ts'
 import { DEBATES } from './migrations/debates-step.ts'
 import { GROUPS } from './migrations/groups-step.ts'
 import { HISTORY_ANSWERS } from './migrations/history-answers-step.ts'
@@ -29,6 +30,7 @@ export const MIGRATIONS: ReadonlyArray<Migration> = [
   SPENT_REFRESH_TOKENS,
   HISTORY_ANSWERS,
   SOURCES_AND_REASONS,
+  DEBATE_PACING,
 ]
 
 /** The step that added the audit trail; when it runs, the first audit table's old rows go. */
