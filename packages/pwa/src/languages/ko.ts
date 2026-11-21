@@ -410,6 +410,8 @@ export const ko: Translation<typeof en> = {
     neverActive: '로그인한 적 없음',
     dormant: '30일 넘게 활동 없음',
     groups: '그룹: {groups}',
+    agentCredentials: { other: '에이전트 연결 {count}개, 가장 최근 연결은 {date}에 만료' },
+    noAgentCredentials: '연결된 에이전트 없음',
   },
   conversationMissing: '없는 DM이나 채널이거나, 내가 참여하지 않은 곳이에요.',
   moreChannels: { other: '+{count}개 채널 더 보기' },
@@ -1075,6 +1077,9 @@ export const ko: Translation<typeof en> = {
       '이 서버의 최소 그룹 인원은 {minimum}명이에요. 숫자는 그룹별로 보여 주고, {minimum}명보다 적은 그룹은 빼요. 차단은 수만 세요.',
     minimumOne:
       '이 서버의 최소 그룹 인원은 1명이에요. 모든 그룹의 숫자를 보여 주므로, 한 명뿐인 그룹은 그 사람의 숫자가 보여요. 서버 운영자는 HB_INSIGHTS_MINIMUM_GROUP으로 이 값을 올릴 수 있어요.',
+    minimumNotice:
+      '여기 숫자는 한 사람을 가리킬 수 있어요. 이 서버의 최소 그룹 인원이 1명이라, 한 명뿐인 그룹은 그 사람이 얼마나 빨리 승인하는지까지 그 사람의 숫자가 보여요. 다섯 명보다 적은 그룹을 숨기려면 서버 운영자가 HB_INSIGHTS_MINIMUM_GROUP=5로 설정하고 서버를 다시 시작하면 돼요.',
+    minimumNoticeDismiss: '확인했어요',
     tooFew: '이 기간에 노트를 보낸 사람이 {minimum}명보다 적어서 숫자를 보여 주지 않아요.',
     caption: '최근 {days}일 동안의 조직과 그 전 {days}일',
     rows: {
@@ -1111,6 +1116,9 @@ export const ko: Translation<typeof en> = {
     byClientTitle: '프로그램별 에이전트 초안',
     byModelTitle: '모델별 에이전트 초안(에이전트가 밝힌 이름)',
     hiddenLabels: { other: '사용한 사람이 적은 프로그램이나 모델 {count}개는 보여 주지 않아요.' },
+    hiddenLabelsOnePerson: {
+      other: '한 사람만 쓴 프로그램이나 모델 {count}개는 이름으로 그 사람을 알 수 있어서 보여 주지 않아요.',
+    },
     placesTitle: '채널별',
     placeColumn: '채널',
     notesColumn: '보낸 노트',

@@ -107,6 +107,14 @@ export const Member = S.struct({
 })
 export type Member = S.Infer<typeof Member>
 
+/** The agent credentials a person holds that still work: how many, and when the newest expires. */
+export const AgentCredentialsHeld = S.struct({
+  memberId: MemberId,
+  count: S.int({ min: 1 }),
+  newestExpiresAt: Timestamp,
+})
+export type AgentCredentialsHeld = S.Infer<typeof AgentCredentialsHeld>
+
 /** Only a person signs in, is messaged, joins a group or approves; a kind a client does not know is not one. */
 export const isPerson = (member: { readonly kind: string }): boolean => member.kind === 'person'
 

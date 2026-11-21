@@ -1,33 +1,23 @@
+# Copy .env.example to .env and fill it in; the whole file reaches the server.
 # SQLite in a volume:     docker compose up -d
 # PostgreSQL instead:     HB_DATABASE_URL=postgres://homingbird:homingbird@postgres:5432/homingbird docker compose --profile postgres up -d
-# Put HB_PUBLIC_URL, HB_OIDC_CLIENT_ID, HB_OIDC_CLIENT_SECRET, HB_ALLOWED_DOMAINS and HB_ADMIN_EMAILS in .env.
 
 services:
   dovecote:
     build: .
     image: ghcr.io/let-sunny/homingbird
     restart: unless-stopped
+    # Plain HTTP, on this host only: put a TLS proxy on the same host in front of 127.0.0.1:8080.
+    # Publish on every interface ("8080:8080") only when a proxy on another host must reach it, with a
+    # firewall that admits that proxy alone, and never with HB_DEV_LOGIN=1.
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
+    env_file:
+      - path: .env
+        required: false
     environment:
-      HB_PUBLIC_URL: ${HB_PUBLIC_URL:?set HB_PUBLIC_URL}
+      HB_PUBLIC_URL: ${HB_PUBLIC_URL:?set HB_PUBLIC_URL in .env}
       HB_DATABASE_URL: ${HB_DATABASE_URL:-sqlite:/data/dovecote.sqlite}
-      HB_OIDC_ISSUER: ${HB_OIDC_ISSUER:-https://accounts.google.com}
-      HB_OIDC_CLIENT_ID: ${HB_OIDC_CLIENT_ID:-}
-      HB_OIDC_CLIENT_SECRET: ${HB_OIDC_CLIENT_SECRET:-}
-      HB_OIDC_LABEL: ${HB_OIDC_LABEL:-}
-      HB_ALLOWED_DOMAINS: ${HB_ALLOWED_DOMAINS:-}
-      HB_ADMIN_EMAILS: ${HB_ADMIN_EMAILS:-}
-      HB_CHANNELS: ${HB_CHANNELS:-}
-      HB_CONTACT_MODE: ${HB_CONTACT_MODE:-open}
-      HB_TRUST_PROXY: ${HB_TRUST_PROXY:-0}
-      HB_LOGS: ${HB_LOGS:-}
-      HB_AUDIT_RETENTION_DAYS: ${HB_AUDIT_RETENTION_DAYS:-}
-      HB_ANALYTICS: ${HB_ANALYTICS:-off}
-      HB_ANALYTICS_URL: ${HB_ANALYTICS_URL:-}
-      HB_ANALYTICS_KEY: ${HB_ANALYTICS_KEY:-}
-      HB_THEME_DIR: ${HB_THEME_DIR:-}
-      HB_DEV_LOGIN: ${HB_DEV_LOGIN:-0}
     volumes:
       - dovecote-data:/data
     depends_on:

@@ -111,7 +111,10 @@ describe('adminGroupEditor', () => {
     getByRole(shown, 'button', { name: strings.groups.importCsv }).click()
     expect(textOf(dialog())).toContain(strings.groups.importHint)
     expect(textOf(dialog())).toContain(strings.loading)
-    called('listMembers')[0]!.then!.done!([member(ANA, 'Ana'), member(BEN, 'Ben'), member(CY, 'Cy')])
+    called('listMembers')[0]!.then!.done!({
+      members: [member(ANA, 'Ana'), member(BEN, 'Ben'), member(CY, 'Cy')],
+      agentCredentials: null,
+    })
     const save = getByRole(dialog(), 'button', { name: strings.save }) as HTMLButtonElement
     expect(save.disabled).toBe(true)
     fire.submit(dialog().querySelector('form')!)
@@ -149,7 +152,7 @@ describe('adminGroupEditor', () => {
     expect(queryByRole(ops, 'button', { name: strings.groups.rename })).toBeNull()
     const shown = mount(adminGroupEditor(context, lifetime(), ANA, TEAM))
     getByRole(shown, 'button', { name: strings.groups.importCsv }).click()
-    called('listMembers')[0]!.then!.done!([member(ANA, 'Ana')])
+    called('listMembers')[0]!.then!.done!({ members: [member(ANA, 'Ana')], agentCredentials: null })
     fire.type(getByRole(dialog(), 'textbox', { name: strings.groups.importText }), 'ana@example.com')
     expect(textOf(dialog())).toContain(strings.groups.importNothing)
     expect((getByRole(dialog(), 'button', { name: strings.save }) as HTMLButtonElement).disabled).toBe(true)

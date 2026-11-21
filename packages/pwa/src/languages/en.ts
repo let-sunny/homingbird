@@ -417,6 +417,11 @@ export const en = {
     neverActive: 'Never signed in',
     dormant: 'No activity for 30 days',
     groups: 'Groups: {groups}',
+    agentCredentials: {
+      one: '{count} agent connection, expires {date}',
+      other: '{count} agent connections, the newest expires {date}',
+    },
+    noAgentCredentials: 'No agent connections',
   },
   conversationMissing: 'This direct message or channel does not exist, or you are not in it.',
   moreChannels: { one: '+{count} more channel', other: '+{count} more channels' },
@@ -1112,6 +1117,9 @@ export const en = {
       'The minimum group on this server is {minimum} people: figures are shown per group, and any group under {minimum} people is left out. Blocks are a count only.',
     minimumOne:
       'The minimum group on this server is 1 person: figures are shown for every group, so a group with one member shows that person’s figures. Your server’s operator can raise it with HB_INSIGHTS_MINIMUM_GROUP.',
+    minimumNotice:
+      'Figures here may describe one person. The minimum group on this server is 1, so a group with one member shows that person’s figures, how quickly they approve included. To hide groups of fewer than five people, your server’s operator sets HB_INSIGHTS_MINIMUM_GROUP=5 and restarts the server.',
+    minimumNoticeDismiss: 'Got it',
     tooFew: 'Fewer than {minimum} people sent notes in this period, so no numbers are shown.',
     caption: 'The organization in the last {days} days, beside the {days} days before',
     rows: {
@@ -1152,6 +1160,11 @@ export const en = {
     hiddenLabels: {
       one: '{count} program or model used by too few people is not shown.',
       other: '{count} programs or models used by too few people are not shown.',
+    },
+    hiddenLabelsOnePerson: {
+      one: '{count} program or model used by one person only is not shown, since its name could identify them.',
+      other:
+        '{count} programs or models used by one person only are not shown, since their names could identify them.',
     },
     placesTitle: 'By channel',
     placeColumn: 'Channel',

@@ -3,6 +3,7 @@ import type { AsRead, StreamEvent } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import {
   FAILED_STREAMS_BEFORE_POLLING,
+  REFUSALS_BEFORE_REVOKED,
   STREAM_HEARTBEAT_MS,
   type Transport,
   eventStream,
@@ -48,7 +49,10 @@ const scripted = (answers: ReadonlyArray<() => Response | Promise<Response>>) =>
   return { fetch, calls }
 }
 
-const listen = (fetch: Fetch, extra: { after?: number; resyncOnConnect?: boolean } = {}) => {
+const listen = (
+  fetch: Fetch,
+  extra: { after?: number; resyncOnConnect?: boolean; onRevoked?: () => void } = {},
+) => {
   const clock = makeTestClock()
   const stop = new AbortController()
   const events: AsRead.StreamEvent[] = []
@@ -262,6 +266,42 @@ describe('eventStream', () => {
     await clock.advance(500 + 1_000 + 2_000 + 4_000)
     await clock.advance(60_000)
     expect(events.slice(4).map((event) => event.seq)).toEqual([3, 0, 4, 5, 0, 6])
+    stop.abort()
+    await done
+  })
+
+  it('says once that the credential was revoked after 401 on every attempt in a row, and only then', async () => {
+    const unauthorized = () => new Response('{}', { status: 401 })
+    const { fetch, calls } = scripted([
+      unauthorized,
+      unauthorized,
+      refused,
+      unauthorized,
+      unauthorized,
+      unauthorized,
+      unauthorized,
+    ])
+    let revoked = 0
+    const { clock, stop, done } = listen(fetch, { onRevoked: () => revoked++ })
+    await clock.advance(500 + 1_000 + 2_000 + 4_000)
+    expect(calls).toHaveLength(5)
+    expect(revoked).toBe(0)
+    await clock.advance(8_000)
+    expect(calls).toHaveLength(REFUSALS_BEFORE_REVOKED + 3)
+    expect(revoked).toBe(1)
+    await clock.advance(16_000)
+    expect(calls).toHaveLength(7)
+    expect(revoked).toBe(1)
+    stop.abort()
+    await done
+  })
+
+  it('keeps trying quietly after repeated 401s when no one listens', async () => {
+    const unauthorized = () => new Response('{}', { status: 401 })
+    const { fetch, calls } = scripted([unauthorized, unauthorized, unauthorized, unauthorized])
+    const { clock, stop, done } = listen(fetch)
+    await clock.advance(500 + 1_000 + 2_000)
+    expect(calls).toHaveLength(4)
     stop.abort()
     await done
   })
