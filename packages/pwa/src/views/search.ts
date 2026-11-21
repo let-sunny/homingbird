@@ -33,6 +33,7 @@ export const searchView = (
     'aria-label': strings.search,
     value: initialQuery,
   })
+  if (initialQuery === '') context.page.nextFrame(() => input.focus())
   const submit = (): void => {
     const query = input.value.trim()
     context.page.replaceAddress(hrefFor({ name: 'search', query }))

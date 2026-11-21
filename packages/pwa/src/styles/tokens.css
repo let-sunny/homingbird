@@ -112,6 +112,8 @@
 
   --hb-texture-select-chevron:
     linear-gradient(45deg, transparent 50%, currentcolor 50%), linear-gradient(135deg, currentcolor 50%, transparent 50%);
+  --hb-texture-more-before: linear-gradient(to right, var(--hb-color-titlebar) 50%, transparent);
+  --hb-texture-more-after: linear-gradient(to left, var(--hb-color-titlebar) 50%, transparent);
   --hb-texture-titlebar: repeating-linear-gradient(to bottom, transparent 0 3px, var(--hb-color-stripe) 3px 5px);
   --hb-texture-scanlines: repeating-linear-gradient(
     to bottom,
@@ -123,6 +125,7 @@
   --hb-space-3: 0.75rem;
   --hb-space-4: 1rem;
   --hb-space-6: 1.5rem;
+  --hb-target-size: 2.75rem;
 
   --hb-duration-fast: 120ms;
   --hb-duration-slow: 280ms;

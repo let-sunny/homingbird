@@ -39,4 +39,17 @@ describe('searchView', () => {
     fire.submit(getByRole(shown, 'search'))
     expect(called('searchNotes')).toHaveLength(2)
   })
+
+  it('puts the cursor in the field on arriving with nothing searched yet', () => {
+    const empty = testContext()
+    const shown = searchView(empty.context, lifetime(), me(), '')
+    document.body.append(shown)
+    empty.page.runFrames()
+    expect(document.activeElement).toBe(getByRole(shown, 'searchbox'))
+    const asked = testContext()
+    const answered = searchView(asked.context, lifetime(), me(), 'tone')
+    document.body.append(answered)
+    asked.page.runFrames()
+    expect(document.activeElement).not.toBe(getByRole(answered, 'searchbox'))
+  })
 })

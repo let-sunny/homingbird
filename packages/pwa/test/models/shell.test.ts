@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { type SidebarInput, paneFor, sidebarModel, tabsModel, userMenuModel } from '../../src/models/shell.ts'
+import {
+  type SidebarInput,
+  paneFor,
+  searchLinkModel,
+  sidebarModel,
+  tabsModel,
+  userMenuModel,
+} from '../../src/models/shell.ts'
 import { timeShown } from '../../src/models/time.ts'
 import { strings } from '../../src/strings.ts'
 import {
@@ -25,7 +32,6 @@ describe('tabsModel', () => {
       strings.navMyAgent,
       strings.navPeople,
       strings.channels,
-      strings.navSearch,
     ])
     expect(tabs.filter((tab) => tab.current).map((tab) => tab.label)).toEqual([strings.navNotes])
     expect(tabs[1]).toEqual({ label: strings.navMyAgent, href: '#/agent', current: false, tour: 'connect' })
@@ -33,6 +39,18 @@ describe('tabsModel', () => {
       tabsModel({ name: 'debate', id: 'x' }, serverInfo({ debateRooms: true })).find((tab) => tab.current)
         ?.label,
     ).toBe(strings.navDebates)
+  })
+})
+
+describe('searchLinkModel', () => {
+  it('links to an empty search and marks itself on the search page', () => {
+    expect(searchLinkModel({ name: 'home' })).toEqual({
+      label: strings.search,
+      href: '#/search?q=',
+      current: false,
+      tour: null,
+    })
+    expect(searchLinkModel({ name: 'search', query: 'refund' }).current).toBe(true)
   })
 })
 
