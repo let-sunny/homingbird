@@ -6,7 +6,7 @@ import type {
   MemberId,
   NoteId,
 } from '@homingbird/protocol'
-import { channelLabel } from '../channels.ts'
+import { channelLabel, channelOfRoom } from '../channels.ts'
 import { featureOn } from '../features.ts'
 import { deskUnavailableReason } from '../presence.ts'
 import { hrefFor } from '../routes.ts'
@@ -15,6 +15,7 @@ import { strings } from '../strings.ts'
 import { conversationTitle, excerpt, isArchived, threadItems } from '../thread.ts'
 import { type ReviewCard, reviewCardModel } from './channel-agent.ts'
 import { type DraftsItemModel, draftsItemModel } from './drafts-item.ts'
+import { type TeachSeed, teachSeedOf } from './teaching.ts'
 import type { ThreadInput } from './thread-room.ts'
 import { type TimeShown, timeShown } from './time.ts'
 
@@ -131,6 +132,8 @@ export type ActivityItem =
         readonly reply: string
         /** The note “Reply yourself” answers, in the conversation it opens. */
         readonly replyTo: { readonly conversationId: ConversationId; readonly noteId: NoteId }
+        /** Teaching the agent what to do with notes like this one, while teaching is on. */
+        readonly teach: { readonly label: string; readonly seed: TeachSeed } | null
       }
     >
   | ActivityEntry<'debate', { readonly text: string }>
@@ -256,6 +259,12 @@ const skippedItems = (input: ActivityInput): ActivityItem[] =>
             : strings.agentReleased({ reason: release.reason }),
         reply: strings.activity.replyYourself,
         replyTo: { conversationId: room.id, noteId },
+        teach: featureOn('teaching', input.serverInfo)
+          ? {
+              label: strings.teach.add,
+              seed: teachSeedOf(note.body, channelOfRoom(input.channels, room.id)?.slug ?? null),
+            }
+          : null,
       },
     ]
   })

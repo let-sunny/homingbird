@@ -1,5 +1,5 @@
 import type { AsRead, CredentialId, DebateExportFormat } from '@homingbird/protocol'
-import { type Child, type Lifetime, h, lifetime, linkedText, region } from '@homingbird/ui'
+import { type Child, type Lifetime, h, lifetime, region } from '@homingbird/ui'
 import { type DebateRoomModel, type Turn, debateRoomModel, resultDestination } from '../models/debate-room.ts'
 import { type DebateTab, hrefFor } from '../routes.ts'
 import { locale, strings } from '../strings.ts'
@@ -7,6 +7,7 @@ import { authorButton } from './author-details.ts'
 import type { ViewContext } from './context.ts'
 import { renderResultBody, renderVoteRecord, resultSection, section } from './debate-result.ts'
 import { limitFields, limitsTypedIn } from './debates.ts'
+import { noteBody } from './note-body.ts'
 import { emptyWithPip, field, loading, page, privateMarkOf, timeLabel } from './parts.ts'
 
 /**
@@ -267,7 +268,7 @@ const turnList = (
           ),
           timeLabel(turn.time),
         ),
-        h('p', { class: 'debate-turn-body' }, ...linkedText(turn.body)),
+        noteBody(context, turn.body, 'debate-turn-body'),
       ),
     ),
   )

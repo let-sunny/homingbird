@@ -4,6 +4,8 @@ import { type Action, type App, withApp } from '../app.ts'
 import { withDraftRead } from '../drafts-read.ts'
 import { featureOn } from '../features.ts'
 import { hrefFor } from '../routes.ts'
+import type { AppState } from '../state.ts'
+import { strings } from '../strings.ts'
 import { holdDecision } from './held.ts'
 import { closeSettledReviewNotices } from './notifications.ts'
 import { loadConversations, loadKnownChannels } from './workspace.ts'
@@ -52,9 +54,10 @@ export const sendReview = (review: AsRead.Review, editedBody: string | null): Ac
 /** Discards an answer, with why when the manager said: kept for the agent's managers, never told to the asker. */
 export const discardReview = (review: AsRead.Review, reason: string): Action =>
   T.gen(function* () {
-    const { api } = yield* T.ask<App>()
+    const { api, state } = yield* T.ask<App>()
     const why = reason.trim()
     yield* api['drafts.discard']({ params: { id: review.note.id }, body: why === '' ? {} : { reason: why } })
+    offerToReply(state, review)
     yield* loadReviews
   })
 
@@ -137,3 +140,18 @@ const afterAgentChange = (slug: string): Action =>
     yield* loadChannelAgent(slug)
     yield* loadKnownChannels
   })
+
+/** The question is left with nobody: the manager is offered to answer it themself, in its room. */
+const offerToReply = (state: AppState, review: AsRead.Review): void => {
+  const question = review.note.inReplyTo
+  if (question === null) return
+  state.discardedAnswers.update((all) => new Map(all).set(question, review.agent.name))
+  state.notice.set({
+    kind: 'info',
+    text: strings.channelAgent.discardedReplyYourself({ agent: review.agent.name }),
+    link: {
+      href: hrefFor({ name: 'conversation', id: review.note.conversationId, draft: null, note: question }),
+      label: strings.activity.replyYourself,
+    },
+  })
+}

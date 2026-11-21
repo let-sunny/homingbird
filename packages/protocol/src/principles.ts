@@ -39,7 +39,7 @@ export const principleAdvice = (draft: {
   if (draft.kind === 'answer') return isLikelyForbidden(draft) ? ['forbidden'] : []
   return [
     ...(isLikelyForbidden(draft) ? (['forbidden'] as const) : []),
-    ...(!methodical && /\d/.test(rule) ? (['stored_answer'] as const) : []),
+    ...(!methodical && isStatement(rule) ? (['stored_answer'] as const) : []),
     ...(!methodical && (VAGUE.test(rule) || rule.split(/\s+/).filter(Boolean).length < 4)
       ? (['vague'] as const)
       : []),
@@ -272,6 +272,13 @@ const namesSource = (text: string, source: string): boolean => {
 
 const METHOD =
   /\b(check|look|ask|use|give|say|point|refer|include|mention|find|link|explain|confirm|tell|answer|search|read|cite|add|name|state|quote|follow|send them|suggest|offer|leave|skip|copy|write)\b/i
+
+const isStatement = (rule: string): boolean =>
+  /\d/.test(rule) || (STATEMENT.test(rule) && !CONDITION.test(rule) && !VAGUE.test(rule))
+
+const STATEMENT = /\b(is|are|was|were|lives|sits|means)\b|(입니다|이에요|예요|이다|있습니다|있어요)[.。]?$/i
+
+const CONDITION = /\b(when|if|unless|whether|while|until)\b/i
 
 const VAGUE =
   /^(be|keep it|sound|stay)\b|\b(concise|polite|nice|friendly|helpful|clear|better|careful|professional)\b\.?$/i

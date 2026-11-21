@@ -75,6 +75,11 @@ export const ko: Translation<typeof en> = {
     thisAnswersIt: '이걸로 해결됐어요',
     keepWriting: '계속 쓰기',
     answered: '해결돼서 다행이에요. 아무것도 보내지 않았어요.',
+    askedTitle: '이미 나온 질문',
+    askedLead: '여기서 누군가 같은 질문을 하고 답을 기다리고 있어요. 보낼지는 직접 정하세요.',
+    askedBy: '{name} 님이 {elapsed} 전에 물었어요. 아직 답이 없어요',
+    waitsForYourReview: '이 질문의 답이 내 검토를 기다리고 있어요.',
+    openQuestion: '질문 열기',
   },
   send: '보내기',
   replyingTo: '“{excerpt}”에 답장하는 중',
@@ -85,6 +90,8 @@ export const ko: Translation<typeof en> = {
   noteMore: '이 노트 더 보기',
   copyNote: '텍스트 복사',
   noteCopied: '노트를 복사했어요.',
+  copyCode: '복사',
+  codeCopied: '복사했어요.',
   noteNotCopied: '이 브라우저에서는 복사할 수 없어요. 텍스트를 직접 선택해 복사해 주세요.',
   copyNoteLink: '노트 링크 복사',
   noteLinkCopied: '노트 링크를 복사했어요.',
@@ -424,7 +431,10 @@ export const ko: Translation<typeof en> = {
   addContactHint: '{name} 님에게 연락처 요청을 보내요. 수락하면 노트를 주고받을 수 있어요.',
   switchOn: '켜짐',
   switchOff: '꺼짐',
-  managerCannotLeave: '이 채널을 운영하고 있어요. 채널에서 나가기 전에 운영자에서 먼저 빠져 주세요.',
+  managerCannotLeave:
+    '이 채널을 운영하고 있어서 다른 사람이 있는 동안에는 채널에 남아요. 먼저 멤버 관리에서 내 운영자 역할을 내려놓아 주세요.',
+  onlyManagerCannotLeave:
+    '이 채널의 운영자는 나뿐이에요. 나가기 전에 멤버 관리에서 다른 운영자를 추가하고 내 운영자 역할을 내려놓아 주세요.',
   youMark: '(나)',
   cannotChangeOwnRole: '내 역할이나 상태는 직접 바꿀 수 없어요. 다른 관리자에게 부탁해 주세요.',
   clients: { web: '웹 클라이언트', cli: 'Homingbird 명령줄 도구' },
@@ -455,6 +465,8 @@ export const ko: Translation<typeof en> = {
     draftChanged: '읽은 뒤에 이 초안이 바뀌어서 보내지 않았어요. 다시 읽어 주세요.',
     nameTaken: '쓸 수 없는 이름이에요.',
     lastManager: '멤버가 있는 채널에는 운영자가 있어야 해요. 먼저 다른 운영자를 추가해 주세요.',
+    managerStays:
+      '운영자는 다른 사람이 있는 동안 채널에 남아요. 먼저 내 운영자 역할을 내려놓고, 운영자가 나뿐이면 그 전에 다른 운영자를 추가해 주세요.',
     requestNotWaiting: '이 요청은 더 이상 기다리고 있지 않아요.',
   },
   deskTitle: 'Homingbird용 에이전트 세션 하나를 열어 두세요. 이 세션이 내 데스크예요.',
@@ -870,6 +882,19 @@ export const ko: Translation<typeof en> = {
     chanceDiscard: '{place}에서 초안을 버렸어요. 에이전트가 어떻게 했어야 할까요?',
     notNow: '나중에',
     stopAsking: '이 채널에서는 묻지 않기',
+    chanceHereEdit: '에이전트 초안을 고쳐 썼어요.',
+    chanceHereDiscard: '에이전트 초안을 버렸어요.',
+    teachFromEdit: '이 수정으로 에이전트 가르치기',
+    teachFromDiscard: '다음에 할 일을 에이전트에게 가르치기',
+    behindTitle: '이 숫자 뒤의 초안',
+    behindIntro:
+      '하나하나가 가르칠 기회예요. 일어난 곳을 열어 보낸 내용을 보거나, 에이전트가 놓친 것을 가르쳐 주세요.',
+    behind: {
+      edited: '수정 후 보냄: {count}',
+      discarded: '버림: {count}',
+      skipped: '에이전트가 건너뛴 노트: {count}',
+    },
+    openConversation: '일어난 곳 열기',
     applied: '에이전트가 적용했다고 한 원칙: {title}',
     wrongHere: '여기서는 이 원칙이 틀렸어요',
     wrongRecorded: '기록했어요. 여기서는 이 원칙이 틀렸어요.',
@@ -1317,6 +1342,13 @@ export const ko: Translation<typeof en> = {
     addTeam: '그룹 추가',
     addTeamHint: '그룹에 있는 사람들을 운영자로 한 번 추가해요. 나중에 그룹이 바뀌어도 여기는 바뀌지 않아요.',
     unmanage: '운영자에서 제외',
+    unmanageTitle: '{name} 님을 운영자에서 제외할까요?',
+    unmanageBody: '{name} 님은 채널에 그대로 남지만, 에이전트의 답을 검토하거나 사람을 추가하지 않게 돼요.',
+    unmanageSelfTitle: '{channel} 운영을 그만둘까요?',
+    unmanageSelfBody: '채널에는 그대로 남지만, 에이전트의 답을 검토하거나 사람을 추가하지 않게 돼요.',
+    onlyManagerYou:
+      '운영자가 나만 남아요. 내 질문에 에이전트가 쓴 답은 다른 운영자를 추가할 때까지 기다려요.',
+    onlyManagerOther: '운영자가 {name} 님만 남아요.',
     deactivateLeaves: '{name} 님을 비활성화하면 모든 그룹에서 빠져요: {groups}.',
     writeTo: '{name} 님에게 쓰기',
     messageGroup: '{group} 그룹 DM 보내기',
@@ -1381,6 +1413,8 @@ export const ko: Translation<typeof en> = {
       sessions: '초안마다 에이전트 세션이 얼마나 오래 실행됐고 컨텍스트를 얼마나 썼는지.',
       week: '내가 보낸 노트 수, 받은 답장 수, 그리고 내가 답장하기까지 보통 걸린 시간.',
       approvedForChannels: '채널 운영자로서 보낸 그 채널 에이전트의 답변 수. 내 노트와 따로 세요.',
+      misses:
+        '수정하거나 버린 초안과 에이전트가 건너뛴 노트가 어디서 언제였는지. 열어 보고 가르칠 수 있게요.',
     },
     managers: {
       decisions:
@@ -1430,6 +1464,9 @@ export const ko: Translation<typeof en> = {
     clear: '모두 빼기',
   },
   channelAgent: {
+    discardedReplyYourself:
+      '{agent} 에이전트가 쓴 답을 버렸어요. 직접 답하거나, 여기서 답하는 다른 사람에게 맡겨 두세요.',
+    answerDiscarded: '{agent} 에이전트가 쓴 답을 버렸어요. 아직 아무도 답하지 않았어요.',
     title: '채널 에이전트',
     intro:
       '에이전트 하나가 이 채널의 질문에 답해요. 답은 운영자를 기다려요. 운영자 누구든 한 명이 보내면 되고, 먼저 보낸 사람의 승인이 적용돼요.',

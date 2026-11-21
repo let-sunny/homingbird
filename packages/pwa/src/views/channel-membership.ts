@@ -102,7 +102,7 @@ export const leaveForm = (context: ViewContext, slug: string, body: string): Chi
           event.preventDefault()
           context.actions.leaveChannel(slug, {
             done: () => closeDialog(context),
-            attempt: 'managers',
+            attempt: 'leave',
           })
         },
       },
@@ -143,6 +143,7 @@ const membersPanel = (context: ViewContext, life: Lifetime, channel: AsRead.Chan
   }
   const panel = {
     confirm,
+    back: () => back(),
     addTeam: (groupId: GroupId) => actions.addTeam(channel.slug, groupId, changes),
     setManagers: (groupId: GroupId, memberIds: ReadonlyArray<MemberId>) =>
       actions.setGroupMembers(groupId, memberIds, changes),
@@ -150,8 +151,7 @@ const membersPanel = (context: ViewContext, life: Lifetime, channel: AsRead.Chan
       actions.setChannelMember(channel.slug, memberId, isMember, changes),
   }
   const shown = model()
-  replaceChildren(
-    host,
+  const body = [
     shown.managedByAdmin !== null && h('p', { class: 'hint' }, shown.managedByAdmin),
     region(
       life,
@@ -161,12 +161,16 @@ const membersPanel = (context: ViewContext, life: Lifetime, channel: AsRead.Chan
         class: 'members-host',
       },
     ),
-  )
+  ]
+  const back = (): void => replaceChildren(host, ...body)
+  back()
   return host
 }
 
 interface Panel {
   readonly confirm: (content: HTMLElement) => void
+  /** Shows the members again after a confirmation that keeps the panel open. */
+  readonly back: () => void
   readonly addTeam: (groupId: GroupId) => void
   readonly setManagers: (groupId: GroupId, memberIds: ReadonlyArray<MemberId>) => void
   readonly setMember: (memberId: MemberId, isMember: boolean) => void
@@ -233,7 +237,7 @@ const ownRow = (
                 confirmation('self-confirmation', row.leave, () =>
                   context.actions.leaveChannel(channel.slug, {
                     done: () => closeDialog(context),
-                    attempt: 'managers',
+                    attempt: 'leave',
                   }),
                 ),
               ),
@@ -261,9 +265,17 @@ const unmanageButton = (row: MemberRow, panel: Panel): Child => {
   const unmanage = row.unmanage
   return (
     unmanage !== null &&
-    button(unmanage.label, () => panel.setManagers(unmanage.groupId, unmanage.memberIds), {
-      class: 'unmanage',
-    })
+    button(
+      unmanage.label,
+      () =>
+        panel.confirm(
+          confirmation('unmanage-confirmation', unmanage.confirm, () => {
+            panel.back()
+            panel.setManagers(unmanage.groupId, unmanage.memberIds)
+          }),
+        ),
+      { class: 'unmanage' },
+    )
   )
 }
 

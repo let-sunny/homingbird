@@ -7,7 +7,9 @@ import { authorButton } from './author-details.ts'
 import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
 import { actionMenu } from './menu.ts'
+import { noteBody } from './note-body.ts'
 import { button, sourceList, timeLabel } from './parts.ts'
+import { teachFromMiss } from './teaching.ts'
 
 /** One sent note in the thread; a click on it, away from its controls, marks it as the one looked at. */
 export const renderNoteItem = (
@@ -55,7 +57,7 @@ export const renderNoteItem = (
           'div',
           { class: 'bubble', ...(model.bubbleTitle !== null && { title: model.bubbleTitle }) },
           model.quote !== null && h('blockquote', { class: 'quote' }, model.quote),
-          h('p', { class: 'note-body' }, linkedText(model.body)),
+          noteBody(context, model.body),
         ),
         h(
           'div',
@@ -91,6 +93,13 @@ export const renderNoteItem = (
           model.waits.text,
         ),
       model.noAnswer !== null && h('p', { class: 'no-answer hint' }, model.noAnswer),
+      model.answerDiscarded !== null &&
+        h(
+          'p',
+          { class: 'answer-discarded', role: 'status' },
+          h('span', {}, model.answerDiscarded.text),
+          button(model.answerDiscarded.reply, reply, { class: 'reply-yourself' }),
+        ),
       model.release !== null &&
         h(
           'p',
@@ -98,6 +107,8 @@ export const renderNoteItem = (
           h('span', {}, model.release.text),
           model.release.askAnyway !== null &&
             button(model.release.askAnyway, askAgent, { class: 'ask-anyway' }),
+          model.release.teach !== null &&
+            teachFromMiss(context, model.release.teach.label, model.release.teach.seed),
         ),
       model.meta !== null &&
         h(

@@ -19,6 +19,7 @@ import {
 import { agentAskReach } from './agent-ask.ts'
 import { type AvatarModel, memberAvatarOf } from './avatar.ts'
 import { agentAuthorshipLine, approvalLine } from './channel-agent.ts'
+import { type TeachSeed, teachSeedOf } from './teaching.ts'
 import { type ThreadInput, channelAskedIn, isOn, nameIn, noteIn, notesOf, roomOf } from './thread-room.ts'
 import { type TimeShown, timeShown } from './time.ts'
 
@@ -42,6 +43,7 @@ export const noteItemModel = (
   const basis = mine ? draftBasisOf(note) : null
   const waits = mine && answerers.length === 0 ? questionLine(input, note) : null
   const side = mine ? 'is-mine' : 'is-theirs'
+  const discardedBy = input.discardedAnswers?.get(note.id)
   return {
     noteId: note.id,
     className: `note ${side} ${leadsRun ? 'leads-run' : 'follows-run'} is-${authorshipOf(note)}`,
@@ -83,9 +85,17 @@ export const noteItemModel = (
       waits === null &&
       answerers.length === 0 &&
       !isBeingAnswered(note) &&
-      !hasReplyIn(input, note)
+      !hasReplyIn(input, note) &&
+      discardedBy === undefined
         ? strings.noAnswerYet
         : null,
+    answerDiscarded:
+      discardedBy === undefined || archived || answerers.length > 0 || hasReplyIn(input, note)
+        ? null
+        : {
+            text: strings.channelAgent.answerDiscarded({ agent: discardedBy }),
+            reply: strings.activity.replyYourself,
+          },
     release: !mine && !archived ? releaseModel(input, note) : null,
     waits,
     meta:
@@ -127,7 +137,14 @@ export interface NoteItemModel {
   readonly answeredBy: { readonly avatar: AvatarModel; readonly text: string } | null
   /** Under a channel's question nobody answered or is answering, a discarded answer's included. */
   readonly noAnswer: string | null
-  readonly release: { readonly text: string; readonly askAnyway: string | null } | null
+  /** The manager discarded the channel agent's answer to this question, and may answer it themself. */
+  readonly answerDiscarded: { readonly text: string; readonly reply: string } | null
+  readonly release: {
+    readonly text: string
+    readonly askAnyway: string | null
+    /** Teaching the agent what to do with notes like this one, from the guided form filled in. */
+    readonly teach: { readonly label: string; readonly seed: TeachSeed } | null
+  } | null
   /** Under the person's latest question in a channel while no answer came: who answers, then drafting. */
   readonly waits: AnswerersLine | null
   readonly meta: { readonly time: TimeShown | null; readonly mark: StateMarkModel | null } | null
@@ -301,6 +318,9 @@ const releaseModel = (input: ThreadInput, note: AsRead.Note): NoteItemModel['rel
         ? strings.agentReleasedWithoutReason
         : strings.agentReleased({ reason: released.reason }),
     askAnyway: isOn(input, 'draftRequests') ? strings.askAnyway : null,
+    teach: isOn(input, 'teaching')
+      ? { label: strings.teach.add, seed: teachSeedOf(note.body, channelAskedIn(input)?.slug ?? null) }
+      : null,
   }
 }
 

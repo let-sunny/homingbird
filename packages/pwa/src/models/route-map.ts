@@ -1,5 +1,6 @@
 import { type AsRead, isKnown } from '@homingbird/protocol'
 import { type RouteNode, routeLayout } from '../route-map.ts'
+import { hrefFor } from '../routes.ts'
 import { formats, strings } from '../strings.ts'
 import { placeName } from './places.ts'
 
@@ -24,7 +25,13 @@ export const routeMapModel = (taught: AsRead.MyPrinciples | 'failed' | null): Ro
         strings.routes.heldUpCount({ count: node.point.heldUp }),
         strings.routes.draftedCount({ count: node.point.drafted }),
       ],
-      chances: node.point.chances > 0 ? strings.routes.chances({ count: node.point.chances }) : null,
+      chances:
+        node.point.chances > 0
+          ? {
+              text: strings.routes.chances({ count: node.point.chances }),
+              href: hrefFor({ name: 'agent', section: 'teaching' }),
+            }
+          : null,
     })),
     table: {
       summary: strings.routes.table,
@@ -63,7 +70,8 @@ export type RouteMapModel =
         readonly key: string
         readonly name: string
         readonly counts: ReadonlyArray<string>
-        readonly chances: string | null
+        /** The chances to teach there, as a way to the list of them under Teaching. */
+        readonly chances: { readonly text: string; readonly href: string } | null
       }>
       readonly table: {
         readonly summary: string

@@ -12,6 +12,7 @@ import { readdressForm } from './channel-picker.ts'
 import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
+import { noteBody } from './note-body.ts'
 import { button, channelCounts, sourceList } from './parts.ts'
 import { renderAppliedMarkers } from './teaching.ts'
 
@@ -51,7 +52,7 @@ const draftCard = (context: ViewContext, card: DraftCard): HTMLElement => {
       ...(card.focused && { 'aria-current': 'true', tabindex: '-1' }),
     },
     h('span', { class: card.origin.className }, card.origin.text),
-    h('p', { class: 'note-body' }, linkedText(card.body)),
+    noteBody(context, card.body),
     card.basis !== null &&
       h(
         'section',
@@ -188,7 +189,7 @@ const draftEditor = (
       closeDialog(context)
       return
     }
-    const shown = [h('p', {}, now.notice), h('p', { class: 'note-body' }, linkedText(now.body))]
+    const shown = [h('p', {}, now.notice), noteBody(context, now.body)]
     if (now.moved === null) {
       baseline = now.draft
       changed.replaceChildren(...shown)

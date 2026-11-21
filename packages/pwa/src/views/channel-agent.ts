@@ -25,6 +25,7 @@ import type { ViewContext } from './context.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
 import { reportWhenSeen } from './drafts-item.ts'
 import { joinCodeSection } from './join-code.ts'
+import { noteBody } from './note-body.ts'
 import { button, field, loading, page as pageOf, sourceList } from './parts.ts'
 
 /** The agent's buttons among a channel's own controls: its panel for a manager, and asking it privately. */
@@ -414,7 +415,7 @@ export const reviewCard = (
         h('small', {}, card.question.from),
         h('p', {}, card.question.body),
       ),
-    h('p', { class: 'review-body' }, card.body),
+    noteBody(context, card.body, 'review-body'),
     card.basis !== null &&
       h(
         'div',

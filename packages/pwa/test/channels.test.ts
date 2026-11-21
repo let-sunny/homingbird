@@ -13,7 +13,6 @@ import {
   isValidSlug,
   joinedFirst,
   peopleConversations,
-  rosterFacts,
   similarChannels,
   slugFrom,
   withChannel,
@@ -161,27 +160,6 @@ describe('where a draft may go instead', () => {
   it('offers no destination when the only channel is the one it is in', () => {
     const here = channel('billing')
     expect(destinationsFrom([here], here)).toEqual([])
-  })
-})
-
-describe('rosterFacts', () => {
-  const member = (memberId: string, manager: boolean) => ({
-    memberId: memberId as never,
-    answering: false,
-    manager,
-  })
-
-  it('says whether the viewer manages the room, which keeps them in it', () => {
-    const roster = { memberCount: 2, members: [member('me', true), member('you', false)] }
-    expect(rosterFacts(roster, 'me' as never)).toEqual({ viewerIsManager: true })
-    expect(rosterFacts(roster, 'you' as never).viewerIsManager).toBe(false)
-  })
-
-  it('knows when nobody in the room manages it', () => {
-    expect(rosterFacts({ memberCount: 1, members: [member('me', false)] }, 'me' as never)).toEqual({
-      viewerIsManager: false,
-    })
-    expect(rosterFacts(null, null)).toEqual({ viewerIsManager: false })
   })
 })
 

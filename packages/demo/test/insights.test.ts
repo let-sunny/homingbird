@@ -4,6 +4,18 @@ import { verdictOf } from '../src/trust-verdict.ts'
 import { demoApi, noteStarting, succeeded } from './support/demo.ts'
 
 describe('agentReportOf', () => {
+  it('lists the drafts behind the figures: the seeded edit and skip, then each one the visitor discards', async () => {
+    const { api, world, viewerId } = demoApi()
+    const report = () => agentReportOf(world.records(), viewerId, world.startedAt, world.clock.now())
+    expect(report().misses!.map((miss) => [miss.outcome, miss.noteId])).toEqual([
+      ['skipped', 'note_demokai00001'],
+      ['edited', 'note_demoben00002'],
+    ])
+    const draft = noteStarting(world, 'Yes. I checked')
+    await succeeded(api['drafts.discard']({ params: { id: draft.id }, body: {} }))
+    expect(report().misses![0]).toMatchObject({ outcome: 'discarded', noteId: draft.id, place: null })
+  })
+
   it('reads the same numbers the same way, overall and in every place', () => {
     const { world, viewerId } = demoApi()
     const report = agentReportOf(world.records(), viewerId, world.startedAt, world.clock.now())
