@@ -78,7 +78,7 @@ describe('drafts.send', () => {
     expect(await refused(ana.api['notes.get']({ params: { id: reply.id } }))).toMatchObject({
       _tag: 'NotFound',
     })
-    expect(await refused(kai.api['drafts.discard']({ params: { id: answer.id } }))).toMatchObject({
+    expect(await refused(kai.api['drafts.discard']({ params: { id: answer.id }, body: {} }))).toMatchObject({
       _tag: 'NotFound',
     })
     expect(await refused(kai.api['drafts.seen']({ params: { id: answer.id } }))).toMatchObject({
@@ -92,9 +92,11 @@ describe('drafts.discard', () => {
     const { api, world, viewerId } = demoApi()
     const reply = noteStarting(world, 'Yes. I checked')
     const answer = noteStarting(world, 'Annual plans are refunded')
-    expect((await succeeded(api['drafts.discard']({ params: { id: reply.id } }))).status).toBe('discarded')
+    expect((await succeeded(api['drafts.discard']({ params: { id: reply.id }, body: {} }))).status).toBe(
+      'discarded',
+    )
     expect((await succeeded(api['drafts.list']({}))).drafts).toEqual([])
-    await succeeded(api['drafts.discard']({ params: { id: answer.id } }))
+    await succeeded(api['drafts.discard']({ params: { id: answer.id }, body: {} }))
     expect(world.eventsAfter(viewerId, 0).map((event) => event.body.type)).toEqual([
       'draft.discarded',
       'review.changed',

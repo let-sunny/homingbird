@@ -5,6 +5,8 @@ import {
   askAgent,
   confirmDraftRead,
   discardDraft,
+  holdDiscard,
+  holdSend,
   readdressDraft,
   reportDraftSeen,
   saveDraft,
@@ -154,6 +156,16 @@ describe('deciding on drafts', () => {
     await run(readdressDraft(draft('d1'), 'billing'))
     expect(page.visited).toEqual(['go #/c/conv_moved0000000'])
     expect(routes()).toContain('drafts.discard')
+  })
+
+  it('holds a send and a discard until they are carried out, and carries out a held one first', async () => {
+    const { run, routes, state } = testApp(answers)
+    await run(holdSend(draft('d1'), null, [], 'Sent to Ben'))
+    expect(routes()).toEqual([])
+    expect(state.held.get()).toMatchObject({ noteId: 'd1', text: 'Sent to Ben' })
+    await run(holdDiscard(draft('d2'), 'Discarded'))
+    expect(routes()[0]).toBe('drafts.send')
+    expect(state.held.get()).toMatchObject({ noteId: 'd2', text: 'Discarded' })
   })
 
   it('asks the agent for a draft and forgets the release it answers, and withdraws a request', async () => {

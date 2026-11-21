@@ -4,6 +4,7 @@ import { approvesQuicklyOften } from '../careful-reading.ts'
 import { channelOfRoom } from '../channels.ts'
 import { characterOf } from '../characters.ts'
 import { featureOn } from '../features.ts'
+import { reviewsWithoutHeld, withoutHeld } from '../held-decisions.ts'
 import { MISSING } from '../missing.ts'
 import { type RoomReview, reviewsInRoomModel } from '../models/channel-agent.ts'
 import { type ComposerModel, composerModel } from '../models/composer.ts'
@@ -79,8 +80,11 @@ export const threadView = (
   })
   const items = (): ReadonlyArray<RoomItem> =>
     reviewsInRoomModel(
-      threadItems(state.threads.get().get(id)?.notes ?? [], state.draftRequests.get()),
-      state.reviews.get(),
+      threadItems(
+        withoutHeld(state.threads.get().get(id)?.notes ?? [], state.held.get(), (note) => note.id),
+        state.draftRequests.get(),
+      ),
+      reviewsWithoutHeld(state.reviews.get(), state.held.get()),
       { conversationId: id, viewerId: me.member.id },
       state.reviewsRead.get(),
       state.members.get(),
@@ -152,6 +156,7 @@ export const threadView = (
       state.serverInfo,
       state.reviews,
       state.reviewsRead,
+      state.held,
     ],
     items,
     {

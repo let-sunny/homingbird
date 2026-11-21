@@ -14,6 +14,7 @@ import {
 import type { AppEnv } from '../environment.ts'
 import { all } from '../sql/database.ts'
 import { list, sql } from '../sql/query.ts'
+import { sourcesShown } from './draft-sources.ts'
 import { featureIsOn } from './settings.ts'
 
 export interface NoteRow {
@@ -39,6 +40,8 @@ export interface NoteRow {
   readonly context_percent: number | null
   readonly debate_id: DebateId | null
   readonly approved_by: MemberId | null
+  readonly sources: string | null
+  readonly discard_reason: string | null
 }
 
 export const PICKUP_GRACE_MS = 10 * 60_000
@@ -148,7 +151,7 @@ const toNote = (
   updatedAt: row.updated_at,
   sentAt: row.sent_at,
   receipts,
-  ...(row.author_id === viewerId && { basis: row.basis }),
+  ...(row.author_id === viewerId && { basis: row.basis, ...sourcesShown(row) }),
   ...(details && row.agent_name !== null && { agentClient: row.agent_client, agentModel: row.agent_model }),
   ...((row.approved_by ?? null) !== null && { approvedBy: row.approved_by }),
   ...(row.debate_id && debates.has(row.debate_id) && { fromDebate: debates.get(row.debate_id)! }),

@@ -10,6 +10,7 @@ import {
   ROOM,
   channel,
   conversation,
+  draft,
   entry,
   member,
   note,
@@ -169,7 +170,12 @@ describe('noteItemModel', () => {
     const model = noteItemModel(threadInput(), item(mine))
     expect(model.className).toBe('note is-mine leads-run is-agent')
     expect(model.author!.line).toBe(strings.authorship.agentYou)
-    expect(model.basis).toEqual({ className: 'note-basis is-mine', lines: ['Read the runbook.'] })
+    expect(model.basis).toEqual({
+      className: 'note-basis is-mine',
+      title: strings.basedOn,
+      lines: ['Read the runbook.'],
+      sources: [],
+    })
     expect([model.reply, model.menu.items.map((one) => one.kind)]).toEqual([null, ['copy', 'copy-link']])
     expect(model.meta!.mark).toMatchObject({ state: 'read', label: strings.status.read, count: null })
     expect(model.meta!.mark!.glyph).toBe('✓✓︎')
@@ -266,6 +272,47 @@ describe('noteItemModel', () => {
     expect(waits([latest], note('t1', { authorId: BEN }))).toBeNull()
     const ownReply = note('r1', { authorId: ANA, inReplyTo: answer.id, sentAt: 5 })
     expect(waits([latest, answer, ownReply], ownReply)).toBeNull()
+    const mine = noteItemModel(
+      threadInput({
+        conversations: [room],
+        channels: [billing],
+        thread: { notes: [latest], hasMore: false },
+      }),
+      item(latest),
+    )
+    expect([mine.waits === null, mine.noAnswer]).toEqual([false, null])
+  })
+
+  it('says a channel question has no answer yet until someone answers it or is answering it', () => {
+    const room = conversation({ kind: 'channel', participantIds: [ANA, BEN] })
+    const noAnswerFor = (question: ReturnType<typeof note>, conversations = [room]) =>
+      noteItemModel(
+        threadInput({ conversations, thread: { notes: [question], hasMore: false } }),
+        item(question),
+      ).noAnswer
+    expect(noAnswerFor(note('q', { receipts: [receipt(BEN, { state: 'read', readAt: 2 })] }))).toBe(
+      strings.noAnswerYet,
+    )
+    expect(
+      noAnswerFor(note('q', { receipts: [receipt(BEN, { state: 'drafting', draftingAt: 2 })] })),
+    ).toBeNull()
+    expect(
+      noAnswerFor(note('q', { receipts: [receipt(BEN, { state: 'replied', repliedAt: 3 })] })),
+    ).toBeNull()
+    expect(noAnswerFor(note('q', { inReplyTo: 'q0' as never }))).toBeNull()
+    const answered = noteItemModel(
+      threadInput({
+        conversations: [room],
+        thread: {
+          notes: [note('q'), note('a', { inReplyTo: 'q' as never }), draft('d', { inReplyTo: 'q' as never })],
+          hasMore: false,
+        },
+      }),
+      item(note('q')),
+    )
+    expect(answered.noAnswer).toBeNull()
+    expect(noAnswerFor(note('q'), [{ ...room, archivedAt: 5 }])).toBeNull()
+    expect(noAnswerFor(note('q'), [conversation()])).toBeNull()
   })
 
   it('names who answered a channel question, and offers to move one nobody answered', () => {

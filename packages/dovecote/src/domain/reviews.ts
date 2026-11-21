@@ -17,6 +17,7 @@ import type { RequestEnv } from '../events/events.ts'
 import { all, first } from '../sql/database.ts'
 import { sql } from '../sql/query.ts'
 import { type ChannelRow, channelOfAgentRoom, managersOf } from './channel-rows.ts'
+import { sourcesShown } from './draft-sources.ts'
 import { lockGroups } from './group-rows.ts'
 import { memberById } from './members.ts'
 import { type NoteRow, hydrateNotes } from './note-rows.ts'
@@ -145,7 +146,7 @@ const toReview = ({ review_channel, asked_of, ...row }: ReviewRow): T.Task<Revie
             null,
           )
     return {
-      note: { ...note!, basis: row.basis },
+      note: { ...note!, basis: row.basis, ...sourcesShown(row) },
       question: question[0] ?? null,
       channel: review_channel,
       agent: yield* T.orDie(memberById(row.author_id)),

@@ -5,6 +5,33 @@ states the decision first, then the reason. Add new entries at the top of their 
 
 ## Product
 
+- **Send and Discard wait five seconds on the page before the server hears of them, so either can be
+  undone.** An approval card is decided at speed, and a decision a person regrets the moment they tap
+  it should cost one more tap, not a note to apologise for. The web client hides the card, shows "Sent
+  to Ana · Undo" or "Discarded · Undo", and makes the request when the five seconds are over, when the
+  person dismisses the toast, when they decide another card, or when the page is hidden or closed; the
+  write is sent with `keepalive`, so closing the tab does not lose it. Undo forgets the decision and the
+  card is back. Nothing changes on the server: no route, no state, and the send still carries
+  `expected` as the card showed it at the tap, so an agent's change during the five seconds is refused
+  as before and the card asks to read it again. The alternative, a server-side undo window, would have
+  delivered a note and then taken it back, which a recipient's push or open page may already show.
+- **The approval cards read alike everywhere: Approve and send, Edit, Discard.** The person's own
+  draft and a channel agent's answer, in the conversation, the activity panel and the agent's page,
+  put Send first and Discard last and apart, so the hand that sends never lands on Discard. Each
+  button is at least 44 px in both directions. A review card also says why the viewer sees it ("You
+  manage #billing, so you review its agent's answers").
+- **A manager edits a channel agent's answer and sends it in one step, through `drafts.send`.** The
+  route already takes an edited body with `expected`, under the same reviewer checks and the channel
+  group's lock, and records `approved_by` and `origin = 'human_edited'`; the audit entry says
+  `edited`. So no new route was added. A reviewer cannot save an edit without sending it
+  (`drafts.update` stays the author's), since a saved edit would be a second draft the agent's later
+  changes would overwrite. An edit started from a version the agent changed since is refused, as an
+  unedited send is.
+- **Discarding a channel agent's answer asks why, optionally, and the question waits for an answer
+  again.** The reason is stored on the note (`notes.discard_reason`), never audited, never returned to
+  the asker or anyone else yet; it is kept for the channel's figures and for teaching its agent. A
+  reviewer's discard also clears the agent's drafting state on the question's receipt, so the room
+  shows "No answer yet" under it until someone replies, instead of "drafting" for ten more minutes.
 - **Unsent text in a composer is kept per conversation, in this browser only.** What a person typed and
   did not send stays when they open another conversation and comes back when they return, and a reload
   keeps it: it lives in memory and in `localStorage` under a key named for the person, read once at
@@ -1060,6 +1087,16 @@ person's own documents, an agent sends `basis` with it, what it read or relied o
   gave none. This reverses the earlier rule that kept it in the audit log only: an approver who cannot
   see what a draft rests on approves blind. The audit entry keeps it too. The basis still describes the
   answering flow's steps by purpose, never in their words, so the flow itself stays unshown.
+- **An agent may report structured sources beside the basis.** `sources` on `drafts.create` and
+  `drafts.update` lists up to ten, each a web address (`http` or `https` only) or an earlier note's
+  id, with the passage the agent used; the runner reads them from `SOURCE:` lines, the MCP tools take
+  them as an argument, and free-text basis keeps working alone. The server decodes them strictly and
+  refuses a note the author cannot read or that is not sent, so a source can never point a reader at
+  a draft or another conversation; it stores the note's conversation with it. Sources are shown to
+  exactly those who are shown the basis: the author, on the draft and after it is sent, under a
+  collapsed "Based on", and a channel's reviewers on the review card. The web client shows an address
+  as a link and a note as a jump to it in its conversation, and reads a source it does not understand
+  as nothing.
 - **Why an agent gave a note back, and why an archive discarded a draft, survive a reload.** Both are
   kept per member and note (`notices`) and returned with that member's thread, so "Your agent did not
   draft a reply" and "Your draft in #channel was discarded because the channel was archived" read the same

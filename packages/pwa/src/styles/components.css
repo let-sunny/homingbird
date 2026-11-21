@@ -839,6 +839,58 @@
   gap: var(--hb-space-2);
 }
 
+/* Approval cards: Send first, always in the same corner; Discard set apart at the far end. */
+.draft-actions,
+.review-actions {
+  justify-self: stretch;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--hb-space-3);
+}
+
+.draft-actions > button,
+.review-actions > button,
+.toast.is-held button {
+  min-block-size: var(--hb-target-size);
+  min-inline-size: var(--hb-target-size);
+}
+
+.draft-actions > p,
+.review-actions > p {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.draft-discard,
+.review-discard {
+  margin-inline-start: auto;
+}
+
+.draft-sources {
+  display: grid;
+  gap: var(--hb-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.draft-source a,
+.draft-source span {
+  overflow-wrap: anywhere;
+}
+
+.source-quote {
+  margin: var(--hb-space-1) 0 0;
+  padding-inline-start: var(--hb-space-2);
+  border-inline-start: var(--hb-pixel) solid currentColor;
+  font-style: italic;
+}
+
+.review-why,
+.no-answer {
+  margin: 0;
+}
+
 .draft button {
   border-color: var(--hb-color-on-pending);
   background: var(--hb-color-on-pending-surface);
@@ -1717,6 +1769,14 @@
   border: var(--hb-border);
   background: var(--hb-color-surface);
   box-shadow: var(--hb-shadow);
+}
+
+.held-host {
+  inset: auto auto var(--hb-space-4) var(--hb-space-4);
+}
+
+.toast.is-held span {
+  flex: 1;
 }
 
 .toast.is-error {
@@ -5122,8 +5182,6 @@ textarea:disabled {
 .review-actions {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: var(--hb-space-2);
 }
 
 .note-approval {

@@ -118,4 +118,31 @@ describe('showApp', () => {
     context.state.announcement.set('A note from Ben')
     expect(textOf(root)).toContain('A note from Ben')
   })
+
+  it('holds a decision with Undo, and carries it out when its time is up, when dismissed, or when the page goes', async () => {
+    const { context, root, clock, called, page } = start()
+    context.state.session.set(me())
+    const hold = (text: string) => context.state.held.set({ noteId: 'n1' as never, text, run: null as never })
+    hold('Sent to Ben')
+    const toast = root.querySelector('.toast.is-held')!
+    expect(textOf(toast)).toContain('Sent to Ben')
+    getByRole(root, 'button', { name: strings.undo }).click()
+    expect(called('undoHeld')).toHaveLength(1)
+    context.state.held.set(null)
+    expect(root.querySelector('.toast.is-held')).toBeNull()
+    hold('Discarded')
+    await clock.advance(4999)
+    expect(called('commitHeld')).toHaveLength(0)
+    await clock.advance(1)
+    expect(called('commitHeld')).toHaveLength(1)
+    expect(called('commitHeld')[0]!.then!.attempt).toBe('draft')
+    getByRole(root, 'button', { name: strings.heldDismiss }).click()
+    expect(called('commitHeld')).toHaveLength(2)
+    page.emit('pagehide')
+    page.state.visible = false
+    page.emit('visibilitychange')
+    page.state.visible = true
+    page.emit('visibilitychange')
+    expect(called('commitHeld')).toHaveLength(4)
+  })
 })

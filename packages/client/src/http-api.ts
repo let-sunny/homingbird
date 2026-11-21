@@ -50,16 +50,18 @@ interface RouteRequest {
 
 const callRoute = (options: HttpApiOptions, route: Route, request: RouteRequest): T.Task<unknown, ApiError> =>
   T.gen(function* () {
+    const body = route.body === undefined ? undefined : JSON.stringify(request.body ?? {})
     const response = yield* T.tryPromise(
       (signal) =>
         (options.fetch ?? globalThis.fetch)(urlFor(options.serverUrl, route, request), {
           method: route.method,
           headers: {
             ...authorizationHeaders(options),
-            ...(route.body !== undefined && { 'content-type': 'application/json' }),
+            ...(body !== undefined && { 'content-type': 'application/json' }),
           },
-          ...(route.body !== undefined && { body: JSON.stringify(request.body ?? {}) }),
+          ...(body !== undefined && { body }),
           ...(options.sendsCookies && { credentials: 'same-origin' as const }),
+          ...(route.method !== 'GET' && (body?.length ?? 0) <= KEEPALIVE_BODY_MAX && { keepalive: true }),
           signal,
         }),
       () => Unavailable({ message: 'The Homingbird server could not be reached.' }),
@@ -91,3 +93,9 @@ const errorFrom = (status: number, payload: unknown): ApiError => {
   const body = ErrorBody.decode(payload)
   return body._tag === 'Ok' ? fromErrorBody(body.value) : fromStatus(status, `The server answered ${status}.`)
 }
+
+/**
+ * A change is sent with `keepalive` so that one asked for as the page closes still reaches the server;
+ * browsers refuse it for a body over 64 KiB in all, so a large one goes without.
+ */
+const KEEPALIVE_BODY_MAX = 32 * 1024

@@ -7,6 +7,7 @@ import {
   ConversationId,
   type DeskSession,
   DraftRequestId,
+  DraftSources,
   EARLIER_QUESTION_MAX,
   type EarlierAnswersAsk,
   Invalid,
@@ -31,6 +32,7 @@ import {
   CONTEXT_PERCENT_DESCRIPTION,
   MODEL_DESCRIPTION,
   SESSION_MINUTES_DESCRIPTION,
+  SOURCES_DESCRIPTION,
 } from './answering.ts'
 import type { OpenInBrowser } from './browser-opener.ts'
 import { CHARACTER_TOOLS } from './character-tools.ts'
@@ -316,6 +318,7 @@ export const TOOLS: ReadonlyArray<Tool<any>> = [
       channel: S.optional(ChannelSlug),
       requestId: S.optional(DraftRequestId),
       basis: S.optional(NoteBasis),
+      sources: S.optional(DraftSources),
       model: S.optional(AgentLabel),
       sessionMinutes: S.optional(S.int({ min: 0, max: SESSION_AGE_MAX_MINUTES })),
       contextPercent: S.optional(S.int({ min: 0, max: 100 })),
@@ -329,13 +332,17 @@ export const TOOLS: ReadonlyArray<Tool<any>> = [
         'Set to true only after draft_note to a channel showed earlier answers and none answers your human’s question, or your human still wants to ask.',
       body: 'The note, as plain text. Links are allowed; attachments are not.',
       basis: BASIS_DESCRIPTION,
+      sources: SOURCES_DESCRIPTION,
       to: 'The recipient: a member id or an email address from find_people.',
       conversationId: 'An existing conversation to draft into.',
       channel:
         'One channel room from find_channels, when you do not know whom to ask. Never post one question to several channels. A private channel works only when your human is a member.',
       requestId: 'The draft request from your human that this note answers; the request says where it goes.',
     },
-    run: ({ body, to, conversationId, channel, requestId, basis, model, askAnyway, ...session }, context) =>
+    run: (
+      { body, to, conversationId, channel, requestId, basis, sources, model, askAnyway, ...session },
+      context,
+    ) =>
       T.gen(function* () {
         const reported = yield* requireSession(session)
         const destinations = [to, conversationId, channel, requestId].filter((each) => each !== undefined)
@@ -359,6 +366,7 @@ export const TOOLS: ReadonlyArray<Tool<any>> = [
               body,
               ...destination,
               ...(basis !== undefined && { basis }),
+              ...(sources !== undefined && { sources }),
               ...labelsOf(context, model),
               ...reported,
             },
@@ -378,6 +386,7 @@ export const TOOLS: ReadonlyArray<Tool<any>> = [
       body: NoteBody,
       requestId: S.optional(DraftRequestId),
       basis: S.optional(NoteBasis),
+      sources: S.optional(DraftSources),
       model: S.optional(AgentLabel),
       sessionMinutes: S.optional(S.int({ min: 0, max: SESSION_AGE_MAX_MINUTES })),
       contextPercent: S.optional(S.int({ min: 0, max: 100 })),
@@ -390,14 +399,16 @@ export const TOOLS: ReadonlyArray<Tool<any>> = [
       body: 'The reply, as plain text. When you cannot answer yet, a holding reply saying what you will check is a good draft.',
       requestId: 'The draft request from your human that asked for this reply, if there was one.',
       basis: BASIS_DESCRIPTION,
+      sources: SOURCES_DESCRIPTION,
     },
-    run: ({ noteId, body, requestId, basis, model, ...session }, context) =>
+    run: ({ noteId, body, requestId, basis, sources, model, ...session }, context) =>
       T.gen(function* () {
         const reported = yield* requireSession(session)
         const draft = yield* context.api['drafts.create']({
           body: {
             ...(requestId === undefined ? { body, inReplyTo: noteId } : { body, requestId }),
             ...(basis !== undefined && { basis }),
+            ...(sources !== undefined && { sources }),
             ...labelsOf(context, model),
             ...reported,
           },

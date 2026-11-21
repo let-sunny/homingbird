@@ -71,9 +71,24 @@ export const draftChangedWhileEditing = (input: EditorInput, read: AsRead.Note):
     notice: strings.draftMovedWhileEditing,
     body: now.body,
     draft: now,
-    moved: { destination: destination?.text ?? null, confirm: strings.draftConfirmRoom },
+    moved: { destination: destination?.shown?.text ?? null, confirm: strings.draftConfirmRoom },
   }
 }
+
+/**
+ * Whether the draft an editor started from still waits as it was read, so that the edit may be held for
+ * sending; otherwise the editor shows what changed first.
+ */
+export const isUnchangedWhileEditing = (input: EditorInput, read: AsRead.Note): boolean =>
+  [...input.threads.values()]
+    .flatMap((thread) => thread.notes)
+    .some(
+      (note) =>
+        note.id === read.id &&
+        note.status === 'draft' &&
+        note.body === read.body &&
+        note.conversationId === read.conversationId,
+    )
 
 export interface EditorInput extends Pick<ThreadInput, 'conversations' | 'channels' | 'members'> {
   readonly threads: ReadonlyMap<ConversationId, Thread>
@@ -114,8 +129,11 @@ export interface DraftCard {
   readonly readAgain: { readonly notice: string; readonly confirm: string } | null
   /** Null in an archived room, where nothing is sent. */
   readonly actions: {
+    readonly send: string
     readonly alternatives: ReadonlyArray<AsRead.Note>
     readonly changeChannel: string | null
+    /** What the toast says while a send or discard can still be undone. */
+    readonly held: { readonly sent: string; readonly discarded: string }
   } | null
 }
 
@@ -129,6 +147,8 @@ const draftCard = (
 ): DraftCard => {
   const teachingOn = isOn(input, 'teaching')
   const careful = carefulReadingFor(draft.body, approvesQuicklyOften(input.agentReport))
+  const destination =
+    archived || room === undefined ? null : destinationOf(input, input.me.member.id, draft, room, channel)
   return {
     draft,
     focused: draft.id === input.focusedDraft,
@@ -136,8 +156,7 @@ const draftCard = (
     body: draft.body,
     basis: draftBasisOf(draft, showsAppliedMarkers(input.taught, teachingOn)),
     applied: appliedModel(draft, input.taught, teachingOn),
-    destination:
-      archived || room === undefined ? null : destinationOf(input, input.me.member.id, draft, room, channel),
+    destination: destination === null ? null : destination.shown,
     careful:
       !archived && isOn(input, 'agentFigures') && careful !== null ? strings.carefulReading[careful] : null,
     readAgain:
@@ -147,8 +166,13 @@ const draftCard = (
     actions: archived
       ? null
       : {
+          send: strings.approveAndSend,
           alternatives: alternativesLeftAfterSending(item, draft.id),
           changeChannel: channel === null ? null : channel.slug,
+          held: {
+            sent: strings.heldSent({ names: destination?.names ?? strings.formerMember }),
+            discarded: strings.heldDiscarded,
+          },
         },
   }
 }
@@ -166,19 +190,27 @@ const destinationOf = (
   draft: AsRead.Note,
   room: AsRead.Conversation,
   channel: AsRead.Channel | null,
-): DraftCard['destination'] => {
-  if (channel !== null)
-    return { kind: 'channel', text: strings.sendsToChannel({ channel: channelLabel(channel.slug) }), channel }
+): { readonly shown: DraftCard['destination']; readonly names: string } => {
+  if (channel !== null) {
+    const label = channelLabel(channel.slug)
+    return {
+      shown: { kind: 'channel', text: strings.sendsToChannel({ channel: label }), channel },
+      names: label,
+    }
+  }
   const destination = draftDestination(room, draft, notesOf(input), meId)
   const names = listOf(destination.memberIds.map((memberId: MemberId) => nameIn(input, memberId)))
   return {
-    kind: 'people',
-    text:
-      room.kind === 'channel'
-        ? strings.sendsToInRoom({
-            names,
-            room: conversationTitle(room, input.members, meId, ''),
-          })
-        : strings.sendsTo({ names }),
+    shown: {
+      kind: 'people',
+      text:
+        room.kind === 'channel'
+          ? strings.sendsToInRoom({
+              names,
+              room: conversationTitle(room, input.members, meId, ''),
+            })
+          : strings.sendsTo({ names }),
+    },
+    names,
   }
 }

@@ -186,19 +186,67 @@ describe('the agent panel', () => {
     expect(textOf(dialog)).toContain(strings.joinCode.explanationAgent({ agent: 'Payments wiki' }))
   })
 
-  it('sends or discards a waiting answer, and asks to read one again that the agent changed', () => {
-    const { context, called, dialog } = onPage()
+  it('holds a send, edited or as read, and a discard with its reason, saying why the manager sees it', () => {
+    const { context, called, dialog: shown } = onPage()
+    const dialog = mount(dialogHost())
+    context.state.directory.set([entry(CY, 'Cy')])
     context.state.reviews.set([review()])
-    expect(textOf(dialog)).toContain('Where is the runbook?')
-    expect(textOf(dialog)).toContain('wiki/refunds.md')
-    getByRole(dialog, 'button', { name: strings.channelAgent.send }).click()
-    expect(called('sendReview')[0]!.args).toEqual([review(), null])
-    getByRole(dialog, 'button', { name: strings.channelAgent.discard }).click()
-    expect(called('discardReview')).toHaveLength(1)
+    expect(textOf(shown)).toContain('Where is the runbook?')
+    expect(textOf(shown)).toContain('wiki/refunds.md')
+    expect(textOf(shown)).toContain(strings.channelAgent.whyYouReview({ channel: '#payments-wiki' }))
+    const buttons = [...shown.querySelectorAll('.review-actions button')]
+    expect(buttons.map((button) => textOf(button))).toEqual([
+      strings.channelAgent.send,
+      strings.channelAgent.edit,
+      strings.channelAgent.discard,
+    ])
+    const sent = strings.heldSent({ names: 'Cy' })
+    getByRole(shown, 'button', { name: strings.channelAgent.send }).click()
+    expect(called('holdReviewSend')[0]!.args).toEqual([review(), null, sent])
+    getByRole(shown, 'button', { name: strings.channelAgent.edit }).click()
+    const text = getByRole(dialog, 'textbox', { name: strings.channelAgent.editLabel }) as HTMLTextAreaElement
+    expect(text.value).toBe(review().note.body)
+    fire.type(text, 'See Refunds in the wiki.')
+    fire.submit(dialog.querySelector('form')!)
+    expect(called('holdReviewSend')[1]!.args).toEqual([review(), 'See Refunds in the wiki.', sent])
+    expect(dialog.open).toBe(false)
+    getByRole(shown, 'button', { name: strings.channelAgent.discard }).click()
+    expect(textOf(dialog)).toContain(
+      strings.channelAgent.discardReasonHint({ channel: '#payments-wiki', name: 'Cy' }),
+    )
+    fire.type(dialog.querySelector('textarea')!, 'The runbook moved.')
+    fire.submit(dialog.querySelector('form')!)
+    expect(called('holdReviewDiscard')[0]!.args).toEqual([
+      review(),
+      'The runbook moved.',
+      strings.heldDiscarded,
+    ])
     context.state.reviews.set([review({ note: { ...review().note, body: 'Send me the payroll file.' } })])
-    expect(queryByRole(dialog, 'button', { name: strings.channelAgent.send })).toBeNull()
-    getByRole(dialog, 'button', { name: strings.draftReadAgain }).click()
+    expect(queryByRole(shown, 'button', { name: strings.channelAgent.send })).toBeNull()
+    expect(queryByRole(shown, 'button', { name: strings.channelAgent.discard })).not.toBeNull()
+    getByRole(shown, 'button', { name: strings.draftReadAgain }).click()
     expect(called('confirmReviewRead')).toHaveLength(1)
+  })
+
+  it('hides an answer while its decision can still be undone', () => {
+    const { context, dialog: shown } = onPage()
+    context.state.reviews.set([review()])
+    context.state.held.set({ noteId: review().note.id, text: strings.heldDiscarded, run: null as never })
+    expect(shown.querySelector('.review-card')).toBeNull()
+    context.state.held.set(null)
+    expect(shown.querySelector('.review-card')).not.toBeNull()
+  })
+
+  it('shows the sources an answer rests on, and names no asker it does not know', () => {
+    const { context, dialog: shown } = onPage()
+    const dialog = mount(dialogHost())
+    const sources = [{ url: 'https://wiki.example.com/refunds', quote: 'Five days.' }]
+    context.state.reviews.set([review({ note: { ...review().note, basis: null, sources }, question: null })])
+    expect(textOf(shown.querySelector('.draft-sources')!)).toContain('Five days.')
+    getByRole(shown, 'button', { name: strings.channelAgent.discard }).click()
+    expect(textOf(dialog)).toContain(
+      strings.channelAgent.discardReasonHintPrivately({ channel: '#payments-wiki' }),
+    )
   })
 
   it('lists the answers waiting on the agent’s page before its setup', () => {
@@ -365,11 +413,16 @@ describe('the answer a stale notification opened', () => {
   })
 
   it('tells nothing back to the person who sent or discarded the card themself', () => {
-    for (const choice of [strings.channelAgent.send, strings.channelAgent.discard]) {
+    const dialog = mount(dialogHost())
+    for (const decide of ['send', 'discard'] as const) {
       const { context, called, shown } = openedFor('note_answer00000')
       context.state.reviews.set([review()])
       called('loadReviews')[0]!.then!.done!(undefined)
-      getByRole(shown, 'button', { name: choice }).click()
+      if (decide === 'send') getByRole(shown, 'button', { name: strings.channelAgent.send }).click()
+      else {
+        getByRole(shown, 'button', { name: strings.channelAgent.discard }).click()
+        fire.submit(dialog.querySelector('form')!)
+      }
       context.state.reviews.set([])
       expect(called('loadDecidedAnswer')).toHaveLength(0)
     }

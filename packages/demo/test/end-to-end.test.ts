@@ -56,7 +56,7 @@ const startDemo = async (hash = '#/') => {
     browser.emit('hashchange')
     await settle()
   }
-  return { root, world, app, settle, open, browser }
+  return { root, world, app, settle, open, browser, clock }
 }
 
 describe('the demo', () => {
@@ -73,13 +73,16 @@ describe('the demo', () => {
     expect(app.state.reviews.get()).toHaveLength(2)
   })
 
-  it('sends the draft on a click, and the note arrives in the conversation', async () => {
-    const { root, settle, world, open } = await startDemo()
+  it('sends the draft on a click once its moment to undo is over, and the note arrives in the conversation', async () => {
+    const { root, settle, world, open, clock } = await startDemo()
     await open(`#/c/${noteStarting(world, 'Yes. I checked').conversationId}`)
     const draft = root.querySelector('.pending .draft') as HTMLElement
-    fire.click(getByRole(draft, 'button', { name: 'Send' }))
+    fire.click(getByRole(draft, 'button', { name: 'Approve and send' }))
     await settle()
     expect(root.querySelector('.pending .draft')).toBeNull()
+    expect(root.querySelector('.toast.is-held')?.textContent).toContain('Sent to Ana Silva')
+    expect(noteStarting(world, 'Yes. I checked').status).toBe('draft')
+    await clock.advance(5_000)
     const mine = [...root.querySelectorAll('.note.is-mine')].map((note) => note.textContent ?? '')
     expect(mine.some((text) => text.includes('Yes. I checked the lock ordering'))).toBe(true)
     expect(noteStarting(world, 'Yes. I checked').status).toBe('sent')
@@ -91,7 +94,10 @@ describe('the demo', () => {
     const card = [...root.querySelectorAll('.review-card')].find((each) =>
       each.textContent?.includes('Annual plans are refunded pro rata'),
     ) as HTMLElement
-    fire.click(getByRole(card, 'button', { name: 'Send' }))
+    fire.click(getByRole(card, 'button', { name: 'Approve and send' }))
+    await settle()
+    expect(noteStarting(world, 'Annual plans are refunded').status).toBe('draft')
+    fire.click(getByRole(root, 'button', { name: 'Done' }))
     await settle()
     expect(app.state.reviews.get().map((review) => review.note.body)).not.toContain(
       noteStarting(world, 'Annual plans are refunded').body,
@@ -100,6 +106,37 @@ describe('the demo', () => {
       status: 'sent',
       approvedBy: VISITOR_ID,
     })
+  })
+})
+
+describe('undoing a decision in the demo', () => {
+  it('brings the draft back on Undo and sends nothing', async () => {
+    const { root, settle, world, open, clock } = await startDemo()
+    await open(`#/c/${noteStarting(world, 'Yes. I checked').conversationId}`)
+    fire.click(getByRole(root.querySelector('.pending .draft') as HTMLElement, 'button', { name: 'Discard' }))
+    await settle()
+    expect(root.querySelector('.pending .draft')).toBeNull()
+    fire.click(getByRole(root, 'button', { name: 'Undo' }))
+    await clock.advance(10_000)
+    expect(root.querySelector('.pending .draft')).not.toBeNull()
+    expect(noteStarting(world, 'Yes. I checked').status).toBe('draft')
+  })
+
+  it('discards a channel agent’s answer with a reason and then shows the question without an answer', async () => {
+    const { root, settle, world, open, clock } = await startDemo()
+    await open('#/channel/billing/agent')
+    const card = [...root.querySelectorAll('.review-card')].find((each) =>
+      each.textContent?.includes('Annual plans are refunded pro rata'),
+    ) as HTMLElement
+    fire.click(getByRole(card, 'button', { name: 'Discard' }))
+    const form = root.ownerDocument.querySelector('.review-discard-form') as HTMLFormElement
+    fire.type(form.querySelector('textarea')!, 'Outdated policy')
+    fire.submit(form)
+    await clock.advance(5_000)
+    await settle()
+    expect(noteStarting(world, 'Annual plans are refunded').status).toBe('discarded')
+    await open(`#/c/${noteStarting(world, 'Who can explain the refund rule').conversationId}`)
+    expect(root.textContent).toContain('No answer yet')
   })
 })
 

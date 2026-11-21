@@ -7,6 +7,7 @@ import type {
   NoteId,
 } from '@homingbird/protocol'
 import { type ReadableSignal, type Signal, derived, isSameData, signal } from '@homingbird/ui'
+import type { Action } from './app.ts'
 import { type Roster, agentMembersOf } from './channels.ts'
 import { withDraftsAsRead, withReviewsAsRead } from './drafts-read.ts'
 import { type Route, parseRoute } from './routes.ts'
@@ -38,6 +39,7 @@ export const createState = (hash: string): AppState => {
     contacts: signal<ReadonlyArray<AsRead.Contact>>([]),
     connection: signal<Connection>('connecting'),
     notice: signal<Notice | null>(null),
+    held: signal<HeldDecision | null>(null),
     announcement: signal(''),
     sendingIn: signal<ReadonlySet<ConversationId>>(new Set()),
     draftRequests: signal<ReadonlyArray<DraftRequest>>([]),
@@ -99,6 +101,8 @@ export interface AppState {
   readonly contacts: Signal<ReadonlyArray<AsRead.Contact>>
   readonly connection: Signal<Connection>
   readonly notice: Signal<Notice | null>
+  /** A send or discard the person just made, not yet asked of the server, so that they can undo it. */
+  readonly held: Signal<HeldDecision | null>
   readonly announcement: Signal<string>
   readonly sendingIn: Signal<ReadonlySet<ConversationId>>
   readonly draftRequests: Signal<ReadonlyArray<DraftRequest>>
@@ -146,6 +150,13 @@ export type Connection = 'connecting' | 'live' | 'polling' | 'offline'
 export interface Thread {
   readonly notes: ReadonlyArray<AsRead.Note>
   readonly hasMore: boolean
+}
+
+/** What a held decision does once it is no longer undone, and what the toast says of it meanwhile. */
+export interface HeldDecision {
+  readonly noteId: NoteId
+  readonly text: string
+  readonly run: Action
 }
 
 export interface Notice {

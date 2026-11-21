@@ -8,7 +8,7 @@ export type Route =
       readonly draft: string | null
       /** A channel's agent's answer the person reviews, shown under its question in the room. */
       readonly review?: string
-      /** A sent note a copied link points at, brought into view when the conversation opens. */
+      /** A sent note a copied link or a draft's source points at, brought into view when the conversation opens. */
       readonly note?: string
     }
   | { readonly name: 'people' }

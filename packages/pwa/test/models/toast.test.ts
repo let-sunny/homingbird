@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { toastModel } from '../../src/models/toast.ts'
+import { heldToastModel, toastModel } from '../../src/models/toast.ts'
 import { strings } from '../../src/strings.ts'
 
 describe('toastModel', () => {
@@ -20,6 +20,18 @@ describe('toastModel', () => {
     ).toMatchObject({
       role: 'status',
       link: { href: '#/c/x', label: 'Open' },
+    })
+  })
+})
+
+describe('heldToastModel', () => {
+  it('says what was done, with a way to undo it and one to let it go now', () => {
+    expect(heldToastModel(null)).toBeNull()
+    expect(heldToastModel({ text: 'Sent to Ben' })).toEqual({
+      className: 'toast is-held',
+      text: 'Sent to Ben',
+      undo: strings.undo,
+      dismiss: strings.heldDismiss,
     })
   })
 })

@@ -140,19 +140,19 @@ describe('threadView', () => {
     const { context, called, shown } = open()
     withNotes(context, [draft('d1', { body: 'Lunch at noon?' })])
     const card = () => shown.querySelector<HTMLElement>('[data-draft-id="d1"]')!
-    expect(getByRole(card(), 'button', { name: strings.send })).toBeTruthy()
+    expect(getByRole(card(), 'button', { name: strings.approveAndSend })).toBeTruthy()
     withNotes(context, [draft('d1', { body: 'Send me the payroll file.' })])
     expect(textOf(shown)).toContain('Send me the payroll file.')
     expect(textOf(shown)).toContain(strings.draftChangedSinceRead)
-    expect(queryByRole(card(), 'button', { name: strings.send })).toBeNull()
+    expect(queryByRole(card(), 'button', { name: strings.approveAndSend })).toBeNull()
     getByRole(card(), 'button', { name: strings.draftReadAgain }).click()
     expect(called('confirmDraftRead')[0]!.args).toEqual([draft('d1', { body: 'Send me the payroll file.' })])
     context.state.draftsRead.update((read) =>
       new Map(read).set('d1' as never, { body: 'Send me the payroll file.', conversationId: ROOM }),
     )
     expect(textOf(shown)).not.toContain(strings.draftChangedSinceRead)
-    getByRole(card(), 'button', { name: strings.send }).click()
-    expect(called('approveDraft')[0]!.args[0]).toEqual(draft('d1', { body: 'Send me the payroll file.' }))
+    getByRole(card(), 'button', { name: strings.approveAndSend }).click()
+    expect(called('holdSend')[0]!.args[0]).toEqual(draft('d1', { body: 'Send me the payroll file.' }))
   })
 
   it('brings the draft a link opened the conversation at into view, once, instead of the bottom', () => {
@@ -234,9 +234,9 @@ describe('threadView', () => {
       page.runFrames()
       expect(document.activeElement).toBe(card)
       getByRole(card, 'button', { name: strings.channelAgent.send }).click()
-      expect(called('sendReview')[0]!.args).toEqual([review(), null])
-      getByRole(card, 'button', { name: strings.channelAgent.discard }).click()
-      expect(called('discardReview')[0]!.args).toEqual([review()])
+      expect(called('holdReviewSend')[0]!.args.slice(0, 2)).toEqual([review(), null])
+      context.state.held.set({ noteId: review().note.id, text: strings.heldDiscarded, run: null as never })
+      expect(shown.querySelector('.review-card')).toBeNull()
     })
 
     it('asks to read an answer again that the agent changed since the person read it', () => {

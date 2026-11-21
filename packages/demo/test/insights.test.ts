@@ -41,7 +41,9 @@ describe('agentReportOf', () => {
   it('counts a discarded draft, and an answer approved for a channel apart from the visitor’s own', async () => {
     const { api, world, viewerId } = demoApi()
     const before = agentReportOf(world.records(), viewerId, world.startedAt, world.clock.now())
-    await succeeded(api['drafts.discard']({ params: { id: noteStarting(world, 'Yes. I checked').id } }))
+    await succeeded(
+      api['drafts.discard']({ params: { id: noteStarting(world, 'Yes. I checked').id }, body: {} }),
+    )
     const answer = noteStarting(world, 'Annual plans are refunded')
     await succeeded(
       api['drafts.send']({

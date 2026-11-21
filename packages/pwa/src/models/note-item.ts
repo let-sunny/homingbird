@@ -1,7 +1,7 @@
 import { type AsRead, type MemberId, type NoteId, summarize } from '@homingbird/protocol'
 import { authorshipOf, showsStateMark, stateMarkOf } from '../authorship.ts'
 import { type AnswerersLine, questionWaits } from '../channel-answerers.ts'
-import { draftBasisOf } from '../draft-basis.ts'
+import { type SourceShown, draftBasisOf } from '../draft-basis.ts'
 import { unavailableOf } from '../presence.ts'
 import { spriteOwner } from '../sprite-owner.ts'
 import { formats, listOf, strings } from '../strings.ts'
@@ -40,6 +40,7 @@ export const noteItemModel = (
   const charactersOn = isOn(input, 'characters')
   const markShown = mine && showsStateMark(note, next)
   const basis = mine ? draftBasisOf(note) : null
+  const waits = mine && answerers.length === 0 ? questionLine(input, note) : null
   const side = mine ? 'is-mine' : 'is-theirs'
   return {
     noteId: note.id,
@@ -55,7 +56,12 @@ export const noteItemModel = (
     basis:
       basis === null || basis.kind === 'none'
         ? null
-        : { className: `note-basis ${side}`, lines: basis.lines },
+        : {
+            className: `note-basis ${side}`,
+            title: strings.basedOn,
+            lines: basis.lines,
+            sources: basis.sources,
+          },
     approval: approvalLine(note, room, input.channels, input.members),
     answeredBy:
       answerers.length === 0
@@ -71,8 +77,17 @@ export const noteItemModel = (
             ),
             text: strings.answeredBy({ names: listOf(answerers.map((memberId) => nameIn(input, memberId))) }),
           },
+    noAnswer:
+      isChannelQuestion &&
+      !archived &&
+      waits === null &&
+      answerers.length === 0 &&
+      !isBeingAnswered(note) &&
+      !hasReplyIn(input, note)
+        ? strings.noAnswerYet
+        : null,
     release: !mine && !archived ? releaseModel(input, note) : null,
-    waits: mine && answerers.length === 0 ? questionLine(input, note) : null,
+    waits,
     meta:
       next === null || markShown
         ? {
@@ -100,10 +115,18 @@ export interface NoteItemModel {
   readonly bubbleTitle: string | null
   readonly quote: string | null
   readonly body: string
-  readonly basis: { readonly className: string; readonly lines: ReadonlyArray<string> } | null
+  /** What the person's own sent note rested on, collapsed under "Based on". */
+  readonly basis: {
+    readonly className: string
+    readonly title: string
+    readonly lines: ReadonlyArray<string>
+    readonly sources: ReadonlyArray<SourceShown>
+  } | null
   /** Where a channel's agent answered and who approved it, for everyone who reads the note. */
   readonly approval: string | null
   readonly answeredBy: { readonly avatar: AvatarModel; readonly text: string } | null
+  /** Under a channel's question nobody answered or is answering, a discarded answer's included. */
+  readonly noAnswer: string | null
   readonly release: { readonly text: string; readonly askAnyway: string | null } | null
   /** Under the person's latest question in a channel while no answer came: who answers, then drafting. */
   readonly waits: AnswerersLine | null
@@ -312,6 +335,12 @@ const isUnavailableRecipient = (input: ThreadInput, note: AsRead.Note): boolean 
   const entry = input.directory.find((candidate) => candidate.member.id === receipt?.memberId)
   return unavailableOf(entry?.presence) !== null
 }
+
+const hasReplyIn = (input: ThreadInput, note: AsRead.Note): boolean =>
+  notesOf(input).some((reply) => reply.inReplyTo === note.id && reply.status === 'sent')
+
+const isBeingAnswered = (note: AsRead.Note): boolean =>
+  note.receipts.some((receipt) => receipt.state === 'drafting')
 
 const roomStatus = (note: AsRead.Note): string => {
   const { read, of, drafting } = readProgress(note.receipts)

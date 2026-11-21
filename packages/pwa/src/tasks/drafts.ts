@@ -6,6 +6,7 @@ import { type AgentAsk, requestBody, upsertRequest } from '../draft-requests.ts'
 import { asRead, withDraftRead } from '../drafts-read.ts'
 import { hrefFor } from '../routes.ts'
 import type { AppState } from '../state.ts'
+import { holdDecision } from './held.ts'
 import { forgetNote, forgetRelease, loadThread, rememberNote } from './notes.ts'
 import { refreshAgentReport, refreshPrinciples } from './teaching.ts'
 import { loadConversations } from './workspace.ts'
@@ -33,12 +34,24 @@ export const approveDraft = (
     )
     yield* track('draft_approved', {})
     for (const alternative of alternatives)
-      yield* T.result(api['drafts.discard']({ params: { id: alternative.id } }))
+      yield* T.result(api['drafts.discard']({ params: { id: alternative.id }, body: {} }))
     yield* refreshAgentReport
     yield* refreshPrinciples
     yield* loadThread(draft.conversationId)
     yield* loadConversations
   })
+
+/** Sends a draft once the moment to undo it is over; until then the toast says so and its card is hidden. */
+export const holdSend = (
+  draft: AsRead.Note,
+  editedBody: string | null,
+  alternatives: ReadonlyArray<AsRead.Note>,
+  text: string,
+): Action => holdDecision({ noteId: draft.id, text, run: approveDraft(draft, editedBody, alternatives) })
+
+/** Discards a draft once the moment to undo it is over. */
+export const holdDiscard = (draft: AsRead.Note, text: string): Action =>
+  holdDecision({ noteId: draft.id, text, run: discardDraft(draft) })
 
 export const saveDraft = (draft: AsRead.Note, body: string): Action =>
   withApp(({ api, state }) =>
@@ -52,7 +65,7 @@ export const confirmDraftRead = (draft: AsRead.Note): Action =>
 export const discardDraft = (draft: AsRead.Note): Action =>
   T.gen(function* () {
     const { api, state } = yield* T.ask<App>()
-    yield* api['drafts.discard']({ params: { id: draft.id } })
+    yield* api['drafts.discard']({ params: { id: draft.id }, body: {} })
     forgetNote(state, draft.conversationId, draft.id)
     yield* refreshAgentReport
     yield* refreshPrinciples

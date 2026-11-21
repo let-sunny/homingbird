@@ -78,13 +78,31 @@ describe('the channel agent tasks', () => {
   })
 
   it('discard an answer, and remember one the manager read again', async () => {
-    const { run, state, routes } = testApp({ 'reviews.list': () => ({ reviews: [] }) })
+    const { run, state, routes, sent } = testApp({ 'reviews.list': () => ({ reviews: [] }) })
+    const bodies = (route: string) =>
+      sent.filter((one) => one.route === route).map((one) => (one.request as { body: unknown }).body)
     state.serverInfo.set(everything())
-    await run(tasks.discardReview(review()))
-    expect(routes()).toEqual(['drafts.discard', 'reviews.list'])
+    await run(tasks.discardReview(review(), '  '))
+    await run(tasks.discardReview(review(), ' Out of date. '))
+    expect(routes()).toEqual(['drafts.discard', 'reviews.list', 'drafts.discard', 'reviews.list'])
+    expect(bodies('drafts.discard')).toEqual([{}, { reason: 'Out of date.' }])
     const changed = review({ note: { ...review().note, body: 'New' } })
     await run(tasks.confirmReviewRead(changed))
     expect(state.reviewsRead.get().get(changed.note.id)?.body).toBe('New')
+  })
+
+  it('hold a send or discard of an answer, asking nothing of the server until it is carried out', async () => {
+    const { run, state, routes } = testApp({ 'reviews.list': () => ({ reviews: [] }) })
+    state.serverInfo.set(everything())
+    await run(tasks.holdReviewSend(review(), 'Edited', 'Sent to Cy'))
+    expect([routes(), state.held.get()?.noteId, state.held.get()?.text]).toEqual([
+      [],
+      review().note.id,
+      'Sent to Cy',
+    ])
+    await run(tasks.holdReviewDiscard(review(), 'Why', 'Discarded'))
+    expect(routes()).toEqual(['drafts.send', 'reviews.list'])
+    expect(state.held.get()?.text).toBe('Discarded')
   })
 
   it('learn what became of an answer: the note once sent, nothing when it cannot be read', async () => {
