@@ -19,7 +19,7 @@ import { reviewsWaiting } from './channel-agent.ts'
 import { renderAvatar, renderGroupAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
 import { startingPoints } from './home.ts'
-import { muteButton, mutedMark } from './mute-toggle.ts'
+import { mutedMark } from './mute-toggle.ts'
 import { archivedMark, channelCounts, empty, loading, presenceBadges, timeLabel } from './parts.ts'
 
 /** The app around a page: the header with its tabs, the connection, the sidebar and the user menu. */
@@ -302,5 +302,4 @@ const conversationRow = (context: ViewContext, row: ConversationRow): HTMLElemen
           h('span', { class: 'count drafts', 'aria-label': row.drafts.label }, row.drafts.text),
       ),
     ),
-    row.mute !== null && muteButton(context, row.mute),
   )

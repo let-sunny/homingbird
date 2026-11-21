@@ -1340,8 +1340,6 @@ export const ko: Translation<typeof en> = {
     figuresLoadFailed: '에이전트가 어떻게 하고 있는지 불러오지 못했어요. 잠시 뒤에 다시 해 보세요.',
   },
   mute: {
-    mute: '알림 끄기',
-    unmute: '알림 켜기',
     muteName: '{name} 알림 끄기',
     unmuteName: '{name} 알림 켜기',
     muted: '알림 꺼짐',

@@ -77,7 +77,6 @@ describe('renderThreadHead', () => {
     const mute = {
       conversationId: ROOM,
       muted: true,
-      text: strings.mute.unmute,
       label: 'Unmute Ben',
       mark: strings.mute.muted,
       hint: strings.mute.hint,
@@ -94,7 +93,7 @@ describe('renderThreadHead', () => {
         title: '#billing',
         archived: false,
         channel: channel('billing', { joined: true }),
-        mute: { ...mute, muted: false, text: strings.mute.mute, label: 'Mute #billing', mark: null },
+        mute: { ...mute, muted: false, label: 'Mute #billing', mark: null },
       }),
     )
     expect(getByRole(room, 'heading').textContent).not.toContain(strings.mute.muted)

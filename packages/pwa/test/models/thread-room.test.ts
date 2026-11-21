@@ -141,7 +141,7 @@ describe('threadHeadModel', () => {
 
   it('offers to mute the conversation, or to lift its mute, only while the server offers muting', () => {
     expect(threadHeadModel(threadInput({ conversations: [conversation({ muted: true })] }))).toMatchObject({
-      mute: { muted: true, text: strings.mute.unmute, mark: strings.mute.muted, label: 'Unmute Ben' },
+      mute: { muted: true, mark: strings.mute.muted, label: 'Unmute Ben' },
     })
     expect(threadHeadModel(threadInput({ serverInfo: serverInfo({ mute: false }) }))).toMatchObject({
       kind: 'people',
