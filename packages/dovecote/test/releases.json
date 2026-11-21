@@ -9,5 +9,6 @@
   { "version": "0.3.2", "steps": 12 },
   { "version": "0.3.3", "steps": 12 },
   { "version": "0.3.4", "steps": 12 },
-  { "version": "0.3.5", "steps": 14 }
+  { "version": "0.3.5", "steps": 14 },
+  { "version": "0.3.6", "steps": 15 }
 ]
