@@ -235,4 +235,32 @@ describe('renderNoteItem', () => {
     expect(textOf(line)).toBe(strings.channelAnswer.nobodyAnswers)
     expect(line.className).toContain('is-warning')
   })
+
+  it('shows a posted debate result as its conclusion and next steps, the whole note folded, and a link to its room', () => {
+    const { context } = testContext()
+    const fromDebate = { debateId: 'deb_room00000000' as never, question: 'Ship?', agents: [] }
+    const body = [
+      'From the debate room: Ship?',
+      'Result: conclusion',
+      'Ship Friday.',
+      'Reasons\n\n- Tests pass.',
+      'Next steps\n\n- Tag it',
+      'Contributions\n\n- Ana’s agent: Checked.',
+    ].join('\n\n')
+    const shown = render(context, note('r1', { authorId: BEN, origin: 'agent', body, fromDebate }))
+    const bubble = shown.querySelector('.bubble')!
+    expect(textOf(bubble.querySelector('.debate-note-heading')!)).toBe(strings.debateNote.agreed)
+    expect(textOf(bubble.querySelector('.debate-note-steps')!)).toBe('Tag it')
+    expect(textOf(bubble.querySelector('.debate-note-whole summary')!)).toBe(strings.debateNote.whole)
+    expect(bubble.querySelector('.debate-note-room')!.getAttribute('href')).toBe(
+      '#/debate/deb_room00000000/result',
+    )
+    const unshaped = render(
+      context,
+      note('r2', { authorId: BEN, origin: 'agent', body: 'By hand.', fromDebate }),
+    )
+    expect(textOf(unshaped.querySelector('.note-body')!)).toBe('By hand.')
+    expect(unshaped.querySelector('.debate-note-whole')).toBeNull()
+    expect(unshaped.querySelector('.debate-note-room')).not.toBeNull()
+  })
 })

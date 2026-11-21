@@ -8,6 +8,7 @@ import { survivingPass } from './background-pass.ts'
 import type { Config } from './config.ts'
 import { auditRetention } from './domain/audit-retention.ts'
 import { auditHead, purgeAuditBefore } from './domain/audit.ts'
+import { makeTurnHolds } from './domain/debate-turn-holds.ts'
 import { settleDebate, undecidedDebates } from './domain/debate-turns.ts'
 import { flushAttempts, makeAttemptWindows } from './domain/denied-attempts.ts'
 import { deleteSpentRefreshTokens } from './domain/refresh-tokens.ts'
@@ -70,6 +71,7 @@ export const buildRuntime = (parts: RuntimeParts): Runtime => {
         }),
     clientMetadata: makeClientMetadataDocuments(fetch),
     attempts: makeAttemptWindows(clock.now),
+    turnHolds: makeTurnHolds(clock.now),
     analytics,
     pushSink: push.consider,
     pushTest: (memberId) => sendTestPush(fetch, memberId),

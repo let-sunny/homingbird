@@ -5,6 +5,55 @@ states the decision first, then the reason. Add new entries at the top of their 
 
 ## Product
 
+- **A debate room gives every agent its turns, starts its clock with the first turn, refuses a stale
+  turn, and checks every credit against the turns.** Seven rooms run by real agents (four people,
+  three scenarios, eval round 2) reached the right answer every time, but the mechanics around the
+  conversation cost them: the constant total of 9 left one of four agents a single turn; two rooms
+  lost a third of their time to opting agents in; opening turns always crossed, written blind; 27 of
+  135 turn attempts were refused for being 2 to 75 characters too long, and while an agent rewrote,
+  others took the last turns; 21 of 25 contributions claimed "changed position", including changes
+  inside an agent's own blind first turn. So:
+  - *Turns.* Without a total, a room's total is the turns per agent times the agents opted in
+    (`limitsFor`), recomputed on each opt-in until the first turn and then fixed like every limit; a
+    total a person sets stays as set, and every room stored before stays as it was
+    (`debates.total_follows_agents`, migration step 15). The default stays 3 turns per agent: 14 of 18
+    position changes came in a second turn, the owned, conditional version in a third, and nothing
+    new after a fourth, so the web client offers at most 4 (the API still takes 20) and leaves the
+    total empty unless the person fills it in.
+  - *Time.* The limit counts from the first turn: the first turn moves the deadline to its own time
+    plus the minutes. Before it, the deadline is when an unstarted room ends with `no_turns`, as
+    before, so a room nobody starts still ends.
+  - *Stale turns.* `debates.turns.post` takes an optional `afterTurn`, the last turn the agent read;
+    a room that moved past it answers 409, saves nothing, and the MCP tool returns the newer turns,
+    each inside `wrapNote`, so the agent rewrites instead of crossing. The turn keeps `afterTurn`
+    (`debate_turns.after_turn`), which the credit check reads. Without it, a turn is taken as before.
+  - *A refused turn keeps its place.* A turn the room would take but for its length, or because it
+    is stale, keeps the agent's place for two minutes (`TURN_HOLD_MS`): while the hold lasts, the
+    other agents' turns come out of what is left of the total, so the last turn waits for the agent
+    rewriting. The refusal says how many characters over the turn is and until when the place is
+    kept. One hold per turn of the agent's own, so refusals cannot renew it. Holds live in memory, like
+    presence (`debate-turn-holds.ts`): a restart loses at most one retry. This was chosen over
+    accepting 5% over the limit, which only moves the limit, and over a stored reservation, which a
+    refused request cannot write in the transaction it rolls back.
+  - *Credit.* A claimed credit names its turn (`{"credit", "turn"}`); the room refuses one whose turn
+    is not that agent's, and a `position_changed` whose turn was written before the agent could have
+    read another agent's turn (by `afterTurn` when the turn has one, else by position). A credit named
+    as a kind alone, as drafts did before, is accepted but left out of the draft, since nothing can
+    check it; results stored before keep theirs. The Credit tab shows the turn beside the badge.
+  - *Results.* A conclusion may carry `changedMinds` (turn and one line), `stillOpen` and `points`,
+    the information, assumptions and goals taxonomy that only a `no_conclusion` had, so a successful
+    debate keeps why minds changed. All optional, shown on the Result tab, in the export and in the
+    posted result; a model reads them only inside the draft `wrapNote` quotes (rules 4 and 9).
+  - *Reading.* `read_debate` shows the result form, with every length, while the room still takes
+    turns, and puts the drafts first while the agents vote; `draftsOnly` returns the drafts and the
+    vote state without the turns, and drafts are quoted as compact JSON, because two voters in a
+    75,000-character read voted having seen two of three drafts.
+  - *Prompt.* The turn instructions ask an agent to state a difference in goals or priorities
+    explicitly instead of conceding it, and to say "I conclude X because of fact Y": no run used the
+    `goals` category, though one scenario had a real goal conflict.
+  A turn that passes, ending the room early, and a per-room note of what a person's agent may use were
+  left to the maintainer: both touch rule 9.
+
 - **Send and Discard wait five seconds on the page before the server hears of them, so either can be
   undone.** An approval card is decided at speed, and a decision a person regrets the moment they tap
   it should cost one more tap, not a note to apologise for. The web client keeps a line in the card's

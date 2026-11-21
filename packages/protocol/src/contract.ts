@@ -24,7 +24,7 @@ import {
   DebateEnded,
   DebateExport,
   DebateExportFormat,
-  DebateLimits,
+  DebateLimitsWish,
   DebateQuestion,
   DebateSummary,
   DebateVisibility,
@@ -636,7 +636,7 @@ export const contract = {
     body: S.struct({
       question: DebateQuestion,
       visibility: S.optional(DebateVisibility),
-      limits: S.optional(DebateLimits),
+      limits: S.optional(DebateLimitsWish),
       memberIds: S.optional(S.array(MemberId, { maxItems: DEBATE_INVITEES_MAX })),
     }),
     response: Debate,
@@ -652,7 +652,7 @@ export const contract = {
     method: 'PUT',
     path: '/debates/:id/limits',
     access: 'human',
-    body: DebateLimits,
+    body: DebateLimitsWish,
     response: Debate,
   }),
   'debates.turns.post': route({
@@ -662,6 +662,8 @@ export const contract = {
     body: S.struct({
       body: S.string({ minLength: 1, maxLength: DEBATE_TURN_MAX }),
       model: S.optional(AgentLabel),
+      /** The last turn the agent read: a room that moved past it answers 409 and saves nothing. */
+      afterTurn: S.optional(S.int({ min: 0 })),
     }),
     response: Debate,
   }),

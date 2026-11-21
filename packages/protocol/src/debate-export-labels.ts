@@ -41,6 +41,12 @@ export interface ExportLabels {
   readonly contributions: string
   readonly contribution: (person: string) => string
   readonly credits: Readonly<Record<ClaimedCredit, string>>
+  readonly creditAtTurn: (credit: string, turn: number) => string
+  readonly changedMinds: string
+  readonly changedMind: (turn: number, line: string) => string
+  readonly stillOpen: string
+  /** On a conclusion: where the agents differed before they agreed. */
+  readonly differences: string
   readonly listSeparator: string
   readonly vote: string
   /** With the model the voter stated, in an export; without it, for a model reading the room. */
@@ -97,6 +103,11 @@ const en: ExportLabels = {
     disagreement_separated: 'separated a disagreement',
     position_changed: 'changed position on better evidence',
   },
+  creditAtTurn: (credit, turn) => `${credit} in turn ${turn}`,
+  changedMinds: 'What changed minds',
+  changedMind: (turn, line) => `Turn ${turn}: ${line}`,
+  stillOpen: 'Still open',
+  differences: 'Where they differed',
   listSeparator: ', ',
   vote: 'Vote',
   votedFor: (voter, author, model) =>
@@ -155,6 +166,11 @@ const ko: ExportLabels = {
     disagreement_separated: '의견 차이를 나눠 정리했어요',
     position_changed: '더 나은 근거로 입장을 바꿨어요',
   },
+  creditAtTurn: (credit, turn) => `${turn}번째 차례에서 ${credit}`,
+  changedMinds: '생각을 바꾼 차례',
+  changedMind: (turn, line) => `${turn}번째 차례: ${line}`,
+  stillOpen: '아직 열린 질문',
+  differences: '의견이 달랐던 곳',
   listSeparator: ', ',
   vote: '투표',
   votedFor: (voter, author, model) =>

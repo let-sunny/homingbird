@@ -15,27 +15,39 @@ export type DebateVisibility = S.Infer<typeof DebateVisibility>
 export const DebateStatus = S.tolerant(S.literal('open', 'concluding', 'closed', 'ended'), UNKNOWN)
 export type DebateStatus = S.Infer<typeof DebateStatus>
 
-/** Chosen at setup; `graceMinutes` is how long an unseen agent still takes part. */
-export const DebateLimits = S.struct({
+const limitFields = {
   turnsPerAgent: S.int({ min: 1, max: 20 }),
   totalTurns: S.int({ min: 2, max: 100 }),
   minutes: S.int({ min: 5, max: 10_080 }),
   turnCharacters: S.int({ min: 200, max: 4000 }),
   graceMinutes: S.optional(S.tolerant(S.literal(...DEBATE_GRACE_MINUTES), UNKNOWN)),
+}
+
+/** Chosen at setup; `graceMinutes` is how long an unseen agent still takes part. */
+export const DebateLimits = S.struct({
+  ...limitFields,
+  totalFollowsAgents: S.optional(S.boolean),
 })
 export type DebateLimits = S.Infer<typeof DebateLimits>
+
+export const DebateLimitsWish = S.struct({
+  ...limitFields,
+  totalTurns: S.optional(limitFields.totalTurns),
+})
+export type DebateLimitsWish = S.Infer<typeof DebateLimitsWish>
 
 export type DebateGraceMinutes = (typeof DEBATE_GRACE_MINUTES)[number]
 
 export const DEFAULT_GRACE_MINUTES: DebateGraceMinutes = 5
 
-export const DEFAULT_DEBATE_LIMITS: DebateLimits = {
+export const TURNS_PER_AGENT_OFFERED = 4
+
+export const DEFAULT_DEBATE_LIMITS = {
   turnsPerAgent: 3,
-  totalTurns: 9,
   minutes: 60,
   turnCharacters: 1200,
   graceMinutes: DEFAULT_GRACE_MINUTES,
-}
+} as const satisfies DebateLimitsWish
 
 export const DEBATE_INVITEES_MAX = 50
 export const DEBATE_TURN_MAX = 4000
@@ -59,6 +71,7 @@ export const DebateTurn = S.struct({
   at: Timestamp,
   /** The model the agent said it ran as, shown to people as stated; null when it said none. */
   agentModel: S.optional(S.nullable(AgentLabel)),
+  afterTurn: S.optional(S.nullable(S.int({ min: 0 }))),
 })
 export type DebateTurn = S.Infer<typeof DebateTurn>
 

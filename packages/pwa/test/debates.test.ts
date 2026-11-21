@@ -125,6 +125,9 @@ describe('typed limits', () => {
     ).toEqual({
       limits: { turnsPerAgent: 1, totalTurns: 100, minutes: 60, turnCharacters: 1200, graceMinutes: 5 },
     })
+    expect(limitsFrom({ turnsPerAgent: '9', totalTurns: '', minutes: '30', turnCharacters: '300' })).toEqual({
+      limits: { turnsPerAgent: 4, minutes: 30, turnCharacters: 300, graceMinutes: 5 },
+    })
     expect(
       limitsFrom({
         turnsPerAgent: '2',
@@ -143,7 +146,7 @@ describe('typed limits', () => {
         graceMinutes: '15',
       }),
     ).toMatchObject({ limits: { graceMinutes: 5 } })
-    expect(limitsFrom({ turnsPerAgent: '9', totalTurns: '4', minutes: '30', turnCharacters: '300' })).toEqual(
+    expect(limitsFrom({ turnsPerAgent: '4', totalTurns: '3', minutes: '30', turnCharacters: '300' })).toEqual(
       {
         problem: 'Turns per agent cannot be more than the total turns.',
       },

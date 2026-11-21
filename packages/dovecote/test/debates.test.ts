@@ -1,7 +1,7 @@
 import { DEFAULT_DEBATE_LIMITS } from '@homingbird/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type Cast, LIMITS, QUESTION, castOf, openedRoom, turnsRunOut } from './debate-support.ts'
-import { type TestServer, connectAgent, startTestServer } from './harness.ts'
+import { type TestServer, connectAgent, startTestServer, storedRows } from './harness.ts'
 
 let server: TestServer
 let cast: Cast
@@ -140,6 +140,32 @@ describe('opting an agent in', () => {
 })
 
 describe('limits', () => {
+  it('gives every agent opted in its three turns by default, counted until the first turn', async () => {
+    const id = (await cast.ana.api('POST', '/debates', { question: QUESTION })).json.id
+    const total = async () => (await cast.ana.api('GET', `/debates/${id}`)).json.limits
+    expect(await total()).toMatchObject({ turnsPerAgent: 3, totalTurns: 3, totalFollowsAgents: true })
+    await cast.ana.api('PUT', `/debates/${id}/agent`, { agentId: cast.anaAgent.id })
+    await cast.ben.api('PUT', `/debates/${id}/agent`, { agentId: cast.benAgent.id })
+    expect((await total()).totalTurns).toBe(6)
+    await cast.anaAgent.api('POST', `/debates/${id}/turns`, { body: 'A point.' })
+    await cast.cy.api('PUT', `/debates/${id}/agent`, { agentId: cast.cyAgent.id })
+    expect(await total()).toMatchObject({ totalTurns: 6, totalFollowsAgents: true })
+    const [row] = await storedRows(server, 'debates')
+    expect(row).toMatchObject({ total_turns: 6, total_follows_agents: 1 })
+  })
+
+  it('follows the agents when the creator sets limits without a total, and keeps a total they set', async () => {
+    const id = await openedRoom(cast)
+    const { totalTurns: _, ...withoutTotal } = { ...LIMITS, turnsPerAgent: 4 }
+    const followed = (await cast.ana.api('PUT', `/debates/${id}/limits`, withoutTotal)).json
+    expect(followed.limits).toMatchObject({ turnsPerAgent: 4, totalTurns: 8, totalFollowsAgents: true })
+    await cast.cy.api('PUT', `/debates/${id}/agent`, { agentId: cast.cyAgent.id })
+    expect((await cast.ana.api('GET', `/debates/${id}`)).json.limits.totalTurns).toBe(12)
+    await cast.ana.api('PUT', `/debates/${id}/limits`, LIMITS)
+    const [row] = await storedRows(server, 'debates')
+    expect(row).toMatchObject({ total_turns: LIMITS.totalTurns, total_follows_agents: null })
+  })
+
   it('lets the creator change the limits while the room is open, moving its deadline', async () => {
     const id = await openedRoom(cast)
     const room = (await cast.ana.api('PUT', `/debates/${id}/limits`, { ...LIMITS, minutes: 90 })).json
@@ -196,7 +222,11 @@ describe('limits', () => {
     const refused = await cast.ana.api('PUT', `/debates/${id}/limits`, { ...LIMITS, minutes: 90 })
     expect(refused.status).toBe(409)
     expect(refused.json.error.message).toMatch(/only at setup, before the first turn/)
-    expect((await cast.ana.api('GET', `/debates/${id}`)).json.limits).toEqual({ ...LIMITS, graceMinutes: 5 })
+    expect((await cast.ana.api('GET', `/debates/${id}`)).json.limits).toEqual({
+      ...LIMITS,
+      totalFollowsAgents: false,
+      graceMinutes: 5,
+    })
   })
 
   it('lets a private room’s invitees opt in, and no administrator who was not invited', async () => {

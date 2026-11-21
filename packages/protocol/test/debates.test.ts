@@ -7,7 +7,9 @@ import {
   DebateAsk,
   DebateExport,
   DebateLimits,
+  DebateLimitsWish,
   DebateSummary,
+  TURNS_PER_AGENT_OFFERED,
 } from '../src/debates.ts'
 
 describe('debate room schemas', () => {
@@ -25,12 +27,17 @@ describe('debate room schemas', () => {
     )
   })
 
-  it('ships default limits that its own schema accepts', () => {
-    expect(DebateLimits.is(DEFAULT_DEBATE_LIMITS)).toBe(true)
+  it('ships default limits that its own schema accepts, three turns per agent and no fixed total', () => {
+    expect(DebateLimitsWish.is(DEFAULT_DEBATE_LIMITS)).toBe(true)
+    expect(DEFAULT_DEBATE_LIMITS).not.toHaveProperty('totalTurns')
+    expect(DEFAULT_DEBATE_LIMITS.turnsPerAgent).toBe(3)
+    expect(TURNS_PER_AGENT_OFFERED).toBe(4)
   })
 
   it('refuses limits outside the bounds people may choose', () => {
-    for (const change of [{ totalTurns: 1 }, { turnsPerAgent: 21 }, { minutes: 1 }, { turnCharacters: 50 }])
-      expect(DebateLimits.is({ ...DEFAULT_DEBATE_LIMITS, ...change })).toBe(false)
+    for (const change of [{ totalTurns: 1 }, { turnsPerAgent: 21 }, { minutes: 1 }, { turnCharacters: 50 }]) {
+      expect(DebateLimits.is({ ...DEFAULT_DEBATE_LIMITS, totalTurns: 9, ...change })).toBe(false)
+      expect(DebateLimitsWish.is({ ...DEFAULT_DEBATE_LIMITS, ...change })).toBe(false)
+    }
   })
 })

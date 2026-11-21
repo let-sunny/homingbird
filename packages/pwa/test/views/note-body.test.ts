@@ -1,7 +1,7 @@
 import { getByRole } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
 import { strings } from '../../src/strings.ts'
-import { noteBody } from '../../src/views/note-body.ts'
+import { citedBody, noteBody } from '../../src/views/note-body.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
 
@@ -27,5 +27,20 @@ describe('noteBody', () => {
   it('takes the class of the place it is shown in', () => {
     const { context } = testContext()
     expect(noteBody(context, 'plain', 'review-body').className).toBe('review-body')
+  })
+
+  it('shows a debate turn’s code as code and each cited turn as a link to it', () => {
+    const { context } = testContext()
+    const body = citedBody(
+      context,
+      [
+        { kind: 'text', text: 'As ' },
+        { kind: 'turn', text: '#2', href: '#turn-2' },
+        { kind: 'text', text: ' said, run `make migrate`.' },
+      ],
+      'debate-turn-body',
+    )
+    expect(body.querySelector('a.turn-cite')?.getAttribute('href')).toBe('#turn-2')
+    expect(body.querySelector('code')?.textContent).toBe('make migrate')
   })
 })

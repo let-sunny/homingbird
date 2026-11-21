@@ -61,6 +61,7 @@ const draftCard = (context: ViewContext, card: DraftCard, headingId: string): HT
     },
     h('span', { class: card.origin.className, id: `draft-origin-${draft.id}` }, card.origin.text),
     noteBody(context, card.body),
+    card.room !== null && h('a', { class: 'debate-note-room', href: card.room.href }, card.room.label),
     card.basis !== null &&
       h(
         'section',

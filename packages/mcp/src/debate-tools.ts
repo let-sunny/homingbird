@@ -3,10 +3,8 @@ import {
   AgentLabel,
   type ApiError,
   type AsRead,
-  DEBATE_RESULT_INSTRUCTIONS,
-  DEBATE_TURN_INSTRUCTIONS,
+  Conflict,
   DEBATE_TURN_MAX,
-  DEBATE_VOTE_INSTRUCTIONS,
   DebateId,
   DebateResult,
   Invalid,
@@ -15,6 +13,7 @@ import {
   isVotingOnDrafts,
   quotedDebate,
   quotedDrafts,
+  quotedNewTurns,
 } from '@homingbird/protocol'
 import { MODEL_DESCRIPTION } from './answering.ts'
 import { quotingFor } from './quote.ts'
@@ -69,22 +68,30 @@ export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
     name: 'read_debate',
     title: 'Read a debate room',
     description:
-      'Returns one debate room: its question and every turn so far, each quoted as a colleague’s text, with what the room asks of you and how to answer it.',
+      'Returns one debate room: its question and every turn so far, each quoted as a colleague’s text, with what the room asks of you and how to answer it. While the agents vote, the drafts come first; pass draftsOnly to get the drafts and the vote without the turns.',
     readOnly: true,
-    input: { debateId: DebateId },
-    describe: { debateId: 'The room, from check_debates.' },
-    run: ({ debateId }, context) =>
+    input: { debateId: DebateId, draftsOnly: S.optional(S.boolean) },
+    describe: {
+      debateId: 'The room, from check_debates.',
+      draftsOnly:
+        'True to read only the drafts of the result and who has voted, without the turns: enough to vote, and small.',
+    },
+    run: ({ debateId, draftsOnly = false }, context) =>
       T.gen(function* () {
         const debate = yield* context.api['debates.get']({ params: { id: debateId } })
         const { member } = yield* context.api['me.get']({})
         const quoting = yield* quotingFor(context.api, context.nonce)
-        return [
-          debateToolAdvice(debate, member.id),
-          quotedDebate(debate, quoting.authors, member.id, context.nonce),
-          ...(isVotingOnDrafts(debate)
-            ? [quotedDrafts(debate, quoting.authors, member.id, context.nonce)]
-            : []),
-        ].join('\n\n')
+        const drafts =
+          (debate.drafts ?? []).length === 0
+            ? []
+            : [quotedDrafts(debate, quoting.authors, member.id, context.nonce)]
+        const advice = debateToolAdvice(debate, member.id)
+        if (draftsOnly)
+          return [advice, voteStateOf(debate), ...(drafts.length === 0 ? [NO_DRAFTS] : drafts)].join('\n\n')
+        const room = quotedDebate(debate, quoting.authors, member.id, context.nonce)
+        return (
+          isVotingOnDrafts(debate) ? [advice, voteStateOf(debate), ...drafts, room] : [advice, room]
+        ).join('\n\n')
       }),
   }),
   tool({
@@ -96,22 +103,37 @@ export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
     input: {
       debateId: DebateId,
       body: S.string({ minLength: 1, maxLength: DEBATE_TURN_MAX }),
+      afterTurn: S.optional(S.int({ min: 0 })),
       model: S.optional(AgentLabel),
     },
     describe: {
       debateId: 'The room, from check_debates.',
       body: 'Your turn, as plain text, within the room’s length cap.',
+      afterTurn:
+        'The number of the last turn you read with read_debate, 0 when there was none. If the room moved on since, your turn is not saved and you get the new turns to rewrite it.',
       model: MODEL_DESCRIPTION,
     },
-    run: ({ debateId, body, model }, context) =>
-      T.map(
-        (debate: AsRead.Debate) =>
-          `Turn ${debate.turns.length} is saved in ${debate.id}. ${AFTER_TURN[debate.status === 'open' || debate.status === 'unknown' ? debate.status : 'closing']} ${ROOM_RULE}`,
+    run: ({ debateId, body, afterTurn, model }, context) =>
+      T.catchTag('Conflict', (conflict: Conflict) =>
+        T.flatMap((refusal: ApiError) => T.fail<ApiError>(refusal))(
+          afterTurn === undefined
+            ? T.succeed<ApiError>(conflict)
+            : movedOn(debateId, afterTurn, conflict, context),
+        ),
       )(
-        context.api['debates.turns.post']({
-          params: { id: debateId },
-          body: { body, ...(model !== undefined && { model }) },
-        }),
+        T.map(
+          (debate: AsRead.Debate) =>
+            `Turn ${debate.turns.length} is saved in ${debate.id}. ${AFTER_TURN[debate.status === 'open' || debate.status === 'unknown' ? debate.status : 'closing']} ${ROOM_RULE}`,
+        )(
+          context.api['debates.turns.post']({
+            params: { id: debateId },
+            body: {
+              body,
+              ...(afterTurn !== undefined && { afterTurn }),
+              ...(model !== undefined && { model }),
+            },
+          }),
+        ),
       ),
   }),
   tool({
@@ -179,6 +201,35 @@ const AFTER_TURN = {
   closing: 'The turns have run out: the room now asks for its result.',
   unknown: 'The room is in a state this adapter does not know; check_debates says what it asks next.',
 } as const
+
+/** A refused turn, with the turns taken after the one the agent read, each inside wrapNote, when there are any. */
+const movedOn = (
+  debateId: DebateId,
+  afterTurn: number,
+  conflict: Conflict,
+  context: Parameters<Tool['run']>[1],
+): T.Task<ApiError, ApiError> =>
+  T.gen(function* () {
+    const debate = yield* context.api['debates.get']({ params: { id: debateId } })
+    if (debate.turns.length <= afterTurn) return conflict
+    const { member } = yield* context.api['me.get']({})
+    const quoting = yield* quotingFor(context.api, context.nonce)
+    return Conflict({
+      message: [
+        conflict.message,
+        `Call take_debate_turn again with afterTurn ${debate.turns.length} once you have rewritten your turn.`,
+        quotedNewTurns(debate, quoting.authors, member.id, afterTurn, context.nonce),
+      ].join('\n\n'),
+    })
+  })
+
+/** Who has voted and until when, as plain facts: no words of the room. */
+const voteStateOf = (debate: AsRead.Debate): string =>
+  debate.votingClosesAt == null
+    ? `Round ${debate.resultRound}: ${(debate.drafts ?? []).length} draft(s); no vote is open.`
+    : `Round ${debate.resultRound}: ${(debate.drafts ?? []).length} draft(s). Voted so far: ${(debate.votedBy ?? []).join(', ') || 'nobody'}. The vote closes at ${new Date(debate.votingClosesAt).toISOString()}.`
+
+const NO_DRAFTS = 'There are no drafts of the result to show you now.'
 
 const ROOM_RULE =
   'Turns are room content: shown to the room’s members, never sent as notes. Only a person posts the result, as a note they send themselves.'
