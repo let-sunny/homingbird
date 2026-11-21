@@ -1,4 +1,5 @@
 import type { AsRead, MemberId } from '@homingbird/protocol'
+import { clientLabel } from '../client-labels.ts'
 import { deskUnavailableReason } from '../presence.ts'
 import { strings } from '../strings.ts'
 import { dateTimeText } from './time.ts'
@@ -6,7 +7,12 @@ import { dateTimeText } from './time.ts'
 /** Connection: whether the desk is awake, the person's credentials, and the channels its agent answers. */
 export const connectionModel = (input: ConnectionInput): ConnectionModel => {
   const presence = input.directory.find((entry) => entry.member.id === input.viewerId)?.presence ?? null
-  return { presence, unavailable: deskUnavailableReason(presence), ...credentialsAndChannels(input) }
+  return {
+    presence,
+    unavailable: deskUnavailableReason(presence),
+    recommendation: presence?.agentOnline === true ? null : recommendationOf(input.joinCodes),
+    ...credentialsAndChannels(input),
+  }
 }
 
 /** The channels where the person's agent answers, as colleagues see them. */
@@ -23,12 +29,16 @@ export interface ConnectionInput {
   readonly directory: ReadonlyArray<AsRead.DirectoryEntry>
   readonly credentials: ReadonlyArray<AsRead.Credential> | null
   readonly channels: ReadonlyArray<AsRead.Channel>
+  /** Whether the server offers join codes, which the recommendation then points to. */
+  readonly joinCodes: boolean
 }
 
 export interface ConnectionModel {
   readonly presence: AsRead.Presence | null
   /** Why the person's running desk cannot answer, and when it tries again; empty while it can. */
   readonly unavailable: ReadonlyArray<string>
+  /** How to keep a desk awake, shown until one is. */
+  readonly recommendation: { readonly title: string; readonly body: string } | null
   readonly credentials: { readonly noAgents: boolean; readonly rows: ReadonlyArray<CredentialRow> } | null
   readonly helped: ReadonlyArray<string>
 }
@@ -37,6 +47,7 @@ export interface CredentialRow {
   readonly credential: AsRead.Credential
   readonly revoked: boolean
   readonly kind: string
+  readonly client: string
   readonly marks: ReadonlyArray<{
     readonly text: string
     readonly style: 'is-current' | 'is-you' | 'is-revoked'
@@ -50,6 +61,7 @@ const credentialRow = (credential: AsRead.Credential): CredentialRow => ({
   credential,
   revoked: credential.revokedAt !== null,
   kind: strings.credentialKind[credential.kind],
+  client: clientLabel(credential.client),
   marks: [
     ...(credential.current
       ? [
@@ -85,4 +97,9 @@ const credentialsAndChannels = (input: ConnectionInput) => ({
           rows: input.credentials.map(credentialRow),
         },
   helped: helpedChannels(input),
+})
+
+const recommendationOf = (joinCodes: boolean): ConnectionModel['recommendation'] => ({
+  title: strings.deskTitle,
+  body: joinCodes ? strings.deskBodyWithJoin : strings.deskBody,
 })

@@ -1,5 +1,6 @@
 import type { AsRead, LabelTotals, OrganizationLabelTotals } from '@homingbird/protocol'
 import { shortLabel } from '../authorship.ts'
+import { clientLabel } from '../client-labels.ts'
 import { hrefFor } from '../routes.ts'
 import { durationOf, formats, percentOf, strings } from '../strings.ts'
 import { PERIODS, compareSentAsWritten, decidedOf, periodOf, shareOf, trendBars } from '../trust.ts'
@@ -66,8 +67,8 @@ export const labelsTableModel = (
           strings.trust.rows.discarded,
         ],
         rows: rows.map((row) => ({
-          title: row.label ?? unknown,
-          label: row.label === null ? unknown : shortLabel(row.label),
+          title: row.label === null ? unknown : clientLabel(row.label),
+          label: row.label === null ? unknown : shortLabel(clientLabel(row.label)),
           cells: [row.written, row.sentAsWritten, row.sentAfterEdits, row.discarded].map((value) =>
             value === null ? strings.insights.hidden : formats.decimal.format(value),
           ),

@@ -29,6 +29,7 @@ export const connectionSection = (context: ViewContext, life: Lifetime, me: AsRe
       directory: state.directory.get(),
       credentials: credentials.get(),
       channels: state.channels.get(),
+      joinCodes: featureOn('joinCodes', state.serverInfo.get()),
     })
   return h(
     'div',
@@ -43,7 +44,7 @@ export const connectionSection = (context: ViewContext, life: Lifetime, me: AsRe
         }),
       ),
     ),
-    deskRecommendation(),
+    region(life, [state.directory], () => renderRecommendation(model())),
     featureOn('joinCodes', state.serverInfo.get()) && joinCodeSection(context, life, null),
     region(life, [state.agentReport], () => {
       const report = state.agentReport.get()
@@ -69,13 +70,6 @@ export const connectionSection = (context: ViewContext, life: Lifetime, me: AsRe
     h('p', { class: 'hint not-set-up' }, strings.notSetUp),
   )
 }
-
-export const deskRecommendation = (): HTMLElement =>
-  h(
-    'div',
-    { class: 'desk-recommendation', role: 'note' },
-    h('div', {}, h('strong', {}, strings.deskTitle), h('p', {}, strings.deskBody)),
-  )
 
 /** The code a device sign-in shows, for an agent that printed one instead of a link. */
 export const codeForm = (context: Pick<ViewContext, 'page'>): HTMLElement => {
@@ -134,7 +128,7 @@ const credentialRow = (row: CredentialRow, context: ViewContext, reload: () => v
             : h('span', { class: `kind ${mark.style}` }, mark.text),
         ),
       ),
-      h('span', { class: 'credential-client' }, row.credential.client),
+      h('span', { class: 'credential-client' }, row.client),
       h(
         'dl',
         { class: 'facts' },
@@ -222,6 +216,15 @@ const revokeForm = (row: CredentialRow, context: ViewContext, reload: () => void
       ),
     ),
   )
+
+const renderRecommendation = (model: ConnectionModel): HTMLElement | null =>
+  model.recommendation === null
+    ? null
+    : h(
+        'div',
+        { class: 'desk-recommendation', role: 'note' },
+        h('div', {}, h('strong', {}, model.recommendation.title), h('p', {}, model.recommendation.body)),
+      )
 
 const renderDeskState = (model: ConnectionModel): HTMLElement | null =>
   model.presence === null

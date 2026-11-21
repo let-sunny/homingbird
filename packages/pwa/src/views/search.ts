@@ -4,7 +4,7 @@ import { type SearchModel, searchModel } from '../models/search.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
-import { empty, emptyWithPip, field, loading, page, timeLabel } from './parts.ts'
+import { empty, emptyWithPip, loading, page, timeLabel } from './parts.ts'
 
 /** Search: a field, and the notes found for what was typed. */
 export const searchView = (
@@ -15,7 +15,9 @@ export const searchView = (
 ): HTMLElement => {
   const { state, actions } = context
   const results = signal<ReadonlyArray<AsRead.Note> | 'searching' | null>(null)
+  const searched = signal('')
   const run = (query: string): void => {
+    searched.set(query)
     if (query === '') {
       results.set(null)
       return
@@ -28,6 +30,7 @@ export const searchView = (
     type: 'search',
     name: 'q',
     placeholder: strings.searchPlaceholder,
+    'aria-label': strings.search,
     value: initialQuery,
   })
   const submit = (): void => {
@@ -49,10 +52,10 @@ export const searchView = (
           },
         },
       },
-      field(strings.search, input),
+      input,
       h('button', { type: 'submit', class: 'primary' }, strings.navSearch),
     ),
-    region(life, [results, state.members, state.conversations], () =>
+    region(life, [results, searched, state.members, state.conversations], () =>
       renderResults(
         searchModel({
           results: results.get(),
@@ -60,6 +63,7 @@ export const searchView = (
           members: state.members.get(),
           viewerId: me.member.id,
           now: context.clock.now(),
+          query: searched.get(),
         }),
       ),
     ),
@@ -92,7 +96,11 @@ const renderResults = (model: SearchModel): HTMLElement => {
                 row.title !== null && h('span', {}, row.title),
                 timeLabel(row.time),
               ),
-              h('span', { class: 'note-body' }, row.excerpt),
+              h(
+                'span',
+                { class: 'note-body' },
+                row.excerpt.map((part) => (part.isMatch ? h('mark', {}, part.text) : part.text)),
+              ),
             ),
           ),
         ),

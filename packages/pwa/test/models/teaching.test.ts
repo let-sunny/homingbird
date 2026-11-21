@@ -81,7 +81,7 @@ describe('taughtModel', () => {
     })
     expect(dates!.fields[1]).toMatchObject({ label: strings.teach.rule, maxLength: PRINCIPLE_TEXT_MAX })
     expect(tone!.fields[1]).toMatchObject({ label: strings.teach.answer, maxLength: ANSWER_TEXT_MAX })
-    expect(tone!.details).toEqual([strings.trust.directMessages, strings.teach.origin.edit])
+    expect(tone!.details).toEqual([strings.teach.anywhere, strings.teach.origin.edit])
     expect(tone!.publicSwitch.text).toBe(strings.teach.isPrivate)
     expect(forbidden!.problems).toEqual([strings.teach.advice.forbidden])
     expect(model.chances.map((chance) => chance.text)).toEqual([
@@ -167,7 +167,8 @@ describe('placeChoices', () => {
 describe('the principle list', () => {
   it('warns about what is typed in the add row', () => {
     expect(addRowWarnings({ topic: 'Tone', rule: 'Check RELEASES.md before you answer.' })).toEqual([])
-    expect(addRowWarnings({})).toEqual([strings.teach.advice.vague])
+    expect(addRowWarnings({})).toEqual([])
+    expect(addRowWarnings({ topic: 'Tone', rule: 'be nice' })).toEqual([strings.teach.advice.vague])
   })
 
   it('moves one principle to a new place, kept within the list', () => {
@@ -245,6 +246,12 @@ describe('the guided principle form', () => {
       showsPublic: true,
     })
     expect(principleFormModel(form({ source: 'not a link' })).host).toBe('')
+  })
+
+  it('warns that a rule reads like a wish only once something is typed', () => {
+    expect(principleFormModel(form({ topic: '', rule: '' })).advice).toEqual([])
+    expect(principleFormModel(form({ rule: '  ' })).advice).toEqual([])
+    expect(principleFormModel(form({ rule: 'be nice' })).advice.map((each) => each.kind)).toEqual(['vague'])
   })
 
   it('suggests a stored answer for a fixed text, and asks to confirm an unchanged suggestion', () => {

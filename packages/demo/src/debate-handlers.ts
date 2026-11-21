@@ -68,6 +68,7 @@ const summaryOf = (debate: Debate, viewerId: MemberId): DebateSummary => ({
   deadlineAt: debate.deadlineAt,
   participantIds: debate.participants.map((participant) => participant.memberId),
   turnCount: debate.turns.length,
+  totalTurns: debate.limits.totalTurns,
   resultDrafted: debate.result !== null,
   joined: debate.participants.some((participant) => participant.memberId === viewerId),
 })

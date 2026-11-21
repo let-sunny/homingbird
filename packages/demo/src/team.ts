@@ -306,8 +306,8 @@ export const demoTeam = (now: number): Records => {
         credential: {
           id: VISITOR_SESSION,
           kind: 'human',
-          name: 'This browser',
-          client: 'Web client',
+          name: 'Chrome on macOS',
+          client: 'Web',
           createdAt: ago(5),
           expiresAt: ago(-60 * 24 * 30),
           lastUsedAt: now,

@@ -16,6 +16,7 @@ const modelWith = (chosen: GroupStartModel['chips'][number]['memberId'][], start
     viewerId: ANA,
     chosen,
     starting,
+    draftRequests: true,
   })!
 
 const handlers = () => ({ remove: vi.fn(), clear: vi.fn(), start: vi.fn() })
@@ -68,6 +69,7 @@ describe('groupStartPanel', () => {
       viewerId: ANA,
       chosen: [BEN, CY],
       starting: false,
+      draftRequests: true,
     })
     const panel = groupStartPanel(model, handlers())!
     expect(getByRole(panel, 'link', { name: strings.groupStart.open }).getAttribute('href')).toBe(

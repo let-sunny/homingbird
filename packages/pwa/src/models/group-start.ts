@@ -17,7 +17,7 @@ export const groupStartModel = (input: GroupStartInput): GroupStartModel | null 
   return {
     title: strings.groupStart.title,
     collapsed: chosen.length === 0 ? strings.groupStart.collapsed : null,
-    intro: strings.groupStart.intro,
+    intro: input.draftRequests ? strings.groupStart.intro : strings.groupStart.introWithoutRequests,
     count: strings.groupStart.chosen({ count: chosen.length }),
     status: statusOf(chosen.map((memberId) => names.get(memberId)!)),
     chips: chosen.map((memberId) => ({
@@ -82,6 +82,8 @@ export interface GroupStartInput {
   /** Who the person chose, in the order they chose them. */
   readonly chosen: ReadonlyArray<MemberId>
   readonly starting: boolean
+  /** Whether the server lets a person ask their agent for a draft, which the intro then offers. */
+  readonly draftRequests: boolean
 }
 
 export interface GroupStartModel {

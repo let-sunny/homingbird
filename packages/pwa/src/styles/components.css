@@ -478,7 +478,6 @@
   padding: 0 var(--hb-space-2);
   border: var(--hb-border-hairline) solid currentColor;
   font: 600 var(--hb-text-tiny) / 1.6 var(--hb-font-mono);
-  text-transform: uppercase;
 }
 
 .origin.is-agent {
@@ -705,8 +704,14 @@
   gap: var(--hb-space-2);
 }
 
-.search-form .field {
+.search-form input {
   flex: 1;
+  min-inline-size: 0;
+}
+
+.result mark {
+  background: var(--hb-color-pending-wash);
+  color: inherit;
 }
 
 .appearance {

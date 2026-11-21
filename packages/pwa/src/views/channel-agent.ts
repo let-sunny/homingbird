@@ -122,6 +122,7 @@ const agentPanel = (
         agentState(loaded.get(), state.channelAgents.get(), channel.slug),
         state.members.get(),
         place,
+        featureOn('joinCodes', state.serverInfo.get()),
       ),
       context,
       channel,

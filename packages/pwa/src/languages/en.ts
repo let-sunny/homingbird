@@ -381,6 +381,7 @@ export const en = {
   privateNeedsManager: 'Only a channel with a manager in the room can be private. Add a manager first.',
   youMark: '(you)',
   cannotChangeOwnRole: 'You cannot change your own role or status. Ask another administrator.',
+  clients: { web: 'Web client', cli: 'Homingbird CLI' },
   credentialThisBrowser: '(this browser)',
   revokeCurrentTitle: 'Sign out this browser?',
   revokeCurrentBody: '“{name}” is the browser you are using now. Revoking it signs you out here at once.',
@@ -416,7 +417,9 @@ export const en = {
   },
   deskTitle: 'Keep one agent session open as your desk.',
   deskBody:
-    'It drafts replies to arriving notes for you to approve here; other sessions draft only when asked. For a desk that is always on, use “Run on a server” below, or see “Connect an agent” in the user guide.',
+    'It drafts replies to arriving notes, and you approve each one in its direct message or channel; other sessions draft only when asked. For a desk that is always on, see “Connect an agent” in the user guide.',
+  deskBodyWithJoin:
+    'It drafts replies to arriving notes, and you approve each one in its direct message or channel; other sessions draft only when asked. For a desk that is always on, use “Run on a server” below, or see “Connect an agent” in the user guide.',
   noAgentsYet: 'No agent is connected yet. Once one is, replies are drafted for you as notes arrive.',
   codeFallback: 'Did your agent show you a connection code instead of a link? Enter it here.',
   notSetUp: 'Your agent is not set up yet? Ask your administrator.',
@@ -458,7 +461,7 @@ export const en = {
     notesBody: 'Notes from colleagues’ agents arrive here. Nothing is sent until you approve it.',
     connectTitle: 'Connect your agent',
     connectBody:
-      'Under My agent, connect an agent and keep one session open, or install the always-on runner. It drafts replies; you approve them here.',
+      'Under My agent, connect an agent and keep one session open, or install the always-on runner. It drafts replies, and you approve each one in its direct message or channel.',
     connectAction: 'Open My agent',
     channelsTitle: 'Channels',
     channelsBody:
@@ -522,7 +525,7 @@ export const en = {
       invites:
         'Off: nobody can make an invite link and links already made are refused; only allowed domains and the administrators the server names can sign in.',
       analytics:
-        'Off: no usage counts leave this server. On, and only where the operator set a destination: anonymous counts such as pages viewed, never content, names or email addresses.',
+        'Off: no usage counts leave this server. On, and only where the server operator set a destination: anonymous counts such as pages viewed, never content, names or email addresses.',
     },
   },
   todo: {
@@ -700,6 +703,7 @@ export const en = {
     sourceHost: 'Leads to {host}',
     place: 'Comes first when answering in',
     placeAnywhere: 'Any channel, in your order',
+    anywhere: 'Anywhere',
     kindLabel: 'What it is',
     kinds: { rule: 'A rule: how to find the answer', answer: 'An answer: what to say' },
     kindBadge: { unknown: 'Principle', rule: 'Rule', answer: 'Answer' },
@@ -856,7 +860,7 @@ export const en = {
     privateSeenBy:
       'Seen only by its members, and by the organization’s administrators when they sign in themselves.',
     agentCount: { one: '{count} agent', other: '{count} agents' },
-    turnCount: { one: '{count} turn', other: '{count} turns' },
+    turnProgress: '{count}/{total} turns',
     closesAt: 'Turns end by {time}',
     limitsSummary:
       'Turns per agent: {perAgent}. In total: {total}. Time limit: {minutes} minutes. Characters per turn: {characters}.',
@@ -973,7 +977,7 @@ export const en = {
     title: 'Insights',
     intro:
       'Whether people use Homingbird, and whether approving is becoming a formality. Numbers only: never what a note says, never one person’s figures.',
-    noTeams: 'With no teams, only organization-wide numbers are shown.',
+    noTeams: 'With no groups, only organization-wide numbers are shown.',
     privacy: 'Any group under {minimum} people is left out. Blocks are a count only.',
     tooFew: 'Fewer than {minimum} people sent notes in this period, so no numbers are shown.',
     caption: 'The organization in the last {days} days, beside the {days} days before',
@@ -1026,20 +1030,20 @@ export const en = {
       one: '{count} group with too few people is not shown.',
       other: '{count} groups with too few people are not shown.',
     },
-    teamsTitle: 'By team',
-    teamColumn: 'Team',
+    teamsTitle: 'By group',
+    teamColumn: 'Group',
     peopleColumn: 'People who sent notes',
     editedColumn: 'Edited, then sent',
     discardedColumn: 'Discarded',
     quickColumn: 'Quick approvals',
     decisionTimeColumn: 'Typical time to decide',
-    noTeamRows: 'No team has enough people to show on its own.',
+    noTeamRows: 'No group has enough people to show on its own.',
     hiddenTeams: {
-      one: '{count} team with too few people is not shown.',
-      other: '{count} teams with too few people are not shown.',
+      one: '{count} group with too few people is not shown.',
+      other: '{count} groups with too few people are not shown.',
     },
     teamsExplained:
-      'A person counts for a team on each whole day, in UTC, they were in it for any part of. People in two teams count in both.',
+      'A person counts for a group on each whole day, in UTC, they were in it for any part of. People in two groups count in both.',
   },
   start: {
     title: 'Where to start',
@@ -1053,6 +1057,7 @@ export const en = {
   },
   character: {
     title: 'My character',
+    defaultName: 'My character',
     intro: 'Your character stands for you next to your name. Pick a built-in one or make your own.',
     current: 'Your character now: {character}',
     avatarLabel: '{person}: {character}',
@@ -1229,7 +1234,7 @@ export const en = {
     importNothing: 'The file changes nobody in this group.',
     managedBy: 'Managed by {group}',
     addManager: 'Add a manager',
-    addTeam: 'Add a team',
+    addTeam: 'Add a group',
     addTeamHint:
       'Adds the people in a group as managers, once: later changes to the group change nothing here.',
     unmanage: 'Remove as manager',
@@ -1325,7 +1330,7 @@ export const en = {
         'How many received notes went to someone with an agent, and how soon the agent picked them up.',
       channelAgents:
         'Channels’ agents’ answers together, and how many were sent as written, edited first or discarded, in the channels the administrator may read.',
-      teams: 'The same counts for each team, alphabetically, leaving out teams too small to show.',
+      teams: 'The same counts for each group, alphabetically, leaving out groups too small to show.',
       blocks: 'How many blocks there are between people, never who blocked whom.',
     },
   },
@@ -1334,6 +1339,8 @@ export const en = {
     collapsed: 'Add two or more people below.',
     intro:
       'Choose two or more people below. The people you choose see it only once a note in it is sent. Write the first note yourself or ask your agent for a draft, as in any direct message: nothing is sent without your approval.',
+    introWithoutRequests:
+      'Choose two or more people below. The people you choose see it only once a note in it is sent. Write the first note as in any direct message: nothing is sent without your approval.',
     choose: 'Add to group message',
     chooseName: 'Add {name} to the group message',
     added: '✓ Added (remove)',
@@ -1378,6 +1385,8 @@ export const en = {
     desksTitle: 'Desks connected as {agent}',
     desksNone: 'No desk is connected yet.',
     connectHint:
+      'To connect a desk, run homingbird login on its computer, and on the approval page choose {agent}. A desk stops working when the manager who approved it stops managing the channel.',
+    connectHintWithJoin:
       'To connect a desk on a server, use “Run on a server” below. On a computer with a browser, run homingbird login there, and on the approval page choose {agent}. A desk stops working when the manager who made its code or approved it stops managing the channel.',
     approvedByManager: 'Approved by {name}',
     revoke: 'Disconnect',

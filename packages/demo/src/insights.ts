@@ -9,6 +9,7 @@ import {
   type OrganizationInsights,
 } from '@homingbird/protocol'
 import { VISITOR_ID } from './team.ts'
+import { MINIMUM_DECIDED, verdictOf } from './trust-verdict.ts'
 import type { Records } from './world.ts'
 
 /**
@@ -106,13 +107,19 @@ const decisionsSince = (
   return { total: decided.length, asWritten, edited, discarded: decided.length - asWritten - edited }
 }
 
-const withDecisions = (base: AgentFigures, decided: Decisions): AgentFigures => ({
-  ...base,
-  written: base.written + decided.total,
-  sentAsWritten: base.sentAsWritten + decided.asWritten,
-  sentAfterEdits: base.sentAfterEdits + decided.edited,
-  discarded: base.discarded + decided.discarded,
-})
+const withDecisions = (base: AgentFigures, decided: Decisions): AgentFigures => {
+  const sentAsWritten = base.sentAsWritten + decided.asWritten
+  const sentAfterEdits = base.sentAfterEdits + decided.edited
+  const discarded = base.discarded + decided.discarded
+  return {
+    ...base,
+    written: base.written + decided.total,
+    sentAsWritten,
+    sentAfterEdits,
+    discarded,
+    verdict: verdictOf(sentAsWritten, sentAfterEdits, discarded),
+  }
+}
 
 const sentSince = (records: Records, startedAt: number, viewerId: MemberId): number =>
   records.notes.filter(
@@ -125,7 +132,6 @@ const approvedSince = (records: Records, startedAt: number, viewerId: MemberId):
 const MINUTE = 60_000
 const WEEK_MS = 7 * 24 * 60 * MINUTE
 const QUICK_APPROVAL_SECONDS = 3
-const MINIMUM_DECIDED = 10
 const MINIMUM_GROUP_SIZE = 1
 
 const figures = (
@@ -146,7 +152,7 @@ const figures = (
   quickApprovals: 1,
   quickApprovalsFrequent: false,
   wroteYourself,
-  verdict: 'usually_as_written',
+  verdict: verdictOf(sentAsWritten, sentAfterEdits, discarded),
   places: [
     {
       place: 'billing',
@@ -155,7 +161,11 @@ const figures = (
       sentAfterEdits: Math.round(sentAfterEdits / 2),
       discarded: Math.round(discarded / 2),
       skipped: 0,
-      verdict: 'usually_as_written',
+      verdict: verdictOf(
+        Math.round(sentAsWritten / 2),
+        Math.round(sentAfterEdits / 2),
+        Math.round(discarded / 2),
+      ),
     },
     {
       place: null,
@@ -164,7 +174,11 @@ const figures = (
       sentAfterEdits: sentAfterEdits - Math.round(sentAfterEdits / 2),
       discarded: discarded - Math.round(discarded / 2),
       skipped: 1,
-      verdict: 'mixed',
+      verdict: verdictOf(
+        sentAsWritten - Math.round(sentAsWritten / 2),
+        sentAfterEdits - Math.round(sentAfterEdits / 2),
+        discarded - Math.round(discarded / 2),
+      ),
     },
   ],
   byClient: [{ label: 'Homingbird CLI', written, sentAsWritten, sentAfterEdits, discarded }],

@@ -80,12 +80,12 @@ describe('agentControlsModel', () => {
 
 describe('agentPanelModel', () => {
   it('waits, then offers making an agent when there is none, or says it could not be loaded', () => {
-    expect(agentPanelModel('loading', members, 'page')).toEqual({ kind: 'loading' })
-    expect(agentPanelModel('failed', members, 'page')).toEqual({
+    expect(agentPanelModel('loading', members, 'page', false)).toEqual({ kind: 'loading' })
+    expect(agentPanelModel('failed', members, 'page', false)).toEqual({
       kind: 'failed',
       text: strings.channelAgent.loadFailed,
     })
-    expect(agentPanelModel(null, members, 'dialog')).toMatchObject({
+    expect(agentPanelModel(null, members, 'dialog', false)).toMatchObject({
       kind: 'none',
       create: strings.channelAgent.create,
     })
@@ -119,6 +119,7 @@ describe('agentPanelModel', () => {
       },
       members,
       'page',
+      true,
     )
     expect(panel).toMatchObject({
       kind: 'agent',
@@ -146,6 +147,7 @@ describe('agentPanelModel', () => {
       { agent: member(AGENT, 'Payments wiki'), channel: 'payments-wiki', credentials: [] },
       members,
       'page',
+      false,
     )
     expect(empty).toMatchObject({ desksNone: strings.channelAgent.desksNone })
   })
@@ -155,6 +157,7 @@ describe('agentPanelModel', () => {
       { agent: member(AGENT, 'Payments wiki'), channel: 'payments-wiki', credentials: [] },
       members,
       'dialog',
+      false,
     )
     expect(panel).toMatchObject({
       page: {
@@ -163,6 +166,17 @@ describe('agentPanelModel', () => {
         hint: strings.channelAgent.openPageHint,
       },
     })
+  })
+
+  it('points to Run on a server only while the server offers join codes', () => {
+    const agent = { agent: member(AGENT, 'Payments wiki'), channel: 'payments-wiki', credentials: [] }
+    expect(agentPanelModel(agent, members, 'page', true)).toMatchObject({
+      connectHint: strings.channelAgent.connectHintWithJoin({ agent: 'Payments wiki' }),
+    })
+    expect(agentPanelModel(agent, members, 'page', false)).toMatchObject({
+      connectHint: strings.channelAgent.connectHint({ agent: 'Payments wiki' }),
+    })
+    expect(strings.channelAgent.connectHint({ agent: 'Payments wiki' })).not.toContain('Run on a server')
   })
 })
 

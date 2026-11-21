@@ -251,6 +251,7 @@ export const summary = (fields: Partial<AsRead.DebateSummary> = {}): AsRead.Deba
   deadlineAt: 2,
   participantIds: [],
   turnCount: 0,
+  totalTurns: 4,
   resultDrafted: false,
   joined: true,
   ...fields,

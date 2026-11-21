@@ -126,6 +126,7 @@ export const DebateSummary = S.struct({
   deadlineAt: Timestamp,
   participantIds: S.array(MemberId, { maxItems: DEBATE_PARTICIPANTS_MAX }),
   turnCount: S.int({ min: 0 }),
+  totalTurns: S.int({ min: 0 }),
   resultDrafted: S.boolean,
   joined: S.boolean,
 })

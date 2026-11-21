@@ -22,6 +22,9 @@ describe('searchView', () => {
     expect(search!.args).toEqual(['release'])
     search!.then!.done!([note('n1', { body: 'The release is Friday.' })])
     expect(getByRole(shown, 'link', { name: /The release is Friday/ }).getAttribute('href')).toContain('#/c/')
+    expect([...shown.querySelectorAll('.result mark')].map((mark) => mark.textContent)).toEqual(['release'])
+    expect(getByRole(shown, 'searchbox').getAttribute('aria-label')).toBe(strings.search)
+    expect(shown.querySelector('.search-form label')).toBeNull()
   })
 
   it('searches what the address asked for at once, and shows nothing found or a failure as a prompt', () => {

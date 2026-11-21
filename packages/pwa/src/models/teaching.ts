@@ -93,7 +93,7 @@ export const placeChoices = (
 
 /** The warnings for what is typed in the add row of the principle list. */
 export const addRowWarnings = (values: Readonly<Record<string, string>>): ReadonlyArray<string> =>
-  principleAdvice({ topic: values.topic ?? '', rule: values.rule ?? '' }).map(
+  adviceAsTyped({ topic: values.topic ?? '', rule: values.rule ?? '' }).map(
     (kind) => strings.teach.advice[kind],
   )
 
@@ -115,7 +115,7 @@ export const principleFormModel = (form: PrincipleFormState): PrincipleFormModel
     ruleMaxLength: answering ? ANSWER_TEXT_MAX : PRINCIPLE_TEXT_MAX,
     ruleRequired: !answering,
     host: host === null ? '' : strings.teach.sourceHost({ host }),
-    advice: principleAdvice({ kind: form.kind, topic: form.topic, rule: form.rule }).map((kind) => ({
+    advice: adviceAsTyped({ kind: form.kind, topic: form.topic, rule: form.rule }).map((kind) => ({
       kind,
       className: `advice is-${kind.replace('_', '-')}`,
       text: strings.teach.advice[kind],
@@ -319,7 +319,7 @@ const principleDetails = (principle: AsRead.Principle): string[] => {
   const counts = principle.counts === null ? null : countsShown(principle.counts)
   const host = principle.source === null ? null : sourceHost(principle.source)
   return [
-    placeName(principle.place),
+    principle.place === null ? strings.teach.anywhere : placeName(principle.place),
     strings.teach.origin[principle.origin],
     ...(host === null ? [] : [strings.teach.sourceHost({ host })]),
     ...(counts === null
@@ -340,3 +340,7 @@ const principleDetails = (principle: AsRead.Principle): string[] => {
         ]),
   ]
 }
+
+/** The advice on a form being typed: nothing reads as vague before the rule has any words. */
+const adviceAsTyped = (draft: Parameters<typeof principleAdvice>[0]): ReturnType<typeof principleAdvice> =>
+  principleAdvice(draft).filter((kind) => kind !== 'vague' || draft.rule.trim() !== '')
