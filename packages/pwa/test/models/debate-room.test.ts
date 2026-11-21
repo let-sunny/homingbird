@@ -117,15 +117,21 @@ describe('debateRoomModel', () => {
         first: formats.full.format(new Date(5)),
         last: formats.full.format(new Date(5)),
       }),
-      earlier: null,
-      latest: [
+      groups: [
         {
-          position: 1,
-          mine: true,
-          author: strings.debates.mine.agentOf({ agent: 'Ana desk' }),
-          details: expect.objectContaining({ line: strings.authorship.agentYou }),
-          time: timeShown(5, 10),
-          body: 'We should.',
+          kind: 'turn',
+          turn: {
+            position: 1,
+            label: strings.debates.turnLabel({ position: 1 }),
+            mine: true,
+            author: strings.debates.mine.agentOf({ agent: 'Ana desk' }),
+            details: expect.objectContaining({ line: strings.authorship.agentYou }),
+            time: timeShown(5, 10),
+            body: [{ kind: 'text', text: 'We should.' }],
+            filler: null,
+            changedPosition: null,
+            focused: false,
+          },
         },
       ],
     })
@@ -211,26 +217,30 @@ describe('debateRoomModel', () => {
       body: {
         kind: 'known',
         heading: strings.debates.conclusion,
-        summary: 'Ship.',
+        summary: [{ kind: 'text', text: 'Ship.' }],
         listHeading: strings.debates.reasons,
-        reasons: ['Tests pass.'],
+        reasons: [[{ kind: 'text', text: 'Tests pass.' }]],
         points: null,
         nextSteps: {
           none: null,
           steps: [
             {
-              step: 'Tag it',
+              step: [{ kind: 'text', text: 'Tag it' }],
               owner: strings.debates.owner({ person: 'Ben' }),
               proposedBy: strings.debates.mine.proposedBy,
             },
-            { step: 'Tell support', owner: null, proposedBy: strings.debates.proposedBy({ person: 'Ben' }) },
+            {
+              step: [{ kind: 'text', text: 'Tell support' }],
+              owner: null,
+              proposedBy: strings.debates.proposedBy({ person: 'Ben' }),
+            },
           ],
         },
         contributions: {
           rows: [
             {
               name: 'Ben',
-              summary: 'Checked the tests.',
+              summary: [{ kind: 'text', text: 'Checked the tests.' }],
               credits: [
                 { text: strings.debates.credit.gap_filled, hint: strings.debates.creditHint.gap_filled },
               ],
@@ -240,6 +250,21 @@ describe('debateRoomModel', () => {
       },
       voteRecord: {
         none: null,
+        tally: [
+          {
+            memberId: BEN,
+            draft: strings.debates.draftOf({ person: 'Ben' }),
+            votes: strings.debates.votes({ count: 2 }),
+            chosen: true,
+          },
+          {
+            memberId: ANA,
+            draft: strings.debates.mine.draftOf,
+            votes: strings.debates.votes({ count: 0 }),
+            chosen: false,
+          },
+        ],
+        tie: null,
         lines: [
           { kind: 'voted', memberId: ANA, text: strings.debates.mine.votedFor({ author: 'Ben' }) },
           { kind: 'silent', memberId: BEN, text: strings.debates.didNotVote({ person: 'Ben' }) },
@@ -264,20 +289,66 @@ describe('debateRoomModel', () => {
       mayPost: true,
       channels: [{ value: 'billing', label: '#billing' }],
       people: [{ value: BEN, label: 'Ben' }],
+      chooseFirst: strings.debates.chooseDestination,
     })
     expect(model.votes).toEqual({
       voting: null,
       record: model.result?.kind === 'settled' ? model.result.voteRecord : 'expected a vote record',
     })
-    expect(model.credit).toEqual([
-      {
-        memberId: BEN,
-        name: 'Ben',
-        summary: 'Checked the tests.',
-        credits: [{ text: strings.debates.credit.gap_filled, hint: strings.debates.creditHint.gap_filled }],
-        keptSteps: ['Tell support'],
-      },
-      { memberId: ANA, name: strings.debates.mine.agent, summary: null, credits: [], keptSteps: ['Tag it'] },
+    expect(model.credit).toEqual({
+      shared: null,
+      rows: [
+        {
+          memberId: BEN,
+          name: 'Ben',
+          summary: [{ kind: 'text', text: 'Checked the tests.' }],
+          credits: [{ text: strings.debates.credit.gap_filled, hint: strings.debates.creditHint.gap_filled }],
+          turns: [{ kind: 'text', text: strings.debates.noTurnTaken }],
+          filler: null,
+          positionChange: null,
+          keptSteps: [[{ kind: 'text', text: 'Tell support' }]],
+        },
+        {
+          memberId: ANA,
+          name: strings.debates.mine.agent,
+          summary: null,
+          credits: [],
+          turns: expect.arrayContaining([
+            { kind: 'turn', text: 'turn 1', href: '#/debate/debate_000000000000/turns?turn=1' },
+          ]),
+          filler: null,
+          positionChange: null,
+          keptSteps: [[{ kind: 'text', text: 'Tag it' }]],
+        },
+      ],
+    })
+    expect(model.moved).toEqual([])
+    const moving = room(
+      debateRoomModel(
+        input(
+          debate({
+            status: 'closed',
+            participants: [participant(ANA), participant(BEN)],
+            turns: [
+              { position: 1, memberId: BEN, agentName: 'Ben desk', body: 'Friday.', at: 5 },
+              {
+                position: 2,
+                memberId: BEN,
+                agentName: 'Ben desk',
+                body: 'I now agree with Thursday.',
+                at: 6,
+              },
+            ],
+            result: { result: conclusion, draftedBy: BEN, draftedAt: 7 },
+          }),
+        ),
+      ),
+    )
+    expect(moving.moved.map((move) => [move.memberId, move.text.map((part) => part.text).join('')])).toEqual([
+      [
+        BEN,
+        strings.debates.movedLine({ agent: strings.debates.personAgent({ person: 'Ben' }), from: 1, to: 2 }),
+      ],
     ])
     expect(model.tabs.map((tab) => [tab.tab, tab.current])).toEqual([
       ['result', true],
@@ -324,19 +395,30 @@ describe('debateRoomModel', () => {
     expect(shownFor({ status: 'closed' }, 'credit').shown).toBe('result')
   })
 
-  it('folds away all but the latest turns behind their count', () => {
+  it('shows every turn, folding only the runs of turns that add nothing, and opens on a turn the address names', () => {
     const turns = Array.from({ length: 8 }, (_, index) => ({
       position: index + 1,
       memberId: index % 2 === 0 ? ANA : BEN,
       agentName: 'Desk',
-      body: `Turn ${index + 1}`,
+      body: index < 5 ? `Point ${index + 1}` : 'Nothing new; ready to vote.',
       at: index + 1,
     }))
-    const model = room(debateRoomModel(input(debate({ turns }))))
+    const model = room(debateRoomModel(input(debate({ turns }), { tab: 'turns', turn: 7 })))
     if (model.turns.kind !== 'turns') throw new Error('expected turns')
-    expect(model.turns.earlier?.label).toBe(strings.debates.earlierTurns({ count: 2 }))
-    expect(model.turns.earlier?.turns.map((turn) => turn.position)).toEqual([1, 2])
-    expect(model.turns.latest.map((turn) => turn.position)).toEqual([3, 4, 5, 6, 7, 8])
+    expect(model.turns.groups.map((group) => group.kind)).toEqual([
+      'turn',
+      'turn',
+      'turn',
+      'turn',
+      'turn',
+      'quiet',
+    ])
+    expect(model.turns.groups[5]).toMatchObject({
+      label: strings.debates.quietTurns({ count: 3, first: 6, last: 8 }),
+      open: true,
+    })
+    expect([model.focusTurn, model.focusesTab]).toEqual([7, false])
+    expect(room(debateRoomModel(input(debate({ turns }), { tab: 'turns', turn: 40 }))).focusTurn).toBeNull()
     expect(model.turns.timing).toBe(
       strings.debates.turnTimes({
         first: formats.full.format(new Date(1)),
@@ -368,7 +450,11 @@ describe('debateRoomModel', () => {
     )
     if (model.turns.kind !== 'turns') throw new Error('expected turns')
     expect(
-      model.turns.latest.map((turn) => [turn.details.id, turn.details.line, turn.details.details[0]!.text]),
+      model.turns.groups.map((group) =>
+        group.kind === 'turn'
+          ? [group.turn.details.id, group.turn.details.line, group.turn.details.details[0]!.text]
+          : [],
+      ),
     ).toEqual([
       [
         'author-debate_000000000000-turn-1',
@@ -456,7 +542,7 @@ describe('debateRoomModel', () => {
     expect(model.result).toMatchObject({
       body: {
         heading: strings.debates.noConclusion,
-        summary: 'Split.',
+        summary: [{ kind: 'text', text: 'Split.' }],
         listHeading: strings.debates.disagreements,
         reasons: null,
         points: [
@@ -464,12 +550,12 @@ describe('debateRoomModel', () => {
             category: 'information',
             point: 'Risk',
             categoryText: strings.debates.category.information,
-            explanation: 'Weighed differently.',
+            explanation: [{ kind: 'text', text: 'Weighed differently.' }],
           },
         ],
         nextSteps: { none: strings.debates.noNextSteps, steps: [] },
       },
-      voteRecord: { none: strings.debates.noVote, lines: [] },
+      voteRecord: { none: strings.debates.noVote, tally: [], tie: null, lines: [] },
     })
     expect(model.closed!.mayPost).toBe(false)
     const unrecorded = room(

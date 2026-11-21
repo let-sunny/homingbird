@@ -440,7 +440,7 @@ export const demoTeam = (now: number): Records => {
       },
     ],
     draftRequests: [],
-    debates: demoDebates(ago, { june: VISITOR_ID, juneLaptop: JUNE_LAPTOP, ana: ANA, kai: KAI }),
+    debates: demoDebates(ago, { june: VISITOR_ID, juneLaptop: JUNE_LAPTOP, ana: ANA, ben: BEN, kai: KAI }),
     principles: [
       principle(0, {
         id: 'demoprin0001',

@@ -29,21 +29,31 @@ describe('the result of a room', () => {
     expect(textOf(settled)).toContain(strings.debates.unknownResult)
   })
 
-  it('shows how each agent voted with its model, or that no vote was held', () => {
+  it('shows the votes per draft, how a tie was settled, how each agent voted with its model, or that no vote was held', () => {
     const record = renderVoteRecord({
       none: null,
+      tally: [
+        { memberId: 'm' as never, draft: 'Draft by Ana', votes: '2 votes', chosen: true },
+        { memberId: 'n' as never, draft: 'Draft by Ben', votes: '2 votes', chosen: false },
+      ],
+      tie: 'Tied at 2 votes each.',
       lines: [
         { kind: 'voted', memberId: 'm' as never, text: 'Ana voted', model: 'Model: gpt-6' },
         { kind: 'silent', memberId: 'n' as never, text: 'Ben did not vote', model: null },
       ],
     })
     expect(textOf(record)).toContain('Ana voted')
+    expect([...record.querySelectorAll('.debate-tally li')].map((one) => one.className)).toEqual([
+      'is-chosen',
+      '',
+    ])
+    expect(textOf(record.querySelector('.debate-tie')!)).toBe('Tied at 2 votes each.')
     expect([...record.querySelectorAll('.debate-vote-model')].map((one) => one.textContent)).toEqual([
       'Model: gpt-6',
     ])
-    expect(textOf(renderVoteRecord({ none: strings.debates.noVote, lines: [] }))).toContain(
-      strings.debates.noVote,
-    )
+    const none = renderVoteRecord({ none: strings.debates.noVote, tally: [], tie: null, lines: [] })
+    expect(textOf(none)).toContain(strings.debates.noVote)
+    expect(none.querySelector('.debate-tally')).toBeNull()
   })
 
   it('shows points of disagreement and owned steps, and heads a section', () => {
@@ -51,22 +61,39 @@ describe('the result of a room', () => {
     const body: ResultBody = {
       kind: 'known',
       heading: 'No conclusion',
-      summary: 'Split.',
+      summary: [{ kind: 'text', text: 'Split.' }],
       listHeading: 'Where',
       reasons: null,
-      points: [{ category: 'goals', point: 'Risk', categoryText: 'Goals', explanation: 'Why' }],
+      points: [
+        {
+          category: 'goals',
+          point: 'Risk',
+          categoryText: 'Goals',
+          explanation: [
+            { kind: 'text', text: 'Why, see turn ' },
+            { kind: 'turn', text: '3', href: '#/debate/d/turns?turn=3' },
+          ],
+        },
+      ],
       nextSteps: {
         heading: 'Next',
         none: null,
-        steps: [{ step: 'Tag', owner: 'For Ben', proposedBy: 'By Ana' }],
+        steps: [{ step: [{ kind: 'text', text: 'Tag' }], owner: 'For Ben', proposedBy: 'By Ana' }],
       },
       contributions: {
         heading: 'Who',
-        rows: [{ name: 'Ben', summary: 'Checked.', credits: [{ text: 'Gap', hint: 'Filled' }] }],
+        rows: [
+          {
+            name: 'Ben',
+            summary: [{ kind: 'text', text: 'Checked.' }],
+            credits: [{ text: 'Gap', hint: 'Filled' }],
+          },
+        ],
       },
     }
     host.append(...(renderResultBody(body, { contributions: true }) as Node[]))
-    expect(textOf(host)).toContain('RiskGoalsWhy')
+    expect(textOf(host)).toContain('RiskGoalsWhy, see turn 3')
+    expect(host.querySelector('a.turn-cite')!.getAttribute('href')).toBe('#/debate/d/turns?turn=3')
     expect(textOf(host)).toContain('For Ben')
     expect(textOf(host)).toContain('Who')
     expect(host.querySelector('.debate-credit')!.getAttribute('title')).toBe('Filled')

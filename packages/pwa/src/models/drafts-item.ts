@@ -5,6 +5,7 @@ import { channelLabel, channelOfRoom } from '../channels.ts'
 import { type DraftBasis, draftBasisOf } from '../draft-basis.ts'
 import { isChangedSinceRead } from '../drafts-read.ts'
 import { type HeldChoices, heldWordsFor, keptEditLine } from '../held-decisions.ts'
+import { hrefFor } from '../routes.ts'
 import type { Thread } from '../state.ts'
 import { listOf, strings } from '../strings.ts'
 import {
@@ -116,7 +117,10 @@ export interface DraftCard {
   readonly focused: boolean
   readonly origin: { readonly className: string; readonly text: string }
   readonly body: string
+  /** What the agent based the draft on; null where no agent of the person's wrote it alone. */
   readonly basis: DraftBasis | null
+  /** The debate room a posted result came from, in place of a basis. */
+  readonly room: { readonly href: string; readonly label: string } | null
   readonly applied: ReadonlyArray<AppliedMarker>
   readonly destination:
     | { readonly kind: 'channel'; readonly text: string; readonly channel: AsRead.Channel }
@@ -157,9 +161,19 @@ const draftCard = (
   return {
     draft,
     focused: draft.id === input.focusedDraft,
-    origin: { className: `origin is-${draft.origin}`, text: originText(draft) },
+    origin: {
+      className: draft.fromDebate === undefined ? `origin is-${draft.origin}` : 'origin is-debate',
+      text: originText(draft),
+    },
     body: draft.body,
-    basis: draftBasisOf(draft, showsAppliedMarkers(input.taught, teachingOn)),
+    basis: hasAgentBasis(draft) ? draftBasisOf(draft, showsAppliedMarkers(input.taught, teachingOn)) : null,
+    room:
+      draft.fromDebate === undefined
+        ? null
+        : {
+            href: hrefFor({ name: 'debate', id: draft.fromDebate.debateId, tab: 'result' }),
+            label: strings.debateNote.openRoom,
+          },
     applied: appliedModel(draft, input.taught, teachingOn),
     destination: destination === null ? null : destination.shown,
     careful:
@@ -182,11 +196,15 @@ const draftCard = (
 }
 
 const originText = (note: AsRead.Note): string => {
+  if (note.fromDebate !== undefined) return strings.debateNote.origin({ question: note.fromDebate.question })
   const agent = agentNameOf(note)
   return note.origin === 'human' || agent === null
     ? strings.origin[note.origin]
     : strings.originNamed[note.origin]({ agent })
 }
+
+/** A person's own words and a debate room's result have no agent of the person's behind them to give a basis. */
+const hasAgentBasis = (note: AsRead.Note): boolean => note.origin !== 'human' && note.fromDebate === undefined
 
 const destinationOf = (
   input: Pick<ThreadInput, 'thread' | 'members'>,

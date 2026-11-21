@@ -12,13 +12,13 @@ describe('debate rooms', () => {
     const { debates } = await succeeded(api['debates.list']({}))
     expect(debates.map((room) => [room.status, room.joined, room.turnCount, room.resultDrafted])).toEqual([
       ['open', true, 2, false],
-      ['closed', true, 2, true],
+      ['closed', true, 12, true],
       ['open', true, 0, false],
     ])
     const ben = demoApi(memberNamed(world, 'Ben Okafor'), world)
     expect((await succeeded(ben.api['debates.list']({}))).debates.map((room) => room.joined)).toEqual([
       false,
-      false,
+      true,
     ])
   })
 
@@ -79,7 +79,18 @@ describe('debates.result.post', () => {
     const draft = await succeeded(
       api['debates.result.post']({ params: { id: closed.id }, body: { to: ana } }),
     )
-    expect(draft).toMatchObject({ authorId: viewerId, status: 'draft', origin: 'human' })
+    expect(draft).toMatchObject({
+      authorId: viewerId,
+      status: 'draft',
+      origin: 'agent',
+      agentName: null,
+      basis: null,
+      fromDebate: {
+        debateId: closed.id,
+        question: closed.question,
+        agents: expect.arrayContaining([{ agent: "June's laptop", person: 'June Park' }]),
+      },
+    })
     expect(draft.body).toContain('A refund for an annual plan covers the unused full months')
     const room = world.records().conversations.find((each) => each.id === draft.conversationId)
     expect(room?.kind).toBe('direct')
@@ -112,10 +123,10 @@ describe('debates.result.post', () => {
         api['debates.result.post']({ params: { id: closed!.id }, body: { to: kai, channel: 'billing' } }),
       ),
     ).toMatchObject({ _tag: 'Invalid' })
-    const asKai = demoApi(kai, world)
+    const outsider = demoApi(memberNamed(world, 'Maximiliana Konstantinopoulou-Vanderbilt-Oyelaran'), world)
     expect(
       await refused(
-        asKai.api['debates.result.post']({ params: { id: closed!.id }, body: { channel: 'billing' } }),
+        outsider.api['debates.result.post']({ params: { id: closed!.id }, body: { channel: 'billing' } }),
       ),
     ).toMatchObject({ _tag: 'Forbidden' })
   })

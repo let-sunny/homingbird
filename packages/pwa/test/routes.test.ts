@@ -29,6 +29,9 @@ const routes: fc.Arbitrary<Route> = fc.oneof(
     .tuple(segment, fc.constantFrom<DebateTab | null>(null, 'result', 'votes', 'credit', 'turns'))
     .map(([id, tab]): Route => ({ name: 'debate', id, tab })),
   fc
+    .tuple(segment, fc.integer({ min: 1, max: 999 }))
+    .map(([id, turn]): Route => ({ name: 'debate', id, tab: 'turns', turn })),
+  fc
     .constantFrom<AgentSection | null>(null, 'connection', 'teaching', 'doing', 'routes')
     .map((section): Route => ({ name: 'agent', section })),
   fc.constant<Route>({ name: 'character', draft: null, from: null }),
@@ -99,6 +102,9 @@ describe('routes', () => {
     ['#/debate/d1', { name: 'debate', id: 'd1', tab: null }],
     ['#/debate/d1/votes', { name: 'debate', id: 'd1', tab: 'votes' }],
     ['#/debate/d1/nonsense', { name: 'debate', id: 'd1', tab: null }],
+    ['#/debate/d1/turns?turn=4', { name: 'debate', id: 'd1', tab: 'turns', turn: 4 }],
+    ['#/debate/d1/turns?turn=0', { name: 'debate', id: 'd1', tab: 'turns' }],
+    ['#/debate/d1/turns?turn=four', { name: 'debate', id: 'd1', tab: 'turns' }],
     ['#/measured', { name: 'measured' }],
     ['#/agent/teaching', { name: 'agent', section: 'teaching' }],
     ['#/agent/nonsense', { name: 'agent', section: null }],
