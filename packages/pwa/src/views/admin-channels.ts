@@ -89,7 +89,6 @@ const editChannelForm = (context: ViewContext, channel: AsRead.Channel): Child =
   })
   const description = h('input', {
     name: 'description',
-    required: true,
     maxlength: String(CHANNEL_DESCRIPTION_MAX),
     value: channel.description,
   })

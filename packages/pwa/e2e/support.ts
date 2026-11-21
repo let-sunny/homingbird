@@ -423,7 +423,7 @@ export const themeColorsOutside = (page: any, allowed: ReadonlyArray<string>): P
     }, allowed),
   )
 
-const SIDEWAYS_SCROLLERS = '.table-scroll, pre'
+const SIDEWAYS_SCROLLERS = '.table-scroll, pre, .titlebar .tabs'
 
 const withNames = (page: any): Promise<unknown> =>
   page.evaluate('globalThis.__name = globalThis.__name || ((target) => target)')

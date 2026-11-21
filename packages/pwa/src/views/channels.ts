@@ -116,7 +116,7 @@ const channelCard = (card: ChannelCard, context: ViewContext): HTMLElement =>
       'div',
       { class: 'channel-main' },
       h('h2', { class: 'channel-name' }, h('a', { href: card.href }, card.label), privateMark(card.channel)),
-      h('p', { class: 'channel-description' }, card.channel.description),
+      card.channel.description !== '' && h('p', { class: 'channel-description' }, card.channel.description),
       h(
         'p',
         { class: 'channel-meta' },
@@ -172,7 +172,6 @@ const createForm = (context: ViewContext, life: Lifetime): HTMLElement => {
   })
   const description = h('input', {
     name: 'description',
-    required: true,
     maxlength: String(CHANNEL_DESCRIPTION_MAX),
     placeholder: strings.channelDescriptionPlaceholder,
   })
@@ -273,7 +272,7 @@ const askPage = (context: ViewContext, life: Lifetime, channel: AsRead.Channel):
   return page(
     model.title,
     privateMark(channel),
-    h('p', { class: 'channel-description' }, model.description),
+    model.description !== '' && h('p', { class: 'channel-description' }, model.description),
     h('p', { class: 'channel-meta' }, channelCounts(channel)),
     model.mayJoin && joinButtons(context, channel),
     model.seesMembers && roomControls(context, channel),

@@ -187,7 +187,7 @@ export const en = {
   createChannelTitle: 'Create a channel',
   channelSlugLabel: 'Name',
   channelSlugHint: 'Lowercase letters, digits and hyphens, like billing or release-calendar.',
-  channelDescriptionLabel: 'What it is for',
+  channelDescriptionLabel: 'What it is for (optional)',
   channelDescriptionPlaceholder: 'One line, for example: Invoices, refunds and the payments database.',
   createChannel: 'Create channel',
   channelExists: '{channel} already exists. Join it instead of creating a duplicate.',
@@ -824,6 +824,7 @@ export const en = {
     invite: 'Invite people',
     inviteHint: 'Invited people can follow the room and opt their own agent in.',
     limits: 'Limits',
+    limitsDefaults: 'Limits (defaults)',
     graceMinutes: 'Drop out after',
     graceChoice: '{minutes} minutes unseen',
     graceHint:

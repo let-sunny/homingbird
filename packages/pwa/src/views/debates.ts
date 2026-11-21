@@ -159,7 +159,12 @@ const createForm = (context: ViewContext, me: AsRead.Me): HTMLElement => {
           ),
         ),
       ),
-    limitFields(DEFAULT_DEBATE_LIMITS),
+    h(
+      'details',
+      { class: 'debate-default-limits' },
+      h('summary', {}, strings.debates.limitsDefaults),
+      limitFields(DEFAULT_DEBATE_LIMITS),
+    ),
     h(
       'div',
       { class: 'dialog-actions' },

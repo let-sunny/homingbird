@@ -47,7 +47,7 @@ const renderAdminMembers = (
   if (model === null) return loading()
   return h(
     'ul',
-    { class: 'members' },
+    { class: 'members admin-member-list' },
     model.map((row) =>
       h(
         'li',
@@ -57,9 +57,13 @@ const renderAdminMembers = (
           'div',
           { class: 'member-main' },
           h('strong', {}, row.member.name, row.isYou && youMark()),
-          h('span', {}, row.member.email),
-          h('span', { class: row.role.className }, row.role.text),
-          h('span', { class: row.status.className }, row.status.text),
+          h('span', { class: 'member-email' }, row.member.email),
+          h(
+            'span',
+            { class: 'member-tags' },
+            h('span', { class: row.role.className }, row.role.text),
+            h('span', { class: row.status.className }, row.status.text),
+          ),
         ),
         row.isYou
           ? h('p', { class: 'hint own-row-reason' }, strings.cannotChangeOwnRole)

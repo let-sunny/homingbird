@@ -91,7 +91,7 @@ export const PushSubscription = S.struct({
 })
 export type PushSubscription = S.Infer<typeof PushSubscription>
 
-const ChannelDescription = S.string({ minLength: 1, maxLength: CHANNEL_DESCRIPTION_MAX })
+const ChannelDescription = S.string({ maxLength: CHANNEL_DESCRIPTION_MAX })
 const GroupMembers = S.array(MemberId, { maxItems: GROUP_MEMBERS_MAX })
 
 export const contract = {
