@@ -1069,6 +1069,9 @@ export const ko: Translation<typeof en> = {
       '이 서버의 최소 그룹 인원은 {minimum}명이에요. 숫자는 그룹별로 보여 주고, {minimum}명보다 적은 그룹은 빼요. 차단은 수만 세요.',
     minimumOne:
       '이 서버의 최소 그룹 인원은 1명이에요. 모든 그룹의 숫자를 보여 주므로, 한 명뿐인 그룹은 그 사람의 숫자가 보여요. 서버 운영자는 HB_INSIGHTS_MINIMUM_GROUP으로 이 값을 올릴 수 있어요.',
+    minimumNotice:
+      '여기 숫자는 한 사람을 가리킬 수 있어요. 이 서버의 최소 그룹 인원이 1명이라, 한 명뿐인 그룹은 그 사람이 얼마나 빨리 승인하는지까지 그 사람의 숫자가 보여요. 다섯 명보다 적은 그룹을 숨기려면 서버 운영자가 HB_INSIGHTS_MINIMUM_GROUP=5로 설정하고 서버를 다시 시작하면 돼요.',
+    minimumNoticeDismiss: '확인했어요',
     tooFew: '이 기간에 노트를 보낸 사람이 {minimum}명보다 적어서 숫자를 보여 주지 않아요.',
     caption: '최근 {days}일 동안의 조직과 그 전 {days}일',
     rows: {
@@ -1105,6 +1108,9 @@ export const ko: Translation<typeof en> = {
     byClientTitle: '프로그램별 에이전트 초안',
     byModelTitle: '모델별 에이전트 초안(에이전트가 밝힌 이름)',
     hiddenLabels: { other: '사용한 사람이 적은 프로그램이나 모델 {count}개는 보여 주지 않아요.' },
+    hiddenLabelsOnePerson: {
+      other: '한 사람만 쓴 프로그램이나 모델 {count}개는 이름으로 그 사람을 알 수 있어서 보여 주지 않아요.',
+    },
     placesTitle: '채널별',
     placeColumn: '채널',
     notesColumn: '보낸 노트',

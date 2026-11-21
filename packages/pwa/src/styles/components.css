@@ -3664,6 +3664,14 @@ textarea:disabled {
   color: var(--hb-color-muted);
 }
 
+.insights-minimum-notice {
+  justify-items: start;
+}
+
+.insights-minimum-notice p {
+  margin: 0;
+}
+
 .your-week {
   display: grid;
   gap: var(--hb-space-2);
