@@ -250,5 +250,50 @@ describe('threadView', () => {
       mount(threadView(test.context, lifetime(), me(), ROOM, null, 'note_answer'))
       expect(test.called('loadReviews')).toHaveLength(1)
     })
+
+    it('keeps a review card that did not change when the conversations and reviews reload', () => {
+      const { context, shown } = open()
+      context.state.serverInfo.set(serverInfo())
+      withNotes(context, [question])
+      context.state.reviews.set([review()])
+      const card = shown.querySelector('.review-card')
+      context.state.conversations.set([conversation({ lastNote: question, unreadCount: 0 })])
+      context.state.reviews.set([review()])
+      withNotes(context, [question, note('n3', { sentAt: 3, authorId: ANA })])
+      expect(shown.querySelector('.review-card')).toBe(card)
+    })
+  })
+
+  it('keeps the composer, what is written in it, the head and the notes when the conversations reload', () => {
+    const { context, shown } = open()
+    withNotes(context, [note('n1', { sentAt: 1 }), note('n2', { sentAt: 2 })])
+    const text = shown.querySelector('textarea') as HTMLTextAreaElement
+    text.value = 'Half a sentence'
+    text.focus()
+    const head = [...(shown.querySelector('.thread-head') as HTMLElement).children]
+    const notes = [...shown.querySelectorAll('.note')]
+    context.state.conversations.set([conversation({ lastNote: note('n2'), unreadCount: 0 })])
+    context.state.sendingIn.set(new Set([ROOM]))
+    context.state.replyTargets.set(new Map([[ROOM, null]]))
+    withNotes(context, [
+      note('n1', { sentAt: 1 }),
+      note('n2', { sentAt: 2 }),
+      note('n3', { sentAt: 3, authorId: ANA }),
+    ])
+    context.state.sendingIn.set(new Set())
+    expect(shown.querySelector('textarea')).toBe(text)
+    expect(text.value).toBe('Half a sentence')
+    expect(document.activeElement).toBe(text)
+    expect([...(shown.querySelector('.thread-head') as HTMLElement).children]).toEqual(head)
+    expect([...shown.querySelectorAll('.note')].slice(0, 2)).toEqual(notes)
+    expect(shown.querySelectorAll('.note')).toHaveLength(3)
+  })
+
+  it('builds the composer again only when the room is archived', () => {
+    const { context, shown } = open()
+    const text = shown.querySelector('textarea')
+    context.state.conversations.set([conversation({ archivedAt: 5 })])
+    expect(shown.querySelector('textarea')).not.toBe(text)
+    expect(shown.querySelector('.composer.is-disabled')).not.toBeNull()
   })
 })

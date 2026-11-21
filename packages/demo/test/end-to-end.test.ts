@@ -14,7 +14,7 @@ import { demoPage } from '../src/demo-page.ts'
 import { fakeDovecote } from '../src/dovecote.ts'
 import { VISITOR_ID } from '../src/team.ts'
 import { createWorld } from '../src/world.ts'
-import { NOW, noteStarting } from './support/demo.ts'
+import { NOW, demoApi, memberNamed, noteStarting, succeeded } from './support/demo.ts'
 
 beforeEach(() => void installFakeDom())
 afterEach(() => uninstallFakeDom())
@@ -98,3 +98,82 @@ describe('the demo', () => {
     })
   })
 })
+
+describe('sending a note in the demo', () => {
+  it('keeps the composer, the thread head, the notes and the other sidebar rows it already showed', async () => {
+    const { root, settle, world, open } = await startDemo()
+    const room = noteStarting(world, 'Yes. I checked').conversationId
+    await open(`#/c/${room}`)
+    const before = shownParts(root, room)
+    before.text.focus()
+    before.text.value = 'Thanks, merging now.'
+    fire.submit(before.composer)
+    await settle()
+    const after = shownParts(root, room)
+    expect(after.notes.at(-1)?.textContent).toContain('Thanks, merging now.')
+    expect(before.otherRows.length).toBeGreaterThan(0)
+    expect(keptParts(before, after)).toEqual(allKept(before))
+  })
+
+  it('leaves what the person is writing alone when a colleague’s note arrives, redrawing only the note it follows', async () => {
+    const { root, settle, world, open } = await startDemo()
+    const room = noteStarting(world, 'Yes. I checked').conversationId
+    await open(`#/c/${room}`)
+    const before = shownParts(root, room)
+    before.text.focus()
+    before.text.value = 'Half a thou'
+    const ana = demoApi(memberNamed(world, 'Ana Silva'), world).api
+    const draft = await succeeded(
+      ana['drafts.create']({ body: { body: 'One more thing: the ledger lock.', conversationId: room } }),
+    )
+    await succeeded(
+      ana['drafts.send']({
+        params: { id: draft.id },
+        body: { expected: { body: draft.body, conversationId: room } },
+      }),
+    )
+    await settle()
+    const after = shownParts(root, room)
+    expect(after.notes.at(-1)?.textContent).toContain('One more thing: the ledger lock.')
+    expect(after.text.value).toBe('Half a thou')
+    expect(keptParts(before, after)).toEqual({ ...allKept(before), notes: before.notes.length - 1 })
+    expect(after.notes).not.toContain(before.notes.at(-1))
+  })
+})
+
+type Parts = ReturnType<typeof shownParts>
+
+const keptParts = (before: Parts, after: Parts) => ({
+  composer: after.composer === before.composer,
+  text: after.text === before.text,
+  focus: document.activeElement === before.text,
+  head: keptOf(before.head, after.head),
+  notes: keptOf(before.notes, after.notes),
+  otherRows: keptOf(before.otherRows, after.otherRows),
+})
+
+const allKept = (before: Parts) => ({
+  composer: true,
+  text: true,
+  focus: true,
+  head: before.head.length,
+  notes: before.notes.length,
+  otherRows: before.otherRows.length,
+})
+
+/** The nodes a send must leave in place, found in the page as it is now. */
+const shownParts = (root: HTMLElement, room: string) => {
+  const composer = root.querySelector('form.composer') as HTMLFormElement
+  return {
+    composer,
+    text: composer.querySelector('textarea') as HTMLTextAreaElement,
+    head: [...(root.querySelector('.thread-head') as HTMLElement).children],
+    notes: [...root.querySelectorAll('.notes .note')],
+    otherRows: [...root.querySelectorAll('.conversation-item')].filter(
+      (row) => row.querySelector(`a[href="#/c/${room}"]`) === null,
+    ),
+  }
+}
+
+const keptOf = (before: ReadonlyArray<Element>, after: ReadonlyArray<Element>): number =>
+  before.filter((node) => after.includes(node)).length

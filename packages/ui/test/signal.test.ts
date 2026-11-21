@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { derived, onAnyChange, signal } from '../src/signal.ts'
+import { isSameData } from '../src/same-data.ts'
+import { batch, derived, onAnyChange, signal } from '../src/signal.ts'
 
 describe('signal', () => {
   it('notifies subscribers of each new value and stops after unsubscribing', () => {
@@ -51,6 +52,73 @@ describe('derived', () => {
     b.set(0)
     expect(seen).toEqual([true])
     expect(isLarge.get()).toBe(false)
+  })
+
+  it('stays silent when a rebuilt value is equal by the given comparison', () => {
+    const people = signal([{ id: 'ana', name: 'Ana', seen: 1 }])
+    const names = derived([people], (all) => all.map((person) => person.name), isSameData)
+    const seen: string[][] = []
+    names.subscribe((value) => seen.push(value))
+    people.set([{ id: 'ana', name: 'Ana', seen: 2 }])
+    people.set([{ id: 'ana', name: 'Ana Silva', seen: 2 }])
+    expect(seen).toEqual([['Ana Silva']])
+  })
+})
+
+describe('batch', () => {
+  it('tells each listener once, after the last change, with the value it ends with', () => {
+    const a = signal(0)
+    const b = signal('x')
+    const react = vi.fn()
+    const values: number[] = []
+    onAnyChange([a, b], react)
+    a.subscribe((value) => values.push(value))
+    const answer = batch(() => {
+      a.set(1)
+      b.set('y')
+      a.set(2)
+      expect(react).not.toHaveBeenCalled()
+      return 'done'
+    })
+    expect(answer).toBe('done')
+    expect(react).toHaveBeenCalledTimes(1)
+    expect(values).toEqual([2])
+    a.set(3)
+    expect(react).toHaveBeenCalledTimes(2)
+  })
+
+  it('waits for the outermost batch, and runs changes a listener makes while it flushes', () => {
+    const a = signal(0)
+    const doubled = signal(0)
+    const seen: number[] = []
+    a.subscribe((value) => doubled.set(value * 2))
+    doubled.subscribe((value) => seen.push(value))
+    batch(() => {
+      batch(() => a.set(1))
+      expect(seen).toEqual([])
+      a.set(2)
+    })
+    expect(seen).toEqual([4])
+  })
+
+  it('skips a listener that unsubscribed before the batch ended, and flushes after a failed change', () => {
+    const a = signal(0)
+    const listener = vi.fn()
+    const stop = a.subscribe(listener)
+    batch(() => {
+      a.set(1)
+      stop()
+    })
+    expect(listener).not.toHaveBeenCalled()
+    const after = vi.fn()
+    a.subscribe(after)
+    expect(() =>
+      batch(() => {
+        a.set(2)
+        throw new Error('defect')
+      }),
+    ).toThrow('defect')
+    expect(after).toHaveBeenCalledWith(2)
   })
 })
 

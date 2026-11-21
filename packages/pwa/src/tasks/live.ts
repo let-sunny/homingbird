@@ -1,6 +1,6 @@
 import { Task as T } from '@homingbird/kernel'
 import type { AsRead, ConversationId } from '@homingbird/protocol'
-import { later } from '@homingbird/ui'
+import { batch, later } from '@homingbird/ui'
 import type { App } from '../app.ts'
 import { channelLabel, withChannel, withoutRoom } from '../channels.ts'
 import { upsertRequest } from '../draft-requests.ts'
@@ -15,7 +15,7 @@ import { forgetNote, forgetRelease, loadThread, rememberNote } from './notes.ts'
 import { closeDraftNotice } from './notifications.ts'
 import { loadAgents, loadConversations, loadKnownChannels, loadPeople, loadWorkspace } from './workspace.ts'
 
-/** What each live event changes in the page: the state it updates and what it loads again. */
+/** What each live event changes in the page, as one change: the state it updates and what it loads again. */
 export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
   const { state, launch } = app
   let cancelDirectoryReload = (): void => {}
@@ -39,7 +39,7 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
   const refreshAgentsIfNoneKnown = (): void => {
     if (state.agentCredentials.get().length === 0) launch(loadAgents)
   }
-  return (event) => {
+  const apply = (event: AsRead.StreamEvent): void => {
     const body = event.body
     switch (body.type) {
       case 'note.sent':
@@ -144,6 +144,7 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
         break
     }
   }
+  return (event) => batch(() => apply(event))
 }
 
 /** Several directory, group or review changes in a row are loaded once, after they settle. */

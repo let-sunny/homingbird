@@ -48,6 +48,31 @@ describe('shell', () => {
     expect(textOf(shown)).toContain(strings.noChannelRooms)
   })
 
+  it('redraws only the row whose conversation changed when the list is loaded again', () => {
+    const { context } = testContext()
+    context.state.session.set(me())
+    context.state.directory.set([entry(BEN, 'Ben'), entry(CY, 'Cy')])
+    const billing = channel('billing')
+    context.state.channels.set([billing])
+    const shown = shell(context, lifetime(), me(), document.createElement('main'))
+    const listed = (preview: string) => [
+      conversation({ lastNote: note('n1', { body: preview }) }),
+      conversation({ id: 'conv_cy0000000000' as never, participantIds: [CY, me().member.id] }),
+      conversation({ id: billing.conversationId, kind: 'channel', title: 'billing' }),
+      conversation({ id: 'conv_old000000000' as never, kind: 'channel', title: 'old', archivedAt: 5 }),
+    ]
+    context.state.conversationsLoaded.set(true)
+    context.state.conversations.set(listed('Hello'))
+    const before = [...shown.querySelectorAll('.conversation-item')]
+    const lists = [...shown.querySelectorAll('.conversation-list')]
+    expect(before).toHaveLength(4)
+    context.state.conversations.set(listed('Hello again'))
+    const after = [...shown.querySelectorAll('.conversation-item')]
+    expect([...shown.querySelectorAll('.conversation-list')]).toEqual(lists)
+    expect(after.map((row, index) => row === before[index])).toEqual([false, true, true, true])
+    expect(after[0]!.textContent).toContain('Hello again')
+  })
+
   it('lists direct messages, groups, channel rooms and archived rooms, each with its counts', () => {
     const { context } = testContext()
     context.state.session.set(me())

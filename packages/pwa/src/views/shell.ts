@@ -1,5 +1,5 @@
 import type { AsRead } from '@homingbird/protocol'
-import { type Lifetime, h, region } from '@homingbird/ui'
+import { type Lifetime, type ReadableSignal, h, keyedRegion, region, slice } from '@homingbird/ui'
 import { peopleConversations } from '../channels.ts'
 import { connectionShown } from '../connection-status.ts'
 import { featureOn } from '../features.ts'
@@ -185,6 +185,15 @@ const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLEleme
       ),
     })
   }
+  const peopleSources = [
+    state.conversations,
+    state.members,
+    state.directory,
+    state.route,
+    state.conversationsLoaded,
+  ]
+  const roomSources = [state.conversations, state.route, state.channels]
+  const archivedSources = [state.conversations, state.route, state.members]
   return h(
     'aside',
     { class: 'sidebar', 'aria-label': strings.conversations },
@@ -195,22 +204,21 @@ const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLEleme
     h('h2', { class: 'sidebar-title', data: { tour: 'notes' } }, strings.conversations),
     region(
       life,
-      [state.conversations, state.members, state.directory, state.route, state.conversationsLoaded],
-      () => {
-        const people = model(true).people
-        if (people.kind === 'loading') return loading()
-        if (people.kind === 'none')
+      [slice(peopleSources, () => model().people.kind)],
+      (drawing) => {
+        const kind = model().people.kind
+        if (kind === 'loading') return loading()
+        if (kind === 'none')
           return h(
             'div',
             { class: 'no-conversations' },
             h('p', { class: 'no-conversations-text' }, strings.noConversations),
             startingPoints(context),
           )
-        return h(
-          'ul',
-          { class: 'conversation-list' },
-          people.rows.map((row) => conversationRow(context, row)),
-        )
+        return rowList(context, drawing, peopleSources, 'conversation-list', () => {
+          const people = model(true).people
+          return people.kind === 'rows' ? people.rows : []
+        })
       },
       { class: 'conversations-host' },
     ),
@@ -220,32 +228,44 @@ const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLEleme
       h('h2', { class: 'sidebar-title' }, strings.channels),
       h('a', { class: 'browse-channels', href: hrefFor({ name: 'channels' }) }, strings.browseChannels),
     ),
-    region(life, [state.conversations, state.route, state.channels], () => {
-      const rooms = model().channelRooms
-      return rooms.length === 0
+    region(life, [slice(roomSources, () => model().channelRooms.length === 0)], (drawing) =>
+      model().channelRooms.length === 0
         ? empty(strings.noChannelRooms)
-        : h(
-            'ul',
-            { class: 'conversation-list channel-rooms' },
-            rooms.map((row) => conversationRow(context, row)),
-          )
-    }),
-    region(life, [state.conversations, state.route, state.members], () => {
-      const archived = model().archived
-      return (
-        archived !== null &&
-        h(
-          'details',
-          { class: 'archived-rooms', open: archived.open },
-          h('summary', { class: 'sidebar-title' }, archived.title),
-          h(
-            'ul',
-            { class: 'conversation-list' },
-            archived.rows.map((row) => conversationRow(context, row)),
+        : rowList(
+            context,
+            drawing,
+            roomSources,
+            'conversation-list channel-rooms',
+            () => model().channelRooms,
           ),
+    ),
+    region(
+      life,
+      [
+        slice(archivedSources, () => {
+          const archived = model().archived
+          return archived === null ? null : { title: archived.title, open: archived.open }
+        }),
+      ],
+      (drawing) => {
+        const archived = model().archived
+        return (
+          archived !== null &&
+          h(
+            'details',
+            { class: 'archived-rooms', open: archived.open },
+            h('summary', { class: 'sidebar-title' }, archived.title),
+            rowList(
+              context,
+              drawing,
+              archivedSources,
+              'conversation-list',
+              () => model().archived?.rows ?? [],
+            ),
+          )
         )
-      )
-    }),
+      },
+    ),
   )
 }
 
@@ -265,6 +285,20 @@ const onboarding = (): HTMLElement =>
       ),
     ),
   )
+
+/** A list of conversation rows that redraws only the rows whose data changed. */
+const rowList = (
+  context: ViewContext,
+  life: Lifetime,
+  sources: ReadonlyArray<ReadableSignal<unknown>>,
+  className: string,
+  rows: () => ReadonlyArray<ConversationRow>,
+): HTMLElement =>
+  keyedRegion(life, h('ul', { class: className }), sources, rows, {
+    key: (row) => row.id,
+    signature: (row) => JSON.stringify(row),
+    render: (row) => conversationRow(context, row),
+  })
 
 const conversationRow = (context: ViewContext, row: ConversationRow): HTMLElement =>
   h(

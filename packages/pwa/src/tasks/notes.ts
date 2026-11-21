@@ -1,5 +1,6 @@
 import { Task as T } from '@homingbird/kernel'
 import type { AsRead, ConversationId, NoteId } from '@homingbird/protocol'
+import { batch } from '@homingbird/ui'
 import { type Action, type App, withApp } from '../app.ts'
 import { type MISSING, orMissing } from '../missing.ts'
 import { type AppState, signedIn } from '../state.ts'
@@ -140,10 +141,14 @@ const deliverNote = (conversationId: ConversationId, body: string): Action =>
     const draft = yield* api['drafts.create']({
       body: { body, conversationId, ...(inReplyTo !== null && { inReplyTo }) },
     })
-    rememberNote(state)(
-      yield* api['drafts.send']({ params: { id: draft.id }, body: { expected: { body, conversationId } } }),
-    )
-    state.replyTargets.update((targets) => withoutKey(targets, conversationId))
+    const sent = yield* api['drafts.send']({
+      params: { id: draft.id },
+      body: { expected: { body, conversationId } },
+    })
+    batch(() => {
+      rememberNote(state)(sent)
+      state.replyTargets.update((targets) => withoutKey(targets, conversationId))
+    })
     yield* loadConversations
   })
 
