@@ -14,6 +14,7 @@ import {
   Empty,
   InboxItem,
   JoinCode,
+  JoinCodeStatus,
   Me,
   PageLimit,
   Recipients,
@@ -833,6 +834,12 @@ export const contract = {
       channel: S.optional(ChannelSlug),
     }),
     response: JoinCode,
+  }),
+  'joinCodes.status': route({
+    method: 'GET',
+    path: '/join-codes/:id',
+    access: 'human',
+    response: JoinCodeStatus,
   }),
   'invites.list': route({
     method: 'GET',

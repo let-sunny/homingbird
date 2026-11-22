@@ -296,6 +296,10 @@ export const Conversation = S.struct({
   archivedAt: S.nullable(Timestamp),
   /** A question asked privately of this channel's agent: its managers, now and later, take part. */
   privateQuestionOf: S.optional(S.nullable(ChannelSlug)),
+  /** Who asked a private question: one of its participants. */
+  askedBy: S.optional(MemberId),
+  /** Which participants of a channel's room or private question manage that channel now. */
+  managerIds: S.optional(S.array(MemberId)),
   muted: S.optional(S.boolean),
 })
 export type Conversation = S.Infer<typeof Conversation>

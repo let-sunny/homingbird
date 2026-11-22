@@ -59,8 +59,8 @@ const scenario = async (): Promise<void> => {
 
     const ana = await signIn('ana@example.com', 'Ana')
     await ana.page.waitForSelector('text=No direct messages yet')
-    await ana.page.waitForSelector('.onboarding:has-text("Keep one agent session open as your desk")')
-    await capture(ana.page, 'empty-home-with-desk-session-hint')
+    await ana.page.waitForSelector('.starting-points:has-text("Connect your agent")')
+    await capture(ana.page, 'empty-home-with-first-steps')
 
     // -- Directory -------------------------------------------------------------------------------
     const june = await signIn('june@example.com', 'June')
@@ -565,7 +565,9 @@ const scenario = async (): Promise<void> => {
     })
     await capture(ana.page, 'connection-lost')
     dovecote = await startDovecote(port, databasePath, SEEDED_CHANNELS)
-    await ana.page.waitForSelector('.connection.is-connected:has-text("Connected")', { timeout: 60_000 })
+    await ana.page.waitForSelector('.connection.is-connected:has-text("This page is up to date")', {
+      timeout: 60_000,
+    })
     await capture(ana.page, 'connection-restored')
 
     // -- Dark mode and narrow containers ---------------------------------------------------------

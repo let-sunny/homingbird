@@ -1,5 +1,5 @@
 import type { AsRead, ConversationId } from '@homingbird/protocol'
-import { type Child, type Lifetime, h, linkedText } from '@homingbird/ui'
+import { type Child, type Lifetime, h, holdingStill, linkedText } from '@homingbird/ui'
 import type { DebateResultNote, NoteItemModel, NoteMenuItem } from '../models/note-item.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
@@ -9,7 +9,7 @@ import type { ViewContext } from './context.ts'
 import { hinted } from './hint.ts'
 import { actionMenu } from './menu.ts'
 import { noteBody } from './note-body.ts'
-import { button, sourceList, timeLabel } from './parts.ts'
+import { button, copyWithNotice, sourceList, timeLabel } from './parts.ts'
 import { teachFromMiss } from './teaching.ts'
 
 /** One sent note in the thread; a click on it, away from its controls, marks it as the one looked at. */
@@ -27,15 +27,19 @@ export const renderNoteItem = (
   const ACTIONS: Readonly<Record<NoteMenuItem['kind'], () => void>> = {
     reply,
     'ask-agent': askAgent,
-    copy: () => copyText(context, note.body, strings.noteCopied),
-    'copy-link': () => copyText(context, noteLink(context, conversationId, note), strings.noteLinkCopied),
+    copy: () => copyWithNotice(context, note.body, strings.noteCopied),
+    'copy-link': () =>
+      copyWithNotice(context, noteLink(context, conversationId, note), strings.noteLinkCopied),
   }
   const more = actionMenu(context, {
     id: model.menu.id,
     label: model.menu.label,
     triggerClass: 'note-more',
     menuClass: 'note-menu',
-    items: model.menu.items.map((item) => menuItem(model.menu.id, item, ACTIONS[item.kind])),
+    items: [
+      model.menu.items.map((item) => menuItem(model.menu.id, item, ACTIONS[item.kind])),
+      model.menu.fixed !== null && h('small', { class: 'menu-reason note-fixed' }, model.menu.fixed),
+    ],
   })
   const li = h(
     'li',
@@ -169,8 +173,8 @@ export const renderNoteItem = (
 }
 
 /**
- * The note's text; a long one shows its start, and a button opens the rest in place. A note drawn again
- * while the person had it open stays open.
+ * The note's text; a long one shows its start, and a button opens the rest in place. Folding it again
+ * keeps the button where it was on screen. A note drawn again while the person had it open stays open.
  */
 const collapsibleBody = (context: ViewContext, model: NoteItemModel): Child => {
   const id = `note-body-${model.noteId}`
@@ -182,7 +186,10 @@ const collapsibleBody = (context: ViewContext, model: NoteItemModel): Child => {
     type: 'button',
     class: 'link note-more-text',
     'aria-controls': id,
-    on: { click: () => show(!body.classList.contains('is-collapsed')) },
+    on: {
+      click: () =>
+        body.classList.contains('is-collapsed') ? show(false) : holdingStill(toggle, () => show(true)),
+    },
   })
   const show = (collapsed: boolean): void => {
     body.classList.toggle('is-collapsed', collapsed)
@@ -235,16 +242,6 @@ const debateResultBody = (
       ]),
   h('a', { class: 'debate-note-room', href: result.room.href }, result.room.label),
 ]
-
-const copyText = (context: ViewContext, text: string, copied: string): void => {
-  void context.page
-    .copyText(text)
-    .then((isCopied) =>
-      context.state.notice.set(
-        isCopied ? { kind: 'info', text: copied } : { kind: 'error', text: strings.noteNotCopied },
-      ),
-    )
-}
 
 /** The address that opens the conversation at this note, for pasting elsewhere. */
 const noteLink = (context: ViewContext, conversationId: ConversationId, note: AsRead.Note): string =>

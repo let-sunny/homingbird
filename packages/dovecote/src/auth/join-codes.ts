@@ -2,10 +2,12 @@ import { Task as T } from '@homingbird/kernel'
 import {
   type ClientKind,
   type Conflict,
+  type CredentialId,
   FEATURE_OFF_MESSAGE,
   Forbidden,
   JOIN_CODE_LIFETIME_SECONDS,
   type JoinCode,
+  type JoinCodeStatus,
   type MemberId,
   NotFound,
 } from '@homingbird/protocol'
@@ -23,7 +25,7 @@ import {
   agentCredentialLifetimeMs,
   tokenResponse,
 } from './oauth.ts'
-import { advanceAuthRequest, authRequestBySecret, openAuthRequest } from './requests.ts'
+import { advanceAuthRequest, authRequestById, authRequestBySecret, openAuthRequest } from './requests.ts'
 
 /** A single-use code for `homingbird setup`, stored as a hash and shown in this response alone. */
 export const createJoinCode = (
@@ -48,11 +50,26 @@ export const createJoinCode = (
       detail: { createdBy: caller.member.id },
     })
     return {
+      id: opened.id,
       code,
       serverUrl: env.config.publicUrl,
       expiresAt: opened.expiresAt,
       expiresInSeconds: JOIN_CODE_LIFETIME_SECONDS,
     }
+  })
+
+/**
+ * Whether a join code the caller created still waits or was redeemed, and the connection it issued.
+ * Another person's code, an unknown one and an expired one read the same: not found.
+ */
+export const joinCodeStatus = (caller: Caller, id: string): T.Task<JoinCodeStatus, NotFound, RequestEnv> =>
+  T.gen(function* () {
+    const request = yield* authRequestById<JoinDetail>('join', id)
+    if (request === null || request.detail.createdBy !== caller.member.id)
+      return yield* T.fail(NotFound({ message: 'No such join code.' }))
+    const issued = request.detail.issued
+    if (request.status === 'pending' || issued === undefined) return { status: 'waiting' }
+    return { status: 'redeemed', credential: issued }
   })
 
 /** Exchanges a join code once for its agent credential; every refusal reads the same. */
@@ -85,6 +102,11 @@ export const redeemJoinCode = (
       refreshable: false,
       ...(forAgent && { issuedBy: createdBy }),
     })
+    yield* advanceAuthRequest(request.id, {
+      status: 'consumed',
+      expectedStatus: 'consumed',
+      detail: { createdBy, issued: { id: issued.credentialId, name } } satisfies JoinDetail,
+    })
     yield* recordAudit('credential.issued', {
       actorId: createdBy,
       targetId: issued.credentialId,
@@ -105,6 +127,8 @@ const JOIN_CODE_PREFIX = 'hbj_'
 
 interface JoinDetail {
   readonly createdBy: MemberId
+  /** The connection the code issued, recorded once it is redeemed. */
+  readonly issued?: { readonly id: CredentialId; readonly name: string }
 }
 
 const REFUSED = OAuthError({ code: 'invalid_grant', description: JOIN_CODE_REFUSED })

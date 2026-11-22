@@ -84,6 +84,20 @@ describe('debateView', () => {
     expect(textOf(result)).toContain(strings.debates.agreedEarly({ count: 2, total: 4 }))
   })
 
+  it('leads the opt-in with what the person decides and keeps the advice for whoever runs the agent folded', () => {
+    const { context } = testContext()
+    const shown = debateView(context, lifetime(), me(), 'debate_1', null)
+    context.state.agentCredentials.set([credential('cred_desk')])
+    context.state.shownDebate.set(debate())
+    const section = shown.querySelector('.debate-opt-in')!
+    expect(section.querySelector('.hint')?.textContent).toBe(strings.debates.optInHint)
+    expect(strings.debates.optInHint).not.toContain('--split')
+    const advice = section.querySelector('details.debate-opt-in-advice')!
+    expect(advice.hasAttribute('open')).toBe(false)
+    expect(textOf(advice.querySelector('summary')!)).toBe(strings.debates.optInAdviceTitle)
+    expect(textOf(advice)).toContain('--split')
+  })
+
   it('shows the agents, their turns, and who dropped out', () => {
     const { context } = testContext()
     const shown = debateView(context, lifetime(), me(), 'debate_1', null)
@@ -96,7 +110,12 @@ describe('debateView', () => {
     )
     expect(textOf(shown)).toContain(strings.debates.droppedOut)
     expect(getByRole(shown, 'link', { name: 'https://example.com' })).toBeTruthy()
+    const count = getByRole(shown, 'button', { name: strings.groupPeople({ count: 2 }) })
+    const list = shown.querySelector<HTMLElement>('.people-list')!
+    expect(count.getAttribute('popovertarget')).toBe(list.id)
+    expect(textOf(list)).toContain(strings.participants.openedRoom)
     context.state.shownDebate.set(debate({ status: 'ended', endedBecause: 'no_turns' }))
+    expect(shown.querySelector('.people-open')).toBeNull()
     expect(textOf(shown)).toContain(strings.debates.ended.no_turns)
     expect(textOf(shown)).not.toContain(strings.debates.noParticipants)
     const content = debateView(context, lifetime(), me(), 'debate_000000000000', 'turns')

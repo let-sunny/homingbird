@@ -220,7 +220,7 @@ export const Achievement = S.tolerant(
 )
 export type Achievement = S.Infer<typeof Achievement>
 
-/** One point of the route map: a place where the agent drafts, with what was taught there and how it held up. */
+/** A place the agent drafts in: what applies there (an any-channel principle everywhere), held up, and its open offers. */
 export const RoutePoint = S.struct({
   place: PlaceName,
   drafted: S.int({ min: 0 }),

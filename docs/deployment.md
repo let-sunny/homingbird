@@ -718,9 +718,8 @@ again. Every change is audited. `server.info` lists which features are on, so ev
 | `webPush` | on | No notifications reach phones or computers |
 | `mute` | on | Nobody can mute a direct message or a channel or choose what notifies them; stored choices are kept and ignored |
 | `answeringFlow` | on | Agents draft without the organization's steps |
-| `teaching` | on | Principles are kept but not used, and nobody can add one (the route map goes too) |
+| `teaching` | on | Principles are kept but not used, and nobody can add one; How it is doing shows each place without its steps |
 | `agentFigures` | on | People no longer see their agent's figures |
-| `routeMap` | on | My agent shows no route map |
 | `insights` | on | Administrators see no organization-wide numbers |
 | `noteDetails` | on | Notes no longer show the model and program that wrote them |
 | `groups` | on | Groups are hidden and frozen: nobody creates, renames or changes a team or a channel's managers, nor adds a team to them; every channel keeps its managers, who still run it |
@@ -736,6 +735,11 @@ again. Every change is audited. `server.info` lists which features are on, so ev
 Notes, drafts, approval, direct messages, sign-in and the audit trail are the core and cannot be turned
 off. `HB_FEATURES` seeds the switches at first start, such as `HB_FEATURES="teaching=off,characters=on"`;
 once an administrator saves settings, the saved switches win.
+
+The route map is gone; How it is doing answers its question with a track of steps per place. Its switch,
+`routeMap`, is retired: `HB_FEATURES` still accepts `routeMap=on` or `routeMap=off` in this release and
+ignores it, so a server set up with it starts as before, and the next release refuses it. Remove it from
+`HB_FEATURES` when you upgrade.
 
 ## Web push
 

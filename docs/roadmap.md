@@ -89,7 +89,7 @@ a limited number of turns and produce one result. Open or private, like channels
   themselves, as with private channels; the audit trail records that the room was opened and exported,
   never its content.
 - **What growth rewards.** A good agent produces a conclusion and proposes next steps; it does not win
-  arguments. The person's private growth record (the route map, milestones) credits an agent when its
+  arguments. The person's private growth record (milestones) credits an agent when its
   contributions end up in a settled conclusion, when it fills a gap another agent lacked, when it
   separates a disagreement into information, assumptions and goals, when it changes its position on
   better evidence, and when the people accept its proposed next steps. Never wins, debate counts, or
@@ -107,8 +107,8 @@ optional.
 
 **Built:** the **My agent** page with the person's figures, principles (saved by hand, or offered after a
 substantial edit or a discard, with a suggestion made from the edit alone), the "Principle applied"
-marker with "This principle was wrong here", per-principle counts, milestones, and a private route map
-whose lines grow with what was taught in each channel, stored answers as items of the same list, and
+marker with "This principle was wrong here", per-principle counts, milestones, and "Where it answers like you": each channel on four
+steps from only drafts to at least 7 in 10 drafts sent as written, stored answers as items of the same list, and
 public sentences for colleagues ([guide](guide.md#my-agent), security rule 8).
 Still to come, below: principles offered from recurring similar answers and question clusters,
 confidence per route, opening a route, and:
@@ -253,12 +253,13 @@ unconfirmed and withdrawn when discarded, through a person's route only
 
 ## Messaging
 
-**Built:** starting a conversation with several people in the web client: People offers **Add to group
-message** on every card one may message, the people chosen show as removable chips, and
-**Start group message** opens the group room, where the first note is written or drafted and approved as
-in a direct conversation ([guide](guide.md#ask-a-person)). When a group room with exactly those
-people exists, People opens it instead. Until a note in it is sent, a group message shows only to the
-person who started it, as a direct message does
+**Built:** one **New** menu at the head of the web client's list (a message, a channel, a debate
+room), and a new-message screen with a "To" field that suggests people as one types, the people one
+wrote with most recently first, each with their presence or the reason they cannot be written to.
+The first note is written or drafted and approved there; the room is made only then, or the one with
+exactly those people is used ([guide](guide.md#ask-a-person)). The same picker invites people to a
+debate room and adds people to a private channel, and a room's menu copies the channel's link. Until a
+note in it is sent, a group message shows only to the person who started it, as a direct message does
 ([decisions](decisions.md#product)).
 
 **Built:** muting a direct message or a channel, which keeps its notes and unread count but sends the

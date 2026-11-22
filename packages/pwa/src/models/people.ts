@@ -86,6 +86,8 @@ export interface PersonCard {
   readonly agentIntroduction: ReadonlyArray<string>
   readonly agentIntroductionTitle: string
   readonly actions: ReadonlyArray<PersonAction>
+  /** A new message with this person chosen, to add others to; null when they cannot be written to. */
+  readonly withOthers: { readonly text: string; readonly label: string; readonly href: string } | null
   /** What stays behind the card's ⋯ menu, blocking among it, so it never sits beside writing a note. */
   readonly more: { readonly label: string; readonly actions: ReadonlyArray<PersonAction> } | null
 }
@@ -168,6 +170,13 @@ const personCard = (
     agentIntroduction: entry.agentIntroduction ?? [],
     agentIntroductionTitle: relation === 'self' ? strings.ownAgentIntroduction : strings.agentIntroduction,
     actions: actions.filter((one) => !IN_MENU.has(one.kind)),
+    withOthers: actions.some((one) => one.kind === 'message')
+      ? {
+          text: strings.newMessage.withOthers,
+          label: strings.newMessage.withOthersLabel({ name: entry.member.name }),
+          href: hrefFor({ name: 'new', to: [entry.member.id] }),
+        }
+      : null,
     more:
       menu.length === 0 ? null : { label: strings.personMore({ name: entry.member.name }), actions: menu },
   }

@@ -73,9 +73,9 @@ const scenario = async (): Promise<void> => {
     const reply = async (question: string, body: string, basis?: string) =>
       agent.call('POST', '/drafts', { inReplyTo: question, body, ...(basis !== undefined && { basis }) })
 
-    // -- Nothing taught yet: both new sections say how to start ------------------------------------
+    // -- Nothing taught yet: Teaching says how to start, and the old route map leads to How it is doing
     await ana.page.goto(`${base}/#/agent/routes`)
-    await ana.page.waitForSelector('.routes .teach-empty:has-text("Teach your agent its first principle")')
+    await ana.page.waitForSelector('#agent-doing')
     await ana.page.goto(`${base}/#/agent/teaching`)
     await ana.page.waitForSelector('#agent-teaching')
     await ana.page.waitForSelector('.taught .teach-empty:has-text("Teach your agent its first principle")')
@@ -119,8 +119,25 @@ const scenario = async (): Promise<void> => {
     await ana.page.waitForFunction(
       () => (globalThis as any).document.querySelector('.taught .todo-row')?.dataset.name === 'Tone',
     )
-    await ana.page.locator('.todo-row[data-name="Tone"] [role=switch]').click()
+    // A switch stays under the pointer while the list is drawn again; the page does not jump.
+    const toneSwitch = '.todo-row[data-name="Tone"] [role=switch]'
+    const switchPlace = (): Promise<{ top: number; scrolled: number; focused: boolean }> =>
+      ana.page.locator(toneSwitch).evaluate((element: any) => ({
+        top: Math.round(element.getBoundingClientRect().top),
+        scrolled: element.closest('.stage').scrollTop,
+        focused: element.ownerDocument.activeElement === element,
+      }))
+    await ana.page.locator(toneSwitch).evaluate((element: any) => element.scrollIntoView({ block: 'start' }))
+    const beforeSwitch = await switchPlace()
+    assert.ok(beforeSwitch.scrolled > 0, 'the stage scrolls down to the switch')
+    await ana.page.locator(toneSwitch).click()
     await ana.page.waitForSelector('.todo-row.is-off[data-name="Tone"] [role=switch][aria-checked="false"]')
+    const afterSwitch = await switchPlace()
+    assert.ok(
+      Math.abs(afterSwitch.top - beforeSwitch.top) <= 2,
+      `the switch moved from ${beforeSwitch.top} to ${afterSwitch.top}`,
+    )
+    assert.equal(afterSwitch.focused, true)
     const toneRule = ana.page.locator('.todo-row[data-name="Tone"] textarea[name=rule]')
     await toneRule.fill('answer in two sentences')
     await toneRule.press('Enter')
@@ -215,8 +232,7 @@ const scenario = async (): Promise<void> => {
       await capture(person.page, `${prefix}-connection`)
       for (const [section, ready] of [
         ['teaching', '.taught .todo-row'],
-        ['doing', '#trust-verdict'],
-        ['routes', '.route-map svg'],
+        ['doing', '.answers-place .answers-track'],
       ] as const) {
         await person.page.click(`.my-agent-tabs a[href="#/agent/${section}"]`)
         await person.page.waitForSelector(ready)
@@ -232,10 +248,12 @@ const scenario = async (): Promise<void> => {
     await ana.page.waitForSelector('.todo-row[data-name="Release dates"]:has-text("Marked wrong once")')
     await ana.page.waitForSelector('.teach-audit:has-text("audit trail records that you saved")')
     await ana.page.waitForSelector('.milestone:has-text("First principle saved")')
-    await ana.page.click('.my-agent-tabs a[href="#/agent/routes"]')
-    await ana.page.waitForSelector('.route-item[data-place="releases"]')
-    await ana.page.waitForSelector('.route-item[data-place="direct"] .route-item-chances')
-    await ana.page.click('.route-table summary')
+    await ana.page.click('.my-agent-tabs a[href="#/agent/doing"]')
+    await ana.page.waitForSelector('.answers-place[data-place="releases"] .answers-track')
+    await ana.page.waitForSelector(
+      '.answers-place[data-place="direct"] a.answers-teach[href="#/agent/teaching"]',
+    )
+    await ana.page.click('.answers-steps summary')
     assert.equal(await overflowsSideways(ana.page), false)
     assert.deepEqual(await clippedText(ana.page), [])
     assert.deepEqual(await crowdedFields(ana.page), [])

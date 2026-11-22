@@ -108,6 +108,7 @@ export const ROUTE_AUDIT = {
   'device.get': read(),
   'device.decide': { event: 'credential.device_decided', target: 'none' },
   'joinCodes.create': { event: 'credential.join_code_created', target: 'member' },
+  'joinCodes.status': read(),
   'invites.list': read(),
   'invites.create': { event: 'member.invite_created', target: 'auth_request' },
   'invites.revoke': { event: 'member.invite_revoked', target: 'auth_request' },

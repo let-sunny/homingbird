@@ -12,6 +12,8 @@ export type Route =
       readonly note?: string
     }
   | { readonly name: 'people' }
+  /** A note to people the person picks first; `to` names whom they chose already, as from a person's card. */
+  | { readonly name: 'new'; readonly to: ReadonlyArray<string> }
   | { readonly name: 'group'; readonly id: string }
   | { readonly name: 'channels' }
   | { readonly name: 'channel'; readonly slug: string }
@@ -47,15 +49,9 @@ export type Route =
   | { readonly name: 'invite-refused' }
   | { readonly name: 'unknown' }
 
-export type AgentSection = 'connection' | 'teaching' | 'doing' | 'routes' | 'previews'
+export type AgentSection = 'connection' | 'teaching' | 'doing' | 'previews'
 
-export const AGENT_SECTIONS: ReadonlyArray<AgentSection> = [
-  'connection',
-  'teaching',
-  'doing',
-  'routes',
-  'previews',
-]
+export const AGENT_SECTIONS: ReadonlyArray<AgentSection> = ['connection', 'teaching', 'doing', 'previews']
 
 export type DebateTab = 'result' | 'votes' | 'credit' | 'turns'
 
@@ -83,6 +79,7 @@ export const parseRoute = (hash: string): Route => {
     }
   }
   if (head === 'people') return { name: 'people' }
+  if (head === 'new') return { name: 'new', to: memberIdsIn(parameters.get('to')) }
   if (head === 'group' && second !== undefined) return { name: 'group', id: second }
   if (head === 'channels') return { name: 'channels' }
   if (head === 'channel' && second !== undefined && third === 'agent')
@@ -107,6 +104,7 @@ export const parseRoute = (hash: string): Route => {
   if (head === 'activity') return { name: 'activity' }
   if (head === 'search') return { name: 'search', query: parameters.get('q') ?? '' }
   if (head === 'me') return { name: 'profile' }
+  if (head === 'agent' && second === RETIRED_ROUTE_MAP) return { name: 'agent', section: 'doing' }
   if (head === 'agent') return { name: 'agent', section: isAgentSection(second) ? second : null }
   if (head === 'measured') return { name: 'measured' }
   if (head === 'connect' || head === 'credentials') return { name: 'agent', section: 'connection' }
@@ -136,6 +134,10 @@ export const hrefFor = (route: Route): string => {
       })
     case 'people':
       return '#/people'
+    case 'new':
+      return route.to.length === 0
+        ? '#/new'
+        : `#/new?${new URLSearchParams({ to: route.to.join(',') }).toString()}`
     case 'group':
       return `#/group/${encodeURIComponent(route.id)}`
     case 'channels':
@@ -208,6 +210,9 @@ const ADMIN_SECTIONS: ReadonlyArray<AdminSection> = ['settings', 'members', 'gro
 
 const TEACH_SEGMENT = 'teach'
 
+/** The address of the retired route map, which leads to where its question is answered now. */
+const RETIRED_ROUTE_MAP = 'routes'
+
 const isAgentSection = (value: string | undefined): value is AgentSection =>
   AGENT_SECTIONS.includes(value as AgentSection)
 
@@ -219,6 +224,9 @@ const turnNumber = (value: string | null): number | null =>
 
 const isAdminSection = (value: string | undefined): value is AdminSection =>
   ADMIN_SECTIONS.includes(value as AdminSection)
+
+const memberIdsIn = (value: string | null): ReadonlyArray<string> =>
+  (value ?? '').split(',').filter((memberId) => memberId !== '')
 
 const decodeSegment = (segment: string): string => {
   try {

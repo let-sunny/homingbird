@@ -34,7 +34,7 @@ import { teachFromMiss } from './teaching.ts'
 export const activityBell = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
   const { state, actions } = context
   actions.loadActivity()
-  const shown = slice(sourcesOf(context), () => {
+  const shown = slice(activitySources(context), () => {
     const model = activityModel(activityInputOf(context, me))
     return { count: model.count, label: model.label, agent: model.agent?.heading ?? null }
   })
@@ -165,6 +165,48 @@ export const activityView = (context: ViewContext, life: Lifetime, me: AsRead.Me
 
 export const ACTIVITY_PANEL_ID = 'activity-panel'
 
+/** What the activity model reads, as the state holds it now. */
+export const activityInputOf = ({ state, clock }: ViewContext, me: AsRead.Me): ActivityInput => ({
+  me,
+  threads: state.threads.get(),
+  conversations: state.conversations.get(),
+  channels: state.channels.get(),
+  members: state.members.get(),
+  directory: state.directory.get(),
+  draftsRead: state.draftsRead.get(),
+  draftEdits: state.draftEdits.get(),
+  draftRequests: state.draftRequests.get(),
+  releases: state.releases.get(),
+  reviews: state.reviews.get(),
+  held: state.held.get(),
+  reviewsRead: state.reviewsRead.get(),
+  debates: state.debates.get(),
+  taught: state.taught.get(),
+  agentReport: state.agentReport.get(),
+  serverInfo: state.serverInfo.get(),
+  now: clock.now(),
+})
+
+/** The state the activity model reads; a change to any may change what waits. */
+export const activitySources = ({ state }: ViewContext) => [
+  state.threads,
+  state.conversations,
+  state.channels,
+  state.members,
+  state.directory,
+  state.draftsRead,
+  state.draftRequests,
+  state.releases,
+  state.reviews,
+  state.reviewsRead,
+  state.debates,
+  state.taught,
+  state.agentReport,
+  state.serverInfo,
+  state.held,
+  state.draftEdits,
+]
+
 /**
  * The groups, each a keyed list that stays in place while others come and go: a change to one item
  * redraws that item only, and an item leaves once it no longer waits. While it is shown, conversations
@@ -172,7 +214,7 @@ export const ACTIVITY_PANEL_ID = 'activity-panel'
  */
 const activityContent = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
   const { state, actions } = context
-  const sources = sourcesOf(context)
+  const sources = activitySources(context)
   const model = () => activityModel(activityInputOf(context, me))
   life.add(state.conversations.subscribe(() => actions.loadDraftThreads()))
   const empty = slice(sources, () => model().empty)
@@ -306,46 +348,6 @@ const placeLine = (place: ActivityPlace): HTMLElement =>
     h('a', { href: place.href, title: place.label }, place.text),
     place.time !== null && timeLabel(place.time),
   )
-
-const activityInputOf = ({ state, clock }: ViewContext, me: AsRead.Me): ActivityInput => ({
-  me,
-  threads: state.threads.get(),
-  conversations: state.conversations.get(),
-  channels: state.channels.get(),
-  members: state.members.get(),
-  directory: state.directory.get(),
-  draftsRead: state.draftsRead.get(),
-  draftEdits: state.draftEdits.get(),
-  draftRequests: state.draftRequests.get(),
-  releases: state.releases.get(),
-  reviews: state.reviews.get(),
-  held: state.held.get(),
-  reviewsRead: state.reviewsRead.get(),
-  debates: state.debates.get(),
-  taught: state.taught.get(),
-  agentReport: state.agentReport.get(),
-  serverInfo: state.serverInfo.get(),
-  now: clock.now(),
-})
-
-const sourcesOf = ({ state }: ViewContext) => [
-  state.threads,
-  state.conversations,
-  state.channels,
-  state.members,
-  state.directory,
-  state.draftsRead,
-  state.draftRequests,
-  state.releases,
-  state.reviews,
-  state.reviewsRead,
-  state.debates,
-  state.taught,
-  state.agentReport,
-  state.serverInfo,
-  state.held,
-  state.draftEdits,
-]
 
 const hasPopover = (element: HTMLElement): boolean =>
   typeof (element as { togglePopover?: unknown }).togglePopover === 'function'

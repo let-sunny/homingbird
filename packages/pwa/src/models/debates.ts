@@ -69,15 +69,6 @@ export const typedLimits = (read: (name: NumberLimit | 'graceMinutes') => string
     graceMinutes: read('graceMinutes'),
   })
 
-/** The colleagues who may be invited to a new room: everyone but the person. */
-export const inviteesFor = (
-  directory: ReadonlyArray<AsRead.DirectoryEntry>,
-  viewerId: MemberId,
-): ReadonlyArray<{ readonly value: MemberId; readonly label: string }> =>
-  directory
-    .filter((entry) => entry.member.id !== viewerId)
-    .map((entry) => ({ value: entry.member.id, label: entry.member.name }))
-
 export interface DebateListInput {
   readonly debates: ReadonlyArray<AsRead.DebateSummary>
   readonly loaded: boolean

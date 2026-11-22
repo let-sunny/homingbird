@@ -3,12 +3,24 @@ import { strings } from '../strings.ts'
 
 /**
  * "Run on a server": the button that makes a join code, then the one line to paste on the server with
- * how long it still works, then, once it expired, a new code. `agent` names a channel's agent the code
+ * how long it still works, then which connection the server signed in as once the code was used and
+ * whether it is awake, or, once it expired unused, a new code. `agent` names a channel's agent the code
  * is for; null for the person's own.
  */
 export const joinCodeModel = (input: JoinCodeInput): JoinCodeModel => {
   const { state, agent } = input
   const title = strings.joinCode.title
+  if (state.kind === 'connected')
+    return {
+      kind: 'connected',
+      title,
+      text:
+        agent === null
+          ? strings.joinCode.connected({ name: state.credential.name })
+          : strings.joinCode.connectedAgent({ name: state.credential.name, agent }),
+      awake: input.awake === true ? strings.joinCode.awakeNow : strings.joinCode.notAwakeYet,
+      button: strings.joinCode.another,
+    }
   if (state.kind === 'made') {
     const remainingSeconds = Math.ceil((state.expiresAt - input.now) / 1000)
     if (remainingSeconds <= 0)
@@ -52,15 +64,31 @@ export type JoinCodeState =
       readonly expiresAt: number
       readonly copied: 'not yet' | 'copied' | 'refused'
     }
+  | { readonly kind: 'connected'; readonly credential: { readonly id: string; readonly name: string } }
+
+/** Whether the agent a code is for is awake: a channel's agent from its channel, else the viewer's own. */
+export const isJoinedAgentAwake = (input: AwakeInput): boolean =>
+  input.channel === null
+    ? input.directory.find((entry) => entry.member.id === input.viewerId)?.presence.agentOnline === true
+    : input.channels.find((each) => each.slug === input.channel)?.agent?.presence?.agentOnline === true
 
 /** When a code expires on this browser's clock; a server that does not say how long it works gives its own time. */
 export const localExpiry = (code: AsRead.JoinCode, now: number): number =>
   code.expiresInSeconds === undefined ? code.expiresAt : now + code.expiresInSeconds * 1000
 
+export interface AwakeInput {
+  readonly channel: string | null
+  readonly channels: ReadonlyArray<AsRead.Channel>
+  readonly directory: ReadonlyArray<AsRead.DirectoryEntry>
+  readonly viewerId: string | null
+}
+
 export interface JoinCodeInput {
   readonly state: JoinCodeState
   readonly now: number
   readonly agent: string | null
+  /** Whether the agent the code is for is awake now, which matters once the code was used. */
+  readonly awake?: boolean
 }
 
 export type JoinCodeModel =
@@ -82,6 +110,13 @@ export type JoinCodeModel =
       readonly copyProblem: string | null
     }
   | { readonly kind: 'expired'; readonly title: string; readonly text: string; readonly button: string }
+  | {
+      readonly kind: 'connected'
+      readonly title: string
+      readonly text: string
+      readonly awake: string
+      readonly button: string
+    }
 
 const DEFAULT_AGENT = 'claude'
 

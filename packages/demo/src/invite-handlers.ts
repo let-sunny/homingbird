@@ -11,8 +11,8 @@ import { managersOf, memberById } from './reads.ts'
 import type { Records, World } from './world.ts'
 
 /**
- * Invite links and join codes, made, listed and revoked as on a server. Nothing redeems them: a new
- * person or a server cannot reach a Dovecote that lives in one browser tab.
+ * Invite links, made, listed and revoked as on a server. Nothing redeems them: a new person cannot
+ * reach a Dovecote that lives in one browser tab.
  */
 export const inviteHandlers = (world: World): Handlers => ({
   'invites.list': (_, viewerId) =>
@@ -52,34 +52,10 @@ export const inviteHandlers = (world: World): Handlers => ({
       }))
       return {}
     }),
-  'joinCodes.create': ({ body }, viewerId) =>
-    T.gen(function* () {
-      if (body.channel !== undefined) yield* requireManagesAgentOf(world.records(), viewerId, body.channel)
-      const now = world.clock.now()
-      return {
-        code: `${JOIN_CODE_PREFIX}${world.nextId('demo')}`,
-        serverUrl: world.publicUrl,
-        expiresAt: now + JOIN_CODE_LIFETIME_SECONDS * 1000,
-        expiresInSeconds: JOIN_CODE_LIFETIME_SECONDS,
-      }
-    }),
 })
 
 /** An administrator sees every invite still waiting; anyone else their own. */
 const mayList = (records: Records, viewerId: MemberId, invite: Invite): boolean =>
   invite.createdBy === viewerId || memberById(records, viewerId)?.role === 'admin'
 
-/** A code for a channel's agent is made only by a manager of that channel (rule 6). */
-const requireManagesAgentOf = (
-  records: Records,
-  viewerId: MemberId,
-  slug: string,
-): T.Task<void, NotFound> => {
-  const channel = records.channels.find((each) => each.slug === slug)
-  return channel !== undefined && channel.agentId !== null && managersOf(records, channel).includes(viewerId)
-    ? T.unit
-    : T.fail(NotFound({ message: 'Only the managers of this channel run its agent.' }))
-}
-
 const INVITE_PREFIX = 'hbi_'
-const JOIN_CODE_PREFIX = 'hbj_'
