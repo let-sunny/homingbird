@@ -13,6 +13,7 @@ import type {
   Member,
   MemberId,
   Note,
+  NoteId,
   Notice,
   Presence,
   Principle,
@@ -98,6 +99,16 @@ export interface Records {
   readonly invites: ReadonlyArray<Invite>
   /** What people asked their own agent to draft from the web client. */
   readonly draftRequests: ReadonlyArray<DraftRequestRecord>
+  /** Who sent or discarded a channel's agent's answer, with what the agent wrote and why it was discarded. */
+  readonly decisions: ReadonlyArray<DecisionRecord>
+}
+
+export interface DecisionRecord {
+  readonly noteId: NoteId
+  readonly decidedBy: MemberId
+  readonly decidedAt: number
+  readonly agentAnswer: string
+  readonly reason: string | null
 }
 
 export interface DraftRequestRecord {

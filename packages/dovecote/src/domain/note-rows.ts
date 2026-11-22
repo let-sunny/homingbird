@@ -42,6 +42,7 @@ export interface NoteRow {
   readonly approved_by: MemberId | null
   readonly sources: string | null
   readonly discard_reason: string | null
+  readonly discarded_by: MemberId | null
 }
 
 export const PICKUP_GRACE_MS = 10 * 60_000

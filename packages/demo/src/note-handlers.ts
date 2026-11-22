@@ -119,10 +119,10 @@ export const noteHandlers = (world: World): Handlers => ({
       if (!isReview) {
         offerAfterDecision(world, draft, sent.body)
         answerLater(world, sent)
-      }
+      } else keepDecision(world, draft, viewerId, null)
       return sent
     }),
-  'drafts.discard': ({ params }, viewerId) =>
+  'drafts.discard': ({ params, body }, viewerId) =>
     T.gen(function* () {
       const draft = yield* draftToDecide(world.records(), viewerId, params.id)
       const reviewers = reviewersOf(world.records(), draft)
@@ -138,7 +138,10 @@ export const noteHandlers = (world: World): Handlers => ({
           noteId: discarded.id,
           conversationId: discarded.conversationId,
         })
-      } else world.emit(reviewers, { type: 'review.changed', noteId: discarded.id })
+      } else {
+        keepDecision(world, draft, viewerId, body.reason?.trim() || null)
+        world.emit(reviewers, { type: 'review.changed', noteId: discarded.id })
+      }
       return discarded
     }),
   'draftRequests.list': (_, viewerId) =>
@@ -229,3 +232,13 @@ const muting = (world: World, viewerId: MemberId, id: string, muted: boolean) =>
     }))
     return conversationAsSeen(world.records(), viewerId, changed)
   })(roomOf(world.records(), viewerId, id))
+
+/** Keeps who decided a channel's agent's answer, with the agent's own words and the reason, for its managers. */
+const keepDecision = (world: World, draft: Note, decidedBy: MemberId, reason: string | null): void =>
+  world.update((records) => ({
+    ...records,
+    decisions: [
+      ...records.decisions,
+      { noteId: draft.id, decidedBy, decidedAt: world.clock.now(), agentAnswer: draft.body, reason },
+    ],
+  }))

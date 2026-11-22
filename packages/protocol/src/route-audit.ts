@@ -34,6 +34,7 @@ export const ROUTE_AUDIT = {
   'channels.agent.rename': { event: 'channel.agent_renamed', target: 'member' },
   'channels.agent.retire': { event: 'channel.agent_retired', target: 'member' },
   'channels.agent.credentials.revoke': { event: 'credential.revoked', target: 'credential' },
+  'channels.agent.decisions': read(),
   'channels.agent.teaching.get': read(),
   'channels.agent.teaching.set': { event: 'channel.agent_instruction_changed', target: 'member' },
   'channels.agent.principles.create': { event: 'channel.agent_principle_created', target: 'principle' },

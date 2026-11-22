@@ -71,7 +71,7 @@ export const discardDraft = (
     const { draft, approvedBy } = yield* draftToDecide(caller, id)
     const kept = reason?.trim() || null
     yield* run(
-      sql`UPDATE notes SET decided_at = ${env.clock.now()}, discard_reason = ${kept} WHERE id = ${id} AND status = 'draft'`,
+      sql`UPDATE notes SET decided_at = ${env.clock.now()}, discard_reason = ${kept}, discarded_by = ${approvedBy} WHERE id = ${id} AND status = 'draft'`,
     )
     yield* abandonDraft(draft)
     if (approvedBy === null) yield* offerAfterDecision(draft, null)

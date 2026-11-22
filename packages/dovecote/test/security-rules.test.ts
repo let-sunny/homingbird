@@ -488,6 +488,33 @@ describe('Rule 2: drafts are invisible to recipients', () => {
     }
   })
 
+  it('2: keeps an edited or discarded answer’s original text out of the asker’s recent decisions, even when they manage the channel', async () => {
+    const agent = await startChannelAgent()
+    const reason = 'discard reason for managers 8d21'
+    const edited = await askAndAnswer(cy, agent)
+    await ben.api('POST', `/drafts/${edited.draft.id}/send`, {
+      body: 'An edited answer.',
+      expected: asRead(edited.draft),
+    })
+    const discarded = await askAndAnswer(cy, agent)
+    await ben.api('POST', `/drafts/${discarded.draft.id}/discard`, { reason })
+    const room = (await cy.api('POST', '/channels/wiki/private-question')).json.id
+    const asked = (await cy.api('POST', '/drafts', { conversationId: room, body: 'Privately?' })).json
+    const question = (await cy.api('POST', `/drafts/${asked.id}/send`, { expected: asRead(asked) })).json
+    const privately = (await agent.api('POST', '/drafts', { inReplyTo: question.id, body: SECRET_ANSWER }))
+      .json
+    await ben.api('POST', `/drafts/${privately.id}/discard`, { reason })
+    const seenBy = async (person: Session) =>
+      JSON.stringify((await person.api('GET', '/channels/wiki/agent/decisions')).json)
+    expect(await seenBy(ben)).toContain(SECRET_ANSWER)
+    expect(await seenBy(ben)).toContain(reason)
+    const cys = (await cy.api('GET', '/channels/wiki/agent/decisions')).json
+    expect(cys.decisions).toEqual([])
+    expect(JSON.stringify(cys)).not.toContain(SECRET_ANSWER)
+    expect(JSON.stringify(cys)).not.toContain(reason)
+    expect((await dee.api('GET', '/channels/wiki/agent/decisions')).status).toBe(404)
+  })
+
   it('shows a channel agent’s answer to its reviewers only through the review routes', async () => {
     const agent = await startChannelAgent()
     const { question, draft } = await askAndAnswer(dee, agent)
@@ -772,6 +799,7 @@ describe('Rule 3: no model-facing credential can approve, change contacts, or re
       'channels.agent.rename',
       'channels.agent.retire',
       'channels.agent.credentials.revoke',
+      'channels.agent.decisions',
       'channels.askPrivately',
       'reviews.list',
       'reviews.get',
@@ -795,6 +823,7 @@ describe('Rule 3: no model-facing credential can approve, change contacts, or re
       ['DELETE', '/channels/wiki/agent/credentials/cred_any000000000'],
       ['POST', '/channels/wiki/private-question'],
       ['GET', '/reviews'],
+      ['GET', '/channels/wiki/agent/decisions'],
     ] as const)
       expect([
         path,
@@ -1750,6 +1779,22 @@ describe('Rule 6: a member sees only conversations they participate in', () => {
     expect((await figures(ana)).status).toBe(404)
     expect((await figures(dee)).status).toBe(404)
     expect(JSON.stringify((await figures(ben)).json)).not.toContain(SECRET_ANSWER)
+  })
+
+  it('6: shows a channel’s recent decisions to its current managers only, never to an administrator outside the group or a manager who left', async () => {
+    const agent = await startChannelAgent()
+    const { draft } = await askAndAnswer(dee, agent)
+    await ben.api('POST', `/drafts/${draft.id}/discard`, {})
+    const decisions = (person: Session) => person.api('GET', '/channels/wiki/agent/decisions')
+    expect((await decisions(ben)).json.decisions).toHaveLength(1)
+    expect((await decisions(cy)).json.decisions).toHaveLength(1)
+    expect(ana.me.member.role).toBe('admin')
+    expect((await decisions(ana)).status).toBe(404)
+    expect((await decisions(dee)).status).toBe(404)
+    const group = (await ben.api('GET', '/channels/wiki')).json.managedBy
+    await ben.api('PUT', `/groups/${group}/members`, { memberIds: [ben.me.member.id] })
+    expect((await decisions(cy)).status).toBe(404)
+    expect(JSON.stringify((await decisions(cy)).json)).not.toContain(SECRET_ANSWER)
   })
 })
 

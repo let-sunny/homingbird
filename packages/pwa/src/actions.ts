@@ -101,6 +101,7 @@ export const TASKS = {
   confirmReviewRead: channelAgents.confirmReviewRead,
   loadChannelAgent: channelAgents.loadChannelAgent,
   loadChannelAgentFigures: channelAgents.loadChannelAgentFigures,
+  loadChannelDecisions: channelAgents.loadChannelDecisions,
   createChannelAgent: channelAgents.createChannelAgent,
   renameChannelAgent: channelAgents.renameChannelAgent,
   retireChannelAgent: channelAgents.retireChannelAgent,

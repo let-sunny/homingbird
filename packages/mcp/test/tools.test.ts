@@ -178,6 +178,7 @@ describe('the tool table', () => {
       [
         'channels.agent.create',
         'channels.agent.credentials.revoke',
+        'channels.agent.decisions',
         'channels.agent.figures',
         'channels.agent.get',
         'channels.agent.principles.create',

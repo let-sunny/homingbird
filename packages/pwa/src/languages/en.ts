@@ -1688,6 +1688,33 @@ export const en = {
     figuresApproved: { one: '{name}: {count} answer', other: '{name}: {count} answers' },
     figuresLoadFailed: 'How the agent is doing could not be loaded. Try again in a moment.',
   },
+  channelDecisions: {
+    title: 'Recent decisions',
+    intro:
+      'What the managers of {channel} decided on the answers of {agent} in the last {days} days, newest first. Only they see this, and never a decision on a question they asked themselves.',
+    none: 'No answer was sent or discarded in the last {days} days.',
+    loadFailed: 'The recent decisions could not be loaded. Try again in a moment.',
+    listLabel: 'Recent decisions on the answers of {agent}',
+    outcome: {
+      sent_as_written: 'Sent as written',
+      sent_edited: 'Sent after an edit',
+      discarded: 'Discarded',
+      unknown: 'Decided',
+    },
+    decidedBy: {
+      sent_as_written: 'Sent by {name}',
+      sent_edited: 'Edited and sent by {name}',
+      discarded: 'Discarded by {name}',
+      unknown: 'Decided by {name}',
+    },
+    discardedByAManager: 'Discarded by a manager',
+    answerSent: 'The answer as sent',
+    answerDiscarded: 'The answer as discarded',
+    agentWrote: 'What {agent} wrote',
+    reason: 'Why it was discarded',
+    principles: 'Principles it applied: {principles}',
+    open: 'Show where it was asked',
+  },
   channelTeach: {
     tabsLabel: 'The agent of {channel}',
     tabs: { answers: 'Answers', teach: 'Teach' },

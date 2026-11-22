@@ -210,8 +210,8 @@ and send, Edit, Discard), five seconds to undo a send or a discard before the se
 manager's edit of a channel agent's answer, an optional reason when they discard one, and the sources
 an agent reports shown as links and jumps to earlier notes.
 
-- Using the reasons managers give when they discard a channel agent's answer: in the agent's figures
-  and as corrections when its managers teach it. They are stored and read by nothing yet.
+- Using the reasons managers give when they discard a channel agent's answer in the agent's figures,
+  such as the reasons given most often. Its managers read each one in **Recent decisions** today.
 - A `--source` option for `homingbird draft`, as the runner's `SOURCE:` lines and the MCP tools'
   `sources` already allow.
 
@@ -299,8 +299,8 @@ channel per repository, and one agent the channel owns, drafting from that repos
    the others see who already sent it, and a member can take a draft ("I'll look at this"). A sent
    note shows the agent and its approver ("#payments-wiki · approved by @kim"), and the audit trail
    records the approver. Approval stays a person's act. Its managers teach it an instruction,
-   sources, and rules and saved answers in the web client, and can teach from an answer they edited
-   or discarded (**built**, [guide](guide.md#a-channels-agent)). Later: taking a draft ("I'll look at
+   sources, and rules and saved answers in the web client, see what they decided on its answers in the
+   last 30 days, and teach from any of those decisions (**built**, [guide](guide.md#a-channels-agent)). Later: taking a draft ("I'll look at
    this"), a person's own agent as a group of one, a manager's approvals on their profile, and offers
    to teach that wait for a manager, as a person's do.
 3. **Asking a channel's agent privately.** **Built** ([guide](guide.md#a-channels-agent)). A sensitive question goes to the channel's agent as a direct
