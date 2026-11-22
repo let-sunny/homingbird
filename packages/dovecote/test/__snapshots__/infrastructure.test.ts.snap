@@ -117,6 +117,7 @@ exports[`schema > generates stable DDL for mysql 1`] = `
   "ALTER TABLE slack_codes ADD COLUMN slack_channel MEDIUMTEXT",
   "ALTER TABLE debate_participants ADD COLUMN brief MEDIUMTEXT",
   "ALTER TABLE participants ADD COLUMN hidden_at BIGINT",
+  "CREATE TABLE IF NOT EXISTS slack_credentials (slot VARCHAR(400) NOT NULL, given_by VARCHAR(64) NOT NULL, bot_token_sealed MEDIUMTEXT NOT NULL, signing_secret_sealed MEDIUMTEXT NOT NULL, given_at BIGINT NOT NULL, PRIMARY KEY (slot), INDEX slack_credentials_given_by_idx (given_by))",
   "ALTER TABLE notes ADD COLUMN tags MEDIUMTEXT",
   "ALTER TABLE receipts ADD COLUMN asked BIGINT",
 ]
@@ -295,6 +296,8 @@ exports[`schema > generates stable DDL for postgres 1`] = `
   "ALTER TABLE slack_codes ADD COLUMN slack_channel TEXT",
   "ALTER TABLE debate_participants ADD COLUMN brief TEXT",
   "ALTER TABLE participants ADD COLUMN hidden_at BIGINT",
+  "CREATE TABLE IF NOT EXISTS slack_credentials (slot VARCHAR(400) NOT NULL, given_by VARCHAR(64) NOT NULL, bot_token_sealed TEXT NOT NULL, signing_secret_sealed TEXT NOT NULL, given_at BIGINT NOT NULL, PRIMARY KEY (slot))",
+  "CREATE INDEX IF NOT EXISTS slack_credentials_given_by_idx ON slack_credentials (given_by)",
   "ALTER TABLE notes ADD COLUMN tags TEXT",
   "ALTER TABLE receipts ADD COLUMN asked BIGINT",
 ]
@@ -473,6 +476,8 @@ exports[`schema > generates stable DDL for sqlite 1`] = `
   "ALTER TABLE slack_codes ADD COLUMN slack_channel TEXT",
   "ALTER TABLE debate_participants ADD COLUMN brief TEXT",
   "ALTER TABLE participants ADD COLUMN hidden_at INTEGER",
+  "CREATE TABLE IF NOT EXISTS slack_credentials (slot TEXT NOT NULL, given_by TEXT NOT NULL, bot_token_sealed TEXT NOT NULL, signing_secret_sealed TEXT NOT NULL, given_at INTEGER NOT NULL, PRIMARY KEY (slot))",
+  "CREATE INDEX IF NOT EXISTS slack_credentials_given_by_idx ON slack_credentials (given_by)",
   "ALTER TABLE notes ADD COLUMN tags TEXT",
   "ALTER TABLE receipts ADD COLUMN asked INTEGER",
 ]

@@ -105,6 +105,10 @@ export const AUDIT_EVENTS = {
   'slack.stopped': event('security', 'organization', {
     because: S.literal('token_refused', 'revoked', 'other_workspace'),
   }),
+  'slack.credentials_set': event('security', 'organization', {}),
+  'slack.credentials_removed': event('security', 'organization', {
+    because: S.optional(S.literal('deactivated', 'demoted', 'revoked')),
+  }),
   'slack.person.linked': event('security', 'member', {}),
   'slack.channel.linked': event('security', 'channel', {
     slackChannel: S.string({ pattern: /^[A-Z0-9]{1,24}$/ }),

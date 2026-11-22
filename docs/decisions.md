@@ -1819,6 +1819,41 @@ hand, so the web client now links them as well. The maintainer approved widening
   check that nothing else becomes a link, that `javascript:` and `data:` never do, and that the text
   around a link is kept as it was.
 
+## An administrator may give the Slack app's values in the web client
+
+Security rule 5 is widened, with the maintainer's explicit approval: they chose entry on the admin
+page over keeping the environment variables the only way. Setting `HB_SLACK_BOT_TOKEN` and
+`HB_SLACK_SIGNING_SECRET` took the operator and a restart, so an administrator who could create the
+Slack app could not connect it. The rule's exception, which covered a person's cloud desk wake token,
+now reads: "A token or secret a person or an administrator gives Homingbird to reach an outside service
+cannot be hashed: it is stored encrypted and bound to its owner, used only in requests to the service
+it was given for, never shown again, never given to a model or an agent credential, and deleted when
+whoever gave it removes it or loses the right to have given it." This loosens rule 5: a stored Slack
+token can read and post, where a wake token can only wake. It does not admit a person's Slack user
+token or any other vendor key; each needs its own entry.
+
+- **Stored the way a wake is.** `admin.slack.credentials.set` (`PUT /admin/slack/credentials`, an
+  administrator's human route) asks Slack `auth.test` with the token first, outside any transaction, and
+  keeps only a token Slack accepts, of the workspace the server answers. Both values are sealed with
+  AES-256-GCM under `HB_SECRETS_KEY`, as the cloud desk's are, with the administrator who gave them and
+  the value's part as associated data (`slack_credentials`, migration step 26), so a sealed value moved
+  to another owner or swapped with the other does not open. A save replaces both. Slack is offered with
+  the app's values in the environment or with the key to keep them.
+- **The environment wins.** With the variables set, the page says the values come from the server's
+  environment and offers no field; a save is refused. Without a key, the page says it cannot keep them.
+- **Write-only.** No response, log line, audit entry or error carries a value: the admin page reads
+  only where they come from and when they were given. The audit trail records `slack.credentials_set`
+  and `slack.credentials_removed` with no detail but why a removal happened. No route of the values is
+  a member route, so no agent credential and no tool a model reaches reads, sets or removes them
+  (rule 3).
+- **Deleted when the giver loses the right.** `admin.slack.credentials.remove` deletes both, and Slack
+  stops until someone gives them again. Deactivating the administrator who gave them, or making them a
+  member, deletes them in the same transaction and records why, and Slack stops at once: values are
+  never kept on for a person who could no longer give them, and no other administrator inherits them
+  silently. Each read checks again, so values whose giver lost the role in any other way are not used.
+  An uninstalled app or a revoked token deletes stored values too; a token Slack merely refuses stops
+  Slack and keeps them, so the page can say why.
+
 ## Slack is linked by address, not synced
 
 Questions start in Slack, so a team that has to open Homingbird to see them has a second inbox; the
@@ -1827,10 +1862,8 @@ and only there: nothing is mirrored, and nothing leaves Homingbird that a person
 
 - **One workspace, the organization's own app, a bot token only.** The administrator creates a Slack
   app from the manifest Homingbird shows and gives Dovecote its bot token and signing secret as
-  `HB_SLACK_BOT_TOKEN` and `HB_SLACK_SIGNING_SECRET`. Kept in the environment, neither is stored, so
-  security rule 5 is unchanged; the cost is that disconnecting takes the operator and a restart. Storing
-  them sealed in the database, entered on the admin page, would widen rule 5's exception and waits for
-  the maintainer. The first workspace `auth.test` names is pinned; another one's token stops Slack. No
+  `HB_SLACK_BOT_TOKEN` and `HB_SLACK_SIGNING_SECRET`, or enters them on the admin page, where they are
+  stored sealed ("An administrator may give the Slack app's values in the web client"). The first workspace `auth.test` names is pinned; another one's token stops Slack. No
   user token: one reads everything its person can read in Slack and acts as them, the kind of key "A
   cloud desk is woken by a content-free call" already declined to keep. Behind `slack`, off by default.
 - **A person links their own Slack user with a single-use code.** **Connect Slack** looks up the

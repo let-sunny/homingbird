@@ -24,7 +24,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { MEMBER_ROUTES as A2A_ROUTES } from '../../a2a/src/member-api.ts'
 import { hashSecret } from '../src/random.ts'
 import { run } from '../src/sql/database.ts'
-import { insertInto } from '../src/sql/query.ts'
+import { insertInto, sql } from '../src/sql/query.ts'
 import { startAgent } from './channel-agent-support.ts'
 import { agentCredentialOf, fakeService, routineSetup, startCloudDeskServer } from './cloud-desk-support.ts'
 import { PAST_GRACE_MS } from './debate-support.ts'
@@ -41,6 +41,7 @@ import {
   storedRows,
 } from './harness.ts'
 import {
+  SLACK_VALUES,
   askInSlack,
   fakeSlack,
   lastCodeIn,
@@ -49,6 +50,7 @@ import {
   sendSlackEvent,
   slackEvent,
   startSlackServer,
+  startStoredSlackServer,
 } from './slack-support.ts'
 
 let server: TestServer
@@ -1623,6 +1625,130 @@ describe('Rule 5: credentials are stored hashed and never logged', () => {
     expect((await person.api('DELETE', '/me/desk-wake')).status).toBe(200)
     expect(await storedRows(desk, 'desk_wakes')).toEqual([])
     await desk.close()
+  })
+
+  it('5: keeps the Slack app’s values an administrator gives sealed to them, out of every response, log line and audit entry', async () => {
+    const botToken = 'xoxb-5555-6666-rule5slackmarker'
+    const signingSecret = '5e1a7c0ffee5e1a7c0ffee5e1a7c0ffe'
+    const slack = fakeSlack([{ id: 'U0ANA', name: 'Ana', email: 'ana@example.com' }])
+    const hosted = await startStoredSlackServer(slack)
+    const admin = await hosted.signIn('ana@example.com', 'Ana')
+    const colleague = await hosted.signIn('ben@example.com', 'Ben')
+    slack.refuseNext('auth.test', 'invalid_auth')
+    const answers = [await admin.api('PUT', '/admin/slack/credentials', { botToken, signingSecret })]
+    answers.push(await admin.api('PUT', '/admin/slack/credentials', { botToken, signingSecret: 'nothex' }))
+    answers.push(await admin.api('PUT', '/admin/slack/credentials', { botToken, signingSecret }))
+    expect(answers.at(-1)!.status).toBe(200)
+    answers.push(await admin.api('GET', '/admin/slack'))
+    answers.push(await admin.api('GET', '/admin/settings'))
+    answers.push(await admin.api('GET', '/me/slack'))
+    answers.push(await colleague.api('GET', '/me/slack'))
+    answers.push(await hosted.request('GET', '/api/v1/info'))
+    await linkPerson(hosted, slack, admin)
+    answers.push(
+      await sendSlackEvent(hosted, slackEvent({ type: 'app_home_opened', user: 'U0ANA' }), {
+        secret: signingSecret,
+      }),
+    )
+    answers.push(
+      await sendSlackEvent(hosted, slackEvent({ type: 'app_home_opened' }), { secret: 'f'.repeat(32) }),
+    )
+    await hosted.slackPass()
+    expect(slack.tokens.every((token) => token === botToken)).toBe(true)
+    const [row] = await storedRows(hosted, 'slack_credentials')
+    expect(row!.bot_token_sealed).toMatch(/^v1\./)
+    expect(row!.signing_secret_sealed).toMatch(/^v1\./)
+    const kept = [
+      await everyStoredValue(hosted),
+      JSON.stringify(await storedRows(hosted, 'audit_events')),
+      hosted.logged.join('\n'),
+      ...answers.map((answer) => JSON.stringify(answer.json)),
+    ]
+    for (const place of kept) {
+      expect(place).not.toContain(botToken)
+      expect(place).not.toContain('rule5slackmarker')
+      expect(place).not.toContain(signingSecret)
+    }
+    expect(
+      (await storedRows(hosted, 'audit_events'))
+        .filter((each) => /^slack\.credentials/.test(String(each.event)))
+        .map((each) => [each.event, JSON.parse(String(each.detail))]),
+    ).toEqual([['slack.credentials_set', {}]])
+    await T.runPromise(
+      run(sql`UPDATE members SET role = 'admin' WHERE id = ${colleague.me.member.id}`),
+      hosted.env,
+    )
+    await T.runPromise(
+      run(sql`UPDATE slack_credentials SET given_by = ${colleague.me.member.id}`),
+      hosted.env,
+    )
+    expect((await admin.api('GET', '/admin/slack')).json.credentials.source).toBe('none')
+    await T.runPromise(run(sql`UPDATE slack_credentials SET given_by = ${admin.me.member.id}`), hosted.env)
+    expect((await admin.api('GET', '/admin/slack')).json.credentials.source).toBe('stored')
+    expect((await admin.api('DELETE', '/admin/slack/credentials')).status).toBe(200)
+    expect(await storedRows(hosted, 'slack_credentials')).toEqual([])
+    expect(
+      (await sendSlackEvent(hosted, slackEvent({ type: 'app_home_opened' }), { secret: signingSecret }))
+        .status,
+    ).toBe(404)
+    await hosted.close()
+  })
+
+  it('5: deletes the Slack app’s values when the administrator who gave them is deactivated or demoted', async () => {
+    const slack = fakeSlack()
+    const hosted = await startStoredSlackServer(slack)
+    const admin = await hosted.signIn('ana@example.com', 'Ana')
+    const changes = [
+      { email: 'ben@example.com', change: { status: 'deactivated' } },
+      { email: 'cy@example.com', change: { role: 'member' } },
+    ]
+    for (const { email, change } of changes) {
+      const other = await hosted.signIn(email)
+      await admin.api('PATCH', `/admin/members/${other.me.member.id}`, { role: 'admin' })
+      expect((await other.api('PUT', '/admin/slack/credentials', SLACK_VALUES)).status).toBe(200)
+      expect((await admin.api('GET', '/me/slack')).json.connected).toBe(true)
+      await admin.api('PATCH', `/admin/members/${other.me.member.id}`, change)
+      expect([change, await storedRows(hosted, 'slack_credentials')]).toEqual([change, []])
+      expect((await admin.api('GET', '/me/slack')).json.connected).toBe(false)
+    }
+    await hosted.close()
+  })
+
+  it('5: gives the Slack app’s values to no agent credential and no tool a model reaches, the administrator’s own included', async () => {
+    const slack = fakeSlack()
+    const hosted = await startStoredSlackServer(slack)
+    const admin = await hosted.signIn('ana@example.com', 'Ana')
+    expect((await admin.api('PUT', '/admin/slack/credentials', SLACK_VALUES)).status).toBe(200)
+    const agent = await connectAgent(hosted, admin, { name: 'Admin agent' })
+    for (const name of [
+      'admin.slack.get',
+      'admin.slack.credentials.set',
+      'admin.slack.credentials.remove',
+    ] as const) {
+      const route = contract[name]
+      expect(humanOnlyRoutes).toContain(name)
+      expect(MCP_ROUTES).not.toContain(name)
+      expect(A2A_ROUTES).not.toContain(name)
+      const answer = await agent.api(route.method, pathOf(name, 'x'), route.body ? SLACK_VALUES : undefined)
+      expect([name, answer.status]).toEqual([name, 403])
+    }
+    expect(await storedRows(hosted, 'slack_credentials')).toHaveLength(1)
+    const tools = toolDefinitions()
+      .map((each) => String(each.name))
+      .filter((name) => name !== 'wait_for_notes')
+    expect(tools.length).toBeGreaterThan(10)
+    for (const name of tools) {
+      const answer = await hosted.request('POST', '/mcp', {
+        token: agent.token,
+        body: { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: {} } },
+      })
+      const text = JSON.stringify(answer.json)
+      expect([
+        name,
+        text.includes(SLACK_VALUES.botToken) || text.includes(SLACK_VALUES.signingSecret),
+      ]).toEqual([name, false])
+    }
+    await hosted.close()
   })
 
   it('never returns a token from any credential listing', async () => {

@@ -6,6 +6,7 @@ import { dialect, first, run } from '../sql/database.ts'
 import { insertIgnoringConflict, sql } from '../sql/query.ts'
 import { threadOf } from './slack-arrivals.ts'
 import { linkOfSlackChannel } from './slack-channels.ts'
+import { slackCredentials } from './slack-credentials.ts'
 import { slackPersonBySlackUser } from './slack-people.ts'
 import { type SlackSignatureRefused, requireSlackSignature } from './slack-signature.ts'
 import { type SlackWorkspaceRow, pinnedWorkspace } from './slack-workspace.ts'
@@ -19,11 +20,13 @@ import { type SlackWorkspaceRow, pinnedWorkspace } from './slack-workspace.ts'
 export const handleSlackEvents = (request: HttpRequest): T.Task<HttpResponse, never, AppEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
-    if (env.config.slack === null || !(yield* featureIsOn('slack'))) return NOT_FOUND
+    if (!(yield* featureIsOn('slack'))) return NOT_FOUND
+    const credentials = yield* slackCredentials
+    if (credentials === null) return NOT_FOUND
     if (request.method !== 'POST') return json(405, { error: 'Use POST.' })
     const refused = yield* T.catchAll((refusal: SlackSignatureRefused) => T.succeed(refusal.reason))(
       T.as(null)(
-        requireSlackSignature(env.config.slack.signingSecret, {
+        requireSlackSignature(credentials.signingSecret, {
           timestamp: request.headers['x-slack-request-timestamp'] ?? null,
           signature: request.headers['x-slack-signature'] ?? null,
           body: request.body,

@@ -72,19 +72,24 @@ export interface SlackCodeModel {
   readonly channel: { readonly choices: ReadonlyArray<string> } | null
 }
 
-/** Slack on the administrator's settings page: the workspace's state and how to set the app up. */
+/**
+ * Slack on the administrator's settings page: the workspace's state, how to set the app up, and where its
+ * bot token and signing secret come from. Values in the server's environment cannot be changed here.
+ */
 export const adminSlackModel = (admin: AsRead.AdminSlack | undefined): AdminSlackModel | null => {
   if (admin === undefined) return null
   const workspace = admin.workspace
+  const hasValues = admin.credentials.source !== 'none'
   return {
-    status:
-      workspace === null
+    status: !hasValues
+      ? { text: strings.slack.admin.enterValues, tone: 'is-waiting' }
+      : workspace === null
         ? { text: strings.slack.admin.waiting, tone: 'is-waiting' }
         : workspace.state === 'connected'
           ? { text: strings.slack.admin.connected({ workspace: workspace.team }), tone: 'is-ok' }
           : { text: STOPPED_TEXTS[workspace.stoppedBecause ?? 'unknown'](), tone: 'is-stopped' },
     facts:
-      workspace === null
+      workspace === null || !hasValues
         ? []
         : [
             {
@@ -93,6 +98,7 @@ export const adminSlackModel = (admin: AsRead.AdminSlack | undefined): AdminSlac
             },
             { term: strings.slack.admin.linkedPeople, value: String(admin.linkedPeople) },
           ],
+    credentials: credentialsOf(admin.credentials),
     eventsUrl: admin.eventsUrl,
     manifest: admin.manifest,
   }
@@ -101,8 +107,28 @@ export const adminSlackModel = (admin: AsRead.AdminSlack | undefined): AdminSlac
 export interface AdminSlackModel {
   readonly status: { readonly text: string; readonly tone: 'is-ok' | 'is-waiting' | 'is-stopped' }
   readonly facts: ReadonlyArray<{ readonly term: string; readonly value: string }>
+  readonly credentials: AdminSlackCredentialsModel
   readonly eventsUrl: string
   readonly manifest: string
+}
+
+/** Where the app's values come from, and the form that gives, replaces or removes them when it may. */
+export interface AdminSlackCredentialsModel {
+  readonly note: string
+  readonly form: { readonly submit: string; readonly canRemove: boolean } | null
+}
+
+const credentialsOf = (credentials: AsRead.AdminSlack['credentials']): AdminSlackCredentialsModel => {
+  const texts = strings.slack.admin.credentials
+  if (credentials.source === 'environment') return { note: texts.fromEnvironment, form: null }
+  if (credentials.source === 'unknown') return { note: texts.unknown, form: null }
+  if (!credentials.canStore) return { note: texts.noKey, form: null }
+  if (credentials.source === 'none')
+    return { note: texts.kept, form: { submit: texts.save, canRemove: false } }
+  return {
+    note: texts.storedAt({ when: dateTimeText(credentials.storedAt, strings.slack.admin.never) }),
+    form: { submit: texts.replace, canRemove: true },
+  }
 }
 
 const STOPPED_TEXTS: Readonly<

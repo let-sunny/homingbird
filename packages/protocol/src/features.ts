@@ -103,6 +103,8 @@ export const FEATURES = {
     default: false,
     routes: [
       'admin.slack.get',
+      'admin.slack.credentials.set',
+      'admin.slack.credentials.remove',
       'me.slack.get',
       'me.slack.connect',
       'me.slack.link',

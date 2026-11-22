@@ -182,6 +182,8 @@ describe('contract', () => {
         'admin.members.resetCharacter',
         'admin.insights',
         'admin.slack.get',
+        'admin.slack.credentials.set',
+        'admin.slack.credentials.remove',
       ].sort(),
     )
   })

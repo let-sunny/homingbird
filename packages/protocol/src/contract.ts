@@ -106,7 +106,7 @@ import {
 } from './principles.ts'
 import { type ReadResponseOf, type RequestOf, type Route, route } from './route.ts'
 import { DeskSession } from './session-health.ts'
-import { AdminSlack, MeSlack, SlackCodeView, SlackLinkCode } from './slack.ts'
+import { AdminSlack, MeSlack, SlackCodeView, SlackCredentialsInput, SlackLinkCode } from './slack.ts'
 import { NoteTags } from './tags.ts'
 
 export const PushSubscription = S.struct({
@@ -1136,6 +1136,19 @@ export const contract = {
     response: OrganizationInsights,
   }),
   'admin.slack.get': route({ method: 'GET', path: '/admin/slack', access: 'admin', response: AdminSlack }),
+  'admin.slack.credentials.set': route({
+    method: 'PUT',
+    path: '/admin/slack/credentials',
+    access: 'admin',
+    body: SlackCredentialsInput,
+    response: AdminSlack,
+  }),
+  'admin.slack.credentials.remove': route({
+    method: 'DELETE',
+    path: '/admin/slack/credentials',
+    access: 'admin',
+    response: AdminSlack,
+  }),
   'channels.slack.link': route({
     method: 'POST',
     path: '/channels/:slug/slack',

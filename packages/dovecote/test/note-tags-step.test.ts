@@ -11,9 +11,9 @@ afterEach(async () => {
 })
 
 describe('the note tags step', () => {
-  it('is the last step, the twenty-sixth, after hiding conversations', () => {
+  it('is the last step, the twenty-seventh, after the Slack app’s stored values', () => {
     expect(stepNumberOf(NOTE_TAGS)).toBe(MIGRATIONS.length)
-    expect(stepNumberOf(NOTE_TAGS)).toBe(26)
+    expect(stepNumberOf(NOTE_TAGS)).toBe(27)
   })
 
   it('adds tags to every note and asking to every receipt, empty for those before it', async () => {
