@@ -282,7 +282,7 @@ describe('reviewCardsModel', () => {
     )
   })
 
-  it('counts a channel’s answers waiting and leads into its room at the first question waiting', () => {
+  it('counts the answers waiting in a channel’s room, else its private ones, and leads to the first waiting', () => {
     const OPS_ROOM = 'conv_ops00000000' as ConversationId
     const reviews = [
       review({ note: draft('note_later', { authorId: AGENT, createdAt: 9 }) }),
@@ -291,12 +291,12 @@ describe('reviewCardsModel', () => {
       review({ channel: 'ops', privately: true, note: draft('note_ops', { conversationId: OPS_ROOM }) }),
     ]
     expect(reviewBadgeOf(reviews, 'payments-wiki')).toEqual({
-      text: 'Review 3',
+      text: 'Review 2',
       label: '3 answers wait for your review',
       href: `#/c/${ROOM}?review=note_first`,
     })
     expect(reviewBadgeOf(reviews, 'ops')).toEqual({
-      text: 'Review 1',
+      text: 'Review 1 private',
       label: '1 answer waits for your review',
       href: `#/c/${OPS_ROOM}?review=note_ops`,
     })

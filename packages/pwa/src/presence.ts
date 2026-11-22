@@ -18,11 +18,15 @@ export const presenceShown = (presence: AsRead.Presence, inWords: boolean): Pres
 export interface PresenceMarks {
   readonly person: { readonly isOn: boolean; readonly label: string }
   readonly agent: { readonly state: 'on' | 'off' | 'unavailable'; readonly label: string }
+  /** Both marks in words, for a phone that shows no hover title and wherever there is room. */
+  readonly words: string
 }
 
 export const presenceMarks = (presence: AsRead.Presence, name: string): PresenceMarks => {
   const unavailable = unavailableOf(presence)
+  const agentState = unavailable !== null ? 'unavailable' : presence.agentOnline ? 'on' : 'off'
   return {
+    words: strings.presenceWords[presence.humanOnline ? 'online' : 'away'][agentState],
     person: {
       isOn: presence.humanOnline,
       label: presence.humanOnline ? strings.presenceOf.online({ name }) : strings.presenceOf.away({ name }),

@@ -243,11 +243,16 @@ export const decidedAnswerModel = (
  * private questions, the first of those.
  */
 export const reviewBadgeOf = (reviews: ReadonlyArray<AsRead.Review>, slug: string): ReviewBadge | null => {
-  const count = reviews.filter((review) => review.channel === slug).length
+  const waiting = reviews.filter((review) => review.channel === slug)
+  const count = waiting.length
   if (count === 0) return null
+  const inRoom = waiting.filter((review) => !review.privately).length
   const first = firstWaitingIn(reviews, slug)
   return {
-    text: strings.channelAgent.reviewBadge({ count: formats.decimal.format(count) }),
+    text:
+      inRoom > 0
+        ? strings.channelAgent.reviewBadge({ count: formats.decimal.format(inRoom) })
+        : strings.channelAgent.reviewBadgePrivate({ count: formats.decimal.format(count) }),
     label: strings.channelAgent.reviewBadgeLabel({ count }),
     href: hrefFor({ name: 'conversation', id: first.conversationId, draft: null, review: first.id }),
   }
@@ -292,6 +297,20 @@ export const agentAuthorshipLine = (
         name: members.get(approver)?.name ?? strings.formerMember,
       })
     : strings.channelAgent.writtenBy({ agent: author.name, channel })
+}
+
+/** An empty private question: what happens once the person writes, since the header says who reads it. */
+export const privateQuestionStart = (
+  room: AsRead.Conversation,
+  channels: ReadonlyArray<AsRead.Channel>,
+): string | null => {
+  const slug = room.privateQuestionOf ?? null
+  if (slug === null || room.archivedAt !== null) return null
+  const agent = channels.find((channel) => channel.slug === slug)?.agent ?? null
+  return strings.channelAgent.privateStart({
+    agent: agent?.name ?? channelLabel(slug),
+    channel: channelLabel(slug),
+  })
 }
 
 /** The first screen of a private question: who else reads it, now and later. */

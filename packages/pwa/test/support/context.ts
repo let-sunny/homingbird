@@ -49,7 +49,7 @@ export const testContext = (hash = '#/') => {
     random: { id: () => 'random-id', seed: () => 7 },
     page: page.page,
     document: browserDocument(() => globalThis.document),
-    tour: { start: () => void tour.started++, startOnHome: (name) => void tour.homes.push(name) },
+    tour: { start: () => void tour.started++, startOnFirstVisit: (name) => void tour.homes.push(name) },
     justArrived: () => false,
   }
   const called = (name: string): ActionCall[] => calls.filter((call) => call.name === name)

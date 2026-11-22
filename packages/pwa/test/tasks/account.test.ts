@@ -18,6 +18,7 @@ const answers = {
   'device.get': () => ({ userCode: 'ABCD', client: 'Desk' }),
   'consent.get': () => ({ id: 'c1' }),
   'consent.decide': () => ({ redirectTo: 'https://desk.example.com' }),
+  'joinCodes.status': () => ({ status: 'waiting' }),
   'invites.list': () => ({ invites: [INVITE] }),
   'invites.create': () => ({ invite: INVITE, url: 'https://hb.example.com/#/invite/hbi_x' }),
   'invites.revoke': () => ({}),
@@ -87,6 +88,12 @@ describe('account tasks', () => {
       'consent.get',
       'consent.decide',
     ])
+  })
+
+  it('asks whether a join code was used yet', async () => {
+    const { run, routes } = testApp(answers)
+    expect(await run(tasks.joinCodeStatus('join_1'))).toEqual({ _tag: 'Ok', value: { status: 'waiting' } })
+    expect(routes()).toEqual(['joinCodes.status'])
   })
 
   it('returns to an agent after a moment, and signs out, saying so when the server cannot be reached', async () => {

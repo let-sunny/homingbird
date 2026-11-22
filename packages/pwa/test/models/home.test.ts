@@ -3,14 +3,16 @@ import { conversationToRestore, homeModel, startingPointsModel } from '../../src
 import { strings } from '../../src/strings.ts'
 import { ROOM, conversation, note } from '../support/fixtures.ts'
 
+const start = { agentConnected: false, origin: 'https://hb.example.com' }
+
 describe('homeModel', () => {
   it('waits for the list, offers starting points without conversations, and asks to pick one otherwise', () => {
-    expect(homeModel({ loaded: false, conversations: [] })).toEqual({ kind: 'loading' })
-    expect(homeModel({ loaded: true, conversations: [] })).toEqual({
+    expect(homeModel({ loaded: false, conversations: [], ...start })).toEqual({ kind: 'loading' })
+    expect(homeModel({ loaded: true, conversations: [], ...start })).toEqual({
       kind: 'start',
-      start: startingPointsModel(),
+      start: startingPointsModel(start),
     })
-    expect(homeModel({ loaded: true, conversations: [conversation()] })).toEqual({
+    expect(homeModel({ loaded: true, conversations: [conversation()], ...start })).toEqual({
       kind: 'pick',
       text: strings.pickConversation,
     })
@@ -18,11 +20,46 @@ describe('homeModel', () => {
 })
 
 describe('startingPointsModel', () => {
-  it('offers a channel, a person and connecting an agent, then the tour', () => {
-    const model = startingPointsModel()
-    expect(model.points.map((point) => point.href)).toEqual(['#/channels', '#/people', '#/agent/connection'])
-    expect(model.title).toBe(strings.start.title)
+  it('leads with connecting the agent, with the two lines to paste for this server, then writing and approving', () => {
+    const model = startingPointsModel(start)
+    expect(model.title).toBe(strings.start.firstTitle)
+    expect(model.steps.map((step) => step.title)).toEqual([
+      strings.start.connectStep,
+      strings.start.writeStep,
+      strings.start.approveStep,
+    ])
+    const [connect, write, approve] = model.steps
+    expect(connect!.command).toBe(
+      '/plugin install homingbird --marketplace let-sunny/homingbird\n/homingbird https://hb.example.com',
+    )
+    expect(connect!.done).toBeNull()
+    expect(connect!.links).toEqual([
+      { href: '#/agent/connection', label: strings.start.otherAgents, primary: false },
+    ])
+    expect(write!.links.map((link) => [link.href, link.primary])).toEqual([
+      ['#/people', false],
+      ['#/channels', false],
+    ])
+    expect(approve).toEqual({
+      title: strings.start.approveStep,
+      hint: strings.start.approveStepHint,
+      command: null,
+      done: null,
+      links: [],
+    })
     expect(model.tour).toBe(strings.start.tour)
+  })
+
+  it('marks the agent connected and makes writing to a colleague the next step', () => {
+    const [connected, write] = startingPointsModel({ ...start, agentConnected: true }).steps
+    expect(connected).toEqual({
+      title: strings.start.connectedStep,
+      hint: strings.start.connectedStepHint,
+      command: null,
+      done: strings.start.done,
+      links: [],
+    })
+    expect(write!.links.map((link) => link.primary)).toEqual([true, false])
   })
 })
 

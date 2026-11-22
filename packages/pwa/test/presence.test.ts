@@ -74,10 +74,12 @@ describe('presenceMarks', () => {
     expect(presenceMarks({ humanOnline: true, agentOnline: true }, 'Kai')).toEqual({
       person: { isOn: true, label: strings.presenceOf.online({ name: 'Kai' }) },
       agent: { state: 'on', label: strings.presenceOf.agentAwake({ name: 'Kai' }) },
+      words: 'Online · agent awake',
     })
     expect(presenceMarks({ humanOnline: false, agentOnline: false }, 'Kai')).toEqual({
       person: { isOn: false, label: strings.presenceOf.away({ name: 'Kai' }) },
       agent: { state: 'off', label: strings.presenceOf.agentAsleep({ name: 'Kai' }) },
+      words: 'Away · agent not awake',
     })
   })
 
@@ -94,5 +96,9 @@ describe('presenceMarks', () => {
       presenceMarks({ humanOnline: false, agentOnline: true, agentUnavailable: { until: null } }, 'Kai')
         .agent,
     ).toEqual({ state: 'unavailable', label: strings.presenceOf.agentUnavailable({ name: 'Kai' }) })
+    expect(
+      presenceMarks({ humanOnline: false, agentOnline: true, agentUnavailable: { until: null } }, 'Kai')
+        .words,
+    ).toBe('Away · agent can’t answer now')
   })
 })

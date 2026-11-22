@@ -24,13 +24,22 @@ import {
 } from '@homingbird/sprites'
 import { strings } from './strings.ts'
 
-/** The character a member is drawn as: the one they saved while characters are on, or the pigeon. */
+/**
+ * The character a member is drawn as: the one they saved while characters are on, else the robot for a
+ * channel's agent, so its answers never look like a person's, else the pigeon. With characters off,
+ * everyone is the pigeon.
+ */
 export const characterOf = (
-  member: Pick<AsRead.Member, 'character'> | undefined,
+  member: (Pick<AsRead.Member, 'character'> & Partial<Pick<AsRead.Member, 'kind'>>) | undefined,
   charactersOn: boolean,
-): CharacterSpec => (charactersOn ? member?.character : null) ?? PIGEON
+): CharacterSpec => {
+  if (!charactersOn) return PIGEON
+  return member?.character ?? (member?.kind === 'channel_agent' ? ROBOT : PIGEON)
+}
 
 export const PIGEON: CharacterSpec = BUILT_IN_CHARACTERS[0]!
+
+export const ROBOT: CharacterSpec = BUILT_IN_CHARACTERS.find((each) => each.id === 'robot')!
 
 /** One frame of a character in a state, at a whole-number scale, ready for `ImageData`. */
 export const framePixels = (spec: CharacterSpec, state: StateName, index: number, scale: number): Pixels => {
