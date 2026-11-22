@@ -114,7 +114,7 @@ export const teachFromMiss = (
       type: 'button',
       class: className,
       ...opensDialog(context, strings.teach.dialogTitle, () =>
-        principleForm(context, null, null, false, seed),
+        principleForm(context, null, null, false, { kind: 'own', seed }),
       ),
     },
     label,
