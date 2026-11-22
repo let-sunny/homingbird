@@ -57,7 +57,9 @@ const scenario = async (): Promise<void> => {
     await ana.page.waitForSelector('dialog[open] .create-debate')
     await ana.page.fill('.create-debate textarea[name="question"]', QUESTION)
     await ana.page.check('.create-debate input[name="visibility"][value="private"]')
-    await ana.page.check(`.create-debate input[name="invite"][value="${ids.ben}"]`)
+    await ana.page.fill('#debate-invite-field', 'Ben')
+    await ana.page.press('#debate-invite-field', 'Enter')
+    await ana.page.waitForSelector('.create-debate .people-picker-chip:has-text("Ben")')
     await ana.page.click('.create-debate details > summary')
     await ana.page.fill('.create-debate input[name="turnsPerAgent"]', '1')
     await ana.page.fill('.create-debate input[name="totalTurns"]', '2')
@@ -201,9 +203,9 @@ const scenario = async (): Promise<void> => {
     await capture(ana.page, 'settled-result-waiting-as-a-draft')
 
     // -- The growth record credits the agent, never with a count -------------------------------
-    await ana.page.goto(`${base}/#/agent/routes`)
-    await ana.page.waitForSelector('.route-debates li:has-text("filled a gap another agent lacked")')
-    await capture(ana.page, 'route-map-credits-the-debate')
+    await ana.page.goto(`${base}/#/agent/teaching`)
+    await ana.page.waitForSelector('.milestone:has-text("filled a gap another agent lacked")')
+    await capture(ana.page, 'milestones-credit-the-debate')
 
     // -- Narrow, and in Korean ------------------------------------------------------------------
     const narrow: Person = await newPage(browser, base, 'en-US', { viewport: NARROW })

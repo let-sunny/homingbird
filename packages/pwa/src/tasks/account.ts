@@ -63,6 +63,10 @@ export const revokeCredential = (id: CredentialId): Action =>
 export const createJoinCode = (channel: string | null): Action<AsRead.JoinCode> =>
   withApp(({ api }) => api['joinCodes.create']({ body: channel === null ? {} : { channel } }))
 
+/** Whether a join code the person made was redeemed yet, and the connection it issued. */
+export const joinCodeStatus = (id: string): Action<AsRead.JoinCodeStatus> =>
+  withApp(({ api }) => api['joinCodes.status']({ params: { id } }))
+
 /** The invites still waiting: all of them for an administrator, the person's own otherwise. */
 export const listInvites: Action<ReadonlyArray<AsRead.Invite>> = withApp(({ api }) =>
   T.map((listed: { invites: ReadonlyArray<AsRead.Invite> }) => listed.invites)(api['invites.list']({})),

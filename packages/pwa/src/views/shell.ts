@@ -26,6 +26,7 @@ import {
   tabsModel,
   userMenuModel,
 } from '../models/shell.ts'
+import { type Waiting, waitingFilterModel } from '../models/waiting.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 import { activityBell, activityPanel } from './activity.ts'
@@ -36,6 +37,7 @@ import { opensDialog } from './dialog.ts'
 import { startingPoints } from './home.ts'
 import { type MenuParts, actionMenu } from './menu.ts'
 import { mutedMark } from './mute-toggle.ts'
+import { newMenu } from './new-menu.ts'
 import {
   agentDot,
   archivedMark,
@@ -46,6 +48,8 @@ import {
   loading,
   timeLabel,
 } from './parts.ts'
+import { switcher } from './switcher.ts'
+import { watchWaiting } from './waiting.ts'
 
 /** The app around a page: the header with its tabs, the connection, the sidebar and the user menu. */
 export const shell = (
@@ -55,12 +59,13 @@ export const shell = (
   stage: HTMLElement,
 ): HTMLElement => {
   const { state } = context
+  const waiting = watchWaiting(context, life, me)
   const app = h(
     'div',
     { class: 'app' },
     titleBar(context, life, me),
     connectionNotice(context, life),
-    sidebar(context, life, me),
+    sidebar(context, life, me, waiting),
     stage,
   )
   const showPane = (): void => {
@@ -75,6 +80,7 @@ export const shell = (
     app,
     userMenu(context, me),
     activityPanel(context, life, me),
+    switcher(context, life, me, waiting),
   )
 }
 
@@ -270,11 +276,17 @@ const userMenu = (context: ViewContext, me: AsRead.Me): HTMLElement => {
   return menu
 }
 
-const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
+const sidebar = (
+  context: ViewContext,
+  life: Lifetime,
+  me: AsRead.Me,
+  waiting: ReadableSignal<Waiting>,
+): HTMLElement => {
   const { state } = context
   const model = (withArrivals = false): SidebarModel => {
     const conversations = state.conversations.get()
     return sidebarModel({
+      waitingOnly: state.waitingOnly.get() ? waiting.get().conversationIds : null,
       me,
       route: state.route.get(),
       conversations: conversationsWithoutHeld(conversations, state.held.get()),
@@ -305,6 +317,8 @@ const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLEleme
     state.route,
     state.conversationsLoaded,
     state.held,
+    state.waitingOnly,
+    waiting,
   ]
   const roomSources = [
     state.conversations,
@@ -313,27 +327,44 @@ const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLEleme
     state.reviews,
     state.typedIn,
     state.held,
+    state.waitingOnly,
+    waiting,
   ]
-  const archivedSources = [state.conversations, state.route, state.members]
+  const archivedSources = [state.conversations, state.route, state.members, state.waitingOnly]
   return h(
     'aside',
     { class: 'sidebar', 'aria-label': strings.conversations },
-    region(life, [state.agentCredentials, state.session], () => model().onboarding && onboarding(), {
-      class: 'onboarding-host',
+    region(
+      life,
+      [state.agentCredentials, state.session, slice(peopleSources, () => model().onboarding)],
+      () => model().onboarding && onboarding(),
+      {
+        class: 'onboarding-host',
+      },
+    ),
+    region(life, [state.waitingOnly, waiting], () => waitingFilter(context, waiting.get()), {
+      class: 'waiting-filter-host',
     }),
-    h('h2', { class: 'sidebar-title' }, strings.conversations),
+    h(
+      'div',
+      { class: 'sidebar-section-head sidebar-list-head' },
+      h('h2', { class: 'sidebar-title' }, strings.conversations),
+      newMenu(context, me),
+    ),
     region(
       life,
       [slice(peopleSources, () => model().people.kind)],
       (drawing) => {
-        const kind = model().people.kind
+        const people = model().people
+        const kind = people.kind
         if (kind === 'loading') return loading()
+        if (people.kind === 'nothing-waits') return empty(people.text)
         if (kind === 'none')
           return h(
             'div',
             { class: 'no-conversations' },
             h('p', { class: 'no-conversations-text' }, strings.noConversations),
-            startingPoints(context),
+            startingPoints(context, drawing),
           )
         return rowList(context, drawing, peopleSources, 'conversation-list', () => {
           const people = model(true).people
@@ -348,16 +379,19 @@ const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLEleme
       h('h2', { class: 'sidebar-title' }, strings.channels),
       h('a', { class: 'browse-channels', href: hrefFor({ name: 'channels' }) }, strings.browseChannels),
     ),
-    region(life, [slice(roomSources, () => model().channelRooms.length === 0)], (drawing) =>
-      model().channelRooms.length === 0
-        ? empty(strings.noChannelRooms)
-        : rowList(
-            context,
-            drawing,
-            roomSources,
-            'conversation-list channel-rooms',
-            () => model().channelRooms,
-          ),
+    region(
+      life,
+      [slice(roomSources, () => (model().channelRooms.length === 0 ? model().channelRoomsEmpty : null))],
+      (drawing) =>
+        model().channelRooms.length === 0
+          ? empty(model().channelRoomsEmpty)
+          : rowList(
+              context,
+              drawing,
+              roomSources,
+              'conversation-list channel-rooms',
+              () => model().channelRooms,
+            ),
     ),
     region(
       life,
@@ -386,6 +420,23 @@ const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLEleme
         )
       },
     ),
+  )
+}
+
+/** The list's Waiting for you filter, a button that stays pressed while it is on. */
+const waitingFilter = (context: ViewContext, waiting: Waiting): HTMLElement => {
+  const model = waitingFilterModel(context.state.waitingOnly.get(), waiting)
+  return h(
+    'button',
+    {
+      type: 'button',
+      class: 'waiting-filter',
+      'aria-pressed': String(model.pressed),
+      title: model.label,
+      on: { click: () => context.state.waitingOnly.update((on) => !on) },
+    },
+    model.text,
+    model.count !== null && h('span', { class: 'count', 'aria-hidden': 'true' }, model.count),
   )
 }
 

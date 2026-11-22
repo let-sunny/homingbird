@@ -63,10 +63,10 @@ export const showApp = (
       state.route.subscribe(() => {
         if (arrivedToConnect(state.route.get()) === focused) drawStage(me)
         else draw()
-        if (!focused) page.nextFrame(() => context.tour.startOnHome(state.route.get().name))
+        if (!focused) page.nextFrame(() => context.tour.startOnFirstVisit(state.route.get().name))
       }),
     )
-    if (!focused) page.nextFrame(() => context.tour.startOnHome(state.route.get().name))
+    if (!focused) page.nextFrame(() => context.tour.startOnFirstVisit(state.route.get().name))
     replaceChildren(
       root,
       focused ? stage : shell(context, appLife, me, stage),
@@ -175,6 +175,15 @@ const inTransition = (context: ViewContext, change: () => void): void => {
   if (context.page.prefersReducedMotion() || !context.document.inTransition(change)) change()
 }
 
-/** A group's editor counts as the administration's page, so analytics keeps one value per area. */
-const analyticsPageOf = (route: Route): Exclude<Route['name'], 'admin-group' | 'slack-link'> =>
-  route.name === 'admin-group' ? 'admin' : route.name === 'slack-link' ? 'agent' : route.name
+/**
+ * A group's editor counts as the administration's page, the new-message screen as a conversation's, and
+ * a Slack link's page as My agent's, so analytics keeps one value per area.
+ */
+const analyticsPageOf = (route: Route): Exclude<Route['name'], 'admin-group' | 'new' | 'slack-link'> =>
+  route.name === 'admin-group'
+    ? 'admin'
+    : route.name === 'new'
+      ? 'conversation'
+      : route.name === 'slack-link'
+        ? 'agent'
+        : route.name

@@ -140,6 +140,8 @@ export const conversationTitle = (
 ): string => {
   const archived = isArchived(conversation)
   const title = archived ? (conversation.title?.replace(ARCHIVED_SUFFIX, '') ?? null) : conversation.title
+  const askedOf = conversation.privateQuestionOf ?? null
+  if (askedOf !== null) return strings.channelAgent.privateTitle({ channel: `#${askedOf}` })
   if (title !== null) return conversation.kind === 'channel' || archived ? `#${title}` : title
   return namesInBrief(
     otherParticipants(conversation, viewerId).map((memberId) => members.get(memberId)?.name ?? unknownName),
@@ -174,6 +176,25 @@ export const groupWith = (
       !isArchived(conversation) &&
       conversation.participantIds.length === wanted.size &&
       conversation.participantIds.every((memberId) => wanted.has(memberId)),
+  )
+}
+
+/**
+ * The open room a note to these people goes to: the direct message with one person, or the group
+ * message of exactly the viewer and them.
+ */
+export const roomWith = (
+  conversations: ReadonlyArray<AsRead.Conversation>,
+  viewerId: MemberId,
+  memberIds: ReadonlyArray<MemberId>,
+): AsRead.Conversation | undefined => {
+  const others = [...new Set(memberIds)].filter((memberId) => memberId !== viewerId)
+  if (others.length !== 1) return others.length === 0 ? undefined : groupWith(conversations, viewerId, others)
+  return conversations.find(
+    (conversation) =>
+      conversation.kind === 'direct' &&
+      !isArchived(conversation) &&
+      otherParticipants(conversation, viewerId).join() === others.join(),
   )
 }
 

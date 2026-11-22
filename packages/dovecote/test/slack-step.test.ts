@@ -11,8 +11,8 @@ afterEach(async () => {
 })
 
 describe('the Slack step', () => {
-  it('is the nineteenth step, after draft previews', () => {
-    expect(stepNumberOf(SLACK)).toBe(19)
+  it('is the twentieth step, after who discarded an answer', () => {
+    expect(stepNumberOf(SLACK)).toBe(20)
   })
 
   it('adds the workspace, people’s links, link codes and received events, and nothing else', async () => {

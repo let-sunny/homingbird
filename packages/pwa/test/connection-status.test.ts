@@ -8,11 +8,11 @@ const english = compile<typeof en>('en', en)
 const korean = compile<typeof en>('ko', ko)
 
 describe('connectionShown', () => {
-  it('says Connected, quietly, while the page is connected', () => {
+  it('says the page is up to date, quietly, while it is connected, naming the page and not the agent', () => {
     expect(connectionShown('live', english)).toEqual({
       state: 'connected',
-      label: 'Connected',
-      description: 'Connected',
+      label: 'This page is up to date',
+      description: 'This page is up to date',
       noticeable: false,
       whenShort: 'hidden',
     })
@@ -23,13 +23,16 @@ describe('connectionShown', () => {
   })
 
   it('says Connecting… and draws attention while it connects', () => {
-    expect(connectionShown('connecting', english)).toMatchObject({ label: 'Connecting…', noticeable: true })
+    expect(connectionShown('connecting', english)).toMatchObject({
+      label: 'This page is connecting…',
+      noticeable: true,
+    })
   })
 
   it('says Offline in short and explains what happens in full', () => {
     expect(connectionShown('offline', english)).toEqual({
       state: 'offline',
-      label: 'Offline',
+      label: 'This page is offline',
       description: 'Offline: new notes will appear when you are back online.',
       noticeable: true,
       whenShort: 'label',
@@ -40,13 +43,16 @@ describe('connectionShown', () => {
     expect(connectionShown('live', english).whenShort).toBe('hidden')
     expect(connectionShown('polling', english).whenShort).toBe('hidden')
     expect(connectionShown('connecting', english).whenShort).toBe('label')
-    expect(connectionShown('offline', korean)).toMatchObject({ whenShort: 'label', label: '오프라인' })
+    expect(connectionShown('offline', korean)).toMatchObject({
+      whenShort: 'label',
+      label: '이 페이지 오프라인',
+    })
   })
 
   it('speaks Korean', () => {
-    expect(connectionShown('live', korean).label).toBe('연결됨')
-    expect(connectionShown('polling', korean).label).toBe('연결됨')
-    expect(connectionShown('connecting', korean).label).toBe('연결 중…')
+    expect(connectionShown('live', korean).label).toBe('이 페이지 최신 상태')
+    expect(connectionShown('polling', korean).label).toBe('이 페이지 최신 상태')
+    expect(connectionShown('connecting', korean).label).toBe('이 페이지 연결 중…')
     expect(connectionShown('offline', korean).description).toBe('오프라인: 다시 연결되면 새 노트가 보여요.')
   })
 })

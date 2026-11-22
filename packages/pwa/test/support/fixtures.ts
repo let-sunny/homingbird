@@ -139,7 +139,6 @@ export const everything = (): AsRead.ServerInfo =>
       [
         'teaching',
         'agentFigures',
-        'routeMap',
         'draftRequests',
         'channels',
         'groups',

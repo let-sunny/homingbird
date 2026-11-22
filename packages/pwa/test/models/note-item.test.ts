@@ -114,6 +114,7 @@ describe('noteItemModel', () => {
           { kind: 'copy', label: strings.copyNote, reason: null },
           { kind: 'copy-link', label: strings.copyNoteLink, reason: null },
         ],
+        fixed: null,
       },
     })
     expect(model.author).toMatchObject({
@@ -251,6 +252,7 @@ describe('noteItemModel', () => {
       strings.reply,
       ['reply', 'copy', 'copy-link'],
     ])
+    expect(model.menu.fixed).toBe(strings.noteFixed)
     expect(model.meta!.mark).toMatchObject({ state: 'read', label: strings.status.read, count: null })
     expect(model.meta!.mark!.glyph).toBe('✓✓︎')
     expect(noteItemModel(threadInput(), item(note('n2', { authorId: ANA, basis: null }))).basis).toBeNull()
@@ -381,9 +383,11 @@ describe('noteItemModel', () => {
         threadInput({ conversations, thread: { notes: [question], hasMore: false } }),
         item(question),
       ).noAnswer
-    expect(noAnswerFor(note('q', { receipts: [receipt(BEN, { state: 'read', readAt: 2 })] }))).toBe(
-      strings.noAnswerYet,
-    )
+    expect(
+      noAnswerFor(note('q', { body: 'Who knows?', receipts: [receipt(BEN, { state: 'read', readAt: 2 })] })),
+    ).toBe(strings.noAnswerYet)
+    expect(noAnswerFor(note('q', { body: '누가 알아요？' }))).toBe(strings.noAnswerYet)
+    expect(noAnswerFor(note('q', { body: 'Freeze starts Thursday at 18:00.' }))).toBeNull()
     expect(
       noAnswerFor(note('q', { receipts: [receipt(BEN, { state: 'drafting', draftingAt: 2 })] })),
     ).toBeNull()

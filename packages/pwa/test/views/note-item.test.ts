@@ -72,6 +72,23 @@ describe('renderNoteItem', () => {
     expect(render(context, note('n2')).querySelector('.note-more-text')).toBeNull()
   })
 
+  it('keeps Show less where it was on screen when the note folds above it', () => {
+    const { context } = testContext()
+    const scroller = mount(Object.assign(document.createElement('div'), { className: 'thread-scroll' }))
+    const list = Object.assign(document.createElement('ol'), { className: 'notes' })
+    scroller.append(list)
+    const shown = render(context, note('n1', { body: 'word '.repeat(400) }))
+    Object.assign(scroller, { scrollHeight: 3000, clientHeight: 700, scrollTop: 900 })
+    const toggle = shown.querySelector<HTMLElement>('.note-more-text')!
+    const body = shown.querySelector('.note-body')!
+    const placeOnScreen = () => ({ top: body.classList.contains('is-collapsed') ? 120 : 520 })
+    Object.assign(toggle, { getBoundingClientRect: placeOnScreen })
+    toggle.click()
+    expect(scroller.scrollTop).toBe(900)
+    toggle.click()
+    expect([body.classList.contains('is-collapsed'), scroller.scrollTop]).toEqual([true, 500])
+  })
+
   it('copies the note’s text from its menu, and says whether the browser let it', async () => {
     const { context, page } = testContext()
     const shown = render(context, note('n1', { authorId: ANA }))
@@ -91,6 +108,15 @@ describe('renderNoteItem', () => {
     await Promise.resolve()
     expect(page.copied.at(-1)).toBe(`http://localhost/#/c/${ROOM}?note=n1`)
     expect(context.state.notice.get()).toEqual({ kind: 'info', text: strings.noteLinkCopied })
+  })
+
+  it('says in the menu of the person’s own note that a sent note stays as it is, and only there', () => {
+    const { context } = testContext()
+    const mine = render(context, note('n1', { authorId: ANA }))
+    expect(textOf(mine.querySelector('.note-menu'))).toContain(strings.noteFixed)
+    expect(mine.querySelector('.note-fixed')?.getAttribute('role')).toBeNull()
+    const theirs = render(context, note('n2'))
+    expect(textOf(theirs.querySelector('.note-menu'))).not.toContain(strings.noteFixed)
   })
 
   it('shows Ask my agent disabled with the reason where the server takes no draft requests', () => {

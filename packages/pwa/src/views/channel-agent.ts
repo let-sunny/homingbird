@@ -27,6 +27,7 @@ import {
 } from '../models/channel-teaching.ts'
 import { signedIn } from '../state.ts'
 import { strings } from '../strings.ts'
+import { channelDecisionsSection } from './channel-decisions.ts'
 import { channelTeachingSection } from './channel-teaching.ts'
 import type { ViewContext } from './context.ts'
 import { cardOf, focusAfterDecision } from './decision-focus.ts'
@@ -115,7 +116,8 @@ const renderTabs = (model: ChannelAgentTabs): Child =>
 
 /**
  * The agent of a channel the person manages: in the dialog its name, desks and retiring it, with a way to
- * its page; on its page the answers waiting first, then the same, then how it is doing.
+ * its page; on its page the answers waiting first and what was recently decided, then the same, then how
+ * it is doing.
  */
 const agentPanel = (
   context: ViewContext,
@@ -130,7 +132,13 @@ const agentPanel = (
   const joinCodeFor = (name: string): HTMLElement | null => {
     if (!featureOn('joinCodes', state.serverInfo.get())) return null
     if (joinSection?.name !== name)
-      joinSection = { name, element: joinCodeSection(context, life, { channel: channel.slug, name }) }
+      joinSection = {
+        name,
+        element: joinCodeSection(context, life, { channel: channel.slug, name }, () => {
+          actions.loadChannelAgent(channel.slug)
+          actions.loadKnownChannels()
+        }),
+      }
     return joinSection.element
   }
   actions.loadChannelAgent(channel.slug, {
@@ -157,6 +165,7 @@ const agentPanel = (
     'div',
     { class: 'channel-agent-panel' },
     waitingAnswers(context, life, channel, focus, (): HTMLElement => panel),
+    channelDecisionsSection(context, life, channel),
     setup,
     agentFigures(context, life, channel),
   )

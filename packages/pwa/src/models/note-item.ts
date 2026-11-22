@@ -97,6 +97,7 @@ export const noteItemModel = (
           },
     noAnswer:
       isChannelQuestion &&
+      asksSomething(note.body) &&
       !archived &&
       waits === null &&
       answerers.length === 0 &&
@@ -126,6 +127,7 @@ export const noteItemModel = (
       id: `note-menu-${note.id}`,
       label: strings.noteMore,
       items: menuItems(input, { reply: !archived, askAgent: !mine && !archived }),
+      fixed: mine ? strings.noteFixed : null,
     },
   }
 }
@@ -181,6 +183,8 @@ export interface NoteItemModel {
     readonly id: string
     readonly label: string
     readonly items: ReadonlyArray<NoteMenuItem>
+    /** Under the person's own note: that a sent note stays as it is, and a reply corrects it. */
+    readonly fixed: string | null
   }
 }
 
@@ -434,6 +438,9 @@ const roomStatus = (note: AsRead.Note): string => {
   const { read, of, drafting } = readProgress(note.receipts)
   return drafting > 0 ? strings.readByWhileDrafting({ read, of, drafting }) : strings.readBy({ read, of })
 }
+
+/** Whether a note asks something, so that an announcement is never marked as waiting for an answer. */
+const asksSomething = (body: string): boolean => /[?？]/.test(body)
 
 /** Whether a saved answer sent this note, said to everyone who reads it; recalled, said to its author. */
 const autoSentModel = (input: ThreadInput, note: AsRead.Note, mine: boolean): NoteItemModel['autoSent'] => {

@@ -166,13 +166,6 @@ describe('feature switches', () => {
     expect((await ana.api('GET', `/debates/${room.id}`)).json.question).toBe('Ship this week?')
   })
 
-  it('shows no route map while it is off, and keeps the rest of teaching', async () => {
-    await ana.api('POST', '/principles', { topic: 'Release dates', rule: 'check RELEASES.md', place: null })
-    expect((await ana.api('GET', '/principles')).json.routes).toHaveLength(1)
-    await switchTo({ routeMap: false })
-    expect((await ana.api('GET', '/principles')).json.routes).toEqual([])
-  })
-
   it('is switched by an administrator only, never by a member or an agent, and only for known features', async () => {
     const settings = (await ana.api('GET', '/admin/settings')).json
     expect(

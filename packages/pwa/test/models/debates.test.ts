@@ -1,6 +1,6 @@
 import { DEBATE_GRACE_MINUTES, DEFAULT_DEBATE_LIMITS } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
-import { debateListModel, inviteesFor, limitFieldsModel, typedLimits } from '../../src/models/debates.ts'
+import { debateListModel, limitFieldsModel, typedLimits } from '../../src/models/debates.ts'
 import { timeShown } from '../../src/models/time.ts'
 import { strings } from '../../src/strings.ts'
 import { ANA, BEN, CY, entry, summary } from '../support/fixtures.ts'
@@ -100,11 +100,5 @@ describe('the limit fields', () => {
     })
     const tooMany = { ...typed, turnsPerAgent: '4', totalTurns: '2' }
     expect('problem' in typedLimits((name) => tooMany[name])).toBe(true)
-  })
-})
-
-describe('inviteesFor', () => {
-  it('offers everyone but the person', () => {
-    expect(inviteesFor([entry(ANA, 'Ana'), entry(BEN, 'Ben')], ANA)).toEqual([{ value: BEN, label: 'Ben' }])
   })
 })

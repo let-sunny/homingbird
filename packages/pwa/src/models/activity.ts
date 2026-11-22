@@ -117,6 +117,8 @@ export interface ActivityGroup {
 
 /** Where an item happens, as a link to the conversation, with when it arrived. */
 export interface ActivityPlace {
+  /** The conversation it waits in; none for a debate room. */
+  readonly conversationId: ConversationId | null
   readonly text: string
   readonly href: string
   readonly label: string
@@ -224,6 +226,7 @@ const reviewItems = (input: ActivityInput): ActivityItem[] =>
         key: `review:${review.note.id}`,
         at: review.note.updatedAt,
         place: {
+          conversationId: review.note.conversationId,
           text:
             room === undefined
               ? strings.activity.inPlace({ place: channelLabel(review.channel) })
@@ -316,6 +319,7 @@ const debateItems = (input: ActivityInput): ActivityItem[] => {
         at,
         weight: 1,
         place: {
+          conversationId: null,
           text: room.question,
           href: hrefFor({ name: 'debate', id: room.id, tab: asks ? 'turns' : 'result' }),
           label: strings.activity.openRoom,
@@ -354,6 +358,7 @@ const placeOf = (
   href: string,
   at: number | null,
 ): ActivityPlace => ({
+  conversationId: room.id,
   text: placeText(input, room),
   href,
   label: strings.activity.openConversation,
