@@ -16,6 +16,7 @@ import { tableNames } from '../src/sql/schema.ts'
 import { startDovecote } from '../src/startup.ts'
 import { SERVER_VERSION } from '../src/version.ts'
 import { asRead, issueAgentCredential } from './channel-agent-support.ts'
+import { migrationTimeout } from './dialect-support.ts'
 import {
   type Session,
   type TestServer,
@@ -100,6 +101,8 @@ describe('The releases these tests upgrade from', () => {
 })
 
 describe.each(UPGRADES)('Starting this Dovecote on a database %s left, on %s', (_, __, release, url) => {
+  const timeout = migrationTimeout(url)
+
   let database: Database
   let before: Readonly<Record<string, Row[]>>
   let after: Readonly<Record<string, Row[]>>
@@ -132,7 +135,7 @@ describe.each(UPGRADES)('Starting this Dovecote on a database %s left, on %s', (
       { HB_FEATURES: 'channelAgents=on' },
       { database, ...(url.startsWith('sqlite:') ? {} : { databaseUrl: url }) },
     )
-  })
+  }, timeout)
 
   afterAll(() => server?.close())
 
@@ -164,6 +167,7 @@ describe.each(UPGRADES)('Starting this Dovecote on a database %s left, on %s', (
         ],
       ])
     },
+    timeout,
   )
 
   it.skipIf(url === undefined)(
@@ -191,6 +195,7 @@ describe.each(UPGRADES)('Starting this Dovecote on a database %s left, on %s', (
         AUDIT_TABLE_ROWS.recent.created_at,
       ])
     },
+    timeout,
   )
 
   it.skipIf(url === undefined)(
@@ -218,6 +223,7 @@ describe.each(UPGRADES)('Starting this Dovecote on a database %s left, on %s', (
         `The audit chain holds: ${trailAfter.audit_events!.length} rows, head ${trailAfter.audit_head![0]!.hash}.`,
       ])
     },
+    timeout,
   )
 
   it.skipIf(url === undefined)(
@@ -282,6 +288,7 @@ describe.each(UPGRADES)('Starting this Dovecote on a database %s left, on %s', (
           hasStep(release, since) ? inOrder(models) : [],
         )
     },
+    timeout,
   )
 
   it.skipIf(url === undefined)(
@@ -327,6 +334,7 @@ describe.each(UPGRADES)('Starting this Dovecote on a database %s left, on %s', (
         ]),
       )
     },
+    timeout,
   )
 
   it.skipIf(url === undefined)(
@@ -356,6 +364,7 @@ describe.each(UPGRADES)('Starting this Dovecote on a database %s left, on %s', (
         managing: true,
       })
     },
+    timeout,
   )
 
   it.skipIf(url === undefined)(
@@ -370,6 +379,7 @@ describe.each(UPGRADES)('Starting this Dovecote on a database %s left, on %s', (
         inOrder(await read(`SELECT member_id FROM participants WHERE conversation_id = '${ROOM.retired}'`)),
       ).toEqual([{ member_id: ID.ana }, { member_id: ID.dee }])
     },
+    timeout,
   )
 
   it.skipIf(url === undefined)(
@@ -423,6 +433,7 @@ describe.each(UPGRADES)('Starting this Dovecote on a database %s left, on %s', (
         ['Cy agent', '두 번째 주가 좋습니다.', hasStep(release, DEBATE_MODEL) ? 'model-c' : null],
       ])
     },
+    timeout,
   )
 
   it.skipIf(url === undefined)(
@@ -466,6 +477,7 @@ describe.each(UPGRADES)('Starting this Dovecote on a database %s left, on %s', (
       })
       expect((await ben('GET', `/notes/${ID.generalDraft}`)).json).toMatchObject({ status: 'sent' })
     },
+    timeout,
   )
 
   it.skipIf(url === undefined)(
@@ -503,25 +515,32 @@ describe.each(UPGRADES)('Starting this Dovecote on a database %s left, on %s', (
         inOrder([{ kind: 'channel_agent' }, { kind: 'person' }]),
       )
     },
+    timeout,
   )
 
-  it.skipIf(url === undefined)('changes nothing but the record of the start on a second start', async () => {
-    const everything = () => storedEverything(database)
-    const served = await everything()
-    const again = await startOn(database)
-    const restarted = await everything()
-    expect(again.outcome).toBe('serve')
-    const { audit_events: auditServed, audit_head: _, ...keptServed } = served
-    const { audit_events: auditRestarted, audit_head: __, ...keptRestarted } = restarted
-    expect(keptRestarted).toEqual(keptServed)
-    expect(auditRestarted!.slice(0, auditServed!.length)).toEqual(auditServed)
-    expect(auditRestarted!.slice(auditServed!.length).map((row) => row.event)).toEqual(['system.started'])
-  })
+  it.skipIf(url === undefined)(
+    'changes nothing but the record of the start on a second start',
+    async () => {
+      const everything = () => storedEverything(database)
+      const served = await everything()
+      const again = await startOn(database)
+      const restarted = await everything()
+      expect(again.outcome).toBe('serve')
+      const { audit_events: auditServed, audit_head: _, ...keptServed } = served
+      const { audit_events: auditRestarted, audit_head: __, ...keptRestarted } = restarted
+      expect(keptRestarted).toEqual(keptServed)
+      expect(auditRestarted!.slice(0, auditServed!.length)).toEqual(auditServed)
+      expect(auditRestarted!.slice(auditServed!.length).map((row) => row.event)).toEqual(['system.started'])
+    },
+    timeout,
+  )
 })
 
 describe.each(UPGRADES)(
   'A start on a database %s left that loses its connection during the upgrade, on %s',
   (_, dialect, release, url) => {
+    const timeout = migrationTimeout(url)
+
     const pending = MIGRATIONS[release.steps]
     const first = pending?.find((step) => 'addTo' in step || 'primaryKey' in step)
     const cut = pending?.findLast((step) => 'addTo' in step)
@@ -585,6 +604,7 @@ describe.each(UPGRADES)(
           await T.runPromise(database.close)
         }
       },
+      timeout,
     )
   },
 )
