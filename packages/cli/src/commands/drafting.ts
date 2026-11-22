@@ -1,5 +1,6 @@
 import { Task as T } from '@homingbird/kernel'
 import {
+  AUTO_SENT_NOTICE,
   type AsRead,
   ConversationId,
   DeskSession,
@@ -43,7 +44,9 @@ export const draft = (
     )
     return outcome(
       { draft: summaryOf(created) },
-      `Draft ${created.id} is waiting for a person to approve it. It has not been sent.`,
+      created.status === 'sent'
+        ? `Note ${created.id} was sent. ${AUTO_SENT_NOTICE}`
+        : `Draft ${created.id} is waiting for a person to approve it. It has not been sent.`,
     )
   })
 

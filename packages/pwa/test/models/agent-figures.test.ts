@@ -72,6 +72,14 @@ describe('figuresModel', () => {
     expect(model.table.rows[9]).toEqual([strings.trust.rows.debateResultsSent, '2', '0'])
   })
 
+  it('adds a line for notes saved answers sent only when either period has one', () => {
+    const table = (current: ReturnType<typeof figures>, previous = figures()) =>
+      shown(figuresModel(report({ periods: [{ days: 7, current, previous }] }), 7)).table.rows
+    expect(table(figures({ autoSent: 3 })).at(-1)).toEqual([strings.trust.rows.autoSent, '3', '0'])
+    expect(table(figures(), figures({ autoSent: 1 })).at(-1)).toEqual([strings.trust.rows.autoSent, '0', '1'])
+    expect(table(figures()).map((row) => row[0])).not.toContain(strings.trust.rows.autoSent)
+  })
+
   it('words a falling, steady and new share', () => {
     const change = (current: number, previous: number | null) =>
       shown(

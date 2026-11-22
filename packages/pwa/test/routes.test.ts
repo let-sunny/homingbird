@@ -33,7 +33,7 @@ const routes: fc.Arbitrary<Route> = fc.oneof(
     .tuple(segment, fc.integer({ min: 1, max: 999 }))
     .map(([id, turn]): Route => ({ name: 'debate', id, tab: 'turns', turn })),
   fc
-    .constantFrom<AgentSection | null>(null, 'connection', 'teaching', 'doing')
+    .constantFrom<AgentSection | null>(null, 'connection', 'teaching', 'doing', 'previews')
     .map((section): Route => ({ name: 'agent', section })),
   fc.constant<Route>({ name: 'character', draft: null, from: null }),
   segment.map((draft): Route => ({ name: 'character', draft, from: null })),

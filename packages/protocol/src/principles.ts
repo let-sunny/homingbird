@@ -1,5 +1,6 @@
 import { Schema as S } from '@homingbird/kernel'
 import type * as AsRead from './as-read.ts'
+import { AutoSend } from './auto-send.ts'
 import { ChannelDrafting } from './channel-drafting.ts'
 import { UNKNOWN } from './compatibility.ts'
 import { DebateCredit } from './debate-result.ts'
@@ -142,6 +143,7 @@ export const PrincipleCounts = S.struct({
   edited: S.int({ min: 0 }),
   discarded: S.int({ min: 0 }),
   missed: S.int({ min: 0 }),
+  autoSent: S.optional(S.int({ min: 0 })),
 })
 export type PrincipleCounts = S.Infer<typeof PrincipleCounts>
 
@@ -161,6 +163,7 @@ export const Principle = S.struct({
   lastAppliedAt: S.nullable(Timestamp),
   publicText: S.nullable(PublicText),
   counts: S.nullable(PrincipleCounts),
+  autoSend: S.optional(AutoSend),
 })
 export type Principle = S.Infer<typeof Principle>
 

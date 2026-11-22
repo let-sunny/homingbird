@@ -47,9 +47,13 @@ export interface MyAgentModel {
 const availableSections = (info: AsRead.ServerInfo | null): ReadonlyArray<AgentSection> => {
   const teaching = featureOn('teaching', info)
   const figures = featureOn('agentFigures', info)
+  const previews = featureOn('draftPreviews', info)
   return AGENT_SECTIONS.filter(
     (section) =>
-      section === FIRST_SECTION || (section === 'teaching' && teaching) || (section === 'doing' && figures),
+      section === FIRST_SECTION ||
+      (section === 'teaching' && teaching) ||
+      (section === 'doing' && figures) ||
+      (section === 'previews' && previews),
   )
 }
 

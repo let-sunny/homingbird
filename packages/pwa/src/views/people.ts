@@ -151,7 +151,7 @@ interface Choices {
 
 const renderPeople = (
   model: PeopleModel,
-  context: Pick<ViewContext, 'actions' | 'clock' | 'page' | 'document'>,
+  context: Pick<ViewContext, 'actions' | 'clock' | 'page' | 'document' | 'state' | 'random'>,
   retry: () => void,
   choices: Choices,
 ): HTMLElement => {
@@ -168,7 +168,7 @@ const renderPeople = (
 
 const personCard = (
   person: PersonCard,
-  context: Pick<ViewContext, 'actions' | 'clock' | 'page' | 'document'>,
+  context: Pick<ViewContext, 'actions' | 'clock' | 'page' | 'document' | 'state' | 'random'>,
   choices: Choices,
 ): HTMLElement => {
   const more = person.more === null ? null : moreMenu(person, person.more, context)
@@ -190,7 +190,7 @@ const personCard = (
             h('span', { class: `relation is-${person.relation.kind}` }, person.relation.text),
         ),
         h('span', { class: 'person-email', title: person.email }, person.email),
-        presenceBadges(person.presence),
+        presenceBadges(person.presence, context),
         person.channels !== null &&
           h(
             'div',
@@ -249,7 +249,7 @@ const personCard = (
 const moreMenu = (
   person: PersonCard,
   more: NonNullable<PersonCard['more']>,
-  context: Pick<ViewContext, 'actions' | 'clock' | 'page' | 'document'>,
+  context: Pick<ViewContext, 'actions' | 'clock' | 'page' | 'document' | 'state' | 'random'>,
 ): MenuParts =>
   actionMenu(context, {
     id: `person-menu-${person.memberId}`,

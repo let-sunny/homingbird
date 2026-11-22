@@ -206,6 +206,7 @@ const comparisonText = (comparison: ReturnType<typeof compareSentAsWritten>, cur
 
 const numbersTable = (report: AsRead.AgentReport, period: AsRead.AgentPeriod): FiguresTable => {
   const rows = strings.trust.rows
+  const hasAutoSent = (period.current.autoSent ?? 0) + (period.previous.autoSent ?? 0) > 0
   const line = (label: string, value: (figures: AsRead.AgentFigures) => string) =>
     [label, value(period.current), value(period.previous)] as const
   const counted = (pick: (figures: AsRead.AgentFigures) => number) => (figures: AsRead.AgentFigures) =>
@@ -262,6 +263,14 @@ const numbersTable = (report: AsRead.AgentReport, period: AsRead.AgentPeriod): F
         rows.debateResultsSent,
         counted((figures) => figures.debateResultsSent ?? 0),
       ),
+      ...(hasAutoSent
+        ? [
+            line(
+              rows.autoSent,
+              counted((figures) => figures.autoSent ?? 0),
+            ),
+          ]
+        : []),
     ],
     footnotes: [
       strings.trust.quickExplained({ seconds: report.quickApprovalSeconds }),

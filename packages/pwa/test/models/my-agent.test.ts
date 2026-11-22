@@ -31,10 +31,9 @@ describe('myAgentModel', () => {
   })
 
   it('loads the report only on How it is doing and Connection, and only with figures on', () => {
+    const all = serverInfo({ ...everything().features, draftPreviews: true })
     for (const section of AGENT_SECTIONS)
-      expect(myAgentModel(everything(), section).loadsReport).toBe(
-        section === 'doing' || section === 'connection',
-      )
+      expect(myAgentModel(all, section).loadsReport).toBe(section === 'doing' || section === 'connection')
     expect(myAgentModel(serverInfo({ teaching: true }), 'connection').loadsReport).toBe(false)
   })
 
@@ -48,6 +47,15 @@ describe('myAgentModel', () => {
       'connection',
       'doing',
     ])
+  })
+
+  it('offers Early previews only while the organization has draft previews on', () => {
+    expect(myAgentModel(serverInfo({ draftPreviews: true }), 'previews').shown).toEqual({
+      section: 'previews',
+      title: strings.trust.sections.previews,
+      hint: strings.trust.sectionHints.previews,
+    })
+    expect(myAgentModel(serverInfo(), 'previews').shown.section).toBe('connection')
   })
 
   it('falls back to Connection when the section asked for is switched off', () => {

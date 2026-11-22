@@ -20,7 +20,7 @@ export interface TodoRow {
   readonly details?: Child
   readonly problems?: ReadonlyArray<string>
   readonly menu?: ReadonlyArray<HTMLElement>
-  readonly aside?: HTMLElement
+  readonly aside?: Child
 }
 
 export interface TodoList {

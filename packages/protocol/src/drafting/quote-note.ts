@@ -64,6 +64,7 @@ export const UNKNOWN_AUTHOR = { name: 'Unknown member', email: 'unknown' } as co
 const stateOf = (note: AsRead.Note): string => {
   if (note.status === 'draft') return 'draft waiting for approval, not sent'
   if (note.status === 'discarded') return 'discarded, never sent'
+  if (note.status === 'withdrawn') return 'recalled by its author'
   if (note.status !== 'sent') return UNKNOWN_STATUS_TEXT
   const reply = note.inReplyTo === null ? '' : `, in reply to ${note.inReplyTo}`
   return `sent${reply}, ${describeStatus(summarize(note.receipts)).toLowerCase()}`

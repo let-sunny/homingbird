@@ -80,6 +80,17 @@ const PROBES: Readonly<Partial<Record<RouteName, { readonly status: number; read
     status: 404,
     probe: ({ root }, id) => status(root, 'DELETE', `/admin/members/${id}/character`),
   },
+  'me.draftPreviews.set': {
+    status: 400,
+    probe: async ({ ana, root }, id) => {
+      const settings = (await root.api('GET', '/admin/settings')).json
+      await root.api('PUT', '/admin/settings', {
+        ...settings,
+        features: { ...settings.features, draftPreviews: true },
+      })
+      return status(ana, 'PUT', '/me/draft-previews', { people: [id], channels: [] })
+    },
+  },
   'debates.create': {
     status: 400,
     probe: ({ ana }, id) => status(ana, 'POST', '/debates', { question: 'Which runbook?', memberIds: [id] }),

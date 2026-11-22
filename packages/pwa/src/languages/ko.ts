@@ -198,6 +198,34 @@ export const ko: Translation<typeof en> = {
   privateChannel: '비공개',
   answerHere: '여기서 답하기',
   answerHereHelp: '“여기서 답하기”란?',
+  hintClose: '도움말 닫기',
+  hints: {
+    legend: '도움말',
+    intro:
+      '처음 2주 동안, Homingbird만의 기능을 한 번 써 보기 전까지 무엇을 할 수 있는지 짧은 도움말이 떠요.',
+    showAgain: '도움말 다시 보기',
+    shownAgain: '이 브라우저에서 지금부터 도움말이 다시 떠요.',
+    kindRule: '규칙은 에이전트에게 답을 찾는 방법을 알려 줘서, 사실이 바뀌어도 맞게 답해요.',
+    kindAnswer: '답은 에이전트가 그대로 전하는 내용이에요. 잘 바뀌지 않는 사실에 쓰세요.',
+    makePublic: '누르면 이 원칙에 대한 문장 하나를 동료에게 보여 줘요. 원칙 자체는 나만 봐요.',
+    makePrivate: '누르면 이 원칙에 대한 문장을 동료에게 더 이상 보여 주지 않아요.',
+    approveAndSend: '누르면 보이는 그대로 보내요. 누르기 전에는 아무것도 나가지 않아요.',
+    draft: '내 에이전트가 쓴 초안이에요. 승인하고 보내기 전에는 다른 사람에게 보이지 않아요.',
+    channelAgent: '이 채널에 답하는 에이전트를 열어요. 답마다 채널 운영자가 승인해요.',
+    channelManagers: '운영자는 이 채널의 에이전트를 돌리고, 그 답을 읽은 뒤 보내요.',
+    privateQuestion: '나와 채널 운영자만 보는 곳에서 이 채널의 에이전트에게 물어요.',
+    debateRoom: '몇 사람의 에이전트가 한 질문을 차례대로 토론하는 방이에요. 열어서 따라가 보세요.',
+    debateTurns: '에이전트마다 한 말을 읽어요. 차례는 승인 없이 보이고 방 안에만 남아요.',
+    debateResult: '에이전트들이 투표로 정한 결론이에요. 사람이 보내야만 방 밖으로 나가요.',
+    skippedDraft: '에이전트가 초안을 쓰지 않기로 한 노트예요. 직접 답하거나 어떻게 할지 가르쳐 주세요.',
+    sentAsWritten: '한 글자도 고치지 않고 보낸 초안이에요. 에이전트를 믿어도 되는 곳을 보여 줘요.',
+    teachingChances: '고치거나 버린 초안을 다음번을 위한 원칙으로 바꿔요.',
+    insights: '에이전트 초안이 어떻게 처리되는지 조직 전체의 합계를 봐요. 누구의 노트도 보이지 않아요.',
+    draftPreviews: '내가 확인하기 전의 에이전트 초안을, 미확인 표시와 함께 누가 볼 수 있을지 골라요.',
+    autoSend: '작성자가 스스로 보내도록 허락한 저장된 답이 승인을 기다리지 않고 보낸 노트예요.',
+    joinCode:
+      '서버를 이 에이전트로 로그인시키는 일회용 서버 연결 코드를 만들어요. 에이전트는 초안만 쓰고 보내지 않아요.',
+  },
   answerHereHint:
     '켜면 이 채널의 질문이 나에게 전달되고, 내 에이전트가 답장 초안을 써서 승인을 기다려요. 끄면 채널에 남아 읽기만 해요.',
   leaveChannel: '채널 나가기',
@@ -610,6 +638,8 @@ export const ko: Translation<typeof en> = {
       deskAvailability: '에이전트가 답할 수 없을 때 알리기',
       invites: '초대 링크',
       analytics: '익명 제품 분석',
+      autoSend: '스스로 보내지는 저장한 답',
+      draftPreviews: '에이전트 초안 미리 보여 주기',
     },
     whenOff: {
       channels: '끄면: 새 채널을 만들 수 없어요. 있는 채널은 그대로예요.',
@@ -635,8 +665,12 @@ export const ko: Translation<typeof en> = {
         '끄면: 에이전트를 실행하는 프로그램이 에이전트가 답할 수 없다는 사실을 알리지 않아요. 동료에게는 깨어 있는지만 보이고, 노트는 에이전트가 포기할 때까지 답장 작성 중으로 보여요.',
       invites:
         '끄면: 아무도 초대 링크를 만들 수 없고, 이미 만든 초대 링크도 거절돼요. 허용한 도메인과 서버가 지정한 관리자만 로그인할 수 있어요.',
+      autoSend:
+        '끄면: 저장한 답이 스스로 보내지지 않고, 모든 초안이 본인의 승인을 기다려요. 켜면: 각자 저장한 답을 스스로 보내지게 켤 수 있지만, 그 답과 똑같은 글만, 본인이 허락한 곳에만 보내져요.',
       analytics:
         '끄면: 사용 통계가 이 서버 밖으로 나가지 않아요. 켜면 서버 운영자가 정한 곳으로만 본 페이지 같은 익명 통계가 가요. 내용, 이름, 이메일은 보내지 않아요.',
+      draftPreviews:
+        '끄면: 본인이 확인하기 전에는 아무도 동료 에이전트의 초안을 볼 수 없어요. 켜면: 각자 내 에이전트에서 누가 볼지 골라요. 고르기 전에는 아무도 볼 수 없어요.',
     },
   },
   todo: {
@@ -675,6 +709,7 @@ export const ko: Translation<typeof en> = {
       connection: '연결',
       teaching: '가르치기',
       doing: '현황',
+      previews: '미리 보여 주기',
     },
     tabsLabel: '내 에이전트 메뉴',
     sectionHints: {
@@ -683,6 +718,7 @@ export const ko: Translation<typeof en> = {
         '원칙은 에이전트가 따르는 규칙이나 저장해 둔 답이에요. 에이전트는 초안마다 적용한 원칙을 알려 줘요.',
       doing:
         '이 숫자는 내가 아니라 에이전트 초안에 관한 거예요. 초안이 어디서 이미 내 뜻대로 나가고, 어디서 아직 내 손이 필요한지 보여 줘요.',
+      previews: '내가 확인하기 전에 에이전트 초안을 읽을 수 있는 사람이에요.',
     },
     verdict: {
       unknown: '이 버전에서는 아직 이 숫자를 설명할 수 없어요',
@@ -724,6 +760,7 @@ export const ko: Translation<typeof en> = {
       quickApprovals: '빠른 승인',
       wroteYourself: '내가 직접 쓴 노트',
       debateResultsSent: '내가 보낸 토론 결과',
+      autoSent: '저장한 답이 보낸 노트',
     },
     debateResultsExplained: '토론 결과는 따로 세요. 에이전트 초안도, 내가 직접 쓴 노트도 아니에요.',
     countAndShare: '{count} ({share})',
@@ -1172,6 +1209,7 @@ export const ko: Translation<typeof en> = {
       skipShare: '에이전트가 건너뛴 노트',
       debateResultsSent: '보낸 토론 결과',
       answeredFromHistory: '이전 답변으로 해결돼 보내지 않은 질문',
+      autoSent: '저장한 답이 보낸 노트',
       channelAgentAnswers: '채널 에이전트의 답변',
       channelAgentAsWritten: '그대로 보낸 채널 에이전트 답변',
       channelAgentEdited: '수정 후 보낸 채널 에이전트 답변',
@@ -1184,6 +1222,10 @@ export const ko: Translation<typeof en> = {
     channelAgentsCounted:
       '채널 에이전트의 답변은 에이전트 초안에도 함께 세요. 여기서는 공개 채널과 내가 속한 비공개 채널만 세요.',
     debateResultsCounted: '보낸 토론 결과는 노트나 에이전트 초안과 따로 세요.',
+    autoSentExplained:
+      '저장한 답이 스스로 보낸 노트는 따로 세요. 에이전트 초안, 빠른 승인, 결정 시간에 넣지 않고, {minimum}명보다 적으면 숨겨요.',
+    autoSentCounted:
+      '저장한 답이 스스로 보낸 노트는 따로 세요. 에이전트 초안, 빠른 승인, 결정 시간에 넣지 않아요.',
     partOf: '{share} ({total}개 중 {count}개)',
     hidden: '숨김',
     draftsHidden: '에이전트 초안을 결정한 사람이 {minimum}명보다 적은 곳에서는 초안 결정을 숨겨요.',
@@ -1477,6 +1519,7 @@ export const ko: Translation<typeof en> = {
       decisionTime: '초안이 화면에 처음 나타난 때와 내가 결정한 때, 그리고 얼마나 자주 빠르게 보냈는지.',
       skips: '에이전트가 건너뛴 노트와 그 이유, 그리고 초안 없이 끝난 초안 요청.',
       ownNotes: '내가 직접 쓴 노트 수와 내가 보낸 토론 결과.',
+      autoSent: '내 저장한 답이 스스로 보낸 노트 수. 내 결정과 따로 세요.',
       places: '초안마다 어느 채널인지. DM은 하나로 묶어요.',
       labels: '초안마다 쓴 프로그램과, 에이전트가 밝힌 모델.',
       sessions: '초안마다 에이전트 세션이 얼마나 오래 실행됐고 컨텍스트를 얼마나 썼는지.',
@@ -1500,6 +1543,7 @@ export const ko: Translation<typeof en> = {
       skips: '에이전트가 건너뛴 노트 수.',
       debateResults: '보낸 토론 결과 수.',
       answeredFromHistory: '이전 답변으로 해결돼 보내지 않은 질문 수, 채널별로.',
+      autoSent: '저장한 답이 스스로 보낸 노트 수.',
       places: '사람이 충분히 쓴 채널마다 같은 수. DM은 하나로 묶어요.',
       labels: '사람이 충분히 쓴 프로그램과 모델마다 같은 수.',
       delivery: '받은 노트 중 에이전트를 연결한 사람에게 간 노트 수와, 에이전트가 얼마나 빨리 가져갔는지.',
@@ -1720,6 +1764,28 @@ export const ko: Translation<typeof en> = {
     again: '새 서버 연결 코드 만들기',
     failed: '지금은 서버 연결 코드를 만들 수 없어요. 잠시 후 다시 시도하세요.',
   },
+  draftPreviews: {
+    intro:
+      '내가 확인하기 전에도 고른 동료가 에이전트 초안을 볼 수 있게 해요. 동료는 나를 기다리지 않아도 돼요. 동료에게는 확인 전 초안으로 표시되고, 답장하거나 인용할 수 없으며, 내가 버리면 사라져요. 내가 직접 쓴 초안과 채널 에이전트의 답은 보여 주지 않아요.',
+    people: '사람',
+    peopleHint: '나와 주고받는 DM과 그룹 DM에서 에이전트 초안을 볼 수 있어요.',
+    channels: '채널',
+    channelsHint: '채널 방에 있는 모두가 그 방의 에이전트 초안을 볼 수 있어요.',
+    noPeople: '아직 다른 사람이 없어요.',
+    noChannels: '채널에 들어가면 여기서 고를 수 있어요.',
+    nobody: '내가 확인하기 전에는 아무도 에이전트 초안을 볼 수 없어요.',
+    somebody: '{people}명과 채널 {channels}곳에 미리 보여 줘요.',
+    save: '저장',
+    saved: '저장했어요.',
+    cardTitle: '{name}님의 에이전트가 쓴 확인 전 초안',
+    cardNote: '{name}님이 아직 확인하지 않았어요. 바뀌거나 철회될 수 있어요.',
+    withdrawn: '{name}님이 이 초안을 철회했어요',
+    withdrawnNote: '보내지 않았어요.',
+    ownNotice: '내가 확인하기 전에도 {names}님이 여기서 에이전트 초안을 볼 수 있어요.',
+    ownNoticeRoom: '내가 확인하기 전에도 이 방의 모두가 에이전트 초안을 볼 수 있어요.',
+    confirmed: '{name}님이 미리 본 초안을 확인하고 보냈어요.',
+    confirmedEdited: '{name}님이 미리 본 초안을 고친 뒤 보냈어요.',
+  },
   cloudDesk: {
     legend: '클라우드 데스크',
     intro:
@@ -1785,5 +1851,25 @@ export const ko: Translation<typeof en> = {
       unreachable: '서비스가 시험 깨우기를 받지 않았어요 ({status}).',
       unknown: '시험 깨우기를 보냈어요.',
     },
+  },
+  autoSend: {
+    sentByTheirs: '{name}의 저장한 답에서 자동으로 보냈어요',
+    sentByYours: '내 저장한 답에서 자동으로 보냈어요',
+    recalledLine: '이 노트를 회수했어요. 이제 다른 사람에게는 보이지 않아요.',
+    recall: '회수',
+    recalled: '회수했어요. 이제 이 노트는 나만 볼 수 있어요.',
+    menu: '자동으로 보내기…',
+    dialogTitle: '“{name}” 자동으로 보내기',
+    switchLabel: '맞을 때 자동으로 보내기',
+    hint: '에이전트의 초안이 이 답과 한 글자도 다르지 않고, 아래에서 고른 곳으로 갈 때만 나를 기다리지 않고 보내져요. 그 밖의 초안은 모두 내 승인을 기다려요. 보낸 뒤 5분 동안은 회수할 수 있어요.',
+    placesLabel: '자동으로 보내도 되는 곳',
+    placesHint: '내 DM과 내가 있는 공개 채널이에요.',
+    noPlaces: '먼저 공개 채널에 들어가거나 DM을 보내 주세요.',
+    needsPlace: '자동으로 보내도 되는 곳을 하나 이상 골라 주세요.',
+    save: '저장',
+    saved: '저장했어요. 고른 곳에서는 저장한 답이 자동으로 보내져요.',
+    turnedOff: '저장했어요. 이제 모든 초안이 다시 내 승인을 기다려요.',
+    sendsIn: { other: '{count}곳에서 자동으로 보내져요' },
+    sentCount: { other: '자동으로 {count}번 보냈어요' },
   },
 }
