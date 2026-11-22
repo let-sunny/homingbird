@@ -6,6 +6,8 @@ import { loadConfig } from '../packages/dovecote/src/config.ts'
 import { BROWSER_SIGN_IN_CLIENT, issueCredential } from '../packages/dovecote/src/domain/credentials.ts'
 import { type Contribution, teamsShown } from '../packages/dovecote/src/domain/disclosure.ts'
 import { signInMember } from '../packages/dovecote/src/domain/members.ts'
+import { exportNotesOf } from '../packages/dovecote/src/domain/note-export.ts'
+import { purgeExpiredNotes } from '../packages/dovecote/src/domain/note-retention.ts'
 import { startServer } from '../packages/dovecote/src/http/node-server.ts'
 import { buildRuntime } from '../packages/dovecote/src/runtime.ts'
 import { openDatabase } from '../packages/dovecote/src/sql/open.ts'
@@ -523,6 +525,27 @@ async function measure(): Promise<void> {
   })
   streams.abort()
   await T.runPromise(server.close)
+  results.push({
+    what: "Export one member's notes (`dovecote notes export`)",
+    ...(await timed(size.members, (run) =>
+      T.runPromise(
+        exportNotesOf(seats[run]!.memberId as never, () => {}),
+        env,
+      ),
+    )),
+  })
+  const retained = { ...env, config: { ...env.config, noteRetentionDays: Math.floor(size.days / 2) } }
+  const notesBeforePurge = Number(
+    (await T.runPromise(database.all(raw('SELECT COUNT(*) AS n FROM notes'))))[0]!.n,
+  )
+  let purged = 0
+  const purge = await timed(1, async () => {
+    purged = await T.runPromise(purgeExpiredNotes, retained)
+  })
+  results.push({
+    what: `First retention pass at ${retained.config.noteRetentionDays} days (${purged} of ${notesBeforePurge} notes deleted)`,
+    ...purge,
+  })
 
   const counts = await T.runPromise(
     database.all(
