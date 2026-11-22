@@ -413,6 +413,7 @@ describe('request ids', () => {
         allow: () => {
           throw new RangeError(`secret ${agent.token}`)
         },
+        waitMs: () => 0,
       },
     }
     const exit = await T.run(

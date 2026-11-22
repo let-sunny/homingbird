@@ -2,6 +2,7 @@ import { Stream, Task as T, pipe } from '@homingbird/kernel'
 import { type ApiError, HEARTBEAT_SECONDS, type StreamEvent, Unauthorized } from '@homingbird/protocol'
 import { authenticate } from '../domain/credentials.ts'
 import { touchLastSeen } from '../domain/members.ts'
+import { readableEvents, readsPrivateQuestions } from '../domain/private-question-readers.ts'
 import type { AppEnv, Caller } from '../environment.ts'
 import { liveEvents } from '../events/events.ts'
 import { callerOf, sessionToken } from './authenticate.ts'
@@ -45,7 +46,19 @@ export const memberFeed = (
     const ended = new AbortController()
     disconnected.addEventListener('abort', () => ended.abort(), { once: true })
     yield* touchLastSeen(caller.member.id)
-    const events = yield* liveEvents(caller.member.id, caller.credential.kind, after, ended.signal)
+    const live = yield* liveEvents(caller.member.id, caller.credential.kind, after, ended.signal)
+    const events = readsPrivateQuestions(caller)
+      ? live
+      : pipe(
+          live,
+          Stream.flatMap((event: StreamEvent) =>
+            Stream.fromTask(
+              T.map((kept: StreamEvent[]) => Stream.fromIterable(kept))(readableEvents(caller, [event])),
+              env,
+              ended.signal,
+            ),
+          ),
+        )
     const heartbeats = pipe(
       Stream.interval(env.clock, HEARTBEAT_SECONDS * 1000, ended.signal),
       Stream.map(() => T.runPromise(heartbeat(token, ended), env)),

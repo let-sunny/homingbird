@@ -16,7 +16,7 @@ export interface DeviceTokens {
 }
 
 export const DeviceFlowFailed = tagged('DeviceFlowFailed')<{
-  readonly reason: 'denied' | 'expired' | 'unreachable'
+  readonly reason: 'denied' | 'expired' | 'unreachable' | 'limited' | 'refused'
   readonly message: string
 }>()
 export type DeviceFlowFailed = ReturnType<typeof DeviceFlowFailed>
@@ -29,14 +29,17 @@ export interface DeviceFlowOptions {
   readonly fetch?: Fetch
 }
 
+/** Starts signing in; a server that refuses says why, and when it is taking too many, when to try again. */
 export const beginDeviceFlow = (options: DeviceFlowOptions): T.Task<DeviceAuthorization, DeviceFlowFailed> =>
-  T.map((answer: Answer) => answer.body as unknown as DeviceAuthorization)(
-    post(options, '/oauth/device_authorization', {
+  T.gen(function* () {
+    const answer = yield* post(options, '/oauth/device_authorization', {
       client_name: options.clientName,
       ...(options.clientKind !== undefined && { client_kind: options.clientKind }),
       scope: 'notes',
-    }),
-  )
+    })
+    if (answer.ok) return answer.body as unknown as DeviceAuthorization
+    return yield* T.fail(answer.status === 429 ? tooManySignIns(answer.retryAfterSeconds) : refused(answer))
+  })
 
 export const awaitDeviceTokens = (
   options: DeviceFlowOptions,
@@ -64,6 +67,8 @@ export const awaitDeviceTokens = (
 
 interface Answer {
   readonly ok: boolean
+  readonly status: number
+  readonly retryAfterSeconds: number | null
   readonly body: Readonly<Record<string, unknown>>
 }
 
@@ -84,8 +89,32 @@ const post = (
       unreachable,
     )
     const body = yield* T.tryPromise(() => response.json() as Promise<Record<string, unknown>>, unreachable)
-    return { ok: response.ok, body }
+    return { ok: response.ok, status: response.status, retryAfterSeconds: secondsIn(response), body }
   })
+
+const tooManySignIns = (retryAfterSeconds: number | null): DeviceFlowFailed =>
+  DeviceFlowFailed({
+    reason: 'limited',
+    message: `This server is taking too many sign-ins from your network right now. Try again ${
+      retryAfterSeconds === null
+        ? 'in a few minutes'
+        : `in ${Math.max(1, Math.ceil(retryAfterSeconds / 60))} min`
+    }.`,
+  })
+
+const refused = (answer: Answer): DeviceFlowFailed =>
+  DeviceFlowFailed({
+    reason: 'refused',
+    message:
+      typeof answer.body.error_description === 'string'
+        ? `The server refused to start signing in: ${answer.body.error_description}`
+        : `The server refused to start signing in (HTTP ${answer.status}).`,
+  })
+
+const secondsIn = (response: Response): number | null => {
+  const seconds = Number(response.headers.get('retry-after') ?? Number.NaN)
+  return Number.isFinite(seconds) && seconds >= 0 ? seconds : null
+}
 
 const unreachable = (): DeviceFlowFailed =>
   DeviceFlowFailed({ reason: 'unreachable', message: 'The Homingbird server could not be reached.' })

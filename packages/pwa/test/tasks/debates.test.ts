@@ -37,7 +37,7 @@ describe('debate room tasks', () => {
       memberIds: [],
     }
     await run(tasks.createDebate(wish))
-    await run(tasks.optInAgent(ID, 'cred_agent' as never))
+    await run(tasks.optInAgent(ID, 'cred_agent' as never, ''))
     expect((state.shownDebate.get() as ReturnType<typeof debate>).question).toBe('Opted in')
     await run(tasks.changeLimits(ID, DEFAULT_DEBATE_LIMITS))
     await run(tasks.postResult(ID, { channel: 'billing' }))

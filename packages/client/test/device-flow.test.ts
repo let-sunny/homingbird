@@ -43,6 +43,48 @@ describe('beginDeviceFlow', () => {
     expect(calls[0]!.body).toBe('client_name=Laptop&client_kind=mcp&scope=notes')
   })
 
+  it('says the server is taking too many sign-ins and when to try again, never an undefined link', async () => {
+    const limited =
+      (headers: Record<string, string>): Fetch =>
+      async () =>
+        new Response(JSON.stringify({ error: 'slow_down', error_description: 'Too many requests.' }), {
+          status: 429,
+          headers,
+        })
+    expect(await T.run(beginDeviceFlow(options(limited({ 'retry-after': '1530' }))))).toMatchObject({
+      _tag: 'Err',
+      error: {
+        error: {
+          reason: 'limited',
+          message:
+            'This server is taking too many sign-ins from your network right now. Try again in 26 min.',
+        },
+      },
+    })
+    expect(await T.run(beginDeviceFlow(options(limited({ 'retry-after': '5' }))))).toMatchObject({
+      error: { error: { message: expect.stringContaining('Try again in 1 min.') } },
+    })
+    expect(await T.run(beginDeviceFlow(options(limited({}))))).toMatchObject({
+      error: { error: { message: expect.stringContaining('Try again in a few minutes.') } },
+    })
+    expect(await T.run(beginDeviceFlow(options(limited({ 'retry-after': 'soon' }))))).toMatchObject({
+      error: { error: { message: expect.stringContaining('Try again in a few minutes.') } },
+    })
+  })
+
+  it('says why the server refused to start, in its words when it gives them', async () => {
+    const { fetch } = scripted([[404, { error: 'not_found', error_description: 'Sign-in is off.' }]])
+    expect(await T.run(beginDeviceFlow(options(fetch)))).toMatchObject({
+      error: {
+        error: { reason: 'refused', message: 'The server refused to start signing in: Sign-in is off.' },
+      },
+    })
+    const silent = scripted([[400, {}]])
+    expect(await T.run(beginDeviceFlow(options(silent.fetch)))).toMatchObject({
+      error: { error: { reason: 'refused', message: 'The server refused to start signing in (HTTP 400).' } },
+    })
+  })
+
   it('reports a server whose answer is not JSON as unreachable', async () => {
     const fetch: Fetch = async () => new Response('<html>', { status: 502 })
     expect(await T.run(beginDeviceFlow(options(fetch)))).toMatchObject({

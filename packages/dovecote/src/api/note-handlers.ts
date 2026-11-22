@@ -1,5 +1,16 @@
 import { Task as T } from '@homingbird/kernel'
-import { type Contract, ConversationId, DraftRequestId, NoteId, type ResponseOf } from '@homingbird/protocol'
+import {
+  type Contract,
+  type Conversation,
+  ConversationId,
+  DraftRequestId,
+  type EarlierAnswer,
+  type InboxItem,
+  NotFound,
+  type Note,
+  NoteId,
+  type ResponseOf,
+} from '@homingbird/protocol'
 import { discardDraft, sendDraft } from '../domain/approval.ts'
 import { conversationFor, createGroupConversation, listConversations } from '../domain/conversations.ts'
 import {
@@ -15,6 +26,11 @@ import { notesAwaitingReply } from '../domain/inbox.ts'
 import { leaveGroup } from '../domain/leaving.ts'
 import { setMuted } from '../domain/mutes.ts'
 import { draftsOf, notesInConversation, searchNotes, visibleNote } from '../domain/notes.ts'
+import {
+  inReadableRooms,
+  requireReadableRoom,
+  requireReadableTarget,
+} from '../domain/private-question-readers.ts'
 import { recallNote } from '../domain/recalls.ts'
 import { markRead, pickUp, release } from '../domain/receipts.ts'
 import { isHuman } from '../environment.ts'
@@ -26,13 +42,19 @@ export const noteHandlers = {
   'conversations.list': (_, caller) =>
     T.map((conversations: Awaited<ResponseOf<Contract['conversations.list']>>['conversations']) => ({
       conversations,
-    }))(listConversations(caller.member.id, isHuman(caller))),
+    }))(
+      T.flatMap((all: Conversation[]) => inReadableRooms(caller, all, (conversation) => conversation.id))(
+        listConversations(caller.member.id, isHuman(caller)),
+      ),
+    ),
   'conversations.create': ({ body }, caller) =>
     createGroupConversation(caller.member.id, body.participantIds, body.title),
   'conversations.get': ({ params }, caller) =>
-    T.flatMap((id: ConversationId) => conversationFor(caller.member.id, id, isHuman(caller)))(
-      identifier(ConversationId, params.id),
-    ),
+    T.flatMap((id: ConversationId) =>
+      T.flatMap(() => conversationFor(caller.member.id, id, isHuman(caller)))(
+        requireReadableRoom(caller, id),
+      ),
+    )(identifier(ConversationId, params.id)),
   'conversations.mute': ({ params }, caller) =>
     T.flatMap((id: ConversationId) => setMuted(caller.member.id, id, true))(
       identifier(ConversationId, params.id),
@@ -55,13 +77,19 @@ export const noteHandlers = {
     ),
   'conversations.notes': ({ params, query }, caller) =>
     T.flatMap((id: ConversationId) =>
-      notesInConversation(caller.member.id, id, {
-        before: query.before === undefined ? null : Number(query.before),
-        limit: pageSize(query.limit),
-      }),
+      T.flatMap(() =>
+        notesInConversation(caller.member.id, id, {
+          before: query.before === undefined ? null : Number(query.before),
+          limit: pageSize(query.limit),
+        }),
+      )(requireReadableRoom(caller, id)),
     )(identifier(ConversationId, params.id)),
   'notes.get': ({ params }, caller) =>
-    T.flatMap((id: NoteId) => visibleNote(caller.member.id, id))(identifier(NoteId, params.id)),
+    T.flatMap((id: NoteId) =>
+      T.tap((note: Note) => T.mapError(noSuchNote)(requireReadableRoom(caller, note.conversationId)))(
+        visibleNote(caller.member.id, id),
+      ),
+    )(identifier(NoteId, params.id)),
   'notes.read': ({ params }, caller) =>
     T.flatMap((id: NoteId) => markRead(caller, id))(identifier(NoteId, params.id)),
   'notes.pickup': ({ params }, caller) =>
@@ -72,15 +100,21 @@ export const noteHandlers = {
     T.flatMap((id: NoteId) => recallNote(caller, id))(identifier(NoteId, params.id)),
   'inbox.list': ({ query }, caller) =>
     T.map((items: Awaited<ResponseOf<Contract['inbox.list']>>['items']) => ({ items }))(
-      notesAwaitingReply(caller, query.fresh === '1'),
+      T.flatMap((items: InboxItem[]) => inReadableRooms(caller, items, (item) => item.note.conversationId))(
+        notesAwaitingReply(caller, query.fresh === '1'),
+      ),
     ),
   'search.notes': ({ query }, caller) =>
     T.map((notes: Awaited<ResponseOf<Contract['search.notes']>>['notes']) => ({ notes }))(
-      searchNotes(caller.member.id, query.q, pageSize(query.limit)),
+      T.flatMap((notes: Note[]) => inReadableRooms(caller, notes, (note) => note.conversationId))(
+        searchNotes(caller.member.id, query.q, pageSize(query.limit)),
+      ),
     ),
   'answers.earlier': ({ body }, caller) =>
     T.map((answers: Awaited<ResponseOf<Contract['answers.earlier']>>['answers']) => ({ answers }))(
-      earlierAnswers(caller.member.id, body),
+      T.flatMap((answers: EarlierAnswer[]) =>
+        inReadableRooms(caller, answers, (earlier) => earlier.answer.conversationId),
+      )(earlierAnswers(caller.member.id, body)),
     ),
   'answers.used': ({ params, body }, caller) =>
     T.flatMap((id: NoteId) => recordAnsweredFromHistory(caller.member.id, id, body.conversationId))(
@@ -93,7 +127,7 @@ export const noteHandlers = {
     ),
   'drafts.create': ({ body: { requestId, ...target } }, caller) =>
     requestId === undefined
-      ? createDraft(caller, target)
+      ? T.flatMap(() => createDraft(caller, target))(requireReadableTarget(caller, target))
       : answerDraftRequest(caller, requestId, {
           body: target.body,
           ...(target.tags !== undefined && { tags: target.tags }),
@@ -120,3 +154,5 @@ export const noteHandlers = {
   'draftRequests.cancel': ({ params }, caller) =>
     T.flatMap((id: DraftRequestId) => cancelDraftRequest(caller, id))(identifier(DraftRequestId, params.id)),
 } satisfies Partial<Handlers>
+
+const noSuchNote = (): NotFound => NotFound({ message: 'No such note.' })

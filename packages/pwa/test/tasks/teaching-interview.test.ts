@@ -30,7 +30,7 @@ describe('teaching chat tasks', () => {
     })
     await run(saveTeachingDocument('Refunds: 30 days.'))
     await run(acceptProposal('prop_aaaaaaaaaaaa' as never, { rule: 'ask billing' }))
-    await run(acceptProposal('prop_bbbbbbbbbbbb' as never))
+    await run(acceptProposal('prop_bbbbbbbbbbbb' as never, {}))
     await run(discardProposal('prop_cccccccccccc' as never))
     await run(acceptProposals(['prop_dddddddddddd' as never]))
     expect(state.taught.get()).toEqual(taught({ limit: 9 }))

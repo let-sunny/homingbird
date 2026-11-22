@@ -3,6 +3,7 @@ import { Task as T } from '@homingbird/kernel'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { REPLAY_LIMIT, emit, transact } from '../src/events/events.ts'
 import { type RunningServer, startServer } from '../src/http/node-server.ts'
+import { LIMITS } from '../src/http/rate-limiter.ts'
 import { OPCODE, decodeClientFrames, encodeFrame } from '../src/http/websocket.ts'
 import {
   type Agent,
@@ -247,8 +248,8 @@ describe('over a real socket', () => {
         },
         body: 'client_name=x',
       })
-    for (let attempt = 0; attempt < 30; attempt++)
-      expect((await start(`198.51.100.${attempt}`, '203.0.113.7')).status).toBe(200)
+    for (let attempt = 0; attempt < LIMITS.deviceStart.max; attempt++)
+      expect((await start(`198.51.100.${attempt % 250}`, '203.0.113.7')).status).toBe(200)
     expect((await start('198.51.100.99', '203.0.113.7')).status).toBe(429)
     expect((await start('203.0.113.7', '203.0.113.8')).status).toBe(200)
   })

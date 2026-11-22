@@ -1,4 +1,4 @@
-import type { ApiError } from '@homingbird/protocol'
+import { type ApiError, SLACK_THREAD_MOVED } from '@homingbird/protocol'
 import { afterEach, describe, expect, it } from 'vitest'
 import { refusalText } from '../src/refusals.ts'
 import { strings, useLanguage } from '../src/strings.ts'
@@ -20,6 +20,14 @@ describe('refusalText', () => {
     expect(refusalText(changed, 'request')).toBe(strings.refusals.requestNotWaiting)
     useLanguage('ko')
     expect(refusalText(changed, 'draft')).toBe(strings.refusals.draftChanged)
+  })
+
+  it('says the Slack thread has newer messages, rather than that the draft was handled', () => {
+    const moved = conflict(SLACK_THREAD_MOVED)
+    expect(refusalText(moved, 'draft')).toBe(strings.refusals.slackThreadMoved)
+    expect(refusalText(moved, 'draft')).not.toBe(strings.refusals.draftHandled)
+    useLanguage('ko')
+    expect(refusalText(moved, 'draft')).toBe(strings.refusals.slackThreadMoved)
   })
 
   it('says a connection code is unknown or expired, whatever the server calls it', () => {

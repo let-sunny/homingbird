@@ -101,6 +101,8 @@ const stateOf = (dump: string): string =>
     .replace(/"last_used_at":(\d+|null)/g, '')
 
 const SECRET_ANSWER = 'channel-agent secret 51c9'
+const PRIVATE_QUESTION = 'When does my bonus land? Keep this between us. 3e8d'
+const PRIVATE_ANSWER = 'Your bonus lands on the 25th. 9a41'
 
 /**
  * #wiki, managed by Ben and Cy, with its agent connected by Ben and Dee in its room. Ana, the
@@ -2008,12 +2010,13 @@ describe('Rule 6: a member sees only conversations they participate in', () => {
   it('lets no one outside a private channel’s room read or change its group, nor an administrator take out its last manager in the room', async () => {
     const dee = await server.signIn('dee@example.com', 'Dee')
     await ben.api('POST', '/channels', { slug: 'ops', description: 'Operations' })
-    expect((await ben.api('DELETE', '/channels/ops/membership')).json.joined).toBe(false)
     for (const person of [cy, dee]) await person.api('PUT', '/channels/ops/membership', {})
     const ops = (await cy.api('GET', '/channels/ops')).json.managedBy
     const current = (await ana.api('GET', `/groups/${ops}`)).json.memberIds
-    const made = await ana.api('PUT', `/groups/${ops}/members`, { memberIds: [...current, cy.me.member.id] })
+    const made = await ben.api('PUT', `/groups/${ops}/members`, { memberIds: [...current, cy.me.member.id] })
     expect(made.status).toBe(200)
+    await ben.api('PUT', `/groups/${ops}/members`, { memberIds: [cy.me.member.id] })
+    expect((await ben.api('DELETE', '/channels/ops/membership')).json.joined).toBe(false)
     await storeChannelAsPrivate(server, 'ops')
     const list = (await cy.api('GET', `/groups/${ops}`)).json.memberIds
     for (const stillInGroup of [false, true]) {
@@ -2374,6 +2377,78 @@ describe('Rule 6: a member sees only conversations they participate in', () => {
     expect((await ana.api('PUT', '/channels/wiki/agent', { name: 'Mine' })).status).toBe(403)
     expect((await ana.api('GET', '/channels/wiki/agent')).status).toBe(403)
     expect((await agent.api('GET', '/me')).status).toBe(200)
+  })
+
+  it('lets an administrator outside an open channel’s managers add no one to them, themself included, so its earlier private questions stay out of their view', async () => {
+    const agent = await startChannelAgent()
+    const room = (await dee.api('POST', '/channels/wiki/private-question')).json.id
+    const asked = (await dee.api('POST', '/drafts', { conversationId: room, body: PRIVATE_QUESTION })).json
+    await dee.api('POST', `/drafts/${asked.id}/send`, { expected: asRead(asked) })
+    const wiki = (await ana.api('GET', '/channels/wiki')).json
+    const managers = [ben.me.member.id, cy.me.member.id]
+    for (const added of [ana, dee]) {
+      const tried = await ana.api('PUT', `/groups/${wiki.managedBy}/members`, {
+        memberIds: [...managers, added.me.member.id],
+      })
+      expect(tried.status).toBe(403)
+    }
+    const team = (await ana.api('POST', '/admin/groups', { name: 'Admins', memberIds: [ana.me.member.id] }))
+      .json
+    expect((await ana.api('PUT', '/channels/wiki/managers/team', { groupId: team.id })).status).toBe(403)
+    expect((await ana.api('GET', `/groups/${wiki.managedBy}`)).json).toMatchObject({ mayAdd: false })
+    expect([...(await ben.api('GET', `/groups/${wiki.managedBy}`)).json.memberIds].sort()).toEqual(
+      [...managers].sort(),
+    )
+    for (const path of [`/conversations/${room}`, `/conversations/${room}/notes`])
+      expect((await ana.api('GET', path)).status).toBe(404)
+    expect(JSON.stringify((await ana.api('GET', '/search?q=bonus')).json)).not.toContain(PRIVATE_QUESTION)
+    expect((await agent.api('GET', `/conversations/${room}/notes`)).json.notes[0].body).toBe(PRIVATE_QUESTION)
+  })
+
+  it('shows a private question to no person’s agent credential, a manager’s or the asker’s own, and only to the people and the channel’s agent', async () => {
+    const agent = await startChannelAgent()
+    const deeAgent = await connectAgent(server, dee, { name: 'Dee agent' })
+    const cursors = new Map<Agent, number>()
+    for (const personal of [benAgent, deeAgent])
+      cursors.set(personal, (await personal.api('GET', '/events/poll')).json.cursor)
+    const room = (await dee.api('POST', '/channels/wiki/private-question')).json.id
+    const asked = (await dee.api('POST', '/drafts', { conversationId: room, body: PRIVATE_QUESTION })).json
+    const question = (await dee.api('POST', `/drafts/${asked.id}/send`, { expected: asRead(asked) })).json
+    const reply = (await ben.api('POST', '/drafts', { inReplyTo: question.id, body: PRIVATE_ANSWER })).json
+    await ben.api('POST', `/drafts/${reply.id}/send`, { expected: asRead(reply) })
+    for (const person of [ben, cy, dee, agent])
+      expect((await person.api('GET', `/conversations/${room}/notes`)).json.notes[0].body).toBe(
+        PRIVATE_QUESTION,
+      )
+    for (const personal of [benAgent, deeAgent]) {
+      for (const path of [`/conversations/${room}`, `/conversations/${room}/notes`, `/notes/${question.id}`])
+        expect([path, (await personal.api('GET', path)).status]).toEqual([path, 404])
+      const surfaces = [
+        await personal.api('GET', '/conversations'),
+        await personal.api('GET', '/search?q=bonus'),
+        await personal.api('GET', '/inbox'),
+        await personal.api('POST', '/answers/earlier', { question: 'When do bonuses land?' }),
+        await personal.api('GET', `/events/poll?after=${cursors.get(personal)}`),
+      ]
+      for (const seen of surfaces) {
+        expect(seen.status).toBe(200)
+        expect(JSON.stringify(seen.json)).not.toContain(room)
+        expect(JSON.stringify(seen.json)).not.toContain(PRIVATE_ANSWER)
+      }
+      for (const target of [{ conversationId: room }, { inReplyTo: question.id }])
+        expect((await personal.api('POST', '/drafts', { ...target, body: 'Let me answer' })).status).toBe(404)
+    }
+    for (const [person, target] of [
+      [dee, { conversationId: room }],
+      [ben, { inReplyTo: question.id }],
+    ] as const) {
+      const refused = await person.api('POST', '/draft-requests', target)
+      expect([refused.status, refused.json.error.message]).toEqual([
+        409,
+        'Your own agent cannot read a private question, so it cannot draft here. Write the reply yourself.',
+      ])
+    }
+    expect((await ben.api('GET', '/draft-requests')).json.requests).toEqual([])
   })
 
   it('lets a channel’s agent into no room but its channel’s and its private questions', async () => {

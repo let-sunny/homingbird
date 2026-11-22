@@ -41,6 +41,17 @@ const answers = {
   'drafts.seen': () => fail({ _tag: 'Unavailable', message: 'down' }),
 }
 
+const SLACK_VIA = {
+  tool: 'slack' as const,
+  askerName: 'Pat Rivera',
+  askerId: null,
+  channelName: 'eng-help',
+  edited: false,
+  deleted: false,
+  threadAt: '1763900300.000100',
+  newerMessages: 0,
+}
+
 describe('deciding on drafts', () => {
   it('sends a draft as written or edited, discards its alternatives, and refreshes what it changed', async () => {
     const { run, sent, state } = testApp(answers)
@@ -85,6 +96,36 @@ describe('deciding on drafts', () => {
     expect(sent[0]!.request).toEqual({
       params: { id: 'd1' },
       body: { expected: { body: reply.body, conversationId: ROOM, threadAt: '1700000001.000200' } },
+    })
+  })
+
+  it('reads the question from Slack when the card was read where its thread is not loaded', async () => {
+    const question = note('q1', { origin: 'outside', via: { ...SLACK_VIA, threadAt: '1700000009.000900' } })
+    const { run, sent } = testApp({ ...answers, 'notes.get': () => question })
+    const reply = draft('d1', { inReplyTo: question.id })
+    await run(approveDraft(reply, null, []))
+    expect(sent.slice(0, 2)).toEqual([
+      { route: 'notes.get', request: { params: { id: 'q1' } } },
+      {
+        route: 'drafts.send',
+        request: {
+          params: { id: 'd1' },
+          body: { expected: { body: reply.body, conversationId: ROOM, threadAt: '1700000009.000900' } },
+        },
+      },
+    ])
+  })
+
+  it('sends a reply bound to its text and room alone when its question cannot be read', async () => {
+    const { run, sent } = testApp({
+      ...answers,
+      'notes.get': () => fail({ _tag: 'NotFound', message: 'gone' }),
+    })
+    const reply = draft('d1', { inReplyTo: 'q1' as never })
+    await run(approveDraft(reply, null, []))
+    expect(sent[1]!.request).toEqual({
+      params: { id: 'd1' },
+      body: { expected: { body: reply.body, conversationId: ROOM } },
     })
   })
 

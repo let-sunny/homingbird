@@ -1,5 +1,7 @@
 export interface RateLimiter {
   readonly allow: (key: string, limit: Limit) => boolean
+  /** How long until a key refused under a limit is allowed again. */
+  readonly waitMs: (key: string, limit: Limit) => number
 }
 
 export interface Limit {
@@ -21,6 +23,10 @@ export const makeRateLimiter = (now: () => number): RateLimiter => {
       window.count += 1
       return window.count <= limit.max
     },
+    waitMs: (key, limit) => {
+      const window = windows.get(key)
+      return window === undefined ? 0 : Math.max(0, window.startedAt + limit.windowMs - now())
+    },
   }
 }
 
@@ -28,7 +34,8 @@ export const LIMITS = {
   signIn: { max: 300, windowMs: 60_000 },
   token: { max: 120, windowMs: 60_000 },
   registration: { max: 20, windowMs: 3_600_000 },
-  deviceStart: { max: 30, windowMs: 3_600_000 },
+  deviceStart: { max: 600, windowMs: 3_600_000 },
+  deviceApproval: { max: 20, windowMs: 3_600_000 },
   joinRedeem: { max: 10, windowMs: 600_000 },
   inviteOpen: { max: 10, windowMs: 600_000 },
   drafting: { max: 120, windowMs: 60_000 },

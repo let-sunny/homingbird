@@ -23,6 +23,27 @@ const approvedAtOnce = (call: Call): Response | undefined => {
   return undefined
 }
 
+describe('login refused', () => {
+  it('says the server is taking too many sign-ins and when to retry, never an undefined link', async () => {
+    const w = world({
+      signedIn: 'none',
+      other: (call) =>
+        call.path === '/oauth/device_authorization'
+          ? new Response(JSON.stringify({ error: 'slow_down' }), {
+              status: 429,
+              headers: { 'retry-after': '1200' },
+            })
+          : undefined,
+    })
+    expect(await w.run('login', '--server', SERVER, '--no-browser')).not.toBe(0)
+    const printed = [...w.lines, ...w.problems].join('\n')
+    expect(printed).toContain(
+      'This server is taking too many sign-ins from your network right now. Try again in 20 min.',
+    )
+    expect(printed).not.toContain('undefined')
+  })
+})
+
 describe('login --credentials-file', () => {
   const FILE = '/home/june/secrets/homingbird-server.json'
   const approving = (options: { files?: Record<string, string> } = {}) =>

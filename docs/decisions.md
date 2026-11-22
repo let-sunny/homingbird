@@ -1142,10 +1142,13 @@ private channel was just made. The same groups can later own a channel's agent
 ([roadmap](roadmap.md#groups-and-channel-agents)).
 
 - **A channel's group is changed by its managers.** Its members who are in the room add and remove
-  managers and add a team. An administrator may change the group of an open channel; outside a private
-  channel they may only remove people, still keeping a manager, and never add anyone, themself
-  included, nor add a team. Adding a manager puts them in the room, so anything more would let an
-  administrator join a private channel by the back door, which rule 6 forbids. A group member who is
+  managers and add a team. An administrator outside the group may only remove people, still keeping a
+  manager, and never add anyone, themself included, nor add a team, in an open channel as in a private
+  one. Adding a manager puts them in the room, which would let an administrator join a private channel
+  by the back door, and a manager reads every private question asked of the channel's agent, the
+  earlier ones too, which an administrator may not (rule 6). The one exception is an open channel with
+  no manager and no private question, as `HB_CHANNELS` makes them: there an administrator adds its
+  first managers, themself included, because nobody else can and there is nothing private to read. A group member who is
   not in a private channel's room, which a race or a deactivation can leave behind, gets no right to
   add either.
 - **Every change to a group locks it first.** Dovecote runs PostgreSQL and MySQL at READ COMMITTED, so
@@ -1215,6 +1218,13 @@ its id as `author_id`.
   to the agent alone and everyone else's to the asker alone, so the managers' own agents do not answer
   it. A question there never moves to another room, administrators get no view of it, and archiving the
   channel closes it, readable to who was in it.
+- **A private question is read by people and the channel's agent, never by a person's agent.** The
+  asker was told only the people named and the channel's agent are there, and a person's agent runs on
+  an account of its own. So a person's agent credential, a manager's or the asker's own, lists, reads,
+  searches and streams nothing of a private question and cannot draft into one, though its person takes
+  part: every route answers as for a room that does not exist. The check sits at the API's edge
+  (`private-question-readers.ts`) and keys on the credential, as an administrator's agent credential
+  already reads as an ordinary member's.
 - **Its managers teach it, in the web client only (rules 3, 6 and 8).** A channel's agent has an
   instruction (500 characters), up to five sources, and rules and saved answers. The rules and answers
   are principles kept as a person's are, under the agent's member id, so the model, the validation, the

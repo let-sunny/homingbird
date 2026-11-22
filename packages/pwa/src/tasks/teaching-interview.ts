@@ -22,7 +22,7 @@ export interface ProposalChange {
   readonly rule?: string
 }
 
-export const acceptProposal = (id: ProposalId, change: ProposalChange = {}): Action =>
+export const acceptProposal = (id: ProposalId, change: ProposalChange): Action =>
   withApp(({ api }) =>
     T.flatMap(() => T.flatMap(() => refreshPrinciples)(refreshInterview))(
       api['principleProposals.accept']({ params: { id }, body: change }),

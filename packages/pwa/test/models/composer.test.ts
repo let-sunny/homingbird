@@ -43,6 +43,16 @@ describe('composerModel', () => {
     })
   })
 
+  it('offers no draft from the person’s own agent in a private question, which that agent cannot read', () => {
+    const asked = conversation({ kind: 'group', privateQuestionOf: 'billing', askedBy: ANA })
+    expect(composerModel(threadInput({ conversations: [asked] }))).toMatchObject({
+      asksAgent: false,
+      askAgentReason: null,
+      asked: [],
+    })
+    expect(composerModel(threadInput({ conversations: [conversation()] }))).toMatchObject({ asksAgent: true })
+  })
+
   it('says why the person’s agent cannot be asked while their desk runs but it cannot answer', () => {
     const unavailable = entry(ANA, 'Ana', {
       presence: {

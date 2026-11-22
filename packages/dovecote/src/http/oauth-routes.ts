@@ -146,11 +146,21 @@ const limited = (
   limit: keyof typeof LIMITS,
   response: T.Task<HttpResponse, never, AppEnv>,
 ): T.Task<HttpResponse, never, AppEnv> =>
-  T.flatMap((env: AppEnv) =>
-    env.rateLimiter.allow(`${limit}:${request.remoteAddress}`, LIMITS[limit] as Limit)
-      ? response
-      : T.succeed(json(429, { error: 'slow_down', error_description: 'Too many requests.' })),
-  )(T.ask<AppEnv>())
+  T.flatMap((env: AppEnv) => {
+    const key = `${limit}:${request.remoteAddress}`
+    if (env.rateLimiter.allow(key, LIMITS[limit] as Limit)) return response
+    const seconds = Math.ceil(env.rateLimiter.waitMs(key, LIMITS[limit] as Limit) / 1000)
+    return T.succeed(
+      json(
+        429,
+        {
+          error: 'slow_down',
+          error_description: `Too many requests from this network. Try again in ${Math.ceil(seconds / 60)} min.`,
+        },
+        { 'retry-after': String(seconds) },
+      ),
+    )
+  })(T.ask<AppEnv>())
 
 const isSignedIn = (request: HttpRequest): T.Task<boolean, never, AppEnv> => {
   const token = sessionToken(request)

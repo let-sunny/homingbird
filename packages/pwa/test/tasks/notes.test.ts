@@ -23,6 +23,17 @@ import { ANA, BEN, CY, ROOM, conversation, everything, me, note } from '../suppo
 
 const OTHER = 'conv_other0000000' as ConversationId
 
+const SLACK_VIA = {
+  tool: 'slack' as const,
+  askerName: 'Pat Rivera',
+  askerId: null,
+  channelName: 'eng-help',
+  edited: false,
+  deleted: false,
+  threadAt: '1763900300.000100',
+  newerMessages: 0,
+}
+
 const receipt = (readAt: number | null) => ({
   memberId: ANA,
   state: readAt === null ? ('delivered' as const) : ('read' as const),
@@ -154,6 +165,22 @@ describe('sending a note', () => {
         .get(ROOM)!
         .notes.map((one) => one.id),
     ).toEqual(['q', 'd1'])
+  })
+
+  it('binds a reply typed to a question from Slack to that thread as the page shows it', async () => {
+    const app = testApp({
+      'drafts.create': () => note('d1', { status: 'draft', authorId: ANA }),
+      'drafts.send': () => note('d1', { authorId: ANA }),
+    })
+    app.state.session.set(me())
+    const question = note('q', { authorId: BEN, origin: 'outside', via: SLACK_VIA })
+    app.state.threads.set(new Map([[ROOM, { notes: [question], hasMore: false }]]))
+    await app.run(chooseReplyTarget(ROOM, 'q' as never))
+    await app.run(sendNote(ROOM, 'Yes'))
+    expect(app.sent[1]!.request).toEqual({
+      params: { id: 'd1' },
+      body: { expected: { body: 'Yes', conversationId: ROOM, threadAt: SLACK_VIA.threadAt } },
+    })
   })
 
   it('sends the people tagged in a group, names whom the note asks as shown, then forgets the tags', async () => {

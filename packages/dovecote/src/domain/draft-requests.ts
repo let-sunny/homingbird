@@ -19,6 +19,7 @@ import { all, first, run } from '../sql/database.ts'
 import { insertInto, list, sql } from '../sql/query.ts'
 import { type DraftDestination, type NoteFailure, conversationForDraft, createDraft } from './drafts.ts'
 import { forgetNotice } from './notices.ts'
+import { requireRoomForOwnAgent } from './private-question-readers.ts'
 
 export interface DraftWish extends DraftDestination {
   readonly instruction?: string
@@ -35,6 +36,7 @@ export const requestDraft = (
       return yield* T.fail(Forbidden({ message: 'Only a person can ask their agents for a draft.' }))
     const memberId = caller.member.id
     const conversationId = yield* conversationForDraft(memberId, wish)
+    yield* requireRoomForOwnAgent(conversationId)
     if (wish.agentId !== undefined) yield* requireOwnAgent(memberId, wish.agentId)
     yield* requireRoomForAnotherRequest(memberId)
     const now = env.clock.now()
