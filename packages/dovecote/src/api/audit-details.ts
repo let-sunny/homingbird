@@ -22,6 +22,7 @@ import { memberById } from '../domain/members.ts'
 import { readSettings } from '../domain/settings.ts'
 import { type Caller, viewerOf } from '../environment.ts'
 import type { RequestEnv } from '../events/events.ts'
+import { hashSecret } from '../random.ts'
 import { all, first } from '../sql/database.ts'
 import { sql } from '../sql/query.ts'
 import { deskWakeHostOf } from '../wake/desk-wakes.ts'
@@ -47,11 +48,35 @@ export const AUDIT_DETAILS: { readonly [N in AuditedRoute]: Describe<N> } = {
     T.map((host: string) => () => ({ targetId: caller.member.id, detail: { host } }))(
       deskWakeHostOf(caller.member.id),
     ),
+  'me.slack.link': (_, caller) => afterwards(() => ({ targetId: caller.member.id, detail: {} })),
+  'me.slack.unlink': (_, caller) => afterwards(() => ({ targetId: caller.member.id, detail: {} })),
   'me.draftPreviews.set': (_, caller) =>
     afterwards((allowance) => ({
       targetId: caller.member.id,
       detail: { people: allowance.people.length, channels: allowance.channels.length },
     })),
+  'channels.slack.link': ({ params, body }) =>
+    T.map((code: { slack_channel: string | null } | null) => (): AuditFacts<'slack.channel.linked'> => {
+      const channel = JSON.parse(code?.slack_channel ?? '{}') as { id?: string; isPrivate?: boolean }
+      return {
+        targetId: params.slug,
+        detail: { slackChannel: channel.id ?? '', isPrivate: channel.isPrivate === true },
+      }
+    })(
+      first<{ slack_channel: string | null }>(
+        sql`SELECT slack_channel FROM slack_codes WHERE code_hash = ${hashSecret(body.code)}`,
+      ),
+    ),
+  'channels.slack.unlink': ({ params }) =>
+    T.map(
+      (link: { slack_channel_id: string } | null) => (): AuditFacts<'slack.channel.unlinked'> => ({
+        targetId: params.slug,
+        detail: { slackChannel: link?.slack_channel_id ?? '' },
+      }),
+    )(
+      first<{ slack_channel_id: string }>(sql`SELECT l.slack_channel_id FROM slack_channel_links l
+        JOIN channels c ON c.conversation_id = l.conversation_id WHERE c.slug = ${params.slug}`),
+    ),
   'conversations.mute': ({ params }) => afterwards(() => ({ targetId: params.id, detail: { muted: true } })),
   'conversations.unmute': ({ params }) =>
     afterwards(() => ({ targetId: params.id, detail: { muted: false } })),

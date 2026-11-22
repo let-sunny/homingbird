@@ -17,6 +17,7 @@ import {
   isArchived,
 } from '../thread.ts'
 import { type AvatarModel, memberAvatarOf } from './avatar.ts'
+import { postsToText } from './composer.ts'
 import { type AppliedMarker, appliedModel, showsAppliedMarkers } from './teaching.ts'
 import { type ThreadInput, isOn, nameIn, noteIn, notesOf, roomOf } from './thread-room.ts'
 
@@ -42,6 +43,7 @@ export const draftsItemModel = (
     replyTo:
       target === null ? strings.newNoteDraft : strings.draftReplyTo({ excerpt: excerpt(target.body, 60) }),
     choose: item.drafts.length > 1 ? strings.chooseOne({ count: item.drafts.length }) : null,
+    slack: slackDestinationOf(target, channel?.link ?? null),
     archived: archived ? strings.archivedRoomNotice : null,
     cards: item.drafts.map((draft) =>
       draftCard(input, item, draft, room, archived, question ? channel : null),
@@ -108,6 +110,8 @@ export interface DraftsItemModel {
   readonly heading: string
   readonly replyTo: string
   readonly choose: string | null
+  /** A reply to a question from Slack says where it is posted, and that the thread moved since. */
+  readonly slack: { readonly postsTo: string; readonly newer: string | null } | null
   readonly archived: string | null
   readonly cards: ReadonlyArray<DraftCard>
 }
@@ -198,7 +202,7 @@ const draftCard = (
 const originText = (note: AsRead.Note): string => {
   if (note.fromDebate !== undefined) return strings.debateNote.origin({ question: note.fromDebate.question })
   const agent = agentNameOf(note)
-  return note.origin === 'human' || agent === null
+  return note.origin === 'human' || note.origin === 'outside' || agent === null
     ? strings.origin[note.origin]
     : strings.originNamed[note.origin]({ agent })
 }
@@ -234,5 +238,17 @@ const destinationOf = (
           : strings.sendsTo({ names }),
     },
     names,
+  }
+}
+
+const slackDestinationOf = (
+  target: AsRead.Note | null,
+  link: AsRead.Channel['link'] | null,
+): DraftsItemModel['slack'] => {
+  const via = target?.via
+  if (via === undefined) return null
+  return {
+    postsTo: postsToText(via.channelName, link),
+    newer: via.newerMessages > 0 ? strings.slack.newerMessages({ count: via.newerMessages }) : null,
   }
 }

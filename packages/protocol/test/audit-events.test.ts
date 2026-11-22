@@ -63,14 +63,14 @@ describe('the audit event catalogue', () => {
     }
   })
 
-  it('keeps security events at both tiers and the rest only in full, who is in a group, which channel agents exist among them and where a cloud desk is woken', () => {
+  it('keeps security events at both tiers and the rest only in full, who is in a group, which channel agents exist among them and where a cloud desk is woken, and how Slack is connected and linked', () => {
     expect(AUDIT_TIERS).toEqual(['security', 'full'])
     expect(isKeptAt('security', 'authz.denied')).toBe(true)
     expect(isKeptAt('security', 'note.approved')).toBe(false)
     expect(isKeptAt('full', 'note.approved')).toBe(true)
     expect(AUDIT_EVENT_NAMES.filter((name) => AUDIT_EVENTS[name].tier === 'security').sort()).toEqual(
       AUDIT_EVENT_NAMES.filter((name) =>
-        /^(authn|authz|credential|oauth|organization|audit|system)\.|^member\.(access|invite_)|^group\.members_changed$|^channel\.agent_(created|retired)$|^desk_wake\./.test(
+        /^(authn|authz|credential|oauth|organization|audit|system)\.|^member\.(access|invite_)|^group\.members_changed$|^channel\.agent_(created|retired)$|^desk_wake\.|^slack\./.test(
           name,
         ),
       ).sort(),

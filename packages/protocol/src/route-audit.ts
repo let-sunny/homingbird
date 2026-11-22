@@ -16,6 +16,13 @@ export const ROUTE_AUDIT = {
   'me.deskWake.set': { event: 'desk_wake.registered', target: 'member' },
   'me.deskWake.remove': { event: 'desk_wake.removed', target: 'member' },
   'me.deskWake.test': { none: 'A test wake keeps nothing; the operational log says how it went.' },
+  'me.slack.get': read(),
+  'me.slack.connect': {
+    none: 'A link code links nothing until the person confirms it; the confirmation is recorded.',
+  },
+  'me.slack.link': { event: 'slack.person.linked', target: 'member' },
+  'me.slack.unlink': { event: 'slack.person.unlinked', target: 'member' },
+  'slack.codes.get': read(),
   'me.draftPreviews.get': read(),
   'me.draftPreviews.set': { event: 'draft_preview.allowed_changed', target: 'member' },
   'directory.list': read(),
@@ -147,6 +154,12 @@ export const ROUTE_AUDIT = {
   'admin.groups.create': { event: 'group.created', target: 'group' },
   'admin.groups.delete': { event: 'group.deleted', target: 'group' },
   'admin.insights': read(),
+  'admin.slack.get': read(),
+  'channels.slack.link': { event: 'slack.channel.linked', target: 'channel' },
+  'channels.slack.unlink': { event: 'slack.channel.unlinked', target: 'channel' },
+  'notes.posting.retry': {
+    none: 'Trying a post again changes nothing a person decided; each post goes to the operational log.',
+  },
 } as const satisfies { readonly [N in RouteName]: AuditDecision }
 
 /** The routes that record an event, and the event each records. */

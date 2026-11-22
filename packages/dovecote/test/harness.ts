@@ -20,6 +20,8 @@ export interface TestServer {
   readonly settled: () => Promise<void>
   /** Runs one cloud desk wake pass to its end, whatever the database driver. */
   readonly wakePass: () => Promise<void>
+  /** Runs one pass over the events Slack sent. */
+  readonly slackPass: () => Promise<void>
   readonly logged: string[]
   readonly request: (method: string, url: string, options?: RequestOptions) => Promise<TestResponse>
   readonly requestWithSettings: (overrides: Readonly<Record<string, string>>) => TestServer['request']
@@ -222,7 +224,7 @@ export const startTestServer = async (
   const database = parts.database ?? (await openTestDatabase(databaseUrl))
   const logged: string[] = []
   const desks: TestServer['desks'] = new Set()
-  const { env, background, settled, wakePass } = buildRuntime({
+  const { env, background, settled, wakePass, slackPass } = buildRuntime({
     config: testConfig(overrides),
     database,
     clock,
@@ -287,6 +289,7 @@ export const startTestServer = async (
     background,
     settled: () => T.runPromise(settled, env),
     wakePass: () => T.runPromise(wakePass, env),
+    slackPass: () => T.runPromise(slackPass, env),
     logged,
     request,
     requestWithSettings: (changed) =>

@@ -32,7 +32,7 @@ export const transact = <A, E>(task: T.Task<A, E, RequestEnv>): T.Task<A, E, App
     const outbox: Delivery[] = []
     const audited: AuditCopy[] = []
     const value = yield* T.provide({ outbox, audited })(inTransaction(task)) as T.Task<A, E, AppEnv>
-    const pushes = outbox.length > 0 && (yield* featureIsOn('webPush'))
+    const pushes = outbox.length > 0 && ((yield* featureIsOn('webPush')) || (yield* featureIsOn('slack')))
     for (const delivery of outbox) {
       if (delivery.memberId === EVERYONE) {
         env.hub.broadcast(delivery.event)

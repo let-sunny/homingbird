@@ -157,6 +157,7 @@ export const en = {
     agent: 'Agent',
     human_edited: 'Agent, edited by a person',
     human: 'Written by a person',
+    outside: 'Asked in an outside chat tool',
   } satisfies Record<Origin | 'unknown', string>,
   agentNames: {
     desk: 'Claude Code plugin',
@@ -167,6 +168,7 @@ export const en = {
     unknown: '{agent}',
     agent: 'Agent · {agent}',
     human_edited: 'Agent · {agent}, edited by a person',
+    outside: '{agent}',
   },
   status: {
     sent: 'Sent',
@@ -718,6 +720,7 @@ export const en = {
       debateRooms: 'Debate rooms',
       channelAgents: 'Channel agents',
       cloudDesk: 'Agent in the cloud: wake your agent in a cloud service (experimental)',
+      slack: 'Slack: tell people in Slack when a draft waits for them',
       joinCodes: 'Join codes for running an agent on a server',
       deskAvailability: 'Showing when an agent can’t answer',
       invites: 'Invite links',
@@ -745,6 +748,8 @@ export const en = {
         'Off: channels’ agents stop answering and the programs that run them are refused; nothing is deleted, and turning it on again brings them back.',
       cloudDesk:
         'Off: no agent in the cloud is woken and nobody can set one up; saved wakes are kept. It also needs HB_SECRETS_KEY on the server.',
+      slack:
+        'Off: Homingbird takes nothing from Slack and sends nothing to it; people’s links are kept, and anyone can still unlink. It also needs the Slack app’s token and signing secret on the server.',
       joinCodes:
         'Off: nobody can make a join code and codes already made are refused; people sign in servers with homingbird login instead.',
       deskAvailability:
@@ -2136,6 +2141,80 @@ export const en = {
       rateLimited: 'The service asked to wait ({status}).',
       unreachable: 'The service did not take the test wake ({status}).',
       unknown: 'The test wake was sent.',
+    },
+  },
+  slack: {
+    legend: 'Slack',
+    intro:
+      'Link your Slack user to hear in Slack, in a direct message from the Homingbird app, when a draft waits for your decision. The message says only that one waits and links to it here.',
+    linked: 'Linked to Slack user {name} of {workspace}.',
+    notLinked: 'Not linked to a Slack user of {workspace} yet.',
+    notConnected: 'Slack is not connected on this server yet. An administrator sets it up.',
+    connect: 'Connect Slack',
+    requestSent:
+      'Homingbird sent a direct message in Slack to the user with your email. Open the link in it within ten minutes.',
+    requestNotFound:
+      'No Slack user with your email was found. In Slack, mention @Homingbird with the word link in a channel the app is in, and open the link it shows you.',
+    unlink: 'Unlink',
+    unlinkTitle: 'Unlink your Slack user?',
+    unlinkBody: 'Homingbird stops sending you messages in Slack. You can link again at any time.',
+    linkTitle: 'Link Slack',
+    confirmPerson: 'Link Slack user {name} of {workspace} to you?',
+    confirmHint: 'Drafts waiting for you are then announced to that Slack user, without their content.',
+    confirm: 'Link',
+    cancel: 'Not now',
+    codeGone: 'This link no longer works. Ask for a new one under My agent → Connection.',
+    toConnection: 'Open My agent → Connection',
+    askedIn: '{name}, in Slack #{channel}',
+    askedInLine: 'Asked in Slack #{channel} by {name}; nobody approved it in Homingbird',
+    editedInSlack: 'Edited in Slack',
+    deletedInSlack: 'Deleted in Slack',
+    postingToSlack: 'Posting to Slack…',
+    postedToSlack: 'Posted to Slack',
+    notPostedToSlack: 'Not posted to Slack',
+    tryAgain: 'Try again',
+    postsTo: {
+      one: 'Posts to Slack #{channel} ({count} member)',
+      other: 'Posts to Slack #{channel} ({count} members)',
+    },
+    postsToUncounted: 'Posts to Slack #{channel}',
+    newerMessages: {
+      one: '{count} newer message in the Slack thread; read it in Slack before sending',
+      other: '{count} newer messages in the Slack thread; read them in Slack before sending',
+    },
+    draftDiscardedDeleted: 'A draft was discarded: the question it answered was deleted in Slack.',
+    linkedChannel:
+      'Linked to Slack #{channel}. Messages there that mention Homingbird arrive here; answers a person approves are posted there.',
+    linkStopped: 'The link to Slack #{channel} stopped: nothing arrives from it or is posted to it.',
+    unlinkChannel: 'Unlink from Slack',
+    confirmChannel: {
+      one: 'Link Slack #{channel} ({count} member) to a channel you manage?',
+      other: 'Link Slack #{channel} ({count} members) to a channel you manage?',
+    },
+    confirmChannelHint:
+      'Messages there that mention Homingbird are read by the channel’s members. Answers a person approves are read by the Slack channel’s members.',
+    chooseChannel: 'Channel',
+    noChannelChoices:
+      'You manage no channel this Slack channel can link to. A private Slack channel links only to a private channel.',
+    admin: {
+      legend: 'Slack',
+      intro:
+        'The organization’s own Slack app. Create it from the manifest below, install it to the workspace, and set HB_SLACK_BOT_TOKEN and HB_SLACK_SIGNING_SECRET on the server. Slack must reach the events address.',
+      waiting: 'The server has the app’s token but has not reached Slack yet.',
+      connected: 'Connected to the {workspace} workspace.',
+      stopped: {
+        tokenRefused: 'Stopped: Slack refused the bot token. Set a working one and restart the server.',
+        revoked:
+          'Stopped: the app was uninstalled or its token revoked. Install it again and set the new token.',
+        otherWorkspace:
+          'Stopped: the bot token belongs to another workspace. This server answers only the workspace it first connected to.',
+        unknown: 'Stopped.',
+      },
+      lastEvent: 'Last event from Slack',
+      never: 'None yet',
+      linkedPeople: 'People linked',
+      eventsUrl: 'Events address',
+      manifest: 'App manifest',
     },
   },
   autoSend: {

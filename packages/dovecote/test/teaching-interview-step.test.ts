@@ -11,7 +11,7 @@ afterEach(async () => {
 })
 
 describe('the teaching chat step', () => {
-  it('is the twenty-first step, after debate agreement', () => {
+  it('is the twenty-first step', () => {
     expect(stepNumberOf(TEACHING_INTERVIEW)).toBe(21)
   })
 

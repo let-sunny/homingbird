@@ -1,7 +1,8 @@
 import { Task as T } from '@homingbird/kernel'
-import { API_PREFIX, STREAM_PATHS } from '@homingbird/protocol'
+import { API_PREFIX, SLACK_EVENTS_PATH, STREAM_PATHS } from '@homingbird/protocol'
 import type { AppEnv } from '../environment.ts'
 import { defectNameOf, logDefect } from '../log/operational-log.ts'
+import { handleSlackEvents } from '../slack/slack-events.ts'
 import { handleAgentRequest } from './agent-routes.ts'
 import { handleApiRequest, routeFor } from './api-routes.ts'
 import { handleEventStreamRequest } from './event-routes.ts'
@@ -59,6 +60,7 @@ const routed = (request: HttpRequest): T.Task<HttpResponse, never, AppEnv> => {
   if (path === STREAM_PATHS.sse) return handleEventStreamRequest(request)
   if (path.startsWith(`${API_PREFIX}/`)) return handleApiRequest(request)
   if (path.startsWith('/auth/')) return handleSignInRequest(request)
+  if (path === SLACK_EVENTS_PATH) return handleSlackEvents(request)
   return handleStaticRequest(request)
 }
 
@@ -79,6 +81,7 @@ const AREAS: ReadonlyArray<readonly [string, string]> = [
   ['/.well-known', 'wellKnown'],
   ['/mcp', 'mcp'],
   ['/a2a', 'a2a'],
+  [SLACK_EVENTS_PATH, 'slack.events'],
 ]
 
 const isOpenToOtherOrigins = (path: string): boolean =>

@@ -28,6 +28,7 @@ const routes: ReadonlyArray<Route> = [
   { name: 'consent', id: 'consent_1' },
   { name: 'admin', section: 'settings' },
   { name: 'admin-group', id: 'grp_team00000000' },
+  { name: 'slack-link', code: 'a'.repeat(43) },
 ]
 
 const shows = (child: unknown): string => textOf(child)
@@ -50,7 +51,7 @@ describe('stageFor', () => {
       strings.notFound,
     )
     context.state.serverInfo.set(serverInfo())
-    for (const name of ['debates', 'debate', 'character', 'group'] as const)
+    for (const name of ['debates', 'debate', 'character', 'group', 'slack-link'] as const)
       expect(
         shows(stageFor(context, lifetime(), me(), routes.find((route) => route.name === name)!)),
       ).toContain(strings.notFound)

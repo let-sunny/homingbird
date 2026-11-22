@@ -11,13 +11,18 @@ import {
   storedRows,
 } from './harness.ts'
 
+const SLACK_APP = {
+  HB_SLACK_BOT_TOKEN: 'xoxb-1234-5678-botsecretvalue',
+  HB_SLACK_SIGNING_SECRET: '8f742231b10e8888abcd99eeefff85a5',
+}
+
 let server: TestServer
 let ana: Session
 let ben: Session
 let anaAgent: Agent
 
 beforeEach(async () => {
-  server = await startTestServer({ HB_SECRETS_KEY: TEST_SECRETS_KEY })
+  server = await startTestServer({ HB_SECRETS_KEY: TEST_SECRETS_KEY, ...SLACK_APP })
   ana = await server.signIn('ana@example.com', 'Ana')
   ben = await server.signIn('ben@example.com', 'Ben')
   anaAgent = await connectAgent(server, ana, { name: 'Ana agent' })
@@ -49,6 +54,7 @@ const probes: Readonly<Record<string, (person: Session) => Promise<{ status: num
   groups: (person) => person.api('GET', '/groups'),
   channelAgents: (person) => person.api('GET', '/reviews'),
   cloudDesk: (person) => person.api('GET', '/me/desk-wake'),
+  slack: (person) => person.api('GET', '/me/slack'),
   joinCodes: (person) => person.api('POST', '/join-codes', {}),
   deskAvailability: (person) => person.api('POST', '/me/desk/available', {}),
   invites: (person) => person.api('GET', '/invites'),
@@ -65,7 +71,7 @@ const probes: Readonly<Record<string, (person: Session) => Promise<{ status: num
 let probedAnswers = 0
 
 describe('feature switches', () => {
-  it('are all on by default but analytics, channel agents, the cloud desk, automatic sending and draft previews, and server.info says which are on', async () => {
+  it('are all on by default but analytics, channel agents, the cloud desk, automatic sending, draft previews and Slack, and server.info says which are on', async () => {
     const info = (await server.request('GET', '/api/v1/info')).json
     expect(info.features).toEqual({
       ...Object.fromEntries(FEATURE_NAMES.map((name) => [name, true])),
@@ -74,6 +80,7 @@ describe('feature switches', () => {
       cloudDesk: false,
       autoSend: false,
       draftPreviews: false,
+      slack: false,
     })
     await switchTo({ teaching: false })
     expect((await server.request('GET', '/api/v1/info')).json.features.teaching).toBe(false)

@@ -11,7 +11,7 @@ states the decision first, then the reason. Add new entries at the top of their 
   without approval (rule 9), so what an agent shares there must stay within what its person allowed for
   that room. So opting an agent in, in the web client only, takes an optional note, "What my agent may
   use here" (`brief` on `debates.optIn`, at most 1,000 characters), kept with the participant
-  (`debate_participants.brief`, migration step 22), and the human route `debates.brief.set` changes or
+  (`debate_participants.brief`, migration step 24), and the human route `debates.brief.set` changes or
   clears it until the room stops taking turns, behind `debateRooms`. The server returns it as `brief` on
   the room only to the person who wrote it and to the agent credential they opted in
   (`shownTo` in `debate-rows.ts`): never to another participant or their agent, another agent of the
@@ -1783,6 +1783,89 @@ hand, so the web client now links them as well. The maintainer approved widening
   `linkedText` builds each link with the DOM API; a note is never assigned to `innerHTML`. Property tests
   check that nothing else becomes a link, that `javascript:` and `data:` never do, and that the text
   around a link is kept as it was.
+
+## Slack is linked by address, not synced
+
+Questions start in Slack, so a team that has to open Homingbird to see them has a second inbox; the
+real-work evaluation named this its biggest wall. Homingbird meets Slack where a person addresses it,
+and only there: nothing is mirrored, and nothing leaves Homingbird that a person did not approve.
+
+- **One workspace, the organization's own app, a bot token only.** The administrator creates a Slack
+  app from the manifest Homingbird shows and gives Dovecote its bot token and signing secret as
+  `HB_SLACK_BOT_TOKEN` and `HB_SLACK_SIGNING_SECRET`. Kept in the environment, neither is stored, so
+  security rule 5 is unchanged; the cost is that disconnecting takes the operator and a restart. Storing
+  them sealed in the database, entered on the admin page, would widen rule 5's exception and waits for
+  the maintainer. The first workspace `auth.test` names is pinned; another one's token stops Slack. No
+  user token: one reads everything its person can read in Slack and acts as them, the kind of key "A
+  cloud desk is woken by a content-free call" already declined to keep. Behind `slack`, off by default.
+- **A person links their own Slack user with a single-use code.** **Connect Slack** looks up the
+  person's email in Slack and sends that user a direct message with a ten-minute link only this person
+  can confirm; a person whose emails differ mentions the app with the word `link` and gets the same
+  link in a message only they see. The email finds the user; only the confirmation in the web client,
+  signed in as the person, links them. One Slack user per person and back. Deactivating a member
+  deletes the link; Slack deactivating the user deletes it too, and never deactivates the member, since
+  Slack is not the identity provider. Guests, users of another organization, bots and apps are never
+  linked or answered.
+- **Review requests carry no content.** A linked person gets a direct message from the app when a
+  draft waits for their decision: the same moments, mutes and notification level as a push, a fixed
+  sentence and a link to the card. No note text, no names (rule 2). Approval stays in the web client
+  (rule 3). This is the roadmap's "review request in the chat tool the team already uses".
+- **Events are verified, kept briefly and handled apart.** `POST /slack/events` sits beside the
+  contract, like the OAuth endpoints: it is authenticated by Slack's signature (HMAC-SHA256 of
+  `v0:<timestamp>:<raw body>`, within five minutes of the clock service), not by a credential. An event
+  Homingbird uses is stored by Slack's event id and answered at once, so Slack's three-second limit is
+  never at risk and a retry does nothing; a pass handles it and deletes its payload. A channel message
+  that is not for Homingbird is dropped before its text is read: never stored, never logged. The app's
+  own messages and other apps' are dropped first. An uninstall, a revoked bot token or a token Slack
+  refuses stops Slack until a check succeeds.
+- **No tool exposed to a model connects, links or posts.** Every Slack route is `human` or `admin`
+  (rule 3), and the Slack Web API is called only from the server's own passes and a person's routes.
+- **A Slack channel links to a Homingbird channel, and only a manager links it.** A linked person who
+  manages a channel mentions the app with `link` in the Slack channel and confirms, in the web client,
+  which of their channels it links to, under the channel group's lock. An administrator outside the
+  managing group cannot (rule 6). A private Slack channel links only to a private channel; a channel
+  shared with another organization never links. The link is a member of its own kind, `chat_link`, in
+  its channel's room only, like a channel's agent: every route that names a person refuses it.
+  Archiving the channel removes the link; the app leaving the Slack channel, or the Slack channel being
+  archived or deleted, stops it.
+- **In: a mention becomes a question, recorded as arriving.** It is a sent note of the link, with
+  `origin: 'outside'` and no approver (rule 1), delivered to the channel's answerers as a member's
+  question is, with `via`: the asker's Slack name, their member id when they linked, the Slack
+  channel's name, and whether Slack shows it edited or deleted. A follow-up in the thread replies to the
+  thread's newest note. The text is made plain (mentions, channel links and links as text), and a model
+  reads it only inside `wrapNote`, under the asker's name and "in Slack #channel" (rule 4); a note never
+  carries a Slack id or the message's address, so an agent learns nothing that reads more of Slack. A
+  reaction tells the asker it arrived. Guests, users of another organization and bots are told that
+  only full members are answered. One person may ask ten questions an hour in a link, a link two hundred
+  a day.
+- **Whoever asked cannot approve the answer.** The asker is the linked member, or else the member with
+  the asker's email; either is left out of the answer's reviewers, so a manager who asks in Slack does
+  not read or send the agent's draft of their own answer (rules 1 and 2). The email never opens anything.
+- **Out: only a sent reply, in its thread, under who wrote and approved it.** A note is posted when it
+  is sent and the link is among its recipients, so only a reply to a question from Slack. It goes in the
+  thread with one line of provenance ("Billing helper, approved by Ben" or "Ben"), escaped so that it
+  cannot mention anyone, ping a channel or disguise a link. Basis and sources stay in Homingbird. A saved
+  answer never sends itself into Slack. The card and the composer say "Posts to Slack #billing-help (12
+  members)".
+- **The send binds to the thread as the card showed it.** Channel message events are kept only for a
+  linked thread, or an edit or deletion of a message that arrived, and then only their times and an
+  edit's text. The card says how many messages came in the thread since; a send carries the newest one
+  it showed (`DraftAsShown.threadAt`) and is refused once with a Conflict if the thread moved. The draft
+  is never discarded for it.
+- **Edits and deletions follow Slack.** An arrived note is a copy nobody approved, so an edit replaces
+  its text and marks it edited in Slack, and a deletion replaces it with "Deleted in Slack." and discards
+  the drafts answering it, telling their authors. This is the first case of a sent note's body changing;
+  answers already sent stay as they were.
+- **An outbox, because Slack has no idempotency key.** One row per sent note, in the send's transaction;
+  a pass posts it, one note at a time per thread in send order. A post whose answer was lost is unknown:
+  before trying again the pass reads the thread for the app's own message with that text. A rate limit
+  waits for Retry-After; other failures wait 5, 15 and 60 minutes, then the note shows "Not posted to
+  Slack" with **Try again**. Five such notes in a row stop the link; a refused token stops Slack. Nothing
+  is posted that was not sent.
+- **Not in this release** (roadmap): a question to one person through a mention; direct messages and
+  user tokens; Socket Mode for servers Slack cannot reach; telling the administrators by push when Slack
+  stops; a link from the card to the Slack thread; the notice of a draft discarded for a deletion after a
+  reload.
 
 ## A saved answer may send itself, word for word, where its person allowed
 

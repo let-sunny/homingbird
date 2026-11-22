@@ -158,6 +158,7 @@ export const ko: Translation<typeof en> = {
     agent: '에이전트',
     human_edited: '에이전트 작성, 사람이 수정',
     human: '사람이 작성',
+    outside: '바깥 채팅 도구에서 물음',
   },
   agentNames: {
     desk: 'Claude Code 플러그인',
@@ -168,6 +169,7 @@ export const ko: Translation<typeof en> = {
     unknown: '{agent}',
     agent: '에이전트 · {agent}',
     human_edited: '에이전트 · {agent}, 사람이 수정',
+    outside: '{agent}',
   },
   status: {
     sent: '보냄',
@@ -696,6 +698,7 @@ export const ko: Translation<typeof en> = {
       debateRooms: '토론방',
       channelAgents: '채널 에이전트',
       cloudDesk: '클라우드 에이전트: 클라우드 서비스에서 에이전트 깨우기 (실험 기능)',
+      slack: 'Slack: 초안이 기다릴 때 Slack으로 알리기',
       joinCodes: '서버 연결 코드 (서버에서 에이전트 돌리기)',
       deskAvailability: '에이전트가 답할 수 없을 때 알리기',
       invites: '초대 링크',
@@ -721,6 +724,8 @@ export const ko: Translation<typeof en> = {
         '끄면: 채널 에이전트가 답하지 않고 그 에이전트를 실행하는 프로그램의 연결도 거절돼요. 지워지는 건 없고, 다시 켜면 돌아와요.',
       cloudDesk:
         '끄면: 클라우드 에이전트를 깨우지 않고 아무도 설정할 수 없어요. 저장된 설정은 남아요. 서버에 HB_SECRETS_KEY도 있어야 해요.',
+      slack:
+        '끄면: Slack에서 아무것도 받지 않고 Slack으로 아무것도 보내지 않아요. 사람들의 연결은 남고, 누구나 연결을 끊을 수 있어요. 서버에 Slack 앱의 토큰과 서명 비밀도 있어야 해요.',
       joinCodes:
         '끄면: 아무도 서버 연결 코드를 만들 수 없고, 이미 만든 서버 연결 코드도 거절돼요. 서버는 homingbird login으로 로그인해요.',
       deskAvailability:
@@ -2031,6 +2036,70 @@ export const ko: Translation<typeof en> = {
       rateLimited: '서비스가 기다려 달라고 했어요 ({status}).',
       unreachable: '서비스가 시험 깨우기를 받지 않았어요 ({status}).',
       unknown: '시험 깨우기를 보냈어요.',
+    },
+  },
+  slack: {
+    legend: 'Slack',
+    intro:
+      'Slack 사용자를 연결하면 결정을 기다리는 초안이 있을 때 Slack에서 Homingbird 앱이 DM으로 알려 드려요. DM에는 초안이 기다린다는 사실과 이곳으로 오는 링크만 있어요.',
+    linked: '{workspace} 워크스페이스의 Slack 사용자 {name} 님과 연결되어 있어요.',
+    notLinked: '아직 {workspace} 워크스페이스의 Slack 사용자와 연결되지 않았어요.',
+    notConnected: '이 서버에는 아직 Slack이 연결되지 않았어요. 관리자가 설정해요.',
+    connect: 'Slack 연결',
+    requestSent: '내 이메일을 쓰는 Slack 사용자에게 DM을 보냈어요. 10분 안에 그 안의 링크를 여세요.',
+    requestNotFound:
+      '내 이메일을 쓰는 Slack 사용자를 찾지 못했어요. Slack에서 앱이 있는 채널에 @Homingbird를 멘션하고 link라고 쓴 뒤, 보이는 링크를 여세요.',
+    unlink: '연결 끊기',
+    unlinkTitle: 'Slack 사용자 연결을 끊을까요?',
+    unlinkBody: '더 이상 Slack으로 알리지 않아요. 언제든 다시 연결할 수 있어요.',
+    linkTitle: 'Slack 연결',
+    confirmPerson: '{workspace} 워크스페이스의 Slack 사용자 {name} 님을 나와 연결할까요?',
+    confirmHint: '나를 기다리는 초안을 그 Slack 사용자에게 내용 없이 알려요.',
+    confirm: '연결',
+    cancel: '나중에',
+    codeGone: '이 링크는 더 이상 쓸 수 없어요. 내 에이전트 → 연결에서 새 링크를 요청하세요.',
+    toConnection: '내 에이전트 → 연결 열기',
+    askedIn: 'Slack #{channel}의 {name} 님',
+    askedInLine: '{name} 님이 Slack #{channel}에서 물었어요. Homingbird에서 승인한 사람은 없어요',
+    editedInSlack: 'Slack에서 고쳐짐',
+    deletedInSlack: 'Slack에서 지워짐',
+    postingToSlack: 'Slack에 올리는 중…',
+    postedToSlack: 'Slack에 올라감',
+    notPostedToSlack: 'Slack에 올라가지 않음',
+    tryAgain: '다시 시도',
+    postsTo: { other: 'Slack #{channel}({count}명)에 올라가요' },
+    postsToUncounted: 'Slack #{channel}에 올라가요',
+    newerMessages: { other: 'Slack 스레드에 새 글 {count}개. 보내기 전에 Slack에서 읽으세요' },
+    draftDiscardedDeleted: '초안을 버렸어요. 답하려던 질문이 Slack에서 지워졌어요.',
+    linkedChannel:
+      'Slack #{channel}에 연결되어 있어요. 그곳에서 Homingbird를 멘션한 글이 여기로 오고, 사람이 승인한 답이 그곳에 올라가요.',
+    linkStopped: 'Slack #{channel} 연결이 멈췄어요. 그곳에서 오는 글도, 그곳에 올리는 글도 없어요.',
+    unlinkChannel: 'Slack 연결 끊기',
+    confirmChannel: { other: 'Slack #{channel}({count}명)을 내가 운영하는 채널에 연결할까요?' },
+    confirmChannelHint:
+      '그곳에서 Homingbird를 멘션한 글은 이 채널 멤버가 읽어요. 사람이 승인한 답은 Slack 채널 멤버가 읽어요.',
+    chooseChannel: '채널',
+    noChannelChoices:
+      '이 Slack 채널을 연결할 수 있는 채널을 운영하고 있지 않아요. 비공개 Slack 채널은 비공개 채널에만 연결돼요.',
+    admin: {
+      legend: 'Slack',
+      intro:
+        '조직의 Slack 앱이에요. 아래 매니페스트로 앱을 만들어 워크스페이스에 설치하고, 서버에 HB_SLACK_BOT_TOKEN과 HB_SLACK_SIGNING_SECRET을 설정하세요. Slack이 이벤트 주소에 닿아야 해요.',
+      waiting: '서버에 앱 토큰은 있지만 아직 Slack에 닿지 못했어요.',
+      connected: '{workspace} 워크스페이스에 연결되어 있어요.',
+      stopped: {
+        tokenRefused:
+          '멈춤: Slack이 봇 토큰을 거절했어요. 쓸 수 있는 토큰을 설정하고 서버를 다시 시작하세요.',
+        revoked: '멈춤: 앱이 제거되었거나 토큰이 취소되었어요. 다시 설치하고 새 토큰을 설정하세요.',
+        otherWorkspace:
+          '멈춤: 봇 토큰이 다른 워크스페이스의 것이에요. 이 서버는 처음 연결한 워크스페이스에만 답해요.',
+        unknown: '멈춤.',
+      },
+      lastEvent: 'Slack의 마지막 이벤트',
+      never: '아직 없음',
+      linkedPeople: '연결한 사람',
+      eventsUrl: '이벤트 주소',
+      manifest: '앱 매니페스트',
     },
   },
   autoSend: {

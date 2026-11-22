@@ -12,6 +12,7 @@ import { groupHandlers } from '../src/api/group-handlers.ts'
 import { handlers } from '../src/api/handlers.ts'
 import { noteHandlers } from '../src/api/note-handlers.ts'
 import { previewHandlers } from '../src/api/preview-handlers.ts'
+import { slackHandlers } from '../src/api/slack-handlers.ts'
 import { teachingHandlers } from '../src/api/teaching-handlers.ts'
 
 const GROUPS = {
@@ -25,6 +26,7 @@ const GROUPS = {
   eventHandlers,
   groupHandlers,
   noteHandlers,
+  slackHandlers,
   previewHandlers,
   teachingHandlers,
 }

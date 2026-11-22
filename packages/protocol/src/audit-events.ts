@@ -91,6 +91,26 @@ export const AUDIT_EVENTS = {
     host: S.string({ maxLength: 253 }),
     because: S.literal('refused', 'failures', 'credential_gone', 'unreadable'),
   }),
+  'slack.connected': event('security', 'organization', { teamId: S.string({ pattern: /^[A-Z0-9]{1,24}$/ }) }),
+  'slack.stopped': event('security', 'organization', {
+    because: S.literal('token_refused', 'revoked', 'other_workspace'),
+  }),
+  'slack.person.linked': event('security', 'member', {}),
+  'slack.channel.linked': event('security', 'channel', {
+    slackChannel: S.string({ pattern: /^[A-Z0-9]{1,24}$/ }),
+    isPrivate: S.boolean,
+  }),
+  'slack.channel.unlinked': event('security', 'channel', {
+    slackChannel: S.string({ pattern: /^[A-Z0-9]{1,24}$/ }),
+    because: S.optional(S.literal('channel_archived')),
+  }),
+  'slack.channel.stopped': event('security', 'channel', {
+    slackChannel: S.string({ pattern: /^[A-Z0-9]{1,24}$/ }),
+    because: S.literal('app_removed', 'archived', 'deleted', 'pairing', 'failures'),
+  }),
+  'slack.person.unlinked': event('security', 'member', {
+    because: S.optional(S.literal('deactivated', 'slack_deactivated')),
+  }),
 
   'note.approved': event('full', 'note', {
     conversationId: ConversationId,

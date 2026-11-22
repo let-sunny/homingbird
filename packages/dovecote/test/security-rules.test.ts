@@ -25,6 +25,7 @@ import { MEMBER_ROUTES as A2A_ROUTES } from '../../a2a/src/member-api.ts'
 import { hashSecret } from '../src/random.ts'
 import { run } from '../src/sql/database.ts'
 import { insertInto } from '../src/sql/query.ts'
+import { startAgent } from './channel-agent-support.ts'
 import { agentCredentialOf, fakeService, routineSetup, startCloudDeskServer } from './cloud-desk-support.ts'
 import { PAST_GRACE_MS } from './debate-support.ts'
 import {
@@ -39,6 +40,16 @@ import {
   storeChannelAsPrivate,
   storedRows,
 } from './harness.ts'
+import {
+  askInSlack,
+  fakeSlack,
+  lastCodeIn,
+  linkChannel,
+  linkPerson,
+  sendSlackEvent,
+  slackEvent,
+  startSlackServer,
+} from './slack-support.ts'
 
 let server: TestServer
 let ana: Session
@@ -169,7 +180,72 @@ const connectConnector = async (): Promise<{ access_token: string; refresh_token
   ).json
 }
 
+/**
+ * A server with Slack and channel agents on: Ana, the administrator, and Ben manage #billing, linked to
+ * the Slack channel C0HELP by Ana, who is linked to her Slack user. Bob asks in Slack with no account.
+ */
+const startSlackChannel = async () => {
+  const slack = fakeSlack(
+    [
+      { id: 'U0ANA', name: 'Ana', email: 'ana@example.com' },
+      { id: 'U0BOB', name: 'Bob', email: 'bob@elsewhere.example' },
+    ],
+    { C0HELP: { name: 'billing-help', members: 12 }, C0SECRET: { name: 'payroll', isPrivate: true } },
+  )
+  const slackServer = await startSlackServer(slack, { HB_FEATURES: 'slack=on,channelAgents=on,webPush=off' })
+  const admin = await slackServer.signIn('ana@example.com', 'Ana')
+  const manager = await slackServer.signIn('ben@example.com', 'Ben')
+  const made = (await admin.api('POST', '/channels', { slug: 'billing', description: 'Billing' })).json
+  await manager.api('PUT', '/channels/billing/membership', {})
+  await admin.api('PUT', `/groups/${made.managedBy}/members`, {
+    memberIds: [admin.me.member.id, manager.me.member.id],
+  })
+  await linkPerson(slackServer, slack, admin)
+  await linkChannel(slackServer, slack, admin, 'U0ANA', 'billing')
+  return { slack, slackServer, admin, manager }
+}
+
 describe('Rule 1: only a human credential can approve a note', () => {
+  it('1: records a note from Slack as arriving, never as approved, posts only what a person sent, and refuses its Slack asker as reviewer', async () => {
+    const { slack, slackServer, admin, manager } = await startSlackChannel()
+    try {
+      const agent = await startAgent(slackServer, admin, 'billing', 'Billing helper')
+      await askInSlack(slackServer, 'U0ANA', 'Do refunds keep the discount?')
+      const question = (await storedRows(slackServer, 'notes')).find((row) => row.origin === 'outside')!
+      expect(question).toMatchObject({
+        status: 'sent',
+        approved_by: null,
+        decided_at: null,
+        credential_id: null,
+      })
+      const answer = (
+        await agent.api('POST', '/drafts', { inReplyTo: question.id, body: 'Yes, they keep it.' })
+      ).json
+      const other = (await agent.api('POST', '/drafts', { inReplyTo: question.id, body: 'Maybe.' })).json
+      await slackServer.slackPass()
+      expect(await storedRows(slackServer, 'slack_outbox')).toEqual([])
+      const shown = (await manager.api('GET', `/reviews/${answer.id}`)).json
+      expect((await admin.api('GET', `/reviews/${answer.id}`)).status).toBe(404)
+      const threadAt = (await storedRows(slackServer, 'slack_threads'))[0]!.newest_ts as string
+      const expected = { body: answer.body, conversationId: answer.conversationId, threadAt }
+      expect((await admin.api('POST', `/drafts/${answer.id}/send`, { expected })).status).toBe(404)
+      expect((await agent.api('POST', `/drafts/${answer.id}/send`, { expected })).status).toBe(403)
+      expect(shown.draft?.id ?? answer.id).toBe(answer.id)
+      expect((await manager.api('POST', `/drafts/${answer.id}/send`, { expected })).status).toBe(200)
+      await manager.api('POST', `/drafts/${other.id}/discard`, {})
+      await slackServer.slackPass()
+      const outbox = await storedRows(slackServer, 'slack_outbox')
+      expect(outbox.map((row) => row.note_id)).toEqual([answer.id])
+      for (const row of outbox) {
+        const note = (await storedRows(slackServer, 'notes')).find((each) => each.id === row.note_id)!
+        expect(note.status).toBe('sent')
+      }
+      expect(slack.posted().at(-1)!.text).toBe('Billing helper, approved by Ben\nYes, they keep it.')
+    } finally {
+      await slackServer.close()
+    }
+  })
+
   it('refuses an agent credential that tries to send its own draft', async () => {
     const draft = await draftFromAnaToBen()
     const refused = await anaAgent.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })
@@ -495,6 +571,26 @@ describe('Rule 1: a saved answer its person switched to send automatically is th
 })
 
 describe('Rule 2: drafts are invisible to recipients', () => {
+  it('2: puts nothing of a draft into Slack, nor any draft, edit or discard, before a person sends it', async () => {
+    const { slack, slackServer, manager } = await startSlackChannel()
+    try {
+      const managerAgent = await connectAgent(slackServer, manager, { name: 'Ben agent' })
+      await manager.api('PUT', '/channels/billing/answering', {})
+      await askInSlack(slackServer, 'U0BOB', 'Is the export nightly?')
+      const question = (await storedRows(slackServer, 'notes')).find((row) => row.origin === 'outside')!
+      const before = slack.calls.length
+      const draft = (await managerAgent.api('POST', '/drafts', { inReplyTo: question.id, body: SECRET_BODY }))
+        .json
+      await managerAgent.api('PATCH', `/drafts/${draft.id}`, { body: `${SECRET_BODY}, edited` })
+      await manager.api('POST', `/drafts/${draft.id}/discard`, {})
+      await slackServer.slackPass()
+      expect(JSON.stringify(slack.calls.slice(before))).not.toContain('7f3a')
+      expect(await storedRows(slackServer, 'slack_outbox')).toEqual([])
+    } finally {
+      await slackServer.close()
+    }
+  })
+
   it('hides a draft from the recipient’s lookup by id', async () => {
     const draft = await draftFromAnaToBen()
     expect((await ben.api('GET', `/notes/${draft.id}`)).status).toBe(404)
@@ -774,6 +870,40 @@ describe('Rule 2: drafts are invisible to recipients', () => {
       expect((await viewer.api('GET', '/search?q=7f3a')).json.notes).toHaveLength(1)
     }
   })
+  it('2: tells a person in Slack only that a draft waits for them, never what it says, and nobody else', async () => {
+    const slack = fakeSlack([
+      { id: 'U0ANA', name: 'Ana', email: 'ana@example.com' },
+      { id: 'U0BEN', name: 'Ben', email: 'ben@example.com' },
+    ])
+    const slackServer = await startSlackServer(slack, { HB_FEATURES: 'slack=on,webPush=off' })
+    const running = T.runFork(slackServer.background, slackServer.env)
+    try {
+      const people = await Promise.all(
+        ['ana', 'ben'].map((name) => slackServer.signIn(`${name}@example.com`, name)),
+      )
+      const [asker, answerer] = people as [Session, Session]
+      for (const person of people) {
+        await person.api('POST', '/me/slack/connect', {})
+        const code = /#\/slack\/link\/([A-Za-z0-9_-]+)/.exec(slack.posted().at(-1)!.text!)![1]!
+        await person.api('POST', '/me/slack/link', { code })
+      }
+      const agent = await connectAgent(slackServer, answerer, { name: 'Ben agent' })
+      const question = (
+        await asker.api('POST', '/drafts', { to: [answerer.me.member.id], body: 'Question?' })
+      ).json
+      const sent = (await asker.api('POST', `/drafts/${question.id}/send`, { expected: asRead(question) }))
+        .json
+      slack.calls.length = 0
+      const draft = (await agent.api('POST', '/drafts', { inReplyTo: sent.id, body: SECRET_BODY })).json
+      await slackServer.settled()
+      expect(slack.posted().map((message) => message.channel)).toEqual(['DU0BEN'])
+      expect(slack.posted()[0]!.text).toContain(`?draft=${draft.id}|`)
+      expect(JSON.stringify(slack.calls)).not.toContain('7f3a')
+    } finally {
+      await running.interrupt()
+      await slackServer.close()
+    }
+  })
 })
 
 describe('Rule 3: no model-facing credential can approve, change contacts, or read credentials', () => {
@@ -970,6 +1100,22 @@ describe('Rule 3: no model-facing credential can approve, change contacts, or re
       ].map((what) => `${file}: ${what}`)
     })
     expect(named).toEqual([])
+  })
+
+  it('3: lets no model-facing credential or tool connect Slack, link anyone to it, or read its token', async () => {
+    const slackRoutes = (Object.keys(contract) as RouteName[]).filter((name) => /slack/i.test(name))
+    expect(slackRoutes.length).toBeGreaterThan(0)
+    for (const name of slackRoutes) {
+      expect(humanOnlyRoutes).toContain(name)
+      expect(MCP_ROUTES).not.toContain(name)
+      expect(A2A_ROUTES).not.toContain(name)
+      const route = contract[name]
+      expect([
+        name,
+        (await anaAgent.api(route.method, pathOf(name, 'x'.repeat(43)), route.body ? {} : undefined)).status,
+      ]).toEqual([name, 403])
+    }
+    expect(JSON.stringify(toolDefinitions())).not.toMatch(/slack/i)
   })
 
   it('keeps running a channel’s agent and reviewing its answers to people, out of every tool and gateway', () => {
@@ -1424,6 +1570,38 @@ describe('Rule 5: credentials are stored hashed and never logged', () => {
 })
 
 describe('Rule 6: a member sees only conversations they participate in', () => {
+  it('6: lets only a channel’s managers link it to Slack, a private Slack channel only to a private channel, and keeps the link out of every place a person is named', async () => {
+    const { slack, slackServer, admin, manager } = await startSlackChannel()
+    try {
+      const made = (await manager.api('POST', '/channels', { slug: 'payroll', description: 'Payroll' })).json
+      await storeChannelAsPrivate(slackServer, 'payroll')
+      await sendSlackEvent(
+        slackServer,
+        slackEvent({ type: 'app_mention', user: 'U0ANA', text: 'link', channel: 'C0SECRET', ts: '7.1' }),
+      )
+      await slackServer.slackPass()
+      const code = lastCodeIn(slack)
+      expect((await admin.api('POST', '/channels/payroll/slack', { code })).status).toBe(403)
+      expect(made.visibility).toBe('open')
+      await manager.api('POST', '/channels', { slug: 'open-room', description: 'Open' })
+      await manager.api('PUT', '/channels/open-room/membership', {})
+      const linkId = (await storedRows(slackServer, 'slack_channel_links'))[0]!.link_member_id as string
+      expect((await admin.api('POST', '/drafts', { to: [linkId], body: 'hello' })).status).toBe(403)
+      expect((await admin.api('POST', '/contacts', { memberId: linkId })).status).not.toBe(200)
+      expect(
+        (await admin.api('GET', '/directory')).json.entries.map((entry: any) => entry.member.id),
+      ).not.toContain(linkId)
+      expect(
+        (await admin.api('GET', '/admin/members')).json.members.map((member: any) => member.id),
+      ).not.toContain(linkId)
+      expect((await admin.api('DELETE', '/channels/payroll/slack')).status).not.toBe(200)
+      const rooms = await storedRows(slackServer, 'participants')
+      expect(rooms.filter((row) => row.member_id === linkId)).toHaveLength(1)
+    } finally {
+      await slackServer.close()
+    }
+  })
+
   it('stops every credential of a deactivated person at once, refreshing and unfinished sign-ins included', async () => {
     const redirect = 'https://claude.ai/api/mcp/auth_callback'
     const verifier = 'v'.repeat(64)

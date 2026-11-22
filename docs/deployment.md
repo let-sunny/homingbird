@@ -33,6 +33,7 @@ move up one size for the large row.
 - [Features](#features)
 - [Web push](#web-push)
 - [Cloud desk](#cloud-desk)
+- [Slack](#slack)
 - [Connecting claude.ai](#connecting-claudeai)
 - [Running the desk runner on a server](#running-the-desk-runner-on-a-server)
 - [Run a channel's agent on a server](#run-a-channels-agent-on-a-server)
@@ -58,6 +59,7 @@ else runs in the one Dovecote process, on Node 22.18 or later or the container i
 | Optional, outbound | Browser push services | Only when people turn on phone notifications; only the hosts in `HB_PUSH_HOSTS` ([Web push](#web-push)) |
 | Optional, outbound | OAuth client metadata | Only when someone connects claude.ai; only the hosts in `HB_OAUTH_CLIENT_METADATA_HOSTS` ([Connecting claude.ai](#connecting-claudeai)) |
 | Optional, outbound | Cloud agent services | Only with the experimental cloud desk switched on; only the hosts in `HB_WAKE_HOSTS` ([Cloud desk](#cloud-desk)) |
+| Optional, both ways | Slack | Only with `slack` switched on and the organization's Slack app set; `slack.com` outbound, and Slack must reach `/slack/events` ([Slack](#slack)) |
 | Optional, outbound | An analytics endpoint | Off unless `HB_ANALYTICS` names one ([Product analytics](#product-analytics)) |
 
 No mail server, message broker, cache, object store, key management service or vendor account is
@@ -728,6 +730,7 @@ again. Every change is audited. `server.info` lists which features are on, so ev
 | `deskAvailability` | on | Desks no longer say when their agent can't answer; colleagues see only whether it is awake |
 | `invites` | on | Nobody can make an invite link, and links already made are refused; only allowed domains and `HB_ADMIN_EMAILS` sign in ([Who can sign in](#who-can-sign-in)) |
 | `cloudDesk` | **off** | No cloud desk is woken and nobody can set one up; saved wakes are kept. Offered only with `HB_SECRETS_KEY` ([Cloud desk](#cloud-desk)) |
+| `slack` | **off** | Nothing is taken from Slack or sent to it, and `/slack/events` answers 404; people's links are kept and anyone can still unlink. Offered only with the Slack app's token and signing secret ([Slack](#slack)) |
 | `analytics` | **off** | No usage counts leave the server ([Product analytics](#product-analytics)) |
 | `autoSend` | **off** | No saved answer sends itself; every draft waits for its person. On: a person may switch a saved answer to send itself, word for word, only in the direct messages and open channels they choose ([guide](guide.md#let-a-saved-answer-send-itself), [decisions](decisions.md#a-saved-answer-may-send-itself-word-for-word-where-its-person-allowed)) |
 | `draftPreviews` | **off** | Nobody sees a colleague's agent's draft before its person checks it; on, each person chooses who may under **My agent → Early previews** ([guide](guide.md#let-colleagues-see-your-agents-drafts-early)) |
@@ -783,6 +786,92 @@ go to the operational log as `desk_wake.fired` and `desk_wake.unanswered`, with 
 status; the audit trail keeps `desk_wake.registered`, `desk_wake.removed` and `desk_wake.stopped` with
 the host only. Deactivating a member deletes their wake. The pending wakes live in memory, which fits
 [one instance](#one-instance-only).
+
+## Slack
+
+Off by default. With it, Homingbird works with the Slack workspace a team already uses: a person links
+their Slack user and hears there, in a direct message from the app, that a draft waits for their
+decision. The message says nothing of the draft; it links to the card in the web client, where approval
+stays (security rules 2 and 3). The organization uses its own Slack app, with a bot token only: no user
+token, nothing that reads a person's direct messages, nothing that posts as a person. To offer it:
+
+1. In Slack, create an app **from a manifest** (api.slack.com/apps → Create New App → From an app
+   manifest) in your workspace. **Administration → Settings → Slack** shows the manifest with this
+   server's address filled in once the variables below are set; before that, use this one and replace
+   the address:
+
+   ```json
+   {
+     "display_information": { "name": "Homingbird" },
+     "features": { "bot_user": { "display_name": "Homingbird", "always_online": true } },
+     "oauth_config": {
+       "scopes": {
+         "bot": [
+           "app_mentions:read", "channels:history", "channels:read", "chat:write", "groups:history",
+           "groups:read", "im:write", "reactions:write", "users:read", "users:read.email"
+         ]
+       }
+     },
+     "settings": {
+       "event_subscriptions": {
+         "request_url": "https://homingbird.example.com/slack/events",
+         "bot_events": [
+           "app_mention", "app_uninstalled", "channel_archive", "channel_deleted",
+           "member_left_channel", "message.channels", "message.groups", "tokens_revoked", "user_change"
+         ]
+       },
+       "org_deploy_enabled": false,
+       "socket_mode_enabled": false,
+       "token_rotation_enabled": false
+     }
+   }
+   ```
+
+   What each scope is for: `users:read.email` finds the Slack user with a person's email when they
+   connect; `im:write` and `chat:write` send that user the link and, later, review requests;
+   `app_mentions:read` lets a person whose emails differ mention the app with the word `link`; `users:read`
+   checks that whoever mentions the app is a full member of the workspace, not a guest, an outside user
+   or a bot. The channel scopes and events, and `reactions:write`, serve channel links: `channels:read`
+   and `groups:read` tell an open channel from a private or shared one and count its members;
+   `channels:history` and `groups:history` deliver the thread messages that tell a waiting reply its
+   thread moved, and edits and deletions of a question; `reactions:write` marks a question as arrived;
+   `member_left_channel`, `channel_archive` and `channel_deleted` stop a link.
+2. Install the app to the workspace and copy its **Bot User OAuth Token** (`xoxb-…`) and, under
+   **Basic Information**, its **Signing Secret**. Give both to Dovecote as secrets, like
+   `HB_OIDC_CLIENT_SECRET`: `HB_SLACK_BOT_TOKEN` and `HB_SLACK_SIGNING_SECRET`. Neither is stored in the
+   database, logged, or shown in any response. To disconnect, remove the app in Slack and the variables
+   here, and restart.
+3. Turn on `slack` under **Administration → Settings → Features**, or with `HB_FEATURES=slack=on`. At
+   start and every hour Dovecote asks Slack (`auth.test`) whose the token is. The first workspace it names
+   is pinned: events of any other are ignored, and a token of another workspace stops Slack until the
+   pinned one's is back.
+4. Slack must reach `HB_PUBLIC_URL/slack/events` over HTTPS. Save the request URL in the app's **Event
+   Subscriptions**; Slack checks it with a signed challenge, which Dovecote answers only once the
+   variables are set. A server on a private network exposes that one path to Slack, or waits for Socket
+   Mode (on the roadmap). Dovecote also needs outbound HTTPS to `slack.com`.
+
+What the server does and keeps: every request to `/slack/events` must carry Slack's signature, an
+HMAC-SHA256 of `v0:<timestamp>:<body>` under the signing secret, from the last five minutes; anything
+else is refused and logged as `slack.event_refused` with the reason only. An event Homingbird uses is
+stored by Slack's event id, answered at once, and handled by a pass every few seconds, so a retry does
+nothing; its payload is deleted once handled. Messages in channels that are not for Homingbird are
+dropped unread: never stored, never logged. A person links their Slack user with a single-use code that
+works for ten minutes, kept only as a hash: the email finds the user, only the person's confirmation in
+the web client links them, and one Slack user links to one person. Deactivating a member deletes their
+link, and so does Slack deactivating the user; Slack is not the identity provider, so it never
+deactivates a member. The audit trail keeps `slack.connected`, `slack.stopped` (the token was refused,
+the app uninstalled or its token revoked, or the token is of another workspace), `slack.person.linked`
+and `slack.person.unlinked`, with ids only. **Administration → Settings → Slack** shows the workspace,
+its state, when Slack last sent an event and how many people are linked.
+
+**Channel links.** A manager of a channel, linked to their Slack user, invites the app to the Slack
+channel, mentions it there with the word `link`, and confirms in the web client which of their channels
+it links to; a private Slack channel links only to a private channel, and a shared one never links. From
+then on a message there that mentions the app is a question in the channel, read by its members, and an
+answer a person approves is posted in the Slack thread by the app, under who wrote and approved it.
+Messages that do not mention the app are not copied. Posts go through an outbox: one row per sent note,
+retried after 5, 15 and 60 minutes, then shown as not posted with **Try again**. The audit trail keeps
+`slack.channel.linked`, `slack.channel.unlinked` and `slack.channel.stopped`, with ids only.
 
 ## Connecting claude.ai
 
@@ -1304,6 +1393,7 @@ Every variable Dovecote reads. Blank values count as unset.
 | `HB_PUSH_HOSTS` | the four push services above | Push service hosts subscriptions may use |
 | `HB_SECRETS_KEY` | none | 32 random bytes in base64 that seal cloud desk wakes; the cloud desk is offered only with it ([Cloud desk](#cloud-desk)) |
 | `HB_WAKE_HOSTS` | `api.anthropic.com` | Hosts a cloud desk's wake address may use, matched exactly; `none` for none |
+| `HB_SLACK_BOT_TOKEN`, `HB_SLACK_SIGNING_SECRET` | none | The organization's Slack app: its bot token (`xoxb-…`) and signing secret, both or neither; Slack is offered only with them ([Slack](#slack)) |
 | `HB_OAUTH_REDIRECT_HOSTS` | `claude.ai,claude.com` | Hosts, besides loopback, that OAuth clients may redirect to; `none` for no others |
 | `HB_OAUTH_CLIENT_METADATA_HOSTS` | `claude.ai,claude.com` | Hosts whose client metadata documents are fetched; `none` to fetch none |
 | `HB_OAUTH_CLIENTS` | none | Preregistered clients, `id\|Name\|redirect;redirect`, comma-separated |

@@ -79,6 +79,14 @@ describe('contract', () => {
         'me.deskWake.set',
         'me.deskWake.remove',
         'me.deskWake.test',
+        'me.slack.get',
+        'me.slack.connect',
+        'me.slack.link',
+        'me.slack.unlink',
+        'slack.codes.get',
+        'channels.slack.link',
+        'channels.slack.unlink',
+        'notes.posting.retry',
         'me.draftPreviews.get',
         'me.draftPreviews.set',
         'previews.list',
@@ -170,6 +178,7 @@ describe('contract', () => {
         'admin.members.update',
         'admin.members.resetCharacter',
         'admin.insights',
+        'admin.slack.get',
       ].sort(),
     )
   })
@@ -265,7 +274,11 @@ describe('contract', () => {
       readonly params: { readonly id: string }
       readonly body: {
         readonly body?: string
-        readonly expected: { readonly body: string; readonly conversationId: ConversationId }
+        readonly expected: {
+          readonly body: string
+          readonly conversationId: ConversationId
+          readonly threadAt?: string
+        }
       }
     }>()
     expectTypeOf<RequestOf<Contract['me.get']>>().toEqualTypeOf<{}>()

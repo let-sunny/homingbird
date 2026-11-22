@@ -21,7 +21,11 @@ export const RECIPIENTS_MAX = 50
 
 export const Recipients = S.array(MemberId, { minItems: 1, maxItems: RECIPIENTS_MAX })
 
-export const DraftAsShown = S.struct({ body: NoteBody, conversationId: ConversationId })
+export const DraftAsShown = S.struct({
+  body: NoteBody,
+  conversationId: ConversationId,
+  threadAt: S.optional(S.string({ maxLength: 64 })),
+})
 export type DraftAsShown = S.Infer<typeof DraftAsShown>
 
 export const InboxItem = S.struct({ note: Note, author: Member, conversation: Conversation })

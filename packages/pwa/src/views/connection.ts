@@ -18,6 +18,7 @@ import { joinCodeSection } from './join-code.ts'
 import { channelChips, field, loading, presenceBadges } from './parts.ts'
 import { serviceBanner } from './service-banner.ts'
 import { freshSessionSuggestions } from './session-health-view.ts'
+import { slackSection } from './slack.ts'
 
 /** "Connection": the person's devices and agents, whether the desk is awake, and how to connect one. */
 export const connectionSection = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
@@ -74,6 +75,7 @@ export const connectionSection = (context: ViewContext, life: Lifetime, me: AsRe
       h('a', { class: 'button', href: hrefFor({ name: 'channels' }) }, strings.browseChannels),
     ),
     featureOn('cloudDesk', state.serverInfo.get()) && cloudDeskSection(context, life, credentials),
+    featureOn('slack', state.serverInfo.get()) && slackSection(context, life),
     h('details', { class: 'have-a-code' }, h('summary', {}, strings.codeFallback), codeForm(context)),
   )
 }
