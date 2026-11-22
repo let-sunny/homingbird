@@ -6712,6 +6712,16 @@ textarea:disabled {
     margin: 0;
   }
 
+  /* Back is a whole fingertip of its own, so the names beside it never take its taps. */
+  .thread-head > .back {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-inline-size: var(--hb-target-size);
+    min-block-size: var(--hb-target-size);
+    margin-inline: calc(-1 * var(--hb-space-3)) 0;
+  }
+
   /* The text box takes a row of its own; Ask my agent and Send share the row under it. */
   .composer-row {
     flex-wrap: wrap;
