@@ -9,6 +9,7 @@ export {
   replaceChildren,
   svg,
 } from './element.ts'
+export { holdingStill, keepingPlace } from './keep-place.ts'
 export { type KeyedOperation, applyKeyedOperations, keyedOperations } from './keyed.ts'
 export { later } from './later.ts'
 export { type TextSegment, textSegments } from './linkify.ts'

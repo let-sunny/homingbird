@@ -119,8 +119,25 @@ const scenario = async (): Promise<void> => {
     await ana.page.waitForFunction(
       () => (globalThis as any).document.querySelector('.taught .todo-row')?.dataset.name === 'Tone',
     )
-    await ana.page.locator('.todo-row[data-name="Tone"] [role=switch]').click()
+    // A switch stays under the pointer while the list is drawn again; the page does not jump.
+    const toneSwitch = '.todo-row[data-name="Tone"] [role=switch]'
+    const switchPlace = (): Promise<{ top: number; scrolled: number; focused: boolean }> =>
+      ana.page.locator(toneSwitch).evaluate((element: any) => ({
+        top: Math.round(element.getBoundingClientRect().top),
+        scrolled: element.closest('.stage').scrollTop,
+        focused: element.ownerDocument.activeElement === element,
+      }))
+    await ana.page.locator(toneSwitch).evaluate((element: any) => element.scrollIntoView({ block: 'start' }))
+    const beforeSwitch = await switchPlace()
+    assert.ok(beforeSwitch.scrolled > 0, 'the stage scrolls down to the switch')
+    await ana.page.locator(toneSwitch).click()
     await ana.page.waitForSelector('.todo-row.is-off[data-name="Tone"] [role=switch][aria-checked="false"]')
+    const afterSwitch = await switchPlace()
+    assert.ok(
+      Math.abs(afterSwitch.top - beforeSwitch.top) <= 2,
+      `the switch moved from ${beforeSwitch.top} to ${afterSwitch.top}`,
+    )
+    assert.equal(afterSwitch.focused, true)
     const toneRule = ana.page.locator('.todo-row[data-name="Tone"] textarea[name=rule]')
     await toneRule.fill('answer in two sentences')
     await toneRule.press('Enter')
