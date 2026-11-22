@@ -21,8 +21,7 @@ export const quotedNote = (
     sentAt: note.sentAt,
     body: note.body,
     nonce: quoting.nonce(),
-    ...(note.tags !== undefined &&
-      note.tags.length > 0 && { asks: note.tags.map((id) => authorOf(quoting.authors, id).name) }),
+    ...(note.tags !== undefined && { asks: note.tags.map((id) => authorOf(quoting.authors, id).name) }),
   })
 }
 
