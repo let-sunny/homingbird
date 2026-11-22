@@ -166,7 +166,8 @@ describe('threadHeadModel', () => {
         agent: { state: 'on', label: strings.presenceOf.agentAwake({ name: 'Ben' }) },
         words: strings.presenceWords.online.on,
       },
-      people: null,
+      people: expect.objectContaining({ id: `people-${ROOM}`, label: strings.groupPeople({ count: 2 }) }),
+      showsCount: false,
       mute: expect.objectContaining({ conversationId: ROOM, muted: false, label: 'Mute Ben' }),
     })
     expect(threadHeadModel(threadInput())).toEqual({
@@ -174,7 +175,8 @@ describe('threadHeadModel', () => {
       title: 'Ben',
       profile: null,
       presence: null,
-      people: null,
+      people: expect.objectContaining({ title: strings.participants.title }),
+      showsCount: false,
       mute: expect.objectContaining({ muted: false }),
     })
     expect(
@@ -186,14 +188,15 @@ describe('threadHeadModel', () => {
       title: 'Team',
       profile: null,
       presence: null,
-      people: {
+      people: expect.objectContaining({
         label: strings.groupPeople({ count: 2 }),
-        title: strings.groupPeopleTitle,
+        title: strings.participants.title,
         people: [
-          { name: 'Ana', you: true },
-          { name: 'Ben', you: false },
+          { memberId: ANA, name: 'Ana', you: true, roles: [] },
+          { memberId: BEN, name: 'Ben', you: false, roles: [] },
         ],
-      },
+      }),
+      showsCount: true,
       mute: expect.objectContaining({ label: 'Mute Team' }),
     })
   })
@@ -223,6 +226,11 @@ describe('threadHeadModel', () => {
       archived: false,
       channel: billing,
       agentState: null,
+      people: expect.objectContaining({
+        label: strings.memberCount({ count: billing.memberCount }),
+        title: strings.participants.inChannel({ channel: '#billing' }),
+      }),
+      answerCount: strings.answerCount({ count: billing.helperCount }),
       mute: expect.objectContaining({ label: 'Mute #billing' }),
     })
     const helped = channel('billing', {
@@ -254,8 +262,41 @@ describe('threadHeadModel', () => {
       kind: 'channel',
       archived: true,
       channel: null,
+      people: expect.objectContaining({ label: strings.groupPeople({ count: 2 }) }),
+      answerCount: null,
       mute: null,
     })
+  })
+})
+
+describe('the people behind a private question’s head', () => {
+  it('lists its asker, its agent and its current managers, with a count', () => {
+    const agent = 'mem_agent0000000' as never
+    const billing = channel('billing', {
+      agent: {
+        id: agent,
+        name: 'Billing helper',
+        presence: { humanOnline: false, agentOnline: true, agentUnavailable: { until: null } },
+      },
+    })
+    const head = threadHeadModel(
+      threadInput({
+        conversations: [
+          conversation({
+            kind: 'group',
+            participantIds: [BEN, agent, ANA, CY],
+            privateQuestionOf: 'billing',
+            askedBy: BEN,
+            managerIds: [ANA, CY],
+          }),
+        ],
+        channels: [billing],
+      }),
+    )
+    expect(head).toMatchObject({ kind: 'people', showsCount: true })
+    if (head.kind !== 'people') return
+    expect(head.people.people.map((person) => person.memberId)).toEqual([ANA, BEN, agent, CY])
+    expect(head.people.note).toBe(strings.participants.laterManagers({ channel: '#billing' }))
   })
 })
 

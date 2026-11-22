@@ -2708,15 +2708,47 @@ button.group-member-name:focus-visible::after {
   color: inherit;
 }
 
-.group-people-open {
+.people-open {
   flex: none;
   padding: var(--hb-space-1) var(--hb-space-2);
   white-space: nowrap;
 }
 
+.channel-counts .people-open,
+.debate-meta .people-open {
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline dotted;
+  text-underline-offset: 0.2em;
+}
+
+.people-title {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+}
+
+.people-title:hover {
+  text-decoration: underline;
+}
+
 .room-menu,
-.group-people {
+.people-list {
   max-inline-size: min(20rem, calc(100vi - var(--hb-space-4)));
+}
+
+.people-list {
+  max-block-size: min(28rem, calc(100dvb - var(--hb-space-6)));
+  overflow-y: auto;
 }
 
 .room-menu > button,
@@ -2752,12 +2784,30 @@ button.group-member-name:focus-visible::after {
   font-size: var(--hb-text-small);
 }
 
-.group-people ul {
+.people-list ul {
   display: grid;
-  gap: var(--hb-space-1);
+  gap: var(--hb-space-2);
   margin: 0;
   padding: var(--hb-space-2);
   list-style: none;
+}
+
+.participant {
+  display: grid;
+  gap: 0;
+}
+
+.participant-roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--hb-space-2);
+  color: var(--hb-color-muted);
+}
+
+.people-later {
+  margin: 0;
+  padding: var(--hb-space-2);
+  border-block-start: var(--hb-border-divider);
 }
 
 
@@ -6070,7 +6120,8 @@ textarea:disabled {
     .back,
     .mute-toggle,
     .room-more,
-    .group-people-open,
+    .people-open,
+    .people-title,
     .conversation-more,
     .menu-trigger,
     .user-button,
@@ -6099,7 +6150,8 @@ textarea:disabled {
     .back,
     .mute-toggle,
     .room-more,
-    .group-people-open,
+    .people-open,
+    .people-title,
     .conversation-more,
     .menu-trigger,
     .user-button,
@@ -6245,7 +6297,7 @@ textarea:disabled {
   .search-link,
   .mute-toggle,
   .room-more,
-  .group-people-open,
+  .people-open,
   .menu-trigger:not(.conversation-more) {
     display: inline-grid;
     place-items: center;
