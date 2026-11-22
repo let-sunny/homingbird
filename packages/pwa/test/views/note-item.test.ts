@@ -110,6 +110,15 @@ describe('renderNoteItem', () => {
     expect(context.state.notice.get()).toEqual({ kind: 'info', text: strings.noteLinkCopied })
   })
 
+  it('says in the menu of the person’s own note that a sent note stays as it is, and only there', () => {
+    const { context } = testContext()
+    const mine = render(context, note('n1', { authorId: ANA }))
+    expect(textOf(mine.querySelector('.note-menu'))).toContain(strings.noteFixed)
+    expect(mine.querySelector('.note-fixed')?.getAttribute('role')).toBeNull()
+    const theirs = render(context, note('n2'))
+    expect(textOf(theirs.querySelector('.note-menu'))).not.toContain(strings.noteFixed)
+  })
+
   it('shows Ask my agent disabled with the reason where the server takes no draft requests', () => {
     const { context, called } = testContext()
     const shown = render(context, note('n1'), threadInput({ serverInfo: serverInfo() }))

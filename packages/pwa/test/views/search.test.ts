@@ -5,7 +5,7 @@ import { strings } from '../../src/strings.ts'
 import { searchView } from '../../src/views/search.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
-import { me, note } from '../support/fixtures.ts'
+import { BEN, CY, channel, entry, me, note } from '../support/fixtures.ts'
 
 usingFakeDom()
 
@@ -87,5 +87,25 @@ describe('searchView', () => {
     document.body.append(answered)
     asked.page.runFrames()
     expect(document.activeElement).not.toBe(getByRole(answered, 'searchbox'))
+  })
+
+  it('shows the people and channels whose name holds what was searched for, above the notes', () => {
+    const { context, called } = testContext()
+    context.state.directory.set([entry(BEN, 'Ben Rivers'), entry(CY, 'Cy')])
+    context.state.channels.set([
+      channel('river-ops', { joined: true }),
+      channel('river-secret', { visibility: 'private' }),
+    ])
+    const shown = searchView(context, lifetime(), me(), 'river')
+    const people = shown.querySelector('.search-names[data-kind="people"]')!
+    expect(textOf(people)).toContain(strings.navPeople)
+    getByRole(people, 'button', { name: /Ben Rivers/ }).click()
+    expect(called('openConversationWith').map((call) => call.args)).toEqual([[BEN]])
+    const channels = shown.querySelector('.search-names[data-kind="channels"]')!
+    expect(getByRole(channels, 'link', { name: /#river-ops/ }).getAttribute('href')).toBe(
+      `#/c/${channel('river-ops').conversationId}`,
+    )
+    expect(textOf(shown)).not.toContain('#river-secret')
+    expect(searchView(context, lifetime(), me(), '').querySelector('.search-names')).toBeNull()
   })
 })

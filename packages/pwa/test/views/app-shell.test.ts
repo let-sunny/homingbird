@@ -123,7 +123,7 @@ describe('showApp', () => {
   it('shows a refusal inside the open dialog, puts it back once the dialog closes, and closes it in time after a redraw', async () => {
     const { context, root, clock } = start()
     context.state.session.set(me())
-    const dialog = root.querySelector('dialog') as HTMLDialogElement
+    const dialog = root.querySelector('dialog#dialog') as HTMLDialogElement
     dialog.showModal()
     context.state.notice.set({ kind: 'error', text: 'The demo does not do this.' })
     expect(dialog.querySelector('.toast-host [role="alert"]')?.textContent).toContain('The demo does not')
