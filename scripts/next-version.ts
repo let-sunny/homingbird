@@ -2,16 +2,18 @@ import type { ConventionalCommit } from './conventional-commit.ts'
 
 /**
  * The version that releases the commits since the current one, or null when none of them is for the
- * people who use Homingbird. With `pre` set, the release is a pre-release of the next version; a
- * pre-release line keeps its version and counts up, and clearing `pre` releases that version.
+ * people who use Homingbird. `hasNewSchemaStep` says whether they add a step to Dovecote's
+ * `MIGRATIONS`. With `pre` set, the release is a pre-release of the next version; a pre-release line
+ * keeps its version and counts up, and clearing `pre` releases that version.
  */
 export const nextVersion = (
   current: string,
   commits: ReadonlyArray<ConventionalCommit>,
   pre: string | null,
+  hasNewSchemaStep: boolean,
 ): string | null => {
   const version = parseVersion(current)
-  const bump = bumpFor(commits, version.major)
+  const bump = bumpFor(commits, version.major, hasNewSchemaStep)
   const core = `${version.major}.${version.minor}.${version.patch}`
   if (version.pre !== null) {
     if (pre === null) return core
@@ -25,12 +27,20 @@ export const nextVersion = (
 
 export type Bump = 'major' | 'minor' | 'patch'
 
-/** Before 1.0 a breaking change bumps the minor version and anything else for users the patch. */
-export const bumpFor = (commits: ReadonlyArray<ConventionalCommit>, major: number): Bump | null => {
+/**
+ * Before 1.0 a breaking change or a new schema step bumps the minor version, so administrators can tell
+ * from the number when an upgrade migrates the database, and anything else for users the patch. A
+ * schema step alone releases nothing: the next release for users carries it.
+ */
+export const bumpFor = (
+  commits: ReadonlyArray<ConventionalCommit>,
+  major: number,
+  hasNewSchemaStep: boolean,
+): Bump | null => {
   if (commits.some((commit) => commit.breaking)) return major === 0 ? 'minor' : 'major'
-  if (commits.some((commit) => commit.type === 'feat')) return major === 0 ? 'patch' : 'minor'
-  if (commits.some((commit) => RELEASED_TYPES.includes(commit.type))) return 'patch'
-  return null
+  if (!commits.some((commit) => RELEASED_TYPES.includes(commit.type))) return null
+  if (major === 0) return hasNewSchemaStep ? 'minor' : 'patch'
+  return commits.some((commit) => commit.type === 'feat') ? 'minor' : 'patch'
 }
 
 export const RELEASED_TYPES: ReadonlyArray<string> = ['feat', 'fix', 'perf']

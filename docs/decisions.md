@@ -725,9 +725,9 @@ states the decision first, then the reason. Add new entries at the top of their 
   of truth that a second file per change, a changeset, only repeated and could contradict. This
   replaces Changesets. `scripts/release-version.ts` reads the commits since the last `v*` tag reachable from
   `main`, skipping merges and "Version Packages" commits (`conventional-commit.ts`), computes the next
-  version (`next-version.ts`: before 1.0 a breaking change bumps the minor and a `feat`, `fix` or
-  `perf` the patch; from 1.0 major, minor and patch as usual; only `chore`, `docs`, `test`, `ci`,
-  `build` and `refactor` release nothing), and writes it to every package, the root, the plugin's
+  version (`next-version.ts`: before 1.0 a breaking change or a new step in Dovecote's `MIGRATIONS`
+  bumps the minor and a `feat`, `fix` or `perf` the patch; from 1.0 major, minor and patch as usual;
+  only `chore`, `docs`, `test`, `ci`, `build` and `refactor` release nothing), and writes it to every package, the root, the plugin's
   `plugin.json`, the marketplace pin and the two version constants, so all share one version. It
   writes the notes (`release-notes.ts`: breaking changes, added, fixed, performance, each entry the
   summary and the first body paragraph) as a section of the one root `CHANGELOG.md`. The release
@@ -735,6 +735,12 @@ states the decision first, then the reason. Add new entries at the top of their 
   the section on that branch, and the published release takes its notes from the merged
   `CHANGELOG.md`, never regenerated. Pre-releases are a committed setting, `"pre"` in `release.json`,
   instead of a tool's mode.
+- **Before 1.0, a release that adds a schema step is a minor version.** A schema change is a minor
+  version so administrators can tell from the number when an upgrade migrates the database: an
+  evaluator found patch releases that carried schema steps, ten of them in 0.3.7. The release script
+  compares the number of entries in `MIGRATIONS` at the last release tag with HEAD and passes the
+  answer to `bumpFor`, which stays pure. A schema step alone releases nothing; the next release for
+  users carries it. From 1.0 the usual rules apply.
 - **The plugin ships its own copy of the command line, and its marketplace entry is the npm package.**
   `@homingbird/mod` holds the plugin files plus `cli/homingbird.mjs`, and the plugin runs that file with
   `node` unless **Homingbird command** names another. The copy always matches the plugin's version and

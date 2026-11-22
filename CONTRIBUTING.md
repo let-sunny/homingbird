@@ -123,6 +123,7 @@ Nothing beyond the commit message. The commits since the last `v*` tag decide th
 | Commits since the last release | Before 1.0 | From 1.0 |
 | --- | --- | --- |
 | A breaking change (`!` or a `BREAKING CHANGE:` footer) | minor | major |
+| A new step in `MIGRATIONS` (`packages/dovecote/src/sql/migrations.ts`) with any of the below | minor | as below |
 | A `feat` | patch | minor |
 | A `fix` or `perf` | patch | patch |
 | Only `chore`, `docs`, `test`, `ci`, `build`, `refactor` | no release | no release |

@@ -56,7 +56,7 @@ export const versionPullRequest = (
   title: pre === null ? 'Version Packages' : `Version Packages (${pre})`,
   body: [
     `Merging this pull request releases **${version}**: the release workflow checks, publishes @homingbird/cli, @homingbird/mcp and @homingbird/mod to npm, tags v${version}, creates the GitHub release and pushes the image. Every push to main with commits for users updates it.`,
-    'The version and these notes come from the Conventional Commit messages since the last release. Edit the section in `CHANGELOG.md` on this branch before merging to change the release notes; the release takes them from there. A later push to main rebuilds this branch.',
+    'The version and these notes come from the Conventional Commit messages since the last release; before 1.0 a breaking change or a new schema step in `packages/dovecote/src/sql/migrations.ts` makes it a minor version, so administrators can tell from the number when an upgrade migrates the database. Edit the section in `CHANGELOG.md` on this branch before merging to change the release notes; the release takes them from there. A later push to main rebuilds this branch.',
     ...(pre === null
       ? []
       : [
@@ -125,6 +125,13 @@ export const releasesWithoutUpgradeFixture = (
   const releasing = version.includes('-') ? [] : [version]
   return [...new Set([...released, ...releasing])].filter((release) => !fixtures.has(release))
 }
+
+/**
+ * Whether Dovecote's `MIGRATIONS` has more steps now than in the migrations module of the last release,
+ * which is null when there is no release or that release had no such module.
+ */
+export const hasNewSchemaStepSince = (migrationsAtRelease: string | null, migrationsNow: string): boolean =>
+  schemaStepsIn(migrationsNow) > (migrationsAtRelease === null ? 0 : schemaStepsIn(migrationsAtRelease))
 
 /** How many schema steps Dovecote has: the entries of `MIGRATIONS` in its migrations module. */
 export const schemaStepsIn = (migrationsSource: string): number => {
@@ -259,7 +266,17 @@ const nextRelease = (since: string | null): { readonly version: string | null; r
     since === null ? read('package.json') : git('show', `${since}:package.json`),
   ).version
   const commits = commitsSince(since)
-  return { version: nextVersion(current, commits, preRelease()), notes: renderNotes(commits) }
+  const newSchemaStep = hasNewSchemaStepSince(migrationsAt(since), read(MIGRATIONS_FILE))
+  return { version: nextVersion(current, commits, preRelease(), newSchemaStep), notes: renderNotes(commits) }
+}
+
+const migrationsAt = (ref: string | null): string | null => {
+  if (ref === null) return null
+  try {
+    return git('show', `${ref}:${MIGRATIONS_FILE}`)
+  } catch {
+    return null
+  }
 }
 
 const nextOnGitHub = (): void => output(`next=${nextRelease(latestTag()).version ?? ''}`)
