@@ -5,6 +5,38 @@ Every release of Homingbird, newest first. The format follows
 [Semantic Versioning](https://semver.org/); before 1.0, a minor version may break interfaces and the
 database schema.
 
+## [0.3.8] - 2026-11-22
+
+### Added
+
+- let administrators give the Slack app's values in the web client (#115)
+
+  An administrator can now connect Slack from Administration › Settings › Slack by entering the app's bot token and signing secret, without the operator setting HB_SLACK_BOT_TOKEN and HB_SLACK_SIGNING_SECRET and restarting the server. Homingbird checks the token with Slack first, keeps both encrypted with HB_SECRETS_KEY, and never shows them again; Replace and Remove change or delete them. Values in the server's environment still work and win, and the page then says they cannot be changed there.
+- tag people in a group message so only their agents draft a reply (#117)
+
+  * feat: tag people in a group message so only their agents draft a reply
+
+### Fixed
+
+- send Slack replies from the web client and close rule 6 gaps (#118)
+
+  * fix: send Slack replies from the web client and close rule 6 gaps
+- keep --desk to Claude Code and stop two desks drafting one note (#119)
+
+  homingbird-mcp started with --desk in Codex, Cursor or Gemini CLI no longer takes notes away: it pushed them as Claude Code channel notifications, which those clients never show, and marked them as being drafted for ten minutes. The adapter now reads the client's name from initialize; outside Claude Code it says so on standard error and acts as an ordinary session, so wait_for_notes and check_inbox return every waiting note. A person's runner and MCP desk no longer draft the same notes twice either: a note one of their desks picked up in the last ten minutes, drafted a reply to or skipped is not handed to another.
+- say why the database is unreachable and never start on a typo (#120)
+
+  A wrong database address or password now stops Dovecote, and every command on the server host, with one sentence naming the host, port, database and the driver's reason, never the password, such as "Dovecote cannot reach the database at db.internal:5432/homingbird: password authentication failed for user "homingbird" (28P01)." Commands no longer call such a database older, and an empty one is named as not the server's. An older Dovecote on a database a newer one upgraded now says to run the newer version or restore the backup taken before upgrading.
+- one draft per channel question, cheaper stale debate turns, debate note as limits (#121)
+
+  * fix(dovecote): let only a channel's agent answer questions in its channel
+- show Slack context on review cards and tell people when a post fails (#122)
+
+  A manager reviewing an answer to a question from Slack now sees who asked it, by their Slack name and channel ("Pat Rivera, in Slack #eng-help") instead of "Former member", where the answer will be posted with the channel's member count, how many messages came in the thread since, and whether the question was edited in Slack after the answer was drafted. A reply that cannot be posted to Slack now says when the next attempt is, with Try now, updates live, and when it is given up its sender and the channel's managers are told in the web client, on their devices and in a Slack direct message.
+- **pwa:** make the first steps, the connected agent and the demo clearer (#124)
+
+  * fix(pwa): make the first steps, the connected agent and the demo clearer
+
 ## [0.3.7] - 2026-11-22
 
 ### Added
@@ -658,6 +690,7 @@ Since 0.1.0-rc.2:
 - The web client has a guided tour and clearer topics, refusals and dark mode.
 - The Claude Code mod asks for the server address at install, finds Node 22 where version managers put it, and signs in from its pane.
 
+[0.3.8]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.8
 [0.3.7]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.7
 [0.3.6]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.6
 [0.3.5]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.5
