@@ -16,6 +16,19 @@ export const browserPage = (window: BrowserWindow): Page => {
     linkTo: (href) => new URL(href, location.href).href,
     fetch: (url, init) => window.fetch(url, init),
     languages: () => window.navigator?.languages ?? [],
+    isApple: () => /Mac|iPhone|iPad/.test(window.navigator?.userAgent ?? ''),
+    showWaiting: (title, badge) => {
+      document.title = title
+      const { navigator } = window
+      if (navigator?.setAppBadge === undefined || navigator.clearAppBadge === undefined) return
+      const shown =
+        badge === null
+          ? navigator.clearAppBadge()
+          : badge === 'unread'
+            ? navigator.setAppBadge()
+            : navigator.setAppBadge(badge)
+      shown.catch(() => {})
+    },
     isVisible: () => document.visibilityState === 'visible',
     on: (event, listener) => {
       const target = event === 'visibilitychange' ? document : window
@@ -106,6 +119,10 @@ export interface Page {
   readonly linkTo: (href: string) => string
   readonly fetch: Fetch
   readonly languages: () => ReadonlyArray<string>
+  /** Whether the keyboard has a Command key, so that shortcuts are written ⌘K rather than Ctrl+K. */
+  readonly isApple: () => boolean
+  /** Sets the tab's title and the app badge: a count, a mark without a number, or none. */
+  readonly showWaiting: (title: string, badge: number | 'unread' | null) => void
   readonly isVisible: () => boolean
   readonly on: (event: PageEvent, listener: () => void) => Unsubscribe
   readonly nextFrame: (run: () => void) => void
@@ -168,11 +185,14 @@ export interface InViewWatch {
 export interface BrowserWindow {
   readonly document: Pick<
     Document,
-    'visibilityState' | 'createElement' | 'body' | 'addEventListener' | 'removeEventListener'
+    'visibilityState' | 'createElement' | 'body' | 'addEventListener' | 'removeEventListener' | 'title'
   >
   readonly location: Pick<Location, 'origin' | 'href' | 'hash' | 'replace' | 'assign'>
   readonly history: Pick<History, 'replaceState'>
   readonly navigator?: Pick<Navigator, 'languages'> & {
+    readonly userAgent?: string
+    readonly setAppBadge?: (count?: number) => Promise<void>
+    readonly clearAppBadge?: () => Promise<void>
     readonly serviceWorker?: { readonly getRegistration?: () => Promise<NotificationSource | undefined> }
     readonly clipboard?: { readonly writeText: (text: string) => Promise<void> }
   }

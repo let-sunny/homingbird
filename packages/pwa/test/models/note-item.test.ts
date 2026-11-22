@@ -114,6 +114,7 @@ describe('noteItemModel', () => {
           { kind: 'copy', label: strings.copyNote, reason: null },
           { kind: 'copy-link', label: strings.copyNoteLink, reason: null },
         ],
+        fixed: null,
       },
     })
     expect(model.author).toMatchObject({
@@ -251,6 +252,7 @@ describe('noteItemModel', () => {
       strings.reply,
       ['reply', 'copy', 'copy-link'],
     ])
+    expect(model.menu.fixed).toBe(strings.noteFixed)
     expect(model.meta!.mark).toMatchObject({ state: 'read', label: strings.status.read, count: null })
     expect(model.meta!.mark!.glyph).toBe('✓✓︎')
     expect(noteItemModel(threadInput(), item(note('n2', { authorId: ANA, basis: null }))).basis).toBeNull()

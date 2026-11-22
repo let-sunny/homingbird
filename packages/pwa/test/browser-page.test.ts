@@ -193,4 +193,32 @@ describe('browserPage', () => {
     expect(await browserPage(fakeWindow().window).copyText('x')).toBe(false)
     expect(await browserPage(fakeWindow({ navigator: undefined }).window).copyText('x')).toBe(false)
   })
+
+  it('tells an Apple keyboard from others', () => {
+    const mac = fakeWindow({
+      navigator: { languages: [], userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X)' },
+    })
+    expect(browserPage(mac.window).isApple()).toBe(true)
+    expect(
+      browserPage(fakeWindow({ navigator: { languages: [], userAgent: 'X11; Linux' } }).window).isApple(),
+    ).toBe(false)
+    expect(browserPage(fakeWindow({ navigator: undefined }).window).isApple()).toBe(false)
+  })
+
+  it('sets the tab title, and the app badge where the browser has one', async () => {
+    const setAppBadge = vi.fn(() => Promise.reject(new Error('not installed')))
+    const clearAppBadge = vi.fn(() => Promise.resolve())
+    const { window, document } = fakeWindow({ navigator: { languages: [], setAppBadge, clearAppBadge } })
+    const page = browserPage(window)
+    page.showWaiting('2 to approve – Homingbird', 2)
+    expect(document.title).toBe('2 to approve – Homingbird')
+    page.showWaiting('1 unread – Homingbird', 'unread')
+    page.showWaiting('Homingbird', null)
+    await Promise.resolve()
+    expect(setAppBadge.mock.calls).toEqual([[2], []])
+    expect(clearAppBadge).toHaveBeenCalledTimes(1)
+    const plain = fakeWindow({ navigator: { languages: [] } })
+    browserPage(plain.window).showWaiting('Homingbird', 3)
+    expect(plain.document.title).toBe('Homingbird')
+  })
 })

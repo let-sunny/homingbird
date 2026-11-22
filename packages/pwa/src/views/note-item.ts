@@ -34,7 +34,10 @@ export const renderNoteItem = (
     label: model.menu.label,
     triggerClass: 'note-more',
     menuClass: 'note-menu',
-    items: model.menu.items.map((item) => menuItem(model.menu.id, item, ACTIONS[item.kind])),
+    items: [
+      model.menu.items.map((item) => menuItem(model.menu.id, item, ACTIONS[item.kind])),
+      model.menu.fixed !== null && h('small', { class: 'menu-reason note-fixed' }, model.menu.fixed),
+    ],
   })
   const li = h(
     'li',

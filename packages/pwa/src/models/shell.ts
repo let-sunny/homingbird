@@ -49,19 +49,29 @@ export const userMenuModel = (me: AsRead.Me): UserMenu => ({
   signOut: strings.menuSignOut,
 })
 
-/** The sidebar: direct messages, channel rooms and archived rooms, each as rows. */
+/**
+ * The sidebar: direct messages, channel rooms and archived rooms, each as rows. With the Waiting for you
+ * filter on, only the conversations the activity panel lists are shown, and no archived room.
+ */
 export const sidebarModel = (input: SidebarInput): SidebarModel => {
+  const waitingOnly = input.waitingOnly ?? null
+  const shown = (rooms: AsRead.Conversation[]): AsRead.Conversation[] =>
+    waitingOnly === null ? rooms : rooms.filter((room) => waitingOnly.has(room.id))
   const people = peopleConversations(input.conversations)
-  const archived = archivedRooms(input.conversations)
+  const archived = waitingOnly === null ? archivedRooms(input.conversations) : []
   const row = (conversation: AsRead.Conversation): ConversationRow => conversationRow(input, conversation)
+  const peopleShown = shown(people)
   return {
     onboarding: input.agentCount === 0,
     people: !input.loaded
       ? { kind: 'loading' }
       : people.length === 0
         ? { kind: 'none' }
-        : { kind: 'rows', rows: people.map(row) },
-    channelRooms: channelRooms(input.conversations).map(row),
+        : peopleShown.length === 0
+          ? { kind: 'nothing-waits', text: strings.waiting.peopleNone }
+          : { kind: 'rows', rows: peopleShown.map(row) },
+    channelRooms: shown(channelRooms(input.conversations)).map(row),
+    channelRoomsEmpty: waitingOnly === null ? strings.noChannelRooms : strings.waiting.roomsNone,
     archived:
       archived.length === 0
         ? null
@@ -114,6 +124,8 @@ export interface SidebarInput {
   readonly arrived: ReadonlySet<string>
   /** The conversations whose composer holds text the person has not sent. */
   readonly typedIn: ReadonlySet<string>
+  /** With the Waiting for you filter on, the conversations that wait for the person. */
+  readonly waitingOnly?: ReadonlySet<string> | null
 }
 
 export interface SidebarModel {
@@ -121,8 +133,11 @@ export interface SidebarModel {
   readonly people:
     | { readonly kind: 'loading' }
     | { readonly kind: 'none' }
+    | { readonly kind: 'nothing-waits'; readonly text: string }
     | { readonly kind: 'rows'; readonly rows: ReadonlyArray<ConversationRow> }
   readonly channelRooms: ReadonlyArray<ConversationRow>
+  /** What the channel list says when it has no row to show. */
+  readonly channelRoomsEmpty: string
   readonly archived: {
     readonly title: string
     readonly open: boolean
