@@ -8,7 +8,7 @@ import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
 import { actionMenu } from './menu.ts'
 import { noteBody } from './note-body.ts'
-import { button, sourceList, timeLabel } from './parts.ts'
+import { button, copyWithNotice, sourceList, timeLabel } from './parts.ts'
 import { teachFromMiss } from './teaching.ts'
 
 /** One sent note in the thread; a click on it, away from its controls, marks it as the one looked at. */
@@ -26,8 +26,9 @@ export const renderNoteItem = (
   const ACTIONS: Readonly<Record<NoteMenuItem['kind'], () => void>> = {
     reply,
     'ask-agent': askAgent,
-    copy: () => copyText(context, note.body, strings.noteCopied),
-    'copy-link': () => copyText(context, noteLink(context, conversationId, note), strings.noteLinkCopied),
+    copy: () => copyWithNotice(context, note.body, strings.noteCopied),
+    'copy-link': () =>
+      copyWithNotice(context, noteLink(context, conversationId, note), strings.noteLinkCopied),
   }
   const more = actionMenu(context, {
     id: model.menu.id,
@@ -234,16 +235,6 @@ const debateResultBody = (
       ]),
   h('a', { class: 'debate-note-room', href: result.room.href }, result.room.label),
 ]
-
-const copyText = (context: ViewContext, text: string, copied: string): void => {
-  void context.page
-    .copyText(text)
-    .then((isCopied) =>
-      context.state.notice.set(
-        isCopied ? { kind: 'info', text: copied } : { kind: 'error', text: strings.noteNotCopied },
-      ),
-    )
-}
 
 /** The address that opens the conversation at this note, for pasting elsewhere. */
 const noteLink = (context: ViewContext, conversationId: ConversationId, note: AsRead.Note): string =>

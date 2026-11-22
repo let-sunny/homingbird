@@ -1,5 +1,14 @@
 import type { AsRead, ChannelMember, GroupId, MemberId } from '@homingbird/protocol'
-import { type Child, type Lifetime, h, region, replaceChildren, signal } from '@homingbird/ui'
+import {
+  type Child,
+  type Lifetime,
+  type ReadableSignal,
+  h,
+  onAnyChange,
+  region,
+  replaceChildren,
+  signal,
+} from '@homingbird/ui'
 import { isPrivate } from '../channels.ts'
 import { featureOn } from '../features.ts'
 import {
@@ -14,12 +23,22 @@ import {
   roomControlsModel,
   rosterNeed,
 } from '../models/channel-membership.ts'
+import { hrefFor } from '../routes.ts'
 import { signedIn } from '../state.ts'
 import { strings } from '../strings.ts'
 import { agentButtons } from './channel-agent.ts'
 import type { ViewContext } from './context.ts'
 import { closeDialog, opensDialog } from './dialog.ts'
-import { button, dialogActions, disabledWithReason, loading, privateMarkOf, youMark } from './parts.ts'
+import {
+  button,
+  copyWithNotice,
+  dialogActions,
+  disabledWithReason,
+  loading,
+  privateMarkOf,
+  youMark,
+} from './parts.ts'
+import { peoplePicker } from './people-picker.ts'
 
 /** A channel's own controls on its page: answering there, and the menu of the rest. */
 export const roomControls = (context: ViewContext, channel: AsRead.Channel): HTMLElement =>
@@ -141,8 +160,28 @@ const membersPanel = (context: ViewContext, life: Lifetime, channel: AsRead.Chan
       groupsOn: featureOn('groups', state.serverInfo.get()),
     })
   }
+  const adding = signal<ReadonlyArray<MemberId>>([])
+  const picker = peoplePicker(life, {
+    id: `add-member-${channel.slug}`,
+    label: strings.addMemberLabel,
+    placeholder: strings.newMessage.placeholder,
+    candidates: () => {
+      const offer = model().addMember
+      return offer?.kind === 'choose' ? offer.candidates : []
+    },
+    sources: [listed, state.directory],
+    chosen: adding,
+    limit: null,
+  })
   const panel = {
     confirm,
+    picker: picker.element,
+    adding,
+    addChosen: () => {
+      const chosen = adding.get()
+      adding.set([])
+      for (const memberId of chosen) actions.setChannelMember(channel.slug, memberId, true, changes)
+    },
     back: () => back(),
     addTeam: (groupId: GroupId) => actions.addTeam(channel.slug, groupId, changes),
     setManagers: (groupId: GroupId, memberIds: ReadonlyArray<MemberId>) =>
@@ -156,7 +195,7 @@ const membersPanel = (context: ViewContext, life: Lifetime, channel: AsRead.Chan
     region(
       life,
       [listed, state.members, state.directory, state.groups],
-      () => renderMembers(model(), context, channel, panel),
+      (drawing) => renderMembers(model(), context, channel, panel, drawing),
       {
         class: 'members-host',
       },
@@ -174,6 +213,10 @@ interface Panel {
   readonly addTeam: (groupId: GroupId) => void
   readonly setManagers: (groupId: GroupId, memberIds: ReadonlyArray<MemberId>) => void
   readonly setMember: (memberId: MemberId, isMember: boolean) => void
+  /** The people picker for adding members, made once so what is typed in it survives a redraw. */
+  readonly picker: HTMLElement
+  readonly adding: ReadableSignal<ReadonlyArray<MemberId>>
+  readonly addChosen: () => void
 }
 
 const renderMembers = (
@@ -181,6 +224,7 @@ const renderMembers = (
   context: ViewContext,
   channel: AsRead.Channel,
   panel: Panel,
+  drawing: Lifetime,
 ): Child => {
   const managing = model.managedBy !== null && h('p', { class: 'managed-by' }, model.managedBy.text)
   if (model.rows === null) return [managing, loading()]
@@ -201,7 +245,7 @@ const renderMembers = (
       ),
     ),
     model.addMember?.kind === 'nobody' && h('p', { class: 'hint' }, model.addMember.text),
-    model.addMember?.kind === 'choose' && addMemberForm(model.addMember.choices, panel),
+    model.addMember?.kind === 'choose' && addMemberForm(panel, drawing),
     model.visibility !== null && h('p', { class: 'visibility' }, model.visibility),
   ]
 }
@@ -324,15 +368,14 @@ const choiceForm = <A extends string>(
   )
 }
 
-const addMemberForm = (
-  choices: ReadonlyArray<{ readonly value: MemberId; readonly label: string }>,
-  panel: Panel,
-): HTMLElement => {
-  const choice = h(
-    'select',
-    { name: 'member', 'aria-label': strings.addMemberLabel },
-    choices.map((one) => h('option', { value: one.value }, one.label)),
-  )
+/** Adds everyone chosen in the picker at once; the button waits until someone is chosen. */
+const addMemberForm = (panel: Panel, drawing: Lifetime): HTMLElement => {
+  const add = h('button', { type: 'submit', class: 'primary' }, strings.addMember)
+  const reflect = (): void => {
+    add.disabled = panel.adding.get().length === 0
+  }
+  reflect()
+  drawing.add(onAnyChange([panel.adding], reflect))
   return h(
     'form',
     {
@@ -340,12 +383,12 @@ const addMemberForm = (
       on: {
         submit: (event) => {
           event.preventDefault()
-          panel.setMember(choice.value as MemberId, true)
+          panel.addChosen()
         },
       },
     },
-    h('label', { class: 'field' }, h('span', { class: 'field-label' }, strings.addMemberLabel), choice),
-    h('button', { type: 'submit', class: 'primary' }, strings.addMember),
+    panel.picker,
+    add,
   )
 }
 
@@ -370,6 +413,22 @@ const renderRoomMenu = (model: RoomControls, channel: AsRead.Channel, context: V
         },
         strings.manageMembers,
       ),
+    h(
+      'button',
+      {
+        type: 'button',
+        class: 'menu-item copy-channel-link',
+        on: {
+          click: () =>
+            copyWithNotice(
+              context,
+              context.page.linkTo(hrefFor({ name: 'channel', slug: channel.slug })),
+              strings.channelLinkCopied,
+            ),
+        },
+      },
+      strings.copyChannelLink,
+    ),
     agentButtons(context, channel),
     model.leave?.kind === 'blocked' &&
       disabledWithReason(strings.leaveChannel, model.leave.reason, 'leave-channel'),

@@ -28,6 +28,7 @@ import {
   namesInBrief,
   otherParticipants,
   readProgress,
+  roomWith,
   showsAuthors,
   statusOf,
   threadItems,
@@ -290,6 +291,28 @@ describe('conversation titles', () => {
     expect(groupWith(rooms, ana, [june, cy])).toBe(group)
     expect(groupWith(rooms, ana, [cy, june, ana])).toBe(group)
     expect(groupWith(rooms.slice(0, -1), ana, [june, cy])).toBeUndefined()
+  })
+
+  it('finds the room a note to the people chosen goes to: their direct message, or their group', () => {
+    const direct = conversation({ id: 'conv_direct000000' as never, participantIds: [june, ana] })
+    const group = conversation({
+      id: 'conv_group0000000' as never,
+      kind: 'group',
+      participantIds: [ana, june, cy],
+    })
+    const rooms = [
+      conversation({ participantIds: [ana, june], archivedAt: 5 }),
+      conversation({ kind: 'group', participantIds: [ana, june] }),
+      conversation({ participantIds: [ana, cy] }),
+      direct,
+      group,
+    ]
+    expect(roomWith(rooms, ana, [june])).toBe(direct)
+    expect(roomWith(rooms, ana, [june, ana, june])).toBe(direct)
+    expect(roomWith(rooms, ana, [cy, june])).toBe(group)
+    expect(roomWith(rooms.slice(0, 3), ana, [june])).toBeUndefined()
+    expect(roomWith(rooms, ana, [ana])).toBeUndefined()
+    expect(roomWith(rooms, ana, [])).toBeUndefined()
   })
 
   it('shows a channel room as a hashtag, even with a single participant', () => {

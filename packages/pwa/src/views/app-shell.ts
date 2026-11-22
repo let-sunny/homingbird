@@ -175,6 +175,9 @@ const inTransition = (context: ViewContext, change: () => void): void => {
   if (context.page.prefersReducedMotion() || !context.document.inTransition(change)) change()
 }
 
-/** A group's editor counts as the administration's page, so analytics keeps one value per area. */
-const analyticsPageOf = (route: Route): Exclude<Route['name'], 'admin-group'> =>
-  route.name === 'admin-group' ? 'admin' : route.name
+/**
+ * A group's editor counts as the administration's page, and the new-message screen as a
+ * conversation's, so analytics keeps one value per area.
+ */
+const analyticsPageOf = (route: Route): Exclude<Route['name'], 'admin-group' | 'new'> =>
+  route.name === 'admin-group' ? 'admin' : route.name === 'new' ? 'conversation' : route.name

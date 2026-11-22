@@ -6,6 +6,7 @@ import type { TimeShown } from '../models/time.ts'
 import { presenceShown } from '../presence.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
+import type { ViewContext } from './context.ts'
 import { closesDialog } from './dialog.ts'
 import { type PipState, pip } from './pip.ts'
 
@@ -167,6 +168,21 @@ export const disabledWithReason = (label: string, reason: string, kind: string):
     h('button', { type: 'button', class: kind, disabled: true, 'aria-describedby': `${kind}-reason` }, label),
     h('small', { id: `${kind}-reason` }, reason),
   )
+
+/** Copies text for pasting elsewhere and says whether it worked. */
+export const copyWithNotice = (
+  context: Pick<ViewContext, 'page' | 'state'>,
+  text: string,
+  copied: string,
+): void => {
+  void context.page
+    .copyText(text)
+    .then((isCopied) =>
+      context.state.notice.set(
+        isCopied ? { kind: 'info', text: copied } : { kind: 'error', text: strings.noteNotCopied },
+      ),
+    )
+}
 
 /** Cancel, which closes the dialog, beside the dialog's own submit button. */
 export const dialogActions = (label: string, kind: 'primary' | 'danger'): HTMLElement =>

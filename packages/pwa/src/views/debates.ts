@@ -1,18 +1,19 @@
 import { type AsRead, DEBATE_QUESTION_MAX, DEFAULT_DEBATE_LIMITS, type MemberId } from '@homingbird/protocol'
-import { type Lifetime, h, region } from '@homingbird/ui'
+import { type Lifetime, h, region, signal } from '@homingbird/ui'
 import {
   type DebateListModel,
   type ShownLimits,
   debateListModel,
-  inviteesFor,
   limitFieldsModel,
   typedLimits,
 } from '../models/debates.ts'
+import { candidatesAmong } from '../models/people-picker.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
 import { emptyWithPip, field, loading, page, privateMarkOf, timeLabel } from './parts.ts'
+import { peoplePicker } from './people-picker.ts'
 
 /** Debate rooms: the rooms the person may see, and a way to open one for a question. */
 export const debatesView = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
@@ -79,7 +80,7 @@ export const limitsTypedIn = (form: HTMLFormElement) =>
       )?.value ?? '',
   )
 
-const createForm = (context: ViewContext, me: AsRead.Me): HTMLElement => {
+export const debateCreateForm = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
   const { state, actions } = context
   const question = h('textarea', {
     name: 'question',
@@ -88,7 +89,17 @@ const createForm = (context: ViewContext, me: AsRead.Me): HTMLElement => {
     maxlength: String(DEBATE_QUESTION_MAX),
     placeholder: strings.debates.questionPlaceholder,
   })
-  const colleagues = inviteesFor(state.directory.get(), me.member.id)
+  const invited = signal<ReadonlyArray<MemberId>>([])
+  const colleagues = () => candidatesAmong(state.directory.get(), new Set([me.member.id]))
+  const invite = peoplePicker(life, {
+    id: 'debate-invite',
+    label: strings.debates.invite,
+    placeholder: strings.newMessage.placeholder,
+    candidates: colleagues,
+    sources: [state.directory],
+    chosen: invited,
+    limit: null,
+  })
   const form = h(
     'form',
     {
@@ -99,15 +110,12 @@ const createForm = (context: ViewContext, me: AsRead.Me): HTMLElement => {
           const typed = limitsTypedIn(form)
           if ('problem' in typed) return state.notice.set({ kind: 'error', text: typed.problem })
           const chosen = form.querySelector<HTMLInputElement>('input[name="visibility"]:checked')?.value
-          const invited = [...form.querySelectorAll<HTMLInputElement>('input[name="invite"]:checked')].map(
-            (box) => box.value as MemberId,
-          )
           actions.createDebate(
             {
               question: question.value.trim(),
               visibility: chosen === 'private' ? 'private' : 'open',
               limits: typed.limits,
-              memberIds: invited,
+              memberIds: [...invited.get()],
             },
             {
               done: (created) => {
@@ -142,25 +150,8 @@ const createForm = (context: ViewContext, me: AsRead.Me): HTMLElement => {
         ),
       ),
     ),
-    colleagues.length > 0 &&
-      h(
-        'fieldset',
-        { class: 'debate-invite' },
-        h('legend', {}, strings.debates.invite),
-        h('small', {}, strings.debates.inviteHint),
-        h(
-          'div',
-          { class: 'debate-invitees' },
-          colleagues.map((colleague) =>
-            h(
-              'label',
-              {},
-              h('input', { type: 'checkbox', name: 'invite', value: colleague.value }),
-              h('span', {}, colleague.label),
-            ),
-          ),
-        ),
-      ),
+    colleagues().length > 0 &&
+      h('div', { class: 'debate-invite' }, invite.element, h('small', {}, strings.debates.inviteHint)),
     h(
       'details',
       { class: 'debate-default-limits' },
@@ -207,7 +198,7 @@ const newDebateButton = (context: ViewContext, me: AsRead.Me): HTMLElement =>
     {
       type: 'button',
       class: 'primary new-debate',
-      ...opensDialog(context, strings.debates.newRoom, () => createForm(context, me)),
+      ...opensDialog(context, strings.debates.newRoom, (life) => debateCreateForm(context, life, me)),
     },
     strings.debates.newRoom,
   )

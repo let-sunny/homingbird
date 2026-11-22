@@ -36,6 +36,7 @@ import { opensDialog } from './dialog.ts'
 import { startingPoints } from './home.ts'
 import { type MenuParts, actionMenu } from './menu.ts'
 import { mutedMark } from './mute-toggle.ts'
+import { newMenu } from './new-menu.ts'
 import {
   agentDot,
   archivedMark,
@@ -321,7 +322,12 @@ const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLEleme
     region(life, [state.agentCredentials, state.session], () => model().onboarding && onboarding(), {
       class: 'onboarding-host',
     }),
-    h('h2', { class: 'sidebar-title' }, strings.conversations),
+    h(
+      'div',
+      { class: 'sidebar-section-head sidebar-list-head' },
+      h('h2', { class: 'sidebar-title' }, strings.conversations),
+      newMenu(context, me),
+    ),
     region(
       life,
       [slice(peopleSources, () => model().people.kind)],

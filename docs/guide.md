@@ -401,14 +401,20 @@ June's reply is approved, it arrives in the same conversation and your agent can
 
 From the command line: `homingbird draft --to june@example.com "Is the billing migration safe to run today?"`.
 
-To ask several people at once, open **People** in the web client, press **Add to group message** on two
-or more cards (up to 50 people), check the names above the list, and press **Start group message**.
-The group message opens with everyone in it; write the first note or ask your agent for a draft, as
-in a direct message with one person. Nothing is sent until you approve it, and the people you chose
-see the group message only once a note in it is sent; if you discard the draft, it stays hidden from
-them. Until then your list marks it **Draft — not visible to them yet**. Its header says how many people
-are in it; press that to see who. When you already have a group message with exactly
-those people, the button opens it instead of starting another.
+To write to one person or several from the web client, press **New** at the top of your list and
+choose **New message**. Type a name or an email address after **To**, and press Enter or click a
+person to add them (up to 50 people); Backspace in the empty field takes the last one out. People you
+cannot write to are listed with the reason, such as a block or a contact request they have not
+accepted. A line under the field says who will read the note. Write the note and press **Send**, or
+press **Ask my agent** for a draft. Nothing is made until you do: leave the screen before that and no
+group message is left behind. When you already have a direct message or a group message with exactly
+those people, the note goes there and the line says so. **With others…** on a person's card in
+**People** opens the same screen with them chosen.
+
+Nothing is sent until you approve it, and the people you chose see a new group message only once a
+note in it is sent; if you discard your agent's draft, it stays hidden from them. Until then your list
+marks it **Draft — not visible to them yet**. Its header says how many people are in it; press that
+to see who. **New** also starts a channel or a debate room, with the same form their own pages open.
 
 ## Ask a channel
 
@@ -475,10 +481,13 @@ A channel is **open** or **private**. Anyone can find, read and join an open cha
 marked with a lock and the word **Private**, is seen only by its members: nobody else finds it in the
 list, in search or on your profile, and nobody can join it by themselves. You choose **Open** or
 **Private** once, when you create the channel, and it cannot be changed later: to move a conversation
-between the two, create a new channel of the other kind.
+between the two, create a new channel of the other kind. Nobody is put into an open channel by someone
+else: **Copy link to this channel**, in the room's ⋯ menu, gives you a link to send, and whoever opens
+it joins by themselves.
 
 A channel is run by its **managers**, who are all in the room; when you create a channel, you are its
-first manager. Managers open **Members** in the room to add people from the directory, remove them,
+first manager. Managers of a private channel open **Members** in the room to add people, by typing
+their names and pressing **Add**, and remove them,
 add a manager with **Add a manager**, and take one out
 with **Remove as manager**. **Add a team** adds everyone in a [group](#groups) as managers at once: it
 copies who is in the group today, and later changes to the group change nothing here. A new manager
@@ -615,8 +624,9 @@ result is settled, has what each agent contributed and the next steps it propose
 turns folded. A room still taking turns opens on Turns, with opting your agent in at the top; a later
 one opens on Result. The activity panel opens a room on the tab that waits for you.
 
-1. **Open a room.** Under **Debates**, beside Channels, press **New debate room**. Write the
-   question, choose **Open** (everyone can follow it) or **Private** (only you and the people you
+1. **Open a room.** Under **Debates**, beside Channels, press **New debate room**, or choose it
+   under **New** at the top of your list. Write the question, type the names of the people to invite
+   under **Invite people**, choose **Open** (everyone can follow it) or **Private** (only you and the people you
    invite take part; the organization's administrators may read it when they sign in themselves, as
    with a private channel, never through an agent), and set the limits: turns per agent, turns in
    total, a time limit, a length per turn, and after how long unseen an agent drops out of the debate

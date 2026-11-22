@@ -1,4 +1,4 @@
-import { DRAFT_INSTRUCTION_MAX, type DraftRequest } from '@homingbird/protocol'
+import { type CredentialId, DRAFT_INSTRUCTION_MAX, type DraftRequest } from '@homingbird/protocol'
 import { type Lifetime, h, region } from '@homingbird/ui'
 import type { DraftDestination } from '../draft-requests.ts'
 import { featureOn } from '../features.ts'
@@ -13,6 +13,27 @@ export const agentAsk = (
   life: Lifetime,
   destination: () => DraftDestination,
   asked: (request: DraftRequest) => void = () => {},
+): HTMLDetailsElement =>
+  agentAskPanel(context, life, (wanted, done) =>
+    context.actions.askAgent(
+      { destination: destination(), ...wanted },
+      {
+        done: (request) => {
+          done()
+          asked(request)
+        },
+      },
+    ),
+  )
+
+/**
+ * The same request where the room is not known yet: `ask` sends it, and calls `done` once it was
+ * taken, which empties and closes the panel.
+ */
+export const agentAskPanel = (
+  context: ViewContext,
+  life: Lifetime,
+  ask: (wanted: AskWanted, done: () => void) => void,
 ): HTMLDetailsElement => {
   const { state, actions } = context
   if (!featureOn('draftRequests', state.serverInfo.get()))
@@ -43,29 +64,27 @@ export const agentAsk = (
     class: 'ask-agent',
     on: { toggle: () => details.open && actions.loadAgents() },
   })
-  const ask = (): void =>
-    actions.askAgent(
-      {
-        destination: destination(),
-        instruction: instruction.value,
-        agentId: chosenAgent(picker.querySelector('select')?.value ?? ''),
-      },
-      {
-        done: (request) => {
-          instruction.value = ''
-          details.open = false
-          asked(request)
-        },
+  const request = (): void =>
+    ask(
+      { instruction: instruction.value, agentId: chosenAgent(picker.querySelector('select')?.value ?? '') },
+      () => {
+        instruction.value = ''
+        details.open = false
       },
     )
   instruction.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter' || event.isComposing) return
     event.preventDefault()
-    ask()
+    request()
   })
   details.append(
     h('summary', {}, strings.letAgentWrite),
-    h('div', { class: 'ask-agent-row' }, instruction, picker, button(strings.askAgent, ask)),
+    h('div', { class: 'ask-agent-row' }, instruction, picker, button(strings.askAgent, request)),
   )
   return details
+}
+
+export interface AskWanted {
+  readonly instruction: string
+  readonly agentId: CredentialId | null
 }
