@@ -82,6 +82,14 @@ describe('taskViewOf', () => {
     expect(shown.statusText).toMatch(/discarded.*never sent/i)
   })
 
+  it('shows a recalled note as canceled, and a saved answer’s send as sent by it', async () => {
+    const { view: recalled } = await view(noteOf({ status: 'withdrawn', receipts: [] }))
+    expect(recalled).toMatchObject({ phase: 'canceled', artifacts: [] })
+    expect(recalled.statusText).toMatch(/recalled/)
+    const { view: sent } = await view(noteOf({ status: 'sent', autoSent: true }))
+    expect(sent.statusText).toMatch(/^Sent by the member's saved answer/)
+  })
+
   it('shows a note whose status a newer server added as not sent, without reading the conversation', async () => {
     const { view: shown, calls } = await view({ ...QUESTION, status: 'unknown' as never })
     expect(shown).toMatchObject({
@@ -209,7 +217,7 @@ describe('taskViewOf', () => {
   it('maps every possible note to exactly one phase, by status, replies and conversation kind', async () => {
     const expectedPhase = (note: Note, kind: ConversationKind): TaskPhase => {
       if (note.status === 'draft') return 'input_required'
-      if (note.status === 'discarded') return 'canceled'
+      if (note.status === 'discarded' || note.status === 'withdrawn') return 'canceled'
       const replied = note.receipts.filter((receipt) => receipt.repliedAt !== null)
       if (replied.length === 0) return 'working'
       return kind === 'channel' || replied.length === note.receipts.length ? 'completed' : 'working'

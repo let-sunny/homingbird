@@ -1,4 +1,5 @@
 import { AUDIT_TRAIL } from './migrations/audit-trail-step.ts'
+import { AUTO_SEND } from './migrations/auto-send-step.ts'
 import { BASELINE } from './migrations/baseline-step.ts'
 import { CHANNEL_AGENTS } from './migrations/channel-agents-step.ts'
 import { CHANNEL_TEACHING } from './migrations/channel-teaching-step.ts'
@@ -7,6 +8,7 @@ import { DEBATE_MODEL } from './migrations/debate-model-step.ts'
 import { DEBATE_PACING } from './migrations/debate-pacing-step.ts'
 import { DEBATES } from './migrations/debates-step.ts'
 import { DISCARDED_BY } from './migrations/discarded-by-step.ts'
+import { DRAFT_PREVIEWS } from './migrations/draft-previews-step.ts'
 import { GROUPS } from './migrations/groups-step.ts'
 import { HISTORY_ANSWERS } from './migrations/history-answers-step.ts'
 import { INSIGHTS } from './migrations/insights-step.ts'
@@ -34,6 +36,8 @@ export const MIGRATIONS: ReadonlyArray<Migration> = [
   SOURCES_AND_REASONS,
   DEBATE_PACING,
   CHANNEL_TEACHING,
+  AUTO_SEND,
+  DRAFT_PREVIEWS,
   DISCARDED_BY,
 ]
 

@@ -1,5 +1,6 @@
 import { Task as T } from '@homingbird/kernel'
 import {
+  AUTO_SENT_NOTICE,
   type Channel,
   Conflict,
   ConversationId,
@@ -802,6 +803,20 @@ describe('draft_note', () => {
     expect(text).toContain('Draft note_draft0000000 is saved')
     expect(text).toContain('It has NOT been sent.')
     expect(text).toContain('Your human has to approve it in the Homingbird web client.')
+  })
+
+  it('says the note was sent, never that it waits, when a saved answer its human switched on sent it', async () => {
+    const { text } = await call(
+      'draft_note',
+      { body: 'Nine to five.', to: BEN.id },
+      {
+        ...HAPPY,
+        'drafts.create': () => ({ ...DRAFT, status: 'sent', sentAt: 1, autoSent: true }),
+      },
+    )
+    expect(text).toContain('was sent in conversation')
+    expect(text).toContain(AUTO_SENT_NOTICE)
+    expect(text).not.toContain('NOT been sent')
   })
 
   it('drafts to a member id without a directory lookup', async () => {

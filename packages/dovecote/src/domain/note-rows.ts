@@ -42,6 +42,8 @@ export interface NoteRow {
   readonly approved_by: MemberId | null
   readonly sources: string | null
   readonly discard_reason: string | null
+  readonly auto_principle_id?: string | null
+  readonly withdrawn_at?: number | null
   readonly discarded_by: MemberId | null
 }
 
@@ -154,9 +156,14 @@ const toNote = (
   receipts,
   ...(row.author_id === viewerId && { basis: row.basis, ...sourcesShown(row) }),
   ...(details && row.agent_name !== null && { agentClient: row.agent_client, agentModel: row.agent_model }),
-  ...((row.approved_by ?? null) !== null && { approvedBy: row.approved_by }),
+  ...(isAutoSent(row)
+    ? { autoSent: true }
+    : (row.approved_by ?? null) !== null && { approvedBy: row.approved_by }),
   ...(row.debate_id && debates.has(row.debate_id) && { fromDebate: debates.get(row.debate_id)! }),
 })
+
+/** Sent by its person's saved answer: the note records them as approver, and the wire says how. */
+const isAutoSent = (row: NoteRow): boolean => (row.auto_principle_id ?? null) !== null
 
 const toReceipt = (row: ReceiptRow, replyDraftStartedAt: number | null, now: number): Receipt => {
   const pickedUpRecently = row.drafting_at !== null && now - row.drafting_at < PICKUP_GRACE_MS

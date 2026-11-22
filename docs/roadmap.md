@@ -169,7 +169,13 @@ celebration is for a principle being saved, never for sending.
   human-only route, and private channels have no door at all.
 - **The first automatic step re-sends only an answer the person already approved, to a question in the
   same channel room, so the audience is the same.** It never sends newly composed content and never to a
-  different audience.
+  different audience. **Built** in its narrowest form: a saved answer its person switched on sends itself
+  only when the draft is exactly its text and goes to a direct message or open channel the person
+  ticked, recallable for five minutes, behind `autoSend`, off by default
+  ([decisions](decisions.md#a-saved-answer-may-send-itself-word-for-word-where-its-person-allowed),
+  [guide](guide.md#let-a-saved-answer-send-itself)). Still to come for it: per-recipient rate limits,
+  the deterministic boundaries below (sender, hours, links), a list of what was just sent alone with a
+  daily digest, and closing the answer's switch in one action from a recall.
 - **A controlled runner before anything newly composed goes out unapproved.** It works only in a runner
   where Homingbird controls the tools, never an interactive session whose agent has other tools,
   because the server cannot verify what a free agent read. The model that reads an incoming note has
@@ -208,7 +214,10 @@ them, newest first by kind, live from the event stream and from existing routes 
 ([guide](guide.md#activity-everything-that-waits-for-you)). One order on every approval card (Approve
 and send, Edit, Discard), five seconds to undo a send or a discard before the server hears of it, a
 manager's edit of a channel agent's answer, an optional reason when they discard one, and the sources
-an agent reports shown as links and jumps to earlier notes.
+an agent reports shown as links and jumps to earlier notes. Early previews, behind the `draftPreviews`
+feature: a person lets chosen people and channels see their own agent's unconfirmed drafts, marked as
+unconfirmed and withdrawn when discarded, through a person's route only
+([guide](guide.md#let-colleagues-see-your-agents-drafts-early)).
 
 - Using the reasons managers give when they discard a channel agent's answer in the agent's figures,
   such as the reasons given most often. Its managers read each one in **Recent decisions** today.
@@ -233,6 +242,10 @@ an agent reports shown as links and jumps to earlier notes.
 - A route that lists the notes a person's agent skipped across every conversation, so that the activity
   panel shows a skip after a reload even in a conversation with no unread note, draft or note waiting
   for a reply; today it reads skips from the conversations it loads.
+- A conversation that holds only an allowed preview, shown to the allowed person: today a direct or
+  group conversation appears only once a note in it is sent, so a preview shows only where the two
+  already talk.
+- Early previews in the activity panel, so a colleague sees there that an answer is on its way.
 - Whether a person already posted a closed debate room's result, from the server, so that the activity
   panel drops the room once it was sent; today it drops it once the person's draft of it is known, or
   after a week.
@@ -270,9 +283,68 @@ answers it" sends nothing and is counted per channel in insights
 - Why a channel is or is not visible: for a person, the reason their access rests on (a member, a
   manager through a group, an administrator seeing that it exists), so "why can't I see it" has an
   answer without asking an administrator. The policy returns a tagged reason instead of a boolean.
-- Unanswered questions: a per-channel list of questions with no answer, reassigning a question to a
-  named person, and notifying managers when a review waits too long. Pilot evaluators found that a
-  question nobody answers, or an answer that waits for review, disappears from view today.
+- Unanswered questions, and one question at a time: a per-channel list of questions with no answer,
+  and a view of one question with its replies alone, so a room with three open questions stops
+  reading as one interleaved stream. Pilot evaluators found that a question nobody answers, or an
+  answer that waits for review, disappears from view today. The view is not a new kind of
+  conversation: a question and its replies are the `in_reply_to` chain the room already stores, shown
+  from the list, from a note's "1/2 replied" line and from a copied link. Replying inside it is the
+  Reply the room already has. The list is one read route, `channels.questions`, `member`, behind the
+  feature key `openQuestions`; it returns only sent notes of a room the caller is in (rules 2 and 6),
+  and a model-facing tool returns them through `wrapNote` (rule 4). Reassigning a question to a named
+  person is asking that person
+  ([decisions](decisions.md#proposed-a-note-asks-the-people-it-names-and-only-their-agents-draft)),
+  a `human` route, so it waits for that design. Notifying managers when a review waits too long goes
+  through `wantsPushAbout`, like every push.
+- **Who is asked** (a design, proposed): a note asks only the people it names, and only their agents
+  draft, so one note to a group stops costing a draft and an approval per reader
+  ([decisions](decisions.md#proposed-a-note-asks-the-people-it-names-and-only-their-agents-draft)).
+  Feature key `asking`; no new route (`drafts.create` and `drafts.update`, `member`, and `drafts.send`,
+  `human`, gain the asked list); it adds to rules 1, 2 and 6 and weakens none. Group work beyond
+  leaving and hiding waits for it.
+- **Marks** (a design, proposed): seen, agree and disagree on a sent note, cast by a person only, the
+  same marks the decision rules count
+  ([below](#groups-and-channel-agents), item 5;
+  [decisions](decisions.md#proposed-a-mark-is-a-persons-click-and-the-same-marks-settle-a-channels-decisions)).
+- Do-not-disturb hours: a person sets hours, days and a time zone in which their devices get no push,
+  and a pause for an hour or until tomorrow. `me.notifications.set` (`human`, the `mute` feature)
+  gains the schedule, and `wantsPushAbout` reads it with the clock service, so the server decides and
+  no client can bring a push back. Nothing is queued: notes, drafts and reviews wait in the list and
+  the counts, as they do for a muted conversation. It quiets the person's devices only; their desk
+  still drafts. The schedule is shown to no colleague and to no agent credential, like a mute. No
+  model-facing tool calls it (rule 3).
+- Search filters: `from` (a member) and `in` (a conversation or a channel) and a date range, as
+  optional query parameters on `search.notes` (`member`, no feature key of its own: search is core).
+  Every filter narrows the existing query and never replaces its two conditions, participation and
+  `status = 'sent' OR author_id = viewer` (rules 2 and 6); a filter that names a room or a person the
+  caller cannot see answers with no notes, exactly as for one that does not exist. Not planned before
+  the pilot: "answered before" already searches at the moment it is useful.
+- Joining a group message in place, from the joining point onward: a person added to an existing
+  group reads the notes sent after they joined and none before, since each earlier note was approved
+  under "Send delivers it to" the people then in it. `conversations.people.add`, `human`, behind the
+  feature key `groupJoin`, audited without content. It needs a decision first: a joining point on the
+  person's place in the room (`participants.joined_at`) applied in every note query that rules 2 and 6
+  cover (thread, inbox, search, stream replay, lookup by id, earlier answers), for the person and for
+  their agent credentials alike; rule 6 gains a sentence saying so; and `drafts.send`'s `expected`
+  gains the reader list before the route exists, so a draft read for three readers is refused once
+  when a fourth joined. It waits for "who is asked", or every join adds a draft per note. Until then
+  adding a person is a new group with those people, with no notes carried.
+- Pin: a person keeps a conversation at the top of their own list. `conversations.pin` and
+  `conversations.unpin`, `human`, behind the feature key `pin`, kept on the person's place in the room
+  (`participants.pinned_at`) as a mute is, shown to nobody else and to no agent credential, and called
+  by no model-facing tool (rule 3). Only if the pilot's lists outgrow the screen: what waits for a
+  person is already sorted first.
+- "My agent does not draft here": a person switches their agent off for one conversation without
+  leaving it. Notes there still reach the person, unread counts and pushes included; their agent
+  credentials are handed none of them (`inbox.list` leaves them out, `notes.pickup` refuses, no desk
+  or cloud desk wakes), and **Ask my agent** still works, because the person asked.
+  `conversations.drafting.set`, `human`, behind the feature key `draftingPlaces`, kept on the
+  person's place in the room (`participants.drafting_off_at`), audited without content. No
+  model-facing tool calls it (rule 3): an agent cannot switch itself back on. In a channel it sits
+  beside "Answer questions here", which decides whether the room's questions reach the person at all.
+  To decide first: whether colleagues are told ("Kai answers here himself") so that nobody waits for
+  a draft, or whether, like a mute, it is shown to no one. It complements "who is asked" and does not
+  replace it: this is each reader's own switch, that is the sender's.
 
 ## Groups and channel agents
 
@@ -314,7 +386,14 @@ channel per repository, and one agent the channel owns, drafting from that repos
    a group, a number, and either sending a draft or settling a proposal in a channel. One approver is
    today's approval; two approvers is a stricter rule for a group's agent. In a channel room, members
    mark a note "agree" or "disagree", everyone in the room sees who did, with their characters and
-   names, and when the channel's rule is met the note is marked settled and the room is told. An
+   names, and when the channel's rule is met the note is marked settled and the room is told. The
+   marks are not the rule's alone: in any conversation a person may mark a sent note "seen", "agree"
+   or "disagree" in place of a note that says only that, which settles their part of "1/2 replied",
+   sends no push and wakes no desk. A rule counts the agree and disagree marks of its group and never
+   "seen"; without a rule the marks only acknowledge. One mechanism, designed as a proposal in
+   [decisions](decisions.md#proposed-a-mark-is-a-persons-click-and-the-same-marks-settle-a-channels-decisions):
+   `notes.mark.set` and `notes.mark.clear`, both `human`, behind the feature key `marks`, with the
+   wording rule 3 would gain. Marks come first, the rules that count them after. An
    agent may propose its person's mark, with a reason, as a draft; it counts only once the person
    confirms it. Every decision is a person's act, like approving a note: no tool exposed to a model can
    cast one, for the reason behind security rule 3, or agents could settle what no person saw. Letting
@@ -333,7 +412,10 @@ channel per repository, and one agent the channel owns, drafting from that repos
    question from anyone else never reaches the model at all, a defence next to quoting it with
    `wrapNote`.
 
-Later: mentioning a group, private groups.
+Later: mentioning a team, which asks its members who are in the room and counts against the limit on
+how many people one note asks
+([decisions](decisions.md#proposed-a-note-asks-the-people-it-names-and-only-their-agents-draft)), and
+private groups.
 
 Later: **channel agents asking each other**, once groups, group-owned agents and the runner exist. A
 channel's agent that needs another team's knowledge, such as the payments wiki's agent needing

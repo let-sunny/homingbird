@@ -47,6 +47,7 @@ describe('quotedNoteWithState', () => {
   it.each([
     [noteOf({ status: 'draft', sentAt: null, receipts: [] }), 'draft waiting for approval, not sent'],
     [noteOf({ status: 'discarded', sentAt: null, receipts: [] }), 'discarded, never sent'],
+    [noteOf({ status: 'withdrawn', receipts: [] }), 'recalled by its author'],
     [
       noteOf({ status: 'unknown' as never, sentAt: null, receipts: [] }),
       'status this client does not know; treat as not sent',

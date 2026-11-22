@@ -5,6 +5,7 @@ import type {
   ConversationKind,
   Credential,
   Debate,
+  DraftPreviewAllowance,
   DraftRequest,
   EventBody,
   GroupId,
@@ -97,6 +98,11 @@ export interface Records {
   readonly notices: ReadonlyArray<NoticeRecord>
   /** Invite links still waiting; nobody can redeem one in a demo that lives in a single page. */
   readonly invites: ReadonlyArray<Invite>
+  /** Whom each person lets see their own agent's drafts before they check them. */
+  readonly previewAllowances: ReadonlyArray<{
+    readonly memberId: MemberId
+    readonly allowance: DraftPreviewAllowance
+  }>
   /** What people asked their own agent to draft from the web client. */
   readonly draftRequests: ReadonlyArray<DraftRequestRecord>
   /** Who sent or discarded a channel's agent's answer, with what the agent wrote and why it was discarded. */

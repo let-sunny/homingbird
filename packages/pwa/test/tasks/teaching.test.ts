@@ -8,6 +8,7 @@ import {
   refreshPrinciples,
   reorderPrinciples,
   savePrinciple,
+  setAutoSend,
 } from '../../src/tasks/teaching.ts'
 import { testApp } from '../support/app.ts'
 import { report, taught } from '../support/fixtures.ts'
@@ -51,5 +52,19 @@ describe('teaching tasks', () => {
         { params: { id: 'o1' }, body: { stopAskingHere: true } },
       ],
     )
+  })
+})
+
+describe('switching a saved answer to send itself', () => {
+  it('sends the switch and places the person chose, then shows the principles again', async () => {
+    const { run, sent } = testApp({ 'principles.list': () => taught() })
+    await run(setAutoSend('p1', { enabled: true, places: ['conv_room00000000' as never] }))
+    expect(sent.map((one) => [one.route, one.request])).toEqual([
+      [
+        'principles.autoSend.set',
+        { params: { id: 'p1' }, body: { enabled: true, places: ['conv_room00000000'] } },
+      ],
+      ['principles.list', {}],
+    ])
   })
 })

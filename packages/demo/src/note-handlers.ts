@@ -5,7 +5,9 @@ import {
   DRAFT_CHANGED,
   Forbidden,
   type MemberId,
+  NotFound,
   type Note,
+  mayRecall,
   questionTerms,
   rankEarlierAnswers,
 } from '@homingbird/protocol'
@@ -59,6 +61,27 @@ export const noteHandlers = (world: World): Handlers => ({
       return { notes, hasMore: false, notices }
     })(roomOf(world.records(), viewerId, params.id)),
   'notes.get': ({ params }, viewerId) => readableNote(world.records(), viewerId, params.id),
+  'notes.recall': ({ params }, viewerId) =>
+    T.gen(function* () {
+      const note = yield* readableNote(world.records(), viewerId, params.id)
+      if (note.authorId !== viewerId || note.status === 'draft')
+        return yield* T.fail(NotFound({ message: 'No such note.' }))
+      if (!mayRecall(note, viewerId, world.clock.now()))
+        return yield* T.fail(Conflict({ message: RECALL_REFUSED }))
+      const recalled = changeNote(world, note.id, (current) => ({
+        ...current,
+        status: 'withdrawn',
+        receipts: [],
+        updatedAt: world.clock.now(),
+      }))
+      const room = world.records().conversations.find((each) => each.id === note.conversationId)
+      world.emit(room?.participantIds ?? [viewerId], {
+        type: 'note.withdrawn',
+        noteId: note.id,
+        conversationId: note.conversationId,
+      })
+      return recalled
+    }),
   'notes.read': ({ params }, viewerId) =>
     T.map((note: Note) => {
       if (!note.receipts.some((receipt) => receipt.memberId === viewerId && receipt.readAt === null))
@@ -232,6 +255,8 @@ const muting = (world: World, viewerId: MemberId, id: string, muted: boolean) =>
     }))
     return conversationAsSeen(world.records(), viewerId, changed)
   })(roomOf(world.records(), viewerId, id))
+
+const RECALL_REFUSED = 'Only a note your saved answer sent can be recalled, in the first five minutes.'
 
 /** Keeps who decided a channel's agent's answer, with the agent's own words and the reason, for its managers. */
 const keepDecision = (world: World, draft: Note, decidedBy: MemberId, reason: string | null): void =>

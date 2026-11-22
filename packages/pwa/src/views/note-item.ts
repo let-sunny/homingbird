@@ -87,6 +87,21 @@ export const renderNoteItem = (
           sourceList(model.basis.sources),
         ),
       model.approval !== null && h('p', { class: 'note-approval' }, model.approval),
+      model.autoSent !== null &&
+        h(
+          'p',
+          { class: 'note-auto-sent' },
+          h('span', {}, model.autoSent.text),
+          model.autoSent.recall !== null &&
+            button(
+              model.autoSent.recall,
+              () =>
+                actions.recallNote(note, {
+                  done: () => context.state.notice.set({ kind: 'info', text: strings.autoSend.recalled }),
+                }),
+              { class: 'link recall-note' },
+            ),
+        ),
       model.answeredBy !== null &&
         h(
           'p',
