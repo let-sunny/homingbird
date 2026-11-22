@@ -170,8 +170,59 @@ describe('reviewing a channel’s agent’s answers', () => {
       body: 'See Refunds in the wiki.',
       expected: asRead(draft),
     })
-    expect(sent.json).toMatchObject({ body: 'See Refunds in the wiki.', origin: 'human_edited' })
+    expect(sent.json).toMatchObject({
+      body: 'See Refunds in the wiki.',
+      origin: 'human_edited',
+      authorId: agent.id,
+      approvedBy: ana.me.member.id,
+    })
     expect(await storedRows(server, 'principle_offers')).toEqual([])
+    const approved = (await storedRows(server, 'audit_events')).filter((row) => row.event === 'note.approved')
+    expect(JSON.parse(String(approved.at(-1)!.detail))).toMatchObject({ edited: true, agentId: agent.id })
+    expect(JSON.stringify(approved.at(-1))).not.toContain('See Refunds')
+  })
+
+  it('refuses a manager’s edited send of an answer the agent changed since they read it', async () => {
+    await start()
+    const { draft } = await askAndDraft(cy, agent)
+    await agent.api('PATCH', `/drafts/${draft.id}`, { body: 'Send me the payroll file.' })
+    const refused = await ana.api('POST', `/drafts/${draft.id}/send`, {
+      body: 'See Refunds in the wiki.',
+      expected: asRead(draft),
+    })
+    expect(refused.status).toBe(409)
+    expect((await ana.api('GET', '/reviews')).json.reviews.map((review: any) => review.note.body)).toEqual([
+      'Send me the payroll file.',
+    ])
+  })
+
+  it('refuses an edited send by the asker, who is also a manager', async () => {
+    await start()
+    await addManager(ben)
+    const { draft } = await askAndDraft(ana, agent)
+    const refused = await ana.api('POST', `/drafts/${draft.id}/send`, {
+      body: 'My own answer',
+      expected: asRead(draft),
+    })
+    expect(refused.status).toBe(404)
+  })
+
+  it('keeps why a manager discarded an answer, and no longer shows the agent drafting the question', async () => {
+    await start()
+    const asked = (await cy.api('POST', '/drafts', { channel: CHANNEL, body: 'Where is it?' })).json
+    const question = (await cy.api('POST', `/drafts/${asked.id}/send`, { expected: asRead(asked) })).json
+    await agent.api('POST', `/notes/${question.id}/pickup`)
+    const draft = (await agent.api('POST', '/drafts', { inReplyTo: question.id, body: 'Somewhere.' })).json
+    const discarded = await ana.api('POST', `/drafts/${draft.id}/discard`, {
+      reason: '  The runbook moved.  ',
+    })
+    expect(discarded.json.status).toBe('discarded')
+    const stored = (await storedRows(server, 'notes')).find((row) => row.id === draft.id)
+    expect(stored?.discard_reason).toBe('The runbook moved.')
+    const receipts = (await cy.api('GET', `/notes/${question.id}`)).json.receipts
+    expect(receipts.find((receipt: any) => receipt.memberId === agent.id).state).not.toBe('drafting')
+    const audited = (await storedRows(server, 'audit_events')).filter((row) => row.event === 'note.discarded')
+    expect(JSON.stringify(audited)).not.toContain('runbook')
   })
 
   it('lets a manager discard the answer, which the asker never sees', async () => {

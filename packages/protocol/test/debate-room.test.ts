@@ -13,9 +13,11 @@ import {
   RESULT_VOTING_WINDOW_MS,
   RESULT_WINDOW_MS,
   type RoomDraft,
+  TURN_HOLD_MS,
   askOf,
   settleDebateRoom,
   stepDebate,
+  turnHoldOf,
 } from '../src/debate-room.ts'
 import { isTakingPart, limitsProblem, turnsTakenBy } from '../src/debate-rules.ts'
 import { DebateLimits } from '../src/debates.ts'
@@ -33,7 +35,7 @@ const RESULT: DebateResult = {
   conclusion: 'Ship on Thursday.',
   reasons: ['Tested.'],
   contributions: [
-    { memberId: ANA, summary: 'Named the report.', credits: ['gap_filled'] },
+    { memberId: ANA, summary: 'Named the report.', credits: [{ credit: 'gap_filled', turn: 1 }] },
     { memberId: BEN, summary: 'Changed position.', credits: [] },
   ],
   nextSteps: [],
@@ -86,6 +88,8 @@ const turn = (memberId: MemberId, body = 'A point.'): DebateEvent => ({ type: 't
 
 const droppedOut = (memberId: MemberId) => ({ memberId, takingPart: false })
 
+type TurnEvent = Extract<DebateEvent, { readonly type: 'turn' }>
+
 describe('whose turn it is', () => {
   it('lets any participant start, then never the same agent twice in a row', () => {
     expect(askOf(roomOf([]), ANA, NOW)).toBe('turn')
@@ -97,7 +101,16 @@ describe('whose turn it is', () => {
       position: 2,
       memberId: BEN,
       body: 'A point.',
+      afterTurn: null,
+      deadlineAt: null,
     })
+  })
+
+  it('starts the room’s time with the first turn, so setting the room up takes none of it', () => {
+    const first = accepted(roomOf([], { createdAt: 0, deadlineAt: LIMITS.minutes * 60_000 }), turn(ANA), NOW)
+    expect(first.action).toMatchObject({ deadlineAt: NOW + LIMITS.minutes * 60_000 })
+    expect(first.room.deadlineAt).toBe(NOW + LIMITS.minutes * 60_000)
+    expect(accepted(roomOf([ANA]), turn(BEN)).room.deadlineAt).toBe(NOW + 1)
   })
 
   it('names why a turn is refused: the room, the agent, a missing second agent, or a used share', () => {
@@ -116,6 +129,7 @@ describe('whose turn it is', () => {
   it('refuses a blank turn and one over the room’s cap as invalid', () => {
     expect(refusal(roomOf([]), turn(ANA, ' '))).toMatch(/Invalid: A turn needs some text/)
     expect(refusal(roomOf([]), turn(ANA, 'x'.repeat(301)))).toMatch(/Invalid: .*at most 300/)
+    expect(refusal(roomOf([]), turn(ANA, 'x'.repeat(342)))).toMatch(/this one has 342, 42 over\./)
   })
 
   it('never lets an agent pass its share, the total or the deadline, whatever the order of turns', () => {
@@ -266,7 +280,7 @@ describe('limits', () => {
     })
     expect(move.action).toEqual({
       type: 'changeLimits',
-      limits: { ...wished, graceMinutes: 10 },
+      limits: { ...wished, totalFollowsAgents: false, graceMinutes: 10 },
       deadlineAt: 10 * 60_000,
     })
     expect(move.after).toEqual([])
@@ -298,6 +312,99 @@ describe('limits', () => {
   })
 })
 
+describe('a total that follows the agents', () => {
+  const following = { ...LIMITS, totalTurns: 4, totalFollowsAgents: true }
+
+  it('gives every agent opted in its turns until the first turn, then stays', () => {
+    const joined = accepted(roomOf([], { limits: following }), { type: 'join', memberId: CY })
+    expect(joined.action).toEqual({ type: 'addParticipant', memberId: CY, totalTurns: 6 })
+    expect(joined.room.limits.totalTurns).toBe(6)
+    const started = accepted(roomOf([ANA], { limits: following }), { type: 'join', memberId: CY })
+    expect(started.action).toEqual({ type: 'addParticipant', memberId: CY, totalTurns: null })
+    expect(started.room.limits.totalTurns).toBe(4)
+    expect(accepted(roomOf([]), { type: 'join', memberId: CY }).action).toMatchObject({ totalTurns: null })
+  })
+
+  it('follows the agents already in the room when a person sets limits without a total', () => {
+    const { totalTurns: _, ...withoutTotal } = { ...LIMITS, turnsPerAgent: 4 }
+    expect(accepted(roomOf([]), { type: 'setLimits', limits: withoutTotal }).action).toMatchObject({
+      limits: { turnsPerAgent: 4, totalTurns: 8, totalFollowsAgents: true },
+    })
+  })
+})
+
+describe('a turn written against an older room', () => {
+  const readTo = (memberId: MemberId, afterTurn: number, body = 'A point.'): TurnEvent => ({
+    type: 'turn',
+    memberId,
+    body,
+    afterTurn,
+  })
+  const three = { participants: [{ memberId: ANA }, { memberId: BEN }, { memberId: CY }] }
+
+  it('is refused when the room moved past the turn its agent read, and saved when it did not', () => {
+    expect(refusal(roomOf([ANA, BEN], three), readTo(CY, 1))).toMatch(
+      /^Conflict: The room moved on: turns 2 to 2 were taken after turn 1, the last you read\. Your turn was not saved/,
+    )
+    expect(accepted(roomOf([ANA], three), readTo(BEN, 1)).action).toMatchObject({ afterTurn: 1, position: 2 })
+    expect(accepted(roomOf([ANA], three), readTo(BEN, 1)).room.turns.at(-1)).toEqual({
+      memberId: BEN,
+      afterTurn: 1,
+    })
+  })
+
+  it('keeps the place of a turn refused for its length or for being stale, once per turn of its own', () => {
+    const room = roomOf([ANA, BEN, ANA], three)
+    const tooLong = readTo(CY, 3, 'x'.repeat(301))
+    expect(turnHoldOf(room, tooLong, NOW)).toEqual({ memberId: CY, turnsTaken: 0, until: NOW + TURN_HOLD_MS })
+    expect(turnHoldOf(room, readTo(CY, 2), NOW)).toEqual({
+      memberId: CY,
+      turnsTaken: 0,
+      until: NOW + TURN_HOLD_MS,
+    })
+    expect(refusal(room, tooLong)).toMatch(
+      new RegExp(`Your place in the room is kept until ${new Date(NOW + TURN_HOLD_MS).toISOString()}`),
+    )
+    expect(turnHoldOf(room, readTo(CY, 3), NOW)).toBeNull()
+    expect(turnHoldOf(room, readTo(CY, 3, ' '), NOW)).toBeNull()
+    expect(turnHoldOf(room, readTo(ANA, 3, 'x'.repeat(301)), NOW)).toBeNull()
+    const held = { ...room, holds: [{ memberId: CY, turnsTaken: 0, until: NOW + 10 }] }
+    expect(turnHoldOf(held, tooLong, NOW)).toBeNull()
+    expect(refusal(held, tooLong)).toMatch(/kept until 1970-01-01T00:00:01\.010Z/)
+    const ranOut = { ...room, holds: [{ memberId: CY, turnsTaken: 0, until: NOW }] }
+    expect(turnHoldOf(ranOut, tooLong, NOW)).toBeNull()
+    expect(refusal(ranOut, tooLong)).toBe(
+      'Invalid: A turn in this room holds at most 300 characters; this one has 301, 1 over.',
+    )
+    for (const other of [
+      { memberId: BEN, turnsTaken: 0, until: NOW + 10 },
+      { memberId: CY, turnsTaken: 1, until: NOW + 10 },
+    ])
+      expect(turnHoldOf({ ...room, holds: [other] }, tooLong, NOW)).not.toBeNull()
+  })
+
+  it('keeps the last turns for an agent holding a place, and for nobody else', () => {
+    const limits = { ...LIMITS, totalTurns: 4 }
+    const holds = [{ memberId: CY, turnsTaken: 0, until: NOW + 10 }]
+    const room = roomOf([ANA, BEN, ANA], { ...three, limits, holds, deadlineAt: NOW + 100 })
+    expect(refusal(room, turn(BEN))).toMatch(/last turns are kept/)
+    expect(askOf(room, BEN, NOW)).toBeNull()
+    expect(askOf(room, CY, NOW)).toBe('turn')
+    expect(accepted(room, turn(CY)).action).toMatchObject({ position: 4, memberId: CY })
+    expect(askOf(room, BEN, NOW + 10)).toBe('turn')
+    expect(
+      askOf(roomOf([ANA, BEN, ANA, CY], { ...three, limits: { ...limits, totalTurns: 6 }, holds }), BEN, NOW),
+    ).toBe('turn')
+    const both = [...holds, { memberId: BEN, turnsTaken: 1, until: NOW + 10 }]
+    const twoHeld = roomOf([ANA, BEN, ANA], { ...three, limits, holds: both })
+    expect(askOf(twoHeld, CY, NOW)).toBe('turn')
+    expect(askOf(twoHeld, BEN, NOW)).toBe('turn')
+    const gone = { ...three, participants: [{ memberId: ANA }, { memberId: BEN }, droppedOut(CY)] }
+    expect(askOf(roomOf([ANA, BEN, ANA], { ...gone, limits, holds }), BEN, NOW)).toBe('turn')
+    expect(settled(room)).toEqual([])
+  })
+})
+
 describe('collecting drafts of the result', () => {
   const draftBy = (memberId: MemberId): DebateEvent => ({ type: 'draft', memberId, result: RESULT })
 
@@ -319,6 +426,24 @@ describe('collecting drafts of the result', () => {
     expect(refusal(roomOf([ANA]), draftBy(ANA))).toMatch(/once the room’s turns have run out/)
     const three = { participants: [{ memberId: ANA }, { memberId: BEN }, { memberId: CY }] }
     expect(refusal(drafting(three), draftBy(ANA))).toMatch(/Invalid: .*missing/)
+  })
+
+  it('checks each credit against the turns, and leaves out a credit that names no turn', () => {
+    const crediting = (credits: DebateResult['contributions'][number]['credits']): DebateEvent => ({
+      type: 'draft',
+      memberId: ANA,
+      result: {
+        ...RESULT,
+        contributions: [{ ...RESULT.contributions[0]!, credits }, RESULT.contributions[1]!],
+      },
+    })
+    expect(refusal(drafting(), crediting([{ credit: 'gap_filled', turn: 2 }]))).toMatch(
+      /Invalid: The credit gap_filled for .* names turn 2, which is not a turn of that agent’s/,
+    )
+    const kept = accepted(drafting(), crediting(['gap_filled', { credit: 'gap_filled', turn: 1 }]))
+    expect(kept.action).toMatchObject({
+      result: { contributions: [{ credits: [{ credit: 'gap_filled', turn: 1 }] }, { credits: [] }] },
+    })
   })
 
   it('opens the vote once every agent taking part drafted, or the window closed', () => {

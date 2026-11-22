@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  DEBATE_RESULT_FORM,
   DEBATE_RESULT_INSTRUCTIONS,
   DEBATE_TURN_INSTRUCTIONS,
   DEBATE_VOTE_INSTRUCTIONS,
@@ -79,8 +80,13 @@ describe('the text that wakes an agent for a note or a draft request', () => {
 })
 
 describe('what a debate room asks of the agent', () => {
-  it('asks an open room for a turn', () => {
-    expect(debateToolAdvice(roomOf({ status: 'open' }), ANA)).toContain(DEBATE_TURN_INSTRUCTIONS)
+  it('asks an open room for a turn after the last turn read, and shows the result form before drafting opens', () => {
+    const advice = debateToolAdvice(roomOf({ status: 'open' }), ANA)
+    expect(advice).toContain(DEBATE_TURN_INSTRUCTIONS)
+    expect(advice).toContain('with afterTurn 2, the last turn you have read')
+    expect(advice).toContain(
+      `each agent drafts the room’s result in this form, so note what it needs as the room goes: ${DEBATE_RESULT_FORM}`,
+    )
   })
 
   it('asks for a vote while the drafts are open, until the agent voted', () => {

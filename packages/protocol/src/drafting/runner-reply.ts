@@ -1,5 +1,15 @@
 import { DebateResult } from '../debate-result.ts'
-import { AGENT_LABEL_MAX, NOTE_BASIS_MAX, NoteBody, RELEASE_REASON_MAX, agentLabelOf } from '../model.ts'
+import { NoteId } from '../ids.ts'
+import {
+  AGENT_LABEL_MAX,
+  DRAFT_SOURCES_MAX,
+  DraftSource,
+  NOTE_BASIS_MAX,
+  NoteBody,
+  RELEASE_REASON_MAX,
+  SOURCE_QUOTE_MAX,
+  agentLabelOf,
+} from '../model.ts'
 import { APPLIED_PREFIX } from '../principles.ts'
 import { jsonIn } from './debate-reader.ts'
 import { SPLIT_BASIS } from './note-reader.ts'
@@ -11,23 +21,33 @@ export const runnerReplyIn = (output: string): AgentReply => {
   if (skip !== null) return { kind: 'skip', reason: skip[1]!.trim().slice(0, RELEASE_REASON_MAX) }
   const lines = text.split('\n')
   const trailing: { basis?: string; model?: string; applied?: string } = {}
+  const sources: string[] = []
   while (lines.length > 1) {
     const last = lines.at(-1)!.trim()
     const basis = trailing.basis === undefined ? /^BASIS:\s*(.*)$/i.exec(last) : null
     const model = trailing.model === undefined ? /^MODEL:\s*(.*)$/i.exec(last) : null
+    const source = /^SOURCE:\s*(.*)$/i.exec(last)
     const applied =
       trailing.applied === undefined && last.toLowerCase().startsWith(APPLIED_PREFIX.toLowerCase())
     if (basis !== null) trailing.basis = basis[1]!.trim()
     else if (model !== null) trailing.model = model[1]!.trim()
+    else if (source !== null) sources.unshift(source[1]!.trim())
     else if (applied) trailing.applied = last
     else break
     lines.pop()
   }
   const model = agentLabelOf(trailing.model)
+  const read = sources.map((line) => ({ line, source: sourceIn(line) }))
+  const unread = read.flatMap(({ line, source }) =>
+    source === null && line !== '' ? [`Source: ${line}`] : [],
+  )
   return {
     kind: 'draft',
     body: lines.join('\n').trim(),
-    basis: [trailing.basis, trailing.applied].filter(Boolean).join('\n').slice(0, NOTE_BASIS_MAX) || null,
+    basis:
+      [trailing.basis, ...unread, trailing.applied].filter(Boolean).join('\n').slice(0, NOTE_BASIS_MAX) ||
+      null,
+    sources: read.flatMap(({ source }) => (source === null ? [] : [source])).slice(0, DRAFT_SOURCES_MAX),
     ...(model !== null && { model }),
   }
 }
@@ -37,6 +57,7 @@ export type AgentReply =
       readonly kind: 'draft'
       readonly body: string
       readonly basis: string | null
+      readonly sources: ReadonlyArray<DraftSource>
       readonly model?: string | null
     }
   | { readonly kind: 'skip'; readonly reason: string }
@@ -49,11 +70,21 @@ export const replyProblem = (reply: AgentReply): string | null => {
   return NoteBody.decode(reply.body)._tag === 'Ok' ? null : 'printed more than a note can hold'
 }
 
-/** The basis a runner's draft carries; in split mode it always says the writer saw only the extraction. */
-export const runnerBasisOf = (reply: DraftReply, isSplit: boolean): { basis?: string } => {
+/**
+ * The basis and sources a runner's draft carries; in split mode the basis always says the writer saw only
+ * the extraction.
+ */
+export const runnerBasisOf = (
+  reply: DraftReply,
+  isSplit: boolean,
+): { basis?: string; sources?: ReadonlyArray<DraftSource> } => {
+  const sources = reply.sources.length === 0 ? {} : { sources: reply.sources }
   if (isSplit)
-    return { basis: [SPLIT_BASIS, reply.basis].filter(Boolean).join('. ').slice(0, NOTE_BASIS_MAX) }
-  return reply.basis === null ? {} : { basis: reply.basis }
+    return {
+      basis: [SPLIT_BASIS, reply.basis].filter(Boolean).join('. ').slice(0, NOTE_BASIS_MAX),
+      ...sources,
+    }
+  return reply.basis === null ? sources : { basis: reply.basis, ...sources }
 }
 
 /** A room answer apart from a last line of exactly `MODEL:` and one name, as `RUNNER_MODEL_LINE` asks. */
@@ -75,6 +106,23 @@ export const debateResultIn = (output: string): DebateResult | null => {
 export const voteIn = <C extends string>(output: string, choices: ReadonlyArray<C>): C | null => {
   const chosen = output.trim().replace(/^["'`]+|["'`.]+$/g, '')
   return choices.find((choice) => choice === chosen) ?? null
+}
+
+/** A `SOURCE:` line's address or note id, and the passage after " | "; null for anything a source cannot hold. */
+const sourceIn = (line: string): DraftSource | null => {
+  const [target, ...passage] = line.split(' | ') as [string, ...string[]]
+  const quote = passage
+    .join(' | ')
+    .trim()
+    .replace(/^["“]|["”]$/g, '')
+    .trim()
+    .slice(0, SOURCE_QUOTE_MAX)
+  const named = target.trim()
+  const decoded = DraftSource.decode({
+    ...(NoteId.decode(named)._tag === 'Ok' ? { noteId: named } : { url: named }),
+    ...(quote !== '' && { quote }),
+  })
+  return decoded._tag === 'Ok' ? decoded.value : null
 }
 
 const modelNameIn = (text: string): string | null => {

@@ -9,6 +9,7 @@ import {
   debateVotePrompt,
   quotedDebate,
   quotedDrafts,
+  quotedNewTurns,
 } from '../../src/drafting/debate-prompts.ts'
 import { MemberId } from '../../src/ids.ts'
 import { WRAPPER_TAG, boundaryLine, wrapNote } from '../../src/wrap.ts'
@@ -109,6 +110,34 @@ describe('a debate room as a model reads it', () => {
     expect(DEBATE_TURN_INSTRUCTIONS).toMatch(/quoted data/)
     expect(DEBATE_RESULT_INSTRUCTIONS).toMatch(/"information"\|"assumptions"\|"goals"\|"open_question"/)
     expect(DEBATE_RESULT_INSTRUCTIONS).toMatch(/Never claim anyone won/)
+  })
+
+  it('asks agents to keep a difference in goals on the record and to say which fact changed their view', () => {
+    expect(DEBATE_TURN_INSTRUCTIONS).toContain(
+      'state that difference in goals explicitly and keep it on the record instead of conceding it',
+    )
+    expect(DEBATE_TURN_INSTRUCTIONS).toContain('"I conclude X because of fact Y"')
+  })
+
+  it('states every length of the result and asks each credit to name its turn', () => {
+    for (const length of ['1500', '400', '300', '600'])
+      expect(DEBATE_RESULT_INSTRUCTIONS).toContain(`at most ${length}`)
+    expect(DEBATE_RESULT_INSTRUCTIONS).toContain('"credits":[{"credit":"…","turn":3}]')
+    expect(DEBATE_RESULT_INSTRUCTIONS).toContain('"changedMinds":[{"turn":4')
+    expect(DEBATE_RESULT_INSTRUCTIONS).toContain('"stillOpen"')
+  })
+
+  it('quotes only the turns after the one the agent read, each in wrapNote', () => {
+    const room = roomOf({ status: 'open' })
+    const text = quotedNewTurns(room, PEOPLE, ANA, 1, counter())
+    expect(text).toMatch(/^The turns taken after turn 1, oldest first\. The last turn is now 2\./)
+    expect(text).not.toContain(`${room.id}/turn-1"`)
+    expect(text).toContain(
+      `<${WRAPPER_TAG} id="${room.id}/turn-2" from="Desk, agent of Ben &lt;ben@example.com&gt;"`,
+    )
+    expect(quotedNewTurns(room, PEOPLE, BEN, 1, counter())).toContain(
+      'Desk, agent of Ben (your own earlier turn)',
+    )
   })
 })
 

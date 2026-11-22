@@ -17,14 +17,14 @@ describe('searchModel', () => {
     expect(searchModel({ ...base, results: [] })).toEqual({ kind: 'empty', text: strings.searchEmpty })
   })
 
-  it('shows each note found with its author, time and an excerpt, naming no direct message twice', () => {
+  it('shows each note found with its author, time and an excerpt, naming no direct message twice, and opens the thread at it', () => {
     const found = note('n1', { body: 'x'.repeat(300), sentAt: 5 })
     const model = searchModel({ ...base, results: [found] })
     expect(model).toEqual({
       kind: 'results',
       rows: [
         {
-          href: `#/c/${ROOM}`,
+          href: `#/c/${ROOM}?note=n1`,
           author: 'Ben',
           title: null,
           time: timeShown(5, 10),

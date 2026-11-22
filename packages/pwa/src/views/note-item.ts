@@ -1,12 +1,15 @@
 import type { AsRead, ConversationId } from '@homingbird/protocol'
-import { type Lifetime, h, linkedText } from '@homingbird/ui'
-import type { NoteItemModel } from '../models/note-item.ts'
+import { type Child, type Lifetime, h, linkedText } from '@homingbird/ui'
+import type { DebateResultNote, NoteItemModel, NoteMenuItem } from '../models/note-item.ts'
+import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 import { authorButton } from './author-details.ts'
 import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
 import { actionMenu } from './menu.ts'
-import { button, timeLabel } from './parts.ts'
+import { noteBody } from './note-body.ts'
+import { button, sourceList, timeLabel } from './parts.ts'
+import { teachFromMiss } from './teaching.ts'
 
 /** One sent note in the thread; a click on it, away from its controls, marks it as the one looked at. */
 export const renderNoteItem = (
@@ -19,18 +22,19 @@ export const renderNoteItem = (
   const { actions } = context
   const askAgent = (): void =>
     actions.askAgent({ destination: { inReplyTo: note.id }, instruction: '', agentId: null })
-  const ACTIONS: Readonly<Record<NoteItemModel['menu']['items'][number]['kind'], () => void>> = {
+  const reply = (): void => actions.replyTo(conversationId, note.id)
+  const ACTIONS: Readonly<Record<NoteMenuItem['kind'], () => void>> = {
+    reply,
     'ask-agent': askAgent,
-    copy: () => copyNote(context, note.body),
+    copy: () => copyText(context, note.body, strings.noteCopied),
+    'copy-link': () => copyText(context, noteLink(context, conversationId, note), strings.noteLinkCopied),
   }
   const more = actionMenu(context, {
     id: model.menu.id,
     label: model.menu.label,
     triggerClass: 'note-more',
     menuClass: 'note-menu',
-    items: model.menu.items.map((item) =>
-      button(item.label, ACTIONS[item.kind], { class: `menu-item ${ITEM_CLASSES[item.kind]}` }),
-    ),
+    items: model.menu.items.map((item) => menuItem(model.menu.id, item, ACTIONS[item.kind])),
   })
   const li = h(
     'li',
@@ -52,14 +56,22 @@ export const renderNoteItem = (
         h(
           'div',
           { class: 'bubble', ...(model.bubbleTitle !== null && { title: model.bubbleTitle }) },
-          model.quote !== null && h('blockquote', { class: 'quote' }, model.quote),
-          h('p', { class: 'note-body' }, linkedText(model.body)),
+          model.quote !== null &&
+            h(
+              'a',
+              { class: 'quote', href: model.quote.href, title: model.quote.label },
+              h('span', { class: 'visually-hidden' }, `${model.quote.label}: `),
+              model.quote.text,
+            ),
+          model.debateResult === null
+            ? collapsibleBody(context, model)
+            : debateResultBody(context, model, model.debateResult),
         ),
         h(
           'div',
           { class: 'note-toolbar' },
           model.reply !== null &&
-            button(model.reply, () => actions.chooseReplyTarget(conversationId, note.id), {
+            button(model.reply, reply, {
               class: 'note-reply',
             }),
           more.trigger,
@@ -70,8 +82,9 @@ export const renderNoteItem = (
         h(
           'details',
           { class: model.basis.className },
-          h('summary', {}, strings.draftBasisTitle),
+          h('summary', {}, model.basis.title),
           ...model.basis.lines.map((line) => h('p', {}, linkedText(line))),
+          sourceList(model.basis.sources),
         ),
       model.approval !== null && h('p', { class: 'note-approval' }, model.approval),
       model.autoSent !== null &&
@@ -102,6 +115,14 @@ export const renderNoteItem = (
           { class: model.waits.warning ? 'question-waits is-warning' : 'question-waits', role: 'status' },
           model.waits.text,
         ),
+      model.noAnswer !== null && h('p', { class: 'no-answer hint' }, model.noAnswer),
+      model.answerDiscarded !== null &&
+        h(
+          'p',
+          { class: 'answer-discarded', role: 'status' },
+          h('span', {}, model.answerDiscarded.text),
+          button(model.answerDiscarded.reply, reply, { class: 'reply-yourself' }),
+        ),
       model.release !== null &&
         h(
           'p',
@@ -109,6 +130,8 @@ export const renderNoteItem = (
           h('span', {}, model.release.text),
           model.release.askAnyway !== null &&
             button(model.release.askAnyway, askAgent, { class: 'ask-anyway' }),
+          model.release.teach !== null &&
+            teachFromMiss(context, model.release.teach.label, model.release.teach.seed),
         ),
       model.meta !== null &&
         h(
@@ -144,19 +167,91 @@ export const renderNoteItem = (
   return li
 }
 
-const copyNote = (context: ViewContext, body: string): void => {
+/**
+ * The note's text; a long one shows its start, and a button opens the rest in place. A note drawn again
+ * while the person had it open stays open.
+ */
+const collapsibleBody = (context: ViewContext, model: NoteItemModel): Child => {
+  const id = `note-body-${model.noteId}`
+  const body = noteBody(context, model.body)
+  body.id = id
+  const long = model.longBody
+  if (long === null) return body
+  const toggle: HTMLButtonElement = h('button', {
+    type: 'button',
+    class: 'link note-more-text',
+    'aria-controls': id,
+    on: { click: () => show(!body.classList.contains('is-collapsed')) },
+  })
+  const show = (collapsed: boolean): void => {
+    body.classList.toggle('is-collapsed', collapsed)
+    toggle.setAttribute('aria-expanded', String(!collapsed))
+    toggle.textContent = collapsed ? long.more : long.less
+  }
+  show(context.document.find(`.note-body[id="${id}"]:not(.is-collapsed)`) === null)
+  return [body, toggle]
+}
+
+const menuItem = (menuId: string, item: NoteMenuItem, choose: () => void): Child => {
+  const className = `menu-item ${ITEM_CLASSES[item.kind]}`
+  if (item.reason === null) return button(item.label, choose, { class: className })
+  const reasonId = `${menuId}-${item.kind}-reason`
+  return [
+    h(
+      'button',
+      { type: 'button', class: className, disabled: true, 'aria-describedby': reasonId },
+      item.label,
+    ),
+    h('small', { id: reasonId, class: 'menu-reason' }, item.reason),
+  ]
+}
+
+/** A posted debate result: what the agents settled and the next steps, the whole note folded, the room a link away. */
+const debateResultBody = (
+  context: ViewContext,
+  model: NoteItemModel,
+  result: DebateResultNote,
+): ReadonlyArray<Child> => [
+  ...(result.parts === null
+    ? [collapsibleBody(context, model)]
+    : [
+        h('p', { class: 'debate-note-heading' }, h('strong', {}, result.parts.heading)),
+        noteBody(context, result.parts.summary),
+        result.parts.nextSteps.length > 0 &&
+          h('p', { class: 'debate-note-heading' }, result.parts.nextStepsHeading),
+        result.parts.nextSteps.length > 0 &&
+          h(
+            'ul',
+            { class: 'debate-note-steps' },
+            result.parts.nextSteps.map((step) => h('li', {}, linkedText(step))),
+          ),
+        h(
+          'details',
+          { class: 'debate-note-whole' },
+          h('summary', {}, result.whole),
+          noteBody(context, model.body),
+        ),
+      ]),
+  h('a', { class: 'debate-note-room', href: result.room.href }, result.room.label),
+]
+
+const copyText = (context: ViewContext, text: string, copied: string): void => {
   void context.page
-    .copyText(body)
+    .copyText(text)
     .then((isCopied) =>
       context.state.notice.set(
-        isCopied
-          ? { kind: 'info', text: strings.noteCopied }
-          : { kind: 'error', text: strings.noteNotCopied },
+        isCopied ? { kind: 'info', text: copied } : { kind: 'error', text: strings.noteNotCopied },
       ),
     )
 }
 
-const ITEM_CLASSES: Readonly<Record<NoteItemModel['menu']['items'][number]['kind'], string>> = {
+/** The address that opens the conversation at this note, for pasting elsewhere. */
+const noteLink = (context: ViewContext, conversationId: ConversationId, note: AsRead.Note): string =>
+  context.page.linkTo(hrefFor({ name: 'conversation', id: conversationId, draft: null, note: note.id }))
+
+const ITEM_CLASSES: Readonly<Record<NoteMenuItem['kind'], string>> = {
+  reply: 'reply-note',
   'ask-agent': 'ask-reply',
   copy: 'copy-note',
+  'copy-link': 'copy-note-link',
 }

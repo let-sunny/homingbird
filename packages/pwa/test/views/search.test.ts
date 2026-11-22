@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { strings } from '../../src/strings.ts'
 import { searchView } from '../../src/views/search.ts'
 import { testContext } from '../support/context.ts'
-import { usingFakeDom } from '../support/dom.ts'
+import { mount, usingFakeDom } from '../support/dom.ts'
 import { me, note } from '../support/fixtures.ts'
 
 usingFakeDom()
@@ -25,6 +25,42 @@ describe('searchView', () => {
     expect([...shown.querySelectorAll('.result mark')].map((mark) => mark.textContent)).toEqual(['release'])
     expect(getByRole(shown, 'searchbox').getAttribute('aria-label')).toBe(strings.search)
     expect(shown.querySelector('.search-form label')).toBeNull()
+  })
+
+  it('searches again once the person pauses typing, not for every key, and not twice for one query', async () => {
+    const { context, called, page, clock } = testContext()
+    const life = lifetime()
+    const shown = searchView(context, life, me(), '')
+    const field = getByRole(shown, 'searchbox')
+    fire.type(field, 'rel')
+    await clock.advance(200)
+    fire.type(field, 'release')
+    await clock.advance(399)
+    expect(called('searchNotes')).toHaveLength(0)
+    await clock.advance(1)
+    expect(called('searchNotes').map((call) => call.args)).toEqual([['release']])
+    expect(page.visited).toEqual(['address #/search?q=release'])
+    fire.type(field, 'release ')
+    await clock.advance(400)
+    expect(called('searchNotes')).toHaveLength(1)
+    fire.type(field, 'releases')
+    fire.submit(getByRole(shown, 'search'))
+    await clock.advance(400)
+    expect(called('searchNotes')).toHaveLength(2)
+    fire.type(field, 'tone')
+    life.end()
+    await clock.advance(400)
+    expect(called('searchNotes')).toHaveLength(2)
+  })
+
+  it('puts the focus in the field once it is on the page', () => {
+    const { context, page } = testContext()
+    const shown = searchView(context, lifetime(), me(), '')
+    page.runFrames()
+    expect(document.activeElement).not.toBe(getByRole(shown, 'searchbox'))
+    const again = mount(searchView(context, lifetime(), me(), ''))
+    page.runFrames()
+    expect(document.activeElement).toBe(getByRole(again, 'searchbox'))
   })
 
   it('searches what the address asked for at once, and shows nothing found or a failure as a prompt', () => {

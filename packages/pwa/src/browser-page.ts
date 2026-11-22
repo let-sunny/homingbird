@@ -13,6 +13,7 @@ export const browserPage = (window: BrowserWindow): Page => {
     replace: (href) => location.replace(href),
     assign: (url) => location.assign(url),
     replaceAddress: (href) => window.history.replaceState(null, '', href),
+    linkTo: (href) => new URL(href, location.href).href,
     fetch: (url, init) => window.fetch(url, init),
     languages: () => window.navigator?.languages ?? [],
     isVisible: () => document.visibilityState === 'visible',
@@ -23,6 +24,7 @@ export const browserPage = (window: BrowserWindow): Page => {
     },
     nextFrame: (run) => void window.requestAnimationFrame(() => run()),
     prefersReducedMotion: () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? true,
+    isCoarsePointer: () => window.matchMedia?.('(pointer: coarse)').matches ?? false,
     pixelRatio: () => window.devicePixelRatio ?? 1,
     supportsAnchors: () => window.CSS?.supports?.('anchor-name: --a') === true,
     supportsPush: () =>
@@ -100,12 +102,16 @@ export interface Page {
   /** Loads another page, such as a sign-out or an agent's return address. */
   readonly assign: (url: string) => void
   readonly replaceAddress: (href: string) => void
+  /** The full address of a place in the app, for a link the person copies elsewhere. */
+  readonly linkTo: (href: string) => string
   readonly fetch: Fetch
   readonly languages: () => ReadonlyArray<string>
   readonly isVisible: () => boolean
   readonly on: (event: PageEvent, listener: () => void) => Unsubscribe
   readonly nextFrame: (run: () => void) => void
   readonly prefersReducedMotion: () => boolean
+  /** Whether the main pointer is a finger, where a touch keyboard's return key starts a new line. */
+  readonly isCoarsePointer: () => boolean
   readonly pixelRatio: () => number
   readonly supportsAnchors: () => boolean
   /** Whether this browser can subscribe to push notifications. */
@@ -130,7 +136,7 @@ export interface ShownNotification {
   readonly close: () => void
 }
 
-export type PageEvent = 'online' | 'offline' | 'visibilitychange' | 'hashchange' | 'resize'
+export type PageEvent = 'online' | 'offline' | 'visibilitychange' | 'hashchange' | 'resize' | 'pagehide'
 
 /** Kept in this browser only; every call is safe when storage is blocked. */
 export interface PageStorage {
@@ -164,7 +170,7 @@ export interface BrowserWindow {
     Document,
     'visibilityState' | 'createElement' | 'body' | 'addEventListener' | 'removeEventListener'
   >
-  readonly location: Pick<Location, 'origin' | 'hash' | 'replace' | 'assign'>
+  readonly location: Pick<Location, 'origin' | 'href' | 'hash' | 'replace' | 'assign'>
   readonly history: Pick<History, 'replaceState'>
   readonly navigator?: Pick<Navigator, 'languages'> & {
     readonly serviceWorker?: { readonly getRegistration?: () => Promise<NotificationSource | undefined> }

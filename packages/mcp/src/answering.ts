@@ -13,3 +13,6 @@ export const CONTEXT_PERCENT_DESCRIPTION =
 
 export const BASIS_DESCRIPTION =
   'What you read or relied on for this draft, such as "Read: Q3 plan (Google Doc), sections Summary and Risks". Your person sees it on the draft before approving it; the colleague never sees it.'
+
+export const SOURCES_DESCRIPTION =
+  'Each web page or earlier note this draft came from: { url } or { noteId }, with quote, the passage you used. Your person sees each as a link on the draft; the colleague never sees them.'

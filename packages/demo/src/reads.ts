@@ -1,6 +1,7 @@
 import {
   type Channel,
   type Conversation,
+  type CredentialId,
   type DirectoryEntry,
   type Group,
   type Member,
@@ -67,7 +68,7 @@ export const conversationAsSeen = (
     ).length,
     draftCount: inRoom.filter((note) => note.status === 'draft' && note.authorId === viewerId).length,
     archivedAt: null,
-    privateQuestionOf: room.privateQuestionOf?.slug ?? null,
+    ...(room.privateQuestionOf !== undefined && { privateQuestionOf: room.privateQuestionOf.slug }),
     muted: room.mutedBy.includes(viewerId),
   }
 }
@@ -205,6 +206,20 @@ export const reviewOf = (records: Records, viewerId: MemberId, note: Note): Revi
   )
   return standing === 'reviewer' ? { note, question, channel: channel.slug, agent, privately } : null
 }
+
+/** A person's connected agent, the one asked for or else any: its name signs what it writes. */
+export const connectedAgentOf = (
+  records: Records,
+  memberId: MemberId,
+  agentId: CredentialId | null,
+): { readonly id: CredentialId; readonly name: string } | null =>
+  records.credentials.find(
+    (kept) =>
+      kept.memberId === memberId &&
+      kept.credential.kind === 'agent' &&
+      kept.credential.revokedAt === null &&
+      (agentId === null || kept.credential.id === agentId),
+  )?.credential ?? null
 
 export const memberById = (records: Records, id: MemberId): Member | null =>
   records.members.find((each) => each.member.id === id)?.member ?? null

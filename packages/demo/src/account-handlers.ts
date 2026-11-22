@@ -12,6 +12,7 @@ import {
 } from '@homingbird/protocol'
 import { type Handlers, found } from './handlers.ts'
 import { agentReportOf } from './insights.ts'
+import { closeOffer } from './offers.ts'
 import { directoryOf, memberById } from './reads.ts'
 import { VISITOR_SESSION } from './team.ts'
 import type { Records } from './world.ts'
@@ -21,6 +22,7 @@ import type { World } from './world.ts'
 export const DEMO_FEATURES: ReadonlyArray<FeatureName> = [
   'channels',
   'groups',
+  'draftRequests',
   'characters',
   'mute',
   'answeringFlow',
@@ -146,6 +148,7 @@ export const accountHandlers = (world: World): Handlers => {
           autoSend: { enabled: false, places: [] },
         }
         world.update((records) => ({ ...records, principles: [...records.principles, created] }))
+        if (body.offerId !== undefined) closeOffer(world, body.offerId)
         return created
       }),
     'principles.update': ({ params, body }) =>
@@ -190,7 +193,11 @@ export const accountHandlers = (world: World): Handlers => {
         counts:
           principle.counts === null ? null : { ...principle.counts, missed: principle.counts.missed + 1 },
       })),
-    'principles.offers.dismiss': () => T.succeed({}),
+    'principles.offers.dismiss': ({ params }) =>
+      T.sync(() => {
+        closeOffer(world, params.id)
+        return {}
+      }),
     'principles.autoSend.set': ({ params, body }) =>
       changePrinciple(world, params.id, (principle) => ({
         ...principle,
@@ -231,7 +238,7 @@ const changePrinciple = (world: World, id: string, change: (principle: Principle
 
 const taughtOf = (records: Records) => ({
   principles: [...records.principles],
-  offers: [],
+  offers: [...records.offers],
   routes: [
     { place: 'billing', drafted: 31, principles: 1, heldUp: 4, chances: 2 },
     { place: null, drafted: 33, principles: 1, heldUp: 9, chances: 1 },

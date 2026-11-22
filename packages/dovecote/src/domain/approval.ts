@@ -43,14 +43,26 @@ export const sendDraft = (
     return yield* noteById(id, caller.member.id)
   })
 
-export const discardDraft = (caller: Caller, id: NoteId): T.Task<Note, NoteFailure, RequestEnv> =>
+/** Discards a draft with the person's reason; a discarded channel answer leaves its question unanswered. */
+export const discardDraft = (
+  caller: Caller,
+  id: NoteId,
+  reason: string | undefined,
+): T.Task<Note, NoteFailure, RequestEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
     if (!isHuman(caller)) return yield* T.fail(Forbidden({ message: 'Only a person can discard a draft.' }))
     const { draft, approvedBy } = yield* draftToDecide(caller, id)
-    yield* run(sql`UPDATE notes SET decided_at = ${env.clock.now()} WHERE id = ${id} AND status = 'draft'`)
+    const kept = reason?.trim() || null
+    yield* run(
+      sql`UPDATE notes SET decided_at = ${env.clock.now()}, discard_reason = ${kept} WHERE id = ${id} AND status = 'draft'`,
+    )
     yield* abandonDraft(draft)
     if (approvedBy === null) yield* offerAfterDecision(draft, null)
+    else if (draft.in_reply_to !== null)
+      yield* run(
+        sql`UPDATE receipts SET drafting_at = NULL WHERE note_id = ${draft.in_reply_to} AND member_id = ${draft.author_id}`,
+      )
     if (draft.in_reply_to !== null) yield* announceStatus(draft.in_reply_to)
     if (approvedBy !== null) yield* announceReview(yield* reviewersOf(draft), id)
     return yield* noteById(id, caller.member.id)

@@ -14,6 +14,7 @@ import {
 import type { AppEnv } from '../environment.ts'
 import { all } from '../sql/database.ts'
 import { list, sql } from '../sql/query.ts'
+import { sourcesShown } from './draft-sources.ts'
 import { featureIsOn } from './settings.ts'
 
 export interface NoteRow {
@@ -39,6 +40,8 @@ export interface NoteRow {
   readonly context_percent: number | null
   readonly debate_id: DebateId | null
   readonly approved_by: MemberId | null
+  readonly sources: string | null
+  readonly discard_reason: string | null
   readonly auto_principle_id?: string | null
   readonly withdrawn_at?: number | null
 }
@@ -150,7 +153,7 @@ const toNote = (
   updatedAt: row.updated_at,
   sentAt: row.sent_at,
   receipts,
-  ...(row.author_id === viewerId && { basis: row.basis }),
+  ...(row.author_id === viewerId && { basis: row.basis, ...sourcesShown(row) }),
   ...(details && row.agent_name !== null && { agentClient: row.agent_client, agentModel: row.agent_model }),
   ...(isAutoSent(row)
     ? { autoSent: true }

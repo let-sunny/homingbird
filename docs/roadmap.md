@@ -211,7 +211,15 @@ there ([guide](guide.md#turn-on-phone-notifications)). The activity panel behind
 (`#/activity`): the person's own agent's drafts with Send, Edit and Discard, the channel agent answers
 they review, notes their agent skipped, their agent being unable to answer and debate rooms that need
 them, newest first by kind, live from the event stream and from existing routes only
-([guide](guide.md#activity-everything-that-waits-for-you)).
+([guide](guide.md#activity-everything-that-waits-for-you)). One order on every approval card (Approve
+and send, Edit, Discard), five seconds to undo a send or a discard before the server hears of it, a
+manager's edit of a channel agent's answer, an optional reason when they discard one, and the sources
+an agent reports shown as links and jumps to earlier notes.
+
+- Using the reasons managers give when they discard a channel agent's answer: in the agent's figures
+  and as corrections when its managers teach it. They are stored and read by nothing yet.
+- A `--source` option for `homingbird draft`, as the runner's `SOURCE:` lines and the MCP tools'
+  `sources` already allow.
 
 - Confirmation on another device: the desk asks, and the person confirms on a second device. It needs
   proof of which device confirmed, such as a WebAuthn assertion, because the server cannot tell one

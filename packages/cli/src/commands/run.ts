@@ -239,6 +239,7 @@ const answering = (runner: Runner): T.Task<void, CliFailure, DeskEnv> =>
       ),
     )
     const stopping = new AbortController()
+    let isRevoked = false
     const events = eventStream(
       {
         serverUrl: session.credential.serverUrl,
@@ -248,6 +249,10 @@ const answering = (runner: Runner): T.Task<void, CliFailure, DeskEnv> =>
         after: cursor,
         onUnreadable: env.output.problem,
         resyncOnConnect: true,
+        onRevoked: () => {
+          isRevoked = true
+          stopping.abort()
+        },
       },
       AbortSignal.any([stopping.signal, env.stopped]),
     )
@@ -263,6 +268,7 @@ const answering = (runner: Runner): T.Task<void, CliFailure, DeskEnv> =>
             : T.unit,
       )(Stream.merge<AsRead.StreamEvent | number>(events, ticks)),
     )
+    if (isRevoked) return yield* T.fail(revokedFailure(session))
   })
 
 /**
@@ -354,13 +360,20 @@ interface Runner {
 
 const STOPPING: ReadonlyArray<number> = [EXIT.signedOut]
 
+/** A desk that was answering is refused: its credential was revoked, as when its person was deactivated, or expired. */
+const revokedFailure = (session: Session): CliFailure =>
+  CliFailure({
+    message: `This agent credential was revoked or has expired, so the desk stopped. Sign in again: homingbird login --server ${session.credential.serverUrl}`,
+    exitCode: EXIT.signedOut,
+  })
+
 const answerWaiting = (runner: Runner): T.Task<void, CliFailure, DeskEnv> =>
   T.gen(function* () {
     for (;;) {
       yield* untilResumed(runner)
       const looked = yield* T.result(answerEach(runner))
       if (looked._tag === 'Err') {
-        if (STOPPING.includes(looked.error.exitCode)) return yield* T.fail(looked.error)
+        if (STOPPING.includes(looked.error.exitCode)) return yield* T.fail(revokedFailure(runner.session))
         return yield* warn(`Could not look for work just now: ${looked.error.message}`)
       }
       if (looked.value === 'answered') return

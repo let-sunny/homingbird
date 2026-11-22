@@ -1,4 +1,4 @@
-import { PRINCIPLE_TEXT_MAX, PRINCIPLE_TOPIC_MAX } from '@homingbird/protocol'
+import { PRINCIPLE_TEXT_MAX, PRINCIPLE_TOPIC_MAX, type PrincipleKind } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, region } from '@homingbird/ui'
 import { featureOn } from '../features.ts'
 import {
@@ -6,6 +6,8 @@ import {
   type ChanceModel,
   type PrincipleRow,
   type TaughtModel,
+  type TeachSeed,
+  addRowKinds,
   addRowWarnings,
   appliedModel,
   chancesHere,
@@ -55,7 +57,7 @@ export const chancesIn = (context: ViewContext, life: Lifetime, conversationId: 
         featureOn('teaching', context.state.serverInfo.get()),
         conversationId,
       )
-      return chances.length === 0 ? null : chances.map((chance) => chanceCard(chance, context))
+      return chances.length === 0 ? null : chances.map((chance) => chanceLine(chance, context))
     },
     { class: 'chances-here' },
   )
@@ -100,6 +102,50 @@ export const renderAppliedMarkers = (
         ),
       )
 
+/** Teaching from a miss: the guided form, filled with what the place of the miss knows. */
+export const teachFromMiss = (
+  context: ViewContext,
+  label: string,
+  seed: TeachSeed,
+  className = 'teach-from-miss',
+): HTMLElement =>
+  h(
+    'button',
+    {
+      type: 'button',
+      class: className,
+      ...opensDialog(context, strings.teach.dialogTitle, () =>
+        principleForm(context, null, null, false, seed),
+      ),
+    },
+    label,
+  )
+
+/** A chance to teach as one line in the conversation it came from, once the moment to undo is over. */
+const chanceLine = (chance: ChanceModel, context: ViewContext): HTMLElement =>
+  h(
+    'p',
+    { class: 'chance chance-line', role: 'note', data: { offer: chance.offer.id } },
+    h('span', {}, chance.here.text),
+    h(
+      'button',
+      {
+        type: 'button',
+        class: 'link teach-from-chance',
+        ...opensDialog(context, strings.teach.dialogTitle, () =>
+          principleForm(context, chance.offer, null, false),
+        ),
+      },
+      chance.here.teach,
+    ),
+    button(strings.teach.notNow, () => context.actions.dismissOffer(chance.offer.id, false), {
+      class: 'link',
+    }),
+    button(strings.teach.stopAsking, () => context.actions.dismissOffer(chance.offer.id, true), {
+      class: 'link',
+    }),
+  )
+
 const chanceCard = (chance: ChanceModel, context: ViewContext): HTMLElement =>
   h(
     'div',
@@ -130,6 +176,7 @@ const principleList = (rows: ReadonlyArray<PrincipleRow>, context: ViewContext):
   const { actions, state } = context
   const ids = rows.map((row) => row.principle.id as string)
   const place = placeSelect(context, null, false)
+  let kind: PrincipleKind = 'rule'
   return todoList({
     label: strings.teach.listLabel,
     rows: rows.map((row) => ({
@@ -197,11 +244,18 @@ const principleList = (rows: ReadonlyArray<PrincipleRow>, context: ViewContext):
           wide: true,
         },
       ],
-      extra: field(strings.teach.place, place, strings.teach.placeHint),
-      warnings: addRowWarnings,
+      extra: (reflect) => [
+        kindChoice((chosen) => {
+          kind = chosen
+          reflect()
+        }),
+        field(strings.teach.place, place, strings.teach.placeHint),
+      ],
+      warnings: (values) => addRowWarnings(values, kind),
       submit: (values, done) =>
         actions.savePrinciple(
           {
+            kind,
             topic: values.topic ?? '',
             rule: values.rule ?? '',
             source: null,
@@ -216,6 +270,48 @@ const principleList = (rows: ReadonlyArray<PrincipleRow>, context: ViewContext):
         ),
     },
   })
+}
+
+/**
+ * Rule or answer for the add row. Choosing one also renames the text field beside it, which the list
+ * draws itself, so it is found in the row this choice sits in.
+ */
+const kindChoice = (choose: (kind: PrincipleKind) => void): HTMLElement => {
+  const model = addRowKinds('rule')
+  const rename = (event: Event, kind: PrincipleKind): void => {
+    const shown = addRowKinds(kind)
+    const row = (event.currentTarget as HTMLElement).closest('.todo-add')
+    const text = row?.querySelector<HTMLTextAreaElement>('[name="rule"]')
+    if (text) {
+      text.placeholder = shown.textLabel
+      text.setAttribute('aria-label', shown.textLabel)
+      text.maxLength = shown.maxLength
+    }
+  }
+  return h(
+    'fieldset',
+    { class: 'principle-kind add-row-kind' },
+    h('legend', {}, model.label),
+    model.choices.map((choice) =>
+      h(
+        'label',
+        { class: 'choice' },
+        h('input', {
+          type: 'radio',
+          name: 'add-kind',
+          value: choice.kind,
+          checked: choice.checked,
+          on: {
+            change: (event) => {
+              rename(event, choice.kind)
+              choose(choice.kind)
+            },
+          },
+        }),
+        choice.label,
+      ),
+    ),
+  )
 }
 
 /** Public or private: turning it on asks for a sentence for colleagues; turning it off needs nothing. */

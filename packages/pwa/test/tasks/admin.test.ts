@@ -4,6 +4,17 @@ import { fail, testApp } from '../support/app.ts'
 import { ANA, member } from '../support/fixtures.ts'
 
 describe('administration tasks', () => {
+  it('lists the agent credentials each person holds where the server says', async () => {
+    const held = { memberId: ANA, count: 2, newestExpiresAt: 1_800_000_000_000 }
+    const { run } = testApp({
+      'admin.members.list': () => ({ members: [member(ANA, 'Ana')], agentCredentials: [held] }),
+    })
+    expect(await run(tasks.listMembers)).toEqual({
+      _tag: 'Ok',
+      value: { members: [member(ANA, 'Ana')], agentCredentials: [held] },
+    })
+  })
+
   it('loads and saves settings, lists and changes members, resets a character and loads insights', async () => {
     const { run, routes, state } = testApp({
       'admin.settings.get': () => ({ allowedDomains: [], contactMode: 'open' }),
@@ -23,7 +34,10 @@ describe('administration tasks', () => {
     await run(tasks.loadSettings)
     await run(tasks.saveSettings({ allowedDomains: [], contactMode: 'open' }))
     expect(state.serverInfo.get()?.features).toEqual({ cloudDesk: true })
-    expect(await run(tasks.listMembers)).toEqual({ _tag: 'Ok', value: [member(ANA, 'Ana')] })
+    expect(await run(tasks.listMembers)).toEqual({
+      _tag: 'Ok',
+      value: { members: [member(ANA, 'Ana')], agentCredentials: null },
+    })
     await run(tasks.updateMember(ANA, { role: 'admin' }))
     expect(await run(tasks.resetMemberCharacter(ANA))).toEqual({ _tag: 'Ok', value: member(ANA, 'Ana') })
     await run(tasks.loadInsights)

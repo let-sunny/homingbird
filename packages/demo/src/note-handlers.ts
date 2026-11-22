@@ -13,6 +13,8 @@ import {
 } from '@homingbird/protocol'
 import { answerLater } from './colleagues.ts'
 import { type Handlers, found } from './handlers.ts'
+import { offerAfterDecision } from './offers.ts'
+import { cancelDraftRequest, openDraftRequests, requestDraft } from './own-agent.ts'
 import {
   conversationAsSeen,
   conversationsOf,
@@ -137,7 +139,10 @@ export const noteHandlers = (world: World): Handlers => ({
         body: body.body ?? draft.body,
         approvedBy: isReview ? viewerId : null,
       })
-      if (!isReview) answerLater(world, sent)
+      if (!isReview) {
+        offerAfterDecision(world, draft, sent.body)
+        answerLater(world, sent)
+      }
       return sent
     }),
   'drafts.discard': ({ params }, viewerId) =>
@@ -149,15 +154,20 @@ export const noteHandlers = (world: World): Handlers => ({
         status: 'discarded',
         updatedAt: world.clock.now(),
       }))
-      if (draft.authorId === viewerId)
+      if (draft.authorId === viewerId) {
+        offerAfterDecision(world, draft, null)
         world.emit([viewerId], {
           type: 'draft.discarded',
           noteId: discarded.id,
           conversationId: discarded.conversationId,
         })
-      else world.emit(reviewers, { type: 'review.changed', noteId: discarded.id })
+      } else world.emit(reviewers, { type: 'review.changed', noteId: discarded.id })
       return discarded
     }),
+  'draftRequests.list': (_, viewerId) =>
+    T.sync(() => ({ requests: openDraftRequests(world.records(), viewerId, world.clock.now()) })),
+  'draftRequests.create': ({ body }, viewerId) => requestDraft(world, viewerId, body),
+  'draftRequests.cancel': ({ params }, viewerId) => cancelDraftRequest(world, viewerId, params.id),
   'drafts.seen': ({ params }, viewerId) =>
     T.map(() => ({}))(draftToDecide(world.records(), viewerId, params.id)),
   'search.notes': ({ query }, viewerId) =>

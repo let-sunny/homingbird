@@ -52,6 +52,38 @@ describe('followNewNotes', () => {
   })
 })
 
+describe('followNewNotes.pin', () => {
+  it('goes back to the bottom at once and stays there for what arrives next', () => {
+    const { context, page } = testContext()
+    const scroller = document.createElement('div')
+    const scrolled: unknown[] = []
+    scroller.scrollTo = ((options: unknown) => void scrolled.push(options)) as typeof scroller.scrollTo
+    const indicator = document.createElement('button')
+    let signatures: Array<readonly [string, string]> = [['a', '1']]
+    const follow = followNewNotes(context, lifetime(), scroller, indicator, () => signatures)
+    follow.track('a', element('a'))
+    follow.afterDraw()
+    page.runFrames()
+    Object.assign(scroller, { scrollHeight: 3000, scrollTop: 200, clientHeight: 500 })
+    fire.event(scroller, 'scroll')
+    follow.track('b', element('b'))
+    signatures = [...signatures, ['b', '1']]
+    follow.afterDraw()
+    page.runFrames()
+    expect(indicator.hidden).toBe(false)
+    scrolled.length = 0
+    follow.pin()
+    expect(scrolled).toEqual([{ top: 3000, behavior: 'instant' }])
+    expect(indicator.hidden).toBe(true)
+    follow.track('c', element('c'))
+    signatures = [...signatures, ['c', '1']]
+    follow.afterDraw()
+    page.runFrames()
+    expect(scrolled).toEqual([{ top: 3000, behavior: 'instant' }, { top: 3000 }])
+    expect(indicator.hidden).toBe(true)
+  })
+})
+
 describe('markReadWhenSeen', () => {
   it('marks unread notes read once in view while the page is visible', () => {
     const { context, called, page } = testContext()

@@ -262,6 +262,19 @@ If unsure, log the header once from a known address and count the entries after 
 Set `HB_PUBLIC_URL` to the address people use, with `https`. Dovecote builds OAuth, MCP and cookie
 settings from it.
 
+**With Docker Compose**, the bundled `docker-compose.yml` publishes Dovecote's plain HTTP port on
+`127.0.0.1:8080` only, so nothing but this host reaches it. Run the TLS proxy on the same host and
+point it at `http://127.0.0.1:8080`; with Caddy, for example:
+
+```
+homingbird.example.com {
+	reverse_proxy 127.0.0.1:8080
+}
+```
+
+and set `HB_TRUST_PROXY=1` in `.env`. Only when the proxy runs on another host, change the published
+port to `"8080:8080"` and let a firewall admit that proxy alone; never do that with `HB_DEV_LOGIN=1`.
+
 ### Long-lived connections
 
 Clients hold one event stream each: Server-Sent Events at `/api/v1/events/stream` or a WebSocket at
@@ -361,7 +374,10 @@ and nothing reads your directory. Add it to your offboarding checklist next to b
 2. **Deactivate.** An administrator opens **Administration**, **Members** in the web client and presses
    **Deactivate** (the API route `admin.members.update` with `status: deactivated`).
 3. **Block the company account** at the identity provider as usual.
-4. **Verify**, with the member's id from the first query:
+4. **Verify** in **Administration**, **Members**: their row says **Deactivated** and **No agent
+   connections**, and names no group and no channel they manage. The page counts the agent
+   credentials that still work, so it shows what the server holds. On the database itself, with the
+   member's id from the first query:
 
    ```sql
    SELECT id, status FROM members WHERE email = 'leaver@example.com';             -- deactivated
@@ -375,7 +391,9 @@ and nothing reads your directory. Add it to your offboarding checklist next to b
 
    The audit trail shows `member.access_changed` with the status change, `group.members_changed`
    with `because: deactivated` for each group they left, and `credential.revoked` with
-   `because: issuer_left` for each credential they had issued to a channel's agent.
+   `because: issuer_left` for each credential they had issued to a channel's agent. A runner of
+   theirs that was still going prints that its agent credential was revoked and stops with exit code
+   3 within half a minute.
 5. **Reconnect channel agents** they had connected: another manager connects each one again
    ([when a manager leaves](#rotate-disconnect-and-when-a-manager-leaves)).
 
@@ -420,7 +438,9 @@ So the last three keep working for up to three months. Deactivating is the only 
 ### Checking for people who left
 
 Once a month, compare the active people with your identity provider's active users, and deactivate
-whoever is gone:
+whoever is gone. **Administration**, **Members** shows each person's last activity, flags who has
+shown none for 30 days, and says how many agent connections (agent credentials that still work) each
+holds and when the newest expires; search it by name or email. On the database:
 
 ```sql
 SELECT m.email, MAX(c.created_at) AS last_sign_in_ms
@@ -643,7 +663,10 @@ the last two weeks, each with at least 10 such drafts, Insights show a warning t
 becoming a formality. Insights hold numbers only, never note content, and say which minimum group is in
 force. Figures are per group, so at a minimum of 1 a group with one member shows that person's figures:
 
-- With the default `HB_INSIGHTS_MINIMUM_GROUP` of 1, nothing is hidden. Raised, it hides as follows.
+- With the default `HB_INSIGHTS_MINIMUM_GROUP` of 1, nothing is hidden except programs and models
+  used by one person only, since a program's name can identify them. Raised, it hides as follows.
+- At a minimum of 1, an administrator opening Insights is told once, in that browser, that figures may
+  describe one person and how to raise the minimum.
 - A period in which fewer than `HB_INSIGHTS_MINIMUM_GROUP` people sent notes shows no
   numbers at all, and the block count is shown only as a number, and only once the organization has
   that many members.
@@ -1114,6 +1137,27 @@ has not been loaded by a real user manager. Try each script on one machine befor
 The examples use `--agent claude`; `homingbird presets` lists the others, and a full command works
 too. Add `--split` to keep the drafting agent away from a note's wording (see the guide).
 
+### Privacy checklist before a rollout
+
+Insights and the audit trail describe how people work. Before you invite a whole organization:
+
+1. **Decide the minimum group.** `HB_INSIGHTS_MINIMUM_GROUP` is 1 by default, so a group with one
+   member shows that person's figures, approval speed included. To hide groups smaller than five, set
+   `HB_INSIGHTS_MINIMUM_GROUP=5` in `.env` (or the server's environment) and restart Dovecote. Check
+   that it reached the server: **Administration**, **Insights** names the minimum in force.
+2. **Ask whom you must.** In several jurisdictions per-person figures about how people work need the
+   works council's or employees' consultation before they are switched on. If you cannot have that
+   yet, raise the minimum, or switch Insights off with `HB_FEATURES=insights=off`
+   ([Features](#features)).
+3. **Tell people what is recorded:** the audit trail holds ids and outcomes, never note content
+   ([Logs](#logs)), and is kept `HB_AUDIT_RETENTION_DAYS` (400 days by default). Notes and unsent
+   drafts are kept until deleted by hand; there is no retention for them yet.
+4. **Shorten agent credentials** without an identity provider check: `HB_AGENT_CREDENTIAL_DAYS` is 90
+   by default, and a leaver nobody deactivates keeps that long ([If nobody deactivates
+   them](#if-nobody-deactivates-them)).
+5. **Choose who reads product analytics**, or leave `HB_ANALYTICS=off` ([Product
+   analytics](#product-analytics)).
+
 ### macOS (Jamf or another MDM, run as root)
 
 MDM scripts run as root, and the service must belong to the person, so the script installs the CLI for
@@ -1282,7 +1326,10 @@ so too. This happens only with development login; a production server refuses to
 ## Ready-made setups
 
 - **Docker Compose:** `docker-compose.yml` at the repository root runs Dovecote on SQLite in a volume,
-  with an optional `postgres` profile.
+  with an optional `postgres` profile. Copy `.env.example` to `.env`: it lists every variable above,
+  and compose passes the whole file to the server, so a setting in `.env` always reaches it. The port
+  is published on `127.0.0.1` only; put your proxy in front of it
+  ([Behind a load balancer](#behind-a-load-balancer)).
 - **Terraform for GCP and AWS:** Experimental: tested automatically, not yet used in a real deployment.
 - **Google Cloud:** [`deploy/terraform/gcp`](../deploy/terraform/gcp/README.md): Cloud Run with one
   instance, Cloud SQL for PostgreSQL, and an HTTPS load balancer. It sets `HB_TRUST_PROXY=2`, because

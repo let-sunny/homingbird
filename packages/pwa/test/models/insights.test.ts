@@ -42,16 +42,45 @@ const figuresOf = (model: ReturnType<typeof insightsModel>) => {
 }
 
 describe('insightsModel', () => {
+  it('tells an administrator once that figures may describe one person while the minimum is 1, and how to raise it', () => {
+    const everyone = insightsModel(insights({ minimumGroupSize: 1 }), 30, false)
+    expect(everyone.kind === 'insights' && everyone.minimumNotice).toEqual({
+      text: strings.insights.minimumNotice,
+      dismiss: strings.insights.minimumNoticeDismiss,
+    })
+    expect(strings.insights.minimumNotice).toContain('HB_INSIGHTS_MINIMUM_GROUP=5')
+    const dismissed = insightsModel(insights({ minimumGroupSize: 1 }), 30, true)
+    expect(dismissed.kind === 'insights' && dismissed.minimumNotice).toBeNull()
+    const raised = insightsModel(insights(), 30, false)
+    expect(raised.kind === 'insights' && raised.minimumNotice).toBeNull()
+  })
+
+  it('says hidden programs were each used by one person only while the minimum is 1, never too few people', () => {
+    const hidden = (minimumGroupSize: number) =>
+      figuresOf(
+        insightsModel(
+          insights({
+            minimumGroupSize,
+            periods: [{ days: 30, current: organization({ hiddenLabels: 3 }), previous: null }],
+          }),
+          30,
+          true,
+        ),
+      ).hiddenLabels
+    expect(hidden(1)).toBe(strings.insights.hiddenLabelsOnePerson({ count: 3 }))
+    expect(hidden(5)).toBe(strings.insights.hiddenLabels({ count: 3 }))
+  })
+
   it('waits for the numbers', () => {
-    expect(insightsModel(null, 30)).toEqual({ kind: 'loading' })
+    expect(insightsModel(null, 30, false)).toEqual({ kind: 'loading' })
   })
 
   it('shows the period chosen, hides an earlier period too small to show, and counts blocks', () => {
-    const model = insightsModel(insights(), 30)
+    const model = insightsModel(insights(), 30, false)
     if (model.kind !== 'insights') throw new Error('expected insights')
     expect(model.warnings).toEqual([strings.insights.noTeams])
     expect(model.groupRule).toBe(strings.insights.privacy({ minimum: 5 }))
-    const everyone = insightsModel(insights({ minimumGroupSize: 1 }), 30)
+    const everyone = insightsModel(insights({ minimumGroupSize: 1 }), 30, false)
     expect(everyone.kind === 'insights' && everyone.groupRule).toBe(strings.insights.minimumOne)
     expect(strings.insights.intro).not.toMatch(/one person/)
     expect(model.tooFew).toBeNull()
@@ -83,6 +112,7 @@ describe('insightsModel', () => {
         ],
       }),
       30,
+      false,
     )
     const table = figuresOf(model).table
     const rows = strings.insights.rows
@@ -98,7 +128,7 @@ describe('insightsModel', () => {
       [rows.channelAgentDiscarded, '1', strings.insights.hidden],
     ])
     expect(table.footnotes[0]).toBe(strings.insights.channelAgentsExplained({ minimum: 5 }))
-    const older = figuresOf(insightsModel(insights(), 30)).table
+    const older = figuresOf(insightsModel(insights(), 30, false)).table
     expect(older.rows.map((row) => row[0])).not.toContain(rows.channelAgentAnswers)
   })
 
@@ -119,6 +149,7 @@ describe('insightsModel', () => {
         periods: [{ days: 30, current: organization({ teams: [team], hiddenTeams: 0 }), previous: null }],
       }),
       30,
+      false,
     )
     const teams = figuresOf(model).teams!
     expect(teams.rows).toEqual([
@@ -131,6 +162,7 @@ describe('insightsModel', () => {
         periods: [{ days: 30, current: organization({ teams: [], hiddenTeams: 3 }), previous: null }],
       }),
       30,
+      false,
     )
     expect(figuresOf(none).teams).toMatchObject({
       none: strings.insights.noTeamRows,
@@ -139,15 +171,17 @@ describe('insightsModel', () => {
     const empty = insightsModel(
       insights({ periods: [{ days: 30, current: organization({ teams: [] }), previous: null }] }),
       30,
+      false,
     )
     expect(empty.kind === 'insights' && empty.warnings[0]).toBe(strings.insights.noTeams)
     expect(figuresOf(empty).teams).toBeNull()
     const onlyHidden = insightsModel(
       insights({ periods: [{ days: 30, current: organization({ hiddenTeams: 2 }), previous: null }] }),
       30,
+      false,
     )
     expect(figuresOf(onlyHidden).teams).toMatchObject({ rows: [], none: strings.insights.noTeamRows })
-    expect(figuresOf(insightsModel(insights(), 30)).teams).toBeNull()
+    expect(figuresOf(insightsModel(insights(), 30, false)).teams).toBeNull()
   })
 
   it('hides nothing by default: no hiding sentence, and an empty median reads as none yet', () => {
@@ -178,6 +212,7 @@ describe('insightsModel', () => {
         ],
       }),
       30,
+      false,
     )
     const figures = figuresOf(model)
     expect(figures.teams!.rows[1]![7]).toBe(durationOf(60_000))
@@ -193,6 +228,7 @@ describe('insightsModel', () => {
     const model = insightsModel(
       insights({ periods: [{ days: 7, current: null, previous: null }], blocks: null }),
       90,
+      false,
     )
     expect(model).toMatchObject({
       kind: 'insights',
@@ -208,6 +244,7 @@ describe('insightsModel', () => {
         insightsModel(
           insights({ minimumGroupSize: minimum, periods: [{ days: 7, current, previous: null }] }),
           7,
+          false,
         ),
       ).table
     const counted = rowsOf(organization({ autoSent: 4 }), 1)
@@ -237,7 +274,7 @@ describe('insightsModel', () => {
       activeMembers: 0,
     })
     const table = figuresOf(
-      insightsModel(insights({ periods: [{ days: 7, current: hidden, previous: null }] }), 7),
+      insightsModel(insights({ periods: [{ days: 7, current: hidden, previous: null }] }), 7, false),
     ).table
     expect(table.rows.map((row) => row[1])).toEqual([
       '0',
@@ -256,7 +293,7 @@ describe('insightsModel', () => {
     expect(table.footnotes.at(-1)).toBe(strings.insights.draftsHidden({ minimum: 5 }))
     const shown = organization({ sentAsWritten: 0, sentAfterEdits: 0, discarded: 0, quickApprovals: 0 })
     const zero = figuresOf(
-      insightsModel(insights({ periods: [{ days: 7, current: shown, previous: null }] }), 7),
+      insightsModel(insights({ periods: [{ days: 7, current: shown, previous: null }] }), 7, false),
     ).table
     expect(zero.rows[4]![1]).toBe(strings.trust.noneYet)
     expect(zero.rows[7]![1]).toBe(strings.trust.noneYet)
@@ -281,7 +318,9 @@ describe('insightsModel', () => {
       hiddenLabels: 3,
       byClient: [{ label: 'Desk', written: 1, sentAsWritten: 1, sentAfterEdits: 0, discarded: 0 }],
     })
-    const shown = figuresOf(insightsModel(insights({ periods: [{ days: 7, current, previous: null }] }), 7))
+    const shown = figuresOf(
+      insightsModel(insights({ periods: [{ days: 7, current, previous: null }] }), 7, false),
+    )
     expect(shown.places.none).toBeNull()
     expect(shown.places.rows).toEqual([
       ['#billing', '4', '2', percentOf(0.5), '1', '3'],
@@ -291,7 +330,7 @@ describe('insightsModel', () => {
     expect(shown.places.hidden).toBe(strings.insights.hiddenPlaces({ count: 2 }))
     expect(shown.hiddenLabels).toBe(strings.insights.hiddenLabels({ count: 3 }))
     expect(shown.byClient?.rows).toHaveLength(1)
-    const none = figuresOf(insightsModel(insights(), 7))
+    const none = figuresOf(insightsModel(insights(), 7, false))
     expect(none.places.none).toBe(strings.insights.noPlaces)
     expect(none.places.hidden).toBeNull()
     expect(none.hiddenLabels).toBeNull()

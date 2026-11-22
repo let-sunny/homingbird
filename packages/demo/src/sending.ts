@@ -45,7 +45,7 @@ export const saveDraft = (world: World, fields: DraftFields): Note => {
     status: 'draft',
     body: fields.body,
     inReplyTo: fields.inReplyTo,
-    origin: fields.agentName === null ? 'human' : 'agent',
+    origin: fields.agentName === null && fields.fromDebate === undefined ? 'human' : 'agent',
     agentName: fields.agentName,
     createdAt: now,
     updatedAt: now,
@@ -53,6 +53,7 @@ export const saveDraft = (world: World, fields: DraftFields): Note => {
     receipts: [],
     basis: fields.basis,
     approvedBy: null,
+    ...(fields.fromDebate !== undefined && { fromDebate: fields.fromDebate }),
   }
   world.update((records) => ({ ...records, notes: [...records.notes, draft] }))
   if (memberById(world.records(), draft.authorId)?.kind === 'channel_agent')
@@ -69,6 +70,8 @@ export interface DraftFields {
   /** The agent that wrote it; null for a person's own words. */
   readonly agentName: string | null
   readonly basis: string | null
+  /** The debate room whose result this is: written by its agents, as Dovecote records it. */
+  readonly fromDebate?: Note['fromDebate']
 }
 
 /** The managers who may send a channel's agent's answer: all of its channel's, except the person who asked. */
@@ -104,7 +107,8 @@ export const participantsOf = (records: Records, conversationId: string): Readon
 
 /**
  * Who a sent note reaches: everyone else in a direct or group conversation; in a channel's room, the
- * person whose question it answers, or for a new question the people whose agents answer there.
+ * person whose question it answers, or for a new question the people whose agents answer there and the
+ * channel's own agent.
  */
 const recipientsOf = (records: Records, draft: Note): MemberId[] => {
   const room = records.conversations.find((each) => each.id === draft.conversationId)
@@ -113,7 +117,11 @@ const recipientsOf = (records: Records, draft: Note): MemberId[] => {
   const answered = records.notes.find((note) => note.id === draft.inReplyTo)
   if (answered !== undefined && answered.authorId !== draft.authorId)
     return others.filter((id) => id === answered.authorId)
-  const helpers = records.channels.find((channel) => channel.conversationId === room.id)?.answering ?? []
+  const channel = records.channels.find((each) => each.conversationId === room.id)
+  const helpers = [
+    ...(channel?.answering ?? []),
+    ...(channel === undefined || channel.agentId === null ? [] : [channel.agentId]),
+  ]
   return others.filter((id) => helpers.includes(id))
 }
 
@@ -134,7 +142,10 @@ const touch = (world: World, conversationId: ConversationId, now: number): void 
     ),
   }))
 
-/** The question a sent reply answers, marked replied by the reply's author, and their other drafts for it discarded. */
+/**
+ * The question a sent reply answers, marked replied by the reply's author only, never by the manager who
+ * approved it, and the author's other drafts for it discarded.
+ */
 const settleQuestion = (world: World, reply: Note, now: number): Note | null => {
   if (reply.inReplyTo === null) return null
   const question = world.records().notes.find((note) => note.id === reply.inReplyTo)
@@ -150,7 +161,7 @@ const settleQuestion = (world: World, reply: Note, now: number): Note | null => 
   return changeNote(world, question.id, (current) => ({
     ...current,
     receipts: current.receipts.map((receipt) =>
-      receipt.memberId === reply.authorId || receipt.memberId === reply.approvedBy
+      receipt.memberId === reply.authorId
         ? { ...receipt, state: 'replied', readAt: receipt.readAt ?? now, repliedAt: now }
         : receipt,
     ),

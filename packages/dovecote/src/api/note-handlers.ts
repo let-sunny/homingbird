@@ -83,6 +83,7 @@ export const noteHandlers = {
       : answerDraftRequest(caller, requestId, {
           body: target.body,
           ...(target.basis !== undefined && { basis: target.basis }),
+          ...(target.sources !== undefined && { sources: target.sources }),
           ...(target.client !== undefined && { client: target.client }),
           ...(target.model !== undefined && { model: target.model }),
           ...(target.session !== undefined && { session: target.session }),
@@ -91,8 +92,8 @@ export const noteHandlers = {
     T.flatMap((id: NoteId) => updateDraft(caller, id, body))(identifier(NoteId, params.id)),
   'drafts.send': ({ params, body }, caller) =>
     T.flatMap((id: NoteId) => sendDraft(caller, id, body.body, body.expected))(identifier(NoteId, params.id)),
-  'drafts.discard': ({ params }, caller) =>
-    T.flatMap((id: NoteId) => discardDraft(caller, id))(identifier(NoteId, params.id)),
+  'drafts.discard': ({ params, body }, caller) =>
+    T.flatMap((id: NoteId) => discardDraft(caller, id, body.reason))(identifier(NoteId, params.id)),
   'drafts.seen': ({ params }, caller) =>
     T.as({})(T.flatMap((id: NoteId) => markDraftSeen(caller, id))(identifier(NoteId, params.id))),
 

@@ -68,6 +68,11 @@ export const MEASURES = [
   { key: 'week', audience: 'you', fields: ['week.notesSent', 'week.repliesReceived', 'week.medianReplyMs'] },
   { key: 'approvedForChannels', audience: 'you', fields: ['week.approvedForChannels'] },
   {
+    key: 'misses',
+    audience: 'you',
+    fields: ['misses.outcome', 'misses.noteId', 'misses.conversationId'],
+  },
+  {
     key: 'decisions',
     audience: 'managers',
     fields: ['written', 'sentAsWritten', 'sentAfterEdits', 'discarded', 'waiting'],

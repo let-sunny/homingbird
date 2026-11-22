@@ -7,7 +7,7 @@ import type { ViewContext } from './context.ts'
 /**
  * Keeps the view at the bottom while the person is there, and otherwise points at what arrived or
  * changed below that they have not seen; unread notes below count on opening. A card a link opened
- * the page at is brought into view instead of the bottom.
+ * the page at is brought into view instead of the bottom, and sending pins the view to the bottom again.
  */
 export const followNewNotes = (
   context: Pick<ViewContext, 'page' | 'document'>,
@@ -61,6 +61,13 @@ export const followNewNotes = (
       if (drawn.size > 0) unseen = unseenAfterDraw(unseen, changedItems(drawn, now), pinned)
       drawn = now
       if (pinned) page.nextFrame(() => scroller.scrollTo({ top: scroller.scrollHeight }))
+      update()
+    },
+    /** Back to the bottom at once, staying there for what arrives, such as the note the person just sent. */
+    pin: (): void => {
+      pinned = true
+      unseen = new Set()
+      scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'instant' })
       update()
     },
     bringIntoView: (find: () => HTMLElement | null): void => {

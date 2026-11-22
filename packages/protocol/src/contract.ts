@@ -25,7 +25,7 @@ import {
   DebateEnded,
   DebateExport,
   DebateExportFormat,
-  DebateLimits,
+  DebateLimitsWish,
   DebateQuestion,
   DebateSummary,
   DebateVisibility,
@@ -45,6 +45,7 @@ import { ConversationId, CredentialId, DraftRequestId, GroupId, MemberId, NoteId
 import { AgentReport, ChannelAgentReport, OrganizationInsights, PlaceName } from './insights.ts'
 import { Invite, InviteEmail, InviteLink } from './invites.ts'
 import {
+  AgentCredentialsHeld,
   AgentLabel,
   AnsweringFlowSetting,
   CHANNEL_DESCRIPTION_MAX,
@@ -58,7 +59,10 @@ import {
   DRAFT_INSTRUCTION_MAX,
   DeskUnavailableKind,
   DirectoryEntry,
+  DiscardReason,
   DraftRequest,
+  type DraftSource,
+  DraftSources,
   Locale,
   Member,
   MemberStatus,
@@ -437,6 +441,7 @@ export const contract = {
       inReplyTo: S.optional(NoteId),
       requestId: S.optional(DraftRequestId),
       basis: S.optional(NoteBasis),
+      sources: S.optional(DraftSources),
       client: S.optional(AgentLabel),
       model: S.optional(AgentLabel),
       session: S.optional(DeskSession),
@@ -453,18 +458,21 @@ export const contract = {
         readonly body?: string
         readonly channel?: string
         readonly basis?: string
+        readonly sources?: ReadonlyArray<DraftSource>
         readonly model?: string
       }) =>
         change.body !== undefined ||
         change.channel !== undefined ||
         change.basis !== undefined ||
+        change.sources !== undefined ||
         change.model !== undefined,
-      'Give a new body, a new channel, a new basis, a model, or several.',
+      'Give a new body, a new channel, a new basis, new sources, a model, or several.',
     )(
       S.struct({
         body: S.optional(NoteBody),
         channel: S.optional(ChannelSlug),
         basis: S.optional(NoteBasis),
+        sources: S.optional(DraftSources),
         model: S.optional(AgentLabel),
       }),
     ),
@@ -480,7 +488,13 @@ export const contract = {
     }),
     response: Note,
   }),
-  'drafts.discard': route({ method: 'POST', path: '/drafts/:id/discard', access: 'human', response: Note }),
+  'drafts.discard': route({
+    method: 'POST',
+    path: '/drafts/:id/discard',
+    access: 'human',
+    body: S.struct({ reason: S.optional(DiscardReason) }),
+    response: Note,
+  }),
   'drafts.seen': route({
     method: 'POST',
     path: '/drafts/:id/seen',
@@ -631,7 +645,7 @@ export const contract = {
     body: S.struct({
       question: DebateQuestion,
       visibility: S.optional(DebateVisibility),
-      limits: S.optional(DebateLimits),
+      limits: S.optional(DebateLimitsWish),
       memberIds: S.optional(S.array(MemberId, { maxItems: DEBATE_INVITEES_MAX })),
     }),
     response: Debate,
@@ -647,7 +661,7 @@ export const contract = {
     method: 'PUT',
     path: '/debates/:id/limits',
     access: 'human',
-    body: DebateLimits,
+    body: DebateLimitsWish,
     response: Debate,
   }),
   'debates.turns.post': route({
@@ -657,6 +671,8 @@ export const contract = {
     body: S.struct({
       body: S.string({ minLength: 1, maxLength: DEBATE_TURN_MAX }),
       model: S.optional(AgentLabel),
+      /** The last turn the agent read: a room that moved past it answers 409 and saves nothing. */
+      afterTurn: S.optional(S.int({ min: 0 })),
     }),
     response: Debate,
   }),
@@ -860,7 +876,12 @@ export const contract = {
     method: 'GET',
     path: '/admin/members',
     access: 'admin',
-    response: S.struct({ members: S.array(Member), agents: S.optional(S.array(AgentListing)) }),
+    response: S.struct({
+      members: S.array(Member),
+      agents: S.optional(S.array(AgentListing)),
+      /** Only people who hold one are listed; absent from a server that does not say. */
+      agentCredentials: S.optional(S.array(AgentCredentialsHeld)),
+    }),
   }),
   'admin.members.update': route({
     method: 'PATCH',

@@ -5,6 +5,7 @@ import {
   type ConversationId,
   type MemberId,
   NotFound,
+  type NoteId,
   type OrganizationInsights,
 } from '@homingbird/protocol'
 import { type AppEnv, type Caller, isHuman, viewerOf } from '../environment.ts'
@@ -94,9 +95,9 @@ const agentActivity = (
   now: number,
 ): T.Task<AgentActivity, never, AppEnv> =>
   T.gen(function* () {
-    const drafts = yield* all<DraftRow>(sql`
-      SELECT n.created_at, n.seen_at, n.decided_at, n.status, n.origin, n.agent_client, n.agent_model,
-        n.agent_name, n.session_minutes, n.context_percent, ${PLACE_COLUMNS}
+    const drafts = yield* all<DraftRow & { id: NoteId; conversation_id: ConversationId }>(sql`
+      SELECT n.id, n.conversation_id, n.created_at, n.seen_at, n.decided_at, n.status, n.origin,
+        n.agent_client, n.agent_model, n.agent_name, n.session_minutes, n.context_percent, ${PLACE_COLUMNS}
       FROM notes n ${PLACE_JOIN}
       WHERE n.author_id = ${memberId} AND n.agent_name IS NOT NULL AND n.debate_id IS NULL
       AND n.auto_principle_id IS NULL AND (n.created_at >= ${since} OR n.decided_at >= ${since})`)
@@ -115,7 +116,8 @@ const agentActivity = (
       WHERE n.author_id = ${memberId} AND n.auto_principle_id IS NOT NULL AND n.status = 'sent'
       AND n.sent_at >= ${since}`)
     const skips = yield* all<SkipRow>(sql`
-      SELECT n.created_at AS at, n.reason, ${PLACE_COLUMNS} FROM releases n ${PLACE_JOIN}
+      SELECT n.note_id, n.conversation_id, n.created_at AS at, n.reason, ${PLACE_COLUMNS}
+      FROM releases n ${PLACE_JOIN}
       WHERE n.member_id = ${memberId} AND n.created_at >= ${since}
       ORDER BY n.created_at`)
     const expired = yield* all<DatedRow>(sql`
@@ -124,11 +126,20 @@ const agentActivity = (
       AND n.expires_at >= ${since} AND n.expires_at <= ${now}
       AND NOT EXISTS (SELECT 1 FROM draft_request_answers a WHERE a.request_id = n.id)`)
     return {
-      drafts: drafts.map(toDraft),
+      drafts: drafts.map((row) => ({
+        ...toDraft(row),
+        noteId: row.id,
+        conversationId: row.conversation_id,
+      })),
       handWritten: handWritten.map(toDated),
       debateResults: debateResults.map(toDated),
       ...(autoSent !== null && { autoSent: autoSent.map(toDated) }),
-      skips: skips.map((row) => ({ ...toDated(row), reason: row.reason })),
+      skips: skips.map((row) => ({
+        ...toDated(row),
+        reason: row.reason,
+        noteId: row.note_id,
+        conversationId: row.conversation_id,
+      })),
       expiredRequests: expired.map(toDated),
     }
   })
@@ -332,6 +343,8 @@ interface DatedRow extends PlaceRow {
 }
 
 interface SkipRow extends DatedRow {
+  readonly note_id: NoteId
+  readonly conversation_id: ConversationId
   readonly reason: string | null
 }
 

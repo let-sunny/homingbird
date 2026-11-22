@@ -20,6 +20,7 @@ describe('wire model', () => {
   it('exports the schemas the product needs', () => {
     expect(schemas.map(([name]) => name).sort()).toEqual(
       [
+        'AgentCredentialsHeld',
         'AgentLabel',
         'AnsweringFlowSetting',
         'Contact',
@@ -31,6 +32,9 @@ describe('wire model', () => {
         'CredentialKind',
         'DeskUnavailableKind',
         'DirectoryEntry',
+        'DiscardReason',
+        'DraftSource',
+        'DraftSources',
         'DraftRequest',
         'Locale',
         'Member',
@@ -39,6 +43,7 @@ describe('wire model', () => {
         'Note',
         'NoteBasis',
         'NoteBody',
+        'NoteSource',
         'NoteStatus',
         'Notice',
         'NoticeKind',
@@ -51,6 +56,8 @@ describe('wire model', () => {
         'Relation',
         'Role',
         'Settings',
+        'SourceQuote',
+        'SourceUrl',
         'Channel',
         'ChannelMember',
         'ChannelSlug',
@@ -95,6 +102,7 @@ describe('wire model', () => {
         'origin',
         'receipts',
         'sentAt',
+        'sources',
         'status',
         'updatedAt',
       ].sort(),
@@ -151,6 +159,49 @@ describe('wire model', () => {
     expect(model.ChannelVisibility.is('open')).toBe(true)
     expect(model.ChannelVisibility.is('private')).toBe(true)
     expect(model.ChannelVisibility.is('secret')).toBe(false)
+  })
+})
+
+describe('a draft’s sources', () => {
+  it('names a web address or an earlier note, never both or neither', () => {
+    expect(model.DraftSource.is({ url: 'https://wiki.example.com/refunds', quote: 'Five days.' })).toBe(true)
+    expect(model.DraftSource.is({ noteId: 'note_abcdefabcdef' })).toBe(true)
+    expect(model.DraftSource.is({})).toBe(false)
+    expect(model.DraftSource.is({ url: 'https://wiki.example.com', noteId: 'note_abcdefabcdef' })).toBe(false)
+  })
+
+  it('takes only http and https addresses, and a passage with words in it', () => {
+    expect(model.DraftSource.is({ url: 'javascript:alert(1)' })).toBe(false)
+    expect(model.DraftSource.is({ url: 'ftp://files.example.com/a' })).toBe(false)
+    expect(model.DraftSource.is({ url: 'https://wiki.example.com', quote: '   ' })).toBe(false)
+    expect(model.SourceQuote.is('x'.repeat(model.SOURCE_QUOTE_MAX + 1))).toBe(false)
+  })
+
+  it('takes at most ten sources from an agent, and reads more from a newer server', () => {
+    const many = Array.from({ length: model.DRAFT_SOURCES_MAX + 1 }, () => ({ url: 'https://a.example' }))
+    expect(model.DraftSources.is(many)).toBe(false)
+    expect(model.DraftSources.is(many.slice(1))).toBe(true)
+  })
+
+  it('reads a source a client cannot read as null, keeping the note', () => {
+    const note = {
+      id: 'note_abcdefabcdef',
+      conversationId: 'conv_abcdefabcdef',
+      authorId: 'mem_abcdefabcdef',
+      status: 'draft',
+      body: 'Yes.',
+      inReplyTo: null,
+      origin: 'agent',
+      agentName: null,
+      createdAt: 1,
+      updatedAt: 1,
+      sentAt: null,
+      receipts: [],
+      sources: [{ url: 'https://a.example', quote: 'A' }, { url: 42 }],
+    }
+    const read = model.Note.read(note)
+    expect(read._tag === 'Ok' && read.value.sources).toEqual([{ url: 'https://a.example', quote: 'A' }, null])
+    expect(model.Note.decode(note)._tag).toBe('Err')
   })
 })
 

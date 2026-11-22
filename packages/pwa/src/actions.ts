@@ -11,6 +11,7 @@ import * as debates from './tasks/debates.ts'
 import * as drafts from './tasks/drafts.ts'
 import * as earlierAnswers from './tasks/earlier-answers.ts'
 import * as groups from './tasks/groups.ts'
+import * as held from './tasks/held.ts'
 import * as mutes from './tasks/mutes.ts'
 import * as notes from './tasks/notes.ts'
 import * as people from './tasks/people.ts'
@@ -47,6 +48,8 @@ export const TASKS = {
   recallNote: notes.recallNote,
   markRead: notes.markRead,
   chooseReplyTarget: notes.chooseReplyTarget,
+  replyTo: notes.replyTo,
+  keepComposerText: notes.keepComposerText,
   findEarlierAnswers: earlierAnswers.findEarlierAnswers,
   markAnsweredFromHistory: earlierAnswers.markAnsweredFromHistory,
   setMuted: mutes.setMuted,
@@ -55,6 +58,12 @@ export const TASKS = {
   saveDraft: drafts.saveDraft,
   confirmDraftRead: drafts.confirmDraftRead,
   discardDraft: drafts.discardDraft,
+  holdSend: drafts.holdSend,
+  holdDiscard: drafts.holdDiscard,
+  commitHeld: () => held.commitHeld,
+  undoHeld: () => held.undoHeld,
+  forgetSettled: () => held.forgetSettled,
+  keepDraftEdit: held.keepDraftEdit,
   readdressDraft: drafts.readdressDraft,
   reportDraftSeen: drafts.reportDraftSeen,
   askAgent: drafts.askAgent,
@@ -88,6 +97,8 @@ export const TASKS = {
   loadDecidedAnswer: channelAgents.loadDecidedAnswer,
   sendReview: channelAgents.sendReview,
   discardReview: channelAgents.discardReview,
+  holdReviewSend: channelAgents.holdReviewSend,
+  holdReviewDiscard: channelAgents.holdReviewDiscard,
   confirmReviewRead: channelAgents.confirmReviewRead,
   loadChannelAgent: channelAgents.loadChannelAgent,
   loadChannelAgentFigures: channelAgents.loadChannelAgentFigures,

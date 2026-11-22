@@ -1,7 +1,9 @@
 import { ANSWER_TEXT_MAX, PRINCIPLE_TEXT_MAX } from '@homingbird/protocol'
+import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import {
   type PrincipleFormState,
+  addRowKinds,
   addRowWarnings,
   appliedModel,
   chancesHere,
@@ -12,6 +14,7 @@ import {
   reordered,
   showsAppliedMarkers,
   taughtModel,
+  teachSeedOf,
 } from '../../src/models/teaching.ts'
 import { strings } from '../../src/strings.ts'
 import { ROOM, channel, draft, principle, taught } from '../support/fixtures.ts'
@@ -128,6 +131,46 @@ describe('chancesHere', () => {
     expect(chancesHere(null, true, ROOM)).toEqual([])
     expect(chancesHere('failed', true, ROOM)).toEqual([])
   })
+
+  it('words each chance as one line for the conversation, by what the person did', () => {
+    const [edited, discarded] = chancesHere(
+      taught({ offers: [offer(), offer({ kind: 'discard' })] }),
+      true,
+      ROOM,
+    )
+    expect(edited!.here).toEqual({ text: strings.teach.chanceHereEdit, teach: strings.teach.teachFromEdit })
+    expect(discarded!.here).toEqual({
+      text: strings.teach.chanceHereDiscard,
+      teach: strings.teach.teachFromDiscard,
+    })
+  })
+})
+
+describe('teachSeedOf', () => {
+  it('titles a principle from the first line of the note, without a question mark or a colon', () => {
+    expect(teachSeedOf('\n  What is the release calendar: link?\nThanks', 'deploys')).toEqual({
+      topic: 'What is the release calendar link',
+      place: 'deploys',
+    })
+  })
+
+  it('cuts a long line at a word, and a single long word at the limit', () => {
+    const topic = teachSeedOf(`${'word '.repeat(30)}end`, null).topic
+    expect(topic.length).toBeLessThanOrEqual(60)
+    expect(topic.endsWith('word')).toBe(true)
+    expect(teachSeedOf('x'.repeat(90), null).topic).toBe('x'.repeat(60))
+    expect(teachSeedOf('', null)).toEqual({ topic: '', place: null })
+  })
+
+  it('always gives a title the form accepts, or none', () => {
+    fc.assert(
+      fc.property(fc.string({ maxLength: 200 }), (text) => {
+        const { topic } = teachSeedOf(text, null)
+        expect(topic.length).toBeLessThanOrEqual(60)
+        expect(/[;:\n]/.test(topic)).toBe(false)
+      }),
+    )
+  })
 })
 
 describe('appliedModel', () => {
@@ -185,6 +228,23 @@ describe('the principle list', () => {
     expect(addRowWarnings({ topic: 'Tone', rule: 'Check RELEASES.md before you answer.' })).toEqual([])
     expect(addRowWarnings({})).toEqual([])
     expect(addRowWarnings({ topic: 'Tone', rule: 'be nice' })).toEqual([strings.teach.advice.vague])
+    expect(addRowWarnings({ topic: 'Hours', rule: 'Support is open until six' }, 'answer')).toEqual([])
+  })
+
+  it('offers the add row a rule or an answer, naming its text field for the one chosen', () => {
+    expect(addRowKinds('rule')).toEqual({
+      label: strings.teach.kindLabel,
+      choices: [
+        { kind: 'rule', label: strings.teach.kindBadge.rule, checked: true },
+        { kind: 'answer', label: strings.teach.kindBadge.answer, checked: false },
+      ],
+      textLabel: strings.teach.rule,
+      maxLength: PRINCIPLE_TEXT_MAX,
+    })
+    expect(addRowKinds('answer')).toMatchObject({
+      textLabel: strings.teach.answer,
+      maxLength: ANSWER_TEXT_MAX,
+    })
   })
 
   it('moves one principle to a new place, kept within the list', () => {
@@ -213,6 +273,12 @@ describe('the guided principle form', () => {
       publicText: '',
       confirmed: false,
       offer: null,
+    })
+    expect(
+      principleFormStart(null, null, false, { topic: 'Release calendar', place: 'deploys' }),
+    ).toMatchObject({ topic: 'Release calendar', place: 'deploys', rule: '' })
+    expect(principleFormStart(null, null, false, { topic: 'Anywhere', place: null })).toMatchObject({
+      place: '',
     })
     const offered = offer()
     expect(principleFormStart(offered, null, false)).toMatchObject({

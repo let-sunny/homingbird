@@ -8,6 +8,8 @@ export type Route =
       readonly draft: string | null
       /** A channel's agent's answer the person reviews, shown under its question in the room. */
       readonly review?: string
+      /** A sent note a copied link or a draft's source points at, brought into view when the conversation opens. */
+      readonly note?: string
     }
   | { readonly name: 'people' }
   | { readonly name: 'group'; readonly id: string }
@@ -16,7 +18,13 @@ export type Route =
   | { readonly name: 'channel-agent'; readonly slug: string; readonly draft: string | null }
   | { readonly name: 'debates' }
   /** A debate room, on one of its tabs; none asked for shows the tab its state calls for. */
-  | { readonly name: 'debate'; readonly id: string; readonly tab: DebateTab | null }
+  | {
+      readonly name: 'debate'
+      readonly id: string
+      readonly tab: DebateTab | null
+      /** A turn a result, a credit or another turn cites, brought into view on the Turns tab. */
+      readonly turn?: number
+    }
   | { readonly name: 'search'; readonly query: string }
   /** Everything waiting for the person, as a page: what the header's bell opens without popovers. */
   | { readonly name: 'activity' }
@@ -53,11 +61,13 @@ export const parseRoute = (hash: string): Route => {
   if (head === '') return { name: 'home' }
   if (head === 'c' && second !== undefined) {
     const review = parameters.get('review')
+    const note = parameters.get('note')
     return {
       name: 'conversation',
       id: second,
       draft: parameters.get('draft'),
       ...(review !== null && { review }),
+      ...(note !== null && { note }),
     }
   }
   if (head === 'people') return { name: 'people' }
@@ -68,8 +78,15 @@ export const parseRoute = (hash: string): Route => {
   if ((head === 'channel' || head === LEGACY_CHANNEL_HEAD) && second !== undefined)
     return { name: 'channel', slug: second }
   if (head === 'debates') return { name: 'debates' }
-  if (head === 'debate' && second !== undefined)
-    return { name: 'debate', id: second, tab: isDebateTab(third) ? third : null }
+  if (head === 'debate' && second !== undefined) {
+    const turn = turnNumber(parameters.get('turn'))
+    return {
+      name: 'debate',
+      id: second,
+      tab: isDebateTab(third) ? third : null,
+      ...(turn !== null && { turn }),
+    }
+  }
   if (head === 'activity') return { name: 'activity' }
   if (head === 'search') return { name: 'search', query: parameters.get('q') ?? '' }
   if (head === 'me') return { name: 'profile' }
@@ -98,6 +115,7 @@ export const hrefFor = (route: Route): string => {
       return withQuery(`#/c/${encodeURIComponent(route.id)}`, {
         ...(route.draft !== null && { draft: route.draft }),
         ...(route.review !== undefined && { review: route.review }),
+        ...(route.note !== undefined && { note: route.note }),
       })
     case 'people':
       return '#/people'
@@ -114,9 +132,12 @@ export const hrefFor = (route: Route): string => {
     case 'debates':
       return '#/debates'
     case 'debate':
-      return route.tab === null
-        ? `#/debate/${encodeURIComponent(route.id)}`
-        : `#/debate/${encodeURIComponent(route.id)}/${route.tab}`
+      return withQuery(
+        route.tab === null
+          ? `#/debate/${encodeURIComponent(route.id)}`
+          : `#/debate/${encodeURIComponent(route.id)}/${route.tab}`,
+        route.turn === undefined ? {} : { turn: String(route.turn) },
+      )
     case 'activity':
       return '#/activity'
     case 'search':
@@ -173,6 +194,9 @@ const isAgentSection = (value: string | undefined): value is AgentSection =>
 
 const isDebateTab = (value: string | undefined): value is DebateTab =>
   DEBATE_TABS.includes(value as DebateTab)
+
+const turnNumber = (value: string | null): number | null =>
+  value !== null && /^[1-9]\d{0,2}$/.test(value) ? Number(value) : null
 
 const isAdminSection = (value: string | undefined): value is AdminSection =>
   ADMIN_SECTIONS.includes(value as AdminSection)

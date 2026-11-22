@@ -1,6 +1,7 @@
 import type { ConversationId } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import { channelLabel } from '../../src/channels.ts'
+import { heldWordsFor } from '../../src/held-decisions.ts'
 import { draftChangedWhileEditing, draftsItemModel } from '../../src/models/drafts-item.ts'
 import { strings } from '../../src/strings.ts'
 import {
@@ -45,12 +46,44 @@ describe('draftsItemModel', () => {
       origin: { className: 'origin is-agent', text: strings.originNamed.agent({ agent: 'Laptop' }) },
       body: 'body of d1',
       basis: null,
+      room: null,
       applied: [],
       destination: { kind: 'people', text: strings.sendsTo({ names: 'Ben' }) },
       careful: null,
       readAgain: null,
-      actions: { alternatives: [], changeChannel: null },
+      actions: {
+        send: strings.approveAndSend,
+        alternatives: [],
+        changeChannel: null,
+        held: heldWordsFor('Ben'),
+        editText: 'body of d1',
+      },
+      keptEdit: null,
     })
+  })
+
+  it('says a debate room’s result came from the room and links to it, and claims no agent basis for it or for a person’s words', () => {
+    const fromDebate = { debateId: 'deb_room00000000' as never, question: 'Ship?', agents: [] }
+    const result = draft('d1', { origin: 'agent', agentName: null, basis: null, fromDebate })
+    const own = draft('d2', { origin: 'human', agentName: null, basis: null })
+    const agent = draft('d3', { basis: null })
+    const [posted, typed, drafted] = draftsItemModel(threadInput(), item([result, own, agent])).cards
+    expect(posted).toMatchObject({
+      origin: { className: 'origin is-debate', text: strings.debateNote.origin({ question: 'Ship?' }) },
+      basis: null,
+      room: { href: '#/debate/deb_room00000000/result', label: strings.debateNote.openRoom },
+    })
+    expect([typed!.basis, typed!.room]).toEqual([null, null])
+    expect(drafted!.basis).toEqual({ kind: 'none' })
+  })
+
+  it('opens Edit with the person’s kept edit and says the card holds one, never in an archived room', () => {
+    const edits = new Map([['d1' as never, 'my words']])
+    const card = draftsItemModel(threadInput({ draftEdits: edits }), item([draft('d1')])).cards[0]!
+    expect(card.actions?.editText).toBe('my words')
+    expect(card.keptEdit).toBe(strings.draftEditKept)
+    const archived = threadInput({ draftEdits: edits, conversations: [conversation({ archivedAt: 5 })] })
+    expect(draftsItemModel(archived, item([draft('d1')])).cards[0]!.keptEdit).toBeNull()
   })
 
   it('focuses the card a link opened the conversation at, and no other', () => {
@@ -112,7 +145,7 @@ describe('draftsItemModel', () => {
       threadInput({ taught: taught({ principles }) }),
       item([draft('d1', { basis: 'Read RELEASES.md.\nPrinciples applied: Billing dates; Tone' })]),
     ).cards[0]!
-    expect(card.basis).toEqual({ kind: 'given', lines: ['Read RELEASES.md.'] })
+    expect(card.basis).toEqual({ kind: 'given', lines: ['Read RELEASES.md.'], sources: [] })
     expect(card.applied.map((marker) => marker.text)).toEqual([
       strings.teach.applied({ title: 'Billing dates' }),
       strings.teach.applied({ title: 'Tone' }),
@@ -121,7 +154,11 @@ describe('draftsItemModel', () => {
       threadInput(),
       item([draft('d1', { basis: 'Read it.\nPrinciples applied: Tone' })]),
     ).cards[0]!
-    expect(untaught.basis).toEqual({ kind: 'given', lines: ['Read it.', 'Principles applied: Tone'] })
+    expect(untaught.basis).toEqual({
+      kind: 'given',
+      lines: ['Read it.', 'Principles applied: Tone'],
+      sources: [],
+    })
     expect(untaught.applied).toEqual([])
   })
 

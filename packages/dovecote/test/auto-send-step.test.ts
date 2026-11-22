@@ -11,8 +11,8 @@ afterEach(async () => {
 })
 
 describe('the automatic sending step', () => {
-  it('is the fourteenth step, after answers from history', () => {
-    expect(stepNumberOf(AUTO_SEND)).toBe(14)
+  it('is the last step, after debate pacing', () => {
+    expect(stepNumberOf(AUTO_SEND)).toBe(MIGRATIONS.length)
   })
 
   it('leaves every saved answer switched off and every note sent by a person, keeping their rows', async () => {

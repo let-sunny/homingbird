@@ -46,7 +46,7 @@ describe('roomControls', () => {
     const dialog = document.getElementById('dialog')!
     expect(textOf(dialog)).toContain(strings.leaveChannelBody)
     fire.submit(dialog.querySelector('form')!)
-    expect(called('leaveChannel')[0]!.then!.attempt).toBe('managers')
+    expect(called('leaveChannel')[0]!.then!.attempt).toBe('leave')
     expect(shown.querySelector('.room-menu')!.matches(':popover-open')).toBe(false)
     openMenu(shown)
     expect(textOf(shown)).toContain(billing.description)
@@ -80,7 +80,7 @@ describe('roomControls', () => {
     expect((getByRole(shown, 'button', { name: strings.leaveChannel }) as HTMLButtonElement).disabled).toBe(
       true,
     )
-    expect(textOf(shown)).toContain(strings.managerCannotLeave)
+    expect(textOf(shown)).toContain(strings.onlyManagerCannotLeave)
   })
 
   it('manages the members and the managers: adds and removes people, adds a manager and a team', () => {
@@ -116,6 +116,11 @@ describe('roomControls', () => {
     expect(called('setChannelMember')[0]!.args).toEqual(['secret', CY, false])
     const ben = dialog.querySelector(`[data-member="${BEN}"]`) as HTMLElement
     getByRole(ben, 'button', { name: strings.groups.unmanage }).click()
+    expect(called('setGroupMembers')).toHaveLength(0)
+    const confirming = dialog.querySelector<HTMLElement>('form.unmanage-confirmation')!
+    expect(textOf(confirming)).toContain(strings.groups.unmanageTitle({ name: 'Ben' }))
+    expect(textOf(confirming)).toContain(strings.groups.onlyManagerYou)
+    fire.submit(confirming)
     expect(called('setGroupMembers')[0]!.args).toEqual(['grp_secret000000', [ANA]])
     expect(called('setGroupMembers')[0]!.then!.attempt).toBe('managers')
     fire.select(getByRole(dialog, 'combobox', { name: strings.groups.addManager }), CY)

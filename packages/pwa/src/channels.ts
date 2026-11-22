@@ -121,16 +121,6 @@ export interface Roster {
   readonly members: ReadonlyArray<ChannelMember>
 }
 
-export interface RosterFacts {
-  /** A manager stays in the room while they are in its managing group. */
-  readonly viewerIsManager: boolean
-}
-
-export const rosterFacts = (roster: Roster | null, viewerId: MemberId | null): RosterFacts => {
-  const managers = (roster?.members ?? []).filter((member) => member.manager)
-  return { viewerIsManager: managers.some((member) => member.memberId === viewerId) }
-}
-
 const isArchivedRoom = (conversation: AsRead.Conversation): boolean => conversation.archivedAt !== null
 
 const byTitle = (a: AsRead.Conversation, b: AsRead.Conversation): number =>

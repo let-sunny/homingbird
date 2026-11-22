@@ -7,7 +7,7 @@ import { dialogHost } from '../../src/views/dialog.ts'
 import { renderNoteItem } from '../../src/views/note-item.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
-import { ANA, BEN, ROOM, channel, conversation, note } from '../support/fixtures.ts'
+import { ANA, BEN, ROOM, channel, conversation, note, serverInfo } from '../support/fixtures.ts'
 import { threadInput } from '../support/thread.ts'
 
 usingFakeDom()
@@ -34,10 +34,47 @@ const render = (
 }
 
 describe('renderNoteItem', () => {
+  it('links the quote of the note it answers to that note', () => {
+    const { context } = testContext()
+    const question = note('q', { body: 'When do we ship?', authorId: ANA })
+    const answer = note('a', { inReplyTo: 'q' as never })
+    const shown = render(
+      context,
+      answer,
+      threadInput({ thread: { notes: [question, answer], hasMore: false } }),
+    )
+    const quote = getByRole(shown, 'link', { name: /When do we ship\?/ })
+    expect(quote.getAttribute('href')).toBe(`#/c/${ROOM}?note=q`)
+    expect(textOf(quote)).toContain(strings.quotedNote)
+  })
+
+  it('shows the start of a long note and opens the rest in place, kept open when drawn again', () => {
+    const { context } = testContext()
+    const long = note('n1', { body: 'word '.repeat(400) })
+    const shown = render(context, long)
+    const body = shown.querySelector('.note-body')!
+    const more = getByRole(shown, 'button', { name: strings.showMoreNote })
+    expect([body.classList.contains('is-collapsed'), more.getAttribute('aria-expanded')]).toEqual([
+      true,
+      'false',
+    ])
+    expect(more.getAttribute('aria-controls')).toBe(body.id)
+    more.click()
+    expect([body.classList.contains('is-collapsed'), more.getAttribute('aria-expanded')]).toEqual([
+      false,
+      'true',
+    ])
+    expect(textOf(more)).toBe(strings.showLessNote)
+    const again = render(context, long)
+    expect(again.querySelector('.note-body')!.classList.contains('is-collapsed')).toBe(false)
+    getByRole(again, 'button', { name: strings.showLessNote }).click()
+    expect(again.querySelector('.note-body')!.classList.contains('is-collapsed')).toBe(true)
+    expect(render(context, note('n2')).querySelector('.note-more-text')).toBeNull()
+  })
+
   it('copies the note’s text from its menu, and says whether the browser let it', async () => {
     const { context, page } = testContext()
     const shown = render(context, note('n1', { authorId: ANA }))
-    expect(shown.querySelector('.note-reply')).toBeNull()
     getByRole(shown, 'button', { name: strings.noteMore }).click()
     getByRole(shown, 'menuitem', { name: strings.copyNote }).click()
     await Promise.resolve()
@@ -48,6 +85,23 @@ describe('renderNoteItem', () => {
     getByRole(shown, 'menuitem', { name: strings.copyNote }).click()
     await Promise.resolve()
     expect(context.state.notice.get()).toEqual({ kind: 'error', text: strings.noteNotCopied })
+    page.state.clipboard = true
+    getByRole(shown, 'button', { name: strings.noteMore }).click()
+    getByRole(shown, 'menuitem', { name: strings.copyNoteLink }).click()
+    await Promise.resolve()
+    expect(page.copied.at(-1)).toBe(`http://localhost/#/c/${ROOM}?note=n1`)
+    expect(context.state.notice.get()).toEqual({ kind: 'info', text: strings.noteLinkCopied })
+  })
+
+  it('shows Ask my agent disabled with the reason where the server takes no draft requests', () => {
+    const { context, called } = testContext()
+    const shown = render(context, note('n1'), threadInput({ serverInfo: serverInfo() }))
+    getByRole(shown, 'button', { name: strings.noteMore }).click()
+    const ask = getByRole(shown, 'menuitem', { name: strings.askAgentToReply }) as HTMLButtonElement
+    expect(ask.disabled).toBe(true)
+    expect(textOf(shown.querySelector(`#${ask.getAttribute('aria-describedby')}`)!)).toBe(strings.askAgentOff)
+    ask.click()
+    expect(called('askAgent')).toHaveLength(0)
   })
 
   it('opens the same menu on a right-click on the note, and gives the focus back to the note', () => {
@@ -68,7 +122,12 @@ describe('renderNoteItem', () => {
     getByRole(toolbar, 'button', { name: strings.reply }).click()
     getByRole(toolbar, 'button', { name: strings.noteMore }).click()
     getByRole(shown, 'menuitem', { name: strings.askAgentToReply }).click()
-    expect(called('chooseReplyTarget')[0]!.args).toEqual([ROOM, 'n1'])
+    getByRole(toolbar, 'button', { name: strings.noteMore }).click()
+    getByRole(shown, 'menuitem', { name: strings.reply }).click()
+    expect(called('replyTo').map((call) => call.args)).toEqual([
+      [ROOM, 'n1'],
+      [ROOM, 'n1'],
+    ])
     expect(called('askAgent')[0]!.args).toEqual([
       { destination: { inReplyTo: 'n1' }, instruction: '', agentId: null },
     ])
@@ -122,7 +181,7 @@ describe('renderNoteItem', () => {
     expect(theirs.querySelector('.recall-note')).toBeNull()
   })
 
-  it('asks the agent anyway after it let a note go', () => {
+  it('asks the agent anyway after it let a note go, or opens teaching it with a title filled in', () => {
     const { context, called } = testContext()
     mount(dialogHost())
     const question = note('q')
@@ -137,6 +196,26 @@ describe('renderNoteItem', () => {
     )
     getByRole(shown, 'button', { name: strings.askAnyway }).click()
     expect(called('askAgent')).toHaveLength(1)
+    getByRole(shown, 'button', { name: strings.teach.add }).click()
+    const topic = document.querySelector<HTMLInputElement>('dialog input[name="topic"]')
+    expect(topic?.value).toBe('body of q')
+  })
+
+  it('offers a manager who discarded the agent’s answer to reply to the question themself', () => {
+    const { context, called } = testContext()
+    const question = note('q', { authorId: BEN })
+    const shown = render(
+      context,
+      question,
+      threadInput({
+        conversations: [conversation({ kind: 'channel' })],
+        thread: { notes: [question], hasMore: false },
+        discardedAnswers: new Map([[question.id, 'Billing helper']]),
+      }),
+    )
+    expect(textOf(shown)).toContain(strings.channelAgent.answerDiscarded({ agent: 'Billing helper' }))
+    getByRole(shown, 'button', { name: strings.activity.replyYourself }).click()
+    expect(called('replyTo')[0]!.args).toEqual([ROOM, question.id])
   })
 
   it('names who answered a question', () => {
@@ -169,5 +248,33 @@ describe('renderNoteItem', () => {
     const line = getByRole(shown, 'status')
     expect(textOf(line)).toBe(strings.channelAnswer.nobodyAnswers)
     expect(line.className).toContain('is-warning')
+  })
+
+  it('shows a posted debate result as its conclusion and next steps, the whole note folded, and a link to its room', () => {
+    const { context } = testContext()
+    const fromDebate = { debateId: 'deb_room00000000' as never, question: 'Ship?', agents: [] }
+    const body = [
+      'From the debate room: Ship?',
+      'Result: conclusion',
+      'Ship Friday.',
+      'Reasons\n\n- Tests pass.',
+      'Next steps\n\n- Tag it',
+      'Contributions\n\n- Ana’s agent: Checked.',
+    ].join('\n\n')
+    const shown = render(context, note('r1', { authorId: BEN, origin: 'agent', body, fromDebate }))
+    const bubble = shown.querySelector('.bubble')!
+    expect(textOf(bubble.querySelector('.debate-note-heading')!)).toBe(strings.debateNote.agreed)
+    expect(textOf(bubble.querySelector('.debate-note-steps')!)).toBe('Tag it')
+    expect(textOf(bubble.querySelector('.debate-note-whole summary')!)).toBe(strings.debateNote.whole)
+    expect(bubble.querySelector('.debate-note-room')!.getAttribute('href')).toBe(
+      '#/debate/deb_room00000000/result',
+    )
+    const unshaped = render(
+      context,
+      note('r2', { authorId: BEN, origin: 'agent', body: 'By hand.', fromDebate }),
+    )
+    expect(textOf(unshaped.querySelector('.note-body')!)).toBe('By hand.')
+    expect(unshaped.querySelector('.debate-note-whole')).toBeNull()
+    expect(unshaped.querySelector('.debate-note-room')).not.toBeNull()
   })
 })

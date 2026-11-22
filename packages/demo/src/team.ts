@@ -8,6 +8,7 @@ import {
   MemberId,
   type Note,
   NoteId,
+  type NoteSource,
   type Principle,
   type PrincipleId,
   type Receipt,
@@ -23,9 +24,10 @@ export const VISITOR_ID = MemberId.of('demojune0000')
  * with a very long name, #billing with its agent, and three drafts waiting for June: her own agent's
  * reply to Ana, and #billing's agent's answers to Ben, one in the channel and one to the question he
  * asked it privately, which June reviews as a manager. An invite link June made still waits. Long names,
- * text and links and an empty room are there on purpose, to show how pages hold them. June's agent
- * skipped Kai's question about the deploy window and has run out of usage for now, and a private debate
- * room waits for it, so that the activity panel shows every kind it lists.
+ * text and links and an empty room are there on purpose, to show how pages hold them. The demo opens on
+ * the conversation with Ana, the most recent, so a visitor first sees their own agent's draft. June's
+ * agent is awake; it skipped Kai's question about the deploy window, and a private debate room waits for
+ * it, so that the activity panel shows every kind of work it lists.
  */
 export const demoTeam = (now: number): Records => {
   const ago = (minutes: number): number => now - minutes * MINUTE
@@ -59,7 +61,7 @@ export const demoTeam = (now: number): Records => {
       room(WITH_BEN, null, [VISITOR_ID, BEN], ago(60 * 24 * 12), ago(60 * 20)),
       room(WITH_KAI, null, [VISITOR_ID, KAI], ago(60 * 24 * 30), ago(60 * 3)),
       room(BILLING_ROOM, 'billing', [VISITOR_ID, ANA, BEN, KAI, BILLING_AGENT], ago(60 * 24 * 40), ago(40)),
-      room(DEPLOYS_ROOM, 'deploys', [VISITOR_ID, KAI, ANA], ago(60 * 24 * 35), ago(60 * 5)),
+      room(DEPLOYS_ROOM, 'deploys', [VISITOR_ID, KAI, ANA], ago(60 * 24 * 35), ago(60 * 5 - 15)),
       room(ONBOARDING_ROOM, 'onboarding', [BEN, ANA, LONG_NAME], ago(60 * 24 * 10), ago(60 * 26)),
       room(
         DESIGN_ROOM,
@@ -71,7 +73,7 @@ export const demoTeam = (now: number): Records => {
       room(PAYROLL_ROOM, 'payroll', [ANA], ago(60 * 24 * 50), ago(60 * 24)),
       room(WITH_LONG_NAME, null, [VISITOR_ID, LONG_NAME], ago(60 * 24 * 6), ago(60 * 30)),
       {
-        ...room(BEN_ASKS_BILLING, null, [BEN, BILLING_AGENT, VISITOR_ID, ANA], ago(14), ago(12)),
+        ...room(BEN_ASKS_BILLING, null, [BEN, BILLING_AGENT, VISITOR_ID, ANA], ago(36), ago(34)),
         kind: 'group',
         privateQuestionOf: { slug: 'billing', askedBy: BEN },
       },
@@ -112,8 +114,15 @@ export const demoTeam = (now: number): Records => {
         status: 'draft',
         inReplyTo: 'demoana00003',
         body: "Yes. I checked the lock ordering and the batch size against Tuesday's plan. Run it after the nightly export finishes, around 02:30, so the two don't compete for the ledger tables.",
-        agentName: "June's desk",
+        agentName: "June's laptop",
         basis: "Tuesday's migration plan and last night's export log.",
+        sources: [
+          {
+            url: 'https://example.com/plans/billing-migration',
+            quote: 'Run after the nightly export; both write to the ledger tables.',
+          },
+          { noteId: NoteId.of('demoana00003'), conversationId: WITH_ANA },
+        ],
       }),
       note({
         id: 'demoben00001',
@@ -131,7 +140,8 @@ export const demoTeam = (now: number): Records => {
         at: 60 * 20,
         body: 'Glad it helped! It skips plans changed this month, so check those by hand.',
         inReplyTo: 'demoben00001',
-        agentName: "June's desk",
+        agentName: "June's laptop",
+        origin: 'human_edited',
         readBy: [BEN],
       }),
       note({
@@ -163,6 +173,7 @@ export const demoTeam = (now: number): Records => {
         at: 60 * 28,
         body: 'Which invoices does the nightly export skip?',
         readBy: [VISITOR_ID],
+        repliedBy: [BILLING_AGENT],
       }),
       note({
         id: 'demobil00002',
@@ -193,12 +204,18 @@ export const demoTeam = (now: number): Records => {
         body: 'Annual plans are refunded pro rata for the unused full months, minus the discount that came with paying yearly. Halfway through the year that is about five months back; the calculator is on the billing page under Refunds.',
         agentName: 'Billing helper',
         basis: 'The refund policy page and two answers Ana approved last month.',
+        sources: [
+          {
+            url: 'https://example.com/billing/refunds',
+            quote: 'Annual plans are refunded pro rata for the unused full months.',
+          },
+        ],
       }),
       note({
         id: 'demopqb00001',
         in: BEN_ASKS_BILLING,
         by: BEN,
-        at: 12,
+        at: 35,
         body: 'A customer was charged twice for November. Can I refund the second payment myself, or does that need Ana?',
         readBy: [ANA, BILLING_AGENT],
       }),
@@ -206,7 +223,7 @@ export const demoTeam = (now: number): Records => {
         id: 'demopqb00002',
         in: BEN_ASKS_BILLING,
         by: BILLING_AGENT,
-        at: 11,
+        at: 34,
         status: 'draft',
         inReplyTo: 'demopqb00001',
         body: 'You can refund a duplicate payment yourself: open the invoice, choose Refund duplicate, and the second payment goes back within five working days. Only a partial refund needs a manager.',
@@ -259,6 +276,15 @@ export const demoTeam = (now: number): Records => {
         at: 60 * 5,
         body: 'Freeze starts Thursday at 18:00. Anything for the release train goes in before then.',
         readBy: [VISITOR_ID],
+      }),
+      note({
+        id: 'demodep00004',
+        in: DEPLOYS_ROOM,
+        by: ANA,
+        at: 60 * 5 - 15,
+        body: 'Noted. The billing migration goes in before then.',
+        inReplyTo: 'demodep00001',
+        readBy: [VISITOR_ID, KAI],
       }),
       note({
         id: 'demoonb00001',
@@ -384,9 +410,9 @@ export const demoTeam = (now: number): Records => {
       },
       {
         credential: {
-          id: JUNE_DESK,
+          id: JUNE_LAPTOP,
           kind: 'agent',
-          name: "June's desk",
+          name: "June's laptop",
           client: 'Homingbird CLI',
           createdAt: ago(60 * 24 * 21),
           expiresAt: ago(-60 * 24 * 69),
@@ -400,7 +426,7 @@ export const demoTeam = (now: number): Records => {
         credential: {
           id: CredentialId.of('demobillhelp'),
           kind: 'agent',
-          name: 'Billing helper runner',
+          name: 'Billing helper on the team server',
           client: 'Homingbird runner',
           createdAt: ago(60 * 24 * 40),
           expiresAt: ago(-60 * 24 * 50),
@@ -420,10 +446,21 @@ export const demoTeam = (now: number): Records => {
           conversationId: WITH_KAI,
           reason:
             'It asks whether tomorrow’s deploy window clashes with the migration, and I cannot see the release calendar.',
-          agentName: "June's desk",
+          agentName: "June's laptop",
           channel: null,
           at: ago(60 * 3 - 2),
         },
+      },
+    ],
+    offers: [
+      {
+        id: 'offer_demoedit000001',
+        kind: 'edit',
+        noteId: NoteId.of('demoben00002'),
+        conversationId: WITH_BEN,
+        place: null,
+        suggestion: { added: 'check those by hand', removed: null },
+        createdAt: ago(60 * 20),
       },
     ],
     invites: [
@@ -435,7 +472,8 @@ export const demoTeam = (now: number): Records => {
         expiresAt: ago(60 * 24 * 2 - 60 * 24 * 7),
       },
     ],
-    debates: demoDebates(ago, { june: VISITOR_ID, juneDesk: JUNE_DESK, ana: ANA, kai: KAI }),
+    draftRequests: [],
+    debates: demoDebates(ago, { june: VISITOR_ID, juneLaptop: JUNE_LAPTOP, ana: ANA, ben: BEN, kai: KAI }),
     principles: [
       principle(0, {
         id: 'demoprin0001',
@@ -470,7 +508,7 @@ const MINUTE = 60_000
 const ANA = MemberId.of('demoana00000')
 const BEN = MemberId.of('demoben00000')
 const KAI = MemberId.of('demokai00000')
-const JUNE_DESK = CredentialId.of('demojunedesk')
+const JUNE_LAPTOP = CredentialId.of('demojunelapt')
 const LONG_NAME = MemberId.of('demolongname')
 const BILLING_AGENT = MemberId.of('demobillagnt')
 
@@ -535,9 +573,8 @@ const person = (
   presence: {
     humanOnline: id === VISITOR_ID || id === ANA,
     agentOnline: id !== BEN,
-    ...(id === VISITOR_ID && { agentUnavailable: { until: ago(-40), kind: 'usage_limit' as const } }),
   },
-  lastSeenAt: id === VISITOR_ID ? null : ago(id === BEN ? 60 * 2 : 1),
+  lastSeenAt: ago(id === VISITOR_ID ? 0 : id === BEN ? 60 * 2 : 1),
 })
 
 /** A direct conversation, or with a channel's slug, that channel's room, which the slug names. */
@@ -569,6 +606,7 @@ interface NoteFields {
   readonly inReplyTo?: string
   readonly agentName?: string
   readonly basis?: string
+  readonly sources?: ReadonlyArray<NoteSource>
   readonly approvedBy?: MemberId
   /** Sent by the visitor's saved answer without a click. */
   readonly autoSent?: boolean
@@ -607,6 +645,7 @@ const noteOf = (
         )
       : [],
     basis: fields.basis ?? null,
+    ...(fields.sources !== undefined && { sources: fields.sources }),
     approvedBy: fields.approvedBy ?? null,
     ...(fields.autoSent === true && { autoSent: true }),
   }

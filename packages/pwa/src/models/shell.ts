@@ -7,7 +7,7 @@ import { strings } from '../strings.ts'
 import { conversationTitle, excerpt, isMuted, otherParticipants } from '../thread.ts'
 import { type AvatarModel, type GroupAvatarModel, groupAvatarOf, memberAvatarOf } from './avatar.ts'
 import { reviewBadgeOf } from './channel-agent.ts'
-import { leaveConsequence } from './channel-membership.ts'
+import { leaveConsequence, leaveRefusal } from './channel-membership.ts'
 import { type MuteToggle, muteToggleModel } from './mute-toggle.ts'
 import { type TimeShown, timeShown } from './time.ts'
 
@@ -76,6 +76,10 @@ export const sidebarModel = (input: SidebarInput): SidebarModel => {
 /** Whether the list or the stage is shown on a narrow screen: the list only on home. */
 export const paneFor = (route: Route): 'list' | 'stage' => (route.name === 'home' ? 'list' : 'stage')
 
+/** The words of the link that skips past the header and the list to the composer, in a conversation. */
+export const skipLinkModel = (route: Route): string | null =>
+  route.name === 'conversation' ? strings.skipToComposer : null
+
 export interface Tab {
   readonly label: string
   readonly href: string
@@ -108,6 +112,8 @@ export interface SidebarInput {
   readonly now: number
   /** The conversations whose row plays a note's arrival now; a muted one never does. */
   readonly arrived: ReadonlySet<string>
+  /** The conversations whose composer holds text the person has not sent. */
+  readonly typedIn: ReadonlySet<string>
 }
 
 export interface SidebarModel {
@@ -140,6 +146,8 @@ export interface ConversationRow {
   readonly time: TimeShown | null
   readonly unread: { readonly count: number; readonly label: string } | null
   readonly drafts: { readonly text: string; readonly label: string } | null
+  /** A pencil while the composer keeps text the person has not sent. */
+  readonly typed: { readonly text: string; readonly label: string } | null
   /** The channel's agent's answers waiting for the person's review; the row then opens at the first. */
   readonly review: { readonly text: string; readonly label: string } | null
   readonly mute: MuteToggle | null
@@ -209,6 +217,7 @@ const conversationRow = (input: SidebarInput, conversation: AsRead.Conversation)
             label: strings.draftsWaiting({ count: conversation.draftCount }),
           }
         : null,
+    typed: input.typedIn.has(conversation.id) && !archived ? { text: '✎', label: strings.unsentText } : null,
     review: review === null ? null : { text: review.text, label: review.label },
     mute,
     menu: rowMenu(conversation, title, channel, mute),
@@ -222,11 +231,12 @@ const rowMenu = (
   channel: AsRead.Channel | null,
   mute: MuteToggle | null,
 ): ConversationRow['menu'] => {
+  const refusal = channel === null ? null : leaveRefusal(channel, null, null)
   const leave: RowLeave | null =
     channel === null || !channel.joined || conversation.archivedAt !== null
       ? null
-      : channel.managing
-        ? { kind: 'blocked', slug: channel.slug, reason: strings.managerCannotLeave }
+      : refusal !== null
+        ? { kind: 'blocked', slug: channel.slug, reason: refusal }
         : {
             kind: 'allowed',
             slug: channel.slug,

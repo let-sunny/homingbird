@@ -20,7 +20,7 @@
 - **Teach your agent:** save rules and stored answers for how you answer, share a sentence about them with colleagues if you like, and see per channel, model and session age how often its drafts are sent as written, with a private route map of where it answers like you
 - **Agent to agent:** your agent asks a colleague's agent, with the context it already has
 - **A person approves, for now:** an agent can only draft; today a note leaves only when its author approves it in the web client
-- **Any agent:** the runner for any command-line agent and an MCP adapter for Codex, Cursor, Gemini CLI and claude.ai; a Claude Code plugin as a convenience; an A2A gateway (experimental)
+- **Any agent:** the runner for any command-line agent and an MCP adapter for Codex, Cursor, Gemini CLI and claude.ai; a Claude Code plugin as a convenience; an A2A gateway (experimental). Verified with Claude Code so far ([status](#agents-and-how-far-each-is-tested))
 - **Self-hosted:** one Docker image, and your choice of SQLite, PostgreSQL or MySQL (experimental)
 - **Accountable:** a hash-chained audit trail records who changed what, never note content; deactivating a leaver revokes all their credentials at once
 - **Lightweight:** no runtime dependencies; the only optional packages are the PostgreSQL and MySQL drivers
@@ -40,7 +40,7 @@ teach your agent how you answer, and the numbers show where it already answers t
 | --- | --- | --- | --- | --- |
 | Whose agent answers | The group chat's | Yours, inside that suite | Yours | Your colleague's own |
 | What it answers from | What is said in the group chat | That suite's data | Your context | Your colleague's files, notes and tools |
-| Works with agents from different vendors | No | No | No | Yes: Claude Code, Codex, Cursor, Gemini CLI and more |
+| Works with agents from different vendors | No | No | No | Yes: any agent that runs from a command or speaks MCP; the runner is verified with Claude Code, and its presets for Codex, Gemini CLI and Antigravity are not yet tested with the real CLIs ([status](#agents-and-how-far-each-is-tested)) |
 | A person approves what is sent | No | Sometimes, for sensitive actions | Optional hold | Every note, in the web client where the person signed in themself, unless they let a saved answer send itself word for word; the server refuses every agent credential |
 | A message from another agent is treated as | Chat | Varies | Data from a peer | Quoted data, never instructions |
 | How you come to trust it | Not measured | Not measured | Not measured | Principles you teach, and how often drafts are sent as written, per channel and model |
@@ -52,9 +52,10 @@ quoted text.
 
 ## Status
 
-Homingbird is at version 0.1 and early. Interfaces and the database schema may change between 0.x
-releases. The 0.1 schema is the baseline and upgrades between 0.x releases are not promised yet, so
-back up before you upgrade ([deployment](docs/deployment.md#upgrading)). It is built and maintained by one person so far, and no
+Homingbird is at 0.x and early. A database any final release left, from 0.1.0 on, upgrades to any
+later release when the newer server starts on it, and CI tests that for every release on SQLite,
+PostgreSQL and MySQL ([supported upgrades](docs/deployment.md#upgrading)). Interfaces may still change
+between minor releases, so read the changelog and back up before you upgrade. It is built and maintained by one person so far, and no
 independent security audit has been done. It is good for trying out and for small teams that trust
 each other. Before a team relies on it, read [`SECURITY.md`](SECURITY.md), the
 [security rule tests](packages/dovecote/test/security-rules.test.ts) and
@@ -234,8 +235,10 @@ homingbird setup --server https://homingbird.example.com --join hbj_… --agent 
 Each release is tagged `ghcr.io/let-sunny/homingbird:<version>`; pin one in production. To build the
 image yourself instead, run `docker build -t homingbird .` in a clone.
 
-Or put the same variables in `.env` and run `docker compose up -d`. The web client is served by Dovecote
-at `HB_PUBLIC_URL`.
+Or copy `.env.example` to `.env`, fill it in and run `docker compose up -d`: compose passes every
+variable in `.env` to the server and publishes it on `127.0.0.1:8080`, for a TLS proxy on the same
+host ([behind a proxy](docs/deployment.md#behind-a-load-balancer)). The web client is served by
+Dovecote at `HB_PUBLIC_URL`.
 
 We estimate that one instance on 1 vCPU and 1 GB serves about 1,000 members, from one
 [load measurement](docs/deployment.md#measurements) on SQLite on a shared machine; it is not a
@@ -263,6 +266,22 @@ uses it underneath.
 - Approving happens only in the web client. Writing by hand works there too.
 
 The full guide, from signing in to phone notifications, is [`docs/guide.md`](docs/guide.md).
+
+### Agents and how far each is tested
+
+A preset not yet tested was written from the tool's source code and has not been run against the real
+agent. `homingbird presets` prints the same state on your computer, with the version it found.
+
+| Agent | Runner preset | Tested |
+| --- | --- | --- |
+| Claude Code | `--agent claude` | Verified with Claude Code 2.1.327 |
+| Codex CLI | `--agent codex` | Not yet tested with the real CLI |
+| Antigravity CLI (`agy`) | `--agent antigravity` | Not yet tested with the real CLI |
+| Gemini CLI | `--agent gemini` | Not yet tested with the real CLI |
+| Any other command | `--agent "<command>"` | Your command: try one note before you rely on it |
+
+Try an untested preset on one person's desk before a team relies on it; the
+[command line's README](packages/cli/README.md#agent-presets) lists the exact commands.
 
 ## Usage
 

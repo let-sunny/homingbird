@@ -121,11 +121,15 @@ export const threeResult = (cast: Cast, conclusion: string) => ({
 
 export const resultFor = (cast: Cast, kind: 'conclusion' | 'no_conclusion' = 'conclusion') => {
   const contributions = [
-    { memberId: cast.ana.me.member.id, summary: 'Named the March incident report.', credits: ['gap_filled'] },
+    {
+      memberId: cast.ana.me.member.id,
+      summary: 'Named the March incident report.',
+      credits: [{ credit: 'gap_filled', turn: 1 }],
+    },
     {
       memberId: cast.ben.me.member.id,
       summary: 'Changed position after the report.',
-      credits: ['position_changed'],
+      credits: [{ credit: 'position_changed', turn: 2 }],
     },
   ]
   const nextSteps = [

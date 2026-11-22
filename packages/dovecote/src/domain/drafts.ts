@@ -5,6 +5,7 @@ import {
   type ConversationId,
   type DebateId,
   type DeskSession,
+  type DraftSource,
   Forbidden,
   Invalid,
   type MemberId,
@@ -25,6 +26,7 @@ import { sendIfSavedAnswer } from './auto-send.ts'
 import { channelAgentOf, channelOfAgentRoom, managersOf } from './channel-rows.ts'
 import { channelRoomFor } from './channels.ts'
 import { directConversationWith, participatedConversation, requireMayMessageIn } from './conversations.ts'
+import { storedSources } from './draft-sources.ts'
 import type { NoteRow } from './note-rows.ts'
 import { announceStatus, noteById } from './note-status.ts'
 import { visibleNote } from './notes.ts'
@@ -44,6 +46,7 @@ export interface DraftTarget extends DraftDestination {
   /** The debate room whose approved result this draft carries; its agents wrote it, so it is the agents' note. */
   readonly fromDebate?: DebateId
   readonly basis?: string
+  readonly sources?: ReadonlyArray<DraftSource>
   readonly client?: string
   readonly model?: string
   readonly session?: DeskSession
@@ -53,6 +56,7 @@ export interface DraftChange {
   readonly body?: string
   readonly channel?: string
   readonly basis?: string
+  readonly sources?: ReadonlyArray<DraftSource>
   readonly model?: string
 }
 
@@ -65,6 +69,7 @@ export const createDraft = (caller: Caller, target: DraftTarget): T.Task<Note, N
     yield* requireAgentMayAnswer(caller, target)
     const conversationId = yield* conversationForDraft(authorId, target)
     yield* requireRoomForAnotherDraft(authorId)
+    const sources = yield* storedSources(authorId, target.sources)
     const now = env.clock.now()
     const row: NoteRow = {
       id: NoteId.of(env.random.identifier()),
@@ -89,6 +94,8 @@ export const createDraft = (caller: Caller, target: DraftTarget): T.Task<Note, N
       context_percent: isHuman(caller) ? null : (target.session?.contextPercent ?? null),
       debate_id: target.fromDebate ?? null,
       approved_by: null,
+      sources,
+      discard_reason: null,
     }
     yield* run(insertInto('notes', { ...row }))
     if (!isHuman(caller)) yield* recordApplications(authorId, row.id, row.basis)
@@ -117,10 +124,12 @@ export const updateDraft = (
       change.channel === undefined ? draft.conversation_id : yield* readdressedRoom(draft, change.channel)
     const origin = originAfterEdit(draft.origin, isHuman(caller), body !== draft.body)
     const basis = change.basis === undefined ? draft.basis : change.basis.trim() || null
+    const sources =
+      change.sources === undefined ? draft.sources : yield* storedSources(caller.member.id, change.sources)
     const agentBody = isHuman(caller) ? draft.agent_body : body
     const model = isHuman(caller) || change.model === undefined ? draft.agent_model : change.model.trim()
     yield* run(
-      sql`UPDATE notes SET body = ${body}, conversation_id = ${conversationId}, origin = ${origin}, basis = ${basis}, agent_body = ${agentBody}, agent_model = ${model}, updated_at = ${env.clock.now()} WHERE id = ${id} AND status = 'draft'`,
+      sql`UPDATE notes SET body = ${body}, conversation_id = ${conversationId}, origin = ${origin}, basis = ${basis}, sources = ${sources}, agent_body = ${agentBody}, agent_model = ${model}, updated_at = ${env.clock.now()} WHERE id = ${id} AND status = 'draft'`,
     )
     if (!isHuman(caller)) yield* recordApplications(caller.member.id, id, basis)
     const sent = yield* sendIfSavedAnswer(caller, yield* ownDraft(caller.member.id, id))
