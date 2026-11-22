@@ -1,12 +1,13 @@
 import type { Child } from '@homingbird/ui'
 import { h } from '@homingbird/ui'
-import type { GroupPeople, ThreadHead } from '../models/thread-room.ts'
+import type { ThreadHead } from '../models/thread-room.ts'
 import type { PresenceMarks } from '../presence.ts'
 import { channelAgentStateLine } from './channel-agent.ts'
 import { answeringChip, privateMark, roomMenu } from './channel-membership.ts'
 import type { ViewContext } from './context.ts'
 import { muteButton, mutedMark } from './mute-toggle.ts'
-import { archivedMark, backLink, channelCounts, youMark } from './parts.ts'
+import { participantsCount, participantsList, participantsTitle } from './participants.ts'
+import { archivedMark, backLink } from './parts.ts'
 
 /** The head of a conversation on one line: who it is with, or the channel with its counts and controls. */
 export const renderThreadHead = (context: ViewContext, model: ThreadHead): Child => {
@@ -17,7 +18,12 @@ export const renderThreadHead = (context: ViewContext, model: ThreadHead): Child
       h(
         'div',
         { class: 'thread-who' },
-        h('h1', { class: 'is-whole' }, model.title, model.mute?.mark != null && mutedMark(model.mute.mark)),
+        h(
+          'h1',
+          { class: 'is-whole' },
+          participantsTitle(model.people, model.title),
+          model.mute?.mark != null && mutedMark(model.mute.mark),
+        ),
         (model.presence !== null || model.profile !== null) &&
           h(
             'p',
@@ -26,7 +32,8 @@ export const renderThreadHead = (context: ViewContext, model: ThreadHead): Child
             model.profile !== null && h('span', { class: 'thread-profile-text' }, model.profile),
           ),
       ),
-      model.people !== null && groupPeople(model.people),
+      model.showsCount && participantsCount(model.people),
+      participantsList(model.people),
       model.mute !== null && muteButton(context, model.mute),
     ]
   const channel = model.channel
@@ -48,30 +55,22 @@ export const renderThreadHead = (context: ViewContext, model: ThreadHead): Child
         h(
           'div',
           { class: 'thread-profile channel-head-meta' },
-          channelCounts(channel),
+          h(
+            'span',
+            { class: 'channel-counts' },
+            h('span', {}, participantsCount(model.people)),
+            model.answerCount !== null && h('span', {}, model.answerCount),
+          ),
           model.agentState !== null && channelAgentStateLine(model.agentState),
         ),
+      channel === null && participantsCount(model.people),
     ),
+    participantsList(model.people),
     channel !== null && h('span', { class: 'thread-answering' }, answeringChip(context, channel)),
     model.mute !== null && muteButton(context, model.mute),
     channel !== null && roomMenu(context, channel),
   ]
 }
-
-/** How many people are in a group message, and a button that lists them. */
-const groupPeople = (model: GroupPeople): Child => [
-  h('button', { type: 'button', class: 'group-people-open', popovertarget: GROUP_PEOPLE_ID }, model.label),
-  h(
-    'div',
-    { id: GROUP_PEOPLE_ID, class: 'menu group-people', popover: 'auto', 'aria-label': model.title },
-    h('p', { class: 'menu-who' }, h('strong', {}, model.title)),
-    h(
-      'ul',
-      {},
-      model.people.map((person) => h('li', {}, person.name, person.you && [' ', youMark()])),
-    ),
-  ),
-]
 
 /** The colleague and their agent as two dots, each named for assistive technology and on hover. */
 const presenceDots = (marks: PresenceMarks): HTMLElement =>
@@ -92,5 +91,3 @@ const presenceDots = (marks: PresenceMarks): HTMLElement =>
     }),
     h('span', { class: 'presence-words', 'aria-hidden': 'true' }, marks.words),
   )
-
-const GROUP_PEOPLE_ID = 'group-people'

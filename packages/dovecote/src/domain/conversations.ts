@@ -138,6 +138,7 @@ export interface ConversationRow {
   readonly last_activity_at: number
   readonly archived_at?: number | null
   readonly channel_id?: ConversationId | null
+  readonly asked_by?: MemberId | null
 }
 
 const CONVERSATION_LIMIT = 200
@@ -179,6 +180,8 @@ const describeConversation = (
     )
     const channelRoom = row.channel_id ?? null
     const askedOf = channelRoom === null ? null : yield* channelSlugOfRoom(channelRoom)
+    const managedFrom = row.kind === 'channel' ? row.id : channelRoom
+    const managerIds = managedFrom === null ? null : yield* managersIn(row.id, managedFrom)
     const place = muting
       ? yield* first<{ muted_at: number | null }>(
           sql`SELECT muted_at FROM participants WHERE conversation_id = ${row.id} AND member_id = ${viewerId}`,
@@ -196,9 +199,25 @@ const describeConversation = (
       draftCount: Number(drafts?.total ?? 0),
       archivedAt: row.archived_at ?? null,
       ...(channelRoom !== null && { privateQuestionOf: askedOf }),
+      ...(channelRoom !== null && row.asked_by != null && { askedBy: row.asked_by }),
+      ...(managerIds !== null && { managerIds }),
       ...(muting && { muted: (place?.muted_at ?? null) !== null }),
     }
   })
+
+/** Who of this conversation's participants manages the channel whose room is given. */
+const managersIn = (
+  conversationId: ConversationId,
+  channelRoom: ConversationId,
+): T.Task<MemberId[], never, AppEnv> =>
+  T.map((rows: ReadonlyArray<{ member_id: MemberId }>) => rows.map((row) => row.member_id))(
+    all(sql`
+      SELECT g.member_id FROM channels ch
+      JOIN group_members g ON g.group_id = ch.manager_group_id
+      JOIN members m ON m.id = g.member_id AND m.status = 'active' AND m.kind = 'person'
+      JOIN participants p ON p.conversation_id = ${conversationId} AND p.member_id = g.member_id
+      WHERE ch.conversation_id = ${channelRoom} ORDER BY g.member_id`),
+  )
 
 /** The slug of the channel whose room this is, or null once it was archived. */
 const channelSlugOfRoom = (conversationId: ConversationId): T.Task<string | null, never, AppEnv> =>

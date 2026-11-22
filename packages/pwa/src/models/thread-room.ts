@@ -15,6 +15,7 @@ import { strings } from '../strings.ts'
 import { conversationTitle, isArchived, otherParticipants } from '../thread.ts'
 import { privateQuestionNotice, privateQuestionStart } from './channel-agent.ts'
 import { type MuteToggle, muteToggleModel } from './mute-toggle.ts'
+import { type Participants, conversationParticipants } from './participants.ts'
 
 /** What every part of a conversation's page reads: the room, its notes, the people and the person. */
 export interface ThreadInput {
@@ -125,6 +126,12 @@ export const threadHeadModel = (input: ThreadInput): ThreadHead => {
   const title = conversationTitle(conversation, input.members, input.me.member.id, strings.formerMember)
   const archived = isArchived(conversation)
   const mute = muteToggleModel(conversation, title, isOn(input, 'mute'))
+  const participants = conversationParticipants({
+    conversation,
+    viewerId: input.me.member.id,
+    members: input.members,
+    channels: input.channels,
+  })
   if (conversation.kind === 'channel' || archived) {
     const channel = archived ? null : channelOfRoom(input.channels, conversation.id)
     const agent = isOn(input, 'channelAgents') ? (channel?.agent ?? null) : null
@@ -134,6 +141,11 @@ export const threadHeadModel = (input: ThreadInput): ThreadHead => {
       archived,
       channel,
       agentState: agent === null ? null : channelAgentState(agent),
+      people:
+        channel === null
+          ? participants
+          : { ...participants, label: strings.memberCount({ count: channel.memberCount }) },
+      answerCount: channel === null ? null : strings.answerCount({ count: channel.helperCount }),
       mute,
     }
   }
@@ -147,24 +159,9 @@ export const threadHeadModel = (input: ThreadInput): ThreadHead => {
     title,
     profile: privateQuestionNotice(conversation, input.channels) ?? entry?.member.profile ?? null,
     presence: entry === undefined ? null : presenceMarks(entry.presence, entry.member.name),
-    people:
-      conversation.kind === 'group' && conversation.privateQuestionOf === undefined
-        ? peopleIn(input, conversation)
-        : null,
+    people: participants,
+    showsCount: conversation.kind !== 'direct',
     mute,
-  }
-}
-
-/** Who is in a group message: how many, and each by name, the person first. */
-const peopleIn = (input: ThreadInput, conversation: AsRead.Conversation): GroupPeople => {
-  const viewerId = input.me.member.id
-  return {
-    label: strings.groupPeople({ count: conversation.participantIds.length }),
-    title: strings.groupPeopleTitle,
-    people: [viewerId, ...otherParticipants(conversation, viewerId)].map((memberId) => ({
-      name: nameIn(input, memberId),
-      you: memberId === viewerId,
-    })),
   }
 }
 
@@ -192,6 +189,9 @@ export type ThreadHead =
       readonly channel: AsRead.Channel | null
       /** The channel's agent's state, as a person's agent is shown. */
       readonly agentState: ChannelAgentState | null
+      /** Everyone in the room, listed behind its member count. */
+      readonly people: Participants
+      readonly answerCount: string | null
       readonly mute: MuteToggle | null
     }
   | {
@@ -200,13 +200,8 @@ export type ThreadHead =
       readonly profile: string | null
       /** A direct message's colleague and their agent, each named, as small marks. */
       readonly presence: PresenceMarks | null
-      /** A group message's people, listed behind its head; null for a direct message. */
-      readonly people: GroupPeople | null
+      /** Everyone in it, listed behind its names and, outside a direct message, a count. */
+      readonly people: Participants
+      readonly showsCount: boolean
       readonly mute: MuteToggle | null
     }
-
-export interface GroupPeople {
-  readonly label: string
-  readonly title: string
-  readonly people: ReadonlyArray<{ readonly name: string; readonly you: boolean }>
-}
