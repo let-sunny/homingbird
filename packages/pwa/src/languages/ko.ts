@@ -643,7 +643,6 @@ export const ko: Translation<typeof en> = {
       earlierAnswers: '이전 답변: 질문을 쓰는 동안 이전 답변 보여 주기',
       teaching: '원칙 가르치기',
       agentFigures: '내 에이전트 현황',
-      routeMap: '경로 지도',
       insights: '관리자 인사이트',
       noteDetails: '노트를 쓴 모델과 프로그램',
       debateRooms: '토론방',
@@ -667,7 +666,6 @@ export const ko: Translation<typeof en> = {
       earlierAnswers: '끄면: 질문을 쓰는 동안 이전 답변이 보이지 않고, 에이전트도 찾아보지 않고 질문해요.',
       teaching: '끄면: 원칙은 남지만 쓰이지 않고, 새로 추가할 수 없어요.',
       agentFigures: '끄면: 에이전트 현황 숫자를 볼 수 없어요.',
-      routeMap: '끄면: 내 에이전트에 경로 지도가 보이지 않아요.',
       insights: '끄면: 관리자가 조직 전체 숫자를 볼 수 없어요.',
       noteDetails: '끄면: 노트에 쓴 모델과 프로그램이 보이지 않아요.',
       debateRooms: '끄면: 토론방이 보이지 않고 에이전트도 차례를 갖지 않아요. 있던 토론방은 그대로 남아요.',
@@ -725,7 +723,6 @@ export const ko: Translation<typeof en> = {
       connection: '연결',
       teaching: '가르치기',
       doing: '현황',
-      routes: '경로 지도',
       previews: '미리 보여 주기',
     },
     tabsLabel: '내 에이전트 메뉴',
@@ -735,8 +732,6 @@ export const ko: Translation<typeof en> = {
         '원칙은 에이전트가 따르는 규칙이나 저장해 둔 답이에요. 에이전트는 초안마다 적용한 원칙을 알려 줘요.',
       doing:
         '이 숫자는 내가 아니라 에이전트 초안에 관한 거예요. 초안이 어디서 이미 내 뜻대로 나가고, 어디서 아직 내 손이 필요한지 보여 줘요.',
-      routes:
-        '에이전트가 이미 나처럼 답하는 곳이에요. 초안을 쓰는 곳마다 원칙이 얼마나 도움이 되는지 보여 줘요.',
       previews: '내가 확인하기 전에 에이전트 초안을 읽을 수 있는 사람이에요.',
     },
     verdict: {
@@ -796,11 +791,6 @@ export const ko: Translation<typeof en> = {
       other: '초안 {count}개를 나타난 지 {seconds}초 안에 보냈어요.',
     },
     quickExplained: '빠른 승인은 초안이 나타난 지 {seconds}초 안에 그대로 보낸 경우예요.',
-    placesTitle: '에이전트를 믿을 수 있는 곳',
-    placesIntro: '채널마다 따로 보여 주고, DM은 한데 모아요.',
-    placeLine: '{place}: {decided}개 중 {asWritten}개 그대로 보냄',
-    placeNothingDecided: '{place}: 아직 결정한 초안 없음',
-    placeSkipped: { other: '건너뛴 노트 {count}개' },
     directMessages: 'DM',
     trendTitle: '주별 그대로 보낸 비율',
     trendIntro: '최근 8주 동안 매주 결정한 초안 중 그대로 보낸 비율이에요.',
@@ -953,8 +943,7 @@ export const ko: Translation<typeof en> = {
     teachFromEdit: '이 수정으로 에이전트 가르치기',
     teachFromDiscard: '다음에 할 일을 에이전트에게 가르치기',
     behindTitle: '이 숫자 뒤의 초안',
-    behindIntro:
-      '하나하나가 가르칠 기회예요. 일어난 곳을 열어 보낸 내용을 보거나, 에이전트가 놓친 것을 가르쳐 주세요.',
+    behindIntro: '일어난 곳을 열어 보낸 내용을 보거나, 에이전트가 놓친 것을 가르쳐 주세요.',
     behind: {
       edited: '수정 후 보냄: {count}',
       discarded: '버림: {count}',
@@ -977,22 +966,51 @@ export const ko: Translation<typeof en> = {
       debate_next_step_accepted: '에이전트들의 투표로 내 에이전트가 제안한 다음 단계가 채택됐어요',
     },
   },
-  routes: {
-    intro:
-      '점 하나는 에이전트가 초안을 쓰는 곳이에요. 선은 그곳에서 가르친 내용과 그 결과에 따라 굵어져요. 수정이나 버리기는 뒷걸음이 아니라 가르칠 기회예요.',
-    you: '나',
-    chances: { other: '가르칠 기회 {count}번' },
-    principleCount: { other: '원칙 {count}개' },
-    heldUpCount: { other: '원칙으로 그대로 보냄 {count}번' },
-    draftedCount: { other: '30일 동안 초안 {count}개' },
-    table: '지도를 표로 보기',
-    placeColumn: '위치',
-    draftedColumn: '30일 동안 초안',
-    principlesColumn: '원칙',
-    heldUpColumn: '원칙으로 그대로 보냄',
-    chancesColumn: '가르칠 기회',
-    debateRooms: '토론방에서',
-    debateIntro: '정해진 토론 결과가 에이전트의 몫으로 인정한 것이에요. 승패, 횟수, 순위는 없어요.',
+  answersLikeYou: {
+    title: '어디서 나처럼 답하나',
+    intro: '에이전트가 초안을 쓰는 곳마다, 내가 고치지 않고 보낼 수 있는 답에 얼마나 가까워졌는지 보여 줘요.',
+    trackLabel: '{place}의 단계',
+    stepOf: '4단계 중 {step}단계: {name}',
+    steps: {
+      drafting: '초안만 씀',
+      taught: '원칙을 가르침',
+      holding: '원칙이 통함',
+      likeYou: '나처럼 답함',
+    },
+    meaning: {
+      drafting: '에이전트가 이곳에서 초안을 쓰지만, 아직 이곳에 적용되는 원칙이 없어요.',
+      taught: '이곳에 적용되는 원칙이 하나 이상 있어요. 이 채널의 원칙이거나 모든 채널에 쓰는 원칙이에요.',
+      holding: '원칙을 쓴 초안 하나를 이곳에서 고치지 않고 보냈어요.',
+      likeYou: '최근 30일 동안 이곳에서 결정한 초안 10개 중 7개 이상을 그대로 보냈어요.',
+    },
+    toReach: {
+      drafting: '다음 단계로 가려면 이곳이나 모든 채널에 쓸 원칙 하나를 가르쳐 주세요.',
+      taught: '다음 단계로 가려면 원칙을 쓴 초안 하나를 이곳에서 고치지 않고 보내 주세요.',
+      holding:
+        '마지막 단계로 가려면 30일 동안 이곳에서 초안을 {minimum}개 이상 결정하고, 10개 중 7개 이상을 그대로 보내 주세요.',
+      likeYou:
+        '이 단계는 최근 30일을 따르기 때문에 오르내릴 수 있어요. 수정은 뒷걸음이 아니라 가르칠 기회예요.',
+    },
+    decided: '결정한 초안 {decided}개 중 {asWritten}개를 그대로 보냄 ({share})',
+    undecided: { other: '30일 동안 초안 {count}개, 아직 결정한 것 없음' },
+    noDrafts: '최근 30일 동안 이곳에서 쓴 초안 없음',
+    next: {
+      drafting: '다음 단계: 이곳에 적용되는 원칙 하나를 가르쳐 주세요.',
+      taught: '다음 단계: 원칙을 쓴 초안 하나를 고치지 않고 보내 주세요.',
+      tooFew: { other: '30일 동안 이곳에서 초안 {count}개를 결정했어요. {minimum}개가 되어야 알 수 있어요.' },
+      holding: '지금은 10개 중 {now}개를 그대로 보내요. 7개가 되면 완성이에요.',
+      slipped:
+        '최근 초안 몇 개는 고쳐야 했어요. 무엇이 달라졌는지 가르쳐 주세요. 수정은 뒷걸음이 아니라 가르칠 기회예요.',
+      likeYou: '완성: 이곳 초안 10개 중 7개 이상을 그대로 보내고 있어요.',
+    },
+    teachFromChances: { other: '고치거나 버린 초안 {count}개로 가르치기' },
+    teachFirst: '{place}에 첫 원칙 가르치기',
+    teachMore: '{place}에 대해 가르치기',
+    teachAnywhere: '모든 채널에 쓸 원칙 가르치기',
+    reviewSkipped: { other: '에이전트가 이곳에서 건너뛴 노트 {count}개 보기' },
+    stepsTitle: '단계별 뜻',
+    footnote:
+      '★ 완성은 최근 30일 동안 이곳에서 결정한 초안 10개 중 7개 이상을 고치지 않고 보냈다는 뜻이에요. 앞의 세 단계는 원칙을 지우지 않는 한 그대로예요. 마지막 단계는 최근 30일을 따라요.',
   },
   debates: {
     title: '토론방',

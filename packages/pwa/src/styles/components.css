@@ -4163,38 +4163,6 @@ textarea:disabled {
   padding-inline-start: var(--hb-space-6);
 }
 
-.trust-places {
-  display: grid;
-  gap: var(--hb-space-3);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.trust-place {
-  display: grid;
-  gap: var(--hb-space-1);
-  padding: var(--hb-space-3);
-  border: var(--hb-border);
-  background: var(--hb-color-surface);
-}
-
-.trust-place-line {
-  font-weight: 600;
-}
-
-.trust-place-verdict,
-.trust-place-skipped {
-  color: var(--hb-color-muted);
-  font-size: var(--hb-text-small);
-}
-
-@container stage (min-width: 40rem) {
-  .trust-places {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
 .share-bar {
   display: block;
   block-size: var(--hb-space-2);
@@ -4207,6 +4175,206 @@ textarea:disabled {
   block-size: 100%;
   inline-size: calc(var(--share, 0) * 100%);
   background: var(--hb-color-success);
+}
+
+.answers-places {
+  display: grid;
+  gap: var(--hb-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.answers-place {
+  container-type: inline-size;
+  padding: var(--hb-space-3);
+  border: var(--hb-border);
+  background: var(--hb-color-surface);
+}
+
+.answers-place-inner {
+  display: grid;
+  grid-template-areas: "head" "body" "action";
+  gap: var(--hb-space-3);
+}
+
+.answers-place-head {
+  grid-area: head;
+}
+
+.answers-place-body {
+  grid-area: body;
+}
+
+.answers-place-head,
+.answers-place-body {
+  display: grid;
+  gap: var(--hb-space-1);
+  min-inline-size: 0;
+}
+
+.answers-place-name {
+  overflow-wrap: break-word;
+  font-size: var(--hb-text-title);
+}
+
+.answers-place-count {
+  color: var(--hb-color-muted);
+}
+
+.answers-track {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--hb-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.answers-step {
+  display: grid;
+  align-content: start;
+  gap: var(--hb-space-1);
+  min-inline-size: 0;
+  cursor: help;
+}
+
+.answers-step:focus-visible {
+  outline: var(--hb-focus-ring);
+  outline-offset: var(--hb-pixel);
+}
+
+.answers-step-bar {
+  display: block;
+  block-size: var(--hb-space-2);
+  border: var(--hb-border-thin);
+  background: var(--hb-color-sunken);
+}
+
+.answers-step.is-reached .answers-step-bar {
+  background: var(--hb-color-success);
+}
+
+.answers-step-name {
+  overflow-wrap: break-word;
+  hyphens: auto;
+  color: var(--hb-color-muted);
+  font-size: var(--hb-text-small);
+}
+
+.answers-step.is-reached .answers-step-name {
+  color: var(--hb-color-text);
+}
+
+.answers-step[aria-current] .answers-step-name {
+  font-weight: 700;
+}
+
+.answers-step[aria-current] .answers-step-name::before {
+  content: "●";
+  content: "●" / "";
+  margin-inline-end: var(--hb-space-1);
+}
+
+.answers-step.is-last .answers-step-name::after,
+.answers-step.is-last .answers-step-title::after,
+.answers-steps .is-last .answers-step-title::after {
+  content: " ★";
+  content: " ★" / "";
+}
+
+.answers-step-tip {
+  position: absolute;
+  inset-block-start: calc(100% + var(--hb-space-1));
+  inset-inline: 0;
+  z-index: 1;
+  display: none;
+  gap: var(--hb-space-1);
+  padding: var(--hb-space-2) var(--hb-space-3);
+  border: var(--hb-border);
+  background: var(--hb-color-surface);
+  box-shadow: var(--hb-shadow);
+  color: var(--hb-color-text);
+  font-size: var(--hb-text-small);
+  font-weight: 400;
+}
+
+.answers-step:hover .answers-step-tip,
+.answers-step:focus .answers-step-tip {
+  display: grid;
+}
+
+.answers-step-now {
+  display: none;
+  margin: 0;
+  font-size: var(--hb-text-small);
+  font-weight: 700;
+}
+
+.answers-sentence {
+  margin: 0;
+}
+
+.answers-place.is-slipped .answers-sentence {
+  padding: var(--hb-space-1) var(--hb-space-2);
+  background: var(--hb-color-pending-wash);
+}
+
+.answers-action {
+  grid-area: action;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.answers-skipped summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.answers-steps ol {
+  display: grid;
+  gap: var(--hb-space-2);
+  margin: var(--hb-space-2) 0 0;
+  padding-inline-start: var(--hb-space-6);
+}
+
+.answers-steps li {
+  display: grid;
+  gap: var(--hb-space-1);
+}
+
+@container (max-width: 26rem) {
+  .answers-step-name {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .answers-step-now {
+    display: block;
+  }
+}
+
+@container (min-width: 34rem) {
+  .answers-place-inner {
+    grid-template-areas: "head action" "body body";
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+}
+
+@container (min-width: 60rem) {
+  .answers-place-inner {
+    grid-template-areas: "head body action";
+    grid-template-columns: minmax(8rem, 13rem) minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--hb-space-4);
+  }
 }
 
 .trend {
@@ -4344,8 +4512,7 @@ textarea:disabled {
   font-family: var(--hb-font-display);
 }
 
-.taught,
-.routes {
+.taught {
   display: grid;
   gap: var(--hb-space-3);
 }
@@ -4374,7 +4541,6 @@ textarea:disabled {
 .chance-list,
 .principle-list,
 .milestones ul,
-.route-legend,
 .applied-principles {
   display: grid;
   gap: var(--hb-space-2);
@@ -4574,74 +4740,6 @@ textarea:disabled {
   border: var(--hb-border-thin);
   background: var(--hb-color-sunken);
   font-weight: 600;
-}
-
-.route-map {
-  margin: 0;
-  padding: var(--hb-space-3);
-  border: var(--hb-border);
-  background: var(--hb-color-surface);
-}
-
-.route-drawing {
-  display: block;
-  inline-size: 100%;
-  max-inline-size: 24rem;
-  block-size: auto;
-  margin-inline: auto;
-  overflow: visible;
-}
-
-.route-line {
-  stroke: var(--hb-color-muted);
-  stroke-dasharray: 4 4;
-}
-
-.route-line.is-taught {
-  stroke: var(--hb-color-success);
-  stroke-dasharray: none;
-}
-
-.route-point {
-  fill: var(--hb-color-surface);
-  stroke: var(--hb-color-line);
-  stroke-width: 2;
-}
-
-.route-point.is-taught {
-  fill: var(--hb-color-success);
-}
-
-.route-you {
-  fill: var(--hb-color-accent);
-  stroke: var(--hb-color-line);
-  stroke-width: 2;
-}
-
-.route-chance {
-  fill: var(--hb-color-pending);
-  stroke: var(--hb-color-line);
-  stroke-width: 1;
-}
-
-.route-label {
-  fill: var(--hb-color-text);
-  font-family: var(--hb-font-body);
-  font-size: var(--hb-text-small);
-  font-weight: 600;
-}
-
-.route-item {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--hb-space-1) var(--hb-space-3);
-  font-size: var(--hb-text-small);
-}
-
-.route-item-chances {
-  padding-inline: var(--hb-space-1);
-  border: var(--hb-border-thin);
-  background: var(--hb-color-pending-wash);
 }
 
 @container stage (min-width: 44rem) {
@@ -5609,11 +5707,6 @@ textarea:disabled {
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
-}
-
-.route-debates {
-  display: grid;
-  gap: var(--hb-space-2);
 }
 
 @container stage (min-width: 40rem) {

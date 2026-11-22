@@ -11,7 +11,7 @@ export const refreshAgentReport: Action = withApp(({ api, state }) =>
   )(api['insights.mine']({})),
 )
 
-/** What the person taught their agent: principles, chances to teach, the route map. */
+/** What the person taught their agent: principles, chances to teach, each place's progress. */
 export const refreshPrinciples: Action = withApp(({ api, state }) =>
   T.fold(
     () => state.taught.set('failed'),

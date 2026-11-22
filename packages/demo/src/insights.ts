@@ -57,6 +57,9 @@ export const agentReportOf = (
   }
 }
 
+/** The seeded month's drafts by place, which the visitor's progress in each place starts from. */
+export const seededMonthPlaces = (): AgentFigures['places'] => MONTH.places
+
 /** The visitor's drafts they edited or discarded and the notes their agent skipped, newest first. */
 const missesOf = (records: Records, viewerId: MemberId): AgentMiss[] => {
   const placeOf = (conversationId: ConversationId): string | null =>
@@ -204,60 +207,62 @@ const QUICK_APPROVAL_SECONDS = 3
 const MINIMUM_GROUP_SIZE = 1
 
 const figures = (
-  written: number,
-  sentAsWritten: number,
-  sentAfterEdits: number,
-  discarded: number,
   wroteYourself: number,
-): AgentFigures => ({
-  written,
-  sentAsWritten,
-  sentAfterEdits,
-  discarded,
-  skipped: 1,
-  skipReasons: [{ reason: 'The question was about salaries; June answers those directly.', count: 1 }],
-  expiredRequests: 0,
-  medianDecisionMs: 3 * MINUTE,
-  quickApprovals: 1,
-  quickApprovalsFrequent: false,
-  wroteYourself,
-  verdict: verdictOf(sentAsWritten, sentAfterEdits, discarded),
-  places: [
-    {
-      place: 'billing',
-      written: Math.round(written / 2),
-      sentAsWritten: Math.round(sentAsWritten / 2),
-      sentAfterEdits: Math.round(sentAfterEdits / 2),
-      discarded: Math.round(discarded / 2),
-      skipped: 0,
-      verdict: verdictOf(
-        Math.round(sentAsWritten / 2),
-        Math.round(sentAfterEdits / 2),
-        Math.round(discarded / 2),
-      ),
-    },
-    {
-      place: null,
-      written: written - Math.round(written / 2),
-      sentAsWritten: sentAsWritten - Math.round(sentAsWritten / 2),
-      sentAfterEdits: sentAfterEdits - Math.round(sentAfterEdits / 2),
-      discarded: discarded - Math.round(discarded / 2),
-      skipped: 1,
-      verdict: verdictOf(
-        sentAsWritten - Math.round(sentAsWritten / 2),
-        sentAfterEdits - Math.round(sentAfterEdits / 2),
-        discarded - Math.round(discarded / 2),
-      ),
-    },
-  ],
-  byClient: [{ label: 'Homingbird CLI', written, sentAsWritten, sentAfterEdits, discarded }],
-  byModel: [],
-})
+  places: ReadonlyArray<readonly [string | null, number, number, number, number]>,
+): AgentFigures => {
+  const sum = (column: 1 | 2 | 3 | 4): number => places.reduce((total, row) => total + row[column], 0)
+  const [written, sentAsWritten, sentAfterEdits, discarded] = [sum(1), sum(2), sum(3), sum(4)]
+  return {
+    written,
+    sentAsWritten,
+    sentAfterEdits,
+    discarded,
+    skipped: 1,
+    skipReasons: [{ reason: 'The question was about salaries; June answers those directly.', count: 1 }],
+    expiredRequests: 0,
+    medianDecisionMs: 3 * MINUTE,
+    quickApprovals: 1,
+    quickApprovalsFrequent: false,
+    wroteYourself,
+    verdict: verdictOf(sentAsWritten, sentAfterEdits, discarded),
+    places: places.map(([place, placeWritten, asWritten, edited, placeDiscarded]) => ({
+      place,
+      written: placeWritten,
+      sentAsWritten: asWritten,
+      sentAfterEdits: edited,
+      discarded: placeDiscarded,
+      skipped: place === null ? 1 : 0,
+      verdict: verdictOf(asWritten, edited, placeDiscarded),
+    })),
+    byClient: [{ label: 'Homingbird CLI', written, sentAsWritten, sentAfterEdits, discarded }],
+    byModel: [],
+  }
+}
 
-const WEEK = figures(18, 12, 4, 2, 6)
-const WEEK_BEFORE = figures(15, 8, 4, 3, 7)
-const MONTH = figures(64, 41, 15, 8, 25)
-const MONTH_BEFORE = figures(52, 30, 13, 9, 29)
+/**
+ * Each place as written, sent as written, edited and discarded. Over the month #deploys answers like
+ * June, #billing is on its way, and direct messages slipped from the month before.
+ */
+const WEEK = figures(6, [
+  ['deploys', 4, 3, 1, 0],
+  ['billing', 7, 5, 1, 1],
+  [null, 7, 4, 2, 1],
+])
+const WEEK_BEFORE = figures(7, [
+  ['deploys', 3, 2, 1, 0],
+  ['billing', 6, 3, 2, 1],
+  [null, 6, 3, 1, 2],
+])
+const MONTH = figures(25, [
+  ['deploys', 12, 10, 2, 0],
+  ['billing', 26, 16, 7, 3],
+  [null, 26, 15, 6, 5],
+])
+const MONTH_BEFORE = figures(29, [
+  ['deploys', 10, 6, 3, 1],
+  ['billing', 28, 13, 8, 7],
+  [null, 14, 11, 2, 1],
+])
 
 /** Drafts decided and sent as written, week by week, the oldest first. */
 const WEEKLY_AS_WRITTEN: ReadonlyArray<readonly [number, number]> = [

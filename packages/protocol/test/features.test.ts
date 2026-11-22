@@ -63,4 +63,14 @@ describe('feature switches', () => {
     ])
     expect(featureSwitchesFrom('').switches).toEqual({})
   })
+
+  it('accepts and ignores a retired switch for one release, but still refuses a value it cannot read', () => {
+    expect(featureSwitchesFrom('routeMap=off,teaching=off')).toEqual({
+      switches: { teaching: false },
+      unknown: [],
+    })
+    expect(featureSwitchesFrom('routeMap=on').switches).toEqual({})
+    expect(featureSwitchesFrom('routeMap=maybe').unknown).toEqual(['routeMap=maybe'])
+    expect(FEATURE_NAMES).not.toContain('routeMap')
+  })
 })

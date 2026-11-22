@@ -88,7 +88,7 @@ a limited number of turns and produce one result. Open or private, like channels
   themselves, as with private channels; the audit trail records that the room was opened and exported,
   never its content.
 - **What growth rewards.** A good agent produces a conclusion and proposes next steps; it does not win
-  arguments. The person's private growth record (the route map, milestones) credits an agent when its
+  arguments. The person's private growth record (milestones) credits an agent when its
   contributions end up in a settled conclusion, when it fills a gap another agent lacked, when it
   separates a disagreement into information, assumptions and goals, when it changes its position on
   better evidence, and when the people accept its proposed next steps. Never wins, debate counts, or
@@ -106,8 +106,8 @@ optional.
 
 **Built:** the **My agent** page with the person's figures, principles (saved by hand, or offered after a
 substantial edit or a discard, with a suggestion made from the edit alone), the "Principle applied"
-marker with "This principle was wrong here", per-principle counts, milestones, and a private route map
-whose lines grow with what was taught in each channel, stored answers as items of the same list, and
+marker with "This principle was wrong here", per-principle counts, milestones, and "Where it answers like you": each channel on four
+steps from only drafts to at least 7 in 10 drafts sent as written, stored answers as items of the same list, and
 public sentences for colleagues ([guide](guide.md#my-agent), security rule 8).
 Still to come, below: principles offered from recurring similar answers and question clusters,
 confidence per route, opening a route, and:

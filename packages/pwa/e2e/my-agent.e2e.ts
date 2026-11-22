@@ -73,9 +73,9 @@ const scenario = async (): Promise<void> => {
     const reply = async (question: string, body: string, basis?: string) =>
       agent.call('POST', '/drafts', { inReplyTo: question, body, ...(basis !== undefined && { basis }) })
 
-    // -- Nothing taught yet: both new sections say how to start ------------------------------------
+    // -- Nothing taught yet: Teaching says how to start, and the old route map leads to How it is doing
     await ana.page.goto(`${base}/#/agent/routes`)
-    await ana.page.waitForSelector('.routes .teach-empty:has-text("Teach your agent its first principle")')
+    await ana.page.waitForSelector('#agent-doing')
     await ana.page.goto(`${base}/#/agent/teaching`)
     await ana.page.waitForSelector('#agent-teaching')
     await ana.page.waitForSelector('.taught .teach-empty:has-text("Teach your agent its first principle")')
@@ -232,8 +232,7 @@ const scenario = async (): Promise<void> => {
       await capture(person.page, `${prefix}-connection`)
       for (const [section, ready] of [
         ['teaching', '.taught .todo-row'],
-        ['doing', '#trust-verdict'],
-        ['routes', '.route-map svg'],
+        ['doing', '.answers-place .answers-track'],
       ] as const) {
         await person.page.click(`.my-agent-tabs a[href="#/agent/${section}"]`)
         await person.page.waitForSelector(ready)
@@ -249,10 +248,12 @@ const scenario = async (): Promise<void> => {
     await ana.page.waitForSelector('.todo-row[data-name="Release dates"]:has-text("Marked wrong once")')
     await ana.page.waitForSelector('.teach-audit:has-text("audit trail records that you saved")')
     await ana.page.waitForSelector('.milestone:has-text("First principle saved")')
-    await ana.page.click('.my-agent-tabs a[href="#/agent/routes"]')
-    await ana.page.waitForSelector('.route-item[data-place="releases"]')
-    await ana.page.waitForSelector('.route-item[data-place="direct"] .route-item-chances')
-    await ana.page.click('.route-table summary')
+    await ana.page.click('.my-agent-tabs a[href="#/agent/doing"]')
+    await ana.page.waitForSelector('.answers-place[data-place="releases"] .answers-track')
+    await ana.page.waitForSelector(
+      '.answers-place[data-place="direct"] a.answers-teach[href="#/agent/teaching"]',
+    )
+    await ana.page.click('.answers-steps summary')
     assert.equal(await overflowsSideways(ana.page), false)
     assert.deepEqual(await clippedText(ana.page), [])
     assert.deepEqual(await crowdedFields(ana.page), [])
