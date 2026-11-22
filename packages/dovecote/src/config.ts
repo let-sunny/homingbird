@@ -1,5 +1,10 @@
 import { Result, Schema as S } from '@homingbird/kernel'
-import { type ContactMode, featureSwitchesFrom } from '@homingbird/protocol'
+import {
+  type ContactMode,
+  SlackBotToken,
+  SlackSigningSecret,
+  featureSwitchesFrom,
+} from '@homingbird/protocol'
 import { isFetchableHostName } from './auth/client-metadata.ts'
 import { parseConfiguredClients } from './auth/configured-clients.ts'
 import { DEFAULT_CLIENT_METADATA_HOSTS, DEFAULT_REDIRECT_HOSTS } from './auth/default-oauth-hosts.ts'
@@ -218,8 +223,8 @@ const Variables = S.struct({
   HB_FEATURES: S.optional(S.string()),
   HB_SECRETS_KEY: S.optional(S.string({ maxLength: 200 })),
   HB_WAKE_HOSTS: S.optional(S.string()),
-  HB_SLACK_BOT_TOKEN: S.optional(S.string({ pattern: /^xoxb-[A-Za-z0-9-]{10,250}$/ })),
-  HB_SLACK_SIGNING_SECRET: S.optional(S.string({ pattern: /^[0-9a-fA-F]{16,128}$/ })),
+  HB_SLACK_BOT_TOKEN: S.optional(SlackBotToken),
+  HB_SLACK_SIGNING_SECRET: S.optional(SlackSigningSecret),
 })
 
 const HOST_NAME = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/

@@ -611,7 +611,7 @@ Ideas noted and not planned: structured notes validated against a registered sch
 ## Slack
 
 Linked by address, not synced (decisions). **Built:** the organization's own Slack app with a bot token
-from the environment, a person's link to their Slack user by a single-use code, content-free review
+from the environment or entered on the admin page and stored sealed, a person's link to their Slack user by a single-use code, content-free review
 requests in Slack, and channel links: a Slack channel linked to a channel by one of its managers, where a
 mention of the app becomes a question and an approved answer is posted in its thread. Behind `slack`, off by default. Still to come:
 
@@ -621,8 +621,6 @@ mention of the app becomes a question and an approved answer is posted in its th
   included.
 - User tokens, so that a person's own direct messages and mentions arrive; needs its own decision first.
 - Socket Mode, for servers Slack cannot reach.
-- The bot token and signing secret entered on the admin page and stored sealed, so that disconnecting
-  needs no restart; it widens security rule 5's exception and waits for the maintainer.
 - Telling the administrators by push, besides the admin page, when Slack stops.
 - Every top-level message in a linked channel as a question, as a per-link choice; guests and users of
   another organization; channels shared with another organization; more than one workspace.

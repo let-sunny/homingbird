@@ -2112,12 +2112,33 @@ export const ko: Translation<typeof en> = {
     admin: {
       legend: 'Slack',
       intro:
-        '조직의 Slack 앱이에요. 아래 매니페스트로 앱을 만들어 워크스페이스에 설치하고, 서버에 HB_SLACK_BOT_TOKEN과 HB_SLACK_SIGNING_SECRET을 설정하세요. Slack이 이벤트 주소에 닿아야 해요.',
+        '조직의 Slack 앱이에요. 아래 매니페스트로 앱을 만들어 워크스페이스에 설치한 다음, 봇 토큰과 서명 비밀값을 여기에 넣거나 서버에 HB_SLACK_BOT_TOKEN과 HB_SLACK_SIGNING_SECRET을 설정하세요. Slack이 이벤트 주소에 닿아야 해요.',
+      enterValues: '연결되지 않았어요: 아래에 앱의 봇 토큰과 서명 비밀값을 넣으세요.',
       waiting: '서버에 앱 토큰은 있지만 아직 Slack에 닿지 못했어요.',
       connected: '{workspace} 워크스페이스에 연결되어 있어요.',
+      credentials: {
+        legend: '봇 토큰과 서명 비밀값',
+        botToken: '봇 토큰',
+        botTokenHint: 'xoxb-로 시작해요. 앱 설정의 OAuth & Permissions에 있어요.',
+        signingSecret: '서명 비밀값',
+        signingSecretHint: '앱 설정의 Basic Information에 있어요.',
+        kept: 'Homingbird가 Slack에 토큰을 확인한 다음 둘 다 암호화해서 보관해요. 나를 포함해 아무도 다시 볼 수 없어요.',
+        storedAt:
+          '{when}에 여기서 넣었고 암호화해서 보관 중이에요. 바꾸려면 둘 다 다시 넣어야 해요. 관리자가 아니게 되면 지워지고 Slack도 멈춰요.',
+        fromEnvironment:
+          '봇 토큰과 서명 비밀값은 서버 환경 변수 HB_SLACK_BOT_TOKEN과 HB_SLACK_SIGNING_SECRET에서 와요. 여기서는 바꿀 수 없어요.',
+        noKey:
+          '이 서버에는 HB_SECRETS_KEY가 없어서 여기서 넣은 값을 보관할 수 없어요. 대신 서버에 HB_SLACK_BOT_TOKEN과 HB_SLACK_SIGNING_SECRET을 설정하세요.',
+        unknown: '이 서버는 이 화면이 모르는 방식으로 앱 값을 보관해요. 서버에서 바꾸세요.',
+        save: '연결',
+        replace: '바꾸기',
+        remove: '지우기',
+        removeTitle: '봇 토큰과 서명 비밀값을 지울까요?',
+        removeBody:
+          'Homingbird가 둘 다 지우고, 누군가 다시 넣을 때까지 Slack에서 동작하지 않아요. 사람과 채널의 연결은 남아요.',
+      },
       stopped: {
-        tokenRefused:
-          '멈춤: Slack이 봇 토큰을 거절했어요. 쓸 수 있는 토큰을 설정하고 서버를 다시 시작하세요.',
+        tokenRefused: '멈춤: Slack이 봇 토큰을 거절했어요. 쓸 수 있는 토큰을 넣으세요.',
         revoked: '멈춤: 앱이 제거되었거나 토큰이 취소되었어요. 다시 설치하고 새 토큰을 설정하세요.',
         otherWorkspace:
           '멈춤: 봇 토큰이 다른 워크스페이스의 것이에요. 이 서버는 처음 연결한 워크스페이스에만 답해요.',

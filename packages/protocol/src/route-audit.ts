@@ -158,6 +158,8 @@ export const ROUTE_AUDIT = {
   'admin.groups.delete': { event: 'group.deleted', target: 'group' },
   'admin.insights': read(),
   'admin.slack.get': read(),
+  'admin.slack.credentials.set': { event: 'slack.credentials_set', target: 'organization' },
+  'admin.slack.credentials.remove': { event: 'slack.credentials_removed', target: 'organization' },
   'channels.slack.link': { event: 'slack.channel.linked', target: 'channel' },
   'channels.slack.unlink': { event: 'slack.channel.unlinked', target: 'channel' },
   'notes.posting.retry': {

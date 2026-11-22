@@ -177,6 +177,8 @@ export const TASKS = {
   linkSlack: slack.linkSlack,
   unlinkSlack: () => slack.unlinkSlack,
   loadAdminSlack: () => slack.loadAdminSlack,
+  saveSlackCredentials: slack.saveSlackCredentials,
+  removeSlackCredentials: () => slack.removeSlackCredentials,
   retrySlackPost: slack.retrySlackPost,
   linkSlackChannel: slack.linkSlackChannel,
   unlinkSlackChannel: slack.unlinkSlackChannel,

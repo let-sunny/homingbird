@@ -85,7 +85,7 @@ export const buildRuntime = (parts: RuntimeParts): Runtime => {
     pushDeskUnavailable: (memberId, kind) => T.asUnit(sendDeskUnavailablePush(fetch, memberId, kind)),
     wakeSink: waker.consider,
     wakeTest: waker.test,
-    slack: parts.config.slack === null ? null : makeSlackApi(fetch, parts.config.slack.botToken),
+    slackApi: (botToken) => makeSlackApi(fetch, botToken),
     log,
     requestId: null,
     client: null,

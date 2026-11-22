@@ -1,7 +1,13 @@
 import { Task as T } from '@homingbird/kernel'
 import { slackSignatureOf } from '../src/slack/slack-signature.ts'
 import { checkSlackWorkspace } from '../src/slack/slack-workspace.ts'
-import { type Session, type TestResponse, type TestServer, startTestServer } from './harness.ts'
+import {
+  type Session,
+  TEST_SECRETS_KEY,
+  type TestResponse,
+  type TestServer,
+  startTestServer,
+} from './harness.ts'
 
 export const SLACK_BOT_TOKEN = 'xoxb-1234-5678-botsecretvalue'
 export const SLACK_SIGNING_SECRET = '8f742231b10e8888abcd99eeefff85a5'
@@ -20,6 +26,8 @@ export interface FakeSlackUser {
 /** A Slack workspace: it answers the Web API methods Homingbird calls and records every call. */
 export interface FakeSlack {
   readonly calls: Array<{ readonly method: string; readonly fields: Readonly<Record<string, string>> }>
+  /** The bot token each call carried, in the order of `calls`. */
+  readonly tokens: string[]
   readonly users: Map<string, FakeSlackUser>
   readonly channels: Map<string, FakeSlackChannel>
   /** The error the next call of a method answers with, once. */
@@ -46,6 +54,7 @@ export const fakeSlack = (
   channels: Readonly<Record<string, FakeSlackChannel>> = { C0HELP: { name: 'billing-help', members: 12 } },
 ): FakeSlack => {
   const calls: FakeSlack['calls'] = []
+  const tokens: string[] = []
   const rooms = new Map(Object.entries(channels))
   const byId = new Map(users.map((user) => [user.id, user]))
   const refusals = new Map<string, string>()
@@ -112,6 +121,7 @@ export const fakeSlack = (
   }
   return {
     calls,
+    tokens,
     users: byId,
     channels: rooms,
     refuseNext: (method, error) => void refusals.set(method, error),
@@ -131,6 +141,7 @@ export const fakeSlack = (
         return new Response('{"ok":false,"error":"ratelimited"}', status)
       }
       calls.push({ method, fields })
+      tokens.push(new Headers(init?.headers).get('authorization')?.replace(/^Bearer /, '') ?? '')
       const answered = answer(method, fields)
       if (lost.delete(method)) throw new TypeError('fetch failed')
       return new Response(JSON.stringify(answered), { status: 200 })
@@ -153,6 +164,17 @@ export const startSlackServer = async (
   await connectWorkspace(server)
   return server
 }
+
+/** A server with Slack on and a key to keep the app's values, but no values in its environment. */
+export const STORED_SLACK_VARIABLES = { HB_FEATURES: 'slack=on', HB_SECRETS_KEY: TEST_SECRETS_KEY }
+
+/** The values of the Slack app as an administrator enters them in the web client. */
+export const SLACK_VALUES = { botToken: SLACK_BOT_TOKEN, signingSecret: SLACK_SIGNING_SECRET }
+
+export const startStoredSlackServer = (
+  slack: FakeSlack,
+  overrides: Readonly<Record<string, string>> = {},
+): Promise<TestServer> => startTestServer({ ...STORED_SLACK_VARIABLES, ...overrides }, { fetch: slack.fetch })
 
 export const connectWorkspace = (server: TestServer): Promise<void> =>
   T.runPromise(checkSlackWorkspace, server.env)

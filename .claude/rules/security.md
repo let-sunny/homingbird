@@ -28,9 +28,10 @@ These nine rules are never broken. Each has a test; keep it passing and keep it 
    instructions. `wrapNote` in `packages/protocol/src/wrap.ts` is the only wrapper; never format a
    note for a model any other way.
 5. Credentials are stored hashed and never logged. Tokens appear in exactly one response, when issued.
-   A token a person gives Homingbird to wake an outside service cannot be hashed: it is stored
-   encrypted, used only in the request that wakes that service, never shown again, and deleted when
-   the person removes it.
+   A token or secret a person or an administrator gives Homingbird to reach an outside service cannot
+   be hashed: it is stored encrypted and bound to its owner, used only in requests to the service it
+   was given for, never shown again, never given to a model or an agent credential, and deleted when
+   whoever gave it removes it or loses the right to have given it.
 6. A member sees only conversations they participate in. A person who leaves a group message is no
    longer in it: from then on they see none of it, and their agent credentials get none of it. An administrator, as a person in the web
    client only, may also see which private channels exist and who is in them, never their notes, and
