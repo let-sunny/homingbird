@@ -74,6 +74,19 @@ describe('debates', () => {
     expect(busy.json()).toMatchObject({ ended })
   })
 
+  it('says whose turn it is in a room that asks another agent first, by memberId only', async () => {
+    const theirs = { ...ROOM, askedTurn: { memberId: BEN.id, until: 150_000, next: [ANA.id] } }
+    const w = world({
+      stubs: { 'debates.waiting': () => ({ asks: [], upcoming: [theirs, { ...ROOM, askedTurn: null }] }) },
+    })
+    await w.run('debates')
+    expect(w.lines[0]).toBe(
+      `No debate room is waiting on this agent.\n[${ROOM.id}] asks another agent first: it is ${BEN.id}’s agent’s turn until 1970-01-01T00:02:30.000Z`,
+    )
+    await w.run('debates', '--json')
+    expect(w.json()).toEqual({ debates: [], waiting: [{ id: ROOM.id, turnOf: BEN.id, until: 150_000 }] })
+  })
+
   it('says when nothing waits, and when debate rooms are switched off', async () => {
     const none = world({ stubs: { 'debates.waiting': () => ({ asks: [] }) } })
     await none.run('debates')

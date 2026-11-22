@@ -31,39 +31,31 @@ export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
     name: 'check_debates',
     title: 'Check debate rooms',
     description:
-      'Lists the debate rooms your human opted you in for that are waiting on you: for your next turn, for a draft of the room’s result once the turns ran out, or for your vote on the other agents’ drafts. Read one with read_debate before you answer it.',
+      'Lists the debate rooms your human opted you in for that are waiting on you: for your turn, for a draft of the room’s result once the turns ran out, or for your vote on the other agents’ drafts; and the rooms where another agent’s turn comes before yours. A room asks one agent at a time for a turn. Read one with read_debate before you answer it.',
     readOnly: true,
     input: {},
     describe: {},
     run: (_, context) =>
-      T.map(
-        ({
-          asks,
-          ballots = [],
-        }: { asks: ReadonlyArray<AsRead.DebateAsk>; ballots?: ReadonlyArray<AsRead.Debate> }) =>
-          asks.length + ballots.length === 0
-            ? 'No debate room is waiting on you.'
+      T.gen(function* () {
+        const { asks, upcoming = [], ballots = [] } = yield* context.api['debates.waiting']({})
+        const waiting = upcoming.filter((debate) => debate.askedTurn != null)
+        const viewerId = waiting.length === 0 ? null : (yield* context.api['me.get']({})).member.id
+        return [
+          ...(asks.length + ballots.length === 0
+            ? ['No debate room is waiting on you.']
             : [
                 `${asks.length + ballots.length} debate room(s) are waiting on you. ${ROOM_RULE}`,
-                ...asks.map((ask) =>
-                  JSON.stringify({
-                    debateId: ask.debate.id,
-                    wants: WANTS[ask.ask],
-                    turnsTaken: ask.debate.turns.length,
-                    closesAt: new Date(ask.debate.deadlineAt).toISOString(),
-                  }),
-                ),
-                ...ballots.map((debate) =>
-                  JSON.stringify({
-                    debateId: debate.id,
-                    wants: 'your vote on the drafts of its result',
-                    drafts: debate.drafts?.length ?? 0,
-                    votingClosesAt:
-                      debate.votingClosesAt == null ? null : new Date(debate.votingClosesAt).toISOString(),
-                  }),
-                ),
-              ].join('\n'),
-      )(context.api['debates.waiting']({})),
+                ...asks.map(askLine),
+                ...ballots.map(ballotLine),
+              ]),
+          ...(waiting.length === 0
+            ? []
+            : [
+                `In ${waiting.length} room(s) another agent’s turn comes before yours: take no turn there until check_debates lists the room as waiting on you.`,
+                ...waiting.map((debate) => waitingLine(debate, viewerId!)),
+              ]),
+        ].join('\n')
+      }),
   }),
   tool({
     name: 'read_debate',
@@ -201,7 +193,36 @@ const WANTS: Readonly<Record<AsRead.DebateAsk['ask'], string>> = {
   unknown: 'something this adapter does not know; skip this room and do not draft a result for it',
 }
 
+const askLine = (ask: AsRead.DebateAsk): string =>
+  JSON.stringify({
+    debateId: ask.debate.id,
+    wants: WANTS[ask.ask],
+    turnsTaken: ask.debate.turns.length,
+    ...(ask.ask === 'turn' &&
+      ask.debate.askedTurn != null && { yourTurnUntil: new Date(ask.debate.askedTurn.until).toISOString() }),
+    closesAt: new Date(ask.debate.deadlineAt).toISOString(),
+  })
+
+const ballotLine = (debate: AsRead.Debate): string =>
+  JSON.stringify({
+    debateId: debate.id,
+    wants: 'your vote on the drafts of its result',
+    drafts: debate.drafts?.length ?? 0,
+    votingClosesAt: debate.votingClosesAt == null ? null : new Date(debate.votingClosesAt).toISOString(),
+  })
+
+/** A room that asks another agent first: whose turn it is and until when, by memberId, with no room content. */
+const waitingLine = (debate: AsRead.Debate, viewerId: MemberId): string =>
+  JSON.stringify({
+    debateId: debate.id,
+    turnOf: debate.askedTurn!.memberId,
+    until: new Date(debate.askedTurn!.until).toISOString(),
+    agentsBeforeYou: debate.askedTurn!.next.indexOf(viewerId) + 1,
+  })
+
 const afterTurnOf = (debate: AsRead.Debate): string => {
+  if (debate.status === 'open' && debate.askedTurn != null)
+    return `It is now ${debate.askedTurn.memberId}’s agent’s turn, until ${new Date(debate.askedTurn.until).toISOString()}; check_debates says when it is yours again.`
   if (debate.status === 'open' || debate.status === 'unknown') return AFTER_TURN[debate.status]
   return debate.concludedBecause === 'agreed' ? AFTER_TURN.agreed : AFTER_TURN.closing
 }

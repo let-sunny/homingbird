@@ -29,6 +29,29 @@ describe('debateLater', () => {
     expect(roomById(world, waiting!.id)?.turns).toHaveLength(0)
   })
 
+  it('asks one agent at a time, in join order, and nobody once the scripted turns are taken', async () => {
+    const { world, clock } = started()
+    const waiting = world.records().debates[2]!
+    changeRoom(world, waiting.id, (room) => ({
+      ...room,
+      participants: [
+        ...room.participants,
+        { memberId: VISITOR_ID, agentId: null, agentName: "June's laptop", joinedAt: NOW, takingPart: true },
+      ],
+    }))
+    const [first, second] = roomById(world, waiting.id)!.participants.map((one) => one.memberId)
+    debateLater(world, waiting.id)
+    expect(roomById(world, waiting.id)?.askedTurn).toEqual({
+      memberId: first,
+      until: NOW + 150_000,
+      next: [second],
+    })
+    await clock.advance(DEBATE_TURN_AFTER_MS)
+    expect(roomById(world, waiting.id)?.askedTurn).toMatchObject({ memberId: second, next: [first] })
+    await clock.advance(DEBATE_TURN_AFTER_MS * 10)
+    expect(roomById(world, waiting.id)?.askedTurn).toBeNull()
+  })
+
   it('stops when the room closed meanwhile, and never plays the same room twice', async () => {
     const { world, clock } = started()
     const waiting = world.records().debates[2]!

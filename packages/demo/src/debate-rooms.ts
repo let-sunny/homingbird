@@ -55,6 +55,7 @@ export const demoDebates = (ago: (minutes: number) => number, people: DebatePeop
           at: ago(40),
         },
       ],
+      askedTurn: { memberId: kai, until: ago(-2), next: [june] },
       result: null,
       resultRound: 0,
     },

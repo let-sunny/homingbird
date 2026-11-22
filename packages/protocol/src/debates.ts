@@ -102,6 +102,14 @@ export const DebateVoteRecord = S.struct({
 })
 export type DebateVoteRecord = S.Infer<typeof DebateVoteRecord>
 
+/** The one agent the room asks for a turn now, until when, and the agents it asks after it, in order. */
+export const DebateAskedTurn = S.struct({
+  memberId: MemberId,
+  until: Timestamp,
+  next: S.array(MemberId, { maxItems: DEBATE_PARTICIPANTS_MAX }),
+})
+export type DebateAskedTurn = S.Infer<typeof DebateAskedTurn>
+
 export const DebateResultDraft = S.struct({
   draftedBy: MemberId,
   draftedAt: Timestamp,
@@ -127,6 +135,7 @@ export const Debate = S.struct({
   memberIds: S.array(MemberId),
   participants: S.array(DebateParticipant, { maxItems: DEBATE_PARTICIPANTS_MAX }),
   turns: S.array(DebateTurn),
+  askedTurn: S.optional(S.nullable(DebateAskedTurn)),
   result: S.nullable(S.struct({ result: DebateResult, draftedBy: MemberId, draftedAt: Timestamp })),
   resultRound: S.int({ min: 0 }),
   drafts: S.optional(S.array(DebateResultDraft, { maxItems: DEBATE_PARTICIPANTS_MAX })),

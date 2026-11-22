@@ -15,12 +15,14 @@ import {
   type RoomDraft,
   TURN_HOLD_MS,
   askOf,
+  askedTurnOf,
   isStaleTurnRefusal,
   settleDebateRoom,
   stepDebate,
   turnHoldOf,
 } from '../src/debate-room.ts'
 import { isReadyToConclude, isTakingPart, limitsProblem, turnsTakenBy } from '../src/debate-rules.ts'
+import { turnWaitMs } from '../src/debate-turn-order.ts'
 import { DebateLimits } from '../src/debates.ts'
 import { MemberId } from '../src/ids.ts'
 
@@ -30,6 +32,7 @@ const CY = MemberId.of('cy0000000000')
 const DAN = MemberId.of('dan000000000')
 const LIMITS = { turnsPerAgent: 2, totalTurns: 4, minutes: 30, turnCharacters: 300 }
 const NOW = 1_000
+const WAIT = turnWaitMs({})
 
 const RESULT: DebateResult = {
   kind: 'conclusion',
@@ -51,6 +54,7 @@ const draft = (draftedBy: MemberId, draftedAt: number): RoomDraft => ({
 const roomOf = (speakers: ReadonlyArray<MemberId>, overrides: Partial<DebateRoom> = {}): DebateRoom => ({
   stage: speakers.length === 0 ? { stage: 'setup' } : { stage: 'open' },
   createdAt: 0,
+  askingSince: 0,
   deadlineAt: NOW + 1,
   limits: LIMITS,
   participants: [{ memberId: ANA }, { memberId: BEN }],
@@ -89,11 +93,19 @@ const turn = (memberId: MemberId, body = 'A point.'): DebateEvent => ({ type: 't
 
 const droppedOut = (memberId: MemberId) => ({ memberId, takingPart: false })
 
+const readFrom = (memberId: MemberId, afterTurn: number): DebateEvent => ({
+  type: 'turn',
+  memberId,
+  body: 'A point.',
+  afterTurn,
+})
+
 type TurnEvent = Extract<DebateEvent, { readonly type: 'turn' }>
 
 describe('whose turn it is', () => {
-  it('lets any participant start, then never the same agent twice in a row', () => {
+  it('asks the first agent to join for the first turn, then never the same agent twice in a row', () => {
     expect(askOf(roomOf([]), ANA, NOW)).toBe('turn')
+    expect(askOf(roomOf([]), BEN, NOW)).toBeNull()
     expect(askOf(roomOf([ANA]), ANA, NOW)).toBeNull()
     expect(refusal(roomOf([ANA]), turn(ANA))).toMatch(/Conflict: .*no two turns in a row/)
     expect(askOf(roomOf([ANA]), BEN, NOW)).toBe('turn')
@@ -106,6 +118,109 @@ describe('whose turn it is', () => {
       ready: false,
       deadlineAt: null,
     })
+  })
+
+  it('asks one agent at a time, in join order from the one after the latest speaker', () => {
+    const three = { participants: [{ memberId: ANA }, { memberId: BEN }, { memberId: CY }] }
+    const asked = (room: DebateRoom, now = NOW) => [ANA, BEN, CY].filter((who) => askOf(room, who, now))
+    expect(asked(roomOf([], three))).toEqual([ANA])
+    expect(asked(roomOf([ANA], three))).toEqual([BEN])
+    expect(asked(roomOf([ANA, BEN], three))).toEqual([CY])
+    expect(asked(roomOf([ANA, CY], three))).toEqual([ANA])
+    expect(askedTurnOf(roomOf([ANA], three), NOW)).toEqual({ memberId: BEN, until: WAIT, next: [CY] })
+    expect(askedTurnOf(roomOf([ANA], { ...three, askingSince: NOW }), NOW)).toEqual({
+      memberId: BEN,
+      until: NOW + WAIT,
+      next: [CY],
+    })
+  })
+
+  it('passes the turn of an agent that does not take it within the wait, so the room never stalls', () => {
+    const three = { participants: [{ memberId: ANA }, { memberId: BEN }, { memberId: CY }] }
+    const room = roomOf([ANA], { ...three, deadlineAt: 10 * WAIT })
+    expect(askOf(room, BEN, WAIT - 1)).toBe('turn')
+    expect(askOf(room, CY, WAIT - 1)).toBeNull()
+    expect(askOf(room, BEN, WAIT)).toBeNull()
+    expect(askOf(room, CY, WAIT)).toBe('turn')
+    expect(askOf(room, BEN, 2 * WAIT)).toBe('turn')
+    expect(settleDebateRoom(room, 2 * WAIT).effects).toEqual([])
+    expect(accepted(room, turn(CY), WAIT).room.askingSince).toBe(WAIT)
+  })
+
+  it('refuses a turn out of order with whose turn it is and when the agent’s comes, never as stale', () => {
+    const three = { participants: [{ memberId: ANA }, { memberId: BEN }, { memberId: CY }] }
+    const until = new Date(WAIT).toISOString()
+    expect(refusal(roomOf([], three), turn(BEN))).toBe(
+      `Conflict: It is not your turn: the room asks ${ANA}’s agent for a turn until ${until}. Yours comes next, by ${until} if that agent lets its turn pass. Wait until the room asks you; your turn was not saved.`,
+    )
+    expect(refusal(roomOf([], three), turn(CY))).toMatch(
+      new RegExp(`Yours comes after 2 other agents’ turns, by ${new Date(2 * WAIT).toISOString()} if each`),
+    )
+    const outOfOrder = stepDebate(roomOf([ANA], three), readFrom(CY, 0), NOW)
+    if (Result.isOk(outOfOrder)) throw new Error('accepted')
+    expect(isStaleTurnRefusal(outOfOrder.error)).toBe(false)
+    expect(outOfOrder.error.message).toMatch(new RegExp(`^It is not your turn: the room asks ${BEN}’s agent`))
+    const anaRests = roomOf([], {
+      ...three,
+      stage: { stage: 'open' },
+      limits: { ...LIMITS, totalTurns: 6 },
+      turns: [
+        { memberId: ANA, ready: true },
+        { memberId: BEN, ready: true },
+      ],
+    })
+    expect(refusal(anaRests, turn(ANA))).toMatch(
+      /It is not your turn: you said you are ready to conclude, so the room asks you again only once another agent takes a turn that does not say so\./,
+    )
+    const cyAway = { participants: [{ memberId: ANA }, { memberId: BEN }, droppedOut(CY)] }
+    expect(refusal(roomOf([ANA], cyAway), turn(CY))).toMatch(/the room has no turn coming for this agent now/)
+  })
+
+  it('refuses the asked agent as stale when the room moved on while its turn passed', () => {
+    const room = roomOf([], { deadlineAt: 10 * WAIT })
+    expect(askOf(room, ANA, 0)).toBe('turn')
+    const benSpoke = accepted(room, turn(BEN), WAIT).room
+    expect(askOf(benSpoke, ANA, WAIT)).toBe('turn')
+    const stale = stepDebate(benSpoke, readFrom(ANA, 0), WAIT)
+    if (Result.isOk(stale)) throw new Error('accepted')
+    expect(isStaleTurnRefusal(stale.error)).toBe(true)
+  })
+
+  it('names nobody while the room takes no turn', () => {
+    expect(askedTurnOf(drafting(), NOW)).toBeNull()
+    expect(askedTurnOf(roomOf([], { participants: [{ memberId: ANA }] }), NOW)).toBeNull()
+    expect(askedTurnOf(roomOf([ANA], { deadlineAt: NOW }), NOW)).toBeNull()
+    expect(askedTurnOf(roomOf([ANA, BEN, ANA, BEN]), NOW)).toBeNull()
+  })
+
+  it('starts the first agent’s wait when an agent is opted in, until the first turn', () => {
+    expect(accepted(roomOf([]), { type: 'join', memberId: CY }, NOW).room.askingSince).toBe(NOW)
+    expect(accepted(roomOf([ANA]), { type: 'join', memberId: CY }, NOW).room.askingSince).toBe(0)
+  })
+
+  it('starves nobody: an agent speaking as asked gets its share, whatever turns pass, unless it alone is left after its own turn', () => {
+    const agents = [ANA, BEN, CY]
+    const plan = fc.array(fc.boolean(), { minLength: 40, maxLength: 40 })
+    fc.assert(
+      fc.property(plan, fc.integer({ min: 1, max: 3 }), (speaks, share) => {
+        let room = roomOf([], {
+          participants: agents.map((memberId) => ({ memberId })),
+          limits: { turnsPerAgent: share, totalTurns: share * 3, minutes: 10_080, turnCharacters: 300 },
+          deadlineAt: 10_080 * 60_000,
+        })
+        let now = 0
+        for (const speak of [...speaks, ...Array<boolean>(3 * share).fill(true)]) {
+          if (room.stage.stage !== 'setup' && room.stage.stage !== 'open') break
+          const asked = agents.filter((who) => askOf(room, who, now) === 'turn')
+          expect(asked).toHaveLength(1)
+          if (speak) room = accepted(room, turn(asked[0]!), now).room
+          else now += WAIT
+        }
+        expect(room.stage.stage).toBe('drafting')
+        const short = agents.filter((who) => turnsTakenBy(room, who) < share)
+        expect(short.filter((who) => who !== room.turns.at(-1)?.memberId)).toEqual([])
+      }),
+    )
   })
 
   it('starts the room’s time with the first turn, so setting the room up takes none of it', () => {
@@ -216,11 +331,25 @@ describe('a room whose agents agree', () => {
     expect(accepted(benReady.room, ready(ANA)).after).toEqual([{ type: 'conclude', because: 'agreed' }])
   })
 
+  it('concludes when the asked agent says it is ready and every other agent already did', () => {
+    const room = roomOf([], {
+      ...three,
+      ...wide,
+      stage: { stage: 'open' },
+      turns: said([ANA, false], [BEN, true], [CY, true]),
+    })
+    expect(askOf(room, ANA, NOW)).toBe('turn')
+    expect(askOf(room, BEN, NOW)).toBeNull()
+    expect(accepted(room, ready(ANA)).after).toEqual([{ type: 'conclude', because: 'agreed' }])
+    expect(askedTurnOf(accepted(room, turn(ANA)).room, NOW)).toMatchObject({ memberId: BEN, next: [CY] })
+  })
+
   it('counts an agent that used all its turns as ready, and one that has not spoken as not', () => {
     const anaDone = roomOf([], {
       ...three,
       limits: { ...LIMITS, totalTurns: 12 },
       stage: { stage: 'open' },
+      askingSince: NOW - WAIT,
       turns: said([ANA, false], [BEN, false], [ANA, false]),
     })
     const cyReady = accepted(anaDone, ready(CY))
@@ -490,7 +619,7 @@ describe('a turn written against an older room', () => {
   })
 
   it('keeps the place of a turn refused for its length or for being stale, once per turn of its own', () => {
-    const room = roomOf([ANA, BEN, ANA], three)
+    const room = roomOf([ANA, BEN, ANA], { ...three, askingSince: NOW - WAIT })
     const tooLong = readTo(CY, 3, 'x'.repeat(301))
     expect(turnHoldOf(room, tooLong, NOW)).toEqual({ memberId: CY, turnsTaken: 0, until: NOW + TURN_HOLD_MS })
     expect(turnHoldOf(room, readTo(CY, 2), NOW)).toEqual({
@@ -519,25 +648,43 @@ describe('a turn written against an older room', () => {
       expect(turnHoldOf({ ...room, holds: [other] }, tooLong, NOW)).not.toBeNull()
   })
 
-  it('keeps the last turns for an agent holding a place, and for nobody else', () => {
-    const limits = { ...LIMITS, totalTurns: 4 }
-    const holds = [{ memberId: CY, turnsTaken: 0, until: NOW + 10 }]
-    const room = roomOf([ANA, BEN, ANA], { ...three, limits, holds, deadlineAt: NOW + 100 })
-    expect(refusal(room, turn(BEN))).toMatch(/last turns are kept/)
-    expect(askOf(room, BEN, NOW)).toBeNull()
-    expect(askOf(room, CY, NOW)).toBe('turn')
-    expect(accepted(room, turn(CY)).action).toMatchObject({ position: 4, memberId: CY })
-    expect(askOf(room, BEN, NOW + 10)).toBe('turn')
-    expect(
-      askOf(roomOf([ANA, BEN, ANA, CY], { ...three, limits: { ...limits, totalTurns: 6 }, holds }), BEN, NOW),
-    ).toBe('turn')
-    const both = [...holds, { memberId: BEN, turnsTaken: 1, until: NOW + 10 }]
-    const twoHeld = roomOf([ANA, BEN, ANA], { ...three, limits, holds: both })
-    expect(askOf(twoHeld, CY, NOW)).toBe('turn')
-    expect(askOf(twoHeld, BEN, NOW)).toBe('turn')
-    const gone = { ...three, participants: [{ memberId: ANA }, { memberId: BEN }, droppedOut(CY)] }
-    expect(askOf(roomOf([ANA, BEN, ANA], { ...gone, limits, holds }), BEN, NOW)).toBe('turn')
-    expect(settled(room)).toEqual([])
+  const until = WAIT - 10 + TURN_HOLD_MS
+  const holds = [{ memberId: BEN, turnsTaken: 0, until }]
+
+  it('keeps the turn of an asked agent whose turn was refused until its hold ends, then asks the next', () => {
+    const room = roomOf([ANA], { ...three, holds, deadlineAt: 10 * WAIT })
+    expect(askedTurnOf(room, WAIT + 5)).toEqual({ memberId: BEN, until, next: [CY] })
+    expect(askOf(room, CY, WAIT + 5)).toBeNull()
+    expect(refusal(room, turn(CY), WAIT + 5)).toMatch(/the room asks .*ben000000000’s agent/)
+    expect(accepted(room, turn(BEN), WAIT + 5).action).toMatchObject({ position: 2, memberId: BEN })
+    expect(askedTurnOf(room, until)).toEqual({ memberId: CY, until: until + WAIT, next: [BEN] })
+    expect(askedTurnOf(room, until + WAIT)).toMatchObject({ memberId: BEN, until: until + 2 * WAIT })
+    const early = [{ memberId: BEN, turnsTaken: 0, until: 10 + TURN_HOLD_MS }]
+    expect(askedTurnOf({ ...room, holds: early }, WAIT - 1)).toEqual({
+      memberId: BEN,
+      until: WAIT,
+      next: [CY],
+    })
+    expect(askedTurnOf({ ...room, holds: early }, WAIT)).toMatchObject({ memberId: CY })
+    for (const ignored of [
+      { memberId: CY, turnsTaken: 0, until },
+      { memberId: BEN, turnsTaken: 1, until },
+      { memberId: BEN, turnsTaken: 0, until: TURN_HOLD_MS - 1 },
+    ])
+      expect(askedTurnOf({ ...room, askingSince: 0, holds: [ignored] }, WAIT + 5)).toMatchObject({
+        memberId: CY,
+      })
+    const gone = [{ memberId: ANA }, droppedOut(BEN), { memberId: CY }]
+    expect(askedTurnOf({ ...room, participants: gone }, WAIT + 5)).toMatchObject({ memberId: CY })
+    expect(settled(room, WAIT + 5)).toEqual([])
+  })
+
+  it('keeps each refused turn in the order the room asked them, one after another', () => {
+    const cyRefusedAt = until + 10
+    const chain = [{ memberId: CY, turnsTaken: 0, until: cyRefusedAt + TURN_HOLD_MS }, holds[0]!]
+    const room = roomOf([ANA], { ...three, holds: chain, deadlineAt: 10 * WAIT })
+    expect(askedTurnOf(room, until + 20)).toEqual({ memberId: CY, until: until + WAIT, next: [BEN] })
+    expect(askedTurnOf(room, until + WAIT)).toMatchObject({ memberId: BEN, until: until + 2 * WAIT })
   })
 })
 
@@ -788,7 +935,8 @@ describe('the laws of a room, over any run of events', () => {
     },
     { arbitrary: member.map((memberId) => ({ op: 'join' as const, memberId })), weight: 2 },
     { arbitrary: limits.map((wished) => ({ op: 'setLimits' as const, limits: wished })), weight: 1 },
-    { arbitrary: member.map((memberId) => ({ op: 'turn' as const, memberId })), weight: 6 },
+    { arbitrary: member.map((memberId) => ({ op: 'turn' as const, memberId })), weight: 3 },
+    { arbitrary: fc.boolean().map((ready) => ({ op: 'askedTurn' as const, ready })), weight: 6 },
     {
       arbitrary: fc.record({
         op: fc.constant('draft' as const),
@@ -831,6 +979,7 @@ describe('the laws of a room, over any run of events', () => {
     let room: DebateRoom = {
       stage: { stage: 'setup' },
       createdAt: 0,
+      askingSince: 0,
       deadlineAt: initial.minutes * 60_000,
       limits: initial,
       participants: joined.map((memberId) => ({ memberId })),
@@ -850,7 +999,26 @@ describe('the laws of a room, over any run of events', () => {
             one.memberId === step.memberId ? { ...one, takingPart: step.takingPart } : one,
           ),
         }
-      else if (step.op === 'tick') {
+      else if (step.op === 'askedTurn') {
+        const asked = askedTurnOf(settleDebateRoom(room, now).room, now)
+        if (asked === null) continue
+        const event: DebateEvent = {
+          type: 'turn',
+          memberId: asked.memberId,
+          body: 'A point.',
+          ready: step.ready,
+        }
+        const move = stepDebate(room, event, now)
+        if (!Result.isOk(move)) throw new Error(`the asked agent was refused: ${move.error.message}`)
+        trace.push({
+          before: room,
+          now,
+          event,
+          room: move.value.room,
+          effects: [...move.value.before, ...move.value.after],
+        })
+        room = move.value.room
+      } else if (step.op === 'tick') {
         const next = settleDebateRoom(room, now)
         trace.push({ before: room, now, event: null, room: next.room, effects: next.effects })
         room = next.room
@@ -896,6 +1064,35 @@ describe('the laws of a room, over any run of events', () => {
         .flatMap((generated) => run(generated).map(({ room }) => room.stage.stage)),
     )
     expect([...reached].sort()).toEqual(['closed', 'drafting', 'ended', 'open', 'setup', 'voting'])
+  })
+
+  it('asks exactly one agent at a time for a turn while the room takes turns, and that one only', () => {
+    lawful(({ room, now }) => {
+      const asked = room.participants.filter((one) => askOf(room, one.memberId, now) === 'turn')
+      const named = askedTurnOf(room, now)
+      expect(asked.length).toBeLessThanOrEqual(1)
+      if (asked.length === 1) expect(asked[0]!.memberId).toBe(named?.memberId)
+      const open = settleDebateRoom(room, now).room
+      if (open.stage.stage === 'setup' || open.stage.stage === 'open')
+        if (open.participants.length >= 2 && open.participants.some(isTakingPart))
+          expect(askedTurnOf(open, now)).not.toBeNull()
+    })
+  })
+
+  it('takes a turn only from the agent whose turn it is, within its share and the total', () => {
+    lawful(({ before, now, event, room }) => {
+      if (event?.type !== 'turn' || room === before) return
+      expect(askedTurnOf(settleDebateRoom(before, now).room, now)?.memberId).toBe(event.memberId)
+      expect(room.turns.length).toBeLessThanOrEqual(room.limits.totalTurns)
+      expect(turnsTakenBy(room, event.memberId)).toBeLessThanOrEqual(room.limits.turnsPerAgent)
+    })
+  })
+
+  it('never skips the vote when the agents agree: the room goes on to collect drafts', () => {
+    lawful(({ room, effects }) => {
+      if (effects.some((effect) => effect.type === 'conclude' && effect.because === 'agreed'))
+        expect(['drafting', 'ended']).toContain(room.stage.stage)
+    })
   })
 
   it('never lets the same agent take two turns in a row', () => {

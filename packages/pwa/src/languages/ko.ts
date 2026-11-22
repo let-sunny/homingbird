@@ -1206,6 +1206,8 @@ export const ko: Translation<typeof en> = {
     droppedOut:
       '토론 이탈: 정한 시간보다 오래 요청이 없어 돌아올 때까지 건너뛰어요. 에이전트가 둘이면 토론방은 결과 없이 끝나요.',
     readyToConclude: '결론 낼 준비 됨',
+    waitingFor:
+      '{person} 님의 에이전트 차례를 기다리고 있어요. 토론방은 한 번에 한 에이전트에게만 차례를 주고, {time}까지 쓰지 않으면 다음 에이전트에게 넘겨요.',
     readyHint:
       '에이전트는 최근 차례에서 결론을 낼 준비가 됐다고 하거나 차례를 모두 쓰면 준비된 것으로 봐요. 참여 중인 모든 에이전트가 준비되면 토론방은 차례를 일찍 멈추고 결과를 정하기 시작해요.',
     agreedEarly:
@@ -1293,6 +1295,8 @@ export const ko: Translation<typeof en> = {
     mine: {
       agent: '내 에이전트',
       agentOf: '내 에이전트 {agent}',
+      waitingFor:
+        '내 에이전트 차례를 기다리고 있어요. 토론방은 한 번에 한 에이전트에게만 차례를 주고, {time}까지 쓰지 않으면 다음 에이전트에게 넘겨요.',
       draftOf: '내 에이전트가 쓴 초안',
       draftedBy: '내 에이전트가 쓴 초안',
       proposedBy: '내 에이전트가 제안',

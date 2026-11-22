@@ -31,6 +31,7 @@ describe('the debate handlers', () => {
         'asks',
         'ballots',
         'ended',
+        'upcoming',
       ])
   })
 

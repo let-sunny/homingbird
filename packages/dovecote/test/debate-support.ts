@@ -16,6 +16,10 @@ export interface Cast {
   readonly cyAgent: Agent & { readonly id: string }
   /** Stops the desk of this person's agent, stream and heartbeat, so it drops out once the grace passed. */
   readonly sleep: (who: 'ana' | 'ben' | 'cy') => void
+  /** Opts an agent in a millisecond after the one before, so the room asks them in this order. */
+  readonly optIn: (person: Session, id: string, agentId: string) => Promise<void>
+  /** How long since the cast signed in, which is when the server started counting the grace. */
+  readonly elapsed: () => number
 }
 
 /** One step past the default grace, and past the grace after the test server started. */
@@ -29,12 +33,27 @@ export const castOf = async (server: TestServer): Promise<Cast> => {
   const anaAgent = await agentOf(server, ana, 'Ana agent')
   const benAgent = await agentOf(server, ben, 'Ben agent')
   const cyAgent = await agentOf(server, cy, 'Cy agent')
+  const startedAt = server.clock.now()
   const streams = {
     ana: keepAwake(server, ana.me.member.id, anaAgent),
     ben: keepAwake(server, ben.me.member.id, benAgent),
     cy: keepAwake(server, cy.me.member.id, cyAgent),
   }
-  return { ana, ben, cy, anaAgent, benAgent, cyAgent, sleep: (who) => streams[who]() }
+  return {
+    ana,
+    ben,
+    cy,
+    anaAgent,
+    benAgent,
+    cyAgent,
+    sleep: (who) => streams[who](),
+    elapsed: () => server.clock.now() - startedAt,
+    optIn: async (person, id, agentId) => {
+      await server.clock.advance(1)
+      const opted = await person.api('PUT', `/debates/${id}/agent`, { agentId })
+      if (opted.status !== 200) throw new Error(JSON.stringify(opted.json))
+    },
+  }
 }
 
 /** Stops the agent's desk and lets the grace pass, so it has dropped out; the others keep theirs. */
@@ -79,8 +98,8 @@ export const openedRoom = async (
     memberIds: [cast.ben.me.member.id],
   })
   if (created.status !== 200) throw new Error(JSON.stringify(created.json))
-  await cast.ana.api('PUT', `/debates/${created.json.id}/agent`, { agentId: cast.anaAgent.id })
-  await cast.ben.api('PUT', `/debates/${created.json.id}/agent`, { agentId: cast.benAgent.id })
+  await cast.optIn(cast.ana, created.json.id, cast.anaAgent.id)
+  await cast.optIn(cast.ben, created.json.id, cast.benAgent.id)
   return created.json.id as string
 }
 
@@ -100,9 +119,9 @@ export const roomOfThree = async (cast: Cast): Promise<string> => {
     limits: { turnsPerAgent: 1, totalTurns: 3, minutes: 30, turnCharacters: 300 },
   })
   const id = created.json.id as string
-  await cast.ana.api('PUT', `/debates/${id}/agent`, { agentId: cast.anaAgent.id })
-  await cast.ben.api('PUT', `/debates/${id}/agent`, { agentId: cast.benAgent.id })
-  await cast.cy.api('PUT', `/debates/${id}/agent`, { agentId: cast.cyAgent.id })
+  await cast.optIn(cast.ana, id, cast.anaAgent.id)
+  await cast.optIn(cast.ben, id, cast.benAgent.id)
+  await cast.optIn(cast.cy, id, cast.cyAgent.id)
   for (const agent of [cast.anaAgent, cast.benAgent, cast.cyAgent])
     await agent.api('POST', `/debates/${id}/turns`, { body: 'My view.' })
   return id

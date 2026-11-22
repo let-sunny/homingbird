@@ -816,6 +816,8 @@ export const contract = {
     access: 'member',
     response: S.struct({
       asks: S.array(DebateAsk),
+      /** Rooms that ask this agent for a turn after other agents' turns; `askedTurn` says whose it is now. */
+      upcoming: S.optional(S.array(Debate)),
       /** Rooms whose drafts of the result this agent is asked to vote on. */
       ballots: S.optional(S.array(Debate)),
       /** Rooms of this agent that closed as they were, without a result, in the last day. */

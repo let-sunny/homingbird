@@ -17,6 +17,7 @@ import {
   RESULT_DRAFTING_WINDOW_MS,
   RESULT_VOTING_WINDOW_MS,
   type TurnHold,
+  askedTurnOf,
 } from '@homingbird/protocol'
 import { type AppEnv, type Caller, isHuman } from '../environment.ts'
 import { EVERYONE, type RequestEnv } from '../events/events.ts'
@@ -127,7 +128,8 @@ export const loadRoom = (row: DebateRow): T.Task<DebateFacts, never, AppEnv> =>
             }
           : null,
     }
-    return { debate, room: roomOf(row, debate, votes, env.turnHolds.of(id)) }
+    const room = roomOf(row, debate, votes, env.turnHolds.of(id))
+    return { debate: { ...debate, askedTurn: askedTurnOf(room, env.clock.now()) }, room }
   })
 
 /**
@@ -356,6 +358,9 @@ const roomOf = (
   stage: stageOf(row, debate),
   createdAt: debate.createdAt,
   deadlineAt: debate.deadlineAt,
+  askingSince:
+    debate.turns.at(-1)?.at ??
+    Math.max(debate.createdAt, ...debate.participants.map((participant) => participant.joinedAt)),
   limits: debate.limits,
   participants: debate.participants,
   turns: debate.turns,

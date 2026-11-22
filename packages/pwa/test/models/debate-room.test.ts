@@ -241,6 +241,21 @@ describe('debateRoomModel', () => {
     ).toBeNull()
   })
 
+  it('says whose agent the room waits for and until when, passing the turn on as its waits run out', () => {
+    const asked = { memberId: BEN, until: 150_000, next: [ANA] }
+    const waiting = (fields: Partial<AsRead.Debate>, now = 10) =>
+      room(debateRoomModel(input(debate({ askedTurn: asked, ...fields }), { now }))).waitingFor
+    const time = (at: number) => formats.full.format(new Date(at))
+    expect(waiting({})).toBe(strings.debates.waitingFor({ person: 'Ben', time: time(150_000) }))
+    expect(waiting({}, 150_000)).toBe(strings.debates.mine.waitingFor({ time: time(300_000) }))
+    expect(waiting({ askedTurn: { ...asked, memberId: ANA, next: [BEN] } })).toBe(
+      strings.debates.mine.waitingFor({ time: time(150_000) }),
+    )
+    expect(waiting({ askedTurn: null })).toBeNull()
+    expect(waiting({ status: 'concluding' })).toBeNull()
+    expect(room(debateRoomModel(input(debate()))).waitingFor).toBeNull()
+  })
+
   it('says an agent dropped out while the room concludes, and no longer once it closed', () => {
     const dropped = (status: AsRead.Debate['status']) =>
       room(

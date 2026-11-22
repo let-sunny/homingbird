@@ -1,4 +1,10 @@
-import { type AsRead, DEBATE_BRIEF_MAX, type MemberId, isReadyToConclude } from '@homingbird/protocol'
+import {
+  type AsRead,
+  DEBATE_BRIEF_MAX,
+  type MemberId,
+  askedTurnLater,
+  isReadyToConclude,
+} from '@homingbird/protocol'
 import { channelLabel } from '../channels.ts'
 import { citedTurns } from '../debate-turns.ts'
 import {
@@ -132,6 +138,7 @@ export const debateRoomModel = (input: DebateRoomInput): DebateRoomModel => {
           ? strings.debates.readyToConclude
           : null,
     })),
+    waitingFor: waitingForOf(debate, viewerId, nameOf, input.now),
     readyHint: debate.status === 'open' && debate.turns.length > 0 ? strings.debates.readyHint : null,
     agreedEarly:
       debate.concludedBecause === 'agreed'
@@ -269,6 +276,8 @@ export type DebateRoomModel =
         readonly ready: string | null
       }>
       /** While the room takes turns: when an agent counts as ready, and what follows. */
+      /** Whose turn the room waits for, and until when; null while it asks no agent for a turn. */
+      readonly waitingFor: string | null
       readonly readyHint: string | null
       /** Why the room stopped taking turns before they ran out. */
       readonly agreedEarly: string | null
@@ -402,3 +411,17 @@ const briefOf = (debate: AsRead.Debate, viewerId: MemberId): BriefModel | null =
 }
 
 const fullTime = (timestamp: number): string => formats.full.format(new Date(timestamp))
+
+const waitingForOf = (
+  debate: AsRead.Debate,
+  viewerId: MemberId,
+  nameOf: (id: MemberId) => string,
+  now: number,
+): string | null => {
+  if (debate.status !== 'open' || debate.askedTurn == null) return null
+  const asked = askedTurnLater(debate.askedTurn, debate.limits, now)
+  const time = fullTime(asked.until)
+  return asked.memberId === viewerId
+    ? strings.debates.mine.waitingFor({ time })
+    : strings.debates.waitingFor({ person: nameOf(asked.memberId), time })
+}

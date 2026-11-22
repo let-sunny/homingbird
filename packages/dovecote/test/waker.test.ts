@@ -374,6 +374,26 @@ describe('a debate room the cloud desk takes part in', () => {
     expect(fired().map((each) => each.reason)).toEqual(['work', 'debate', 'debate'])
   })
 
+  it('keeps it counted while its turn comes after another agent’s, without waking it for work', async () => {
+    service = fakeService()
+    server = await startCloudDeskServer(service)
+    const cast = await castOf(server)
+    ana = cast.ana
+    await ana.api('PUT', '/me/desk-wake', routineSetup(cast.anaAgent.id))
+    const id = await openedRoom(cast, { limits: { ...GRACE_5, totalTurns: 6 } })
+    await cast.optIn(cast.cy, id, cast.cyAgent.id)
+    await cast.anaAgent.api('POST', `/debates/${id}/turns`, { body: 'Turn 1' })
+    cast.sleep('ana')
+    await wait(2 * MINUTE)
+    await cast.benAgent.api('POST', `/debates/${id}/turns`, { body: 'Turn 2' })
+    expect((await cast.ana.api('GET', `/debates/${id}`)).json.askedTurn.next).toEqual([cast.ana.me.member.id])
+    await run()
+    await wait(45_000)
+    expect(fired()).toEqual([])
+    await wait(45_000)
+    expect(fired().map((each) => each.reason)).toEqual(['debate'])
+  })
+
   it('does not wake it for a room that asks nothing of it', async () => {
     await roomWith(1)
     await run()

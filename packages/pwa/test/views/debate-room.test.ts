@@ -108,6 +108,15 @@ describe('debateView', () => {
     context.state.shownDebate.set(debate({ participants: [participant(ANA), participant(BEN)], turns }))
     expect(shown.querySelectorAll('.debate-ready')).toHaveLength(1)
     expect(textOf(shown)).toContain(strings.debates.readyHint)
+    expect(shown.querySelector('.debate-waiting-for')).toBeNull()
+    context.state.shownDebate.set(
+      debate({
+        participants: [participant(ANA), participant(BEN)],
+        turns,
+        askedTurn: { memberId: ANA, until: 4_102_444_800_000, next: [] },
+      }),
+    )
+    expect(shown.querySelector('.debate-waiting-for')?.textContent).toMatch(/^Waiting for your agent until /)
     context.state.shownDebate.set(
       debate({
         status: 'concluding',

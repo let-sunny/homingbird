@@ -86,7 +86,7 @@ describe('a room as it is shown', () => {
       ]),
     )
     cast.sleep('ben')
-    await server.clock.advance(PAST_GRACE_MS - 2)
+    await server.clock.advance(PAST_GRACE_MS - 2 - cast.elapsed())
     expect(await takingPart()).toEqual(expect.arrayContaining([[cast.ben.me.member.id, true]]))
     await server.clock.advance(2)
     expect(await takingPart()).toEqual(
