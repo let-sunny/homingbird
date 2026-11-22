@@ -102,3 +102,19 @@ test('/homingbird character answers in Korean when the environment is Korean', a
   await seen.clock.settle()
   expect(ran.text).toContain('캐릭터 만들기를 시작했어요')
 })
+
+test('/homingbird teach starts a teaching chat that only proposes, and says only the person saves', async ($, on) => {
+  const seen = engineBeneath(on, { overview: OVERVIEW })
+  await $.session.start(START)
+  const ran = (await $.command.run({ command: 'homingbird', args: 'teach refunds' } as never)) as {
+    text: string
+  }
+  await seen.clock.settle()
+  expect(ran.text).toContain('Teaching by chatting')
+  expect(seen.prompts).toHaveLength(1)
+  const prompt = seen.prompts[0]!
+  expect(prompt).toContain('Start with what I asked about: refunds')
+  expect(prompt.indexOf('interview_material')).toBeLessThan(prompt.indexOf('propose_principle'))
+  expect(prompt).toContain('Never say a principle was saved.')
+  expect(seen.opened.count).toBe(0)
+})

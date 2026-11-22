@@ -50,6 +50,11 @@ import type {
   Settings as SettingsSchema,
 } from './model.ts'
 import type {
+  PrincipleProposal as PrincipleProposalSchema,
+  TeachingInterview as TeachingInterviewSchema,
+  TeachingMaterial as TeachingMaterialSchema,
+} from './principle-proposals.ts'
+import type {
   Achievement as AchievementSchema,
   DraftingPrinciples as DraftingPrinciplesSchema,
   MyPrinciples as MyPrinciplesSchema,
@@ -88,6 +93,9 @@ export type DebateExport = S.Read<typeof DebateExportSchema>
 export type MyPrinciples = S.Read<typeof MyPrinciplesSchema>
 export type Principle = S.Read<typeof PrincipleSchema>
 export type PrincipleOffer = S.Read<typeof PrincipleOfferSchema>
+export type PrincipleProposal = S.Read<typeof PrincipleProposalSchema>
+export type TeachingInterview = S.Read<typeof TeachingInterviewSchema>
+export type TeachingMaterial = S.Read<typeof TeachingMaterialSchema>
 export type DraftingPrinciples = S.Read<typeof DraftingPrinciplesSchema>
 export type ChannelTeaching = S.Read<typeof ChannelTeachingSchema>
 export type ChannelDecisions = S.Read<typeof ChannelDecisionsSchema>

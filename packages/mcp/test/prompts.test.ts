@@ -11,9 +11,16 @@ const get = async (name: unknown, given?: unknown) => {
 }
 
 describe('promptDefinitions', () => {
-  it('lists inbox, ask, watch, character and open with a title, a description and their arguments', () => {
+  it('lists inbox, ask, watch, character, teach and open with a title, a description and their arguments', () => {
     const listed = promptDefinitions() as any[]
-    expect(listed.map((prompt) => prompt.name)).toEqual(['inbox', 'ask', 'watch', 'character', 'open'])
+    expect(listed.map((prompt) => prompt.name)).toEqual([
+      'inbox',
+      'ask',
+      'watch',
+      'character',
+      'teach',
+      'open',
+    ])
     for (const prompt of listed) {
       expect(Object.keys(prompt).sort()).toEqual(['arguments', 'description', 'name', 'title'])
       expect(prompt.description.length).toBeGreaterThan(10)

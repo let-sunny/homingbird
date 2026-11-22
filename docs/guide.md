@@ -1009,6 +1009,17 @@ You still approve every draft, unless you let the answer send itself, below.
   for something no agent may do. A principle worded like that is left out of your agent's
   instructions and named in its basis. That is a courtesy, not the protection: no agent can approve,
   send, discard or change contacts, whatever a principle says.
+- **Teach by chatting**, at the top of the tab, is the short way. Paste a principles document if you
+  have one (your team's guidelines or your own notes, up to 20,000 characters), then type
+  `/homingbird teach` in your agent's Claude Code session, or choose the **Teach my agent** prompt in
+  another MCP client. Your own agent asks one short question at a time, such as "How do you usually
+  handle refund requests?", drawing on the document and on drafts of its own you edited or
+  discarded in the last 30 days, and turns each answer into a proposal. Each proposal appears on the
+  tab as a card while you chat: **Save**, **Edit** (then **Save with my changes**) or **Discard**, and
+  **Save all** under each list. **Suggestions from drafts you rewrote** lists the ones your agent made
+  from your edits. The web client has no model of its own; nothing becomes a principle until you
+  save it here, and a proposal that asks for something no agent may do is refused. At most 20 wait at
+  once.
 - **Priority channel** picks one of your channels. When your agent answers in that channel, it follows
   the principle before your others; everywhere else it keeps your order. **None (your order)** keeps
   the principle in your order everywhere.

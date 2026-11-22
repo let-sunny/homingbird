@@ -14,6 +14,7 @@ import { loadGroups } from './groups.ts'
 import { forgetNote, forgetRelease, loadThread, rememberNote } from './notes.ts'
 import { closeDraftNotice } from './notifications.ts'
 import { loadPreviews, reloadPreviews } from './previews.ts'
+import { refreshInterview } from './teaching-interview.ts'
 import { loadAgents, loadConversations, loadKnownChannels, loadPeople, loadWorkspace } from './workspace.ts'
 
 /** What each live event changes in the page, as one change: the state it updates and what it loads again. */
@@ -36,6 +37,11 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
   const reloadReviewsSoon = (): void => {
     cancelReviewsReload()
     cancelReviewsReload = later(app.clock, DIRECTORY_SETTLE_MS, () => launch(loadReviews))
+  }
+  let cancelInterviewReload = (): void => {}
+  const reloadInterviewSoon = (): void => {
+    cancelInterviewReload()
+    cancelInterviewReload = later(app.clock, DIRECTORY_SETTLE_MS, () => launch(refreshInterview))
   }
   let cancelDebatesReload = (): void => {}
   const reloadDebatesSoon = (): void => {
@@ -133,6 +139,9 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
         break
       case 'review.changed':
         reloadReviewsSoon()
+        break
+      case 'proposals.changed':
+        if (state.interview.get() !== null) reloadInterviewSoon()
         break
       case 'preview.changed':
         if (body.conversationId === null) launch(reloadPreviews)

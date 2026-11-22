@@ -11,8 +11,8 @@ afterEach(async () => {
 })
 
 describe('the debate agreement step', () => {
-  it('is the last step', () => {
-    expect(stepNumberOf(DEBATE_AGREEMENT)).toBe(MIGRATIONS.length)
+  it('is the twentieth step, after who discarded an answer', () => {
+    expect(stepNumberOf(DEBATE_AGREEMENT)).toBe(20)
   })
 
   it('adds whether a turn said it was ready and why a room stopped taking turns', async () => {

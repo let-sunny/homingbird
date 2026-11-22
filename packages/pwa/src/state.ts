@@ -66,6 +66,7 @@ export const createState = (hash: string): AppState => {
     openedForThePerson: signal<ConversationId | null>(null),
     agentReport: signal<AsRead.AgentReport | 'failed' | null>(null),
     taught: signal<AsRead.MyPrinciples | 'failed' | null>(null),
+    interview: signal<AsRead.TeachingInterview | 'failed' | null>(null),
     debates: signal<ReadonlyArray<AsRead.DebateSummary>>([]),
     debatesLoaded: signal(false),
     shownDebate: signal<AsRead.Debate | 'missing' | null>(null),
@@ -152,6 +153,8 @@ export interface AppState {
   readonly openedForThePerson: Signal<ConversationId | null>
   readonly agentReport: Signal<AsRead.AgentReport | 'failed' | null>
   readonly taught: Signal<AsRead.MyPrinciples | 'failed' | null>
+  /** The pasted principles document and the proposals the person's agent made in a teaching chat. */
+  readonly interview: Signal<AsRead.TeachingInterview | 'failed' | null>
   readonly debates: Signal<ReadonlyArray<AsRead.DebateSummary>>
   readonly debatesLoaded: Signal<boolean>
   readonly shownDebate: Signal<AsRead.Debate | 'missing' | null>

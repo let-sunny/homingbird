@@ -4961,6 +4961,48 @@ textarea:disabled {
   font-size: var(--hb-text-small);
 }
 
+.teach-chat {
+  display: grid;
+  gap: var(--hb-space-3);
+  margin-block-end: var(--hb-space-4);
+}
+
+.teach-chat h3,
+.proposal-group h4 {
+  margin: 0;
+  font-size: var(--hb-text-body);
+}
+
+.teach-chat-steps {
+  margin: 0;
+  padding-inline-start: var(--hb-space-4);
+}
+
+.teach-chat-document textarea,
+.proposal-edit textarea,
+.proposal-edit input {
+  inline-size: 100%;
+}
+
+.proposal-group {
+  display: grid;
+  gap: var(--hb-space-2);
+  justify-items: start;
+}
+
+.proposal-group .chance-list {
+  justify-self: stretch;
+}
+
+.chance.proposal {
+  border-style: solid;
+}
+
+.proposal-edit {
+  display: grid;
+  gap: var(--hb-space-2);
+}
+
 .teach-chances h3,
 .milestones h3 {
   margin: 0 0 var(--hb-space-2);

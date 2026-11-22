@@ -182,6 +182,15 @@ export const AUDIT_DETAILS: { readonly [N in AuditedRoute]: Describe<N> } = {
   'principles.reorder': ({ body }) =>
     afterwards(() => ({ targetId: null, detail: { count: body.ids.length } })),
   'principles.delete': ({ params }) => afterwards(() => ({ targetId: params.id, detail: {} })),
+  'teaching.document.set': ({ body }) =>
+    afterwards(() => ({ targetId: null, detail: { kept: (body.document ?? '').trim() !== '' } })),
+  'principleProposals.create': () =>
+    afterwards((proposal) => ({ targetId: proposal.id, detail: { kind: proposal.kind } })),
+  'principleProposals.accept': () =>
+    afterwards((principle) => ({ targetId: principle.id, detail: { kind: principle.kind } })),
+  'principleProposals.acceptAll': ({ body }) =>
+    afterwards(() => ({ targetId: null, detail: { count: new Set(body.ids).size } })),
+  'principleProposals.discard': ({ params }) => afterwards(() => ({ targetId: params.id, detail: {} })),
   'debates.create': () =>
     afterwards((debate) => ({ targetId: debate.id, detail: { visibility: debate.visibility } })),
   'debates.optIn': ({ params, body }) =>

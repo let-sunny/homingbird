@@ -104,6 +104,8 @@ exports[`schema > generates stable DDL for mysql 1`] = `
   "ALTER TABLE notes ADD COLUMN discarded_by VARCHAR(64)",
   "ALTER TABLE debate_turns ADD COLUMN ready BIGINT",
   "ALTER TABLE debates ADD COLUMN concluded_because VARCHAR(400)",
+  "CREATE TABLE IF NOT EXISTS principle_proposals (id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, kind VARCHAR(400) NOT NULL, topic VARCHAR(400) NOT NULL, rule MEDIUMTEXT NOT NULL, source MEDIUMTEXT, place VARCHAR(400), question MEDIUMTEXT, origin VARCHAR(400) NOT NULL, rewrite_of VARCHAR(64), created_at BIGINT NOT NULL, PRIMARY KEY (id), INDEX principle_proposals_member_id_created_at_idx (member_id, created_at))",
+  "CREATE TABLE IF NOT EXISTS teaching_documents (member_id VARCHAR(64) NOT NULL, document MEDIUMTEXT NOT NULL, updated_at BIGINT NOT NULL, PRIMARY KEY (member_id))",
 ]
 `;
 
@@ -257,6 +259,9 @@ exports[`schema > generates stable DDL for postgres 1`] = `
   "ALTER TABLE notes ADD COLUMN discarded_by VARCHAR(64)",
   "ALTER TABLE debate_turns ADD COLUMN ready BIGINT",
   "ALTER TABLE debates ADD COLUMN concluded_because VARCHAR(400)",
+  "CREATE TABLE IF NOT EXISTS principle_proposals (id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, kind VARCHAR(400) NOT NULL, topic VARCHAR(400) NOT NULL, rule TEXT NOT NULL, source TEXT, place VARCHAR(400), question TEXT, origin VARCHAR(400) NOT NULL, rewrite_of VARCHAR(64), created_at BIGINT NOT NULL, PRIMARY KEY (id))",
+  "CREATE INDEX IF NOT EXISTS principle_proposals_member_id_created_at_idx ON principle_proposals (member_id, created_at)",
+  "CREATE TABLE IF NOT EXISTS teaching_documents (member_id VARCHAR(64) NOT NULL, document TEXT NOT NULL, updated_at BIGINT NOT NULL, PRIMARY KEY (member_id))",
 ]
 `;
 
@@ -410,5 +415,8 @@ exports[`schema > generates stable DDL for sqlite 1`] = `
   "ALTER TABLE notes ADD COLUMN discarded_by TEXT",
   "ALTER TABLE debate_turns ADD COLUMN ready INTEGER",
   "ALTER TABLE debates ADD COLUMN concluded_because TEXT",
+  "CREATE TABLE IF NOT EXISTS principle_proposals (id TEXT NOT NULL, member_id TEXT NOT NULL, kind TEXT NOT NULL, topic TEXT NOT NULL, rule TEXT NOT NULL, source TEXT, place TEXT, question TEXT, origin TEXT NOT NULL, rewrite_of TEXT, created_at INTEGER NOT NULL, PRIMARY KEY (id))",
+  "CREATE INDEX IF NOT EXISTS principle_proposals_member_id_created_at_idx ON principle_proposals (member_id, created_at)",
+  "CREATE TABLE IF NOT EXISTS teaching_documents (member_id TEXT NOT NULL, document TEXT NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (member_id))",
 ]
 `;

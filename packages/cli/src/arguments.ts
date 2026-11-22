@@ -3,6 +3,7 @@ import { ATTACH_WITH_SPLIT } from './agent-launch.ts'
 import { agentCommand, defaultReader } from './agent-presets.ts'
 import type { RunnerSettings } from './commands/run.ts'
 import type { ServiceOptions } from './commands/service.ts'
+import type { ProposalWords } from './commands/teaching.ts'
 import { CliFailure, EXIT } from './failure.ts'
 
 export type DraftTarget =
@@ -61,6 +62,8 @@ export type Invocation =
   | { readonly command: 'guidance'; readonly conversationId: string }
   | { readonly command: 'pickup'; readonly noteId: string }
   | { readonly command: 'skip'; readonly noteId: string; readonly reason: string | null }
+  | { readonly command: 'teaching' }
+  | ({ readonly command: 'propose' } & ProposalWords)
   | { readonly command: 'stream'; readonly after: number | null }
   | ({ readonly command: 'service'; readonly action: 'install' } & ServiceOptions)
   | { readonly command: 'service'; readonly action: 'status' | 'stop' | 'uninstall' }
@@ -135,6 +138,11 @@ export const USAGE = `Usage: homingbird <command> [options]
                                                conversation, for a desk about to draft there
   pickup <noteId>
   skip <noteId> [reason]                       give a picked-up note back without drafting
+  teaching                                     what a teaching chat draws on: the pasted document
+                                               and the drafts your person rewrote, quoted
+  propose --topic "<title>" [--answer] [--source <url>] [--channel <slug>] [--question "<asked>"]
+        [--rewrite-of <noteId>] <rule>         propose a principle; only your person saves it,
+                                               in the web client
   stream [--after <sequence>]
   run --agent "<command>" [--timeout <seconds>] [--log-level error|warn|info|debug]
       [--split [--reader "<command>"] [--require-toolless-reader]] [--attach-mcp]
@@ -187,9 +195,14 @@ const VALUE_FLAGS = new Set([
   'log-level',
   'credentials-file',
   'join',
+  'topic',
+  'source',
+  'question',
+  'rewrite-of',
 ])
 const SWITCH_FLAGS = new Set([
   'json',
+  'answer',
   'no-browser',
   'fresh',
   'help',
@@ -424,6 +437,23 @@ const BUILDERS: Readonly<Record<string, (tokens: Tokens) => Result.Result<Invoca
     Result.map((noteId: string) => ({ command: 'skip' as const, noteId, reason: joined(rest.slice(1)) }))(
       required(rest, 'the note id'),
     ),
+  teaching: () => Result.ok({ command: 'teaching' }),
+  propose: ({ rest, values, switches }) =>
+    Result.gen(function* () {
+      const topic = values.get('topic')?.trim() ?? ''
+      const rule = rest.join(' ').trim()
+      if (topic === '' || rule === '') return yield* usage('A proposal needs --topic "<title>" and its rule.')
+      return {
+        command: 'propose',
+        topic,
+        rule,
+        kind: switches.has('answer') ? 'answer' : null,
+        source: values.get('source')?.trim() || null,
+        place: values.get('channel')?.trim() || null,
+        question: values.get('question')?.trim() || null,
+        rewriteOf: values.get('rewrite-of')?.trim() || null,
+      } as const
+    }),
   stream: ({ values }) => {
     const after = values.get('after')
     if (after !== undefined && !/^[0-9]{1,15}$/.test(after)) return usage('--after needs a sequence number.')
