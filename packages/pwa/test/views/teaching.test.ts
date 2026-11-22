@@ -140,6 +140,30 @@ describe('a principle switched on or off', () => {
   })
 })
 
+describe('taughtSection hints', () => {
+  it('says what the public switch and the kind of a principle do, as their descriptions', () => {
+    const { context } = testContext()
+    const shown = mount(taughtSection(context, lifetime()))
+    const tone = principle('Tone', { publicText: 'Friendly.' })
+    const dates = principle('Dates', { kind: 'answer' })
+    context.state.taught.set(taught({ principles: [tone, dates] }))
+    const hintOf = (element: Element) => {
+      const siblings = [...element.parentElement!.children]
+      const hint = siblings[siblings.indexOf(element) + 1]!
+      expect(element.getAttribute('aria-describedby')).toBe(hint.id)
+      return hint.textContent
+    }
+    expect(hintOf(getByRole(shown, 'button', { name: strings.teach.makePrivate({ name: 'Tone' }) }))).toBe(
+      strings.hints.makePrivate,
+    )
+    expect(hintOf(getByRole(shown, 'button', { name: strings.teach.makePublic({ name: 'Dates' }) }))).toBe(
+      strings.hints.makePublic,
+    )
+    const badges = [...shown.querySelectorAll('.principle-kind-badge')]
+    expect(badges.map(hintOf)).toEqual([strings.hints.kindRule, strings.hints.kindAnswer])
+  })
+})
+
 describe('chancesIn', () => {
   it('shows this conversation’s chances to teach as one line each, while teaching is on', () => {
     mount(dialogHost())

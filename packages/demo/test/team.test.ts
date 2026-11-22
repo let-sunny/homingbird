@@ -35,12 +35,20 @@ describe('demoTeam', () => {
   })
 
   it('leaves three drafts waiting: the visitor’s agent’s reply, and a channel’s agent’s answers to review', () => {
-    const drafts = team.notes.filter((note) => note.status === 'draft')
+    const drafts = team.notes.filter((note) => note.status === 'draft' && note.agentName !== "Ben's desk")
     expect(drafts.map((note) => note.authorId === VISITOR_ID)).toEqual([true, false, false])
     const agent = team.members.find((each) => each.member.id === drafts[1]!.authorId)!.member
     expect(isPerson(agent)).toBe(false)
     expect(drafts[2]!.authorId).toBe(agent.id)
     expect(team.channels.find((channel) => channel.agentId === agent.id)?.slug).toBe('billing')
+  })
+
+  it('leaves Ben’s agent’s draft unconfirmed in his conversation with the visitor, who Ben lets see it early', () => {
+    const early = team.notes.filter((note) => note.status === 'draft' && note.agentName === "Ben's desk")
+    expect(early).toHaveLength(1)
+    expect(team.previewAllowances).toEqual([
+      { memberId: early[0]!.authorId, allowance: { people: [VISITOR_ID], channels: [] } },
+    ])
   })
 
   it('keeps a question asked privately of #billing’s agent, which the visitor reviews, and an invite link', () => {

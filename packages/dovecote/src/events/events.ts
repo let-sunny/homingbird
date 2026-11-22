@@ -1,5 +1,11 @@
 import { Stream, Task as T, isOk, pipe } from '@homingbird/kernel'
-import type { CredentialKind, EventBody, MemberId, StreamEvent } from '@homingbird/protocol'
+import {
+  type CredentialKind,
+  type EventBody,
+  type MemberId,
+  type StreamEvent,
+  isForPeopleOnly,
+} from '@homingbird/protocol'
 import type { AuditCopy } from '../domain/audit.ts'
 import { featureIsOn } from '../domain/settings.ts'
 import type { AppEnv } from '../environment.ts'
@@ -128,6 +134,7 @@ export const liveEvents = (
     const live = pipe(
       subscription,
       Stream.filter((event: StreamEvent) => event.seq === 0 || event.seq > cursor),
+      Stream.filter((event: StreamEvent) => kind === 'human' || !isForPeopleOnly(event.body.type)),
       Stream.concat(
         Stream.fromTask(
           T.sync(() => (subscription.overflowed() ? Stream.of(resync(env.clock.now())) : Stream.empty)),

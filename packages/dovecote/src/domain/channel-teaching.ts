@@ -165,7 +165,9 @@ const teachingOf = (row: ChannelRow, agentId: MemberId): T.Task<ChannelTeaching,
     return {
       channel: row.slug,
       ...brief,
-      principles: (yield* principlesOf(agentId)).map((principle) => shownWith(principle, figures)),
+      principles: (yield* principlesOf(agentId)).map((principle) =>
+        shownWith(principle, { figures, autoSend: false }),
+      ),
       limit: PRINCIPLES_PER_PERSON,
     }
   })

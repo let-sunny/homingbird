@@ -6,6 +6,7 @@ import { strings } from '../strings.ts'
 import { authorButton } from './author-details.ts'
 import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
+import { hinted } from './hint.ts'
 import { actionMenu } from './menu.ts'
 import { noteBody } from './note-body.ts'
 import { button, sourceList, timeLabel } from './parts.ts'
@@ -87,6 +88,21 @@ export const renderNoteItem = (
           sourceList(model.basis.sources),
         ),
       model.approval !== null && h('p', { class: 'note-approval' }, model.approval),
+      model.autoSent !== null &&
+        h(
+          'p',
+          { class: 'note-auto-sent' },
+          hinted(context, 'autoSend', strings.hints.autoSend, h('span', {}, model.autoSent.text)),
+          model.autoSent.recall !== null &&
+            button(
+              model.autoSent.recall,
+              () =>
+                actions.recallNote(note, {
+                  done: () => context.state.notice.set({ kind: 'info', text: strings.autoSend.recalled }),
+                }),
+              { class: 'link recall-note' },
+            ),
+        ),
       model.answeredBy !== null &&
         h(
           'p',

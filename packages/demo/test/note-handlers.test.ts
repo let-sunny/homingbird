@@ -297,3 +297,34 @@ describe('earlier answers', () => {
     ).toMatchObject({ _tag: 'NotFound' })
   })
 })
+
+describe('notes.recall', () => {
+  it('recalls the note the visitor’s saved answer just sent, tells the room, and refuses anything else', async () => {
+    const { api, world } = demoApi()
+    const kai = memberNamed(world, 'Kai Lin')
+    const sent = noteStarting(world, 'Annual plans are refunded pro rata for the unused full months.')
+    expect(sent).toMatchObject({ status: 'sent', autoSent: true })
+    const recalled = await succeeded(api['notes.recall']({ params: { id: sent.id } }))
+    expect(recalled).toMatchObject({ status: 'withdrawn', receipts: [] })
+    expect(world.eventsAfter(kai, 0).map((event) => event.body.type)).toContain('note.withdrawn')
+    const seen = await succeeded(
+      api['conversations.notes']({ params: { id: sent.conversationId }, query: {} }),
+    )
+    expect(seen.notes.find((each) => each.id === sent.id)?.status).toBe('withdrawn')
+    const asKai = await succeeded(
+      demoApi(kai, world).api['conversations.notes']({ params: { id: sent.conversationId }, query: {} }),
+    )
+    expect(asKai.notes.map((each) => each.id)).not.toContain(sent.id)
+    expect(await refused(api['notes.recall']({ params: { id: sent.id } }))).toMatchObject({
+      _tag: 'Conflict',
+    })
+    const clicked = noteStarting(world, 'Yes, all 1,284 invoices')
+    expect(await refused(api['notes.recall']({ params: { id: clicked.id } }))).toMatchObject({
+      _tag: 'Conflict',
+    })
+    const theirs = noteStarting(world, 'Quick one: how are annual plans')
+    expect(await refused(api['notes.recall']({ params: { id: theirs.id } }))).toMatchObject({
+      _tag: 'NotFound',
+    })
+  })
+})
