@@ -28,8 +28,8 @@ describe('the tour', () => {
     expect(TOUR_STEPS).toEqual(['notes', 'approval', 'channels', 'activity', 'profile', 'connect'])
   })
 
-  it('points the approval step at a waiting draft, else at the bell that lists drafts', () => {
-    expect(tourTargets('approval')).toEqual(['approval', 'activity'])
+  it('points the approval step at a waiting draft, else at a row where one waits, else at the bell that lists drafts', () => {
+    expect(tourTargets('approval')).toEqual(['approval', 'waiting-draft', 'activity'])
     expect(tourTargets('notes')).toEqual(['notes'])
   })
 
@@ -48,13 +48,14 @@ describe('the tour', () => {
     expect(() => forgetTourSeen(broken)).not.toThrow()
   })
 
-  it('starts on a first visit to a page it explains, never over a task the person came to finish, and never twice', () => {
+  it('starts on a first visit to a page it explains, never over a task the person came to finish or over the first steps, and never twice', () => {
     for (const route of ['home', 'conversation', 'people', 'channels', 'channel', 'debates', 'agent'])
-      expect(mayStartTour(route, false, false)).toBe(true)
+      expect(mayStartTour(route, false, false, false)).toBe(true)
     for (const route of ['device', 'character', 'consent', 'invite', 'admin', 'signed-out', 'unknown'])
-      expect(mayStartTour(route, false, false)).toBe(false)
-    expect(mayStartTour('home', true, false)).toBe(false)
-    expect(mayStartTour('home', false, true)).toBe(false)
+      expect(mayStartTour(route, false, false, false)).toBe(false)
+    expect(mayStartTour('home', true, false, false)).toBe(false)
+    expect(mayStartTour('home', false, true, false)).toBe(false)
+    expect(mayStartTour('home', false, false, true)).toBe(false)
   })
 
   it('steps forward and back, stays on the first step, and ends after the last', () => {

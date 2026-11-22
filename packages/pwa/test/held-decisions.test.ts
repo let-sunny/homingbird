@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  HOLD_SECONDS,
   conversationsWithoutHeld,
+  countdownText,
   heldLineFor,
   heldWordsFor,
   keptEditLine,
@@ -31,10 +33,12 @@ describe('what a card shows in its place while a decision on it is held', () => 
       noteId: 'd1',
       className: 'held-line is-send',
       text: strings.heldSendingIn({ names: 'Ben', seconds: 5 }),
+      countdown: heldWordsFor('Ben').send.waiting,
       undo: strings.undo,
     })
     expect(heldLineFor([held('d1', 'committing')], ids('d1'))).toMatchObject({
       text: strings.heldSending({ names: 'Ben' }),
+      countdown: null,
       undo: null,
     })
     expect(heldLineFor([held('d1', 'done')], ids('d1'))?.text).toBe(strings.heldSent({ names: 'Ben' }))
@@ -44,6 +48,13 @@ describe('what a card shows in its place while a decision on it is held', () => 
     })
     expect(heldLineFor([held('d1', 'committing', 'discard')], ids('d1'))?.text).toBe(strings.heldDiscarding)
     expect(heldLineFor([held('d1', 'waiting')], ids('d2'))).toBeNull()
+  })
+
+  it('says the sentence for the whole seconds left, never under one nor over the hold', () => {
+    const words = heldWordsFor('Ben').send.waiting
+    expect(countdownText(words, 3)).toBe(strings.heldSendingIn({ names: 'Ben', seconds: 3 }))
+    expect(countdownText(words, 0)).toBe(strings.heldSendingIn({ names: 'Ben', seconds: 1 }))
+    expect(countdownText(words, 9)).toBe(strings.heldSendingIn({ names: 'Ben', seconds: HOLD_SECONDS }))
   })
 
   it('finds the one decision that can still be undone', () => {
@@ -59,13 +70,13 @@ describe('what a card shows in its place while a decision on it is held', () => 
   it('names who a send goes to while it waits, once sent, and when the page closed first', () => {
     expect(heldWordsFor('Ana')).toEqual({
       send: {
-        waiting: strings.heldSendingIn({ names: 'Ana', seconds: 5 }),
+        waiting: [1, 2, 3, 4, 5].map((seconds) => strings.heldSendingIn({ names: 'Ana', seconds })),
         pending: strings.heldSending({ names: 'Ana' }),
         done: strings.heldSent({ names: 'Ana' }),
         notDone: strings.heldNotSent({ names: 'Ana' }),
       },
       discard: {
-        waiting: strings.heldDiscardingIn({ seconds: 5 }),
+        waiting: [1, 2, 3, 4, 5].map((seconds) => strings.heldDiscardingIn({ seconds })),
         pending: strings.heldDiscarding,
         done: strings.heldDiscarded,
         notDone: strings.heldNotDiscarded,

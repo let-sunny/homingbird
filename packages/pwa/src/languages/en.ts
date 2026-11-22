@@ -62,6 +62,7 @@ export const en = {
   you: 'You',
   unread: { one: '{count} unread', other: '{count} unread' },
   draftsWaiting: { one: '{count} draft waiting', other: '{count} drafts waiting' },
+  draftsShort: { one: 'draft', other: 'drafts' },
   composerLabel: 'Write a note',
   composerPlaceholder: 'Write a note. Text and links only.',
   composerHint: 'Enter sends. Shift+Enter adds a line.',
@@ -105,6 +106,8 @@ export const en = {
   copyNote: 'Copy text',
   noteCopied: 'Copied the note.',
   copyCode: 'Copy',
+  lineCopied: 'Copied. Paste it where the step says.',
+  copyLine: 'Copy line {number}',
   codeCopied: 'Copied the code.',
   noteNotCopied: 'This browser did not let Homingbird copy. Select the text and copy it yourself.',
   noteFixed: 'Sent notes cannot be changed. Reply to correct one.',
@@ -114,6 +117,7 @@ export const en = {
   unsentText: 'Unsent text kept here',
   conversationMore: 'More for {name}',
   letAgentWrite: 'Let my agent write it',
+  letAgentWriteHint: 'Opens a line to say what the note should say; Ask my agent there sends the request.',
   agentInstructionLabel: 'What should it say? (optional)',
   agentInstructionPlaceholder: 'Optional: what should it say?',
   agentPickerLabel: 'Which agent',
@@ -167,14 +171,15 @@ export const en = {
     outside: 'Asked in an outside chat tool',
   } satisfies Record<Origin | 'unknown', string>,
   agentNames: {
-    desk: 'Claude Code plugin',
-    runner: 'homingbird run · {host}',
-    runnerUnnamed: 'homingbird run',
+    desk: 'in Claude Code',
+    runner: 'on {host}',
+    runnerUnnamed: 'in the background',
+    connection: 'on {name}',
   },
   originNamed: {
-    unknown: '{agent}',
-    agent: 'Agent · {agent}',
-    human_edited: 'Agent · {agent}, edited by a person',
+    unknown: 'Your agent, {agent}',
+    agent: 'Your agent, {agent}',
+    human_edited: 'Your agent, {agent}, edited by a person',
     outside: '{agent}',
   },
   status: {
@@ -201,7 +206,8 @@ export const en = {
   heldNotDiscarded: 'Not discarded: the page closed before it went. The draft still waits.',
   draftEditKept: 'Your edit is kept and not sent. Edit opens it again.',
   undo: 'Undo',
-  heldDismiss: 'Done',
+  heldSendNow: 'Send now',
+  heldDiscardNow: 'Discard now',
   noAnswerYet: 'No answer yet',
   chooseOne: {
     one: '{count} alternative. Send it or discard it.',
@@ -242,9 +248,9 @@ export const en = {
     shownAgain: 'Hints show again from now on, in this browser.',
     kindRule: 'A rule tells your agent how to find the answer, so it stays right when the facts change.',
     kindAnswer: 'An answer is what your agent says as it is; keep it for facts that rarely change.',
-    makePublic: 'Click to show colleagues one sentence about this principle; the principle stays private.',
-    makePrivate: 'Click to stop showing colleagues the sentence about this principle.',
-    approveAndSend: 'Click to send this exactly as shown; nothing leaves until you do.',
+    makePublic: 'Press to show colleagues one sentence about this principle; the principle stays private.',
+    makePrivate: 'Press to stop showing colleagues the sentence about this principle.',
+    approveAndSend: 'Press to send this exactly as shown; nothing leaves until you do.',
     draft: 'Your agent wrote this; nobody else sees it until you approve and send it.',
     channelAgent: 'Open the agent that answers this channel; its managers approve each answer.',
     channelManagers: 'Managers run this channel’s agent and send its answers after reading them.',
@@ -323,6 +329,22 @@ export const en = {
   agentOffline: 'Agent not awake',
   agentOnlineHint:
     'The program that runs their agent is on, so a note sent now gets a reply drafted right away.',
+  agentOfflineHint: 'No program is running their agent, so your note waits until they read it themselves.',
+  theirPresence: {
+    onlineHint: 'They have Homingbird open now.',
+    awayHint: 'They do not have Homingbird open now; they see your note when they next open it.',
+  },
+  selfPresence: {
+    online: 'You: online',
+    away: 'You: away',
+    onlineHint: 'You have Homingbird open, so colleagues see you are here.',
+    awayHint: 'You do not have Homingbird open in any window.',
+    agentOnline: 'Your agent: awake',
+    agentOffline: 'Your agent: not awake',
+    agentOnlineHint:
+      'The program that runs your agent is on, so it drafts a reply as soon as a note arrives.',
+    agentOfflineHint: 'No program is running your agent now, so notes wait for you to answer them yourself.',
+  },
   agentUnavailable: 'Agent can’t answer right now',
   agentUnavailableUntil: 'Agent can’t answer until {time}',
   agentUnavailableHint:
@@ -587,7 +609,7 @@ export const en = {
     title: 'Connect your first agent',
     anotherTitle: 'Connect another agent',
     plugin:
-      'In Claude Code, install the plugin, then open it on this server in the session that should answer for you. The plugin calls that session your desk.',
+      'In Claude Code, in a window you keep open for this, paste line 1, then line 2. Line 1 asks whether to install the Homingbird plugin: answer yes and keep the scope it suggests.',
     commandLine:
       'With another agent, such as Codex or Gemini CLI, install the command line and sign it in on its computer.',
     run: 'Then keep your agent answering: homingbird run starts it for each note that arrives.',
@@ -671,6 +693,7 @@ export const en = {
       other: 'Show only the {count} direct messages and channels waiting for you',
     },
     filterNone: 'Show only direct messages and channels waiting for you',
+    filterCount: { one: 'in {count} place', other: 'in {count} places' },
     peopleNone: 'No direct or group message waits for you.',
     roomsNone: 'No channel waits for you.',
   },
@@ -702,7 +725,7 @@ export const en = {
       'When your agent drafts a reply, it waits on a card in its direct message or channel, and under the bell. Approve and send it as written, Edit it first, or Discard it; nothing leaves until you press Approve and send.',
     connectTitle: 'Connect your agent',
     connectBody:
-      'Under My agent, Connection: install the Claude Code plugin or the homingbird command line, sign it in, and keep it running. It drafts replies; you approve each one.',
+      'My agent, Connection has the lines to copy into Claude Code, and one line for a server. Your agent drafts replies; you approve each one.',
     connectAction: 'Open My agent',
     channelsTitle: 'Channels',
     channelsBody:
@@ -1495,12 +1518,13 @@ export const en = {
     firstTitle: 'Your first note, in three steps',
     connectStep: 'Connect your agent',
     connectStepHint:
-      'In Claude Code, paste these two lines into the session that should answer for you. It drafts your replies; nothing is sent until you approve.',
+      'Open Claude Code in a window you keep open for this, then paste line 1, press Enter, and paste line 2. Line 1 asks whether to install the Homingbird plugin: answer yes and keep the scope it suggests. Your agent then drafts your replies; nothing is sent until you approve.',
     otherAgents: 'Another agent, or a server',
     connectedStep: 'Your agent is connected',
     connectedStepHint: 'It drafts a reply when a note arrives for you.',
     writeStep: 'Write to a colleague, or ask a channel',
-    writeStepHint: 'Their agent drafts the answer, and they approve it before it reaches you.',
+    writeStepHint:
+      'If their agent is awake, it drafts the answer and they approve it before it reaches you. If not, they read your note when they next open Homingbird.',
     approveStep: 'Approve your agent’s first draft',
     approveStepHint:
       'When a colleague writes to you, your agent’s draft waits in that direct message and under the bell. Approve and send it, edit it, or discard it; nothing leaves before.',
@@ -2042,7 +2066,9 @@ export const en = {
     muteName: 'Mute {name}',
     unmuteName: 'Unmute {name}',
     muted: 'Muted',
-    hint: 'Muted: notes still arrive and count as unread, but send you no notifications.',
+    hint: 'Mute: notes still arrive and count as unread, but send you no notifications.',
+    hintMuted:
+      'Muted: notes still arrive and count as unread, but send you no notifications. Press to get notifications again.',
     levelLegend: 'What notifies you',
     levelHint: 'For notifications on your devices. A direct message or channel you muted never sends one.',
     all: 'Every direct message and channel',
@@ -2071,7 +2097,8 @@ export const en = {
     revoke: 'Revoke',
     revoked: 'That invite link no longer works.',
     invitedTitle: 'You are invited',
-    invitedBody: 'Sign in to join {name}.',
+    invitedBody: 'Sign in to join {name} on Homingbird, at {address}.',
+    invitedBodyAt: 'Sign in to join your organization’s Homingbird, at {address}.',
     refused:
       'This invite link is unknown, expired or already used. Ask the person who sent it for a new one.',
     alreadyIn: 'You are already signed in here, so this invite link is not needed.',
@@ -2100,6 +2127,8 @@ export const en = {
     awakeNow: 'It is awake now.',
     notAwakeYet: 'It is not awake yet; it wakes as soon as the service on that server starts.',
     another: 'Run on another server',
+    running:
+      'Your agent is running. Connection: {name}, last active {time}. To stop it, revoke that connection under Devices and agents.',
   },
   draftPreviews: {
     intro:

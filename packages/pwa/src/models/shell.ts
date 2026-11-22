@@ -183,7 +183,8 @@ export interface ConversationRow {
   readonly preview: string
   readonly time: TimeShown | null
   readonly unread: { readonly count: number; readonly label: string } | null
-  readonly drafts: { readonly text: string; readonly label: string } | null
+  /** The pencil and count, with a word a touch screen shows beside them, where no hover explains them. */
+  readonly drafts: { readonly text: string; readonly label: string; readonly word: string } | null
   /** A pencil while the composer keeps text the person has not sent. */
   readonly typed: { readonly text: string; readonly label: string } | null
   /** The channel's agent's answers waiting for the person's review; the row then opens at the first. */
@@ -262,6 +263,7 @@ const conversationRow = (input: SidebarInput, conversation: AsRead.Conversation)
         ? {
             text: `✎${conversation.draftCount}`,
             label: strings.draftsWaiting({ count: conversation.draftCount }),
+            word: strings.draftsShort({ count: conversation.draftCount }),
           }
         : null,
     typed: input.typedIn.has(conversation.id) && !archived ? { text: '✎', label: strings.unsentText } : null,

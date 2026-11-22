@@ -298,7 +298,13 @@ describe('shell', () => {
     )
     expect(row.querySelector('.conversation-title')!.getAttribute('title')).toBe('Ben')
     expect(row.querySelector('.count.unread')!.getAttribute('aria-label')).toBe(strings.unread({ count: 2 }))
-    expect(row.querySelector('.count.drafts')!.textContent).toBe('✎1')
+    expect(row.querySelector('.count.drafts')!.firstChild!.textContent).toBe('✎1')
+    expect(row.querySelector('.count.drafts .count-word')!.textContent).toBe(
+      strings.draftsShort({ count: 1 }),
+    )
+    expect(row.querySelector('.count.drafts')!.getAttribute('title')).toBe(
+      strings.draftsWaiting({ count: 1 }),
+    )
     context.state.held.set([heldDecision('d1')])
     expect(getByRole(shown, 'link', { name: /Hello/ }).querySelector('.count.drafts')).toBeNull()
     context.state.held.set([])

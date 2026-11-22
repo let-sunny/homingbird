@@ -8,13 +8,13 @@ const english = compile<typeof en>('en', en)
 const korean = compile<typeof en>('ko', ko)
 
 describe('connectionShown', () => {
-  it('says the page is up to date, quietly, while it is connected, naming the page and not the agent', () => {
+  it('says the page is up to date only to assistive technology while it is connected, naming the page and not the agent', () => {
     expect(connectionShown('live', english)).toEqual({
       state: 'connected',
       label: 'This page is up to date',
       description: 'This page is up to date',
       noticeable: false,
-      whenShort: 'hidden',
+      shown: 'hidden',
     })
   })
 
@@ -35,16 +35,16 @@ describe('connectionShown', () => {
       label: 'This page is offline',
       description: 'Offline: new notes will appear when you are back online.',
       noticeable: true,
-      whenShort: 'label',
+      shown: 'label',
     })
   })
 
-  it('hides a bare mark where the header is short of room, but always words connecting and offline', () => {
-    expect(connectionShown('live', english).whenShort).toBe('hidden')
-    expect(connectionShown('polling', english).whenShort).toBe('hidden')
-    expect(connectionShown('connecting', english).whenShort).toBe('label')
+  it('shows nothing while all is well, and always words connecting and offline', () => {
+    expect(connectionShown('live', english).shown).toBe('hidden')
+    expect(connectionShown('polling', english).shown).toBe('hidden')
+    expect(connectionShown('connecting', english).shown).toBe('label')
     expect(connectionShown('offline', korean)).toMatchObject({
-      whenShort: 'label',
+      shown: 'label',
       label: '이 페이지 오프라인',
     })
   })

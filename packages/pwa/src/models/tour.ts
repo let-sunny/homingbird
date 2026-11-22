@@ -24,7 +24,11 @@ export const tourStepModel = (step: number, targetShown: boolean): TourStepModel
 
 export interface TourStepModel {
   readonly id: TourStepId
-  readonly placement: 'beside' | 'below'
+  /**
+   * Where the callout sits by its control: under the list, in the list's own column, so it hides no
+   * draft; before the draft card, over the list rather than the card it explains; or below a control.
+   */
+  readonly placement: 'after' | 'before' | 'below'
   readonly progress: string
   readonly title: string
   readonly body: string
@@ -35,9 +39,9 @@ export interface TourStepModel {
   readonly next: string
 }
 
-const PLACEMENT: Readonly<Record<TourStepId, 'beside' | 'below'>> = {
-  notes: 'beside',
-  approval: 'below',
+const PLACEMENT: Readonly<Record<TourStepId, TourStepModel['placement']>> = {
+  notes: 'after',
+  approval: 'before',
   connect: 'below',
   channels: 'below',
   activity: 'below',

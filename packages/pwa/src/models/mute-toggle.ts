@@ -18,7 +18,7 @@ export const muteToggleModel = (
     muted,
     label: muted ? strings.mute.unmuteName({ name: title }) : strings.mute.muteName({ name: title }),
     mark: muted ? strings.mute.muted : null,
-    hint: strings.mute.hint,
+    hint: muted ? strings.mute.hintMuted : strings.mute.hint,
   }
 }
 

@@ -1,6 +1,9 @@
+import { makeTestClock } from '@homingbird/kernel'
 import { type ConversationId, DRAFT_CHANGED } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
-import { demoApi, memberNamed, noteStarting, refused, succeeded } from './support/demo.ts'
+import { VISITOR_ID } from '../src/team.ts'
+import { createWorld } from '../src/world.ts'
+import { NOW, demoApi, memberNamed, noteStarting, refused, succeeded } from './support/demo.ts'
 
 const asShown = (note: { readonly body: string; readonly conversationId: ConversationId }) => ({
   body: note.body,
@@ -242,6 +245,52 @@ describe('reading', () => {
     expect(
       (await succeeded(api['conversations.get']({ params: { id: question.conversationId } }))).draftCount,
     ).toBe(1)
+  })
+
+  it('hides a conversation from the viewer’s list until a note is sent there, and shows it again', async () => {
+    const clock = makeTestClock(NOW)
+    const { api, world } = demoApi(VISITOR_ID, createWorld(clock))
+    const ben = memberNamed(world, 'Ben Okafor')
+    const room = await succeeded(api['conversations.create']({ body: { participantIds: [ben] } }))
+    expect((await succeeded(api['conversations.hide']({ params: { id: room.id } }))).hidden).toBe(true)
+    expect((await succeeded(api['conversations.hide']({ params: { id: room.id } }))).hidden).toBe(true)
+    const asBen = demoApi(ben, world)
+    expect((await succeeded(asBen.api['conversations.get']({ params: { id: room.id } }))).hidden).toBe(false)
+    expect((await succeeded(api['conversations.unhide']({ params: { id: room.id } }))).hidden).toBe(false)
+    await succeeded(api['conversations.hide']({ params: { id: room.id } }))
+    await clock.advance(1000)
+    const draft = await succeeded(
+      asBen.api['drafts.create']({ body: { body: 'Back?', conversationId: room.id } }),
+    )
+    await succeeded(
+      asBen.api['drafts.send']({ params: { id: draft.id }, body: { expected: asShown(draft) } }),
+    )
+    expect((await succeeded(api['conversations.get']({ params: { id: room.id } }))).hidden).toBe(false)
+    await succeeded(api['conversations.hide']({ params: { id: room.id } }))
+    await clock.advance(1000)
+    await succeeded(api['drafts.create']({ body: { body: 'Mine', conversationId: room.id } }))
+    expect((await succeeded(api['conversations.get']({ params: { id: room.id } }))).hidden).toBe(false)
+  })
+
+  it('lets the viewer leave a group message for good, and refuses to leave anything else', async () => {
+    const { api, world, viewerId } = demoApi()
+    const ben = memberNamed(world, 'Ben Okafor')
+    const kai = memberNamed(world, 'Kai Lin')
+    const group = await succeeded(api['conversations.create']({ body: { participantIds: [ben, kai] } }))
+    expect(await succeeded(api['conversations.leave']({ params: { id: group.id } }))).toEqual({})
+    const listed = await succeeded(api['conversations.list']({}))
+    expect(listed.conversations.some((one) => one.id === group.id)).toBe(false)
+    const asBen = await succeeded(demoApi(ben, world).api['conversations.get']({ params: { id: group.id } }))
+    expect(asBen.participantIds).toEqual([ben, kai])
+    const left = world.eventsAfter(ben, 0).find((event) => event.body.type === 'conversation.left')
+    expect(left?.body).toEqual({ type: 'conversation.left', conversationId: group.id, memberId: viewerId })
+    expect(await refused(api['conversations.leave']({ params: { id: group.id } }))).toMatchObject({
+      _tag: 'NotFound',
+    })
+    const direct = await succeeded(api['conversations.create']({ body: { participantIds: [ben] } }))
+    expect(await refused(api['conversations.leave']({ params: { id: direct.id } }))).toMatchObject({
+      _tag: 'Forbidden',
+    })
   })
 
   it('mutes and unmutes a conversation for the viewer alone', async () => {

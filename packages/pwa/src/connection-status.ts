@@ -7,10 +7,10 @@ export interface ConnectionShown {
   readonly description: string
   readonly noticeable: boolean
   /**
-   * Where the header is short of room: a bare mark says nothing, so a connected page shows no badge
-   * (its state stays readable to assistive technology), and connecting or offline keep their words.
+   * A page that is up to date is no news: it shows no badge (its state stays readable to assistive
+   * technology), and only connecting or offline show, in words wherever the header is.
    */
-  readonly whenShort: 'hidden' | 'label'
+  readonly shown: 'hidden' | 'label'
 }
 
 export const connectionShown = (connection: Connection, strings: Strings): ConnectionShown => {
@@ -20,6 +20,6 @@ export const connectionShown = (connection: Connection, strings: Strings): Conne
     label: strings.connection[state],
     description: state === 'offline' ? strings.connectionOffline : strings.connection[state],
     noticeable: state !== 'connected',
-    whenShort: state === 'connected' ? 'hidden' : 'label',
+    shown: state === 'connected' ? 'hidden' : 'label',
   }
 }

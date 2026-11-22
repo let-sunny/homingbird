@@ -33,6 +33,6 @@ describe('signInView', () => {
     const code = form.querySelector('input[name="code"]') as HTMLInputElement
     expect([code.getAttribute('type'), code.value]).toEqual(['hidden', 'hbi_secret'])
     expect(getByRole(shown, 'button', { name: strings.signInWith({ provider: 'Google' }) })).toBeTruthy()
-    expect(shown.textContent).toContain(strings.invites.invitedBody({ name: 'homingbird' }))
+    expect(shown.textContent).toContain(strings.invites.invitedBodyAt({ address: 'localhost' }))
   })
 })

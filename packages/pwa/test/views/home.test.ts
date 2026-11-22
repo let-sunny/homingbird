@@ -11,12 +11,23 @@ usingFakeDom()
 
 describe('homeView', () => {
   it('waits for the list, then offers where to start when there is nothing yet', () => {
-    const { context, tour } = testContext()
+    const { context, tour, page } = testContext()
     const shown = homeView(context, lifetime())
     expect(shown.textContent).toBe(strings.loading)
     context.state.conversationsLoaded.set(true)
     expect(getByRole(shown, 'heading', { name: strings.start.firstTitle })).toBeTruthy()
-    expect(textOf(shown.querySelector('.start-step pre')!)).toContain('/homingbird http://localhost')
+    const lines = [...shown.querySelectorAll('.start-step pre')].map(textOf)
+    expect(lines).toEqual([
+      '/plugin install homingbird --marketplace let-sunny/homingbird',
+      '/homingbird http://localhost',
+    ])
+    const copies = [...shown.querySelectorAll<HTMLButtonElement>('.start-step .command-copy')]
+    expect(copies.map((copy) => copy.getAttribute('aria-label'))).toEqual([
+      strings.copyLine({ number: 1 }),
+      strings.copyLine({ number: 2 }),
+    ])
+    copies[1]!.click()
+    expect(page.copied).toEqual(['/homingbird http://localhost'])
     context.state.agentCredentials.set([credential('cred_desk')])
     expect(shown.querySelector('.start-step pre')).toBeNull()
     expect(textOf(shown.querySelector('.start-step.is-done')!)).toContain(strings.start.done)

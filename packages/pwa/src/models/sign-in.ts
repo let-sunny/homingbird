@@ -14,7 +14,10 @@ export const signInModel = (input: SignInInput): SignInModel => {
       title: strings.invites.invitedTitle,
       pip: 'sign-in',
       wordmark: wordmark(input.brandingName),
-      tagline: strings.invites.invitedBody({ name: wordmark(input.brandingName) }),
+      tagline:
+        input.brandingName === DEFAULT_NAME
+          ? strings.invites.invitedBodyAt({ address: hostOf(input.origin) })
+          : strings.invites.invitedBody({ name: input.brandingName, address: hostOf(input.origin) }),
       refusal: null,
       signIn: { kind: 'invite', action: INVITE_ACTION, code: input.invite, label },
     }
@@ -35,6 +38,8 @@ export interface SignInInput {
   readonly brandingName: string
   readonly signInWith: string | null
   readonly hash: string
+  /** The address of this server, which names whose server it is when the organization gave no name. */
+  readonly origin: string
 }
 
 export interface SignInModel {
@@ -49,3 +54,7 @@ export interface SignInModel {
 }
 
 const INVITE_ACTION = '/auth/invite'
+
+const DEFAULT_NAME = 'Homingbird'
+
+const hostOf = (origin: string): string => origin.replace(/^https?:\/\//, '')

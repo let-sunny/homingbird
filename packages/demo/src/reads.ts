@@ -81,6 +81,7 @@ export const conversationAsSeen = (
       managerIds: managersOf(records, channel).filter((memberId) => room.participantIds.includes(memberId)),
     }),
     muted: room.mutedBy.includes(viewerId),
+    hidden: isHiddenFrom(room, viewerId, inRoom),
   }
 }
 
@@ -240,3 +241,14 @@ export const managersOf = (records: Records, channel: ChannelRecord): ReadonlyAr
 
 export const isParticipant = (records: Records, viewerId: MemberId, conversationId: string): boolean =>
   records.conversations.some((room) => room.id === conversationId && room.participantIds.includes(viewerId))
+
+/** Hidden by the viewer, until a note is sent there after they hid it or their own draft waits there. */
+const isHiddenFrom = (room: ConversationRecord, viewerId: MemberId, inRoom: ReadonlyArray<Note>): boolean => {
+  const hidAt = room.hiddenBy?.find((each) => each.memberId === viewerId)?.at
+  if (hidAt === undefined) return false
+  return !inRoom.some(
+    (note) =>
+      (note.status === 'sent' && (note.sentAt ?? 0) >= hidAt) ||
+      (note.status === 'draft' && note.authorId === viewerId),
+  )
+}

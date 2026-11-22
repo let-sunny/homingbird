@@ -15,7 +15,7 @@ import { cloudDeskSection } from './cloud-desk.ts'
 import type { ViewContext } from './context.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
 import { joinCodeSection } from './join-code.ts'
-import { channelChips, field, loading, presenceBadges } from './parts.ts'
+import { channelChips, commandLines, field, loading, presenceBadges } from './parts.ts'
 import { serviceBanner } from './service-banner.ts'
 import { freshSessionSuggestions } from './session-health-view.ts'
 import { slackSection } from './slack.ts'
@@ -45,16 +45,17 @@ export const connectionSection = (context: ViewContext, life: Lifetime, me: AsRe
       const joinCodes = featureOn('joinCodes', state.serverInfo.get())
       const origin = context.page.origin
       const firstSteps = firstStepsModel({ credentials: credentials.get(), origin, joinCodes })
-      if (firstSteps !== null && !firstSteps.folded) return renderFirstSteps(firstSteps)
+      if (firstSteps !== null && !firstSteps.folded) return renderFirstSteps(firstSteps, context)
       return [
         serviceBanner(
           serviceBannerModel({ credentials: credentials.get(), origin, now: context.clock.now(), joinCodes }),
         ),
-        firstSteps !== null && renderFirstSteps(firstSteps),
+        firstSteps !== null && renderFirstSteps(firstSteps, context),
       ]
     }),
     region(life, [state.directory, credentials], () => renderRecommendation(model())),
-    featureOn('joinCodes', state.serverInfo.get()) && joinCodeSection(context, life, null, reload),
+    featureOn('joinCodes', state.serverInfo.get()) &&
+      joinCodeSection(context, life, null, reload, credentials),
     region(life, [state.agentReport], () => {
       const report = state.agentReport.get()
       return report === null || report === 'failed' ? null : freshSessionSuggestions(report.sessions.latest)
@@ -107,14 +108,12 @@ export const codeForm = (context: Pick<ViewContext, 'page'>): HTMLElement => {
   )
 }
 
-const renderFirstSteps = (model: FirstStepsModel): HTMLElement => {
+const renderFirstSteps = (model: FirstStepsModel, context: ViewContext): HTMLElement => {
   const body = [
     h(
       'ol',
       {},
-      model.steps.map((step) =>
-        h('li', {}, h('p', {}, step.text), h('pre', {}, h('code', {}, step.command))),
-      ),
+      model.steps.map((step) => h('li', {}, h('p', {}, step.text), commandLines(context, step.commands))),
     ),
     model.joinHint !== null && h('p', {}, model.joinHint),
     h('a', { href: model.guide.href, target: '_blank', rel: 'noopener noreferrer' }, model.guide.label),
@@ -159,7 +158,7 @@ const credentialRow = (row: CredentialRow, context: ViewContext, reload: () => v
             : h('span', { class: `kind ${mark.style}` }, mark.text),
         ),
       ),
-      h('span', { class: 'credential-client' }, row.client),
+      row.client !== null && h('span', { class: 'credential-client' }, row.client),
       h(
         'dl',
         { class: 'facts' },
@@ -263,7 +262,7 @@ const renderDeskState = (model: ConnectionModel, context: ViewContext): HTMLElem
     : h(
         'div',
         { class: 'desk-state' },
-        h('p', {}, presenceBadges(model.presence, context)),
+        h('p', {}, presenceBadges(model.presence, context, 'mine')),
         ...model.unavailable.map((line) => h('p', { class: 'hint', role: 'status' }, line)),
       )
 

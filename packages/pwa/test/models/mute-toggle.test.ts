@@ -4,7 +4,7 @@ import { strings } from '../../src/strings.ts'
 import { ROOM, conversation } from '../support/fixtures.ts'
 
 describe('muteToggleModel', () => {
-  it('offers to mute a conversation, named for it, with what muting does', () => {
+  it('offers to mute a conversation, named for it, with what muting would do', () => {
     expect(muteToggleModel(conversation(), 'Ben', true)).toEqual({
       conversationId: ROOM,
       muted: false,
@@ -14,13 +14,13 @@ describe('muteToggleModel', () => {
     })
   })
 
-  it('offers to lift the mute of a muted conversation, and marks it', () => {
+  it('offers to lift the mute of a muted conversation, marks it, and says it is muted', () => {
     expect(muteToggleModel(conversation({ muted: true }), '#billing', true)).toEqual({
       conversationId: ROOM,
       muted: true,
       label: 'Unmute #billing',
       mark: strings.mute.muted,
-      hint: strings.mute.hint,
+      hint: strings.mute.hintMuted,
     })
   })
 

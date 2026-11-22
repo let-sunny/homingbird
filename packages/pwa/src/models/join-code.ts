@@ -1,5 +1,6 @@
 import type { AsRead } from '@homingbird/protocol'
 import { strings } from '../strings.ts'
+import { dateTimeText } from './time.ts'
 
 /**
  * "Run on a server": the button that makes a join code, then the one line to paste on the server with
@@ -36,14 +37,51 @@ export const joinCodeModel = (input: JoinCodeInput): JoinCodeModel => {
       copyProblem: state.copied === 'refused' ? strings.joinCode.copyFailed : null,
     }
   }
+  const running = agent === null ? (input.running ?? null) : null
   return {
     kind: 'offer',
     title,
-    intro: agent === null ? strings.joinCode.intro : strings.joinCode.introAgent({ agent }),
-    button: state.kind === 'creating' ? strings.joinCode.creating : strings.joinCode.create,
+    intro:
+      running !== null
+        ? strings.joinCode.running({
+            name: running.name,
+            time: dateTimeText(running.lastUsedAt, strings.credentialNeverUsed),
+          })
+        : agent === null
+          ? strings.joinCode.intro
+          : strings.joinCode.introAgent({ agent }),
+    button:
+      state.kind === 'creating'
+        ? strings.joinCode.creating
+        : running !== null
+          ? strings.joinCode.another
+          : strings.joinCode.create,
+    primary: running === null,
     busy: state.kind === 'creating',
     problem: state.kind === 'failed' ? strings.joinCode.failed : null,
   }
+}
+
+/**
+ * The person's agent that is running now, by the connection it last used: none while their agent is
+ * not awake, or before the connections are known.
+ */
+export const runningAgentOf = (
+  credentials: ReadonlyArray<AsRead.Credential> | null,
+  awake: boolean,
+): RunningAgent | null => {
+  if (!awake || credentials === null) return null
+  const agents = credentials.filter((each) => each.kind === 'agent' && each.revokedAt === null)
+  const latest = agents.reduce<AsRead.Credential | null>(
+    (best, each) => (best === null || (each.lastUsedAt ?? 0) > (best.lastUsedAt ?? 0) ? each : best),
+    null,
+  )
+  return latest === null ? null : { name: latest.name, lastUsedAt: latest.lastUsedAt }
+}
+
+export interface RunningAgent {
+  readonly name: string
+  readonly lastUsedAt: number | null
 }
 
 /**
@@ -89,6 +127,8 @@ export interface JoinCodeInput {
   readonly agent: string | null
   /** Whether the agent the code is for is awake now, which matters once the code was used. */
   readonly awake?: boolean
+  /** The person's own agent running now, which turns the offer into "run on another server". */
+  readonly running?: RunningAgent | null
 }
 
 export type JoinCodeModel =
@@ -97,6 +137,8 @@ export type JoinCodeModel =
       readonly title: string
       readonly intro: string
       readonly button: string
+      /** The page's main action only until an agent of the person's runs. */
+      readonly primary: boolean
       readonly busy: boolean
       readonly problem: string | null
     }

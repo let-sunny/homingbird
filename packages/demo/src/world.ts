@@ -20,6 +20,7 @@ import type {
   Presence,
   Principle,
   PrincipleOffer,
+  PrincipleProposal,
   StreamEvent,
 } from '@homingbird/protocol'
 import { demoTeam } from './team.ts'
@@ -94,6 +95,10 @@ export interface Records {
   readonly principles: ReadonlyArray<Principle>
   /** Chances to teach still open, each after an edit or a discard, as Dovecote keeps them. */
   readonly offers: ReadonlyArray<PrincipleOffer>
+  /** What the visitor's agent proposed in its scripted teaching chat, until the visitor saves or discards each. */
+  readonly proposals: ReadonlyArray<PrincipleProposal>
+  /** The document the visitor pasted for that chat. */
+  readonly teachingDocument: string | null
   readonly debates: ReadonlyArray<Debate>
   /** What happened to a person's notes that they alone see, as a server keeps it across reloads. */
   readonly notices: ReadonlyArray<NoticeRecord>
@@ -144,6 +149,8 @@ export interface ConversationRecord {
   readonly createdAt: number
   readonly lastActivityAt: number
   readonly mutedBy: ReadonlyArray<MemberId>
+  /** Who hid it from their own list, and when: it comes back with the next note sent after that. */
+  readonly hiddenBy?: ReadonlyArray<{ readonly memberId: MemberId; readonly at: number }>
   /** Who started a group message: it is listed for them before any note in it is sent, as on a server. */
   readonly startedBy?: MemberId
   /** A question asked privately of this channel's agent: its asker, the agent and the managers take part. */

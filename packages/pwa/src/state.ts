@@ -10,6 +10,7 @@ import { type ReadableSignal, type Signal, derived, isSameData, signal } from '@
 import type { Action } from './app.ts'
 import { type Roster, agentMembersOf } from './channels.ts'
 import { withDraftsAsRead, withReviewsAsRead } from './drafts-read.ts'
+import { HOLD_SECONDS } from './held-decisions.ts'
 import { type Route, parseRoute } from './routes.ts'
 import { type ChangeCounter, changeCounter } from './thread-changes.ts'
 
@@ -40,6 +41,7 @@ export const createState = (hash: string): AppState => {
     connection: signal<Connection>('connecting'),
     notice: signal<Notice | null>(null),
     held: signal<ReadonlyArray<HeldDecision>>([]),
+    heldSecondsLeft: signal(HOLD_SECONDS),
     draftEdits: signal<ReadonlyMap<NoteId, string>>(new Map()),
     announcement: signal(''),
     sendingIn: signal<ReadonlySet<ConversationId>>(new Set()),
@@ -115,6 +117,8 @@ export interface AppState {
    * the others are on their way to the server or just carried out, so their cards stay in place meanwhile.
    */
   readonly held: Signal<ReadonlyArray<HeldDecision>>
+  /** The whole seconds left before the held decision that can be undone is carried out. */
+  readonly heldSecondsLeft: Signal<number>
   /** Each card's edit the person made and has not sent, by draft or answer, like unsent composer text. */
   readonly draftEdits: Signal<ReadonlyMap<NoteId, string>>
   readonly announcement: Signal<string>
@@ -202,7 +206,8 @@ export interface HeldDecision {
  * and when the page closed first.
  */
 export interface HeldWords {
-  readonly waiting: string
+  /** While it can be undone, one sentence for each whole second left, from one second up. */
+  readonly waiting: ReadonlyArray<string>
   readonly pending: string
   readonly done: string
   readonly notDone: string

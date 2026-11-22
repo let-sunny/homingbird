@@ -2,7 +2,7 @@ import type { AsRead, ConversationId } from '@homingbird/protocol'
 import { mayRestoreConversation, mostRecentConversation } from '../home.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
-import { claudeCodeCommands } from './connection.ts'
+import { claudeCodeLines } from './connection.ts'
 
 /** Home: loading, the first steps when there is nothing yet, or a hint to pick a conversation. */
 export const homeModel = (input: HomeInput): HomeModel => {
@@ -24,14 +24,14 @@ export const startingPointsModel = (input: StartInput): StartingPoints => {
       {
         title: words.writeStep,
         hint: words.writeStepHint,
-        command: null,
+        commands: [],
         done: null,
         links: [
           { href: hrefFor({ name: 'people' }), label: words.findPerson, primary: input.agentConnected },
           { href: hrefFor({ name: 'channels' }), label: words.askChannel, primary: false },
         ],
       },
-      { title: words.approveStep, hint: words.approveStepHint, command: null, done: null, links: [] },
+      { title: words.approveStep, hint: words.approveStepHint, commands: [], done: null, links: [] },
     ],
     tour: words.tour,
   }
@@ -75,8 +75,8 @@ export interface StartingPoints {
 export interface StartStep {
   readonly title: string
   readonly hint: string
-  /** Lines to paste, shown as code. */
-  readonly command: string | null
+  /** Lines to paste one after the other, shown as code, each with its own Copy button. */
+  readonly commands: ReadonlyArray<string>
   /** The word that marks a step already taken. */
   readonly done: string | null
   readonly links: ReadonlyArray<{ readonly href: string; readonly label: string; readonly primary: boolean }>
@@ -85,7 +85,7 @@ export interface StartStep {
 const connectStep = (origin: string): StartStep => ({
   title: strings.start.connectStep,
   hint: strings.start.connectStepHint,
-  command: claudeCodeCommands(origin),
+  commands: claudeCodeLines(origin),
   done: null,
   links: [
     {
@@ -99,7 +99,7 @@ const connectStep = (origin: string): StartStep => ({
 const connectedStep = (): StartStep => ({
   title: strings.start.connectedStep,
   hint: strings.start.connectedStepHint,
-  command: null,
+  commands: [],
   done: strings.start.done,
   links: [],
 })

@@ -30,10 +30,12 @@ describe('agentNameOf', () => {
     )
   })
 
-  it('keeps the connection name of any other agent, or of one that reported no program', () => {
-    expect(agentNameOf({ agentName: 'Laptop', agentClient: 'claude-code 2.1.327' })).toBe('Laptop')
-    expect(agentNameOf({ agentName: 'Laptop', agentClient: null })).toBe('Laptop')
-    expect(agentNameOf({ agentName: 'Laptop' })).toBe('Laptop')
+  it('names any other agent, or one that reported no program, by its connection', () => {
+    const laptop = strings.agentNames.connection({ name: 'Laptop' })
+    expect(laptop).toBe('on Laptop')
+    expect(agentNameOf({ agentName: 'Laptop', agentClient: 'claude-code 2.1.327' })).toBe(laptop)
+    expect(agentNameOf({ agentName: 'Laptop', agentClient: null })).toBe(laptop)
+    expect(agentNameOf({ agentName: 'Laptop' })).toBe(laptop)
     expect(agentNameOf({ agentName: null, agentClient: null })).toBeNull()
   })
 })

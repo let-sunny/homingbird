@@ -167,6 +167,7 @@ export const renderNoteItem = (
               h('span', { class: 'state-glyph', 'aria-hidden': 'true' }, model.meta.mark.glyph),
               model.meta.mark.count !== null &&
                 h('span', { class: 'state-count', 'aria-hidden': 'true' }, model.meta.mark.count),
+              h('span', { class: 'state-word', 'aria-hidden': 'true' }, model.meta.mark.label),
             ),
         ),
     ),

@@ -1,10 +1,12 @@
-import { type Child, type Lifetime, h, later, region, signal } from '@homingbird/ui'
+import type { AsRead } from '@homingbird/protocol'
+import { type Child, type Lifetime, type Signal, h, later, region, signal } from '@homingbird/ui'
 import {
   type JoinCodeModel,
   type JoinCodeState,
   isJoinedAgentAwake,
   joinCodeModel,
   localExpiry,
+  runningAgentOf,
 } from '../models/join-code.ts'
 import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
@@ -16,13 +18,16 @@ import { button } from './parts.ts'
  * one line that sets up a server with it, counting down until it expires, and asking the server now and
  * then whether it was used; once it was, the connection it made and whether that agent is awake, and
  * `connected` reloads whatever lists the connections. `agent` is the channel's agent the code is for;
- * null for the person's own.
+ * null for the person's own, whose `credentials` say which connection runs it now.
  */
 export const joinCodeSection = (
   context: ViewContext,
   life: Lifetime,
   agent: { readonly channel: string; readonly name: string } | null,
   connected: () => void = () => {},
+  credentials: Signal<ReadonlyArray<AsRead.Credential> | null> = signal<ReadonlyArray<AsRead.Credential> | null>(
+    null,
+  ),
 ): HTMLElement => {
   const state = signal<JoinCodeState>({ kind: 'idle' })
   const now = signal(context.clock.now())
@@ -82,13 +87,14 @@ export const joinCodeSection = (
   return h(
     'section',
     { class: 'join-code', 'aria-labelledby': titleId },
-    region(life, [state, now, context.state.directory, context.state.channels], () =>
+    region(life, [state, now, credentials, context.state.directory, context.state.channels], () =>
       render(
         joinCodeModel({
           state: state.get(),
           now: now.get(),
           agent: agent?.name ?? null,
           awake: isAwake(context, agent?.channel ?? null),
+          running: runningAgentOf(credentials.get(), isAwake(context, null)),
         }),
         titleId,
         create,
@@ -125,10 +131,10 @@ const render = (
   if (model.kind === 'offer')
     return [
       title,
-      h('p', { class: 'hint' }, model.intro),
+      h('p', { class: model.primary ? 'hint' : 'join-code-connected', role: 'status' }, model.intro),
       withHint(
         button(model.button, create, {
-          class: 'primary join-code-create',
+          class: model.primary ? 'primary join-code-create' : 'join-code-create',
           ...(model.busy && { disabled: true }),
         }),
       ),

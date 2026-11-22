@@ -10,7 +10,7 @@ import {
 } from '../models/home.ts'
 import { hrefFor } from '../routes.ts'
 import type { ViewContext } from './context.ts'
-import { emptyWithPip, loading } from './parts.ts'
+import { commandLines, emptyWithPip, loading } from './parts.ts'
 import { pip } from './pip.ts'
 
 /** Home, which on a wide screen opens the most recent conversation by itself. */
@@ -49,13 +49,17 @@ export const startingPoints = (context: StartContext, life: Lifetime): HTMLEleme
     renderStartingPoints(startingPointsModel(startInput(context)), context),
   )
 
-const renderStartingPoints = (model: StartingPoints, context: Pick<ViewContext, 'tour'>): HTMLElement =>
+const renderStartingPoints = (model: StartingPoints, context: StartContext): HTMLElement =>
   h(
     'section',
     { class: 'starting-points', 'aria-labelledby': 'starting-points-title' },
     pip('waving', 3),
     h('h2', { id: 'starting-points-title' }, model.title),
-    h('ol', {}, model.steps.map(renderStep)),
+    h(
+      'ol',
+      {},
+      model.steps.map((step) => renderStep(step, context)),
+    ),
     h(
       'button',
       { type: 'button', class: 'link take-tour', on: { click: () => context.tour.start() } },
@@ -63,13 +67,13 @@ const renderStartingPoints = (model: StartingPoints, context: Pick<ViewContext, 
     ),
   )
 
-const renderStep = (step: StartStep): HTMLElement =>
+const renderStep = (step: StartStep, context: StartContext): HTMLElement =>
   h(
     'li',
     { class: step.done === null ? 'start-step' : 'start-step is-done' },
     h('strong', {}, step.title, step.done !== null && h('span', { class: 'start-step-done' }, step.done)),
     h('p', {}, step.hint),
-    step.command !== null && h('pre', {}, h('code', {}, step.command)),
+    step.commands.length > 0 && commandLines(context, step.commands),
     step.links.length > 0 &&
       h(
         'p',
@@ -85,7 +89,7 @@ const sitsBesideTheList = (host: HTMLElement): boolean =>
   host.checkVisibility() &&
   host.ownerDocument.querySelector<HTMLElement>('.sidebar')?.checkVisibility() === true
 
-const renderHome = (model: HomeModel, context: Pick<ViewContext, 'tour'>): HTMLElement => {
+const renderHome = (model: HomeModel, context: StartContext): HTMLElement => {
   if (model.kind === 'loading') return loading()
   if (model.kind === 'start') return renderStartingPoints(model.start, context)
   return emptyWithPip('waving', model.text)

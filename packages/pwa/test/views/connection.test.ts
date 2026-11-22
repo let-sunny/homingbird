@@ -18,7 +18,7 @@ describe('connectionSection', () => {
     called('listCredentials')[0]!.then!.done!([credential('cred_desk')])
     expect(textOf(shown.querySelector('.desk-recommendation')!)).toContain(strings.deskTitle)
     context.state.directory.set([entry(ANA, 'Ana', { presence: { humanOnline: true, agentOnline: true } })])
-    expect(textOf(shown.querySelector('.desk-state')!)).toContain(strings.agentOnline)
+    expect(textOf(shown.querySelector('.desk-state')!)).toContain(strings.selfPresence.agentOnline)
     expect(shown.querySelector('.desk-recommendation')).toBeNull()
     context.state.agentReport.set(
       report({

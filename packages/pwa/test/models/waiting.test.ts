@@ -209,7 +209,7 @@ describe('waitingFilterModel', () => {
     expect(waitingFilterModel(true, some)).toEqual({
       text: strings.waiting.filter,
       label: strings.waiting.filterLabel({ count: 2 }),
-      count: '2',
+      count: 'in 2 places',
       pressed: true,
     })
     expect(waitingFilterModel(false, NOTHING_WAITS)).toEqual({

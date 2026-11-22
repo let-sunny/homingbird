@@ -18,16 +18,19 @@ export const toastModel = (notice: Notice | null): ToastModel | null =>
  * The latest held send or discard as its toast shows it: when it goes, with Undo and a way to let it go now,
  * while it can be undone; on its way until the server has it; then done, with a way to close it.
  */
-export const heldToastModel = (held: ReadonlyArray<HeldShown>): HeldToastModel | null => {
+export const heldToastModel = (
+  held: ReadonlyArray<HeldShown>,
+  secondsLeft?: number,
+): HeldToastModel | null => {
   const latest = held.at(-1)
   if (latest === undefined) return null
   return {
     className: `toast is-held is-${latest.phase}`,
-    text: heldText(latest),
+    text: heldText(latest, secondsLeft),
     undo: latest.phase === 'waiting' ? strings.undo : null,
     dismiss:
       latest.phase === 'waiting'
-        ? { label: strings.heldDismiss, does: 'commit' }
+        ? { label: latest.kind === 'send' ? strings.heldSendNow : strings.heldDiscardNow, does: 'commit' }
         : latest.phase === 'done'
           ? { label: strings.close, does: 'forget' }
           : null,

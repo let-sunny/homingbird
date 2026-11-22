@@ -15,6 +15,7 @@ export const signInView = (
       brandingName: context.state.branding.get().name,
       signInWith: context.state.serverInfo.get()?.signInWith ?? null,
       hash: context.page.hash(),
+      origin: context.page.origin,
     }),
   )
 

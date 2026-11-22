@@ -510,9 +510,18 @@ const scenario = async (): Promise<void> => {
     await koreanAdmin.context.close()
 
     // -- Tour: on a first visit, a deep link included, remembered, reopened, broken storage ----
+    // It waits while the first steps are shown, which offer it themselves, and starts once a note arrived.
+    const welcome = async (person: Person): Promise<void> => {
+      const me = await api(person, 'GET', '/me')
+      await sendThroughApi(june, { to: [me.member.id], body: 'Welcome aboard.' })
+    }
     const visitor = await newPage(browser, base, 'en-US', { tour: true })
     await submitDevelopmentLogin(visitor.page, 'cy@example.com', 'Cy')
     await visitor.page.waitForSelector('.app')
+    await visitor.page.waitForSelector('#starting-points-title >> visible=true')
+    await visitor.page.waitForTimeout(500)
+    assert.equal(await visitor.page.locator('#tour').count(), 0, 'the tour waits while the first steps show')
+    await welcome(visitor)
     await visitor.page.goto('about:blank')
     await visitor.page.goto(`${base}/#/c/${billing}`)
     await visitor.page.waitForSelector(
@@ -577,6 +586,8 @@ const scenario = async (): Promise<void> => {
     )
     await submitDevelopmentLogin(blocked.page, 'dee@example.com', 'Dee')
     await blocked.page.waitForSelector('.app')
+    await welcome(blocked)
+    await blocked.page.reload()
     await blocked.page.waitForSelector(`#tour .tour-progress:has-text("${tourProgress(1)}")`)
     await blocked.page.click('#tour .tour-skip')
     await blocked.page.waitForFunction(() => !(globalThis as any).document.querySelector('#tour'))
@@ -589,6 +600,9 @@ const scenario = async (): Promise<void> => {
     ] as const) {
       const touring = await newPage(browser, base, 'en-US', { tour: true, viewport })
       await submitDevelopmentLogin(touring.page, `tour-${label}@example.com`, 'Tour')
+      await touring.page.waitForSelector('.app')
+      await welcome(touring)
+      await touring.page.reload()
       await touring.page.waitForSelector(`#tour:popover-open .tour-progress:has-text("${tourProgress(1)}")`)
       for (let step = 1; step <= TOUR_STEPS.length; step++) {
         await touring.page.waitForSelector(`#tour .tour-progress:has-text("${tourProgress(step)}")`)

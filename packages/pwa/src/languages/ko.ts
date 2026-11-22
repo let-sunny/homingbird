@@ -63,6 +63,7 @@ export const ko: Translation<typeof en> = {
   you: '나',
   unread: { other: '읽지 않은 노트 {count}개' },
   draftsWaiting: { other: '대기 중인 초안 {count}개' },
+  draftsShort: { other: '초안' },
   composerLabel: '노트 쓰기',
   composerPlaceholder: '노트를 써 주세요. 텍스트와 링크만 보낼 수 있어요.',
   composerHint: 'Enter로 보내고 Shift+Enter로 줄을 바꿔요.',
@@ -106,6 +107,8 @@ export const ko: Translation<typeof en> = {
   copyNote: '텍스트 복사',
   noteCopied: '노트를 복사했어요.',
   copyCode: '복사',
+  lineCopied: '복사했어요. 단계에서 말한 곳에 붙여 넣으세요.',
+  copyLine: '{number}번째 줄 복사',
   codeCopied: '복사했어요.',
   noteNotCopied: '이 브라우저에서는 복사할 수 없어요. 텍스트를 직접 선택해 복사해 주세요.',
   noteFixed: '보낸 노트는 고칠 수 없어요. 바로잡으려면 답장해 주세요.',
@@ -115,6 +118,7 @@ export const ko: Translation<typeof en> = {
   unsentText: '보내지 않은 글이 남아 있어요',
   conversationMore: '{name} 더 보기',
   letAgentWrite: '에이전트에게 맡기기',
+  letAgentWriteHint: '노트에 담을 내용을 적는 줄이 열려요. 거기서 에이전트에게 요청을 누르면 요청이 가요.',
   agentInstructionLabel: '어떤 내용으로 쓸까요? (선택)',
   agentInstructionPlaceholder: '선택: 어떤 내용으로 쓸까요?',
   agentPickerLabel: '에이전트 선택',
@@ -168,14 +172,15 @@ export const ko: Translation<typeof en> = {
     outside: '바깥 채팅 도구에서 물음',
   },
   agentNames: {
-    desk: 'Claude Code 플러그인',
-    runner: 'homingbird run · {host}',
-    runnerUnnamed: 'homingbird run',
+    desk: 'Claude Code에서',
+    runner: '{host}에서',
+    runnerUnnamed: '백그라운드에서',
+    connection: '{name}에서',
   },
   originNamed: {
-    unknown: '{agent}',
-    agent: '에이전트 · {agent}',
-    human_edited: '에이전트 · {agent}, 사람이 수정',
+    unknown: '{agent} 일하는 내 에이전트',
+    agent: '{agent} 일하는 내 에이전트',
+    human_edited: '{agent} 일하는 내 에이전트, 사람이 수정',
     outside: '{agent}',
   },
   status: {
@@ -202,7 +207,8 @@ export const ko: Translation<typeof en> = {
   heldNotDiscarded: '버리지 못했어요. 버리기 전에 페이지가 닫혔어요. 초안이 아직 기다려요.',
   draftEditKept: '고친 내용은 보내지 않고 남겨 두었어요. 수정을 누르면 다시 열려요.',
   undo: '되돌리기',
-  heldDismiss: '확인',
+  heldSendNow: '지금 보내기',
+  heldDiscardNow: '지금 버리기',
   noAnswerYet: '아직 답이 없어요',
   chooseOne: { other: '초안이 {count}개 있어요. 하나를 보내면 나머지는 버려져요.' },
   readBy: '{of}명 중 {read}명 읽음',
@@ -323,6 +329,22 @@ export const ko: Translation<typeof en> = {
     '상대의 에이전트를 실행하는 프로그램이 켜져 있어서 지금 노트를 보내면 바로 답장 초안을 써요.',
   agentUnavailable: '에이전트가 지금은 답할 수 없음',
   agentUnavailableUntil: '에이전트가 {time}까지 답할 수 없음',
+  agentOfflineHint:
+    '동료의 에이전트를 실행하는 프로그램이 없어요. 내 노트는 동료가 직접 읽을 때까지 기다려요.',
+  theirPresence: {
+    onlineHint: '지금 Homingbird를 열어 두고 있어요.',
+    awayHint: '지금 Homingbird를 열어 두지 않았어요. 다음에 열 때 내 노트를 봐요.',
+  },
+  selfPresence: {
+    online: '나: 접속 중',
+    away: '나: 자리 비움',
+    onlineHint: 'Homingbird를 열어 두고 있어서 동료에게 접속 중으로 보여요.',
+    awayHint: '어느 창에서도 Homingbird를 열어 두지 않았어요.',
+    agentOnline: '내 에이전트: 깨어 있음',
+    agentOffline: '내 에이전트: 쉬는 중',
+    agentOnlineHint: '내 에이전트를 실행하는 프로그램이 켜져 있어서 노트가 오면 바로 답장 초안을 써요.',
+    agentOfflineHint: '지금 내 에이전트를 실행하는 프로그램이 없어요. 노트는 내가 직접 답할 때까지 기다려요.',
+  },
   agentUnavailableHint:
     '상대의 에이전트를 실행하는 프로그램은 켜져 있지만 에이전트가 지금은 답할 수 없어요. 지금 보낸 노트는 전달됨 상태로 기다려요.',
   theirAgentUnavailable: '상대의 에이전트가 지금은 답할 수 없어요. 노트는 전달됨 상태로 기다려요.',
@@ -577,7 +599,7 @@ export const ko: Translation<typeof en> = {
     title: '첫 에이전트 연결하기',
     anotherTitle: '다른 에이전트 연결하기',
     plugin:
-      'Claude Code에서는 플러그인을 설치하고, 나 대신 답할 세션에서 이 서버로 여세요. 플러그인은 그 세션을 데스크라고 불러요.',
+      '이 용도로 열어 둘 Claude Code 창에 1번 줄, 2번 줄을 차례로 붙여 넣으세요. 1번 줄은 Homingbird 플러그인을 설치할지 물어요. 예라고 답하고 제안하는 범위를 그대로 두세요.',
     commandLine: 'Codex나 Gemini CLI 같은 다른 에이전트는 그 컴퓨터에 명령줄 도구를 설치하고 로그인하세요.',
     run: '그다음 에이전트가 계속 답하게 하세요. homingbird run이 노트가 올 때마다 에이전트를 실행해요.',
     joinHint: '브라우저가 없는 서버라면 그곳에서 로그인하지 말고 아래 “서버에서 돌리기” 항목을 쓰세요.',
@@ -648,6 +670,7 @@ export const ko: Translation<typeof en> = {
     filter: '나를 기다리는 것',
     filterLabel: { other: '나를 기다리는 DM과 채널 {count}개만 보기' },
     filterNone: '나를 기다리는 DM과 채널만 보기',
+    filterCount: { other: '{count}곳' },
     peopleNone: '나를 기다리는 DM이나 그룹 DM이 없어요.',
     roomsNone: '나를 기다리는 채널이 없어요.',
   },
@@ -679,7 +702,7 @@ export const ko: Translation<typeof en> = {
       '에이전트가 답장 초안을 쓰면 그 DM이나 채널, 그리고 종 모양 버튼에 카드로 기다려요. 그대로 승인하고 보내거나, 먼저 수정하거나, 버리세요. 승인하고 보내기를 누르기 전에는 아무것도 나가지 않아요.',
     connectTitle: '에이전트 연결',
     connectBody:
-      '내 에이전트 → 연결에서 Claude Code 플러그인이나 homingbird 명령줄 도구를 설치하고 로그인한 뒤 켜 두세요. 에이전트가 답장 초안을 쓰고, 나는 하나씩 승인해요.',
+      '내 에이전트 → 연결에 Claude Code에 붙여 넣을 줄과 서버용 한 줄이 있어요. 에이전트가 답장 초안을 쓰고, 나는 하나씩 승인해요.',
     connectAction: '내 에이전트 열기',
     channelsTitle: '채널',
     channelsBody:
@@ -1415,12 +1438,13 @@ export const ko: Translation<typeof en> = {
     firstTitle: '첫 노트까지 세 단계',
     connectStep: '에이전트 연결',
     connectStepHint:
-      'Claude Code에서 나 대신 답할 세션에 이 두 줄을 붙여 넣으세요. 에이전트가 답장 초안을 쓰고, 내가 승인하기 전에는 아무것도 보내지 않아요.',
+      '이 용도로 열어 둘 Claude Code 창에 1번 줄을 붙여 넣고 Enter를 누른 뒤 2번 줄을 붙여 넣으세요. 1번 줄은 Homingbird 플러그인을 설치할지 물어요. 예라고 답하고 제안하는 범위를 그대로 두세요. 그러면 에이전트가 답장 초안을 쓰고, 내가 승인하기 전에는 아무것도 보내지 않아요.',
     otherAgents: '다른 에이전트나 서버에서',
     connectedStep: '에이전트가 연결됐어요',
     connectedStepHint: '나에게 노트가 오면 에이전트가 답장 초안을 써요.',
     writeStep: '동료에게 쓰거나 채널에 질문하기',
-    writeStepHint: '동료의 에이전트가 답을 쓰고, 동료가 승인해야 나에게 와요.',
+    writeStepHint:
+      '동료의 에이전트가 깨어 있으면 답을 쓰고, 동료가 승인해야 나에게 와요. 깨어 있지 않으면 동료가 다음에 Homingbird를 열 때 내 노트를 읽어요.',
     approveStep: '내 에이전트의 첫 초안 승인하기',
     approveStepHint:
       '동료가 나에게 노트를 쓰면 에이전트의 초안이 그 DM과 종 모양 버튼에서 기다려요. 승인하고 보내거나, 고치거나, 버리세요. 그 전에는 아무것도 나가지 않아요.',
@@ -1937,7 +1961,9 @@ export const ko: Translation<typeof en> = {
     muteName: '{name} 알림 끄기',
     unmuteName: '{name} 알림 켜기',
     muted: '알림 꺼짐',
-    hint: '알림을 꺼도 노트는 그대로 오고 읽지 않은 노트로 세어져요. 알림만 오지 않아요.',
+    hint: '알림 끄기: 노트는 그대로 오고 읽지 않은 노트로 세어지지만, 알림은 오지 않아요.',
+    hintMuted:
+      '알림 꺼짐: 노트는 그대로 오고 읽지 않은 노트로 세어지지만, 알림은 오지 않아요. 누르면 다시 알림을 받아요.',
     levelLegend: '알림을 받을 곳',
     levelHint: '기기로 오는 알림에 적용돼요. 알림을 끈 DM이나 채널에서는 알림이 오지 않아요.',
     all: '모든 DM과 채널',
@@ -1966,7 +1992,8 @@ export const ko: Translation<typeof en> = {
     revoke: '취소',
     revoked: '그 초대 링크는 이제 쓸 수 없어요.',
     invitedTitle: '초대받았어요',
-    invitedBody: '로그인하고 {name}에 들어오세요.',
+    invitedBody: '로그인하고 Homingbird의 {name} 공간에 들어오세요. 주소: {address}',
+    invitedBodyAt: '로그인하고 우리 조직의 Homingbird에 들어오세요. 주소: {address}',
     refused: '알 수 없거나, 만료됐거나, 이미 쓴 초대 링크예요. 보낸 사람에게 새 링크를 부탁하세요.',
     alreadyIn: '이미 여기에 로그인되어 있어서 이 초대 링크는 필요 없어요.',
   },
@@ -1994,6 +2021,8 @@ export const ko: Translation<typeof en> = {
     awakeNow: '지금 깨어 있어요.',
     notAwakeYet: '아직 깨어 있지 않아요. 그 서버의 서비스가 시작되면 바로 깨어나요.',
     another: '다른 서버에서 돌리기',
+    running:
+      '내 에이전트가 실행 중이에요. 연결: {name}, 마지막 활동: {time}. 멈추려면 기기와 에이전트에서 이 연결을 해제하세요.',
   },
   draftPreviews: {
     intro:

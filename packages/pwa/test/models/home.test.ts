@@ -29,9 +29,10 @@ describe('startingPointsModel', () => {
       strings.start.approveStep,
     ])
     const [connect, write, approve] = model.steps
-    expect(connect!.command).toBe(
-      '/plugin install homingbird --marketplace let-sunny/homingbird\n/homingbird https://hb.example.com',
-    )
+    expect(connect!.commands).toEqual([
+      '/plugin install homingbird --marketplace let-sunny/homingbird',
+      '/homingbird https://hb.example.com',
+    ])
     expect(connect!.done).toBeNull()
     expect(connect!.links).toEqual([
       { href: '#/agent/connection', label: strings.start.otherAgents, primary: false },
@@ -43,7 +44,7 @@ describe('startingPointsModel', () => {
     expect(approve).toEqual({
       title: strings.start.approveStep,
       hint: strings.start.approveStepHint,
-      command: null,
+      commands: [],
       done: null,
       links: [],
     })
@@ -55,7 +56,7 @@ describe('startingPointsModel', () => {
     expect(connected).toEqual({
       title: strings.start.connectedStep,
       hint: strings.start.connectedStepHint,
-      command: null,
+      commands: [],
       done: strings.start.done,
       links: [],
     })

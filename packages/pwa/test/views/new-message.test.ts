@@ -38,7 +38,7 @@ describe('newMessageView', () => {
     expect(textOf(shown)).toContain(strings.newMessage.nobody)
     expect(send.disabled).toBe(true)
     expect(textOf(shown.querySelector('.new-message-reason')!)).toBe(strings.newMessage.chooseFirst)
-    expect(getByRole(shown, 'button', { name: strings.askAgent }).hasAttribute('disabled')).toBe(true)
+    expect(getByRole(shown, 'button', { name: strings.letAgentWrite }).hasAttribute('disabled')).toBe(true)
   })
 
   it('sends the first note to the people chosen, making nothing before the send', () => {
@@ -86,7 +86,7 @@ describe('newMessageView', () => {
 
   it('asks the agent for the first note instead, once someone is chosen', () => {
     const { shown, called } = drawn([BEN])
-    const toggle = getByRole(shown, 'button', { name: strings.askAgent })
+    const toggle = getByRole(shown, 'button', { name: strings.letAgentWrite })
     expect(toggle.hasAttribute('disabled')).toBe(false)
     toggle.click()
     const instruction = getByRole(shown, 'textbox', { name: strings.agentInstructionLabel })

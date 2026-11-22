@@ -69,8 +69,9 @@ export const field = (label: string, control: HTMLElement, hint?: string): HTMLE
 export const presenceBadges = (
   presence: AsRead.Presence,
   context: HintContext | null = null,
+  whose: 'theirs' | 'mine' = 'theirs',
 ): HTMLElement => {
-  const shown = presenceShown(presence, true)
+  const shown = presenceShown(presence, true, whose)
   const agentLight = h(
     'span',
     {
@@ -84,7 +85,7 @@ export const presenceBadges = (
     { class: 'presence is-in-words' },
     h(
       'span',
-      { class: `human-state ${shown.person.isOn ? 'is-on' : 'is-off'}` },
+      { class: `human-state ${shown.person.isOn ? 'is-on' : 'is-off'}`, title: shown.person.title },
       h('span', { class: `human-dot ${shown.person.isOn ? 'is-on' : 'is-off'}`, 'aria-hidden': 'true' }),
       shown.person.words,
     ),
@@ -226,6 +227,31 @@ export const copyWithNotice = (
       ),
     )
 }
+
+/** Lines to paste one after the other, numbered, each with its own Copy button. */
+export const commandLines = (
+  context: Pick<ViewContext, 'page' | 'state'>,
+  lines: ReadonlyArray<string>,
+): HTMLElement =>
+  h(
+    'ol',
+    { class: 'command-lines' },
+    lines.map((line, index) =>
+      h(
+        'li',
+        {},
+        h(
+          'div',
+          { class: 'command-line' },
+          h('pre', {}, h('code', {}, line)),
+          button(strings.copyCode, () => copyWithNotice(context, line, strings.lineCopied), {
+            class: 'command-copy',
+            'aria-label': strings.copyLine({ number: index + 1 }),
+          }),
+        ),
+      ),
+    ),
+  )
 
 /** Cancel, which closes the dialog, beside the dialog's own submit button. */
 export const dialogActions = (label: string, kind: 'primary' | 'danger'): HTMLElement =>

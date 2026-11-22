@@ -38,7 +38,7 @@ export const hinted = <Target extends HTMLElement>(
     writeHints(storage, memberId, change(readHints(storage, memberId, context.clock.now()), concept))
   if (context.page.isCoarsePointer()) {
     if (!isInlineHintDue(record, concept, context.clock.now()) || !isFirstOnPage(context, concept))
-      return [target, quietText(id, text)]
+      return [target, INTERACTIVE.has(target.localName) ? quietText(id, text) : shownOnTap(id, text, target)]
     const inline = inlineHint(id, text, () => {
       remember(hintsAfterDismiss)
       inline.remove()
@@ -86,6 +86,19 @@ const inlineHint = (id: string, text: string, onClose: () => void): HTMLElement 
       '×',
     ),
   )
+
+/**
+ * A label that does nothing when pressed, such as a presence mark, shows its hint on its own line for a
+ * tap on a touch screen, and hides it on the next.
+ */
+const shownOnTap = (id: string, text: string, target: HTMLElement): HTMLElement => {
+  const hint = h('span', { id, class: 'hint-inline is-on-tap', role: 'note', hidden: true }, text)
+  target.classList.add('has-tap-hint')
+  target.addEventListener('click', () => {
+    hint.hidden = !hint.hidden
+  })
+  return hint
+}
 
 const hasPopover = (element: HTMLElement): boolean =>
   typeof (element as { showPopover?: unknown }).showPopover === 'function'
@@ -172,6 +185,9 @@ export type HintContext = Pick<ViewContext, 'state' | 'clock' | 'random' | 'page
 
 /** Who the hints are kept for before anyone has signed in. */
 const ANYONE = 'anyone'
+
+/** Controls a press already acts on, so a touch screen shows their hint inline, never on a tap. */
+const INTERACTIVE = new Set(['button', 'a', 'input', 'select', 'textarea', 'summary', 'label'])
 
 /** The elements an interest invoker can be. */
 const INVOKERS = new Set(['button', 'a'])
