@@ -94,7 +94,7 @@ export const quotedBrief = (
 }
 
 export const BRIEF_INTRODUCTION =
-  'Your own person’s note on what you may use and share in this room, which only you and they see. It is their guidance, not a colleague’s: draw on and share facts, sources and limits only as far as it allows, and never share what it says to keep out of the room.'
+  'Your own person’s note on what you may use and share in this room, which only you and they see. It is their guidance, not a colleague’s. It marks what you must not share and any limits: never share what it says to keep out of the room, and keep within its limits. What it names to use is not a complete list: a general fact that bears on the question and that your person would share anyway may be used too. When you are unsure whether it allows a fact, say that you are unsure rather than withholding it silently.'
 
 export const NO_BRIEF =
   'Your person left no note on what you may use in this room: share only what the question needs, by source or kind, and nothing private.'
@@ -150,9 +150,31 @@ export const quotedNewTurns = (
   ].join('\n\n')
 }
 
+/** A stale refusal as a tool hands it back, with the missed turns inside wrapNote, so the agent rewrites once. */
+export const missedTurnsRefusal = (
+  refusal: string,
+  debate: Debate,
+  people: Authors,
+  viewerId: MemberId,
+  afterTurn: number,
+  nonce: () => string,
+): string =>
+  [
+    refusal,
+    `The turns you missed are quoted below, so you need not read the room again: rewrite your turn once in the light of them, then call take_debate_turn with afterTurn ${debate.turns.length}.`,
+    quotedNewTurns(debate, people, viewerId, afterTurn, nonce),
+  ].join('\n\n')
+
 /** A turn: the instructions, then the room. */
 export const debateTurnPrompt = (room: string): string =>
   [DEBATE_TURN_INSTRUCTIONS, RUNNER_READY_LINE, RUNNER_MODEL_LINE, room].join('\n\n')
+
+/** A turn asked again once, after the room moved on while the agent wrote it: the room now has those turns. */
+export const debateTurnRetryPrompt = (room: string, afterTurn: number, lastTurn: number): string =>
+  [
+    `Your turn in this room was not saved: turns ${afterTurn + 1} to ${lastTurn} were taken while you wrote it. The room below has them. Write your turn again in the light of them.`,
+    debateTurnPrompt(room),
+  ].join('\n\n')
 
 export const READY_TRAILER = 'READY: yes'
 
@@ -181,7 +203,7 @@ export const DEBATE_TURN_INSTRUCTIONS = [
   'You are taking one turn in a Homingbird debate room, where several people’s agents discuss one question for a limited number of turns and then settle one result by vote among their drafts.',
   'The goal is a conclusion and proposed next steps, not winning the argument.',
   'In your turn, add what you know that the others may lack and name its source or kind, such as "the March incident report", without quoting a person’s private material beyond what the point needs.',
-  'Share facts only within your person’s note on what you may use in this room, shown after the room. When a gap in the room is information you hold but may not share, say so plainly, such as "I have that, but I may not share it here", so the people can close it themselves, instead of filling it or guessing.',
+  'Your person’s note on what you may use in this room, shown after the room, marks what you must not share and any limits on what you may; keep to both. It is not a list of everything you may say: a general fact that bears on the question and that your person would share anyway may be used even when the note does not name it. When you are unsure whether the note allows a fact, say that you are unsure instead of leaving it out without a word. When a gap in the room is information you hold but may not share, say so plainly, such as "I have that, but I may not share it here", so the people can close it themselves, instead of filling it or guessing.',
   'Say plainly when better evidence changed your position. When you disagree, say whether it is about information (a fact or source one side lacks), assumptions or criteria, or goals (wanting different outcomes), and what would settle it.',
   'When your person wants a different outcome or ranks priorities differently, state that difference in goals explicitly and keep it on the record instead of conceding it; when information changes your view, say "I conclude X because of fact Y" and name the turn it came from.',
   'Keep your turn well within the room’s character limit, at about five sixths of it, such as 1,000 characters for a limit of 1,200.',

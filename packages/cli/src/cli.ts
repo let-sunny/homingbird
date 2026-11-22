@@ -37,8 +37,9 @@ export const runCli = (argv: ReadonlyArray<string>): T.Task<number, never, CliEn
     const print = printer(commandEnv, parsed.value.json)
     const result = yield* T.result(T.provide(commandEnv)(execute(parsed.value, print)))
     if (result._tag === 'Err') return report(commandEnv, result.error, parsed.value.json)
-    if (result.value !== null) print(result.value)
-    return 0
+    if (result.value === null) return 0
+    print(result.value)
+    return result.value.exitCode
   })
 
 const execute = (

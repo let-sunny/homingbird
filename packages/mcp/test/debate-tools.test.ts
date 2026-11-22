@@ -283,7 +283,7 @@ describe('debate tools', () => {
         { position: 2, memberId: BEN.id, agentName: 'Ben agent', body: hostile, at: 3 },
       ],
     })
-    const refusal = Conflict({ message: 'The room moved on.' })
+    const refusal = Conflict({ message: 'The room moved on: turns 2 to 2 were taken after turn 1.' })
     const stale = await call(
       'take_debate_turn',
       { debateId: DEBATE_ID, body: 'Point.', afterTurn: 1 },
@@ -291,24 +291,33 @@ describe('debate tools', () => {
     )
     expect(stale.isError).toBe(true)
     expect(stale.text).toMatch(
-      /^Conflict: The room moved on\.\n\nCall take_debate_turn again with afterTurn 2/,
+      /^Conflict: The room moved on: turns 2 to 2 were taken after turn 1\.\n\nThe turns you missed are quoted below, so you need not read the room again: rewrite your turn once in the light of them, then call take_debate_turn with afterTurn 2\./,
     )
     expect(stale.text).toContain(`id="${DEBATE_ID}/turn-2"`)
     expect(stale.text).not.toContain(`id="${DEBATE_ID}/turn-1"`)
     expect(textOutsideWrappers(stale.text)).not.toContain('99dd')
+    expect(stale.calls.map((one) => one.name)).not.toContain('debates.waiting')
     const unmoved = await call(
       'take_debate_turn',
       { debateId: DEBATE_ID, body: 'Point.', afterTurn: 2 },
       { 'debates.turns.post': () => refusal, 'debates.get': () => moved },
     )
-    expect(unmoved.text).toBe('Conflict: The room moved on.')
+    expect(unmoved.text).toBe(`Conflict: ${refusal.message}`)
     const blind = await call(
       'take_debate_turn',
       { debateId: DEBATE_ID, body: 'Point.' },
       { 'debates.turns.post': () => refusal },
     )
-    expect(blind.text).toBe('Conflict: The room moved on.')
+    expect(blind.text).toBe(`Conflict: ${refusal.message}`)
     expect(blind.calls.map((one) => one.name)).toEqual(['debates.turns.post'])
+    const closed = Conflict({ message: 'This room takes no more turns.' })
+    const over = await call(
+      'take_debate_turn',
+      { debateId: DEBATE_ID, body: 'Point.', afterTurn: 1 },
+      { 'debates.turns.post': () => closed, 'debates.get': () => moved },
+    )
+    expect(over.text).toBe('Conflict: This room takes no more turns.')
+    expect(over.calls.map((one) => one.name)).toEqual(['debates.turns.post'])
   })
 
   it('draft a result given as an object or a string, and refuse one out of shape without calling the server', async () => {

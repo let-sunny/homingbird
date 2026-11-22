@@ -94,7 +94,9 @@ describe('starting Dovecote', () => {
     const lines: string[] = []
     expect(
       await T.runPromise(
-        startDovecote(['audit', 'verify'], 8080, (line) => lines.push(line)),
+        startDovecote({ kind: 'command', command: 'audit', args: ['verify'] }, 8080, (line) =>
+          lines.push(line),
+        ),
         server.env,
       ),
     ).toEqual({
@@ -102,13 +104,18 @@ describe('starting Dovecote', () => {
     })
     expect(lines).toEqual([expect.stringMatching(/^The audit chain holds: 0 rows/)])
     const others: string[] = []
-    for (const command of [
-      ['notes', 'export', 'nobody@example.com'],
-      ['members', 'verify-left', 'nobody@example.com'],
-    ])
+    for (const command of ['notes', 'members'] as const)
       expect(
         await T.runPromise(
-          startDovecote(command, 8080, (line) => others.push(line)),
+          startDovecote(
+            {
+              kind: 'command',
+              command,
+              args: [command === 'notes' ? 'export' : 'verify-left', 'nobody@example.com'],
+            },
+            8080,
+            (line) => others.push(line),
+          ),
           server.env,
         ),
       ).toEqual({ exitCode: 1 })
@@ -118,16 +125,21 @@ describe('starting Dovecote', () => {
     ])
     expect(
       await T.runPromise(
-        startDovecote(['toString'], 8080, () => {}),
-        server.env,
-      ),
-    ).toBe('serve')
-    expect(
-      await T.runPromise(
-        startDovecote([], 8080, () => {}),
+        startDovecote({ kind: 'serve' }, 8080, () => {}),
         server.env,
       ),
     ).toBe('serve')
     expect(server.logged.map((line) => JSON.parse(line).eventName)).toContain('system.started')
+  })
+
+  it('warns at start that note retention is on, and for how many days', async () => {
+    const lines = await started({ HB_NOTE_RETENTION_DAYS: '30' })
+    expect(
+      lines
+        .filter((line) => line.eventName === 'system.note_retention_on')
+        .map((line) => [line.severityText, line.attributes]),
+    ).toEqual([['WARN', { days: 30 }]])
+    await server.close()
+    expect((await started()).map((line) => line.eventName)).not.toContain('system.note_retention_on')
   })
 })

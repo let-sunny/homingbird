@@ -56,6 +56,9 @@ homingbird logout
 
 Every command accepts `--json`; `homingbird --help` lists the options.
 
+`homingbird status` exits 0 when this device is signed in and 3 when it is not, or when the server no
+longer accepts its credential, so a device-management check can rely on the exit code alone.
+
 Each server you sign in to keeps its own credential, in `~/.config/homingbird/agents/`. Every command
 takes `--server <url>` (or `HOMINGBIRD_SERVER`) to say which one; without it the command uses the only
 server you are signed in to, and asks when there are several. `homingbird logout --server <url>` signs
@@ -105,7 +108,7 @@ to the drafting agent; it does not change approval.
 | Preset | Runs | Reader for `--split` | Status |
 | --- | --- | --- | --- |
 | `claude` | `claude -p --permission-prompts none --settings '{"disableAllHooks":true}'` | `claude -p --tools '' --strict-mcp-config --permission-prompts none --settings '{"disableAllHooks":true}'`: no tools | Verified with Claude Code 2.1.327; options seen in Claude Code 2.1.329 --help |
-| `codex` | `codex exec --skip-git-repo-check --ephemeral --sandbox workspace-write -` | `codex exec --skip-git-repo-check --ephemeral --ignore-user-config --ignore-rules --sandbox read-only --disable shell_tool --disable unified_exec --disable view_image -c 'web_search="disabled"' -c features.plugins=false -c features.apps=false -`: minimal tools, not none | Not yet tested with the real CLI |
+| `codex` | `codex exec --skip-git-repo-check --ephemeral --sandbox workspace-write -` | `codex exec --skip-git-repo-check --ephemeral --ignore-rules --sandbox read-only --disable shell_tool --disable unified_exec --disable view_image -c 'web_search="disabled"' -c features.plugins=false -c features.apps=false -`: minimal tools, not none | Not yet tested with the real CLI |
 | `antigravity` | `agy --print= --input-format=stream-json --output-format=stream-json --sandbox` | `agy --print= --input-format=stream-json --output-format=stream-json --sandbox --settings '{"toolPermission":"request-review","permissions":{"deny":["read_file(*)","write_file(*)","command(*)","mcp(*)","read_url(*)","execute_url(*)"]}}'`: minimal tools, not none | Not yet tested with the real CLI |
 | `gemini` | `gemini -p '' --output-format text --approval-mode default` | none: give `--reader` yourself | Not yet tested with the real CLI |
 <!-- presets:end -->
@@ -120,11 +123,18 @@ it prints.
 - **Codex**: in a non-interactive run it prints only its final message on standard output. Its reader
   turns off the shell, code execution, image viewing and web search and runs read-only, but Codex has
   no way to turn every tool off, so `--require-toolless-reader` refuses it and the runner says so.
+  Before the reader starts, the runner asks `codex mcp list --json` and switches each listed server
+  off with `-c mcp_servers.<name>.enabled=false`; a server name `-c` cannot address, one with a dot
+  for instance, stops the runner instead. `--ignore-user-config` is left out, since only `codex exec`
+  takes it and the list must name what the reader loads.
 - **Antigravity** (`agy`) is how Google offers Gemini to individuals and on free plans. The preset
   hands it the prompt as one stream-json event on standard input, reads the reply from its result
   event, and passes `--sandbox` so it writes no files. Its reader denies every tool Antigravity names
   through `--settings`; the preset needs Antigravity CLI 1.1.15 or later. Antigravity has no switch that
-  turns every tool off, so `--require-toolless-reader` refuses it.
+  turns every tool off, so `--require-toolless-reader` refuses it. **Unverified:** agy's
+  documentation does not describe `--settings` taking inline JSON, the `role` in the input event, or
+  `agy -p /usage` as a sign-in check, which may fail for an API-key sign-in; `homingbird presets`
+  says so too. Try it on one desk before relying on it.
 - **Gemini CLI** stays for Code Assist Standard or Enterprise and API-key setups.
 - Without a reader preset, `--split` without `--reader` uses the agent itself as the reader and the
   runner warns, as with any command.

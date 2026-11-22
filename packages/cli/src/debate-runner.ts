@@ -1,5 +1,6 @@
-import { Task as T } from '@homingbird/kernel'
+import { type Result, Task as T } from '@homingbird/kernel'
 import {
+  type ApiError,
   type AsRead,
   type Authors,
   ballotReaderPrompt,
@@ -8,8 +9,10 @@ import {
   debateResultIn,
   debateResultPrompt,
   debateTurnPrompt,
+  debateTurnRetryPrompt,
   debateVotePrompt,
   extractedRoom,
+  isStaleTurnRefusal,
   quotedDebate,
   quotedDrafts,
   statedModelIn,
@@ -103,20 +106,12 @@ const takeTurn = <R extends { readonly nonce: () => string }>(
     const what = `the debate room ${debate.id}`
     const room = yield* roomFor(desk, debate, authors, what)
     if (room === null) return
-    const output = yield* desk.run('agent', debateTurnPrompt(room), what)
-    if (output === null) return
-    const { answer: body, model, ready } = statedTurnIn(output)
-    if (/^SKIP:/i.test(body)) return yield* desk.warn(`The agent took no turn in ${what}.`)
-    if (body === '' || body.length > debate.limits.turnCharacters)
-      return yield* desk.warn(
-        `The agent command printed ${body === '' ? 'nothing' : 'more than a turn in this room holds'}; no turn was taken in ${what}.`,
-      )
-    const posted = yield* T.result(
-      desk.session.api['debates.turns.post']({
-        params: { id: debate.id },
-        body: { body, ...modelOf(model), ...(ready && { ready }) },
-      }),
-    )
+    const first = yield* writeAndPostTurn(desk, debate, debateTurnPrompt(room), what)
+    const posted =
+      first?._tag === 'Err' && isStaleTurnRefusal(first.error)
+        ? yield* retryTurn(desk, debate, authors, what)
+        : first
+    if (posted === null) return
     if (posted._tag === 'Err')
       return yield* desk.warn(`The turn in ${what} was refused: ${posted.error.message}`)
     const taken = posted.value
@@ -126,6 +121,55 @@ const takeTurn = <R extends { readonly nonce: () => string }>(
         `Took turn ${taken.turns.length} in ${what}. Turns are shown to the room’s members and never sent as notes.`,
       ),
     )
+  })
+
+type Posted = Result.Result<AsRead.Debate, ApiError>
+
+/**
+ * Asks the agent for its turn and posts it after the last turn it was shown, so a turn written while
+ * others spoke is refused rather than saved blind; null when the agent gave no turn to post.
+ */
+const writeAndPostTurn = <R extends { readonly nonce: () => string }>(
+  desk: DebateDesk<R>,
+  debate: AsRead.Debate,
+  prompt: string,
+  what: string,
+): T.Task<Posted | null, CliFailure, R> =>
+  T.gen(function* () {
+    const output = yield* desk.run('agent', prompt, what)
+    if (output === null) return null
+    const { answer: body, model, ready } = statedTurnIn(output)
+    if (/^SKIP:/i.test(body)) {
+      yield* desk.warn(`The agent took no turn in ${what}.`)
+      return null
+    }
+    if (body === '' || body.length > debate.limits.turnCharacters) {
+      yield* desk.warn(
+        `The agent command printed ${body === '' ? 'nothing' : 'more than a turn in this room holds'}; no turn was taken in ${what}.`,
+      )
+      return null
+    }
+    return yield* T.result(
+      desk.session.api['debates.turns.post']({
+        params: { id: debate.id },
+        body: { body, afterTurn: debate.turns.length, ...modelOf(model), ...(ready && { ready }) },
+      }),
+    )
+  })
+
+/** Once, after a stale refusal: the room again with the turns the agent missed, and its turn rewritten. */
+const retryTurn = <R extends { readonly nonce: () => string }>(
+  desk: DebateDesk<R>,
+  debate: AsRead.Debate,
+  authors: Authors,
+  what: string,
+): T.Task<Posted | null, CliFailure, R> =>
+  T.gen(function* () {
+    const moved = yield* calling(desk.session.api['debates.get']({ params: { id: debate.id } }))
+    const room = yield* roomFor(desk, moved, authors, what)
+    if (room === null) return null
+    const prompt = debateTurnRetryPrompt(room, debate.turns.length, moved.turns.length)
+    return yield* writeAndPostTurn(desk, moved, prompt, what)
   })
 
 const draftResult = <R extends { readonly nonce: () => string }>(

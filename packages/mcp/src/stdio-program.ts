@@ -29,13 +29,16 @@ export interface StdioProgram {
 export type ProgramFailed = ReturnType<typeof ProgramFailed>
 
 export const USAGE = [
-  'Usage: homingbird-mcp --server <url> [--name <client name>] [--channel] [--desk | --run-agent "<command>"]',
+  'Usage: homingbird-mcp --server <url> [--name <client name>] [--no-browser] [--channel] [--desk | --run-agent "<command>"]',
   '',
   '  --server   The address of your Homingbird server. Also read from HOMINGBIRD_SERVER.',
   '  --name     How this agent appears in your credential list.',
+  '  --no-browser  Never open a browser tab: login and open_homingbird give the link and the code',
+  '             for your human to open. Also HOMINGBIRD_NO_BROWSER=1.',
   '  --channel  Push arriving notes into a Claude Code session started with --channels.',
-  '  --desk     Make this your desk session: it holds the event stream, checks the inbox at',
-  '             the start and answers what arrives. Implies --channel. Keep only one desk.',
+  '  --desk     Claude Code only: make this your desk session. It holds the event stream, checks',
+  '             the inbox at the start and answers what arrives. Implies --channel. Keep only one',
+  '             desk. In any other client it does nothing; use --run-agent there.',
   '  --run-agent  Run your desk inside this server while the MCP client is open: each arriving',
   '             note is answered by this agent command, such as "claude -p". Every draft waits',
   '             for approval in the web client. Also read from HOMINGBIRD_RUN_AGENT.',
@@ -51,6 +54,10 @@ export const USAGE = [
   '',
   'Signing in happens from the MCP client: ask your agent to log in.',
 ].join('\n')
+
+/** Said on standard error when a client other than Claude Code starts a --desk or --channel server. */
+export const channelDeclined = (client: string): string =>
+  `--desk and --channel work only in Claude Code; ${client} would never show a pushed note, so this session pushes and picks up nothing. Remove --desk and run the watch prompt, or add --run-agent "<agent command>" for a desk that needs no chat.`
 
 export const RUNNERS_SERVER_ONLY =
   'HOMINGBIRD_CREDENTIALS_FILE is set: this server answers one agent run of homingbird run, so it takes no --run-agent, --desk or --channel.'
@@ -69,8 +76,9 @@ export const runStdioProgram = (program: StdioProgram): T.Task<void, ProgramFail
       return yield* T.fail(ProgramFailed({ message: 'This build of homingbird-mcp cannot run a desk.' }))
     const clock = yield* T.Clock
     const fetching = program.fetch !== undefined ? { fetch: program.fetch } : {}
+    const log = program.log ?? (() => {})
     const opening =
-      program.launch !== undefined
+      program.launch !== undefined && options.opensBrowser
         ? { openInBrowser: browserOpener(program.launch, program.platform ?? 'linux', options.serverUrl) }
         : {}
     yield* T.scoped((scope) =>
@@ -88,7 +96,7 @@ export const runStdioProgram = (program: StdioProgram): T.Task<void, ProgramFail
                 serverUrl: options.serverUrl,
                 scope,
                 env: deskEnv!,
-                log: program.log ?? (() => {}),
+                log,
               })
         const channel = options.isChannel ? makeChannel(() => toolContextOf(context), program.write) : null
         const session = makeLocalSession({
@@ -121,6 +129,8 @@ export const runStdioProgram = (program: StdioProgram): T.Task<void, ProgramFail
               opened: T.suspend(() =>
                 session.state().kind === 'signed_in' ? channel.opened : channel.armed,
               ),
+              declined: (client: string) =>
+                T.flatMap(() => T.sync(() => log(channelDeclined(client))))(channel.declined),
             },
           }),
         }
@@ -137,6 +147,7 @@ interface Options {
   readonly isDesk: boolean
   readonly agent: string | null
   readonly split: SplitMode | null
+  readonly opensBrowser: boolean
 }
 
 const optionsFrom = (program: StdioProgram) => {
@@ -169,6 +180,8 @@ const optionsFrom = (program: StdioProgram) => {
         clientName: flag('--name') ?? 'MCP agent',
         isChannel: program.arguments.includes('--channel') || program.arguments.includes('--desk'),
         isDesk: program.arguments.includes('--desk'),
+        opensBrowser:
+          !program.arguments.includes('--no-browser') && program.environment.HOMINGBIRD_NO_BROWSER !== '1',
       })
     : err(ProgramFailed({ message: USAGE }))
 }

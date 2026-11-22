@@ -3,14 +3,21 @@ import { logBackgroundEnded } from './background-pass.ts'
 import { loadConfig } from './config.ts'
 import { flushAttempts } from './domain/denied-attempts.ts'
 import { startServer } from './http/node-server.ts'
-import { makeLog, writeToStandardOutput } from './log/operational-log.ts'
+import { invocationOf } from './invocation.ts'
+import { type Log, makeLog, writeToStandardOutput } from './log/operational-log.ts'
 import { logUnexpectedStop } from './log/unexpected-stop.ts'
 import { buildRuntime } from './runtime.ts'
-import { openDatabase } from './sql/open.ts'
+import { openReachableDatabase } from './sql/reachable.ts'
 import { startDovecote } from './startup.ts'
 import { SERVER_VERSION } from './version.ts'
 
-const config = loadConfig(process.env)
+const invocation = invocationOf(process.argv.slice(2))
+if (invocation.kind === 'print') {
+  ;(invocation.exitCode === 0 ? process.stdout : process.stderr).write(`${invocation.text}\n`)
+  process.exit(invocation.exitCode)
+}
+
+const config = loadConfig(process.env, invocation.kind === 'serve' ? 'serve' : 'command')
 if (config._tag === 'Err') {
   process.stderr.write(
     `Dovecote cannot start:\n${config.error.map((problem) => `  ${problem}`).join('\n')}\n`,
@@ -20,7 +27,13 @@ if (config._tag === 'Err') {
 
 const cannotStart = (message: string): T.Task<never> =>
   T.sync(() => {
-    process.stderr.write(`Dovecote cannot start: ${message}\n`)
+    process.stderr.write(invocation.kind === 'serve' ? `Dovecote cannot start: ${message}\n` : `${message}\n`)
+    return process.exit(1)
+  })
+
+const stopWith = (sentence: string): T.Task<never> =>
+  T.sync(() => {
+    process.stderr.write(`${sentence}\n`)
     return process.exit(1)
   })
 
@@ -35,14 +48,16 @@ const shutdownSignal: T.Task<void> = T.async<void>((resume) => {
 })
 
 const program = T.gen(function* () {
-  const opened = yield* T.result(openDatabase(config.value.databaseUrl))
-  if (opened._tag === 'Err') return yield* cannotStart(opened.error.message)
+  const opened = yield* T.result(openReachableDatabase(config.value.databaseUrl))
+  if (opened._tag === 'Err') {
+    if (opened.error._tag !== 'DatabaseUnreachable') return yield* cannotStart(opened.error.message)
+    operationalLog().emit({ name: 'system.database_unreachable', attributes: { code: opened.error.code } })
+    return yield* stopWith(opened.error.message)
+  }
   const database = opened.value
   const { env, background } = buildRuntime({ config: config.value, database })
   const prepared = yield* T.provide(env)(
-    T.result(
-      startDovecote(process.argv.slice(2), config.value.port, (line) => process.stdout.write(`${line}\n`)),
-    ),
+    T.result(startDovecote(invocation, config.value.port, (line) => process.stdout.write(`${line}\n`))),
   )
   if (prepared._tag === 'Err') {
     yield* database.close
@@ -71,12 +86,15 @@ const program = T.gen(function* () {
 
 const ended = await T.run(program, {})
 if (ended._tag === 'Err') {
-  const log = makeLog({
-    level: config.value.logs.operational,
+  process.stderr.write(`${logUnexpectedStop(operationalLog(), config.value.logs.operational, ended.error)}\n`)
+  process.exit(1)
+}
+
+function operationalLog(): Log {
+  return makeLog({
+    level: config._tag === 'Ok' ? config.value.logs.operational : 'info',
     write: writeToStandardOutput,
     now: systemClock.now,
     version: SERVER_VERSION,
   })
-  process.stderr.write(`${logUnexpectedStop(log, config.value.logs.operational, ended.error)}\n`)
-  process.exit(1)
 }

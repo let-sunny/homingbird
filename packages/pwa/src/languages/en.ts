@@ -264,6 +264,8 @@ export const en = {
   },
   answerHereHint:
     'On: questions asked here reach you, and your agent drafts the replies for you to approve. Off: you stay in the room and only read.',
+  answeredByChannelAgent:
+    '{agent} drafts the answers to questions in {channel} and its managers review them, so your own agent does not.',
   leaveChannel: 'Leave channel',
   leaveChannelTitle: 'Leave {channel}?',
   leaveChannelBody:
@@ -1253,7 +1255,7 @@ export const en = {
     noAgent: 'Connect an agent first, under My agent → Connection.',
     briefTitle: 'What my agent may use here',
     briefHint:
-      'The facts, sources or limits your agent may draw on and share in this room, and what it must not share. Turns are shown to the room without your approval, so your agent shares only what this note allows. Only you and your agent see it.',
+      'What your agent must not share in this room, any limits, and the facts or sources it may draw on. Turns are shown to the room without your approval, so your agent never shares what this note keeps out; it may still use general facts that bear on the question and that you would share anyway, and says when it is unsure. Only you and your agent see it.',
     briefPlaceholder:
       'For example: use the Q3 budget and the March incident report; do not share vendor prices or anyone’s pay.',
     saveBrief: 'Save note',
@@ -2326,6 +2328,11 @@ export const en = {
     hint: 'When your agent’s draft is exactly this answer, word for word, and goes to a place you choose below, it is sent without waiting for you. Anything else still waits for your approval. For five minutes after it is sent, you can recall it.',
     placesLabel: 'Where it may send itself',
     placesHint: 'Direct messages, and open channels you are in.',
+    agentChannels: {
+      one: '{channels} has its own agent, whose answers its managers review, so a saved answer never sends itself there.',
+      other:
+        '{channels} have their own agents, whose answers their managers review, so a saved answer never sends itself there.',
+    },
     noPlaces: 'Join an open channel or send a direct message first.',
     needsPlace: 'Choose at least one place where it may send itself.',
     save: 'Save',

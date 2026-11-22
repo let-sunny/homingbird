@@ -173,6 +173,16 @@ Horizontal scaling (shared fan-out through the database or a broker) is on the
 
 - SQLite is built into Node (`node:sqlite`), needs no driver and is the fastest option on one machine.
   Keep the file on a local or block disk, never on a network file system.
+- Node 22 and 24, the versions CI tests, still mark `node:sqlite` experimental, and Node 24 prints
+  "SQLite is an experimental feature" once when Dovecote on SQLite starts from source. It is harmless;
+  the image sets `NODE_OPTIONS=--disable-warning=ExperimentalWarning`, which you can set too. Dovecote
+  on PostgreSQL or MySQL never loads `node:sqlite`.
+- A database Dovecote cannot reach stops the start, and every command on the server host, with one
+  sentence on stderr that names the host, port, database and the driver's reason, never the password:
+  `Dovecote cannot reach the database at db.internal:5432/homingbird: password authentication failed
+  for user "homingbird" (28P01).` The operational log gets a `system.database_unreachable` line with
+  the code alone. Under `restart: unless-stopped` the container restarts in a loop until it is fixed:
+  read `docker compose logs dovecote`.
 - The container image includes the `pg` and `mysql2` drivers. Running from source, install the one you
   need: they are optional peer dependencies of `@homingbird/dovecote`.
 - The whole server test suite runs against PostgreSQL 16 and MySQL 8 in CI.
@@ -199,7 +209,9 @@ Horizontal scaling (shared fan-out through the database or a broker) is on the
   nothing. A database from a 0.1.0 release candidate is such a database: recreate it, starting from an
   empty one.
 - A server rolled back to an older version refuses a database a newer one migrated, because it records
-  a step that version does not know. Back up before upgrading, and restore that backup to roll back.
+  a step that version does not know: "This database was upgraded by a newer Dovecote (schema step 27;
+  this version knows 25), so it is left untouched: run that newer version, or restore the backup you
+  took before upgrading." Back up before upgrading, and restore that backup to roll back.
 
 **Supported upgrades:**
 
@@ -363,7 +375,37 @@ is the one that holds an individual to a reasonable pace.
   4. Run `dovecote audit verify` with the server's settings; it says the chain holds.
   5. Start Dovecote. Notes, members and sessions are as they were when the backup was taken; anything
      written after it is gone, and people signed in since then sign in again.
-- **PostgreSQL and MySQL:** use the managed service's automated backups with point-in-time recovery.
+- **PostgreSQL with the compose file's `postgres` profile:** nothing backs it up unless you do.
+  Take a dump without stopping Dovecote; `pg_dump` reads one consistent snapshot:
+
+  ```sh
+  docker compose exec -T postgres pg_dump -U homingbird -Fc homingbird > homingbird.dump
+  ```
+
+  Run it daily from cron, move the file off the machine, and keep several. To check that a dump
+  opens, list it: `docker compose exec -T postgres pg_restore --list < homingbird.dump | head`.
+
+  To restore it:
+
+  1. Stop Dovecote, and leave PostgreSQL running: `docker compose stop dovecote`.
+  2. Recreate the database empty and load the dump into it, so no table a later version added stays
+     behind:
+
+     ```sh
+     docker compose exec -T postgres dropdb -U homingbird --force homingbird
+     docker compose exec -T postgres createdb -U homingbird homingbird
+     docker compose exec -T postgres pg_restore -U homingbird -d homingbird --no-owner < homingbird.dump
+     ```
+
+  3. Run `docker compose run --rm --no-deps dovecote node dovecote.mjs audit verify`; it says the chain
+     holds.
+  4. Start Dovecote: `docker compose --profile postgres up -d`. As with SQLite, anything written after
+     the dump is gone.
+
+  The profile's password is `homingbird` unless `DATABASE_PASSWORD` is set in `.env`. Set it, and the
+  same password in `HB_DATABASE_URL`, before the first start: PostgreSQL reads it only when it creates
+  its volume.
+- **Managed PostgreSQL and MySQL:** use the service's automated backups with point-in-time recovery.
   Both Terraform setups turn them on.
 - The database holds note content, the audit trail, hashed credentials and, with the cloud desk on,
   wake tokens sealed with `HB_SECRETS_KEY`, as well as the Slack app's bot token and signing secret when
@@ -424,7 +466,8 @@ and nothing reads your directory. Add it to your offboarding checklist next to b
 2. **Deactivate.** An administrator opens **Administration**, **Members** in the web client and presses
    **Deactivate** (the API route `admin.members.update` with `status: deactivated`).
 3. **Block the company account** at the identity provider as usual.
-4. **Verify** on the server host, with the same `HB_DATABASE_URL` as the server:
+4. **Verify** on the server host, with the same `HB_DATABASE_URL` and `HB_ADMIN_EMAILS` as the server
+   (without `HB_ADMIN_EMAILS` the last check says `skip`, not checked):
 
    ```sh
    node dovecote.mjs members verify-left leaver@example.com   # in the image: docker compose exec dovecote node dovecote.mjs members verify-left leaver@example.com
@@ -528,12 +571,28 @@ place to look.
 **Notes are kept until you delete them. Dovecote can delete old ones for you, export one person's,
 and delete what one person never sent; all three run on the server host and are audited.** None has a
 route or a tool: they need the database's credentials, as `dovecote audit verify` does, so no
-administrator's browser and no agent can reach them.
+administrator's browser and no agent can reach them. They need `HB_DATABASE_URL` and no other variable.
 
 **Retention.** `HB_NOTE_RETENTION_DAYS` is unset by default, which keeps every note. Set it, at least 7,
-and the hourly housekeeping pass deletes sent notes sent more than that many days ago and discarded
-notes discarded that long ago. A value under 7 refuses to start, because what it deletes cannot come
-back. Drafts never expire: they wait for their person. With each note go the rows about it: receipts,
+and the housekeeping pass, at start and then hourly, deletes sent notes sent more than that many days
+ago and discarded notes discarded that long ago. A value under 7 refuses to start, because what it
+deletes cannot come back. **Preview it first**, and back up: the first start with it deletes at once.
+
+```sh
+node dovecote.mjs notes retention --dry-run --days 90   # in the image: docker compose exec dovecote node dovecote.mjs notes retention --dry-run --days 90
+```
+
+```text
+A retention of 90 days would delete 2,798 of 5,582 notes: 2,750 sent and 48 discarded before 2026-08-24.
+The oldest of them was sent on 2025-11-03.
+Nothing was deleted. Started with this retention, Dovecote deletes them at once, then hourly.
+```
+
+Without `--days` it previews `HB_NOTE_RETENTION_DAYS`. While retention is on, every start writes a
+`system.note_retention_on` warning with the days to the operational log, and every pass a
+`housekeeping.notes_purged` line with how many notes it deleted, 0 included.
+
+Drafts never expire: they wait for their person. With each note go the rows about it: receipts,
 pickups, notices, released notes, principle applications and offers, draft request answers, and a
 Slack arrival or a post still waiting in the Slack outbox. A
 reply whose question is gone keeps its own text. Figures over a longer period than the retention
@@ -579,7 +638,7 @@ drafts, and the audit trail. A page they still have open drops the drafts at its
 hold that keeps one person's notes past the retention. Copies outside the database stay as long as you
 keep them: backups, the event backlog (7 days) and anything an agent or a person saved.
 
-All three commands work on SQLite, PostgreSQL and MySQL, need no new table, and refuse a database of
+All these commands work on SQLite, PostgreSQL and MySQL, need no new table, and refuse a database of
 another version with exit code 3, like the audit commands. A wrong call prints the usage and exits 2.
 
 ## Logs
@@ -674,7 +733,7 @@ to 90 with a warning at start. While it is unset, a longer retention an administ
 this setting moved to the variable is kept, and a saved keep forever keeps every row. The hourly housekeeping pass removes older rows, and rows
 of the first audit table, `audit_log`, with the same cutoff.
 
-**On the server host**, with the same `HB_DATABASE_URL` as the server:
+**On the server host**, with the same `HB_DATABASE_URL` as the server; no other variable is needed:
 
 ```sh
 node dovecote.mjs audit verify                               # in the image: docker compose exec dovecote node dovecote.mjs audit verify
@@ -686,8 +745,9 @@ node dovecote.mjs audit purge-legacy                         # removes every row
 `verify` walks the chain up to the head it read when it started, so rows the server writes meanwhile
 wait for the next run and a retention purge meanwhile is no break; it says where the chain breaks and
 exits 1. `export` writes one JSON object per row. The commands never migrate or seed: a database of
-another version is refused with exit code 3 and one sentence. None has a network route: the trail is
-read where the database is.
+another version is refused with exit code 3 and one sentence, and a database they cannot reach with
+exit code 1 and the sentence in [Choosing a database](#choosing-a-database). None has a network
+route: the trail is read where the database is.
 
 Recipes, for PostgreSQL; SQLite and MySQL differ only in date functions:
 
@@ -741,6 +801,27 @@ long secrets removed. Every response carries `X-Request-Id`, the same id as on t
 and audit rows. Dovecote keeps no log of its own: retention is the collector's.
 
 A start failure still goes to stderr as one sentence, because there is nowhere else to say it.
+
+### Monitoring
+
+- **Health:** `GET /healthz` answers `200 {"status":"ok"}` while the process serves. It reads no
+  database and needs no credential; the image's `HEALTHCHECK`, the Terraform load balancers and an
+  uptime check use it.
+- **Alert on** `system.stopped`, `background.stopped` and `system.database_unreachable` (restart and
+  look), `background.pass_failed` more than once in a row, and any `WARN` at start you did not expect,
+  such as `system.development_login`.
+- **Keep** the daily `audit.chain_head` line where the database's writers cannot edit it
+  ([The audit trail](#the-audit-trail)), and `system.migrated`, written when a start applied schema
+  steps, with their numbers.
+
+### Commands on the server host
+
+`node dovecote.mjs` with no arguments, or `serve`, starts the server. Anything else is a command:
+`dovecote --help` lists them, `--version` prints the version, and a word it does not know prints the
+usage and exits 2 without starting a server, so a typo or a command from a newer guide never starts a
+second process against the database. In the image, run them with `docker compose exec dovecote node
+dovecote.mjs <command>`. They need only `HB_DATABASE_URL`; `members verify-left` also reads
+`HB_ADMIN_EMAILS`.
 
 ## Product analytics
 
@@ -848,7 +929,9 @@ again. Every change is audited. `server.info` lists which features are on, so ev
 | `mute` | on | Nobody can mute a direct message or a channel or choose what notifies them; stored choices are kept and ignored |
 | `hideConversations` | on | Nobody can hide a direct or group message; rooms hidden before show in their person's list again, and the hides are kept |
 | `leaveGroups` | on | Nobody can leave a group message; each group keeps its people |
+| `tagging` | on | Nobody can tag people in a group message, so every note there asks every other person's agent for a draft; tags already sent stay on their notes and are ignored |
 | `answeringFlow` | on | Agents draft without the organization's steps |
+| `earlierAnswers` | on | **Answered before** no longer shows earlier answers above a question, and agents no longer read them before asking a channel ([guide](guide.md#answered-before)) |
 | `teaching` | on | Principles are kept but not used, and nobody can add one; How it is doing shows each place without its steps |
 | `agentFigures` | on | People no longer see their agent's figures |
 | `insights` | on | Administrators see no organization-wide numbers |
@@ -858,6 +941,7 @@ again. Every change is audited. `server.info` lists which features are on, so ev
 | `joinCodes` | on | Nobody can make a join code for **Run on a server**, and codes already made are refused; servers sign in with `homingbird login` ([A complete example](#a-complete-example-one-persons-runner-on-a-linux-server)) |
 | `deskAvailability` | on | Desks no longer say when their agent can't answer; colleagues see only whether it is awake |
 | `invites` | on | Nobody can make an invite link, and links already made are refused; only allowed domains and `HB_ADMIN_EMAILS` sign in ([Who can sign in](#who-can-sign-in)) |
+| `channelAgents` | **off** | No channel has an agent of its own: nobody can make, connect or ask one, an agent made before cannot sign in, and its answers waiting for review are not shown; the agents and their answers are kept. On, a channel's managers run one agent that answers in the channel, and each answer is sent only when one manager who did not ask the question approves it ([guide](guide.md#a-channels-agent), [Run a channel's agent on a server](#run-a-channels-agent-on-a-server)) |
 | `cloudDesk` | **off** | No cloud desk is woken and nobody can set one up; saved wakes are kept. Offered only with `HB_SECRETS_KEY` ([Cloud desk](#cloud-desk)) |
 | `slack` | **off** | Nothing is taken from Slack or sent to it, and `/slack/events` answers 404; people's links are kept and anyone can still unlink. Offered only with the Slack app's token and signing secret in the environment, or with `HB_SECRETS_KEY` to keep the ones an administrator enters ([Slack](#slack)) |
 | `analytics` | **off** | No usage counts leave the server ([Product analytics](#product-analytics)) |

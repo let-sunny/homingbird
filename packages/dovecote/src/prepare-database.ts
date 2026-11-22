@@ -13,7 +13,10 @@ export const prepareDatabase: T.Task<void, UnknownDatabase, AppEnv> = T.gen(func
   const steps = yield* migrate
   yield* prepareAuditHead
   yield* prepareAnalyticsKey
-  if (steps.length > 0) yield* transact(recordAudit('system.migrated', { detail: { steps } }))
+  if (steps.length > 0) {
+    env.log.emit({ name: 'system.migrated', attributes: { steps: [...steps] } })
+    yield* transact(recordAudit('system.migrated', { detail: { steps } }))
+  }
   if (steps.includes(AUDIT_TRAIL_STEP)) {
     const days = (yield* savedAuditRetention) ?? env.config.auditRetentionDays
     if (days !== 'forever') yield* transact(purgeLegacyAudit(env.clock.now() - days * DAY_MS, 'upgrade'))

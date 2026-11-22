@@ -18,6 +18,7 @@ import {
   type MemberRow,
   type MembersPanelModel,
   type RoomControls,
+  answeredByAgent,
   answeringModel,
   membersPanelModel,
   roomControlsModel,
@@ -43,8 +44,16 @@ import { peoplePicker } from './people-picker.ts'
 import { profileName } from './profile-card.ts'
 
 /** A channel's own controls on its page: answering there, and the menu of the rest. */
-export const roomControls = (context: ViewContext, channel: AsRead.Channel): HTMLElement =>
-  h('div', { class: 'room-controls' }, answeringChip(context, channel), roomMenu(context, channel))
+export const roomControls = (context: ViewContext, channel: AsRead.Channel): HTMLElement => {
+  const note = channel.joined ? answeredByAgent(channel) : null
+  return h(
+    'div',
+    { class: 'room-controls' },
+    answeringChip(context, channel),
+    roomMenu(context, channel),
+    note !== null && h('p', { class: 'trust-footnote answering-agent-note' }, note),
+  )
+}
 
 /** The answering switch of a channel the person is in, as a chip, and a "?" that explains it underneath. */
 export const answeringChip = (context: ViewContext, channel: AsRead.Channel): Child => {
@@ -60,7 +69,7 @@ const answeringSwitch = (context: ViewContext, channel: AsRead.Channel, model: A
       type: 'button',
       class: 'switch answering-chip',
       role: 'switch',
-      title: model.hint,
+      title: model.agentNote ?? model.hint,
       'aria-checked': String(model.checked),
       'aria-labelledby': model.labelId,
       'aria-describedby': model.hintId,
@@ -69,7 +78,7 @@ const answeringSwitch = (context: ViewContext, channel: AsRead.Channel, model: A
     h('span', { class: 'switch-track', 'aria-hidden': 'true' }, h('span', { class: 'switch-thumb' })),
     h('span', { class: 'switch-label', id: model.labelId }, model.label),
     h('span', { class: 'switch-state', 'aria-hidden': 'true' }, model.state),
-    h('span', { id: model.hintId, hidden: true }, model.hint),
+    h('span', { id: model.hintId, hidden: true }, model.agentNote ?? model.hint),
   )
 
 const answeringHelp = (model: AnsweringModel): Child => {
@@ -80,7 +89,12 @@ const answeringHelp = (model: AnsweringModel): Child => {
       { type: 'button', class: 'answering-help', popovertarget: id, 'aria-label': model.helpLabel },
       '?',
     ),
-    h('div', { id, class: 'menu answering-explained', popover: 'auto' }, h('p', {}, model.hint)),
+    h(
+      'div',
+      { id, class: 'menu answering-explained', popover: 'auto' },
+      model.agentNote !== null && h('p', {}, model.agentNote),
+      h('p', {}, model.hint),
+    ),
   ]
 }
 
@@ -102,15 +116,20 @@ export const roomMenu = (context: ViewContext, channel: AsRead.Channel): Child =
 export const privateMark = (channel: AsRead.Channel): Child =>
   isPrivate(channel) && privateMarkOf(strings.privateChannel)
 
-export const joinButtons = (context: ViewContext, channel: AsRead.Channel): HTMLElement =>
-  h(
-    'span',
-    { class: 'join-buttons' },
-    button(strings.join, () => context.actions.joinChannel(channel.slug, false), { class: 'join' }),
-    button(strings.joinAndAnswer, () => context.actions.joinChannel(channel.slug, true), {
-      class: 'primary join-and-answer',
-    }),
-  )
+export const joinButtons = (context: ViewContext, channel: AsRead.Channel): Child => {
+  const note = answeredByAgent(channel)
+  return [
+    h(
+      'span',
+      { class: 'join-buttons' },
+      button(strings.join, () => context.actions.joinChannel(channel.slug, false), { class: 'join' }),
+      button(strings.joinAndAnswer, () => context.actions.joinChannel(channel.slug, true), {
+        class: 'primary join-and-answer',
+      }),
+    ),
+    note !== null && h('p', { class: 'trust-footnote answering-agent-note' }, note),
+  ]
+}
 
 /** Confirms leaving a channel, from its room's menu or its row's. */
 export const leaveForm = (context: ViewContext, slug: string, body: string): Child =>

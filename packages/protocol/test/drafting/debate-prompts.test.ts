@@ -9,7 +9,9 @@ import {
   RUNNER_READY_LINE,
   debateResultPrompt,
   debateTurnPrompt,
+  debateTurnRetryPrompt,
   debateVotePrompt,
+  missedTurnsRefusal,
   quotedBrief,
   quotedDebate,
   quotedDrafts,
@@ -143,6 +145,27 @@ describe('a debate room as a model reads it', () => {
       'Desk, agent of Ben (your own earlier turn)',
     )
   })
+
+  it('hands back a stale refusal with what to do and the turns the agent missed, so it rewrites once without reading', () => {
+    const room = roomOf({ status: 'open' })
+    const text = missedTurnsRefusal('The room moved on.', room, PEOPLE, ANA, 1, counter())
+    expect(text).toBe(
+      [
+        'The room moved on.',
+        'The turns you missed are quoted below, so you need not read the room again: rewrite your turn once in the light of them, then call take_debate_turn with afterTurn 2.',
+        quotedNewTurns(room, PEOPLE, ANA, 1, counter()),
+      ].join('\n\n'),
+    )
+  })
+
+  it('asks a runner’s agent for its turn again, saying which turns it missed, before the usual turn prompt', () => {
+    expect(debateTurnRetryPrompt('ROOM', 1, 3)).toBe(
+      [
+        'Your turn in this room was not saved: turns 2 to 3 were taken while you wrote it. The room below has them. Write your turn again in the light of them.',
+        debateTurnPrompt('ROOM'),
+      ].join('\n\n'),
+    )
+  })
 })
 
 describe('what the agent’s own person allows it to use in a room, as a model reads it', () => {
@@ -183,12 +206,20 @@ describe('what the agent’s own person allows it to use in a room, as a model r
     )
   })
 
-  it('tells the agent to share facts only within the note and to say when a gap is information it may not share', () => {
+  it('reads the note as what the agent must not share and its limits, not as an allow-list, and says when a gap is information it may not share', () => {
     expect(DEBATE_TURN_INSTRUCTIONS).toContain(
-      'Share facts only within your person’s note on what you may use in this room',
+      'Your person’s note on what you may use in this room, shown after the room, marks what you must not share and any limits on what you may',
+    )
+    expect(DEBATE_TURN_INSTRUCTIONS).toContain(
+      'a general fact that bears on the question and that your person would share anyway may be used even when the note does not name it',
+    )
+    expect(DEBATE_TURN_INSTRUCTIONS).toContain(
+      'say that you are unsure instead of leaving it out without a word',
     )
     expect(DEBATE_TURN_INSTRUCTIONS).toContain('"I have that, but I may not share it here"')
     expect(BRIEF_INTRODUCTION).toContain('never share what it says to keep out of the room')
+    expect(BRIEF_INTRODUCTION).toContain('What it names to use is not a complete list')
+    expect(BRIEF_INTRODUCTION).toContain('say that you are unsure rather than withholding it silently')
   })
 })
 

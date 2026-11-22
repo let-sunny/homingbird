@@ -11,6 +11,7 @@ import {
 import type { AppEnv } from '../environment.ts'
 import { all, run } from '../sql/database.ts'
 import { insertInto, list, sql } from '../sql/query.ts'
+import { agentAnsweringIn } from './channel-rows.ts'
 import { ownPrinciple, withFigures } from './principle-rows.ts'
 
 /** Switches a saved answer with its own text to send itself, or not, and says where it may. */
@@ -33,7 +34,7 @@ export const setAutoSend = (
       return yield* T.fail(
         Invalid({
           message:
-            'A saved answer can send itself only in a direct conversation or an open channel you are in.',
+            'A saved answer can send itself only in a direct conversation or an open channel you are in, and never in a channel with its own agent: its managers review every answer there.',
         }),
       )
     yield* run(
@@ -53,7 +54,7 @@ export const clearAutoSend = (id: PrincipleId): T.Task<void, never, AppEnv> =>
 
 /**
  * Of these conversations, the member's unarchived direct ones and open channels' rooms; a private
- * channel, a group message and a private question have no door.
+ * channel, a group message, a private question and a channel whose own agent answers have no door.
  */
 export const autoSendPlacesAmong = (
   memberId: MemberId,
@@ -67,5 +68,7 @@ export const autoSendPlacesAmong = (
       LEFT JOIN channels ch ON ch.conversation_id = c.id
       WHERE c.id IN ${list(ids)} AND c.archived_at IS NULL
       AND (c.kind = 'direct' OR (c.kind = 'channel' AND ch.slug IS NOT NULL AND COALESCE(ch.visibility, 'open') = 'open'))`)
-    return rows.map((row) => row.id)
+    const places: ConversationId[] = []
+    for (const row of rows) if ((yield* agentAnsweringIn(row.id)) === null) places.push(row.id)
+    return places
   })

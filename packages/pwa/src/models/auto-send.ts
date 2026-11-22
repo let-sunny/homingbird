@@ -5,7 +5,8 @@ import {
   type ConversationId,
   type MemberId,
 } from '@homingbird/protocol'
-import { strings } from '../strings.ts'
+import { channelLabel } from '../channels.ts'
+import { listOf, strings } from '../strings.ts'
 import { conversationTitle, isArchived } from '../thread.ts'
 
 /**
@@ -15,15 +16,21 @@ import { conversationTitle, isArchived } from '../thread.ts'
 export const autoSendFormModel = (
   principle: AsRead.Principle,
   places: ReadonlyArray<AutoSendPlace>,
+  channels: ReadonlyArray<AsRead.Channel>,
 ): AutoSendFormModel | null => {
   const setting = principle.autoSend
   if (setting === undefined || !canSendItself(principle)) return null
+  const agentChannels = channelsWithOwnAgent(channels)
   return {
     title: strings.autoSend.dialogTitle({ name: principle.topic }),
     switchLabel: strings.autoSend.switchLabel,
     hint: strings.autoSend.hint,
     placesLabel: strings.autoSend.placesLabel,
     placesHint: strings.autoSend.placesHint,
+    notOffered:
+      agentChannels.length === 0
+        ? null
+        : strings.autoSend.agentChannels({ channels: listOf(agentChannels), count: agentChannels.length }),
     enabled: setting.enabled,
     places: places.map((place) => ({ ...place, chosen: setting.places.includes(place.id) })),
     noPlaces: places.length === 0 ? strings.autoSend.noPlaces : null,
@@ -37,8 +44,8 @@ export const canSendItself = (principle: AsRead.Principle): boolean =>
 
 /**
  * Where a saved answer may send itself, by the names the person knows: the direct conversations and the
- * open channels they are in, alphabetically. Private channels, group messages and private questions are
- * never offered; the server refuses them too.
+ * open channels they are in, alphabetically. Private channels, group messages, private questions and
+ * channels with their own agent are never offered; the server refuses them too.
  */
 export const autoSendPlaces = (input: {
   readonly conversations: ReadonlyArray<AsRead.Conversation>
@@ -48,7 +55,7 @@ export const autoSendPlaces = (input: {
 }): AutoSendPlace[] => {
   const openRooms = new Set(
     input.channels
-      .filter((channel) => channel.joined && channel.visibility === 'open')
+      .filter((channel) => channel.joined && channel.visibility === 'open' && !hasOwnAgent(channel))
       .map((channel) => channel.conversationId),
   )
   return input.conversations
@@ -96,8 +103,18 @@ export interface AutoSendFormModel {
   readonly hint: string
   readonly placesLabel: string
   readonly placesHint: string
+  /** Why the open channels the person is in that have their own agent are not offered; null when none. */
+  readonly notOffered: string | null
   readonly enabled: boolean
   readonly places: ReadonlyArray<AutoSendPlace & { readonly chosen: boolean }>
   readonly noPlaces: string | null
   readonly save: string
 }
+
+const hasOwnAgent = (channel: AsRead.Channel): boolean => (channel.agent ?? null) !== null
+
+const channelsWithOwnAgent = (channels: ReadonlyArray<AsRead.Channel>): string[] =>
+  channels
+    .filter((channel) => channel.joined && channel.visibility === 'open' && hasOwnAgent(channel))
+    .map((channel) => channelLabel(channel.slug))
+    .sort((a, b) => a.localeCompare(b))

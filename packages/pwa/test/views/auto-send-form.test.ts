@@ -5,7 +5,7 @@ import { autoSendForm } from '../../src/views/auto-send-form.ts'
 import { dialogHost, showDialog } from '../../src/views/dialog.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
-import { ANA, BEN, ROOM, conversation, entry, me, principle } from '../support/fixtures.ts'
+import { ANA, BEN, CY, ROOM, channel, conversation, entry, me, principle } from '../support/fixtures.ts'
 
 usingFakeDom()
 
@@ -51,6 +51,20 @@ describe('autoSendForm', () => {
     expect(saved!.args[1]).toEqual({ enabled: false, places: [ROOM] })
     saved!.then!.done!(undefined)
     expect(context.state.notice.get()).toEqual({ kind: 'info', text: strings.autoSend.turnedOff })
+  })
+
+  it('offers no channel with its own agent, and says why in one line', () => {
+    const test = testContext()
+    const billing = channel('billing', { joined: true, agent: { id: CY, name: 'Billing helper' } })
+    test.context.state.session.set(me())
+    test.context.state.channels.set([billing])
+    test.context.state.conversations.set([
+      conversation({ id: billing.conversationId, kind: 'channel', title: 'billing' }),
+    ])
+    const dialog = mount(dialogHost())
+    showDialog(test.context, 'Auto', () => autoSendForm(test.context, answer()))
+    expect(dialog.querySelector('input[name="place"]')).toBeNull()
+    expect(dialog.textContent).toContain(strings.autoSend.agentChannels({ channels: '#billing', count: 1 }))
   })
 
   it('shows nothing for a rule', () => {

@@ -7,7 +7,7 @@ import {
   STABLE_PATH_ADVICE,
   candidatesFor,
   lastingPathOf,
-  missingPresetCommand,
+  missingAgentCommand,
   programWord,
   resolvedProgram,
   stablePath,
@@ -120,16 +120,42 @@ describe('resolvedProgram', () => {
   })
 })
 
-describe('missingPresetCommand', () => {
-  it('names the first preset command whose program is missing, and checks no command of one’s own', async () => {
-    const run = lookup(['/usr/bin/claude'])
+describe('missingAgentCommand', () => {
+  it('names the first command whose program is missing, a preset or one of one’s own', async () => {
+    const run = lookup(['/usr/bin/claude', '/usr/bin/my-agent'])
     const codex = agentCommand('codex', 'linux')
-    expect(await run(missingPresetCommand(['claude -p', codex], '/usr/bin'))).toBe(codex)
-    expect(await run(missingPresetCommand(['claude -p', 'my-agent'], '/usr/bin'))).toBeNull()
+    expect(await run(missingAgentCommand(['claude -p', codex], '/usr/bin'))).toBe(codex)
+    expect(await run(missingAgentCommand(['claude -p', 'my-agent --fast'], '/usr/bin'))).toBeNull()
+    expect(await run(missingAgentCommand(['codex exec -', 'claude -p'], '/usr/bin'))).toBe('codex exec -')
+    expect(await run(missingAgentCommand(['/opt/agent/run -p'], '/usr/bin'))).toBe('/opt/agent/run -p')
+    expect(await run(missingAgentCommand(['~/bin/agent'], '/usr/bin'))).toBe('~/bin/agent')
+  })
+
+  it('leaves to the shell what it would not look up as it is: builtins, relative paths and compound commands', async () => {
+    const run = lookup([])
+    for (const command of [
+      './agent.sh',
+      'bin/agent',
+      'cd /srv && agent',
+      'exec agent -p',
+      '. ./env && agent',
+      'FOO=1 agent',
+      '"$HOME/agent"',
+    ])
+      expect(await run(missingAgentCommand([command], '/usr/bin'))).toBeNull()
+    const windows = lookup([], {}, 'win32')
+    for (const command of ['call agent.cmd', 'START agent', '.\\agent.cmd'])
+      expect(await windows(missingAgentCommand([command], 'C:\\bin'))).toBeNull()
+    expect(await windows(missingAgentCommand(['C:\\tools\\agent.exe'], 'C:\\bin'))).toBe(
+      'C:\\tools\\agent.exe',
+    )
+    expect(await windows(missingAgentCommand(['my-agent'], 'C:\\bin'))).toBe('my-agent')
   })
 
   it('checks nothing when no PATH is set, since the shell then decides', async () => {
-    expect(await lookup([])(missingPresetCommand([agentCommand('codex', 'linux')], undefined))).toBeNull()
+    expect(
+      await lookup([])(missingAgentCommand([agentCommand('codex', 'linux'), 'my-agent'], undefined)),
+    ).toBeNull()
   })
 })
 

@@ -27,7 +27,8 @@ export interface McpContext {
   readonly webClientUrl?: string
   readonly openInBrowser?: OpenInBrowser
   readonly local?: LocalAdapter
-  readonly channel?: { readonly opened: T.Task<void> }
+  /** Pushes arriving work into the session; only Claude Code shows it, so other clients never open it. */
+  readonly channel?: { readonly opened: T.Task<void>; readonly declined: (client: string) => T.Task<void> }
   readonly desk?: boolean
   readonly announced?: AnnouncedRequests
   /** Tools this server does not offer, as on a server a runner started for one agent run. */
@@ -53,15 +54,23 @@ export const DESK_INSTRUCTIONS = instructionsWith(
   ].join(' '),
 )
 
+export const CHANNEL_DECLINED_INSTRUCTIONS =
+  'This app started homingbird-mcp with --desk or --channel, which only Claude Code supports, so this session answers no arriving notes. The first time your human asks about messages, tell them in one sentence to remove --desk and either run the watch prompt or add --run-agent with their agent command.'
+
+/** Claude Code shows channel notifications; any other client would leave a pushed note unseen. */
+export const CHANNEL_CLIENT_NAME = 'claude-code'
+
 const instructionsFor = (context: McpContext): string =>
   [
-    context.desk === true ? DESK_INSTRUCTIONS : INSTRUCTIONS,
+    isDeskSession(context) ? DESK_INSTRUCTIONS : INSTRUCTIONS,
     ...(context.local === undefined ? [] : [LOCAL_INSTRUCTIONS]),
-    ...(context.channel === undefined ? [] : [CHANNEL_INSTRUCTIONS]),
+    ...(context.channel === undefined
+      ? []
+      : [isChannelAccepted(context) ? CHANNEL_INSTRUCTIONS : CHANNEL_DECLINED_INSTRUCTIONS]),
   ].join(' ')
 
 const capabilitiesFor = (context: McpContext) =>
-  context.channel === undefined ? CAPABILITIES : { ...CAPABILITIES, experimental: CHANNEL_CAPABILITY }
+  isChannelAccepted(context) ? { ...CAPABILITIES, experimental: CHANNEL_CAPABILITY } : CAPABILITIES
 
 const answer = (call: RpcCall, context: McpContext): T.Task<unknown, RpcFailure> => {
   const revision = claimedRevision(call.params)
@@ -92,11 +101,18 @@ const CAPABILITIES = { tools: { listChanged: false }, prompts: { listChanged: fa
 
 const METHODS: Readonly<Record<string, Method>> = {
   initialize: (params, context, serverInfo) =>
-    T.succeed({
-      protocolVersion: handshakeRevisionFor(params.protocolVersion),
-      capabilities: capabilitiesFor(context),
-      serverInfo,
-      instructions: instructionsFor(context),
+    T.gen(function* () {
+      if (context.channel !== undefined) {
+        const isClaudeCode = isChannelClient(params)
+        channelClients.set(context, isClaudeCode)
+        if (!isClaudeCode) yield* context.channel.declined(clientNameOf(params) ?? 'an unnamed client')
+      }
+      return {
+        protocolVersion: handshakeRevisionFor(params.protocolVersion),
+        capabilities: capabilitiesFor(context),
+        serverInfo,
+        instructions: instructionsFor(context),
+      }
     }),
   'server/discover': (_, context) =>
     T.succeed({
@@ -105,7 +121,8 @@ const METHODS: Readonly<Record<string, Method>> = {
       instructions: instructionsFor(context),
     }),
   ping: () => T.succeed({}),
-  'notifications/initialized': (_, context) => T.as({})(context.channel?.opened ?? T.unit),
+  'notifications/initialized': (_, context) =>
+    T.as({})(isChannelAccepted(context) ? context.channel!.opened : T.unit),
   'notifications/cancelled': () => T.succeed({}),
   'tools/list': (_, context) =>
     T.map((debates: boolean) => ({
@@ -165,7 +182,7 @@ export const toolContextOf = (context: McpContext): ToolContext => ({
   webClientUrl: context.webClientUrl ?? null,
   ...(context.openInBrowser !== undefined && { openInBrowser: context.openInBrowser }),
   ...(context.announced !== undefined && { announced: context.announced }),
-  ...((context.desk === true || context.channel !== undefined) && { desk: true }),
+  ...(isDeskSession(context) && { desk: true }),
   ...(clients.has(context) && { client: clients.get(context)! }),
 })
 
@@ -180,6 +197,28 @@ const clientLabelOf = (params: RpcCall['params']): string | null => {
 }
 
 const clients = new WeakMap<McpContext, string>()
+
+/** Whether the client that initialized this session is Claude Code, asked only when it offers a channel. */
+const channelClients = new WeakMap<McpContext, boolean>()
+
+const isChannelAccepted = (context: McpContext): boolean =>
+  context.channel !== undefined && channelClients.get(context) === true
+
+/**
+ * Only a desk session picks notes up. One with a channel is a desk only in Claude Code, which shows
+ * what it pushes; a hosted desk that a wake request starts has no channel and checks the inbox itself.
+ */
+const isDeskSession = (context: McpContext): boolean =>
+  context.channel === undefined ? context.desk === true : isChannelAccepted(context)
+
+const isChannelClient = (params: RpcCall['params']): boolean => clientNameOf(params) === CHANNEL_CLIENT_NAME
+
+const clientNameOf = (params: RpcCall['params']): string | null => {
+  const info = (params as { clientInfo?: unknown } | undefined)?.clientInfo
+  if (typeof info !== 'object' || info === null) return null
+  const { name } = info as { name?: unknown }
+  return typeof name === 'string' ? name : null
+}
 
 const rememberClient = (context: McpContext, params: RpcCall['params']): void => {
   const label = clientLabelOf(params)

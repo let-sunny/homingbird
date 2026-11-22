@@ -7,7 +7,7 @@ import {
   autoSendToSave,
   canSendItself,
 } from '../../src/models/auto-send.ts'
-import { strings } from '../../src/strings.ts'
+import { listOf, strings } from '../../src/strings.ts'
 import { ANA, BEN, CY, ROOM, channel, conversation, member, principle } from '../support/fixtures.ts'
 
 const answer = (fields: Parameters<typeof principle>[1] = {}) =>
@@ -36,10 +36,14 @@ describe('canSendItself', () => {
 
 describe('autoSendFormModel', () => {
   it('shows the switch as it is, with each place chosen or not', () => {
-    const model = autoSendFormModel(answer({ autoSend: { enabled: true, places: [ROOM] } }), [
-      { id: ROOM, label: 'Ben' },
-      { id: 'conv_lobby0000000' as ConversationId, label: '#lobby' },
-    ])
+    const model = autoSendFormModel(
+      answer({ autoSend: { enabled: true, places: [ROOM] } }),
+      [
+        { id: ROOM, label: 'Ben' },
+        { id: 'conv_lobby0000000' as ConversationId, label: '#lobby' },
+      ],
+      [channel('lobby', { joined: true, agent: null })],
+    )
     expect(model).toMatchObject({
       title: strings.autoSend.dialogTitle({ name: 'Office hours' }),
       enabled: true,
@@ -48,12 +52,29 @@ describe('autoSendFormModel', () => {
         { id: 'conv_lobby0000000', label: '#lobby', chosen: false },
       ],
       noPlaces: null,
+      notOffered: null,
     })
   })
 
   it('says where to go first when there is nowhere it may send itself, and offers nothing for a rule', () => {
-    expect(autoSendFormModel(answer(), [])?.noPlaces).toBe(strings.autoSend.noPlaces)
-    expect(autoSendFormModel(answer({ kind: 'rule' }), [])).toBeNull()
+    expect(autoSendFormModel(answer(), [], [])?.noPlaces).toBe(strings.autoSend.noPlaces)
+    expect(autoSendFormModel(answer({ kind: 'rule' }), [], [])).toBeNull()
+  })
+
+  it('says in one line which open channels the person is in are left out because their own agent answers', () => {
+    const helper = { id: CY, name: 'Billing helper' }
+    const channels = [
+      channel('ops', { joined: true, agent: helper }),
+      channel('billing', { joined: true, agent: helper }),
+      channel('payroll', { joined: true, visibility: 'private', agent: helper }),
+      channel('sales', { joined: false, agent: helper }),
+    ]
+    expect(autoSendFormModel(answer(), [], channels)?.notOffered).toBe(
+      strings.autoSend.agentChannels({ channels: listOf(['#billing', '#ops']), count: 2 }),
+    )
+    expect(autoSendFormModel(answer(), [], channels.slice(0, 1))?.notOffered).toBe(
+      '#ops has its own agent, whose answers its managers review, so a saved answer never sends itself there.',
+    )
   })
 })
 
@@ -62,9 +83,11 @@ describe('autoSendPlaces', () => {
     const lobby = channel('lobby', { joined: true })
     const payroll = channel('payroll', { joined: true, visibility: 'private' })
     const ops = channel('ops', { joined: false })
+    const billing = channel('billing', { joined: true, agent: { id: CY, name: 'Billing helper' } })
     const places = autoSendPlaces({
       conversations: [
         conversation({ id: ROOM, participantIds: [ANA, BEN] }),
+        conversation({ id: billing.conversationId, kind: 'channel', title: 'billing' }),
         conversation({ id: 'conv_cy0000000000' as ConversationId, participantIds: [ANA, CY], archivedAt: 5 }),
         conversation({ id: lobby.conversationId, kind: 'channel', title: 'lobby' }),
         conversation({ id: payroll.conversationId, kind: 'channel', title: 'payroll' }),
@@ -80,7 +103,7 @@ describe('autoSendPlaces', () => {
           privateQuestionOf: 'lobby',
         }),
       ],
-      channels: [lobby, payroll, ops],
+      channels: [lobby, payroll, ops, billing],
       members,
       viewerId: ANA,
     })

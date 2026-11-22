@@ -35,6 +35,28 @@ export const OPERATIONAL_EVENTS = {
     'Audit rows are kept for fewer days than an administrator saved; housekeeping removes older rows.',
     { saved: S.union(S.int({ min: 1 }), S.literal('forever')), days: S.int({ min: 1 }) },
   ),
+  'system.note_retention_on': line(
+    'warn',
+    'Note retention is on: each hourly housekeeping pass deletes sent and discarded notes older than this many days.',
+    { days: S.int({ min: 1 }) },
+  ),
+  'system.migrated': line(
+    'info',
+    'The database was upgraded before serving; these schema steps were applied.',
+    {
+      steps: S.array(S.int({ min: 1 }), { maxItems: 100 }),
+    },
+  ),
+  'system.database_unreachable': line(
+    'error',
+    'Dovecote cannot reach its database; standard error names where and why. Check HB_DATABASE_URL.',
+    { code: S.string({ pattern: /^[A-Za-z0-9_]{1,40}$/ }) },
+  ),
+  'housekeeping.notes_purged': line(
+    'info',
+    'A housekeeping pass applied note retention; removed is how many notes it deleted.',
+    { removed: S.int({ min: 0 }), days: S.int({ min: 1 }) },
+  ),
   'system.stopped': line('error', 'Dovecote stopped unexpectedly. Restart it.', { defect: defectName() }),
   'background.stopped': line(
     'error',

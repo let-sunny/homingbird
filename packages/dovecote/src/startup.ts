@@ -4,6 +4,7 @@ import { auditRetention, auditRetentionWarnings } from './domain/audit-retention
 import { recordAudit } from './domain/audit.ts'
 import type { AppEnv } from './environment.ts'
 import { transact } from './events/events.ts'
+import type { CommandName, Invocation } from './invocation.ts'
 import { runMembersCommand } from './members-command.ts'
 import { runNotesCommand } from './notes-command.ts'
 import { prepareDatabase } from './prepare-database.ts'
@@ -15,16 +16,13 @@ import { SERVER_VERSION } from './version.ts'
  * announce the start.
  */
 export const startDovecote = (
-  args: ReadonlyArray<string>,
+  invocation: Exclude<Invocation, { readonly kind: 'print' }>,
   port: number,
   write: (line: string) => void,
-): T.Task<{ readonly exitCode: number } | 'serve', UnknownDatabase, AppEnv> => {
-  const [first = '', ...rest] = args
-  const command = Object.hasOwn(COMMANDS, first) ? COMMANDS[first as keyof typeof COMMANDS] : null
-  return command === null
+): T.Task<{ readonly exitCode: number } | 'serve', UnknownDatabase, AppEnv> =>
+  invocation.kind === 'serve'
     ? T.as('serve' as const)(T.flatMap(() => announceStart(port))(prepareDatabase))
-    : T.map((exitCode: number) => ({ exitCode }))(command(rest, write))
-}
+    : T.map((exitCode: number) => ({ exitCode }))(COMMANDS[invocation.command](invocation.args, write))
 
 /** Announces the start, warns about what the operator should know, and records it. */
 export const announceStart = (port: number): T.Task<void, never, AppEnv> =>
@@ -42,6 +40,8 @@ export const announceStart = (port: number): T.Task<void, never, AppEnv> =>
       })
     if (config.logs.audit === 'off') log.emit({ name: 'system.audit_off', attributes: {} })
     if (config.logs.operational === 'debug') log.emit({ name: 'system.debug_on', attributes: {} })
+    if (config.noteRetentionDays !== null)
+      log.emit({ name: 'system.note_retention_on', attributes: { days: config.noteRetentionDays } })
     for (const variable of config.ignoredVariables)
       log.emit({ name: 'system.ignored_variable', attributes: { variable } })
     for (const warning of yield* auditRetentionWarnings)
@@ -68,4 +68,9 @@ export const announceStart = (port: number): T.Task<void, never, AppEnv> =>
       )
   })
 
-const COMMANDS = { audit: runAuditCommand, notes: runNotesCommand, members: runMembersCommand } as const
+const COMMANDS: Readonly<
+  Record<
+    CommandName,
+    (args: ReadonlyArray<string>, write: (line: string) => void) => T.Task<number, never, AppEnv>
+  >
+> = { audit: runAuditCommand, notes: runNotesCommand, members: runMembersCommand }

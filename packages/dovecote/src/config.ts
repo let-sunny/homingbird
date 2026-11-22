@@ -59,10 +59,19 @@ export interface Config {
   readonly slack: { readonly botToken: string; readonly signingSecret: string } | null
 }
 
+/**
+ * Reads the server's variables. An operator command (`dovecote audit verify` and the like) reads the
+ * database and never signs anyone in, so it needs neither the public address nor the identity provider.
+ */
 export const loadConfig = (
   environment: Readonly<Record<string, string | undefined>>,
+  purpose: 'serve' | 'command' = 'serve',
 ): Result.Result<Config, ReadonlyArray<string>> => {
-  const decoded = Variables.decode(withoutBlanks(environment))
+  const serving = purpose === 'serve'
+  const given = withoutBlanks(environment)
+  const decoded = Variables.decode(
+    serving ? given : { HB_PUBLIC_URL: COMMAND_PUBLIC_URL, ...given, HB_DEV_LOGIN: '0' },
+  )
   if (decoded._tag === 'Err')
     return Result.err(decoded.error.map((issue) => `${issue.path.join('.')}: ${issue.message}`))
   const v = decoded.value
@@ -79,9 +88,13 @@ export const loadConfig = (
     environment.HB_TOPICS !== undefined
       ? 'HB_TOPICS: was renamed to HB_CHANNELS; set HB_CHANNELS instead and remove HB_TOPICS'
       : null,
-    !devLogin && !v.HB_OIDC_CLIENT_ID ? 'HB_OIDC_CLIENT_ID: is required unless HB_DEV_LOGIN=1' : null,
-    !devLogin && !v.HB_OIDC_CLIENT_SECRET ? 'HB_OIDC_CLIENT_SECRET: is required unless HB_DEV_LOGIN=1' : null,
-    !devLogin && commaList(v.HB_ADMIN_EMAILS).length === 0
+    serving && !devLogin && !v.HB_OIDC_CLIENT_ID
+      ? 'HB_OIDC_CLIENT_ID: is required unless HB_DEV_LOGIN=1'
+      : null,
+    serving && !devLogin && !v.HB_OIDC_CLIENT_SECRET
+      ? 'HB_OIDC_CLIENT_SECRET: is required unless HB_DEV_LOGIN=1'
+      : null,
+    serving && !devLogin && commaList(v.HB_ADMIN_EMAILS).length === 0
       ? 'HB_ADMIN_EMAILS: name at least one administrator; nobody becomes one implicitly'
       : null,
     devLogin && !isLoopback(v.HB_PUBLIC_URL)
@@ -170,11 +183,14 @@ export const loadConfig = (
   })
 }
 
+/** Stands in for `HB_PUBLIC_URL` in a command, which serves no page and builds no link. */
+const COMMAND_PUBLIC_URL = 'http://localhost'
+
 const AUDIT_RETENTION_DEFAULT_DAYS = 400
 const AUDIT_RETENTION_MINIMUM_DAYS = 90
 
 /** A week, the event backlog's own retention, so no event outlives the note it carries. */
-const NOTE_RETENTION_MINIMUM_DAYS = 7
+export const NOTE_RETENTION_MINIMUM_DAYS = 7
 
 /** Where product analytics go, if anywhere. The key is a secret: it is never logged or shown. */
 export type AnalyticsDestination =

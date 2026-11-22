@@ -43,6 +43,12 @@ describe('note retention', () => {
       'sent: New and sent',
     ])
     expect(await purges()).toEqual([{ removed: 2, days: 30 }])
+    expect(
+      server.logged
+        .map((line) => JSON.parse(line))
+        .filter((line) => line.eventName === 'housekeeping.notes_purged')
+        .map((line) => [line.severityText, line.attributes]),
+    ).toEqual([['INFO', { removed: 2, days: 30 }]])
     expect(await storedRows(server, 'audit_events')).toHaveLength(auditBefore + 1)
     expect((await storedRows(server, 'receipts')).length).toBe(1)
     expect((await anaAgain.api('GET', '/drafts')).json.drafts.map((draft: any) => draft.body)).toEqual([
@@ -59,6 +65,7 @@ describe('note retention', () => {
     expect(await T.runPromise(purgeExpiredNotes, server.env)).toBe(0)
     expect(await bodies()).toEqual(['sent: Not yet'])
     expect(await purges()).toEqual([])
+    expect(server.logged.map((line) => JSON.parse(line).attributes)).toContainEqual({ removed: 0, days: 30 })
   })
 
   it('keeps every note while no retention is set', async () => {
@@ -70,6 +77,7 @@ describe('note retention', () => {
     await server.clock.advance(4000 * DAY_MS)
     expect(await T.runPromise(purgeExpiredNotes, server.env)).toBe(0)
     expect(await bodies()).toEqual(['discarded: Also kept', 'sent: Kept'])
+    expect(server.logged.join('\n')).not.toContain('housekeeping.notes_purged')
   })
 
   it('deletes a long history in batches, each audited with what it removed', async () => {

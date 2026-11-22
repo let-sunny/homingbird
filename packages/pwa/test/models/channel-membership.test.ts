@@ -2,6 +2,7 @@ import type { ChannelMember } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import {
   type MembersPanelInput,
+  answeredByAgent,
   answeringModel,
   leaveConsequence,
   membersPanelModel,
@@ -80,8 +81,18 @@ describe('answeringModel', () => {
       helpLabel: strings.answerHereHelp,
       checked: true,
       state: strings.switchOn,
+      agentNote: null,
     })
     expect(answeringModel(channel('billing')).state).toBe(strings.switchOff)
+  })
+
+  it('says in one line that the channel’s own agent drafts its answers, so the person’s agent does not', () => {
+    const billing = channel('billing', { answering: true, agent: { id: CY, name: 'Billing helper' } })
+    expect(answeringModel(billing).agentNote).toBe(
+      'Billing helper drafts the answers to questions in #billing and its managers review them, so your own agent does not.',
+    )
+    expect(answeredByAgent(billing)).toBe(answeringModel(billing).agentNote)
+    expect(answeredByAgent(channel('billing', { agent: null }))).toBeNull()
   })
 })
 

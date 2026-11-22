@@ -534,7 +534,7 @@ describe.each(UPGRADES)(
           await databaseAt(release, database)
           const before = await rowsOfReleaseTables(release, database)
           const interrupted = await T.run(
-            startDovecote([], PORT, () => {}),
+            startDovecote({ kind: 'serve' }, PORT, () => {}),
             runtimeOn(
               losingConnectionAt(database, new RegExp(`^ALTER TABLE ${cut.addTo} ADD COLUMN ${cut.name} `)),
             ).env,
@@ -625,7 +625,7 @@ const startOn = async (database: Database): Promise<Started> => {
   const { env } = runtimeOn(database)
   return {
     outcome: await T.runPromise(
-      startDovecote([], PORT, () => {}),
+      startDovecote({ kind: 'serve' }, PORT, () => {}),
       env,
     ),
     env,

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { APPLIED, OFFICE_HOURS, allowAutoSend, savedAnswerFor } from './auto-send-support.ts'
 import {
   CHANNEL,
   asRead,
@@ -7,7 +8,7 @@ import {
   startAgent,
   startWithChannel,
 } from './channel-agent-support.ts'
-import { type Session, type TestServer, storedRows } from './harness.ts'
+import { type Agent, type Session, type TestServer, connectAgent, storedRows } from './harness.ts'
 
 let server: TestServer
 let root: Session
@@ -297,5 +298,78 @@ describe('a manager answering the question themself', () => {
     const sent = await ana.api('POST', `/drafts/${reply.id}/send`, { expected: asRead(reply) })
     expect(sent.json).toMatchObject({ status: 'sent', authorId: ana.me.member.id })
     expect(sent.json.approvedBy).toBeUndefined()
+  })
+})
+
+describe('a channel whose own agent answers', () => {
+  const ask = async (asker: Session, body: string) => {
+    const asked = (await asker.api('POST', '/drafts', { channel: CHANNEL, body })).json
+    return (await asker.api('POST', `/drafts/${asked.id}/send`, { expected: asRead(asked) })).json
+  }
+  const inboxOf = async (reader: Pick<Agent, 'api'>): Promise<string[]> =>
+    (await reader.api('GET', '/inbox')).json.items.map((item: { note: { body: string } }) => item.note.body)
+  const turnAgentsOff = async () => {
+    const settings = (await root.api('GET', '/admin/settings')).json
+    await root.api('PUT', '/admin/settings', { ...settings, features: { channelAgents: false } })
+  }
+
+  it('delivers a question to its agent alone, not to the people who answer there', async () => {
+    await start()
+    const anaAgent = await connectAgent(server, ana, { name: 'Ana agent' })
+    await ask(cy, 'Is VAT included?')
+    expect(await inboxOf(anaAgent)).toEqual(['Is VAT included?'])
+    const agent = await startAgent(server, ana)
+    await ask(cy, 'When are invoices issued?')
+    expect(await inboxOf(agent)).toEqual(['When are invoices issued?'])
+    expect(await inboxOf(anaAgent)).toEqual(['Is VAT included?'])
+  })
+
+  it('refuses a person’s agent that drafts an answer, and lets the person reply and the asker follow up', async () => {
+    await start()
+    const anaAgent = await connectAgent(server, ana, { name: 'Ana agent' })
+    const cyAgent = await connectAgent(server, cy, { name: 'Cy agent' })
+    const agent = await startAgent(server, ana)
+    const { question, draft } = await askAndDraft(cy, agent)
+    const refused = await anaAgent.api('POST', '/drafts', { inReplyTo: question.id, body: 'In the wiki.' })
+    expect(refused.status).toBe(409)
+    expect(refused.json.error.message).toContain('This channel has its own agent')
+    expect((await ana.api('POST', '/drafts', { inReplyTo: question.id, body: 'In the wiki.' })).status).toBe(
+      200,
+    )
+    expect(
+      (await cyAgent.api('POST', '/drafts', { inReplyTo: question.id, body: 'Which page?' })).status,
+    ).toBe(200)
+    const answer = (await ana.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })).json
+    expect((await cyAgent.api('POST', '/drafts', { inReplyTo: answer.id, body: 'Thanks.' })).status).toBe(200)
+  })
+
+  it('leaves answering to the people’s agents while channel agents are off', async () => {
+    await start()
+    const anaAgent = await connectAgent(server, ana, { name: 'Ana agent' })
+    await startAgent(server, ana)
+    await turnAgentsOff()
+    const question = await ask(cy, 'Is VAT included?')
+    expect(await inboxOf(anaAgent)).toEqual(['Is VAT included?'])
+    expect((await anaAgent.api('POST', '/drafts', { inReplyTo: question.id, body: 'Yes.' })).status).toBe(200)
+  })
+
+  it('is never a place where a saved answer sends itself, even one chosen before the agent came', async () => {
+    await start()
+    await allowAutoSend(root, true)
+    const anaAgent = await connectAgent(server, ana, { name: 'Ana agent' })
+    const room: string = (await ana.api('GET', `/channels/${CHANNEL}`)).json.conversationId
+    const saved = await savedAnswerFor(ana, [room])
+    expect(saved.autoSend).toMatchObject({ enabled: true, places: [room] })
+    await startAgent(server, ana)
+    const refused = await ana.api('PUT', `/principles/${saved.id}/auto-send`, {
+      enabled: true,
+      places: [room],
+    })
+    expect(refused.status).toBe(400)
+    expect(refused.json.error.message).toContain('never in a channel with its own agent')
+    const drafted = (
+      await anaAgent.api('POST', '/drafts', { channel: CHANNEL, body: OFFICE_HOURS.rule, basis: APPLIED })
+    ).json
+    expect(drafted.status).toBe('draft')
   })
 })

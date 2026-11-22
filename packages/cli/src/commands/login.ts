@@ -101,7 +101,7 @@ const KEEP_THE_FILE =
   'Store it as a secret, give it to one runner with --credentials-file or HOMINGBIRD_CREDENTIALS_FILE, and delete this copy; it can read and draft as you, never send.'
 
 const ONE_DESK =
-  'Keep one desk, the one session that answers arriving notes: a Claude Code session with the Homingbird plugin’s pane open, an MCP client started as the desk (homingbird-mcp with --desk or --run-agent), or homingbird run. Other sessions draft only what you ask.'
+  'Keep one desk, the one session that answers arriving notes: a Claude Code session with the Homingbird plugin’s pane open, an MCP client started as the desk (homingbird-mcp with --run-agent, or --desk in Claude Code), or homingbird run. Other sessions draft only what you ask.'
 
 // The computer's host name stays out of the default: the credential's name travels with every draft
 // the agent writes. A person names the device with --name or renames it in the web client.

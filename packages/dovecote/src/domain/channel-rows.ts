@@ -162,11 +162,28 @@ export const helpersOf = (conversationId: ConversationId): T.Task<MemberId[], ne
     SELECT h.member_id FROM channel_answerers h JOIN members m ON m.id = h.member_id
     WHERE h.conversation_id = ${conversationId} AND m.status = 'active' AND m.kind = 'person' ORDER BY h.member_id`)
 
-/** Whom a question in a room is delivered to: its helpers and its channel's agent. */
+/** Whom a question in a room is delivered to: its channel's agent alone while it answers, else its helpers. */
 export const answerersOf = (conversationId: ConversationId): T.Task<MemberId[], never, AppEnv> =>
-  idsOf(sql`
-    SELECT h.member_id FROM channel_answerers h JOIN members m ON m.id = h.member_id
-    WHERE h.conversation_id = ${conversationId} AND m.status = 'active' ORDER BY h.member_id`)
+  T.gen(function* () {
+    const agent = yield* agentAnsweringIn(conversationId)
+    if (agent !== null) return [agent]
+    return yield* idsOf(sql`
+      SELECT h.member_id FROM channel_answerers h JOIN members m ON m.id = h.member_id
+      WHERE h.conversation_id = ${conversationId} AND m.status = 'active' ORDER BY h.member_id`)
+  })
+
+/** The agent that answers the questions asked in a channel's own room, while `channelAgents` is on. */
+export const agentAnsweringIn = (conversationId: ConversationId): T.Task<MemberId | null, never, AppEnv> =>
+  T.gen(function* () {
+    if (!(yield* featureIsOn('channelAgents'))) return null
+    const agent = yield* first<{ id: MemberId }>(sql`
+      SELECT m.id FROM channels ch
+      JOIN participants p ON p.conversation_id = ch.conversation_id
+      JOIN members m ON m.id = p.member_id
+      WHERE ch.conversation_id = ${conversationId} AND m.kind = 'channel_agent' AND m.status = 'active'
+      ORDER BY m.id LIMIT 1`)
+    return agent?.id ?? null
+  })
 
 /** The active people of the channel's group, every one of them in its room. */
 export const managersOf = (

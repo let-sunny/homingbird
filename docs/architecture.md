@@ -874,9 +874,10 @@ consent requests; their secrets are stored hashed.
   client whose stream drops before the next durable event resumes from its old cursor, is told to
   resync again and reloads again. It misses nothing; it reloads twice.
 - **The server does not enforce one desk.** The plugin keeps one desk among Claude Code sessions, but
-  `homingbird-mcp --desk`, `homingbird-mcp --channel` and `homingbird run` each hold a stream and
-  each drafts its own reply to the same note. `--channel` without `--desk` also counts as agent
-  online. `docs/decisions.md` names only the
+  `homingbird-mcp --desk`, `homingbird-mcp --channel` and `homingbird run` each hold a stream.
+  They no longer draft the same note twice: `inbox.list` with `fresh` leaves out a note another
+  credential of the same person picked up within the pickup grace, drafted a reply to or skipped.
+  `--channel` without `--desk` also counts as agent online. `docs/decisions.md` names only the
   plugin pane and the runner as desks.
 - **A note in a channel room writes one event row per participant of that room.** Members, helpers and
   the asker each get `note.sent` in their own event log, so the cost of a note grows with the room's
