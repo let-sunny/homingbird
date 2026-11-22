@@ -5,6 +5,7 @@ import {
   chooseReplyTarget,
   forgetNote,
   forgetRelease,
+  keepComposerTags,
   keepComposerText,
   loadOlderNotes,
   loadThread,
@@ -18,7 +19,7 @@ import {
   sendNote,
 } from '../../src/tasks/notes.ts'
 import { fail, testApp } from '../support/app.ts'
-import { ANA, BEN, ROOM, conversation, me, note } from '../support/fixtures.ts'
+import { ANA, BEN, CY, ROOM, conversation, everything, me, note } from '../support/fixtures.ts'
 
 const OTHER = 'conv_other0000000' as ConversationId
 
@@ -153,6 +154,54 @@ describe('sending a note', () => {
         .get(ROOM)!
         .notes.map((one) => one.id),
     ).toEqual(['q', 'd1'])
+  })
+
+  it('sends the people tagged in a group, names whom the note asks as shown, then forgets the tags', async () => {
+    const group = conversation({ kind: 'group', participantIds: [ANA, BEN, CY] })
+    const app = testApp({
+      'drafts.create': () => note('d1', { status: 'draft', authorId: ANA, tags: [CY] }),
+      'drafts.send': () => note('d1', { authorId: ANA, tags: [CY] }),
+      'conversations.list': () => ({ conversations: [group] }),
+    })
+    app.state.session.set(me())
+    app.state.serverInfo.set(everything())
+    app.state.conversations.set([group])
+    await app.run(keepComposerTags(ROOM, [CY, 'mem_gone00000000' as never]))
+    await app.run(sendNote(ROOM, 'Cy?'))
+    expect(app.sent[0]!.request).toEqual({ body: { body: 'Cy?', conversationId: ROOM, tags: [CY] } })
+    expect(app.sent[1]!.request).toEqual({
+      params: { id: 'd1' },
+      body: { expected: { body: 'Cy?', conversationId: ROOM, tags: [CY] } },
+    })
+    expect(app.state.composerTags.get().size).toBe(0)
+  })
+
+  it('names the author a reply in a group asks when it tags nobody, and asks everyone with a new note', async () => {
+    const group = conversation({ kind: 'group', participantIds: [ANA, BEN, CY] })
+    const app = testApp({
+      'drafts.create': () => note('d1', { status: 'draft', authorId: ANA }),
+      'drafts.send': () => note('d1', { authorId: ANA }),
+      'conversations.list': () => ({ conversations: [group] }),
+    })
+    app.state.session.set(me())
+    app.state.serverInfo.set(everything())
+    app.state.conversations.set([group])
+    app.state.threads.set(new Map([[ROOM, { notes: [note('q', { authorId: BEN })], hasMore: false }]]))
+    await app.run(chooseReplyTarget(ROOM, 'q' as never))
+    await app.run(sendNote(ROOM, 'Yes'))
+    expect(app.sent[0]!.request).toEqual({ body: { body: 'Yes', conversationId: ROOM, inReplyTo: 'q' } })
+    expect(app.sent[1]!.request).toMatchObject({ body: { expected: { tags: [BEN] } } })
+    await app.run(sendNote(ROOM, 'All of you'))
+    const sends = app.sent.filter((one) => one.route === 'drafts.send')
+    expect(sends.at(-1)!.request).toMatchObject({ body: { expected: { tags: [] } } })
+  })
+
+  it('keeps tags until they are taken out, one conversation at a time', async () => {
+    const app = testApp()
+    await app.run(keepComposerTags(ROOM, [BEN]))
+    expect(app.state.composerTags.get().get(ROOM)).toEqual([BEN])
+    await app.run(keepComposerTags(ROOM, []))
+    expect(app.state.composerTags.get().has(ROOM)).toBe(false)
   })
 
   it('lets go of the sending mark after a failure, and sends a new note where no reply is chosen', async () => {

@@ -83,6 +83,13 @@ export const ko: Translation<typeof en> = {
   },
   send: '보내기',
   replyingTo: '“{excerpt}”에 답장하는 중',
+  tags: {
+    asks: '{names} 님에게 물어요',
+    everyone: '여기 있는 모두의 에이전트가 답장 초안을 써요',
+    onlyOne: '{name} 님의 에이전트만 답장 초안을 써요',
+    onlyMany: '{names} 님의 에이전트만 답장 초안을 써요',
+    reply: '답장은 {name} 님의 에이전트에게 물어요',
+  },
   stopReplying: '이 노트에 답장하지 않기',
   reply: '답장',
   quotedNote: '답장한 원래 노트로 이동',
@@ -249,6 +256,8 @@ export const ko: Translation<typeof en> = {
     insights: '에이전트 초안이 어떻게 처리되는지 조직 전체의 합계를 봐요. 누구의 노트도 보이지 않아요.',
     draftPreviews: '내가 확인하기 전의 에이전트 초안을, 미확인 표시와 함께 누가 볼 수 있을지 골라요.',
     autoSend: '작성자가 스스로 보내도록 허락한 저장된 답이 승인을 기다리지 않고 보낸 노트예요.',
+    tagging:
+      '@와 이름을 쓰면 그 사람의 에이전트에게만 물어요. 아무도 태그하지 않으면 모두의 에이전트가 답장 초안을 써요.',
     joinCode:
       '서버를 이 에이전트로 로그인시키는 일회용 서버 연결 코드를 만들어요. 에이전트는 초안만 쓰고 보내지 않아요.',
   },
@@ -694,6 +703,7 @@ export const ko: Translation<typeof en> = {
       mute: 'DM과 채널 알림 끄기',
       hideConversations: 'DM과 그룹 DM을 내 목록에서 숨기기',
       leaveGroups: '그룹 DM 나가기',
+      tagging: '그룹 DM에서 사람 태그하기',
       webPush: '기기 알림',
       answeringFlow: '답변 절차',
       earlierAnswers: '이전 답변: 질문을 쓰는 동안 이전 답변 보여 주기',
@@ -720,6 +730,8 @@ export const ko: Translation<typeof en> = {
       mute: '끄면: DM이나 채널의 알림을 끄거나 알림 받을 곳을 고를 수 없고, 모두 전처럼 알림이 와요.',
       hideConversations: '끄면: DM이나 그룹 DM을 숨길 수 없고, 숨겨 두었던 DM도 모두 목록에 다시 보여요.',
       leaveGroups: '끄면: 그룹 DM에서 나갈 수 없고, 각 그룹의 사람은 그대로예요.',
+      tagging:
+        '끄면: 아무도 사람을 태그할 수 없고, 그룹 DM의 모든 노트에 읽는 사람 모두의 에이전트가 답장 초안을 써요.',
       webPush: '끄면: 휴대폰이나 컴퓨터로 알림이 가지 않아요.',
       answeringFlow: '끄면: 에이전트가 조직의 단계 없이 초안을 써요.',
       earlierAnswers: '끄면: 질문을 쓰는 동안 이전 답변이 보이지 않고, 에이전트도 찾아보지 않고 질문해요.',

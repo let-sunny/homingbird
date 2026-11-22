@@ -1,19 +1,32 @@
-import type { ConversationId } from '@homingbird/protocol'
-import type { ReadableSignal } from '@homingbird/ui'
-import { type Lifetime, h, region, signal, slice } from '@homingbird/ui'
+import type { ConversationId, MemberId } from '@homingbird/protocol'
+import type { ReadableSignal, Signal } from '@homingbird/ui'
+import { type Lifetime, h, onAnyChange, region, signal, slice } from '@homingbird/ui'
+import {
+  type ComposerTagsModel,
+  type Mention,
+  TAG_PICKER_ID,
+  composerTagsModel,
+  mentionAt,
+  withMentionChosen,
+} from '../models/composer-tags.ts'
 import { type ComposerModel, bodyToSend } from '../models/composer.ts'
+import { pickerKey, withChosen } from '../models/people-picker.ts'
+import type { ThreadInput } from '../models/thread-room.ts'
 import { strings } from '../strings.ts'
 import { replyTargetIn } from '../tasks/notes.ts'
 import { agentAsk } from './agent-ask.ts'
 import { answeredBefore } from './answered-before.ts'
 import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
+import { hinted } from './hint.ts'
 import { button } from './parts.ts'
+import { IME_KEY_CODE, renderChips, renderOptions } from './people-picker.ts'
 
 /**
  * Where the person writes a note, or why they cannot in an archived room. Enter sends where there is a
  * keyboard; on a touch screen the return key starts a new line and Send sends, as in other messengers.
  * Escape stops replying to a note. Once a note is sent, `sent` brings the thread back to the bottom.
+ * In a group message, `room` gives what tagging people with @ reads.
  */
 export const composer = (
   context: ViewContext,
@@ -22,6 +35,7 @@ export const composer = (
   model: () => ComposerModel,
   sources: ReadonlyArray<ReadableSignal<unknown>>,
   sent: () => void = () => {},
+  room: (() => ThreadInput) | null = null,
 ): HTMLElement => {
   const shown = model()
   if (shown.kind === 'archived') return archivedComposer(shown.notice)
@@ -42,11 +56,13 @@ export const composer = (
     typed.set(text.value)
     actions.keepComposerText(id, text.value)
   })
+  const tags = room === null ? null : tagTypeahead(context, life, id, text, typed, room)
   const send = (): void => {
     const body = bodyToSend(text.value)
     if (body === null) return
     text.value = ''
     typed.set('')
+    tags?.close()
     actions.keepComposerText(id, '')
     actions.sendNote(id, body, { attempt: 'draft' })
     sent()
@@ -54,6 +70,7 @@ export const composer = (
   }
   text.addEventListener('keydown', (event) => {
     if (event.isComposing) return
+    if (tags?.handled(event)) return
     if (event.key === 'Escape' && replyTargetIn(state, id) !== null) {
       event.preventDefault()
       actions.chooseReplyTarget(id, null)
@@ -109,6 +126,7 @@ export const composer = (
       },
     },
     region(life, [status], () => renderComposerStatus(context, id, status.get())),
+    tags?.element,
     shown.lookUpEarlierAnswers &&
       answeredBefore(context, life, id, {
         typed,
@@ -125,6 +143,116 @@ export const composer = (
     ask,
   )
 }
+
+/**
+ * Tagging people in a group message: typing @ and part of a name lists the people in the room who
+ * match, as the people picker does; Enter, Tab or a click tags the one marked and writes their name
+ * into the text, and the arrow keys move through the list. Above the field, the people tagged and one
+ * line saying whose agents will draft a reply.
+ */
+const tagTypeahead = (
+  context: ViewContext,
+  life: Lifetime,
+  id: ConversationId,
+  text: HTMLTextAreaElement,
+  typed: Signal<string>,
+  room: () => ThreadInput,
+): TagTypeahead => {
+  const { actions, state } = context
+  const mention = signal<Mention | null>(null)
+  const active = signal<MemberId | null>(null)
+  const chosen = (): ReadonlyArray<MemberId> => state.composerTags.get().get(id) ?? []
+  const model = (): ComposerTagsModel | null =>
+    composerTagsModel({ ...room(), chosen: chosen(), mention: mention.get(), active: active.get() })
+  const lookForMention = (): void => {
+    mention.set(mentionAt(text.value, text.selectionStart ?? text.value.length))
+    active.set(null)
+  }
+  text.addEventListener('input', lookForMention)
+  text.addEventListener('blur', () => mention.set(null))
+  const choose = (memberId: MemberId): void => {
+    const typing = mention.get()
+    const name = model()?.picker.options.find((option) => option.memberId === memberId)?.name
+    if (typing !== null && name !== undefined) {
+      const written = withMentionChosen(text.value, typing, name)
+      text.value = written.text
+      text.setSelectionRange?.(written.caret, written.caret)
+      typed.set(text.value)
+      actions.keepComposerText(id, text.value)
+    }
+    actions.keepComposerTags(id, withChosen(chosen(), memberId, null))
+    mention.set(null)
+    text.focus()
+  }
+  const remove = (memberId: MemberId): void => {
+    actions.keepComposerTags(
+      id,
+      chosen().filter((one) => one !== memberId),
+    )
+    text.focus()
+  }
+  const handled = (event: KeyboardEvent): boolean => {
+    const shown = model()
+    if (shown === null || !shown.picker.expanded || event.keyCode === IME_KEY_CODE) return false
+    const move = pickerKey(event.key === 'Tab' ? 'Enter' : event.key, false, ' ', shown.picker)
+    if (move.kind === 'none' || move.kind === 'remove') return false
+    event.preventDefault()
+    if (move.kind === 'move') active.set(move.memberId)
+    else if (move.kind === 'choose') choose(move.memberId)
+    else mention.set(null)
+    return true
+  }
+  const sources = [
+    state.composerTags,
+    state.replyTargets,
+    state.conversations,
+    state.directory,
+    state.members,
+  ]
+  const reflect = (): void => {
+    const picker = model()?.picker ?? null
+    if (picker === null) {
+      for (const name of ['aria-autocomplete', 'aria-controls', 'aria-activedescendant'])
+        text.removeAttribute(name)
+      return
+    }
+    text.setAttribute('aria-autocomplete', 'list')
+    text.setAttribute('aria-controls', TAG_OPTIONS_ID)
+    if (!picker.expanded || picker.activeId === null) text.removeAttribute('aria-activedescendant')
+    else text.setAttribute('aria-activedescendant', picker.activeId)
+  }
+  reflect()
+  life.add(onAnyChange([mention, active, ...sources], reflect))
+  const element = region(
+    life,
+    [mention, active, ...sources],
+    () => {
+      const shown = model()
+      if (shown === null) return null
+      return [
+        renderOptions(shown.picker, TAG_OPTIONS_ID, choose),
+        renderChips(shown.picker, remove),
+        h(
+          'p',
+          { class: 'composer-asks', role: 'note' },
+          ...hinted(context, 'tagging', shown.hint, h('span', {}, shown.notice)),
+        ),
+      ]
+    },
+    { class: 'composer-tags' },
+  )
+  return { element, handled, close: () => mention.set(null) }
+}
+
+interface TagTypeahead {
+  readonly element: HTMLElement
+  /** Whether a key went to the list of people to tag, which is then the key's only effect. */
+  readonly handled: (event: KeyboardEvent) => boolean
+  /** Closes the list, as when the note is sent. */
+  readonly close: () => void
+}
+
+const TAG_OPTIONS_ID = `${TAG_PICKER_ID}-options`
 
 /** The composer's “Ask my agent”, beside Send: it opens the request below, or says why it cannot. */
 export const askToggle = (ask: HTMLDetailsElement): AskToggle => {

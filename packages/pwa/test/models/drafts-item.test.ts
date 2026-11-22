@@ -49,6 +49,7 @@ describe('draftsItemModel', () => {
       room: null,
       applied: [],
       destination: { kind: 'people', text: strings.sendsTo({ names: 'Ben' }) },
+      asks: null,
       careful: null,
       readAgain: null,
       actions: {
@@ -92,6 +93,23 @@ describe('draftsItemModel', () => {
     expect(draftsItemModel(threadInput({ focusedDraft: 'n1' }), item([draft('d1')])).cards[0]!.focused).toBe(
       false,
     )
+  })
+
+  it('says whom a draft in a group asks, and nothing for one that tags nobody or in an archived room', () => {
+    const group = conversation({ kind: 'group', participantIds: [ANA, BEN, CY] })
+    const members = new Map([
+      [ANA, member(ANA, 'Ana')],
+      [BEN, member(BEN, 'Ben')],
+      [CY, member(CY, 'Cy')],
+    ])
+    const input = threadInput({ conversations: [group], members })
+    const tagged = draft('d1', { tags: [BEN, CY] })
+    expect(draftsItemModel(input, item([tagged])).cards[0]!.asks).toBe(
+      strings.tags.asks({ names: 'Ben and Cy' }),
+    )
+    expect(draftsItemModel(input, item([draft('d2')])).cards[0]!.asks).toBeNull()
+    const archived = threadInput({ conversations: [{ ...group, archivedAt: 5 }], members })
+    expect(draftsItemModel(archived, item([tagged])).cards[0]!.asks).toBeNull()
   })
 
   it('asks the person to read a draft again once its agent changed the text or the room they read', () => {

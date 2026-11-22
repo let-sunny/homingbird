@@ -296,7 +296,8 @@ export const threadView = (
     region(
       life,
       [composerKind],
-      (drawing) => composer(context, drawing, id, () => composerModel(input()), composerSources, follow.pin),
+      (drawing) =>
+        composer(context, drawing, id, () => composerModel(input()), composerSources, follow.pin, input),
       { class: 'composer-host' },
     ),
   )

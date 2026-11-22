@@ -140,9 +140,13 @@ export interface PeoplePickerParts {
 }
 
 /** The key code a browser reports for a key an input method takes, where `isComposing` is not set yet. */
-const IME_KEY_CODE = 229
+export const IME_KEY_CODE = 229
 
-const renderChips = (model: PeoplePickerModel, remove: (memberId: MemberId) => void): HTMLElement | null =>
+/** The people chosen, each with a button that takes them out. */
+export const renderChips = (
+  model: PeoplePickerModel,
+  remove: (memberId: MemberId) => void,
+): HTMLElement | null =>
   model.chips.length === 0
     ? null
     : h(
@@ -158,7 +162,8 @@ const renderChips = (model: PeoplePickerModel, remove: (memberId: MemberId) => v
         ),
       )
 
-const renderOptions = (
+/** The people matching what was typed, as a list box; hidden while it is closed. */
+export const renderOptions = (
   model: PeoplePickerModel,
   listId: string,
   choose: (memberId: MemberId) => void,

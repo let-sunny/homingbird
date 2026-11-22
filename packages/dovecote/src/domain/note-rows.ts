@@ -16,6 +16,7 @@ import { type SlackFacts, slackFactsOf } from '../slack/slack-note-facts.ts'
 import { all } from '../sql/database.ts'
 import { list, sql } from '../sql/query.ts'
 import { sourcesShown } from './draft-sources.ts'
+import { tagsShown } from './note-tags.ts'
 import { featureIsOn } from './settings.ts'
 
 export interface NoteRow {
@@ -46,6 +47,7 @@ export interface NoteRow {
   readonly auto_principle_id?: string | null
   readonly withdrawn_at?: number | null
   readonly discarded_by: MemberId | null
+  readonly tags?: string | null
 }
 
 export const PICKUP_GRACE_MS = 10 * 60_000
@@ -152,6 +154,7 @@ const toNote = (
   status: row.status,
   body: row.body,
   inReplyTo: row.in_reply_to,
+  ...tagsShown(row),
   origin: row.origin,
   agentName: row.agent_name,
   createdAt: row.created_at,

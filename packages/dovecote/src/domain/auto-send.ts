@@ -11,6 +11,7 @@ import { deliverDraft } from './delivery.ts'
 import type { NoteFailure } from './drafts.ts'
 import type { NoteRow } from './note-rows.ts'
 import { noteById } from './note-status.ts'
+import { tagsOf } from './note-tags.ts'
 import { featureIsOn } from './settings.ts'
 
 /** Sends a draft that is exactly a saved answer its person switched on there (rule 1); else null. */
@@ -27,7 +28,7 @@ export const sendIfSavedAnswer = (
     if (answer === null) return null
     const allowed = yield* T.exit(requireMayMessageIn(draft.author_id, draft.conversation_id))
     if (allowed._tag === 'Err') return null
-    const expected = { body: draft.body, conversationId: draft.conversation_id }
+    const expected = { body: draft.body, conversationId: draft.conversation_id, tags: tagsOf(draft) }
     const decision = {
       body: draft.body,
       origin: draft.origin,
