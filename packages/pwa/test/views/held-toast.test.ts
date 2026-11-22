@@ -36,7 +36,7 @@ describe('the held toast', () => {
     expect(toast.matches(':popover-open')).toBe(false)
     context.state.held.set([decision('waiting')])
     expect(toast.matches(':popover-open')).toBe(true)
-    expect(textOf(toast)).toContain(strings.heldSending({ names: 'Ben' }))
+    expect(textOf(toast)).toContain(strings.heldSendingIn({ names: 'Ben', seconds: 5 }))
     getByRole(toast, 'button', { name: strings.undo }).click()
     expect(called('undoHeld')).toHaveLength(1)
     getByRole(toast, 'button', { name: strings.heldDismiss }).click()
@@ -79,7 +79,7 @@ describe('the held toast', () => {
     placeHeldToast(context, true)
     expect(toast.matches(':popover-open')).toBe(false)
     const inPanel = mount(heldToastInPanel(context, life))
-    expect(textOf(inPanel)).toContain(strings.heldSending({ names: 'Ben' }))
+    expect(textOf(inPanel)).toContain(strings.heldSendingIn({ names: 'Ben', seconds: 5 }))
     placeHeldToast(context, false)
     expect(toast.matches(':popover-open')).toBe(true)
     toast.remove()
@@ -90,7 +90,7 @@ describe('the held toast', () => {
     const { context, toast } = start()
     Object.defineProperty(toast, 'showPopover', { value: undefined })
     context.state.held.set([decision('waiting')])
-    expect(textOf(toast)).toContain(strings.heldSending({ names: 'Ben' }))
+    expect(textOf(toast)).toContain(strings.heldSendingIn({ names: 'Ben', seconds: 5 }))
   })
 
   it('shows a decided card’s line in its place, and gives the focus back to the card on Undo', () => {

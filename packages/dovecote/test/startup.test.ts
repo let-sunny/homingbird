@@ -89,7 +89,7 @@ describe('starting Dovecote', () => {
     expect(server.logged.join('\n')).not.toContain('audit_retention')
   })
 
-  it('runs an audit command against the database as it is, or prepares it and starts', async () => {
+  it('runs an audit, notes or members command against the database as it is, or prepares it and starts', async () => {
     server = await startTestServer()
     const lines: string[] = []
     expect(
@@ -101,6 +101,27 @@ describe('starting Dovecote', () => {
       exitCode: 0,
     })
     expect(lines).toEqual([expect.stringMatching(/^The audit chain holds: 0 rows/)])
+    const others: string[] = []
+    for (const command of [
+      ['notes', 'export', 'nobody@example.com'],
+      ['members', 'verify-left', 'nobody@example.com'],
+    ])
+      expect(
+        await T.runPromise(
+          startDovecote(command, 8080, (line) => others.push(line)),
+          server.env,
+        ),
+      ).toEqual({ exitCode: 1 })
+    expect(others).toEqual([
+      'No person has the email nobody@example.com.',
+      'No person has the email nobody@example.com.',
+    ])
+    expect(
+      await T.runPromise(
+        startDovecote(['toString'], 8080, () => {}),
+        server.env,
+      ),
+    ).toBe('serve')
     expect(
       await T.runPromise(
         startDovecote([], 8080, () => {}),

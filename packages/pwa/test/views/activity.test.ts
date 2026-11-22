@@ -190,9 +190,11 @@ describe('activityPanel', () => {
     state.held.set([heldDecision(one.id, { kind: 'discard' })])
     expect(panel.querySelector('[data-draft-id="note_d1"]')).toBeNull()
     const line = panel.querySelector('.activity-list .held-line')!
-    expect(textOf(line)).toContain(strings.heldDiscarding)
+    expect(textOf(line)).toContain(strings.heldDiscardingIn({ seconds: 5 }))
     expect(textOf(line)).toContain(strings.activity.withPeople({ names: 'Ben' }))
-    expect(textOf(panel.querySelector('.activity-panel-foot')!)).toContain(strings.heldDiscarding)
+    expect(textOf(panel.querySelector('.activity-panel-foot')!)).toContain(
+      strings.heldDiscardingIn({ seconds: 5 }),
+    )
     getByRole(line, 'button', { name: strings.undo }).click()
     expect(called('undoHeld')).toHaveLength(1)
     panel.hidePopover()

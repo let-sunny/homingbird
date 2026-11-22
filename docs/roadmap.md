@@ -507,15 +507,18 @@ whose stdout is their output. Supported upgrades between releases: a database an
 starts on every later release, on SQLite, PostgreSQL and MySQL, tested in CI from a fixture per release
 built through the real schema steps, and a release without a fixture does not ship. Refresh tokens
 are rotated, and a spent one presented again revokes its credential, outside a 10-second grace for a
-retry. Still to come:
+retry. Note retention, export and erasure for operators: `HB_NOTE_RETENTION_DAYS` (off by default)
+deletes old sent and discarded notes, `dovecote notes export <email>` writes one person's notes as JSON
+lines, `dovecote notes delete-drafts <email>` deletes what they never sent, and `dovecote members
+verify-left <email>` checks an offboarding, each audited ([deployment](deployment.md#notes-retention-export-and-erasure)).
+Still to come:
 
 - Multi-node deployment: shared event fan-out through the database or a message broker.
 - Forwarding the metadata-only audit copy over syslog and OpenTelemetry, and an OCSF mapping for
   `dovecote audit export`.
-- Note retention, export and erasure: a retention setting for notes and drafts, a person's export,
-  erasure of a leaver's notes, and an administrator's legal-hold export of the product's own data
-  (notes, drafts, debate rooms; not the audit trail's job). Pilot evaluators' legal review blocks a
-  rollout without them.
+- What note retention and erasure do not cover yet: debate rooms (their turns and results), a
+  person's own export from the web client, erasing a leaver's sent notes, and a legal hold that keeps
+  one person's notes past the retention.
 - Ending a departed person's credentials without an administrator:
   needs the identity provider to tell Dovecote between sign-ins (a provider refresh token checked
   periodically, or a back-channel logout), which needs a decision on keeping provider tokens first.

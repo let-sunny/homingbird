@@ -140,7 +140,11 @@ describe('activityModel', () => {
         type: 'held',
         weight: 0,
         place: { href: `#/c/${ROOM}?draft=note_d1` },
-        line: { noteId: second.id, text: strings.heldSending({ names: 'Ben' }), undo: strings.undo },
+        line: {
+          noteId: second.id,
+          text: strings.heldSendingIn({ names: 'Ben', seconds: 5 }),
+          undo: strings.undo,
+        },
       },
     ])
     expect(itemsOf(model, 'reviews')).toMatchObject([

@@ -73,7 +73,7 @@ describe('adminMembersSection', () => {
     expect(called('loadGroups')).toHaveLength(2)
   })
 
-  it('shows each member’s last activity, agent, groups and a 30-day flag, and filters by the search', () => {
+  it('shows each member’s last activity, agent, groups and a 30-day flag, and filters by the search and by that flag', () => {
     const { context, called, clock } = testContext()
     const now = clock.now()
     const day = 24 * 60 * 60 * 1000
@@ -114,6 +114,13 @@ describe('adminMembersSection', () => {
     fire.type(getByRole(shown, 'searchbox'), 'nobody')
     expect(shown.querySelectorAll('[data-member-id]')).toHaveLength(0)
     expect(textOf(shown)).toContain(strings.adminMemberList.noMatch({ query: 'nobody' }))
+    fire.type(getByRole(shown, 'searchbox'), '')
+    getByRole(shown, 'checkbox', { name: strings.adminMemberList.dormantOnly }).click()
+    expect(
+      [...shown.querySelectorAll('[data-member-id]')].map((row) => row.getAttribute('data-member-id')),
+    ).toEqual([BEN])
+    getByRole(shown, 'checkbox', { name: strings.adminMemberList.dormantOnly }).click()
+    expect(shown.querySelectorAll('[data-member-id]')).toHaveLength(3)
   })
 
   it('lays each row out as identity, a line of badges and one line of facts, with your own reason under the row', () => {

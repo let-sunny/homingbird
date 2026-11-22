@@ -309,7 +309,7 @@ describe('threadView', () => {
       expect(shown.querySelector('.review-card')).toBeNull()
       const placed = [...shown.querySelectorAll('.notes > li:not(.thread-divider)')]
       expect(placed[2]!.classList.contains('held-line')).toBe(true)
-      expect(textOf(placed[2]!)).toContain(strings.heldSending({ names: 'Ben' }))
+      expect(textOf(placed[2]!)).toContain(strings.heldSendingIn({ names: 'Ben', seconds: 5 }))
     })
 
     it('asks to read an answer again that the agent changed since the person read it', () => {

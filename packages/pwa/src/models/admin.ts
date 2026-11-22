@@ -92,7 +92,7 @@ export const flowToolsModel = (steps: ReadonlyArray<FlowStep>): FlowTools => {
 /**
  * Administration → Members: each member's role, status, last activity, agent, agent connections, teams
  * and the channels they manage, flagged when they have shown no activity for 30 days, filtered by a
- * search over name, email and group.
+ * search over name, email and group and, when asked, to those flagged.
  */
 export const adminMembersModel = (input: AdminMembersInput): AdminMembersModel => {
   if (input.members === null) return null
@@ -103,11 +103,18 @@ export const adminMembersModel = (input: AdminMembersInput): AdminMembersModel =
       : new Map(input.agentCredentials.map((each) => [each.memberId, each]))
   const rows = input.members
     .map((member) => memberRow(input, member, entries.get(member.id), held))
-    .filter((row) => matchesSearch(row, input.query))
+    .filter((row) => matchesSearch(row, input.query) && (!input.dormantOnly || row.dormant !== null))
   const query = input.query.trim()
   return {
     rows,
-    noMatch: rows.length === 0 && query !== '' ? strings.adminMemberList.noMatch({ query }) : null,
+    noMatch:
+      rows.length > 0
+        ? null
+        : query !== ''
+          ? strings.adminMemberList.noMatch({ query })
+          : input.dormantOnly
+            ? strings.adminMemberList.noDormant
+            : null,
   }
 }
 
@@ -232,6 +239,8 @@ export interface AdminMembersInput {
   /** Null from a server that does not say. */
   readonly agentCredentials: ReadonlyArray<AsRead.AgentCredentialsHeld> | null
   readonly query: string
+  /** Only the members flagged for no activity in 30 days. */
+  readonly dormantOnly: boolean
   readonly now: number
 }
 

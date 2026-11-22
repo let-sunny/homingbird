@@ -250,7 +250,7 @@ describe('the agent panel', () => {
       },
     ])
     expect(shown.querySelector('.review-card')).toBeNull()
-    expect(textOf(shown.querySelector('.held-line')!)).toContain(strings.heldDiscarding)
+    expect(textOf(shown.querySelector('.held-line')!)).toContain(strings.heldDiscardingIn({ seconds: 5 }))
     getByRole(shown, 'button', { name: strings.undo }).click()
     expect(called('undoHeld')).toHaveLength(1)
     context.state.held.set([])

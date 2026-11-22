@@ -21,6 +21,7 @@ import { button, dialogActions, field, loading, youMark } from './parts.ts'
 export const adminMembersSection = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
   const listing = signal<MemberListing | null>(null)
   const query = signal('')
+  const dormantOnly = signal(false)
   const reload = (): void => context.actions.listMembers({ done: (listed) => listing.set(listed) })
   reload()
   context.actions.loadGroups()
@@ -35,6 +36,7 @@ export const adminMembersSection = (context: ViewContext, life: Lifetime, me: As
       directory: context.state.directory.get(),
       groups: context.state.groups.get(),
       query: query.get(),
+      dormantOnly: dormantOnly.get(),
       now: context.clock.now(),
     })
   const search = h('input', {
@@ -43,12 +45,18 @@ export const adminMembersSection = (context: ViewContext, life: Lifetime, me: As
     placeholder: strings.adminMemberList.searchPlaceholder,
     on: { input: () => query.set(search.value) },
   })
+  const dormant = h('input', {
+    type: 'checkbox',
+    class: 'admin-member-dormant',
+    on: { change: () => dormantOnly.set(dormant.checked) },
+  })
   return h(
     'div',
     { class: 'admin-members' },
     showsInvites('admin', me, context.state.serverInfo.get()) && invitesSection(context, life),
     field(strings.adminMemberList.searchLabel, search),
-    region(life, [listing, query, context.state.directory, context.state.groups], () =>
+    h('label', { class: 'choice admin-member-filter' }, dormant, strings.adminMemberList.dormantOnly),
+    region(life, [listing, query, dormantOnly, context.state.directory, context.state.groups], () =>
       renderAdminMembers(model(), context, reload, charactersOn()),
     ),
   )

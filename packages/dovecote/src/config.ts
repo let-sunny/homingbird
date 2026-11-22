@@ -35,6 +35,8 @@ export interface Config {
   readonly auditRetentionDays: number
   /** What HB_AUDIT_RETENTION_DAYS asked for, even below the minimum; null when it is unset. */
   readonly auditRetentionVariableDays: number | null
+  /** Days sent and discarded notes are kept before housekeeping deletes them; null keeps them. */
+  readonly noteRetentionDays: number | null
   readonly ignoredVariables: ReadonlyArray<'HB_AUDIT_WEBHOOK_URL'>
   readonly analytics: AnalyticsDestination
   readonly agentCredentialDays: number
@@ -89,6 +91,9 @@ export const loadConfig = (
         (host) =>
           `HB_OAUTH_CLIENT_METADATA_HOSTS: "${host}" must be a public host name, not an address or loopback`,
       ),
+    v.HB_NOTE_RETENTION_DAYS !== undefined && Number(v.HB_NOTE_RETENTION_DAYS) < NOTE_RETENTION_MINIMUM_DAYS
+      ? `HB_NOTE_RETENTION_DAYS: must be at least ${NOTE_RETENTION_MINIMUM_DAYS}, or unset to keep notes`
+      : null,
     secretsKey === 'malformed'
       ? 'HB_SECRETS_KEY: must be 32 random bytes in base64, such as the output of `openssl rand -base64 32`'
       : null,
@@ -142,6 +147,7 @@ export const loadConfig = (
         : Math.max(Number(v.HB_AUDIT_RETENTION_DAYS), AUDIT_RETENTION_MINIMUM_DAYS),
     auditRetentionVariableDays:
       v.HB_AUDIT_RETENTION_DAYS === undefined ? null : Number(v.HB_AUDIT_RETENTION_DAYS),
+    noteRetentionDays: v.HB_NOTE_RETENTION_DAYS === undefined ? null : Number(v.HB_NOTE_RETENTION_DAYS),
     ignoredVariables: v.HB_AUDIT_WEBHOOK_URL === undefined ? [] : ['HB_AUDIT_WEBHOOK_URL'],
     analytics,
     agentCredentialDays: Number(v.HB_AGENT_CREDENTIAL_DAYS ?? '90'),
@@ -161,6 +167,9 @@ export const loadConfig = (
 
 const AUDIT_RETENTION_DEFAULT_DAYS = 400
 const AUDIT_RETENTION_MINIMUM_DAYS = 90
+
+/** A week, the event backlog's own retention, so no event outlives the note it carries. */
+const NOTE_RETENTION_MINIMUM_DAYS = 7
 
 /** Where product analytics go, if anywhere. The key is a secret: it is never logged or shown. */
 export type AnalyticsDestination =
@@ -192,6 +201,7 @@ const Variables = S.struct({
   HB_PUSH_HOSTS: S.optional(S.string()),
   HB_CONTACT_MODE: S.optional(S.literal('open', 'contacts')),
   HB_AUDIT_RETENTION_DAYS: S.optional(positiveInteger),
+  HB_NOTE_RETENTION_DAYS: S.optional(positiveInteger),
   HB_SESSION_DAYS: S.optional(positiveInteger),
   HB_AUDIT_STDOUT: S.optional(S.literal('0', '1')),
   HB_AUDIT_WEBHOOK_URL: S.optional(S.string()),

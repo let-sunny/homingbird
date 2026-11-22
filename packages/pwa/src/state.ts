@@ -194,8 +194,12 @@ export interface HeldDecision {
   readonly phase: 'waiting' | 'committing' | 'done'
 }
 
-/** What a held decision is called while it waits, once it is carried out, and when the page closed first. */
+/**
+ * What a held decision is called while it can be undone, while it is on its way, once it is carried out,
+ * and when the page closed first.
+ */
 export interface HeldWords {
+  readonly waiting: string
   readonly pending: string
   readonly done: string
   readonly notDone: string

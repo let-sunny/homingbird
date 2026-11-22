@@ -26,6 +26,7 @@ move up one size for the large row.
 - [Backups](#backups)
 - [Who can sign in](#who-can-sign-in)
 - [When someone leaves](#when-someone-leaves)
+- [Notes: retention, export and erasure](#notes-retention-export-and-erasure)
 - [Logs](#logs)
 - [Product analytics](#product-analytics)
 - [Answering flow](#answering-flow)
@@ -90,6 +91,26 @@ What follows from that, and has **not** been measured:
   participant of that room**, because every participant gets an event per note. A channel that 1,000
   people joined costs 1,000 writes per note. Dovecote puts nobody in a channel by itself, so a room is as
   large as the people who joined it.
+
+### A 40-person company
+
+**A company of 40 uses a few percent of one core, on SQLite and on PostgreSQL, even at a busy hour.**
+`pnpm load-test --scenario company` signs in 40 people, keeps 80 event streams open (each person's
+browser and agent), and runs 30 exchanges a minute (60 notes a minute, about thirty times what 40
+people write on an ordinary day) for two minutes; three exchanges in ten are asked in a channel all 40
+joined, and the fan-out runs from the send until all 80 streams have the note. `--database-url
+postgres://…` runs it on PostgreSQL. Measured on an Apple M2 (8 cores, 16 GB), Node 24.13, with SQLite
+on local disk and PostgreSQL 16 in Docker on the same machine:
+
+| Database | CPU | RSS idle → peak | p50 / p95 send | p50 / p95 delivery | p50 / p95 channel fan-out to 80 streams |
+| --- | --- | --- | --- | --- | --- |
+| SQLite | 0.02 core, 38 ms per exchange | 126 → 207 MB | 5 / 12 ms | 6 / 25 ms | 24 / 28 ms |
+| PostgreSQL | 0.03 core, 67 ms per exchange | 140 → 170 MB | 28 / 85 ms | 29 / 88 ms | 78 / 93 ms |
+
+The new operator commands at pilot size (`npx tsx scripts/pilot-measure.ts`, 50 members, 30 days):
+exporting one member's notes takes 2 ms typically and under 10 ms at the 95th percentile, and the first
+retention pass at 15 days deleted 2,798 of 5,582 notes in 185 ms, in batches of 500, each a short
+transaction. No hotspot needed a fix; nothing came near the 500 ms we treat as slow.
 
 ### At pilot size
 
@@ -376,16 +397,32 @@ and nothing reads your directory. Add it to your offboarding checklist next to b
 2. **Deactivate.** An administrator opens **Administration**, **Members** in the web client and presses
    **Deactivate** (the API route `admin.members.update` with `status: deactivated`).
 3. **Block the company account** at the identity provider as usual.
-4. **Verify** in **Administration**, **Members**: their row says **Deactivated** and **No agent
-   connections**, and names no group and no channel they manage. The page counts the agent
-   credentials that still work, so it shows what the server holds. On the database itself, with the
-   member's id from the first query:
+4. **Verify** on the server host, with the same `HB_DATABASE_URL` as the server:
+
+   ```sh
+   node dovecote.mjs members verify-left leaver@example.com   # in the image: docker compose exec dovecote node dovecote.mjs members verify-left leaver@example.com
+   ```
+
+   ```text
+   Offboarding checks for leaver@example.com (mem_...):
+     pass  Deactivated
+     pass  No working credential of their own, browser or agent
+     pass  No working credential they issued to a channel's agent
+     pass  In no group, so managing no channel
+     pass  No approved sign-in waiting for a program
+     pass  No cloud desk wake address
+     pass  No Slack account linked
+     pass  Not named in HB_ADMIN_EMAILS
+   Every check passes.
+   ```
+
+   A failed check says `FAIL` and what it found ("2 still work"), and the command exits 1, so an
+   offboarding script can stop on it; an email no person has exits 1 too. It prints counts and ids,
+   never a token. **Administration**, **Members** shows the same: their row says **Deactivated** and
+   **No agent connections**, and names no group and no channel they manage. The audit trail records
+   what deactivating did:
 
    ```sql
-   SELECT id, status FROM members WHERE email = 'leaver@example.com';             -- deactivated
-   SELECT COUNT(*) FROM credentials WHERE member_id = 'mem_...' AND revoked_at IS NULL; -- 0
-   SELECT COUNT(*) FROM credentials WHERE issued_by = 'mem_...' AND revoked_at IS NULL; -- 0
-   SELECT COUNT(*) FROM group_members WHERE member_id = 'mem_...';                      -- 0
    SELECT created_at, event, detail FROM audit_events
    WHERE event IN ('member.access_changed', 'group.members_changed', 'credential.revoked')
    ORDER BY id DESC LIMIT 20;
@@ -419,9 +456,11 @@ because revoked credentials stay revoked, and groups are not given back. The dea
 audited. Rule 6 in `packages/dovecote/test/security-rules.test.ts` holds the credential points of this
 list for each kind of credential.
 
-What stays: notes they sent remain in their conversations for the other participants, and the audit
-trail keeps its rows about them, ids and outcomes only, until `HB_AUDIT_RETENTION_DAYS` removes them
-(400 days by default). Their unsent drafts stay in the database and no one else can see them.
+What stays: notes they sent remain in their conversations for the other participants, until
+`HB_NOTE_RETENTION_DAYS` removes them if you set it, and the audit trail keeps its rows about them, ids
+and outcomes only, until `HB_AUDIT_RETENTION_DAYS` removes them (400 days by default). Their unsent
+drafts stay in the database, where no one else can see them, until you delete them with `dovecote notes
+delete-drafts` ([below](#notes-retention-export-and-erasure)).
 
 ### If nobody deactivates them
 
@@ -442,7 +481,8 @@ So the last three keep working for up to three months. Deactivating is the only 
 Once a month, compare the active people with your identity provider's active users, and deactivate
 whoever is gone. **Administration**, **Members** shows each person's last activity, flags who has
 shown none for 30 days, and says how many agent connections (agent credentials that still work) each
-holds and when the newest expires; search it by name or email. On the database:
+holds and when the newest expires; search it by name or email, and tick **Only members with no activity
+for 30 days** to list just those. On the database:
 
 ```sql
 SELECT m.email, MAX(c.created_at) AS last_sign_in_ms
@@ -455,6 +495,65 @@ GROUP BY m.email ORDER BY last_sign_in_ms;
 `last_sign_in_ms` is milliseconds since 1970. Someone active signs in at least every
 `HB_SESSION_DAYS`, because approving a note needs a browser session; an older last sign-in is the first
 place to look.
+
+## Notes: retention, export and erasure
+
+**Notes are kept until you delete them. Dovecote can delete old ones for you, export one person's,
+and delete what one person never sent; all three run on the server host and are audited.** None has a
+route or a tool: they need the database's credentials, as `dovecote audit verify` does, so no
+administrator's browser and no agent can reach them.
+
+**Retention.** `HB_NOTE_RETENTION_DAYS` is unset by default, which keeps every note. Set it, at least 7,
+and the hourly housekeeping pass deletes sent notes sent more than that many days ago and discarded
+notes discarded that long ago. A value under 7 refuses to start, because what it deletes cannot come
+back. Drafts never expire: they wait for their person. With each note go the rows about it: receipts,
+pickups, notices, released notes, principle applications and offers, draft request answers, and a
+Slack arrival or a post still waiting in the Slack outbox. A
+reply whose question is gone keeps its own text. Figures over a longer period than the retention
+(Insights reads 60 days) count only what is left. Each batch of up to 500 notes is deleted in its own
+transaction with a `note.retention_purged` audit row (`removed`, `days`).
+
+**Export one person's notes**, for a data-subject request or a legal review:
+
+```sh
+node dovecote.mjs notes export ana@example.com > ana-notes.jsonl
+# in the image: docker compose exec -T dovecote node dovecote.mjs notes export ana@example.com > ana-notes.jsonl
+```
+
+One JSON object per line, oldest first, for every note the person wrote, in every status (`sent`,
+`draft`, `discarded`), and every answer of a channel's agent they approved:
+
+```json
+{"id":"note_…","conversationId":"conv_…","conversationKind":"channel","channel":"billing","status":"sent","origin":"human_edited","authorId":"mem_…","approvedBy":null,"inReplyTo":"note_…","debateId":null,"body":"…","agentBody":"…","basis":"…","sources":[…],"discardReason":null,"agentName":"…","agentClient":"…","agentModel":"…","createdAt":"2026-11-02T09:14:03.000Z","sentAt":"2026-11-02T09:15:40.000Z","decidedAt":"2026-11-02T09:15:40.000Z"}
+```
+
+`agentBody` is what their agent first wrote when the person edited it. Notes others sent them are those
+others' notes: export them by their authors. The file holds note content: treat it like a backup. The
+export writes a `note.exported` audit row with the count.
+
+**Delete one person's unsent notes**, for a leaver or an erasure request:
+
+```sh
+node dovecote.mjs notes delete-drafts ana@example.com          # says what it would delete, deletes nothing
+node dovecote.mjs notes delete-drafts ana@example.com --yes    # deletes it
+```
+
+```text
+Would delete 3 drafts, 12 discarded notes and 1 draft request of ana@example.com.
+Nothing was deleted. This cannot be undone: run it again with --yes to delete them.
+```
+
+With `--yes` it deletes, in one transaction, their drafts, their discarded notes, the draft requests they
+gave their agents and the saved-draft events still waiting in their event stream, and writes a
+`note.unsent_erased` audit row with the counts. It keeps their sent notes, everyone else's notes and
+drafts, and the audit trail. A page they still have open drops the drafts at its next load.
+
+**What is not covered yet:** debate rooms' turns and results, erasing a person's sent notes, and a legal
+hold that keeps one person's notes past the retention. Copies outside the database stay as long as you
+keep them: backups, the event backlog (7 days) and anything an agent or a person saved.
+
+All three commands work on SQLite, PostgreSQL and MySQL, need no new table, and refuse a database of
+another version with exit code 3, like the audit commands. A wrong call prints the usage and exits 2.
 
 ## Logs
 
@@ -480,7 +579,7 @@ HB_LOGS="audit=full,operational=info,requests=off,auditCopy=off"   # the default
 
 | Kind | Values | Default | What it means |
 | --- | --- | --- | --- |
-| `audit` | `full`, `security`, `off` | `full` | `security` keeps sign-in, credentials, refused attempts and refused tokens, roles and status, settings, retention and start; `full` adds channels, contacts, principles, characters, approvals and debate rooms. `off` records nothing; Dovecote warns once at start |
+| `audit` | `full`, `security`, `off` | `full` | `security` keeps sign-in, credentials, refused attempts and refused tokens, roles and status, settings, retention, note exports and erasures, and start; `full` adds channels, contacts, principles, characters, approvals and debate rooms. `off` records nothing; Dovecote warns once at start |
 | `operational` | `debug`, `info`, `warn`, `error`, `off` | `info` | The lowest level written to stdout. `debug` adds the redacted detail of defects; Dovecote warns that it is not for production |
 | `requests` | `on`, `off` | `off` | One `http.request` line per request: route name, method, status and duration |
 | `auditCopy` | `on`, `off` | `off` | Each audit row also as an `audit.copy` line on stdout, without its detail. `HB_AUDIT_STDOUT=1` means the same |
@@ -512,7 +611,8 @@ decisions; which profile fields changed; characters set, cleared and reset; role
 channels created, made open or private, joined, left, archived, renamed, and their members and managers;
 contacts and blocks; principles created, changed, deleted and reordered, without their text; debate
 rooms opened, agents opted in, limits, results decided, posted and exported; sign-in, failed sign-in
-and sign-out; OAuth clients registered and resolved; retention purges; start and schema steps;
+and sign-out; OAuth clients registered and resolved; audit and note retention purges; a person's
+notes exported and their unsent notes erased, with counts; start and schema steps;
 refused attempts as `authz.denied`, one row per credential and route a minute with a `count`; and a
 missing, expired or revoked token as `authn.token_refused`, one row a minute per credential, or per a
 hash of the token when no credential has it, never the token. Such refusals also write one
@@ -1246,8 +1346,10 @@ Insights and the audit trail describe how people work. Before you invite a whole
    yet, raise the minimum, or switch Insights off with `HB_FEATURES=insights=off`
    ([Features](#features)).
 3. **Tell people what is recorded:** the audit trail holds ids and outcomes, never note content
-   ([Logs](#logs)), and is kept `HB_AUDIT_RETENTION_DAYS` (400 days by default). Notes and unsent
-   drafts are kept until deleted by hand; there is no retention for them yet.
+   ([Logs](#logs)), and is kept `HB_AUDIT_RETENTION_DAYS` (400 days by default). Notes are kept
+   until `HB_NOTE_RETENTION_DAYS` removes them, which is off by default; decide it now, and how you
+   answer an export or erasure request ([Notes: retention, export and
+   erasure](#notes-retention-export-and-erasure)).
 4. **Shorten agent credentials** without an identity provider check: `HB_AGENT_CREDENTIAL_DAYS` is 90
    by default, and a leaver nobody deactivates keeps that long ([If nobody deactivates
    them](#if-nobody-deactivates-them)).
@@ -1390,6 +1492,7 @@ Every variable Dovecote reads. Blank values count as unset.
 | `HB_TRUST_PROXY` | `0` | Number of proxies in front that append to `X-Forwarded-For`; see [above](#behind-a-load-balancer) |
 | `HB_LOGS` | `audit=full,operational=info,requests=off,auditCopy=off` | What is recorded ([Logs](#logs)). The operator's only |
 | `HB_AUDIT_RETENTION_DAYS` | `400` | Days to keep audit rows, at least 90 |
+| `HB_NOTE_RETENTION_DAYS` | none | Days to keep sent and discarded notes, at least 7; unset keeps every note ([retention](#notes-retention-export-and-erasure)) |
 | `HB_AUDIT_STDOUT` | `0` | `1` means `HB_LOGS=auditCopy=on` |
 | `HB_ANALYTICS`, `HB_ANALYTICS_URL`, `HB_ANALYTICS_KEY` | `off` | Where product analytics go ([Product analytics](#product-analytics)) |
 | `HB_PUSH_HOSTS` | the four push services above | Push service hosts subscriptions may use |

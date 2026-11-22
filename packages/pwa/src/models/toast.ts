@@ -1,4 +1,4 @@
-import type { HeldShown } from '../held-decisions.ts'
+import { type HeldShown, heldText } from '../held-decisions.ts'
 import type { Notice } from '../state.ts'
 import { strings } from '../strings.ts'
 
@@ -15,15 +15,15 @@ export const toastModel = (notice: Notice | null): ToastModel | null =>
       }
 
 /**
- * The latest held send or discard as its toast shows it: pending until the server has it, with Undo and a
- * way to let it go now while it waits, then done, with a way to close it.
+ * The latest held send or discard as its toast shows it: when it goes, with Undo and a way to let it go now,
+ * while it can be undone; on its way until the server has it; then done, with a way to close it.
  */
 export const heldToastModel = (held: ReadonlyArray<HeldShown>): HeldToastModel | null => {
   const latest = held.at(-1)
   if (latest === undefined) return null
   return {
     className: `toast is-held is-${latest.phase}`,
-    text: latest.phase === 'done' ? latest.words.done : latest.words.pending,
+    text: heldText(latest),
     undo: latest.phase === 'waiting' ? strings.undo : null,
     dismiss:
       latest.phase === 'waiting'
@@ -33,9 +33,6 @@ export const heldToastModel = (held: ReadonlyArray<HeldShown>): HeldToastModel |
           : null,
   }
 }
-
-/** How long a send or discard can be undone before it is asked of the server. */
-export const HOLD_MS = 5000
 
 /** How long the toast says a send or discard was carried out. */
 export const SETTLED_MS = 3000

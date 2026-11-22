@@ -4,19 +4,27 @@ import { auditRetention, auditRetentionWarnings } from './domain/audit-retention
 import { recordAudit } from './domain/audit.ts'
 import type { AppEnv } from './environment.ts'
 import { transact } from './events/events.ts'
+import { runMembersCommand } from './members-command.ts'
+import { runNotesCommand } from './notes-command.ts'
 import { prepareDatabase } from './prepare-database.ts'
 import type { UnknownDatabase } from './sql/schema.ts'
 import { SERVER_VERSION } from './version.ts'
 
-/** Before listening: run an `audit` command and exit, or prepare the database and announce the start. */
+/**
+ * Before listening: run an `audit`, `notes` or `members` command and exit, or prepare the database and
+ * announce the start.
+ */
 export const startDovecote = (
   args: ReadonlyArray<string>,
   port: number,
   write: (line: string) => void,
-): T.Task<{ readonly exitCode: number } | 'serve', UnknownDatabase, AppEnv> =>
-  args[0] === 'audit'
-    ? T.map((exitCode: number) => ({ exitCode }))(runAuditCommand(args.slice(1), write))
-    : T.as('serve' as const)(T.flatMap(() => announceStart(port))(prepareDatabase))
+): T.Task<{ readonly exitCode: number } | 'serve', UnknownDatabase, AppEnv> => {
+  const [first = '', ...rest] = args
+  const command = Object.hasOwn(COMMANDS, first) ? COMMANDS[first as keyof typeof COMMANDS] : null
+  return command === null
+    ? T.as('serve' as const)(T.flatMap(() => announceStart(port))(prepareDatabase))
+    : T.map((exitCode: number) => ({ exitCode }))(command(rest, write))
+}
 
 /** Announces the start, warns about what the operator should know, and records it. */
 export const announceStart = (port: number): T.Task<void, never, AppEnv> =>
@@ -59,3 +67,5 @@ export const announceStart = (port: number): T.Task<void, never, AppEnv> =>
         }),
       )
   })
+
+const COMMANDS = { audit: runAuditCommand, notes: runNotesCommand, members: runMembersCommand } as const
