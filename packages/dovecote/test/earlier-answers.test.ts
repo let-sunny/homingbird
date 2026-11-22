@@ -15,7 +15,7 @@ beforeEach(async () => {
     for (const slug of ['wiki', 'deploys']) await person.api('PUT', `/channels/${slug}/membership`, {})
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const send = async (author: Session, target: Record<string, unknown>, body: string) => {
   const draft = (await author.api('POST', '/drafts', { ...target, body })).json

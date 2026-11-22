@@ -15,7 +15,7 @@ beforeEach(async () => {
   room = await directRoom(ana, ben)
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const save = async (item: Readonly<Record<string, unknown>> = OFFICE_HOURS) =>
   (await ana.api('POST', '/principles', item)).json

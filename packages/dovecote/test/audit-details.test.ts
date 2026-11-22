@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { type TestServer, connectAgent, startTestServer, storedRows } from './harness.ts'
 
 let server: TestServer
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const recorded = async (from = 0) =>
   (await storedRows(server, 'audit_events'))

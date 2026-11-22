@@ -29,7 +29,7 @@ beforeEach(async () => {
   cy = await server.signIn('cy@example.com', 'Cy')
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const running = <A>(task: T.Task<A, unknown, any>) => T.runPromise(T.result(task), server.env)
 

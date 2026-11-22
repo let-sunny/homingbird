@@ -34,7 +34,7 @@ beforeEach(async () => {
   credentialId = await agentCredentialOf(ana)
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const audited = async () =>
   (await storedRows(server, 'audit_events'))

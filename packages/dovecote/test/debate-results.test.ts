@@ -29,7 +29,7 @@ beforeEach(async () => {
   cast = await castOf(server)
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const concludedRoom = async (visibility: 'open' | 'private' = 'open') => {
   const id = await openedRoom(cast, { visibility })

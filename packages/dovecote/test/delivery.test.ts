@@ -23,7 +23,7 @@ beforeEach(async () => {
   benAgent = await connectAgent(server, ben, { name: 'Ben agent' })
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const questionFromBen = async () => {
   const asked = (await benAgent.api('POST', '/drafts', { to: [ana.me.member.id], body: 'When are you in?' }))

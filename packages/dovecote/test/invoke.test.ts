@@ -21,7 +21,7 @@ beforeEach(async () => {
   anaAgent = await connectAgent(server, ana, { name: 'Ana agent' })
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const outcome = <A>(task: T.Task<A, unknown, TestServer['env']>) => T.runPromise(T.result(task), server.env)
 

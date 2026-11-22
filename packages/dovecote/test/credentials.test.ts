@@ -14,7 +14,7 @@ beforeEach(async () => {
   ben = await server.signIn('ben@example.com', 'Ben')
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 describe('credentials', () => {
   it('lists each device with its kind, name, client and expiry, marking the current one', async () => {

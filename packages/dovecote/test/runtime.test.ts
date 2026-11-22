@@ -54,7 +54,7 @@ describe('the housekeeping pass', () => {
     ana = await server.signIn('ana@example.com', 'Ana')
   })
 
-  afterEach(() => server.close())
+  afterEach(() => server?.close())
 
   it('forgets events a week old and expired sign-in requests, and keeps the recent ones', async () => {
     const ben = await server.signIn('ben@example.com', 'Ben')

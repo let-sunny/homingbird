@@ -20,7 +20,7 @@ beforeEach(async () => {
   anaAgent = await connectAgent(server, ana, { name: 'Ana agent' })
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 describe('the note handlers', () => {
   it('answer a draft request when a draft names it, and draft freely when it names none', async () => {

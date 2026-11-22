@@ -37,7 +37,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await running.interrupt()
-  await server.close()
+  await server?.close()
 })
 
 describe('a review request in Slack', () => {

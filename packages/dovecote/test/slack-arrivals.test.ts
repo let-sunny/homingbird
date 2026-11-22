@@ -35,7 +35,7 @@ beforeEach(async () => {
   await linkChannel(server, slack, ana, 'U0ANA', 'billing')
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const roomNotes = async () => {
   const channel = (await ana.api('GET', '/channels/billing')).json

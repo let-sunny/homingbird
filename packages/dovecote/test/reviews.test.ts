@@ -22,7 +22,7 @@ const addManager = async (person: Session) => {
 }
 
 afterEach(async () => {
-  await server.close()
+  await server?.close()
 })
 
 describe('a channel’s agent answering a question', () => {

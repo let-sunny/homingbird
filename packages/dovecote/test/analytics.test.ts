@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { type TestServer, connectAgent, startTestServer, storedRows } from './harness.ts'
 
 let server: TestServer
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const POSTHOG = { HB_ANALYTICS: 'posthog', HB_ANALYTICS_KEY: 'phc_projectkey' }
 

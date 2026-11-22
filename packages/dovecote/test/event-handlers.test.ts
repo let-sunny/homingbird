@@ -21,7 +21,7 @@ beforeEach(async () => {
   anaAgent = await connectAgent(server, ana, { name: 'Ana agent' })
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 describe('the event handlers', () => {
   it('poll for events after a cursor, never waiting longer than the protocol allows', async () => {

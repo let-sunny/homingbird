@@ -13,7 +13,7 @@ beforeEach(async () => {
   anaAgent = await connectAgent(server, ana, { name: 'Ana agent' })
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 describe('the teaching handlers', () => {
   it('give the agent its person’s principles for a draft, and refuse a conversation it is not in', async () => {

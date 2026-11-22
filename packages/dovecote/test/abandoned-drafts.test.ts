@@ -16,7 +16,7 @@ beforeEach(async () => {
   await ben.api('PUT', '/channels/billing/membership', {})
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 describe('abandonDraftsIn', () => {
   it('discards one author’s waiting drafts in one room, tells that author, and leaves everything else', async () => {

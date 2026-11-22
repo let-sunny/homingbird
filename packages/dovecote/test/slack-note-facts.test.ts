@@ -19,7 +19,7 @@ beforeEach(async () => {
   await linkChannel(server, slack, ana, 'U0ANA', 'billing')
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 describe('what a note’s readers see of Slack', () => {
   it('reads nothing for notes that never touched Slack', async () => {

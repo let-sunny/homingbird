@@ -36,7 +36,7 @@ beforeEach(async () => {
   await linkPerson(server, slack, ana)
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const auditOf = async (event: string) =>
   (await storedRows(server, 'audit_events')).filter((row) => row.event === event)

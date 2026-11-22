@@ -12,7 +12,7 @@ beforeEach(async () => {
   ben = await server.signIn('ben@example.com', 'Ben')
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const sendTo = async (from: Session, to: Session, body: string) => {
   const draft = (await from.api('POST', '/drafts', { to: [to.me.member.id], body })).json

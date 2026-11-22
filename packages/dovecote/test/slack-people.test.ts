@@ -22,7 +22,7 @@ beforeEach(async () => {
   ben = await server.signIn('ben@example.com', 'Ben')
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 /** The code in the link the app last sent in Slack. */
 const lastCode = (): string => {

@@ -21,7 +21,7 @@ beforeEach(async () => {
   cast = await castOf(server)
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 describe('a room as it is shown', () => {
   it('leaves out the model each agent stated while the organization keeps note details off', async () => {

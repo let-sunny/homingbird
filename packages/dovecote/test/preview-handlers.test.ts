@@ -20,7 +20,7 @@ beforeEach(async () => {
   agent = await connectAgent(server, ana, { name: 'Ana agent' })
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 describe('the draft preview routes', () => {
   it('reads and saves whom a person lets see their agent’s drafts, and audits only how many', async () => {

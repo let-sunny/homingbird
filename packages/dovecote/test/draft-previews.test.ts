@@ -22,7 +22,7 @@ beforeEach(async () => {
   anaAgent = await connectAgent(server, ana, { name: 'Ana agent' })
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const allow = (people: ReadonlyArray<Session>, channels: ReadonlyArray<string> = []) =>
   ana.api('PUT', '/me/draft-previews', { people: people.map((one) => one.me.member.id), channels })

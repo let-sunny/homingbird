@@ -35,7 +35,7 @@ beforeEach(async () => {
   await linkChannel(server, slack, ana, 'U0ANA', 'billing')
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const ANSWER = 'Refunds keep the yearly discount <@U0ANA> & <!channel>'
 

@@ -19,7 +19,7 @@ beforeEach(async () => {
   await ana.api('PUT', '/me/desk-wake', routineSetup(await agentCredentialOf(ana)))
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const storedWake = async () =>
   (await storedRows(server, 'desk_wakes'))[0] as { sealed: string; member_id: string }

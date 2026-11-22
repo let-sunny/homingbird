@@ -22,7 +22,7 @@ beforeEach(async () => {
   ).json.managedBy
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const setMembers = (by: Session, ...members: Session[]) =>
   by.api('PUT', `/groups/${payroll}/members`, { memberIds: members.map((member) => member.me.member.id) })

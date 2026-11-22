@@ -18,7 +18,7 @@ beforeEach(async () => {
   ana = await server.signIn('ana@example.com', 'Ana')
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const deactivateAna = () =>
   T.runPromise(run(sql`UPDATE members SET status = 'deactivated' WHERE id = ${ana.me.member.id}`), server.env)

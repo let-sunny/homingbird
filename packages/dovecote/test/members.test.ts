@@ -10,7 +10,7 @@ beforeEach(async () => {
   ana = await server.signIn('ana@example.com', 'Ana')
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 describe('language on the profile', () => {
   it('follows the browser until a person picks a language', async () => {
@@ -91,7 +91,7 @@ describe('deactivation', () => {
     leaver = await oauthServer.signIn('ben@example.com', 'Ben')
   })
 
-  afterEach(() => oauthServer.close())
+  afterEach(() => oauthServer?.close())
 
   const token = (form: Record<string, string>) => oauthServer.request('POST', '/oauth/token', { form })
 

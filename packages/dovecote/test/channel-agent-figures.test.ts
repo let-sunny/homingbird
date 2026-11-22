@@ -257,7 +257,7 @@ describe('channels.agent.figures', () => {
   let agent: Agent & { readonly id: string }
 
   afterEach(async () => {
-    await server.close()
+    await server?.close()
   })
 
   const FIVE = { HB_INSIGHTS_MINIMUM_GROUP: '5' }

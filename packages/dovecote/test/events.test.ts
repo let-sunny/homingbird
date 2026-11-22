@@ -32,7 +32,7 @@ beforeEach(async () => {
   benAgent = await connectAgent(server, ben)
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const sendNote = async (body: string) => {
   const draft = (await ana.api('POST', '/drafts', { to: [ben.me.member.id], body })).json

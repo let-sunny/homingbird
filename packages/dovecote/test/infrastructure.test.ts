@@ -411,7 +411,7 @@ describe('schema', () => {
 
 describe('static files and branding', () => {
   let server: TestServer
-  afterEach(() => server.close())
+  afterEach(() => server?.close())
 
   const withFiles = async () => {
     const web = mkdtempSync(join(tmpdir(), 'hb-web-'))

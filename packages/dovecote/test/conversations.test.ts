@@ -18,7 +18,7 @@ beforeEach(async () => {
   cy = await server.signIn('cy@example.com', 'Cy')
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 describe('direct conversations', () => {
   it('keeps one conversation per pair, whichever side starts and however many drafts race', async () => {

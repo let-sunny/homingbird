@@ -13,7 +13,7 @@ beforeEach(async () => {
   anaAgent = await connectAgent(server, ana, { name: 'Ana agent' })
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 describe('the debate handlers', () => {
   it('open a room, list it, and show it by a valid id only', async () => {

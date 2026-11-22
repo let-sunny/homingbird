@@ -14,7 +14,7 @@ beforeEach(async () => {
   ben = await server.signIn('ben@example.com', 'Ben')
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 describe('the time a note is sent at', () => {
   it('is the clock’s time in a conversation with nothing sent yet', async () => {

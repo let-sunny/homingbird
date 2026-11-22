@@ -101,7 +101,7 @@ describe('a push when a channel’s agent’s answer waits for review', () => {
 
   afterEach(async () => {
     await running?.interrupt()
-    await server.close()
+    await server?.close()
   })
 
   it('tells every manager who may review it, titled by the channel and opening the card', async () => {

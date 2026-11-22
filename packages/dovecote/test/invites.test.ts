@@ -7,7 +7,7 @@ import { type Session, type TestServer, everyStoredValue, startTestServer, store
 let server: TestServer
 let closed: TestServer | undefined
 afterEach(async () => {
-  if (server !== closed) await server.close()
+  if (server !== closed) await server?.close()
   closed = server
 })
 
