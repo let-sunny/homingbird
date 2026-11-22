@@ -20,7 +20,7 @@ service. Still to come from this release:
 
 **Debate rooms** are built (below). The **UI and UX improvement** stage is **Built**: a character
 appears only where it stands for a person or a page is empty (see decisions), Debates is a header tab
-and the tabs form a grid on a phone, every main page has its loading and empty states and is checked at
+and the tabs are a bar at the bottom of the screen on a phone, every main page has its loading and empty states and is checked at
 390 px (`e2e/pages.e2e.ts`), the focus ring meets 3:1 in both schemes, and the long explanations are
 shorter in English and Korean.
 

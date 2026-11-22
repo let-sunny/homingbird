@@ -44,6 +44,30 @@ describe('shell', () => {
     expect(textOf(shown)).toContain(strings.loading)
   })
 
+  it('gives each tab a word under a hidden glyph, and hides the phone’s tab bar in a conversation', () => {
+    const { context } = testContext()
+    context.state.session.set(me())
+    const shown = mount(shell(context, lifetime(), me(), document.createElement('main')))
+    const app = shown.querySelector('.app') as HTMLElement
+    const tabs = [...shown.querySelectorAll('.tabs .tab')]
+    expect(tabs.map((tab) => textOf(tab.querySelector('.tab-label')!))).toEqual([
+      strings.navNotes,
+      strings.navMyAgent,
+      strings.navPeople,
+      strings.channels,
+      strings.navDebates,
+    ])
+    expect(
+      tabs.every((tab) => tab.querySelector('svg.tab-glyph')?.getAttribute('aria-hidden') === 'true'),
+    ).toBe(true)
+    expect(getByRole(shown, 'link', { name: strings.navNotes }).getAttribute('aria-current')).toBe('page')
+    expect(app.dataset.tabBar).toBe('shown')
+    context.state.route.set({ name: 'conversation', id: ROOM, draft: null })
+    expect(app.dataset.tabBar).toBe('hidden')
+    context.state.route.set({ name: 'channels' })
+    expect(app.dataset.tabBar).toBe('shown')
+  })
+
   it('offers, in a conversation, a first link that skips to writing a note', () => {
     const { context } = testContext()
     context.state.session.set(me())

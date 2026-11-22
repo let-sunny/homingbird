@@ -6205,3 +6205,126 @@ textarea:disabled {
   justify-self: end;
   margin: 0;
 }
+
+.tab-glyph {
+  display: none;
+}
+
+/*
+ * On a phone the tabs leave the title bar for a bar fixed to the bottom of the shell: the same links in
+ * the same order, a word under a glyph, in equal columns above the device's safe area.
+ */
+@container app (max-width: 32rem) {
+  .titlebar {
+    grid-template: "brand . user" auto "status status status" auto / auto minmax(0, 1fr) auto;
+  }
+
+  .tabs-host {
+    position: fixed;
+    inset: auto 0 0;
+    z-index: 5;
+    padding-block-end: env(safe-area-inset-bottom, 0px);
+    border-block-start: var(--hb-border);
+    background: var(--hb-texture-titlebar), var(--hb-color-titlebar);
+    anchor-name: --hb-tab-bar;
+  }
+
+  .app[data-tab-bar="hidden"] .tabs-host {
+    display: none;
+  }
+
+  /* With the tabs gone from it, the title bar's controls each take a whole fingertip. */
+  .titlebar .brand,
+  .titlebar .activity-bell,
+  .titlebar .user-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-inline-size: var(--hb-target-size);
+    min-block-size: var(--hb-target-size);
+  }
+
+  .tabs-host .tabs-scroll {
+    display: none;
+  }
+
+  .titlebar .tabs {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 0;
+    block-size: var(--hb-tab-bar-size);
+    overflow: visible;
+  }
+
+  .titlebar .tab {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--hb-pixel);
+    min-inline-size: 0;
+    min-block-size: var(--hb-target-size);
+    padding: var(--hb-space-1) var(--hb-pixel);
+    border: 0;
+    background: none;
+    box-shadow: none;
+    color: var(--hb-color-on-titlebar);
+    font-size: var(--hb-text-tiny);
+    line-height: 1.2;
+  }
+
+  .titlebar .tab[aria-current="page"] {
+    background: var(--hb-color-action);
+    color: var(--hb-color-on-action);
+    box-shadow: none;
+  }
+
+  .tab-glyph {
+    display: block;
+    flex: none;
+    inline-size: 1.25rem;
+    block-size: 1.25rem;
+  }
+
+  .tab-label {
+    max-inline-size: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .tab .agent-mark {
+    position: absolute;
+    inset-block-start: var(--hb-space-1);
+    inset-inline-start: calc(50% + var(--hb-space-2));
+    margin: 0;
+  }
+
+  /* The text box takes a row of its own; Ask my agent and Send share the row under it. */
+  .composer-row {
+    flex-wrap: wrap;
+    justify-content: end;
+  }
+
+  .composer-row > textarea {
+    flex: 1 0 100%;
+  }
+
+  /* A dialog's actions stay in reach while its content scrolls under them. */
+  .dialog-actions {
+    position: sticky;
+    inset-block-end: 0;
+    z-index: 1;
+    padding-block: var(--hb-space-2);
+    background: var(--hb-color-surface);
+  }
+}
+
+/* A notice keeps clear of the phone's tab bar; with no bar it sits where it always did. */
+@supports (anchor-name: --a) {
+  :root:not(:has(.composer)) .toast-host:not(.dialog > .toast-host) {
+    inset-block-end: calc(anchor(--hb-tab-bar top, var(--hb-space-2)) + var(--hb-space-2));
+  }
+}

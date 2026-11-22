@@ -19,10 +19,12 @@ import { logoOf, wordmark } from '../models/branding.ts'
 import {
   type ConversationRow,
   type SidebarModel,
+  type TabGlyph,
   paneFor,
   searchLinkModel,
   sidebarModel,
   skipLinkModel,
+  tabBarFor,
   tabsModel,
   userMenuModel,
 } from '../models/shell.ts'
@@ -65,6 +67,7 @@ export const shell = (
   )
   const showPane = (): void => {
     app.dataset.pane = paneFor(state.route.get())
+    app.dataset.tabBar = tabBarFor(state.route.get())
   }
   showPane()
   life.add(state.route.subscribe(showPane))
@@ -174,7 +177,8 @@ const tabs = (context: ViewContext, agentUnavailable: string | null): Child => {
         'aria-current': tab.current && 'page',
         ...(tab.tour !== null && { data: { tour: tab.tour } }),
       },
-      tab.label,
+      tab.glyph !== null && tabGlyph(tab.glyph),
+      h('span', { class: 'tab-label' }, tab.label),
       tab.mark !== null &&
         h('span', { class: 'agent-mark', role: 'img', 'aria-label': tab.mark, title: tab.mark }),
     ),
@@ -548,3 +552,34 @@ const searchIcon = (): SVGElement =>
       'stroke-linecap': 'round',
     }),
   )
+
+/** The picture over a tab's word in the phone's tab bar; the word names the tab, so this is decoration. */
+const tabGlyph = (glyph: TabGlyph): SVGElement =>
+  svg(
+    'svg',
+    {
+      class: 'tab-glyph',
+      viewBox: '0 0 16 16',
+      width: 20,
+      height: 20,
+      'aria-hidden': 'true',
+      focusable: 'false',
+    },
+    svg('path', {
+      d: TAB_GLYPHS[glyph],
+      fill: 'none',
+      stroke: 'currentColor',
+      'stroke-width': 1.5,
+      'stroke-linecap': 'round',
+      'stroke-linejoin': 'round',
+    }),
+  )
+
+const TAB_GLYPHS: Readonly<Record<TabGlyph, string>> = {
+  notes: 'M2 2.5h12v8.5H7.5L4 14v-3H2z',
+  agent: 'M3 5.5h10v8H3zM8 2v3.5M6 9.5v.5M10 9.5v.5',
+  people:
+    'M6 7.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM1.5 14c0-2.8 2-4.5 4.5-4.5s4.5 1.7 4.5 4.5M11 3a2 2 0 0 1 0 4M12 9.5c1.6.4 2.5 1.8 2.5 4.5',
+  channels: 'M6.5 2 5 14M11 2 9.5 14M2.5 5.5h11M2 10.5h11',
+  debates: 'M1.5 2h8v6H5l-2.5 2V8h-1zM12 5.5h2.5v6h-1V14l-2.5-2.5H7v-1.5',
+}

@@ -833,8 +833,10 @@ const tourPlacement = (
     if (target === null || !document.querySelector('#tour').classList.contains('is-anchored'))
       return { targetShown: false, gap: 0, namesThePlace, overHeader, width: Math.round(callout.width) }
     const box = target.getBoundingClientRect()
-    // A control in the header gets its callout under the header, so it is measured from there.
-    const below = target.closest('.titlebar')?.getBoundingClientRect().bottom ?? box.bottom
+    // A control in the header gets its callout under the header, so it is measured from there; a tab
+    // in the phone's bottom bar belongs to the header but sits below it, so it is measured from itself.
+    const headerBottom = target.closest('.titlebar')?.getBoundingClientRect().bottom
+    const below = headerBottom !== undefined && box.top < headerBottom ? headerBottom : box.bottom
     const across = Math.max(0, box.left - callout.right, callout.left - box.right)
     const along = Math.max(0, box.top - callout.bottom, callout.top - below)
     return {
