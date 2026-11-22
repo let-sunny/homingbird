@@ -155,6 +155,19 @@ describe('switcher', () => {
     expect(dialog.open).toBe(true)
   })
 
+  it('keeps its list when opened again before the close event of the last choice arrives', () => {
+    const { dialog } = start()
+    fire.key(document.body, 'k', { ctrlKey: true })
+    dialog.close()
+    fire.key(document.body, 'k', { ctrlKey: true })
+    fire.event(dialog, 'close')
+    expect(dialog.open).toBe(true)
+    expect(dialog.querySelector('.switcher-foot')).not.toBeNull()
+    dialog.close()
+    fire.event(dialog, 'close')
+    expect(dialog.querySelector('.switcher-foot')).toBeNull()
+  })
+
   it('stops listening for its shortcuts once its page is gone', () => {
     const { dialog, life } = start()
     life.end()

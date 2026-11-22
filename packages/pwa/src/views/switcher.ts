@@ -86,7 +86,9 @@ export const switcher = (
     const match = model().chosen
     if (match !== null) go(match)
   })
-  dialog.addEventListener('close', () => open.set(false))
+  // A dialog's close event comes a task after it closed, so it can arrive after the switcher was opened
+  // again at once; the dialog itself says whether it is open.
+  dialog.addEventListener('close', () => open.set(dialog.open))
   const describe = (): void => {
     const shown = model()
     input.placeholder = shown.placeholder

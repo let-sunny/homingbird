@@ -24,6 +24,7 @@ const screenshots = process.env.HB_E2E_SCREENSHOTS_THREAD ?? join(here, 'screens
 const { chromium } = createRequire(import.meta.url)('playwright')
 const NARROW = { width: 390, height: 844 }
 const OPEN = '.author-details:popover-open'
+const CARD = '#profile-card:popover-open'
 
 const scenario = async (): Promise<void> => {
   const port = await freePort()
@@ -138,30 +139,33 @@ const scenario = async (): Promise<void> => {
     await ana.page.mouse.move(5, 790)
     await ana.page.waitForSelector(OPEN, { state: 'detached' })
 
-    // A click after the hover opened them keeps the details open, and leaving no longer closes them.
+    // A click opens the author's profile card, with the details in it, and leaving does not close it.
     await agentButton.hover()
     await ana.page.waitForSelector(OPEN)
     await agentButton.click()
+    await ana.page.waitForSelector(`${CARD}:has-text("Written by Ben’s agent")`)
+    assert.equal(await ana.page.locator(OPEN).count(), 0, 'the hover details give way to the card')
     await ana.page.mouse.move(5, 790)
     await ana.page.waitForTimeout(700)
-    assert.equal(await ana.page.locator(OPEN).count(), 1)
+    assert.equal(await ana.page.locator(CARD).count(), 1)
     await ana.page.keyboard.press('Escape')
-    await ana.page.waitForSelector(OPEN, { state: 'detached' })
+    await ana.page.waitForSelector(CARD, { state: 'detached' })
 
-    // -- Keyboard: focus and Enter open, Escape closes ------------------------------------------------------
+    // -- Keyboard: focus and Enter open the card with the details, Escape closes it ----------------------
     const editedButton = ana.page.locator(`[data-note-id="${edited.id}"] .author-button`)
     await editedButton.focus()
     await ana.page.keyboard.press('Enter')
-    await ana.page.waitForSelector(`${OPEN}:has-text("edited by Ben")`)
-    await ana.page.waitForSelector(`${OPEN}:has-text("Model: not stated")`)
+    await ana.page.waitForSelector(`${CARD}:has-text("edited by Ben")`)
+    await ana.page.waitForSelector(`${CARD}:has-text("Model: not stated")`)
     await ana.page.keyboard.press('Escape')
-    await ana.page.waitForSelector(OPEN, { state: 'detached' })
+    await ana.page.waitForSelector(CARD, { state: 'detached' })
     const personButton = ana.page.locator(`[data-note-id="${byHand.id}"] .author-button`)
     await personButton.focus()
     await ana.page.keyboard.press('Enter')
-    await ana.page.waitForSelector(`${OPEN}:has-text("Written by Ben")`)
-    assert.equal(await ana.page.locator(`${OPEN}:has-text("Model")`).count(), 0)
+    await ana.page.waitForSelector(`${CARD}:has-text("Written by Ben")`)
+    assert.equal(await ana.page.locator(`${CARD}:has-text("Model")`).count(), 0)
     await ana.page.keyboard.press('Escape')
+    await ana.page.waitForSelector(CARD, { state: 'detached' })
 
     // The toolbar with Reply and ⋯ waits for hover or focus.
     const actions = ana.page.locator(`[data-note-id="${byHand.id}"] .note-toolbar`)
@@ -223,11 +227,11 @@ const scenario = async (): Promise<void> => {
     await phone.page.waitForSelector(`[data-note-id="${byHand.id}"].is-active`)
     assert.equal(await phone.page.locator('.note.is-active').count(), 1)
     await phone.page.locator(`[data-note-id="${first.id}"] .author-button`).tap()
-    await phone.page.waitForSelector(`${OPEN}:has-text("Model: claude-opus-5-5")`)
+    await phone.page.waitForSelector(`${CARD}:has-text("Model: claude-opus-5-5")`)
     assert.equal(await overflowsSideways(phone.page), false)
     await capture(phone.page, 'author-details-on-tap-narrow')
-    await phone.page.locator('.thread-head h1').tap()
-    await phone.page.waitForSelector(OPEN, { state: 'detached' })
+    await phone.page.keyboard.press('Escape')
+    await phone.page.waitForSelector(CARD, { state: 'detached' })
     await phone.context.close()
 
     // -- Korean -------------------------------------------------------------------------------------------------
@@ -239,8 +243,8 @@ const scenario = async (): Promise<void> => {
     assert.deepEqual(await clippedText(korean.page), [])
     await korean.page.locator(`[data-note-id="${first.id}"] .author-button`).focus()
     await korean.page.keyboard.press('Enter')
-    await korean.page.waitForSelector(`${OPEN}:has-text("Ben 님의 에이전트가 작성")`)
-    await korean.page.waitForSelector(`${OPEN}:has-text("모델과 프로그램은 에이전트가 알려 준 정보예요.")`)
+    await korean.page.waitForSelector(`${CARD}:has-text("Ben 님의 에이전트가 작성")`)
+    await korean.page.waitForSelector(`${CARD}:has-text("모델과 프로그램은 에이전트가 알려 준 정보예요.")`)
     await capture(korean.page, 'korean-wide-light')
     await korean.page.keyboard.press('Escape')
     await korean.page.locator('.thread-scroll').focus()
@@ -261,8 +265,10 @@ const scenario = async (): Promise<void> => {
     await ana.page.waitForSelector('.note.is-theirs.is-person')
     await ana.page.locator(`[data-note-id="${first.id}"] .author-button`).focus()
     await ana.page.keyboard.press('Enter')
-    await ana.page.waitForSelector(OPEN)
-    assert.deepEqual(await ana.page.locator(`${OPEN} p`).allInnerTexts(), ['Written by Ben’s agent'])
+    await ana.page.waitForSelector(CARD)
+    assert.deepEqual(await ana.page.locator(`${CARD} .profile-note p`).allInnerTexts(), [
+      'Written by Ben’s agent',
+    ])
     assert.equal(await ana.page.locator('.author-button.is-agent .author-mark').count(), 1)
     await capture(ana.page, 'note-details-turned-off')
     assert.equal(
