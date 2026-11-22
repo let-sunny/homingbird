@@ -10,9 +10,12 @@ import {
 } from '../domain/draft-requests.ts'
 import { createDraft, markDraftSeen, updateDraft } from '../domain/drafts.ts'
 import { earlierAnswers, recordAnsweredFromHistory } from '../domain/earlier-answers.ts'
+import { setHidden } from '../domain/hides.ts'
 import { notesAwaitingReply } from '../domain/inbox.ts'
+import { leaveGroup } from '../domain/leaving.ts'
 import { setMuted } from '../domain/mutes.ts'
 import { draftsOf, notesInConversation, searchNotes, visibleNote } from '../domain/notes.ts'
+import { recallNote } from '../domain/recalls.ts'
 import { markRead, pickUp, release } from '../domain/receipts.ts'
 import { isHuman } from '../environment.ts'
 import type { Handlers } from './handlers.ts'
@@ -38,6 +41,18 @@ export const noteHandlers = {
     T.flatMap((id: ConversationId) => setMuted(caller.member.id, id, false))(
       identifier(ConversationId, params.id),
     ),
+  'conversations.hide': ({ params }, caller) =>
+    T.flatMap((id: ConversationId) => setHidden(caller.member.id, id, true))(
+      identifier(ConversationId, params.id),
+    ),
+  'conversations.unhide': ({ params }, caller) =>
+    T.flatMap((id: ConversationId) => setHidden(caller.member.id, id, false))(
+      identifier(ConversationId, params.id),
+    ),
+  'conversations.leave': ({ params }, caller) =>
+    T.flatMap((id: ConversationId) => T.as({})(leaveGroup(caller, id)))(
+      identifier(ConversationId, params.id),
+    ),
   'conversations.notes': ({ params, query }, caller) =>
     T.flatMap((id: ConversationId) =>
       notesInConversation(caller.member.id, id, {
@@ -53,6 +68,8 @@ export const noteHandlers = {
     T.flatMap((id: NoteId) => pickUp(caller, id))(identifier(NoteId, params.id)),
   'notes.release': ({ params, body }, caller) =>
     T.flatMap((id: NoteId) => release(caller, id, body.reason))(identifier(NoteId, params.id)),
+  'notes.recall': ({ params }, caller) =>
+    T.flatMap((id: NoteId) => recallNote(caller, id))(identifier(NoteId, params.id)),
   'inbox.list': ({ query }, caller) =>
     T.map((items: Awaited<ResponseOf<Contract['inbox.list']>>['items']) => ({ items }))(
       notesAwaitingReply(caller, query.fresh === '1'),

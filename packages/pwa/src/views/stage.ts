@@ -1,4 +1,4 @@
-import type { AsRead, ConversationId } from '@homingbird/protocol'
+import type { AsRead, ConversationId, MemberId } from '@homingbird/protocol'
 import { type Child, type Lifetime, h } from '@homingbird/ui'
 import { featureOn } from '../features.ts'
 import type { Route } from '../routes.ts'
@@ -17,9 +17,11 @@ import { debatesView } from './debates.ts'
 import { groupPageView } from './group-page.ts'
 import { homeView } from './home.ts'
 import { measuresView } from './measures.ts'
+import { newMessageView } from './new-message.ts'
 import { emptyWithPip } from './parts.ts'
 import { peopleView } from './people.ts'
 import { searchView } from './search.ts'
+import { slackLinkView } from './slack.ts'
 import { threadView } from './thread-view.ts'
 
 /** The page a route shows; a feature that is off, or a page the person may not see, shows as not found. */
@@ -41,6 +43,8 @@ export const stageFor = (context: ViewContext, life: Lifetime, me: AsRead.Me, cu
       )
     case 'people':
       return peopleView(context, life, me)
+    case 'new':
+      return newMessageView(context, life, me, current.to)
     case 'group':
       return on('groups') ? groupPageView(context, life, me.member.id, current.id) : notFound()
     case 'channels':
@@ -48,7 +52,15 @@ export const stageFor = (context: ViewContext, life: Lifetime, me: AsRead.Me, cu
     case 'channel':
       return channelView(context, life, current.slug)
     case 'channel-agent':
-      return on('channelAgents') ? channelAgentView(context, life, current.slug, current.draft) : notFound()
+      return on('channelAgents')
+        ? channelAgentView(
+            context,
+            life,
+            current.slug,
+            current.draft,
+            current.teach === true ? 'teach' : 'answers',
+          )
+        : notFound()
     case 'debates':
       return on('debateRooms') ? debatesView(context, life, me) : notFound()
     case 'debate':
@@ -83,6 +95,8 @@ export const stageFor = (context: ViewContext, life: Lifetime, me: AsRead.Me, cu
         strings.invites.alreadyIn,
         h('a', { class: 'button', href: '#/' }, strings.backHome),
       )
+    case 'slack-link':
+      return on('slack') ? slackLinkView(context, life, current.code) : notFound()
     case 'invite-refused':
       return emptyWithPip(
         'failed',

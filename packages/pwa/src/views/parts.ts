@@ -3,10 +3,12 @@ import { type Child, type Properties, h } from '@homingbird/ui'
 import { channelLabel } from '../channels.ts'
 import type { SourceShown } from '../draft-basis.ts'
 import type { TimeShown } from '../models/time.ts'
-import { presenceShown } from '../presence.ts'
+import { type PresenceMarks, presenceShown } from '../presence.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
+import type { ViewContext } from './context.ts'
 import { closesDialog } from './dialog.ts'
+import { type HintContext, hinted } from './hint.ts'
 import { type PipState, pip } from './pip.ts'
 
 /** A page with a back link, its title and its body. */
@@ -62,9 +64,20 @@ export const field = (label: string, control: HTMLElement, hint?: string): HTMLE
     hint && h('small', {}, hint),
   )
 
-/** Whether the person and their agent are there, in words. */
-export const presenceBadges = (presence: AsRead.Presence): HTMLElement => {
+/** Whether the person and their agent are there, in words; with a context, the agent's state has a hint. */
+export const presenceBadges = (
+  presence: AsRead.Presence,
+  context: HintContext | null = null,
+): HTMLElement => {
   const shown = presenceShown(presence, true)
+  const agentLight = h(
+    'span',
+    {
+      class: `agent-light ${shown.agent.isOn ? 'is-on' : 'is-off'}`,
+      ...(context === null && { title: shown.agent.title }),
+    },
+    shown.agent.words,
+  )
   return h(
     'span',
     { class: 'presence is-in-words' },
@@ -74,11 +87,7 @@ export const presenceBadges = (presence: AsRead.Presence): HTMLElement => {
       h('span', { class: `human-dot ${shown.person.isOn ? 'is-on' : 'is-off'}`, 'aria-hidden': 'true' }),
       shown.person.words,
     ),
-    h(
-      'span',
-      { class: `agent-light ${shown.agent.isOn ? 'is-on' : 'is-off'}`, title: shown.agent.title },
-      shown.agent.words,
-    ),
+    context === null ? agentLight : hinted(context, 'agentAwake', shown.agent.title, agentLight),
   )
 }
 
@@ -105,6 +114,26 @@ export const humanDot = (presence: AsRead.Presence): HTMLElement => {
     title: person.label,
   })
 }
+
+/** The colleague and their agent as two dots, each named for assistive technology and on hover. */
+export const presenceDots = (marks: PresenceMarks): HTMLElement =>
+  h(
+    'span',
+    { class: 'presence-dots' },
+    h('span', {
+      class: `human-dot ${marks.person.isOn ? 'is-on' : 'is-off'}`,
+      role: 'img',
+      'aria-label': marks.person.label,
+      title: marks.person.label,
+    }),
+    h('span', {
+      class: `agent-mark-dot is-${marks.agent.state}`,
+      role: 'img',
+      'aria-label': marks.agent.label,
+      title: marks.agent.label,
+    }),
+    h('span', { class: 'presence-words', 'aria-hidden': 'true' }, marks.words),
+  )
 
 export const timeLabel = (shown: TimeShown): HTMLElement =>
   h('time', { datetime: shown.datetime, title: shown.title }, shown.text)
@@ -167,6 +196,21 @@ export const disabledWithReason = (label: string, reason: string, kind: string):
     h('button', { type: 'button', class: kind, disabled: true, 'aria-describedby': `${kind}-reason` }, label),
     h('small', { id: `${kind}-reason` }, reason),
   )
+
+/** Copies text for pasting elsewhere and says whether it worked. */
+export const copyWithNotice = (
+  context: Pick<ViewContext, 'page' | 'state'>,
+  text: string,
+  copied: string,
+): void => {
+  void context.page
+    .copyText(text)
+    .then((isCopied) =>
+      context.state.notice.set(
+        isCopied ? { kind: 'info', text: copied } : { kind: 'error', text: strings.noteNotCopied },
+      ),
+    )
+}
 
 /** Cancel, which closes the dialog, beside the dialog's own submit button. */
 export const dialogActions = (label: string, kind: 'primary' | 'danger'): HTMLElement =>

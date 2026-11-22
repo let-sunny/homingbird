@@ -13,8 +13,10 @@ import { type PresenceMarks, presenceMarks } from '../presence.ts'
 import type { ArchiveDiscard, Release, Thread } from '../state.ts'
 import { strings } from '../strings.ts'
 import { conversationTitle, isArchived, otherParticipants } from '../thread.ts'
-import { privateQuestionNotice } from './channel-agent.ts'
+import { privateQuestionNotice, privateQuestionStart } from './channel-agent.ts'
+import { type ConversationActions, conversationActionsModel } from './conversation-actions.ts'
 import { type MuteToggle, muteToggleModel } from './mute-toggle.ts'
+import { type Participants, conversationParticipants } from './participants.ts'
 
 /** What every part of a conversation's page reads: the room, its notes, the people and the person. */
 export interface ThreadInput {
@@ -41,6 +43,8 @@ export interface ThreadInput {
   readonly now: number
   /** The draft a link opened the conversation at; an id that names no draft shown here focuses nothing. */
   readonly focusedDraft: string | null
+  /** The words of others' agents' drafts this page showed early, by note. */
+  readonly previewedBodies: ReadonlyMap<NoteId, string>
 }
 
 /** The notes of the conversation shown. */
@@ -69,12 +73,10 @@ export const threadTopModel = (input: ThreadInput): ThreadTop => {
   if (thread === undefined) return { kind: 'loading' }
   if (thread.hasMore) return { kind: 'older', label: strings.loadOlder }
   if (thread.notes.length > 0) return { kind: 'none' }
-  return {
-    kind: 'empty',
-    text:
-      privateQuestionNotice(roomOf(input), input.channels) ??
-      (roomOf(input)?.kind === 'channel' ? strings.channelRoomEmpty : strings.emptyThread),
-  }
+  const room = roomOf(input)
+  if (room?.privateQuestionOf !== undefined)
+    return { kind: 'empty', text: privateQuestionStart(room, input.channels) ?? strings.emptyThread }
+  return { kind: 'empty', text: room?.kind === 'channel' ? strings.channelRoomEmpty : strings.emptyThread }
 }
 
 /**
@@ -125,6 +127,12 @@ export const threadHeadModel = (input: ThreadInput): ThreadHead => {
   const title = conversationTitle(conversation, input.members, input.me.member.id, strings.formerMember)
   const archived = isArchived(conversation)
   const mute = muteToggleModel(conversation, title, isOn(input, 'mute'))
+  const participants = conversationParticipants({
+    conversation,
+    viewerId: input.me.member.id,
+    members: input.members,
+    channels: input.channels,
+  })
   if (conversation.kind === 'channel' || archived) {
     const channel = archived ? null : channelOfRoom(input.channels, conversation.id)
     const agent = isOn(input, 'channelAgents') ? (channel?.agent ?? null) : null
@@ -134,6 +142,12 @@ export const threadHeadModel = (input: ThreadInput): ThreadHead => {
       archived,
       channel,
       agentState: agent === null ? null : channelAgentState(agent),
+      people:
+        channel === null
+          ? participants
+          : { ...participants, label: strings.memberCount({ count: channel.memberCount }) },
+      answerCount: channel === null ? null : strings.answerCount({ count: channel.helperCount }),
+      slackLink: slackLinkLine(channel),
       mute,
     }
   }
@@ -147,24 +161,17 @@ export const threadHeadModel = (input: ThreadInput): ThreadHead => {
     title,
     profile: privateQuestionNotice(conversation, input.channels) ?? entry?.member.profile ?? null,
     presence: entry === undefined ? null : presenceMarks(entry.presence, entry.member.name),
-    people:
-      conversation.kind === 'group' && conversation.privateQuestionOf === undefined
-        ? peopleIn(input, conversation)
-        : null,
+    people: participants,
+    showsCount: conversation.kind !== 'direct',
+    profileOf: conversation.kind === 'direct' ? (others[0] ?? null) : null,
     mute,
-  }
-}
-
-/** Who is in a group message: how many, and each by name, the person first. */
-const peopleIn = (input: ThreadInput, conversation: AsRead.Conversation): GroupPeople => {
-  const viewerId = input.me.member.id
-  return {
-    label: strings.groupPeople({ count: conversation.participantIds.length }),
-    title: strings.groupPeopleTitle,
-    people: [viewerId, ...otherParticipants(conversation, viewerId)].map((memberId) => ({
-      name: nameIn(input, memberId),
-      you: memberId === viewerId,
-    })),
+    actions: conversationActionsModel({
+      conversation,
+      title,
+      viewerId: input.me.member.id,
+      hideOn: isOn(input, 'hideConversations'),
+      leaveOn: isOn(input, 'leaveGroups'),
+    }),
   }
 }
 
@@ -192,6 +199,11 @@ export type ThreadHead =
       readonly channel: AsRead.Channel | null
       /** The channel's agent's state, as a person's agent is shown. */
       readonly agentState: ChannelAgentState | null
+      /** Everyone in the room, listed behind its member count. */
+      readonly people: Participants
+      readonly answerCount: string | null
+      /** The Slack channel linked to this one, and whether the person may unlink it. */
+      readonly slackLink: { readonly text: string; readonly unlink: string | null } | null
       readonly mute: MuteToggle | null
     }
   | {
@@ -200,13 +212,26 @@ export type ThreadHead =
       readonly profile: string | null
       /** A direct message's colleague and their agent, each named, as small marks. */
       readonly presence: PresenceMarks | null
-      /** A group message's people, listed behind its head; null for a direct message. */
-      readonly people: GroupPeople | null
+      /** Everyone in it, listed behind its names and, outside a direct message, a count. */
+      readonly people: Participants
+      readonly showsCount: boolean
+      /** A direct message's colleague, whose profile card its name opens instead of the list. */
+      readonly profileOf: MemberId | null
       readonly mute: MuteToggle | null
+      /** The head's own menu: hiding the conversation, leaving a group, a new group with its people. */
+      readonly actions: ConversationActions
     }
 
-export interface GroupPeople {
-  readonly label: string
-  readonly title: string
-  readonly people: ReadonlyArray<{ readonly name: string; readonly you: boolean }>
+const slackLinkLine = (
+  channel: AsRead.Channel | null,
+): Extract<ThreadHead, { kind: 'channel' }>['slackLink'] => {
+  const link = channel?.link
+  if (link === undefined || link === null) return null
+  return {
+    text:
+      link.state === 'active'
+        ? strings.slack.linkedChannel({ channel: link.name })
+        : strings.slack.linkStopped({ channel: link.name }),
+    unlink: channel?.managing === true ? strings.slack.unlinkChannel : null,
+  }
 }

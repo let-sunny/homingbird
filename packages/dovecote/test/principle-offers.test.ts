@@ -21,7 +21,7 @@ beforeEach(async () => {
   anaAgent = await connectAgent(server, ana, { name: 'Ana agent' })
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const RELEASES = {
   topic: 'Release dates',
@@ -143,7 +143,7 @@ describe('chances to teach', () => {
     expect((await mine()).achievements).toContain('first_principle')
   })
 
-  it('records a discard turned into a principle, and the route map shows what was taught where', async () => {
+  it('records a discard turned into a principle, and counts the principle where it applies', async () => {
     const draft = await agentDraft('Wrong answer.')
     await ana.api('POST', `/drafts/${draft.id}/discard`)
     const [offer] = (await mine()).offers

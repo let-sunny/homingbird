@@ -13,7 +13,7 @@ beforeEach(async () => {
   anaAgent = await connectAgent(server, ana, { name: 'Ana agent' })
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const directoryChanges = (memberId: string) => {
   const open = new AbortController()

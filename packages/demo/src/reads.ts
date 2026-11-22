@@ -50,6 +50,11 @@ export const conversationAsSeen = (
 ): Conversation => {
   const inRoom = records.notes.filter((note) => note.conversationId === room.id)
   const sent = inRoom.filter((note) => note.status === 'sent')
+  const channel = records.channels.find((each) =>
+    room.privateQuestionOf === undefined
+      ? each.conversationId === room.id
+      : each.slug === room.privateQuestionOf.slug,
+  )
   return {
     id: room.id,
     kind: room.kind,
@@ -68,16 +73,24 @@ export const conversationAsSeen = (
     ).length,
     draftCount: inRoom.filter((note) => note.status === 'draft' && note.authorId === viewerId).length,
     archivedAt: null,
-    ...(room.privateQuestionOf !== undefined && { privateQuestionOf: room.privateQuestionOf.slug }),
+    ...(room.privateQuestionOf !== undefined && {
+      privateQuestionOf: room.privateQuestionOf.slug,
+      askedBy: room.privateQuestionOf.askedBy,
+    }),
+    ...(channel !== undefined && {
+      managerIds: managersOf(records, channel).filter((memberId) => room.participantIds.includes(memberId)),
+    }),
     muted: room.mutedBy.includes(viewerId),
   }
 }
 
-/** A conversation's notes as the viewer reads them: the sent ones oldest first, then their own drafts. */
+/** A conversation's notes as the viewer reads them: the sent ones and their own recalled ones oldest first, then their own drafts. */
 export const notesSeenIn = (records: Records, viewerId: MemberId, conversationId: string): Note[] => {
   const inRoom = records.notes.filter((note) => note.conversationId === conversationId)
   return [
-    ...inRoom.filter((note) => note.status === 'sent').sort((a, b) => (a.sentAt ?? 0) - (b.sentAt ?? 0)),
+    ...inRoom
+      .filter((note) => note.status === 'sent' || (note.status === 'withdrawn' && note.authorId === viewerId))
+      .sort((a, b) => (a.sentAt ?? 0) - (b.sentAt ?? 0)),
     ...inRoom
       .filter((note) => note.status === 'draft' && note.authorId === viewerId)
       .sort((a, b) => a.createdAt - b.createdAt),

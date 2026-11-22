@@ -35,6 +35,20 @@ const choose = (shown: HTMLElement, name: string): void => {
 }
 
 describe('roomControls', () => {
+  it('copies the link to the channel from its menu, for a colleague to join by', async () => {
+    const { context, page } = testContext()
+    signedIn(context)
+    const shown = mount(roomControls(context, channel('billing', { joined: true })))
+    choose(shown, strings.copyChannelLink)
+    await new Promise((resolve) => setImmediate(resolve))
+    expect(page.copied).toEqual(['http://localhost/#/channel/billing'])
+    expect(context.state.notice.get()).toEqual({ kind: 'info', text: strings.channelLinkCopied })
+    page.state.clipboard = false
+    choose(shown, strings.copyChannelLink)
+    await new Promise((resolve) => setImmediate(resolve))
+    expect(context.state.notice.get()).toEqual({ kind: 'error', text: strings.noteNotCopied })
+  })
+
   it('switches answering, and leaves a channel after confirming', () => {
     const { context, called } = testContext()
     mount(dialogHost())
@@ -115,6 +129,7 @@ describe('roomControls', () => {
     getByRole(dialog, 'button', { name: strings.removeMember }).click()
     expect(called('setChannelMember')[0]!.args).toEqual(['secret', CY, false])
     const ben = dialog.querySelector(`[data-member="${BEN}"]`) as HTMLElement
+    expect(getByRole(ben, 'button', { name: 'Ben' }).dataset.profile).toBe(BEN)
     getByRole(ben, 'button', { name: strings.groups.unmanage }).click()
     expect(called('setGroupMembers')).toHaveLength(0)
     const confirming = dialog.querySelector<HTMLElement>('form.unmanage-confirmation')!
@@ -135,9 +150,15 @@ describe('roomControls', () => {
       { memberId: ANA, manager: true, answering: true },
       { memberId: BEN, manager: false, answering: false },
     ])
-    fire.select(getByRole(dialog, 'combobox', { name: strings.addMemberLabel }), CY)
+    const add = getByRole(dialog, 'button', { name: strings.addMember }) as HTMLButtonElement
+    expect(add.disabled).toBe(true)
+    const field = getByRole(dialog, 'combobox', { name: strings.addMemberLabel })
+    fire.type(field, 'cy')
+    fire.key(field, 'Enter')
+    expect(add.disabled).toBe(false)
     fire.submit(dialog.querySelector('form.add-member')!)
     expect(called('setChannelMember')[1]!.args).toEqual(['secret', CY, true])
+    expect(add.disabled).toBe(true)
   })
 
   it('offers no change of managers while groups are off', () => {

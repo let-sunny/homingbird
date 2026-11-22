@@ -18,6 +18,7 @@ import {
 } from '@homingbird/protocol'
 import type { AppEnv, Caller } from '../environment.ts'
 import type { RequestEnv } from '../events/events.ts'
+import { forgetSlackPerson } from '../slack/slack-people.ts'
 import { all, first, run } from '../sql/database.ts'
 import { containsIgnoringCase, insertInto, list, sql } from '../sql/query.ts'
 import { forgetDeskWake } from '../wake/desk-wakes.ts'
@@ -193,7 +194,7 @@ export const chosenLocaleOf = (id: MemberId): T.Task<Locale | null, never, AppEn
 
 /**
  * Deactivating a member revokes their credentials, refuses a sign-in they approved and no program has
- * finished yet, takes them out of every group and deletes their cloud desk wake at once.
+ * finished yet, takes them out of every group and deletes their cloud desk wake and Slack link at once.
  */
 export const administerMember = (
   actor: Caller,
@@ -219,6 +220,7 @@ export const administerMember = (
       )
       if (before.status !== 'deactivated') yield* removeFromEveryGroup(actor, id)
       yield* forgetDeskWake(actor, id)
+      yield* forgetSlackPerson(id, 'deactivated', actor.member.id)
     }
     return yield* memberById(id)
   })
@@ -262,7 +264,7 @@ export const toMember = (row: MemberRow): Member => ({
   profile: row.profile,
   role: row.role,
   status: row.status,
-  kind: row.kind === 'person' ? 'person' : 'channel_agent',
+  kind: row.kind === 'person' || row.kind === 'chat_link' ? row.kind : 'channel_agent',
   createdAt: row.created_at,
   character: characterIn(row.character_spec),
 })

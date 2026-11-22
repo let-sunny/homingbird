@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Contribution, DebateResult } from '../src/debate-result.ts'
 import {
   creditsOf,
+  isReadyToConclude,
   isTakingPart,
   limitsFor,
   limitsProblem,
@@ -29,6 +30,20 @@ describe('an agent in a room', () => {
     const turns = [ANA, BEN, ANA].map((memberId) => ({ memberId }))
     expect(turnsTakenBy({ turns }, ANA)).toBe(2)
     expect(turnsTakenBy({ turns }, CY)).toBe(0)
+  })
+
+  it('is ready to conclude when its latest turn said so or it used all its turns, never before it spoke', () => {
+    const limits = { turnsPerAgent: 3 }
+    const turns = [
+      { memberId: ANA, ready: true },
+      { memberId: BEN, ready: true },
+      { memberId: ANA },
+      { memberId: BEN, ready: true },
+    ]
+    expect(isReadyToConclude({ turns, limits }, ANA)).toBe(false)
+    expect(isReadyToConclude({ turns, limits }, BEN)).toBe(true)
+    expect(isReadyToConclude({ turns, limits }, CY)).toBe(false)
+    expect(isReadyToConclude({ turns, limits: { turnsPerAgent: 2 } }, ANA)).toBe(true)
   })
 })
 

@@ -29,7 +29,7 @@ export const threadItems = (
   notes: ReadonlyArray<AsRead.Note>,
   requests: ReadonlyArray<DraftRequest> = [],
 ): ThreadItem[] => {
-  const sent = notes.filter((note) => note.status === 'sent').sort(bySentTime)
+  const sent = notes.filter(isShownAsSent).sort(bySentTime)
   const drafts = notes.filter((note) => note.status === 'draft').sort(byCreatedTime)
   const groups = Map.groupBy(
     drafts,
@@ -140,6 +140,8 @@ export const conversationTitle = (
 ): string => {
   const archived = isArchived(conversation)
   const title = archived ? (conversation.title?.replace(ARCHIVED_SUFFIX, '') ?? null) : conversation.title
+  const askedOf = conversation.privateQuestionOf ?? null
+  if (askedOf !== null) return strings.channelAgent.privateTitle({ channel: `#${askedOf}` })
   if (title !== null) return conversation.kind === 'channel' || archived ? `#${title}` : title
   return namesInBrief(
     otherParticipants(conversation, viewerId).map((memberId) => members.get(memberId)?.name ?? unknownName),
@@ -158,6 +160,10 @@ export const namesInBrief = (names: ReadonlyArray<string>): string => {
 export const isMuted = (conversation: Pick<AsRead.Conversation, 'muted'>): boolean =>
   conversation.muted === true
 
+/** Whether the person hid this conversation from their own list, and nothing has brought it back. */
+export const isHidden = (conversation: Pick<AsRead.Conversation, 'hidden'>): boolean =>
+  conversation.hidden === true
+
 export const isArchived = (conversation: AsRead.Conversation | undefined): boolean =>
   conversation !== undefined && conversation.archivedAt !== null
 
@@ -174,6 +180,25 @@ export const groupWith = (
       !isArchived(conversation) &&
       conversation.participantIds.length === wanted.size &&
       conversation.participantIds.every((memberId) => wanted.has(memberId)),
+  )
+}
+
+/**
+ * The open room a note to these people goes to: the direct message with one person, or the group
+ * message of exactly the viewer and them.
+ */
+export const roomWith = (
+  conversations: ReadonlyArray<AsRead.Conversation>,
+  viewerId: MemberId,
+  memberIds: ReadonlyArray<MemberId>,
+): AsRead.Conversation | undefined => {
+  const others = [...new Set(memberIds)].filter((memberId) => memberId !== viewerId)
+  if (others.length !== 1) return others.length === 0 ? undefined : groupWith(conversations, viewerId, others)
+  return conversations.find(
+    (conversation) =>
+      conversation.kind === 'direct' &&
+      !isArchived(conversation) &&
+      otherParticipants(conversation, viewerId).join() === others.join(),
   )
 }
 
@@ -266,3 +291,6 @@ const isSameRun = (a: AsRead.Note, b: AsRead.Note): boolean =>
   a.authorId === b.authorId &&
   a.origin === b.origin &&
   isSameDay(a.sentAt ?? a.createdAt, b.sentAt ?? b.createdAt)
+
+/** A sent note, or one its author recalled, which only its author still reads. */
+const isShownAsSent = (note: AsRead.Note): boolean => note.status === 'sent' || note.status === 'withdrawn'

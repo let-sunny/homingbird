@@ -3,7 +3,7 @@ import { type Contract, CredentialId, type Invite, type ResponseOf } from '@homi
 import { decideConsent, describeConsent } from '../auth/authorization-codes.ts'
 import { decideDeviceRequest, describeDeviceRequest } from '../auth/device-authorization.ts'
 import { createInvite, listInvites, revokeInvite } from '../auth/invites.ts'
-import { createJoinCode } from '../auth/join-codes.ts'
+import { createJoinCode, joinCodeStatus } from '../auth/join-codes.ts'
 import { listCredentials, renameCredential, revokeCredential } from '../domain/credentials.ts'
 import type { Handlers } from './handlers.ts'
 import { identifier } from './route-parameters.ts'
@@ -30,6 +30,7 @@ export const credentialHandlers = {
   'device.get': ({ params }) => describeDeviceRequest(params.userCode),
   'device.decide': ({ params, body }, caller) => T.as({})(decideDeviceRequest(caller, params.userCode, body)),
   'joinCodes.create': ({ body }, caller) => createJoinCode(caller, body.channel),
+  'joinCodes.status': ({ params }, caller) => joinCodeStatus(caller, params.id),
   'invites.list': (_, caller) => T.map((invites: Invite[]) => ({ invites }))(listInvites(caller)),
   'invites.create': ({ body }, caller) => createInvite(caller, body.email),
   'invites.revoke': ({ params }, caller) => T.as({})(revokeInvite(caller, params.id)),

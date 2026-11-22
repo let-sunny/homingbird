@@ -45,6 +45,34 @@ describe('noteItemModel', () => {
     expect(noteItemModel(input, item(note('n2'))).approval).toBeNull()
   })
 
+  it('says a saved answer sent a note without a click, and offers its author Recall for five minutes only', () => {
+    const theirs = note('n1', { autoSent: true, origin: 'agent', agentName: 'Desk' })
+    const mine = note('n2', { authorId: ANA, autoSent: true, origin: 'agent', agentName: 'Desk', sentAt: 10 })
+    const input = threadInput({ thread: { notes: [theirs, mine], hasMore: false } })
+    expect(noteItemModel(input, item(theirs)).autoSent).toEqual({
+      text: strings.autoSend.sentByTheirs({ name: 'Ben' }),
+      recall: null,
+    })
+    expect(noteItemModel(input, item(mine)).autoSent).toEqual({
+      text: strings.autoSend.sentByYours,
+      recall: strings.autoSend.recall,
+    })
+    const later = threadInput({ thread: input.thread, now: 10 + 5 * 60_000 })
+    expect(noteItemModel(later, item(mine)).autoSent?.recall).toBeNull()
+    expect(noteItemModel(input, item(note('n3'))).autoSent).toBeNull()
+  })
+
+  it('shows its author a recalled note as recalled, with no state mark and nothing to recall', () => {
+    const recalled = note('n1', { authorId: ANA, autoSent: true, status: 'withdrawn', receipts: [] })
+    const model = noteItemModel(
+      threadInput({ thread: { notes: [recalled], hasMore: false } }),
+      item(recalled),
+    )
+    expect(model.autoSent).toEqual({ text: strings.autoSend.recalledLine, recall: null })
+    expect(model.className).toContain('is-withdrawn')
+    expect(model.meta?.mark ?? null).toBeNull()
+  })
+
   it('says a channel’s agent wrote its answer, as the agent of its channel', () => {
     const answer = note('n1', { authorId: CY, origin: 'agent', agentName: 'Desk', approvedBy: ANA })
     const room = conversation({ kind: 'group', privateQuestionOf: 'wiki' })
@@ -86,6 +114,7 @@ describe('noteItemModel', () => {
           { kind: 'copy', label: strings.copyNote, reason: null },
           { kind: 'copy-link', label: strings.copyNoteLink, reason: null },
         ],
+        fixed: null,
       },
     })
     expect(model.author).toMatchObject({
@@ -223,6 +252,7 @@ describe('noteItemModel', () => {
       strings.reply,
       ['reply', 'copy', 'copy-link'],
     ])
+    expect(model.menu.fixed).toBe(strings.noteFixed)
     expect(model.meta!.mark).toMatchObject({ state: 'read', label: strings.status.read, count: null })
     expect(model.meta!.mark!.glyph).toBe('✓✓︎')
     expect(noteItemModel(threadInput(), item(note('n2', { authorId: ANA, basis: null }))).basis).toBeNull()
@@ -353,9 +383,11 @@ describe('noteItemModel', () => {
         threadInput({ conversations, thread: { notes: [question], hasMore: false } }),
         item(question),
       ).noAnswer
-    expect(noAnswerFor(note('q', { receipts: [receipt(BEN, { state: 'read', readAt: 2 })] }))).toBe(
-      strings.noAnswerYet,
-    )
+    expect(
+      noAnswerFor(note('q', { body: 'Who knows?', receipts: [receipt(BEN, { state: 'read', readAt: 2 })] })),
+    ).toBe(strings.noAnswerYet)
+    expect(noAnswerFor(note('q', { body: '누가 알아요？' }))).toBe(strings.noAnswerYet)
+    expect(noAnswerFor(note('q', { body: 'Freeze starts Thursday at 18:00.' }))).toBeNull()
     expect(
       noAnswerFor(note('q', { receipts: [receipt(BEN, { state: 'drafting', draftingAt: 2 })] })),
     ).toBeNull()

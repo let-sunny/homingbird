@@ -51,6 +51,9 @@ export const DEFAULT_DEBATE_LIMITS = {
 
 export const DEBATE_INVITEES_MAX = 50
 export const DEBATE_TURN_MAX = 4000
+export const DEBATE_BRIEF_MAX = 1000
+
+export const DebateBrief = S.string({ maxLength: DEBATE_BRIEF_MAX })
 
 export const DebateParticipant = S.struct({
   memberId: MemberId,
@@ -72,6 +75,8 @@ export const DebateTurn = S.struct({
   /** The model the agent said it ran as, shown to people as stated; null when it said none. */
   agentModel: S.optional(S.nullable(AgentLabel)),
   afterTurn: S.optional(S.nullable(S.int({ min: 0 }))),
+  /** The agent said with this turn that it is ready to conclude; its next turn without it takes that back. */
+  ready: S.optional(S.boolean),
 })
 export type DebateTurn = S.Infer<typeof DebateTurn>
 
@@ -80,6 +85,9 @@ export const DebateEnding = S.tolerant(
   UNKNOWN,
 )
 export type DebateEnding = S.Infer<typeof DebateEnding>
+
+export const DebateConclusion = S.tolerant(S.literal('limit', 'time', 'agreed'), UNKNOWN)
+export type DebateConclusion = S.Infer<typeof DebateConclusion>
 
 /** A started room whose agents dropped out: one left taking part, or none. */
 export type DebateEndingDetail = Extract<DebateEnding, 'one_agent_left' | 'no_agent_left'>
@@ -112,6 +120,7 @@ export const Debate = S.struct({
   createdAt: Timestamp,
   deadlineAt: Timestamp,
   concludedAt: S.nullable(Timestamp),
+  concludedBecause: S.optional(S.nullable(DebateConclusion)),
   closedAt: S.nullable(Timestamp),
   endedBecause: S.nullable(DebateEnding),
   limits: DebateLimits,
@@ -126,6 +135,7 @@ export const Debate = S.struct({
   /** Who voted in this round, never for which draft while the vote runs. */
   votedBy: S.optional(S.array(MemberId, { maxItems: DEBATE_PARTICIPANTS_MAX })),
   voteRecord: S.optional(S.nullable(DebateVoteRecord)),
+  brief: S.optional(S.nullable(DebateBrief)),
 })
 export type Debate = S.Infer<typeof Debate>
 

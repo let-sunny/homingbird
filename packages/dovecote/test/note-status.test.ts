@@ -14,7 +14,7 @@ beforeEach(async () => {
   ben = await server.signIn('ben@example.com', 'Ben')
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const statusEvents = async (session: Session) =>
   (await session.api('GET', '/events/poll?after=0')).json.events

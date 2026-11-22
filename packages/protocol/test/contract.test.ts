@@ -79,6 +79,17 @@ describe('contract', () => {
         'me.deskWake.set',
         'me.deskWake.remove',
         'me.deskWake.test',
+        'me.slack.get',
+        'me.slack.connect',
+        'me.slack.link',
+        'me.slack.unlink',
+        'slack.codes.get',
+        'channels.slack.link',
+        'channels.slack.unlink',
+        'notes.posting.retry',
+        'me.draftPreviews.get',
+        'me.draftPreviews.set',
+        'previews.list',
         'channels.create',
         'channels.join',
         'channels.leave',
@@ -93,6 +104,13 @@ describe('contract', () => {
         'channels.agent.retire',
         'channels.agent.credentials.revoke',
         'channels.agent.figures',
+        'channels.agent.decisions',
+        'channels.agent.teaching.get',
+        'channels.agent.teaching.set',
+        'channels.agent.principles.create',
+        'channels.agent.principles.update',
+        'channels.agent.principles.reorder',
+        'channels.agent.principles.delete',
         'channels.askPrivately',
         'reviews.list',
         'reviews.get',
@@ -111,7 +129,11 @@ describe('contract', () => {
         'conversations.create',
         'conversations.mute',
         'conversations.unmute',
+        'conversations.hide',
+        'conversations.unhide',
+        'conversations.leave',
         'notes.read',
+        'notes.recall',
         'drafts.send',
         'drafts.discard',
         'drafts.seen',
@@ -119,16 +141,23 @@ describe('contract', () => {
         'principles.list',
         'principles.create',
         'principles.update',
+        'principles.autoSend.set',
         'principles.reorder',
         'principles.delete',
         'principles.miss',
         'principles.offers.dismiss',
+        'teaching.document.set',
+        'principleProposals.list',
+        'principleProposals.accept',
+        'principleProposals.acceptAll',
+        'principleProposals.discard',
         'presence.visibility',
         'push.test',
         'draftRequests.create',
         'draftRequests.cancel',
         'debates.create',
         'debates.optIn',
+        'debates.brief.set',
         'debates.limits.set',
         'debates.result.post',
         'debates.export',
@@ -138,6 +167,7 @@ describe('contract', () => {
         'device.get',
         'device.decide',
         'joinCodes.create',
+        'joinCodes.status',
         'invites.list',
         'invites.create',
         'invites.revoke',
@@ -151,6 +181,7 @@ describe('contract', () => {
         'admin.members.update',
         'admin.members.resetCharacter',
         'admin.insights',
+        'admin.slack.get',
       ].sort(),
     )
   })
@@ -175,6 +206,8 @@ describe('contract', () => {
         'notes.release',
         'answeringFlow.get',
         'principles.drafting',
+        'teaching.material',
+        'principleProposals.create',
         'inbox.list',
         'search.notes',
         'drafts.list',
@@ -244,7 +277,11 @@ describe('contract', () => {
       readonly params: { readonly id: string }
       readonly body: {
         readonly body?: string
-        readonly expected: { readonly body: string; readonly conversationId: ConversationId }
+        readonly expected: {
+          readonly body: string
+          readonly conversationId: ConversationId
+          readonly threadAt?: string
+        }
       }
     }>()
     expectTypeOf<RequestOf<Contract['me.get']>>().toEqualTypeOf<{}>()

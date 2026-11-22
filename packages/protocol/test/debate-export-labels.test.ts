@@ -12,7 +12,14 @@ describe('export labels', () => {
     const english = exportLabelsIn('en')
     for (const locale of LOCALES) {
       const labels = exportLabelsIn(locale)
-      for (const group of ['endings', 'statuses', 'categories', 'credits', 'visibilities'] as const)
+      for (const group of [
+        'endings',
+        'conclusions',
+        'statuses',
+        'categories',
+        'credits',
+        'visibilities',
+      ] as const)
         expect(Object.keys(labels[group]).sort()).toEqual(Object.keys(english[group]).sort())
       expect(labels.step(null, 'Ana')).toContain('Ana')
       expect(labels.step('Ben', 'Ana')).toContain('Ben')
@@ -28,6 +35,7 @@ describe('export labels', () => {
       expect(labels.contribution('Ana')).toContain('Ana')
     }
     expect(exportLabelsIn('ko').endings.one_agent_left).not.toBe(english.endings.one_agent_left)
+    expect(exportLabelsIn('ko').conclusions.agreed).not.toBe(english.conclusions.agreed)
     expect(exportLabelsIn('ko').modelNotStated).not.toBe(english.modelNotStated)
   })
 })

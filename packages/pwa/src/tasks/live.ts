@@ -9,10 +9,13 @@ import { signedIn } from '../state.ts'
 import { strings } from '../strings.ts'
 import { isMuted, withAgentPresence, withPresence, withReceipts } from '../thread.ts'
 import { loadReviews } from './channel-agents.ts'
+import { applyLeft } from './conversation-actions.ts'
 import { loadDebate, loadDebates } from './debates.ts'
 import { loadGroups } from './groups.ts'
 import { forgetNote, forgetRelease, loadThread, rememberNote } from './notes.ts'
 import { closeDraftNotice } from './notifications.ts'
+import { loadPreviews, reloadPreviews } from './previews.ts'
+import { refreshInterview } from './teaching-interview.ts'
 import { loadAgents, loadConversations, loadKnownChannels, loadPeople, loadWorkspace } from './workspace.ts'
 
 /** What each live event changes in the page, as one change: the state it updates and what it loads again. */
@@ -35,6 +38,11 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
   const reloadReviewsSoon = (): void => {
     cancelReviewsReload()
     cancelReviewsReload = later(app.clock, DIRECTORY_SETTLE_MS, () => launch(loadReviews))
+  }
+  let cancelInterviewReload = (): void => {}
+  const reloadInterviewSoon = (): void => {
+    cancelInterviewReload()
+    cancelInterviewReload = later(app.clock, DIRECTORY_SETTLE_MS, () => launch(refreshInterview))
   }
   let cancelDebatesReload = (): void => {}
   const reloadDebatesSoon = (): void => {
@@ -74,6 +82,8 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
       case 'draft.discarded':
         forgetNote(state, body.conversationId, body.noteId)
         launch(closeDraftNotice(body.noteId))
+        if (body.because === 'slack_deleted')
+          state.notice.set({ kind: 'info', text: strings.slack.draftDiscardedDeleted })
         if (body.because === 'channel_archived' && body.channel !== undefined) {
           const channel = body.channel
           state.archiveDiscards.update((all) =>
@@ -87,6 +97,11 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
             text: strings.draftDiscardedByArchive({ channel: channelLabel(channel) }),
           })
         }
+        launch(loadConversations)
+        break
+      case 'note.withdrawn':
+        forgetNote(state, body.conversationId, body.noteId)
+        if (state.threads.get().has(body.conversationId)) launch(loadThread(body.conversationId))
         launch(loadConversations)
         break
       case 'note.released':
@@ -122,11 +137,21 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
         })
         leaveRoomIfShown(app, body.conversationId)
         break
+      case 'conversation.left':
+        applyLeft(app, body.conversationId, body.memberId)
+        break
       case 'group.changed':
         reloadGroupsSoon()
         break
       case 'review.changed':
         reloadReviewsSoon()
+        break
+      case 'proposals.changed':
+        if (state.interview.get() !== null) reloadInterviewSoon()
+        break
+      case 'preview.changed':
+        if (body.conversationId === null) launch(reloadPreviews)
+        else if (state.previews.get().has(body.conversationId)) launch(loadPreviews(body.conversationId))
         break
       case 'debate.changed':
         reloadShownDebate(app, body.debateId)
@@ -178,6 +203,7 @@ const reloadEverything = (app: App): void => {
   if (app.state.groupsLoaded.get()) app.launch(loadGroups)
   const current = app.state.route.get()
   if (current.name === 'conversation') app.launch(loadThread(current.id as ConversationId))
+  app.launch(reloadPreviews)
 }
 
 /** A note counts as just arrived, and is announced, while it is this fresh. */

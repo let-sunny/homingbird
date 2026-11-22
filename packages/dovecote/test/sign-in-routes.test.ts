@@ -10,7 +10,7 @@ beforeEach(async () => {
   ana = await server.signIn('ana@example.com', 'Ana')
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 describe('the sign-in routes', () => {
   it('show the development form with the state escaped, only on a development server', async () => {

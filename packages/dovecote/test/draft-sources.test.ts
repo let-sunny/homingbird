@@ -13,7 +13,7 @@ import {
 let server: TestServer
 
 afterEach(async () => {
-  await server.close()
+  await server?.close()
 })
 
 const WIKI = { url: 'https://wiki.example.com/refunds', quote: 'Refunds take five days.' }

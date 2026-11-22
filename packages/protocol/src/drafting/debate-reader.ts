@@ -3,6 +3,7 @@ import type { Debate } from '../as-read.ts'
 import { turnsTakenBy } from '../debate-rules.ts'
 import type { MemberId } from '../ids.ts'
 import { wrapNote } from '../wrap.ts'
+import { quotedBrief } from './debate-prompts.ts'
 import { type Authors, authorOf } from './quote-note.ts'
 
 /**
@@ -101,6 +102,7 @@ export const extractedRoom = (
       body: describedDebateForWriter(extracted, (id) => authorOf(authors, id).name),
       nonce: nonce(),
     }),
+    ...quotedBrief(debate, authors, viewerId, nonce),
   ].join('\n\n')
 
 /** Parses one JSON value from a model's output, with or without a code fence; undefined when there is none. */

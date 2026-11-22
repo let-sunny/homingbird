@@ -256,6 +256,7 @@ describe('activityModel', () => {
         weight: 1,
         place: expect.objectContaining({ href: `#/c/${ROOM}` }),
         from: strings.activity.skippedFrom({ name: 'Ben' }),
+        fromId: BEN,
         body: 'Does the window clash?',
         reason: strings.agentReleased({ reason: 'I cannot see the calendar.' }),
         reply: strings.activity.replyYourself,

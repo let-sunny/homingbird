@@ -82,7 +82,7 @@ describe('push notifications', () => {
 
   afterEach(async () => {
     await running.interrupt()
-    await server.close()
+    await server?.close()
   })
 
   const sendNote = async (body: string) => {

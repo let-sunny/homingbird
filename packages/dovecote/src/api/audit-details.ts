@@ -22,7 +22,8 @@ import { memberById } from '../domain/members.ts'
 import { readSettings } from '../domain/settings.ts'
 import { type Caller, viewerOf } from '../environment.ts'
 import type { RequestEnv } from '../events/events.ts'
-import { all } from '../sql/database.ts'
+import { hashSecret } from '../random.ts'
+import { all, first } from '../sql/database.ts'
 import { sql } from '../sql/query.ts'
 import { deskWakeHostOf } from '../wake/desk-wakes.ts'
 
@@ -47,9 +48,42 @@ export const AUDIT_DETAILS: { readonly [N in AuditedRoute]: Describe<N> } = {
     T.map((host: string) => () => ({ targetId: caller.member.id, detail: { host } }))(
       deskWakeHostOf(caller.member.id),
     ),
+  'me.slack.link': (_, caller) => afterwards(() => ({ targetId: caller.member.id, detail: {} })),
+  'me.slack.unlink': (_, caller) => afterwards(() => ({ targetId: caller.member.id, detail: {} })),
+  'me.draftPreviews.set': (_, caller) =>
+    afterwards((allowance) => ({
+      targetId: caller.member.id,
+      detail: { people: allowance.people.length, channels: allowance.channels.length },
+    })),
+  'channels.slack.link': ({ params, body }) =>
+    T.map((code: { slack_channel: string | null } | null) => (): AuditFacts<'slack.channel.linked'> => {
+      const channel = JSON.parse(code?.slack_channel ?? '{}') as { id?: string; isPrivate?: boolean }
+      return {
+        targetId: params.slug,
+        detail: { slackChannel: channel.id ?? '', isPrivate: channel.isPrivate === true },
+      }
+    })(
+      first<{ slack_channel: string | null }>(
+        sql`SELECT slack_channel FROM slack_codes WHERE code_hash = ${hashSecret(body.code)}`,
+      ),
+    ),
+  'channels.slack.unlink': ({ params }) =>
+    T.map(
+      (link: { slack_channel_id: string } | null) => (): AuditFacts<'slack.channel.unlinked'> => ({
+        targetId: params.slug,
+        detail: { slackChannel: link?.slack_channel_id ?? '' },
+      }),
+    )(
+      first<{ slack_channel_id: string }>(sql`SELECT l.slack_channel_id FROM slack_channel_links l
+        JOIN channels c ON c.conversation_id = l.conversation_id WHERE c.slug = ${params.slug}`),
+    ),
   'conversations.mute': ({ params }) => afterwards(() => ({ targetId: params.id, detail: { muted: true } })),
   'conversations.unmute': ({ params }) =>
     afterwards(() => ({ targetId: params.id, detail: { muted: false } })),
+  'conversations.hide': ({ params }) => afterwards(() => ({ targetId: params.id, detail: { hidden: true } })),
+  'conversations.unhide': ({ params }) =>
+    afterwards(() => ({ targetId: params.id, detail: { hidden: false } })),
+  'conversations.leave': ({ params }) => afterwards(() => ({ targetId: params.id, detail: {} })),
   'channels.create': () =>
     afterwards((channel) => ({ targetId: channel.slug, detail: { visibility: channel.visibility } })),
   'channels.join': ({ params }) => afterwards(() => ({ targetId: params.slug, detail: {} })),
@@ -117,6 +151,46 @@ export const AUDIT_DETAILS: { readonly [N in AuditedRoute]: Describe<N> } = {
     })),
   'drafts.discard': () =>
     afterwards((note) => ({ targetId: note.id, detail: { conversationId: note.conversationId } })),
+  'channels.agent.teaching.set': ({ params, body }) =>
+    T.map(
+      (before: TeachingBefore) => (): AuditFacts<'channel.agent_instruction_changed'> => ({
+        targetId: before.agentId,
+        detail: {
+          channel: params.slug,
+          fields: [
+            ...(before.instruction === body.instruction.trim() ? [] : (['instruction'] as const)),
+            ...(JSON.stringify(before.sources) === JSON.stringify(body.sources)
+              ? []
+              : (['sources'] as const)),
+          ],
+        },
+      }),
+    )(teachingBefore(params.slug)),
+  'channels.agent.principles.create': ({ params, body }) =>
+    afterwards((principle) => ({
+      targetId: principle.id,
+      detail: {
+        channel: params.slug,
+        kind: principle.kind,
+        ...(body.taughtFrom !== undefined && { taughtFrom: body.taughtFrom }),
+      },
+    })),
+  'channels.agent.principles.update': ({ params, body }) =>
+    afterwards(() => ({
+      targetId: params.id,
+      detail: {
+        channel: params.slug,
+        fields: CHANNEL_PRINCIPLE_FIELDS.filter((field) => body[field] !== undefined),
+        ...(body.enabled !== undefined && { enabled: body.enabled }),
+      },
+    })),
+  'channels.agent.principles.reorder': ({ params, body }) =>
+    T.map((before: TeachingBefore) => () => ({
+      targetId: before.agentId,
+      detail: { channel: params.slug, count: body.ids.length },
+    }))(teachingBefore(params.slug)),
+  'channels.agent.principles.delete': ({ params }) =>
+    afterwards(() => ({ targetId: params.id, detail: { channel: params.slug } })),
   'principles.create': () =>
     afterwards((principle) => ({ targetId: principle.id, detail: { kind: principle.kind } })),
   'principles.update': ({ params, body }) =>
@@ -127,13 +201,31 @@ export const AUDIT_DETAILS: { readonly [N in AuditedRoute]: Describe<N> } = {
         ...(body.enabled !== undefined && { enabled: body.enabled }),
       },
     })),
+  'principles.autoSend.set': ({ params, body }) =>
+    afterwards(() => ({
+      targetId: params.id,
+      detail: { enabled: body.enabled, places: new Set(body.places).size },
+    })),
+  'notes.recall': () =>
+    afterwards((note) => ({ targetId: note.id, detail: { conversationId: note.conversationId } })),
   'principles.reorder': ({ body }) =>
     afterwards(() => ({ targetId: null, detail: { count: body.ids.length } })),
   'principles.delete': ({ params }) => afterwards(() => ({ targetId: params.id, detail: {} })),
+  'teaching.document.set': ({ body }) =>
+    afterwards(() => ({ targetId: null, detail: { kept: (body.document ?? '').trim() !== '' } })),
+  'principleProposals.create': () =>
+    afterwards((proposal) => ({ targetId: proposal.id, detail: { kind: proposal.kind } })),
+  'principleProposals.accept': () =>
+    afterwards((principle) => ({ targetId: principle.id, detail: { kind: principle.kind } })),
+  'principleProposals.acceptAll': ({ body }) =>
+    afterwards(() => ({ targetId: null, detail: { count: new Set(body.ids).size } })),
+  'principleProposals.discard': ({ params }) => afterwards(() => ({ targetId: params.id, detail: {} })),
   'debates.create': () =>
     afterwards((debate) => ({ targetId: debate.id, detail: { visibility: debate.visibility } })),
   'debates.optIn': ({ params, body }) =>
     afterwards(() => ({ targetId: params.id, detail: { credentialId: body.agentId } })),
+  'debates.brief.set': ({ params, body }) =>
+    afterwards(() => ({ targetId: params.id, detail: { cleared: body.brief.trim() === '' } })),
   'debates.limits.set': ({ params }) =>
     afterwards((debate) => ({ targetId: params.id, detail: { limits: debate.limits } })),
   'debates.result.post': ({ params }) =>
@@ -217,6 +309,30 @@ export type Describe<N extends AuditedRoute> = (
 const PROFILE_FIELDS = ['name', 'profile', 'locale'] as const
 const PRINCIPLE_FIELDS = ['kind', 'topic', 'rule', 'source', 'enabled', 'publicText'] as const
 const CHANNEL_FIELDS = ['slug', 'description'] as const
+const CHANNEL_PRINCIPLE_FIELDS = ['kind', 'topic', 'rule', 'source', 'enabled'] as const
+
+interface TeachingBefore {
+  readonly agentId: MemberId | null
+  readonly instruction: string
+  readonly sources: ReadonlyArray<string>
+}
+
+/** The agent and its brief before the change, read so the entry names what changed without its words. */
+function teachingBefore(slug: string): T.Task<TeachingBefore, never, RequestEnv> {
+  return T.gen(function* () {
+    const row = yield* channelRow(slug)
+    const agent = row === null ? null : yield* channelAgentOf(row)
+    if (agent === null) return { agentId: null, instruction: '', sources: [] }
+    const brief = yield* first<{ instruction: string; sources: string }>(
+      sql`SELECT instruction, sources FROM channel_agent_teaching WHERE agent_id = ${agent.id}`,
+    )
+    return {
+      agentId: agent.id,
+      instruction: brief?.instruction ?? '',
+      sources: brief === null ? [] : (JSON.parse(brief.sources) as string[]),
+    }
+  })
+}
 
 function afterwards<R, F>(describe: (response: R) => F): T.Task<(response: R) => F> {
   return T.succeed(describe)

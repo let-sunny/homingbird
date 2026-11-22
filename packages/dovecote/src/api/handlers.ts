@@ -12,16 +12,20 @@ import { deskWakeHandlers } from './desk-wake-handlers.ts'
 import { eventHandlers } from './event-handlers.ts'
 import { groupHandlers } from './group-handlers.ts'
 import { noteHandlers } from './note-handlers.ts'
+import { previewHandlers } from './preview-handlers.ts'
+import { slackHandlers } from './slack-handlers.ts'
 import { teachingHandlers } from './teaching-handlers.ts'
 
 /** One handler for every route of the contract; the type fails when a route has none. */
 export const handlers: Handlers = {
   ...accountHandlers,
   ...deskWakeHandlers,
+  ...slackHandlers,
   ...channelHandlers,
   ...groupHandlers,
   ...contactHandlers,
   ...noteHandlers,
+  ...previewHandlers,
   ...teachingHandlers,
   ...debateHandlers,
   ...credentialHandlers,

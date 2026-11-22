@@ -1,8 +1,8 @@
 import { Task as T } from '@homingbird/kernel'
-import { type Contract, DebateId, type ResponseOf } from '@homingbird/protocol'
+import { type Contract, type Debate, DebateId, type ResponseOf } from '@homingbird/protocol'
 import { survivingPass } from '../background-pass.ts'
 import { draftResult, exportDebate, postResult, voteForDraft } from '../domain/debate-results.ts'
-import { seenBy } from '../domain/debate-rows.ts'
+import { shownTo } from '../domain/debate-rows.ts'
 import { settleDebate, takeTurn, undecidedDebates } from '../domain/debate-turns.ts'
 import {
   createDebate,
@@ -10,6 +10,7 @@ import {
   debateFor,
   listDebates,
   optInAgent,
+  setDebateBrief,
   setDebateLimits,
 } from '../domain/debates.ts'
 import { isHuman, viewerOf } from '../environment.ts'
@@ -30,34 +31,40 @@ export const debateHandlers = {
           yield* survivingPass(`debate room ${id}`, transact(settleDebate(id)))
       const { asks, ballots, ended } = yield* transact(debateAsks(caller))
       return {
-        asks: asks.map((ask) => ({ ...ask, debate: seenBy(caller)(ask.debate) })),
-        ballots: ballots.map(seenBy(caller)),
+        asks: yield* T.forEach(asks, (ask) =>
+          T.map((debate: Debate) => ({ ...ask, debate }))(shownTo(caller)(ask.debate)),
+        ),
+        ballots: yield* T.forEach(ballots, (debate) => shownTo(caller)(debate)),
         ended,
       }
     }),
   'debates.get': ({ params }, caller) =>
-    T.flatMap((id: DebateId) => T.map(seenBy(caller))(debateFor(viewerOf(caller), id)))(
+    T.flatMap((id: DebateId) => T.flatMap(shownTo(caller))(debateFor(viewerOf(caller), id)))(
       identifier(DebateId, params.id),
     ),
-  'debates.create': ({ body }, caller) => T.map(seenBy(caller))(createDebate(caller, body)),
+  'debates.create': ({ body }, caller) => T.flatMap(shownTo(caller))(createDebate(caller, body)),
   'debates.optIn': ({ params, body }, caller) =>
-    T.flatMap((id: DebateId) => T.map(seenBy(caller))(optInAgent(caller, id, body.agentId)))(
+    T.flatMap((id: DebateId) => T.flatMap(shownTo(caller))(optInAgent(caller, id, body.agentId, body.brief)))(
+      identifier(DebateId, params.id),
+    ),
+  'debates.brief.set': ({ params, body }, caller) =>
+    T.flatMap((id: DebateId) => T.flatMap(shownTo(caller))(setDebateBrief(caller, id, body.brief)))(
       identifier(DebateId, params.id),
     ),
   'debates.limits.set': ({ params, body }, caller) =>
-    T.flatMap((id: DebateId) => T.map(seenBy(caller))(setDebateLimits(caller, id, body)))(
+    T.flatMap((id: DebateId) => T.flatMap(shownTo(caller))(setDebateLimits(caller, id, body)))(
       identifier(DebateId, params.id),
     ),
   'debates.turns.post': ({ params, body }, caller) =>
-    T.flatMap((id: DebateId) => T.map(seenBy(caller))(takeTurn(caller, id, body)))(
+    T.flatMap((id: DebateId) => T.flatMap(shownTo(caller))(takeTurn(caller, id, body)))(
       identifier(DebateId, params.id),
     ),
   'debates.result.draft': ({ params, body }, caller) =>
-    T.flatMap((id: DebateId) => T.map(seenBy(caller))(draftResult(caller, id, body)))(
+    T.flatMap((id: DebateId) => T.flatMap(shownTo(caller))(draftResult(caller, id, body)))(
       identifier(DebateId, params.id),
     ),
   'debates.result.vote': ({ params, body }, caller) =>
-    T.flatMap((id: DebateId) => T.map(seenBy(caller))(voteForDraft(caller, id, body)))(
+    T.flatMap((id: DebateId) => T.flatMap(shownTo(caller))(voteForDraft(caller, id, body)))(
       identifier(DebateId, params.id),
     ),
   'debates.result.post': ({ params, body }, caller) =>

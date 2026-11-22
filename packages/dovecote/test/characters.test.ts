@@ -25,7 +25,7 @@ beforeEach(async () => {
   benAgent = await connectAgent(server, ben, { name: 'Ben agent' })
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const OTTER = {
   version: 1,

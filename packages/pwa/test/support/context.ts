@@ -49,7 +49,7 @@ export const testContext = (hash = '#/') => {
     random: { id: () => 'random-id', seed: () => 7 },
     page: page.page,
     document: browserDocument(() => globalThis.document),
-    tour: { start: () => void tour.started++, startOnHome: (name) => void tour.homes.push(name) },
+    tour: { start: () => void tour.started++, startOnFirstVisit: (name) => void tour.homes.push(name) },
     justArrived: () => false,
   }
   const called = (name: string): ActionCall[] => calls.filter((call) => call.name === name)
@@ -74,13 +74,16 @@ export const fakePage = (hash = '#/') => {
   const downloads: Array<{ readonly filename: string }> = []
   const copied: string[] = []
   const notifications = new Map<string, number | null>()
+  const outside: { title: string; badge: number | 'unread' | null } = { title: '', badge: null }
   const state = {
+    apple: false,
     hash,
     visible: true,
     reducedMotion: true,
     coarsePointer: false,
     anchors: false,
     hint: true,
+    interest: false,
     push: false,
     clipboard: true,
   }
@@ -100,6 +103,11 @@ export const fakePage = (hash = '#/') => {
     linkTo: (href) => `http://localhost/${href}`,
     fetch: () => Promise.reject(new Error('no network in unit tests')),
     languages: () => ['en-GB'],
+    isApple: () => state.apple,
+    showWaiting: (title, badge) => {
+      outside.title = title
+      outside.badge = badge
+    },
     isVisible: () => state.visible,
     on: (event, listener): Unsubscribe => {
       const set = listeners.get(event) ?? new Set()
@@ -114,6 +122,7 @@ export const fakePage = (hash = '#/') => {
     supportsAnchors: () => state.anchors,
     supportsPush: () => state.push,
     supportsHintPopovers: () => state.hint,
+    supportsInterestInvokers: () => state.interest,
     shownNotifications: () =>
       Promise.resolve(
         [...notifications].map(([tag, shownAt]) => ({
@@ -150,6 +159,7 @@ export const fakePage = (hash = '#/') => {
   return {
     page,
     state,
+    outside,
     visited,
     downloads,
     copied,

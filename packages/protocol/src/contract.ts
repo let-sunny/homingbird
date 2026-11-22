@@ -1,6 +1,10 @@
 import { Schema as S, type Task } from '@homingbird/kernel'
 import { AnalyticsBatch } from './analytics.ts'
+import { AutoSend } from './auto-send.ts'
 import { AgentListing, ChannelAgent, ChannelAgentName, Review } from './channel-agents.ts'
+import { ChannelDecisions } from './channel-decisions.ts'
+import { ChannelInstruction, ChannelSources } from './channel-drafting.ts'
+import { ChannelTeaching, TaughtFrom } from './channel-teaching.ts'
 import { CharacterSpec } from './character.ts'
 import {
   ConsentRequest,
@@ -10,6 +14,7 @@ import {
   Empty,
   InboxItem,
   JoinCode,
+  JoinCodeStatus,
   Me,
   PageLimit,
   Recipients,
@@ -21,6 +26,7 @@ import {
   DEBATE_TURN_MAX,
   Debate,
   DebateAsk,
+  DebateBrief,
   DebateEnded,
   DebateExport,
   DebateExportFormat,
@@ -31,6 +37,7 @@ import {
   DebateVote,
 } from './debates.ts'
 import { DeskWake, DeskWakeSetup, DeskWakeTest } from './desk-wake.ts'
+import { DraftPreview, DraftPreviewAllowance } from './draft-previews.ts'
 import {
   AnsweredFromHistory,
   EARLIER_ANSWERS_MAX,
@@ -78,6 +85,16 @@ import {
   Settings,
 } from './model.ts'
 import {
+  PROPOSALS_PER_PERSON,
+  PrincipleProposal,
+  ProposalId,
+  ProposalInput,
+  TeachingDocument,
+  TeachingInterview,
+  TeachingMaterial,
+} from './principle-proposals.ts'
+import { PrincipleSource } from './principle-source.ts'
+import {
   DraftingPrinciples,
   MyPrinciples,
   PRINCIPLES_PER_PERSON,
@@ -85,11 +102,11 @@ import {
   PrincipleId,
   PrincipleKind,
   PrincipleRule,
-  PrincipleSource,
   PrincipleTopic,
 } from './principles.ts'
 import { type ReadResponseOf, type RequestOf, type Route, route } from './route.ts'
 import { DeskSession } from './session-health.ts'
+import { AdminSlack, MeSlack, SlackCodeView, SlackLinkCode } from './slack.ts'
 
 export const PushSubscription = S.struct({
   endpoint: S.string({ minLength: 1, maxLength: 2000, pattern: /^https:\/\// }),
@@ -153,6 +170,41 @@ export const contract = {
     access: 'human',
     body: Empty,
     response: DeskWakeTest,
+  }),
+  'me.slack.get': route({ method: 'GET', path: '/me/slack', access: 'human', response: MeSlack }),
+  'me.slack.connect': route({
+    method: 'POST',
+    path: '/me/slack/connect',
+    access: 'human',
+    body: Empty,
+    response: S.struct({ sent: S.boolean }),
+  }),
+  'me.slack.link': route({
+    method: 'POST',
+    path: '/me/slack/link',
+    access: 'human',
+    body: S.struct({ code: SlackLinkCode }),
+    response: MeSlack,
+  }),
+  'me.slack.unlink': route({ method: 'DELETE', path: '/me/slack', access: 'human', response: Empty }),
+  'slack.codes.get': route({
+    method: 'GET',
+    path: '/slack/codes/:id',
+    access: 'human',
+    response: SlackCodeView,
+  }),
+  'me.draftPreviews.get': route({
+    method: 'GET',
+    path: '/me/draft-previews',
+    access: 'human',
+    response: DraftPreviewAllowance,
+  }),
+  'me.draftPreviews.set': route({
+    method: 'PUT',
+    path: '/me/draft-previews',
+    access: 'human',
+    body: DraftPreviewAllowance,
+    response: DraftPreviewAllowance,
   }),
 
   'directory.list': route({
@@ -277,6 +329,64 @@ export const contract = {
     access: 'human',
     response: ChannelAgentReport,
   }),
+  'channels.agent.decisions': route({
+    method: 'GET',
+    path: '/channels/:slug/agent/decisions',
+    access: 'human',
+    response: ChannelDecisions,
+  }),
+  'channels.agent.teaching.get': route({
+    method: 'GET',
+    path: '/channels/:slug/agent/teaching',
+    access: 'human',
+    response: ChannelTeaching,
+  }),
+  'channels.agent.teaching.set': route({
+    method: 'PUT',
+    path: '/channels/:slug/agent/teaching',
+    access: 'human',
+    body: S.struct({ instruction: ChannelInstruction, sources: ChannelSources }),
+    response: ChannelTeaching,
+  }),
+  'channels.agent.principles.create': route({
+    method: 'POST',
+    path: '/channels/:slug/agent/principles',
+    access: 'human',
+    body: S.struct({
+      kind: S.optional(PrincipleKind),
+      topic: PrincipleTopic,
+      rule: PrincipleRule,
+      source: S.optional(S.nullable(PrincipleSource)),
+      taughtFrom: S.optional(TaughtFrom),
+    }),
+    response: Principle,
+  }),
+  'channels.agent.principles.update': route({
+    method: 'PATCH',
+    path: '/channels/:slug/agent/principles/:id',
+    access: 'human',
+    body: S.struct({
+      kind: S.optional(PrincipleKind),
+      topic: S.optional(PrincipleTopic),
+      rule: S.optional(PrincipleRule),
+      source: S.optional(S.nullable(PrincipleSource)),
+      enabled: S.optional(S.boolean),
+    }),
+    response: Principle,
+  }),
+  'channels.agent.principles.reorder': route({
+    method: 'PUT',
+    path: '/channels/:slug/agent/principles/order',
+    access: 'human',
+    body: S.struct({ ids: S.array(PrincipleId, { maxItems: PRINCIPLES_PER_PERSON }) }),
+    response: ChannelTeaching,
+  }),
+  'channels.agent.principles.delete': route({
+    method: 'DELETE',
+    path: '/channels/:slug/agent/principles/:id',
+    access: 'human',
+    response: Principle,
+  }),
   'channels.askPrivately': route({
     method: 'POST',
     path: '/channels/:slug/private-question',
@@ -375,12 +485,36 @@ export const contract = {
     access: 'human',
     response: Conversation,
   }),
+  'conversations.hide': route({
+    method: 'PUT',
+    path: '/conversations/:id/hidden',
+    access: 'human',
+    response: Conversation,
+  }),
+  'conversations.unhide': route({
+    method: 'DELETE',
+    path: '/conversations/:id/hidden',
+    access: 'human',
+    response: Conversation,
+  }),
+  'conversations.leave': route({
+    method: 'POST',
+    path: '/conversations/:id/leave',
+    access: 'human',
+    response: Empty,
+  }),
   'conversations.notes': route({
     method: 'GET',
     path: '/conversations/:id/notes',
     access: 'member',
     query: { before: S.optional(Digits), limit: S.optional(PageLimit) },
     response: S.struct({ notes: S.array(Note), hasMore: S.boolean, notices: S.array(Notice) }),
+  }),
+  'previews.list': route({
+    method: 'GET',
+    path: '/conversations/:id/previews',
+    access: 'human',
+    response: S.struct({ previews: S.array(DraftPreview) }),
   }),
   'notes.get': route({ method: 'GET', path: '/notes/:id', access: 'member', response: Note }),
   'notes.read': route({ method: 'POST', path: '/notes/:id/read', access: 'human', response: Note }),
@@ -392,6 +526,7 @@ export const contract = {
     body: S.struct({ reason: S.optional(S.string({ maxLength: RELEASE_REASON_MAX })) }),
     response: Note,
   }),
+  'notes.recall': route({ method: 'POST', path: '/notes/:id/recall', access: 'human', response: Note }),
   'inbox.list': route({
     method: 'GET',
     path: '/inbox',
@@ -543,6 +678,13 @@ export const contract = {
     }),
     response: Principle,
   }),
+  'principles.autoSend.set': route({
+    method: 'PUT',
+    path: '/principles/:id/auto-send',
+    access: 'human',
+    body: AutoSend,
+    response: Principle,
+  }),
   'principles.reorder': route({
     method: 'PUT',
     path: '/principles/order',
@@ -576,6 +718,58 @@ export const contract = {
     access: 'member',
     query: { conversationId: S.optional(ConversationId) },
     response: DraftingPrinciples,
+  }),
+  'teaching.material': route({
+    method: 'GET',
+    path: '/teaching/material',
+    access: 'member',
+    response: TeachingMaterial,
+  }),
+  'teaching.document.set': route({
+    method: 'PUT',
+    path: '/teaching/document',
+    access: 'human',
+    body: S.struct({ document: S.nullable(TeachingDocument) }),
+    response: Empty,
+  }),
+  'principleProposals.list': route({
+    method: 'GET',
+    path: '/principle-proposals',
+    access: 'human',
+    response: TeachingInterview,
+  }),
+  'principleProposals.create': route({
+    method: 'POST',
+    path: '/principle-proposals',
+    access: 'member',
+    body: ProposalInput,
+    response: PrincipleProposal,
+  }),
+  'principleProposals.accept': route({
+    method: 'POST',
+    path: '/principle-proposals/:id/accept',
+    access: 'human',
+    body: S.struct({
+      kind: S.optional(PrincipleKind),
+      topic: S.optional(PrincipleTopic),
+      rule: S.optional(PrincipleRule),
+      source: S.optional(S.nullable(PrincipleSource)),
+      place: S.optional(PlaceName),
+    }),
+    response: Principle,
+  }),
+  'principleProposals.acceptAll': route({
+    method: 'POST',
+    path: '/principle-proposals/accept',
+    access: 'human',
+    body: S.struct({ ids: S.array(ProposalId, { minItems: 1, maxItems: PROPOSALS_PER_PERSON }) }),
+    response: MyPrinciples,
+  }),
+  'principleProposals.discard': route({
+    method: 'DELETE',
+    path: '/principle-proposals/:id',
+    access: 'human',
+    response: Empty,
   }),
 
   'draftRequests.list': route({
@@ -645,7 +839,15 @@ export const contract = {
     method: 'PUT',
     path: '/debates/:id/agent',
     access: 'human',
-    body: S.struct({ agentId: CredentialId }),
+    body: S.struct({ agentId: CredentialId, brief: S.optional(DebateBrief) }),
+    response: Debate,
+  }),
+  'debates.brief.set': route({
+    method: 'PUT',
+    path: '/debates/:id/brief',
+    access: 'human',
+    /** What the person's agent may use and share in this room; empty to leave it none. */
+    body: S.struct({ brief: DebateBrief }),
     response: Debate,
   }),
   'debates.limits.set': route({
@@ -664,6 +866,8 @@ export const contract = {
       model: S.optional(AgentLabel),
       /** The last turn the agent read: a room that moved past it answers 409 and saves nothing. */
       afterTurn: S.optional(S.int({ min: 0 })),
+      /** The agent is ready to conclude: once every agent's latest turn says so, the room asks for its result. */
+      ready: S.optional(S.boolean),
     }),
     response: Debate,
   }),
@@ -741,6 +945,12 @@ export const contract = {
       channel: S.optional(ChannelSlug),
     }),
     response: JoinCode,
+  }),
+  'joinCodes.status': route({
+    method: 'GET',
+    path: '/join-codes/:id',
+    access: 'human',
+    response: JoinCodeStatus,
   }),
   'invites.list': route({
     method: 'GET',
@@ -919,6 +1129,27 @@ export const contract = {
     path: '/admin/insights',
     access: 'admin',
     response: OrganizationInsights,
+  }),
+  'admin.slack.get': route({ method: 'GET', path: '/admin/slack', access: 'admin', response: AdminSlack }),
+  'channels.slack.link': route({
+    method: 'POST',
+    path: '/channels/:slug/slack',
+    access: 'human',
+    body: S.struct({ code: SlackLinkCode }),
+    response: Channel,
+  }),
+  'channels.slack.unlink': route({
+    method: 'DELETE',
+    path: '/channels/:slug/slack',
+    access: 'human',
+    response: Empty,
+  }),
+  'notes.posting.retry': route({
+    method: 'POST',
+    path: '/notes/:id/posting/retry',
+    access: 'human',
+    body: Empty,
+    response: Note,
   }),
 } as const satisfies Readonly<Record<string, Route>>
 

@@ -62,6 +62,10 @@ export const offboardingChecks = (facts: LeaverFacts): ReadonlyArray<Offboarding
     text: `No cloud desk wake address${found(facts.deskWakes, 'is saved', 'are saved')}`,
   },
   {
+    passed: facts.slackLinks === 0,
+    text: `No Slack account linked${found(facts.slackLinks, 'is linked', 'are linked')}`,
+  },
+  {
     passed: !facts.namedAdministrator,
     text: facts.namedAdministrator
       ? 'Not named in HB_ADMIN_EMAILS: remove them from it and restart Dovecote'

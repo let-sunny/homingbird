@@ -117,6 +117,8 @@ export interface ActivityGroup {
 
 /** Where an item happens, as a link to the conversation, with when it arrived. */
 export interface ActivityPlace {
+  /** The conversation it waits in; none for a debate room. */
+  readonly conversationId: ConversationId | null
   readonly text: string
   readonly href: string
   readonly label: string
@@ -131,6 +133,8 @@ export type ActivityItem =
       'skipped',
       {
         readonly from: string
+        /** Whose note it is, whose profile card “from” opens. */
+        readonly fromId: MemberId
         readonly body: string
         readonly reason: string
         readonly reply: string
@@ -224,6 +228,7 @@ const reviewItems = (input: ActivityInput): ActivityItem[] =>
         key: `review:${review.note.id}`,
         at: review.note.updatedAt,
         place: {
+          conversationId: review.note.conversationId,
           text:
             room === undefined
               ? strings.activity.inPlace({ place: channelLabel(review.channel) })
@@ -270,6 +275,7 @@ const skippedItems = (input: ActivityInput): ActivityItem[] =>
         from: strings.activity.skippedFrom({
           name: input.members.get(note.authorId)?.name ?? strings.formerMember,
         }),
+        fromId: note.authorId,
         body: excerpt(note.body, SKIPPED_EXCERPT),
         reason:
           release.reason === null
@@ -316,6 +322,7 @@ const debateItems = (input: ActivityInput): ActivityItem[] => {
         at,
         weight: 1,
         place: {
+          conversationId: null,
           text: room.question,
           href: hrefFor({ name: 'debate', id: room.id, tab: asks ? 'turns' : 'result' }),
           label: strings.activity.openRoom,
@@ -354,6 +361,7 @@ const placeOf = (
   href: string,
   at: number | null,
 ): ActivityPlace => ({
+  conversationId: room.id,
   text: placeText(input, room),
   href,
   label: strings.activity.openConversation,
@@ -392,6 +400,7 @@ const threadInputOf = (
   sending: false,
   now: input.now,
   focusedDraft: null,
+  previewedBodies: new Map(),
 })
 
 const noteInThreads = (

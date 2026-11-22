@@ -18,6 +18,26 @@ const loaded = (
 }
 
 describe('peopleView', () => {
+  it('brings the person a profile card asked for into view once, and each face opens that person’s card', () => {
+    const { context, page } = testContext(`#/people?person=${BEN}`)
+    const shown = mount(peopleView(context, lifetime(), me()))
+    loaded(context, [entry(BEN, 'Ben'), entry(CY, 'Cy')])
+    const ben = shown.querySelector<HTMLElement>(`.person[data-member-id="${BEN}"]`)!
+    expect(ben.classList.contains('is-focused')).toBe(true)
+    expect(shown.querySelector(`.person[data-member-id="${CY}"]`)!.classList.contains('is-focused')).toBe(
+      false,
+    )
+    page.runFrames()
+    expect(document.activeElement).toBe(ben)
+    document.body.focus()
+    context.state.directory.set([entry(BEN, 'Ben'), entry(CY, 'Cy', { relation: 'contact' })])
+    page.runFrames()
+    expect(document.activeElement).not.toBe(shown.querySelector(`.person[data-member-id="${BEN}"]`))
+    const face = getByRole(shown, 'button', { name: strings.profileCard.open({ name: 'Cy' }) })
+    expect(face.getAttribute('popovertarget')).toBe('profile-card')
+    expect(face.dataset.profile).toBe(CY)
+  })
+
   it('loads people and channels, and offers a retry when people could not load', () => {
     const { context, called } = testContext()
     const shown = peopleView(context, lifetime(), me())
@@ -131,39 +151,19 @@ describe('peopleView', () => {
     expect(shown.querySelector('.group-chips')).toBeNull()
   })
 
-  it('starts a conversation with the people chosen on their cards, keeping focus on the toggle', () => {
-    const { context, called } = testContext()
+  it('links each person one may write to to a new message with them chosen, to add others to', () => {
+    const { context } = testContext()
     const shown = peopleView(context, lifetime(), me())
-    expect(shown.querySelector('.group-start')).toBeNull()
     loaded(context, [
       entry(ANA, 'Ana', { relation: 'self', canMessage: false }),
       entry(BEN, 'Ben'),
-      entry(CY, 'Cy'),
+      entry(CY, 'Cy', { canMessage: false }),
     ])
-    expect(shown.querySelector(`[data-member-id="${ANA}"] .choose-toggle`)).toBeNull()
-    const start = () => getByRole(shown, 'button', { name: strings.groupStart.start })
-    expect(shown.querySelector('.group-start.is-collapsed')).not.toBeNull()
-    const ben = getByRole(shown, 'button', { name: 'Add Ben to the group message' })
-    ben.click()
-    expect(start().hasAttribute('disabled')).toBe(true)
-    expect(getByRole(shown, 'button', { name: 'Ben added (remove)' })).toBe(ben)
-    expect(ben.textContent).toBe(strings.groupStart.added)
-    expect(ben.getAttribute('aria-pressed')).toBe('true')
-    getByRole(shown, 'button', { name: 'Add Cy to the group message' }).click()
-    expect(textOf(shown)).toContain('A group message with Ben and Cy.')
-    start().click()
-    expect(called('openConversationAmong').map((call) => call.args[0])).toEqual([[BEN, CY]])
-    expect(getByRole(shown, 'button', { name: strings.groupStart.starting }).hasAttribute('disabled')).toBe(
-      true,
-    )
-    expect(ben.hasAttribute('disabled')).toBe(true)
-    called('openConversationAmong')[0]!.then!.failed!({ _tag: 'Forbidden', message: 'no' })
-    expect(start().hasAttribute('disabled')).toBe(false)
-    getByRole(shown, 'button', { name: 'Remove Ben' }).click()
-    expect(ben.getAttribute('aria-pressed')).toBe('false')
-    start().click()
-    expect(called('openConversationAmong')).toHaveLength(1)
-    getByRole(shown, 'button', { name: strings.groupStart.clear }).click()
-    expect(shown.querySelector('.group-start-chip')).toBeNull()
+    expect(shown.querySelector('.group-start')).toBeNull()
+    expect(shown.querySelector(`[data-member-id="${ANA}"] .with-others`)).toBeNull()
+    expect(shown.querySelector(`[data-member-id="${CY}"] .with-others`)).toBeNull()
+    const link = getByRole(shown, 'link', { name: 'New message to Ben and others' })
+    expect(link.getAttribute('href')).toBe(`#/new?to=${BEN}`)
+    expect(link.textContent).toBe(strings.newMessage.withOthers)
   })
 })

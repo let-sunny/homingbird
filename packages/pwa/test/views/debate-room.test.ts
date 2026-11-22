@@ -53,10 +53,88 @@ describe('debateView', () => {
     fire.submit(shown.querySelector('form.debate-limits-form')!)
     expect(context.state.notice.get()?.kind).toBe('error')
     fire.submit(shown.querySelector('form.debate-opt-in-form')!)
-    expect(called('optInAgent')[0]!.args).toEqual(['debate_000000000000', 'cred_desk'])
+    expect(called('optInAgent')[0]!.args).toEqual(['debate_000000000000', 'cred_desk', ''])
     fire.select(getByRole(shown, 'combobox', { name: strings.debates.chooseAgent }), 'nobody')
     fire.submit(shown.querySelector('form.debate-opt-in-form')!)
     expect(called('optInAgent')).toHaveLength(1)
+  })
+
+  it('opts an agent in with the person’s note on what it may use here', () => {
+    const { context, called } = testContext()
+    const shown = debateView(context, lifetime(), me(), 'debate_1', null)
+    context.state.agentCredentials.set([credential('cred_desk')])
+    context.state.shownDebate.set(debate())
+    const box = shown.querySelector<HTMLTextAreaElement>('form.debate-opt-in-form textarea[name="brief"]')!
+    expect(textOf(box.closest('label')!)).toContain(strings.debates.briefTitle)
+    expect(box.getAttribute('maxlength')).toBe('1000')
+    expect(box.getAttribute('placeholder')).toBe(strings.debates.briefPlaceholder)
+    expect(textOf(box.closest('label')!)).toContain(strings.debates.briefHint)
+    fire.type(box, 'Use the Q3 budget; never vendor prices.')
+    fire.submit(shown.querySelector('form.debate-opt-in-form')!)
+    expect(called('optInAgent')[0]!.args).toEqual([
+      'debate_000000000000',
+      'cred_desk',
+      'Use the Q3 budget; never vendor prices.',
+    ])
+  })
+
+  it('lets a participant change their note while turns go on, and shows it fixed once they stop', () => {
+    const { context, called } = testContext()
+    const shown = debateView(context, lifetime(), me(), 'debate_1', 'turns')
+    const taking = debate({ participants: [participant(ANA), participant(BEN)], brief: 'Q3 budget only.' })
+    context.state.shownDebate.set(taking)
+    const box = shown.querySelector<HTMLTextAreaElement>('form.debate-brief-form textarea[name="brief"]')!
+    expect(box.value).toBe('Q3 budget only.')
+    fire.type(box, 'Public figures only.')
+    fire.submit(shown.querySelector('form.debate-brief-form')!)
+    const [saved] = called('setBrief')
+    expect(saved!.args).toEqual(['debate_000000000000', 'Public figures only.'])
+    saved!.then!.done!(undefined)
+    expect(context.state.notice.get()).toEqual({ kind: 'info', text: strings.debates.briefSaved })
+    context.state.shownDebate.set({ ...taking, status: 'concluding' })
+    const section = shown.querySelector('.debate-brief')!
+    expect(section.querySelector('form')).toBeNull()
+    expect(section.querySelector('.debate-brief-text')?.textContent).toBe('Q3 budget only.')
+    expect(textOf(section)).toContain(strings.debates.briefFixed)
+  })
+
+  it('shows who is ready to conclude, and that the room stopped early because every agent agreed', () => {
+    const { context } = testContext()
+    const shown = debateView(context, lifetime(), me(), 'debate_1', 'turns')
+    const turns = [
+      { position: 1, memberId: ANA, agentName: 'Desk', body: 'Agreed.', at: 3, ready: true },
+      { position: 2, memberId: BEN, agentName: 'Desk', body: 'One more fact.', at: 4 },
+    ]
+    context.state.shownDebate.set(debate({ participants: [participant(ANA), participant(BEN)], turns }))
+    expect(shown.querySelectorAll('.debate-ready')).toHaveLength(1)
+    expect(textOf(shown)).toContain(strings.debates.readyHint)
+    context.state.shownDebate.set(
+      debate({
+        status: 'concluding',
+        concludedBecause: 'agreed',
+        participants: [participant(ANA), participant(BEN)],
+        turns,
+      }),
+    )
+    expect(shown.querySelector('.debate-agreed-early')?.textContent).toBe(
+      strings.debates.agreedEarly({ count: 2, total: 4 }),
+    )
+    const result = debateView(context, lifetime(), me(), 'debate_000000000000', 'result')
+    expect(textOf(result)).toContain(strings.debates.agreedEarly({ count: 2, total: 4 }))
+  })
+
+  it('leads the opt-in with what the person decides and keeps the advice for whoever runs the agent folded', () => {
+    const { context } = testContext()
+    const shown = debateView(context, lifetime(), me(), 'debate_1', null)
+    context.state.agentCredentials.set([credential('cred_desk')])
+    context.state.shownDebate.set(debate())
+    const section = shown.querySelector('.debate-opt-in')!
+    expect(section.querySelector('.hint')?.textContent).toBe(strings.debates.optInHint)
+    expect(strings.debates.optInHint).not.toContain('--split')
+    const advice = section.querySelector('details.debate-opt-in-advice')!
+    expect(advice.hasAttribute('open')).toBe(false)
+    expect(textOf(advice.querySelector('summary')!)).toBe(strings.debates.optInAdviceTitle)
+    expect(textOf(advice)).toContain('--split')
   })
 
   it('shows the agents, their turns, and who dropped out', () => {
@@ -71,7 +149,12 @@ describe('debateView', () => {
     )
     expect(textOf(shown)).toContain(strings.debates.droppedOut)
     expect(getByRole(shown, 'link', { name: 'https://example.com' })).toBeTruthy()
+    const count = getByRole(shown, 'button', { name: strings.groupPeople({ count: 2 }) })
+    const list = shown.querySelector<HTMLElement>('.people-list')!
+    expect(count.getAttribute('popovertarget')).toBe(list.id)
+    expect(textOf(list)).toContain(strings.participants.openedRoom)
     context.state.shownDebate.set(debate({ status: 'ended', endedBecause: 'no_turns' }))
+    expect(shown.querySelector('.people-open')).toBeNull()
     expect(textOf(shown)).toContain(strings.debates.ended.no_turns)
     expect(textOf(shown)).not.toContain(strings.debates.noParticipants)
     const content = debateView(context, lifetime(), me(), 'debate_000000000000', 'turns')
@@ -357,6 +440,7 @@ describe('debateView', () => {
     )
     expect(credit.querySelector('.debate-credit')).toBeNull()
     const mine = credit.querySelector(`.debate-credit-row[data-member="${ANA}"]`)!
+    expect(mine.querySelector<HTMLElement>('strong .profile-name')!.dataset.profile).toBe(ANA)
     expect(textOf(mine.querySelector('.debate-position-change p')!)).toBe(
       strings.debates.positionChange({ from: 1, to: 3 }),
     )

@@ -5,7 +5,7 @@ import type { Session, TestServer } from './harness.ts'
 let server: TestServer
 
 afterEach(async () => {
-  await server.close()
+  await server?.close()
 })
 
 const reviewChanges = (memberId: string) => {

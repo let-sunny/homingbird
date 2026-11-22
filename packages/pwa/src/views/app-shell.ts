@@ -9,6 +9,7 @@ import type { ViewContext } from './context.ts'
 import { DIALOG_ID, dialogHost } from './dialog.ts'
 import { heldToast } from './held-toast.ts'
 import { button } from './parts.ts'
+import { profileCardHost } from './profile-card.ts'
 import { shell } from './shell.ts'
 import { signInView } from './sign-in.ts'
 import { stageFor } from './stage.ts'
@@ -63,14 +64,15 @@ export const showApp = (
       state.route.subscribe(() => {
         if (arrivedToConnect(state.route.get()) === focused) drawStage(me)
         else draw()
-        if (!focused) page.nextFrame(() => context.tour.startOnHome(state.route.get().name))
+        if (!focused) page.nextFrame(() => context.tour.startOnFirstVisit(state.route.get().name))
       }),
     )
-    if (!focused) page.nextFrame(() => context.tour.startOnHome(state.route.get().name))
+    if (!focused) page.nextFrame(() => context.tour.startOnFirstVisit(state.route.get().name))
     replaceChildren(
       root,
       focused ? stage : shell(context, appLife, me, stage),
       dialogHost(),
+      profileCardHost(context, appLife, me),
       toast(context, appLife),
       heldToast(context, appLife),
       liveAnnouncer(context, appLife),
@@ -175,6 +177,15 @@ const inTransition = (context: ViewContext, change: () => void): void => {
   if (context.page.prefersReducedMotion() || !context.document.inTransition(change)) change()
 }
 
-/** A group's editor counts as the administration's page, so analytics keeps one value per area. */
-const analyticsPageOf = (route: Route): Exclude<Route['name'], 'admin-group'> =>
-  route.name === 'admin-group' ? 'admin' : route.name
+/**
+ * A group's editor counts as the administration's page, the new-message screen as a conversation's, and
+ * a Slack link's page as My agent's, so analytics keeps one value per area.
+ */
+const analyticsPageOf = (route: Route): Exclude<Route['name'], 'admin-group' | 'new' | 'slack-link'> =>
+  route.name === 'admin-group'
+    ? 'admin'
+    : route.name === 'new'
+      ? 'conversation'
+      : route.name === 'slack-link'
+        ? 'agent'
+        : route.name

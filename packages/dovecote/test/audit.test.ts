@@ -23,7 +23,7 @@ const DAY = 24 * HOUR
 const TOKEN_SHAPED = /hb[har]_[A-Za-z0-9_-]{20,}/
 
 let server: TestServer
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const scenario = async (overrides: Record<string, string> = {}) => {
   server = await startTestServer(overrides)

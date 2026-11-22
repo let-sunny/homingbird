@@ -12,6 +12,7 @@ import {
   receiptState,
 } from '@homingbird/protocol'
 import type { AppEnv } from '../environment.ts'
+import { type SlackFacts, slackFactsOf } from '../slack/slack-note-facts.ts'
 import { all } from '../sql/database.ts'
 import { list, sql } from '../sql/query.ts'
 import { sourcesShown } from './draft-sources.ts'
@@ -42,6 +43,9 @@ export interface NoteRow {
   readonly approved_by: MemberId | null
   readonly sources: string | null
   readonly discard_reason: string | null
+  readonly auto_principle_id?: string | null
+  readonly withdrawn_at?: number | null
+  readonly discarded_by: MemberId | null
 }
 
 export const PICKUP_GRACE_MS = 10 * 60_000
@@ -58,8 +62,9 @@ export const hydrateNotes = (
     const env = yield* T.ask<AppEnv>()
     const details = rows.some((row) => row.agent_name !== null) && (yield* featureIsOn('noteDetails'))
     const debates = yield* debatesBehind(rows)
+    const slack = yield* slackFactsOf(rows)
     const sentIds = rows.filter((row) => row.status === 'sent').map((row) => row.id)
-    if (sentIds.length === 0) return rows.map((row) => toNote(row, [], viewerId, details, debates))
+    if (sentIds.length === 0) return rows.map((row) => toNote(row, [], viewerId, details, debates, slack))
     const receiptRows = yield* all<ReceiptRow>(
       sql`SELECT * FROM receipts WHERE note_id IN ${list(sentIds)} ORDER BY member_id`,
     )
@@ -84,6 +89,7 @@ export const hydrateNotes = (
         viewerId,
         details,
         debates,
+        slack,
       ),
     )
   })
@@ -138,6 +144,7 @@ const toNote = (
   viewerId: MemberId | null,
   details: boolean,
   debates: ReadonlyMap<DebateId, DebateOrigin>,
+  slack: SlackFacts,
 ): Note => ({
   id: row.id,
   conversationId: row.conversation_id,
@@ -153,9 +160,16 @@ const toNote = (
   receipts,
   ...(row.author_id === viewerId && { basis: row.basis, ...sourcesShown(row) }),
   ...(details && row.agent_name !== null && { agentClient: row.agent_client, agentModel: row.agent_model }),
-  ...((row.approved_by ?? null) !== null && { approvedBy: row.approved_by }),
+  ...(isAutoSent(row)
+    ? { autoSent: true }
+    : (row.approved_by ?? null) !== null && { approvedBy: row.approved_by }),
   ...(row.debate_id && debates.has(row.debate_id) && { fromDebate: debates.get(row.debate_id)! }),
+  ...(slack.via.has(row.id) && { via: slack.via.get(row.id)! }),
+  ...(slack.posting.has(row.id) && { posting: slack.posting.get(row.id)! }),
 })
+
+/** Sent by its person's saved answer: the note records them as approver, and the wire says how. */
+const isAutoSent = (row: NoteRow): boolean => (row.auto_principle_id ?? null) !== null
 
 const toReceipt = (row: ReceiptRow, replyDraftStartedAt: number | null, now: number): Receipt => {
   const pickedUpRecently = row.drafting_at !== null && now - row.drafting_at < PICKUP_GRACE_MS

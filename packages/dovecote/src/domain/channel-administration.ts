@@ -8,6 +8,7 @@ import {
   type NoteId,
 } from '@homingbird/protocol'
 import type { RequestEnv } from '../events/events.ts'
+import { removeChannelLink } from '../slack/slack-channels.ts'
 import { all, dialect, run } from '../sql/database.ts'
 import { insertIgnoringConflict, sql } from '../sql/query.ts'
 import { abandonDraft } from './abandoned-drafts.ts'
@@ -76,6 +77,13 @@ export const archiveChannel = (
         detail: { channel: slug, because: 'channel_archived' },
       })
     }
+    const slackChannel = yield* removeChannelLink(row.conversation_id)
+    if (slackChannel !== null)
+      yield* recordAudit('slack.channel.unlinked', {
+        actorId,
+        targetId: slug,
+        detail: { slackChannel, because: 'channel_archived' },
+      })
     yield* closePrivateQuestions(row, slug)
     if (moveMembersTo !== null) yield* moveMembers(row, moveMembersTo)
     const drafts = yield* all<NoteRow>(

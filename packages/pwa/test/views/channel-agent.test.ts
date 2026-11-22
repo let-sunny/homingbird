@@ -55,7 +55,7 @@ const onPage = () => {
   context.state.session.set(me())
   context.state.channelsLoaded.set(true)
   context.state.channels.set([wiki])
-  const shown = mount(channelAgentView(context, lifetime(), 'payments-wiki', null))
+  const shown = mount(channelAgentView(context, lifetime(), 'payments-wiki', null, 'answers'))
   return { context, called, page, dialog: shown }
 }
 
@@ -71,7 +71,7 @@ describe('channelAgentView', () => {
         agent: { id: AGENT, name: 'Payments wiki', presence: { humanOnline: false, agentOnline: false } },
       },
     ])
-    const shown = mount(channelAgentView(context, lifetime(), 'payments-wiki', null))
+    const shown = mount(channelAgentView(context, lifetime(), 'payments-wiki', null, 'answers'))
     expect(textOf(shown.querySelector('.channel-agent-state')!)).toBe(
       strings.channelAgentState.notConnected({ agent: 'Payments wiki' }),
     )
@@ -179,6 +179,7 @@ describe('the agent panel', () => {
     expect(called('createJoinCode')[0]!.args).toEqual(['payments-wiki'])
     called('createJoinCode')[0]!.then!.done!({
       code: 'hbj_secret',
+      id: 'join_1',
       serverUrl: 'https://hb.example.com',
       expiresAt: context.clock.now() + 600_000,
     })
@@ -323,6 +324,17 @@ describe('how the agent is doing', () => {
     }
   }
 
+  it('puts the recent decisions on the agent’s page, right after the answers waiting', () => {
+    const { called, dialog } = onPage()
+    expect(called('loadChannelDecisions')[0]!.args).toEqual(['payments-wiki'])
+    called('loadChannelDecisions')[0]!.then!.done!({ channel: 'payments-wiki', days: 30, decisions: [] })
+    const panel = dialog.querySelector('.channel-agent-panel')!
+    expect([...panel.children].map((child) => child.className).slice(0, 2)).toEqual([
+      'region',
+      'channel-decisions-region',
+    ])
+  })
+
   it('shows the figures and each manager’s count beside the panel, once loaded', () => {
     const { called, dialog } = onPage()
     expect(called('loadChannelAgentFigures')[0]!.args).toEqual(['payments-wiki'])
@@ -376,10 +388,39 @@ describe('how the agent is doing', () => {
 })
 
 describe('channelAgentView', () => {
+  it('offers the answers and Teach as tabs, and shows what the agent was taught on Teach', () => {
+    const { context, called } = testContext()
+    context.state.serverInfo.set(everything())
+    context.state.channelsLoaded.set(true)
+    context.state.channels.set([wiki])
+    const shown = mount(channelAgentView(context, lifetime(), 'payments-wiki', null, 'teach'))
+    const tabs = getByRole(shown, 'navigation', {
+      name: strings.channelTeach.tabsLabel({ channel: '#payments-wiki' }),
+    })
+    expect(
+      getByRole(tabs, 'link', { name: strings.channelTeach.tabs.teach }).getAttribute('aria-current'),
+    ).toBe('page')
+    expect(getByRole(tabs, 'link', { name: strings.channelTeach.tabs.answers }).getAttribute('href')).toBe(
+      '#/channel/payments-wiki/agent',
+    )
+    expect(called('loadChannelTeaching')[0]!.args).toEqual(['payments-wiki'])
+    expect(called('loadReviews')).toHaveLength(0)
+  })
+
+  it('has no tabs while the organization has teaching off', () => {
+    const { context } = testContext()
+    context.state.serverInfo.set(everything())
+    context.state.serverInfo.set({ ...everything(), features: { ...everything().features, teaching: false } })
+    context.state.channelsLoaded.set(true)
+    context.state.channels.set([wiki])
+    const shown = mount(channelAgentView(context, lifetime(), 'payments-wiki', null, 'teach'))
+    expect(queryByRole(shown, 'navigation')).toBeNull()
+  })
+
   it('shows a manager the agent’s page and anyone else that only managers run it', () => {
     const { context, called } = testContext()
     context.state.serverInfo.set(everything())
-    const shown = mount(channelAgentView(context, lifetime(), 'payments-wiki', null))
+    const shown = mount(channelAgentView(context, lifetime(), 'payments-wiki', null, 'answers'))
     expect(called('loadKnownChannels')).toHaveLength(1)
     expect(shown.querySelector('.loading')).not.toBeNull()
     context.state.channelsLoaded.set(true)
@@ -395,7 +436,7 @@ describe('channelAgentView', () => {
     context.state.serverInfo.set(everything())
     context.state.channelsLoaded.set(true)
     context.state.channels.set([wiki])
-    const shown = mount(channelAgentView(context, lifetime(), 'payments-wiki', 'note_answer00000'))
+    const shown = mount(channelAgentView(context, lifetime(), 'payments-wiki', 'note_answer00000', 'answers'))
     context.state.reviews.set([review(), review({ note: draft('note_other000000', { authorId: AGENT }) })])
     const focused = shown.querySelector('.review-card[aria-current="true"]')
     expect(focused?.getAttribute('data-note')).toBe('note_answer00000')
@@ -417,7 +458,7 @@ describe('the answer a stale notification opened', () => {
     context.state.channelsLoaded.set(true)
     context.state.channels.set([wiki])
     context.state.directory.set([entry(CY, 'Cy')])
-    const shown = mount(channelAgentView(context, lifetime(), 'payments-wiki', focus))
+    const shown = mount(channelAgentView(context, lifetime(), 'payments-wiki', focus, 'answers'))
     return { context, called, shown }
   }
 
@@ -463,7 +504,7 @@ describe('the answer a stale notification opened', () => {
     context.state.serverInfo.set(everything())
     context.state.channelsLoaded.set(true)
     context.state.channels.set([wiki])
-    mount(channelAgentView(context, lifetime(), 'payments-wiki', null))
+    mount(channelAgentView(context, lifetime(), 'payments-wiki', null, 'answers'))
     called('loadReviews')[0]!.then!.done!(undefined)
     expect(called('loadDecidedAnswer')).toHaveLength(0)
   })

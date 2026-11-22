@@ -20,7 +20,6 @@ describe('agentTrustView', () => {
       strings.trust.sections.connection,
       strings.trust.sections.teaching,
       strings.trust.sections.doing,
-      strings.trust.sections.routes,
     ])
     expect(getByRole(tabs, 'link', { name: strings.trust.sections.doing }).getAttribute('aria-current')).toBe(
       'page',

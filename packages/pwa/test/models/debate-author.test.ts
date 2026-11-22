@@ -20,6 +20,7 @@ describe('debateAuthorModel', () => {
       debateAuthorModel(input(), { id: 'd-turn-2', memberId: BEN, agentName: 'Desk', agentModel: 'gpt-6' }),
     ).toEqual({
       id: 'author-d-turn-2',
+      memberId: BEN,
       buttonClass: 'author-button is-agent',
       buttonLabel: strings.debates.authorWho({ authorship: line }),
       avatar: expect.objectContaining({ label: null }),

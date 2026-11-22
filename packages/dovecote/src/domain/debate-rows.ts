@@ -4,6 +4,7 @@ import {
   DEBATE_GRACE_MINUTES,
   DEFAULT_GRACE_MINUTES,
   type Debate,
+  type DebateConclusion,
   type DebateEnding,
   type DebateId,
   type DebateResult,
@@ -76,6 +77,7 @@ export const loadRoom = (row: DebateRow): T.Task<DebateFacts, never, AppEnv> =>
       createdAt: Number(row.created_at),
       deadlineAt: Number(row.deadline_at),
       concludedAt: numberOrNull(row.concluded_at),
+      concludedBecause: row.concluded_because ?? null,
       closedAt: numberOrNull(row.closed_at),
       endedBecause: row.ended_because,
       limits,
@@ -95,6 +97,7 @@ export const loadRoom = (row: DebateRow): T.Task<DebateFacts, never, AppEnv> =>
         at: Number(turn.created_at),
         ...statedModel(turn),
         afterTurn: numberOrNull(turn.after_turn),
+        ...(Number(turn.ready) === 1 && { ready: true }),
       })),
       result: resultOf(row),
       resultRound: Number(row.result_round),
@@ -144,7 +147,7 @@ export const isAgentTakingPart = (
 }
 
 /** Each agent's id to its own person only; while drafts are collected, an agent sees only its own. */
-export const seenBy =
+const seenBy =
   (caller: Caller) =>
   (debate: Debate): Debate => {
     const viewerId = caller.member.id
@@ -160,6 +163,25 @@ export const seenBy =
     if (isHuman(caller) || !collecting || drafted) return shown
     return { ...shown, drafts: [] }
   }
+
+/**
+ * The room as `seenBy` shows it, with the caller's own note on what their agent may use here: to the person
+ * who wrote it and to the agent they opted in, never to another participant, an administrator or another
+ * agent of theirs.
+ */
+export const shownTo =
+  (caller: Caller) =>
+  (debate: Debate): T.Task<Debate, never, AppEnv> =>
+    T.map((own: { readonly brief: string | null } | null) => ({
+      ...seenBy(caller)(debate),
+      brief: own?.brief ?? null,
+    }))(
+      first<{ brief: string | null }>(
+        isHuman(caller)
+          ? sql`SELECT brief FROM debate_participants WHERE debate_id = ${debate.id} AND member_id = ${caller.member.id}`
+          : sql`SELECT brief FROM debate_participants WHERE debate_id = ${debate.id} AND credential_id = ${caller.credential.id}`,
+      ),
+    )
 
 const draftsOf = (id: DebateId, round: number): T.Task<ReadonlyArray<DraftRow>, never, AppEnv> =>
   all<DraftRow>(sql`
@@ -266,6 +288,7 @@ export interface DebateRow {
   readonly result_at: number | null
   readonly result_round: number
   readonly ended_because: DebateEnding | null
+  readonly concluded_because?: DebateConclusion | null
   readonly votes_open_at: number | null
   readonly grace_minutes: number | null
   readonly dropped_out: string | null
@@ -292,6 +315,7 @@ export interface ParticipantRow {
   readonly credential_id: CredentialId
   readonly agent_name: string
   readonly created_at: number
+  readonly brief?: string | null
 }
 
 interface AgentRow {
@@ -310,6 +334,7 @@ interface TurnRow {
   readonly created_at: number
   readonly agent_model?: string | null
   readonly after_turn?: number | null
+  readonly ready?: number | null
 }
 
 /** The stored result passed `DebateResult` when it was drafted. */

@@ -5,11 +5,13 @@ import { strings } from '../../src/strings.ts'
 import { joinCodeSection } from '../../src/views/join-code.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
+import { entry, me } from '../support/fixtures.ts'
 
 usingFakeDom()
 
 const madeFor = (now: number) => ({
   code: 'hbj_secret',
+  id: 'join_1',
   serverUrl: 'https://hb.example.com',
   expiresAt: now + 600_000,
 })
@@ -65,6 +67,7 @@ describe('joinCodeSection', () => {
     getByRole(shown, 'button', { name: strings.joinCode.create }).click()
     called('createJoinCode')[0]!.then!.done!({
       code: 'hbj_secret',
+      id: 'join_1',
       serverUrl: 'https://hb.example.com',
       expiresAt: context.clock.now() - 3_600_000,
       expiresInSeconds: 600,
@@ -80,6 +83,56 @@ describe('joinCodeSection', () => {
     const second = joinCodeSection(numbered, lifetime(), { channel: 'payments-wiki', name: 'Wiki' })
     expect(first.getAttribute('aria-labelledby')).not.toBe(second.getAttribute('aria-labelledby'))
     expect(first.querySelector('h3')!.id).toBe(first.getAttribute('aria-labelledby'))
+  })
+
+  it('asks the server whether the code was used, then names the connection, says it is awake and reloads', async () => {
+    const { context, called, clock } = testContext()
+    context.state.session.set(me())
+    let reloaded = 0
+    const shown = mount(joinCodeSection(context, lifetime(), null, () => void reloaded++))
+    getByRole(shown, 'button', { name: strings.joinCode.create }).click()
+    called('createJoinCode')[0]!.then!.done!(madeFor(clock.now()))
+    expect(called('joinCodeStatus')).toEqual([])
+    await clock.advance(3_000)
+    expect(called('joinCodeStatus')[0]!.args).toEqual(['join_1'])
+    called('joinCodeStatus')[0]!.then!.done!({ status: 'waiting' })
+    await clock.advance(3_000)
+    called('joinCodeStatus')[1]!.then!.failed!({ _tag: 'Unavailable', message: 'no' } as never)
+    await clock.advance(3_000)
+    called('joinCodeStatus')[2]!.then!.done!({
+      status: 'redeemed',
+      credential: { id: 'cred_9', name: 'build-1' },
+    })
+    expect(reloaded).toBe(1)
+    expect(shown.querySelector('pre')).toBeNull()
+    const said = textOf(shown.querySelector('.join-code-connected')!)
+    expect(said).toContain(strings.joinCode.connected({ name: 'build-1' }))
+    expect(said).toContain(strings.joinCode.notAwakeYet)
+    context.state.directory.set([
+      entry(me().member.id, 'Ana', { presence: { humanOnline: true, agentOnline: true } }),
+    ])
+    expect(textOf(shown.querySelector('.join-code-connected')!)).toContain(strings.joinCode.awakeNow)
+    await clock.advance(30_000)
+    expect(called('joinCodeStatus')).toHaveLength(3)
+    getByRole(shown, 'button', { name: strings.joinCode.another }).click()
+    expect(called('createJoinCode')).toHaveLength(2)
+  })
+
+  it('stops asking once the code expired, and ignores an answer that comes after', async () => {
+    const { context, called, clock } = testContext()
+    const shown = mount(joinCodeSection(context, lifetime(), { channel: 'payments-wiki', name: 'Wiki' }))
+    getByRole(shown, 'button', { name: strings.joinCode.create }).click()
+    called('createJoinCode')[0]!.then!.done!({ ...madeFor(clock.now()), expiresInSeconds: 5 })
+    await clock.advance(3_000)
+    await clock.advance(2_000)
+    called('joinCodeStatus')[0]!.then!.failed!({ _tag: 'Unavailable', message: 'no' } as never)
+    await clock.advance(10_000)
+    called('joinCodeStatus')[0]!.then!.done!({
+      status: 'redeemed',
+      credential: { id: 'cred_9', name: 'late' },
+    })
+    expect(textOf(shown)).toContain(strings.joinCode.expired)
+    expect(called('joinCodeStatus')).toHaveLength(1)
   })
 
   it('stops counting once its page is gone', async () => {

@@ -81,6 +81,28 @@ describe('the visitor’s agent', () => {
     expect(report.week?.days).toBe(7)
   })
 
+  it('counts each place as Dovecote does and agrees with the figures and the principles’ own counts', async () => {
+    const { api } = demoApi()
+    const taught = await succeeded(api['principles.list']({}))
+    const month = (await succeeded(api['insights.mine']({}))).periods[1]!.current
+    expect(taught.routes).toEqual([
+      { place: 'deploys', drafted: 12, principles: 1, heldUp: 4, chances: 0 },
+      { place: 'billing', drafted: 26, principles: 2, heldUp: 4, chances: 0 },
+      { place: null, drafted: 26, principles: 1, heldUp: 3, chances: 1 },
+    ])
+    for (const route of taught.routes)
+      expect(month.places.find((place) => place.place === route.place)?.written).toBe(route.drafted)
+    expect(taught.routes.reduce((sum, route) => sum + route.heldUp, 0)).toBe(
+      taught.principles.reduce((sum, principle) => sum + (principle.counts?.sentAsWritten ?? 0), 0),
+    )
+    expect(taught.routes.reduce((sum, route) => sum + route.chances, 0)).toBe(taught.offers.length)
+    const [anywhere] = taught.principles
+    await succeeded(api['principles.delete']({ params: { id: anywhere!.id } }))
+    expect((await succeeded(api['principles.list']({}))).routes.map((route) => route.heldUp)).toEqual([
+      0, 3, 0,
+    ])
+  })
+
   it('keeps what the visitor teaches: adds, changes, reorders, misses and removes a principle', async () => {
     const { api } = demoApi()
     const before = await succeeded(api['principles.list']({}))
@@ -135,6 +157,15 @@ describe('the visitor’s agent', () => {
     ).toEqual({})
   })
 
+  it('shows no proposals: a teaching chat needs a real agent', async () => {
+    const { api } = demoApi()
+    expect(await succeeded(api['principleProposals.list']({}))).toEqual({
+      document: null,
+      proposals: [],
+      limit: 20,
+    })
+  })
+
   it('gives an agent the principles that are on, as it drafts', async () => {
     const { api } = demoApi()
     const [first] = (await succeeded(api['principles.list']({}))).principles
@@ -157,5 +188,24 @@ describe('connecting an agent', () => {
     expect(
       await refused(api['device.decide']({ params: { userCode: 'ABCD-EFGH' }, body: { approve: true } })),
     ).toMatchObject({ _tag: 'Forbidden' })
+  })
+})
+
+describe('principles.autoSend.set', () => {
+  it('keeps the visitor’s switch and each place once, and starts a new answer switched off', async () => {
+    const { api } = demoApi()
+    const { principles } = await succeeded(api['principles.list']({}))
+    const refunds = principles.find((each) => each.topic === 'Annual refunds')!
+    expect(refunds.autoSend).toMatchObject({ enabled: true })
+    const off = await succeeded(
+      api['principles.autoSend.set']({ params: { id: refunds.id }, body: { enabled: false, places: [] } }),
+    )
+    expect(off.autoSend).toEqual({ enabled: false, places: [] })
+    const created = await succeeded(
+      api['principles.create']({
+        body: { kind: 'answer', topic: 'Hours', rule: 'Nine to five.', place: null },
+      }),
+    )
+    expect(created.autoSend).toEqual({ enabled: false, places: [] })
   })
 })

@@ -11,7 +11,6 @@ describe('myAgentModel', () => {
       '#/agent/connection',
       '#/agent/teaching',
       '#/agent/doing',
-      '#/agent/routes',
     ])
     expect(model.tabs.filter((tab) => tab.current).map((tab) => tab.section)).toEqual(['doing'])
     expect(model.shown).toEqual({
@@ -32,21 +31,31 @@ describe('myAgentModel', () => {
   })
 
   it('loads the report only on How it is doing and Connection, and only with figures on', () => {
+    const all = serverInfo({ ...everything().features, draftPreviews: true })
     for (const section of AGENT_SECTIONS)
-      expect(myAgentModel(everything(), section).loadsReport).toBe(
-        section === 'doing' || section === 'connection',
-      )
+      expect(myAgentModel(all, section).loadsReport).toBe(section === 'doing' || section === 'connection')
     expect(myAgentModel(serverInfo({ teaching: true }), 'connection').loadsReport).toBe(false)
   })
 
-  it('keeps Connection when everything else is off, and the route map only with teaching', () => {
+  it('keeps Connection when everything else is off, and each other tab only with its feature', () => {
     expect(myAgentModel(serverInfo(), null).tabs.map((tab) => tab.section)).toEqual(['connection'])
-    expect(myAgentModel(serverInfo({ routeMap: true }), null).tabs.map((tab) => tab.section)).toEqual([
+    expect(myAgentModel(serverInfo({ teaching: true }), null).tabs.map((tab) => tab.section)).toEqual([
       'connection',
+      'teaching',
     ])
-    expect(
-      myAgentModel(serverInfo({ teaching: true, routeMap: true }), null).tabs.map((tab) => tab.section),
-    ).toEqual(['connection', 'teaching', 'routes'])
+    expect(myAgentModel(serverInfo({ agentFigures: true }), null).tabs.map((tab) => tab.section)).toEqual([
+      'connection',
+      'doing',
+    ])
+  })
+
+  it('offers Early previews only while the organization has draft previews on', () => {
+    expect(myAgentModel(serverInfo({ draftPreviews: true }), 'previews').shown).toEqual({
+      section: 'previews',
+      title: strings.trust.sections.previews,
+      hint: strings.trust.sectionHints.previews,
+    })
+    expect(myAgentModel(serverInfo(), 'previews').shown.section).toBe('connection')
   })
 
   it('falls back to Connection when the section asked for is switched off', () => {

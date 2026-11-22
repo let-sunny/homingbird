@@ -20,7 +20,7 @@ beforeEach(async () => {
   ana = await server.signIn('ana@example.com', 'Ana')
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const token = (form: Record<string, string>) => server.request('POST', '/oauth/token', { form })
 

@@ -38,8 +38,9 @@ describe('dovecote members verify-left', () => {
         '  FAIL  In no group, so managing no channel: 1 group',
         '  pass  No approved sign-in waiting for a program',
         '  pass  No cloud desk wake address',
+        '  pass  No Slack account linked',
         '  pass  Not named in HB_ADMIN_EMAILS',
-        '3 of 7 checks fail.',
+        '3 of 8 checks fail.',
       ],
     })
 
@@ -47,7 +48,7 @@ describe('dovecote members verify-left', () => {
     const after = await command('verify-left', 'ben@example.com')
     expect(after.code).toBe(0)
     expect(after.lines.at(-1)).toBe('Every check passes.')
-    expect(after.lines.filter((line) => line.startsWith('  pass'))).toHaveLength(7)
+    expect(after.lines.filter((line) => line.startsWith('  pass'))).toHaveLength(8)
     expect(after.lines.join('\n')).not.toContain(agent.token)
     expect(after.lines.join('\n')).not.toContain(ben.token)
   })
@@ -84,6 +85,7 @@ describe('the offboarding checks', () => {
       groups: 3,
       approvedSignIns: 1,
       deskWakes: 1,
+      slackLinks: 1,
       namedAdministrator: true,
     })
     expect(checks.map((check) => [check.passed, check.text])).toEqual([
@@ -93,6 +95,7 @@ describe('the offboarding checks', () => {
       [false, 'In no group, so managing no channel: 3 groups'],
       [false, 'No approved sign-in waiting for a program: 1 waits'],
       [false, 'No cloud desk wake address: 1 is saved'],
+      [false, 'No Slack account linked: 1 is linked'],
       [false, 'Not named in HB_ADMIN_EMAILS: remove them from it and restart Dovecote'],
     ])
   })

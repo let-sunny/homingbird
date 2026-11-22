@@ -188,6 +188,26 @@ export const mayStillIssue = (agentId: MemberId, issuerId: MemberId): T.Task<boo
 
 export type AgentFailure = NotFound | Forbidden | Conflict
 
+/** The channel and its agent, for one of its current managers only, under the channel group's lock. */
+export const managedAgent = (
+  caller: Caller,
+  slug: string,
+): T.Task<
+  { readonly row: ChannelRow; readonly agent: { readonly id: MemberId } },
+  AgentFailure,
+  RequestEnv
+> =>
+  T.gen(function* () {
+    const row = yield* managedChannel(caller, slug)
+    return { row, agent: yield* existingAgent(row) }
+  })
+
+/** The channel whose room a channel's agent answers in. */
+export const agentsChannel = (agentId: MemberId): T.Task<ChannelRow | null, never, RequestEnv> =>
+  first<ChannelRow>(sql`
+    SELECT t.* FROM channels t JOIN participants p ON p.conversation_id = t.conversation_id
+    WHERE p.member_id = ${agentId} ORDER BY t.slug LIMIT 1`)
+
 const managedChannel = (caller: Caller, slug: string): T.Task<ChannelRow, AgentFailure, RequestEnv> =>
   T.gen(function* () {
     const row = yield* lockedChannel(viewerOf(caller), slug)
@@ -214,11 +234,6 @@ const describeAgent = (
     )
     return { agent: member, channel: row.slug, credentials: credentials.map(toAgentCredential) }
   })
-
-const agentsChannel = (agentId: MemberId): T.Task<ChannelRow | null, never, RequestEnv> =>
-  first<ChannelRow>(sql`
-    SELECT t.* FROM channels t JOIN participants p ON p.conversation_id = t.conversation_id
-    WHERE p.member_id = ${agentId} ORDER BY t.slug LIMIT 1`)
 
 interface CredentialRow {
   readonly id: CredentialId

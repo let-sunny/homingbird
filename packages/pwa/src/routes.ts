@@ -11,11 +11,20 @@ export type Route =
       /** A sent note a copied link or a draft's source points at, brought into view when the conversation opens. */
       readonly note?: string
     }
-  | { readonly name: 'people' }
+  /** People, with the card of one member brought into view when a profile card opened it. */
+  | { readonly name: 'people'; readonly person?: string }
+  /** A note to people the person picks first; `to` names whom they chose already, as from a person's card. */
+  | { readonly name: 'new'; readonly to: ReadonlyArray<string> }
   | { readonly name: 'group'; readonly id: string }
   | { readonly name: 'channels' }
   | { readonly name: 'channel'; readonly slug: string }
-  | { readonly name: 'channel-agent'; readonly slug: string; readonly draft: string | null }
+  | {
+      readonly name: 'channel-agent'
+      readonly slug: string
+      readonly draft: string | null
+      /** The Teach tab rather than the answers. */
+      readonly teach?: true
+    }
   | { readonly name: 'debates' }
   /** A debate room, on one of its tabs; none asked for shows the tab its state calls for. */
   | {
@@ -39,11 +48,13 @@ export type Route =
   | { readonly name: 'signed-out'; readonly reason: string | null }
   | { readonly name: 'invite'; readonly code: string }
   | { readonly name: 'invite-refused' }
+  /** A single-use link the Homingbird app sent in Slack, confirmed here. */
+  | { readonly name: 'slack-link'; readonly code: string }
   | { readonly name: 'unknown' }
 
-export type AgentSection = 'connection' | 'teaching' | 'doing' | 'routes'
+export type AgentSection = 'connection' | 'teaching' | 'doing' | 'previews'
 
-export const AGENT_SECTIONS: ReadonlyArray<AgentSection> = ['connection', 'teaching', 'doing', 'routes']
+export const AGENT_SECTIONS: ReadonlyArray<AgentSection> = ['connection', 'teaching', 'doing', 'previews']
 
 export type DebateTab = 'result' | 'votes' | 'credit' | 'turns'
 
@@ -53,7 +64,7 @@ export type AdminSection = 'settings' | 'members' | 'groups' | 'channels' | 'ins
 
 export const parseRoute = (hash: string): Route => {
   const [path = '', search = ''] = hash.replace(/^#\/?/, '').split('?')
-  const [head = '', second, third] = path
+  const [head = '', second, third, fourth] = path
     .split('/')
     .filter((segment) => segment !== '')
     .map(decodeSegment)
@@ -70,11 +81,20 @@ export const parseRoute = (hash: string): Route => {
       ...(note !== null && { note }),
     }
   }
-  if (head === 'people') return { name: 'people' }
+  if (head === 'people') {
+    const person = parameters.get('person')
+    return person === null ? { name: 'people' } : { name: 'people', person }
+  }
+  if (head === 'new') return { name: 'new', to: memberIdsIn(parameters.get('to')) }
   if (head === 'group' && second !== undefined) return { name: 'group', id: second }
   if (head === 'channels') return { name: 'channels' }
   if (head === 'channel' && second !== undefined && third === 'agent')
-    return { name: 'channel-agent', slug: second, draft: parameters.get('draft') }
+    return {
+      name: 'channel-agent',
+      slug: second,
+      draft: parameters.get('draft'),
+      ...(fourth === TEACH_SEGMENT && { teach: true }),
+    }
   if ((head === 'channel' || head === LEGACY_CHANNEL_HEAD) && second !== undefined)
     return { name: 'channel', slug: second }
   if (head === 'debates') return { name: 'debates' }
@@ -90,6 +110,7 @@ export const parseRoute = (hash: string): Route => {
   if (head === 'activity') return { name: 'activity' }
   if (head === 'search') return { name: 'search', query: parameters.get('q') ?? '' }
   if (head === 'me') return { name: 'profile' }
+  if (head === 'agent' && second === RETIRED_ROUTE_MAP) return { name: 'agent', section: 'doing' }
   if (head === 'agent') return { name: 'agent', section: isAgentSection(second) ? second : null }
   if (head === 'measured') return { name: 'measured' }
   if (head === 'connect' || head === 'credentials') return { name: 'agent', section: 'connection' }
@@ -103,6 +124,7 @@ export const parseRoute = (hash: string): Route => {
   if (head === 'signed-out') return { name: 'signed-out', reason: parameters.get('reason') }
   if (head === 'invite' && second !== undefined) return { name: 'invite', code: second }
   if (head === 'invite-refused') return { name: 'invite-refused' }
+  if (head === 'slack' && second === 'link' && third !== undefined) return { name: 'slack-link', code: third }
   return { name: 'unknown' }
 }
 
@@ -118,17 +140,21 @@ export const hrefFor = (route: Route): string => {
         ...(route.note !== undefined && { note: route.note }),
       })
     case 'people':
-      return '#/people'
+      return withQuery('#/people', route.person === undefined ? {} : { person: route.person })
+    case 'new':
+      return route.to.length === 0
+        ? '#/new'
+        : `#/new?${new URLSearchParams({ to: route.to.join(',') }).toString()}`
     case 'group':
       return `#/group/${encodeURIComponent(route.id)}`
     case 'channels':
       return '#/channels'
     case 'channel':
       return `#/channel/${encodeURIComponent(route.slug)}`
-    case 'channel-agent':
-      return route.draft === null
-        ? `#/channel/${encodeURIComponent(route.slug)}/agent`
-        : `#/channel/${encodeURIComponent(route.slug)}/agent?${new URLSearchParams({ draft: route.draft }).toString()}`
+    case 'channel-agent': {
+      const base = `#/channel/${encodeURIComponent(route.slug)}/agent${route.teach === true ? `/${TEACH_SEGMENT}` : ''}`
+      return route.draft === null ? base : `${base}?${new URLSearchParams({ draft: route.draft }).toString()}`
+    }
     case 'debates':
       return '#/debates'
     case 'debate':
@@ -170,6 +196,8 @@ export const hrefFor = (route: Route): string => {
       return `#/invite/${encodeURIComponent(route.code)}`
     case 'invite-refused':
       return '#/invite-refused'
+    case 'slack-link':
+      return `#/slack/link/${encodeURIComponent(route.code)}`
   }
 }
 
@@ -189,6 +217,11 @@ const LEGACY_CHANNEL_HEAD = 't'
 
 const ADMIN_SECTIONS: ReadonlyArray<AdminSection> = ['settings', 'members', 'groups', 'channels', 'insights']
 
+const TEACH_SEGMENT = 'teach'
+
+/** The address of the retired route map, which leads to where its question is answered now. */
+const RETIRED_ROUTE_MAP = 'routes'
+
 const isAgentSection = (value: string | undefined): value is AgentSection =>
   AGENT_SECTIONS.includes(value as AgentSection)
 
@@ -200,6 +233,9 @@ const turnNumber = (value: string | null): number | null =>
 
 const isAdminSection = (value: string | undefined): value is AdminSection =>
   ADMIN_SECTIONS.includes(value as AdminSection)
+
+const memberIdsIn = (value: string | null): ReadonlyArray<string> =>
+  (value ?? '').split(',').filter((memberId) => memberId !== '')
 
 const decodeSegment = (segment: string): string => {
   try {

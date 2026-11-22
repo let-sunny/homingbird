@@ -3,23 +3,23 @@ import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import { EventBody } from '../src/events.ts'
 import { DebateId, MemberId } from '../src/ids.ts'
+import { Note } from '../src/model.ts'
 import { isWakingEvent } from '../src/waking-events.ts'
 
 const ANA = MemberId.of('ana000000000')
 const BEN = MemberId.of('ben000000000')
 
-const noteBy = (authorId: MemberId) =>
-  fc
-    .sample(
-      arbitrary(EventBody).filter((body) => body.type === 'note.sent'),
-      1,
-    )
-    .map((body) => ({
-      ...body,
-      note: { ...(body as Extract<EventBody, { type: 'note.sent' }>).note, authorId },
-    }))[0] as EventBody
+const noteBy = (authorId: MemberId): EventBody => ({
+  type: 'note.sent',
+  note: { ...fc.sample(arbitrary(Note), 1)[0]!, authorId },
+})
 
 describe('which events may mean work waits for an agent', () => {
+  it('never wakes for a colleague’s draft preview changing', () => {
+    expect(isWakingEvent({ type: 'preview.changed', conversationId: null }, ANA)).toBe(false)
+    expect(isWakingEvent({ type: 'preview.changed', conversationId: null }, null)).toBe(false)
+  })
+
   it('wakes for a colleague’s note, never for the person’s own', () => {
     expect(isWakingEvent(noteBy(BEN), ANA)).toBe(true)
     expect(isWakingEvent(noteBy(ANA), ANA)).toBe(false)

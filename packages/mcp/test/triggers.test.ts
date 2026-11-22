@@ -230,6 +230,26 @@ describe('draft requests as triggers', () => {
     expect(text.indexOf('Look it up.')).toBeLessThan(text.indexOf('Release dates: check RELEASES.md'))
   })
 
+  it('gives a channel agent’s desk its managers’ teaching before the quoted note', async () => {
+    const principles = {
+      principles: [
+        { kind: 'answer' as const, topic: 'Refund window', rule: 'Within 14 days.', source: null },
+      ],
+      leftOut: 0,
+      ignored: [],
+      ignoredLeftOut: 0,
+      channel: { channel: 'billing', instruction: 'Answer briefly.', sources: ['https://wiki.example/b'] },
+    }
+    const { result } = await fresh({
+      ...inboxOf(noteOf()),
+      'answeringFlow.get': () => ({ flow: null, updatedAt: null }),
+      'principles.drafting': () => principles,
+    })
+    const text: string = (result as any).value[0].text
+    expect(text).toContain(`${principlesInstructions(principles)}\n\n<${WRAPPER_TAG} `)
+    expect(text).toContain('What the managers of #billing taught you')
+  })
+
   it('drafts without principles, and says so, when they cannot be fetched', async () => {
     const { result } = await fresh({
       ...inboxOf(noteOf()),

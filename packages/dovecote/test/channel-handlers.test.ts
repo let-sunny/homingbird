@@ -13,7 +13,7 @@ beforeEach(async () => {
   anaAgent = await connectAgent(server, ana, { name: 'Ana agent' })
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 describe('the channel handlers', () => {
   it('page the channel list by cursor, keeping the page size between 1 and 200', async () => {

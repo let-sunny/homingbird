@@ -14,7 +14,7 @@ const CHALLENGE = createHash('sha256').update(VERIFIER).digest('base64url')
 
 let server: TestServer
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const claudeDocument = (overrides: Record<string, unknown> = {}) => ({
   client_id: CLAUDE_CLIENT_ID,

@@ -5,8 +5,10 @@ import * as account from './tasks/account.ts'
 import * as activity from './tasks/activity.ts'
 import * as admin from './tasks/admin.ts'
 import * as channelAgents from './tasks/channel-agents.ts'
+import * as channelTeaching from './tasks/channel-teaching.ts'
 import * as channels from './tasks/channels.ts'
 import * as cloudDesk from './tasks/cloud-desk.ts'
+import * as conversationActions from './tasks/conversation-actions.ts'
 import * as debates from './tasks/debates.ts'
 import * as drafts from './tasks/drafts.ts'
 import * as earlierAnswers from './tasks/earlier-answers.ts'
@@ -15,6 +17,9 @@ import * as held from './tasks/held.ts'
 import * as mutes from './tasks/mutes.ts'
 import * as notes from './tasks/notes.ts'
 import * as people from './tasks/people.ts'
+import * as previews from './tasks/previews.ts'
+import * as slack from './tasks/slack.ts'
+import * as interview from './tasks/teaching-interview.ts'
 import * as teaching from './tasks/teaching.ts'
 import * as workspace from './tasks/workspace.ts'
 
@@ -45,6 +50,7 @@ export const TASKS = {
   openThread: notes.openThread,
   loadOlderNotes: notes.loadOlderNotes,
   sendNote: notes.sendNote,
+  recallNote: notes.recallNote,
   markRead: notes.markRead,
   chooseReplyTarget: notes.chooseReplyTarget,
   replyTo: notes.replyTo,
@@ -53,6 +59,8 @@ export const TASKS = {
   markAnsweredFromHistory: earlierAnswers.markAnsweredFromHistory,
   setMuted: mutes.setMuted,
   chooseNotificationLevel: mutes.chooseNotificationLevel,
+  setHidden: conversationActions.setHidden,
+  leaveGroup: conversationActions.leaveGroup,
   approveDraft: drafts.approveDraft,
   saveDraft: drafts.saveDraft,
   confirmDraftRead: drafts.confirmDraftRead,
@@ -71,10 +79,16 @@ export const TASKS = {
   refreshPrinciples: () => teaching.refreshPrinciples,
   savePrinciple: teaching.savePrinciple,
   changePrinciple: teaching.changePrinciple,
+  setAutoSend: teaching.setAutoSend,
   reorderPrinciples: teaching.reorderPrinciples,
   deletePrinciple: teaching.deletePrinciple,
   markPrincipleWrong: teaching.markPrincipleWrong,
   dismissOffer: teaching.dismissOffer,
+  refreshInterview: () => interview.refreshInterview,
+  saveTeachingDocument: interview.saveTeachingDocument,
+  acceptProposal: interview.acceptProposal,
+  acceptProposals: interview.acceptProposals,
+  discardProposal: interview.discardProposal,
   loadChannelPage: channels.loadChannelPage,
   createChannel: channels.createChannel,
   joinChannel: channels.joinChannel,
@@ -100,11 +114,18 @@ export const TASKS = {
   confirmReviewRead: channelAgents.confirmReviewRead,
   loadChannelAgent: channelAgents.loadChannelAgent,
   loadChannelAgentFigures: channelAgents.loadChannelAgentFigures,
+  loadChannelDecisions: channelAgents.loadChannelDecisions,
   createChannelAgent: channelAgents.createChannelAgent,
   renameChannelAgent: channelAgents.renameChannelAgent,
   retireChannelAgent: channelAgents.retireChannelAgent,
   disconnectAgentDesk: channelAgents.disconnectAgentDesk,
   askPrivately: channelAgents.askPrivately,
+  loadChannelTeaching: channelTeaching.loadChannelTeaching,
+  saveChannelInstruction: channelTeaching.saveChannelInstruction,
+  saveChannelPrinciple: channelTeaching.saveChannelPrinciple,
+  changeChannelPrinciple: channelTeaching.changeChannelPrinciple,
+  reorderChannelPrinciples: channelTeaching.reorderChannelPrinciples,
+  deleteChannelPrinciple: channelTeaching.deleteChannelPrinciple,
   loadGroups: () => groups.loadGroups,
   renameGroup: groups.renameGroup,
   setGroupMembers: groups.setGroupMembers,
@@ -114,6 +135,8 @@ export const TASKS = {
   readImportFile: groups.readImportFile,
   openConversationWith: people.openConversationWith,
   openConversationAmong: people.openConversationAmong,
+  sendNoteAmong: people.sendNoteAmong,
+  askAgentAmong: people.askAgentAmong,
   requestContact: people.requestContact,
   acceptContact: people.acceptContact,
   removeContact: people.removeContact,
@@ -127,6 +150,7 @@ export const TASKS = {
   renameCredential: account.renameCredential,
   revokeCredential: account.revokeCredential,
   createJoinCode: account.createJoinCode,
+  joinCodeStatus: account.joinCodeStatus,
   listInvites: () => account.listInvites,
   createInvite: account.createInvite,
   revokeInvite: account.revokeInvite,
@@ -140,10 +164,22 @@ export const TASKS = {
   turnPushOn: () => turnPushOn,
   turnPushOff: () => turnPushOff,
   testPush: () => testPush,
+  loadPreviews: previews.loadPreviews,
+  loadPreviewAllowance: () => previews.loadPreviewAllowance,
+  savePreviewAllowance: previews.savePreviewAllowance,
   loadDeskWake: () => cloudDesk.loadDeskWake,
   saveDeskWake: cloudDesk.saveDeskWake,
   removeDeskWake: () => cloudDesk.removeDeskWake,
   testDeskWake: () => cloudDesk.testDeskWake,
+  loadMySlack: () => slack.loadMySlack,
+  connectSlack: () => slack.connectSlack,
+  readSlackCode: slack.readSlackCode,
+  linkSlack: slack.linkSlack,
+  unlinkSlack: () => slack.unlinkSlack,
+  loadAdminSlack: () => slack.loadAdminSlack,
+  retrySlackPost: slack.retrySlackPost,
+  linkSlackChannel: slack.linkSlackChannel,
+  unlinkSlackChannel: slack.unlinkSlackChannel,
   loadSettings: () => admin.loadSettings,
   saveSettings: admin.saveSettings,
   listMembers: () => admin.listMembers,
@@ -154,6 +190,7 @@ export const TASKS = {
   loadDebate: debates.loadDebate,
   createDebate: debates.createDebate,
   optInAgent: debates.optInAgent,
+  setBrief: debates.setBrief,
   changeLimits: debates.changeLimits,
   postResult: debates.postResult,
   exportDebate: debates.exportDebate,

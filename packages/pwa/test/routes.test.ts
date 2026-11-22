@@ -16,10 +16,15 @@ const segment = fc.string({ minLength: 1, maxLength: 24 })
 const routes: fc.Arbitrary<Route> = fc.oneof(
   fc.constant<Route>({ name: 'home' }),
   fc.constant<Route>({ name: 'people' }),
+  segment.map((person): Route => ({ name: 'people', person })),
+  fc
+    .array(fc.stringMatching(/^mem_[a-z0-9]{1,12}$/), { maxLength: 4 })
+    .map((to): Route => ({ name: 'new', to })),
   fc.constant<Route>({ name: 'channels' }),
   segment.map((slug): Route => ({ name: 'channel', slug })),
   segment.map((slug): Route => ({ name: 'channel-agent', slug, draft: null })),
   fc.tuple(segment, segment).map(([slug, draft]): Route => ({ name: 'channel-agent', slug, draft })),
+  segment.map((slug): Route => ({ name: 'channel-agent', slug, draft: null, teach: true })),
   segment.map((id): Route => ({ name: 'group', id })),
   fc.constant<Route>({ name: 'profile' }),
   fc.constant<Route>({ name: 'measured' }),
@@ -32,7 +37,7 @@ const routes: fc.Arbitrary<Route> = fc.oneof(
     .tuple(segment, fc.integer({ min: 1, max: 999 }))
     .map(([id, turn]): Route => ({ name: 'debate', id, tab: 'turns', turn })),
   fc
-    .constantFrom<AgentSection | null>(null, 'connection', 'teaching', 'doing', 'routes')
+    .constantFrom<AgentSection | null>(null, 'connection', 'teaching', 'doing', 'previews')
     .map((section): Route => ({ name: 'agent', section })),
   fc.constant<Route>({ name: 'character', draft: null, from: null }),
   segment.map((draft): Route => ({ name: 'character', draft, from: null })),
@@ -55,6 +60,7 @@ const routes: fc.Arbitrary<Route> = fc.oneof(
     .map((reason): Route => ({ name: 'signed-out', reason })),
   segment.map((code): Route => ({ name: 'invite', code })),
   fc.constant<Route>({ name: 'invite-refused' }),
+  segment.map((code): Route => ({ name: 'slack-link', code })),
 )
 
 describe('routes', () => {
@@ -75,9 +81,13 @@ describe('routes', () => {
     ['#/c/conv_1?review=note_2', { name: 'conversation', id: 'conv_1', draft: null, review: 'note_2' }],
     ['#/c/conv_1?note=note_3', { name: 'conversation', id: 'conv_1', draft: null, note: 'note_3' }],
     ['#/device', { name: 'device', code: null }],
+    ['#/new', { name: 'new', to: [] }],
+    ['#/new?to=mem_a,,mem_b', { name: 'new', to: ['mem_a', 'mem_b'] }],
     ['#/invite/hbi_abc', { name: 'invite', code: 'hbi_abc' }],
     ['#/invite', { name: 'unknown' }],
     ['#/invite-refused', { name: 'invite-refused' }],
+    ['#/slack/link/abc_DEF', { name: 'slack-link', code: 'abc_DEF' }],
+    ['#/slack/link', { name: 'unknown' }],
     ['#/device/BCDF-GHJK', { name: 'device', code: 'BCDF-GHJK' }],
     ['#/admin', { name: 'admin', section: 'settings' }],
     ['#/admin/nonsense', { name: 'admin', section: 'settings' }],
@@ -88,6 +98,7 @@ describe('routes', () => {
     ['#/channel/billing', { name: 'channel', slug: 'billing' }],
     ['#/channel/billing/agent', { name: 'channel-agent', slug: 'billing', draft: null }],
     ['#/channel/billing/agent?draft=note_1', { name: 'channel-agent', slug: 'billing', draft: 'note_1' }],
+    ['#/channel/billing/agent/teach', { name: 'channel-agent', slug: 'billing', draft: null, teach: true }],
     ['#/channel/billing/other', { name: 'channel', slug: 'billing' }],
     ['#/channel', { name: 'unknown' }],
     ['#/t/billing', { name: 'channel', slug: 'billing' }],
@@ -99,6 +110,7 @@ describe('routes', () => {
     ['#/group', { name: 'unknown' }],
     ['#/admin/insights', { name: 'admin', section: 'insights' }],
     ['#/agent', { name: 'agent', section: null }],
+    ['#/agent/routes', { name: 'agent', section: 'doing' }],
     ['#/debate/d1', { name: 'debate', id: 'd1', tab: null }],
     ['#/debate/d1/votes', { name: 'debate', id: 'd1', tab: 'votes' }],
     ['#/debate/d1/nonsense', { name: 'debate', id: 'd1', tab: null }],

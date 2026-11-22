@@ -28,6 +28,8 @@ export const FEATURES = {
     default: true,
     routes: ['conversations.mute', 'conversations.unmute', 'me.notifications.set'],
   },
+  hideConversations: { default: true, routes: ['conversations.hide', 'conversations.unhide'] },
+  leaveGroups: { default: true, routes: ['conversations.leave'] },
   webPush: { default: true, routes: ['push.key', 'push.subscribe', 'push.test', 'push.unsubscribe'] },
   answeringFlow: { default: true, routes: ['answeringFlow.get'] },
   earlierAnswers: { default: true, routes: ['answers.earlier', 'answers.used'] },
@@ -42,10 +44,16 @@ export const FEATURES = {
       'principles.miss',
       'principles.offers.dismiss',
       'principles.drafting',
+      'teaching.material',
+      'teaching.document.set',
+      'principleProposals.list',
+      'principleProposals.create',
+      'principleProposals.accept',
+      'principleProposals.acceptAll',
+      'principleProposals.discard',
     ],
   },
   agentFigures: { default: true, routes: ['insights.mine'] },
-  routeMap: { default: true, routes: [] },
   insights: { default: true, routes: ['admin.insights'] },
   noteDetails: { default: true, routes: [] },
   debateRooms: {
@@ -56,6 +64,7 @@ export const FEATURES = {
       'debates.get',
       'debates.create',
       'debates.optIn',
+      'debates.brief.set',
       'debates.limits.set',
       'debates.turns.post',
       'debates.result.draft',
@@ -73,6 +82,13 @@ export const FEATURES = {
       'channels.agent.retire',
       'channels.agent.credentials.revoke',
       'channels.agent.figures',
+      'channels.agent.decisions',
+      'channels.agent.teaching.get',
+      'channels.agent.teaching.set',
+      'channels.agent.principles.create',
+      'channels.agent.principles.update',
+      'channels.agent.principles.reorder',
+      'channels.agent.principles.delete',
       'channels.askPrivately',
       'reviews.list',
       'reviews.get',
@@ -82,15 +98,38 @@ export const FEATURES = {
     default: false,
     routes: ['me.deskWake.get', 'me.deskWake.set', 'me.deskWake.test'],
   },
-  joinCodes: { default: true, routes: ['joinCodes.create'] },
+  slack: {
+    default: false,
+    routes: [
+      'admin.slack.get',
+      'me.slack.get',
+      'me.slack.connect',
+      'me.slack.link',
+      'slack.codes.get',
+      'channels.slack.link',
+      'notes.posting.retry',
+    ],
+  },
+  joinCodes: { default: true, routes: ['joinCodes.create', 'joinCodes.status'] },
   deskAvailability: { default: true, routes: ['me.desk.unavailable', 'me.desk.available'] },
   invites: { default: true, routes: ['invites.list', 'invites.create', 'invites.revoke'] },
   analytics: { default: false, routes: ['analytics.track'] },
+  autoSend: { default: false, routes: ['principles.autoSend.set', 'notes.recall'] },
+  draftPreviews: {
+    default: false,
+    routes: ['me.draftPreviews.get', 'me.draftPreviews.set', 'previews.list'],
+  },
 } as const satisfies Readonly<
   Record<string, { readonly default: boolean; readonly routes: ReadonlyArray<RouteName> }>
 >
 
 export type FeatureName = keyof typeof FEATURES
+
+/**
+ * Switches whose feature is gone for good: `HB_FEATURES` still accepts and ignores them for one release,
+ * so that a server set up with one starts, and the next release forgets them.
+ */
+export const RETIRED_FEATURES: ReadonlyArray<string> = ['routeMap']
 
 export const FEATURE_NAMES = Object.keys(FEATURES) as FeatureName[]
 
@@ -123,7 +162,9 @@ export const featureSwitchesFrom = (
     .map((each) => each.trim())
     .filter((each) => each !== '')) {
     const [name = '', value = ''] = item.split('=').map((each) => each.trim())
-    if (!FEATURE_NAMES.includes(name as FeatureName) || !/^(on|off)$/.test(value)) unknown.push(item)
+    const valid = /^(on|off)$/.test(value)
+    if (valid && RETIRED_FEATURES.includes(name)) continue
+    if (!FEATURE_NAMES.includes(name as FeatureName) || !valid) unknown.push(item)
     else switches[name] = value === 'on'
   }
   return { switches, unknown }

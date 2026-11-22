@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { fileURLToPath } from 'node:url'
+import { en } from '../src/languages/en.ts'
 import {
   type Person,
   VIEWPORT,
@@ -200,18 +201,24 @@ const scenario = async (): Promise<void> => {
       true,
     )
     await capture(ana.page, 'draft-with-a-number-asks-for-a-careful-read')
+
+    // -- For someone new, resting the mouse on Approve and send shows one quiet line of what it does ----
+    await ana.page.hover(`.draft[data-draft-id="${waiting.id}"] .draft-send`)
+    await ana.page.waitForSelector('.hint-tip:popover-open:has-text("nothing leaves until you do")')
+    await ana.page.mouse.move(0, 0)
+    await ana.page.waitForSelector('.hint-tip:popover-open', { state: 'detached' })
     assert.equal(await ana.page.locator('.trust-card').count(), 0)
 
-    // -- The page, from the header: verdict, numbers, channels, trend, what is measured ----------------
+    // -- The page, from the header: where it answers like you, verdict, numbers, trend, what is measured ----------------
     await ana.page.click('.tab:has-text("My agent")')
     await ana.page.click('.my-agent-tabs a:has-text("How it is doing")')
     await ana.page.waitForFunction(() => (globalThis as any).location.hash === '#/agent/doing')
     await ana.page.waitForSelector('#trust-verdict:has-text("usually sent as written")')
     await ana.page.waitForSelector(
-      '.trust-place[data-place="billing"]:has-text("#billing: 9 of 10 sent as written")',
+      '.answers-place[data-place="billing"]:has-text("9 of 10 decided drafts sent as written")',
     )
     await ana.page.waitForSelector(
-      '.trust-place[data-place="payroll"]:has-text("#payroll: 2 of 6 sent as written")',
+      '.answers-place[data-place="payroll"]:has-text("2 of 6 decided drafts sent as written")',
     )
     await ana.page.waitForSelector('.trust-reasons li:has-text("Needs payroll system access: 2 times")')
     assert.equal(await ana.page.locator('.trend-week').count(), 8)
@@ -220,7 +227,7 @@ const scenario = async (): Promise<void> => {
     assert.equal(await overflowsSideways(ana.page), false)
     assert.deepEqual(await clippedText(ana.page), [])
     await captureScrolled(ana.page, 'page-wide-light', '#agent-doing')
-    await captureScrolled(ana.page, 'page-wide-light-channels', '#trust-places')
+    await captureScrolled(ana.page, 'page-wide-light-channels', '#answers-like-you')
     await captureScrolled(ana.page, 'page-wide-light-trend', '#trust-trend')
     await ana.page.emulateMedia({ colorScheme: 'dark' })
     await captureScrolled(ana.page, 'page-wide-dark', '#agent-doing')
@@ -241,7 +248,7 @@ const scenario = async (): Promise<void> => {
     await ana.page.waitForSelector('#trust-verdict')
     assert.equal(await overflowsSideways(ana.page), false)
     await captureScrolled(ana.page, 'page-narrow-light', '#agent-doing')
-    await captureScrolled(ana.page, 'page-narrow-light-channels', '#trust-places')
+    await captureScrolled(ana.page, 'page-narrow-light-channels', '#answers-like-you')
     await captureScrolled(ana.page, 'page-narrow-light-trend', '#trust-trend')
     await ana.page.emulateMedia({ colorScheme: 'dark' })
     await captureScrolled(ana.page, 'page-narrow-dark', '#agent-doing')
@@ -252,9 +259,7 @@ const scenario = async (): Promise<void> => {
     // -- Administrators: organization-wide totals only ----------------------------------------------
     await ana.page.goto(`${base}/#/admin/insights`)
     await ana.page.waitForSelector('.insights .trust-table')
-    await ana.page.waitForSelector(
-      '.insights:has-text("With no teams, only organization-wide numbers are shown.")',
-    )
+    await ana.page.waitForSelector(`.insights:has-text("${en.insights.noTeams}")`)
     const adminText = await ana.page.locator('.insights').innerText()
     for (const name of ['Ana', 'Ben', 'Cy', 'Dee', 'Eve', 'Fay', 'invoice', 'payslip'])
       assert.equal(new RegExp(`\\b${name}\\b`).test(adminText), false, `the admin view shows ${name}`)
@@ -274,7 +279,7 @@ const scenario = async (): Promise<void> => {
     await korean.page.goto(`${base}/#/agent/doing`)
     await korean.page.waitForSelector('#trust-verdict:has-text("에이전트 초안은 대개 그대로 보내요")')
     await korean.page.waitForSelector(
-      '.trust-place[data-place="billing"]:has-text("#billing: 10개 중 9개 그대로 보냄")',
+      '.answers-place[data-place="billing"]:has-text("결정한 초안 10개 중 9개를 그대로 보냄")',
     )
     await korean.page.click('.trust-measured summary')
     await korean.page.locator('.stage').evaluate((element: any) => element.scrollTo(0, 0))

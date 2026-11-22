@@ -14,7 +14,7 @@ describe('figuresModel', () => {
     expect(figuresModel('failed', 7)).toEqual({ kind: 'failed', text: strings.trust.loadFailed })
   })
 
-  it('gives too few decisions as the verdict, without a change, a nudge, skips or places', () => {
+  it('gives too few decisions as the verdict, without a change, a nudge or skips', () => {
     const model = shown(figuresModel(report(), 7))
     expect(model.headline).toEqual({
       verdictClass: 'is-too-few',
@@ -25,7 +25,6 @@ describe('figuresModel', () => {
       nudge: null,
     })
     expect(model.skips).toBeNull()
-    expect(model.places).toBeNull()
     expect(model.byClient).toBeNull()
     expect(model.table.rows[6]).toEqual([
       strings.trust.rows.medianDecision,
@@ -73,6 +72,14 @@ describe('figuresModel', () => {
     expect(model.table.rows[9]).toEqual([strings.trust.rows.debateResultsSent, '2', '0'])
   })
 
+  it('adds a line for notes saved answers sent only when either period has one', () => {
+    const table = (current: ReturnType<typeof figures>, previous = figures()) =>
+      shown(figuresModel(report({ periods: [{ days: 7, current, previous }] }), 7)).table.rows
+    expect(table(figures({ autoSent: 3 })).at(-1)).toEqual([strings.trust.rows.autoSent, '3', '0'])
+    expect(table(figures(), figures({ autoSent: 1 })).at(-1)).toEqual([strings.trust.rows.autoSent, '0', '1'])
+    expect(table(figures()).map((row) => row[0])).not.toContain(strings.trust.rows.autoSent)
+  })
+
   it('words a falling, steady and new share', () => {
     const change = (current: number, previous: number | null) =>
       shown(
@@ -114,40 +121,6 @@ describe('figuresModel', () => {
     })
     expect(withSkips([{ reason: 'Out of scope', count: 2 }])!.reasons).toEqual([
       strings.trust.skipReason({ reason: 'Out of scope', count: 2 }),
-    ])
-  })
-
-  it('shows each place with its share and verdict, and the places nothing was decided in', () => {
-    const current = figures({
-      places: [
-        {
-          place: 'billing',
-          sentAsWritten: 3,
-          sentAfterEdits: 1,
-          discarded: 0,
-          skipped: 2,
-          verdict: 'usually_as_written',
-        },
-        { place: null, sentAsWritten: 0, sentAfterEdits: 0, discarded: 0, skipped: 0, verdict: 'too_few' },
-      ],
-    } as never)
-    const places = shown(figuresModel(report({ periods: [{ days: 7, current, previous: figures() }] }), 7))
-      .places!
-    expect(places.rows).toEqual([
-      {
-        key: 'billing',
-        line: strings.trust.placeLine({ place: '#billing', asWritten: 3, decided: 4 }),
-        share: 0.75,
-        verdict: strings.trust.verdict.usually_as_written,
-        skipped: strings.trust.placeSkipped({ count: 2 }),
-      },
-      {
-        key: 'direct',
-        line: strings.trust.placeNothingDecided({ place: strings.trust.directMessages }),
-        share: null,
-        verdict: null,
-        skipped: null,
-      },
     ])
   })
 

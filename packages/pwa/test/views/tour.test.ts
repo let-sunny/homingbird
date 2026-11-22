@@ -32,14 +32,14 @@ describe('createTour', () => {
     const notes = target('notes')
     const bell = target('activity', true)
     target('connect', true)
-    tour.startOnHome('people')
+    tour.startOnFirstVisit('device')
     expect(document.getElementById('tour')).toBeNull()
-    tour.startOnHome('home')
+    tour.startOnFirstVisit('home')
     const callout = document.getElementById('tour')!
     expect(textOf(callout)).toContain(strings.tour.notesTitle)
     expect(notes.classList.contains('tour-target')).toBe(true)
     expect(callout.classList.contains('is-anchored')).toBe(true)
-    tour.startOnHome('home')
+    tour.startOnFirstVisit('home')
     getByRole(callout, 'button', { name: strings.tour.next }).click()
     expect(textOf(callout)).toContain(strings.tour.approvalTitle)
     expect(bell.classList.contains('tour-target')).toBe(true)
@@ -55,7 +55,7 @@ describe('createTour', () => {
     getByRole(callout, 'link', { name: strings.tour.connectAction }).click()
     expect(document.getElementById('tour')).toBeNull()
     expect(fake.local.get('homingbird.tour')).toBe('seen')
-    tour.startOnHome('home')
+    tour.startOnFirstVisit('home')
     expect(document.getElementById('tour')).toBeNull()
   })
 
@@ -101,5 +101,35 @@ describe('createTour', () => {
     getByRole(document.getElementById('tour')!, 'button', { name: strings.tour.skip }).click()
     expect(queryByRole(document.body, 'dialog')).toBeNull()
     expect(fake.listening('resize')).toBe(0)
+  })
+
+  it('places the callout for a tab in the phone’s bottom bar beside the tab, not under the header', () => {
+    const fake = fakePage()
+    fake.state.anchors = true
+    const tour = createTour(
+      fake.page,
+      browserDocument(() => document),
+    )
+    const channels = target('channels', true)
+    const box = (top: number, height: number) => ({
+      top,
+      left: 0,
+      right: 64,
+      bottom: top + height,
+      width: 64,
+      height,
+    })
+    ;(channels.closest('.titlebar') as HTMLElement).getBoundingClientRect = () => box(0, 56) as DOMRect
+    channels.getBoundingClientRect = () => box(760, 52) as DOMRect
+    tour.start()
+    const callout = document.getElementById('tour')!
+    getByRole(callout, 'button', { name: strings.tour.next }).click()
+    getByRole(callout, 'button', { name: strings.tour.next }).click()
+    expect(channels.classList.contains('tour-target')).toBe(true)
+    expect(callout.classList.contains('is-in-header')).toBe(false)
+    channels.getBoundingClientRect = () => box(8, 40) as DOMRect
+    getByRole(callout, 'button', { name: strings.tour.back }).click()
+    getByRole(callout, 'button', { name: strings.tour.next }).click()
+    expect(callout.classList.contains('is-in-header')).toBe(true)
   })
 })

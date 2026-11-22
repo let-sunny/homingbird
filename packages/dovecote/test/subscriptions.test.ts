@@ -101,7 +101,7 @@ describe('push subscriptions', () => {
 
   afterEach(async () => {
     await running.interrupt()
-    await server.close()
+    await server?.close()
   })
 
   const sendNote = async (body: string) => {

@@ -2,6 +2,7 @@ import type { AsRead, NoteId } from '@homingbird/protocol'
 import { CHANNEL_AGENT_NAME_MAX, DISCARD_REASON_MAX } from '@homingbird/protocol'
 import { type Child, type Lifetime, derived, h, linkedText, region, signal } from '@homingbird/ui'
 import type { ChannelAgentState } from '../channel-answerers.ts'
+import { channelLabel } from '../channels.ts'
 import { featureOn } from '../features.ts'
 import { heldLineFor } from '../held-decisions.ts'
 import {
@@ -19,13 +20,21 @@ import {
   decidedAnswerModel,
   reviewCardsModel,
 } from '../models/channel-agent.ts'
+import {
+  type ChannelAgentTab,
+  type ChannelAgentTabs,
+  channelAgentTabsModel,
+} from '../models/channel-teaching.ts'
 import { signedIn } from '../state.ts'
 import { strings } from '../strings.ts'
+import { channelDecisionsSection } from './channel-decisions.ts'
+import { channelTeachingSection } from './channel-teaching.ts'
 import type { ViewContext } from './context.ts'
 import { cardOf, focusAfterDecision } from './decision-focus.ts'
 import { closeDialog, closesDialog, opensDialog, submitOnModifierEnter } from './dialog.ts'
 import { reportWhenSeen } from './drafts-item.ts'
 import { renderHeldLine } from './held-toast.ts'
+import { hinted } from './hint.ts'
 import { joinCodeSection } from './join-code.ts'
 import { noteBody } from './note-body.ts'
 import { button, field, loading, page as pageOf, sourceList } from './parts.ts'
@@ -35,19 +44,31 @@ export const agentButtons = (context: ViewContext, channel: AsRead.Channel): Chi
   const model = agentControlsModel(channel, context.state.serverInfo.get())
   return [
     model.manage !== null &&
-      h(
-        'button',
-        {
-          type: 'button',
-          class: 'channel-agent-open',
-          ...opensDialog(context, model.manage, (life) => agentPanel(context, life, channel, null, 'dialog')),
-        },
-        model.manage,
+      hinted(
+        context,
+        'channelAgent',
+        strings.hints.channelAgent,
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'channel-agent-open',
+            ...opensDialog(context, model.manage, (life) =>
+              agentPanel(context, life, channel, null, 'dialog'),
+            ),
+          },
+          model.manage,
+        ),
       ),
     model.askPrivately !== null &&
-      button(model.askPrivately, () => context.actions.askPrivately(channel.slug), {
-        class: 'ask-privately',
-      }),
+      hinted(
+        context,
+        'privateQuestion',
+        strings.hints.privateQuestion,
+        button(model.askPrivately, () => context.actions.askPrivately(channel.slug), {
+          class: 'ask-privately',
+        }),
+      ),
   ]
 }
 
@@ -61,9 +82,11 @@ export const channelAgentView = (
   life: Lifetime,
   slug: string,
   focus: string | null,
+  asked: ChannelAgentTab,
 ): HTMLElement => {
   const { state, actions } = context
   actions.loadKnownChannels()
+  const tabs = channelAgentTabsModel(slug, state.serverInfo.get(), asked)
   return h(
     'div',
     { class: 'channel-agent-page' },
@@ -74,15 +97,27 @@ export const channelAgentView = (
       return pageOf(
         page.title,
         page.agentState !== null && channelAgentStateLine(page.agentState),
-        agentPanel(context, life, page.channel, focus, 'page'),
+        renderTabs(tabs),
+        tabs.shown === 'teach'
+          ? channelTeachingSection(context, life, slug, page.channel.agent?.name ?? channelLabel(slug))
+          : agentPanel(context, life, page.channel, focus, 'page'),
       )
     }),
   )
 }
 
+const renderTabs = (model: ChannelAgentTabs): Child =>
+  model.tabs.length > 1 &&
+  h(
+    'nav',
+    { class: 'subtabs channel-agent-tabs', 'aria-label': model.label },
+    model.tabs.map((tab) => h('a', { href: tab.href, 'aria-current': tab.current && 'page' }, tab.label)),
+  )
+
 /**
  * The agent of a channel the person manages: in the dialog its name, desks and retiring it, with a way to
- * its page; on its page the answers waiting first, then the same, then how it is doing.
+ * its page; on its page the answers waiting first and what was recently decided, then the same, then how
+ * it is doing.
  */
 const agentPanel = (
   context: ViewContext,
@@ -97,7 +132,13 @@ const agentPanel = (
   const joinCodeFor = (name: string): HTMLElement | null => {
     if (!featureOn('joinCodes', state.serverInfo.get())) return null
     if (joinSection?.name !== name)
-      joinSection = { name, element: joinCodeSection(context, life, { channel: channel.slug, name }) }
+      joinSection = {
+        name,
+        element: joinCodeSection(context, life, { channel: channel.slug, name }, () => {
+          actions.loadChannelAgent(channel.slug)
+          actions.loadKnownChannels()
+        }),
+      }
     return joinSection.element
   }
   actions.loadChannelAgent(channel.slug, {
@@ -124,6 +165,7 @@ const agentPanel = (
     'div',
     { class: 'channel-agent-panel' },
     waitingAnswers(context, life, channel, focus, (): HTMLElement => panel),
+    channelDecisionsSection(context, life, channel),
     setup,
     agentFigures(context, life, channel),
   )
@@ -483,13 +525,18 @@ const reviewActions = (context: ViewContext, card: ReviewCard, decides: () => vo
   return h(
     'div',
     { class: 'review-actions' },
-    button(
-      card.send,
-      (event) => {
-        decide((event.target as Element | null)?.closest('[data-decides]') ?? null)
-        context.actions.holdReviewSend(card.review, null, card.held.send, HELD)
-      },
-      { class: 'primary review-send' },
+    hinted(
+      context,
+      'approveAndSend',
+      strings.hints.approveAndSend,
+      button(
+        card.send,
+        (event) => {
+          decide((event.target as Element | null)?.closest('[data-decides]') ?? null)
+          context.actions.holdReviewSend(card.review, null, card.held.send, HELD)
+        },
+        { class: 'primary review-send' },
+      ),
     ),
     h(
       'button',

@@ -1,5 +1,7 @@
 import { Task as T } from '@homingbird/kernel'
 import {
+  type AutoSend,
+  type ConversationId,
   type MemberId,
   NotFound,
   type Principle,
@@ -20,16 +22,30 @@ export const principlesOf = (memberId: MemberId): T.Task<CountedPrinciple[], nev
       sql`SELECT * FROM principles WHERE member_id = ${memberId} ORDER BY position, created_at, id`,
     )
     if (rows.length === 0) return []
+    const ids = list(rows.map((row) => row.id))
     const applications = yield* all<ApplicationRow>(sql`
-      SELECT a.principle_id, n.status, n.origin, n.decided_at, a.missed_at
+      SELECT a.principle_id, n.status, n.origin, n.decided_at, a.missed_at, n.auto_principle_id
       FROM principle_applications a JOIN notes n ON n.id = a.note_id AND n.debate_id IS NULL
-      WHERE a.principle_id IN ${list(rows.map((row) => row.id))}`)
+      WHERE a.principle_id IN ${ids}`)
+    const places = yield* all<{ principle_id: PrincipleId; conversation_id: ConversationId }>(sql`
+      SELECT principle_id, conversation_id FROM principle_auto_send_places
+      WHERE principle_id IN ${ids} ORDER BY conversation_id`)
     const byPrinciple = Map.groupBy(applications, (application) => application.principle_id)
-    return rows.map((row) => toPrinciple(row, byPrinciple.get(row.id) ?? []))
+    const placesOf = Map.groupBy(places, (place) => place.principle_id)
+    return rows.map((row) =>
+      toPrinciple(
+        row,
+        byPrinciple.get(row.id) ?? [],
+        (placesOf.get(row.id) ?? []).map((place) => place.conversation_id),
+      ),
+    )
   })
 
-/** A principle as the server keeps it, always with its counts; the person sees them only with agent figures on. */
-export type CountedPrinciple = Principle & { readonly counts: PrincipleCounts }
+/**
+ * A principle as the server keeps it, always with its counts and its automatic sending; the person sees
+ * the counts only with agent figures on, and the switch only while the organization allows it.
+ */
+export type CountedPrinciple = Principle & { readonly counts: PrincipleCounts; readonly autoSend: AutoSend }
 
 export const ownPrinciple = (memberId: MemberId, id: string): T.Task<CountedPrinciple, NotFound, AppEnv> =>
   T.gen(function* () {
@@ -38,11 +54,31 @@ export const ownPrinciple = (memberId: MemberId, id: string): T.Task<CountedPrin
     return found
   })
 
-export const shownWith = (principle: CountedPrinciple, figures: boolean): Principle =>
-  figures ? principle : { ...principle, counts: null }
+export const shownWith = (
+  principle: CountedPrinciple,
+  shown: { readonly figures: boolean; readonly autoSend: boolean },
+): Principle => {
+  const { autoSend, counts, ...rest } = principle
+  const { autoSent, ...decided } = counts
+  return {
+    ...rest,
+    counts: shown.figures ? (shown.autoSend ? counts : decided) : null,
+    ...(shown.autoSend && { autoSend }),
+  }
+}
 
 export const withFigures = (principle: CountedPrinciple): T.Task<Principle, never, AppEnv> =>
-  T.map((figures: boolean) => shownWith(principle, figures))(featureIsOn('agentFigures'))
+  T.map((shown: PrincipleShown) => shownWith(principle, shown))(principleShown)
+
+/** What of a principle the organization shows its person: the counts, and the automatic sending switch. */
+export const principleShown: T.Task<PrincipleShown, never, AppEnv> = T.gen(function* () {
+  return { figures: yield* featureIsOn('agentFigures'), autoSend: yield* featureIsOn('autoSend') }
+})
+
+export interface PrincipleShown {
+  readonly figures: boolean
+  readonly autoSend: boolean
+}
 
 interface PrincipleRow {
   readonly id: PrincipleId
@@ -59,6 +95,7 @@ interface PrincipleRow {
   readonly updated_at: number
   readonly last_applied_at: number | null
   readonly public_text: string | null
+  readonly auto_send: number | null
 }
 
 interface ApplicationRow {
@@ -67,9 +104,14 @@ interface ApplicationRow {
   readonly origin: string
   readonly decided_at: number | null
   readonly missed_at: number | null
+  readonly auto_principle_id: string | null
 }
 
-const toPrinciple = (row: PrincipleRow, applications: ReadonlyArray<ApplicationRow>): CountedPrinciple => ({
+const toPrinciple = (
+  row: PrincipleRow,
+  applications: ReadonlyArray<ApplicationRow>,
+  places: ReadonlyArray<ConversationId>,
+): CountedPrinciple => ({
   id: row.id,
   kind: row.kind,
   topic: row.topic,
@@ -85,9 +127,14 @@ const toPrinciple = (row: PrincipleRow, applications: ReadonlyArray<ApplicationR
   publicText: row.public_text,
   counts: {
     applied: applications.length,
-    sentAsWritten: applications.filter((each) => each.status === 'sent' && each.origin === 'agent').length,
+    sentAsWritten: applications.filter(
+      (each) => each.status === 'sent' && each.origin === 'agent' && each.auto_principle_id === null,
+    ).length,
     edited: applications.filter((each) => each.status === 'sent' && each.origin !== 'agent').length,
     discarded: applications.filter((each) => each.status === 'discarded' && each.decided_at !== null).length,
     missed: applications.filter((each) => each.missed_at !== null).length,
+    autoSent: applications.filter((each) => each.status === 'sent' && each.auto_principle_id === row.id)
+      .length,
   },
+  autoSend: { enabled: Number(row.auto_send ?? 0) === 1, places },
 })

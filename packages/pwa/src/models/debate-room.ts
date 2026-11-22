@@ -1,4 +1,4 @@
-import type { AsRead, MemberId } from '@homingbird/protocol'
+import { type AsRead, DEBATE_BRIEF_MAX, type MemberId, isReadyToConclude } from '@homingbird/protocol'
 import { channelLabel } from '../channels.ts'
 import { citedTurns } from '../debate-turns.ts'
 import {
@@ -32,6 +32,7 @@ import {
 } from './debate-result.ts'
 import { type TurnGroup, turnListModel } from './debate-turn-list.ts'
 import type { AuthorModel } from './note-item.ts'
+import { type Participants, debateParticipants } from './participants.ts'
 import { type TimeShown, timeShown } from './time.ts'
 
 /**
@@ -114,6 +115,7 @@ export const debateRoomModel = (input: DebateRoomInput): DebateRoomModel => {
     grace: strings.debates.graceSummary({ minutes: graceOf(debate.limits) }),
     mayChangeLimits: mayChangeLimits(debate, viewerId),
     limitsFixed: debate.status === 'open' && debate.turns.length > 0 && debate.createdBy === viewerId,
+    people: debateParticipants(debate, viewerId, nameOf),
     participants: debate.participants.map((participant) => ({
       memberId: participant.memberId,
       name: agentOf(participant.agentName, participant.memberId),
@@ -125,12 +127,26 @@ export const debateRoomModel = (input: DebateRoomInput): DebateRoomModel => {
         participant.takingPart === false && (debate.status === 'open' || debate.status === 'concluding')
           ? strings.debates.droppedOut
           : null,
+      ready:
+        debate.status === 'open' && isReadyToConclude(debate, participant.memberId)
+          ? strings.debates.readyToConclude
+          : null,
     })),
+    readyHint: debate.status === 'open' && debate.turns.length > 0 ? strings.debates.readyHint : null,
+    agreedEarly:
+      debate.concludedBecause === 'agreed'
+        ? strings.debates.agreedEarly({ count: debate.turns.length, total: debate.limits.totalTurns })
+        : null,
     optIn: mayOptIn(debate, viewerId)
       ? input.agents.length === 0
         ? { kind: 'no-agent', text: strings.debates.noAgent }
-        : { kind: 'choose', agents: input.agents.map((agent) => ({ value: agent.id, label: agent.name })) }
+        : {
+            kind: 'choose',
+            agents: input.agents.map((agent) => ({ value: agent.id, label: agent.name })),
+            brief: briefField(''),
+          }
       : null,
+    brief: briefOf(debate, viewerId),
     turns:
       debate.turns.length === 0
         ? {
@@ -242,19 +258,31 @@ export type DebateRoomModel =
       readonly grace: string
       readonly mayChangeLimits: boolean
       readonly limitsFixed: boolean
+      /** Who takes part, listed behind a count beside the room's stage. */
+      readonly people: Participants
       readonly participants: ReadonlyArray<{
         readonly memberId: MemberId
         readonly name: string
         readonly turnsLeft: string | null
         readonly droppedOut: string | null
+        /** While the room takes turns: that the agent is ready to conclude. */
+        readonly ready: string | null
       }>
+      /** While the room takes turns: when an agent counts as ready, and what follows. */
+      readonly readyHint: string | null
+      /** Why the room stopped taking turns before they ran out. */
+      readonly agreedEarly: string | null
       readonly optIn:
         | { readonly kind: 'no-agent'; readonly text: string }
         | {
             readonly kind: 'choose'
             readonly agents: ReadonlyArray<{ readonly value: string; readonly label: string }>
+            /** The person's note on what their agent may use here, written with the opt-in. */
+            readonly brief: BriefField
           }
         | null
+      /** To a participant: their own note on what their agent may use here, editable while turns go on. */
+      readonly brief: BriefModel | null
       readonly turns:
         | { readonly kind: 'none'; readonly text: string }
         | {
@@ -290,6 +318,19 @@ export type DebateRoomModel =
       }
       readonly credit: CreditModel | null
     }
+
+/** The note's text box: its words, its limit and what it is for. */
+export interface BriefField {
+  readonly label: string
+  readonly hint: string
+  readonly placeholder: string
+  readonly value: string
+  readonly maxLength: number
+}
+
+export type BriefModel =
+  | { readonly kind: 'editable'; readonly title: string; readonly field: BriefField; readonly save: string }
+  | { readonly kind: 'fixed'; readonly title: string; readonly text: string; readonly fixed: string }
 
 export interface Moved {
   readonly memberId: MemberId
@@ -332,5 +373,32 @@ const movesIn = (
       },
     ]
   })
+
+const briefField = (value: string): BriefField => ({
+  label: strings.debates.briefTitle,
+  hint: strings.debates.briefHint,
+  placeholder: strings.debates.briefPlaceholder,
+  value,
+  maxLength: DEBATE_BRIEF_MAX,
+})
+
+/** Only the viewer's own note is ever in the room the server sends, so only a participant sees one. */
+const briefOf = (debate: AsRead.Debate, viewerId: MemberId): BriefModel | null => {
+  if (!debate.participants.some((participant) => participant.memberId === viewerId)) return null
+  const text = debate.brief ?? ''
+  return debate.status === 'open'
+    ? {
+        kind: 'editable',
+        title: strings.debates.briefTitle,
+        field: briefField(text),
+        save: strings.debates.saveBrief,
+      }
+    : {
+        kind: 'fixed',
+        title: strings.debates.briefTitle,
+        text: text === '' ? strings.debates.briefNone : text,
+        fixed: strings.debates.briefFixed,
+      }
+}
 
 const fullTime = (timestamp: number): string => formats.full.format(new Date(timestamp))

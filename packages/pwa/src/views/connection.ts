@@ -18,6 +18,7 @@ import { joinCodeSection } from './join-code.ts'
 import { channelChips, field, loading, presenceBadges } from './parts.ts'
 import { serviceBanner } from './service-banner.ts'
 import { freshSessionSuggestions } from './session-health-view.ts'
+import { slackSection } from './slack.ts'
 
 /** "Connection": the person's devices and agents, whether the desk is awake, and how to connect one. */
 export const connectionSection = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
@@ -44,24 +45,21 @@ export const connectionSection = (context: ViewContext, life: Lifetime, me: AsRe
       const joinCodes = featureOn('joinCodes', state.serverInfo.get())
       const origin = context.page.origin
       const firstSteps = firstStepsModel({ credentials: credentials.get(), origin, joinCodes })
-      return firstSteps !== null
-        ? renderFirstSteps(firstSteps)
-        : serviceBanner(
-            serviceBannerModel({
-              credentials: credentials.get(),
-              origin,
-              now: context.clock.now(),
-              joinCodes,
-            }),
-          )
+      if (firstSteps !== null && !firstSteps.folded) return renderFirstSteps(firstSteps)
+      return [
+        serviceBanner(
+          serviceBannerModel({ credentials: credentials.get(), origin, now: context.clock.now(), joinCodes }),
+        ),
+        firstSteps !== null && renderFirstSteps(firstSteps),
+      ]
     }),
-    region(life, [state.directory], () => renderRecommendation(model())),
-    featureOn('joinCodes', state.serverInfo.get()) && joinCodeSection(context, life, null),
+    region(life, [state.directory, credentials], () => renderRecommendation(model())),
+    featureOn('joinCodes', state.serverInfo.get()) && joinCodeSection(context, life, null, reload),
     region(life, [state.agentReport], () => {
       const report = state.agentReport.get()
       return report === null || report === 'failed' ? null : freshSessionSuggestions(report.sessions.latest)
     }),
-    region(life, [state.directory], () => renderDeskState(model())),
+    region(life, [state.directory], () => renderDeskState(model(), context)),
     h(
       'section',
       { class: 'connected-agents', 'aria-labelledby': 'connected-agents' },
@@ -77,6 +75,7 @@ export const connectionSection = (context: ViewContext, life: Lifetime, me: AsRe
       h('a', { class: 'button', href: hrefFor({ name: 'channels' }) }, strings.browseChannels),
     ),
     featureOn('cloudDesk', state.serverInfo.get()) && cloudDeskSection(context, life, credentials),
+    featureOn('slack', state.serverInfo.get()) && slackSection(context, life),
     h('details', { class: 'have-a-code' }, h('summary', {}, strings.codeFallback), codeForm(context)),
   )
 }
@@ -108,11 +107,8 @@ export const codeForm = (context: Pick<ViewContext, 'page'>): HTMLElement => {
   )
 }
 
-const renderFirstSteps = (model: FirstStepsModel): HTMLElement =>
-  h(
-    'section',
-    { class: 'first-steps', 'aria-labelledby': 'first-steps' },
-    h('h3', { id: 'first-steps' }, model.title),
+const renderFirstSteps = (model: FirstStepsModel): HTMLElement => {
+  const body = [
     h(
       'ol',
       {},
@@ -122,7 +118,16 @@ const renderFirstSteps = (model: FirstStepsModel): HTMLElement =>
     ),
     model.joinHint !== null && h('p', {}, model.joinHint),
     h('a', { href: model.guide.href, target: '_blank', rel: 'noopener noreferrer' }, model.guide.label),
+  ]
+  if (model.folded)
+    return h('details', { class: 'first-steps is-folded' }, h('summary', {}, model.title), body)
+  return h(
+    'section',
+    { class: 'first-steps', 'aria-labelledby': 'first-steps' },
+    h('h3', { id: 'first-steps' }, model.title),
+    body,
   )
+}
 
 const renderCredentials = (model: ConnectionModel, context: ViewContext, reload: () => void): Child => {
   if (model.credentials === null) return loading()
@@ -252,13 +257,13 @@ const renderRecommendation = (model: ConnectionModel): HTMLElement | null =>
         h('div', {}, h('strong', {}, model.recommendation.title), h('p', {}, model.recommendation.body)),
       )
 
-const renderDeskState = (model: ConnectionModel): HTMLElement | null =>
+const renderDeskState = (model: ConnectionModel, context: ViewContext): HTMLElement | null =>
   model.presence === null
     ? null
     : h(
         'div',
         { class: 'desk-state' },
-        h('p', {}, presenceBadges(model.presence)),
+        h('p', {}, presenceBadges(model.presence, context)),
         ...model.unavailable.map((line) => h('p', { class: 'hint', role: 'status' }, line)),
       )
 

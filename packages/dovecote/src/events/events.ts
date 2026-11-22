@@ -1,5 +1,11 @@
 import { Stream, Task as T, isOk, pipe } from '@homingbird/kernel'
-import type { CredentialKind, EventBody, MemberId, StreamEvent } from '@homingbird/protocol'
+import {
+  type CredentialKind,
+  type EventBody,
+  type MemberId,
+  type StreamEvent,
+  isForPeopleOnly,
+} from '@homingbird/protocol'
 import type { AuditCopy } from '../domain/audit.ts'
 import { featureIsOn } from '../domain/settings.ts'
 import type { AppEnv } from '../environment.ts'
@@ -26,7 +32,7 @@ export const transact = <A, E>(task: T.Task<A, E, RequestEnv>): T.Task<A, E, App
     const outbox: Delivery[] = []
     const audited: AuditCopy[] = []
     const value = yield* T.provide({ outbox, audited })(inTransaction(task)) as T.Task<A, E, AppEnv>
-    const pushes = outbox.length > 0 && (yield* featureIsOn('webPush'))
+    const pushes = outbox.length > 0 && ((yield* featureIsOn('webPush')) || (yield* featureIsOn('slack')))
     for (const delivery of outbox) {
       if (delivery.memberId === EVERYONE) {
         env.hub.broadcast(delivery.event)
@@ -128,6 +134,7 @@ export const liveEvents = (
     const live = pipe(
       subscription,
       Stream.filter((event: StreamEvent) => event.seq === 0 || event.seq > cursor),
+      Stream.filter((event: StreamEvent) => kind === 'human' || !isForPeopleOnly(event.body.type)),
       Stream.concat(
         Stream.fromTask(
           T.sync(() => (subscription.overflowed() ? Stream.of(resync(env.clock.now())) : Stream.empty)),

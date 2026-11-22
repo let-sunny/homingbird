@@ -48,6 +48,8 @@ const TABLES = [
   'principle_offers',
   'draft_request_answers',
   'history_answers',
+  'slack_arrivals',
+  'slack_outbox',
 ] as const
 
 const countsAbout = async (server: TestServer): Promise<Record<string, number>> =>
@@ -64,7 +66,7 @@ const aboutNote = async (
   conversationId: string,
   memberId: string,
 ): Promise<void> => {
-  const rows: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
+  const rows: Array<readonly [string, Record<string, unknown>]> = [
     ['pickups', { note_id: noteId, credential_id: 'cred_a', picked_at: 1 }],
     [
       'releases',
@@ -101,5 +103,37 @@ const aboutNote = async (
       { member_id: memberId, conversation_id: conversationId, note_id: noteId, answered_at: 1 },
     ],
   ]
+  rows.push(
+    [
+      'slack_arrivals',
+      {
+        note_id: noteId,
+        conversation_id: conversationId,
+        slack_channel_id: 'C1',
+        message_ts: `ts_${noteId}`,
+        thread_ts: 't',
+        asker_slack_id: 'U1',
+        asker_name: 'Someone',
+        asker_linked: 0,
+        edited: 0,
+        deleted: 0,
+        created_at: 1,
+      },
+    ],
+    [
+      'slack_outbox',
+      {
+        note_id: noteId,
+        slack_channel_id: 'C1',
+        thread_ts: 't',
+        text: 'Posted text',
+        state: 'pending',
+        attempts: 0,
+        uncertain: 0,
+        next_at: 1,
+        created_at: 1,
+      },
+    ],
+  )
   for (const [table, row] of rows) await T.runPromise(run(insertInto(table, row)), server.env)
 }

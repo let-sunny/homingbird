@@ -1,4 +1,4 @@
-import type { AsRead } from '@homingbird/protocol'
+import { type AsRead, DEBATE_BRIEF_MAX } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import { type DebateRoomInput, debateRoomModel, resultDestination } from '../../src/models/debate-room.ts'
 import { timeShown } from '../../src/models/time.ts'
@@ -81,6 +81,58 @@ describe('debateRoomModel', () => {
     })
   })
 
+  it('asks for a note on what the agent may use with the opt-in, empty, within the server’s limit', () => {
+    const model = room(debateRoomModel(input(debate(), { agents: [credential('cred_desk')] })))
+    expect(model.optIn).toEqual({
+      kind: 'choose',
+      agents: [{ value: 'cred_desk', label: 'cred_desk' }],
+      brief: {
+        label: strings.debates.briefTitle,
+        hint: strings.debates.briefHint,
+        placeholder: strings.debates.briefPlaceholder,
+        value: '',
+        maxLength: DEBATE_BRIEF_MAX,
+      },
+    })
+    expect(model.brief).toBeNull()
+  })
+
+  it('lets a participant edit their own note while the room takes turns, and shows it fixed afterwards', () => {
+    const taking = debate({ participants: [participant(ANA), participant(BEN)], brief: 'Q3 budget only.' })
+    expect(room(debateRoomModel(input(taking))).brief).toEqual({
+      kind: 'editable',
+      title: strings.debates.briefTitle,
+      field: {
+        label: strings.debates.briefTitle,
+        hint: strings.debates.briefHint,
+        placeholder: strings.debates.briefPlaceholder,
+        value: 'Q3 budget only.',
+        maxLength: DEBATE_BRIEF_MAX,
+      },
+      save: strings.debates.saveBrief,
+    })
+    expect(room(debateRoomModel(input({ ...taking, brief: null }))).brief).toMatchObject({
+      kind: 'editable',
+      field: { value: '' },
+    })
+    expect(room(debateRoomModel(input({ ...taking, status: 'concluding' }))).brief).toEqual({
+      kind: 'fixed',
+      title: strings.debates.briefTitle,
+      text: 'Q3 budget only.',
+      fixed: strings.debates.briefFixed,
+    })
+    const { brief: _, ...withoutNote } = taking
+    expect(room(debateRoomModel(input({ ...withoutNote, status: 'closed' }))).brief).toMatchObject({
+      kind: 'fixed',
+      text: strings.debates.briefNone,
+    })
+  })
+
+  it('shows no note to someone whose agent does not take part', () => {
+    const watching = debate({ participants: [participant(BEN)], brief: 'Not yours.' })
+    expect(room(debateRoomModel(input(watching))).brief).toBeNull()
+  })
+
   it('shows the agents taking part, their turns left, who dropped out, and the turns so far', () => {
     const model = room(
       debateRoomModel(
@@ -102,12 +154,14 @@ describe('debateRoomModel', () => {
         name: strings.debates.mine.agentOf({ agent: `${ANA} desk` }),
         turnsLeft: strings.debates.turnsLeft({ count: 1 }),
         droppedOut: null,
+        ready: null,
       },
       {
         memberId: BEN,
         name: strings.debates.agentOf({ agent: `${BEN} desk`, person: 'Ben' }),
         turnsLeft: strings.debates.turnsLeft({ count: 2 }),
         droppedOut: strings.debates.droppedOut,
+        ready: null,
       },
     ])
     expect(model.turns).toEqual({
@@ -135,6 +189,56 @@ describe('debateRoomModel', () => {
         },
       ],
     })
+  })
+
+  it('shows which agents are ready to conclude while the room takes turns, and when that ends it early', () => {
+    const turn = (position: number, memberId: typeof ANA, ready?: boolean) => ({
+      position,
+      memberId,
+      agentName: `${memberId} desk`,
+      body: 'Agreed.',
+      at: position,
+      ...(ready !== undefined && { ready }),
+    })
+    const open = room(
+      debateRoomModel(
+        input(
+          debate({
+            participants: [participant(ANA), participant(BEN), participant(CY)],
+            limits: { turnsPerAgent: 1, totalTurns: 6, minutes: 30, turnCharacters: 300 },
+            turns: [turn(1, ANA), turn(2, BEN, true)],
+          }),
+        ),
+      ),
+    )
+    expect(open.participants.map((one) => one.ready)).toEqual([
+      strings.debates.readyToConclude,
+      strings.debates.readyToConclude,
+      null,
+    ])
+    expect(open.readyHint).toBe(strings.debates.readyHint)
+    expect(open.agreedEarly).toBeNull()
+    expect(room(debateRoomModel(input(debate()))).readyHint).toBeNull()
+    const agreed = room(
+      debateRoomModel(
+        input(
+          debate({
+            status: 'concluding',
+            concludedBecause: 'agreed',
+            participants: [participant(ANA), participant(BEN)],
+            turns: [turn(1, ANA, true), turn(2, BEN, true)],
+          }),
+        ),
+      ),
+    )
+    expect(agreed.agreedEarly).toBe(strings.debates.agreedEarly({ count: 2, total: 4 }))
+    expect(agreed.participants.map((one) => one.ready)).toEqual([null, null])
+    expect(agreed.readyHint).toBeNull()
+    const ranOut = debate({ status: 'concluding', concludedBecause: 'limit' })
+    expect(room(debateRoomModel(input(ranOut))).agreedEarly).toBeNull()
+    expect(
+      room(debateRoomModel(input({ ...ranOut, concludedBecause: 'unknown' as never }))).agreedEarly,
+    ).toBeNull()
   })
 
   it('says an agent dropped out while the room concludes, and no longer once it closed', () => {

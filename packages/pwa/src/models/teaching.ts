@@ -20,6 +20,7 @@ import {
   suggestionText,
 } from '../principles.ts'
 import { percentOf, strings } from '../strings.ts'
+import { autoSendDetails, canSendItself } from './auto-send.ts'
 import { placeName } from './places.ts'
 
 /** "What I have taught it": the principles in the person's order, chances to teach, and milestones. */
@@ -280,6 +281,8 @@ export interface PrincipleRow {
   readonly kindBadge: string
   readonly problems: ReadonlyArray<string>
   readonly publicSwitch: { readonly isPublic: boolean; readonly label: string; readonly text: string }
+  /** The menu's way to let a saved answer send itself, for an item that can. */
+  readonly autoSend: { readonly menu: string; readonly title: string } | null
 }
 
 export interface PrincipleFormState {
@@ -348,6 +351,20 @@ const chanceModel = (offer: AsRead.PrincipleOffer): ChanceModel => ({
       : { text: strings.teach.chanceHereDiscard, teach: strings.teach.teachFromDiscard },
 })
 
+/** A channel agent's principle as its managers edit it: the same row, with no place and no public sentence. */
+export const channelPrincipleRow = (principle: AsRead.Principle): ChannelPrincipleRow => {
+  const row = principleRow(principle)
+  return {
+    principle,
+    fields: row.fields,
+    kindBadge: row.kindBadge,
+    problems: row.problems,
+    details: principleDetails(principle, 'channel'),
+  }
+}
+
+export type ChannelPrincipleRow = Omit<PrincipleRow, 'publicSwitch' | 'autoSend'>
+
 const SEED_TOPIC_MAX = 60
 
 const principleRow = (principle: AsRead.Principle): PrincipleRow => {
@@ -365,10 +382,13 @@ const principleRow = (principle: AsRead.Principle): PrincipleRow => {
       },
     ],
     kindBadge: strings.teach.kindBadge[principle.kind],
-    details: principleDetails(principle),
+    details: principleDetails(principle, 'person'),
     problems: principleAdvice(principle)
       .filter((kind) => kind === 'forbidden')
       .map((kind) => strings.teach.advice[kind]),
+    autoSend: canSendItself(principle)
+      ? { menu: strings.autoSend.menu, title: strings.autoSend.dialogTitle({ name: principle.topic }) }
+      : null,
     publicSwitch: {
       isPublic,
       label: (isPublic ? strings.teach.makePrivate : strings.teach.makePublic)({ name: principle.topic }),
@@ -377,14 +397,22 @@ const principleRow = (principle: AsRead.Principle): PrincipleRow => {
   }
 }
 
-/** The quiet second line of a principle: where it applies, where it came from, and how it held up. */
-const principleDetails = (principle: AsRead.Principle): string[] => {
+/**
+ * The quiet second line of a principle: where it applies, where it came from, and how it held up. A
+ * channel agent's principles apply wherever it answers, so they name no place.
+ */
+const principleDetails = (principle: AsRead.Principle, owner: 'person' | 'channel'): string[] => {
   const counts = principle.counts === null ? null : countsShown(principle.counts)
   const host = principle.source === null ? null : sourceHost(principle.source)
   return [
-    principle.place === null ? strings.teach.anywhere : placeName(principle.place),
-    strings.teach.origin[principle.origin],
+    ...(owner === 'channel'
+      ? [strings.channelTeach.origin[principle.origin]]
+      : [
+          principle.place === null ? strings.teach.anywhere : placeName(principle.place),
+          strings.teach.origin[principle.origin],
+        ]),
     ...(host === null ? [] : [strings.teach.sourceHost({ host })]),
+    ...autoSendDetails(principle),
     ...(counts === null
       ? []
       : [

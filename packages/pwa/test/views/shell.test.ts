@@ -44,6 +44,30 @@ describe('shell', () => {
     expect(textOf(shown)).toContain(strings.loading)
   })
 
+  it('gives each tab a word under a hidden glyph, and hides the phone’s tab bar in a conversation', () => {
+    const { context } = testContext()
+    context.state.session.set(me())
+    const shown = mount(shell(context, lifetime(), me(), document.createElement('main')))
+    const app = shown.querySelector('.app') as HTMLElement
+    const tabs = [...shown.querySelectorAll('.tabs .tab')]
+    expect(tabs.map((tab) => textOf(tab.querySelector('.tab-label')!))).toEqual([
+      strings.navNotes,
+      strings.navMyAgent,
+      strings.navPeople,
+      strings.channels,
+      strings.navDebates,
+    ])
+    expect(
+      tabs.every((tab) => tab.querySelector('svg.tab-glyph')?.getAttribute('aria-hidden') === 'true'),
+    ).toBe(true)
+    expect(getByRole(shown, 'link', { name: strings.navNotes }).getAttribute('aria-current')).toBe('page')
+    expect(app.dataset.tabBar).toBe('shown')
+    context.state.route.set({ name: 'conversation', id: ROOM, draft: null })
+    expect(app.dataset.tabBar).toBe('hidden')
+    context.state.route.set({ name: 'channels' })
+    expect(app.dataset.tabBar).toBe('shown')
+  })
+
   it('offers, in a conversation, a first link that skips to writing a note', () => {
     const { context } = testContext()
     context.state.session.set(me())
@@ -166,12 +190,15 @@ describe('shell', () => {
     expect(textOf(shown)).toContain(strings.connectionOffline)
   })
 
-  it('invites connecting an agent, and offers where to start without conversations', () => {
+  it('offers the first steps without conversations, then invites connecting an agent beside them', () => {
     const { context } = testContext()
     const shown = shell(context, lifetime(), me(), document.createElement('main'))
     context.state.conversationsLoaded.set(true)
-    expect(textOf(shown)).toContain(strings.onboardingTitle)
+    expect(shown.querySelector('.onboarding')).toBeNull()
     expect(textOf(shown)).toContain(strings.noConversations)
+    expect(textOf(shown.querySelector('.starting-points')!)).toContain(strings.start.connectStep)
+    context.state.conversations.set([conversation()])
+    expect(textOf(shown)).toContain(strings.onboardingTitle)
     context.state.agentCredentials.set([credential('cred_desk')])
     expect(shown.querySelector('.onboarding')).toBeNull()
     expect(textOf(shown)).toContain(strings.noChannelRooms)
@@ -200,6 +227,40 @@ describe('shell', () => {
     expect([...shown.querySelectorAll('.conversation-list')]).toEqual(lists)
     expect(after.map((row, index) => row === before[index])).toEqual([false, true, true, true])
     expect(after[0]!.textContent).toContain('Hello again')
+  })
+
+  it('shows only what waits for the person while Waiting for you is pressed, and opens the switcher on Ctrl+K', () => {
+    const { context, page } = testContext()
+    context.state.session.set(me())
+    const shown = mount(shell(context, lifetime(), me(), document.createElement('main')))
+    const asked = note('note_q', { body: 'Lunch?' })
+    context.state.conversations.set([
+      conversation({ lastNote: asked }),
+      conversation({
+        id: 'conv_quiet0000000' as never,
+        participantIds: [me().member.id, CY],
+        lastNote: note('n9', { body: 'Quiet' }),
+      }),
+    ])
+    context.state.conversationsLoaded.set(true)
+    context.state.threads.set(
+      new Map([[ROOM, { notes: [asked, draft('note_d1', { inReplyTo: asked.id })], hasMore: false }]]),
+    )
+    const filter = getByRole(shown, 'button', { name: /Waiting for you/ })
+    expect(filter.getAttribute('aria-pressed')).toBe('false')
+    expect(filter.getAttribute('title')).toBe(strings.waiting.filterLabel({ count: 1 }))
+    expect(getByRole(shown, 'link', { name: /Quiet/ })).toBeTruthy()
+    filter.click()
+    expect(getByRole(shown, 'button', { name: /Waiting for you/ }).getAttribute('aria-pressed')).toBe('true')
+    expect(queryByRole(shown, 'link', { name: /Quiet/ })).toBeNull()
+    expect(getByRole(shown, 'link', { name: /Lunch/ })).toBeTruthy()
+    expect(textOf(shown)).toContain(strings.waiting.roomsNone)
+    context.state.threads.set(new Map())
+    context.state.conversations.set([conversation({ id: 'conv_quiet0000000' as never })])
+    expect(textOf(shown)).toContain(strings.waiting.peopleNone)
+    expect(page.outside.title).toBe('Homingbird')
+    fire.key(document.body, 'k', { ctrlKey: true })
+    expect((shown.querySelector('dialog.switcher') as HTMLDialogElement).open).toBe(true)
   })
 
   it('lists direct messages, groups, channel rooms and archived rooms, each with its counts', () => {

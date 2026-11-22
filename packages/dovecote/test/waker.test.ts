@@ -91,7 +91,7 @@ beforeEach(() => {
 })
 
 afterEach(async () => {
-  await server.close()
+  await server?.close()
 })
 
 describe('waking a cloud desk', () => {

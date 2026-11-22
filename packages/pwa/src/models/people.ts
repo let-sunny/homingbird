@@ -50,6 +50,8 @@ export interface PeopleInput {
   readonly groupFilter: string
   /** Who is in the group chosen, as the server listed them; null while that list is on its way. */
   readonly groupMembers: ReadonlySet<MemberId> | null
+  /** The member a profile card's “Open in People” brought here, whose card is brought into view. */
+  readonly person?: string | undefined
 }
 
 export interface PeopleModel {
@@ -71,6 +73,8 @@ export interface FilterOption {
 
 export interface PersonCard {
   readonly memberId: MemberId
+  /** Whether this is the card a profile card's “Open in People” asked for. */
+  readonly focused: boolean
   readonly avatar: AvatarModel
   readonly name: string
   readonly relation: { readonly kind: Relation; readonly text: string } | null
@@ -86,6 +90,8 @@ export interface PersonCard {
   readonly agentIntroduction: ReadonlyArray<string>
   readonly agentIntroductionTitle: string
   readonly actions: ReadonlyArray<PersonAction>
+  /** A new message with this person chosen, to add others to; null when they cannot be written to. */
+  readonly withOthers: { readonly text: string; readonly label: string; readonly href: string } | null
   /** What stays behind the card's ⋯ menu, blocking among it, so it never sits beside writing a note. */
   readonly more: { readonly label: string; readonly actions: ReadonlyArray<PersonAction> } | null
 }
@@ -145,6 +151,7 @@ const personCard = (
   const menu = actions.filter((one) => IN_MENU.has(one.kind))
   return {
     memberId: entry.member.id,
+    focused: entry.member.id === input.person,
     avatar: memberAvatarOf(entry.member, input.charactersOn, { state: personPip(entry) }),
     name: entry.member.name,
     relation: strings.relation[relation] === '' ? null : { kind: relation, text: strings.relation[relation] },
@@ -168,6 +175,13 @@ const personCard = (
     agentIntroduction: entry.agentIntroduction ?? [],
     agentIntroductionTitle: relation === 'self' ? strings.ownAgentIntroduction : strings.agentIntroduction,
     actions: actions.filter((one) => !IN_MENU.has(one.kind)),
+    withOthers: actions.some((one) => one.kind === 'message')
+      ? {
+          text: strings.newMessage.withOthers,
+          label: strings.newMessage.withOthersLabel({ name: entry.member.name }),
+          href: hrefFor({ name: 'new', to: [entry.member.id] }),
+        }
+      : null,
     more:
       menu.length === 0 ? null : { label: strings.personMore({ name: entry.member.name }), actions: menu },
   }

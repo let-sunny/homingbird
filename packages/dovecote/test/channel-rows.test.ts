@@ -22,7 +22,7 @@ beforeEach(async () => {
   await ben.api('POST', '/channels', { slug: 'payroll', description: 'Salaries', visibility: 'private' })
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const running = <A>(task: T.Task<A, unknown, any>) => T.runPromise(T.result(task), server.env)
 

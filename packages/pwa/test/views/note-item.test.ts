@@ -72,6 +72,23 @@ describe('renderNoteItem', () => {
     expect(render(context, note('n2')).querySelector('.note-more-text')).toBeNull()
   })
 
+  it('keeps Show less where it was on screen when the note folds above it', () => {
+    const { context } = testContext()
+    const scroller = mount(Object.assign(document.createElement('div'), { className: 'thread-scroll' }))
+    const list = Object.assign(document.createElement('ol'), { className: 'notes' })
+    scroller.append(list)
+    const shown = render(context, note('n1', { body: 'word '.repeat(400) }))
+    Object.assign(scroller, { scrollHeight: 3000, clientHeight: 700, scrollTop: 900 })
+    const toggle = shown.querySelector<HTMLElement>('.note-more-text')!
+    const body = shown.querySelector('.note-body')!
+    const placeOnScreen = () => ({ top: body.classList.contains('is-collapsed') ? 120 : 520 })
+    Object.assign(toggle, { getBoundingClientRect: placeOnScreen })
+    toggle.click()
+    expect(scroller.scrollTop).toBe(900)
+    toggle.click()
+    expect([body.classList.contains('is-collapsed'), scroller.scrollTop]).toEqual([true, 500])
+  })
+
   it('copies the note’s text from its menu, and says whether the browser let it', async () => {
     const { context, page } = testContext()
     const shown = render(context, note('n1', { authorId: ANA }))
@@ -91,6 +108,15 @@ describe('renderNoteItem', () => {
     await Promise.resolve()
     expect(page.copied.at(-1)).toBe(`http://localhost/#/c/${ROOM}?note=n1`)
     expect(context.state.notice.get()).toEqual({ kind: 'info', text: strings.noteLinkCopied })
+  })
+
+  it('says in the menu of the person’s own note that a sent note stays as it is, and only there', () => {
+    const { context } = testContext()
+    const mine = render(context, note('n1', { authorId: ANA }))
+    expect(textOf(mine.querySelector('.note-menu'))).toContain(strings.noteFixed)
+    expect(mine.querySelector('.note-fixed')?.getAttribute('role')).toBeNull()
+    const theirs = render(context, note('n2'))
+    expect(textOf(theirs.querySelector('.note-menu'))).not.toContain(strings.noteFixed)
   })
 
   it('shows Ask my agent disabled with the reason where the server takes no draft requests', () => {
@@ -167,6 +193,20 @@ describe('renderNoteItem', () => {
     expect(render(context, mine).classList.contains('is-active')).toBe(true)
   })
 
+  it('says a saved answer sent the note, and recalls it on its author’s click', () => {
+    const { context, called } = testContext()
+    const mine = note('n1', { authorId: ANA, autoSent: true, origin: 'agent', agentName: 'Desk', sentAt: 10 })
+    const shown = render(context, mine)
+    expect(shown.querySelector('.note-auto-sent')!.textContent).toContain(strings.autoSend.sentByYours)
+    getByRole(shown, 'button', { name: strings.autoSend.recall }).click()
+    const [recall] = called('recallNote')
+    expect(recall!.args).toEqual([mine])
+    recall!.then!.done!(undefined)
+    expect(context.state.notice.get()).toEqual({ kind: 'info', text: strings.autoSend.recalled })
+    const theirs = render(context, note('n2', { autoSent: true }))
+    expect(theirs.querySelector('.recall-note')).toBeNull()
+  })
+
   it('asks the agent anyway after it let a note go, or opens teaching it with a title filled in', () => {
     const { context, called } = testContext()
     mount(dialogHost())
@@ -185,6 +225,23 @@ describe('renderNoteItem', () => {
     getByRole(shown, 'button', { name: strings.teach.add }).click()
     const topic = document.querySelector<HTMLInputElement>('dialog input[name="topic"]')
     expect(topic?.value).toBe('body of q')
+  })
+
+  it('names the author of a note in a room as a button that opens their profile card', () => {
+    const { context } = testContext()
+    const question = note('q', { authorId: BEN })
+    const shown = render(
+      context,
+      question,
+      threadInput({
+        conversations: [conversation({ kind: 'channel' })],
+        thread: { notes: [question], hasMore: false },
+      }),
+    )
+    const name = shown.querySelector<HTMLElement>('.note-author .profile-name')!
+    expect(name.textContent).toBe('Ben')
+    expect(name.dataset.profile).toBe(BEN)
+    expect(shown.querySelector<HTMLElement>('.author-button')!.dataset.profile).toBe(BEN)
   })
 
   it('offers a manager who discarded the agent’s answer to reply to the question themself', () => {

@@ -1,5 +1,5 @@
 import { Task as T } from '@homingbird/kernel'
-import type { AsRead, NoteId, PrincipleKind } from '@homingbird/protocol'
+import type { AsRead, AutoSend, NoteId, PrincipleKind } from '@homingbird/protocol'
 import { track } from '../analytics.ts'
 import { type Action, withApp } from '../app.ts'
 
@@ -11,7 +11,7 @@ export const refreshAgentReport: Action = withApp(({ api, state }) =>
   )(api['insights.mine']({})),
 )
 
-/** What the person taught their agent: principles, chances to teach, the route map. */
+/** What the person taught their agent: principles, chances to teach, each place's progress. */
 export const refreshPrinciples: Action = withApp(({ api, state }) =>
   T.fold(
     () => state.taught.set('failed'),
@@ -49,6 +49,12 @@ export const savePrinciple = (input: PrincipleInput): Action =>
 export const changePrinciple = (id: string, change: PrincipleChange): Action =>
   withApp(({ api }) =>
     T.flatMap(() => refreshPrinciples)(api['principles.update']({ params: { id }, body: change })),
+  )
+
+/** Switches one saved answer's automatic sending, with the places it may send itself, as its person chose. */
+export const setAutoSend = (id: string, setting: AutoSend): Action =>
+  withApp(({ api }) =>
+    T.flatMap(() => refreshPrinciples)(api['principles.autoSend.set']({ params: { id }, body: setting })),
   )
 
 export const reorderPrinciples = (ids: ReadonlyArray<string>): Action =>

@@ -5,6 +5,7 @@ import {
   searchLinkModel,
   sidebarModel,
   skipLinkModel,
+  tabBarFor,
   tabsModel,
   userMenuModel,
 } from '../../src/models/shell.ts'
@@ -41,13 +42,15 @@ describe('tabsModel', () => {
       current: false,
       tour: 'connect',
       mark: null,
+      glyph: 'agent',
     })
+    expect(tabs.map((tab) => tab.glyph)).toEqual(['notes', 'agent', 'people', 'channels'])
     expect(tabs.every((tab) => tab.mark === null)).toBe(true)
     expect(
       tabsModel({ name: 'debate', id: 'x', tab: null }, serverInfo({ debateRooms: true })).find(
         (tab) => tab.current,
-      )?.label,
-    ).toBe(strings.navDebates)
+      ),
+    ).toEqual(expect.objectContaining({ label: strings.navDebates, glyph: 'debates' }))
   })
 
   it('marks My agent, and only My agent, while the person’s agent cannot answer', () => {
@@ -66,6 +69,7 @@ describe('searchLinkModel', () => {
       current: false,
       tour: null,
       mark: null,
+      glyph: null,
     })
     expect(searchLinkModel({ name: 'search', query: 'refund' }).current).toBe(true)
   })
@@ -90,6 +94,14 @@ describe('paneFor', () => {
   it('shows the list on home and the page everywhere else', () => {
     expect(paneFor({ name: 'home' })).toBe('list')
     expect(paneFor({ name: 'people' })).toBe('stage')
+  })
+})
+
+describe('tabBarFor', () => {
+  it('hides the phone’s tab bar inside an open conversation only', () => {
+    expect(tabBarFor({ name: 'conversation', id: ROOM, draft: null })).toBe('hidden')
+    expect(tabBarFor({ name: 'home' })).toBe('shown')
+    expect(tabBarFor({ name: 'people' })).toBe('shown')
   })
 })
 
@@ -118,6 +130,8 @@ describe('sidebarModel', () => {
     agentCount: 1,
     charactersOn: true,
     muteOn: true,
+    hideOn: true,
+    leaveOn: true,
     now: 10,
     arrived: new Set(),
     typedIn: new Set(),
@@ -127,11 +141,45 @@ describe('sidebarModel', () => {
   it('waits for the list, says when there are no conversations, and invites connecting an agent', () => {
     expect(sidebarModel(input({ loaded: false })).people).toEqual({ kind: 'loading' })
     expect(sidebarModel(input({ agentCount: 0 }))).toEqual({
-      onboarding: true,
+      onboarding: false,
       people: { kind: 'none' },
       channelRooms: [],
+      channelRoomsEmpty: strings.noChannelRooms,
       archived: null,
     })
+    expect(sidebarModel(input({ agentCount: 0, conversations: [conversation()] })).onboarding).toBe(true)
+    expect(
+      sidebarModel(input({ agentCount: 0, conversations: [conversation()], loaded: false })).onboarding,
+    ).toBe(false)
+    expect(sidebarModel(input({ agentCount: 1, conversations: [conversation()] })).onboarding).toBe(false)
+  })
+
+  it('shows only the rooms that wait for the person while the filter is on, and says so when none does', () => {
+    const group = conversation({
+      id: 'conv_group0000000' as never,
+      kind: 'group',
+      participantIds: [ANA, BEN, CY],
+    })
+    const room = conversation({ id: 'conv_payments0000' as never, kind: 'channel', title: 'payments' })
+    const archived = conversation({
+      id: 'conv_old000000000' as never,
+      kind: 'channel',
+      title: 'old',
+      archivedAt: 2,
+    })
+    const all = [conversation(), group, room, archived]
+    const only = sidebarModel(input({ conversations: all, waitingOnly: new Set([group.id]) }))
+    expect(only.people.kind === 'rows' && only.people.rows.map((row) => row.id)).toEqual([group.id])
+    expect(only.channelRooms).toEqual([])
+    expect(only.channelRoomsEmpty).toBe(strings.waiting.roomsNone)
+    expect(only.archived).toBeNull()
+    expect(sidebarModel(input({ conversations: all, waitingOnly: new Set([room.id]) })).people).toEqual({
+      kind: 'nothing-waits',
+      text: strings.waiting.peopleNone,
+    })
+    const off = sidebarModel(input({ conversations: all, waitingOnly: null }))
+    expect(off.people.kind === 'rows' && off.people.rows).toHaveLength(2)
+    expect(off.archived).not.toBeNull()
   })
 
   it('shows a direct conversation with the other person, their presence, its last note and its counts', () => {
@@ -222,6 +270,24 @@ describe('sidebarModel', () => {
     expect(sidebarModel(input({ conversations: [old] })).archived!.open).toBe(false)
   })
 
+  it('leaves out a room the person hid, and offers a group’s row hide, a new group and leave', () => {
+    const team = conversation({
+      id: 'conv_team00000000' as never,
+      kind: 'group',
+      participantIds: [ANA, BEN, CY],
+    })
+    const hidden = conversation({ hidden: true })
+    const model = sidebarModel(input({ conversations: [hidden, team] }))
+    if (model.people.kind !== 'rows') throw new Error('expected rows')
+    expect(model.people.rows.map((row) => row.id)).toEqual([team.id])
+    expect(model.people.rows[0]!.menu?.place).toMatchObject({
+      hide: { conversationId: team.id, hidden: false },
+      leave: { conversationId: team.id, title: 'Leave Ben, Cy?' },
+      newGroup: { label: strings.places.newGroup },
+    })
+    expect(sidebarModel(input({ conversations: [hidden] })).people).toEqual({ kind: 'none' })
+  })
+
   it('offers each row a mute switch, marks a muted one, and lets no muted row play an arrival', () => {
     const muted = conversation({ muted: true, lastNote: note('n1', { authorId: BEN, sentAt: 9 }) })
     const model = sidebarModel(input({ conversations: [muted], arrived: new Set([ROOM]) }))
@@ -229,7 +295,9 @@ describe('sidebarModel', () => {
     const [row] = model.people.rows
     expect(row!.mute).toMatchObject({ muted: true, label: 'Unmute Ben', mark: strings.mute.muted })
     expect(row!.face).toMatchObject({ kind: 'member', avatar: { state: 'idle', motion: 'still' } })
-    const off = sidebarModel(input({ conversations: [conversation()], muteOn: false }))
+    const off = sidebarModel(
+      input({ conversations: [conversation()], muteOn: false, hideOn: false, leaveOn: false }),
+    )
     expect(off.people.kind === 'rows' && off.people.rows[0]!.mute).toBeNull()
     expect(off.people.kind === 'rows' && off.people.rows[0]!.menu).toBeNull()
   })

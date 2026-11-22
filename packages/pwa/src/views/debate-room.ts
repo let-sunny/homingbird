@@ -1,7 +1,12 @@
 import type { AsRead, CredentialId, DebateExportFormat } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, lifetime, linkedText, region } from '@homingbird/ui'
 import type { QuotedTurn } from '../models/debate-credit.ts'
-import { type DebateRoomModel, debateRoomModel, resultDestination } from '../models/debate-room.ts'
+import {
+  type BriefField,
+  type DebateRoomModel,
+  debateRoomModel,
+  resultDestination,
+} from '../models/debate-room.ts'
 import type { Turn, TurnGroup } from '../models/debate-turn-list.ts'
 import { type DebateTab, hrefFor } from '../routes.ts'
 import { locale, strings } from '../strings.ts'
@@ -16,8 +21,11 @@ import {
   section,
 } from './debate-result.ts'
 import { limitFields, limitsTypedIn } from './debates.ts'
+import { hinted } from './hint.ts'
 import { citedBody } from './note-body.ts'
+import { participantsCount, participantsList } from './participants.ts'
 import { emptyWithPip, field, loading, page, privateMarkOf, timeLabel } from './parts.ts'
+import { profileName } from './profile-card.ts'
 
 /**
  * One debate room, one short tab at a time, each its own address: the result the agents settled, how they
@@ -94,18 +102,23 @@ const renderDebateRoom = (model: DebateRoomModel, context: ViewContext, drawn: L
       model.isPrivate && privateMarkOf(strings.debates.private, strings.debates.privateSeenBy),
       model.isPrivate && h('span', { class: 'hint' }, strings.debates.privateSeenBy),
       model.closesAt !== null && h('span', {}, model.closesAt),
+      model.people.people.length > 0 && participantsCount(model.people),
     ),
+    participantsList(model.people),
     model.tabs.length > 1 &&
       h(
         'nav',
         { class: 'subtabs debate-tabs', 'aria-label': strings.debates.tabsLabel },
-        model.tabs.map((tab) =>
-          h(
+        model.tabs.map((tab) => {
+          const link = h(
             'a',
             { href: tab.href, 'aria-current': tab.current && 'page', data: { tab: tab.tab } },
             tab.label,
-          ),
-        ),
+          )
+          if (tab.tab === 'turns') return hinted(context, 'debateTurns', strings.hints.debateTurns, link)
+          if (tab.tab === 'result') return hinted(context, 'debateResult', strings.hints.debateResult, link)
+          return link
+        }),
       ),
     h('div', { class: `debate-tab is-${model.shown}` }, ...tabContent(model, context, drawn)),
   )
@@ -126,6 +139,7 @@ const tabContent = (model: Room, context: ViewContext, drawn: Lifetime): Readonl
 
 const resultTab = (model: Room, context: ViewContext, drawn: Lifetime): ReadonlyArray<Child> => [
   model.ended !== null && section(strings.debates.resultTitle, 'debate-result', h('p', {}, model.ended)),
+  model.agreedEarly !== null && h('p', { class: 'debate-agreed-early' }, model.agreedEarly),
   model.result !== null && resultSection(model.result),
   model.moved.length > 0 &&
     section(
@@ -207,7 +221,7 @@ const creditTab = ({ credit }: Room): ReadonlyArray<Child> => [
         h(
           'li',
           { class: 'debate-credit-row', data: { member: row.memberId } },
-          h('strong', {}, row.name),
+          h('strong', {}, profileName(row.memberId, row.name)),
           row.summary !== null && h('span', {}, citedText(row.summary)),
           ...row.credits.map(creditBadge),
           h(
@@ -250,6 +264,7 @@ const movedBetween = (move: { readonly from: QuotedTurn; readonly to: QuotedTurn
 
 const turnsTab = (model: Room, context: ViewContext, drawn: Lifetime): ReadonlyArray<Child> => [
   model.optIn !== null && optInSection(context, model.debate, model.optIn),
+  model.brief !== null && briefSection(context, model.debate, model.brief),
   section(
     strings.debates.participantsTitle,
     'debate-participants',
@@ -262,13 +277,16 @@ const turnsTab = (model: Room, context: ViewContext, drawn: Lifetime): ReadonlyA
             h(
               'li',
               { data: { member: participant.memberId } },
-              h('span', {}, participant.name),
+              h('span', {}, profileName(participant.memberId, participant.name)),
               participant.turnsLeft !== null && h('small', {}, participant.turnsLeft),
               participant.droppedOut !== null &&
                 h('small', { class: 'debate-dropped-out' }, participant.droppedOut),
+              participant.ready !== null && h('small', { class: 'debate-ready' }, participant.ready),
             ),
           ),
         ),
+    model.readyHint !== null && h('p', { class: 'hint debate-ready-hint' }, model.readyHint),
+    model.agreedEarly !== null && h('p', { class: 'debate-agreed-early' }, model.agreedEarly),
     h('p', { class: 'debate-limits-summary' }, model.limits),
     h('p', { class: 'debate-grace-summary' }, model.grace),
     model.mayChangeLimits && limitsForm(context, model.debate),
@@ -379,10 +397,17 @@ const optInSection = (
     { name: 'agent' },
     optIn.agents.map((agent) => h('option', { value: agent.value }, agent.label)),
   )
+  const brief = briefBox(optIn.brief)
   return section(
     strings.debates.optInTitle,
     'debate-opt-in',
     h('p', { class: 'hint' }, strings.debates.optInHint),
+    h(
+      'details',
+      { class: 'debate-opt-in-advice' },
+      h('summary', {}, strings.debates.optInAdviceTitle),
+      h('p', { class: 'hint' }, strings.debates.optInAdvice),
+    ),
     h(
       'form',
       {
@@ -391,14 +416,59 @@ const optInSection = (
           submit: (event) => {
             event.preventDefault()
             const agent = optIn.agents.find((one) => one.value === choice.value)
-            if (agent !== undefined) context.actions.optInAgent(debate.id, agent.value as CredentialId)
+            if (agent !== undefined)
+              context.actions.optInAgent(debate.id, agent.value as CredentialId, brief.value)
           },
         },
       },
       field(strings.debates.chooseAgent, choice),
+      field(optIn.brief.label, brief, optIn.brief.hint),
       h('button', { type: 'submit', class: 'primary' }, strings.debates.optIn),
     ),
   )
+}
+
+/** The participant's own note on what their agent may use here: a form while turns go on, then text. */
+const briefSection = (context: ViewContext, debate: AsRead.Debate, brief: NonNullable<Room['brief']>) => {
+  if (brief.kind === 'fixed')
+    return section(
+      brief.title,
+      'debate-brief',
+      h('p', { class: 'debate-brief-text' }, brief.text),
+      h('p', { class: 'hint' }, brief.fixed),
+    )
+  const box = briefBox(brief.field)
+  return section(
+    brief.title,
+    'debate-brief',
+    h(
+      'form',
+      {
+        class: 'debate-brief-form',
+        on: {
+          submit: (event) => {
+            event.preventDefault()
+            context.actions.setBrief(debate.id, box.value, {
+              done: () => context.state.notice.set({ kind: 'info', text: strings.debates.briefSaved }),
+            })
+          },
+        },
+      },
+      field(brief.field.label, box, brief.field.hint),
+      h('button', { type: 'submit' }, brief.save),
+    ),
+  )
+}
+
+const briefBox = (brief: BriefField): HTMLTextAreaElement => {
+  const box = h('textarea', {
+    name: 'brief',
+    rows: '4',
+    maxlength: String(brief.maxLength),
+    placeholder: brief.placeholder,
+  })
+  box.value = brief.value
+  return box
 }
 
 const exportButton = (

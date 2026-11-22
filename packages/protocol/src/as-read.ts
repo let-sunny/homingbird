@@ -1,8 +1,11 @@
 import type { Schema as S } from '@homingbird/kernel'
 import type { ChannelAgent as ChannelAgentSchema, Review as ReviewSchema } from './channel-agents.ts'
+import type { ChannelDecisions as ChannelDecisionsSchema } from './channel-decisions.ts'
+import type { ChannelTeaching as ChannelTeachingSchema } from './channel-teaching.ts'
 import type {
   InboxItem as InboxItemSchema,
   JoinCode as JoinCodeSchema,
+  JoinCodeStatus as JoinCodeStatusSchema,
   Me as MeSchema,
   ServerInfo as ServerInfoSchema,
 } from './contract-schemas.ts'
@@ -15,6 +18,10 @@ import type {
   DebateSummary as DebateSummarySchema,
 } from './debates.ts'
 import type { DeskWake as DeskWakeSchema, DeskWakeTest as DeskWakeTestSchema } from './desk-wake.ts'
+import type {
+  DraftPreviewAllowance as DraftPreviewAllowanceSchema,
+  DraftPreview as DraftPreviewSchema,
+} from './draft-previews.ts'
 import type { EarlierAnswer as EarlierAnswerSchema } from './earlier-answers.ts'
 import type { StreamEvent as StreamEventSchema } from './events.ts'
 import type { Group as GroupSchema } from './groups.ts'
@@ -43,12 +50,22 @@ import type {
   Settings as SettingsSchema,
 } from './model.ts'
 import type {
+  PrincipleProposal as PrincipleProposalSchema,
+  TeachingInterview as TeachingInterviewSchema,
+  TeachingMaterial as TeachingMaterialSchema,
+} from './principle-proposals.ts'
+import type {
   Achievement as AchievementSchema,
   DraftingPrinciples as DraftingPrinciplesSchema,
   MyPrinciples as MyPrinciplesSchema,
   PrincipleOffer as PrincipleOfferSchema,
   Principle as PrincipleSchema,
 } from './principles.ts'
+import type {
+  AdminSlack as AdminSlackSchema,
+  MeSlack as MeSlackSchema,
+  SlackCodeView as SlackCodeViewSchema,
+} from './slack.ts'
 
 /** Responses as a client reads them: an enum value or an event a newer server added reads as "unknown". */
 export type Note = S.Read<typeof NoteSchema>
@@ -81,7 +98,12 @@ export type DebateExport = S.Read<typeof DebateExportSchema>
 export type MyPrinciples = S.Read<typeof MyPrinciplesSchema>
 export type Principle = S.Read<typeof PrincipleSchema>
 export type PrincipleOffer = S.Read<typeof PrincipleOfferSchema>
+export type PrincipleProposal = S.Read<typeof PrincipleProposalSchema>
+export type TeachingInterview = S.Read<typeof TeachingInterviewSchema>
+export type TeachingMaterial = S.Read<typeof TeachingMaterialSchema>
 export type DraftingPrinciples = S.Read<typeof DraftingPrinciplesSchema>
+export type ChannelTeaching = S.Read<typeof ChannelTeachingSchema>
+export type ChannelDecisions = S.Read<typeof ChannelDecisionsSchema>
 export type Achievement = S.Read<typeof AchievementSchema>
 export type AgentReport = S.Read<typeof AgentReportSchema>
 export type ChannelAgentReport = S.Read<typeof ChannelAgentReportSchema>
@@ -94,6 +116,12 @@ export type ChannelAgent = S.Read<typeof ChannelAgentSchema>
 export type Review = S.Read<typeof ReviewSchema>
 export type DeskWake = S.Read<typeof DeskWakeSchema>
 export type DeskWakeTest = S.Read<typeof DeskWakeTestSchema>
+export type AdminSlack = S.Read<typeof AdminSlackSchema>
+export type MeSlack = S.Read<typeof MeSlackSchema>
+export type SlackCodeView = S.Read<typeof SlackCodeViewSchema>
+export type DraftPreview = S.Read<typeof DraftPreviewSchema>
+export type DraftPreviewAllowance = S.Read<typeof DraftPreviewAllowanceSchema>
 export type JoinCode = S.Read<typeof JoinCodeSchema>
+export type JoinCodeStatus = S.Read<typeof JoinCodeStatusSchema>
 export type Invite = S.Read<typeof InviteSchema>
 export type InviteLink = S.Read<typeof InviteLinkSchema>

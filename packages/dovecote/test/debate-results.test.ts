@@ -29,7 +29,7 @@ beforeEach(async () => {
   cast = await castOf(server)
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const concludedRoom = async (visibility: 'open' | 'private' = 'open') => {
   const id = await openedRoom(cast, { visibility })
@@ -492,7 +492,7 @@ describe('the settled result leaving the room', () => {
     expect(await storedRows(server, 'principle_offers')).toEqual([])
   })
 
-  it('leaves a posted result out of every agent figure, insight, route map and chance to teach', async () => {
+  it('leaves a posted result out of every agent figure, insight, place’s progress and chance to teach', async () => {
     const id = await closedRoom()
     const figures = async () => {
       const mine = (await cast.ana.api('GET', '/insights/me')).json

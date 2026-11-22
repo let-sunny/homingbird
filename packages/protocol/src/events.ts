@@ -15,9 +15,10 @@ export const EventBody = S.openVariants(
     'draft.discarded': {
       noteId: NoteId,
       conversationId: ConversationId,
-      because: S.optional(S.tolerant(S.literal('channel_archived'), UNKNOWN)),
+      because: S.optional(S.tolerant(S.literal('channel_archived', 'slack_deleted'), UNKNOWN)),
       channel: S.optional(ChannelSlug),
     },
+    'note.withdrawn': { noteId: NoteId, conversationId: ConversationId },
     'note.released': {
       noteId: NoteId,
       conversationId: ConversationId,
@@ -40,9 +41,13 @@ export const EventBody = S.openVariants(
     'directory.changed': { memberId: MemberId },
     'channel.changed': { channel: Channel },
     'channel.left': { slug: ChannelSlug, conversationId: ConversationId },
+    'conversation.left': { conversationId: ConversationId, memberId: MemberId },
     'debate.changed': { debateId: DebateId, participantIds: S.array(MemberId, { maxItems: 8 }) },
     'group.changed': { groupId: GroupId },
     'review.changed': { noteId: S.nullable(NoteId) },
+    'proposals.changed': {},
+    /** An allowed viewer's previews in a conversation changed, or with none, everywhere: read them again. */
+    'preview.changed': { conversationId: S.nullable(ConversationId) },
     resync: {},
   },
   UNKNOWN_EVENT,
@@ -57,17 +62,22 @@ export const StreamEvent = S.struct({
 })
 export type StreamEvent = S.Infer<typeof StreamEvent>
 
-/** A room's, a group's or a review's change carries no content and is not stored: a client reads it through the API. */
+/** A room's, a group's, a review's or the proposals' change carries no content and is not stored: a client reads it through the API. */
 const EPHEMERAL: ReadonlyArray<EventType> = [
   'presence',
   'directory.changed',
   'debate.changed',
   'group.changed',
   'review.changed',
+  'proposals.changed',
+  'preview.changed',
   'resync',
 ]
 
 export const isDurable = (type: EventType): boolean => !EPHEMERAL.includes(type)
+
+/** Told to a person's own signed-in pages only, never to a stream an agent credential holds. */
+export const isForPeopleOnly = (type: string): boolean => type === 'preview.changed'
 
 export const STREAM_PATHS = {
   sse: '/api/v1/events/stream',

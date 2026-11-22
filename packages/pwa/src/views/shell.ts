@@ -19,23 +19,28 @@ import { logoOf, wordmark } from '../models/branding.ts'
 import {
   type ConversationRow,
   type SidebarModel,
+  type TabGlyph,
   paneFor,
   searchLinkModel,
   sidebarModel,
   skipLinkModel,
+  tabBarFor,
   tabsModel,
   userMenuModel,
 } from '../models/shell.ts'
+import { type Waiting, waitingFilterModel } from '../models/waiting.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 import { activityBell, activityPanel } from './activity.ts'
 import { leaveForm } from './channel-membership.ts'
 import { renderAvatar, renderGroupAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
+import { conversationActionItems } from './conversation-actions.ts'
 import { opensDialog } from './dialog.ts'
 import { startingPoints } from './home.ts'
 import { type MenuParts, actionMenu } from './menu.ts'
 import { mutedMark } from './mute-toggle.ts'
+import { newMenu } from './new-menu.ts'
 import {
   agentDot,
   archivedMark,
@@ -46,6 +51,8 @@ import {
   loading,
   timeLabel,
 } from './parts.ts'
+import { switcher } from './switcher.ts'
+import { watchWaiting } from './waiting.ts'
 
 /** The app around a page: the header with its tabs, the connection, the sidebar and the user menu. */
 export const shell = (
@@ -55,16 +62,18 @@ export const shell = (
   stage: HTMLElement,
 ): HTMLElement => {
   const { state } = context
+  const waiting = watchWaiting(context, life, me)
   const app = h(
     'div',
     { class: 'app' },
     titleBar(context, life, me),
     connectionNotice(context, life),
-    sidebar(context, life, me),
+    sidebar(context, life, me, waiting),
     stage,
   )
   const showPane = (): void => {
     app.dataset.pane = paneFor(state.route.get())
+    app.dataset.tabBar = tabBarFor(state.route.get())
   }
   showPane()
   life.add(state.route.subscribe(showPane))
@@ -75,6 +84,7 @@ export const shell = (
     app,
     userMenu(context, me),
     activityPanel(context, life, me),
+    switcher(context, life, me, waiting),
   )
 }
 
@@ -174,7 +184,8 @@ const tabs = (context: ViewContext, agentUnavailable: string | null): Child => {
         'aria-current': tab.current && 'page',
         ...(tab.tour !== null && { data: { tour: tab.tour } }),
       },
-      tab.label,
+      tab.glyph !== null && tabGlyph(tab.glyph),
+      h('span', { class: 'tab-label' }, tab.label),
       tab.mark !== null &&
         h('span', { class: 'agent-mark', role: 'img', 'aria-label': tab.mark, title: tab.mark }),
     ),
@@ -270,11 +281,17 @@ const userMenu = (context: ViewContext, me: AsRead.Me): HTMLElement => {
   return menu
 }
 
-const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
+const sidebar = (
+  context: ViewContext,
+  life: Lifetime,
+  me: AsRead.Me,
+  waiting: ReadableSignal<Waiting>,
+): HTMLElement => {
   const { state } = context
   const model = (withArrivals = false): SidebarModel => {
     const conversations = state.conversations.get()
     return sidebarModel({
+      waitingOnly: state.waitingOnly.get() ? waiting.get().conversationIds : null,
       me,
       route: state.route.get(),
       conversations: conversationsWithoutHeld(conversations, state.held.get()),
@@ -286,6 +303,8 @@ const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLEleme
       agentCount: state.agentCredentials.get().length,
       charactersOn: featureOn('characters', state.serverInfo.get()),
       muteOn: featureOn('mute', state.serverInfo.get()),
+      hideOn: featureOn('hideConversations', state.serverInfo.get()),
+      leaveOn: featureOn('leaveGroups', state.serverInfo.get()),
       now: context.clock.now(),
       typedIn: state.typedIn.get(),
       arrived: new Set(
@@ -305,6 +324,8 @@ const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLEleme
     state.route,
     state.conversationsLoaded,
     state.held,
+    state.waitingOnly,
+    waiting,
   ]
   const roomSources = [
     state.conversations,
@@ -313,27 +334,44 @@ const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLEleme
     state.reviews,
     state.typedIn,
     state.held,
+    state.waitingOnly,
+    waiting,
   ]
-  const archivedSources = [state.conversations, state.route, state.members]
+  const archivedSources = [state.conversations, state.route, state.members, state.waitingOnly]
   return h(
     'aside',
     { class: 'sidebar', 'aria-label': strings.conversations },
-    region(life, [state.agentCredentials, state.session], () => model().onboarding && onboarding(), {
-      class: 'onboarding-host',
+    region(
+      life,
+      [state.agentCredentials, state.session, slice(peopleSources, () => model().onboarding)],
+      () => model().onboarding && onboarding(),
+      {
+        class: 'onboarding-host',
+      },
+    ),
+    region(life, [state.waitingOnly, waiting], () => waitingFilter(context, waiting.get()), {
+      class: 'waiting-filter-host',
     }),
-    h('h2', { class: 'sidebar-title' }, strings.conversations),
+    h(
+      'div',
+      { class: 'sidebar-section-head sidebar-list-head' },
+      h('h2', { class: 'sidebar-title' }, strings.conversations),
+      newMenu(context, me),
+    ),
     region(
       life,
       [slice(peopleSources, () => model().people.kind)],
       (drawing) => {
-        const kind = model().people.kind
+        const people = model().people
+        const kind = people.kind
         if (kind === 'loading') return loading()
+        if (people.kind === 'nothing-waits') return empty(people.text)
         if (kind === 'none')
           return h(
             'div',
             { class: 'no-conversations' },
             h('p', { class: 'no-conversations-text' }, strings.noConversations),
-            startingPoints(context),
+            startingPoints(context, drawing),
           )
         return rowList(context, drawing, peopleSources, 'conversation-list', () => {
           const people = model(true).people
@@ -348,16 +386,19 @@ const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLEleme
       h('h2', { class: 'sidebar-title' }, strings.channels),
       h('a', { class: 'browse-channels', href: hrefFor({ name: 'channels' }) }, strings.browseChannels),
     ),
-    region(life, [slice(roomSources, () => model().channelRooms.length === 0)], (drawing) =>
-      model().channelRooms.length === 0
-        ? empty(strings.noChannelRooms)
-        : rowList(
-            context,
-            drawing,
-            roomSources,
-            'conversation-list channel-rooms',
-            () => model().channelRooms,
-          ),
+    region(
+      life,
+      [slice(roomSources, () => (model().channelRooms.length === 0 ? model().channelRoomsEmpty : null))],
+      (drawing) =>
+        model().channelRooms.length === 0
+          ? empty(model().channelRoomsEmpty)
+          : rowList(
+              context,
+              drawing,
+              roomSources,
+              'conversation-list channel-rooms',
+              () => model().channelRooms,
+            ),
     ),
     region(
       life,
@@ -386,6 +427,23 @@ const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLEleme
         )
       },
     ),
+  )
+}
+
+/** The list's Waiting for you filter, a button that stays pressed while it is on. */
+const waitingFilter = (context: ViewContext, waiting: Waiting): HTMLElement => {
+  const model = waitingFilterModel(context.state.waitingOnly.get(), waiting)
+  return h(
+    'button',
+    {
+      type: 'button',
+      class: 'waiting-filter',
+      'aria-pressed': String(model.pressed),
+      title: model.label,
+      on: { click: () => context.state.waitingOnly.update((on) => !on) },
+    },
+    model.text,
+    model.count !== null && h('span', { class: 'count', 'aria-hidden': 'true' }, model.count),
   )
 }
 
@@ -478,7 +536,7 @@ const conversationRow = (context: ViewContext, row: ConversationRow): HTMLElemen
 }
 
 const rowMenu = (context: ViewContext, menu: NonNullable<ConversationRow['menu']>): MenuParts => {
-  const { mute, leave } = menu
+  const { mute, leave, place } = menu
   const reasonId = `${menu.id}-reason`
   return actionMenu(context, {
     id: menu.id,
@@ -509,6 +567,7 @@ const rowMenu = (context: ViewContext, menu: NonNullable<ConversationRow['menu']
         ),
         h('small', { id: reasonId, class: 'menu-reason' }, leave.reason),
       ],
+      ...conversationActionItems(context, place),
     ],
   })
 }
@@ -543,3 +602,34 @@ const searchIcon = (): SVGElement =>
       'stroke-linecap': 'round',
     }),
   )
+
+/** The picture over a tab's word in the phone's tab bar; the word names the tab, so this is decoration. */
+const tabGlyph = (glyph: TabGlyph): SVGElement =>
+  svg(
+    'svg',
+    {
+      class: 'tab-glyph',
+      viewBox: '0 0 16 16',
+      width: 20,
+      height: 20,
+      'aria-hidden': 'true',
+      focusable: 'false',
+    },
+    svg('path', {
+      d: TAB_GLYPHS[glyph],
+      fill: 'none',
+      stroke: 'currentColor',
+      'stroke-width': 1.5,
+      'stroke-linecap': 'round',
+      'stroke-linejoin': 'round',
+    }),
+  )
+
+const TAB_GLYPHS: Readonly<Record<TabGlyph, string>> = {
+  notes: 'M2 2.5h12v8.5H7.5L4 14v-3H2z',
+  agent: 'M3 5.5h10v8H3zM8 2v3.5M6 9.5v.5M10 9.5v.5',
+  people:
+    'M6 7.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM1.5 14c0-2.8 2-4.5 4.5-4.5s4.5 1.7 4.5 4.5M11 3a2 2 0 0 1 0 4M12 9.5c1.6.4 2.5 1.8 2.5 4.5',
+  channels: 'M6.5 2 5 14M11 2 9.5 14M2.5 5.5h11M2 10.5h11',
+  debates: 'M1.5 2h8v6H5l-2.5 2V8h-1zM12 5.5h2.5v6h-1V14l-2.5-2.5H7v-1.5',
+}

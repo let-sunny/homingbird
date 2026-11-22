@@ -13,6 +13,7 @@ import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
 import { cardOf, focusAfterDecision } from './decision-focus.ts'
 import { closeDialog, closesDialog, opensDialog, submitOnModifierEnter } from './dialog.ts'
+import { hinted } from './hint.ts'
 import { noteBody } from './note-body.ts'
 import { button, channelCounts, sourceList } from './parts.ts'
 import { renderAppliedMarkers } from './teaching.ts'
@@ -34,6 +35,14 @@ export const renderDraftsItem = (context: ViewContext, model: DraftsItemModel): 
       h('span', {}, model.replyTo),
     ),
     model.choose !== null && h('p', { class: 'pending-choose' }, model.choose),
+    model.slack !== null &&
+      h(
+        'p',
+        { class: 'slack-destination hint' },
+        h('span', {}, model.slack.postsTo),
+        model.slack.newer !== null &&
+          h('strong', { class: 'slack-newer', role: 'status' }, model.slack.newer),
+      ),
     model.archived !== null && h('p', { class: 'archived-drafts', role: 'note' }, model.archived),
     h(
       'div',
@@ -59,7 +68,12 @@ const draftCard = (context: ViewContext, card: DraftCard, headingId: string): HT
       tabindex: '-1',
       ...(card.focused && { 'aria-current': 'true' }),
     },
-    h('span', { class: card.origin.className, id: `draft-origin-${draft.id}` }, card.origin.text),
+    hinted(
+      context,
+      'draft',
+      strings.hints.draft,
+      h('span', { class: card.origin.className, id: `draft-origin-${draft.id}` }, card.origin.text),
+    ),
     noteBody(context, card.body),
     card.room !== null && h('a', { class: 'debate-note-room', href: card.room.href }, card.room.label),
     card.basis !== null &&
@@ -122,13 +136,18 @@ const draftActions = (
   return h(
     'div',
     { class: 'draft-actions' },
-    button(
-      shown.send,
-      (event) => {
-        decide(event)
-        actions.holdSend(draft, null, shown.alternatives, shown.held.send, HELD)
-      },
-      { class: 'primary draft-send' },
+    hinted(
+      context,
+      'approveAndSend',
+      strings.hints.approveAndSend,
+      button(
+        shown.send,
+        (event) => {
+          decide(event)
+          actions.holdSend(draft, null, shown.alternatives, shown.held.send, HELD)
+        },
+        { class: 'primary draft-send' },
+      ),
     ),
     h(
       'button',

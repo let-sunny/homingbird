@@ -76,7 +76,7 @@ describe('reviewOf', () => {
 
 describe('conversationsOf', () => {
   it('lists the viewer’s conversations, the most recent first, with their unread notes and own drafts', () => {
-    const { records, june, ben } = fresh()
+    const { records, june, kai } = fresh()
     const listed = conversationsOf(records, june)
     expect(listed.map((room) => room.lastActivityAt)).toEqual(
       listed.map((room) => room.lastActivityAt).sort((a, b) => b - a),
@@ -93,7 +93,7 @@ describe('conversationsOf', () => {
       )?.unreadCount,
     ).toBe(2)
     expect(listed.every((room) => room.participantIds.includes(june))).toBe(true)
-    expect(conversationsOf(records, ben).some((room) => room.draftCount > 0)).toBe(false)
+    expect(conversationsOf(records, kai).some((room) => room.draftCount > 0)).toBe(false)
   })
 
   it('names the channel only of a private question, as the server does, so no other room reads as archived', () => {
@@ -105,6 +105,20 @@ describe('conversationsOf', () => {
     expect(
       listed.filter((room) => room.kind === 'channel').every((room) => !('privateQuestionOf' in room)),
     ).toBe(true)
+  })
+
+  it('names a private question’s asker, and the managers in a channel’s room or question, as the server does', () => {
+    const { records, june, ana, ben } = fresh()
+    const listed = conversationsOf(records, june)
+    const asked = listed.find((room) => 'privateQuestionOf' in room)!
+    expect(asked.askedBy).toBe(ben)
+    expect([...asked.managerIds!].sort()).toEqual([june, ana].sort())
+    const billing = listed.find((room) => room.kind === 'channel' && room.title === 'billing')!
+    expect(billing).not.toHaveProperty('askedBy')
+    expect(billing.managerIds!.every((memberId) => billing.participantIds.includes(memberId))).toBe(true)
+    expect(listed.filter((room) => room.kind === 'direct').every((room) => !('managerIds' in room))).toBe(
+      true,
+    )
   })
 
   it('opens on the visitor’s direct conversation with Ana, where their own agent’s draft waits', () => {

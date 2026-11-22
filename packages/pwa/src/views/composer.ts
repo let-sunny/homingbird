@@ -127,7 +127,7 @@ export const composer = (
 }
 
 /** The composer's “Ask my agent”, beside Send: it opens the request below, or says why it cannot. */
-const askToggle = (ask: HTMLDetailsElement): AskToggle => {
+export const askToggle = (ask: HTMLDetailsElement): AskToggle => {
   ask.id = ASK_PANEL_ID
   const toggle = h(
     'button',
@@ -149,7 +149,7 @@ const askToggle = (ask: HTMLDetailsElement): AskToggle => {
   return { toggle, reason: h('span', { id: ASK_REASON_ID, class: 'visually-hidden' }) }
 }
 
-const reflectAskReason = (parts: AskToggle, reason: string | null): void => {
+export const reflectAskReason = (parts: AskToggle, reason: string | null): void => {
   parts.toggle.disabled = reason !== null
   parts.reason.textContent = reason ?? ''
   if (reason === null) {
@@ -161,7 +161,7 @@ const reflectAskReason = (parts: AskToggle, reason: string | null): void => {
   }
 }
 
-interface AskToggle {
+export interface AskToggle {
   readonly toggle: HTMLButtonElement
   readonly reason: HTMLElement
 }
@@ -221,6 +221,7 @@ const renderComposerStatus = (context: ViewContext, id: ConversationId, model: C
           'aria-label': strings.stopReplying,
         }),
       ),
+    model.postsTo !== null && h('p', { class: 'slack-destination hint', role: 'note' }, model.postsTo),
     model.blocked !== null &&
       h('p', { class: 'composer-blocked', id: BLOCKED_REASON_ID, role: 'note' }, model.blocked),
   ]

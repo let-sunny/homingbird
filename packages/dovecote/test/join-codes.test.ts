@@ -4,7 +4,7 @@ import { CHANNEL, startAgent, startWithChannel } from './channel-agent-support.t
 import { type TestServer, connectAgent, everyStoredValue, startTestServer, storedRows } from './harness.ts'
 
 let server: TestServer
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const redeem = (code: string, form: Record<string, string> = {}) =>
   server.request('POST', '/oauth/join', {
@@ -20,6 +20,7 @@ describe('join codes', () => {
     const created = await ana.api('POST', '/join-codes', {})
     expect(created.status).toBe(200)
     expect(created.json).toEqual({
+      id: expect.any(String),
       code: expect.stringMatching(/^hbj_[A-Za-z0-9_-]{43}$/),
       serverUrl: 'http://localhost:8080',
       expiresAt: server.clock.now() + 600_000,
@@ -44,6 +45,49 @@ describe('join codes', () => {
     const again = await redeem(code)
     expect(again.status).toBe(400)
     expect(again.json).toEqual(refused)
+  })
+
+  it('tell their creator once they are redeemed, and which connection they issued', async () => {
+    server = await startTestServer()
+    const ana = await server.signIn('ana@example.com', 'Ana')
+    const ben = await server.signIn('ben@example.com', 'Ben')
+    const { id, code } = (await ana.api('POST', '/join-codes', {})).json
+    expect(id).not.toContain(code.slice(4))
+    expect((await ana.api('GET', `/join-codes/${id}`)).json).toEqual({ status: 'waiting' })
+    expect((await ben.api('GET', `/join-codes/${id}`)).status).toBe(404)
+    expect((await ana.api('GET', '/join-codes/unknown')).status).toBe(404)
+    await redeem(code)
+    const credential = (await ana.api('GET', '/credentials')).json.credentials.find(
+      (each: { kind: string }) => each.kind === 'agent',
+    )
+    expect((await ana.api('GET', `/join-codes/${id}`)).json).toEqual({
+      status: 'redeemed',
+      credential: { id: credential.id, name: 'build-1' },
+    })
+    expect((await ben.api('GET', `/join-codes/${id}`)).status).toBe(404)
+    await server.clock.advance(600_000)
+    expect((await ana.api('GET', `/join-codes/${id}`)).status).toBe(404)
+  })
+
+  it('tell a channel’s manager once the code for its agent is redeemed', async () => {
+    const started = await startWithChannel()
+    server = started.server
+    const { ana } = started
+    await startAgent(server, ana)
+    const { id, code } = (await ana.api('POST', '/join-codes', { channel: CHANNEL })).json
+    await redeem(code)
+    expect((await ana.api('GET', `/join-codes/${id}`)).json).toMatchObject({
+      status: 'redeemed',
+      credential: { name: 'build-1' },
+    })
+  })
+
+  it('say whether they were redeemed to a person only, never to an agent credential', async () => {
+    server = await startTestServer()
+    const ana = await server.signIn('ana@example.com', 'Ana')
+    const agent = await connectAgent(server, ana)
+    const { id } = (await ana.api('POST', '/join-codes', {})).json
+    expect((await agent.api('GET', `/join-codes/${id}`)).status).toBe(403)
   })
 
   it('are audited by member and credential id, never by the code', async () => {
@@ -128,6 +172,7 @@ describe('join codes', () => {
     server = await startTestServer({ HB_FEATURES: 'joinCodes=off' })
     const ana = await server.signIn('ana@example.com', 'Ana')
     expect((await ana.api('POST', '/join-codes', {})).status).toBe(404)
+    expect((await ana.api('GET', '/join-codes/anything')).status).toBe(404)
     expect((await redeem('hbj_anything')).status).toBe(404)
     await server.close()
 

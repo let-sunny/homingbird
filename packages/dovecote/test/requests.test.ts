@@ -17,7 +17,7 @@ beforeEach(async () => {
   server = await startTestServer()
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const running = <A>(task: T.Task<A, never, TestServer['env']>) => T.runPromise(task, server.env)
 

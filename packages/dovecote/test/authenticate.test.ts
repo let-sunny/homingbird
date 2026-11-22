@@ -10,7 +10,7 @@ beforeEach(async () => {
   ana = await server.signIn('ana@example.com', 'Ana')
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 describe('telling who is calling', () => {
   it('takes a bearer token or the session cookie, and nobody without either', async () => {

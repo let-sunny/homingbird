@@ -5,6 +5,68 @@ states the decision first, then the reason. Add new entries at the top of their 
 
 ## Product
 
+- **A person tells their agent what it may use and share in each debate room, and only they and that
+  agent see it.** Evaluators saw the rooms reach their answers by closing information gaps: agents said
+  "I conclude X because of fact Y" and named the turn the fact came from. But a turn is shown to the room
+  without approval (rule 9), so what an agent shares there must stay within what its person allowed for
+  that room. So opting an agent in, in the web client only, takes an optional note, "What my agent may
+  use here" (`brief` on `debates.optIn`, at most 1,000 characters), kept with the participant
+  (`debate_participants.brief`, migration step 24), and the human route `debates.brief.set` changes or
+  clears it until the room stops taking turns, behind `debateRooms`. The server returns it as `brief` on
+  the room only to the person who wrote it and to the agent credential they opted in
+  (`shownTo` in `debate-rows.ts`): never to another participant or their agent, another agent of the
+  same person, an administrator, an export or an event. `quotedDebate` and the split writer's
+  `extractedRoom` hand it to the agent last, inside `wrapNote` as its person's own guidance (rule 4), and
+  the turn instructions tell it to share facts only within the note and to say when a gap is information
+  it may not share, so the people can close it; without a note it shares only what the question needs.
+  No model-facing tool sets or changes it (rules 3 and 9), and the audit trail records only whether it
+  was cleared (`debate.brief_changed`). A note per room, not a standing profile, was chosen because what
+  may be shared depends on who is in the room and what it asks; the note stays free text, because the
+  agent, not the server, applies it.
+
+- **A person can teach their agent in a short chat: their own agent proposes principles, and only the
+  person saves them, in the web client (security rule 8, widened with the maintainer's approval).**
+  Writing principles one by one in a form cost too much, so few people taught their agent at all.
+  Now the person's own agent interviews them (`/homingbird teach` in the plugin, the `teach` MCP
+  prompt), one short question at a time, drawing on a principles document the person pasted
+  (`teaching.document.set`, `human`, at most 20,000 characters) and on the drafts it wrote that they
+  edited or discarded in the last 30 days. It reads both through `interview_material`
+  (`teaching.material`, `member`), which quotes the document, each draft, what was sent and the note
+  it answered through `wrapNote` (rule 4): a draft can quote a colleague, and a pasted document can
+  hold anything. It turns each answer into a proposal with `propose_principle`
+  (`principleProposals.create`, `member`). A proposal is kept apart, in `principle_proposals`
+  (migration step 21), never reaches an instruction block, and becomes a principle only through
+  `principleProposals.accept` or `principleProposals.acceptAll`, `human` routes whose domain function
+  checks again for a person's own sign-in and runs every check of a principle the person wrote: so a
+  prompt-injected agent can at most leave a card the person reads before saving. The server refuses a
+  proposal that could not be saved, repeats a title, or reads as a request for something no agent may
+  do, and keeps at most 20 per person. Proposals made from a rewritten draft name it (`rewriteOf`),
+  are listed as "Suggestions from drafts you rewrote" and are saved as from an edit or a discard;
+  the others are saved as "From a chat with your agent". Each list has **Save all**, which saves
+  every card as shown or none, naming the one that could not be saved. A channel's agent proposes
+  nothing and reads no material: its managers teach it on its channel's page. The tool names avoid
+  "teaching", which rule 3's test keeps out of every model-facing tool so that none reaches a
+  channel agent's teaching. A change to the proposals tells the person's web clients with
+  `proposals.changed`, an event without content. The audit trail records `principle.proposed`,
+  `principle.proposal_discarded`, `principle.proposals_accepted` (a count) and
+  `principle.document_changed` (whether one is kept), never the words. Everything sits behind the
+  `teaching` feature. This supersedes "No model takes part in suggesting a principle" for proposals
+  only: offers after an edit are still the deterministic word diff they were.
+
+- **A debate room stops taking turns early once every agent says it is ready to conclude.** Evaluators
+  watched agents keep taking empty turns after they already agreed, only because the room ran until
+  its total or its time. So `debates.turns.post` takes an optional `ready`, kept with the turn
+  (`debate_turns.ready`, migration step 20). An agent is ready when its latest turn says so, or once
+  it has used all its turns; one that has not spoken is not, and a later turn without `ready` takes it
+  back. When every agent taking part is ready, the room concludes with `because: 'agreed'`
+  (`debates.concluded_because`, `concludedBecause` on the room, `debate.concluded` in the audit trail)
+  and follows the same drafting, voting and closing as a room whose turns ran out: agreeing never
+  skips the vote. A turn that also reaches the total concludes it as `limit`. The flag only marks the
+  agent's own turn: no tool opens, closes or decides a room (rules 3 and 9). The MCP turn tool takes
+  `ready` and `read_debate` says when to set it; an agent command under `homingbird run` ends its turn
+  with a line of exactly `READY: yes`, which the runner takes off and sends as `ready`. A `READY:` line
+  in another case or spacing is taken off too but reads as not ready, the safe side: the room only
+  goes on. Clients read an unknown reason as no reason.
 - **A debate room gives every agent its turns, starts its clock with the first turn, refuses a stale
   turn, and checks every credit against the turns.** Seven rooms run by real agents (four people,
   three scenarios, eval round 2) reached the right answer every time, but the mechanics around the
@@ -106,16 +168,30 @@ states the decision first, then the reason. Add new entries at the top of their 
   they had not picked, and jumped to the next waiting note after each send. A note sent without a target
   leaves the receipts of the notes before it unanswered, which is what the person did.
 - **A group message is invisible to its other members until a note in it is sent, like a direct
-  message.** Starting a group in the web client creates its room before the first note is drafted;
-  showing it to everyone at once would tell them a note was on its way, and a discarded draft would leave
-  an empty room with its starter's name in their list. Until a note is sent, the room shows only to the
-  person who started it, who writes or approves that note and whom **Start group message** for the same
-  people brings back to it: not in the others' list, unread counts, event stream or search, and a lookup
-  by id answers 404. Visibility is derived from the notes; the starter is kept in `asked_by`, the column
-  that names who opened a private question, so no migration is needed. Groups started before this have
-  no starter recorded, so until a note in one is sent no one sees it, its starter included: they cannot
-  reopen that empty room, and **Start group message** in People makes a new one.
+  message.** A room asked for its agent's draft exists before that draft is approved; showing it to
+  everyone at once would tell them a note was on its way, and a discarded draft would leave an empty room
+  with its starter's name in their list. Until a note is sent, the room shows only to the person who
+  started it, who writes or approves that note and whom a new message to the same people brings back to
+  it: not in the others' list, unread counts, event stream or search, and a lookup by id answers 404.
+  Visibility is derived from the notes; the starter is kept in `asked_by`, the column that names who
+  opened a private question, so no migration is needed. Groups started before this have no starter
+  recorded, so until a note in one is sent no one sees it, its starter included: they cannot reopen
+  that empty room, and a new message to them makes a new one.
   Channel rooms, private questions and archived rooms show to their participants as before.
+- **A new message makes its room at the first send or draft request, from one New menu and one
+  people picker.** The list where conversations live has a **New** menu (a message, a channel, a
+  debate room, each with one sentence saying which to pick), and the directory pages keep their own
+  buttons. **New message** opens `#/new`: a "To" field, the note, **Ask my agent**, and one line naming
+  who will read it. The room is made by the first note sent or draft asked for there, so a screen left
+  before that leaves no row behind, which the earlier flow (choose people in People, then **Start group
+  message**, which made the room at once) did. The picker is a native `<input role="combobox">` over a
+  listbox, recent correspondents first; a person who cannot be written to is listed with the reason,
+  not left out, so nobody looks missing. A key pressed while an input method composes only ends the
+  word: Korean is typed syllable by syllable and its Enter must not add a person. The same picker
+  invites people to a debate room and adds people to a private channel; channel managers and the
+  group page keep their `<select>` until an organization is large enough to need more. Nobody is put
+  into an open channel by someone else: joining it stays the person's own act, and **Copy link to this
+  channel** in the room's menu is how one asks a colleague in.
 - **A channel's managers are notified when its agent's answer waits for their review, as the channel
   notifies them.** When a channel's agent writes a new draft, every person who may review it then gets a
   push titled with the channel ("#payments-wiki · An answer waits for your review"), with the same
@@ -276,23 +352,30 @@ states the decision first, then the reason. Add new entries at the top of their 
   the plugin pane and the docs, defined once on My agent → Connection ("Your desk is the program that
   runs your agent for Homingbird") and in the guide's first paragraph; the runner is named by its
   command, `homingbird run`.
-- **Debate rooms are a header tab beside Channels; on a phone the tabs form a grid.** A room is not a
-  channel, so it gets its own tab rather than a button on the Channels page or an entry in the user
-  menu, where people did not find it. The tab reads "Debates" (토론방) to keep the row short; the
-  page is still Debate rooms. Wide, the six tabs sit in the title bar. Below about 860 px the title
-  bar has two rows, the brand and the connection state above, the tabs and the person's button
-  below, wrapping if they must; below 512 px the tabs form two rows of three between the brand mark
-  and the person's button. In every layout the reading order, and so the keyboard order, is the
-  brand, the tabs, then the person's button. A tour step for a control in the header sits under the
-  header, aligned with the control. Nothing scrolls sideways or hides behind a "More" menu, at the
-  cost of a title bar about 24 px taller on a phone.
+- **Debate rooms are a tab beside Channels; on a phone the tabs are a bar at the bottom of the
+  screen.** A room is not a channel, so it gets its own tab rather than a button on the Channels page
+  or an entry in the user menu, where people did not find it. The tab reads "Debates" (토론방) to keep
+  the row short; the page is still Debate rooms. Wide, the tabs sit in the title bar, and below about
+  860 px the title bar keeps them on its one row between the brand mark and the person's controls.
+  Below 512 px the tabs leave the title bar for a bar fixed to the bottom of the shell: Notes, My
+  agent, People, Channels and Debates, each a word under a glyph, in equal columns at least 44 px
+  tall, above the device's safe area. The title bar keeps the brand mark, search, the activity bell
+  with its count, and the person's button. The bar is the same `nav` and the same links, placed by a
+  container query, so the reading order and the keyboard order stay the brand, the tabs, then the
+  person's button. Inside an open conversation the bar is not shown: Back returns to the list, and
+  the composer and the approval card keep the bottom of the screen to themselves. A tour step for a
+  control in the header sits under the header, aligned with the control; for a tab in the bar it
+  sits above the bar. Nothing scrolls sideways or hides behind a "More" menu; the bar holds at most
+  five, so a sixth destination needs a new decision, not a scroller. This replaces the grid of two
+  rows of three, which the client no longer drew (at 375 px the tabs had become a sideways
+  scroller), at the cost of about 56 px at the bottom of every list page.
 - **A debate room is room content, not notes: agents take turns, people approve one result, and only
   that result leaves the room.** Opening a room, opting one's own agent in, setting limits, approving or
   declining the result, posting it and exporting are `human` routes; reading a room and, for the agent
   credential its person opted in, taking a turn and drafting the result are `member` routes, checked
   again in the domain (`debate-*.ts` in `dovecote`). One agent per person per room, at most 8, and no
-  two turns in a row by the same agent. The room stops at the total, when no agent has a turn left, or
-  at its time limit (a background pass each minute while the switch is on, and on every read). A room
+  two turns in a row by the same agent. The room stops at the total, when no agent has a turn left,
+  once every agent is ready to conclude, or at its time limit (a background pass each minute while the switch is on, and on every read). A room
   that stops with fewer than two agents or with no turn **ends** without a result (`ended`, audited with
   `too_few_agents` or `no_turns`): there is nothing to approve, post or export as a result, and no
   credit. Otherwise the first agent to draft the result wins; a person's **Ask for another draft**
@@ -323,7 +406,7 @@ states the decision first, then the reason. Add new entries at the top of their 
   `wrapNote`; the Markdown export
   escapes everything people and agents wrote, so no text can add a heading, an HTML tag or a link other
   than http(s). The growth record keeps the kinds of credit an approved result names, each once
-  (`debate_credits`), as milestones and on the route map; never a count. A turn could have been a note
+  (`debate_credits`), as milestones; never a count. A turn could have been a note
   in a hidden conversation, but then every note query would have had to exclude it, and a turn must
   never reach an inbox, a search or a push. The tables are migration step 3, after the released step 2.
 - **Every optional feature can be switched off by an administrator; the core cannot.** One table in
@@ -334,10 +417,10 @@ states the decision first, then the reason. Add new entries at the top of their 
   what their agent writes and an organization can see what happened. Later features (debate rooms,
   stored answers, automatic sending, the last off by default) register a switch in the same table.
 - **Everything about a person's agent lives on one page, My agent, in the header; the profile is about
-  the person.** The page has four tabs in a fixed order, Connection (agents and devices, the desk,
-  renaming and revoking, a connection code), Teaching, How it is doing and Route map, each at its own
-  address (`#/agent/connection` and so on) and shown alone, because the four on one page made a scroll
-  too long to find anything in; `#/agent` shows the first, and `#/connect` and `#/credentials` lead to
+  the person.** The page has tabs in a fixed order, Connection (agents and devices, the desk,
+  renaming and revoking, a connection code), Teaching, How it is doing and Early previews, each at its own address
+  (`#/agent/connection` and so on) and shown alone, because all of them on one page made a scroll too
+  long to find anything in; `#/agent` shows the first, and `#/connect` and `#/credentials` lead to
   Connection. The
   profile keeps the name, character, language, notifications and the line colleagues see. A summary
   card above the conversation list repeated the page and pushed the list down, so there is none; the
@@ -368,7 +451,9 @@ states the decision first, then the reason. Add new entries at the top of their 
   characters, or the text left empty and a source to take it from). Answers share the list, its order,
   the 50-item and 1,500-character caps, rule 8 and every guard; a source is linked material read as
   data. The save dialog's "looks like a stored answer" warning offers to switch a rule to an answer. The
-  basis names an applied answer by its title, as for a rule. A person still approves every draft.
+  basis names an applied answer by its title, as for a rule. A person still approves every draft,
+  unless they switch the answer to send itself word for word
+  ([below](#a-saved-answer-may-send-itself-word-for-word-where-its-person-allowed)).
 - **Principles are a person's rules for their own agent, saved only by that person in the web client
   (security rule 8).** Saving, changing, turning off, deleting and "wrong here" are `human` routes;
   the only route an agent reaches is `principles.drafting` (`member`, read-only, own principles only),
@@ -919,7 +1004,8 @@ schema that changes between releases; pilot evaluators' legal review blocked a 4
   to start rather than being raised, because what it deletes cannot come back. Like the audit
   retention, it is an environment variable, not an administrator's setting.
 - **A deleted note takes every row about it**: receipts, pickups, releases, notices, principle
-  applications and offers, draft request answers and answers taken from history. A reply keeps its own
+  applications and offers, draft request answers, answers taken from history, and its Slack arrival and
+outbox rows. A reply keeps its own
   text and points at a note that is gone, as a client already reads a reply whose question it cannot
   open. Figures over a period longer than the retention count only what is left.
 - **The audit trail stays.** Every export, erasure and purge writes a security-tier event through
@@ -1129,7 +1215,42 @@ its id as `author_id`.
   to the agent alone and everyone else's to the asker alone, so the managers' own agents do not answer
   it. A question there never moves to another room, administrators get no view of it, and archiving the
   channel closes it, readable to who was in it.
-- **Not in this release:** taking a draft ("I'll look at this"), principles and saved answers for a
+- **Its managers teach it, in the web client only (rules 3, 6 and 8).** A channel's agent has an
+  instruction (500 characters), up to five sources, and rules and saved answers. The rules and answers
+  are principles kept as a person's are, under the agent's member id, so the model, the validation, the
+  50-item cap, the order, the "Principles applied:" matching and each principle's figures are the
+  same code; they have no place and no public sentence. Reading or changing them is a `human` route
+  under `/channels/:slug/agent/teaching` and `/channels/:slug/agent/principles`, behind `channelAgents`
+  and refused as switched off while `teaching` is off; each checks, under the channel group's lock, that
+  the caller is one of the channel's managers now, so an administrator outside the group is refused as
+  anyone is, and a manager who leaves the group loses them at once. No MCP, CLI, plugin or A2A tool
+  names these routes. The agent's own credential reads them only through `principles.drafting`, which
+  for a channel's agent answers with its channel's principles and a `channel` part holding the
+  instruction and sources (`selectChannelTeaching`); an instruction that looks like a forbidden request
+  is left out and named as ignored, as a principle is. Audit entries (`channel.agent_instruction_changed`,
+  `channel.agent_principle_*`) name the manager, the channel and which fields changed, never their
+  words. They stay with the agent they taught: retiring it retires them, and a new agent starts fresh.
+- **In a draft's instructions the managers' teaching sits between the flow's steps.** The prompt puts
+  the answering flow first and the teaching after it, as for a person's principles, and says when each
+  applies: the flow's steps before drafting, then the instruction, sources and principles while
+  drafting, then the flow's checks on the draft. The flow still wins a conflict.
+- **"Teach from this correction" is an offer a manager acts on, never a stored suggestion.** A person's
+  edit and discard offers are kept (`principle_offers`) because they come back later; a manager who
+  edits or discards an answer is offered, on the same card, the principle form prefilled from the word
+  diff of that edit (or empty for a discard), and nothing is saved until they save it. The saved
+  principle records where it came from (`taughtFrom`), so its origin reads "From an edited answer".
+- **Its recent decisions are a `human` read for its current managers (rules 2, 3 and 6).**
+  `channels.agent.decisions` lists the agent's answers sent or discarded in the last 30 days, at most
+  100, with who decided, the question, the agent's own text beside an edit, the discard reason and the
+  principles applied. It answers 404 to anyone outside the managing group, an administrator included,
+  and its query joins the managing group and the conversation's participants itself. It leaves out
+  every answer to a question the viewer asked, in the room or privately: the draft, the edit and the
+  reason were hidden from them when they were made, and a list of past decisions must not show them
+  later. Who discarded an answer is kept in `notes.discarded_by`, as `approved_by` keeps who sent one;
+  discards before that column read as "a manager". No MCP, CLI, plugin or A2A tool names the route.
+  Teaching from a row opens the same principle form as "Teach from this correction", so nothing is
+  saved until a manager saves it.
+- **Not in this release:** taking a draft ("I'll look at this"), stored offers and quiet places for a
   channel's agent, and decision rules with more than one approver.
 
 ## One desk session per person reacts to arriving notes
@@ -1658,8 +1779,9 @@ share sent as written, so the offer comes to the place of the miss.
 - **Behind the figures.** `insights.mine` adds `misses`: the drafts the person edited or discarded and
   the notes their agent skipped in the last 30 days, newest first, at most 100, each by note id,
   conversation, place and time only, never what it says. How it is doing lists them under the numbers,
-  one folded list per count, each with a way to where it happened and **Teach my agent**. The route
-  map's "2 chances to teach" leads to the Teaching tab.
+  one folded list per count, each with a way to where it happened and **Teach my agent**. A place's
+  "Teach from 2 edited or discarded drafts" on How it is doing leads to the Teaching tab, whose list
+  holds those two.
 - **Saving stays a person's click** (rule 8): every way in opens the same guided form in the web
   client, filled in, and nothing is saved until the person saves it.
 - The add row on the Teaching tab offers Rule or Answer, as the guided form does, and the hint that a
@@ -1675,3 +1797,512 @@ again, then failed. The client now applies the same rule: a manager who is not a
 add another manager first). Removing someone as a manager is confirmed, and warns when one manager would
 be left; when that is the person themself, it says that answers to their own questions will wait for
 another manager (rule 1).
+
+## Note bodies link www. and mail addresses too
+
+People write "see www.example.com" and "ask ana@example.com" without a scheme, and every other
+messenger they use makes those clickable. Shown as plain text, a colleague had to copy the address by
+hand, so the web client now links them as well. The maintainer approved widening the web-client rule.
+
+- **What becomes a link.** `http:` and `https:` addresses as before; an address that starts a word with
+  `www.` followed by a name and a dot, opened as `https://` and that address; and a plain mail address
+  (name, `@`, a domain with a top-level part of two or more letters), opened as `mailto:` and that
+  address. Every link gets `rel="noopener noreferrer"`; web links open in a new tab, mail links do not.
+- **Nothing else changes scheme.** A `www.` or mail address that a scheme or a path runs into
+  (`javascript:www.x.test`, `mailto:ana@x.test`, `x.test/www.y.test`) stays text, and so do
+  `javascript:`, `data:` and every other scheme. A mail address inside a web address belongs to the
+  web link. The `href` is always one of `http:`, `https:` or `mailto:`.
+- **Trailing punctuation stays outside**, by the same rule as web links: sentence punctuation and a
+  closing bracket the address did not open.
+- **Built from text nodes.** `textSegments` in `packages/ui/src/linkify.ts` cuts the text and
+  `linkedText` builds each link with the DOM API; a note is never assigned to `innerHTML`. Property tests
+  check that nothing else becomes a link, that `javascript:` and `data:` never do, and that the text
+  around a link is kept as it was.
+
+## Slack is linked by address, not synced
+
+Questions start in Slack, so a team that has to open Homingbird to see them has a second inbox; the
+real-work evaluation named this its biggest wall. Homingbird meets Slack where a person addresses it,
+and only there: nothing is mirrored, and nothing leaves Homingbird that a person did not approve.
+
+- **One workspace, the organization's own app, a bot token only.** The administrator creates a Slack
+  app from the manifest Homingbird shows and gives Dovecote its bot token and signing secret as
+  `HB_SLACK_BOT_TOKEN` and `HB_SLACK_SIGNING_SECRET`. Kept in the environment, neither is stored, so
+  security rule 5 is unchanged; the cost is that disconnecting takes the operator and a restart. Storing
+  them sealed in the database, entered on the admin page, would widen rule 5's exception and waits for
+  the maintainer. The first workspace `auth.test` names is pinned; another one's token stops Slack. No
+  user token: one reads everything its person can read in Slack and acts as them, the kind of key "A
+  cloud desk is woken by a content-free call" already declined to keep. Behind `slack`, off by default.
+- **A person links their own Slack user with a single-use code.** **Connect Slack** looks up the
+  person's email in Slack and sends that user a direct message with a ten-minute link only this person
+  can confirm; a person whose emails differ mentions the app with the word `link` and gets the same
+  link in a message only they see. The email finds the user; only the confirmation in the web client,
+  signed in as the person, links them. One Slack user per person and back. Deactivating a member
+  deletes the link; Slack deactivating the user deletes it too, and never deactivates the member, since
+  Slack is not the identity provider. Guests, users of another organization, bots and apps are never
+  linked or answered.
+- **Review requests carry no content.** A linked person gets a direct message from the app when a
+  draft waits for their decision: the same moments, mutes and notification level as a push, a fixed
+  sentence and a link to the card. No note text, no names (rule 2). Approval stays in the web client
+  (rule 3). This is the roadmap's "review request in the chat tool the team already uses".
+- **Events are verified, kept briefly and handled apart.** `POST /slack/events` sits beside the
+  contract, like the OAuth endpoints: it is authenticated by Slack's signature (HMAC-SHA256 of
+  `v0:<timestamp>:<raw body>`, within five minutes of the clock service), not by a credential. An event
+  Homingbird uses is stored by Slack's event id and answered at once, so Slack's three-second limit is
+  never at risk and a retry does nothing; a pass handles it and deletes its payload. A channel message
+  that is not for Homingbird is dropped before its text is read: never stored, never logged. The app's
+  own messages and other apps' are dropped first. An uninstall, a revoked bot token or a token Slack
+  refuses stops Slack until a check succeeds.
+- **No tool exposed to a model connects, links or posts.** Every Slack route is `human` or `admin`
+  (rule 3), and the Slack Web API is called only from the server's own passes and a person's routes.
+- **A Slack channel links to a Homingbird channel, and only a manager links it.** A linked person who
+  manages a channel mentions the app with `link` in the Slack channel and confirms, in the web client,
+  which of their channels it links to, under the channel group's lock. An administrator outside the
+  managing group cannot (rule 6). A private Slack channel links only to a private channel; a channel
+  shared with another organization never links. The link is a member of its own kind, `chat_link`, in
+  its channel's room only, like a channel's agent: every route that names a person refuses it.
+  Archiving the channel removes the link; the app leaving the Slack channel, or the Slack channel being
+  archived or deleted, stops it.
+- **In: a mention becomes a question, recorded as arriving.** It is a sent note of the link, with
+  `origin: 'outside'` and no approver (rule 1), delivered to the channel's answerers as a member's
+  question is, with `via`: the asker's Slack name, their member id when they linked, the Slack
+  channel's name, and whether Slack shows it edited or deleted. A follow-up in the thread replies to the
+  thread's newest note. The text is made plain (mentions, channel links and links as text), and a model
+  reads it only inside `wrapNote`, under the asker's name and "in Slack #channel" (rule 4); a note never
+  carries a Slack id or the message's address, so an agent learns nothing that reads more of Slack. A
+  reaction tells the asker it arrived. Guests, users of another organization and bots are told that
+  only full members are answered. One person may ask ten questions an hour in a link, a link two hundred
+  a day.
+- **Whoever asked cannot approve the answer.** The asker is the linked member, or else the member with
+  the asker's email; either is left out of the answer's reviewers, so a manager who asks in Slack does
+  not read or send the agent's draft of their own answer (rules 1 and 2). The email never opens anything.
+- **Out: only a sent reply, in its thread, under who wrote and approved it.** A note is posted when it
+  is sent and the link is among its recipients, so only a reply to a question from Slack. It goes in the
+  thread with one line of provenance ("Billing helper, approved by Ben" or "Ben"), escaped so that it
+  cannot mention anyone, ping a channel or disguise a link. Basis and sources stay in Homingbird. A saved
+  answer never sends itself into Slack. The card and the composer say "Posts to Slack #billing-help (12
+  members)".
+- **The send binds to the thread as the card showed it.** Channel message events are kept only for a
+  linked thread, or an edit or deletion of a message that arrived, and then only their times and an
+  edit's text. The card says how many messages came in the thread since; a send carries the newest one
+  it showed (`DraftAsShown.threadAt`) and is refused once with a Conflict if the thread moved. The draft
+  is never discarded for it.
+- **Edits and deletions follow Slack.** An arrived note is a copy nobody approved, so an edit replaces
+  its text and marks it edited in Slack, and a deletion replaces it with "Deleted in Slack." and discards
+  the drafts answering it, telling their authors. This is the first case of a sent note's body changing;
+  answers already sent stay as they were.
+- **An outbox, because Slack has no idempotency key.** One row per sent note, in the send's transaction;
+  a pass posts it, one note at a time per thread in send order. A post whose answer was lost is unknown:
+  before trying again the pass reads the thread for the app's own message with that text. A rate limit
+  waits for Retry-After; other failures wait 5, 15 and 60 minutes, then the note shows "Not posted to
+  Slack" with **Try again**. Five such notes in a row stop the link; a refused token stops Slack. Nothing
+  is posted that was not sent.
+- **Not in this release** (roadmap): a question to one person through a mention; direct messages and
+  user tokens; Socket Mode for servers Slack cannot reach; telling the administrators by push when Slack
+  stops; a link from the card to the Slack thread; the notice of a draft discarded for a deletion after a
+  reload.
+
+## A saved answer may send itself, word for word, where its person allowed
+
+Approval is the product's bottleneck: a person who saved "Annual plans are refunded pro rata for the
+unused full months" still had to click Send each time their agent drafted exactly that. The narrowest
+automatic path is the one where nothing new is said: the text is the person's own, written and saved by
+them in the web client, and it goes only where they said it may. So security rule 1 gains one sentence:
+a saved answer its person switched to send automatically, in the web client, counts as that person's
+approval for a draft whose text is exactly that answer, sent where they allowed.
+
+- **The switch belongs to the person, per saved answer.** "Send automatically when it fits" and the
+  places it may send itself are set by `principles.autoSend.set`, a `human` route; no model-facing tool,
+  MCP, A2A, the command line or the plugin can call it (rules 3 and 8), and `principles.update` cannot
+  carry it. A new item starts switched off. Only an answer with its own text can be switched on; a rule,
+  or an answer taken only from a source, cannot. Turning an answer into a rule, or deleting it, takes the
+  switch and its places away.
+- **The places are chosen one by one, at most 20:** direct messages and the rooms of open channels the
+  person is in. A private channel, a group message, a private question and an archived room have no
+  door, both when the switch is saved and again when a draft would be sent.
+- **The server sends a draft without a click only when all of these hold**, checked on `drafts.create`
+  and on `drafts.update`, in the same transaction as the send: the organization has `autoSend` on (off
+  by default; administrators switch it in Settings) and `teaching` on; the draft comes from the person's
+  own agent credential, not from the person, a channel's agent or a debate room; its basis says it
+  applied that saved answer by title, the same "Principles applied:" match every draft gets; the answer
+  is enabled and switched on; the draft's text equals the answer's text exactly, ignoring only the
+  whitespace around either (`isSavedAnswerText` in `protocol`), so one character more, less or changed,
+  case included, keeps it on the card; the draft's conversation is one of the answer's places and still
+  allowed; and the person may still message there. The send goes through the same `deliverDraft` as a
+  click, so the `UPDATE` matches the text and room just checked. Anything else is an ordinary draft on
+  the approval card, as before.
+- **What is never sent automatically:** a draft that adds, removes or changes anything; one that did not
+  say it applied the answer; one going anywhere the person did not tick; a channel agent's answer; a
+  debate room's result; a note the person writes themself; anything while the feature is off. Matching by
+  meaning, by model or by similarity was left out on purpose: the roadmap's route-based automatic
+  sending, which composes, still waits for the pilot.
+- **The note says how it was sent.** It records the person as `approved_by` and the answer that sent it
+  as `auto_principle_id`; on the wire it carries `autoSent: true` and no `approvedBy`, which keeps
+  meaning "the person who approved a channel's agent's note". Recipients read "Sent automatically from
+  June's saved answer"; the author reads "from your saved answer". The answer's title and text stay
+  private, as every principle does. Agent integrations say the note was sent and that only the person
+  can recall it.
+- **Recall: five minutes, the author only, a `human` route (`notes.recall`).** Recalling moves the note
+  from `sent` to a new status, `withdrawn`; its receipts go, so recipients stop seeing it on every
+  surface (lookup, thread, inbox, search, stream), because every note query already shows a recipient
+  only `status = 'sent'`. Each participant's stream gets `note.withdrawn` with the ids only; the author
+  keeps the note, marked as recalled. A reply it was settles back to waiting unless another reply was
+  sent. The window runs from `sentAt`. A note the person sent with a click cannot be recalled: it was
+  read before it went. A push notification that already reached a phone cannot be taken back, and a
+  recipient may have read the note in the meantime; recall hides, it does not unsay.
+- **Audited, never with text:** `principle.auto_send_changed` (on or off, and how many places) and
+  `note.auto_sent` (the conversation and the answer's id, with the agent credential that drafted it),
+  and `note.recalled`.
+- **Counted apart.** An automatically sent note is not a decided draft: it is left out of drafts
+  written, sent as written, quick approvals and the typical decision time, for the person, for teams
+  and for the organization, and counted on its own line ("Sent by your saved answers", and for
+  administrators "Sent by saved answers", hidden below the minimum group like debate results). A saved
+  answer's own counts show how often it sent itself. The lines appear only while the feature is on.
+- **Compatibility.** `withdrawn` is a new note status: an older client reads it as unknown, which
+  means not sent. `note.withdrawn` is a new event, which an older client skips. `autoSend` on a
+  principle, `autoSent` on a note and the new figures are optional on the wire. The schema step adds
+  `principles.auto_send`, `principle_auto_send_places`, `notes.auto_principle_id` and
+  `notes.withdrawn_at`.
+
+## Proposed: a note asks the people it names, and only their agents draft
+
+**Proposed, not built; the maintainer reads this before any of it is.** Today one note to a group of
+five wakes four desks and can cost four drafts and four approvals, because being able to read a note
+and being asked to answer it are the same thing outside a channel. The proposal separates them: a note
+is read by everyone in its room, as now, and **asks** only the people its author named; only an asked
+person's agent is handed the note to draft from. Group work beyond leaving and hiding (a larger group,
+joining in place, mentioning a team) waits for this.
+
+- **Reading and being asked are two things, and only the second is new.** Who reads a note stays the
+  room's participants (rule 6), and "Send delivers it to Ana, Kai and Ben." stays the approval's promise.
+  Asking is a subset of those readers, chosen per note. Nothing here adds or removes a reader.
+- **Who is asked, by kind of room.**
+
+  | Room | The note names nobody | The note names people |
+  | --- | --- | --- |
+  | Direct message | The other person, as today | Not offered: there is one other person |
+  | Group message | A reply asks the author of the note it answers. A note that answers nothing asks nobody: it is delivered to read. | Exactly those people |
+  | Channel room | As today: a question asks the channel's helpers, a reply asks the asker | Exactly those people, in place of the helpers |
+  | Private question to a channel's agent | As today | Not offered |
+
+  A named person must be in the room when the note is sent. In a channel a named member is asked
+  whether or not they answer questions there: "Answer questions here" is about questions put to the
+  room, and a name puts the question to a person, which a direct message could do anyway. A channel's
+  agent can be named in its own room, and then it alone drafts; it can be named nowhere else (rule 6).
+- **Naming is data on the note, never read out of its text.** A draft carries `asks`, a list of member
+  ids, on `drafts.create` and `drafts.update`, which stay `member` routes; a sent note returns it to
+  everyone who can read the note. In the web client, typing `@` in the composer opens the people
+  picker over the room's people; choosing one adds them to the list and writes their name into the
+  text as plain words. The server never looks for names in a body: display names are not unique, a
+  quoted note can contain anyone's name, and the card a person approves must show exactly who is
+  asked, which only a stored list can promise.
+- **A note asks at most three people (`ASKED_MAX`).** A question for more people than that is a
+  channel's question, where one answer settles it for the other helpers. The number is a first value;
+  the measurement below sets it. There is no "everyone" and no "here": either would be the
+  multiplication under another name.
+- **Whose agent drafts: the asked person's, and nobody else's.** A receipt records whether its member
+  was asked (`receipts.asked`, a nullable column in a new migration step; a stored receipt without it
+  reads as asked, which is what it meant). Every reader of a direct or group note keeps a receipt, so
+  unread counts and "Read by 2 of 3" stay as they are. For an agent credential, `inbox.list` returns
+  only asked receipts, `notes.pickup` refuses a note its person was not asked (409, with a sentence),
+  and the stream and the cloud desk wake only for an asked note. So the other people's agents do not
+  skip the note: they are never handed it. This is decided by the server from stored data, never by a
+  model reading the note and judging whether it concerns its person.
+- **A person can still ask their own agent anywhere they can read.** **Ask my agent to draft a reply**
+  (a draft request, a `human` route) works on any note, asked or not. The limit is on what arrives
+  uninvited, never on what a person requests.
+- **The approval card says who is asked, and Send binds to it.** Under "Send delivers it to Ana, Kai
+  and Ben." the card reads "Kai is asked to answer." or "No one is asked; everyone in the group can
+  read it." as whole sentences per language. `drafts.send`'s `expected` gains the asked list beside
+  the body and the conversation, compared at the read and again in the `UPDATE`, so an agent that
+  changes whom its draft asks after the person read the card is refused with "This draft changed; read
+  it again." This adds a check to rule 1's send; it removes none.
+- **An agent may propose whom its draft asks; a person approves it like the rest of the draft.**
+  Setting `asks` on its own draft is the same act as re-addressing its own draft to another channel:
+  nothing goes anywhere until the person approves, and the card shows it. A draft that names anyone
+  is never sent automatically: a saved answer that sends itself is a reply, and asks only the author
+  of the note it answers. A channel's agent's draft names nobody; it is a reply to its asker.
+- **Naming adds no reader.** A name of someone outside the room is plain text, in every kind of room,
+  and the picker offers only the room's people. Bringing a person in stays its own act: joining an
+  open channel, a manager's add in a private one, a new group. Otherwise a note approved for three
+  readers could gain a fourth by one word in its text.
+- **How the named person is told.** Their push title says they are asked ("Ana asks you in a group
+  message"); the conversation row and the activity panel count the note under what waits for them,
+  apart from plain unread; the tab title counts it with approvals. A mute and the notification level
+  still decide every push (`wantsPushAbout`): being named does not break through a mute, because the
+  mute is the person's and no colleague's word overrides it. A fourth level, "only when I am asked",
+  becomes possible and is left for later.
+- **What the sender sees.** Under their own note: "Asked Kai" with the usual "Read by 2 of 3", and
+  "1/2 replied" counting the asked only. A note that asks nobody shows no "No answer yet", since none
+  was asked for. "Drafting reply" appears only for an asked person, so it keeps meaning that a reply
+  is being written.
+- **What a model sees.** The asked person's desk is handed the note as today, inside `wrapNote`
+  (rule 4). The wrapper's opening tag gains an `asks` attribute with the asked people's names, escaped
+  by `escapeAttribute` as `from` is, so an agent reading a thread can tell whose answer each note
+  wanted. Names are text people chose, so they appear only there, inside the quote, never in the
+  instructions around it. The one instruction added outside the quote is fixed text with nothing a
+  colleague wrote: "Your person was asked to answer the note below."
+- **Counting the drafts.** With every person's desk running, one note in a group of n people can
+  produce today n − 1 drafts and n − 1 approvals. Proposed: as many as were named, at most three; one
+  for a reply; none for a note that asks nobody. A channel question that names one member produces one
+  draft where it produced one per helper.
+- **Behind a switch.** The feature key is `asking`, on by default once released. While it is off,
+  `asks` is refused on a draft, every reader of a direct or group note is asked, and the web client
+  hides the picker and the asked line: today's behaviour. `Note.asks` is optional on the wire, so an
+  older client reads a note without it. No new route: the two draft routes and `drafts.send` gain a
+  field, and `drafts.send` is called only by the bundled web client, so it changes at once.
+- **Rules touched, all by adding.** Rule 1: `expected` gains the asked list. Rule 2: whom a draft asks
+  is part of the draft, shown only where the draft itself is: to its author, to a channel agent's
+  reviewers, and on an early preview its person allowed, which may say whom the draft would ask and
+  asks nobody. A draft creates no receipt, so no one is asked, notified or handed anything before it
+  is sent. Proposed wording, added to rule 2: "Whom a draft asks is part of the draft: it is shown
+  only where the draft is, and it asks no one before it is sent." Rule 6: proposed wording, added:
+  "Naming a person in a note asks them; it never shows a note or a conversation to someone who is not in it." Rule 3 is unchanged: no tool
+  exposed to a model can send, so none can make a note ask anyone. Rule 4: one attribute more inside
+  the only wrapper. Rule 5 is not touched. `security-rules.test.ts` gains cases and loses none: a
+  person who was not asked gets no inbox item for their agent credential and cannot pick the note up;
+  a draft's asked list is absent from every route a named person can call until it is sent, an
+  allowed preview aside, and from every route an agent credential of theirs can call; naming a
+  member outside the room is refused; a send whose asked list differs from `expected` is refused; an
+  automatically sent note names nobody; `wrapNote` escapes a name that tries to close the tag.
+
+**Alternatives rejected.**
+
+- **A mention as a notification level only, as in Slack.** It tells people apart and leaves every
+  agent drafting. The cost here is approvals, and a louder notification does not lower it.
+- **Reading `@name` out of the note's text on the server.** Names collide and change, a quoted note
+  carries other people's names, and the approval card would show a guess. A stored list can be bound
+  into `expected`; a parse cannot.
+- **Leaving it to each agent to skip what is not for its person.** This is today's behaviour. It runs
+  a model per person per note, shows "drafting reply" for drafts that never come, and lets a model's
+  reading of a colleague's text decide who answers. It may already keep drafts low; that is the
+  measurement below, and the reason this is a proposal.
+- **One draft per group note, written by the first desk to pick it up.** The answer would come from
+  whoever's computer was fastest, not from whoever knows.
+- **The server, or a routing agent, choosing who should answer.** Dovecote calls no model, and a
+  router that forwards questions needs an approval at every hop (roadmap, "Where to ask").
+- **Everyone is asked unless they opted out of the room.** It moves the cost of one person's vague
+  note onto every reader's settings. "My agent does not draft here" stays on the roadmap as each
+  person's own switch, beside this, never in place of it.
+- **A mention that adds the named person to the room, as in Google Chat.** It changes who reads after
+  the approval that promised who would.
+- **`@everyone`, or naming a whole group message.** One word would bring back n − 1 drafts.
+- **Asking as a way to narrow who reads.** A note only some of the room may read is another
+  conversation; rule 6 is kept by participation, and a second visibility rule inside a room would
+  have to be added to every note query.
+- **"Any one of these people" as a second kind of ask.** A channel already does that with its helpers,
+  where one sent reply takes the question out of the others' inboxes. In a group each named person is
+  asked for their own answer, which is why the list is short.
+
+**Would weaken rule 1, 4 or 5. Not adopted; each needs the maintainer's explicit approval and stays a
+proposal until then.**
+
+- *Rule 1.* Letting a note that sends itself (a saved answer, or any later automatic route) carry an
+  asked list its agent chose. The person would have approved the words and the place, never who is put
+  to work by them. This design keeps automatic sends to a reply that asks only its asker.
+- *Rule 1.* Leaving the asked list out of `expected` because "it is not what is sent". It is to whom,
+  and an agent could change it between the read and the tap.
+- *Rule 4.* Telling a model whom a note asks, or what it asks, in the instructions outside `wrapNote`
+  ("Ana asks you to …"). Names and requests are a colleague's text and stay inside the quote.
+- *Rule 5.* Nothing in this design stores, shows or logs a credential, so no variant is proposed.
+
+**Open, for the maintainer, and to measure first.**
+
+- Measured since: one note to a group of five with every desk running produced 4 drafts, and approving
+  them 16 more, with an agent that never skips
+  ([below](#a-group-messages-people-are-fixed-a-person-may-leave-it-or-hide-it)). Not measured: how
+  many of the picked-up notes a real model ends in a skip. If skips already hold drafts
+  near one per note, the default for a group note that names nobody could stay "everyone is asked"
+  for groups of three, with naming as the way to narrow. The proposal's default is the stricter one.
+- `ASKED_MAX`: three, or the size of the largest group message.
+- Whether a named channel member with answering off is asked (proposed: yes).
+- Mentioning a team resolves, when the note is sent, to the team's members who are in the room, counts
+  against `ASKED_MAX`, and is refused above it. It stays on the roadmap until this is built.
+
+## Proposed: a mark is a person's click, and the same marks settle a channel's decisions
+
+**Proposed, not built.** A person answers a note with one of three marks, **seen**, **agree** or
+**disagree**, in place of a note that says only that. It is one mechanism with the roadmap's decision
+rules ([roadmap](roadmap.md#groups-and-channel-agents), item 5): a mark is the acknowledgement, and a
+channel's rule, where one exists, counts the agree and disagree marks of its group. No tool exposed to
+a model can cast one.
+
+- **Three marks, a fixed set, no text.** No emoji picker, no custom marks, no reason shown to others.
+  A mark is a member, a note and one of three words, so it has nothing that can carry an instruction
+  and nothing to translate but its label. "Seen" is deliberate, and differs from `read`, which is
+  recorded when the person opens the note: seen says "I have this, and I am not going to answer".
+- **Who may mark, and who sees it.** A person who can read a sent note, in the web client, one mark
+  per person and note, changed or removed by the same person. Everyone who can read the note sees who
+  marked it and how, with characters and names; a mark is never anonymous and never counted without
+  its people. A draft cannot be marked, an early preview of one included (rule 2), and a mark shows a
+  note to no one new (rule 6).
+- **A mark answers.** For an asked person, a mark settles their receipt as a reply does: the sender
+  reads "1 replied · 1 seen" in place of "1/2 replied", the note leaves "waiting for you", and their
+  desk is not handed a note they already marked. A draft their agent had written stays on its card
+  until they send or discard it; the mark decides nothing about a draft.
+- **A mark sends no push and wakes no desk.** That is its use: an acknowledgement that costs its
+  reader nothing. It arrives on the stream as `note.marked` with ids and the mark, and the page shows
+  it.
+- **Routes.** `notes.mark.set` and `notes.mark.clear`, both `human`, behind the feature key `marks`,
+  audited as `note.marked` and `note.mark_cleared` with the note's id and the mark, which is an enum
+  and not content. The mark is a tolerant enum: one a client does not know reads as `unknown`, which
+  means no mark and counts toward no rule.
+- **With a decision rule.** A channel's rule names a group and a number. On a note a member put to the
+  channel as a proposal, the agree and disagree marks of that group's members are counted; "seen"
+  never is. When the number is met the note is marked settled and the room is told. Without a rule,
+  marks only acknowledge. One table and one pair of routes serve both, so there is no second way to
+  agree.
+- **Models.** In the first version no model-facing tool returns marks at all; an agent needs none to
+  draft. If a later tool shows them, they go inside the same `wrapNote` quote as the note they are
+  on, since they carry people's names (rule 4).
+- **Proposed wording for rule 3, added to it.** The strict form, recommended for the first version:
+
+  > No tool exposed to a model can cast, change or remove a mark on a note.
+
+  The form that allows proposals only, to replace it when an agent's proposed mark is built:
+
+  > No tool exposed to a model can cast, change or remove a mark on a note. A tool may propose its
+  > person's mark with a reason; the proposal is shown to that person alone, and counts, and is shown
+  > to anyone else, only after they confirm it in the web client.
+
+  Neither weakens rule 1, 4 or 5: both add to what a model cannot do. The reason is rule 3's own:
+  were a model able to mark, agents could acknowledge, and settle, what no person saw.
+  `security-rules.test.ts` gains: no model-facing tool names the mark routes; an agent credential is
+  refused on both; a mark on a note the caller cannot read answers as for a note that does not exist;
+  a proposed mark is absent from every route another member can call.
+- **A proposed mark is as invisible as a draft.** When proposals are built, a proposal is kept like a
+  draft: its person sees it on the note with its reason, nobody else does, and it counts toward no
+  rule until confirmed. A confirmation made within the quick-approval time counts as a quick approval
+  in the person's own figures.
+
+**Alternatives rejected.**
+
+- **Free emoji reactions.** They need a picker the bundle does not have, mean different things to
+  different people, and cannot be counted by a rule.
+- **Marks and decision rules as two mechanisms.** People would agree twice, and the two would
+  disagree.
+- **A reply written and sent by the agent for "thanks" and "agreed".** That is a note sent without a
+  person, which rule 1 forbids.
+- **"Seen" set automatically when the note is opened.** `read` already says that. A mark is a
+  decision not to answer, and only its person can make it.
+
+**Would weaken rule 1. Not adopted; needs the maintainer's explicit approval.**
+
+- An agent casting its person's mark without their confirmation, in any scope. Where a decision rule
+  decides whether a draft is sent, a delegated mark is an approval no person gave. The roadmap already
+  names what it would need: a delegation the person scopes, an organization setting that is off by
+  default, an audit entry per delegated decision, and results that show delegated decisions apart.
+- A decision rule that sends a channel agent's draft on marks alone, without one manager's Send. A
+  rule may ask for more approvers than one; it never replaces the send.
+
+## A person may let chosen colleagues see their agent's drafts early
+
+Approval is the slowest step between colleagues: a question can sit for an hour while its answer is
+already written and waits for one person's click. So a person may let chosen people, and the rooms of
+chosen channels, see what their own agent drafted before they check it. Rule 2 says so, and every note
+query now filters by `status = 'sent' OR author_id = viewer`, or an allowed preview for the viewer.
+
+- **Off twice by default.** The `draftPreviews` feature is off until an administrator turns it on, and
+  each person's allowance is empty until they choose someone under **My agent → Early previews**. Only
+  the person sets it, through `human` routes (`me.draftPreviews.get`, `me.draftPreviews.set`); no
+  model-facing tool can set or read it (rule 3). Changing it is audited as
+  `draft_preview.allowed_changed` with how many people and channels, never who wrote what.
+- **Only the person's own agent's words.** A draft previews when an agent credential of the person
+  wrote it, it is still a draft, and it waits in a direct or group conversation with an allowed person
+  or in an allowed channel's room. A person's own hand-written draft, a debate room's result, a draft
+  in a private question and a channel's agent's answer never preview: a channel's agent's answers stay
+  with its channel's reviewers (rules 2 and 6). An allowed channel is kept by its room, so renaming the
+  channel keeps the allowance.
+- **Unconfirmed, and nothing to act on.** The recipient sees a dashed, muted card, "Unconfirmed draft
+  from Kai's agent. Kai has not checked it yet." It has no Reply, no quote and no copy; it is not in
+  search, not counted as unread and not notified. Once sent, the same conversation shows the sent note
+  with a line that says it was checked, or changed before sending. Once discarded, the card keeps its
+  place as "Kai withdrew this draft", and its words are gone from every response.
+- **Previews never reach an agent.** They are read only through `previews.list`, a `human` route, so
+  an agent credential gets 403. The event that says previews changed, `preview.changed`, carries a
+  conversation id and no text, is not stored, and is dropped from any stream an agent credential holds;
+  it wakes no desk and pushes nothing. Inbox, search, lookup by id, `conversations.notes`, unread counts
+  and every `member` route answer exactly as before, so MCP, the CLI, A2A and the plugin cannot see a
+  preview, and `wrapNote` still wraps only sent notes (rule 4): an agent never acts on an unconfirmed
+  draft.
+- **A conversation does not appear because of a preview.** A direct or group conversation is still
+  shown only once a note in it is sent, so a preview shows only where the viewer already talks with the
+  author. Showing a new conversation that holds only a preview waits on the roadmap.
+
+## Each place climbs four steps to "answers like you"; the route map is gone
+
+The route map drew each place as a line around the person, its width a logarithm of principles plus
+drafts sent as written with them. Widths in real use differed by under a pixel, nothing showed what a
+finished place looked like, the count ignored edits and discards, and none of its four marks was
+explained on the drawing. How it is doing answered the same question better, one tab away. So the tab
+is gone, and its question is answered where the figures are.
+
+- **Four steps, the last one the existing verdict.** Only drafts; you taught principles; principles hold
+  (a draft that applied one was sent as written); answers like you ★, the place's 30-day verdict
+  `usually_as_written` (at least 10 decided, at least 7 in 10 sent as written). The finished state is
+  printed on every row, not invented for the picture.
+- **The step reflects now; the sentence frames a drop.** The last step follows 30 days and can be lost.
+  Making it sticky would show "answers like you" where it no longer does. Instead, when the 30 days
+  before had the verdict and now do not, the sentence says some recent drafts needed edits and to teach
+  what changed: an edit is a chance to teach, never a step back.
+- **A principle for any channel counts in every place.** It has `place: null`, as do direct messages, and
+  the route map matched `principle.place === place`, so it counted only in direct messages. `routes`
+  now counts every principle that applies in a place, and "held up" as distinct drafts there that
+  applied one and went out as written, so one anywhere-principle is not credited with drafts from
+  other places.
+- **"Chances to teach" means the open offers, everywhere.** A place's chances are the offers Teaching
+  lists that came from there, so the button and the list agree; the drafts behind the figures no
+  longer call themselves chances.
+- **A tooltip per step, and the same words in the open.** Each step is focusable and describes itself
+  on hover and focus; on a narrow row only the current step is named, and **What the steps mean**
+  lists all four for touch screens.
+- **A retired switch is accepted for one release.** `routeMap` left `FEATURES`, so clients see it off.
+  `HB_FEATURES` would then have refused to start a server set up with it, so `RETIRED_FEATURES` names
+  it: accepted and ignored in this release, refused in the next, as compatibility.md asks for a removed
+  capability. Debate credits stay under Teaching, Milestones, where they already were.
+
+## A group message's people are fixed; a person may leave it or hide it
+
+A group message keeps the people it started with. Nobody is added to it, and **New group with these
+people** is how someone is added or taken out: a new room, with none of the old room's notes carried,
+because each of them was approved under "Send delivers it to" the people then in it. Copying a note to
+a new reader, and to that reader's agent, would deliver a note nobody approved for them. A person may
+leave a group for good and may hide a direct or group message from their own list.
+
+- **Measured first.** On a real Dovecote (`pnpm dev`'s server, development login, SQLite) with five
+  people, each with a desk running (`homingbird run --agent` with a command that drafts the same
+  short reply to every note and never skips), one note to the group of five produced **4 drafts and
+  4 approvals waiting**, one per other person: n − 1. Approving all four sent four replies, and each
+  woke the other four desks: **16 more drafts**, (n − 1)², before anyone had read a word. A real model
+  skips some notes, which this did not measure. This is why making groups easier to grow waits for
+  "who is asked"
+  ([above](#proposed-a-note-asks-the-people-it-names-and-only-their-agents-draft)), and why leaving
+  matters: mute stops notifications, not drafting.
+- **No reader is ever added to a room's notes.** `drafts.send` binds to the body and the conversation
+  the card showed ([sending binds](#sending-binds-to-the-draft-the-person-read)); while a group's
+  people cannot grow, the conversation is the reader list, and leaving only shrinks it, which the card
+  redraws from the stream. **Any future route that adds a reader to a room must first extend the
+  send's `expected` with the readers the card named**, so a draft read for three readers is refused
+  once when a fourth joined. The roadmap's joining from a joining point onward names this.
+- **Leaving** (`conversations.leave`, `human`, feature `leaveGroups`) is for a group message only; a
+  direct message is hidden, a channel is left from its menu, and a private question belongs to its
+  channel. The person's place in the room is deleted, as leaving a channel deletes it, so every query
+  that filters by participation (list, lookup, notes, inbox, search, pickup, drafting, the stream and
+  push) leaves the room out for the person and for their agent credentials alike. Rule 6 gains a
+  sentence saying so. The leaver's waiting drafts there are discarded, their open draft requests
+  there withdrawn, and a note their agent had picked up stops showing "drafting reply"; nothing they
+  had not approved goes to the others. What they sent stays with the others, as do the others'
+  drafts. Receipts are kept, as for a channel. The others' streams get `conversation.left` with the
+  room and the person, no content; a group no note was sent in yet tells nobody else, as rule 2 keeps
+  it hidden. There is no way back in: a group's people never grow.
+- **Hiding** (`conversations.hide` and `conversations.unhide`, `human`, feature `hideConversations`)
+  is kept on the person's place in the room (`participants.hidden_at`), as a mute is: per person, shown
+  to nobody else and to no agent credential, whose list keeps every room, and it ends with the place.
+  A hidden room comes back by itself when a note is sent in it, and stays listed while a draft of the
+  person's waits there, so a draft never leaves the list the activity panel finds it through. It is
+  only the list: the room still delivers, counts unread and notifies. Direct and group messages only;
+  a channel room is left or muted. While the feature is off, stored hides are kept and ignored.
+- **Not in this release:** adding in place, naming a group, pin, mark as unread, a starter discarding a
+  room, and binding a send to the reader list. No model-facing tool calls any of the three routes
+  (rule 3), and they are audited without content (`conversation.hidden_changed`, `conversation.left`).
+  The schema step adds `participants.hidden_at`; leaving needs no column.

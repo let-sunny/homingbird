@@ -1,5 +1,6 @@
 import { Schema as S, Task as T } from '@homingbird/kernel'
 import {
+  AUTO_SENT_NOTICE,
   AgentLabel,
   type ApiError,
   type AsRead,
@@ -40,6 +41,7 @@ import { DEBATE_TOOLS } from './debate-tools.ts'
 import { type RpcFailure, invalidParams } from './json-rpc.ts'
 import type { MemberApi } from './member-api.ts'
 import { quotingFor as quotingOf } from './quote.ts'
+import { TEACHING_TOOLS } from './teaching-tools.ts'
 import {
   type AnnouncedRequests,
   type Trigger,
@@ -484,6 +486,7 @@ export const TOOLS: ReadonlyArray<Tool<any>> = [
   }),
   ...DEBATE_TOOLS,
   ...CHARACTER_TOOLS,
+  ...TEACHING_TOOLS,
 ]
 
 export const toolDefinitions = (): ReadonlyArray<Readonly<Record<string, unknown>>> =>
@@ -628,6 +631,8 @@ const arrived = (triggers: ReadonlyArray<Trigger>): string =>
   ].join('\n\n')
 
 const awaitingApproval = (draft: AsRead.Note, context: ToolContext): string => {
+  if (draft.status === 'sent')
+    return `Note ${draft.id} was sent in conversation ${draft.conversationId}. ${AUTO_SENT_NOTICE}`
   const where = context.webClientUrl === null ? '' : ` at ${draftLink(context.webClientUrl, draft)}`
   return (
     `Draft ${draft.id} is saved in conversation ${draft.conversationId}. It has NOT been sent. ` +

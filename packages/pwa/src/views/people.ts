@@ -1,13 +1,7 @@
 import type { AsRead, GroupId, MemberId } from '@homingbird/protocol'
-import { type Lifetime, h, onAnyChange, region, signal } from '@homingbird/ui'
+import { type Lifetime, h, region, signal } from '@homingbird/ui'
 import type { Actions } from '../actions.ts'
 import { featureOn } from '../features.ts'
-import {
-  type ChoiceToggle,
-  groupStartModel,
-  participantsToStart,
-  toggledChoice,
-} from '../models/group-start.ts'
 import { showsInvites } from '../models/invites.ts'
 import {
   type FilterOption,
@@ -16,13 +10,14 @@ import {
   type PersonCard,
   peopleModel,
 } from '../models/people.ts'
+import type { Route } from '../routes.ts'
 import { strings } from '../strings.ts'
 import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
-import { choiceToggle, groupStartPanel, reflectChoices } from './group-start.ts'
 import { invitesSection } from './invites.ts'
 import { type MenuParts, actionMenu } from './menu.ts'
 import { button, channelChips, empty, field, loadFailed, loading, page, presenceBadges } from './parts.ts'
+import { opensProfile } from './profile-card.ts'
 
 /** People: everyone in the organization the person may see, and what they may do with each. */
 export const peopleView = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
@@ -68,25 +63,16 @@ export const peopleView = (context: ViewContext, life: Lifetime, me: AsRead.Me):
       groupsOn: featureOn('groups', state.serverInfo.get()),
       groupFilter: groupFilter.get(),
       groupMembers: groupMembers.get(),
+      person: personAsked(state.route.get()),
     })
-  const chosen = signal<ReadonlyArray<MemberId>>([])
-  const starting = signal(false)
-  const startInput = () => ({
-    directory: state.directory.get(),
-    conversations: state.conversations.get(),
-    viewerId: me.member.id,
-    chosen: chosen.get(),
-    starting: starting.get(),
-    draftRequests: featureOn('draftRequests', state.serverInfo.get()),
-  })
-  const toggles = (): ReadonlyMap<MemberId, ChoiceToggle> =>
-    groupStartModel(startInput())?.toggles ?? new Map()
-  const choose = (memberId: MemberId): void => chosen.set(toggledChoice(chosen.get(), memberId))
-  const start = (): void => {
-    const memberIds = participantsToStart(startInput())
-    if (memberIds === null) return
-    starting.set(true)
-    actions.openConversationAmong(memberIds, { failed: () => starting.set(false) })
+  let revealed = false
+  const reveal = (card: HTMLElement): void => {
+    if (revealed) return
+    revealed = true
+    context.page.nextFrame(() => {
+      card.scrollIntoView?.({ block: 'center' })
+      card.focus({ preventScroll: true })
+    })
   }
   const shown = model()
   const list = region(
@@ -102,9 +88,8 @@ export const peopleView = (context: ViewContext, life: Lifetime, me: AsRead.Me):
       groupFilter,
       groupMembers,
     ],
-    () => renderPeople(model(), context, load, { toggles: toggles(), choose }),
+    () => renderPeople(model(), context, load, reveal),
   )
-  life.add(onAnyChange([chosen, starting], () => reflectChoices(list, toggles())))
   return page(
     strings.people,
     shown.contactsNotice !== null && h('p', { class: 'banner' }, shown.contactsNotice),
@@ -132,28 +117,18 @@ export const peopleView = (context: ViewContext, life: Lifetime, me: AsRead.Me):
         },
       ),
     ),
-    region(life, [state.directory, state.conversations, chosen, starting], () =>
-      groupStartPanel(groupStartModel(startInput()), {
-        remove: choose,
-        clear: () => chosen.set([]),
-        start,
-      }),
-    ),
     list,
     showsInvites('people', me, state.serverInfo.get()) && invitesSection(context, life),
   )
 }
 
-interface Choices {
-  readonly toggles: ReadonlyMap<MemberId, ChoiceToggle>
-  readonly choose: (memberId: MemberId) => void
-}
+const personAsked = (route: Route): string | undefined => (route.name === 'people' ? route.person : undefined)
 
 const renderPeople = (
   model: PeopleModel,
-  context: Pick<ViewContext, 'actions' | 'clock' | 'page' | 'document'>,
+  context: Pick<ViewContext, 'actions' | 'clock' | 'page' | 'document' | 'state' | 'random'>,
   retry: () => void,
-  choices: Choices,
+  reveal: (card: HTMLElement) => void,
 ): HTMLElement => {
   const list = model.list
   if (list.kind === 'loading') return loading()
@@ -162,23 +137,41 @@ const renderPeople = (
   return h(
     'ul',
     { class: 'people' },
-    list.people.map((person) => personCard(person, context, choices)),
+    list.people.map((person) => personCard(person, context, reveal)),
   )
 }
 
+/** One person; the one an “Open in People” asked for is brought into view by `reveal`. */
 const personCard = (
   person: PersonCard,
-  context: Pick<ViewContext, 'actions' | 'clock' | 'page' | 'document'>,
-  choices: Choices,
+  context: Pick<ViewContext, 'actions' | 'clock' | 'page' | 'document' | 'state' | 'random'>,
+  reveal: (card: HTMLElement) => void,
 ): HTMLElement => {
   const more = person.more === null ? null : moreMenu(person, person.more, context)
   const card = h(
     'li',
-    { class: 'person', data: { memberId: person.memberId } },
+    {
+      class: person.focused ? 'person is-focused' : 'person',
+      data: { memberId: person.memberId },
+      ...(person.focused && { tabindex: '-1' }),
+    },
     h(
       'div',
       { class: 'person-card' },
-      h('div', { class: 'person-face' }, renderAvatar(context, person.avatar)),
+      h(
+        'div',
+        { class: 'person-face' },
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'person-face-button',
+            'aria-label': strings.profileCard.open({ name: person.name }),
+            ...opensProfile(person.memberId),
+          },
+          renderAvatar(context, person.avatar),
+        ),
+      ),
       h(
         'div',
         { class: 'person-main' },
@@ -190,7 +183,7 @@ const personCard = (
             h('span', { class: `relation is-${person.relation.kind}` }, person.relation.text),
         ),
         h('span', { class: 'person-email', title: person.email }, person.email),
-        presenceBadges(person.presence),
+        presenceBadges(person.presence, context),
         person.channels !== null &&
           h(
             'div',
@@ -235,7 +228,17 @@ const personCard = (
         { class: 'person-actions' },
         person.actions.map((one) => [
           actionButton(one, person, context.actions),
-          one.kind === 'message' && choiceFor(person.memberId, choices),
+          one.kind === 'message' &&
+            person.withOthers !== null &&
+            h(
+              'a',
+              {
+                class: 'button with-others',
+                href: person.withOthers.href,
+                'aria-label': person.withOthers.label,
+              },
+              person.withOthers.text,
+            ),
         ]),
         more?.trigger,
         more?.menu,
@@ -243,13 +246,14 @@ const personCard = (
     ),
   )
   more?.opensFrom(card)
+  if (person.focused) reveal(card)
   return card
 }
 
 const moreMenu = (
   person: PersonCard,
   more: NonNullable<PersonCard['more']>,
-  context: Pick<ViewContext, 'actions' | 'clock' | 'page' | 'document'>,
+  context: Pick<ViewContext, 'actions' | 'clock' | 'page' | 'document' | 'state' | 'random'>,
 ): MenuParts =>
   actionMenu(context, {
     id: `person-menu-${person.memberId}`,
@@ -262,11 +266,6 @@ const moreMenu = (
       }),
     ),
   })
-
-const choiceFor = (memberId: MemberId, choices: Choices): HTMLElement | null => {
-  const toggle = choices.toggles.get(memberId)
-  return toggle === undefined ? null : choiceToggle(memberId, toggle, () => choices.choose(memberId))
-}
 
 const actionButton = (action: PersonAction, person: PersonCard, actions: Actions): HTMLElement => {
   const control = button(action.label, () => ACTIONS[action.kind](actions, person), {

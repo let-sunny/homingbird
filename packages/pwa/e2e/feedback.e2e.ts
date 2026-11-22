@@ -5,6 +5,9 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { BUILT_IN_CHARACTERS } from '@homingbird/protocol'
+import { en } from '../src/languages/en.ts'
+import { ko } from '../src/languages/ko.ts'
+import { TOUR_STEPS } from '../src/tour.ts'
 import {
   KEY_CONTROLS,
   type Person,
@@ -82,7 +85,7 @@ const scenario = async (): Promise<void> => {
     // -- 11c, home: nothing exists yet, so every entry offers a way forward ----------------------
     await ben.page.goto(`${base}/#/`)
     await ben.page.waitForSelector('.stage .starting-points a:has-text("Ask a channel")')
-    await ben.page.waitForSelector('.stage .starting-points a:has-text("Connect your agent")')
+    await ben.page.waitForSelector('.stage .starting-points a:has-text("Another agent, or a server")')
     await ben.page.waitForSelector('.sidebar .empty:has-text("You are in no channel yet")')
     await inThemes(ben.page, 'home-with-nothing-yet-offers-starting-points')
     await ben.page.setViewportSize(NARROW)
@@ -223,36 +226,24 @@ const scenario = async (): Promise<void> => {
     await contrastIsFine(ben.page, 'channel room')
 
     // -- 8: my own row in the members panel ------------------------------------------------------
+    await api(ben, 'PUT', `/channels/billing/members/${ids.June}`).catch(() => undefined)
+    await api(june, 'PUT', '/channels/billing/membership', {})
     await ben.page.locator('.room-more').click()
     await ben.page.locator('.room-menu').getByRole('button', { name: 'Members' }).click()
     const ownRow = ben.page.locator(`dialog[open] .channel-member[data-member="${ids.Ben}"]`)
     await ownRow.locator('.is-you:has-text("(you)")').waitFor()
     assert.equal(await ownRow.getByRole('button', { name: 'Remove' }).count(), 0)
-    await ownRow
-      .locator('.disabled-control:has-text("Remove yourself as a manager before you leave it")')
-      .waitFor()
+    await ownRow.locator(`.disabled-control:has-text("${en.onlyManagerCannotLeave}")`).waitFor()
     assert.equal(await ownRow.locator('button.leave-own').isDisabled(), true)
     await ben.page.waitForSelector('dialog[open] .managed-by:has-text("Managed by")')
     await inThemes(ben.page, 'a-manager-leaves-the-group-before-the-channel', false)
     await ben.page.keyboard.press('Escape')
     await ben.page.locator('.room-more').click()
-    await ben.page.waitForSelector(
-      '.room-menu .disabled-control:has-text("Remove yourself as a manager before")',
-    )
+    await ben.page.waitForSelector(`.room-menu .disabled-control:has-text("${en.onlyManagerCannotLeave}")`)
     assert.equal(await ben.page.locator('.room-menu button.leave-channel').isDisabled(), true)
     await ben.page.keyboard.press('Escape')
-    await api(ben, 'PUT', `/channels/billing/members/${ids.June}`).catch(() => undefined)
-    await api(june, 'PUT', '/channels/billing/membership', {})
 
     // -- 10: a refusal the client can foresee is shown disabled with its reason ------------------
-    await api(ana, 'DELETE', '/channels/area-03/membership')
-    await ana.page.goto(`${base}/#/channel/area-03`)
-    await ana.page.locator('.room-more').click()
-    await ana.page.locator('.room-menu').getByRole('button', { name: 'Members' }).click()
-    await ana.page.waitForSelector('dialog[open] .disabled-control:has-text("Only a channel with a manager")')
-    assert.equal(await ana.page.locator('dialog[open] button.make-private').isDisabled(), true)
-    await inThemes(ana.page, 'make-private-disabled-with-the-reason', false)
-    await ana.page.keyboard.press('Escape')
     await ana.page.goto(`${base}/#/admin/members`)
     await ana.page.waitForSelector(`.member[data-member-id="${ids.Ana}"] .is-you`)
     await ana.page.waitForSelector(`.member[data-member-id="${ids.Ana}"] .own-row-reason`)
@@ -380,15 +371,13 @@ const scenario = async (): Promise<void> => {
     await ben.page.click('.tab:has-text("My agent")')
     await ben.page.click('.my-agent-tabs a:has-text("Connection")')
     await ben.page.waitForFunction(() => (globalThis as any).location.hash === '#/agent/connection')
-    await ben.page.waitForSelector('.desk-recommendation:has-text("Keep one agent session open")')
+    await ben.page.waitForSelector(`.desk-recommendation:has-text("${en.deskTitle}")`)
     await ben.page.waitForSelector('.connected-agents .credential:has-text("Ben desk")')
     assert.equal(await ben.page.locator('#user-menu .menu-item:has-text("Devices and agents")').count(), 0)
-    await ben.page.waitForSelector(
-      'details.have-a-code:not([open]) summary:has-text("a connection code instead of a link")',
-    )
-    await ben.page.waitForSelector('.not-set-up:has-text("Ask your administrator")')
-    // The page names no tool and shows no command, except the line to run on a server, which
-    // appears only after the person asks for it.
+    await ben.page.waitForSelector(`details.have-a-code:not([open]) summary:has-text("${en.codeFallback}")`)
+    // The page names no tool and shows no command, except the line to run on a server and the
+    // first steps, folded once an agent is connected, which appear only after the person asks.
+    await ben.page.waitForSelector('details.first-steps.is-folded:not([open])')
     await ben.page.waitForSelector('.join-code .join-code-create')
     assert.equal(await ben.page.locator('.join-command').count(), 0, 'no server line before asking')
     const outsideJoinCode = (text: string) =>
@@ -396,7 +385,7 @@ const scenario = async (): Promise<void> => {
         (needle: string) =>
           [...(globalThis as any).document.querySelectorAll('.stage *')].filter(
             (element: any) =>
-              element.closest('.join-code') === null &&
+              element.closest('.join-code, .first-steps.is-folded') === null &&
               [...element.childNodes].some(
                 (node: any) => node.nodeType === 3 && String(node.textContent).includes(needle),
               ),
@@ -416,7 +405,7 @@ const scenario = async (): Promise<void> => {
     ])
       assert.equal(await outsideJoinCode(name), 0, `no ${name} on the page`)
     assert.equal(
-      await ben.page.locator('.stage pre, .stage code, .stage button.copy').count(),
+      await ben.page.locator('.stage :is(pre, code, button.copy):not(.first-steps.is-folded *)').count(),
       0,
       'the page shows no installation commands',
     )
@@ -482,8 +471,8 @@ const scenario = async (): Promise<void> => {
       .first()
       .click()
     await inThemes(ana.page, 'admin-answering-flow')
-    await ana.page.click('.form > button[type=submit]:has-text("Save")')
-    await ana.page.waitForSelector('.toast:has-text("Saved.")')
+    await ana.page.click(`.form .settings-save button[type=submit]:has-text("${en.save}")`)
+    await ana.page.waitForSelector(`.toast:has-text("${en.saved}")`)
     const savedFlow = (await api(ana, 'GET', '/admin/settings')).answeringFlow as string
     assert.match(savedFlow, /## Check the draft\n1\. Nothing confidential/)
     assert.match(savedFlow, /\[off\] /)
@@ -492,7 +481,7 @@ const scenario = async (): Promise<void> => {
     await checks.locator('.todo-add textarea[name=text]').fill(tooLong)
     await checks.locator('.todo-add button:has-text("Add a step")').click()
     await ana.page.waitForSelector('.answering-flow .flow-count.is-over')
-    await ana.page.click('.form > button[type=submit]:has-text("Save")')
+    await ana.page.click(`.form .settings-save button[type=submit]:has-text("${en.save}")`)
     await ana.page.waitForSelector('.answering-flow .flow-problem:has-text("4000")')
     await shot(ana.page, 'admin-answering-flow-refused-with-the-server-reason')
     await ana.page.click('.toast button')
@@ -520,7 +509,7 @@ const scenario = async (): Promise<void> => {
     await shot(koreanAdmin.page, 'admin-settings-korean-narrow')
     await koreanAdmin.context.close()
 
-    // -- Tour: once on home, never over a deep link, remembered, reopened, broken storage ------
+    // -- Tour: on a first visit, a deep link included, remembered, reopened, broken storage ----
     const visitor = await newPage(browser, base, 'en-US', { tour: true })
     await submitDevelopmentLogin(visitor.page, 'cy@example.com', 'Cy')
     await visitor.page.waitForSelector('.app')
@@ -535,9 +524,13 @@ const scenario = async (): Promise<void> => {
       0,
       'a room I am not in is a page, not an error',
     )
-    assert.equal(await visitor.page.locator('#tour:popover-open').count(), 0, 'no tour over a deep link')
+    assert.equal(
+      await visitor.page.locator('#tour:popover-open').count(),
+      1,
+      'the tour starts on a first visit to a page it explains, a deep link included',
+    )
     await visitor.page.goto(`${base}/#/`)
-    await visitor.page.waitForSelector('#tour:popover-open .tour-progress:has-text("Step 1 of 4")')
+    await visitor.page.waitForSelector(`#tour:popover-open .tour-progress:has-text("${tourProgress(1)}")`)
     assert.equal(
       await visitor.page.evaluate(() => (globalThis as any).document.activeElement?.className),
       'primary tour-next',
@@ -550,13 +543,12 @@ const scenario = async (): Promise<void> => {
     )
     await inThemes(visitor.page, 'tour-step-1-the-notes-list', false)
     await visitor.page.click('#tour .tour-next')
-    await visitor.page.waitForSelector('#tour .tour-progress:has-text("Step 2 of 4")')
-    await visitor.page.waitForSelector('#tour a.button:has-text("Open My agent")')
-    await shot(visitor.page, 'tour-step-2-connect-your-agent')
+    await visitor.page.waitForSelector(`#tour .tour-progress:has-text("${tourProgress(2)}")`)
+    await shot(visitor.page, 'tour-step-2-approve-your-agents-draft')
     await visitor.page.click('#tour .tour-next')
     await visitor.page.waitForSelector('.tab.tour-target')
     await visitor.page.click('#tour .tour-back')
-    await visitor.page.waitForSelector('#tour .tour-progress:has-text("Step 2 of 4")')
+    await visitor.page.waitForSelector(`#tour .tour-progress:has-text("${tourProgress(2)}")`)
     await visitor.page.keyboard.press('Escape')
     await visitor.page.waitForFunction(() => !(globalThis as any).document.querySelector('#tour'))
     await visitor.page.reload()
@@ -565,12 +557,13 @@ const scenario = async (): Promise<void> => {
     assert.equal(await visitor.page.locator('#tour').count(), 0, 'skipping is remembered')
     await visitor.page.goto(`${base}/#/me`)
     await visitor.page.click('button.show-tour')
-    await visitor.page.waitForSelector('#tour .tour-progress:has-text("Step 1 of 4")')
+    await visitor.page.waitForSelector(`#tour .tour-progress:has-text("${tourProgress(1)}")`)
     await visitor.page.setViewportSize(NARROW)
-    for (let step = 0; step < 3; step++) await visitor.page.click('#tour .tour-next')
-    await visitor.page.waitForSelector('#tour .tour-progress:has-text("Step 4 of 4")')
+    for (let step = 1; step < TOUR_STEPS.length; step++) await visitor.page.click('#tour .tour-next')
+    await visitor.page.waitForSelector(`#tour .tour-progress:has-text("${tourProgress(TOUR_STEPS.length)}")`)
+    await visitor.page.waitForSelector(`#tour a.button:has-text("${en.tour.connectAction}")`)
     await shot(visitor.page, 'tour-last-step-narrow')
-    await visitor.page.click('#tour .tour-next:has-text("Get started")')
+    await visitor.page.click(`#tour .tour-next:has-text("${en.tour.done}")`)
     await visitor.page.waitForFunction(() => !(globalThis as any).document.querySelector('#tour'))
     await visitor.page.setViewportSize(VIEWPORT)
     await visitor.page.goto(`${base}/#/connect`)
@@ -584,7 +577,7 @@ const scenario = async (): Promise<void> => {
     )
     await submitDevelopmentLogin(blocked.page, 'dee@example.com', 'Dee')
     await blocked.page.waitForSelector('.app')
-    await blocked.page.waitForSelector('#tour .tour-progress:has-text("Step 1 of 4")')
+    await blocked.page.waitForSelector(`#tour .tour-progress:has-text("${tourProgress(1)}")`)
     await blocked.page.click('#tour .tour-skip')
     await blocked.page.waitForFunction(() => !(globalThis as any).document.querySelector('#tour'))
     await blocked.context.close()
@@ -596,9 +589,9 @@ const scenario = async (): Promise<void> => {
     ] as const) {
       const touring = await newPage(browser, base, 'en-US', { tour: true, viewport })
       await submitDevelopmentLogin(touring.page, `tour-${label}@example.com`, 'Tour')
-      await touring.page.waitForSelector('#tour:popover-open .tour-progress:has-text("Step 1 of 4")')
-      for (let step = 1; step <= 4; step++) {
-        await touring.page.waitForSelector(`#tour .tour-progress:has-text("Step ${step} of 4")`)
+      await touring.page.waitForSelector(`#tour:popover-open .tour-progress:has-text("${tourProgress(1)}")`)
+      for (let step = 1; step <= TOUR_STEPS.length; step++) {
+        await touring.page.waitForSelector(`#tour .tour-progress:has-text("${tourProgress(step)}")`)
         await touring.page.waitForTimeout(300)
         const placement = await tourPlacement(touring.page)
         assert.equal(placement.overHeader, false, `step ${step} (${label}) covers the header`)
@@ -617,7 +610,7 @@ const scenario = async (): Promise<void> => {
           await shot(touring.page, `tour-step-${step}-${label}-${scheme}`)
         }
         await touring.page.emulateMedia({ colorScheme: 'light' })
-        if (step < 4) await touring.page.click('#tour .tour-next')
+        if (step < TOUR_STEPS.length) await touring.page.click('#tour .tour-next')
       }
       await touring.context.close()
     }
@@ -699,7 +692,9 @@ const scenario = async (): Promise<void> => {
     for (let tries = 0; tries < 40 && !(await readByBen()); tries++) await ben.page.waitForTimeout(100)
     assert.equal(await readByBen(), true, 'the person acting on the page reads it')
     await shot(ben.page, 'home-wide-opens-the-latest-conversation')
-    await ben.page.waitForSelector('.connection.is-connected[role=status]:has-text("Connected")')
+    await ben.page.waitForSelector(
+      '.connection.is-connected[role=status]:has-text("This page is up to date")',
+    )
     assert.equal(await ben.page.locator('.connection .pip, .connection canvas').count(), 0)
     await shot(ben.page, 'header-connected')
     await ben.context.setOffline(true)
@@ -723,7 +718,7 @@ const scenario = async (): Promise<void> => {
     const badge = phone.page.locator('.connection')
     assert.ok(((await badge.boundingBox())?.width ?? 0) <= 1, 'a connected badge takes no room when short')
     assert.equal(await badge.getAttribute('role'), 'status')
-    assert.equal(await badge.getAttribute('aria-label'), 'Connected')
+    assert.equal(await badge.getAttribute('aria-label'), 'This page is up to date')
     await shot(phone.page, 'header-narrow-connected-shows-no-bare-mark')
     let holdStream = true
     await phone.context.route('**/api/v1/events/**', async (route: any) => {
@@ -761,12 +756,11 @@ const scenario = async (): Promise<void> => {
     await korean.page.waitForSelector('.thread-head .channel-counts:has-text("답변자")')
     await inThemes(korean.page, 'korean-channel-room')
     await korean.page.goto(`${base}/#/connect`)
-    await korean.page.waitForSelector('.desk-recommendation:has-text("데스크로 열어 두세요")')
-    await korean.page.waitForSelector('.not-set-up:has-text("관리자에게 문의하세요")')
+    await korean.page.waitForSelector(`.desk-recommendation:has-text("${ko.deskTitle}")`)
     assert.equal(await korean.page.locator('.stage :text("모드")').count(), 0)
     await inThemes(korean.page, 'korean-connect-an-agent')
     await korean.page.goto(`${base}/#/`)
-    await korean.page.waitForSelector('.connection.is-connected:has-text("연결됨")')
+    await korean.page.waitForSelector(`.connection.is-connected:has-text("${ko.connection.connected}")`)
     await shot(korean.page, 'korean-header-connected')
     await korean.page.goto(`${base}/#/people`)
     await korean.page.setViewportSize({ width: 620, height: 800 })
@@ -804,7 +798,7 @@ const themeScenario = async (): Promise<void> => {
       [`/#/c/${room}`, '.answering-chip'],
       ['/#/people', '.person'],
       ['/#/channels', '.channel-card'],
-      ['/#/connect', '.desk-recommendation'],
+      ['/#/connect', '.first-steps'],
     ] as const) {
       await person.page.goto(`${base}${path}`)
       await person.page.waitForSelector(ready)
@@ -844,8 +838,10 @@ const tourPlacement = (
     if (target === null || !document.querySelector('#tour').classList.contains('is-anchored'))
       return { targetShown: false, gap: 0, namesThePlace, overHeader, width: Math.round(callout.width) }
     const box = target.getBoundingClientRect()
-    // A control in the header gets its callout under the header, so it is measured from there.
-    const below = target.closest('.titlebar')?.getBoundingClientRect().bottom ?? box.bottom
+    // A control in the header gets its callout under the header, so it is measured from there; a tab
+    // in the phone's bottom bar belongs to the header but sits below it, so it is measured from itself.
+    const headerBottom = target.closest('.titlebar')?.getBoundingClientRect().bottom
+    const below = headerBottom !== undefined && box.top < headerBottom ? headerBottom : box.bottom
     const across = Math.max(0, box.left - callout.right, callout.left - box.right)
     const along = Math.max(0, box.top - callout.bottom, callout.top - below)
     return {
@@ -856,6 +852,9 @@ const tourPlacement = (
       width: Math.round(callout.width),
     }
   })
+
+const tourProgress = (step: number): string =>
+  en.tour.progress.replace('{step}', String(step)).replace('{total}', String(TOUR_STEPS.length))
 
 const TOUR_CALLOUT_MAX_WIDTH = Math.max(22 * 16, NARROW.width - 2 * 16) + 1
 

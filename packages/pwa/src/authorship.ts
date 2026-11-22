@@ -1,11 +1,17 @@
 import { type AsRead, summarize } from '@homingbird/protocol'
 import { type SingleStatus, readProgress, statusOf } from './thread.ts'
 
-export type Authorship = 'agent' | 'edited' | 'person'
+export type Authorship = 'agent' | 'edited' | 'person' | 'outside'
 
 /** How a note was written; an origin this client does not know is never claimed as the person's own. */
 export const authorshipOf = (note: Pick<AsRead.Note, 'origin'>): Authorship =>
-  note.origin === 'human' ? 'person' : note.origin === 'human_edited' ? 'edited' : 'agent'
+  note.origin === 'human'
+    ? 'person'
+    : note.origin === 'human_edited'
+      ? 'edited'
+      : note.origin === 'outside'
+        ? 'outside'
+        : 'agent'
 
 export interface StateMark {
   readonly state: SingleStatus

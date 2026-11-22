@@ -1,4 +1,4 @@
-import { type AsRead, type MemberId, type NoteId, summarize } from '@homingbird/protocol'
+import { type AsRead, type MemberId, type NoteId, mayRecall, summarize } from '@homingbird/protocol'
 import { authorshipOf, showsStateMark, stateMarkOf } from '../authorship.ts'
 import { type AnswerersLine, questionWaits } from '../channel-answerers.ts'
 import { debateNoteParts } from '../debate-note.ts'
@@ -21,6 +21,7 @@ import {
 import { agentAskReach } from './agent-ask.ts'
 import { type AvatarModel, memberAvatarOf } from './avatar.ts'
 import { agentAuthorshipLine, approvalLine } from './channel-agent.ts'
+import { confirmedPreviewLine } from './draft-previews.ts'
 import { type TeachSeed, teachSeedOf } from './teaching.ts'
 import { type ThreadInput, channelAskedIn, isOn, nameIn, noteIn, notesOf, roomOf } from './thread-room.ts'
 import { type TimeShown, noteTimeShown } from './time.ts'
@@ -42,7 +43,8 @@ export const noteItemModel = (
   const sentAt = note.sentAt === null ? null : formats.full.format(new Date(note.sentAt))
   const authorship = authorshipLine(input, note, mine)
   const charactersOn = isOn(input, 'characters')
-  const markShown = mine && showsStateMark(note, next)
+  const withdrawn = note.status === 'withdrawn'
+  const markShown = mine && !withdrawn && showsStateMark(note, next)
   const basis = mine ? draftBasisOf(note) : null
   const waits =
     mine && answerers.length === 0 && note.fromDebate === undefined ? questionLine(input, note) : null
@@ -50,12 +52,20 @@ export const noteItemModel = (
   const discardedBy = input.discardedAnswers?.get(note.id)
   return {
     noteId: note.id,
-    className: `note ${side} ${leadsRun ? 'leads-run' : 'follows-run'} is-${authorshipOf(note)}`,
+    className: `note ${side} ${leadsRun ? 'leads-run' : 'follows-run'} is-${authorshipOf(note)}${withdrawn ? ' is-withdrawn' : ''}`,
     unread: isUnreadBy(note, input.me.member.id),
     author: leadsRun ? authorModel(input, note, authorship, sentAt, charactersOn) : null,
     spokenAuthorship: leadsRun ? null : authorship,
     spokenSent: sentAt === null ? null : strings.authorship.sent({ time: sentAt }),
-    authorName: inRoom && leadsRun ? (mine ? strings.you : nameIn(input, note.authorId)) : null,
+    authorName:
+      inRoom && leadsRun
+        ? mine
+          ? strings.you
+          : note.via !== undefined
+            ? strings.slack.askedIn({ name: note.via.askerName, channel: note.via.channelName })
+            : nameIn(input, note.authorId)
+        : null,
+    slack: slackLineOf(note),
     bubbleTitle: next !== null && sentAt !== null ? sentAt : null,
     quote:
       quoted === null
@@ -77,7 +87,8 @@ export const noteItemModel = (
             lines: basis.lines,
             sources: basis.sources,
           },
-    approval: approvalLine(note, room, input.channels, input.members),
+    approval: approvalLine(note, room, input.channels, input.members) ?? confirmedPreviewLine(input, note),
+    autoSent: autoSentModel(input, note, mine),
     answeredBy:
       answerers.length === 0
         ? null
@@ -94,6 +105,7 @@ export const noteItemModel = (
           },
     noAnswer:
       isChannelQuestion &&
+      asksSomething(note.body) &&
       !archived &&
       waits === null &&
       answerers.length === 0 &&
@@ -123,12 +135,15 @@ export const noteItemModel = (
       id: `note-menu-${note.id}`,
       label: strings.noteMore,
       items: menuItems(input, { reply: !archived, askAgent: !mine && !archived }),
+      fixed: mine ? strings.noteFixed : null,
     },
   }
 }
 
 export interface NoteItemModel {
   readonly noteId: NoteId
+  /** What became of the note in Slack: an arrived copy edited or deleted there, or a reply's post. */
+  readonly slack: { readonly text: string; readonly retry: string | null } | null
   readonly className: string
   readonly unread: boolean
   readonly author: AuthorModel | null
@@ -153,8 +168,10 @@ export interface NoteItemModel {
     readonly lines: ReadonlyArray<string>
     readonly sources: ReadonlyArray<SourceShown>
   } | null
-  /** Where a channel's agent answered and who approved it, for everyone who reads the note. */
+  /** Where a channel's agent answered and who approved it, or that a draft seen early was checked. */
   readonly approval: string | null
+  /** That a saved answer sent the note without a click, and the author's Recall while it may still be taken back. */
+  readonly autoSent: { readonly text: string; readonly recall: string | null } | null
   readonly answeredBy: { readonly avatar: AvatarModel; readonly text: string } | null
   /** Under a channel's question nobody answered or is answering, a discarded answer's included. */
   readonly noAnswer: string | null
@@ -176,6 +193,8 @@ export interface NoteItemModel {
     readonly id: string
     readonly label: string
     readonly items: ReadonlyArray<NoteMenuItem>
+    /** Under the person's own note: that a sent note stays as it is, and a reply corrects it. */
+    readonly fixed: string | null
   }
 }
 
@@ -201,6 +220,8 @@ export interface NoteMenuItem {
 /** The author's character as a button, and the details it opens: who or what wrote the note, and when. */
 export interface AuthorModel {
   readonly id: string
+  /** Whose profile card the face opens. */
+  readonly memberId: MemberId
   readonly buttonClass: string
   readonly buttonLabel: string
   readonly avatar: AvatarModel
@@ -289,6 +310,11 @@ const authorshipLine = (input: ThreadInput, note: AsRead.Note, mine: boolean): s
       return mine ? strings.authorship.editedYou : strings.authorship.edited({ name })
     case 'person':
       return mine ? strings.authorship.personYou : strings.authorship.person({ name })
+    case 'outside':
+      return strings.slack.askedInLine({
+        name: note.via?.askerName ?? name,
+        channel: note.via?.channelName ?? '',
+      })
   }
 }
 
@@ -302,6 +328,7 @@ const authorModel = (
   const showsDetails = isOn(input, 'noteDetails')
   return {
     id: `author-${note.id}`,
+    memberId: note.authorId,
     buttonClass: `author-button is-${authorshipOf(note)}`,
     buttonLabel: strings.authorship.who({ authorship: line }),
     avatar: memberAvatarOf(
@@ -311,7 +338,7 @@ const authorModel = (
         labelled: false,
       },
     ),
-    agentMark: note.origin !== 'human',
+    agentMark: note.origin !== 'human' && note.origin !== 'outside',
     line,
     debate:
       note.fromDebate === undefined
@@ -428,4 +455,29 @@ const isBeingAnswered = (note: AsRead.Note): boolean =>
 const roomStatus = (note: AsRead.Note): string => {
   const { read, of, drafting } = readProgress(note.receipts)
   return drafting > 0 ? strings.readByWhileDrafting({ read, of, drafting }) : strings.readBy({ read, of })
+}
+
+/** Whether a note asks something, so that an announcement is never marked as waiting for an answer. */
+const asksSomething = (body: string): boolean => /[?？]/.test(body)
+
+/** Whether a saved answer sent this note, said to everyone who reads it; recalled, said to its author. */
+const autoSentModel = (input: ThreadInput, note: AsRead.Note, mine: boolean): NoteItemModel['autoSent'] => {
+  if (note.autoSent !== true) return null
+  if (note.status === 'withdrawn') return { text: strings.autoSend.recalledLine, recall: null }
+  return {
+    text: mine
+      ? strings.autoSend.sentByYours
+      : strings.autoSend.sentByTheirs({ name: nameIn(input, note.authorId) }),
+    recall: mayRecall(note, input.me.member.id, input.now) ? strings.autoSend.recall : null,
+  }
+}
+
+const slackLineOf = (note: AsRead.Note): NoteItemModel['slack'] => {
+  if (note.via?.deleted === true) return { text: strings.slack.deletedInSlack, retry: null }
+  if (note.via?.edited === true) return { text: strings.slack.editedInSlack, retry: null }
+  if (note.posting === 'pending') return { text: strings.slack.postingToSlack, retry: null }
+  if (note.posting === 'posted') return { text: strings.slack.postedToSlack, retry: null }
+  if (note.posting === 'failed')
+    return { text: strings.slack.notPostedToSlack, retry: strings.slack.tryAgain }
+  return null
 }

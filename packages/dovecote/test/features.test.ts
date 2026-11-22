@@ -11,19 +11,24 @@ import {
   storedRows,
 } from './harness.ts'
 
+const SLACK_APP = {
+  HB_SLACK_BOT_TOKEN: 'xoxb-1234-5678-botsecretvalue',
+  HB_SLACK_SIGNING_SECRET: '8f742231b10e8888abcd99eeefff85a5',
+}
+
 let server: TestServer
 let ana: Session
 let ben: Session
 let anaAgent: Agent
 
 beforeEach(async () => {
-  server = await startTestServer({ HB_SECRETS_KEY: TEST_SECRETS_KEY })
+  server = await startTestServer({ HB_SECRETS_KEY: TEST_SECRETS_KEY, ...SLACK_APP })
   ana = await server.signIn('ana@example.com', 'Ana')
   ben = await server.signIn('ben@example.com', 'Ben')
   anaAgent = await connectAgent(server, ana, { name: 'Ana agent' })
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const switchTo = async (features: Readonly<Record<string, boolean>>) => {
   const settings = (await ana.api('GET', '/admin/settings')).json
@@ -39,6 +44,16 @@ const probes: Readonly<Record<string, (person: Session) => Promise<{ status: num
   draftRequests: (person) => person.api('GET', '/draft-requests'),
   characters: (person) => person.api('DELETE', '/me/character'),
   mute: (person) => person.api('PUT', '/me/notifications', { notifications: 'all' }),
+  hideConversations: async (person) => {
+    const draft = (await person.api('POST', '/drafts', { to: [ben.me.member.id], body: 'Hello' })).json
+    return person.api('DELETE', `/conversations/${draft.conversationId}/hidden`)
+  },
+  leaveGroups: async (person) => {
+    const cy = await server.signIn('cy@example.com', 'Cy')
+    const participantIds = [ben.me.member.id, cy.me.member.id]
+    const group = (await person.api('POST', '/conversations', { participantIds })).json
+    return person.api('POST', `/conversations/${group.id}/leave`)
+  },
   webPush: (person) => person.api('GET', '/push/key'),
   answeringFlow: (person) => person.api('GET', '/answering-flow'),
   earlierAnswers: (person) => person.api('POST', '/answers/earlier', { question: 'release calendar' }),
@@ -49,19 +64,33 @@ const probes: Readonly<Record<string, (person: Session) => Promise<{ status: num
   groups: (person) => person.api('GET', '/groups'),
   channelAgents: (person) => person.api('GET', '/reviews'),
   cloudDesk: (person) => person.api('GET', '/me/desk-wake'),
+  slack: (person) => person.api('GET', '/me/slack'),
   joinCodes: (person) => person.api('POST', '/join-codes', {}),
   deskAvailability: (person) => person.api('POST', '/me/desk/available', {}),
   invites: (person) => person.api('GET', '/invites'),
+  autoSend: async (person) => {
+    const topic = `Office hours ${(probedAnswers += 1)}`
+    const saved = (
+      await person.api('POST', '/principles', { kind: 'answer', topic, rule: 'Nine to five.', place: null })
+    ).json
+    return person.api('PUT', `/principles/${saved.id}/auto-send`, { enabled: false, places: [] })
+  },
+  draftPreviews: (person) => person.api('GET', '/me/draft-previews'),
 }
 
+let probedAnswers = 0
+
 describe('feature switches', () => {
-  it('are all on by default but analytics, channel agents and the cloud desk, and server.info says which are on', async () => {
+  it('are all on by default but analytics, channel agents, the cloud desk, automatic sending, draft previews and Slack, and server.info says which are on', async () => {
     const info = (await server.request('GET', '/api/v1/info')).json
     expect(info.features).toEqual({
       ...Object.fromEntries(FEATURE_NAMES.map((name) => [name, true])),
       analytics: false,
       channelAgents: false,
       cloudDesk: false,
+      autoSend: false,
+      draftPreviews: false,
+      slack: false,
     })
     await switchTo({ teaching: false })
     expect((await server.request('GET', '/api/v1/info')).json.features.teaching).toBe(false)
@@ -145,13 +174,6 @@ describe('feature switches', () => {
     expect((await ana.api('GET', '/principles')).json.debateCredits).toEqual([])
     await switchTo({ debateRooms: true })
     expect((await ana.api('GET', `/debates/${room.id}`)).json.question).toBe('Ship this week?')
-  })
-
-  it('shows no route map while it is off, and keeps the rest of teaching', async () => {
-    await ana.api('POST', '/principles', { topic: 'Release dates', rule: 'check RELEASES.md', place: null })
-    expect((await ana.api('GET', '/principles')).json.routes).toHaveLength(1)
-    await switchTo({ routeMap: false })
-    expect((await ana.api('GET', '/principles')).json.routes).toEqual([])
   })
 
   it('is switched by an administrator only, never by a member or an agent, and only for known features', async () => {

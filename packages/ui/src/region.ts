@@ -1,4 +1,5 @@
 import { type Child, h, replaceChildren } from './element.ts'
+import { keepingPlace } from './keep-place.ts'
 import { keyedOperations } from './keyed.ts'
 import { type ReadableSignal, type Unsubscribe, onAnyChange } from './signal.ts'
 
@@ -17,7 +18,8 @@ export const lifetime = (): Lifetime => {
 
 /**
  * An element whose content is drawn again whenever one of its sources changes. Each drawing gets a
- * lifetime of its own that ends when it is replaced, so what it subscribes to goes with it.
+ * lifetime of its own that ends when it is replaced, so what it subscribes to goes with it. Drawing
+ * again keeps the page in place and the focus on the control the person was using.
  */
 export const region = (
   life: Lifetime,
@@ -30,7 +32,8 @@ export const region = (
   const draw = (): void => {
     drawing.end()
     drawing = lifetime()
-    replaceChildren(host, render(drawing))
+    const content = render(drawing)
+    keepingPlace(host, () => replaceChildren(host, content))
   }
   draw()
   life.add(onAnyChange(sources, draw))
@@ -53,8 +56,8 @@ export const keyedRegion = <Item>(
 ): HTMLElement => {
   const rendered = new Map<string, { node: HTMLElement; signature: string }>()
   let order: string[] = []
-  const draw = (): void => {
-    const next = items()
+  const draw = (): void => keepingPlace(host, () => drawItems(items()))
+  const drawItems = (next: ReadonlyArray<Item>): void => {
     const nextOrder = next.map(list.key)
     for (const item of next) {
       const key = list.key(item)

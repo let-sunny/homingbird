@@ -52,6 +52,13 @@ describe('what the server still holds for a person who left', () => {
       updated_at: 1,
     })
 
+    await insert('slack_people', {
+      member_id: ben.me.member.id,
+      slack_user_id: 'U_BEN',
+      slack_name: 'ben',
+      linked_at: 1,
+    })
+
     expect(await factsFor(' Ben@Example.com ')).toEqual({
       id: ben.me.member.id,
       email: 'ben@example.com',
@@ -61,6 +68,7 @@ describe('what the server still holds for a person who left', () => {
       groups: 1,
       approvedSignIns: 1,
       deskWakes: 1,
+      slackLinks: 1,
       namedAdministrator: false,
     })
 
@@ -75,6 +83,7 @@ describe('what the server still holds for a person who left', () => {
       groups: 0,
       approvedSignIns: 0,
       deskWakes: 0,
+      slackLinks: 0,
       namedAdministrator: false,
     })
   })

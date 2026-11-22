@@ -270,6 +270,7 @@ export const startDovecote = async (
   databasePath: string,
   channels = '',
   themeDirectory?: string,
+  features?: string,
 ) => {
   const config = loadConfig({
     HB_PUBLIC_URL: `http://localhost:${port}`,
@@ -281,6 +282,7 @@ export const startDovecote = async (
     HB_CHANNELS: channels,
     HB_WEB_DIR: join(here, '..', 'dist'),
     ...(themeDirectory !== undefined && { HB_THEME_DIR: themeDirectory }),
+    ...(features !== undefined && { HB_FEATURES: features }),
   })
   if (config._tag === 'Err') throw new Error(config.error.join('; '))
   const database = await T.runPromise(openDatabase(config.value.databaseUrl))

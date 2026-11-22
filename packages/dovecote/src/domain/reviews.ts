@@ -36,6 +36,7 @@ export const reviewsFor = (caller: Caller): T.Task<Review[], never, AppEnv> =>
       JOIN participants p ON p.conversation_id = t.conversation_id AND p.member_id = ${viewerId}
       WHERE n.status = 'draft'
         AND NOT EXISTS (SELECT 1 FROM notes q WHERE q.id = n.in_reply_to AND q.author_id = ${viewerId})
+        AND NOT EXISTS (SELECT 1 FROM slack_arrivals s WHERE s.note_id = n.in_reply_to AND s.asker_member_id = ${viewerId})
         AND (c.asked_by IS NULL OR c.asked_by <> ${viewerId})
       ORDER BY n.created_at, n.id LIMIT ${REVIEWS_LIMIT}`)
     return yield* T.forEach(rows, toReview)
@@ -91,7 +92,10 @@ export const reviewersOf = (draft: NoteRow): T.Task<MemberId[], never, AppEnv> =
     return possibleReviewers(yield* managersOf(channel), yield* askersOf(draft))
   })
 
-/** Whom a draft is for, so who may never see or send it: the note's author and a private question's asker. */
+/**
+ * Whom a draft is for, so who may never see or send it: the note's author, a private question's asker,
+ * and whoever asked in Slack, by their link or by their email.
+ */
 export const askersOf = (
   draft: Pick<NoteRow, 'conversation_id' | 'in_reply_to'>,
 ): T.Task<MemberId[], never, AppEnv> =>
@@ -105,9 +109,15 @@ export const askersOf = (
     const room = yield* first<{ asked_by: MemberId | null }>(
       sql`SELECT asked_by FROM conversations WHERE id = ${draft.conversation_id} AND channel_id IS NOT NULL`,
     )
-    return [...new Set([answered?.author_id ?? null, room?.asked_by ?? null])].filter(
-      (id): id is MemberId => id !== null,
-    )
+    const inSlack =
+      draft.in_reply_to === null
+        ? null
+        : yield* first<{ asker_member_id: MemberId | null }>(
+            sql`SELECT asker_member_id FROM slack_arrivals WHERE note_id = ${draft.in_reply_to}`,
+          )
+    return [
+      ...new Set([answered?.author_id ?? null, room?.asked_by ?? null, inSlack?.asker_member_id ?? null]),
+    ].filter((id): id is MemberId => id !== null)
   })
 
 const noSuchDraft = NotFound({ message: 'No such draft.' })

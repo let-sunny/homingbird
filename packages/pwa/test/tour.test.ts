@@ -48,9 +48,10 @@ describe('the tour', () => {
     expect(() => forgetTourSeen(broken)).not.toThrow()
   })
 
-  it('starts only on the home view, never over a deep link, and never twice', () => {
-    expect(mayStartTour('home', false, false)).toBe(true)
-    for (const route of ['conversation', 'device', 'character', 'channel'])
+  it('starts on a first visit to a page it explains, never over a task the person came to finish, and never twice', () => {
+    for (const route of ['home', 'conversation', 'people', 'channels', 'channel', 'debates', 'agent'])
+      expect(mayStartTour(route, false, false)).toBe(true)
+    for (const route of ['device', 'character', 'consent', 'invite', 'admin', 'signed-out', 'unknown'])
       expect(mayStartTour(route, false, false)).toBe(false)
     expect(mayStartTour('home', true, false)).toBe(false)
     expect(mayStartTour('home', false, true)).toBe(false)

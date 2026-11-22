@@ -139,12 +139,12 @@ export const everything = (): AsRead.ServerInfo =>
       [
         'teaching',
         'agentFigures',
-        'routeMap',
         'draftRequests',
         'channels',
         'groups',
         'characters',
         'debateRooms',
+        'slack',
         'insights',
         'answeringFlow',
         'earlierAnswers',

@@ -13,6 +13,7 @@ import {
   quotedDebate,
   quotedDrafts,
   statedModelIn,
+  statedTurnIn,
   voteIn,
 } from '@homingbird/protocol'
 import { authorsOf } from './commands/reading.ts'
@@ -104,7 +105,7 @@ const takeTurn = <R extends { readonly nonce: () => string }>(
     if (room === null) return
     const output = yield* desk.run('agent', debateTurnPrompt(room), what)
     if (output === null) return
-    const { answer: body, model } = statedModelIn(output)
+    const { answer: body, model, ready } = statedTurnIn(output)
     if (/^SKIP:/i.test(body)) return yield* desk.warn(`The agent took no turn in ${what}.`)
     if (body === '' || body.length > debate.limits.turnCharacters)
       return yield* desk.warn(
@@ -113,7 +114,7 @@ const takeTurn = <R extends { readonly nonce: () => string }>(
     const posted = yield* T.result(
       desk.session.api['debates.turns.post']({
         params: { id: debate.id },
-        body: { body, ...modelOf(model) },
+        body: { body, ...modelOf(model), ...(ready && { ready }) },
       }),
     )
     if (posted._tag === 'Err')

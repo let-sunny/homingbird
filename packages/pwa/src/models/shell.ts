@@ -4,33 +4,48 @@ import { featureOn } from '../features.ts'
 import { type Route, hrefFor } from '../routes.ts'
 import { spriteOwner } from '../sprite-owner.ts'
 import { strings } from '../strings.ts'
-import { conversationTitle, excerpt, isMuted, otherParticipants } from '../thread.ts'
+import { conversationTitle, excerpt, isHidden, isMuted, otherParticipants } from '../thread.ts'
 import { type AvatarModel, type GroupAvatarModel, groupAvatarOf, memberAvatarOf } from './avatar.ts'
 import { reviewBadgeOf } from './channel-agent.ts'
 import { leaveConsequence, leaveRefusal } from './channel-membership.ts'
+import { type ConversationActions, conversationActionsModel, offersAny } from './conversation-actions.ts'
 import { type MuteToggle, muteToggleModel } from './mute-toggle.ts'
 import { type TimeShown, timeShown } from './time.ts'
 
 /**
  * The header's tabs, the current one marked; Debates only where the organization has it. My agent
- * carries a mark while the person's agent cannot answer, named by `agentUnavailable`.
+ * carries a mark while the person's agent cannot answer, named by `agentUnavailable`. On a phone the
+ * same tabs are the bar at the bottom of the screen, each word under its glyph.
  */
 export const tabsModel = (
   route: Route,
   info: AsRead.ServerInfo | null,
   agentUnavailable: string | null = null,
 ): ReadonlyArray<Tab> => [
-  tab(strings.navNotes, { name: 'home' }, ['home', 'conversation'], route),
+  tab(strings.navNotes, { name: 'home' }, ['home', 'conversation'], route, { glyph: 'notes' }),
   {
-    ...tab(strings.navMyAgent, { name: 'agent', section: null }, ['agent'], route, 'connect'),
+    ...tab(strings.navMyAgent, { name: 'agent', section: null }, ['agent'], route, {
+      glyph: 'agent',
+      tour: 'connect',
+    }),
     mark: agentUnavailable,
   },
-  tab(strings.navPeople, { name: 'people' }, ['people', 'group'], route),
-  tab(strings.channels, { name: 'channels' }, ['channels', 'channel', 'channel-agent'], route, 'channels'),
+  tab(strings.navPeople, { name: 'people' }, ['people', 'group'], route, { glyph: 'people' }),
+  tab(strings.channels, { name: 'channels' }, ['channels', 'channel', 'channel-agent'], route, {
+    glyph: 'channels',
+    tour: 'channels',
+  }),
   ...(featureOn('debateRooms', info)
-    ? [tab(strings.navDebates, { name: 'debates' }, ['debates', 'debate'], route)]
+    ? [tab(strings.navDebates, { name: 'debates' }, ['debates', 'debate'], route, { glyph: 'debates' })]
     : []),
 ]
+
+/**
+ * Whether the phone's tab bar is shown: not inside an open conversation, where Back returns to the list
+ * and the composer and the approval card keep the bottom of the screen to themselves.
+ */
+export const tabBarFor = (route: Route): 'shown' | 'hidden' =>
+  route.name === 'conversation' ? 'hidden' : 'shown'
 
 /** Search, offered as an icon beside the activity bell so the tabs stay short. */
 export const searchLinkModel = (route: Route): Tab =>
@@ -49,19 +64,31 @@ export const userMenuModel = (me: AsRead.Me): UserMenu => ({
   signOut: strings.menuSignOut,
 })
 
-/** The sidebar: direct messages, channel rooms and archived rooms, each as rows. */
+/**
+ * The sidebar: direct messages, channel rooms and archived rooms, each as rows. It invites connecting an
+ * agent while none is, once a conversation exists; before that, the first steps on home say the same.
+ * With the Waiting for you filter on, only the conversations the activity panel lists are shown, and no
+ * archived room.
+ */
 export const sidebarModel = (input: SidebarInput): SidebarModel => {
-  const people = peopleConversations(input.conversations)
-  const archived = archivedRooms(input.conversations)
+  const waitingOnly = input.waitingOnly ?? null
+  const shown = (rooms: AsRead.Conversation[]): AsRead.Conversation[] =>
+    waitingOnly === null ? rooms : rooms.filter((room) => waitingOnly.has(room.id))
+  const people = peopleConversations(input.conversations).filter((conversation) => !isHidden(conversation))
+  const archived = waitingOnly === null ? archivedRooms(input.conversations) : []
   const row = (conversation: AsRead.Conversation): ConversationRow => conversationRow(input, conversation)
+  const peopleShown = shown(people)
   return {
-    onboarding: input.agentCount === 0,
+    onboarding: input.agentCount === 0 && input.loaded && input.conversations.length > 0,
     people: !input.loaded
       ? { kind: 'loading' }
       : people.length === 0
         ? { kind: 'none' }
-        : { kind: 'rows', rows: people.map(row) },
-    channelRooms: channelRooms(input.conversations).map(row),
+        : peopleShown.length === 0
+          ? { kind: 'nothing-waits', text: strings.waiting.peopleNone }
+          : { kind: 'rows', rows: peopleShown.map(row) },
+    channelRooms: shown(channelRooms(input.conversations)).map(row),
+    channelRoomsEmpty: waitingOnly === null ? strings.noChannelRooms : strings.waiting.roomsNone,
     archived:
       archived.length === 0
         ? null
@@ -87,7 +114,11 @@ export interface Tab {
   readonly tour: string | null
   /** A state the tab's page tells about, as a small mark with these words for assistive technology. */
   readonly mark: string | null
+  /** The picture over the word in the phone's tab bar. */
+  readonly glyph: TabGlyph | null
 }
+
+export type TabGlyph = 'notes' | 'agent' | 'people' | 'channels' | 'debates'
 
 export interface UserMenu {
   readonly name: string
@@ -109,11 +140,15 @@ export interface SidebarInput {
   readonly agentCount: number
   readonly charactersOn: boolean
   readonly muteOn: boolean
+  readonly hideOn: boolean
+  readonly leaveOn: boolean
   readonly now: number
   /** The conversations whose row plays a note's arrival now; a muted one never does. */
   readonly arrived: ReadonlySet<string>
   /** The conversations whose composer holds text the person has not sent. */
   readonly typedIn: ReadonlySet<string>
+  /** With the Waiting for you filter on, the conversations that wait for the person. */
+  readonly waitingOnly?: ReadonlySet<string> | null
 }
 
 export interface SidebarModel {
@@ -121,8 +156,11 @@ export interface SidebarModel {
   readonly people:
     | { readonly kind: 'loading' }
     | { readonly kind: 'none' }
+    | { readonly kind: 'nothing-waits'; readonly text: string }
     | { readonly kind: 'rows'; readonly rows: ReadonlyArray<ConversationRow> }
   readonly channelRooms: ReadonlyArray<ConversationRow>
+  /** What the channel list says when it has no row to show. */
+  readonly channelRoomsEmpty: string
   readonly archived: {
     readonly title: string
     readonly open: boolean
@@ -156,6 +194,8 @@ export interface ConversationRow {
     readonly label: string
     readonly mute: MuteToggle | null
     readonly leave: RowLeave | null
+    /** Hiding the row, leaving its group and starting a new group with its people. */
+    readonly place: ConversationActions
   } | null
 }
 
@@ -169,8 +209,15 @@ const tab = (
   target: Route,
   activeFor: ReadonlyArray<Route['name']>,
   route: Route,
-  tour: string | null = null,
-): Tab => ({ label, href: hrefFor(target), current: activeFor.includes(route.name), tour, mark: null })
+  shown: { readonly glyph?: TabGlyph; readonly tour?: string } = {},
+): Tab => ({
+  label,
+  href: hrefFor(target),
+  current: activeFor.includes(route.name),
+  tour: shown.tour ?? null,
+  mark: null,
+  glyph: shown.glyph ?? null,
+})
 
 const isOpen = (route: Route, conversation: AsRead.Conversation): boolean =>
   route.name === 'conversation' && route.id === conversation.id
@@ -220,16 +267,32 @@ const conversationRow = (input: SidebarInput, conversation: AsRead.Conversation)
     typed: input.typedIn.has(conversation.id) && !archived ? { text: '✎', label: strings.unsentText } : null,
     review: review === null ? null : { text: review.text, label: review.label },
     mute,
-    menu: rowMenu(conversation, title, channel, mute),
+    menu: rowMenu(
+      conversation,
+      title,
+      channel,
+      mute,
+      conversationActionsModel({
+        conversation,
+        title,
+        viewerId,
+        hideOn: input.hideOn,
+        leaveOn: input.leaveOn,
+      }),
+    ),
   }
 }
 
-/** A row's own menu: muting it, and leaving a channel the person joined; none when it offers nothing. */
+/**
+ * A row's own menu: muting it, leaving a channel the person joined, and hiding, leaving or starting
+ * again a direct or group message; none when it offers nothing.
+ */
 const rowMenu = (
   conversation: AsRead.Conversation,
   title: string,
   channel: AsRead.Channel | null,
   mute: MuteToggle | null,
+  place: ConversationActions,
 ): ConversationRow['menu'] => {
   const refusal = channel === null ? null : leaveRefusal(channel, null, null)
   const leave: RowLeave | null =
@@ -243,8 +306,14 @@ const rowMenu = (
             title: strings.leaveChannelTitle({ channel: channelLabel(channel.slug) }),
             body: leaveConsequence(channel),
           }
-  if (mute === null && leave === null) return null
-  return { id: `row-menu-${conversation.id}`, label: strings.conversationMore({ name: title }), mute, leave }
+  if (mute === null && leave === null && !offersAny(place)) return null
+  return {
+    id: `row-menu-${conversation.id}`,
+    label: strings.conversationMore({ name: title }),
+    mute,
+    leave,
+    place,
+  }
 }
 
 const faceOf = (

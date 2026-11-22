@@ -50,6 +50,8 @@ export interface Config {
   readonly secretsKey: Buffer | null
   /** The hosts a cloud desk's wake may call, each matched exactly. */
   readonly wakeHosts: ReadonlyArray<string>
+  /** The organization's own Slack app; Slack is offered only with both. Never logged or shown. */
+  readonly slack: { readonly botToken: string; readonly signingSecret: string } | null
 }
 
 export const loadConfig = (
@@ -98,6 +100,9 @@ export const loadConfig = (
     ...wakeHosts
       .filter((host) => !isFetchableHostName(host))
       .map((host) => `HB_WAKE_HOSTS: "${host}" must be a public host name, not an address or loopback`),
+    (v.HB_SLACK_BOT_TOKEN === undefined) !== (v.HB_SLACK_SIGNING_SECRET === undefined)
+      ? 'HB_SLACK_BOT_TOKEN and HB_SLACK_SIGNING_SECRET: set both, from the same Slack app, or neither'
+      : null,
     ...features.unknown.map(
       (item) => `HB_FEATURES: "${item}" is not a feature switch; write name=on or name=off with a known name`,
     ),
@@ -153,6 +158,10 @@ export const loadConfig = (
     oauth: { redirectHosts, clientMetadataHosts, clients: clients.value },
     secretsKey,
     wakeHosts,
+    slack:
+      v.HB_SLACK_BOT_TOKEN === undefined || v.HB_SLACK_SIGNING_SECRET === undefined
+        ? null
+        : { botToken: v.HB_SLACK_BOT_TOKEN, signingSecret: v.HB_SLACK_SIGNING_SECRET },
   })
 }
 
@@ -209,6 +218,8 @@ const Variables = S.struct({
   HB_FEATURES: S.optional(S.string()),
   HB_SECRETS_KEY: S.optional(S.string({ maxLength: 200 })),
   HB_WAKE_HOSTS: S.optional(S.string()),
+  HB_SLACK_BOT_TOKEN: S.optional(S.string({ pattern: /^xoxb-[A-Za-z0-9-]{10,250}$/ })),
+  HB_SLACK_SIGNING_SECRET: S.optional(S.string({ pattern: /^[0-9a-fA-F]{16,128}$/ })),
 })
 
 const HOST_NAME = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/

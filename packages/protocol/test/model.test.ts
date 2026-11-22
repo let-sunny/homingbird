@@ -90,6 +90,7 @@ describe('wire model', () => {
         'agentModel',
         'agentName',
         'approvedBy',
+        'autoSent',
         'basis',
         'authorId',
         'body',
@@ -99,11 +100,13 @@ describe('wire model', () => {
         'id',
         'inReplyTo',
         'origin',
+        'posting',
         'receipts',
         'sentAt',
         'sources',
         'status',
         'updatedAt',
+        'via',
       ].sort(),
     )
   })

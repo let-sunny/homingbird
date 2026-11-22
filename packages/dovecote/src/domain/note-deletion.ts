@@ -24,4 +24,6 @@ const ROWS_ABOUT_A_NOTE = [
   'principle_offers',
   'draft_request_answers',
   'history_answers',
+  'slack_arrivals',
+  'slack_outbox',
 ] as const

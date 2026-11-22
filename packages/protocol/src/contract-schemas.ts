@@ -21,7 +21,11 @@ export const RECIPIENTS_MAX = 50
 
 export const Recipients = S.array(MemberId, { minItems: 1, maxItems: RECIPIENTS_MAX })
 
-export const DraftAsShown = S.struct({ body: NoteBody, conversationId: ConversationId })
+export const DraftAsShown = S.struct({
+  body: NoteBody,
+  conversationId: ConversationId,
+  threadAt: S.optional(S.string({ maxLength: 64 })),
+})
 export type DraftAsShown = S.Infer<typeof DraftAsShown>
 
 export const InboxItem = S.struct({ note: Note, author: Member, conversation: Conversation })
@@ -39,6 +43,7 @@ export const JOIN_CODE_LIFETIME_SECONDS = 600
 
 /** A join code, shown once to the person who created it, and the server address to redeem it at. */
 export const JoinCode = S.struct({
+  id: S.string(),
   code: S.string(),
   serverUrl: S.string(),
   expiresAt: S.int({ min: 0 }),
@@ -46,6 +51,13 @@ export const JoinCode = S.struct({
   expiresInSeconds: S.optional(S.int({ min: 0 })),
 })
 export type JoinCode = S.Infer<typeof JoinCode>
+
+/** Whether a join code still waits or was redeemed, and the agent connection it issued once it was. */
+export const JoinCodeStatus = S.struct({
+  status: S.tolerant(S.literal('waiting', 'redeemed'), UNKNOWN),
+  credential: S.optional(S.struct({ id: CredentialId, name: S.string() })),
+})
+export type JoinCodeStatus = S.Infer<typeof JoinCodeStatus>
 
 export const ConsentRequest = S.struct({
   id: S.string(),

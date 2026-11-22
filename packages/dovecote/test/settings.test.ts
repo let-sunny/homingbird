@@ -11,7 +11,7 @@ beforeEach(async () => {
   ana = await server.signIn('ana@example.com', 'Ana')
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const settings = async () => (await ana.api('GET', '/admin/settings')).json
 

@@ -63,12 +63,35 @@ describe('threadTopModel', () => {
     })
   })
 
-  it('tells the asker, at the top and in the head, who else reads a private question', () => {
+  it('tells the asker who else reads a private question in the head, and what happens next at the top', () => {
     const asked = conversation({ kind: 'group', privateQuestionOf: 'wiki', participantIds: [ANA, BEN] })
     const input = threadInput({ conversations: [asked] })
     const notice = strings.channelAgent.privateNotice({ agent: '#wiki', channel: '#wiki' })
-    expect(threadTopModel(input)).toEqual({ kind: 'empty', text: notice })
+    expect(threadTopModel(input)).toEqual({
+      kind: 'empty',
+      text: strings.channelAgent.privateStart({ agent: '#wiki', channel: '#wiki' }),
+    })
     expect(threadHeadModel(input)).toMatchObject({ kind: 'people', profile: notice })
+    const withAgent = threadInput({
+      conversations: [asked],
+      channels: [
+        channel('wiki', {
+          agent: { id: BEN, name: 'Wiki helper', presence: { humanOnline: false, agentOnline: true } },
+        }),
+      ],
+    })
+    expect(threadTopModel(withAgent)).toEqual({
+      kind: 'empty',
+      text: strings.channelAgent.privateStart({ agent: 'Wiki helper', channel: '#wiki' }),
+    })
+    for (const closed of [
+      { ...asked, privateQuestionOf: null },
+      { ...asked, archivedAt: 5 },
+    ])
+      expect(threadTopModel(threadInput({ conversations: [closed] }))).toEqual({
+        kind: 'empty',
+        text: strings.emptyThread,
+      })
   })
 })
 
@@ -141,8 +164,12 @@ describe('threadHeadModel', () => {
       presence: {
         person: { isOn: true, label: strings.presenceOf.online({ name: 'Ben' }) },
         agent: { state: 'on', label: strings.presenceOf.agentAwake({ name: 'Ben' }) },
+        words: strings.presenceWords.online.on,
       },
-      people: null,
+      people: expect.objectContaining({ id: `people-${ROOM}`, label: strings.groupPeople({ count: 2 }) }),
+      showsCount: false,
+      profileOf: BEN,
+      actions: expect.objectContaining({ leave: null, newGroup: null }),
       mute: expect.objectContaining({ conversationId: ROOM, muted: false, label: 'Mute Ben' }),
     })
     expect(threadHeadModel(threadInput())).toEqual({
@@ -150,8 +177,11 @@ describe('threadHeadModel', () => {
       title: 'Ben',
       profile: null,
       presence: null,
-      people: null,
+      people: expect.objectContaining({ title: strings.participants.title }),
+      showsCount: false,
+      profileOf: BEN,
       mute: expect.objectContaining({ muted: false }),
+      actions: { hide: null, leave: null, newGroup: null },
     })
     expect(
       threadHeadModel(
@@ -162,16 +192,25 @@ describe('threadHeadModel', () => {
       title: 'Team',
       profile: null,
       presence: null,
-      people: {
+      people: expect.objectContaining({
         label: strings.groupPeople({ count: 2 }),
-        title: strings.groupPeopleTitle,
+        title: strings.participants.title,
         people: [
-          { name: 'Ana', you: true },
-          { name: 'Ben', you: false },
+          { memberId: ANA, name: 'Ana', you: true, roles: [] },
+          { memberId: BEN, name: 'Ben', you: false, roles: [] },
         ],
-      },
+      }),
+      showsCount: true,
+      profileOf: null,
       mute: expect.objectContaining({ label: 'Mute Team' }),
+      actions: { hide: null, leave: null, newGroup: null },
     })
+  })
+
+  it('opens no profile card from a direct message whose other person the server no longer lists', () => {
+    expect(
+      threadHeadModel(threadInput({ conversations: [conversation({ participantIds: [ANA] })] })),
+    ).toMatchObject({ kind: 'people', profileOf: null })
   })
 
   it('offers to mute the conversation, or to lift its mute, only while the server offers muting', () => {
@@ -199,6 +238,12 @@ describe('threadHeadModel', () => {
       archived: false,
       channel: billing,
       agentState: null,
+      people: expect.objectContaining({
+        label: strings.memberCount({ count: billing.memberCount }),
+        title: strings.participants.inChannel({ channel: '#billing' }),
+      }),
+      answerCount: strings.answerCount({ count: billing.helperCount }),
+      slackLink: null,
       mute: expect.objectContaining({ label: 'Mute #billing' }),
     })
     const helped = channel('billing', {
@@ -230,8 +275,41 @@ describe('threadHeadModel', () => {
       kind: 'channel',
       archived: true,
       channel: null,
+      people: expect.objectContaining({ label: strings.groupPeople({ count: 2 }) }),
+      answerCount: null,
       mute: null,
     })
+  })
+})
+
+describe('the people behind a private question’s head', () => {
+  it('lists its asker, its agent and its current managers, with a count', () => {
+    const agent = 'mem_agent0000000' as never
+    const billing = channel('billing', {
+      agent: {
+        id: agent,
+        name: 'Billing helper',
+        presence: { humanOnline: false, agentOnline: true, agentUnavailable: { until: null } },
+      },
+    })
+    const head = threadHeadModel(
+      threadInput({
+        conversations: [
+          conversation({
+            kind: 'group',
+            participantIds: [BEN, agent, ANA, CY],
+            privateQuestionOf: 'billing',
+            askedBy: BEN,
+            managerIds: [ANA, CY],
+          }),
+        ],
+        channels: [billing],
+      }),
+    )
+    expect(head).toMatchObject({ kind: 'people', showsCount: true })
+    if (head.kind !== 'people') return
+    expect(head.people.people.map((person) => person.memberId)).toEqual([ANA, BEN, agent, CY])
+    expect(head.people.note).toBe(strings.participants.laterManagers({ channel: '#billing' }))
   })
 })
 

@@ -49,6 +49,7 @@ export const createState = (hash: string): AppState => {
     reviews,
     reviewsRead,
     channelAgents: signal<ReadonlyMap<string, AsRead.ChannelAgent>>(new Map()),
+    channelTeaching: signal<ReadonlyMap<string, AsRead.ChannelTeaching | 'failed'>>(new Map()),
     channelsLoaded: signal(false),
     groups: signal<ReadonlyArray<AsRead.Group>>([]),
     groupsLoaded: signal(false),
@@ -65,9 +66,11 @@ export const createState = (hash: string): AppState => {
     openedForThePerson: signal<ConversationId | null>(null),
     agentReport: signal<AsRead.AgentReport | 'failed' | null>(null),
     taught: signal<AsRead.MyPrinciples | 'failed' | null>(null),
+    interview: signal<AsRead.TeachingInterview | 'failed' | null>(null),
     debates: signal<ReadonlyArray<AsRead.DebateSummary>>([]),
     debatesLoaded: signal(false),
     shownDebate: signal<AsRead.Debate | 'missing' | null>(null),
+    waitingOnly: signal(false),
     members: derived(
       [directory, session, channels],
       (entries, me, known): ReadonlyMap<MemberId, AsRead.Member> =>
@@ -79,6 +82,9 @@ export const createState = (hash: string): AppState => {
     ),
     changes: changeCounter(),
     seenDrafts: new Set(),
+    previews: signal<ReadonlyMap<ConversationId, ReadonlyArray<AsRead.DraftPreview>>>(new Map()),
+    previewedBodies: signal<ReadonlyMap<NoteId, string>>(new Map()),
+    previewAllowance: signal<AsRead.DraftPreviewAllowance | null>(null),
   }
 }
 
@@ -121,6 +127,8 @@ export interface AppState {
   readonly reviewsRead: Signal<ReadonlyMap<NoteId, DraftAsShown>>
   /** The agents of the channels the person manages, as last loaded, by slug. */
   readonly channelAgents: Signal<ReadonlyMap<string, AsRead.ChannelAgent>>
+  /** What the managers taught the agents of the channels the person manages, as last loaded, by slug. */
+  readonly channelTeaching: Signal<ReadonlyMap<string, AsRead.ChannelTeaching | 'failed'>>
   readonly channelsLoaded: Signal<boolean>
   /** Every group, as the server shows them to the person; none while the organization has groups off. */
   readonly groups: Signal<ReadonlyArray<AsRead.Group>>
@@ -145,13 +153,23 @@ export interface AppState {
   readonly openedForThePerson: Signal<ConversationId | null>
   readonly agentReport: Signal<AsRead.AgentReport | 'failed' | null>
   readonly taught: Signal<AsRead.MyPrinciples | 'failed' | null>
+  /** The pasted principles document and the proposals the person's agent made in a teaching chat. */
+  readonly interview: Signal<AsRead.TeachingInterview | 'failed' | null>
   readonly debates: Signal<ReadonlyArray<AsRead.DebateSummary>>
   readonly debatesLoaded: Signal<boolean>
   readonly shownDebate: Signal<AsRead.Debate | 'missing' | null>
+  /** Whether the conversation list shows only what waits for the person. */
+  readonly waitingOnly: Signal<boolean>
   readonly members: ReadableSignal<ReadonlyMap<MemberId, AsRead.Member>>
   readonly changes: ChangeCounter
   /** Drafts already reported as seen in this page. */
   readonly seenDrafts: Set<NoteId>
+  /** Other people's agents' unconfirmed drafts this person may see, by conversation, as last loaded. */
+  readonly previews: Signal<ReadonlyMap<ConversationId, ReadonlyArray<AsRead.DraftPreview>>>
+  /** Each preview's words as this page last showed them, so a sent note can say whether they changed. */
+  readonly previewedBodies: Signal<ReadonlyMap<NoteId, string>>
+  /** Whom the person lets see their own agent's drafts early, once loaded. */
+  readonly previewAllowance: Signal<AsRead.DraftPreviewAllowance | null>
 }
 
 export type Connection = 'connecting' | 'live' | 'polling' | 'offline'

@@ -10,6 +10,7 @@ import {
   loadThread,
   markRead,
   openThread,
+  recallNote,
   rememberNote,
   rememberNotices,
   replyTargetIn,
@@ -258,5 +259,24 @@ describe('keeping notes', () => {
     expect(state.releases.get()).toBe(before)
     forgetRelease(state, 'n1' as never)
     expect(state.releases.get().size).toBe(0)
+  })
+})
+
+describe('recalling a note', () => {
+  it('asks the server to recall it and files the recalled note in its thread', async () => {
+    const recalled = note('n1', { authorId: ANA, status: 'withdrawn', autoSent: true })
+    const { run, sent, state } = testApp({
+      'notes.recall': () => recalled,
+      'conversations.list': () => ({ conversations: [] }),
+    })
+    state.threads.set(
+      new Map([[ROOM, { notes: [note('n1', { authorId: ANA, autoSent: true })], hasMore: false }]]),
+    )
+    await run(recallNote(note('n1')))
+    expect(sent.map((one) => [one.route, one.request])).toContainEqual([
+      'notes.recall',
+      { params: { id: 'n1' } },
+    ])
+    expect(state.threads.get().get(ROOM)!.notes).toEqual([recalled])
   })
 })

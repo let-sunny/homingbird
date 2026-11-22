@@ -1,4 +1,6 @@
 import { Schema as S } from '@homingbird/kernel'
+import { AUTO_SEND_PLACES_MAX } from './auto-send.ts'
+import { TaughtFrom } from './channel-teaching.ts'
 import { CLIENT_KIND } from './client-kinds.ts'
 import { DebateExportFormat, DebateLimits, DebateVisibility } from './debates.ts'
 import { GROUP_MEMBERS_MAX } from './groups.ts'
@@ -13,7 +15,7 @@ import {
   Role,
   WhoCanInvite,
 } from './model.ts'
-import { PrincipleKind } from './principles.ts'
+import { PrincipleId, PrincipleKind } from './principles.ts'
 
 /**
  * Every event the audit trail can hold, its tier and what its detail may contain. The detail schema is
@@ -99,6 +101,26 @@ export const AUDIT_EVENTS = {
     host: S.string({ maxLength: 253 }),
     because: S.literal('refused', 'failures', 'credential_gone', 'unreadable'),
   }),
+  'slack.connected': event('security', 'organization', { teamId: S.string({ pattern: /^[A-Z0-9]{1,24}$/ }) }),
+  'slack.stopped': event('security', 'organization', {
+    because: S.literal('token_refused', 'revoked', 'other_workspace'),
+  }),
+  'slack.person.linked': event('security', 'member', {}),
+  'slack.channel.linked': event('security', 'channel', {
+    slackChannel: S.string({ pattern: /^[A-Z0-9]{1,24}$/ }),
+    isPrivate: S.boolean,
+  }),
+  'slack.channel.unlinked': event('security', 'channel', {
+    slackChannel: S.string({ pattern: /^[A-Z0-9]{1,24}$/ }),
+    because: S.optional(S.literal('channel_archived')),
+  }),
+  'slack.channel.stopped': event('security', 'channel', {
+    slackChannel: S.string({ pattern: /^[A-Z0-9]{1,24}$/ }),
+    because: S.literal('app_removed', 'archived', 'deleted', 'pairing', 'failures'),
+  }),
+  'slack.person.unlinked': event('security', 'member', {
+    because: S.optional(S.literal('deactivated', 'slack_deactivated')),
+  }),
 
   'note.approved': event('full', 'note', {
     conversationId: ConversationId,
@@ -106,6 +128,12 @@ export const AUDIT_EVENTS = {
     agentId: S.optional(MemberId),
   }),
   'note.discarded': event('full', 'note', { conversationId: ConversationId }),
+  'note.auto_sent': event('full', 'note', { conversationId: ConversationId, principleId: PrincipleId }),
+  'note.recalled': event('full', 'note', { conversationId: ConversationId }),
+  'draft_preview.allowed_changed': event('full', 'member', {
+    people: S.int({ min: 0 }),
+    channels: S.int({ min: 0 }),
+  }),
   'member.profile_changed': event('full', 'member', {
     fields: S.array(S.literal('name', 'profile', 'locale'), { maxItems: 3 }),
   }),
@@ -134,6 +162,25 @@ export const AUDIT_EVENTS = {
     channel: ChannelSlug,
     because: S.optional(S.literal('channel_archived')),
   }),
+  'channel.agent_instruction_changed': event('full', 'member', {
+    channel: ChannelSlug,
+    fields: S.array(S.literal('instruction', 'sources'), { maxItems: 2 }),
+  }),
+  'channel.agent_principle_created': event('full', 'principle', {
+    channel: ChannelSlug,
+    kind: PrincipleKind,
+    taughtFrom: S.optional(TaughtFrom),
+  }),
+  'channel.agent_principle_changed': event('full', 'principle', {
+    channel: ChannelSlug,
+    fields: S.array(S.literal('kind', 'topic', 'rule', 'source', 'enabled'), { maxItems: 5 }),
+    enabled: S.optional(S.boolean),
+  }),
+  'channel.agent_principle_deleted': event('full', 'principle', { channel: ChannelSlug }),
+  'channel.agent_principles_reordered': event('full', 'member', {
+    channel: ChannelSlug,
+    count: S.int({ min: 0 }),
+  }),
   'channel.answering_changed': event('full', 'channel', { on: S.boolean }),
   'channel.renamed': event('full', 'channel', {
     fields: S.array(S.literal('slug', 'description'), { maxItems: 2 }),
@@ -141,6 +188,8 @@ export const AUDIT_EVENTS = {
   }),
   'channel.archived': event('full', 'channel', { moveMembersTo: S.optional(ChannelSlug) }),
   'conversation.mute_changed': event('full', 'conversation', { muted: S.boolean }),
+  'conversation.hidden_changed': event('full', 'conversation', { hidden: S.boolean }),
+  'conversation.left': event('full', 'conversation', {}),
   'contact.requested': event('full', 'member', {}),
   'contact.accepted': event('full', 'member', {}),
   'contact.removed': event('full', 'member', {}),
@@ -151,10 +200,19 @@ export const AUDIT_EVENTS = {
     fields: S.array(S.literal('kind', 'topic', 'rule', 'source', 'enabled', 'publicText'), { maxItems: 6 }),
     enabled: S.optional(S.boolean),
   }),
+  'principle.auto_send_changed': event('full', 'principle', {
+    enabled: S.boolean,
+    places: S.int({ min: 0, max: AUTO_SEND_PLACES_MAX }),
+  }),
   'principle.deleted': event('full', 'principle', {}),
   'principle.reordered': event('full', 'none', { count: S.int({ min: 0 }) }),
+  'principle.proposed': event('full', 'principle', { kind: PrincipleKind }),
+  'principle.proposals_accepted': event('full', 'none', { count: S.int({ min: 0 }) }),
+  'principle.proposal_discarded': event('full', 'principle', {}),
+  'principle.document_changed': event('full', 'none', { kept: S.boolean }),
   'debate.opened': event('full', 'debate', { visibility: DebateVisibility }),
   'debate.agent_opted_in': event('full', 'debate', { credentialId: CredentialId }),
+  'debate.brief_changed': event('full', 'debate', { cleared: S.boolean }),
   'debate.limits_changed': event('full', 'debate', { limits: DebateLimits }),
   'debate.result_posted': event('full', 'debate', { noteId: NoteId }),
   'debate.exported': event('full', 'debate', { format: DebateExportFormat }),
