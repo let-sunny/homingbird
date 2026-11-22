@@ -16,6 +16,7 @@ import {
   taughtModel,
 } from '../models/teaching.ts'
 import { strings } from '../strings.ts'
+import { autoSendForm } from './auto-send-form.ts'
 import type { ViewContext } from './context.ts'
 import { opensDialog } from './dialog.ts'
 import { hinted } from './hint.ts'
@@ -216,6 +217,19 @@ const principleList = (rows: ReadonlyArray<PrincipleRow>, context: ViewContext):
           },
           strings.teach.details,
         ),
+        ...(row.autoSend === null
+          ? []
+          : [
+              h(
+                'button',
+                {
+                  type: 'button',
+                  class: 'menu-item',
+                  ...opensDialog(context, row.autoSend.title, () => autoSendForm(context, row.principle)),
+                },
+                row.autoSend.menu,
+              ),
+            ]),
       ],
     })),
     toggle: (id, enabled) => actions.changePrinciple(id, { enabled }),

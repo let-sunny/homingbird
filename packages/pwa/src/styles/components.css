@@ -5669,6 +5669,28 @@ textarea:disabled {
   font: var(--hb-text-small) / 1.6 var(--hb-font-mono);
 }
 
+.note-auto-sent {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--hb-space-2);
+  margin: var(--hb-space-1) 0 0;
+  font: var(--hb-text-small) / 1.6 var(--hb-font-mono);
+}
+
+.note.is-withdrawn .bubble {
+  opacity: 0.6;
+}
+
+.note.is-withdrawn .note-body {
+  text-decoration: line-through;
+}
+
+.auto-send-places {
+  display: grid;
+  gap: var(--hb-space-2);
+}
+
 .cloud-desk {
   display: grid;
   gap: var(--hb-space-3);
@@ -6036,4 +6058,49 @@ textarea:disabled {
   gap: var(--hb-space-1);
   font-size: var(--hb-text-small);
   white-space: nowrap;
+}
+
+.draft-previews {
+  display: grid;
+  gap: var(--hb-space-2);
+}
+
+.draft-previews:empty {
+  display: none;
+}
+
+.draft-preview {
+  display: grid;
+  gap: var(--hb-space-1);
+  justify-self: start;
+  max-inline-size: min(36rem, 100%);
+  padding: var(--hb-space-2) var(--hb-space-3);
+  border: var(--hb-border-width) dashed var(--hb-color-line);
+  background: var(--hb-color-surface);
+  color: var(--hb-color-muted);
+}
+
+.draft-preview-title,
+.draft-preview-note {
+  margin: 0;
+  font-size: var(--hb-text-small);
+}
+
+.draft-preview-title {
+  font-weight: 600;
+}
+
+.draft-preview-body {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.draft-preview.is-withdrawn {
+  border-style: dotted;
+}
+
+.draft-preview-own {
+  justify-self: end;
+  margin: 0;
 }
