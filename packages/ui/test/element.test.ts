@@ -67,6 +67,37 @@ describe('linkedText', () => {
     ])
     expect(after.textContent).toBe('. Thanks')
   })
+
+  it('opens www. addresses over https and mail addresses with mailto, in place, as text', () => {
+    const [web, between, mail, after] = linkedText('www.example.com or ana@example.com.') as unknown as [
+      HTMLAnchorElement,
+      Node,
+      HTMLAnchorElement,
+      Node,
+    ]
+    expect([web.getAttribute('href'), web.getAttribute('rel'), web.getAttribute('target')]).toEqual([
+      'https://www.example.com',
+      'noopener noreferrer',
+      '_blank',
+    ])
+    expect([mail.getAttribute('href'), mail.getAttribute('rel'), mail.getAttribute('target')]).toEqual([
+      'mailto:ana@example.com',
+      'noopener noreferrer',
+      null,
+    ])
+    expect([web.textContent, between.textContent, mail.textContent, after.textContent]).toEqual([
+      'www.example.com',
+      ' or ',
+      'ana@example.com',
+      '.',
+    ])
+  })
+
+  it('keeps markup and other schemes in a note as text', () => {
+    const body = h('p', {}, linkedText('<a href="javascript:alert(1)">x</a> data:text/html,<b>y</b>'))
+    expect(body.querySelectorAll('a')).toHaveLength(0)
+    expect(body.textContent).toBe('<a href="javascript:alert(1)">x</a> data:text/html,<b>y</b>')
+  })
 })
 
 describe('noteText', () => {

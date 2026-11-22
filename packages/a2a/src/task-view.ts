@@ -41,6 +41,14 @@ export const taskViewOf = (note: AsRead.Note, context: ViewContext): T.Task<Task
       updatedAt: note.updatedAt,
       artifacts: [],
     })
+  if (note.status === 'withdrawn')
+    return T.succeed({
+      ...base,
+      phase: 'canceled',
+      statusText: "The member's human recalled this note after their saved answer sent it.",
+      updatedAt: note.updatedAt,
+      artifacts: [],
+    })
   if (note.status !== 'sent')
     return T.succeed({
       ...base,
@@ -54,7 +62,7 @@ export const taskViewOf = (note: AsRead.Note, context: ViewContext): T.Task<Task
     ({ replies, authors, answered }: Answers): TaskView => ({
       ...base,
       phase: answered ? 'completed' : 'working',
-      statusText: `Approved and sent. ${describeStatus(summarize(note.receipts))}.`,
+      statusText: `${note.autoSent === true ? "Sent by the member's saved answer, which they switched to send automatically." : 'Approved and sent.'} ${describeStatus(summarize(note.receipts))}.`,
       updatedAt: Math.max(note.updatedAt, ...note.receipts.map((receipt) => receipt.repliedAt ?? 0)),
       artifacts: replies.map((reply) => ({
         id: reply.id,

@@ -1,6 +1,9 @@
 import { Schema as S, type Task } from '@homingbird/kernel'
 import { AnalyticsBatch } from './analytics.ts'
+import { AutoSend } from './auto-send.ts'
 import { AgentListing, ChannelAgent, ChannelAgentName, Review } from './channel-agents.ts'
+import { ChannelInstruction, ChannelSources } from './channel-drafting.ts'
+import { ChannelTeaching, TaughtFrom } from './channel-teaching.ts'
 import { CharacterSpec } from './character.ts'
 import {
   ConsentRequest,
@@ -31,6 +34,7 @@ import {
   DebateVote,
 } from './debates.ts'
 import { DeskWake, DeskWakeSetup, DeskWakeTest } from './desk-wake.ts'
+import { DraftPreview, DraftPreviewAllowance } from './draft-previews.ts'
 import {
   AnsweredFromHistory,
   EARLIER_ANSWERS_MAX,
@@ -77,6 +81,7 @@ import {
   Role,
   Settings,
 } from './model.ts'
+import { PrincipleSource } from './principle-source.ts'
 import {
   DraftingPrinciples,
   MyPrinciples,
@@ -85,7 +90,6 @@ import {
   PrincipleId,
   PrincipleKind,
   PrincipleRule,
-  PrincipleSource,
   PrincipleTopic,
 } from './principles.ts'
 import { type ReadResponseOf, type RequestOf, type Route, route } from './route.ts'
@@ -153,6 +157,19 @@ export const contract = {
     access: 'human',
     body: Empty,
     response: DeskWakeTest,
+  }),
+  'me.draftPreviews.get': route({
+    method: 'GET',
+    path: '/me/draft-previews',
+    access: 'human',
+    response: DraftPreviewAllowance,
+  }),
+  'me.draftPreviews.set': route({
+    method: 'PUT',
+    path: '/me/draft-previews',
+    access: 'human',
+    body: DraftPreviewAllowance,
+    response: DraftPreviewAllowance,
   }),
 
   'directory.list': route({
@@ -277,6 +294,58 @@ export const contract = {
     access: 'human',
     response: ChannelAgentReport,
   }),
+  'channels.agent.teaching.get': route({
+    method: 'GET',
+    path: '/channels/:slug/agent/teaching',
+    access: 'human',
+    response: ChannelTeaching,
+  }),
+  'channels.agent.teaching.set': route({
+    method: 'PUT',
+    path: '/channels/:slug/agent/teaching',
+    access: 'human',
+    body: S.struct({ instruction: ChannelInstruction, sources: ChannelSources }),
+    response: ChannelTeaching,
+  }),
+  'channels.agent.principles.create': route({
+    method: 'POST',
+    path: '/channels/:slug/agent/principles',
+    access: 'human',
+    body: S.struct({
+      kind: S.optional(PrincipleKind),
+      topic: PrincipleTopic,
+      rule: PrincipleRule,
+      source: S.optional(S.nullable(PrincipleSource)),
+      taughtFrom: S.optional(TaughtFrom),
+    }),
+    response: Principle,
+  }),
+  'channels.agent.principles.update': route({
+    method: 'PATCH',
+    path: '/channels/:slug/agent/principles/:id',
+    access: 'human',
+    body: S.struct({
+      kind: S.optional(PrincipleKind),
+      topic: S.optional(PrincipleTopic),
+      rule: S.optional(PrincipleRule),
+      source: S.optional(S.nullable(PrincipleSource)),
+      enabled: S.optional(S.boolean),
+    }),
+    response: Principle,
+  }),
+  'channels.agent.principles.reorder': route({
+    method: 'PUT',
+    path: '/channels/:slug/agent/principles/order',
+    access: 'human',
+    body: S.struct({ ids: S.array(PrincipleId, { maxItems: PRINCIPLES_PER_PERSON }) }),
+    response: ChannelTeaching,
+  }),
+  'channels.agent.principles.delete': route({
+    method: 'DELETE',
+    path: '/channels/:slug/agent/principles/:id',
+    access: 'human',
+    response: Principle,
+  }),
   'channels.askPrivately': route({
     method: 'POST',
     path: '/channels/:slug/private-question',
@@ -382,6 +451,12 @@ export const contract = {
     query: { before: S.optional(Digits), limit: S.optional(PageLimit) },
     response: S.struct({ notes: S.array(Note), hasMore: S.boolean, notices: S.array(Notice) }),
   }),
+  'previews.list': route({
+    method: 'GET',
+    path: '/conversations/:id/previews',
+    access: 'human',
+    response: S.struct({ previews: S.array(DraftPreview) }),
+  }),
   'notes.get': route({ method: 'GET', path: '/notes/:id', access: 'member', response: Note }),
   'notes.read': route({ method: 'POST', path: '/notes/:id/read', access: 'human', response: Note }),
   'notes.pickup': route({ method: 'POST', path: '/notes/:id/pickup', access: 'member', response: Note }),
@@ -392,6 +467,7 @@ export const contract = {
     body: S.struct({ reason: S.optional(S.string({ maxLength: RELEASE_REASON_MAX })) }),
     response: Note,
   }),
+  'notes.recall': route({ method: 'POST', path: '/notes/:id/recall', access: 'human', response: Note }),
   'inbox.list': route({
     method: 'GET',
     path: '/inbox',
@@ -541,6 +617,13 @@ export const contract = {
       enabled: S.optional(S.boolean),
       publicText: S.optional(S.nullable(PublicText)),
     }),
+    response: Principle,
+  }),
+  'principles.autoSend.set': route({
+    method: 'PUT',
+    path: '/principles/:id/auto-send',
+    access: 'human',
+    body: AutoSend,
     response: Principle,
   }),
   'principles.reorder': route({

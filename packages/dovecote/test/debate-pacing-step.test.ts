@@ -11,7 +11,7 @@ afterEach(async () => {
 })
 
 describe('the debate pacing step', () => {
-  it('is the fifteenth step', () => {
+  it('is the fifteenth step, after sources and reasons', () => {
     expect(stepNumberOf(DEBATE_PACING)).toBe(15)
   })
 

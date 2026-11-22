@@ -45,4 +45,25 @@ describe('answeringFlowFor', () => {
     )
     expect(text).toBe(PRINCIPLES_UNAVAILABLE)
   })
+
+  it('gives a channel’s agent its managers’ teaching between the flow’s steps and its checks', async () => {
+    const { text } = await guidanceWith(
+      T.succeed({
+        flow: '## Before drafting\n1. Look it up.\n## After drafting\n1. Check it.',
+        updatedAt: 1,
+      }),
+      T.succeed({
+        principles: [{ kind: 'rule', topic: 'Refunds', rule: 'link the refunds page', source: null }],
+        leftOut: 0,
+        ignored: [],
+        ignoredLeftOut: 0,
+        channel: { channel: 'billing', instruction: 'Answer briefly.', sources: [] },
+      }),
+    )
+    expect(text).toContain('What the managers of #billing taught you')
+    expect(text).toContain('The managers’ instruction: Answer briefly.')
+    expect(text).toContain('before its checks after drafting')
+    expect(text?.indexOf('Look it up.')).toBeLessThan(text?.indexOf('- Refunds: link the refunds page') ?? 0)
+    expect(text).not.toContain('Your person’s principles')
+  })
 })

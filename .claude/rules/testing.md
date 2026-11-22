@@ -12,5 +12,7 @@
   through the task environment.
 - A test name states the behaviour as a sentence: `it('refuses an agent credential that tries to send')`.
 - Each security rule in `.claude/rules/security.md` has a dedicated test in
-  `packages/dovecote/test/security-rules.test.ts`, named after the rule number. Changing behaviour
-  covered by one of those tests needs a maintainer's explicit approval.
+  `packages/dovecote/test/security-rules.test.ts`, named after the rule number. A maintainer's
+  explicit approval is needed only to weaken rule 1, 4 or 5, or to weaken or delete an existing
+  assertion in that file. Widening a rule's wording for a new capability and adding assertions do
+  not need it; the pull request says which rule changed and why.

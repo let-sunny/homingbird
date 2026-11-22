@@ -8,7 +8,7 @@ states the decision first, then the reason. Add new entries at the top of their 
 - **A debate room stops taking turns early once every agent says it is ready to conclude.** Evaluators
   watched agents keep taking empty turns after they already agreed, only because the room ran until
   its total or its time. So `debates.turns.post` takes an optional `ready`, kept with the turn
-  (`debate_turns.ready`, migration step 16). An agent is ready when its latest turn says so, or once
+  (`debate_turns.ready`, migration step 19). An agent is ready when its latest turn says so, or once
   it has used all its turns; one that has not spoken is not, and a later turn without `ready` takes it
   back. When every agent taking part is ready, the room concludes with `because: 'agreed'`
   (`debates.concluded_because`, `concludedBecause` on the room, `debate.concluded` in the audit trail)
@@ -379,7 +379,9 @@ states the decision first, then the reason. Add new entries at the top of their 
   characters, or the text left empty and a source to take it from). Answers share the list, its order,
   the 50-item and 1,500-character caps, rule 8 and every guard; a source is linked material read as
   data. The save dialog's "looks like a stored answer" warning offers to switch a rule to an answer. The
-  basis names an applied answer by its title, as for a rule. A person still approves every draft.
+  basis names an applied answer by its title, as for a rule. A person still approves every draft,
+  unless they switch the answer to send itself word for word
+  ([below](#a-saved-answer-may-send-itself-word-for-word-where-its-person-allowed)).
 - **Principles are a person's rules for their own agent, saved only by that person in the web client
   (security rule 8).** Saving, changing, turning off, deleting and "wrong here" are `human` routes;
   the only route an agent reaches is `principles.drafting` (`member`, read-only, own principles only),
@@ -1107,7 +1109,31 @@ its id as `author_id`.
   to the agent alone and everyone else's to the asker alone, so the managers' own agents do not answer
   it. A question there never moves to another room, administrators get no view of it, and archiving the
   channel closes it, readable to who was in it.
-- **Not in this release:** taking a draft ("I'll look at this"), principles and saved answers for a
+- **Its managers teach it, in the web client only (rules 3, 6 and 8).** A channel's agent has an
+  instruction (500 characters), up to five sources, and rules and saved answers. The rules and answers
+  are principles kept as a person's are, under the agent's member id, so the model, the validation, the
+  50-item cap, the order, the "Principles applied:" matching and each principle's figures are the
+  same code; they have no place and no public sentence. Reading or changing them is a `human` route
+  under `/channels/:slug/agent/teaching` and `/channels/:slug/agent/principles`, behind `channelAgents`
+  and refused as switched off while `teaching` is off; each checks, under the channel group's lock, that
+  the caller is one of the channel's managers now, so an administrator outside the group is refused as
+  anyone is, and a manager who leaves the group loses them at once. No MCP, CLI, plugin or A2A tool
+  names these routes. The agent's own credential reads them only through `principles.drafting`, which
+  for a channel's agent answers with its channel's principles and a `channel` part holding the
+  instruction and sources (`selectChannelTeaching`); an instruction that looks like a forbidden request
+  is left out and named as ignored, as a principle is. Audit entries (`channel.agent_instruction_changed`,
+  `channel.agent_principle_*`) name the manager, the channel and which fields changed, never their
+  words. They stay with the agent they taught: retiring it retires them, and a new agent starts fresh.
+- **In a draft's instructions the managers' teaching sits between the flow's steps.** The prompt puts
+  the answering flow first and the teaching after it, as for a person's principles, and says when each
+  applies: the flow's steps before drafting, then the instruction, sources and principles while
+  drafting, then the flow's checks on the draft. The flow still wins a conflict.
+- **"Teach from this correction" is an offer a manager acts on, never a stored suggestion.** A person's
+  edit and discard offers are kept (`principle_offers`) because they come back later; a manager who
+  edits or discards an answer is offered, on the same card, the principle form prefilled from the word
+  diff of that edit (or empty for a discard), and nothing is saved until they save it. The saved
+  principle records where it came from (`taughtFrom`), so its origin reads "From an edited answer".
+- **Not in this release:** taking a draft ("I'll look at this"), stored offers and quiet places for a
   channel's agent, and decision rules with more than one approver.
 
 ## One desk session per person reacts to arriving notes
@@ -1653,3 +1679,120 @@ again, then failed. The client now applies the same rule: a manager who is not a
 add another manager first). Removing someone as a manager is confirmed, and warns when one manager would
 be left; when that is the person themself, it says that answers to their own questions will wait for
 another manager (rule 1).
+
+## Note bodies link www. and mail addresses too
+
+People write "see www.example.com" and "ask ana@example.com" without a scheme, and every other
+messenger they use makes those clickable. Shown as plain text, a colleague had to copy the address by
+hand, so the web client now links them as well. The maintainer approved widening the web-client rule.
+
+- **What becomes a link.** `http:` and `https:` addresses as before; an address that starts a word with
+  `www.` followed by a name and a dot, opened as `https://` and that address; and a plain mail address
+  (name, `@`, a domain with a top-level part of two or more letters), opened as `mailto:` and that
+  address. Every link gets `rel="noopener noreferrer"`; web links open in a new tab, mail links do not.
+- **Nothing else changes scheme.** A `www.` or mail address that a scheme or a path runs into
+  (`javascript:www.x.test`, `mailto:ana@x.test`, `x.test/www.y.test`) stays text, and so do
+  `javascript:`, `data:` and every other scheme. A mail address inside a web address belongs to the
+  web link. The `href` is always one of `http:`, `https:` or `mailto:`.
+- **Trailing punctuation stays outside**, by the same rule as web links: sentence punctuation and a
+  closing bracket the address did not open.
+- **Built from text nodes.** `textSegments` in `packages/ui/src/linkify.ts` cuts the text and
+  `linkedText` builds each link with the DOM API; a note is never assigned to `innerHTML`. Property tests
+  check that nothing else becomes a link, that `javascript:` and `data:` never do, and that the text
+  around a link is kept as it was.
+
+## A saved answer may send itself, word for word, where its person allowed
+
+Approval is the product's bottleneck: a person who saved "Annual plans are refunded pro rata for the
+unused full months" still had to click Send each time their agent drafted exactly that. The narrowest
+automatic path is the one where nothing new is said: the text is the person's own, written and saved by
+them in the web client, and it goes only where they said it may. So security rule 1 gains one sentence:
+a saved answer its person switched to send automatically, in the web client, counts as that person's
+approval for a draft whose text is exactly that answer, sent where they allowed.
+
+- **The switch belongs to the person, per saved answer.** "Send automatically when it fits" and the
+  places it may send itself are set by `principles.autoSend.set`, a `human` route; no model-facing tool,
+  MCP, A2A, the command line or the plugin can call it (rules 3 and 8), and `principles.update` cannot
+  carry it. A new item starts switched off. Only an answer with its own text can be switched on; a rule,
+  or an answer taken only from a source, cannot. Turning an answer into a rule, or deleting it, takes the
+  switch and its places away.
+- **The places are chosen one by one, at most 20:** direct messages and the rooms of open channels the
+  person is in. A private channel, a group message, a private question and an archived room have no
+  door, both when the switch is saved and again when a draft would be sent.
+- **The server sends a draft without a click only when all of these hold**, checked on `drafts.create`
+  and on `drafts.update`, in the same transaction as the send: the organization has `autoSend` on (off
+  by default; administrators switch it in Settings) and `teaching` on; the draft comes from the person's
+  own agent credential, not from the person, a channel's agent or a debate room; its basis says it
+  applied that saved answer by title, the same "Principles applied:" match every draft gets; the answer
+  is enabled and switched on; the draft's text equals the answer's text exactly, ignoring only the
+  whitespace around either (`isSavedAnswerText` in `protocol`), so one character more, less or changed,
+  case included, keeps it on the card; the draft's conversation is one of the answer's places and still
+  allowed; and the person may still message there. The send goes through the same `deliverDraft` as a
+  click, so the `UPDATE` matches the text and room just checked. Anything else is an ordinary draft on
+  the approval card, as before.
+- **What is never sent automatically:** a draft that adds, removes or changes anything; one that did not
+  say it applied the answer; one going anywhere the person did not tick; a channel agent's answer; a
+  debate room's result; a note the person writes themself; anything while the feature is off. Matching by
+  meaning, by model or by similarity was left out on purpose: the roadmap's route-based automatic
+  sending, which composes, still waits for the pilot.
+- **The note says how it was sent.** It records the person as `approved_by` and the answer that sent it
+  as `auto_principle_id`; on the wire it carries `autoSent: true` and no `approvedBy`, which keeps
+  meaning "the person who approved a channel's agent's note". Recipients read "Sent automatically from
+  June's saved answer"; the author reads "from your saved answer". The answer's title and text stay
+  private, as every principle does. Agent integrations say the note was sent and that only the person
+  can recall it.
+- **Recall: five minutes, the author only, a `human` route (`notes.recall`).** Recalling moves the note
+  from `sent` to a new status, `withdrawn`; its receipts go, so recipients stop seeing it on every
+  surface (lookup, thread, inbox, search, stream), because every note query already shows a recipient
+  only `status = 'sent'`. Each participant's stream gets `note.withdrawn` with the ids only; the author
+  keeps the note, marked as recalled. A reply it was settles back to waiting unless another reply was
+  sent. The window runs from `sentAt`. A note the person sent with a click cannot be recalled: it was
+  read before it went. A push notification that already reached a phone cannot be taken back, and a
+  recipient may have read the note in the meantime; recall hides, it does not unsay.
+- **Audited, never with text:** `principle.auto_send_changed` (on or off, and how many places) and
+  `note.auto_sent` (the conversation and the answer's id, with the agent credential that drafted it),
+  and `note.recalled`.
+- **Counted apart.** An automatically sent note is not a decided draft: it is left out of drafts
+  written, sent as written, quick approvals and the typical decision time, for the person, for teams
+  and for the organization, and counted on its own line ("Sent by your saved answers", and for
+  administrators "Sent by saved answers", hidden below the minimum group like debate results). A saved
+  answer's own counts show how often it sent itself. The lines appear only while the feature is on.
+- **Compatibility.** `withdrawn` is a new note status: an older client reads it as unknown, which
+  means not sent. `note.withdrawn` is a new event, which an older client skips. `autoSend` on a
+  principle, `autoSent` on a note and the new figures are optional on the wire. The schema step adds
+  `principles.auto_send`, `principle_auto_send_places`, `notes.auto_principle_id` and
+  `notes.withdrawn_at`.
+
+## A person may let chosen colleagues see their agent's drafts early
+
+Approval is the slowest step between colleagues: a question can sit for an hour while its answer is
+already written and waits for one person's click. So a person may let chosen people, and the rooms of
+chosen channels, see what their own agent drafted before they check it. Rule 2 says so, and every note
+query now filters by `status = 'sent' OR author_id = viewer`, or an allowed preview for the viewer.
+
+- **Off twice by default.** The `draftPreviews` feature is off until an administrator turns it on, and
+  each person's allowance is empty until they choose someone under **My agent → Early previews**. Only
+  the person sets it, through `human` routes (`me.draftPreviews.get`, `me.draftPreviews.set`); no
+  model-facing tool can set or read it (rule 3). Changing it is audited as
+  `draft_preview.allowed_changed` with how many people and channels, never who wrote what.
+- **Only the person's own agent's words.** A draft previews when an agent credential of the person
+  wrote it, it is still a draft, and it waits in a direct or group conversation with an allowed person
+  or in an allowed channel's room. A person's own hand-written draft, a debate room's result, a draft
+  in a private question and a channel's agent's answer never preview: a channel's agent's answers stay
+  with its channel's reviewers (rules 2 and 6). An allowed channel is kept by its room, so renaming the
+  channel keeps the allowance.
+- **Unconfirmed, and nothing to act on.** The recipient sees a dashed, muted card, "Unconfirmed draft
+  from Kai's agent. Kai has not checked it yet." It has no Reply, no quote and no copy; it is not in
+  search, not counted as unread and not notified. Once sent, the same conversation shows the sent note
+  with a line that says it was checked, or changed before sending. Once discarded, the card keeps its
+  place as "Kai withdrew this draft", and its words are gone from every response.
+- **Previews never reach an agent.** They are read only through `previews.list`, a `human` route, so
+  an agent credential gets 403. The event that says previews changed, `preview.changed`, carries a
+  conversation id and no text, is not stored, and is dropped from any stream an agent credential holds;
+  it wakes no desk and pushes nothing. Inbox, search, lookup by id, `conversations.notes`, unread counts
+  and every `member` route answer exactly as before, so MCP, the CLI, A2A and the plugin cannot see a
+  preview, and `wrapNote` still wraps only sent notes (rule 4): an agent never acts on an unconfirmed
+  draft.
+- **A conversation does not appear because of a preview.** A direct or group conversation is still
+  shown only once a note in it is sent, so a preview shows only where the viewer already talks with the
+  author. Showing a new conversation that holds only a preview waits on the roadmap.

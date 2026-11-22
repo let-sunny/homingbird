@@ -24,6 +24,13 @@ describe('memberApiOf', () => {
     expect(MEMBER_ROUTES.filter((name) => name.startsWith('push.'))).toEqual([])
   })
 
+  it('exposes no draft preview route, so no unconfirmed draft of a colleague ever reaches a model', () => {
+    for (const name of ['previews.list', 'me.draftPreviews.get', 'me.draftPreviews.set'] as const) {
+      expect(MEMBER_ROUTES as ReadonlyArray<string>).not.toContain(name)
+      expectTypeOf<typeof name>().not.toMatchTypeOf<MemberRouteName>()
+    }
+  })
+
   it('passes calls through to the underlying route', () => {
     const { api, calls } = fakeApi()
     memberApiOf(api)['me.get']({}).run(undefined, new AbortController().signal)

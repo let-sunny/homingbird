@@ -172,7 +172,13 @@ celebration is for a principle being saved, never for sending.
   human-only route, and private channels have no door at all.
 - **The first automatic step re-sends only an answer the person already approved, to a question in the
   same channel room, so the audience is the same.** It never sends newly composed content and never to a
-  different audience.
+  different audience. **Built** in its narrowest form: a saved answer its person switched on sends itself
+  only when the draft is exactly its text and goes to a direct message or open channel the person
+  ticked, recallable for five minutes, behind `autoSend`, off by default
+  ([decisions](decisions.md#a-saved-answer-may-send-itself-word-for-word-where-its-person-allowed),
+  [guide](guide.md#let-a-saved-answer-send-itself)). Still to come for it: per-recipient rate limits,
+  the deterministic boundaries below (sender, hours, links), a list of what was just sent alone with a
+  daily digest, and closing the answer's switch in one action from a recall.
 - **A controlled runner before anything newly composed goes out unapproved.** It works only in a runner
   where Homingbird controls the tools, never an interactive session whose agent has other tools,
   because the server cannot verify what a free agent read. The model that reads an incoming note has
@@ -211,7 +217,10 @@ them, newest first by kind, live from the event stream and from existing routes 
 ([guide](guide.md#activity-everything-that-waits-for-you)). One order on every approval card (Approve
 and send, Edit, Discard), five seconds to undo a send or a discard before the server hears of it, a
 manager's edit of a channel agent's answer, an optional reason when they discard one, and the sources
-an agent reports shown as links and jumps to earlier notes.
+an agent reports shown as links and jumps to earlier notes. Early previews, behind the `draftPreviews`
+feature: a person lets chosen people and channels see their own agent's unconfirmed drafts, marked as
+unconfirmed and withdrawn when discarded, through a person's route only
+([guide](guide.md#let-colleagues-see-your-agents-drafts-early)).
 
 - Using the reasons managers give when they discard a channel agent's answer: in the agent's figures
   and as corrections when its managers teach it. They are stored and read by nothing yet.
@@ -236,6 +245,10 @@ an agent reports shown as links and jumps to earlier notes.
 - A route that lists the notes a person's agent skipped across every conversation, so that the activity
   panel shows a skip after a reload even in a conversation with no unread note, draft or note waiting
   for a reply; today it reads skips from the conversations it loads.
+- A conversation that holds only an allowed preview, shown to the allowed person: today a direct or
+  group conversation appears only once a note in it is sent, so a preview shows only where the two
+  already talk.
+- Early previews in the activity panel, so a colleague sees there that an answer is on its way.
 - Whether a person already posted a closed debate room's result, from the server, so that the activity
   panel drops the room once it was sent; today it drops it once the person's draft of it is known, or
   after a week.
@@ -301,8 +314,11 @@ channel per repository, and one agent the channel owns, drafting from that repos
    to that group, never to the person who asked. Any one member approves, and the first approval wins;
    the others see who already sent it, and a member can take a draft ("I'll look at this"). A sent
    note shows the agent and its approver ("#payments-wiki · approved by @kim"), and the audit trail
-   records the approver. Approval stays a person's act. Later: taking a draft ("I'll look at this"),
-   a person's own agent as a group of one, and a manager's approvals on their profile.
+   records the approver. Approval stays a person's act. Its managers teach it an instruction,
+   sources, and rules and saved answers in the web client, and can teach from an answer they edited
+   or discarded (**built**, [guide](guide.md#a-channels-agent)). Later: taking a draft ("I'll look at
+   this"), a person's own agent as a group of one, a manager's approvals on their profile, and offers
+   to teach that wait for a manager, as a person's do.
 3. **Asking a channel's agent privately.** **Built** ([guide](guide.md#a-channels-agent)). A sensitive question goes to the channel's agent as a direct
    conversation: the asker sees only their own conversation, and its first screen says that the
    channel's managers see it too, because they take part in it.

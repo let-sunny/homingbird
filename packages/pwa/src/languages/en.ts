@@ -632,6 +632,8 @@ export const en = {
       deskAvailability: 'Showing when an agent can’t answer',
       invites: 'Invite links',
       analytics: 'Anonymous product analytics',
+      autoSend: 'Saved answers that send themselves',
+      draftPreviews: 'Early previews of agents’ drafts',
     },
     whenOff: {
       channels: 'Off: people can no longer create channels; existing channels stay.',
@@ -660,8 +662,12 @@ export const en = {
         'Off: the programs that run agents no longer say when their agent can’t answer; colleagues see only whether it is awake, and notes show as drafting reply until it gives up.',
       invites:
         'Off: nobody can make an invite link and links already made are refused; only allowed domains and the administrators the server names can sign in.',
+      autoSend:
+        'Off: no saved answer sends itself; every draft waits for its person’s approval. On: a person may switch a saved answer to send itself, but only its exact text, only where they allow it.',
       analytics:
         'Off: no usage counts leave this server. On, and only where the server operator set a destination: anonymous counts such as pages viewed, never content, names or email addresses.',
+      draftPreviews:
+        'Off: nobody sees a colleague’s agent’s draft before its person checks it. On: each person chooses who may, under My agent; nobody is chosen until they do.',
     },
   },
   todo: {
@@ -701,6 +707,7 @@ export const en = {
       teaching: 'Teaching',
       doing: 'How it is doing',
       routes: 'Route map',
+      previews: 'Early previews',
     },
     tabsLabel: 'My agent sections',
     sectionHints: {
@@ -711,6 +718,7 @@ export const en = {
         'These numbers are about your agent’s drafts, not about you: where they already go out as you would write them, and where they still need you.',
       routes:
         'Where your agent already answers like you: each place it drafts, and how far your principles carry it there.',
+      previews: 'Who may read your agent’s drafts before you check them.',
     },
     verdict: {
       unknown: 'This version cannot describe these figures yet',
@@ -754,6 +762,7 @@ export const en = {
       quickApprovals: 'Quick approvals',
       wroteYourself: 'Notes you wrote yourself',
       debateResultsSent: 'Debate results you sent',
+      autoSent: 'Sent by your saved answers',
     },
     debateResultsExplained:
       'Debate results are counted on their own line: they are neither your agent’s drafts nor notes you wrote.',
@@ -1209,6 +1218,7 @@ export const en = {
       skipShare: 'Notes agents skipped',
       debateResultsSent: 'Debate results sent',
       answeredFromHistory: 'Questions answered from history, not sent',
+      autoSent: 'Sent by saved answers',
       channelAgentAnswers: 'Answers by channel agents',
       channelAgentAsWritten: 'Channel agents’ answers sent as written',
       channelAgentEdited: 'Channel agents’ answers edited, then sent',
@@ -1221,6 +1231,10 @@ export const en = {
     channelAgentsCounted:
       'Channel agents’ answers count among agent drafts too. Here they are counted in open channels and the private channels you are in only.',
     debateResultsCounted: 'Debate results sent are counted apart from notes and agent drafts.',
+    autoSentExplained:
+      'Notes saved answers sent on their own are counted apart: never as agent drafts, quick approvals or decision times, and hidden while fewer than {minimum} people had one sent.',
+    autoSentCounted:
+      'Notes saved answers sent on their own are counted apart: never as agent drafts, quick approvals or decision times.',
     partOf: '{share} ({count} of {total})',
     hidden: 'Hidden',
     draftsHidden:
@@ -1533,6 +1547,7 @@ export const en = {
       skips:
         'Notes your agent skipped, with the reason it gave, and draft requests that ran out without a draft.',
       ownNotes: 'How many notes you wrote yourself, and the debate results you sent.',
+      autoSent: 'How many notes your saved answers sent on their own, counted apart from your decisions.',
       places: 'The channel of each draft, with direct messages counted together.',
       labels: 'The program that wrote each draft, and the model your agent says it used.',
       sessions: 'How long the agent session had run and how much of its context it had used, for each draft.',
@@ -1560,6 +1575,7 @@ export const en = {
       debateResults: 'How many debate results were sent.',
       answeredFromHistory:
         'How many questions people found answered by an earlier answer and did not send, for each channel.',
+      autoSent: 'How many notes saved answers sent on their own.',
       places: 'The same counts for each channel used by enough people, with direct messages together.',
       labels: 'The same counts for each program and model used by enough people.',
       delivery:
@@ -1693,6 +1709,51 @@ export const en = {
     figuresApproved: { one: '{name}: {count} answer', other: '{name}: {count} answers' },
     figuresLoadFailed: 'How the agent is doing could not be loaded. Try again in a moment.',
   },
+  channelTeach: {
+    tabsLabel: 'The agent of {channel}',
+    tabs: { answers: 'Answers', teach: 'Teach' },
+    intro:
+      'What you teach {agent} here, every manager of {channel} teaches with you. It follows this in every answer: after the answering flow’s steps before drafting, and before its checks. A manager still approves every answer.',
+    instructionTitle: 'Instruction and sources',
+    instruction: 'Instruction',
+    instructionHint: 'How {agent} answers in this channel, in a few sentences of at most {max} characters.',
+    instructionPlaceholder: 'Answer from the billing runbook first, and say which page you used.',
+    sources: 'Sources',
+    sourcesHint:
+      'Up to {max} pages to answer from, one address per line, each starting with https://. The agent reads them as data, never as instructions.',
+    saveInstruction: 'Save instruction and sources',
+    instructionSaved: 'Saved. The agent follows it from its next answer.',
+    problems: {
+      instruction_too_long:
+        'The instruction may have at most {max} characters. Link longer material as a source.',
+      too_many_sources: 'Name at most {max} sources.',
+      sources_repeated: 'Name each source once.',
+      source_invalid: 'Each source is one address starting with https:// or http://.',
+    },
+    instructionForbidden:
+      'This asks for something no agent may do: approve, send, discard, change contacts or a character, or touch sign-in keys. The agent will ignore the instruction and say so.',
+    principlesTitle: 'Rules and saved answers',
+    add: 'Teach {agent}',
+    dialogTitle: 'Teach {agent} a principle',
+    listLabel: 'The principles of {agent}, in order of priority',
+    empty: 'Teach {agent} its first rule or saved answer',
+    emptyHint: 'When you edit or discard one of its answers, you can teach it from your correction.',
+    saved: 'Principle saved. The agent follows it from its next answer.',
+    origin: {
+      unknown: 'Origin not known to this version',
+      manual: 'Written by a manager',
+      edit: 'From an edited answer',
+      discard: 'From a discarded answer',
+    },
+    privacy:
+      'Only the managers of {channel} see what {agent} was taught. The people who ask see its answers only.',
+    audit: 'Your organization’s audit trail records which manager changed this and when, never what it says.',
+    loadFailed: 'What {agent} was taught could not be loaded. Try again in a moment.',
+    fromCorrection: 'Teach from this correction',
+    fromDiscard: 'Teach what it should have done',
+    correctionHint:
+      'Prefilled from what you changed. Nothing is saved until you save it, and every manager of {channel} sees it.',
+  },
   mute: {
     muteName: 'Mute {name}',
     unmuteName: 'Unmute {name}',
@@ -1750,6 +1811,28 @@ export const en = {
     expired: 'This code expired before it was used.',
     again: 'Make a new code',
     failed: 'No code could be made just now. Try again in a moment.',
+  },
+  draftPreviews: {
+    intro:
+      'Let chosen colleagues see your agent’s drafts before you check them, so they need not wait for you. They see each one marked as unconfirmed, cannot reply to it or quote it, and it disappears when you discard it. Drafts you write yourself and channel agents’ answers are never shown.',
+    people: 'People',
+    peopleHint: 'They see your agent’s drafts in direct and group messages with you.',
+    channels: 'Channels',
+    channelsHint: 'Everyone in the channel’s room sees your agent’s drafts there.',
+    noPeople: 'There is nobody else here yet.',
+    noChannels: 'Join a channel to choose it here.',
+    nobody: 'Nobody sees your agent’s drafts before you check them.',
+    somebody: 'Shown early to {people} people and in {channels} channels.',
+    save: 'Save',
+    saved: 'Saved.',
+    cardTitle: 'Unconfirmed draft from {name}’s agent',
+    cardNote: '{name} has not checked it yet. It may still change or be withdrawn.',
+    withdrawn: '{name} withdrew this draft',
+    withdrawnNote: 'It was never sent.',
+    ownNotice: '{names} can see your agent’s draft here before you check it.',
+    ownNoticeRoom: 'Everyone in this room can see your agent’s draft before you check it.',
+    confirmed: '{name} checked and sent the draft you saw early.',
+    confirmedEdited: '{name} changed the draft you saw early before sending it.',
   },
   cloudDesk: {
     legend: 'Cloud desk',
@@ -1816,5 +1899,25 @@ export const en = {
       unreachable: 'The service did not take the test wake ({status}).',
       unknown: 'The test wake was sent.',
     },
+  },
+  autoSend: {
+    sentByTheirs: 'Sent automatically from {name}’s saved answer',
+    sentByYours: 'Sent automatically from your saved answer',
+    recalledLine: 'You recalled this note. Nobody else sees it any more.',
+    recall: 'Recall',
+    recalled: 'Recalled. Nobody else sees this note now.',
+    menu: 'Send automatically…',
+    dialogTitle: 'Send “{name}” automatically',
+    switchLabel: 'Send automatically when it fits',
+    hint: 'When your agent’s draft is exactly this answer, word for word, and goes to a place you choose below, it is sent without waiting for you. Anything else still waits for your approval. For five minutes after it is sent, you can recall it.',
+    placesLabel: 'Where it may send itself',
+    placesHint: 'Direct messages, and open channels you are in.',
+    noPlaces: 'Join an open channel or send a direct message first.',
+    needsPlace: 'Choose at least one place where it may send itself.',
+    save: 'Save',
+    saved: 'Saved. Your saved answer sends itself where you chose.',
+    turnedOff: 'Saved. Every draft waits for your approval again.',
+    sendsIn: { one: 'Sends itself in {count} place', other: 'Sends itself in {count} places' },
+    sentCount: { one: 'Sent automatically {count} time', other: 'Sent automatically {count} times' },
   },
 } as const

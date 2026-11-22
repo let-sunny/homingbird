@@ -5,6 +5,7 @@ import type {
   ConversationKind,
   Credential,
   Debate,
+  DraftPreviewAllowance,
   DraftRequest,
   EventBody,
   GroupId,
@@ -96,6 +97,11 @@ export interface Records {
   readonly notices: ReadonlyArray<NoticeRecord>
   /** Invite links still waiting; nobody can redeem one in a demo that lives in a single page. */
   readonly invites: ReadonlyArray<Invite>
+  /** Whom each person lets see their own agent's drafts before they check them. */
+  readonly previewAllowances: ReadonlyArray<{
+    readonly memberId: MemberId
+    readonly allowance: DraftPreviewAllowance
+  }>
   /** What people asked their own agent to draft from the web client. */
   readonly draftRequests: ReadonlyArray<DraftRequestRecord>
 }
@@ -140,6 +146,15 @@ export interface ChannelRecord {
   readonly managedBy: GroupId
   readonly agentId: MemberId | null
   readonly createdAt: number
+  /** What the channel's managers taught its agent; none until they teach it. */
+  readonly teaching?: ChannelTeachingRecord
+}
+
+export interface ChannelTeachingRecord {
+  readonly instruction: string
+  readonly sources: ReadonlyArray<string>
+  readonly updatedAt: number | null
+  readonly principles: ReadonlyArray<Principle>
 }
 
 export interface GroupRecord {

@@ -90,6 +90,7 @@ describe('wire model', () => {
         'agentModel',
         'agentName',
         'approvedBy',
+        'autoSent',
         'basis',
         'authorId',
         'body',
