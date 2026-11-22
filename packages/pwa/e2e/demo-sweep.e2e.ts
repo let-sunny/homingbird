@@ -183,6 +183,8 @@ const EXTRA_ROUTES = [
   '#/agent/teaching',
   '#/agent/doing',
   '#/agent/routes',
+  '#/channel/billing/agent',
+  '#/channel/billing/agent/teach',
   '#/search?q=refund',
   '#/admin/settings',
   '#/admin/members',

@@ -1095,7 +1095,31 @@ its id as `author_id`.
   to the agent alone and everyone else's to the asker alone, so the managers' own agents do not answer
   it. A question there never moves to another room, administrators get no view of it, and archiving the
   channel closes it, readable to who was in it.
-- **Not in this release:** taking a draft ("I'll look at this"), principles and saved answers for a
+- **Its managers teach it, in the web client only (rules 3, 6 and 8).** A channel's agent has an
+  instruction (500 characters), up to five sources, and rules and saved answers. The rules and answers
+  are principles kept as a person's are, under the agent's member id, so the model, the validation, the
+  50-item cap, the order, the "Principles applied:" matching and each principle's figures are the
+  same code; they have no place and no public sentence. Reading or changing them is a `human` route
+  under `/channels/:slug/agent/teaching` and `/channels/:slug/agent/principles`, behind `channelAgents`
+  and refused as switched off while `teaching` is off; each checks, under the channel group's lock, that
+  the caller is one of the channel's managers now, so an administrator outside the group is refused as
+  anyone is, and a manager who leaves the group loses them at once. No MCP, CLI, plugin or A2A tool
+  names these routes. The agent's own credential reads them only through `principles.drafting`, which
+  for a channel's agent answers with its channel's principles and a `channel` part holding the
+  instruction and sources (`selectChannelTeaching`); an instruction that looks like a forbidden request
+  is left out and named as ignored, as a principle is. Audit entries (`channel.agent_instruction_changed`,
+  `channel.agent_principle_*`) name the manager, the channel and which fields changed, never their
+  words. They stay with the agent they taught: retiring it retires them, and a new agent starts fresh.
+- **In a draft's instructions the managers' teaching sits between the flow's steps.** The prompt puts
+  the answering flow first and the teaching after it, as for a person's principles, and says when each
+  applies: the flow's steps before drafting, then the instruction, sources and principles while
+  drafting, then the flow's checks on the draft. The flow still wins a conflict.
+- **"Teach from this correction" is an offer a manager acts on, never a stored suggestion.** A person's
+  edit and discard offers are kept (`principle_offers`) because they come back later; a manager who
+  edits or discards an answer is offered, on the same card, the principle form prefilled from the word
+  diff of that edit (or empty for a discard), and nothing is saved until they save it. The saved
+  principle records where it came from (`taughtFrom`), so its origin reads "From an edited answer".
+- **Not in this release:** taking a draft ("I'll look at this"), stored offers and quiet places for a
   channel's agent, and decision rules with more than one approver.
 
 ## One desk session per person reacts to arriving notes
@@ -1641,3 +1665,24 @@ again, then failed. The client now applies the same rule: a manager who is not a
 add another manager first). Removing someone as a manager is confirmed, and warns when one manager would
 be left; when that is the person themself, it says that answers to their own questions will wait for
 another manager (rule 1).
+
+## Note bodies link www. and mail addresses too
+
+People write "see www.example.com" and "ask ana@example.com" without a scheme, and every other
+messenger they use makes those clickable. Shown as plain text, a colleague had to copy the address by
+hand, so the web client now links them as well. The maintainer approved widening the web-client rule.
+
+- **What becomes a link.** `http:` and `https:` addresses as before; an address that starts a word with
+  `www.` followed by a name and a dot, opened as `https://` and that address; and a plain mail address
+  (name, `@`, a domain with a top-level part of two or more letters), opened as `mailto:` and that
+  address. Every link gets `rel="noopener noreferrer"`; web links open in a new tab, mail links do not.
+- **Nothing else changes scheme.** A `www.` or mail address that a scheme or a path runs into
+  (`javascript:www.x.test`, `mailto:ana@x.test`, `x.test/www.y.test`) stays text, and so do
+  `javascript:`, `data:` and every other scheme. A mail address inside a web address belongs to the
+  web link. The `href` is always one of `http:`, `https:` or `mailto:`.
+- **Trailing punctuation stays outside**, by the same rule as web links: sentence punctuation and a
+  closing bracket the address did not open.
+- **Built from text nodes.** `textSegments` in `packages/ui/src/linkify.ts` cuts the text and
+  `linkedText` builds each link with the DOM API; a note is never assigned to `innerHTML`. Property tests
+  check that nothing else becomes a link, that `javascript:` and `data:` never do, and that the text
+  around a link is kept as it was.
