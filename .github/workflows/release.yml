@@ -6,7 +6,8 @@ name: Release
 # from that version's CHANGELOG.md section, push ghcr.io/let-sunny/homingbird, and deploy the project site
 # through pages.yml. Otherwise, when the
 # Conventional Commits since the last v* tag hold a feat, fix, perf or breaking change, the version job
-# rebuilds the branch release/main from main with the next version and its CHANGELOG.md section, and
+# rebuilds the branch release/main from main with the next version (before 1.0 a minor when the tag's
+# MIGRATIONS has fewer steps than main's) and its CHANGELOG.md section, and
 # opens or updates the "Version Packages" pull request with gh. CONTRIBUTING.md#releasing has the setup.
 
 on:

@@ -3,6 +3,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
+  hasNewSchemaStepSince,
   preReleaseOf,
   releaseNotes,
   releasePlan,
@@ -240,5 +241,33 @@ describe('the number of schema steps', () => {
 
   it('refuses a module without the list', () => {
     expect(() => schemaStepsIn('export const STEPS = []')).toThrow(/has no MIGRATIONS list/)
+  })
+})
+
+describe('a new schema step since the last release', () => {
+  const migrations = (...steps: string[]): string =>
+    `export const MIGRATIONS: ReadonlyArray<Migration> = [\n${steps.map((step) => `  ${step},\n`).join('')}]\n`
+
+  it('is found when MIGRATIONS has more entries than at the last release', () => {
+    expect(hasNewSchemaStepSince(migrations('BASELINE'), migrations('BASELINE', 'GROUPS'))).toBe(true)
+  })
+
+  it('is not found when MIGRATIONS is unchanged, however it is laid out', () => {
+    expect(
+      hasNewSchemaStepSince(
+        'export const MIGRATIONS: ReadonlyArray<Migration> = [BASELINE, GROUPS]',
+        migrations('BASELINE', 'GROUPS'),
+      ),
+    ).toBe(false)
+  })
+
+  it('counts every step as new when there is no release or no migrations module at it', () => {
+    expect(hasNewSchemaStepSince(null, migrations('BASELINE'))).toBe(true)
+  })
+
+  it('mentions in the Version Packages pull request that a schema step makes a minor version', () => {
+    expect(versionPullRequest('0.4.0', null, '').body).toContain(
+      'a new schema step in `packages/dovecote/src/sql/migrations.ts` makes it a minor version',
+    )
   })
 })

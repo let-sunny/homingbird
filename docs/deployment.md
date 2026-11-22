@@ -213,6 +213,10 @@ Horizontal scaling (shared fan-out through the database or a broker) is on the
   this version knows 25), so it is left untouched: run that newer version, or restore the backup you
   took before upgrading." Back up before upgrading, and restore that backup to roll back.
 
+**Which releases migrate the database:** before 1.0, a release that adds a schema step is a minor
+version (0.3.x to 0.4.0), and a patch release (0.4.0 to 0.4.1) never changes the schema. Plan a
+backup and a restart window for a minor upgrade; a patch upgrade starts on the database as it is.
+
 **Supported upgrades:**
 
 - A database any final release left, from 0.1.0 on, upgrades to any later release: start the newer
