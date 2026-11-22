@@ -132,7 +132,8 @@ jobs:
           npm init --yes > /dev/null
           npm install --no-audit --no-fund "./homingbird-cli-$VERSION.tgz" "./homingbird-mcp-$VERSION.tgz"
           npx --no-install homingbird --help
-          npx --no-install homingbird status --json
+          # status exits 3 when not signed in, which a fresh install is
+          npx --no-install homingbird status --json || test $? -eq 3
           npx --no-install homingbird-mcp --help 2>&1 | grep -q '^Usage: homingbird-mcp'
           tar -xzf "homingbird-mod-$VERSION.tgz"
           test -f package/.claude-plugin/plugin.json
