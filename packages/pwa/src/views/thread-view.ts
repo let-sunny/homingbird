@@ -109,6 +109,7 @@ export const threadView = (
         state.members.get(),
         state.draftEdits.get(),
         focusedReview,
+        state.channels.get(),
       ).map((item): RoomItem => {
         const line = item.type === 'note' ? null : heldLineFor(state.held.get(), decidedBy(item))
         return line === null ? item : { type: 'held', key: item.key, line }

@@ -13,7 +13,8 @@ import type { Fetch } from '../auth/identity-provider.ts'
 import { chosenLocaleOf, membersByIds } from '../domain/members.ts'
 import { featureIsOn } from '../domain/settings.ts'
 import type { AppEnv } from '../environment.ts'
-import { sendSlackReviewRequest } from '../slack/slack-review-requests.ts'
+import { type NotPosted, notPostedNoticeFor } from '../slack/slack-not-posted.ts'
+import { sendSlackNotPosted, sendSlackReviewRequest } from '../slack/slack-review-requests.ts'
 import { makeWorkTally } from '../work-tally.ts'
 import { encryptPushPayload } from './payload-encryption.ts'
 import { type PushWindow, makePushWindow } from './push-window.ts'
@@ -36,6 +37,7 @@ export interface PushNotice {
     | { readonly kind: 'note'; readonly author: string | null }
     | { readonly kind: 'draft' }
     | { readonly kind: 'review'; readonly channel: string }
+    | { readonly kind: 'notPosted'; readonly channel: string }
     | { readonly kind: 'test'; readonly title: string }
     | { readonly kind: 'deskStopped'; readonly title: string }
     | { readonly kind: 'deskUnavailable'; readonly title: string }
@@ -71,6 +73,7 @@ export const makePushNotifier = (fetch: Fetch): PushNotifier => {
             yield* T.asUnit(deliverToMember(fetch, memberId, notice))
           if (notice !== null && (notice.about.kind === 'draft' || notice.about.kind === 'review'))
             yield* sendSlackReviewRequest(memberId, notice.url)
+          if (notice?.about.kind === 'notPosted') yield* sendSlackNotPosted(memberId, notice.url)
         } finally {
           work.finished()
         }
@@ -86,12 +89,15 @@ export const REVIEW_PUSH_WINDOW_MS = 2 * 60 * 1000
 const isPushable = (body: StreamEvent['body'], isNewReview: boolean): boolean =>
   isNewReview
     ? body.type === 'review.changed' && body.noteId !== null
-    : body.type === 'note.sent' || body.type === 'draft.saved'
+    : body.type === 'note.sent' ||
+      body.type === 'draft.saved' ||
+      (body.type === 'note.changed' && body.note.posting === 'failed')
 
 const pushNoticeFor = (memberId: MemberId, event: StreamEvent): T.Task<PushNotice | null, never, AppEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
     if (env.hub.isLooking(memberId)) return null
+    if (event.body.type === 'note.changed') return yield* notPostedPush(memberId, event.body.note)
     const about = yield* noticeAbout(memberId, event)
     if (about === null || !(yield* wantsPushAbout(memberId, about.conversationId))) return null
     return about.notice
@@ -122,6 +128,17 @@ const reviewNoticeFor = (
       tag: noticeTag('review', body.noteId),
     }
   })
+
+/** A reply given up on is the sender's and the managers' own concern, so it is told whatever they muted. */
+const notPostedPush = (
+  memberId: MemberId,
+  note: Extract<StreamEvent['body'], { type: 'note.changed' }>['note'],
+): T.Task<PushNotice | null, never, AppEnv> =>
+  T.map((told: NotPosted | null): PushNotice | null =>
+    told === null
+      ? null
+      : { about: { kind: 'notPosted', channel: told.channel }, body: preview(note.body), url: told.url },
+  )(notPostedNoticeFor(memberId, note))
 
 interface NoticeAbout {
   readonly conversationId: ConversationId
@@ -260,6 +277,7 @@ const messageIn = (locale: Locale | null, notice: PushNotice): PushMessage => ({
 const titleOf = (titles: PushTitles, about: PushNotice['about']): string => {
   if (about.kind === 'draft') return titles.draftWaiting
   if (about.kind === 'review') return titles.reviewWaiting(`#${about.channel}`)
+  if (about.kind === 'notPosted') return titles.notPosted(`#${about.channel}`)
   if (about.kind === 'test' || about.kind === 'deskStopped' || about.kind === 'deskUnavailable')
     return about.title
   return about.author === null ? titles.noteFromColleague : titles.noteFrom(about.author)

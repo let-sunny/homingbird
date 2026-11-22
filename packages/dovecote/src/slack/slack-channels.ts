@@ -7,12 +7,14 @@ import {
   type MemberId,
   MemberId as MemberIds,
   NotFound,
+  type NoteId,
   SLACK_CODE_LIFETIME_MS,
   slackCodeHref,
 } from '@homingbird/protocol'
 import { recordAudit } from '../domain/audit.ts'
 import { describeChannel, enter, existingChannel, managersOf, visibilityOf } from '../domain/channel-rows.ts'
 import { lockGroups } from '../domain/group-rows.ts'
+import { announceChange } from '../domain/note-status.ts'
 import type { AppEnv, Caller } from '../environment.ts'
 import { type RequestEnv, transact } from '../events/events.ts'
 import { hashSecret } from '../random.ts'
@@ -65,8 +67,7 @@ export const removeChannelLink = (conversationId: ConversationId): T.Task<string
   T.gen(function* () {
     const link = yield* linkOfRoom(conversationId)
     if (link === null) return null
-    yield* run(sql`UPDATE slack_outbox SET state = 'failed' WHERE slack_channel_id = ${link.slack_channel_id}
-      AND state = 'pending'`)
+    yield* failWaitingPosts(link)
     yield* run(sql`DELETE FROM slack_channel_links WHERE conversation_id = ${link.conversation_id}`)
     yield* run(sql`UPDATE members SET status = 'deactivated' WHERE id = ${link.link_member_id}`)
     return link.slack_channel_id
@@ -79,8 +80,7 @@ export const stopSlackLink = (link: SlackLinkRow, because: SlackLinkStop): T.Tas
       yield* run(sql`UPDATE slack_channel_links SET state = 'stopped', stopped_because = ${because}
       WHERE conversation_id = ${link.conversation_id} AND state = 'active'`)
     if (stopped === 0) return
-    yield* run(sql`UPDATE slack_outbox SET state = 'failed' WHERE slack_channel_id = ${link.slack_channel_id}
-      AND state = 'pending'`)
+    yield* failWaitingPosts(link)
     const slug = yield* first<{ slug: string }>(
       sql`SELECT slug FROM channels WHERE conversation_id = ${link.conversation_id}`,
     )
@@ -128,6 +128,16 @@ export const channelChoicesFor = (
     return rows
       .filter((row) => !slackChannel.isPrivate || row.visibility === 'private')
       .map((row) => row.slug)
+  })
+
+/** The posts that waited for the link show as not posted, live, with Try again for when it works again. */
+const failWaitingPosts = (link: SlackLinkRow): T.Task<void, never, RequestEnv> =>
+  T.gen(function* () {
+    const waiting = yield* all<{ note_id: NoteId }>(sql`SELECT note_id FROM slack_outbox
+      WHERE slack_channel_id = ${link.slack_channel_id} AND state = 'pending' ORDER BY note_id`)
+    yield* run(sql`UPDATE slack_outbox SET state = 'failed' WHERE slack_channel_id = ${link.slack_channel_id}
+      AND state = 'pending'`)
+    for (const row of waiting) yield* announceChange(row.note_id)
   })
 
 const linkOfRoom = (conversationId: ConversationId): T.Task<SlackLinkRow | null, never, AppEnv> =>

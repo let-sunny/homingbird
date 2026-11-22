@@ -4,7 +4,7 @@ import type { AppEnv, Caller } from '../environment.ts'
 import { type RequestEnv, transact } from '../events/events.ts'
 import { deleteSlackCredentials, sealSlackCredentials } from './slack-credentials.ts'
 import type { SlackCallFailure } from './slack-web-api.ts'
-import { pinnedWorkspace, rememberSlackIdentity } from './slack-workspace.ts'
+import { forgetTokenRefused, pinnedWorkspace, rememberSlackIdentity } from './slack-workspace.ts'
 
 /** Keeps only a token Slack accepts, of this server's workspace, asked outside any transaction. */
 export const setSlackCredentials = (
@@ -33,6 +33,7 @@ export const setSlackCredentials = (
 export const removeSlackCredentials: T.Task<void, NotFound, RequestEnv> = T.gen(function* () {
   if (!(yield* deleteSlackCredentials))
     return yield* T.fail(NotFound({ message: 'No Slack app values are stored.' }))
+  yield* forgetTokenRefused
 })
 
 const FROM_ENVIRONMENT =

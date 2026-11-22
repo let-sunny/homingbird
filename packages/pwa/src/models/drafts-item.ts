@@ -18,7 +18,7 @@ import {
 } from '../thread.ts'
 import { type AvatarModel, memberAvatarOf } from './avatar.ts'
 import { asksLine } from './composer-tags.ts'
-import { postsToText } from './composer.ts'
+import { type SlackReplyLines, slackReplyLines } from './slack-reply.ts'
 import { type AppliedMarker, appliedModel, showsAppliedMarkers } from './teaching.ts'
 import { type ThreadInput, isOn, nameIn, noteIn, notesOf, roomOf } from './thread-room.ts'
 
@@ -44,7 +44,7 @@ export const draftsItemModel = (
     replyTo:
       target === null ? strings.newNoteDraft : strings.draftReplyTo({ excerpt: excerpt(target.body, 60) }),
     choose: item.drafts.length > 1 ? strings.chooseOne({ count: item.drafts.length }) : null,
-    slack: slackDestinationOf(target, channel?.link ?? null),
+    slack: slackReplyLines(target, channel?.link, Math.min(...item.drafts.map((one) => one.updatedAt))),
     archived: archived ? strings.archivedRoomNotice : null,
     cards: item.drafts.map((draft) =>
       draftCard(input, item, draft, room, archived, question ? channel : null),
@@ -111,8 +111,8 @@ export interface DraftsItemModel {
   readonly heading: string
   readonly replyTo: string
   readonly choose: string | null
-  /** A reply to a question from Slack says where it is posted, and that the thread moved since. */
-  readonly slack: { readonly postsTo: string; readonly newer: string | null } | null
+  /** A reply to a question from Slack says where it is posted, and what changed in Slack since. */
+  readonly slack: SlackReplyLines | null
   readonly archived: string | null
   readonly cards: ReadonlyArray<DraftCard>
 }
@@ -242,17 +242,5 @@ const destinationOf = (
           : strings.sendsTo({ names }),
     },
     names,
-  }
-}
-
-const slackDestinationOf = (
-  target: AsRead.Note | null,
-  link: AsRead.Channel['link'] | null,
-): DraftsItemModel['slack'] => {
-  const via = target?.via
-  if (via === undefined) return null
-  return {
-    postsTo: postsToText(via.channelName, link),
-    newer: via.newerMessages > 0 ? strings.slack.newerMessages({ count: via.newerMessages }) : null,
   }
 }

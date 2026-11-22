@@ -15,6 +15,7 @@ import { featureOn } from '../features.ts'
 import { type HeldChoices, heldWordsFor, keptEditLine } from '../held-decisions.ts'
 import { hrefFor } from '../routes.ts'
 import { formats, strings } from '../strings.ts'
+import { type SlackReplyLines, slackAskerOf, slackReplyLines } from './slack-reply.ts'
 
 /** What a channel's own controls offer about its agent: running it, for a manager, and asking it privately. */
 export const agentControlsModel = (
@@ -114,16 +115,20 @@ export const reviewCardsModel = (
   members: ReadonlyMap<MemberId, AsRead.Member>,
   edits: ReadonlyMap<NoteId, string>,
   focus: string | null,
+  channels: ReadonlyArray<AsRead.Channel>,
 ): ReviewCards => {
   const shown = reviews.filter((review) => review.channel === slug)
   return {
     title: strings.channelAgent.reviewsTitle,
     none: shown.length === 0 ? strings.channelAgent.reviewsNone : null,
-    cards: shown.map((review) => reviewCardModel(review, read, members, edits, focus, 'quoted')),
+    cards: shown.map((review) => reviewCardModel(review, read, members, edits, focus, 'quoted', channels)),
   }
 }
 
-/** One answer waiting for review; its question is quoted on the card unless the card sits right under it. */
+/**
+ * One answer waiting for review; its question is quoted on the card unless the card sits right under it.
+ * A question from Slack names its asker as Slack does, and the card says where the answer is posted.
+ */
 export const reviewCardModel = (
   review: AsRead.Review,
   read: ReadonlyMap<NoteId, DraftAsShown>,
@@ -131,10 +136,14 @@ export const reviewCardModel = (
   edits: ReadonlyMap<NoteId, string>,
   focus: string | null,
   question: 'quoted' | 'above',
+  channels: ReadonlyArray<AsRead.Channel>,
 ): ReviewCard => {
   const basis = draftBasisOf(review.note)
   const channel = channelLabel(review.channel)
-  const asker = review.question === null ? null : (members.get(review.question.authorId)?.name ?? null)
+  const asker =
+    review.question === null
+      ? null
+      : (slackAskerOf(review.question) ?? members.get(review.question.authorId)?.name ?? null)
   return {
     review,
     focused: review.note.id === focus,
@@ -144,12 +153,15 @@ export const reviewCardModel = (
       review.question === null || question === 'above'
         ? null
         : {
-            from: strings.channelAgent.questionFrom({
-              name: members.get(review.question.authorId)?.name ?? strings.formerMember,
-            }),
+            from: strings.channelAgent.questionFrom({ name: asker ?? strings.formerMember }),
             body: review.question.body,
           },
     privately: review.privately ? strings.channelAgent.askedPrivately : null,
+    slack: slackReplyLines(
+      review.question,
+      channels.find((one) => one.slug === review.channel)?.link,
+      review.note.updatedAt,
+    ),
     body: review.note.body,
     basis:
       basis?.kind === 'given'
@@ -189,6 +201,7 @@ export const reviewsInRoomModel = <Item extends RoomItem>(
   members: ReadonlyMap<MemberId, AsRead.Member>,
   edits: ReadonlyMap<NoteId, string>,
   focus: string | null,
+  channels: ReadonlyArray<AsRead.Channel>,
 ): ReadonlyArray<Item | RoomReview> => {
   const here = reviews.filter(
     (review) =>
@@ -205,7 +218,7 @@ export const reviewsInRoomModel = <Item extends RoomItem>(
     type: 'review',
     key: `review:${review.note.id}`,
     card: {
-      ...reviewCardModel(review, read, members, edits, focus, question),
+      ...reviewCardModel(review, read, members, edits, focus, question, channels),
       heading: strings.channelAgent.waitsInRoom({ agent: review.agent.name }),
     },
   })
@@ -417,6 +430,8 @@ export interface ReviewCard {
   readonly why: string
   readonly question: { readonly from: string; readonly body: string } | null
   readonly privately: string | null
+  /** An answer to a question from Slack: where it is posted, and what changed in Slack since. */
+  readonly slack: SlackReplyLines | null
   readonly body: string
   readonly basis: {
     readonly title: string

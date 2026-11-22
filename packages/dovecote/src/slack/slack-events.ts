@@ -14,8 +14,9 @@ import { type SlackWorkspaceRow, pinnedWorkspace } from './slack-workspace.ts'
 /**
  * `POST /slack/events`: authenticated by Slack's signature over the raw body, not by a credential. An
  * event Homingbird uses is stored by Slack's event id and answered at once, so a retry does nothing and
- * Slack's three-second limit is never at risk; a pass does the work. Anything else is dropped unread,
- * never stored and never logged: messages in channels, events of another workspace.
+ * Slack's three-second limit is never at risk; a pass does the work. Anything else is dropped unread and
+ * never stored: messages in channels, events of another workspace. An event dropped before it is read,
+ * because no workspace is connected or it is another's, is logged with that reason and nothing of it.
  */
 export const handleSlackEvents = (request: HttpRequest): T.Task<HttpResponse, never, AppEnv> =>
   T.gen(function* () {
@@ -70,8 +71,9 @@ const keep = (envelope: S.Infer<typeof Envelope>): T.Task<void, never, AppEnv> =
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
     const workspace = yield* pinnedWorkspace
-    if (workspace === null || envelope.team_id !== workspace.team_id || envelope.event_id === undefined)
-      return
+    if (workspace === null) return yield* dropped(envelope, 'not_connected')
+    if (envelope.team_id !== workspace.team_id) return yield* dropped(envelope, 'other_workspace')
+    if (envelope.event_id === undefined) return yield* dropped(envelope, 'no_event_id')
     const kept = yield* keptPartOf(envelope.event, workspace)
     env.log.emit({
       name: 'slack.event_received',
@@ -91,6 +93,15 @@ const keep = (envelope: S.Infer<typeof Envelope>): T.Task<void, never, AppEnv> =
       }),
     )
   })
+
+/** Only the event's kind and the reason: nothing of its content, its workspace or its sender. */
+const dropped = (
+  envelope: S.Infer<typeof Envelope>,
+  reason: 'not_connected' | 'other_workspace' | 'no_event_id',
+): T.Task<void, never, AppEnv> =>
+  T.map((env: AppEnv) =>
+    env.log.emit({ name: 'slack.event_dropped', attributes: { kind: kindOf(envelope.event), reason } }),
+  )(T.ask<AppEnv>())
 
 /** Which part of an event is kept, decided before anything of a message's text is read. */
 const keptPartOf = (event: unknown, workspace: SlackWorkspaceRow): T.Task<KeptEvent | null, never, AppEnv> =>

@@ -19,7 +19,7 @@ import { answeredBefore } from './answered-before.ts'
 import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
 import { hinted } from './hint.ts'
-import { button } from './parts.ts'
+import { button, slackReplyLines } from './parts.ts'
 import { IME_KEY_CODE, renderChips, renderOptions } from './people-picker.ts'
 
 /**
@@ -349,7 +349,7 @@ const renderComposerStatus = (context: ViewContext, id: ConversationId, model: C
           'aria-label': strings.stopReplying,
         }),
       ),
-    model.postsTo !== null && h('p', { class: 'slack-destination hint', role: 'note' }, model.postsTo),
+    slackReplyLines(model.slack),
     model.blocked !== null &&
       h('p', { class: 'composer-blocked', id: BLOCKED_REASON_ID, role: 'note' }, model.blocked),
   ]

@@ -5,6 +5,7 @@ export const en: PushTitles = {
   noteFromColleague: 'Note from a colleague',
   draftWaiting: 'A draft is waiting for your approval',
   reviewWaiting: (channel) => `${channel} · An answer waits for your review`,
+  notPosted: (channel) => `Not posted to Slack ${channel} · Open it to try again`,
   test: 'Homingbird test notification',
   testBody: 'Notifications reach this device.',
   deskStopped: 'Your cloud desk is no longer woken',

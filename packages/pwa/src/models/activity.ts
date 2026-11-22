@@ -250,7 +250,15 @@ const reviewItems = (input: ActivityInput): ActivityItem[] =>
         type: 'review',
         weight: 1,
         card: {
-          ...reviewCardModel(review, input.reviewsRead, input.members, input.draftEdits, null, 'quoted'),
+          ...reviewCardModel(
+            review,
+            input.reviewsRead,
+            input.members,
+            input.draftEdits,
+            null,
+            'quoted',
+            input.channels,
+          ),
           heading: strings.channelAgent.waitsInRoom({ agent: review.agent.name }),
         },
       }

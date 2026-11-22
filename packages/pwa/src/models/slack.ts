@@ -2,12 +2,16 @@ import type { AsRead } from '@homingbird/protocol'
 import { strings } from '../strings.ts'
 import { dateTimeText } from './time.ts'
 
-/** Slack under Connection: whether the server's workspace works, whom the person is linked to, and what to do. */
+/**
+ * Slack under Connection: whether the server's workspace works, whom the person is linked to, and what to
+ * do. Slack stopped on the server says so and why, even with a link, since nothing reaches them there.
+ */
 export const slackPersonModel = (input: SlackPersonInput): SlackPersonModel => {
   const mine = input.mine
   if (mine === undefined)
-    return { loading: true, status: '', canConnect: false, canUnlink: false, requested: null }
+    return { loading: true, status: '', canConnect: false, canUnlink: false, stopped: null, requested: null }
   const link = mine.link
+  const stopped = mine.connected || mine.stopped == null ? null : PERSON_STOPPED_TEXTS[mine.stopped]()
   return {
     loading: false,
     status:
@@ -15,7 +19,8 @@ export const slackPersonModel = (input: SlackPersonInput): SlackPersonModel => {
         ? strings.slack.linked({ name: link.slackName, workspace: mine.team ?? '' })
         : mine.connected
           ? strings.slack.notLinked({ workspace: mine.team ?? '' })
-          : strings.slack.notConnected,
+          : (stopped ?? strings.slack.notConnected),
+    stopped: link === null ? null : stopped,
     canConnect: link === null && mine.connected,
     canUnlink: link !== null,
     requested:
@@ -39,6 +44,8 @@ export interface SlackPersonModel {
   readonly status: string
   readonly canConnect: boolean
   readonly canUnlink: boolean
+  /** Under a link: why Slack does not work on the server, when it stopped. */
+  readonly stopped: string | null
   readonly requested: string | null
 }
 
@@ -84,7 +91,9 @@ export const adminSlackModel = (admin: AsRead.AdminSlack | undefined): AdminSlac
     status: !hasValues
       ? { text: strings.slack.admin.enterValues, tone: 'is-waiting' }
       : workspace === null
-        ? { text: strings.slack.admin.waiting, tone: 'is-waiting' }
+        ? admin.tokenRefused === true
+          ? { text: strings.slack.admin.tokenRefused, tone: 'is-stopped' }
+          : { text: strings.slack.admin.waiting, tone: 'is-waiting' }
         : workspace.state === 'connected'
           ? { text: strings.slack.admin.connected({ workspace: workspace.team }), tone: 'is-ok' }
           : { text: STOPPED_TEXTS[workspace.stoppedBecause ?? 'unknown'](), tone: 'is-stopped' },
@@ -129,6 +138,13 @@ const credentialsOf = (credentials: AsRead.AdminSlack['credentials']): AdminSlac
     note: texts.storedAt({ when: dateTimeText(credentials.storedAt, strings.slack.admin.never) }),
     form: { submit: texts.replace, canRemove: true },
   }
+}
+
+const PERSON_STOPPED_TEXTS: Readonly<Record<NonNullable<AsRead.MeSlack['stopped']>, () => string>> = {
+  token_refused: () => strings.slack.stopped.tokenRefused,
+  revoked: () => strings.slack.stopped.revoked,
+  other_workspace: () => strings.slack.stopped.otherWorkspace,
+  unknown: () => strings.slack.stopped.unknown,
 }
 
 const STOPPED_TEXTS: Readonly<

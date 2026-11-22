@@ -1,4 +1,4 @@
-import { type ApiError, DRAFT_CHANGED, SLACK_THREAD_MOVED } from '@homingbird/protocol'
+import { type ApiError, DRAFT_CHANGED, SLACK_QUESTION_EDITED, SLACK_THREAD_MOVED } from '@homingbird/protocol'
 import { errorText, strings } from './strings.ts'
 
 export type Attempt =
@@ -23,6 +23,7 @@ export const refusalText = (error: ApiError, attempt?: Attempt): string => {
 const DRAFT_REFUSALS: Readonly<Record<string, () => string>> = {
   [DRAFT_CHANGED]: () => strings.refusals.draftChanged,
   [SLACK_THREAD_MOVED]: () => strings.refusals.slackThreadMoved,
+  [SLACK_QUESTION_EDITED]: () => strings.refusals.slackQuestionEdited,
 }
 
 const ARCHIVED = /\barchived\b/i

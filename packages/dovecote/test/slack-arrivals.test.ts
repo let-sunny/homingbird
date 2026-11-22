@@ -238,13 +238,58 @@ describe('a question asked in a linked Slack channel', () => {
     expect(notices).toEqual([expect.objectContaining({ kind: 'slack_deleted', note_id: draft.id })])
   })
 
-  it('answers a mention in a channel that is not linked, and stays silent in a stopped link', async () => {
+  it('leaves nothing of a question deleted in Slack in the event backlog, and tells the room live', async () => {
+    const ts = await askInSlack(server, 'U0BOB', 'My password is hunter2, why?')
+    await sendSlackEvent(
+      server,
+      slackEvent({
+        type: 'message',
+        subtype: 'message_deleted',
+        channel: 'C0HELP',
+        ts: '1800000012.0',
+        deleted_ts: ts,
+      }),
+    )
+    await server.slackPass()
+    const events = await storedRows(server, 'events')
+    expect(JSON.stringify(events)).not.toContain('hunter2')
+    const sent = events.filter((row) => String(row.body).startsWith('{"type":"note.sent"'))
+    expect(sent.length).toBeGreaterThan(0)
+    for (const row of sent) expect(JSON.parse(String(row.body)).note.body).toBe('Deleted in Slack.')
+    const changes = ((await ben.api('GET', '/events/poll?after=0')).json.events as any[]).filter(
+      (event) => event.body.type === 'note.changed',
+    )
+    expect(changes.map((event) => event.body.note.via.deleted)).toEqual([true])
+  })
+
+  it('rewrites the event backlog after an edit in Slack, so the text before it is gone', async () => {
+    const ts = await askInSlack(server, 'U0BOB', 'Original?')
+    expect(JSON.stringify(await storedRows(server, 'events'))).toContain('Original?')
+    await sendSlackEvent(
+      server,
+      slackEvent({
+        type: 'message',
+        subtype: 'message_changed',
+        channel: 'C0HELP',
+        ts: '1800000010.0',
+        message: { ts, user: 'U0BOB', text: '<@U0BOT> Edited?' },
+      }),
+    )
+    await server.slackPass()
+    const events = JSON.stringify(await storedRows(server, 'events'))
+    expect(events).not.toContain('Original?')
+    expect(events).toContain('Edited?')
+  })
+
+  it('answers a mention in a channel that is not linked, and says how to restart a stopped link', async () => {
     await askInSlack(server, 'U0BOB', 'Here?', { channel: 'C0ELSE' })
     expect(ephemerals().at(-1)!.text).toContain('not linked to Homingbird')
     await sendSlackEvent(server, slackEvent({ type: 'channel_archive', channel: 'C0HELP' }))
     await server.slackPass()
-    const before = slack.calls.length
+    const notes = (await roomNotes()).length
     await askInSlack(server, 'U0BOB', 'Still?')
-    expect(slack.calls.length).toBe(before)
+    expect(ephemerals().at(-1)!.text).toContain('link to Homingbird stopped')
+    expect(ephemerals().at(-1)!.text).toContain('with the word link')
+    expect((await roomNotes()).length).toBe(notes)
   })
 })

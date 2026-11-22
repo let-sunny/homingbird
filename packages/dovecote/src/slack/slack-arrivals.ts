@@ -3,8 +3,10 @@ import { type MemberId, NoteId } from '@homingbird/protocol'
 import { participantsOf } from '../domain/conversations.ts'
 import { recipientsOf } from '../domain/delivery.ts'
 import type { NoteRow } from '../domain/note-rows.ts'
-import { announceStatus, noteById } from '../domain/note-status.ts'
+import { announceChange, announceStatus, noteById } from '../domain/note-status.ts'
 import { keepNotice } from '../domain/notices.ts'
+import { announceReview } from '../domain/review-events.ts'
+import { reviewersOf } from '../domain/reviews.ts'
 import type { AppEnv } from '../environment.ts'
 import { type RequestEnv, emit, transact } from '../events/events.ts'
 import { all, first, run } from '../sql/database.ts'
@@ -75,7 +77,7 @@ export const moveThread = (channel: string, threadTs: string, ts: string): T.Tas
 /**
  * An arrived note is a copy of a Slack message, so it follows it: an edit replaces its text, a deletion
  * replaces it with "Deleted in Slack." and discards the drafts that answer it, telling their authors.
- * Answers already sent stay. Either moves the thread.
+ * Answers already sent stay. Either moves the thread, and the old text leaves the event backlog too.
  */
 export const followSlackMessage = (
   slack: WorkingSlack,
@@ -98,11 +100,14 @@ export const followSlackMessage = (
         : plainFromSlack(change.text ?? '', new Map(), slack.workspace.bot_user_id)
       yield* run(sql`UPDATE notes SET body = ${body || DELETED_IN_SLACK}, updated_at = ${env.clock.now()}
         WHERE id = ${arrival.note_id}`)
-      yield* run(sql`UPDATE slack_arrivals SET edited = ${deleted ? arrival.edited : 1}, deleted = ${deleted ? 1 : 0}
-        WHERE note_id = ${arrival.note_id}`)
+      yield* run(sql`UPDATE slack_arrivals SET edited = ${deleted ? arrival.edited : 1}, deleted = ${deleted ? 1 : 0},
+        edited_ts = ${deleted ? arrival.edited_ts : change.at} WHERE note_id = ${arrival.note_id}`)
       yield* run(sql`UPDATE slack_threads SET newest_ts = ${change.at}
         WHERE slack_channel_id = ${change.channel} AND thread_ts = ${arrival.thread_ts}`)
+      yield* rewriteBacklogOf(arrival.note_id)
       if (deleted) yield* discardAnswersTo(arrival)
+      else yield* tellAnswerersOfEdit(arrival)
+      yield* announceChange(arrival.note_id)
     }),
   )
 
@@ -124,6 +129,7 @@ export interface ArrivalRow {
   readonly asker_linked: number
   readonly edited: number
   readonly deleted: number
+  readonly edited_ts: string | null
 }
 
 export const threadOf = (
@@ -214,6 +220,25 @@ const newestInThread = (channel: string, threadTs: string): T.Task<NoteId | null
       AND status = 'sent' ORDER BY sent_at DESC LIMIT 1`)
     return answer?.id ?? question.note_id
   })
+
+/** Every copy of the note in the event backlog reads as the note does now; nothing of the old text stays. */
+const rewriteBacklogOf = (noteId: NoteId): T.Task<void, never, RequestEnv> =>
+  T.gen(function* () {
+    const note = yield* noteById(noteId, null)
+    for (const type of ['note.sent', 'note.changed'] as const)
+      yield* run(sql`UPDATE events SET body = ${JSON.stringify({ type, note })}
+        WHERE body LIKE ${`{"type":"${type}","note":{"id":${likeEscaped(JSON.stringify(noteId))},%`} ESCAPE '!'`)
+  })
+
+/** The reviewers of a channel's agent's draft read its question again, which now says it was edited. */
+const tellAnswerersOfEdit = (arrival: ArrivalRow): T.Task<void, never, RequestEnv> =>
+  T.gen(function* () {
+    const drafts = yield* all<NoteRow>(sql`SELECT * FROM notes WHERE in_reply_to = ${arrival.note_id}
+      AND status = 'draft' ORDER BY id`)
+    for (const draft of drafts) yield* announceReview(yield* reviewersOf(draft), draft.id)
+  })
+
+const likeEscaped = (text: string): string => text.replace(/[!%_]/g, '!$&')
 
 const discardAnswersTo = (arrival: ArrivalRow): T.Task<void, never, RequestEnv> =>
   T.gen(function* () {

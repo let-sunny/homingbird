@@ -1,6 +1,7 @@
 import { type AsRead, type MemberId, type NoteId, mayRecall, summarize } from '@homingbird/protocol'
 import { authorshipOf, showsStateMark, stateMarkOf } from '../authorship.ts'
 import { type AnswerersLine, questionWaits } from '../channel-answerers.ts'
+import { channelOfRoom } from '../channels.ts'
 import { debateNoteParts } from '../debate-note.ts'
 import { type SourceShown, draftBasisOf } from '../draft-basis.ts'
 import { unavailableOf } from '../presence.ts'
@@ -34,7 +35,7 @@ import {
   notesOf,
   roomOf,
 } from './thread-room.ts'
-import { type TimeShown, noteTimeShown } from './time.ts'
+import { type TimeShown, noteTimeShown, timeShown } from './time.ts'
 
 /** One sent note: who wrote it and how, what it answers, how far it got, and what the person may do. */
 export const noteItemModel = (
@@ -75,7 +76,7 @@ export const noteItemModel = (
             ? strings.slack.askedIn({ name: note.via.askerName, channel: note.via.channelName })
             : nameIn(input, note.authorId)
         : null,
-    slack: slackLineOf(note),
+    slack: slackLineOf(input, note),
     bubbleTitle: next !== null && sentAt !== null ? sentAt : null,
     quote:
       quoted === null
@@ -485,9 +486,21 @@ const autoSentModel = (input: ThreadInput, note: AsRead.Note, mine: boolean): No
   }
 }
 
-const slackLineOf = (note: AsRead.Note): NoteItemModel['slack'] => {
+/**
+ * How a copy from Slack or a reply's post to Slack stands. A post that waits while Slack or the link is
+ * stopped says so; one that waits for another attempt says when, and can be tried now.
+ */
+const slackLineOf = (input: ThreadInput, note: AsRead.Note): NoteItemModel['slack'] => {
   if (note.via?.deleted === true) return { text: strings.slack.deletedInSlack, retry: null }
   if (note.via?.edited === true) return { text: strings.slack.editedInSlack, retry: null }
+  const waiting = note.posting === 'pending' || note.posting === 'retrying'
+  if (waiting && (channelOfRoom(input.channels, note.conversationId)?.link?.stoppedBecause ?? null) !== null)
+    return { text: strings.slack.waitingForSlack, retry: null }
+  if (note.posting === 'retrying')
+    return {
+      text: strings.slack.retryingAt({ time: timeShown(note.postingRetryAt ?? input.now, input.now).text }),
+      retry: strings.slack.tryNow,
+    }
   if (note.posting === 'pending') return { text: strings.slack.postingToSlack, retry: null }
   if (note.posting === 'posted') return { text: strings.slack.postedToSlack, retry: null }
   if (note.posting === 'failed')

@@ -234,11 +234,28 @@ const slackLinkLine = (
 ): Extract<ThreadHead, { kind: 'channel' }>['slackLink'] => {
   const link = channel?.link
   if (link === undefined || link === null) return null
+  const stop = link.state === 'active' ? (link.stoppedBecause ?? null) : (link.stoppedBecause ?? 'unknown')
   return {
     text:
-      link.state === 'active'
+      stop === null
         ? strings.slack.linkedChannel({ channel: link.name })
-        : strings.slack.linkStopped({ channel: link.name }),
+        : LINK_STOPPED_TEXTS[stop]({ channel: link.name }),
     unlink: channel?.managing === true ? strings.slack.unlinkChannel : null,
   }
+}
+
+/** Why a link stopped, and how to restart it; a stop this client does not know says only that it stopped. */
+const LINK_STOPPED_TEXTS: Readonly<
+  Record<
+    NonNullable<AsRead.Channel['link']>['stoppedBecause'] & string,
+    (values: { channel: string }) => string
+  >
+> = {
+  app_removed: (values) => strings.slack.linkStoppedBecause.appRemoved(values),
+  archived: (values) => strings.slack.linkStoppedBecause.archived(values),
+  deleted: (values) => strings.slack.linkStoppedBecause.deleted(values),
+  failures: (values) => strings.slack.linkStoppedBecause.failures(values),
+  slack_stopped: (values) => strings.slack.linkStoppedBecause.slackStopped(values),
+  pairing: (values) => strings.slack.linkStoppedBecause.unknown(values),
+  unknown: (values) => strings.slack.linkStoppedBecause.unknown(values),
 }

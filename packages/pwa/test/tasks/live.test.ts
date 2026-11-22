@@ -68,6 +68,38 @@ describe('liveEvents', () => {
     expect(routes()).toContain('conversations.list')
   })
 
+  it('files how a note reads now, and tells the sender and the managers when its post to Slack was given up', () => {
+    const { apply, state } = live()
+    state.threads.set(new Map([[ROOM, { notes: [note('n1', { posting: 'pending' })], hasMore: false }]]))
+    apply(event({ type: 'note.changed', note: note('n1', { posting: 'retrying', postingRetryAt: 9 }) }))
+    expect(state.threads.get().get(ROOM)!.notes[0]).toMatchObject({ posting: 'retrying', postingRetryAt: 9 })
+    expect(state.notice.get()).toBeNull()
+    apply(event({ type: 'note.changed', note: note('n1', { posting: 'failed' }) }))
+    expect(state.notice.get()).toBeNull()
+    apply(event({ type: 'note.changed', note: note('n1', { posting: 'failed', authorId: ANA }) }))
+    expect(state.notice.get()).toEqual({
+      kind: 'error',
+      text: strings.slack.notPostedNotice({ channel: '' }),
+    })
+    state.notice.set(null)
+    apply(event({ type: 'note.changed', note: note('n1', { posting: 'failed', approvedBy: ANA }) }))
+    expect(state.notice.get()?.kind).toBe('error')
+    state.notice.set(null)
+    const link = {
+      tool: 'slack',
+      name: 'eng-help',
+      isPrivate: false,
+      memberCount: 4,
+      state: 'active',
+    } as const
+    state.channels.set([channel('help', { conversationId: ROOM, managing: true, link })])
+    apply(event({ type: 'note.changed', note: note('n1', { posting: 'failed' }) }))
+    expect(state.notice.get()).toEqual({
+      kind: 'error',
+      text: strings.slack.notPostedNotice({ channel: 'eng-help' }),
+    })
+  })
+
   it('announces nothing from a conversation the person muted, and still files its note', () => {
     const { apply, state, clock } = live()
     state.threads.set(new Map([[ROOM, { notes: [], hasMore: false }]]))

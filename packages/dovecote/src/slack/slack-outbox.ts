@@ -6,16 +6,17 @@ import {
   type NotFound,
   type Note,
   type NoteId,
+  SLACK_QUESTION_EDITED,
   SLACK_THREAD_MOVED,
 } from '@homingbird/protocol'
 import { survivingPass } from '../background-pass.ts'
 import { membersByIds } from '../domain/members.ts'
 import type { NoteRow } from '../domain/note-rows.ts'
-import { noteById } from '../domain/note-status.ts'
+import { announceChange, noteById } from '../domain/note-status.ts'
 import type { AppEnv, Caller } from '../environment.ts'
 import { type RequestEnv, transact } from '../events/events.ts'
 import { all, first, run } from '../sql/database.ts'
-import { insertInto, list, sql } from '../sql/query.ts'
+import { type Query, insertInto, list, sql } from '../sql/query.ts'
 import { type ArrivalRow, threadOf } from './slack-arrivals.ts'
 import { type SlackLinkRow, stopSlackLink } from './slack-channels.ts'
 import { slackPostOf } from './slack-markup.ts'
@@ -52,7 +53,11 @@ export const slackPostingOf = (
       )
     const thread = yield* threadOf(arrival.slack_channel_id, arrival.thread_ts)
     if (expected !== null && thread !== null && expected.threadAt !== thread.newest_ts)
-      return yield* T.fail(Conflict({ message: SLACK_THREAD_MOVED }))
+      return yield* T.fail(
+        Conflict({
+          message: isEditedSince(arrival, expected.threadAt) ? SLACK_QUESTION_EDITED : SLACK_THREAD_MOVED,
+        }),
+      )
     return { link, arrival }
   })
 
@@ -107,7 +112,7 @@ export const slackOutboxPass: T.Task<void, never, AppEnv> = T.gen(function* () {
   for (const row of due) yield* survivingPass('slack post', post(slack, row))
 })
 
-/** Tries a note that was not posted again, for anyone who may read it. */
+/** Tries a note that was not posted, or waits for a later attempt, again now, for anyone who may read it. */
 export const retrySlackPost = (
   caller: Caller,
   noteId: NoteId,
@@ -117,9 +122,10 @@ export const retrySlackPost = (
     const note = yield* noteById(noteId, caller.member.id)
     const retried =
       yield* run(sql`UPDATE slack_outbox SET state = 'pending', attempts = 0, next_at = ${env.clock.now()}
-      WHERE note_id = ${note.id} AND state = 'failed'`)
+      WHERE note_id = ${note.id} AND (state = 'failed' OR (state = 'pending' AND next_at > ${env.clock.now()}))`)
     if (retried === 0)
       return yield* T.fail(Conflict({ message: 'This note is not waiting to be tried again.' }))
+    yield* announceChange(note.id)
     return yield* noteById(noteId, caller.member.id)
   })
 
@@ -163,6 +169,7 @@ const markPosted = (row: OutboxRow, ts: string): T.Task<void, never, RequestEnv>
     yield* run(
       sql`UPDATE slack_channel_links SET failures = 0 WHERE slack_channel_id = ${row.slack_channel_id}`,
     )
+    yield* announceChange(row.note_id)
   })
 
 const failed = (row: OutboxRow, failure: SlackCallFailure): T.Task<void, never, AppEnv> =>
@@ -172,27 +179,46 @@ const failed = (row: OutboxRow, failure: SlackCallFailure): T.Task<void, never, 
     yield* slackCallFailed('chat.postMessage', failure)
     if (isTokenRefusal(failure)) return
     if (failure._tag === 'SlackRateLimited')
-      return yield* T.asUnit(
-        run(sql`UPDATE slack_outbox SET next_at = ${now + failure.retryAfterSeconds * 1000}
-        WHERE note_id = ${row.note_id}`),
+      return yield* transact(
+        waitFor(
+          row,
+          sql`UPDATE slack_outbox SET next_at = ${now + failure.retryAfterSeconds * 1000}
+        WHERE note_id = ${row.note_id}`,
+        ),
       )
     if (failure._tag === 'SlackRefused' && LINK_GONE[failure.error] !== undefined)
       return yield* transact(stopLinkOf(row, LINK_GONE[failure.error]!))
     const attempts = row.attempts + 1
     const uncertain = failure._tag === 'SlackUnreachable' ? 1 : row.uncertain
     if (attempts <= BACKOFF_MS.length)
-      return yield* T.asUnit(
-        run(sql`UPDATE slack_outbox SET attempts = ${attempts}, uncertain = ${uncertain},
-        next_at = ${now + BACKOFF_MS[attempts - 1]!} WHERE note_id = ${row.note_id}`),
+      return yield* transact(
+        waitFor(
+          row,
+          sql`UPDATE slack_outbox SET attempts = ${attempts}, uncertain = ${uncertain},
+        next_at = ${now + BACKOFF_MS[attempts - 1]!} WHERE note_id = ${row.note_id}`,
+        ),
       )
     yield* transact(givenUp(row, uncertain))
   })
 
-/** After the last wait, the note shows as not posted with Try again; five such notes in a row stop the link. */
+const waitFor = (row: OutboxRow, update: Query): T.Task<void, never, RequestEnv> =>
+  T.gen(function* () {
+    yield* run(update)
+    yield* announceChange(row.note_id)
+  })
+
+const isEditedSince = (arrival: ArrivalRow, threadAt: string | undefined): boolean =>
+  arrival.edited_ts !== null && Number(arrival.edited_ts) > Number(threadAt ?? 0)
+
+/**
+ * After the last wait, the note shows as not posted with Try again, and its sender and the channel's
+ * managers are told; five such notes in a row stop the link.
+ */
 const givenUp = (row: OutboxRow, uncertain: number): T.Task<void, never, RequestEnv> =>
   T.gen(function* () {
     yield* run(sql`UPDATE slack_outbox SET state = 'failed', attempts = 0, uncertain = ${uncertain}
       WHERE note_id = ${row.note_id}`)
+    yield* announceChange(row.note_id)
     yield* run(
       sql`UPDATE slack_channel_links SET failures = failures + 1 WHERE slack_channel_id = ${row.slack_channel_id}`,
     )
@@ -207,8 +233,9 @@ const stopLinkOf = (row: OutboxRow, because: 'app_removed' | 'archived'): T.Task
     const link = yield* first<SlackLinkRow>(
       sql`SELECT * FROM slack_channel_links WHERE slack_channel_id = ${row.slack_channel_id}`,
     )
-    if (link !== null) yield* stopSlackLink(link, because)
-    else yield* run(sql`UPDATE slack_outbox SET state = 'failed' WHERE note_id = ${row.note_id}`)
+    if (link !== null) return yield* stopSlackLink(link, because)
+    yield* run(sql`UPDATE slack_outbox SET state = 'failed' WHERE note_id = ${row.note_id}`)
+    yield* announceChange(row.note_id)
   })
 
 const LINK_GONE: Readonly<Record<string, 'app_removed' | 'archived'>> = {

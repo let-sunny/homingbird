@@ -101,6 +101,7 @@ describe('wire model', () => {
         'inReplyTo',
         'origin',
         'posting',
+        'postingRetryAt',
         'receipts',
         'sentAt',
         'sources',

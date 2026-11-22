@@ -80,10 +80,10 @@ const mentioned = (slack: WorkingSlack, event: KeptEvent): T.Task<void, never, A
     }
     const link = yield* linkOfSlackChannel(event.channel)
     const wantsLink = LINK_WORD.test(withoutMentions(event.text ?? '').trim())
-    if (!wantsLink && link?.state === 'stopped') return
     const user = yield* calling('users.info', slack.api.userInfo(event.user))
     if (user === undefined) return
     if (!isEligible(slack, user)) return yield* tellOnly(slack, user, place, 'membersOnly')
+    if (link?.state === 'stopped') return yield* tellOnly(slack, user, place, 'linkStopped')
     if (!wantsLink && link === null) return yield* tellOnly(slack, user, place, 'notLinkedHere')
     if (!wantsLink && link !== null)
       return yield* receiveQuestion(

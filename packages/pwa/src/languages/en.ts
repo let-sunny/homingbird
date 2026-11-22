@@ -566,6 +566,8 @@ export const en = {
     draftChanged: 'This draft changed after you read it, so it was not sent. Read it again.',
     slackThreadMoved:
       'The Slack thread has newer messages since you read this, so it was not sent. Read them in Slack, then send again.',
+    slackQuestionEdited:
+      'The question was edited in Slack since you read this, so it was not sent. Read it again, then send again.',
     nameTaken: 'That name is not available.',
     lastManager: 'A channel with members keeps a manager. Add another manager first.',
     managerStays:
@@ -2192,6 +2194,16 @@ export const en = {
     linked: 'Linked to Slack user {name} of {workspace}.',
     notLinked: 'Not linked to a Slack user of {workspace} yet.',
     notConnected: 'Slack is not connected on this server yet. An administrator sets it up.',
+    stopped: {
+      tokenRefused:
+        'Slack is stopped on this server: Slack refused the app’s bot token. Nothing reaches you in Slack until an administrator gives a working one.',
+      revoked:
+        'Slack is stopped on this server: the app was uninstalled or its token revoked. Nothing reaches you in Slack until an administrator installs it again.',
+      otherWorkspace:
+        'Slack is stopped on this server: its bot token belongs to another workspace. Nothing reaches you in Slack until an administrator gives this workspace’s token.',
+      unknown:
+        'Slack is stopped on this server. Nothing reaches you in Slack until an administrator starts it again.',
+    },
     connect: 'Connect Slack',
     requestSent:
       'Homingbird sent a direct message in Slack to the user with your email. Open the link in it within ten minutes.',
@@ -2215,6 +2227,11 @@ export const en = {
     postedToSlack: 'Posted to Slack',
     notPostedToSlack: 'Not posted to Slack',
     tryAgain: 'Try again',
+    retryingAt: 'Not posted to Slack yet; trying again at {time}',
+    tryNow: 'Try now',
+    waitingForSlack: 'Not posted to Slack yet: Slack is stopped for this channel',
+    notPostedNotice: 'A reply could not be posted to Slack #{channel}. Open it and press Try again.',
+    questionEdited: 'The question was edited in Slack after this was drafted; read it again before sending',
     postsTo: {
       one: 'Posts to Slack #{channel} ({count} member)',
       other: 'Posts to Slack #{channel} ({count} members)',
@@ -2227,7 +2244,20 @@ export const en = {
     draftDiscardedDeleted: 'A draft was discarded: the question it answered was deleted in Slack.',
     linkedChannel:
       'Linked to Slack #{channel}. Messages there that mention Homingbird arrive here; answers a person approves are posted there.',
-    linkStopped: 'The link to Slack #{channel} stopped: nothing arrives from it or is posted to it.',
+    linkStoppedBecause: {
+      appRemoved:
+        'The link to Slack #{channel} stopped: the app was removed from that channel. To restart it, a manager unlinks it here, invites the app to #{channel} again and mentions @Homingbird there with the word link.',
+      archived:
+        'The link to Slack #{channel} stopped: that channel was archived. Once it is back, a manager unlinks it here and mentions @Homingbird there with the word link.',
+      deleted:
+        'The link to Slack #{channel} stopped: that channel was deleted in Slack. A manager unlinks it here.',
+      failures:
+        'The link to Slack #{channel} stopped: five replies in a row could not be posted. To restart it, a manager unlinks it here and mentions @Homingbird in #{channel} with the word link.',
+      slackStopped:
+        'Slack is stopped on this server, so nothing arrives from Slack #{channel} or is posted to it. An administrator starts it again under Administration → Settings → Slack.',
+      unknown:
+        'The link to Slack #{channel} stopped: nothing arrives from it or is posted to it. To restart it, a manager unlinks it here and mentions @Homingbird in #{channel} with the word link.',
+    },
     unlinkChannel: 'Unlink from Slack',
     confirmChannel: {
       one: 'Link Slack #{channel} ({count} member) to a channel you manage?',
@@ -2244,6 +2274,8 @@ export const en = {
         'The organization’s own Slack app. Create it from the manifest below and install it to the workspace, then give its bot token and signing secret here, or set HB_SLACK_BOT_TOKEN and HB_SLACK_SIGNING_SECRET on the server. Slack must reach the events address.',
       enterValues: 'Not connected: give the app’s bot token and signing secret below.',
       waiting: 'The server has the app’s token but has not reached Slack yet.',
+      tokenRefused:
+        'Slack refused the bot token, so nothing from Slack is taken in. Give a working token; events Slack sends until then are dropped and logged as slack.event_dropped.',
       connected: 'Connected to the {workspace} workspace.',
       credentials: {
         legend: 'Bot token and signing secret',

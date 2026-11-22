@@ -168,6 +168,15 @@ export const Channel = S.struct({
         isPrivate: S.boolean,
         memberCount: S.nullable(S.int({ min: 0 })),
         state: S.tolerant(S.literal('active', 'stopped'), UNKNOWN),
+        /** Why nothing arrives or is posted: the link's own stop, or Slack stopped on the server. */
+        stoppedBecause: S.optional(
+          S.nullable(
+            S.tolerant(
+              S.literal('app_removed', 'archived', 'deleted', 'pairing', 'failures', 'slack_stopped'),
+              UNKNOWN,
+            ),
+          ),
+        ),
       }),
     ),
   ),
@@ -263,7 +272,8 @@ export const Note = S.struct({
       newerMessages: S.int({ min: 0 }),
     }),
   ),
-  posting: S.optional(S.tolerant(S.literal('pending', 'posted', 'failed'), UNKNOWN)),
+  posting: S.optional(S.tolerant(S.literal('pending', 'retrying', 'posted', 'failed'), UNKNOWN)),
+  postingRetryAt: S.optional(Timestamp),
   fromDebate: S.optional(
     S.struct({
       debateId: DebateId,

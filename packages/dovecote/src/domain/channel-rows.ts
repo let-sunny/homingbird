@@ -11,6 +11,7 @@ import {
 } from '@homingbird/protocol'
 import type { AppEnv, Caller } from '../environment.ts'
 import { type RequestEnv, emit } from '../events/events.ts'
+import { workingSlack } from '../slack/slack-workspace.ts'
 import { all, dialect, first, run } from '../sql/database.ts'
 import { insertIgnoringConflict, sql } from '../sql/query.ts'
 import { abandonDraftsIn } from './abandoned-drafts.ts'
@@ -73,32 +74,28 @@ export const describeChannel = (viewer: Viewer, row: ChannelRow): T.Task<Channel
     }
   })
 
-/** The Slack channel linked to a room, as its participants see it; nothing of it reaches others. */
+/** The Slack channel linked to a room, as its participants see it, and why it stopped if it did. */
 const slackLinkShown = (
   conversationId: ConversationId,
 ): T.Task<Exclude<Channel['link'], undefined>, never, AppEnv> =>
-  T.map(
-    (
-      link: {
-        slack_channel_name: string
-        is_private: number
-        member_count: number | null
-        state: 'active' | 'stopped'
-      } | null,
-    ): Exclude<Channel['link'], undefined> =>
-      link === null
-        ? null
-        : {
-            tool: 'slack',
-            name: link.slack_channel_name,
-            isPrivate: Number(link.is_private) === 1,
-            memberCount: link.member_count === null ? null : Number(link.member_count),
-            state: link.state,
-          },
-  )(
-    first(sql`SELECT slack_channel_name, is_private, member_count, state FROM slack_channel_links
-      WHERE conversation_id = ${conversationId}`),
-  )
+  T.gen(function* () {
+    const link = yield* first<LinkShownRow>(sql`SELECT slack_channel_name, is_private, member_count, state,
+      stopped_because FROM slack_channel_links WHERE conversation_id = ${conversationId}`)
+    if (link === null) return null
+    return {
+      tool: 'slack',
+      name: link.slack_channel_name,
+      isPrivate: Number(link.is_private) === 1,
+      memberCount: link.member_count === null ? null : Number(link.member_count),
+      state: link.state,
+      stoppedBecause:
+        link.state === 'stopped'
+          ? link.stopped_because
+          : (yield* workingSlack) === null
+            ? 'slack_stopped'
+            : null,
+    }
+  })
 
 /** A channel's agent: the one active member of that kind in its room, which only its managers put there. */
 export const channelAgentOf = (
@@ -273,3 +270,11 @@ const idsOf = (query: ReturnType<typeof sql>): T.Task<MemberId[], never, AppEnv>
 
 const maySee = (viewer: Viewer, row: ChannelRow): T.Task<boolean, never, AppEnv> =>
   isVisibleRoom(visibilityOf(row), viewer) ? T.succeed(true) : isMemberOf(row.conversation_id, viewer.id)
+
+interface LinkShownRow {
+  readonly slack_channel_name: string
+  readonly is_private: number
+  readonly member_count: number | null
+  readonly state: 'active' | 'stopped'
+  readonly stopped_because: 'app_removed' | 'archived' | 'deleted' | 'pairing' | 'failures' | null
+}

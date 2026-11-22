@@ -38,6 +38,7 @@ describe('slackPersonModel', () => {
       status: '',
       canConnect: false,
       canUnlink: false,
+      stopped: null,
       requested: null,
     })
   })
@@ -48,6 +49,7 @@ describe('slackPersonModel', () => {
       status: strings.slack.notLinked({ workspace: 'Acme' }),
       canConnect: true,
       canUnlink: false,
+      stopped: null,
       requested: null,
     })
     expect(slackPersonModel({ mine: MINE, requested: true }).requested).toBe(strings.slack.requestSent)
@@ -87,7 +89,31 @@ describe('slackPersonModel', () => {
     expect(stopped).toMatchObject({
       status: strings.slack.linked({ name: 'Ana', workspace: '' }),
       canUnlink: true,
+      stopped: null,
     })
+  })
+
+  it('says why Slack stopped on the server, in place of not connected, and under a link', () => {
+    const texts = {
+      token_refused: strings.slack.stopped.tokenRefused,
+      revoked: strings.slack.stopped.revoked,
+      other_workspace: strings.slack.stopped.otherWorkspace,
+      unknown: strings.slack.stopped.unknown,
+    } as const
+    for (const [stop, text] of Object.entries(texts)) {
+      const mine = { team: 'Acme', connected: false, stopped: stop as keyof typeof texts, link: null }
+      expect(slackPersonModel({ mine, requested: null })).toMatchObject({ status: text, stopped: null })
+      const linked = slackPersonModel({
+        mine: { ...mine, link: { slackName: 'Ana', linkedAt: 1 } },
+        requested: null,
+      })
+      expect(linked).toMatchObject({
+        status: strings.slack.linked({ name: 'Ana', workspace: 'Acme' }),
+        stopped: text,
+      })
+    }
+    const working = { team: 'Acme', connected: true, stopped: 'revoked' as const, link: null }
+    expect(slackPersonModel({ mine: working, requested: null }).stopped).toBeNull()
   })
 })
 
@@ -150,6 +176,16 @@ describe('adminSlackModel', () => {
       eventsUrl: 'https://hb.example/slack/events',
       manifest: '{"a":1}',
     })
+  })
+
+  it('says Slack refused the bot token before any workspace connected', () => {
+    expect(adminSlackModel({ ...adminOf(null), tokenRefused: true })!.status).toEqual({
+      text: strings.slack.admin.tokenRefused,
+      tone: 'is-stopped',
+    })
+    expect(adminSlackModel({ ...adminOf(null), tokenRefused: false })!.status.text).toBe(
+      strings.slack.admin.waiting,
+    )
   })
 
   it('names the connected workspace, when Slack last sent an event and how many people are linked', () => {
