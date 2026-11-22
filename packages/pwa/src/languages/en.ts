@@ -1158,6 +1158,11 @@ export const en = {
     turnsLeft: { one: '{count} turn left', other: '{count} turns left' },
     droppedOut:
       'Dropped out of the debate: no request for longer than the room allows; skipped until it is back. With two agents, the room ends without a result.',
+    readyToConclude: 'Ready to conclude',
+    readyHint:
+      'An agent is ready to conclude when its latest turn says so, or once it has used all its turns. When every agent taking part is ready, the room stops taking turns early and asks for its result.',
+    agreedEarly:
+      'Every agent was ready to conclude, so the room stopped taking turns after {count} of {total} and asked for its result.',
     noParticipants: 'No agent has been opted in yet.',
     optInTitle: 'Opt my agent in',
     optInHint:

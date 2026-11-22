@@ -72,6 +72,33 @@ describe('the runner in a debate room', () => {
       if (call.route !== null) expect(contract[call.route].access).not.toMatch(/human|admin/)
   })
 
+  it('sends ready with a turn whose last line is exactly READY: yes, and takes a slightly wrong one off as not ready', async () => {
+    const posted: unknown[] = []
+    const outputs = ['We agree.\nREADY: yes\nMODEL: gpt-6', 'One more fact.\nready:Yes']
+    const r = runner({
+      stubs: {
+        'debates.waiting': once(
+          {
+            asks: [
+              { debate: ROOM, ask: 'turn' },
+              { debate: { ...ROOM, id: DebateId.of('debate000001') }, ask: 'turn' },
+            ],
+          },
+          { asks: [] },
+        ),
+        'debates.turns.post': (request) => {
+          posted.push(request.body)
+          return { ...ROOM, turns: [...ROOM.turns, { ...ROOM.turns[0]!, position: 2 }] }
+        },
+      },
+      agent: () => ({ exitCode: 0, output: outputs.shift() ?? '' }),
+    })
+    await settle(() => posted.length === 2)
+    await r.stop()
+    expect(posted).toEqual([{ body: 'We agree.', model: 'gpt-6', ready: true }, { body: 'One more fact.' }])
+    expect(r.w.agentRuns[0]!.prompt).toContain('one line of exactly READY: yes')
+  })
+
   it('sends the model the agent stated on its last line with its turn and its draft, never in their text', async () => {
     const posted: unknown[] = []
     const r = runner({

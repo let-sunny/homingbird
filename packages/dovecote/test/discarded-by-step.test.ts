@@ -11,8 +11,8 @@ afterEach(async () => {
 })
 
 describe('the discarded by step', () => {
-  it('is the last step', () => {
-    expect(stepNumberOf(DISCARDED_BY)).toBe(MIGRATIONS.length)
+  it('is the nineteenth step, after draft previews', () => {
+    expect(stepNumberOf(DISCARDED_BY)).toBe(19)
   })
 
   it('adds who discarded a note to every note, empty for the notes before it', async () => {
@@ -28,7 +28,7 @@ describe('the discarded by step', () => {
       `INSERT INTO notes (id, conversation_id, author_id, status, body, origin, created_at, updated_at) VALUES ('note_kept00000000', 'conv_room00000000', 'mem_ana', 'discarded', 'Kept', 'agent', 1, 1)`,
     )
     expect(await database.columnsOf('notes')).not.toContain('discarded_by')
-    expect(await database.migrate(MIGRATIONS)).toEqual([earlier + 1])
+    expect(await database.migrate(MIGRATIONS.slice(0, earlier + 1))).toEqual([earlier + 1])
     expect(await database.columnsOf('notes')).toContain('discarded_by')
     expect(
       await database.execute(`UPDATE notes SET discarded_by = 'mem_ana' WHERE id = 'note_kept00000000'`),

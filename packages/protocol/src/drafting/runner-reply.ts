@@ -11,6 +11,7 @@ import {
   agentLabelOf,
 } from '../model.ts'
 import { APPLIED_PREFIX } from '../principles.ts'
+import { READY_TRAILER } from './debate-prompts.ts'
 import { jsonIn } from './debate-reader.ts'
 import { SPLIT_BASIS } from './note-reader.ts'
 
@@ -96,6 +97,21 @@ export const statedModelIn = (output: string): { readonly answer: string; readon
   return { answer: lines.slice(0, -1).join('\n').trim(), model }
 }
 
+/** A turn apart from a last `READY:` line, before or after `MODEL:`; only `READY_TRAILER` means ready. */
+export const statedTurnIn = (output: string): StatedTurn => {
+  const readyLast = readyTrailerIn(output)
+  if (readyLast.found) return { ...statedModelIn(readyLast.answer), ready: readyLast.ready }
+  const stated = statedModelIn(output)
+  const readyFirst = readyTrailerIn(stated.answer)
+  return { answer: readyFirst.answer, model: stated.model, ready: readyFirst.ready }
+}
+
+export interface StatedTurn {
+  readonly answer: string
+  readonly model: string | null
+  readonly ready: boolean
+}
+
 /** The result an agent printed, or null for anything but one JSON object in a result's shape. */
 export const debateResultIn = (output: string): DebateResult | null => {
   const decoded = DebateResult.decode(jsonIn(output))
@@ -124,6 +140,17 @@ const sourceIn = (line: string): DraftSource | null => {
   })
   return decoded._tag === 'Ok' ? decoded.value : null
 }
+
+const readyTrailerIn = (
+  text: string,
+): { readonly found: boolean; readonly answer: string; readonly ready: boolean } => {
+  const lines = text.trim().split('\n')
+  const last = lines.at(-1)!.trim()
+  if (!READY_LINE.test(last)) return { found: false, answer: text.trim(), ready: false }
+  return { found: true, answer: lines.slice(0, -1).join('\n').trim(), ready: last === READY_TRAILER }
+}
+
+const READY_LINE = /^ready\s*:\s*\S+$/i
 
 const modelNameIn = (text: string): string | null => {
   const name = text.replace(/[\p{Cc}\p{Cf}]/gu, '').trim()

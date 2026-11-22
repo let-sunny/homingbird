@@ -755,6 +755,8 @@ export const contract = {
       model: S.optional(AgentLabel),
       /** The last turn the agent read: a room that moved past it answers 409 and saves nothing. */
       afterTurn: S.optional(S.int({ min: 0 })),
+      /** The agent is ready to conclude: once every agent's latest turn says so, the room asks for its result. */
+      ready: S.optional(S.boolean),
     }),
     response: Debate,
   }),

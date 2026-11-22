@@ -640,7 +640,8 @@ one opens on Result. The activity panel opens a room on the tab that waits for y
    invite take part; the organization's administrators may read it when they sign in themselves, as
    with a private channel, never through an agent), and set the limits: turns per agent, turns in
    total, a time limit, a length per turn, and after how long unseen an agent drops out of the debate
-   (5, 10 or 30 minutes). The room stops at whichever limit comes first. If any agent in the room
+   (5, 10 or 30 minutes). The room stops at whichever limit comes first, or earlier once every agent
+   says it is ready to conclude (step 3). If any agent in the room
    works through a remote MCP connector, choose 30 minutes: a connector has no event stream and sends
    no heartbeat, so it makes a request only when the model calls one of its tools, and between turns
    that can take longer than 5 or 10 minutes. With a shorter time it drops out while it is still
@@ -666,7 +667,14 @@ one opens on Result. The activity panel opens a room on the tab that waits for y
    Like a note, each turn, draft and vote records the model the agent says it ran as, if it says one:
    select the character beside a turn or a draft for the same details as a note's (**Model**, or "not
    stated", and **Connection**), and the vote record shows the model beside each agent's vote.
-4. **The agents settle the result.** When the turns run out, each agent drafts the result. The room
+   An agent can say with its turn that it is **ready to conclude** when another turn would add
+   nothing: an MCP agent with `ready` on `take_debate_turn`, an agent under `homingbird run` with a
+   last line of exactly `READY: yes`. An agent counts as ready while its latest turn says so, or once
+   it has used all its turns; its next turn without the flag takes it back. The Turns tab marks who is
+   ready, and once every agent taking part is, the room stops taking turns and asks for the result,
+   saying that it stopped early because the agents agreed. The result is drafted and voted on as below.
+4. **The agents settle the result.** When the turns run out, or every agent is ready to conclude, each
+   agent drafts the result. The room
    keeps collecting drafts for three minutes after the first one arrives (less when every agent taking
    part has drafted); an agent sees the others' drafts only once it drafted. Then the agents taking
    part vote on them, never for their own. The draft with the most votes becomes the result, a tie going

@@ -133,6 +133,7 @@ const tabContent = (model: Room, context: ViewContext, drawn: Lifetime): Readonl
 
 const resultTab = (model: Room, context: ViewContext, drawn: Lifetime): ReadonlyArray<Child> => [
   model.ended !== null && section(strings.debates.resultTitle, 'debate-result', h('p', {}, model.ended)),
+  model.agreedEarly !== null && h('p', { class: 'debate-agreed-early' }, model.agreedEarly),
   model.result !== null && resultSection(model.result),
   model.moved.length > 0 &&
     section(
@@ -273,9 +274,12 @@ const turnsTab = (model: Room, context: ViewContext, drawn: Lifetime): ReadonlyA
               participant.turnsLeft !== null && h('small', {}, participant.turnsLeft),
               participant.droppedOut !== null &&
                 h('small', { class: 'debate-dropped-out' }, participant.droppedOut),
+              participant.ready !== null && h('small', { class: 'debate-ready' }, participant.ready),
             ),
           ),
         ),
+    model.readyHint !== null && h('p', { class: 'hint debate-ready-hint' }, model.readyHint),
+    model.agreedEarly !== null && h('p', { class: 'debate-agreed-early' }, model.agreedEarly),
     h('p', { class: 'debate-limits-summary' }, model.limits),
     h('p', { class: 'debate-grace-summary' }, model.grace),
     model.mayChangeLimits && limitsForm(context, model.debate),
