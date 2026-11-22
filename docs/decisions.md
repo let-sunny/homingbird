@@ -57,8 +57,9 @@ states the decision first, then the reason. Add new entries at the top of their 
 - **Send and Discard wait five seconds on the page before the server hears of them, so either can be
   undone.** An approval card is decided at speed, and a decision a person regrets the moment they tap
   it should cost one more tap, not a note to apologise for. The web client keeps a line in the card's
-  place and a toast in the top layer, both saying "Sending to Ana… · Undo" or "Discarding… · Undo"
-  until the server has it and "Sent to Ana" after, and makes the request when the five seconds are
+  place and a toast in the top layer, both saying "Sending to Ana in 5 s · Undo" or "Discarding in 5 s
+  · Undo" while it can be undone, "Sending to Ana…" while the request is on its way and "Sent to Ana"
+  only once the server answered, and makes the request when the five seconds are
   over, when the person dismisses the toast, when they decide another card, or when the page is hidden
   or closed; the write is sent with `keepalive`, so closing the tab does not lose it. A page that dies
   first keeps the decision in the browser and, on the next load, says the draft was not sent when it
@@ -894,6 +895,39 @@ timing people, the reason `drafts.seen` was already left out.
   Off unless the operator sets a destination and the administrator turns the `analytics` feature on.
 - **The CLI service log rotates** at 5 MB into one `.1` backup, and the systemd and launchd units now
   pass `--log` so the runner owns the file it rotates; `--log-level` keeps only problems when asked.
+
+## Notes are exported, erased and expired by the operator on the server host, never through a route
+
+A data-subject request, a leaver's unsent drafts and a retention policy each needed hand-written SQL on a
+schema that changes between releases; pilot evaluators' legal review blocked a 40-person rollout on it.
+
+- **Commands beside `dovecote audit`, not routes.** `dovecote notes export <email>` writes one JSON object
+  per note the person wrote or approved, every status, oldest first; `dovecote notes delete-drafts
+  <email>` deletes what they never sent; `dovecote members verify-left <email>` prints the offboarding
+  checks. They run where the database is, with its credentials, like `audit verify`, so no credential, no
+  administrator's browser session and no model-facing tool can reach them (rules 3 and 5). A web export
+  for administrators would put every person's notes one click from an administrator's session, which
+  rule 6 keeps from them; it waits until an organization asks, with its own decision.
+- **Unsent means drafts and discarded notes**, with the draft requests the person gave their agents and
+  the `draft.saved` events still in their stream, which carry the draft's text. Sent notes stay: they
+  belong to the conversation and its other participants too. Deleting asks for `--yes`; without it the
+  command only counts. One transaction, one `note.unsent_erased` audit row with the counts.
+- **Retention is the operator's, off by default.** `HB_NOTE_RETENTION_DAYS` deletes sent notes sent, and
+  discarded notes discarded, longer ago, in the hourly housekeeping pass, 500 a transaction, each batch
+  with a `note.retention_purged` row. A draft never expires: it waits for its person. At least 7 days,
+  the event backlog's own retention, so no event outlives the note it carries; a value below that refuses
+  to start rather than being raised, because what it deletes cannot come back. Like the audit
+  retention, it is an environment variable, not an administrator's setting.
+- **A deleted note takes every row about it**: receipts, pickups, releases, notices, principle
+  applications and offers, draft request answers and answers taken from history. A reply keeps its own
+  text and points at a note that is gone, as a client already reads a reply whose question it cannot
+  open. Figures over a period longer than the retention count only what is left.
+- **The audit trail stays.** Every export, erasure and purge writes a security-tier event through
+  `recordAudit`, with counts and the person's id, never content; the trail itself keeps its own
+  retention. No migration: the deletes use the existing indexes, and the tables without a `note_id`
+  index are small.
+- **Debate rooms, a person's own export from the web client and a legal hold** are not covered yet
+  (see the roadmap).
 
 ## A person asks their own agents for a draft through a draft request
 

@@ -349,6 +349,7 @@ in the web client (`homingbird open`). Every command accepts `--json`; the full 
 | `HB_TRUST_PROXY` | `0` | Number of proxies in front of Dovecote, when it is reachable only through them ([details](docs/deployment.md#behind-a-load-balancer)) |
 | `HB_LOGS` | `audit=full,operational=info,requests=off,auditCopy=off` | What the audit trail and the operational log record ([logs](docs/deployment.md#logs)) |
 | `HB_AUDIT_RETENTION_DAYS` | `400` | Days to keep audit rows, at least 90 |
+| `HB_NOTE_RETENTION_DAYS` | none | Days to keep sent and discarded notes, at least 7; unset keeps every note ([retention](docs/deployment.md#notes-retention-export-and-erasure)) |
 | `HB_ANALYTICS`, `HB_ANALYTICS_URL`, `HB_ANALYTICS_KEY` | `off` | Where anonymous product analytics go, if anywhere ([analytics](docs/deployment.md#product-analytics)) |
 | `HB_THEME_DIR` | none | A directory with `theme.css`, `branding.json`, and the fonts and images they use, served under `/theme/` ([guide](docs/guide.md#bring-your-own-web-client)) |
 

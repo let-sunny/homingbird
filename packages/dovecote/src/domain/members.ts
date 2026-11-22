@@ -76,6 +76,14 @@ export const memberById = (id: MemberId): T.Task<Member, NotFound, AppEnv> =>
     return row === null ? yield* T.fail(NotFound({ message: 'No such member.' })) : toMember(row)
   })
 
+/** The person with this email, in any case, as the server's own commands find one; null when none has it. */
+export const personIdForEmail = (email: string): T.Task<MemberId | null, never, AppEnv> =>
+  T.map((row: { id: MemberId } | null) => row?.id ?? null)(
+    first<{ id: MemberId }>(
+      sql`SELECT id FROM members WHERE email = ${email.trim().toLowerCase()} AND kind = 'person'`,
+    ),
+  )
+
 /** A member who may hold a working credential: not deactivated, and not a retired channel's agent. */
 export const isActiveMember = (id: MemberId): T.Task<boolean, never, AppEnv> =>
   T.map((row: { status: string } | null) => row?.status === 'active')(

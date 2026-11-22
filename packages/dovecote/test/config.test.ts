@@ -86,6 +86,17 @@ describe('the configuration', () => {
     expect(loaded(PRODUCTION)).toMatchObject({ auditRetentionDays: 400, auditRetentionVariableDays: null })
   })
 
+  it('keeps notes unless HB_NOTE_RETENTION_DAYS says how long, and refuses less than a week', () => {
+    expect(loaded(PRODUCTION).noteRetentionDays).toBeNull()
+    expect(loaded({ ...PRODUCTION, HB_NOTE_RETENTION_DAYS: '' }).noteRetentionDays).toBeNull()
+    expect(loaded({ ...PRODUCTION, HB_NOTE_RETENTION_DAYS: '7' }).noteRetentionDays).toBe(7)
+    expect(loaded({ ...PRODUCTION, HB_NOTE_RETENTION_DAYS: '365' }).noteRetentionDays).toBe(365)
+    expect(problemsOf({ ...PRODUCTION, HB_NOTE_RETENTION_DAYS: '6' })).toEqual([
+      'HB_NOTE_RETENTION_DAYS: must be at least 7, or unset to keep notes',
+    ])
+    expect(problemsOf({ ...PRODUCTION, HB_NOTE_RETENTION_DAYS: '0' })).toHaveLength(1)
+  })
+
   it('tells the operator a renamed variable’s new name', () => {
     expect(problemsOf({ ...PRODUCTION, HB_TOPICS: 'general' })[0]).toContain('renamed to HB_CHANNELS')
   })

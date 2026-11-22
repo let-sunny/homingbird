@@ -67,6 +67,16 @@ export const AUDIT_EVENTS = {
     earlierRemoved: S.int({ min: 0 }),
     lastRemovedHash: S.nullable(S.string({ pattern: /^[0-9a-f]{64}$/ })),
   }),
+  'note.exported': event('security', 'member', { notes: S.int({ min: 0 }) }),
+  'note.unsent_erased': event('security', 'member', {
+    drafts: S.int({ min: 0 }),
+    discarded: S.int({ min: 0 }),
+    draftRequests: S.int({ min: 0 }),
+  }),
+  'note.retention_purged': event('security', 'none', {
+    removed: S.int({ min: 0 }),
+    days: S.int({ min: 1 }),
+  }),
   'system.started': event('security', 'none', {
     version: S.string({ maxLength: 40 }),
     tier: S.literal('security', 'full'),
