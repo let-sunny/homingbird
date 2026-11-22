@@ -43,13 +43,28 @@ export const forgetTourSeen = (storage: () => TourStorage): void => {
   }
 }
 
+/**
+ * A first visit gets the tour on any page it can explain, a deep link to a conversation or a tab
+ * included, so a reload in the middle starts it again; never over a sign-in, a consent, an invite,
+ * the character editor or administration, which a person opens to finish one thing.
+ */
 export const mayStartTour = (routeName: string, seen: boolean, running: boolean): boolean =>
-  routeName === 'home' && !seen && !running
+  TOUR_ROUTES.has(routeName) && !seen && !running
 
 export const stepAfter = (step: number, direction: 1 | -1): number | null => {
   const next = step + direction
   return next < 0 ? 0 : next >= TOUR_STEPS.length ? null : next
 }
+
+const TOUR_ROUTES: ReadonlySet<string> = new Set([
+  'home',
+  'conversation',
+  'people',
+  'channels',
+  'channel',
+  'debates',
+  'agent',
+])
 
 const TOUR_KEY = 'homingbird.tour'
 const SEEN = 'seen'

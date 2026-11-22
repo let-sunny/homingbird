@@ -333,9 +333,14 @@ const sidebar = (
   return h(
     'aside',
     { class: 'sidebar', 'aria-label': strings.conversations },
-    region(life, [state.agentCredentials, state.session], () => model().onboarding && onboarding(), {
-      class: 'onboarding-host',
-    }),
+    region(
+      life,
+      [state.agentCredentials, state.session, slice(peopleSources, () => model().onboarding)],
+      () => model().onboarding && onboarding(),
+      {
+        class: 'onboarding-host',
+      },
+    ),
     region(life, [state.waitingOnly, waiting], () => waitingFilter(context, waiting.get()), {
       class: 'waiting-filter-host',
     }),
@@ -353,7 +358,7 @@ const sidebar = (
             'div',
             { class: 'no-conversations' },
             h('p', { class: 'no-conversations-text' }, strings.noConversations),
-            startingPoints(context),
+            startingPoints(context, drawing),
           )
         return rowList(context, drawing, peopleSources, 'conversation-list', () => {
           const people = model(true).people

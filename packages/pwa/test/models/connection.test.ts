@@ -1,6 +1,11 @@
 import type { AsRead } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
-import { connectionModel, firstStepsModel, helpedChannels } from '../../src/models/connection.ts'
+import {
+  claudeCodeCommands,
+  connectionModel,
+  firstStepsModel,
+  helpedChannels,
+} from '../../src/models/connection.ts'
 import { formats, strings } from '../../src/strings.ts'
 import { ANA, channel, credential, entry } from '../support/fixtures.ts'
 
@@ -77,17 +82,27 @@ describe('connectionModel', () => {
 })
 
 describe('the desk recommendation', () => {
-  const recommendation = (agentOnline: boolean, joinCodes: boolean) =>
+  const recommendation = (
+    agentOnline: boolean,
+    joinCodes: boolean,
+    credentials: ReadonlyArray<AsRead.Credential> | null = [credential('cred_agent')],
+  ) =>
     connectionModel({
       viewerId: ANA,
       directory: [entry(ANA, 'Ana', { presence: { humanOnline: true, agentOnline } })],
       channels: [],
-      credentials: null,
+      credentials,
       joinCodes,
     }).recommendation
 
   it('is gone once the desk is awake', () => {
     expect(recommendation(true, true)).toBeNull()
+  })
+
+  it('is left to the first steps while no agent is connected, or while the list loads', () => {
+    expect(recommendation(false, true, [])).toBeNull()
+    expect(recommendation(false, true, [credential('cred_old', { revokedAt: 3 })])).toBeNull()
+    expect(recommendation(false, true, null)).toBeNull()
   })
 
   it('says drafts are approved in their direct message or channel, and points to Run on a server only when it is offered', () => {
@@ -121,6 +136,12 @@ describe('firstStepsModel', () => {
       strings.firstSteps.commandLine,
       strings.firstSteps.run,
     ])
+    expect(steps.folded).toBe(false)
+    expect(steps.steps[0]!.command).toBe(claudeCodeCommands('https://hb.example.com'))
+    expect(steps.steps[0]!.command.split('\n')).toEqual([
+      '/plugin install homingbird --marketplace let-sunny/homingbird',
+      '/homingbird https://hb.example.com',
+    ])
     expect(steps.steps[1]!.command).toContain('homingbird login --server https://hb.example.com')
     expect(steps.joinHint).toBe(strings.firstSteps.joinHint)
     expect(steps.guide.href).toMatch(/^https:\/\/.*guide\.md#connect-an-agent$/)
@@ -129,11 +150,16 @@ describe('firstStepsModel', () => {
     ).toBeNull()
   })
 
-  it('counts a revoked agent as none, and stops once an agent is connected', () => {
+  it('counts a revoked agent as none, and folds into connecting another agent once one is connected', () => {
     const revoked = [credential('cred_old', { revokedAt: 3 }), credential('cred_web', { kind: 'human' })]
-    expect(firstStepsModel({ credentials: revoked, origin: 'x', joinCodes: false })).not.toBeNull()
-    expect(
-      firstStepsModel({ credentials: [credential('cred_agent')], origin: 'x', joinCodes: false }),
-    ).toBeNull()
+    expect(firstStepsModel({ credentials: revoked, origin: 'x', joinCodes: false })!.folded).toBe(false)
+    const another = firstStepsModel({
+      credentials: [credential('cred_agent')],
+      origin: 'x',
+      joinCodes: false,
+    })!
+    expect(another.folded).toBe(true)
+    expect(another.title).toBe(strings.firstSteps.anotherTitle)
+    expect(another.steps).toHaveLength(3)
   })
 })

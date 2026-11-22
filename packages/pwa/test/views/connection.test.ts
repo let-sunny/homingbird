@@ -12,8 +12,10 @@ usingFakeDom()
 
 describe('connectionSection', () => {
   it('recommends a desk, shows its state and suggests a fresh session where one is due', () => {
-    const { context } = testContext()
+    const { context, called } = testContext()
     const shown = connectionSection(context, lifetime(), me())
+    expect(shown.querySelector('.desk-recommendation')).toBeNull()
+    called('listCredentials')[0]!.then!.done!([credential('cred_desk')])
     expect(textOf(shown.querySelector('.desk-recommendation')!)).toContain(strings.deskTitle)
     context.state.directory.set([entry(ANA, 'Ana', { presence: { humanOnline: true, agentOnline: true } })])
     expect(textOf(shown.querySelector('.desk-state')!)).toContain(strings.agentOnline)
@@ -83,8 +85,12 @@ describe('connectionSection', () => {
     )
     expect(shown.querySelector('.service-banner')).toBeNull()
     expect(textOf(shown)).not.toContain('administrator')
+    expect(shown.querySelector('.desk-recommendation')).toBeNull()
     called('listCredentials')[0]!.then!.done!([credential('cred_old', { expiresAt: clock.now() - 1 })])
-    expect(shown.querySelector('.first-steps')).toBeNull()
+    const another = shown.querySelector('details.first-steps')!
+    expect(another.hasAttribute('open')).toBe(false)
+    expect(textOf(another.querySelector('summary')!)).toBe(strings.firstSteps.anotherTitle)
+    expect(textOf(another)).toContain('/homingbird http://localhost')
     expect(textOf(shown.querySelector('.service-banner')!)).toContain(
       `${strings.serviceBanner.title}${strings.serviceBanner.bodyWithJoin}homingbird login --server http://localhost`,
     )

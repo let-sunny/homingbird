@@ -515,6 +515,7 @@ export const demoTeam = (now: number): Records => {
         expiresAt: ago(60 * 24 * 2 - 60 * 24 * 7),
       },
     ],
+    joinCodes: [],
     previewAllowances: [{ memberId: BEN, allowance: { people: [VISITOR_ID], channels: [] } }],
     draftRequests: [],
     decisions: [

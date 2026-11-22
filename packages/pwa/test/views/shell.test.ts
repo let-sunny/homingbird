@@ -166,12 +166,15 @@ describe('shell', () => {
     expect(textOf(shown)).toContain(strings.connectionOffline)
   })
 
-  it('invites connecting an agent, and offers where to start without conversations', () => {
+  it('offers the first steps without conversations, then invites connecting an agent beside them', () => {
     const { context } = testContext()
     const shown = shell(context, lifetime(), me(), document.createElement('main'))
     context.state.conversationsLoaded.set(true)
-    expect(textOf(shown)).toContain(strings.onboardingTitle)
+    expect(shown.querySelector('.onboarding')).toBeNull()
     expect(textOf(shown)).toContain(strings.noConversations)
+    expect(textOf(shown.querySelector('.starting-points')!)).toContain(strings.start.connectStep)
+    context.state.conversations.set([conversation()])
+    expect(textOf(shown)).toContain(strings.onboardingTitle)
     context.state.agentCredentials.set([credential('cred_desk')])
     expect(shown.querySelector('.onboarding')).toBeNull()
     expect(textOf(shown)).toContain(strings.noChannelRooms)

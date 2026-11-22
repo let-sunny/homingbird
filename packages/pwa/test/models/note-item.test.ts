@@ -383,9 +383,11 @@ describe('noteItemModel', () => {
         threadInput({ conversations, thread: { notes: [question], hasMore: false } }),
         item(question),
       ).noAnswer
-    expect(noAnswerFor(note('q', { receipts: [receipt(BEN, { state: 'read', readAt: 2 })] }))).toBe(
-      strings.noAnswerYet,
-    )
+    expect(
+      noAnswerFor(note('q', { body: 'Who knows?', receipts: [receipt(BEN, { state: 'read', readAt: 2 })] })),
+    ).toBe(strings.noAnswerYet)
+    expect(noAnswerFor(note('q', { body: '누가 알아요？' }))).toBe(strings.noAnswerYet)
+    expect(noAnswerFor(note('q', { body: 'Freeze starts Thursday at 18:00.' }))).toBeNull()
     expect(
       noAnswerFor(note('q', { receipts: [receipt(BEN, { state: 'drafting', draftingAt: 2 })] })),
     ).toBeNull()

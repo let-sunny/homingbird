@@ -90,6 +90,7 @@ const presenceDots = (marks: PresenceMarks): HTMLElement =>
       'aria-label': marks.agent.label,
       title: marks.agent.label,
     }),
+    h('span', { class: 'presence-words', 'aria-hidden': 'true' }, marks.words),
   )
 
 const GROUP_PEOPLE_ID = 'group-people'

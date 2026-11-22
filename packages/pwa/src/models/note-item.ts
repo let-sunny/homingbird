@@ -97,6 +97,7 @@ export const noteItemModel = (
           },
     noAnswer:
       isChannelQuestion &&
+      asksSomething(note.body) &&
       !archived &&
       waits === null &&
       answerers.length === 0 &&
@@ -437,6 +438,9 @@ const roomStatus = (note: AsRead.Note): string => {
   const { read, of, drafting } = readProgress(note.receipts)
   return drafting > 0 ? strings.readByWhileDrafting({ read, of, drafting }) : strings.readBy({ read, of })
 }
+
+/** Whether a note asks something, so that an announcement is never marked as waiting for an answer. */
+const asksSomething = (body: string): boolean => /[?？]/.test(body)
 
 /** Whether a saved answer sent this note, said to everyone who reads it; recalled, said to its author. */
 const autoSentModel = (input: ThreadInput, note: AsRead.Note, mine: boolean): NoteItemModel['autoSent'] => {

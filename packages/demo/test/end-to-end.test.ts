@@ -12,6 +12,7 @@ import { fire, getByRole, installFakeDom, uninstallFakeDom } from '@homingbird/u
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { demoPage } from '../src/demo-page.ts'
 import { fakeDovecote } from '../src/dovecote.ts'
+import { DEMO_SERVER_ADDRESS, redeemCopiedJoinCode } from '../src/join-codes.ts'
 import { VISITOR_ID } from '../src/team.ts'
 import { createWorld } from '../src/world.ts'
 import { NOW, demoApi, memberNamed, noteStarting, succeeded } from './support/demo.ts'
@@ -26,7 +27,13 @@ const startDemo = async (hash = '#/') => {
   const dovecote = fakeDovecote(world)
   const browser = fakePage(hash)
   browser.local.set('homingbird.tour', 'seen')
-  const page = demoPage(browser.page, dovecote, () => {})
+  const page = demoPage(
+    browser.page,
+    dovecote,
+    () => {},
+    undefined,
+    (text) => redeemCopiedJoinCode(world, text),
+  )
   const app = createApp(
     {
       clock,
@@ -199,15 +206,20 @@ describe('what the demo does beyond notes', () => {
     expect(main.textContent).toContain('https://demo.homingbird.invalid/#/invite/hbi_')
   })
 
-  it('shows the one line that runs June’s agent on a server', async () => {
-    const { root, open, settle } = await startDemo()
+  it('shows the one line that runs June’s agent on a server, then the connection it made once copied', async () => {
+    const { root, open, settle, clock } = await startDemo()
     await open('#/agent/connection')
     const main = root.querySelector('main') as HTMLElement
+    expect(main.textContent).toContain(`homingbird login --server ${DEMO_SERVER_ADDRESS}`)
     fire.click(getByRole(main, 'button', { name: 'Run on a server' }))
     await settle()
-    expect(main.textContent).toContain(
-      'homingbird setup --server https://demo.homingbird.invalid --join hbj_',
+    expect(main.textContent).toContain(`homingbird setup --server ${DEMO_SERVER_ADDRESS} --join hbj_`)
+    fire.click(getByRole(main, 'button', { name: 'Copy' }))
+    await clock.advance(8_000)
+    expect(main.querySelector('.join-code-connected')?.textContent).toContain(
+      'Connected: Team server is running your agent on that server.',
     )
+    expect(main.querySelector('.credentials')?.textContent).toContain('Team server')
   })
 
   it('opens June’s private question to #billing’s agent and goes there', async () => {

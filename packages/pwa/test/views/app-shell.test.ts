@@ -49,6 +49,7 @@ describe('showApp', () => {
     const { context, root } = start()
     context.state.session.set(me())
     const stage = root.querySelector('main.stage') as HTMLElement
+    Object.assign(stage, { scrollHeight: 2000, clientHeight: 700 })
     stage.scrollTop = 835
     context.state.route.set({ name: 'profile' })
     expect(stage.scrollTop).toBe(0)

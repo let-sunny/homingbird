@@ -5,6 +5,7 @@ import type { ChannelTeaching as ChannelTeachingSchema } from './channel-teachin
 import type {
   InboxItem as InboxItemSchema,
   JoinCode as JoinCodeSchema,
+  JoinCodeStatus as JoinCodeStatusSchema,
   Me as MeSchema,
   ServerInfo as ServerInfoSchema,
 } from './contract-schemas.ts'
@@ -105,5 +106,6 @@ export type DeskWakeTest = S.Read<typeof DeskWakeTestSchema>
 export type DraftPreview = S.Read<typeof DraftPreviewSchema>
 export type DraftPreviewAllowance = S.Read<typeof DraftPreviewAllowanceSchema>
 export type JoinCode = S.Read<typeof JoinCodeSchema>
+export type JoinCodeStatus = S.Read<typeof JoinCodeStatusSchema>
 export type Invite = S.Read<typeof InviteSchema>
 export type InviteLink = S.Read<typeof InviteLinkSchema>

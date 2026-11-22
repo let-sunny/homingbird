@@ -50,8 +50,10 @@ export const userMenuModel = (me: AsRead.Me): UserMenu => ({
 })
 
 /**
- * The sidebar: direct messages, channel rooms and archived rooms, each as rows. With the Waiting for you
- * filter on, only the conversations the activity panel lists are shown, and no archived room.
+ * The sidebar: direct messages, channel rooms and archived rooms, each as rows. It invites connecting an
+ * agent while none is, once a conversation exists; before that, the first steps on home say the same.
+ * With the Waiting for you filter on, only the conversations the activity panel lists are shown, and no
+ * archived room.
  */
 export const sidebarModel = (input: SidebarInput): SidebarModel => {
   const waitingOnly = input.waitingOnly ?? null
@@ -62,7 +64,7 @@ export const sidebarModel = (input: SidebarInput): SidebarModel => {
   const row = (conversation: AsRead.Conversation): ConversationRow => conversationRow(input, conversation)
   const peopleShown = shown(people)
   return {
-    onboarding: input.agentCount === 0,
+    onboarding: input.agentCount === 0 && input.loaded && input.conversations.length > 0,
     people: !input.loaded
       ? { kind: 'loading' }
       : people.length === 0

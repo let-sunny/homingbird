@@ -63,12 +63,35 @@ describe('threadTopModel', () => {
     })
   })
 
-  it('tells the asker, at the top and in the head, who else reads a private question', () => {
+  it('tells the asker who else reads a private question in the head, and what happens next at the top', () => {
     const asked = conversation({ kind: 'group', privateQuestionOf: 'wiki', participantIds: [ANA, BEN] })
     const input = threadInput({ conversations: [asked] })
     const notice = strings.channelAgent.privateNotice({ agent: '#wiki', channel: '#wiki' })
-    expect(threadTopModel(input)).toEqual({ kind: 'empty', text: notice })
+    expect(threadTopModel(input)).toEqual({
+      kind: 'empty',
+      text: strings.channelAgent.privateStart({ agent: '#wiki', channel: '#wiki' }),
+    })
     expect(threadHeadModel(input)).toMatchObject({ kind: 'people', profile: notice })
+    const withAgent = threadInput({
+      conversations: [asked],
+      channels: [
+        channel('wiki', {
+          agent: { id: BEN, name: 'Wiki helper', presence: { humanOnline: false, agentOnline: true } },
+        }),
+      ],
+    })
+    expect(threadTopModel(withAgent)).toEqual({
+      kind: 'empty',
+      text: strings.channelAgent.privateStart({ agent: 'Wiki helper', channel: '#wiki' }),
+    })
+    for (const closed of [
+      { ...asked, privateQuestionOf: null },
+      { ...asked, archivedAt: 5 },
+    ])
+      expect(threadTopModel(threadInput({ conversations: [closed] }))).toEqual({
+        kind: 'empty',
+        text: strings.emptyThread,
+      })
   })
 })
 
@@ -141,6 +164,7 @@ describe('threadHeadModel', () => {
       presence: {
         person: { isOn: true, label: strings.presenceOf.online({ name: 'Ben' }) },
         agent: { state: 'on', label: strings.presenceOf.agentAwake({ name: 'Ben' }) },
+        words: strings.presenceWords.online.on,
       },
       people: null,
       mute: expect.objectContaining({ conversationId: ROOM, muted: false, label: 'Mute Ben' }),

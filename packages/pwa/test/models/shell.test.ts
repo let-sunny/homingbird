@@ -127,12 +127,17 @@ describe('sidebarModel', () => {
   it('waits for the list, says when there are no conversations, and invites connecting an agent', () => {
     expect(sidebarModel(input({ loaded: false })).people).toEqual({ kind: 'loading' })
     expect(sidebarModel(input({ agentCount: 0 }))).toEqual({
-      onboarding: true,
+      onboarding: false,
       people: { kind: 'none' },
       channelRooms: [],
       channelRoomsEmpty: strings.noChannelRooms,
       archived: null,
     })
+    expect(sidebarModel(input({ agentCount: 0, conversations: [conversation()] })).onboarding).toBe(true)
+    expect(
+      sidebarModel(input({ agentCount: 0, conversations: [conversation()], loaded: false })).onboarding,
+    ).toBe(false)
+    expect(sidebarModel(input({ agentCount: 1, conversations: [conversation()] })).onboarding).toBe(false)
   })
 
   it('shows only the rooms that wait for the person while the filter is on, and says so when none does', () => {

@@ -80,8 +80,7 @@ const scenario = async (): Promise<void> => {
     await page.waitForFunction((id: string) => (globalThis as any).location.hash === `#/c/${id}`, direct.id)
     assert.equal(await page.locator('dialog.switcher[open]').count(), 0)
 
-    // -- From the composer the room opened in, ⌘K or Ctrl+K opens it; a private channel never shows ---
-    assert.equal(await page.evaluate(() => (globalThis as any).document.activeElement?.tagName), 'TEXTAREA')
+    // -- A private channel Ana is not in never shows --------------------------------------------------
     await page.keyboard.press('ControlOrMeta+K')
     await page.waitForSelector('dialog.switcher[open]')
     await page.keyboard.type('payroll')
@@ -90,8 +89,13 @@ const scenario = async (): Promise<void> => {
     await page.keyboard.press('Escape')
     await page.waitForSelector('dialog.switcher:not([open])', { state: 'attached' })
 
-    // -- A channel, opened with a slash once the focus is out of the composer -----------------------
-    await page.keyboard.press('Shift+Tab')
+    // -- A channel, opened with a slash once the focus is out of any field ---------------------------
+    const inField = () =>
+      page.evaluate(
+        () =>
+          (globalThis as any).document.activeElement?.matches('input, textarea, [contenteditable]') === true,
+      )
+    while (await inField()) await page.keyboard.press('Shift+Tab')
     await page.keyboard.press('/')
     await page.waitForSelector('dialog.switcher[open]')
     await page.keyboard.type('#bill')

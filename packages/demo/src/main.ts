@@ -14,6 +14,7 @@ import { createViewContext } from '@homingbird/pwa/src/views/context.ts'
 import { demoPage } from './demo-page.ts'
 import { DEMO_TOOLS, demoReadsOf } from './demo-tools.ts'
 import { fakeDovecote } from './dovecote.ts'
+import { redeemCopiedJoinCode } from './join-codes.ts'
 import { clockFor, demoOptions } from './options.ts'
 import { VISITOR_ID } from './team.ts'
 import { modelContextOf, offerDemoTools } from './web-mcp.ts'
@@ -21,11 +22,16 @@ import { createWorld } from './world.ts'
 
 const options = demoOptions(location.search)
 const clock = clockFor(options)
-const dovecote = fakeDovecote(
-  createWorld(clock, undefined, new URL('.', location.href).href.replace(/\/$/, '')),
-)
+const world = createWorld(clock, undefined, new URL('.', location.href).href.replace(/\/$/, ''))
+const dovecote = fakeDovecote(world)
 const api = httpApi({ serverUrl: location.origin, fetch: dovecote })
-const page = demoPage(browserPage(window), dovecote, () => location.reload(), options)
+const page = demoPage(
+  browserPage(window),
+  dovecote,
+  () => location.reload(),
+  options,
+  (text) => redeemCopiedJoinCode(world, text),
+)
 let draws = 0
 const app = createApp(
   {

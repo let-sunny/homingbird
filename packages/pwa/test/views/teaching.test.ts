@@ -1,5 +1,5 @@
 import type { AsRead } from '@homingbird/protocol'
-import { lifetime } from '@homingbird/ui'
+import { h, lifetime } from '@homingbird/ui'
 import { fire, getByRole, queryByRole, textOf } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
 import { strings } from '../../src/strings.ts'
@@ -111,6 +111,31 @@ describe('taughtSection', () => {
     expect(called('dismissOffer').map((call) => call.args)).toEqual([
       ['offer_aaaaaaaaaaaa', false],
       ['offer_aaaaaaaaaaaa', true],
+    ])
+  })
+})
+
+describe('a principle switched on or off', () => {
+  it('stays focused and in place while the list is drawn again around it', () => {
+    const { context } = testContext()
+    const tone = principle('Tone')
+    const dates = principle('Dates')
+    const stage = mount(h('main', { class: 'stage' }, h('h2', {}, 'My agent')))
+    const shown = taughtSection(context, lifetime())
+    stage.append(shown)
+    context.state.taught.set(taught({ principles: [tone, dates] }))
+    Object.assign(stage, { scrollHeight: 1200, clientHeight: 700, scrollTop: 430 })
+    const used = shown.querySelector<HTMLElement>(`[data-key="${dates.id}"] .todo-switch`)!
+    used.focus()
+    used.click()
+    context.state.taught.set(taught({ principles: [tone, { ...dates, enabled: false }] }))
+    const drawn = shown.querySelector<HTMLElement>(`[data-key="${dates.id}"] .todo-switch`)!
+    expect(drawn.getAttribute('aria-checked')).toBe('false')
+    expect(document.activeElement).toBe(drawn)
+    expect([stage.firstChild?.textContent, shown.parentElement, stage.scrollTop]).toEqual([
+      'My agent',
+      stage,
+      430,
     ])
   })
 })
