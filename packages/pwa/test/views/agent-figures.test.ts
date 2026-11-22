@@ -27,7 +27,7 @@ describe('renderFigures', () => {
     )
   })
 
-  it('shows the verdict, the numbers, skips, places, labels, trend and what is measured', () => {
+  it('shows the verdict, the numbers, skips, labels, trend and what is measured', () => {
     const current = figures({
       sentAsWritten: 9,
       sentAfterEdits: 1,
@@ -35,16 +35,6 @@ describe('renderFigures', () => {
       quickApprovalsFrequent: true,
       skipped: 1,
       skipReasons: [{ reason: 'Out of scope', count: 1 }],
-      places: [
-        {
-          place: 'billing',
-          sentAsWritten: 1,
-          sentAfterEdits: 0,
-          discarded: 0,
-          skipped: 1,
-          verdict: 'too_few',
-        },
-      ],
       byClient: [{ label: 'Desk', written: 1, sentAsWritten: 1, sentAfterEdits: 0, discarded: 0 }],
     } as never)
     const shown = host(
@@ -65,9 +55,6 @@ describe('renderFigures', () => {
     expect(getByRole(shown, 'note').textContent).toContain(strings.trust.nudge)
     expect(getByRole(shown, 'table', { name: strings.trust.caption({ days: 7 }) })).toBeTruthy()
     expect(textOf(shown)).toContain(strings.trust.skipReason({ reason: 'Out of scope', count: 1 }))
-    expect(
-      shown.querySelector('[data-place="billing"] .share-bar')!.getAttribute('style') ?? 'set',
-    ).toBeTruthy()
     expect(getByRole(shown, 'heading', { name: strings.trust.byClientTitle })).toBeTruthy()
     expect(shown.querySelectorAll('.trend-week')).toHaveLength(2)
     expect(shown.querySelector('.trend-week.is-empty')).not.toBeNull()
@@ -85,7 +72,6 @@ describe('renderFigures', () => {
     )
     expect(textOf(shown)).toContain(strings.trust.noSkipReasons)
     expect(queryByRole(shown, 'note')).toBeNull()
-    expect(shown.querySelector('.trust-places')).toBeNull()
   })
 })
 

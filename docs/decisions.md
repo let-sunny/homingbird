@@ -105,16 +105,30 @@ states the decision first, then the reason. Add new entries at the top of their 
   they had not picked, and jumped to the next waiting note after each send. A note sent without a target
   leaves the receipts of the notes before it unanswered, which is what the person did.
 - **A group message is invisible to its other members until a note in it is sent, like a direct
-  message.** Starting a group in the web client creates its room before the first note is drafted;
-  showing it to everyone at once would tell them a note was on its way, and a discarded draft would leave
-  an empty room with its starter's name in their list. Until a note is sent, the room shows only to the
-  person who started it, who writes or approves that note and whom **Start group message** for the same
-  people brings back to it: not in the others' list, unread counts, event stream or search, and a lookup
-  by id answers 404. Visibility is derived from the notes; the starter is kept in `asked_by`, the column
-  that names who opened a private question, so no migration is needed. Groups started before this have
-  no starter recorded, so until a note in one is sent no one sees it, its starter included: they cannot
-  reopen that empty room, and **Start group message** in People makes a new one.
+  message.** A room asked for its agent's draft exists before that draft is approved; showing it to
+  everyone at once would tell them a note was on its way, and a discarded draft would leave an empty room
+  with its starter's name in their list. Until a note is sent, the room shows only to the person who
+  started it, who writes or approves that note and whom a new message to the same people brings back to
+  it: not in the others' list, unread counts, event stream or search, and a lookup by id answers 404.
+  Visibility is derived from the notes; the starter is kept in `asked_by`, the column that names who
+  opened a private question, so no migration is needed. Groups started before this have no starter
+  recorded, so until a note in one is sent no one sees it, its starter included: they cannot reopen
+  that empty room, and a new message to them makes a new one.
   Channel rooms, private questions and archived rooms show to their participants as before.
+- **A new message makes its room at the first send or draft request, from one New menu and one
+  people picker.** The list where conversations live has a **New** menu (a message, a channel, a
+  debate room, each with one sentence saying which to pick), and the directory pages keep their own
+  buttons. **New message** opens `#/new`: a "To" field, the note, **Ask my agent**, and one line naming
+  who will read it. The room is made by the first note sent or draft asked for there, so a screen left
+  before that leaves no row behind, which the earlier flow (choose people in People, then **Start group
+  message**, which made the room at once) did. The picker is a native `<input role="combobox">` over a
+  listbox, recent correspondents first; a person who cannot be written to is listed with the reason,
+  not left out, so nobody looks missing. A key pressed while an input method composes only ends the
+  word: Korean is typed syllable by syllable and its Enter must not add a person. The same picker
+  invites people to a debate room and adds people to a private channel; channel managers and the
+  group page keep their `<select>` until an organization is large enough to need more. Nobody is put
+  into an open channel by someone else: joining it stays the person's own act, and **Copy link to this
+  channel** in the room's menu is how one asks a colleague in.
 - **A channel's managers are notified when its agent's answer waits for their review, as the channel
   notifies them.** When a channel's agent writes a new draft, every person who may review it then gets a
   push titled with the channel ("#payments-wiki · An answer waits for your review"), with the same
@@ -329,7 +343,7 @@ states the decision first, then the reason. Add new entries at the top of their 
   `wrapNote`; the Markdown export
   escapes everything people and agents wrote, so no text can add a heading, an HTML tag or a link other
   than http(s). The growth record keeps the kinds of credit an approved result names, each once
-  (`debate_credits`), as milestones and on the route map; never a count. A turn could have been a note
+  (`debate_credits`), as milestones; never a count. A turn could have been a note
   in a hidden conversation, but then every note query would have had to exclude it, and a turn must
   never reach an inbox, a search or a push. The tables are migration step 3, after the released step 2.
 - **Every optional feature can be switched off by an administrator; the core cannot.** One table in
@@ -340,10 +354,10 @@ states the decision first, then the reason. Add new entries at the top of their 
   what their agent writes and an organization can see what happened. Later features (debate rooms,
   stored answers, automatic sending, the last off by default) register a switch in the same table.
 - **Everything about a person's agent lives on one page, My agent, in the header; the profile is about
-  the person.** The page has four tabs in a fixed order, Connection (agents and devices, the desk,
-  renaming and revoking, a connection code), Teaching, How it is doing and Route map, each at its own
-  address (`#/agent/connection` and so on) and shown alone, because the four on one page made a scroll
-  too long to find anything in; `#/agent` shows the first, and `#/connect` and `#/credentials` lead to
+  the person.** The page has tabs in a fixed order, Connection (agents and devices, the desk,
+  renaming and revoking, a connection code), Teaching, How it is doing and Early previews, each at its own address
+  (`#/agent/connection` and so on) and shown alone, because all of them on one page made a scroll too
+  long to find anything in; `#/agent` shows the first, and `#/connect` and `#/credentials` lead to
   Connection. The
   profile keeps the name, character, language, notifications and the line colleagues see. A summary
   card above the conversation list repeated the page and pushed the list down, so there is none; the
@@ -1668,8 +1682,9 @@ share sent as written, so the offer comes to the place of the miss.
 - **Behind the figures.** `insights.mine` adds `misses`: the drafts the person edited or discarded and
   the notes their agent skipped in the last 30 days, newest first, at most 100, each by note id,
   conversation, place and time only, never what it says. How it is doing lists them under the numbers,
-  one folded list per count, each with a way to where it happened and **Teach my agent**. The route
-  map's "2 chances to teach" leads to the Teaching tab.
+  one folded list per count, each with a way to where it happened and **Teach my agent**. A place's
+  "Teach from 2 edited or discarded drafts" on How it is doing leads to the Teaching tab, whose list
+  holds those two.
 - **Saving stays a person's click** (rule 8): every way in opens the same guided form in the web
   client, filled in, and nothing is saved until the person saves it.
 - The add row on the Teaching tab offers Rule or Answer, as the guided form does, and the hint that a
@@ -2031,3 +2046,35 @@ query now filters by `status = 'sent' OR author_id = viewer`, or an allowed prev
 - **A conversation does not appear because of a preview.** A direct or group conversation is still
   shown only once a note in it is sent, so a preview shows only where the viewer already talks with the
   author. Showing a new conversation that holds only a preview waits on the roadmap.
+
+## Each place climbs four steps to "answers like you"; the route map is gone
+
+The route map drew each place as a line around the person, its width a logarithm of principles plus
+drafts sent as written with them. Widths in real use differed by under a pixel, nothing showed what a
+finished place looked like, the count ignored edits and discards, and none of its four marks was
+explained on the drawing. How it is doing answered the same question better, one tab away. So the tab
+is gone, and its question is answered where the figures are.
+
+- **Four steps, the last one the existing verdict.** Only drafts; you taught principles; principles hold
+  (a draft that applied one was sent as written); answers like you ★, the place's 30-day verdict
+  `usually_as_written` (at least 10 decided, at least 7 in 10 sent as written). The finished state is
+  printed on every row, not invented for the picture.
+- **The step reflects now; the sentence frames a drop.** The last step follows 30 days and can be lost.
+  Making it sticky would show "answers like you" where it no longer does. Instead, when the 30 days
+  before had the verdict and now do not, the sentence says some recent drafts needed edits and to teach
+  what changed: an edit is a chance to teach, never a step back.
+- **A principle for any channel counts in every place.** It has `place: null`, as do direct messages, and
+  the route map matched `principle.place === place`, so it counted only in direct messages. `routes`
+  now counts every principle that applies in a place, and "held up" as distinct drafts there that
+  applied one and went out as written, so one anywhere-principle is not credited with drafts from
+  other places.
+- **"Chances to teach" means the open offers, everywhere.** A place's chances are the offers Teaching
+  lists that came from there, so the button and the list agree; the drafts behind the figures no
+  longer call themselves chances.
+- **A tooltip per step, and the same words in the open.** Each step is focusable and describes itself
+  on hover and focus; on a narrow row only the current step is named, and **What the steps mean**
+  lists all four for touch screens.
+- **A retired switch is accepted for one release.** `routeMap` left `FEATURES`, so clients see it off.
+  `HB_FEATURES` would then have refused to start a server set up with it, so `RETIRED_FEATURES` names
+  it: accepted and ignored in this release, refused in the next, as compatibility.md asks for a removed
+  capability. Debate credits stay under Teaching, Milestones, where they already were.

@@ -229,6 +229,40 @@ describe('shell', () => {
     expect(after[0]!.textContent).toContain('Hello again')
   })
 
+  it('shows only what waits for the person while Waiting for you is pressed, and opens the switcher on Ctrl+K', () => {
+    const { context, page } = testContext()
+    context.state.session.set(me())
+    const shown = mount(shell(context, lifetime(), me(), document.createElement('main')))
+    const asked = note('note_q', { body: 'Lunch?' })
+    context.state.conversations.set([
+      conversation({ lastNote: asked }),
+      conversation({
+        id: 'conv_quiet0000000' as never,
+        participantIds: [me().member.id, CY],
+        lastNote: note('n9', { body: 'Quiet' }),
+      }),
+    ])
+    context.state.conversationsLoaded.set(true)
+    context.state.threads.set(
+      new Map([[ROOM, { notes: [asked, draft('note_d1', { inReplyTo: asked.id })], hasMore: false }]]),
+    )
+    const filter = getByRole(shown, 'button', { name: /Waiting for you/ })
+    expect(filter.getAttribute('aria-pressed')).toBe('false')
+    expect(filter.getAttribute('title')).toBe(strings.waiting.filterLabel({ count: 1 }))
+    expect(getByRole(shown, 'link', { name: /Quiet/ })).toBeTruthy()
+    filter.click()
+    expect(getByRole(shown, 'button', { name: /Waiting for you/ }).getAttribute('aria-pressed')).toBe('true')
+    expect(queryByRole(shown, 'link', { name: /Quiet/ })).toBeNull()
+    expect(getByRole(shown, 'link', { name: /Lunch/ })).toBeTruthy()
+    expect(textOf(shown)).toContain(strings.waiting.roomsNone)
+    context.state.threads.set(new Map())
+    context.state.conversations.set([conversation({ id: 'conv_quiet0000000' as never })])
+    expect(textOf(shown)).toContain(strings.waiting.peopleNone)
+    expect(page.outside.title).toBe('Homingbird')
+    fire.key(document.body, 'k', { ctrlKey: true })
+    expect((shown.querySelector('dialog.switcher') as HTMLDialogElement).open).toBe(true)
+  })
+
   it('lists direct messages, groups, channel rooms and archived rooms, each with its counts', () => {
     const { context } = testContext()
     context.state.session.set(me())

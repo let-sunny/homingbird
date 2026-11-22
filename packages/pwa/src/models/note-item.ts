@@ -127,6 +127,7 @@ export const noteItemModel = (
       id: `note-menu-${note.id}`,
       label: strings.noteMore,
       items: menuItems(input, { reply: !archived, askAgent: !mine && !archived }),
+      fixed: mine ? strings.noteFixed : null,
     },
   }
 }
@@ -182,6 +183,8 @@ export interface NoteItemModel {
     readonly id: string
     readonly label: string
     readonly items: ReadonlyArray<NoteMenuItem>
+    /** Under the person's own note: that a sent note stays as it is, and a reply corrects it. */
+    readonly fixed: string | null
   }
 }
 

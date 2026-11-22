@@ -140,8 +140,14 @@ describe('peopleModel', () => {
       label: strings.personMore({ name: 'Ben' }),
       actions: [{ kind: 'block', label: strings.block, style: 'danger', hint: null }],
     })
+    expect(ben!.withOthers).toEqual({
+      text: strings.newMessage.withOthers,
+      label: strings.newMessage.withOthersLabel({ name: 'Ben' }),
+      href: `#/new?to=${BEN}`,
+    })
     const [self] = list({ directory: [entry(BEN, 'Ben', { relation: 'self' })] })
     expect(self!.more).toBeNull()
+    expect(self!.withOthers).toBeNull()
     expect(self!.profile.summary).toBe(strings.profileAbout)
     expect(actionsFor('self', 'open')).toEqual([])
     expect(actionsFor('blocked', 'open')).toEqual(['unblock'])

@@ -4,9 +4,8 @@ import { clientLabel } from '../client-labels.ts'
 import { hrefFor } from '../routes.ts'
 import { durationOf, formats, listOf, percentOf, strings } from '../strings.ts'
 import { PERIODS, compareSentAsWritten, decidedOf, periodOf, shareOf, trendBars } from '../trust.ts'
-import { placeName } from './places.ts'
 
-/** How the agent is doing over a period: the verdict first, then the numbers, places, labels and trend. */
+/** How the agent is doing over a period: the verdict first, then the numbers, labels and trend. */
 export const figuresModel = (report: AsRead.AgentReport | 'failed' | null, days: number): FiguresModel => {
   if (report === null) return { kind: 'loading' }
   if (report === 'failed') return { kind: 'failed', text: strings.trust.loadFailed }
@@ -17,7 +16,6 @@ export const figuresModel = (report: AsRead.AgentReport | 'failed' | null, days:
     headline: headline(report, period),
     table: numbersTable(report, period),
     skips: skipReasons(period.current),
-    places: places(period.current),
     byClient: labelsTableModel(
       'trust-by-client',
       strings.trust.byClientTitle,
@@ -88,7 +86,6 @@ export type FiguresModel =
       readonly headline: Headline
       readonly table: FiguresTable
       readonly skips: Skips | null
-      readonly places: Places | null
       readonly byClient: LabelsTable | null
       readonly byModel: LabelsTable | null
       readonly trend: Trend
@@ -137,18 +134,6 @@ export interface Skips {
   readonly title: string
   readonly reasons: ReadonlyArray<string>
   readonly none: string | null
-}
-
-export interface Places {
-  readonly title: string
-  readonly intro: string
-  readonly rows: ReadonlyArray<{
-    readonly key: string
-    readonly line: string
-    readonly share: number | null
-    readonly verdict: string | null
-    readonly skipped: string | null
-  }>
 }
 
 export interface LabelsTable {
@@ -303,28 +288,6 @@ const skipReasons = (figures: AsRead.AgentFigures): Skips | null =>
           strings.trust.skipReason({ reason: entry.reason, count: entry.count }),
         ),
         none: figures.skipReasons.length === 0 ? strings.trust.noSkipReasons : null,
-      }
-
-const places = (figures: AsRead.AgentFigures): Places | null =>
-  figures.places.length === 0
-    ? null
-    : {
-        title: strings.trust.placesTitle,
-        intro: strings.trust.placesIntro,
-        rows: figures.places.map((place) => {
-          const decided = decidedOf(place)
-          const name = placeName(place.place)
-          return {
-            key: place.place ?? 'direct',
-            line:
-              decided === 0
-                ? strings.trust.placeNothingDecided({ place: name })
-                : strings.trust.placeLine({ place: name, asWritten: place.sentAsWritten, decided }),
-            share: shareOf(place.sentAsWritten, decided),
-            verdict: decided > 0 ? strings.trust.verdict[place.verdict] : null,
-            skipped: place.skipped > 0 ? strings.trust.placeSkipped({ count: place.skipped }) : null,
-          }
-        }),
       }
 
 const trend = (report: AsRead.AgentReport): Trend => {

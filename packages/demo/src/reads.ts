@@ -50,6 +50,11 @@ export const conversationAsSeen = (
 ): Conversation => {
   const inRoom = records.notes.filter((note) => note.conversationId === room.id)
   const sent = inRoom.filter((note) => note.status === 'sent')
+  const channel = records.channels.find((each) =>
+    room.privateQuestionOf === undefined
+      ? each.conversationId === room.id
+      : each.slug === room.privateQuestionOf.slug,
+  )
   return {
     id: room.id,
     kind: room.kind,
@@ -68,7 +73,13 @@ export const conversationAsSeen = (
     ).length,
     draftCount: inRoom.filter((note) => note.status === 'draft' && note.authorId === viewerId).length,
     archivedAt: null,
-    ...(room.privateQuestionOf !== undefined && { privateQuestionOf: room.privateQuestionOf.slug }),
+    ...(room.privateQuestionOf !== undefined && {
+      privateQuestionOf: room.privateQuestionOf.slug,
+      askedBy: room.privateQuestionOf.askedBy,
+    }),
+    ...(channel !== undefined && {
+      managerIds: managersOf(records, channel).filter((memberId) => room.participantIds.includes(memberId)),
+    }),
     muted: room.mutedBy.includes(viewerId),
   }
 }

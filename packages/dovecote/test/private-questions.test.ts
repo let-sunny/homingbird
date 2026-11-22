@@ -46,6 +46,22 @@ describe('asking a channel’s agent privately', () => {
     expect((await root.api('GET', `/conversations/${opened.json.id}`)).status).toBe(404)
   })
 
+  it('names its asker and its current managers to the people in it, and to nobody else', async () => {
+    await start()
+    await setManagers([ana, ben])
+    const room = (await askPrivately(cy)).json.id
+    for (const person of [cy, ana, ben]) {
+      const seen = (await person.api('GET', `/conversations/${room}`)).json
+      expect(seen.askedBy).toBe(cy.me.member.id)
+      expect(seen.managerIds).toEqual([ana.me.member.id, ben.me.member.id].sort())
+    }
+    const listed = (await cy.api('GET', '/conversations')).json.conversations
+    expect(listed.find((one: any) => one.id === room)).toMatchObject({ askedBy: cy.me.member.id })
+    expect((await root.api('GET', `/conversations/${room}`)).status).toBe(404)
+    await setManagers([ben])
+    expect((await cy.api('GET', `/conversations/${room}`)).json.managerIds).toEqual([ben.me.member.id])
+  })
+
   it('delivers the question to the agent alone, and the approved answer to the asker alone', async () => {
     await start()
     await setManagers([ana, ben])

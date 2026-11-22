@@ -85,7 +85,12 @@ describe('debateView', () => {
     )
     expect(textOf(shown)).toContain(strings.debates.droppedOut)
     expect(getByRole(shown, 'link', { name: 'https://example.com' })).toBeTruthy()
+    const count = getByRole(shown, 'button', { name: strings.groupPeople({ count: 2 }) })
+    const list = shown.querySelector<HTMLElement>('.people-list')!
+    expect(count.getAttribute('popovertarget')).toBe(list.id)
+    expect(textOf(list)).toContain(strings.participants.openedRoom)
     context.state.shownDebate.set(debate({ status: 'ended', endedBecause: 'no_turns' }))
+    expect(shown.querySelector('.people-open')).toBeNull()
     expect(textOf(shown)).toContain(strings.debates.ended.no_turns)
     expect(textOf(shown)).not.toContain(strings.debates.noParticipants)
     const content = debateView(context, lifetime(), me(), 'debate_000000000000', 'turns')

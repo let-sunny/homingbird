@@ -159,7 +159,7 @@ const joinMenu = (
     ],
   })
 
-const createForm = (context: ViewContext, life: Lifetime): HTMLElement => {
+export const channelCreateForm = (context: ViewContext, life: Lifetime): HTMLElement => {
   const { state, actions } = context
   const typed = signal('')
   const slug = h('input', {
@@ -350,7 +350,7 @@ const newChannelButton = (context: ViewContext): HTMLElement | null =>
         {
           type: 'button',
           class: 'primary new-channel',
-          ...opensDialog(context, strings.createChannelTitle, (life) => createForm(context, life)),
+          ...opensDialog(context, strings.createChannelTitle, (life) => channelCreateForm(context, life)),
         },
         strings.newChannel,
       )
