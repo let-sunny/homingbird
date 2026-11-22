@@ -11,6 +11,22 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  .hint-tip {
+    opacity: 0;
+    transition:
+      opacity var(--hb-duration-fast) linear,
+      overlay var(--hb-duration-fast) allow-discrete,
+      display var(--hb-duration-fast) allow-discrete;
+  }
+
+  .hint-tip:popover-open {
+    opacity: 1;
+
+    @starting-style {
+      opacity: 0;
+    }
+  }
+
   .note,
   .pending,
   .toast {

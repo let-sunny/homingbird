@@ -76,8 +76,9 @@ describe('browserPage', () => {
       page.pixelRatio(),
       page.supportsAnchors(),
       page.supportsHintPopovers(),
+      page.supportsInterestInvokers(),
       page.isCoarsePointer(),
-    ]).toEqual([false, 2, true, false, false])
+    ]).toEqual([false, 2, true, false, false, false])
     expect(page.supportsPush()).toBe(false)
     const pushing = fakeWindow({
       navigator: { languages: [], serviceWorker: {} },

@@ -2,11 +2,13 @@ import type { AsRead } from '@homingbird/protocol'
 import { type Lifetime, h } from '@homingbird/ui'
 import { adminModel } from '../models/admin.ts'
 import type { AdminSection } from '../routes.ts'
+import { strings } from '../strings.ts'
 import { adminChannelsSection } from './admin-channels.ts'
 import { adminGroupEditor, adminGroupsSection } from './admin-groups.ts'
 import { adminMembersSection } from './admin-members.ts'
 import { settingsSection } from './admin-settings.ts'
 import type { ViewContext } from './context.ts'
+import { hinted } from './hint.ts'
 import { insightsSection } from './insights.ts'
 import { page } from './parts.ts'
 
@@ -24,7 +26,10 @@ export const adminView = (
     h(
       'nav',
       { class: 'subtabs' },
-      model.tabs.map((tab) => h('a', { href: tab.href, 'aria-current': tab.current && 'page' }, tab.label)),
+      model.tabs.map((tab) => {
+        const link = h('a', { href: tab.href, 'aria-current': tab.current && 'page' }, tab.label)
+        return tab.section === 'insights' ? hinted(context, 'insights', strings.hints.insights, link) : link
+      }),
     ),
     model.shown === 'groups' && groupId !== null
       ? adminGroupEditor(context, life, me.member.id, groupId)
