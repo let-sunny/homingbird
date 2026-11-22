@@ -178,8 +178,14 @@ const inTransition = (context: ViewContext, change: () => void): void => {
 }
 
 /**
- * A group's editor counts as the administration's page, and the new-message screen as a
- * conversation's, so analytics keeps one value per area.
+ * A group's editor counts as the administration's page, the new-message screen as a conversation's, and
+ * a Slack link's page as My agent's, so analytics keeps one value per area.
  */
-const analyticsPageOf = (route: Route): Exclude<Route['name'], 'admin-group' | 'new'> =>
-  route.name === 'admin-group' ? 'admin' : route.name === 'new' ? 'conversation' : route.name
+const analyticsPageOf = (route: Route): Exclude<Route['name'], 'admin-group' | 'new' | 'slack-link'> =>
+  route.name === 'admin-group'
+    ? 'admin'
+    : route.name === 'new'
+      ? 'conversation'
+      : route.name === 'slack-link'
+        ? 'agent'
+        : route.name

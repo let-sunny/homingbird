@@ -11,15 +11,14 @@ afterEach(async () => {
 })
 
 describe('the teaching chat step', () => {
-  it('is the twenty-first and last step', () => {
+  it('is the twenty-first step', () => {
     expect(stepNumberOf(TEACHING_INTERVIEW)).toBe(21)
-    expect(MIGRATIONS.length).toBe(21)
   })
 
   it('adds the proposals and one pasted document per person, and only new tables, so it can run twice', async () => {
     const earlier = MIGRATIONS.indexOf(TEACHING_INTERVIEW)
     database = await migratedThrough(earlier)
-    expect(await database.migrate(MIGRATIONS)).toEqual([earlier + 1])
+    expect(await database.migrate(MIGRATIONS.slice(0, earlier + 1))).toEqual([earlier + 1])
     expect(await database.columnsOf('principle_proposals')).toEqual(
       expect.arrayContaining(['id', 'member_id', 'topic', 'rule', 'question', 'origin', 'rewrite_of']),
     )

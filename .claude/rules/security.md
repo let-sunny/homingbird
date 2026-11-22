@@ -13,10 +13,13 @@ These nine rules are never broken. Each has a test; keep it passing and keep it 
    whose question it answers, a manager included. A person may let chosen people or channels see their
    own agent's unconfirmed drafts, in the web client; such a preview is shown as unconfirmed, cannot be
    replied to or quoted, and disappears when the draft is discarded.
+   Nothing of a draft is posted to an outside chat tool such as Slack: a person who may decide a draft
+   may be told there, in a message only they receive, that it waits, with a link and nothing of it.
 3. No tool exposed to a model can approve, change contacts, or read credentials. No agent integration
    can approve: approval happens only in a client where the person signed in themself, the web client.
    No tool exposed to a model can create, rename, retire or connect a channel's agent, ask it
-   privately, or read or decide its drafts as a reviewer.
+   privately, or read or decide its drafts as a reviewer. No tool exposed to a model can connect an outside chat
+   tool such as Slack, link a person or a channel to it, post to it, or read its token.
 4. Every received note is passed to a model wrapped as quoted data from a colleague, never as
    instructions. `wrapNote` in `packages/protocol/src/wrap.ts` is the only wrapper; never format a
    note for a model any other way.

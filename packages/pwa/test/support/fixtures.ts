@@ -144,6 +144,7 @@ export const everything = (): AsRead.ServerInfo =>
         'groups',
         'characters',
         'debateRooms',
+        'slack',
         'insights',
         'answeringFlow',
         'earlierAnswers',

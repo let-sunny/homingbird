@@ -20,6 +20,9 @@ import { makeRateLimiter } from './http/rate-limiter.ts'
 import { makeLog, writeToStandardOutput } from './log/operational-log.ts'
 import { makePushNotifier, sendDeskUnavailablePush, sendTestPush } from './push/notifier.ts'
 import { cryptoRandom } from './random.ts'
+import { slackIntakePass } from './slack/slack-intake.ts'
+import { makeSlackApi } from './slack/slack-web-api.ts'
+import { checkSlackWorkspace } from './slack/slack-workspace.ts'
 import { type Database, sqlEnvironment } from './sql/database.ts'
 import { SERVER_VERSION } from './version.ts'
 import { makeDeskWaker } from './wake/waker.ts'
@@ -30,6 +33,8 @@ export interface Runtime {
   readonly settled: T.Task<void>
   /** One cloud desk wake pass, as `background` runs it every 15 seconds. */
   readonly wakePass: T.Task<void, never, AppEnv>
+  /** One pass over the events Slack sent, as `background` runs it every few seconds. */
+  readonly slackPass: T.Task<void, never, AppEnv>
 }
 
 export interface RuntimeParts {
@@ -78,6 +83,7 @@ export const buildRuntime = (parts: RuntimeParts): Runtime => {
     pushDeskUnavailable: (memberId, kind) => T.asUnit(sendDeskUnavailablePush(fetch, memberId, kind)),
     wakeSink: waker.consider,
     wakeTest: waker.test,
+    slack: parts.config.slack === null ? null : makeSlackApi(fetch, parts.config.slack.botToken),
     log,
     requestId: null,
     client: null,
@@ -93,8 +99,11 @@ export const buildRuntime = (parts: RuntimeParts): Runtime => {
       chainHead,
       push.run,
       waker.run,
+      slackWorkspaceChecks,
+      slackIntake,
     ]),
     wakePass: waker.pass,
+    slackPass: slackIntakePass,
     settled: T.gen(function* () {
       yield* push.settled
       yield* analytics.settled
@@ -146,6 +155,14 @@ const debateDeadlines: T.Task<never, never, AppEnv> = T.forever(60_000)(
 
 const presenceBroadcast: T.Task<never, never, AppEnv> = T.forever(PRESENCE_FLUSH_INTERVAL_MS)(
   survivingPass('presence', T.map((env: AppEnv) => env.hub.flushPresence())(T.ask<AppEnv>())),
+)
+
+const slackWorkspaceChecks: T.Task<never, never, AppEnv> = T.forever(60 * 60_000)(
+  survivingPass('slack workspace', checkSlackWorkspace),
+)
+
+const slackIntake: T.Task<never, never, AppEnv> = T.forever(3000)(
+  survivingPass('slack intake', slackIntakePass),
 )
 
 const chainHead: T.Task<never, never, AppEnv> = T.forever(24 * 60 * 60_000)(

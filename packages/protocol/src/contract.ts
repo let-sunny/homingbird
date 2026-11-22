@@ -105,6 +105,7 @@ import {
 } from './principles.ts'
 import { type ReadResponseOf, type RequestOf, type Route, route } from './route.ts'
 import { DeskSession } from './session-health.ts'
+import { AdminSlack, MeSlack, SlackCodeView, SlackLinkCode } from './slack.ts'
 
 export const PushSubscription = S.struct({
   endpoint: S.string({ minLength: 1, maxLength: 2000, pattern: /^https:\/\// }),
@@ -168,6 +169,28 @@ export const contract = {
     access: 'human',
     body: Empty,
     response: DeskWakeTest,
+  }),
+  'me.slack.get': route({ method: 'GET', path: '/me/slack', access: 'human', response: MeSlack }),
+  'me.slack.connect': route({
+    method: 'POST',
+    path: '/me/slack/connect',
+    access: 'human',
+    body: Empty,
+    response: S.struct({ sent: S.boolean }),
+  }),
+  'me.slack.link': route({
+    method: 'POST',
+    path: '/me/slack/link',
+    access: 'human',
+    body: S.struct({ code: SlackLinkCode }),
+    response: MeSlack,
+  }),
+  'me.slack.unlink': route({ method: 'DELETE', path: '/me/slack', access: 'human', response: Empty }),
+  'slack.codes.get': route({
+    method: 'GET',
+    path: '/slack/codes/:id',
+    access: 'human',
+    response: SlackCodeView,
   }),
   'me.draftPreviews.get': route({
     method: 'GET',
@@ -1080,6 +1103,7 @@ export const contract = {
     access: 'admin',
     response: OrganizationInsights,
   }),
+  'admin.slack.get': route({ method: 'GET', path: '/admin/slack', access: 'admin', response: AdminSlack }),
 } as const satisfies Readonly<Record<string, Route>>
 
 export type Contract = typeof contract

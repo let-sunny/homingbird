@@ -79,6 +79,11 @@ describe('contract', () => {
         'me.deskWake.set',
         'me.deskWake.remove',
         'me.deskWake.test',
+        'me.slack.get',
+        'me.slack.connect',
+        'me.slack.link',
+        'me.slack.unlink',
+        'slack.codes.get',
         'me.draftPreviews.get',
         'me.draftPreviews.set',
         'previews.list',
@@ -169,6 +174,7 @@ describe('contract', () => {
         'admin.members.update',
         'admin.members.resetCharacter',
         'admin.insights',
+        'admin.slack.get',
       ].sort(),
     )
   })

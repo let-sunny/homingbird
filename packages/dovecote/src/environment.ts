@@ -21,6 +21,7 @@ import type { RateLimiter } from './http/rate-limiter.ts'
 import type { Log } from './log/operational-log.ts'
 import type { PushOutcome } from './push/notifier.ts'
 import type { Random } from './random.ts'
+import type { SlackApi } from './slack/slack-web-api.ts'
 import type { HasSql } from './sql/database.ts'
 
 export interface AppEnv extends HasSql, HasClock {
@@ -38,6 +39,7 @@ export interface AppEnv extends HasSql, HasClock {
   readonly pushDeskUnavailable: (memberId: MemberId, kind: DeskUnavailableKind) => T.Task<void, never, AppEnv>
   readonly wakeSink: (memberId: MemberId, event: StreamEvent) => void
   readonly wakeTest: (memberId: MemberId) => T.Task<DeskWakeTest, NotFound | Conflict, AppEnv>
+  readonly slack: SlackApi | null
   readonly log: Log
   readonly requestId: string | null
   readonly client: RequestClient | null

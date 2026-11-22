@@ -15,6 +15,7 @@ import { HISTORY_ANSWERS } from './migrations/history-answers-step.ts'
 import { INSIGHTS } from './migrations/insights-step.ts'
 import { MUTE } from './migrations/mute-step.ts'
 import { RESULT_VOTES } from './migrations/result-votes-step.ts'
+import { SLACK } from './migrations/slack-step.ts'
 import { SOURCES_AND_REASONS } from './migrations/sources-and-reasons-step.ts'
 import { SPENT_REFRESH_TOKENS } from './migrations/spent-refresh-tokens-step.ts'
 import { TEACHING_AND_FIGURES } from './migrations/teaching-and-figures-step.ts'
@@ -43,6 +44,7 @@ export const MIGRATIONS: ReadonlyArray<Migration> = [
   DISCARDED_BY,
   DEBATE_AGREEMENT,
   TEACHING_INTERVIEW,
+  SLACK,
 ]
 
 /** The step that added the audit trail; when it runs, the first audit table's old rows go. */
