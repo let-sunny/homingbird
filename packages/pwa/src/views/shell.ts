@@ -35,6 +35,7 @@ import { activityBell, activityPanel } from './activity.ts'
 import { leaveForm } from './channel-membership.ts'
 import { renderAvatar, renderGroupAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
+import { conversationActionItems } from './conversation-actions.ts'
 import { opensDialog } from './dialog.ts'
 import { startingPoints } from './home.ts'
 import { type MenuParts, actionMenu } from './menu.ts'
@@ -302,6 +303,8 @@ const sidebar = (
       agentCount: state.agentCredentials.get().length,
       charactersOn: featureOn('characters', state.serverInfo.get()),
       muteOn: featureOn('mute', state.serverInfo.get()),
+      hideOn: featureOn('hideConversations', state.serverInfo.get()),
+      leaveOn: featureOn('leaveGroups', state.serverInfo.get()),
       now: context.clock.now(),
       typedIn: state.typedIn.get(),
       arrived: new Set(
@@ -533,7 +536,7 @@ const conversationRow = (context: ViewContext, row: ConversationRow): HTMLElemen
 }
 
 const rowMenu = (context: ViewContext, menu: NonNullable<ConversationRow['menu']>): MenuParts => {
-  const { mute, leave } = menu
+  const { mute, leave, place } = menu
   const reasonId = `${menu.id}-reason`
   return actionMenu(context, {
     id: menu.id,
@@ -564,6 +567,7 @@ const rowMenu = (context: ViewContext, menu: NonNullable<ConversationRow['menu']
         ),
         h('small', { id: reasonId, class: 'menu-reason' }, leave.reason),
       ],
+      ...conversationActionItems(context, place),
     ],
   })
 }

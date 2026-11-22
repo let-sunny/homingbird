@@ -80,6 +80,10 @@ export const AUDIT_DETAILS: { readonly [N in AuditedRoute]: Describe<N> } = {
   'conversations.mute': ({ params }) => afterwards(() => ({ targetId: params.id, detail: { muted: true } })),
   'conversations.unmute': ({ params }) =>
     afterwards(() => ({ targetId: params.id, detail: { muted: false } })),
+  'conversations.hide': ({ params }) => afterwards(() => ({ targetId: params.id, detail: { hidden: true } })),
+  'conversations.unhide': ({ params }) =>
+    afterwards(() => ({ targetId: params.id, detail: { hidden: false } })),
+  'conversations.leave': ({ params }) => afterwards(() => ({ targetId: params.id, detail: {} })),
   'channels.create': () =>
     afterwards((channel) => ({ targetId: channel.slug, detail: { visibility: channel.visibility } })),
   'channels.join': ({ params }) => afterwards(() => ({ targetId: params.slug, detail: {} })),

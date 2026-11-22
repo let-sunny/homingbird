@@ -1,9 +1,11 @@
 import type { Child } from '@homingbird/ui'
 import { h } from '@homingbird/ui'
 import type { ThreadHead } from '../models/thread-room.ts'
+import { strings } from '../strings.ts'
 import { channelAgentStateLine } from './channel-agent.ts'
 import { answeringChip, privateMark, roomMenu } from './channel-membership.ts'
 import type { ViewContext } from './context.ts'
+import { threadActionsMenu } from './conversation-actions.ts'
 import { muteButton, mutedMark } from './mute-toggle.ts'
 import { participantsCount, participantsList, participantsTitle } from './participants.ts'
 import { archivedMark, backLink, presenceDots } from './parts.ts'
@@ -12,7 +14,8 @@ import { opensProfile } from './profile-card.ts'
 /** The head of a conversation on one line: who it is with, or the channel with its counts and controls. */
 export const renderThreadHead = (context: ViewContext, model: ThreadHead): Child => {
   if (model.kind === 'loading') return [backLink(), h('h1', {}, model.title)]
-  if (model.kind === 'people')
+  if (model.kind === 'people') {
+    const more = threadActionsMenu(context, strings.conversationMore({ name: model.title }), model.actions)
     return [
       backLink(),
       h(
@@ -41,7 +44,9 @@ export const renderThreadHead = (context: ViewContext, model: ThreadHead): Child
       model.showsCount && participantsCount(model.people),
       participantsList(model.people),
       model.mute !== null && muteButton(context, model.mute),
+      more !== null && [more.trigger, more.menu],
     ]
+  }
   const channel = model.channel
   return [
     backLink(),

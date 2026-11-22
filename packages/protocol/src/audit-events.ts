@@ -178,6 +178,8 @@ export const AUDIT_EVENTS = {
   }),
   'channel.archived': event('full', 'channel', { moveMembersTo: S.optional(ChannelSlug) }),
   'conversation.mute_changed': event('full', 'conversation', { muted: S.boolean }),
+  'conversation.hidden_changed': event('full', 'conversation', { hidden: S.boolean }),
+  'conversation.left': event('full', 'conversation', {}),
   'contact.requested': event('full', 'member', {}),
   'contact.accepted': event('full', 'member', {}),
   'contact.removed': event('full', 'member', {}),

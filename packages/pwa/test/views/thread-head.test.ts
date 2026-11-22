@@ -7,6 +7,8 @@ import { testContext } from '../support/context.ts'
 import { usingFakeDom } from '../support/dom.ts'
 import { ANA, BEN, CY, ROOM, channel } from '../support/fixtures.ts'
 
+const NO_ACTIONS = { hide: null, leave: null, newGroup: null }
+
 usingFakeDom()
 
 const nobody: Participants = {
@@ -47,6 +49,7 @@ describe('renderThreadHead', () => {
         showsCount: false,
         profileOf: BEN,
         mute: null,
+        actions: NO_ACTIONS,
       }),
     )
     expect(getByRole(shown, 'button', { name: 'Ben' }).getAttribute('popovertarget')).toBe('profile-card')
@@ -70,6 +73,7 @@ describe('renderThreadHead', () => {
             showsCount: false,
             profileOf: null,
             mute: null,
+            actions: NO_ACTIONS,
           }),
         ),
       ),
@@ -135,6 +139,7 @@ describe('renderThreadHead', () => {
         showsCount: true,
         profileOf: null,
         mute: null,
+        actions: NO_ACTIONS,
       }),
     )
     const list = shown.querySelector<HTMLElement>('.people-list')!
@@ -168,6 +173,7 @@ describe('renderThreadHead', () => {
         showsCount: false,
         profileOf: null,
         mute: null,
+        actions: NO_ACTIONS,
       }),
     )
     expect(queryByRole(direct, 'button', { name: '2 people' })).toBeNull()
@@ -203,6 +209,29 @@ describe('renderThreadHead', () => {
     expect(getByRole(archived, 'button', { name: '2 people' })).toBeTruthy()
   })
 
+  it('offers hiding, leaving and a new group behind a ⋯ named for the conversation', () => {
+    const { context, called } = testContext()
+    const shown = host(
+      renderThreadHead(context, {
+        kind: 'people',
+        title: 'Ana, Ben',
+        profile: null,
+        presence: null,
+        people: nobody,
+        showsCount: true,
+        profileOf: null,
+        mute: null,
+        actions: {
+          ...NO_ACTIONS,
+          hide: { conversationId: ROOM, hidden: false, label: 'Hide Ana, Ben', hint: 'hint', done: null },
+        },
+      }),
+    )
+    getByRole(shown, 'button', { name: strings.conversationMore({ name: 'Ana, Ben' }) }).click()
+    getByRole(shown, 'menuitem', { name: 'Hide Ana, Ben' }).click()
+    expect(called('setHidden').map((call) => call.args)).toEqual([[ROOM, true, null]])
+  })
+
   it('marks a muted conversation and offers to lift the mute, beside a person or a channel', () => {
     const { context, called } = testContext()
     const mute = {
@@ -222,6 +251,7 @@ describe('renderThreadHead', () => {
         showsCount: false,
         profileOf: null,
         mute,
+        actions: NO_ACTIONS,
       }),
     )
     expect(getByRole(person, 'heading').textContent).toContain(strings.mute.muted)

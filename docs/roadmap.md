@@ -267,6 +267,12 @@ note in it is sent, a group message shows only to the person who started it, as 
 person no notification, and a level for device notifications: every direct message and channel, direct
 messages only, or nothing ([guide](guide.md#turn-on-phone-notifications)).
 
+**Built:** hiding a direct or group message from one's own list until a note is sent in it, leaving a
+group message for good, and **New group with these people**, which opens a new message with the group's
+people chosen. A group's people never change; adding or taking out someone is a new group, with no notes
+carried
+([decisions](decisions.md#a-group-messages-people-are-fixed-a-person-may-leave-it-or-hide-it)).
+
 **Built:** answered before you ask: while a person writes a question, and before an agent asks a
 channel, up to three earlier sent answers they may read are shown, matched by shared words; "This
 answers it" sends nothing and is counted per channel in insights

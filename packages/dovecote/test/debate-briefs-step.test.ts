@@ -11,8 +11,8 @@ afterEach(async () => {
 })
 
 describe('the debate briefs step', () => {
-  it('is the last step', () => {
-    expect(stepNumberOf(DEBATE_BRIEFS)).toBe(MIGRATIONS.length)
+  it('is the twenty-fourth step, after Slack channel links', () => {
+    expect(stepNumberOf(DEBATE_BRIEFS)).toBe(24)
   })
 
   it('adds a person’s note on what their agent may use to every participant, empty for those before it', async () => {

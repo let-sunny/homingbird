@@ -851,6 +851,27 @@ describe('Rule 2: drafts are invisible to recipients', () => {
     ).toBe(200)
   })
 
+  it('keeps a draft waiting in a room its author hid on every route that leads the author to it, and from everyone else', async () => {
+    const note = await sentFromAnaToBen('Lunch?')
+    const draft = (await benAgent.api('POST', '/drafts', { inReplyTo: note.id, body: SECRET_BODY })).json
+    await server.clock.advance(1_000)
+    await ben.api('PUT', `/conversations/${note.conversationId}/hidden`)
+    const listed = (await ben.api('GET', '/conversations')).json.conversations
+    expect(listed.find((room: { id: string }) => room.id === note.conversationId)).toMatchObject({
+      draftCount: 1,
+    })
+    expect((await ben.api('GET', '/drafts')).json.drafts.map((one: { id: string }) => one.id)).toEqual([
+      draft.id,
+    ])
+    expect(
+      (await ben.api('GET', `/conversations/${note.conversationId}/notes`)).json.notes.map(
+        (one: { id: string }) => one.id,
+      ),
+    ).toContain(draft.id)
+    for (const path of ['/conversations', `/conversations/${note.conversationId}/notes`, '/search?q=7f3a'])
+      expect(JSON.stringify((await ana.api('GET', path)).json)).not.toContain(SECRET_BODY)
+  })
+
   it('hides a group message from its other members until a note in it is sent', async () => {
     const group = (
       await ana.api('POST', '/conversations', { participantIds: [ben.me.member.id, cy.me.member.id] })
@@ -1047,6 +1068,27 @@ describe('Rule 3: no model-facing credential can approve, change contacts, or re
       expect(routes).not.toContain('drafts.send')
       expect(routes).not.toContain('drafts.discard')
     }
+  })
+
+  it('3: lets no model-facing credential or tool hide, show again or leave a conversation, changing nothing', async () => {
+    const group = (
+      await ana.api('POST', '/conversations', { participantIds: [ben.me.member.id, cy.me.member.id] })
+    ).json
+    const draft = (await ana.api('POST', '/drafts', { conversationId: group.id, body: 'Hello all' })).json
+    await ana.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })
+    await server.clock.advance(1_000)
+    for (const name of ['conversations.hide', 'conversations.unhide', 'conversations.leave'] as const) {
+      expect(contract[name].access).toBe('human')
+      for (const routes of [MCP_ROUTES, A2A_ROUTES]) expect(routes).not.toContain(name)
+    }
+    const before = stateOf(await everyStoredValue(server))
+    for (const [method, path] of [
+      ['PUT', `/conversations/${group.id}/hidden`],
+      ['DELETE', `/conversations/${group.id}/hidden`],
+      ['POST', `/conversations/${group.id}/leave`],
+    ] as const)
+      expect([path, (await benAgent.api(method, path)).status]).toEqual([path, 403])
+    expect(stateOf(await everyStoredValue(server))).toBe(before)
   })
 
   it('refuses an agent credential that asks how its person approves, or tries to mark a draft seen', async () => {
@@ -1707,6 +1749,55 @@ describe('Rule 6: a member sees only conversations they participate in', () => {
       (await cy.api('POST', '/drafts', { conversationId: note.conversationId, body: 'hi' })).status,
     ).toBe(404)
     expect((await cy.api('POST', '/drafts', { inReplyTo: note.id, body: 'hi' })).status).toBe(404)
+  })
+
+  it('6: shows a person who left a group message none of it from then on, nor their agent', async () => {
+    const group = (
+      await ana.api('POST', '/conversations', { participantIds: [ben.me.member.id, cy.me.member.id] })
+    ).json
+    const first = (await ana.api('POST', '/drafts', { conversationId: group.id, body: 'Before 4c1e' })).json
+    const before = (await ana.api('POST', `/drafts/${first.id}/send`, { expected: asRead(first) })).json
+    expect((await ben.api('POST', `/conversations/${group.id}/leave`)).status).toBe(200)
+    const seen = (await ben.api('GET', '/events/poll?after=0')).json.events.length
+    const seenByAgent = (await benAgent.api('GET', '/events/poll?after=0')).json.events.length
+    const next = (await ana.api('POST', '/drafts', { conversationId: group.id, body: 'After 4c1e' })).json
+    const after = (await ana.api('POST', `/drafts/${next.id}/send`, { expected: asRead(next) })).json
+    for (const leaver of [ben, benAgent]) {
+      expect(JSON.stringify((await leaver.api('GET', '/conversations')).json)).not.toContain(group.id)
+      expect((await leaver.api('GET', `/conversations/${group.id}`)).status).toBe(404)
+      expect((await leaver.api('GET', `/conversations/${group.id}/notes`)).status).toBe(404)
+      for (const note of [before, after]) {
+        expect((await leaver.api('GET', `/notes/${note.id}`)).status).toBe(404)
+        expect((await leaver.api('POST', `/notes/${note.id}/pickup`)).status).toBe(404)
+        expect((await leaver.api('POST', '/drafts', { inReplyTo: note.id, body: 'hi' })).status).toBe(404)
+      }
+      expect((await leaver.api('GET', '/search?q=4c1e')).json.notes).toEqual([])
+      expect(JSON.stringify((await leaver.api('GET', '/inbox')).json)).not.toContain(group.id)
+      expect((await leaver.api('POST', '/drafts', { conversationId: group.id, body: 'hi' })).status).toBe(404)
+    }
+    const laterEvents = [
+      ...(await ben.api('GET', '/events/poll?after=0')).json.events.slice(seen),
+      ...(await benAgent.api('GET', '/events/poll?after=0')).json.events.slice(seenByAgent),
+    ]
+    expect(JSON.stringify(laterEvents)).not.toContain(group.id)
+    expect(JSON.stringify(laterEvents)).not.toContain('4c1e')
+    expect((await cy.api('GET', `/notes/${after.id}`)).status).toBe(200)
+  })
+
+  it('6: discards what the leaver’s agent drafted in a group they left, so nothing of theirs is sent there', async () => {
+    const group = (
+      await ana.api('POST', '/conversations', { participantIds: [ben.me.member.id, cy.me.member.id] })
+    ).json
+    const asked = (await ana.api('POST', '/drafts', { conversationId: group.id, body: 'Anyone?' })).json
+    const sent = (await ana.api('POST', `/drafts/${asked.id}/send`, { expected: asRead(asked) })).json
+    const draft = (await benAgent.api('POST', '/drafts', { inReplyTo: sent.id, body: SECRET_BODY })).json
+    await ben.api('POST', `/conversations/${group.id}/leave`)
+    expect((await ben.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })).status).toBe(409)
+    for (const other of [ana, cy])
+      expect(JSON.stringify((await other.api('GET', `/conversations/${group.id}/notes`)).json)).not.toContain(
+        SECRET_BODY,
+      )
+    expect((await storedRows(server, 'notes')).find((row) => row.id === draft.id)?.status).toBe('discarded')
   })
 
   it('delivers a conversation’s events to its participants only', async () => {

@@ -24,6 +24,7 @@ const types: EventType[] = [
   'directory.changed',
   'channel.changed',
   'channel.left',
+  'conversation.left',
   'debate.changed',
   'group.changed',
   'review.changed',

@@ -130,6 +130,8 @@ describe('sidebarModel', () => {
     agentCount: 1,
     charactersOn: true,
     muteOn: true,
+    hideOn: true,
+    leaveOn: true,
     now: 10,
     arrived: new Set(),
     typedIn: new Set(),
@@ -268,6 +270,24 @@ describe('sidebarModel', () => {
     expect(sidebarModel(input({ conversations: [old] })).archived!.open).toBe(false)
   })
 
+  it('leaves out a room the person hid, and offers a group’s row hide, a new group and leave', () => {
+    const team = conversation({
+      id: 'conv_team00000000' as never,
+      kind: 'group',
+      participantIds: [ANA, BEN, CY],
+    })
+    const hidden = conversation({ hidden: true })
+    const model = sidebarModel(input({ conversations: [hidden, team] }))
+    if (model.people.kind !== 'rows') throw new Error('expected rows')
+    expect(model.people.rows.map((row) => row.id)).toEqual([team.id])
+    expect(model.people.rows[0]!.menu?.place).toMatchObject({
+      hide: { conversationId: team.id, hidden: false },
+      leave: { conversationId: team.id, title: 'Leave Ben, Cy?' },
+      newGroup: { label: strings.places.newGroup },
+    })
+    expect(sidebarModel(input({ conversations: [hidden] })).people).toEqual({ kind: 'none' })
+  })
+
   it('offers each row a mute switch, marks a muted one, and lets no muted row play an arrival', () => {
     const muted = conversation({ muted: true, lastNote: note('n1', { authorId: BEN, sentAt: 9 }) })
     const model = sidebarModel(input({ conversations: [muted], arrived: new Set([ROOM]) }))
@@ -275,7 +295,9 @@ describe('sidebarModel', () => {
     const [row] = model.people.rows
     expect(row!.mute).toMatchObject({ muted: true, label: 'Unmute Ben', mark: strings.mute.muted })
     expect(row!.face).toMatchObject({ kind: 'member', avatar: { state: 'idle', motion: 'still' } })
-    const off = sidebarModel(input({ conversations: [conversation()], muteOn: false }))
+    const off = sidebarModel(
+      input({ conversations: [conversation()], muteOn: false, hideOn: false, leaveOn: false }),
+    )
     expect(off.people.kind === 'rows' && off.people.rows[0]!.mute).toBeNull()
     expect(off.people.kind === 'rows' && off.people.rows[0]!.menu).toBeNull()
   })

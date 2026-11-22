@@ -4,10 +4,11 @@ import { featureOn } from '../features.ts'
 import { type Route, hrefFor } from '../routes.ts'
 import { spriteOwner } from '../sprite-owner.ts'
 import { strings } from '../strings.ts'
-import { conversationTitle, excerpt, isMuted, otherParticipants } from '../thread.ts'
+import { conversationTitle, excerpt, isHidden, isMuted, otherParticipants } from '../thread.ts'
 import { type AvatarModel, type GroupAvatarModel, groupAvatarOf, memberAvatarOf } from './avatar.ts'
 import { reviewBadgeOf } from './channel-agent.ts'
 import { leaveConsequence, leaveRefusal } from './channel-membership.ts'
+import { type ConversationActions, conversationActionsModel, offersAny } from './conversation-actions.ts'
 import { type MuteToggle, muteToggleModel } from './mute-toggle.ts'
 import { type TimeShown, timeShown } from './time.ts'
 
@@ -73,7 +74,7 @@ export const sidebarModel = (input: SidebarInput): SidebarModel => {
   const waitingOnly = input.waitingOnly ?? null
   const shown = (rooms: AsRead.Conversation[]): AsRead.Conversation[] =>
     waitingOnly === null ? rooms : rooms.filter((room) => waitingOnly.has(room.id))
-  const people = peopleConversations(input.conversations)
+  const people = peopleConversations(input.conversations).filter((conversation) => !isHidden(conversation))
   const archived = waitingOnly === null ? archivedRooms(input.conversations) : []
   const row = (conversation: AsRead.Conversation): ConversationRow => conversationRow(input, conversation)
   const peopleShown = shown(people)
@@ -139,6 +140,8 @@ export interface SidebarInput {
   readonly agentCount: number
   readonly charactersOn: boolean
   readonly muteOn: boolean
+  readonly hideOn: boolean
+  readonly leaveOn: boolean
   readonly now: number
   /** The conversations whose row plays a note's arrival now; a muted one never does. */
   readonly arrived: ReadonlySet<string>
@@ -191,6 +194,8 @@ export interface ConversationRow {
     readonly label: string
     readonly mute: MuteToggle | null
     readonly leave: RowLeave | null
+    /** Hiding the row, leaving its group and starting a new group with its people. */
+    readonly place: ConversationActions
   } | null
 }
 
@@ -262,16 +267,32 @@ const conversationRow = (input: SidebarInput, conversation: AsRead.Conversation)
     typed: input.typedIn.has(conversation.id) && !archived ? { text: '✎', label: strings.unsentText } : null,
     review: review === null ? null : { text: review.text, label: review.label },
     mute,
-    menu: rowMenu(conversation, title, channel, mute),
+    menu: rowMenu(
+      conversation,
+      title,
+      channel,
+      mute,
+      conversationActionsModel({
+        conversation,
+        title,
+        viewerId,
+        hideOn: input.hideOn,
+        leaveOn: input.leaveOn,
+      }),
+    ),
   }
 }
 
-/** A row's own menu: muting it, and leaving a channel the person joined; none when it offers nothing. */
+/**
+ * A row's own menu: muting it, leaving a channel the person joined, and hiding, leaving or starting
+ * again a direct or group message; none when it offers nothing.
+ */
 const rowMenu = (
   conversation: AsRead.Conversation,
   title: string,
   channel: AsRead.Channel | null,
   mute: MuteToggle | null,
+  place: ConversationActions,
 ): ConversationRow['menu'] => {
   const refusal = channel === null ? null : leaveRefusal(channel, null, null)
   const leave: RowLeave | null =
@@ -285,8 +306,14 @@ const rowMenu = (
             title: strings.leaveChannelTitle({ channel: channelLabel(channel.slug) }),
             body: leaveConsequence(channel),
           }
-  if (mute === null && leave === null) return null
-  return { id: `row-menu-${conversation.id}`, label: strings.conversationMore({ name: title }), mute, leave }
+  if (mute === null && leave === null && !offersAny(place)) return null
+  return {
+    id: `row-menu-${conversation.id}`,
+    label: strings.conversationMore({ name: title }),
+    mute,
+    leave,
+    place,
+  }
 }
 
 const faceOf = (

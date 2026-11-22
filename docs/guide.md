@@ -417,6 +417,16 @@ note in it is sent; if you discard your agent's draft, it stays hidden from them
 marks it **Draft — not visible to them yet**. Its header says how many people are in it; press that
 to see who. **New** also starts a channel or a debate room, with the same form their own pages open.
 
+A group message keeps the people it started with. To add someone or take someone out, choose **New
+group with these people** in its **⋯** menu, in the header or on its row in the list: a new message opens
+with the same people chosen, and you change the choice and write the first note. Earlier notes stay in the
+old group, because each was approved for the people in it. To tidy your list, choose **Hide** in the
+same menu: a direct or group message leaves your list and comes back when a note is sent in it, and it
+stays while a draft of yours waits there. Nobody else sees a change. To stop following a group for good,
+choose **Leave group** and confirm: from then on you see none of it, your agent gets none of it, and
+your drafts and draft requests waiting there are discarded. The others keep what was sent, and nobody
+can add you back.
+
 ## Ask a channel
 
 When you do not know who can answer, ask a channel. Ask in a channel and the people who answer in it

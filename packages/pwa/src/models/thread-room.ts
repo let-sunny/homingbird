@@ -14,6 +14,7 @@ import type { ArchiveDiscard, Release, Thread } from '../state.ts'
 import { strings } from '../strings.ts'
 import { conversationTitle, isArchived, otherParticipants } from '../thread.ts'
 import { privateQuestionNotice, privateQuestionStart } from './channel-agent.ts'
+import { type ConversationActions, conversationActionsModel } from './conversation-actions.ts'
 import { type MuteToggle, muteToggleModel } from './mute-toggle.ts'
 import { type Participants, conversationParticipants } from './participants.ts'
 
@@ -164,6 +165,13 @@ export const threadHeadModel = (input: ThreadInput): ThreadHead => {
     showsCount: conversation.kind !== 'direct',
     profileOf: conversation.kind === 'direct' ? (others[0] ?? null) : null,
     mute,
+    actions: conversationActionsModel({
+      conversation,
+      title,
+      viewerId: input.me.member.id,
+      hideOn: isOn(input, 'hideConversations'),
+      leaveOn: isOn(input, 'leaveGroups'),
+    }),
   }
 }
 
@@ -210,6 +218,8 @@ export type ThreadHead =
       /** A direct message's colleague, whose profile card its name opens instead of the list. */
       readonly profileOf: MemberId | null
       readonly mute: MuteToggle | null
+      /** The head's own menu: hiding the conversation, leaving a group, a new group with its people. */
+      readonly actions: ConversationActions
     }
 
 const slackLinkLine = (
