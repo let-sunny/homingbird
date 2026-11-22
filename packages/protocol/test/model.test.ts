@@ -105,6 +105,7 @@ describe('wire model', () => {
         'sentAt',
         'sources',
         'status',
+        'tags',
         'updatedAt',
         'via',
       ].sort(),

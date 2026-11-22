@@ -117,6 +117,8 @@ exports[`schema > generates stable DDL for mysql 1`] = `
   "ALTER TABLE slack_codes ADD COLUMN slack_channel MEDIUMTEXT",
   "ALTER TABLE debate_participants ADD COLUMN brief MEDIUMTEXT",
   "ALTER TABLE participants ADD COLUMN hidden_at BIGINT",
+  "ALTER TABLE notes ADD COLUMN tags MEDIUMTEXT",
+  "ALTER TABLE receipts ADD COLUMN asked BIGINT",
 ]
 `;
 
@@ -293,6 +295,8 @@ exports[`schema > generates stable DDL for postgres 1`] = `
   "ALTER TABLE slack_codes ADD COLUMN slack_channel TEXT",
   "ALTER TABLE debate_participants ADD COLUMN brief TEXT",
   "ALTER TABLE participants ADD COLUMN hidden_at BIGINT",
+  "ALTER TABLE notes ADD COLUMN tags TEXT",
+  "ALTER TABLE receipts ADD COLUMN asked BIGINT",
 ]
 `;
 
@@ -469,5 +473,7 @@ exports[`schema > generates stable DDL for sqlite 1`] = `
   "ALTER TABLE slack_codes ADD COLUMN slack_channel TEXT",
   "ALTER TABLE debate_participants ADD COLUMN brief TEXT",
   "ALTER TABLE participants ADD COLUMN hidden_at INTEGER",
+  "ALTER TABLE notes ADD COLUMN tags TEXT",
+  "ALTER TABLE receipts ADD COLUMN asked INTEGER",
 ]
 `;

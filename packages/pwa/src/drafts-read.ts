@@ -1,4 +1,10 @@
-import type { AsRead, ConversationId, DraftAsShown, NoteId } from '@homingbird/protocol'
+import {
+  type AsRead,
+  type ConversationId,
+  type DraftAsShown,
+  type NoteId,
+  isSameTags,
+} from '@homingbird/protocol'
 import type { Thread } from './state.ts'
 
 /**
@@ -28,10 +34,15 @@ export const withReviewsAsRead = (
     : new Map([...read, ...unknown.map((note) => [note.id, asRead(note)] as const)])
 }
 
-/** Whether the text or the room of a draft is not what the person last read. */
+/** Whether the text, the room or whom a draft tags is not what the person last read. */
 export const isChangedSinceRead = (read: ReadonlyMap<NoteId, DraftAsShown>, draft: AsRead.Note): boolean => {
   const known = read.get(draft.id)
-  return known !== undefined && (known.body !== draft.body || known.conversationId !== draft.conversationId)
+  return (
+    known !== undefined &&
+    (known.body !== draft.body ||
+      known.conversationId !== draft.conversationId ||
+      !isSameTags(known.tags, draft.tags))
+  )
 }
 
 /** The draft as the person reads it now. */
@@ -43,4 +54,5 @@ export const withDraftRead = (
 export const asRead = (draft: AsRead.Note): DraftAsShown => ({
   body: draft.body,
   conversationId: draft.conversationId,
+  ...(draft.tags !== undefined && { tags: draft.tags }),
 })

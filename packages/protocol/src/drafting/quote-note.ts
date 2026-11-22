@@ -7,7 +7,7 @@ import { wrapNote } from '../wrap.ts'
 
 /** A colleague's note as a model reads it: inside wrapNote, under its author's name, or its Slack asker's. */
 export const quotedNote = (
-  note: Pick<AsRead.Note, 'id' | 'authorId' | 'sentAt' | 'body' | 'via'>,
+  note: Pick<AsRead.Note, 'id' | 'authorId' | 'sentAt' | 'body' | 'via' | 'tags'>,
   quoting: Quoting,
 ): string => {
   const author =
@@ -21,6 +21,8 @@ export const quotedNote = (
     sentAt: note.sentAt,
     body: note.body,
     nonce: quoting.nonce(),
+    ...(note.tags !== undefined &&
+      note.tags.length > 0 && { asks: note.tags.map((id) => authorOf(quoting.authors, id).name) }),
   })
 }
 

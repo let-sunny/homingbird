@@ -7,9 +7,12 @@ import {
   type MemberId,
   NotFound,
   type Note,
+  type NoteId,
+  isSameTags,
   mayRecall,
   questionTerms,
   rankEarlierAnswers,
+  tagsAsked,
 } from '@homingbird/protocol'
 import { answerLater } from './colleagues.ts'
 import { type Handlers, found } from './handlers.ts'
@@ -111,14 +114,21 @@ export const noteHandlers = (world: World): Handlers => ({
         inReplyTo: body.inReplyTo ?? null,
         agentName: null,
         basis: null,
+        tags: tagsIn(world.records(), room, viewerId, body.tags ?? [], body.inReplyTo ?? null),
       }),
     )(destinationOf(world, viewerId, body)),
   'drafts.update': ({ params, body }, viewerId) =>
     T.gen(function* () {
       const draft = yield* ownDraft(world.records(), viewerId, params.id)
       if (body.channel !== undefined) return yield* T.fail(Forbidden({ message: MOVING_REFUSED }))
-      const changed = changeNote(world, draft.id, (current) => ({
+      const room = yield* roomOf(world.records(), viewerId, draft.conversationId)
+      const tags =
+        body.tags === undefined
+          ? draft.tags
+          : tagsIn(world.records(), room, viewerId, body.tags, draft.inReplyTo)
+      const changed = changeNote(world, draft.id, ({ tags: _, ...current }) => ({
         ...current,
+        ...(tags !== undefined && tags.length > 0 && { tags: [...tags] }),
         body: body.body ?? current.body,
         origin:
           body.body !== undefined && body.body !== current.body && current.origin === 'agent'
@@ -132,7 +142,11 @@ export const noteHandlers = (world: World): Handlers => ({
   'drafts.send': ({ params, body }, viewerId) =>
     T.gen(function* () {
       const draft = yield* draftToDecide(world.records(), viewerId, params.id)
-      if (draft.body !== body.expected.body || draft.conversationId !== body.expected.conversationId)
+      if (
+        draft.body !== body.expected.body ||
+        draft.conversationId !== body.expected.conversationId ||
+        !isSameTags(draft.tags, body.expected.tags)
+      )
         return yield* T.fail(Conflict({ message: DRAFT_CHANGED }))
       const isReview = draft.authorId !== viewerId
       const sent = sendDraft(world, draft, {
@@ -267,3 +281,20 @@ const keepDecision = (world: World, draft: Note, decidedBy: MemberId, reason: st
       { noteId: draft.id, decidedBy, decidedAt: world.clock.now(), agentAnswer: draft.body, reason },
     ],
   }))
+
+/** Whom a draft asks, as Dovecote stores it: only in a group message, and only people in it. */
+const tagsIn = (
+  records: Records,
+  room: ConversationRecord,
+  authorId: MemberId,
+  tags: ReadonlyArray<MemberId>,
+  inReplyTo: NoteId | null,
+): ReadonlyArray<MemberId> => {
+  if (room.kind !== 'group' || room.privateQuestionOf !== undefined) return []
+  const answered = records.notes.find((note) => note.id === inReplyTo)?.authorId ?? null
+  return tagsAsked({
+    authorId,
+    tags: tags.filter((id) => room.participantIds.includes(id)),
+    answeredAuthorId: answered !== null && room.participantIds.includes(answered) ? answered : null,
+  })
+}

@@ -45,6 +45,14 @@ describe('noteItemModel', () => {
     expect(noteItemModel(input, item(note('n2'))).approval).toBeNull()
   })
 
+  it('says under a group note whom it asks, and nothing under one that tags nobody', () => {
+    const asked = note('n1', { authorId: BEN, tags: [ANA] })
+    const room = conversation({ kind: 'group', participantIds: [ANA, BEN, CY] })
+    const input = threadInput({ conversations: [room], thread: { notes: [asked], hasMore: false } })
+    expect(noteItemModel(input, item(asked)).asks).toBe(strings.tags.asks({ names: 'Ana' }))
+    expect(noteItemModel(input, item(note('n2'))).asks).toBeNull()
+  })
+
   it('says a saved answer sent a note without a click, and offers its author Recall for five minutes only', () => {
     const theirs = note('n1', { autoSent: true, origin: 'agent', agentName: 'Desk' })
     const mine = note('n2', { authorId: ANA, autoSent: true, origin: 'agent', agentName: 'Desk', sentAt: 10 })

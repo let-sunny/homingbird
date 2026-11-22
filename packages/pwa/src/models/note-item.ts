@@ -21,6 +21,7 @@ import {
 import { agentAskReach } from './agent-ask.ts'
 import { type AvatarModel, memberAvatarOf } from './avatar.ts'
 import { agentAuthorshipLine, approvalLine } from './channel-agent.ts'
+import { asksLine } from './composer-tags.ts'
 import { confirmedPreviewLine } from './draft-previews.ts'
 import { type TeachSeed, teachSeedOf } from './teaching.ts'
 import { type ThreadInput, channelAskedIn, isOn, nameIn, noteIn, notesOf, roomOf } from './thread-room.ts'
@@ -88,6 +89,7 @@ export const noteItemModel = (
             sources: basis.sources,
           },
     approval: approvalLine(note, room, input.channels, input.members) ?? confirmedPreviewLine(input, note),
+    asks: asksLine(input, note),
     autoSent: autoSentModel(input, note, mine),
     answeredBy:
       answerers.length === 0
@@ -170,6 +172,8 @@ export interface NoteItemModel {
   } | null
   /** Where a channel's agent answered and who approved it, or that a draft seen early was checked. */
   readonly approval: string | null
+  /** "Asks Ben and Cy" under a group note that tags people. */
+  readonly asks: string | null
   /** That a saved answer sent the note without a click, and the author's Recall while it may still be taken back. */
   readonly autoSent: { readonly text: string; readonly recall: string | null } | null
   readonly answeredBy: { readonly avatar: AvatarModel; readonly text: string } | null

@@ -337,7 +337,11 @@ export const asShown = async (
   const shown = await sender.api('GET', `/notes/${id}`)
   const expected =
     shown.status === 200
-      ? { body: shown.json.body, conversationId: shown.json.conversationId }
+      ? {
+          body: shown.json.body,
+          conversationId: shown.json.conversationId,
+          ...(shown.json.tags !== undefined && { tags: shown.json.tags }),
+        }
       : { body: 'a draft this sender cannot read', conversationId: 'conv_unreadable00' }
   return { ...body, expected }
 }

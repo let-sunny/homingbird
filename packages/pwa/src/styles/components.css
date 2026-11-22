@@ -1033,6 +1033,23 @@ a.quote:hover {
   gap: var(--hb-space-2);
 }
 
+.composer-tags {
+  position: relative;
+  display: grid;
+  gap: var(--hb-space-1);
+}
+
+.composer-tags .people-picker-options {
+  inset-block: auto 100%;
+  margin: 0 0 var(--hb-space-1);
+}
+
+.composer-asks {
+  margin: 0;
+  color: var(--hb-color-muted);
+  font-size: var(--hb-text-small);
+}
+
 .composer textarea {
   min-block-size: 2.5rem;
   max-block-size: 12rem;
@@ -6334,9 +6351,15 @@ textarea:disabled {
   margin: 0;
 }
 
-.note-approval {
+.note-approval,
+.note-asks {
   margin: var(--hb-space-1) 0 0;
   font: var(--hb-text-small) / 1.6 var(--hb-font-mono);
+}
+
+.draft-asks {
+  margin: 0;
+  font-size: var(--hb-text-small);
 }
 
 .note-auto-sent {

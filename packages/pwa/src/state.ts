@@ -58,6 +58,7 @@ export const createState = (hash: string): AppState => {
     threadsLoading: new Set(),
     replyTargets: signal<ReadonlyMap<ConversationId, NoteId | null>>(new Map()),
     composerTexts,
+    composerTags: signal<ReadonlyMap<ConversationId, ReadonlyArray<MemberId>>>(new Map()),
     typedIn: derived([composerTexts], (texts) => new Set(texts.keys()), isSameData),
     composerFocus: signal<ConversationId | null>(null),
     releases: signal<ReadonlyMap<NoteId, Release>>(new Map()),
@@ -142,6 +143,8 @@ export interface AppState {
   readonly replyTargets: Signal<ReadonlyMap<ConversationId, NoteId | null>>
   /** What the person typed in each conversation's composer and has not sent, kept in this browser too. */
   readonly composerTexts: Signal<ReadonlyMap<ConversationId, string>>
+  /** The people the person tagged with @ in a group message's composer and has not sent to yet. */
+  readonly composerTags: Signal<ReadonlyMap<ConversationId, ReadonlyArray<MemberId>>>
   /** The conversations whose composer holds unsent text; changes only when one starts or stops. */
   readonly typedIn: ReadableSignal<ReadonlySet<ConversationId>>
   /** The conversation whose composer should take the focus once it is drawn. */

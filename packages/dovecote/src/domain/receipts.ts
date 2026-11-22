@@ -19,10 +19,11 @@ export const markRead = (caller: Caller, id: NoteId): T.Task<Note, NotFound, Req
     return yield* noteById(id, caller.member.id)
   })
 
-export const pickUp = (caller: Caller, id: NoteId): T.Task<Note, NotFound, RequestEnv> =>
+export const pickUp = (caller: Caller, id: NoteId): T.Task<Note, NotFound | Conflict, RequestEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
     yield* visibleNote(caller.member.id, id)
+    if (!isHuman(caller)) yield* requireAsked(caller, id)
     const now = env.clock.now()
     const changed = yield* run(
       sql`UPDATE receipts SET drafting_at = ${now} WHERE note_id = ${id} AND member_id = ${caller.member.id} AND replied_at IS NULL`,
@@ -75,6 +76,18 @@ export const release = (
     })
     return yield* noteById(id, caller.member.id)
   })
+
+/** An agent picks up only a note that asks it: one tagging other people is its person's to read. */
+const requireAsked = (caller: Caller, id: NoteId): T.Task<void, Conflict, RequestEnv> =>
+  T.gen(function* () {
+    const receipt = yield* first<{ asked: number | null }>(
+      sql`SELECT asked FROM receipts WHERE note_id = ${id} AND member_id = ${caller.member.id}`,
+    )
+    if (receipt !== null && receipt.asked !== null && Number(receipt.asked) === 0)
+      return yield* T.fail(Conflict({ message: NOT_ASKED }))
+  })
+
+export const NOT_ASKED = 'This note tags other people, so their agents answer it, not yours.'
 
 const recordSkip = (caller: Caller, note: Note, reason: string | null): T.Task<void, never, RequestEnv> =>
   T.gen(function* () {

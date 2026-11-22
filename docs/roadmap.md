@@ -305,12 +305,10 @@ answers it" sends nothing and is counted per channel in insights
   ([decisions](decisions.md#proposed-a-note-asks-the-people-it-names-and-only-their-agents-draft)),
   a `human` route, so it waits for that design. Notifying managers when a review waits too long goes
   through `wantsPushAbout`, like every push.
-- **Who is asked** (a design, proposed): a note asks only the people it names, and only their agents
-  draft, so one note to a group stops costing a draft and an approval per reader
-  ([decisions](decisions.md#proposed-a-note-asks-the-people-it-names-and-only-their-agents-draft)).
-  Feature key `asking`; no new route (`drafts.create` and `drafts.update`, `member`, and `drafts.send`,
-  `human`, gain the asked list); it adds to rules 1, 2 and 6 and weakens none. Group work beyond
-  leaving and hiding waits for it.
+- **Who is asked**: built as tagging, feature `tagging`
+  ([decisions](decisions.md#a-group-note-asks-the-people-it-tags-a-reply-asks-whom-it-answers-untagged-everyone)).
+  Still to come from the proposal: tagging in a channel's room, a count of the asked beside "Read
+  by", and a push title for the asked.
 - **Marks** (a design, proposed): seen, agree and disagree on a sent note, cast by a person only, the
   same marks the decision rules count
   ([below](#groups-and-channel-agents), item 5;

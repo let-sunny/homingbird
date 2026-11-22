@@ -30,6 +30,7 @@ export const FEATURES = {
   },
   hideConversations: { default: true, routes: ['conversations.hide', 'conversations.unhide'] },
   leaveGroups: { default: true, routes: ['conversations.leave'] },
+  tagging: { default: true, routes: [] },
   webPush: { default: true, routes: ['push.key', 'push.subscribe', 'push.test', 'push.unsubscribe'] },
   answeringFlow: { default: true, routes: ['answeringFlow.get'] },
   earlierAnswers: { default: true, routes: ['answers.earlier', 'answers.used'] },

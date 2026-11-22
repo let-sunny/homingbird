@@ -7,7 +7,7 @@ import {
   withDraftsAsRead,
   withReviewsAsRead,
 } from '../src/drafts-read.ts'
-import { ROOM, draft, note } from './support/fixtures.ts'
+import { BEN, CY, ROOM, draft, note } from './support/fixtures.ts'
 
 const OTHER = 'conv_other000000' as ConversationId
 
@@ -29,6 +29,15 @@ describe('drafts as the person read them', () => {
     expect(isChangedSinceRead(read, draft('d1', { conversationId: OTHER }))).toBe(true)
     expect(isChangedSinceRead(read, draft('d1'))).toBe(false)
     expect(isChangedSinceRead(read, draft('d2', { body: 'anything' }))).toBe(false)
+  })
+
+  it('counts a change of whom a draft tags as a change, whatever their order, and keeps the tags read', () => {
+    const tagged = draft('d1', { tags: [BEN, CY] })
+    const read = withDraftsAsRead(new Map(), new Map([[ROOM, { notes: [tagged], hasMore: false }]]))
+    expect(read.get(tagged.id)).toEqual({ body: 'body of d1', conversationId: ROOM, tags: [BEN, CY] })
+    expect(isChangedSinceRead(read, draft('d1', { tags: [CY, BEN] }))).toBe(false)
+    expect(isChangedSinceRead(read, draft('d1', { tags: [CY] }))).toBe(true)
+    expect(isChangedSinceRead(read, draft('d1'))).toBe(true)
   })
 
   it('takes the draft as read again once the person says so', () => {

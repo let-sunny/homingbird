@@ -30,6 +30,7 @@ import { announcePreview } from './draft-previews.ts'
 import { storedSources } from './draft-sources.ts'
 import type { NoteRow } from './note-rows.ts'
 import { announceStatus, noteById } from './note-status.ts'
+import { storedTags } from './note-tags.ts'
 import { visibleNote } from './notes.ts'
 import { recordApplications } from './principle-applications.ts'
 import { announceReview } from './review-events.ts'
@@ -44,6 +45,8 @@ export interface DraftDestination {
 
 export interface DraftTarget extends DraftDestination {
   readonly body: string
+  /** In a group message, the people whose agents it asks; a person approves them with the note. */
+  readonly tags?: ReadonlyArray<MemberId>
   /** The debate room whose approved result this draft carries; its agents wrote it, so it is the agents' note. */
   readonly fromDebate?: DebateId
   readonly basis?: string
@@ -56,6 +59,7 @@ export interface DraftTarget extends DraftDestination {
 export interface DraftChange {
   readonly body?: string
   readonly channel?: string
+  readonly tags?: ReadonlyArray<MemberId>
   readonly basis?: string
   readonly sources?: ReadonlyArray<DraftSource>
   readonly model?: string
@@ -71,6 +75,8 @@ export const createDraft = (caller: Caller, target: DraftTarget): T.Task<Note, N
     const conversationId = yield* conversationForDraft(authorId, target)
     yield* requireRoomForAnotherDraft(authorId)
     const sources = yield* storedSources(authorId, target.sources)
+    const inReplyTo = target.inReplyTo ?? null
+    const tags = yield* storedTags({ authorId, conversationId, inReplyTo, tags: target.tags })
     const now = env.clock.now()
     const row: NoteRow = {
       id: NoteId.of(env.random.identifier()),
@@ -78,7 +84,8 @@ export const createDraft = (caller: Caller, target: DraftTarget): T.Task<Note, N
       author_id: authorId,
       status: 'draft',
       body: target.body,
-      in_reply_to: target.inReplyTo ?? null,
+      in_reply_to: inReplyTo,
+      tags,
       origin: isHuman(caller) && target.fromDebate === undefined ? 'human' : 'agent',
       agent_name: isHuman(caller) ? null : caller.credential.name,
       credential_id: caller.credential.id,
@@ -131,8 +138,17 @@ export const updateDraft = (
       change.sources === undefined ? draft.sources : yield* storedSources(caller.member.id, change.sources)
     const agentBody = isHuman(caller) ? draft.agent_body : body
     const model = isHuman(caller) || change.model === undefined ? draft.agent_model : change.model.trim()
+    const tags =
+      change.tags === undefined
+        ? (draft.tags ?? null)
+        : yield* storedTags({
+            authorId: caller.member.id,
+            conversationId,
+            inReplyTo: draft.in_reply_to,
+            tags: change.tags,
+          })
     yield* run(
-      sql`UPDATE notes SET body = ${body}, conversation_id = ${conversationId}, origin = ${origin}, basis = ${basis}, sources = ${sources}, agent_body = ${agentBody}, agent_model = ${model}, updated_at = ${env.clock.now()} WHERE id = ${id} AND status = 'draft'`,
+      sql`UPDATE notes SET body = ${body}, conversation_id = ${conversationId}, tags = ${tags}, origin = ${origin}, basis = ${basis}, sources = ${sources}, agent_body = ${agentBody}, agent_model = ${model}, updated_at = ${env.clock.now()} WHERE id = ${id} AND status = 'draft'`,
     )
     if (!isHuman(caller)) yield* recordApplications(caller.member.id, id, basis)
     const sent = yield* sendIfSavedAnswer(caller, yield* ownDraft(caller.member.id, id))

@@ -94,6 +94,7 @@ export const renderNoteItem = (
           sourceList(model.basis.sources),
         ),
       model.approval !== null && h('p', { class: 'note-approval' }, model.approval),
+      model.asks !== null && h('p', { class: 'note-asks' }, model.asks),
       model.autoSent !== null &&
         h(
           'p',

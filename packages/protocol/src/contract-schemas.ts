@@ -11,6 +11,7 @@ import {
   NoteBody,
   NotificationLevel,
 } from './model.ts'
+import { NoteTags } from './tags.ts'
 
 export const Empty = S.struct({})
 export const Digits = S.string({ pattern: /^[0-9]{1,15}$/ })
@@ -25,6 +26,7 @@ export const DraftAsShown = S.struct({
   body: NoteBody,
   conversationId: ConversationId,
   threadAt: S.optional(S.string({ maxLength: 64 })),
+  tags: S.optional(NoteTags),
 })
 export type DraftAsShown = S.Infer<typeof DraftAsShown>
 

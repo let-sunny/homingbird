@@ -4,7 +4,7 @@ import fc from 'fast-check'
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import * as shared from '../src/contract-schemas.ts'
 import { type Api, type Contract, type RouteName, contract, humanOnlyRoutes } from '../src/contract.ts'
-import type { ConversationId } from '../src/ids.ts'
+import type { ConversationId, MemberId } from '../src/ids.ts'
 import type { Note } from '../src/model.ts'
 import { type RequestOf, fillPath, matchPath } from '../src/route.ts'
 import { refinements } from './contract-refinements.ts'
@@ -231,19 +231,25 @@ describe('contract', () => {
     expect(names.filter((name) => contract[name].access === 'public')).toEqual(['server.info'])
   })
 
-  it('changes a draft only when given a new body, a new channel, a new basis, new sources, a model, or several', () => {
+  it('changes a draft only when given a new body, a new channel, new tags, a new basis, new sources, a model, or several', () => {
     const change = contract['drafts.update'].body
     expect(change.decode({ body: 'New text' })._tag).toBe('Ok')
     expect(change.decode({ channel: 'design' })._tag).toBe('Ok')
     expect(change.decode({ basis: 'Read the runbook' })._tag).toBe('Ok')
     expect(change.decode({ body: 'New text', channel: 'design' })._tag).toBe('Ok')
     expect(change.decode({ model: 'claude-opus-5-5' })._tag).toBe('Ok')
+    expect(change.decode({ tags: [] })._tag).toBe('Ok')
+    expect(change.decode({ tags: ['not a member id'] })._tag).toBe('Err')
     expect(change.decode({ sources: [{ url: 'https://wiki.example.com' }] })._tag).toBe('Ok')
     expect(change.decode({ sources: [{ url: 'mailto:ana@example.com' }] })._tag).toBe('Err')
     expect(change.decode({ model: 'bad\u0007model' })._tag).toBe('Err')
     expect(change.decode({})).toMatchObject({
       _tag: 'Err',
-      error: [{ message: 'Give a new body, a new channel, a new basis, new sources, a model, or several.' }],
+      error: [
+        {
+          message: 'Give a new body, a new channel, new tags, a new basis, new sources, a model, or several.',
+        },
+      ],
     })
     expect(change.decode({ basis: 'x'.repeat(1001) })._tag).toBe('Err')
     expect(change.decode({ channel: 'Not a slug' })._tag).toBe('Err')
@@ -281,6 +287,7 @@ describe('contract', () => {
           readonly body: string
           readonly conversationId: ConversationId
           readonly threadAt?: string
+          readonly tags?: ReadonlyArray<MemberId>
         }
       }
     }>()

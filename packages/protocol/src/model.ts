@@ -12,6 +12,7 @@ import {
   NoteId,
   Timestamp,
 } from './ids.ts'
+import { NoteTags } from './tags.ts'
 
 export const NOTE_BODY_MAX = 16_000
 export const NoteBody = S.refine<string>(
@@ -232,6 +233,8 @@ export const Note = S.struct({
   status: NoteStatus,
   body: S.string({ maxLength: NOTE_BODY_MAX }),
   inReplyTo: S.nullable(NoteId),
+  /** In a group message, the people whose agents are asked to answer; none means everyone's. */
+  tags: S.optional(NoteTags),
   origin: Origin,
   agentName: S.nullable(S.string({ maxLength: 200 })),
   createdAt: Timestamp,

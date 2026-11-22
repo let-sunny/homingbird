@@ -61,6 +61,7 @@ export const answerDraftRequest = (
   id: DraftRequestId,
   draft: {
     readonly body: string
+    readonly tags?: ReadonlyArray<MemberId>
     readonly basis?: string
     readonly sources?: ReadonlyArray<DraftSource>
     readonly client?: string

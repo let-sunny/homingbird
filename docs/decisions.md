@@ -1966,7 +1966,9 @@ approval for a draft whose text is exactly that answer, sent where they allowed.
 
 ## Proposed: a note asks the people it names, and only their agents draft
 
-**Proposed, not built; the maintainer reads this before any of it is.** Today one note to a group of
+**Not built as written: the maintainer chose a simpler rule, tagging, which is
+[built](#a-group-note-asks-the-people-it-tags-a-reply-asks-whom-it-answers-untagged-everyone). Kept
+for its reasoning.** Today one note to a group of
 five wakes four desks and can cost four drafts and four approvals, because being able to read a note
 and being asked to answer it are the same thing outside a channel. The proposal separates them: a note
 is read by everyone in its room, as now, and **asks** only the people its author named; only an asked
@@ -2276,7 +2278,8 @@ leave a group for good and may hide a direct or group message from their own lis
   woke the other four desks: **16 more drafts**, (n − 1)², before anyone had read a word. A real model
   skips some notes, which this did not measure. This is why making groups easier to grow waits for
   "who is asked"
-  ([above](#proposed-a-note-asks-the-people-it-names-and-only-their-agents-draft)), and why leaving
+  ([above](#proposed-a-note-asks-the-people-it-names-and-only-their-agents-draft), since built as
+  [tagging](#a-group-note-asks-the-people-it-tags-a-reply-asks-whom-it-answers-untagged-everyone)), and why leaving
   matters: mute stops notifications, not drafting.
 - **No reader is ever added to a room's notes.** `drafts.send` binds to the body and the conversation
   the card showed ([sending binds](#sending-binds-to-the-draft-the-person-read)); while a group's
@@ -2306,3 +2309,65 @@ leave a group for good and may hide a direct or group message from their own lis
   room, and binding a send to the reader list. No model-facing tool calls any of the three routes
   (rule 3), and they are audited without content (`conversation.hidden_changed`, `conversation.left`).
   The schema step adds `participants.hidden_at`; leaving needs no column.
+
+## A group note asks the people it tags; a reply asks whom it answers; untagged, everyone
+
+In a group message a note may tag people in it with @, and only the tagged people's agents are handed
+it. A new note that tags nobody asks everyone's agent, as before. A reply that tags nobody asks the
+author of the note it answers. Direct messages are unchanged. This is the rule the maintainer chose
+in place of the proposal [above](#proposed-a-note-asks-the-people-it-names-and-only-their-agents-draft):
+the same as tagging someone in any messenger, with one line in the composer that says what will happen.
+
+- **Measured.** The setup of the leaving entry
+  ([below](#a-group-messages-people-are-fixed-a-person-may-leave-it-or-hide-it)): a real Dovecote on
+  SQLite with development login, five people, each running `homingbird run --agent` with a stand-in
+  command that drafts the same reply to every note and never skips; every draft approved as it came.
+  With `HB_FEATURES=tagging=off` the same run reproduces today's numbers. A real model skips some
+  notes, which neither run measures.
+
+  | One note to the group of five | Tagging off (today) | Tagging on |
+  | --- | --- | --- |
+  | A new note that tags nobody | 4 drafts | 4 drafts |
+  | Approving those 4 replies | 16 more drafts | 4 more drafts, all the asker's |
+  | One more step of one reply chain | 4 drafts | 1 draft |
+  | A note that tags two people | (not offered) | 2 drafts |
+
+  The untagged note still costs n − 1, which is what "everyone" means; what stops is the (n − 1)²
+  behind it, because every reply now asks only the person it answers, so a conversation costs one
+  draft per step instead of one per reader.
+- **Tags are data on the note, never read out of its text.** `drafts.create` and `drafts.update`
+  (`member`) take `tags`, a list of member ids, and a note returns it to everyone who can read it.
+  Typing `@` in the composer lists the group's people with the people picker's matching; choosing
+  one tags them and writes `@Name` into the text as plain words. The server never looks for names in
+  a body. A tag must name someone in the group; anyone else is refused, so a tag never adds a reader.
+  Tags are refused outside a group message (a direct message, a channel's room, a private question).
+- **The stored tags are whom the note asks.** `tagsAsked` in `packages/protocol/src/tags.ts` settles
+  them once, on the server when the draft is saved and in the web client to show the same: the people
+  tagged, each once, never the author; else, for a reply, the author it answers while they are still
+  in the group; else nobody, meaning everyone. So a reply's card already says "Asks Ana".
+- **Only the asked people's agents are handed the note.** Every reader still gets a receipt, so
+  unread counts and "Read by" stay as they are; the receipt records whether its reader was asked
+  (`receipts.asked`, new; a receipt stored before reads as asked). For an agent credential `inbox.list`
+  returns only asked receipts and `notes.pickup` refuses the others with 409, so the runner, the
+  plugin's desk, MCP's triggers and the cloud desk's wake, which all read the inbox, are never handed
+  the note; no model decides whether a note concerns its person. A person still reads every note, and
+  "Ask my agent to draft a reply" still works on any of them.
+- **The card shows the tags, and Send binds to them (rule 1).** The note and the approval card say
+  "Asks Ben and Cy". `drafts.send`'s `expected` carries the tags the card showed, compared as a set
+  at the read and again in the `UPDATE`, so an agent that changes whom its draft asks after the
+  person read the card is refused with "This draft changed; read it again." A send that names no tags
+  matches only a draft that has none. Agents may propose tags on their own drafts; a person approves
+  them with the note. A saved answer sends itself only outside group messages, so it never carries
+  tags an agent chose.
+- **What a model sees (rule 4).** A tagged note reaches a model inside `wrapNote` as before; the
+  opening tag gains an `asks` attribute with the tagged people's names, escaped as `from` is. Nothing
+  about asking is said outside the quote.
+- **Notice.** Above the composer, one line: "Everyone's agent here will draft a reply", "Only Ben's
+  agent will draft a reply", or "Replying asks Ana's agent", with a hint on hover while the person is
+  new. English and Korean.
+- **Behind a switch.** Feature `tagging`, on by default, with no routes of its own. Off: tags are
+  refused, every reader of a group note is asked, replies included, and the web client hides the
+  picker and the lines. `Note.tags` and `expected.tags` are optional on the wire.
+- **Left from the proposal.** A cap on how many people one note asks, `@everyone`, a separate asked
+  count beside "Read by", push titles for the asked, and tagging in a channel's room. The schema step
+  adds `notes.tags` and `receipts.asked`.
