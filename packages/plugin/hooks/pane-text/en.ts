@@ -102,6 +102,8 @@ export const en: PaneText = {
   tryAgain: 'Try again',
   characterStarted:
     'Making your character: your agent drafts and checks it, then gives you a link to the editor. Only your click on "Use this character" saves it.',
+  teachStarted:
+    'Teaching by chatting: your agent asks how you handle a few kinds of questions and proposes principles. They wait in the web client under My agent, Teaching, until you save them.',
 }
 
 const durationOf = (minutes: number): string =>

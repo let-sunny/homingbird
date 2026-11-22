@@ -11,6 +11,17 @@ export const turnsTakenBy = (
   memberId: MemberId,
 ): number => room.turns.filter((turn) => turn.memberId === memberId).length
 
+/** Its latest turn said so, or it used all its turns; an agent that has not spoken is not ready. */
+export const isReadyToConclude = (
+  room: {
+    readonly turns: ReadonlyArray<Pick<DebateTurn, 'memberId' | 'ready'>>
+    readonly limits: Pick<DebateLimits, 'turnsPerAgent'>
+  },
+  memberId: MemberId,
+): boolean =>
+  turnsTakenBy(room, memberId) >= room.limits.turnsPerAgent ||
+  room.turns.findLast((turn) => turn.memberId === memberId)?.ready === true
+
 export const turnProblem = (body: string, limits: Pick<DebateLimits, 'turnCharacters'>): string | null => {
   if (body.trim() === '') return 'A turn needs some text.'
   if (body.length > limits.turnCharacters)

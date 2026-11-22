@@ -1,6 +1,7 @@
 import { h } from '@homingbird/ui'
 import type { Participants } from '../models/participants.ts'
 import { youMark } from './parts.ts'
+import { profileName } from './profile-card.ts'
 
 /**
  * Everyone in a conversation, as a menu that its head's names and count open: each person with what they
@@ -18,7 +19,12 @@ export const participantsList = (model: Participants): HTMLElement =>
         h(
           'li',
           { class: 'participant', data: { member: person.memberId } },
-          h('span', { class: 'participant-name' }, person.name, person.you && [' ', youMark()]),
+          h(
+            'span',
+            { class: 'participant-name' },
+            profileName(person.memberId, person.name),
+            person.you && [' ', youMark()],
+          ),
           person.roles.length > 0 &&
             h(
               'span',

@@ -168,6 +168,7 @@ describe('threadHeadModel', () => {
       },
       people: expect.objectContaining({ id: `people-${ROOM}`, label: strings.groupPeople({ count: 2 }) }),
       showsCount: false,
+      profileOf: BEN,
       mute: expect.objectContaining({ conversationId: ROOM, muted: false, label: 'Mute Ben' }),
     })
     expect(threadHeadModel(threadInput())).toEqual({
@@ -177,6 +178,7 @@ describe('threadHeadModel', () => {
       presence: null,
       people: expect.objectContaining({ title: strings.participants.title }),
       showsCount: false,
+      profileOf: BEN,
       mute: expect.objectContaining({ muted: false }),
     })
     expect(
@@ -197,8 +199,15 @@ describe('threadHeadModel', () => {
         ],
       }),
       showsCount: true,
+      profileOf: null,
       mute: expect.objectContaining({ label: 'Mute Team' }),
     })
+  })
+
+  it('opens no profile card from a direct message whose other person the server no longer lists', () => {
+    expect(
+      threadHeadModel(threadInput({ conversations: [conversation({ participantIds: [ANA] })] })),
+    ).toMatchObject({ kind: 'people', profileOf: null })
   })
 
   it('offers to mute the conversation, or to lift its mute, only while the server offers muting', () => {

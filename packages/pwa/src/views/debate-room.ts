@@ -20,6 +20,7 @@ import { hinted } from './hint.ts'
 import { citedBody } from './note-body.ts'
 import { participantsCount, participantsList } from './participants.ts'
 import { emptyWithPip, field, loading, page, privateMarkOf, timeLabel } from './parts.ts'
+import { profileName } from './profile-card.ts'
 
 /**
  * One debate room, one short tab at a time, each its own address: the result the agents settled, how they
@@ -133,6 +134,7 @@ const tabContent = (model: Room, context: ViewContext, drawn: Lifetime): Readonl
 
 const resultTab = (model: Room, context: ViewContext, drawn: Lifetime): ReadonlyArray<Child> => [
   model.ended !== null && section(strings.debates.resultTitle, 'debate-result', h('p', {}, model.ended)),
+  model.agreedEarly !== null && h('p', { class: 'debate-agreed-early' }, model.agreedEarly),
   model.result !== null && resultSection(model.result),
   model.moved.length > 0 &&
     section(
@@ -214,7 +216,7 @@ const creditTab = ({ credit }: Room): ReadonlyArray<Child> => [
         h(
           'li',
           { class: 'debate-credit-row', data: { member: row.memberId } },
-          h('strong', {}, row.name),
+          h('strong', {}, profileName(row.memberId, row.name)),
           row.summary !== null && h('span', {}, citedText(row.summary)),
           ...row.credits.map(creditBadge),
           h(
@@ -269,13 +271,16 @@ const turnsTab = (model: Room, context: ViewContext, drawn: Lifetime): ReadonlyA
             h(
               'li',
               { data: { member: participant.memberId } },
-              h('span', {}, participant.name),
+              h('span', {}, profileName(participant.memberId, participant.name)),
               participant.turnsLeft !== null && h('small', {}, participant.turnsLeft),
               participant.droppedOut !== null &&
                 h('small', { class: 'debate-dropped-out' }, participant.droppedOut),
+              participant.ready !== null && h('small', { class: 'debate-ready' }, participant.ready),
             ),
           ),
         ),
+    model.readyHint !== null && h('p', { class: 'hint debate-ready-hint' }, model.readyHint),
+    model.agreedEarly !== null && h('p', { class: 'debate-agreed-early' }, model.agreedEarly),
     h('p', { class: 'debate-limits-summary' }, model.limits),
     h('p', { class: 'debate-grace-summary' }, model.grace),
     model.mayChangeLimits && limitsForm(context, model.debate),

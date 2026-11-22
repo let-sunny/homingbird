@@ -23,3 +23,4 @@ export interface DeskDraftRequest {
   readonly inReplyTo: string | null
   readonly answers: string | null
 }
+export declare const teachingInterviewPrompt: (focus?: string) => string

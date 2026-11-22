@@ -71,4 +71,7 @@
   --hb-shadow-under: none;
   --hb-texture-titlebar: none;
   --hb-texture-scanlines: none;
+  --hb-texture-more-before: none;
+  --hb-texture-more-after: none;
+  --hb-texture-select-chevron: none;
 }

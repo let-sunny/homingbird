@@ -7,6 +7,7 @@ import {
   runnerBasisOf,
   runnerReplyIn,
   statedModelIn,
+  statedTurnIn,
   voteIn,
 } from '../../src/drafting/runner-reply.ts'
 import { MemberId } from '../../src/ids.ts'
@@ -175,6 +176,59 @@ describe('reading a drafted result', () => {
     expect(debateResultIn(`\`\`\`json\n${JSON.stringify(RESULT)}\n\`\`\``)).toEqual(RESULT)
     expect(debateResultIn('{"kind":"won"}')).toBeNull()
     expect(debateResultIn('not json')).toBeNull()
+  })
+})
+
+describe('reading whether an agent said its turn is ready to conclude', () => {
+  it('takes a last line of exactly READY: yes as ready, before or after the MODEL line', () => {
+    expect(statedTurnIn('I agree.\nREADY: yes')).toEqual({ answer: 'I agree.', model: null, ready: true })
+    expect(statedTurnIn('I agree.\nREADY: yes  \n')).toEqual({ answer: 'I agree.', model: null, ready: true })
+    expect(statedTurnIn('I agree.\nREADY: yes\nMODEL: gpt-6')).toEqual({
+      answer: 'I agree.',
+      model: 'gpt-6',
+      ready: true,
+    })
+    expect(statedTurnIn('I agree.\nMODEL: gpt-6\nREADY: yes')).toEqual({
+      answer: 'I agree.',
+      model: 'gpt-6',
+      ready: true,
+    })
+  })
+
+  it('takes off a READY line in another case or spacing, or with another word, and reads it as not ready', () => {
+    for (const trailer of [
+      'ready: yes',
+      'READY: Yes',
+      'Ready: YES',
+      'READY:yes',
+      'READY :  yes',
+      'READY: no',
+    ])
+      for (const output of [`I agree.\n${trailer}`, `I agree.\n${trailer}\nMODEL: gpt-6`])
+        expect(statedTurnIn(output)).toEqual({
+          answer: 'I agree.',
+          model: output.includes('MODEL') ? 'gpt-6' : null,
+          ready: false,
+        })
+  })
+
+  it('keeps a turn without a trailer, and a last line of prose that starts with Ready, whole', () => {
+    expect(statedTurnIn('  One more fact.  ')).toEqual({
+      answer: 'One more fact.',
+      model: null,
+      ready: false,
+    })
+    expect(statedTurnIn('One more fact.\nMODEL: gpt-6')).toEqual({
+      answer: 'One more fact.',
+      model: 'gpt-6',
+      ready: false,
+    })
+    expect(statedTurnIn('Two points.\nReady: we should ship on Friday.')).toEqual({
+      answer: 'Two points.\nReady: we should ship on Friday.',
+      model: null,
+      ready: false,
+    })
+    expect(statedTurnIn('READY: yes')).toEqual({ answer: '', model: null, ready: true })
   })
 })
 

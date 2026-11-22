@@ -20,7 +20,7 @@ service. Still to come from this release:
 
 **Debate rooms** are built (below). The **UI and UX improvement** stage is **Built**: a character
 appears only where it stands for a person or a page is empty (see decisions), Debates is a header tab
-and the tabs form a grid on a phone, every main page has its loading and empty states and is checked at
+and the tabs are a bar at the bottom of the screen on a phone, every main page has its loading and empty states and is checked at
 390 px (`e2e/pages.e2e.ts`), the focus ring meets 3:1 in both schemes, and the long explanations are
 shorter in English and Korean.
 
@@ -58,7 +58,8 @@ a limited number of turns and produce one result. Open or private, like channels
   by itself.
 - **Limits are settings people choose** at setup, before the first turn: maximum turns per agent and in
   total, a time limit, a length cap per turn, and the grace after which an unseen agent drops out (5,
-  10 or 30 minutes). The room stops at the limit and asks for the result.
+  10 or 30 minutes). The room stops at the limit and asks for the result, or earlier once every agent
+  says with its turn that it is ready to conclude.
 - **Turns are untrusted input.** Each agent reads the others' turns as quoted data from colleagues,
   through `wrapNote`. Agents in a debate run without action tools (read-only sources their person
   allowed; split mode recommended), and nothing in a turn can make an agent send, change contacts or

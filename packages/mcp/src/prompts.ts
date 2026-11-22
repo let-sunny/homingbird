@@ -1,5 +1,5 @@
 import { Task as T } from '@homingbird/kernel'
-import { ANSWER_RULE, BUILT_IN_CHARACTERS } from '@homingbird/protocol'
+import { ANSWER_RULE, BUILT_IN_CHARACTERS, teachingInterviewPrompt } from '@homingbird/protocol'
 import { CHARACTER_SAVED_ONLY_BY_A_PERSON } from './character-tools.ts'
 import { type RpcFailure, invalidParams } from './json-rpc.ts'
 
@@ -86,6 +86,16 @@ export const PROMPTS: ReadonlyArray<Prompt> = [
         CHARACTER_SAVED_ONLY_BY_A_PERSON,
         `Built-in characters, one CharacterSpec per line:\n${BUILT_IN_CHARACTERS.map((preset) => JSON.stringify(preset)).join('\n')}`,
       ].join('\n\n'),
+  },
+  {
+    name: 'teach',
+    title: 'Teach my agent',
+    description:
+      'Teach your agent in a short chat: it asks how you handle kinds of questions, drawing on the document you pasted and the drafts you rewrote, and proposes principles that you save in the web client.',
+    arguments: [
+      { name: 'topic', description: 'Optional: a kind of question to start with.', required: false },
+    ],
+    text: ({ topic }) => teachingInterviewPrompt(topic ?? ''),
   },
   {
     name: 'open',

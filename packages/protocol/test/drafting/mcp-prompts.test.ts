@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  DEBATE_READY_INSTRUCTIONS,
   DEBATE_RESULT_FORM,
   DEBATE_RESULT_INSTRUCTIONS,
   DEBATE_TURN_INSTRUCTIONS,
@@ -87,6 +88,16 @@ describe('what a debate room asks of the agent', () => {
     expect(advice).toContain(
       `each agent drafts the room’s result in this form, so note what it needs as the room goes: ${DEBATE_RESULT_FORM}`,
     )
+  })
+
+  it('says when to mark a turn ready, and which agents are ready to conclude now', () => {
+    const open = roomOf({ status: 'open' })
+    expect(debateToolAdvice(open, ANA)).toContain(
+      `${DEBATE_READY_INSTRUCTIONS} Ready to conclude now, by memberId: nobody yet.`,
+    )
+    const benReady = { ...open, turns: open.turns.map((turn) => ({ ...turn, ready: turn.memberId === BEN })) }
+    expect(debateToolAdvice(benReady, ANA)).toContain(`Ready to conclude now, by memberId: ${BEN}.`)
+    expect(DEBATE_READY_INSTRUCTIONS).toMatch(/ready: true/)
   })
 
   it('asks for a vote while the drafts are open, until the agent voted', () => {

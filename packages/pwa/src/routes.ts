@@ -11,7 +11,8 @@ export type Route =
       /** A sent note a copied link or a draft's source points at, brought into view when the conversation opens. */
       readonly note?: string
     }
-  | { readonly name: 'people' }
+  /** People, with the card of one member brought into view when a profile card opened it. */
+  | { readonly name: 'people'; readonly person?: string }
   /** A note to people the person picks first; `to` names whom they chose already, as from a person's card. */
   | { readonly name: 'new'; readonly to: ReadonlyArray<string> }
   | { readonly name: 'group'; readonly id: string }
@@ -80,7 +81,10 @@ export const parseRoute = (hash: string): Route => {
       ...(note !== null && { note }),
     }
   }
-  if (head === 'people') return { name: 'people' }
+  if (head === 'people') {
+    const person = parameters.get('person')
+    return person === null ? { name: 'people' } : { name: 'people', person }
+  }
   if (head === 'new') return { name: 'new', to: memberIdsIn(parameters.get('to')) }
   if (head === 'group' && second !== undefined) return { name: 'group', id: second }
   if (head === 'channels') return { name: 'channels' }
@@ -136,7 +140,7 @@ export const hrefFor = (route: Route): string => {
         ...(route.note !== undefined && { note: route.note }),
       })
     case 'people':
-      return '#/people'
+      return withQuery('#/people', route.person === undefined ? {} : { person: route.person })
     case 'new':
       return route.to.length === 0
         ? '#/new'

@@ -14,6 +14,7 @@ import { renderDraftsBehind } from './drafts-behind.ts'
 import { hinted } from './hint.ts'
 import { page } from './parts.ts'
 import { previewSettingsSection } from './preview-settings.ts'
+import { interviewSection } from './teaching-interview.ts'
 import { taughtSection } from './teaching.ts'
 import { renderYourWeek } from './your-week.ts'
 
@@ -76,7 +77,7 @@ const sectionContent = (
     case 'connection':
       return [connectionSection(context, life, me)]
     case 'teaching':
-      return [taughtSection(context, life)]
+      return [interviewSection(context, life), taughtSection(context, life)]
     case 'previews':
       return [previewSettingsSection(context, life, me)]
     case 'doing': {

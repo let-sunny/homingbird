@@ -10,6 +10,7 @@ import { hinted } from './hint.ts'
 import { actionMenu } from './menu.ts'
 import { noteBody } from './note-body.ts'
 import { button, copyWithNotice, sourceList, timeLabel } from './parts.ts'
+import { profileName } from './profile-card.ts'
 import { teachFromMiss } from './teaching.ts'
 
 /** One sent note in the thread; a click on it, away from its controls, marks it as the one looked at. */
@@ -54,7 +55,8 @@ export const renderNoteItem = (
       { class: 'note-column' },
       model.spokenAuthorship !== null && h('span', { class: 'visually-hidden' }, model.spokenAuthorship),
       model.spokenSent !== null && h('span', { class: 'visually-hidden' }, model.spokenSent),
-      model.authorName !== null && h('span', { class: 'note-author' }, model.authorName),
+      model.authorName !== null &&
+        h('span', { class: 'note-author' }, profileName(note.authorId, model.authorName)),
       h(
         'div',
         { class: 'bubble-row' },

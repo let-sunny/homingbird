@@ -2,6 +2,7 @@ import { Result } from '@homingbird/kernel'
 import { DEBATE_PARTICIPANTS_MAX, type DebateCredit, type DebateResult } from './debate-result.ts'
 import {
   creditsOf,
+  isReadyToConclude,
   isTakingPart,
   limitsFor,
   limitsProblem,
@@ -11,6 +12,7 @@ import {
   withCheckedCredits,
 } from './debate-rules.ts'
 import type {
+  DebateConclusion,
   DebateEnding,
   DebateEndingDetail,
   DebateLimits,
@@ -42,8 +44,9 @@ export const stepDebate = (
 }
 
 /**
- * What time alone decides, which is never refused; settling a settled room changes nothing. A room whose
- * turns stopped never waits for an agent that dropped out; an overdue room votes no more and settles its
+ * What time alone decides, which is never refused; settling a settled room changes nothing. A room stops
+ * taking turns early once every agent taking part is ready to conclude. A room whose turns stopped never
+ * waits for an agent that dropped out; an overdue room votes no more and settles its
  * drafts at once, the most votes winning and a tie going to the earliest.
  */
 export const settleDebateRoom = (room: DebateRoom, now: number): DebateSettled => {
@@ -51,8 +54,7 @@ export const settleDebateRoom = (room: DebateRoom, now: number): DebateSettled =
   switch (stage.stage) {
     case 'setup':
     case 'open':
-      if (now >= room.deadlineAt) return stop(room, 'time', now)
-      return isAtLimit(room, now) ? stop(room, 'limit', now) : unchanged(room)
+      return now >= room.deadlineAt ? stop(room, 'time', now) : stopTakingTurns(room, now)
     case 'approving':
       return close(room, stage.result, null, stage.result.draftedAt)
     case 'drafting':
@@ -118,7 +120,7 @@ export interface DebateRoom {
   readonly deadlineAt: number
   readonly limits: DebateLimits
   readonly participants: ReadonlyArray<Pick<DebateParticipant, 'memberId' | 'takingPart'>>
-  readonly turns: ReadonlyArray<Pick<DebateTurn, 'memberId' | 'afterTurn'>>
+  readonly turns: ReadonlyArray<Pick<DebateTurn, 'memberId' | 'afterTurn' | 'ready'>>
   readonly round: number
   readonly drafts: ReadonlyArray<RoomDraft>
   readonly votes: ReadonlyArray<RoomVote>
@@ -154,6 +156,8 @@ export type DebateEvent =
       readonly memberId: MemberId
       readonly body: string
       readonly afterTurn?: number
+      /** The agent is ready to conclude; a later turn without it takes that back. */
+      readonly ready?: boolean
     }
   | { readonly type: 'draft'; readonly memberId: MemberId; readonly result: DebateResult }
   | { readonly type: 'vote'; readonly memberId: MemberId; readonly vote: DebateVote }
@@ -172,6 +176,7 @@ export type DebateActionEffect =
       readonly memberId: MemberId
       readonly body: string
       readonly afterTurn: number | null
+      readonly ready: boolean
       /** The first turn starts the room's time: its new deadline; null for every later turn. */
       readonly deadlineAt: number | null
     }
@@ -190,7 +195,7 @@ export type DebateActionEffect =
 
 /** Stored in order; a closing or ending that finds the room changed since it was read changes nothing. */
 export type DebateSettlingEffect =
-  | { readonly type: 'conclude'; readonly because: 'limit' | 'time' }
+  | { readonly type: 'conclude'; readonly because: DebateStop }
   | { readonly type: 'openVote'; readonly round: number }
   | {
       readonly type: 'close'
@@ -218,6 +223,9 @@ export interface DebateMove {
 }
 
 export type DebateAskKind = 'turn' | 'result' | 'ballot'
+
+/** Why a room stopped taking turns, as the room decides it. */
+export type DebateStop = Exclude<DebateConclusion, 'unknown'>
 
 export type RoomDraft = Pick<DebateResultDraft, 'draftedBy' | 'draftedAt' | 'result'>
 
@@ -258,7 +266,7 @@ const followUp = (room: DebateRoom, event: DebateEvent, now: number): DebateSett
       return unchanged(room)
     case 'setLimits':
     case 'turn':
-      return isAtLimit(room, now) ? stop(room, 'limit', now) : unchanged(room)
+      return stopTakingTurns(room, now)
     default:
       return settleDebateRoom(room, now)
   }
@@ -315,15 +323,24 @@ const takeTurn = (
   const problem = turnProblem(body, room.limits)
   if (problem !== null) return Result.err(Invalid({ message: `${problem}${kept}` }))
   const afterTurn = event.afterTurn ?? null
+  const ready = event.ready === true
   const deadlineAt = room.stage.stage === 'setup' ? now + room.limits.minutes * 60_000 : null
   return Result.ok({
     room: {
       ...room,
       stage: { stage: 'open' },
       deadlineAt: deadlineAt ?? room.deadlineAt,
-      turns: [...room.turns, { memberId, afterTurn }],
+      turns: [...room.turns, { memberId, afterTurn, ready }],
     },
-    action: { type: 'addTurn', position: room.turns.length + 1, memberId, body, afterTurn, deadlineAt },
+    action: {
+      type: 'addTurn',
+      position: room.turns.length + 1,
+      memberId,
+      body,
+      afterTurn,
+      ready,
+      deadlineAt,
+    },
   })
 }
 
@@ -391,8 +408,14 @@ const addVote = (room: DebateRoom, voterId: MemberId, vote: DebateVote): Result.
   })
 }
 
+/** A room taking turns stops at its total, or early once every agent taking part agrees to conclude. */
+const stopTakingTurns = (room: DebateRoom, now: number): DebateSettled => {
+  if (isAtLimit(room, now)) return stop(room, 'limit', now)
+  return isAgreed(room) ? stop(room, 'agreed', now) : unchanged(room)
+}
+
 /** Without two agents and a turn, or with fewer than two left taking part, the room ends with no result. */
-const stop = (room: DebateRoom, because: 'limit' | 'time', now: number): DebateSettled => {
+const stop = (room: DebateRoom, because: DebateStop, now: number): DebateSettled => {
   const ending = endingOf(room)
   if (ending !== null)
     return {
@@ -499,6 +522,11 @@ const isAtLimit = (room: DebateRoom, now: number): boolean =>
     !room.participants.some(
       (participant) => isTakingPart(participant) && hasTurnLeft(room, participant.memberId),
     ))
+
+/** Once started, every agent taking part is ready to conclude: one whose latest turn does not say so dissents. */
+const isAgreed = (room: DebateRoom): boolean =>
+  room.turns.length > 0 &&
+  room.participants.filter(isTakingPart).every((participant) => isReadyToConclude(room, participant.memberId))
 
 const hasTurnLeft = (room: DebateRoom, memberId: MemberId): boolean =>
   room.turns.length < room.limits.totalTurns &&

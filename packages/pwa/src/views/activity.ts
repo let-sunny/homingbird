@@ -25,6 +25,7 @@ import { heldToastInPanel, placeHeldToast, renderHeldLine } from './held-toast.t
 import { hinted } from './hint.ts'
 import { bellIcon } from './mute-toggle.ts'
 import { button, timeLabel } from './parts.ts'
+import { profileName } from './profile-card.ts'
 import { teachFromMiss } from './teaching.ts'
 
 /**
@@ -300,7 +301,12 @@ const renderItem = (context: ViewContext, item: ActivityItem): HTMLElement => {
         'li',
         { class: 'activity-item activity-skipped' },
         head,
-        h('blockquote', { class: 'activity-quote' }, h('small', {}, item.from), h('p', {}, item.body)),
+        h(
+          'blockquote',
+          { class: 'activity-quote' },
+          h('small', {}, profileName(item.fromId, item.from)),
+          h('p', {}, item.body),
+        ),
         h('p', { class: 'released' }, item.reason),
         h(
           'div',

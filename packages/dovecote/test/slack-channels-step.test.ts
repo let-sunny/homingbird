@@ -11,8 +11,8 @@ afterEach(async () => {
 })
 
 describe('the Slack channels step', () => {
-  it('is the twenty-first step, after Slack', () => {
-    expect(stepNumberOf(SLACK_CHANNELS)).toBe(21)
+  it('is the twenty-third step, after Slack', () => {
+    expect(stepNumberOf(SLACK_CHANNELS)).toBe(23)
   })
 
   it('adds channel links, arrivals, threads and the outbox, and a code’s Slack channel', async () => {

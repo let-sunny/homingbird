@@ -15,6 +15,7 @@ import {
   useServer,
 } from './desk'
 import { directoryIn } from './drafting'
+import { teachingInterviewPrompt } from './drafting-prompts.mjs'
 import { answered, forked, host, hostOr, inBackground, rescued } from './effects'
 import { forbiddenReason } from './guard'
 import { PROJECT_READER, READER_TYPE, askProject, askSession, deliverHelperFacts } from './helpers'
@@ -34,7 +35,7 @@ export const register: Register = (on, options) => {
           $.command.register({
             name: 'homingbird',
             description:
-              'Make this session your Homingbird desk; /homingbird character makes your profile character',
+              'Make this session your Homingbird desk; /homingbird character makes your profile character; /homingbird teach teaches your agent in a short chat',
           }),
         )
         const registered = yield* rescued(
@@ -61,6 +62,12 @@ export const register: Register = (on, options) => {
     answered(
       T.gen(function* () {
         const [word = '', ...rest] = e.args.trim().split(/\s+/)
+        if (word === 'teach') {
+          const started = (yield* personText($)).teachStarted
+          const prompt = teachingInterviewPrompt(rest.join(' ').trim())
+          $.clock.after(0, () => inBackground(host(() => $.prompt.submit({ text: prompt }))))
+          return { text: started }
+        }
         if (word === 'character') {
           const started = (yield* personText($)).characterStarted
           const prompt = characterPromptFor(rest.join(' ').trim())

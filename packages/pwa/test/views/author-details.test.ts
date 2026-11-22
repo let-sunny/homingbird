@@ -20,22 +20,29 @@ const author = () =>
   }).author!
 
 describe('authorButton', () => {
-  it('opens the details on a pause of the mouse, closes them when it leaves, and keeps a click open', async () => {
+  it('opens the details on a pause of the mouse, closes them when it leaves, and closes them on a click', async () => {
     const { context, clock } = testContext()
     const shown = mount(authorButton(context, lifetime(), author()))
     const trigger = shown.querySelector('button')!
     const details = shown.querySelector<HTMLElement>('.author-details')!
+    expect(trigger.getAttribute('popovertarget')).toBe('profile-card')
+    expect(trigger.dataset.profileNote).toBe(details.id)
+    expect(trigger.getAttribute('aria-describedby')).toBe(details.id)
     fire.event(trigger, 'pointerenter', { pointerType: 'touch' })
     fire.event(trigger, 'pointerenter')
     await clock.advance(HOVER_OPEN_MS)
     expect(isPopoverOpen(details as never)).toBe(true)
-    trigger.click()
-    expect(isPopoverOpen(details as never)).toBe(true)
     fire.event(details, 'pointerleave', { pointerType: 'pen' })
     fire.event(details, 'pointerleave')
+    fire.event(details, 'pointerenter')
     await clock.advance(HOVER_CLOSE_MS)
     expect(isPopoverOpen(details as never)).toBe(true)
-    details.hidePopover()
+    trigger.click()
+    expect(isPopoverOpen(details as never)).toBe(false)
+    fire.event(trigger, 'pointerenter')
+    await clock.advance(HOVER_OPEN_MS)
+    expect(isPopoverOpen(details as never)).toBe(false)
+    trigger.click()
     fire.event(trigger, 'pointerenter')
     await clock.advance(HOVER_OPEN_MS)
     fire.event(trigger, 'pointerleave')
@@ -43,20 +50,27 @@ describe('authorButton', () => {
     expect(isPopoverOpen(details as never)).toBe(false)
   })
 
-  it('closes a manual popover with Escape or a press elsewhere, where hint popovers are missing', () => {
-    const { context, page } = testContext()
+  it('closes a manual popover with Escape or a press elsewhere, where hint popovers are missing', async () => {
+    const { context, page, clock } = testContext()
     page.state.hint = false
     const shown = mount(authorButton(context, lifetime(), author()))
     const trigger = shown.querySelector('button')!
     const details = shown.querySelector<HTMLElement>('.author-details')!
-    trigger.click()
+    const hover = async (): Promise<void> => {
+      fire.event(trigger, 'pointerenter')
+      await clock.advance(HOVER_OPEN_MS)
+    }
+    await hover()
     expect(isPopoverOpen(details as never)).toBe(true)
     fire.key(document.body, 'a')
     fire.event(details, 'pointerdown')
     expect(isPopoverOpen(details as never)).toBe(true)
     fire.event(document.body, 'pointerdown')
     expect(isPopoverOpen(details as never)).toBe(false)
-    trigger.click()
+    await hover()
+    fire.key(document.body, 'Escape')
+    expect(isPopoverOpen(details as never)).toBe(false)
+    await hover()
     details.querySelector<HTMLElement>('p')!.setAttribute('tabindex', '0')
     details.querySelector<HTMLElement>('p')!.focus()
     fire.key(document.body, 'Escape')
@@ -64,16 +78,27 @@ describe('authorButton', () => {
     expect(document.activeElement).toBe(trigger)
   })
 
-  it('keeps the details open and the focus where they were when the note is drawn again', async () => {
-    const { context } = testContext()
+  it('keeps the details open, the focus and the profile card beside it when the note is drawn again', async () => {
+    const { context, clock } = testContext()
     const first = mount(authorButton(context, lifetime(), author()))
-    first.querySelector('button')!.click()
-    first.querySelector('button')!.focus()
+    const firstTrigger = first.querySelector('button')!
+    fire.event(firstTrigger, 'pointerenter')
+    await clock.advance(HOVER_OPEN_MS)
+    firstTrigger.focus()
+    firstTrigger.style.setProperty('anchor-name', '--author-n1, --profile-card')
     const second = authorButton(context, lifetime(), author())
     first.replaceWith(second)
     await settle()
     expect(isPopoverOpen(second.querySelector('.author-details') as never)).toBe(true)
     expect(document.activeElement).toBe(second.querySelector('button'))
+    expect(second.querySelector('button')!.style.getPropertyValue('anchor-name')).toBe(
+      '--author-n1, --profile-card',
+    )
+    const third = authorButton(context, lifetime(), author())
+    second.replaceWith(third)
+    expect(third.querySelector('button')!.style.getPropertyValue('anchor-name')).toBe(
+      '--author-n1, --profile-card',
+    )
     const detached = authorButton(context, lifetime(), author())
     await settle()
     expect(detached.isConnected).toBe(false)

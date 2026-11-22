@@ -4,6 +4,7 @@ import { BASELINE } from './migrations/baseline-step.ts'
 import { CHANNEL_AGENTS } from './migrations/channel-agents-step.ts'
 import { CHANNEL_TEACHING } from './migrations/channel-teaching-step.ts'
 import { CLOUD_DESK } from './migrations/cloud-desk-step.ts'
+import { DEBATE_AGREEMENT } from './migrations/debate-agreement-step.ts'
 import { DEBATE_MODEL } from './migrations/debate-model-step.ts'
 import { DEBATE_PACING } from './migrations/debate-pacing-step.ts'
 import { DEBATES } from './migrations/debates-step.ts'
@@ -19,6 +20,7 @@ import { SLACK } from './migrations/slack-step.ts'
 import { SOURCES_AND_REASONS } from './migrations/sources-and-reasons-step.ts'
 import { SPENT_REFRESH_TOKENS } from './migrations/spent-refresh-tokens-step.ts'
 import { TEACHING_AND_FIGURES } from './migrations/teaching-and-figures-step.ts'
+import { TEACHING_INTERVIEW } from './migrations/teaching-interview-step.ts'
 import type { Migration } from './schema-steps.ts'
 
 export const MIGRATIONS: ReadonlyArray<Migration> = [
@@ -41,6 +43,8 @@ export const MIGRATIONS: ReadonlyArray<Migration> = [
   AUTO_SEND,
   DRAFT_PREVIEWS,
   DISCARDED_BY,
+  DEBATE_AGREEMENT,
+  TEACHING_INTERVIEW,
   SLACK,
   SLACK_CHANNELS,
 ]

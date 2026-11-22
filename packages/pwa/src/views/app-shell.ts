@@ -9,6 +9,7 @@ import type { ViewContext } from './context.ts'
 import { DIALOG_ID, dialogHost } from './dialog.ts'
 import { heldToast } from './held-toast.ts'
 import { button } from './parts.ts'
+import { profileCardHost } from './profile-card.ts'
 import { shell } from './shell.ts'
 import { signInView } from './sign-in.ts'
 import { stageFor } from './stage.ts'
@@ -71,6 +72,7 @@ export const showApp = (
       root,
       focused ? stage : shell(context, appLife, me, stage),
       dialogHost(),
+      profileCardHost(context, appLife, me),
       toast(context, appLife),
       heldToast(context, appLife),
       liveAnnouncer(context, appLife),
