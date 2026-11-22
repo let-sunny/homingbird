@@ -375,8 +375,9 @@ const scenario = async (): Promise<void> => {
     await ben.page.waitForSelector('.connected-agents .credential:has-text("Ben desk")')
     assert.equal(await ben.page.locator('#user-menu .menu-item:has-text("Devices and agents")').count(), 0)
     await ben.page.waitForSelector(`details.have-a-code:not([open]) summary:has-text("${en.codeFallback}")`)
-    // The page names no tool and shows no command, except the line to run on a server, which
-    // appears only after the person asks for it.
+    // The page names no tool and shows no command, except the line to run on a server and the
+    // first steps, folded once an agent is connected, which appear only after the person asks.
+    await ben.page.waitForSelector('details.first-steps.is-folded:not([open])')
     await ben.page.waitForSelector('.join-code .join-code-create')
     assert.equal(await ben.page.locator('.join-command').count(), 0, 'no server line before asking')
     const outsideJoinCode = (text: string) =>
@@ -384,7 +385,7 @@ const scenario = async (): Promise<void> => {
         (needle: string) =>
           [...(globalThis as any).document.querySelectorAll('.stage *')].filter(
             (element: any) =>
-              element.closest('.join-code') === null &&
+              element.closest('.join-code, .first-steps.is-folded') === null &&
               [...element.childNodes].some(
                 (node: any) => node.nodeType === 3 && String(node.textContent).includes(needle),
               ),
@@ -404,7 +405,7 @@ const scenario = async (): Promise<void> => {
     ])
       assert.equal(await outsideJoinCode(name), 0, `no ${name} on the page`)
     assert.equal(
-      await ben.page.locator('.stage pre, .stage code, .stage button.copy').count(),
+      await ben.page.locator('.stage :is(pre, code, button.copy):not(.first-steps.is-folded *)').count(),
       0,
       'the page shows no installation commands',
     )
@@ -508,7 +509,7 @@ const scenario = async (): Promise<void> => {
     await shot(koreanAdmin.page, 'admin-settings-korean-narrow')
     await koreanAdmin.context.close()
 
-    // -- Tour: once on home, never over a deep link, remembered, reopened, broken storage ------
+    // -- Tour: on a first visit, a deep link included, remembered, reopened, broken storage ----
     const visitor = await newPage(browser, base, 'en-US', { tour: true })
     await submitDevelopmentLogin(visitor.page, 'cy@example.com', 'Cy')
     await visitor.page.waitForSelector('.app')
@@ -523,7 +524,11 @@ const scenario = async (): Promise<void> => {
       0,
       'a room I am not in is a page, not an error',
     )
-    assert.equal(await visitor.page.locator('#tour:popover-open').count(), 0, 'no tour over a deep link')
+    assert.equal(
+      await visitor.page.locator('#tour:popover-open').count(),
+      1,
+      'the tour starts on a first visit to a page it explains, a deep link included',
+    )
     await visitor.page.goto(`${base}/#/`)
     await visitor.page.waitForSelector(`#tour:popover-open .tour-progress:has-text("${tourProgress(1)}")`)
     assert.equal(
@@ -755,7 +760,7 @@ const scenario = async (): Promise<void> => {
     assert.equal(await korean.page.locator('.stage :text("모드")').count(), 0)
     await inThemes(korean.page, 'korean-connect-an-agent')
     await korean.page.goto(`${base}/#/`)
-    await korean.page.waitForSelector('.connection.is-connected:has-text("연결됨")')
+    await korean.page.waitForSelector(`.connection.is-connected:has-text("${ko.connection.connected}")`)
     await shot(korean.page, 'korean-header-connected')
     await korean.page.goto(`${base}/#/people`)
     await korean.page.setViewportSize({ width: 620, height: 800 })
@@ -793,7 +798,7 @@ const themeScenario = async (): Promise<void> => {
       [`/#/c/${room}`, '.answering-chip'],
       ['/#/people', '.person'],
       ['/#/channels', '.channel-card'],
-      ['/#/connect', '.desk-recommendation'],
+      ['/#/connect', '.first-steps'],
     ] as const) {
       await person.page.goto(`${base}${path}`)
       await person.page.waitForSelector(ready)

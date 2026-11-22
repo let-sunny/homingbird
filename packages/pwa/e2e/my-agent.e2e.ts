@@ -4,6 +4,7 @@ import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { en } from '../src/languages/en.ts'
 import {
   type Person,
   VIEWPORT,
@@ -203,9 +204,9 @@ const scenario = async (): Promise<void> => {
       'Your refund will be paid within 5 working days of approval, see the refund policy.',
     )
     await ana.page.locator('dialog button:has-text("Send")').click()
-    await ana.page.waitForSelector('.chances-here .chance:has-text("You edited a draft in #billing")')
+    await ana.page.waitForSelector(`.chances-here .chance:has-text("${en.teach.chanceHereEdit}")`)
     await capture(ana.page, 'chance-to-teach-after-a-substantial-edit')
-    await ana.page.locator('.chances-here .chance button:has-text("Teach my agent")').click()
+    await ana.page.locator(`.chances-here .chance button:has-text("${en.teach.teachFromEdit}")`).click()
     await ana.page.waitForSelector('dialog[open] .principle-form')
     const suggested = await ana.page.inputValue('dialog textarea[name=rule]')
     assert.match(suggested, /^say “within 5 working days of approval/)
@@ -245,7 +246,12 @@ const scenario = async (): Promise<void> => {
     await ana.page.waitForSelector(
       '.todo-row[data-name="Release dates"]:has-text("Applied 7 times: 6 sent as written, 1 edited, 0 discarded")',
     )
-    await ana.page.waitForSelector('.todo-row[data-name="Release dates"]:has-text("86% sent as written")')
+    // Seven decisions are fewer than a share needs, so the row gives the counts and no percentage.
+    assert.equal(
+      /%/.test(await ana.page.locator('.todo-row[data-name="Release dates"]').innerText()),
+      false,
+      'a share from fewer decisions than the minimum',
+    )
     await ana.page.waitForSelector('.todo-row[data-name="Release dates"]:has-text("Marked wrong once")')
     await ana.page.waitForSelector('.teach-audit:has-text("audit trail records that you saved")')
     await ana.page.waitForSelector('.milestone:has-text("First principle saved")')
