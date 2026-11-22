@@ -128,8 +128,8 @@ const tourCallout = (
 const isInHeader = (target: HTMLElement): boolean => {
   const header = target.closest('.titlebar')
   if (header === null) return false
-  if (typeof target.getBoundingClientRect !== 'function') return true
-  return target.getBoundingClientRect().top < header.getBoundingClientRect().bottom
+  const box = target.getBoundingClientRect()
+  return box.height === 0 || box.top < header.getBoundingClientRect().bottom
 }
 
 const visibleTarget = (document: PageDocument, id: TourStepId): HTMLElement | null => {
