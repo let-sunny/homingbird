@@ -558,6 +558,14 @@ writes.
   you to read it again before you can send it. The person who asked sees only that an answer is being
   drafted, never the draft, so a manager never reviews the answer to their own question: if you are the
   only manager, add another first.
+- **See what was decided.** On the agent's page, below the answers waiting, **Recent decisions** lists
+  every answer the managers sent or discarded in the last 30 days, newest first: sent as written, sent
+  after an edit, or discarded, who decided it and when, the question it answered, and the principles it
+  said it applied. An edited answer shows what the agent wrote above what was sent; a discarded one
+  shows its text and the reason, if one was given. Only the channel's current managers see the list,
+  never an administrator outside them, and a decision on a question you asked yourself is never in
+  yours, because its draft was hidden from you. **Show where it was asked** opens the answer, or the
+  question a discarded answer left, in its room or private question.
 - **Read the answer.** A sent answer shows the agent as its author and who approved it, such as
   "#payments-wiki · approved by Kim". The audit trail records the approver and the agent, never the
   text.
@@ -581,9 +589,10 @@ writes.
   before drafting and before its checks; an instruction asking it to approve, send or discard anything
   is ignored, and the form says so. A manager still approves every answer. The audit trail records
   which manager changed it, never what it says.
-- **Teach from a correction.** When you edit an answer before sending it, or discard it, its card
-  offers **Teach from this correction** (or **Teach what it should have done**). It opens the same form,
-  prefilled from what you changed; nothing is saved until you save it.
+- **Teach from a decision.** Each row of **Recent decisions** offers to teach the agent: **Teach from
+  this correction** on an edited answer, **Teach what it should have done** on a discarded one, and
+  **Teach …** on one sent as written. It opens the same form, prefilled from what was changed in an
+  edit; nothing is saved until you save it.
 - **Ask privately.** **Ask … privately** opens your own conversation with the channel's agent. Its
   first screen says who else is there: the channel's managers, now and later, who read everything in it.
   Your question goes to the agent alone and its answer to you alone, once a manager approves it. In a

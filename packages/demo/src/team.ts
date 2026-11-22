@@ -517,6 +517,16 @@ export const demoTeam = (now: number): Records => {
     ],
     previewAllowances: [{ memberId: BEN, allowance: { people: [VISITOR_ID], channels: [] } }],
     draftRequests: [],
+    decisions: [
+      {
+        noteId: NoteId.of('demobil00002'),
+        decidedBy: ANA,
+        decidedAt: ago(60 * 27),
+        agentAnswer:
+          'Drafts and invoices still under review. Everything finalized before midnight UTC goes out that night.',
+        reason: null,
+      },
+    ],
     debates: demoDebates(ago, { june: VISITOR_ID, juneLaptop: JUNE_LAPTOP, ana: ANA, ben: BEN, kai: KAI }),
     principles: [
       principle(0, {

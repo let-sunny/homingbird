@@ -27,12 +27,14 @@ import {
 } from '../models/channel-teaching.ts'
 import { signedIn } from '../state.ts'
 import { strings } from '../strings.ts'
+import { channelDecisionsSection } from './channel-decisions.ts'
 import { channelTeachingSection } from './channel-teaching.ts'
 import type { ViewContext } from './context.ts'
 import { cardOf, focusAfterDecision } from './decision-focus.ts'
 import { closeDialog, closesDialog, opensDialog, submitOnModifierEnter } from './dialog.ts'
 import { reportWhenSeen } from './drafts-item.ts'
 import { renderHeldLine } from './held-toast.ts'
+import { hinted } from './hint.ts'
 import { joinCodeSection } from './join-code.ts'
 import { noteBody } from './note-body.ts'
 import { button, field, loading, page as pageOf, sourceList } from './parts.ts'
@@ -42,19 +44,31 @@ export const agentButtons = (context: ViewContext, channel: AsRead.Channel): Chi
   const model = agentControlsModel(channel, context.state.serverInfo.get())
   return [
     model.manage !== null &&
-      h(
-        'button',
-        {
-          type: 'button',
-          class: 'channel-agent-open',
-          ...opensDialog(context, model.manage, (life) => agentPanel(context, life, channel, null, 'dialog')),
-        },
-        model.manage,
+      hinted(
+        context,
+        'channelAgent',
+        strings.hints.channelAgent,
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'channel-agent-open',
+            ...opensDialog(context, model.manage, (life) =>
+              agentPanel(context, life, channel, null, 'dialog'),
+            ),
+          },
+          model.manage,
+        ),
       ),
     model.askPrivately !== null &&
-      button(model.askPrivately, () => context.actions.askPrivately(channel.slug), {
-        class: 'ask-privately',
-      }),
+      hinted(
+        context,
+        'privateQuestion',
+        strings.hints.privateQuestion,
+        button(model.askPrivately, () => context.actions.askPrivately(channel.slug), {
+          class: 'ask-privately',
+        }),
+      ),
   ]
 }
 
@@ -102,7 +116,8 @@ const renderTabs = (model: ChannelAgentTabs): Child =>
 
 /**
  * The agent of a channel the person manages: in the dialog its name, desks and retiring it, with a way to
- * its page; on its page the answers waiting first, then the same, then how it is doing.
+ * its page; on its page the answers waiting first and what was recently decided, then the same, then how
+ * it is doing.
  */
 const agentPanel = (
   context: ViewContext,
@@ -144,6 +159,7 @@ const agentPanel = (
     'div',
     { class: 'channel-agent-panel' },
     waitingAnswers(context, life, channel, focus, (): HTMLElement => panel),
+    channelDecisionsSection(context, life, channel),
     setup,
     agentFigures(context, life, channel),
   )
@@ -503,13 +519,18 @@ const reviewActions = (context: ViewContext, card: ReviewCard, decides: () => vo
   return h(
     'div',
     { class: 'review-actions' },
-    button(
-      card.send,
-      (event) => {
-        decide((event.target as Element | null)?.closest('[data-decides]') ?? null)
-        context.actions.holdReviewSend(card.review, null, card.held.send, HELD)
-      },
-      { class: 'primary review-send' },
+    hinted(
+      context,
+      'approveAndSend',
+      strings.hints.approveAndSend,
+      button(
+        card.send,
+        (event) => {
+          decide((event.target as Element | null)?.closest('[data-decides]') ?? null)
+          context.actions.holdReviewSend(card.review, null, card.held.send, HELD)
+        },
+        { class: 'primary review-send' },
+      ),
     ),
     h(
       'button',

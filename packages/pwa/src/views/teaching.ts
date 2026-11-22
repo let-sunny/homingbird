@@ -19,6 +19,7 @@ import { strings } from '../strings.ts'
 import { autoSendForm } from './auto-send-form.ts'
 import type { ViewContext } from './context.ts'
 import { opensDialog } from './dialog.ts'
+import { hinted } from './hint.ts'
 import { button, field, loading } from './parts.ts'
 import { principleForm } from './principle-form.ts'
 import { todoList } from './todo-list.ts'
@@ -187,10 +188,22 @@ const principleList = (rows: ReadonlyArray<PrincipleRow>, context: ViewContext):
       details: h(
         'p',
         { class: 'principle-counts' },
-        h('span', { class: 'principle-kind-badge' }, row.kindBadge),
+        row.principle.kind === 'unknown'
+          ? h('span', { class: 'principle-kind-badge' }, row.kindBadge)
+          : hinted(
+              context,
+              'principleKind',
+              row.principle.kind === 'rule' ? strings.hints.kindRule : strings.hints.kindAnswer,
+              h('span', { class: 'principle-kind-badge' }, row.kindBadge),
+            ),
         row.details.map((detail) => h('span', {}, detail)),
       ),
-      aside: publicSwitch(row, context),
+      aside: hinted(
+        context,
+        'principleVisibility',
+        row.publicSwitch.isPublic ? strings.hints.makePrivate : strings.hints.makePublic,
+        publicSwitch(row, context),
+      ),
       problems: row.problems,
       menu: [
         h(
@@ -324,7 +337,6 @@ const publicSwitch = (row: PrincipleRow, context: ViewContext): HTMLElement => {
       class: 'todo-public',
       'aria-pressed': String(shown.isPublic),
       'aria-label': shown.label,
-      title: shown.label,
       ...(shown.isPublic
         ? {
             on: {
@@ -368,7 +380,12 @@ const renderTaught = (model: TaughtModel, context: ViewContext): Child => {
       h(
         'section',
         { class: 'teach-chances', 'aria-labelledby': 'teach-chances' },
-        h('h3', { id: 'teach-chances' }, strings.teach.chancesTitle),
+        hinted(
+          context,
+          'teachingChances',
+          strings.hints.teachingChances,
+          h('h3', { id: 'teach-chances' }, strings.teach.chancesTitle),
+        ),
         h(
           'ul',
           { class: 'chance-list' },

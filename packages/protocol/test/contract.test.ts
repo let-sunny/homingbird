@@ -96,6 +96,7 @@ describe('contract', () => {
         'channels.agent.retire',
         'channels.agent.credentials.revoke',
         'channels.agent.figures',
+        'channels.agent.decisions',
         'channels.agent.teaching.get',
         'channels.agent.teaching.set',
         'channels.agent.principles.create',

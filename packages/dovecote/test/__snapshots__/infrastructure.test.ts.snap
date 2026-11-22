@@ -101,6 +101,7 @@ exports[`schema > generates stable DDL for mysql 1`] = `
   "ALTER TABLE notes ADD COLUMN withdrawn_at BIGINT",
   "CREATE TABLE IF NOT EXISTS draft_preview_allowances (member_id VARCHAR(64) NOT NULL, kind VARCHAR(400) NOT NULL, target_id VARCHAR(64) NOT NULL, created_at BIGINT NOT NULL, PRIMARY KEY (member_id, kind, target_id), INDEX draft_preview_allowances_kind_target_id_idx (kind, target_id))",
   "ALTER TABLE notes ADD COLUMN preview_withdrawn_at BIGINT",
+  "ALTER TABLE notes ADD COLUMN discarded_by VARCHAR(64)",
   "ALTER TABLE debate_turns ADD COLUMN ready BIGINT",
   "ALTER TABLE debates ADD COLUMN concluded_because VARCHAR(400)",
 ]
@@ -253,6 +254,7 @@ exports[`schema > generates stable DDL for postgres 1`] = `
   "CREATE TABLE IF NOT EXISTS draft_preview_allowances (member_id VARCHAR(64) NOT NULL, kind VARCHAR(400) NOT NULL, target_id VARCHAR(64) NOT NULL, created_at BIGINT NOT NULL, PRIMARY KEY (member_id, kind, target_id))",
   "CREATE INDEX IF NOT EXISTS draft_preview_allowances_kind_target_id_idx ON draft_preview_allowances (kind, target_id)",
   "ALTER TABLE notes ADD COLUMN preview_withdrawn_at BIGINT",
+  "ALTER TABLE notes ADD COLUMN discarded_by VARCHAR(64)",
   "ALTER TABLE debate_turns ADD COLUMN ready BIGINT",
   "ALTER TABLE debates ADD COLUMN concluded_because VARCHAR(400)",
 ]
@@ -405,6 +407,7 @@ exports[`schema > generates stable DDL for sqlite 1`] = `
   "CREATE TABLE IF NOT EXISTS draft_preview_allowances (member_id TEXT NOT NULL, kind TEXT NOT NULL, target_id TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY (member_id, kind, target_id))",
   "CREATE INDEX IF NOT EXISTS draft_preview_allowances_kind_target_id_idx ON draft_preview_allowances (kind, target_id)",
   "ALTER TABLE notes ADD COLUMN preview_withdrawn_at INTEGER",
+  "ALTER TABLE notes ADD COLUMN discarded_by TEXT",
   "ALTER TABLE debate_turns ADD COLUMN ready INTEGER",
   "ALTER TABLE debates ADD COLUMN concluded_because TEXT",
 ]

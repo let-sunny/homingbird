@@ -200,6 +200,12 @@ const scenario = async (): Promise<void> => {
       true,
     )
     await capture(ana.page, 'draft-with-a-number-asks-for-a-careful-read')
+
+    // -- For someone new, resting the mouse on Approve and send shows one quiet line of what it does ----
+    await ana.page.hover(`.draft[data-draft-id="${waiting.id}"] .draft-send`)
+    await ana.page.waitForSelector('.hint-tip:popover-open:has-text("nothing leaves until you do")')
+    await ana.page.mouse.move(0, 0)
+    await ana.page.waitForSelector('.hint-tip:popover-open', { state: 'detached' })
     assert.equal(await ana.page.locator('.trust-card').count(), 0)
 
     // -- The page, from the header: verdict, numbers, channels, trend, what is measured ----------------

@@ -97,6 +97,7 @@ export const createDraft = (caller: Caller, target: DraftTarget): T.Task<Note, N
       approved_by: null,
       sources,
       discard_reason: null,
+      discarded_by: null,
     }
     yield* run(insertInto('notes', { ...row }))
     if (!isHuman(caller)) yield* recordApplications(authorId, row.id, row.basis)

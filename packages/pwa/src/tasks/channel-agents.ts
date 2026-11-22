@@ -115,6 +115,15 @@ export const loadChannelAgentFigures = (slug: string): Action<AsRead.ChannelAgen
     return read.error._tag === 'NotFound' ? null : yield* T.fail(read.error)
   })
 
+/** What the channel's managers recently decided on its agent's answers, or null for anyone who does not manage it. */
+export const loadChannelDecisions = (slug: string): Action<AsRead.ChannelDecisions | null> =>
+  T.gen(function* () {
+    const { api } = yield* T.ask<App>()
+    const read = yield* T.result(api['channels.agent.decisions']({ params: { slug } }))
+    if (read._tag === 'Ok') return read.value
+    return read.error._tag === 'NotFound' ? null : yield* T.fail(read.error)
+  })
+
 export const createChannelAgent = (slug: string, name: string): Action =>
   T.gen(function* () {
     const { api } = yield* T.ask<App>()

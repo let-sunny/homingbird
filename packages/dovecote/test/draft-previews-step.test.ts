@@ -11,7 +11,7 @@ afterEach(async () => {
 })
 
 describe('the draft previews step', () => {
-  it('is the eighteenth step', () => {
+  it('is the eighteenth step, after automatic sending', () => {
     expect(stepNumberOf(DRAFT_PREVIEWS)).toBe(18)
   })
 
