@@ -100,11 +100,13 @@ describe('wire model', () => {
         'id',
         'inReplyTo',
         'origin',
+        'posting',
         'receipts',
         'sentAt',
         'sources',
         'status',
         'updatedAt',
+        'via',
       ].sort(),
     )
   })

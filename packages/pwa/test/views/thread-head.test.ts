@@ -91,6 +91,7 @@ describe('renderThreadHead', () => {
         agentState: { state: 'off', until: null, label: 'Billing helper: not connected' },
         people: { ...nobody, label: '3 members' },
         answerCount: '1 answers',
+        slackLink: null,
         mute: null,
       }),
     )
@@ -109,6 +110,7 @@ describe('renderThreadHead', () => {
         agentState: null,
         people: nobody,
         answerCount: null,
+        slackLink: null,
         mute: null,
       }),
     )
@@ -185,6 +187,7 @@ describe('renderThreadHead', () => {
         agentState: null,
         people: { ...nobody, label: '3 members' },
         answerCount: '1 answers',
+        slackLink: null,
         mute: null,
       }),
     )
@@ -199,6 +202,7 @@ describe('renderThreadHead', () => {
         agentState: null,
         people: nobody,
         answerCount: null,
+        slackLink: null,
         mute: null,
       }),
     )
@@ -262,6 +266,7 @@ describe('renderThreadHead', () => {
         agentState: null,
         people: nobody,
         answerCount: null,
+        slackLink: null,
         mute: { ...mute, muted: false, label: 'Mute #billing', mark: null },
       }),
     )

@@ -1,6 +1,7 @@
 import { Schema as S } from '@homingbird/kernel'
 import { UNKNOWN } from './compatibility.ts'
 import { Timestamp } from './ids.ts'
+import { ChannelSlug } from './model.ts'
 
 /** The server's Slack workspace as an administrator reads it: never its token or signing secret. */
 export const SlackWorkspace = S.struct({
@@ -33,10 +34,19 @@ export type MeSlack = S.Infer<typeof MeSlack>
 
 /** What a single-use link code would do, shown to the person before they confirm it. */
 export const SlackCodeView = S.struct({
-  kind: S.tolerant(S.literal('person'), UNKNOWN),
+  kind: S.tolerant(S.literal('person', 'channel'), UNKNOWN),
   slackName: S.string({ maxLength: 200 }),
   team: S.string({ maxLength: 200 }),
   expiresAt: Timestamp,
+  /** For a channel link: the Slack channel, and the Homingbird channels the person may link it to. */
+  channel: S.optional(
+    S.struct({
+      name: S.string({ maxLength: 200 }),
+      isPrivate: S.boolean,
+      memberCount: S.nullable(S.int({ min: 0 })),
+      choices: S.array(ChannelSlug, { maxItems: 200 }),
+    }),
+  ),
 })
 export type SlackCodeView = S.Infer<typeof SlackCodeView>
 
@@ -44,12 +54,14 @@ export const SlackLinkCode = S.string({ pattern: /^[A-Za-z0-9_-]{20,64}$/ })
 
 export const SLACK_EVENTS_PATH = '/slack/events'
 
+/** The refusal of a reply whose Slack thread moved since the card was read; clients match it exactly. */
+export const SLACK_THREAD_MOVED = 'The Slack thread has newer messages. Read them, then send again.'
+
 /** Where a link code is confirmed in the web client. */
 export const slackCodeHref = (code: string): string => `#/slack/link/${encodeURIComponent(code)}`
 
 export const SLACK_CODE_LIFETIME_MS = 10 * 60 * 1000
 
-/** Scopes and events checked against Slack's reference on docs.slack.dev. */
 export const SLACK_BOT_SCOPES = [
   'app_mentions:read',
   'channels:history',

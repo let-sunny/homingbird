@@ -2,11 +2,13 @@ import { Schema as S, Task as T } from '@homingbird/kernel'
 import { featureIsOn } from '../domain/settings.ts'
 import type { AppEnv } from '../environment.ts'
 import { type HttpRequest, type HttpResponse, json, parseJson } from '../http/exchange.ts'
-import { dialect, run } from '../sql/database.ts'
+import { dialect, first, run } from '../sql/database.ts'
 import { insertIgnoringConflict, sql } from '../sql/query.ts'
+import { threadOf } from './slack-arrivals.ts'
+import { linkOfSlackChannel } from './slack-channels.ts'
 import { slackPersonBySlackUser } from './slack-people.ts'
 import { type SlackSignatureRefused, requireSlackSignature } from './slack-signature.ts'
-import { pinnedWorkspace } from './slack-workspace.ts'
+import { type SlackWorkspaceRow, pinnedWorkspace } from './slack-workspace.ts'
 
 /**
  * `POST /slack/events`: authenticated by Slack's signature over the raw body, not by a credential. An
@@ -57,6 +59,8 @@ export interface KeptEvent {
   readonly thread_ts?: string
   readonly tokens?: { readonly bot?: ReadonlyArray<string> }
   readonly subject?: { readonly id: string; readonly name: string; readonly deleted: boolean }
+  /** When Slack changed a kept message, for an edit or a deletion. */
+  readonly at?: string
 }
 
 const keep = (envelope: S.Infer<typeof Envelope>): T.Task<void, never, AppEnv> =>
@@ -65,7 +69,7 @@ const keep = (envelope: S.Infer<typeof Envelope>): T.Task<void, never, AppEnv> =
     const workspace = yield* pinnedWorkspace
     if (workspace === null || envelope.team_id !== workspace.team_id || envelope.event_id === undefined)
       return
-    const kept = yield* keptPartOf(envelope.event)
+    const kept = yield* keptPartOf(envelope.event, workspace)
     env.log.emit({
       name: 'slack.event_received',
       attributes: { kind: kindOf(envelope.event), kept: kept !== null },
@@ -86,11 +90,18 @@ const keep = (envelope: S.Infer<typeof Envelope>): T.Task<void, never, AppEnv> =
   })
 
 /** Which part of an event is kept, decided before anything of a message's text is read. */
-const keptPartOf = (event: unknown): T.Task<KeptEvent | null, never, AppEnv> =>
+const keptPartOf = (event: unknown, workspace: SlackWorkspaceRow): T.Task<KeptEvent | null, never, AppEnv> =>
   T.gen(function* () {
     const typed = EventType.decode(event)
     if (typed._tag === 'Err') return null
     const type = typed.value.type
+    if (type === 'message') return yield* keptMessage(event, workspace)
+    if (type === 'member_left_channel' || type === 'channel_archive' || type === 'channel_deleted') {
+      const place = ChannelEvent.decode(event)
+      if (place._tag === 'Err' || (yield* linkOfSlackChannel(place.value.channel)) === null) return null
+      if (type === 'member_left_channel' && place.value.user !== workspace.bot_user_id) return null
+      return { type, channel: place.value.channel }
+    }
     if (type === 'app_mention') {
       const mention = Mention.decode(event)
       return mention._tag === 'Ok' ? { type: 'app_mention', ...mention.value } : null
@@ -116,6 +127,43 @@ const keptPartOf = (event: unknown): T.Task<KeptEvent | null, never, AppEnv> =>
     }
     return null
   })
+
+/**
+ * A channel message is kept only when it belongs to a linked thread, or is an edit or a deletion of a
+ * message that arrived; then only its times, and an edit's new text. The app's own messages go first.
+ */
+const keptMessage = (event: unknown, workspace: SlackWorkspaceRow): T.Task<KeptEvent | null, never, AppEnv> =>
+  T.gen(function* () {
+    const decoded = MessageEvent.decode(event)
+    if (decoded._tag === 'Err') return null
+    const message = decoded.value
+    if ((yield* linkOfSlackChannel(message.channel)) === null) return null
+    const author = message.message ?? message
+    if (author.bot_id === workspace.bot_id || author.user === workspace.bot_user_id) return null
+    if (message.subtype === 'message_changed' && message.message !== undefined)
+      return (yield* hasArrived(message.channel, message.message.ts))
+        ? {
+            type: 'message_changed',
+            channel: message.channel,
+            ts: message.message.ts,
+            at: message.ts,
+            text: message.message.text ?? '',
+          }
+        : null
+    if (message.subtype === 'message_deleted' && message.deleted_ts !== undefined)
+      return (yield* hasArrived(message.channel, message.deleted_ts))
+        ? { type: 'message_deleted', channel: message.channel, ts: message.deleted_ts, at: message.ts }
+        : null
+    if (message.subtype !== undefined && message.subtype !== 'thread_broadcast') return null
+    if (message.thread_ts === undefined || (yield* threadOf(message.channel, message.thread_ts)) === null)
+      return null
+    return { type: 'thread_moved', channel: message.channel, ts: message.ts, thread_ts: message.thread_ts }
+  })
+
+const hasArrived = (channel: string, ts: string): T.Task<boolean, never, AppEnv> =>
+  T.map((row: unknown) => row !== null)(
+    first(sql`SELECT note_id FROM slack_arrivals WHERE slack_channel_id = ${channel} AND message_ts = ${ts}`),
+  )
 
 const kindOf = (event: unknown): string => {
   const typed = EventType.decode(event)
@@ -144,6 +192,26 @@ const Mention = S.struct({
   channel: SlackId,
   ts: SlackId,
   thread_ts: S.optional(SlackId),
+})
+
+const ChannelEvent = S.struct({ channel: SlackId, user: S.optional(SlackId) })
+
+const MessageEvent = S.struct({
+  channel: SlackId,
+  ts: SlackId,
+  thread_ts: S.optional(SlackId),
+  subtype: S.optional(S.string({ maxLength: 40 })),
+  user: S.optional(SlackId),
+  bot_id: S.optional(SlackId),
+  deleted_ts: S.optional(SlackId),
+  message: S.optional(
+    S.struct({
+      ts: SlackId,
+      user: S.optional(SlackId),
+      bot_id: S.optional(SlackId),
+      text: S.optional(S.string({ maxLength: 40_000 })),
+    }),
+  ),
 })
 
 const Revoked = S.struct({ tokens: S.struct({ bot: S.optional(S.array(SlackId, { maxItems: 100 })) }) })

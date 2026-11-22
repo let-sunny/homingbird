@@ -11,9 +11,9 @@ afterEach(async () => {
 })
 
 describe('the conversation hiding step', () => {
-  it('is the last step, the twenty-third, after Slack', () => {
+  it('is the last step, the twenty-fifth, after debate briefs', () => {
     expect(stepNumberOf(CONVERSATION_HIDING)).toBe(MIGRATIONS.length)
-    expect(stepNumberOf(CONVERSATION_HIDING)).toBe(23)
+    expect(stepNumberOf(CONVERSATION_HIDING)).toBe(25)
   })
 
   it('adds a hide to every place in a conversation, keeping each place shown', async () => {

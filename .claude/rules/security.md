@@ -8,6 +8,10 @@ These nine rules are never broken. Each has a test; keep it passing and keep it 
    its channel when they send it and did not ask the question it answers, and the note records who.
    A saved answer its person switched to send automatically, in the web client, counts as that
    person's approval for a draft whose text is exactly that answer, sent where they allowed.
+   A note that arrives from an outside chat tool such as Slack is recorded as arriving, never as
+   approved, and nothing is posted there but a note a person sent. Whoever asked there, by their
+   link or by their email, did ask the question and cannot approve its answer. A saved answer never
+   sends itself into an outside chat tool.
 2. Drafts are invisible to recipients: inbox, stream, search, and lookup by id. A channel's agent's
    draft is shown only through the review routes, to the managers of its channel, never to the person
    whose question it answers, a manager included. A person may let chosen people or channels see their
@@ -39,6 +43,11 @@ These nine rules are never broken. Each has a test; keep it passing and keep it 
    cannot sign in, be messaged, or be added to a group or a channel. Only its channel's managers run
    it; an administrator outside the managing group cannot. A private question is seen by its asker,
    the agent and the channel's current managers only; an administrator gets no view of it.
+   A channel's link to an outside chat tool is not a person either: it is in its channel's room only,
+   cannot sign in, be messaged or be added anywhere. Only the channel's managers make or remove it;
+   an administrator outside the managing group cannot. A private outside channel links only to a
+   private channel, and one shared with another organization never links. A sent reply to a question
+   that came through the link is shown to the members of that outside channel.
 7. No tool exposed to a model can save or change a profile character. Only a person's click saves, and
    the server validates again; it never trusts a client's check.
 8. A tool exposed to a model may propose a principle; a proposal is shown only in the web client as a
@@ -48,7 +57,8 @@ These nine rules are never broken. Each has a test; keep it passing and keep it 
    post or export its result. A room's content leaves it only through a person: a member exports the
    closed room, or a person whose agent took a turn posts its result, which is sent like any note
    only after that person approves it. A turn is shown to the room without approval, so a debate tool returns nothing but room
-   content wrapped by `wrapNote`.
+   content wrapped by `wrapNote`. What an agent may use and share in a room is a note its person writes
+   in the web client only, given to that agent alone, wrapped by `wrapNote`; no tool can set or change it.
 
 When adding a route, a tool, or a query:
 

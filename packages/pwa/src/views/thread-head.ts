@@ -75,6 +75,28 @@ export const renderThreadHead = (context: ViewContext, model: ThreadHead): Child
           model.agentState !== null && channelAgentStateLine(model.agentState),
         ),
       channel === null && participantsCount(model.people),
+      channel !== null &&
+        model.slackLink !== null &&
+        h(
+          'p',
+          { class: 'slack-link-line hint' },
+          h('span', {}, model.slackLink.text),
+          model.slackLink.unlink !== null &&
+            h(
+              'button',
+              {
+                type: 'button',
+                class: 'link-button',
+                on: {
+                  click: () =>
+                    context.actions.unlinkSlackChannel(channel.slug, {
+                      done: () => context.actions.loadKnownChannels(),
+                    }),
+                },
+              },
+              model.slackLink.unlink,
+            ),
+        ),
     ),
     participantsList(model.people),
     channel !== null && h('span', { class: 'thread-answering' }, answeringChip(context, channel)),

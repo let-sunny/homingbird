@@ -6,6 +6,7 @@ import { CHANNEL_TEACHING } from './migrations/channel-teaching-step.ts'
 import { CLOUD_DESK } from './migrations/cloud-desk-step.ts'
 import { CONVERSATION_HIDING } from './migrations/conversation-hiding-step.ts'
 import { DEBATE_AGREEMENT } from './migrations/debate-agreement-step.ts'
+import { DEBATE_BRIEFS } from './migrations/debate-briefs-step.ts'
 import { DEBATE_MODEL } from './migrations/debate-model-step.ts'
 import { DEBATE_PACING } from './migrations/debate-pacing-step.ts'
 import { DEBATES } from './migrations/debates-step.ts'
@@ -16,6 +17,7 @@ import { HISTORY_ANSWERS } from './migrations/history-answers-step.ts'
 import { INSIGHTS } from './migrations/insights-step.ts'
 import { MUTE } from './migrations/mute-step.ts'
 import { RESULT_VOTES } from './migrations/result-votes-step.ts'
+import { SLACK_CHANNELS } from './migrations/slack-channels-step.ts'
 import { SLACK } from './migrations/slack-step.ts'
 import { SOURCES_AND_REASONS } from './migrations/sources-and-reasons-step.ts'
 import { SPENT_REFRESH_TOKENS } from './migrations/spent-refresh-tokens-step.ts'
@@ -46,6 +48,8 @@ export const MIGRATIONS: ReadonlyArray<Migration> = [
   DEBATE_AGREEMENT,
   TEACHING_INTERVIEW,
   SLACK,
+  SLACK_CHANNELS,
+  DEBATE_BRIEFS,
   CONVERSATION_HIDING,
 ]
 

@@ -833,7 +833,11 @@ token, nothing that reads a person's direct messages, nothing that posts as a pe
    connect; `im:write` and `chat:write` send that user the link and, later, review requests;
    `app_mentions:read` lets a person whose emails differ mention the app with the word `link`; `users:read`
    checks that whoever mentions the app is a full member of the workspace, not a guest, an outside user
-   or a bot. The channel scopes and events, and `reactions:write`, serve channel links.
+   or a bot. The channel scopes and events, and `reactions:write`, serve channel links: `channels:read`
+   and `groups:read` tell an open channel from a private or shared one and count its members;
+   `channels:history` and `groups:history` deliver the thread messages that tell a waiting reply its
+   thread moved, and edits and deletions of a question; `reactions:write` marks a question as arrived;
+   `member_left_channel`, `channel_archive` and `channel_deleted` stop a link.
 2. Install the app to the workspace and copy its **Bot User OAuth Token** (`xoxb-…`) and, under
    **Basic Information**, its **Signing Secret**. Give both to Dovecote as secrets, like
    `HB_OIDC_CLIENT_SECRET`: `HB_SLACK_BOT_TOKEN` and `HB_SLACK_SIGNING_SECRET`. Neither is stored in the
@@ -861,6 +865,15 @@ deactivates a member. The audit trail keeps `slack.connected`, `slack.stopped` (
 the app uninstalled or its token revoked, or the token is of another workspace), `slack.person.linked`
 and `slack.person.unlinked`, with ids only. **Administration → Settings → Slack** shows the workspace,
 its state, when Slack last sent an event and how many people are linked.
+
+**Channel links.** A manager of a channel, linked to their Slack user, invites the app to the Slack
+channel, mentions it there with the word `link`, and confirms in the web client which of their channels
+it links to; a private Slack channel links only to a private channel, and a shared one never links. From
+then on a message there that mentions the app is a question in the channel, read by its members, and an
+answer a person approves is posted in the Slack thread by the app, under who wrote and approved it.
+Messages that do not mention the app are not copied. Posts go through an outbox: one row per sent note,
+retried after 5, 15 and 60 minutes, then shown as not posted with **Try again**. The audit trail keeps
+`slack.channel.linked`, `slack.channel.unlinked` and `slack.channel.stopped`, with ids only.
 
 ## Connecting claude.ai
 

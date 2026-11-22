@@ -114,6 +114,7 @@ const OWN_TRANSACTIONS: ReadonlyArray<RouteName> = [
   'debates.waiting',
   'me.deskWake.test',
   'me.slack.connect',
+  'channels.slack.link',
 ]
 
 /** Runs a handler and records its route's audit event, in the same transaction, when it succeeds. */

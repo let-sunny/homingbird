@@ -1,5 +1,5 @@
 import { Task as T } from '@homingbird/kernel'
-import type { ApiError, AsRead, DraftRequest, NoteId } from '@homingbird/protocol'
+import type { ApiError, AsRead, DraftAsShown, DraftRequest, NoteId } from '@homingbird/protocol'
 import { track } from '../analytics.ts'
 import { type Action, type App, withApp } from '../app.ts'
 import { type AgentAsk, requestBody, upsertRequest } from '../draft-requests.ts'
@@ -23,7 +23,7 @@ export const approveDraft = (
 ): Action =>
   T.gen(function* () {
     const { api, state } = yield* T.ask<App>()
-    const expected = asRead(draft)
+    const expected = withThreadShown(asRead(draft), state, draft)
     rememberNote(state)(
       yield* T.tapError((error: ApiError) => (error._tag === 'Conflict' ? rereadDraft(draft) : T.unit))(
         api['drafts.send']({
@@ -137,3 +137,12 @@ const rereadDraft = (draft: AsRead.Note): Action =>
       rememberNote(state)(now)
     }),
   )
+
+/** A reply to a question from Slack also says how far the Slack thread had got when its card was read. */
+const withThreadShown = (expected: DraftAsShown, state: AppState, draft: AsRead.Note): DraftAsShown => {
+  const answered = state.threads
+    .get()
+    .get(draft.conversationId)
+    ?.notes.find((note) => note.id === draft.inReplyTo)
+  return answered?.via === undefined ? expected : { ...expected, threadAt: answered.via.threadAt }
+}

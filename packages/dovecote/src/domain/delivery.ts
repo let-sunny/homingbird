@@ -1,6 +1,7 @@
 import { Task as T } from '@homingbird/kernel'
 import { Conflict, DRAFT_CHANGED, type DraftAsShown, type MemberId, type NoteId } from '@homingbird/protocol'
 import { type RequestEnv, emit } from '../events/events.ts'
+import { queueSlackPost, slackPostingOf } from '../slack/slack-outbox.ts'
 import { all, dialect, first, run } from '../sql/database.ts'
 import { equalsExactly, insertInto, sql } from '../sql/query.ts'
 import { abandonDraft } from './abandoned-drafts.ts'
@@ -33,12 +34,14 @@ export const deliverDraft = (
     const { body, origin, approvedBy, autoPrincipleId, expected } = decision
     const participants = yield* participantsOf(draft.conversation_id)
     const recipients = yield* recipientsOf(draft, participants)
+    const posting = yield* slackPostingOf(draft, recipients, expected)
     const now = yield* nextSendTime(draft.conversation_id, decidedAt)
     const sameBody = equalsExactly(yield* dialect, 'body', expected.body)
     const sent = yield* run(
       sql`UPDATE notes SET status = 'sent', body = ${body}, origin = ${origin}, sent_at = ${now}, updated_at = ${now}, decided_at = ${decidedAt}, approved_by = ${approvedBy}, auto_principle_id = ${autoPrincipleId} WHERE id = ${id} AND status = 'draft' AND ${sameBody} AND conversation_id = ${expected.conversationId}`,
     )
     if (sent === 0) return yield* T.fail(yield* refusalAfterMissedSend(id))
+    if (posting !== null) yield* queueSlackPost(id, posting, { authorId, approvedBy }, body)
     for (const memberId of recipients)
       yield* run(insertInto('receipts', { note_id: id, member_id: memberId, delivered_at: now }))
     yield* run(sql`UPDATE conversations SET last_activity_at = ${now} WHERE id = ${draft.conversation_id}`)
@@ -55,8 +58,9 @@ const refusalAfterMissedSend = (id: NoteId): T.Task<NoteFailure, never, RequestE
     }),
   )(first<{ status: string }>(sql`SELECT status FROM notes WHERE id = ${id}`))
 
-const recipientsOf = (
-  draft: NoteRow,
+/** Whom a note is delivered to: a channel question to its answerers, a reply to whom it answers. */
+export const recipientsOf = (
+  draft: Pick<NoteRow, 'conversation_id' | 'author_id' | 'in_reply_to'>,
   participants: ReadonlyArray<MemberId>,
 ): T.Task<MemberId[], never, RequestEnv> =>
   T.gen(function* () {

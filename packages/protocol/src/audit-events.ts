@@ -96,6 +96,18 @@ export const AUDIT_EVENTS = {
     because: S.literal('token_refused', 'revoked', 'other_workspace'),
   }),
   'slack.person.linked': event('security', 'member', {}),
+  'slack.channel.linked': event('security', 'channel', {
+    slackChannel: S.string({ pattern: /^[A-Z0-9]{1,24}$/ }),
+    isPrivate: S.boolean,
+  }),
+  'slack.channel.unlinked': event('security', 'channel', {
+    slackChannel: S.string({ pattern: /^[A-Z0-9]{1,24}$/ }),
+    because: S.optional(S.literal('channel_archived')),
+  }),
+  'slack.channel.stopped': event('security', 'channel', {
+    slackChannel: S.string({ pattern: /^[A-Z0-9]{1,24}$/ }),
+    because: S.literal('app_removed', 'archived', 'deleted', 'pairing', 'failures'),
+  }),
   'slack.person.unlinked': event('security', 'member', {
     because: S.optional(S.literal('deactivated', 'slack_deactivated')),
   }),
@@ -190,6 +202,7 @@ export const AUDIT_EVENTS = {
   'principle.document_changed': event('full', 'none', { kept: S.boolean }),
   'debate.opened': event('full', 'debate', { visibility: DebateVisibility }),
   'debate.agent_opted_in': event('full', 'debate', { credentialId: CredentialId }),
+  'debate.brief_changed': event('full', 'debate', { cleared: S.boolean }),
   'debate.limits_changed': event('full', 'debate', { limits: DebateLimits }),
   'debate.result_posted': event('full', 'debate', { noteId: NoteId }),
   'debate.exported': event('full', 'debate', { format: DebateExportFormat }),

@@ -1,6 +1,8 @@
 import { Task as T } from '@homingbird/kernel'
-import { SLACK_EVENTS_PATH, slackManifest } from '@homingbird/protocol'
+import { type NoteId, SLACK_EVENTS_PATH, slackManifest } from '@homingbird/protocol'
 import type { RequestEnv } from '../events/events.ts'
+import { linkSlackChannel, unlinkSlackChannel } from '../slack/slack-channels.ts'
+import { retrySlackPost } from '../slack/slack-outbox.ts'
 import {
   linkSlackPerson,
   requestSlackLink,
@@ -23,6 +25,9 @@ export const slackHandlers = {
   'me.slack.link': ({ body }, caller) => linkSlackPerson(caller, body.code),
   'me.slack.unlink': (_, caller) => T.as({})(unlinkSlackPerson(caller.member.id)),
   'slack.codes.get': ({ params }, caller) => slackCodeFor(caller, params.id),
+  'channels.slack.link': ({ params, body }, caller) => linkSlackChannel(caller, params.slug, body.code),
+  'channels.slack.unlink': ({ params }, caller) => T.as({})(unlinkSlackChannel(caller, params.slug)),
+  'notes.posting.retry': ({ params }, caller) => retrySlackPost(caller, params.id as NoteId),
   'admin.slack.get': () =>
     T.gen(function* () {
       const env = yield* T.ask<RequestEnv>()

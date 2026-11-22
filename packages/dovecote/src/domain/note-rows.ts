@@ -12,6 +12,7 @@ import {
   receiptState,
 } from '@homingbird/protocol'
 import type { AppEnv } from '../environment.ts'
+import { type SlackFacts, slackFactsOf } from '../slack/slack-note-facts.ts'
 import { all } from '../sql/database.ts'
 import { list, sql } from '../sql/query.ts'
 import { sourcesShown } from './draft-sources.ts'
@@ -61,8 +62,9 @@ export const hydrateNotes = (
     const env = yield* T.ask<AppEnv>()
     const details = rows.some((row) => row.agent_name !== null) && (yield* featureIsOn('noteDetails'))
     const debates = yield* debatesBehind(rows)
+    const slack = yield* slackFactsOf(rows)
     const sentIds = rows.filter((row) => row.status === 'sent').map((row) => row.id)
-    if (sentIds.length === 0) return rows.map((row) => toNote(row, [], viewerId, details, debates))
+    if (sentIds.length === 0) return rows.map((row) => toNote(row, [], viewerId, details, debates, slack))
     const receiptRows = yield* all<ReceiptRow>(
       sql`SELECT * FROM receipts WHERE note_id IN ${list(sentIds)} ORDER BY member_id`,
     )
@@ -87,6 +89,7 @@ export const hydrateNotes = (
         viewerId,
         details,
         debates,
+        slack,
       ),
     )
   })
@@ -141,6 +144,7 @@ const toNote = (
   viewerId: MemberId | null,
   details: boolean,
   debates: ReadonlyMap<DebateId, DebateOrigin>,
+  slack: SlackFacts,
 ): Note => ({
   id: row.id,
   conversationId: row.conversation_id,
@@ -160,6 +164,8 @@ const toNote = (
     ? { autoSent: true }
     : (row.approved_by ?? null) !== null && { approvedBy: row.approved_by }),
   ...(row.debate_id && debates.has(row.debate_id) && { fromDebate: debates.get(row.debate_id)! }),
+  ...(slack.via.has(row.id) && { via: slack.via.get(row.id)! }),
+  ...(slack.posting.has(row.id) && { posting: slack.posting.get(row.id)! }),
 })
 
 /** Sent by its person's saved answer: the note records them as approver, and the wire says how. */

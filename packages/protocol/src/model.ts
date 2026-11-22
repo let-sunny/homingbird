@@ -85,8 +85,8 @@ export type Role = S.Infer<typeof Role>
 export const MemberStatus = S.tolerant(S.literal('active', 'deactivated'), UNKNOWN)
 export type MemberStatus = S.Infer<typeof MemberStatus>
 
-/** A person, or a channel's agent, which is its own member: unknown reads as not a person. */
-export const MemberKind = S.tolerant(S.literal('person', 'channel_agent'), UNKNOWN)
+/** A person, a channel's agent, or a channel's link to an outside chat tool: unknown reads as not a person. */
+export const MemberKind = S.tolerant(S.literal('person', 'channel_agent', 'chat_link'), UNKNOWN)
 export type MemberKind = S.Infer<typeof MemberKind>
 
 export const LOCALES = ['en', 'ko'] as const
@@ -159,6 +159,17 @@ export const Channel = S.struct({
   ),
   /** Whether the viewer manages the channel themself, and so runs its agent and reviews its answers. */
   runsAgent: S.optional(S.boolean),
+  link: S.optional(
+    S.nullable(
+      S.struct({
+        tool: S.tolerant(S.literal('slack'), UNKNOWN),
+        name: S.string({ maxLength: 200 }),
+        isPrivate: S.boolean,
+        memberCount: S.nullable(S.int({ min: 0 })),
+        state: S.tolerant(S.literal('active', 'stopped'), UNKNOWN),
+      }),
+    ),
+  ),
   createdAt: Timestamp,
 })
 export type Channel = S.Infer<typeof Channel>
@@ -198,7 +209,7 @@ export type ContactMode = S.Infer<typeof ContactMode>
 export const NoteStatus = S.tolerant(S.literal('draft', 'sent', 'discarded', 'withdrawn'), UNKNOWN)
 export type NoteStatus = S.Infer<typeof NoteStatus>
 
-export const Origin = S.tolerant(S.literal('agent', 'human_edited', 'human'), UNKNOWN)
+export const Origin = S.tolerant(S.literal('agent', 'human_edited', 'human', 'outside'), UNKNOWN)
 export type Origin = S.Infer<typeof Origin>
 
 export const ReceiptState = S.tolerant(S.literal('delivered', 'read', 'drafting', 'replied'), UNKNOWN)
@@ -236,6 +247,20 @@ export const Note = S.struct({
   /** Sent by its person's saved answer without a click, under the switch they set for it. */
   autoSent: S.optional(S.boolean),
   /** A debate room's approved result, posted by a person whose agent took part: which room, which agents. */
+  /** A note that arrived from an outside chat tool: who asked there, where, and what became of it there. */
+  via: S.optional(
+    S.struct({
+      tool: S.tolerant(S.literal('slack'), UNKNOWN),
+      askerName: S.string({ maxLength: 200 }),
+      askerId: S.nullable(MemberId),
+      channelName: S.string({ maxLength: 200 }),
+      edited: S.boolean,
+      deleted: S.boolean,
+      threadAt: S.string({ maxLength: 64 }),
+      newerMessages: S.int({ min: 0 }),
+    }),
+  ),
+  posting: S.optional(S.tolerant(S.literal('pending', 'posted', 'failed'), UNKNOWN)),
   fromDebate: S.optional(
     S.struct({
       debateId: DebateId,
@@ -252,7 +277,7 @@ export type Note = S.Infer<typeof Note>
 export const DRAFT_INSTRUCTION_MAX = 2000
 export const RELEASE_REASON_MAX = 500
 
-export const NoticeKind = S.tolerant(S.literal('released', 'channel_archived'), UNKNOWN)
+export const NoticeKind = S.tolerant(S.literal('released', 'channel_archived', 'slack_deleted'), UNKNOWN)
 export type NoticeKind = S.Infer<typeof NoticeKind>
 
 /** Something that happened to one person's note, kept so that it survives a reload; only that person sees it. */

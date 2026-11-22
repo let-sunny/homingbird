@@ -1,6 +1,6 @@
 import { Task as T } from '@homingbird/kernel'
 import {
-  type Conflict,
+  Conflict,
   type Contract,
   type CredentialId,
   DEFAULT_DEBATE_LIMITS,
@@ -36,6 +36,7 @@ import {
   isDebateMember,
   loadRoom,
   lockedDebate,
+  touchDebate,
   visibleDebate,
 } from './debate-rows.ts'
 import { moveDebate } from './debate-settling.ts'
@@ -134,11 +135,15 @@ export const debateFor = (viewer: Viewer, id: DebateId): T.Task<Debate, NotFound
     return yield* describeDebate(yield* visibleDebate(viewer, id))
   })
 
-/** Opts the person's own connected agent in; it joins the room and may take turns there, never elsewhere. */
+/**
+ * Opts the person's own connected agent in, with their note on what it may use here when they wrote one;
+ * it joins the room and may take turns there, never elsewhere.
+ */
 export const optInAgent = (
   caller: Caller,
   id: DebateId,
   agentId: CredentialId,
+  brief?: string,
 ): T.Task<Debate, NotFound | Forbidden | Conflict | Invalid, RequestEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
@@ -158,6 +163,36 @@ export const optInAgent = (
       { type: 'join', memberId: caller.member.id },
       { credentialId: agentId, agentName },
     )
+    if (brief !== undefined) yield* writeBrief(id, caller.member.id, brief)
+    return yield* describeDebate(yield* lockedDebate(id))
+  })
+
+/**
+ * Sets or clears the person's note on what their agent may use and share in this room, until the room
+ * stops taking turns. Only the person writes it, never an agent (rules 3 and 9).
+ */
+export const setDebateBrief = (
+  caller: Caller,
+  id: DebateId,
+  brief: string,
+): T.Task<Debate, NotFound | Forbidden | Conflict, RequestEnv> =>
+  T.gen(function* () {
+    if (!isHuman(caller))
+      return yield* T.fail(
+        Forbidden({ message: 'Only a person can say what their agent may use in a debate room.' }),
+      )
+    yield* visibleDebate(viewerOf(caller), id)
+    const row = yield* lockedDebate(id)
+    const joined = yield* first(
+      sql`SELECT 1 AS present FROM debate_participants WHERE debate_id = ${id} AND member_id = ${caller.member.id}`,
+    )
+    if (joined === null)
+      return yield* T.fail(Conflict({ message: 'Opt your agent in first; the note goes with it.' }))
+    if (row.status !== 'open')
+      return yield* T.fail(
+        Conflict({ message: 'This room no longer takes turns, so what your agent may use here is fixed.' }),
+      )
+    yield* writeBrief(id, caller.member.id, brief)
     return yield* describeDebate(yield* lockedDebate(id))
   })
 
@@ -223,6 +258,16 @@ export const debateAsks = (caller: Caller): T.Task<DebateAsks, never, RequestEnv
 export type DebateAsks = Required<ResponseOf<Contract['debates.waiting']>>
 
 const LISTED_ROOMS = 100
+
+const writeBrief = (id: DebateId, memberId: MemberId, brief: string): T.Task<void, never, RequestEnv> =>
+  T.gen(function* () {
+    const env = yield* T.ask<RequestEnv>()
+    const kept = brief.trim()
+    yield* run(sql`
+      UPDATE debate_participants SET brief = ${kept === '' ? null : kept}
+      WHERE debate_id = ${id} AND member_id = ${memberId}`)
+    yield* touchDebate(id, env.clock.now())
+  })
 
 const requireUsableLimits = (limits: DebateLimits): T.Task<void, Invalid> => {
   const problem = limitsProblem(limits)

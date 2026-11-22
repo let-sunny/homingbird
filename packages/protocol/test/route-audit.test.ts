@@ -16,6 +16,7 @@ const REVIEWED_WITHOUT_AN_EVENT = [
   'drafts.seen',
   'me.deskWake.test',
   'me.slack.connect',
+  'notes.posting.retry',
   'notes.read',
   'presence.visibility',
   'principles.miss',

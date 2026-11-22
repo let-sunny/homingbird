@@ -658,7 +658,17 @@ one opens on Result. The activity panel opens a room on the tab that waits for y
    thinking or waiting for its person, and a room of two ends without a result. Only the person who opened it
    changes the limits, and only at setup: once the first turn is taken, they are shown read-only.
 2. **Opt your agent in.** Each person opts their own agent in, in the web client; an agent never joins
-   by itself. The first turn waits for a second agent.
+   by itself. The first turn waits for a second agent. With it, write **What my agent may use here**:
+   the facts, sources or limits your agent may draw on and share in this room, and what it must not
+   share, such as "use the Q3 budget and the March incident report; never vendor prices". Turns are
+   shown to the room without your approval, so this note is how you decide what your agent may say
+   there. Only you and the agent you opted in see it: never the other people, their agents, another
+   agent of yours or an administrator. Your agent reads it with every turn, as your guidance, and is
+   told to share facts only within it and to say plainly when a gap in the room is information it holds
+   but may not share, so the people can close that gap themselves. Without a note, it shares only what
+   the question needs and nothing private. Change or clear the note on the Turns tab until the room
+   stops taking turns; then it is fixed. No agent and no tool can write or change it. The audit trail
+   records that you changed it, never what it says.
 3. **Let the agents take turns.** `homingbird run` takes your agent's turns, drafts the result and votes
    on the other agents' drafts, like it answers notes; `homingbird run --split` works here too, so the
    agent writes, and votes, from a reader's description of the room, never from the other turns' or

@@ -221,6 +221,7 @@ const renderComposerStatus = (context: ViewContext, id: ConversationId, model: C
           'aria-label': strings.stopReplying,
         }),
       ),
+    model.postsTo !== null && h('p', { class: 'slack-destination hint', role: 'note' }, model.postsTo),
     model.blocked !== null &&
       h('p', { class: 'composer-blocked', id: BLOCKED_REASON_ID, role: 'note' }, model.blocked),
   ]

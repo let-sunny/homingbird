@@ -158,6 +158,7 @@ export const ko: Translation<typeof en> = {
     agent: '에이전트',
     human_edited: '에이전트 작성, 사람이 수정',
     human: '사람이 작성',
+    outside: '바깥 채팅 도구에서 물음',
   },
   agentNames: {
     desk: 'Claude Code 플러그인',
@@ -168,6 +169,7 @@ export const ko: Translation<typeof en> = {
     unknown: '{agent}',
     agent: '에이전트 · {agent}',
     human_edited: '에이전트 · {agent}, 사람이 수정',
+    outside: '{agent}',
   },
   status: {
     sent: '보냄',
@@ -1174,6 +1176,15 @@ export const ko: Translation<typeof en> = {
     chooseAgent: '에이전트',
     optIn: '참여시키기',
     noAgent: '먼저 내 에이전트 → 연결에서 에이전트를 연결하세요.',
+    briefTitle: '이 토론방에서 내 에이전트가 쓸 수 있는 것',
+    briefHint:
+      '내 에이전트가 이 토론방에서 참고하고 나눌 수 있는 사실, 출처, 한계와 나누면 안 되는 것을 적어 주세요. 차례는 내 승인 없이 토론방에 보이므로, 에이전트는 이 메모가 허락하는 것만 나눠요. 이 메모는 나와 내 에이전트만 봐요.',
+    briefPlaceholder:
+      '예: 3분기 예산과 3월 장애 보고서는 써도 돼요. 업체 견적과 누구의 급여도 나누지 마세요.',
+    saveBrief: '메모 저장',
+    briefSaved: '저장했어요. 에이전트가 다음 차례에 읽어요.',
+    briefNone: '에이전트에게 남긴 메모가 없어요. 에이전트는 질문에 필요한 것만, 사적인 것 없이 나눠요.',
+    briefFixed: '이 토론방은 더 이상 차례를 받지 않아서, 메모는 그대로 남아요.',
     turnsTitle: '차례',
     noTurns: '아직 차례가 없어요.',
     waitingForSecond: '두 번째 에이전트가 참여해야 첫 차례가 시작돼요.',
@@ -2072,6 +2083,28 @@ export const ko: Translation<typeof en> = {
     cancel: '나중에',
     codeGone: '이 링크는 더 이상 쓸 수 없어요. 내 에이전트 → 연결에서 새 링크를 요청하세요.',
     toConnection: '내 에이전트 → 연결 열기',
+    askedIn: 'Slack #{channel}의 {name} 님',
+    askedInLine: '{name} 님이 Slack #{channel}에서 물었어요. Homingbird에서 승인한 사람은 없어요',
+    editedInSlack: 'Slack에서 고쳐짐',
+    deletedInSlack: 'Slack에서 지워짐',
+    postingToSlack: 'Slack에 올리는 중…',
+    postedToSlack: 'Slack에 올라감',
+    notPostedToSlack: 'Slack에 올라가지 않음',
+    tryAgain: '다시 시도',
+    postsTo: { other: 'Slack #{channel}({count}명)에 올라가요' },
+    postsToUncounted: 'Slack #{channel}에 올라가요',
+    newerMessages: { other: 'Slack 스레드에 새 글 {count}개. 보내기 전에 Slack에서 읽으세요' },
+    draftDiscardedDeleted: '초안을 버렸어요. 답하려던 질문이 Slack에서 지워졌어요.',
+    linkedChannel:
+      'Slack #{channel}에 연결되어 있어요. 그곳에서 Homingbird를 멘션한 글이 여기로 오고, 사람이 승인한 답이 그곳에 올라가요.',
+    linkStopped: 'Slack #{channel} 연결이 멈췄어요. 그곳에서 오는 글도, 그곳에 올리는 글도 없어요.',
+    unlinkChannel: 'Slack 연결 끊기',
+    confirmChannel: { other: 'Slack #{channel}({count}명)을 내가 운영하는 채널에 연결할까요?' },
+    confirmChannelHint:
+      '그곳에서 Homingbird를 멘션한 글은 이 채널 멤버가 읽어요. 사람이 승인한 답은 Slack 채널 멤버가 읽어요.',
+    chooseChannel: '채널',
+    noChannelChoices:
+      '이 Slack 채널을 연결할 수 있는 채널을 운영하고 있지 않아요. 비공개 Slack 채널은 비공개 채널에만 연결돼요.',
     admin: {
       legend: 'Slack',
       intro:

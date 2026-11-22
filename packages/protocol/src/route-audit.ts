@@ -113,6 +113,7 @@ export const ROUTE_AUDIT = {
   'debates.get': read(),
   'debates.create': { event: 'debate.opened', target: 'debate' },
   'debates.optIn': { event: 'debate.agent_opted_in', target: 'debate' },
+  'debates.brief.set': { event: 'debate.brief_changed', target: 'debate' },
   'debates.limits.set': { event: 'debate.limits_changed', target: 'debate' },
   'debates.turns.post': activity(),
   'debates.result.draft': activity(),
@@ -157,6 +158,11 @@ export const ROUTE_AUDIT = {
   'admin.groups.delete': { event: 'group.deleted', target: 'group' },
   'admin.insights': read(),
   'admin.slack.get': read(),
+  'channels.slack.link': { event: 'slack.channel.linked', target: 'channel' },
+  'channels.slack.unlink': { event: 'slack.channel.unlinked', target: 'channel' },
+  'notes.posting.retry': {
+    none: 'Trying a post again changes nothing a person decided; each post goes to the operational log.',
+  },
 } as const satisfies { readonly [N in RouteName]: AuditDecision }
 
 /** The routes that record an event, and the event each records. */

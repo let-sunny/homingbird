@@ -1,4 +1,4 @@
-import type { AsRead } from '@homingbird/protocol'
+import { type AsRead, DEBATE_BRIEF_MAX } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import { type DebateRoomInput, debateRoomModel, resultDestination } from '../../src/models/debate-room.ts'
 import { timeShown } from '../../src/models/time.ts'
@@ -79,6 +79,58 @@ describe('debateRoomModel', () => {
     expect(room(debateRoomModel(input(debate())))).toMatchObject({
       optIn: { kind: 'no-agent', text: strings.debates.noAgent },
     })
+  })
+
+  it('asks for a note on what the agent may use with the opt-in, empty, within the server’s limit', () => {
+    const model = room(debateRoomModel(input(debate(), { agents: [credential('cred_desk')] })))
+    expect(model.optIn).toEqual({
+      kind: 'choose',
+      agents: [{ value: 'cred_desk', label: 'cred_desk' }],
+      brief: {
+        label: strings.debates.briefTitle,
+        hint: strings.debates.briefHint,
+        placeholder: strings.debates.briefPlaceholder,
+        value: '',
+        maxLength: DEBATE_BRIEF_MAX,
+      },
+    })
+    expect(model.brief).toBeNull()
+  })
+
+  it('lets a participant edit their own note while the room takes turns, and shows it fixed afterwards', () => {
+    const taking = debate({ participants: [participant(ANA), participant(BEN)], brief: 'Q3 budget only.' })
+    expect(room(debateRoomModel(input(taking))).brief).toEqual({
+      kind: 'editable',
+      title: strings.debates.briefTitle,
+      field: {
+        label: strings.debates.briefTitle,
+        hint: strings.debates.briefHint,
+        placeholder: strings.debates.briefPlaceholder,
+        value: 'Q3 budget only.',
+        maxLength: DEBATE_BRIEF_MAX,
+      },
+      save: strings.debates.saveBrief,
+    })
+    expect(room(debateRoomModel(input({ ...taking, brief: null }))).brief).toMatchObject({
+      kind: 'editable',
+      field: { value: '' },
+    })
+    expect(room(debateRoomModel(input({ ...taking, status: 'concluding' }))).brief).toEqual({
+      kind: 'fixed',
+      title: strings.debates.briefTitle,
+      text: 'Q3 budget only.',
+      fixed: strings.debates.briefFixed,
+    })
+    const { brief: _, ...withoutNote } = taking
+    expect(room(debateRoomModel(input({ ...withoutNote, status: 'closed' }))).brief).toMatchObject({
+      kind: 'fixed',
+      text: strings.debates.briefNone,
+    })
+  })
+
+  it('shows no note to someone whose agent does not take part', () => {
+    const watching = debate({ participants: [participant(BEN)], brief: 'Not yours.' })
+    expect(room(debateRoomModel(input(watching))).brief).toBeNull()
   })
 
   it('shows the agents taking part, their turns left, who dropped out, and the turns so far', () => {

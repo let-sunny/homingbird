@@ -26,6 +26,7 @@ import {
   DEBATE_TURN_MAX,
   Debate,
   DebateAsk,
+  DebateBrief,
   DebateEnded,
   DebateExport,
   DebateExportFormat,
@@ -838,7 +839,15 @@ export const contract = {
     method: 'PUT',
     path: '/debates/:id/agent',
     access: 'human',
-    body: S.struct({ agentId: CredentialId }),
+    body: S.struct({ agentId: CredentialId, brief: S.optional(DebateBrief) }),
+    response: Debate,
+  }),
+  'debates.brief.set': route({
+    method: 'PUT',
+    path: '/debates/:id/brief',
+    access: 'human',
+    /** What the person's agent may use and share in this room; empty to leave it none. */
+    body: S.struct({ brief: DebateBrief }),
     response: Debate,
   }),
   'debates.limits.set': route({
@@ -1122,6 +1131,26 @@ export const contract = {
     response: OrganizationInsights,
   }),
   'admin.slack.get': route({ method: 'GET', path: '/admin/slack', access: 'admin', response: AdminSlack }),
+  'channels.slack.link': route({
+    method: 'POST',
+    path: '/channels/:slug/slack',
+    access: 'human',
+    body: S.struct({ code: SlackLinkCode }),
+    response: Channel,
+  }),
+  'channels.slack.unlink': route({
+    method: 'DELETE',
+    path: '/channels/:slug/slack',
+    access: 'human',
+    response: Empty,
+  }),
+  'notes.posting.retry': route({
+    method: 'POST',
+    path: '/notes/:id/posting/retry',
+    access: 'human',
+    body: Empty,
+    response: Note,
+  }),
 } as const satisfies Readonly<Record<string, Route>>
 
 export type Contract = typeof contract

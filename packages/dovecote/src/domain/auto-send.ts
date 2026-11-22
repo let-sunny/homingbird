@@ -2,7 +2,7 @@ import { Task as T } from '@homingbird/kernel'
 import { type Note, type PrincipleId, isPerson, isSavedAnswerText } from '@homingbird/protocol'
 import { type AppEnv, type Caller, isHuman } from '../environment.ts'
 import type { RequestEnv } from '../events/events.ts'
-import { all } from '../sql/database.ts'
+import { all, first } from '../sql/database.ts'
 import { sql } from '../sql/query.ts'
 import { recordAudit } from './audit.ts'
 import { autoSendPlacesAmong } from './auto-send-settings.ts'
@@ -22,6 +22,7 @@ export const sendIfSavedAnswer = (
     const env = yield* T.ask<RequestEnv>()
     if (isHuman(caller) || !isPerson(caller.member) || draft.debate_id !== null) return null
     if (!(yield* featureIsOn('autoSend')) || !(yield* featureIsOn('teaching'))) return null
+    if (yield* repliesIntoSlack(draft)) return null
     const answer = yield* answerSending(draft)
     if (answer === null) return null
     const allowed = yield* T.exit(requireMayMessageIn(draft.author_id, draft.conversation_id))
@@ -57,3 +58,9 @@ const answerSending = (draft: NoteRow): T.Task<PrincipleId | null, never, AppEnv
     const still = yield* autoSendPlacesAmong(draft.author_id, [draft.conversation_id])
     return still.length === 1 ? match.id : null
   })
+
+/** A saved answer never reaches Slack on its own: a reply to a question from Slack waits for a person. */
+const repliesIntoSlack = (draft: NoteRow): T.Task<boolean, never, AppEnv> =>
+  T.map((row: unknown) => row !== null)(
+    first(sql`SELECT note_id FROM slack_arrivals WHERE note_id = ${draft.in_reply_to ?? ''}`),
+  )
