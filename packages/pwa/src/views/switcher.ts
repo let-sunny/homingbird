@@ -109,6 +109,7 @@ export const switcher = (
       const press = event as KeyboardEvent
       if (dialog.open) return
       const shortcut = shortcutOf({
+        isApple: context.page.isApple(),
         key: press.key,
         metaKey: press.metaKey,
         ctrlKey: press.ctrlKey,

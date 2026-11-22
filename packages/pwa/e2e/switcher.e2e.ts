@@ -66,14 +66,7 @@ const scenario = async (): Promise<void> => {
     await page.waitForFunction(() => (globalThis as any).document.title.startsWith('1 to approve'))
 
     // -- A person, by keyboard alone ------------------------------------------------------------------
-    // Opening a room puts the focus in its composer, where the shortcuts never fire: Shift+Tab leaves it.
-    const inField = () =>
-      page.evaluate(() => (globalThis as any).document.activeElement?.matches('input, textarea') === true)
-    const leaveField = async () => {
-      while (await inField()) await page.keyboard.press('Shift+Tab')
-    }
-    await leaveField()
-    await page.keyboard.press('Control+K')
+    await page.keyboard.press('ControlOrMeta+K')
     await page.waitForSelector('dialog.switcher[open]')
     assert.equal(
       await page.evaluate(() => (globalThis as any).document.activeElement?.className),
@@ -87,16 +80,18 @@ const scenario = async (): Promise<void> => {
     await page.waitForFunction((id: string) => (globalThis as any).location.hash === `#/c/${id}`, direct.id)
     assert.equal(await page.locator('dialog.switcher[open]').count(), 0)
 
-    // -- A channel, opened with a slash; a private channel Ana is not in never shows ----------------
-    await leaveField()
-    await page.keyboard.press('/')
+    // -- From the composer the room opened in, ⌘K or Ctrl+K opens it; a private channel never shows ---
+    assert.equal(await page.evaluate(() => (globalThis as any).document.activeElement?.tagName), 'TEXTAREA')
+    await page.keyboard.press('ControlOrMeta+K')
     await page.waitForSelector('dialog.switcher[open]')
     await page.keyboard.type('payroll')
     await page.waitForSelector('.switcher-empty')
     assert.equal(await page.locator('.switcher-option').count(), 0)
     await page.keyboard.press('Escape')
     await page.waitForSelector('dialog.switcher:not([open])', { state: 'attached' })
-    await leaveField()
+
+    // -- A channel, opened with a slash once the focus is out of the composer -----------------------
+    await page.keyboard.press('Shift+Tab')
     await page.keyboard.press('/')
     await page.waitForSelector('dialog.switcher[open]')
     await page.keyboard.type('#bill')
@@ -106,8 +101,7 @@ const scenario = async (): Promise<void> => {
     await page.waitForSelector('.thread-head h1:has-text("#billing")')
 
     // -- A group message, chosen with the arrow keys -------------------------------------------------
-    await leaveField()
-    await page.keyboard.press('Control+K')
+    await page.keyboard.press('ControlOrMeta+K')
     await page.waitForSelector('dialog.switcher[open]')
     await page.keyboard.type('hana')
     await page.waitForSelector('.switcher-option.is-room')
@@ -127,9 +121,12 @@ const scenario = async (): Promise<void> => {
     const composer = page.locator('.composer textarea')
     await composer.focus()
     await page.keyboard.type('a/b')
-    await page.keyboard.press('Control+K')
     assert.equal(await page.locator('dialog.switcher[open]').count(), 0)
     assert.equal(await composer.inputValue(), 'a/b')
+    await page.keyboard.press('ControlOrMeta+K')
+    await page.waitForSelector('dialog.switcher[open]')
+    await page.keyboard.press('Escape')
+    await page.waitForSelector('dialog.switcher:not([open])', { state: 'attached' })
     await composer.fill('')
 
     // -- An approval card for a group of eight, at 375 px --------------------------------------------

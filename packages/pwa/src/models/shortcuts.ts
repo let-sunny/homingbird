@@ -1,14 +1,16 @@
 /**
- * The keyboard shortcuts of the whole page: Cmd/Ctrl+K and `/` open the switcher. None fires while the
- * person types in a field or an input method composes, so a `/` or a K always reaches the text; Escape
- * is left to the dialog or menu that is open.
+ * The keyboard shortcuts of the whole page: Cmd/Ctrl+K and `/` open the switcher. A `/` typed in a
+ * field stays in the text. Cmd+K, and Ctrl+K off Apple keyboards, work in a field too, since they type
+ * nothing there; on an Apple keyboard Ctrl+K deletes to the end of the line, so it is left to the field.
+ * Nothing fires while an input method composes; Escape is left to the dialog or menu that is open.
  */
 export const shortcutOf = (press: KeyPress): Shortcut | null => {
-  if (press.isComposing || isTextEntry(press.target)) return null
-  if (press.altKey) return null
+  if (press.isComposing || press.altKey) return null
+  const typing = isTextEntry(press.target)
   const withCommand = press.metaKey || press.ctrlKey
-  if (withCommand && !press.shiftKey && press.key.toLowerCase() === 'k') return 'switcher'
-  if (!withCommand && press.key === '/') return 'switcher'
+  if (withCommand && !press.shiftKey && press.key.toLowerCase() === 'k')
+    return !typing || (press.isApple ? press.metaKey && !press.ctrlKey : press.ctrlKey) ? 'switcher' : null
+  if (!withCommand && !typing && press.key === '/') return 'switcher'
   return null
 }
 
@@ -26,6 +28,8 @@ export const switcherShortcut = (isApple: boolean): string => (isApple ? '⌘K' 
 export type Shortcut = 'switcher'
 
 export interface KeyPress {
+  /** Whether the keyboard has a Command key, where Ctrl+K edits text. */
+  readonly isApple: boolean
   readonly key: string
   readonly metaKey: boolean
   readonly ctrlKey: boolean

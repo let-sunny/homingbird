@@ -118,14 +118,23 @@ describe('switcher', () => {
     expect(dialog.open).toBe(false)
   })
 
-  it('never opens while the person types in a field, while an input method composes, or when open already', () => {
-    const { dialog } = start()
+  it('keeps a slash in the composer, opens from it on the command shortcut, and not while an input method composes', () => {
+    const { dialog, page } = start()
     const composer = mount(document.createElement('textarea'))
-    fire.key(composer, 'k', { ctrlKey: true })
     fire.key(composer, '/')
+    fire.key(composer, 'k', { ctrlKey: true, isComposing: true })
     fire.key(document.body, '/', { isComposing: true })
     fire.key(document.body, 'a')
+    page.state.apple = true
+    fire.key(composer, 'k', { ctrlKey: true })
     expect(dialog.open).toBe(false)
+    fire.key(composer, 'k', { metaKey: true })
+    expect(dialog.open).toBe(true)
+    dialog.close()
+    page.state.apple = false
+    fire.key(composer, 'k', { ctrlKey: true })
+    expect(dialog.open).toBe(true)
+    dialog.close()
     fire.key(document.body, '/')
     const again = fire.key(document.body, '/')
     expect(again).toBe(true)

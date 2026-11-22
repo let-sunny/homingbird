@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { type KeyPress, isTextEntry, shortcutOf, switcherShortcut } from '../../src/models/shortcuts.ts'
 
 const press = (fields: Partial<KeyPress> = {}): KeyPress => ({
+  isApple: false,
   key: 'k',
   metaKey: false,
   ctrlKey: false,
@@ -30,28 +31,44 @@ describe('shortcutOf', () => {
     expect(shortcutOf(press({ key: 'Escape' }))).toBeNull()
   })
 
-  it('never fires while the person types in a field or an input method composes', () => {
-    const typing = [
-      { tagName: 'TEXTAREA', isContentEditable: false },
-      { tagName: 'INPUT', type: 'search', isContentEditable: false },
-      { tagName: 'INPUT', isContentEditable: false },
-      { tagName: 'SELECT', isContentEditable: false },
-      { tagName: 'DIV', isContentEditable: true },
-    ]
+  it('keeps a slash in the field the person types in, and never fires while an input method composes', () => {
     fc.assert(
       fc.property(
-        fc.constantFrom(...typing),
-        fc.constantFrom('/', 'k'),
+        fc.constantFrom(...TYPING),
         fc.boolean(),
         fc.boolean(),
-        (target, key, metaKey, ctrlKey) => {
-          expect(shortcutOf(press({ target, key, metaKey, ctrlKey }))).toBeNull()
+        fc.boolean(),
+        (target, isApple, metaKey, ctrlKey) => {
+          expect(shortcutOf(press({ target, isApple, key: '/' }))).toBeNull()
+          expect(shortcutOf(press({ isApple, metaKey, ctrlKey, isComposing: true }))).toBeNull()
+          expect(shortcutOf(press({ target, isApple, metaKey, ctrlKey, isComposing: true }))).toBeNull()
         },
       ),
     )
     expect(shortcutOf(press({ key: '/', isComposing: true }))).toBeNull()
   })
+
+  it('opens from a field on Cmd+K, and on Ctrl+K only off an Apple keyboard, where it edits text', () => {
+    fc.assert(
+      fc.property(fc.constantFrom(...TYPING), (target) => {
+        expect(shortcutOf(press({ target, isApple: true, metaKey: true }))).toBe('switcher')
+        expect(shortcutOf(press({ target, isApple: true, ctrlKey: true }))).toBeNull()
+        expect(shortcutOf(press({ target, isApple: true, metaKey: true, ctrlKey: true }))).toBeNull()
+        expect(shortcutOf(press({ target, isApple: false, ctrlKey: true }))).toBe('switcher')
+        expect(shortcutOf(press({ target, isApple: false, metaKey: true }))).toBeNull()
+      }),
+    )
+    expect(shortcutOf(press({ isApple: true, ctrlKey: true }))).toBe('switcher')
+  })
 })
+
+const TYPING = [
+  { tagName: 'TEXTAREA', isContentEditable: false },
+  { tagName: 'INPUT', type: 'search', isContentEditable: false },
+  { tagName: 'INPUT', isContentEditable: false },
+  { tagName: 'SELECT', isContentEditable: false },
+  { tagName: 'DIV', isContentEditable: true },
+]
 
 describe('isTextEntry', () => {
   it('tells fields that take typing from controls that only take a press', () => {
