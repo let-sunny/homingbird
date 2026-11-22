@@ -23,4 +23,8 @@ describe('teachingInterviewPrompt', () => {
     expect(text).not.toContain('pick the topic')
     expect(teachingInterviewPrompt('   ')).toContain('pick the topic')
   })
+
+  it('reads, line by line, as pinned', () => {
+    expect(teachingInterviewPrompt()).toMatchSnapshot()
+  })
 })

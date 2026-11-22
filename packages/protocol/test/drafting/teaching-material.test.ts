@@ -85,4 +85,16 @@ describe('teachingMaterialText', () => {
       'No recently edited or discarded drafts.',
     )
   })
+
+  it('reads, line by line, as pinned', () => {
+    expect(
+      teachingMaterialText({ ...MATERIAL, taught: ['Release dates', 'Holidays'] }, nonce()),
+    ).toMatchSnapshot()
+    expect(
+      teachingMaterialText(
+        { ...MATERIAL, rewrites: [{ ...REWRITE, outcome: 'discarded', sent: null, asked: null }] },
+        nonce(),
+      ),
+    ).toMatchSnapshot()
+  })
 })
