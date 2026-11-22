@@ -22,6 +22,7 @@ import { type Caller, isHuman } from '../environment.ts'
 import { type RequestEnv, emit } from '../events/events.ts'
 import { first, run } from '../sql/database.ts'
 import { insertInto, sql } from '../sql/query.ts'
+import { sendIfSavedAnswer } from './auto-send.ts'
 import { channelAgentOf, channelOfAgentRoom, managersOf } from './channel-rows.ts'
 import { channelRoomFor } from './channels.ts'
 import { directConversationWith, participatedConversation, requireMayMessageIn } from './conversations.ts'
@@ -99,6 +100,8 @@ export const createDraft = (caller: Caller, target: DraftTarget): T.Task<Note, N
     }
     yield* run(insertInto('notes', { ...row }))
     if (!isHuman(caller)) yield* recordApplications(authorId, row.id, row.basis)
+    const sent = yield* sendIfSavedAnswer(caller, row)
+    if (sent !== null) return sent
     const draft = yield* noteById(row.id, authorId)
     yield* emit([authorId], { type: 'draft.saved', note: draft })
     yield* announcePreview(row)
@@ -131,6 +134,8 @@ export const updateDraft = (
       sql`UPDATE notes SET body = ${body}, conversation_id = ${conversationId}, origin = ${origin}, basis = ${basis}, sources = ${sources}, agent_body = ${agentBody}, agent_model = ${model}, updated_at = ${env.clock.now()} WHERE id = ${id} AND status = 'draft'`,
     )
     if (!isHuman(caller)) yield* recordApplications(caller.member.id, id, basis)
+    const sent = yield* sendIfSavedAnswer(caller, yield* ownDraft(caller.member.id, id))
+    if (sent !== null) return sent
     const updated = yield* noteById(id, caller.member.id)
     yield* emit([caller.member.id], { type: 'draft.saved', note: updated })
     yield* announcePreview({ ...draft, conversation_id: conversationId })

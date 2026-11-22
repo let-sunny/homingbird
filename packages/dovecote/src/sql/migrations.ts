@@ -1,6 +1,8 @@
 import { AUDIT_TRAIL } from './migrations/audit-trail-step.ts'
+import { AUTO_SEND } from './migrations/auto-send-step.ts'
 import { BASELINE } from './migrations/baseline-step.ts'
 import { CHANNEL_AGENTS } from './migrations/channel-agents-step.ts'
+import { CHANNEL_TEACHING } from './migrations/channel-teaching-step.ts'
 import { CLOUD_DESK } from './migrations/cloud-desk-step.ts'
 import { DEBATE_MODEL } from './migrations/debate-model-step.ts'
 import { DEBATE_PACING } from './migrations/debate-pacing-step.ts'
@@ -32,6 +34,8 @@ export const MIGRATIONS: ReadonlyArray<Migration> = [
   HISTORY_ANSWERS,
   SOURCES_AND_REASONS,
   DEBATE_PACING,
+  CHANNEL_TEACHING,
+  AUTO_SEND,
   DRAFT_PREVIEWS,
 ]
 

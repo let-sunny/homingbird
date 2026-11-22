@@ -146,6 +146,15 @@ export interface ChannelRecord {
   readonly managedBy: GroupId
   readonly agentId: MemberId | null
   readonly createdAt: number
+  /** What the channel's managers taught its agent; none until they teach it. */
+  readonly teaching?: ChannelTeachingRecord
+}
+
+export interface ChannelTeachingRecord {
+  readonly instruction: string
+  readonly sources: ReadonlyArray<string>
+  readonly updatedAt: number | null
+  readonly principles: ReadonlyArray<Principle>
 }
 
 export interface GroupRecord {

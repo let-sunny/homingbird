@@ -1,4 +1,4 @@
-import { Forbidden } from '@homingbird/protocol'
+import { AUTO_SENT_NOTICE, Forbidden } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import { EXIT } from '../src/failure.ts'
 import { DRAFT, QUESTION, READING } from './command-fixtures.ts'
@@ -30,6 +30,14 @@ describe('draft', () => {
     ])
     expect(w.calls.every((call) => call.authorization === `Bearer ${AGENT_TOKEN}`)).toBe(true)
     expect(w.calls.map((call) => call.route)).toEqual(['directory.list', 'drafts.create'])
+  })
+
+  it('says a draft was sent when it matched a saved answer its person switched to send automatically', async () => {
+    const { w } = drafting({
+      'drafts.create': () => ({ ...DRAFT, status: 'sent', sentAt: 1, autoSent: true }),
+    })
+    expect(await w.run('draft', '--to', BEN.id, 'Nine to five.')).toBe(0)
+    expect(w.lines).toEqual([`Note ${DRAFT.id} was sent. ${AUTO_SENT_NOTICE}`])
   })
 
   it('drafts to a member id without looking anyone up', async () => {

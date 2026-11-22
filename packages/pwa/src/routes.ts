@@ -15,7 +15,13 @@ export type Route =
   | { readonly name: 'group'; readonly id: string }
   | { readonly name: 'channels' }
   | { readonly name: 'channel'; readonly slug: string }
-  | { readonly name: 'channel-agent'; readonly slug: string; readonly draft: string | null }
+  | {
+      readonly name: 'channel-agent'
+      readonly slug: string
+      readonly draft: string | null
+      /** The Teach tab rather than the answers. */
+      readonly teach?: true
+    }
   | { readonly name: 'debates' }
   /** A debate room, on one of its tabs; none asked for shows the tab its state calls for. */
   | {
@@ -59,7 +65,7 @@ export type AdminSection = 'settings' | 'members' | 'groups' | 'channels' | 'ins
 
 export const parseRoute = (hash: string): Route => {
   const [path = '', search = ''] = hash.replace(/^#\/?/, '').split('?')
-  const [head = '', second, third] = path
+  const [head = '', second, third, fourth] = path
     .split('/')
     .filter((segment) => segment !== '')
     .map(decodeSegment)
@@ -80,7 +86,12 @@ export const parseRoute = (hash: string): Route => {
   if (head === 'group' && second !== undefined) return { name: 'group', id: second }
   if (head === 'channels') return { name: 'channels' }
   if (head === 'channel' && second !== undefined && third === 'agent')
-    return { name: 'channel-agent', slug: second, draft: parameters.get('draft') }
+    return {
+      name: 'channel-agent',
+      slug: second,
+      draft: parameters.get('draft'),
+      ...(fourth === TEACH_SEGMENT && { teach: true }),
+    }
   if ((head === 'channel' || head === LEGACY_CHANNEL_HEAD) && second !== undefined)
     return { name: 'channel', slug: second }
   if (head === 'debates') return { name: 'debates' }
@@ -131,10 +142,10 @@ export const hrefFor = (route: Route): string => {
       return '#/channels'
     case 'channel':
       return `#/channel/${encodeURIComponent(route.slug)}`
-    case 'channel-agent':
-      return route.draft === null
-        ? `#/channel/${encodeURIComponent(route.slug)}/agent`
-        : `#/channel/${encodeURIComponent(route.slug)}/agent?${new URLSearchParams({ draft: route.draft }).toString()}`
+    case 'channel-agent': {
+      const base = `#/channel/${encodeURIComponent(route.slug)}/agent${route.teach === true ? `/${TEACH_SEGMENT}` : ''}`
+      return route.draft === null ? base : `${base}?${new URLSearchParams({ draft: route.draft }).toString()}`
+    }
     case 'debates':
       return '#/debates'
     case 'debate':
@@ -194,6 +205,8 @@ export const signInHref = (hash: string): string =>
 const LEGACY_CHANNEL_HEAD = 't'
 
 const ADMIN_SECTIONS: ReadonlyArray<AdminSection> = ['settings', 'members', 'groups', 'channels', 'insights']
+
+const TEACH_SEGMENT = 'teach'
 
 const isAgentSection = (value: string | undefined): value is AgentSection =>
   AGENT_SECTIONS.includes(value as AgentSection)

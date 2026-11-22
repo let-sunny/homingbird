@@ -37,6 +37,7 @@ export const DEMO_FEATURES: ReadonlyArray<FeatureName> = [
   'invites',
   'joinCodes',
   'deskAvailability',
+  'autoSend',
   'draftPreviews',
 ]
 
@@ -145,6 +146,7 @@ export const accountHandlers = (world: World): Handlers => {
           lastAppliedAt: null,
           publicText: body.publicText ?? null,
           counts: null,
+          autoSend: { enabled: false, places: [] },
         }
         world.update((records) => ({ ...records, principles: [...records.principles, created] }))
         if (body.offerId !== undefined) closeOffer(world, body.offerId)
@@ -197,6 +199,11 @@ export const accountHandlers = (world: World): Handlers => {
         closeOffer(world, params.id)
         return {}
       }),
+    'principles.autoSend.set': ({ params, body }) =>
+      changePrinciple(world, params.id, (principle) => ({
+        ...principle,
+        autoSend: { enabled: body.enabled, places: [...new Set(body.places)] },
+      })),
   }
 }
 

@@ -59,6 +59,7 @@ export interface OrganizationActivity {
   readonly received: ReadonlyArray<ReceivedNote>
   /** Sent debate results: neither agent drafts nor notes, so they count only here. */
   readonly debateResults?: ReadonlyArray<{ readonly authorId: string; readonly sentAt: number }>
+  readonly autoSent?: ReadonlyArray<{ readonly authorId: string; readonly sentAt: number }>
   readonly channelAgentDrafts?: ReadonlyArray<ReviewedDraft>
   /** Absent while groups are switched off, so no team row is shown. */
   readonly teams?: TeamMembership
@@ -135,7 +136,10 @@ export const organizationFiguresIn = (
       : null,
     skipped: skips.length,
     answeredFromHistory: deflections.length,
-    debateResultsSent: debateResultsShown(activity, window, settings.minimumGroupSize),
+    debateResultsSent: sentApartShown(activity.debateResults, window, settings.minimumGroupSize),
+    ...(activity.autoSent !== undefined && {
+      autoSent: sentApartShown(activity.autoSent, window, settings.minimumGroupSize),
+    }),
     ...labelsShown(activity.drafts, window, Math.max(settings.minimumGroupSize, LABEL_MINIMUM), draftsShown),
     places: shown
       .map((place) => groups.get(place)!.totals)
@@ -162,12 +166,13 @@ export const organizationFiguresIn = (
 }
 
 /** The sent debate results, or null while fewer people than the minimum sent one. */
-const debateResultsShown = (
-  activity: OrganizationActivity,
+/** Notes counted apart from drafts, debate results or automatic sends; null while too few people sent one. */
+const sentApartShown = (
+  notes: OrganizationActivity['debateResults'],
   window: Window,
   minimum: number,
 ): number | null => {
-  const sent = (activity.debateResults ?? []).filter((note) => isIn(window, note.sentAt))
+  const sent = (notes ?? []).filter((note) => isIn(window, note.sentAt))
   return isEnough(new Set(sent.map((note) => note.authorId)).size, minimum) ? sent.length : null
 }
 

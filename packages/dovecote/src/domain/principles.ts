@@ -13,6 +13,7 @@ import {
   type PrincipleId,
   type PrincipleKind,
   type PrincipleOrigin,
+  type TaughtFrom,
   isSameTitle,
   isUnchangedSuggestion,
   principleProblem,
@@ -23,6 +24,7 @@ import {
 import type { AppEnv } from '../environment.ts'
 import { first, inTransaction, run } from '../sql/database.ts'
 import { sql } from '../sql/query.ts'
+import { clearAutoSend } from './auto-send-settings.ts'
 import { participatedConversation } from './conversations.ts'
 import { myPrinciples } from './my-principles.ts'
 import { placeOfConversation } from './places.ts'
@@ -38,6 +40,7 @@ export interface PrincipleDraft {
   readonly publicText?: string | null | undefined
   readonly offerId?: string | undefined
   readonly confirmed?: boolean | undefined
+  readonly taughtFrom?: TaughtFrom | undefined
 }
 
 /**
@@ -69,7 +72,8 @@ export const createPrinciple = (
         )
       const now = env.clock.now()
       const id = `prin_${env.random.identifier()}` as PrincipleId
-      const origin: PrincipleOrigin = offer === null ? 'manual' : offer.kind === 'edit' ? 'edit' : 'discard'
+      const origin: PrincipleOrigin =
+        offer === null ? (draft.taughtFrom ?? 'manual') : offer.kind === 'edit' ? 'edit' : 'discard'
       const inserted = yield* run(sql`
         INSERT INTO principles (id, member_id, kind, topic, rule, source, place, enabled, origin, position,
           created_at, updated_at, last_applied_at, public_text)
@@ -114,6 +118,7 @@ export const updatePrinciple = (
     if (isEdit(change)) yield* requireSavable({ kind, topic, rule, source, place: current.place }, publicText)
     yield* requireUniqueTitle(yield* principlesOf(memberId), topic, current.id)
     const enabled = change.enabled ?? current.enabled
+    if (kind !== 'answer') yield* clearAutoSend(current.id)
     yield* run(sql`UPDATE principles SET kind = ${kind}, topic = ${topic}, rule = ${rule}, source = ${source},
       enabled = ${enabled ? 1 : 0}, public_text = ${publicText}, updated_at = ${env.clock.now()}
       WHERE id = ${id} AND member_id = ${memberId}`)
@@ -125,6 +130,13 @@ export const reorderPrinciples = (
   memberId: MemberId,
   ids: ReadonlyArray<string>,
 ): T.Task<MyPrinciples, Invalid, AppEnv> =>
+  T.flatMap(() => myPrinciples(memberId))(orderPrinciples(memberId, ids))
+
+/** Gives a member's principles the positions of `ids`, which must name each of them once. */
+export const orderPrinciples = (
+  memberId: MemberId,
+  ids: ReadonlyArray<string>,
+): T.Task<void, Invalid, AppEnv> =>
   T.gen(function* () {
     const existing = yield* principlesOf(memberId)
     const known = new Set(existing.map((principle) => principle.id as string))
@@ -136,13 +148,13 @@ export const reorderPrinciples = (
       yield* run(
         sql`UPDATE principles SET position = ${position} WHERE id = ${id} AND member_id = ${memberId}`,
       )
-    return yield* myPrinciples(memberId)
   })
 
 export const deletePrinciple = (memberId: MemberId, id: string): T.Task<Principle, NotFound, AppEnv> =>
   T.gen(function* () {
     const principle = yield* ownPrinciple(memberId, id)
     yield* run(sql`DELETE FROM principle_applications WHERE principle_id = ${id}`)
+    yield* clearAutoSend(principle.id)
     yield* run(sql`DELETE FROM principles WHERE id = ${id} AND member_id = ${memberId}`)
     return yield* withFigures(principle)
   })

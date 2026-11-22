@@ -29,6 +29,7 @@ const types: EventType[] = [
   'review.changed',
   'preview.changed',
   'note.released',
+  'note.withdrawn',
   'resync',
 ]
 

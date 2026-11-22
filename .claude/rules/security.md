@@ -6,6 +6,8 @@ These nine rules are never broken. Each has a test; keep it passing and keep it 
    approve. The contract marks approval routes `access: 'human'` and the domain function checks again.
    A person approves their own drafts; a channel's agent's draft is approved by one person who manages
    its channel when they send it and did not ask the question it answers, and the note records who.
+   A saved answer its person switched to send automatically, in the web client, counts as that
+   person's approval for a draft whose text is exactly that answer, sent where they allowed.
 2. Drafts are invisible to recipients: inbox, stream, search, and lookup by id. A channel's agent's
    draft is shown only through the review routes, to the managers of its channel, never to the person
    whose question it answers, a manager included. A person may let chosen people or channels see their
