@@ -38,6 +38,12 @@ const input = (fields: Partial<SwitcherInput> = {}): SwitcherInput => ({
 })
 
 describe('switcherModel', () => {
+  it('keeps every recent room beside what waits outside any room', () => {
+    const elsewhere: WaitingPlace = { ...waitingHere, key: 'review', conversationId: null }
+    const model = switcherModel(input({ waiting: [elsewhere] }))
+    expect(model.sections.map((section) => section.options.length)).toEqual([1, 2])
+  })
+
   it('lists what waits first, then recent rooms not already listed, newest first, none archived', () => {
     const model = switcherModel(input({ waiting: [waitingHere] }))
     expect(
