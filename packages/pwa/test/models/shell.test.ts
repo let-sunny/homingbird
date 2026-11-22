@@ -130,6 +130,7 @@ describe('sidebarModel', () => {
       onboarding: false,
       people: { kind: 'none' },
       channelRooms: [],
+      channelRoomsEmpty: strings.noChannelRooms,
       archived: null,
     })
     expect(sidebarModel(input({ agentCount: 0, conversations: [conversation()] })).onboarding).toBe(true)
@@ -137,6 +138,34 @@ describe('sidebarModel', () => {
       sidebarModel(input({ agentCount: 0, conversations: [conversation()], loaded: false })).onboarding,
     ).toBe(false)
     expect(sidebarModel(input({ agentCount: 1, conversations: [conversation()] })).onboarding).toBe(false)
+  })
+
+  it('shows only the rooms that wait for the person while the filter is on, and says so when none does', () => {
+    const group = conversation({
+      id: 'conv_group0000000' as never,
+      kind: 'group',
+      participantIds: [ANA, BEN, CY],
+    })
+    const room = conversation({ id: 'conv_payments0000' as never, kind: 'channel', title: 'payments' })
+    const archived = conversation({
+      id: 'conv_old000000000' as never,
+      kind: 'channel',
+      title: 'old',
+      archivedAt: 2,
+    })
+    const all = [conversation(), group, room, archived]
+    const only = sidebarModel(input({ conversations: all, waitingOnly: new Set([group.id]) }))
+    expect(only.people.kind === 'rows' && only.people.rows.map((row) => row.id)).toEqual([group.id])
+    expect(only.channelRooms).toEqual([])
+    expect(only.channelRoomsEmpty).toBe(strings.waiting.roomsNone)
+    expect(only.archived).toBeNull()
+    expect(sidebarModel(input({ conversations: all, waitingOnly: new Set([room.id]) })).people).toEqual({
+      kind: 'nothing-waits',
+      text: strings.waiting.peopleNone,
+    })
+    const off = sidebarModel(input({ conversations: all, waitingOnly: null }))
+    expect(off.people.kind === 'rows' && off.people.rows).toHaveLength(2)
+    expect(off.archived).not.toBeNull()
   })
 
   it('shows a direct conversation with the other person, their presence, its last note and its counts', () => {

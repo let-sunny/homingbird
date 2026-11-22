@@ -1,5 +1,6 @@
 import type { AsRead } from '@homingbird/protocol'
-import { type Lifetime, h, later, region, signal } from '@homingbird/ui'
+import { type Child, type Lifetime, h, later, region, signal } from '@homingbird/ui'
+import { type NameMatch, type NameMatches, nameMatches } from '../models/name-matches.ts'
 import { type SearchModel, searchModel } from '../models/search.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
@@ -65,6 +66,19 @@ export const searchView = (
       input,
       h('button', { type: 'submit', class: 'primary' }, strings.navSearch),
     ),
+    region(life, [searched, state.directory, state.channels, state.conversations], () =>
+      renderNames(
+        context,
+        nameMatches({
+          query: searched.get(),
+          viewerId: me.member.id,
+          directory: state.directory.get(),
+          channels: state.channels.get(),
+          conversations: state.conversations.get(),
+          members: state.members.get(),
+        }),
+      ),
+    ),
     region(life, [results, searched, state.members, state.conversations], () =>
       renderResults(
         searchModel({
@@ -78,6 +92,45 @@ export const searchView = (
       ),
     ),
   )
+}
+
+/** People and channels whose name holds what was searched for, above the notes that contain it. */
+const renderNames = (context: ViewContext, found: NameMatches): Child =>
+  [
+    { key: 'people', title: strings.navPeople, matches: found.people },
+    { key: 'channels', title: strings.channels, matches: found.channels },
+  ]
+    .filter((group) => group.matches.length > 0)
+    .map((group) =>
+      h(
+        'section',
+        { class: 'search-names', data: { kind: group.key } },
+        h('h2', {}, group.title),
+        h(
+          'ul',
+          { class: 'results' },
+          group.matches.map((match) => h('li', {}, nameLink(context, match))),
+        ),
+      ),
+    )
+
+const nameLink = (context: ViewContext, match: NameMatch): HTMLElement => {
+  const line = [
+    h('span', { class: 'result-head' }, h('strong', {}, match.label)),
+    match.detail !== null && h('span', { class: 'result-detail' }, match.detail),
+  ]
+  const { target } = match
+  return target.kind === 'href'
+    ? h('a', { class: 'result', href: target.href }, line)
+    : h(
+        'button',
+        {
+          type: 'button',
+          class: 'result',
+          on: { click: () => context.actions.openConversationWith(target.memberId) },
+        },
+        line,
+      )
 }
 
 const renderResults = (model: SearchModel): HTMLElement => {

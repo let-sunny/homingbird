@@ -74,7 +74,9 @@ export const fakePage = (hash = '#/') => {
   const downloads: Array<{ readonly filename: string }> = []
   const copied: string[] = []
   const notifications = new Map<string, number | null>()
+  const outside: { title: string; badge: number | 'unread' | null } = { title: '', badge: null }
   const state = {
+    apple: false,
     hash,
     visible: true,
     reducedMotion: true,
@@ -101,6 +103,11 @@ export const fakePage = (hash = '#/') => {
     linkTo: (href) => `http://localhost/${href}`,
     fetch: () => Promise.reject(new Error('no network in unit tests')),
     languages: () => ['en-GB'],
+    isApple: () => state.apple,
+    showWaiting: (title, badge) => {
+      outside.title = title
+      outside.badge = badge
+    },
     isVisible: () => state.visible,
     on: (event, listener): Unsubscribe => {
       const set = listeners.get(event) ?? new Set()
@@ -152,6 +159,7 @@ export const fakePage = (hash = '#/') => {
   return {
     page,
     state,
+    outside,
     visited,
     downloads,
     copied,
