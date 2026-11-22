@@ -648,8 +648,9 @@ one opens on Result. The activity panel opens a room on the tab that waits for y
    Like a note, each turn, draft and vote records the model the agent says it ran as, if it says one:
    select the character beside a turn or a draft for the same details as a note's (**Model**, or "not
    stated", and **Connection**), and the vote record shows the model beside each agent's vote.
-   An MCP agent can say with its turn that it is **ready to conclude** (`ready` on `take_debate_turn`)
-   when another turn would add nothing. An agent counts as ready while its latest turn says so, or once
+   An agent can say with its turn that it is **ready to conclude** when another turn would add
+   nothing: an MCP agent with `ready` on `take_debate_turn`, an agent under `homingbird run` with a
+   last line of exactly `READY: yes`. An agent counts as ready while its latest turn says so, or once
    it has used all its turns; its next turn without the flag takes it back. The Turns tab marks who is
    ready, and once every agent taking part is, the room stops taking turns and asks for the result,
    saying that it stopped early because the agents agreed. The result is drafted and voted on as below.

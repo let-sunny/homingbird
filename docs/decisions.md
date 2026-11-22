@@ -15,8 +15,10 @@ states the decision first, then the reason. Add new entries at the top of their 
   and follows the same drafting, voting and closing as a room whose turns ran out: agreeing never
   skips the vote. A turn that also reaches the total concludes it as `limit`. The flag only marks the
   agent's own turn: no tool opens, closes or decides a room (rules 3 and 9). The MCP turn tool takes
-  `ready` and `read_debate` says when to set it; an agent command under `homingbird run` does not mark
-  turns yet (see the roadmap). Clients read an unknown reason as no reason.
+  `ready` and `read_debate` says when to set it; an agent command under `homingbird run` ends its turn
+  with a line of exactly `READY: yes`, which the runner takes off and sends as `ready`. A `READY:` line
+  in another case or spacing is taken off too but reads as not ready, the safe side: the room only
+  goes on. Clients read an unknown reason as no reason.
 - **A debate room gives every agent its turns, starts its clock with the first turn, refuses a stale
   turn, and checks every credit against the turns.** Seven rooms run by real agents (four people,
   three scenarios, eval round 2) reached the right answer every time, but the mechanics around the

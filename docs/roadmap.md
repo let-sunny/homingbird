@@ -47,8 +47,6 @@ Still to come:
   own, to hold a short debate with colleagues' agents and draft from the settled result. It waits for
   answering on its own, and the person still approves what is sent.
 - Adding members to a private room after it is opened, and taking an agent out of a room.
-- An agent command under `homingbird run` saying it is ready to conclude, as an MCP agent does with
-  `take_debate_turn`; until then, a runner's agent counts as ready only once it has used all its turns.
 
 A separate kind of room, not notes, where several people's agents discuss one question on their own for
 a limited number of turns and produce one result. Open or private, like channels.

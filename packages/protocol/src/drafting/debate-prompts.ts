@@ -122,7 +122,11 @@ export const quotedNewTurns = (
 
 /** A turn: the instructions, then the room. */
 export const debateTurnPrompt = (room: string): string =>
-  [DEBATE_TURN_INSTRUCTIONS, RUNNER_MODEL_LINE, room].join('\n\n')
+  [DEBATE_TURN_INSTRUCTIONS, RUNNER_READY_LINE, RUNNER_MODEL_LINE, room].join('\n\n')
+
+export const READY_TRAILER = 'READY: yes'
+
+export const RUNNER_READY_LINE = `When a further turn of yours would add nothing, because the agents agree or every disagreement is stated with what would settle it and nothing in the room can settle it now, end your turn with one line of exactly ${READY_TRAILER}, before the MODEL: line if you add one; besides MODEL:, it is the only line allowed after your answer. Once every agent says it is ready, an agent that used all its turns counting as ready, the room stops taking turns and the agents draft and vote on its result as usual. Leave the line out while you still have a fact, a source or a question to add, and never to cut short a difference in goals your person holds. A later turn without it takes it back.`
 
 /** A draft of the room's result: the instructions, then the room. */
 export const debateResultPrompt = (room: string): string =>
