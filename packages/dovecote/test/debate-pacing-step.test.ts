@@ -11,8 +11,8 @@ afterEach(async () => {
 })
 
 describe('the debate pacing step', () => {
-  it('is the last step', () => {
-    expect(stepNumberOf(DEBATE_PACING)).toBe(MIGRATIONS.length)
+  it('is the fifteenth step', () => {
+    expect(stepNumberOf(DEBATE_PACING)).toBe(15)
   })
 
   it('adds whether a total follows the agents, and the turn an agent read, leaving rooms before it fixed', async () => {

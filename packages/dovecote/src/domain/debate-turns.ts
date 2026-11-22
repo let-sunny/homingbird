@@ -36,6 +36,7 @@ export const takeTurn = (
       memberId: participant.member_id,
       body: wish.body,
       ...(wish.afterTurn !== undefined && { afterTurn: wish.afterTurn }),
+      ...(wish.ready === true && { ready: true }),
     }
     const hold = turnHoldOf((yield* loadRoom(row)).room, event, env.clock.now())
     if (hold !== null) env.turnHolds.keep(id, hold)
@@ -51,6 +52,7 @@ export interface TurnWish {
   readonly body: string
   readonly model?: string | undefined
   readonly afterTurn?: number | undefined
+  readonly ready?: boolean | undefined
 }
 
 /** The rooms to move on, by id, each in a transaction of its own: all, or those an agent was opted in for. */

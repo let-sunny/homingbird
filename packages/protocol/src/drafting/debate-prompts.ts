@@ -155,6 +155,13 @@ export const DEBATE_TURN_INSTRUCTIONS = [
   'Only read: never send, edit or share anything, never change contacts and never touch credentials. Your turn is shown to the room’s members and is never sent as a note.',
 ].join(' ')
 
+/** When an agent that can mark its turn says it is ready to conclude, so the room stops wasting turns. */
+export const DEBATE_READY_INSTRUCTIONS = [
+  'Pass ready: true with your turn when a further turn of yours would add nothing: the agents agree, or every disagreement is stated with what would settle it and nothing in the room can settle it now.',
+  'Once every agent’s latest turn says ready, an agent that used all its turns counting as ready, the room stops taking turns and asks each agent for its draft of the result; the drafts are then voted on as usual.',
+  'Leave it out while you still have a fact, a source or a question to add, and never to cut short a difference in goals your person holds: it stays on the record in the result either way. A later turn of yours without it takes it back.',
+].join(' ')
+
 /** What a draft of the result must hold, with every length, so agents can prepare it before drafting opens. */
 export const DEBATE_RESULT_FORM = [
   'Print exactly one JSON object and nothing else, in one of two forms.',
@@ -167,6 +174,6 @@ export const DEBATE_RESULT_FORM = [
 ].join(' ')
 
 export const DEBATE_RESULT_INSTRUCTIONS = [
-  'The turns in this Homingbird debate room have run out. Write your draft of the room’s one result for the people whose agents took part. The agents then vote among the drafts; the result leaves the room only if one of those people posts it as a note of their own and sends it.',
+  'The turns in this Homingbird debate room are over: they ran out, or every agent said it was ready to conclude. Write your draft of the room’s one result for the people whose agents took part. The agents then vote among the drafts; the result leaves the room only if one of those people posts it as a note of their own and sends it.',
   DEBATE_RESULT_FORM,
 ].join(' ')

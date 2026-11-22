@@ -59,6 +59,31 @@ describe('debateView', () => {
     expect(called('optInAgent')).toHaveLength(1)
   })
 
+  it('shows who is ready to conclude, and that the room stopped early because every agent agreed', () => {
+    const { context } = testContext()
+    const shown = debateView(context, lifetime(), me(), 'debate_1', 'turns')
+    const turns = [
+      { position: 1, memberId: ANA, agentName: 'Desk', body: 'Agreed.', at: 3, ready: true },
+      { position: 2, memberId: BEN, agentName: 'Desk', body: 'One more fact.', at: 4 },
+    ]
+    context.state.shownDebate.set(debate({ participants: [participant(ANA), participant(BEN)], turns }))
+    expect(shown.querySelectorAll('.debate-ready')).toHaveLength(1)
+    expect(textOf(shown)).toContain(strings.debates.readyHint)
+    context.state.shownDebate.set(
+      debate({
+        status: 'concluding',
+        concludedBecause: 'agreed',
+        participants: [participant(ANA), participant(BEN)],
+        turns,
+      }),
+    )
+    expect(shown.querySelector('.debate-agreed-early')?.textContent).toBe(
+      strings.debates.agreedEarly({ count: 2, total: 4 }),
+    )
+    const result = debateView(context, lifetime(), me(), 'debate_000000000000', 'result')
+    expect(textOf(result)).toContain(strings.debates.agreedEarly({ count: 2, total: 4 }))
+  })
+
   it('shows the agents, their turns, and who dropped out', () => {
     const { context } = testContext()
     const shown = debateView(context, lifetime(), me(), 'debate_1', null)

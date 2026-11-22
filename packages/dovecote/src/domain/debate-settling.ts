@@ -69,7 +69,8 @@ export const applySettling = (
     switch (effect.type) {
       case 'conclude': {
         const concluded = yield* run(sql`
-          UPDATE debates SET status = 'concluding', concluded_at = ${now}, updated_at = ${now}
+          UPDATE debates SET status = 'concluding', concluded_at = ${now}, concluded_because = ${effect.because},
+          updated_at = ${now}
           WHERE id = ${row.id} AND status = 'open'`)
         if (concluded !== 1) return
         yield* recordAudit('debate.concluded', { targetId: row.id, detail: { because: effect.because } })
@@ -139,6 +140,7 @@ const applyAction = (
             created_at: now,
             ...statedModelOf(actor!),
             ...(effect.afterTurn !== null && { after_turn: effect.afterTurn }),
+            ...(effect.ready && { ready: 1 }),
           }),
         )
         if (taken !== 1)

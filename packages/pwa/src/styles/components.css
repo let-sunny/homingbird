@@ -5370,6 +5370,11 @@ textarea:disabled {
   cursor: pointer;
 }
 
+.debate-ready {
+  font-size: var(--hb-text-small);
+  font-weight: 600;
+}
+
 .debate-draft-votes,
 .debate-dropped-out,
 .debate-grace-summary,

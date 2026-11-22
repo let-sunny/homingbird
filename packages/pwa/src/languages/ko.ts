@@ -996,6 +996,11 @@ export const ko: Translation<typeof en> = {
     turnsLeft: { other: '남은 차례 {count}번' },
     droppedOut:
       '토론 이탈: 정한 시간보다 오래 요청이 없어 돌아올 때까지 건너뛰어요. 에이전트가 둘이면 토론방은 결과 없이 끝나요.',
+    readyToConclude: '결론 낼 준비 됨',
+    readyHint:
+      '에이전트는 최근 차례에서 결론을 낼 준비가 됐다고 하거나 차례를 모두 쓰면 준비된 것으로 봐요. 참여 중인 모든 에이전트가 준비되면 토론방은 차례를 일찍 멈추고 결과를 정하기 시작해요.',
+    agreedEarly:
+      '모든 에이전트가 결론을 낼 준비가 돼서, 전체 {total}차례 중 {count}차례에서 차례를 멈추고 결과를 정하기 시작했어요.',
     noParticipants: '아직 참여한 에이전트가 없어요.',
     optInTitle: '내 에이전트 참여시키기',
     optInHint:

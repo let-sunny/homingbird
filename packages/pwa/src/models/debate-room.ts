@@ -1,4 +1,4 @@
-import type { AsRead, MemberId } from '@homingbird/protocol'
+import { type AsRead, type MemberId, isReadyToConclude } from '@homingbird/protocol'
 import { channelLabel } from '../channels.ts'
 import { citedTurns } from '../debate-turns.ts'
 import {
@@ -125,7 +125,16 @@ export const debateRoomModel = (input: DebateRoomInput): DebateRoomModel => {
         participant.takingPart === false && (debate.status === 'open' || debate.status === 'concluding')
           ? strings.debates.droppedOut
           : null,
+      ready:
+        debate.status === 'open' && isReadyToConclude(debate, participant.memberId)
+          ? strings.debates.readyToConclude
+          : null,
     })),
+    readyHint: debate.status === 'open' && debate.turns.length > 0 ? strings.debates.readyHint : null,
+    agreedEarly:
+      debate.concludedBecause === 'agreed'
+        ? strings.debates.agreedEarly({ count: debate.turns.length, total: debate.limits.totalTurns })
+        : null,
     optIn: mayOptIn(debate, viewerId)
       ? input.agents.length === 0
         ? { kind: 'no-agent', text: strings.debates.noAgent }
@@ -247,7 +256,13 @@ export type DebateRoomModel =
         readonly name: string
         readonly turnsLeft: string | null
         readonly droppedOut: string | null
+        /** While the room takes turns: that the agent is ready to conclude. */
+        readonly ready: string | null
       }>
+      /** While the room takes turns: when an agent counts as ready, and what follows. */
+      readonly readyHint: string | null
+      /** Why the room stopped taking turns before they ran out. */
+      readonly agreedEarly: string | null
       readonly optIn:
         | { readonly kind: 'no-agent'; readonly text: string }
         | {

@@ -5,6 +5,18 @@ states the decision first, then the reason. Add new entries at the top of their 
 
 ## Product
 
+- **A debate room stops taking turns early once every agent says it is ready to conclude.** Evaluators
+  watched agents keep taking empty turns after they already agreed, only because the room ran until
+  its total or its time. So `debates.turns.post` takes an optional `ready`, kept with the turn
+  (`debate_turns.ready`, migration step 16). An agent is ready when its latest turn says so, or once
+  it has used all its turns; one that has not spoken is not, and a later turn without `ready` takes it
+  back. When every agent taking part is ready, the room concludes with `because: 'agreed'`
+  (`debates.concluded_because`, `concludedBecause` on the room, `debate.concluded` in the audit trail)
+  and follows the same drafting, voting and closing as a room whose turns ran out: agreeing never
+  skips the vote. A turn that also reaches the total concludes it as `limit`. The flag only marks the
+  agent's own turn: no tool opens, closes or decides a room (rules 3 and 9). The MCP turn tool takes
+  `ready` and `read_debate` says when to set it; an agent command under `homingbird run` does not mark
+  turns yet (see the roadmap). Clients read an unknown reason as no reason.
 - **A debate room gives every agent its turns, starts its clock with the first turn, refuses a stale
   turn, and checks every credit against the turns.** Seven rooms run by real agents (four people,
   three scenarios, eval round 2) reached the right answer every time, but the mechanics around the
@@ -290,8 +302,8 @@ states the decision first, then the reason. Add new entries at the top of their 
   declining the result, posting it and exporting are `human` routes; reading a room and, for the agent
   credential its person opted in, taking a turn and drafting the result are `member` routes, checked
   again in the domain (`debate-*.ts` in `dovecote`). One agent per person per room, at most 8, and no
-  two turns in a row by the same agent. The room stops at the total, when no agent has a turn left, or
-  at its time limit (a background pass each minute while the switch is on, and on every read). A room
+  two turns in a row by the same agent. The room stops at the total, when no agent has a turn left,
+  once every agent is ready to conclude, or at its time limit (a background pass each minute while the switch is on, and on every read). A room
   that stops with fewer than two agents or with no turn **ends** without a result (`ended`, audited with
   `too_few_agents` or `no_turns`): there is nothing to approve, post or export as a result, and no
   credit. Otherwise the first agent to draft the result wins; a person's **Ask for another draft**

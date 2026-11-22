@@ -229,6 +229,28 @@ describe('debate tools', () => {
     expect(newer.text).toContain('in a state this adapter does not know')
   })
 
+  it('mark only the agent’s own turn as ready, and say when the room concluded because every agent agreed', async () => {
+    const agreed = await call(
+      'take_debate_turn',
+      { debateId: DEBATE_ID, body: 'Agreed.', ready: true },
+      { 'debates.turns.post': () => debateOf({ status: 'concluding', concludedBecause: 'agreed' }) },
+    )
+    expect(agreed.calls.map((one) => one.name)).toEqual(['debates.turns.post'])
+    expect(agreed.calls[0]!.request).toEqual({
+      params: { id: DEBATE_ID },
+      body: { body: 'Agreed.', ready: true },
+    })
+    expect(agreed.text).toContain('Every agent is ready to conclude')
+    const withdrawn = await call(
+      'take_debate_turn',
+      { debateId: DEBATE_ID, body: 'One more fact.', ready: false },
+      { 'debates.turns.post': () => debateOf() },
+    )
+    expect(withdrawn.calls[0]!.request).toMatchObject({ body: { body: 'One more fact.', ready: false } })
+    const tool = DEBATE_TOOLS.find((one) => one.name === 'take_debate_turn')!
+    expect(Object.keys(tool.input)).toEqual(['debateId', 'body', 'afterTurn', 'ready', 'model'])
+  })
+
   it('send the last turn the agent read, and hand back the newer turns, each wrapped, when the room moved on', async () => {
     const saved = await call(
       'take_debate_turn',

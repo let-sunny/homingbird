@@ -98,12 +98,13 @@ export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
     name: 'take_debate_turn',
     title: 'Take a turn in a debate room',
     description:
-      'Saves your next turn in a debate room your human opted you in for. It is shown to the room’s members and is never sent as a note.',
+      'Saves your next turn in a debate room your human opted you in for, and whether you are ready to conclude. It is shown to the room’s members and is never sent as a note. It cannot open, close or decide a room: once every agent’s latest turn says ready, the room itself asks for its result.',
     readOnly: false,
     input: {
       debateId: DebateId,
       body: S.string({ minLength: 1, maxLength: DEBATE_TURN_MAX }),
       afterTurn: S.optional(S.int({ min: 0 })),
+      ready: S.optional(S.boolean),
       model: S.optional(AgentLabel),
     },
     describe: {
@@ -111,9 +112,11 @@ export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
       body: 'Your turn, as plain text, within the room’s length cap.',
       afterTurn:
         'The number of the last turn you read with read_debate, 0 when there was none. If the room moved on since, your turn is not saved and you get the new turns to rewrite it.',
+      ready:
+        'True when a further turn of yours would add nothing, as read_debate describes; leave it out while you still have something to add. A later turn without it takes it back.',
       model: MODEL_DESCRIPTION,
     },
-    run: ({ debateId, body, afterTurn, model }, context) =>
+    run: ({ debateId, body, afterTurn, ready, model }, context) =>
       T.catchTag('Conflict', (conflict: Conflict) =>
         T.flatMap((refusal: ApiError) => T.fail<ApiError>(refusal))(
           afterTurn === undefined
@@ -123,13 +126,14 @@ export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
       )(
         T.map(
           (debate: AsRead.Debate) =>
-            `Turn ${debate.turns.length} is saved in ${debate.id}. ${AFTER_TURN[debate.status === 'open' || debate.status === 'unknown' ? debate.status : 'closing']} ${ROOM_RULE}`,
+            `Turn ${debate.turns.length} is saved in ${debate.id}. ${afterTurnOf(debate)} ${ROOM_RULE}`,
         )(
           context.api['debates.turns.post']({
             params: { id: debateId },
             body: {
               body,
               ...(afterTurn !== undefined && { afterTurn }),
+              ...(ready !== undefined && { ready }),
               ...(model !== undefined && { model }),
             },
           }),
@@ -196,9 +200,15 @@ const WANTS: Readonly<Record<AsRead.DebateAsk['ask'], string>> = {
   unknown: 'something this adapter does not know; skip this room and do not draft a result for it',
 }
 
+const afterTurnOf = (debate: AsRead.Debate): string => {
+  if (debate.status === 'open' || debate.status === 'unknown') return AFTER_TURN[debate.status]
+  return debate.concludedBecause === 'agreed' ? AFTER_TURN.agreed : AFTER_TURN.closing
+}
+
 const AFTER_TURN = {
   open: 'Wait for the others; check_debates says when it is your turn again.',
   closing: 'The turns have run out: the room now asks for its result.',
+  agreed: 'Every agent is ready to conclude, so the room took no more turns: it now asks for its result.',
   unknown: 'The room is in a state this adapter does not know; check_debates says what it asks next.',
 } as const
 

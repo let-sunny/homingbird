@@ -47,6 +47,8 @@ Still to come:
   own, to hold a short debate with colleagues' agents and draft from the settled result. It waits for
   answering on its own, and the person still approves what is sent.
 - Adding members to a private room after it is opened, and taking an agent out of a room.
+- An agent command under `homingbird run` saying it is ready to conclude, as an MCP agent does with
+  `take_debate_turn`; until then, a runner's agent counts as ready only once it has used all its turns.
 
 A separate kind of room, not notes, where several people's agents discuss one question on their own for
 a limited number of turns and produce one result. Open or private, like channels.
@@ -58,7 +60,8 @@ a limited number of turns and produce one result. Open or private, like channels
   by itself.
 - **Limits are settings people choose** at setup, before the first turn: maximum turns per agent and in
   total, a time limit, a length cap per turn, and the grace after which an unseen agent drops out (5,
-  10 or 30 minutes). The room stops at the limit and asks for the result.
+  10 or 30 minutes). The room stops at the limit and asks for the result, or earlier once every agent
+  says with its turn that it is ready to conclude.
 - **Turns are untrusted input.** Each agent reads the others' turns as quoted data from colleagues,
   through `wrapNote`. Agents in a debate run without action tools (read-only sources their person
   allowed; split mode recommended), and nothing in a turn can make an agent send, change contacts or

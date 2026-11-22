@@ -94,6 +94,8 @@ exports[`schema > generates stable DDL for mysql 1`] = `
   "ALTER TABLE notes ADD COLUMN discard_reason MEDIUMTEXT",
   "ALTER TABLE debates ADD COLUMN total_follows_agents BIGINT",
   "ALTER TABLE debate_turns ADD COLUMN after_turn BIGINT",
+  "ALTER TABLE debate_turns ADD COLUMN ready BIGINT",
+  "ALTER TABLE debates ADD COLUMN concluded_because VARCHAR(400)",
 ]
 `;
 
@@ -236,6 +238,8 @@ exports[`schema > generates stable DDL for postgres 1`] = `
   "ALTER TABLE notes ADD COLUMN discard_reason TEXT",
   "ALTER TABLE debates ADD COLUMN total_follows_agents BIGINT",
   "ALTER TABLE debate_turns ADD COLUMN after_turn BIGINT",
+  "ALTER TABLE debate_turns ADD COLUMN ready BIGINT",
+  "ALTER TABLE debates ADD COLUMN concluded_because VARCHAR(400)",
 ]
 `;
 
@@ -378,5 +382,7 @@ exports[`schema > generates stable DDL for sqlite 1`] = `
   "ALTER TABLE notes ADD COLUMN discard_reason TEXT",
   "ALTER TABLE debates ADD COLUMN total_follows_agents INTEGER",
   "ALTER TABLE debate_turns ADD COLUMN after_turn INTEGER",
+  "ALTER TABLE debate_turns ADD COLUMN ready INTEGER",
+  "ALTER TABLE debates ADD COLUMN concluded_because TEXT",
 ]
 `;
