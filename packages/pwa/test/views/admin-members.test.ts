@@ -25,22 +25,21 @@ describe('adminMembersSection', () => {
     called('listMembers')[0]!.then!.done!(
       listing([
         member(ANA, 'Ana', { role: 'admin' }),
-        member(BEN, 'Ben', { role: 'admin', status: 'deactivated', character: presetById('owl')! }),
-        member(CY, 'Cy'),
+        member(BEN, 'Ben', { role: 'admin', character: presetById('owl')! }),
+        member(CY, 'Cy', { status: 'deactivated' }),
       ]),
     )
     expect(textOf(shown)).toContain(strings.cannotChangeOwnRole)
     const ben = shown.querySelector(`[data-member-id="${BEN}"]`)!
     const cy = shown.querySelector(`[data-member-id="${CY}"]`)!
+    expect(textOf(cy)).not.toContain(strings.makeAdmin)
     getByRole(ben, 'button', { name: strings.makeMember }).click()
-    getByRole(ben, 'button', { name: strings.reactivate }).click()
-    getByRole(cy, 'button', { name: strings.makeAdmin }).click()
-    getByRole(cy, 'button', { name: strings.deactivate }).click()
+    getByRole(ben, 'button', { name: strings.deactivate }).click()
+    getByRole(cy, 'button', { name: strings.reactivate }).click()
     expect(called('updateMember').map((call) => call.args)).toEqual([
       [BEN, { role: 'member' }],
-      [BEN, { status: 'active' }],
-      [CY, { role: 'admin' }],
-      [CY, { status: 'deactivated' }],
+      [BEN, { status: 'deactivated' }],
+      [CY, { status: 'active' }],
     ])
     called('updateMember')[0]!.then!.done!(undefined)
     expect(called('listMembers')).toHaveLength(2)

@@ -85,6 +85,24 @@ describe('preparing the database', () => {
     ])
   })
 
+  it('writes the schema steps it applied to the operational log too, and nothing on a start with none', async () => {
+    database = await openTestDatabase()
+    const lines: string[] = []
+    const { env } = buildRuntime({
+      config: testConfig(),
+      database,
+      clock: makeTestClock(1_700_000_000_000),
+      write: (line) => lines.push(line),
+    })
+    await T.runPromise(prepareDatabase, env)
+    await T.runPromise(prepareDatabase, env)
+    expect(
+      lines
+        .map((line) => JSON.parse(line))
+        .map((line) => [line.eventName, line.severityText, line.attributes]),
+    ).toEqual([['system.migrated', 'INFO', { steps: stepsFrom(1) }]])
+  })
+
   it('refuses to start on a database an earlier build made, seeding nothing', async () => {
     const env = await preparedRuntime()
     await T.runPromise(run(sql`INSERT INTO schema_versions (version) VALUES (${MIGRATIONS.length + 1})`), env)

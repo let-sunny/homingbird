@@ -29,7 +29,10 @@ export const migrateThrough = (
         Number(r.version),
       ),
     )
-    const unknown = [...applied].some((version) => version < 1 || version > migrations.length)
+    const newest = Math.max(0, ...applied)
+    if (newest > migrations.length)
+      return yield* T.fail(UnknownDatabase({ message: newerDatabase(newest, migrations.length) }))
+    const unknown = [...applied].some((version) => version < 1)
     if (unknown || (applied.size === 0 && (yield* hasTablesOf(target, migrations))))
       return yield* T.fail(UnknownDatabase({ message: UNKNOWN_DATABASE }))
     const appliedNow: number[] = []
@@ -47,9 +50,17 @@ export const migrateThrough = (
  * that only reads, such as `dovecote audit verify`, must not migrate.
  */
 export const requireCurrentSchema: T.Task<void, UnknownDatabase, HasSql> = T.gen(function* () {
-  const read = yield* T.exit(all<{ version: number }>(sql`SELECT version FROM schema_versions`))
-  const versions = read._tag === 'Ok' ? read.value.map((row) => Number(row.version)) : []
-  const newest = Math.max(0, ...versions)
+  if (!(yield* hasTable(yield* dialect, VERSION_TABLE.name)))
+    return yield* T.fail(
+      UnknownDatabase({
+        message:
+          'This database holds no Dovecote tables: check that HB_DATABASE_URL names the server’s database.',
+      }),
+    )
+  const versions = yield* all<{ version: number }>(sql`SELECT version FROM schema_versions`)
+  const newest = Math.max(0, ...versions.map((row) => Number(row.version)))
+  if (newest > MIGRATIONS.length)
+    return yield* T.fail(UnknownDatabase({ message: newerDatabase(newest, MIGRATIONS.length) }))
   if (newest < MIGRATIONS.length)
     return yield* T.fail(
       UnknownDatabase({
@@ -57,7 +68,6 @@ export const requireCurrentSchema: T.Task<void, UnknownDatabase, HasSql> = T.gen
           'This database is older than this Dovecote: start the server once to upgrade it, then run the command again.',
       }),
     )
-  if (newest > MIGRATIONS.length) return yield* T.fail(UnknownDatabase({ message: UNKNOWN_DATABASE }))
 })
 
 export const UnknownDatabase = tagged('UnknownDatabase')<{ readonly message: string }>()
@@ -79,6 +89,9 @@ const VERSION_TABLE: Table = {
 
 const UNKNOWN_DATABASE =
   'This database was not made by this version of Dovecote, so it is left untouched: start Dovecote with an empty database.'
+
+const newerDatabase = (step: number, known: number): string =>
+  `This database was upgraded by a newer Dovecote (schema step ${step}; this version knows ${known}), so it is left untouched: run that newer version, or restore the backup you took before upgrading.`
 
 const applying = (target: Dialect, steps: Migration, version: number): T.Task<void, never, HasSql> =>
   inTransaction(
@@ -110,11 +123,18 @@ const isAlreadyApplied = (step: Step): T.Task<boolean, never, HasSql> => {
   return T.succeed(false)
 }
 
-const hasTablesOf = (target: Dialect, migrations: ReadonlyArray<Migration>): T.Task<boolean, never, HasSql> =>
+const hasTablesOf = (
+  target: Dialect,
+  migrations: ReadonlyArray<Migration>,
+): T.Task<boolean, never, HasSql> => {
+  const tables = migrations.flat().filter(isTable)
+  return tables.length === 0 ? T.succeed(false) : hasTable(target, ...tables.map((table) => table.name))
+}
+
+/** Whether the database holds any of the tables named. */
+const hasTable = (target: Dialect, ...tables: ReadonlyArray<string>): T.Task<boolean, never, HasSql> =>
   T.gen(function* () {
-    const tables = migrations.flat().filter(isTable)
-    if (tables.length === 0) return false
-    const names = list(tables.map((table) => table.name))
+    const names = list(tables)
     const found = yield* first(
       target === 'sqlite'
         ? sql`SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ${names}`

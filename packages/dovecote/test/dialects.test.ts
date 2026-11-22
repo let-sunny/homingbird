@@ -596,7 +596,7 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
   )
 
   it.skipIf(url === undefined)(
-    'refuses a database that records versions this build does not know, and changes nothing in it',
+    'refuses a database a newer build upgraded, says to run it or restore the backup, and changes nothing in it',
     async () => {
       const database = await emptyDatabase()
       try {
@@ -605,7 +605,13 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
         for (const version of unknown)
           await T.runPromise(database.run(raw(`INSERT INTO schema_versions (version) VALUES (${version})`)))
         await T.runPromise(database.run(raw(MEMBER_ROW)))
-        expect(await migrated(database)).toEqual(REFUSAL)
+        expect(await migrated(database)).toEqual({
+          _tag: 'Err',
+          error: {
+            _tag: 'UnknownDatabase',
+            message: `This database was upgraded by a newer Dovecote (schema step ${MIGRATIONS.length + 3}; this version knows ${MIGRATIONS.length}), so it is left untouched: run that newer version, or restore the backup you took before upgrading.`,
+          },
+        })
         expect(await versionsOf(database)).toEqual([...stepsFrom(1), ...unknown])
         expect(
           (await T.runPromise(database.all(raw('SELECT id FROM members')))).map((row) => row.id),

@@ -56,6 +56,9 @@ homingbird logout
 
 Every command accepts `--json`; `homingbird --help` lists the options.
 
+`homingbird status` exits 0 when this device is signed in and 3 when it is not, or when the server no
+longer accepts its credential, so a device-management check can rely on the exit code alone.
+
 Each server you sign in to keeps its own credential, in `~/.config/homingbird/agents/`. Every command
 takes `--server <url>` (or `HOMINGBIRD_SERVER`) to say which one; without it the command uses the only
 server you are signed in to, and asks when there are several. `homingbird logout --server <url>` signs

@@ -20,4 +20,4 @@ export const openDatabase = (url: string): T.Task<Database, UnsupportedDatabase>
 }
 
 const UnsupportedDatabase = tagged('UnsupportedDatabase')<{ readonly message: string }>()
-type UnsupportedDatabase = ReturnType<typeof UnsupportedDatabase>
+export type UnsupportedDatabase = ReturnType<typeof UnsupportedDatabase>

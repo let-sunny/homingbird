@@ -30,7 +30,8 @@ export const leaverFactsFor = (email: string): T.Task<LeaverFacts | null, never,
       ),
       deskWakes: yield* count(sql`SELECT COUNT(*) AS n FROM desk_wakes WHERE member_id = ${member.id}`),
       slackLinks: yield* count(sql`SELECT COUNT(*) AS n FROM slack_people WHERE member_id = ${member.id}`),
-      namedAdministrator: env.config.adminEmails.includes(address),
+      namedAdministrator:
+        env.config.adminEmails.length === 0 ? null : env.config.adminEmails.includes(address),
     }
   })
 
@@ -44,7 +45,8 @@ export interface LeaverFacts {
   readonly approvedSignIns: number
   readonly deskWakes: number
   readonly slackLinks: number
-  readonly namedAdministrator: boolean
+  /** Null when `HB_ADMIN_EMAILS` is not set where the check runs, so it cannot tell. */
+  readonly namedAdministrator: boolean | null
 }
 
 const count = (query: Query): T.Task<number, never, HasSql> =>
