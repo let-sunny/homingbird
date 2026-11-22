@@ -218,6 +218,17 @@ describe('liveEvents', () => {
     expect(page.visited).toHaveLength(1)
   })
 
+  it('drops a group the person left, and takes out of its people someone else who left', () => {
+    const { apply, state, page } = live()
+    state.conversations.set([conversation({ kind: 'group', participantIds: [ANA, BEN, CY] })])
+    apply(event({ type: 'conversation.left', conversationId: ROOM, memberId: CY }))
+    expect(state.conversations.get()[0]!.participantIds).toEqual([ANA, BEN])
+    state.route.set({ name: 'conversation', id: ROOM, draft: null })
+    apply(event({ type: 'conversation.left', conversationId: ROOM, memberId: ANA }))
+    expect(state.conversations.get()).toEqual([])
+    expect(page.visited).toEqual(['replace #/'])
+  })
+
   it('tells the page of everything one event changed at once', () => {
     const { apply, state } = live()
     state.conversations.set([conversation()])

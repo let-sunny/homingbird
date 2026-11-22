@@ -9,6 +9,7 @@ import { signedIn } from '../state.ts'
 import { strings } from '../strings.ts'
 import { isMuted, withAgentPresence, withPresence, withReceipts } from '../thread.ts'
 import { loadReviews } from './channel-agents.ts'
+import { applyLeft } from './conversation-actions.ts'
 import { loadDebate, loadDebates } from './debates.ts'
 import { loadGroups } from './groups.ts'
 import { forgetNote, forgetRelease, loadThread, rememberNote } from './notes.ts'
@@ -133,6 +134,9 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
           return remaining
         })
         leaveRoomIfShown(app, body.conversationId)
+        break
+      case 'conversation.left':
+        applyLeft(app, body.conversationId, body.memberId)
         break
       case 'group.changed':
         reloadGroupsSoon()

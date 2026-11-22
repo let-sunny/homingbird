@@ -160,6 +160,10 @@ export const namesInBrief = (names: ReadonlyArray<string>): string => {
 export const isMuted = (conversation: Pick<AsRead.Conversation, 'muted'>): boolean =>
   conversation.muted === true
 
+/** Whether the person hid this conversation from their own list, and nothing has brought it back. */
+export const isHidden = (conversation: Pick<AsRead.Conversation, 'hidden'>): boolean =>
+  conversation.hidden === true
+
 export const isArchived = (conversation: AsRead.Conversation | undefined): boolean =>
   conversation !== undefined && conversation.archivedAt !== null
 

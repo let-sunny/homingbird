@@ -102,6 +102,23 @@ export const cancelDraftRequest = (
     return yield* announceChange(caller.member.id, id)
   })
 
+/** Withdraws every request the person still has waiting in a conversation, as when they leave it. */
+export const withdrawDraftRequestsIn = (
+  memberId: MemberId,
+  conversationId: ConversationId,
+): T.Task<void, never, RequestEnv> =>
+  T.gen(function* () {
+    const env = yield* T.ask<RequestEnv>()
+    const now = env.clock.now()
+    const waiting = yield* all<{ id: DraftRequestId }>(sql`
+      SELECT id FROM draft_requests WHERE member_id = ${memberId} AND conversation_id = ${conversationId}
+      AND cancelled_at IS NULL AND expires_at > ${now} ORDER BY id`)
+    for (const { id } of waiting) {
+      yield* run(sql`UPDATE draft_requests SET cancelled_at = ${now} WHERE id = ${id}`)
+      yield* announceChange(memberId, id)
+    }
+  })
+
 export const openDraftRequests = (caller: Caller): T.Task<DraftRequest[], never, RequestEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()

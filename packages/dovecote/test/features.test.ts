@@ -44,6 +44,16 @@ const probes: Readonly<Record<string, (person: Session) => Promise<{ status: num
   draftRequests: (person) => person.api('GET', '/draft-requests'),
   characters: (person) => person.api('DELETE', '/me/character'),
   mute: (person) => person.api('PUT', '/me/notifications', { notifications: 'all' }),
+  hideConversations: async (person) => {
+    const draft = (await person.api('POST', '/drafts', { to: [ben.me.member.id], body: 'Hello' })).json
+    return person.api('DELETE', `/conversations/${draft.conversationId}/hidden`)
+  },
+  leaveGroups: async (person) => {
+    const cy = await server.signIn('cy@example.com', 'Cy')
+    const participantIds = [ben.me.member.id, cy.me.member.id]
+    const group = (await person.api('POST', '/conversations', { participantIds })).json
+    return person.api('POST', `/conversations/${group.id}/leave`)
+  },
   webPush: (person) => person.api('GET', '/push/key'),
   answeringFlow: (person) => person.api('GET', '/answering-flow'),
   earlierAnswers: (person) => person.api('POST', '/answers/earlier', { question: 'release calendar' }),

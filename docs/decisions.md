@@ -2011,8 +2011,10 @@ proposal until then.**
 
 **Open, for the maintainer, and to measure first.**
 
-- Not measured: how many drafts one group note produces today, with agents connected for three people
-  on a real Dovecote, and how many of the picked-up notes end in a skip. If skips already hold drafts
+- Measured since: one note to a group of five with every desk running produced 4 drafts, and approving
+  them 16 more, with an agent that never skips
+  ([below](#a-group-messages-people-are-fixed-a-person-may-leave-it-or-hide-it)). Not measured: how
+  many of the picked-up notes a real model ends in a skip. If skips already hold drafts
   near one per note, the default for a group note that names nobody could stay "everyone is asked"
   for groups of three, with naming as the way to narrow. The proposal's default is the stricter one.
 - `ASKED_MAX`: three, or the size of the largest group message.
@@ -2161,3 +2163,49 @@ is gone, and its question is answered where the figures are.
   `HB_FEATURES` would then have refused to start a server set up with it, so `RETIRED_FEATURES` names
   it: accepted and ignored in this release, refused in the next, as compatibility.md asks for a removed
   capability. Debate credits stay under Teaching, Milestones, where they already were.
+
+## A group message's people are fixed; a person may leave it or hide it
+
+A group message keeps the people it started with. Nobody is added to it, and **New group with these
+people** is how someone is added or taken out: a new room, with none of the old room's notes carried,
+because each of them was approved under "Send delivers it to" the people then in it. Copying a note to
+a new reader, and to that reader's agent, would deliver a note nobody approved for them. A person may
+leave a group for good and may hide a direct or group message from their own list.
+
+- **Measured first.** On a real Dovecote (`pnpm dev`'s server, development login, SQLite) with five
+  people, each with a desk running (`homingbird run --agent` with a command that drafts the same
+  short reply to every note and never skips), one note to the group of five produced **4 drafts and
+  4 approvals waiting**, one per other person: n − 1. Approving all four sent four replies, and each
+  woke the other four desks: **16 more drafts**, (n − 1)², before anyone had read a word. A real model
+  skips some notes, which this did not measure. This is why making groups easier to grow waits for
+  "who is asked"
+  ([above](#proposed-a-note-asks-the-people-it-names-and-only-their-agents-draft)), and why leaving
+  matters: mute stops notifications, not drafting.
+- **No reader is ever added to a room's notes.** `drafts.send` binds to the body and the conversation
+  the card showed ([sending binds](#sending-binds-to-the-draft-the-person-read)); while a group's
+  people cannot grow, the conversation is the reader list, and leaving only shrinks it, which the card
+  redraws from the stream. **Any future route that adds a reader to a room must first extend the
+  send's `expected` with the readers the card named**, so a draft read for three readers is refused
+  once when a fourth joined. The roadmap's joining from a joining point onward names this.
+- **Leaving** (`conversations.leave`, `human`, feature `leaveGroups`) is for a group message only; a
+  direct message is hidden, a channel is left from its menu, and a private question belongs to its
+  channel. The person's place in the room is deleted, as leaving a channel deletes it, so every query
+  that filters by participation (list, lookup, notes, inbox, search, pickup, drafting, the stream and
+  push) leaves the room out for the person and for their agent credentials alike. Rule 6 gains a
+  sentence saying so. The leaver's waiting drafts there are discarded, their open draft requests
+  there withdrawn, and a note their agent had picked up stops showing "drafting reply"; nothing they
+  had not approved goes to the others. What they sent stays with the others, as do the others'
+  drafts. Receipts are kept, as for a channel. The others' streams get `conversation.left` with the
+  room and the person, no content; a group no note was sent in yet tells nobody else, as rule 2 keeps
+  it hidden. There is no way back in: a group's people never grow.
+- **Hiding** (`conversations.hide` and `conversations.unhide`, `human`, feature `hideConversations`)
+  is kept on the person's place in the room (`participants.hidden_at`), as a mute is: per person, shown
+  to nobody else and to no agent credential, whose list keeps every room, and it ends with the place.
+  A hidden room comes back by itself when a note is sent in it, and stays listed while a draft of the
+  person's waits there, so a draft never leaves the list the activity panel finds it through. It is
+  only the list: the room still delivers, counts unread and notifies. Direct and group messages only;
+  a channel room is left or muted. While the feature is off, stored hides are kept and ignored.
+- **Not in this release:** adding in place, naming a group, pin, mark as unread, a starter discarding a
+  room, and binding a send to the reader list. No model-facing tool calls any of the three routes
+  (rule 3), and they are audited without content (`conversation.hidden_changed`, `conversation.left`).
+  The schema step adds `participants.hidden_at`; leaving needs no column.

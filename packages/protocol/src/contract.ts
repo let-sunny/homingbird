@@ -484,6 +484,24 @@ export const contract = {
     access: 'human',
     response: Conversation,
   }),
+  'conversations.hide': route({
+    method: 'PUT',
+    path: '/conversations/:id/hidden',
+    access: 'human',
+    response: Conversation,
+  }),
+  'conversations.unhide': route({
+    method: 'DELETE',
+    path: '/conversations/:id/hidden',
+    access: 'human',
+    response: Conversation,
+  }),
+  'conversations.leave': route({
+    method: 'POST',
+    path: '/conversations/:id/leave',
+    access: 'human',
+    response: Empty,
+  }),
   'conversations.notes': route({
     method: 'GET',
     path: '/conversations/:id/notes',

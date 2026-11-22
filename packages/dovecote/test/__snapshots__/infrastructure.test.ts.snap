@@ -110,6 +110,7 @@ exports[`schema > generates stable DDL for mysql 1`] = `
   "CREATE TABLE IF NOT EXISTS slack_people (member_id VARCHAR(64) NOT NULL, slack_user_id VARCHAR(400) NOT NULL, slack_name VARCHAR(400) NOT NULL, linked_at BIGINT NOT NULL, PRIMARY KEY (member_id), UNIQUE INDEX slack_people_slack_user_id_idx (slack_user_id))",
   "CREATE TABLE IF NOT EXISTS slack_codes (code_hash VARCHAR(400) NOT NULL, kind VARCHAR(400) NOT NULL, member_id VARCHAR(64), slack_user_id VARCHAR(400) NOT NULL, slack_name VARCHAR(400) NOT NULL, created_at BIGINT NOT NULL, expires_at BIGINT NOT NULL, used_at BIGINT, PRIMARY KEY (code_hash), INDEX slack_codes_member_id_idx (member_id), INDEX slack_codes_expires_at_idx (expires_at))",
   "CREATE TABLE IF NOT EXISTS slack_events (event_id VARCHAR(400) NOT NULL, kind VARCHAR(400) NOT NULL, payload MEDIUMTEXT, received_at BIGINT NOT NULL, processed_at BIGINT, PRIMARY KEY (event_id), INDEX slack_events_processed_at_idx (processed_at))",
+  "ALTER TABLE participants ADD COLUMN hidden_at BIGINT",
 ]
 `;
 
@@ -274,6 +275,7 @@ exports[`schema > generates stable DDL for postgres 1`] = `
   "CREATE INDEX IF NOT EXISTS slack_codes_expires_at_idx ON slack_codes (expires_at)",
   "CREATE TABLE IF NOT EXISTS slack_events (event_id VARCHAR(400) NOT NULL, kind VARCHAR(400) NOT NULL, payload TEXT, received_at BIGINT NOT NULL, processed_at BIGINT, PRIMARY KEY (event_id))",
   "CREATE INDEX IF NOT EXISTS slack_events_processed_at_idx ON slack_events (processed_at)",
+  "ALTER TABLE participants ADD COLUMN hidden_at BIGINT",
 ]
 `;
 
@@ -438,5 +440,6 @@ exports[`schema > generates stable DDL for sqlite 1`] = `
   "CREATE INDEX IF NOT EXISTS slack_codes_expires_at_idx ON slack_codes (expires_at)",
   "CREATE TABLE IF NOT EXISTS slack_events (event_id TEXT NOT NULL, kind TEXT NOT NULL, payload TEXT, received_at INTEGER NOT NULL, processed_at INTEGER, PRIMARY KEY (event_id))",
   "CREATE INDEX IF NOT EXISTS slack_events_processed_at_idx ON slack_events (processed_at)",
+  "ALTER TABLE participants ADD COLUMN hidden_at INTEGER",
 ]
 `;

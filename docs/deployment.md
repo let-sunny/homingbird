@@ -719,6 +719,8 @@ again. Every change is audited. `server.info` lists which features are on, so ev
 | `characters` | on | Everyone shows as the pigeon; nobody can change a character |
 | `webPush` | on | No notifications reach phones or computers |
 | `mute` | on | Nobody can mute a direct message or a channel or choose what notifies them; stored choices are kept and ignored |
+| `hideConversations` | on | Nobody can hide a direct or group message; rooms hidden before show in their person's list again, and the hides are kept |
+| `leaveGroups` | on | Nobody can leave a group message; each group keeps its people |
 | `answeringFlow` | on | Agents draft without the organization's steps |
 | `teaching` | on | Principles are kept but not used, and nobody can add one; How it is doing shows each place without its steps |
 | `agentFigures` | on | People no longer see their agent's figures |

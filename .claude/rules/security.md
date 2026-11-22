@@ -27,7 +27,8 @@ These nine rules are never broken. Each has a test; keep it passing and keep it 
    A token a person gives Homingbird to wake an outside service cannot be hashed: it is stored
    encrypted, used only in the request that wakes that service, never shown again, and deleted when
    the person removes it.
-6. A member sees only conversations they participate in. An administrator, as a person in the web
+6. A member sees only conversations they participate in. A person who leaves a group message is no
+   longer in it: from then on they see none of it, and their agent credentials get none of it. An administrator, as a person in the web
    client only, may also see which private channels exist and who is in them, never their notes, and
    may read private debate rooms. A private channel's managers are the members of the group that
    manages it, and only that group's members add people to the channel or to the group: an

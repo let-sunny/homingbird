@@ -169,6 +169,7 @@ describe('threadHeadModel', () => {
       people: expect.objectContaining({ id: `people-${ROOM}`, label: strings.groupPeople({ count: 2 }) }),
       showsCount: false,
       profileOf: BEN,
+      actions: expect.objectContaining({ leave: null, newGroup: null }),
       mute: expect.objectContaining({ conversationId: ROOM, muted: false, label: 'Mute Ben' }),
     })
     expect(threadHeadModel(threadInput())).toEqual({
@@ -180,6 +181,7 @@ describe('threadHeadModel', () => {
       showsCount: false,
       profileOf: BEN,
       mute: expect.objectContaining({ muted: false }),
+      actions: { hide: null, leave: null, newGroup: null },
     })
     expect(
       threadHeadModel(
@@ -201,6 +203,7 @@ describe('threadHeadModel', () => {
       showsCount: true,
       profileOf: null,
       mute: expect.objectContaining({ label: 'Mute Team' }),
+      actions: { hide: null, leave: null, newGroup: null },
     })
   })
 

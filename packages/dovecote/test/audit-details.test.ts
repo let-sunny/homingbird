@@ -150,4 +150,29 @@ describe('what each audited route records', () => {
     ])
     expect(JSON.stringify((await storedRows(server, 'audit_events')).slice(start))).not.toContain('Secret')
   })
+
+  it('records hiding and leaving by the conversation only, never a note', async () => {
+    server = await startTestServer()
+    const ana = await server.signIn('ana@example.com', 'Ana')
+    const ben = await server.signIn('ben@example.com', 'Ben')
+    const cy = await server.signIn('cy@example.com', 'Cy')
+    const group = (
+      await ana.api('POST', '/conversations', { participantIds: [ben.me.member.id, cy.me.member.id] })
+    ).json
+    const draft = (await ana.api('POST', '/drafts', { conversationId: group.id, body: 'Secret plans' })).json
+    await ana.api('POST', `/drafts/${draft.id}/send`, {
+      expected: { body: draft.body, conversationId: group.id },
+    })
+    await server.clock.advance(1_000)
+    const start = (await storedRows(server, 'audit_events')).length
+    await ben.api('PUT', `/conversations/${group.id}/hidden`)
+    await ben.api('DELETE', `/conversations/${group.id}/hidden`)
+    await ben.api('POST', `/conversations/${group.id}/leave`)
+    expect(await recorded(start)).toEqual([
+      ['conversation.hidden_changed', group.id, { hidden: true }],
+      ['conversation.hidden_changed', group.id, { hidden: false }],
+      ['conversation.left', group.id, {}],
+    ])
+    expect(JSON.stringify((await storedRows(server, 'audit_events')).slice(start))).not.toContain('Secret')
+  })
 })

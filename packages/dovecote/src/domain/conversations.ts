@@ -19,21 +19,22 @@ import { type NoteRow, hydrateNotes } from './note-rows.ts'
 import { featureIsOn, readSettings } from './settings.ts'
 
 /**
- * The viewer's conversations. A mute is a person's own setting, so it is shown only to the person
- * themself, never to their agent's credential.
+ * The viewer's conversations. A mute and a hide are a person's own settings, so they apply only to the
+ * person themself, never to their agent's credential, whose list keeps every room.
  */
 export const listConversations = (
   viewerId: MemberId,
   forPerson: boolean,
 ): T.Task<Conversation[], never, AppEnv> =>
   T.gen(function* () {
+    const personal = yield* personalSettingsShown(forPerson)
+    const unlessHidden = personal.hidden ? sql`AND NOT ${isHiddenFrom(viewerId)}` : sql``
     const rows = yield* all<ConversationRow>(sql`
       SELECT c.* FROM conversations c
       JOIN participants p ON p.conversation_id = c.id AND p.member_id = ${viewerId}
-      WHERE ${isShownTo(viewerId)}
+      WHERE ${isShownTo(viewerId)} ${unlessHidden}
       ORDER BY c.last_activity_at DESC LIMIT ${CONVERSATION_LIMIT}`)
-    const muting = yield* showsMute(forPerson)
-    return yield* T.forEach(rows, (row) => describeConversation(viewerId, row, muting))
+    return yield* T.forEach(rows, (row) => describeConversation(viewerId, row, personal))
   })
 
 export const conversationFor = (
@@ -43,7 +44,7 @@ export const conversationFor = (
 ): T.Task<Conversation, NotFound, AppEnv> =>
   T.gen(function* () {
     const row = yield* participatedConversation(viewerId, id)
-    return yield* describeConversation(viewerId, row, yield* showsMute(forPerson))
+    return yield* describeConversation(viewerId, row, yield* personalSettingsShown(forPerson))
   })
 
 export const participatedConversation = (
@@ -89,16 +90,16 @@ export const createGroupConversation = (
     const others = [...new Set(otherIds)].filter((id) => id !== viewerId)
     if (others.length === 0)
       return yield* T.fail(Invalid({ message: 'A conversation needs someone else in it.' }))
-    const muting = yield* featureIsOn('mute')
+    const personal = yield* personalSettingsShown(true)
     if (others.length === 1)
       return yield* describeConversation(
         viewerId,
         yield* directConversationWith(viewerId, others[0]!),
-        muting,
+        personal,
       )
     yield* requireMayMessage(viewerId, others)
     const row = yield* insertConversation('group', title ?? null, null, viewerId, [viewerId, ...others])
-    return yield* describeConversation(viewerId, row, muting)
+    return yield* describeConversation(viewerId, row, personal)
   })
 
 const requireMayMessage = (
@@ -158,13 +159,26 @@ const isShownTo = (viewerId: MemberId): Query => sql`(
   OR EXISTS (SELECT 1 FROM notes n WHERE n.conversation_id = c.id
              AND (n.status = 'sent' OR (n.status = 'draft' AND n.author_id = ${viewerId}))))`
 
-const showsMute = (forPerson: boolean): T.Task<boolean, never, AppEnv> =>
-  forPerson ? featureIsOn('mute') : T.succeed(false)
+/** Hidden by the viewer, no note sent since, no draft of theirs waiting; `p` is the viewer's place. */
+const isHiddenFrom = (viewerId: MemberId): Query => sql`(p.hidden_at IS NOT NULL AND NOT EXISTS (
+  SELECT 1 FROM notes h WHERE h.conversation_id = c.id
+  AND ((h.status = 'sent' AND h.sent_at >= p.hidden_at) OR (h.status = 'draft' AND h.author_id = ${viewerId}))))`
+
+interface PersonalSettings {
+  readonly muted: boolean
+  readonly hidden: boolean
+}
+
+const personalSettingsShown = (forPerson: boolean): T.Task<PersonalSettings, never, AppEnv> =>
+  T.gen(function* () {
+    if (!forPerson) return { muted: false, hidden: false }
+    return { muted: yield* featureIsOn('mute'), hidden: yield* featureIsOn('hideConversations') }
+  })
 
 const describeConversation = (
   viewerId: MemberId,
   row: ConversationRow,
-  muting: boolean,
+  personal: PersonalSettings,
 ): T.Task<Conversation, never, AppEnv> =>
   T.gen(function* () {
     const participantIds = yield* participantsOf(row.id)
@@ -182,11 +196,13 @@ const describeConversation = (
     const askedOf = channelRoom === null ? null : yield* channelSlugOfRoom(channelRoom)
     const managedFrom = row.kind === 'channel' ? row.id : channelRoom
     const managerIds = managedFrom === null ? null : yield* managersIn(row.id, managedFrom)
-    const place = muting
-      ? yield* first<{ muted_at: number | null }>(
-          sql`SELECT muted_at FROM participants WHERE conversation_id = ${row.id} AND member_id = ${viewerId}`,
-        )
-      : null
+    const place =
+      personal.muted || personal.hidden
+        ? yield* first<{ muted_at: number | null; hidden: number }>(sql`
+            SELECT p.muted_at, CASE WHEN ${isHiddenFrom(viewerId)} THEN 1 ELSE 0 END AS hidden
+            FROM participants p JOIN conversations c ON c.id = p.conversation_id
+            WHERE p.conversation_id = ${row.id} AND p.member_id = ${viewerId}`)
+        : null
     return {
       id: row.id,
       kind: row.kind,
@@ -201,7 +217,8 @@ const describeConversation = (
       ...(channelRoom !== null && { privateQuestionOf: askedOf }),
       ...(channelRoom !== null && row.asked_by != null && { askedBy: row.asked_by }),
       ...(managerIds !== null && { managerIds }),
-      ...(muting && { muted: (place?.muted_at ?? null) !== null }),
+      ...(personal.muted && { muted: (place?.muted_at ?? null) !== null }),
+      ...(personal.hidden && { hidden: Number(place?.hidden ?? 0) === 1 }),
     }
   })
 

@@ -8,6 +8,7 @@ import * as channelAgents from './tasks/channel-agents.ts'
 import * as channelTeaching from './tasks/channel-teaching.ts'
 import * as channels from './tasks/channels.ts'
 import * as cloudDesk from './tasks/cloud-desk.ts'
+import * as conversationActions from './tasks/conversation-actions.ts'
 import * as debates from './tasks/debates.ts'
 import * as drafts from './tasks/drafts.ts'
 import * as earlierAnswers from './tasks/earlier-answers.ts'
@@ -58,6 +59,8 @@ export const TASKS = {
   markAnsweredFromHistory: earlierAnswers.markAnsweredFromHistory,
   setMuted: mutes.setMuted,
   chooseNotificationLevel: mutes.chooseNotificationLevel,
+  setHidden: conversationActions.setHidden,
+  leaveGroup: conversationActions.leaveGroup,
   approveDraft: drafts.approveDraft,
   saveDraft: drafts.saveDraft,
   confirmDraftRead: drafts.confirmDraftRead,

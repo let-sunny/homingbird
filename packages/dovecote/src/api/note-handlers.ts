@@ -10,7 +10,9 @@ import {
 } from '../domain/draft-requests.ts'
 import { createDraft, markDraftSeen, updateDraft } from '../domain/drafts.ts'
 import { earlierAnswers, recordAnsweredFromHistory } from '../domain/earlier-answers.ts'
+import { setHidden } from '../domain/hides.ts'
 import { notesAwaitingReply } from '../domain/inbox.ts'
+import { leaveGroup } from '../domain/leaving.ts'
 import { setMuted } from '../domain/mutes.ts'
 import { draftsOf, notesInConversation, searchNotes, visibleNote } from '../domain/notes.ts'
 import { recallNote } from '../domain/recalls.ts'
@@ -37,6 +39,18 @@ export const noteHandlers = {
     ),
   'conversations.unmute': ({ params }, caller) =>
     T.flatMap((id: ConversationId) => setMuted(caller.member.id, id, false))(
+      identifier(ConversationId, params.id),
+    ),
+  'conversations.hide': ({ params }, caller) =>
+    T.flatMap((id: ConversationId) => setHidden(caller.member.id, id, true))(
+      identifier(ConversationId, params.id),
+    ),
+  'conversations.unhide': ({ params }, caller) =>
+    T.flatMap((id: ConversationId) => setHidden(caller.member.id, id, false))(
+      identifier(ConversationId, params.id),
+    ),
+  'conversations.leave': ({ params }, caller) =>
+    T.flatMap((id: ConversationId) => T.as({})(leaveGroup(caller, id)))(
       identifier(ConversationId, params.id),
     ),
   'conversations.notes': ({ params, query }, caller) =>

@@ -657,6 +657,7 @@ erDiagram
     id conversation_id PK
     id member_id PK
     integer muted_at
+    integer hidden_at
   }
   NOTES {
     id id PK

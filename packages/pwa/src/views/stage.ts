@@ -1,4 +1,4 @@
-import type { AsRead, ConversationId } from '@homingbird/protocol'
+import type { AsRead, ConversationId, MemberId } from '@homingbird/protocol'
 import { type Child, type Lifetime, h } from '@homingbird/ui'
 import { featureOn } from '../features.ts'
 import type { Route } from '../routes.ts'

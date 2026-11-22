@@ -301,6 +301,7 @@ export const Conversation = S.struct({
   /** Which participants of a channel's room or private question manage that channel now. */
   managerIds: S.optional(S.array(MemberId)),
   muted: S.optional(S.boolean),
+  hidden: S.optional(S.boolean),
 })
 export type Conversation = S.Infer<typeof Conversation>
 

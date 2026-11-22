@@ -686,6 +686,8 @@ export const ko: Translation<typeof en> = {
       draftRequests: '에이전트에게 초안 요청',
       characters: '프로필 캐릭터',
       mute: 'DM과 채널 알림 끄기',
+      hideConversations: 'DM과 그룹 DM을 내 목록에서 숨기기',
+      leaveGroups: '그룹 DM 나가기',
       webPush: '기기 알림',
       answeringFlow: '답변 절차',
       earlierAnswers: '이전 답변: 질문을 쓰는 동안 이전 답변 보여 주기',
@@ -710,6 +712,8 @@ export const ko: Translation<typeof en> = {
       draftRequests: '끄면: 웹에서 에이전트에게 초안을 요청할 수 없어요.',
       characters: '끄면: 모두 비둘기로 보이고 캐릭터를 바꿀 수 없어요.',
       mute: '끄면: DM이나 채널의 알림을 끄거나 알림 받을 곳을 고를 수 없고, 모두 전처럼 알림이 와요.',
+      hideConversations: '끄면: DM이나 그룹 DM을 숨길 수 없고, 숨겨 두었던 DM도 모두 목록에 다시 보여요.',
+      leaveGroups: '끄면: 그룹 DM에서 나갈 수 없고, 각 그룹의 사람은 그대로예요.',
       webPush: '끄면: 휴대폰이나 컴퓨터로 알림이 가지 않아요.',
       answeringFlow: '끄면: 에이전트가 조직의 단계 없이 초안을 써요.',
       earlierAnswers: '끄면: 질문을 쓰는 동안 이전 답변이 보이지 않고, 에이전트도 찾아보지 않고 질문해요.',
@@ -1876,6 +1880,26 @@ export const ko: Translation<typeof en> = {
     fromDiscard: '어떻게 했어야 하는지 가르치기',
     correctionHint:
       '고친 내용으로 미리 채웠어요. 저장하기 전에는 아무것도 저장되지 않고, 저장하면 {channel} 채널 운영자 모두가 봐요.',
+  },
+  places: {
+    hide: '숨기기',
+    hideName: '{name} 내 목록에서 숨기기',
+    show: '목록에 보이기',
+    showName: '{name} 내 목록에 다시 보이기',
+    hideHint:
+      '숨기면 내 목록에서만 사라지고, 여기에 노트가 보내지면 다시 나타나요. 다른 사람에게는 달라지는 것이 없어요.',
+    hideWithDraft: '내 초안이 여기서 승인을 기다리는 동안에는 목록에 남아요.',
+    hiddenNow: '{name}: 내 목록에서 숨겼어요. 여기에 노트가 보내지면 다시 나타나요.',
+    leave: '그룹 나가기',
+    leaveTitle: '{name}에서 나갈까요?',
+    leaveBody:
+      '지금부터 이 그룹의 노트도, 나중에 보내지는 노트도 보이지 않고, 내 에이전트도 받지 않아요. 보낸 노트는 다른 사람에게 그대로 남아요. 누구도 다시 추가할 수 없으니, 다시 쓰려면 새 그룹을 시작해요.',
+    leaveBodyWithDrafts:
+      '지금부터 이 그룹의 노트도, 나중에 보내지는 노트도 보이지 않고, 내 에이전트도 받지 않아요. 여기서 승인을 기다리던 내 초안은 버려져요. 보낸 노트는 다른 사람에게 그대로 남아요. 누구도 다시 추가할 수 없으니, 다시 쓰려면 새 그룹을 시작해요.',
+    left: '{name}에서 나갔어요.',
+    newGroup: '이 사람들과 새 그룹',
+    newGroupHint:
+      '같은 사람들과 새 그룹 DM을 시작해요. 사람을 더하거나 뺄 때 써요. 이전 노트는 여기에 남아요. 노트마다 이 그룹 사람들에게 보내도록 승인되었기 때문이에요.',
   },
   mute: {
     muteName: '{name} 알림 끄기',

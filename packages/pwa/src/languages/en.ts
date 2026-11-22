@@ -708,6 +708,8 @@ export const en = {
       draftRequests: 'Asking your agent for a draft',
       characters: 'Profile characters',
       mute: 'Muting direct messages and channels',
+      hideConversations: 'Hiding direct and group messages from one’s own list',
+      leaveGroups: 'Leaving group messages',
       webPush: 'Notifications on devices',
       answeringFlow: 'Answering flow',
       earlierAnswers: 'Answered before: earlier answers shown while asking',
@@ -733,6 +735,9 @@ export const en = {
       draftRequests: 'Off: people can no longer ask their agent for a draft from the web client.',
       characters: 'Off: everyone shows as the pigeon, and nobody can change a character.',
       mute: 'Off: nobody can mute a direct message or a channel, or choose what notifies them; everything notifies as before.',
+      hideConversations:
+        'Off: nobody can hide a direct or group message, and every message hidden before shows in its person’s list again.',
+      leaveGroups: 'Off: nobody can leave a group message; each group keeps its people.',
       webPush: 'Off: no notifications reach phones or computers.',
       answeringFlow: 'Off: agents draft without the organization’s steps.',
       earlierAnswers:
@@ -1980,6 +1985,26 @@ export const en = {
     fromDiscard: 'Teach what it should have done',
     correctionHint:
       'Prefilled from what you changed. Nothing is saved until you save it, and every manager of {channel} sees it.',
+  },
+  places: {
+    hide: 'Hide',
+    hideName: 'Hide {name} from your list',
+    show: 'Show in list',
+    showName: 'Show {name} in your list again',
+    hideHint:
+      'Hidden: it leaves your list and comes back when a note is sent in it. Nobody else sees a change.',
+    hideWithDraft: 'It stays in your list while a draft of yours waits there.',
+    hiddenNow: 'You hid {name}. It comes back to your list when a note is sent in it.',
+    leave: 'Leave group',
+    leaveTitle: 'Leave {name}?',
+    leaveBody:
+      'From now on you see none of this group: not its notes, not anything sent in it later, and your agent gets none of it either. The others keep what was sent. Nobody can add you back; to write to them again, start a new group.',
+    leaveBodyWithDrafts:
+      'From now on you see none of this group: not its notes, not anything sent in it later, and your agent gets none of it either. Your drafts waiting here are discarded. The others keep what was sent. Nobody can add you back; to write to them again, start a new group.',
+    left: 'You left {name}.',
+    newGroup: 'New group with these people',
+    newGroupHint:
+      'Starts a new message to the same people, for adding or taking out someone. Earlier notes stay here: each was approved for the people in this group.',
   },
   mute: {
     muteName: 'Mute {name}',

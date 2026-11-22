@@ -41,6 +41,7 @@ export const EventBody = S.openVariants(
     'directory.changed': { memberId: MemberId },
     'channel.changed': { channel: Channel },
     'channel.left': { slug: ChannelSlug, conversationId: ConversationId },
+    'conversation.left': { conversationId: ConversationId, memberId: MemberId },
     'debate.changed': { debateId: DebateId, participantIds: S.array(MemberId, { maxItems: 8 }) },
     'group.changed': { groupId: GroupId },
     'review.changed': { noteId: S.nullable(NoteId) },
