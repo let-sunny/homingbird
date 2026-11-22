@@ -10,6 +10,7 @@ import {
   type DebateEnding,
   DebateId,
   type DebateLimits,
+  type DebateLimitsWish,
   type DebateSummary,
   type DebateVisibility,
   Forbidden,
@@ -19,6 +20,7 @@ import {
   RESULT_WINDOW_MS,
   type ResponseOf,
   askOf,
+  limitsFor,
   limitsProblem,
 } from '@homingbird/protocol'
 import { type Caller, isHuman, viewerOf } from '../environment.ts'
@@ -42,7 +44,7 @@ import { settleDebate } from './debate-turns.ts'
 export interface DebateWish {
   readonly question: string
   readonly visibility?: DebateVisibility
-  readonly limits?: DebateLimits
+  readonly limits?: DebateLimitsWish
   readonly memberIds?: ReadonlyArray<MemberId>
 }
 
@@ -57,7 +59,7 @@ export const createDebate = (
       return yield* T.fail(Forbidden({ message: 'Only a person can open a debate room.' }))
     const question = wish.question.trim()
     if (question === '') return yield* T.fail(Invalid({ message: 'A debate room needs a question.' }))
-    const limits = wish.limits ?? DEFAULT_DEBATE_LIMITS
+    const limits = limitsFor(wish.limits ?? DEFAULT_DEBATE_LIMITS, 0)
     yield* requireUsableLimits(limits)
     const invited = yield* activeMembersAmong((wish.memberIds ?? []).filter((id) => id !== caller.member.id))
     const now = env.clock.now()
@@ -69,6 +71,7 @@ export const createDebate = (
       created_by: caller.member.id,
       turns_per_agent: limits.turnsPerAgent,
       total_turns: limits.totalTurns,
+      total_follows_agents: limits.totalFollowsAgents === true ? 1 : null,
       minutes: limits.minutes,
       turn_characters: limits.turnCharacters,
       created_at: now,
@@ -162,7 +165,7 @@ export const optInAgent = (
 export const setDebateLimits = (
   caller: Caller,
   id: DebateId,
-  limits: DebateLimits,
+  limits: DebateLimitsWish,
 ): T.Task<Debate, NotFound | Forbidden | Conflict | Invalid, RequestEnv> =>
   T.gen(function* () {
     if (!isHuman(caller))

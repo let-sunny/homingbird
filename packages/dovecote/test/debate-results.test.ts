@@ -412,6 +412,23 @@ describe('credits', () => {
     expect(mine.achievements).toEqual(['debate_conclusion', 'debate_gap_filled', 'debate_next_step_accepted'])
   })
 
+  it('refuses a credit whose turn is not that agent’s, and leaves out one that names no turn', async () => {
+    const id = await concludedRoom()
+    const [ana, ben] = resultFor(cast).contributions
+    const refused = await cast.anaAgent.api('PUT', `/debates/${id}/result`, {
+      ...resultFor(cast),
+      contributions: [ana, { ...ben, credits: [{ credit: 'gap_filled', turn: 1 }] }],
+    })
+    expect(refused.status).toBe(400)
+    expect(refused.json.error.message).toMatch(/names turn 1, which is not a turn of that agent’s/)
+    const kept = await cast.anaAgent.api('PUT', `/debates/${id}/result`, {
+      ...resultFor(cast),
+      contributions: [ana, { ...ben, credits: ['gap_filled'] }],
+    })
+    expect(kept.status).toBe(200)
+    expect(kept.json.drafts[0].result.contributions[1].credits).toEqual([])
+  })
+
   it('offers no route to approve or decline a result', async () => {
     const id = await closedRoom()
     expect((await cast.ana.api('POST', `/debates/${id}/result/approval`, { draftedAt: 1 })).status).toBe(404)

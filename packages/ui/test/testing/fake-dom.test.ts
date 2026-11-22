@@ -268,6 +268,28 @@ describe('events', () => {
     expect(seen).toHaveLength(7)
   })
 
+  it('runs capturing listeners from the top down before the target, and a stop there ends the path', () => {
+    const outer = document.createElement('div')
+    const inner = document.createElement('button')
+    outer.appendChild(inner)
+    const seen: string[] = []
+    const stopper = (event: ReturnType<typeof fakeEvent>) => event.stopPropagation()
+    outer.addEventListener('click', () => seen.push('outer bubbling'))
+    outer.addEventListener('click', () => seen.push('outer capturing'), { capture: true })
+    inner.addEventListener('click', () => seen.push('inner'))
+    inner.click()
+    expect(seen).toEqual(['outer capturing', 'inner', 'outer bubbling'])
+    outer.addEventListener('click', stopper, true)
+    inner.click()
+    expect(seen).toHaveLength(4)
+    outer.removeEventListener('click', stopper)
+    inner.click()
+    expect(seen).toHaveLength(5)
+    outer.removeEventListener('click', stopper, { capture: true })
+    inner.click()
+    expect(seen).toHaveLength(8)
+  })
+
   it('does not bubble events that do not bubble, and reports a prevented default', () => {
     const outer = document.createElement('div')
     const inner = document.createElement('span')
@@ -284,6 +306,13 @@ describe('events', () => {
       'Enter',
       true,
       inner,
+    ])
+    const shortcut = fakeEvent('keydown', { key: 'Enter', ctrlKey: true, metaKey: true })
+    expect([shortcut.ctrlKey, shortcut.metaKey, event.ctrlKey, event.metaKey]).toEqual([
+      true,
+      true,
+      false,
+      false,
     ])
   })
 
@@ -352,6 +381,16 @@ describe('events', () => {
     dialog.open = true
     dialog.open = false
     expect(dialog.open).toBe(false)
+  })
+
+  it('gives the focus to the field marked autofocus when a dialog opens as a modal', () => {
+    const dialog = document.createElement('dialog')
+    const field = document.createElement('textarea')
+    field.setAttribute('autofocus', '')
+    dialog.append(document.createElement('button'), field)
+    document.body.append(dialog)
+    dialog.showModal()
+    expect(document.activeElement).toBe(field)
   })
 
   it('moves focus, and a changed control dispatches change as it loses it', () => {

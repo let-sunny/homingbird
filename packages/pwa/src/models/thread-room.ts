@@ -22,12 +22,16 @@ export interface ThreadInput {
   readonly conversationId: ConversationId
   readonly thread: Thread | undefined
   readonly draftsRead: ReadonlyMap<NoteId, DraftAsShown>
+  /** The edits the person made to drafts and did not send, by draft. */
+  readonly draftEdits: ReadonlyMap<NoteId, string>
   readonly conversations: ReadonlyArray<AsRead.Conversation>
   readonly channels: ReadonlyArray<AsRead.Channel>
   readonly members: ReadonlyMap<MemberId, AsRead.Member>
   readonly directory: ReadonlyArray<AsRead.DirectoryEntry>
   readonly releases: ReadonlyMap<NoteId, Release>
   readonly archiveDiscards: ReadonlyArray<ArchiveDiscard>
+  /** Questions whose channel agent's answer this manager discarded, with the agent's name. */
+  readonly discardedAnswers?: ReadonlyMap<NoteId, string>
   readonly replyTarget: NoteId | null
   readonly draftRequests: ReadonlyArray<DraftRequest>
   readonly taught: AsRead.MyPrinciples | 'failed' | null
@@ -111,6 +115,10 @@ export const channelAskedIn = (
   const slug = room.privateQuestionOf ?? null
   return slug === null ? null : (input.channels.find((channel) => channel.slug === slug) ?? null)
 }
+
+/** The name of the scrolling list of a conversation's notes, for a screen reader: whose notes they are. */
+export const threadNotesLabel = (input: ThreadInput): string =>
+  strings.threadNotes({ title: threadHeadModel(input).title })
 
 /** The head of a conversation: who it is with, or the channel with its counts and controls. */
 export const threadHeadModel = (input: ThreadInput): ThreadHead => {

@@ -26,39 +26,72 @@ export type ClaimedCredit = S.Infer<typeof ClaimedCredit>
 
 export const DEBATE_PARTICIPANTS_MAX = 8
 
+export const RESULT_TEXT_MAX = {
+  conclusion: 1500,
+  reason: 400,
+  contribution: 400,
+  step: 300,
+  point: 300,
+  explanation: 600,
+  changedMind: 300,
+  stillOpen: 300,
+} as const
+
+export const CreditAtTurn = S.struct({ credit: ClaimedCredit, turn: S.int({ min: 1 }) })
+export type CreditAtTurn = S.Infer<typeof CreditAtTurn>
+
+/** A credit as a draft names it: with its turn, or, as drafts did before, the kind alone, which earns nothing. */
+export const NamedCredit = S.union(CreditAtTurn, ClaimedCredit)
+export type NamedCredit = S.Infer<typeof NamedCredit>
+
 export const Contribution = S.struct({
   memberId: MemberId,
-  summary: S.string({ minLength: 1, maxLength: 400 }),
-  credits: S.array(ClaimedCredit, { maxItems: 3 }),
+  summary: S.string({ minLength: 1, maxLength: RESULT_TEXT_MAX.contribution }),
+  credits: S.array(NamedCredit, { maxItems: 3 }),
 })
 export type Contribution = S.Infer<typeof Contribution>
 
 export const NextStep = S.struct({
-  step: S.string({ minLength: 1, maxLength: 300 }),
+  step: S.string({ minLength: 1, maxLength: RESULT_TEXT_MAX.step }),
   owner: S.nullable(MemberId),
   proposedBy: MemberId,
 })
 export type NextStep = S.Infer<typeof NextStep>
 
 export const DisagreementPoint = S.struct({
-  point: S.string({ minLength: 1, maxLength: 300 }),
+  point: S.string({ minLength: 1, maxLength: RESULT_TEXT_MAX.point }),
   category: DisagreementCategory,
-  explanation: S.string({ minLength: 1, maxLength: 600 }),
+  explanation: S.string({ minLength: 1, maxLength: RESULT_TEXT_MAX.explanation }),
 })
 export type DisagreementPoint = S.Infer<typeof DisagreementPoint>
+
+export const ChangedMind = S.struct({
+  turn: S.int({ min: 1 }),
+  line: S.string({ minLength: 1, maxLength: RESULT_TEXT_MAX.changedMind }),
+})
+export type ChangedMind = S.Infer<typeof ChangedMind>
 
 const contributions = S.array(Contribution, { maxItems: DEBATE_PARTICIPANTS_MAX })
 const nextSteps = S.array(NextStep, { maxItems: 8 })
 
 const conclusionFields = {
-  conclusion: S.string({ minLength: 1, maxLength: 1500 }),
-  reasons: S.array(S.string({ minLength: 1, maxLength: 400 }), { minItems: 1, maxItems: 8 }),
+  conclusion: S.string({ minLength: 1, maxLength: RESULT_TEXT_MAX.conclusion }),
+  reasons: S.array(S.string({ minLength: 1, maxLength: RESULT_TEXT_MAX.reason }), {
+    minItems: 1,
+    maxItems: 8,
+  }),
   contributions,
   nextSteps,
+  changedMinds: S.optional(S.array(ChangedMind, { maxItems: 8 })),
+  stillOpen: S.optional(
+    S.array(S.string({ minLength: 1, maxLength: RESULT_TEXT_MAX.stillOpen }), { maxItems: 8 }),
+  ),
+  /** Where the agents differed before they agreed, by the same categories as a disagreement. */
+  points: S.optional(S.array(DisagreementPoint, { maxItems: 12 })),
 }
 
 const noConclusionFields = {
-  summary: S.string({ minLength: 1, maxLength: 1500 }),
+  summary: S.string({ minLength: 1, maxLength: RESULT_TEXT_MAX.conclusion }),
   points: S.array(DisagreementPoint, { minItems: 1, maxItems: 12 }),
   contributions,
   nextSteps,
@@ -87,3 +120,10 @@ export const resultOfDraft = (
   const { model = null, ...result } = drafted
   return { result, model }
 }
+
+export const creditKindOf = <C extends string>(
+  credit: C | { readonly credit: C; readonly turn: number },
+): C => (typeof credit === 'string' ? credit : credit.credit)
+
+export const creditTurnOf = (credit: string | { readonly turn: number }): number | null =>
+  typeof credit === 'string' ? null : credit.turn

@@ -7,6 +7,7 @@ import type {
   StatusSummary,
 } from '@homingbird/protocol'
 import { requestAnsweredBy } from './draft-requests.ts'
+import { isSameDay } from './models/time.ts'
 import { formats, strings } from './strings.ts'
 
 export type ThreadItem =
@@ -257,8 +258,11 @@ const byCreatedTime = (a: AsRead.Note, b: AsRead.Note): number =>
   a.createdAt - b.createdAt || a.id.localeCompare(b.id)
 
 /**
- * Consecutive notes by one author, written the same way: by their agent, by their agent and edited by
- * them, or by them. A run shows the character and its mark once, so the mark must hold for every note.
+ * Consecutive notes by one author on one day, written the same way: by their agent, by their agent and
+ * edited by them, or by them. A run shows the character and its mark once, so the mark must hold for
+ * every note; a day's heading between two notes starts a new run.
  */
 const isSameRun = (a: AsRead.Note, b: AsRead.Note): boolean =>
-  a.authorId === b.authorId && a.origin === b.origin
+  a.authorId === b.authorId &&
+  a.origin === b.origin &&
+  isSameDay(a.sentAt ?? a.createdAt, b.sentAt ?? b.createdAt)

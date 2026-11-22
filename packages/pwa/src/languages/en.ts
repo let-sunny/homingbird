@@ -74,17 +74,36 @@ export const en = {
     thisAnswersIt: 'This answers it',
     keepWriting: 'Keep writing',
     answered: 'Glad it was answered. Nothing was sent.',
+    askedTitle: 'Asked already',
+    askedLead: 'Someone asked this here and is still waiting. Sending stays up to you.',
+    askedBy: 'Asked {elapsed} ago by {name}, no answer yet',
+    waitsForYourReview: 'Its answer waits for your review.',
+    openQuestion: 'Open the question',
   },
   send: 'Send',
   replyingTo: 'Replying to “{excerpt}”',
   stopReplying: 'Do not reply to this note',
   reply: 'Reply',
+  quotedNote: 'Go to the note this replies to',
+  showMoreNote: 'Show more',
+  showLessNote: 'Show less',
+  today: 'Today',
+  yesterday: 'Yesterday',
+  unreadFromHere: 'Unread',
+  threadNotes: 'Notes: {title}',
+  skipToComposer: 'Skip to writing a note',
   loadOlder: 'Load older notes',
   askAgentToReply: 'Ask my agent to draft a reply',
   noteMore: 'More for this note',
   copyNote: 'Copy text',
   noteCopied: 'Copied the note.',
+  copyCode: 'Copy',
+  codeCopied: 'Copied the code.',
   noteNotCopied: 'This browser did not let Homingbird copy. Select the text and copy it yourself.',
+  copyNoteLink: 'Copy link to the note',
+  noteLinkCopied: 'Copied the link to the note.',
+  askAgentOff: 'This server does not take draft requests, so your agent cannot be asked here.',
+  unsentText: 'Unsent text kept here',
   conversationMore: 'More for {name}',
   letAgentWrite: 'Let my agent write it',
   agentInstructionLabel: 'What should it say? (optional)',
@@ -137,6 +156,20 @@ export const en = {
   waitingForApproval: 'Waiting for your approval',
   draftBasisTitle: 'What this draft is based on',
   draftBasisMissing: 'Your agent gave no basis for this draft.',
+  basedOn: 'Based on',
+  sourceNote: 'An earlier note',
+  sourceNoteUnknown: 'An earlier note you cannot open here',
+  approveAndSend: 'Approve and send',
+  heldSending: 'Sending to {names}…',
+  heldSent: 'Sent to {names}',
+  heldNotSent: 'Not sent to {names}: the page closed before it went. It is still a draft.',
+  heldDiscarding: 'Discarding…',
+  heldDiscarded: 'Discarded',
+  heldNotDiscarded: 'Not discarded: the page closed before it went. The draft still waits.',
+  draftEditKept: 'Your edit is kept and not sent. Edit opens it again.',
+  undo: 'Undo',
+  heldDismiss: 'Done',
+  noAnswerYet: 'No answer yet',
   chooseOne: {
     one: '{count} alternative. Send it or discard it.',
     other: '{count} alternatives. Send one and the others are discarded.',
@@ -214,7 +247,7 @@ export const en = {
   editDraftTitle: 'Edit draft',
   editDraftLabel: 'Draft text',
   saveDraft: 'Save draft',
-  sendEdited: 'Send',
+  sendEdited: 'Approve and send',
   cancel: 'Cancel',
   cannotMessage: 'You cannot message this person right now.',
   incomingNote: 'New note from {name}',
@@ -396,6 +429,11 @@ export const en = {
     neverActive: 'Never signed in',
     dormant: 'No activity for 30 days',
     groups: 'Groups: {groups}',
+    agentCredentials: {
+      one: '{count} agent connection, expires {date}',
+      other: '{count} agent connections, the newest expires {date}',
+    },
+    noAgentCredentials: 'No agent connections',
   },
   conversationMissing: 'This direct message or channel does not exist, or you are not in it.',
   moreChannels: { one: '+{count} more channel', other: '+{count} more channels' },
@@ -418,7 +456,10 @@ export const en = {
   addContactHint: 'Sends {name} a contact request. Once they accept, you can exchange notes.',
   switchOn: 'On',
   switchOff: 'Off',
-  managerCannotLeave: 'You manage this channel. Remove yourself as a manager before you leave it.',
+  managerCannotLeave:
+    'You manage this channel, so you stay in it while others are here. Remove yourself as a manager under Members first.',
+  onlyManagerCannotLeave:
+    'You are this channel’s only manager. Add another manager under Members, then remove yourself as a manager, before you leave.',
   youMark: '(you)',
   cannotChangeOwnRole: 'You cannot change your own role or status. Ask another administrator.',
   clients: { web: 'Web client', cli: 'Homingbird CLI' },
@@ -449,6 +490,8 @@ export const en = {
     draftChanged: 'This draft changed after you read it, so it was not sent. Read it again.',
     nameTaken: 'That name is not available.',
     lastManager: 'A channel with members keeps a manager. Add another manager first.',
+    managerStays:
+      'A manager stays in the channel while others are here. Remove yourself as a manager first, after adding another manager if you are the only one.',
     requestNotWaiting: 'This request is no longer waiting.',
   },
   deskTitle: 'Keep one agent session open for Homingbird: your desk.',
@@ -542,9 +585,9 @@ export const en = {
     notesTitle: 'Your notes',
     notesBody:
       'Your direct messages with colleagues are listed here; their agents draft replies too. Nothing is sent until you approve it.',
-    approvalTitle: 'Your agent’s draft: Send, Edit or Discard',
+    approvalTitle: 'Your agent’s draft: Approve and send, Edit or Discard',
     approvalBody:
-      'When your agent drafts a reply, it waits on a card in its direct message or channel, and under the bell. Send it as written, Edit it first, or Discard it; nothing leaves until you press Send.',
+      'When your agent drafts a reply, it waits on a card in its direct message or channel, and under the bell. Approve and send it as written, Edit it first, or Discard it; nothing leaves until you press Approve and send.',
     connectTitle: 'Connect your agent',
     connectBody:
       'Under My agent, Connection: install the Claude Code plugin or the homingbird command line, sign it in, and keep it running. It drafts replies; you approve each one.',
@@ -554,7 +597,7 @@ export const en = {
       'Ask a channel when you do not know who can answer, or turn on answering where you can help. A person approves every note.',
     activityTitle: 'Everything that waits for you',
     activityBody:
-      'The bell lists your agent’s drafts, answers to review and notes your agent skipped. Send, edit or discard each one right there.',
+      'The bell lists your agent’s drafts, answers to review and notes your agent skipped. Approve and send, edit or discard each one right there.',
     activityPlace: 'the bell, top right',
     profileTitle: 'Your profile',
     profileBody: 'Choose your language and your character here, and start this tour again.',
@@ -584,7 +627,7 @@ export const en = {
       noteDetails: 'Who wrote a note: model and program',
       debateRooms: 'Debate rooms',
       channelAgents: 'Channel agents',
-      cloudDesk: 'Cloud desk (experimental)',
+      cloudDesk: 'Cloud desk: wake your agent in a cloud service (experimental)',
       joinCodes: 'Join codes for running an agent on a server',
       deskAvailability: 'Showing when an agent can’t answer',
       invites: 'Invite links',
@@ -894,6 +937,19 @@ export const en = {
     chanceDiscard: 'You discarded a draft in {place}. What should your agent have done?',
     notNow: 'Not now',
     stopAsking: 'Don’t ask in this channel',
+    chanceHereEdit: 'You rewrote your agent’s draft.',
+    chanceHereDiscard: 'You discarded your agent’s draft.',
+    teachFromEdit: 'Teach your agent from this edit',
+    teachFromDiscard: 'Teach your agent what to do next time',
+    behindTitle: 'The drafts behind these figures',
+    behindIntro:
+      'Each one is a chance to teach. Open where it happened to see what you sent, or teach your agent what it missed.',
+    behind: {
+      edited: 'Edited, then sent: {count}',
+      discarded: 'Discarded: {count}',
+      skipped: 'Notes your agent skipped: {count}',
+    },
+    openConversation: 'Open where it happened',
     applied: 'Your agent says it applied: {title}',
     wrongHere: 'This principle was wrong here',
     wrongRecorded: 'Recorded: this principle was wrong here.',
@@ -943,6 +999,10 @@ export const en = {
     inviteHint: 'Invited people can follow the room and opt their own agent in.',
     limits: 'Limits',
     limitsDefaults: 'Limits (defaults)',
+    totalTurnsHint:
+      'Leave “Turns in total” empty to give every agent its turns: the total is the turns per agent times the agents opted in, until the first turn.',
+    minutesHint:
+      'The time limit starts with the first turn, so opting agents in takes nothing from the debate.',
     graceMinutes: 'Drop out after',
     graceChoice: '{minutes} minutes unseen',
     graceHint:
@@ -1020,6 +1080,11 @@ export const en = {
     noConclusion: 'No conclusion',
     reasons: 'Reasons',
     disagreements: 'Where and why they disagreed',
+    differences: 'Where they differed before they agreed',
+    changedMinds: 'What changed minds',
+    changedMind: 'Turn {turn}',
+    stillOpen: 'Still open',
+    earnedIn: 'turn {turn}',
     category: {
       unknown: 'A kind of disagreement this version cannot name',
       information: 'Information: one side had something the other lacked',
@@ -1084,8 +1149,39 @@ export const en = {
     tabs: { result: 'Result', votes: 'Votes', credit: 'Credit', turns: 'Turns' },
     turnsTaken: '{count} of {total} turns taken.',
     turnTimes: 'First turn {first}; latest {last}.',
-    earlierTurns: { one: 'Show {count} earlier turn', other: 'Show {count} earlier turns' },
     keptSteps: 'Next steps it proposed that the result kept',
+    turnLabel: 'Turn {position}',
+    fillerMark: 'Nothing new',
+    changedPositionMark: 'Changed position',
+    quietTurns: '{count} turns that add nothing new: turns {first} to {last}',
+    personAgent: '{person}’s agent',
+    tallyTitle: 'Votes per draft',
+    tie: {
+      one: 'Tied at {count} vote each. A tie goes to the earliest draft: {draft}.',
+      other: 'Tied at {count} votes each. A tie goes to the earliest draft: {draft}.',
+    },
+    sharedCredits: 'Given to every agent: {credits}.',
+    turnsTook: {
+      one: 'Took {count} turn: turn {positions}.',
+      other: 'Took {count} turns: turns {positions}.',
+    },
+    fillerCount: {
+      one: '{count} of them added nothing new.',
+      other: '{count} of them added nothing new.',
+    },
+    noTurnTaken: 'Took no turn.',
+    positionChange: 'Changed position from turn {from} to turn {to}.',
+    movedTitle: 'Who changed position',
+    movedLine: '{agent}: from turn {from} to turn {to}',
+    chooseDestination: 'Choose a channel or a person first.',
+  },
+  debateNote: {
+    agreed: 'The agents agreed',
+    disagreed: 'The agents did not agree',
+    nextSteps: 'Next steps',
+    openRoom: 'Open the debate room',
+    whole: 'The whole result as sent',
+    origin: 'From the debate room “{question}”',
   },
   insights: {
     title: 'Insights',
@@ -1096,6 +1192,9 @@ export const en = {
       'The minimum group on this server is {minimum} people: figures are shown per group, and any group under {minimum} people is left out. Blocks are a count only.',
     minimumOne:
       'The minimum group on this server is 1 person: figures are shown for every group, so a group with one member shows that person’s figures. Your server’s operator can raise it with HB_INSIGHTS_MINIMUM_GROUP.',
+    minimumNotice:
+      'Figures here may describe one person. The minimum group on this server is 1, so a group with one member shows that person’s figures, how quickly they approve included. To hide groups of fewer than five people, your server’s operator sets HB_INSIGHTS_MINIMUM_GROUP=5 and restarts the server.',
+    minimumNoticeDismiss: 'Got it',
     tooFew: 'Fewer than {minimum} people sent notes in this period, so no numbers are shown.',
     caption: 'The organization in the last {days} days, beside the {days} days before',
     rows: {
@@ -1136,6 +1235,11 @@ export const en = {
     hiddenLabels: {
       one: '{count} program or model used by too few people is not shown.',
       other: '{count} programs or models used by too few people are not shown.',
+    },
+    hiddenLabelsOnePerson: {
+      one: '{count} program or model used by one person only is not shown, since its name could identify them.',
+      other:
+        '{count} programs or models used by one person only are not shown, since their names could identify them.',
     },
     placesTitle: 'By channel',
     placeColumn: 'Channel',
@@ -1357,6 +1461,15 @@ export const en = {
     addTeamHint:
       'Adds the people in a group as managers, once: later changes to the group change nothing here.',
     unmanage: 'Remove as manager',
+    unmanageTitle: 'Remove {name} as a manager?',
+    unmanageBody:
+      '{name} stays in the channel, and no longer reviews its agent’s answers or adds people to it.',
+    unmanageSelfTitle: 'Stop managing {channel}?',
+    unmanageSelfBody:
+      'You stay in the channel, and no longer review its agent’s answers or add people to it.',
+    onlyManagerYou:
+      'You will be its only manager: when its agent answers a question of yours, the answer waits until you add another manager.',
+    onlyManagerOther: '{name} will be its only manager.',
     deactivateLeaves: 'Deactivating {name} removes them from every group: {groups}.',
     writeTo: 'Write to {name}',
     messageGroup: 'Group message with {group}',
@@ -1426,6 +1539,8 @@ export const en = {
       week: 'How many notes you sent, how many replies you received, and your typical time to reply.',
       approvedForChannels:
         'How many answers of a channel’s agent you sent as one of its managers, counted apart from your own notes.',
+      misses:
+        'Which drafts you edited or discarded and which notes your agent skipped, by where and when, so that you can open them and teach.',
     },
     managers: {
       decisions:
@@ -1482,6 +1597,9 @@ export const en = {
     clear: 'Clear',
   },
   channelAgent: {
+    discardedReplyYourself:
+      'You discarded {agent}’s answer. Reply yourself, or leave the question for the others who answer here.',
+    answerDiscarded: 'You discarded {agent}’s answer. Nobody has answered yet.',
     title: 'Channel agent',
     intro:
       'One agent answers this channel’s questions. Its answers wait for its managers: any one of you sends an answer, and the first to send it wins.',
@@ -1527,9 +1645,21 @@ export const en = {
     waitsInRoom:
       'Answer by {agent}, waiting for review. Only this channel’s managers see it until one of them sends it.',
     askedPrivately: 'Asked privately',
-    reliedOn: 'What it relied on',
-    send: 'Send',
+    reliedOn: 'What this answer is based on',
+    send: 'Approve and send',
     discard: 'Discard',
+    whyYouReview: 'You manage {channel}, so you review its agent’s answers.',
+    edit: 'Edit',
+    editTitle: 'Edit the answer',
+    editLabel: 'Answer text',
+    sendEdited: 'Approve and send',
+    discardTitle: 'Discard this answer',
+    discardReason: 'Why (optional)',
+    discardReasonHint:
+      'Kept for the managers of {channel}, for how its agent is doing and for teaching it. {name} never sees it.',
+    discardReasonHintPrivately:
+      'Kept for the managers of {channel}, for how its agent is doing and for teaching it. The person who asked never sees it.',
+    discardConfirm: 'Discard',
     approvedBy: '{channel} · approved by {name}',
     askPrivately: 'Ask {agent} privately',
     privateNotice:

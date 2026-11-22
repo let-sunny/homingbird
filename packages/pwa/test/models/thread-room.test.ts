@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   archiveDiscardLines,
+  channelAskedIn,
   isFocusedDraftOpen,
   isOn,
   mayMessageIn,
@@ -10,6 +11,7 @@ import {
   roomOf,
   settledDraftLine,
   threadHeadModel,
+  threadNotesLabel,
   threadTopModel,
 } from '../../src/models/thread-room.ts'
 import { strings } from '../../src/strings.ts'
@@ -70,6 +72,16 @@ describe('threadTopModel', () => {
   })
 })
 
+describe('channelAskedIn', () => {
+  it('finds the channel a private question asks, and none for a direct room or a channel no longer listed', () => {
+    const wiki = channel('wiki')
+    const asked = conversation({ kind: 'group', privateQuestionOf: 'wiki', participantIds: [ANA, BEN] })
+    expect(channelAskedIn(threadInput({ conversations: [asked], channels: [wiki] }))).toBe(wiki)
+    expect(channelAskedIn(threadInput({ conversations: [asked], channels: [] }))).toBeNull()
+    expect(channelAskedIn(threadInput({ channels: [wiki] }))).toBeNull()
+  })
+})
+
 describe('settledDraftLine', () => {
   it('says the draft a notification opened was settled once the thread shows it is not open', () => {
     const shownWith = (notes: ReturnType<typeof note>[], focusedDraft: string | null = 'd1') =>
@@ -98,6 +110,15 @@ describe('archiveDiscardLines', () => {
     expect(archiveDiscardLines([{ noteId: 'n1' as never, channel: 'billing' }])).toEqual([
       { noteId: 'n1', text: strings.draftDiscardedByArchive({ channel: '#billing' }) },
     ])
+  })
+})
+
+describe('threadNotesLabel', () => {
+  it('names the notes by the conversation, while it loads too', () => {
+    expect(threadNotesLabel(threadInput())).toBe(strings.threadNotes({ title: 'Ben' }))
+    expect(threadNotesLabel(threadInput({ conversations: [] }))).toBe(
+      strings.threadNotes({ title: strings.loading }),
+    )
   })
 })
 

@@ -1,17 +1,28 @@
 import type { AsRead, CredentialId, DebateExportFormat } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, lifetime, linkedText, region } from '@homingbird/ui'
-import { type DebateRoomModel, type Turn, debateRoomModel, resultDestination } from '../models/debate-room.ts'
+import type { QuotedTurn } from '../models/debate-credit.ts'
+import { type DebateRoomModel, debateRoomModel, resultDestination } from '../models/debate-room.ts'
+import type { Turn, TurnGroup } from '../models/debate-turn-list.ts'
 import { type DebateTab, hrefFor } from '../routes.ts'
 import { locale, strings } from '../strings.ts'
 import { authorButton } from './author-details.ts'
 import type { ViewContext } from './context.ts'
-import { renderResultBody, renderVoteRecord, resultSection, section } from './debate-result.ts'
+import {
+  citedText,
+  creditBadge,
+  renderResultBody,
+  renderVoteRecord,
+  resultSection,
+  section,
+} from './debate-result.ts'
 import { limitFields, limitsTypedIn } from './debates.ts'
+import { citedBody } from './note-body.ts'
 import { emptyWithPip, field, loading, page, privateMarkOf, timeLabel } from './parts.ts'
 
 /**
  * One debate room, one short tab at a time, each its own address: the result the agents settled, how they
- * voted, what each contributed, and the turns as they come. Changing tabs keeps the room drawn while it is read again.
+ * voted, what each contributed, and the turns as they come. Changing tabs keeps the room drawn while it is
+ * read again. An address naming a turn brings that turn into view once the room is drawn.
  */
 export const debateView = (
   context: ViewContext,
@@ -19,6 +30,7 @@ export const debateView = (
   me: AsRead.Me,
   id: string,
   tab: DebateTab | null,
+  turn: number | null = null,
 ): HTMLElement => {
   const { state, actions } = context
   const held = state.shownDebate.get()
@@ -35,6 +47,7 @@ export const debateView = (
       const model = debateRoomModel({
         debate: state.shownDebate.get(),
         tab,
+        turn,
         viewerId: me.member.id,
         members: state.members.get(),
         agents: state.agentCredentials.get(),
@@ -44,7 +57,15 @@ export const debateView = (
         now: context.clock.now(),
       })
       const view = renderDebateRoom(model, context, drawn)
-      if (model.kind === 'room' && model.focusesTab && focusPending) {
+      if (model.kind === 'room' && model.focusTurn !== null && focusPending) {
+        focusPending = false
+        const cited = `.debate-turn[data-position="${model.focusTurn}"]`
+        context.page.nextFrame(() => {
+          const shown = view.ownerDocument.querySelector<HTMLElement>(cited)
+          shown?.scrollIntoView({ block: 'start' })
+          shown?.focus({ preventScroll: true })
+        })
+      } else if (model.kind === 'room' && model.focusesTab && focusPending) {
         focusPending = false
         context.page.nextFrame(() =>
           view.ownerDocument.querySelector<HTMLElement>(CURRENT_TAB)?.focus({ preventScroll: true }),
@@ -106,6 +127,18 @@ const tabContent = (model: Room, context: ViewContext, drawn: Lifetime): Readonl
 const resultTab = (model: Room, context: ViewContext, drawn: Lifetime): ReadonlyArray<Child> => [
   model.ended !== null && section(strings.debates.resultTitle, 'debate-result', h('p', {}, model.ended)),
   model.result !== null && resultSection(model.result),
+  model.moved.length > 0 &&
+    section(
+      strings.debates.movedTitle,
+      'debate-moved',
+      h(
+        'ul',
+        { class: 'debate-moves' },
+        model.moved.map((move) =>
+          h('li', { data: { member: move.memberId } }, h('p', {}, citedText(move.text)), movedBetween(move)),
+        ),
+      ),
+    ),
   model.closed !== null && h('p', { class: 'hint debate-closed-hint' }, strings.debates.closedHint),
   model.closed?.mayPost === true &&
     section(strings.debates.sendTitle, 'debate-send', postForm(context, model.debate, model.closed)),
@@ -166,16 +199,30 @@ const creditTab = ({ credit }: Room): ReadonlyArray<Child> => [
   section(
     strings.debates.contributions,
     'debate-credit-list',
+    credit?.shared != null && h('p', { class: 'hint debate-shared-credits' }, credit.shared),
     h(
       'ul',
       { class: 'debate-contributions' },
-      (credit ?? []).map((row) =>
+      (credit?.rows ?? []).map((row) =>
         h(
           'li',
-          { data: { member: row.memberId } },
+          { class: 'debate-credit-row', data: { member: row.memberId } },
           h('strong', {}, row.name),
-          row.summary !== null && h('span', {}, row.summary),
-          ...row.credits.map((one) => h('span', { class: 'debate-credit', title: one.hint }, one.text)),
+          row.summary !== null && h('span', {}, citedText(row.summary)),
+          ...row.credits.map(creditBadge),
+          h(
+            'p',
+            { class: 'debate-credit-turns' },
+            ...citedText(row.turns),
+            row.filler !== null && ` ${row.filler}`,
+          ),
+          row.positionChange !== null &&
+            h(
+              'div',
+              { class: 'debate-position-change' },
+              h('p', {}, citedText(row.positionChange.text)),
+              movedBetween(row.positionChange),
+            ),
           row.keptSteps.length > 0 &&
             h(
               'div',
@@ -184,7 +231,7 @@ const creditTab = ({ credit }: Room): ReadonlyArray<Child> => [
               h(
                 'ul',
                 {},
-                row.keptSteps.map((step) => h('li', {}, step)),
+                row.keptSteps.map((step) => h('li', {}, h('span', {}, citedText(step)))),
               ),
             ),
         ),
@@ -192,6 +239,14 @@ const creditTab = ({ credit }: Room): ReadonlyArray<Child> => [
     ),
   ),
 ]
+
+/** The start of the turn an agent moved from and of the turn it moved in. */
+const movedBetween = (move: { readonly from: QuotedTurn; readonly to: QuotedTurn }): HTMLElement =>
+  h(
+    'dl',
+    { class: 'debate-moved-between' },
+    [move.from, move.to].map((turn) => [h('dt', {}, turn.label), h('dd', {}, turn.excerpt)]),
+  )
 
 const turnsTab = (model: Room, context: ViewContext, drawn: Lifetime): ReadonlyArray<Child> => [
   model.optIn !== null && optInSection(context, model.debate, model.optIn),
@@ -231,45 +286,65 @@ const turnsTab = (model: Room, context: ViewContext, drawn: Lifetime): ReadonlyA
             h('span', { class: 'debate-turns-taken' }, model.turns.taken),
             h('span', {}, model.turns.timing),
           ),
-          model.turns.earlier !== null &&
-            h(
-              'details',
-              { class: 'debate-earlier-turns' },
-              h('summary', {}, model.turns.earlier.label),
-              turnList(model.turns.earlier.turns, context, drawn, false),
-            ),
-          turnList(model.turns.latest, context, drawn, true),
+          h(
+            'ol',
+            { class: 'debate-turn-list', 'aria-live': 'polite' },
+            model.turns.groups.map((group) => turnGroup(group, context, drawn)),
+          ),
         ]),
   ),
 ]
 
-const turnList = (
-  turns: ReadonlyArray<Turn>,
-  context: ViewContext,
-  drawn: Lifetime,
-  isLive: boolean,
-): HTMLElement =>
-  h(
-    'ol',
-    { class: 'debate-turn-list', ...(isLive && { 'aria-live': 'polite' }) },
-    turns.map((turn) =>
-      h(
+const turnGroup = (group: TurnGroup, context: ViewContext, drawn: Lifetime): HTMLElement =>
+  group.kind === 'turn'
+    ? turnItem(group.turn, context, drawn)
+    : h(
         'li',
-        { class: `debate-turn ${turn.mine ? 'is-mine' : ''}`, data: { position: String(turn.position) } },
+        { class: 'debate-quiet-turns' },
         h(
-          'header',
-          { class: 'debate-turn-head' },
+          'details',
+          { ...(group.open && { open: true }) },
+          h('summary', {}, group.label),
           h(
-            'span',
-            { class: 'debate-turn-author' },
-            authorButton(context, drawn, turn.details),
-            h('strong', {}, turn.author),
+            'ol',
+            { class: 'debate-turn-list' },
+            group.turns.map((turn) => turnItem(turn, context, drawn)),
           ),
-          timeLabel(turn.time),
         ),
-        h('p', { class: 'debate-turn-body' }, ...linkedText(turn.body)),
+      )
+
+const turnItem = (turn: Turn, context: ViewContext, drawn: Lifetime): HTMLElement =>
+  h(
+    'li',
+    {
+      class: [
+        'debate-turn',
+        turn.mine && 'is-mine',
+        turn.filler !== null && 'is-filler',
+        turn.focused && 'is-cited',
+      ]
+        .filter(Boolean)
+        .join(' '),
+      id: `turn-${turn.position}`,
+      data: { position: String(turn.position) },
+      ...(turn.focused && { tabindex: '-1' }),
+    },
+    h(
+      'header',
+      { class: 'debate-turn-head' },
+      h('span', { class: 'debate-turn-number' }, turn.label),
+      h(
+        'span',
+        { class: 'debate-turn-author' },
+        authorButton(context, drawn, turn.details),
+        h('strong', {}, turn.author),
       ),
+      turn.changedPosition !== null &&
+        h('span', { class: 'debate-turn-mark is-moved' }, turn.changedPosition),
+      turn.filler !== null && h('span', { class: 'debate-turn-mark' }, turn.filler),
+      timeLabel(turn.time),
     ),
+    citedBody(context, turn.body, 'debate-turn-body'),
   )
 
 const limitsForm = (context: ViewContext, debate: AsRead.Debate): HTMLElement => {
@@ -355,6 +430,7 @@ const postForm = (
   ]
   const channel = h('select', { name: 'channel' }, choices(closed.channels))
   const person = h('select', { name: 'person' }, choices(closed.people))
+  const problem = h('p', { class: 'debate-post-problem', role: 'alert' })
   return h(
     'form',
     {
@@ -363,7 +439,10 @@ const postForm = (
         submit: (event) => {
           event.preventDefault()
           const destination = resultDestination(channel.value, person.value)
-          if (destination === null) return
+          if (destination === null) {
+            problem.textContent = closed.chooseFirst
+            return channel.focus()
+          }
           context.actions.postResult(debate.id, destination, {
             done: (draft) =>
               context.page.go(hrefFor({ name: 'conversation', id: draft.conversationId, draft: null })),
@@ -375,6 +454,7 @@ const postForm = (
     field(strings.debates.postToChannel, channel),
     field(strings.debates.postToPerson, person),
     h('button', { type: 'submit', class: 'primary' }, strings.debates.post),
+    problem,
   )
 }
 

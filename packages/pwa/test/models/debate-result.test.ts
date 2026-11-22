@@ -58,18 +58,18 @@ describe('resultBody', () => {
         conclusion: 'Ship.',
         reasons: ['Ready.'],
         nextSteps: [{ step: 'Tag', owner: ANA, proposedBy: BEN }],
-        contributions: [{ memberId: ANA, summary: 'Tested.', credits: ['gap_filled'] }],
+        contributions: [{ memberId: ANA, summary: 'Tested.', credits: ['gap_filled', 'position_changed'] }],
       } as never,
       someone,
     )
     expect(body).toMatchObject({
       kind: 'known',
       heading: strings.debates.conclusion,
-      reasons: ['Ready.'],
+      reasons: [[{ kind: 'text', text: 'Ready.' }]],
       nextSteps: {
         steps: [
           {
-            step: 'Tag',
+            step: [{ kind: 'text', text: 'Tag' }],
             owner: strings.debates.owner({ person: 'Ana' }),
             proposedBy: strings.debates.proposedBy({ person: 'Ben' }),
           },
@@ -85,6 +85,72 @@ describe('resultBody', () => {
           },
         ],
       },
+    })
+  })
+
+  it('words what changed minds, what is still open, where the agents differed and the turn behind each credit', () => {
+    const body = resultBody(
+      {
+        kind: 'conclusion',
+        conclusion: 'Ship.',
+        reasons: ['Ready.'],
+        nextSteps: [],
+        contributions: [{ memberId: ANA, summary: 'Tested.', credits: [{ credit: 'gap_filled', turn: 3 }] }],
+        changedMinds: [{ turn: 2, line: 'The rehearsal failed.' }],
+        stillOpen: ['Who tells support?'],
+        points: [{ point: 'Date', category: 'goals', explanation: 'Friday or January.' }],
+      } as never,
+      someone,
+    )
+    expect(body).toMatchObject({
+      points: null,
+      differences: {
+        heading: strings.debates.differences,
+        points: [{ point: 'Date', categoryText: strings.debates.category.goals }],
+      },
+      changedMinds: {
+        heading: strings.debates.changedMinds,
+        items: [
+          {
+            turn: [{ kind: 'text', text: strings.debates.changedMind({ turn: 2 }) }],
+            line: [{ kind: 'text', text: 'The rehearsal failed.' }],
+          },
+        ],
+      },
+      stillOpen: {
+        heading: strings.debates.stillOpen,
+        items: [[{ kind: 'text', text: 'Who tells support?' }]],
+      },
+      contributions: {
+        rows: [
+          {
+            credits: [
+              { text: strings.debates.credit.gap_filled, turn: strings.debates.earnedIn({ turn: 3 }) },
+            ],
+          },
+        ],
+      },
+    })
+    const plain = resultBody(
+      { kind: 'conclusion', conclusion: 'Ship.', reasons: [], nextSteps: [], contributions: [] } as never,
+      someone,
+    )
+    expect(plain).toMatchObject({ differences: null, changedMinds: null, stillOpen: null })
+    const none = resultBody(
+      {
+        kind: 'no_conclusion',
+        summary: 'Split.',
+        points: [{ point: 'Date', category: 'goals', explanation: 'Why' }],
+        nextSteps: [],
+        contributions: [],
+      } as never,
+      someone,
+    )
+    expect(none).toMatchObject({
+      differences: null,
+      changedMinds: null,
+      stillOpen: null,
+      points: [{ point: 'Date' }],
     })
   })
 
@@ -104,6 +170,81 @@ describe('resultBody', () => {
         steps: [{ owner: strings.debates.mine.owner, proposedBy: strings.debates.mine.proposedBy }],
       },
       contributions: { rows: [{ name: strings.debates.mine.agent }] },
+    })
+  })
+})
+
+describe('resultBody citing turns', () => {
+  it('passes every text the agents wrote through the room’s citation of turns', () => {
+    const cite = (text: string) => [{ kind: 'turn' as const, text, href: `#${text}` }]
+    const body = resultBody(
+      {
+        kind: 'no_conclusion',
+        summary: 'S',
+        points: [{ point: 'P', category: 'goals', explanation: 'E' }],
+        nextSteps: [{ step: 'N', owner: null, proposedBy: BEN }],
+        contributions: [{ memberId: BEN, summary: 'C', credits: [] }],
+      } as never,
+      { ...someone, cite },
+    )
+    expect(body).toMatchObject({
+      summary: cite('S'),
+      points: [{ explanation: cite('E') }],
+      nextSteps: { steps: [{ step: cite('N') }] },
+      contributions: { rows: [{ summary: cite('C') }] },
+    })
+  })
+})
+
+describe('the tally of a vote', () => {
+  const tallied = (votes: ReadonlyArray<number | null>, chosen: MemberId, viewerId: MemberId = CY) =>
+    resultModel(
+      debate({
+        status: 'closed',
+        participants: [ANA, BEN, CY].map((memberId) => ({ memberId, agentName: 'Desk' })) as never,
+        drafts: [ANA, BEN].map((draftedBy, index) => ({
+          draftedBy,
+          draftedAt: index + 1,
+          result: { kind: 'unknown' },
+          votes: votes[index],
+        })) as never,
+        voteRecord: { votes: [{ voterId: CY, draftBy: BEN }], droppedOut: [] } as never,
+        result: { result: { kind: 'unknown' } as never, draftedBy: chosen, draftedAt: 1 },
+      }),
+      'closed',
+      { nameOf, viewerId },
+    )
+
+  it('counts each draft’s votes and says a tie went to the earliest draft', () => {
+    expect(tallied([1, 1], ANA)).toMatchObject({
+      voteRecord: {
+        tally: [
+          { memberId: ANA, draft: strings.debates.draftOf({ person: 'Ana' }), chosen: true },
+          { memberId: BEN, draft: strings.debates.draftOf({ person: 'Ben' }), chosen: false },
+        ],
+        tie: strings.debates.tie({ count: 1, draft: strings.debates.draftOf({ person: 'Ana' }) }),
+      },
+    })
+    expect(tallied([1, 1], ANA, ANA)).toMatchObject({
+      voteRecord: { tie: strings.debates.tie({ count: 1, draft: strings.debates.mine.draftOf }) },
+    })
+  })
+
+  it('names no tie when the chosen draft won outright, or a later draft was chosen among equals', () => {
+    expect(tallied([2, 1], ANA)).toMatchObject({ voteRecord: { tie: null } })
+    expect(tallied([1, 1], BEN)).toMatchObject({ voteRecord: { tie: null } })
+    expect(tallied([1, 1], CY)).toMatchObject({ voteRecord: { tie: null } })
+  })
+
+  it('counts the vote record when a draft does not say its votes', () => {
+    expect(tallied([null, null], BEN)).toMatchObject({
+      voteRecord: {
+        tally: [
+          { votes: strings.debates.votes({ count: 0 }) },
+          { votes: strings.debates.votes({ count: 1 }) },
+        ],
+        tie: null,
+      },
     })
   })
 })

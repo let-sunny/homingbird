@@ -3,9 +3,12 @@ import { type Lifetime, h, later, lifetime, region, replaceChildren } from '@hom
 import { track } from '../analytics.ts'
 import { NOTICE_MS, toastModel } from '../models/toast.ts'
 import { type Route, arrivedToConnect, currentHashFor, hrefFor, parseRoute, signInHref } from '../routes.ts'
+import type { Notice } from '../state.ts'
 import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
-import { dialogHost } from './dialog.ts'
+import { DIALOG_ID, dialogHost } from './dialog.ts'
+import { heldToast } from './held-toast.ts'
+import { button } from './parts.ts'
 import { shell } from './shell.ts'
 import { signInView } from './sign-in.ts'
 import { stageFor } from './stage.ts'
@@ -69,6 +72,7 @@ export const showApp = (
       focused ? stage : shell(context, appLife, me, stage),
       dialogHost(),
       toast(context, appLife),
+      heldToast(context, appLife),
       liveAnnouncer(context, appLife),
     )
   }
@@ -91,17 +95,26 @@ const refusalIn = (current: Route): string | null => {
 
 const inviteIn = (current: Route): string | null => (current.name === 'invite' ? current.code : null)
 
+/**
+ * The notice of the moment, closed after a while; one already shown when the page is drawn again gets
+ * its time too. While a dialog is open it is shown inside it, since the dialog's backdrop covers the page.
+ */
 const toast = (context: ViewContext, life: Lifetime): HTMLElement => {
   const { notice } = context.state
   let cancel = (): void => {}
+  const time = (current: Notice | null): void => {
+    cancel()
+    cancel = current === null ? () => {} : later(context.clock, NOTICE_MS, () => notice.set(null))
+  }
+  time(notice.get())
   life.add(
     notice.subscribe((current) => {
-      cancel()
-      if (current !== null) cancel = later(context.clock, NOTICE_MS, () => notice.set(null))
+      time(current)
+      placeNotice(context, host, current !== null)
     }),
   )
   life.add(() => cancel())
-  return region(
+  const host = region(
     life,
     [notice],
     () => {
@@ -129,6 +142,26 @@ const toast = (context: ViewContext, life: Lifetime): HTMLElement => {
     },
     { class: 'toast-host' },
   )
+  return host
+}
+
+/**
+ * Moves the notice into the open dialog while there is one, and back beside it once the dialog closes or
+ * new content replaced it there.
+ */
+const placeNotice = (context: ViewContext, host: HTMLElement, shown: boolean): void => {
+  const dialog = context.document.byId(DIALOG_ID) as HTMLDialogElement | null
+  if (dialog === null) return
+  const putBack = (): void => {
+    if (host.parentElement === dialog || !host.isConnected)
+      dialog.parentNode?.insertBefore(host, dialog.nextSibling)
+  }
+  if (!shown || !dialog.open) {
+    putBack()
+    return
+  }
+  dialog.append(host)
+  dialog.addEventListener('close', putBack, { once: true })
 }
 
 const liveAnnouncer = (context: ViewContext, life: Lifetime): HTMLElement =>

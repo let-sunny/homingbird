@@ -1,5 +1,5 @@
 import type { AsRead, ChannelMember, GroupId, MemberId } from '@homingbird/protocol'
-import { type Roster, channelLabel, isPrivate, rosterFacts } from '../channels.ts'
+import { type Roster, channelLabel, isPrivate } from '../channels.ts'
 import { groupById, groupLabel, teamsByLabel } from '../groups.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
@@ -11,7 +11,7 @@ export const roomControlsModel = (
   viewerId: MemberId | null,
   viewerIsAdmin = false,
 ): RoomControls => {
-  const facts = rosterFacts(roster, viewerId)
+  const refusal = leaveRefusal(channel, roster?.members ?? null, viewerId)
   const seesMembers = channel.managing || (viewerIsAdmin && isPrivate(channel))
   return {
     answering: channel.joined ? answeringModel(channel) : null,
@@ -23,11 +23,30 @@ export const roomControlsModel = (
     manage: seesMembers ? strings.membersTitle({ channel: channelLabel(channel.slug) }) : null,
     leave: !channel.joined
       ? null
-      : facts.viewerIsManager
-        ? { kind: 'blocked', reason: strings.managerCannotLeave }
+      : refusal !== null
+        ? { kind: 'blocked', reason: refusal }
         : { kind: 'allowed', title: strings.leaveChannelTitle({ channel: channelLabel(channel.slug) }) },
     leaveBody: leaveConsequence(channel),
   }
+}
+
+/**
+ * Why the person may not leave a channel, by the server's rule: a manager stays in the room while
+ * anyone else is in it, so they first stop managing it, and that needs another manager. Null when they
+ * may leave. Without the roster, whether they may manage it stands in for whether they do.
+ */
+export const leaveRefusal = (
+  channel: AsRead.Channel,
+  roster: ReadonlyArray<ChannelMember> | null,
+  viewerId: MemberId | null,
+): string | null => {
+  const managers = (roster ?? []).filter((member) => member.manager)
+  const isManager =
+    roster === null ? channel.managing : managers.some((member) => member.memberId === viewerId)
+  const others =
+    roster === null ? channel.memberCount - 1 : roster.filter((member) => member.memberId !== viewerId).length
+  if (!isManager || others <= 0) return null
+  return roster !== null && managers.length <= 1 ? strings.onlyManagerCannotLeave : strings.managerCannotLeave
 }
 
 /** The roster a managed channel needs, and whether the cached one is out of date for its member count. */
@@ -76,7 +95,6 @@ export const membersPanelModel = (input: MembersPanelInput): MembersPanelModel =
       visibility: null,
     }
   if (!input.channel.managing) return seenByAdministrator(input, roster, managedByAdmin, managedBy)
-  const facts = rosterFacts({ memberCount: roster.length, members: roster }, input.viewerId)
   const inside = new Set(roster.map((member) => member.memberId))
   const candidates = input.directory.filter((entry) => !inside.has(entry.member.id))
   return {
@@ -86,7 +104,7 @@ export const membersPanelModel = (input: MembersPanelInput): MembersPanelModel =
     addTeam: addTeamModel(input, managers),
     rows: roster.map((member) =>
       member.memberId === input.viewerId
-        ? ownRow(input, member, facts.viewerIsManager, managers)
+        ? ownRow(input, member, roster, managers)
         : memberRow(input, member, managers),
     ),
     addMember: !isPrivate(input.channel)
@@ -194,6 +212,7 @@ export interface Unmanage {
   readonly label: string
   readonly groupId: GroupId
   readonly memberIds: ReadonlyArray<MemberId>
+  readonly confirm: Confirmation
 }
 
 export interface Role {
@@ -218,7 +237,7 @@ const nameIn = (input: MembersPanelInput, memberId: MemberId): string =>
 const ownRow = (
   input: MembersPanelInput,
   member: ChannelMember,
-  isManager: boolean,
+  roster: ReadonlyArray<ChannelMember>,
   managers: AsRead.Group | null,
 ): MemberRow => {
   const label = channelLabel(input.channel.slug)
@@ -227,13 +246,13 @@ const ownRow = (
     memberId: member.memberId,
     name: nameIn(input, member.memberId),
     roles: roles(member),
-    blocked: isManager ? strings.managerCannotLeave : null,
+    blocked: leaveRefusal(input.channel, roster, input.viewerId),
     leave: {
       title: strings.leaveChannelTitle({ channel: label }),
       body: leaveConsequence(input.channel),
       confirm: strings.leaveChannel,
     },
-    unmanage: unmanageModel(member, managers),
+    unmanage: unmanageModel(input, member, managers),
   }
 }
 
@@ -248,7 +267,7 @@ const memberRow = (
   name: nameIn(input, member.memberId),
   roles: roles(member),
   remove: isPrivate(input.channel) && !member.manager ? strings.removeMember : null,
-  unmanage: unmanageModel(member, managers),
+  unmanage: unmanageModel(input, member, managers),
 })
 
 /**
@@ -306,12 +325,39 @@ const addTeamModel = (
     : { label: strings.groups.addTeam, hint: strings.groups.addTeamHint, choices }
 }
 
-/** A channel keeps a manager, so the last one cannot be taken out. */
-const unmanageModel = (member: ChannelMember, managers: AsRead.Group | null): Unmanage | null =>
-  managers === null || !managers.mayRemove || !member.manager || managers.memberIds.length < 2
-    ? null
-    : {
-        label: strings.groups.unmanage,
-        groupId: managers.id,
-        memberIds: managers.memberIds.filter((memberId) => memberId !== member.memberId),
-      }
+/**
+ * A channel keeps a manager, so the last one cannot be taken out. Taking one out is confirmed first,
+ * with a warning when the one left would be the only manager.
+ */
+const unmanageModel = (
+  input: MembersPanelInput,
+  member: ChannelMember,
+  managers: AsRead.Group | null,
+): Unmanage | null => {
+  if (managers === null || !managers.mayRemove || !member.manager || managers.memberIds.length < 2)
+    return null
+  const remaining = managers.memberIds.filter((memberId) => memberId !== member.memberId)
+  const isSelf = member.memberId === input.viewerId
+  const name = nameIn(input, member.memberId)
+  const only = remaining.length === 1 ? remaining[0]! : null
+  const warning =
+    only === null
+      ? null
+      : only === input.viewerId
+        ? strings.groups.onlyManagerYou
+        : strings.groups.onlyManagerOther({ name: nameIn(input, only) })
+  return {
+    label: strings.groups.unmanage,
+    groupId: managers.id,
+    memberIds: remaining,
+    confirm: {
+      title: isSelf
+        ? strings.groups.unmanageSelfTitle({ channel: channelLabel(input.channel.slug) })
+        : strings.groups.unmanageTitle({ name }),
+      body: [isSelf ? strings.groups.unmanageSelfBody : strings.groups.unmanageBody({ name }), warning]
+        .filter((line) => line !== null)
+        .join(' '),
+      confirm: strings.groups.unmanage,
+    },
+  }
+}

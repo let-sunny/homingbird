@@ -71,6 +71,19 @@ describe('httpApi', () => {
     expect(calls[0]!.init.body).toBe('{}')
   })
 
+  it('keeps a change alive past the page closing, but not a read or a body too large for that', async () => {
+    const { fetch, calls } = answering(200, sample(contract['drafts.discard'].response))
+    const api = httpApi({ serverUrl: 'https://hb.example.com', fetch })
+    await invoke(api, 'drafts.discard', { params: { id: 'note_abcdefghijkl' }, body: {} })
+    await invoke(api, 'conversations.list', {})
+    await invoke(api, 'drafts.send', {
+      params: { id: 'note_abcdefghijkl' },
+      body: { expected: { body: 'x'.repeat(40_000), conversationId: 'conv_abcdefghijkl' } },
+    })
+    await invoke(api, 'drafts.seen', { params: { id: 'note_abcdefghijkl' } })
+    expect(calls.map((call) => call.init.keepalive)).toEqual([true, undefined, undefined, true])
+  })
+
   it('encodes the query and leaves out undefined values', async () => {
     const { fetch, calls } = answering(200, { notes: [] })
     const api = httpApi({ serverUrl: 'https://hb.example.com', fetch })

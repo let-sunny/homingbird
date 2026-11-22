@@ -79,7 +79,7 @@ const scenario = async (): Promise<void> => {
     )
     await june.page.click('dialog[open] button[type=submit]')
     await june.page.waitForSelector('.note.is-mine.is-edited')
-    await june.page.click('.ask-agent summary')
+    await june.page.click('.composer .ask-agent-toggle')
     await june.page.fill(
       '.ask-agent textarea[name=instruction], .ask-agent input[name=instruction]',
       'Offer to watch it with Ana',

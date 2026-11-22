@@ -9,9 +9,10 @@ import {
 } from '@homingbird/protocol'
 import { type ChannelAgentState, channelAgentState } from '../channel-answerers.ts'
 import { channelLabel, channelOfRoom, isPrivate } from '../channels.ts'
-import { draftBasisOf } from '../draft-basis.ts'
+import { type SourceShown, draftBasisOf } from '../draft-basis.ts'
 import { isChangedSinceRead } from '../drafts-read.ts'
 import { featureOn } from '../features.ts'
+import { type HeldChoices, heldWordsFor, keptEditLine } from '../held-decisions.ts'
 import { hrefFor } from '../routes.ts'
 import { formats, strings } from '../strings.ts'
 
@@ -111,13 +112,14 @@ export const reviewCardsModel = (
   slug: string,
   read: ReadonlyMap<NoteId, DraftAsShown>,
   members: ReadonlyMap<MemberId, AsRead.Member>,
+  edits: ReadonlyMap<NoteId, string>,
   focus: string | null,
 ): ReviewCards => {
   const shown = reviews.filter((review) => review.channel === slug)
   return {
     title: strings.channelAgent.reviewsTitle,
     none: shown.length === 0 ? strings.channelAgent.reviewsNone : null,
-    cards: shown.map((review) => reviewCardModel(review, read, members, focus, 'quoted')),
+    cards: shown.map((review) => reviewCardModel(review, read, members, edits, focus, 'quoted')),
   }
 }
 
@@ -126,14 +128,18 @@ export const reviewCardModel = (
   review: AsRead.Review,
   read: ReadonlyMap<NoteId, DraftAsShown>,
   members: ReadonlyMap<MemberId, AsRead.Member>,
+  edits: ReadonlyMap<NoteId, string>,
   focus: string | null,
   question: 'quoted' | 'above',
 ): ReviewCard => {
   const basis = draftBasisOf(review.note)
+  const channel = channelLabel(review.channel)
+  const asker = review.question === null ? null : (members.get(review.question.authorId)?.name ?? null)
   return {
     review,
     focused: review.note.id === focus,
     heading: null,
+    why: strings.channelAgent.whyYouReview({ channel }),
     question:
       review.question === null || question === 'above'
         ? null
@@ -145,12 +151,28 @@ export const reviewCardModel = (
           },
     privately: review.privately ? strings.channelAgent.askedPrivately : null,
     body: review.note.body,
-    basis: basis?.kind === 'given' ? { title: strings.channelAgent.reliedOn, lines: basis.lines } : null,
+    basis:
+      basis?.kind === 'given'
+        ? { title: strings.channelAgent.reliedOn, lines: basis.lines, sources: basis.sources }
+        : null,
     readAgain: isChangedSinceRead(read, review.note)
       ? { notice: strings.draftChangedSinceRead, confirm: strings.draftReadAgain }
       : null,
     send: strings.channelAgent.send,
+    edit: strings.channelAgent.edit,
     discard: strings.channelAgent.discard,
+    discarding: {
+      title: strings.channelAgent.discardTitle,
+      label: strings.channelAgent.discardReason,
+      hint:
+        asker === null
+          ? strings.channelAgent.discardReasonHintPrivately({ channel })
+          : strings.channelAgent.discardReasonHint({ channel, name: asker }),
+      confirm: strings.channelAgent.discardConfirm,
+    },
+    held: heldWordsFor(review.privately ? (asker ?? channel) : channel),
+    editText: edits.get(review.note.id) ?? review.note.body,
+    keptEdit: keptEditLine(edits, review.note.id),
   }
 }
 
@@ -165,6 +187,7 @@ export const reviewsInRoomModel = <Item extends RoomItem>(
   room: { readonly conversationId: ConversationId; readonly viewerId: MemberId },
   read: ReadonlyMap<NoteId, DraftAsShown>,
   members: ReadonlyMap<MemberId, AsRead.Member>,
+  edits: ReadonlyMap<NoteId, string>,
   focus: string | null,
 ): ReadonlyArray<Item | RoomReview> => {
   const here = reviews.filter(
@@ -182,7 +205,7 @@ export const reviewsInRoomModel = <Item extends RoomItem>(
     type: 'review',
     key: `review:${review.note.id}`,
     card: {
-      ...reviewCardModel(review, read, members, focus, question),
+      ...reviewCardModel(review, read, members, edits, focus, question),
       heading: strings.channelAgent.waitsInRoom({ agent: review.agent.name }),
     },
   })
@@ -371,13 +394,33 @@ export interface ReviewCard {
   readonly review: AsRead.Review
   readonly focused: boolean
   readonly heading: string | null
+  /** Why this person is shown the answer: they manage its channel. */
+  readonly why: string
   readonly question: { readonly from: string; readonly body: string } | null
   readonly privately: string | null
   readonly body: string
-  readonly basis: { readonly title: string; readonly lines: ReadonlyArray<string> } | null
+  readonly basis: {
+    readonly title: string
+    readonly lines: ReadonlyArray<string>
+    readonly sources: ReadonlyArray<SourceShown>
+  } | null
   readonly readAgain: { readonly notice: string; readonly confirm: string } | null
   readonly send: string
+  readonly edit: string
   readonly discard: string
+  /** Asking why before a discard; the reason is the managers' alone. */
+  readonly discarding: {
+    readonly title: string
+    readonly label: string
+    readonly hint: string
+    readonly confirm: string
+  }
+  /** What the card's place and the toast say while a send or discard is held, and after. */
+  readonly held: HeldChoices
+  /** The text Edit opens with: the manager's kept edit, or the answer as it stands. */
+  readonly editText: string
+  /** Said when the manager edited the answer and did not send the edit. */
+  readonly keptEdit: string | null
 }
 
 /** What a room's list needs of an item to place an answer under its question. */

@@ -3,15 +3,18 @@ import { DEBATE_PARTICIPANTS_MAX, type DebateCredit, type DebateResult } from '.
 import {
   creditsOf,
   isTakingPart,
+  limitsFor,
   limitsProblem,
   resultProblem,
   turnProblem,
   turnsTakenBy,
+  withCheckedCredits,
 } from './debate-rules.ts'
 import type {
   DebateEnding,
   DebateEndingDetail,
   DebateLimits,
+  DebateLimitsWish,
   DebateParticipant,
   DebateResultDraft,
   DebateTurn,
@@ -75,6 +78,27 @@ export const askOf = (room: DebateRoom, memberId: MemberId, now: number): Debate
   }
 }
 
+/**
+ * The place a turn refused for its length or as stale keeps for one retry, or null; one hold per turn of
+ * the agent's, so refusals cannot renew it.
+ */
+export const turnHoldOf = (
+  room: DebateRoom,
+  event: Extract<DebateEvent, { readonly type: 'turn' }>,
+  now: number,
+): TurnHold | null => {
+  if (whyNoTurn(room, event.memberId, now) !== null) return null
+  const tooLong = event.body.trim() !== '' && turnProblem(event.body, room.limits) !== null
+  if (!tooLong && staleAfter(room, event.afterTurn) === null) return null
+  const turnsTaken = turnsTakenBy(room, event.memberId)
+  const held = (room.holds ?? []).some(
+    (hold) => hold.memberId === event.memberId && hold.turnsTaken === turnsTaken,
+  )
+  return held ? null : { memberId: event.memberId, turnsTaken, until: now + TURN_HOLD_MS }
+}
+
+export const TURN_HOLD_MS = 2 * 60_000
+
 /** How long a room keeps collecting drafts of its result after the first one arrives. */
 export const RESULT_DRAFTING_WINDOW_MS = 3 * 60_000
 
@@ -87,16 +111,25 @@ export const ALREADY_DRAFTED = 'Your agent already drafted this round’s result
 
 export const ALREADY_VOTED = 'This agent has already voted in this round.'
 
+/** Until the first turn, the deadline is when the room ends if nobody spoke; that turn starts its time. */
 export interface DebateRoom {
   readonly stage: DebateStage
   readonly createdAt: number
   readonly deadlineAt: number
   readonly limits: DebateLimits
   readonly participants: ReadonlyArray<Pick<DebateParticipant, 'memberId' | 'takingPart'>>
-  readonly turns: ReadonlyArray<Pick<DebateTurn, 'memberId'>>
+  readonly turns: ReadonlyArray<Pick<DebateTurn, 'memberId' | 'afterTurn'>>
   readonly round: number
   readonly drafts: ReadonlyArray<RoomDraft>
   readonly votes: ReadonlyArray<RoomVote>
+  readonly holds?: ReadonlyArray<TurnHold>
+}
+
+/** An agent's place, kept until `until` for as long as it has taken `turnsTaken` turns. */
+export interface TurnHold {
+  readonly memberId: MemberId
+  readonly turnsTaken: number
+  readonly until: number
 }
 
 /**
@@ -115,19 +148,32 @@ export type DebateStage =
 
 export type DebateEvent =
   | { readonly type: 'join'; readonly memberId: MemberId }
-  | { readonly type: 'setLimits'; readonly limits: DebateLimits }
-  | { readonly type: 'turn'; readonly memberId: MemberId; readonly body: string }
+  | { readonly type: 'setLimits'; readonly limits: DebateLimitsWish }
+  | {
+      readonly type: 'turn'
+      readonly memberId: MemberId
+      readonly body: string
+      readonly afterTurn?: number
+    }
   | { readonly type: 'draft'; readonly memberId: MemberId; readonly result: DebateResult }
   | { readonly type: 'vote'; readonly memberId: MemberId; readonly vote: DebateVote }
 
 export type DebateActionEffect =
-  | { readonly type: 'addParticipant'; readonly memberId: MemberId }
+  | {
+      readonly type: 'addParticipant'
+      readonly memberId: MemberId
+      /** The total the agents now come to, when it follows them; null when it stays. */
+      readonly totalTurns: number | null
+    }
   | { readonly type: 'changeLimits'; readonly limits: DebateLimits; readonly deadlineAt: number }
   | {
       readonly type: 'addTurn'
       readonly position: number
       readonly memberId: MemberId
       readonly body: string
+      readonly afterTurn: number | null
+      /** The first turn starts the room's time: its new deadline; null for every later turn. */
+      readonly deadlineAt: number | null
     }
   | {
       readonly type: 'addDraft'
@@ -198,7 +244,7 @@ const takeEvent = (
     case 'setLimits':
       return setLimits(room, event.limits)
     case 'turn':
-      return takeTurn(room, event.memberId, event.body, now)
+      return takeTurn(room, event, now)
     case 'draft':
       return addDraft(room, event.memberId, event.result, now)
     case 'vote':
@@ -224,18 +270,23 @@ const join = (room: DebateRoom, memberId: MemberId): Result.Result<Taken, Confli
     return refuse('Your agent already takes part in this room.')
   if (room.participants.length >= DEBATE_PARTICIPANTS_MAX)
     return refuse(`A room holds at most ${DEBATE_PARTICIPANTS_MAX} agents.`)
+  const participants = [...room.participants, { memberId }]
+  const follows = room.stage.stage === 'setup' && room.limits.totalFollowsAgents === true
+  const { totalTurns: _, ...wish } = room.limits
+  const limits = follows ? limitsFor(wish, participants.length) : room.limits
   return Result.ok({
-    room: { ...room, participants: [...room.participants, { memberId }] },
-    action: { type: 'addParticipant', memberId },
+    room: { ...room, participants, limits },
+    action: { type: 'addParticipant', memberId, totalTurns: follows ? limits.totalTurns : null },
   })
 }
 
-const setLimits = (room: DebateRoom, wished: DebateLimits): Result.Result<Taken, Conflict | Invalid> => {
+const setLimits = (room: DebateRoom, wish: DebateLimitsWish): Result.Result<Taken, Conflict | Invalid> => {
   if (room.stage.stage === 'open')
     return refuse(
       'Limits can be changed only at setup, before the first turn; this debate has started. Open a new room to use other limits.',
     )
   if (room.stage.stage !== 'setup') return refuse('This room no longer takes turns.')
+  const wished = limitsFor(wish, room.participants.length)
   const problem = limitsProblem(wished)
   if (problem !== null) return Result.err(Invalid({ message: problem }))
   const graceMinutes = wished.graceMinutes ?? room.limits.graceMinutes
@@ -249,19 +300,61 @@ const setLimits = (room: DebateRoom, wished: DebateLimits): Result.Result<Taken,
 
 const takeTurn = (
   room: DebateRoom,
-  memberId: MemberId,
-  body: string,
+  event: Extract<DebateEvent, { readonly type: 'turn' }>,
   now: number,
 ): Result.Result<Taken, Conflict | Invalid> => {
+  const { memberId, body } = event
   const refusal = whyNoTurn(room, memberId, now)
   if (refusal !== null) return refuse(refusal)
+  const kept = keptPlace(room, event, now)
+  const stale = staleAfter(room, event.afterTurn)
+  if (stale !== null)
+    return refuse(
+      `The room moved on: turns ${stale + 1} to ${room.turns.length} were taken after turn ${stale}, the last you read. Your turn was not saved: read the new turns and rewrite it.${kept}`,
+    )
   const problem = turnProblem(body, room.limits)
-  if (problem !== null) return Result.err(Invalid({ message: problem }))
+  if (problem !== null) return Result.err(Invalid({ message: `${problem}${kept}` }))
+  const afterTurn = event.afterTurn ?? null
+  const deadlineAt = room.stage.stage === 'setup' ? now + room.limits.minutes * 60_000 : null
   return Result.ok({
-    room: { ...room, stage: { stage: 'open' }, turns: [...room.turns, { memberId }] },
-    action: { type: 'addTurn', position: room.turns.length + 1, memberId, body },
+    room: {
+      ...room,
+      stage: { stage: 'open' },
+      deadlineAt: deadlineAt ?? room.deadlineAt,
+      turns: [...room.turns, { memberId, afterTurn }],
+    },
+    action: { type: 'addTurn', position: room.turns.length + 1, memberId, body, afterTurn, deadlineAt },
   })
 }
+
+const keptPlace = (
+  room: DebateRoom,
+  event: Extract<DebateEvent, { readonly type: 'turn' }>,
+  now: number,
+): string => {
+  const until = turnHoldOf(room, event, now)?.until ?? liveHoldOf(room, event.memberId, now)?.until
+  return until === undefined
+    ? ''
+    : ` Your place in the room is kept until ${new Date(until).toISOString()}: send the turn again before then.`
+}
+
+const staleAfter = (room: DebateRoom, afterTurn: number | undefined): number | null =>
+  afterTurn !== undefined && afterTurn < room.turns.length ? afterTurn : null
+
+/** A hold counts while it is not over and its agent has not taken a turn since. */
+const liveHoldOf = (room: DebateRoom, memberId: MemberId, now: number): TurnHold | undefined =>
+  (room.holds ?? []).find(
+    (hold) =>
+      hold.memberId === memberId && hold.until > now && hold.turnsTaken === turnsTakenBy(room, memberId),
+  )
+
+const keptForOthers = (room: DebateRoom, memberId: MemberId, now: number): number =>
+  room.participants.filter(
+    (participant) =>
+      participant.memberId !== memberId &&
+      isTakingPart(participant) &&
+      liveHoldOf(room, participant.memberId, now) !== undefined,
+  ).length
 
 const addDraft = (
   room: DebateRoom,
@@ -277,11 +370,13 @@ const addDraft = (
   const problem = resultProblem(
     result,
     room.participants.map((participant) => participant.memberId),
+    room.turns,
   )
   if (problem !== null) return Result.err(Invalid({ message: problem }))
+  const kept = withCheckedCredits(result)
   return Result.ok({
-    room: { ...room, drafts: [...room.drafts, { draftedBy: memberId, draftedAt: now, result }] },
-    action: { type: 'addDraft', round: room.round, memberId, result },
+    room: { ...room, drafts: [...room.drafts, { draftedBy: memberId, draftedAt: now, result: kept }] },
+    action: { type: 'addDraft', round: room.round, memberId, result: kept },
   })
 }
 
@@ -370,6 +465,9 @@ const end = (room: DebateRoom, because: DebateEnding): DebateSettled => ({
 
 const unchanged = (room: DebateRoom): DebateSettled => ({ room, effects: [] })
 
+const KEPT_FOR_OTHERS =
+  'The room’s last turns are kept, for two minutes at most, for agents rewriting a turn the room refused. Try again then.'
+
 const refuse = (message: string): Result.Result<never, Conflict> => Result.err(Conflict({ message }))
 
 const isTakingTurns = (room: DebateRoom): boolean =>
@@ -383,6 +481,11 @@ const whyNoTurn = (room: DebateRoom, memberId: MemberId, now: number): string | 
   if (room.participants.length < 2) return 'The room waits for a second agent to be opted in.'
   if (turnsTakenBy(room, memberId) >= room.limits.turnsPerAgent) return 'This agent has used all its turns.'
   if (room.turns.at(-1)?.memberId === memberId) return 'Another agent speaks next: no two turns in a row.'
+  if (
+    liveHoldOf(room, memberId, now) === undefined &&
+    room.turns.length + keptForOthers(room, memberId, now) >= room.limits.totalTurns
+  )
+    return KEPT_FOR_OTHERS
   return null
 }
 

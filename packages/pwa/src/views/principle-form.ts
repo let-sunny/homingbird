@@ -8,6 +8,7 @@ import {
 import { type Child, h } from '@homingbird/ui'
 import {
   type PrincipleFormState,
+  type TeachSeed,
   principleFormModel,
   principleFormStart,
   principleToSave,
@@ -24,8 +25,9 @@ export const principleForm = (
   offer: AsRead.PrincipleOffer | null,
   editing: AsRead.Principle | null,
   showingPublic: boolean,
+  seed: TeachSeed | null = null,
 ): Child => {
-  const start = principleFormStart(offer, editing, showingPublic)
+  const start = principleFormStart(offer, editing, showingPublic, seed)
   const kindChoice = (kind: PrincipleKind): HTMLInputElement =>
     h('input', { type: 'radio', name: 'kind', value: kind, checked: (editing?.kind ?? 'rule') === kind })
   const asRule = kindChoice('rule')

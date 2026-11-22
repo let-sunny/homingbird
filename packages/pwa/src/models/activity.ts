@@ -6,8 +6,9 @@ import type {
   MemberId,
   NoteId,
 } from '@homingbird/protocol'
-import { channelLabel } from '../channels.ts'
+import { channelLabel, channelOfRoom } from '../channels.ts'
 import { featureOn } from '../features.ts'
+import { type HeldLine, type HeldShown, heldLineFor } from '../held-decisions.ts'
 import { deskUnavailableReason } from '../presence.ts'
 import { hrefFor } from '../routes.ts'
 import type { Release, Thread } from '../state.ts'
@@ -15,6 +16,7 @@ import { strings } from '../strings.ts'
 import { conversationTitle, excerpt, isArchived, threadItems } from '../thread.ts'
 import { type ReviewCard, reviewCardModel } from './channel-agent.ts'
 import { type DraftsItemModel, draftsItemModel } from './drafts-item.ts'
+import { type TeachSeed, teachSeedOf } from './teaching.ts'
 import type { ThreadInput } from './thread-room.ts'
 import { type TimeShown, timeShown } from './time.ts'
 
@@ -72,6 +74,9 @@ export interface ActivityInput {
   readonly members: ReadonlyMap<MemberId, AsRead.Member>
   readonly directory: ReadonlyArray<AsRead.DirectoryEntry>
   readonly draftsRead: ReadonlyMap<NoteId, DraftAsShown>
+  readonly draftEdits: ReadonlyMap<NoteId, string>
+  /** The sends and discards held a moment: their items stay in place, say so, and are no longer counted. */
+  readonly held: ReadonlyArray<HeldShown>
   readonly draftRequests: ReadonlyArray<DraftRequest>
   readonly releases: ReadonlyMap<NoteId, Release>
   readonly reviews: ReadonlyArray<AsRead.Review>
@@ -124,9 +129,19 @@ export type ActivityItem =
   | ActivityEntry<'review', { readonly card: ReviewCard }>
   | ActivityEntry<
       'skipped',
-      { readonly from: string; readonly body: string; readonly reason: string; readonly reply: string }
+      {
+        readonly from: string
+        readonly body: string
+        readonly reason: string
+        readonly reply: string
+        /** The note “Reply yourself” answers, in the conversation it opens. */
+        readonly replyTo: { readonly conversationId: ConversationId; readonly noteId: NoteId }
+        /** Teaching the agent what to do with notes like this one, while teaching is on. */
+        readonly teach: { readonly label: string; readonly seed: TeachSeed } | null
+      }
     >
   | ActivityEntry<'debate', { readonly text: string }>
+  | ActivityEntry<'held', { readonly line: HeldLine }>
 
 type ActivityEntry<Type extends string, Fields> = {
   readonly type: Type
@@ -171,18 +186,26 @@ const draftItems = (input: ActivityInput): ActivityItem[] =>
         const own = item.drafts.filter((draft) => draft.authorId === input.me.member.id)
         if (own.length === 0) return []
         const latest = Math.max(...own.map((draft) => draft.updatedAt))
+        const entry = {
+          key: `drafts:${room.id}:${item.key}`,
+          at: latest,
+          place: placeOf(
+            input,
+            room,
+            hrefFor({ name: 'conversation', id: room.id, draft: own[0]!.id }),
+            latest,
+          ),
+        }
+        const line = heldLineFor(
+          input.held,
+          own.map((draft) => draft.id),
+        )
+        if (line !== null) return [{ ...entry, type: 'held', weight: 0, line }]
         return [
           {
+            ...entry,
             type: 'drafts',
-            key: `drafts:${room.id}:${item.key}`,
-            at: latest,
             weight: own.length,
-            place: placeOf(
-              input,
-              room,
-              hrefFor({ name: 'conversation', id: room.id, draft: own[0]!.id }),
-              latest,
-            ),
             drafts: draftsItemModel(threadInputOf(input, room.id, thread), { ...item, drafts: own }),
           },
         ]
@@ -195,13 +218,11 @@ const reviewItems = (input: ActivityInput): ActivityItem[] =>
       (review) =>
         review.note.authorId !== input.me.member.id && review.question?.authorId !== input.me.member.id,
     )
-    .map((review) => {
+    .map((review): ActivityItem => {
       const room = input.conversations.find((candidate) => candidate.id === review.note.conversationId)
-      return {
-        type: 'review',
+      const entry = {
         key: `review:${review.note.id}`,
         at: review.note.updatedAt,
-        weight: 1,
         place: {
           text:
             room === undefined
@@ -216,8 +237,15 @@ const reviewItems = (input: ActivityInput): ActivityItem[] =>
           label: strings.activity.openConversation,
           time: timeShown(review.note.updatedAt, input.now),
         },
+      }
+      const line = heldLineFor(input.held, [review.note.id])
+      if (line !== null) return { ...entry, type: 'held', weight: 0, line }
+      return {
+        ...entry,
+        type: 'review',
+        weight: 1,
         card: {
-          ...reviewCardModel(review, input.reviewsRead, input.members, null, 'quoted'),
+          ...reviewCardModel(review, input.reviewsRead, input.members, input.draftEdits, null, 'quoted'),
           heading: strings.channelAgent.waitsInRoom({ agent: review.agent.name }),
         },
       }
@@ -248,6 +276,13 @@ const skippedItems = (input: ActivityInput): ActivityItem[] =>
             ? strings.agentReleasedWithoutReason
             : strings.agentReleased({ reason: release.reason }),
         reply: strings.activity.replyYourself,
+        replyTo: { conversationId: room.id, noteId },
+        teach: featureOn('teaching', input.serverInfo)
+          ? {
+              label: strings.teach.add,
+              seed: teachSeedOf(note.body, channelOfRoom(input.channels, room.id)?.slug ?? null),
+            }
+          : null,
       },
     ]
   })
@@ -342,6 +377,7 @@ const threadInputOf = (
   conversationId,
   thread,
   draftsRead: input.draftsRead,
+  draftEdits: input.draftEdits,
   conversations: input.conversations,
   channels: input.channels,
   members: input.members,

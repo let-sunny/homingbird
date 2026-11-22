@@ -31,17 +31,28 @@ import {
 } from './insights-sections.ts'
 import { placeName } from './places.ts'
 
-/** Organization-wide numbers for administrators: totals only, never a note, a person or a small group. */
-export const insightsModel = (insights: OrganizationInsights | null, days: number): InsightsModel => {
+/**
+ * Organization-wide numbers for administrators: totals only, never a note, a person or a small group.
+ * At a minimum group of 1 a notice says so until the administrator dismissed it in this browser.
+ */
+export const insightsModel = (
+  insights: OrganizationInsights | null,
+  days: number,
+  isMinimumNoticeDismissed: boolean,
+): InsightsModel => {
   if (insights === null) return { kind: 'loading' }
   const period = insights.periods.find((each) => each.days === days) ?? insights.periods[0]!
   const current = period.current
+  const showsEveryGroup = insights.minimumGroupSize <= 1
   return {
     kind: 'insights',
-    groupRule:
-      insights.minimumGroupSize <= 1
-        ? strings.insights.minimumOne
-        : strings.insights.privacy({ minimum: insights.minimumGroupSize }),
+    minimumNotice:
+      showsEveryGroup && !isMinimumNoticeDismissed
+        ? { text: strings.insights.minimumNotice, dismiss: strings.insights.minimumNoticeDismiss }
+        : null,
+    groupRule: showsEveryGroup
+      ? strings.insights.minimumOne
+      : strings.insights.privacy({ minimum: insights.minimumGroupSize }),
     warnings: hasTeams(current) ? [] : [strings.insights.noTeams],
     quickWarning: quickWarningModel(insights),
     tooFew: current === null ? strings.insights.tooFew({ minimum: insights.minimumGroupSize }) : null,
@@ -68,10 +79,7 @@ export const insightsModel = (insights: OrganizationInsights | null, days: numbe
               current.byModel,
               strings.trust.modelNotStated,
             ),
-            hiddenLabels:
-              current.hiddenLabels > 0
-                ? strings.insights.hiddenLabels({ count: current.hiddenLabels })
-                : null,
+            hiddenLabels: hiddenLabelsText(current.hiddenLabels, showsEveryGroup),
           },
     quickTrend: quickTrendModel(insights),
     blocks:
@@ -86,6 +94,8 @@ export type InsightsModel =
   | { readonly kind: 'loading' }
   | {
       readonly kind: 'insights'
+      /** Shown until dismissed while figures can describe one person. */
+      readonly minimumNotice: { readonly text: string; readonly dismiss: string } | null
       /** Which minimum group is in force, and what it means for one person's figures. */
       readonly groupRule: string
       readonly warnings: ReadonlyArray<string>
@@ -326,3 +336,11 @@ const decisionsShown = (figures: {
 
 /** An empty median: hidden only when a minimum group could have hidden it, otherwise not measured yet. */
 const missing = (minimum: number): string => (minimum <= 1 ? strings.trust.noneYet : strings.insights.hidden)
+
+/** Labels always need two people, so at a minimum of 1 those hidden are each one person's. */
+const hiddenLabelsText = (hidden: number, showsEveryGroup: boolean): string | null => {
+  if (hidden === 0) return null
+  return showsEveryGroup
+    ? strings.insights.hiddenLabelsOnePerson({ count: hidden })
+    : strings.insights.hiddenLabels({ count: hidden })
+}

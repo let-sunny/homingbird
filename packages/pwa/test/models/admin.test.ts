@@ -163,6 +163,7 @@ describe('adminMembersModel', () => {
     charactersOn: true,
     directory: [],
     groups: [],
+    agentCredentials: null,
     query: '',
     now: NOW,
     ...fields,
@@ -264,21 +265,40 @@ describe('adminMembersModel', () => {
     expect(isDormant(member(BEN, 'Ben', { status: 'deactivated' }), null, NOW)).toBe(false)
   })
 
-  it('names every group a member is in, and nothing for one in none', () => {
+  it('names the teams a member is in and the channels they manage apart, and nothing for one in none', () => {
     const { rows } = adminMembersModel(
       input({
         members: [member(BEN, 'Ben'), member(CY, 'Cy')],
         groups: [
           group(TEAM, { name: 'Finance', memberIds: [BEN] }),
           managersOf('billing', { memberIds: [BEN] }),
+          managersOf('payroll', { memberIds: [BEN] }),
         ],
       }),
     )!
-    expect(rows[0]!.groupNames).toEqual(['Finance', strings.groups.managersOf({ channel: '#billing' })])
+    expect(rows[0]!.groupNames).toEqual([
+      'Finance',
+      strings.groups.managersOf({ channel: '#billing' }),
+      strings.groups.managersOf({ channel: '#payroll' }),
+    ])
     expect(rows[0]!.groups).toBe(
-      strings.adminMemberList.groups({ groups: formats.names.format(rows[0]!.groupNames) }),
+      strings.adminMemberList.groups({ groups: formats.names.format(['Finance']) }),
     )
-    expect(rows[1]).toMatchObject({ groupNames: [], groups: null })
+    expect(rows[0]!.manages).toBe(strings.groups.manages({ channels: '#billing and #payroll' }))
+    expect(rows[1]).toMatchObject({ groupNames: [], groups: null, manages: null })
+  })
+
+  it('says how many agent connections each person holds and when the newest expires, and nothing where the server does not say', () => {
+    const members = [member(BEN, 'Ben'), member(CY, 'Cy')]
+    const expires = NOW + 30 * DAY
+    const { rows } = adminMembersModel(
+      input({ members, agentCredentials: [{ memberId: BEN, count: 2, newestExpiresAt: expires }] }),
+    )!
+    expect(rows[0]!.agentCredentials).toBe(
+      strings.adminMemberList.agentCredentials({ count: 2, date: formats.day.format(new Date(expires)) }),
+    )
+    expect(rows[1]!.agentCredentials).toBe(strings.adminMemberList.noAgentCredentials)
+    expect(adminMembersModel(input({ members }))!.rows[0]!.agentCredentials).toBeNull()
   })
 
   it('filters by name, email or group whatever the case, and says when nothing matches', () => {

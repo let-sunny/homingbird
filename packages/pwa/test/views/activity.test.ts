@@ -2,6 +2,7 @@ import type { AsRead, ConversationId, MemberId, NoteId } from '@homingbird/proto
 import { lifetime } from '@homingbird/ui'
 import {
   fakeEvent,
+  fire,
   getByRole,
   installFakeDom,
   isPopoverOpen,
@@ -9,6 +10,7 @@ import {
   textOf,
 } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
+import { heldWordsFor } from '../../src/held-decisions.ts'
 import { strings } from '../../src/strings.ts'
 import { ACTIVITY_PANEL_ID, activityBell, activityPanel, activityView } from '../../src/views/activity.ts'
 import { dialogHost } from '../../src/views/dialog.ts'
@@ -29,6 +31,7 @@ import {
   note,
   summary,
 } from '../support/fixtures.ts'
+import { heldDecision } from '../support/held.ts'
 
 usingFakeDom()
 
@@ -136,6 +139,30 @@ describe('activityPanel', () => {
     expect(called('loadDraftThreads')).toHaveLength(1)
   })
 
+  it('takes the focus when it opens, and gives it back to the bell when it closes by itself', () => {
+    const { panel, link } = shown()
+    panel.showPopover()
+    expect(document.activeElement).toBe(panel)
+    panel.hidePopover()
+    expect(document.activeElement).toBe(link())
+    const elsewhere = mount(document.createElement('button'))
+    panel.showPopover()
+    elsewhere.focus()
+    panel.hidePopover()
+    expect(document.activeElement).toBe(elsewhere)
+  })
+
+  it('leaves the focus alone when it closes for the place a link in it leads to', () => {
+    const { state, panel, link } = shown()
+    state.threads.set(new Map([[ROOM, { notes: [draft('note_d1')], hasMore: false }]]))
+    panel.showPopover()
+    const away = panel.querySelector<HTMLElement>('a[href]')!
+    away.focus()
+    away.click()
+    expect(document.activeElement).not.toBe(link())
+    expect(panel.dataset.leaving).toBeUndefined()
+  })
+
   it('sends, edits and discards a draft through the same actions as its conversation', () => {
     const { state, panel, dialog, called } = shown()
     const one = draft('note_d1')
@@ -143,16 +170,33 @@ describe('activityPanel', () => {
     panel.showPopover()
     const card = panel.querySelector('[data-draft-id="note_d1"]')!
     expect(textOf(card)).toContain(one.body)
-    getByRole(card, 'button', { name: strings.send }).click()
-    expect(called('approveDraft')[0]!.args).toEqual([one, null, []])
-    expect(called('approveDraft')[0]!.then!.attempt).toBe('draft')
+    getByRole(card, 'button', { name: strings.approveAndSend }).click()
+    expect(called('holdSend')[0]!.args.slice(0, 3)).toEqual([one, null, []])
+    expect(called('holdSend')[0]!.then!.attempt).toBe('draft')
     getByRole(card, 'button', { name: strings.edit }).click()
     expect(dialog.open).toBe(true)
     getByRole(card, 'button', { name: strings.discard }).click()
-    expect(called('discardDraft')[0]!.args).toEqual([one])
+    expect(called('holdDiscard')[0]!.args).toEqual([one, heldWordsFor('Ben').discard])
     expect(
       getByRole(panel, 'link', { name: strings.activity.withPeople({ names: 'Ben' }) }).getAttribute('href'),
     ).toBe(`#/c/${ROOM}?draft=note_d1`)
+  })
+
+  it('keeps a decided draft in its place with Undo while it is held, and shows the toast at its foot', () => {
+    const { state, panel, called } = shown()
+    const one = draft('note_d1')
+    state.threads.set(new Map([[ROOM, { notes: [one], hasMore: false }]]))
+    panel.showPopover()
+    state.held.set([heldDecision(one.id, { kind: 'discard' })])
+    expect(panel.querySelector('[data-draft-id="note_d1"]')).toBeNull()
+    const line = panel.querySelector('.activity-list .held-line')!
+    expect(textOf(line)).toContain(strings.heldDiscarding)
+    expect(textOf(line)).toContain(strings.activity.withPeople({ names: 'Ben' }))
+    expect(textOf(panel.querySelector('.activity-panel-foot')!)).toContain(strings.heldDiscarding)
+    getByRole(line, 'button', { name: strings.undo }).click()
+    expect(called('undoHeld')).toHaveLength(1)
+    panel.hidePopover()
+    expect(panel.querySelector('.activity-panel-foot')!.childNodes).toHaveLength(0)
   })
 
   it('asks to read a changed draft again before it can be sent', () => {
@@ -161,22 +205,23 @@ describe('activityPanel', () => {
     state.draftsRead.set(new Map([[changed.id, { body: 'Lunch?', conversationId: ROOM }]]))
     state.threads.set(new Map([[ROOM, { notes: [changed], hasMore: false }]]))
     panel.showPopover()
-    expect(queryByRole(panel, 'button', { name: strings.send })).toBeNull()
+    expect(queryByRole(panel, 'button', { name: strings.approveAndSend })).toBeNull()
     getByRole(panel, 'button', { name: strings.draftReadAgain }).click()
     expect(called('confirmDraftRead')[0]!.args).toEqual([changed])
   })
 
   it('sends or discards an answer to review, and redraws only what changed', () => {
-    const { state, panel, called } = shown()
+    const { state, panel, called, dialog } = shown()
     state.threads.set(new Map([[ROOM, { notes: [draft('note_d1')], hasMore: false }]]))
     state.reviews.set([review()])
     panel.showPopover()
     const card = panel.querySelector('.review-card')!
     const draftCard = panel.querySelector('.pending')!
     getByRole(card, 'button', { name: strings.channelAgent.send }).click()
-    expect(called('sendReview')[0]!.args).toEqual([review(), null])
+    expect(called('holdReviewSend')[0]!.args.slice(0, 2)).toEqual([review(), null])
     getByRole(card, 'button', { name: strings.channelAgent.discard }).click()
-    expect(called('discardReview')[0]!.args).toEqual([review()])
+    fire.submit(dialog.querySelector('form')!)
+    expect(called('holdReviewDiscard')[0]!.args.slice(0, 2)).toEqual([review(), ''])
     state.reviews.set([])
     expect(panel.querySelector('.review-card')).toBeNull()
     expect(panel.querySelector('.pending')).toBe(draftCard)
@@ -200,9 +245,7 @@ describe('activityPanel', () => {
     state.debates.set([summary({ participantIds: [BEN] })])
     panel.showPopover()
     expect(textOf(panel)).toContain(strings.agentReleased({ reason: 'No calendar.' }))
-    expect(getByRole(panel, 'link', { name: strings.activity.replyYourself }).getAttribute('href')).toBe(
-      `#/c/${ROOM}`,
-    )
+    getByRole(panel, 'button', { name: strings.teach.add })
     expect(textOf(panel)).toContain(strings.deskUnavailableReason.failed)
     expect(getByRole(panel, 'link', { name: strings.activity.openConnection }).getAttribute('href')).toBe(
       '#/agent/connection',
@@ -210,6 +253,22 @@ describe('activityPanel', () => {
     expect(textOf(panel)).toContain(strings.activity.debateAsks)
     getByRole(panel, 'link', { name: strings.activity.openRoom }).click()
     expect(isPopoverOpen(panel as never)).toBe(false)
+  })
+
+  it('closes before “Reply yourself” opens the conversation, with the note as the reply target', () => {
+    const { panel, state, called, page } = shown()
+    const asked = note('note_asked', { authorId: BEN, body: 'Does it clash?' })
+    state.conversations.set([conversation()])
+    state.threads.set(new Map([[ROOM, { notes: [asked], hasMore: false }]]))
+    state.releases.set(new Map([[asked.id, { reason: 'No calendar.', agentName: null }]]))
+    panel.showPopover()
+    const order: string[] = []
+    panel.addEventListener('toggle', () => order.push(`closed at ${page.page.hash()}`))
+    getByRole(panel, 'button', { name: strings.activity.replyYourself }).click()
+    expect(order).toEqual(['closed at #/'])
+    expect(isPopoverOpen(panel as never)).toBe(false)
+    expect(called('replyTo')[0]!.args).toEqual([ROOM, asked.id])
+    expect(page.page.hash()).toBe(`#/c/${ROOM}`)
   })
 
   it('closes when the page moves on, and when its life ends', () => {

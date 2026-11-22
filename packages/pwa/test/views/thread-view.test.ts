@@ -3,6 +3,7 @@ import { lifetime } from '@homingbird/ui'
 import { fire, getByRole, queryByRole, textOf } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
 import { MISSING } from '../../src/missing.ts'
+import { dayHeading } from '../../src/models/time.ts'
 import { strings } from '../../src/strings.ts'
 import { threadView } from '../../src/views/thread-view.ts'
 import { testContext } from '../support/context.ts'
@@ -23,15 +24,22 @@ import {
   serverInfo,
   taught,
 } from '../support/fixtures.ts'
+import { heldDecision } from '../support/held.ts'
 
 usingFakeDom()
 
-const open = (focusedDraft: string | null = null, focusedReview: string | null = null) => {
+const open = (
+  focusedDraft: string | null = null,
+  focusedReview: string | null = null,
+  focusedNote: string | null = null,
+) => {
   const test = testContext()
   test.context.state.session.set(me())
   test.context.state.directory.set([entry(BEN, 'Ben')])
   test.context.state.conversations.set([conversation()])
-  const shown = mount(threadView(test.context, lifetime(), me(), ROOM, focusedDraft, focusedReview))
+  const shown = mount(
+    threadView(test.context, lifetime(), me(), ROOM, focusedDraft, focusedReview, focusedNote),
+  )
   return { ...test, shown }
 }
 
@@ -63,10 +71,78 @@ describe('threadView', () => {
       [note('n1', { sentAt: 1 }), note('n2', { sentAt: 2, authorId: ANA }), draft('d1')],
       true,
     )
-    const items = shown.querySelectorAll('.notes > li')
+    const items = shown.querySelectorAll('.notes > li:not(.thread-divider)')
     expect([...items].map((item) => item.className.split(' ')[0])).toEqual(['note', 'note', 'pending'])
     getByRole(shown, 'button', { name: strings.loadOlder }).click()
     expect(called('loadOlderNotes')[0]!.args).toEqual([ROOM])
+  })
+
+  it('heads earlier days and draws the unread line where the person stopped, kept while they read', () => {
+    const { context, shown, clock } = open()
+    const now = clock.now()
+    const unread = {
+      memberId: ANA,
+      state: 'delivered' as const,
+      deliveredAt: 1,
+      readAt: null,
+      draftingAt: null,
+      repliedAt: null,
+    }
+    withNotes(context, [
+      note('n1', { sentAt: now - 3 * 86_400_000 }),
+      note('n2', { sentAt: now - 60_000, receipts: [unread] }),
+    ])
+    const dividers = () => [...shown.querySelectorAll('.thread-divider')].map((divider) => textOf(divider))
+    expect(dividers()).toEqual([dayHeading(now - 3 * 86_400_000, now), strings.today, strings.unreadFromHere])
+    withNotes(context, [
+      note('n1', { sentAt: now - 3 * 86_400_000 }),
+      note('n2', { sentAt: now - 60_000, receipts: [{ ...unread, state: 'read', readAt: now }] }),
+      note('n3', { sentAt: now, receipts: [unread] }),
+    ])
+    expect(dividers()).toEqual([dayHeading(now - 3 * 86_400_000, now), strings.today, strings.unreadFromHere])
+    const order = [...shown.querySelectorAll('.notes > li')].map(
+      (item) => item.getAttribute('data-note-id') ?? item.className,
+    )
+    expect(order).toEqual([
+      'thread-divider is-day',
+      'n1',
+      'thread-divider is-day',
+      'thread-divider is-unread',
+      'n2',
+      'n3',
+    ])
+  })
+
+  it('names the scrolling notes for a screen reader and leaves announcing arrivals to the page', () => {
+    const { shown } = open()
+    const scroller = getByRole(shown, 'region', { name: strings.threadNotes({ title: 'Ben' }) })
+    expect(scroller.classList.contains('thread-scroll')).toBe(true)
+    expect(shown.querySelector('.notes')!.hasAttribute('aria-live')).toBe(false)
+  })
+
+  it('gives the composer the focus on opening where there is a keyboard', () => {
+    expect(open().context.state.composerFocus.get()).toBe(ROOM)
+    expect(open('d1').context.state.composerFocus.get()).toBeNull()
+    expect(open(null, null, 'n1').context.state.composerFocus.get()).toBeNull()
+    const touch = testContext()
+    touch.page.state.coarsePointer = true
+    touch.context.state.conversations.set([conversation()])
+    threadView(touch.context, lifetime(), me(), ROOM, null)
+    expect(touch.context.state.composerFocus.get()).toBeNull()
+  })
+
+  it('goes back to the bottom when the person sends while scrolled up', () => {
+    const { context, shown } = open()
+    withNotes(context, [note('n1')])
+    const scroller = shown.querySelector<HTMLElement>('.thread-scroll')!
+    const scrolled: unknown[] = []
+    scroller.scrollTo = ((options: unknown) => void scrolled.push(options)) as typeof scroller.scrollTo
+    Object.assign(scroller, { scrollHeight: 3000, scrollTop: 0, clientHeight: 500 })
+    fire.event(scroller, 'scroll')
+    const text = getByRole(shown, 'textbox', { name: strings.composerLabel }) as HTMLTextAreaElement
+    text.value = 'Sent from above'
+    fire.key(text, 'Enter')
+    expect(scrolled).toEqual([{ top: 3000, behavior: 'instant' }])
   })
 
   it('redraws only the items that changed, and points at news below while the person reads above', () => {
@@ -105,7 +181,7 @@ describe('threadView', () => {
         ],
       }),
     )
-    expect(textOf(shown)).toContain(strings.teach.chanceDiscard({ place: strings.trust.directMessages }))
+    expect(textOf(shown)).toContain(strings.teach.chanceHereDiscard)
   })
 
   it('closes the composer in an archived room, and shows a channel’s head', () => {
@@ -134,19 +210,19 @@ describe('threadView', () => {
     const { context, called, shown } = open()
     withNotes(context, [draft('d1', { body: 'Lunch at noon?' })])
     const card = () => shown.querySelector<HTMLElement>('[data-draft-id="d1"]')!
-    expect(getByRole(card(), 'button', { name: strings.send })).toBeTruthy()
+    expect(getByRole(card(), 'button', { name: strings.approveAndSend })).toBeTruthy()
     withNotes(context, [draft('d1', { body: 'Send me the payroll file.' })])
     expect(textOf(shown)).toContain('Send me the payroll file.')
     expect(textOf(shown)).toContain(strings.draftChangedSinceRead)
-    expect(queryByRole(card(), 'button', { name: strings.send })).toBeNull()
+    expect(queryByRole(card(), 'button', { name: strings.approveAndSend })).toBeNull()
     getByRole(card(), 'button', { name: strings.draftReadAgain }).click()
     expect(called('confirmDraftRead')[0]!.args).toEqual([draft('d1', { body: 'Send me the payroll file.' })])
     context.state.draftsRead.update((read) =>
       new Map(read).set('d1' as never, { body: 'Send me the payroll file.', conversationId: ROOM }),
     )
     expect(textOf(shown)).not.toContain(strings.draftChangedSinceRead)
-    getByRole(card(), 'button', { name: strings.send }).click()
-    expect(called('approveDraft')[0]!.args[0]).toEqual(draft('d1', { body: 'Send me the payroll file.' }))
+    getByRole(card(), 'button', { name: strings.approveAndSend }).click()
+    expect(called('holdSend')[0]!.args[0]).toEqual(draft('d1', { body: 'Send me the payroll file.' }))
   })
 
   it('brings the draft a link opened the conversation at into view, once, instead of the bottom', () => {
@@ -162,6 +238,16 @@ describe('threadView', () => {
     page.runFrames()
     expect(document.activeElement).toBe(document.body)
     expect(textOf(shown)).toContain(strings.draftChangedSinceRead)
+  })
+
+  it('brings the sent note a copied link points at into view, marked as the one looked at', () => {
+    const { context, shown, page } = open(null, null, 'n2')
+    withNotes(context, [note('n1'), note('n2'), note('n3')])
+    const pointed = shown.querySelector<HTMLElement>('.note[data-note-id="n2"]')!
+    expect(pointed.classList.contains('is-active')).toBe(true)
+    expect(shown.querySelector('.note[data-note-id="n1"]')!.classList.contains('is-active')).toBe(false)
+    page.runFrames()
+    expect(document.activeElement).toBe(pointed)
   })
 
   it('says a draft a notification opened was already sent or discarded, instead of an empty card', () => {
@@ -203,7 +289,7 @@ describe('threadView', () => {
       context.state.serverInfo.set(serverInfo())
       withNotes(context, [note('n1', { sentAt: 1 }), question, note('n3', { sentAt: 3 })])
       context.state.reviews.set([review()])
-      const items = [...shown.querySelectorAll('.notes > li')]
+      const items = [...shown.querySelectorAll('.notes > li:not(.thread-divider)')]
       expect(items.map((item) => item.getAttribute('data-note') ?? item.className.split(' ')[0])).toEqual([
         'note',
         'note',
@@ -218,9 +304,12 @@ describe('threadView', () => {
       page.runFrames()
       expect(document.activeElement).toBe(card)
       getByRole(card, 'button', { name: strings.channelAgent.send }).click()
-      expect(called('sendReview')[0]!.args).toEqual([review(), null])
-      getByRole(card, 'button', { name: strings.channelAgent.discard }).click()
-      expect(called('discardReview')[0]!.args).toEqual([review()])
+      expect(called('holdReviewSend')[0]!.args.slice(0, 2)).toEqual([review(), null])
+      context.state.held.set([heldDecision(review().note.id, { review: true, settles: 0 })])
+      expect(shown.querySelector('.review-card')).toBeNull()
+      const placed = [...shown.querySelectorAll('.notes > li:not(.thread-divider)')]
+      expect(placed[2]!.classList.contains('held-line')).toBe(true)
+      expect(textOf(placed[2]!)).toContain(strings.heldSending({ names: 'Ben' }))
     })
 
     it('asks to read an answer again that the agent changed since the person read it', () => {

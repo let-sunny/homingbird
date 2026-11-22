@@ -96,6 +96,24 @@ describe('conversationsOf', () => {
     expect(conversationsOf(records, kai).some((room) => room.draftCount > 0)).toBe(false)
   })
 
+  it('names the channel only of a private question, as the server does, so no other room reads as archived', () => {
+    const { records, june } = fresh()
+    const listed = conversationsOf(records, june)
+    const privately = listed.filter((room) => 'privateQuestionOf' in room)
+    expect(privately.map((room) => room.privateQuestionOf)).toEqual(['billing'])
+    expect(listed.filter((room) => room.kind === 'direct').length).toBeGreaterThan(0)
+    expect(
+      listed.filter((room) => room.kind === 'channel').every((room) => !('privateQuestionOf' in room)),
+    ).toBe(true)
+  })
+
+  it('opens on the visitor’s direct conversation with Ana, where their own agent’s draft waits', () => {
+    const { records, june, ana } = fresh()
+    const latest = conversationsOf(records, june)[0]!
+    expect(latest).toMatchObject({ kind: 'direct', draftCount: 1 })
+    expect(latest.participantIds).toContain(ana)
+  })
+
   it('shows a direct conversation only once a note in it is sent, or to the author of its draft', () => {
     const { world, june, ana } = fresh()
     const reply = noteStarting(world, 'Yes. I checked')

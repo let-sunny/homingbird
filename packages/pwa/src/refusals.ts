@@ -1,7 +1,15 @@
 import { type ApiError, DRAFT_CHANGED } from '@homingbird/protocol'
 import { errorText, strings } from './strings.ts'
 
-export type Attempt = 'device' | 'draft' | 'channel-name' | 'managers' | 'move' | 'request' | 'membership'
+export type Attempt =
+  | 'device'
+  | 'draft'
+  | 'channel-name'
+  | 'managers'
+  | 'leave'
+  | 'move'
+  | 'request'
+  | 'membership'
 
 export const refusalText = (error: ApiError, attempt?: Attempt): string => {
   if (error._tag === 'Conflict' && ARCHIVED.test(error.message)) return strings.refusals.roomArchived
@@ -21,6 +29,7 @@ const CONFLICTS: Readonly<Record<Attempt, () => string | null>> = {
   draft: () => strings.refusals.draftHandled,
   'channel-name': () => strings.refusals.nameTaken,
   managers: () => strings.refusals.lastManager,
+  leave: () => strings.refusals.managerStays,
   move: () => null,
   request: () => strings.refusals.requestNotWaiting,
   membership: () => null,

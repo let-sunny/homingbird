@@ -86,6 +86,18 @@ describe('insights.mine', () => {
       verdict: 'too_few',
       places: [{ place: null, written: 6, sentAsWritten: 2, sentAfterEdits: 1, discarded: 1 }],
     })
+    const report = (await ana.api('GET', '/insights/me')).json
+    expect(report.misses).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          outcome: 'edited',
+          noteId: edited.id,
+          conversationId: edited.conversationId,
+        }),
+        expect.objectContaining({ outcome: 'discarded', noteId: thrownAway.id, place: null }),
+      ]),
+    )
+    expect(report.misses).toHaveLength(2)
   })
 
   it('counts the notes a person wrote themself apart from their agent’s drafts', async () => {
@@ -132,6 +144,10 @@ describe('insights.mine', () => {
       skipped: 2,
       skipReasons: [{ reason: 'Needs the release plan', count: 2 }],
     })
+    const skippedIds = (await ana.api('GET', '/insights/me')).json.misses.map(
+      (miss: { outcome: string; noteId: string }) => `${miss.outcome} ${miss.noteId}`,
+    )
+    expect(skippedIds).toEqual([`skipped ${second.id}`, `skipped ${first.id}`])
   })
 
   it('counts a draft request that expired without any draft', async () => {

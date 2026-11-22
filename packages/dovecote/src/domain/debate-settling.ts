@@ -114,12 +114,15 @@ const applyAction = (
             created_at: now,
           }),
         )
+        if (effect.totalTurns !== null)
+          yield* run(sql`UPDATE debates SET total_turns = ${effect.totalTurns} WHERE id = ${row.id}`)
         return yield* touchDebate(row.id, now)
       case 'changeLimits':
         return yield* T.asUnit(
           run(sql`
             UPDATE debates SET turns_per_agent = ${effect.limits.turnsPerAgent}, total_turns = ${effect.limits.totalTurns},
             minutes = ${effect.limits.minutes}, turn_characters = ${effect.limits.turnCharacters},
+            total_follows_agents = ${effect.limits.totalFollowsAgents === true ? 1 : null},
             deadline_at = ${effect.deadlineAt},
             grace_minutes = ${effect.limits.graceMinutes ?? DEFAULT_GRACE_MINUTES}, updated_at = ${now}
             WHERE id = ${row.id}`),
@@ -135,12 +138,15 @@ const applyAction = (
             body: effect.body,
             created_at: now,
             ...statedModelOf(actor!),
+            ...(effect.afterTurn !== null && { after_turn: effect.afterTurn }),
           }),
         )
         if (taken !== 1)
           return yield* T.fail(
             Conflict({ message: 'Another turn was taken at the same moment. Read the room again.' }),
           )
+        if (effect.deadlineAt !== null)
+          yield* run(sql`UPDATE debates SET deadline_at = ${effect.deadlineAt} WHERE id = ${row.id}`)
         return yield* touchDebate(row.id, now)
       }
       case 'addDraft': {

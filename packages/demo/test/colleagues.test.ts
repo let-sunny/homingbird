@@ -1,7 +1,8 @@
 import { makeTestClock } from '@homingbird/kernel'
-import type { ConversationId, MemberId } from '@homingbird/protocol'
+import type { ConversationId, MemberId, Note } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
-import { ANSWER_AFTER_MS, APPROVAL_AFTER_MS, DRAFTING_AFTER_MS } from '../src/colleagues.ts'
+import { ANSWER_AFTER_MS, APPROVAL_AFTER_MS, DRAFTING_AFTER_MS, PERSON_FOLLOW_UP } from '../src/colleagues.ts'
+import { FOLLOW_UP_REPLY, OWN_AGENT_AFTER_MS } from '../src/own-agent.ts'
 import { VISITOR_ID } from '../src/team.ts'
 import { createWorld } from '../src/world.ts'
 import { NOW, demoApi, memberNamed, refused, succeeded } from './support/demo.ts'
@@ -20,7 +21,7 @@ describe('answerLater', () => {
       authorId: kai,
       status: 'sent',
       origin: 'agent',
-      agentName: "Kai's desk",
+      agentName: "Kai's laptop",
       approvedBy: null,
     })
     expect(answer?.receipts.map((receipt) => receipt.memberId)).toEqual([VISITOR_ID])
@@ -31,21 +32,40 @@ describe('answerLater', () => {
     expect(thread.notes.map((note) => note.id)).toContain(answer?.id)
   })
 
-  it('thanks the visitor for a reply instead of answering it as a question', async () => {
+  it('asks the visitor back once after a reply, which their own agent drafts an answer to, then thanks them', async () => {
     const { june, clock, world } = started()
     const draft = world
       .records()
       .notes.find((note) => note.status === 'draft' && note.authorId === VISITOR_ID)!
-    await succeeded(
-      june.api['drafts.send']({
-        params: { id: draft.id },
-        body: { expected: { body: draft.body, conversationId: draft.conversationId } },
-      }),
-    )
+    const approve = (note: Note) =>
+      succeeded(
+        june.api['drafts.send']({
+          params: { id: note.id },
+          body: { expected: { body: note.body, conversationId: note.conversationId } },
+        }),
+      )
+    await approve(draft)
     await clock.advance(ANSWER_AFTER_MS)
-    expect(world.records().notes.find((note) => note.inReplyTo === draft.id)?.body).toBe(
-      'Thanks, that is what I needed.',
-    )
+    const askedBack = world.records().notes.find((note) => note.inReplyTo === draft.id)!
+    expect(askedBack).toMatchObject({ body: PERSON_FOLLOW_UP, status: 'sent' })
+    await clock.advance(OWN_AGENT_AFTER_MS)
+    const reply = world.records().notes.find((note) => note.inReplyTo === askedBack.id)!
+    expect(reply).toMatchObject({
+      authorId: VISITOR_ID,
+      status: 'draft',
+      origin: 'agent',
+      agentName: "June's laptop",
+      body: FOLLOW_UP_REPLY,
+    })
+    expect(world.eventsAfter(VISITOR_ID, 0).map((event) => event.body)).toContainEqual({
+      type: 'draft.saved',
+      note: reply,
+    })
+    await approve(reply)
+    await clock.advance(ANSWER_AFTER_MS + OWN_AGENT_AFTER_MS)
+    const thanks = world.records().notes.find((note) => note.inReplyTo === reply.id)
+    expect(thanks?.body).toBe('Thanks, that is what I needed.')
+    expect(world.records().notes.some((note) => note.inReplyTo === thanks?.id)).toBe(false)
   })
 
   it('has a channel’s agent answer the visitor’s question, hidden from them, until another manager sends it (rules 1 and 2)', async () => {
@@ -72,6 +92,8 @@ describe('answerLater', () => {
     const sent = world.records().notes.find((note) => note.id === draft.id)
     expect(sent).toMatchObject({ status: 'sent', approvedBy: ana })
     expect(sent?.receipts.map((receipt) => receipt.memberId)).toEqual([VISITOR_ID])
+    expect(receiptOf(world, asked.id, draft.authorId)?.state).toBe('replied')
+    expect(receiptOf(world, asked.id, ana)?.state).not.toBe('replied')
   })
 
   it('leaves a channel’s agent’s answer to the visitor when they may review it, and never sends it for them', async () => {
@@ -99,6 +121,22 @@ describe('answerLater', () => {
       authorId: memberNamed(world, 'Kai Lin'),
       status: 'sent',
     })
+  })
+
+  it('treats a posted debate result as no question: nobody drafts an answer to it', async () => {
+    const { june, clock, world } = started()
+    const closed = world.records().debates.find((debate) => debate.status === 'closed')!
+    const draft = await succeeded(
+      june.api['debates.result.post']({ params: { id: closed.id }, body: { channel: 'deploys' } }),
+    )
+    await succeeded(
+      june.api['drafts.send']({
+        params: { id: draft.id },
+        body: { expected: { body: draft.body, conversationId: draft.conversationId } },
+      }),
+    )
+    await clock.advance(ANSWER_AFTER_MS * 10)
+    expect(world.records().notes.some((note) => note.inReplyTo === draft.id)).toBe(false)
   })
 
   it('never answers as the visitor, and stays silent where nobody else answers', async () => {

@@ -1,6 +1,6 @@
 import { Schema as S } from '@homingbird/kernel'
 import { UNKNOWN } from './compatibility.ts'
-import { MemberId, Timestamp } from './ids.ts'
+import { ConversationId, MemberId, NoteId, Timestamp } from './ids.ts'
 import { ChannelSlug, RELEASE_REASON_MAX } from './model.ts'
 import { SessionHealth } from './session-health.ts'
 
@@ -97,6 +97,21 @@ export type WeekFigures = S.Infer<typeof WeekFigures>
 export const YourWeek = S.struct({ days: S.int({ min: 1 }), current: WeekFigures, previous: WeekFigures })
 export type YourWeek = S.Infer<typeof YourWeek>
 
+export const MissOutcome = S.tolerant(S.literal('edited', 'discarded', 'skipped'), UNKNOWN)
+export type MissOutcome = S.Infer<typeof MissOutcome>
+
+/** A draft the person edited or discarded, or a note their agent skipped: by id, never what it says. */
+export const AgentMiss = S.struct({
+  outcome: MissOutcome,
+  noteId: NoteId,
+  conversationId: ConversationId,
+  place: PlaceName,
+  at: Timestamp,
+})
+export type AgentMiss = S.Infer<typeof AgentMiss>
+
+export const AGENT_MISSES_MAX = 100
+
 /** The signed-in person's own agent, for the last 7 and 30 days and the 8 weeks before now. */
 export const AgentReport = S.struct({
   generatedAt: Timestamp,
@@ -106,6 +121,7 @@ export const AgentReport = S.struct({
   weeks: S.array(TrustWeek),
   sessions: SessionHealth,
   week: S.optional(YourWeek),
+  misses: S.optional(S.array(AgentMiss, { maxItems: AGENT_MISSES_MAX })),
 })
 export type AgentReport = S.Infer<typeof AgentReport>
 

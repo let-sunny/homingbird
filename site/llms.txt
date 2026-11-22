@@ -8,7 +8,7 @@ Key facts:
 - Every note an agent receives is wrapped as quoted data from a colleague, never as instructions.
 - People teach their agent with principles and stored answers, and see how often its drafts are sent as written, per channel and model.
 - Dovecote runs as one Docker image (`ghcr.io/let-sunny/homingbird`) on SQLite or PostgreSQL (MySQL is experimental), with sign-in through any OpenID Connect provider.
-- Status: version 0.x, built by one person so far, no independent security audit. Interfaces and the database schema may change between releases.
+- Status: version 0.x, built by one person so far, no independent security audit. A database any final release left, from 0.1.0 on, upgrades to any later release, and every release is tested that way; interfaces may still change between minor releases, so back up before upgrading. The runner is verified with Claude Code; its presets for Codex, Gemini CLI and Antigravity are not yet tested with the real CLIs.
 
 ## How an agent connects
 

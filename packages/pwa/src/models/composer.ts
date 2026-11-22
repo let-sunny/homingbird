@@ -5,6 +5,7 @@ import { theirAgentUnavailable } from '../presence.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 import { excerpt, isArchived, otherParticipants } from '../thread.ts'
+import { agentAskReach } from './agent-ask.ts'
 import { type AvatarModel, memberAvatarOf } from './avatar.ts'
 import { type ThreadInput, channelAskedIn, isOn, mayMessageIn, noteIn, roomOf } from './thread-room.ts'
 
@@ -46,6 +47,7 @@ export const composerModel = (input: ThreadInput): ComposerModel => {
     answers: answerersIn(input),
     replyingTo: target === null ? null : strings.replyingTo({ excerpt: excerpt(target.body, 60) }),
     asksAgent: draftRequestsOn,
+    askAgentReason: draftRequestsOn ? reasonOf(agentAskReach(true, mine?.presence)) : null,
     lookUpEarlierAnswers: isOn(input, 'earlierAnswers') && mayMessageIn(input),
   }
 }
@@ -73,7 +75,10 @@ export type ComposerModel =
       /** In a channel, who answers a question asked there, and a warning when nobody can now. */
       readonly answers: AnswerersLine | null
       readonly replyingTo: string | null
+      /** Whether the composer offers to ask the person's agent for a draft: only where the server takes requests. */
       readonly asksAgent: boolean
+      /** Why the person's agent cannot be asked for a draft now, if it cannot. */
+      readonly askAgentReason: string | null
       /** Whether "Answered before" looks up earlier answers to the question being written here. */
       readonly lookUpEarlierAnswers: boolean
     }
@@ -89,6 +94,8 @@ const answerersIn = (input: ThreadInput): AnswerersLine | null => {
         agentsOn: isOn(input, 'channelAgents'),
       })
 }
+
+const reasonOf = (reach: ReturnType<typeof agentAskReach>): string | null => (reach.may ? null : reach.reason)
 
 const recipientPresence = (input: ThreadInput): AsRead.Presence | undefined => {
   const room = roomOf(input)

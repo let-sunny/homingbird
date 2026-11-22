@@ -589,6 +589,16 @@ describe('homingbird run', () => {
     expect(await r.exit).toBe(EXIT.signedOut)
   })
 
+  it('says in one line that its credential was revoked and stops with exit code 3 when the stream keeps refusing it', async () => {
+    const r = runner({ stream: () => new Response('{}', { status: 401 }) })
+    await settle(() => r.w.lines.some((line) => line.startsWith('Answering notes')))
+    await r.w.clock.advance(500 + 1_000 + 2_000)
+    expect(await r.exit).toBe(EXIT.signedOut)
+    expect(r.w.problems).toEqual([
+      'This agent credential was revoked or has expired, so the desk stopped. Sign in again: homingbird login --server https://hb.example.com',
+    ])
+  })
+
   it('refuses to start signed out', async () => {
     const w = world({ signedIn: 'none' })
     expect(await w.run('run', '--agent', 'claude -p')).toBe(EXIT.signedOut)

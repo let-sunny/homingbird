@@ -18,16 +18,23 @@ describe('reading what the agent command printed', () => {
       kind: 'draft',
       body: 'Yes.',
       basis: 'Read it',
+      sources: [],
       model: 'claude-opus-5-5',
     })
     expect(runnerReplyIn('Yes.\nMODEL: x\nBASIS: Read it')).toEqual({
       kind: 'draft',
       body: 'Yes.',
       basis: 'Read it',
+      sources: [],
       model: 'x',
     })
-    expect(runnerReplyIn('MODEL: x')).toEqual({ kind: 'draft', body: 'MODEL: x', basis: null })
-    expect(runnerReplyIn('Yes.\nMODEL: \u0007')).toEqual({ kind: 'draft', body: 'Yes.', basis: null })
+    expect(runnerReplyIn('MODEL: x')).toEqual({ kind: 'draft', body: 'MODEL: x', basis: null, sources: [] })
+    expect(runnerReplyIn('Yes.\nMODEL: \u0007')).toEqual({
+      kind: 'draft',
+      body: 'Yes.',
+      basis: null,
+      sources: [],
+    })
   })
 
   it('keeps a "Principles applied" line after BASIS in the basis, never in the note', () => {
@@ -37,6 +44,7 @@ describe('reading what the agent command printed', () => {
       kind: 'draft',
       body: 'Tuesday, 14:00 CET.',
       basis: 'Read RELEASES.md\nPrinciples applied: Release dates',
+      sources: [],
     })
   })
 
@@ -45,6 +53,7 @@ describe('reading what the agent command printed', () => {
       kind: 'draft',
       body: 'Yes.\nTwo lines.',
       basis: null,
+      sources: [],
     })
   })
 
@@ -53,14 +62,64 @@ describe('reading what the agent command printed', () => {
       kind: 'draft',
       body: 'Yes.',
       basis: 'the runbook',
+      sources: [],
     })
-    expect(runnerReplyIn('Yes.\nBASIS:')).toEqual({ kind: 'draft', body: 'Yes.', basis: null })
+    expect(runnerReplyIn('Yes.\nBASIS:')).toEqual({ kind: 'draft', body: 'Yes.', basis: null, sources: [] })
     expect(runnerReplyIn('BASIS: only this')).toEqual({
       kind: 'draft',
       body: 'BASIS: only this',
       basis: null,
+      sources: [],
     })
     expect(runnerReplyIn(`Yes.\nBASIS: ${'x'.repeat(1200)}`)).toMatchObject({ basis: 'x'.repeat(1000) })
+  })
+
+  it('reads SOURCE lines, in their order, as a web address or a note id with the passage after " | "', () => {
+    expect(
+      runnerReplyIn(
+        'Five days.\nSOURCE: https://wiki.example.com/refunds | “Refunds take five days”\nsource: note_abcdefabcdef\nBASIS: Read the wiki',
+      ),
+    ).toEqual({
+      kind: 'draft',
+      body: 'Five days.',
+      basis: 'Read the wiki',
+      sources: [
+        { url: 'https://wiki.example.com/refunds', quote: 'Refunds take five days' },
+        { noteId: 'note_abcdefabcdef' },
+      ],
+    })
+  })
+
+  it('reads a passage as written, past its quotation marks and blank space, whatever it contains', () => {
+    const passageOf = (line: string) => {
+      const reply = runnerReplyIn(`Yes.\n${line}`)
+      return reply.kind === 'draft' ? reply.sources.map((source) => source.quote) : null
+    }
+    expect(passageOf('SOURCE: https://a.example  |  “ Five days ” ')).toEqual(['Five days'])
+    expect(passageOf('SOURCE: https://a.example | a | b')).toEqual(['a | b'])
+    expect(passageOf('SOURCE: https://a.example | He said "yes" today')).toEqual(['He said "yes" today'])
+    expect(passageOf('SOURCE: https://a.example')).toEqual([undefined])
+  })
+
+  it('takes a SOURCE line only when it starts with its label', () => {
+    expect(runnerReplyIn('Yes.\nNo SOURCE: https://a.example')).toMatchObject({
+      body: 'Yes.\nNo SOURCE: https://a.example',
+      sources: [],
+    })
+  })
+
+  it('keeps a source it cannot read in the basis as text, and at most ten sources', () => {
+    expect(runnerReplyIn('Yes.\nSOURCE: the wiki | Refunds\nSOURCE:')).toEqual({
+      kind: 'draft',
+      body: 'Yes.',
+      basis: 'Source: the wiki | Refunds',
+      sources: [],
+    })
+    const many = Array.from({ length: 12 }, (_, index) => `SOURCE: https://a.example/${index}`).join('\n')
+    const capped = runnerReplyIn(`Yes.\n${many}`)
+    expect(capped.kind === 'draft' && capped.sources).toHaveLength(10)
+    const long = runnerReplyIn(`Yes.\nSOURCE: https://a.example | ${'q'.repeat(600)}`)
+    expect(long).toMatchObject({ sources: [{ url: 'https://a.example', quote: 'q'.repeat(500) }] })
   })
 
   it('reads a SKIP line as giving the note back, with the reason cut to what the server takes', () => {
@@ -73,28 +132,40 @@ describe('reading what the agent command printed', () => {
 
 describe('whether a reply can be saved as a draft', () => {
   it('names an empty or oversized draft, and lets a skip or a draft that fits through', () => {
-    expect(replyProblem({ kind: 'draft', body: '', basis: null })).toBe('printed nothing')
-    expect(replyProblem({ kind: 'draft', body: 'x'.repeat(16_001), basis: null })).toBe(
+    expect(replyProblem({ kind: 'draft', body: '', basis: null, sources: [] })).toBe('printed nothing')
+    expect(replyProblem({ kind: 'draft', body: 'x'.repeat(16_001), basis: null, sources: [] })).toBe(
       'printed more than a note can hold',
     )
-    expect(replyProblem({ kind: 'draft', body: 'Yes.', basis: null })).toBeNull()
+    expect(replyProblem({ kind: 'draft', body: 'Yes.', basis: null, sources: [] })).toBeNull()
     expect(replyProblem({ kind: 'skip', reason: '' })).toBeNull()
   })
 })
 
 describe('the basis a runner draft carries', () => {
   it('keeps the agent’s basis, or none, and in split mode always says the writer saw only the extraction', () => {
-    expect(runnerBasisOf({ kind: 'draft', body: 'Yes.', basis: 'Read it' }, false)).toEqual({
+    expect(runnerBasisOf({ kind: 'draft', body: 'Yes.', basis: 'Read it', sources: [] }, false)).toEqual({
       basis: 'Read it',
     })
-    expect(runnerBasisOf({ kind: 'draft', body: 'Yes.', basis: null }, false)).toEqual({})
-    expect(runnerBasisOf({ kind: 'draft', body: 'Yes.', basis: 'Read it' }, true)).toEqual({
+    expect(runnerBasisOf({ kind: 'draft', body: 'Yes.', basis: null, sources: [] }, false)).toEqual({})
+    expect(runnerBasisOf({ kind: 'draft', body: 'Yes.', basis: 'Read it', sources: [] }, true)).toEqual({
       basis: `${SPLIT_BASIS}. Read it`,
     })
-    expect(runnerBasisOf({ kind: 'draft', body: 'Yes.', basis: null }, true)).toEqual({ basis: SPLIT_BASIS })
-    expect(runnerBasisOf({ kind: 'draft', body: 'Yes.', basis: 'x'.repeat(1200) }, true).basis).toHaveLength(
-      1000,
+    expect(runnerBasisOf({ kind: 'draft', body: 'Yes.', basis: null, sources: [] }, true)).toEqual({
+      basis: SPLIT_BASIS,
+    })
+    const source = { url: 'https://a.example' }
+    expect(runnerBasisOf({ kind: 'draft', body: 'Yes.', basis: null, sources: [source] }, false)).toEqual({
+      sources: [source],
+    })
+    expect(runnerBasisOf({ kind: 'draft', body: 'Yes.', basis: 'Read it', sources: [source] }, true)).toEqual(
+      {
+        basis: `${SPLIT_BASIS}. Read it`,
+        sources: [source],
+      },
     )
+    expect(
+      runnerBasisOf({ kind: 'draft', body: 'Yes.', basis: 'x'.repeat(1200), sources: [] }, true).basis,
+    ).toHaveLength(1000)
   })
 })
 
@@ -195,23 +266,27 @@ describe('reading what the agent printed, at its edges', () => {
       kind: 'draft',
       body: 'Yes.',
       basis: 'read it',
+      sources: [],
     })
     expect(runnerReplyIn('Yes.\nBASIS: a\nBASIS: b')).toEqual({
       kind: 'draft',
       body: 'Yes.\nBASIS: a',
       basis: 'b',
+      sources: [],
     })
     expect(runnerReplyIn('Yes.\nMODEL:x\nMODEL: y')).toEqual({
       kind: 'draft',
       body: 'Yes.\nMODEL:x',
       basis: null,
       model: 'y',
+      sources: [],
     })
     expect(runnerReplyIn('Yes.\nMODEL:opus')).toMatchObject({ model: 'opus' })
     expect(runnerReplyIn('Yes.\nPrinciples applied: A\nPrinciples applied: B')).toEqual({
       kind: 'draft',
       body: 'Yes.\nPrinciples applied: A',
       basis: 'Principles applied: B',
+      sources: [],
     })
   })
 
@@ -220,11 +295,13 @@ describe('reading what the agent printed, at its edges', () => {
       kind: 'draft',
       body: 'Yes.\nNo BASIS: x',
       basis: null,
+      sources: [],
     })
     expect(runnerReplyIn('Yes.\nNo MODEL: x')).toEqual({
       kind: 'draft',
       body: 'Yes.\nNo MODEL: x',
       basis: null,
+      sources: [],
     })
   })
 

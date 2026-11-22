@@ -2,9 +2,11 @@ import { Task as T } from '@homingbird/kernel'
 import { UNKNOWN, upgradeNeeded } from '@homingbird/protocol'
 import { trackSignIn } from '../analytics.ts'
 import type { Action, App } from '../app.ts'
+import { keptComposerTexts } from '../composer-texts.ts'
 import { preferredLanguage } from '../languages.ts'
 import { strings, useLanguage } from '../strings.ts'
 import { followEvents } from './events.ts'
+import { reportUnsettled } from './held.ts'
 import { reportVisibility } from './presence.ts'
 import { loadBranding, loadWorkspace } from './workspace.ts'
 
@@ -20,9 +22,11 @@ export const boot: Action = T.gen(function* () {
   if (me._tag === 'Err') return state.session.set(null)
   const locale = me.value.locale
   useLanguage(preferredLanguage(locale === UNKNOWN ? undefined : locale, page.languages()))
+  state.composerTexts.set(keptComposerTexts(page.storage, me.value.member.id))
   state.session.set(me.value)
   yield* trackSignIn
   yield* loadWorkspace
+  yield* T.result(reportUnsettled)
   yield* followEvents
   yield* reportVisibility
 })

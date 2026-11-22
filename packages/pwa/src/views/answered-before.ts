@@ -1,6 +1,12 @@
 import type { AsRead, ConversationId } from '@homingbird/protocol'
-import { type Lifetime, type ReadableSignal, h, region, signal } from '@homingbird/ui'
-import { type AnsweredBeforeModel, answeredBeforeModel, questionToLookUp } from '../models/answered-before.ts'
+import { type Lifetime, type ReadableSignal, h, region, signal, slice } from '@homingbird/ui'
+import {
+  type AnsweredBeforeModel,
+  type OpenQuestion,
+  answeredBeforeModel,
+  openQuestionsLike,
+  questionToLookUp,
+} from '../models/answered-before.ts'
 import type { ViewContext } from './context.ts'
 import { button, timeLabel } from './parts.ts'
 
@@ -46,13 +52,18 @@ export const answeredBefore = (
     found.set([])
     answered.set(true)
   }
+  const open = slice(
+    [composer.typed, context.state.threads, context.state.reviews, context.state.conversations],
+    () => openHere(context, id, composer.isReplying() ? '' : composer.typed.get()),
+  )
   return region(
     life,
-    [found, dismissed, answered, context.state.members],
+    [found, open, dismissed, answered, context.state.members],
     () =>
       renderAnsweredBefore(
         answeredBeforeModel({
           found: found.get(),
+          open: open.get(),
           dismissed: dismissed.get(),
           answered: answered.get(),
           members: context.state.members.get(),
@@ -61,6 +72,17 @@ export const answeredBefore = (
         { use: useAnswer, keepWriting: () => dismissed.set(true) },
       ),
     { class: 'answered-before-region' },
+  )
+}
+
+/** The open questions like the one being typed, in a channel's room only: elsewhere a question waits for one person. */
+const openHere = (context: ViewContext, id: ConversationId, typed: string): ReadonlyArray<OpenQuestion> => {
+  const room = context.state.conversations.get().find((conversation) => conversation.id === id)
+  if (room?.kind !== 'channel') return []
+  return openQuestionsLike(
+    typed,
+    context.state.threads.get().get(id)?.notes ?? [],
+    context.state.reviews.get(),
   )
 }
 
@@ -101,6 +123,20 @@ const renderAnsweredBefore = (
             h('a', { href: item.href }, item.open),
           ),
           button(item.thisAnswersIt, () => on.use(item.answerId)),
+        ),
+      ),
+      model.asked.map((item) =>
+        h(
+          'li',
+          { class: 'answered-before-item is-open', data: { questionId: item.questionId } },
+          h('p', { class: 'answered-before-question' }, item.question),
+          h(
+            'p',
+            { class: 'answered-before-meta' },
+            h('span', {}, item.asked),
+            item.review !== null && h('strong', {}, item.review),
+            h('a', { href: item.href }, item.open),
+          ),
         ),
       ),
     ),

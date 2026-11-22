@@ -1,8 +1,10 @@
 import { type AsRead, type MemberId, type NoteId, summarize } from '@homingbird/protocol'
 import { authorshipOf, showsStateMark, stateMarkOf } from '../authorship.ts'
 import { type AnswerersLine, questionWaits } from '../channel-answerers.ts'
-import { draftBasisOf } from '../draft-basis.ts'
+import { debateNoteParts } from '../debate-note.ts'
+import { type SourceShown, draftBasisOf } from '../draft-basis.ts'
 import { unavailableOf } from '../presence.ts'
+import { hrefFor } from '../routes.ts'
 import { spriteOwner } from '../sprite-owner.ts'
 import { formats, listOf, strings } from '../strings.ts'
 import {
@@ -16,11 +18,13 @@ import {
   showsAuthors,
   statusOf,
 } from '../thread.ts'
+import { agentAskReach } from './agent-ask.ts'
 import { type AvatarModel, memberAvatarOf } from './avatar.ts'
 import { agentAuthorshipLine, approvalLine } from './channel-agent.ts'
 import { confirmedPreviewLine } from './draft-previews.ts'
+import { type TeachSeed, teachSeedOf } from './teaching.ts'
 import { type ThreadInput, channelAskedIn, isOn, nameIn, noteIn, notesOf, roomOf } from './thread-room.ts'
-import { type TimeShown, timeShown } from './time.ts'
+import { type TimeShown, noteTimeShown } from './time.ts'
 
 /** One sent note: who wrote it and how, what it answers, how far it got, and what the person may do. */
 export const noteItemModel = (
@@ -33,14 +37,18 @@ export const noteItemModel = (
   const room = roomOf(input)
   const archived = isArchived(room)
   const inRoom = showsAuthors(room)
-  const isChannelQuestion = room?.kind === 'channel' && note.inReplyTo === null
+  const isChannelQuestion =
+    room?.kind === 'channel' && note.inReplyTo === null && note.fromDebate === undefined
   const answerers = isChannelQuestion ? answeredBy(note) : []
   const sentAt = note.sentAt === null ? null : formats.full.format(new Date(note.sentAt))
   const authorship = authorshipLine(input, note, mine)
   const charactersOn = isOn(input, 'characters')
   const markShown = mine && showsStateMark(note, next)
   const basis = mine ? draftBasisOf(note) : null
+  const waits =
+    mine && answerers.length === 0 && note.fromDebate === undefined ? questionLine(input, note) : null
   const side = mine ? 'is-mine' : 'is-theirs'
+  const discardedBy = input.discardedAnswers?.get(note.id)
   return {
     noteId: note.id,
     className: `note ${side} ${leadsRun ? 'leads-run' : 'follows-run'} is-${authorshipOf(note)}`,
@@ -50,12 +58,26 @@ export const noteItemModel = (
     spokenSent: sentAt === null ? null : strings.authorship.sent({ time: sentAt }),
     authorName: inRoom && leadsRun ? (mine ? strings.you : nameIn(input, note.authorId)) : null,
     bubbleTitle: next !== null && sentAt !== null ? sentAt : null,
-    quote: quoted === null ? null : excerpt(quoted.body),
+    quote:
+      quoted === null
+        ? null
+        : {
+            text: excerpt(quoted.body),
+            href: hrefFor({ name: 'conversation', id: input.conversationId, draft: null, note: quoted.id }),
+            label: strings.quotedNote,
+          },
     body: note.body,
+    debateResult: debateResultOf(note),
+    longBody: isLongBody(note.body) ? { more: strings.showMoreNote, less: strings.showLessNote } : null,
     basis:
       basis === null || basis.kind === 'none'
         ? null
-        : { className: `note-basis ${side}`, lines: basis.lines },
+        : {
+            className: `note-basis ${side}`,
+            title: strings.basedOn,
+            lines: basis.lines,
+            sources: basis.sources,
+          },
     approval: approvalLine(note, room, input.channels, input.members) ?? confirmedPreviewLine(input, note),
     answeredBy:
       answerers.length === 0
@@ -71,25 +93,37 @@ export const noteItemModel = (
             ),
             text: strings.answeredBy({ names: listOf(answerers.map((memberId) => nameIn(input, memberId))) }),
           },
+    noAnswer:
+      isChannelQuestion &&
+      !archived &&
+      waits === null &&
+      answerers.length === 0 &&
+      !isBeingAnswered(note) &&
+      !hasReplyIn(input, note) &&
+      discardedBy === undefined
+        ? strings.noAnswerYet
+        : null,
+    answerDiscarded:
+      discardedBy === undefined || archived || answerers.length > 0 || hasReplyIn(input, note)
+        ? null
+        : {
+            text: strings.channelAgent.answerDiscarded({ agent: discardedBy }),
+            reply: strings.activity.replyYourself,
+          },
     release: !mine && !archived ? releaseModel(input, note) : null,
-    waits: mine && answerers.length === 0 ? questionLine(input, note) : null,
+    waits,
     meta:
       next === null || markShown
         ? {
-            time: next === null && note.sentAt !== null ? timeShown(note.sentAt, input.now) : null,
+            time: next === null && note.sentAt !== null ? noteTimeShown(note.sentAt, input.now) : null,
             mark: markShown ? stateMarkModel(input, note, inRoom) : null,
           }
         : null,
-    reply: !mine && !archived ? strings.reply : null,
+    reply: archived ? null : strings.reply,
     menu: {
       id: `note-menu-${note.id}`,
       label: strings.noteMore,
-      items: [
-        ...(!mine && !archived && isOn(input, 'draftRequests')
-          ? [{ kind: 'ask-agent' as const, label: strings.askAgentToReply }]
-          : []),
-        { kind: 'copy' as const, label: strings.copyNote },
-      ],
+      items: menuItems(input, { reply: !archived, askAgent: !mine && !archived }),
     },
   }
 }
@@ -103,13 +137,36 @@ export interface NoteItemModel {
   readonly spokenSent: string | null
   readonly authorName: string | null
   readonly bubbleTitle: string | null
-  readonly quote: string | null
+  /** The excerpt of the note this one replies to, as a link that opens the thread at it. */
+  readonly quote: { readonly text: string; readonly href: string; readonly label: string } | null
   readonly body: string
-  readonly basis: { readonly className: string; readonly lines: ReadonlyArray<string> } | null
+  /**
+   * A debate room's posted result, read first for what the agents settled and what happens next, with the
+   * whole note folded and a way into the room. A result is not a question: nobody is asked to answer it.
+   */
+  readonly debateResult: DebateResultNote | null
+  /** A body long enough to be shown collapsed, with the words of the button that opens and closes it. */
+  readonly longBody: { readonly more: string; readonly less: string } | null
+  /** What the person's own sent note rested on, collapsed under "Based on". */
+  readonly basis: {
+    readonly className: string
+    readonly title: string
+    readonly lines: ReadonlyArray<string>
+    readonly sources: ReadonlyArray<SourceShown>
+  } | null
   /** Where a channel's agent answered and who approved it, or that a draft seen early was checked. */
   readonly approval: string | null
   readonly answeredBy: { readonly avatar: AvatarModel; readonly text: string } | null
-  readonly release: { readonly text: string; readonly askAnyway: string | null } | null
+  /** Under a channel's question nobody answered or is answering, a discarded answer's included. */
+  readonly noAnswer: string | null
+  /** The manager discarded the channel agent's answer to this question, and may answer it themself. */
+  readonly answerDiscarded: { readonly text: string; readonly reply: string } | null
+  readonly release: {
+    readonly text: string
+    readonly askAnyway: string | null
+    /** Teaching the agent what to do with notes like this one, from the guided form filled in. */
+    readonly teach: { readonly label: string; readonly seed: TeachSeed } | null
+  } | null
   /** Under the person's latest question in a channel while no answer came: who answers, then drafting. */
   readonly waits: AnswerersLine | null
   readonly meta: { readonly time: TimeShown | null; readonly mark: StateMarkModel | null } | null
@@ -119,8 +176,27 @@ export interface NoteItemModel {
   readonly menu: {
     readonly id: string
     readonly label: string
-    readonly items: ReadonlyArray<{ readonly kind: 'ask-agent' | 'copy'; readonly label: string }>
+    readonly items: ReadonlyArray<NoteMenuItem>
   }
+}
+
+export interface DebateResultNote {
+  /** The conclusion and next steps; null when the note is not in the shape the server writes. */
+  readonly parts: {
+    readonly heading: string
+    readonly summary: string
+    readonly nextStepsHeading: string
+    readonly nextSteps: ReadonlyArray<string>
+  } | null
+  readonly whole: string
+  readonly room: { readonly href: string; readonly label: string }
+}
+
+/** One of a note's menu actions; one the person cannot take now says why. */
+export interface NoteMenuItem {
+  readonly kind: 'reply' | 'ask-agent' | 'copy' | 'copy-link'
+  readonly label: string
+  readonly reason: string | null
 }
 
 /** The author's character as a button, and the details it opens: who or what wrote the note, and when. */
@@ -142,6 +218,55 @@ export interface StateMarkModel {
   readonly glyph: string
   readonly count: string | null
 }
+
+const menuItems = (
+  input: ThreadInput,
+  may: { readonly reply: boolean; readonly askAgent: boolean },
+): ReadonlyArray<NoteMenuItem> => {
+  const mine = input.directory.find((entry) => entry.member.id === input.me.member.id)
+  const reach = agentAskReach(isOn(input, 'draftRequests'), mine?.presence)
+  return [
+    ...(may.reply ? [{ kind: 'reply' as const, label: strings.reply, reason: null }] : []),
+    ...(may.askAgent
+      ? [
+          {
+            kind: 'ask-agent' as const,
+            label: strings.askAgentToReply,
+            reason: reach.may ? null : reach.reason,
+          },
+        ]
+      : []),
+    { kind: 'copy', label: strings.copyNote, reason: null },
+    { kind: 'copy-link', label: strings.copyNoteLink, reason: null },
+  ]
+}
+
+const debateResultOf = (note: AsRead.Note): DebateResultNote | null => {
+  if (note.fromDebate === undefined) return null
+  const parts = debateNoteParts(note.body)
+  return {
+    parts:
+      parts === null
+        ? null
+        : {
+            heading: parts.agreed ? strings.debateNote.agreed : strings.debateNote.disagreed,
+            summary: parts.summary,
+            nextStepsHeading: strings.debateNote.nextSteps,
+            nextSteps: parts.nextSteps,
+          },
+    whole: strings.debateNote.whole,
+    room: {
+      href: hrefFor({ name: 'debate', id: note.fromDebate.debateId, tab: 'result' }),
+      label: strings.debateNote.openRoom,
+    },
+  }
+}
+/** A body past this many characters or lines is shown collapsed, about a screen of a bubble. */
+const LONG_BODY_CHARACTERS = 1200
+const LONG_BODY_LINES = 16
+
+const isLongBody = (body: string): boolean =>
+  body.length > LONG_BODY_CHARACTERS || body.split('\n').length > LONG_BODY_LINES
 
 /** Asks for the text form of a glyph, so that no platform swaps in a coloured emoji. */
 const TEXT_PRESENTATION = '︎'
@@ -257,6 +382,9 @@ const releaseModel = (input: ThreadInput, note: AsRead.Note): NoteItemModel['rel
         ? strings.agentReleasedWithoutReason
         : strings.agentReleased({ reason: released.reason }),
     askAnyway: isOn(input, 'draftRequests') ? strings.askAnyway : null,
+    teach: isOn(input, 'teaching')
+      ? { label: strings.teach.add, seed: teachSeedOf(note.body, channelAskedIn(input)?.slug ?? null) }
+      : null,
   }
 }
 
@@ -291,6 +419,12 @@ const isUnavailableRecipient = (input: ThreadInput, note: AsRead.Note): boolean 
   const entry = input.directory.find((candidate) => candidate.member.id === receipt?.memberId)
   return unavailableOf(entry?.presence) !== null
 }
+
+const hasReplyIn = (input: ThreadInput, note: AsRead.Note): boolean =>
+  notesOf(input).some((reply) => reply.inReplyTo === note.id && reply.status === 'sent')
+
+const isBeingAnswered = (note: AsRead.Note): boolean =>
+  note.receipts.some((receipt) => receipt.state === 'drafting')
 
 const roomStatus = (note: AsRead.Note): string => {
   const { read, of, drafting } = readProgress(note.receipts)

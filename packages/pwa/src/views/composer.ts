@@ -10,17 +10,23 @@ import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
 import { button } from './parts.ts'
 
-/** Where the person writes a note, or why they cannot in an archived room. */
+/**
+ * Where the person writes a note, or why they cannot in an archived room. Enter sends where there is a
+ * keyboard; on a touch screen the return key starts a new line and Send sends, as in other messengers.
+ * Escape stops replying to a note. Once a note is sent, `sent` brings the thread back to the bottom.
+ */
 export const composer = (
   context: ViewContext,
   life: Lifetime,
   id: ConversationId,
   model: () => ComposerModel,
   sources: ReadonlyArray<ReadableSignal<unknown>>,
+  sent: () => void = () => {},
 ): HTMLElement => {
   const shown = model()
   if (shown.kind === 'archived') return archivedComposer(shown.notice)
-  const { actions } = context
+  const { actions, state } = context
+  const enterSends = !context.page.isCoarsePointer()
   const text = h('textarea', {
     name: 'body',
     rows: '1',
@@ -28,22 +34,44 @@ export const composer = (
     placeholder: strings.composerPlaceholder,
     'aria-label': strings.composerLabel,
     maxlength: '16000',
+    enterkeyhint: enterSends ? 'send' : 'enter',
   })
-  const typed = signal('')
-  text.addEventListener('input', () => typed.set(text.value))
+  text.value = state.composerTexts.get().get(id) ?? ''
+  const typed = signal(text.value)
+  text.addEventListener('input', () => {
+    typed.set(text.value)
+    actions.keepComposerText(id, text.value)
+  })
   const send = (): void => {
     const body = bodyToSend(text.value)
     if (body === null) return
     text.value = ''
     typed.set('')
+    actions.keepComposerText(id, '')
     actions.sendNote(id, body, { attempt: 'draft' })
+    sent()
+    text.focus()
   }
   text.addEventListener('keydown', (event) => {
-    if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return
+    if (event.isComposing) return
+    if (event.key === 'Escape' && replyTargetIn(state, id) !== null) {
+      event.preventDefault()
+      actions.chooseReplyTarget(id, null)
+      return
+    }
+    if (event.key !== 'Enter' || event.shiftKey || !enterSends) return
     event.preventDefault()
     send()
   })
   const sendButton = h('button', { type: 'submit', class: 'primary send' }, strings.send)
+  keepsFocusIn(context, sendButton, text)
+  const ask =
+    shown.asksAgent &&
+    agentAsk(context, life, () => {
+      const inReplyTo = replyTargetIn(state, id)
+      return inReplyTo === null ? { conversationId: id } : { inReplyTo }
+    })
+  const askButton = ask === false ? null : askToggle(ask)
   const reflectReachability = (): void => {
     const current = model()
     const blocked = current.kind === 'open' && current.blocked !== null
@@ -52,11 +80,23 @@ export const composer = (
       if (blocked) control.setAttribute('aria-describedby', BLOCKED_REASON_ID)
       else control.removeAttribute('aria-describedby')
     }
+    if (askButton !== null)
+      reflectAskReason(askButton, current.kind === 'open' ? current.askAgentReason : null)
   }
   reflectReachability()
   const status = slice(sources, model)
-  life.add(context.state.directory.subscribe(reflectReachability))
-  life.add(context.state.conversations.subscribe(reflectReachability))
+  life.add(state.directory.subscribe(reflectReachability))
+  life.add(state.conversations.subscribe(reflectReachability))
+  const focusWhenAsked = (): void => {
+    if (state.composerFocus.get() !== id) return
+    context.page.nextFrame(() => {
+      if (!text.isConnected || state.composerFocus.get() !== id) return
+      state.composerFocus.set(null)
+      text.focus()
+    })
+  }
+  focusWhenAsked()
+  life.add(state.composerFocus.subscribe(focusWhenAsked))
   return h(
     'form',
     {
@@ -76,17 +116,61 @@ export const composer = (
         clear: () => {
           text.value = ''
           typed.set('')
+          actions.keepComposerText(id, '')
         },
       }),
-    h('div', { class: 'composer-row' }, text, sendButton),
+    h('div', { class: 'composer-row' }, text, askButton?.toggle, sendButton),
+    askButton?.reason,
     h('small', { class: 'composer-hint' }, strings.composerHint),
-    shown.asksAgent &&
-      agentAsk(context, life, () => {
-        const inReplyTo = replyTargetIn(context.state, id)
-        return inReplyTo === null ? { conversationId: id } : { inReplyTo }
-      }),
+    ask,
   )
 }
+
+/** The composer's “Ask my agent”, beside Send: it opens the request below, or says why it cannot. */
+const askToggle = (ask: HTMLDetailsElement): AskToggle => {
+  ask.id = ASK_PANEL_ID
+  const toggle = h(
+    'button',
+    {
+      type: 'button',
+      class: 'ask-agent-toggle',
+      'aria-controls': ASK_PANEL_ID,
+      'aria-expanded': 'false',
+      on: {
+        click: () => {
+          ask.open = !ask.open
+          if (ask.open) ask.querySelector<HTMLElement>('input')?.focus()
+        },
+      },
+    },
+    strings.askAgent,
+  )
+  ask.addEventListener('toggle', () => toggle.setAttribute('aria-expanded', String(ask.open)))
+  return { toggle, reason: h('span', { id: ASK_REASON_ID, class: 'visually-hidden' }) }
+}
+
+const reflectAskReason = (parts: AskToggle, reason: string | null): void => {
+  parts.toggle.disabled = reason !== null
+  parts.reason.textContent = reason ?? ''
+  if (reason === null) {
+    parts.toggle.removeAttribute('title')
+    parts.toggle.removeAttribute('aria-describedby')
+  } else {
+    parts.toggle.title = reason
+    parts.toggle.setAttribute('aria-describedby', ASK_REASON_ID)
+  }
+}
+
+interface AskToggle {
+  readonly toggle: HTMLButtonElement
+  readonly reason: HTMLElement
+}
+
+/** A press on the button does not take the focus from the field, so a phone's keyboard stays open. */
+const keepsFocusIn = (context: ViewContext, control: HTMLElement, field: HTMLElement): void =>
+  control.addEventListener('pointerdown', (event) => {
+    if (context.document.focused() === field) event.preventDefault()
+  })
 
 const renderComposerStatus = (context: ViewContext, id: ConversationId, model: ComposerModel) => {
   if (model.kind === 'archived') return null
@@ -144,6 +228,8 @@ const renderComposerStatus = (context: ViewContext, id: ConversationId, model: C
 
 const ARCHIVED_REASON_ID = 'archived-reason'
 const BLOCKED_REASON_ID = 'composer-blocked-reason'
+const ASK_PANEL_ID = 'composer-ask-agent'
+const ASK_REASON_ID = 'composer-ask-agent-reason'
 
 const archivedComposer = (notice: string): HTMLElement =>
   h(

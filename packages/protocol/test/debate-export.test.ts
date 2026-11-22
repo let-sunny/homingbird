@@ -63,6 +63,60 @@ describe('exporting a debate room', () => {
     expect(text).not.toContain(ANA)
   })
 
+  it('writes what changed minds, what is still open and where the agents differed, with the turn of each credit', () => {
+    const settled = roomOf().result!
+    const result = {
+      ...settled.result,
+      kind: 'conclusion' as const,
+      conclusion: 'Ship on Thursday.',
+      reasons: ['The rollback is tested.'],
+      changedMinds: [{ turn: 1, line: 'The failed rehearsal moved Ben.' }],
+      stillOpen: ['Is the vendor term in the order form?'],
+      points: [
+        { point: 'Date', category: 'goals' as const, explanation: 'Ben wanted Friday for the quarter.' },
+      ],
+      contributions: [
+        {
+          memberId: ANA,
+          summary: 'Named the March report.',
+          credits: [{ credit: 'gap_filled' as const, turn: 1 }],
+        },
+        { memberId: BEN, summary: 'Changed position.', credits: [] },
+      ],
+    }
+    for (const [language, expected] of [
+      [
+        'en',
+        [
+          '### What changed minds\n\n- Turn 1: The failed rehearsal moved Ben.',
+          '### Still open\n\n- Is the vendor term in the order form?',
+          '### Where they differed\n\n- Date (goals): Ben wanted Friday for the quarter.',
+          '- Ana’s agent: Named the March report. (filled a gap in turn 1)',
+        ],
+      ],
+      [
+        'ko',
+        [
+          '### 생각을 바꾼 차례\n\n- 1번째 차례: The failed rehearsal moved Ben.',
+          '### 아직 열린 질문',
+          '### 의견이 달랐던 곳',
+          '(1번째 차례에서 빠진 정보를 채웠어요)',
+        ],
+      ],
+    ] as const) {
+      const text = debateMarkdown(
+        roomOf({ result: { ...settled, result } }),
+        nameOf,
+        exportLabelsIn(language),
+      )
+      for (const line of expected) expect(text).toContain(line)
+    }
+    const plain = debateMarkdown(roomOf(), nameOf)
+    expect(plain).not.toContain('What changed minds')
+    expect(plain).not.toContain('Still open')
+    expect(plain).not.toContain('Where they differed')
+  })
+
   it('names the model each agent stated beside its turn, its draft and its vote', () => {
     const room = roomOf()
     const stated = roomOf({
@@ -176,8 +230,8 @@ describe('exporting a debate room', () => {
 
   it('lets no text a person or agent wrote add a heading, an HTML tag or a link but http(s), in either language', () => {
     const HEADINGS = {
-      en: /^#{1,3} (?:Debate room: |Turns$|Result|Vote$|Reasons$|Where they disagreed$|Next steps$|Contributions$|\d+\. )/,
-      ko: /^#{1,3} (?:토론방: |차례$|결과|투표$|이유$|의견이 갈린 곳$|다음 단계$|기여$|\d+\. )/,
+      en: /^#{1,3} (?:Debate room: |Turns$|Result|Vote$|Reasons$|Where they disagreed$|Where they differed$|What changed minds$|Still open$|Next steps$|Contributions$|\d+\. )/,
+      ko: /^#{1,3} (?:토론방: |차례$|결과|투표$|이유$|의견이 갈린 곳$|의견이 달랐던 곳$|생각을 바꾼 차례$|아직 열린 질문$|다음 단계$|기여$|\d+\. )/,
     } as const
     fc.assert(
       fc.property(

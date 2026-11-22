@@ -42,6 +42,41 @@ export const agentLabelOf = (text: unknown): string | null => {
 export const NOTE_BASIS_MAX = 1000
 export const NoteBasis = S.string({ maxLength: NOTE_BASIS_MAX })
 
+export const SOURCE_URL_MAX = 2000
+export const SourceUrl = S.string({
+  minLength: 1,
+  maxLength: SOURCE_URL_MAX,
+  pattern: /^https?:\/\/[^\s/]+(\/\S*)?$/,
+})
+
+export const SOURCE_QUOTE_MAX = 500
+export const SourceQuote = S.refine<string>(
+  'source-quote',
+  (text) => text.trim() !== '',
+  'expected the passage the draft used',
+)(S.string({ minLength: 1, maxLength: SOURCE_QUOTE_MAX }))
+
+/** A web address or an earlier note a draft rests on, with the passage it used: exactly one of the two. */
+export const DraftSource = namingOneTarget(
+  S.struct({ url: S.optional(SourceUrl), noteId: S.optional(NoteId), quote: S.optional(SourceQuote) }),
+)
+export type DraftSource = S.Infer<typeof DraftSource>
+
+export const DRAFT_SOURCES_MAX = 10
+export const DraftSources = S.array(DraftSource, { maxItems: DRAFT_SOURCES_MAX })
+
+export const NoteSource = S.struct({
+  url: S.optional(S.string({ maxLength: SOURCE_URL_MAX })),
+  noteId: S.optional(NoteId),
+  conversationId: S.optional(ConversationId),
+  quote: S.optional(S.string({ maxLength: SOURCE_QUOTE_MAX })),
+})
+export type NoteSource = S.Infer<typeof NoteSource>
+
+/** Why a person discarded a channel's agent's answer: kept for its managers, never shown to the asker. */
+export const DISCARD_REASON_MAX = 500
+export const DiscardReason = S.string({ maxLength: DISCARD_REASON_MAX })
+
 export const PROFILE_MAX = 500
 
 export const Role = S.tolerant(S.literal('member', 'admin'), UNKNOWN)
@@ -71,6 +106,14 @@ export const Member = S.struct({
   character: S.nullable(S.tolerant(CharacterSpec, null)),
 })
 export type Member = S.Infer<typeof Member>
+
+/** The agent credentials a person holds that still work: how many, and when the newest expires. */
+export const AgentCredentialsHeld = S.struct({
+  memberId: MemberId,
+  count: S.int({ min: 1 }),
+  newestExpiresAt: Timestamp,
+})
+export type AgentCredentialsHeld = S.Infer<typeof AgentCredentialsHeld>
 
 /** Only a person signs in, is messaged, joins a group or approves; a kind a client does not know is not one. */
 export const isPerson = (member: { readonly kind: string }): boolean => member.kind === 'person'
@@ -185,6 +228,7 @@ export const Note = S.struct({
   sentAt: S.nullable(Timestamp),
   receipts: S.array(Receipt),
   basis: S.optional(S.nullable(NoteBasis)),
+  sources: S.optional(S.array(S.tolerant(NoteSource, null), { maxItems: DRAFT_SOURCES_MAX })),
   agentClient: S.optional(S.nullable(AgentLabel)),
   agentModel: S.optional(S.nullable(AgentLabel)),
   /** The person who approved a channel's agent's note; its author is the agent. */
@@ -302,3 +346,13 @@ export const AnsweringFlowSetting = S.struct({
   updatedAt: S.nullable(Timestamp),
 })
 export type AnsweringFlowSetting = S.Infer<typeof AnsweringFlowSetting>
+
+function namingOneTarget<A extends { readonly url?: string; readonly noteId?: string }>(
+  schema: S.Schema<A>,
+): S.Schema<A> {
+  return S.refine<A>(
+    'draft-source',
+    (source) => (source.url === undefined) !== (source.noteId === undefined),
+    'expected a url or a noteId, not both',
+  )(schema)
+}

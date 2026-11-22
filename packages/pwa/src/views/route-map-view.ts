@@ -44,7 +44,8 @@ const renderRouteMap = (model: RouteMapModel | null, context: ViewContext): Chil
           { class: 'route-item', data: { place: item.key } },
           h('strong', {}, item.name),
           item.counts.map((count) => h('span', {}, count)),
-          item.chances !== null && h('span', { class: 'route-item-chances' }, item.chances),
+          item.chances !== null &&
+            h('a', { class: 'route-item-chances', href: item.chances.href }, item.chances.text),
         ),
       ),
     ),
