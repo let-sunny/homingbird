@@ -167,6 +167,13 @@ export const AUDIT_DETAILS: { readonly [N in AuditedRoute]: Describe<N> } = {
         ...(body.enabled !== undefined && { enabled: body.enabled }),
       },
     })),
+  'principles.autoSend.set': ({ params, body }) =>
+    afterwards(() => ({
+      targetId: params.id,
+      detail: { enabled: body.enabled, places: new Set(body.places).size },
+    })),
+  'notes.recall': () =>
+    afterwards((note) => ({ targetId: note.id, detail: { conversationId: note.conversationId } })),
   'principles.reorder': ({ body }) =>
     afterwards(() => ({ targetId: null, detail: { count: body.ids.length } })),
   'principles.delete': ({ params }) => afterwards(() => ({ targetId: params.id, detail: {} })),

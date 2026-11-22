@@ -95,6 +95,10 @@ exports[`schema > generates stable DDL for mysql 1`] = `
   "ALTER TABLE debates ADD COLUMN total_follows_agents BIGINT",
   "ALTER TABLE debate_turns ADD COLUMN after_turn BIGINT",
   "CREATE TABLE IF NOT EXISTS channel_agent_teaching (agent_id VARCHAR(64) NOT NULL, instruction MEDIUMTEXT NOT NULL, sources MEDIUMTEXT NOT NULL, updated_at BIGINT NOT NULL, PRIMARY KEY (agent_id))",
+  "ALTER TABLE principles ADD COLUMN auto_send BIGINT",
+  "CREATE TABLE IF NOT EXISTS principle_auto_send_places (principle_id VARCHAR(64) NOT NULL, conversation_id VARCHAR(64) NOT NULL, PRIMARY KEY (principle_id, conversation_id))",
+  "ALTER TABLE notes ADD COLUMN auto_principle_id VARCHAR(64)",
+  "ALTER TABLE notes ADD COLUMN withdrawn_at BIGINT",
 ]
 `;
 
@@ -238,6 +242,10 @@ exports[`schema > generates stable DDL for postgres 1`] = `
   "ALTER TABLE debates ADD COLUMN total_follows_agents BIGINT",
   "ALTER TABLE debate_turns ADD COLUMN after_turn BIGINT",
   "CREATE TABLE IF NOT EXISTS channel_agent_teaching (agent_id VARCHAR(64) NOT NULL, instruction TEXT NOT NULL, sources TEXT NOT NULL, updated_at BIGINT NOT NULL, PRIMARY KEY (agent_id))",
+  "ALTER TABLE principles ADD COLUMN auto_send BIGINT",
+  "CREATE TABLE IF NOT EXISTS principle_auto_send_places (principle_id VARCHAR(64) NOT NULL, conversation_id VARCHAR(64) NOT NULL, PRIMARY KEY (principle_id, conversation_id))",
+  "ALTER TABLE notes ADD COLUMN auto_principle_id VARCHAR(64)",
+  "ALTER TABLE notes ADD COLUMN withdrawn_at BIGINT",
 ]
 `;
 
@@ -381,5 +389,9 @@ exports[`schema > generates stable DDL for sqlite 1`] = `
   "ALTER TABLE debates ADD COLUMN total_follows_agents INTEGER",
   "ALTER TABLE debate_turns ADD COLUMN after_turn INTEGER",
   "CREATE TABLE IF NOT EXISTS channel_agent_teaching (agent_id TEXT NOT NULL, instruction TEXT NOT NULL, sources TEXT NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (agent_id))",
+  "ALTER TABLE principles ADD COLUMN auto_send INTEGER",
+  "CREATE TABLE IF NOT EXISTS principle_auto_send_places (principle_id TEXT NOT NULL, conversation_id TEXT NOT NULL, PRIMARY KEY (principle_id, conversation_id))",
+  "ALTER TABLE notes ADD COLUMN auto_principle_id TEXT",
+  "ALTER TABLE notes ADD COLUMN withdrawn_at INTEGER",
 ]
 `;

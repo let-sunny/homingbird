@@ -1,4 +1,5 @@
 import { Task as T } from '@homingbird/kernel'
+import { setAutoSend } from '../domain/auto-send-settings.ts'
 import {
   channelTeachingFor,
   channelTeachingForDrafting,
@@ -27,6 +28,7 @@ export const teachingHandlers = {
   'principles.list': (_, caller) => myPrinciples(caller.member.id),
   'principles.create': ({ body }, caller) => createPrinciple(caller.member.id, body),
   'principles.update': ({ params, body }, caller) => updatePrinciple(caller.member.id, params.id, body),
+  'principles.autoSend.set': ({ params, body }, caller) => setAutoSend(caller.member.id, params.id, body),
   'principles.reorder': ({ body }, caller) => reorderPrinciples(caller.member.id, body.ids),
   'principles.delete': ({ params }, caller) => deletePrinciple(caller.member.id, params.id),
   'principles.miss': ({ params, body }, caller) => recordMiss(caller.member.id, params.id, body.noteId),

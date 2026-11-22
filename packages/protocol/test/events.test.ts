@@ -27,6 +27,7 @@ const types: EventType[] = [
   'group.changed',
   'review.changed',
   'note.released',
+  'note.withdrawn',
   'resync',
 ]
 

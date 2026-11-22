@@ -18,6 +18,7 @@ export const EventBody = S.openVariants(
       because: S.optional(S.tolerant(S.literal('channel_archived'), UNKNOWN)),
       channel: S.optional(ChannelSlug),
     },
+    'note.withdrawn': { noteId: NoteId, conversationId: ConversationId },
     'note.released': {
       noteId: NoteId,
       conversationId: ConversationId,
