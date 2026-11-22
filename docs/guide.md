@@ -402,14 +402,20 @@ June's reply is approved, it arrives in the same conversation and your agent can
 
 From the command line: `homingbird draft --to june@example.com "Is the billing migration safe to run today?"`.
 
-To ask several people at once, open **People** in the web client, press **Add to group message** on two
-or more cards (up to 50 people), check the names above the list, and press **Start group message**.
-The group message opens with everyone in it; write the first note or ask your agent for a draft, as
-in a direct message with one person. Nothing is sent until you approve it, and the people you chose
-see the group message only once a note in it is sent; if you discard the draft, it stays hidden from
-them. Until then your list marks it **Draft — not visible to them yet**. Its header says how many people
-are in it; press that to see who. When you already have a group message with exactly
-those people, the button opens it instead of starting another.
+To write to one person or several from the web client, press **New** at the top of your list and
+choose **New message**. Type a name or an email address after **To**, and press Enter or click a
+person to add them (up to 50 people); Backspace in the empty field takes the last one out. People you
+cannot write to are listed with the reason, such as a block or a contact request they have not
+accepted. A line under the field says who will read the note. Write the note and press **Send**, or
+press **Ask my agent** for a draft. Nothing is made until you do: leave the screen before that and no
+group message is left behind. When you already have a direct message or a group message with exactly
+those people, the note goes there and the line says so. **With others…** on a person's card in
+**People** opens the same screen with them chosen.
+
+Nothing is sent until you approve it, and the people you chose see a new group message only once a
+note in it is sent; if you discard your agent's draft, it stays hidden from them. Until then your list
+marks it **Draft — not visible to them yet**. Its header says how many people are in it; press that
+to see who. **New** also starts a channel or a debate room, with the same form their own pages open.
 
 ## Ask a channel
 
@@ -476,10 +482,13 @@ A channel is **open** or **private**. Anyone can find, read and join an open cha
 marked with a lock and the word **Private**, is seen only by its members: nobody else finds it in the
 list, in search or on your profile, and nobody can join it by themselves. You choose **Open** or
 **Private** once, when you create the channel, and it cannot be changed later: to move a conversation
-between the two, create a new channel of the other kind.
+between the two, create a new channel of the other kind. Nobody is put into an open channel by someone
+else: **Copy link to this channel**, in the room's ⋯ menu, gives you a link to send, and whoever opens
+it joins by themselves.
 
 A channel is run by its **managers**, who are all in the room; when you create a channel, you are its
-first manager. Managers open **Members** in the room to add people from the directory, remove them,
+first manager. Managers of a private channel open **Members** in the room to add people, by typing
+their names and pressing **Add**, and remove them,
 add a manager with **Add a manager**, and take one out
 with **Remove as manager**. **Add a team** adds everyone in a [group](#groups) as managers at once: it
 copies who is in the group today, and later changes to the group change nothing here. A new manager
@@ -558,6 +567,14 @@ writes.
   you to read it again before you can send it. The person who asked sees only that an answer is being
   drafted, never the draft, so a manager never reviews the answer to their own question: if you are the
   only manager, add another first.
+- **See what was decided.** On the agent's page, below the answers waiting, **Recent decisions** lists
+  every answer the managers sent or discarded in the last 30 days, newest first: sent as written, sent
+  after an edit, or discarded, who decided it and when, the question it answered, and the principles it
+  said it applied. An edited answer shows what the agent wrote above what was sent; a discarded one
+  shows its text and the reason, if one was given. Only the channel's current managers see the list,
+  never an administrator outside them, and a decision on a question you asked yourself is never in
+  yours, because its draft was hidden from you. **Show where it was asked** opens the answer, or the
+  question a discarded answer left, in its room or private question.
 - **Read the answer.** A sent answer shows the agent as its author and who approved it, such as
   "#payments-wiki · approved by Kim". The audit trail records the approver and the agent, never the
   text.
@@ -581,9 +598,10 @@ writes.
   before drafting and before its checks; an instruction asking it to approve, send or discard anything
   is ignored, and the form says so. A manager still approves every answer. The audit trail records
   which manager changed it, never what it says.
-- **Teach from a correction.** When you edit an answer before sending it, or discard it, its card
-  offers **Teach from this correction** (or **Teach what it should have done**). It opens the same form,
-  prefilled from what you changed; nothing is saved until you save it.
+- **Teach from a decision.** Each row of **Recent decisions** offers to teach the agent: **Teach from
+  this correction** on an edited answer, **Teach what it should have done** on a discarded one, and
+  **Teach …** on one sent as written. It opens the same form, prefilled from what was changed in an
+  edit; nothing is saved until you save it.
 - **Ask privately.** **Ask … privately** opens your own conversation with the channel's agent. Its
   first screen says who else is there: the channel's managers, now and later, who read everything in it.
   Your question goes to the agent alone and its answer to you alone, once a manager approves it. In a
@@ -616,12 +634,14 @@ result is settled, has what each agent contributed and the next steps it propose
 turns folded. A room still taking turns opens on Turns, with opting your agent in at the top; a later
 one opens on Result. The activity panel opens a room on the tab that waits for you.
 
-1. **Open a room.** Under **Debates**, beside Channels, press **New debate room**. Write the
-   question, choose **Open** (everyone can follow it) or **Private** (only you and the people you
+1. **Open a room.** Under **Debates**, beside Channels, press **New debate room**, or choose it
+   under **New** at the top of your list. Write the question, type the names of the people to invite
+   under **Invite people**, choose **Open** (everyone can follow it) or **Private** (only you and the people you
    invite take part; the organization's administrators may read it when they sign in themselves, as
    with a private channel, never through an agent), and set the limits: turns per agent, turns in
    total, a time limit, a length per turn, and after how long unseen an agent drops out of the debate
-   (5, 10 or 30 minutes). The room stops at whichever limit comes first. If any agent in the room
+   (5, 10 or 30 minutes). The room stops at whichever limit comes first, or earlier once every agent
+   says it is ready to conclude (step 3). If any agent in the room
    works through a remote MCP connector, choose 30 minutes: a connector has no event stream and sends
    no heartbeat, so it makes a request only when the model calls one of its tools, and between turns
    that can take longer than 5 or 10 minutes. With a shorter time it drops out while it is still
@@ -647,7 +667,14 @@ one opens on Result. The activity panel opens a room on the tab that waits for y
    Like a note, each turn, draft and vote records the model the agent says it ran as, if it says one:
    select the character beside a turn or a draft for the same details as a note's (**Model**, or "not
    stated", and **Connection**), and the vote record shows the model beside each agent's vote.
-4. **The agents settle the result.** When the turns run out, each agent drafts the result. The room
+   An agent can say with its turn that it is **ready to conclude** when another turn would add
+   nothing: an MCP agent with `ready` on `take_debate_turn`, an agent under `homingbird run` with a
+   last line of exactly `READY: yes`. An agent counts as ready while its latest turn says so, or once
+   it has used all its turns; its next turn without the flag takes it back. The Turns tab marks who is
+   ready, and once every agent taking part is, the room stops taking turns and asks for the result,
+   saying that it stopped early because the agents agreed. The result is drafted and voted on as below.
+4. **The agents settle the result.** When the turns run out, or every agent is ready to conclude, each
+   agent drafts the result. The room
    keeps collecting drafts for three minutes after the first one arrives (less when every agent taking
    part has drafted); an agent sees the others' drafts only once it drafted. Then the agents taking
    part vote on them, never for their own. The draft with the most votes becomes the result, a tie going
@@ -666,8 +693,8 @@ one opens on Result. The activity panel opens a room on the tab that waits for y
    records that a room was opened, that an agent was opted in and that the room was exported, never
    its turns or its result.
 
-Turns are never notes: they stay in the room, visible to its members (to everyone for an open room). On
-**My agent → Route map**, settled results credit your agent when its contribution became part of a
+Turns are never notes: they stay in the room, visible to its members (to everyone for an open room). Under
+**My agent → Teaching → Milestones**, settled results credit your agent when its contribution became part of a
 conclusion, when it filled a gap another agent lacked, separated a disagreement, changed its position
 on better evidence, or proposed a next step the agents' vote kept. There are no wins, counts or rankings.
 
@@ -874,12 +901,33 @@ Every draft you decide shows how close your agent came to what you would have se
 those decisions into numbers you can read at a glance, so you can tell "my agent is doing fine" from
 "not there yet", channel by channel. The numbers are about your agent's drafts, not about you.
 
-**My agent**, in the header, has four tabs, each with its own address: **Connection**
-(`#/agent/connection`), **Teaching**, **How it is doing** (`#/agent/doing`) and **Route map**.
+**My agent**, in the header, has a tab for each part, each with its own address: **Connection**
+(`#/agent/connection`), **Teaching**, **How it is doing** (`#/agent/doing`) and, when your organization
+turns them on, **Early previews**.
 
 **How it is doing** starts with **Your week**: the notes you sent in the last 7 days, whoever drafted
 them, the replies colleagues sent to your notes, and your typical time to reply, from a colleague's new
 note to your first reply to it, each beside the 7 days before.
+
+Then **Where it answers like you**: each place your agent drafted in over the last 30 days, a channel or
+direct messages together, on four steps:
+
+1. **Only drafts**: no principle of yours applies there yet.
+2. **You taught principles**: at least one does, one for that channel or one for any channel, which
+   counts in every place.
+3. **Principles hold**: you sent a draft there that used one of them without changing it.
+4. **Answers like you ★**: in the last 30 days you decided at least 10 drafts there and sent at least 7
+   in 10 as written. This is the finished state.
+
+Each row shows the count, such as "16 of 26 decided drafts sent as written (62%)", the current step, one
+sentence on what is missing, and the next thing to do: teach from the chances to teach that came from
+there (the same ones Teaching lists), teach a first principle, review the notes your agent skipped there,
+or teach it more. Hover over or focus a step to read what it means and what reaching the next one takes;
+**What the steps mean** lists the same for touch screens. The first three steps stay while you keep your
+principles. The last follows the last 30 days, so it can come and go: when a few edited drafts take a
+place below it, the row says "Some recent drafts needed edits: teach it what changed", because an edit
+is a chance to teach, never a step back. With teaching switched off, each place shows its count and
+sentence only. The old `#/agent/routes` address leads here.
 
 Below it, for the last 7 or the last 30 days beside the period before:
 
@@ -898,8 +946,6 @@ Below it, for the last 7 or the last 30 days beside the period before:
 - **Notes you wrote yourself.**
 - **Debate results you sent**, on their own line: a result you posted from a debate room and sent counts
   neither as your agent's draft nor as a note you wrote.
-- **Where your agent is trusted**: the same breakdown per channel, with direct messages together, such as
-  "#billing: 9 of 10 sent as written" next to "#payroll: 2 of 6 sent as written".
 - **Sent as written, week by week** over the last 8 weeks, as a chart and as a table.
 - **By program** and **By model**: the same counts for each program that drafted, with the models its
   agents stated beside it, and for each model the agent stated.
@@ -934,10 +980,9 @@ receive.
   agent has not connected yet, shows the `homingbird login --server` command, and links to entering
   its connection code.
 - **Teaching**: your principles, below. A principle is a rule or saved answer your agent follows.
-- **How it is doing**: the numbers above, and how drafts fared by how long the desk session had run and
-  how much of its context it had used. A share shows from five decided drafts in a row.
-- **Route map**: where your agent already answers like you, place by place, and how far your
-  principles carry it there.
+- **How it is doing**: where it answers like you, the numbers above, and how drafts fared by how long
+  the desk session had run and how much of its context it had used. A share shows from five decided
+  drafts in a row.
 
 When you approve drafts within a few seconds often, a draft that contains a date, a number or a promise
 shows one quiet line above **Send**, such as "This draft has a date in it. Read it before sending." It

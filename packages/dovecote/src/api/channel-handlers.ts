@@ -14,6 +14,7 @@ import {
   retireChannelAgent,
   revokeAgentCredential,
 } from '../domain/channel-agents.ts'
+import { channelDecisionsFor } from '../domain/channel-decisions.ts'
 import { addChannelMember, channelMembers, removeChannelMember } from '../domain/channel-membership.ts'
 import {
   channelNamed,
@@ -70,6 +71,7 @@ export const channelHandlers = {
   'channels.agent.rename': ({ params, body }, caller) => renameChannelAgent(caller, params.slug, body.name),
   'channels.agent.retire': ({ params }, caller) => T.as({})(retireChannelAgent(caller, params.slug)),
   'channels.agent.figures': ({ params }, caller) => channelAgentInsights(caller, params.slug),
+  'channels.agent.decisions': ({ params }, caller) => channelDecisionsFor(caller, params.slug),
   'channels.agent.credentials.revoke': ({ params }, caller) =>
     T.flatMap((id: CredentialId) => revokeAgentCredential(caller, params.slug, id))(
       identifier(CredentialId, params.id),

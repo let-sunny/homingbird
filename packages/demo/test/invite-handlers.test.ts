@@ -1,5 +1,5 @@
 import { makeTestClock } from '@homingbird/kernel'
-import { INVITE_LIFETIME_SECONDS, JOIN_CODE_LIFETIME_SECONDS } from '@homingbird/protocol'
+import { INVITE_LIFETIME_SECONDS } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import { createWorld } from '../src/world.ts'
 import { NOW, demoApi, memberNamed, refused, succeeded } from './support/demo.ts'
@@ -54,30 +54,5 @@ describe('invites', () => {
     const { api } = demoApi(undefined, createWorld(clock))
     await clock.advance(INVITE_LIFETIME_SECONDS * 1000)
     expect((await succeeded(api['invites.list']({}))).invites).toEqual([])
-  })
-})
-
-describe('joinCodes.create', () => {
-  it('makes the code for the one line to paste on a server, naming the demo page as the server', async () => {
-    const { api } = demoApi()
-    const code = await succeeded(api['joinCodes.create']({ body: {} }))
-    expect(code).toEqual({
-      code: expect.stringMatching(/^hbj_/),
-      serverUrl: 'https://demo.homingbird.invalid',
-      expiresAt: NOW + JOIN_CODE_LIFETIME_SECONDS * 1000,
-      expiresInSeconds: JOIN_CODE_LIFETIME_SECONDS,
-    })
-  })
-
-  it('makes a code for a channel’s agent for its channel’s managers only (rule 6)', async () => {
-    const { api, world } = demoApi()
-    expect(await refused(api['joinCodes.create']({ body: { channel: 'billing' } }))).toBeNull()
-    const kai = demoApi(memberNamed(world, 'Kai Lin'), world)
-    expect(await refused(kai.api['joinCodes.create']({ body: { channel: 'billing' } }))).toMatchObject({
-      _tag: 'NotFound',
-    })
-    expect(await refused(api['joinCodes.create']({ body: { channel: 'deploys' } }))).toMatchObject({
-      _tag: 'NotFound',
-    })
   })
 })

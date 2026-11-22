@@ -1,6 +1,8 @@
 import { type Lifetime, h, region } from '@homingbird/ui'
 import {
   type HomeModel,
+  type StartInput,
+  type StartStep,
   type StartingPoints,
   conversationToRestore,
   homeModel,
@@ -14,9 +16,13 @@ import { pip } from './pip.ts'
 /** Home, which on a wide screen opens the most recent conversation by itself. */
 export const homeView = (context: ViewContext, life: Lifetime): HTMLElement => {
   const { state, page } = context
-  const host = region(life, [state.conversations, state.conversationsLoaded], () =>
+  const host = region(life, [state.conversations, state.conversationsLoaded, state.agentCredentials], () =>
     renderHome(
-      homeModel({ loaded: state.conversationsLoaded.get(), conversations: state.conversations.get() }),
+      homeModel({
+        loaded: state.conversationsLoaded.get(),
+        conversations: state.conversations.get(),
+        ...startInput(context),
+      }),
       context,
     ),
   )
@@ -38,8 +44,10 @@ export const homeView = (context: ViewContext, life: Lifetime): HTMLElement => {
 }
 
 /** Where to begin, also shown in the sidebar while there is no conversation yet. */
-export const startingPoints = (context: Pick<ViewContext, 'tour'>): HTMLElement =>
-  renderStartingPoints(startingPointsModel(), context)
+export const startingPoints = (context: StartContext, life: Lifetime): HTMLElement =>
+  region(life, [context.state.agentCredentials], () =>
+    renderStartingPoints(startingPointsModel(startInput(context)), context),
+  )
 
 const renderStartingPoints = (model: StartingPoints, context: Pick<ViewContext, 'tour'>): HTMLElement =>
   h(
@@ -47,18 +55,29 @@ const renderStartingPoints = (model: StartingPoints, context: Pick<ViewContext, 
     { class: 'starting-points', 'aria-labelledby': 'starting-points-title' },
     pip('waving', 3),
     h('h2', { id: 'starting-points-title' }, model.title),
-    h(
-      'ul',
-      {},
-      model.points.map((point) =>
-        h('li', {}, h('a', { class: 'button', href: point.href }, point.label), h('span', {}, point.hint)),
-      ),
-    ),
+    h('ol', {}, model.steps.map(renderStep)),
     h(
       'button',
       { type: 'button', class: 'link take-tour', on: { click: () => context.tour.start() } },
       model.tour,
     ),
+  )
+
+const renderStep = (step: StartStep): HTMLElement =>
+  h(
+    'li',
+    { class: step.done === null ? 'start-step' : 'start-step is-done' },
+    h('strong', {}, step.title, step.done !== null && h('span', { class: 'start-step-done' }, step.done)),
+    h('p', {}, step.hint),
+    step.command !== null && h('pre', {}, h('code', {}, step.command)),
+    step.links.length > 0 &&
+      h(
+        'p',
+        { class: 'start-step-links' },
+        step.links.map((link) =>
+          h('a', { class: link.primary ? 'button primary' : 'button', href: link.href }, link.label),
+        ),
+      ),
   )
 
 const sitsBesideTheList = (host: HTMLElement): boolean =>
@@ -71,3 +90,10 @@ const renderHome = (model: HomeModel, context: Pick<ViewContext, 'tour'>): HTMLE
   if (model.kind === 'start') return renderStartingPoints(model.start, context)
   return emptyWithPip('waving', model.text)
 }
+
+type StartContext = Pick<ViewContext, 'tour' | 'state' | 'page'>
+
+const startInput = (context: StartContext): StartInput => ({
+  agentConnected: context.state.agentCredentials.get().length > 0,
+  origin: context.page.origin,
+})

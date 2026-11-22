@@ -3,6 +3,7 @@ import { type Roster, channelLabel, isPrivate } from '../channels.ts'
 import { groupById, groupLabel, teamsByLabel } from '../groups.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
+import { type PickerCandidate, candidatesAmong } from './people-picker.ts'
 
 /** A channel's own controls: answering there, managing its members, and leaving it. */
 export const roomControlsModel = (
@@ -95,8 +96,7 @@ export const membersPanelModel = (input: MembersPanelInput): MembersPanelModel =
       visibility: null,
     }
   if (!input.channel.managing) return seenByAdministrator(input, roster, managedByAdmin, managedBy)
-  const inside = new Set(roster.map((member) => member.memberId))
-  const candidates = input.directory.filter((entry) => !inside.has(entry.member.id))
+  const candidates = candidatesAmong(input.directory, new Set(roster.map((member) => member.memberId)))
   return {
     managedByAdmin,
     managedBy,
@@ -111,13 +111,7 @@ export const membersPanelModel = (input: MembersPanelInput): MembersPanelModel =
       ? null
       : candidates.length === 0
         ? { kind: 'nobody', text: strings.nobodyToAdd }
-        : {
-            kind: 'choose',
-            choices: candidates.map((entry) => ({
-              value: entry.member.id,
-              label: `${entry.member.name} · ${entry.member.email}`,
-            })),
-          },
+        : { kind: 'choose', candidates },
     visibility: isPrivate(input.channel) ? strings.visibilityPrivate : strings.visibilityOpen,
   }
 }
@@ -175,10 +169,7 @@ export interface MembersPanelModel {
   readonly rows: ReadonlyArray<MemberRow> | null
   readonly addMember:
     | { readonly kind: 'nobody'; readonly text: string }
-    | {
-        readonly kind: 'choose'
-        readonly choices: ReadonlyArray<{ readonly value: MemberId; readonly label: string }>
-      }
+    | { readonly kind: 'choose'; readonly candidates: ReadonlyArray<PickerCandidate> }
     | null
   readonly visibility: string | null
 }

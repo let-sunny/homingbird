@@ -2,6 +2,7 @@ import { Schema as S, type Task } from '@homingbird/kernel'
 import { AnalyticsBatch } from './analytics.ts'
 import { AutoSend } from './auto-send.ts'
 import { AgentListing, ChannelAgent, ChannelAgentName, Review } from './channel-agents.ts'
+import { ChannelDecisions } from './channel-decisions.ts'
 import { ChannelInstruction, ChannelSources } from './channel-drafting.ts'
 import { ChannelTeaching, TaughtFrom } from './channel-teaching.ts'
 import { CharacterSpec } from './character.ts'
@@ -13,6 +14,7 @@ import {
   Empty,
   InboxItem,
   JoinCode,
+  JoinCodeStatus,
   Me,
   PageLimit,
   Recipients,
@@ -302,6 +304,12 @@ export const contract = {
     path: '/channels/:slug/agent/figures',
     access: 'human',
     response: ChannelAgentReport,
+  }),
+  'channels.agent.decisions': route({
+    method: 'GET',
+    path: '/channels/:slug/agent/decisions',
+    access: 'human',
+    response: ChannelDecisions,
   }),
   'channels.agent.teaching.get': route({
     method: 'GET',
@@ -808,6 +816,8 @@ export const contract = {
       model: S.optional(AgentLabel),
       /** The last turn the agent read: a room that moved past it answers 409 and saves nothing. */
       afterTurn: S.optional(S.int({ min: 0 })),
+      /** The agent is ready to conclude: once every agent's latest turn says so, the room asks for its result. */
+      ready: S.optional(S.boolean),
     }),
     response: Debate,
   }),
@@ -885,6 +895,12 @@ export const contract = {
       channel: S.optional(ChannelSlug),
     }),
     response: JoinCode,
+  }),
+  'joinCodes.status': route({
+    method: 'GET',
+    path: '/join-codes/:id',
+    access: 'human',
+    response: JoinCodeStatus,
   }),
   'invites.list': route({
     method: 'GET',

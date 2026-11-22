@@ -35,5 +35,5 @@ export interface ViewContext {
 
 export interface Tour {
   readonly start: () => void
-  readonly startOnHome: (routeName: string) => void
+  readonly startOnFirstVisit: (routeName: string) => void
 }

@@ -11,8 +11,9 @@ afterEach(async () => {
 })
 
 describe('the teaching chat step', () => {
-  it('is the last step', () => {
-    expect(stepNumberOf(TEACHING_INTERVIEW)).toBe(MIGRATIONS.length)
+  it('is the twenty-first and last step', () => {
+    expect(stepNumberOf(TEACHING_INTERVIEW)).toBe(21)
+    expect(MIGRATIONS.length).toBe(21)
   })
 
   it('adds the proposals and one pasted document per person, and only new tables, so it can run twice', async () => {

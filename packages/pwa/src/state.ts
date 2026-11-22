@@ -70,6 +70,7 @@ export const createState = (hash: string): AppState => {
     debates: signal<ReadonlyArray<AsRead.DebateSummary>>([]),
     debatesLoaded: signal(false),
     shownDebate: signal<AsRead.Debate | 'missing' | null>(null),
+    waitingOnly: signal(false),
     members: derived(
       [directory, session, channels],
       (entries, me, known): ReadonlyMap<MemberId, AsRead.Member> =>
@@ -157,6 +158,8 @@ export interface AppState {
   readonly debates: Signal<ReadonlyArray<AsRead.DebateSummary>>
   readonly debatesLoaded: Signal<boolean>
   readonly shownDebate: Signal<AsRead.Debate | 'missing' | null>
+  /** Whether the conversation list shows only what waits for the person. */
+  readonly waitingOnly: Signal<boolean>
   readonly members: ReadableSignal<ReadonlyMap<MemberId, AsRead.Member>>
   readonly changes: ChangeCounter
   /** Drafts already reported as seen in this page. */

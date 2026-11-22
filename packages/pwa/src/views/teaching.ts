@@ -35,18 +35,6 @@ export const taughtSection = (context: ViewContext, life: Lifetime): HTMLElement
   )
 }
 
-/** "Teach my agent": opens the guided form for a new principle. */
-export const teachButton = (context: ViewContext): HTMLElement =>
-  h(
-    'button',
-    {
-      type: 'button',
-      class: 'primary teach-button',
-      ...opensDialog(context, strings.teach.dialogTitle, () => principleForm(context, null, null, false)),
-    },
-    strings.teach.add,
-  )
-
 /** The chances to teach that came from one conversation, shown there right after the decision. */
 export const chancesIn = (context: ViewContext, life: Lifetime, conversationId: string): HTMLElement =>
   region(
@@ -410,3 +398,15 @@ const renderTaught = (model: TaughtModel, context: ViewContext): Child => {
     h('p', { class: 'trust-footnote teach-audit' }, model.footnotes[1]),
   ]
 }
+
+/** "Teach my agent": opens the guided form for a new principle. */
+const teachButton = (context: ViewContext): HTMLElement =>
+  h(
+    'button',
+    {
+      type: 'button',
+      class: 'primary teach-button',
+      ...opensDialog(context, strings.teach.dialogTitle, () => principleForm(context, null, null, false)),
+    },
+    strings.teach.add,
+  )

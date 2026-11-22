@@ -5,7 +5,7 @@ import { strings } from '../strings.ts'
 
 /** How to show a member's character: which one, in which state, and the words that name it, if any. */
 export const memberAvatarOf = (
-  member: Pick<AsRead.Member, 'name' | 'character'> | undefined,
+  member: (Pick<AsRead.Member, 'name' | 'character'> & Partial<Pick<AsRead.Member, 'kind'>>) | undefined,
   charactersOn: boolean,
   options: Omit<AvatarOptions, 'label'> & { readonly labelled?: boolean } = {},
 ): AvatarModel => {

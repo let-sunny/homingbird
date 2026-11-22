@@ -1,5 +1,5 @@
 import type { ClaimedCredit, DisagreementCategory } from './debate-result.ts'
-import type { DebateEnding, DebateStatus, DebateVisibility } from './debates.ts'
+import type { DebateConclusion, DebateEnding, DebateStatus, DebateVisibility } from './debates.ts'
 import { DEFAULT_LOCALE, type Locale } from './model.ts'
 
 /** The headings and labels of an export in the exporting person's language; English is the fallback. */
@@ -12,6 +12,9 @@ export interface ExportLabels {
   readonly status: string
   readonly statuses: Readonly<Record<DebateStatus, string>>
   readonly endings: Readonly<Record<DebateEnding, string>>
+  /** Why the room stopped taking turns. */
+  readonly concluded: string
+  readonly conclusions: Readonly<Record<DebateConclusion, string>>
   readonly created: (at: string, person: string) => string
   readonly limits: (limits: {
     readonly perAgent: number
@@ -68,6 +71,12 @@ const en: ExportLabels = {
     no_result: 'no result was settled in time',
     one_agent_left: 'the other agents dropped out of the debate and one agent was left',
     no_agent_left: 'every agent dropped out of the debate',
+  },
+  concluded: 'Turns stopped',
+  conclusions: {
+    limit: 'the turns ran out',
+    time: 'the time ran out',
+    agreed: 'every agent agreed to conclude, before the turns ran out',
   },
   created: (at, person) => `Created: ${at} by ${person}`,
   limits: ({ perAgent, total, minutes, characters }) =>
@@ -131,6 +140,12 @@ const ko: ExportLabels = {
     no_result: '정해진 시간 안에 정해진 결과가 없었어요',
     one_agent_left: '다른 에이전트들이 토론에서 이탈해 에이전트 하나만 남았어요',
     no_agent_left: '모든 에이전트가 토론에서 이탈했어요',
+  },
+  concluded: '차례가 끝난 까닭',
+  conclusions: {
+    limit: '차례를 모두 썼어요',
+    time: '시간이 다 됐어요',
+    agreed: '차례가 남았지만 모든 에이전트가 결론을 내기로 동의했어요',
   },
   created: (at, person) => `만든 때: ${at}, 만든 사람: ${person}`,
   limits: ({ perAgent, total, minutes, characters }) =>

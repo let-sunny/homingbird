@@ -102,12 +102,14 @@ describe('debateRoomModel', () => {
         name: strings.debates.mine.agentOf({ agent: `${ANA} desk` }),
         turnsLeft: strings.debates.turnsLeft({ count: 1 }),
         droppedOut: null,
+        ready: null,
       },
       {
         memberId: BEN,
         name: strings.debates.agentOf({ agent: `${BEN} desk`, person: 'Ben' }),
         turnsLeft: strings.debates.turnsLeft({ count: 2 }),
         droppedOut: strings.debates.droppedOut,
+        ready: null,
       },
     ])
     expect(model.turns).toEqual({
@@ -135,6 +137,56 @@ describe('debateRoomModel', () => {
         },
       ],
     })
+  })
+
+  it('shows which agents are ready to conclude while the room takes turns, and when that ends it early', () => {
+    const turn = (position: number, memberId: typeof ANA, ready?: boolean) => ({
+      position,
+      memberId,
+      agentName: `${memberId} desk`,
+      body: 'Agreed.',
+      at: position,
+      ...(ready !== undefined && { ready }),
+    })
+    const open = room(
+      debateRoomModel(
+        input(
+          debate({
+            participants: [participant(ANA), participant(BEN), participant(CY)],
+            limits: { turnsPerAgent: 1, totalTurns: 6, minutes: 30, turnCharacters: 300 },
+            turns: [turn(1, ANA), turn(2, BEN, true)],
+          }),
+        ),
+      ),
+    )
+    expect(open.participants.map((one) => one.ready)).toEqual([
+      strings.debates.readyToConclude,
+      strings.debates.readyToConclude,
+      null,
+    ])
+    expect(open.readyHint).toBe(strings.debates.readyHint)
+    expect(open.agreedEarly).toBeNull()
+    expect(room(debateRoomModel(input(debate()))).readyHint).toBeNull()
+    const agreed = room(
+      debateRoomModel(
+        input(
+          debate({
+            status: 'concluding',
+            concludedBecause: 'agreed',
+            participants: [participant(ANA), participant(BEN)],
+            turns: [turn(1, ANA, true), turn(2, BEN, true)],
+          }),
+        ),
+      ),
+    )
+    expect(agreed.agreedEarly).toBe(strings.debates.agreedEarly({ count: 2, total: 4 }))
+    expect(agreed.participants.map((one) => one.ready)).toEqual([null, null])
+    expect(agreed.readyHint).toBeNull()
+    const ranOut = debate({ status: 'concluding', concludedBecause: 'limit' })
+    expect(room(debateRoomModel(input(ranOut))).agreedEarly).toBeNull()
+    expect(
+      room(debateRoomModel(input({ ...ranOut, concludedBecause: 'unknown' as never }))).agreedEarly,
+    ).toBeNull()
   })
 
   it('says an agent dropped out while the room concludes, and no longer once it closed', () => {

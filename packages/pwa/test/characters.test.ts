@@ -6,6 +6,7 @@ import {
   PIGEON,
   PREVIEW_STATES,
   PROBLEM_KIND_NAMES,
+  ROBOT,
   blockedParts,
   builtInIdOf,
   characterOf,
@@ -45,6 +46,14 @@ describe('characterOf', () => {
     expect(characterOf({ character: null }, true)).toBe(PIGEON)
     expect(characterOf(undefined, true)).toBe(PIGEON)
     expect(PIGEON.id).toBe('pigeon')
+  })
+
+  it('draws a channel’s agent with no saved character as the robot, unless characters are off', () => {
+    expect(characterOf({ character: null, kind: 'channel_agent' }, true)).toBe(ROBOT)
+    expect(ROBOT.id).toBe('robot')
+    expect(characterOf({ character: OTTER, kind: 'channel_agent' }, true)).toBe(OTTER)
+    expect(characterOf({ character: null, kind: 'channel_agent' }, false)).toBe(PIGEON)
+    expect(characterOf({ character: null, kind: 'person' }, true)).toBe(PIGEON)
   })
 })
 

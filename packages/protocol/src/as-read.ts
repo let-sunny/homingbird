@@ -1,9 +1,11 @@
 import type { Schema as S } from '@homingbird/kernel'
 import type { ChannelAgent as ChannelAgentSchema, Review as ReviewSchema } from './channel-agents.ts'
+import type { ChannelDecisions as ChannelDecisionsSchema } from './channel-decisions.ts'
 import type { ChannelTeaching as ChannelTeachingSchema } from './channel-teaching.ts'
 import type {
   InboxItem as InboxItemSchema,
   JoinCode as JoinCodeSchema,
+  JoinCodeStatus as JoinCodeStatusSchema,
   Me as MeSchema,
   ServerInfo as ServerInfoSchema,
 } from './contract-schemas.ts'
@@ -96,6 +98,7 @@ export type TeachingInterview = S.Read<typeof TeachingInterviewSchema>
 export type TeachingMaterial = S.Read<typeof TeachingMaterialSchema>
 export type DraftingPrinciples = S.Read<typeof DraftingPrinciplesSchema>
 export type ChannelTeaching = S.Read<typeof ChannelTeachingSchema>
+export type ChannelDecisions = S.Read<typeof ChannelDecisionsSchema>
 export type Achievement = S.Read<typeof AchievementSchema>
 export type AgentReport = S.Read<typeof AgentReportSchema>
 export type ChannelAgentReport = S.Read<typeof ChannelAgentReportSchema>
@@ -111,5 +114,6 @@ export type DeskWakeTest = S.Read<typeof DeskWakeTestSchema>
 export type DraftPreview = S.Read<typeof DraftPreviewSchema>
 export type DraftPreviewAllowance = S.Read<typeof DraftPreviewAllowanceSchema>
 export type JoinCode = S.Read<typeof JoinCodeSchema>
+export type JoinCodeStatus = S.Read<typeof JoinCodeStatusSchema>
 export type Invite = S.Read<typeof InviteSchema>
 export type InviteLink = S.Read<typeof InviteLinkSchema>

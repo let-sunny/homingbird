@@ -4,6 +4,7 @@ import {
   DEBATE_GRACE_MINUTES,
   DEFAULT_GRACE_MINUTES,
   type Debate,
+  type DebateConclusion,
   type DebateEnding,
   type DebateId,
   type DebateResult,
@@ -76,6 +77,7 @@ export const loadRoom = (row: DebateRow): T.Task<DebateFacts, never, AppEnv> =>
       createdAt: Number(row.created_at),
       deadlineAt: Number(row.deadline_at),
       concludedAt: numberOrNull(row.concluded_at),
+      concludedBecause: row.concluded_because ?? null,
       closedAt: numberOrNull(row.closed_at),
       endedBecause: row.ended_because,
       limits,
@@ -95,6 +97,7 @@ export const loadRoom = (row: DebateRow): T.Task<DebateFacts, never, AppEnv> =>
         at: Number(turn.created_at),
         ...statedModel(turn),
         afterTurn: numberOrNull(turn.after_turn),
+        ...(Number(turn.ready) === 1 && { ready: true }),
       })),
       result: resultOf(row),
       resultRound: Number(row.result_round),
@@ -266,6 +269,7 @@ export interface DebateRow {
   readonly result_at: number | null
   readonly result_round: number
   readonly ended_because: DebateEnding | null
+  readonly concluded_because?: DebateConclusion | null
   readonly votes_open_at: number | null
   readonly grace_minutes: number | null
   readonly dropped_out: string | null
@@ -310,6 +314,7 @@ interface TurnRow {
   readonly created_at: number
   readonly agent_model?: string | null
   readonly after_turn?: number | null
+  readonly ready?: number | null
 }
 
 /** The stored result passed `DebateResult` when it was drafted. */

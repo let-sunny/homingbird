@@ -16,6 +16,9 @@ const segment = fc.string({ minLength: 1, maxLength: 24 })
 const routes: fc.Arbitrary<Route> = fc.oneof(
   fc.constant<Route>({ name: 'home' }),
   fc.constant<Route>({ name: 'people' }),
+  fc
+    .array(fc.stringMatching(/^mem_[a-z0-9]{1,12}$/), { maxLength: 4 })
+    .map((to): Route => ({ name: 'new', to })),
   fc.constant<Route>({ name: 'channels' }),
   segment.map((slug): Route => ({ name: 'channel', slug })),
   segment.map((slug): Route => ({ name: 'channel-agent', slug, draft: null })),
@@ -33,7 +36,7 @@ const routes: fc.Arbitrary<Route> = fc.oneof(
     .tuple(segment, fc.integer({ min: 1, max: 999 }))
     .map(([id, turn]): Route => ({ name: 'debate', id, tab: 'turns', turn })),
   fc
-    .constantFrom<AgentSection | null>(null, 'connection', 'teaching', 'doing', 'routes')
+    .constantFrom<AgentSection | null>(null, 'connection', 'teaching', 'doing', 'previews')
     .map((section): Route => ({ name: 'agent', section })),
   fc.constant<Route>({ name: 'character', draft: null, from: null }),
   segment.map((draft): Route => ({ name: 'character', draft, from: null })),
@@ -76,6 +79,8 @@ describe('routes', () => {
     ['#/c/conv_1?review=note_2', { name: 'conversation', id: 'conv_1', draft: null, review: 'note_2' }],
     ['#/c/conv_1?note=note_3', { name: 'conversation', id: 'conv_1', draft: null, note: 'note_3' }],
     ['#/device', { name: 'device', code: null }],
+    ['#/new', { name: 'new', to: [] }],
+    ['#/new?to=mem_a,,mem_b', { name: 'new', to: ['mem_a', 'mem_b'] }],
     ['#/invite/hbi_abc', { name: 'invite', code: 'hbi_abc' }],
     ['#/invite', { name: 'unknown' }],
     ['#/invite-refused', { name: 'invite-refused' }],
@@ -101,6 +106,7 @@ describe('routes', () => {
     ['#/group', { name: 'unknown' }],
     ['#/admin/insights', { name: 'admin', section: 'insights' }],
     ['#/agent', { name: 'agent', section: null }],
+    ['#/agent/routes', { name: 'agent', section: 'doing' }],
     ['#/debate/d1', { name: 'debate', id: 'd1', tab: null }],
     ['#/debate/d1/votes', { name: 'debate', id: 'd1', tab: 'votes' }],
     ['#/debate/d1/nonsense', { name: 'debate', id: 'd1', tab: null }],

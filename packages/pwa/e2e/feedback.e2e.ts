@@ -82,7 +82,7 @@ const scenario = async (): Promise<void> => {
     // -- 11c, home: nothing exists yet, so every entry offers a way forward ----------------------
     await ben.page.goto(`${base}/#/`)
     await ben.page.waitForSelector('.stage .starting-points a:has-text("Ask a channel")')
-    await ben.page.waitForSelector('.stage .starting-points a:has-text("Connect your agent")')
+    await ben.page.waitForSelector('.stage .starting-points a:has-text("Another agent, or a server")')
     await ben.page.waitForSelector('.sidebar .empty:has-text("You are in no channel yet")')
     await inThemes(ben.page, 'home-with-nothing-yet-offers-starting-points')
     await ben.page.setViewportSize(NARROW)
@@ -699,7 +699,9 @@ const scenario = async (): Promise<void> => {
     for (let tries = 0; tries < 40 && !(await readByBen()); tries++) await ben.page.waitForTimeout(100)
     assert.equal(await readByBen(), true, 'the person acting on the page reads it')
     await shot(ben.page, 'home-wide-opens-the-latest-conversation')
-    await ben.page.waitForSelector('.connection.is-connected[role=status]:has-text("Connected")')
+    await ben.page.waitForSelector(
+      '.connection.is-connected[role=status]:has-text("This page is up to date")',
+    )
     assert.equal(await ben.page.locator('.connection .pip, .connection canvas').count(), 0)
     await shot(ben.page, 'header-connected')
     await ben.context.setOffline(true)
@@ -723,7 +725,7 @@ const scenario = async (): Promise<void> => {
     const badge = phone.page.locator('.connection')
     assert.ok(((await badge.boundingBox())?.width ?? 0) <= 1, 'a connected badge takes no room when short')
     assert.equal(await badge.getAttribute('role'), 'status')
-    assert.equal(await badge.getAttribute('aria-label'), 'Connected')
+    assert.equal(await badge.getAttribute('aria-label'), 'This page is up to date')
     await shot(phone.page, 'header-narrow-connected-shows-no-bare-mark')
     let holdStream = true
     await phone.context.route('**/api/v1/events/**', async (route: any) => {
