@@ -179,6 +179,7 @@ describe('the agent panel', () => {
     expect(called('createJoinCode')[0]!.args).toEqual(['payments-wiki'])
     called('createJoinCode')[0]!.then!.done!({
       code: 'hbj_secret',
+      id: 'join_1',
       serverUrl: 'https://hb.example.com',
       expiresAt: context.clock.now() + 600_000,
     })
@@ -322,6 +323,17 @@ describe('how the agent is doing', () => {
       periods: [{ days: 30, current: figures(4), previous: figures(1) }],
     }
   }
+
+  it('puts the recent decisions on the agent’s page, right after the answers waiting', () => {
+    const { called, dialog } = onPage()
+    expect(called('loadChannelDecisions')[0]!.args).toEqual(['payments-wiki'])
+    called('loadChannelDecisions')[0]!.then!.done!({ channel: 'payments-wiki', days: 30, decisions: [] })
+    const panel = dialog.querySelector('.channel-agent-panel')!
+    expect([...panel.children].map((child) => child.className).slice(0, 2)).toEqual([
+      'region',
+      'channel-decisions-region',
+    ])
+  })
 
   it('shows the figures and each manager’s count beside the panel, once loaded', () => {
     const { called, dialog } = onPage()

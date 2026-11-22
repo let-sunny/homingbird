@@ -1,5 +1,5 @@
 import type { AsRead } from '@homingbird/protocol'
-import { lifetime } from '@homingbird/ui'
+import { h, lifetime } from '@homingbird/ui'
 import { fire, getByRole, queryByRole, textOf } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
 import { strings } from '../../src/strings.ts'
@@ -112,6 +112,55 @@ describe('taughtSection', () => {
       ['offer_aaaaaaaaaaaa', false],
       ['offer_aaaaaaaaaaaa', true],
     ])
+  })
+})
+
+describe('a principle switched on or off', () => {
+  it('stays focused and in place while the list is drawn again around it', () => {
+    const { context } = testContext()
+    const tone = principle('Tone')
+    const dates = principle('Dates')
+    const stage = mount(h('main', { class: 'stage' }, h('h2', {}, 'My agent')))
+    const shown = taughtSection(context, lifetime())
+    stage.append(shown)
+    context.state.taught.set(taught({ principles: [tone, dates] }))
+    Object.assign(stage, { scrollHeight: 1200, clientHeight: 700, scrollTop: 430 })
+    const used = shown.querySelector<HTMLElement>(`[data-key="${dates.id}"] .todo-switch`)!
+    used.focus()
+    used.click()
+    context.state.taught.set(taught({ principles: [tone, { ...dates, enabled: false }] }))
+    const drawn = shown.querySelector<HTMLElement>(`[data-key="${dates.id}"] .todo-switch`)!
+    expect(drawn.getAttribute('aria-checked')).toBe('false')
+    expect(document.activeElement).toBe(drawn)
+    expect([stage.firstChild?.textContent, shown.parentElement, stage.scrollTop]).toEqual([
+      'My agent',
+      stage,
+      430,
+    ])
+  })
+})
+
+describe('taughtSection hints', () => {
+  it('says what the public switch and the kind of a principle do, as their descriptions', () => {
+    const { context } = testContext()
+    const shown = mount(taughtSection(context, lifetime()))
+    const tone = principle('Tone', { publicText: 'Friendly.' })
+    const dates = principle('Dates', { kind: 'answer' })
+    context.state.taught.set(taught({ principles: [tone, dates] }))
+    const hintOf = (element: Element) => {
+      const siblings = [...element.parentElement!.children]
+      const hint = siblings[siblings.indexOf(element) + 1]!
+      expect(element.getAttribute('aria-describedby')).toBe(hint.id)
+      return hint.textContent
+    }
+    expect(hintOf(getByRole(shown, 'button', { name: strings.teach.makePrivate({ name: 'Tone' }) }))).toBe(
+      strings.hints.makePrivate,
+    )
+    expect(hintOf(getByRole(shown, 'button', { name: strings.teach.makePublic({ name: 'Dates' }) }))).toBe(
+      strings.hints.makePublic,
+    )
+    const badges = [...shown.querySelectorAll('.principle-kind-badge')]
+    expect(badges.map(hintOf)).toEqual([strings.hints.kindRule, strings.hints.kindAnswer])
   })
 })
 

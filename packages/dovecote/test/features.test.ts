@@ -59,12 +59,13 @@ const probes: Readonly<Record<string, (person: Session) => Promise<{ status: num
     ).json
     return person.api('PUT', `/principles/${saved.id}/auto-send`, { enabled: false, places: [] })
   },
+  draftPreviews: (person) => person.api('GET', '/me/draft-previews'),
 }
 
 let probedAnswers = 0
 
 describe('feature switches', () => {
-  it('are all on by default but analytics, channel agents, the cloud desk and automatic sending, and server.info says which are on', async () => {
+  it('are all on by default but analytics, channel agents, the cloud desk, automatic sending and draft previews, and server.info says which are on', async () => {
     const info = (await server.request('GET', '/api/v1/info')).json
     expect(info.features).toEqual({
       ...Object.fromEntries(FEATURE_NAMES.map((name) => [name, true])),
@@ -72,6 +73,7 @@ describe('feature switches', () => {
       channelAgents: false,
       cloudDesk: false,
       autoSend: false,
+      draftPreviews: false,
     })
     await switchTo({ teaching: false })
     expect((await server.request('GET', '/api/v1/info')).json.features.teaching).toBe(false)
@@ -155,13 +157,6 @@ describe('feature switches', () => {
     expect((await ana.api('GET', '/principles')).json.debateCredits).toEqual([])
     await switchTo({ debateRooms: true })
     expect((await ana.api('GET', `/debates/${room.id}`)).json.question).toBe('Ship this week?')
-  })
-
-  it('shows no route map while it is off, and keeps the rest of teaching', async () => {
-    await ana.api('POST', '/principles', { topic: 'Release dates', rule: 'check RELEASES.md', place: null })
-    expect((await ana.api('GET', '/principles')).json.routes).toHaveLength(1)
-    await switchTo({ routeMap: false })
-    expect((await ana.api('GET', '/principles')).json.routes).toEqual([])
   })
 
   it('is switched by an administrator only, never by a member or an agent, and only for known features', async () => {

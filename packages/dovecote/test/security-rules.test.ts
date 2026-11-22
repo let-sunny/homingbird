@@ -667,6 +667,33 @@ describe('Rule 2: drafts are invisible to recipients', () => {
     }
   })
 
+  it('2: keeps an edited or discarded answer’s original text out of the asker’s recent decisions, even when they manage the channel', async () => {
+    const agent = await startChannelAgent()
+    const reason = 'discard reason for managers 8d21'
+    const edited = await askAndAnswer(cy, agent)
+    await ben.api('POST', `/drafts/${edited.draft.id}/send`, {
+      body: 'An edited answer.',
+      expected: asRead(edited.draft),
+    })
+    const discarded = await askAndAnswer(cy, agent)
+    await ben.api('POST', `/drafts/${discarded.draft.id}/discard`, { reason })
+    const room = (await cy.api('POST', '/channels/wiki/private-question')).json.id
+    const asked = (await cy.api('POST', '/drafts', { conversationId: room, body: 'Privately?' })).json
+    const question = (await cy.api('POST', `/drafts/${asked.id}/send`, { expected: asRead(asked) })).json
+    const privately = (await agent.api('POST', '/drafts', { inReplyTo: question.id, body: SECRET_ANSWER }))
+      .json
+    await ben.api('POST', `/drafts/${privately.id}/discard`, { reason })
+    const seenBy = async (person: Session) =>
+      JSON.stringify((await person.api('GET', '/channels/wiki/agent/decisions')).json)
+    expect(await seenBy(ben)).toContain(SECRET_ANSWER)
+    expect(await seenBy(ben)).toContain(reason)
+    const cys = (await cy.api('GET', '/channels/wiki/agent/decisions')).json
+    expect(cys.decisions).toEqual([])
+    expect(JSON.stringify(cys)).not.toContain(SECRET_ANSWER)
+    expect(JSON.stringify(cys)).not.toContain(reason)
+    expect((await dee.api('GET', '/channels/wiki/agent/decisions')).status).toBe(404)
+  })
+
   it('shows a channel agent’s answer to its reviewers only through the review routes', async () => {
     const agent = await startChannelAgent()
     const { question, draft } = await askAndAnswer(dee, agent)
@@ -951,6 +978,7 @@ describe('Rule 3: no model-facing credential can approve, change contacts, or re
       'channels.agent.rename',
       'channels.agent.retire',
       'channels.agent.credentials.revoke',
+      'channels.agent.decisions',
       'channels.askPrivately',
       'reviews.list',
       'reviews.get',
@@ -974,6 +1002,7 @@ describe('Rule 3: no model-facing credential can approve, change contacts, or re
       ['DELETE', '/channels/wiki/agent/credentials/cred_any000000000'],
       ['POST', '/channels/wiki/private-question'],
       ['GET', '/reviews'],
+      ['GET', '/channels/wiki/agent/decisions'],
     ] as const)
       expect([
         path,
@@ -1930,6 +1959,22 @@ describe('Rule 6: a member sees only conversations they participate in', () => {
     expect((await figures(dee)).status).toBe(404)
     expect(JSON.stringify((await figures(ben)).json)).not.toContain(SECRET_ANSWER)
   })
+
+  it('6: shows a channel’s recent decisions to its current managers only, never to an administrator outside the group or a manager who left', async () => {
+    const agent = await startChannelAgent()
+    const { draft } = await askAndAnswer(dee, agent)
+    await ben.api('POST', `/drafts/${draft.id}/discard`, {})
+    const decisions = (person: Session) => person.api('GET', '/channels/wiki/agent/decisions')
+    expect((await decisions(ben)).json.decisions).toHaveLength(1)
+    expect((await decisions(cy)).json.decisions).toHaveLength(1)
+    expect(ana.me.member.role).toBe('admin')
+    expect((await decisions(ana)).status).toBe(404)
+    expect((await decisions(dee)).status).toBe(404)
+    const group = (await ben.api('GET', '/channels/wiki')).json.managedBy
+    await ben.api('PUT', `/groups/${group}/members`, { memberIds: [ben.me.member.id] })
+    expect((await decisions(cy)).status).toBe(404)
+    expect(JSON.stringify((await decisions(cy)).json)).not.toContain(SECRET_ANSWER)
+  })
 })
 
 const stringsIn = (value: unknown): string[] =>
@@ -2623,5 +2668,185 @@ describe('Rule 9: no tool exposed to a model can open a debate room, opt an agen
       expect(outsideWrappers(text)).not.toContain('9d9d')
     }
     expect(texts[1]).toContain('9d9d')
+  })
+})
+
+describe('Rule 2: a person may let chosen people or channels see their own agent’s unconfirmed drafts', () => {
+  const turnPreviews = async (on: boolean) => {
+    const settings = (await ana.api('GET', '/admin/settings')).json
+    await ana.api('PUT', '/admin/settings', {
+      ...settings,
+      features: { ...settings.features, draftPreviews: on },
+    })
+  }
+
+  const allowBen = async () =>
+    ana.api('PUT', '/me/draft-previews', { people: [ben.me.member.id], channels: [] })
+
+  const previewsOf = async (viewer: Session | Agent, conversationId: string) =>
+    viewer.api('GET', `/conversations/${conversationId}/previews`)
+
+  /** Every frame on a stream until a profile change everyone is told about, after `act`. */
+  const streamDuring = async (token: string, act: () => Promise<unknown>): Promise<string> => {
+    const hangUp = new AbortController()
+    const stream = await server.request('GET', '/api/v1/events/stream', { token, signal: hangUp.signal })
+    const iterator = (stream.raw.body as AsyncIterable<string>)[Symbol.asyncIterator]()
+    await server.clock.flush()
+    await act()
+    await cy.api('PATCH', '/me', { profile: 'end of the frames 61b0' })
+    const frames: string[] = []
+    while (!frames.some((frame) => frame.includes('directory.changed') && frame.includes(cy.me.member.id))) {
+      const step = await iterator.next()
+      if (step.done) break
+      frames.push(step.value)
+    }
+    hangUp.abort()
+    return frames.join('')
+  }
+
+  const everywhereBenLooks = async (viewer: Session | Agent, draft: { id: string }) =>
+    JSON.stringify([
+      (await viewer.api('GET', `/notes/${draft.id}`)).json,
+      (await viewer.api('GET', '/inbox')).json,
+      (await viewer.api('GET', '/search?q=secret')).json,
+      (await viewer.api('GET', '/drafts')).json,
+      (await viewer.api('GET', '/conversations')).json,
+      (await viewer.api('GET', '/events/poll?after=0')).json,
+    ])
+
+  it('2: previews nothing while the feature is off, whatever the author allowed before', async () => {
+    expect((await allowBen()).status).toBe(404)
+    await turnPreviews(true)
+    await allowBen()
+    const sent = await sentFromAnaToBen()
+    await turnPreviews(false)
+    const draft = await draftFromAnaToBen()
+    expect((await previewsOf(ben, sent.conversationId)).status).toBe(404)
+    expect((await ana.api('GET', '/me/draft-previews')).status).toBe(404)
+    expect(await everywhereBenLooks(ben, draft)).not.toContain(SECRET_BODY)
+    const frames = await streamDuring(ben.token, () =>
+      anaAgent.api('PATCH', `/drafts/${draft.id}`, { body: `${SECRET_BODY} edited` }),
+    )
+    expect(frames).not.toContain('preview.changed')
+  })
+
+  it('2: without the author’s allowance, shows a recipient nothing: inbox, stream, search, lookup by id', async () => {
+    await turnPreviews(true)
+    await ana.api('PUT', '/me/draft-previews', { people: [cy.me.member.id], channels: [] })
+    const sent = await sentFromAnaToBen()
+    let draft = { id: '' }
+    const frames = await streamDuring(ben.token, async () => {
+      draft = await draftFromAnaToBen()
+      await anaAgent.api('PATCH', `/drafts/${draft.id}`, { body: `${SECRET_BODY} edited` })
+      await ana.api('POST', `/drafts/${draft.id}/discard`)
+    })
+    expect(frames).not.toContain('preview.changed')
+    expect(frames).not.toContain(SECRET_BODY)
+    expect((await ben.api('GET', `/notes/${draft.id}`)).status).toBe(404)
+    expect(await everywhereBenLooks(ben, draft)).not.toContain(SECRET_BODY)
+    expect((await previewsOf(ben, sent.conversationId)).json.previews).toEqual([])
+  })
+
+  it('2: shows an allowed recipient the preview only on its own route, never in inbox, search, lookup or the thread', async () => {
+    await turnPreviews(true)
+    await allowBen()
+    const sent = await sentFromAnaToBen()
+    const draft = await draftFromAnaToBen()
+    const [preview] = (await previewsOf(ben, sent.conversationId)).json.previews
+    expect(preview).toMatchObject({ noteId: draft.id, state: 'unconfirmed', body: SECRET_BODY })
+    expect(Object.keys(preview)).not.toContain('basis')
+    expect((await ben.api('GET', `/notes/${draft.id}`)).status).toBe(404)
+    expect(await everywhereBenLooks(ben, draft)).not.toContain(SECRET_BODY)
+    expect(
+      JSON.stringify((await ben.api('GET', `/conversations/${sent.conversationId}/notes`)).json),
+    ).not.toContain(SECRET_BODY)
+    expect(
+      (await ben.api('POST', '/drafts', { inReplyTo: draft.id, body: 'Reply to a preview' })).status,
+    ).toBe(404)
+    const conversation = (await ben.api('GET', `/conversations/${sent.conversationId}`)).json
+    expect(conversation.unreadCount).toBe(1)
+  })
+
+  it('2: never gives a preview to an allowed recipient’s agent credential, on any route, stream or tool', async () => {
+    await turnPreviews(true)
+    await allowBen()
+    const sent = await sentFromAnaToBen()
+    let draft = { id: '' }
+    const toPerson = await streamDuring(ben.token, async () => {
+      draft = await draftFromAnaToBen()
+    })
+    expect(toPerson).toContain('preview.changed')
+    expect(toPerson).not.toContain(SECRET_BODY)
+    const toAgent = await streamDuring(benAgent.token, () =>
+      anaAgent.api('PATCH', `/drafts/${draft.id}`, { body: `${SECRET_BODY} edited` }),
+    )
+    expect(toAgent).not.toContain('preview.changed')
+    expect(toAgent).not.toContain(SECRET_BODY)
+    expect((await previewsOf(benAgent, sent.conversationId)).status).toBe(403)
+    expect(await everywhereBenLooks(benAgent, draft)).not.toContain(SECRET_BODY)
+    for (const [tool, args] of [
+      ['check_inbox', {}],
+      ['list_conversations', {}],
+      ['read_conversation', { conversationId: sent.conversationId }],
+      ['get_note', { noteId: draft.id }],
+      ['search_notes', { query: 'secret' }],
+      ['list_drafts', {}],
+    ] as const)
+      expect(JSON.stringify(await callMcp(benAgent, tool, args))).not.toContain(SECRET_BODY)
+    const previewRoutes: RouteName[] = ['previews.list', 'me.draftPreviews.get', 'me.draftPreviews.set']
+    for (const name of previewRoutes) {
+      expect(contract[name].access).toBe('human')
+      expect(MCP_ROUTES as ReadonlyArray<string>).not.toContain(name)
+      expect(A2A_ROUTES as ReadonlyArray<string>).not.toContain(name)
+    }
+    expect((await benAgent.api('PUT', '/me/draft-previews', { people: [], channels: [] })).status).toBe(403)
+  })
+
+  it('2: never previews a channel’s agent’s answer, even in an allowed channel’s room', async () => {
+    await turnPreviews(true)
+    const agent = await startChannelAgent()
+    await ben.api('PUT', '/me/draft-previews', { people: [dee.me.member.id], channels: ['wiki'] })
+    const room = (await ben.api('GET', '/channels/wiki')).json.conversationId
+    await T.runPromise(
+      run(
+        insertInto('draft_preview_allowances', {
+          member_id: agent.id,
+          kind: 'channel',
+          target_id: room,
+          created_at: 0,
+        }),
+      ),
+      server.env,
+    )
+    for (const asker of [dee, cy]) {
+      const { question, draft } = await askAndAnswer(asker, agent)
+      for (const viewer of [dee, cy, ben])
+        expect(JSON.stringify((await previewsOf(viewer, question.conversationId)).json)).not.toContain(
+          SECRET_ANSWER,
+        )
+      await ben.api('POST', `/drafts/${draft.id}/discard`)
+    }
+  })
+
+  it('2: never previews a person’s own hand-written draft', async () => {
+    await turnPreviews(true)
+    await allowBen()
+    const sent = await sentFromAnaToBen()
+    await ana.api('POST', '/drafts', { conversationId: sent.conversationId, body: SECRET_BODY })
+    expect((await previewsOf(ben, sent.conversationId)).json.previews).toEqual([])
+  })
+
+  it('2: takes a withdrawn draft’s words out of the preview, leaving only that it was withdrawn', async () => {
+    await turnPreviews(true)
+    await allowBen()
+    const sent = await sentFromAnaToBen()
+    const draft = await draftFromAnaToBen()
+    expect((await previewsOf(ben, sent.conversationId)).json.previews[0].body).toBe(SECRET_BODY)
+    await ana.api('POST', `/drafts/${draft.id}/discard`)
+    const previews = (await previewsOf(ben, sent.conversationId)).json.previews
+    expect(previews).toEqual([expect.objectContaining({ noteId: draft.id, state: 'withdrawn', body: null })])
+    expect(JSON.stringify(previews)).not.toContain('secret')
+    const stored = (await storedRows(server, 'events')).filter((row) => row.member_id === ben.me.member.id)
+    expect(JSON.stringify(stored)).not.toContain('secret')
   })
 })

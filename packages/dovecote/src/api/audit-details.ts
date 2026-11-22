@@ -47,6 +47,11 @@ export const AUDIT_DETAILS: { readonly [N in AuditedRoute]: Describe<N> } = {
     T.map((host: string) => () => ({ targetId: caller.member.id, detail: { host } }))(
       deskWakeHostOf(caller.member.id),
     ),
+  'me.draftPreviews.set': (_, caller) =>
+    afterwards((allowance) => ({
+      targetId: caller.member.id,
+      detail: { people: allowance.people.length, channels: allowance.channels.length },
+    })),
   'conversations.mute': ({ params }) => afterwards(() => ({ targetId: params.id, detail: { muted: true } })),
   'conversations.unmute': ({ params }) =>
     afterwards(() => ({ targetId: params.id, detail: { muted: false } })),

@@ -1,20 +1,20 @@
 import { type Child, type Signal, h } from '@homingbird/ui'
-import {
-  type FiguresModel,
-  type LabelsTable,
-  type Places,
-  type Trend,
-  periodChoices,
-} from '../models/agent-figures.ts'
+import { type FiguresModel, type LabelsTable, type Trend, periodChoices } from '../models/agent-figures.ts'
 import { strings } from '../strings.ts'
+import type { ViewContext } from './context.ts'
+import { hinted } from './hint.ts'
 import { loading } from './parts.ts'
 import { sessionSection } from './session-health-view.ts'
 
 /**
  * How the agent is doing: the verdict, the numbers table with what lies behind its counts, skips,
- * places, labels, trend and sessions.
+ * labels, trend and sessions.
  */
-export const renderFigures = (model: FiguresModel, behind: Child = null): Child => {
+export const renderFigures = (
+  model: FiguresModel,
+  behind: Child = null,
+  context: ViewContext | null = null,
+): Child => {
   if (model.kind === 'loading') return loading()
   if (model.kind === 'failed') return h('p', { role: 'alert' }, model.text)
   const { headline, table } = model
@@ -54,7 +54,13 @@ export const renderFigures = (model: FiguresModel, behind: Child = null): Child 
           'tbody',
           {},
           table.rows.map(([label, current, previous]) =>
-            h('tr', {}, h('th', { scope: 'row' }, label), h('td', {}, current), h('td', {}, previous)),
+            h(
+              'tr',
+              {},
+              h('th', { scope: 'row' }, rowLabel(context, label)),
+              h('td', {}, current),
+              h('td', {}, previous),
+            ),
           ),
         ),
       ),
@@ -74,7 +80,6 @@ export const renderFigures = (model: FiguresModel, behind: Child = null): Child 
               model.skips.reasons.map((reason) => h('li', {}, reason)),
             ),
       ),
-    model.places !== null && renderPlaces(model.places),
     renderLabelsTable(model.byClient),
     renderLabelsTable(model.byModel),
     renderTrend(model.trend),
@@ -159,28 +164,6 @@ export const renderLabelsTable = (table: LabelsTable | null): HTMLElement | null
         ),
       )
 
-const renderPlaces = (places: Places): HTMLElement =>
-  h(
-    'section',
-    { class: 'trust-section', 'aria-labelledby': 'trust-places' },
-    h('h3', { id: 'trust-places' }, places.title),
-    h('p', { class: 'trust-footnote' }, places.intro),
-    h(
-      'ul',
-      { class: 'trust-places' },
-      places.rows.map((place) =>
-        h(
-          'li',
-          { class: 'trust-place', data: { place: place.key } },
-          h('span', { class: 'trust-place-line' }, place.line),
-          shareBar(place.share),
-          place.verdict !== null && h('span', { class: 'trust-place-verdict' }, place.verdict),
-          place.skipped !== null && h('span', { class: 'trust-place-skipped' }, place.skipped),
-        ),
-      ),
-    ),
-  )
-
 /** A bar filled to a share, for the eye only: the share is always written beside it. */
 export const shareBar = (share: number | null): HTMLElement => {
   const bar = h(
@@ -250,3 +233,9 @@ export const renderTrend = (trend: Trend): HTMLElement =>
       ),
     ),
   )
+
+/** The figures' row label, with a hint on “Sent as written”, the figure other messengers lack. */
+const rowLabel = (context: ViewContext | null, label: string): Child =>
+  context === null || label !== strings.trust.rows.sentAsWritten
+    ? label
+    : hinted(context, 'sentAsWritten', strings.hints.sentAsWritten, h('span', {}, label))

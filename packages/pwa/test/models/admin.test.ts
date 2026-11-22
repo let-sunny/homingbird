@@ -53,7 +53,12 @@ describe('adminModel', () => {
       strings.groups.title,
       strings.adminChannels,
     ])
-    expect(on.tabs[2]).toEqual({ href: '#/admin/groups', label: strings.groups.title, current: true })
+    expect(on.tabs[2]).toEqual({
+      section: 'groups',
+      href: '#/admin/groups',
+      label: strings.groups.title,
+      current: true,
+    })
     expect(on.shown).toBe('groups')
     expect(adminModel(serverInfo(), 'groups').shown).toBe('settings')
   })

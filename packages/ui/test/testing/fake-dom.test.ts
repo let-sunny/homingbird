@@ -106,6 +106,29 @@ describe('the tree', () => {
   })
 })
 
+describe('layout', () => {
+  it('scrolls only within what overflows, and has no box until a test gives it one', () => {
+    const scroller = document.createElement('div')
+    scroller.scrollTop = 40
+    expect(scroller.scrollTop).toBe(0)
+    Object.assign(scroller, { scrollHeight: 900, clientHeight: 300 })
+    scroller.scrollTop = 40
+    expect(scroller.scrollTop).toBe(40)
+    scroller.scrollTop = 1000
+    expect(scroller.scrollTop).toBe(600)
+    scroller.scrollTop = -5
+    expect(scroller.scrollTop).toBe(0)
+    expect(scroller.getBoundingClientRect()).toEqual({
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      width: 0,
+      height: 0,
+    })
+  })
+})
+
 describe('attributes', () => {
   it('reflects id, class, the boolean attributes and data attributes', () => {
     const element = document.createElement('DIV')

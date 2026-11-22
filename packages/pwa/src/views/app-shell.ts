@@ -63,10 +63,10 @@ export const showApp = (
       state.route.subscribe(() => {
         if (arrivedToConnect(state.route.get()) === focused) drawStage(me)
         else draw()
-        if (!focused) page.nextFrame(() => context.tour.startOnHome(state.route.get().name))
+        if (!focused) page.nextFrame(() => context.tour.startOnFirstVisit(state.route.get().name))
       }),
     )
-    if (!focused) page.nextFrame(() => context.tour.startOnHome(state.route.get().name))
+    if (!focused) page.nextFrame(() => context.tour.startOnFirstVisit(state.route.get().name))
     replaceChildren(
       root,
       focused ? stage : shell(context, appLife, me, stage),

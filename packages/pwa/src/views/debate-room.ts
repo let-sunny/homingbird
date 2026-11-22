@@ -16,6 +16,7 @@ import {
   section,
 } from './debate-result.ts'
 import { limitFields, limitsTypedIn } from './debates.ts'
+import { hinted } from './hint.ts'
 import { citedBody } from './note-body.ts'
 import { emptyWithPip, field, loading, page, privateMarkOf, timeLabel } from './parts.ts'
 
@@ -99,13 +100,16 @@ const renderDebateRoom = (model: DebateRoomModel, context: ViewContext, drawn: L
       h(
         'nav',
         { class: 'subtabs debate-tabs', 'aria-label': strings.debates.tabsLabel },
-        model.tabs.map((tab) =>
-          h(
+        model.tabs.map((tab) => {
+          const link = h(
             'a',
             { href: tab.href, 'aria-current': tab.current && 'page', data: { tab: tab.tab } },
             tab.label,
-          ),
-        ),
+          )
+          if (tab.tab === 'turns') return hinted(context, 'debateTurns', strings.hints.debateTurns, link)
+          if (tab.tab === 'result') return hinted(context, 'debateResult', strings.hints.debateResult, link)
+          return link
+        }),
       ),
     h('div', { class: `debate-tab is-${model.shown}` }, ...tabContent(model, context, drawn)),
   )
@@ -383,6 +387,12 @@ const optInSection = (
     strings.debates.optInTitle,
     'debate-opt-in',
     h('p', { class: 'hint' }, strings.debates.optInHint),
+    h(
+      'details',
+      { class: 'debate-opt-in-advice' },
+      h('summary', {}, strings.debates.optInAdviceTitle),
+      h('p', { class: 'hint' }, strings.debates.optInAdvice),
+    ),
     h(
       'form',
       {

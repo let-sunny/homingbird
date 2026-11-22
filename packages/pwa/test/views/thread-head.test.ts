@@ -31,6 +31,7 @@ describe('renderThreadHead', () => {
         presence: {
           person: { isOn: true, label: strings.presenceOf.online({ name: 'Ben' }) },
           agent: { state: 'on', label: strings.presenceOf.agentAwake({ name: 'Ben' }) },
+          words: strings.presenceWords.online.on,
         },
         people: null,
         mute: null,

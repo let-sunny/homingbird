@@ -8,6 +8,7 @@ import {
   type MemberId,
   NotFound,
 } from '@homingbird/protocol'
+import { channelDecisionsOf } from './channel-decisions.ts'
 import { type Handlers, found } from './handlers.ts'
 import { channelAgentReportOf } from './insights.ts'
 import { channelAsSeen, conversationAsSeen, groupsOf, managersOf, memberById, reviewsOf } from './reads.ts'
@@ -151,6 +152,10 @@ export const channelHandlers = (world: World): Handlers => ({
       const agentId = yield* found(channel.agentId, 'This channel has no agent.')
       return channelAgentReportOf(records, channel.slug, agentId, world.startedAt, world.clock.now())
     }),
+  'channels.agent.decisions': ({ params }, viewerId) =>
+    T.map((channel: ChannelRecord) =>
+      channelDecisionsOf(world.records(), viewerId, channel, world.clock.now()),
+    )(managedChannel(world.records(), viewerId, params.slug)),
   'channels.askPrivately': ({ params }, viewerId) =>
     T.gen(function* () {
       const channel = yield* channelOf(world.records(), viewerId, params.slug)

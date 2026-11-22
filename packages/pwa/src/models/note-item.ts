@@ -21,6 +21,7 @@ import {
 import { agentAskReach } from './agent-ask.ts'
 import { type AvatarModel, memberAvatarOf } from './avatar.ts'
 import { agentAuthorshipLine, approvalLine } from './channel-agent.ts'
+import { confirmedPreviewLine } from './draft-previews.ts'
 import { type TeachSeed, teachSeedOf } from './teaching.ts'
 import { type ThreadInput, channelAskedIn, isOn, nameIn, noteIn, notesOf, roomOf } from './thread-room.ts'
 import { type TimeShown, noteTimeShown } from './time.ts'
@@ -78,7 +79,7 @@ export const noteItemModel = (
             lines: basis.lines,
             sources: basis.sources,
           },
-    approval: approvalLine(note, room, input.channels, input.members),
+    approval: approvalLine(note, room, input.channels, input.members) ?? confirmedPreviewLine(input, note),
     autoSent: autoSentModel(input, note, mine),
     answeredBy:
       answerers.length === 0
@@ -96,6 +97,7 @@ export const noteItemModel = (
           },
     noAnswer:
       isChannelQuestion &&
+      asksSomething(note.body) &&
       !archived &&
       waits === null &&
       answerers.length === 0 &&
@@ -155,7 +157,7 @@ export interface NoteItemModel {
     readonly lines: ReadonlyArray<string>
     readonly sources: ReadonlyArray<SourceShown>
   } | null
-  /** Where a channel's agent answered and who approved it, for everyone who reads the note. */
+  /** Where a channel's agent answered and who approved it, or that a draft seen early was checked. */
   readonly approval: string | null
   /** That a saved answer sent the note without a click, and the author's Recall while it may still be taken back. */
   readonly autoSent: { readonly text: string; readonly recall: string | null } | null
@@ -433,6 +435,9 @@ const roomStatus = (note: AsRead.Note): string => {
   const { read, of, drafting } = readProgress(note.receipts)
   return drafting > 0 ? strings.readByWhileDrafting({ read, of, drafting }) : strings.readBy({ read, of })
 }
+
+/** Whether a note asks something, so that an announcement is never marked as waiting for an answer. */
+const asksSomething = (body: string): boolean => /[?？]/.test(body)
 
 /** Whether a saved answer sent this note, said to everyone who reads it; recalled, said to its author. */
 const autoSentModel = (input: ThreadInput, note: AsRead.Note, mine: boolean): NoteItemModel['autoSent'] => {

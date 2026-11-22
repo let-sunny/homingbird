@@ -45,6 +45,7 @@ How agents, the server and the web client fit together is drawn in [architecture
 - [When your agent cannot answer](#when-your-agent-cannot-answer)
 - [Answering flow](#answering-flow)
 - [Approve, edit or discard](#approve-edit-or-discard)
+- [Let colleagues see your agent's drafts early](#let-colleagues-see-your-agents-drafts-early)
 - [Activity: everything that waits for you](#activity-everything-that-waits-for-you)
 - [Read a conversation: who wrote each note](#read-a-conversation-who-wrote-each-note)
 - [See how far you can trust your agent](#see-how-far-you-can-trust-your-agent)
@@ -566,6 +567,14 @@ writes.
   you to read it again before you can send it. The person who asked sees only that an answer is being
   drafted, never the draft, so a manager never reviews the answer to their own question: if you are the
   only manager, add another first.
+- **See what was decided.** On the agent's page, below the answers waiting, **Recent decisions** lists
+  every answer the managers sent or discarded in the last 30 days, newest first: sent as written, sent
+  after an edit, or discarded, who decided it and when, the question it answered, and the principles it
+  said it applied. An edited answer shows what the agent wrote above what was sent; a discarded one
+  shows its text and the reason, if one was given. Only the channel's current managers see the list,
+  never an administrator outside them, and a decision on a question you asked yourself is never in
+  yours, because its draft was hidden from you. **Show where it was asked** opens the answer, or the
+  question a discarded answer left, in its room or private question.
 - **Read the answer.** A sent answer shows the agent as its author and who approved it, such as
   "#payments-wiki · approved by Kim". The audit trail records the approver and the agent, never the
   text.
@@ -589,9 +598,10 @@ writes.
   before drafting and before its checks; an instruction asking it to approve, send or discard anything
   is ignored, and the form says so. A manager still approves every answer. The audit trail records
   which manager changed it, never what it says.
-- **Teach from a correction.** When you edit an answer before sending it, or discard it, its card
-  offers **Teach from this correction** (or **Teach what it should have done**). It opens the same form,
-  prefilled from what you changed; nothing is saved until you save it.
+- **Teach from a decision.** Each row of **Recent decisions** offers to teach the agent: **Teach from
+  this correction** on an edited answer, **Teach what it should have done** on a discarded one, and
+  **Teach …** on one sent as written. It opens the same form, prefilled from what was changed in an
+  edit; nothing is saved until you save it.
 - **Ask privately.** **Ask … privately** opens your own conversation with the channel's agent. Its
   first screen says who else is there: the channel's managers, now and later, who read everything in it.
   Your question goes to the agent alone and its answer to you alone, once a manager approves it. In a
@@ -675,8 +685,8 @@ one opens on Result. The activity panel opens a room on the tab that waits for y
    records that a room was opened, that an agent was opted in and that the room was exported, never
    its turns or its result.
 
-Turns are never notes: they stay in the room, visible to its members (to everyone for an open room). On
-**My agent → Route map**, settled results credit your agent when its contribution became part of a
+Turns are never notes: they stay in the room, visible to its members (to everyone for an open room). Under
+**My agent → Teaching → Milestones**, settled results credit your agent when its contribution became part of a
 conclusion, when it filled a gap another agent lacked, separated a disagreement, changed its position
 on better evidence, or proposed a next step the agents' vote kept. There are no wins, counts or rankings.
 
@@ -797,6 +807,24 @@ When you have often approved drafts quickly this week and a draft contains a dat
 promise, one quiet line above **Send** asks you to read it first, such as "This draft has a date in
 it. Read it before sending." It never stops you from sending.
 
+## Let colleagues see your agent's drafts early
+
+When your organization turns on early previews, you can let chosen colleagues read what your agent
+drafted before you check it, so they need not wait for you. Open **My agent → Early previews**, tick the
+people and the channels, and choose **Save**. Nobody is ticked until you do.
+
+- A ticked person sees your agent's drafts in direct and group messages with you; a ticked channel
+  shows them to everyone in its room.
+- They see each draft as a dashed card, "Unconfirmed draft from June's agent. June has not checked it
+  yet." They cannot reply to it or quote it, it is not in search, and it does not count as unread.
+- When you send it, they see your note as usual, with a line saying you checked it, or that you changed
+  it before sending. When you discard it, the card says you withdrew it and its text is gone.
+- Only what your agent wrote is shown early: never a draft you wrote yourself, a debate room's result,
+  a private question, or a channel agent's answer.
+- Under your own waiting draft, a line says who can see it before you check it.
+- Agents never see a preview, yours or your colleagues': no tool, command or connector can read one or
+  change who may.
+
 ## Activity: everything that waits for you
 
 The bell in the header, beside your character, counts what waits for you and opens the activity panel:
@@ -865,12 +893,33 @@ Every draft you decide shows how close your agent came to what you would have se
 those decisions into numbers you can read at a glance, so you can tell "my agent is doing fine" from
 "not there yet", channel by channel. The numbers are about your agent's drafts, not about you.
 
-**My agent**, in the header, has four tabs, each with its own address: **Connection**
-(`#/agent/connection`), **Teaching**, **How it is doing** (`#/agent/doing`) and **Route map**.
+**My agent**, in the header, has a tab for each part, each with its own address: **Connection**
+(`#/agent/connection`), **Teaching**, **How it is doing** (`#/agent/doing`) and, when your organization
+turns them on, **Early previews**.
 
 **How it is doing** starts with **Your week**: the notes you sent in the last 7 days, whoever drafted
 them, the replies colleagues sent to your notes, and your typical time to reply, from a colleague's new
 note to your first reply to it, each beside the 7 days before.
+
+Then **Where it answers like you**: each place your agent drafted in over the last 30 days, a channel or
+direct messages together, on four steps:
+
+1. **Only drafts**: no principle of yours applies there yet.
+2. **You taught principles**: at least one does, one for that channel or one for any channel, which
+   counts in every place.
+3. **Principles hold**: you sent a draft there that used one of them without changing it.
+4. **Answers like you ★**: in the last 30 days you decided at least 10 drafts there and sent at least 7
+   in 10 as written. This is the finished state.
+
+Each row shows the count, such as "16 of 26 decided drafts sent as written (62%)", the current step, one
+sentence on what is missing, and the next thing to do: teach from the chances to teach that came from
+there (the same ones Teaching lists), teach a first principle, review the notes your agent skipped there,
+or teach it more. Hover over or focus a step to read what it means and what reaching the next one takes;
+**What the steps mean** lists the same for touch screens. The first three steps stay while you keep your
+principles. The last follows the last 30 days, so it can come and go: when a few edited drafts take a
+place below it, the row says "Some recent drafts needed edits: teach it what changed", because an edit
+is a chance to teach, never a step back. With teaching switched off, each place shows its count and
+sentence only. The old `#/agent/routes` address leads here.
 
 Below it, for the last 7 or the last 30 days beside the period before:
 
@@ -889,8 +938,6 @@ Below it, for the last 7 or the last 30 days beside the period before:
 - **Notes you wrote yourself.**
 - **Debate results you sent**, on their own line: a result you posted from a debate room and sent counts
   neither as your agent's draft nor as a note you wrote.
-- **Where your agent is trusted**: the same breakdown per channel, with direct messages together, such as
-  "#billing: 9 of 10 sent as written" next to "#payroll: 2 of 6 sent as written".
 - **Sent as written, week by week** over the last 8 weeks, as a chart and as a table.
 - **By program** and **By model**: the same counts for each program that drafted, with the models its
   agents stated beside it, and for each model the agent stated.
@@ -925,10 +972,9 @@ receive.
   agent has not connected yet, shows the `homingbird login --server` command, and links to entering
   its connection code.
 - **Teaching**: your principles, below. A principle is a rule or saved answer your agent follows.
-- **How it is doing**: the numbers above, and how drafts fared by how long the desk session had run and
-  how much of its context it had used. A share shows from five decided drafts in a row.
-- **Route map**: where your agent already answers like you, place by place, and how far your
-  principles carry it there.
+- **How it is doing**: where it answers like you, the numbers above, and how drafts fared by how long
+  the desk session had run and how much of its context it had used. A share shows from five decided
+  drafts in a row.
 
 When you approve drafts within a few seconds often, a draft that contains a date, a number or a promise
 shows one quiet line above **Send**, such as "This draft has a date in it. Read it before sending." It

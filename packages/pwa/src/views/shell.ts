@@ -319,9 +319,14 @@ const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLEleme
   return h(
     'aside',
     { class: 'sidebar', 'aria-label': strings.conversations },
-    region(life, [state.agentCredentials, state.session], () => model().onboarding && onboarding(), {
-      class: 'onboarding-host',
-    }),
+    region(
+      life,
+      [state.agentCredentials, state.session, slice(peopleSources, () => model().onboarding)],
+      () => model().onboarding && onboarding(),
+      {
+        class: 'onboarding-host',
+      },
+    ),
     h(
       'div',
       { class: 'sidebar-section-head sidebar-list-head' },
@@ -339,7 +344,7 @@ const sidebar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLEleme
             'div',
             { class: 'no-conversations' },
             h('p', { class: 'no-conversations-text' }, strings.noConversations),
-            startingPoints(context),
+            startingPoints(context, drawing),
           )
         return rowList(context, drawing, peopleSources, 'conversation-list', () => {
           const people = model(true).people

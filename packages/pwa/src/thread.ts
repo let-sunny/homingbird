@@ -140,6 +140,8 @@ export const conversationTitle = (
 ): string => {
   const archived = isArchived(conversation)
   const title = archived ? (conversation.title?.replace(ARCHIVED_SUFFIX, '') ?? null) : conversation.title
+  const askedOf = conversation.privateQuestionOf ?? null
+  if (askedOf !== null) return strings.channelAgent.privateTitle({ channel: `#${askedOf}` })
   if (title !== null) return conversation.kind === 'channel' || archived ? `#${title}` : title
   return namesInBrief(
     otherParticipants(conversation, viewerId).map((memberId) => members.get(memberId)?.name ?? unknownName),

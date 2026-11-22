@@ -203,9 +203,9 @@ const scenario = async (): Promise<void> => {
     await capture(ana.page, 'settled-result-waiting-as-a-draft')
 
     // -- The growth record credits the agent, never with a count -------------------------------
-    await ana.page.goto(`${base}/#/agent/routes`)
-    await ana.page.waitForSelector('.route-debates li:has-text("filled a gap another agent lacked")')
-    await capture(ana.page, 'route-map-credits-the-debate')
+    await ana.page.goto(`${base}/#/agent/teaching`)
+    await ana.page.waitForSelector('.milestone:has-text("filled a gap another agent lacked")')
+    await capture(ana.page, 'milestones-credit-the-debate')
 
     // -- Narrow, and in Korean ------------------------------------------------------------------
     const narrow: Person = await newPage(browser, base, 'en-US', { viewport: NARROW })

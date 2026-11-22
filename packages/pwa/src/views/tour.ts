@@ -35,7 +35,7 @@ export const createTour = (page: Page, document: PageDocument): Tour => {
   }
   return {
     start,
-    startOnHome: (routeName) => {
+    startOnFirstVisit: (routeName) => {
       if (mayStartTour(routeName, hasSeenTour(storage), running !== null)) start()
     },
   }

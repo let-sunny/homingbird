@@ -13,7 +13,7 @@ import { type PresenceMarks, presenceMarks } from '../presence.ts'
 import type { ArchiveDiscard, Release, Thread } from '../state.ts'
 import { strings } from '../strings.ts'
 import { conversationTitle, isArchived, otherParticipants } from '../thread.ts'
-import { privateQuestionNotice } from './channel-agent.ts'
+import { privateQuestionNotice, privateQuestionStart } from './channel-agent.ts'
 import { type MuteToggle, muteToggleModel } from './mute-toggle.ts'
 
 /** What every part of a conversation's page reads: the room, its notes, the people and the person. */
@@ -41,6 +41,8 @@ export interface ThreadInput {
   readonly now: number
   /** The draft a link opened the conversation at; an id that names no draft shown here focuses nothing. */
   readonly focusedDraft: string | null
+  /** The words of others' agents' drafts this page showed early, by note. */
+  readonly previewedBodies: ReadonlyMap<NoteId, string>
 }
 
 /** The notes of the conversation shown. */
@@ -69,12 +71,10 @@ export const threadTopModel = (input: ThreadInput): ThreadTop => {
   if (thread === undefined) return { kind: 'loading' }
   if (thread.hasMore) return { kind: 'older', label: strings.loadOlder }
   if (thread.notes.length > 0) return { kind: 'none' }
-  return {
-    kind: 'empty',
-    text:
-      privateQuestionNotice(roomOf(input), input.channels) ??
-      (roomOf(input)?.kind === 'channel' ? strings.channelRoomEmpty : strings.emptyThread),
-  }
+  const room = roomOf(input)
+  if (room?.privateQuestionOf !== undefined)
+    return { kind: 'empty', text: privateQuestionStart(room, input.channels) ?? strings.emptyThread }
+  return { kind: 'empty', text: room?.kind === 'channel' ? strings.channelRoomEmpty : strings.emptyThread }
 }
 
 /**

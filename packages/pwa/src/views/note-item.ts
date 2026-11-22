@@ -1,11 +1,12 @@
 import type { AsRead, ConversationId } from '@homingbird/protocol'
-import { type Child, type Lifetime, h, linkedText } from '@homingbird/ui'
+import { type Child, type Lifetime, h, holdingStill, linkedText } from '@homingbird/ui'
 import type { DebateResultNote, NoteItemModel, NoteMenuItem } from '../models/note-item.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 import { authorButton } from './author-details.ts'
 import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
+import { hinted } from './hint.ts'
 import { actionMenu } from './menu.ts'
 import { noteBody } from './note-body.ts'
 import { button, copyWithNotice, sourceList, timeLabel } from './parts.ts'
@@ -92,7 +93,7 @@ export const renderNoteItem = (
         h(
           'p',
           { class: 'note-auto-sent' },
-          h('span', {}, model.autoSent.text),
+          hinted(context, 'autoSend', strings.hints.autoSend, h('span', {}, model.autoSent.text)),
           model.autoSent.recall !== null &&
             button(
               model.autoSent.recall,
@@ -169,8 +170,8 @@ export const renderNoteItem = (
 }
 
 /**
- * The note's text; a long one shows its start, and a button opens the rest in place. A note drawn again
- * while the person had it open stays open.
+ * The note's text; a long one shows its start, and a button opens the rest in place. Folding it again
+ * keeps the button where it was on screen. A note drawn again while the person had it open stays open.
  */
 const collapsibleBody = (context: ViewContext, model: NoteItemModel): Child => {
   const id = `note-body-${model.noteId}`
@@ -182,7 +183,10 @@ const collapsibleBody = (context: ViewContext, model: NoteItemModel): Child => {
     type: 'button',
     class: 'link note-more-text',
     'aria-controls': id,
-    on: { click: () => show(!body.classList.contains('is-collapsed')) },
+    on: {
+      click: () =>
+        body.classList.contains('is-collapsed') ? show(false) : holdingStill(toggle, () => show(true)),
+    },
   })
   const show = (collapsed: boolean): void => {
     body.classList.toggle('is-collapsed', collapsed)

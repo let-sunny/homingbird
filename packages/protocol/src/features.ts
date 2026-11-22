@@ -45,7 +45,6 @@ export const FEATURES = {
     ],
   },
   agentFigures: { default: true, routes: ['insights.mine'] },
-  routeMap: { default: true, routes: [] },
   insights: { default: true, routes: ['admin.insights'] },
   noteDetails: { default: true, routes: [] },
   debateRooms: {
@@ -73,6 +72,7 @@ export const FEATURES = {
       'channels.agent.retire',
       'channels.agent.credentials.revoke',
       'channels.agent.figures',
+      'channels.agent.decisions',
       'channels.agent.teaching.get',
       'channels.agent.teaching.set',
       'channels.agent.principles.create',
@@ -88,16 +88,26 @@ export const FEATURES = {
     default: false,
     routes: ['me.deskWake.get', 'me.deskWake.set', 'me.deskWake.test'],
   },
-  joinCodes: { default: true, routes: ['joinCodes.create'] },
+  joinCodes: { default: true, routes: ['joinCodes.create', 'joinCodes.status'] },
   deskAvailability: { default: true, routes: ['me.desk.unavailable', 'me.desk.available'] },
   invites: { default: true, routes: ['invites.list', 'invites.create', 'invites.revoke'] },
   analytics: { default: false, routes: ['analytics.track'] },
   autoSend: { default: false, routes: ['principles.autoSend.set', 'notes.recall'] },
+  draftPreviews: {
+    default: false,
+    routes: ['me.draftPreviews.get', 'me.draftPreviews.set', 'previews.list'],
+  },
 } as const satisfies Readonly<
   Record<string, { readonly default: boolean; readonly routes: ReadonlyArray<RouteName> }>
 >
 
 export type FeatureName = keyof typeof FEATURES
+
+/**
+ * Switches whose feature is gone for good: `HB_FEATURES` still accepts and ignores them for one release,
+ * so that a server set up with one starts, and the next release forgets them.
+ */
+export const RETIRED_FEATURES: ReadonlyArray<string> = ['routeMap']
 
 export const FEATURE_NAMES = Object.keys(FEATURES) as FeatureName[]
 
@@ -130,7 +140,9 @@ export const featureSwitchesFrom = (
     .map((each) => each.trim())
     .filter((each) => each !== '')) {
     const [name = '', value = ''] = item.split('=').map((each) => each.trim())
-    if (!FEATURE_NAMES.includes(name as FeatureName) || !/^(on|off)$/.test(value)) unknown.push(item)
+    const valid = /^(on|off)$/.test(value)
+    if (valid && RETIRED_FEATURES.includes(name)) continue
+    if (!FEATURE_NAMES.includes(name as FeatureName) || !valid) unknown.push(item)
     else switches[name] = value === 'on'
   }
   return { switches, unknown }

@@ -7,11 +7,13 @@ import {
   type NotificationLevel,
   PRINCIPLES_PER_PERSON,
   PROTOCOL_VERSION,
+  type PlaceName,
   type Principle,
   type PrincipleId,
+  type RoutePoint,
 } from '@homingbird/protocol'
 import { type Handlers, found } from './handlers.ts'
-import { agentReportOf } from './insights.ts'
+import { agentReportOf, seededMonthPlaces } from './insights.ts'
 import { closeOffer } from './offers.ts'
 import { directoryOf, memberById } from './reads.ts'
 import { VISITOR_SESSION } from './team.ts'
@@ -29,7 +31,6 @@ export const DEMO_FEATURES: ReadonlyArray<FeatureName> = [
   'earlierAnswers',
   'teaching',
   'agentFigures',
-  'routeMap',
   'noteDetails',
   'channelAgents',
   'debateRooms',
@@ -38,6 +39,7 @@ export const DEMO_FEATURES: ReadonlyArray<FeatureName> = [
   'joinCodes',
   'deskAvailability',
   'autoSend',
+  'draftPreviews',
 ]
 
 /** The server, the visitor's own account and agent, the directory, and what the visitor taught. */
@@ -239,10 +241,44 @@ const changePrinciple = (world: World, id: string, change: (principle: Principle
 const taughtOf = (records: Records) => ({
   principles: [...records.principles],
   offers: [...records.offers],
-  routes: [
-    { place: 'billing', drafted: 31, principles: 1, heldUp: 4, chances: 2 },
-    { place: null, drafted: 33, principles: 1, heldUp: 9, chances: 1 },
-  ],
+  routes: placesTaught(records),
   achievements: ['first_principle' as const],
   limit: PRINCIPLES_PER_PERSON,
 })
+
+/**
+ * Each place as Dovecote counts it: the seeded month's drafts, the principles that apply there (one for
+ * any channel applies everywhere), the seeded drafts that applied one and went out as written, and the
+ * open chances to teach from there.
+ */
+const placesTaught = (records: Records): RoutePoint[] => {
+  const month = seededMonthPlaces()
+  const places = new Set<PlaceName>([
+    ...month.map((each) => each.place),
+    ...records.principles.flatMap((principle) => (principle.place === null ? [] : [principle.place])),
+    ...records.offers.map((offer) => offer.place),
+  ])
+  return [...places].map((place) => {
+    const here = records.principles.filter(
+      (principle) => principle.place === null || principle.place === place,
+    )
+    return {
+      place,
+      drafted: month.find((each) => each.place === place)?.written ?? 0,
+      principles: here.length,
+      heldUp: here.reduce(
+        (sum, principle) => sum + (HELD_UP_SEEDED[principle.id]?.[place ?? DIRECT] ?? 0),
+        0,
+      ),
+      chances: records.offers.filter((offer) => offer.place === place).length,
+    }
+  })
+}
+
+const DIRECT = 'direct'
+
+/** Where the seeded principles' drafts went out as written: 8 for Migrations and 3 for Annual refunds. */
+const HELD_UP_SEEDED: Readonly<Record<string, Readonly<Record<string, number>>>> = {
+  prin_demoprin0001: { deploys: 4, billing: 1, [DIRECT]: 3 },
+  prin_demoprin0002: { billing: 3 },
+}

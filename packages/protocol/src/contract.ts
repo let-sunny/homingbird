@@ -2,6 +2,7 @@ import { Schema as S, type Task } from '@homingbird/kernel'
 import { AnalyticsBatch } from './analytics.ts'
 import { AutoSend } from './auto-send.ts'
 import { AgentListing, ChannelAgent, ChannelAgentName, Review } from './channel-agents.ts'
+import { ChannelDecisions } from './channel-decisions.ts'
 import { ChannelInstruction, ChannelSources } from './channel-drafting.ts'
 import { ChannelTeaching, TaughtFrom } from './channel-teaching.ts'
 import { CharacterSpec } from './character.ts'
@@ -13,6 +14,7 @@ import {
   Empty,
   InboxItem,
   JoinCode,
+  JoinCodeStatus,
   Me,
   PageLimit,
   Recipients,
@@ -34,6 +36,7 @@ import {
   DebateVote,
 } from './debates.ts'
 import { DeskWake, DeskWakeSetup, DeskWakeTest } from './desk-wake.ts'
+import { DraftPreview, DraftPreviewAllowance } from './draft-previews.ts'
 import {
   AnsweredFromHistory,
   EARLIER_ANSWERS_MAX,
@@ -157,6 +160,19 @@ export const contract = {
     body: Empty,
     response: DeskWakeTest,
   }),
+  'me.draftPreviews.get': route({
+    method: 'GET',
+    path: '/me/draft-previews',
+    access: 'human',
+    response: DraftPreviewAllowance,
+  }),
+  'me.draftPreviews.set': route({
+    method: 'PUT',
+    path: '/me/draft-previews',
+    access: 'human',
+    body: DraftPreviewAllowance,
+    response: DraftPreviewAllowance,
+  }),
 
   'directory.list': route({
     method: 'GET',
@@ -279,6 +295,12 @@ export const contract = {
     path: '/channels/:slug/agent/figures',
     access: 'human',
     response: ChannelAgentReport,
+  }),
+  'channels.agent.decisions': route({
+    method: 'GET',
+    path: '/channels/:slug/agent/decisions',
+    access: 'human',
+    response: ChannelDecisions,
   }),
   'channels.agent.teaching.get': route({
     method: 'GET',
@@ -436,6 +458,12 @@ export const contract = {
     access: 'member',
     query: { before: S.optional(Digits), limit: S.optional(PageLimit) },
     response: S.struct({ notes: S.array(Note), hasMore: S.boolean, notices: S.array(Notice) }),
+  }),
+  'previews.list': route({
+    method: 'GET',
+    path: '/conversations/:id/previews',
+    access: 'human',
+    response: S.struct({ previews: S.array(DraftPreview) }),
   }),
   'notes.get': route({ method: 'GET', path: '/notes/:id', access: 'member', response: Note }),
   'notes.read': route({ method: 'POST', path: '/notes/:id/read', access: 'human', response: Note }),
@@ -804,6 +832,12 @@ export const contract = {
       channel: S.optional(ChannelSlug),
     }),
     response: JoinCode,
+  }),
+  'joinCodes.status': route({
+    method: 'GET',
+    path: '/join-codes/:id',
+    access: 'human',
+    response: JoinCodeStatus,
   }),
   'invites.list': route({
     method: 'GET',

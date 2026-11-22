@@ -185,6 +185,21 @@ describe('the channel agent tasks', () => {
     expect((await refused.run(tasks.loadChannelAgentFigures('payments-wiki')))._tag).toBe('Err')
   })
 
+  it('load what the managers recently decided for a manager, nothing for anyone else, and fail on other refusals', async () => {
+    const decisions = { channel: 'payments-wiki', days: 30, decisions: [] } satisfies AsRead.ChannelDecisions
+    const found = testApp({ 'channels.agent.decisions': () => decisions })
+    expect(await found.run(tasks.loadChannelDecisions('payments-wiki'))).toEqual({
+      _tag: 'Ok',
+      value: decisions,
+    })
+    const hidden = testApp({
+      'channels.agent.decisions': () => fail(NotFound({ message: 'Only managers.' })),
+    })
+    expect(await hidden.run(tasks.loadChannelDecisions('payments-wiki'))).toEqual({ _tag: 'Ok', value: null })
+    const refused = testApp({ 'channels.agent.decisions': () => fail(Forbidden({ message: 'No.' })) })
+    expect((await refused.run(tasks.loadChannelDecisions('payments-wiki')))._tag).toBe('Err')
+  })
+
   it('make, rename and retire the agent and disconnect a desk, reading the agent again each time', async () => {
     const { run, state, routes } = testApp({
       'channels.agent.get': () => agentView,

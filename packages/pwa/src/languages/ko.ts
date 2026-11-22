@@ -51,9 +51,9 @@ export const ko: Translation<typeof en> = {
   menuAdmin: '관리',
   menuSignOut: '로그아웃',
   connection: {
-    connecting: '연결 중…',
-    connected: '연결됨',
-    offline: '오프라인',
+    connecting: '이 페이지 연결 중…',
+    connected: '이 페이지 최신 상태',
+    offline: '이 페이지 오프라인',
   },
   connectionOffline: '오프라인: 다시 연결되면 새 노트가 보여요.',
   conversations: 'DM',
@@ -200,6 +200,34 @@ export const ko: Translation<typeof en> = {
   privateChannel: '비공개',
   answerHere: '여기서 답하기',
   answerHereHelp: '“여기서 답하기”란?',
+  hintClose: '도움말 닫기',
+  hints: {
+    legend: '도움말',
+    intro:
+      '처음 2주 동안, Homingbird만의 기능을 한 번 써 보기 전까지 무엇을 할 수 있는지 짧은 도움말이 떠요.',
+    showAgain: '도움말 다시 보기',
+    shownAgain: '이 브라우저에서 지금부터 도움말이 다시 떠요.',
+    kindRule: '규칙은 에이전트에게 답을 찾는 방법을 알려 줘서, 사실이 바뀌어도 맞게 답해요.',
+    kindAnswer: '답은 에이전트가 그대로 전하는 내용이에요. 잘 바뀌지 않는 사실에 쓰세요.',
+    makePublic: '누르면 이 원칙에 대한 문장 하나를 동료에게 보여 줘요. 원칙 자체는 나만 봐요.',
+    makePrivate: '누르면 이 원칙에 대한 문장을 동료에게 더 이상 보여 주지 않아요.',
+    approveAndSend: '누르면 보이는 그대로 보내요. 누르기 전에는 아무것도 나가지 않아요.',
+    draft: '내 에이전트가 쓴 초안이에요. 승인하고 보내기 전에는 다른 사람에게 보이지 않아요.',
+    channelAgent: '이 채널에 답하는 에이전트를 열어요. 답마다 채널 운영자가 승인해요.',
+    channelManagers: '운영자는 이 채널의 에이전트를 돌리고, 그 답을 읽은 뒤 보내요.',
+    privateQuestion: '나와 채널 운영자만 보는 곳에서 이 채널의 에이전트에게 물어요.',
+    debateRoom: '몇 사람의 에이전트가 한 질문을 차례대로 토론하는 방이에요. 열어서 따라가 보세요.',
+    debateTurns: '에이전트마다 한 말을 읽어요. 차례는 승인 없이 보이고 방 안에만 남아요.',
+    debateResult: '에이전트들이 투표로 정한 결론이에요. 사람이 보내야만 방 밖으로 나가요.',
+    skippedDraft: '에이전트가 초안을 쓰지 않기로 한 노트예요. 직접 답하거나 어떻게 할지 가르쳐 주세요.',
+    sentAsWritten: '한 글자도 고치지 않고 보낸 초안이에요. 에이전트를 믿어도 되는 곳을 보여 줘요.',
+    teachingChances: '고치거나 버린 초안을 다음번을 위한 원칙으로 바꿔요.',
+    insights: '에이전트 초안이 어떻게 처리되는지 조직 전체의 합계를 봐요. 누구의 노트도 보이지 않아요.',
+    draftPreviews: '내가 확인하기 전의 에이전트 초안을, 미확인 표시와 함께 누가 볼 수 있을지 골라요.',
+    autoSend: '작성자가 스스로 보내도록 허락한 저장된 답이 승인을 기다리지 않고 보낸 노트예요.',
+    joinCode:
+      '서버를 이 에이전트로 로그인시키는 일회용 서버 연결 코드를 만들어요. 에이전트는 초안만 쓰고 보내지 않아요.',
+  },
   answerHereHint:
     '켜면 이 채널의 질문이 나에게 전달되고, 내 에이전트가 답장 초안을 써서 승인을 기다려요. 끄면 채널에 남아 읽기만 해요.',
   leaveChannel: '채널 나가기',
@@ -300,6 +328,18 @@ export const ko: Translation<typeof en> = {
     agentAsleep: '{name} 님의 에이전트: 쉬는 중',
     agentUnavailable: '{name} 님의 에이전트: 지금은 답할 수 없음',
     agentUnavailableUntil: '{name} 님의 에이전트: {time}까지 답할 수 없음',
+  },
+  presenceWords: {
+    online: {
+      on: '접속 중 · 에이전트 깨어 있음',
+      off: '접속 중 · 에이전트 쉬는 중',
+      unavailable: '접속 중 · 에이전트 지금은 답할 수 없음',
+    },
+    away: {
+      on: '자리 비움 · 에이전트 깨어 있음',
+      off: '자리 비움 · 에이전트 쉬는 중',
+      unavailable: '자리 비움 · 에이전트 지금은 답할 수 없음',
+    },
   },
   humanOnline: '접속 중',
   humanOffline: '자리 비움',
@@ -495,7 +535,9 @@ export const ko: Translation<typeof en> = {
   codeFallback: '에이전트가 링크 대신 연결 코드를 보여 줬나요? 여기에 입력하세요.',
   firstSteps: {
     title: '첫 에이전트 연결하기',
-    plugin: 'Claude Code에서는 플러그인을 설치하고, 나 대신 답할 세션에서 /homingbird를 입력하세요.',
+    anotherTitle: '다른 에이전트 연결하기',
+    plugin:
+      'Claude Code에서는 플러그인을 설치하고, 나 대신 답할 세션에서 이 서버로 여세요. 플러그인은 그 세션을 데스크라고 불러요.',
     commandLine: 'Codex나 Gemini CLI 같은 다른 에이전트는 그 컴퓨터에 명령줄 도구를 설치하고 로그인하세요.',
     run: '그다음 에이전트가 계속 답하게 하세요. homingbird run이 노트가 올 때마다 에이전트를 실행해요.',
     joinHint: '브라우저가 없는 서버라면 그곳에서 로그인하지 말고 아래 “서버에서 돌리기”를 쓰세요.',
@@ -603,17 +645,17 @@ export const ko: Translation<typeof en> = {
       earlierAnswers: '이전 답변: 질문을 쓰는 동안 이전 답변 보여 주기',
       teaching: '원칙 가르치기',
       agentFigures: '내 에이전트 현황',
-      routeMap: '경로 지도',
       insights: '관리자 인사이트',
       noteDetails: '노트를 쓴 모델과 프로그램',
       debateRooms: '토론방',
       channelAgents: '채널 에이전트',
-      cloudDesk: '클라우드 데스크: 클라우드 서비스에서 에이전트 깨우기 (실험 기능)',
+      cloudDesk: '클라우드 에이전트: 클라우드 서비스에서 에이전트 깨우기 (실험 기능)',
       joinCodes: '서버 연결 코드 (서버에서 에이전트 돌리기)',
       deskAvailability: '에이전트가 답할 수 없을 때 알리기',
       invites: '초대 링크',
       analytics: '익명 제품 분석',
       autoSend: '스스로 보내지는 저장한 답',
+      draftPreviews: '에이전트 초안 미리 보여 주기',
     },
     whenOff: {
       channels: '끄면: 새 채널을 만들 수 없어요. 있는 채널은 그대로예요.',
@@ -626,14 +668,13 @@ export const ko: Translation<typeof en> = {
       earlierAnswers: '끄면: 질문을 쓰는 동안 이전 답변이 보이지 않고, 에이전트도 찾아보지 않고 질문해요.',
       teaching: '끄면: 원칙은 남지만 쓰이지 않고, 새로 추가할 수 없어요.',
       agentFigures: '끄면: 에이전트 현황 숫자를 볼 수 없어요.',
-      routeMap: '끄면: 내 에이전트에 경로 지도가 보이지 않아요.',
       insights: '끄면: 관리자가 조직 전체 숫자를 볼 수 없어요.',
       noteDetails: '끄면: 노트에 쓴 모델과 프로그램이 보이지 않아요.',
       debateRooms: '끄면: 토론방이 보이지 않고 에이전트도 차례를 갖지 않아요. 있던 토론방은 그대로 남아요.',
       channelAgents:
         '끄면: 채널 에이전트가 답하지 않고 그 에이전트를 실행하는 프로그램의 연결도 거절돼요. 지워지는 건 없고, 다시 켜면 돌아와요.',
       cloudDesk:
-        '끄면: 클라우드 데스크를 깨우지 않고 아무도 설정할 수 없어요. 저장된 설정은 남아요. 서버에 HB_SECRETS_KEY도 있어야 해요.',
+        '끄면: 클라우드 에이전트를 깨우지 않고 아무도 설정할 수 없어요. 저장된 설정은 남아요. 서버에 HB_SECRETS_KEY도 있어야 해요.',
       joinCodes:
         '끄면: 아무도 서버 연결 코드를 만들 수 없고, 이미 만든 서버 연결 코드도 거절돼요. 서버는 homingbird login으로 로그인해요.',
       deskAvailability:
@@ -644,6 +685,8 @@ export const ko: Translation<typeof en> = {
         '끄면: 저장한 답이 스스로 보내지지 않고, 모든 초안이 본인의 승인을 기다려요. 켜면: 각자 저장한 답을 스스로 보내지게 켤 수 있지만, 그 답과 똑같은 글만, 본인이 허락한 곳에만 보내져요.',
       analytics:
         '끄면: 사용 통계가 이 서버 밖으로 나가지 않아요. 켜면 서버 운영자가 정한 곳으로만 본 페이지 같은 익명 통계가 가요. 내용, 이름, 이메일은 보내지 않아요.',
+      draftPreviews:
+        '끄면: 본인이 확인하기 전에는 아무도 동료 에이전트의 초안을 볼 수 없어요. 켜면: 각자 내 에이전트에서 누가 볼지 골라요. 고르기 전에는 아무도 볼 수 없어요.',
     },
   },
   todo: {
@@ -682,7 +725,7 @@ export const ko: Translation<typeof en> = {
       connection: '연결',
       teaching: '가르치기',
       doing: '현황',
-      routes: '경로 지도',
+      previews: '미리 보여 주기',
     },
     tabsLabel: '내 에이전트 메뉴',
     sectionHints: {
@@ -691,8 +734,7 @@ export const ko: Translation<typeof en> = {
         '원칙은 에이전트가 따르는 규칙이나 저장해 둔 답이에요. 에이전트는 초안마다 적용한 원칙을 알려 줘요.',
       doing:
         '이 숫자는 내가 아니라 에이전트 초안에 관한 거예요. 초안이 어디서 이미 내 뜻대로 나가고, 어디서 아직 내 손이 필요한지 보여 줘요.',
-      routes:
-        '에이전트가 이미 나처럼 답하는 곳이에요. 초안을 쓰는 곳마다 원칙이 얼마나 도움이 되는지 보여 줘요.',
+      previews: '내가 확인하기 전에 에이전트 초안을 읽을 수 있는 사람이에요.',
     },
     verdict: {
       unknown: '이 버전에서는 아직 이 숫자를 설명할 수 없어요',
@@ -751,11 +793,6 @@ export const ko: Translation<typeof en> = {
       other: '초안 {count}개를 나타난 지 {seconds}초 안에 보냈어요.',
     },
     quickExplained: '빠른 승인은 초안이 나타난 지 {seconds}초 안에 그대로 보낸 경우예요.',
-    placesTitle: '에이전트를 믿을 수 있는 곳',
-    placesIntro: '채널마다 따로 보여 주고, DM은 한데 모아요.',
-    placeLine: '{place}: {decided}개 중 {asWritten}개 그대로 보냄',
-    placeNothingDecided: '{place}: 아직 결정한 초안 없음',
-    placeSkipped: { other: '건너뛴 노트 {count}개' },
     directMessages: 'DM',
     trendTitle: '주별 그대로 보낸 비율',
     trendIntro: '최근 8주 동안 매주 결정한 초안 중 그대로 보낸 비율이에요.',
@@ -908,8 +945,7 @@ export const ko: Translation<typeof en> = {
     teachFromEdit: '이 수정으로 에이전트 가르치기',
     teachFromDiscard: '다음에 할 일을 에이전트에게 가르치기',
     behindTitle: '이 숫자 뒤의 초안',
-    behindIntro:
-      '하나하나가 가르칠 기회예요. 일어난 곳을 열어 보낸 내용을 보거나, 에이전트가 놓친 것을 가르쳐 주세요.',
+    behindIntro: '일어난 곳을 열어 보낸 내용을 보거나, 에이전트가 놓친 것을 가르쳐 주세요.',
     behind: {
       edited: '수정 후 보냄: {count}',
       discarded: '버림: {count}',
@@ -932,22 +968,51 @@ export const ko: Translation<typeof en> = {
       debate_next_step_accepted: '에이전트들의 투표로 내 에이전트가 제안한 다음 단계가 채택됐어요',
     },
   },
-  routes: {
-    intro:
-      '점 하나는 에이전트가 초안을 쓰는 곳이에요. 선은 그곳에서 가르친 내용과 그 결과에 따라 굵어져요. 수정이나 버리기는 뒷걸음이 아니라 가르칠 기회예요.',
-    you: '나',
-    chances: { other: '가르칠 기회 {count}번' },
-    principleCount: { other: '원칙 {count}개' },
-    heldUpCount: { other: '원칙으로 그대로 보냄 {count}번' },
-    draftedCount: { other: '30일 동안 초안 {count}개' },
-    table: '지도를 표로 보기',
-    placeColumn: '위치',
-    draftedColumn: '30일 동안 초안',
-    principlesColumn: '원칙',
-    heldUpColumn: '원칙으로 그대로 보냄',
-    chancesColumn: '가르칠 기회',
-    debateRooms: '토론방에서',
-    debateIntro: '정해진 토론 결과가 에이전트의 몫으로 인정한 것이에요. 승패, 횟수, 순위는 없어요.',
+  answersLikeYou: {
+    title: '어디서 나처럼 답하나',
+    intro: '에이전트가 초안을 쓰는 곳마다, 내가 고치지 않고 보낼 수 있는 답에 얼마나 가까워졌는지 보여 줘요.',
+    trackLabel: '{place}의 단계',
+    stepOf: '4단계 중 {step}단계: {name}',
+    steps: {
+      drafting: '초안만 씀',
+      taught: '원칙을 가르침',
+      holding: '원칙이 통함',
+      likeYou: '나처럼 답함',
+    },
+    meaning: {
+      drafting: '에이전트가 이곳에서 초안을 쓰지만, 아직 이곳에 적용되는 원칙이 없어요.',
+      taught: '이곳에 적용되는 원칙이 하나 이상 있어요. 이 채널의 원칙이거나 모든 채널에 쓰는 원칙이에요.',
+      holding: '원칙을 쓴 초안 하나를 이곳에서 고치지 않고 보냈어요.',
+      likeYou: '최근 30일 동안 이곳에서 결정한 초안 10개 중 7개 이상을 그대로 보냈어요.',
+    },
+    toReach: {
+      drafting: '다음 단계로 가려면 이곳이나 모든 채널에 쓸 원칙 하나를 가르쳐 주세요.',
+      taught: '다음 단계로 가려면 원칙을 쓴 초안 하나를 이곳에서 고치지 않고 보내 주세요.',
+      holding:
+        '마지막 단계로 가려면 30일 동안 이곳에서 초안을 {minimum}개 이상 결정하고, 10개 중 7개 이상을 그대로 보내 주세요.',
+      likeYou:
+        '이 단계는 최근 30일을 따르기 때문에 오르내릴 수 있어요. 수정은 뒷걸음이 아니라 가르칠 기회예요.',
+    },
+    decided: '결정한 초안 {decided}개 중 {asWritten}개를 그대로 보냄 ({share})',
+    undecided: { other: '30일 동안 초안 {count}개, 아직 결정한 것 없음' },
+    noDrafts: '최근 30일 동안 이곳에서 쓴 초안 없음',
+    next: {
+      drafting: '다음 단계: 이곳에 적용되는 원칙 하나를 가르쳐 주세요.',
+      taught: '다음 단계: 원칙을 쓴 초안 하나를 고치지 않고 보내 주세요.',
+      tooFew: { other: '30일 동안 이곳에서 초안 {count}개를 결정했어요. {minimum}개가 되어야 알 수 있어요.' },
+      holding: '지금은 10개 중 {now}개를 그대로 보내요. 7개가 되면 완성이에요.',
+      slipped:
+        '최근 초안 몇 개는 고쳐야 했어요. 무엇이 달라졌는지 가르쳐 주세요. 수정은 뒷걸음이 아니라 가르칠 기회예요.',
+      likeYou: '완성: 이곳 초안 10개 중 7개 이상을 그대로 보내고 있어요.',
+    },
+    teachFromChances: { other: '고치거나 버린 초안 {count}개로 가르치기' },
+    teachFirst: '{place}에 첫 원칙 가르치기',
+    teachMore: '{place}에 대해 가르치기',
+    teachAnywhere: '모든 채널에 쓸 원칙 가르치기',
+    reviewSkipped: { other: '에이전트가 이곳에서 건너뛴 노트 {count}개 보기' },
+    stepsTitle: '단계별 뜻',
+    footnote:
+      '★ 완성은 최근 30일 동안 이곳에서 결정한 초안 10개 중 7개 이상을 고치지 않고 보냈다는 뜻이에요. 앞의 세 단계는 원칙을 지우지 않는 한 그대로예요. 마지막 단계는 최근 30일을 따라요.',
   },
   debates: {
     title: '토론방',
@@ -1005,7 +1070,10 @@ export const ko: Translation<typeof en> = {
     noParticipants: '아직 참여한 에이전트가 없어요.',
     optInTitle: '내 에이전트 참여시키기',
     optInHint:
-      '에이전트는 이 토론방에서만 차례를 가져요. 각 차례는 내 승인 없이 쓴 그대로 토론방에 보이고, 결과는 에이전트들이 투표로 정해요. 결과는 나나 차례를 가진 다른 사람이 게시할 때만 밖으로 나가요. 다른 차례는 인용된 데이터로 읽고, 아무것도 보내지 않아요. 실행 도구 없이 돌리고, homingbird run에 --split을 붙여 읽는 에이전트와 쓰는 에이전트를 나눠 주세요.',
+      '에이전트는 이 토론방에서만, 내 승인 없이 말해요. 각 차례는 쓴 그대로 보여요. 결과는 에이전트들이 투표로 정하고, 나나 차례를 가진 다른 사람이 승인해서 게시할 때만 토론방 밖으로 나가요.',
+    optInAdviceTitle: '에이전트를 실행하는 사람을 위한 안내',
+    optInAdvice:
+      '에이전트는 다른 차례를 인용된 데이터로 읽고, 아무것도 보내지 않아요. 실행 도구 없이 돌리고, homingbird run에 --split을 붙여 읽는 에이전트와 쓰는 에이전트를 나눠 주세요.',
     chooseAgent: '에이전트',
     optIn: '참여시키기',
     noAgent: '먼저 내 에이전트 → 연결에서 에이전트를 연결하세요.',
@@ -1212,15 +1280,22 @@ export const ko: Translation<typeof en> = {
       '하루 중 잠깐이라도 그룹에 속해 있던 날(UTC 기준)은 모두 그 그룹에 세요. 두 그룹에 속한 사람은 두 그룹 모두에 세요.',
   },
   start: {
-    title: '여기서 시작해 보세요',
     askChannel: '채널에 질문하기',
-    askChannelHint: '누가 답할지 모르겠다면 채널에서 답하는 사람들에게 물어보세요.',
     findPerson: '사람 찾기',
-    findPersonHint: '동료에게 노트를 쓰면 동료의 에이전트가 답장 초안을 써요.',
-    connect: '에이전트 연결',
-    connectHint:
-      '에이전트 세션을 열어 두거나 계속 켜져 있는 컴퓨터에서 homingbird run을 실행하면 답장 초안을 써 줘요.',
     tour: '둘러보기',
+    firstTitle: '첫 노트까지 세 단계',
+    connectStep: '에이전트 연결',
+    connectStepHint:
+      'Claude Code에서 나 대신 답할 세션에 이 두 줄을 붙여 넣으세요. 에이전트가 답장 초안을 쓰고, 내가 승인하기 전에는 아무것도 보내지 않아요.',
+    otherAgents: '다른 에이전트나 서버에서',
+    connectedStep: '에이전트가 연결됐어요',
+    connectedStepHint: '나에게 노트가 오면 에이전트가 답장 초안을 써요.',
+    writeStep: '동료에게 쓰거나 채널에 질문하기',
+    writeStepHint: '동료의 에이전트가 답을 쓰고, 동료가 승인해야 나에게 와요.',
+    approveStep: '내 에이전트의 첫 초안 승인하기',
+    approveStepHint:
+      '동료가 나에게 노트를 쓰면 에이전트의 초안이 그 DM과 종 모양 버튼에서 기다려요. 승인하고 보내거나, 고치거나, 버리세요. 그 전에는 아무것도 나가지 않아요.',
+    done: '완료',
   },
   character: {
     title: '내 캐릭터',
@@ -1587,6 +1662,7 @@ export const ko: Translation<typeof en> = {
       gone: '이 답은 더 이상 당신을 기다리지 않아요.',
     },
     reviewBadge: '검토 {count}',
+    reviewBadgePrivate: '비공개 검토 {count}',
     reviewBadgeLabel: { other: '답 {count}개가 검토를 기다려요' },
     questionFrom: '{name} 님의 질문',
     waitsInRoom:
@@ -1609,6 +1685,9 @@ export const ko: Translation<typeof en> = {
     discardConfirm: '버리기',
     approvedBy: '{channel} · {name} 님이 승인',
     askPrivately: '채널 에이전트에게 비공개로 묻기 · {agent}',
+    privateTitle: '{channel} 비공개 질문',
+    privateStart:
+      '아래에 질문을 쓰세요. 채널 에이전트 {agent}의 답은 {channel} 채널 운영자 중 한 명이 승인한 뒤에 보여요.',
     privateNotice:
       '여기에는 나, 채널 에이전트 {agent}, {channel} 채널의 운영자만 있어요. 나중에 운영자가 되는 사람도 들어와서 여기 있는 모든 내용을 읽어요.',
     privateNoticeArchived:
@@ -1633,6 +1712,33 @@ export const ko: Translation<typeof en> = {
     figuresFormerManagers: { other: '전 운영자: 답변 {count}개' },
     figuresApproved: { other: '{name}: 답변 {count}개' },
     figuresLoadFailed: '에이전트가 어떻게 하고 있는지 불러오지 못했어요. 잠시 뒤에 다시 해 보세요.',
+  },
+  channelDecisions: {
+    title: '최근 결정',
+    intro:
+      '최근 {days}일 동안 {channel} 채널 운영자가 에이전트 {agent}의 답을 어떻게 결정했는지 최근 것부터 보여 줘요. 운영자만 보고, 운영자 자신이 한 질문에 대한 결정은 보이지 않아요.',
+    none: '최근 {days}일 동안 보내거나 버린 답이 없어요.',
+    loadFailed: '최근 결정을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.',
+    listLabel: '에이전트 {agent}의 답에 대한 최근 결정',
+    outcome: {
+      sent_as_written: '그대로 보냄',
+      sent_edited: '수정 후 보냄',
+      discarded: '버림',
+      unknown: '결정됨',
+    },
+    decidedBy: {
+      sent_as_written: '{name} 님이 보냄',
+      sent_edited: '{name} 님이 수정해서 보냄',
+      discarded: '{name} 님이 버림',
+      unknown: '{name} 님이 결정함',
+    },
+    discardedByAManager: '운영자가 버림',
+    answerSent: '보낸 답',
+    answerDiscarded: '버린 답',
+    agentWrote: '에이전트 {agent}의 원래 답',
+    reason: '버린 이유',
+    principles: '적용한 원칙: {principles}',
+    open: '질문한 곳에서 보기',
   },
   channelTeach: {
     tabsLabel: '{channel} 채널의 에이전트',
@@ -1733,9 +1839,36 @@ export const ko: Translation<typeof en> = {
     expired: '이 서버 연결 코드는 쓰이기 전에 만료됐어요.',
     again: '새 서버 연결 코드 만들기',
     failed: '지금은 서버 연결 코드를 만들 수 없어요. 잠시 후 다시 시도하세요.',
+    connected: '연결됐어요. 그 서버의 연결 “{name}”에서 내 에이전트가 돌아가고 있어요.',
+    connectedAgent: '연결됐어요. 그 서버의 연결 “{name}”에서 {agent} 에이전트가 돌아가고 있어요.',
+    awakeNow: '지금 깨어 있어요.',
+    notAwakeYet: '아직 깨어 있지 않아요. 그 서버의 서비스가 시작되면 바로 깨어나요.',
+    another: '다른 서버에서 돌리기',
+  },
+  draftPreviews: {
+    intro:
+      '내가 확인하기 전에도 고른 동료가 에이전트 초안을 볼 수 있게 해요. 동료는 나를 기다리지 않아도 돼요. 동료에게는 확인 전 초안으로 표시되고, 답장하거나 인용할 수 없으며, 내가 버리면 사라져요. 내가 직접 쓴 초안과 채널 에이전트의 답은 보여 주지 않아요.',
+    people: '사람',
+    peopleHint: '나와 주고받는 DM과 그룹 DM에서 에이전트 초안을 볼 수 있어요.',
+    channels: '채널',
+    channelsHint: '채널 방에 있는 모두가 그 방의 에이전트 초안을 볼 수 있어요.',
+    noPeople: '아직 다른 사람이 없어요.',
+    noChannels: '채널에 들어가면 여기서 고를 수 있어요.',
+    nobody: '내가 확인하기 전에는 아무도 에이전트 초안을 볼 수 없어요.',
+    somebody: '{people}명과 채널 {channels}곳에 미리 보여 줘요.',
+    save: '저장',
+    saved: '저장했어요.',
+    cardTitle: '{name}님의 에이전트가 쓴 확인 전 초안',
+    cardNote: '{name}님이 아직 확인하지 않았어요. 바뀌거나 철회될 수 있어요.',
+    withdrawn: '{name}님이 이 초안을 철회했어요',
+    withdrawnNote: '보내지 않았어요.',
+    ownNotice: '내가 확인하기 전에도 {names}님이 여기서 에이전트 초안을 볼 수 있어요.',
+    ownNoticeRoom: '내가 확인하기 전에도 이 방의 모두가 에이전트 초안을 볼 수 있어요.',
+    confirmed: '{name}님이 미리 본 초안을 확인하고 보냈어요.',
+    confirmedEdited: '{name}님이 미리 본 초안을 고친 뒤 보냈어요.',
   },
   cloudDesk: {
-    legend: '클라우드 데스크',
+    legend: '클라우드 에이전트',
     intro:
       '내 컴퓨터 대신 클라우드 에이전트 서비스에서 내 에이전트를 실행해요. 할 일이 있는데 내 에이전트를 실행하는 프로그램이 없으면 Homingbird가 내가 준 주소를 불러요. 이 요청에는 노트가 담기지 않고 할 일이 있다는 사실만 담겨요. 깨어난 세션은 Homingbird 커넥터로 모든 내용을 읽어요.',
     service: '서비스',
@@ -1760,7 +1893,7 @@ export const ko: Translation<typeof en> = {
     test: '시험 삼아 깨우기',
     testHint: '서비스에서 실제 세션이 시작돼요.',
     remove: '삭제',
-    removeTitle: '클라우드 데스크를 삭제할까요?',
+    removeTitle: '클라우드에서 에이전트 깨우기를 그만둘까요?',
     removeBody: 'Homingbird가 깨우기 주소와 토큰을 지우고 그곳의 에이전트를 더 깨우지 않아요.',
     prompt: '깨어난 세션에 줄 프롬프트',
     promptHint:

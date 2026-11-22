@@ -50,9 +50,9 @@ export const en = {
   menuAdmin: 'Administration',
   menuSignOut: 'Sign out',
   connection: {
-    connecting: 'Connecting…',
-    connected: 'Connected',
-    offline: 'Offline',
+    connecting: 'This page is connecting…',
+    connected: 'This page is up to date',
+    offline: 'This page is offline',
   },
   connectionOffline: 'Offline: new notes will appear when you are back online.',
   conversations: 'Direct messages',
@@ -202,6 +202,33 @@ export const en = {
   privateChannel: 'Private',
   answerHere: 'Answer here',
   answerHereHelp: 'What “Answer here” does',
+  hintClose: 'Close this hint',
+  hints: {
+    legend: 'Hints',
+    intro:
+      'For your first two weeks, a short hint says what you can do with Homingbird’s own controls, until you have used each one.',
+    showAgain: 'Show hints again',
+    shownAgain: 'Hints show again from now on, in this browser.',
+    kindRule: 'A rule tells your agent how to find the answer, so it stays right when the facts change.',
+    kindAnswer: 'An answer is what your agent says as it is; keep it for facts that rarely change.',
+    makePublic: 'Click to show colleagues one sentence about this principle; the principle stays private.',
+    makePrivate: 'Click to stop showing colleagues the sentence about this principle.',
+    approveAndSend: 'Click to send this exactly as shown; nothing leaves until you do.',
+    draft: 'Your agent wrote this; nobody else sees it until you approve and send it.',
+    channelAgent: 'Open the agent that answers this channel; its managers approve each answer.',
+    channelManagers: 'Managers run this channel’s agent and send its answers after reading them.',
+    privateQuestion: 'Ask this channel’s agent where only you and the channel’s managers see it.',
+    debateRoom: 'Open a room to follow a few people’s agents discussing one question, turn by turn.',
+    debateTurns: 'Read what each agent said; turns show without approval and stay in the room.',
+    debateResult: 'The conclusion the agents voted for; it leaves the room only when a person sends it.',
+    skippedDraft: 'Your agent chose not to draft these; reply yourself, or teach it what to do.',
+    sentAsWritten: 'Drafts you sent without changing a word: where your agent can be trusted.',
+    teachingChances: 'Turn a draft you edited or discarded into a principle for next time.',
+    insights: 'See totals for the whole organization of how agents’ drafts fare, never anyone’s notes.',
+    joinCode: 'Make a one-time code that signs a server in as this agent, which drafts and never sends.',
+    draftPreviews: 'Choose who may see your agent’s drafts, marked unconfirmed, before you check them.',
+    autoSend: 'A saved answer its author allowed to send itself sent this, without waiting for approval.',
+  },
   answerHereHint:
     'On: questions asked here reach you, and your agent drafts the replies for you to approve. Off: you stay in the room and only read.',
   leaveChannel: 'Leave channel',
@@ -306,6 +333,18 @@ export const en = {
     agentAsleep: '{name}’s agent: not awake',
     agentUnavailable: '{name}’s agent: can’t answer right now',
     agentUnavailableUntil: '{name}’s agent: can’t answer until {time}',
+  },
+  presenceWords: {
+    online: {
+      on: 'Online · agent awake',
+      off: 'Online · agent not awake',
+      unavailable: 'Online · agent can’t answer now',
+    },
+    away: {
+      on: 'Away · agent awake',
+      off: 'Away · agent not awake',
+      unavailable: 'Away · agent can’t answer now',
+    },
   },
   humanOnline: 'Person online',
   humanOffline: 'Person away',
@@ -505,8 +544,9 @@ export const en = {
   codeFallback: 'Did your agent show you a connection code instead of a link? Enter it here.',
   firstSteps: {
     title: 'Connect your first agent',
+    anotherTitle: 'Connect another agent',
     plugin:
-      'In Claude Code, install the plugin, then type /homingbird in the session that should answer for you.',
+      'In Claude Code, install the plugin, then open it on this server in the session that should answer for you. The plugin calls that session your desk.',
     commandLine:
       'With another agent, such as Codex or Gemini CLI, install the command line and sign it in on its computer.',
     run: 'Then keep your agent answering: homingbird run starts it for each note that arrives.',
@@ -624,17 +664,17 @@ export const en = {
       earlierAnswers: 'Answered before: earlier answers shown while asking',
       teaching: 'Teaching principles',
       agentFigures: 'How my agent is doing',
-      routeMap: 'Route map',
       insights: 'Insights for administrators',
       noteDetails: 'Who wrote a note: model and program',
       debateRooms: 'Debate rooms',
       channelAgents: 'Channel agents',
-      cloudDesk: 'Cloud desk: wake your agent in a cloud service (experimental)',
+      cloudDesk: 'Agent in the cloud: wake your agent in a cloud service (experimental)',
       joinCodes: 'Join codes for running an agent on a server',
       deskAvailability: 'Showing when an agent can’t answer',
       invites: 'Invite links',
       analytics: 'Anonymous product analytics',
       autoSend: 'Saved answers that send themselves',
+      draftPreviews: 'Early previews of agents’ drafts',
     },
     whenOff: {
       channels: 'Off: people can no longer create channels; existing channels stay.',
@@ -649,14 +689,13 @@ export const en = {
         'Off: nobody sees earlier answers while writing a question, and agents ask without looking for them.',
       teaching: 'Off: principles are kept but not used, and nobody can add one.',
       agentFigures: 'Off: people no longer see their agent’s figures.',
-      routeMap: 'Off: My agent shows no route map.',
       insights: 'Off: administrators see no organization-wide numbers.',
       noteDetails: 'Off: notes no longer show the model and program that wrote them.',
       debateRooms: 'Off: debate rooms are hidden and their agents take no turns; existing rooms stay.',
       channelAgents:
         'Off: channels’ agents stop answering and the programs that run them are refused; nothing is deleted, and turning it on again brings them back.',
       cloudDesk:
-        'Off: no cloud desk is woken and nobody can set one up; saved wakes are kept. It also needs HB_SECRETS_KEY on the server.',
+        'Off: no agent in the cloud is woken and nobody can set one up; saved wakes are kept. It also needs HB_SECRETS_KEY on the server.',
       joinCodes:
         'Off: nobody can make a join code and codes already made are refused; people sign in servers with homingbird login instead.',
       deskAvailability:
@@ -667,6 +706,8 @@ export const en = {
         'Off: no saved answer sends itself; every draft waits for its person’s approval. On: a person may switch a saved answer to send itself, but only its exact text, only where they allow it.',
       analytics:
         'Off: no usage counts leave this server. On, and only where the server operator set a destination: anonymous counts such as pages viewed, never content, names or email addresses.',
+      draftPreviews:
+        'Off: nobody sees a colleague’s agent’s draft before its person checks it. On: each person chooses who may, under My agent; nobody is chosen until they do.',
     },
   },
   todo: {
@@ -705,7 +746,7 @@ export const en = {
       connection: 'Connection',
       teaching: 'Teaching',
       doing: 'How it is doing',
-      routes: 'Route map',
+      previews: 'Early previews',
     },
     tabsLabel: 'My agent sections',
     sectionHints: {
@@ -714,8 +755,7 @@ export const en = {
         'A principle is a rule or saved answer your agent follows. Your agent names the principle it applied on each draft.',
       doing:
         'These numbers are about your agent’s drafts, not about you: where they already go out as you would write them, and where they still need you.',
-      routes:
-        'Where your agent already answers like you: each place it drafts, and how far your principles carry it there.',
+      previews: 'Who may read your agent’s drafts before you check them.',
     },
     verdict: {
       unknown: 'This version cannot describe these figures yet',
@@ -778,11 +818,6 @@ export const en = {
       other: '{count} drafts were sent within {seconds} seconds of appearing.',
     },
     quickExplained: 'A quick approval is a draft sent as written within {seconds} seconds of appearing.',
-    placesTitle: 'Where your agent is trusted',
-    placesIntro: 'Each channel on its own, with direct messages together.',
-    placeLine: '{place}: {asWritten} of {decided} sent as written',
-    placeNothingDecided: '{place}: no draft decided yet',
-    placeSkipped: { one: '{count} note skipped', other: '{count} notes skipped' },
     directMessages: 'Direct messages',
     trendTitle: 'Sent as written, week by week',
     trendIntro:
@@ -943,8 +978,7 @@ export const en = {
     teachFromEdit: 'Teach your agent from this edit',
     teachFromDiscard: 'Teach your agent what to do next time',
     behindTitle: 'The drafts behind these figures',
-    behindIntro:
-      'Each one is a chance to teach. Open where it happened to see what you sent, or teach your agent what it missed.',
+    behindIntro: 'Open where it happened to see what you sent, or teach your agent what it missed.',
     behind: {
       edited: 'Edited, then sent: {count}',
       discarded: 'Discarded: {count}',
@@ -968,22 +1002,64 @@ export const en = {
       debate_next_step_accepted: 'The agents’ vote kept a next step your agent proposed',
     },
   },
-  routes: {
-    intro:
-      'Each point is a place where your agent drafts. A line grows with what you taught there and how it held up; an edit or a discard is a chance to teach, never a step back.',
-    you: 'You',
-    chances: { one: '{count} chance to teach', other: '{count} chances to teach' },
-    principleCount: { one: '{count} principle', other: '{count} principles' },
-    heldUpCount: { one: '{count} sent as written with them', other: '{count} sent as written with them' },
-    draftedCount: { one: '{count} draft in 30 days', other: '{count} drafts in 30 days' },
-    table: 'The map as a table',
-    placeColumn: 'Place',
-    draftedColumn: 'Drafts in 30 days',
-    principlesColumn: 'Principles',
-    heldUpColumn: 'Sent as written with them',
-    chancesColumn: 'Chances to teach',
-    debateRooms: 'In debate rooms',
-    debateIntro: 'What settled debate results credited your agent for. Never wins, counts or rankings.',
+  answersLikeYou: {
+    title: 'Where it answers like you',
+    intro: 'For each place your agent drafts: how close it is to answers you can send without changing them.',
+    trackLabel: 'Steps in {place}',
+    stepOf: 'Step {step} of 4: {name}',
+    steps: {
+      drafting: 'Only drafts',
+      taught: 'You taught principles',
+      holding: 'Principles hold',
+      likeYou: 'Answers like you',
+    },
+    meaning: {
+      drafting: 'Your agent drafts here, and none of your principles applies here yet.',
+      taught: 'At least one of your principles applies here: one for this channel, or one for any channel.',
+      holding: 'You sent a draft here that used one of your principles without changing it.',
+      likeYou: 'In the last 30 days you sent at least 7 in 10 of the drafts you decided here as written.',
+    },
+    toReach: {
+      drafting: 'To reach the next step, teach a principle for this place or for any channel.',
+      taught:
+        'To reach the next step, send a draft here that used one of your principles without changing it.',
+      holding:
+        'To reach the last step, decide at least {minimum} drafts here in 30 days and send at least 7 in 10 of them as written.',
+      likeYou:
+        'This step follows the last 30 days, so it can come and go. An edit is a chance to teach, never a step back.',
+    },
+    decided: '{asWritten} of {decided} decided drafts sent as written ({share})',
+    undecided: {
+      one: '{count} draft in 30 days, none decided yet',
+      other: '{count} drafts in 30 days, none decided yet',
+    },
+    noDrafts: 'No drafts here in the last 30 days',
+    next: {
+      drafting: 'Next step: teach a principle that applies here.',
+      taught: 'Next step: send a draft that used your principle without changing it.',
+      tooFew: {
+        one: '{count} draft decided here in 30 days. It takes {minimum} to tell.',
+        other: '{count} drafts decided here in 30 days. It takes {minimum} to tell.',
+      },
+      holding: 'Now {now} in 10 sent as written. Complete at 7 in 10.',
+      slipped:
+        'Some recent drafts needed edits: teach it what changed. An edit is a chance to teach, never a step back.',
+      likeYou: 'Complete: you send at least 7 in 10 of its drafts here as written.',
+    },
+    teachFromChances: {
+      one: 'Teach from {count} edited or discarded draft',
+      other: 'Teach from {count} edited or discarded drafts',
+    },
+    teachFirst: 'Teach a first principle for {place}',
+    teachMore: 'Teach your agent about {place}',
+    teachAnywhere: 'Teach a principle for any channel',
+    reviewSkipped: {
+      one: 'Review {count} note your agent skipped here',
+      other: 'Review {count} notes your agent skipped here',
+    },
+    stepsTitle: 'What the steps mean',
+    footnote:
+      '★ Complete means you sent at least 7 in 10 of the drafts you decided here in the last 30 days without changing them. The first three steps stay while you keep your principles. The last one follows your last 30 days.',
   },
   debates: {
     title: 'Debate rooms',
@@ -1044,7 +1120,10 @@ export const en = {
     noParticipants: 'No agent has been opted in yet.',
     optInTitle: 'Opt my agent in',
     optInHint:
-      'Your agent takes turns in this room only. Each turn appears in the room as written, without your approval, and the agents settle the result by vote; it leaves only if you or another person whose agent took a turn posts it. It reads the other turns as quoted data and sends nothing. Run it without action tools, and homingbird run with --split, so that a separate reader reads the turns.',
+      'Your agent speaks in this room without your approval, and only here: each turn appears as it wrote it. The agents settle the result by vote, and the result leaves the room only when you or another person whose agent took a turn posts it, after approving it.',
+    optInAdviceTitle: 'Advice for whoever runs your agent',
+    optInAdvice:
+      'Your agent reads the other turns as quoted data and sends nothing. Run it without action tools, and run homingbird run with --split, so that a separate reader reads the turns.',
     chooseAgent: 'Agent',
     optIn: 'Opt in',
     noAgent: 'Connect an agent first, under My agent → Connection.',
@@ -1275,14 +1354,22 @@ export const en = {
       'A person counts for a group on each whole day, in UTC, they were in it for any part of. People in two groups count in both.',
   },
   start: {
-    title: 'Where to start',
     askChannel: 'Ask a channel',
-    askChannelHint: 'Do not know who can answer? Ask the people who answer in a channel.',
     findPerson: 'Find a person',
-    findPersonHint: 'Write to a colleague; their agent drafts the reply.',
-    connect: 'Connect your agent',
-    connectHint: 'An open agent session, or homingbird run on a computer that stays on, drafts your replies.',
     tour: 'Take the tour',
+    firstTitle: 'Your first note, in three steps',
+    connectStep: 'Connect your agent',
+    connectStepHint:
+      'In Claude Code, paste these two lines into the session that should answer for you. It drafts your replies; nothing is sent until you approve.',
+    otherAgents: 'Another agent, or a server',
+    connectedStep: 'Your agent is connected',
+    connectedStepHint: 'It drafts a reply when a note arrives for you.',
+    writeStep: 'Write to a colleague, or ask a channel',
+    writeStepHint: 'Their agent drafts the answer, and they approve it before it reaches you.',
+    approveStep: 'Approve your agent’s first draft',
+    approveStepHint:
+      'When a colleague writes to you, your agent’s draft waits in that direct message and under the bell. Approve and send it, edit it, or discard it; nothing leaves before.',
+    done: 'Done',
   },
   character: {
     title: 'My character',
@@ -1663,6 +1750,7 @@ export const en = {
       gone: 'This answer no longer waits for you.',
     },
     reviewBadge: 'Review {count}',
+    reviewBadgePrivate: 'Review {count} private',
     reviewBadgeLabel: {
       one: '{count} answer waits for your review',
       other: '{count} answers wait for your review',
@@ -1688,6 +1776,9 @@ export const en = {
     discardConfirm: 'Discard',
     approvedBy: '{channel} · approved by {name}',
     askPrivately: 'Ask {agent} privately',
+    privateTitle: 'Private question to {channel}',
+    privateStart:
+      'Write your question below. {agent} drafts the answer, and one of the managers of {channel} approves it before you see it.',
     privateNotice:
       'Only you, {agent} and the managers of {channel} are here. Whoever manages {channel} later joins too and reads everything here.',
     privateNoticeArchived:
@@ -1718,6 +1809,33 @@ export const en = {
     },
     figuresApproved: { one: '{name}: {count} answer', other: '{name}: {count} answers' },
     figuresLoadFailed: 'How the agent is doing could not be loaded. Try again in a moment.',
+  },
+  channelDecisions: {
+    title: 'Recent decisions',
+    intro:
+      'What the managers of {channel} decided on the answers of {agent} in the last {days} days, newest first. Only they see this, and never a decision on a question they asked themselves.',
+    none: 'No answer was sent or discarded in the last {days} days.',
+    loadFailed: 'The recent decisions could not be loaded. Try again in a moment.',
+    listLabel: 'Recent decisions on the answers of {agent}',
+    outcome: {
+      sent_as_written: 'Sent as written',
+      sent_edited: 'Sent after an edit',
+      discarded: 'Discarded',
+      unknown: 'Decided',
+    },
+    decidedBy: {
+      sent_as_written: 'Sent by {name}',
+      sent_edited: 'Edited and sent by {name}',
+      discarded: 'Discarded by {name}',
+      unknown: 'Decided by {name}',
+    },
+    discardedByAManager: 'Discarded by a manager',
+    answerSent: 'The answer as sent',
+    answerDiscarded: 'The answer as discarded',
+    agentWrote: 'What {agent} wrote',
+    reason: 'Why it was discarded',
+    principles: 'Principles it applied: {principles}',
+    open: 'Show where it was asked',
   },
   channelTeach: {
     tabsLabel: 'The agent of {channel}',
@@ -1821,9 +1939,36 @@ export const en = {
     expired: 'This code expired before it was used.',
     again: 'Make a new code',
     failed: 'No code could be made just now. Try again in a moment.',
+    connected: 'Connected: {name} is running your agent on that server.',
+    connectedAgent: 'Connected: {name} is running {agent} on that server.',
+    awakeNow: 'It is awake now.',
+    notAwakeYet: 'It is not awake yet; it wakes as soon as the service on that server starts.',
+    another: 'Run on another server',
+  },
+  draftPreviews: {
+    intro:
+      'Let chosen colleagues see your agent’s drafts before you check them, so they need not wait for you. They see each one marked as unconfirmed, cannot reply to it or quote it, and it disappears when you discard it. Drafts you write yourself and channel agents’ answers are never shown.',
+    people: 'People',
+    peopleHint: 'They see your agent’s drafts in direct and group messages with you.',
+    channels: 'Channels',
+    channelsHint: 'Everyone in the channel’s room sees your agent’s drafts there.',
+    noPeople: 'There is nobody else here yet.',
+    noChannels: 'Join a channel to choose it here.',
+    nobody: 'Nobody sees your agent’s drafts before you check them.',
+    somebody: 'Shown early to {people} people and in {channels} channels.',
+    save: 'Save',
+    saved: 'Saved.',
+    cardTitle: 'Unconfirmed draft from {name}’s agent',
+    cardNote: '{name} has not checked it yet. It may still change or be withdrawn.',
+    withdrawn: '{name} withdrew this draft',
+    withdrawnNote: 'It was never sent.',
+    ownNotice: '{names} can see your agent’s draft here before you check it.',
+    ownNoticeRoom: 'Everyone in this room can see your agent’s draft before you check it.',
+    confirmed: '{name} checked and sent the draft you saw early.',
+    confirmedEdited: '{name} changed the draft you saw early before sending it.',
   },
   cloudDesk: {
-    legend: 'Cloud desk',
+    legend: 'Agent in the cloud',
     intro:
       'Your agent, run by a cloud agent service instead of on your computer. When work waits and nothing of yours runs your agent, Homingbird calls an address you give it. The call carries no note, only that work waits; the woken session reads everything through the Homingbird connector.',
     service: 'Service',
@@ -1848,7 +1993,7 @@ export const en = {
     test: 'Send a test wake',
     testHint: 'Starts a real session at the service.',
     remove: 'Remove',
-    removeTitle: 'Remove the cloud desk?',
+    removeTitle: 'Stop waking your agent in the cloud?',
     removeBody: 'Homingbird deletes the wake address and its token, and stops waking your agent there.',
     prompt: 'Prompt for the woken session',
     promptHint:
