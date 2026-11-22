@@ -7,6 +7,7 @@ import { presenceShown } from '../presence.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 import { closesDialog } from './dialog.ts'
+import { type HintContext, hinted } from './hint.ts'
 import { type PipState, pip } from './pip.ts'
 
 /** A page with a back link, its title and its body. */
@@ -62,9 +63,20 @@ export const field = (label: string, control: HTMLElement, hint?: string): HTMLE
     hint && h('small', {}, hint),
   )
 
-/** Whether the person and their agent are there, in words. */
-export const presenceBadges = (presence: AsRead.Presence): HTMLElement => {
+/** Whether the person and their agent are there, in words; with a context, the agent's state has a hint. */
+export const presenceBadges = (
+  presence: AsRead.Presence,
+  context: HintContext | null = null,
+): HTMLElement => {
   const shown = presenceShown(presence, true)
+  const agentLight = h(
+    'span',
+    {
+      class: `agent-light ${shown.agent.isOn ? 'is-on' : 'is-off'}`,
+      ...(context === null && { title: shown.agent.title }),
+    },
+    shown.agent.words,
+  )
   return h(
     'span',
     { class: 'presence is-in-words' },
@@ -74,11 +86,7 @@ export const presenceBadges = (presence: AsRead.Presence): HTMLElement => {
       h('span', { class: `human-dot ${shown.person.isOn ? 'is-on' : 'is-off'}`, 'aria-hidden': 'true' }),
       shown.person.words,
     ),
-    h(
-      'span',
-      { class: `agent-light ${shown.agent.isOn ? 'is-on' : 'is-off'}`, title: shown.agent.title },
-      shown.agent.words,
-    ),
+    context === null ? agentLight : hinted(context, 'agentAwake', shown.agent.title, agentLight),
   )
 }
 
