@@ -29,11 +29,12 @@ export const debateHandlers = {
       if (!isHuman(caller))
         for (const id of yield* undecidedDebates(caller.credential.id))
           yield* survivingPass(`debate room ${id}`, transact(settleDebate(id)))
-      const { asks, ballots, ended } = yield* transact(debateAsks(caller))
+      const { asks, upcoming, ballots, ended } = yield* transact(debateAsks(caller))
       return {
         asks: yield* T.forEach(asks, (ask) =>
           T.map((debate: Debate) => ({ ...ask, debate }))(shownTo(caller)(ask.debate)),
         ),
+        upcoming: yield* T.forEach(upcoming, (debate) => shownTo(caller)(debate)),
         ballots: yield* T.forEach(ballots, (debate) => shownTo(caller)(debate)),
         ended,
       }

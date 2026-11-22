@@ -2964,6 +2964,7 @@ const debateWithTurn = async (
     })
   ).json.id as string
   await ana.api('PUT', `/debates/${id}/agent`, { agentId: await agentIdOf(anaAgent) })
+  await server.clock.advance(1)
   await ben.api('PUT', `/debates/${id}/agent`, { agentId: await agentIdOf(benAgent) })
   await anaAgent.api('POST', `/debates/${id}/turns`, { body: HOSTILE_TURN })
   return id
@@ -3184,6 +3185,7 @@ describe('Rule 9: no tool exposed to a model can open a debate room, opt an agen
     ).json.id as string
     const cyAgent = await connectAgent(server, cy, { name: 'Cy agent' })
     await ben.api('PUT', `/debates/${id}/agent`, { agentId: await agentIdOf(benAgent) })
+    await server.clock.advance(1)
     await cy.api('PUT', `/debates/${id}/agent`, { agentId: await agentIdOf(cyAgent) })
     await benAgent.api('POST', `/debates/${id}/turns`, { body: 'Thursday.' })
     await cyAgent.api('POST', `/debates/${id}/turns`, { body: 'Agreed.' })
@@ -3320,7 +3322,12 @@ describe('Rule 9: no tool exposed to a model can open a debate room, opt an agen
     )
     expect((await anaAgent.api('GET', `/debates/${id}`)).status).toBe(404)
     expect((await anaAgent.api('POST', `/debates/${id}/turns`, { body: 'Let me in.' })).status).toBe(404)
-    expect((await anaAgent.api('GET', '/debate-asks')).json).toEqual({ asks: [], ballots: [], ended: [] })
+    expect((await anaAgent.api('GET', '/debate-asks')).json).toEqual({
+      asks: [],
+      upcoming: [],
+      ballots: [],
+      ended: [],
+    })
   })
 
   it('returns the vote record of a closed room only inside wrapNote, names people chose included', async () => {
@@ -3360,7 +3367,11 @@ describe('Rule 9: no tool exposed to a model can open a debate room, opt an agen
       })
     ).json.id as string
     await ana.api('PUT', `/debates/${id}/agent`, { agentId: await agentIdOf(anaAgent) })
+    await server.clock.advance(1)
     await ben.api('PUT', `/debates/${id}/agent`, { agentId: await agentIdOf(benAgent) })
+    const waiting = (await callMcp(benAgent, 'check_debates', {})).content.map((part) => part.text).join('\n')
+    expect(waiting).toContain('another agent’s turn comes before yours')
+    expect(waiting).not.toContain('9d9d')
     await anaAgent.api('POST', `/debates/${id}/turns`, { body: HOSTILE_TURN })
     const outsideWrappers = (text: string) =>
       text.replace(/<colleague-note [\s\S]*?\n<\/colleague-note>/g, '')

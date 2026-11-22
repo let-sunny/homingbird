@@ -8,8 +8,9 @@ import { calling, openSession } from '../session.ts'
 
 /**
  * What debate rooms ask of this agent, without any room content: which room, and whether it wants a turn,
- * a draft of the result or a vote on the drafts, and which of its rooms closed without a result in the
- * last day and why. `homingbird run` answers them; the Claude Code plugin only shows them as a notice.
+ * a draft of the result or a vote on the drafts; which rooms ask another agent for its turn first, and
+ * whose; and which of its rooms closed without a result in the last day and why. `homingbird run`
+ * answers them; the Claude Code plugin only shows them as a notice.
  */
 export const debates: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function* () {
   const session = yield* openSession
@@ -18,13 +19,23 @@ export const debates: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function* () {
     return outcome({ debates: [], turnedOff: true }, DEBATES_OFF_TEXT)
   const {
     asks,
+    upcoming = [],
     ballots = [],
     ended = [],
   } = yield* calling(isOk(listed) ? T.succeed(listed.value) : T.fail(listed.error))
-  const endedLines = ended.map(
-    (room) => `[${room.id}] closed as it was, without a result: ${ENDINGS[room.endedBecause]}`,
+  const waiting = upcoming.flatMap((debate) =>
+    debate.askedTurn == null
+      ? []
+      : [{ id: debate.id, turnOf: debate.askedTurn.memberId, until: debate.askedTurn.until }],
   )
-  const endedPart = ended.length === 0 ? {} : { ended }
+  const otherLines = [
+    ...waiting.map(
+      (room) =>
+        `[${room.id}] asks another agent first: it is ${room.turnOf}’s agent’s turn until ${new Date(room.until).toISOString()}`,
+    ),
+    ...ended.map((room) => `[${room.id}] closed as it was, without a result: ${ENDINGS[room.endedBecause]}`),
+  ]
+  const otherParts = { ...(waiting.length > 0 && { waiting }), ...(ended.length > 0 && { ended }) }
   const shown: ReadonlyArray<{
     readonly id: string
     readonly wants: keyof typeof WANTS
@@ -49,14 +60,14 @@ export const debates: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function* () {
   ]
   if (shown.length === 0)
     return outcome(
-      { debates: [], ...endedPart },
-      ['No debate room is waiting on this agent.', ...endedLines].join('\n'),
+      { debates: [], ...otherParts },
+      ['No debate room is waiting on this agent.', ...otherLines].join('\n'),
     )
   return outcome(
-    { debates: shown, ...endedPart },
+    { debates: shown, ...otherParts },
     shown
       .map((one) => `[${one.id}] wants ${WANTS[one.wants]}; ${one.turnsTaken} turn(s) taken`)
-      .concat(endedLines)
+      .concat(otherLines)
       .concat(DEBATE_TAKERS)
       .join('\n'),
   )

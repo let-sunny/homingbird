@@ -224,7 +224,7 @@ export const setDebateLimits = (
 export const debateAsks = (caller: Caller): T.Task<DebateAsks, never, RequestEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
-    if (isHuman(caller)) return { asks: [], ballots: [], ended: [] }
+    if (isHuman(caller)) return { asks: [], upcoming: [], ballots: [], ended: [] }
     const ended = yield* all<{ id: DebateId; ended_because: DebateEnding; closed_at: number }>(sql`
       SELECT d.id, d.ended_because, d.closed_at FROM debates d
       JOIN debate_participants p ON p.debate_id = d.id
@@ -237,15 +237,18 @@ export const debateAsks = (caller: Caller): T.Task<DebateAsks, never, RequestEnv
       AND (d.status = 'open' OR (d.status = 'concluding' AND d.result IS NULL))
       ORDER BY d.created_at, d.id`)
     const asks: DebateAsk[] = []
+    const upcoming: Debate[] = []
     const ballots: Debate[] = []
     for (const row of rows) {
       const { debate, room } = yield* loadRoom(row)
       const ask = askOf(room, row.member_id, env.clock.now())
       if (ask === 'ballot') ballots.push(debate)
       else if (ask !== null) asks.push({ debate, ask })
+      else if (debate.askedTurn?.next.includes(row.member_id) === true) upcoming.push(debate)
     }
     return {
       asks,
+      upcoming,
       ballots,
       ended: ended.map((row) => ({
         id: row.id,

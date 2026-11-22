@@ -285,6 +285,7 @@ const turnsTab = (model: Room, context: ViewContext, drawn: Lifetime): ReadonlyA
             ),
           ),
         ),
+    model.waitingFor !== null && h('p', { class: 'debate-waiting-for' }, model.waitingFor),
     model.readyHint !== null && h('p', { class: 'hint debate-ready-hint' }, model.readyHint),
     model.agreedEarly !== null && h('p', { class: 'debate-agreed-early' }, model.agreedEarly),
     h('p', { class: 'debate-limits-summary' }, model.limits),

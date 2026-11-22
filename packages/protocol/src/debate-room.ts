@@ -11,7 +11,9 @@ import {
   turnsTakenBy,
   withCheckedCredits,
 } from './debate-rules.ts'
+import { isRestingReady, turnOrderAfter, turnOrderAt, turnWaitMs } from './debate-turn-order.ts'
 import type {
+  DebateAskedTurn,
   DebateConclusion,
   DebateEnding,
   DebateEndingDetail,
@@ -65,12 +67,14 @@ export const settleDebateRoom = (room: DebateRoom, now: number): DebateSettled =
   }
 }
 
-/** What the room asks of a participant's agent now: a turn, a draft of the result, a vote, or nothing. */
+/** What the room asks of an agent now: its turn, when it is the one asked, a draft, a vote, or nothing. */
 export const askOf = (room: DebateRoom, memberId: MemberId, now: number): DebateAskKind | null => {
   switch (room.stage.stage) {
     case 'setup':
     case 'open':
-      return whyNoTurn(room, memberId, now) === null ? 'turn' : null
+      return askedTurnOf(room, now)?.memberId === memberId && whyNoTurn(room, memberId, now) === null
+        ? 'turn'
+        : null
     case 'drafting':
       return room.drafts.some((draft) => draft.draftedBy === memberId) ? null : 'result'
     case 'voting':
@@ -79,6 +83,10 @@ export const askOf = (room: DebateRoom, memberId: MemberId, now: number): Debate
       return null
   }
 }
+
+/** Whose turn it is, until when, and who follows, a held refused turn included; null while none is taken. */
+export const askedTurnOf = (room: DebateRoom, now: number): DebateAskedTurn | null =>
+  whyRoomTakesNoTurn(room, now) === null ? askedFrom(room, askingOf(room), now) : null
 
 /**
  * The place a turn refused for its length or as stale keeps for one retry, or null; one hold per turn of
@@ -117,11 +125,15 @@ export const ALREADY_DRAFTED = 'Your agent already drafted this round’s result
 
 export const ALREADY_VOTED = 'This agent has already voted in this round.'
 
-/** Until the first turn, the deadline is when the room ends if nobody spoke; that turn starts its time. */
+/**
+ * Until the first turn, the deadline is when the room ends if nobody spoke; that turn starts its time.
+ * `askingSince` is the latest turn, or before it the latest opt-in; participants are in join order.
+ */
 export interface DebateRoom {
   readonly stage: DebateStage
   readonly createdAt: number
   readonly deadlineAt: number
+  readonly askingSince: number
   readonly limits: DebateLimits
   readonly participants: ReadonlyArray<Pick<DebateParticipant, 'memberId' | 'takingPart'>>
   readonly turns: ReadonlyArray<Pick<DebateTurn, 'memberId' | 'afterTurn' | 'ready'>>
@@ -252,7 +264,7 @@ const takeEvent = (
 ): Result.Result<Taken, Conflict | Invalid> => {
   switch (event.type) {
     case 'join':
-      return join(room, event.memberId)
+      return join(room, event.memberId, now)
     case 'setLimits':
       return setLimits(room, event.limits)
     case 'turn':
@@ -276,7 +288,7 @@ const followUp = (room: DebateRoom, event: DebateEvent, now: number): DebateSett
   }
 }
 
-const join = (room: DebateRoom, memberId: MemberId): Result.Result<Taken, Conflict> => {
+const join = (room: DebateRoom, memberId: MemberId, now: number): Result.Result<Taken, Conflict> => {
   if (!isTakingTurns(room)) return refuse('This room takes no more agents.')
   if (room.participants.some((participant) => participant.memberId === memberId))
     return refuse('Your agent already takes part in this room.')
@@ -287,7 +299,7 @@ const join = (room: DebateRoom, memberId: MemberId): Result.Result<Taken, Confli
   const { totalTurns: _, ...wish } = room.limits
   const limits = follows ? limitsFor(wish, participants.length) : room.limits
   return Result.ok({
-    room: { ...room, participants, limits },
+    room: { ...room, participants, limits, askingSince: room.turns.length === 0 ? now : room.askingSince },
     action: { type: 'addParticipant', memberId, totalTurns: follows ? limits.totalTurns : null },
   })
 }
@@ -334,6 +346,7 @@ const takeTurn = (
       ...room,
       stage: { stage: 'open' },
       deadlineAt: deadlineAt ?? room.deadlineAt,
+      askingSince: now,
       turns: [...room.turns, { memberId, afterTurn, ready }],
     },
     action: {
@@ -369,13 +382,39 @@ const liveHoldOf = (room: DebateRoom, memberId: MemberId, now: number): TurnHold
       hold.memberId === memberId && hold.until > now && hold.turnsTaken === turnsTakenBy(room, memberId),
   )
 
-const keptForOthers = (room: DebateRoom, memberId: MemberId, now: number): number =>
-  room.participants.filter(
-    (participant) =>
-      participant.memberId !== memberId &&
-      isTakingPart(participant) &&
-      liveHoldOf(room, participant.memberId, now) !== undefined,
-  ).length
+/** The order after the holds: a refused asked turn is kept until its hold or its wait ends, the later. */
+const askingOf = (room: DebateRoom): Asking =>
+  [...(room.holds ?? [])]
+    .sort((a, b) => a.until - b.until)
+    .reduce<Asking>(
+      (asking, hold) => {
+        const refusedAt = hold.until - TURN_HOLD_MS
+        if (refusedAt < room.askingSince || hold.turnsTaken !== turnsTakenBy(room, hold.memberId))
+          return asking
+        const asked = askedFrom(room, asking, refusedAt)
+        if (asked?.memberId !== hold.memberId) return asking
+        const until = Math.max(hold.until, asked.until)
+        return { after: hold.memberId, since: until, kept: { memberId: hold.memberId, until } }
+      },
+      { after: room.turns.at(-1)?.memberId, since: room.askingSince, kept: null },
+    )
+
+const askedFrom = (room: DebateRoom, asking: Asking, now: number): DebateAskedTurn | null => {
+  const kept = asking.kept
+  if (kept === null || now >= kept.until) return turnOrderAfter(room, asking.after, asking.since, now)
+  const after = turnOrderAfter(room, kept.memberId, kept.until, kept.until)!
+  return {
+    memberId: kept.memberId,
+    until: kept.until,
+    next: [after.memberId, ...after.next].filter((memberId) => memberId !== kept.memberId),
+  }
+}
+
+interface Asking {
+  readonly after: MemberId | undefined
+  readonly since: number
+  readonly kept: { readonly memberId: MemberId; readonly until: number } | null
+}
 
 const addDraft = (
   room: DebateRoom,
@@ -492,28 +531,32 @@ const end = (room: DebateRoom, because: DebateEnding): DebateSettled => ({
 
 const unchanged = (room: DebateRoom): DebateSettled => ({ room, effects: [] })
 
-const KEPT_FOR_OTHERS =
-  'The room’s last turns are kept, for two minutes at most, for agents rewriting a turn the room refused. Try again then.'
-
 const refuse = (message: string): Result.Result<never, Conflict> => Result.err(Conflict({ message }))
 
 const isTakingTurns = (room: DebateRoom): boolean =>
   room.stage.stage === 'setup' || room.stage.stage === 'open'
 
+const whyRoomTakesNoTurn = (room: DebateRoom, now: number): string | null => {
+  if (isPastTurns(room, now)) return NO_MORE_TURNS
+  return room.participants.length < 2 ? WAITS_FOR_SECOND : null
+}
+
+const isPastTurns = (room: DebateRoom, now: number): boolean =>
+  !isTakingTurns(room) || now >= room.deadlineAt || room.turns.length >= room.limits.totalTurns
+
+const NO_MORE_TURNS = 'This room takes no more turns: it asks for its result.'
+
+const WAITS_FOR_SECOND = 'The room waits for a second agent to be opted in.'
+
 const whyNoTurn = (room: DebateRoom, memberId: MemberId, now: number): string | null => {
-  if (!isTakingTurns(room) || now >= room.deadlineAt || room.turns.length >= room.limits.totalTurns)
-    return 'This room takes no more turns: it asks for its result.'
+  if (isPastTurns(room, now)) return NO_MORE_TURNS
   if (!room.participants.some((participant) => participant.memberId === memberId))
     return 'This agent was not opted in for this room.'
-  if (room.participants.length < 2) return 'The room waits for a second agent to be opted in.'
+  if (room.participants.length < 2) return WAITS_FOR_SECOND
   if (turnsTakenBy(room, memberId) >= room.limits.turnsPerAgent) return 'This agent has used all its turns.'
   if (room.turns.at(-1)?.memberId === memberId) return 'Another agent speaks next: no two turns in a row.'
-  if (
-    liveHoldOf(room, memberId, now) === undefined &&
-    room.turns.length + keptForOthers(room, memberId, now) >= room.limits.totalTurns
-  )
-    return KEPT_FOR_OTHERS
-  return null
+  const asked = askedTurnOf(room, now)
+  return asked?.memberId === memberId ? null : notYourTurn(room, memberId, asked)
 }
 
 /** Whether the room stops: at its time or total, or once started when one agent is left or none may speak. */
@@ -569,5 +612,21 @@ const whyNoVote = (room: DebateRoom, voterId: MemberId, draftBy: MemberId): stri
   if (votedBy(room).includes(voterId)) return ALREADY_VOTED
   return null
 }
+
+const notYourTurn = (room: DebateRoom, memberId: MemberId, asked: DebateAskedTurn | null): string => {
+  const ahead = asked?.next.indexOf(memberId) ?? -1
+  if (asked === null || ahead < 0)
+    return isRestingReady(room, memberId)
+      ? `${NOT_YOUR_TURN}: you said you are ready to conclude, so the room asks you again only once another agent takes a turn that does not say so.`
+      : `${NOT_YOUR_TURN}: the room has no turn coming for this agent now.`
+  const by = new Date(asked.until + ahead * turnWaitMs(room.limits)).toISOString()
+  const yours =
+    ahead === 0
+      ? `Yours comes next, by ${by} if that agent lets its turn pass.`
+      : `Yours comes after ${ahead + 1} other agents’ turns, by ${by} if each lets its turn pass.`
+  return `${NOT_YOUR_TURN}: the room asks ${asked.memberId}’s agent for a turn until ${new Date(asked.until).toISOString()}. ${yours} Wait until the room asks you; your turn was not saved.`
+}
+
+const NOT_YOUR_TURN = 'It is not your turn'
 
 const ROOM_MOVED_ON = 'The room moved on'

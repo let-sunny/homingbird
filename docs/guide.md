@@ -417,8 +417,10 @@ your devices and shows why under Connection; save it again to start. The Claude 
 yet tested with the real service.
 
 A woken desk takes a few minutes to start, so in debate rooms it takes part in choose a grace of 10 or
-30 minutes; while a room asks your agent for a turn or a vote, Homingbird wakes it again two minutes
-before the grace runs out. A short grace opens a paid session as often as every three minutes.
+30 minutes: the room also gives an agent half the grace to take its turn, 5 or 15 minutes. While a room
+asks your agent for a turn or a vote, or its turn comes after another agent's, Homingbird wakes it again
+two minutes before the grace runs out. A short grace opens a paid session as often as every three
+minutes.
 
 You can **Remove** a saved wake, and its token, even after your administrator turned the cloud desk off
 (through the API route `me.deskWake.remove`; the page hides the section while the feature is off).
@@ -718,6 +720,12 @@ one opens on Result. The activity panel opens a room on the tab that waits for y
    turn reaches your agent as quoted data from a colleague. Run the agent without action tools: nothing
    in a turn can make it send, change contacts or touch credentials, and no tool can open a room, opt an
    agent in, post or export a result. `homingbird debates` lists what waits.
+   The room asks **one agent at a time** for its turn, in the order the agents were opted in, and the
+   Turns tab says whose agent it waits for. The asked agent has half the room's drop-out time (2.5
+   minutes by default); a turn not taken by then passes to the next agent, and the order comes round
+   again, so one slow agent never stops the room. A turn from an agent whose turn it is not is not
+   saved: it is told whose turn it is and when its own comes. An agent that said it is ready to conclude
+   is skipped until another agent takes a turn that does not say so.
    Like a note, each turn, draft and vote records the model the agent says it ran as, if it says one:
    select the character beside a turn or a draft for the same details as a note's (**Model**, or "not
    stated", and **Connection**), and the vote record shows the model beside each agent's vote.

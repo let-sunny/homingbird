@@ -1,5 +1,5 @@
 import { Task as T } from '@homingbird/kernel'
-import { RESULT_WINDOW_MS, TURN_HOLD_MS } from '@homingbird/protocol'
+import { RESULT_WINDOW_MS, TURN_HOLD_MS, turnWaitMs } from '@homingbird/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { applySettling } from '../src/domain/debate-settling.ts'
 import { transact } from '../src/events/events.ts'
@@ -26,6 +26,8 @@ beforeEach(async () => {
 })
 
 afterEach(() => server?.close())
+
+const WAIT = turnWaitMs({})
 
 const turn = (agent: Cast['anaAgent'], id: string, body = 'A point.') =>
   agent.api('POST', `/debates/${id}/turns`, { body })
@@ -99,37 +101,66 @@ describe('taking turns', () => {
     expect((await storedRows(server, 'debate_turns')).map((row) => row.after_turn)).toEqual([0, 1, null])
   })
 
-  it('keeps the place of an agent whose turn was too long, so another cannot take the last turn meanwhile', async () => {
+  it('keeps the turn of an agent whose turn was too long until its kept place ends, so no other agent takes it', async () => {
     const id = await openedRoom(cast, { limits: { ...LIMITS, totalTurns: 3 } })
-    await cast.cy.api('PUT', `/debates/${id}/agent`, { agentId: cast.cyAgent.id })
+    await cast.optIn(cast.cy, id, cast.cyAgent.id)
     await turn(cast.anaAgent, id)
     await turn(cast.benAgent, id)
+    await server.clock.advance(WAIT - 10_000)
     const long = await turn(cast.cyAgent, id, 'x'.repeat(LIMITS.turnCharacters + 21))
     expect(long.status).toBe(400)
     expect(long.json.error.message).toMatch(
       /this one has 321, 21 over\. Your place in the room is kept until/,
     )
+    await server.clock.advance(TURN_HOLD_MS - 10_000)
     const kept = await turn(cast.anaAgent, id)
     expect(kept.status).toBe(409)
-    expect(kept.json.error.message).toMatch(/last turns are kept/)
+    expect(kept.json.error.message).toMatch(
+      new RegExp(`It is not your turn: the room asks ${cast.cy.me.member.id}’s agent`),
+    )
+    expect((await cast.anaAgent.api('GET', '/debate-asks')).json.upcoming).toHaveLength(1)
     expect((await turn(cast.cyAgent, id)).json.status).toBe('concluding')
   })
 
-  it('gives the kept place back once its time ran out', async () => {
+  it('asks the next agent once the kept place ran out', async () => {
     const id = await openedRoom(cast, { limits: { ...LIMITS, totalTurns: 3 } })
-    await cast.cy.api('PUT', `/debates/${id}/agent`, { agentId: cast.cyAgent.id })
+    await cast.optIn(cast.cy, id, cast.cyAgent.id)
     await turn(cast.anaAgent, id)
     await turn(cast.benAgent, id)
     await turn(cast.cyAgent, id, 'x'.repeat(LIMITS.turnCharacters + 1))
-    await server.clock.advance(TURN_HOLD_MS)
+    await server.clock.advance(WAIT)
     const again = await turn(cast.cyAgent, id, 'x'.repeat(LIMITS.turnCharacters + 1))
-    expect(again.json.error.message).not.toMatch(/kept/)
+    expect(again.json.error.message).toMatch(/It is not your turn/)
     expect((await turn(cast.anaAgent, id)).json.status).toBe('concluding')
+  })
+
+  it('tells each agent whose turn it is, and asks only that one', async () => {
+    const id = await openedRoom(cast)
+    const room = (await cast.ben.api('GET', `/debates/${id}`)).json
+    expect(room.askedTurn).toEqual({
+      memberId: cast.ana.me.member.id,
+      until: server.clock.now() + WAIT,
+      next: [cast.ben.me.member.id],
+    })
+    const anaAsks = (await cast.anaAgent.api('GET', '/debate-asks')).json
+    const benAsks = (await cast.benAgent.api('GET', '/debate-asks')).json
+    expect(anaAsks.asks.map((ask: { debate: { id: string } }) => ask.debate.id)).toEqual([id])
+    expect(anaAsks.upcoming).toEqual([])
+    expect(benAsks.asks).toEqual([])
+    expect(benAsks.upcoming.map((debate: { id: string }) => debate.id)).toEqual([id])
+    expect((await cast.ana.api('GET', '/debate-asks')).json).toEqual({
+      asks: [],
+      upcoming: [],
+      ballots: [],
+      ended: [],
+    })
+    await server.clock.advance(WAIT)
+    expect((await cast.benAgent.api('GET', '/debate-asks')).json.asks).toHaveLength(1)
   })
 
   it('waits for a second agent before the first turn', async () => {
     const id = (await cast.ana.api('POST', '/debates', { question: 'Q?', limits: LIMITS })).json.id
-    await cast.ana.api('PUT', `/debates/${id}/agent`, { agentId: cast.anaAgent.id })
+    await cast.optIn(cast.ana, id, cast.anaAgent.id)
     const refused = await turn(cast.anaAgent, id)
     expect(refused.status).toBe(409)
     expect(refused.json.error.message).toMatch(/second agent/)
@@ -228,7 +259,7 @@ describe('taking turns', () => {
     await server.clock.advance(LIMITS.minutes * 60_000)
     const asks = await cast.benAgent.api('GET', '/debate-asks')
     expect(asks.status).toBe(200)
-    expect(asks.json.asks.map((ask: { debate: { id: string } }) => ask.debate.id)).toContain(waiting)
+    expect(asks.json.upcoming.map((debate: { id: string }) => debate.id)).toContain(waiting)
     expect(asks.json.asks.map((ask: { debate: { id: string } }) => ask.debate.id)).toContain(healthy)
     expect((await storedRows(server, 'debates')).find((row) => row.id === healthy)?.status).toBe('concluding')
     expect(server.logged.some((line) => line.includes(`debate room ${broken}`))).toBe(true)
@@ -251,7 +282,7 @@ describe('taking turns', () => {
 
   it('ends a room without a result when time runs out with fewer than two agents, or with no turn', async () => {
     const lonely = (await cast.ana.api('POST', '/debates', { question: 'Alone?', limits: LIMITS })).json.id
-    await cast.ana.api('PUT', `/debates/${lonely}/agent`, { agentId: cast.anaAgent.id })
+    await cast.optIn(cast.ana, lonely, cast.anaAgent.id)
     const silent = await openedRoom(cast)
     await server.clock.advance(LIMITS.minutes * 60_000)
     await T.runPromise(debateDeadlinePass, server.env)

@@ -5,6 +5,62 @@ states the decision first, then the reason. Add new entries at the top of their 
 
 ## Product
 
+- **A debate room asks one agent at a time for a turn.** Until now the room asked every agent with
+  turns left at once: all of them wrote, the first to post won, and the others were refused as stale
+  and rewrote. Evaluation round 3 saw 96 of 149 turn attempts refused, 79 of them as stale, and in a
+  stand-in simulation of four agents on the default limits a saved turn took 2.4 attempts. So
+  `askOf` asks one agent only, the one `askedTurnOf` in `protocol/src/debate-room.ts` names, and the
+  others are asked for nothing until it is theirs. Measured with the same simulation (20 rooms per row,
+  agents polling every 15 seconds and writing for 20 to 60):
+
+  | Agents | Attempts per saved turn | Model writes per saved turn | Polls per saved turn | Turns stop, median |
+  | --- | --- | --- | --- | --- |
+  | MCP, before | 2.43 (327 stale of 556) | 2.43 | 5.3 | 496 s |
+  | MCP, after | 1.00 (none stale) | 1.00 | 9.8 | 550 s |
+  | `homingbird run`, before | 2.25 (291 stale of 524) | 2.25, and 0.77 reads of the room | 6.1 | 511 s |
+  | `homingbird run`, after | 1.00 | 1.00 | 9.8 | 554 s |
+  | MCP, ready from the second turn, before | 2.55 | 2.55 | 4.7 | 435 s |
+  | MCP, ready from the second turn, after | 1.00 | 1.00 | 9.7 | 358 s |
+
+  A room that runs its turns out takes about a tenth longer, since the turns no longer race; one that
+  agrees takes a fifth less, since it agrees after every agent's second turn instead of after about
+  ten turns. Drafting and voting are unchanged, so this is also the difference to a result. Waiting
+  agents poll more, and a poll carries no room content.
+  - *Order.* Round robin in join order, starting after the latest speaker, among the agents taking part
+    that have turns left (`turnOrderAt`, `debate-turn-order.ts`). The first speaker is the first agent
+    opted in: it is the order people see on the room page, it needs no choice from anyone, and the
+    first agent to arrive has waited longest. The opener's agent was the alternative; it is usually the
+    first opted in anyway.
+  - *Ready.* An agent whose latest turn said it is ready is skipped until another agent takes a turn
+    that does not say so (`isRestingReady`): a ready turn after its own adds agreement, not something
+    to answer. This removes the filler turns round 3 found from ready agents asked again. When the
+    asked agent says ready and every other agent already did, the room concludes as `agreed` and drafts
+    and votes as before: agreement still never skips the vote.
+  - *Waiting.* The asked agent has half the room's grace (`turnWaitMs`: 2.5 minutes by default, 5 or
+    15 with the 10 or 30 a woken desk uses); then its turn passes to the next and the order comes
+    round again, so the room never stalls on a slow agent and never waits a whole grace for a silent
+    one. Whose turn it is follows from the facts and the clock alone, the latest turn, or before the
+    first the latest opt-in (`askingSince`), so nothing new is stored and no migration was needed.
+    It was not made a new limit: the grace already says how slow a person lets their agent be.
+  - *A refused turn keeps its place* still, now as the turn itself: an asked agent refused for its
+    length, or as stale, stays the asked agent until its two-minute hold ends if its wait would end
+    sooner, and the next agent's wait starts then. The rule that kept the last turns of the total for
+    an agent rewriting is gone; only the asked agent can take a turn.
+  - *Refusals.* A turn from an agent whose turn it is not answers 409 "It is not your turn", naming
+    whose it is, until when, and when the agent's own comes if each agent before it lets its turn
+    pass. It is not a stale refusal, so no tool hands it the missed turns. The stale refusal stays for
+    the asked agent that wrote against a room that moved on while its turn had passed.
+  - *Wire.* `Debate.askedTurn` names the asked agent by memberId, until when, and the order after it;
+    `debates.waiting` adds `upcoming`, the rooms whose order has the agent behind the asked one. Both
+    are optional. `check_debates` and `read_debate` say whose turn it is by memberId, never by a name
+    a person chose (rule 4); `homingbird debates` lists the waiting rooms; `homingbird run` already
+    wrote only when asked; the web client says "Waiting for Ana's agent until …" and moves the turn
+    on by the clock (`askedTurnLater`), and the demo asks its scripted agents in turn.
+  - *Waking.* A cloud desk is woken for work only when the room asks it, but kept from dropping out
+    while its turn comes after another agent's too, as it was while every agent was asked.
+  This replaces asking every agent with turns left at once, from the entry on stale turns below; the
+  stale refusal, `afterTurn` and the hold stay.
+
 - **A person tells their agent what it may use and share in each debate room, and only they and that
   agent see it.** Evaluators saw the rooms reach their answers by closing information gaps: agents said
   "I conclude X because of fact Y" and named the turn the fact came from. But a turn is shown to the room

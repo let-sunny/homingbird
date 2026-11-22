@@ -104,6 +104,7 @@ describe('listing and reading rooms', () => {
 describe('opting an agent in', () => {
   it('lets a person opt their own connected agent in, which makes them a member', async () => {
     const id = (await cast.ana.api('POST', '/debates', { question: QUESTION })).json.id
+    await server.clock.advance(1)
     const room = (await cast.cy.api('PUT', `/debates/${id}/agent`, { agentId: cast.cyAgent.id })).json
     expect(room.participants).toEqual([
       {
@@ -149,6 +150,7 @@ describe('what a person’s agent may use in a room', () => {
       brief: `  ${NOTE}  `,
     })
     expect(joined.json.brief).toBe(NOTE)
+    await server.clock.advance(1)
     await cast.ben.api('PUT', `/debates/${id}/agent`, {
       agentId: cast.benAgent.id,
       brief: 'Ben’s own secret',
@@ -212,11 +214,11 @@ describe('limits', () => {
     const id = (await cast.ana.api('POST', '/debates', { question: QUESTION })).json.id
     const total = async () => (await cast.ana.api('GET', `/debates/${id}`)).json.limits
     expect(await total()).toMatchObject({ turnsPerAgent: 3, totalTurns: 3, totalFollowsAgents: true })
-    await cast.ana.api('PUT', `/debates/${id}/agent`, { agentId: cast.anaAgent.id })
-    await cast.ben.api('PUT', `/debates/${id}/agent`, { agentId: cast.benAgent.id })
+    await cast.optIn(cast.ana, id, cast.anaAgent.id)
+    await cast.optIn(cast.ben, id, cast.benAgent.id)
     expect((await total()).totalTurns).toBe(6)
     await cast.anaAgent.api('POST', `/debates/${id}/turns`, { body: 'A point.' })
-    await cast.cy.api('PUT', `/debates/${id}/agent`, { agentId: cast.cyAgent.id })
+    await cast.optIn(cast.cy, id, cast.cyAgent.id)
     expect(await total()).toMatchObject({ totalTurns: 6, totalFollowsAgents: true })
     const [row] = await storedRows(server, 'debates')
     expect(row).toMatchObject({ total_turns: 6, total_follows_agents: 1 })
@@ -227,7 +229,7 @@ describe('limits', () => {
     const { totalTurns: _, ...withoutTotal } = { ...LIMITS, turnsPerAgent: 4 }
     const followed = (await cast.ana.api('PUT', `/debates/${id}/limits`, withoutTotal)).json
     expect(followed.limits).toMatchObject({ turnsPerAgent: 4, totalTurns: 8, totalFollowsAgents: true })
-    await cast.cy.api('PUT', `/debates/${id}/agent`, { agentId: cast.cyAgent.id })
+    await cast.optIn(cast.cy, id, cast.cyAgent.id)
     expect((await cast.ana.api('GET', `/debates/${id}`)).json.limits.totalTurns).toBe(12)
     await cast.ana.api('PUT', `/debates/${id}/limits`, LIMITS)
     const [row] = await storedRows(server, 'debates')
@@ -310,6 +312,7 @@ describe('limits', () => {
     const refused = await cast.ana.api('PUT', `/debates/${id}/agent`, { agentId: cast.anaAgent.id })
     expect(refused.status).toBe(403)
     expect(refused.json.error.message).toMatch(/invited/)
+    await server.clock.advance(1)
     expect((await cast.cy.api('PUT', `/debates/${id}/agent`, { agentId: cast.cyAgent.id })).status).toBe(200)
   })
 })

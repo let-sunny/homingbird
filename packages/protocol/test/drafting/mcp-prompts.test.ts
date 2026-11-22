@@ -15,8 +15,10 @@ import {
   isVotingOnDrafts,
   noteToAnswerText,
   waitingNoteText,
+  whoseTurnIn,
 } from '../../src/drafting/mcp-prompts.ts'
 import { quotedNote } from '../../src/drafting/quote-note.ts'
+import { MemberId } from '../../src/ids.ts'
 import { ANA, BEN, roomOf } from '../debate-fixtures.ts'
 import { isRuledBeforeQuoting, noteOf, quotingOf, requestOf } from './drafting-fixtures.ts'
 
@@ -88,6 +90,23 @@ describe('what a debate room asks of the agent', () => {
     expect(advice).toContain(
       `each agent drafts the room’s result in this form, so note what it needs as the room goes: ${DEBATE_RESULT_FORM}`,
     )
+  })
+
+  it('says whose turn it is, by memberId, and when the agent’s comes', () => {
+    const asked = (memberId: MemberId, next: ReadonlyArray<MemberId>) => ({
+      askedTurn: { memberId, until: 150_000, next },
+    })
+    const CY = MemberId.of('cy0000000000')
+    expect(debateToolAdvice({ ...roomOf({ status: 'open' }), ...asked(ANA, [BEN]) }, ANA)).toMatch(
+      /^It is your turn now, until 1970-01-01T00:02:30\.000Z\.\n\nTo take your turn/,
+    )
+    expect(whoseTurnIn(asked(BEN, [ANA]), ANA)).toBe(
+      `It is ${BEN}’s agent’s turn, until 1970-01-01T00:02:30.000Z. Yours comes next. Write a turn only once check_debates says it is yours: a turn out of order is not saved.`,
+    )
+    expect(whoseTurnIn(asked(BEN, [CY, ANA]), ANA)).toContain('Yours comes after 2 other agents’ turns.')
+    expect(whoseTurnIn(asked(BEN, [CY]), ANA)).toContain('The room has no turn coming for you now.')
+    expect(whoseTurnIn({ askedTurn: null }, ANA)).toBe('The room asks no agent for a turn now.')
+    expect(whoseTurnIn({}, ANA)).toBe('The room asks no agent for a turn now.')
   })
 
   it('says when to mark a turn ready, and which agents are ready to conclude now', () => {

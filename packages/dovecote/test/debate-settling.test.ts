@@ -105,9 +105,9 @@ describe('a room that moves on by itself', () => {
       limits: { turnsPerAgent: 1, totalTurns: 3, minutes: 30, turnCharacters: 300 },
     })
     const id = created.json.id as string
-    await cast.ana.api('PUT', `/debates/${id}/agent`, { agentId: cast.anaAgent.id })
-    await cast.ben.api('PUT', `/debates/${id}/agent`, { agentId: cast.benAgent.id })
-    await cast.cy.api('PUT', `/debates/${id}/agent`, { agentId: cast.cyAgent.id })
+    await cast.optIn(cast.ana, id, cast.anaAgent.id)
+    await cast.optIn(cast.ben, id, cast.benAgent.id)
+    await cast.optIn(cast.cy, id, cast.cyAgent.id)
     await cast.anaAgent.api('POST', `/debates/${id}/turns`, { body: 'First.' })
     await cast.benAgent.api('POST', `/debates/${id}/turns`, { body: 'Second.' })
     expect((await roomOf(id)).status).toBe('open')
@@ -133,7 +133,12 @@ describe('a room that moves on by itself', () => {
     })
     await server.clock.advance(24 * 60 * 60_000 + 1)
     expect((await cast.anaAgent.api('GET', '/debate-asks')).json.ended).toEqual([])
-    expect((await cast.ana.api('GET', '/debate-asks')).json).toEqual({ asks: [], ballots: [], ended: [] })
+    expect((await cast.ana.api('GET', '/debate-asks')).json).toEqual({
+      asks: [],
+      upcoming: [],
+      ballots: [],
+      ended: [],
+    })
   })
 
   it('closes a started room as it is, without a result, when every agent dropped out', async () => {

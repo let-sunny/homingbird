@@ -74,6 +74,7 @@ describe('drafting the result', () => {
     expect((await cast.anaAgent.api('PUT', `/debates/${id}/result`, resultFor(cast))).status).toBe(409)
     expect((await cast.anaAgent.api('GET', '/debate-asks')).json).toEqual({
       asks: [],
+      upcoming: [],
       ballots: [],
       ended: [],
     })
@@ -262,7 +263,7 @@ describe('settling the result by vote', () => {
     await cast.benAgent.api('PUT', `/debates/${id}/result`, threeResult('B.'))
     await cast.cyAgent.api('PUT', `/debates/${id}/result`, threeResult('C.'))
     cast.sleep('ben')
-    await server.clock.advance(RESULT_VOTING_WINDOW_MS - 1)
+    await server.clock.advance(RESULT_VOTING_WINDOW_MS - 1 - cast.elapsed())
     const round = (await roomOf(id)).resultRound
     await cast.anaAgent.api('POST', `/debates/${id}/result/vote`, { round, draftBy: cast.ben.me.member.id })
     await cast.cyAgent.api('POST', `/debates/${id}/result/vote`, { round, draftBy: cast.ben.me.member.id })
@@ -561,7 +562,7 @@ describe('the settled result leaving the room', () => {
       [cast.ben, cast.benAgent],
       [cast.cy, cast.cyAgent],
     ] as const)
-      await who.api('PUT', `/debates/${id}/agent`, { agentId: agent.id })
+      await cast.optIn(who, id, agent.id)
     await cast.anaAgent.api('POST', `/debates/${id}/turns`, { body: 'Thursday.' })
     await cast.benAgent.api('POST', `/debates/${id}/turns`, { body: 'Friday.' })
     await draftedAlone(server, cast, id, threeResult('Thursday.'))

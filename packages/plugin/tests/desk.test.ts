@@ -164,13 +164,13 @@ test('a debate room waiting on the agent gives the person one notice per ask, an
   await $.session.start(START)
   await openDesk($, seen)
   const text = paneTextIn('en')
-  expect(seen.notifications.filter((said) => said.startsWith('A debate room'))).toEqual([
+  expect(seen.notifications.filter((said) => said.includes('debate room'))).toEqual([
     text.debateWaiting('turn'),
     text.debateWaiting('result'),
     text.debateWaiting('vote'),
   ])
   expect(seen.toasts.filter((said) => said.includes('debate room'))).toEqual([
-    'Homingbird: a debate room waits for your agent’s turn',
+    'Homingbird: it is your agent’s turn in a debate room',
     'Homingbird: a debate room waits for your agent’s result',
     'Homingbird: a debate room waits for your agent’s vote',
   ])

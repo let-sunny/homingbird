@@ -1,9 +1,11 @@
 import {
   type Debate,
+  type DebateAskedTurn,
   type DebateParticipant,
   type DebateResult,
   type MemberId,
   isTakingPart,
+  turnWaitMs,
 } from '@homingbird/protocol'
 import { memberById } from './reads.ts'
 import type { World } from './world.ts'
@@ -37,8 +39,9 @@ export const colleagueJoinsLater = (world: World, debateId: string, colleagueId:
 }
 
 /**
- * Plays a room's debate on the world's clock once two agents take part and none has spoken: the agents
- * take turns, then the room closes with the result they settled, which only a person posts.
+ * Plays a room's debate on the world's clock once two agents take part and none has spoken: the room asks
+ * one agent at a time, in join order, the agents take their turns, then the room closes with the result
+ * they settled, which only a person posts.
  */
 export const debateLater = (world: World, debateId: string): void => {
   const room = roomById(world, debateId)
@@ -46,6 +49,12 @@ export const debateLater = (world: World, debateId: string): void => {
   const speakers = room.participants.filter(isTakingPart)
   if (speakers.length < 2) return
   const count = Math.min(SCRIPT.length, room.limits.totalTurns, room.limits.turnsPerAgent * speakers.length)
+  const askedAfter = (position: number): DebateAskedTurn | null => {
+    if (position >= count) return null
+    const order = speakers.map((_, index) => speakers[(position + index) % speakers.length]!.memberId)
+    return { memberId: order[0]!, until: world.clock.now() + turnWaitMs(room.limits), next: order.slice(1) }
+  }
+  changeRoom(world, debateId, (each) => ({ ...each, askedTurn: askedAfter(0) }))
   const step = (position: number): void =>
     world.after(DEBATE_TURN_AFTER_MS, () => {
       const current = roomById(world, debateId)
@@ -64,6 +73,7 @@ export const debateLater = (world: World, debateId: string): void => {
             at: world.clock.now(),
           },
         ],
+        askedTurn: askedAfter(position),
       }))
       step(position + 1)
     })

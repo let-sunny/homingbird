@@ -141,7 +141,7 @@ const wakeOne = (fetch: Fetch, row: PassRow, waiting: Map<MemberId, number>): T.
     const caller = yield* callerOf(row)
     const hasWork = due.work && caller !== null && (yield* isWorkWaiting(caller))
     if (due.work && !hasWork) waiting.delete(memberId)
-    const isAsked = !hasWork && due.debate && caller !== null && (yield* isDebateAsking(caller))
+    const isAsked = !hasWork && due.debate && caller !== null && (yield* isDebateAsking(caller, 'or-soon'))
     if (!hasWork && !isAsked) return
     const target = openWakeTarget(env.config.secretsKey, row)
     if (target === null) return yield* stopped(fetch, row, 'unreadable')
@@ -218,16 +218,19 @@ const isWorkWaiting = (caller: Caller): T.Task<boolean, never, AppEnv> =>
     if (inbox._tag === 'Ok' && inbox.value.items.length > 0) return true
     const requests = yield* T.result(invoke('draftRequests.list', {}, caller))
     if (requests._tag === 'Ok' && requests.value.requests.length > 0) return true
-    return yield* isDebateAsking(caller)
+    return yield* isDebateAsking(caller, 'now')
   })
 
-/** A room keeps an agent from dropping out only while it still asks it for a turn or a vote. */
-const isDebateAsking = (caller: Caller): T.Task<boolean, never, AppEnv> =>
+/**
+ * Work waits for an agent while a room asks it for a turn or a vote now. A room keeps it from dropping
+ * out while it still asks, or has a turn coming for it after other agents' turns.
+ */
+const isDebateAsking = (caller: Caller, when: 'now' | 'or-soon'): T.Task<boolean, never, AppEnv> =>
   T.gen(function* () {
     const debates = yield* T.result(invoke('debates.waiting', {}, caller))
-    return (
-      debates._tag === 'Ok' && (debates.value.asks ?? []).length + (debates.value.ballots ?? []).length > 0
-    )
+    if (debates._tag !== 'Ok') return false
+    const { asks, upcoming = [], ballots = [] } = debates.value
+    return asks.length + ballots.length + (when === 'now' ? 0 : upcoming.length) > 0
   })
 
 /** The open rooms the bound credential opted into, with their grace. */
