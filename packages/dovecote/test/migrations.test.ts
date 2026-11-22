@@ -5,6 +5,7 @@ import { CHANNEL_AGENTS } from '../src/sql/migrations/channel-agents-step.ts'
 import { CHANNEL_TEACHING } from '../src/sql/migrations/channel-teaching-step.ts'
 import { CLOUD_DESK } from '../src/sql/migrations/cloud-desk-step.ts'
 import { DEBATE_PACING } from '../src/sql/migrations/debate-pacing-step.ts'
+import { DISCARDED_BY } from '../src/sql/migrations/discarded-by-step.ts'
 import { DRAFT_PREVIEWS } from '../src/sql/migrations/draft-previews-step.ts'
 import { HISTORY_ANSWERS } from '../src/sql/migrations/history-answers-step.ts'
 import { INSIGHTS } from '../src/sql/migrations/insights-step.ts'
@@ -17,8 +18,8 @@ const tablesOf = (steps: ReadonlyArray<Step>): string[] =>
   steps.flatMap((step) => ('primaryKey' in step ? [step.name] : []))
 
 describe('the migrations', () => {
-  it('run in a fixed order, with the audit trail as the fifth step, groups as the sixth, channel agents as the eighth, mutes as the ninth, the cloud desk as the tenth, insights as the eleventh, spent refresh tokens as the twelfth, answers from history as the thirteenth, sources and reasons as the fourteenth, debate pacing as the fifteenth, channel teaching as the sixteenth, automatic sending as the seventeenth and draft previews as the eighteenth', () => {
-    expect(MIGRATIONS).toHaveLength(18)
+  it('run in a fixed order, with the audit trail as the fifth step, groups as the sixth, channel agents as the eighth, mutes as the ninth, the cloud desk as the tenth, insights as the eleventh, spent refresh tokens as the twelfth, answers from history as the thirteenth, sources and reasons as the fourteenth, debate pacing as the fifteenth, channel teaching as the sixteenth, automatic sending as the seventeenth, draft previews as the eighteenth and who discarded an answer as the nineteenth', () => {
+    expect(MIGRATIONS).toHaveLength(19)
     expect(MIGRATIONS.indexOf(CLOUD_DESK)).toBe(9)
     expect(MIGRATIONS.indexOf(INSIGHTS)).toBe(10)
     expect(MIGRATIONS.indexOf(SPENT_REFRESH_TOKENS)).toBe(11)
@@ -30,7 +31,7 @@ describe('the migrations', () => {
     expect(MIGRATIONS.indexOf(CHANNEL_TEACHING)).toBe(15)
     expect(MIGRATIONS.indexOf(AUTO_SEND)).toBe(16)
     expect(MIGRATIONS.indexOf(DRAFT_PREVIEWS)).toBe(17)
-    expect(MIGRATIONS.at(-1)).toBe(DRAFT_PREVIEWS)
+    expect(MIGRATIONS.at(-1)).toBe(DISCARDED_BY)
     expect(AUDIT_TRAIL_STEP).toBe(5)
   })
 

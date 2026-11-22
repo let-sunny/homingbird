@@ -5664,6 +5664,53 @@ textarea:disabled {
   flex-wrap: wrap;
 }
 
+.decision-rows {
+  display: grid;
+  gap: var(--hb-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.decision-row {
+  display: grid;
+  gap: var(--hb-space-2);
+  padding: var(--hb-space-3);
+  border: var(--hb-border);
+  background: var(--hb-color-surface);
+}
+
+.decision-row.is-discarded {
+  border-inline-start-width: var(--hb-border-rule);
+}
+
+.decision-head,
+.decision-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--hb-space-2);
+  margin: 0;
+}
+
+.decision-original,
+.decision-answer,
+.decision-reason {
+  display: grid;
+  gap: var(--hb-space-1);
+  margin: 0;
+}
+
+.decision-original .note-body,
+.decision-answer .note-body,
+.decision-reason span {
+  white-space: pre-wrap;
+}
+
+.decision-principles {
+  margin: 0;
+}
+
 .note-approval {
   margin: var(--hb-space-1) 0 0;
   font: var(--hb-text-small) / 1.6 var(--hb-font-mono);

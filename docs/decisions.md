@@ -1121,6 +1121,17 @@ its id as `author_id`.
   edits or discards an answer is offered, on the same card, the principle form prefilled from the word
   diff of that edit (or empty for a discard), and nothing is saved until they save it. The saved
   principle records where it came from (`taughtFrom`), so its origin reads "From an edited answer".
+- **Its recent decisions are a `human` read for its current managers (rules 2, 3 and 6).**
+  `channels.agent.decisions` lists the agent's answers sent or discarded in the last 30 days, at most
+  100, with who decided, the question, the agent's own text beside an edit, the discard reason and the
+  principles applied. It answers 404 to anyone outside the managing group, an administrator included,
+  and its query joins the managing group and the conversation's participants itself. It leaves out
+  every answer to a question the viewer asked, in the room or privately: the draft, the edit and the
+  reason were hidden from them when they were made, and a list of past decisions must not show them
+  later. Who discarded an answer is kept in `notes.discarded_by`, as `approved_by` keeps who sent one;
+  discards before that column read as "a manager". No MCP, CLI, plugin or A2A tool names the route.
+  Teaching from a row opens the same principle form as "Teach from this correction", so nothing is
+  saved until a manager saves it.
 - **Not in this release:** taking a draft ("I'll look at this"), stored offers and quiet places for a
   channel's agent, and decision rules with more than one approver.
 

@@ -1646,6 +1646,33 @@ export const ko: Translation<typeof en> = {
     figuresApproved: { other: '{name}: 답변 {count}개' },
     figuresLoadFailed: '에이전트가 어떻게 하고 있는지 불러오지 못했어요. 잠시 뒤에 다시 해 보세요.',
   },
+  channelDecisions: {
+    title: '최근 결정',
+    intro:
+      '최근 {days}일 동안 {channel} 채널 운영자가 에이전트 {agent}의 답을 어떻게 결정했는지 최근 것부터 보여 줘요. 운영자만 보고, 운영자 자신이 한 질문에 대한 결정은 보이지 않아요.',
+    none: '최근 {days}일 동안 보내거나 버린 답이 없어요.',
+    loadFailed: '최근 결정을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.',
+    listLabel: '에이전트 {agent}의 답에 대한 최근 결정',
+    outcome: {
+      sent_as_written: '그대로 보냄',
+      sent_edited: '수정 후 보냄',
+      discarded: '버림',
+      unknown: '결정됨',
+    },
+    decidedBy: {
+      sent_as_written: '{name} 님이 보냄',
+      sent_edited: '{name} 님이 수정해서 보냄',
+      discarded: '{name} 님이 버림',
+      unknown: '{name} 님이 결정함',
+    },
+    discardedByAManager: '운영자가 버림',
+    answerSent: '보낸 답',
+    answerDiscarded: '버린 답',
+    agentWrote: '에이전트 {agent}의 원래 답',
+    reason: '버린 이유',
+    principles: '적용한 원칙: {principles}',
+    open: '질문한 곳에서 보기',
+  },
   channelTeach: {
     tabsLabel: '{channel} 채널의 에이전트',
     tabs: { answers: '답', teach: '가르치기' },

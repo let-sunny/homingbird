@@ -44,6 +44,7 @@ export interface NoteRow {
   readonly discard_reason: string | null
   readonly auto_principle_id?: string | null
   readonly withdrawn_at?: number | null
+  readonly discarded_by: MemberId | null
 }
 
 export const PICKUP_GRACE_MS = 10 * 60_000

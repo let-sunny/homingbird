@@ -323,6 +323,17 @@ describe('how the agent is doing', () => {
     }
   }
 
+  it('puts the recent decisions on the agent’s page, right after the answers waiting', () => {
+    const { called, dialog } = onPage()
+    expect(called('loadChannelDecisions')[0]!.args).toEqual(['payments-wiki'])
+    called('loadChannelDecisions')[0]!.then!.done!({ channel: 'payments-wiki', days: 30, decisions: [] })
+    const panel = dialog.querySelector('.channel-agent-panel')!
+    expect([...panel.children].map((child) => child.className).slice(0, 2)).toEqual([
+      'region',
+      'channel-decisions-region',
+    ])
+  })
+
   it('shows the figures and each manager’s count beside the panel, once loaded', () => {
     const { called, dialog } = onPage()
     expect(called('loadChannelAgentFigures')[0]!.args).toEqual(['payments-wiki'])

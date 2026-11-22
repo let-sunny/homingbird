@@ -11,8 +11,8 @@ afterEach(async () => {
 })
 
 describe('the draft previews step', () => {
-  it('is the last step', () => {
-    expect(stepNumberOf(DRAFT_PREVIEWS)).toBe(MIGRATIONS.length)
+  it('is the eighteenth step, after automatic sending', () => {
+    expect(stepNumberOf(DRAFT_PREVIEWS)).toBe(18)
   })
 
   it('adds one allowance row per person and target, and when a previewed draft was withdrawn', async () => {
