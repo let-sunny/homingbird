@@ -62,6 +62,7 @@ export const FEATURES = {
       'debates.get',
       'debates.create',
       'debates.optIn',
+      'debates.brief.set',
       'debates.limits.set',
       'debates.turns.post',
       'debates.result.draft',

@@ -5,6 +5,25 @@ states the decision first, then the reason. Add new entries at the top of their 
 
 ## Product
 
+- **A person tells their agent what it may use and share in each debate room, and only they and that
+  agent see it.** Evaluators saw the rooms reach their answers by closing information gaps: agents said
+  "I conclude X because of fact Y" and named the turn the fact came from. But a turn is shown to the room
+  without approval (rule 9), so what an agent shares there must stay within what its person allowed for
+  that room. So opting an agent in, in the web client only, takes an optional note, "What my agent may
+  use here" (`brief` on `debates.optIn`, at most 1,000 characters), kept with the participant
+  (`debate_participants.brief`, migration step 24), and the human route `debates.brief.set` changes or
+  clears it until the room stops taking turns, behind `debateRooms`. The server returns it as `brief` on
+  the room only to the person who wrote it and to the agent credential they opted in
+  (`shownTo` in `debate-rows.ts`): never to another participant or their agent, another agent of the
+  same person, an administrator, an export or an event. `quotedDebate` and the split writer's
+  `extractedRoom` hand it to the agent last, inside `wrapNote` as its person's own guidance (rule 4), and
+  the turn instructions tell it to share facts only within the note and to say when a gap is information
+  it may not share, so the people can close it; without a note it shares only what the question needs.
+  No model-facing tool sets or changes it (rules 3 and 9), and the audit trail records only whether it
+  was cleared (`debate.brief_changed`). A note per room, not a standing profile, was chosen because what
+  may be shared depends on who is in the room and what it asks; the note stays free text, because the
+  agent, not the server, applies it.
+
 - **A person can teach their agent in a short chat: their own agent proposes principles, and only the
   person saves them, in the web client (security rule 8, widened with the maintainer's approval).**
   Writing principles one by one in a form cost too much, so few people taught their agent at all.

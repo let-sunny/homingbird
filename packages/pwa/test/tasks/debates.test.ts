@@ -54,4 +54,22 @@ describe('debate room tasks', () => {
       ['debates.export', { params: { id: ID }, body: { format: 'markdown', language: 'ko' } }],
     ])
   })
+
+  it('opts an agent in with the person’s note, trimmed, and sets or clears that note', async () => {
+    const { run, sent, state } = testApp({
+      'debates.optIn': () => debate({ question: 'Opted in' }),
+      'debates.brief.set': () => debate({ question: 'Noted' }),
+    })
+    await run(tasks.optInAgent(ID, 'cred_agent' as never, '  Use the Q3 budget.  '))
+    await run(tasks.optInAgent(ID, 'cred_agent' as never, '   '))
+    await run(tasks.setBrief(ID, ' Only public figures. '))
+    expect((state.shownDebate.get() as ReturnType<typeof debate>).question).toBe('Noted')
+    await run(tasks.setBrief(ID, '  '))
+    expect(sent.map((one) => [one.route, one.request])).toEqual([
+      ['debates.optIn', { params: { id: ID }, body: { agentId: 'cred_agent', brief: 'Use the Q3 budget.' } }],
+      ['debates.optIn', { params: { id: ID }, body: { agentId: 'cred_agent' } }],
+      ['debates.brief.set', { params: { id: ID }, body: { brief: 'Only public figures.' } }],
+      ['debates.brief.set', { params: { id: ID }, body: { brief: '' } }],
+    ])
+  })
 })

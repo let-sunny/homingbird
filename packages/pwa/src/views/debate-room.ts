@@ -1,7 +1,12 @@
 import type { AsRead, CredentialId, DebateExportFormat } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, lifetime, linkedText, region } from '@homingbird/ui'
 import type { QuotedTurn } from '../models/debate-credit.ts'
-import { type DebateRoomModel, debateRoomModel, resultDestination } from '../models/debate-room.ts'
+import {
+  type BriefField,
+  type DebateRoomModel,
+  debateRoomModel,
+  resultDestination,
+} from '../models/debate-room.ts'
 import type { Turn, TurnGroup } from '../models/debate-turn-list.ts'
 import { type DebateTab, hrefFor } from '../routes.ts'
 import { locale, strings } from '../strings.ts'
@@ -259,6 +264,7 @@ const movedBetween = (move: { readonly from: QuotedTurn; readonly to: QuotedTurn
 
 const turnsTab = (model: Room, context: ViewContext, drawn: Lifetime): ReadonlyArray<Child> => [
   model.optIn !== null && optInSection(context, model.debate, model.optIn),
+  model.brief !== null && briefSection(context, model.debate, model.brief),
   section(
     strings.debates.participantsTitle,
     'debate-participants',
@@ -391,6 +397,7 @@ const optInSection = (
     { name: 'agent' },
     optIn.agents.map((agent) => h('option', { value: agent.value }, agent.label)),
   )
+  const brief = briefBox(optIn.brief)
   return section(
     strings.debates.optInTitle,
     'debate-opt-in',
@@ -409,14 +416,59 @@ const optInSection = (
           submit: (event) => {
             event.preventDefault()
             const agent = optIn.agents.find((one) => one.value === choice.value)
-            if (agent !== undefined) context.actions.optInAgent(debate.id, agent.value as CredentialId)
+            if (agent !== undefined)
+              context.actions.optInAgent(debate.id, agent.value as CredentialId, brief.value)
           },
         },
       },
       field(strings.debates.chooseAgent, choice),
+      field(optIn.brief.label, brief, optIn.brief.hint),
       h('button', { type: 'submit', class: 'primary' }, strings.debates.optIn),
     ),
   )
+}
+
+/** The participant's own note on what their agent may use here: a form while turns go on, then text. */
+const briefSection = (context: ViewContext, debate: AsRead.Debate, brief: NonNullable<Room['brief']>) => {
+  if (brief.kind === 'fixed')
+    return section(
+      brief.title,
+      'debate-brief',
+      h('p', { class: 'debate-brief-text' }, brief.text),
+      h('p', { class: 'hint' }, brief.fixed),
+    )
+  const box = briefBox(brief.field)
+  return section(
+    brief.title,
+    'debate-brief',
+    h(
+      'form',
+      {
+        class: 'debate-brief-form',
+        on: {
+          submit: (event) => {
+            event.preventDefault()
+            context.actions.setBrief(debate.id, box.value, {
+              done: () => context.state.notice.set({ kind: 'info', text: strings.debates.briefSaved }),
+            })
+          },
+        },
+      },
+      field(brief.field.label, box, brief.field.hint),
+      h('button', { type: 'submit' }, brief.save),
+    ),
+  )
+}
+
+const briefBox = (brief: BriefField): HTMLTextAreaElement => {
+  const box = h('textarea', {
+    name: 'brief',
+    rows: '4',
+    maxlength: String(brief.maxLength),
+    placeholder: brief.placeholder,
+  })
+  box.value = brief.value
+  return box
 }
 
 const exportButton = (

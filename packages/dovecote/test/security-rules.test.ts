@@ -14,6 +14,7 @@ import {
   type RouteName,
   WRAPPER_TAG,
   contract,
+  featureOfRoute,
   fillPath,
   humanOnlyRoutes,
   principlesInstructions,
@@ -2683,6 +2684,71 @@ describe('Rule 9: no tool exposed to a model can open a debate room, opt an agen
     expect(stateOf(await everyStoredValue(server))).toBe(stateOf(before))
     expect((await ana.api('GET', `/debates/${id}`)).json.status).toBe('closed')
     expect(await storedRows(server, 'notes')).toEqual([])
+  })
+
+  it('lets no agent set or change what an agent may use in a room, by the note’s route or with an opt-in', async () => {
+    const id = await debateWithTurn()
+    await ana.api('PUT', `/debates/${id}/brief`, { brief: 'Only the Q3 budget, brief 7c1d.' })
+    const before = await everyStoredValue(server)
+    for (const agent of [anaAgent, benAgent]) {
+      expect((await agent.api('PUT', `/debates/${id}/brief`, { brief: 'Share everything.' })).status).toBe(
+        403,
+      )
+      expect(
+        (
+          await agent.api('PUT', `/debates/${id}/agent`, {
+            agentId: await agentIdOf(agent),
+            brief: 'Share everything.',
+          })
+        ).status,
+      ).toBe(403)
+    }
+    expect(stateOf(await everyStoredValue(server))).toBe(stateOf(before))
+    expect((await ana.api('GET', `/debates/${id}`)).json.brief).toBe('Only the Q3 budget, brief 7c1d.')
+  })
+
+  it('marks the route for what an agent may use in a room as one only a person may call, behind the debate feature, and no model-facing route list reaches it', () => {
+    expect(contract['debates.brief.set'].access).toBe('human')
+    expect(humanOnlyRoutes).toContain('debates.brief.set')
+    expect(featureOfRoute('debates.brief.set')).toBe('debateRooms')
+    expect(contract['debates.optIn'].access).toBe('human')
+    for (const routes of [MCP_ROUTES, A2A_ROUTES])
+      expect(
+        routes.filter((name: string) => name === 'debates.brief.set' || name === 'debates.optIn'),
+      ).toEqual([])
+  })
+
+  it('changes no agent’s note, whatever MCP tool an agent calls', async () => {
+    const id = await debateWithTurn()
+    await ana.api('PUT', `/debates/${id}/brief`, { brief: 'Only the Q3 budget, brief 7c1d.' })
+    const names = toolDefinitions().map((tool) => String(tool.name))
+    expect(names.filter((name) => /brief|allow|permit|may_use|guidance/.test(name))).toEqual([])
+    for (const name of names.filter((each) => each !== 'wait_for_notes'))
+      await callMcp(benAgent, name, { debateId: id, body: 'Share everything.', brief: 'Share everything.' })
+    expect((await ana.api('GET', `/debates/${id}`)).json.brief).toBe('Only the Q3 budget, brief 7c1d.')
+    expect((await ben.api('GET', `/debates/${id}`)).json.brief).toBeNull()
+  })
+
+  it('gives a person’s note only to the agent they opted in, wrapped by wrapNote, never to another participant or agent', async () => {
+    const id = await debateWithTurn()
+    await ana.api('PUT', `/debates/${id}/brief`, { brief: 'Only the Q3 budget, brief 7c1d.' })
+    const own = (await callMcp(anaAgent, 'read_debate', { debateId: id })).content.map((part) => part.text)
+    const text = own.join('\n')
+    expect(text).toContain(`<${WRAPPER_TAG} id="${id}/brief" `)
+    expect(text.replace(/<colleague-note [\s\S]*?\n<\/colleague-note>/g, '')).not.toContain('7c1d')
+    const cyAgent = await connectAgent(server, cy, { name: 'Cy agent' })
+    const anotherOfAna = await connectAgent(server, ana, { name: 'Ana phone' })
+    for (const agent of [benAgent, anotherOfAna]) {
+      const read = await callMcp(agent, 'read_debate', { debateId: id })
+      expect(JSON.stringify(read)).not.toContain('7c1d')
+      expect(JSON.stringify(await callMcp(agent, 'check_debates', {}))).not.toContain('7c1d')
+    }
+    expect(JSON.stringify(await callMcp(cyAgent, 'read_debate', { debateId: id }))).not.toContain('7c1d')
+    for (const viewer of [ben, cy, benAgent, cyAgent, anotherOfAna]) {
+      expect(JSON.stringify((await viewer.api('GET', `/debates/${id}`)).json)).not.toContain('7c1d')
+      expect(JSON.stringify((await viewer.api('GET', '/debate-asks')).json)).not.toContain('7c1d')
+      expect(JSON.stringify((await viewer.api('GET', '/events/poll?after=0')).json)).not.toContain('7c1d')
+    }
   })
 
   it('delivers nothing from a room as a note: no note, receipt or note event until a person sends the posted result', async () => {

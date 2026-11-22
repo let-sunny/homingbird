@@ -187,6 +187,7 @@ export const TASKS = {
   loadDebate: debates.loadDebate,
   createDebate: debates.createDebate,
   optInAgent: debates.optInAgent,
+  setBrief: debates.setBrief,
   changeLimits: debates.changeLimits,
   postResult: debates.postResult,
   exportDebate: debates.exportDebate,

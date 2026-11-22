@@ -5,6 +5,7 @@ import { CHANNEL_AGENTS } from './migrations/channel-agents-step.ts'
 import { CHANNEL_TEACHING } from './migrations/channel-teaching-step.ts'
 import { CLOUD_DESK } from './migrations/cloud-desk-step.ts'
 import { DEBATE_AGREEMENT } from './migrations/debate-agreement-step.ts'
+import { DEBATE_BRIEFS } from './migrations/debate-briefs-step.ts'
 import { DEBATE_MODEL } from './migrations/debate-model-step.ts'
 import { DEBATE_PACING } from './migrations/debate-pacing-step.ts'
 import { DEBATES } from './migrations/debates-step.ts'
@@ -47,6 +48,7 @@ export const MIGRATIONS: ReadonlyArray<Migration> = [
   TEACHING_INTERVIEW,
   SLACK,
   SLACK_CHANNELS,
+  DEBATE_BRIEFS,
 ]
 
 /** The step that added the audit trail; when it runs, the first audit table's old rows go. */

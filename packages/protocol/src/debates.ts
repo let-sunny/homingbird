@@ -51,6 +51,9 @@ export const DEFAULT_DEBATE_LIMITS = {
 
 export const DEBATE_INVITEES_MAX = 50
 export const DEBATE_TURN_MAX = 4000
+export const DEBATE_BRIEF_MAX = 1000
+
+export const DebateBrief = S.string({ maxLength: DEBATE_BRIEF_MAX })
 
 export const DebateParticipant = S.struct({
   memberId: MemberId,
@@ -132,6 +135,7 @@ export const Debate = S.struct({
   /** Who voted in this round, never for which draft while the vote runs. */
   votedBy: S.optional(S.array(MemberId, { maxItems: DEBATE_PARTICIPANTS_MAX })),
   voteRecord: S.optional(S.nullable(DebateVoteRecord)),
+  brief: S.optional(S.nullable(DebateBrief)),
 })
 export type Debate = S.Infer<typeof Debate>
 

@@ -20,7 +20,7 @@ describe('the debate agreement step', () => {
     database = await migratedThrough(earlier)
     expect(await database.columnsOf('debate_turns')).not.toContain('ready')
     expect(await database.columnsOf('debates')).not.toContain('concluded_because')
-    expect(await database.migrate([...MIGRATIONS.slice(0, earlier), DEBATE_AGREEMENT])).toEqual([earlier + 1])
+    expect(await database.migrate(MIGRATIONS.slice(0, earlier + 1))).toEqual([earlier + 1])
     expect(await database.columnsOf('debate_turns')).toContain('ready')
     expect(await database.columnsOf('debates')).toContain('concluded_because')
   })

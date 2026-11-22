@@ -64,6 +64,15 @@ describe('the room as the writer reads it in split mode', () => {
     expect(text).not.toContain('The March report\nsays the rollback failed.')
     expect(text).toContain('Position of Ben’s agent')
   })
+
+  it('gives the writer its own person’s note on what it may use in the room, wrapped, after the description', () => {
+    const room = roomOf({ status: 'open', brief: 'Share the Q3 budget, not the vendor quotes.' })
+    const viewer = room.participants[0]!.memberId
+    const text = extractedRoom(room, viewer, EXTRACTED, PEOPLE, sequentialNonce())
+    expect(text.indexOf(`id="${room.id}/brief"`)).toBeGreaterThan(text.indexOf(`id="${room.id}/extracted"`))
+    expect(textOutsideWrappers(text)).not.toContain('vendor quotes')
+    expect(text).toContain('Share the Q3 budget, not the vendor quotes.')
+  })
 })
 
 describe('the debate reader, at its edges', () => {

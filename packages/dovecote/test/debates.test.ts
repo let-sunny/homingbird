@@ -139,6 +139,74 @@ describe('opting an agent in', () => {
   })
 })
 
+describe('what a person’s agent may use in a room', () => {
+  const NOTE = 'Use the Q3 budget sheet; never share vendor prices.'
+
+  it('keeps the note written with the opt-in and shows it to that person and the agent they opted in only', async () => {
+    const id = (await cast.ana.api('POST', '/debates', { question: QUESTION, limits: LIMITS })).json.id
+    const joined = await cast.ana.api('PUT', `/debates/${id}/agent`, {
+      agentId: cast.anaAgent.id,
+      brief: `  ${NOTE}  `,
+    })
+    expect(joined.json.brief).toBe(NOTE)
+    await cast.ben.api('PUT', `/debates/${id}/agent`, {
+      agentId: cast.benAgent.id,
+      brief: 'Ben’s own secret',
+    })
+    expect(cast.ana.me.member.role).toBe('admin')
+    expect((await cast.ana.api('GET', `/debates/${id}`)).json.brief).toBe(NOTE)
+    expect((await cast.benAgent.api('GET', `/debates/${id}`)).json.brief).toBe('Ben’s own secret')
+    expect((await cast.anaAgent.api('GET', `/debates/${id}`)).json.brief).toBe(NOTE)
+    const asked = (await cast.anaAgent.api('GET', '/debate-asks')).json.asks
+    expect(asked.map((ask: { debate: { brief: string } }) => ask.debate.brief)).toEqual([NOTE])
+    const otherAgentOfAna = await connectAgent(server, cast.ana, { name: 'Ana phone' })
+    for (const viewer of [cast.ben, cast.benAgent, cast.cy, cast.cyAgent, otherAgentOfAna]) {
+      const seen = await viewer.api('GET', `/debates/${id}`)
+      expect(JSON.stringify(seen.json)).not.toContain('vendor prices')
+    }
+    for (const viewer of [cast.ana, cast.anaAgent, cast.cy, cast.cyAgent, otherAgentOfAna])
+      expect(JSON.stringify((await viewer.api('GET', `/debates/${id}`)).json)).not.toContain('Ben’s own')
+    for (const viewer of [cast.cy, cast.cyAgent, otherAgentOfAna])
+      expect((await viewer.api('GET', `/debates/${id}`)).json.brief).toBeNull()
+    expect(JSON.stringify((await cast.benAgent.api('GET', '/debate-asks')).json)).not.toContain('vendor')
+    expect(JSON.stringify((await cast.ben.api('GET', '/debates')).json)).not.toContain('vendor')
+  })
+
+  it('lets the person change or clear the note until the room stops taking turns, and records that it changed, never what it says', async () => {
+    const id = await openedRoom(cast)
+    const changed = await cast.ana.api('PUT', `/debates/${id}/brief`, { brief: NOTE })
+    expect(changed.json.brief).toBe(NOTE)
+    expect((await cast.ben.api('GET', `/debates/${id}`)).json.brief).toBeNull()
+    expect((await cast.ana.api('PUT', `/debates/${id}/brief`, { brief: '   ' })).json.brief).toBeNull()
+    await cast.ana.api('PUT', `/debates/${id}/brief`, { brief: NOTE })
+    await turnsRunOut(cast, id)
+    const late = await cast.ana.api('PUT', `/debates/${id}/brief`, { brief: 'Share everything.' })
+    expect(late.status).toBe(409)
+    expect((await cast.ana.api('GET', `/debates/${id}`)).json.brief).toBe(NOTE)
+    const audited = (await storedRows(server, 'audit_events')).filter(
+      (entry) => entry.event === 'debate.brief_changed',
+    )
+    expect(audited.map((entry) => JSON.parse(String(entry.detail)))).toEqual([
+      { cleared: false },
+      { cleared: true },
+      { cleared: false },
+    ])
+    expect(JSON.stringify(await storedRows(server, 'audit_events'))).not.toContain('vendor')
+  })
+
+  it('refuses a note from someone whose agent is not in the room, from any agent, and in a room they cannot see', async () => {
+    const id = await openedRoom(cast, { visibility: 'private' })
+    expect((await cast.cy.api('PUT', `/debates/${id}/brief`, { brief: NOTE })).status).toBe(404)
+    const open = await openedRoom(cast)
+    expect((await cast.cy.api('PUT', `/debates/${open}/brief`, { brief: NOTE })).status).toBe(409)
+    for (const agent of [cast.anaAgent, cast.benAgent])
+      expect((await agent.api('PUT', `/debates/${open}/brief`, { brief: NOTE })).status).toBe(403)
+    expect((await storedRows(server, 'debate_participants')).map((participant) => participant.brief)).toEqual(
+      [null, null, null, null],
+    )
+  })
+})
+
 describe('limits', () => {
   it('gives every agent opted in its three turns by default, counted until the first turn', async () => {
     const id = (await cast.ana.api('POST', '/debates', { question: QUESTION })).json.id

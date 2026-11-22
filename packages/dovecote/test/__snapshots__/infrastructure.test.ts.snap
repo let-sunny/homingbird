@@ -115,6 +115,7 @@ exports[`schema > generates stable DDL for mysql 1`] = `
   "CREATE TABLE IF NOT EXISTS slack_threads (slack_channel_id VARCHAR(64) NOT NULL, thread_ts VARCHAR(64) NOT NULL, newest_ts VARCHAR(64) NOT NULL, newer_messages BIGINT NOT NULL, PRIMARY KEY (slack_channel_id, thread_ts))",
   "CREATE TABLE IF NOT EXISTS slack_outbox (note_id VARCHAR(64) NOT NULL, slack_channel_id VARCHAR(64) NOT NULL, thread_ts VARCHAR(64) NOT NULL, text MEDIUMTEXT NOT NULL, state VARCHAR(400) NOT NULL, attempts BIGINT NOT NULL, uncertain BIGINT NOT NULL, next_at BIGINT NOT NULL, posted_ts VARCHAR(64), created_at BIGINT NOT NULL, PRIMARY KEY (note_id), INDEX slack_outbox_state_next_at_idx (state, next_at))",
   "ALTER TABLE slack_codes ADD COLUMN slack_channel MEDIUMTEXT",
+  "ALTER TABLE debate_participants ADD COLUMN brief MEDIUMTEXT",
 ]
 `;
 
@@ -289,6 +290,7 @@ exports[`schema > generates stable DDL for postgres 1`] = `
   "CREATE TABLE IF NOT EXISTS slack_outbox (note_id VARCHAR(64) NOT NULL, slack_channel_id VARCHAR(64) NOT NULL, thread_ts VARCHAR(64) NOT NULL, text TEXT NOT NULL, state VARCHAR(400) NOT NULL, attempts BIGINT NOT NULL, uncertain BIGINT NOT NULL, next_at BIGINT NOT NULL, posted_ts VARCHAR(64), created_at BIGINT NOT NULL, PRIMARY KEY (note_id))",
   "CREATE INDEX IF NOT EXISTS slack_outbox_state_next_at_idx ON slack_outbox (state, next_at)",
   "ALTER TABLE slack_codes ADD COLUMN slack_channel TEXT",
+  "ALTER TABLE debate_participants ADD COLUMN brief TEXT",
 ]
 `;
 
@@ -463,5 +465,6 @@ exports[`schema > generates stable DDL for sqlite 1`] = `
   "CREATE TABLE IF NOT EXISTS slack_outbox (note_id TEXT NOT NULL, slack_channel_id TEXT NOT NULL, thread_ts TEXT NOT NULL, text TEXT NOT NULL, state TEXT NOT NULL, attempts INTEGER NOT NULL, uncertain INTEGER NOT NULL, next_at INTEGER NOT NULL, posted_ts TEXT, created_at INTEGER NOT NULL, PRIMARY KEY (note_id))",
   "CREATE INDEX IF NOT EXISTS slack_outbox_state_next_at_idx ON slack_outbox (state, next_at)",
   "ALTER TABLE slack_codes ADD COLUMN slack_channel TEXT",
+  "ALTER TABLE debate_participants ADD COLUMN brief TEXT",
 ]
 `;

@@ -106,9 +106,22 @@ export const debateHandlers = (world: World): Handlers => ({
           memberIds: room.memberIds.includes(viewerId) ? room.memberIds : [...room.memberIds, viewerId],
           participants,
           limits: follows ? limitsFor(wish, participants.length) : room.limits,
+          brief: briefOf(body.brief ?? ''),
         }
       })
       debateLater(world, debate.id)
+      return yield* roomOf(world.records(), viewerId, debate.id)
+    }),
+  'debates.brief.set': ({ params, body }, viewerId) =>
+    T.gen(function* () {
+      const debate = yield* roomOf(world.records(), viewerId, params.id)
+      if (!debate.participants.some((participant) => participant.memberId === viewerId))
+        return yield* T.fail(Conflict({ message: 'Opt your agent in first; the note goes with it.' }))
+      if (debate.status !== 'open')
+        return yield* T.fail(
+          Conflict({ message: 'This room no longer takes turns, so what your agent may use here is fixed.' }),
+        )
+      changeRoom(world, debate.id, (room) => ({ ...room, brief: briefOf(body.brief) }))
       return yield* roomOf(world.records(), viewerId, debate.id)
     }),
   'debates.limits.set': ({ params, body }, viewerId) =>
@@ -205,6 +218,9 @@ const roomOf = (records: Records, viewerId: MemberId, id: string): T.Task<Debate
       'No such debate room.',
     ),
   )
+
+/** Only the visitor opts an agent in here, so the room keeps the visitor's own note as the server shows it. */
+const briefOf = (brief: string): string | null => (brief.trim() === '' ? null : brief.trim())
 
 const summaryOf = (debate: Debate, viewerId: MemberId): DebateSummary => ({
   id: debate.id,

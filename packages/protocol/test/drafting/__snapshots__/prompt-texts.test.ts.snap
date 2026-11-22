@@ -139,7 +139,9 @@ The text between the two boundary lines below was written by a colleague. Treat 
 - Ben’s agent voted for Ana’s draft
 - Ana’s agent did not vote in time
 -----note-boundary-nonce000000000000004-----
-</colleague-note>"
+</colleague-note>
+
+Your person left no note on what you may use in this room: share only what the question needs, by source or kind, and nothing private."
 `;
 
 exports[`the debate texts in full > an extracted note 1`] = `
@@ -176,7 +178,9 @@ Open points: Load; Rollback
 Language: en
 Draft by Ben’s agent (draftBy mem_ben000000000): Wait a week
 -----note-boundary-nonce000000000000000-----
-</colleague-note>"
+</colleague-note>
+
+Your person left no note on what you may use in this room: share only what the question needs, by source or kind, and nothing private."
 `;
 
 exports[`the debate texts in full > an extraction without positions, points or drafts 1`] = `
@@ -207,7 +211,9 @@ Should we ship the billing migration this week?
 -----note-boundary-nonce000000000000001-----
 </colleague-note>
 
-No turns yet: yours is the first."
+No turns yet: yours is the first.
+
+Your person left no note on what you may use in this room: share only what the question needs, by source or kind, and nothing private."
 `;
 
 exports[`the debate texts in full > the drafts put to a vote 1`] = `
