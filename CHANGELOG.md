@@ -5,6 +5,77 @@ Every release of Homingbird, newest first. The format follows
 [Semantic Versioning](https://semver.org/); before 1.0, a minor version may break interfaces and the
 database schema.
 
+## [0.3.7] - 2026-11-22
+
+### Added
+
+- **ui:** link www. and mail addresses in note bodies (#93)
+
+  A note that says "see www.example.com" or "write to ana@example.com" now shows those as links, as other messengers do: a www. address opens over https in a new tab, a mail address opens the mail program with mailto:, and both carry rel="noopener noreferrer".
+- **dovecote:** let a channel's managers teach its agent (#79)
+
+  * feat(dovecote): let a channel's managers teach its agent
+- let a saved answer send itself, word for word, where you allow it (#80)
+
+  Approving the same saved answer again and again was the slowest part of using Homingbird. With the new autoSend feature on (off by default; administrators switch it in Settings), a person may switch one saved answer to send itself in the direct messages and open channels they choose. A draft from their own agent is then sent without a click only when its text is exactly that answer, it says it applied it, and it goes to a place they allowed; anything else waits on the approval card. Recipients see that a saved answer sent it, and the author can recall it for five minutes.
+- **dovecote:** let a person show their agent's unconfirmed drafts to chosen people (#81)
+
+  Approval is the slowest step between colleagues, so a person may now let chosen people, and the rooms of chosen channels, see what their own agent drafted before they check it. The preview is marked as unconfirmed, cannot be replied to or quoted, and loses its words when the draft is discarded. It is off unless an administrator turns on the draftPreviews feature, and empty unless the person allows someone.
+- **pwa:** hint what Homingbird's own controls do while you are new (#101)
+
+  * feat(pwa): hint what Homingbird's own controls do while you are new
+- **dovecote:** list recent decisions on a channel agent's answers (#102)
+
+  A channel's managers decided its agent's answers and then lost sight of them: discard reasons and edits were kept but shown nowhere. The agent's page now has Recent decisions: every answer sent as written, sent after an edit or discarded in the last 30 days, with who decided it and when, the question it answered, the principles it applied, the agent's own words beside an edit and the reason for a discard. From any row a manager can teach the agent, prefilled from the correction.
+- first minutes — new-member first steps, join codes that say when they connected (#96)
+
+  * feat(pwa): show a new member three first steps, with the lines to connect
+- **pwa:** show each place's steps toward answering like you (#103)
+
+  How it is doing now opens with "Where it answers like you": every channel your agent drafts in, and direct messages, on four steps from "Only drafts" to "You taught principles", "Principles hold" and "Answers like you", which is reached when you send at least 7 in 10 of the drafts you decide there as written. Each row says where the place stands, what is missing and what to do next: teach from its edited or discarded drafts, teach a first principle, review the notes your agent skipped there, or teach it more. Hover over or focus a step to read what it means and what the next one takes; "What the steps mean" lists the same on touch screens. When recent edits take a place below the last step, the row says so gently: an edit is a chance to teach, never a step back.
+- **pwa:** show who is in a conversation and what each one is there (#100)
+
+  A conversation's head now opens a list of everyone in it. Tap the names or the count in a direct or group message or a private question, the member count of a channel, or the count beside a debate room's stage, and each person is listed by name with their part: you, the person who asked, the channel's agent, each current manager of the channel, or the agent through which someone takes part in a debate. A private question also keeps saying that whoever manages the channel later joins and reads it. On a touch screen the list is the same sheet along the bottom edge as every other menu.
+- **pwa:** show what waits outside the tab and jump anywhere with ⌘K (#106)
+
+  * feat(pwa): show what waits outside the tab and jump anywhere with ⌘K
+- **pwa:** start a message from the list and pick people by typing (#107)
+
+  * feat(pwa): start a message from the list and pick people by typing
+- end a debate early once every agent agrees (#97)
+
+  * feat: end a debate early once every agent agrees
+- **pwa:** move the tabs to a bar at the bottom of a phone (#108)
+
+  * test(pwa): check the current wording in the conversation and feedback e2e
+- **pwa:** open a profile card from every name and face (#109)
+
+  Press a person's name or face and a card opens beside it: their character and name, whether they and their agent are around, their groups, what they wrote about themselves, and what they are in the room on screen, such as the person who asked or a manager of the channel. Message on the card opens your direct message with them, or a new message with them already chosen when you have none, so a note's author is two clicks from a direct message. Open in People shows them in the People list. The card opens from a note's author, a direct message's name, the list of who is here, People, a channel's members, a debate room and Activity. Opened from a note, it also says how that note was written and when it was sent.
+- teach your agent in a short chat, and save its proposals in one go (#99)
+
+  * feat: teach your agent in a short chat, and save its proposals in one go
+- hear in Slack when a draft waits for you (#104)
+
+  Link your Slack user under My agent, Connection, and the Homingbird app tells you in a Slack direct message when a draft waits for your decision. The message contains only a link to the card in the web client, and approval stays there. An administrator connects the organization's own Slack app, created from the manifest shown under Administration, Settings, by setting HB_SLACK_BOT_TOKEN and HB_SLACK_SIGNING_SECRET. Slack is behind the new feature switch slack, off by default.
+- answer Slack questions from a Homingbird channel (#110)
+
+  * feat: hear in Slack when a draft waits for you
+- tell your agent what it may use and share in a debate room (#111)
+
+  When you opt your agent into a debate room you can now write a short note, "What my agent may use here": the facts, sources or limits it may draw on and share in that room, and what it must not share. Turns are shown to the room without your approval, so this note is how you decide what your agent may say there. Your agent reads it with every turn as your own guidance and is told to share facts only within it, and to say plainly when a gap in the room is information it holds but may not share, so the people can close that gap themselves. You can change or clear the note on the room's Turns tab until the room stops taking turns.
+- leave or hide a group, and start a new group with its people (#112)
+
+  You can now leave a group message from the ⋯ menu in its header or on its row. After you confirm, you see none of the group from then on, your agent gets none of it, and your drafts and draft requests waiting there are discarded; the others keep what was sent. You can also hide a direct or group message from your own list: it comes back when a note is sent in it, and stays while a draft of yours waits there. New group with these people opens a new message with the group's people chosen, so adding or taking out someone starts a new group; earlier notes stay in the old one.
+- note retention, export and erasure, an offboarding check, and a pending send toast (#114)
+
+  * feat(dovecote): add note retention, export and erasure, and an offboarding check
+
+### Fixed
+
+- **pwa:** keep the page still when a principle is switched or moved (#105)
+
+  Switching a principle on or off, moving it up or down, or making it public in My agent › Teaching or on a channel agent's Teach tab no longer throws the page back towards the top. The switch stays where it was under the pointer and keeps the keyboard focus. Folding a long note with Show less keeps the button on screen where it was instead of leaving it above.
+
 ## [0.3.6] - 2026-11-21
 
 ### Added
@@ -587,6 +658,7 @@ Since 0.1.0-rc.2:
 - The web client has a guided tour and clearer topics, refusals and dark mode.
 - The Claude Code mod asks for the server address at install, finds Node 22 where version managers put it, and signs in from its pane.
 
+[0.3.7]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.7
 [0.3.6]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.6
 [0.3.5]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.5
 [0.3.4]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.4
