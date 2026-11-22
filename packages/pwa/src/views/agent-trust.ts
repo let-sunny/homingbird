@@ -10,6 +10,7 @@ import { periodChoice, renderFigures } from './agent-figures.ts'
 import { connectionSection } from './connection.ts'
 import type { ViewContext } from './context.ts'
 import { renderDraftsBehind } from './drafts-behind.ts'
+import { hinted } from './hint.ts'
 import { page } from './parts.ts'
 import { previewSettingsSection } from './preview-settings.ts'
 import { routeMapSection } from './route-map-view.ts'
@@ -28,7 +29,7 @@ export const agentTrustView = (
 ): HTMLElement => {
   const model = myAgentModel(context.state.serverInfo.get(), section)
   if (model.loadsReport) context.actions.refreshAgentReport()
-  const view = renderMyAgent(model, (shown) => sectionContent(context, life, me, shown))
+  const view = renderMyAgent(context, model, (shown) => sectionContent(context, life, me, shown))
   if (model.focusesHeading) {
     const id = headingId(model.shown.section)
     context.page.nextFrame(() => view.ownerDocument.getElementById(id)?.focus({ preventScroll: true }))
@@ -37,6 +38,7 @@ export const agentTrustView = (
 }
 
 const renderMyAgent = (
+  context: ViewContext,
   model: MyAgentModel,
   content: (section: AgentSection) => ReadonlyArray<Child>,
 ): HTMLElement =>
@@ -45,7 +47,12 @@ const renderMyAgent = (
     h(
       'nav',
       { class: 'subtabs my-agent-tabs', 'aria-label': strings.trust.tabsLabel },
-      model.tabs.map((tab) => h('a', { href: tab.href, 'aria-current': tab.current && 'page' }, tab.label)),
+      model.tabs.map((tab) => {
+        const link = h('a', { href: tab.href, 'aria-current': tab.current && 'page' }, tab.label)
+        return tab.section === 'previews'
+          ? hinted(context, 'draftPreviews', strings.hints.draftPreviews, link)
+          : link
+      }),
     ),
     h(
       'section',
@@ -88,6 +95,7 @@ const sectionContent = (
             renderFigures(
               figuresModel(context.state.agentReport.get(), days.get()),
               renderDraftsBehind(context, draftsBehindModel(context.state.agentReport.get(), days.get())),
+              context,
             ),
           {
             class: 'trust-page',
