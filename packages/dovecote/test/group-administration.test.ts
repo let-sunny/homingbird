@@ -11,7 +11,7 @@ beforeEach(async () => {
   ben = await server.signIn('ben@example.com', 'Ben')
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const teams = async () => (await storedRows(server, 'member_groups')).filter((row) => row.kind === 'team')
 

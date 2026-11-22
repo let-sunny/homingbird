@@ -13,7 +13,7 @@ beforeEach(async () => {
   anaAgent = await connectAgent(server, ana, { name: 'Ana agent' })
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 describe('the administration handlers', () => {
   it('list every member, and change one only by a valid id', async () => {

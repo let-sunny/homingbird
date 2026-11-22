@@ -28,7 +28,7 @@ beforeEach(async () => {
   anaAgent = await connectAgent(server, ana, { name: 'Ana agent' })
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const switchTo = async (features: Readonly<Record<string, boolean>>) => {
   const settings = (await ana.api('GET', '/admin/settings')).json

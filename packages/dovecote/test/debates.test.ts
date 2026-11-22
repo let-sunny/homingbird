@@ -11,7 +11,7 @@ beforeEach(async () => {
   cast = await castOf(server)
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 describe('opening a debate room', () => {
   it('opens an open room with the default limits and makes its creator a member', async () => {

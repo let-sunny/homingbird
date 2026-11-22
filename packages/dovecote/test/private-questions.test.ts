@@ -29,7 +29,7 @@ const setManagers = async (people: ReadonlyArray<Session>) => {
 }
 
 afterEach(async () => {
-  await server.close()
+  await server?.close()
 })
 
 describe('asking a channel’s agent privately', () => {

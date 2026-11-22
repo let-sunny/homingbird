@@ -31,7 +31,7 @@ beforeEach(async () => {
   room = await directRoom(ana, ben)
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const draftToBen = async (body: string, basis: string | undefined = APPLIED) =>
   (

@@ -32,7 +32,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await T.runPromise(listening.close)
-  await server.close()
+  await server?.close()
 })
 
 const sendNote = async (body: string) => {

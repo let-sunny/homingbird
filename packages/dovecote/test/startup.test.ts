@@ -7,7 +7,7 @@ import { SERVER_VERSION } from '../src/version.ts'
 import { type TestServer, startTestServer, storedRows } from './harness.ts'
 
 let server: TestServer
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const started = async (overrides: Record<string, string> = {}) => {
   server = await startTestServer(overrides)

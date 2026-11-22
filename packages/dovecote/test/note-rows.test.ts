@@ -23,7 +23,7 @@ beforeEach(async () => {
   benAgent = await connectAgent(server, ben, { name: 'Ben agent' })
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 describe('a note as its viewer sees it', () => {
   it('shows what a draft was based on to its author only', async () => {

@@ -13,7 +13,7 @@ beforeEach(async () => {
   ben = await server.signIn('ben@example.com', 'Ben')
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const placeOfRoom = (id: string) => T.runPromise(placeOfConversation(id as never), server.env)
 

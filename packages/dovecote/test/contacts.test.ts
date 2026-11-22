@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { type Session, type TestServer, asShown, startTestServer } from './harness.ts'
 
 let server: TestServer
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const people = async (overrides: Record<string, string> = {}) => {
   server = await startTestServer(overrides)

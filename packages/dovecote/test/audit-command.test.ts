@@ -9,7 +9,7 @@ import { insertInto, sql } from '../src/sql/query.ts'
 import { type TestServer, connectAgent, startTestServer, storedRows } from './harness.ts'
 
 let server: TestServer
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const command = async (...args: string[]) => {
   const lines: string[] = []

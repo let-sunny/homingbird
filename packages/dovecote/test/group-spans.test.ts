@@ -13,7 +13,7 @@ beforeEach(async () => {
   ben = await server.signIn('ben@example.com', 'Ben')
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const spansOf = async (groupId: string) =>
   (await storedRows(server, 'group_member_spans'))

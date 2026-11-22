@@ -13,7 +13,7 @@ beforeEach(async () => {
   cy = await server.signIn('cy@example.com', 'Cy')
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const auditOf = async (...events: string[]) =>
   (await storedRows(server, 'audit_events'))

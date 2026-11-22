@@ -15,7 +15,7 @@ beforeEach(async () => {
   ana = await server.signIn('ana@example.com', 'Ana')
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const register = async (body: unknown = { client_name: 'Connector', redirect_uris: [REDIRECT] }) =>
   server.request('POST', '/oauth/register', { body })

@@ -24,7 +24,7 @@ beforeEach(async () => {
   ana = await server.signIn('ana@example.com', 'Ana')
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const mention = (user: string | undefined, text: string, extra: Record<string, unknown> = {}) =>
   slackEvent({

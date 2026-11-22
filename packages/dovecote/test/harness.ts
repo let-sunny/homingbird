@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { Task as T, type TestClock, makeTestClock } from '@homingbird/kernel'
 import type { Fetch } from '../src/auth/identity-provider.ts'
 import { type Config, loadConfig } from '../src/config.ts'
@@ -7,9 +8,11 @@ import { SAME_SITE_HEADER, SESSION_COOKIE } from '../src/http/authenticate.ts'
 import type { HttpResponse } from '../src/http/exchange.ts'
 import { prepareDatabase } from '../src/prepare-database.ts'
 import { type Runtime, buildRuntime } from '../src/runtime.ts'
-import { type Connection, type Database, type Row, all, run } from '../src/sql/database.ts'
+import { type Connection, type Database, type Row, all, run, sqlEnvironment } from '../src/sql/database.ts'
+import { MIGRATIONS } from '../src/sql/migrations.ts'
 import { openDatabase } from '../src/sql/open.ts'
 import { type Query, raw, sql } from '../src/sql/query.ts'
+import type { Table } from '../src/sql/schema-steps.ts'
 import { migrate, tableNames } from '../src/sql/schema.ts'
 import { openSqlite } from '../src/sql/sqlite.ts'
 
@@ -151,7 +154,7 @@ export const TEST_DATABASE_URL = process.env.HB_TEST_DATABASE_URL ?? null
 export const openTestDatabase = async (url: string | null = TEST_DATABASE_URL): Promise<Database> => {
   if (url === null) return openSqlite(':memory:')
   const database = await T.runPromise(openDatabase(url))
-  for (const table of tableNames()) await T.runPromise(database.run(raw(`DROP TABLE IF EXISTS ${table}`)))
+  await closingOnFailure(database, dropTables(database))
   return database
 }
 
@@ -221,7 +224,7 @@ export const startTestServer = async (
 ): Promise<TestServer> => {
   const clock = makeTestClock(1_700_000_000_000)
   const databaseUrl = parts.databaseUrl ?? TEST_DATABASE_URL
-  const database = parts.database ?? (await openTestDatabase(databaseUrl))
+  const database = parts.database ?? (await openServedDatabase(databaseUrl))
   const logged: string[] = []
   const desks: TestServer['desks'] = new Set()
   const { env, background, settled, wakePass, slackPass } = buildRuntime({
@@ -231,7 +234,11 @@ export const startTestServer = async (
     write: (line) => logged.push(line),
     ...(parts.fetch !== undefined && { fetch: parts.fetch }),
   })
-  await T.runPromise(overrides.HB_CHANNELS === undefined ? T.asUnit(migrate) : prepareDatabase, env)
+  const migrating = T.runPromise(
+    overrides.HB_CHANNELS === undefined ? T.asUnit(migrate) : prepareDatabase,
+    env,
+  )
+  await (parts.database === undefined ? closingOnFailure(database, migrating) : migrating)
 
   const requestWith =
     (serving: AppEnv): TestServer['request'] =>
@@ -305,7 +312,7 @@ export const startTestServer = async (
       return requestWith({ ...env, database: through, connection: through })
     },
     signIn,
-    close: () => T.runPromise(database.close),
+    close: closeOnce(database),
   }
 }
 
@@ -333,4 +340,95 @@ export const asShown = async (
       ? { body: shown.json.body, conversationId: shown.json.conversationId }
       : { body: 'a draft this sender cannot read', conversationId: 'conv_unreadable00' }
   return { ...body, expected }
+}
+
+/**
+ * The database a test server starts on: at the current schema, with no rows. MySQL commits every change to a
+ * table on its own, so migrating its tables again for every test takes most of each test's time. There the
+ * schema is migrated once and a hash of its shape kept beside it; a later test, in any file, deletes the rows
+ * instead, unless a test changed the schema meanwhile.
+ */
+const openServedDatabase = async (url: string | null): Promise<Database> => {
+  if (url === null || !url.startsWith('mysql:')) return openTestDatabase(url)
+  const database = await T.runPromise(openDatabase(url))
+  await closingOnFailure(database, resetMysql(database))
+  return database
+}
+
+const resetMysql = async (database: Database): Promise<void> => {
+  if ((await mysqlSchema(database)) === (await recordedMysqlSchema(database))) {
+    for (const table of tableNames())
+      if (table !== 'schema_versions') await T.runPromise(database.run(raw(`DELETE FROM ${table}`)))
+    for (const table of SERIAL_TABLES)
+      await T.runPromise(database.run(raw(`ALTER TABLE ${table} AUTO_INCREMENT = 1`)))
+    return
+  }
+  await dropTables(database)
+  await T.runPromise(migrate, sqlEnvironment(database))
+  await T.runPromise(database.run(raw(`DROP TABLE IF EXISTS ${SCHEMA_RECORD}`)))
+  await T.runPromise(database.run(raw(`CREATE TABLE ${SCHEMA_RECORD} (shape VARCHAR(64) NOT NULL)`)))
+  const migrated = await mysqlSchema(database)
+  await T.runPromise(database.run(sql`INSERT INTO ${raw(SCHEMA_RECORD)} (shape) VALUES (${migrated})`))
+}
+
+const recordedMysqlSchema = async (database: Database): Promise<string | null> => {
+  const record = await T.runPromise(
+    database.all(sql`SELECT table_name AS table_name FROM information_schema.tables
+      WHERE table_schema = DATABASE() AND table_name = ${SCHEMA_RECORD}`),
+  )
+  if (record.length === 0) return null
+  const shapes = await T.runPromise(database.all(raw(`SELECT shape FROM ${SCHEMA_RECORD}`)))
+  return shapes.length === 1 ? String(shapes[0]!.shape) : null
+}
+
+/** A hash of every column and index of the database and of the migration steps it records as applied. */
+const mysqlSchema = async (database: Database): Promise<string> => {
+  const columns = await T.runPromise(
+    database.all(sql`SELECT table_name AS table_name, column_name AS column_name, column_type AS column_type,
+      is_nullable AS is_nullable FROM information_schema.columns
+      WHERE table_schema = DATABASE() AND table_name <> ${SCHEMA_RECORD} ORDER BY table_name, ordinal_position`),
+  )
+  const indexes = await T.runPromise(
+    database.all(sql`SELECT table_name AS table_name, index_name AS index_name, column_name AS column_name,
+      non_unique AS non_unique FROM information_schema.statistics
+      WHERE table_schema = DATABASE() AND table_name <> ${SCHEMA_RECORD}
+      ORDER BY table_name, index_name, seq_in_index`),
+  )
+  const hasVersions = columns.some((column) => column.table_name === 'schema_versions')
+  const versions = hasVersions
+    ? await T.runPromise(database.all(sql`SELECT version FROM schema_versions ORDER BY version`))
+    : []
+  const shape = JSON.stringify([columns, indexes, versions.map((row) => Number(row.version))])
+  return createHash('sha256').update(shape).digest('hex')
+}
+
+/** Holds the hash of the schema the harness last migrated; no migration knows it, so none drops it. */
+const SCHEMA_RECORD = 'test_harness_schema'
+
+const SERIAL_TABLES = MIGRATIONS.flat()
+  .filter((step): step is Table => 'primaryKey' in step)
+  .filter((table) => Object.values(table.columns).some((column) => column.type === 'serial'))
+  .map((table) => table.name)
+
+const dropTables = async (database: Database): Promise<void> => {
+  for (const table of tableNames()) await T.runPromise(database.run(raw(`DROP TABLE IF EXISTS ${table}`)))
+}
+
+/** A setup that fails closes the database it opened, so no connection outlives the test that opened it. */
+const closingOnFailure = async <A>(database: Database, setup: Promise<A>): Promise<A> => {
+  try {
+    return await setup
+  } catch (failure) {
+    await T.runPromise(database.close)
+    throw failure
+  }
+}
+
+/** Closing a server twice, as a test that timed out and the hook after it can, closes it once. */
+const closeOnce = (database: Database): (() => Promise<void>) => {
+  let closing: Promise<void> | null = null
+  return () => {
+    closing ??= T.runPromise(database.close)
+    return closing
+  }
 }

@@ -70,7 +70,7 @@ beforeEach(async () => {
   keepAwake(server, ben.me.member.id, benAgent)
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const SECRET_BODY = 'draft-only secret 7f3a'
 

@@ -37,7 +37,7 @@ beforeEach(async () => {
   cyAgent = await connectAgent(server, cy, { name: 'Cy agent' })
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const channels = async (who: Session | Agent, query = '') =>
   (await who.api('GET', `/channels${query}`)).json.channels as any[]

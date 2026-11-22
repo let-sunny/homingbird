@@ -4,7 +4,7 @@ import { CHANNEL, startAgent, startWithChannel } from './channel-agent-support.t
 import { type TestServer, connectAgent, everyStoredValue, startTestServer, storedRows } from './harness.ts'
 
 let server: TestServer
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const redeem = (code: string, form: Record<string, string> = {}) =>
   server.request('POST', '/oauth/join', {

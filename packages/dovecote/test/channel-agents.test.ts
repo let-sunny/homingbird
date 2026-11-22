@@ -20,7 +20,7 @@ const start = async (overrides: Readonly<Record<string, string>> = {}) => {
 }
 
 afterEach(async () => {
-  await server.close()
+  await server?.close()
 })
 
 const auditEvents = async (event: string) =>

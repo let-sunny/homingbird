@@ -23,7 +23,7 @@ beforeEach(async () => {
   benAgent = await connectAgent(server, ben, { name: 'Ben agent' })
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const send = async (author: Session, to: Session, body: string) => {
   const draft = (await author.api('POST', '/drafts', { to: [to.me.member.id], body })).json

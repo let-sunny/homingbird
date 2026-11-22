@@ -33,7 +33,7 @@ beforeEach(async () => {
   await savedAnswerFor(ana, [await directRoom(ana, ben)])
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const autoSentToBen = async (inReplyTo?: string) =>
   (

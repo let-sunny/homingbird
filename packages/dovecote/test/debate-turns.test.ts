@@ -25,7 +25,7 @@ beforeEach(async () => {
   cast = await castOf(server)
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const turn = (agent: Cast['anaAgent'], id: string, body = 'A point.') =>
   agent.api('POST', `/debates/${id}/turns`, { body })

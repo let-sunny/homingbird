@@ -9,7 +9,7 @@ beforeEach(async () => {
   server = await startTestServer({ HB_LOGS: 'requests=on,operational=info' })
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 describe('answering a request', () => {
   it('answers the health check without signing in, under a request id of its own', async () => {

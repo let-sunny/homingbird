@@ -54,7 +54,7 @@ describe('pushing to a person who muted or chose a level', () => {
 
   afterEach(async () => {
     await running.interrupt()
-    await server.close()
+    await server?.close()
   })
 
   const send = async (where: { readonly to: string[] } | { readonly channel: string }, body: string) => {

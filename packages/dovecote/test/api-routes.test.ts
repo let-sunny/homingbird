@@ -12,7 +12,7 @@ beforeEach(async () => {
   anaAgent = await connectAgent(server, ana, { name: 'Ana agent' })
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 describe('the API routes', () => {
   it('find a route by method and path, with its parameters', () => {

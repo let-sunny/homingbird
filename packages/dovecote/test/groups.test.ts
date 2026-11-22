@@ -28,7 +28,7 @@ beforeEach(async () => {
   await server.clock.advance(1)
 })
 
-afterEach(() => server.close())
+afterEach(() => server?.close())
 
 const running = <A>(task: T.Task<A, unknown, any>) => T.runPromise(T.result(task), server.env)
 
