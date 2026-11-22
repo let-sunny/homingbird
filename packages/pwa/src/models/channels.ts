@@ -2,6 +2,7 @@ import type { AsRead, ConversationId, Group, GroupId, MemberId } from '@homingbi
 import { channelLabel, channelNamed, isPrivate, isValidSlug, similarChannels, slugFrom } from '../channels.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
+import { answeredByAgent } from './channel-membership.ts'
 
 /** The channel list as the person has searched and paged it. */
 export interface ListedChannels {
@@ -128,6 +129,8 @@ export interface ChannelCard {
   readonly label: string
   readonly href: string
   readonly status: { readonly text: string; readonly className: string } | null
+  /** Why the person's own agent drafts nothing here, while they answer or could join to: its own agent answers. */
+  readonly agentNote: string | null
   /** Joining an open channel the person is not in: one button, answering there too in its menu. */
   readonly join: { readonly label: string; readonly more: string; readonly joinAndAnswer: string } | null
 }
@@ -158,6 +161,7 @@ const channelCard = (channel: AsRead.Channel): ChannelCard => ({
     : channel.joined
       ? { text: strings.inRoom, className: 'kind is-joined' }
       : null,
+  agentNote: channel.answering || !channel.joined ? answeredByAgent(channel) : null,
   join:
     channel.joined || isPrivate(channel)
       ? null

@@ -10,7 +10,7 @@ import {
   withPage,
 } from '../../src/models/channels.ts'
 import { strings } from '../../src/strings.ts'
-import { channel, conversation } from '../support/fixtures.ts'
+import { CY, channel, conversation } from '../support/fixtures.ts'
 
 const listed = (fields: Partial<ListedChannels> = {}): ListedChannels => ({
   query: '',
@@ -63,6 +63,27 @@ describe('channelListModel', () => {
         },
         'channel-card  ',
       ],
+    ])
+  })
+
+  it('says why the person’s agent drafts nothing in a channel with its own agent, where they answer or could join to', () => {
+    const agent = { id: CY, name: 'Billing helper' }
+    const listing = channelListModel(
+      listed({
+        channels: [
+          channel('a', { agent }),
+          channel('b', { agent, joined: true, answering: true }),
+          channel('c', { agent, joined: true }),
+          channel('d', { joined: true, answering: true }),
+        ],
+      }),
+    )
+    if (listing.kind !== 'channels') throw new Error('expected channels')
+    expect(listing.cards.map((card) => card.agentNote)).toEqual([
+      strings.answeredByChannelAgent({ agent: 'Billing helper', channel: '#a' }),
+      strings.answeredByChannelAgent({ agent: 'Billing helper', channel: '#b' }),
+      null,
+      null,
     ])
   })
 })

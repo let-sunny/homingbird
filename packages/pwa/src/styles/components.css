@@ -2758,6 +2758,11 @@ button.group-member-name:focus-visible::after {
   background: var(--hb-color-surface);
 }
 
+.room-controls > .answering-agent-note {
+  flex-basis: 100%;
+  margin: 0;
+}
+
 .switch.answering-chip {
   flex: none;
   flex-wrap: nowrap;

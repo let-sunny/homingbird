@@ -264,6 +264,8 @@ export const en = {
   },
   answerHereHint:
     'On: questions asked here reach you, and your agent drafts the replies for you to approve. Off: you stay in the room and only read.',
+  answeredByChannelAgent:
+    '{agent} drafts the answers to questions in {channel} and its managers review them, so your own agent does not.',
   leaveChannel: 'Leave channel',
   leaveChannelTitle: 'Leave {channel}?',
   leaveChannelBody:
@@ -2294,6 +2296,11 @@ export const en = {
     hint: 'When your agent’s draft is exactly this answer, word for word, and goes to a place you choose below, it is sent without waiting for you. Anything else still waits for your approval. For five minutes after it is sent, you can recall it.',
     placesLabel: 'Where it may send itself',
     placesHint: 'Direct messages, and open channels you are in.',
+    agentChannels: {
+      one: '{channels} has its own agent, whose answers its managers review, so a saved answer never sends itself there.',
+      other:
+        '{channels} have their own agents, whose answers their managers review, so a saved answer never sends itself there.',
+    },
     noPlaces: 'Join an open channel or send a direct message first.',
     needsPlace: 'Choose at least one place where it may send itself.',
     save: 'Save',

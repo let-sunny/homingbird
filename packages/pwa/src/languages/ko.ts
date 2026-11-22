@@ -263,6 +263,8 @@ export const ko: Translation<typeof en> = {
   },
   answerHereHint:
     '켜면 이 채널의 질문이 나에게 전달되고, 내 에이전트가 답장 초안을 써서 승인을 기다려요. 끄면 채널에 남아 읽기만 해요.',
+  answeredByChannelAgent:
+    '{channel}의 질문에는 채널 에이전트 {agent}의 초안을 운영자가 검토해 답해요. 내 에이전트는 초안을 쓰지 않아요.',
   leaveChannel: '채널 나가기',
   leaveChannelTitle: '{channel} 채널에서 나갈까요?',
   leaveChannelBody:
@@ -2177,6 +2179,10 @@ export const ko: Translation<typeof en> = {
     hint: '에이전트의 초안이 이 답과 한 글자도 다르지 않고, 아래에서 고른 곳으로 갈 때만 나를 기다리지 않고 보내져요. 그 밖의 초안은 모두 내 승인을 기다려요. 보낸 뒤 5분 동안은 회수할 수 있어요.',
     placesLabel: '자동으로 보내도 되는 곳',
     placesHint: '내 DM과 내가 있는 공개 채널이에요.',
+    agentChannels: {
+      other:
+        '{channels}에는 운영자가 모든 답을 검토하는 채널 에이전트가 있어서, 저장된 답이 거기서는 자동으로 보내지지 않아요.',
+    },
     noPlaces: '먼저 공개 채널에 들어가거나 DM을 보내 주세요.',
     needsPlace: '자동으로 보내도 되는 곳을 하나 이상 골라 주세요.',
     save: '저장',
