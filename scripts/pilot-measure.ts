@@ -582,9 +582,9 @@ const PRINCIPLE_TOPICS = ['Release dates', 'Billing questions', 'Who owns what']
 
 const isRunDirectly = process.argv[1] !== undefined && import.meta.filename === process.argv[1]
 
-if (isRunDirectly) await measure()
-
 const asShown = (draft: { readonly body: string; readonly conversationId: string }) => ({
   body: draft.body,
   conversationId: draft.conversationId,
 })
+
+if (isRunDirectly) await measure()
