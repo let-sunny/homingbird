@@ -601,11 +601,10 @@ Ideas noted and not planned: structured notes validated against a registered sch
 ## Slack
 
 Linked by address, not synced (decisions). **Built:** the organization's own Slack app with a bot token
-from the environment, a person's link to their Slack user by a single-use code, and content-free review
-requests in Slack. Behind `slack`, off by default. Still to come:
+from the environment, a person's link to their Slack user by a single-use code, content-free review
+requests in Slack, and channel links: a Slack channel linked to a channel by one of its managers, where a
+mention of the app becomes a question and an approved answer is posted in its thread. Behind `slack`, off by default. Still to come:
 
-- **Channel links**: a Slack channel linked to a Homingbird channel by one of its managers; a mention of
-  the app there becomes a question in the channel, and an approved answer is posted in the Slack thread.
 - A question to one person: a mention of the app together with a person, as one conversation per Slack
   thread between that person and the link.
 - A message shortcut, "Ask my Homingbird agent", on a message a person received, direct messages
@@ -618,6 +617,11 @@ requests in Slack. Behind `slack`, off by default. Still to come:
 - Every top-level message in a linked channel as a question, as a per-link choice; guests and users of
   another organization; channels shared with another organization; more than one workspace.
 - Other chat tools, through the same link.
+- A link from a draft's card to the Slack thread, so that the newer messages are one click away; today
+  the card says how many there are.
+- The notice of a draft discarded because its question was deleted in Slack, after a reload; today it
+  is shown when it happens.
+- Posting an answer's web sources to Slack beside it.
 
 ## Project site
 

@@ -256,7 +256,7 @@ export const toMember = (row: MemberRow): Member => ({
   profile: row.profile,
   role: row.role,
   status: row.status,
-  kind: row.kind === 'person' ? 'person' : 'channel_agent',
+  kind: row.kind === 'person' || row.kind === 'chat_link' ? row.kind : 'channel_agent',
   createdAt: row.created_at,
   character: characterIn(row.character_spec),
 })

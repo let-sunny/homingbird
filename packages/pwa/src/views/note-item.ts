@@ -121,6 +121,14 @@ export const renderNoteItem = (
           model.waits.text,
         ),
       model.noAnswer !== null && h('p', { class: 'no-answer hint' }, model.noAnswer),
+      model.slack !== null &&
+        h(
+          'p',
+          { class: 'slack-state hint', role: 'status' },
+          h('span', {}, model.slack.text),
+          model.slack.retry !== null &&
+            button(model.slack.retry, () => actions.retrySlackPost(note.id), { class: 'slack-retry' }),
+        ),
       model.answerDiscarded !== null &&
         h(
           'p',

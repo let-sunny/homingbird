@@ -1041,6 +1041,26 @@ export const contract = {
     response: OrganizationInsights,
   }),
   'admin.slack.get': route({ method: 'GET', path: '/admin/slack', access: 'admin', response: AdminSlack }),
+  'channels.slack.link': route({
+    method: 'POST',
+    path: '/channels/:slug/slack',
+    access: 'human',
+    body: S.struct({ code: SlackLinkCode }),
+    response: Channel,
+  }),
+  'channels.slack.unlink': route({
+    method: 'DELETE',
+    path: '/channels/:slug/slack',
+    access: 'human',
+    response: Empty,
+  }),
+  'notes.posting.retry': route({
+    method: 'POST',
+    path: '/notes/:id/posting/retry',
+    access: 'human',
+    body: Empty,
+    response: Note,
+  }),
 } as const satisfies Readonly<Record<string, Route>>
 
 export type Contract = typeof contract

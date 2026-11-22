@@ -199,6 +199,8 @@ describe('the tool table', () => {
         'channels.managers.addTeam',
         'channels.members.add',
         'channels.members.remove',
+        'channels.slack.link',
+        'channels.slack.unlink',
       ].sort(),
     )
     for (const tool of TOOLS) {

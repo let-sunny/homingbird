@@ -90,7 +90,15 @@ export const FEATURES = {
   },
   slack: {
     default: false,
-    routes: ['admin.slack.get', 'me.slack.get', 'me.slack.connect', 'me.slack.link', 'slack.codes.get'],
+    routes: [
+      'admin.slack.get',
+      'me.slack.get',
+      'me.slack.connect',
+      'me.slack.link',
+      'slack.codes.get',
+      'channels.slack.link',
+      'notes.posting.retry',
+    ],
   },
   joinCodes: { default: true, routes: ['joinCodes.create', 'joinCodes.status'] },
   deskAvailability: { default: true, routes: ['me.desk.unavailable', 'me.desk.available'] },

@@ -21,6 +21,7 @@ import { makeLog, writeToStandardOutput } from './log/operational-log.ts'
 import { makePushNotifier, sendDeskUnavailablePush, sendTestPush } from './push/notifier.ts'
 import { cryptoRandom } from './random.ts'
 import { slackIntakePass } from './slack/slack-intake.ts'
+import { slackOutboxPass } from './slack/slack-outbox.ts'
 import { makeSlackApi } from './slack/slack-web-api.ts'
 import { checkSlackWorkspace } from './slack/slack-workspace.ts'
 import { type Database, sqlEnvironment } from './sql/database.ts'
@@ -103,7 +104,7 @@ export const buildRuntime = (parts: RuntimeParts): Runtime => {
       slackIntake,
     ]),
     wakePass: waker.pass,
-    slackPass: slackIntakePass,
+    slackPass: T.flatMap(() => slackOutboxPass)(slackIntakePass),
     settled: T.gen(function* () {
       yield* push.settled
       yield* analytics.settled
@@ -162,7 +163,9 @@ const slackWorkspaceChecks: T.Task<never, never, AppEnv> = T.forever(60 * 60_000
 )
 
 const slackIntake: T.Task<never, never, AppEnv> = T.forever(3000)(
-  survivingPass('slack intake', slackIntakePass),
+  T.flatMap(() => survivingPass('slack outbox', slackOutboxPass))(
+    survivingPass('slack intake', slackIntakePass),
+  ),
 )
 
 const chainHead: T.Task<never, never, AppEnv> = T.forever(24 * 60 * 60_000)(

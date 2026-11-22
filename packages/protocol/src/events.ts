@@ -15,7 +15,7 @@ export const EventBody = S.openVariants(
     'draft.discarded': {
       noteId: NoteId,
       conversationId: ConversationId,
-      because: S.optional(S.tolerant(S.literal('channel_archived'), UNKNOWN)),
+      because: S.optional(S.tolerant(S.literal('channel_archived', 'slack_deleted'), UNKNOWN)),
       channel: S.optional(ChannelSlug),
     },
     'note.withdrawn': { noteId: NoteId, conversationId: ConversationId },

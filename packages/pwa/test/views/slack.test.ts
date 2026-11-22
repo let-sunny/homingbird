@@ -54,6 +54,38 @@ describe('slackLinkView', () => {
     expect(page.state.hash).toBe('#/agent/connection')
   })
 
+  it('links a Slack channel to the channel the person chooses, then opens it', () => {
+    const { context, called, page } = testContext()
+    const shown = mount(slackLinkView(context, lifetime(), CODE))
+    called('readSlackCode')[0]!.then!.done!({
+      kind: 'channel',
+      slackName: 'Ana',
+      team: 'Acme',
+      expiresAt: 1,
+      channel: { name: 'billing-help', isPrivate: false, memberCount: 12, choices: ['billing', 'refunds'] },
+    })
+    expect(textOf(shown)).toContain(strings.slack.confirmChannel({ channel: 'billing-help', count: 12 }))
+    expect(textOf(shown)).toContain(strings.slack.confirmChannelHint)
+    getByRole(shown, 'button', { name: strings.slack.confirm }).click()
+    expect(called('linkSlackChannel')[0]!.args).toEqual(['billing', CODE])
+    called('linkSlackChannel')[0]!.then!.done!({ slug: 'billing' })
+    expect(page.state.hash).toBe('#/channel/billing')
+  })
+
+  it('says when there is no channel to link a Slack channel to', () => {
+    const { context, called } = testContext()
+    const shown = mount(slackLinkView(context, lifetime(), CODE))
+    called('readSlackCode')[0]!.then!.done!({
+      kind: 'channel',
+      slackName: 'Ana',
+      team: 'Acme',
+      expiresAt: 1,
+      channel: { name: 'payroll', isPrivate: true, memberCount: 4, choices: [] },
+    })
+    expect(textOf(shown)).toContain(strings.slack.noChannelChoices)
+    expect(shown.querySelector('select')).toBeNull()
+  })
+
   it('says a link that no longer works is gone', () => {
     const { context, called } = testContext()
     const shown = mount(slackLinkView(context, lifetime(), CODE))

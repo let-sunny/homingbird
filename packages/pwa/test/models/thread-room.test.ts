@@ -231,6 +231,7 @@ describe('threadHeadModel', () => {
         title: strings.participants.inChannel({ channel: '#billing' }),
       }),
       answerCount: strings.answerCount({ count: billing.helperCount }),
+      slackLink: null,
       mute: expect.objectContaining({ label: 'Mute #billing' }),
     })
     const helped = channel('billing', {

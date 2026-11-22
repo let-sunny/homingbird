@@ -15,6 +15,7 @@ import { type RequestEnv, transact } from '../events/events.ts'
 import { hashSecret } from '../random.ts'
 import { first, run } from '../sql/database.ts'
 import { insertInto, sql } from '../sql/query.ts'
+import { type SlackChannelFacts, channelChoicesFor } from './slack-channels.ts'
 import { slackTextsIn } from './slack-texts.ts'
 import type { SlackCallFailure, SlackUser } from './slack-web-api.ts'
 import { type WorkingSlack, pinnedWorkspace, slackCallFailed, workingSlack } from './slack-workspace.ts'
@@ -63,13 +64,24 @@ export const requestSlackLink = (caller: Caller): T.Task<{ readonly sent: boolea
 
 export const slackCodeFor = (caller: Caller, code: string): T.Task<SlackCodeView, NotFound, AppEnv> =>
   T.gen(function* () {
-    const row = yield* usableCode(caller.member.id, code)
+    const row = yield* usableCode(caller.member.id, code, null)
     const workspace = yield* pinnedWorkspace
-    return {
-      kind: 'person',
+    const view = {
       slackName: row.slack_name,
       team: workspace?.team_name ?? '',
       expiresAt: Number(row.expires_at),
+    }
+    if (row.kind !== 'channel' || row.slack_channel === null) return { kind: 'person', ...view }
+    const channel = JSON.parse(row.slack_channel) as SlackChannelFacts
+    return {
+      kind: 'channel',
+      ...view,
+      channel: {
+        name: channel.name,
+        isPrivate: channel.isPrivate,
+        memberCount: channel.memberCount,
+        choices: yield* channelChoicesFor(caller.member.id, channel),
+      },
     }
   })
 
@@ -80,7 +92,7 @@ export const linkSlackPerson = (
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
     if ((yield* workingSlack) === null) return yield* T.fail(Conflict({ message: NOT_CONNECTED }))
-    const row = yield* usableCode(caller.member.id, code)
+    const row = yield* usableCode(caller.member.id, code, 'person')
     if ((yield* slackPersonOf(caller.member.id)) !== null)
       return yield* T.fail(Conflict({ message: 'You are already linked to a Slack user; unlink it first.' }))
     if ((yield* slackPersonBySlackUser(row.slack_user_id)) !== null)
@@ -131,13 +143,25 @@ export const offerSlackLink = (
     yield* calling('chat.postEphemeral', slack.api.postEphemeral({ ...place, user: user.id, text }))
   })
 
+/** A message only one Slack user sees, in English: Homingbird does not know their language. */
+export const tellOnly = (
+  slack: WorkingSlack,
+  user: SlackUser,
+  place: { readonly channel: string; readonly threadTs?: string },
+  what: 'membersOnly' | 'notLinkedHere',
+): T.Task<void, never, AppEnv> => {
+  const texts = slackTextsIn(null)
+  const text = what === 'membersOnly' ? texts.membersOnly(slack.workspace.team_name) : texts.notLinkedHere
+  return T.asUnit(calling('chat.postEphemeral', slack.api.postEphemeral({ ...place, user: user.id, text })))
+}
+
 export const slackPersonOf = (memberId: MemberId): T.Task<SlackPersonRow | null, never, AppEnv> =>
   first<SlackPersonRow>(sql`SELECT * FROM slack_people WHERE member_id = ${memberId}`)
 
 export const slackPersonBySlackUser = (slackUserId: string): T.Task<SlackPersonRow | null, never, AppEnv> =>
   first<SlackPersonRow>(sql`SELECT * FROM slack_people WHERE slack_user_id = ${slackUserId}`)
 
-const isEligible = (slack: WorkingSlack, user: SlackUser): boolean =>
+export const isEligible = (slack: WorkingSlack, user: SlackUser): boolean =>
   user.isFullMember && (user.teamId === null || user.teamId === slack.workspace.team_id)
 
 export const calling = <A>(
@@ -178,13 +202,18 @@ const makeCode = (user: SlackUser, memberId: MemberId | null): T.Task<string, ne
     return code
   })
 
-const usableCode = (memberId: MemberId, code: string): T.Task<CodeRow, NotFound, AppEnv> =>
+const usableCode = (
+  memberId: MemberId,
+  code: string,
+  kind: 'person' | null,
+): T.Task<CodeRow, NotFound, AppEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
     const row = yield* first<CodeRow>(sql`SELECT * FROM slack_codes WHERE code_hash = ${hashSecret(code)}`)
     const usable =
       row !== null &&
       row.used_at === null &&
+      (kind === null || row.kind === kind) &&
       Number(row.expires_at) > env.clock.now() &&
       (row.member_id === null || row.member_id === memberId)
     return usable ? row : yield* T.fail(NotFound({ message: CODE_GONE }))
@@ -202,4 +231,5 @@ interface CodeRow {
   readonly slack_name: string
   readonly expires_at: number
   readonly used_at: number | null
+  readonly slack_channel: string | null
 }

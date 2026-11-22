@@ -10,6 +10,7 @@ import { DRAFT_PREVIEWS } from '../src/sql/migrations/draft-previews-step.ts'
 import { HISTORY_ANSWERS } from '../src/sql/migrations/history-answers-step.ts'
 import { INSIGHTS } from '../src/sql/migrations/insights-step.ts'
 import { MUTE } from '../src/sql/migrations/mute-step.ts'
+import { SLACK_CHANNELS } from '../src/sql/migrations/slack-channels-step.ts'
 import { SLACK } from '../src/sql/migrations/slack-step.ts'
 import { SOURCES_AND_REASONS } from '../src/sql/migrations/sources-and-reasons-step.ts'
 import { SPENT_REFRESH_TOKENS } from '../src/sql/migrations/spent-refresh-tokens-step.ts'
@@ -19,8 +20,8 @@ const tablesOf = (steps: ReadonlyArray<Step>): string[] =>
   steps.flatMap((step) => ('primaryKey' in step ? [step.name] : []))
 
 describe('the migrations', () => {
-  it('run in a fixed order, with the audit trail as the fifth step, groups as the sixth, channel agents as the eighth, mutes as the ninth, the cloud desk as the tenth, insights as the eleventh, spent refresh tokens as the twelfth, answers from history as the thirteenth, sources and reasons as the fourteenth, debate pacing as the fifteenth, channel teaching as the sixteenth, automatic sending as the seventeenth, draft previews as the eighteenth who discarded an answer as the nineteenth and Slack as the twentieth', () => {
-    expect(MIGRATIONS).toHaveLength(20)
+  it('run in a fixed order, with the audit trail as the fifth step, groups as the sixth, channel agents as the eighth, mutes as the ninth, the cloud desk as the tenth, insights as the eleventh, spent refresh tokens as the twelfth, answers from history as the thirteenth, sources and reasons as the fourteenth, debate pacing as the fifteenth, channel teaching as the sixteenth, automatic sending as the seventeenth, draft previews as the eighteenth, who discarded an answer as the nineteenth, Slack as the twentieth and Slack channel links as the twenty-first', () => {
+    expect(MIGRATIONS).toHaveLength(21)
     expect(MIGRATIONS.indexOf(CLOUD_DESK)).toBe(9)
     expect(MIGRATIONS.indexOf(INSIGHTS)).toBe(10)
     expect(MIGRATIONS.indexOf(SPENT_REFRESH_TOKENS)).toBe(11)
@@ -33,7 +34,8 @@ describe('the migrations', () => {
     expect(MIGRATIONS.indexOf(AUTO_SEND)).toBe(16)
     expect(MIGRATIONS.indexOf(DRAFT_PREVIEWS)).toBe(17)
     expect(MIGRATIONS.indexOf(DISCARDED_BY)).toBe(18)
-    expect(MIGRATIONS.at(-1)).toBe(SLACK)
+    expect(MIGRATIONS.indexOf(SLACK)).toBe(19)
+    expect(MIGRATIONS.at(-1)).toBe(SLACK_CHANNELS)
     expect(AUDIT_TRAIL_STEP).toBe(5)
   })
 

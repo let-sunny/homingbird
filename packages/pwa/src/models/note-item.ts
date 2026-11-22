@@ -57,7 +57,15 @@ export const noteItemModel = (
     author: leadsRun ? authorModel(input, note, authorship, sentAt, charactersOn) : null,
     spokenAuthorship: leadsRun ? null : authorship,
     spokenSent: sentAt === null ? null : strings.authorship.sent({ time: sentAt }),
-    authorName: inRoom && leadsRun ? (mine ? strings.you : nameIn(input, note.authorId)) : null,
+    authorName:
+      inRoom && leadsRun
+        ? mine
+          ? strings.you
+          : note.via !== undefined
+            ? strings.slack.askedIn({ name: note.via.askerName, channel: note.via.channelName })
+            : nameIn(input, note.authorId)
+        : null,
+    slack: slackLineOf(note),
     bubbleTitle: next !== null && sentAt !== null ? sentAt : null,
     quote:
       quoted === null
@@ -134,6 +142,8 @@ export const noteItemModel = (
 
 export interface NoteItemModel {
   readonly noteId: NoteId
+  /** What became of the note in Slack: an arrived copy edited or deleted there, or a reply's post. */
+  readonly slack: { readonly text: string; readonly retry: string | null } | null
   readonly className: string
   readonly unread: boolean
   readonly author: AuthorModel | null
@@ -298,6 +308,11 @@ const authorshipLine = (input: ThreadInput, note: AsRead.Note, mine: boolean): s
       return mine ? strings.authorship.editedYou : strings.authorship.edited({ name })
     case 'person':
       return mine ? strings.authorship.personYou : strings.authorship.person({ name })
+    case 'outside':
+      return strings.slack.askedInLine({
+        name: note.via?.askerName ?? name,
+        channel: note.via?.channelName ?? '',
+      })
   }
 }
 
@@ -320,7 +335,7 @@ const authorModel = (
         labelled: false,
       },
     ),
-    agentMark: note.origin !== 'human',
+    agentMark: note.origin !== 'human' && note.origin !== 'outside',
     line,
     debate:
       note.fromDebate === undefined
@@ -452,4 +467,14 @@ const autoSentModel = (input: ThreadInput, note: AsRead.Note, mine: boolean): No
       : strings.autoSend.sentByTheirs({ name: nameIn(input, note.authorId) }),
     recall: mayRecall(note, input.me.member.id, input.now) ? strings.autoSend.recall : null,
   }
+}
+
+const slackLineOf = (note: AsRead.Note): NoteItemModel['slack'] => {
+  if (note.via?.deleted === true) return { text: strings.slack.deletedInSlack, retry: null }
+  if (note.via?.edited === true) return { text: strings.slack.editedInSlack, retry: null }
+  if (note.posting === 'pending') return { text: strings.slack.postingToSlack, retry: null }
+  if (note.posting === 'posted') return { text: strings.slack.postedToSlack, retry: null }
+  if (note.posting === 'failed')
+    return { text: strings.slack.notPostedToSlack, retry: strings.slack.tryAgain }
+  return null
 }

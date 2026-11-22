@@ -6,6 +6,7 @@ import {
   SLACK_BOT_SCOPES,
   SLACK_CODE_LIFETIME_MS,
   SLACK_EVENTS_PATH,
+  SLACK_THREAD_MOVED,
   SlackCodeView,
   SlackLinkCode,
   SlackWorkspace,
@@ -50,6 +51,18 @@ describe('the Slack connection as clients read it', () => {
   it('reads a code of a kind it does not know as unknown', () => {
     const read = SlackCodeView.read({ kind: 'room', slackName: 'Ana', team: 'Acme', expiresAt: 1 })
     expect(read._tag === 'Ok' && read.value.kind).toBe('unknown')
+  })
+
+  it('describes a channel link’s code with the Slack channel and the channels it may link to', () => {
+    const view = {
+      kind: 'channel',
+      slackName: 'Ana',
+      team: 'Acme',
+      expiresAt: 1,
+      channel: { name: 'billing-help', isPrivate: false, memberCount: 12, choices: ['billing'] },
+    }
+    expect(SlackCodeView.decode(view)._tag).toBe('Ok')
+    expect(SLACK_THREAD_MOVED).toBe('The Slack thread has newer messages. Read them, then send again.')
   })
 
   it('takes a link code of URL-safe characters only', () => {

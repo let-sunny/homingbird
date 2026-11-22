@@ -146,6 +146,7 @@ export const threadHeadModel = (input: ThreadInput): ThreadHead => {
           ? participants
           : { ...participants, label: strings.memberCount({ count: channel.memberCount }) },
       answerCount: channel === null ? null : strings.answerCount({ count: channel.helperCount }),
+      slackLink: slackLinkLine(channel),
       mute,
     }
   }
@@ -192,6 +193,8 @@ export type ThreadHead =
       /** Everyone in the room, listed behind its member count. */
       readonly people: Participants
       readonly answerCount: string | null
+      /** The Slack channel linked to this one, and whether the person may unlink it. */
+      readonly slackLink: { readonly text: string; readonly unlink: string | null } | null
       readonly mute: MuteToggle | null
     }
   | {
@@ -205,3 +208,17 @@ export type ThreadHead =
       readonly showsCount: boolean
       readonly mute: MuteToggle | null
     }
+
+const slackLinkLine = (
+  channel: AsRead.Channel | null,
+): Extract<ThreadHead, { kind: 'channel' }>['slackLink'] => {
+  const link = channel?.link
+  if (link === undefined || link === null) return null
+  return {
+    text:
+      link.state === 'active'
+        ? strings.slack.linkedChannel({ channel: link.name })
+        : strings.slack.linkStopped({ channel: link.name }),
+    unlink: channel?.managing === true ? strings.slack.unlinkChannel : null,
+  }
+}

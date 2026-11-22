@@ -10,6 +10,12 @@ export interface SlackTexts {
   readonly alreadyLinked: (name: string) => string
   readonly membersOnly: (team: string) => string
   readonly reviewWaiting: (url: string) => string
+  readonly channelLinkOffered: (url: string) => string
+  readonly channelLinked: (channel: string) => string
+  readonly sharedChannel: string
+  readonly notLinkedHere: string
+  readonly askerLimited: string
+  readonly linkLimited: string
 }
 
 /** The address is the server's own and holds no `|` or `>`. */
@@ -24,6 +30,15 @@ const en: SlackTexts = {
     `Your Slack user is linked to Homingbird as ${escapeSlackText(name)}. To change it, unlink it under My agent in Homingbird first.`,
   membersOnly: (team) => `Homingbird answers full members of ${escapeSlackText(team)} only.`,
   reviewWaiting: (url) => `A draft waits for your decision. ${slackLink(url, 'Open it in Homingbird')}`,
+  channelLinkOffered: (url) =>
+    `To link this channel to a Homingbird channel you manage, ${slackLink(url, 'open this link')} within 10 minutes and choose the channel.`,
+  channelLinked: (channel) =>
+    `This channel is linked to Homingbird ${escapeSlackText(channel)}. Mention @Homingbird with a question: its members read it there, and the answer a person approves is posted in the thread.`,
+  sharedChannel: 'A channel shared with another organization cannot be linked to Homingbird.',
+  notLinkedHere:
+    'This channel is not linked to Homingbird. A manager of a Homingbird channel links it by mentioning @Homingbird with the word link.',
+  askerLimited: 'You asked Homingbird 10 questions here in the last hour. Ask again later.',
+  linkLimited: 'This channel asked Homingbird 200 questions today. Ask again tomorrow.',
 }
 
 const ko: SlackTexts = {
@@ -35,6 +50,15 @@ const ko: SlackTexts = {
     `이 Slack 사용자는 Homingbird의 ${escapeSlackText(name)}에 연결되어 있습니다. 바꾸려면 먼저 Homingbird의 내 에이전트에서 연결을 끊으세요.`,
   membersOnly: (team) => `Homingbird는 ${escapeSlackText(team)}의 정식 멤버에게만 답합니다.`,
   reviewWaiting: (url) => `결정을 기다리는 초안이 있습니다. ${slackLink(url, 'Homingbird에서 열기')}`,
+  channelLinkOffered: (url) =>
+    `이 채널을 내가 운영하는 Homingbird 채널에 연결하려면 10분 안에 ${slackLink(url, '이 링크를 열고')} 채널을 고르세요.`,
+  channelLinked: (channel) =>
+    `이 채널은 Homingbird ${escapeSlackText(channel)}에 연결되었습니다. @Homingbird를 멘션해 질문하면 그 채널 멤버가 읽고, 사람이 승인한 답이 스레드에 올라옵니다.`,
+  sharedChannel: '다른 조직과 공유한 채널은 Homingbird에 연결할 수 없습니다.',
+  notLinkedHere:
+    '이 채널은 Homingbird에 연결되어 있지 않습니다. Homingbird 채널 운영자가 @Homingbird를 멘션하고 link라고 쓰면 연결할 수 있습니다.',
+  askerLimited: '지난 한 시간 동안 이곳에서 Homingbird에 10번 질문했습니다. 나중에 다시 질문하세요.',
+  linkLimited: '이 채널은 오늘 Homingbird에 200번 질문했습니다. 내일 다시 질문하세요.',
 }
 
 const TEXTS: Readonly<Record<Locale, SlackTexts>> = { en, ko }

@@ -1,7 +1,9 @@
 import type { AsRead } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, region, signal } from '@homingbird/ui'
+import { channelLabel } from '../channels.ts'
 import {
   type AdminSlackModel,
+  type SlackCodeModel,
   type SlackPersonModel,
   adminSlackModel,
   slackCodeModel,
@@ -48,6 +50,7 @@ export const slackLinkView = (context: ViewContext, life: Lifetime, code: string
     region(life, [view], () => {
       const model = slackCodeModel(view.get())
       if (model.loading) return loading()
+      if (model.channel !== null) return channelChoice(context, code, model)
       if (model.refusal !== null)
         return [
           h('p', {}, model.refusal),
@@ -69,6 +72,35 @@ export const slackLinkView = (context: ViewContext, life: Lifetime, code: string
       ]
     }),
   )
+}
+
+const channelChoice = (context: ViewContext, code: string, model: SlackCodeModel): Child => {
+  const choices = model.channel?.choices ?? []
+  const choice = h(
+    'select',
+    { name: 'channel' },
+    choices.map((slug) => h('option', { value: slug }, channelLabel(slug))),
+  )
+  return [
+    h('p', {}, model.question),
+    h('p', { class: 'hint' }, strings.slack.confirmChannelHint),
+    model.refusal !== null && h('p', { role: 'status' }, model.refusal),
+    choices.length > 0 && field(strings.slack.chooseChannel, choice),
+    h(
+      'div',
+      { class: 'dialog-actions' },
+      h('a', { class: 'button', href: hrefFor({ name: 'channels' }) }, strings.slack.cancel),
+      choices.length > 0 &&
+        button(
+          strings.slack.confirm,
+          () =>
+            context.actions.linkSlackChannel(choice.value, code, {
+              done: (channel) => context.page.go(hrefFor({ name: 'channel', slug: channel.slug })),
+            }),
+          { class: 'primary' },
+        ),
+    ),
+  ]
 }
 
 /** Slack on the administrator's settings page: the workspace's state, the events address and the manifest. */

@@ -84,6 +84,9 @@ describe('contract', () => {
         'me.slack.link',
         'me.slack.unlink',
         'slack.codes.get',
+        'channels.slack.link',
+        'channels.slack.unlink',
+        'notes.posting.retry',
         'me.draftPreviews.get',
         'me.draftPreviews.set',
         'previews.list',
@@ -263,7 +266,11 @@ describe('contract', () => {
       readonly params: { readonly id: string }
       readonly body: {
         readonly body?: string
-        readonly expected: { readonly body: string; readonly conversationId: ConversationId }
+        readonly expected: {
+          readonly body: string
+          readonly conversationId: ConversationId
+          readonly threadAt?: string
+        }
       }
     }>()
     expectTypeOf<RequestOf<Contract['me.get']>>().toEqualTypeOf<{}>()
