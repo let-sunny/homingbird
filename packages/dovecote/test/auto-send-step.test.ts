@@ -11,7 +11,7 @@ afterEach(async () => {
 })
 
 describe('the automatic sending step', () => {
-  it('is the last step, after debate pacing', () => {
+  it('is the last step, after channel teaching', () => {
     expect(stepNumberOf(AUTO_SEND)).toBe(MIGRATIONS.length)
   })
 

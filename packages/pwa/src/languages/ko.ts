@@ -1552,9 +1552,9 @@ export const ko: Translation<typeof en> = {
     desksTitle: '이 에이전트로 연결된 프로그램 · {agent}',
     desksNone: '아직 이 에이전트로 연결된 프로그램이 없어요.',
     connectHint:
-      '이 에이전트를 실행할 프로그램을 연결하려면 그 컴퓨터에서 homingbird login을 실행하고, 승인 화면의 "연결할 대상"에서 이 채널의 에이전트 ({agent})를 고르세요. 연결을 승인한 운영자가 이 채널의 운영자에서 빠지면 그 프로그램도 멈춰요.',
+      '이 에이전트를 실행할 프로그램을 연결하려면 그 컴퓨터에서 homingbird login을 실행하고, 승인 화면의 "연결할 대상"에서 이 채널의 에이전트 {agent} 항목을 고르세요. 연결을 승인한 운영자가 이 채널의 운영자에서 빠지면 그 프로그램도 멈춰요.',
     connectHintWithJoin:
-      '이 에이전트를 서버에서 돌리려면 아래 “서버에서 돌리기”를 쓰세요. 브라우저가 있는 컴퓨터라면 그곳에서 homingbird login을 실행하고, 승인 화면의 "연결할 대상"에서 이 채널의 에이전트 ({agent})를 고르세요. 서버 연결 코드를 만들거나 승인한 운영자가 이 채널의 운영자에서 빠지면 그 프로그램도 멈춰요.',
+      '이 에이전트를 서버에서 돌리려면 아래 “서버에서 돌리기”를 쓰세요. 브라우저가 있는 컴퓨터라면 그곳에서 homingbird login을 실행하고, 승인 화면의 "연결할 대상"에서 이 채널의 에이전트 {agent} 항목을 고르세요. 서버 연결 코드를 만들거나 승인한 운영자가 이 채널의 운영자에서 빠지면 그 프로그램도 멈춰요.',
     approvedByManager: '{name} 님이 승인',
     revoke: '연결 끊기',
     revoked: '연결 끊김',
@@ -1613,6 +1613,49 @@ export const ko: Translation<typeof en> = {
     figuresApproved: { other: '{name}: 답변 {count}개' },
     figuresLoadFailed: '에이전트가 어떻게 하고 있는지 불러오지 못했어요. 잠시 뒤에 다시 해 보세요.',
   },
+  channelTeach: {
+    tabsLabel: '{channel} 채널의 에이전트',
+    tabs: { answers: '답', teach: '가르치기' },
+    intro:
+      '여기서 에이전트 {agent}에게 가르친 내용은 {channel} 채널 운영자 모두가 함께 가르치는 거예요. 에이전트는 모든 답에서 이 내용을 따라요. 답변 절차의 초안 전 단계 다음, 초안 후 확인 전에요. 답은 언제나 운영자가 승인해요.',
+    instructionTitle: '지침과 참고 자료',
+    instruction: '지침',
+    instructionHint: '에이전트 {agent}의 이 채널 답변 방법을 {max}자 이내의 몇 문장으로 적어 주세요.',
+    instructionPlaceholder: '결제 런북을 먼저 확인해서 답하고, 어느 페이지를 봤는지 알려 주기.',
+    sources: '참고 자료',
+    sourcesHint:
+      '답할 때 참고할 페이지를 {max}개까지 한 줄에 하나씩, https://로 시작하는 주소로 적어 주세요. 에이전트는 지시가 아니라 자료로만 읽어요.',
+    saveInstruction: '지침과 참고 자료 저장',
+    instructionSaved: '저장했어요. 에이전트는 다음 답부터 따라요.',
+    problems: {
+      instruction_too_long: '지침은 {max}자까지 쓸 수 있어요. 긴 내용은 참고 자료로 연결해 주세요.',
+      too_many_sources: '참고 자료는 {max}개까지 적을 수 있어요.',
+      sources_repeated: '같은 참고 자료는 한 번만 적어 주세요.',
+      source_invalid: '참고 자료는 한 줄에 하나씩, https:// 또는 http://로 시작하는 주소로 적어 주세요.',
+    },
+    instructionForbidden:
+      '에이전트가 할 수 없는 일을 요청하고 있어요. 승인, 보내기, 버리기, 연락처나 캐릭터 변경, 로그인 키는 다룰 수 없어요. 에이전트는 이 지침을 무시하고 그렇다고 알려 줘요.',
+    principlesTitle: '규칙과 저장한 답',
+    add: '{agent} 가르치기',
+    dialogTitle: '에이전트 {agent}에게 원칙 가르치기',
+    listLabel: '{agent}의 원칙, 우선순위 순서',
+    empty: '에이전트 {agent}에게 첫 규칙이나 저장한 답을 가르쳐 보세요',
+    emptyHint: '에이전트의 답을 고치거나 버리면, 고친 내용으로 가르칠 수 있어요.',
+    saved: '원칙을 저장했어요. 에이전트는 다음 답부터 따라요.',
+    origin: {
+      unknown: '이 버전에서 알 수 없는 출처',
+      manual: '운영자가 작성',
+      edit: '고친 답에서',
+      discard: '버린 답에서',
+    },
+    privacy: '에이전트 {agent}에게 가르친 내용은 {channel} 채널 운영자만 봐요. 질문한 사람은 답만 봐요.',
+    audit: '조직의 감사 기록에는 어느 운영자가 언제 바꿨는지만 남고, 내용은 남지 않아요.',
+    loadFailed: '에이전트 {agent}에게 가르친 내용을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.',
+    fromCorrection: '고친 내용으로 가르치기',
+    fromDiscard: '어떻게 했어야 하는지 가르치기',
+    correctionHint:
+      '고친 내용으로 미리 채웠어요. 저장하기 전에는 아무것도 저장되지 않고, 저장하면 {channel} 채널 운영자 모두가 봐요.',
+  },
   mute: {
     muteName: '{name} 알림 끄기',
     unmuteName: '{name} 알림 켜기',
@@ -1655,13 +1698,13 @@ export const ko: Translation<typeof en> = {
     intro:
       '브라우저가 없는 서버에서 에이전트를 계속 돌리려면, 여기서 서버 연결 코드를 만들고 서버에 한 줄만 붙여 넣으세요. 서버에는 먼저 명령줄 도구를 설치하세요: npm install -g @homingbird/cli',
     introAgent:
-      '이 채널의 에이전트 ({agent})를 브라우저가 없는 서버에서 돌리려면, 여기서 서버 연결 코드를 만들고 서버에 한 줄만 붙여 넣으세요. 서버에는 먼저 명령줄 도구를 설치하세요: npm install -g @homingbird/cli',
+      '이 채널의 에이전트 {agent} 데스크를 브라우저가 없는 서버에서 돌리려면, 여기서 서버 연결 코드를 만들고 서버에 한 줄만 붙여 넣으세요. 서버에는 먼저 명령줄 도구를 설치하세요: npm install -g @homingbird/cli',
     create: '서버에서 돌리기',
     creating: '서버 연결 코드를 만드는 중…',
     explanation:
       'root가 아니라 에이전트를 돌릴 사람의 계정으로 서버에 붙여 넣으세요. 그 서버가 내 에이전트로 로그인하고 백그라운드에서 시작돼요. 에이전트는 초안만 쓰고 보내지는 않아요. 서버에서 codex, gemini, antigravity를 쓴다면 --agent를 바꾸세요.',
     explanationAgent:
-      'root가 아니라 이 채널의 에이전트 ({agent})를 돌릴 계정으로 서버에 붙여 넣으세요. 그 서버가 이 에이전트로 로그인하고 백그라운드에서 시작돼요. 에이전트의 답은 이 채널 운영자의 승인을 기다려요. 서버에서 codex, gemini, antigravity를 쓴다면 --agent를 바꾸세요.',
+      'root가 아니라 이 채널의 에이전트 {agent} 데스크를 돌릴 계정으로 서버에 붙여 넣으세요. 그 서버가 이 에이전트로 로그인하고 백그라운드에서 시작돼요. 에이전트의 답은 이 채널 운영자의 승인을 기다려요. 서버에서 codex, gemini, antigravity를 쓴다면 --agent를 바꾸세요.',
     expiresIn: '한 번만, {time} 동안 쓸 수 있어요.',
     copy: '복사',
     copied: '복사했어요',

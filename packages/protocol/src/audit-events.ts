@@ -1,5 +1,6 @@
 import { Schema as S } from '@homingbird/kernel'
 import { AUTO_SEND_PLACES_MAX } from './auto-send.ts'
+import { TaughtFrom } from './channel-teaching.ts'
 import { CLIENT_KIND } from './client-kinds.ts'
 import { DebateExportFormat, DebateLimits, DebateVisibility } from './debates.ts'
 import { GROUP_MEMBERS_MAX } from './groups.ts'
@@ -126,6 +127,25 @@ export const AUDIT_EVENTS = {
   'channel.agent_retired': event('security', 'member', {
     channel: ChannelSlug,
     because: S.optional(S.literal('channel_archived')),
+  }),
+  'channel.agent_instruction_changed': event('full', 'member', {
+    channel: ChannelSlug,
+    fields: S.array(S.literal('instruction', 'sources'), { maxItems: 2 }),
+  }),
+  'channel.agent_principle_created': event('full', 'principle', {
+    channel: ChannelSlug,
+    kind: PrincipleKind,
+    taughtFrom: S.optional(TaughtFrom),
+  }),
+  'channel.agent_principle_changed': event('full', 'principle', {
+    channel: ChannelSlug,
+    fields: S.array(S.literal('kind', 'topic', 'rule', 'source', 'enabled'), { maxItems: 5 }),
+    enabled: S.optional(S.boolean),
+  }),
+  'channel.agent_principle_deleted': event('full', 'principle', { channel: ChannelSlug }),
+  'channel.agent_principles_reordered': event('full', 'member', {
+    channel: ChannelSlug,
+    count: S.int({ min: 0 }),
   }),
   'channel.answering_changed': event('full', 'channel', { on: S.boolean }),
   'channel.renamed': event('full', 'channel', {

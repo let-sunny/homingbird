@@ -264,7 +264,7 @@ const channelOf = (records: Records, viewerId: MemberId, slug: string): T.Task<C
   )
 
 /** A channel's agent is run, and read, only by the managers of its channel (rule 6). */
-const managedChannel = (
+export const managedChannel = (
   records: Records,
   viewerId: MemberId,
   slug: string,

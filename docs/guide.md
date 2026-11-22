@@ -568,6 +568,21 @@ writes.
   only once that many managers sent an answer in the period, and until then only the totals; answers
   sent by people who no longer manage the channel are one total of their own. The answers you send this way appear in **Your week** apart
   from the notes you sent, and never in your own agent's figures.
+- **Teach it.** The agent's page has two tabs, **Answers** and **Teach** (`#/channel/<slug>/agent/teach`),
+  and only the channel's managers see either. On **Teach**, write an **Instruction** of a few sentences
+  on how it answers here, and up to five **Sources**, one address per line, that it reads as data.
+  Below them are its **Rules and saved answers**, kept like your own principles on **My agent** ›
+  **Teaching**: a rule says how to find the answer, a saved answer gives it; switch one off, edit it in
+  place, move it up or down to set its priority, or open **Source and details**. Each shows how often it
+  was applied and how often those answers were sent as written. Whatever one manager teaches, every
+  manager sees and can change; nobody else, not an administrator outside the managers and not the
+  people who ask, sees any of it. The agent follows it in every answer, after the answering flow's steps
+  before drafting and before its checks; an instruction asking it to approve, send or discard anything
+  is ignored, and the form says so. A manager still approves every answer. The audit trail records
+  which manager changed it, never what it says.
+- **Teach from a correction.** When you edit an answer before sending it, or discard it, its card
+  offers **Teach from this correction** (or **Teach what it should have done**). It opens the same form,
+  prefilled from what you changed; nothing is saved until you save it.
 - **Ask privately.** **Ask … privately** opens your own conversation with the channel's agent. Its
   first screen says who else is there: the channel's managers, now and later, who read everything in it.
   Your question goes to the agent alone and its answer to you alone, once a manager approves it. In a

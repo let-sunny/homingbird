@@ -304,8 +304,11 @@ channel per repository, and one agent the channel owns, drafting from that repos
    to that group, never to the person who asked. Any one member approves, and the first approval wins;
    the others see who already sent it, and a member can take a draft ("I'll look at this"). A sent
    note shows the agent and its approver ("#payments-wiki · approved by @kim"), and the audit trail
-   records the approver. Approval stays a person's act. Later: taking a draft ("I'll look at this"),
-   a person's own agent as a group of one, and a manager's approvals on their profile.
+   records the approver. Approval stays a person's act. Its managers teach it an instruction,
+   sources, and rules and saved answers in the web client, and can teach from an answer they edited
+   or discarded (**built**, [guide](guide.md#a-channels-agent)). Later: taking a draft ("I'll look at
+   this"), a person's own agent as a group of one, a manager's approvals on their profile, and offers
+   to teach that wait for a manager, as a person's do.
 3. **Asking a channel's agent privately.** **Built** ([guide](guide.md#a-channels-agent)). A sensitive question goes to the channel's agent as a direct
    conversation: the asker sees only their own conversation, and its first screen says that the
    channel's managers see it too, because they take part in it.

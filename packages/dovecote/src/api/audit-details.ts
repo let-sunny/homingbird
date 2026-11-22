@@ -22,7 +22,7 @@ import { memberById } from '../domain/members.ts'
 import { readSettings } from '../domain/settings.ts'
 import { type Caller, viewerOf } from '../environment.ts'
 import type { RequestEnv } from '../events/events.ts'
-import { all } from '../sql/database.ts'
+import { all, first } from '../sql/database.ts'
 import { sql } from '../sql/query.ts'
 import { deskWakeHostOf } from '../wake/desk-wakes.ts'
 
@@ -117,6 +117,46 @@ export const AUDIT_DETAILS: { readonly [N in AuditedRoute]: Describe<N> } = {
     })),
   'drafts.discard': () =>
     afterwards((note) => ({ targetId: note.id, detail: { conversationId: note.conversationId } })),
+  'channels.agent.teaching.set': ({ params, body }) =>
+    T.map(
+      (before: TeachingBefore) => (): AuditFacts<'channel.agent_instruction_changed'> => ({
+        targetId: before.agentId,
+        detail: {
+          channel: params.slug,
+          fields: [
+            ...(before.instruction === body.instruction.trim() ? [] : (['instruction'] as const)),
+            ...(JSON.stringify(before.sources) === JSON.stringify(body.sources)
+              ? []
+              : (['sources'] as const)),
+          ],
+        },
+      }),
+    )(teachingBefore(params.slug)),
+  'channels.agent.principles.create': ({ params, body }) =>
+    afterwards((principle) => ({
+      targetId: principle.id,
+      detail: {
+        channel: params.slug,
+        kind: principle.kind,
+        ...(body.taughtFrom !== undefined && { taughtFrom: body.taughtFrom }),
+      },
+    })),
+  'channels.agent.principles.update': ({ params, body }) =>
+    afterwards(() => ({
+      targetId: params.id,
+      detail: {
+        channel: params.slug,
+        fields: CHANNEL_PRINCIPLE_FIELDS.filter((field) => body[field] !== undefined),
+        ...(body.enabled !== undefined && { enabled: body.enabled }),
+      },
+    })),
+  'channels.agent.principles.reorder': ({ params, body }) =>
+    T.map((before: TeachingBefore) => () => ({
+      targetId: before.agentId,
+      detail: { channel: params.slug, count: body.ids.length },
+    }))(teachingBefore(params.slug)),
+  'channels.agent.principles.delete': ({ params }) =>
+    afterwards(() => ({ targetId: params.id, detail: { channel: params.slug } })),
   'principles.create': () =>
     afterwards((principle) => ({ targetId: principle.id, detail: { kind: principle.kind } })),
   'principles.update': ({ params, body }) =>
@@ -224,6 +264,30 @@ export type Describe<N extends AuditedRoute> = (
 const PROFILE_FIELDS = ['name', 'profile', 'locale'] as const
 const PRINCIPLE_FIELDS = ['kind', 'topic', 'rule', 'source', 'enabled', 'publicText'] as const
 const CHANNEL_FIELDS = ['slug', 'description'] as const
+const CHANNEL_PRINCIPLE_FIELDS = ['kind', 'topic', 'rule', 'source', 'enabled'] as const
+
+interface TeachingBefore {
+  readonly agentId: MemberId | null
+  readonly instruction: string
+  readonly sources: ReadonlyArray<string>
+}
+
+/** The agent and its brief before the change, read so the entry names what changed without its words. */
+function teachingBefore(slug: string): T.Task<TeachingBefore, never, RequestEnv> {
+  return T.gen(function* () {
+    const row = yield* channelRow(slug)
+    const agent = row === null ? null : yield* channelAgentOf(row)
+    if (agent === null) return { agentId: null, instruction: '', sources: [] }
+    const brief = yield* first<{ instruction: string; sources: string }>(
+      sql`SELECT instruction, sources FROM channel_agent_teaching WHERE agent_id = ${agent.id}`,
+    )
+    return {
+      agentId: agent.id,
+      instruction: brief?.instruction ?? '',
+      sources: brief === null ? [] : (JSON.parse(brief.sources) as string[]),
+    }
+  })
+}
 
 function afterwards<R, F>(describe: (response: R) => F): T.Task<(response: R) => F> {
   return T.succeed(describe)

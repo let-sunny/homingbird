@@ -2,6 +2,7 @@ import type { AsRead, NoteId } from '@homingbird/protocol'
 import { CHANNEL_AGENT_NAME_MAX, DISCARD_REASON_MAX } from '@homingbird/protocol'
 import { type Child, type Lifetime, derived, h, linkedText, region, signal } from '@homingbird/ui'
 import type { ChannelAgentState } from '../channel-answerers.ts'
+import { channelLabel } from '../channels.ts'
 import { featureOn } from '../features.ts'
 import { heldLineFor } from '../held-decisions.ts'
 import {
@@ -19,8 +20,14 @@ import {
   decidedAnswerModel,
   reviewCardsModel,
 } from '../models/channel-agent.ts'
+import {
+  type ChannelAgentTab,
+  type ChannelAgentTabs,
+  channelAgentTabsModel,
+} from '../models/channel-teaching.ts'
 import { signedIn } from '../state.ts'
 import { strings } from '../strings.ts'
+import { channelTeachingSection } from './channel-teaching.ts'
 import type { ViewContext } from './context.ts'
 import { cardOf, focusAfterDecision } from './decision-focus.ts'
 import { closeDialog, closesDialog, opensDialog, submitOnModifierEnter } from './dialog.ts'
@@ -61,9 +68,11 @@ export const channelAgentView = (
   life: Lifetime,
   slug: string,
   focus: string | null,
+  asked: ChannelAgentTab,
 ): HTMLElement => {
   const { state, actions } = context
   actions.loadKnownChannels()
+  const tabs = channelAgentTabsModel(slug, state.serverInfo.get(), asked)
   return h(
     'div',
     { class: 'channel-agent-page' },
@@ -74,11 +83,22 @@ export const channelAgentView = (
       return pageOf(
         page.title,
         page.agentState !== null && channelAgentStateLine(page.agentState),
-        agentPanel(context, life, page.channel, focus, 'page'),
+        renderTabs(tabs),
+        tabs.shown === 'teach'
+          ? channelTeachingSection(context, life, slug, page.channel.agent?.name ?? channelLabel(slug))
+          : agentPanel(context, life, page.channel, focus, 'page'),
       )
     }),
   )
 }
+
+const renderTabs = (model: ChannelAgentTabs): Child =>
+  model.tabs.length > 1 &&
+  h(
+    'nav',
+    { class: 'subtabs channel-agent-tabs', 'aria-label': model.label },
+    model.tabs.map((tab) => h('a', { href: tab.href, 'aria-current': tab.current && 'page' }, tab.label)),
+  )
 
 /**
  * The agent of a channel the person manages: in the dialog its name, desks and retiring it, with a way to
