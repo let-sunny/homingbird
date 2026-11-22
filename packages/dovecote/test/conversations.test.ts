@@ -181,6 +181,22 @@ describe('group conversations', () => {
     }
   })
 
+  it('never names a group’s starter, and names no managers outside a channel', async () => {
+    const group = await startGroup()
+    const seen = (await ana.api('GET', `/conversations/${group.id}`)).json
+    expect(seen).not.toHaveProperty('askedBy')
+    expect(seen).not.toHaveProperty('managerIds')
+  })
+
+  it('names who manages a channel in its room, among the people in it', async () => {
+    const made = (await ana.api('POST', '/channels', { slug: 'billing', description: 'Billing' })).json
+    await ben.api('PUT', '/channels/billing/membership', {})
+    const room = (await ben.api('GET', `/conversations/${made.conversationId}`)).json
+    expect(room.managerIds).toEqual([ana.me.member.id])
+    expect(room).not.toHaveProperty('askedBy')
+    expect((await cy.api('GET', `/conversations/${made.conversationId}`)).status).toBe(404)
+  })
+
   it('keeps a direct conversation readable by id from both sides, as before', async () => {
     const draft = (await ana.api('POST', '/drafts', { to: [ben.me.member.id], body: 'quokka plan' })).json
     expect((await ben.api('GET', '/conversations')).json.conversations).toEqual([])

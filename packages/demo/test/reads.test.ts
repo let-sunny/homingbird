@@ -107,6 +107,20 @@ describe('conversationsOf', () => {
     ).toBe(true)
   })
 
+  it('names a private question’s asker, and the managers in a channel’s room or question, as the server does', () => {
+    const { records, june, ana, ben } = fresh()
+    const listed = conversationsOf(records, june)
+    const asked = listed.find((room) => 'privateQuestionOf' in room)!
+    expect(asked.askedBy).toBe(ben)
+    expect([...asked.managerIds!].sort()).toEqual([june, ana].sort())
+    const billing = listed.find((room) => room.kind === 'channel' && room.title === 'billing')!
+    expect(billing).not.toHaveProperty('askedBy')
+    expect(billing.managerIds!.every((memberId) => billing.participantIds.includes(memberId))).toBe(true)
+    expect(listed.filter((room) => room.kind === 'direct').every((room) => !('managerIds' in room))).toBe(
+      true,
+    )
+  })
+
   it('opens on the visitor’s direct conversation with Ana, where their own agent’s draft waits', () => {
     const { records, june, ana } = fresh()
     const latest = conversationsOf(records, june)[0]!

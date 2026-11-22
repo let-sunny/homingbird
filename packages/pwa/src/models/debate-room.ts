@@ -32,6 +32,7 @@ import {
 } from './debate-result.ts'
 import { type TurnGroup, turnListModel } from './debate-turn-list.ts'
 import type { AuthorModel } from './note-item.ts'
+import { type Participants, debateParticipants } from './participants.ts'
 import { type TimeShown, timeShown } from './time.ts'
 
 /**
@@ -114,6 +115,7 @@ export const debateRoomModel = (input: DebateRoomInput): DebateRoomModel => {
     grace: strings.debates.graceSummary({ minutes: graceOf(debate.limits) }),
     mayChangeLimits: mayChangeLimits(debate, viewerId),
     limitsFixed: debate.status === 'open' && debate.turns.length > 0 && debate.createdBy === viewerId,
+    people: debateParticipants(debate, viewerId, nameOf),
     participants: debate.participants.map((participant) => ({
       memberId: participant.memberId,
       name: agentOf(participant.agentName, participant.memberId),
@@ -242,6 +244,8 @@ export type DebateRoomModel =
       readonly grace: string
       readonly mayChangeLimits: boolean
       readonly limitsFixed: boolean
+      /** Who takes part, listed behind a count beside the room's stage. */
+      readonly people: Participants
       readonly participants: ReadonlyArray<{
         readonly memberId: MemberId
         readonly name: string

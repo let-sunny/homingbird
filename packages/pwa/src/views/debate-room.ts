@@ -17,6 +17,7 @@ import {
 } from './debate-result.ts'
 import { limitFields, limitsTypedIn } from './debates.ts'
 import { citedBody } from './note-body.ts'
+import { participantsCount, participantsList } from './participants.ts'
 import { emptyWithPip, field, loading, page, privateMarkOf, timeLabel } from './parts.ts'
 
 /**
@@ -94,7 +95,9 @@ const renderDebateRoom = (model: DebateRoomModel, context: ViewContext, drawn: L
       model.isPrivate && privateMarkOf(strings.debates.private, strings.debates.privateSeenBy),
       model.isPrivate && h('span', { class: 'hint' }, strings.debates.privateSeenBy),
       model.closesAt !== null && h('span', {}, model.closesAt),
+      model.people.people.length > 0 && participantsCount(model.people),
     ),
+    participantsList(model.people),
     model.tabs.length > 1 &&
       h(
         'nav',

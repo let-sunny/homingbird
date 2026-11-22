@@ -1707,6 +1707,14 @@ describe('Rule 6: a member sees only conversations they participate in', () => {
     const room = (await dee.api('POST', '/channels/wiki/private-question')).json
     expect((await ana.api('GET', `/conversations/${room.id}`)).status).toBe(404)
     expect((await ana.api('GET', `/conversations/${room.id}/notes`)).status).toBe(404)
+    const listed = (await ana.api('GET', '/conversations')).json.conversations
+    expect(listed.map((one: { id: string }) => one.id)).not.toContain(room.id)
+    const asSeen = (await dee.api('GET', `/conversations/${room.id}`)).json
+    expect(asSeen.askedBy).toBe(dee.me.member.id)
+    expect([...asSeen.managerIds].sort()).toEqual([ben.me.member.id, cy.me.member.id].sort())
+    expect([...asSeen.participantIds].sort()).toEqual(
+      [dee.me.member.id, agent.id, ben.me.member.id, cy.me.member.id].sort(),
+    )
     expect((await ana.api('PUT', '/channels/wiki/agent', { name: 'Mine' })).status).toBe(403)
     expect((await ana.api('GET', '/channels/wiki/agent')).status).toBe(403)
     expect((await agent.api('GET', '/me')).status).toBe(200)
