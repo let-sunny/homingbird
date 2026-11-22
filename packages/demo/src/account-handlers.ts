@@ -6,6 +6,7 @@ import {
   type MemberId,
   type NotificationLevel,
   PRINCIPLES_PER_PERSON,
+  PROPOSALS_PER_PERSON,
   PROTOCOL_VERSION,
   type PlaceName,
   type Principle,
@@ -195,6 +196,8 @@ export const accountHandlers = (world: World): Handlers => {
         counts:
           principle.counts === null ? null : { ...principle.counts, missed: principle.counts.missed + 1 },
       })),
+    'principleProposals.list': () =>
+      T.succeed({ document: null, proposals: [], limit: PROPOSALS_PER_PERSON }),
     'principles.offers.dismiss': ({ params }) =>
       T.sync(() => {
         closeOffer(world, params.id)

@@ -84,6 +84,15 @@ import {
   Role,
   Settings,
 } from './model.ts'
+import {
+  PROPOSALS_PER_PERSON,
+  PrincipleProposal,
+  ProposalId,
+  ProposalInput,
+  TeachingDocument,
+  TeachingInterview,
+  TeachingMaterial,
+} from './principle-proposals.ts'
 import { PrincipleSource } from './principle-source.ts'
 import {
   DraftingPrinciples,
@@ -668,6 +677,58 @@ export const contract = {
     access: 'member',
     query: { conversationId: S.optional(ConversationId) },
     response: DraftingPrinciples,
+  }),
+  'teaching.material': route({
+    method: 'GET',
+    path: '/teaching/material',
+    access: 'member',
+    response: TeachingMaterial,
+  }),
+  'teaching.document.set': route({
+    method: 'PUT',
+    path: '/teaching/document',
+    access: 'human',
+    body: S.struct({ document: S.nullable(TeachingDocument) }),
+    response: Empty,
+  }),
+  'principleProposals.list': route({
+    method: 'GET',
+    path: '/principle-proposals',
+    access: 'human',
+    response: TeachingInterview,
+  }),
+  'principleProposals.create': route({
+    method: 'POST',
+    path: '/principle-proposals',
+    access: 'member',
+    body: ProposalInput,
+    response: PrincipleProposal,
+  }),
+  'principleProposals.accept': route({
+    method: 'POST',
+    path: '/principle-proposals/:id/accept',
+    access: 'human',
+    body: S.struct({
+      kind: S.optional(PrincipleKind),
+      topic: S.optional(PrincipleTopic),
+      rule: S.optional(PrincipleRule),
+      source: S.optional(S.nullable(PrincipleSource)),
+      place: S.optional(PlaceName),
+    }),
+    response: Principle,
+  }),
+  'principleProposals.acceptAll': route({
+    method: 'POST',
+    path: '/principle-proposals/accept',
+    access: 'human',
+    body: S.struct({ ids: S.array(ProposalId, { minItems: 1, maxItems: PROPOSALS_PER_PERSON }) }),
+    response: MyPrinciples,
+  }),
+  'principleProposals.discard': route({
+    method: 'DELETE',
+    path: '/principle-proposals/:id',
+    access: 'human',
+    response: Empty,
   }),
 
   'draftRequests.list': route({

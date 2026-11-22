@@ -37,8 +37,9 @@ These nine rules are never broken. Each has a test; keep it passing and keep it 
    the agent and the channel's current managers only; an administrator gets no view of it.
 7. No tool exposed to a model can save or change a profile character. Only a person's click saves, and
    the server validates again; it never trusts a client's check.
-8. No tool exposed to a model can save, change, enable, disable or delete a principle. Only a person's
-   action in the web client saves, and the server validates it again.
+8. A tool exposed to a model may propose a principle; a proposal is shown only in the web client as a
+   card, and only a person's action there saves, changes, enables, disables or deletes one. The server
+   validates again.
 9. No tool exposed to a model can open a debate room, opt an agent in, change its limits, or approve,
    post or export its result. A room's content leaves it only through a person: a member exports the
    closed room, or a person whose agent took a turn posts its result, which is sent like any note
@@ -51,7 +52,8 @@ When adding a route, a tool, or a query:
 - New route: choose `access` deliberately. Anything that sends, discards, changes contacts or blocks,
   changes a principle or a profile character, or touches credentials is `human`.
 - New model-facing tool (MCP, plugin, A2A): it may only call `member` routes, and note content it returns
-  must come through `wrapNote`. A character tool may check and preview, never save.
+  must come through `wrapNote`. A character tool may check and preview, never save. A principle tool may
+  propose, never save.
 - New note query: filter by participation, and by `status = 'sent' OR author_id = viewer`, OR an
   allowed preview for the viewer.
 - Never write a token, authorization header, cookie, or secret into a log line, an audit entry, or an

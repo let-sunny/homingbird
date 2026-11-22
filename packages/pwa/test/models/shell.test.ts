@@ -5,6 +5,7 @@ import {
   searchLinkModel,
   sidebarModel,
   skipLinkModel,
+  tabBarFor,
   tabsModel,
   userMenuModel,
 } from '../../src/models/shell.ts'
@@ -41,13 +42,15 @@ describe('tabsModel', () => {
       current: false,
       tour: 'connect',
       mark: null,
+      glyph: 'agent',
     })
+    expect(tabs.map((tab) => tab.glyph)).toEqual(['notes', 'agent', 'people', 'channels'])
     expect(tabs.every((tab) => tab.mark === null)).toBe(true)
     expect(
       tabsModel({ name: 'debate', id: 'x', tab: null }, serverInfo({ debateRooms: true })).find(
         (tab) => tab.current,
-      )?.label,
-    ).toBe(strings.navDebates)
+      ),
+    ).toEqual(expect.objectContaining({ label: strings.navDebates, glyph: 'debates' }))
   })
 
   it('marks My agent, and only My agent, while the person’s agent cannot answer', () => {
@@ -66,6 +69,7 @@ describe('searchLinkModel', () => {
       current: false,
       tour: null,
       mark: null,
+      glyph: null,
     })
     expect(searchLinkModel({ name: 'search', query: 'refund' }).current).toBe(true)
   })
@@ -90,6 +94,14 @@ describe('paneFor', () => {
   it('shows the list on home and the page everywhere else', () => {
     expect(paneFor({ name: 'home' })).toBe('list')
     expect(paneFor({ name: 'people' })).toBe('stage')
+  })
+})
+
+describe('tabBarFor', () => {
+  it('hides the phone’s tab bar inside an open conversation only', () => {
+    expect(tabBarFor({ name: 'conversation', id: ROOM, draft: null })).toBe('hidden')
+    expect(tabBarFor({ name: 'home' })).toBe('shown')
+    expect(tabBarFor({ name: 'people' })).toBe('shown')
   })
 })
 

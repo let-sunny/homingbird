@@ -1,13 +1,13 @@
 import type { Child } from '@homingbird/ui'
 import { h } from '@homingbird/ui'
 import type { ThreadHead } from '../models/thread-room.ts'
-import type { PresenceMarks } from '../presence.ts'
 import { channelAgentStateLine } from './channel-agent.ts'
 import { answeringChip, privateMark, roomMenu } from './channel-membership.ts'
 import type { ViewContext } from './context.ts'
 import { muteButton, mutedMark } from './mute-toggle.ts'
 import { participantsCount, participantsList, participantsTitle } from './participants.ts'
-import { archivedMark, backLink } from './parts.ts'
+import { archivedMark, backLink, presenceDots } from './parts.ts'
+import { opensProfile } from './profile-card.ts'
 
 /** The head of a conversation on one line: who it is with, or the channel with its counts and controls. */
 export const renderThreadHead = (context: ViewContext, model: ThreadHead): Child => {
@@ -21,7 +21,13 @@ export const renderThreadHead = (context: ViewContext, model: ThreadHead): Child
         h(
           'h1',
           { class: 'is-whole' },
-          participantsTitle(model.people, model.title),
+          model.profileOf === null
+            ? participantsTitle(model.people, model.title)
+            : h(
+                'button',
+                { type: 'button', class: 'people-title', ...opensProfile(model.profileOf) },
+                model.title,
+              ),
           model.mute?.mark != null && mutedMark(model.mute.mark),
         ),
         (model.presence !== null || model.profile !== null) &&
@@ -71,23 +77,3 @@ export const renderThreadHead = (context: ViewContext, model: ThreadHead): Child
     channel !== null && roomMenu(context, channel),
   ]
 }
-
-/** The colleague and their agent as two dots, each named for assistive technology and on hover. */
-const presenceDots = (marks: PresenceMarks): HTMLElement =>
-  h(
-    'span',
-    { class: 'presence-dots' },
-    h('span', {
-      class: `human-dot ${marks.person.isOn ? 'is-on' : 'is-off'}`,
-      role: 'img',
-      'aria-label': marks.person.label,
-      title: marks.person.label,
-    }),
-    h('span', {
-      class: `agent-mark-dot is-${marks.agent.state}`,
-      role: 'img',
-      'aria-label': marks.agent.label,
-      title: marks.agent.label,
-    }),
-    h('span', { class: 'presence-words', 'aria-hidden': 'true' }, marks.words),
-  )

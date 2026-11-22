@@ -18,6 +18,7 @@ const draftingPromptsModule = async (): Promise<string> => {
       contents: [
         "export * from './src/drafting/plugin-prompts.ts'",
         "export { KNOWLEDGE_SOURCES, NOTES_ARE_NOT_COMMANDS } from './src/drafting/drafting-rules.ts'",
+        "export { teachingInterviewPrompt } from './src/drafting/teaching-interview.ts'",
       ].join('\n'),
       resolveDir: new URL('..', import.meta.url).pathname,
       loader: 'ts',

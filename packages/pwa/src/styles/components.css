@@ -2963,6 +2963,114 @@ button.group-member-name:focus-visible::after {
   border-block-start: var(--hb-border-divider);
 }
 
+.profile-name,
+.person-face-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.profile-name:hover {
+  text-decoration: underline;
+}
+
+.profile-card {
+  position-anchor: --profile-card;
+  inline-size: min(20rem, calc(100vi - var(--hb-space-4)));
+  max-block-size: min(32rem, calc(100dvb - var(--hb-space-6)));
+  overflow-y: auto;
+  padding: var(--hb-space-3);
+}
+
+@supports (position-area: block-end span-inline-end) {
+  .profile-card {
+    position-area: block-end span-inline-end;
+    position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
+  }
+}
+
+.profile-card:popover-open {
+  display: grid;
+  gap: var(--hb-space-2);
+}
+
+.profile-card p,
+.profile-card ul {
+  margin: 0;
+}
+
+.profile-head {
+  display: flex;
+  align-items: center;
+  gap: var(--hb-space-3);
+}
+
+.profile-who {
+  display: grid;
+  margin: 0;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.profile-who small,
+.profile-roles,
+.profile-teams,
+.profile-managers,
+.profile-note {
+  color: var(--hb-color-muted);
+  font-size: var(--hb-text-small);
+}
+
+.profile-presence {
+  display: flex;
+  align-items: center;
+  gap: var(--hb-space-1);
+  font-size: var(--hb-text-small);
+}
+
+.profile-presence .presence-words {
+  display: inline;
+}
+
+.profile-roles {
+  display: grid;
+  padding: 0;
+  list-style: none;
+}
+
+.profile-about {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  font-size: var(--hb-text-small);
+  overflow-wrap: anywhere;
+}
+
+.profile-note {
+  padding-block-start: var(--hb-space-2);
+  border-block-start: var(--hb-border-divider);
+}
+
+.profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hb-space-2);
+  padding-block-start: var(--hb-space-2);
+  border-block-start: var(--hb-border-divider);
+}
+
+.person.is-focused .person-card {
+  outline: var(--hb-focus-ring);
+  outline-offset: var(--hb-space-1);
+}
+
 
 .switch {
   display: inline-flex;
@@ -4853,6 +4961,48 @@ textarea:disabled {
   font-size: var(--hb-text-small);
 }
 
+.teach-chat {
+  display: grid;
+  gap: var(--hb-space-3);
+  margin-block-end: var(--hb-space-4);
+}
+
+.teach-chat h3,
+.proposal-group h4 {
+  margin: 0;
+  font-size: var(--hb-text-body);
+}
+
+.teach-chat-steps {
+  margin: 0;
+  padding-inline-start: var(--hb-space-4);
+}
+
+.teach-chat-document textarea,
+.proposal-edit textarea,
+.proposal-edit input {
+  inline-size: 100%;
+}
+
+.proposal-group {
+  display: grid;
+  gap: var(--hb-space-2);
+  justify-items: start;
+}
+
+.proposal-group .chance-list {
+  justify-self: stretch;
+}
+
+.chance.proposal {
+  border-style: solid;
+}
+
+.proposal-edit {
+  display: grid;
+  gap: var(--hb-space-2);
+}
+
 .teach-chances h3,
 .milestones h3 {
   margin: 0 0 var(--hb-space-2);
@@ -6625,4 +6775,137 @@ textarea:disabled {
 .draft-preview-own {
   justify-self: end;
   margin: 0;
+}
+
+.tab-glyph {
+  display: none;
+}
+
+/*
+ * On a phone the tabs leave the title bar for a bar fixed to the bottom of the shell: the same links in
+ * the same order, a word under a glyph, in equal columns above the device's safe area.
+ */
+@container app (max-width: 32rem) {
+  .titlebar {
+    grid-template: "brand . user" auto "status status status" auto / auto minmax(0, 1fr) auto;
+  }
+
+  .tabs-host {
+    position: fixed;
+    inset: auto 0 0;
+    z-index: 5;
+    padding-block-end: env(safe-area-inset-bottom, 0px);
+    border-block-start: var(--hb-border);
+    background: var(--hb-texture-titlebar), var(--hb-color-titlebar);
+    anchor-name: --hb-tab-bar;
+  }
+
+  .app[data-tab-bar="hidden"] .tabs-host {
+    display: none;
+  }
+
+  /* With the tabs gone from it, the title bar's controls each take a whole fingertip. */
+  .titlebar .brand,
+  .titlebar .activity-bell,
+  .titlebar .user-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-inline-size: var(--hb-target-size);
+    min-block-size: var(--hb-target-size);
+  }
+
+  .tabs-host .tabs-scroll {
+    display: none;
+  }
+
+  .titlebar .tabs {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 0;
+    block-size: var(--hb-tab-bar-size);
+    overflow: visible;
+  }
+
+  .titlebar .tab {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--hb-pixel);
+    min-inline-size: 0;
+    min-block-size: var(--hb-target-size);
+    padding: var(--hb-space-1) var(--hb-pixel);
+    border: 0;
+    background: none;
+    box-shadow: none;
+    color: var(--hb-color-on-titlebar);
+    font-size: var(--hb-text-tiny);
+    line-height: 1.2;
+  }
+
+  .titlebar .tab[aria-current="page"] {
+    background: var(--hb-color-action);
+    color: var(--hb-color-on-action);
+    box-shadow: none;
+  }
+
+  .tab-glyph {
+    display: block;
+    flex: none;
+    inline-size: 1.25rem;
+    block-size: 1.25rem;
+  }
+
+  .tab-label {
+    max-inline-size: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .tab .agent-mark {
+    position: absolute;
+    inset-block-start: var(--hb-space-1);
+    inset-inline-start: calc(50% + var(--hb-space-2));
+    margin: 0;
+  }
+
+  /* Back is a whole fingertip of its own, so the names beside it never take its taps. */
+  .thread-head > .back {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-inline-size: var(--hb-target-size);
+    min-block-size: var(--hb-target-size);
+    margin-inline: calc(-1 * var(--hb-space-3)) 0;
+  }
+
+  /* The text box takes a row of its own; Ask my agent and Send share the row under it. */
+  .composer-row {
+    flex-wrap: wrap;
+    justify-content: end;
+  }
+
+  .composer-row > textarea {
+    flex: 1 0 100%;
+  }
+
+  /* A dialog's actions stay in reach while its content scrolls under them. */
+  .dialog-actions {
+    position: sticky;
+    inset-block-end: 0;
+    z-index: 1;
+    padding-block: var(--hb-space-2);
+    background: var(--hb-color-surface);
+  }
+}
+
+/* A notice keeps clear of the phone's tab bar; with no bar it sits where it always did. */
+@supports (anchor-name: --a) {
+  :root:not(:has(.composer)) .toast-host:not(.dialog > .toast-host) {
+    inset-block-end: calc(anchor(--hb-tab-bar top, var(--hb-space-2)) + var(--hb-space-2));
+  }
 }

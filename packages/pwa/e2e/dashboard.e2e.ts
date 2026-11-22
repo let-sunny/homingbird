@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { fileURLToPath } from 'node:url'
+import { en } from '../src/languages/en.ts'
 import {
   type Person,
   VIEWPORT,
@@ -258,9 +259,7 @@ const scenario = async (): Promise<void> => {
     // -- Administrators: organization-wide totals only ----------------------------------------------
     await ana.page.goto(`${base}/#/admin/insights`)
     await ana.page.waitForSelector('.insights .trust-table')
-    await ana.page.waitForSelector(
-      '.insights:has-text("With no teams, only organization-wide numbers are shown.")',
-    )
+    await ana.page.waitForSelector(`.insights:has-text("${en.insights.noTeams}")`)
     const adminText = await ana.page.locator('.insights').innerText()
     for (const name of ['Ana', 'Ben', 'Cy', 'Dee', 'Eve', 'Fay', 'invoice', 'payslip'])
       assert.equal(new RegExp(`\\b${name}\\b`).test(adminText), false, `the admin view shows ${name}`)

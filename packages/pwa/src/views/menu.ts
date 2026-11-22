@@ -67,6 +67,31 @@ export type MenuContext = Pick<ViewContext, 'clock' | 'page' | 'document'>
 /** How long a finger rests on a row before its menu opens, in milliseconds. */
 export const LONG_PRESS_MS = 500
 
+/** Puts a menu at a point or under its button, where the browser cannot anchor it itself. */
+export const placeMenu = (
+  context: MenuContext,
+  menu: HTMLElement,
+  at: Rect | null,
+  trigger: HTMLElement,
+): void => {
+  if (at === null && context.page.supportsAnchors()) {
+    menu.style.removeProperty('--hb-menu-x')
+    menu.style.removeProperty('--hb-menu-y')
+    return
+  }
+  const box = menu.getBoundingClientRect()
+  const root = context.document.root()
+  const spot = menuPlacement({
+    anchor: at ?? trigger.getBoundingClientRect(),
+    menu: { width: box.width, height: box.height },
+    viewport: { width: root.clientWidth, height: root.clientHeight },
+    align: at === null ? 'end' : 'start',
+  })
+  menu.classList.add('is-at-point')
+  menu.style.setProperty('--hb-menu-x', `${spot.x}px`)
+  menu.style.setProperty('--hb-menu-y', `${spot.y}px`)
+}
+
 const menuControl = (
   context: MenuContext,
   trigger: HTMLButtonElement,
@@ -94,7 +119,7 @@ const menuControl = (
     menu.classList.toggle('is-at-point', at !== null)
     menu.setAttribute('popover', byTouch ? 'manual' : 'auto')
     menu.showPopover()
-    place(context, menu, at === null ? null : pointAnchor(at), trigger)
+    placeMenu(context, menu, at === null ? null : pointAnchor(at), trigger)
   }
   trigger.addEventListener('click', () => {
     returnTo = trigger
@@ -108,7 +133,7 @@ const menuControl = (
     stopListening()
     stopListening = (): void => {}
     if (!opened) return
-    if (!menu.classList.contains('is-at-point')) place(context, menu, null, trigger)
+    if (!menu.classList.contains('is-at-point')) placeMenu(context, menu, null, trigger)
     items()[0]?.focus()
     stopListening = context.document.listen(
       'pointerdown',
@@ -235,26 +260,6 @@ const swallowTheTap = (context: MenuContext): void => {
     { capture: true },
   )
   const stopNextPress = context.document.listen('pointerdown', stop, { capture: true })
-}
-
-/** Puts a menu at a point or under its button, where the browser cannot anchor it itself. */
-const place = (context: MenuContext, menu: HTMLElement, at: Rect | null, trigger: HTMLElement): void => {
-  if (at === null && context.page.supportsAnchors()) {
-    menu.style.removeProperty('--hb-menu-x')
-    menu.style.removeProperty('--hb-menu-y')
-    return
-  }
-  const box = menu.getBoundingClientRect()
-  const root = context.document.root()
-  const spot = menuPlacement({
-    anchor: at ?? trigger.getBoundingClientRect(),
-    menu: { width: box.width, height: box.height },
-    viewport: { width: root.clientWidth, height: root.clientHeight },
-    align: at === null ? 'end' : 'start',
-  })
-  menu.classList.add('is-at-point')
-  menu.style.setProperty('--hb-menu-x', `${spot.x}px`)
-  menu.style.setProperty('--hb-menu-y', `${spot.y}px`)
 }
 
 /** A link that leaves the app, or a field, keeps the browser's own menu: copying a link, pasting. */

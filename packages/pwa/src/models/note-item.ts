@@ -210,6 +210,8 @@ export interface NoteMenuItem {
 /** The author's character as a button, and the details it opens: who or what wrote the note, and when. */
 export interface AuthorModel {
   readonly id: string
+  /** Whose profile card the face opens. */
+  readonly memberId: MemberId
   readonly buttonClass: string
   readonly buttonLabel: string
   readonly avatar: AvatarModel
@@ -311,6 +313,7 @@ const authorModel = (
   const showsDetails = isOn(input, 'noteDetails')
   return {
     id: `author-${note.id}`,
+    memberId: note.authorId,
     buttonClass: `author-button is-${authorshipOf(note)}`,
     buttonLabel: strings.authorship.who({ authorship: line }),
     avatar: memberAvatarOf(

@@ -10,12 +10,14 @@ import {
   type PersonCard,
   peopleModel,
 } from '../models/people.ts'
+import type { Route } from '../routes.ts'
 import { strings } from '../strings.ts'
 import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
 import { invitesSection } from './invites.ts'
 import { type MenuParts, actionMenu } from './menu.ts'
 import { button, channelChips, empty, field, loadFailed, loading, page, presenceBadges } from './parts.ts'
+import { opensProfile } from './profile-card.ts'
 
 /** People: everyone in the organization the person may see, and what they may do with each. */
 export const peopleView = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
@@ -61,7 +63,17 @@ export const peopleView = (context: ViewContext, life: Lifetime, me: AsRead.Me):
       groupsOn: featureOn('groups', state.serverInfo.get()),
       groupFilter: groupFilter.get(),
       groupMembers: groupMembers.get(),
+      person: personAsked(state.route.get()),
     })
+  let revealed = false
+  const reveal = (card: HTMLElement): void => {
+    if (revealed) return
+    revealed = true
+    context.page.nextFrame(() => {
+      card.scrollIntoView?.({ block: 'center' })
+      card.focus({ preventScroll: true })
+    })
+  }
   const shown = model()
   const list = region(
     life,
@@ -76,7 +88,7 @@ export const peopleView = (context: ViewContext, life: Lifetime, me: AsRead.Me):
       groupFilter,
       groupMembers,
     ],
-    () => renderPeople(model(), context, load),
+    () => renderPeople(model(), context, load, reveal),
   )
   return page(
     strings.people,
@@ -110,10 +122,13 @@ export const peopleView = (context: ViewContext, life: Lifetime, me: AsRead.Me):
   )
 }
 
+const personAsked = (route: Route): string | undefined => (route.name === 'people' ? route.person : undefined)
+
 const renderPeople = (
   model: PeopleModel,
   context: Pick<ViewContext, 'actions' | 'clock' | 'page' | 'document' | 'state' | 'random'>,
   retry: () => void,
+  reveal: (card: HTMLElement) => void,
 ): HTMLElement => {
   const list = model.list
   if (list.kind === 'loading') return loading()
@@ -122,22 +137,41 @@ const renderPeople = (
   return h(
     'ul',
     { class: 'people' },
-    list.people.map((person) => personCard(person, context)),
+    list.people.map((person) => personCard(person, context, reveal)),
   )
 }
 
+/** One person; the one an “Open in People” asked for is brought into view by `reveal`. */
 const personCard = (
   person: PersonCard,
   context: Pick<ViewContext, 'actions' | 'clock' | 'page' | 'document' | 'state' | 'random'>,
+  reveal: (card: HTMLElement) => void,
 ): HTMLElement => {
   const more = person.more === null ? null : moreMenu(person, person.more, context)
   const card = h(
     'li',
-    { class: 'person', data: { memberId: person.memberId } },
+    {
+      class: person.focused ? 'person is-focused' : 'person',
+      data: { memberId: person.memberId },
+      ...(person.focused && { tabindex: '-1' }),
+    },
     h(
       'div',
       { class: 'person-card' },
-      h('div', { class: 'person-face' }, renderAvatar(context, person.avatar)),
+      h(
+        'div',
+        { class: 'person-face' },
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'person-face-button',
+            'aria-label': strings.profileCard.open({ name: person.name }),
+            ...opensProfile(person.memberId),
+          },
+          renderAvatar(context, person.avatar),
+        ),
+      ),
       h(
         'div',
         { class: 'person-main' },
@@ -212,6 +246,7 @@ const personCard = (
     ),
   )
   more?.opensFrom(card)
+  if (person.focused) reveal(card)
   return card
 }
 

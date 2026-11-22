@@ -67,6 +67,19 @@
   }
 }
 
+/* The page ends above the phone's tab bar, which is fixed to the bottom of the shell. */
+@container app (max-width: 32rem) {
+  .app {
+    grid-template-rows:
+      auto auto minmax(0, 1fr)
+      calc(var(--hb-tab-bar-size) + var(--hb-border-width) + env(safe-area-inset-bottom, 0px));
+  }
+
+  .app[data-tab-bar="hidden"] {
+    grid-template-rows: auto auto minmax(0, 1fr) 0;
+  }
+}
+
 .thread-host {
   display: grid;
   grid-template: minmax(0, 1fr) / minmax(0, 1fr);

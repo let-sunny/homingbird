@@ -133,6 +133,8 @@ export type ActivityItem =
       'skipped',
       {
         readonly from: string
+        /** Whose note it is, whose profile card “from” opens. */
+        readonly fromId: MemberId
         readonly body: string
         readonly reason: string
         readonly reply: string
@@ -273,6 +275,7 @@ const skippedItems = (input: ActivityInput): ActivityItem[] =>
         from: strings.activity.skippedFrom({
           name: input.members.get(note.authorId)?.name ?? strings.formerMember,
         }),
+        fromId: note.authorId,
         body: excerpt(note.body, SKIPPED_EXCERPT),
         reason:
           release.reason === null

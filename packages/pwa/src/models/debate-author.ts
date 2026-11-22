@@ -15,6 +15,7 @@ export const debateAuthorModel = (input: DebateAuthorInput, written: WrittenInRo
       : strings.authorship.agent({ name: input.members.get(written.memberId)?.name ?? strings.formerMember })
   return {
     id: `author-${written.id}`,
+    memberId: written.memberId,
     buttonClass: 'author-button is-agent',
     buttonLabel: strings.debates.authorWho({ authorship: line }),
     avatar: memberAvatarOf(input.members.get(written.memberId), featureOn('characters', input.serverInfo), {

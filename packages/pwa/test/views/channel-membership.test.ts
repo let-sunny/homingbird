@@ -129,6 +129,7 @@ describe('roomControls', () => {
     getByRole(dialog, 'button', { name: strings.removeMember }).click()
     expect(called('setChannelMember')[0]!.args).toEqual(['secret', CY, false])
     const ben = dialog.querySelector(`[data-member="${BEN}"]`) as HTMLElement
+    expect(getByRole(ben, 'button', { name: 'Ben' }).dataset.profile).toBe(BEN)
     getByRole(ben, 'button', { name: strings.groups.unmanage }).click()
     expect(called('setGroupMembers')).toHaveLength(0)
     const confirming = dialog.querySelector<HTMLElement>('form.unmanage-confirmation')!

@@ -440,6 +440,7 @@ describe('debateView', () => {
     )
     expect(credit.querySelector('.debate-credit')).toBeNull()
     const mine = credit.querySelector(`.debate-credit-row[data-member="${ANA}"]`)!
+    expect(mine.querySelector<HTMLElement>('strong .profile-name')!.dataset.profile).toBe(ANA)
     expect(textOf(mine.querySelector('.debate-position-change p')!)).toBe(
       strings.debates.positionChange({ from: 1, to: 3 }),
     )

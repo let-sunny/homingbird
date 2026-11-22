@@ -41,6 +41,8 @@ export interface PrincipleDraft {
   readonly offerId?: string | undefined
   readonly confirmed?: boolean | undefined
   readonly taughtFrom?: TaughtFrom | undefined
+  /** Where a proposal the person saved came from. */
+  readonly origin?: PrincipleOrigin | undefined
 }
 
 /**
@@ -73,7 +75,11 @@ export const createPrinciple = (
       const now = env.clock.now()
       const id = `prin_${env.random.identifier()}` as PrincipleId
       const origin: PrincipleOrigin =
-        offer === null ? (draft.taughtFrom ?? 'manual') : offer.kind === 'edit' ? 'edit' : 'discard'
+        offer === null
+          ? (draft.origin ?? draft.taughtFrom ?? 'manual')
+          : offer.kind === 'edit'
+            ? 'edit'
+            : 'discard'
       const inserted = yield* run(sql`
         INSERT INTO principles (id, member_id, kind, topic, rule, source, place, enabled, origin, position,
           created_at, updated_at, last_applied_at, public_text)
@@ -172,18 +178,17 @@ export const principlesForDrafting = (
     return selectPrinciples(yield* principlesOf(memberId), yield* placeOfConversation(conversationId))
   })
 
-/** A channel renamed by an administrator keeps its principles and offers under the new name. */
+/** A channel renamed by an administrator keeps its principles, offers and proposals under the new name. */
 export const renamePlace = (from: string, to: string): T.Task<void, never, AppEnv> =>
   T.gen(function* () {
     yield* run(sql`UPDATE principles SET place = ${to} WHERE place = ${from}`)
     yield* run(sql`UPDATE principle_offers SET place = ${to} WHERE place = ${from}`)
     yield* run(sql`UPDATE principle_quiet_places SET place = ${to} WHERE place = ${from}`)
+    yield* run(sql`UPDATE principle_proposals SET place = ${to} WHERE place = ${from}`)
   })
 
-/** Not NotFound, which a desk reads as the feature being switched off. */
-const NOT_IN_CONVERSATION = 'You are not in that conversation, so there are no principles to give for it.'
-
-const requireChannelOf = (memberId: MemberId, place: PlaceName): T.Task<void, NotFound, AppEnv> =>
+/** A principle may name a channel only while its person is in it. */
+export const requireChannelOf = (memberId: MemberId, place: PlaceName): T.Task<void, NotFound, AppEnv> =>
   T.gen(function* () {
     if (place === null) return
     const found = yield* first(sql`SELECT ch.slug FROM channels ch
@@ -192,6 +197,9 @@ const requireChannelOf = (memberId: MemberId, place: PlaceName): T.Task<void, No
     if (found === null)
       return yield* T.fail(NotFound({ message: 'You can save a principle only for a channel you are in.' }))
   })
+
+/** Not NotFound, which a desk reads as the feature being switched off. */
+const NOT_IN_CONVERSATION = 'You are not in that conversation, so there are no principles to give for it.'
 
 /**
  * Whether a change touches what an item says. Turning one on or off is not an edit, so a stored answer

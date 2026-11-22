@@ -17,6 +17,7 @@ import * as mutes from './tasks/mutes.ts'
 import * as notes from './tasks/notes.ts'
 import * as people from './tasks/people.ts'
 import * as previews from './tasks/previews.ts'
+import * as interview from './tasks/teaching-interview.ts'
 import * as teaching from './tasks/teaching.ts'
 import * as workspace from './tasks/workspace.ts'
 
@@ -79,6 +80,11 @@ export const TASKS = {
   deletePrinciple: teaching.deletePrinciple,
   markPrincipleWrong: teaching.markPrincipleWrong,
   dismissOffer: teaching.dismissOffer,
+  refreshInterview: () => interview.refreshInterview,
+  saveTeachingDocument: interview.saveTeachingDocument,
+  acceptProposal: interview.acceptProposal,
+  acceptProposals: interview.acceptProposals,
+  discardProposal: interview.discardProposal,
   loadChannelPage: channels.loadChannelPage,
   createChannel: channels.createChannel,
   joinChannel: channels.joinChannel,

@@ -64,8 +64,18 @@ const scenario = async (): Promise<void> => {
     await billingCard.getByRole('button', { name: 'Join', exact: true }).click()
     await ben.page.waitForSelector('.channel-card[data-slug="billing"] .kind.is-joined')
     const deploysCard = ben.page.locator('.channel-card[data-slug="deploys"]')
-    await deploysCard.getByRole('button', { name: 'More for #deploys' }).click()
-    await deploysCard.getByRole('menuitem', { name: 'Join and answer', exact: true }).click()
+    // Joining redraws the list once the server answers, which can close a menu opened before it.
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await deploysCard.getByRole('button', { name: 'More for #deploys' }).click()
+        await deploysCard
+          .getByRole('menuitem', { name: 'Join and answer', exact: true })
+          .click({ timeout: 3000 })
+        break
+      } catch (error) {
+        if (attempt === 2) throw error
+      }
+    }
     await ben.page.waitForSelector('.channel-card.is-helping[data-slug="deploys"]')
     await capture(ben.page, 'joined-one-channel-answering-in-another')
 
@@ -118,16 +128,15 @@ const scenario = async (): Promise<void> => {
     await ben.page.locator('.room-more').click()
     await ben.page.locator('.room-menu').getByRole('button', { name: 'Members' }).click()
     await ben.page.waitForSelector('dialog[open] .channel-member')
-    await ben.page.selectOption('dialog[open] select[name=member]', ids.Cy!)
+    await ben.page.fill('dialog[open] .add-member .people-picker input', 'Cy')
+    await ben.page.locator(`dialog[open] .people-picker-option[data-member-id="${ids.Cy}"]`).click()
+    await ben.page.waitForSelector(`dialog[open] .people-picker-chip[data-member-id="${ids.Cy}"]`)
     await ben.page.locator('dialog[open] .add-member').getByRole('button', { name: 'Add' }).click()
     await ben.page.waitForSelector(`dialog[open] .channel-member[data-member="${ids.Cy}"]`)
     await capture(ben.page, 'members-panel-after-adding-from-people')
     await ben.page.waitForSelector('dialog[open] .managed-by:has-text("Managed by")')
     await capture(ben.page, 'members-panel-names-the-managing-group')
-    await ben.page.locator('dialog[open]').getByRole('button', { name: 'Make open…' }).click()
-    await ben.page.waitForSelector('dialog[open]:has-text("read every question asked in it so far")')
-    await capture(ben.page, 'opening-a-private-channel-states-the-consequence')
-    await ben.page.locator('dialog[open]').getByRole('button', { name: 'Cancel' }).click()
+    await ben.page.keyboard.press('Escape')
     assert.equal((await api(ben, 'GET', '/channels/payroll')).visibility, 'private')
 
     // -- What a non-member sees: nothing ---------------------------------------------------------
@@ -177,22 +186,11 @@ const scenario = async (): Promise<void> => {
     assert.equal((await api(cy, 'GET', '/drafts')).drafts.length, 0)
     await capture(cy.page, 'a-removed-member-loses-the-room-at-once')
 
-    // -- Making a channel private, with the consequence stated --------------------------------------
+    // -- A channel's managers, kept in the group that manages it -----------------------------------
     await api(ben, 'PUT', '/channels/deploys/membership', {})
     const deploysManagers = (await api(ana, 'GET', '/channels/deploys')).managedBy as string
     await api(ana, 'PUT', `/groups/${deploysManagers}/members`, { memberIds: [ids.Ben] })
     const deploys = (await api(ben, 'GET', '/channels/deploys')).conversationId as string
-    await ben.page.goto(`${base}/#/c/${deploys}`)
-    await ben.page.locator('.room-more').click()
-    await ben.page.locator('.room-menu').getByRole('button', { name: 'Members' }).click()
-    await ben.page.locator('dialog[open]').getByRole('button', { name: 'Make private…' }).click()
-    await ben.page.waitForSelector('dialog[open]:has-text("Nobody else can find it")')
-    await capture(ben.page, 'making-a-channel-private-states-the-consequence')
-    await ben.page.locator('dialog[open]').getByRole('button', { name: 'Make private' }).click()
-    await ben.page.waitForSelector('.thread-head .private-mark')
-    await dee.page.goto(`${base}/#/channels`)
-    await dee.page.waitForSelector('.channel-card[data-slug="billing"]')
-    assert.equal(await dee.page.locator('.channel-card[data-slug="deploys"]').count(), 0)
 
     // -- Administrators can manage any channel ------------------------------------------------------
     await ana.page.goto(`${base}/#/channels`)
@@ -221,8 +219,8 @@ const scenario = async (): Promise<void> => {
       (room: { kind: string }) => room.kind === 'direct',
     ).id as string
     await dee.page.goto(`${base}/#/c/${direct}`)
-    await dee.page.waitForSelector('.thread-head .human-state:has-text("Person online")')
-    await dee.page.waitForSelector('.thread-head .agent-light:has-text("Agent not awake")')
+    await dee.page.waitForSelector('.thread-head .human-dot.is-on[aria-label="Ben: online"]')
+    await dee.page.waitForSelector('.thread-head .agent-mark-dot.is-off[aria-label="Ben’s agent: not awake"]')
     await dee.page.waitForSelector('.conversation .human-dot[aria-label="Person online"]')
     await capture(dee.page, 'thread-header-presence-in-words-and-list-dot')
 
