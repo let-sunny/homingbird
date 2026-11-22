@@ -67,6 +67,18 @@ describe('roomControls', () => {
     expect(queryByRole(shown, 'button', { name: strings.manageMembers })).toBeNull()
   })
 
+  it('says beside the answering switch, and in its explanation, that the channel’s own agent drafts its answers', () => {
+    const { context } = testContext()
+    const billing = channel('billing', { joined: true, agent: { id: CY, name: 'Billing helper' } })
+    const note = strings.answeredByChannelAgent({ agent: 'Billing helper', channel: '#billing' })
+    const shown = mount(roomControls(context, billing))
+    expect(shown.querySelector('.answering-agent-note')?.textContent).toBe(note)
+    expect(shown.querySelector('.answering-explained')?.textContent).toContain(note)
+    expect(getByRole(shown, 'switch', { name: strings.answerHere }).getAttribute('title')).toBe(note)
+    const without = mount(roomControls(context, channel('ops', { joined: true })))
+    expect(without.querySelector('.answering-agent-note')).toBeNull()
+  })
+
   it('asks once for a managed channel’s roster, and keeps a manager in the room', () => {
     const { context, called } = testContext()
     signedIn(context)

@@ -101,6 +101,10 @@ export const turnHoldOf = (
 
 export const TURN_HOLD_MS = 2 * 60_000
 
+/** Whether a refused turn was refused as stale, so the turns the agent missed are worth handing it. */
+export const isStaleTurnRefusal = (refusal: { readonly _tag: string; readonly message: string }): boolean =>
+  refusal._tag === 'Conflict' && refusal.message.startsWith(`${ROOM_MOVED_ON}:`)
+
 /** How long a room keeps collecting drafts of its result after the first one arrives. */
 export const RESULT_DRAFTING_WINDOW_MS = 3 * 60_000
 
@@ -318,7 +322,7 @@ const takeTurn = (
   const stale = staleAfter(room, event.afterTurn)
   if (stale !== null)
     return refuse(
-      `The room moved on: turns ${stale + 1} to ${room.turns.length} were taken after turn ${stale}, the last you read. Your turn was not saved: read the new turns and rewrite it.${kept}`,
+      `${ROOM_MOVED_ON}: turns ${stale + 1} to ${room.turns.length} were taken after turn ${stale}, the last you read. Your turn was not saved: rewrite it in the light of the turns you missed.${kept}`,
     )
   const problem = turnProblem(body, room.limits)
   if (problem !== null) return Result.err(Invalid({ message: `${problem}${kept}` }))
@@ -565,3 +569,5 @@ const whyNoVote = (room: DebateRoom, voterId: MemberId, draftBy: MemberId): stri
   if (votedBy(room).includes(voterId)) return ALREADY_VOTED
   return null
 }
+
+const ROOM_MOVED_ON = 'The room moved on'

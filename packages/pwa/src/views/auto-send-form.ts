@@ -20,6 +20,7 @@ export const autoSendForm = (context: ViewContext, principle: AsRead.Principle):
           members: state.members.get(),
           viewerId: me.member.id,
         }),
+    state.channels.get(),
   )
   if (model === null) return null
   const enabled = h('input', { type: 'checkbox', name: 'autoSend', checked: model.enabled })
@@ -65,6 +66,7 @@ export const autoSendForm = (context: ViewContext, principle: AsRead.Principle):
       h('small', {}, model.placesHint),
       model.noPlaces !== null && h('p', {}, model.noPlaces),
       boxes.map((each) => h('label', { class: 'choice' }, each.box, each.label)),
+      model.notOffered !== null && h('p', { class: 'trust-footnote' }, model.notOffered),
     ),
     problem,
     h('button', { type: 'submit', class: 'primary' }, model.save),

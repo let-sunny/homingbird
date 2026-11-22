@@ -23,7 +23,7 @@ import { type RequestEnv, emit } from '../events/events.ts'
 import { first, run } from '../sql/database.ts'
 import { insertInto, sql } from '../sql/query.ts'
 import { sendIfSavedAnswer } from './auto-send.ts'
-import { channelAgentOf, channelOfAgentRoom, managersOf } from './channel-rows.ts'
+import { agentAnsweringIn, channelAgentOf, channelOfAgentRoom, managersOf } from './channel-rows.ts'
 import { channelRoomFor } from './channels.ts'
 import { directConversationWith, participatedConversation, requireMayMessageIn } from './conversations.ts'
 import { announcePreview } from './draft-previews.ts'
@@ -73,6 +73,7 @@ export const createDraft = (caller: Caller, target: DraftTarget): T.Task<Note, N
     const authorId = caller.member.id
     yield* requireAgentMayAnswer(caller, target)
     const conversationId = yield* conversationForDraft(authorId, target)
+    yield* requireNoChannelAgentAnswers(caller, conversationId, target)
     yield* requireRoomForAnotherDraft(authorId)
     const sources = yield* storedSources(authorId, target.sources)
     const inReplyTo = target.inReplyTo ?? null
@@ -245,6 +246,27 @@ const requireAgentMayAnswer = (caller: Caller, target: DraftTarget): T.Task<void
     if (possibleReviewers(yield* managersOf(channel), askers).length === 0)
       return yield* T.fail(Conflict({ message: NO_REVIEWER_MESSAGE }))
   })
+
+/**
+ * In a channel whose own agent answers, a person's agent drafts no answer to someone else's question:
+ * that agent drafts it and the channel's managers review it. The person still replies themself.
+ */
+const requireNoChannelAgentAnswers = (
+  caller: Caller,
+  conversationId: ConversationId,
+  target: DraftTarget,
+): T.Task<void, Conflict, RequestEnv> =>
+  T.gen(function* () {
+    if (isHuman(caller) || !isPerson(caller.member) || target.inReplyTo === undefined) return
+    if ((yield* agentAnsweringIn(conversationId)) === null) return
+    const asker = yield* first<{ id: MemberId; kind: string }>(sql`
+      SELECT m.id, m.kind FROM notes n JOIN members m ON m.id = n.author_id WHERE n.id = ${target.inReplyTo}`)
+    if (asker?.id === caller.member.id || asker?.kind === 'channel_agent') return
+    return yield* T.fail(Conflict({ message: CHANNEL_AGENT_ANSWERS }))
+  })
+
+const CHANNEL_AGENT_ANSWERS =
+  'This channel has its own agent: it drafts the answers to questions here, and the channel’s managers review them. Your agent does not draft one.'
 
 /**
  * The program a credential signed in from, as its registration named it: a fallback when the

@@ -6,7 +6,7 @@ import { channelView, channelsView } from '../../src/views/channels.ts'
 import { dialogHost } from '../../src/views/dialog.ts'
 import { testContext } from '../support/context.ts'
 import { mount, settle, usingFakeDom } from '../support/dom.ts'
-import { channel, conversation, serverInfo } from '../support/fixtures.ts'
+import { CY, channel, conversation, serverInfo } from '../support/fixtures.ts'
 
 usingFakeDom()
 
@@ -132,6 +132,19 @@ describe('channelView', () => {
     getByRole(shown, 'button', { name: strings.join }).click()
     expect(called('joinChannel')[0]!.args).toEqual(['billing', false])
     await settle()
+  })
+
+  it('says beside joining, on the card and on the channel’s page, that the channel’s own agent drafts its answers', () => {
+    const { context, called } = testContext()
+    const billing = channel('billing', { agent: { id: CY, name: 'Billing helper' } })
+    const note = strings.answeredByChannelAgent({ agent: 'Billing helper', channel: '#billing' })
+    context.state.channels.set([billing])
+    expect(
+      channelView(context, lifetime(), 'billing').querySelector('.answering-agent-note')?.textContent,
+    ).toBe(note)
+    const list = channelsView(context, lifetime())
+    called('loadChannelPage').at(-1)!.then!.done!(page([billing]))
+    expect(list.querySelector('[data-slug="billing"] .answering-agent-note')?.textContent).toBe(note)
   })
 
   it('opens the room of a channel the person is in, and only names a private one they are not in', async () => {

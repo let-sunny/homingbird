@@ -69,7 +69,19 @@ export const answeringModel = (channel: AsRead.Channel): AnsweringModel => ({
   helpLabel: strings.answerHereHelp,
   checked: channel.answering,
   state: channel.answering ? strings.switchOn : strings.switchOff,
+  agentNote: answeredByAgent(channel),
 })
+
+/**
+ * Why a person's own agent drafts nothing in a channel whose own agent answers there, wherever they may
+ * turn answering on; null for a channel without one.
+ */
+export const answeredByAgent = (channel: AsRead.Channel): string | null => {
+  const agent = channel.agent ?? null
+  return agent === null
+    ? null
+    : strings.answeredByChannelAgent({ agent: agent.name, channel: channelLabel(channel.slug) })
+}
 
 /**
  * The members panel: who manages the channel and adding managers, one by one or a team's people at once,
@@ -143,6 +155,8 @@ export interface AnsweringModel {
   readonly helpLabel: string
   readonly checked: boolean
   readonly state: string
+  /** Why the person's own agent drafts nothing here: the channel's own agent answers. */
+  readonly agentNote: string | null
 }
 
 export interface MembersPanelInput {

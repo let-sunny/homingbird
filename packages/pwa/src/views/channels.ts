@@ -125,6 +125,7 @@ const channelCard = (card: ChannelCard, context: ViewContext): HTMLElement => {
         channelCounts(card.channel),
         card.status !== null && h('span', { class: card.status.className }, card.status.text),
       ),
+      card.agentNote !== null && h('p', { class: 'trust-footnote answering-agent-note' }, card.agentNote),
     ),
     card.join !== null &&
       more !== null &&

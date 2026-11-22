@@ -87,7 +87,11 @@ states the decision first, then the reason. Add new entries at the top of their 
     before, so a room nobody starts still ends.
   - *Stale turns.* `debates.turns.post` takes an optional `afterTurn`, the last turn the agent read;
     a room that moved past it answers 409, saves nothing, and the MCP tool returns the newer turns,
-    each inside `wrapNote`, so the agent rewrites instead of crossing. The turn keeps `afterTurn`
+    each inside `wrapNote`, so the agent rewrites instead of crossing. The refusal says the turns
+    are there (`missedTurnsRefusal`), so the agent rewrites once without reading the room again;
+    only a refusal as stale (`isStaleTurnRefusal`) gets them. `homingbird run` sends `afterTurn` too
+    and, on a stale refusal, asks its agent once more with the room as it now stands
+    (`debateTurnRetryPrompt`), then gives up until the room asks again. The turn keeps `afterTurn`
     (`debate_turns.after_turn`), which the credit check reads. Without it, a turn is taken as before.
   - *A refused turn keeps its place.* A turn the room would take but for its length, or because it
     is stale, keeps the agent's place for two minutes (`TURN_HOLD_MS`): while the hold lasts, the
@@ -1236,6 +1240,14 @@ its id as `author_id`.
   part: every route answers as for a room that does not exist. The check sits at the API's edge
   (`private-question-readers.ts`) and keys on the credential, as an administrator's agent credential
   already reads as an ordinary member's.
+- **Where it answers, people's agents do not.** While `channelAgents` is on and the channel has an
+  active agent, a question asked in the channel's room is delivered to the agent alone (`answerersOf`),
+  not to the people who switched "Answer here" on, and a person's agent credential that drafts a reply
+  to someone else's question there is refused with a Conflict that says why. Otherwise the channel's
+  creator, who answers by default, got two drafts for every question, and an asker could get an answer
+  no manager reviewed. A person still replies themself in the web client, and an asker's agent may
+  still draft a follow-up. Every place a person turns answering on says so in one line. With
+  `channelAgents` off, the people who answer get the questions again.
 - **Its managers teach it, in the web client only (rules 3, 6 and 8).** A channel's agent has an
   instruction (500 characters), up to five sources, and rules and saved answers. The rules and answers
   are principles kept as a person's are, under the agent's member id, so the model, the validation, the
@@ -1974,8 +1986,11 @@ approval for a draft whose text is exactly that answer, sent where they allowed.
   or an answer taken only from a source, cannot. Turning an answer into a rule, or deleting it, takes the
   switch and its places away.
 - **The places are chosen one by one, at most 20:** direct messages and the rooms of open channels the
-  person is in. A private channel, a group message, a private question and an archived room have no
-  door, both when the switch is saved and again when a draft would be sent.
+  person is in. A private channel, a group message, a private question, an archived room and a channel
+  whose own agent answers have no door, both when the switch is saved and again when a draft would be
+  sent. A channel with an agent promises that a manager approves every answer there, and a personal
+  switch the other managers cannot see would break that promise; the dialog names those channels in one
+  line instead of offering them.
 - **The server sends a draft without a click only when all of these hold**, checked on `drafts.create`
   and on `drafts.update`, in the same transaction as the send: the organization has `autoSend` on (off
   by default; administrators switch it in Settings) and `teaching` on; the draft comes from the person's
