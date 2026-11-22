@@ -142,6 +142,14 @@ export const ko: Translation<typeof en> = {
   roomMore: '{channel} 더 보기',
   copyChannelLink: '이 채널 링크 복사',
   channelLinkCopied: '채널 링크를 복사했어요.',
+  profileCard: {
+    label: '{name} 소개',
+    open: '{name} 소개 보기',
+    openInPeople: '사람 목록에서 보기',
+    groups: '그룹: {groups}',
+    managedBy: '관리자: {names}',
+    thisNote: '이 노트',
+  },
   emptyThread: '아직 노트가 없어요. 먼저 인사해 보세요.',
   channelRoomEmpty:
     '아직 질문이 없어요. 여기에 질문하면 이 채널의 답변자가 답해요. 모든 노트는 사람이 먼저 승인해요.',

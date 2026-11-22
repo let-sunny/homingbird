@@ -43,6 +43,19 @@ describe('peopleModel', () => {
     ])
   })
 
+  it('marks the person an “Open in People” asked for, and no one else', () => {
+    const directory = [entry(BEN, 'Ben'), entry(CY, 'Cy')]
+    const focused = (person?: string) => list({ directory, person }).map((card) => [card.name, card.focused])
+    expect(focused(CY)).toEqual([
+      ['Ben', false],
+      ['Cy', true],
+    ])
+    expect(focused()).toEqual([
+      ['Ben', false],
+      ['Cy', false],
+    ])
+  })
+
   it('lists people whose agent is awake first, then by name, matching the search and the channel', () => {
     const directory = [
       entry(CY, 'Cy', { channels: ['billing'] }),

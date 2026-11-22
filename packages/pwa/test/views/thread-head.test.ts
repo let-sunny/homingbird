@@ -45,9 +45,12 @@ describe('renderThreadHead', () => {
         },
         people: nobody,
         showsCount: false,
+        profileOf: BEN,
         mute: null,
       }),
     )
+    expect(getByRole(shown, 'button', { name: 'Ben' }).getAttribute('popovertarget')).toBe('profile-card')
+    expect(getByRole(shown, 'button', { name: 'Ben' }).dataset.profile).toBe(BEN)
     expect(textOf(shown)).toContain('Billing')
     expect(getByRole(shown, 'img', { name: strings.presenceOf.online({ name: 'Ben' }) })).toBeTruthy()
     expect(
@@ -65,6 +68,7 @@ describe('renderThreadHead', () => {
             presence: null,
             people: nobody,
             showsCount: false,
+            profileOf: null,
             mute: null,
           }),
         ),
@@ -127,6 +131,7 @@ describe('renderThreadHead', () => {
           note: 'Whoever manages #billing later joins too.',
         },
         showsCount: true,
+        profileOf: null,
         mute: null,
       }),
     )
@@ -159,6 +164,7 @@ describe('renderThreadHead', () => {
         presence: null,
         people: nobody,
         showsCount: false,
+        profileOf: null,
         mute: null,
       }),
     )
@@ -210,6 +216,7 @@ describe('renderThreadHead', () => {
         presence: null,
         people: nobody,
         showsCount: false,
+        profileOf: null,
         mute,
       }),
     )

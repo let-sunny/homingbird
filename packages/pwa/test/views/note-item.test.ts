@@ -227,6 +227,23 @@ describe('renderNoteItem', () => {
     expect(topic?.value).toBe('body of q')
   })
 
+  it('names the author of a note in a room as a button that opens their profile card', () => {
+    const { context } = testContext()
+    const question = note('q', { authorId: BEN })
+    const shown = render(
+      context,
+      question,
+      threadInput({
+        conversations: [conversation({ kind: 'channel' })],
+        thread: { notes: [question], hasMore: false },
+      }),
+    )
+    const name = shown.querySelector<HTMLElement>('.note-author .profile-name')!
+    expect(name.textContent).toBe('Ben')
+    expect(name.dataset.profile).toBe(BEN)
+    expect(shown.querySelector<HTMLElement>('.author-button')!.dataset.profile).toBe(BEN)
+  })
+
   it('offers a manager who discarded the agent’s answer to reply to the question themself', () => {
     const { context, called } = testContext()
     const question = note('q', { authorId: BEN })

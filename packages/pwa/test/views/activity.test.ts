@@ -245,6 +245,9 @@ describe('activityPanel', () => {
     state.debates.set([summary({ participantIds: [BEN] })])
     panel.showPopover()
     expect(textOf(panel)).toContain(strings.agentReleased({ reason: 'No calendar.' }))
+    expect(
+      getByRole(panel, 'button', { name: strings.activity.skippedFrom({ name: 'Ben' }) }).dataset.profile,
+    ).toBe(BEN)
     getByRole(panel, 'button', { name: strings.teach.add })
     expect(textOf(panel)).toContain(strings.deskUnavailableReason.failed)
     expect(getByRole(panel, 'link', { name: strings.activity.openConnection }).getAttribute('href')).toBe(

@@ -40,6 +40,7 @@ import {
   youMark,
 } from './parts.ts'
 import { peoplePicker } from './people-picker.ts'
+import { profileName } from './profile-card.ts'
 
 /** A channel's own controls on its page: answering there, and the menu of the rest. */
 export const roomControls = (context: ViewContext, channel: AsRead.Channel): HTMLElement =>
@@ -274,7 +275,7 @@ const ownRow = (
   h(
     'li',
     { class: 'channel-member is-self', data: { member: row.memberId } },
-    h('span', { class: 'channel-member-name' }, row.name, youMark()),
+    h('span', { class: 'channel-member-name' }, profileName(row.memberId, row.name), youMark()),
     roleMarks(row),
     h(
       'span',
@@ -302,7 +303,7 @@ const memberRow = (row: Extract<MemberRow, { kind: 'other' }>, panel: Panel): HT
   h(
     'li',
     { class: 'channel-member', data: { member: row.memberId } },
-    h('span', { class: 'channel-member-name' }, row.name),
+    h('span', { class: 'channel-member-name' }, profileName(row.memberId, row.name)),
     roleMarks(row),
     h(
       'span',
