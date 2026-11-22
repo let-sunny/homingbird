@@ -252,12 +252,13 @@ unconfirmed and withdrawn when discarded, through a person's route only
 
 ## Messaging
 
-**Built:** starting a conversation with several people in the web client: People offers **Add to group
-message** on every card one may message, the people chosen show as removable chips, and
-**Start group message** opens the group room, where the first note is written or drafted and approved as
-in a direct conversation ([guide](guide.md#ask-a-person)). When a group room with exactly those
-people exists, People opens it instead. Until a note in it is sent, a group message shows only to the
-person who started it, as a direct message does
+**Built:** one **New** menu at the head of the web client's list (a message, a channel, a debate
+room), and a new-message screen with a "To" field that suggests people as one types, the people one
+wrote with most recently first, each with their presence or the reason they cannot be written to.
+The first note is written or drafted and approved there; the room is made only then, or the one with
+exactly those people is used ([guide](guide.md#ask-a-person)). The same picker invites people to a
+debate room and adds people to a private channel, and a room's menu copies the channel's link. Until a
+note in it is sent, a group message shows only to the person who started it, as a direct message does
 ([decisions](decisions.md#product)).
 
 **Built:** muting a direct message or a channel, which keeps its notes and unread count but sends the

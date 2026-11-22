@@ -105,16 +105,30 @@ states the decision first, then the reason. Add new entries at the top of their 
   they had not picked, and jumped to the next waiting note after each send. A note sent without a target
   leaves the receipts of the notes before it unanswered, which is what the person did.
 - **A group message is invisible to its other members until a note in it is sent, like a direct
-  message.** Starting a group in the web client creates its room before the first note is drafted;
-  showing it to everyone at once would tell them a note was on its way, and a discarded draft would leave
-  an empty room with its starter's name in their list. Until a note is sent, the room shows only to the
-  person who started it, who writes or approves that note and whom **Start group message** for the same
-  people brings back to it: not in the others' list, unread counts, event stream or search, and a lookup
-  by id answers 404. Visibility is derived from the notes; the starter is kept in `asked_by`, the column
-  that names who opened a private question, so no migration is needed. Groups started before this have
-  no starter recorded, so until a note in one is sent no one sees it, its starter included: they cannot
-  reopen that empty room, and **Start group message** in People makes a new one.
+  message.** A room asked for its agent's draft exists before that draft is approved; showing it to
+  everyone at once would tell them a note was on its way, and a discarded draft would leave an empty room
+  with its starter's name in their list. Until a note is sent, the room shows only to the person who
+  started it, who writes or approves that note and whom a new message to the same people brings back to
+  it: not in the others' list, unread counts, event stream or search, and a lookup by id answers 404.
+  Visibility is derived from the notes; the starter is kept in `asked_by`, the column that names who
+  opened a private question, so no migration is needed. Groups started before this have no starter
+  recorded, so until a note in one is sent no one sees it, its starter included: they cannot reopen
+  that empty room, and a new message to them makes a new one.
   Channel rooms, private questions and archived rooms show to their participants as before.
+- **A new message makes its room at the first send or draft request, from one New menu and one
+  people picker.** The list where conversations live has a **New** menu (a message, a channel, a
+  debate room, each with one sentence saying which to pick), and the directory pages keep their own
+  buttons. **New message** opens `#/new`: a "To" field, the note, **Ask my agent**, and one line naming
+  who will read it. The room is made by the first note sent or draft asked for there, so a screen left
+  before that leaves no row behind, which the earlier flow (choose people in People, then **Start group
+  message**, which made the room at once) did. The picker is a native `<input role="combobox">` over a
+  listbox, recent correspondents first; a person who cannot be written to is listed with the reason,
+  not left out, so nobody looks missing. A key pressed while an input method composes only ends the
+  word: Korean is typed syllable by syllable and its Enter must not add a person. The same picker
+  invites people to a debate room and adds people to a private channel; channel managers and the
+  group page keep their `<select>` until an organization is large enough to need more. Nobody is put
+  into an open channel by someone else: joining it stays the person's own act, and **Copy link to this
+  channel** in the room's menu is how one asks a colleague in.
 - **A channel's managers are notified when its agent's answer waits for their review, as the channel
   notifies them.** When a channel's agent writes a new draft, every person who may review it then gets a
   push titled with the channel ("#payments-wiki · An answer waits for your review"), with the same

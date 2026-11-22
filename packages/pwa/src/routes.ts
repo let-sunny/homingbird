@@ -12,6 +12,8 @@ export type Route =
       readonly note?: string
     }
   | { readonly name: 'people' }
+  /** A note to people the person picks first; `to` names whom they chose already, as from a person's card. */
+  | { readonly name: 'new'; readonly to: ReadonlyArray<string> }
   | { readonly name: 'group'; readonly id: string }
   | { readonly name: 'channels' }
   | { readonly name: 'channel'; readonly slug: string }
@@ -77,6 +79,7 @@ export const parseRoute = (hash: string): Route => {
     }
   }
   if (head === 'people') return { name: 'people' }
+  if (head === 'new') return { name: 'new', to: memberIdsIn(parameters.get('to')) }
   if (head === 'group' && second !== undefined) return { name: 'group', id: second }
   if (head === 'channels') return { name: 'channels' }
   if (head === 'channel' && second !== undefined && third === 'agent')
@@ -131,6 +134,10 @@ export const hrefFor = (route: Route): string => {
       })
     case 'people':
       return '#/people'
+    case 'new':
+      return route.to.length === 0
+        ? '#/new'
+        : `#/new?${new URLSearchParams({ to: route.to.join(',') }).toString()}`
     case 'group':
       return `#/group/${encodeURIComponent(route.id)}`
     case 'channels':
@@ -217,6 +224,9 @@ const turnNumber = (value: string | null): number | null =>
 
 const isAdminSection = (value: string | undefined): value is AdminSection =>
   ADMIN_SECTIONS.includes(value as AdminSection)
+
+const memberIdsIn = (value: string | null): ReadonlyArray<string> =>
+  (value ?? '').split(',').filter((memberId) => memberId !== '')
 
 const decodeSegment = (segment: string): string => {
   try {

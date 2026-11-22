@@ -17,6 +17,7 @@ import { debatesView } from './debates.ts'
 import { groupPageView } from './group-page.ts'
 import { homeView } from './home.ts'
 import { measuresView } from './measures.ts'
+import { newMessageView } from './new-message.ts'
 import { emptyWithPip } from './parts.ts'
 import { peopleView } from './people.ts'
 import { searchView } from './search.ts'
@@ -41,6 +42,8 @@ export const stageFor = (context: ViewContext, life: Lifetime, me: AsRead.Me, cu
       )
     case 'people':
       return peopleView(context, life, me)
+    case 'new':
+      return newMessageView(context, life, me, current.to)
     case 'group':
       return on('groups') ? groupPageView(context, life, me.member.id, current.id) : notFound()
     case 'channels':

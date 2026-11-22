@@ -1360,15 +1360,6 @@ a.quote:hover {
   }
 }
 
-.group-start {
-  display: grid;
-  gap: var(--hb-space-2);
-  padding: var(--hb-space-3);
-  border: var(--hb-border);
-  border-radius: var(--hb-radius);
-  background: var(--hb-color-surface);
-}
-
 .settings-save {
   position: sticky;
   inset-block-end: 0;
@@ -1393,38 +1384,39 @@ a.quote:hover {
   margin: 0;
 }
 
-.group-start.is-collapsed {
-  padding-block: var(--hb-space-2);
+.people-picker {
+  position: relative;
+  display: grid;
+  gap: var(--hb-space-1);
 }
 
-.group-start-head {
+.people-picker-box {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--hb-space-1) var(--hb-space-3);
+  align-items: center;
+  gap: var(--hb-space-1) var(--hb-space-2);
+  padding: var(--hb-space-1) var(--hb-space-2);
+  border: var(--hb-border);
+  border-radius: var(--hb-radius);
+  background: var(--hb-color-surface);
+  cursor: text;
 }
 
-.group-start-head h2 {
-  margin: 0;
-  font-size: var(--hb-text-body);
+.people-picker-box:focus-within {
+  outline: var(--hb-focus-ring);
+  outline-offset: 2px;
 }
 
-.group-start-count,
-.group-start-intro,
-.group-start-full,
-.group-start-existing {
-  margin: 0;
+.people-picker-label {
   color: var(--hb-color-muted);
-  font-size: var(--hb-text-small);
+  font-weight: 600;
 }
 
-.group-start-status {
-  margin: 0;
-  overflow-wrap: anywhere;
+.people-picker-chips-host {
+  display: contents;
 }
 
-.group-start-chips {
+.people-picker-chips {
   display: flex;
   flex-wrap: wrap;
   gap: var(--hb-space-1);
@@ -1433,7 +1425,7 @@ a.quote:hover {
   list-style: none;
 }
 
-.group-start-chip {
+.people-picker-chip {
   display: inline-flex;
   align-items: center;
   gap: var(--hb-space-1);
@@ -1445,30 +1437,156 @@ a.quote:hover {
   font-size: var(--hb-text-small);
 }
 
-.group-start-chip span {
+.people-picker-chip span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.group-start-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--hb-space-2);
+.people-picker-box input {
+  flex: 1 1 10rem;
+  min-inline-size: 0;
+  padding: var(--hb-space-1) 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  outline: none;
 }
 
-.choose-toggle[aria-pressed="true"] {
+/* Over what follows, so the page does not move under a click as the list closes. */
+.people-picker-options {
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline: 0;
+  z-index: 2;
+  display: grid;
+  max-block-size: 22rem;
+  overflow-y: auto;
+  margin: var(--hb-space-1) 0 0;
+  padding: var(--hb-space-1);
+  border: var(--hb-border);
+  border-radius: var(--hb-radius);
+  background: var(--hb-color-surface);
+  box-shadow: var(--hb-shadow-raised);
+  list-style: none;
+}
+
+.people-picker-options[hidden] {
+  display: none;
+}
+
+.people-picker-option {
+  display: grid;
+  gap: var(--hb-space-1);
+  padding: var(--hb-space-2);
+  border-radius: var(--hb-radius);
+  cursor: pointer;
+}
+
+.people-picker-option.is-active {
   background: var(--hb-color-accent);
   color: var(--hb-color-on-accent);
-  box-shadow: var(--hb-shadow-pressed);
 }
 
-@container stage (min-width: 30rem) {
-  .group-start-actions {
-    flex-direction: row;
+.people-picker-option.is-disabled {
+  color: var(--hb-color-muted);
+  cursor: default;
+}
+
+.people-picker-who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--hb-space-1) var(--hb-space-2);
+  min-inline-size: 0;
+}
+
+.people-picker-email {
+  overflow: hidden;
+  font-size: var(--hb-text-small);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.people-picker-reason,
+.people-picker-full {
+  margin: 0;
+  font-size: var(--hb-text-small);
+}
+
+.people-picker-full {
+  color: var(--hb-color-muted);
+}
+
+@container stage (min-width: 36rem) {
+  .people-picker-option {
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
   }
+}
+
+.new-message {
+  display: grid;
+  gap: var(--hb-space-3);
+}
+
+.new-message-readers {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.new-message-readers a {
+  font-weight: 600;
+}
+
+.new-message-reason {
+  color: var(--hb-color-muted);
+  font-size: var(--hb-text-small);
+}
+
+.new-message-reason:has(.new-message-reason-text:empty) {
+  display: none;
+}
+
+.new-message .composer-row textarea {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  min-block-size: 6rem;
+  max-block-size: 18rem;
+}
+
+@container stage (max-width: 30rem) {
+  .new-message .composer-row {
+    flex-wrap: wrap;
+  }
+
+  .new-message .composer-row textarea {
+    flex: 1 1 100%;
+  }
+}
+
+.sidebar-list-head {
+  margin-block-start: 0;
+}
+
+.new-menu-trigger {
+  font-weight: 600;
+  font-size: var(--hb-text-small);
+}
+
+.new-menu .menu-item {
+  display: grid;
+  gap: var(--hb-space-1);
+}
+
+.menu-item-hint {
+  color: var(--hb-color-muted);
+  font-weight: 400;
+}
+
+.menu-item:hover .menu-item-hint,
+.menu-item:focus-visible .menu-item-hint {
+  color: inherit;
 }
 
 .relation,
@@ -3016,7 +3134,7 @@ button.group-member-name:focus-visible::after {
   gap: var(--hb-space-2);
 }
 
-.add-member .field,
+.add-member .people-picker,
 .change-managing .field {
   flex: 1 1 14rem;
 }
@@ -5883,12 +6001,6 @@ textarea:disabled {
 .debate-limits input {
   inline-size: 8rem;
   max-inline-size: 100%;
-}
-
-.debate-invitees {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--hb-space-2) var(--hb-space-3);
 }
 
 .debate-change-limits > summary,

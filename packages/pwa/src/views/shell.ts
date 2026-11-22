@@ -37,6 +37,7 @@ import { opensDialog } from './dialog.ts'
 import { startingPoints } from './home.ts'
 import { type MenuParts, actionMenu } from './menu.ts'
 import { mutedMark } from './mute-toggle.ts'
+import { newMenu } from './new-menu.ts'
 import {
   agentDot,
   archivedMark,
@@ -344,7 +345,12 @@ const sidebar = (
     region(life, [state.waitingOnly, waiting], () => waitingFilter(context, waiting.get()), {
       class: 'waiting-filter-host',
     }),
-    h('h2', { class: 'sidebar-title' }, strings.conversations),
+    h(
+      'div',
+      { class: 'sidebar-section-head sidebar-list-head' },
+      h('h2', { class: 'sidebar-title' }, strings.conversations),
+      newMenu(context, me),
+    ),
     region(
       life,
       [slice(peopleSources, () => model().people.kind)],

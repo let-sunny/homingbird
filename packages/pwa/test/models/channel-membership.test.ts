@@ -280,7 +280,15 @@ describe('membersPanelModel', () => {
     expect(model.rows![1]).toMatchObject({ remove: strings.removeMember })
     expect(model.addMember).toEqual({
       kind: 'choose',
-      choices: [{ value: CY, label: 'Cy · cy@example.com' }],
+      candidates: [
+        {
+          memberId: CY,
+          name: 'Cy',
+          email: 'cy@example.com',
+          presence: { humanOnline: false, agentOnline: false },
+          reason: null,
+        },
+      ],
     })
     expect(model.visibility).toBe(strings.visibilityPrivate)
     expect(

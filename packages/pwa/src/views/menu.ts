@@ -19,7 +19,7 @@ export const actionMenu = (context: MenuContext, spec: ActionMenu): MenuParts =>
       'aria-label': spec.label,
       title: spec.label,
     },
-    '⋯',
+    spec.trigger ?? '⋯',
   )
   const menu = h(
     'div',
@@ -47,6 +47,8 @@ export interface ActionMenu {
   /** What the ⋯ button and the menu are called: “More for Ana”. */
   readonly label: string
   readonly triggerClass: string
+  /** The button's own words, where ⋯ would not say what it opens. */
+  readonly trigger?: string
   readonly menuClass: string
   /** The menu's buttons, in order, each closing the menu when chosen, and any line that explains one. */
   readonly items: ReadonlyArray<Child>

@@ -16,6 +16,9 @@ const segment = fc.string({ minLength: 1, maxLength: 24 })
 const routes: fc.Arbitrary<Route> = fc.oneof(
   fc.constant<Route>({ name: 'home' }),
   fc.constant<Route>({ name: 'people' }),
+  fc
+    .array(fc.stringMatching(/^mem_[a-z0-9]{1,12}$/), { maxLength: 4 })
+    .map((to): Route => ({ name: 'new', to })),
   fc.constant<Route>({ name: 'channels' }),
   segment.map((slug): Route => ({ name: 'channel', slug })),
   segment.map((slug): Route => ({ name: 'channel-agent', slug, draft: null })),
@@ -76,6 +79,8 @@ describe('routes', () => {
     ['#/c/conv_1?review=note_2', { name: 'conversation', id: 'conv_1', draft: null, review: 'note_2' }],
     ['#/c/conv_1?note=note_3', { name: 'conversation', id: 'conv_1', draft: null, note: 'note_3' }],
     ['#/device', { name: 'device', code: null }],
+    ['#/new', { name: 'new', to: [] }],
+    ['#/new?to=mem_a,,mem_b', { name: 'new', to: ['mem_a', 'mem_b'] }],
     ['#/invite/hbi_abc', { name: 'invite', code: 'hbi_abc' }],
     ['#/invite', { name: 'unknown' }],
     ['#/invite-refused', { name: 'invite-refused' }],
