@@ -622,7 +622,6 @@ export const en = {
       earlierAnswers: 'Answered before: earlier answers shown while asking',
       teaching: 'Teaching principles',
       agentFigures: 'How my agent is doing',
-      routeMap: 'Route map',
       insights: 'Insights for administrators',
       noteDetails: 'Who wrote a note: model and program',
       debateRooms: 'Debate rooms',
@@ -646,7 +645,6 @@ export const en = {
         'Off: nobody sees earlier answers while writing a question, and agents ask without looking for them.',
       teaching: 'Off: principles are kept but not used, and nobody can add one.',
       agentFigures: 'Off: people no longer see their agent’s figures.',
-      routeMap: 'Off: My agent shows no route map.',
       insights: 'Off: administrators see no organization-wide numbers.',
       noteDetails: 'Off: notes no longer show the model and program that wrote them.',
       debateRooms: 'Off: debate rooms are hidden and their agents take no turns; existing rooms stay.',
@@ -700,7 +698,6 @@ export const en = {
       connection: 'Connection',
       teaching: 'Teaching',
       doing: 'How it is doing',
-      routes: 'Route map',
     },
     tabsLabel: 'My agent sections',
     sectionHints: {
@@ -709,8 +706,6 @@ export const en = {
         'A principle is a rule or saved answer your agent follows. Your agent names the principle it applied on each draft.',
       doing:
         'These numbers are about your agent’s drafts, not about you: where they already go out as you would write them, and where they still need you.',
-      routes:
-        'Where your agent already answers like you: each place it drafts, and how far your principles carry it there.',
     },
     verdict: {
       unknown: 'This version cannot describe these figures yet',
@@ -772,11 +767,6 @@ export const en = {
       other: '{count} drafts were sent within {seconds} seconds of appearing.',
     },
     quickExplained: 'A quick approval is a draft sent as written within {seconds} seconds of appearing.',
-    placesTitle: 'Where your agent is trusted',
-    placesIntro: 'Each channel on its own, with direct messages together.',
-    placeLine: '{place}: {asWritten} of {decided} sent as written',
-    placeNothingDecided: '{place}: no draft decided yet',
-    placeSkipped: { one: '{count} note skipped', other: '{count} notes skipped' },
     directMessages: 'Direct messages',
     trendTitle: 'Sent as written, week by week',
     trendIntro:
@@ -937,8 +927,7 @@ export const en = {
     teachFromEdit: 'Teach your agent from this edit',
     teachFromDiscard: 'Teach your agent what to do next time',
     behindTitle: 'The drafts behind these figures',
-    behindIntro:
-      'Each one is a chance to teach. Open where it happened to see what you sent, or teach your agent what it missed.',
+    behindIntro: 'Open where it happened to see what you sent, or teach your agent what it missed.',
     behind: {
       edited: 'Edited, then sent: {count}',
       discarded: 'Discarded: {count}',
@@ -962,22 +951,64 @@ export const en = {
       debate_next_step_accepted: 'The agents’ vote kept a next step your agent proposed',
     },
   },
-  routes: {
-    intro:
-      'Each point is a place where your agent drafts. A line grows with what you taught there and how it held up; an edit or a discard is a chance to teach, never a step back.',
-    you: 'You',
-    chances: { one: '{count} chance to teach', other: '{count} chances to teach' },
-    principleCount: { one: '{count} principle', other: '{count} principles' },
-    heldUpCount: { one: '{count} sent as written with them', other: '{count} sent as written with them' },
-    draftedCount: { one: '{count} draft in 30 days', other: '{count} drafts in 30 days' },
-    table: 'The map as a table',
-    placeColumn: 'Place',
-    draftedColumn: 'Drafts in 30 days',
-    principlesColumn: 'Principles',
-    heldUpColumn: 'Sent as written with them',
-    chancesColumn: 'Chances to teach',
-    debateRooms: 'In debate rooms',
-    debateIntro: 'What settled debate results credited your agent for. Never wins, counts or rankings.',
+  answersLikeYou: {
+    title: 'Where it answers like you',
+    intro: 'For each place your agent drafts: how close it is to answers you can send without changing them.',
+    trackLabel: 'Steps in {place}',
+    stepOf: 'Step {step} of 4: {name}',
+    steps: {
+      drafting: 'Only drafts',
+      taught: 'You taught principles',
+      holding: 'Principles hold',
+      likeYou: 'Answers like you',
+    },
+    meaning: {
+      drafting: 'Your agent drafts here, and none of your principles applies here yet.',
+      taught: 'At least one of your principles applies here: one for this channel, or one for any channel.',
+      holding: 'You sent a draft here that used one of your principles without changing it.',
+      likeYou: 'In the last 30 days you sent at least 7 in 10 of the drafts you decided here as written.',
+    },
+    toReach: {
+      drafting: 'To reach the next step, teach a principle for this place or for any channel.',
+      taught:
+        'To reach the next step, send a draft here that used one of your principles without changing it.',
+      holding:
+        'To reach the last step, decide at least {minimum} drafts here in 30 days and send at least 7 in 10 of them as written.',
+      likeYou:
+        'This step follows the last 30 days, so it can come and go. An edit is a chance to teach, never a step back.',
+    },
+    decided: '{asWritten} of {decided} decided drafts sent as written ({share})',
+    undecided: {
+      one: '{count} draft in 30 days, none decided yet',
+      other: '{count} drafts in 30 days, none decided yet',
+    },
+    noDrafts: 'No drafts here in the last 30 days',
+    next: {
+      drafting: 'Next step: teach a principle that applies here.',
+      taught: 'Next step: send a draft that used your principle without changing it.',
+      tooFew: {
+        one: '{count} draft decided here in 30 days. It takes {minimum} to tell.',
+        other: '{count} drafts decided here in 30 days. It takes {minimum} to tell.',
+      },
+      holding: 'Now {now} in 10 sent as written. Complete at 7 in 10.',
+      slipped:
+        'Some recent drafts needed edits: teach it what changed. An edit is a chance to teach, never a step back.',
+      likeYou: 'Complete: you send at least 7 in 10 of its drafts here as written.',
+    },
+    teachFromChances: {
+      one: 'Teach from {count} edited or discarded draft',
+      other: 'Teach from {count} edited or discarded drafts',
+    },
+    teachFirst: 'Teach a first principle for {place}',
+    teachMore: 'Teach your agent about {place}',
+    teachAnywhere: 'Teach a principle for any channel',
+    reviewSkipped: {
+      one: 'Review {count} note your agent skipped here',
+      other: 'Review {count} notes your agent skipped here',
+    },
+    stepsTitle: 'What the steps mean',
+    footnote:
+      '★ Complete means you sent at least 7 in 10 of the drafts you decided here in the last 30 days without changing them. The first three steps stay while you keep your principles. The last one follows your last 30 days.',
   },
   debates: {
     title: 'Debate rooms',

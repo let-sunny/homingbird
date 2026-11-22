@@ -7,17 +7,16 @@ import { yourWeekModel } from '../models/your-week.ts'
 import type { AgentSection } from '../routes.ts'
 import { strings } from '../strings.ts'
 import { periodChoice, renderFigures } from './agent-figures.ts'
+import { answersLikeYouSection } from './answers-like-you.ts'
 import { connectionSection } from './connection.ts'
 import type { ViewContext } from './context.ts'
 import { renderDraftsBehind } from './drafts-behind.ts'
 import { page } from './parts.ts'
-import { routeMapSection } from './route-map-view.ts'
 import { taughtSection } from './teaching.ts'
 import { renderYourWeek } from './your-week.ts'
 
 /**
- * "My agent": connection, teaching, how it is doing and the route map, one tab at a time, each tab its
- * own address.
+ * "My agent": connection, teaching and how it is doing, one tab at a time, each tab its own address.
  */
 export const agentTrustView = (
   context: ViewContext,
@@ -69,14 +68,13 @@ const sectionContent = (
       return [connectionSection(context, life, me)]
     case 'teaching':
       return [taughtSection(context, life)]
-    case 'routes':
-      return [routeMapSection(context, life)]
     case 'doing': {
       const days = signal(7)
       return [
         region(life, [context.state.agentReport], () =>
           renderYourWeek(yourWeekModel(context.state.agentReport.get())),
         ),
+        answersLikeYouSection(context, life),
         periodChoice('trust-period', days),
         region(
           life,

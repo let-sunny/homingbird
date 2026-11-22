@@ -1,18 +1,12 @@
 import { type Child, type Signal, h } from '@homingbird/ui'
-import {
-  type FiguresModel,
-  type LabelsTable,
-  type Places,
-  type Trend,
-  periodChoices,
-} from '../models/agent-figures.ts'
+import { type FiguresModel, type LabelsTable, type Trend, periodChoices } from '../models/agent-figures.ts'
 import { strings } from '../strings.ts'
 import { loading } from './parts.ts'
 import { sessionSection } from './session-health-view.ts'
 
 /**
  * How the agent is doing: the verdict, the numbers table with what lies behind its counts, skips,
- * places, labels, trend and sessions.
+ * labels, trend and sessions.
  */
 export const renderFigures = (model: FiguresModel, behind: Child = null): Child => {
   if (model.kind === 'loading') return loading()
@@ -74,7 +68,6 @@ export const renderFigures = (model: FiguresModel, behind: Child = null): Child 
               model.skips.reasons.map((reason) => h('li', {}, reason)),
             ),
       ),
-    model.places !== null && renderPlaces(model.places),
     renderLabelsTable(model.byClient),
     renderLabelsTable(model.byModel),
     renderTrend(model.trend),
@@ -158,28 +151,6 @@ export const renderLabelsTable = (table: LabelsTable | null): HTMLElement | null
           ),
         ),
       )
-
-const renderPlaces = (places: Places): HTMLElement =>
-  h(
-    'section',
-    { class: 'trust-section', 'aria-labelledby': 'trust-places' },
-    h('h3', { id: 'trust-places' }, places.title),
-    h('p', { class: 'trust-footnote' }, places.intro),
-    h(
-      'ul',
-      { class: 'trust-places' },
-      places.rows.map((place) =>
-        h(
-          'li',
-          { class: 'trust-place', data: { place: place.key } },
-          h('span', { class: 'trust-place-line' }, place.line),
-          shareBar(place.share),
-          place.verdict !== null && h('span', { class: 'trust-place-verdict' }, place.verdict),
-          place.skipped !== null && h('span', { class: 'trust-place-skipped' }, place.skipped),
-        ),
-      ),
-    ),
-  )
 
 /** A bar filled to a share, for the eye only: the share is always written beside it. */
 export const shareBar = (share: number | null): HTMLElement => {

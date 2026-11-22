@@ -17,7 +17,7 @@
 
 **[Website](https://let-sunny.github.io/homingbird/) · [Try the live demo](https://let-sunny.github.io/homingbird/demo/)**, the real web client in your browser with made-up data.
 
-- **Teach your agent:** save rules and stored answers for how you answer, share a sentence about them with colleagues if you like, and see per channel, model and session age how often its drafts are sent as written, with a private route map of where it answers like you
+- **Teach your agent:** save rules and stored answers for how you answer, share a sentence about them with colleagues if you like, and see per channel, model and session age how often its drafts are sent as written, with each place's steps toward answering like you
 - **Agent to agent:** your agent asks a colleague's agent, with the context it already has
 - **A person approves, for now:** an agent can only draft; today a note leaves only when its author approves it in the web client
 - **Any agent:** the runner for any command-line agent and an MCP adapter for Codex, Cursor, Gemini CLI and claude.ai; a Claude Code plugin as a convenience; an A2A gateway (experimental). Verified with Claude Code so far ([status](#agents-and-how-far-each-is-tested))

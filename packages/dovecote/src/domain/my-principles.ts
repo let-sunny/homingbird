@@ -5,11 +5,12 @@ import {
   type MyPrinciples,
   PRINCIPLES_PER_PERSON,
   type PlaceName,
+  type PrincipleOffer,
   type RoutePoint,
 } from '@homingbird/protocol'
 import type { AppEnv } from '../environment.ts'
 import { all } from '../sql/database.ts'
-import { sql } from '../sql/query.ts'
+import { list, sql } from '../sql/query.ts'
 import { debateAchievementsOf, debateCreditsOf } from './debate-credits.ts'
 import { agentReportFor } from './insights.ts'
 import { PLACE_COLUMNS, PLACE_JOIN, type PlaceRow, placeOf } from './places.ts'
@@ -18,7 +19,7 @@ import { type CountedPrinciple, principlesOf, shownWith } from './principle-rows
 import { featureIsOn } from './settings.ts'
 import { DAY_MS } from './trust-figures.ts'
 
-/** Everything the person taught their agent: principles, open chances to teach, the route map, achievements. */
+/** Everything the person taught their agent: principles, open chances to teach, each place's progress, achievements. */
 export const myPrinciples = (memberId: MemberId): T.Task<MyPrinciples, never, AppEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
@@ -26,10 +27,11 @@ export const myPrinciples = (memberId: MemberId): T.Task<MyPrinciples, never, Ap
     const figures = yield* featureIsOn('agentFigures')
     const week = figures ? (yield* agentReportFor(memberId)).periods[0]!.current : null
     const debateCredits = (yield* featureIsOn('debateRooms')) ? yield* debateCreditsOf(memberId) : []
+    const offers = yield* openOffers(memberId)
     return {
       principles: principles.map((principle) => shownWith(principle, figures)),
-      offers: yield* openOffers(memberId),
-      routes: (yield* featureIsOn('routeMap')) ? yield* routeMap(memberId, principles, env.clock.now()) : [],
+      offers,
+      routes: yield* placesTaught(memberId, principles, offers, env.clock.now()),
       achievements: [
         ...(week === null
           ? []
@@ -59,37 +61,57 @@ export const achievementsOf = (
 ]
 
 const CAREFUL_WEEK_DECISIONS = 5
-const ROUTE_DAYS = 30
+const DRAFTED_DAYS = 30
 
-const routeMap = (
+/**
+ * Each place the agent drafted in over the last 30 days, or that a principle or a chance to teach names:
+ * the principles that apply there, the drafts there that applied one and were sent as written, and the
+ * open chances to teach from there, the same ones Teaching lists.
+ */
+const placesTaught = (
   memberId: MemberId,
   principles: ReadonlyArray<CountedPrinciple>,
+  offers: ReadonlyArray<PrincipleOffer>,
   now: number,
 ): T.Task<RoutePoint[], never, AppEnv> =>
   T.gen(function* () {
-    const drafts = yield* all<PlaceRow & { status: string; origin: string; decided_at: number | null }>(sql`
-      SELECT n.status, n.origin, n.decided_at, ${PLACE_COLUMNS} FROM notes n ${PLACE_JOIN}
+    const drafts = yield* all<PlaceRow>(sql`
+      SELECT ${PLACE_COLUMNS} FROM notes n ${PLACE_JOIN}
       WHERE n.author_id = ${memberId} AND n.agent_name IS NOT NULL AND n.debate_id IS NULL
-      AND n.created_at > ${now - ROUTE_DAYS * DAY_MS}`)
-    const byPlace = Map.groupBy(drafts, (draft) => placeOf(draft))
-    const places = new Set<PlaceName>([...byPlace.keys(), ...principles.map((principle) => principle.place)])
+      AND n.created_at > ${now - DRAFTED_DAYS * DAY_MS}`)
+    const heldUp =
+      principles.length === 0
+        ? []
+        : yield* all<PlaceRow & { note_id: string; principle_id: string }>(sql`
+          SELECT DISTINCT a.note_id, a.principle_id, ${PLACE_COLUMNS}
+          FROM principle_applications a JOIN notes n ON n.id = a.note_id ${PLACE_JOIN}
+          WHERE a.principle_id IN ${list(principles.map((principle) => principle.id))}
+          AND n.debate_id IS NULL AND n.status = 'sent' AND n.origin = 'agent'`)
+    const draftedIn = Map.groupBy(drafts, (draft) => placeOf(draft))
+    const places = new Set<PlaceName>([
+      ...draftedIn.keys(),
+      ...principles.flatMap((principle) => (principle.place === null ? [] : [principle.place])),
+      ...offers.map((offer) => offer.place),
+    ])
     return [...places]
       .map((place) => {
-        const taught = principles.filter((principle) => principle.place === place)
-        const lastTaught = Math.max(0, ...taught.map((principle) => principle.createdAt))
-        const here = byPlace.get(place) ?? []
+        const here = principles.filter((principle) => appliesIn(principle, place))
+        const ids = new Set<string>(here.map((principle) => principle.id))
         return {
           place,
-          drafted: here.length,
-          principles: taught.length,
-          heldUp: taught.reduce((sum, principle) => sum + principle.counts.sentAsWritten, 0),
-          chances: here.filter(
-            (draft) =>
-              draft.decided_at !== null &&
-              Number(draft.decided_at) > lastTaught &&
-              (draft.status === 'discarded' || draft.origin === 'human_edited'),
-          ).length,
+          drafted: draftedIn.get(place)?.length ?? 0,
+          principles: here.length,
+          heldUp: new Set(
+            heldUp
+              .filter((row) => ids.has(row.principle_id) && placeOf(row) === place)
+              .map((row) => row.note_id),
+          ).size,
+          chances: offers.filter((offer) => offer.place === place).length,
         }
       })
-      .sort((a, b) => b.drafted - a.drafted || (a.place ?? '￿').localeCompare(b.place ?? '￿'))
+      .sort((a, b) => b.drafted - a.drafted || (a.place ?? '\uffff').localeCompare(b.place ?? '\uffff'))
   })
+
+/** Whether a principle applies in a place: a principle for any channel applies everywhere, direct messages included. */
+const appliesIn = (principle: { readonly place: PlaceName }, place: PlaceName): boolean =>
+  principle.place === null || principle.place === place

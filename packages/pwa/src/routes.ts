@@ -47,9 +47,9 @@ export type Route =
   | { readonly name: 'invite-refused' }
   | { readonly name: 'unknown' }
 
-export type AgentSection = 'connection' | 'teaching' | 'doing' | 'routes'
+export type AgentSection = 'connection' | 'teaching' | 'doing'
 
-export const AGENT_SECTIONS: ReadonlyArray<AgentSection> = ['connection', 'teaching', 'doing', 'routes']
+export const AGENT_SECTIONS: ReadonlyArray<AgentSection> = ['connection', 'teaching', 'doing']
 
 export type DebateTab = 'result' | 'votes' | 'credit' | 'turns'
 
@@ -101,6 +101,7 @@ export const parseRoute = (hash: string): Route => {
   if (head === 'activity') return { name: 'activity' }
   if (head === 'search') return { name: 'search', query: parameters.get('q') ?? '' }
   if (head === 'me') return { name: 'profile' }
+  if (head === 'agent' && second === RETIRED_ROUTE_MAP) return { name: 'agent', section: 'doing' }
   if (head === 'agent') return { name: 'agent', section: isAgentSection(second) ? second : null }
   if (head === 'measured') return { name: 'measured' }
   if (head === 'connect' || head === 'credentials') return { name: 'agent', section: 'connection' }
@@ -201,6 +202,9 @@ const LEGACY_CHANNEL_HEAD = 't'
 const ADMIN_SECTIONS: ReadonlyArray<AdminSection> = ['settings', 'members', 'groups', 'channels', 'insights']
 
 const TEACH_SEGMENT = 'teach'
+
+/** The address of the retired route map, which leads to where its question is answered now. */
+const RETIRED_ROUTE_MAP = 'routes'
 
 const isAgentSection = (value: string | undefined): value is AgentSection =>
   AGENT_SECTIONS.includes(value as AgentSection)

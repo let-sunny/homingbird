@@ -202,16 +202,16 @@ const scenario = async (): Promise<void> => {
     await capture(ana.page, 'draft-with-a-number-asks-for-a-careful-read')
     assert.equal(await ana.page.locator('.trust-card').count(), 0)
 
-    // -- The page, from the header: verdict, numbers, channels, trend, what is measured ----------------
+    // -- The page, from the header: where it answers like you, verdict, numbers, trend, what is measured ----------------
     await ana.page.click('.tab:has-text("My agent")')
     await ana.page.click('.my-agent-tabs a:has-text("How it is doing")')
     await ana.page.waitForFunction(() => (globalThis as any).location.hash === '#/agent/doing')
     await ana.page.waitForSelector('#trust-verdict:has-text("usually sent as written")')
     await ana.page.waitForSelector(
-      '.trust-place[data-place="billing"]:has-text("#billing: 9 of 10 sent as written")',
+      '.answers-place[data-place="billing"]:has-text("9 of 10 decided drafts sent as written")',
     )
     await ana.page.waitForSelector(
-      '.trust-place[data-place="payroll"]:has-text("#payroll: 2 of 6 sent as written")',
+      '.answers-place[data-place="payroll"]:has-text("2 of 6 decided drafts sent as written")',
     )
     await ana.page.waitForSelector('.trust-reasons li:has-text("Needs payroll system access: 2 times")')
     assert.equal(await ana.page.locator('.trend-week').count(), 8)
@@ -220,7 +220,7 @@ const scenario = async (): Promise<void> => {
     assert.equal(await overflowsSideways(ana.page), false)
     assert.deepEqual(await clippedText(ana.page), [])
     await captureScrolled(ana.page, 'page-wide-light', '#agent-doing')
-    await captureScrolled(ana.page, 'page-wide-light-channels', '#trust-places')
+    await captureScrolled(ana.page, 'page-wide-light-channels', '#answers-like-you')
     await captureScrolled(ana.page, 'page-wide-light-trend', '#trust-trend')
     await ana.page.emulateMedia({ colorScheme: 'dark' })
     await captureScrolled(ana.page, 'page-wide-dark', '#agent-doing')
@@ -241,7 +241,7 @@ const scenario = async (): Promise<void> => {
     await ana.page.waitForSelector('#trust-verdict')
     assert.equal(await overflowsSideways(ana.page), false)
     await captureScrolled(ana.page, 'page-narrow-light', '#agent-doing')
-    await captureScrolled(ana.page, 'page-narrow-light-channels', '#trust-places')
+    await captureScrolled(ana.page, 'page-narrow-light-channels', '#answers-like-you')
     await captureScrolled(ana.page, 'page-narrow-light-trend', '#trust-trend')
     await ana.page.emulateMedia({ colorScheme: 'dark' })
     await captureScrolled(ana.page, 'page-narrow-dark', '#agent-doing')
@@ -274,7 +274,7 @@ const scenario = async (): Promise<void> => {
     await korean.page.goto(`${base}/#/agent/doing`)
     await korean.page.waitForSelector('#trust-verdict:has-text("에이전트 초안은 대개 그대로 보내요")')
     await korean.page.waitForSelector(
-      '.trust-place[data-place="billing"]:has-text("#billing: 10개 중 9개 그대로 보냄")',
+      '.answers-place[data-place="billing"]:has-text("결정한 초안 10개 중 9개를 그대로 보냄")',
     )
     await korean.page.click('.trust-measured summary')
     await korean.page.locator('.stage').evaluate((element: any) => element.scrollTo(0, 0))

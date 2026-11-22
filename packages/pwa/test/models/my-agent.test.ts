@@ -11,7 +11,6 @@ describe('myAgentModel', () => {
       '#/agent/connection',
       '#/agent/teaching',
       '#/agent/doing',
-      '#/agent/routes',
     ])
     expect(model.tabs.filter((tab) => tab.current).map((tab) => tab.section)).toEqual(['doing'])
     expect(model.shown).toEqual({
@@ -39,14 +38,16 @@ describe('myAgentModel', () => {
     expect(myAgentModel(serverInfo({ teaching: true }), 'connection').loadsReport).toBe(false)
   })
 
-  it('keeps Connection when everything else is off, and the route map only with teaching', () => {
+  it('keeps Connection when everything else is off, and each other tab only with its feature', () => {
     expect(myAgentModel(serverInfo(), null).tabs.map((tab) => tab.section)).toEqual(['connection'])
-    expect(myAgentModel(serverInfo({ routeMap: true }), null).tabs.map((tab) => tab.section)).toEqual([
+    expect(myAgentModel(serverInfo({ teaching: true }), null).tabs.map((tab) => tab.section)).toEqual([
       'connection',
+      'teaching',
     ])
-    expect(
-      myAgentModel(serverInfo({ teaching: true, routeMap: true }), null).tabs.map((tab) => tab.section),
-    ).toEqual(['connection', 'teaching', 'routes'])
+    expect(myAgentModel(serverInfo({ agentFigures: true }), null).tabs.map((tab) => tab.section)).toEqual([
+      'connection',
+      'doing',
+    ])
   })
 
   it('falls back to Connection when the section asked for is switched off', () => {

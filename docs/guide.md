@@ -664,8 +664,8 @@ one opens on Result. The activity panel opens a room on the tab that waits for y
    records that a room was opened, that an agent was opted in and that the room was exported, never
    its turns or its result.
 
-Turns are never notes: they stay in the room, visible to its members (to everyone for an open room). On
-**My agent → Route map**, settled results credit your agent when its contribution became part of a
+Turns are never notes: they stay in the room, visible to its members (to everyone for an open room). Under
+**My agent → Teaching → Milestones**, settled results credit your agent when its contribution became part of a
 conclusion, when it filled a gap another agent lacked, separated a disagreement, changed its position
 on better evidence, or proposed a next step the agents' vote kept. There are no wins, counts or rankings.
 
@@ -854,12 +854,32 @@ Every draft you decide shows how close your agent came to what you would have se
 those decisions into numbers you can read at a glance, so you can tell "my agent is doing fine" from
 "not there yet", channel by channel. The numbers are about your agent's drafts, not about you.
 
-**My agent**, in the header, has four tabs, each with its own address: **Connection**
-(`#/agent/connection`), **Teaching**, **How it is doing** (`#/agent/doing`) and **Route map**.
+**My agent**, in the header, has three tabs, each with its own address: **Connection**
+(`#/agent/connection`), **Teaching** and **How it is doing** (`#/agent/doing`).
 
 **How it is doing** starts with **Your week**: the notes you sent in the last 7 days, whoever drafted
 them, the replies colleagues sent to your notes, and your typical time to reply, from a colleague's new
 note to your first reply to it, each beside the 7 days before.
+
+Then **Where it answers like you**: each place your agent drafted in over the last 30 days, a channel or
+direct messages together, on four steps:
+
+1. **Only drafts**: no principle of yours applies there yet.
+2. **You taught principles**: at least one does, one for that channel or one for any channel, which
+   counts in every place.
+3. **Principles hold**: you sent a draft there that used one of them without changing it.
+4. **Answers like you ★**: in the last 30 days you decided at least 10 drafts there and sent at least 7
+   in 10 as written. This is the finished state.
+
+Each row shows the count, such as "16 of 26 decided drafts sent as written (62%)", the current step, one
+sentence on what is missing, and the next thing to do: teach from the chances to teach that came from
+there (the same ones Teaching lists), teach a first principle, review the notes your agent skipped there,
+or teach it more. Hover over or focus a step to read what it means and what reaching the next one takes;
+**What the steps mean** lists the same for touch screens. The first three steps stay while you keep your
+principles. The last follows the last 30 days, so it can come and go: when a few edited drafts take a
+place below it, the row says "Some recent drafts needed edits: teach it what changed", because an edit
+is a chance to teach, never a step back. With teaching switched off, each place shows its count and
+sentence only. The old `#/agent/routes` address leads here.
 
 Below it, for the last 7 or the last 30 days beside the period before:
 
@@ -878,8 +898,6 @@ Below it, for the last 7 or the last 30 days beside the period before:
 - **Notes you wrote yourself.**
 - **Debate results you sent**, on their own line: a result you posted from a debate room and sent counts
   neither as your agent's draft nor as a note you wrote.
-- **Where your agent is trusted**: the same breakdown per channel, with direct messages together, such as
-  "#billing: 9 of 10 sent as written" next to "#payroll: 2 of 6 sent as written".
 - **Sent as written, week by week** over the last 8 weeks, as a chart and as a table.
 - **By program** and **By model**: the same counts for each program that drafted, with the models its
   agents stated beside it, and for each model the agent stated.
@@ -914,10 +932,9 @@ receive.
   agent has not connected yet, shows the `homingbird login --server` command, and links to entering
   its connection code.
 - **Teaching**: your principles, below. A principle is a rule or saved answer your agent follows.
-- **How it is doing**: the numbers above, and how drafts fared by how long the desk session had run and
-  how much of its context it had used. A share shows from five decided drafts in a row.
-- **Route map**: where your agent already answers like you, place by place, and how far your
-  principles carry it there.
+- **How it is doing**: where it answers like you, the numbers above, and how drafts fared by how long
+  the desk session had run and how much of its context it had used. A share shows from five decided
+  drafts in a row.
 
 When you approve drafts within a few seconds often, a draft that contains a date, a number or a promise
 shows one quiet line above **Send**, such as "This draft has a date in it. Read it before sending." It
