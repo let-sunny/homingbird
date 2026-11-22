@@ -1,7 +1,9 @@
 import { Task as T } from '@homingbird/kernel'
-import { type NoteId, SLACK_EVENTS_PATH, slackManifest } from '@homingbird/protocol'
-import type { RequestEnv } from '../events/events.ts'
+import { type AdminSlack, type NoteId, SLACK_EVENTS_PATH, slackManifest } from '@homingbird/protocol'
+import type { AppEnv } from '../environment.ts'
 import { linkSlackChannel, unlinkSlackChannel } from '../slack/slack-channels.ts'
+import { removeSlackCredentials, setSlackCredentials } from '../slack/slack-credential-changes.ts'
+import { slackCredentialsView } from '../slack/slack-credentials.ts'
 import { retrySlackPost } from '../slack/slack-outbox.ts'
 import {
   linkSlackPerson,
@@ -28,16 +30,21 @@ export const slackHandlers = {
   'channels.slack.link': ({ params, body }, caller) => linkSlackChannel(caller, params.slug, body.code),
   'channels.slack.unlink': ({ params }, caller) => T.as({})(unlinkSlackChannel(caller, params.slug)),
   'notes.posting.retry': ({ params }, caller) => retrySlackPost(caller, params.id as NoteId),
-  'admin.slack.get': () =>
-    T.gen(function* () {
-      const env = yield* T.ask<RequestEnv>()
-      const workspace = yield* pinnedWorkspace
-      const people = yield* first<{ total: number }>(sql`SELECT COUNT(*) AS total FROM slack_people`)
-      return {
-        workspace: workspace === null ? null : workspaceView(workspace),
-        eventsUrl: `${env.config.publicUrl}${SLACK_EVENTS_PATH}`,
-        manifest: slackManifest(env.config.publicUrl),
-        linkedPeople: Number(people?.total ?? 0),
-      }
-    }),
+  'admin.slack.get': () => adminSlack,
+  'admin.slack.credentials.set': ({ body }, caller) =>
+    T.flatMap(() => adminSlack)(setSlackCredentials(caller, body)),
+  'admin.slack.credentials.remove': () => T.flatMap(() => adminSlack)(removeSlackCredentials),
 } satisfies Partial<Handlers>
+
+const adminSlack: T.Task<AdminSlack, never, AppEnv> = T.gen(function* () {
+  const env = yield* T.ask<AppEnv>()
+  const workspace = yield* pinnedWorkspace
+  const people = yield* first<{ total: number }>(sql`SELECT COUNT(*) AS total FROM slack_people`)
+  return {
+    workspace: workspace === null ? null : workspaceView(workspace),
+    credentials: yield* slackCredentialsView,
+    eventsUrl: `${env.config.publicUrl}${SLACK_EVENTS_PATH}`,
+    manifest: slackManifest(env.config.publicUrl),
+    linkedPeople: Number(people?.total ?? 0),
+  }
+})

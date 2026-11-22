@@ -14,8 +14,18 @@ const WORKSPACE: NonNullable<AsRead.AdminSlack['workspace']> = {
   lastEventAt: null,
 }
 
-const adminOf = (workspace: AsRead.AdminSlack['workspace']): AsRead.AdminSlack => ({
+const FROM_ENVIRONMENT: AsRead.AdminSlack['credentials'] = {
+  source: 'environment',
+  canStore: false,
+  storedAt: null,
+}
+
+const adminOf = (
+  workspace: AsRead.AdminSlack['workspace'],
+  credentials: AsRead.AdminSlack['credentials'] = FROM_ENVIRONMENT,
+): AsRead.AdminSlack => ({
   workspace,
+  credentials,
   eventsUrl: 'https://hb.example/slack/events',
   manifest: '{"a":1}',
   linkedPeople: 3,
@@ -136,6 +146,7 @@ describe('adminSlackModel', () => {
     expect(adminSlackModel(adminOf(null))).toEqual({
       status: { text: strings.slack.admin.waiting, tone: 'is-waiting' },
       facts: [],
+      credentials: { note: strings.slack.admin.credentials.fromEnvironment, form: null },
       eventsUrl: 'https://hb.example/slack/events',
       manifest: '{"a":1}',
     })
@@ -162,5 +173,47 @@ describe('adminSlackModel', () => {
     expect(stoppedFor('other_workspace').text).toBe(strings.slack.admin.stopped.otherWorkspace)
     expect(stoppedFor('unknown').text).toBe(strings.slack.admin.stopped.unknown)
     expect(stoppedFor(null).text).toBe(strings.slack.admin.stopped.unknown)
+  })
+
+  it('asks for the app’s values while none are given, even for a workspace it reached before', () => {
+    const none = { source: 'none', canStore: true, storedAt: null } as const
+    for (const workspace of [null, WORKSPACE])
+      expect(adminSlackModel(adminOf(workspace, none))).toMatchObject({
+        status: { text: strings.slack.admin.enterValues, tone: 'is-waiting' },
+        facts: [],
+        credentials: {
+          note: strings.slack.admin.credentials.kept,
+          form: { submit: strings.slack.admin.credentials.save, canRemove: false },
+        },
+      })
+  })
+
+  it('offers to replace or remove the values an administrator gave, saying when', () => {
+    const stored = { source: 'stored', canStore: true, storedAt: 7 } as const
+    expect(adminSlackModel(adminOf(WORKSPACE, stored))!.credentials).toEqual({
+      note: strings.slack.admin.credentials.storedAt({ when: dateTimeText(7, strings.slack.admin.never) }),
+      form: { submit: strings.slack.admin.credentials.replace, canRemove: true },
+    })
+    expect(adminSlackModel(adminOf(WORKSPACE, stored))!.status.tone).toBe('is-ok')
+  })
+
+  it('offers no form for values from the environment, a server without a key, or a place it does not know', () => {
+    const credentialsFor = (credentials: AsRead.AdminSlack['credentials']) =>
+      adminSlackModel(adminOf(WORKSPACE, credentials))!.credentials
+    expect(credentialsFor({ ...FROM_ENVIRONMENT, canStore: true })).toEqual({
+      note: strings.slack.admin.credentials.fromEnvironment,
+      form: null,
+    })
+    expect(credentialsFor({ source: 'none', canStore: false, storedAt: null })).toEqual({
+      note: strings.slack.admin.credentials.noKey,
+      form: null,
+    })
+    expect(credentialsFor({ source: 'unknown', canStore: true, storedAt: null })).toEqual({
+      note: strings.slack.admin.credentials.unknown,
+      form: null,
+    })
+    expect(
+      adminSlackModel(adminOf(WORKSPACE, { source: 'unknown', canStore: true, storedAt: null }))!.status.tone,
+    ).toBe('is-ok')
   })
 })

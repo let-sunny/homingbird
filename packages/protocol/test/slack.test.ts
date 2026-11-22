@@ -8,6 +8,8 @@ import {
   SLACK_EVENTS_PATH,
   SLACK_THREAD_MOVED,
   SlackCodeView,
+  SlackCredentials,
+  SlackCredentialsInput,
   SlackLinkCode,
   SlackWorkspace,
   slackCodeHref,
@@ -33,12 +35,47 @@ describe('the Slack connection as clients read it', () => {
   it('names the workspace, the events address and the manifest for an administrator', () => {
     const admin = {
       workspace: WORKSPACE,
+      credentials: { source: 'stored', canStore: true, storedAt: 1 },
       eventsUrl: 'https://hb.example/slack/events',
       manifest: '{}',
       linkedPeople: 2,
     }
     expect(AdminSlack.decode(admin)._tag).toBe('Ok')
     expect(AdminSlack.decode({ ...admin, linkedPeople: -1 })._tag).toBe('Err')
+  })
+
+  it('reads where the app’s values come from as unknown when a newer server names another place', () => {
+    const read = SlackCredentials.read({ source: 'vault', canStore: false, storedAt: null })
+    expect(read._tag === 'Ok' && read.value.source).toBe('unknown')
+    expect(SlackCredentials.decode({ source: 'vault', canStore: false, storedAt: null })._tag).toBe('Err')
+  })
+
+  it('takes only a bot token and a hexadecimal signing secret of the lengths Slack issues', () => {
+    const values = { botToken: 'xoxb-1234-5678-abcdefgh', signingSecret: 'abcdef0123456789' }
+    expect(SlackCredentialsInput.decode(values)._tag).toBe('Ok')
+    for (const botToken of [
+      'xoxp-1234-5678-abcdefgh',
+      'xoxb-short',
+      ` ${values.botToken}`,
+      `${values.botToken}!`,
+    ])
+      expect([botToken, SlackCredentialsInput.decode({ ...values, botToken })._tag]).toEqual([
+        botToken,
+        'Err',
+      ])
+    for (const signingSecret of [
+      'abcdef012345678',
+      'abcdef0123456789z',
+      ' abcdef0123456789',
+      'a'.repeat(129),
+    ])
+      expect([signingSecret, SlackCredentialsInput.decode({ ...values, signingSecret })._tag]).toEqual([
+        signingSecret,
+        'Err',
+      ])
+    expect(SlackCredentialsInput.decode({ ...values, signingSecret: 'A'.repeat(128) })._tag).toBe('Ok')
+    expect(SlackCredentialsInput.decode({ ...values, botToken: `xoxb-${'a'.repeat(250)}` })._tag).toBe('Ok')
+    expect(SlackCredentialsInput.decode({ ...values, botToken: `xoxb-${'a'.repeat(251)}` })._tag).toBe('Err')
   })
 
   it('tells a person whether Slack is connected and whom they are linked to', () => {

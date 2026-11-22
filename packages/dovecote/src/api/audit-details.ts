@@ -264,6 +264,8 @@ export const AUDIT_DETAILS: { readonly [N in AuditedRoute]: Describe<N> } = {
           detail: settingsChange(before, after),
         }),
     )(readSettings),
+  'admin.slack.credentials.set': () => afterwards(() => ({ targetId: null, detail: {} })),
+  'admin.slack.credentials.remove': () => afterwards(() => ({ targetId: null, detail: {} })),
   'admin.members.update': ({ params, body }) =>
     T.map(
       (before: Member | null) =>

@@ -6,13 +6,18 @@ import type { AppEnv } from '../environment.ts'
 import { type RequestEnv, transact } from '../events/events.ts'
 import { first, run } from '../sql/database.ts'
 import { insertInto, sql } from '../sql/query.ts'
+import { forgetRevokedSlackCredentials, slackCredentials } from './slack-credentials.ts'
 import { type SlackApi, type SlackCallFailure, type SlackIdentity, isTokenRefusal } from './slack-web-api.ts'
 
 export const workingSlack: T.Task<WorkingSlack | null, never, AppEnv> = T.gen(function* () {
   const env = yield* T.ask<AppEnv>()
-  if (env.slack === null || !(yield* featureIsOn('slack'))) return null
+  if (!(yield* featureIsOn('slack'))) return null
+  const credentials = yield* slackCredentials
+  if (credentials === null) return null
   const workspace = yield* pinnedWorkspace
-  return workspace === null || workspace.state !== 'connected' ? null : { api: env.slack, workspace }
+  return workspace === null || workspace.state !== 'connected'
+    ? null
+    : { api: env.slackApi(credentials.botToken), workspace }
 })
 
 export interface WorkingSlack {
@@ -23,9 +28,13 @@ export interface WorkingSlack {
 /** The first workspace the token names is pinned; a token of another one stops Slack until it is back. */
 export const checkSlackWorkspace: T.Task<void, never, AppEnv> = T.gen(function* () {
   const env = yield* T.ask<AppEnv>()
-  if (env.slack === null || !(yield* featureIsOn('slack'))) return
+  if (!(yield* featureIsOn('slack'))) return
+  const credentials = yield* slackCredentials
+  if (credentials === null) return
   yield* T.catchAll((failure: SlackCallFailure) => slackCallFailed('auth.test', failure))(
-    T.flatMap((identity: SlackIdentity) => transact(rememberIdentity(identity)))(env.slack.authTest()),
+    T.flatMap((identity: SlackIdentity) => transact(rememberSlackIdentity(identity)))(
+      env.slackApi(credentials.botToken).authTest(),
+    ),
   )
 })
 
@@ -54,6 +63,7 @@ export const stopSlack = (because: SlackStop): T.Task<void, never, RequestEnv> =
     yield* run(sql`UPDATE slack_workspaces SET state = 'stopped', stopped_because = ${because},
       checked_at = ${env.clock.now()} WHERE team_id = ${workspace.team_id}`)
     yield* recordAudit('slack.stopped', { targetId: workspace.team_id, detail: { because } })
+    if (because === 'revoked') yield* forgetRevokedSlackCredentials
   })
 
 export const pinnedWorkspace: T.Task<SlackWorkspaceRow | null, never, AppEnv> = T.suspend(() =>
@@ -82,7 +92,8 @@ export interface SlackWorkspaceRow {
   readonly last_event_at: number | null
 }
 
-const rememberIdentity = (identity: SlackIdentity): T.Task<void, never, RequestEnv> =>
+/** Pins the first workspace a token names, and connects it again when a token of it works. */
+export const rememberSlackIdentity = (identity: SlackIdentity): T.Task<void, never, RequestEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
     const now = env.clock.now()

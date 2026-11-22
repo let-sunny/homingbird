@@ -366,7 +366,8 @@ is the one that holds an individual to a reasonable pace.
 - **PostgreSQL and MySQL:** use the managed service's automated backups with point-in-time recovery.
   Both Terraform setups turn them on.
 - The database holds note content, the audit trail, hashed credentials and, with the cloud desk on,
-  wake tokens sealed with `HB_SECRETS_KEY`. Encrypt backups and restrict who can read them; keep the
+  wake tokens sealed with `HB_SECRETS_KEY`, as well as the Slack app's bot token and signing secret when
+  an administrator entered them in the web client. Encrypt backups and restrict who can read them; keep the
   key elsewhere.
 
 ## Who can sign in
@@ -858,7 +859,7 @@ again. Every change is audited. `server.info` lists which features are on, so ev
 | `deskAvailability` | on | Desks no longer say when their agent can't answer; colleagues see only whether it is awake |
 | `invites` | on | Nobody can make an invite link, and links already made are refused; only allowed domains and `HB_ADMIN_EMAILS` sign in ([Who can sign in](#who-can-sign-in)) |
 | `cloudDesk` | **off** | No cloud desk is woken and nobody can set one up; saved wakes are kept. Offered only with `HB_SECRETS_KEY` ([Cloud desk](#cloud-desk)) |
-| `slack` | **off** | Nothing is taken from Slack or sent to it, and `/slack/events` answers 404; people's links are kept and anyone can still unlink. Offered only with the Slack app's token and signing secret ([Slack](#slack)) |
+| `slack` | **off** | Nothing is taken from Slack or sent to it, and `/slack/events` answers 404; people's links are kept and anyone can still unlink. Offered only with the Slack app's token and signing secret in the environment, or with `HB_SECRETS_KEY` to keep the ones an administrator enters ([Slack](#slack)) |
 | `analytics` | **off** | No usage counts leave the server ([Product analytics](#product-analytics)) |
 | `autoSend` | **off** | No saved answer sends itself; every draft waits for its person. On: a person may switch a saved answer to send itself, word for word, only in the direct messages and open channels they choose ([guide](guide.md#let-a-saved-answer-send-itself), [decisions](decisions.md#a-saved-answer-may-send-itself-word-for-word-where-its-person-allowed)) |
 | `draftPreviews` | **off** | Nobody sees a colleague's agent's draft before its person checks it; on, each person chooses who may under **My agent → Early previews** ([guide](guide.md#let-colleagues-see-your-agents-drafts-early)) |
@@ -925,8 +926,8 @@ token, nothing that reads a person's direct messages, nothing that posts as a pe
 
 1. In Slack, create an app **from a manifest** (api.slack.com/apps → Create New App → From an app
    manifest) in your workspace. **Administration → Settings → Slack** shows the manifest with this
-   server's address filled in once the variables below are set; before that, use this one and replace
-   the address:
+   server's address filled in once Slack is offered (step 3); before that, use this one and replace the
+   address:
 
    ```json
    {
@@ -965,17 +966,31 @@ token, nothing that reads a person's direct messages, nothing that posts as a pe
    thread moved, and edits and deletions of a question; `reactions:write` marks a question as arrived;
    `member_left_channel`, `channel_archive` and `channel_deleted` stop a link.
 2. Install the app to the workspace and copy its **Bot User OAuth Token** (`xoxb-…`) and, under
-   **Basic Information**, its **Signing Secret**. Give both to Dovecote as secrets, like
-   `HB_OIDC_CLIENT_SECRET`: `HB_SLACK_BOT_TOKEN` and `HB_SLACK_SIGNING_SECRET`. Neither is stored in the
-   database, logged, or shown in any response. To disconnect, remove the app in Slack and the variables
-   here, and restart.
-3. Turn on `slack` under **Administration → Settings → Features**, or with `HB_FEATURES=slack=on`. At
-   start and every hour Dovecote asks Slack (`auth.test`) whose the token is. The first workspace it names
-   is pinned: events of any other are ignored, and a token of another workspace stops Slack until the
-   pinned one's is back.
+   **Basic Information**, its **Signing Secret**. Give both to Dovecote one of two ways:
+   - **In the web client.** With `HB_SECRETS_KEY` set (the key the cloud desk uses), an administrator
+     enters both under **Administration → Settings → Slack**. Dovecote asks Slack (`auth.test`) whose
+     the token is before keeping anything, refuses a token Slack refuses or one of another workspace
+     than the pinned one, and stores both sealed with that key and bound to the administrator who gave
+     them. They are never shown again, to anyone, and appear in no response, log line, audit entry or
+     error. **Replace** needs both again; **Remove** deletes them and Slack stops. Deactivating that
+     administrator, or making them a member, deletes them too and Slack stops until another
+     administrator gives them: Homingbird never keeps using values whose giver lost the right to give
+     them. An uninstall of the app or a revoked token deletes them as well. Changing `HB_SECRETS_KEY`
+     leaves them unreadable; enter them again.
+   - **In the environment.** Give them as secrets, like `HB_OIDC_CLIENT_SECRET`: `HB_SLACK_BOT_TOKEN`
+     and `HB_SLACK_SIGNING_SECRET`. These are never stored in the database. They win over values
+     entered in the web client, and the page then says they come from the server's environment and
+     cannot be changed there. To disconnect, remove the app in Slack and the variables here, and
+     restart.
+3. Turn on `slack` under **Administration → Settings → Features**, or with `HB_FEATURES=slack=on`. It is
+   offered once the server has the app's values in its environment or `HB_SECRETS_KEY` to keep the
+   ones an administrator enters. At start, every hour and whenever an administrator saves values,
+   Dovecote asks Slack (`auth.test`) whose the token is. The first workspace it names is pinned: events
+   of any other are ignored, and a token of another workspace stops Slack until the pinned one's is
+   back.
 4. Slack must reach `HB_PUBLIC_URL/slack/events` over HTTPS. Save the request URL in the app's **Event
-   Subscriptions**; Slack checks it with a signed challenge, which Dovecote answers only once the
-   variables are set. A server on a private network exposes that one path to Slack, or waits for Socket
+   Subscriptions**; Slack checks it with a signed challenge, which Dovecote answers only once it has
+   the signing secret. A server on a private network exposes that one path to Slack, or waits for Socket
    Mode (on the roadmap). Dovecote also needs outbound HTTPS to `slack.com`.
 
 What the server does and keeps: every request to `/slack/events` must carry Slack's signature, an
@@ -988,9 +1003,12 @@ works for ten minutes, kept only as a hash: the email finds the user, only the p
 the web client links them, and one Slack user links to one person. Deactivating a member deletes their
 link, and so does Slack deactivating the user; Slack is not the identity provider, so it never
 deactivates a member. The audit trail keeps `slack.connected`, `slack.stopped` (the token was refused,
-the app uninstalled or its token revoked, or the token is of another workspace), `slack.person.linked`
-and `slack.person.unlinked`, with ids only. **Administration → Settings → Slack** shows the workspace,
-its state, when Slack last sent an event and how many people are linked.
+the app uninstalled or its token revoked, or the token is of another workspace),
+`slack.credentials_set` and `slack.credentials_removed` (with why: the giver was deactivated or
+demoted, or Slack revoked the token), `slack.person.linked` and `slack.person.unlinked`, with ids only
+and never a value. **Administration → Settings → Slack** shows the workspace, its state, where the
+app's values come from and when they were entered, when Slack last sent an event and how many people
+are linked.
 
 **Channel links.** A manager of a channel, linked to their Slack user, invites the app to the Slack
 channel, mentions it there with the word `link`, and confirms in the web client which of their channels
@@ -1523,9 +1541,9 @@ Every variable Dovecote reads. Blank values count as unset.
 | `HB_AUDIT_STDOUT` | `0` | `1` means `HB_LOGS=auditCopy=on` |
 | `HB_ANALYTICS`, `HB_ANALYTICS_URL`, `HB_ANALYTICS_KEY` | `off` | Where product analytics go ([Product analytics](#product-analytics)) |
 | `HB_PUSH_HOSTS` | the four push services above | Push service hosts subscriptions may use |
-| `HB_SECRETS_KEY` | none | 32 random bytes in base64 that seal cloud desk wakes; the cloud desk is offered only with it ([Cloud desk](#cloud-desk)) |
+| `HB_SECRETS_KEY` | none | 32 random bytes in base64 that seal cloud desk wakes and the Slack app's values an administrator enters; the cloud desk is offered only with it ([Cloud desk](#cloud-desk), [Slack](#slack)) |
 | `HB_WAKE_HOSTS` | `api.anthropic.com` | Hosts a cloud desk's wake address may use, matched exactly; `none` for none |
-| `HB_SLACK_BOT_TOKEN`, `HB_SLACK_SIGNING_SECRET` | none | The organization's Slack app: its bot token (`xoxb-…`) and signing secret, both or neither; Slack is offered only with them ([Slack](#slack)) |
+| `HB_SLACK_BOT_TOKEN`, `HB_SLACK_SIGNING_SECRET` | none | The organization's Slack app: its bot token (`xoxb-…`) and signing secret, both or neither. They win over values an administrator enters in the web client ([Slack](#slack)) |
 | `HB_OAUTH_REDIRECT_HOSTS` | `claude.ai,claude.com` | Hosts, besides loopback, that OAuth clients may redirect to; `none` for no others |
 | `HB_OAUTH_CLIENT_METADATA_HOSTS` | `claude.ai,claude.com` | Hosts whose client metadata documents are fetched; `none` to fetch none |
 | `HB_OAUTH_CLIENTS` | none | Preregistered clients, `id\|Name\|redirect;redirect`, comma-separated |
