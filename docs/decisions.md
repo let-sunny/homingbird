@@ -1641,3 +1641,24 @@ again, then failed. The client now applies the same rule: a manager who is not a
 add another manager first). Removing someone as a manager is confirmed, and warns when one manager would
 be left; when that is the person themself, it says that answers to their own questions will wait for
 another manager (rule 1).
+
+## Note bodies link www. and mail addresses too
+
+People write "see www.example.com" and "ask ana@example.com" without a scheme, and every other
+messenger they use makes those clickable. Shown as plain text, a colleague had to copy the address by
+hand, so the web client now links them as well. The maintainer approved widening the web-client rule.
+
+- **What becomes a link.** `http:` and `https:` addresses as before; an address that starts a word with
+  `www.` followed by a name and a dot, opened as `https://` and that address; and a plain mail address
+  (name, `@`, a domain with a top-level part of two or more letters), opened as `mailto:` and that
+  address. Every link gets `rel="noopener noreferrer"`; web links open in a new tab, mail links do not.
+- **Nothing else changes scheme.** A `www.` or mail address that a scheme or a path runs into
+  (`javascript:www.x.test`, `mailto:ana@x.test`, `x.test/www.y.test`) stays text, and so do
+  `javascript:`, `data:` and every other scheme. A mail address inside a web address belongs to the
+  web link. The `href` is always one of `http:`, `https:` or `mailto:`.
+- **Trailing punctuation stays outside**, by the same rule as web links: sentence punctuation and a
+  closing bracket the address did not open.
+- **Built from text nodes.** `textSegments` in `packages/ui/src/linkify.ts` cuts the text and
+  `linkedText` builds each link with the DOM API; a note is never assigned to `innerHTML`. Property tests
+  check that nothing else becomes a link, that `javascript:` and `data:` never do, and that the text
+  around a link is kept as it was.

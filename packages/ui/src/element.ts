@@ -52,7 +52,15 @@ export const linkedText = (text: string): Node[] =>
   Array.from(textSegments(text), (segment) =>
     segment.type === 'text'
       ? document.createTextNode(segment.value)
-      : h('a', { href: segment.value, rel: 'noopener noreferrer', target: '_blank' }, segment.value),
+      : h(
+          'a',
+          {
+            href: segment.href,
+            rel: 'noopener noreferrer',
+            target: segment.kind === 'web' ? '_blank' : undefined,
+          },
+          segment.value,
+        ),
   )
 
 /**
