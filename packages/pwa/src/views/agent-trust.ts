@@ -85,6 +85,7 @@ const sectionContent = (
             renderFigures(
               figuresModel(context.state.agentReport.get(), days.get()),
               renderDraftsBehind(context, draftsBehindModel(context.state.agentReport.get(), days.get())),
+              context,
             ),
           {
             class: 'trust-page',

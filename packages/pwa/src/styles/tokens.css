@@ -132,6 +132,7 @@
   --hb-duration-fast: 120ms;
   --hb-duration-slow: 280ms;
   --hb-duration-blink: 1.2s;
+  --hb-duration-hint-delay: 500ms;
   --hb-ease-pixel: steps(4, end);
   --hb-scanlines: off;
 

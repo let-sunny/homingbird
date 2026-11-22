@@ -19,6 +19,7 @@ import { strings } from '../strings.ts'
 import { agentButtons } from './channel-agent.ts'
 import type { ViewContext } from './context.ts'
 import { closeDialog, opensDialog } from './dialog.ts'
+import { hinted } from './hint.ts'
 import { button, dialogActions, disabledWithReason, loading, privateMarkOf, youMark } from './parts.ts'
 
 /** A channel's own controls on its page: answering there, and the menu of the rest. */
@@ -182,7 +183,14 @@ const renderMembers = (
   channel: AsRead.Channel,
   panel: Panel,
 ): Child => {
-  const managing = model.managedBy !== null && h('p', { class: 'managed-by' }, model.managedBy.text)
+  const managing =
+    model.managedBy !== null &&
+    hinted(
+      context,
+      'channelManagers',
+      strings.hints.channelManagers,
+      h('p', { class: 'managed-by' }, model.managedBy.text),
+    )
   if (model.rows === null) return [managing, loading()]
   const addManager = model.addManager
   return [

@@ -59,6 +59,17 @@ describe('profileView', () => {
     expect(tour.started).toBe(1)
   })
 
+  it('shows the hints again from now on, for the person in this browser', async () => {
+    const { context, page, clock } = testContext()
+    const key = `homingbird.hints.${me().member.id}`
+    page.local.set(key, JSON.stringify({ since: 0, used: ['draft'], dismissed: ['insights'] }))
+    await clock.advance(1_000)
+    const shown = profileView(context, lifetime(), me())
+    getByRole(shown, 'button', { name: strings.hints.showAgain }).click()
+    expect(JSON.parse(page.local.get(key)!)).toEqual({ since: clock.now(), used: [], dismissed: [] })
+    expect(textOf(shown)).toContain(strings.hints.shownAgain)
+  })
+
   it('shows the character section and notifications only where they are on', () => {
     const { context } = testContext()
     expect(
