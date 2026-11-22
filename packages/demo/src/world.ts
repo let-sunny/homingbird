@@ -5,6 +5,7 @@ import type {
   ConversationKind,
   Credential,
   Debate,
+  DraftRequest,
   EventBody,
   GroupId,
   GroupKind,
@@ -15,6 +16,7 @@ import type {
   Notice,
   Presence,
   Principle,
+  PrincipleOffer,
   StreamEvent,
 } from '@homingbird/protocol'
 import { demoTeam } from './team.ts'
@@ -87,11 +89,20 @@ export interface Records {
   readonly groups: ReadonlyArray<GroupRecord>
   readonly credentials: ReadonlyArray<CredentialRecord>
   readonly principles: ReadonlyArray<Principle>
+  /** Chances to teach still open, each after an edit or a discard, as Dovecote keeps them. */
+  readonly offers: ReadonlyArray<PrincipleOffer>
   readonly debates: ReadonlyArray<Debate>
   /** What happened to a person's notes that they alone see, as a server keeps it across reloads. */
   readonly notices: ReadonlyArray<NoticeRecord>
   /** Invite links still waiting; nobody can redeem one in a demo that lives in a single page. */
   readonly invites: ReadonlyArray<Invite>
+  /** What people asked their own agent to draft from the web client. */
+  readonly draftRequests: ReadonlyArray<DraftRequestRecord>
+}
+
+export interface DraftRequestRecord {
+  readonly request: DraftRequest
+  readonly memberId: MemberId
 }
 
 export interface NoticeRecord {

@@ -101,24 +101,30 @@ to the drafting agent; it does not change approval.
 
 `--agent` takes a bare preset name, or any command as before. `homingbird presets` lists them:
 
+<!-- presets:start -->
 | Preset | Runs | Reader for `--split` | Status |
 | --- | --- | --- | --- |
-| `claude` | `claude -p` | `claude -p --tools '' --strict-mcp-config`, no tools (on Windows `--tools ""`, since cmd.exe keeps single quotes) | Verified with Claude Code 2.1.327 on Linux |
-| `codex` | `codex exec --skip-git-repo-check --ephemeral --sandbox workspace-write -` | `codex exec --skip-git-repo-check --ephemeral --ignore-user-config --ignore-rules --sandbox read-only --disable shell_tool --disable unified_exec --disable view_image -c web_search="disabled" -`: minimal tools, not none | Not yet tested with the real CLI |
-| `antigravity` | `agy -p --mode default --output-format text` | none: give `--reader` yourself | Not yet tested with the real CLI |
-| `gemini` | `gemini -p "" --output-format text --approval-mode default` | none: give `--reader` yourself | Not yet tested with the real CLI |
+| `claude` | `claude -p --permission-prompts none --settings '{"disableAllHooks":true}'` | `claude -p --tools '' --strict-mcp-config --permission-prompts none --settings '{"disableAllHooks":true}'`: no tools | Verified with Claude Code 2.1.327; options seen in Claude Code 2.1.329 --help |
+| `codex` | `codex exec --skip-git-repo-check --ephemeral --sandbox workspace-write -` | `codex exec --skip-git-repo-check --ephemeral --ignore-user-config --ignore-rules --sandbox read-only --disable shell_tool --disable unified_exec --disable view_image -c 'web_search="disabled"' -c features.plugins=false -c features.apps=false -`: minimal tools, not none | Not yet tested with the real CLI |
+| `antigravity` | `agy --print= --input-format=stream-json --output-format=stream-json --sandbox` | `agy --print= --input-format=stream-json --output-format=stream-json --sandbox --settings '{"toolPermission":"request-review","permissions":{"deny":["read_file(*)","write_file(*)","command(*)","mcp(*)","read_url(*)","execute_url(*)"]}}'`: minimal tools, not none | Not yet tested with the real CLI |
+| `gemini` | `gemini -p '' --output-format text --approval-mode default` | none: give `--reader` yourself | Not yet tested with the real CLI |
+<!-- presets:end -->
 
-Each command gets the prompt on standard input and prints the draft on standard output, which is all
-the runner reads. "Not yet tested with the real CLI" means the preset was written from the tool's
-source code and has not been run against the real agent here; `homingbird presets` shows the same
-state.
+The table shows the commands as Linux and macOS run them; on Windows `homingbird presets` prints them
+quoted for cmd.exe, which keeps single quotes (`--tools ""`). Each command gets the prompt on standard
+input and prints the draft on standard output, which is all the runner reads. "Not yet tested with the
+real CLI" means the preset was written from the tool's source code and has not been run against the
+real agent here; `homingbird presets` shows the same state, and a test keeps this table equal to what
+it prints.
 
 - **Codex**: in a non-interactive run it prints only its final message on standard output. Its reader
   turns off the shell, code execution, image viewing and web search and runs read-only, but Codex has
   no way to turn every tool off, so `--require-toolless-reader` refuses it and the runner says so.
-- **Antigravity** (`agy`) is how Google offers Gemini to individuals and on free plans. Its headless
-  default mode acts by itself, so the preset always passes `--mode default`. Whether a bare `-p` reads
-  the prompt from standard input is not yet confirmed.
+- **Antigravity** (`agy`) is how Google offers Gemini to individuals and on free plans. The preset
+  hands it the prompt as one stream-json event on standard input, reads the reply from its result
+  event, and passes `--sandbox` so it writes no files. Its reader denies every tool Antigravity names
+  through `--settings`; the preset needs Antigravity CLI 1.1.15 or later. Antigravity has no switch that
+  turns every tool off, so `--require-toolless-reader` refuses it.
 - **Gemini CLI** stays for Code Assist Standard or Enterprise and API-key setups.
 - Without a reader preset, `--split` without `--reader` uses the agent itself as the reader and the
   runner warns, as with any command.

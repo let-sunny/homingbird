@@ -20,6 +20,7 @@ import {
   member,
   note,
 } from '../support/fixtures.ts'
+import { heldDecision } from '../support/held.ts'
 
 usingFakeDom()
 
@@ -41,6 +42,21 @@ describe('shell', () => {
     getByRole(shown, 'button', { name: strings.menuSignOut }).click()
     expect(called('signOut')).toHaveLength(1)
     expect(textOf(shown)).toContain(strings.loading)
+  })
+
+  it('offers, in a conversation, a first link that skips to writing a note', () => {
+    const { context } = testContext()
+    context.state.session.set(me())
+    const shown = mount(shell(context, lifetime(), me(), document.createElement('main')))
+    expect(queryByRole(shown, 'button', { name: strings.skipToComposer })).toBeNull()
+    context.state.route.set({ name: 'conversation', id: ROOM, draft: null })
+    const skip = getByRole(shown, 'button', { name: strings.skipToComposer })
+    expect(shown.children[0]!.contains(skip)).toBe(true)
+    const composer = mount(document.createElement('form'))
+    composer.className = 'composer'
+    const field = composer.appendChild(document.createElement('textarea'))
+    skip.click()
+    expect(document.activeElement).toBe(field)
   })
 
   it('offers search beside the bell and scrolls the current tab into the tab row', () => {
@@ -65,6 +81,12 @@ describe('shell', () => {
     measure(back, { offsetLeft: 0, clientWidth: 100, scrollLeft: 200 })
     measure(getByRole(back, 'link', { name: strings.navNotes }), { offsetLeft: 0, offsetWidth: 50 })
     page.runFrames()
+    expect(back.scrollLeft).toBe(0)
+    const later = shown.querySelector<HTMLElement>('.tabs-scroll.is-later')!
+    expect([later.getAttribute('aria-hidden'), later.getAttribute('tabindex')]).toEqual(['true', '-1'])
+    later.click()
+    expect(back.scrollLeft).toBe(75)
+    shown.querySelector<HTMLElement>('.tabs-scroll.is-earlier')!.click()
     expect(back.scrollLeft).toBe(0)
   })
 
@@ -107,6 +129,11 @@ describe('shell', () => {
       strings.channelAgent.reviewBadgeLabel({ count: 1 }),
     )
     expect(billingRow.querySelector('a')!.getAttribute('href')).toContain('?review=note_waiting')
+    context.state.held.set([heldDecision('note_waiting', { review: true, settles: 0 })])
+    expect(
+      [...shown.querySelectorAll<HTMLElement>('.conversation-item')][1]!.querySelector('.count.reviews'),
+    ).toBeNull()
+    context.state.held.set([])
     fire.event(rows[2]!, 'contextmenu')
     const blocked = getByRole(rows[2]!, 'menuitem', { name: strings.leaveChannel }) as HTMLButtonElement
     expect(blocked.disabled).toBe(true)
@@ -211,9 +238,16 @@ describe('shell', () => {
     expect(row.querySelector('.conversation-title')!.getAttribute('title')).toBe('Ben')
     expect(row.querySelector('.count.unread')!.getAttribute('aria-label')).toBe(strings.unread({ count: 2 }))
     expect(row.querySelector('.count.drafts')!.textContent).toBe('✎1')
+    context.state.held.set([heldDecision('d1')])
+    expect(getByRole(shown, 'link', { name: /Hello/ }).querySelector('.count.drafts')).toBeNull()
+    context.state.held.set([])
     expect(shown.querySelector('.character-group')).not.toBeNull()
     expect(textOf(shown.querySelector('.channel-rooms')!)).toContain('#billing')
     expect(textOf(shown.querySelector('.archived-rooms')!)).toContain(strings.archivedGroup({ count: 1 }))
+    expect(row.querySelector('.typed-mark')).toBeNull()
+    context.state.composerTexts.set(new Map([[ROOM, 'Half a thought']]))
+    const typed = getByRole(shown, 'link', { name: /Hello/ }).querySelector('.typed-mark')!
+    expect([typed.textContent, typed.getAttribute('aria-label')]).toEqual(['✎', strings.unsentText])
   })
 })
 

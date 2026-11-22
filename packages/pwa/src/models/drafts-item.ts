@@ -4,6 +4,8 @@ import { approvesQuicklyOften, carefulReadingFor } from '../careful-reading.ts'
 import { channelLabel, channelOfRoom } from '../channels.ts'
 import { type DraftBasis, draftBasisOf } from '../draft-basis.ts'
 import { isChangedSinceRead } from '../drafts-read.ts'
+import { type HeldChoices, heldWordsFor, keptEditLine } from '../held-decisions.ts'
+import { hrefFor } from '../routes.ts'
 import type { Thread } from '../state.ts'
 import { listOf, strings } from '../strings.ts'
 import {
@@ -71,9 +73,24 @@ export const draftChangedWhileEditing = (input: EditorInput, read: AsRead.Note):
     notice: strings.draftMovedWhileEditing,
     body: now.body,
     draft: now,
-    moved: { destination: destination?.text ?? null, confirm: strings.draftConfirmRoom },
+    moved: { destination: destination?.shown?.text ?? null, confirm: strings.draftConfirmRoom },
   }
 }
+
+/**
+ * Whether the draft an editor started from still waits as it was read, so that the edit may be held for
+ * sending; otherwise the editor shows what changed first.
+ */
+export const isUnchangedWhileEditing = (input: EditorInput, read: AsRead.Note): boolean =>
+  [...input.threads.values()]
+    .flatMap((thread) => thread.notes)
+    .some(
+      (note) =>
+        note.id === read.id &&
+        note.status === 'draft' &&
+        note.body === read.body &&
+        note.conversationId === read.conversationId,
+    )
 
 export interface EditorInput extends Pick<ThreadInput, 'conversations' | 'channels' | 'members'> {
   readonly threads: ReadonlyMap<ConversationId, Thread>
@@ -100,7 +117,10 @@ export interface DraftCard {
   readonly focused: boolean
   readonly origin: { readonly className: string; readonly text: string }
   readonly body: string
+  /** What the agent based the draft on; null where no agent of the person's wrote it alone. */
   readonly basis: DraftBasis | null
+  /** The debate room a posted result came from, in place of a basis. */
+  readonly room: { readonly href: string; readonly label: string } | null
   readonly applied: ReadonlyArray<AppliedMarker>
   readonly destination:
     | { readonly kind: 'channel'; readonly text: string; readonly channel: AsRead.Channel }
@@ -114,9 +134,16 @@ export interface DraftCard {
   readonly readAgain: { readonly notice: string; readonly confirm: string } | null
   /** Null in an archived room, where nothing is sent. */
   readonly actions: {
+    readonly send: string
     readonly alternatives: ReadonlyArray<AsRead.Note>
     readonly changeChannel: string | null
+    /** What the card's place and the toast say while a send or discard is held, and after. */
+    readonly held: HeldChoices
+    /** The text Edit opens with: the person's kept edit, or the draft as it stands. */
+    readonly editText: string
   } | null
+  /** Said when the person edited the draft and did not send the edit; Approve and send sends the draft as shown. */
+  readonly keptEdit: string | null
 }
 
 const draftCard = (
@@ -129,15 +156,26 @@ const draftCard = (
 ): DraftCard => {
   const teachingOn = isOn(input, 'teaching')
   const careful = carefulReadingFor(draft.body, approvesQuicklyOften(input.agentReport))
+  const destination =
+    archived || room === undefined ? null : destinationOf(input, input.me.member.id, draft, room, channel)
   return {
     draft,
     focused: draft.id === input.focusedDraft,
-    origin: { className: `origin is-${draft.origin}`, text: originText(draft) },
+    origin: {
+      className: draft.fromDebate === undefined ? `origin is-${draft.origin}` : 'origin is-debate',
+      text: originText(draft),
+    },
     body: draft.body,
-    basis: draftBasisOf(draft, showsAppliedMarkers(input.taught, teachingOn)),
+    basis: hasAgentBasis(draft) ? draftBasisOf(draft, showsAppliedMarkers(input.taught, teachingOn)) : null,
+    room:
+      draft.fromDebate === undefined
+        ? null
+        : {
+            href: hrefFor({ name: 'debate', id: draft.fromDebate.debateId, tab: 'result' }),
+            label: strings.debateNote.openRoom,
+          },
     applied: appliedModel(draft, input.taught, teachingOn),
-    destination:
-      archived || room === undefined ? null : destinationOf(input, input.me.member.id, draft, room, channel),
+    destination: destination === null ? null : destination.shown,
     careful:
       !archived && isOn(input, 'agentFigures') && careful !== null ? strings.carefulReading[careful] : null,
     readAgain:
@@ -147,18 +185,26 @@ const draftCard = (
     actions: archived
       ? null
       : {
+          send: strings.approveAndSend,
           alternatives: alternativesLeftAfterSending(item, draft.id),
           changeChannel: channel === null ? null : channel.slug,
+          held: heldWordsFor(destination?.names ?? strings.formerMember),
+          editText: input.draftEdits.get(draft.id) ?? draft.body,
         },
+    keptEdit: archived ? null : keptEditLine(input.draftEdits, draft.id),
   }
 }
 
 const originText = (note: AsRead.Note): string => {
+  if (note.fromDebate !== undefined) return strings.debateNote.origin({ question: note.fromDebate.question })
   const agent = agentNameOf(note)
   return note.origin === 'human' || agent === null
     ? strings.origin[note.origin]
     : strings.originNamed[note.origin]({ agent })
 }
+
+/** A person's own words and a debate room's result have no agent of the person's behind them to give a basis. */
+const hasAgentBasis = (note: AsRead.Note): boolean => note.origin !== 'human' && note.fromDebate === undefined
 
 const destinationOf = (
   input: Pick<ThreadInput, 'thread' | 'members'>,
@@ -166,19 +212,27 @@ const destinationOf = (
   draft: AsRead.Note,
   room: AsRead.Conversation,
   channel: AsRead.Channel | null,
-): DraftCard['destination'] => {
-  if (channel !== null)
-    return { kind: 'channel', text: strings.sendsToChannel({ channel: channelLabel(channel.slug) }), channel }
+): { readonly shown: DraftCard['destination']; readonly names: string } => {
+  if (channel !== null) {
+    const label = channelLabel(channel.slug)
+    return {
+      shown: { kind: 'channel', text: strings.sendsToChannel({ channel: label }), channel },
+      names: label,
+    }
+  }
   const destination = draftDestination(room, draft, notesOf(input), meId)
   const names = listOf(destination.memberIds.map((memberId: MemberId) => nameIn(input, memberId)))
   return {
-    kind: 'people',
-    text:
-      room.kind === 'channel'
-        ? strings.sendsToInRoom({
-            names,
-            room: conversationTitle(room, input.members, meId, ''),
-          })
-        : strings.sendsTo({ names }),
+    shown: {
+      kind: 'people',
+      text:
+        room.kind === 'channel'
+          ? strings.sendsToInRoom({
+              names,
+              room: conversationTitle(room, input.members, meId, ''),
+            })
+          : strings.sendsTo({ names }),
+    },
+    names,
   }
 }

@@ -38,7 +38,7 @@ describe('routeMapModel', () => {
         strings.routes.heldUpCount({ count: 1 }),
         strings.routes.draftedCount({ count: 4 }),
       ],
-      chances: strings.routes.chances({ count: 1 }),
+      chances: { text: strings.routes.chances({ count: 1 }), href: '#/agent/teaching' },
     })
     expect(model.legend[1]!.chances).toBeNull()
     expect(model.table.rows).toEqual([

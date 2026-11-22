@@ -4,6 +4,7 @@ import {
   paneFor,
   searchLinkModel,
   sidebarModel,
+  skipLinkModel,
   tabsModel,
   userMenuModel,
 } from '../../src/models/shell.ts'
@@ -92,6 +93,13 @@ describe('paneFor', () => {
   })
 })
 
+describe('skipLinkModel', () => {
+  it('offers to skip to the composer in a conversation only', () => {
+    expect(skipLinkModel({ name: 'conversation', id: ROOM, draft: null })).toBe(strings.skipToComposer)
+    expect(skipLinkModel({ name: 'people' })).toBeNull()
+  })
+})
+
 describe('sidebarModel', () => {
   const members = new Map([
     [ANA, member(ANA, 'Ana')],
@@ -112,6 +120,7 @@ describe('sidebarModel', () => {
     muteOn: true,
     now: 10,
     arrived: new Set(),
+    typedIn: new Set(),
     ...fields,
   })
 
@@ -137,6 +146,7 @@ describe('sidebarModel', () => {
         route: { name: 'conversation', id: ROOM, draft: null },
         directory: [entry(BEN, 'Ben', { presence: { humanOnline: true, agentOnline: false } })],
         arrived: new Set([ROOM]),
+        typedIn: new Set([ROOM]),
       }),
     )
     if (model.people.kind !== 'rows') throw new Error('expected rows')
@@ -153,6 +163,7 @@ describe('sidebarModel', () => {
       time: timeShown(9, 10),
       unread: { count: 2, label: strings.unread({ count: 2 }) },
       drafts: { text: '✎1', label: strings.draftsWaiting({ count: 1 }) },
+      typed: { text: '✎', label: strings.unsentText },
     })
     expect(row!.face).toMatchObject({
       kind: 'member',

@@ -91,11 +91,26 @@ export const placeChoices = (
   ]
 }
 
-/** The warnings for what is typed in the add row of the principle list. */
-export const addRowWarnings = (values: Readonly<Record<string, string>>): ReadonlyArray<string> =>
-  adviceAsTyped({ topic: values.topic ?? '', rule: values.rule ?? '' }).map(
-    (kind) => strings.teach.advice[kind],
+/** The warnings for what is typed in the add row of the principle list, as a rule or as an answer. */
+export const addRowWarnings = (
+  values: Readonly<Record<string, string>>,
+  kind: PrincipleKind = 'rule',
+): ReadonlyArray<string> =>
+  adviceAsTyped({ kind, topic: values.topic ?? '', rule: values.rule ?? '' }).map(
+    (advice) => strings.teach.advice[advice],
   )
+
+/** The add row's choice between a rule and an answer, and what its text field is called for each. */
+export const addRowKinds = (chosen: PrincipleKind): AddRowKinds => ({
+  label: strings.teach.kindLabel,
+  choices: (['rule', 'answer'] as const).map((kind) => ({
+    kind,
+    label: strings.teach.kindBadge[kind],
+    checked: kind === chosen,
+  })),
+  textLabel: chosen === 'answer' ? strings.teach.answer : strings.teach.rule,
+  maxLength: chosen === 'answer' ? ANSWER_TEXT_MAX : PRINCIPLE_TEXT_MAX,
+})
 
 /** The order after moving one principle to a new position, clamped to the list. */
 export const reordered = (ids: ReadonlyArray<string>, id: string, to: number): string[] => {
@@ -162,22 +177,51 @@ export const principleToSave = (
   }
 }
 
-/** The form's starting values: the principle being edited, else the offer's suggestion, else empty. */
+/**
+ * The form's starting values: the principle being edited, else the offer's suggestion, else what the
+ * place of a miss gave it (a title and a channel), else empty.
+ */
 export const principleFormStart = (
   offer: AsRead.PrincipleOffer | null,
   editing: AsRead.Principle | null,
   showingPublic: boolean,
+  seed: TeachSeed | null = null,
 ): PrincipleFormState => ({
   kind: editing?.kind === 'answer' ? 'answer' : 'rule',
-  topic: editing?.topic ?? '',
+  topic: editing?.topic ?? seed?.topic ?? '',
   rule: editing?.rule ?? (offer?.suggestion == null ? '' : suggestionText(offer.suggestion)),
   source: editing?.source ?? '',
-  place: offer?.place ?? editing?.place ?? '',
+  place: offer?.place ?? editing?.place ?? seed?.place ?? '',
   isPublic: showingPublic || (editing?.publicText ?? null) !== null,
   publicText: editing?.publicText ?? '',
   confirmed: false,
   offer,
 })
+
+/**
+ * What a miss gives the guided form: a title from the first line of the note it was about, cut to a
+ * few words and without the characters a title may not hold, and the channel it happened in.
+ */
+export const teachSeedOf = (text: string, place: string | null): TeachSeed => {
+  const line = (text.split('\n').find((each) => each.trim() !== '') ?? '')
+    .replace(/[;:]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[?？.!。]+$/, '')
+  const words = line.split(' ')
+  let topic = ''
+  for (const word of words) {
+    const longer = topic === '' ? word : `${topic} ${word}`
+    if (longer.length > SEED_TOPIC_MAX) break
+    topic = longer
+  }
+  return { topic: topic === '' ? line.slice(0, SEED_TOPIC_MAX) : topic, place }
+}
+
+export interface TeachSeed {
+  readonly topic: string
+  readonly place: string | null
+}
 
 export type TaughtModel =
   | { readonly kind: 'loading' }
@@ -193,9 +237,22 @@ export type TaughtModel =
       readonly footnotes: ReadonlyArray<string>
     }
 
+export interface AddRowKinds {
+  readonly label: string
+  readonly choices: ReadonlyArray<{
+    readonly kind: 'rule' | 'answer'
+    readonly label: string
+    readonly checked: boolean
+  }>
+  readonly textLabel: string
+  readonly maxLength: number
+}
+
 export interface ChanceModel {
   readonly offer: AsRead.PrincipleOffer
   readonly text: string
+  /** The same chance as one line in the conversation it came from. */
+  readonly here: { readonly text: string; readonly teach: string }
 }
 
 export interface AppliedMarker {
@@ -285,6 +342,10 @@ const chanceModel = (offer: AsRead.PrincipleOffer): ChanceModel => ({
   text: (offer.kind === 'edit' ? strings.teach.chanceEdit : strings.teach.chanceDiscard)({
     place: placeName(offer.place),
   }),
+  here:
+    offer.kind === 'edit'
+      ? { text: strings.teach.chanceHereEdit, teach: strings.teach.teachFromEdit }
+      : { text: strings.teach.chanceHereDiscard, teach: strings.teach.teachFromDiscard },
 })
 
 /** A channel agent's principle as its managers edit it: the same row, with no place and no public sentence. */
@@ -300,6 +361,8 @@ export const channelPrincipleRow = (principle: AsRead.Principle): ChannelPrincip
 }
 
 export type ChannelPrincipleRow = Omit<PrincipleRow, 'publicSwitch'>
+
+const SEED_TOPIC_MAX = 60
 
 const principleRow = (principle: AsRead.Principle): PrincipleRow => {
   const isPublic = principle.publicText !== null

@@ -78,7 +78,7 @@ describe('drafts.send', () => {
     expect(await refused(ana.api['notes.get']({ params: { id: reply.id } }))).toMatchObject({
       _tag: 'NotFound',
     })
-    expect(await refused(kai.api['drafts.discard']({ params: { id: answer.id } }))).toMatchObject({
+    expect(await refused(kai.api['drafts.discard']({ params: { id: answer.id }, body: {} }))).toMatchObject({
       _tag: 'NotFound',
     })
     expect(await refused(kai.api['drafts.seen']({ params: { id: answer.id } }))).toMatchObject({
@@ -92,9 +92,11 @@ describe('drafts.discard', () => {
     const { api, world, viewerId } = demoApi()
     const reply = noteStarting(world, 'Yes. I checked')
     const answer = noteStarting(world, 'Annual plans are refunded')
-    expect((await succeeded(api['drafts.discard']({ params: { id: reply.id } }))).status).toBe('discarded')
+    expect((await succeeded(api['drafts.discard']({ params: { id: reply.id }, body: {} }))).status).toBe(
+      'discarded',
+    )
     expect((await succeeded(api['drafts.list']({}))).drafts).toEqual([])
-    await succeeded(api['drafts.discard']({ params: { id: answer.id } }))
+    await succeeded(api['drafts.discard']({ params: { id: answer.id }, body: {} }))
     expect(world.eventsAfter(viewerId, 0).map((event) => event.body.type)).toEqual([
       'draft.discarded',
       'review.changed',
@@ -126,7 +128,7 @@ describe('drafts.create and drafts.update', () => {
     expect(sent.receipts.map((receipt) => receipt.memberId)).toEqual([ben, kai])
   })
 
-  it('asks a channel’s answerers a question written in its room, and refuses a draft with no destination', async () => {
+  it('asks a channel’s answerers and its agent a question written in its room, and refuses a draft with no destination', async () => {
     const { api, world } = demoApi()
     const asked = await succeeded(
       api['drafts.create']({ body: { body: 'Who owns the ledger?', channel: 'billing' } }),
@@ -134,7 +136,10 @@ describe('drafts.create and drafts.update', () => {
     const sent = await succeeded(
       api['drafts.send']({ params: { id: asked.id }, body: { expected: asShown(asked) } }),
     )
-    expect(sent.receipts.map((receipt) => receipt.memberId)).toEqual([memberNamed(world, 'Ana Silva')])
+    expect(sent.receipts.map((receipt) => receipt.memberId)).toEqual([
+      memberNamed(world, 'Ana Silva'),
+      memberNamed(world, 'Billing helper'),
+    ])
     expect(await refused(api['drafts.create']({ body: { body: 'Hello' } }))).toMatchObject({
       _tag: 'Invalid',
     })

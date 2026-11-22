@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { locale, strings, useLanguage } from '../../src/strings.ts'
 import { boot } from '../../src/tasks/boot.ts'
 import { fail, testApp } from '../support/app.ts'
-import { everything, me } from '../support/fixtures.ts'
+import { ANA, ROOM, everything, me } from '../support/fixtures.ts'
 
 afterEach(() => useLanguage('en'))
 
@@ -14,6 +14,8 @@ const empty = {
   'credentials.list': () => ({ credentials: [] }),
   'channels.list': () => ({ channels: [], hasMore: false, cursor: null }),
   'reviews.list': () => ({ reviews: [] }),
+  'inbox.list': () => ({ items: [] }),
+  'debates.list': () => ({ debates: [] }),
 }
 
 describe('boot', () => {
@@ -23,8 +25,10 @@ describe('boot', () => {
       'server.info': () => everything(),
       'me.get': () => me({ locale: 'ko' }),
     })
+    page.local.set(`homingbird.composer.${ANA}`, JSON.stringify({ [ROOM]: 'Half a thought' }))
     await run(boot)
     expect(state.session.get()).toEqual(me({ locale: 'ko' }))
+    expect(state.composerTexts.get()).toEqual(new Map([[ROOM, 'Half a thought']]))
     expect(locale).toBe('ko')
     expect(routes()).toContain('conversations.list')
     expect(page.listening('online')).toBe(1)

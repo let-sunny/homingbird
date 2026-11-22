@@ -11,7 +11,7 @@ afterEach(async () => {
 })
 
 describe('the answers from history step', () => {
-  it('is the thirteenth step', () => {
+  it('is the thirteenth step, after spent refresh tokens', () => {
     expect(stepNumberOf(HISTORY_ANSWERS)).toBe(13)
   })
 

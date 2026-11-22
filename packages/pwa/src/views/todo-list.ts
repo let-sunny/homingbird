@@ -33,7 +33,8 @@ export interface TodoList {
   readonly add: {
     readonly label: string
     readonly fields: ReadonlyArray<TodoField>
-    readonly extra?: Child
+    /** More controls beside the fields; given a way to show the warnings again when one of them changes. */
+    readonly extra?: (reflect: () => void) => Child
     readonly warnings?: (values: Readonly<Record<string, string>>) => ReadonlyArray<string>
     readonly submit: (values: Readonly<Record<string, string>>, done: () => void) => void
   }
@@ -195,7 +196,7 @@ const addRow = (list: TodoList): HTMLElement => {
       { class: 'todo-fields' },
       controls.map(([, control]) => control),
     ),
-    list.add.extra,
+    list.add.extra?.(reflect),
     button(list.add.label, submit, { class: 'primary todo-add-button' }),
     warnings,
   )

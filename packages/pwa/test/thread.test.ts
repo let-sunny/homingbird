@@ -426,6 +426,18 @@ describe('runs of notes', () => {
     ])
   })
 
+  it('starts a new run on a new day, under the day’s heading', () => {
+    const evening = new Date(2026, 10, 18, 23).getTime()
+    const notes = [
+      note('n1', { authorId: june, sentAt: evening }),
+      note('n2', { authorId: june, sentAt: evening + 2 * 3_600_000 }),
+    ]
+    expect(threadItems(notes).map((item) => (item.type === 'note' ? item.leadsRun : null))).toEqual([
+      true,
+      true,
+    ])
+  })
+
   it('splits any thread into runs that share one author and one way of writing, each led once', () => {
     const origins = ['agent', 'human_edited', 'human'] as const
     fc.assert(

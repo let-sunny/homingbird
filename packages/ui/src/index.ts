@@ -1,4 +1,14 @@
-export { type Child, type Properties, append, h, linkedText, replaceChildren, svg } from './element.ts'
+export { type CodeSpan, codeSpans } from './code-spans.ts'
+export {
+  type Child,
+  type Properties,
+  append,
+  h,
+  linkedText,
+  noteText,
+  replaceChildren,
+  svg,
+} from './element.ts'
 export { type KeyedOperation, applyKeyedOperations, keyedOperations } from './keyed.ts'
 export { later } from './later.ts'
 export { type TextSegment, textSegments } from './linkify.ts'

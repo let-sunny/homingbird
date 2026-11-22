@@ -60,6 +60,7 @@
   --hb-color-switch-on: var(--hb-color-success);
   --hb-color-switch-thumb-on: var(--hb-color-on-success);
   --hb-color-stripe: color-mix(in srgb, var(--hb-color-line) 14%, transparent);
+  --hb-color-code-background: color-mix(in srgb, var(--hb-color-line) 8%, transparent);
   --hb-color-success: var(--hb-sparkle);
   --hb-color-danger: var(--hb-alert);
   --hb-color-danger-text: #b42318;
@@ -81,6 +82,7 @@
   --hb-font-body: "Inter", system-ui, sans-serif;
   --hb-font-display: "Bricolage Grotesque", "Inter", system-ui, sans-serif;
   --hb-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --hb-text-code: 0.875em;
   --hb-text-tiny: 0.6875rem;
   --hb-text-small: 0.8125rem;
   --hb-text-body: 0.9375rem;

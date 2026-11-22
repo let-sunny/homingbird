@@ -1,5 +1,11 @@
 import { type ExportLabels, exportLabelsIn } from './debate-export-labels.ts'
-import type { DebateResult } from './debate-result.ts'
+import {
+  type DebateResult,
+  type DisagreementPoint,
+  type NamedCredit,
+  creditKindOf,
+  creditTurnOf,
+} from './debate-result.ts'
 import type { Debate, DebateVoteRecord } from './debates.ts'
 import type { MemberId } from './ids.ts'
 
@@ -189,15 +195,21 @@ const resultIn = (
       ? [
           style.block(result.conclusion),
           `${style.heading(3, labels.reasons)}\n\n${result.reasons.map((reason) => `- ${style.inline(reason)}`).join('\n')}`,
+          ...listSection(
+            style,
+            labels.changedMinds,
+            (result.changedMinds ?? []).map((one) => labels.changedMind(one.turn, style.inline(one.line))),
+          ),
+          ...listSection(
+            style,
+            labels.stillOpen,
+            (result.stillOpen ?? []).map((question) => style.inline(question)),
+          ),
+          ...listSection(style, labels.differences, (result.points ?? []).map(pointLine(style, labels))),
         ]
       : [
           style.block(result.summary),
-          `${style.heading(3, labels.disagreements)}\n\n${result.points
-            .map(
-              (point) =>
-                `- ${style.inline(point.point)} (${labels.categories[point.category]}): ${style.inline(point.explanation)}`,
-            )
-            .join('\n')}`,
+          `${style.heading(3, labels.disagreements)}\n\n${result.points.map((point) => `- ${pointLine(style, labels)(point)}`).join('\n')}`,
         ]),
     `${style.heading(3, labels.nextSteps)}\n\n${
       result.nextSteps
@@ -210,10 +222,25 @@ const resultIn = (
     `${style.heading(3, labels.contributions)}\n\n${result.contributions
       .map(
         (one) =>
-          `- ${labels.contribution(name(one.memberId))}: ${style.inline(one.summary)}${one.credits.length === 0 ? '' : ` (${one.credits.map((credit) => labels.credits[credit]).join(labels.listSeparator)})`}`,
+          `- ${labels.contribution(name(one.memberId))}: ${style.inline(one.summary)}${one.credits.length === 0 ? '' : ` (${one.credits.map((credit) => creditText(labels, credit)).join(labels.listSeparator)})`}`,
       )
       .join('\n')}`,
   ]
+}
+
+/** A titled list, or nothing when it is empty. */
+const listSection = (style: Style, title: string, lines: ReadonlyArray<string>): string[] =>
+  lines.length === 0 ? [] : [`${style.heading(3, title)}\n\n${lines.map((line) => `- ${line}`).join('\n')}`]
+
+const pointLine =
+  (style: Style, labels: ExportLabels) =>
+  (point: DisagreementPoint): string =>
+    `${style.inline(point.point)} (${labels.categories[point.category]}): ${style.inline(point.explanation)}`
+
+const creditText = (labels: ExportLabels, credit: NamedCredit): string => {
+  const text = labels.credits[creditKindOf(credit)]
+  const turn = creditTurnOf(credit)
+  return turn === null ? text : labels.creditAtTurn(text, turn)
 }
 
 /** The result's sections, its heading first and then which agent drafted it with the model it stated. */

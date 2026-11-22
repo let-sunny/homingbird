@@ -547,8 +547,12 @@ writes.
   managers see: nobody else in the room, and never the person who asked, sees anything new. The
   agent's page (`#/channel/<slug>/agent`, **Channel agent** in the room's header, and where the agent's
   desk links) lists every waiting answer at the top, under **Answers waiting for you**, with its
-  question. Any one manager sends or discards it; the first to send it wins, and a second manager is
-  told who already sent it. If the agent changes an answer after you read it, the card says so and asks
+  question, and each card says why you see it ("You manage #billing, so you review its agent's
+  answers"). Any one manager sends, edits and sends, or discards it; the first to send it wins, and a
+  second manager is told who already sent it. An edited answer shows "edited by" you to everyone who
+  reads it. **Discard** asks why, optionally: the reason is kept for the channel's managers, for how the
+  agent is doing and for teaching it, and the person who asked never sees it; their question then shows
+  "No answer yet" until someone replies. If the agent changes an answer after you read it, the card says so and asks
   you to read it again before you can send it. The person who asked sees only that an answer is being
   drafted, never the draft, so a manager never reviews the answer to their own question: if you are the
   only manager, add another first.
@@ -758,10 +762,23 @@ under two optional headings (a list with no headings is all "before drafting"):
 Drafts appear in the conversation, marked with the agent that wrote them, with what the draft is based
 on underneath.
 
-- **Send** sends the draft as written.
-- **Edit** opens the text; **Send** then sends your edited version. Recipients see that a person edited it.
-- **Discard** throws the draft away. Nobody ever saw it.
+- **Approve and send** sends the draft as written.
+- **Edit** opens the text; **Approve and send** there sends your edited version. Recipients see that a
+  person edited it.
+- **Discard**, set apart at the end, throws the draft away. Nobody ever saw it.
+- After a send or a discard, the card's place says "Sending to Ana…" with **Undo** for five seconds,
+  and so does a message above everything else on the page, then "Sent to Ana". **Undo** brings the
+  card back and nothing was sent; nothing reaches the server until the five seconds are over, you
+  press **Done**, you decide another card, or you leave or close the page, which sends it. If the
+  page closed before the send went out, the next time you open Homingbird it says the draft was not
+  sent; the draft still waits.
+- Closing **Edit** without sending keeps your edit on the card; **Edit** opens it again. After a
+  send, **Undo** brings your edited text back too. In the edit and discard boxes, Cmd or Ctrl+Enter
+  sends, and after each decision the focus moves to the next card waiting.
 - When several of your agents drafted a reply to the same note, send one and the others are discarded.
+- **What this draft is based on** lists what your agent read, and each web page or earlier note it
+  names as a link, with the passage it used. An earlier note opens in its conversation. After you send
+  the note, the same list stays under **Based on**, folded, for you alone.
 
 You can also write a note yourself in the composer at the bottom of any conversation.
 
@@ -776,12 +793,13 @@ below the bell on a wide screen, over the whole page on a phone. Its address, `#
 same list as a page, which is also what the bell does in a browser without popovers. Newest first, it
 lists by kind:
 
-- **Drafts from your agent**, with the whole text and **Send**, **Edit** and **Discard** right there,
+- **Drafts from your agent**, with the whole text and **Approve and send**, **Edit** and **Discard** right there,
   as in the conversation. Send sends the draft exactly as the card shows it: if your agent changed it
   since you read it, the card says so and asks you to read it again first. Only your own drafts are
   here.
 - **Answers to review**: a channel's agent's answers waiting for you as one of its channel's managers,
-  with **Send** and **Discard**. An answer to a question you asked yourself is never shown to you.
+  with **Approve and send**, **Edit** and **Discard**. An answer to a question you asked yourself is
+  never shown to you.
 - **Notes your agent skipped**, with the reason it gave and **Reply yourself**. A note leaves the list
   once you reply or your agent drafts a reply after all.
 - **Your agent**, when your desk runs but its agent cannot answer right now, with the reason and a way

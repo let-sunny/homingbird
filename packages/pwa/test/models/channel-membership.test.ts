@@ -31,11 +31,23 @@ describe('roomControlsModel', () => {
     })
   })
 
-  it('keeps a manager in the room while they are in its group, and offers nothing in a channel the person is not in', () => {
+  it('keeps a manager in the room while others are in it, as the server does, and offers nothing in a channel the person is not in', () => {
     const billing = channel('billing', { joined: true, managing: true, visibility: 'private' })
     expect(roomControlsModel(billing, roster(one(ANA, true), one(BEN)), ANA).leave).toEqual({
       kind: 'blocked',
+      reason: strings.onlyManagerCannotLeave,
+    })
+    expect(roomControlsModel(billing, roster(one(ANA, true), one(BEN, true)), ANA).leave).toEqual({
+      kind: 'blocked',
       reason: strings.managerCannotLeave,
+    })
+    expect(roomControlsModel(billing, roster(one(ANA, true)), ANA).leave).toMatchObject({ kind: 'allowed' })
+    expect(roomControlsModel({ ...billing, memberCount: 3 }, null, ANA).leave).toEqual({
+      kind: 'blocked',
+      reason: strings.managerCannotLeave,
+    })
+    expect(roomControlsModel({ ...billing, memberCount: 1 }, null, ANA).leave).toMatchObject({
+      kind: 'allowed',
     })
     expect(roomControlsModel(billing, roster(one(ANA, true), one(BEN)), BEN).leave).toMatchObject({
       kind: 'allowed',
@@ -171,9 +183,11 @@ describe('membersPanelModel', () => {
     expect(model.visibility).toBe(strings.visibilityOpen)
   })
 
-  it('keeps a manager in the room while they are in its managing group, and says why', () => {
-    const own = membersPanelModel(input({ roster: [one(ANA, true), one(BEN)] })).rows![0]!
-    expect(own).toMatchObject({ kind: 'own', blocked: strings.managerCannotLeave })
+  it('keeps a manager in the room while others are in it, and says what to do first', () => {
+    const own = (roster: ChannelMember[]) => membersPanelModel(input({ roster })).rows![0]!
+    expect(own([one(ANA, true), one(BEN)])).toMatchObject({ blocked: strings.onlyManagerCannotLeave })
+    expect(own([one(ANA, true), one(BEN, true)])).toMatchObject({ blocked: strings.managerCannotLeave })
+    expect(own([one(ANA, true)])).toMatchObject({ blocked: null })
   })
 
   it('names the channel’s managers, as far as the person can see them', () => {
@@ -224,12 +238,27 @@ describe('membersPanelModel', () => {
       label: strings.groups.unmanage,
       groupId: 'grp_billing00000',
       memberIds: [BEN],
+      confirm: {
+        title: strings.groups.unmanageSelfTitle({ channel: '#billing' }),
+        body: `${strings.groups.unmanageSelfBody} ${strings.groups.onlyManagerOther({ name: 'Ben' })}`,
+        confirm: strings.groups.unmanage,
+      },
     })
     expect(ben!.unmanage).toEqual({
       label: strings.groups.unmanage,
       groupId: 'grp_billing00000',
       memberIds: [ANA],
+      confirm: {
+        title: strings.groups.unmanageTitle({ name: 'Ben' }),
+        body: `${strings.groups.unmanageBody({ name: 'Ben' })} ${strings.groups.onlyManagerYou}`,
+        confirm: strings.groups.unmanage,
+      },
     })
+    const three = [managersOf('billing', { memberIds: [ANA, BEN, CY], mayRemove: true })]
+    const many = membersPanelModel(
+      input({ groups: three, roster: [one(ANA, true), one(BEN, true), one(CY, true)] }),
+    )
+    expect(many.rows![1]!.unmanage!.confirm.body).toBe(strings.groups.unmanageBody({ name: 'Ben' }))
     expect(cy!.unmanage).toBeNull()
     const alone = [managersOf('billing', { memberIds: [ANA], mayRemove: true })]
     expect(

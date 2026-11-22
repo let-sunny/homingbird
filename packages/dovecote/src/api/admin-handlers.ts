@@ -2,6 +2,7 @@ import { Task as T } from '@homingbird/kernel'
 import { type Channel, type Contract, type Member, MemberId, type ResponseOf } from '@homingbird/protocol'
 import { archiveChannel, reviseChannel } from '../domain/channel-administration.ts'
 import { clearCharacter } from '../domain/characters.ts'
+import { agentCredentialsHeld } from '../domain/credentials.ts'
 import { organizationInsights } from '../domain/insights.ts'
 import { administerMember, allAgents, allMembers } from '../domain/members.ts'
 import { featureIsOn, readAnsweringFlow, readSettings, writeSettings } from '../domain/settings.ts'
@@ -18,8 +19,9 @@ export const adminHandlers = {
   'admin.members.list': () =>
     T.gen(function* () {
       const members = yield* allMembers
-      if (!(yield* featureIsOn('channelAgents'))) return { members }
-      return { members, agents: yield* allAgents }
+      const agentCredentials = yield* agentCredentialsHeld
+      if (!(yield* featureIsOn('channelAgents'))) return { members, agentCredentials }
+      return { members, agents: yield* allAgents, agentCredentials }
     }),
   'admin.members.update': ({ params, body }, caller) =>
     T.flatMap((id: MemberId) =>

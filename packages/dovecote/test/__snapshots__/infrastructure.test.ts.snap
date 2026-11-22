@@ -90,6 +90,10 @@ exports[`schema > generates stable DDL for mysql 1`] = `
         WHERE s.group_id = g.group_id AND s.member_id = g.member_id AND s.left_at IS NULL)",
   "CREATE TABLE IF NOT EXISTS spent_refresh_tokens (refresh_hash VARCHAR(400) NOT NULL, credential_id VARCHAR(64) NOT NULL, spent_at BIGINT NOT NULL, replaced_by VARCHAR(400) NOT NULL, PRIMARY KEY (refresh_hash), INDEX spent_refresh_tokens_credential_id_idx (credential_id))",
   "CREATE TABLE IF NOT EXISTS history_answers (member_id VARCHAR(64) NOT NULL, conversation_id VARCHAR(64) NOT NULL, note_id VARCHAR(64) NOT NULL, answered_at BIGINT NOT NULL, PRIMARY KEY (member_id, conversation_id, note_id), INDEX history_answers_conversation_id_idx (conversation_id))",
+  "ALTER TABLE notes ADD COLUMN sources MEDIUMTEXT",
+  "ALTER TABLE notes ADD COLUMN discard_reason MEDIUMTEXT",
+  "ALTER TABLE debates ADD COLUMN total_follows_agents BIGINT",
+  "ALTER TABLE debate_turns ADD COLUMN after_turn BIGINT",
   "CREATE TABLE IF NOT EXISTS channel_agent_teaching (agent_id VARCHAR(64) NOT NULL, instruction MEDIUMTEXT NOT NULL, sources MEDIUMTEXT NOT NULL, updated_at BIGINT NOT NULL, PRIMARY KEY (agent_id))",
 ]
 `;
@@ -229,6 +233,10 @@ exports[`schema > generates stable DDL for postgres 1`] = `
   "CREATE INDEX IF NOT EXISTS spent_refresh_tokens_credential_id_idx ON spent_refresh_tokens (credential_id)",
   "CREATE TABLE IF NOT EXISTS history_answers (member_id VARCHAR(64) NOT NULL, conversation_id VARCHAR(64) NOT NULL, note_id VARCHAR(64) NOT NULL, answered_at BIGINT NOT NULL, PRIMARY KEY (member_id, conversation_id, note_id))",
   "CREATE INDEX IF NOT EXISTS history_answers_conversation_id_idx ON history_answers (conversation_id)",
+  "ALTER TABLE notes ADD COLUMN sources TEXT",
+  "ALTER TABLE notes ADD COLUMN discard_reason TEXT",
+  "ALTER TABLE debates ADD COLUMN total_follows_agents BIGINT",
+  "ALTER TABLE debate_turns ADD COLUMN after_turn BIGINT",
   "CREATE TABLE IF NOT EXISTS channel_agent_teaching (agent_id VARCHAR(64) NOT NULL, instruction TEXT NOT NULL, sources TEXT NOT NULL, updated_at BIGINT NOT NULL, PRIMARY KEY (agent_id))",
 ]
 `;
@@ -368,6 +376,10 @@ exports[`schema > generates stable DDL for sqlite 1`] = `
   "CREATE INDEX IF NOT EXISTS spent_refresh_tokens_credential_id_idx ON spent_refresh_tokens (credential_id)",
   "CREATE TABLE IF NOT EXISTS history_answers (member_id TEXT NOT NULL, conversation_id TEXT NOT NULL, note_id TEXT NOT NULL, answered_at INTEGER NOT NULL, PRIMARY KEY (member_id, conversation_id, note_id))",
   "CREATE INDEX IF NOT EXISTS history_answers_conversation_id_idx ON history_answers (conversation_id)",
+  "ALTER TABLE notes ADD COLUMN sources TEXT",
+  "ALTER TABLE notes ADD COLUMN discard_reason TEXT",
+  "ALTER TABLE debates ADD COLUMN total_follows_agents INTEGER",
+  "ALTER TABLE debate_turns ADD COLUMN after_turn INTEGER",
   "CREATE TABLE IF NOT EXISTS channel_agent_teaching (agent_id TEXT NOT NULL, instruction TEXT NOT NULL, sources TEXT NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (agent_id))",
 ]
 `;

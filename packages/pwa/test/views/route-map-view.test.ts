@@ -35,9 +35,10 @@ describe('routeMapSection', () => {
     expect(drawing.querySelectorAll('line')).toHaveLength(2)
     expect(drawing.querySelectorAll('rect')).toHaveLength(2)
     expect(textOf(drawing)).toContain(strings.routes.you)
-    expect(textOf(shown.querySelector('[data-place="billing"]')!)).toContain(
-      strings.routes.chances({ count: 2 }),
-    )
+    const billing = shown.querySelector<HTMLElement>('[data-place="billing"]')!
+    expect(
+      getByRole(billing, 'link', { name: strings.routes.chances({ count: 2 }) }).getAttribute('href'),
+    ).toBe('#/agent/teaching')
     expect(getByRole(shown, 'rowheader', { name: strings.trust.directMessages, hidden: true })).toBeTruthy()
   })
 })

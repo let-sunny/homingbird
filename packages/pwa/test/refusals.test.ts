@@ -48,6 +48,9 @@ describe('refusalText', () => {
     expect(refusalText(conflict('Make another member a manager first.'), 'managers')).toBe(
       strings.refusals.lastManager,
     )
+    expect(refusalText(conflict('Members of the group that manages this channel stay in it.'), 'leave')).toBe(
+      strings.refusals.managerStays,
+    )
     expect(refusalText(conflict('That name is not available.'), 'channel-name')).toBe(
       strings.refusals.nameTaken,
     )

@@ -9,6 +9,7 @@ import { type Child, h } from '@homingbird/ui'
 import type { CorrectionPrefill } from '../models/channel-teaching.ts'
 import {
   type PrincipleFormState,
+  type TeachSeed,
   principleFormModel,
   principleFormStart,
   principleToSave,
@@ -32,7 +33,12 @@ export const principleForm = (
 ): Child => {
   const forChannel = target.kind === 'channel' ? target : null
   const prefill = forChannel?.prefill ?? null
-  const begun = principleFormStart(offer, editing, showingPublic)
+  const begun = principleFormStart(
+    offer,
+    editing,
+    showingPublic,
+    target.kind === 'own' ? (target.seed ?? null) : null,
+  )
   const start = prefill !== null && editing === null ? { ...begun, rule: prefill.rule } : begun
   const kindChoice = (kind: PrincipleKind): HTMLInputElement =>
     h('input', { type: 'radio', name: 'kind', value: kind, checked: (editing?.kind ?? 'rule') === kind })
@@ -174,7 +180,7 @@ export const principleForm = (
 
 /** Whose agent the form teaches: the person's own, or the agent of a channel they manage. */
 export type PrincipleTarget =
-  | { readonly kind: 'own' }
+  | { readonly kind: 'own'; readonly seed?: TeachSeed }
   | {
       readonly kind: 'channel'
       readonly slug: string

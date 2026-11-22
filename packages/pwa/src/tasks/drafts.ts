@@ -5,7 +5,8 @@ import { type Action, type App, withApp } from '../app.ts'
 import { type AgentAsk, requestBody, upsertRequest } from '../draft-requests.ts'
 import { asRead, withDraftRead } from '../drafts-read.ts'
 import { hrefFor } from '../routes.ts'
-import type { AppState } from '../state.ts'
+import type { AppState, HeldWords } from '../state.ts'
+import { holdDecision } from './held.ts'
 import { forgetNote, forgetRelease, loadThread, rememberNote } from './notes.ts'
 import { refreshAgentReport, refreshPrinciples } from './teaching.ts'
 import { loadConversations } from './workspace.ts'
@@ -33,11 +34,40 @@ export const approveDraft = (
     )
     yield* track('draft_approved', {})
     for (const alternative of alternatives)
-      yield* T.result(api['drafts.discard']({ params: { id: alternative.id } }))
+      yield* T.result(api['drafts.discard']({ params: { id: alternative.id }, body: {} }))
     yield* refreshAgentReport
     yield* refreshPrinciples
     yield* loadThread(draft.conversationId)
     yield* loadConversations
+  })
+
+/** Sends a draft once the moment to undo it is over; until it is sent its card says so in its place. */
+export const holdSend = (
+  draft: AsRead.Note,
+  editedBody: string | null,
+  alternatives: ReadonlyArray<AsRead.Note>,
+  words: HeldWords,
+): Action =>
+  holdDecision({
+    noteId: draft.id,
+    conversationId: draft.conversationId,
+    kind: 'send',
+    review: false,
+    settles: 1 + alternatives.length,
+    words,
+    run: approveDraft(draft, editedBody, alternatives),
+  })
+
+/** Discards a draft once the moment to undo it is over. */
+export const holdDiscard = (draft: AsRead.Note, words: HeldWords): Action =>
+  holdDecision({
+    noteId: draft.id,
+    conversationId: draft.conversationId,
+    kind: 'discard',
+    review: false,
+    settles: 1,
+    words,
+    run: discardDraft(draft),
   })
 
 export const saveDraft = (draft: AsRead.Note, body: string): Action =>
@@ -52,7 +82,7 @@ export const confirmDraftRead = (draft: AsRead.Note): Action =>
 export const discardDraft = (draft: AsRead.Note): Action =>
   T.gen(function* () {
     const { api, state } = yield* T.ask<App>()
-    yield* api['drafts.discard']({ params: { id: draft.id } })
+    yield* api['drafts.discard']({ params: { id: draft.id }, body: {} })
     forgetNote(state, draft.conversationId, draft.id)
     yield* refreshAgentReport
     yield* refreshPrinciples

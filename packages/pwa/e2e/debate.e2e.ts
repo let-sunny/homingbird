@@ -126,11 +126,15 @@ const scenario = async (): Promise<void> => {
         },
       ],
       contributions: [
-        { memberId: ids.ana, summary: 'Brought the March incident report.', credits: ['gap_filled'] },
+        {
+          memberId: ids.ana,
+          summary: 'Brought the March incident report.',
+          credits: [{ credit: 'gap_filled', turn: 1 }],
+        },
         {
           memberId: ids.ben,
           summary: 'Named the goal behind the risk.',
-          credits: ['disagreement_separated'],
+          credits: [{ credit: 'disagreement_separated', turn: 2 }],
         },
       ],
       nextSteps: [{ step: 'Ana and Ben agree on the goal first.', owner: ids.ben, proposedBy: ids.ben }],
@@ -144,7 +148,11 @@ const scenario = async (): Promise<void> => {
       conclusion: 'Ship next week, after the rollback is tested again.',
       reasons: ['The March rollback failed.'],
       contributions: [
-        { memberId: ids.ana, summary: 'Brought the March incident report.', credits: ['gap_filled'] },
+        {
+          memberId: ids.ana,
+          summary: 'Brought the March incident report.',
+          credits: [{ credit: 'gap_filled', turn: 1 }],
+        },
         { memberId: ids.ben, summary: 'Asked for another test.', credits: [] },
       ],
       nextSteps: [],

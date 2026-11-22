@@ -1,6 +1,7 @@
 import type { AsRead } from '@homingbird/protocol'
 import { type Child, type Properties, h } from '@homingbird/ui'
 import { channelLabel } from '../channels.ts'
+import type { SourceShown } from '../draft-basis.ts'
 import type { TimeShown } from '../models/time.ts'
 import { presenceShown } from '../presence.ts'
 import { hrefFor } from '../routes.ts'
@@ -25,6 +26,32 @@ export const button = (
   onClick: (event: MouseEvent) => void,
   properties: Properties = {},
 ): HTMLButtonElement => h('button', { type: 'button', ...properties, on: { click: onClick } }, label)
+
+/** What a draft rests on beside its basis lines: links, jumps to earlier notes, and the passages used. */
+export const sourceList = (sources: ReadonlyArray<SourceShown>): HTMLElement | null =>
+  sources.length === 0
+    ? null
+    : h(
+        'ul',
+        { class: 'draft-sources' },
+        sources.map((source) =>
+          h(
+            'li',
+            { class: `draft-source is-${source.kind}` },
+            source.href === null
+              ? h('span', {}, source.label)
+              : h(
+                  'a',
+                  {
+                    href: source.href,
+                    ...(source.kind === 'link' && { rel: 'noopener noreferrer', target: '_blank' }),
+                  },
+                  source.label,
+                ),
+            source.quote !== null && h('blockquote', { class: 'source-quote' }, source.quote),
+          ),
+        ),
+      )
 
 export const field = (label: string, control: HTMLElement, hint?: string): HTMLElement =>
   h(

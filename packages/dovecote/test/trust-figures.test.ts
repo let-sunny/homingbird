@@ -1,4 +1,9 @@
-import { TRUST_MINIMUM_DECIDED } from '@homingbird/protocol'
+import {
+  AGENT_MISSES_MAX,
+  type ConversationId,
+  type NoteId,
+  TRUST_MINIMUM_DECIDED,
+} from '@homingbird/protocol'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import {
@@ -12,6 +17,7 @@ import {
   isQuickApproval,
   isQuickApprovalFrequent,
   median,
+  missesOf,
   periodEndingAt,
   verdictOf,
   weeksBefore,
@@ -395,5 +401,77 @@ describe('agentReportOf', () => {
     expect(report.weeks).toHaveLength(8)
     expect(report.weeks.at(-1)).toEqual({ start: NOW - 7 * DAY_MS, decided: 1, sentAsWritten: 1 })
     expect(report.weeks.at(-2)).toEqual({ start: NOW - 14 * DAY_MS, decided: 1, sentAsWritten: 0 })
+  })
+})
+
+describe('missesOf', () => {
+  const at = (draft: AgentDraft, id: string): AgentDraft => ({
+    ...draft,
+    noteId: `note_${id}` as NoteId,
+    conversationId: 'conv_room00000000' as ConversationId,
+  })
+
+  it('lists edited and discarded drafts and skipped notes in the window, newest first, by id only', () => {
+    const activity: AgentActivity = {
+      ...nothing,
+      drafts: [
+        at(decided('edited', 'billing', 5), 'edited000000'),
+        at(decided('discarded', null, 2), 'discarded000'),
+        at(decided('as_written', 'billing', 1), 'aswritten000'),
+        at(decided('edited', 'billing', 24 * 40), 'tooold000000'),
+        decided('discarded', 'billing', 1),
+        at({ ...decided(null, 'billing', 1), decidedAt: null }, 'waiting00000'),
+      ],
+      skips: [
+        {
+          place: 'deploys',
+          at: NOW - 3 * HOUR,
+          reason: 'No calendar.',
+          noteId: 'note_skipped000000' as NoteId,
+          conversationId: 'conv_room00000000' as ConversationId,
+        },
+        { place: 'deploys', at: NOW - 3 * HOUR, reason: null },
+        {
+          place: 'deploys',
+          at: NOW - 24 * 40 * HOUR,
+          reason: null,
+          noteId: 'note_old0000000' as NoteId,
+          conversationId: 'conv_room00000000' as ConversationId,
+        },
+      ],
+    }
+    expect(missesOf(activity, periodEndingAt(NOW, 30, 0))).toEqual([
+      {
+        outcome: 'discarded',
+        noteId: 'note_discarded000',
+        conversationId: 'conv_room00000000',
+        place: null,
+        at: NOW - 2 * HOUR,
+      },
+      {
+        outcome: 'skipped',
+        noteId: 'note_skipped000000',
+        conversationId: 'conv_room00000000',
+        place: 'deploys',
+        at: NOW - 3 * HOUR,
+      },
+      {
+        outcome: 'edited',
+        noteId: 'note_edited000000',
+        conversationId: 'conv_room00000000',
+        place: 'billing',
+        at: NOW - 5 * HOUR,
+      },
+    ])
+    expect(agentReportOf(activity, NOW, 15).misses).toHaveLength(3)
+  })
+
+  it('keeps the newest ones only, up to the limit', () => {
+    const drafts = Array.from({ length: AGENT_MISSES_MAX + 5 }, (_, index) =>
+      at(decided('edited', null, index + 1), `many${String(index).padStart(8, '0')}`),
+    )
+    const misses = missesOf({ ...nothing, drafts }, periodEndingAt(NOW, 30, 0))
+    expect(misses).toHaveLength(AGENT_MISSES_MAX)
+    expect(misses[0]!.at).toBe(NOW - HOUR)
   })
 })

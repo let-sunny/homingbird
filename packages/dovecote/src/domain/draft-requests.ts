@@ -6,6 +6,7 @@ import {
   type DeskSession,
   type DraftRequest,
   DraftRequestId,
+  type DraftSource,
   Forbidden,
   type MemberId,
   NotFound,
@@ -61,6 +62,7 @@ export const answerDraftRequest = (
   draft: {
     readonly body: string
     readonly basis?: string
+    readonly sources?: ReadonlyArray<DraftSource>
     readonly client?: string
     readonly model?: string
     readonly session?: DeskSession

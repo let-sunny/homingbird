@@ -5,9 +5,12 @@ import {
   DEFAULT_DEBATE_LIMITS,
   DEFAULT_GRACE_MINUTES,
   type DebateGraceMinutes,
-  DebateLimits,
+  type DebateLimits,
+  DebateLimitsWish,
   type MemberId,
+  TURNS_PER_AGENT_OFFERED,
   UNKNOWN,
+  limitsFor,
   limitsProblem,
   turnsTakenBy,
 } from '@homingbird/protocol'
@@ -83,40 +86,44 @@ export const draftsOf = (
 export const turnsLeftFor = (debate: AsRead.Debate, memberId: MemberId): number =>
   Math.max(0, debate.limits.turnsPerAgent - turnsTakenBy(debate, memberId))
 
-/** The limits a person typed, each clamped to what a room accepts, or the reason they cannot work. */
+/**
+ * The limits a person typed, each clamped to what a room accepts, or the reason they cannot work. A total
+ * left empty follows the agents opted in.
+ */
 export const limitsFrom = (
   typed: Readonly<Record<NumberLimit, string>> & { readonly graceMinutes?: string },
-): { readonly limits: DebateLimits } | { readonly problem: string } => {
-  const decoded = DebateLimits.decode({
+): { readonly limits: DebateLimitsWish } | { readonly problem: string } => {
+  const decoded = DebateLimitsWish.decode({
     ...Object.fromEntries(
-      (Object.keys(LIMIT_BOUNDS) as Array<NumberLimit>).map((name) => {
+      (Object.keys(LIMIT_BOUNDS) as Array<NumberLimit>).flatMap((name) => {
         const [low, high] = LIMIT_BOUNDS[name]
         const value = Number.parseInt(typed[name], 10)
-        return [
-          name,
-          Number.isNaN(value) ? DEFAULT_DEBATE_LIMITS[name] : Math.min(high, Math.max(low, value)),
-        ]
+        if (!Number.isNaN(value)) return [[name, Math.min(high, Math.max(low, value))]]
+        return name === 'totalTurns' ? [] : [[name, DEFAULT_DEBATE_LIMITS[name]]]
       }),
     ),
     graceMinutes: graceFrom(typed.graceMinutes),
   })
   if (decoded._tag === 'Err') return { problem: S.formatIssues(decoded.error) }
-  const problem = limitsProblem(decoded.value)
+  const problem = limitsProblem(limitsFor(decoded.value, 0))
   return problem === null ? { limits: decoded.value } : { problem }
 }
 
 /** The limits typed as numbers; the grace is chosen among `DEBATE_GRACE_MINUTES` instead. */
-export type NumberLimit = Exclude<keyof DebateLimits, 'graceMinutes'>
+export type NumberLimit = Exclude<keyof DebateLimits, 'graceMinutes' | 'totalFollowsAgents'>
 
+/** The most turns per agent offered is 4: in real rooms nothing new appeared after an agent's fourth turn. */
 export const LIMIT_BOUNDS: Readonly<Record<NumberLimit, readonly [number, number]>> = {
-  turnsPerAgent: [1, 20],
+  turnsPerAgent: [1, TURNS_PER_AGENT_OFFERED],
   totalTurns: [2, 100],
   minutes: [5, 10_080],
   turnCharacters: [200, 4000],
 }
 
 /** The room's grace, the default when it says none or one this client does not know. */
-export const graceOf = (limits: Pick<AsRead.Debate['limits'], 'graceMinutes'>): DebateGraceMinutes =>
+export const graceOf = (limits: {
+  readonly graceMinutes?: AsRead.Debate['limits']['graceMinutes'] | undefined
+}): DebateGraceMinutes =>
   limits.graceMinutes === undefined || limits.graceMinutes === UNKNOWN
     ? DEFAULT_GRACE_MINUTES
     : limits.graceMinutes

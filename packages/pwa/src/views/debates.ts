@@ -2,6 +2,7 @@ import { type AsRead, DEBATE_QUESTION_MAX, DEFAULT_DEBATE_LIMITS, type MemberId 
 import { type Lifetime, h, region } from '@homingbird/ui'
 import {
   type DebateListModel,
+  type ShownLimits,
   debateListModel,
   inviteesFor,
   limitFieldsModel,
@@ -34,7 +35,7 @@ export const debatesView = (context: ViewContext, life: Lifetime, me: AsRead.Me)
 }
 
 /** The four limits as number fields and the grace as a choice, filled with the given values. */
-export const limitFields = (limits: AsRead.Debate['limits']): HTMLElement => {
+export const limitFields = (limits: ShownLimits): HTMLElement => {
   const model = limitFieldsModel(limits)
   return h(
     'fieldset',
@@ -49,11 +50,12 @@ export const limitFields = (limits: AsRead.Debate['limits']): HTMLElement => {
           inputmode: 'numeric',
           min: String(number.min),
           max: String(number.max),
-          value: String(number.value),
-          required: true,
+          value: number.value === null ? '' : String(number.value),
+          required: number.required,
         }),
       ),
     ),
+    ...model.hints.map((hint) => h('small', { class: 'hint' }, hint)),
     field(
       strings.debates.graceMinutes,
       h(

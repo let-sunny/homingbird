@@ -29,6 +29,14 @@ export const closesDialog: Properties = { commandfor: DIALOG_ID, command: 'close
 
 export const closeDialog = (context: DialogContext): void => dialogElement(context).close()
 
+/** Cmd or Ctrl with Enter submits the form a dialog's text is typed in; Enter alone starts a new line. */
+export const submitOnModifierEnter = (event: Event): void => {
+  const key = event as KeyboardEvent
+  if (key.key !== 'Enter' || !(key.metaKey || key.ctrlKey) || key.isComposing) return
+  key.preventDefault()
+  ;(key.target as Element | null)?.closest('form')?.requestSubmit()
+}
+
 type DialogContext = Pick<ViewContext, 'document'>
 
 const fillDialog = (context: DialogContext, title: string, content: (life: Lifetime) => Child): void => {

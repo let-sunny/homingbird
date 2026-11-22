@@ -47,14 +47,13 @@ describe('fakeDovecote', () => {
     const info = await succeeded(api['server.info']({}))
     expect(isFeatureOffered(info, 'channelAgents')).toBe(true)
     expect(isFeatureOffered(info, 'cloudDesk')).toBe(false)
-    for (const shown of ['invites', 'joinCodes', 'deskAvailability'] as const)
+    for (const shown of ['invites', 'joinCodes', 'deskAvailability', 'draftRequests'] as const)
       expect(isFeatureOffered(info, shown)).toBe(true)
     expect((await succeeded(api['me.get']({}))).canInvite).toBe(true)
     expect(await refused(api['me.deskWake.get']({}))).toEqual({
       _tag: 'NotFound',
       message: FEATURE_OFF_MESSAGE,
     })
-    expect(await refused(api['draftRequests.list']({}))).toMatchObject({ _tag: 'NotFound' })
   })
 
   it('refuses a member what only an administrator does, and says the demo does not do what it leaves out', async () => {

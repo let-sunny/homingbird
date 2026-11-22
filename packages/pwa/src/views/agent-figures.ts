@@ -10,8 +10,11 @@ import { strings } from '../strings.ts'
 import { loading } from './parts.ts'
 import { sessionSection } from './session-health-view.ts'
 
-/** How the agent is doing: the verdict, the numbers table, skips, places, labels, trend and sessions. */
-export const renderFigures = (model: FiguresModel): Child => {
+/**
+ * How the agent is doing: the verdict, the numbers table with what lies behind its counts, skips,
+ * places, labels, trend and sessions.
+ */
+export const renderFigures = (model: FiguresModel, behind: Child = null): Child => {
   if (model.kind === 'loading') return loading()
   if (model.kind === 'failed') return h('p', { role: 'alert' }, model.text)
   const { headline, table } = model
@@ -57,6 +60,7 @@ export const renderFigures = (model: FiguresModel): Child => {
       ),
       table.footnotes.map((footnote) => h('p', { class: 'trust-footnote' }, footnote)),
     ),
+    behind,
     model.skips !== null &&
       h(
         'section',

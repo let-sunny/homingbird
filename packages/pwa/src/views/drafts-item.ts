@@ -1,29 +1,36 @@
 import type { AsRead } from '@homingbird/protocol'
-import { type Child, h, linkedText } from '@homingbird/ui'
+import { type Child, type Lifetime, h, linkedText } from '@homingbird/ui'
 import {
   type DraftCard,
   type DraftsItemModel,
   type EditorInput,
   draftChangedWhileEditing,
+  isUnchangedWhileEditing,
 } from '../models/drafts-item.ts'
 import { strings } from '../strings.ts'
 import { readdressForm } from './channel-picker.ts'
 import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
-import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
-import { button, channelCounts } from './parts.ts'
+import { cardOf, focusAfterDecision } from './decision-focus.ts'
+import { closeDialog, closesDialog, opensDialog, submitOnModifierEnter } from './dialog.ts'
+import { noteBody } from './note-body.ts'
+import { button, channelCounts, sourceList } from './parts.ts'
 import { renderAppliedMarkers } from './teaching.ts'
 
-/** The drafts waiting in one place of the conversation; each card reports once that the person saw it. */
-export const renderDraftsItem = (context: ViewContext, model: DraftsItemModel): HTMLElement =>
-  h(
+/**
+ * The drafts waiting in one place of the conversation; each card reports once that the person saw it,
+ * and is named by the heading and its origin.
+ */
+export const renderDraftsItem = (context: ViewContext, model: DraftsItemModel): HTMLElement => {
+  const headingId = `pending-heading-${model.cards[0]?.draft.id ?? ''}`
+  return h(
     'li',
-    { class: 'pending' },
+    { class: 'pending', data: { decisionUnit: '' } },
     h(
       'div',
       { class: 'pending-head' },
       renderAvatar(context, model.avatar),
-      h('strong', {}, model.heading),
+      h('strong', { id: headingId }, model.heading),
       h('span', {}, model.replyTo),
     ),
     model.choose !== null && h('p', { class: 'pending-choose' }, model.choose),
@@ -32,25 +39,29 @@ export const renderDraftsItem = (context: ViewContext, model: DraftsItemModel): 
       'div',
       { class: 'alternatives' },
       model.cards.map((card) => {
-        const shown = draftCard(context, card)
+        const shown = draftCard(context, card, headingId)
         reportWhenSeen(context, shown, card.draft)
         return shown
       }),
     ),
   )
+}
 
-const draftCard = (context: ViewContext, card: DraftCard): HTMLElement => {
+const draftCard = (context: ViewContext, card: DraftCard, headingId: string): HTMLElement => {
   const { actions } = context
   const draft = card.draft
   return h(
     'article',
     {
       class: 'draft',
-      data: { draftId: draft.id, tour: 'approval' },
-      ...(card.focused && { 'aria-current': 'true', tabindex: '-1' }),
+      'aria-labelledby': `${headingId} draft-origin-${draft.id}`,
+      data: { draftId: draft.id, decides: draft.id, tour: 'approval' },
+      tabindex: '-1',
+      ...(card.focused && { 'aria-current': 'true' }),
     },
-    h('span', { class: card.origin.className }, card.origin.text),
-    h('p', { class: 'note-body' }, linkedText(card.body)),
+    h('span', { class: card.origin.className, id: `draft-origin-${draft.id}` }, card.origin.text),
+    noteBody(context, card.body),
+    card.room !== null && h('a', { class: 'debate-note-room', href: card.room.href }, card.room.label),
     card.basis !== null &&
       h(
         'section',
@@ -58,7 +69,10 @@ const draftCard = (context: ViewContext, card: DraftCard): HTMLElement => {
         h('h3', {}, strings.draftBasisTitle),
         ...(card.basis.kind === 'none'
           ? [h('p', { class: 'basis-missing' }, strings.draftBasisMissing)]
-          : card.basis.lines.map((line) => h('p', {}, linkedText(line)))),
+          : [
+              ...card.basis.lines.map((line) => h('p', {}, linkedText(line))),
+              sourceList(card.basis.sources),
+            ]),
       ),
     renderAppliedMarkers(card.applied, context),
     card.destination !== null &&
@@ -70,51 +84,81 @@ const draftCard = (context: ViewContext, card: DraftCard): HTMLElement => {
           : card.destination.text,
       ),
     card.careful !== null && h('p', { class: 'careful-reading', role: 'note' }, card.careful),
-    card.actions !== null &&
-      card.readAgain !== null &&
-      h(
-        'div',
-        { class: 'draft-actions draft-changed' },
-        h('p', { role: 'alert' }, card.readAgain.notice),
-        button(card.readAgain.confirm, () => actions.confirmDraftRead(draft), { class: 'primary' }),
-        button(strings.discard, () => actions.discardDraft(draft, { attempt: 'draft' }), { class: 'danger' }),
-      ),
-    card.actions !== null &&
-      card.readAgain === null &&
-      h(
-        'div',
-        { class: 'draft-actions' },
-        button(
-          strings.send,
-          () => actions.approveDraft(draft, null, card.actions!.alternatives, { attempt: 'draft' }),
-          { class: 'primary' },
-        ),
-        h(
-          'button',
-          {
-            type: 'button',
-            ...opensDialog(context, strings.editDraftTitle, () =>
-              draftEditor(context, draft, card.actions!.alternatives),
-            ),
-          },
-          strings.edit,
-        ),
-        card.actions.changeChannel !== null &&
-          h(
-            'button',
-            {
-              type: 'button',
-              class: 'change-channel',
-              ...opensDialog(context, strings.changeChannel, (life) =>
-                readdressForm(context, life, draft, card.actions!.changeChannel!),
-              ),
-            },
-            strings.changeChannel,
-          ),
-        button(strings.discard, () => actions.discardDraft(draft, { attempt: 'draft' }), { class: 'danger' }),
-      ),
+    card.keptEdit !== null && h('p', { class: 'kept-edit hint', role: 'note' }, card.keptEdit),
+    card.actions !== null && draftActions(context, card, card.actions),
   )
 }
+
+/**
+ * Send, Edit and Discard, always in that order with Send first and Discard set apart at the end; a draft
+ * changed since it was read offers reading it again in Send's place. Send and Discard are held for a
+ * moment before the server hears of them, so the person can undo either.
+ */
+const draftActions = (
+  context: ViewContext,
+  card: DraftCard,
+  shown: NonNullable<DraftCard['actions']>,
+): HTMLElement => {
+  const { actions } = context
+  const draft = card.draft
+  const decide = (event: Event): void =>
+    focusAfterDecision(context, (event.target as Element | null)?.closest('[data-decides]') ?? null, draft.id)
+  const discard = button(
+    strings.discard,
+    (event) => {
+      decide(event)
+      actions.holdDiscard(draft, shown.held.discard, HELD)
+    },
+    { class: 'danger draft-discard' },
+  )
+  if (card.readAgain !== null)
+    return h(
+      'div',
+      { class: 'draft-actions draft-changed' },
+      h('p', { role: 'alert' }, card.readAgain.notice),
+      button(card.readAgain.confirm, () => actions.confirmDraftRead(draft), { class: 'primary' }),
+      discard,
+    )
+  return h(
+    'div',
+    { class: 'draft-actions' },
+    button(
+      shown.send,
+      (event) => {
+        decide(event)
+        actions.holdSend(draft, null, shown.alternatives, shown.held.send, HELD)
+      },
+      { class: 'primary draft-send' },
+    ),
+    h(
+      'button',
+      {
+        type: 'button',
+        class: 'draft-edit',
+        ...opensDialog(context, strings.editDraftTitle, (life) =>
+          draftEditor(context, life, draft, shown, cardOf(context, draft.id)),
+        ),
+      },
+      strings.edit,
+    ),
+    shown.changeChannel !== null &&
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'change-channel',
+          ...opensDialog(context, strings.changeChannel, (life) =>
+            readdressForm(context, life, draft, shown.changeChannel!),
+          ),
+        },
+        strings.changeChannel,
+      ),
+    discard,
+  )
+}
+
+/** A held send or discard reports a refusal as a draft's, once it reaches the server. */
+const HELD = { attempt: 'draft' } as const
 
 /**
  * Reports a draft as seen, once per page, when its card is on a screen the person can see, so the time
@@ -140,22 +184,41 @@ export const reportWhenSeen = (
   })
 }
 
+/**
+ * The person's own wording of a draft. Closing it any way keeps the edit on the card, as the composer
+ * keeps unsent text; saving or sending the draft lets the kept edit go once the server has it.
+ */
 const draftEditor = (
   context: ViewContext,
+  life: Lifetime,
   draft: AsRead.Note,
-  alternatives: ReadonlyArray<AsRead.Note>,
+  offered: NonNullable<DraftCard['actions']>,
+  card: Element | null,
 ): Child => {
   const text = h('textarea', {
     name: 'body',
     rows: '6',
     required: true,
+    autofocus: true,
     'aria-label': strings.editDraftLabel,
+    on: { keydown: submitOnModifierEnter },
   })
-  text.value = draft.body
+  text.value = offered.editText
   let baseline = draft
+  let saved = false
+  life.add(() => {
+    if (!saved) context.actions.keepDraftEdit(draft.id, baseline.body, text.value)
+  })
   const changed = h('div', { class: 'draft-changed', role: 'alert' })
   const save = button(strings.saveDraft, () =>
-    context.actions.saveDraft(baseline, text.value, { done: () => closeDialog(context), attempt: 'draft' }),
+    context.actions.saveDraft(baseline, text.value, {
+      done: () => {
+        saved = true
+        context.actions.keepDraftEdit(draft.id, text.value, text.value)
+        closeDialog(context)
+      },
+      attempt: 'draft',
+    }),
   )
   const send = h('button', { type: 'submit', class: 'primary' }, strings.sendEdited)
   const holdUntilConfirmed = (held: boolean): void => {
@@ -168,7 +231,7 @@ const draftEditor = (
       closeDialog(context)
       return
     }
-    const shown = [h('p', {}, now.notice), h('p', { class: 'note-body' }, linkedText(now.body))]
+    const shown = [h('p', {}, now.notice), noteBody(context, now.body)]
     if (now.moved === null) {
       baseline = now.draft
       changed.replaceChildren(...shown)
@@ -191,13 +254,13 @@ const draftEditor = (
       on: {
         submit: (event) => {
           event.preventDefault()
-          context.actions.approveDraft(baseline, text.value, alternatives, {
-            done: () => closeDialog(context),
-            failed: (error) => {
-              if (error._tag === 'Conflict') showChange()
-            },
-            attempt: 'draft',
-          })
+          if (!isUnchangedWhileEditing(editorInputOf(context), baseline)) {
+            showChange()
+            return
+          }
+          focusAfterDecision(context, card, draft.id)
+          context.actions.holdSend(baseline, text.value, offered.alternatives, offered.held.send, HELD)
+          closeDialog(context)
         },
       },
     },

@@ -4,6 +4,10 @@ import { type Action, type App, withApp } from '../app.ts'
 import { withDraftRead } from '../drafts-read.ts'
 import { featureOn } from '../features.ts'
 import { hrefFor } from '../routes.ts'
+import type { AppState, HeldWords } from '../state.ts'
+import { strings } from '../strings.ts'
+import { holdDecision } from './held.ts'
+import { loadThread } from './notes.ts'
 import { closeSettledReviewNotices } from './notifications.ts'
 import { loadConversations, loadKnownChannels } from './workspace.ts'
 
@@ -46,13 +50,41 @@ export const sendReview = (review: AsRead.Review, editedBody: string | null): Ac
       }),
     )
     yield* loadReviews
+    if (state.threads.get().has(review.note.conversationId)) yield* loadThread(review.note.conversationId)
   })
 
-export const discardReview = (review: AsRead.Review): Action =>
+/** Discards an answer, with why when the manager said: kept for the agent's managers, never told to the asker. */
+export const discardReview = (review: AsRead.Review, reason: string): Action =>
   T.gen(function* () {
-    const { api } = yield* T.ask<App>()
-    yield* api['drafts.discard']({ params: { id: review.note.id } })
+    const { api, state } = yield* T.ask<App>()
+    const why = reason.trim()
+    yield* api['drafts.discard']({ params: { id: review.note.id }, body: why === '' ? {} : { reason: why } })
+    offerToReply(state, review)
     yield* loadReviews
+  })
+
+/** Sends an answer, as read or as edited, once the moment to undo it is over. */
+export const holdReviewSend = (review: AsRead.Review, editedBody: string | null, words: HeldWords): Action =>
+  holdDecision({
+    noteId: review.note.id,
+    conversationId: review.note.conversationId,
+    kind: 'send',
+    review: true,
+    settles: 0,
+    words,
+    run: sendReview(review, editedBody),
+  })
+
+/** Discards an answer once the moment to undo it is over. */
+export const holdReviewDiscard = (review: AsRead.Review, reason: string, words: HeldWords): Action =>
+  holdDecision({
+    noteId: review.note.id,
+    conversationId: review.note.conversationId,
+    kind: 'discard',
+    review: true,
+    settles: 0,
+    words,
+    run: discardReview(review, reason),
   })
 
 /** The manager read an answer again after the agent changed it, and may send it now. */
@@ -126,3 +158,18 @@ const afterAgentChange = (slug: string): Action =>
     yield* loadChannelAgent(slug)
     yield* loadKnownChannels
   })
+
+/** The question is left with nobody: the manager is offered to answer it themself, in its room. */
+const offerToReply = (state: AppState, review: AsRead.Review): void => {
+  const question = review.note.inReplyTo
+  if (question === null) return
+  state.discardedAnswers.update((all) => new Map(all).set(question, review.agent.name))
+  state.notice.set({
+    kind: 'info',
+    text: strings.channelAgent.discardedReplyYourself({ agent: review.agent.name }),
+    link: {
+      href: hrefFor({ name: 'conversation', id: review.note.conversationId, draft: null, note: question }),
+      label: strings.activity.replyYourself,
+    },
+  })
+}

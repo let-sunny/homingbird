@@ -1,9 +1,11 @@
 import type { AsRead, MemberId, NoteId } from '@homingbird/protocol'
 import { Conflict, Forbidden, NotFound } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
+import { heldWordsFor } from '../../src/held-decisions.ts'
+import { strings } from '../../src/strings.ts'
 import * as tasks from '../../src/tasks/channel-agents.ts'
 import { fail, testApp } from '../support/app.ts'
-import { CY, draft, everything, member, note, serverInfo } from '../support/fixtures.ts'
+import { CY, conversation, draft, everything, member, note, serverInfo } from '../support/fixtures.ts'
 
 const AGENT = 'mem_agent0000000' as MemberId
 
@@ -77,14 +79,63 @@ describe('the channel agent tasks', () => {
     expect(other.routes()).toEqual(['drafts.send'])
   })
 
-  it('discard an answer, and remember one the manager read again', async () => {
-    const { run, state, routes } = testApp({ 'reviews.list': () => ({ reviews: [] }) })
+  it('discard an answer, offer the manager to reply themself, and remember one they read again', async () => {
+    const { run, state, routes, sent } = testApp({ 'reviews.list': () => ({ reviews: [] }) })
+    const bodies = (route: string) =>
+      sent.filter((one) => one.route === route).map((one) => (one.request as { body: unknown }).body)
     state.serverInfo.set(everything())
-    await run(tasks.discardReview(review()))
-    expect(routes()).toEqual(['drafts.discard', 'reviews.list'])
+    await run(tasks.discardReview(review(), '  '))
+    await run(tasks.discardReview(review(), ' Out of date. '))
+    expect(routes()).toEqual(['drafts.discard', 'reviews.list', 'drafts.discard', 'reviews.list'])
+    expect(bodies('drafts.discard')).toEqual([{}, { reason: 'Out of date.' }])
+    expect(state.discardedAnswers.get().get('note_question000' as NoteId)).toBe('Payments wiki')
+    expect(state.notice.get()).toEqual({
+      kind: 'info',
+      text: strings.channelAgent.discardedReplyYourself({ agent: 'Payments wiki' }),
+      link: {
+        href: `#/c/${review().note.conversationId}?note=note_question000`,
+        label: strings.activity.replyYourself,
+      },
+    })
+    state.notice.set(null)
+    await run(tasks.discardReview(review({ note: { ...review().note, inReplyTo: null } }), ''))
+    expect(state.notice.get()).toBeNull()
     const changed = review({ note: { ...review().note, body: 'New' } })
     await run(tasks.confirmReviewRead(changed))
     expect(state.reviewsRead.get().get(changed.note.id)?.body).toBe('New')
+  })
+
+  it('hold a send or discard of an answer, asking nothing of the server until it is carried out', async () => {
+    const { run, state, routes } = testApp({ 'reviews.list': () => ({ reviews: [] }) })
+    state.serverInfo.set(everything())
+    const words = heldWordsFor('#payments-wiki')
+    await run(tasks.holdReviewSend(review(), 'Edited', words.send))
+    expect([routes(), state.held.get()]).toMatchObject([
+      [],
+      [{ noteId: review().note.id, kind: 'send', review: true, settles: 0, words: words.send }],
+    ])
+    await run(tasks.holdReviewDiscard(review({ note: draft('note_other000000') }), 'Why', words.discard))
+    expect(routes()).toEqual(['drafts.send', 'reviews.list'])
+    expect(state.held.get().at(-1)).toMatchObject({ kind: 'discard', review: true, words: words.discard })
+  })
+
+  it('reads the room again after sending an answer when the page shows it, so the note takes the card’s place', async () => {
+    const { run, state, routes } = testApp({
+      'reviews.list': () => ({ reviews: [] }),
+      'conversations.get': () => conversation({ id: review().note.conversationId }),
+      'conversations.notes': () => ({ notes: [], hasMore: false, notices: [] }),
+    })
+    state.serverInfo.set(everything())
+    await run(tasks.sendReview(review(), null))
+    expect(routes()).toEqual(['drafts.send', 'reviews.list'])
+    state.threads.set(new Map([[review().note.conversationId, { notes: [], hasMore: false }]]))
+    await run(tasks.sendReview(review(), null))
+    expect(routes().slice(2)).toEqual([
+      'drafts.send',
+      'reviews.list',
+      'conversations.get',
+      'conversations.notes',
+    ])
   })
 
   it('learn what became of an answer: the note once sent, nothing when it cannot be read', async () => {

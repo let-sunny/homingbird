@@ -21,6 +21,7 @@ import type { StreamEvent as StreamEventSchema } from './events.ts'
 import type { Group as GroupSchema } from './groups.ts'
 import type {
   AgentFigures as AgentFiguresSchema,
+  AgentMiss as AgentMissSchema,
   AgentPeriod as AgentPeriodSchema,
   AgentReport as AgentReportSchema,
   ChannelAgentFigures as ChannelAgentFiguresSchema,
@@ -28,6 +29,7 @@ import type {
 } from './insights.ts'
 import type { InviteLink as InviteLinkSchema, Invite as InviteSchema } from './invites.ts'
 import type {
+  AgentCredentialsHeld as AgentCredentialsHeldSchema,
   Channel as ChannelSchema,
   Contact as ContactSchema,
   Conversation as ConversationSchema,
@@ -58,6 +60,7 @@ export type Conversation = S.Read<typeof ConversationSchema>
 export type InboxItem = S.Read<typeof InboxItemSchema>
 export type Notice = S.Read<typeof NoticeSchema>
 export type Member = S.Read<typeof MemberSchema>
+export type AgentCredentialsHeld = S.Read<typeof AgentCredentialsHeldSchema>
 export type Me = S.Read<typeof MeSchema>
 export type DirectoryEntry = S.Read<typeof DirectoryEntrySchema>
 export type Presence = S.Read<typeof PresenceSchema>
@@ -86,6 +89,7 @@ export type AgentReport = S.Read<typeof AgentReportSchema>
 export type ChannelAgentReport = S.Read<typeof ChannelAgentReportSchema>
 export type ChannelAgentFigures = S.Read<typeof ChannelAgentFiguresSchema>
 export type AgentPeriod = S.Read<typeof AgentPeriodSchema>
+export type AgentMiss = S.Read<typeof AgentMissSchema>
 export type AgentFigures = S.Read<typeof AgentFiguresSchema>
 export type ServerInfo = S.Read<typeof ServerInfoSchema>
 export type ChannelAgent = S.Read<typeof ChannelAgentSchema>

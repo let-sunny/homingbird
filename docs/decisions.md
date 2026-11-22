@@ -5,6 +5,100 @@ states the decision first, then the reason. Add new entries at the top of their 
 
 ## Product
 
+- **A debate room gives every agent its turns, starts its clock with the first turn, refuses a stale
+  turn, and checks every credit against the turns.** Seven rooms run by real agents (four people,
+  three scenarios, eval round 2) reached the right answer every time, but the mechanics around the
+  conversation cost them: the constant total of 9 left one of four agents a single turn; two rooms
+  lost a third of their time to opting agents in; opening turns always crossed, written blind; 27 of
+  135 turn attempts were refused for being 2 to 75 characters too long, and while an agent rewrote,
+  others took the last turns; 21 of 25 contributions claimed "changed position", including changes
+  inside an agent's own blind first turn. So:
+  - *Turns.* Without a total, a room's total is the turns per agent times the agents opted in
+    (`limitsFor`), recomputed on each opt-in until the first turn and then fixed like every limit; a
+    total a person sets stays as set, and every room stored before stays as it was
+    (`debates.total_follows_agents`, migration step 15). The default stays 3 turns per agent: 14 of 18
+    position changes came in a second turn, the owned, conditional version in a third, and nothing
+    new after a fourth, so the web client offers at most 4 (the API still takes 20) and leaves the
+    total empty unless the person fills it in.
+  - *Time.* The limit counts from the first turn: the first turn moves the deadline to its own time
+    plus the minutes. Before it, the deadline is when an unstarted room ends with `no_turns`, as
+    before, so a room nobody starts still ends.
+  - *Stale turns.* `debates.turns.post` takes an optional `afterTurn`, the last turn the agent read;
+    a room that moved past it answers 409, saves nothing, and the MCP tool returns the newer turns,
+    each inside `wrapNote`, so the agent rewrites instead of crossing. The turn keeps `afterTurn`
+    (`debate_turns.after_turn`), which the credit check reads. Without it, a turn is taken as before.
+  - *A refused turn keeps its place.* A turn the room would take but for its length, or because it
+    is stale, keeps the agent's place for two minutes (`TURN_HOLD_MS`): while the hold lasts, the
+    other agents' turns come out of what is left of the total, so the last turn waits for the agent
+    rewriting. The refusal says how many characters over the turn is and until when the place is
+    kept. One hold per turn of the agent's own, so refusals cannot renew it. Holds live in memory, like
+    presence (`debate-turn-holds.ts`): a restart loses at most one retry. This was chosen over
+    accepting 5% over the limit, which only moves the limit, and over a stored reservation, which a
+    refused request cannot write in the transaction it rolls back.
+  - *Credit.* A claimed credit names its turn (`{"credit", "turn"}`); the room refuses one whose turn
+    is not that agent's, and a `position_changed` whose turn was written before the agent could have
+    read another agent's turn (by `afterTurn` when the turn has one, else by position). A credit named
+    as a kind alone, as drafts did before, is accepted but left out of the draft, since nothing can
+    check it; results stored before keep theirs. The Credit tab shows the turn beside the badge.
+  - *Results.* A conclusion may carry `changedMinds` (turn and one line), `stillOpen` and `points`,
+    the information, assumptions and goals taxonomy that only a `no_conclusion` had, so a successful
+    debate keeps why minds changed. All optional, shown on the Result tab, in the export and in the
+    posted result; a model reads them only inside the draft `wrapNote` quotes (rules 4 and 9).
+  - *Reading.* `read_debate` shows the result form, with every length, while the room still takes
+    turns, and puts the drafts first while the agents vote; `draftsOnly` returns the drafts and the
+    vote state without the turns, and drafts are quoted as compact JSON, because two voters in a
+    75,000-character read voted having seen two of three drafts.
+  - *Prompt.* The turn instructions ask an agent to state a difference in goals or priorities
+    explicitly instead of conceding it, and to say "I conclude X because of fact Y": no run used the
+    `goals` category, though one scenario had a real goal conflict.
+  A turn that passes, ending the room early, and a per-room note of what a person's agent may use were
+  left to the maintainer: both touch rule 9.
+
+- **Send and Discard wait five seconds on the page before the server hears of them, so either can be
+  undone.** An approval card is decided at speed, and a decision a person regrets the moment they tap
+  it should cost one more tap, not a note to apologise for. The web client keeps a line in the card's
+  place and a toast in the top layer, both saying "Sending to Ana… · Undo" or "Discarding… · Undo"
+  until the server has it and "Sent to Ana" after, and makes the request when the five seconds are
+  over, when the person dismisses the toast, when they decide another card, or when the page is hidden
+  or closed; the write is sent with `keepalive`, so closing the tab does not lose it. A page that dies
+  first keeps the decision in the browser and, on the next load, says the draft was not sent when it
+  still waits. Undo forgets the decision and the card is back, with an edit the person sent still kept
+  for Edit. Nothing changes on the server: no route, no state, and the send still carries
+  `expected` as the card showed it at the tap, so an agent's change during the five seconds is refused
+  as before and the card asks to read it again. The alternative, a server-side undo window, would have
+  delivered a note and then taken it back, which a recipient's push or open page may already show.
+- **The approval cards read alike everywhere: Approve and send, Edit, Discard.** The person's own
+  draft and a channel agent's answer, in the conversation, the activity panel and the agent's page,
+  put Send first and Discard last and apart, so the hand that sends never lands on Discard. Each
+  button is at least 44 px in both directions. A review card also says why the viewer sees it ("You
+  manage #billing, so you review its agent's answers").
+- **A manager edits a channel agent's answer and sends it in one step, through `drafts.send`.** The
+  route already takes an edited body with `expected`, under the same reviewer checks and the channel
+  group's lock, and records `approved_by` and `origin = 'human_edited'`; the audit entry says
+  `edited`. So no new route was added. A reviewer cannot save an edit without sending it
+  (`drafts.update` stays the author's), since a saved edit would be a second draft the agent's later
+  changes would overwrite. An edit started from a version the agent changed since is refused, as an
+  unedited send is.
+- **Discarding a channel agent's answer asks why, optionally, and the question waits for an answer
+  again.** The reason is stored on the note (`notes.discard_reason`), never audited, never returned to
+  the asker or anyone else yet; it is kept for the channel's figures and for teaching its agent. A
+  reviewer's discard also clears the agent's drafting state on the question's receipt, so the room
+  shows "No answer yet" under it until someone replies, instead of "drafting" for ten more minutes.
+- **Unsent text in a composer is kept per conversation, in this browser only.** What a person typed and
+  did not send stays when they open another conversation and comes back when they return, and a reload
+  keeps it: it lives in memory and in `localStorage` under a key named for the person, read once at
+  sign-in and removed at sign-out, and a conversation's entry is dropped once its note is sent or the
+  field is emptied. It never reaches the server: a draft there is something the person's agent wrote and
+  the person approves, and unsent text is neither. A row in the sidebar shows a small pencil while text is
+  kept, so the person knows where they left something half-written.
+- **A note's menu shows “Ask my agent to draft a reply” even where it cannot work, disabled with the
+  reason.** Where the server takes no draft requests, or the person's own desk runs but its agent cannot
+  answer, the item stays in the menu, disabled, with one sentence saying why. A person who reads about
+  asking their agent elsewhere finds where it would be and why it is not there; the menu never calls the
+  switched-off routes. The composer's **Ask my agent**, beside Send, follows the usual rule instead and is
+  absent where requests are off, so the place a person writes stays as small as it can be. On a touch
+  screen the note's toolbar is not drawn over the text: a long press opens the same menu as a sheet at
+  the bottom of the screen, which is why Reply is in the menu too.
 - **A note written in the composer answers another only when the person chose Reply on that note.**
   The composer opens with no reply target and forgets the one chosen once the note is sent. Choosing the
   latest note waiting for the person's reply on their behalf made a first note silently quote something
@@ -1069,6 +1163,16 @@ person's own documents, an agent sends `basis` with it, what it read or relied o
   gave none. This reverses the earlier rule that kept it in the audit log only: an approver who cannot
   see what a draft rests on approves blind. The audit entry keeps it too. The basis still describes the
   answering flow's steps by purpose, never in their words, so the flow itself stays unshown.
+- **An agent may report structured sources beside the basis.** `sources` on `drafts.create` and
+  `drafts.update` lists up to ten, each a web address (`http` or `https` only) or an earlier note's
+  id, with the passage the agent used; the runner reads them from `SOURCE:` lines, the MCP tools take
+  them as an argument, and free-text basis keeps working alone. The server decodes them strictly and
+  refuses a note the author cannot read or that is not sent, so a source can never point a reader at
+  a draft or another conversation; it stores the note's conversation with it. Sources are shown to
+  exactly those who are shown the basis: the author, on the draft and after it is sent, under a
+  collapsed "Based on", and a channel's reviewers on the review card. The web client shows an address
+  as a link and a note as a jump to it in its conversation, and reads a source it does not understand
+  as nothing.
 - **Why an agent gave a note back, and why an archive discarded a draft, survive a reload.** Both are
   kept per member and note (`notices`) and returned with that member's thread, so "Your agent did not
   draft a reply" and "Your draft in #channel was discarded because the channel was archived" read the same
@@ -1501,4 +1605,63 @@ already answer it.
   (`answers.used`, a `human` route: a model cannot inflate it). Organization insights show the count per
   place and in total, under the same minimum group size as every other place figure; nobody is listed.
   An agent that answers its person from history is not counted.
+- **Open questions too.** In a channel's room, the web client also matches the room's questions that
+  have no sent answer yet, by the same rule, from the notes it already shows: "Asked 40 minutes ago by
+  Ben Okafor, no answer yet", and for a manager whose review the answer waits for, that it does. A
+  duplicate question is one more review for a manager; this needs no new route and shows nothing the
+  person could not already read.
 - **Behind a switch.** The routes are the `earlierAnswers` feature, on by default.
+
+## Code in a note is shown as code; nothing else of Markdown is
+
+Engineering answers are commands, queries, stack traces and diffs, and agents write them in fenced
+blocks by default. Shown as running text, the backticks are printed and the alignment is lost, so a
+note that a team chat would show as code was harder to read in Homingbird.
+
+- **What is rendered.** A fenced block (a line of three or more backticks, closed by a line of at least
+  as many, indented up to three spaces) becomes `<pre><code>` in the monospace token, scrolling sideways
+  inside its bubble, with a **Copy** button that copies the block's text. The word after the opening
+  fence is kept as `data-language` and nothing more: there is no syntax highlighting. A run of
+  backticks closed by a run of the same length on the same line becomes `<code>`. An unclosed fence is
+  shown as it was typed, so a stray fence never swallows the rest of a note.
+- **Nothing else.** No headings, emphasis, lists, tables, images or HTML. Notes stay text and links by
+  design; code is still text, shown as text, and the other Markdown forms read well enough as typed.
+- **Built from text nodes.** `codeSpans` in `packages/ui/src/code-spans.ts` cuts the text, and
+  `noteText` builds every element with the DOM API; a note is never assigned to `innerHTML`. Links are
+  made only outside code, by the same rule as before (`http:` and `https:`, `rel="noopener noreferrer"`).
+- **The same everywhere a note is read:** sent notes, draft cards, a channel agent's answer under
+  review and debate turns. Model-facing tools are unchanged: they pass the text through `wrapNote`, which
+  never interprets it.
+
+## A chance to teach is offered where the agent missed, and the figures open into the drafts behind them
+
+Offers after an edit or a discard were listed only under My agent, Teaching, which a person had no
+reason to open at the moment they knew what their agent should have done. Teaching is what raises the
+share sent as written, so the offer comes to the place of the miss.
+
+- **In the conversation.** Once the moment to undo a rewritten or discarded draft is over, the chance
+  to teach is one line above the composer: "You rewrote your agent's draft. Teach your agent from this
+  edit · Not now · Don't ask in this channel", under the same once-a-day limit per place.
+- **On a skipped note.** **Teach my agent** sits beside **Ask anyway** in the thread and beside **Reply
+  yourself** in the activity panel, and opens the guided form with a title from the note's first line
+  and the channel it was asked in.
+- **Behind the figures.** `insights.mine` adds `misses`: the drafts the person edited or discarded and
+  the notes their agent skipped in the last 30 days, newest first, at most 100, each by note id,
+  conversation, place and time only, never what it says. How it is doing lists them under the numbers,
+  one folded list per count, each with a way to where it happened and **Teach my agent**. The route
+  map's "2 chances to teach" leads to the Teaching tab.
+- **Saving stays a person's click** (rule 8): every way in opens the same guided form in the web
+  client, filled in, and nothing is saved until the person saves it.
+- The add row on the Teaching tab offers Rule or Answer, as the guided form does, and the hint that a
+  rule reads as a stored answer also fires on a statement ("X is Y") with no method, condition or wish,
+  not only on a number.
+
+## A manager stays in a channel while others are in it, and the client says so before it fails
+
+The server keeps a manager in a room while anyone else is in it, and a channel with people keeps at
+least one manager. The room menu offered **Leave channel** to a manager and promised they could join
+again, then failed. The client now applies the same rule: a manager who is not alone in the room sees
+**Leave channel** disabled, with what to do first (remove themself as a manager, or, as the only one,
+add another manager first). Removing someone as a manager is confirmed, and warns when one manager would
+be left; when that is the person themself, it says that answers to their own questions will wait for
+another manager (rule 1).

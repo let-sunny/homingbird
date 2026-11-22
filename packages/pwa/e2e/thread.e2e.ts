@@ -190,7 +190,7 @@ const scenario = async (): Promise<void> => {
     await ana.page.emulateMedia({ colorScheme: 'light' })
     await capture(ana.page, 'grouped-thread-narrow-light')
 
-    // -- Touch: a tap opens the details and shows the reply actions, a tap elsewhere closes ---------------------
+    // -- Touch: no toolbar over the text; a tap marks the note, a long press opens its menu as a sheet ---------
     const phone: Person = await newPage(browser, base, 'en-US', {
       viewport: NARROW,
       hasTouch: true,
@@ -201,18 +201,24 @@ const scenario = async (): Promise<void> => {
     await phone.page.goto(`${base}/#/c/${conversation}`)
     await phone.page.waitForSelector('.note.is-theirs.is-person')
     const tapActions = phone.page.locator(`[data-note-id="${second.id}"] .note-toolbar`)
-    const opacity = () =>
-      tapActions.evaluate((element: any) => (globalThis as any).getComputedStyle(element).opacity)
-    assert.equal(await opacity(), '0')
+    const display = () =>
+      tapActions.evaluate((element: any) => (globalThis as any).getComputedStyle(element).display)
     await phone.page.locator(`[data-note-id="${second.id}"] .note-body`).tap()
-    await phone.page.waitForSelector(`[data-note-id="${second.id}"].is-active .note-toolbar`)
-    await phone.page.waitForFunction(
-      (id: string) =>
-        (globalThis as any).getComputedStyle(
-          (globalThis as any).document.querySelector(`[data-note-id="${id}"] .note-toolbar`),
-        ).opacity === '1',
-      second.id,
-    )
+    await phone.page.waitForSelector(`[data-note-id="${second.id}"].is-active`)
+    assert.equal(await display(), 'none')
+    const body = await phone.page.locator(`[data-note-id="${second.id}"] .note-body`).boundingBox()
+    const touch = await phone.context.newCDPSession(phone.page)
+    const point = { x: body!.x + 10, y: body!.y + 5 }
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [point] })
+    await phone.page.waitForSelector(`[data-note-id="${second.id}"] .note-menu:popover-open`)
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+    const sheet = await phone.page
+      .locator(`[data-note-id="${second.id}"] .note-menu`)
+      .evaluate((menu: any) => menu.getBoundingClientRect().toJSON())
+    assert.deepEqual([sheet.left, Math.round(sheet.bottom)], [0, NARROW.height])
+    await capture(phone.page, 'note-menu-sheet-on-long-press-narrow')
+    await phone.page.getByRole('menuitem', { name: 'Reply', exact: true }).tap()
+    await phone.page.waitForSelector('.reply-chip')
     await phone.page.locator(`[data-note-id="${byHand.id}"] .note-body`).tap()
     await phone.page.waitForSelector(`[data-note-id="${byHand.id}"].is-active`)
     assert.equal(await phone.page.locator('.note.is-active').count(), 1)
@@ -259,12 +265,16 @@ const scenario = async (): Promise<void> => {
     assert.deepEqual(await ana.page.locator(`${OPEN} p`).allInnerTexts(), ['Written by Ben’s agent'])
     assert.equal(await ana.page.locator('.author-button.is-agent .author-mark').count(), 1)
     await capture(ana.page, 'note-details-turned-off')
-    assert.equal(await ana.page.locator('.ask-reply').count(), 0)
+    assert.equal(
+      await ana.page.locator('.ask-reply').count(),
+      await ana.page.locator('.ask-reply:disabled').count(),
+    )
+    assert.equal(await ana.page.locator('.ask-agent-toggle').count(), 0)
     assert.equal(
       await ana.page.locator('.composer .agent-ask, details:has-text("Let my agent write it")').count(),
       0,
     )
-    assert.equal(await ana.page.locator('.note-reply').count(), 4)
+    assert.equal(await ana.page.locator('.note-reply').count(), await ana.page.locator('.note').count())
     await ana.page.keyboard.press('Escape')
     await api(ana, 'PUT', '/admin/settings', {
       ...settings,
