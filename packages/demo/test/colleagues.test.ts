@@ -8,6 +8,31 @@ import { createWorld } from '../src/world.ts'
 import { NOW, demoApi, memberNamed, refused, succeeded } from './support/demo.ts'
 
 describe('answerLater', () => {
+  it('has only a tagged colleague’s agent answer a group note, and a reply ask its author', async () => {
+    const { june, clock, world } = started()
+    const ben = memberNamed(world, 'Ben Okafor')
+    const kai = memberNamed(world, 'Kai Lin')
+    const room = await succeeded(june.api['conversations.create']({ body: { participantIds: [ben, kai] } }))
+    const draft = await succeeded(
+      june.api['drafts.create']({ body: { body: 'Kai?', conversationId: room.id, tags: [kai] } }),
+    )
+    const asked = await succeeded(
+      june.api['drafts.send']({
+        params: { id: draft.id },
+        body: { expected: { body: draft.body, conversationId: room.id, tags: [kai] } },
+      }),
+    )
+    await clock.advance(ANSWER_AFTER_MS)
+    const answers = world.records().notes.filter((note) => note.inReplyTo === asked.id)
+    expect(answers.map((note) => note.authorId)).toEqual([kai])
+    const reply = await succeeded(
+      june.api['drafts.create']({
+        body: { body: 'Thanks', conversationId: room.id, inReplyTo: answers[0]!.id },
+      }),
+    )
+    expect(reply.tags).toEqual([kai])
+  })
+
   it('has the colleague’s agent draft, then delivers its answer as the colleague approved it', async () => {
     const { june, clock, world } = started()
     const kai = memberNamed(world, 'Kai Lin')

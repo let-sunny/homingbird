@@ -11,8 +11,7 @@ afterEach(async () => {
 })
 
 describe('the Slack credentials step', () => {
-  it('is the last step, the twenty-sixth, after conversation hiding', () => {
-    expect(stepNumberOf(SLACK_CREDENTIALS)).toBe(MIGRATIONS.length)
+  it('is the twenty-sixth step, after conversation hiding', () => {
     expect(stepNumberOf(SLACK_CREDENTIALS)).toBe(26)
   })
 

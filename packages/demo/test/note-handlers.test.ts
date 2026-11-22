@@ -128,6 +128,44 @@ describe('drafts.create and drafts.update', () => {
     expect(sent.receipts.map((receipt) => receipt.memberId)).toEqual([ben, kai])
   })
 
+  it('keeps whom a group note tags, and binds the send to them', async () => {
+    const { api, world } = demoApi()
+    const ben = memberNamed(world, 'Ben Okafor')
+    const kai = memberNamed(world, 'Kai Lin')
+    const room = await succeeded(api['conversations.create']({ body: { participantIds: [ben, kai] } }))
+    const outsider = memberNamed(world, 'Ana Silva')
+    const draft = await succeeded(
+      api['drafts.create']({ body: { body: 'Kai?', conversationId: room.id, tags: [kai, outsider] } }),
+    )
+    expect(draft.tags).toEqual([kai])
+    const untagged = await succeeded(
+      api['drafts.update']({ params: { id: draft.id }, body: { body: 'Kai?' } }),
+    )
+    expect(untagged.tags).toEqual([kai])
+    expect(
+      await refused(api['drafts.send']({ params: { id: draft.id }, body: { expected: asShown(draft) } })),
+    ).toEqual({ _tag: 'Conflict', message: DRAFT_CHANGED })
+    const cleared = await succeeded(api['drafts.update']({ params: { id: draft.id }, body: { tags: [] } }))
+    expect(cleared.tags).toBeUndefined()
+    const retagged = await succeeded(
+      api['drafts.update']({ params: { id: draft.id }, body: { tags: [kai] } }),
+    )
+    const sent = await succeeded(
+      api['drafts.send']({
+        params: { id: draft.id },
+        body: { expected: { ...asShown(retagged), tags: [kai] } },
+      }),
+    )
+    expect(sent.tags).toEqual([kai])
+  })
+
+  it('tags nobody outside a group message', async () => {
+    const { api, world } = demoApi()
+    const ana = memberNamed(world, 'Ana Silva')
+    const direct = await succeeded(api['drafts.create']({ body: { body: 'Hi', to: [ana], tags: [ana] } }))
+    expect(direct.tags).toBeUndefined()
+  })
+
   it('asks a channel’s answerers and its agent a question written in its room, and refuses a draft with no destination', async () => {
     const { api, world } = demoApi()
     const asked = await succeeded(

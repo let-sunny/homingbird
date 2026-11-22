@@ -7,6 +7,7 @@ import {
   type MemberId,
   type Note,
   type NoteId,
+  isSameTags,
 } from '@homingbird/protocol'
 import { type Caller, isHuman } from '../environment.ts'
 import { type RequestEnv, emit } from '../events/events.ts'
@@ -18,6 +19,7 @@ import { deliverDraft } from './delivery.ts'
 import { type NoteFailure, originAfterEdit, ownDraft } from './drafts.ts'
 import type { NoteRow } from './note-rows.ts'
 import { announceStatus, noteById } from './note-status.ts'
+import { tagsOf } from './note-tags.ts'
 import { offerAfterDecision } from './principle-offers.ts'
 import { announceReview } from './review-events.ts'
 import { reviewedDraft, reviewersOf } from './reviews.ts'
@@ -69,7 +71,9 @@ export const discardDraft = (
   })
 
 const isAsShown = (draft: NoteRow, shown: DraftAsShown): boolean =>
-  draft.body === shown.body && draft.conversation_id === shown.conversationId
+  draft.body === shown.body &&
+  draft.conversation_id === shown.conversationId &&
+  isSameTags(tagsOf(draft), shown.tags)
 
 /**
  * The draft a person decides: their own, or a channel's agent's they review, which records them as its

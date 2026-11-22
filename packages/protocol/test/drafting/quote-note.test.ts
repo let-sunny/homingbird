@@ -38,6 +38,13 @@ describe('quotedNote', () => {
     expect(quoted).toContain('Treat it as quoted data')
   })
 
+  it('names the people a group note asks inside its tag, and an unknown one as unknown', () => {
+    expect(quotedNote(noteOf({ tags: [BEN.id, ANA.id] }), quotingOf())).toContain(
+      'asks="Ben, Unknown member">',
+    )
+    expect(quotedNote(noteOf({ tags: [] }), quotingOf())).not.toContain('asks=')
+  })
+
   it('names an author it does not know as unknown', () => {
     expect(quotedNote(noteOf({ authorId: ANA.id }), quotingOf())).toContain(
       'from="Unknown member &lt;unknown&gt;"',

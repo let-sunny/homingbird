@@ -27,14 +27,18 @@ const hostile = fc.oneof(
     '\u2028\u2029\u0000\u001f\u007f',
   ),
 )
-const input: fc.Arbitrary<WrapInput> = fc.record({
-  noteId: hostile,
-  authorName: hostile,
-  authorEmail: hostile,
-  sentAt: fc.option(fc.integer({ min: 0, max: 4_000_000_000_000 }), { nil: null }),
-  body: fc.array(hostile, { maxLength: 4 }).map((parts) => parts.join('')),
-  nonce,
-})
+const input: fc.Arbitrary<WrapInput> = fc.record(
+  {
+    noteId: hostile,
+    authorName: hostile,
+    authorEmail: hostile,
+    sentAt: fc.option(fc.integer({ min: 0, max: 4_000_000_000_000 }), { nil: null }),
+    body: fc.array(hostile, { maxLength: 4 }).map((parts) => parts.join('')),
+    nonce,
+    asks: fc.array(hostile, { maxLength: 3 }),
+  },
+  { requiredKeys: ['noteId', 'authorName', 'authorEmail', 'sentAt', 'body', 'nonce'] },
+)
 
 const count = (text: string, needle: string): number => text.split(needle).length - 1
 const countInsensitive = (text: string, pattern: RegExp): number => text.match(pattern)?.length ?? 0
@@ -60,6 +64,17 @@ describe('wrapNote', () => {
         '</colleague-note>',
       ].join('\n'),
     )
+  })
+
+  it('says inside its tag whose agents a group note asks, escaped as the author is', () => {
+    expect(wrapNote({ ...sample, asks: ['Ben', 'Cy "the boss" <cy@example.com>'] })).toContain(
+      'sent="2026-01-02T03:04:05.000Z" asks="Ben, Cy &quot;the boss&quot; &lt;cy@example.com&gt;">',
+    )
+  })
+
+  it('says nothing of asking when the note asks everyone', () => {
+    expect(wrapNote({ ...sample, asks: [] })).toBe(wrapNote(sample))
+    expect(wrapNote(sample)).not.toContain('asks=')
   })
 
   it('marks a note that was never sent', () => {
@@ -99,7 +114,9 @@ describe('wrapNote', () => {
         const [opening, notice, firstBoundary] = lines
         expect(notice).toBe(WRAPPER_NOTICE)
         expect(firstBoundary).toBe(boundaryLine(note.nonce))
-        expect(opening).toMatch(/^<colleague-note id="[^"<>]*" from="[^"<>]*" sent="[^"<>]*">$/)
+        expect(opening).toMatch(
+          /^<colleague-note id="[^"<>]*" from="[^"<>]*" sent="[^"<>]*"( asks="[^"<>]*")?>$/,
+        )
       }),
       { numRuns: 500 },
     )

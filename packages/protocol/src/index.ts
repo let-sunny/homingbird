@@ -1,6 +1,7 @@
 export * from './ids.ts'
 export * from './model.ts'
 export * from './groups.ts'
+export * from './tags.ts'
 export * from './channel-agents.ts'
 export * from './channel-decisions.ts'
 export * from './character.ts'

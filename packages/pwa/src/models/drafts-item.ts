@@ -17,6 +17,7 @@ import {
   isArchived,
 } from '../thread.ts'
 import { type AvatarModel, memberAvatarOf } from './avatar.ts'
+import { asksLine } from './composer-tags.ts'
 import { postsToText } from './composer.ts'
 import { type AppliedMarker, appliedModel, showsAppliedMarkers } from './teaching.ts'
 import { type ThreadInput, isOn, nameIn, noteIn, notesOf, roomOf } from './thread-room.ts'
@@ -130,6 +131,8 @@ export interface DraftCard {
     | { readonly kind: 'channel'; readonly text: string; readonly channel: AsRead.Channel }
     | { readonly kind: 'people'; readonly text: string }
     | null
+  /** "Asks Ben and Cy" when the draft tags people in a group message. */
+  readonly asks: string | null
   readonly careful: string | null
   /**
    * Set when an agent changed the text or the room after the person read the draft: the card says so
@@ -180,6 +183,7 @@ const draftCard = (
           },
     applied: appliedModel(draft, input.taught, teachingOn),
     destination: destination === null ? null : destination.shown,
+    asks: archived ? null : asksLine(input, draft),
     careful:
       !archived && isOn(input, 'agentFigures') && careful !== null ? strings.carefulReading[careful] : null,
     readAgain:

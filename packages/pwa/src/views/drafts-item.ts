@@ -97,6 +97,7 @@ const draftCard = (context: ViewContext, card: DraftCard, headingId: string): HT
           ? [h('span', {}, card.destination.text), channelCounts(card.destination.channel)]
           : card.destination.text,
       ),
+    card.asks !== null && h('p', { class: 'draft-asks' }, card.asks),
     card.careful !== null && h('p', { class: 'careful-reading', role: 'note' }, card.careful),
     card.keptEdit !== null && h('p', { class: 'kept-edit hint', role: 'note' }, card.keptEdit),
     card.actions !== null && draftActions(context, card, card.actions),

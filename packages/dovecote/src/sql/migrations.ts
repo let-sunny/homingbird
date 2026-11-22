@@ -16,6 +16,7 @@ import { GROUPS } from './migrations/groups-step.ts'
 import { HISTORY_ANSWERS } from './migrations/history-answers-step.ts'
 import { INSIGHTS } from './migrations/insights-step.ts'
 import { MUTE } from './migrations/mute-step.ts'
+import { NOTE_TAGS } from './migrations/note-tags-step.ts'
 import { RESULT_VOTES } from './migrations/result-votes-step.ts'
 import { SLACK_CHANNELS } from './migrations/slack-channels-step.ts'
 import { SLACK_CREDENTIALS } from './migrations/slack-credentials-step.ts'
@@ -53,6 +54,7 @@ export const MIGRATIONS: ReadonlyArray<Migration> = [
   DEBATE_BRIEFS,
   CONVERSATION_HIDING,
   SLACK_CREDENTIALS,
+  NOTE_TAGS,
 ]
 
 /** The step that added the audit trail; when it runs, the first audit table's old rows go. */

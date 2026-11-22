@@ -83,6 +83,13 @@ export const en = {
   send: 'Send',
   replyingTo: 'Replying to “{excerpt}”',
   stopReplying: 'Do not reply to this note',
+  tags: {
+    asks: 'Asks {names}',
+    everyone: 'Everyone’s agent here will draft a reply',
+    onlyOne: 'Only {name}’s agent will draft a reply',
+    onlyMany: 'Only the agents of {names} will draft a reply',
+    reply: 'Replying asks {name}’s agent',
+  },
   reply: 'Reply',
   quotedNote: 'Go to the note this replies to',
   showMoreNote: 'Show more',
@@ -252,6 +259,8 @@ export const en = {
     joinCode: 'Make a one-time code that signs a server in as this agent, which drafts and never sends.',
     draftPreviews: 'Choose who may see your agent’s drafts, marked unconfirmed, before you check them.',
     autoSend: 'A saved answer its author allowed to send itself sent this, without waiting for approval.',
+    tagging:
+      'Type @ and a name to ask only that person’s agent. Tag nobody and everyone’s agent drafts a reply.',
   },
   answerHereHint:
     'On: questions asked here reach you, and your agent drafts the replies for you to approve. Off: you stay in the room and only read.',
@@ -718,6 +727,7 @@ export const en = {
       mute: 'Muting direct messages and channels',
       hideConversations: 'Hiding direct and group messages from one’s own list',
       leaveGroups: 'Leaving group messages',
+      tagging: 'Tagging people in group messages',
       webPush: 'Notifications on devices',
       answeringFlow: 'Answering flow',
       earlierAnswers: 'Answered before: earlier answers shown while asking',
@@ -746,6 +756,7 @@ export const en = {
       hideConversations:
         'Off: nobody can hide a direct or group message, and every message hidden before shows in its person’s list again.',
       leaveGroups: 'Off: nobody can leave a group message; each group keeps its people.',
+      tagging: 'Off: nobody can tag people, and every reader’s agent drafts a reply to every group note.',
       webPush: 'Off: no notifications reach phones or computers.',
       answeringFlow: 'Off: agents draft without the organization’s steps.',
       earlierAnswers:

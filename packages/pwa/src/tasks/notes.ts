@@ -1,11 +1,13 @@
 import { Task as T } from '@homingbird/kernel'
-import type { AsRead, ConversationId, NoteId } from '@homingbird/protocol'
+import type { AsRead, ConversationId, MemberId, NoteId } from '@homingbird/protocol'
 import { batch, isSameData } from '@homingbird/ui'
 import { type Action, type App, withApp } from '../app.ts'
 import { keepComposerTexts, withComposerText } from '../composer-texts.ts'
 import { asShown } from '../drafts-read.ts'
+import { featureOn } from '../features.ts'
 import { type MISSING, orMissing } from '../missing.ts'
 import { type AppState, signedIn } from '../state.ts'
+import { tagsToSend } from '../tagging.ts'
 import { isUnreadBy, withNoteFiled, withoutNote } from '../thread.ts'
 import { loadConversations } from './workspace.ts'
 
@@ -83,6 +85,16 @@ export const keepComposerText = (conversationId: ConversationId, text: string): 
       state.composerTexts.set(texts)
       if (me !== null) keepComposerTexts(page.storage, me.member.id, texts)
     }),
+  )
+
+/** Keeps the people the person tagged in a conversation's composer, until the note is sent. */
+export const keepComposerTags = (conversationId: ConversationId, tags: ReadonlyArray<MemberId>): Action =>
+  withApp(({ state }) =>
+    T.sync(() =>
+      state.composerTags.update((all) =>
+        tags.length === 0 ? withoutKey(all, conversationId) : new Map(all).set(conversationId, tags),
+      ),
+    ),
   )
 
 /** The note a new note answers: only the one the person chose with a note's Reply button. */
@@ -184,18 +196,42 @@ const deliverNote = (conversationId: ConversationId, body: string): Action =>
     const { api, state } = yield* T.ask<App>()
     state.sendingIn.update((sending) => new Set(sending).add(conversationId))
     const inReplyTo = replyTargetIn(state, conversationId)
+    const me = signedIn(state)
+    const tagging =
+      me === null
+        ? null
+        : tagsToSend({
+            room: state.conversations.get().find((room) => room.id === conversationId),
+            authorId: me.member.id,
+            chosen: state.composerTags.get().get(conversationId) ?? [],
+            answered:
+              state.threads
+                .get()
+                .get(conversationId)
+                ?.notes.find((note) => note.id === inReplyTo) ?? null,
+            taggingOn: featureOn('tagging', state.serverInfo.get()),
+          })
     const draft = yield* api['drafts.create']({
-      body: { body, conversationId, ...(inReplyTo !== null && { inReplyTo }) },
+      body: {
+        body,
+        conversationId,
+        ...(inReplyTo !== null && { inReplyTo }),
+        ...(tagging !== null && tagging.tags.length > 0 && { tags: tagging.tags }),
+      },
     })
     const sent = yield* api['drafts.send']({
       params: { id: draft.id },
       body: {
-        expected: asShown({ body, conversationId }, inReplyTo === null ? null : shownNote(state, inReplyTo)),
+        expected: asShown(
+          { body, conversationId, ...(tagging !== null && { tags: tagging.asked }) },
+          inReplyTo === null ? null : shownNote(state, inReplyTo),
+        ),
       },
     })
     batch(() => {
       rememberNote(state)(sent)
       state.replyTargets.update((targets) => withoutKey(targets, conversationId))
+      state.composerTags.update((all) => withoutKey(all, conversationId))
     })
     yield* loadConversations
   })

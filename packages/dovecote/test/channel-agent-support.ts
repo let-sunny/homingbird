@@ -68,9 +68,14 @@ export const issueAgentCredential = async (
   }
 }
 
-export const asRead = (note: { readonly body: string; readonly conversationId: string }) => ({
+export const asRead = (note: {
+  readonly body: string
+  readonly conversationId: string
+  readonly tags?: ReadonlyArray<string>
+}) => ({
   body: note.body,
   conversationId: note.conversationId,
+  ...(note.tags !== undefined && { tags: note.tags }),
 })
 
 /** Cy asks in the channel; the agent answers; the answer waits for a manager. */

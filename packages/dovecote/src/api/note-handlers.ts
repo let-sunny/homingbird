@@ -130,6 +130,7 @@ export const noteHandlers = {
       ? T.flatMap(() => createDraft(caller, target))(requireReadableTarget(caller, target))
       : answerDraftRequest(caller, requestId, {
           body: target.body,
+          ...(target.tags !== undefined && { tags: target.tags }),
           ...(target.basis !== undefined && { basis: target.basis }),
           ...(target.sources !== undefined && { sources: target.sources }),
           ...(target.client !== undefined && { client: target.client }),

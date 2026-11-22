@@ -1,5 +1,12 @@
 import { Task as T } from '@homingbird/kernel'
-import { Conflict, DRAFT_CHANGED, type DraftAsShown, type MemberId, type NoteId } from '@homingbird/protocol'
+import {
+  Conflict,
+  DRAFT_CHANGED,
+  type DraftAsShown,
+  type MemberId,
+  type NoteId,
+  isAsked,
+} from '@homingbird/protocol'
 import { type RequestEnv, emit } from '../events/events.ts'
 import { queueSlackPost, slackPostingOf } from '../slack/slack-outbox.ts'
 import { all, dialect, first, run } from '../sql/database.ts'
@@ -11,8 +18,10 @@ import { announcePreview } from './draft-previews.ts'
 import type { NoteFailure } from './drafts.ts'
 import type { NoteRow } from './note-rows.ts'
 import { announceStatus, noteById } from './note-status.ts'
+import { tagsAsStored, tagsOf } from './note-tags.ts'
 import { privateQuestionRecipients } from './private-questions.ts'
 import { nextSendTime } from './send-time.ts'
+import { featureIsOn } from './settings.ts'
 
 /**
  * Sends a draft as decided: only while its row still holds the text and room the decision was made on,
@@ -37,13 +46,22 @@ export const deliverDraft = (
     const posting = yield* slackPostingOf(draft, recipients, expected)
     const now = yield* nextSendTime(draft.conversation_id, decidedAt)
     const sameBody = equalsExactly(yield* dialect, 'body', expected.body)
+    const sameTags = equalsExactly(yield* dialect, "COALESCE(tags, '')", tagsAsStored(expected.tags))
     const sent = yield* run(
-      sql`UPDATE notes SET status = 'sent', body = ${body}, origin = ${origin}, sent_at = ${now}, updated_at = ${now}, decided_at = ${decidedAt}, approved_by = ${approvedBy}, auto_principle_id = ${autoPrincipleId} WHERE id = ${id} AND status = 'draft' AND ${sameBody} AND conversation_id = ${expected.conversationId}`,
+      sql`UPDATE notes SET status = 'sent', body = ${body}, origin = ${origin}, sent_at = ${now}, updated_at = ${now}, decided_at = ${decidedAt}, approved_by = ${approvedBy}, auto_principle_id = ${autoPrincipleId} WHERE id = ${id} AND status = 'draft' AND ${sameBody} AND ${sameTags} AND conversation_id = ${expected.conversationId}`,
     )
     if (sent === 0) return yield* T.fail(yield* refusalAfterMissedSend(id))
     if (posting !== null) yield* queueSlackPost(id, posting, { authorId, approvedBy }, body)
+    const tags = (yield* featureIsOn('tagging')) ? tagsOf(draft) : []
     for (const memberId of recipients)
-      yield* run(insertInto('receipts', { note_id: id, member_id: memberId, delivered_at: now }))
+      yield* run(
+        insertInto('receipts', {
+          note_id: id,
+          member_id: memberId,
+          delivered_at: now,
+          asked: isAsked(tags, memberId) ? 1 : 0,
+        }),
+      )
     yield* run(sql`UPDATE conversations SET last_activity_at = ${now} WHERE id = ${draft.conversation_id}`)
     if (draft.in_reply_to !== null) yield* settleReply(authorId, draft.in_reply_to, now)
     yield* emit(participants, { type: 'note.sent', note: yield* noteById(id, null) })

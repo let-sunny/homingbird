@@ -6,7 +6,19 @@ import { strings } from '../../src/strings.ts'
 import { composer } from '../../src/views/composer.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
-import { ANA, BEN, ROOM, channel, conversation, entry, me, note, serverInfo } from '../support/fixtures.ts'
+import {
+  ANA,
+  BEN,
+  CY,
+  ROOM,
+  channel,
+  conversation,
+  entry,
+  me,
+  member,
+  note,
+  serverInfo,
+} from '../support/fixtures.ts'
 import { threadInput } from '../support/thread.ts'
 
 usingFakeDom()
@@ -266,6 +278,90 @@ describe('composer', () => {
     context.state.composerFocus.set('elsewhere' as never)
     page.runFrames()
     expect(context.state.composerFocus.get()).toBe('elsewhere')
+  })
+
+  it('tags people in a group with @, writes the name chosen, and says whose agents will draft a reply', () => {
+    const test = testContext()
+    const group = conversation({ kind: 'group', participantIds: [ANA, BEN, CY] })
+    test.context.state.session.set(me())
+    test.context.state.conversations.set([group])
+    const input = () =>
+      threadInput({
+        conversations: [group],
+        members: new Map([
+          [ANA, member(ANA, 'Ana')],
+          [BEN, member(BEN, 'Ben')],
+          [CY, member(CY, 'Cy')],
+        ]),
+        directory: [entry(ANA, 'Ana'), entry(BEN, 'Ben'), entry(CY, 'Cy')],
+      })
+    const shown = composer(
+      test.context,
+      lifetime(),
+      ROOM,
+      () => composerModel(input()),
+      [],
+      () => {},
+      input,
+    )
+    const asks = () => textOf(shown.querySelector('.composer-asks')!)
+    const options = () => shown.querySelector<HTMLElement>('#composer-tags-options')!
+    expect(asks()).toContain(strings.tags.everyone)
+    expect(shown.querySelector('.composer-asks')!.textContent).toContain(strings.hints.tagging)
+    const text = getByRole(shown, 'textbox', { name: strings.composerLabel }) as HTMLTextAreaElement
+    expect(text.getAttribute('aria-controls')).toBe('composer-tags-options')
+    expect(options().hidden).toBe(true)
+    fire.type(text, 'Hi @')
+    expect(options().hidden).toBe(false)
+    expect(textOf(options())).toContain('Ben')
+    fire.key(text, 'ArrowDown')
+    expect(text.getAttribute('aria-activedescendant')).toBe(`composer-tags-${CY}`)
+    fire.key(text, 'Enter')
+    expect(test.called('sendNote')).toHaveLength(0)
+    expect(text.value).toBe('Hi @Cy ')
+    expect(test.called('keepComposerTags').at(-1)!.args).toEqual([ROOM, [CY]])
+    expect(options().hidden).toBe(true)
+    test.context.state.composerTags.set(new Map([[ROOM, [CY]]]))
+    expect(asks()).toContain(strings.tags.onlyOne({ name: 'Cy' }))
+    fire.type(text, 'Hi @Cy and @b')
+    fire.key(text, 'Escape')
+    expect(options().hidden).toBe(true)
+    expect(test.called('chooseReplyTarget')).toHaveLength(0)
+    fire.type(text, 'Hi @Cy and @b')
+    fire.key(text, 'Tab')
+    expect(text.value).toBe('Hi @Cy and @Ben ')
+    expect(test.called('keepComposerTags').at(-1)!.args).toEqual([ROOM, [CY, BEN]])
+    fire.type(text, 'Hi @Cy and @b')
+    test.context.state.composerTags.set(new Map([[ROOM, [CY, BEN]]]))
+    fire.key(text, 'Enter')
+    expect(test.called('sendNote')).toHaveLength(1)
+    test.context.state.composerTags.set(new Map([[ROOM, [CY]]]))
+    expect(options().hidden).toBe(true)
+    fire.click(getByRole(shown, 'button', { name: strings.picker.remove({ name: 'Cy' }) }))
+    expect(test.called('keepComposerTags').at(-1)!.args).toEqual([ROOM, []])
+    fire.type(text, '@')
+    fire.event(text, 'blur')
+    expect(options().hidden).toBe(true)
+  })
+
+  it('offers no tagging in a direct message', () => {
+    const test = testContext()
+    test.context.state.conversations.set([conversation()])
+    const shown = composer(
+      test.context,
+      lifetime(),
+      ROOM,
+      () => composerModel(threadInput()),
+      [],
+      () => {},
+      () => threadInput(),
+    )
+    expect(shown.querySelector('.composer-asks')).toBeNull()
+    const text = getByRole(shown, 'textbox', { name: strings.composerLabel }) as HTMLTextAreaElement
+    expect(text.getAttribute('aria-controls')).toBeNull()
+    fire.type(text, '@')
+    fire.key(text, 'Enter')
+    expect(test.called('sendNote')).toHaveLength(1)
   })
 
   it('shows a closed composer in an archived room', () => {

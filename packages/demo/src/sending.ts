@@ -53,6 +53,7 @@ export const saveDraft = (world: World, fields: DraftFields): Note => {
     receipts: [],
     basis: fields.basis,
     approvedBy: null,
+    ...(fields.tags !== undefined && fields.tags.length > 0 && { tags: [...fields.tags] }),
     ...(fields.fromDebate !== undefined && { fromDebate: fields.fromDebate }),
   }
   world.update((records) => ({ ...records, notes: [...records.notes, draft] }))
@@ -70,6 +71,8 @@ export interface DraftFields {
   /** The agent that wrote it; null for a person's own words. */
   readonly agentName: string | null
   readonly basis: string | null
+  /** In a group message, the people whose agents it asks, as Dovecote stores them. */
+  readonly tags?: ReadonlyArray<MemberId>
   /** The debate room whose result this is: written by its agents, as Dovecote records it. */
   readonly fromDebate?: Note['fromDebate']
 }

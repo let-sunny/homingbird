@@ -8,8 +8,12 @@ export const wrapNote = (input: WrapInput): string => {
   const boundary = boundaryLine(input.nonce)
   const from = escapeAttribute(`${input.authorName} <${input.authorEmail}>`)
   const sent = input.sentAt === null ? 'not sent' : new Date(input.sentAt).toISOString()
+  const asks =
+    input.asks === undefined || input.asks.length === 0
+      ? ''
+      : ` asks="${escapeAttribute(input.asks.join(', '))}"`
   return [
-    `<${WRAPPER_TAG} id="${escapeAttribute(input.noteId)}" from="${from}" sent="${sent}">`,
+    `<${WRAPPER_TAG} id="${escapeAttribute(input.noteId)}" from="${from}" sent="${sent}"${asks}>`,
     WRAPPER_NOTICE,
     boundary,
     neutralizeBody(input.body, input.nonce),
@@ -27,6 +31,8 @@ export interface WrapInput {
   readonly sentAt: number | null
   readonly body: string
   readonly nonce: string
+  /** In a group message, the names of the people whose agents the note asks; none means everyone's. */
+  readonly asks?: ReadonlyArray<string>
 }
 
 export const WRAPPER_TAG = 'colleague-note'

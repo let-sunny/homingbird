@@ -34,6 +34,7 @@ export const HINT_CONCEPTS = [
   'joinCode',
   'draftPreviews',
   'autoSend',
+  'tagging',
 ] as const
 
 export interface HintRecord {

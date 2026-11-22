@@ -1,4 +1,4 @@
-import type { MemberId, Note } from '@homingbird/protocol'
+import { type MemberId, type Note, isAsked } from '@homingbird/protocol'
 import { replyLater } from './own-agent.ts'
 import { memberById } from './reads.ts'
 import { announceStatus, changeNote, reviewersOf, saveDraft, sendDraft } from './sending.ts'
@@ -60,7 +60,13 @@ const responderTo = (records: Records, note: Note): Responder | null => {
   }
   const candidates = room.kind === 'channel' ? (channel?.answering ?? []) : room.participantIds
   const colleague = candidates
-    .filter((id) => id !== note.authorId && id !== VISITOR_ID && room.participantIds.includes(id))
+    .filter(
+      (id) =>
+        id !== note.authorId &&
+        id !== VISITOR_ID &&
+        room.participantIds.includes(id) &&
+        isAsked(note.tags, id),
+    )
     .map((id) => memberById(records, id))
     .find((member) => member?.kind === 'person' && member.status === 'active')
   return colleague === undefined || colleague === null

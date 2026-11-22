@@ -156,6 +156,7 @@ export const everything = (): AsRead.ServerInfo =>
         'joinCodes',
         'invites',
         'analytics',
+        'tagging',
       ].map((name) => [name, true]),
     ),
   )

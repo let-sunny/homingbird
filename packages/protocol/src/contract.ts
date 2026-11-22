@@ -107,6 +107,7 @@ import {
 import { type ReadResponseOf, type RequestOf, type Route, route } from './route.ts'
 import { DeskSession } from './session-health.ts'
 import { AdminSlack, MeSlack, SlackCodeView, SlackCredentialsInput, SlackLinkCode } from './slack.ts'
+import { NoteTags } from './tags.ts'
 
 export const PushSubscription = S.struct({
   endpoint: S.string({ minLength: 1, maxLength: 2000, pattern: /^https:\/\// }),
@@ -572,6 +573,7 @@ export const contract = {
       to: S.optional(Recipients),
       channel: S.optional(ChannelSlug),
       inReplyTo: S.optional(NoteId),
+      tags: S.optional(NoteTags),
       requestId: S.optional(DraftRequestId),
       basis: S.optional(NoteBasis),
       sources: S.optional(DraftSources),
@@ -590,20 +592,23 @@ export const contract = {
       (change: {
         readonly body?: string
         readonly channel?: string
+        readonly tags?: ReadonlyArray<MemberId>
         readonly basis?: string
         readonly sources?: ReadonlyArray<DraftSource>
         readonly model?: string
       }) =>
         change.body !== undefined ||
         change.channel !== undefined ||
+        change.tags !== undefined ||
         change.basis !== undefined ||
         change.sources !== undefined ||
         change.model !== undefined,
-      'Give a new body, a new channel, a new basis, new sources, a model, or several.',
+      'Give a new body, a new channel, new tags, a new basis, new sources, a model, or several.',
     )(
       S.struct({
         body: S.optional(NoteBody),
         channel: S.optional(ChannelSlug),
+        tags: S.optional(NoteTags),
         basis: S.optional(NoteBasis),
         sources: S.optional(DraftSources),
         model: S.optional(AgentLabel),
