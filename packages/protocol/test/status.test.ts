@@ -11,7 +11,7 @@ import {
   transition,
 } from '../src/status.ts'
 
-const statuses: NoteStatus[] = ['draft', 'sent', 'discarded']
+const statuses: NoteStatus[] = ['draft', 'sent', 'discarded', 'withdrawn']
 const time = fc.option(fc.nat(), { nil: null })
 const times = fc.record({ readAt: time, draftingAt: time, repliedAt: time })
 
@@ -27,13 +27,14 @@ const receipt = (state: ReceiptState, over: Partial<Receipt> = {}): Receipt =>
   }) as Receipt
 
 describe('note transitions', () => {
-  it('allows exactly draft to sent and draft to discarded', () => {
+  it('allows exactly draft to sent, draft to discarded and sent to withdrawn', () => {
     const allowed = statuses.flatMap((from) =>
       statuses.filter((to) => transition(from, to)._tag === 'Ok').map((to) => [from, to]),
     )
     expect(allowed).toEqual([
       ['draft', 'sent'],
       ['draft', 'discarded'],
+      ['sent', 'withdrawn'],
     ])
   })
 
@@ -45,20 +46,20 @@ describe('note transitions', () => {
     expect(transition('draft', 'sent')).toMatchObject({ _tag: 'Ok', value: 'sent' })
   })
 
-  it('makes sent and discarded final, whatever sequence of moves is tried', () => {
+  it('leaves draft once, lets a sent note only be withdrawn, and makes discarded and withdrawn final, whatever sequence of moves is tried', () => {
     fc.assert(
       fc.property(fc.array(fc.constantFrom(...statuses), { maxLength: 8 }), (moves) => {
-        let current: NoteStatus = 'draft'
-        let left = false
+        const path: NoteStatus[] = ['draft']
         for (const move of moves) {
-          const next = transition(current, move)
-          if (next._tag === 'Ok') {
-            expect(left).toBe(false)
-            current = next.value
-            left = true
-          }
+          const next = transition(path.at(-1)!, move)
+          if (next._tag === 'Ok') path.push(next.value)
         }
-        expect(NOTE_TRANSITIONS[current].length === 0).toBe(current !== 'draft')
+        expect(path.filter((status) => status === 'draft')).toHaveLength(1)
+        expect(path.slice(1, 2).every((status) => status === 'sent' || status === 'discarded')).toBe(true)
+        expect(path.slice(2).every((status) => status === 'withdrawn')).toBe(true)
+        expect(path.length).toBeLessThanOrEqual(3)
+        const last = path.at(-1)!
+        expect(NOTE_TRANSITIONS[last].length === 0).toBe(last === 'discarded' || last === 'withdrawn')
       }),
     )
   })

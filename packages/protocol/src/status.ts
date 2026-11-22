@@ -13,8 +13,9 @@ export const UNKNOWN_STATUS_TEXT = 'status this client does not know; treat as n
 
 export const NOTE_TRANSITIONS: Readonly<Record<NoteStatus, ReadonlyArray<NoteStatus>>> = {
   draft: ['sent', 'discarded'],
-  sent: [],
+  sent: ['withdrawn'],
   discarded: [],
+  withdrawn: [],
 }
 
 export const transition = (from: NoteStatus, to: NoteStatus): Result.Result<NoteStatus, IllegalTransition> =>

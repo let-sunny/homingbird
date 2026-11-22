@@ -76,7 +76,7 @@ describe('reviewOf', () => {
 
 describe('conversationsOf', () => {
   it('lists the viewer’s conversations, the most recent first, with their unread notes and own drafts', () => {
-    const { records, june, ben } = fresh()
+    const { records, june, kai } = fresh()
     const listed = conversationsOf(records, june)
     expect(listed.map((room) => room.lastActivityAt)).toEqual(
       listed.map((room) => room.lastActivityAt).sort((a, b) => b - a),
@@ -93,7 +93,7 @@ describe('conversationsOf', () => {
       )?.unreadCount,
     ).toBe(2)
     expect(listed.every((room) => room.participantIds.includes(june))).toBe(true)
-    expect(conversationsOf(records, ben).some((room) => room.draftCount > 0)).toBe(false)
+    expect(conversationsOf(records, kai).some((room) => room.draftCount > 0)).toBe(false)
   })
 
   it('names the channel only of a private question, as the server does, so no other room reads as archived', () => {

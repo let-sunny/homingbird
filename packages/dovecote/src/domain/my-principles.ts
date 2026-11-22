@@ -14,7 +14,7 @@ import { debateAchievementsOf, debateCreditsOf } from './debate-credits.ts'
 import { agentReportFor } from './insights.ts'
 import { PLACE_COLUMNS, PLACE_JOIN, type PlaceRow, placeOf } from './places.ts'
 import { openOffers } from './principle-offers.ts'
-import { type CountedPrinciple, principlesOf, shownWith } from './principle-rows.ts'
+import { type CountedPrinciple, principleShown, principlesOf, shownWith } from './principle-rows.ts'
 import { featureIsOn } from './settings.ts'
 import { DAY_MS } from './trust-figures.ts'
 
@@ -23,11 +23,12 @@ export const myPrinciples = (memberId: MemberId): T.Task<MyPrinciples, never, Ap
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
     const principles = yield* principlesOf(memberId)
-    const figures = yield* featureIsOn('agentFigures')
+    const shown = yield* principleShown
+    const figures = shown.figures
     const week = figures ? (yield* agentReportFor(memberId)).periods[0]!.current : null
     const debateCredits = (yield* featureIsOn('debateRooms')) ? yield* debateCreditsOf(memberId) : []
     return {
-      principles: principles.map((principle) => shownWith(principle, figures)),
+      principles: principles.map((principle) => shownWith(principle, shown)),
       offers: yield* openOffers(memberId),
       routes: (yield* featureIsOn('routeMap')) ? yield* routeMap(memberId, principles, env.clock.now()) : [],
       achievements: [

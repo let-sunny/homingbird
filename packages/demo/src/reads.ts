@@ -84,11 +84,13 @@ export const conversationAsSeen = (
   }
 }
 
-/** A conversation's notes as the viewer reads them: the sent ones oldest first, then their own drafts. */
+/** A conversation's notes as the viewer reads them: the sent ones and their own recalled ones oldest first, then their own drafts. */
 export const notesSeenIn = (records: Records, viewerId: MemberId, conversationId: string): Note[] => {
   const inRoom = records.notes.filter((note) => note.conversationId === conversationId)
   return [
-    ...inRoom.filter((note) => note.status === 'sent').sort((a, b) => (a.sentAt ?? 0) - (b.sentAt ?? 0)),
+    ...inRoom
+      .filter((note) => note.status === 'sent' || (note.status === 'withdrawn' && note.authorId === viewerId))
+      .sort((a, b) => (a.sentAt ?? 0) - (b.sentAt ?? 0)),
     ...inRoom
       .filter((note) => note.status === 'draft' && note.authorId === viewerId)
       .sort((a, b) => a.createdAt - b.createdAt),
