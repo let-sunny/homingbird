@@ -165,6 +165,7 @@ describe('adminMembersModel', () => {
     groups: [],
     agentCredentials: null,
     query: '',
+    dormantOnly: false,
     now: NOW,
     ...fields,
   })
@@ -315,6 +316,34 @@ describe('adminMembersModel', () => {
       noMatch: strings.adminMemberList.noMatch({ query: 'zed' }),
     })
     expect(adminMembersModel(input({ members: [] }))).toEqual({ rows: [], noMatch: null })
+  })
+
+  it('shows only the members with no activity for 30 days when asked, with the search, and says when none has gone quiet', () => {
+    const members = [member(ANA, 'Ana'), member(BEN, 'Ben'), member(CY, 'Cy')]
+    const directory = [
+      entry(ANA, 'Ana', { lastSeenAt: NOW }),
+      entry(BEN, 'Ben', { lastSeenAt: NOW - 40 * DAY }),
+      entry(CY, 'Cy', { lastSeenAt: NOW - 60 * DAY }),
+    ]
+    const names = (fields: Partial<AdminMembersInput>) =>
+      adminMembersModel(input({ members, directory, dormantOnly: true, ...fields }))!.rows.map(
+        (row) => row.member.name,
+      )
+    expect(names({})).toEqual(['Ben', 'Cy'])
+    expect(names({ query: 'cy' })).toEqual(['Cy'])
+    expect(names({ dormantOnly: false })).toEqual(['Ana', 'Ben', 'Cy'])
+    const quiet = [
+      entry(ANA, 'Ana', { lastSeenAt: NOW }),
+      entry(BEN, 'Ben', { lastSeenAt: NOW }),
+      entry(CY, 'Cy', { lastSeenAt: NOW }),
+    ]
+    expect(adminMembersModel(input({ members, directory: quiet, dormantOnly: true }))).toEqual({
+      rows: [],
+      noMatch: strings.adminMemberList.noDormant,
+    })
+    expect(
+      adminMembersModel(input({ members, directory: quiet, dormantOnly: true, query: 'zed' }))!.noMatch,
+    ).toBe(strings.adminMemberList.noMatch({ query: 'zed' }))
   })
 })
 

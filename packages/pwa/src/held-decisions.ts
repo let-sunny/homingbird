@@ -13,10 +13,24 @@ export const heldLineFor = (held: ReadonlyArray<HeldShown>, ids: ReadonlyArray<N
     : {
         noteId: decision.noteId,
         className: `held-line is-${decision.kind}`,
-        text: decision.phase === 'done' ? decision.words.done : decision.words.pending,
+        text: heldText(decision),
         undo: decision.phase === 'waiting' ? strings.undo : null,
       }
 }
+
+/**
+ * What a held decision says of itself: when it will go while it can be undone, that it is on its way
+ * once it is asked of the server, and that it was carried out only once the server answered.
+ */
+export const heldText = (decision: Pick<HeldShown, 'phase' | 'words'>): string =>
+  decision.phase === 'waiting'
+    ? decision.words.waiting
+    : decision.phase === 'committing'
+      ? decision.words.pending
+      : decision.words.done
+
+/** How long a send or discard can be undone before it is asked of the server. */
+export const HOLD_MS = 5000
 
 /** The one held decision that can still be undone, if any. */
 export const undoableHeld = <Decision extends Pick<HeldDecision, 'phase'>>(
@@ -51,11 +65,13 @@ export const conversationsWithoutHeld = (
 /** What a send to these people or this channel, and a discard, are called while held and after. */
 export const heldWordsFor = (names: string): HeldChoices => ({
   send: {
+    waiting: strings.heldSendingIn({ names, seconds: HOLD_MS / 1000 }),
     pending: strings.heldSending({ names }),
     done: strings.heldSent({ names }),
     notDone: strings.heldNotSent({ names }),
   },
   discard: {
+    waiting: strings.heldDiscardingIn({ seconds: HOLD_MS / 1000 }),
     pending: strings.heldDiscarding,
     done: strings.heldDiscarded,
     notDone: strings.heldNotDiscarded,

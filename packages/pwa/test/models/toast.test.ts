@@ -33,11 +33,11 @@ describe('heldToastModel', () => {
     words: heldWordsFor('Ben').send,
   })
 
-  it('says the latest send is pending, with Undo and Done, until the server has it, then that it was sent', () => {
+  it('says when the latest send goes, with Undo and Done, then that it is on its way until the server has it, then that it was sent', () => {
     expect(heldToastModel([])).toBeNull()
     expect(heldToastModel([held('done'), held('waiting')])).toEqual({
       className: 'toast is-held is-waiting',
-      text: strings.heldSending({ names: 'Ben' }),
+      text: strings.heldSendingIn({ names: 'Ben', seconds: 5 }),
       undo: strings.undo,
       dismiss: { label: strings.heldDismiss, does: 'commit' },
     })
