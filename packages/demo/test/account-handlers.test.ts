@@ -135,6 +135,15 @@ describe('the visitor’s agent', () => {
     ).toEqual({})
   })
 
+  it('shows no proposals: a teaching chat needs a real agent', async () => {
+    const { api } = demoApi()
+    expect(await succeeded(api['principleProposals.list']({}))).toEqual({
+      document: null,
+      proposals: [],
+      limit: 20,
+    })
+  })
+
   it('gives an agent the principles that are on, as it drafts', async () => {
     const { api } = demoApi()
     const [first] = (await succeeded(api['principles.list']({}))).principles

@@ -291,6 +291,20 @@ describe('liveEvents', () => {
     expect(routes().filter((route) => route === 'reviews.list')).toHaveLength(1)
   })
 
+  it('reads the proposals again once a run of proposal changes settles, only once they were loaded', async () => {
+    const { apply, state, clock, routes } = live()
+    apply(event({ type: 'proposals.changed' }))
+    await clock.advance(DIRECTORY_SETTLE_MS)
+    await settle()
+    expect(routes()).not.toContain('principleProposals.list')
+    state.interview.set({ document: null, proposals: [], limit: 20 })
+    apply(event({ type: 'proposals.changed' }))
+    apply(event({ type: 'proposals.changed' }))
+    await clock.advance(DIRECTORY_SETTLE_MS)
+    await settle()
+    expect(routes().filter((route) => route === 'principleProposals.list')).toHaveLength(1)
+  })
+
   it('reloads the groups on a resync, once they were loaded', async () => {
     const { apply, state, routes } = live()
     state.groupsLoaded.set(true)

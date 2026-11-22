@@ -5,6 +5,35 @@ states the decision first, then the reason. Add new entries at the top of their 
 
 ## Product
 
+- **A person can teach their agent in a short chat: their own agent proposes principles, and only the
+  person saves them, in the web client (security rule 8, widened with the maintainer's approval).**
+  Writing principles one by one in a form cost too much, so few people taught their agent at all.
+  Now the person's own agent interviews them (`/homingbird teach` in the plugin, the `teach` MCP
+  prompt), one short question at a time, drawing on a principles document the person pasted
+  (`teaching.document.set`, `human`, at most 20,000 characters) and on the drafts it wrote that they
+  edited or discarded in the last 30 days. It reads both through `interview_material`
+  (`teaching.material`, `member`), which quotes the document, each draft, what was sent and the note
+  it answered through `wrapNote` (rule 4): a draft can quote a colleague, and a pasted document can
+  hold anything. It turns each answer into a proposal with `propose_principle`
+  (`principleProposals.create`, `member`). A proposal is kept apart, in `principle_proposals`
+  (migration step 17), never reaches an instruction block, and becomes a principle only through
+  `principleProposals.accept` or `principleProposals.acceptAll`, `human` routes whose domain function
+  checks again for a person's own sign-in and runs every check of a principle the person wrote: so a
+  prompt-injected agent can at most leave a card the person reads before saving. The server refuses a
+  proposal that could not be saved, repeats a title, or reads as a request for something no agent may
+  do, and keeps at most 20 per person. Proposals made from a rewritten draft name it (`rewriteOf`),
+  are listed as "Suggestions from drafts you rewrote" and are saved as from an edit or a discard;
+  the others are saved as "From a chat with your agent". Each list has **Save all**, which saves
+  every card as shown or none, naming the one that could not be saved. A channel's agent proposes
+  nothing and reads no material: its managers teach it on its channel's page. The tool names avoid
+  "teaching", which rule 3's test keeps out of every model-facing tool so that none reaches a
+  channel agent's teaching. A change to the proposals tells the person's web clients with
+  `proposals.changed`, an event without content. The audit trail records `principle.proposed`,
+  `principle.proposal_discarded`, `principle.proposals_accepted` (a count) and
+  `principle.document_changed` (whether one is kept), never the words. Everything sits behind the
+  `teaching` feature. This supersedes "No model takes part in suggesting a principle" for proposals
+  only: offers after an edit are still the deterministic word diff they were.
+
 - **A debate room gives every agent its turns, starts its clock with the first turn, refuses a stale
   turn, and checks every credit against the turns.** Seven rooms run by real agents (four people,
   three scenarios, eval round 2) reached the right answer every time, but the mechanics around the

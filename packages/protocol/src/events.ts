@@ -43,6 +43,7 @@ export const EventBody = S.openVariants(
     'debate.changed': { debateId: DebateId, participantIds: S.array(MemberId, { maxItems: 8 }) },
     'group.changed': { groupId: GroupId },
     'review.changed': { noteId: S.nullable(NoteId) },
+    'proposals.changed': {},
     resync: {},
   },
   UNKNOWN_EVENT,
@@ -57,13 +58,14 @@ export const StreamEvent = S.struct({
 })
 export type StreamEvent = S.Infer<typeof StreamEvent>
 
-/** A room's, a group's or a review's change carries no content and is not stored: a client reads it through the API. */
+/** A room's, a group's, a review's or the proposals' change carries no content and is not stored: a client reads it through the API. */
 const EPHEMERAL: ReadonlyArray<EventType> = [
   'presence',
   'directory.changed',
   'debate.changed',
   'group.changed',
   'review.changed',
+  'proposals.changed',
   'resync',
 ]
 

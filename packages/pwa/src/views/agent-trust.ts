@@ -12,6 +12,7 @@ import type { ViewContext } from './context.ts'
 import { renderDraftsBehind } from './drafts-behind.ts'
 import { page } from './parts.ts'
 import { routeMapSection } from './route-map-view.ts'
+import { interviewSection } from './teaching-interview.ts'
 import { taughtSection } from './teaching.ts'
 import { renderYourWeek } from './your-week.ts'
 
@@ -68,7 +69,7 @@ const sectionContent = (
     case 'connection':
       return [connectionSection(context, life, me)]
     case 'teaching':
-      return [taughtSection(context, life)]
+      return [interviewSection(context, life), taughtSection(context, life)]
     case 'routes':
       return [routeMapSection(context, life)]
     case 'doing': {

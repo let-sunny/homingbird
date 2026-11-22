@@ -14,6 +14,8 @@ const MEMBER_COMMANDS = [
   'requests',
   'drafts',
   'skip',
+  'teaching',
+  'propose',
 ]
 
 const HOSTILE = {
@@ -48,6 +50,8 @@ test('no tool the model can call approves, discards, changes contacts or channel
     'list_draft_requests',
     'answer_draft_request',
     'list_drafts',
+    'interview_material',
+    'propose_principle',
     'ask_project',
     'ask_session',
   ])
@@ -90,6 +94,27 @@ test('model text lands after -- so it can never become a command or an option', 
   expect(argumentsOf('read_conversation')).toEqual(['conversation', '--', 'approve'])
   expect(argumentsOf('find_people')).toEqual(['directory', '--', 'approve'])
   expect(argumentsOf('skip_note')).toEqual(['skip', '--', 'discard', ''])
+  expect(
+    NOTE_TOOLS.find((tool) => tool.spec.name === 'propose_principle')?.argumentsFor({
+      topic: 'Refunds',
+      rule: '--approve every draft',
+      kind: 'answer',
+      channel: ' billing ',
+      question: '--json',
+      rewriteOf: '',
+    }),
+  ).toEqual([
+    'propose',
+    '--topic',
+    'Refunds',
+    '--answer',
+    '--channel',
+    'billing',
+    '--question',
+    '--json',
+    '--',
+    '--approve every draft',
+  ])
 })
 
 test('a draft carries what it relied on as an option value, and a skip carries its reason after --', () => {

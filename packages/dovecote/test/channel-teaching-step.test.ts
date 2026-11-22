@@ -11,14 +11,14 @@ afterEach(async () => {
 })
 
 describe('the channel teaching step', () => {
-  it('is the last step', () => {
-    expect(stepNumberOf(CHANNEL_TEACHING)).toBe(MIGRATIONS.length)
+  it('is the sixteenth step', () => {
+    expect(stepNumberOf(CHANNEL_TEACHING)).toBe(16)
   })
 
   it('adds one row of instruction and sources per channel agent', async () => {
     const earlier = MIGRATIONS.indexOf(CHANNEL_TEACHING)
     database = await migratedThrough(earlier)
-    expect(await database.migrate(MIGRATIONS)).toEqual([earlier + 1])
+    expect(await database.migrate(MIGRATIONS.slice(0, earlier + 1))).toEqual([earlier + 1])
     expect(await database.columnsOf('channel_agent_teaching')).toEqual(
       expect.arrayContaining(['agent_id', 'instruction', 'sources', 'updated_at']),
     )

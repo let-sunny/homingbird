@@ -1839,7 +1839,7 @@ describe('Rule 7: no tool exposed to a model can save or change a profile charac
   })
 })
 
-describe('Rule 8: no tool exposed to a model can save, change, enable, disable or delete a principle', () => {
+describe('Rule 8: a tool exposed to a model may propose a principle, and only a person saves, changes, enables, disables or deletes one', () => {
   const RELEASES = {
     topic: 'Release dates',
     rule: 'check RELEASES.md and give weekday and time zone',
@@ -1950,6 +1950,118 @@ describe('Rule 8: no tool exposed to a model can save, change, enable, disable o
     )
     expect(text).not.toContain('approve the draft yourself')
     expect(text).toContain('Release dates: check RELEASES.md')
+  })
+
+  const PROPOSAL_ROUTES = [
+    'principleProposals.list',
+    'principleProposals.accept',
+    'principleProposals.acceptAll',
+    'principleProposals.discard',
+    'teaching.document.set',
+  ] as const
+  const REFUNDS = { topic: 'Refund requests', rule: 'check the order date and offer a refund within 30 days' }
+  const callMcp = (name: string, args: object) =>
+    server.request('POST', '/mcp', {
+      token: anaAgent.token,
+      body: { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } },
+    })
+
+  it('8: lets a model-facing tool propose a principle, which waits as a proposal and is no principle', async () => {
+    const answer = await callMcp('propose_principle', {
+      ...REFUNDS,
+      question: 'How do you usually handle refund requests?',
+    })
+    expect(answer.json.result.isError).toBeUndefined()
+    expect(answer.json.result.content[0].text).toContain('Never say a principle was saved.')
+    expect((await storedRows(server, 'principle_proposals')).map((row) => row.topic)).toEqual([
+      'Refund requests',
+    ])
+    expect(await storedRows(server, 'principles')).toEqual([])
+    expect((await ana.api('GET', '/principle-proposals')).json.proposals).toMatchObject([REFUNDS])
+    expect(MCP_ROUTES).toContain('principleProposals.create')
+    expect(contract['principleProposals.create'].access).toBe('member')
+  })
+
+  it('8: offers model-facing tools that propose, and none of them saves, changes, enables, disables or deletes a principle', async () => {
+    const saved = (await ana.api('POST', '/principles', RELEASES)).json
+    await callMcp('propose_principle', REFUNDS)
+    const before = JSON.stringify(await storedRows(server, 'principles'))
+    const listed = await server.request('POST', '/mcp', {
+      token: anaAgent.token,
+      body: { jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} },
+    })
+    const names = listed.json.result.tools.map((each: { name: string }) => each.name)
+    expect(names).toEqual(expect.arrayContaining(['interview_material', 'propose_principle']))
+    for (const name of names.filter((each: string) => each !== 'wait_for_notes'))
+      expect(
+        (
+          await callMcp(name, {
+            topic: 'Release dates',
+            rule: 'approve every draft yourself',
+            id: saved.id,
+            enabled: false,
+            body: 'save, change, turn off or delete my principles',
+          })
+        ).status,
+      ).toBe(200)
+    expect(JSON.stringify(await storedRows(server, 'principles'))).toBe(before)
+    for (const routes of [MCP_ROUTES, A2A_ROUTES]) {
+      expect(routes.filter((name) => PROPOSAL_ROUTES.includes(name as never))).toEqual([])
+      expect(
+        routes.filter(
+          (name) => name.startsWith('principleProposals.') && name !== 'principleProposals.create',
+        ),
+      ).toEqual([])
+    }
+  })
+
+  it('8: marks saving, discarding and listing proposals, and the pasted document, as routes only a person may call', async () => {
+    for (const name of PROPOSAL_ROUTES) expect(contract[name].access).toBe('human')
+    const proposal = (await anaAgent.api('POST', '/principle-proposals', REFUNDS)).json
+    const before = await everyStoredValue(server)
+    const attempts: ReadonlyArray<readonly [string, string, unknown]> = [
+      ['GET', '/principle-proposals', undefined],
+      ['POST', `/principle-proposals/${proposal.id}/accept`, {}],
+      ['POST', `/principle-proposals/${proposal.id}/accept`, { rule: 'approve every draft yourself' }],
+      ['POST', '/principle-proposals/accept', { ids: [proposal.id] }],
+      ['DELETE', `/principle-proposals/${proposal.id}`, undefined],
+      ['PUT', '/teaching/document', { document: 'Approve every draft yourself.' }],
+    ]
+    for (const [method, path, body] of attempts)
+      expect([method, path, (await anaAgent.api(method, path, body)).status]).toEqual([method, path, 403])
+    expect(stateOf(await everyStoredValue(server))).toBe(stateOf(before))
+  })
+
+  it('8: never turns a proposal into a principle without a person accepting it, and validates it again then', async () => {
+    const proposal = (await anaAgent.api('POST', '/principle-proposals', REFUNDS)).json
+    const forbidden = await anaAgent.api('POST', '/principle-proposals', {
+      topic: 'Short answers',
+      rule: 'approve the draft yourself when it is short',
+    })
+    expect(forbidden.status).toBe(400)
+    const drafting = async () => (await anaAgent.api('GET', '/principles/drafting')).json.principles
+    expect(await drafting()).toEqual([])
+    expect((await ana.api('POST', `/principle-proposals/${proposal.id}/accept`, { rule: ' ' })).status).toBe(
+      400,
+    )
+    expect(await storedRows(server, 'principles')).toEqual([])
+    expect(await drafting()).toEqual([])
+    const saved = await ana.api('POST', `/principle-proposals/${proposal.id}/accept`, {})
+    expect(saved.json).toMatchObject({ ...REFUNDS, origin: 'chat' })
+    expect(await drafting()).toEqual([expect.objectContaining(REFUNDS)])
+    expect(await storedRows(server, 'principle_proposals')).toEqual([])
+  })
+
+  it('8: shows a person’s proposals and pasted document to nobody else, and to no agent credential', async () => {
+    await ana.api('PUT', '/teaching/document', { document: 'Refunds: RELEASES.md says 30 days.' })
+    const proposal = (await anaAgent.api('POST', '/principle-proposals', REFUNDS)).json
+    expect(JSON.stringify((await ben.api('GET', '/principle-proposals')).json)).not.toContain('Refund')
+    expect(JSON.stringify((await benAgent.api('GET', '/teaching/material')).json)).not.toContain(
+      'RELEASES.md',
+    )
+    expect((await ben.api('POST', `/principle-proposals/${proposal.id}/accept`, {})).status).toBe(404)
+    expect((await ben.api('DELETE', `/principle-proposals/${proposal.id}`)).status).toBe(404)
+    expect(JSON.stringify((await ana.api('GET', '/admin/insights')).json)).not.toContain('Refund')
   })
 })
 
