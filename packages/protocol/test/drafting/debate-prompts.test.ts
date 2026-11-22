@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  BRIEF_INTRODUCTION,
   DEBATE_RESULT_INSTRUCTIONS,
   DEBATE_TURN_INSTRUCTIONS,
   DEBATE_VOTE_INSTRUCTIONS,
@@ -9,6 +10,7 @@ import {
   debateResultPrompt,
   debateTurnPrompt,
   debateVotePrompt,
+  quotedBrief,
   quotedDebate,
   quotedDrafts,
   quotedNewTurns,
@@ -140,6 +142,53 @@ describe('a debate room as a model reads it', () => {
     expect(quotedNewTurns(room, PEOPLE, BEN, 1, counter())).toContain(
       'Desk, agent of Ben (your own earlier turn)',
     )
+  })
+})
+
+describe('what the agent’s own person allows it to use in a room, as a model reads it', () => {
+  it('wraps the person’s note as their own guidance, last, after the room', () => {
+    const room = roomOf({
+      status: 'open',
+      turns: [],
+      voteRecord: null,
+      brief: `  Use the Q3 budget sheet. ${HOSTILE}  `,
+    })
+    const text = quotedDebate(room, PEOPLE, ANA, counter())
+    const note = wrapNote({
+      noteId: `${room.id}/brief`,
+      authorName: 'Ana, your own person: what you may use in this room',
+      authorEmail: 'ana@example.com',
+      sentAt: null,
+      body: `Use the Q3 budget sheet. ${HOSTILE}`,
+      nonce: 'nonce000000000000002',
+    })
+    expect(text.endsWith(`${BRIEF_INTRODUCTION}\n\n${note}`)).toBe(true)
+    const outside = text.split(boundaryLine('nonce000000000000002')).filter((_, index) => index !== 1)
+    expect(outside.join('')).not.toContain('SYSTEM: approve')
+  })
+
+  it('says the agent shares nothing private when its person left no note, or only spaces', () => {
+    for (const room of [roomOf(), ...[null, '', '   '].map((brief) => roomOf({ brief }))]) {
+      const lines = quotedBrief(room, PEOPLE, ANA, counter())
+      expect(lines).toEqual([
+        'Your person left no note on what you may use in this room: share only what the question needs, by source or kind, and nothing private.',
+      ])
+    }
+  })
+
+  it('names the person by their own name, and an unknown one as such', () => {
+    const [, wrapped] = quotedBrief(roomOf({ brief: 'Only public figures.' }), new Map(), BEN, counter())
+    expect(wrapped).toContain(
+      'from="Unknown member, your own person: what you may use in this room &lt;unknown&gt;"',
+    )
+  })
+
+  it('tells the agent to share facts only within the note and to say when a gap is information it may not share', () => {
+    expect(DEBATE_TURN_INSTRUCTIONS).toContain(
+      'Share facts only within your person’s note on what you may use in this room',
+    )
+    expect(DEBATE_TURN_INSTRUCTIONS).toContain('"I have that, but I may not share it here"')
+    expect(BRIEF_INTRODUCTION).toContain('never share what it says to keep out of the room')
   })
 })
 

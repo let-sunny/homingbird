@@ -5977,6 +5977,7 @@ textarea:disabled {
 }
 
 .debate-opt-in-form,
+.debate-brief-form,
 .debate-post-form,
 .debate-limits-form,
 .create-debate {
@@ -5989,11 +5990,16 @@ textarea:disabled {
 
 .debate-post-form > .field,
 .debate-opt-in-form > .field,
+.debate-brief-form > .field,
 .create-debate > .field,
 .create-debate > fieldset,
 .debate-limits-form > fieldset {
   inline-size: 100%;
   min-inline-size: 0;
+}
+
+.debate-brief-text {
+  white-space: pre-wrap;
 }
 
 .debate-limits {

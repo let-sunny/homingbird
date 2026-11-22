@@ -53,10 +53,49 @@ describe('debateView', () => {
     fire.submit(shown.querySelector('form.debate-limits-form')!)
     expect(context.state.notice.get()?.kind).toBe('error')
     fire.submit(shown.querySelector('form.debate-opt-in-form')!)
-    expect(called('optInAgent')[0]!.args).toEqual(['debate_000000000000', 'cred_desk'])
+    expect(called('optInAgent')[0]!.args).toEqual(['debate_000000000000', 'cred_desk', ''])
     fire.select(getByRole(shown, 'combobox', { name: strings.debates.chooseAgent }), 'nobody')
     fire.submit(shown.querySelector('form.debate-opt-in-form')!)
     expect(called('optInAgent')).toHaveLength(1)
+  })
+
+  it('opts an agent in with the person’s note on what it may use here', () => {
+    const { context, called } = testContext()
+    const shown = debateView(context, lifetime(), me(), 'debate_1', null)
+    context.state.agentCredentials.set([credential('cred_desk')])
+    context.state.shownDebate.set(debate())
+    const box = shown.querySelector<HTMLTextAreaElement>('form.debate-opt-in-form textarea[name="brief"]')!
+    expect(textOf(box.closest('label')!)).toContain(strings.debates.briefTitle)
+    expect(box.getAttribute('maxlength')).toBe('1000')
+    expect(box.getAttribute('placeholder')).toBe(strings.debates.briefPlaceholder)
+    expect(textOf(box.closest('label')!)).toContain(strings.debates.briefHint)
+    fire.type(box, 'Use the Q3 budget; never vendor prices.')
+    fire.submit(shown.querySelector('form.debate-opt-in-form')!)
+    expect(called('optInAgent')[0]!.args).toEqual([
+      'debate_000000000000',
+      'cred_desk',
+      'Use the Q3 budget; never vendor prices.',
+    ])
+  })
+
+  it('lets a participant change their note while turns go on, and shows it fixed once they stop', () => {
+    const { context, called } = testContext()
+    const shown = debateView(context, lifetime(), me(), 'debate_1', 'turns')
+    const taking = debate({ participants: [participant(ANA), participant(BEN)], brief: 'Q3 budget only.' })
+    context.state.shownDebate.set(taking)
+    const box = shown.querySelector<HTMLTextAreaElement>('form.debate-brief-form textarea[name="brief"]')!
+    expect(box.value).toBe('Q3 budget only.')
+    fire.type(box, 'Public figures only.')
+    fire.submit(shown.querySelector('form.debate-brief-form')!)
+    const [saved] = called('setBrief')
+    expect(saved!.args).toEqual(['debate_000000000000', 'Public figures only.'])
+    saved!.then!.done!(undefined)
+    expect(context.state.notice.get()).toEqual({ kind: 'info', text: strings.debates.briefSaved })
+    context.state.shownDebate.set({ ...taking, status: 'concluding' })
+    const section = shown.querySelector('.debate-brief')!
+    expect(section.querySelector('form')).toBeNull()
+    expect(section.querySelector('.debate-brief-text')?.textContent).toBe('Q3 budget only.')
+    expect(textOf(section)).toContain(strings.debates.briefFixed)
   })
 
   it('shows who is ready to conclude, and that the room stopped early because every agent agreed', () => {

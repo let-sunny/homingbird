@@ -104,6 +104,7 @@ exports[`schema > generates stable DDL for mysql 1`] = `
   "ALTER TABLE notes ADD COLUMN discarded_by VARCHAR(64)",
   "ALTER TABLE debate_turns ADD COLUMN ready BIGINT",
   "ALTER TABLE debates ADD COLUMN concluded_because VARCHAR(400)",
+  "ALTER TABLE debate_participants ADD COLUMN brief MEDIUMTEXT",
 ]
 `;
 
@@ -257,6 +258,7 @@ exports[`schema > generates stable DDL for postgres 1`] = `
   "ALTER TABLE notes ADD COLUMN discarded_by VARCHAR(64)",
   "ALTER TABLE debate_turns ADD COLUMN ready BIGINT",
   "ALTER TABLE debates ADD COLUMN concluded_because VARCHAR(400)",
+  "ALTER TABLE debate_participants ADD COLUMN brief TEXT",
 ]
 `;
 
@@ -410,5 +412,6 @@ exports[`schema > generates stable DDL for sqlite 1`] = `
   "ALTER TABLE notes ADD COLUMN discarded_by TEXT",
   "ALTER TABLE debate_turns ADD COLUMN ready INTEGER",
   "ALTER TABLE debates ADD COLUMN concluded_because TEXT",
+  "ALTER TABLE debate_participants ADD COLUMN brief TEXT",
 ]
 `;

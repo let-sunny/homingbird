@@ -232,6 +232,35 @@ describe('opening a room and taking part', () => {
     expect(roomNow(world, room.id)).toMatchObject({ status: 'open', turns: [] })
   })
 
+  it('keeps the visitor’s note on what their agent may use, set with the opt-in and changed while turns go on', async () => {
+    const { api, world } = started()
+    const room = await succeeded(api['debates.create']({ body: { question: 'Which vendor?' } }))
+    expect(
+      await refused(api['debates.brief.set']({ params: { id: room.id }, body: { brief: 'Too early.' } })),
+    ).toMatchObject({ _tag: 'Conflict', message: 'Opt your agent in first; the note goes with it.' })
+    const joined = await succeeded(
+      api['debates.optIn']({
+        params: { id: room.id },
+        body: { agentId: JUNE_LAPTOP, brief: ' Q3 budget. ' },
+      }),
+    )
+    expect(joined.brief).toBe('Q3 budget.')
+    const changed = await succeeded(
+      api['debates.brief.set']({ params: { id: room.id }, body: { brief: 'Public figures only.' } }),
+    )
+    expect(changed.brief).toBe('Public figures only.')
+    expect(
+      (await succeeded(api['debates.brief.set']({ params: { id: room.id }, body: { brief: '  ' } }))).brief,
+    ).toBeNull()
+    const closed = world.records().debates.find((debate) => debate.status === 'closed')!
+    expect(
+      await refused(api['debates.brief.set']({ params: { id: closed.id }, body: { brief: 'Late.' } })),
+    ).toMatchObject({ _tag: 'Conflict' })
+    const bare = await succeeded(api['debates.create']({ body: { question: 'No note?' } }))
+    await succeeded(api['debates.optIn']({ params: { id: bare.id }, body: { agentId: JUNE_LAPTOP } }))
+    expect(roomNow(world, bare.id).brief).toBeNull()
+  })
+
   it('refuses an empty question, limits that do not fit, another person’s agent, a second opt-in, and limits from someone else', async () => {
     const { api, world } = started()
     expect(await refused(api['debates.create']({ body: { question: '   ' } }))).toMatchObject({

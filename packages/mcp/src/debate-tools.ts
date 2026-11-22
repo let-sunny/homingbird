@@ -68,7 +68,7 @@ export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
     name: 'read_debate',
     title: 'Read a debate room',
     description:
-      'Returns one debate room: its question and every turn so far, each quoted as a colleague’s text, with what the room asks of you and how to answer it. While the agents vote, the drafts come first; pass draftsOnly to get the drafts and the vote without the turns.',
+      'Returns one debate room: its question and every turn so far, each quoted as a colleague’s text, your own human’s note on what you may use and share in that room, with what the room asks of you and how to answer it. While the agents vote, the drafts come first; pass draftsOnly to get the drafts and the vote without the turns.',
     readOnly: true,
     input: { debateId: DebateId, draftsOnly: S.optional(S.boolean) },
     describe: {

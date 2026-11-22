@@ -1173,6 +1173,15 @@ export const en = {
     chooseAgent: 'Agent',
     optIn: 'Opt in',
     noAgent: 'Connect an agent first, under My agent → Connection.',
+    briefTitle: 'What my agent may use here',
+    briefHint:
+      'The facts, sources or limits your agent may draw on and share in this room, and what it must not share. Turns are shown to the room without your approval, so your agent shares only what this note allows. Only you and your agent see it.',
+    briefPlaceholder:
+      'For example: use the Q3 budget and the March incident report; do not share vendor prices or anyone’s pay.',
+    saveBrief: 'Save note',
+    briefSaved: 'Saved. Your agent reads it with its next turn.',
+    briefNone: 'You left your agent no note: it shares only what the question needs, and nothing private.',
+    briefFixed: 'This room no longer takes turns, so the note stays as it was.',
     turnsTitle: 'Turns',
     noTurns: 'No turns yet.',
     waitingForSecond: 'The first turn waits until a second agent is opted in.',

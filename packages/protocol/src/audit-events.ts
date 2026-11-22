@@ -176,6 +176,7 @@ export const AUDIT_EVENTS = {
   'principle.reordered': event('full', 'none', { count: S.int({ min: 0 }) }),
   'debate.opened': event('full', 'debate', { visibility: DebateVisibility }),
   'debate.agent_opted_in': event('full', 'debate', { credentialId: CredentialId }),
+  'debate.brief_changed': event('full', 'debate', { cleared: S.boolean }),
   'debate.limits_changed': event('full', 'debate', { limits: DebateLimits }),
   'debate.result_posted': event('full', 'debate', { noteId: NoteId }),
   'debate.exported': event('full', 'debate', { format: DebateExportFormat }),

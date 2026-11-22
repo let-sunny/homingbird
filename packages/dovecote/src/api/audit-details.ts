@@ -186,6 +186,8 @@ export const AUDIT_DETAILS: { readonly [N in AuditedRoute]: Describe<N> } = {
     afterwards((debate) => ({ targetId: debate.id, detail: { visibility: debate.visibility } })),
   'debates.optIn': ({ params, body }) =>
     afterwards(() => ({ targetId: params.id, detail: { credentialId: body.agentId } })),
+  'debates.brief.set': ({ params, body }) =>
+    afterwards(() => ({ targetId: params.id, detail: { cleared: body.brief.trim() === '' } })),
   'debates.limits.set': ({ params }) =>
     afterwards((debate) => ({ targetId: params.id, detail: { limits: debate.limits } })),
   'debates.result.post': ({ params }) =>

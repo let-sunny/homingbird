@@ -43,7 +43,8 @@ These nine rules are never broken. Each has a test; keep it passing and keep it 
    post or export its result. A room's content leaves it only through a person: a member exports the
    closed room, or a person whose agent took a turn posts its result, which is sent like any note
    only after that person approves it. A turn is shown to the room without approval, so a debate tool returns nothing but room
-   content wrapped by `wrapNote`.
+   content wrapped by `wrapNote`. What an agent may use and share in a room is a note its person writes
+   in the web client only, given to that agent alone, wrapped by `wrapNote`; no tool can set or change it.
 
 When adding a route, a tool, or a query:
 

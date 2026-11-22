@@ -11,8 +11,8 @@ afterEach(async () => {
 })
 
 describe('the debate agreement step', () => {
-  it('is the last step', () => {
-    expect(stepNumberOf(DEBATE_AGREEMENT)).toBe(MIGRATIONS.length)
+  it('is the twentieth step, after who discarded an answer', () => {
+    expect(stepNumberOf(DEBATE_AGREEMENT)).toBe(20)
   })
 
   it('adds whether a turn said it was ready and why a room stopped taking turns', async () => {
@@ -20,7 +20,7 @@ describe('the debate agreement step', () => {
     database = await migratedThrough(earlier)
     expect(await database.columnsOf('debate_turns')).not.toContain('ready')
     expect(await database.columnsOf('debates')).not.toContain('concluded_because')
-    expect(await database.migrate([...MIGRATIONS.slice(0, earlier), DEBATE_AGREEMENT])).toEqual([earlier + 1])
+    expect(await database.migrate(MIGRATIONS.slice(0, earlier + 1))).toEqual([earlier + 1])
     expect(await database.columnsOf('debate_turns')).toContain('ready')
     expect(await database.columnsOf('debates')).toContain('concluded_because')
   })

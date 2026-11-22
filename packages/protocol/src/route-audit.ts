@@ -96,6 +96,7 @@ export const ROUTE_AUDIT = {
   'debates.get': read(),
   'debates.create': { event: 'debate.opened', target: 'debate' },
   'debates.optIn': { event: 'debate.agent_opted_in', target: 'debate' },
+  'debates.brief.set': { event: 'debate.brief_changed', target: 'debate' },
   'debates.limits.set': { event: 'debate.limits_changed', target: 'debate' },
   'debates.turns.post': activity(),
   'debates.result.draft': activity(),

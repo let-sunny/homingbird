@@ -1,4 +1,4 @@
-import { type AsRead, type MemberId, isReadyToConclude } from '@homingbird/protocol'
+import { type AsRead, DEBATE_BRIEF_MAX, type MemberId, isReadyToConclude } from '@homingbird/protocol'
 import { channelLabel } from '../channels.ts'
 import { citedTurns } from '../debate-turns.ts'
 import {
@@ -140,8 +140,13 @@ export const debateRoomModel = (input: DebateRoomInput): DebateRoomModel => {
     optIn: mayOptIn(debate, viewerId)
       ? input.agents.length === 0
         ? { kind: 'no-agent', text: strings.debates.noAgent }
-        : { kind: 'choose', agents: input.agents.map((agent) => ({ value: agent.id, label: agent.name })) }
+        : {
+            kind: 'choose',
+            agents: input.agents.map((agent) => ({ value: agent.id, label: agent.name })),
+            brief: briefField(''),
+          }
       : null,
+    brief: briefOf(debate, viewerId),
     turns:
       debate.turns.length === 0
         ? {
@@ -272,8 +277,12 @@ export type DebateRoomModel =
         | {
             readonly kind: 'choose'
             readonly agents: ReadonlyArray<{ readonly value: string; readonly label: string }>
+            /** The person's note on what their agent may use here, written with the opt-in. */
+            readonly brief: BriefField
           }
         | null
+      /** To a participant: their own note on what their agent may use here, editable while turns go on. */
+      readonly brief: BriefModel | null
       readonly turns:
         | { readonly kind: 'none'; readonly text: string }
         | {
@@ -309,6 +318,19 @@ export type DebateRoomModel =
       }
       readonly credit: CreditModel | null
     }
+
+/** The note's text box: its words, its limit and what it is for. */
+export interface BriefField {
+  readonly label: string
+  readonly hint: string
+  readonly placeholder: string
+  readonly value: string
+  readonly maxLength: number
+}
+
+export type BriefModel =
+  | { readonly kind: 'editable'; readonly title: string; readonly field: BriefField; readonly save: string }
+  | { readonly kind: 'fixed'; readonly title: string; readonly text: string; readonly fixed: string }
 
 export interface Moved {
   readonly memberId: MemberId
@@ -351,5 +373,32 @@ const movesIn = (
       },
     ]
   })
+
+const briefField = (value: string): BriefField => ({
+  label: strings.debates.briefTitle,
+  hint: strings.debates.briefHint,
+  placeholder: strings.debates.briefPlaceholder,
+  value,
+  maxLength: DEBATE_BRIEF_MAX,
+})
+
+/** Only the viewer's own note is ever in the room the server sends, so only a participant sees one. */
+const briefOf = (debate: AsRead.Debate, viewerId: MemberId): BriefModel | null => {
+  if (!debate.participants.some((participant) => participant.memberId === viewerId)) return null
+  const text = debate.brief ?? ''
+  return debate.status === 'open'
+    ? {
+        kind: 'editable',
+        title: strings.debates.briefTitle,
+        field: briefField(text),
+        save: strings.debates.saveBrief,
+      }
+    : {
+        kind: 'fixed',
+        title: strings.debates.briefTitle,
+        text: text === '' ? strings.debates.briefNone : text,
+        fixed: strings.debates.briefFixed,
+      }
+}
 
 const fullTime = (timestamp: number): string => formats.full.format(new Date(timestamp))

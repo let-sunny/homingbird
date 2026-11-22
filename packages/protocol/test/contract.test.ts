@@ -141,6 +141,7 @@ describe('contract', () => {
         'draftRequests.cancel',
         'debates.create',
         'debates.optIn',
+        'debates.brief.set',
         'debates.limits.set',
         'debates.result.post',
         'debates.export',

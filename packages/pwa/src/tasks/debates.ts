@@ -44,8 +44,23 @@ export const createDebate = (wish: DebateWish): Action<AsRead.Debate> =>
     )(api['debates.create']({ body: wish })),
   )
 
-export const optInAgent = (id: DebateId, agentId: CredentialId): Action =>
-  withApp(({ api, state }) => shown(state, api['debates.optIn']({ params: { id }, body: { agentId } })))
+/** Opts the person's agent in, with their note on what it may use here when they wrote one. */
+export const optInAgent = (id: DebateId, agentId: CredentialId, brief = ''): Action =>
+  withApp(({ api, state }) =>
+    shown(
+      state,
+      api['debates.optIn']({
+        params: { id },
+        body: { agentId, ...(brief.trim() !== '' && { brief: brief.trim() }) },
+      }),
+    ),
+  )
+
+/** Sets or clears the person's note on what their agent may use and share in the room. */
+export const setBrief = (id: DebateId, brief: string): Action =>
+  withApp(({ api, state }) =>
+    shown(state, api['debates.brief.set']({ params: { id }, body: { brief: brief.trim() } })),
+  )
 
 export const changeLimits = (id: DebateId, limits: DebateLimitsWish): Action =>
   withApp(({ api, state }) => shown(state, api['debates.limits.set']({ params: { id }, body: limits })))

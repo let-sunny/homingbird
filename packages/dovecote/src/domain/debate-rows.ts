@@ -147,7 +147,7 @@ export const isAgentTakingPart = (
 }
 
 /** Each agent's id to its own person only; while drafts are collected, an agent sees only its own. */
-export const seenBy =
+const seenBy =
   (caller: Caller) =>
   (debate: Debate): Debate => {
     const viewerId = caller.member.id
@@ -163,6 +163,25 @@ export const seenBy =
     if (isHuman(caller) || !collecting || drafted) return shown
     return { ...shown, drafts: [] }
   }
+
+/**
+ * The room as `seenBy` shows it, with the caller's own note on what their agent may use here: to the person
+ * who wrote it and to the agent they opted in, never to another participant, an administrator or another
+ * agent of theirs.
+ */
+export const shownTo =
+  (caller: Caller) =>
+  (debate: Debate): T.Task<Debate, never, AppEnv> =>
+    T.map((own: { readonly brief: string | null } | null) => ({
+      ...seenBy(caller)(debate),
+      brief: own?.brief ?? null,
+    }))(
+      first<{ brief: string | null }>(
+        isHuman(caller)
+          ? sql`SELECT brief FROM debate_participants WHERE debate_id = ${debate.id} AND member_id = ${caller.member.id}`
+          : sql`SELECT brief FROM debate_participants WHERE debate_id = ${debate.id} AND credential_id = ${caller.credential.id}`,
+      ),
+    )
 
 const draftsOf = (id: DebateId, round: number): T.Task<ReadonlyArray<DraftRow>, never, AppEnv> =>
   all<DraftRow>(sql`
@@ -296,6 +315,7 @@ export interface ParticipantRow {
   readonly credential_id: CredentialId
   readonly agent_name: string
   readonly created_at: number
+  readonly brief?: string | null
 }
 
 interface AgentRow {
